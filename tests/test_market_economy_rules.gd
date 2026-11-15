@@ -3253,6 +3253,89 @@ func test_the_turn_summary_names_colonial_manufactures() -> void:
 	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))
 
 
+# --- test_cargo_read ---------------------------------------------------------
+
+
+## The crossing the holds will make, read before the turn closes: the overseas
+## plan's own figures, the stranded tonnage named by commodity and the rule that
+## caps it (wiki: ships-and-naval § Cargo holds and capacity; DR-20261116-05;
+## REQ-P5-05).
+func test_the_crossing_reads_the_plan_before_the_turn_closes() -> void:
+	var plan: Dictionary = {
+		"holds": 4, "used": 4, "left": {"timber": 3, "grain": 2}, "left_total": 5,
+	}
+	var read: Dictionary = CargoRead.reading(plan)
+
+	assert_true(bool(read["known"]))
+	assert_eq(int(read["holds"]), 4)
+	assert_eq(int(read["waiting"]), 9, "every ton the estates yield must cross")
+	assert_eq(int(read["crossing"]), 4)
+	assert_eq(int(read["stranded"]), 5)
+	var goods: Array = read["goods"] as Array
+	assert_eq(goods.size(), 2, "every stranded commodity is named")
+	var total: int = 0
+	for entry: Dictionary in goods:
+		total += int(entry["amount"])
+	assert_eq(total, 5)
+	var richest: String = String(EconomyOverseas.priority(["timber", "grain"])[0])
+	assert_eq(
+		String((goods[0] as Dictionary)["id"]), richest,
+		"richest first — the plan's own shipping order",
+	)
+	assert_eq(String((goods[1] as Dictionary)["id"]), "grain" if richest == "timber" else "timber")
+
+	var line: String = CargoRead.line(read)
+	assert_true(line.contains("9 tons abroad"), line)
+	assert_true(line.contains("4 tons cross this turn"), line)
+	assert_true(line.contains("5 tons left on the far shore"), line)
+	var note: String = CargoRead.note(read)
+	assert_true(note.contains("5 more would land the rest"), note)
+	assert_true(note.contains("no per-province storage"), note)
+	assert_true(note.contains("Left: "), note)
+
+
+## The reading is the phase's own plan, not a figure of its own: the overseas
+## plan's used/left split is what the line prints.
+func test_the_crossing_reads_the_overseas_plans_own_split() -> void:
+	var read: Dictionary = CargoRead.reading(EconomyOverseas.plan({1: {"timber": 9}}, 4))
+
+	assert_eq(int(read["waiting"]), 9)
+	assert_eq(int(read["crossing"]), 4)
+	assert_eq(int(read["stranded"]), 5)
+	assert_eq((read["goods"] as Array).size(), 1, "one commodity, one entry")
+	assert_true(CargoRead.line(read).contains("5 tons left on the far shore"))
+
+
+## A crown whose home squadron is away (or carries no merchantman) has no holds:
+## the reading names that cause instead of only the tonnage it loses.
+func test_a_crown_with_no_holds_names_the_merchantmen_it_needs() -> void:
+	var read: Dictionary = CargoRead.reading(EconomyOverseas.plan({1: {"timber": 3}}, 0))
+
+	assert_eq(int(read["crossing"]), 0)
+	assert_eq(int(read["stranded"]), 3)
+	assert_true(CargoRead.line(read).contains("0 tons cross this turn"), CargoRead.line(read))
+	var note: String = CargoRead.note(read)
+	assert_true(note.contains("merchant hulls are the only holds"), note)
+	assert_true(note.contains("Launch a merchant hull"), note)
+
+
+## The reading appears only when the rule bites: an estate that ships everything,
+## a crown with no colonial tonnage and a caller with no world all print nothing.
+func test_a_crossing_with_nothing_to_wait_for_prints_nothing() -> void:
+	var quiet: Dictionary = CargoRead.reading(EconomyOverseas.plan({}, 4))
+	assert_eq(CargoRead.line(quiet), "")
+	assert_eq(CargoRead.note(quiet), "")
+
+	var roomy: Dictionary = CargoRead.reading(EconomyOverseas.plan({1: {"timber": 3}}, 8))
+	assert_true(CargoRead.line(roomy).contains("3 tons cross this turn"))
+	assert_eq(CargoRead.note(roomy), "", "every ton crosses: no wait to name")
+
+	var unknown: Dictionary = CargoRead.reading({})
+	assert_false(bool(unknown["known"]))
+	assert_eq(CargoRead.line(unknown), "", "no world, no promise")
+	assert_eq(CargoRead.note(unknown), "")
+
+
 ## A coast the sea has shut is a rule, not a lean harvest: the despatch names it
 ## (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
 func test_the_turn_summary_names_a_blockaded_coast() -> void:
@@ -4258,6 +4341,33 @@ func test_the_price_line_caps_its_goods() -> void:
 		line.contains(CommodityCatalog.label("wool")), "the fifth good waits"
 	)
 	assert_eq(LedgerMarket.price_moves_line({}), "", "no move, no line")
+
+
+## The crossing the holds will make is read on the MARKET page, under the holds
+## it spends, with the rule that caps it on the page and not in a hover
+## (wiki: ships-and-naval § Cargo holds and capacity; DR-20261116-05;
+## REQ-P5-05, REQ-P5-07).
+func test_the_market_page_reads_the_crossing_the_holds_will_make() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var cargo: Dictionary = {
+		"holds": 4, "used": 4, "reserved": 4, "free": 0, "clear_free": 0, "pending": 0,
+		"crossing": CargoRead.reading(
+			EconomyOverseas.plan({1: {"timber": 6, "grain": 3}}, 4)
+		),
+	}
+	var ledger := LedgerMarket.new()
+	ledger.fill(PlayerEconomy.starting(), market, cargo, [], {}, 0)
+	assert_true(_has_text(ledger, "CROSSING"), "the crossing is on the page")
+	assert_true(_has_text(ledger, "9 tons abroad"), "the tonnage that waits is named")
+	assert_true(
+		_has_text(ledger, "no per-province storage"), "the rule sits on the page"
+	)
+	ledger.free()
+
+	var ashore := LedgerMarket.new()
+	ashore.fill(PlayerEconomy.starting(), market, {"holds": 4}, [], {}, 0)
+	assert_false(_has_text(ashore, "CROSSING"), "no overseas tonnage, no line")
+	ashore.free()
 
 
 ## Any label under `root` whose text contains `needle`.
