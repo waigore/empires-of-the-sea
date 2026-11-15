@@ -615,6 +615,67 @@ func _by_tile() -> Dictionary:
 		by_tile[row["tile"]] = row
 	return by_tile
 
+
+## A cut-off developed estate carries the one-tap road order (issue #671): an
+## idle Engineer takes it, and a linked estate never offers one.
+func test_a_cut_off_estate_offers_build_road() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Vector2i(0, 2))]
+	_show()
+	var cut := _road_button(OFF_ROAD_TILE)
+	assert_not_null(cut, "a developed estate off the road offers Build road")
+	assert_false(cut.disabled, "an idle Engineer can take the order")
+	assert_true(
+		cut.tooltip_text.contains("last road tile"),
+		cut.tooltip_text
+	)
+	assert_null(_road_button(LINKED_TILE), "an estate beside the road offers none")
+
+
+## No crew, no order: the control stays legible with the reason a tap would
+## return, so the dossier never offers what the rules refuse (REQ-P2-03).
+func test_build_road_waits_for_an_engineer() -> void:
+	_setup_province_panel()
+	_show()
+	var cut := _road_button(OFF_ROAD_TILE)
+	assert_not_null(cut, "the estate still names the gap")
+	assert_true(cut.disabled, "no idle Engineer, so the control is disabled")
+	assert_true(cut.tooltip_text.contains("Engineer"), cut.tooltip_text)
+
+
+## The control is an intent, not a rule: a press carries the estate's tile out
+## as "road:<x>,<y>" for the map screen to dispatch.
+func test_build_road_emits_the_estates_tile() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Vector2i(0, 2))]
+	_show()
+	var actions: Array[String] = []
+	_province_panel_panel.action_pressed.connect(
+		func(action: String) -> void: actions.append(action)
+	)
+	var cut := _road_button(OFF_ROAD_TILE)
+	assert_not_null(cut, "the row carries the order")
+	cut.pressed.emit()
+	assert_eq(actions.size(), 1, "one press, one intent")
+	assert_eq(actions[0], "road:1,1")
+
+
+## The Build road control printed on one estate's line, or null when the estate
+## needs no road.
+func _road_button(tile: Vector2i) -> Button:
+	var block: ProvinceResources = _province_panel_panel._resources
+	var rows: Array[Dictionary] = block.lines()
+	for i in rows.size():
+		if rows[i]["tile"] != tile:
+			continue
+		var line: Node = block._body.get_child(i)
+		for node: Node in line.find_children("*", "Button", true, false):
+			var button := node as Button
+			if button != null and button.text == ProvinceResources.ROAD:
+				return button
+	return null
+
+
 ## Every label printed on the estate block's line for one tile.
 func _row_text(block: ProvinceResources, tile: Vector2i) -> Array[String]:
 	var words: Array[String] = []

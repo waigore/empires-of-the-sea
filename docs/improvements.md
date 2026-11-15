@@ -40,15 +40,14 @@ level-4 Great Power towns and four L1 grain farms.
   `min(improvement, tech cap, terrain cap, path transport, town cap)`; only
   connected, prospected improvements yield; purchased enclaves pay their buyer.
 - **Survey lens** (bar's lens seal): charted provinces;
-  seals for known resources,
-  worked badge, bar, link row, dotted ring on unsurveyed ground; roads/rail
-  solid when linked, dashed when cut. Yields use Extraction's caps.
+  seals for resources, worked badge, link row, dotted ring on unsurveyed
+  ground; roads solid when linked, dashed when cut.
 - **Crown-road lens** (`R`): gold / amber / crimson for crown, town-only, or
   cut; cut provinces show the road tiles to lay, count and route.
 - **Estates ledger** (`ESTATES`): totals, filters, blockers, Build / Cancel /
-  Map, caps, nearest idle Builder; cut-off estates name the crown gap.
+  Map, caps, nearest idle Builder; cut-off estates name the gap.
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
-  Upgrade Town waits for tech.
+  a cut-off estate carries **Build road**; Upgrade Town waits for tech.
 
 ## Deferred (REQ-P2-02)
 

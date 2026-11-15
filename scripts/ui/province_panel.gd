@@ -71,6 +71,7 @@ func _build() -> void:
 	column.add_child(_divider())
 
 	_resources = ProvinceResources.new()
+	_resources.road_pressed.connect(_on_road_pressed)
 	column.add_child(_resources)
 
 	column.add_child(_divider())
@@ -184,12 +185,37 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
 		model, _works, _faction, province_id, _visibility
 	).size()
-	_resources.render(rows, unsurveyed)
+	_resources.render(rows, unsurveyed, _road_plans(model, rows))
 	_grid.set_estate_roads(data, rows, crown)
 	_orders.set_town_order(data, _faction, _tech_unlocked)
 	_orders.set_shipyard_visible(
 		data.owner == _faction and data.capital and data.port_tile.x >= 0
 	)
+
+
+## The Build road control's reading, one plan per estate RoadWorks would road:
+## the crown network is resolved once for the whole province, so a dossier of
+## five estates costs one BFS (REQ-P4-01).
+func _road_plans(model: MapModel, rows: Array[Dictionary]) -> Dictionary:
+	var plans: Dictionary = {}
+	if _faction < 0 or _works == null:
+		return plans
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, _works, _faction, _capital_tile
+	)
+	for row: Dictionary in rows:
+		var plan: Dictionary = RoadWorks.plan(
+			model, _works, _units, _faction, _capital_tile, row["tile"], resolved
+		)
+		if bool(plan["needed"]):
+			plans[row["tile"]] = plan
+	return plans
+
+
+## The estate block's Build road: the order travels as one intent string, the
+## same way the order rail's own actions do (REQ-P3-02).
+func _on_road_pressed(tile: Vector2i) -> void:
+	action_pressed.emit("road:%d,%d" % [tile.x, tile.y])
 
 
 func _divider() -> Control:

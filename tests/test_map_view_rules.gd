@@ -1073,7 +1073,7 @@ func _frontier_tile() -> Vector2i:
 		var tile: Vector2i = _tile_of(index)
 		if screen.play.land_works.transport_at(screen.model, tile) != 0:
 			continue
-		for offset: Vector2i in CrownRoadSurvey.NEIGHBORS:
+		for offset: Vector2i in RoadWorks.NEIGHBORS:
 			var next: Vector2i = tile + offset
 			if not screen.model.in_bounds(next.x, next.y):
 				continue
