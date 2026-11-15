@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:8780795d185b66c27d4d6b9dd7ae75540c5d99731796474629b2f7e2990e1583",
-  "submission_git": "fix/stall-low-water@ec4be7f",
+  "submission_hash": "sha256:80bdc377910a9ec6c2a04ece6f0d5ed25f80075b6b88152e1da20aaac58ed6c5",
+  "submission_git": "refactor/public-order-of-battle-reader@bdf0ee97+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:f5081c9754751e6fbad950dacb45abe2499730949dcb139fab9a6c258d4ab08b",
+    "ai_surface_hash": "sha256:f98cd5dddd6ee4a861be7a7ebb4c91efab6f257379702746d3b960e77bbc0ac9",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-15T16:22:19Z",
+  "timestamp": "2026-11-15T16:30:20Z",
   "report_version": 1,
-  "signature": "hmac-sha256:7fa3a645b10c1b89687e55dc5919cd09d402bbdab6e15c6c11d95ce3ae40af26"
+  "signature": "hmac-sha256:61ccd874dd8df5bed320ae518c965fe7758da8cf8f10a3c4bb6896cfd0ddd2b5"
 }
