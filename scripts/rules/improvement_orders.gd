@@ -93,9 +93,7 @@ static func upgrade_town(
 	var province: ProvinceState = model.province_data(model.province_at(tile.x, tile.y))
 	if province == null:
 		return {"ok": false, "message": "This province has no town to upgrade."}
-	var town: Vector2i = province.town_tile
-	if town.x < 0 and province.capital:
-		town = province.capital_tile
+	var town: Vector2i = province.town_site()
 	if town.x < 0:
 		return {"ok": false, "message": "This province has no town to upgrade."}
 	if working_builder(units, owner, town) != null:

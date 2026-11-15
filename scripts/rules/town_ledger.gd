@@ -119,7 +119,7 @@ static func _row(
 	stockpile: Variant = null
 ) -> Dictionary:
 	var level: int = province.town_level()
-	var town: Vector2i = _town_tile(province)
+	var town: Vector2i = province.town_site()
 	var next_level: int = clampi(level + 1, 2, CivilianWorkPlan.MAX_TOWN)
 	var cost_text: String = CivilianWork.cost_text(
 		CivilianWork.cost_for("upgrade_town", next_level)
@@ -153,17 +153,6 @@ static func _row(
 		"remaining": crew.remaining_turns() if crew != null else 0,
 		"note": _note(state, next_level, cost_text, turns, refusal, crew),
 	}
-
-
-## The town tile the order would be filed on: the province's own town, or the
-## seat on a hand-built chart that predates town assignment — the same two
-## steps `ImprovementOrders.upgrade_town` takes.
-static func _town_tile(province: ProvinceState) -> Vector2i:
-	if province.town_tile.x >= 0:
-		return province.town_tile
-	if province.capital:
-		return province.capital_tile
-	return Vector2i(-1, -1)
 
 
 ## What the next step waits on, worst first: a finished town, a crew already at
