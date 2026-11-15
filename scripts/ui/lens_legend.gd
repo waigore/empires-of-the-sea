@@ -12,7 +12,7 @@ const SURVEY_ROWS: Array[Dictionary] = [
 	{"status": "producing", "text": "Yielding estate"},
 	{"status": "building", "text": "Under works"},
 	{"status": "vacant", "text": "Vacant — can raise"},
-	{"status": "survey", "text": "Unsurveyed — send an Explorer"},
+	{"status": "survey", "text": "Prospectable — send an Explorer"},
 	{"status": "disconnected", "text": "No road to the crown"},
 	{"status": "foreign", "text": "Foreign holding"},
 ]
@@ -92,12 +92,15 @@ func _draw() -> void:
 	_draw_survey()
 
 
+## Six readings, the three road strokes, then the two lines that spell the
+## plate's badge and its Explorer cue out. The rows close at 174 so the two footer
+## lines never sit on the last road row.
 func _draw_survey() -> void:
 	draw_string(
 		_font, Vector2(14, 24), MapGlyphs.spaced("SURVEY KEY"),
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 11, Palette.GOLD_DIM
 	)
-	var y: float = 46.0
+	var y: float = 44.0
 	for row: Dictionary in SURVEY_ROWS:
 		var status: String = String(row["status"])
 		var tint: Color = (
@@ -109,7 +112,7 @@ func _draw_survey() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
 		)
 		y += 16.0
-	y += 4.0
+	y += 2.0
 	for row: Dictionary in ROAD_ROWS:
 		_draw_road(Vector2(16, y - 4.5), String(row["kind"]))
 		draw_string(
@@ -118,7 +121,11 @@ func _draw_survey() -> void:
 		)
 		y += 16.0
 	draw_string(
-		_font, Vector2(14, HEIGHT - 14), "Badge: estates worked  ·  link: to the crown",
+		_font, Vector2(14, HEIGHT - 22), "Badge: built / linked / held, per resource type",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+	draw_string(
+		_font, Vector2(14, HEIGHT - 8), "Compass: tiles an Explorer can still read",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
 	)
 
@@ -264,17 +271,18 @@ func _ensure() -> void:
 	custom_minimum_size = Vector2(WIDTH, HEIGHT)
 
 
+## One swatch per reading. `survey` is the Explorer's own compass mark, the same
+## the plates carry beside their prospectable count; a plate's badge reads
+## `built/linked/held` per resource type, which the footer spells out.
 func _draw_dot(center: Vector2, status: String, tint: Color) -> void:
+	if status == "survey":
+		CivicGlyphs.explorer(self, center, 13.0, Palette.TEXT_DIM, tint)
+		return
 	var radius: float = 6.2
 	if status == "producing":
 		draw_circle(center, radius - 0.6, Color(tint.r, tint.g, tint.b, 0.22))
 	draw_circle(center, 2.0, tint)
 	match status:
-		"survey":
-			for i in 8:
-				var angle: float = TAU * float(i) / 8.0
-				var spot: Vector2 = center + Vector2(cos(angle), sin(angle)) * radius
-				draw_circle(spot, 1.0, tint)
 		"disconnected":
 			draw_arc(center, radius, 0, TAU, 18, tint, 1.1, true)
 			draw_line(

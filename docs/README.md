@@ -51,4 +51,5 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [testing.md](testing.md) | Test + e2e budgets (≤5 min / ≤2 min) |
 | [android-build.md](android-build.md) | Android export presets, local build, release signing |
 | [android-debug.md](android-debug.md) | Debug APK via PR into `android-debug` |
+| [agent-debug.md](agent-debug.md) | Localhost agent debug bridge: enable flag, ops, adb reverse |
 | [skills.md](skills.md) | Project skills; Cursor/OpenCode/Grok facades; Hermes via `.agents` |

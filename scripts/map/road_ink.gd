@@ -83,32 +83,43 @@ static func ink_paths(segments: Array, tile_size: float = TILE_SIZE) -> Array[Di
 	return runs
 
 
-## Connectivity reading under the badge: a short road mark and
-## `linked/developed`, so a province says how much of its extraction actually
-## reaches the crown (green all linked, amber some, crimson none).
-static func draw_link(
-	canvas: CanvasItem,
-	font: Font,
-	counts: Dictionary,
-	origin: Vector2,
-	width: float,
-	alpha: float
-) -> void:
-	var developed: int = int(counts.get("developed", 0))
-	var linked: int = int(counts.get("linked", 0))
-	var tint := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.52)
-	if developed > 0:
-		tint = Palette.SURVEY_YIELDING
-		if linked < developed:
-			tint = Palette.SURVEY_BUILDING if linked > 0 else Palette.SURVEY_VACANT
-	tint.a *= alpha
-	canvas.draw_line(origin, origin + Vector2(5, 0), tint, 1.8, true)
-	canvas.draw_line(origin + Vector2(9, 0), origin + Vector2(14, 0), tint, 1.8, true)
-	var text: String = "—" if developed == 0 else "%d/%d" % [linked, developed]
-	canvas.draw_string(
-		font, origin + Vector2(18, 3.5), text, HORIZONTAL_ALIGNMENT_LEFT,
-		width - 18.0, 10, tint
-	)
+## Segments only join a run when they read the same: a railroad never borrows a
+## plain road's stroke, and a fogged stretch keeps its own fade.
+static func _band(segment: Dictionary) -> String:
+	return "%s/%s/%s" % [
+		bool(segment["linked"]),
+		bool(segment["rail"]),
+		bool(segment.get("fogged", false)),
+	]
+
+
+static func _chord(segment: Dictionary, tile_size: float) -> PackedVector2Array:
+	var from: Vector2i = segment["a"]
+	var to: Vector2i = segment["b"]
+	return PackedVector2Array([
+		MapGeo.tile_center(from.x, from.y, tile_size),
+		MapGeo.tile_center(to.x, to.y, tile_size),
+	])
+
+
+## A small warp keyed on each point's own position: two runs that meet at a tile
+## centre still meet after it, and a long straight run bows like a drawn road
+## instead of ruling the grid.
+static func _warp(points: PackedVector2Array, amplitude: float) -> PackedVector2Array:
+	var warped := PackedVector2Array()
+	for point: Vector2 in points:
+		warped.append(point + Vector2(
+			sin(point.x * 0.21 + point.y * 0.13) * amplitude,
+			sin(point.x * 0.13 - point.y * 0.19 + 1.7) * amplitude
+		))
+	return warped
+
+
+static func _alpha(linked: bool, fogged: bool, reveal: float) -> float:
+	var alpha: float = reveal * (0.72 if linked else 0.36)
+	if fogged:
+		alpha *= 0.62
+	return alpha
 
 
 ## Segments only join a run when they read the same: a railroad never borrows a

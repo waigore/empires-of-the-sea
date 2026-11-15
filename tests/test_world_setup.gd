@@ -1177,9 +1177,9 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 ## forest cell carrying one whatever the share says, and the open ground filled
 ## after the guarantee rather than by a fixed one to three tiles a province
 ## (wiki: resource-terrain-region-rules § Placement rate, § Forest terrain split;
-## DR-20261115-16, #676). Measured on the game's own seed and chart size.
+## DR-20261115-16, #676). Measured on the game's own seed and Standard chart.
 func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
-	var world_map: WorldMap = MapGenerator.new().generate_world(1500, 128, 84)
+	var world_map: WorldMap = _standard_world(1500)
 	for model: MapModel in world_map.regions:
 		var land: int = 0
 		var carrying: int = 0
@@ -1211,6 +1211,129 @@ func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
 		# still forest must carry its guaranteed row.
 		assert_eq(bare_forests, 0, "region %d has %d bare forest cells" % [model.region_id, bare_forests])
 		assert_true(open_carrying > 0, "region %d left its open ground bare" % model.region_id)
+		# Absolute supply for #676: Standard still funds a market book (not the
+		# old ~3% sparse plot). OW land on Standard is ~2k tiles → ~600 rows.
+		assert_true(carrying >= 300,
+			"region %d only places %d resources on Standard" % [model.region_id, carrying])
+
+
+## Standard chart keeps mean tiles/province in the published ~30–40 band while
+## holding 60/30 province counts (wiki: tile-map-and-generation; #700).
+func test_standard_provinces_sit_in_the_published_size_band() -> void:
+	var world_map: WorldMap = _standard_world(1500)
+	var old_world: MapModel = world_map.region(FactionCatalog.OLD_WORLD)
+	var new_world: MapModel = world_map.region(FactionCatalog.NEW_WORLD)
+	assert_eq(old_world.provinces.size(), MapGenerator.OLD_WORLD_PROVINCES)
+	assert_eq(new_world.provinces.size(), MapGenerator.NEW_WORLD_PROVINCES)
+	_assert_mean_tiles(old_world, 28.0, 45.0)
+	_assert_mean_tiles(new_world, 28.0, 50.0)
+
+
+func _standard_world(seed_value: int) -> WorldMap:
+	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
+	return MapGenerator.new().generate_world(
+		seed_value, int(preset["width"]), int(preset["height"])
+	)
+
+
+func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
+	var land: int = 0
+	for province: ProvinceState in model.provinces:
+		land += province.tiles.size()
+	var mean: float = float(land) / float(maxi(model.provinces.size(), 1))
+	assert_true(
+		mean >= lo and mean <= hi,
+		"region %d mean tiles/province %.1f outside [%.0f, %.0f]" % [
+			model.region_id, mean, lo, hi
+		]
+	)
+
+
+## The published weighting, measured not eyeballed (issue #676, DR-20261115-16):
+## the generator dumps its per-commodity tile counts, and every pool of rows
+## that may stand on exactly the same terrain in the same region — so only the
+## price separates them — reads the `1 / default market price` split: the
+## pool with the widest price gaps orders by price, no pool's split drifts
+## beyond three standard deviations of the weighted draw, and the forest
+## guarantee still leaves timber the commonest row on the chart
+## (wiki: resource-terrain-region-rules § Table).
+func test_the_draw_prices_the_rows_by_their_market_price() -> void:
+	# The published Standard chart (the density test's own size), so the counts
+	# are the campaign's, not the suite's small fixture world.
+	var seeds: Array[int] = [1500, 1501, 1502]
+	var counts: Dictionary = {}
+	for seed_value: int in seeds:
+		var world_map: WorldMap = MapGenerator.new().generate_world(seed_value, 128, 84)
+		for model: MapModel in world_map.regions:
+			for y in model.height:
+				for x in model.width:
+					if not model.is_land(x, y):
+						continue
+					var resource: int = model.resource_at(x, y)
+					if resource == MapModel.NO_ID:
+						continue
+					var commodity: String = String(
+						MapGenerator.resource_info(resource)["commodity"]
+					)
+					counts[commodity] = int(counts.get(commodity, 0)) + 1
+	var dump: Array[String] = []
+	for commodity: Variant in counts:
+		dump.append("%s=%d@%d" % [
+			String(commodity), int(counts[commodity]), CommodityCatalog.base_price(String(commodity))
+		])
+	dump.sort()
+	print("per-commodity tile counts over seeds 1500-1502: ", ", ".join(dump))
+	# Pools whose rows share one terrain list and one region scope: only the
+	# published price separates their draws (wiki § Table).
+	var pools: Array = [
+		{"rows": ["meat", "grain", "horses"]},
+		{"rows": ["copper", "iron", "coal"]},
+		{"rows": ["sugarCane", "tobacco", "cotton", "spices"]},
+		{"rows": ["gold", "gems"]},
+	]
+	for pool: Dictionary in pools:
+		var rows: Array = pool["rows"]
+		var total: int = 0
+		var weights: Dictionary = {}
+		var weight_total: float = 0.0
+		for commodity: String in rows:
+			var weight: float = 1.0 / float(CommodityCatalog.base_price(commodity))
+			weights[commodity] = weight
+			weight_total += weight
+			total += int(counts.get(commodity, 0))
+		for commodity: String in rows:
+			var expected: float = weights[commodity] / weight_total
+			var observed: float = float(int(counts.get(commodity, 0))) / float(maxi(total, 1))
+			var drift: float = 3.0 * sqrt(expected * (1.0 - expected) / float(maxi(total, 1)))
+			assert_true(
+				absf(observed - expected) <= drift,
+				"%s drew %.3f against its weighted %.3f (pool n=%d)" % [
+					commodity, observed, expected, total,
+				],
+			)
+	# The widest-gap pool orders by price: meat (45) over grain (50) over
+	# horses (60), and gold (166) over gems (250).
+	assert_true(
+		int(counts["meat"]) > int(counts["grain"]) and int(counts["grain"]) > int(counts["horses"]),
+		"plains rows read meat %d, grain %d, horses %d" % [
+			int(counts["meat"]), int(counts["grain"]), int(counts["horses"]),
+		],
+	)
+	assert_true(
+		int(counts["gold"]) > int(counts["gems"]),
+		"peaks rows read gold %d, gems %d" % [int(counts["gold"]), int(counts["gems"])],
+	)
+	# The forest guarantee is placed by terrain, not price, so timber (the
+	# cheapest row, on every forest cell) stays the commonest on the chart.
+	for commodity: Variant in counts:
+		if String(commodity) == "timber":
+			continue
+		assert_true(
+			int(counts["timber"]) > int(counts[commodity]),
+			"timber %d stays the commonest row ahead of %s %d" % [
+				int(counts["timber"]), String(commodity), int(counts[commodity]),
+			],
+		)
 
 
 ## The published multi-region cap: at most 30% of placed rows are "both", and a

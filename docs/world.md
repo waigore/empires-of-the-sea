@@ -18,21 +18,20 @@ Minors track the strongest Great Power's regiment era; Tribes stay level 1.
 
 ## Regions
 
-- One deterministic tile map per region; a seed reproduces both maps and all
-  ownership.
-- Old World: temperate, 60 provinces for 6 GPs + 6 Minors — each Minor 3, the
-  rest split across the GPs.
-- New World: wetter, 30 provinces for 10 Tribes; 3 each.
+- One deterministic tile map per region; a seed reproduces both. Chart presets
+  (Small / Standard / Large) change grid size — Standard ≈30–40 tiles/province
+  (#700); province counts fixed.
+- Old World: temperate, 60 provinces for 6 GPs + 6 Minors — Minor 3 each, rest
+  to GPs. New World: wetter, 30 provinces for 10 Tribes; 3 each.
 - `WorldMap` holds both grids. Regions share no grid adjacency; **warp zones**
-  (one edge sea zone per side) pair 1:1, marked “Passage”; fleets cross to the
-  other world.
+  (one edge sea zone per side) pair 1:1, marked “Passage”; fleets cross.
 - A sea zone wears the water it lies on, not pool order (wiki: naming §
   Sea zones, DR-20261113-07).
-- **Resources:** `ResourceSeeder` puts a row on **30% of the region's land** —
-  every forest cell always, the rest by the published `1/price` weight, each
-  province taking a slice of its own eligible ground (DR-20261115-16).
-- The region button swaps canvas, fog, fleets, civilians, works and camera.
-  Rosters persist per region; both advance every turn. Chips are empire totals.
+- **Resources:** `ResourceSeeder` puts a row on **30% of region land** — every
+  forest cell always, the rest by `1/price` weight, each province a slice of its
+  eligible ground (DR-20261115-16).
+- Region button swaps canvas, fog, fleets, civilians, works and camera. Rosters
+  persist per region; both advance each turn. Chips are empire totals.
 
 ## Setup post-pass
 
