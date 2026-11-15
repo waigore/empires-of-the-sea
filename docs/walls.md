@@ -34,7 +34,8 @@ falls even when an assault is repelled.
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
 ready / at work / walled) — each with its own tally; the count line names the
 bare shores. The reading leads with what can be raised now, then what is in
-hand, then what waits, the finished walls last; the weakest wall leads.
+hand, then what waits, the finished walls last; the weakest wall leads, and one
+heading per chart stands.
 
 ## Raise
 

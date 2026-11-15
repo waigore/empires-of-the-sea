@@ -54,6 +54,60 @@ static func market_reading(play: PlaySession) -> Dictionary:
 	return prices
 
 
+## What the next Consumption phase does to one court's larder, as the strike
+## reading: the store, every mouth the phase feeds in its own order, and the
+## shortfall that puts the workforce on strike (wiki: workers-and-population
+## § Consumption). `mouths` is the army, navy and ward ration the phase feeds
+## before the pool (`_mouths`); without it only the pool is fed, so a caller
+## that has the session should pass it. The destitute-court signature is
+## measured on exactly this — a store that collapses to strike levels while the
+## purse pins (issue #676 clause 4, #766) — so the turn trace names the famine
+## instead of a throwaway probe reading one run at a time.
+static func larder_reading(
+	economy: PlayerEconomy, mouths: Dictionary = {}
+) -> Dictionary:
+	if economy == null:
+		return {}
+	var reading: Dictionary = LarderRead.forecast(economy, mouths)
+	var appetites: Dictionary = reading["appetites"] as Dictionary
+	var store: int = int(reading["store_food"])
+	# Every mouth the phase feeds, in its own order, so the store can be read
+	# against the whole demand instead of the worker pool alone.
+	var wanted: int = (
+		int(appetites["army"]) + int(appetites["navy"])
+		+ int(appetites["pool"]) + int(appetites["wards"])
+	)
+	return {
+		"store": store,
+		"wanted": wanted,
+		"army": int(appetites["army"]),
+		"navy": int(appetites["navy"]),
+		"pool": int(appetites["pool"]),
+		"wards": int(appetites["wards"]),
+		"strikers": int(reading["strikers"]),
+		"short": maxi(wanted - store, 0),
+	}
+
+
+## The mouths the next Consumption phase feeds before the worker pool: the army's
+## rations, the navy's upkeep and the hospital wards, each read the way the
+## phase itself reads it (wiki: workers-and-population § Consumption). A session
+## with no army or hospital yet reads zeros, so a fixture needs neither.
+static func _mouths(play: PlaySession, faction: int) -> Dictionary:
+	var army: int = 0
+	if play.army_layer != null:
+		army = play.army_layer.food_upkeep_all(faction)
+	var wards: int = 0
+	if play.world != null:
+		for ration: int in HospitalRules.demand_list(play.world, faction):
+			wards += ration
+	return {
+		"army": army,
+		"ships": MapPlayCourt.ships(play, faction),
+		"hospital": wards,
+	}
+
+
 ## One court's observable state. `economy` is that court's ledger whichever
 ## side (human path in a live game, AiState ledger in the observer).
 static func row(play: PlaySession, faction: int) -> Dictionary:
@@ -113,6 +167,9 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"civilians": play.civilian_layer.unit_count_all(faction),
 		"treasury": economy.treasury if economy != null else 0,
 		"stock": economy.total_units() if economy != null else 0,
+		# The larder the next Consumption phase will eat: the famine reading the
+		# destitute-court signature is measured on (issue #766).
+		"larder": larder_reading(economy, _mouths(play, faction)),
 		"workers": economy.workers.total() if economy != null else 0,
 		"techs": economy.tech_unlocked.size() if economy != null else 0,
 		"wars": _war_names(play, faction),
