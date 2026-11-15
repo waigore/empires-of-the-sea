@@ -56,7 +56,24 @@ static func _worker(play: PlaySession, tier: int) -> Dictionary:
 	var result: Dictionary = economy.recruit(tier)
 	if not bool(result.get("ok", false)):
 		return _refuse(play, WorkerPool.tier_one(tier), String(result.get("reason", "")))
-	return {"kind": "workerRecruited", "label": WorkerPool.tier_one(tier)}
+	return {"kind": "workerRecruited", "label": WorkerPool.tier_one(tier), "tier": tier}
+
+
+## The hands that actually landed at this Build/work, one count per tier. The
+## phase withholds their labour from this turn's Production (wiki:
+## workers-and-population § Phase placement); an order the turn refused leaves
+## no record here, so it withholds nothing.
+static func arriving_tiers(done: Array[Dictionary]) -> Array[int]:
+	var counts: Array[int] = []
+	counts.resize(WorkerPool.TIER_COUNT)
+	counts.fill(0)
+	for row: Dictionary in done:
+		if String(row.get("kind", "")) != "workerRecruited":
+			continue
+		var tier: int = int(row.get("tier", -1))
+		if tier >= 0 and tier < WorkerPool.TIER_COUNT:
+			counts[tier] += 1
+	return counts
 
 
 ## One civilian `BuildUnitOrder`: paper and ducats buy the hire at the capital.
