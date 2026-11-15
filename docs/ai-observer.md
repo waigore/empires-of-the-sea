@@ -55,24 +55,22 @@ The hill scores **only the subject**.
 `MapPlayObserver.snapshot` reports per crown: leader, agenda, profile,
 `court_kind`, war footing, provinces / victory progress, power, forces (hulls,
 warships, holds), ledger, wars, last-turn order mix and the market's prices.
-Dashboard: recent-orders feed, pause / step / speed, campaign result.
-`play.ai_turns` keeps one merged record per turn (wiki:
-turn-trace-interpretation).
+Dashboard: orders feed, pause / step / speed, campaign result. `play.ai_turns`
+keeps one merged record per turn (wiki: turn-trace-interpretation).
 
 ## Export and coverage
 
 `tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` and `run_NN_summary.json`
-(`ai_mode` / `ai_live` / `ai_baselines`) and prints a win-rate /
-average-provinces table.
+(`ai_mode` / `ai_live` / `ai_baselines`) and prints a win-rate table.
 
 It then prints the **coverage checklist** (`AiCoverage`): every shipped rival
 rule — its order row in the turn trace, or the ledger aim that prices it —
-with count, crowns and window proving a court exercised it, and a
-`never`/`gated` reading when none did. `army.muster` and `navy.launch` also
+with count, crowns and window that prove it, and a `never`/`gated` reading when
+none did. `army.muster` and `navy.launch` also
 report how often their aim was ranked and funded, so a rule asked for and never
-paid for reads as starved, not absent. A **major** rule left never-exercised
-fails a `--ai=full` run (a bench run only prints it): an under-use gap surfaces
-by scan, not a forensic run (#605).
+paid for reads as starved. A **major** rule left never-exercised fails a
+`--ai=full` run (a bench run only prints it) — an under-use gap by scan, not a
+forensic run (#605).
 
 ## Scope
 
