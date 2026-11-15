@@ -12,7 +12,10 @@ extends RefCounted
 ## (DR-20261112-04). `leader_key` is the crown's leader, whose published funding
 ## multiplier lifts its research points (wiki: leader-bonuses — Victoria).
 ## `town_level` is the crown's best town in any province: the presence test a
-## production row's town-works gate reads (DR-20261116-04).
+## production row's town-works gate reads (DR-20261116-04). `arriving` is the
+## per-tier roster that landed at this turn's Build/work: those hands eat here but
+## their labour is the next Production phase's (wiki: workers-and-population
+## § Phase placement).
 static func resolve(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -23,11 +26,12 @@ static func resolve(
 	research_boost: Dictionary = {},
 	hospital_demands: Array[int] = [],
 	leader_key: String = "",
-	town_level: int = 0
+	town_level: int = 0,
+	arriving: Array[int] = []
 ) -> Dictionary:
 	return _run(
 		economy, market, extraction, ship_count, army_food, advance_market,
-		research_boost, hospital_demands, leader_key, town_level
+		research_boost, hospital_demands, leader_key, town_level, arriving
 	)
 
 
@@ -41,13 +45,14 @@ static func project(
 	research_boost: Dictionary = {},
 	hospital_demands: Array[int] = [],
 	leader_key: String = "",
-	town_level: int = 0
+	town_level: int = 0,
+	arriving: Array[int] = []
 ) -> Dictionary:
 	var before: Dictionary = economy.stockpile.duplicate()
 	var treasury_before: int = economy.treasury
 	var report: Dictionary = _run(
 		economy.copy(), market.copy(), extraction, ship_count, army_food, false,
-		research_boost, hospital_demands, leader_key, town_level
+		research_boost, hospital_demands, leader_key, town_level, arriving
 	)
 	var deltas: Dictionary = {}
 	for id: String in CommodityCatalog.all_ids():
@@ -69,7 +74,8 @@ static func _run(
 	research_boost: Dictionary = {},
 	hospital_demands: Array[int] = [],
 	leader_key: String = "",
-	town_level: int = 0
+	town_level: int = 0,
+	arriving: Array[int] = []
 ) -> Dictionary:
 	var extracted: Dictionary = {}
 	for commodity: Variant in extraction.keys():
@@ -92,7 +98,8 @@ static func _run(
 		riches_total += gained
 
 	var consumption: Dictionary = EconomyConsumption.resolve(
-		economy.workers, economy.stockpile, ship_count, army_food, hospital_demands
+		economy.workers, economy.stockpile, ship_count, army_food, hospital_demands,
+		arriving
 	)
 	# The next sea battle reads how many hulls this turn's granary fed in full
 	# (wiki: workers-and-population § Consumption).

@@ -156,10 +156,17 @@ func _connect() -> void:
 ## Runs Build/work's recruits, then Extraction -> Riches -> Consumption ->
 ## Production, and refreshes the HUD.
 func resolve_turn() -> Dictionary:
-	# The crown's queued orders land before the new turn's Consumption: the new
-	# worker eats and labours with the court from this turn, and the mustered
-	# units stand for the next Orders phase. They land after the fighting this
-	# turn ordered, so a regiment mustered now never fights in its own turn.
+	# The crown's queued orders land before the new turn's Consumption, so a hand
+	# hired now eats with the court at this turn's close; the mustered units stand
+	# for the next Orders phase. They land after the fighting this turn ordered,
+	# so a regiment mustered now never fights in its own turn.
+	# The hands that land eat this turn's larder but labour the **next**
+	# Production phase: a Build/work recruit never supplies same-turn labour
+	# (wiki: workers-and-population § Phase placement), so their tier is read
+	# before the queue drains and withheld from this phase's labour.
+	var leaving: Array[int] = []
+	if economy != null:
+		leaving = economy.recruits.arriving_by_tier()
 	var musters: Array[Dictionary] = MapPlayRecruits.complete(play) if play != null else []
 	var before: int = economy.treasury
 	var plan: Dictionary = readings.overseas_plan()
@@ -171,7 +178,7 @@ func resolve_turn() -> Dictionary:
 		economy, market, readings.extraction(), readings.fleet_ships(),
 		readings.army_food(), false, research_boost,
 		HospitalRules.demand_list(world, player_faction), leader_key,
-		TownIndustry.best_level(world, player_faction)
+		TownIndustry.best_level(world, player_faction), leaving
 	)
 	# The wards eat last and in whole staffs; the flags they set are what the
 	# next turn's rest tick reads (wiki: combat § Regiment condition;

@@ -92,8 +92,33 @@ func test_production_assignment_reaches_the_projection() -> void:
 	assert_lt(int(preview["stockpile_delta"].get("timber", 0)), 0)
 
 
-## A recruit pressed on the ledger is a queued order: the press files it, the
-## head arrives with the next Build/work, and the fabric is paid when it lands
+## A recruit joins the pool at the turn's close but turns no wheel until the
+## **next** Production phase: same-turn labour from a new hire is a rule the wiki
+## refuses (wiki: workers-and-population § Phase placement — the phase sequence
+## is not reordered for it). The phase report is the proof: the head ate with the
+## court and laboured for nobody.
+func test_a_queued_recruit_labours_next_turn() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["fabric"] = 2
+	economy.stockpile["grain"] = 200
+	economy.stockpile["meat"] = 200
+	economy.workers = WorkerPool.make(3)
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), 3, "a press only queues")
+	var report: Dictionary = _screen.economy.resolve_turn()
+	var consumed: Dictionary = report.get("consumption", {}) as Dictionary
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), 4, "the head landed")
+	assert_eq(int(consumed.get("fed_workers", 0)), 4, "it eats with the court")
+	assert_eq(int(consumed.get("idle_labour", 0)), 3, "three hands labour, not four")
+	assert_eq(int(consumed.get("labour_next_turn", 0)), 1, "the fourth turns the next phase")
+	var after: Dictionary = _screen.economy.readings.projected()
+	assert_eq(
+		int((after.get("consumption", {}) as Dictionary)["idle_labour"]), 4,
+		"the closed turn hands all four to the next phase",
+	)
+
+
+## A recruit pressed on the ledger files one order and costs nothing yet
 ## (wiki: workers-and-population § Phase placement).
 func test_recruiting_a_peasant_through_the_ledger() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy

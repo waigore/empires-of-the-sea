@@ -14,7 +14,8 @@ One stockpile per Great Power, the turn pipeline, raw → manufactures.
 1. **Extraction** — connected estates add yields ([improvements.md](improvements.md)).
 2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base price.
 3. **Consumption** — army, navy, workers, hospitals eat; unfed men strike, wards idle.
-4. **Production** — recipes spend post-consumption inputs and idle labour.
+4. **Production** — recipes spend inputs and idle labour; a hire labours **next**
+   turn (`workers-and-population` § Phase placement).
 
 Projections never mutate.
 
@@ -43,7 +44,6 @@ batch lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
 
 A slow row's bench holds **three pieces** (`QUEUE_CAP`): a fourth run waits for
 a landing (DR-20261114-12). A landing frees its place; a paid batch keeps its.
-A full bench reads `3/3→2t`.
 
 ## Town manufacturing bonus
 
