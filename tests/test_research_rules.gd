@@ -1120,54 +1120,190 @@ func test_a_ledger_reopens_on_the_goal_the_campaign_carries() -> void:
 	assert_eq(_first_available(), "Printing Press", "the saved goal still sorts the queue")
 
 
-# --- the whole tree ----------------------------------------------------------
-## The tree tab reads the catalog, not a second copy of it: every advance is
-## listed, and each row says where it stands for this crown (REQ-P5-03).
-func test_the_tree_tab_lists_every_advance() -> void:
+# --- the chart's layout (TechTreeLayout) -------------------------------------
+## The layout is pure: every prerequisite sits strictly left of its dependent,
+## so a road is read in one direction (wiki: tech-tree § Prerequisites;
+## DR-20261115-15).
+func test_a_root_sits_in_the_first_column_and_each_step_adds_one() -> void:
+	assert_eq(TechTreeLayout.depth("crop_rotation"), 0, "a root sits at the left edge")
+	assert_eq(TechTreeLayout.depth("saw_mill"), 0)
+	assert_eq(
+		TechTreeLayout.depth("large_coal_mines"),
+		TechTreeLayout.depth("square_set_timbering") + 1,
+		"a dependent sits one column past its deepest prerequisite"
+	)
+	assert_gt(TechTreeLayout.depth("safety_lamp"), TechTreeLayout.depth("large_coal_mines"))
+
+
+func test_every_prerequisite_sits_left_of_its_dependent() -> void:
+	var places: Dictionary = TechTreeLayout.positions()
+	for edge: Dictionary in TechTreeLayout.edges():
+		var parent: Vector2 = places[String(edge["from"])]
+		var child: Vector2 = places[String(edge["to"])]
+		assert_lt(parent.x, child.x, "%s must sit left of %s" % [edge["from"], edge["to"]])
+
+
+func test_the_columns_hold_every_advance_exactly_once() -> void:
+	var seen: Array[String] = []
+	for column: Variant in TechTreeLayout.columns():
+		for tech_id: Variant in column:
+			seen.append(String(tech_id))
+	seen.sort()
+	var catalog: Array[String] = TechCatalog.ids()
+	catalog.sort()
+	assert_eq(seen, catalog, "the chart is the catalog, placed")
+
+
+func test_the_chart_is_wide_and_tall_enough_for_its_nodes() -> void:
+	var bounds: Vector2 = TechTreeLayout.bounds()
+	for tech_id: Variant in TechTreeLayout.positions().keys():
+		var place: Vector2 = TechTreeLayout.positions()[tech_id]
+		assert_lt(place.x, bounds.x, "no node sits past the chart's right edge")
+		assert_lt(place.y + TechTreeLayout.NODE_HEIGHT, bounds.y + 0.01)
+
+
+## The highlight is the whole prerequisite cone, however deep, and nothing off
+## it: aiming at a late advance is how a player reads the road they still owe.
+func test_an_advance_s_ancestors_are_its_whole_prerequisite_cone() -> void:
+	var cone: Dictionary = TechTreeLayout.ancestors("safety_lamp")
+	assert_true(cone.has("safety_lamp"), "the advance is on its own road")
+	assert_true(cone.has("mine_engineering"), "a deep root is on the road")
+	assert_true(cone.has("dynamite"), "a direct prerequisite is on the road")
+	assert_false(cone.has("empire_building"), "a late dependent is off it")
+	assert_false(cone.has("superior_hull_design"), "an unrelated root is off it")
+
+
+func test_the_road_lights_only_the_edges_inside_the_cone() -> void:
+	var cone: Dictionary = TechTreeLayout.ancestors("national_bureaucracy")
+	var lit: Array = TechTreeLayout.path_edges("national_bureaucracy")
+	assert_false(lit.is_empty(), "a gated advance has a road to draw")
+	for edge: Dictionary in lit:
+		assert_true(cone.has(String(edge["from"])), "a lit edge starts on the cone")
+		assert_true(cone.has(String(edge["to"])), "a lit edge ends on the cone")
+	var inside: int = 0
+	for edge: Dictionary in TechTreeLayout.edges():
+		if cone.has(String(edge["from"])) and cone.has(String(edge["to"])):
+			inside += 1
+	assert_eq(lit.size(), inside, "every edge inside the cone is lit")
+
+
+func test_an_unknown_advance_has_no_road() -> void:
+	assert_true(TechTreeLayout.ancestors("no_such_tech").is_empty())
+	assert_true(TechTreeLayout.path_edges("no_such_tech").is_empty())
+
+
+# --- the college's door and the full-screen chart ----------------------------
+## The TREE list is gone: the college keeps one clear door into a sheet of its
+## own (issue #668, DR-20261115-15).
+func test_the_college_keeps_one_door_to_the_chart() -> void:
 	_panel.refresh(_panel_state, 2500)
-	_panel.select_tab(2)
-	assert_not_null(_panel._tree)
-	assert_eq(_panel._tree._body.get_child_count(), TechCatalog.ids().size())
+	assert_eq(_panel._tabs.get_tab_count(), 2, "AVAILABLE and KNOWN are the lists")
+	assert_true(
+		_panel._tabs.get_tab_title(0).begins_with("AVAILABLE ("),
+		"the first list is the open advances"
+	)
+	for page: Node in _panel._tabs.get_children():
+		assert_false(String(page.name) == "TREE", "no page prints the tree any more")
+	var door: Button = _button_starting(_panel, "TECH TREE")
+	assert_not_null(door, "the college names its way into the chart")
 
 
-func test_a_branch_chip_narrows_the_tree() -> void:
+func test_the_college_door_asks_for_the_chart() -> void:
 	_panel.refresh(_panel_state, 2500)
-	var naval: int = 0
-	for tech_id: String in TechCatalog.ids():
-		if TechCatalog.category(tech_id) == "naval":
-			naval += 1
-	_panel._tree._chips["naval"].pressed.emit()
-	assert_eq(_panel._tree.category, "naval")
-	assert_eq(_panel._tree._body.get_child_count(), naval)
-	_panel._tree._chips["naval"].pressed.emit()
-	assert_eq(_panel._tree.category, ResearchTreeTab.CATEGORY_ALL, "the lit chip clears itself")
+	var heard: Array[int] = [0]
+	_panel.tree_requested.connect(func() -> void: heard[0] += 1)
+	_button_starting(_panel, "TECH TREE").pressed.emit()
+	assert_eq(heard[0], 1, "the door reports through the panel's own signal")
 
 
-func test_a_tree_row_steers_the_goal() -> void:
-	_panel.refresh(_panel_state, 2500)
-	var goal: Button = _tree_button("Goal")
-	assert_not_null(goal)
-	var leading: String = TechOrder.sorted(TechCatalog.ids(), "")[0]
-	goal.pressed.emit()
-	assert_eq(_panel.goal_tech(), leading, "the first catalog advance takes the goal")
-	assert_eq(_panel_state.goal, leading, "the goal is state the save carries")
+## The chart places the whole catalog on one pannable sheet: every advance is a
+## node, so a player can find one they only half-remember (REQ-P5-03).
+func test_the_chart_places_every_advance() -> void:
+	var chart: TechTreePanel = await _chart()
+	assert_true(chart.is_open(), "the door raises the chart")
+	assert_eq(chart._canvas.node_count(), TechCatalog.ids().size())
+	assert_not_null(chart._canvas.node("crop_rotation"))
+	chart.close()
+	assert_false(chart.is_open())
 
 
-func test_the_tree_names_what_a_locked_advance_needs() -> void:
-	_panel.refresh(_panel_state, 2500)
-	assert_not_null(_label_containing("Needs Printing Press"))
+## Aiming at an advance lights its whole ancestor road — nodes and edges — so
+## what still stands between the crown and it is visible, not remembered.
+func test_selecting_an_advance_lights_its_whole_road() -> void:
+	var chart: TechTreePanel = await _chart()
+	chart._canvas.node("safety_lamp").pressed.emit()
+	assert_eq(chart.selected(), "safety_lamp")
+	assert_eq(chart._canvas._cone, TechTreeLayout.ancestors("safety_lamp"))
+	assert_true(chart._canvas._cone.has("mine_engineering"), "a deep root is lit")
+	assert_false(chart._canvas._cone.has("empire_building"), "an unrelated branch is not")
+	var ring: StyleBoxFlat = chart._canvas.node("safety_lamp").get_theme_stylebox("normal")
+	assert_eq(ring.border_color, Palette.GOLD_PALE, "the aimed node is ringed gold")
+	assert_eq(ring.border_width_left, 2, "and its ring is the heavier one")
+	chart.close()
 
 
-func test_the_tree_road_follows_the_goal() -> void:
-	_panel.refresh(_panel_state, 2500)
-	_panel.set_goal("national_bureaucracy")
-	await get_tree().process_frame
-	assert_not_null(_label_containing("study Printing Press next"))
+## The reading under the chart: what the advance grants, and where it stands for
+## this crown — so a tap answers the question a hover used to (REQ-P1-05).
+func test_the_reading_names_what_an_advance_grants() -> void:
+	var chart: TechTreePanel = await _chart()
+	chart._canvas.node("university").pressed.emit()
+	assert_eq(chart._detail_title.text, "University")
+	assert_true(
+		chart._detail_effect.text.contains("fourth research slot"),
+		"the effect text is the catalog's own"
+	)
+	assert_true(chart._detail_meta.text.contains("RP"), "the cost is printed")
+	assert_true(chart._detail_meta.text.contains("open now") or
+		chart._detail_meta.text.contains("Needs "), "its standing is printed")
+	chart.close()
 
 
-func test_the_tree_invites_a_goal_when_none_is_set() -> void:
-	_panel.refresh(_panel_state, 2500)
-	assert_not_null(_label_containing("Set a goal on any advance"))
+func test_a_hover_previews_without_aiming() -> void:
+	var chart: TechTreePanel = await _chart()
+	chart._canvas.node("banking").pressed.emit()
+	var aimed: String = chart.selected()
+	chart._canvas.node_hovered.emit("university")
+	assert_eq(chart._detail_title.text, "University", "the hover prints the advance")
+	assert_eq(chart.selected(), aimed, "a hover does not move the aim")
+	chart._canvas.node_hovered.emit("")
+	assert_eq(
+		chart._detail_title.text, "Banking", "leaving the node restores the aimed reading"
+	)
+	chart.close()
+
+
+func test_the_chart_aims_the_queue_and_can_clear_it() -> void:
+	var chart: TechTreePanel = await _chart()
+	chart._canvas.node("national_bureaucracy").pressed.emit()
+	assert_eq(chart._goal_button.text, "Set as research goal")
+	chart._goal_button.pressed.emit()
+	var state: ResearchState = research_mounted.economy.economy.research
+	assert_eq(state.goal, "national_bureaucracy", "the queue is aimed")
+	assert_eq(chart._goal_button.text, "Clear the goal", "the door now clears it")
+	assert_true(
+		chart._road.text.contains("Toward National Bureaucracy"),
+		"the road is printed under the chart"
+	)
+	chart._goal_button.pressed.emit()
+	assert_eq(state.goal, "", "the same door clears the aim")
+	chart.close()
+
+
+func test_the_chart_invites_a_goal_when_none_is_set() -> void:
+	var chart: TechTreePanel = await _chart()
+	assert_true(chart._road.text.contains("Set a goal on any advance"))
+	chart.close()
+
+
+## A phone's back sets the chart aside before the college under it, so one press
+## never drops two layers (REQ-P5-07).
+func test_back_sets_the_chart_aside_before_the_college() -> void:
+	var chart: TechTreePanel = await _chart()
+	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
+	assert_true(BackRequest.handle(research_mounted.play, null), "back is consumed")
+	assert_false(chart.is_open(), "the chart closes first")
+	assert_true(research_mounted.hud.panels.is_research_open(), "the college stays")
+	research_mounted.hud.panels.hide_research()
 
 
 # --- the road to an advance (TechPlan) ---------------------------------------
@@ -1237,11 +1373,10 @@ func test_the_road_line_explains_a_road_that_cannot_start() -> void:
 
 
 # --- helpers -----------------------------------------------------------------
-## The first button with this caption inside the tree tab, so a tree row is
-## never confused with the AVAILABLE tab's own Goal door.
-func _tree_button(text: String) -> Button:
-	for node: Node in _collect(_panel._tree, [] as Array[Node]):
-		if node is Button and (node as Button).text == text:
+## The first button under `root` whose caption begins with `prefix`.
+func _button_starting(root: Node, prefix: String) -> Button:
+	for node: Node in _collect(root, [] as Array[Node]):
+		if node is Button and (node as Button).text.begins_with(prefix):
 			return node as Button
 	return null
 
@@ -1340,7 +1475,21 @@ func after_all() -> void:
 func _screen() -> MapScreen:
 	ScreenFixture.restore(ScreenFixture.world(), research_pristine_map)
 	ScreenFixture.suite_reset(research_mounted, research_pristine)
+	# The chart is a modal sheet: a case that leaves it up would answer the next
+	# case's back press.
+	if research_mounted.hud.tech_tree != null:
+		research_mounted.hud.tech_tree.close()
 	return research_mounted
+
+
+## The college's chart, raised through the college's own door on the mounted
+## screen, so the door, the wiring and the sheet are proved together.
+func _chart() -> TechTreePanel:
+	var screen: MapScreen = _screen()
+	screen.economy.open_research()
+	screen.hud.panels.research_panel.tree_requested.emit()
+	await get_tree().process_frame
+	return screen.hud.tech_tree
 
 
 func test_the_screen_owns_three_research_slots() -> void:

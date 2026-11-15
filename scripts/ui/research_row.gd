@@ -68,66 +68,8 @@ static func known(tech_id: String, goal_id: String = "") -> Control:
 	return row
 
 
-## One line of the whole tree: the advance, where it stands for this crown, and
-## the goal door. The blocking sentence sits under the name as its own wrapped
-## line, so a touch player reads why an advance is shut without a hover
-## (REQ-P1-05, REQ-P5-03). A locked row is dimmed, never disabled: aiming at a
-## distant advance is how the road is read.
-static func catalog(
-	state: ResearchState, tech_id: String, goal_id: String, on_goal: Callable
-) -> Control:
-	var kind: int = TechPlan.state_of(state, tech_id)
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 0)
-	box.mouse_filter = Control.MOUSE_FILTER_PASS
-
-	var row := UiRowBuilder.row(ROW_HEIGHT)
-	box.add_child(row)
-	row.add_child(icon(tech_id))
-	row.add_child(goal_mark(tech_id, goal_id))
-	var title_color: Color = Palette.TEXT
-	match kind:
-		TechPlan.State.KNOWN:
-			title_color = Palette.GOLD_PALE
-		TechPlan.State.STUDYING:
-			title_color = Palette.GOLD
-		TechPlan.State.LOCKED:
-			title_color = Palette.TEXT_DIM
-	row.add_child(_name_column(
-		tech_id,
-		"%s · %d RP" % [TechCatalog.era_name(tech_id), TechCatalog.cost(tech_id)],
-		title_color,
-		Palette.TEXT_DIM
-	))
-
-	var is_goal: bool = tech_id == goal_id
-	var goal := UiRowBuilder.button(
-		"Goal " + GOAL_ITSELF if is_goal else "Goal", 0.0, 0.0
-	)
-	goal.custom_minimum_size = Vector2(80, ROW_HEIGHT)
-	goal.tooltip_text = (
-		"Clear the goal" if is_goal else "Steer the queue toward this advance"
-	)
-	if is_goal:
-		goal.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	goal.pressed.connect(func() -> void: on_goal.call(tech_id))
-	row.add_child(goal)
-
-	var note_color: Color = Palette.TEXT_DIM
-	if kind == TechPlan.State.OPEN:
-		note_color = Palette.GOLD_DIM
-	var note := HBoxContainer.new()
-	note.add_theme_constant_override("separation", 8)
-	note.mouse_filter = Control.MOUSE_FILTER_PASS
-	var indent := Control.new()
-	indent.custom_minimum_size = Vector2(ICON_SIZE + MARK_WIDTH, 0)
-	indent.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	note.add_child(indent)
-	var line := UiRowBuilder.wrapped_line(TechPlan.reason(state, tech_id), 11, note_color)
-	line.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	note.add_child(line)
-	box.add_child(note)
-	return box
+## One line of the whole tree is the full-screen chart's node now
+## (`TechTreeCanvas`); these rows stay for the two lists the college keeps.
 
 
 ## The series medallion, or an equally wide gap when no plate covers the tech.
