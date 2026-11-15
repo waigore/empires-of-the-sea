@@ -135,6 +135,9 @@ var diplomacy_lens: DiplomacyLens = null
 var crown_lens: CrownRoadLens = null
 ## Defence lens: the garrison, wall and hospital of every charted province.
 var defence_lens: DefenceLens = null
+## Sea lens: every zone the crown has a sail under its eye in, the station held
+## and the fight the turn will resolve there (DR-20261115-17).
+var sea_lens: SeaLens = null
 var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
@@ -204,8 +207,9 @@ func bind_views(
 	improvements = p_improvements
 	lens = p_lens
 	diplomacy_lens = p_diplomacy_lens
-	# Crown-road and defence lenses are resolved from the host in MapPlaySetup so
-	# a lens PR does not widen MapScreen.bind_views (tier-1 impact budget).
+	# Crown-road, defence and sea lenses are resolved from the host in
+	# MapPlaySetup so a lens PR does not widen MapScreen.bind_views (tier-1
+	# impact budget).
 
 
 ## Player ledger — single source of truth (no mirrored MapScreen.treasury).

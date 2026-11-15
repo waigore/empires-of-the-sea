@@ -809,6 +809,29 @@ func test_training_cost_text_reads_as_a_purse_line() -> void:
 	assert_eq(CivilianCatalog.training_cost_text("explorer"), "1,000 cash + 2 paper")
 	assert_eq(CivilianCatalog.training_cost_text("merchant"), "2,000 cash + 4 paper")
 
+func test_money_text_groups_and_signs_one_way() -> void:
+	assert_eq(MoneyText.thousands(0), "0")
+	assert_eq(MoneyText.thousands(999), "999")
+	assert_eq(MoneyText.thousands(1000), "1,000")
+	assert_eq(MoneyText.thousands(1234567), "1,234,567")
+	assert_eq(MoneyText.thousands(-1234), "-1,234")
+	assert_eq(MoneyText.thousands(-100), "-100")
+	assert_eq(MoneyText.money(500), "£500")
+	assert_eq(MoneyText.money(12500), "£12,500")
+	assert_eq(MoneyText.ducats(8000), "8,000 ducats")
+
+func test_money_text_cost_line_names_gold_materials_and_the_worker() -> void:
+	assert_eq(
+		MoneyText.cost_line(8000, {"lumber": 2, "fabric": 1}, 1),
+		"8,000 ducats · 2 Lumber · 1 Fabric · 1 worker"
+	)
+	assert_eq(
+		MoneyText.cost_line(120, {}, 0),
+		"120 ducats",
+		"a line that spends no headcount names no worker"
+	)
+	assert_eq(MoneyText.cost_line(2400, {}, 2), "2,400 ducats · 2 workers")
+
 func test_unknown_types_fall_back_to_a_known_row() -> void:
 	assert_false(CivilianCatalog.known("privateer"))
 	assert_true(CivilianCatalog.known(CivilianCatalog.normalize("privateer")))

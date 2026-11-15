@@ -26,9 +26,9 @@ Install over a previous build: `adb install -r <apk>`.
 ## Agent debug bridge on a device
 
 Android debug builds carry the opt-in localhost bridge (see
-[agent-debug.md](agent-debug.md)): launch with `-- --agent-debug=8765`, then
-`adb reverse tcp:8765 tcp:8765` and connect to `ws://127.0.0.1:8765` from the
-host.
+[agent-debug.md](agent-debug.md)): launch with the `command_line` extra
+`-- --agent-debug=8765`, then `adb forward tcp:8765 tcp:8765` and connect to
+`ws://127.0.0.1:8765` from the host.
 
 ## Out of scope
 

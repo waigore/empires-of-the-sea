@@ -1064,9 +1064,17 @@ func test_a_boycott_is_stated_in_the_trade_block() -> void:
 	panel.refresh(state, null, 0, 2500)
 	panel.select_faction(2)
 	assert_true(_has_text(panel._detail, "closed to France"), "the issuer states the boycott")
+	assert_true(
+		_has_text(panel._detail, "no deal clears between them"),
+		"and names the barred deal, not only the rate"
+	)
 	assert_true(_has_text(panel._list, "Boycott"), "the row carries it too")
 	panel.select_faction(1)
 	assert_true(_has_text(panel._detail, "Boycotted by England"), "and the victim reads it")
+	assert_true(
+		_has_text(panel._detail, "no deal of ours clears with its colonies"),
+		"the victim is told its colony deals are barred"
+	)
 
 func test_orders_are_grouped_under_readable_headings() -> void:
 	_setup_diplomacy_panel()

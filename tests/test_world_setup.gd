@@ -188,7 +188,7 @@ func test_the_map_seats_the_published_roster() -> void:
 	for faction_id: int in FactionCatalog.minor_ids():
 		assert_gte(
 			_count_owned(old_world, faction_id),
-			TerritoryAssignment.MINOR_PROVINCES,
+			MinorShare.MINOR_PROVINCES,
 			"%s holds the minimum provinces" % FactionCatalog.name_of(faction_id)
 		)
 	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
@@ -1229,11 +1229,35 @@ func test_standard_provinces_sit_in_the_published_size_band() -> void:
 	_assert_mean_tiles(new_world, 28.0, 50.0)
 
 
+## The published charts are drawn **once per seed and size** and re-read by
+## every case below: a draw costs ~9 s on Standard and ~14 s on Large under
+## coverage, so two cases reading one chart paid for it twice
+## (docs/testing.md § Speed rules). Keyed by size because the weighting case
+## reads Large and the density cases read Standard.
+var drawn_charts: Dictionary = {}
+
+
+func _chart(seed_value: int, width: int, height: int) -> WorldMap:
+	var key: String = "%d/%d/%d" % [seed_value, width, height]
+	if not drawn_charts.has(key):
+		drawn_charts[key] = MapGenerator.new().generate_world(seed_value, width, height)
+	return drawn_charts[key]
+
+
 func _standard_world(seed_value: int) -> WorldMap:
 	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
-	return MapGenerator.new().generate_world(
-		seed_value, int(preset["width"]), int(preset["height"])
-	)
+	return _chart(seed_value, int(preset["width"]), int(preset["height"]))
+
+
+## The **Large** chart, which the weighting case reads: the gold/gems pool's
+## price gap is narrow enough that a Standard draw (96×64) inverts it (measured
+## at seeds 1500–1502: gold 7, gems 9) while Large keeps the order the table
+## promises, so the census needs the wider sample rather than the smaller chart.
+func _large_world(seed_value: int) -> WorldMap:
+	for preset: Dictionary in GameConfig.SIZES:
+		if String(preset["label"]) == "Large":
+			return _chart(seed_value, int(preset["width"]), int(preset["height"]))
+	return _standard_world(seed_value)
 
 
 func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
@@ -1258,24 +1282,28 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 ## guarantee still leaves timber the commonest row on the chart
 ## (wiki: resource-terrain-region-rules § Table).
 func test_the_draw_prices_the_rows_by_their_market_price() -> void:
-	# The published Standard chart (the density test's own size), so the counts
-	# are the campaign's, not the suite's small fixture world.
+	# The Large chart, so the narrow gold/gems price gap still orders the way
+	# the table promises over three seeds; each chart is drawn once and kept,
+	# because a draw is this suite's most expensive fixture.
 	var seeds: Array[int] = [1500, 1501, 1502]
 	var counts: Dictionary = {}
+	var commodities: Dictionary = {}
 	for seed_value: int in seeds:
-		var world_map: WorldMap = MapGenerator.new().generate_world(seed_value, 128, 84)
+		var world_map: WorldMap = _large_world(seed_value)
 		for model: MapModel in world_map.regions:
-			for y in model.height:
-				for x in model.width:
-					if not model.is_land(x, y):
-						continue
-					var resource: int = model.resource_at(x, y)
-					if resource == MapModel.NO_ID:
-						continue
-					var commodity: String = String(
+			# Read the packed rows: a tile that carries a row is land, so the
+			# census is one pass instead of two instrumented lookups a tile.
+			var rows: PackedInt32Array = model.resource
+			for index in rows.size():
+				var resource: int = rows[index]
+				if resource == MapModel.NO_ID:
+					continue
+				if not commodities.has(resource):
+					commodities[resource] = String(
 						MapGenerator.resource_info(resource)["commodity"]
 					)
-					counts[commodity] = int(counts.get(commodity, 0)) + 1
+				var commodity: String = String(commodities[resource])
+				counts[commodity] = int(counts.get(commodity, 0)) + 1
 	var dump: Array[String] = []
 	for commodity: Variant in counts:
 		dump.append("%s=%d@%d" % [

@@ -86,10 +86,16 @@ func source_key(
 	])
 
 
+## The rows a reading prints. Each reading names its own key in the snapshot:
+## `provinces` for the land readings, `zones` for the sea's.
+func _rows() -> Array:
+	return survey.get("provinces", [])
+
+
 ## Province whose slip covers a world point (-1 when none). Slips can be packed
 ## away from their anchor, so taps must resolve through the printed rect.
 func hit_test(world_position: Vector2) -> int:
-	for raw: Variant in survey.get("provinces", []):
+	for raw: Variant in _rows():
 		var id: int = int((raw as Dictionary)["id"])
 		if _rects.has(id) and (_rects[id] as Rect2).has_point(world_position):
 			return id
@@ -142,7 +148,7 @@ func _summary_of(entry: Dictionary) -> String:
 func _layout_plates() -> void:
 	_rects.clear()
 	var placed: Array[Rect2] = []
-	for raw: Variant in survey.get("provinces", []):
+	for raw: Variant in _rows():
 		var entry: Dictionary = raw
 		var size: Vector2 = _plate_size(entry)
 		var center: Vector2 = _plate_anchor(entry)

@@ -995,3 +995,419 @@ func test_an_embarked_army_defends_nothing() -> void:
 	var held: Dictionary = defence_survey_entry(_snapshot(), 1)
 	assert_eq(int(held["strength"]), 0)
 	assert_eq(String(held["band"]), DefenceSurvey.BAND_OPEN)
+
+
+## --- the sea reading (H) -----------------------------------------------------
+
+
+func test_the_key_action_binds_the_h_key() -> void:
+	InputActions.ensure_actions()
+	assert_true(InputMap.has_action(InputActions.SEA_LENS))
+	assert_ne(InputActions.SEA_LENS, InputActions.LENS)
+	assert_ne(InputActions.SEA_LENS, InputActions.DEFENCE_LENS)
+	# The key lands on the bar's one seal, which raises its reading.
+	var event := InputEventAction.new()
+	event.action = InputActions.SEA_LENS
+	event.pressed = true
+	_screen.hud.lens_seal._shortcut_input(event)
+	assert_true(_screen.play.sea_lens.active, "H names the sea reading")
+	MapPlayInput.set_sea_lens(_screen.play, false)
+
+
+func test_the_sea_reading_raises_its_key_and_survey() -> void:
+	var lens: SeaLens = _screen.play.sea_lens
+	assert_not_null(lens, "the chart mounts the sea lens")
+	_sail_a_crown_squadron()
+	MapPlaySetup.build_lens(_screen.play)
+	assert_false(lens.active)
+
+	MapPlayInput.set_sea_lens(_screen.play, true)
+	assert_true(lens.active)
+	assert_true(_screen.hud.lens_legend.visible)
+	assert_eq(_screen.hud.lens_legend.kind, LensLegend.KIND_SEA)
+	assert_true(_screen.hud.lens_seal.button_pressed)
+	assert_eq(_screen.hud.lens_seal.active_kind, LensLegend.KIND_SEA)
+	assert_gt((lens.survey["zones"] as Array).size(), 0, "a squadron at sea reads")
+	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
+
+	# The readings never stack: a peer takes this one down and is taken down by it.
+	MapPlayInput.set_defence_lens(_screen.play, true)
+	assert_true(_screen.play.defence_lens.active)
+	assert_false(lens.active)
+	MapPlayInput.set_sea_lens(_screen.play, true)
+	assert_true(lens.active)
+	assert_false(_screen.play.defence_lens.active)
+
+	lens._reveal = 1.0
+	lens.queue_redraw()
+	await get_tree().process_frame
+
+	MapPlayInput.set_sea_lens(_screen.play, false)
+	assert_false(lens.active)
+	assert_false(_screen.hud.lens_legend.visible)
+	assert_almost_eq(_screen.civilian_layer.modulate.a, 1.0, 0.001)
+
+
+func test_a_sail_repaints_the_sea_reading() -> void:
+	var fleet: FleetState = _sail_a_crown_squadron()
+	MapPlaySetup.build_lens(_screen.play)
+	var lens: SeaLens = _screen.play.sea_lens
+	var before: int = fleet.sea_zone
+	var next: int = _other_zone(before)
+	var hulls: int = fleet.ship_count()
+	var here: int = _own_hulls(lens.survey, before)
+	var there: int = _own_hulls(lens.survey, next)
+	assert_true(_has_zone(lens.survey, before), "the reading follows her water")
+	fleet.sea_zone = next
+	_screen.ship_layer.fleet_moved.emit(fleet, {})
+	assert_true(_has_zone(lens.survey, next), "the new water is read")
+	assert_eq(_own_hulls(lens.survey, next), there + hulls, "her hulls are counted there")
+	assert_eq(_own_hulls(lens.survey, before), here - hulls, "and not where she was")
+
+
+func test_hover_reports_the_sea_line_while_the_lens_is_on() -> void:
+	var fleet: FleetState = _sail_a_crown_squadron()
+	MapPlaySetup.build_lens(_screen.play)
+	MapPlayInput.set_sea_lens(_screen.play, true)
+	var zone: SeaZoneState = _screen.model.sea_zone_data(fleet.sea_zone)
+	var point: Vector2 = _screen_point(Vector2(zone.tiles[0]))
+	MapPlayInput.update_hover(_screen.play, point)
+	assert_true(
+		_screen.hud._tooltip_label.text.contains("Ours "),
+		"the hover names the squadron: " + _screen.hud._tooltip_label.text
+	)
+	MapPlayInput.set_sea_lens(_screen.play, false)
+
+
+## Puts a crown squadron at sea in the water beside its capital, so the reading
+## has a sail to read.
+func _sail_a_crown_squadron() -> FleetState:
+	var capital: int = _screen.play.capital_province
+	var zones: Array[int] = NavalMovement.province_sea_zones(_screen.model, capital)
+	var zone: int = zones[0] if not zones.is_empty() else 0
+	for raw: Variant in _screen.ship_layer.fleets:
+		var fleet: FleetState = raw
+		if fleet.owner != _screen.player_faction or fleet.ship_count() <= 0:
+			continue
+		fleet.location = FleetState.Location.AT_SEA
+		fleet.sea_zone = zone
+		fleet.province = MapModel.NO_ID
+		fleet.mission = FleetState.Mission.PATROL
+		return fleet
+	return null
+
+
+## Our hulls the reading counts in one zone.
+func _own_hulls(survey: Dictionary, zone_id: int) -> int:
+	for raw: Variant in survey.get("zones", []):
+		var entry: Dictionary = raw
+		if int(entry["id"]) == zone_id:
+			return int(entry["own_hulls"])
+	return 0
+
+
+func _has_zone(survey: Dictionary, zone_id: int) -> bool:
+	for raw: Variant in survey.get("zones", []):
+		if int((raw as Dictionary)["id"]) == zone_id:
+			return true
+	return false
+
+
+func _other_zone(zone_id: int) -> int:
+	for zone: SeaZoneState in _screen.model.sea_zones:
+		if zone.id != zone_id:
+			return zone.id
+	return zone_id
+
+# --- sea_survey ---
+## Sea projection for the water reading: a zone is banded by who stands in it and
+## whether they are at war, the fight is the resolver's own contested test, a
+## rival the chart withholds or has not watched contributes nothing, and a
+## harbour (a squadron in port) never reaches the reading.
+
+const SEA_WIDTH: int = 12
+const SEA_HEIGHT: int = 4
+const SEA_PLAYER: int = FactionCatalog.PLAYER_FACTION
+const SEA_RIVAL: int = 3
+const SEA_OTHER: int = 4
+const SEA_WEST: int = 0
+const SEA_EAST: int = 1
+
+var _sea_model: MapModel = null
+var _sea_fleets: Array[FleetState] = []
+
+
+func _setup_sea_survey() -> void:
+	_sea_model = _build_sea()
+	_sea_fleets = []
+
+
+## Two sea zones under a strip of the crown's land: the west water and the east.
+func _build_sea() -> MapModel:
+	var model := MapModel.new()
+	model.setup(SEA_WIDTH, SEA_HEIGHT)
+	var west: Array[Vector2i] = []
+	var east: Array[Vector2i] = []
+	var land: Array[Vector2i] = []
+	for y in SEA_HEIGHT:
+		for x in SEA_WIDTH:
+			var index: int = model.index_of(x, y)
+			var tile := Vector2i(x, y)
+			if y < SEA_HEIGHT - 2:
+				model.terrain[index] = MapModel.Terrain.PLAINS
+				model.province[index] = 0
+				land.append(tile)
+				continue
+			model.terrain[index] = MapModel.Terrain.OCEAN
+			var zone: int = SEA_WEST if x < SEA_WIDTH / 2 else SEA_EAST
+			model.sea_zone[index] = zone
+			if zone == SEA_WEST:
+				west.append(tile)
+			else:
+				east.append(tile)
+	var provinces: Array[ProvinceState] = []
+	provinces.append(
+		ProvinceState.create(
+			0, "Sevilla", land, _sea_center(land), land.size(), SEA_PLAYER, true
+		)
+	)
+	model.provinces = provinces
+	model.sea_zones = [
+		SeaZoneState.create(SEA_WEST, "Mar de Levante", west, _sea_center(west), west.size()),
+		SeaZoneState.create(SEA_EAST, "Mar Océano", east, _sea_center(east), east.size()),
+	]
+	return model
+
+
+func _sea_center(tiles: Array[Vector2i]) -> Vector2:
+	var total := Vector2.ZERO
+	for tile: Vector2i in tiles:
+		total += Vector2(tile)
+	return total / maxf(float(tiles.size()), 1.0)
+
+
+func _fleet(owner: int, zone: int, types: Array[String]) -> FleetState:
+	var hulls: Array[String] = []
+	var catalog: Dictionary = {}
+	for i in types.size():
+		var hull_id: String = "ship_%d_%d" % [_sea_fleets.size() + 1, i]
+		hulls.append(hull_id)
+		catalog[hull_id] = types[i]
+	var fleet: FleetState = FleetState.at_sea(
+		_sea_fleets.size() + 1, owner, zone, hulls, catalog
+	)
+	_sea_fleets.append(fleet)
+	return fleet
+
+
+func _sea_snapshot(
+	hostile: Callable = Callable(),
+	view: Callable = Callable(),
+	visibility: VisibilityModel = null
+) -> Dictionary:
+	return SeaSurvey.snapshot(_sea_model, _sea_fleets, visibility, SEA_PLAYER, hostile, view)
+
+
+## Two courts at war with each other and with nobody else.
+func _war_between(a: int, b: int) -> Callable:
+	return func(left: int, right: int) -> bool:
+		return (left == a and right == b) or (left == b and right == a)
+
+
+func _nobody_is_hostile() -> Callable:
+	return func(_a: int, _b: int) -> bool:
+		return false
+
+
+func sea_entry(survey: Dictionary, zone_id: int) -> Dictionary:
+	for raw: Variant in survey.get("zones", []):
+		var entry: Dictionary = raw
+		if int(entry["id"]) == zone_id:
+			return entry
+	return {}
+
+
+## The chart's answer for one squadron, the way `MapPlayFleets.view_filter` hands
+## it in: a rival either drawn and read, drawn and unread, or not drawn at all.
+func _view(drawn: bool, read: bool) -> Callable:
+	return func(_fleet_in: FleetState) -> Dictionary:
+		return {"drawn": drawn, "read": read}
+
+
+func test_the_crowns_own_water_reads_quiet() -> void:
+	_setup_sea_survey()
+	var squadron: FleetState = _fleet(SEA_PLAYER, SEA_WEST, ["frigate", "carrack"])
+	squadron.mission = FleetState.Mission.PATROL
+	var entry: Dictionary = sea_entry(_sea_snapshot(), SEA_WEST)
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_QUIET)
+	assert_eq(int(entry["own_hulls"]), 2)
+	assert_gt(float(entry["own_strength"]), 0.0)
+	assert_eq(String(entry["station_text"]), "Patrol")
+	assert_false(bool(entry["fight"]))
+	var text: String = SeaSurvey.summary_text(entry)
+	assert_true(text.contains("Ours 1 squadron"), text)
+	assert_true(text.contains("2 hulls"), text)
+	assert_true(text.contains("Patrol"), text)
+
+
+func test_a_rival_under_the_peace_reads_watched() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_RIVAL, SEA_EAST, ["frigate"])
+	var entry: Dictionary = sea_entry(_sea_snapshot(_nobody_is_hostile()), SEA_EAST)
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_WATCHED)
+	assert_false(bool(entry["fight"]))
+	assert_eq(int(entry["foe_squadrons"]), 1)
+	assert_eq(String((entry["foe_courts"] as Array)[0]), FactionCatalog.name_of(SEA_RIVAL))
+
+
+## A hostile sail alone in a zone resolves no battle — a fight needs two sides —
+## but the water is hers and the crown holds nothing there.
+func test_a_hostile_sail_we_do_not_share_reads_standoff() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_RIVAL, SEA_EAST, ["frigate"])
+	var entry: Dictionary = sea_entry(_sea_snapshot(_war_between(SEA_PLAYER, SEA_RIVAL)), SEA_EAST)
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_STANDOFF)
+	assert_false(bool(entry["fight"]), "no second side, so no battle")
+	assert_eq(int(entry["own_hulls"]), 0)
+	assert_true(SeaSurvey.summary_text(entry).contains("No sail of ours"))
+
+
+func test_a_shared_zone_at_war_reads_contested_and_names_the_battle() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_PLAYER, SEA_WEST, ["frigate"])
+	_fleet(SEA_RIVAL, SEA_WEST, ["frigate", "galleon"])
+	var entry: Dictionary = sea_entry(
+		_sea_snapshot(_war_between(SEA_PLAYER, SEA_RIVAL), _view(true, true)),
+		SEA_WEST
+	)
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_CONTESTED)
+	assert_true(bool(entry["fight"]), "the resolver fights this zone")
+	assert_true(bool(entry["own_engaged"]))
+	assert_gt(float(entry["foe_strength"]), 0.0, "a read rival is weighed")
+	assert_true(
+		SeaSurvey.summary_text(entry).contains("a battle resolves here at turn end"),
+		SeaSurvey.summary_text(entry)
+	)
+
+
+## An unread rival fights with nothing the crown can count: her figure is left
+## out whole rather than printed short (wiki: ships-and-naval § Sighted strength).
+func test_an_unread_rival_reads_blind_and_prints_no_weight() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_PLAYER, SEA_WEST, ["frigate"])
+	_fleet(SEA_RIVAL, SEA_WEST, ["frigate"])
+	var entry: Dictionary = sea_entry(
+		_sea_snapshot(_war_between(SEA_PLAYER, SEA_RIVAL), _view(true, false)),
+		SEA_WEST
+	)
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_BLIND)
+	assert_true(bool(entry["fight"]), "she fights whether or not she is read")
+	assert_eq(int(entry["foe_unread"]), 1)
+	assert_almost_eq(float(entry["foe_strength"]), 0.0, 0.001)
+	assert_true(SeaSurvey.summary_text(entry).contains("weight unread"))
+
+## A rival the fog withholds is not the crown's to read: she adds no plaque, no
+## hull and no fight to the water she stands in.
+func test_a_withheld_rival_never_reaches_the_reading() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_PLAYER, SEA_WEST, ["frigate"])
+	_fleet(SEA_RIVAL, SEA_WEST, ["frigate"])
+	var survey: Dictionary = _sea_snapshot(
+		_war_between(SEA_PLAYER, SEA_RIVAL), _view(false, false)
+	)
+	var entry: Dictionary = sea_entry(survey, SEA_WEST)
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_QUIET)
+	assert_eq(int(entry["foe_squadrons"]), 0)
+	assert_false(bool(entry["fight"]), "the crown sees no fight here to name")
+	assert_eq(int(survey["totals"]["zones"]), 1, "only the water she can see")
+
+
+## Two rivals at war in water the crown does not hold still fight at turn end;
+## the reading says so without claiming the battle as ours.
+func test_two_rivals_at_war_in_water_we_do_not_hold() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_RIVAL, SEA_EAST, ["frigate"])
+	_fleet(SEA_OTHER, SEA_EAST, ["frigate"])
+	var entry: Dictionary = sea_entry(
+		_sea_snapshot(_war_between(SEA_RIVAL, SEA_OTHER), _view(true, true)),
+		SEA_EAST
+	)
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_STANDOFF)
+	assert_true(bool(entry["fight"]))
+	assert_false(bool(entry["own_engaged"]), "no sail of ours is in it")
+	assert_true(
+		SeaSurvey.summary_text(entry).contains("two rivals fight here at turn end"),
+		SeaSurvey.summary_text(entry)
+	)
+
+
+func test_a_squadron_in_port_reads_no_water() -> void:
+	_setup_sea_survey()
+	var moored: FleetState = FleetState.in_port(9, SEA_PLAYER, 0, ["ship_9"], {"ship_9": "frigate"})
+	_sea_fleets.append(moored)
+	var survey: Dictionary = _sea_snapshot()
+	assert_eq((survey["zones"] as Array).size(), 0, "a harbour fights nothing")
+	assert_eq(int(survey["totals"]["hulls"]), 0)
+
+
+func test_sea_counts_and_the_crown_totals() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_PLAYER, SEA_WEST, ["frigate", "frigate"])
+	_fleet(SEA_RIVAL, SEA_WEST, ["frigate"])
+	_fleet(SEA_PLAYER, SEA_EAST, ["frigate"])
+	var survey: Dictionary = _sea_snapshot(_war_between(SEA_PLAYER, SEA_RIVAL), _view(true, true))
+	assert_eq(int(survey["counts"][SeaSurvey.BAND_CONTESTED]), 1)
+	assert_eq(int(survey["counts"][SeaSurvey.BAND_QUIET]), 1)
+	assert_eq(int(survey["totals"]["zones"]), 2)
+	assert_eq(int(survey["totals"]["hulls"]), 3, "our hulls only, never hers")
+	assert_eq(int(survey["totals"]["contested"]), 1)
+	assert_eq(int(survey["totals"]["blind"]), 0)
+
+
+## The reading is remembered, not invented: charted water draws, and a plate
+## anchors on the brightest water of its own zone. The crown's own sail is
+## charted by definition — a fleet never floats in water it cannot read.
+func test_the_zone_carries_the_chart_the_crown_holds() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_PLAYER, SEA_WEST, ["frigate"])
+	_fleet(SEA_RIVAL, SEA_EAST, ["frigate"])
+	var visibility := VisibilityModel.new()
+	visibility.setup(_sea_model, SEA_PLAYER)
+	var survey: Dictionary = _sea_snapshot(
+		_nobody_is_hostile(), _view(true, true), visibility
+	)
+	var entry: Dictionary = sea_entry(survey, SEA_WEST)
+	assert_eq(int(entry["charted"]), VisibilityModel.Level.FULLY_VISIBLE, "our own water")
+	var anchor: Vector2i = entry["anchor"]
+	assert_eq(_sea_model.sea_zone_at(anchor.x, anchor.y), SEA_WEST, "the plate sits on its own water")
+	for tile: Vector2i in _sea_model.sea_zone_data(SEA_EAST).tiles:
+		visibility.lower_to(_sea_model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
+	assert_eq(
+		int(sea_entry(_sea_snapshot(
+			_nobody_is_hostile(), _view(true, true), visibility
+		), SEA_EAST)["charted"]),
+		VisibilityModel.Level.UNKNOWN,
+		"water nobody charted is drawn at nothing"
+	)
+
+
+func test_one_hull_reads_in_the_singular() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_PLAYER, SEA_WEST, ["frigate"])
+	var text: String = SeaSurvey.summary_text(sea_entry(_sea_snapshot(), SEA_WEST))
+	assert_true(text.contains("1 squadron"), text)
+	assert_true(text.contains("1 hull"), text)
+	assert_false(text.contains("1 hulls"), text)
+
+
+func test_every_band_has_a_label_and_an_ink() -> void:
+	var inks: Dictionary = {}
+	for band: String in SeaSurvey.BANDS:
+		assert_true(SeaSurvey.BAND_LABELS.has(band), "no label for " + band)
+		inks[Palette.sea_color(band)] = band
+	assert_eq(inks.size(), SeaSurvey.BANDS.size(), "each band owns its own ink")
+	assert_eq(SeaSurvey.band_for(false, false, false, 0, false), SeaSurvey.BAND_QUIET)
+	assert_eq(SeaSurvey.band_for(true, true, true, 0, true), SeaSurvey.BAND_CONTESTED)
+	assert_eq(SeaSurvey.band_for(true, true, true, 1, true), SeaSurvey.BAND_BLIND)
+	assert_eq(SeaSurvey.band_for(false, true, true, 0, false), SeaSurvey.BAND_STANDOFF)
+	assert_eq(SeaSurvey.band_for(true, true, false, 0, false), SeaSurvey.BAND_WATCHED)

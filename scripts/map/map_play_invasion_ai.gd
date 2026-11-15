@@ -133,6 +133,9 @@ static func _apply(
 			)
 			if not bool(docked.get("ok", false)):
 				return {}
+			# Docking at the court's own seat resolves by merging into the home
+			# fleet (wiki: ships-and-naval § Home Fleet).
+			MapPlayHomeMerge.fold(play, model, fleets, fleet)
 			entry["province"] = dock
 			entry["province_name"] = model.province_name(dock)
 		AiInvasionPlanner.KIND_SAIL:

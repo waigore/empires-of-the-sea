@@ -51,9 +51,21 @@ const KIND_SURVEY: String = "survey"
 const KIND_DIPLOMACY: String = "diplomacy"
 const KIND_CROWN_ROAD: String = "crown_road"
 const KIND_DEFENCE: String = "defence"
+const KIND_SEA: String = "sea"
 
-## Which key to draw: KIND_SURVEY (default), KIND_DIPLOMACY, KIND_CROWN_ROAD or
-## KIND_DEFENCE.
+## One pennant per sea band, in the order the threat runs: our own quiet water,
+## a rival under the peace, hostile water we do not hold, then the two fights
+## the turn will resolve — read and unread (SeaSurvey.BANDS).
+const SEA_ROWS: Array[Dictionary] = [
+	{"band": SeaSurvey.BAND_QUIET, "text": "Our water — no hostile sail"},
+	{"band": SeaSurvey.BAND_WATCHED, "text": "A rival's sails, no war"},
+	{"band": SeaSurvey.BAND_STANDOFF, "text": "Hostile water we do not hold"},
+	{"band": SeaSurvey.BAND_CONTESTED, "text": "A battle resolves at turn end"},
+	{"band": SeaSurvey.BAND_BLIND, "text": "…and her weight unread"},
+]
+
+## Which key to draw: KIND_SURVEY (default), KIND_DIPLOMACY, KIND_CROWN_ROAD,
+## KIND_DEFENCE or KIND_SEA.
 var kind: String = KIND_SURVEY
 
 var _style: StyleBoxFlat = null
@@ -88,6 +100,9 @@ func _draw() -> void:
 		return
 	if kind == KIND_DEFENCE:
 		_draw_defence()
+		return
+	if kind == KIND_SEA:
+		_draw_sea()
 		return
 	_draw_survey()
 
@@ -241,6 +256,47 @@ func _draw_defence() -> void:
 		_font, Vector2(14, HEIGHT - 14), "Cross: hospital · charted land only",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
 	)
+
+
+## One pennant per band, in the same ink the water carries: our quiet sea, a
+## rival under the peace, hostile water, then the two fights the turn resolves.
+## The footer spells the two figures a slip prints.
+func _draw_sea() -> void:
+	draw_string(
+		_font, Vector2(14, 24), MapGlyphs.spaced("SEA KEY"),
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 11, Palette.GOLD_DIM
+	)
+	var y: float = 50.0
+	for row: Dictionary in SEA_ROWS:
+		var band: String = String(row["band"])
+		_draw_pennant(Vector2(22, y - 4), Palette.sea_color(band))
+		draw_string(
+			_font, Vector2(40, y), String(row["text"]),
+			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 50, 13, Palette.TEXT
+		)
+		y += 22.0
+	draw_string(
+		_font, Vector2(14, HEIGHT - 30), "Line: our hulls and strength · below: station, foe",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+	draw_string(
+		_font, Vector2(14, HEIGHT - 14), "??? : a weight not yet read · red rule: a fight",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+
+
+## The pennant over a short mast the slips carry, at key size.
+func _draw_pennant(center: Vector2, tint: Color) -> void:
+	draw_line(
+		center + Vector2(-5.0, -9.0), center + Vector2(-5.0, 9.0),
+		Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55), 1.2, true
+	)
+	var fly := PackedVector2Array([
+		center + Vector2(-4.0, -8.0),
+		center + Vector2(10.0, -3.0),
+		center + Vector2(-4.0, 2.0),
+	])
+	draw_colored_polygon(fly, Color(tint.r, tint.g, tint.b, 0.92))
 
 
 ## The same heraldic shield the map slips carry, at key size.
