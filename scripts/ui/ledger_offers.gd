@@ -192,6 +192,10 @@ func _offer_row(offer: Dictionary) -> Control:
 	ask_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(ask_label)
 
+	# The seller's whole row in one press when the purse and holds allow it: a
+	# court buying a turn's ration never taps Bid ten times (REQ-P5-04). The
+	# single press stays, so a batch is never forced.
+	var units: int = MarketBatch.offer_row_units(_market, _viewer, offer, _order_ctx)
 	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 54.0)
 	# The ask is what the clearing charges this pair — the published price with
 	# the crown's terms and any subsidy step — so the tooltip names it rather
@@ -199,18 +203,22 @@ func _offer_row(offer: Dictionary) -> Control:
 	buy.tooltip_text = "Bid 1 %s at the ask of %d — it clears when the turn closes" % [
 		CommodityCatalog.label(commodity), ask
 	]
-	# Imports need a free hold in the home fleet (DR-20261109-03).
-	if int(_cargo.get("free", -1)) == 0:
+	# Imports need a free hold in the home fleet (DR-20261109-03), and the purse
+	# the waiting orders leave (wiki: world-market § Treasury budget for bids).
+	if units <= 0:
 		buy.disabled = true
-		buy.tooltip_text = "No cargo holds free this turn"
+		var why: String = (
+			"no cargo holds free this turn"
+			if int(_cargo.get("free", 0)) <= 0
+			else "the rules leave no room for a bid this turn"
+		)
+		buy.tooltip_text = "Bid 1 %s at the ask of %d — %s" % [
+			CommodityCatalog.label(commodity), ask, why,
+		]
 	var row_id: String = String(offer.get("id", ""))
 	buy.pressed.connect(func() -> void: offer_requested.emit(row_id, 1))
 	row.add_child(buy)
 	_bids.append(buy)
-	# The seller's whole row in one press when the purse and holds allow it: a
-	# court buying a turn's ration never taps Bid ten times (REQ-P5-04). The
-	# single press stays, so a batch is never forced.
-	var units: int = MarketBatch.offer_row_units(_market, _viewer, offer, _order_ctx)
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 2)
 	block.add_child(row)
