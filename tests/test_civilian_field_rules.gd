@@ -2277,3 +2277,38 @@ func test_an_unsurveyed_mineral_reads_unprospected_until_an_explorer_reads_it() 
 	assert_false(bool(row["prospected"]))
 	assert_false(bool(row["can_build"]))
 	assert_true(String(row["build_reason"]).contains("prospect"))
+
+
+## Two fort projects may run in one province, and the later completion adds no
+## level (wiki: siege-mechanics § Fort Levels). The receipt must not claim a wall
+## the turn did not raise: the crown paid twice and bought one wall.
+func test_a_second_fort_project_reports_no_level_added() -> void:
+	var first := _add("engineer", Fixture.BARE_TILE)
+	var second := _add("engineer", Fixture.BARE_TILE)
+	assert_true(bool(CivilianWork.assign(
+		_model, first, "build_fort", _works, _units, _stock, _view
+	)["ok"]))
+	assert_true(bool(CivilianWork.assign(
+		_model, second, "build_fort", _works, _units, _stock, _view
+	)["ok"]))
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		_model, _units, _works, _view
+	)
+	assert_eq(reports.size(), 2)
+	assert_eq(int(reports[0]["fort_before"]), 0)
+	assert_eq(int(reports[0]["fort_level"]), 1)
+	assert_eq(int(reports[1]["fort_before"]), 1, "the wall already stood")
+	assert_eq(int(reports[1]["fort_level"]), 1, "and the duplicate added no level")
+	assert_eq(FortRules.level_at(_model, Fixture.PLAYER_PROVINCE), 1)
+	assert_true(
+		FortRules.raise_line(
+			int(reports[0]["fort_before"]), int(reports[0]["fort_level"])
+		).begins_with("wood fort raised"),
+		"the first project names the wall it raised"
+	)
+	assert_true(
+		FortRules.raise_line(
+			int(reports[1]["fort_before"]), int(reports[1]["fort_level"])
+		).begins_with("no level added"),
+		"the duplicate says it added nothing"
+	)
