@@ -160,6 +160,62 @@ func test_parse_port_refuses_bad_ports() -> void:
 	)
 
 
+func test_flag_mentioned_spots_a_misformed_enable() -> void:
+	assert_false(
+		AgentDebugBridge.flag_mentioned(PackedStringArray()),
+		"an empty list never mentions the flag"
+	)
+	assert_false(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--quiet"])),
+		"unrelated args do not mention the flag"
+	)
+	assert_true(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--agent-debug"])),
+		"a bare flag is mentioned"
+	)
+	assert_true(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--agent-debug=8765"])),
+		"an explicit port is mentioned"
+	)
+	assert_true(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--agent-debugfoo"])),
+		"a misformed token still mentions the flag for the diagnostic"
+	)
+
+
+func test_resolve_launch_prefers_user_args_then_cmdline() -> void:
+	var from_user: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(["--agent-debug=1234"]),
+		PackedStringArray(["--agent-debug=9999"]),
+	)
+	assert_eq(int(from_user["port"]), 1234, "user args win over the full cmdline")
+	assert_false(bool(from_user["warn_unparsed"]), "a parsed port needs no warn")
+	var from_cmdline: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(),
+		PackedStringArray(["--agent-debug=4321"]),
+	)
+	assert_eq(int(from_cmdline["port"]), 4321, "Android-style cmdline is the fallback")
+	assert_false(bool(from_cmdline["warn_unparsed"]), "a cmdline parse needs no warn")
+	var absent: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(["--quiet"]),
+		PackedStringArray(["--path", "."]),
+	)
+	assert_eq(int(absent["port"]), 0, "no flag means the bridge stays off")
+	assert_false(bool(absent["warn_unparsed"]), "absence is not a misform")
+	var misformed: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(),
+		PackedStringArray(["--agent-debugfoo"]),
+	)
+	assert_eq(int(misformed["port"]), 0, "a misformed token does not parse")
+	assert_true(bool(misformed["warn_unparsed"]), "a misformed enable still warns")
+	var bad_port: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(["--agent-debug=0"]),
+		PackedStringArray(),
+	)
+	assert_eq(int(bad_port["port"]), -1, "an out-of-range user port is refused")
+	assert_false(bool(bad_port["warn_unparsed"]), "a refused parse is not unparsed")
+
+
 # --- the thin server -----------------------------------------------------------
 
 

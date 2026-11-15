@@ -14,10 +14,13 @@ godot --path . -- --agent-debug=8765   # everything after -- is a user arg
 
 - Binds `127.0.0.1` only. Never `0.0.0.0`; no Unix sockets in v1.
 - A bare `--agent-debug` takes port 8765. A malformed or out-of-range port
-  leaves the bridge off.
+  leaves the bridge off. On Android the launch intent's `command_line` extra
+  reaches the engine as plain args, so the full command line is scanned as a
+  fallback when the user-arg list has no flag.
 - Android debug builds run the same in-app listener; the host reaches it
-  through `adb reverse tcp:8765 tcp:8765`, then connects to
-  `ws://127.0.0.1:8765`.
+  through `adb forward tcp:8765 tcp:8765`, then connects to
+  `ws://127.0.0.1:8765`. (`forward`, not `reverse`: the listener lives on the
+  device, so the host→device tunnel is what agents need.)
 
 ## Protocol
 

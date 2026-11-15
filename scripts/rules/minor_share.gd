@@ -4,11 +4,44 @@ extends RefCounted
 ## game-setup § Minor Nation assignment — "Per-minor count from even split of
 ## remaining OW total (within ±1)"). A Minor's own cell can seal off a cove of a
 ## province or two; that cove is too small to seat a Great Power, so the bordering
-## Minor takes it (`TerritoryAssignment._absorb_pockets`). The cove can carry the
-## court past the band, so land it can spare goes back to the Great-Power pool:
-## a province it owns that already borders that pool and whose loss leaves the
-## court's holding one connected set. Pure rules over the province graph
-## (REQ-P2-03, REQ-P3-03).
+## Minor takes it (`absorb_pockets`). The cove can carry the court past the band,
+## so land it can spare goes back to the Great-Power pool: a province it owns that
+## already borders that pool and whose loss leaves the court's holding one
+## connected set. Pure rules over the province graph (REQ-P2-03, REQ-P3-03).
+
+## Provinces a Minor Nation is owed before the even share decides
+## (wiki: game-setup § Minor Nation assignment).
+const MINOR_PROVINCES: int = 3
+
+
+## A Minor Nation's cell can seal off a cove of a province or two. Such a pocket
+## is too small to seat a Great Power, so the bordering Minor Nation takes it.
+## Returns the enlarged Great-Power pool, ascending.
+static func absorb_pockets(
+	model: MapModel, ids: Array, minors: Array[int], max_chunks: int
+) -> Array:
+	var changed: bool = true
+	while changed:
+		changed = false
+		var counts: Dictionary = ProvinceGraph.owner_counts(model, ids)
+		var chunks: Array = ProvinceGraph.components(
+			model, ProvinceGraph.unowned(model, ids)
+		)
+		for index in chunks.size():
+			var chunk_ids: Array = chunks[index]
+			var too_small: bool = chunk_ids.size() < MINOR_PROVINCES
+			# A landmass carrying more chunks than it has Great Powers cannot seat
+			# every court, so its last (smallest) chunk joins a Minor too.
+			var too_many: bool = chunks.size() > max_chunks and index == chunks.size() - 1
+			if not too_small and not too_many:
+				continue
+			var taker: int = _bordering_minor(model, chunk_ids, minors, counts)
+			if taker == MapModel.NO_ID:
+				continue
+			_paint_pocket(model, chunk_ids, taker)
+			counts[taker] = int(counts.get(taker, 0)) + chunk_ids.size()
+			changed = true
+	return ProvinceGraph.unowned(model, ids)
 
 
 ## Hands back land from any Minor above the band and returns the enlarged
@@ -82,32 +115,38 @@ static func _spare_land(
 				break
 		if not touches_pool:
 			continue
-		if _stays_connected(model, owned, province_id):
+		if ProvinceGraph.is_contiguous(model, _without(owned, province_id)):
 			return province_id
 	return MapModel.NO_ID
 
 
-## True when `owned` minus `removed` is still one province-connected set, so the
-## court that gave land away never splits its own holding.
-static func _stays_connected(model: MapModel, owned: Array[int], removed: int) -> bool:
-	var lookup: Dictionary = {}
-	var start: int = MapModel.NO_ID
+## `owned` minus one province, in its original (ascending) order.
+static func _without(owned: Array[int], removed: int) -> Array[int]:
+	var kept: Array[int] = []
 	for province_id: int in owned:
-		if province_id == removed:
-			continue
-		lookup[province_id] = true
-		if start == MapModel.NO_ID:
-			start = province_id
-	if lookup.is_empty():
-		return false
-	var seen: Dictionary = {start: true}
-	var queue: Array[int] = [start]
-	var head: int = 0
-	while head < queue.size():
-		var current: int = queue[head]
-		head += 1
-		for neighbor: int in MapGeo.province_neighbors(model, current):
-			if lookup.has(neighbor) and not seen.has(neighbor):
-				seen[neighbor] = true
-				queue.append(neighbor)
-	return seen.size() == lookup.size()
+		if province_id != removed:
+			kept.append(province_id)
+	return kept
+
+
+## Minor Nation touching the pocket that holds fewest provinces (ties: lowest id).
+static func _bordering_minor(
+	model: MapModel, chunk_ids: Array, minors: Array[int], counts: Dictionary
+) -> int:
+	var best: int = MapModel.NO_ID
+	for raw: Variant in chunk_ids:
+		for neighbor: int in MapGeo.province_neighbors(model, int(raw)):
+			var owner: int = model.province_data(neighbor).owner
+			if not minors.has(owner):
+				continue
+			if best == MapModel.NO_ID or int(counts.get(owner, 0)) < int(counts.get(best, 0)):
+				best = owner
+	return best
+
+
+static func _paint_pocket(model: MapModel, chunk_ids: Array, taker: int) -> void:
+	for raw: Variant in chunk_ids:
+		var province_id: int = int(raw)
+		var province: ProvinceState = model.province_data(province_id)
+		province.owner = taker
+		province.population = 180 + province.area * 9 + (province_id * 37) % 90
