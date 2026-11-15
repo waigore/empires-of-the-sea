@@ -1,13 +1,13 @@
 class_name HospitalLedgerPanel
 extends RaiseLedgerPanel
 ## The crown's hospitals: every province it holds that can carry a ward, the
-## level it stands at, whether its staff ate and the step the Engineer would take
-## next, narrowed by chart and by what the step waits on, with one press that
-## files the order and one confirmed press that files every ready ward the view
-## prints (wiki: combat § Regiment condition; DR-20261116-02, DR-20261116-03).
-## The projection lives in [HospitalLedger] and the map hooks in
-## [MapPlayHospitals]; this class names the ward words and the order, and borrows
-## the rest of the sheet from [RaiseLedgerPanel] (REQ-P3-01, REQ-P3-02).
+## level it stands at, whether its staff ate and the step the Engineer would
+## take next, narrowed by chart and by what the step waits on, with one press
+## that files the order and one confirmed press that files every ready ward the
+## view prints (wiki: combat § Regiment condition; DR-20261116-02,
+## DR-20261116-03). The projection lives in [HospitalLedger] and the map hooks
+## in [MapPlayHospitals]; this class names the ward words and the order, and
+## borrows the rest of the sheet from [RaiseLedgerPanel] (REQ-P3-02, REQ-P3-03).
 
 
 func _init() -> void:
@@ -81,15 +81,12 @@ func _subtitle_text(shown: int) -> String:
 	var unfed: int = int(reading["unfed"])
 	if unfed > 0:
 		line += " %d went unfed this turn." % unfed
-	if _reading != HospitalLedger.FILTER_ALL:
-		line += " Reading: %s only." % HospitalLedger.filter_label(_reading).to_lower()
-	return line
+	return line + _reading_note()
 
 
 func _make_row(raw: Variant, compact: bool) -> Control:
 	var row := HospitalLedgerRow.new()
-	row.compact = compact
-	row.raise_pressed.connect(_on_raise)
+	_dress_row(row, compact)
 	row.setup(raw as Dictionary)
 	return row
 
