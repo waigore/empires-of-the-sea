@@ -31,7 +31,11 @@ static func economy(
 	var rng: RandomNumberGenerator = _rng(play, faction)
 	var economy: PlayerEconomy = play.ai.economy_for(faction)
 	MapPlayCivilianAi.seed(play, faction)
-	var production: Dictionary = _random_production(economy, rng)
+	# The crown's best town opens the second-stage rows for the filler too: the
+	# gate is the phase's, read once and handed to both the plan and the phase
+	# (wiki: production-recipes § Town-works gates; DR-20261116-04; REQ-P2-03).
+	var town_level: int = TownIndustry.best_level(play.world, faction)
+	var production: Dictionary = _random_production(economy, rng, town_level)
 	var hospitals: Array[int] = HospitalRules.demand_list(play.world, faction)
 	var ships: int = (
 		play.ship_layer.hull_count_all(faction) if play.ship_layer != null else 0
@@ -41,7 +45,8 @@ static func economy(
 	)
 	var resolved: Dictionary = EconomyTurn.resolve(
 		economy, market, overseas.get("extraction", {}) as Dictionary,
-		ships, army_food, false, {}, hospitals, String(play.leaders.get(faction, ""))
+		ships, army_food, false, {}, hospitals, String(play.leaders.get(faction, "")),
+		town_level
 	)
 	HospitalRules.feed(
 		play.world, faction,
@@ -69,12 +74,16 @@ static func economy(
 	}
 
 
-static func _random_production(economy: PlayerEconomy, rng: RandomNumberGenerator) -> Dictionary:
+static func _random_production(
+	economy: PlayerEconomy, rng: RandomNumberGenerator, town_level: int = 0
+) -> Dictionary:
 	var assignments: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
 	var ids: Array[String] = []
 	ids.assign(
-		ProductionRecipes.available_ids_for(economy.tech_unlocked, economy.workers)
+		ProductionRecipes.available_ids_for(
+			economy.tech_unlocked, economy.workers, town_level
+		)
 	)
 	# A slow row whose bench is full has no run to give this phase, so the filler
 	# draws from the rows that can start rather than asking for one the phase
