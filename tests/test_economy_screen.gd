@@ -568,12 +568,13 @@ func test_bidding_from_an_offer_row_enters_the_auction() -> void:
 	assert_eq(_screen.economy.market.book.pending_buy_units(_screen.player_faction), 1)
 	assert_eq(economy.quantity("timber"), stock_before)
 	assert_eq(economy.treasury, treasury_before)
+	# Deals clear at the old integer price; the clearing's price pass publishes
+	# the next turn's price, so the charge is read before the clear
+	# (wiki: world-market § Price discovery).
+	var charged: int = _screen.economy.market.buy_price("timber")
 	_clear_market()
 	assert_eq(economy.quantity("timber"), stock_before + 1)
-	assert_eq(
-		economy.treasury,
-		treasury_before - _screen.economy.market.buy_price("timber")
-	)
+	assert_eq(economy.treasury, treasury_before - charged)
 
 
 func test_an_empty_offer_book_says_so() -> void:

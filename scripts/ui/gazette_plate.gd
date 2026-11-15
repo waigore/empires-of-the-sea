@@ -1,9 +1,10 @@
 class_name GazettePlate
-extends Control
+extends ModalShell
 ## The crown's news sheet on the map: the turn-start plate, the history screen
-## and the watchlist editor on one soft surface (wiki: the-gazette; DR-20261110-14).
-## Soft, never modal: only the ruled plate takes the pointer, so the map and the
-## crown's orders stay usable around it (REQ-P5-02, REQ-P5-06, REQ-P5-07).
+## and the watchlist editor on one surface (wiki: the-gazette; DR-20261110-14).
+## Its door is the cartouche's GAZETTE seal, and it opens as the one full-screen
+## modal every bar door uses: the crown's news is read, not skimmed beside the
+## chart (REQ-P1-05, REQ-P1-07, REQ-P5-06, REQ-P5-07).
 ## Presentation only — it prints the lines [Gazette] already built (REQ-P2-03).
 
 signal dismissed
@@ -12,10 +13,6 @@ signal watch_changed(faction: int)
 
 enum Mode { SHEET, ARCHIVE, WATCHLIST, AGE }
 
-const MAX_WIDTH: float = 640.0
-const MIN_WIDTH: float = 288.0
-const PLATE_TOP: float = 88.0
-const VIEWPORT_MARGIN: float = 12.0
 const EMPTY_LINE: String = GazetteParts.EMPTY_LINE
 const NO_HISTORY: String = GazetteArchiveRoom.NO_HISTORY
 const INK_SOFT: Color = Color(0.34, 0.26, 0.16)
@@ -28,18 +25,13 @@ var _age: String = ""
 ## The whole race, for the age's own tab: `rows`, `human`, `calendar`, `note`
 ## (see MapPlayGazette.age_payload). Empty when the session has no crown.
 var _age_data: Dictionary = {}
-## The HUD's despatch lane: while this sheet is up the news stacks below it
-## instead of printing across the masthead (REQ-P5-05).
-var despatches: HudDespatches = null
 
 var _mode: Mode = Mode.SHEET
 var _sheet: Dictionary = {}
 ## The archive's page and its reading filter — every class, or one class alone
 ## (wiki: the-gazette § History screen; DR-20261115-06).
 var _archive_room: GazetteArchiveRoom = null
-var _shown: bool = false
 
-var _panel: PanelContainer = null
 var _title: Label = null
 var _stamp: Label = null
 var _body: VBoxContainer = null
@@ -52,20 +44,6 @@ var _newer: Button = null
 var _older: Button = null
 var _nav_label: Label = null
 var _header_row: HBoxContainer = null
-## The sheet is movable by its masthead, so the chart it covers can be read
-## without setting the news aside (REQ-P1-07). The plate repaints its own rect
-## on every fit, so the drag hands it an offset instead of a position.
-var _drag: ModalDrag = null
-var _drag_offset: Vector2 = Vector2.ZERO
-
-
-func _ready() -> void:
-	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	theme = UiTheme.build()
-	_build()
-	visible = false
-	resized.connect(_fit)
 
 
 ## Raises the sheet the turn just produced; `age_line` is its standing column and
@@ -81,7 +59,7 @@ func open_sheet(
 	_age = age_line
 	_age_data = age
 	_mode = Mode.SHEET
-	_show()
+	open()
 
 
 ## Raises the history screen with the live sheet one tab back: that tab keeps
@@ -99,7 +77,7 @@ func open_archive(
 	_age = age_line
 	_age_data = age
 	_mode = Mode.ARCHIVE
-	_show()
+	open()
 
 
 ## Raises the watchlist editor on its own (reachable from the cartouche seal).
@@ -108,84 +86,63 @@ func open_watchlist(p_state: GazetteState, p_diplomacy: DiplomacyState, who: int
 	diplomacy = p_diplomacy
 	viewer = who
 	_mode = Mode.WATCHLIST
-	_show()
+	open()
 
 
 func is_shown() -> bool:
-	return _shown
+	return is_open()
 
 
-## One press sets the sheet aside; the map was never blocked (REQ-P5-06).
+## One press sets the sheet aside; a full-screen door closes cleanly with it.
 func dismiss() -> void:
-	if not _shown:
+	close()
+
+
+## A door that closes without its Close door still raises the court's news back.
+func close() -> void:
+	if not is_open():
 		return
-	_shown = false
-	visible = false
-	_drag_offset = Vector2.ZERO
-	_fit()
+	super.close()
 	dismissed.emit()
 
 
-## Repaints after the watchlist changed underneath.
+## Repaints after the watchlist changed underneath, and on every open.
 func refresh() -> void:
-	if _shown:
-		_render()
-
-
-func _show() -> void:
-	_shown = true
-	visible = true
-	modulate.a = 0.0
 	_render()
-	_fit()
-	var fade := create_tween()
-	fade.tween_property(self, "modulate:a", 1.0, 0.18)
 
 
-# --- construction ------------------------------------------------------------
+# --- shell hooks -------------------------------------------------------------
 
 
-func _build() -> void:
-	_panel = PanelContainer.new()
-	_panel.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	# Printed paper inside a brass rule, lifted off the map by its own shadow, so
-	# the sheet reads as the crown's broadsheet rather than another dossier
-	# (REQ-P1-02).
+## Printed paper inside a brass rule, lifted off the chart by its own shadow, so
+## the sheet reads as the crown's broadsheet rather than another dossier
+## (REQ-P1-02).
+func _dress_plate(_compact_now: bool) -> void:
 	var style := UiTheme.box(Palette.PAPER, Palette.GOLD_DIM, 2, 2, Vector4(20, 14, 20, 14))
 	style.shadow_color = Color(0.05, 0.04, 0.03, 0.55)
 	style.shadow_size = 10
 	style.shadow_offset = Vector2(0, 3)
 	_panel.add_theme_stylebox_override("panel", style)
-	# The sheet is sized by its content, so every layout pass feeds the fit (and
-	# through it the toast lane) — labels only report a true height once wide.
-	_panel.resized.connect(_fit)
-	add_child(_panel)
 
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 6)
-	_panel.add_child(column)
-	column.add_child(_header())
-	var grabs: Array[Control] = [_header_row]
-	_drag = ModalDrag.attach(self, _panel, grabs, _panel, _place)
+
+func _build_plate(host: VBoxContainer) -> void:
+	host.add_child(_header())
 	# Double rule under the masthead, the way a printed gazette divides its flag
 	# from the field (REQ-P1-02).
-	column.add_child(GazetteParts.rule(Palette.INK_LINE))
-	column.add_child(GazetteParts.rule(Palette.GOLD, 2))
+	host.add_child(GazetteParts.rule(Palette.INK_LINE))
+	host.add_child(GazetteParts.rule(Palette.GOLD, 2))
 	_tabs = _tabs_row()
-	column.add_child(_tabs)
+	host.add_child(_tabs)
 	_nav = _nav_row()
-	column.add_child(_nav)
+	host.add_child(_nav)
 
 	_scroll = ScrollContainer.new()
 	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(_scroll)
+	host.add_child(_scroll)
 	_body = VBoxContainer.new()
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_body.add_theme_constant_override("separation", 4)
-	# A wrapped line's height is only known once the plate has its width.
-	_body.minimum_size_changed.connect(_fit)
 	_scroll.add_child(_body)
 	# The watchlist editor lives in the body but survives a repaint, so its own
 	# rows are the only thing a mode change rebuilds.
@@ -210,7 +167,6 @@ func _build() -> void:
 func _header() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
-	row.add_child(ModalDrag.grip())
 	_header_row = row
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -220,11 +176,11 @@ func _header() -> Control:
 	_stamp = GazetteParts.label("", 12, INK_SOFT, true)
 	column.add_child(_stamp)
 	row.add_child(column)
-	var close := Button.new()
-	close.text = "Set aside"
-	close.tooltip_text = "Close the sheet — the map stays as it was"
-	close.pressed.connect(dismiss)
-	row.add_child(close)
+	var close_door := Button.new()
+	close_door.text = "Close"
+	close_door.tooltip_text = "Close the sheet"
+	close_door.pressed.connect(dismiss)
+	row.add_child(close_door)
 	return row
 
 
@@ -345,56 +301,3 @@ func _render_watchlist() -> void:
 	_title.text = "THE GAZETTE  ·  WATCHLIST"
 	_stamp.text = "Courts whose doings are reported"
 	_watchlist.fill(state, diplomacy, viewer)
-
-
-
-# --- layout and helpers ------------------------------------------------------
-
-
-## Phones, tablets and desktop share the one plate; it only narrows to the room
-## it has and stands as tall as the news it prints (REQ-P1-05, REQ-P5-07).
-func _fit() -> void:
-	if _panel == null or _body == null:
-		return
-	var room: float = maxf(size.x - VIEWPORT_MARGIN * 2.0, MIN_WIDTH)
-	var width: float = minf(MAX_WIDTH, room)
-	var left: float = (size.x - width) * 0.5 + _drag_offset.x
-	var top: float = PLATE_TOP + _drag_offset.y
-	_panel.offset_left = left
-	_panel.offset_right = left + width
-	_panel.offset_top = top
-	# The container takes its own content height; only the news scroll is capped,
-	# so a quiet sheet is a short plate and a busy one runs on inside the scroll.
-	_panel.offset_bottom = top
-	var room_left: float = maxf(size.y - top - VIEWPORT_MARGIN - 150.0, 120.0)
-	var content: float = _body.get_combined_minimum_size().y
-	_scroll.custom_minimum_size = Vector2(0, clampf(content, 120.0, room_left))
-	_avoid_toasts()
-
-
-## A drag moved the sheet: repaint its rect around the new place (the plate owns
-## its own geometry, so the offset rides the fit rather than a position).
-func _place(offset: Vector2) -> void:
-	_drag_offset = offset
-	_fit()
-
-
-## Toasts are the moment's acknowledgement (REQ-P5-05). While the sheet is up
-## they take the lane under it rather than printing across the masthead.
-func _avoid_toasts() -> void:
-	# The plate is sized by its content, so this waits for the laid-out height:
-	# before the first layout pass there is no bottom to clear, and the refit
-	# that follows the layout moves the lane.
-	if despatches == null:
-		return
-	var height: float = _panel.size.y
-	if height <= 0.0:
-		return
-	# Room below the sheet for three plates: push the lane under it, else leave
-	# the lane where the viewport put it (a phone's bar is shorter than 84). The
-	# foot follows a dragged sheet, so the lane never prints across it.
-	var bottom: float = _panel.position.y + height
-	if _shown and size.y - bottom >= 180.0:
-		despatches.push_below(bottom + 10.0)
-		return
-	despatches.clear_plate()

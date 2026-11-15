@@ -59,11 +59,15 @@ static func _fleet(hud: GameHud) -> void:
 	hud._fleet_wrap = hud.panels.fleet.wrap
 
 
+## The three readings the bar's doors carry — the ledger, the college and the
+## court — stand on a ModalDoor: the panel keeps its own masthead and tabs, and
+## the door gives it the whole screen, the wash and the pause-door park every
+## cartouche door has (REQ-P1-05, REQ-P1-07, REQ-P5-07).
 static func _economy(hud: GameHud) -> void:
 	hud._economy_panel = EconomyPanel.new()
 	hud._economy_panel.close_pressed.connect(func() -> void: hud.panels.hide_economy())
-	hud.panels.economy = HudPanelSlot.build(
-		hud, hud._economy_panel, HudPanelSlot.LEDGER_WIDTH, false
+	hud.panels.economy = HudPanelSlot.build_modal(
+		ModalDoor.mount(hud, "LedgerDoor"), hud._economy_panel
 	)
 	hud._economy_wrap = hud.panels.economy.wrap
 
@@ -71,8 +75,8 @@ static func _economy(hud: GameHud) -> void:
 static func _research(hud: GameHud) -> void:
 	hud._research_panel = ResearchPanel.new()
 	hud._research_panel.close_pressed.connect(func() -> void: hud.panels.hide_research())
-	hud.panels.research = HudPanelSlot.build(
-		hud, hud._research_panel, HudPanelSlot.LEDGER_WIDTH, false
+	hud.panels.research = HudPanelSlot.build_modal(
+		ModalDoor.mount(hud, "CollegeDoor"), hud._research_panel
 	)
 	hud._research_wrap = hud.panels.research.wrap
 

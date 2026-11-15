@@ -57,6 +57,10 @@ func test_lens_toggle_raises_the_key_and_builds_a_survey() -> void:
 	assert_eq(_screen.hud.lens_seal.active_kind, LensLegend.KIND_SURVEY)
 	assert_gt(int(lens.survey["counts"]["estates"]), 0)
 	assert_gt((lens.survey.get("routes", []) as Array).size(), 0, "the lens carries the roads")
+	assert_eq(
+		(lens._runs as Array).size(), RoadInk.ink_paths(lens.survey["routes"]).size(),
+		"the lens bakes the road ink once, from the same segments"
+	)
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
 
 	lens._reveal = 1.0
@@ -178,10 +182,12 @@ func test_summary_for_an_unsurveyed_province_is_empty() -> void:
 
 func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 	var probe := _RoadInkProbe.new()
-	probe.font = UiTheme.serif()
+	# Each reading takes a turn as well as a straight, so the sleeper and dash
+	# walks are exercised over a bend and not only a single chord.
 	probe.segments = [
 		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
 		{"a": Vector2i(2, 1), "b": Vector2i(3, 1), "linked": true, "rail": true},
+		{"a": Vector2i(3, 1), "b": Vector2i(3, 2), "linked": true, "rail": true},
 		{
 			"a": Vector2i(1, 2),
 			"b": Vector2i(2, 2),
@@ -189,35 +195,168 @@ func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 			"rail": false,
 			"fogged": true,
 		},
-	]
-	probe.links = [
-		{"counts": {"developed": 0, "linked": 0}, "origin": Vector2.ZERO},
-		{"counts": {"developed": 2, "linked": 2}, "origin": Vector2(0, 12)},
-		{"counts": {"developed": 2, "linked": 1}, "origin": Vector2(0, 24)},
-		{"counts": {"developed": 2, "linked": 0}, "origin": Vector2(0, 36)},
+		{
+			"a": Vector2i(2, 2),
+			"b": Vector2i(2, 3),
+			"linked": false,
+			"rail": false,
+			"fogged": true,
+		},
 	]
 	add_child(probe)
 	probe.queue_redraw()
 	await get_tree().process_frame
-	assert_eq(probe.segments.size(), 3)
+	assert_eq(probe.segments.size(), 5)
 	probe.queue_free()
 
 
-func test_an_unsurveyed_province_draws_its_survey_ring() -> void:
+## A road that turns is one inked curve, not two tile-centre chords: the corner
+## is cut, so the stroke never passes through the grid vertex (REQ-P1-03).
+func test_a_turning_road_inks_as_one_curve_with_a_cut_corner() -> void:
+	var runs: Array[Dictionary] = RoadInk.ink_paths([
+		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
+		{"a": Vector2i(2, 1), "b": Vector2i(2, 2), "linked": true, "rail": false},
+	])
+	assert_eq(runs.size(), 1, "a linked turn is one run, not one stroke a tile")
+	var points: PackedVector2Array = runs[0]["points"]
+	assert_gt(points.size(), 4, "the corner is subdivided, not a hard vertex")
+	var corner: Vector2 = MapGeo.tile_center(2, 1, RoadInk.TILE_SIZE)
+	var nearest: float = INF
+	for point: Vector2 in points:
+		nearest = minf(nearest, point.distance_to(corner))
+	assert_gt(nearest, 1.5, "the stroke cuts the corner instead of touching the vertex")
+
+
+## A long straight run bows off the tile-centre line, so the network does not
+## read as a ruled grid (REQ-P1-03).
+func test_a_straight_road_bows_off_the_tile_centres() -> void:
+	var runs: Array[Dictionary] = RoadInk.ink_paths([
+		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
+		{"a": Vector2i(2, 1), "b": Vector2i(3, 1), "linked": true, "rail": false},
+		{"a": Vector2i(3, 1), "b": Vector2i(4, 1), "linked": true, "rail": false},
+	])
+	assert_eq(runs.size(), 1)
+	var points: PackedVector2Array = runs[0]["points"]
+	var a: Vector2 = MapGeo.tile_center(1, 1, RoadInk.TILE_SIZE)
+	var b: Vector2 = MapGeo.tile_center(4, 1, RoadInk.TILE_SIZE)
+	var bow: float = 0.0
+	for point: Vector2 in points:
+		bow = maxf(bow, absf((b - a).cross(point - a) / a.distance_to(b)))
+	assert_gt(bow, 0.3, "the stroke bows off the straight chord")
+	assert_lt(bow, 3.0, "and stays on its own tiles")
+
+
+## Two runs of different readings still meet at the tile centre they share, so a
+## road never breaks where a railroad begins.
+func test_runs_of_different_readings_still_meet_at_a_junction() -> void:
+	var runs: Array[Dictionary] = RoadInk.ink_paths([
+		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
+		{"a": Vector2i(2, 1), "b": Vector2i(3, 1), "linked": true, "rail": true},
+	])
+	assert_eq(runs.size(), 2, "a road and a railroad keep their own strokes")
+	var road: PackedVector2Array = runs[0]["points"]
+	var rail: PackedVector2Array = runs[1]["points"]
+	assert_almost_eq(road[road.size() - 1].distance_to(rail[0]), 0.0, 0.01)
+
+
+## Ground still to read is a count on the plate, so a province says how many
+## tiles an Explorer could prospect instead of only that some exist (#698).
+func test_an_unsurveyed_province_carries_its_prospect_count() -> void:
 	MapPlayInput.set_lens(_screen.play, true)
 	var lens: ResourceLens = _screen.play.lens
-	var found: Dictionary = {}
-	for raw: Variant in lens.survey["provinces"]:
-		var entry: Dictionary = raw
-		if int(entry.get("unsurveyed", 0)) > 0:
-			found = entry
-			break
+	var found: Dictionary = _first_with_ground(lens)
 	if found.is_empty():
 		return
 	assert_true(String(found["summary"]).contains("unsurveyed"))
+	var plain: float = (
+		ResourceLens.PLATE_PAD * 2.0 + ResourceLens.RIBBON
+		+ float((found["types"] as Array).size()) * ResourceLens.TYPE_COL
+	)
+	assert_almost_eq(lens._plate_size(found).x, plain + ResourceLens.CUE_W, 0.01)
+	found["unsurveyed"] = 0
+	assert_almost_eq(lens._plate_size(found).x, plain, 0.01, "no ground, no cue column")
+	found["unsurveyed"] = 1
 	lens._reveal = 1.0
 	lens.queue_redraw()
 	await get_tree().process_frame
+
+
+## The plate draws a column per type in every estate state, the badge inks amber
+## when a kind is only partly linked, and the key names the Explorer cue.
+func test_a_plate_draws_every_type_state_and_the_explorer_cue() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	var first: Dictionary = _crafted_plate(
+		1, ["producing", "vacant", "foreign", "disconnected"], 3
+	)
+	var second: Dictionary = _crafted_plate(2, ["building", "maxed", "producing", "vacant"])
+	# One kind, one estate cut off: the reading a single-estate column never makes.
+	var third: Dictionary = _crafted_plate(3, ["producing", "disconnected"], 0, "tree")
+	var saved: Dictionary = lens.survey
+	lens._reveal = 1.0
+	lens.survey = {"provinces": [first, second, third], "counts": {}, "routes": []}
+	lens._layout_plates()
+	lens.queue_redraw()
+	await get_tree().process_frame
+	assert_eq((lens._plate_rect(first).size as Vector2).y, ResourceLens.PLATE_H)
+	assert_eq(String(first["types"][0]["status"]), "producing")
+	assert_eq(String(second["types"][0]["status"]), "building")
+	assert_eq(String(third["types"][0]["badge"]), "2/1/2", "one of the two is cut off")
+	lens.survey = saved
+	lens.refresh()
+	var key: LensLegend = _screen.hud.lens_legend
+	assert_true(key.is_survey())
+	var named: bool = false
+	for row: Dictionary in LensLegend.SURVEY_ROWS:
+		if String(row["status"]) == "survey":
+			named = String(row["text"]).contains("Explorer")
+	assert_true(named, "the key still says an Explorer reads the ground")
+	key.queue_redraw()
+	await get_tree().process_frame
+
+
+## The first plate with ground still to read (empty when the chart is read).
+func _first_with_ground(lens: ResourceLens) -> Dictionary:
+	for raw: Variant in lens.survey.get("provinces", []):
+		if int((raw as Dictionary).get("unsurveyed", 0)) > 0:
+			return raw
+	return {}
+
+
+## A plate holding one estate of every kind in the states a case asks for.
+## `kind` pins every row to one emblem so a case can build a multi-estate column.
+func _crafted_plate(
+	province_id: int, statuses: Array, unsurveyed: int = 0, kind: String = ""
+) -> Dictionary:
+	var rows: Array[Dictionary] = []
+	for i in statuses.size():
+		var icon: String = kind if not kind.is_empty() else (
+			ResourceTypes.ORDER[i % ResourceTypes.ORDER.size()]
+		)
+		rows.append(_crafted_row(icon, String(statuses[i]), i))
+	var entry: Dictionary = {
+		"id": province_id, "name": "Fixture", "center": Vector2(6, 6),
+		"anchor": Vector2(6, 6), "owner": _screen.player_faction, "capital": false,
+		"charted": VisibilityModel.Level.FULLY_VISIBLE, "rows": rows,
+		"counts": {}, "output": {}, "output_text": "", "tile_owners": [],
+		"unsurveyed": unsurveyed,
+	}
+	entry["types"] = ResourceTypes.rows(entry)
+	entry["summary"] = ResourceSurvey.summary_text(entry)
+	return entry
+
+
+## One crafted estate row in the state a case asks for.
+func _crafted_row(kind: String, status: String, index: int) -> Dictionary:
+	var maxed: bool = status == "maxed"
+	return {
+		"icon": kind, "ours": status != "foreign", "status": status,
+		"level": ImprovementCatalog.MAX_LEVEL if maxed else (
+			1 if status in ["producing", "disconnected"] else 0
+		),
+		"connected": status != "disconnected", "tile": Vector2i(index, index),
+		"commodity": "timber",
+	}
 
 
 ## Every resource kind owns its commodity ink, so the lens never paints a coin,
@@ -275,17 +414,10 @@ class _EmblemProbe extends Node2D:
 
 ## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.
 class _RoadInkProbe extends Node2D:
-	var font: Font = null
 	var segments: Array = []
-	var links: Array = []
 
 	func _draw() -> void:
 		RoadInk.draw_routes(self, segments, 1.0)
-		for raw: Variant in links:
-			var link: Dictionary = raw
-			RoadInk.draw_link(
-				self, font, link["counts"], link["origin"], 40.0, 1.0
-			)
 
 
 # --- helpers -----------------------------------------------------------------

@@ -7,10 +7,13 @@ extends MapLens
 ## tile that is still unknown is never surveyed.
 
 const EMBLEM: float = 16.0
-const EMBLEM_GAP: float = 8.0
+## One column per resource type: its emblem over its badge, so a province's
+## reading never depends on how many tiles it happens to hold.
+const TYPE_COL: float = 34.0
+## The Explorer cue's own column, when the province still has ground to read.
+const CUE_W: float = 26.0
 const PLATE_PAD: float = 7.0
 const RIBBON: float = 5.0
-const BADGE_W: float = 28.0
 const PLATE_H: float = 44.0
 const LABEL_DROP: float = 28.0
 
@@ -27,6 +30,10 @@ var _animating: bool = false
 ## nothing (`source_key`).
 var _baked_key: int = 0
 var _baked: bool = false
+## The road strokes, traced and smoothed once per refresh: the lens repaints on
+## a work in progress, and re-tracing the network every frame would be wasted
+## ink (REQ-P4-01).
+var _runs: Array = []
 
 
 func build(
@@ -60,6 +67,7 @@ func watch(civilians: CivilianLayer, fog: MapOverlay) -> void:
 func refresh() -> void:
 	if model == null or works == null:
 		survey = {}
+		_runs = []
 		_baked = false
 		_animating = false
 		queue_redraw()
@@ -79,6 +87,7 @@ func refresh() -> void:
 	survey["routes"] = ResourceRoutes.snapshot(
 		model, works, faction, capital_tile, visibility
 	)["segments"]
+	_runs = RoadInk.ink_paths(survey["routes"])
 	_animating = false
 	for raw: Variant in survey.get("provinces", []):
 		for raw_row: Variant in (raw as Dictionary)["rows"]:
@@ -117,15 +126,15 @@ func _draw() -> void:
 		return
 	if _font == null:
 		_font = UiTheme.serif()
-	RoadInk.draw_routes(self, survey.get("routes", []), _reveal)
+	RoadInk.draw_runs(self, _runs, _reveal)
 	var provinces: Array = survey.get("provinces", [])
 	for raw: Variant in provinces:
 		_draw_plate(raw)
 
 
 func _draw_plate(entry: Dictionary) -> void:
-	var rows: Array = entry["rows"]
-	if rows.is_empty():
+	var types: Array = entry.get("types", [])
+	if types.is_empty():
 		return
 	var rect: Rect2 = _plate_rect(entry)
 	var alpha: float = _reveal * _charted_alpha(int(entry["charted"]))
@@ -152,41 +161,12 @@ func _draw_plate(entry: Dictionary) -> void:
 		Rect2(rect.position + Vector2(2, 4), Vector2(2.4, rect.size.y - 8)), ribbon
 	)
 
-	var row_count: int = mini(rows.size(), 3)
-	var extra: int = rows.size() - row_count
+	# One column a type: the emblem, then the badge that counts its estates.
 	var left: float = rect.position.x + PLATE_PAD + RIBBON
-	for i in row_count:
-		var row: Dictionary = rows[i]
-		var center := Vector2(
-			left + i * (EMBLEM + EMBLEM_GAP) + EMBLEM * 0.5,
-			rect.position.y + 12.5
-		)
-		_draw_emblem(row, center, alpha)
-	if extra > 0:
-		draw_string(
-			_font,
-			Vector2(left + row_count * (EMBLEM + EMBLEM_GAP), rect.position.y + 17.0),
-			"+%d" % extra, HORIZONTAL_ALIGNMENT_CENTER, 18.0, 11,
-			Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.62 * alpha)
-		)
-	_draw_meter(entry, rect, alpha)
-	_draw_badge(entry, rect, alpha)
-	# Ground still to read: a dotted survey ring on the slip's corner, the same
-	# ink the key names (DR-20261111-26).
-	if int(entry.get("unsurveyed", 0)) > 0:
-		var mark: Vector2 = Vector2(rect.end.x - PLATE_PAD - 5.0, rect.end.y - 6.0)
-		var survey_ink: Color = Palette.survey_color("survey")
-		for i in 6:
-			var angle: float = TAU * float(i) / 6.0
-			draw_circle(
-				mark + Vector2(cos(angle), sin(angle)) * 4.0, 1.0,
-				Color(survey_ink.r, survey_ink.g, survey_ink.b, 0.90 * alpha)
-			)
-	RoadInk.draw_link(
-		self, _font, entry["counts"],
-		Vector2(rect.position.x + PLATE_PAD + RIBBON, rect.position.y + 37.0),
-		rect.size.x - PLATE_PAD * 2.0 - RIBBON, alpha
-	)
+	var top: float = rect.position.y + 4.0
+	for i in types.size():
+		_draw_type(types[i], Rect2(left + float(i) * TYPE_COL, top, TYPE_COL, 38.0), alpha)
+	_draw_prospect_cue(entry, rect, alpha)
 	if int(entry["id"]) == hover_province:
 		draw_rect(
 			Rect2(
@@ -197,17 +177,18 @@ func _draw_plate(entry: Dictionary) -> void:
 		)
 
 
-func _draw_emblem(row: Dictionary, center: Vector2, alpha: float) -> void:
+## One type's column: the emblem ringed in the state its estates stand in, and
+## under it `built/linked/held`. The emblem's fill stays the commodity ink, so
+## the kind reads without repainting it (REQ-P1-08).
+func _draw_type(row: Dictionary, column: Rect2, alpha: float) -> void:
 	var status: String = String(row["status"])
-	# Status ink rings the emblem; the commodity ink fills it, so the estate's
-	# state reads without painting every kind the same hue (REQ-P1-08).
+	var center := Vector2(column.position.x + column.size.x * 0.5, column.position.y + 8.5)
 	var ring: Color = _status_tint(status)
 	ring.a *= alpha
 	var tint: Color = Palette.emblem_ink(String(row["icon"]), status)
 	tint.a *= alpha
 	var radius: float = 9.2
-	var worked: bool = int(row["level"]) > 0
-	if worked:
+	if int(row["developed"]) > 0:
 		draw_circle(center, radius - 0.8, Color(tint.r, tint.g, tint.b, 0.16 * alpha))
 	MapGlyphs.resource(self, String(row["icon"]), center, EMBLEM * 0.82, tint)
 	match status:
@@ -217,53 +198,49 @@ func _draw_emblem(row: Dictionary, center: Vector2, alpha: float) -> void:
 				center + Vector2(radius * 0.7, -radius * 0.7), ring, 1.5, true)
 		_:
 			draw_arc(center, radius, 0, TAU, 22, ring, 1.6, true)
-	if status == "building" or status == "foreign_building":
+	if status == "building":
 		var spin: float = _pulse * 2.4
 		draw_arc(center, radius + 2.4, spin, spin + 1.5, 10, ring, 1.2, true)
-	# One gold pip per completed level, so a worked estate reads at a glance.
-	var level: int = mini(int(row["level"]), ImprovementCatalog.MAX_LEVEL)
-	for i in level:
-		var pip := Rect2(
-			center + Vector2(-7.0 + i * 4.2, radius - 1.2), Vector2(2.6, 2.6)
-		)
-		draw_rect(pip, Color(Palette.GOLD.r, Palette.GOLD.g, Palette.GOLD.b, alpha))
-
-
-func _draw_meter(entry: Dictionary, rect: Rect2, alpha: float) -> void:
-	var counts: Dictionary = entry["counts"]
-	var total: int = int(counts["estates"])
-	if total <= 0:
-		return
-	var span: float = rect.size.x - PLATE_PAD * 2.0 - RIBBON
-	var start := Vector2(rect.position.x + PLATE_PAD + RIBBON, rect.position.y + 24.0)
-	var track := Rect2(start, Vector2(span, 3.0))
-	draw_rect(track, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.20 * alpha))
-	var worked: int = int(counts["worked"])
-	if worked <= 0:
-		return
-	var fill: Color = Palette.SURVEY_YIELDING if worked >= total else Palette.SURVEY_BUILDING
-	fill.a *= alpha
-	draw_rect(
-		Rect2(start, Vector2(span * float(worked) / float(total), 3.0)), fill
-	)
-
-
-func _draw_badge(entry: Dictionary, rect: Rect2, alpha: float) -> void:
-	var counts: Dictionary = entry["counts"]
-	var total: int = int(counts["estates"])
-	var worked: int = int(counts["worked"])
-	var tint: Color = Palette.SURVEY_VACANT
-	if worked >= total:
-		tint = Palette.SURVEY_YIELDING
-	elif worked > 0:
-		tint = Palette.SURVEY_BUILDING
-	tint.a *= alpha
+	var badge: Color = _link_tint(int(row["developed"]), int(row["linked"]))
+	badge.a *= alpha
 	draw_string(
-		_font,
-		Vector2(rect.end.x - PLATE_PAD - BADGE_W, rect.position.y + 20.0),
-		"%d/%d" % [worked, total],
-		HORIZONTAL_ALIGNMENT_CENTER, BADGE_W, 15, tint
+		_font, Vector2(column.position.x, column.position.y + 26.0),
+		String(row["badge"]), HORIZONTAL_ALIGNMENT_CENTER, column.size.x, 10, badge
 	)
+
+
+## Ground still to read: the Explorer's own compass mark and the tiles it could
+## prospect, in its own column so the count never collides with a type's badge
+## (issue #698). Hidden when the province has nothing left to survey.
+func _draw_prospect_cue(entry: Dictionary, rect: Rect2, alpha: float) -> void:
+	var left: int = int(entry.get("unsurveyed", 0))
+	if left <= 0:
+		return
+	var column := Rect2(
+		rect.end.x - PLATE_PAD - CUE_W, rect.position.y + 4.0, CUE_W, 38.0
+	)
+	var ink := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.74 * alpha)
+	var needle: Color = Palette.survey_color("survey")
+	needle.a *= alpha
+	var center := Vector2(column.position.x + column.size.x * 0.5, column.position.y + 8.5)
+	CivicGlyphs.explorer(self, center, 13.0, ink, needle)
+	draw_string(
+		_font, Vector2(column.position.x, column.position.y + 26.0), str(left),
+		HORIZONTAL_ALIGNMENT_CENTER, column.size.x, 10, needle
+	)
+
+
+## The badge's ink speaks the same reading the link row used to: green when a
+## type's built estates all reach the crown, amber when some do, crimson when
+## they are all cut off, and quiet ink while nothing is built.
+func _link_tint(developed: int, linked: int) -> Color:
+	if developed <= 0:
+		return Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.46)
+	if linked >= developed:
+		return Palette.SURVEY_YIELDING
+	if linked > 0:
+		return Palette.SURVEY_BUILDING
+	return Palette.SURVEY_VACANT
 
 
 # --- layout ------------------------------------------------------------------
@@ -282,12 +259,10 @@ func _pack_drop(_entry: Dictionary) -> float:
 
 
 func _plate_size(entry: Dictionary) -> Vector2:
-	var estates: int = (entry["rows"] as Array).size()
-	var count: int = mini(estates, 3)
-	var width: float = PLATE_PAD * 2.0 + RIBBON + count * EMBLEM
-	width += float(maxi(count - 1, 0)) * EMBLEM_GAP + BADGE_W
-	if estates > count:
-		width += 18.0
+	var types: int = maxi((entry.get("types", []) as Array).size(), 1)
+	var width: float = PLATE_PAD * 2.0 + RIBBON + float(types) * TYPE_COL
+	if int(entry.get("unsurveyed", 0)) > 0:
+		width += CUE_W
 	return Vector2(width, PLATE_H)
 
 

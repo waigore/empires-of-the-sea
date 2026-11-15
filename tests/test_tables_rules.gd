@@ -54,6 +54,25 @@ func test_is_compatible_with_matching_major() -> void:
 func test_is_compatible_with_rejects_other_major() -> void:
 	assert_false(GameVersion.is_compatible_with(GameVersion.MAJOR + 1))
 
+func test_menu_caption_is_version_only_when_identity_empty() -> void:
+	assert_eq(BuildIdentity.GIT_SHA, "")
+	assert_eq(BuildIdentity.COMMIT_UTC, "")
+	assert_eq(GameVersion.menu_caption(), "version 0.1.0")
+	assert_eq(
+		GameVersion.format_menu_caption("0.1.0", "", "20261115-0804"),
+		"version 0.1.0",
+		"UTC alone is not enough for the build suffix"
+	)
+
+func test_menu_caption_appends_baked_sha_and_utc() -> void:
+	assert_eq(
+		GameVersion.format_menu_caption("0.1.0", "a1b2c3d", "20261115-0804"),
+		"version 0.1.0 · a1b2c3d · 20261115-0804"
+	)
+
+func test_build_identity_is_baked_only_with_both_fields() -> void:
+	assert_false(BuildIdentity.is_baked())
+
 func test_turn_one_is_start_year() -> void:
 	assert_eq(TurnTime.year_for_turn(1), 1500)
 

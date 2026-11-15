@@ -61,6 +61,9 @@ static func snapshot(
 		entry["unsurveyed"] = MineralSurvey.unsurveyed_in_province(
 			model, works, owner, province.id, visibility
 		).size()
+		# One row per resource type: the plate reads a province by the kinds it
+		# holds, not by its first three tiles (issue #698).
+		entry["types"] = ResourceTypes.rows(entry)
 		entry["summary"] = summary_text(entry)
 		result["provinces"].append(entry)
 		_summarise(result, entry)
@@ -91,31 +94,18 @@ static func province_rows(
 	)
 
 
-## Short line for the hover tooltip while the lens is on.
+## Short line for the hover tooltip while the lens is on: every type with its
+## badge, then the ground still to read.
 static func summary_text(entry: Dictionary) -> String:
 	if entry.is_empty():
 		return ""
-	var counts: Dictionary = entry["counts"]
+	var types: Array = entry.get("types", [] as Array)
+	if types.is_empty():
+		types = ResourceTypes.rows(entry)
 	var parts: PackedStringArray = PackedStringArray()
-	var worked: int = int(counts["worked"])
-	var estates: int = int(counts["estates"])
-	if worked > 0:
-		parts.append("%d/%d worked" % [worked, estates])
-	if int(counts["producing"]) > 0 and int(counts["producing"]) != worked:
-		parts.append("%d yielding" % int(counts["producing"]))
-	var developed: int = int(counts.get("developed", 0))
-	if developed > 0:
-		parts.append(
-			"%d of %d linked to the crown" % [int(counts.get("linked", 0)), developed]
-		)
-	if int(counts["building"]) > 0:
-		parts.append("%d under works" % int(counts["building"]))
-	if int(counts["vacant"]) > 0:
-		parts.append("%d vacant" % int(counts["vacant"]))
-	if int(counts["blocked"]) > 0:
-		parts.append("%d blocked" % int(counts["blocked"]))
-	if int(counts["foreign"]) > 0:
-		parts.append("%d foreign" % int(counts["foreign"]))
+	for raw: Variant in types:
+		var type_row: Dictionary = raw
+		parts.append("%s %s" % [String(type_row["name"]), String(type_row["badge"])])
 	var unsurveyed: int = int(entry.get("unsurveyed", 0))
 	if unsurveyed > 0:
 		parts.append("%d unsurveyed" % unsurveyed)

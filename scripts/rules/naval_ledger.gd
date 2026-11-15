@@ -154,11 +154,7 @@ static func summary(
 
 
 static func scope_text(region_key: String) -> String:
-	if region_key == LedgerRows.REGION_OLD:
-		return "in the Old World"
-	if region_key == LedgerRows.REGION_NEW:
-		return "in the New World"
-	return "in both charts"
+	return LedgerRows.scope_text(region_key)
 
 
 ## The rule a crown pays by sits on the sheet, never in a hover: a merchant
@@ -266,12 +262,7 @@ static func _count(by_region: Dictionary, region: int, role: String) -> void:
 static func _fleets_of(
 	fleet_regions: MapRegionTable, region: int, faction: int
 ) -> Array[FleetState]:
-	var fleets: Array[FleetState] = []
-	for raw: Variant in LedgerRows.stored_rows(fleet_regions, region):
-		var fleet := raw as FleetState
-		if fleet != null and fleet.owner == faction:
-			fleets.append(fleet)
-	return fleets
+	return LedgerRows.stored_fleets(fleet_regions, region, faction)
 
 
 static func _empty(

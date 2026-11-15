@@ -1,18 +1,12 @@
 class_name NavalLedgerPanel
-extends SheetFrame
+extends LedgerSheet
 ## The crown's navy: every hull the crown floats in both charts, read squadron by
 ## squadron — her class, her guns, the holds she carries and where she sails
 ## (wiki: ships-and-naval § Ship combat and cargo stats; DR-20261115-14). The
 ## projection lives in [NavalLedger]; this sheet only renders headings and rows
 ## and asks MapPlayForceLedger to jump to a hull's squadron (REQ-P3-02,
-## REQ-P3-03). The sheet chrome, fade and pause-door park come from SheetFrame.
-
-var _rows: VBoxContainer = null
-var _empty: Label = null
-var _bar: LedgerFilterBar = null
-var _region: String = LedgerRows.REGION_ALL
-var _reading: String = NavalLedger.READING_ALL
-var _snapshot: Dictionary = {}
+## REQ-P3-03). The sheet chrome, fade and pause-door park come from SheetFrame;
+## the chips, rows and empty notice from LedgerSheet.
 
 
 func _init() -> void:
@@ -59,56 +53,32 @@ func _can_open() -> bool:
 
 
 func _build_body(column: VBoxContainer) -> void:
-	_bar = LedgerFilterBar.new()
-	_bar.fill(
-		"Chart", "Hull", LedgerRows.REGION_FILTERS, NavalLedger.READINGS,
-		NavalLedger.reading_label
+	_build_filter_body(
+		column, "Chart", "Hull", NavalLedger.READINGS, NavalLedger.reading_label, _hull_note
 	)
-	_bar.chosen.connect(_on_filter)
-	column.add_child(_bar)
-	# The rule a crown buys hulls by sits on the sheet, not in a hover: a phone
-	# hides the footer hint (REQ-P1-07, REQ-P5-03).
+
+
+## The rule a crown buys hulls by sits on the sheet, not in a hover: a phone
+## hides the footer hint (REQ-P1-07, REQ-P5-03).
+func _hull_note() -> Control:
 	var note := UiRowBuilder.label(NavalLedger.note(), 11, Palette.TEXT_DIM)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(note)
-
-	_rows = VBoxContainer.new()
-	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_rows.add_theme_constant_override("separation", 5)
-	_append_scroll(column).add_child(_rows)
-	_empty = _make_empty(_rows)
-
-
-func _on_profile_changed() -> void:
-	if visible and not _snapshot.is_empty():
-		_apply_filter()
-
-
-# --- filters -----------------------------------------------------------------
-
-
-func _on_filter(key: String, region_row: bool) -> void:
-	if region_row:
-		_region = key
-	else:
-		_reading = key
-	refresh()
+	return note
 
 
 # --- rows --------------------------------------------------------------------
 
 
 func _apply_filter() -> void:
-	_bar.render(_region, _reading)
-	_subtitle.text = NavalLedger.summary(_snapshot, _region, _reading)
+	var groups: Array[Dictionary] = NavalLedger.groups(_snapshot, _region, _reading)
 	var shown: int = NavalLedger.count(_snapshot, _region, _reading)
-	_empty.visible = shown == 0
-	if shown == 0:
-		_empty.text = _empty_text()
-		return
-	LedgerList.fill(
-		_rows, _empty, NavalLedger.groups(_snapshot, _region, _reading), _heading, _make_row
-	)
+	_paint_filtered(groups, shown, _heading, _make_row)
+
+
+## The count line the navy prints: the view against the chart it is read in,
+## with the fleet's own totals when every hull is shown (REQ-P5-05).
+func _subtitle_text(_shown: int) -> String:
+	return NavalLedger.summary(_snapshot, _region, _reading)
 
 
 ## One squadron's heading: where she sails and the station she holds, then the

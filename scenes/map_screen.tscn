@@ -107,8 +107,10 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("6_hud")
 
-[node name="Improvements" type="Control" parent="HUD"]
-z_index = 20
+[node name="EstatesLayer" type="CanvasLayer" parent="."]
+layer = 6
+
+[node name="Improvements" type="Control" parent="EstatesLayer"]
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0

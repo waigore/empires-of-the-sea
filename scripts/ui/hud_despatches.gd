@@ -92,11 +92,6 @@ func fit(compact: bool, bar_bottom: float, left_rail: float) -> void:
 	clear_plate()
 
 
-## A plate covers the masthead (the Gazette): stack the news under its foot.
-func push_below(top: float) -> void:
-	_set_top(maxf(top, _resting_top))
-
-
 ## The plate stepped aside: the lane returns to the top its layout assigned.
 func clear_plate() -> void:
 	_set_top(_resting_top)
