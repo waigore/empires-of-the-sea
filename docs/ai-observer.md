@@ -32,10 +32,9 @@ Standard, `--ai=bench`). A run that outgrows the budget is a defect, not a slow
 machine; the harness prints what it spent and names `OVER BUDGET` on stderr.
 
 What keeps a headless run inside it (keep these when editing): `view_live =
-false` skips the chart, dossier and panel follow-up (rules outcome unchanged),
-and the grouped estate ledger reads the network walk the ledger already made
-instead of re-seeding a BFS per disconnected tile. A new per-turn full-map scan
-is what pushes a run over budget.
+false` skips the chart, dossier and panel follow-up (rules unchanged), and the
+grouped estate ledger reuses the ledger's network walk instead of a BFS per
+disconnected tile. A new per-turn full-map scan is what pushes a run over budget.
 
 Local bench needs mainline planners once: `python tools/sync_ai_mainline.py`.
 
@@ -55,6 +54,8 @@ The hill scores **only the subject**.
 `MapPlayObserver.snapshot` reports per crown: leader, agenda, profile,
 `court_kind`, war footing, provinces / victory progress, power, forces (hulls,
 warships, holds), ledger, wars, last-turn order mix and the market's prices.
+The market row also carries `minor_food` (the book's food tonnage),
+`ration_demand` (every court's appetite) and `food_gap` (#766).
 Dashboard: orders feed, pause / step / speed, campaign result. `play.ai_turns`
 keeps one merged record per turn (wiki: turn-trace-interpretation).
 
@@ -64,12 +65,12 @@ keeps one merged record per turn (wiki: turn-trace-interpretation).
 (`ai_mode` / `ai_live` / `ai_baselines`) and prints a win-rate table.
 
 It then prints the **coverage checklist** (`AiCoverage`): every shipped rival
-rule — its order row in the turn trace, or the ledger aim that prices it —
-with count, crowns and window that prove it, and a `never`/`gated` reading when
-none did. `army.muster` and `navy.launch` also report aim ranked vs funded, so a
-rule asked for and never paid for reads starved. A **major** rule left
-never-exercised fails a `--ai=full` run that reached its cap; a bench run, or one
-cut short by victory, only prints the checklist (#605).
+rule — its order row or the ledger aim that prices it — with count, crowns and
+window, and a `never`/`gated` reading when none did. `army.muster` and
+`navy.launch` also report aim ranked vs funded, so a rule asked for and never
+paid for reads starved. A **major** rule left never-exercised fails a `--ai=full`
+run that reached its cap; a bench run or one cut short by victory only prints it
+(#605).
 
 ## Scope
 
