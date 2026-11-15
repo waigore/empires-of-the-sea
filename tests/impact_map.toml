@@ -2020,6 +2020,14 @@ domain = "ai_economy"
 match = "scripts/map/map_play_objectives_ai.gd*"
 domain = "ai_ledger"
 
+# One voyage eligibility read by the colonisation planner, the crossing force,
+# the objective ledger and the civilian pass (REQ-P3-01). The two suites that
+# drive those passes prove it, so a predicate change never pulls the broad
+# scripts/rules misc fan-out.
+[[rules]]
+match = "scripts/rules/voyage_read.gd*"
+domain = "ai_works"
+
 [[rules]]
 match = "tests/test_ai_rules.gd*"
 domain = "ai_ledger"

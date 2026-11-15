@@ -167,7 +167,9 @@ static func _readings(
 		"goal": AiIncome.goal_for(
 			config, economy, at_war, regiments, hull_chest, warships
 		),
-		"colony_target": home == WorldMap.OLD_WORLD and not _owns_land(new_world, faction),
+		"colony_target": home == WorldMap.OLD_WORLD and not VoyageRead.owns_land(
+			new_world, faction
+		),
 		"harbour": home >= 0 and AiColonisationPlanner.harbour(
 			play.world.region(home), faction
 		) >= 0,
@@ -298,15 +300,9 @@ static func _idle_hulls(play: PlaySession, faction: int) -> int:
 		return 0
 	var total: int = 0
 	for region: int in play.ship_layer.regions.region_ids():
-		for raw: Variant in MapPlayCourt.region_fleets(play, region):
-			var fleet: FleetState = raw
-			if fleet == null or fleet.owner != faction or fleet.moved:
-				continue
-			if not fleet.is_afloat() or fleet.embarked_army >= 0:
-				continue
-			if fleet.carries_civilians():
-				continue
-			total += 1
+		total += VoyageRead.free_count(
+			MapPlayCourt.region_fleets(play, region), faction
+		)
 	return total
 
 
@@ -318,14 +314,9 @@ static func _explorer_ready(play: PlaySession, faction: int) -> bool:
 	var home: int = FactionCatalog.region_of(faction)
 	if home < 0:
 		return false
-	for raw: Variant in play.civilian_layer.regions.value(home, []):
-		var unit: CivilianState = raw
-		if unit == null or unit.owner != faction or unit.type_id != "explorer":
-			continue
-		if unit.is_working() or unit.moved or unit.is_embarked():
-			continue
-		return true
-	return false
+	return VoyageRead.idle_colonist(
+		play.civilian_layer.regions.value(home, []), faction, "explorer"
+	) != null
 
 
 ## True while an expedition of this court is already at sea (a protected claim
@@ -334,10 +325,10 @@ static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
 	if play.ship_layer == null:
 		return false
 	for region: int in play.ship_layer.regions.region_ids():
-		for raw: Variant in MapPlayCourt.region_fleets(play, region):
-			var fleet: FleetState = raw
-			if fleet != null and fleet.owner == faction and fleet.carries_civilians():
-				return true
+		if VoyageRead.carrying(
+			MapPlayCourt.region_fleets(play, region), faction
+		) != null:
+			return true
 	return false
 
 
@@ -380,7 +371,7 @@ static func _voyage_stranded(play: PlaySession, faction: int) -> bool:
 		if region == home:
 			continue
 		var model: MapModel = play.world.region(region)
-		if model == null or _owns_land(model, faction):
+		if model == null or VoyageRead.owns_land(model, faction):
 			continue
 		for raw: Variant in play.civilian_layer.regions.value(region, []):
 			var unit: CivilianState = raw
@@ -388,13 +379,4 @@ static func _voyage_stranded(play: PlaySession, faction: int) -> bool:
 				continue
 			if unit.type_id == "explorer" and not unit.is_embarked():
 				return true
-	return false
-
-
-static func _owns_land(model: MapModel, faction: int) -> bool:
-	if model == null:
-		return false
-	for province: ProvinceState in model.provinces:
-		if province.owner == faction:
-			return true
 	return false

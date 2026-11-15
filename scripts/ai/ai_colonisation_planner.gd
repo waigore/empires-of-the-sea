@@ -47,7 +47,7 @@ static func plan(
 	var target: int = _target_region(world, home, owner)
 	if target < 0:
 		return {}
-	var fleet: FleetState = _carrying_fleet(fleets, owner)
+	var fleet: FleetState = VoyageRead.carrying(fleets, owner, true)
 	if fleet != null:
 		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
 		if carried == null:
@@ -66,7 +66,7 @@ static func plan(
 	var unit: CivilianState = _voyage_unit(civilians, owner, world, target, abroad)
 	if unit == null:
 		return {}
-	fleet = _idle_fleet(fleets, owner)
+	fleet = VoyageRead.free_squadron(fleets, owner)
 	if fleet == null:
 		return {}
 	return _board_step(model, fleet, unit, charts)
@@ -95,19 +95,9 @@ static func harbour(model: MapModel, owner: int) -> int:
 static func _target_region(world: WorldMap, home: int, owner: int) -> int:
 	if home == WorldMap.OLD_WORLD:
 		return WorldMap.NEW_WORLD
-	if _owns_land_in(world, WorldMap.OLD_WORLD, owner):
+	if VoyageRead.owns_land_in(world, WorldMap.OLD_WORLD, owner):
 		return WorldMap.OLD_WORLD
 	return -1
-
-
-static func _owns_land_in(world: WorldMap, region: int, owner: int) -> bool:
-	var model: MapModel = world.region(region)
-	if model == null:
-		return false
-	for province: ProvinceState in model.provinces:
-		if province.owner == owner:
-			return true
-	return false
 
 
 ## First idle civilian the court should send, or null. A crown that owns land
@@ -117,56 +107,13 @@ static func _owns_land_in(world: WorldMap, region: int, owner: int) -> bool:
 static func _voyage_unit(
 	civilians: Array, owner: int, world: WorldMap, target: int, abroad: Dictionary
 ) -> CivilianState:
-	if _owns_land_in(world, target, owner):
-		var builder: CivilianState = _idle_colonist(civilians, owner, "builder")
+	if VoyageRead.owns_land_in(world, target, owner):
+		var builder: CivilianState = VoyageRead.idle_colonist(civilians, owner, "builder")
 		if builder != null:
 			return builder
 	if int(abroad.get("explorer", 0)) > 0:
 		return null
-	return _idle_colonist(civilians, owner, "explorer")
-
-
-## First free civilian of one type: not working, not already abroad, not spent
-## this turn. Lowest id, so the same state always sends the same colonist.
-static func _idle_colonist(
-	civilians: Array, owner: int, type_id: String
-) -> CivilianState:
-	for raw: Variant in civilians:
-		var unit: CivilianState = raw
-		if unit == null or unit.owner != owner or unit.type_id != type_id:
-			continue
-		if unit.is_working() or unit.moved or unit.is_embarked():
-			continue
-		return unit
-	return null
-
-
-## Lowest-id squadron that can still move; an expedition keeps the same hulls
-## for the whole crossing.
-static func _idle_fleet(fleets: Array, owner: int) -> FleetState:
-	var best: FleetState = null
-	for raw: Variant in fleets:
-		var fleet: FleetState = raw
-		if fleet == null or fleet.owner != owner or fleet.moved:
-			continue
-		if not fleet.is_afloat() or fleet.embarked_army >= 0:
-			continue
-		if best == null or fleet.id < best.id:
-			best = fleet
-	return best
-
-
-static func _carrying_fleet(fleets: Array, owner: int) -> FleetState:
-	var best: FleetState = null
-	for raw: Variant in fleets:
-		var fleet: FleetState = raw
-		if fleet == null or fleet.owner != owner or fleet.moved:
-			continue
-		if not fleet.carries_civilians():
-			continue
-		if best == null or fleet.id < best.id:
-			best = fleet
-	return best
+	return VoyageRead.idle_colonist(civilians, owner, "explorer")
 
 
 ## Boards at the crown's own harbour. The squadron is sent to that port — not to
@@ -251,9 +198,7 @@ static func _stranded_fleet(fleets: Array, owner: int) -> FleetState:
 		var fleet: FleetState = raw
 		if fleet == null or fleet.owner != owner or fleet.moved:
 			continue
-		if not fleet.is_at_sea() or fleet.embarked_army >= 0:
-			continue
-		if fleet.carries_civilians():
+		if not fleet.is_at_sea() or not VoyageRead.is_free(fleet):
 			continue
 		if best == null or fleet.id < best.id:
 			best = fleet

@@ -302,11 +302,8 @@ static func _has_free_squadron(play: PlaySession, region: int, owner: int) -> bo
 		var fleet: FleetState = raw
 		if fleet == null or fleet.owner != owner:
 			continue
-		if not fleet.is_afloat() or fleet.embarked_army >= 0:
-			continue
-		if fleet.carries_civilians():
-			continue
-		return true
+		if VoyageRead.is_free(fleet):
+			return true
 	return false
 
 

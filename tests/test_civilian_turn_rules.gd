@@ -293,6 +293,106 @@ func test_a_passenger_follows_a_renumbered_or_merged_seat() -> void:
 	assert_eq(layer.units.size(), 2)
 	layer.free()
 
+# --- voyage_read ---
+
+func test_a_free_squadron_has_hulls_and_no_passengers() -> void:
+	_setup_civilian_voyage()
+	var fleet: FleetState = _fleet()
+	assert_true(VoyageRead.is_free(fleet))
+
+	fleet.embarked_army = 3
+	assert_false(VoyageRead.is_free(fleet), "an army aboard is no free hull")
+
+	var laden: FleetState = _fleet()
+	laden.add_civilian(7)
+	assert_false(VoyageRead.is_free(laden), "a colonist aboard is no free hull")
+	assert_false(
+		VoyageRead.is_free(FleetState.empty_in_port(9, 0, 0)), "a slip has no hull"
+	)
+	assert_false(VoyageRead.is_free(null))
+
+func test_the_free_squadron_is_the_lowest_id_that_still_moves() -> void:
+	_setup_civilian_voyage()
+	var first: FleetState = FleetState.in_port(3, 0, 0, ["a"], {"a": "fluyte"})
+	var spent: FleetState = FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	spent.moved = true
+	var foreign: FleetState = FleetState.in_port(1, 1, 0, ["a"], {"a": "fluyte"})
+
+	var found: FleetState = VoyageRead.free_squadron([first, spent, foreign], 0)
+
+	assert_eq(found.id, 3)
+	assert_eq(VoyageRead.free_squadron([spent], 0), null, "a spent move is no hull")
+
+func test_the_roomiest_squadron_carries_the_most_hulls() -> void:
+	_setup_civilian_voyage()
+	var small: FleetState = FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	var large: FleetState = FleetState.in_port(
+		3, 0, 0, ["a", "b", "c"], {"a": "fluyte", "b": "fluyte", "c": "fluyte"}
+	)
+	var spent: FleetState = FleetState.in_port(
+		4, 0, 0, ["a", "b", "c", "d"], {"a": "fluyte"}
+	)
+	spent.moved = true
+
+	assert_eq(VoyageRead.roomiest([small, large, spent], 0).id, 3)
+
+func test_the_free_hull_count_skips_spent_and_laden_hulls() -> void:
+	_setup_civilian_voyage()
+	var free_a: FleetState = FleetState.in_port(1, 0, 0, ["a"], {"a": "fluyte"})
+	var free_b: FleetState = FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	var spent: FleetState = FleetState.in_port(3, 0, 0, ["a"], {"a": "fluyte"})
+	spent.moved = true
+	var laden: FleetState = FleetState.in_port(4, 0, 0, ["a"], {"a": "fluyte"})
+	laden.add_civilian(7)
+	var foreign: FleetState = FleetState.in_port(5, 1, 0, ["a"], {"a": "fluyte"})
+
+	assert_eq(
+		VoyageRead.free_count([free_a, free_b, spent, laden, foreign, null], 0), 2
+	)
+
+func test_a_loaded_squadron_is_read_with_or_without_its_move() -> void:
+	_setup_civilian_voyage()
+	var spent: FleetState = FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	spent.add_civilian(7)
+	spent.moved = true
+	var waiting: FleetState = FleetState.in_port(4, 0, 0, ["a"], {"a": "fluyte"})
+	waiting.add_civilian(8)
+
+	assert_eq(VoyageRead.carrying([waiting, spent], 0).id, 2)
+	assert_eq(VoyageRead.carrying([waiting, spent], 0, true).id, 4)
+	assert_eq(VoyageRead.carrying([waiting], 1), null)
+
+func test_the_idle_colonist_has_not_worked_moved_or_embarked() -> void:
+	_setup_civilian_voyage()
+	var worked: CivilianState = CivilianState.create(2, 0, "explorer", Vector2i(0, 0))
+	worked.start_work("prospect", Vector2i(0, 0), 2)
+	var spent: CivilianState = CivilianState.create(3, 0, "explorer", Vector2i(0, 0))
+	spent.moved = true
+	var aboard: CivilianState = CivilianState.create(4, 0, "explorer", Vector2i(0, 0))
+	aboard.embarked_fleet = 5
+	var idle: CivilianState = CivilianState.create(6, 0, "explorer", Vector2i(1, 0))
+	var builder: CivilianState = CivilianState.create(1, 0, "builder", Vector2i(0, 0))
+
+	var found: CivilianState = VoyageRead.idle_colonist(
+		[worked, spent, aboard, builder, idle], 0, "explorer"
+	)
+
+	assert_eq(found.id, 6)
+	assert_eq(VoyageRead.idle_colonist([], 0, "explorer"), null)
+
+func test_owns_land_reads_the_provinces_and_their_region() -> void:
+	_setup_civilian_voyage()
+	var world := WorldMap.new()
+	world.add_region(_model)
+
+	assert_true(VoyageRead.owns_land(_model, 0))
+	assert_true(VoyageRead.owns_land(_model, 1))
+	assert_false(VoyageRead.owns_land(_model, 9))
+	assert_false(VoyageRead.owns_land(null, 0))
+	assert_true(VoyageRead.owns_land_in(world, WorldMap.OLD_WORLD, 0))
+	assert_false(VoyageRead.owns_land_in(world, WorldMap.NEW_WORLD, 0))
+	assert_false(VoyageRead.owns_land_in(null, WorldMap.OLD_WORLD, 0))
+
 # --- test_deed_protection ---
 
 func test_a_deed_inside_the_victims_provinces_counts_for_its_buyer() -> void:

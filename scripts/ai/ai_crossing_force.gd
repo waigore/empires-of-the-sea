@@ -10,20 +10,9 @@ extends RefCounted
 
 ## The squadron with the most room: afloat, un-moved, no army and no colonists
 ## aboard. Ties go to the lowest id, so the same state always picks the same
-## hulls.
+## hulls. VoyageRead owns the eligibility; this planner owns the ranking.
 static func fleet(fleets: Array, owner: int) -> FleetState:
-	var best: FleetState = null
-	for raw: Variant in fleets:
-		var candidate: FleetState = raw
-		if candidate == null or candidate.owner != owner or candidate.moved:
-			continue
-		if not candidate.is_afloat() or candidate.embarked_army >= 0:
-			continue
-		if candidate.carries_civilians() or candidate.ship_count() < 1:
-			continue
-		if best == null or candidate.ship_count() > best.ship_count():
-			best = candidate
-	return best
+	return VoyageRead.roomiest(fleets, owner)
 
 
 ## The field army that fits the squadron's hulls: the biggest force that fits,
