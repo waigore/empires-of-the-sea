@@ -21,6 +21,7 @@ static func build(hud: GameHud) -> void:
 	_command(hud)
 	_towns(hud)
 	_walls(hud)
+	_hospitals(hud)
 	_navy(hud)
 	# The army dossier's command door opens the crown's commanders: the dossier
 	# is where a crown asks who leads, and the pool is the whole of it
@@ -32,6 +33,10 @@ static func build(hud: GameHud) -> void:
 	hud.province_ledger.towns_pressed.connect(func() -> void: hud.towns_pressed.emit())
 	# Its walls door is the same reach for the province's fort (DR-20261116-01).
 	hud.province_ledger.walls_pressed.connect(func() -> void: hud.walls_pressed.emit())
+	# And its hospitals door for the province's ward (DR-20261116-02).
+	hud.province_ledger.hospitals_pressed.connect(
+		func() -> void: hud.hospitals_pressed.emit()
+	)
 
 
 static func _province(hud: GameHud) -> void:
@@ -210,6 +215,20 @@ static func _walls(hud: GameHud) -> void:
 	hud.walls_ledger = WallLedgerPanel.new()
 	layer.add_child(hud.walls_ledger)
 	hud.walls_pressed.connect(hud.walls_ledger.toggle)
+
+
+## The hospitals ledger is the walls sheet's sibling: the same layer, the same
+## chrome, opened by the realm ledger's hospitals door (DR-20261116-02). It
+## takes no key of its own — the letters are spent — so the door is the entry on
+## a keyboard and a phone alike.
+static func _hospitals(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "HospitalLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.hospitals_ledger = HospitalLedgerPanel.new()
+	layer.add_child(hud.hospitals_ledger)
+	hud.hospitals_pressed.connect(hud.hospitals_ledger.toggle)
 
 
 ## The muster roll's navy door opens the crown's navy: the roll names each

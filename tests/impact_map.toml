@@ -290,6 +290,7 @@ suites = [
   "test_ledgers.gd",
   "test_town_ledger.gd",
   "test_wall_ledger.gd",
+  "test_hospital_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -715,6 +716,27 @@ domain = "muster"
 
 [[rules]]
 match = "tests/test_wall_ledger.gd*"
+domain = "muster"
+
+# The crown's hospitals (DR-20261116-02): the projection, its row and panel, the
+# map hook behind Raise and the realm ledger's third door. Named before the
+# hospital rules glob so a reading change rides the muster domain with the other
+# sheets instead of pulling the hospital domain's five suites, and before the
+# tests glob for the same reason.
+[[rules]]
+match = "scripts/rules/hospital_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/hospital_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_hospitals.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_hospital_ledger.gd*"
 domain = "muster"
 
 # The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet.

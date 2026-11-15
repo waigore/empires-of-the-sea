@@ -55,6 +55,11 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if walls != null and walls.is_open():
 		walls.close()
 		return true
+	# And the hospitals sheet beside them (DR-20261116-02).
+	var hospitals: HospitalLedgerPanel = play.hud.hospitals_ledger
+	if hospitals != null and hospitals.is_open():
+		hospitals.close()
+		return true
 	# The province ledger is the muster roll's sibling sheet (DR-20261115-09).
 	var provinces: ProvinceLedgerPanel = play.hud.province_ledger
 	if provinces != null and provinces.is_open():

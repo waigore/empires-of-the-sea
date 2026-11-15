@@ -174,6 +174,58 @@ static func build_fort(
 	}
 
 
+## Dispatch the nearest idle Engineer to the province's ward and start a
+## build_hospital order. The site, the price, the wait and every gate stay in
+## `HospitalRules`/`CivilianWork`; this only chooses the crew and words the
+## report, so the hospitals ledger's Raise press is the Engineer's own order
+## (REQ-P2-03; DR-20261116-02).
+static func build_hospital(
+	model: MapModel,
+	units: Array[CivilianState],
+	works: LandWorks,
+	stockpile: Dictionary,
+	visibility: VisibilityModel,
+	owner: int,
+	province_id: int,
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	var province: ProvinceState = model.province_data(province_id)
+	if province == null:
+		return {"ok": false, "message": "This province has no ward to raise."}
+	if province.owner != owner:
+		return {"ok": false, "message": "This province is not held by your crown."}
+	# The ward rises on the province's town tile, like the wall (wiki: combat
+	# § Regiment condition). A hand-built chart with neither a town nor a seat
+	# keeps the old any-land rule, so the crew's own ground takes the order.
+	var site: Vector2i = HospitalRules.site_tile(model, province_id)
+	var target: Vector2i = site if site.x >= 0 else CivilianState.NO_TILE
+	var engineer: CivilianState = nearest_engineer(units, owner, site)
+	if engineer == null:
+		return {
+			"ok": false,
+			"message": "No idle Engineer musters — train one at the capital.",
+		}
+	var result: Dictionary = CivilianWork.assign(
+		model, engineer, "build_hospital", works, units, stockpile, visibility, target,
+		tech_caps, tech_unlocked
+	)
+	if not bool(result.get("ok", false)):
+		return {"ok": false, "message": String(result.get("reason", ""))}
+	var ordered: int = HospitalRules.next_level(HospitalRules.level_at(model, province_id))
+	var turns: int = int(result.get("duration", HospitalRules.turns(ordered)))
+	return {
+		"ok": true,
+		"message": "%s raises the ward of %s — %s, %d turn%s." % [
+			engineer.display_name(),
+			model.province_name(province_id),
+			HospitalRules.level_name(ordered).to_lower(),
+			turns,
+			"" if turns == 1 else "s",
+		],
+	}
+
+
 static func cancel(
 	model: MapModel, units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> Dictionary:

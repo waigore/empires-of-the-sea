@@ -2,7 +2,7 @@
 
 Index for product and process docs. Agent entry: [`../AGENTS.md`](../AGENTS.md).
 
-Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words** (fenced code excluded). Lint: `python tools/lint_docs_words.py` (CI job `docs-lint`).
+Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Lint: `python tools/lint_docs_words.py` (CI `docs-lint`).
 
 ## Product
 
@@ -38,6 +38,7 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [provinces.md](provinces.md) | The crown's provinces: one ledger for every holding |
 | [towns.md](towns.md) | The crown's towns: levels, the next step, Raise |
 | [walls.md](walls.md) | The crown's walls: levels and Raise |
+| [hospitals.md](hospitals.md) | The crown's hospitals: levels, rations, Raise |
 | [economy.md](economy.md) | Stockpile, recipes, town bonus, riches |
 | [technology.md](technology.md) | Tech tree, slots, funding, extraction caps |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |

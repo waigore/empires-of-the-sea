@@ -54,6 +54,8 @@ static func build_hud(play: PlaySession) -> void:
 		hud.towns_ledger.bind(play)
 	if hud.walls_ledger != null:
 		hud.walls_ledger.bind(play)
+	if hud.hospitals_ledger != null:
+		hud.hospitals_ledger.bind(play)
 	if hud.navy_ledger != null:
 		hud.navy_ledger.bind(play)
 	_seat_commanders(play)
