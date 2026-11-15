@@ -152,7 +152,11 @@ func test_phone_chrome_fits_the_screen() -> void:
 		await get_tree().process_frame
 		var hud: GameHud = _screen.hud
 		assert_true(HudLayout.is_compact(hud.size), "compact at %s" % size)
-		assert_almost_eq(hud.top_bar.size.y, 56.0, 0.5, "one-row bar at %s" % size)
+		# The 800-point floor cannot hold eight command seals and four plaques on
+		# one line, so the plaques take the measured second row there.
+		var bar_height: float = 56.0 if size == PHONE else HudLayout.STACK_BAR_HEIGHT
+		assert_almost_eq(hud.top_bar.size.y, bar_height, 0.5, "bar height at %s" % size)
+		assert_eq(hud.chip_row.visible, size != PHONE, "second row only where needed %s" % size)
 		_fits(hud.top_bar.get_global_rect(), _screen_rect(), "bar %s" % size)
 		for chip: Control in hud.chips:
 			_fits(chip.get_global_rect(), hud.top_bar.get_global_rect(), "chip %s" % size)
@@ -183,10 +187,16 @@ func test_phone_chrome_fits_the_screen() -> void:
 			_tappable(button as Control, "zoom %s" % size)
 		# The map carries no sound seal now: the pause menu holds the mix desk.
 		assert_not_null(_screen.game_menu.sound_desk, "pause menu carries the desk %s" % size)
-		var estates: Control = _screen.get_node("HUD/Improvements")
-		_fits(estates._toggle.get_global_rect(), _screen_rect(), "estates %s" % size)
-		_tappable(estates._toggle, "estates %s" % size)
-		assert_not_null(estates._toggle.icon, "estates door keeps its medallion %s" % size)
+		# Estates and the Gazette ride the cartouche; the rail below is clear.
+		var estates_seal: Button = hud.top_row.find_child("EstatesSeal", true, false) as Button
+		assert_not_null(estates_seal, "estates seal on the bar %s" % size)
+		_fits(estates_seal.get_global_rect(), hud.top_bar.get_global_rect(), "estates seal %s" % size)
+		_tappable(estates_seal, "estates %s" % size)
+		assert_not_null(_medallion(estates_seal), "estates seal keeps its medallion %s" % size)
+		var gazette_seal: Button = hud.top_row.find_child("GazetteSeal", true, false) as Button
+		assert_not_null(gazette_seal, "gazette seal on the bar %s" % size)
+		_fits(gazette_seal.get_global_rect(), hud.top_bar.get_global_rect(), "gazette seal %s" % size)
+		_tappable(gazette_seal, "gazette %s" % size)
 		_fits(hud.lens_seal.get_global_rect(), hud.top_bar.get_global_rect(), "lens seal %s" % size)
 		assert_eq(_caption(hud.lens_seal), "LENS", "the one lens seal is named %s" % size)
 		assert_not_null(

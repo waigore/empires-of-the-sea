@@ -10,9 +10,9 @@ extends RefCounted
 const COMPACT_WIDTH: float = 1000.0
 const COMPACT_HEIGHT: float = 560.0
 const STACK_BAR_HEIGHT: float = 98.0
-## Right edge of the left rail under the cartouche (the estates door and the
-## Gazette seal sit here). The lenses and the sound seal live on the bar now.
-const LEFT_RAIL: float = 252.0
+## Left edge of the despatch lane on a phone. The rail under the cartouche is
+## clear now that every seal rides the bar, so the lane starts at the margin.
+const LEFT_RAIL: float = 10.0
 
 var compact: bool = false
 
@@ -162,9 +162,9 @@ func _end_turn(hud: GameHud) -> void:
 	wrap.offset_bottom = -10.0 if compact else -20.0
 
 
-## Toasts sit under the cartouche. On a phone the left rail already holds the
-## estates door and the Gazette seal, so the column starts to their right
-## instead of running full width and covering them. The lane owns the geometry.
+## Toasts sit under the cartouche. Every seal rides the bar now, so a phone's
+## column starts at the margin like the atlas lane does. The lane owns the
+## geometry.
 func _toasts(hud: GameHud) -> void:
 	if hud.despatches == null:
 		return

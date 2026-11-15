@@ -66,8 +66,8 @@ func _process(_delta: float) -> void:
 
 
 ## Chrome geometry follows the viewport: the atlas lane is a centred column
-## under the cartouche; a phone's starts right of the left rail (sound, estates
-## and lens seals) instead of running across them (REQ-P1-05).
+## under the cartouche; a phone's runs the width of the map under the bar, since
+## the rail below it is clear (REQ-P1-05).
 func fit(compact: bool, bar_bottom: float, left_rail: float) -> void:
 	var was_compact: bool = _compact
 	_compact = compact

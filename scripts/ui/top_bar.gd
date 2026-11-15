@@ -1,6 +1,6 @@
 class_name TopBar
 extends RefCounted
-## Cartouche bar: nation and turn, the region seal, the one lens seal, five
+## Cartouche bar: nation and turn, the region seal, the one lens seal, seven
 ## command seals and the status plaques; the pause menu mounts its own MENU crest
 ## in the first slot. Every element either answers a question the player asks
 ## every turn or performs an action; the bar carries no vanity counters.
@@ -68,6 +68,10 @@ static func build(hud: GameHud) -> void:
 		func() -> void: hud.economy_pressed.emit()
 	))
 	command.add_child(_seal(
+		"manor", "ESTATES", "The crown's estates and works",
+		func() -> void: hud.estates_pressed.emit(), true, "EstatesSeal"
+	))
+	command.add_child(_seal(
 		"research", "RESEARCH", "College slots and funding",
 		func() -> void: hud.research_pressed.emit()
 	))
@@ -78,6 +82,10 @@ static func build(hud: GameHud) -> void:
 	command.add_child(_seal(
 		"commander", "MUSTER", "Every army and squadron in one ledger (O)",
 		func() -> void: hud.muster_roll_pressed.emit()
+	))
+	command.add_child(_seal(
+		"gazette", "GAZETTE", "The Gazette — this turn's news and the archive",
+		func() -> void: hud.gazette_pressed.emit(), true, "GazetteSeal"
 	))
 
 	var spacer := Control.new()
@@ -151,9 +159,11 @@ static func _add_chips(hud: GameHud, row: HBoxContainer) -> void:
 ## glance and the word carries first-time discovery without a wide text button.
 static func _seal(
 	icon_kind: String, caption: String, tip: String, action: Callable,
-	compact_icon_only: bool = true
+	compact_icon_only: bool = true, name_text: String = ""
 ) -> Button:
 	var button := Button.new()
+	if not name_text.is_empty():
+		button.name = name_text
 	button.pressed.connect(action)
 	dress(button, icon_kind, caption, tip, compact_icon_only)
 	return button

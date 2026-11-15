@@ -47,6 +47,9 @@ static func _connect_bar(play: PlaySession, hud: GameHud) -> void:
 	)
 	hud.focus_capital_pressed.connect(MapPlaySetup.focus_capital.bind(play))
 	hud.diplomacy_pressed.connect(MapPlayDiplomacy.open.bind(play))
+	# The estates seal opens the crown's ledger; the card itself carries no door.
+	if play.improvements != null:
+		hud.estates_pressed.connect(func() -> void: play.improvements.open())
 	hud.diplomacy_order.connect(
 		func(kind: String, target: int, arg: String) -> void:
 			MapCourtOrders.apply(play, kind, target, arg)

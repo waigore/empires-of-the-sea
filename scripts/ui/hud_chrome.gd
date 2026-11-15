@@ -170,18 +170,14 @@ static func _naval_plate(hud: GameHud) -> void:
 
 
 ## The crown's news sheet: over the dossiers, under the Quick Battle and
-## campaign-end plates, and soft — it never takes the whole screen.
+## campaign-end plates, and soft — it never takes the whole screen. Its seal
+## rides the cartouche (TopBar), so the map keeps no loose button.
 static func _gazette_plate(hud: GameHud) -> void:
 	hud.gazette_plate = GazettePlate.new()
 	hud.gazette_plate.z_index = 30
 	# The sheet pushes the despatch lane below its masthead while it is up.
 	hud.gazette_plate.despatches = hud.despatches
 	hud.add_child(hud.gazette_plate)
-	# A cartouche seal reopens the news, beside the estates door on the rail.
-	var seal := _square_button("gazette", "The Gazette — this turn's news and the archive")
-	seal.position = Vector2(186.0, 132.0)
-	seal.pressed.connect(func() -> void: hud.gazette_pressed.emit())
-	hud.add_child(seal)
 
 
 static func _tooltip(hud: GameHud) -> void:

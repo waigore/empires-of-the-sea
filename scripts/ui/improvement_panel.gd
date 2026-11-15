@@ -4,7 +4,8 @@ extends Control
 ## active works and vacant resource tiles, with one-click Builder dispatch.
 ## The panel renders ImprovementLedger rows and emits intents; MapScreen owns
 ## the rules call and the camera (REQ-P3-02, REQ-P3-03). Summary and filter strip
-## live in EstatesHead; grouping/filtering in EstateLedger.
+## live in EstatesHead; grouping/filtering in EstateLedger. The cartouche's
+## ESTATES seal opens it (TopBar), so the card carries no door of its own.
 
 signal action_pressed(action: String, tile: Vector2i)
 signal focus_pressed(tile: Vector2i)
@@ -20,7 +21,6 @@ var tech_caps: Dictionary = {}
 ## the card parks (GameMenu, REQ-P3-02) and the HUD it covers.
 var play: PlaySession = null
 
-var _toggle: Button = null
 var _overlay: Control = null
 var _margin: MarginContainer = null
 var _panel: PanelContainer = null
@@ -42,7 +42,6 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UiTheme.build()
-	_build_toggle()
 	_build_overlay()
 	resized.connect(_fit_to_viewport)
 	_fit_to_viewport()
@@ -150,23 +149,6 @@ func _input(event: InputEvent) -> void:
 
 
 # --- construction -----------------------------------------------------------
-
-
-func _build_toggle() -> void:
-	_toggle = Button.new()
-	_toggle.text = "ESTATES"
-	_toggle.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	# The pause seal owns the rail's first 46 px; start after it so the manor
-	# medallion is not hidden under the MENU button.
-	_toggle.offset_left = 70.0
-	_toggle.offset_top = 132.0
-	_toggle.offset_right = 176.0
-	_toggle.offset_bottom = 176.0
-	_toggle.add_theme_font_size_override("font_size", 14)
-	_toggle.tooltip_text = "The crown's estates and works"
-	ChromeIcons.apply(_toggle, "manor", 20)
-	_toggle.pressed.connect(func() -> void: open())
-	add_child(_toggle)
 
 
 func _build_overlay() -> void:
