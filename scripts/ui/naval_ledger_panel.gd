@@ -9,8 +9,7 @@ extends SheetFrame
 
 var _rows: VBoxContainer = null
 var _empty: Label = null
-var _region_chips: Array[Button] = []
-var _reading_chips: Array[Button] = []
+var _bar: LedgerFilterBar = null
 var _region: String = NavalLedger.REGION_ALL
 var _reading: String = NavalLedger.READING_ALL
 var _snapshot: Dictionary = {}
@@ -60,7 +59,13 @@ func _can_open() -> bool:
 
 
 func _build_body(column: VBoxContainer) -> void:
-	column.add_child(_filters())
+	_bar = LedgerFilterBar.new()
+	_bar.fill(
+		"Chart", "Hull", NavalLedger.REGION_FILTERS, NavalLedger.READINGS,
+		NavalLedger.reading_label
+	)
+	_bar.chosen.connect(_on_filter)
+	column.add_child(_bar)
 	# The rule a crown buys hulls by sits on the sheet, not in a hover: a phone
 	# hides the footer hint (REQ-P1-07, REQ-P5-03).
 	var note := UiRowBuilder.label(NavalLedger.note(), 11, Palette.TEXT_DIM)
@@ -82,53 +87,6 @@ func _on_profile_changed() -> void:
 # --- filters -----------------------------------------------------------------
 
 
-## Two chip rows: which chart, and which kind of hull. Every option stays on the
-## page even at zero, so a filter never hides its own way back
-## (REQ-P5-03, REQ-P5-07).
-func _filters() -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	box.add_child(_filter_row("Chart", NavalLedger.REGION_FILTERS, true))
-	box.add_child(_filter_row("Hull", NavalLedger.READINGS, false))
-	return box
-
-
-func _filter_row(caption: String, keys: Array, region_row: bool) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
-	label.text = caption.to_upper()
-	label.custom_minimum_size = Vector2(58, 0)
-	label.add_theme_font_size_override("font_size", 9)
-	label.add_theme_color_override("font_color", Palette.GOLD_DIM)
-	row.add_child(label)
-	for key: String in keys:
-		var chip := Button.new()
-		chip.text = _chip_text(key, region_row)
-		chip.custom_minimum_size = Vector2(0, 34)
-		chip.focus_mode = Control.FOCUS_ALL
-		chip.add_theme_font_size_override("font_size", 12)
-		chip.set_meta("key", key)
-		chip.pressed.connect(func() -> void: _on_filter(key, region_row))
-		row.add_child(chip)
-		if region_row:
-			_region_chips.append(chip)
-		else:
-			_reading_chips.append(chip)
-	return row
-
-
-func _chip_text(key: String, region_row: bool) -> String:
-	if region_row:
-		match key:
-			NavalLedger.REGION_OLD:
-				return "Old World"
-			NavalLedger.REGION_NEW:
-				return "New World"
-		return "Both charts"
-	return NavalLedger.reading_label(key)
-
-
 func _on_filter(key: String, region_row: bool) -> void:
 	if region_row:
 		_region = key
@@ -141,37 +99,26 @@ func _on_filter(key: String, region_row: bool) -> void:
 
 
 func _apply_filter() -> void:
-	for child: Node in _rows.get_children():
-		if child == _empty:
-			continue
-		_rows.remove_child(child)
-		child.queue_free()
-	_paint_chips()
+	_bar.render(_region, _reading)
 	_subtitle.text = NavalLedger.summary(_snapshot, _region, _reading)
 	var shown: int = NavalLedger.count(_snapshot, _region, _reading)
 	_empty.visible = shown == 0
 	if shown == 0:
 		_empty.text = _empty_text()
 		return
-	for group: Dictionary in NavalLedger.groups(_snapshot, _region, _reading):
-		_rows.add_child(_heading(group))
-		for raw: Variant in group["rows"]:
-			var row := NavalLedgerRow.new()
-			row.compact = HudLayout.is_compact(get_viewport_rect().size)
-			row.visit_pressed.connect(_visit)
-			_rows.add_child(row)
-			row.setup(raw)
+	LedgerList.fill(
+		_rows, _empty, NavalLedger.groups(_snapshot, _region, _reading), _heading, _make_row
+	)
 
 
 ## One squadron's heading: where she sails and the station she holds, then the
 ## hulls she flies. A hull's orders are her squadron's, so they are read once.
-func _heading(group: Dictionary) -> Control:
+func _heading(group: Dictionary, count: int) -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 1)
 	var title := Label.new()
-	var hulls: int = (group["rows"] as Array).size()
 	title.text = "%s  ·  %d hull%s" % [
-		String(group["heading"]), hulls, "" if hulls == 1 else "s"
+		String(group["heading"]), count, "" if count == 1 else "s"
 	]
 	title.add_theme_font_size_override("font_size", 11)
 	title.add_theme_color_override("font_color", Palette.GOLD_DIM)
@@ -194,6 +141,14 @@ static func _standing_text(group: Dictionary) -> String:
 	]
 
 
+func _make_row(raw: Variant, compact: bool) -> Control:
+	var row := NavalLedgerRow.new()
+	row.compact = compact
+	row.visit_pressed.connect(_visit)
+	row.setup(raw as Dictionary)
+	return row
+
+
 ## The explanation a filter that empties the sheet earns: the crown may hold no
 ## hull yet, or the filter may be hiding them (REQ-P5-05).
 func _empty_text() -> String:
@@ -206,23 +161,6 @@ func _empty_text() -> String:
 			) % NavalLedger.scope_text(_region)
 		return "No squadron answers this chart. Clear a filter to see the whole navy."
 	return "No hull answers this view. Clear a filter to see the whole navy."
-
-
-func _paint_chips() -> void:
-	for chip: Button in _region_chips:
-		_style_chip(chip, String(chip.get_meta("key")) == _region)
-	for chip: Button in _reading_chips:
-		_style_chip(chip, String(chip.get_meta("key")) == _reading)
-
-
-func _style_chip(chip: Button, active: bool) -> void:
-	var fill: Color = Color(0.20, 0.16, 0.10, 0.95) if active else Color(0.12, 0.10, 0.07, 0.55)
-	var edge: Color = Palette.GOLD if active else Color(0.54, 0.43, 0.12, 0.55)
-	var pad := Vector4(9, 3, 9, 3)
-	chip.add_theme_stylebox_override("normal", UiTheme.box(fill, edge, 1, 3, pad))
-	chip.add_theme_stylebox_override("hover", UiTheme.box(fill, Palette.GOLD, 1, 3, pad))
-	var ink: Color = Palette.GOLD_PALE if active else Color(0.78, 0.72, 0.60)
-	chip.add_theme_color_override("font_color", ink)
 
 
 ## Visit frames the hull's squadron and opens its dossier: a hull has no marker

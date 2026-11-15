@@ -126,6 +126,18 @@ suites = [
   "test_yarn_plates_rules.gd",
 ]
 
+# The shared row skeleton every crown ledger prints (issue #669): the name, its
+# chip and the Visit door. Each sheet's own suite mounts its rows, so they all
+# follow rather than the ledger_* glob's economy_ui, which never builds one.
+[domains.ledger_row]
+suites = [
+  "test_ledgers.gd",
+  "test_town_ledger.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+]
+
 [domains.ledger_shell]
 # The shared docked-ledger chrome: each ledger's own suite proves its body on
 # the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
@@ -273,6 +285,18 @@ suites = [
 [domains.navy]
 suites = [
   "test_naval_ledger.gd",
+]
+
+# The dress the crown's sheets all print in — the chart/reading strip and the
+# grouped list — shared by the provinces, towns, muster, navy, people and
+# command sheets. A change to it runs the suites that drive those sheets,
+# instead of the whole map or ui fan-out.
+[domains.ledger_dress]
+suites = [
+  "test_ledgers.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_town_ledger.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -637,6 +661,18 @@ domain = "navy"
 [[rules]]
 match = "tests/test_naval_ledger.gd*"
 domain = "navy"
+
+# The dress every crown ledger prints in: the two-row chart/reading strip and
+# the grouped list the provinces, towns, muster, navy, people and command
+# sheets all build their body from. One shared change runs the suites that
+# drive those sheets, and no map, menu or ui catch-all.
+[[rules]]
+match = "scripts/ui/ledger_filter_bar.gd*"
+domain = "ledger_dress"
+
+[[rules]]
+match = "scripts/ui/ledger_list.gd*"
+domain = "ledger_dress"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
 # The sheet rides the court ledger's door, so it is mapped before the ui glob;
@@ -2668,6 +2704,12 @@ domain = "economy_ui"
 [[rules]]
 match = "scripts/ui/ledger_frame.gd*"
 domain = "ledger_shell"
+
+# The shared row skeleton (issue #669) is printed by every crown ledger, so its
+# suites follow instead of the ledger_* glob's economy_ui alone.
+[[rules]]
+match = "scripts/ui/ledger_row.gd*"
+domain = "ledger_row"
 
 [[rules]]
 match = "scripts/ui/ledger_*.gd"

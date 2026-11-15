@@ -237,6 +237,15 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 		# unlock keeps that chest but does not claim a launch it cannot lay.
 		if not bool(readings.get("warship_open", false)):
 			build.block("no warship its techs open")
+		else:
+			# A yard the court has stalled on for the blocked bar's turns names
+			# it — the chest stays out of reach and the trace says so instead
+			# of another silent deferred row (issue #603).
+			var yard_stall: int = int(
+				(readings.get("blockings", {}) as Dictionary).get("navy.build", 0)
+			)
+			if yard_stall > 0:
+				build.block("the yard is out of reach %d turns" % yard_stall)
 		return build
 	if not at_war:
 		return null

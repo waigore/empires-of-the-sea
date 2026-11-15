@@ -863,6 +863,104 @@ func test_the_keyboard_action_toggles_from_the_map() -> void:
 	assert_false(panel.is_open())
 
 
+# --- the shared ledger dress --------------------------------------------------
+
+
+func test_the_filter_bar_states_the_chart_once_and_reports_the_press() -> void:
+	assert_eq(LedgerFilterBar.chart_word(ProvinceLedger.REGION_OLD), "Old World")
+	assert_eq(LedgerFilterBar.chart_word(ProvinceLedger.REGION_NEW), "New World")
+	assert_eq(LedgerFilterBar.chart_word(ProvinceLedger.REGION_ALL), "Both charts")
+	assert_eq(LedgerFilterBar.chart_word("unknown"), "Both charts", "an unknown key filters nothing")
+	# A bar that was never filled paints nothing: a ledger may refresh first.
+	LedgerFilterBar.new().render(ProvinceLedger.REGION_ALL, ProvinceLedger.FILTER_ALL)
+
+	var bar := LedgerFilterBar.new()
+	add_child(bar)
+	bar.fill(
+		"Chart", "Reading", ProvinceLedger.REGION_FILTERS, ProvinceLedger.FILTERS,
+		ProvinceLedger.filter_label
+	)
+	var chart_row := bar.get_child(0) as HBoxContainer
+	var reading_row := bar.get_child(1) as HBoxContainer
+	assert_eq(_chip_captions(chart_row), ["Both charts", "Old World", "New World"])
+	assert_eq(
+		_chip_captions(reading_row),
+		["All provinces", "Cut off", "Ungarrisoned", "Works"],
+		"the reading chips are the family's own words"
+	)
+
+	var presses: Array = []
+	bar.chosen.connect(func(key: String, region_row: bool) -> void:
+		presses.append([key, region_row])
+	)
+	_chip(reading_row, "Cut off").pressed.emit()
+	assert_eq(presses.size(), 1, "one press, one report")
+	assert_eq(String((presses[0] as Array)[0]), ProvinceLedger.FILTER_CUT)
+	assert_false(bool((presses[0] as Array)[1]), "a reading chip is not the chart row")
+
+	bar.render(ProvinceLedger.REGION_OLD, ProvinceLedger.FILTER_CUT)
+	var lit: Color = _chip(chart_row, "Old World").get_theme_color("font_color")
+	var plain: Color = _chip(chart_row, "Both charts").get_theme_color("font_color")
+	assert_eq(lit, Palette.GOLD_PALE, "the chosen chart reads gold")
+	assert_ne(plain, lit, "the rest stay plain")
+
+
+func test_the_grouped_list_keeps_its_empty_notice_and_prints_headings() -> void:
+	var list := VBoxContainer.new()
+	add_child(list)
+	var empty := Label.new()
+	list.add_child(empty)
+	var groups: Array[Dictionary] = [
+		{"region_label": "Old World", "rows": [{"id": 1}, {"id": 2}]},
+		{"region_label": "New World", "rows": [{"id": 3}]},
+	]
+	var heading := func(group: Dictionary, count: int) -> Control:
+		return LedgerList.heading("%s · %d" % [String(group["region_label"]).to_upper(), count])
+	var minted: Array = []
+	var mint := func(raw: Variant, compact: bool) -> Control:
+		var row := Label.new()
+		row.text = str(int((raw as Dictionary)["id"]))
+		minted.append([row.text, compact])
+		return row
+
+	LedgerList.fill(list, empty, groups, heading, mint)
+	assert_eq(list.get_child_count(), 6, "one empty notice, two headings, three rows")
+	assert_true(list.get_child(0) == empty, "the empty notice keeps its place")
+	assert_eq((list.get_child(1) as Label).text, "OLD WORLD · 2")
+	assert_eq((list.get_child(4) as Label).text, "NEW WORLD · 1")
+	assert_eq(minted.size(), 3)
+	assert_eq(
+		bool((minted[0] as Array)[1]), LedgerList.is_compact(list),
+		"every row is built for the chart's own profile"
+	)
+
+	# A repaint clears the last reading and keeps the notice it repaints into.
+	LedgerList.fill(list, empty, groups, heading, mint)
+	assert_eq(list.get_child_count(), 6)
+	assert_true(list.get_child(0) == empty)
+
+
+func test_the_flat_list_prints_rows_without_headings() -> void:
+	var list := VBoxContainer.new()
+	add_child(list)
+	var empty := Label.new()
+	list.add_child(empty)
+	var rows: Array = [1, 2, 3]
+	var mint := func(raw: Variant, _compact: bool) -> Control:
+		var row := Label.new()
+		row.text = "row %d" % int(raw)
+		return row
+
+	LedgerList.flat(list, empty, rows, mint)
+	assert_eq(list.get_child_count(), 4, "three rows and the empty notice")
+	assert_true(list.get_child(0) == empty, "a flat list keeps the notice too")
+	for index in [1, 2, 3]:
+		assert_true((list.get_child(index) as Label).text.begins_with("row "))
+
+	LedgerList.flat(list, empty, [] as Array, mint)
+	assert_eq(list.get_child_count(), 1, "an empty reading leaves only its notice")
+
+
 # --- fixtures ---------------------------------------------------------------
 
 
@@ -926,6 +1024,24 @@ func _force_row(snapshot: Dictionary, kind: String, id: int) -> Dictionary:
 		if String(row["kind"]) == kind and int(row["id"]) == id:
 			return row
 	return {}
+
+
+## One chip of a filter row by the word it carries.
+func _chip(row: HBoxContainer, caption: String) -> Button:
+	for child: Node in row.get_children():
+		var button := child as Button
+		if button != null and button.text == caption:
+			return button
+	return null
+
+
+func _chip_captions(row: HBoxContainer) -> Array[String]:
+	var captions: Array[String] = []
+	for child: Node in row.get_children():
+		var button := child as Button
+		if button != null:
+			captions.append(button.text)
+	return captions
 
 
 func _rows_of_kind(snapshot: Dictionary, kind: String) -> Array[Dictionary]:
@@ -1186,6 +1302,50 @@ func test_back_and_the_key_close_the_command_ledger() -> void:
 	assert_true(panel.is_open(), "the key opens it from the map")
 	panel._unhandled_input(toggle)
 	assert_false(panel.is_open(), "and closes it again")
+
+
+## --- the shared row skeleton -------------------------------------------------
+
+
+## The heading is one line (issue #669): a name that autowraps inside the
+## heading's HBox reports no minimum width, so the box hands it a single glyph
+## and the chip lands on the letter stack. Every sheet that prints a LedgerRow
+## is read at a desktop and a phone width.
+func test_every_ledger_row_keeps_its_name_on_one_line_beside_its_chip() -> void:
+	var cases: Array = [
+		[ProvinceLedgerRow, {"name": "Nueva Cádiz"}],
+		[SpyLedgerRow, {"province_name": "Nueva Cádiz"}],
+		[ForceLedgerRow, {"title": "The Old Guard"}],
+		[CommandLedgerRow, {"name": "Don Álvaro"}],
+		[NavalLedgerRow, {"name": "Santa Ana"}],
+		[CivilianRosterRow, {"role": "Explorer"}],
+	]
+	for width: float in [640.0, 411.0]:
+		for entry: Array in cases:
+			var row: LedgerRow = (entry[0] as GDScript).new()
+			row.compact = width < 500.0
+			add_child(row)
+			row.setup(entry[1])
+			row.size = Vector2(width, 0.0)
+			await get_tree().process_frame
+			var name: Label = row._name
+			var font: Font = name.get_theme_font("font")
+			var size: int = name.get_theme_font_size("font_size")
+			var one_line: float = font.get_string_size(
+				name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size
+			).x
+			assert_eq(name.get_line_count(), 1, "%s at %s" % [name.text, width])
+			assert_true(
+				name.size.x + 0.5 >= one_line,
+				"%s reads across, not down: %s of %s" % [name.text, name.size.x, one_line]
+			)
+			if row._chip != null:
+				assert_true(
+					row._chip.get_global_rect().position.x + 0.5
+					>= name.get_global_rect().end.x,
+					"the chip sits beside %s, not on it" % name.text
+				)
+			row.free()
 
 
 ## The army dossier's command door, found by its word so the suite reads the
