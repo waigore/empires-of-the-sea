@@ -44,7 +44,6 @@ const STATE_ORDER: Dictionary = {
 }
 
 const ROMAN: Array[String] = ["", "I", "II", "III", "IV"]
-const NO_ID: int = -1
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
@@ -88,7 +87,7 @@ static func filter_label(key: String) -> String:
 
 ## The level as the court reads it: a town is a numeral, not a number.
 static func level_text(level: int) -> String:
-	return ROMAN[clampi(level, 1, CivilianWorkPlan.MAX_TOWN)]
+	return RaiseLedger.numeral(ROMAN, level, CivilianWorkPlan.MAX_TOWN, 1)
 
 
 ## The rule a crown needs before it pays for a level: the bonus sits at 2 and 4
@@ -128,40 +127,19 @@ static func _row(
 	var refusal: String = CivilianWorkPlan.town_upgrade_refusal(
 		province, tech_unlocked, stockpile
 	)
-	var crew: CivilianState = _crew(units, province.owner, town)
+	var crew: CivilianState = RaiseLedger.crew_for(
+		units, province.owner, town, "upgrade_town"
+	)
 	var hand: CivilianState = ImprovementOrders.nearest_builder(units, province.owner, town)
 	if refusal.is_empty():
 		# The town tile is shared with the wall and the ward, so another crew
 		# already at work there is the order's own refusal, not a press (wiki:
 		# civilian-units § Per-player tile exclusivity).
 		refusal = CivilianWorkPlan.tile_busy_refusal(units, hand, town)
-	var state: String = _state(level, crew, refusal, hand)
-	return {
-		"id": province.id,
-		"region": region,
-		"region_label": FactionCatalog.region_label(region),
-		"name": String(province.name),
-		"capital": province.capital,
-		"level": level,
-		"level_text": level_text(level),
-		"next_level": next_level,
-		"next_text": level_text(next_level),
-		"cost_text": cost_text,
-		"turns": turns,
-		"state": state,
-		"crew": String(crew.display_name()) if crew != null else "",
-		"remaining": crew.remaining_turns() if crew != null else 0,
-		"note": _note(state, next_level, cost_text, turns, refusal, crew),
-	}
-
-
-## What the next step waits on, worst first: a finished town, a crew already at
-## work, the study, the stores or the busy tile the order needs, a free Builder,
-## else the order is open.
-static func _state(
-	level: int, crew: CivilianState, refusal: String, hand: CivilianState
-) -> String:
-	return RaiseLedger.state_for(
+	# What the next step waits on, worst first: a finished town, a crew already
+	# at work, the study, the stores or the busy tile the order needs, a free
+	# Builder, else the order is open.
+	var state: String = RaiseLedger.state_for(
 		level,
 		CivilianWorkPlan.MAX_TOWN,
 		crew,
@@ -170,14 +148,12 @@ static func _state(
 		STATE_DEVELOPED,
 		STATE_NO_BUILDER
 	)
-
-
-## The Builder already raising this town, read from the crew's own record so
-## the row names the level the order was priced for.
-static func _crew(
-	units: Array[CivilianState], owner: int, town: Vector2i
-) -> CivilianState:
-	return RaiseLedger.crew_for(units, owner, town, "upgrade_town")
+	var row: Dictionary = RaiseLedger.row_head(province, region, level, level_text(level))
+	row.merge(RaiseLedger.row_step(state, crew, cost_text, turns))
+	row["next_level"] = next_level
+	row["next_text"] = level_text(next_level)
+	row["note"] = _note(state, next_level, cost_text, turns, refusal, crew)
+	return row
 
 
 static func _note(
@@ -193,14 +169,9 @@ static func _note(
 			return "Fully developed — level 4 pays ×2 manufactures."
 		STATE_AT_WORK:
 			var target: int = crew.work_detail("town_level", next_level)
-			var left: int = crew.remaining_turns()
-			return "%s raises it to %s · %d turn%s left." % [
-				crew.display_name(), level_text(target), left, "" if left == 1 else "s"
-			]
+			return RaiseLedger.at_work_note(crew, "it to %s" % level_text(target))
 		STATE_LOCKED:
 			return refusal
 		STATE_NO_BUILDER:
-			return "No idle Builder musters — train one at the capital."
-	return "Next: %s · %s · %d turn%s" % [
-		level_text(next_level), cost_text, turns, "" if turns == 1 else "s"
-	]
+			return RaiseLedger.no_crew_note("Builder")
+	return RaiseLedger.next_note(level_text(next_level), cost_text, turns)

@@ -128,11 +128,19 @@ func _heading(group: Dictionary, count: int) -> Control:
 	])
 
 
-## The trailing clause a narrowed reading earns on the count line.
-func _reading_note() -> String:
+## The count line every raise sheet opens with: the view against the roll it is
+## read from and the chart it is narrowed to, so a crown knows what it is
+## looking at before it reads a row (REQ-P5-05). A sheet appends its own tallies
+## — what the view holds and what the whole roll comes to — and a narrowed
+## reading names itself, so the chips and the line can never disagree.
+func _count_line(shown: int, tallies: String) -> String:
+	var total: int = int(_snapshot.get("total", 0))
+	var line: String = "Showing %d of %d %s %s — %s" % [
+		shown, total, _row_word(total), LedgerRows.scope_text(_region), tallies
+	]
 	if _reading == LedgerRows.ALL:
-		return ""
-	return " Reading: %s only." % _reading_word(_reading).to_lower()
+		return line
+	return line + " Reading: %s only." % _reading_word(_reading).to_lower()
 
 
 ## The one row widget every raise sheet mints: dressed for the profile and wired

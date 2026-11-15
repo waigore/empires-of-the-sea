@@ -46,7 +46,6 @@ const STATE_ORDER: Dictionary = {
 }
 
 const ROMAN: Array[String] = ["—", "I", "II"]
-const NO_ID: int = -1
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
@@ -76,11 +75,6 @@ static func count(
 ## its own tally and a zero stays legible rather than hidden.
 static func filter_counts(data: Dictionary, region_key: String) -> Dictionary:
 	return RaiseLedger.filter_counts(data, region_key, FILTERS)
-
-
-## A ward reading is the row's own state word.
-static func matches(row: Dictionary, filter_key: String) -> bool:
-	return RaiseLedger.matches(row, filter_key)
 
 
 ## One-word name of a reading, for its chip and the sheet's count line.
@@ -133,7 +127,7 @@ static func summary(data: Dictionary, region_key: String) -> Dictionary:
 ## The level as the court reads it: a ward is a numeral, and an empty shore is a
 ## dash rather than a zero (P1).
 static func level_text(level: int) -> String:
-	return ROMAN[clampi(level, 0, HospitalRules.MAX_LEVEL)]
+	return RaiseLedger.numeral(ROMAN, level, HospitalRules.MAX_LEVEL)
 
 
 ## The rule a crown pays by, printed on the sheet rather than hidden in a hover
@@ -175,7 +169,7 @@ static func _row(
 	var level: int = HospitalRules.clamp_level(province.hospital_level)
 	var next: int = HospitalRules.next_level(level)
 	var staffed: bool = province.hospital_staffed
-	var crew: CivilianState = _crew(units, province.owner, site)
+	var crew: CivilianState = RaiseLedger.crew_for(units, province.owner, site, "build_hospital")
 	var hand: CivilianState = ImprovementOrders.nearest_engineer(units, province.owner, site)
 	var refusal: String = CivilianWorkPlan.hospital_refusal(level, tech_unlocked, stockpile)
 	if refusal.is_empty():
@@ -183,37 +177,10 @@ static func _row(
 		# crew already at work there is the order's own refusal, not a press
 		# (wiki: civilian-units § Per-player tile exclusivity).
 		refusal = CivilianWorkPlan.tile_busy_refusal(units, hand, site)
-	var state: String = _state(level, crew, refusal, hand)
-	var cost_text: String = CivilianWorkPlan.cost_text(HospitalRules.cost(next))
-	return {
-		"id": province.id,
-		"region": region,
-		"region_label": FactionCatalog.region_label(region),
-		"name": String(province.name),
-		"capital": province.capital,
-		"level": level,
-		"level_text": level_text(level),
-		"line": HospitalRules.describe(level, staffed),
-		"staffed": level > 0 and staffed,
-		"demand": HospitalRules.food_demand(level),
-		"next_level": next,
-		"next_name": HospitalRules.level_name(next),
-		"cost_text": cost_text,
-		"turns": HospitalRules.turns(next),
-		"state": state,
-		"crew": String(crew.display_name()) if crew != null else "",
-		"remaining": crew.remaining_turns() if crew != null else 0,
-		"note": _note(state, level, next, cost_text, refusal, crew, staffed),
-	}
-
-
-## What the next step waits on, worst first: a finished ward, a crew already at
-## work, the study, the stores or the busy tile the order needs, a free
-## Engineer, else the order is open.
-static func _state(
-	level: int, crew: CivilianState, refusal: String, hand: CivilianState
-) -> String:
-	return RaiseLedger.state_for(
+	# What the next step waits on, worst first: a finished ward, a crew already
+	# at work, the study, the stores or the busy tile the order needs, a free
+	# Engineer, else the order is open.
+	var state: String = RaiseLedger.state_for(
 		level,
 		HospitalRules.MAX_LEVEL,
 		crew,
@@ -222,14 +189,17 @@ static func _state(
 		STATE_RAISED,
 		STATE_NO_ENGINEER
 	)
-
-
-## The Engineer already raising this ward, read from the crew's own record so
-## the row names the level the order was priced for.
-static func _crew(
-	units: Array[CivilianState], owner: int, site: Vector2i
-) -> CivilianState:
-	return RaiseLedger.crew_for(units, owner, site, "build_hospital")
+	var cost_text: String = CivilianWorkPlan.cost_text(HospitalRules.cost(next))
+	var turns: int = HospitalRules.turns(next)
+	var row: Dictionary = RaiseLedger.row_head(province, region, level, level_text(level))
+	row.merge(RaiseLedger.row_step(state, crew, cost_text, turns))
+	row["line"] = HospitalRules.describe(level, staffed)
+	row["staffed"] = level > 0 and staffed
+	row["demand"] = HospitalRules.food_demand(level)
+	row["next_level"] = next
+	row["next_name"] = HospitalRules.level_name(next)
+	row["note"] = _note(state, level, next, cost_text, turns, refusal, crew, staffed)
+	return row
 
 
 static func _note(
@@ -237,6 +207,7 @@ static func _note(
 	level: int,
 	next: int,
 	cost_text: String,
+	turns: int,
 	refusal: String,
 	crew: CivilianState,
 	staffed: bool
@@ -258,20 +229,14 @@ static func _note(
 			]
 		STATE_AT_WORK:
 			var target: int = crew.work_detail("hospital_level", next)
-			var left: int = crew.remaining_turns()
-			return "%s raises the %s · %d turn%s left." % [
-				crew.display_name(), HospitalRules.level_name(target).to_lower(), left,
-				"" if left == 1 else "s",
-			]
+			return RaiseLedger.at_work_note(
+				crew, "the %s" % HospitalRules.level_name(target).to_lower()
+			)
 		STATE_LOCKED:
 			return refusal
 		STATE_NO_ENGINEER:
-			return "No idle Engineer musters — train one at the capital."
-	var turns: int = HospitalRules.turns(next)
-	return "Next: %s · %s · %d turn%s" % [
-		HospitalRules.level_name(next).to_lower(), cost_text, turns,
-		"" if turns == 1 else "s",
-	]
+			return RaiseLedger.no_crew_note("Engineer")
+	return RaiseLedger.next_note(HospitalRules.level_name(next).to_lower(), cost_text, turns)
 
 
 # --- assembly ---------------------------------------------------------------

@@ -3,10 +3,11 @@ extends RefCounted
 ## What the crown's raise ledgers share: a town and a wall are the same reading —
 ## every owned province that can carry the work, the level it stands at, the crew
 ## already at it, the study the next step waits on and the press that files the
-## order. The sheets differ only in their domain: the row each mints, the states
-## it prints and the words of its note stay with [TownLedger] and [WallLedger];
-## the snapshot walk, the tallies, the chip narrowing and the reading order are
-## written once here (REQ-P3-01, REQ-P3-02).
+## order. The sheets differ only in their domain: the figures and the finished,
+## locked and no-crew words their rows carry stay with [TownLedger],
+## [WallLedger] and [HospitalLedger]; the snapshot walk, the tallies, the chip
+## narrowing, the reading order, the row's own head and wait fields and the
+## wording of its wait are written once here (REQ-P3-01, REQ-P3-02).
 ##
 ## Pure projection over presentation dictionaries and rules records: no nodes, no
 ## order of its own and no snapshot of its own (REQ-P3-03).
@@ -188,6 +189,86 @@ static func state_for(
 	if not crew_free:
 		return no_crew_state
 	return STATE_READY
+
+
+# --- the row every raise sheet mints ----------------------------------------
+
+
+## The head of every raise row: the province, the chart it stands on and the
+## level it stands at as the court reads it. The sheets append their own figures
+## and words, so the key the sort ranks, the heading the chart prints and the
+## press that files the order can never disagree about what a row is
+## (REQ-P3-01).
+static func row_head(
+	province: ProvinceState, region: int, level: int, level_text: String
+) -> Dictionary:
+	return {
+		"id": province.id,
+		"region": region,
+		"region_label": FactionCatalog.region_label(region),
+		"name": String(province.name),
+		"capital": province.capital,
+		"level": level,
+		"level_text": level_text,
+	}
+
+
+## The middle of every raise row: what the step waits on, the crew already at it
+## and the price and wait the press would charge. One place, so a row can never
+## print a press whose price the order does not charge (REQ-P2-03).
+static func row_step(
+	state: String, crew: CivilianState, cost_text: String, turns: int
+) -> Dictionary:
+	return {
+		"state": state,
+		"crew": String(crew.display_name()) if crew != null else "",
+		"remaining": crew.remaining_turns() if crew != null else 0,
+		"cost_text": cost_text,
+		"turns": turns,
+	}
+
+
+## The level as the court reads it: a numeral from the sheet's own table, clamped
+## between the bottom and the top its domain allows, so an open shore prints its
+## dash and a finished work its top numeral (P1).
+static func numeral(
+	numerals: Array, level: int, top_level: int, bottom_level: int = 0
+) -> String:
+	return String(numerals[clampi(level, bottom_level, top_level)])
+
+
+# --- the words every raise note prints --------------------------------------
+
+
+## "1 turn" / "3 turns" — the wait every raise note prints.
+static func turn_text(turns: int) -> String:
+	return "%d turn%s" % [turns, "" if turns == 1 else "s"]
+
+
+## "2 turns left" — the wait a crew already at the work still owes.
+static func turns_left(left: int) -> String:
+	return "%s left" % turn_text(left)
+
+
+## The note an open step prints: what the next step is, what it costs and how
+## long it waits, so the price is read on the sheet and not in a hover
+## (REQ-P5-03).
+static func next_note(step: String, cost_text: String, turns: int) -> String:
+	return "Next: %s · %s · %s" % [step, cost_text, turn_text(turns)]
+
+
+## The note a crew already raising the step leaves: who works it, what it raises
+## and how long it still owes.
+static func at_work_note(crew: CivilianState, step: String) -> String:
+	return "%s raises %s · %s." % [
+		crew.display_name(), step, turns_left(crew.remaining_turns())
+	]
+
+
+## The note a crown with no free hand prints, in the sheet's own crew word: the
+## wait is a training, not a price (REQ-P5-05).
+static func no_crew_note(crew_word: String) -> String:
+	return "No idle %s musters — train one at the capital." % crew_word
 
 
 ## The crew already at this work, read from the crew's own record so the row

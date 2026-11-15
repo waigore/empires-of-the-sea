@@ -59,15 +59,11 @@ func _empty_text() -> String:
 ## what it is looking at before it reads a row (REQ-P5-05).
 func _subtitle_text(shown: int) -> String:
 	var counts: Dictionary = TownLedger.filter_counts(_snapshot, _region)
-	var line: String = "Showing %d of %d towns %s — %d ready, %d at work, %d developed." % [
-		shown,
-		int(_snapshot.get("total", 0)),
-		LedgerRows.scope_text(_region),
+	return _count_line(shown, "%d ready, %d at work, %d developed." % [
 		int(counts.get(TownLedger.FILTER_READY, 0)),
 		int(counts.get(TownLedger.FILTER_AT_WORK, 0)),
 		int(counts.get(TownLedger.FILTER_DEVELOPED, 0)),
-	]
-	return line + _reading_note()
+	])
 
 
 func _make_row(raw: Variant, compact: bool) -> Control:
