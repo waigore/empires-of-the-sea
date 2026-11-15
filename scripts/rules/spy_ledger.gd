@@ -84,6 +84,20 @@ static func duty_of(model: MapModel, unit: CivilianState) -> String:
 	return DUTY_IDLE
 
 
+## The one word a network row scans for, in the same reading order as the rows.
+static func duty_word(duty: String) -> String:
+	match duty:
+		DUTY_SHADOW:
+			return "SHADOW"
+		DUTY_SCREEN:
+			return "SCREEN"
+		DUTY_WATCH:
+			return "WATCH"
+		DUTY_ABOARD:
+			return "ABOARD"
+	return "IDLE"
+
+
 ## One sentence for a network row: what this spy is doing for the crown.
 static func duty_text(duty: String, host: int, place: String) -> String:
 	var owner_name: String = FactionCatalog.name_of(host) if host != NO_ID else ""
