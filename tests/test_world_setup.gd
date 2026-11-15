@@ -1249,6 +1249,93 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 	)
 
 
+## The published weighting, measured not eyeballed (issue #676, DR-20261115-16):
+## the generator dumps its per-commodity tile counts, and every pool of rows
+## that may stand on exactly the same terrain in the same region — so only the
+## price separates them — reads the `1 / default market price` split: the
+## pool with the widest price gaps orders by price, no pool's split drifts
+## beyond three standard deviations of the weighted draw, and the forest
+## guarantee still leaves timber the commonest row on the chart
+## (wiki: resource-terrain-region-rules § Table).
+func test_the_draw_prices_the_rows_by_their_market_price() -> void:
+	# The published Standard chart (the density test's own size), so the counts
+	# are the campaign's, not the suite's small fixture world.
+	var seeds: Array[int] = [1500, 1501, 1502]
+	var counts: Dictionary = {}
+	for seed_value: int in seeds:
+		var world_map: WorldMap = MapGenerator.new().generate_world(seed_value, 128, 84)
+		for model: MapModel in world_map.regions:
+			for y in model.height:
+				for x in model.width:
+					if not model.is_land(x, y):
+						continue
+					var resource: int = model.resource_at(x, y)
+					if resource == MapModel.NO_ID:
+						continue
+					var commodity: String = String(
+						MapGenerator.resource_info(resource)["commodity"]
+					)
+					counts[commodity] = int(counts.get(commodity, 0)) + 1
+	var dump: Array[String] = []
+	for commodity: Variant in counts:
+		dump.append("%s=%d@%d" % [
+			String(commodity), int(counts[commodity]), CommodityCatalog.base_price(String(commodity))
+		])
+	dump.sort()
+	print("per-commodity tile counts over seeds 1500-1502: ", ", ".join(dump))
+	# Pools whose rows share one terrain list and one region scope: only the
+	# published price separates their draws (wiki § Table).
+	var pools: Array = [
+		{"rows": ["meat", "grain", "horses"]},
+		{"rows": ["copper", "iron", "coal"]},
+		{"rows": ["sugarCane", "tobacco", "cotton", "spices"]},
+		{"rows": ["gold", "gems"]},
+	]
+	for pool: Dictionary in pools:
+		var rows: Array = pool["rows"]
+		var total: int = 0
+		var weights: Dictionary = {}
+		var weight_total: float = 0.0
+		for commodity: String in rows:
+			var weight: float = 1.0 / float(CommodityCatalog.base_price(commodity))
+			weights[commodity] = weight
+			weight_total += weight
+			total += int(counts.get(commodity, 0))
+		for commodity: String in rows:
+			var expected: float = weights[commodity] / weight_total
+			var observed: float = float(int(counts.get(commodity, 0))) / float(maxi(total, 1))
+			var drift: float = 3.0 * sqrt(expected * (1.0 - expected) / float(maxi(total, 1)))
+			assert_true(
+				absf(observed - expected) <= drift,
+				"%s drew %.3f against its weighted %.3f (pool n=%d)" % [
+					commodity, observed, expected, total,
+				],
+			)
+	# The widest-gap pool orders by price: meat (45) over grain (50) over
+	# horses (60), and gold (166) over gems (250).
+	assert_true(
+		int(counts["meat"]) > int(counts["grain"]) and int(counts["grain"]) > int(counts["horses"]),
+		"plains rows read meat %d, grain %d, horses %d" % [
+			int(counts["meat"]), int(counts["grain"]), int(counts["horses"]),
+		],
+	)
+	assert_true(
+		int(counts["gold"]) > int(counts["gems"]),
+		"peaks rows read gold %d, gems %d" % [int(counts["gold"]), int(counts["gems"])],
+	)
+	# The forest guarantee is placed by terrain, not price, so timber (the
+	# cheapest row, on every forest cell) stays the commonest on the chart.
+	for commodity: Variant in counts:
+		if String(commodity) == "timber":
+			continue
+		assert_true(
+			int(counts["timber"]) > int(counts[commodity]),
+			"timber %d stays the commonest row ahead of %s %d" % [
+				int(counts["timber"]), String(commodity), int(counts[commodity]),
+			],
+		)
+
+
 ## The published multi-region cap: at most 30% of placed rows are "both", and a
 ## tile offering a region-exclusive row takes it once the cap is reached (wiki:
 ## resource-terrain-region-rules § Multi-region resource cap).
