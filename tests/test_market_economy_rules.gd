@@ -4937,3 +4937,157 @@ func test_the_line_names_the_promised_purse() -> void:
 	var line: String = LedgerText.bid_budget_line(MarketBudget.budget(economy))
 	assert_true(line.contains("2,000 of 10,000 ducats"))
 	assert_true(line.contains("8,000 promised to 1 waiting order"))
+
+
+# --- MarketBatch: one press files the whole order (REQ-P5-04) ---
+
+func _batch_ctx(overrides: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = {
+		"cargo_free": 4,
+		"treasury": 1000,
+		"tech_unlocked": {},
+		"projected_non_bid_delta": 0,
+		"reserved": {},
+	}
+	for key: Variant in overrides.keys():
+		out[key] = overrides[key]
+	return out
+
+
+## The bid batch is the holds and the purse, whichever binds first.
+func test_the_bid_batch_is_the_holds_and_the_purse() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var price: int = market.buy_price("timber", 0)
+	assert_eq(MarketBatch.bid_units(market, 0, "timber", _batch_ctx()), 4, "four holds")
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx({"treasury": price * 2})),
+		2,
+		"the purse binds before the holds",
+	)
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx({"cargo_free": 0})), 0,
+		"no holds, no bid",
+	)
+
+
+## The staged bids and the waiting Build/work orders are paid first, so the
+## batch is what is left of the holds and the purse.
+func test_the_batch_leaves_the_staged_bids_and_the_waiting_orders_out() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var price: int = market.buy_price("timber", 0)
+	var staged: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 1, {"cargo_free": 4, "treasury": 1000}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx()), 3,
+		"one hold and one unit's ducats are already promised",
+	)
+	var promised: Dictionary = _batch_ctx({
+		"treasury": price * 3, "projected_non_bid_delta": -price,
+	})
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", promised), 1,
+		"the waiting order is paid before the auction",
+	)
+
+
+## One side per commodity, and the bid-type cap still holds: a commodity the
+## court already bids on keeps batching, a fourth one does not open.
+func test_the_batch_never_crosses_the_side_or_the_bid_type_cap() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offer: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_OFFER, 1, {"stock": 4}
+	)
+	assert_true(bool(offer["ok"]), String(offer.get("reason", "")))
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx()), 0,
+		"a court bids or offers a commodity, never both",
+	)
+	var capped: WorldMarket = WorldMarket.with_default_prices()
+	for id: String in ["timber", "iron", "wool"]:
+		MarketOrders.submit(
+			capped, 0, id, MarketOrder.SIDE_BID, 1, {"cargo_free": 8, "treasury": 9000}
+		)
+	var rich: Dictionary = _batch_ctx({"cargo_free": 8, "treasury": 9000})
+	assert_eq(
+		MarketBatch.bid_units(capped, 0, "grain", rich), 0,
+		"a fourth commodity is refused by the cap",
+	)
+	assert_gt(
+		MarketBatch.bid_units(capped, 0, "timber", rich), 1,
+		"a commodity already bid on still batches",
+	)
+
+
+## The offer batch is the stock the assigned runs leave, less the tons already
+## offered this turn.
+func test_the_offer_batch_leaves_production_and_the_staged_offers_out() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var ctx: Dictionary = _batch_ctx({"reserved": {"timber": 2}})
+	assert_eq(
+		MarketBatch.offer_units(market, 0, "timber", 5, ctx), 3,
+		"the assigned runs eat two tons",
+	)
+	var staged: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_OFFER, 1, {"stock": 5}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	assert_eq(
+		MarketBatch.offer_units(market, 0, "timber", 5, ctx), 2,
+		"the ton already offered is not offered twice",
+	)
+	assert_eq(MarketBatch.offer_units(market, 0, "timber", 0, ctx), 0)
+
+
+## A Minor/Tribe row batches the seller's whole row, never more than it has left.
+func test_the_minor_row_batch_stops_at_the_seller_s_left() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offer: Dictionary = {
+		"id": "6:timber", "faction": 6, "commodity": "timber",
+		"quantity": 2, "unit_price": 30,
+	}
+	assert_eq(MarketBatch.offer_row_units(market, 0, offer, _batch_ctx()), 2)
+	assert_eq(
+		MarketBatch.offer_row_units(market, 0, offer, _batch_ctx({"cargo_free": 1})), 1,
+		"one hold, one ton",
+	)
+	assert_eq(
+		MarketBatch.offer_row_units(market, 0, offer, _batch_ctx({"cargo_free": 0})), 0
+	)
+
+
+## The figure is the validator's own cap: the batch is accepted and one more
+## unit is refused, so a press can never stage an order the rules would not
+## (REQ-P2-03).
+func test_the_batch_is_exactly_what_the_validator_accepts() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var price: int = market.buy_price("timber", 0)
+	var by_holds: Dictionary = _batch_ctx({"cargo_free": 3, "treasury": 1000})
+	var units: int = MarketBatch.bid_units(market, 0, "timber", by_holds)
+	assert_eq(units, 3)
+	var accepted: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, units, by_holds
+	)
+	assert_true(bool(accepted["ok"]), String(accepted.get("reason", "")))
+	var refused: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, units + 1, by_holds
+	)
+	assert_false(bool(refused["ok"]))
+	assert_eq(String(refused["code"]), "trade_order_cargo_insufficient")
+
+	var purse_market: WorldMarket = WorldMarket.with_default_prices()
+	var by_purse: Dictionary = _batch_ctx({
+		"cargo_free": 5, "treasury": price * 2, "buy_price": price,
+	})
+	var purse_units: int = MarketBatch.bid_units(purse_market, 0, "timber", by_purse)
+	assert_eq(purse_units, 2)
+	var fits: Dictionary = MarketOrders.submit(
+		purse_market, 0, "timber", MarketOrder.SIDE_BID, purse_units, by_purse
+	)
+	assert_true(bool(fits["ok"]), String(fits.get("reason", "")))
+	var over: Dictionary = MarketOrders.submit(
+		purse_market, 0, "timber", MarketOrder.SIDE_BID, 1, by_purse
+	)
+	assert_false(bool(over["ok"]))
+	assert_eq(String(over["code"]), "trade_order_bid_exceeds_treasury_budget")
