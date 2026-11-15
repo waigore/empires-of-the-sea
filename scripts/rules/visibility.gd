@@ -28,6 +28,9 @@ var province_sea_zones: Dictionary = {}
 var sea_zone_provinces: Dictionary = {}
 ## Bumped whenever a tile changes level; baked views (the minimap) watch it.
 var revision: int = 0
+## The charted grace a departed Spy leaves behind, one clock per province
+## (wiki: fog-and-exploration § Spy timer expiry). Saved with the grid.
+var spy_charter: SpyCharter = SpyCharter.new()
 
 
 ## Allocates the region baseline: the Old World starts fogged, the New World
@@ -166,16 +169,26 @@ func reveal_landing(tile: Vector2i) -> Array:
 
 
 ## End-of-turn resolution (wiki: fog-and-exploration). Order matters: fog decay,
-## distant sea zone fog, explorer presence, own-province re-assert, coastal sea
-## pass last. `at_sea_zones` lists zones holding this player's fleets at sea;
-## fleets in port do not count. `held_provinces` lists provinces where this
-## player keeps an Explorer, which holds them fully visible. Spies never
-## survey `unknown` terrain, so their province is not held (DR-20261109-04).
-func end_of_turn(at_sea_zones: Array, held_provinces: Array = []) -> Array:
+## distant sea zone fog, presence, own-province re-assert, coastal sea pass last.
+## `at_sea_zones` lists zones holding this player's fleets at sea; fleets in port
+## do not count. `held_provinces` lists provinces where this player keeps a
+## civilian (an Explorer or Spy is the published reading); `spy_provinces` lists
+## the provinces a Spy of this player stands in, so the charted grace a departed
+## Spy leaves behind is booked here (wiki: § Spy timer expiry).
+func end_of_turn(
+	at_sea_zones: Array, held_provinces: Array = [], spy_provinces: Array = []
+) -> Array:
+	var held: Array = held_provinces.duplicate()
+	# Own ground never takes a clock, so it can never be fogged by this rule.
+	var own: Array = []
+	for province: ProvinceState in model.provinces:
+		if province.owner == player_id:
+			own.append(province.id)
+	held.append_array(spy_charter.book(spy_provinces, own))
 	var changed: Array = []
 	changed.append_array(_decay_foreign_provinces())
 	changed.append_array(_apply_distant_sea_fog(at_sea_zones))
-	for raw: Variant in held_provinces:
+	for raw: Variant in held:
 		changed.append_array(hold_explored_province(int(raw)))
 	changed.append_array(_reveal_own_provinces())
 	changed.append_array(_apply_coastal_sea_zones())
@@ -358,10 +371,16 @@ func _apply_distant_sea_fog(at_sea_zones: Array) -> Array:
 
 ## Plain data for local saves: the per-tile knowledge grid.
 func to_dict() -> Dictionary:
-	return {"player_id": player_id, "levels": levels.duplicate()}
+	return {
+		"player_id": player_id,
+		"levels": levels.duplicate(),
+		"spy_hold": spy_charter.to_dict(),
+	}
 
 
 ## Restores the grid onto an already-set-up model (coast links stay derived).
+## A save written before the Spy charter existed carries no clocks, and its
+## provinces simply start with none.
 func apply_dict(data: Dictionary) -> bool:
 	player_id = int(data.get("player_id", player_id))
 	var raw: Variant = data.get("levels", PackedByteArray())
@@ -369,4 +388,5 @@ func apply_dict(data: Dictionary) -> bool:
 	if model == null or restored.size() != model.width * model.height:
 		return false
 	levels = restored
+	spy_charter.apply_dict(data.get("spy_hold", {}))
 	return true
