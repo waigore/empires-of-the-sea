@@ -524,6 +524,61 @@ func test_a_court_with_a_deed_on_offer_trains_one_merchant() -> void:
 		"no merchant companies and the staff is already at target"
 	)
 
+## The merchant follows the door, not just the deed: with no embassy yet but a
+## priced deed from a charted Minor, the staff target still names one Merchant —
+## the embassy waits on the merchant, so the hire cannot wait on the embassy
+## (issue #724; wiki: civilian-units § Merchant).
+func test_an_openable_chain_trains_one_merchant() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var court := DiplomacyState.new()
+	court.initialize(1)
+	court.ensure_relation(0, MINOR, 1)
+	var roster: Array = _staffed_roster()
+	var plan: Dictionary = _ai_merchant_plan(model, roster, court)
+
+	assert_true(bool(plan["training"].get("ok", false)))
+	assert_eq(String(plan["training"]["type_id"]), "merchant")
+
+func test_the_openable_chain_needs_peace_charting_and_an_unsigned_deed() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var view: VisibilityModel = Fixture.visibility(model)
+	# An open court with no embassy, at any purse: the chain is openable.
+	var open: Dictionary = {"diplomacy": Fixture.merchant_court_unembarked(), "visibility": view}
+	assert_true(
+		AiMerchantWork.chain_openable(model, 0, open),
+		"no embassy, peace, a priced deed: the chain is openable"
+	)
+	var poor: Dictionary = {"treasury": 0, "diplomacy": open["diplomacy"], "visibility": view}
+	assert_true(
+		AiMerchantWork.chain_openable(model, 0, poor),
+		"the chain opens before the deed is affordable"
+	)
+	# An embassy already stands: the deed must be affordable to matter.
+	var walked: Dictionary = {"diplomacy": Fixture.merchant_court(), "visibility": view}
+	assert_false(
+		AiMerchantWork.chain_openable(model, 0, walked),
+		"the embassy stands, so the chain is walked"
+	)
+	# A war with the seller closes it.
+	var world := WorldMap.new()
+	world.add_region(model)
+	var war_court: DiplomacyState = Fixture.merchant_court_unembarked()
+	assert_true(
+		bool(DiplomacyRules.declare_war(war_court, 0, MINOR, true, world).get("ok", false))
+	)
+	var war: Dictionary = {"diplomacy": war_court, "visibility": view}
+	assert_false(
+		AiMerchantWork.chain_openable(model, 0, war),
+		"a war with the seller closes the chain"
+	)
+	# The deed is already signed: nothing is left to open the door for.
+	model.purchase_tile(GRAIN, 1)
+	var deeded: Dictionary = {"diplomacy": Fixture.merchant_court_unembarked(), "visibility": view}
+	assert_false(
+		AiMerchantWork.chain_openable(model, 0, deeded),
+		"a signed deed leaves no chain to open"
+	)
+
 func test_one_merchant_is_enough() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var roster: Array = _staffed_roster()
@@ -588,7 +643,10 @@ func test_a_deed_without_a_ledger_is_not_signed() -> void:
 
 ## A court that could sign a deed wants the envoy chain: the Consulate outranks
 ## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
-## docs/ai.md — land purchase needs the envoy first).
+## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
+## the gate: a chain opened without a buyer at the end of it warms the relation
+## past the war ceiling and bars the conquest for nothing (issue #724, measured
+## 2026-11-15).
 func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var world := WorldMap.new()
@@ -607,7 +665,7 @@ func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
 	assert_true(bool(merchant_tech.get("ok", false)))
 	assert_eq(
 		int(merchant_tech["utility"]) - int(plain["utility"]),
-		AiDiplomacyOffers.LAND_ENVOY_BONUS,
+		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
 		"a deed worth buying lifts the envoy"
 	)
 	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
@@ -693,6 +751,13 @@ func test_an_empty_purse_and_a_great_power_land_offer_nothing() -> void:
 	)
 	assert_eq(AiMerchantWork.cheapest_offer(gp, 0, 1, 5000), 0)
 	assert_true(AiMerchantWork.best_move(gp, _ai_merchant_merchant(GRAIN), LandWorks.new()).is_empty())
+	# The priced read lifts no treasury bar: the deed has a published price even
+	# when this turn's floor cannot cover it (issue #724).
+	assert_eq(AiMerchantWork.priced_offer(model, 0, MINOR, null), 750)
+	assert_eq(
+		AiMerchantWork.cheapest_offer(model, 0, MINOR, 0), 0,
+		"this turn's floor still bars the signature"
+	)
 
 func _ai_merchant_merchant(tile: Vector2i, owner: int = 0) -> CivilianState:
 	return CivilianState.create(1, owner, "merchant", tile)

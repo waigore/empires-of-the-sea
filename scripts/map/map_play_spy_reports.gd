@@ -88,6 +88,7 @@ const ACT_LINES: Dictionary = {
 	AiDiplomacyOffers.KIND_SUBSIDY: "%s sets a subsidy for %s.",
 	AiDiplomacyOffers.KIND_CANCEL_SUBSIDY: "%s ends its subsidy to %s.",
 	AiDiplomacyOffers.KIND_BREAK: "%s breaks its alliance with %s.",
+	AiDiplomacyOffers.KIND_BREAK_NAP: "%s breaks its pact with %s.",
 }
 
 

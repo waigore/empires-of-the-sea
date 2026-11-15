@@ -103,6 +103,13 @@ static func note(play: PlaySession, line: String) -> void:
 		play.auto_log.remove_at(0)
 
 
+## The crown's own orders are ignored while Auto holds the seat; the chart, the
+## dossiers and the ledgers stay open for inspection (wiki: auto-mode
+## § Read-only while it runs).
+static func blocks_orders(play: PlaySession) -> bool:
+	return play != null and play.auto_active
+
+
 ## The seat's passes for the turn about to resolve, in phase order.
 static func begin_turn(play: PlaySession) -> void:
 	play.auto_steps.assign(STEPS)
@@ -219,19 +226,19 @@ static func answer_pending(play: PlaySession) -> bool:
 	if play == null or play.diplomacy == null:
 		return false
 	var human: int = play.player_faction
-	if CallToArms.has_pending(play.diplomacy, human):
-		CallToArms.resolve_human(play.diplomacy, true)
-		note(play, "Auto answers the call to arms: the alliance is honoured.")
-		return true
-	if Intervention.has_pending(play.diplomacy, human):
-		Intervention.resolve_human(play.diplomacy, Intervention.KIND_NOTHING)
-		note(play, "Auto stays out of a war it did not choose.")
-		return true
-	if DiplomacyProposals.has_pending(play.diplomacy, human):
-		DiplomacyProposals.resolve_human(play.diplomacy, play.world, false)
-		note(play, "Auto declines a rival's proposal.")
-		return true
-	return false
+	match ConsentLadder.pending_kind(play.diplomacy, human):
+		ConsentLadder.CALL:
+			CallToArms.resolve_human(play.diplomacy, true)
+			note(play, "Auto answers the call to arms: the alliance is honoured.")
+		ConsentLadder.INTERVENTION:
+			Intervention.resolve_human(play.diplomacy, Intervention.KIND_NOTHING)
+			note(play, "Auto stays out of a war it did not choose.")
+		ConsentLadder.OFFER:
+			DiplomacyProposals.resolve_human(play.diplomacy, play.world, false)
+			note(play, "Auto declines a rival's proposal.")
+		_:
+			return false
+	return true
 
 
 ## The turn boundary, for both seats: an armed court takes the seat at the close

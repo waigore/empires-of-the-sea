@@ -473,12 +473,9 @@ domain = "pause"
 match = "scripts/map/map_play_region.gd*"
 domain = "map_mount"
 
-# Auto mode binds its plaque here with every other view (issue #725). Kept on
-# `auto` so a seat wiring edit does not pull map_mount past the tier-1 budget;
-# restore domain = "map_mount" when a non-Auto mount change reshapes this file.
 [[rules]]
 match = "scripts/map/map_play_wiring.gd*"
-domain = "auto"
+domain = "map_mount"
 
 [[rules]]
 match = "scripts/map/sea_backdrop.gd*"
@@ -488,12 +485,9 @@ domain = "sea_tone"
 match = "ui/shaders/sea.gdshader*"
 domain = "sea_tone"
 
-# Auto mode's seat flags live on the session (issue #725). Kept on `auto` so a
-# seat-field edit does not pull pause's six suites past the tier-1 budget;
-# restore domain = "pause" when a non-Auto session change reshapes this file.
 [[rules]]
 match = "scripts/session/play_session.gd*"
-domain = "auto"
+domain = "pause"
 
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
@@ -585,20 +579,13 @@ domain = "naval_intel"
 match = "scripts/map/map_play_fleets.gd*"
 domain = "naval_intel"
 
-# Auto mode's paced End Turn / auto_turn live here (issue #725). Kept on `auto`
-# so a seat-turn edit does not pull naval_intel past the tier-1 budget; restore
-# domain = "naval_intel" when a non-Auto turn change reshapes this file.
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
-domain = "auto"
+domain = "naval_intel"
 
-# Auto mode stages the crown's passes then finishes the turn here (issue #725).
-# Kept on `auto` so a seat-finish edit does not pull fleet past the tier-1
-# budget; restore domain = "fleet" (or "turn_closure" for a deep phase reshape)
-# when a non-Auto finish change reshapes this file.
 [[rules]]
 match = "scripts/map/map_play_turn_finish.gd*"
-domain = "auto"
+domain = "fleet"
 
 [[rules]]
 match = "scripts/ui/fleet_strength_section.gd*"
@@ -1378,6 +1365,13 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_market.gd"
 domain = "economy_ui"
 
+# Ledger button intents (trade, workers, research): the sheet suite owns them.
+# Named before scripts/economy/** so a seat-gate edit still pulls economy_ui
+# (test_economy_screen) for the body lines the patch shift counts (issue #726).
+[[rules]]
+match = "scripts/economy/ledger_orders.gd*"
+domain = "economy_ui"
+
 # The market tab's bid-budget banner (wiki: world-market § Treasury budget for
 # bids): the sheet reads one figure from MarketBudget, so it rides the economy
 # suites that prove that projection instead of the menu catch-all.
@@ -1828,6 +1822,10 @@ domain = "ai_colony"
 
 [[rules]]
 match = "scripts/ai/ai_diplomacy_offers.gd*"
+domain = "ai_colony"
+
+[[rules]]
+match = "scripts/ai/ai_diplomacy_treaties.gd*"
 domain = "ai_colony"
 
 [[rules]]
@@ -2477,6 +2475,12 @@ domain = "dialogue"
 match = "scripts/rules/consent_copy.gd*"
 domain = "dialogue"
 
+# Which blocking decision the court answers first. Read by the court panel, the
+# turn press and the Auto seat, so it travels with the diplomacy suites.
+[[rules]]
+match = "scripts/rules/consent_ladder.gd*"
+domain = "diplomacy"
+
 [[rules]]
 match = "scripts/rules/auto_siege.gd*"
 domain = "fort"
@@ -2860,33 +2864,21 @@ domain = "intel"
 match = "scripts/ui/diplomacy_panel.gd"
 domain = "intel"
 
-# Auto mode's plaque field on the HUD root (issue #725). Kept on `auto` so a
-# seat-HUD edit does not pull crown_road past the tier-1 budget; restore
-# domain = "crown_road" when a non-Auto HUD change reshapes this file.
 [[rules]]
 match = "scripts/ui/game_hud.gd"
-domain = "auto"
+domain = "crown_road"
 
-# Auto mode mounts its chrome here (issue #725). Kept on `auto` so a seat-chrome
-# edit does not pull crown_road past the tier-1 budget; restore
-# domain = "crown_road" when a non-Auto chrome change reshapes this file.
 [[rules]]
 match = "scripts/ui/hud_chrome.gd"
-domain = "auto"
+domain = "crown_road"
 
-# Auto mode's plaque shifts the toast band (issue #725). Kept on `auto` so a
-# seat-layout edit does not pull layout past the tier-1 budget; restore
-# domain = "layout" when a non-Auto layout change reshapes this file.
 [[rules]]
 match = "scripts/ui/hud_layout.gd"
-domain = "auto"
+domain = "layout"
 
-# Auto mode's play / pause / helm pictograms (issue #725). Kept on `auto` so a
-# seat-icon edit does not pull ui past the tier-1 budget; restore domain = "ui"
-# when a non-Auto pictogram change reshapes this file.
 [[rules]]
 match = "scripts/ui/icon.gd*"
-domain = "auto"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/back_request.gd"

@@ -498,7 +498,10 @@ func test_a_deed_without_a_ledger_is_not_signed() -> void:
 
 ## A court that could sign a deed wants the envoy chain: the Consulate outranks
 ## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
-## docs/ai.md — land purchase needs the envoy first).
+## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
+## the gate: a chain opened without a buyer at the end of it warms the relation
+## past the war ceiling and bars the conquest for nothing (issue #724, measured
+## 2026-11-15).
 func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var world := WorldMap.new()
@@ -517,7 +520,7 @@ func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
 	assert_true(bool(merchant_tech.get("ok", false)))
 	assert_eq(
 		int(merchant_tech["utility"]) - int(plain["utility"]),
-		AiDiplomacyOffers.LAND_ENVOY_BONUS,
+		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
 		"a deed worth buying lifts the envoy"
 	)
 	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)

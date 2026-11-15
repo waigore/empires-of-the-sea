@@ -267,7 +267,10 @@ static func from_dict(data: Dictionary) -> WorldMarket:
 	var market := WorldMarket.with_default_prices()
 	var saved: Dictionary = data.get("prices", {})
 	for key: Variant in saved.keys():
-		market.prices[String(key)] = int(saved[key])
+		# Prices are a non-negative integer band: a legacy save that wrote a
+		# negative entry loads it as zero rather than publishing a price no
+		# deal ever charged (wiki: world-market § Price discovery).
+		market.prices[String(key)] = maxi(int(saved[key]), 0)
 	for entry: Variant in data.get("minor_offers", []):
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue

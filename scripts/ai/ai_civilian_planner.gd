@@ -59,9 +59,17 @@ static func plan(
 	var estates: Array[Dictionary] = []
 	var estates_ready: bool = false
 	var train_context: Dictionary = context.duplicate()
-	train_context["merchant_targets"] = AiMerchantWork.buyable_tiles(
+	var deed_tiles: int = AiMerchantWork.buyable_tiles(
 		model, config.faction, works, context
 	).size()
+	# The merchant follows the door, not just the deed: one Merchant while an
+	# envoy chain toward a priced deed is openable — the embassy waits on the
+	# merchant, so the hire cannot wait on the embassy (issue #724; wiki:
+	# civilian-units § Merchant).
+	train_context["merchant_targets"] = (
+		deed_tiles if deed_tiles > 0
+		else (1 if AiMerchantWork.chain_openable(model, config.faction, context) else 0)
+	)
 	train_context["staff_targets"] = staff_targets(
 		config, model, works, units, stockpile, tech_caps, train_context
 	)
@@ -274,7 +282,8 @@ static func _owned_units(units: Array, owner: int) -> Array[CivilianState]:
 
 ## Hire order against the region's targets: builders, engineers, a war spy
 ## screen before another explorer, then the peace spy, then a merchant when a
-## deed is on offer. Empty when every target is already met.
+## deed is on offer or an envoy chain toward one is openable. Empty when every
+## target is already met.
 static func _preferred_type(
 	roster: Array[CivilianState],
 	targets: Dictionary,

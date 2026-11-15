@@ -50,8 +50,14 @@ static func war_desire(
 	# The two agenda pulls the court's own book of grudges adds (wiki:
 	# hidden-agendas § Design intent; DR-20261111-27): a backstabber signs a
 	# treaty meaning to break it, and an envious court resents a human crown
-	# that has pulled ahead of it.
-	var betrayal: int = config.betray_bias() if record.formal_alliance else 0
+	# that has pulled ahead of it. With the binding pact the pull reaches it
+	# too: a backstabber under a bare pact feels half the pull it feels under
+	# an alliance (issues #750, #752).
+	var betrayal: int = 0
+	if record.formal_alliance:
+		betrayal = config.betray_bias()
+	elif DiplomacyRules.has_pact(state, attacker, target):
+		betrayal = int(roundf(float(config.betray_bias()) / 2.0))
 	if betrayal != 0:
 		factors["betrayal"] = betrayal
 		score += betrayal

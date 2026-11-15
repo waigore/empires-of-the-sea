@@ -231,8 +231,11 @@ func test_a_declaration_of_war_reads_as_a_warmonger() -> void:
 func test_breaking_an_alliance_reads_as_a_backstabber() -> void:
 	_setup_intel_dossier()
 	intel_dossier_state.relation(intel_dossier_ENGLAND, intel_dossier_VIEWER).score = 80.0
+	# The alliance rides on the pact (wiki: diplomacy § Alliances; issue #750).
+	intel_dossier_state.set_overture(intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyCatalog.STAGE_NAP)
+	intel_dossier_state.set_overture(intel_dossier_VIEWER, intel_dossier_ENGLAND, DiplomacyCatalog.STAGE_NAP)
 	DiplomacyRules.form_alliance(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyRules.DECISION_ACCEPT)
-	DiplomacyRules.break_alliance(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER)
+	DiplomacyTreaties.break_alliance(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER)
 	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
 	assert_eq(int(scores.get(AiAgenda.BACKSTABBER, 0)), IntelEvidence.W_BREAK_ALLY)
 	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelEvidence.W_BREAK_ISOLATION)
@@ -240,13 +243,24 @@ func test_breaking_an_alliance_reads_as_a_backstabber() -> void:
 func test_a_war_on_a_former_ally_reads_as_a_backstabber() -> void:
 	_setup_intel_dossier()
 	intel_dossier_state.relation(intel_dossier_ENGLAND, intel_dossier_VIEWER).score = 80.0
+	intel_dossier_state.set_overture(intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyCatalog.STAGE_NAP)
+	intel_dossier_state.set_overture(intel_dossier_VIEWER, intel_dossier_ENGLAND, DiplomacyCatalog.STAGE_NAP)
 	DiplomacyRules.form_alliance(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyRules.DECISION_ACCEPT)
+	# The binding path: the pact break clears the alliance and reads as the
+	# betrayal; the war it opens the next turn reads as the march (issue #750).
+	DiplomacyTreaties.break_nap(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER)
+	intel_dossier_state.end_turn()
 	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER)
 	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
 	assert_eq(
 		int(scores.get(AiAgenda.BACKSTABBER, 0)),
-		IntelEvidence.W_WAR_ON_ALLY,
-		"the treaty it held is what the reading weighs"
+		IntelEvidence.W_BREAK_ALLY,
+		"the treaty it broke is what the reading weighs"
+	)
+	# The march: the break names the war it wanted, the declaration confirms it.
+	assert_eq(
+		int(scores.get(AiAgenda.WARMONGER, 0)),
+		IntelEvidence.W_WAR + IntelEvidence.W_WAR,
 	)
 
 func test_a_refused_call_to_arms_reads_as_isolationist() -> void:
