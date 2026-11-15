@@ -50,6 +50,8 @@ static func build_hud(play: PlaySession) -> void:
 		hud.spy_ledger.bind(play)
 	if hud.command_ledger != null:
 		hud.command_ledger.bind(play)
+	if hud.towns_ledger != null:
+		hud.towns_ledger.bind(play)
 	_seat_commanders(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)

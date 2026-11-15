@@ -115,6 +115,7 @@ suites = [
 [domains.economy]
 suites = [
   "test_market_economy_rules.gd",
+  "test_market_budget.gd",
   "test_diplomacy_rules.gd",
 ]
 
@@ -254,6 +255,7 @@ suites = [
 suites = [
   "test_ledgers.gd",
   "test_command_ledger.gd",
+  "test_town_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -592,6 +594,26 @@ domain = "muster"
 
 [[rules]]
 match = "tests/test_command_ledger.gd*"
+domain = "muster"
+
+# The crown's towns (DR-20261115-12): the projection, its row and panel, the
+# map hook behind Raise and the realm ledger's door. It rides the muster domain
+# with the other sheets — one chrome, one modal layer — so a reading change
+# never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/town_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/town_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_towns.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_town_ledger.gd*"
 domain = "muster"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
@@ -1162,6 +1184,13 @@ domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy_ui"
+
+# The market tab's bid-budget banner (wiki: world-market § Treasury budget for
+# bids): the sheet reads one figure from MarketBudget, so it rides the economy
+# suites that prove that projection instead of the menu catch-all.
+[[rules]]
+match = "scripts/ui/ledger_budget.gd*"
 domain = "economy_ui"
 
 [[rules]]
