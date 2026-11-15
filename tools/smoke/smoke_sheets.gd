@@ -1,9 +1,9 @@
 extends RefCounted
 ## Fifth step of the e2e smoke: every sheet and reading the bar can raise — the
 ## crown-road and defence lenses with their keys, the muster roll, the province
-## ledger, the crown's eyes and the command pool — opened from the door the
-## player uses and set aside without placing an order (DR-20261113-12,
-## DR-20261115-09/10/11).
+## ledger, the crown's towns, the crown's eyes and the command pool — opened
+## from the door the player uses and set aside without placing an order
+## (DR-20261113-12, DR-20261115-09/10/11/12).
 ##
 ## No `class_name`: the driver (tools/e2e_smoke.gd) preloads this file.
 
@@ -14,6 +14,7 @@ static func step(run) -> void:
 	await _defence_lens(run, screen)
 	await _muster_roll(run, screen)
 	await _province_ledger(run, screen)
+	await _town_ledger(run, screen)
 	await _spy_ledger(run, screen)
 	await _command_ledger(run, screen)
 
@@ -111,6 +112,36 @@ static func _province_ledger(run, screen: MapScreen) -> void:
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the province ledger sets itself aside")
+
+
+## The towns ledger: the realm ledger's Towns door raises the crown's towns on
+## the real map, prints the step a town waits on, narrows to one reading and
+## sets itself aside (DR-20261115-12). No Builder is sent, so no order is placed.
+static func _town_ledger(run, screen: MapScreen) -> void:
+	run.check(screen.hud.towns_ledger != null, "towns ledger mounted")
+	screen.hud.provinces_pressed.emit()
+	await run.tree.process_frame
+	var door: Button = null
+	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Towns ›":
+			door = button
+			break
+	run.check(door != null, "the realm ledger carries the towns door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await run.tree.process_frame
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	run.check(panel.is_open(), "the towns ledger opens from the realm's door")
+	run.check(int(panel._snapshot.get("total", 0)) > 0, "the ledger lists the crown's towns")
+	run.check(run.has_text(panel._rows, "Next:"), "a row prints the step it waits on")
+	panel._on_filter(TownLedger.FILTER_READY, false)
+	await run.tree.process_frame
+	run.check(panel._filter == TownLedger.FILTER_READY, "the ledger narrows to one reading")
+	panel.close()
+	await run.tree.process_frame
+	run.check(not panel.is_open(), "the towns ledger sets itself aside")
 
 
 ## The crown's eyes: the court ledger's EYES door raises the intelligence
