@@ -80,7 +80,8 @@ Minor/Tribe row batches its left.
 
 ## Deferred (REQ-P2-02)
 
-The rival's appetite for the second-stage rows ([`deferred.md`](deferred.md)).
+Live: rival second-stage appetite (`TownIndustry.best_level`, #798); gaps:
+[`deferred.md`](deferred.md).
 
 ## Architecture
 
