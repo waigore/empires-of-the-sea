@@ -50,6 +50,14 @@ func _ids(rows: Array[Dictionary]) -> Array[String]:
 		out.append(String(row["id"]))
 	return out
 
+## The opening purse is the published seed capital (wiki: ruleset-config
+## § Starting stockpiles; DR-20261115-16, #676). It buys the college, the
+## surveys and the first roads before any estate yields.
+func test_every_crown_opens_on_the_published_purse() -> void:
+	assert_eq(PlayerEconomy.START_TREASURY, 20000)
+	assert_eq(PlayerEconomy.starting().treasury, 20000)
+
+
 func test_the_seller_filter_narrows_the_book_to_one_court() -> void:
 	var rows: Array[Dictionary] = MarketOffersHead.apply(
 		_book(), 7, MarketOffersHead.ALL_GOODS, MarketOffersHead.SORT_SELLER

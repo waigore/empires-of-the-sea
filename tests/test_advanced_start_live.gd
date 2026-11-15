@@ -29,7 +29,7 @@ func test_a_new_campaign_opens_on_the_preset() -> void:
 	assert_eq(play.turn, 50, "the age opens at turn 50")
 	assert_eq(TurnTime.year_for_turn(play.turn), 1598)
 	assert_eq(play.advanced_start, AdvancedStart.TURNS50)
-	assert_eq(play.treasury(), 20000, "the tier purse")
+	assert_eq(play.treasury(), 40000, "the tier purse")
 	assert_eq(play.economy.economy.workers.count(WorkerPool.Tier.PEASANT), 16)
 	assert_eq(play.economy.economy.research.unlocked_ids().size(), 23)
 	assert_gte(

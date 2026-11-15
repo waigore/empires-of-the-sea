@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-15 + #676 (REQ-P2-02).
+Audited through DR-20261115-16 + #676 (REQ-P2-02).
 
 ## Already live
 
@@ -32,19 +32,19 @@ Audited through DR-20261115-15 + #676 (REQ-P2-02).
 
 ## Remaining gaps (impact order)
 
-1. **Rival purse / starved economy** — Join Empire waits on
-   `5,000 + 2,000 × provinces` (#489) while landings grow them (DR-14-14);
-   density and purse starve the same loop (#676).
-2. **Building gates / further rows** — worker tiers, alloy + luxury four and
+1. **Building gates / further rows** — worker tiers, alloy + luxury four and
    bench cap ship (DR-14-07/10/12); building gates remain.
-3. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship; soft
+2. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship; soft
    weights and treasury recovery stay seed (DR-13-15).
-4. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
+3. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
    (`civilian-build-planner`); polish.
+
+The starved economy is funded: 30% land density, the Minor/Tribe book with
+something to sell, and a 20,000 purse (DR-15-16, #676).
 
 ## Next pick
 
-Rival purse / starved economy (#489, #676) — rules call.
+Building gates / further rows — rules call.
 
 ## Blocked footnotes
 
