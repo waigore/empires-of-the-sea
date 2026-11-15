@@ -964,6 +964,17 @@ domain = "lens_kit"
 match = "scripts/map/diplomacy_lens.gd*"
 domain = "lens_kit"
 
+# The sea reading (DR-20261115-17): the zones the crown's sail is under its eye
+# in, and the fight the turn resolves there. Projection and view ride the same
+# narrow kit domain as the other readings.
+[[rules]]
+match = "scripts/rules/sea_survey.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/sea_lens.gd*"
+domain = "lens_kit"
+
 # Prospect / mineral uncover (wiki: fog-and-exploration § Prospect; DR-20261111-26).
 # Catalog + seeder + survey + Explorer policy travel together; kept off the full
 # map + AI + economy fan-out so tier 1 stays inside 5 min.
@@ -2182,6 +2193,12 @@ domain = "diplomacy"
 # domain so a one-line sheet refresh does not pull the whole map suite set.
 [[rules]]
 match = "scripts/map/map_play_input.gd"
+domain = "crown_road"
+
+# The chart's readings (raise, walk, fade) moved out of MapPlayInput to keep it
+# under the 400-line bar (REQ-P3-01). Same domain: the lens board and its suites.
+[[rules]]
+match = "scripts/map/map_play_lens.gd*"
 domain = "crown_road"
 
 # Lens rebuild path (survey / diplomacy / crown-road); keep off the full map set.

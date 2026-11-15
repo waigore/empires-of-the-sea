@@ -81,6 +81,17 @@ const DEFENCE_HELD := Color(0.663, 0.522, 0.235)
 const DEFENCE_WALLED := Color(0.310, 0.408, 0.463)
 const DEFENCE_CITADEL := Color(0.235, 0.243, 0.404)
 
+## Sea reading bands: pale water for the crown's own quiet sea, dim gold for a
+## rival's sails under the peace, rust for hostile water the crown does not
+## hold, war red for a battle the court can see coming and slate for that same
+## battle with a weight not yet read. The pennant on the water and the key read
+## this one table (REQ-P1-02).
+const SEA_QUIET := Color(0.365, 0.510, 0.565)
+const SEA_WATCHED := Color(0.741, 0.678, 0.553)
+const SEA_STANDOFF := Color(0.639, 0.263, 0.196)
+const SEA_CONTESTED := Color(0.702, 0.196, 0.196)
+const SEA_BLIND := Color(0.310, 0.408, 0.463)
+
 ## Terrain wash colours, indexed by MapModel.Terrain.
 ## Ocean is transparent so the animated sea shader shows through.
 const TERRAIN_COLORS: Array[Color] = [
@@ -169,3 +180,17 @@ static func defence_color(band: String) -> Color:
 		DefenceSurvey.BAND_CITADEL:
 			return DEFENCE_CITADEL
 	return DEFENCE_OPEN
+
+
+## Pennant ink for one sea band (SeaSurvey.BANDS).
+static func sea_color(band: String) -> Color:
+	match band:
+		SeaSurvey.BAND_WATCHED:
+			return SEA_WATCHED
+		SeaSurvey.BAND_STANDOFF:
+			return SEA_STANDOFF
+		SeaSurvey.BAND_CONTESTED:
+			return SEA_CONTESTED
+		SeaSurvey.BAND_BLIND:
+			return SEA_BLIND
+	return SEA_QUIET
