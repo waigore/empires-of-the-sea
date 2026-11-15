@@ -79,7 +79,7 @@ contact are live (DR-20261111-14). Gaps: [`deferred.md`](deferred.md).
 
 `test_world_setup`, `test_country_borders`, `test_map_data_rules`,
 `test_map_view_rules`, `test_map_screen`, `test_campaign_end`,
-`test_capital_loss`.
+`test_campaign_rules`.
 
 ```bash
 gd-tools test --coverage --min 80

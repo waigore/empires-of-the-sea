@@ -11,33 +11,36 @@ Movement, cargo, fog, battles; stations, raids:
 ## Implemented
 
 - Sea zone or port, never both; one roster/region.
-- **One move / turn:** S↔S; undock; dock at an owned port; a warp zone crosses.
+- **One move / turn:** S↔S; undock; dock at an owned port; a warp crosses.
 - A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
-- **Named hulls** (`ShipNames`): period names, unique per squadron, kept
-  through save and merge (DR-20261111-07).
+- **Named hulls** (`ShipNames`): period, unique per squadron, kept through save
+  and merge (DR-20261111-07).
 - **Yard:** launch for its row + **one peasant**; the hull lands next turn at
-  Build/work; breaking up returns a peasant, no refund (DR-20261109-01).
-- **Home cargo:** merchant **holds** (1/turn) cap imports; seat harbour grants
-  one hold with no merchant; flown types stay rebuildable; GPs start with
-  ≥1 warship (DR-20261109-03, #484).
-- **Home-fleet merge:** seat dock or dossier **Join the home fleet**
-  (`FleetHomeMerge`); ids, names, passengers keep; old saves repair.
+  Build/work; break-up returns a peasant, no refund (DR-20261109-01).
+- **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
+  one with no merchant; flown types stay rebuildable; GPs start with ≥1 warship
+  (DR-20261109-03, #484).
+- **Home merge:** seat dock or dossier **Join the home fleet**
+  (`FleetHomeMerge`); ids, names, passengers keep; saves repair.
 - **Home sortie** (DR-20261109-17): home squadron may sail (spends move/holds);
-  colonists ride (one per hull) and land beside the zone.
+  colonists ride one per hull and land beside the zone.
 - Contested zones fight at turn end: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
 - **Markers:** escorts, hull badge, strength; sighted rival `*` / dossier `???`
   until watched a turn (DR-20261113-20).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13, DR-20261109-16).
-- **Army transport** (`NavalTransport`): board in port (one regiment/hull),
-  sail or cross, land on owned coast; troops drown with a sunk squadron.
-- **Beachhead:** mark a hostile coast (spends the move); army lands next turn;
+- **Army transport** (`NavalTransport`): board (one regiment/hull), sail or
+  cross, land on an owned coast; troops drown with a sunk hull.
+- **Beachhead:** mark a hostile coast (spends the move); army lands next;
   unused markers lapse.
 
 Raids sink one merchant hull (DR-20261111-17).
+
+**The crown's navy** (DR-20261115-14): muster door (`N`) lists each hull
+(class, stats, holds, station); **Visit** frames her squadron.
 
 ## Architecture
 
@@ -51,6 +54,7 @@ Raids sink one merchant hull (DR-20261111-17).
 | `scripts/map/{map_play_fleets,map_play_fleet_yard}.gd` | sail orders, fog intel, shipyard |
 | `scripts/map/{ship_layer,ship_markers,fleet_rosters,map_overlay,map_play_warp,fog_layer}.gd` | orders, markers, rosters, fog |
 | `scripts/ui/{fleet_panel,fleet_*_section,panel_dock}.gd` | dossier, strength, passengers, stations |
+| `scripts/rules/naval_ledger.gd`, `scripts/ui/naval_ledger_*.gd` | the navy, hull by hull |
 | `scripts/economy/economy_controller.gd`, `scripts/map_screen.gd` | upkeep, intents |
 
 No node deps (`REQ-P3-03`).
@@ -60,25 +64,24 @@ No node deps (`REQ-P3-03`).
 | Action | Desktop | Touch |
 |--------|---------|-------|
 | Select fleet | click | tap |
-| Sail / dock | click highlight | tap highlight |
-| Join home fleet | dossier button | same |
-| Passages | click ring | tap ring |
-| Take a station | dossier button | same |
+| Sail, dock, passages | highlight / ring | same |
+| Join home | dossier button | same |
+| Station | dossier button | same |
 | Land troops | dossier button | same |
-| Take / land colonists | dossier **PASSENGERS** | same |
-| Mark beachhead | dossier coast button | same |
-| Shipyard | capital dossier → Shipyard | same |
-| Cancel | `Esc` | close panel |
+| Colonists | dossier **PASSENGERS** | same |
+| Beachhead | dossier coast button | same |
+| Shipyard | capital | same |
+| Navy | roll's **Navy ›**, `N` | same |
+| Cancel | `Esc` | close |
 
-## Deferred (REQ-P2-02)
+## Deferred
 
-None — ranked gaps: [`deferred.md`](deferred.md).
+None.
 
 ## Tests
 
-`test_naval_rules`, `test_fleet_orders`,
-`test_ship_*`, `test_economy_rules`, `test_civilian_voyage`, `test_home_merge`,
-`test_visibility`, `test_map_screen`.
+`test_naval_rules`, `test_fleet_orders`, `test_naval_ledger`, `test_ship_*`,
+`test_economy_rules`, `test_civilian_voyage`, `test_visibility`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

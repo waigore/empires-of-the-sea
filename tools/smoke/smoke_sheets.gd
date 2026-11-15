@@ -1,9 +1,9 @@
 extends RefCounted
 ## Fifth step of the e2e smoke: every sheet and reading the bar can raise — the
 ## crown-road and defence lenses with their keys, the muster roll, the province
-## ledger, the crown's towns, the crown's eyes and the command pool — opened
-## from the door the player uses and set aside without placing an order
-## (DR-20261113-12, DR-20261115-09/10/11/12).
+## ledger, the crown's towns, the crown's eyes, the command pool and the crown's
+## navy — opened from the door the player uses and set aside without placing an
+## order (DR-20261113-12, DR-20261115-09/10/11/12/14).
 ##
 ## No `class_name`: the driver (tools/e2e_smoke.gd) preloads this file.
 
@@ -17,6 +17,7 @@ static func step(run) -> void:
 	await _town_ledger(run, screen)
 	await _spy_ledger(run, screen)
 	await _command_ledger(run, screen)
+	await _navy_ledger(run, screen)
 	await _bid_budget(run, screen)
 
 
@@ -202,6 +203,39 @@ static func _command_ledger(run, screen: MapScreen) -> void:
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the command ledger sets itself aside")
+
+
+## The crown's navy: the muster roll's navy door raises the hull-by-hull reading
+## on the real map, prints a squadron heading with her hulls and sets itself
+## aside (DR-20261115-14). No hull is launched, docked or ordered.
+static func _navy_ledger(run, screen: MapScreen) -> void:
+	run.check(screen.hud.navy_ledger != null, "navy ledger mounted")
+	screen.hud.muster_roll_pressed.emit()
+	await run.tree.process_frame
+	var door: Button = null
+	for node: Node in screen.hud.muster_roll.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("The crown's navy"):
+			door = button
+			break
+	run.check(door != null, "the muster roll carries the navy door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await run.tree.process_frame
+	var panel: NavalLedgerPanel = screen.hud.navy_ledger
+	run.check(panel.is_open(), "the navy ledger opens from the roll's door")
+	if int(panel._snapshot.get("total", 0)) > 0:
+		run.check(run.has_text(panel._rows, "SQUADRON — "), "a heading names the squadron")
+		run.check(run.has_text(panel._rows, "strength"), "a heading prints her strength")
+	else:
+		run.check(run.has_text(panel._rows, "hull"), "an empty navy names the yard")
+	panel.close()
+	await run.tree.process_frame
+	run.check(not panel.is_open(), "the navy ledger sets itself aside")
+	screen.hud.muster_roll.close()
+	await run.tree.process_frame
+	run.check(not screen.hud.muster_roll.is_open(), "the muster roll sets itself aside again")
 
 
 ## The ledger's market tab prints the purse the auction may spend before a bid
