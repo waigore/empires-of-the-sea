@@ -1,8 +1,9 @@
 extends RefCounted
 ## Fifth step of the e2e smoke: every sheet and reading the bar can raise — the
 ## crown-road and defence lenses with their keys, the muster roll, the province
-## ledger and the crown's eyes — opened from the door the player uses and set
-## aside without placing an order (DR-20261113-12, DR-20261115-09/10).
+## ledger, the crown's eyes and the command pool — opened from the door the
+## player uses and set aside without placing an order (DR-20261113-12,
+## DR-20261115-09/10/11).
 ##
 ## No `class_name`: the driver (tools/e2e_smoke.gd) preloads this file.
 
@@ -14,6 +15,7 @@ static func step(run) -> void:
 	await _muster_roll(run, screen)
 	await _province_ledger(run, screen)
 	await _spy_ledger(run, screen)
+	await _command_ledger(run, screen)
 
 
 ## Map readings: the crown-road lens mounts on the real map, fills its survey
@@ -136,3 +138,28 @@ static func _spy_ledger(run, screen: MapScreen) -> void:
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the crown's eyes set themselves aside")
+
+
+## The command ledger: the army dossier's Commanders door raises the crown's
+## pool on the real map, prints the cap road and the medal note, and sets itself
+## aside (DR-20261115-11). No commander is appointed and no order is placed.
+static func _command_ledger(run, screen: MapScreen) -> void:
+	run.check(screen.hud.command_ledger != null, "command ledger mounted")
+	var door: Button = null
+	for node: Node in screen.hud._army_panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Commanders":
+			door = button
+			break
+	run.check(door != null, "the army dossier carries the command door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await run.tree.process_frame
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	run.check(panel.is_open(), "the command ledger opens from the dossier's door")
+	run.check(run.has_text(panel._road, "Cap 2"), "the sheet prints the road to the next commander")
+	run.check(run.has_text(panel._medal, "Each medal"), "and what a medal buys in the field")
+	panel.close()
+	await run.tree.process_frame
+	run.check(not panel.is_open(), "the command ledger sets itself aside")

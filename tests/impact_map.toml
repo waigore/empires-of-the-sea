@@ -254,6 +254,7 @@ suites = [
 suites = [
   "test_force_ledger_rules.gd",
   "test_province_ledger.gd",
+  "test_command_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -572,6 +573,26 @@ domain = "muster"
 
 [[rules]]
 match = "tests/test_province_ledger.gd*"
+domain = "muster"
+
+# The crown's command ledger (DR-20261115-11): the projection, its row and
+# panel, the map hook and the army dossier's door. It rides the muster domain
+# with the other sheets — one chrome, one modal layer — so a reading change
+# never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/command_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/command_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_command.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_command_ledger.gd*"
 domain = "muster"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
