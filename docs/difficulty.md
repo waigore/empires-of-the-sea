@@ -66,4 +66,4 @@ AI income per turn and tutorial/advisor toggles stay outside the layer
 exclusion, the battle context, a naval engagement that turns on the level, and
 the victory bar at every level (rival and observer rows included).
 `test_generated_world_rules.gd` covers the choice and the bar it states;
-`test_campaign_intro.gd` the charge; `test_save_codec.gd` the round trip.
+`test_menu_flow.gd` the charge; `test_save_codec.gd` the round trip.

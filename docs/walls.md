@@ -27,8 +27,8 @@ door sits on the reading that raises the question
 | Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, the study the order waits on, or the finished wall |
 
 The chip names what the step waits on; the note is the step. The sheet states
-the rule a crown pays by: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns,
-and the last gun falls even when an assault is repelled.
+the rule: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns, and the last gun
+falls even when an assault is repelled.
 
 ## Filters
 
@@ -64,6 +64,6 @@ No figure is recomputed: the level and its guns are `FortRules`, the price is
 
 ## Tests
 
-`tests/test_wall_ledger.gd` — the projection over both charts, every state, the
-tallies and the reading order, the rule note, and the sheet: door, Raise, back
-and key. `tests/test_ledgers.gd` reads its prose at desktop and phone widths.
+`tests/test_ledgers.gd` — the walls cases read the projection over both charts,
+every state, the tallies and the reading order, the rule note, and the sheet:
+door, Raise, back and key; its prose is read at desktop and phone widths.
