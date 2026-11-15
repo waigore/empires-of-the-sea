@@ -184,10 +184,15 @@ static func resolve_work(play: PlaySession) -> void:
 		if String(report["action"]) == "build_fort":
 			# A wall is the one work that changes how the province is fought
 			# over, so the despatch names the level it raised, not just the order
-			# (wiki: siege-mechanics § Fort Levels, § Emplaced Artillery).
+			# — and says so plainly when a second project in the same province
+			# finished after the wall already stood (wiki: siege-mechanics
+			# § Fort Levels, § Emplaced Artillery).
 			play.hud.toast("%s%s in %s: %s" % [
 				_owner_label(play, int(report.get("owner", -1))), type_name, place,
-				FortRules.raise_text(int(report.get("fort_level", 0))),
+				FortRules.raise_line(
+					int(report.get("fort_before", 0)),
+					int(report.get("fort_level", 0))
+				),
 			])
 			continue
 		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
