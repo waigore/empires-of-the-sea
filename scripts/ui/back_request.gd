@@ -43,6 +43,12 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if muster != null and muster.is_open():
 		muster.close()
 		return true
+	# The towns ledger is the realm's own door's sheet and stands above it, so
+	# it closes first (DR-20261115-12).
+	var towns: TownLedgerPanel = play.hud.towns_ledger
+	if towns != null and towns.is_open():
+		towns.close()
+		return true
 	# The province ledger is the muster roll's sibling sheet (DR-20261115-09).
 	var provinces: ProvinceLedgerPanel = play.hud.province_ledger
 	if provinces != null and provinces.is_open():

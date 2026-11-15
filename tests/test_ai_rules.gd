@@ -2132,6 +2132,44 @@ func test_ai_civilian_training_needs_a_capital_and_a_purse() -> void:
 	assert_false(bool(AiCivilianPlanner.training_order(config, [], poor).get("ok", false)))
 
 
+## Staff targets read the region's work: plains floor, hills digs, and the
+## voyage slot — and training stops when every target is already met.
+func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var model: MapModel = CivilianFixture.build()
+	var works := LandWorks.new()
+	var context: Dictionary = _civilian_context()
+	var floors: Dictionary = AiCivilianPlanner.staff_targets(
+		config, null, null, [], {}, {}, context
+	)
+	assert_eq(int(floors["builder"]), 2)
+	assert_eq(int(floors["engineer"]), config.parameter("civilian.engineer_target"))
+	assert_eq(int(floors["explorer"]), config.parameter("civilian.explorer_target"))
+	context["muster_port"] = CivilianFixture.COAST_TILE
+	var with_voyage: Dictionary = AiCivilianPlanner.staff_targets(
+		config, model, works, [], CivilianFixture.stockpile(), {}, context
+	)
+	assert_true(
+		int(with_voyage["explorer"]) > int(floors["explorer"]),
+		"a pending voyage keeps one Explorer free to sail"
+	)
+	assert_true(int(with_voyage["engineer"]) >= int(floors["engineer"]))
+	var met: Array[CivilianState] = []
+	for i in int(floors["builder"]):
+		met.append(CivilianState.create(i + 1, 0, "builder", CivilianFixture.BARE_TILE))
+	for i in int(floors["engineer"]):
+		met.append(CivilianState.create(10 + i, 0, "engineer", CivilianFixture.BARE_TILE))
+	for i in int(floors["explorer"]):
+		met.append(CivilianState.create(20 + i, 0, "explorer", CivilianFixture.BARE_TILE))
+	met.append(CivilianState.create(30, 0, "spy", CivilianFixture.BARE_TILE))
+	var stop: Dictionary = _civilian_context()
+	stop["staff_targets"] = floors
+	assert_true(
+		AiCivilianPlanner.training_order(config, met, stop).is_empty(),
+		"a court at its targets trains nothing"
+	)
+
+
 func test_ai_civilian_leaves_a_working_unit_alone() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var builder: CivilianState = CivilianState.create(
@@ -2240,10 +2278,11 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	for _turn in 3:
 		MapPlayEconomyAi.run(play)
 	assert_true(
-		layer.unit_count_all(1) <= 6,
-		"rival training respects civilian.max_civilians"
+		layer.unit_count_all(1) >= 4,
+		"rival training keeps the opening staff and may hire for work"
 	)
 	layer.free()
+
 
 
 ## The sale is staged after the works are priced: what a crew is about to spend
@@ -4785,7 +4824,7 @@ func _work_economy(treasury: int = 12000, peasants: int = 6) -> PlayerEconomy:
 
 
 func test_a_rival_musters_the_strongest_line_it_can_pay_for() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(), 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(), 3, false)
 
 	assert_eq(String(plan["muster"]), "arquebusiers", "the strongest era-1 line")
 	var candidates: Array = plan["candidates"]
@@ -4802,29 +4841,32 @@ func test_a_rival_musters_the_strongest_line_it_can_pay_for() -> void:
 func test_the_war_chest_keeps_the_court_from_overspending() -> void:
 	# 4,000 ducats covers a pike, but that would empty the purse; the 2,000 levy
 	# is the only line that leaves the court's thousand-ducat floor in the bank.
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(4000), 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(4000), 3, false)
 
 	assert_eq(String(plan["muster"]), "peasant_levies")
-	var priced: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(1500), 5, false)
+	var priced: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(1500), 3, false)
 	assert_eq(String(priced["muster"]), "", "nothing payable leaves the floor alone")
 	assert_true((priced["reasons"] as Array).has("nothing payable"))
 
 
 func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
-	var peace: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(), 8, false)
-	assert_eq(String(peace["muster"]), "", "eight regiments is the peace target")
-	assert_eq(int(peace["target"]), 8)
+	var config: AiConfig = _work_config()
+	var peace_target: int = config.parameter("army.regiment_target")
+	var war_target: int = peace_target + config.parameter("army.war_extra")
+	var peace: Dictionary = AiArmyReinforce.plan(config, _work_economy(), peace_target, false)
+	assert_eq(String(peace["muster"]), "", "at the peace target the court waits")
+	assert_eq(int(peace["target"]), peace_target)
 
-	var war: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(), 8, true)
-	assert_eq(int(war["target"]), 12, "the war footing raises the target by four")
+	var war: Dictionary = AiArmyReinforce.plan(config, _work_economy(), peace_target, true)
+	assert_eq(int(war["target"]), war_target, "the war footing raises the target")
 	assert_eq(String(war["muster"]), "arquebusiers", "a court at war arms up")
 
-	var full: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(), 12, true)
+	var full: Dictionary = AiArmyReinforce.plan(config, _work_economy(), war_target, true)
 	assert_eq(String(full["muster"]), "", "the war target is a ceiling too")
 
 
 func test_a_thin_labour_pool_stops_the_muster() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 3), 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 3), 3, false)
 
 	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
 	assert_true((plan["reasons"] as Array).has("labour floor"))
@@ -4833,7 +4875,7 @@ func test_a_thin_labour_pool_stops_the_muster() -> void:
 func test_a_researched_pattern_is_the_one_that_musters() -> void:
 	var economy: PlayerEconomy = _work_economy()
 	economy.tech_unlocked["weapon_craftsmanship"] = true
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), economy, 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), economy, 3, false)
 
 	assert_eq(String(plan["muster"]), "musketeers", "the newest legal line wins")
 
@@ -4855,10 +4897,10 @@ func test_a_court_provisions_the_regiment_it_means_to_raise() -> void:
 		"the strongest line the purse and the fields open, materials aside"
 	)
 	assert_eq(
-		String(AiArmyReinforce.plan(_work_config(), economy, 5, false)["muster"]), "",
+		String(AiArmyReinforce.plan(_work_config(), economy, 3, false)["muster"]), "",
 		"an empty store still musters nothing"
 	)
-	var reserve: Dictionary = AiArmyReinforce.muster_reserve(_work_config(), economy, 5, false)
+	var reserve: Dictionary = AiArmyReinforce.muster_reserve(_work_config(), economy, 3, false)
 	assert_eq(
 		reserve, RegimentEconomy.training_inputs("arquebusiers"),
 		"the reserve is the whole input row of the pattern it would raise"
@@ -4871,10 +4913,12 @@ func test_a_court_provisions_the_regiment_it_means_to_raise() -> void:
 ## kept, because a court that only stocked up once the muster was legal would
 ## starve that muster with a full war chest (issue #474).
 func test_a_court_that_is_not_arming_provisions_nothing() -> void:
-	var target: Dictionary = AiArmyReinforce.muster_reserve(_work_config(), _work_economy(), 8, false)
-	assert_true(target.is_empty(), "eight regiments is the peace target")
+	var config: AiConfig = _work_config()
+	var peace_target: int = config.parameter("army.regiment_target")
+	var target: Dictionary = AiArmyReinforce.muster_reserve(config, _work_economy(), peace_target, false)
+	assert_true(target.is_empty(), "at the peace target the court provisions nothing")
 
-	var war: Dictionary = AiArmyReinforce.muster_reserve(_work_config(), _work_economy(), 8, true)
+	var war: Dictionary = AiArmyReinforce.muster_reserve(config, _work_economy(), peace_target, true)
 	assert_false(war.is_empty(), "a war lifts the target and the court arms up")
 
 	var thin: Dictionary = AiArmyReinforce.muster_reserve(
@@ -4882,7 +4926,7 @@ func test_a_court_that_is_not_arming_provisions_nothing() -> void:
 	)
 	assert_true(thin.is_empty(), "the fields keep their hands")
 
-	var poor: Dictionary = AiArmyReinforce.muster_reserve(_work_config(), _work_economy(1500), 5, false)
+	var poor: Dictionary = AiArmyReinforce.muster_reserve(_work_config(), _work_economy(1500), 3, false)
 	assert_eq(
 		poor, RegimentEconomy.training_inputs("peasant_levies"),
 		"a purse under the levy price still keeps the levy's row for the muster it is saving for"
@@ -4898,7 +4942,7 @@ func test_a_court_saving_for_its_muster_provisions_the_cheapest_line() -> void:
 
 	assert_eq(AiArmyReinforce.saving_type(_work_config(), economy), "peasant_levies")
 	assert_eq(
-		AiArmyReinforce.muster_reserve(_work_config(), economy, 5, false),
+		AiArmyReinforce.muster_reserve(_work_config(), economy, 3, false),
 		RegimentEconomy.training_inputs("peasant_levies"),
 		"one fabric, the whole row of the levy"
 	)
@@ -4912,7 +4956,7 @@ func test_the_reserve_follows_the_researched_pattern() -> void:
 
 	assert_eq(AiArmyReinforce.next_type(_work_config(), economy), "musketeers")
 	assert_eq(
-		AiArmyReinforce.muster_reserve(_work_config(), economy, 5, false),
+		AiArmyReinforce.muster_reserve(_work_config(), economy, 3, false),
 		RegimentEconomy.training_inputs("musketeers")
 	)
 

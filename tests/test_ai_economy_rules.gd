@@ -425,21 +425,22 @@ func test_a_court_with_a_deed_on_offer_trains_one_merchant() -> void:
 	var techless: Dictionary = _context(model, Fixture.merchant_court())
 	techless["tech_unlocked"] = {}
 	var plain: Dictionary = _plan(model, roster, Fixture.merchant_court(), null, techless)
-	assert_eq(String(plain["training"]["type_id"]), "builder", "no merchant companies")
+	assert_true(
+		(plain["training"] as Dictionary).is_empty(),
+		"no merchant companies and the staff is already at target"
+	)
 
 
 func test_one_merchant_is_enough() -> void:
 	var model: MapModel = Fixture.build_minor()
-	var roster: Array = [
-		CivilianState.create(1, 0, "builder", Vector2i(0, 0)),
-		CivilianState.create(3, 0, "engineer", Vector2i(0, 1)),
-		CivilianState.create(4, 0, "explorer", Vector2i(1, 1)),
-		CivilianState.create(5, 0, "spy", Vector2i(0, 2)),
-		CivilianState.create(9, 0, "merchant", Vector2i(0, 2)),
-	]
+	var roster: Array = _staffed_roster()
+	roster.append(CivilianState.create(9, 0, "merchant", Vector2i(0, 2)))
 	var plan: Dictionary = _plan(model, roster)
 
-	assert_eq(String(plan["training"]["type_id"]), "builder")
+	assert_true(
+		(plan["training"] as Dictionary).is_empty(),
+		"one merchant fills the deed slot; the college trains nothing more"
+	)
 
 
 ## The Build/Work pass answers each owner with its own ledger: the rival's deed
@@ -651,12 +652,17 @@ func _ledger(treasury: int) -> PlayerEconomy:
 
 ## Two builders, an engineer, an explorer and a spy: every earlier training slot
 ## is filled, so the merchant is the next craft the court would want.
+## Builders, engineer_target, explorer_target and a spy: every earlier training
+## slot is filled, so a deed on offer makes the merchant the next craft.
 func _staffed_roster() -> Array:
 	return [
 		CivilianState.create(1, 0, "builder", Vector2i(0, 0)),
 		CivilianState.create(2, 0, "builder", Vector2i(1, 0)),
 		CivilianState.create(3, 0, "engineer", Vector2i(0, 1)),
+		CivilianState.create(6, 0, "engineer", Vector2i(1, 2)),
 		CivilianState.create(4, 0, "explorer", Vector2i(1, 1)),
+		CivilianState.create(7, 0, "explorer", Vector2i(0, 0)),
+		CivilianState.create(8, 0, "explorer", Vector2i(1, 0)),
 		CivilianState.create(5, 0, "spy", Vector2i(0, 2)),
 	]
 
