@@ -98,10 +98,19 @@ static func _muster(readings: Dictionary, at_war: bool) -> AiObjective:
 	if not bool(readings.get("muster_due", false)):
 		return null
 	var utility: int = W_MUSTER + (W_MUSTER_WAR if at_war else 0)
-	var muster := AiObjective.create(
-		"muster.line", "military", utility,
-		{"regiment": 1, "labour": 1, "treasury": int(readings.get("muster_floor", 0))}
-	)
+	# The purse it must leave behind plus the material row of the pattern it is
+	# saving for: the planner refuses a muster short of that cloth (#474), so a
+	# row priced on the purse alone would read `funded` for a regiment the court
+	# cannot raise — and clear the very stall the escalation counts (#603).
+	var cost: Dictionary = {
+		"regiment": 1, "labour": 1, "treasury": int(readings.get("muster_floor", 0)),
+	}
+	for commodity: Variant in (readings.get("muster_row", {}) as Dictionary).keys():
+		var id: String = String(commodity)
+		var need: int = int((readings["muster_row"] as Dictionary)[commodity])
+		if need > 0:
+			cost[id] = int(cost.get(id, 0)) + need
+	var muster := AiObjective.create("muster.line", "military", utility, cost)
 	# The escalation's explicit terminal reading (#603): a muster that has been
 	# deferred past the blocked bar with its shortfall standing still names it,
 	# instead of another silent deferred row. The reserve re-route stays the

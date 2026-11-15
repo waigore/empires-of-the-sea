@@ -2446,6 +2446,32 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	)
 
 
+## Issue #474 clause 2: a court holding the purse for its next regiment but no
+## cloth reads the row it actually lacks, and stays deferred, so the escalation
+## keeps re-routing the chest instead of banking one the muster never spends.
+func test_the_muster_row_prices_the_cloth_it_needs() -> void:
+	var readings: Dictionary = _readings()
+	readings["muster_row"] = {"fabric": 1}
+	readings["muster_floor"] = 2400
+	readings["treasury"] = 5000
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var muster: AiObjective = _by_id(objectives, "muster.line")
+
+	assert_eq(int(muster.cost["fabric"]), 1, "the ledger prices the pattern's row")
+	AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 0}
+	)
+	assert_eq(
+		muster.status, AiObjective.STATUS_DEFERRED,
+		"a full purse and no cloth is not a funded muster"
+	)
+	assert_eq(int((muster.shortfall() as Dictionary).get("fabric", 0)), 1)
+	AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 1}
+	)
+	assert_eq(muster.status, AiObjective.STATUS_FUNDED, "with the cloth in store it funds")
+
+
 ## A court whose techs open no warship says so instead of claiming a hull it can
 ## never lay — the trace used to read `funded` forever (issue #484). The chest
 ## is still priced so the money goal can save while research opens the door.
