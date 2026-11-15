@@ -62,6 +62,9 @@ static func plan(
 	train_context["merchant_targets"] = AiMerchantWork.buyable_tiles(
 		model, config.faction, works, context
 	).size()
+	train_context["staff_targets"] = staff_targets(
+		config, model, works, units, stockpile, tech_caps, train_context
+	)
 	for unit: CivilianState in roster:
 		if unit.is_working():
 			continue
@@ -99,37 +102,107 @@ static func plan(
 	}
 
 
-## Next civilian to train: builders first, then one engineer and one explorer;
-## at war a court wants a spy screen before another explorer, and a court with a
-## Minor or Tribe deed it could sign trains a merchant (wiki:
-## civilian-build-planner, civilian-units § Merchant).
+## Next civilian to train: the published hire order, each step against the
+## region's staff targets. A court whose staff already meets every target trains
+## nothing — there is no staff cap and no unconditional builder fill (wiki:
+## civilian-build-planner; DR staff lever).
 static func training_order(
 	config: AiConfig, units: Array, context: Dictionary
 ) -> Dictionary:
 	if config == null or int(context.get("capital_province", -1)) < 0:
 		return {}
 	var own: Array[CivilianState] = _owned_units(units, config.faction)
-	if own.size() >= config.parameter("civilian.max_civilians"):
-		return {}
-	var purse: int = int(context.get("hire_treasury", context.get("treasury", 0)))
+	var targets: Dictionary = context.get("staff_targets", {})
+	if targets.is_empty():
+		targets = staff_targets(config, null, null, units, {}, {}, context)
+	# Discretionary hires (spy, merchant) spend the standing reserve. Extraction
+	# staff — builders, engineers, explorers — may draw on the works purse while
+	# the court is on `earn`, so a war chest does not freeze the mines that refill
+	# it (issue #489 / #603 income lever).
+	var hire_purse: int = int(context.get("hire_treasury", context.get("treasury", 0)))
+	var works_purse: int = hire_purse
+	if bool(context.get("earn", false)):
+		works_purse = maxi(hire_purse, int(context.get("treasury", 0)))
 	var type_id: String = _preferred_type(
 		own,
+		targets,
 		bool(context.get("at_war", false)),
-		int(context.get("merchant_targets", 0)),
 		context.get("tech_unlocked", {}),
-		purse,
+		hire_purse,
 		int(context.get("paper", 0))
 	)
-	if not CivilianCatalog.is_implemented(type_id):
+	if type_id.is_empty() or not CivilianCatalog.is_implemented(type_id):
 		return {}
 	var tech: Dictionary = context.get("tech_unlocked", {})
 	if not CivilianCatalog.is_unlocked(type_id, tech):
 		return {}
+	var purse: int = hire_purse
+	if type_id == "builder" or type_id == "engineer" or type_id == "explorer":
+		purse = works_purse
 	if not CivilianCatalog.can_afford(
 		type_id, purse, int(context.get("paper", 0))
 	):
 		return {}
 	return {"ok": true, "type_id": type_id}
+
+
+## Per-type staff the college wants in this region: one base (or the published
+## explorer/engineer floor) plus the region's own work queue / work_per_staff,
+## and one Explorer kept free while a colonisation voyage is mustering.
+static func staff_targets(
+	config: AiConfig,
+	model: MapModel,
+	works: LandWorks,
+	units: Array,
+	stockpile: Dictionary,
+	tech_caps: Dictionary,
+	context: Dictionary
+) -> Dictionary:
+	var per: int = maxi(config.parameter("civilian.work_per_staff"), 1)
+	var prospect_work: int = 0
+	var uncharted: int = 0
+	var provinces: int = 0
+	var estate_work: int = 0
+	var view: VisibilityModel = context.get("visibility", null)
+	if model != null and works != null:
+		for province: ProvinceState in model.provinces:
+			if model.province_owner(province.id) != config.faction:
+				continue
+			provinces += 1
+			if (
+				view != null
+				and view.is_province_known(province.id)
+				and not view.is_province_fully_visible(province.id)
+			):
+				uncharted += 1
+			prospect_work += MineralSurvey.unsurveyed_in_province(
+				model, works, config.faction, province.id, view
+			).size()
+		for row: Dictionary in AiBuilderWork.estate_rows(
+			model, works, units, stockpile, config.faction, tech_caps, context
+		):
+			if AiBuilderWork.paid_gain(row) > 0:
+				estate_work += 1
+	var explorers: int = maxi(
+		config.parameter("civilian.explorer_target"),
+		1 + (prospect_work + uncharted * 3) / per
+	)
+	var muster: Vector2i = context.get("muster_port", Vector2i(-1, -1))
+	if muster.x >= 0:
+		explorers += 1
+	var merchants: int = 0
+	if int(context.get("merchant_targets", 0)) > 0:
+		merchants = 1
+	return {
+		"builder": maxi(2, 1 + estate_work / per),
+		"engineer": maxi(
+			config.parameter("civilian.engineer_target"),
+			1 + provinces / per
+		),
+		"explorer": explorers,
+		"spy": 1,
+		"merchant": merchants,
+	}
 
 
 # --- candidate scoring -------------------------------------------------------
@@ -199,13 +272,13 @@ static func _owned_units(units: Array, owner: int) -> Array[CivilianState]:
 	return roster
 
 
-## A court wants two builders, then an engineer, a spy screen at war, an
-## explorer, a counter-spy, and — once Merchant Companies is researched and a
-## Minor or Tribe deed it can close is on offer — a merchant.
+## Hire order against the region's targets: builders, engineers, a war spy
+## screen before another explorer, then the peace spy, then a merchant when a
+## deed is on offer. Empty when every target is already met.
 static func _preferred_type(
 	roster: Array[CivilianState],
+	targets: Dictionary,
 	at_war: bool = false,
-	merchant_targets: int = 0,
 	tech_unlocked: Dictionary = {},
 	treasury: int = 0,
 	paper: int = 0
@@ -226,19 +299,19 @@ static func _preferred_type(
 			spies += 1
 		elif unit.type_id == "merchant":
 			merchants += 1
-	if builders < 2:
+	if builders < int(targets.get("builder", 0)):
 		return "builder"
-	if engineers < 1:
+	if engineers < int(targets.get("engineer", 0)):
 		return "engineer"
-	if at_war and spies < 1:
+	if at_war and spies < int(targets.get("spy", 0)):
 		return "spy"
-	if explorers < 1:
+	if explorers < int(targets.get("explorer", 0)):
 		return "explorer"
-	if spies < 1:
+	if spies < int(targets.get("spy", 0)):
 		return "spy"
-	if merchants < 1 and merchant_targets > 0 and (
+	if merchants < int(targets.get("merchant", 0)) and (
 		CivilianCatalog.is_unlocked("merchant", tech_unlocked)
 		and CivilianCatalog.can_afford("merchant", treasury, paper)
 	):
 		return "merchant"
-	return "builder"
+	return ""

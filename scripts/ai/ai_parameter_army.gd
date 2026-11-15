@@ -15,7 +15,9 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 40,
-		"default": 8,
+		# Reachable peacetime target so the live crown musters instead of saving
+		# forever under bench pressure (issue #603; was 8).
+		"default": 5,
 	},
 	{
 		"key": "army.war_extra",
