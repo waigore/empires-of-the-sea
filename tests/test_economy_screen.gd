@@ -113,6 +113,63 @@ func test_recruiting_a_peasant_through_the_ledger() -> void:
 	assert_true(economy.recruits.is_empty(), "the order lands once")
 
 
+## A tier the crown can pay for more than once offers one batch press under its
+## row: the count and the whole price are on the button, so a batch is never a
+## surprise (wiki: workers-and-population § Recruiting; REQ-P5-04, REQ-P5-05).
+func test_the_workers_tab_offers_a_batch_press() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 2000
+	economy.stockpile["paper"] = 10
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var batches: Dictionary = workers.batch_buttons()
+	assert_true(batches.has(WorkerPool.Tier.APPRENTICE), "four heads are payable")
+	var button: Button = batches[WorkerPool.Tier.APPRENTICE] as Button
+	assert_true(button.text.contains("Recruit ×4"), button.text)
+	assert_true(button.text.contains("800 ducats"), "the whole price is named: %s" % button.text)
+	assert_true(button.text.contains("Paper ×8"), button.text)
+
+
+## The batch press files every head it names, pays nothing yet, and the queue
+## reads as one line instead of four (REQ-P5-04, REQ-P5-05).
+func test_a_batch_press_files_every_head() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 2000
+	economy.stockpile["paper"] = 10
+	_screen.economy.orders.worker_action(WorkerPool.Tier.APPRENTICE, "recruit", 4)
+	assert_eq(
+		economy.recruits.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE)), 4
+	)
+	assert_eq(economy.treasury, 2000, "nothing is paid at the press")
+	assert_eq(economy.available_peasants(), 0, "every head is promised")
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var printed: String = _printed(workers)
+	assert_true(printed.contains("Apprentice ×4 · joins the pool in Build/work"), printed)
+
+
+## A tier the crown can pay for once keeps its single press and no batch row.
+func test_a_single_head_offers_no_batch_press() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 200
+	economy.stockpile["paper"] = 2
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_false(
+		workers.batch_buttons().has(WorkerPool.Tier.APPRENTICE), "one head is all the purse pays"
+	)
+
+
 ## The WORKERS tab names every order waiting for Build/work, and how many of a
 ## tier are on the way (wiki: workers-and-population § Phase placement).
 func test_the_workers_tab_shows_what_is_under_orders() -> void:
@@ -156,7 +213,19 @@ func test_the_workers_tab_reads_the_larder() -> void:
 	assert_true(printed.contains("LARDER · NEXT TURN"), "the head names the reading: %s" % printed)
 	assert_true(printed.contains("Store 1 food"), "the larder as it stands: %s" % printed)
 	assert_true(printed.contains("Fur Hats ×1"), "the luxury the pool wants: %s" % printed)
-	assert_true(printed.contains("2 mouths eat 3 food"), "every appetite: %s" % printed)
+	var read: Dictionary = LarderRead.forecast(
+		economy, LarderRead.mouths(_screen.economy.readings.projected())
+	)
+	assert_true(
+		printed.contains(
+			"army %d" % int((read["appetites"] as Dictionary)["army"])
+		) or int((read["appetites"] as Dictionary)["army"]) <= 0,
+		"the army that eats first is named: %s" % printed
+	)
+	assert_true(
+		printed.contains("pool %d" % int((read["appetites"] as Dictionary)["pool"])),
+		"the pool's own rations are named: %s" % printed
+	)
 	# The screen's army and navy eat before the pool, so the master cannot be fed
 	# its grain and meat: the shortfall is food and it bites the top tier first.
 	assert_true(printed.contains("food — "), "a food shortfall: %s" % printed)
@@ -170,6 +239,30 @@ func test_the_workers_tab_reads_the_larder() -> void:
 	var calm: String = _printed(workers)
 	assert_true(calm.contains("The larder covers every mouth."), calm)
 	assert_false(calm.contains("striker,"), "no striker when the larder covers: %s" % calm)
+
+
+## A store that covers the pool alone must not read as a calm larder: the army
+## and the navy eat before the pool, so the larder names every appetite the phase
+## pays, in its own order, and the numbers add up
+## (wiki: workers-and-population § Consumption; REQ-P2-03).
+func test_the_larder_names_the_appetites_that_eat_first() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(6)
+	economy.stockpile = {"grain": 12, "meat": 0}
+	var report: Dictionary = {
+		"consumption": {"army_demand": 8, "navy_demand": 4, "hospital_demand": 2}
+	}
+	var page := LedgerWorkers.new()
+	page.fill(economy, report)
+	var printed: String = _printed(page)
+	page.free()
+	assert_true(printed.contains("Store 12 food"), printed)
+	assert_true(
+		printed.contains("20 food wanted — army 8 · navy 4 · pool 6 · wards 2"),
+		"every appetite, in the phase's own order: %s" % printed
+	)
+	assert_true(printed.contains("Short 6 food"), "the pool is short: %s" % printed)
+	assert_true(printed.contains("6 strikers"), printed)
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.
@@ -852,6 +945,25 @@ func test_the_offer_chip_names_what_production_claims() -> void:
 	assert_true(claimed_chip.tooltip_text.contains("0 sellable"))
 
 
+## The claim is a readout on the page, not only a hover: a phone player sees why
+## the Offer is dead (wiki: world-market § Trade orders — the per-commodity
+## sellable readout; REQ-P1-05, REQ-P5-05).
+func test_the_market_row_prints_the_sellable_cap() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 4
+	_screen.economy.orders.set_production("lumber", 2)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var caption: Label = null
+	for node: Node in body.find_children("*", "Label", true, false):
+		var label: Label = node
+		if label.text.contains("claimed by production"):
+			caption = label
+	assert_not_null(caption, "the row prints the claim, not only a tooltip")
+	assert_eq(caption.text, "4 Timber claimed by production — 0 sellable")
+
+
 ## Every MARKET row shows its good's own medallion: grain, wool and timber used
 ## to share one generic pictogram (REQ-P1-02; tools/art/goods-medallions.md).
 func test_every_market_row_carries_its_medallion() -> void:
@@ -889,36 +1001,45 @@ func test_every_production_row_carries_its_output_medallion() -> void:
 ## § Turns per unit; DR-20261112-11, DR-20261113-02).
 func test_the_alloy_rows_name_their_wait() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	assert_eq(LedgerText.workshop_note(economy, "steel"), "2t")
-	assert_eq(LedgerText.workshop_note(economy, "lumber"), "", "one-turn rows need no tag")
-	assert_eq(LedgerText.workshop_tooltip(economy, "lumber"), "", "nothing waits on a one-turn row")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "2t")
+	assert_eq(LedgerWorkshop.note(economy, "lumber"), "", "one-turn rows need no tag")
+	assert_eq(LedgerWorkshop.tooltip(economy, "lumber"), "", "nothing waits on a one-turn row")
 	assert_true(
-		LedgerText.workshop_tooltip(economy, "steel").contains("one unit a turn"),
+		LedgerWorkshop.tooltip(economy, "steel").contains("one unit a turn"),
 		"an idle alloy row promises the trickle"
 	)
 	economy.production_wip = {"steel": [{"units": 3, "turns_left": 1}]}
-	assert_eq(LedgerText.workshop_note(economy, "steel"), "3→1t")
-	var serving: String = LedgerText.workshop_tooltip(economy, "steel")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "3→1t", "a landing frees a place")
+	var serving: String = LedgerWorkshop.tooltip(economy, "steel")
 	assert_true(serving.contains("3 units"))
 	assert_true(serving.contains("one a turn"), "the serving tag says one unit lands a phase")
+	# A bench still serving its first turn has no room: the tag says so, and the
+	# long form says why no run starts (wiki: production-recipes § Workshop queue).
+	economy.production_wip = {"steel": [{"units": 3, "turns_left": 2}]}
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "3/3→2t", "a full bench names its three pieces")
+	assert_true(
+		LedgerWorkshop.tooltip(economy, "steel").contains("no new run starts"),
+		"a full bench says why no run starts"
+	)
 	economy.production_wip = {"steel": [{"units": 1, "turns_left": 1}]}
 	assert_true(
-		LedgerText.workshop_tooltip(economy, "steel").contains("1 unit already"),
+		LedgerWorkshop.tooltip(economy, "steel").contains("1 unit already"),
 		"one unit left on the anvil reads in the singular"
 	)
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "1→1t", "a bench with room keeps the plain tag")
 	# A row left set starts a fresh batch every phase, and each batch gives up a
 	# unit: two batches land two a phase, so the note must not promise one.
 	economy.production_wip = {
 		"steel": [{"units": 2, "turns_left": 1}, {"units": 3, "turns_left": 1}],
 	}
-	assert_eq(LedgerText.workshop_note(economy, "steel"), "5→1t", "the tag counts every unit")
-	var twinned: String = LedgerText.workshop_tooltip(economy, "steel")
+	assert_eq(LedgerWorkshop.note(economy, "steel"), "5/3→1t", "the tag counts every unit")
+	var twinned: String = LedgerWorkshop.tooltip(economy, "steel")
 	assert_true(twinned.contains("5 units"), "the note counts what is on the anvil")
 	assert_true(twinned.contains("2 landing a turn"), "two batches land two a turn: %s" % twinned)
 	assert_false(twinned.contains("one a turn"), "a twin batch is never promised as a trickle")
 	economy.production_wip = {"steel": [{"units": 4, "turns_left": 2}]}
 	assert_true(
-		LedgerText.workshop_tooltip(economy, "steel").contains("still serving their turns"),
+		LedgerWorkshop.tooltip(economy, "steel").contains("still serving their turns"),
 		"a batch that does not land this phase promises no unit"
 	)
 	_screen.economy.open_panel()
@@ -942,7 +1063,7 @@ func test_a_production_row_reports_the_phase_it_just_worked() -> void:
 	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
 	assert_true(_row_has_text(body, "made 2"), "the lumber row names its last output")
 	assert_eq(
-		LedgerText.workshop_note(economy, "steel"), "2t",
+		LedgerWorkshop.note(economy, "steel"), "2t",
 		"a waiting row keeps its tag: the present is what the next phase pays"
 	)
 	var hints: PackedStringArray = []
@@ -978,6 +1099,32 @@ func test_a_luxury_row_names_the_hand_it_waits_for() -> void:
 	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
 	assert_false(_row_has_text(body, "needs an Apprentice"), "the trained hand opens the row")
 	assert_true(_row_has_text(body, "needs a Journeyman"), "fur hats still wait for a journeyman")
+
+
+## A full bench is named on the row itself and its "+" is inert: a touch player
+## never sees a hover hint (wiki: production-recipes § Workshop queue;
+## DR-20261114-12).
+func test_a_full_bench_names_itself_and_offers_no_run() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 1)
+	economy.stockpile["tobacco"] = 20
+	economy.production_wip = {"cigars": [{"units": 3, "turns_left": 2}]}
+	_screen.economy.open_panel()
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_true(_row_has_text(body, "3/3→2t"), "the row names its full bench")
+	var rows: Dictionary = (body as LedgerProduction).recipe_rows()
+	assert_true((rows["cigars"]["plus"] as Button).disabled, "a full bench offers no run")
+	assert_true(
+		(rows["cigars"]["plus"] as Button).tooltip_text.contains("holds 3 pieces"),
+		"the + says why it is inert"
+	)
+	economy.production_wip = {"cigars": [{"units": 1, "turns_left": 1}]}
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	rows = (body as LedgerProduction).recipe_rows()
+	assert_false((rows["cigars"]["plus"] as Button).disabled, "room on the bench opens the +")
 
 
 func _row_has_text(body: Node, text: String) -> bool:

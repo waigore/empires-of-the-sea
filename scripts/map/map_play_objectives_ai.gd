@@ -33,13 +33,13 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	var economy: PlayerEconomy = play.ai.economy_for(faction)
 	var config: AiConfig = AiConfig.build(faction, play.map_seed)
 	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
-	var readings: Dictionary = _readings(play, faction, config, economy, phase)
 	# The footing, the leader's weights and the court's distance to the bar
 	# scale the rank without deleting an aim: a voyage at war is cheaper, not
 	# gone (issue #491 T4; DR-20261114-04).
 	var pressure: Dictionary = AiVictoryPressure.read(
 		play.world, faction, play.human_faction_id(), play.difficulty, config
 	)
+	var readings: Dictionary = _readings(play, faction, config, economy, phase, pressure)
 	var report: Dictionary = AiObjectiveLedger.run(
 		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings),
 		AiPosture.modifiers(
@@ -50,6 +50,9 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	report["goal"] = String(readings["goal"])
 	report["treasury"] = int(readings["treasury"])
 	report["reserve"] = int(readings["reserve"])
+	# The deferred-aim escalations this reading applied (issue #603): the aims
+	# stalled past the escalation bar, with their stall length.
+	report["escalations"] = (readings["escalations"] as Dictionary).duplicate()
 	report["pressure"] = pressure
 	play.ai.note_objectives(faction, report, play.turn)
 	return report
@@ -62,7 +65,7 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 ## or fleet layer still reads (zeros), so a fixture never needs both.
 static func _readings(
 	play: PlaySession, faction: int, config: AiConfig, economy: PlayerEconomy,
-	phase: Dictionary
+	phase: Dictionary, pressure: Dictionary = {}
 ) -> Dictionary:
 	var at_war: bool = AiIncome.at_war(play.diplomacy, faction)
 	var regiments: int = MapPlayCourt.regiments(play, faction)
@@ -70,8 +73,25 @@ static func _readings(
 	# alongside the next muster (issue #484).
 	var warships: int = MapPlayCourt.warships(play, faction)
 	var hostile_warships: int = MapPlayCourt.hostile_warships(play, faction)
-	var hull_chest: int = AiNavy.chest(at_war, warships, hostile_warships, economy)
-	var reserve: int = AiIncome.reserve(config, economy, at_war, regiments, hull_chest)
+	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
+	var hull_chest: int = AiNavy.chest(
+		at_war, warships, hostile_warships, economy, flown
+	)
+	# The deferred-aim escalation readings (#603): how long each aim has been
+	# deferred without its shortfall shrinking. A stalled war chest re-routes
+	# (`AiIncome.reserve`); a stall past the blocked bar names its reason in the
+	# trace instead of another silent deferred row.
+	var records: Dictionary = AiDeferral.records_for(play.ai.deferrals, faction)
+	var escalations: Dictionary = AiDeferral.escalated(
+		records, maxi(config.parameter("ledger.escalate_turns"), 1)
+	)
+	var blockings: Dictionary = AiDeferral.escalated(
+		records, maxi(config.parameter("ledger.blocked_turns"), 1)
+	)
+	var reserve: int = AiIncome.reserve(
+		config, economy, at_war, regiments, hull_chest, warships,
+		AiDeferral.stall(records, "muster.line")
+	)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
@@ -89,25 +109,49 @@ static func _readings(
 	# what the court will actually pay (issue #490).
 	var funding_index: int = ResearchFunding.ORDER.find(funding)
 	var research_cost: int = ResearchFunding.gold(funding) * maxi(slots, 0)
+	# The study the purse cannot fund this turn: the ledger names the refusal
+	# instead of reading a 0-gold study as funded (issue #590).
+	var research_refusal: String = ""
+	var standing_study: int = 0
 	if not standing.is_empty():
-		research_cost += ResearchFunding.gold(standing)
+		# The standing study is the bounded exception that may dip into the
+		# chest the muster claims, so it prices its own one-slot budget beside
+		# the chest rather than against the purse the chest consumes (#590).
+		standing_study = 1
 		funding_index = maxi(funding_index, ResearchFunding.ORDER.find(standing))
+	elif funding == ResearchFunding.ORDER[0]:
+		research_refusal = AiResearchPlanner.standing_refusal(config, economy, reserve)
+		research_cost = ResearchFunding.gold(AiResearchPlanner.STANDING_FUNDING)
 	return {
 		"posture": String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN)),
 		"at_war": at_war,
-		"war_desire": _war_desire(play, config, faction),
+		"war_desire": _war_desire(play, config, faction, pressure),
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
+		"escalations": escalations,
+		"blockings": blockings,
 		"ships": MapPlayCourt.ships(play, faction),
 		"warships": warships,
-		"warship_price": AiNavy.price(economy),
+		"warship_price": AiNavy.price(economy, flown),
+		"warship_row": AiNavy.saving_row(economy, flown),
+		# False while the court still studies the unlock: the build keeps its
+		# chest and cloth reserved but will not fund a launch the yard refuses
+		# (issue #484). A type the court already flies counts as open.
+		"warship_open": (
+			not AiNavy.saving_type(economy, flown).is_empty()
+			and ShipEconomy.buildable(
+				AiNavy.saving_type(economy, flown), economy.tech_unlocked, flown
+			)
+		),
 		"navy_due": hull_chest > 0,
 		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
 		"hostile_warships": hostile_warships,
 		"treasury": economy.treasury,
 		"reserve": reserve,
-		"goal": AiIncome.goal_for(config, economy, at_war, regiments, hull_chest),
+		"goal": AiIncome.goal_for(
+			config, economy, at_war, regiments, hull_chest, warships
+		),
 		"colony_target": home == WorldMap.OLD_WORLD and not _owns_land(new_world, faction),
 		"harbour": home >= 0 and AiColonisationPlanner.harbour(
 			play.world.region(home), faction
@@ -119,6 +163,8 @@ static func _readings(
 		"research_slots": slots,
 		"research_funding": funding_index,
 		"research_cost": research_cost,
+		"standing_study": standing_study,
+		"research_refusal": research_refusal,
 		"tribe_target": int(colony_ambition.get("target", -1)),
 		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
 		# The study that opens the chain's next link, so the trace names the door
@@ -131,11 +177,13 @@ static func _readings(
 
 
 ## The pools the allocate pass draws on. A pool is a per-turn grant: one order,
-## one train slot, one muster slot, and the purse as it stands.
+## one train slot, one muster slot, and the purse as it stands. The hull's
+## material row is bounded by the store, so a fleet claim short of cloth reads
+## `deferred fabric 0/1` instead of funded against an unlimited pool (issue #484).
 static func _pools(
 	play: PlaySession, faction: int, economy: PlayerEconomy, readings: Dictionary
 ) -> Dictionary:
-	return {
+	var pools: Dictionary = {
 		"treasury": maxi(economy.treasury, 0),
 		"hull": int(readings["idle_hulls"]),
 		"civilian": 1,
@@ -143,11 +191,18 @@ static func _pools(
 		"labour": economy.available_peasants(),
 		"orders": 1,
 	}
+	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
+		pools[String(commodity)] = maxi(economy.quantity(String(commodity)), 0)
+	return pools
 
 
 ## War desire against the court's enemy, else against the weakest Great Power —
 ## the same score the diplomacy planner weighs, read once per turn for the trace.
-static func _war_desire(play: PlaySession, config: AiConfig, faction: int) -> int:
+## The victory press rides the same reading, so the ledger's war aim and the
+## planner's declaration price the same war (DR-20261115-04).
+static func _war_desire(
+	play: PlaySession, config: AiConfig, faction: int, pressure: Dictionary = {}
+) -> int:
 	var target: int = _war_target(play, faction)
 	if target < 0:
 		target = _weakest_rival(play, faction)
@@ -158,6 +213,7 @@ static func _war_desire(play: PlaySession, config: AiConfig, faction: int) -> in
 	}
 	var context: Dictionary = {
 		"power": powers,
+		"victory_press": int(pressure.get("war_press", 0)),
 		"regiments": {
 			faction: MapPlayCourt.regiments(play, faction),
 			target: MapPlayCourt.regiments(play, target),

@@ -46,4 +46,12 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 100,
 		"default": 40,
 	},
+	{
+		"key": "diplomacy.peace_refusal_cap",
+		"category": "diplomacy",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 120,
+		"default": 24,
+	},
 ]

@@ -48,10 +48,14 @@ def load_map(path: Path = MAP_PATH) -> dict:
 
 
 def _git_diff_names(base_ref: str) -> list[str]:
-    """Changed paths vs merge-base(base_ref, HEAD), plus working-tree dirt."""
+    """Changed paths vs merge-base(base_ref, HEAD), plus working-tree dirt.
+
+    Include deletions (D): paths-filter treats removed tests/** as code
+    changes, and a deleted suite must still map to its theme domain.
+    """
     cmds = [
-        ["git", "diff", "--name-only", "--diff-filter=ACMR", f"{base_ref}...HEAD"],
-        ["git", "diff", "--name-only", "--diff-filter=ACMR", "HEAD"],
+        ["git", "diff", "--name-only", "--diff-filter=ACMRD", f"{base_ref}...HEAD"],
+        ["git", "diff", "--name-only", "--diff-filter=ACMRD", "HEAD"],
         ["git", "ls-files", "--others", "--exclude-standard"],
     ]
     paths: set[str] = set()
@@ -82,6 +86,16 @@ def match_rule(path: str, rule: dict) -> bool:
     return fnmatch.fnmatchcase(path, pattern)
 
 
+def _domain_suites(domain: str, mapping: dict) -> set[str]:
+    """Existing suite paths for a domain (skip names removed from the tree)."""
+    suites = mapping["domains"][domain].get("suites") or []
+    return {
+        f"tests/{name}"
+        for name in suites
+        if (ROOT / "tests" / name).is_file()
+    }
+
+
 def resolve_path(path: str, mapping: dict) -> tuple[str, set[str] | None]:
     """Return ('full', None) | ('domain', suites) | ('unmapped', None)."""
     # Suite edits select that suite only so adapting one test cannot pull a
@@ -97,6 +111,9 @@ def resolve_path(path: str, mapping: dict) -> tuple[str, set[str] | None]:
     if path.startswith("tests/test_") and path.endswith(".gd"):
         if (ROOT / path).is_file():
             return "domain", {path}
+        # Deleted suite: map via domain rules; never escalate to full=true
+        # (removing a duplicate suite should re-run its theme, not ALL).
+        return _resolve_deleted_suite(path, mapping)
     domains: dict = mapping["domains"]
     for rule in mapping["rules"]:
         if not match_rule(path, rule):
@@ -106,9 +123,23 @@ def resolve_path(path: str, mapping: dict) -> tuple[str, set[str] | None]:
         domain = rule.get("domain")
         if not isinstance(domain, str) or domain not in domains:
             return "unmapped", None
-        suites = domains[domain].get("suites") or []
-        return "domain", {f"tests/{name}" for name in suites}
+        return "domain", _domain_suites(domain, mapping)
     return "unmapped", None
+
+
+def _resolve_deleted_suite(path: str, mapping: dict) -> tuple[str, set[str] | None]:
+    """Map a removed tests/test_*.gd to its theme domain, or empty if none."""
+    domains: dict = mapping["domains"]
+    for rule in mapping["rules"]:
+        if not match_rule(path, rule):
+            continue
+        if rule.get("full"):
+            continue
+        domain = rule.get("domain")
+        if not isinstance(domain, str) or domain not in domains:
+            return "unmapped", None
+        return "domain", _domain_suites(domain, mapping)
+    return "domain", set()
 
 
 def select(paths: list[str], mapping: dict) -> tuple[bool, list[str], list[str]]:

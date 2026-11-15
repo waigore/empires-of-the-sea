@@ -46,6 +46,8 @@ func reveal(host: Node, dock: PanelDock) -> void:
 	if open:
 		return
 	open = true
+	# A dossier pushed aside last time docks where the layout says this time.
+	ModalDrag.reset_on(wrap)
 	_sync_despatch_cover(host)
 	if slides and dock != null:
 		dock.slide_in(host, wrap)

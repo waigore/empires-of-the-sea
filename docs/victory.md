@@ -27,6 +27,13 @@ Military victory, Great Power defeat and the calendar end (wiki:
   never merely warned. The seal opens the history screen on that live sheet
   (standing included); a past sheet in the archive prints no standing. The
   full-AI observer prints neither line.
+- **The age's table** (`AgeRoom`, DR-20261115-05): the plate's **The age** tab
+  prints the whole race — one row per Great Power, its Old World holdings
+  against its own bar and what it still needs, the leader and the reader's own
+  crown marked, then the calendar and the bar rule. Every number is
+  `VictoryStandings.rows`, the read the end-of-turn check acts on, so the table
+  can never name a bar the check does not use; a crown already on its bar reads
+  "on the bar", never "0 to go".
 - **Plates** (`VictoryOverlay`): one family for military victory, defeat and
   campaign complete; "view final state" keeps the map pannable and the pause
   menu reachable.
@@ -41,7 +48,8 @@ out of scope. Ranked gaps: [`deferred.md`](deferred.md).
 Rules: `victory_rules`, `victory_state`, `victory_standings`, `campaign_defeat`,
 `defeat_state`, `turn_time`. Map glue: `map/map_play_campaign`,
 `map/map_play_turn` (the check and the warning), `map/map_play_gazette` (the
-sheet's standing). UI: `victory_overlay`, `gazette_plate` (the standing column).
+sheet's standing and the table's payload). UI: `victory_overlay`,
+`gazette_plate` (the standing column and the tabs), `age_room` (the table).
 Rules need no nodes (`REQ-P3-03`).
 
 ## Tests

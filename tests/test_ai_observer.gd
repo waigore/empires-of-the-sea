@@ -7,31 +7,76 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
 
+## One mount and one resolved turn for the whole suite: under coverage a mount
+## costs ~0.5 s and a turn that plans six crowns ~1.5 s, so the cases share the
+## chart and re-seat from the turn-1 save (~0.2 s) instead of mounting and
+## re-planning again (docs/testing.md speed rules). Cases that prove a *mode*
+## changing what the turn plans ask for the top of turn 1 (`_seat(0)`).
+##
 ## Non-underscore: gd-tools clones a fresh suite instance per test and does not
 ## copy underscore fields out of before_all (docs/testing.md speed rules).
 var world_snapshot: Array = []
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+var turn_one: Dictionary = {}
+var turn_one_ai: Dictionary = {}
+var turn_one_log: Array = []
 var _screen: MapScreen = null
 
 
 func before_all() -> void:
 	world_snapshot = Fixture.snapshot(Fixture.world())
+	mounted = _mount()
+	pristine = Fixture.suite_capture(mounted)
+	# The first turn is resolved once: every case that reads a court's ledger,
+	# plan or merged record reads the state this turn actually wrote.
+	MapPlayTurn.end_turn(mounted.play)
+	turn_one = Fixture.suite_capture(mounted)
+	if mounted.play.ai != null:
+		turn_one_ai = mounted.play.ai.to_dict()
+	turn_one_log = mounted.play.ai_turns.duplicate(true)
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), world_snapshot)
-	_screen = SCENE.instantiate()
-	_screen.map_width = Fixture.WORLD_WIDTH
-	_screen.map_height = Fixture.WORLD_HEIGHT
-	_screen.preset_world = Fixture.world()
-	_screen.observer_mode = true
-	_screen.infinite_mode = true
-	add_child(_screen)
+	_seat(1)
 
 
-func after_each() -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
+func after_all() -> void:
+	MapPlayTurn.view_live = true
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	_screen = null
+	pristine = {}
+	turn_one = {}
+	turn_one_ai = {}
+	turn_one_log = []
+
+
+func _mount() -> MapScreen:
+	var screen: MapScreen = SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = Fixture.world()
+	screen.observer_mode = true
+	screen.infinite_mode = true
+	add_child(screen)
+	return screen
+
+
+## Re-seats the shared chart at the top of turn 1 (`after_turns = 0`) or just
+## after its first resolved turn (the default), then hands the case back the
+## turn log that turn wrote.
+func _seat(after_turns: int = 1) -> void:
+	Fixture.restore(Fixture.world(), world_snapshot)
+	Fixture.suite_reset(mounted, pristine if after_turns == 0 else turn_one)
+	_screen = mounted
+	if after_turns == 0:
+		MapPlayTurn.view_live = true
+		return
+	_screen.play.ai = AiState.from_dict(turn_one_ai.duplicate(true))
+	_screen.play.ai_turns.assign(turn_one_log.duplicate(true))
+	MapPlayTurn.view_live = true
 
 
 func _step(turns: int = 1) -> void:
@@ -43,7 +88,6 @@ func test_observer_gives_every_great_power_an_ai_ledger() -> void:
 	var play: PlaySession = _screen.play
 	assert_true(play.observer_mode, "the session is an all-AI observer")
 	assert_eq(play.diplomacy.human_faction, MapModel.NO_ID, "no court holds consent")
-	_step(1)
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_true(
 			play.ai.economies.has(faction),
@@ -54,8 +98,8 @@ func test_observer_gives_every_great_power_an_ai_ledger() -> void:
 func test_observer_resolves_a_turn_for_every_crown() -> void:
 	var play: PlaySession = _screen.play
 	var before: int = play.turn
-	_step(2)
-	assert_eq(play.turn, before + 2, "the calendar advances")
+	_step(1)
+	assert_eq(play.turn, before + 1, "the calendar advances")
 	assert_eq(play.ai_turns.size(), 2, "one merged record per resolved turn")
 	var factions: Dictionary = play.ai_turns[0]["factions"]
 	assert_eq(factions.size(), FactionCatalog.great_power_ids().size())
@@ -66,8 +110,10 @@ func test_observer_resolves_a_turn_for_every_crown() -> void:
 
 
 func test_observer_never_queues_a_human_decision() -> void:
+	# The turn that resolved in `before_all` is a real observer turn: had the
+	# pass queued a consent, an intervention or a proposal, it would still wait
+	# on the freshly seated session.
 	var play: PlaySession = _screen.play
-	_step(2)
 	assert_true(play.diplomacy.pending_calls.is_empty(), "no call to arms waits")
 	assert_true(play.diplomacy.pending_interventions.is_empty(), "no intervention waits")
 	assert_true(play.diplomacy.pending_offers.is_empty(), "no proposal waits")
@@ -78,9 +124,26 @@ func test_observer_never_queues_a_human_decision() -> void:
 	assert_false(_screen.hud.panels.is_diplomacy_open(), "the court never opens")
 
 
+func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
+	# `MapPlayTurn.view_live = false` is the batch harness (docs/ai-observer.md §
+	# Performance budget): same rules, no per-turn view follow-up.
+	MapPlayTurn.view_live = false
+	var play: PlaySession = _screen.play
+	assert_false(MapPlayTurn.view_live, "the turn knows no view is followed")
+	var before: int = play.turn
+	_step(5)
+	assert_eq(play.turn, before + 5, "the calendar still advances")
+	assert_eq(play.ai_turns.size(), 6, "every turn still records")
+	# Same rules as an on-screen observer: every crown still holds a ledger.
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_true(
+			play.ai.economies.has(faction),
+			"%s still plans without a view" % FactionCatalog.name_of(faction)
+		)
+
+
 func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	var play: PlaySession = _screen.play
-	_step(1)
 	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
 	var rows: Array = snapshot["rows"]
 	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
@@ -118,7 +181,6 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 
 func test_observer_former_crown_plays_through_the_planners() -> void:
 	var play: PlaySession = _screen.play
-	_step(1)
 	var economy: PlayerEconomy = play.ai.economy_for(play.player_faction)
 	assert_true(
 		economy.production.assignments().size() > 0,
@@ -132,6 +194,9 @@ func test_observer_former_crown_plays_through_the_planners() -> void:
 
 
 func test_noop_mode_issues_no_planner_orders() -> void:
+	# Noop is proved from the top of turn 1: a court that never planned keeps an
+	# empty roster and an empty workshop.
+	_seat(0)
 	var play: PlaySession = _screen.play
 	play.ai_mode = AiControl.NOOP
 	assert_false(AiControl.plans(play, play.player_faction), "noop crowns do not plan")
@@ -148,6 +213,7 @@ func test_noop_mode_issues_no_planner_orders() -> void:
 
 
 func test_bench_mode_assigns_subject_baseline_and_random() -> void:
+	_seat(0)
 	var play: PlaySession = _screen.play
 	var live: int = play.player_faction
 	play.ai_mode = AiControl.BENCH
@@ -218,12 +284,200 @@ func test_headline_handles_an_empty_record() -> void:
 	assert_eq(AiTurnLog.headline({"actions": {}}), "held station, no orders")
 
 
+# --- the turn trace's recorders (REQ-P3-01) ---
+## Each pass that hands a report in owns its rows: the diplomacy recorder reads
+## the pass's own trace, the economy recorder the economy report, and AiTurnLog
+## keeps the merged record, its one event cap and the headline.
+
+
+## A bare session: the recorders need only the turn, the domestic trace and the
+## merged list, so these cases skip a mounted chart.
+func _trace_session() -> PlaySession:
+	var play := PlaySession.new()
+	play.turn = 12
+	return play
+
+
+func _diplomacy_row(faction: int, kind: String, target: int) -> Dictionary:
+	return {"faction": faction, "action": {"kind": kind, "target": target}}
+
+
+func test_the_trace_counts_every_diplomacy_kind_under_its_key() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	play.ai_trace = [
+		_diplomacy_row(crown, AiDiplomacyPlanner.KIND_DECLARE_WAR, rival),
+		_diplomacy_row(crown, AiDiplomacyPlanner.KIND_OFFER_PEACE, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_ALLIANCE, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_OVERTURE, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_BREAK, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_FTP, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_REVOKE_FTP, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_BOYCOTT, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_REVOKE_BOYCOTT, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_AID, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_SUBSIDY, rival),
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_CANCEL_SUBSIDY, rival),
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var actions: Dictionary = merged["factions"][crown]["actions"]
+	assert_eq(int(actions.get("war", 0)), 1, "a declaration keeps the war row")
+	assert_eq(int(actions.get("peace", 0)), 1, "a peace offer keeps its own row")
+	assert_eq(int(actions.get("treaty", 0)), 3, "alliance, overture and a broken alliance read as treaty")
+	assert_eq(int(actions.get("trade", 0)), 7, "the pact, boycott, aid and subsidy family read as trade")
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(events.size(), 12, "every accepted order prints one sentence")
+	assert_eq(
+		String(events[0]),
+		"%s declares war on %s." % [
+			FactionCatalog.name_of(crown), FactionCatalog.name_of(rival),
+		],
+		"the declaration prints its own line"
+	)
+
+
+func test_the_trace_prints_the_pass_message_or_its_own_diplomacy_line() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	play.ai_trace = [
+		{
+			"faction": crown,
+			"action": {"kind": AiDiplomacyOffers.KIND_AID, "target": rival},
+			"message": "Aid reaches the court.",
+		},
+		_diplomacy_row(crown, AiDiplomacyOffers.KIND_SUBSIDY, MapModel.NO_ID),
+		_diplomacy_row(crown, "mystery", rival),
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(String(events[0]), "Aid reaches the court.", "the pass's own sentence wins")
+	assert_eq(
+		String(events[1]),
+		"%s adjusts its court." % FactionCatalog.name_of(crown),
+		"an order with no target names no court"
+	)
+	assert_eq(
+		String(events[2]),
+		"%s proposes a treaty to %s." % [
+			FactionCatalog.name_of(crown), FactionCatalog.name_of(rival),
+		],
+		"an unfamiliar kind still reads as a treaty"
+	)
+
+
+func test_the_trace_drops_a_refused_order_and_a_foreign_court() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var minor: int = FactionCatalog.minor_ids()[0]
+	play.ai_trace = [
+		{
+			"faction": crown,
+			"action": {"kind": AiDiplomacyPlanner.KIND_DECLARE_WAR, "target": rival},
+			"result": {"ok": false},
+		},
+		_diplomacy_row(minor, AiDiplomacyOffers.KIND_AID, crown),
+		{"faction": crown, "action": {}},
+		{
+			"faction": crown,
+			"action": {"kind": AiDiplomacyOffers.KIND_FTP, "target": rival},
+			"result": {"ok": true},
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var actions: Dictionary = merged["factions"][crown]["actions"]
+	assert_eq(int(actions.get("war", 0)), 0, "a refused declaration never happened")
+	assert_eq(int(actions.get("trade", 0)), 1, "the accepted pact still counts")
+	assert_eq((merged["factions"][crown]["events"] as Array).size(), 1, "only the accepted order prints")
+	assert_false(merged["factions"].has(minor), "a minor nation has no trace bucket")
+
+
+func test_the_trace_reads_every_economy_row_the_pass_handed() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var report: Dictionary = {"factions": {crown: {
+		"production": {"assignments": [{"workshop": 1}]},
+		"recruits": [{"trade": "peasant"}],
+		"civilians": {
+			"orders": [{"workshop": 1}, {"workshop": 2}],
+			"training": [{"trade": "peasant"}],
+		},
+		"cargo": {
+			"routes": [{"colony": 1}],
+			"launch": {"type_id": "fluyte"},
+			"warship": {"type_id": "frigate", "price": 120, "chest": 300},
+		},
+		"claims": ["rations 4/6"],
+	}}}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], report)
+	var bucket: Dictionary = merged["factions"][crown]
+	var actions: Dictionary = bucket["actions"]
+	assert_eq(int(actions.get("production", 0)), 1, "the runs are one production row")
+	assert_eq(int(actions.get("recruit", 0)), 1, "one muster is one recruit row")
+	assert_eq(int(actions.get("work", 0)), 2, "two work orders count twice")
+	assert_eq(int(actions.get("train", 0)), 1, "a mustered civilian is its own row")
+	assert_eq(int(actions.get("cargo", 0)), 2, "a route and a merchant launch both count as cargo")
+	assert_eq(int(actions.get("build", 0)), 1, "the warship is the yard's build row")
+	var who: String = FactionCatalog.name_of(crown)
+	var events: Array = bucket["events"]
+	assert_eq(events.size(), 7, "every economy row prints one sentence")
+	assert_eq(String(events[4]), "%s routes 1 merchant squadron home." % who)
+	assert_eq(
+		String(events[6]),
+		"%s lays down a Frigate for the fleet: 120 ducats against a 300 chest." % who,
+		"the yard row names its price and the chest that allowed it"
+	)
+	assert_eq(bucket["claims"], ["rations 4/6"], "the reservations travel with the record")
+
+
+func test_the_trace_skips_an_empty_cargo_and_a_foreign_ledger() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var report: Dictionary = {"factions": {
+		crown: {"production": {}, "cargo": {}, "claims": "not a list"},
+		minor: {"production": {"assignments": [{"workshop": 1}]}, "recruits": [{}]},
+	}}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], report)
+	var bucket: Dictionary = merged["factions"][crown]
+	assert_true((bucket["actions"] as Dictionary).is_empty(), "a quiet ledger counts nothing")
+	assert_true((bucket["events"] as Array).is_empty(), "and prints nothing")
+	assert_false(bucket.has("claims"), "a claims field that is not a list is dropped")
+
+
+func test_the_trace_caps_one_crown_events_and_ignores_an_empty_key() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var trace: Array[Dictionary] = []
+	for step in 70:
+		trace.append({
+			"faction": crown,
+			"action": {"kind": AiDiplomacyOffers.KIND_AID, "target": rival},
+			"message": "Aid %d." % step,
+		})
+	play.ai_trace = trace
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	var bucket: Dictionary = merged["factions"][crown]
+	assert_eq((bucket["events"] as Array).size(), 60, "the panel's event cap holds")
+	assert_eq((merged["events"] as Array).size(), 60, "the merged list is capped with it")
+	var before: int = (bucket["events"] as Array).size()
+	AiTurnLog.event(merged, bucket, crown, "")
+	assert_eq((bucket["events"] as Array).size(), before, "an empty sentence adds no row")
+	var actions: Dictionary = {"aid": 1}
+	AiTurnLog.bump(actions, "")
+	AiTurnLog.bump(actions, "aid", 2)
+	assert_eq(int(actions["aid"]), 3)
+	assert_false(actions.has(""), "an empty key adds no row")
+
+
 func test_dashboard_renders_the_live_snapshot() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")
 	if panel == null:
 		return
-	_step(1)
 	panel.refresh()
 	assert_true(panel._turn_label.text.begins_with("TURN"), "the panel names the turn")
 	assert_eq(panel._cards.size(), FactionCatalog.great_power_ids().size())
@@ -238,7 +492,6 @@ func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
 	assert_not_null(panel, "the observatory panel mounts")
 	if panel == null:
 		return
-	_step(1)
 	panel.refresh()
 	var row: Dictionary = MapPlayObserver.snapshot(_screen.play)["rows"][0].duplicate(true)
 	var progress: Label = panel._cards[int(row["faction"])]["progress"]
@@ -314,6 +567,9 @@ func test_court_reader_counts_the_order_of_battle() -> void:
 
 
 func test_court_reader_counts_only_fighting_hulls() -> void:
+	# From the top of turn 1: the cached turn's AI pass may already hold wars,
+	# and this case names its own.
+	_seat(0)
 	var play: PlaySession = _screen.play
 	var owner: int = FactionCatalog.great_power_ids()[0]
 	var rival: int = FactionCatalog.great_power_ids()[1]
@@ -377,3 +633,22 @@ func test_court_reader_reads_region_rosters() -> void:
 		play.army_layer.armies.size(), armies.size(),
 		"a hull refresh leaves the field armies alone"
 	)
+
+
+## The former human slot is a planning crown in the observer, so it must chart
+## like one: its New World grid is its own, never the screen's region table,
+## which no pass grows (issue #603).
+func test_the_observed_court_charts_like_any_rival() -> void:
+	var play: PlaySession = _screen.play
+	assert_true(play.observer_mode, "the session is an all-AI observer")
+	var charts: CourtCharts = play.court_charts
+	assert_eq(
+		charts.human_faction, MapModel.NO_ID,
+		"no planning crown reads the screen's own region table"
+	)
+	for faction: int in FactionCatalog.great_power_ids():
+		for region in play.world.region_count():
+			assert_true(
+				charts.model_for(faction, region) != null,
+				"%s charts region %d" % [FactionCatalog.name_of(faction), region]
+			)

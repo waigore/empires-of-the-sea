@@ -40,7 +40,7 @@ static func safe_zones(
 			if fleet.sea_zone != neighbor:
 				continue
 			for owner: int in side_owners:
-				if _hostile(hostile, fleet.owner, owner):
+				if Hostility.between(hostile, fleet.owner, owner):
 					safe = false
 					break
 			if not safe:
@@ -116,11 +116,3 @@ static func _enemy_mission(model: MapModel, victor: Array, hostile: Callable) ->
 		if fleet.mission == FleetState.Mission.PATROL:
 			return FleetState.Mission.PATROL
 	return FleetState.Mission.NONE
-
-
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))

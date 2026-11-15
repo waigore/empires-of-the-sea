@@ -127,11 +127,9 @@ static func initiative_order(
 
 
 ## Whether two factions may fight. An unset callable keeps the legacy
-## every-faction-hostile fixture behaviour.
+## every-faction-hostile fixture behaviour (see [Hostility]).
 static func is_hostile(hostile: Callable, attacker: int, defender: int) -> bool:
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(attacker, defender))
+	return Hostility.between(hostile, attacker, defender)
 
 
 static func next_army_id(armies: Array[ArmyState]) -> int:

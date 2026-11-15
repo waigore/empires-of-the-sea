@@ -83,16 +83,26 @@ func set_fog_rect(rect: Rect2i, state: int) -> void:
 
 ## Projects rules-engine visibility onto the fog texture (view reads state).
 ## `indices` are the tiles that changed; empty means resync the whole map.
-func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> void:
+## Returns whether any tile moved, so the parent knows if listeners (the readings)
+## must repaint: a resync of the chart already painted raises nothing.
+func sync_visibility(visibility: VisibilityModel, indices: Array = []) -> bool:
 	if visibility == null or model == null:
-		return
+		return false
+	var moved: bool = false
 	if indices.is_empty():
 		for index in fog.size():
-			set_fog_state(index, fog_state_for(visibility.level_at_index(index)))
-		return
+			var state: int = fog_state_for(visibility.level_at_index(index))
+			if fog[index] != state:
+				set_fog_state(index, state)
+				moved = true
+		return moved
 	for raw: Variant in indices:
 		var index: int = int(raw)
-		set_fog_state(index, fog_state_for(visibility.level_at_index(index)))
+		var state: int = fog_state_for(visibility.level_at_index(index))
+		if fog[index] != state:
+			set_fog_state(index, state)
+			moved = true
+	return moved
 
 
 static func fog_state_for(level: int) -> int:

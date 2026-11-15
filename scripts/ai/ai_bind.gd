@@ -45,12 +45,16 @@ static func income_plan(
 	economy: PlayerEconomy,
 	at_war: bool,
 	regiments: int,
-	hull_chest: int = 0
+	hull_chest: int = 0,
+	own_warships: int = -1,
+	muster_stall: int = 0
 ) -> Dictionary:
 	if _baseline(kind):
-		# Mainline income has no hull_chest arg yet.
+		# Mainline income has no hull_chest or escalation arg yet.
 		return _ml("ai_income.gd", "plan", [config, economy, at_war, regiments])
-	return AiIncome.plan(config, economy, at_war, regiments, hull_chest)
+	return AiIncome.plan(
+		config, economy, at_war, regiments, hull_chest, own_warships, muster_stall
+	)
 
 
 static func research_plan(
@@ -77,7 +81,8 @@ static func market_plan(
 	reserved: Dictionary,
 	need: Dictionary,
 	floor: int = 0,
-	food_shortfall: int = 0
+	food_shortfall: int = 0,
+	saving: bool = false
 ) -> Dictionary:
 	if _baseline(kind):
 		return _ml(
@@ -86,7 +91,8 @@ static func market_plan(
 			[config, economy, market, free_holds, tech_unlocked, reserved, need, floor, food_shortfall]
 		)
 	return AiMarketPlanner.plan(
-		config, economy, market, free_holds, tech_unlocked, reserved, need, floor, food_shortfall
+		config, economy, market, free_holds, tech_unlocked, reserved, need, floor,
+		food_shortfall, saving
 	)
 
 
@@ -130,7 +136,9 @@ static func reinforce_plan(
 	at_war: bool,
 	pressure_extra: int = 0,
 	fed_slack: int = -1,
-	reserve: int = 0
+	reserve: int = 0,
+	held_row: Dictionary = {},
+	own_warships: int = -1
 ) -> Dictionary:
 	if _baseline(kind):
 		# Mainline reinforce has no hull reserve arg yet.
@@ -140,7 +148,8 @@ static func reinforce_plan(
 			[config, economy, regiments, at_war, pressure_extra, fed_slack]
 		)
 	return AiArmyReinforce.plan(
-		config, economy, regiments, at_war, pressure_extra, fed_slack, reserve
+		config, economy, regiments, at_war, pressure_extra, fed_slack, reserve,
+		held_row, own_warships
 	)
 
 

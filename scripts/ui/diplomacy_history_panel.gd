@@ -17,14 +17,22 @@ func _init() -> void:
 
 
 func fill(state: DiplomacyState, viewer: int, other: int) -> void:
-	_clear()
-	add_child(_label("CHRONICLE", 11, Palette.TEXT_DIM))
+	UiRowBuilder.clear(self)
+	add_child(UiRowBuilder.caption("CHRONICLE", 11, Palette.TEXT_DIM))
 	var entries: Array[Dictionary] = DiplomacyHistory.entries(state, viewer, other)
 	if entries.is_empty():
-		add_child(_line("No word of this court has been written yet.", 13, Palette.TEXT_DIM))
+		add_child(
+			UiRowBuilder.wrapped_line(
+				"No word of this court has been written yet.", 13, Palette.TEXT_DIM
+			)
+		)
 		return
 	for entry: Dictionary in entries:
-		add_child(_line(_row_text(entry), 13, _ink_for(String(entry["kind"]))))
+		add_child(
+			UiRowBuilder.wrapped_line(
+				_row_text(entry), 13, _ink_for(String(entry["kind"]))
+			)
+		)
 
 
 static func _row_text(entry: Dictionary) -> String:
@@ -39,23 +47,3 @@ static func _ink_for(kind: String) -> Color:
 	if AMITY_KINDS.has(kind):
 		return AMITY_INK
 	return Palette.TEXT
-
-
-func _line(text: String, size: int, ink: Color) -> Label:
-	var label := _label(text, size, ink)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return label
-
-
-func _label(text: String, size: int, ink: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", ink)
-	return label
-
-
-func _clear() -> void:
-	for child: Node in get_children():
-		remove_child(child)
-		child.queue_free()

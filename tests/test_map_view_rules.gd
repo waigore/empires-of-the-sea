@@ -320,6 +320,25 @@ func test_overlay_delegates_fog_state_to_the_layer() -> void:
 		_overlay.fog_layer.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED
 	)
 
+## The chart layers bake on change only: resyncing the chart already painted
+## (a load that restores the same save, a re-seat) raises no fog change, so the
+## readings keep the projection they hold instead of recomputing it.
+func test_resyncing_the_painted_chart_raises_no_change() -> void:
+	_setup_fog_layer()
+	var raises: Array = []
+	_overlay.fog_changed.connect(func() -> void: raises.append(true))
+	var visibility := VisibilityModel.new()
+	visibility.setup(_overlay.model, FactionCatalog.PLAYER_FACTION)
+	visibility.apply_initial()
+	_overlay.sync_visibility(visibility)
+	assert_eq(raises.size(), 1, "the first resync charts the grid")
+	_overlay.sync_visibility(visibility)
+	assert_eq(raises.size(), 1, "the same chart raises nothing again")
+	# A reveal moves the chart, so the readings are told to re-read it.
+	visibility.raise_to(0, VisibilityModel.Level.FULLY_VISIBLE)
+	_overlay.sync_visibility(visibility)
+	assert_true(raises.size() > 1, "a chart that moved raises its change")
+
 func test_snapped_fog_settles_and_stops_fading() -> void:
 	_setup_fog_layer()
 	var tile: Vector2i = Vector2i(2, 2)
@@ -463,6 +482,21 @@ func test_a_conquest_recolours_the_inset_without_a_new_chart() -> void:
 		0.01,
 		"the repaint uses the new owner's colour"
 	)
+
+## A second bake of the same chart keeps the texture it already drew: the inset
+## bakes on change only, so a re-seat of the same save pays no texel pass.
+func test_a_second_bake_of_the_same_chart_draws_nothing() -> void:
+	_setup_minimap()
+	_visibility.levels.fill(VisibilityModel.Level.FULLY_VISIBLE)
+	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
+	var baked: ImageTexture = _minimap._texture
+	var borders: Dictionary = _minimap._country_borders
+	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
+	assert_eq(_minimap._texture, baked, "the same chart is not baked again")
+	assert_eq(_minimap._country_borders, borders, "the ink is the one already drawn")
+	_visibility.lower_to(_model.index_of(1, 1), VisibilityModel.Level.FOGGED)
+	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
+	assert_ne(_minimap._texture, baked, "a chart that moved bakes again")
 
 ## A tile whose owner comes from the province, not from a merchant's deed.
 func _owned_tile_of(province: ProvinceState) -> Vector2i:
@@ -1011,13 +1045,16 @@ func test_region_switch_and_rail_budget() -> void:
 	assert_true(screen.play.crown_lens.survey.has("runs"))
 	screen.load_region(0)
 
-	# The reading rides the cartouche now: the rail below is back to two seals.
+	# The reading rides the cartouche now, and the rail below it is empty: the
+	# estates and Gazette doors moved onto the bar (REQ-P1-07).
 	var hud: GameHud = screen.hud
 	var seal: Rect2 = hud.lens_seal.get_global_rect()
 	var bar: Rect2 = hud.top_bar.get_global_rect()
 	assert_gt(seal.size.x, 0.0, "the lens seal is on the bar")
 	assert_true(seal.position.y >= bar.position.y and seal.end.y <= bar.end.y + 0.5, "seal inside the bar")
-	assert_lt(HudLayout.LEFT_RAIL, 260.0, "the rail covers only ESTATES and the Gazette")
+	assert_eq(HudLayout.LEFT_RAIL, 0.0, "nothing is parked on the left rail")
+	assert_not_null(hud.top_row.find_child("EstatesSeal", true, false), "estates door on the bar")
+	assert_not_null(hud.top_row.find_child("GazetteSeal", true, false), "Gazette door on the bar")
 	MapPlayInput.set_crown_lens(screen.play, true)
 	assert_eq(hud.lens_legend.kind, LensLegend.KIND_CROWN_ROAD)
 	assert_true(hud.lens_legend.visible)

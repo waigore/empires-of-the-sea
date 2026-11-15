@@ -11,10 +11,11 @@ extends RefCounted
 ##
 ## The readings dictionary is the planner-facing contract:
 ##   posture, at_war, war_desire, regiments, muster_due, muster_floor,
+##   escalations, blockings,
 ##   ships, warships, warship_price, navy_due, hostile_ships, hostile_warships,
 ##   treasury, reserve, goal, colony_target, harbour, idle_hulls, explorer_ready,
 ##   voyage_afloat, cargo_shortfall, research_slots, research_funding,
-##   research_cost, tribe_target, tribe_stage_cost.
+##   research_cost, research_refusal, tribe_target, tribe_stage_cost.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 
@@ -33,6 +34,11 @@ const W_NAVY: int = 60
 ## A court at war with no fighting hull puts the yard ahead of a sortie: it has
 ## nothing to sortie with (issue #484, #500).
 const W_NAVY_BUILD: int = 90
+## The same yard, while the court cannot yet fill its chest and a regiment is
+## due: below the muster's 85 (`W_MUSTER` + `W_MUSTER_WAR`), so the ledger funds
+## the line first and the hull it never reaches stops starving the army
+## (issue #591).
+const W_NAVY_BUILD_WAITING: int = 80
 ## The expedition's children: the hull and the Explorer it must have, and a
 ## voyage already afloat, which outranks every new aim of the same court.
 const W_HULL: int = 60
@@ -91,24 +97,51 @@ static func _muster(readings: Dictionary, at_war: bool) -> AiObjective:
 	if not bool(readings.get("muster_due", false)):
 		return null
 	var utility: int = W_MUSTER + (W_MUSTER_WAR if at_war else 0)
-	return AiObjective.create(
+	var muster := AiObjective.create(
 		"muster.line", "military", utility,
 		{"regiment": 1, "labour": 1, "treasury": int(readings.get("muster_floor", 0))}
 	)
+	# The escalation's explicit terminal reading (#603): a muster that has been
+	# deferred past the blocked bar with its shortfall standing still names it,
+	# instead of another silent deferred row. The reserve re-route stays the
+	# escalation's acting lever; this row only says so in the trace.
+	var blocked_turns: int = int(
+		(readings.get("blockings", {}) as Dictionary).get("muster.line", 0)
+	)
+	if blocked_turns > 0:
+		muster.block("muster out of reach %d turns" % blocked_turns)
+	return muster
 
 
 ## The court's one order a turn: press a war, open one, or spend it ending the
-## war that blocks everything else (the peace window T2 funds, #497).
+## war that blocks everything else (the peace window T2 funds, #497). An aim
+## that has lost the order to its sibling for the escalation bar's turns reads
+## `blocked` with the sibling's name — the contention, said out loud once the
+## stall is long (issue #603).
 static func _diplomacy(readings: Dictionary, at_war: bool) -> Array[AiObjective]:
 	var desire: int = clampi(int(readings.get("war_desire", 0)), 0, 100)
+	var blockings: Dictionary = readings.get("blockings", {})
 	var orders: Array[AiObjective] = []
 	if at_war:
-		orders.append(AiObjective.create("war.press", "diplomacy", desire, {"orders": 1}))
-		orders.append(
-			AiObjective.create("peace.window", "diplomacy", 100 - desire, {"orders": 1})
+		var press := AiObjective.create("war.press", "diplomacy", desire, {"orders": 1})
+		var window := AiObjective.create(
+			"peace.window", "diplomacy", 100 - desire, {"orders": 1}
 		)
+		var press_stall: int = int(blockings.get("war.press", 0))
+		var window_stall: int = int(blockings.get("peace.window", 0))
+		# The sibling that has been losing the order names why it waits.
+		if window_stall > 0 and desire >= 50:
+			window.block("the court presses its war (%d turns)" % window_stall)
+		elif press_stall > 0 and desire < 50:
+			press.block("the court sues for peace (%d turns)" % press_stall)
+		orders.append(press)
+		orders.append(window)
 		return orders
-	orders.append(AiObjective.create("war.declare", "diplomacy", desire, {"orders": 1}))
+	var declare := AiObjective.create("war.declare", "diplomacy", desire, {"orders": 1})
+	var declare_stall: int = int(blockings.get("war.declare", 0))
+	if declare_stall > 0:
+		declare.block("the court does not want this war (%d turns)" % declare_stall)
+	orders.append(declare)
 	return orders
 
 
@@ -135,6 +168,14 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 	var hull := AiObjective.create("expedition.hull", "naval", W_HULL, {"hull": 1})
 	if not harbour:
 		hull.block("no harbour")
+	else:
+		# A long wait for an idle hull is a contention, said out loud once the
+		# stall is long (issue #603): the fleet is committed elsewhere.
+		var hull_stall: int = int(
+			(readings.get("blockings", {}) as Dictionary).get("expedition.hull", 0)
+		)
+		if hull_stall > 0:
+			hull.block("no idle hull %d turns" % hull_stall)
 	var explorer := AiObjective.create(
 		"expedition.explorer", "civilian", W_EXPLORER, {"civilian": 1}
 	)
@@ -169,13 +210,10 @@ static func _tribe_chain(readings: Dictionary) -> AiObjective:
 
 
 ## The fleet's turn: a squadron with hulls sorts out; a court with no fighting
-## hull, or one outmatched on its own coast, lays one down instead. The build
-## claims the yard's treasury row — the chest the money goal reserves — and a
-## court whose techs open no warship says so instead of claiming a hull it
-## cannot lay (issue #491 T5, #484).
+## hull (peace or war), or one outmatched on its own coast, lays one down. The
+## build claims the yard's treasury row; a chest not yet reached ranks below the
+## muster (issue #491 T5, #484, #591).
 static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
-	if not at_war:
-		return null
 	var own: int = int(readings.get("warships", 0))
 	var hostile: int = int(readings.get("hostile_warships", 0))
 	var threat: int = AiUtility.ratio(hostile, maxi(own + hostile, 1))
@@ -183,19 +221,48 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 		var utility: int = W_NAVY_BUILD
 		if own > 0:
 			utility = AiUtility.clamp_utility(W_NAVY_BUILD - 20 + threat / 2)
+		# A chest the court has not reached waits behind the army: the yard is
+		# still its aim, but a yard price it cannot pay must not claim the purse
+		# the muster needs, or the hull is never laid and the line never rises
+		# (issue #591).
+		if _chest_beyond_reach(readings):
+			utility = mini(utility, W_NAVY_BUILD_WAITING)
 		var build := AiObjective.create(
-			"navy.build", "naval", utility,
-			{"treasury": int(readings.get("warship_price", 0))}
+			"navy.build", "naval", utility, _build_cost(readings)
 		)
 		# The yard founds a slip of its own, so the build asks for the treasury
-		# row and nothing else; a court with no warship its techs open is blocked
-		# rather than funded into a launch that can never happen (issue #484).
-		if int(readings.get("warship_price", 0)) <= 0:
+		# row and the hull's material row — the chest the money goal reserves and
+		# the cloth the economy reserves, so the launch is never funded into a
+		# store the court already sold (issue #484). A court still studying the
+		# unlock keeps that chest but does not claim a launch it cannot lay.
+		if not bool(readings.get("warship_open", false)):
 			build.block("no warship its techs open")
 		return build
+	if not at_war:
+		return null
 	return AiObjective.create(
 		"navy.sortie", "naval", AiUtility.clamp_utility(W_NAVY + threat / 2), {"hull": 1}
 	)
+
+
+## True while the court is still short of the yard's price and a regiment is
+## due: the chest it means to fill is out of reach, so the army's claim outranks
+## it (issue #591, `AiIncome.hull_held`). A fleetless court keeps the yard ahead
+## of the muster — the same own-warships gate as `hull_held` (issue #484).
+static func _chest_beyond_reach(readings: Dictionary) -> bool:
+	if int(readings.get("warships", -1)) == 0:
+		return false
+	if not bool(readings.get("muster_due", false)):
+		return false
+	var price: int = int(readings.get("warship_price", 0))
+	return price > 0 and int(readings.get("treasury", 0)) < price
+
+
+## Treasury claim only: cloth stays on `AiClaims.NAVY` so the objective does not
+## double-book the bolt the market already held (issue #484).
+static func _build_cost(readings: Dictionary) -> Dictionary:
+	return {"treasury": int(readings.get("warship_price", 0))}
+
 
 
 ## Merchant tonnage short of the seat's need: sail the hulls home.
@@ -210,14 +277,26 @@ static func _cargo(readings: Dictionary) -> AiObjective:
 
 
 ## A study while the court has a slot to fill; the funding step is the utility.
+## The standing study prices its own one-slot budget (the bounded exception
+## that may dip into the chest the muster claims); a study the purse cannot
+## fund this turn is `blocked` with the refusal the planner made — never a
+## 0-gold row that reads `funded` while the court learns nothing (issue #590).
 static func _research(readings: Dictionary) -> AiObjective:
 	if int(readings.get("research_slots", 0)) <= 0:
 		return null
 	var step: int = clampi(int(readings.get("research_funding", 0)), 0, 4)
-	return AiObjective.create(
-		"research.study", "research", W_RESEARCH + step * W_RESEARCH_STEP,
-		{"treasury": int(readings.get("research_cost", 0))}
+	var cost: Dictionary = (
+		{"standing": 1}
+		if int(readings.get("standing_study", 0)) > 0
+		else {"treasury": int(readings.get("research_cost", 0))}
 	)
+	var aim := AiObjective.create(
+		"research.study", "research", W_RESEARCH + step * W_RESEARCH_STEP, cost
+	)
+	var refusal: String = String(readings.get("research_refusal", ""))
+	if not refusal.is_empty():
+		aim.block(refusal)
+	return aim
 
 
 ## The standing growth aim: a crew hand on the works.

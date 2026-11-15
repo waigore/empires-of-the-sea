@@ -141,7 +141,15 @@ static func _apply_marches(
 		if army == null:
 			continue
 		var province: int = int(order["province"])
-		var march: Dictionary = ArmyMovement.apply_move(model, army, province, true)
+		# The rival marches through the same gate the crown does: a Tribe needs
+		# no declaration, but a Tribe province another crown has bought land in
+		# does (wiki: factions § Tribe; REQ-P2-03).
+		var owner: int = model.province_owner(province)
+		var may_enter: bool = (
+			owner == MapModel.NO_ID or owner == faction
+			or DiplomacyRules.invadable(play.diplomacy, faction, owner, model, province)
+		)
+		var march: Dictionary = ArmyMovement.apply_move(model, army, province, may_enter)
 		if not bool(march.get("ok", false)):
 			continue
 		changed = true
@@ -210,6 +218,22 @@ static func _reinforce(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
+	# The hull the court is saving for outranks the next regiment: the muster
+	# spends only what stands above that chest, and — once the chest is full —
+	# only the cloth above the hull's own row, so the launch the purse was saved
+	# for can actually be laid (issue #484).
+	var own_warships: int = MapPlayCourt.warships(play, faction)
+	var chest: int = MapPlayCourt.navy_chest(play, faction)
+	var held: Dictionary = {}
+	if chest > 0 and (
+		economy.treasury >= chest or own_warships == 0
+	):
+		held = AiNavy.due_row(
+			MapPlayCourt.at_war(play, faction),
+			own_warships,
+			MapPlayCourt.hostile_warships(play, faction),
+			economy, MapPlayCourt.hull_types(play, faction)
+		)
 	var plan: Dictionary = AiBind.reinforce_plan(
 		kind,
 		config,
@@ -221,9 +245,9 @@ static func _reinforce(
 			kind, economy, play.army_layer.food_upkeep_all(faction),
 			MapPlayCourt.ships(play, faction)
 		),
-		# The hull the court is saving for outranks the next regiment: the
-		# muster spends only what stands above that chest (issue #484).
-		MapPlayCourt.navy_chest(play, faction)
+		chest,
+		held,
+		own_warships
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():

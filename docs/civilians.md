@@ -13,8 +13,8 @@ Land units: explore, improve, colonize, spy.
 - **Roster** (`CivilianCatalog`): six wiki types; playable: Explorer (explore,
   prospect — DR-20261111-26 uncover), Builder (improve, upgrade town), Engineer
   (road, port), Spy (spycraft), Merchant (buy land), Rail Builder (railroad).
-- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; filter
-  and Visit jump to it.
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, filtered
+  by world, craft or **orders** (idle / at work); Visit jumps to it.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders stay on crown land; Explorer, Merchant, Spy cross any border. One
   Builder/Engineer/Merchant crew per tile per crown (Explorers, Spies and Rail
@@ -40,14 +40,12 @@ Land units: explore, improve, colonize, spy.
   passengers.
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile with embassy, no
   war and a prospected mineral; 15× base at assign, debit on complete. Each
-  deed lifts the province town. Rivals run it through `AiMerchantWork`, from
-  their own ledger.
+  deed lifts the province town. Rivals run it through `AiMerchantWork`.
 - **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
   and saves; the province stays with the seller.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when
   connected; above-cap upgrades refused; `ESTATES` lists the orders.
-- **Stranding:** crews caught by conquest withdraw to crown land or are lost
-  with the province.
+- **Stranding:** crews caught by conquest withdraw to crown land or are lost.
 
 ## Deferred (REQ-P2-02)
 
@@ -80,8 +78,8 @@ Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 
-`test_civilian_field_rules`, `test_civilian_voyage`, `test_intel_rules`,
-`test_espionage`, `test_visibility`, `test_map_screen_crown_orders`.
+`test_civilian_field_rules`, `test_civilian_turn_rules`, `test_spycraft_rules`,
+`test_map_screen_crown_orders`.
 
 ```bash
 gd-tools test --coverage --min 80

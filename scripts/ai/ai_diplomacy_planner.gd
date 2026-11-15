@@ -30,6 +30,12 @@ static func decide(
 	var best_peace: Dictionary = {}
 	var best_offer: Dictionary = {}
 	var player: int = int(context.get("player", -1))
+	# The court's footing, read once for the whole pass — a caller that already
+	# read it this turn posts it in the context: an overstretched court opens no
+	# third front (DR-20261113-15, DR-20261114-11).
+	var posture: String = String(context.get("posture", ""))
+	if posture.is_empty():
+		posture = AiPhasePlanner.phase_for(config, state)
 	# An agenda moves the bar a war must fall below before the court puts peace
 	# to its enemy (wiki: hidden-agendas — peacemaker early peace, warmonger
 	# keeps the war alive; DR-20261111-27).
@@ -80,7 +86,7 @@ static func decide(
 					best_peace = entry
 		else:
 			entry["blocked"] = _war_block(
-				config, state, ai_state, turn, target, record, score, world, context
+				config, state, ai_state, turn, target, record, score, world, context, posture
 			)
 			if (
 				String(entry["blocked"]).is_empty()
@@ -160,14 +166,25 @@ static func _peace_block(
 	return ""
 
 
-## The pair's peace-offer cooldown: either answer starts it, so a court does not
-## ask again every turn (wiki: diplomacy § Planner selection; DR-20261109-07).
+## The pair's peace-offer cooldown. Either answer starts the base wait, so a
+## court does not ask again every turn (wiki: diplomacy § Planner selection;
+## DR-20261109-07). Every refusal then doubles the next wait up to the
+## registry's cap: a court told no three times does not spend its one diplomacy
+## order per cooldown turn asking the same question again (wiki: diplomacy
+## § Cooldowns; DR-20261115-01).
 static func _peace_cooldown(
 	config: AiConfig, ai_state: AiState, turn: int, target: int
 ) -> String:
-	var cooldown: int = config.parameter("diplomacy.peace_cooldown_turns")
+	var base: int = config.parameter("diplomacy.peace_cooldown_turns")
+	var refusals: int = ai_state.peace_refusals_for(config.faction, target)
+	# The cap never shortens the published base wait, and the shift is bounded
+	# so a long war cannot overflow the doubling.
+	var cap: int = maxi(config.parameter("diplomacy.peace_refusal_cap"), base)
+	var cooldown: int = mini(base * (1 << mini(refusals, 4)), cap)
 	if ai_state.peace_on_cooldown(config.faction, target, turn, cooldown):
-		return "peace cooldown"
+		if refusals <= 0:
+			return "peace cooldown"
+		return "peace cooldown, refused %d× (%d turns)" % [refusals, cooldown]
 	return ""
 
 
@@ -175,6 +192,13 @@ static func _peace_cooldown(
 ## court is drawing into its empire is not a war target: the declaration would
 ## clear the envoy chain, and its provinces never count toward victory
 ## (wiki: factions § Tribe; diplomacy § GP–Tribe Rules; DR-20261114-02).
+##
+## An overstretched court opens no third Great Power front against a crown it does
+## not outmatch: the same footing that takes any white peace it is offered does
+## not reach for a war it would need another army for (DR-20261113-15,
+## DR-20261114-11). The cheap province next door stays on — a court recovering
+## from two fronts takes the war it can already win — and so does colonial
+## business, because a war on a Minor Nation or a Tribe is not a front.
 static func _war_block(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -184,11 +208,18 @@ static func _war_block(
 	record: DiplomacyRelation,
 	desire: int,
 	world: WorldMap = null,
-	context: Dictionary = {}
+	context: Dictionary = {},
+	posture: String = AiPhasePlanner.PHASE_UNKNOWN
 ) -> String:
 	var check: Dictionary = DiplomacyRules.can_declare_war(state, config.faction, target)
 	if not bool(check.get("ok", false)):
 		return String(check.get("reason", "illegal"))
+	if (
+		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)
+		and not _outmatches(config.faction, target, context)
+	):
+		return "overstretched: no third front"
 	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
 	if ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
 		return "war cooldown"
@@ -205,3 +236,14 @@ static func _war_block(
 	if desire < config.parameter("diplomacy.war_declare_min_desire"):
 		return "war desire too low"
 	return ""
+
+
+## Whether this court is the stronger of the pair on the published power score —
+## the cheap province next door, which an overstretched court may still take
+## (DR-20261114-11). A caller that reads no power for the pair keeps the published
+## planner: an unknown order of battle is not a war it cannot win.
+static func _outmatches(faction: int, target: int, context: Dictionary) -> bool:
+	var powers: Dictionary = context.get("power", {})
+	if not powers.has(faction) or not powers.has(target):
+		return true
+	return int(powers[faction]) > int(powers[target])

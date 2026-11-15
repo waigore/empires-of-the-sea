@@ -7,7 +7,11 @@ extends RefCounted
 ## stand within `victory.pressure_start` per-mille of the bar that crown must
 ## clear, it arms up for the finish — its muster target rises by
 ## `victory.pressure_regiments` — and its military, naval and expansion aims
-## carry `victory.pressure_boost` per-mille more weight in the ledger.
+## carry `victory.pressure_boost` per-mille more weight in the ledger. The press
+## reaches the war aim too: a pressing court's war desire against a court
+## holding the Old World land the bar counts carries `victory.pressure_war`
+## points, so the crown that can see the bar opens the war that takes the
+## provinces it still needs (DR-20261115-04, issue #601).
 ##
 ## Pure: the map, the bar and the registry are the only inputs, so the same
 ## state always reads the same pressure and a replay never drifts
@@ -53,6 +57,7 @@ static func read(
 		"stage": stage,
 		"extra_regiments": extra_regiments(stage, config),
 		"boost_mille": boost_mille(stage, config),
+		"war_press": war_press(stage, config),
 		"start_mille": start,
 	}
 
@@ -94,6 +99,16 @@ static func boost_mille(stage: String, config: Variant) -> int:
 ## True while the court presses: it arms up and its war aims lead.
 static func presses(stage: String) -> bool:
 	return stage == STAGE_NEAR or stage == STAGE_AT_BAR
+
+
+## The points the war aim carries against a court holding the Old World land the
+## bar counts: zero while the crown is far from the bar, else
+## `victory.pressure_war` (wiki: ai-architecture § victory pressure; the press
+## reaches the war aim — its war aims lead — DR-20261115-04, issue #601).
+static func war_press(stage: String, config: Variant) -> int:
+	if not presses(stage) or config == null:
+		return 0
+	return maxi(int(config.parameter("victory.pressure_war")), 0)
 
 
 ## Reader-facing label for the observer panel and the turn trace.

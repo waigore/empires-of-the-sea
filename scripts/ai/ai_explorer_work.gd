@@ -63,11 +63,11 @@ static func best_move(
 	if mustering.x >= 0:
 		if _at_port(model, unit, mustering):
 			return {}
-		return _step_toward(model, unit, mustering, view)
+		return AiLandRoute.step_toward(model, unit, mustering, view)
 	var goal: Vector2i = _goal(model, unit, works, view, context)
 	if goal.x < 0:
 		return {}
-	return _step_toward(model, unit, goal, view)
+	return AiLandRoute.step_toward(model, unit, goal, view)
 
 
 ## The muster tile the civilian pass set while a voyage is pending, or (-1, -1).
@@ -89,21 +89,6 @@ static func _marching_to_port(
 static func _at_port(model: MapModel, unit: CivilianState, port: Vector2i) -> bool:
 	var here: int = model.province_at(unit.tile.x, unit.tile.y)
 	return here != MapModel.NO_ID and here == model.province_at(port.x, port.y)
-
-
-## One legal step that brings the unit closer to `goal`; row-major on a tie so
-## the same state always walks the same way.
-static func _step_toward(
-	model: MapModel, unit: CivilianState, goal: Vector2i, view: VisibilityModel
-) -> Dictionary:
-	var best: Dictionary = {}
-	for tile: Vector2i in CivilianMovement.valid_tiles(model, unit, view):
-		var distance: int = absi(tile.x - goal.x) + absi(tile.y - goal.y)
-		if best.is_empty() or distance < int(best["distance"]):
-			best = {"kind": "move", "unit_id": unit.id, "tile": tile, "distance": distance}
-		elif distance == int(best["distance"]) and tile < Vector2i(best["tile"]):
-			best = {"kind": "move", "unit_id": unit.id, "tile": tile, "distance": distance}
-	return best
 
 
 ## Exploring a partly charted province is the Explorer's first duty: the tiles
@@ -148,7 +133,7 @@ static func _goal(
 	var best: Vector2i = _nearest_unsurveyed(model, unit, works, view)
 	if best.x >= 0 or view == null:
 		return best
-	var best_distance: int = 1 << 30
+	var reachable: Array[Vector2i] = []
 	for province: ProvinceState in model.provinces:
 		if not view.is_province_known(province.id):
 			continue
@@ -161,23 +146,15 @@ static func _goal(
 				model, unit.owner, province.id, context
 			).is_empty():
 				continue
-			var distance: int = absi(tile.x - unit.tile.x) + absi(tile.y - unit.tile.y)
-			if distance < best_distance or (distance == best_distance and tile < best):
-				best = tile
-				best_distance = distance
-	return best
+			reachable.append(tile)
+	return AiLandRoute.nearest(reachable, unit.tile)
 
 
 static func _nearest_unsurveyed(
 	model: MapModel, unit: CivilianState, works: LandWorks, view: VisibilityModel
 ) -> Vector2i:
-	var best: Vector2i = Vector2i(-1, -1)
-	var best_distance: int = 1 << 30
+	var prospects: Array[Vector2i] = []
 	for tile: Vector2i in model.ownership.owned_tiles(model, unit.owner):
-		if not MineralSurvey.can_prospect(model, works, unit.owner, tile, view):
-			continue
-		var distance: int = absi(tile.x - unit.tile.x) + absi(tile.y - unit.tile.y)
-		if distance < best_distance or (distance == best_distance and tile < best):
-			best = tile
-			best_distance = distance
-	return best
+		if MineralSurvey.can_prospect(model, works, unit.owner, tile, view):
+			prospects.append(tile)
+	return AiLandRoute.nearest(prospects, unit.tile)

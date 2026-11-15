@@ -81,30 +81,6 @@ static func pitch_hospital(play: PlaySession, army: ArmyState) -> void:
 	MapPlayArmies.show_panel(play, army)
 
 
-## Pitching a field hospital train: the register's materials buy the tents that
-## march with the standard from now on (DR-20261112-07). The rules own the
-## refusal; this spends the stockpile and reports it.
-static func pitch_hospital(play: PlaySession, army: ArmyState) -> void:
-	if play.economy == null or play.economy.economy == null or play.model == null:
-		return
-	var economy: PlayerEconomy = play.economy.economy
-	var check: Dictionary = HospitalTrain.check(
-		play.model, army, economy.tech_unlocked, economy.stockpile
-	)
-	if not bool(check.get("ok", false)):
-		play.hud.toast(String(check.get("reason", "The train cannot march.")))
-		return
-	var cost: Dictionary = HospitalTrain.cost()
-	for commodity: String in cost.keys():
-		economy.take(commodity, int(cost[commodity]))
-	HospitalTrain.apply(army)
-	play.hud.toast(
-		"The army pitches a field hospital train — %s from the stores"
-		% HospitalTrain.price_text()
-	)
-	MapPlayArmies.show_panel(play, army)
-
-
 ## Combines the selected standard with the friendly army sharing its province.
 static func merge(play: PlaySession, army: ArmyState) -> void:
 	var result: Dictionary = play.army_layer.combine(army)

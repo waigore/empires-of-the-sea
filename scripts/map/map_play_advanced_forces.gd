@@ -13,7 +13,7 @@ static func regiments(play: PlaySession, tier: String) -> void:
 	var armies: Array = play.army_layer.regions.value(0, [])
 	play.army_layer.regions.set_region(0, armies)
 	for faction: int in FactionCatalog.great_power_ids():
-		var army: ArmyState = _home_army(armies, faction)
+		var army: ArmyState = ArmyTraining.home_army(armies, faction)
 		if army == null:
 			continue
 		for type_id: String in types:
@@ -38,7 +38,11 @@ static func ships(play: PlaySession, tier: String) -> int:
 			continue
 		var fleet: FleetState = _home_squadron(fleets, faction, province.id)
 		if fleet == null:
-			fleet = FleetState.in_port(fleets.size(), faction, province.id)
+			# A yard slip, never a hull: a fleet born with an empty roster would
+			# otherwise take the `ship_<fleet id>` default, an id already minted
+			# for another squadron (wiki: ships-and-naval § Ship instances —
+			# "the same id must never appear in two fleets").
+			fleet = FleetState.empty_in_port(fleets.size(), faction, province.id)
 			fleets.append(fleet)
 		var have: int = _galleons(fleet)
 		for _index in maxi(ships - have, 0):
@@ -47,14 +51,6 @@ static func ships(play: PlaySession, tier: String) -> int:
 			fleet.add_hull(hull, "galleon")
 			added += 1
 	return added
-
-
-static func _home_army(armies: Array, faction: int) -> ArmyState:
-	for raw: Variant in armies:
-		var army: ArmyState = raw as ArmyState
-		if army != null and army.owner == faction and army.is_home_army():
-			return army
-	return null
 
 
 static func _home_squadron(

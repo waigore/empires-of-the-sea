@@ -28,7 +28,6 @@ const AiMerchantWork = preload("res://scripts/ai/ai_merchant_work.gd")
 const AiSpyPlanner = preload("res://scripts/ai/ai_spy_planner.gd")
 
 const KIND_WORK: String = "work"
-const KIND_MOVE: String = "move"
 
 
 ## Work and movement orders for one court in one region, plus the scored
@@ -171,18 +170,6 @@ static func _best_work(
 	return {}
 
 
-static func _best_builder(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
-	town_raw: Dictionary = {}, estates: Array = []
-) -> Dictionary:
-	return AiBuilderWork.best_candidate(
-		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
-		context, reserved, town_raw, estates
-	)
-
-
 ## Movement fallback: an idle Explorer walks one legal tile toward the nearest
 ## unsurveyed prospectable tile on its own land or the nearest unexplored chart;
 ## a Merchant walks toward the nearest deed it could sign; an idle Spy is handled
@@ -255,21 +242,3 @@ static func _preferred_type(
 	):
 		return "merchant"
 	return "builder"
-
-
-## Higher score wins; row-major tile order and action name break ties so the
-## same state always produces the same order.
-static func _better(best: Dictionary, candidate: Dictionary) -> Dictionary:
-	if candidate.is_empty():
-		return best
-	if best.is_empty():
-		return candidate
-	if int(candidate["score"]) != int(best["score"]):
-		return candidate if int(candidate["score"]) > int(best["score"]) else best
-	var left: Vector2i = candidate["tile"]
-	var right: Vector2i = best["tile"]
-	if left.y != right.y:
-		return candidate if left.y < right.y else best
-	if left.x != right.x:
-		return candidate if left.x < right.x else best
-	return candidate if String(candidate["action"]) < String(best["action"]) else best

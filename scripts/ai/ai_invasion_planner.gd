@@ -51,7 +51,7 @@ static func split_orders(
 	var fleet: FleetState = AiCrossingForce.fleet(fleets, owner)
 	if fleet == null:
 		return actions
-	var field: Array[ArmyState] = _field_armies(armies, owner)
+	var field: Array[ArmyState] = ArmyRoster.field_armies(armies, owner)
 	if not field.is_empty():
 		# A force that already fits the squadron boards as it stands; only an
 		# army too large to carry is cut down to the hulls.
@@ -62,7 +62,7 @@ static func split_orders(
 				_detach(actions, army, fleet.ship_count())
 				return actions
 		return actions
-	var home: ArmyState = _home_army(armies, owner)
+	var home: ArmyState = ArmyTraining.home_army(armies, owner)
 	if home == null or home.count() < 2:
 		return actions
 	_detach(actions, home, fleet.ship_count())
@@ -108,7 +108,7 @@ static func plan(
 	if config == null or state == null or world == null or model == null:
 		return {}
 	var owner: int = config.faction
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	var fleet: FleetState = _expedition(fleets, owner)
 	if fleet != null:
 		return _voyage(config, world, region, model, armies, fleet, hostile, turn, charts)
@@ -178,9 +178,16 @@ static func _voyage(
 	if fleet.has_beachhead():
 		if not NavalTransport.beachhead_ready(fleet, turn):
 			return {}
-		return {
-			"kind": KIND_LAND, "fleet": fleet.id, "province": fleet.beachhead_province,
-		}
+		# The rules own the landing gate. A site whose shore changed hands, or
+		# whose war ended, is no landing at all (ships-and-naval § Missions and
+		# Movement), so the court marks a fresh coast this turn rather than
+		# ordering a landing the rules refuse and losing the turn.
+		if NavalTransport.beachhead_allows(
+			model, fleet, fleet.beachhead_province, turn, _invadable_query(hostile)
+		):
+			return {
+				"kind": KIND_LAND, "fleet": fleet.id, "province": fleet.beachhead_province,
+			}
 	var target: int = _target(config, model, armies, army, hostile, charts)
 	if target < 0:
 		return _retire(model, fleet, turn, hostile)
@@ -194,27 +201,13 @@ static func _voyage(
 	return {"kind": KIND_SAIL, "fleet": fleet.id, "zone": zone}
 
 
-## The next zone toward `goals`, walking only water this court charts; with no
-## charted route it takes the lowest-id adjacent zone it has not seen, which is
-## how a far coast is found (DR-20261110-21).
+## Next zone toward `goals` on water this court charts (see
+## [method AiSeaRoute.sail_charted]); the shared voyage rule keeps the invasion
+## and colonisation planners walking the same route (DR-20261110-21).
 static func _sail(
 	model: MapModel, fleet: FleetState, goals: Array[int], charts: CourtCharts, owner: int
 ) -> int:
-	if charts == null:
-		return AiSeaRoute.sail_toward(model, fleet, goals)
-	var known: Array[int] = charts.known_zones(owner, model.region_id)
-	var charted: Array[int] = []
-	for zone: int in goals:
-		if known.has(zone):
-			charted.append(zone)
-	if not charted.is_empty():
-		var step: int = AiSeaRoute.sail_toward(model, fleet, charted)
-		if step >= 0:
-			return step
-	for zone: int in NavalMovement.destination_zones(model, fleet):
-		if not known.has(zone):
-			return zone
-	return -1
+	return AiSeaRoute.sail_charted(model, fleet, goals, charts, owner)
 
 
 ## The worthiest hostile coast this army can storm: best province score, then
@@ -263,6 +256,15 @@ static func _can_storm(
 	return attack > ArmyForce.side_strength(defenders) * margin
 
 
+## The landing gate's target test, in the form NavalTransport expects: a declared
+## enemy's coast, or a Tribe's, which needs no declaration (wiki: factions § Tribe).
+static func _invadable_query(hostile: Dictionary) -> Callable:
+	return func(a: int, b: int) -> bool:
+		return a != b and (
+			hostile.has(b) or FactionCatalog.type_of(b) == FactionCatalog.Type.TRIBE
+		)
+
+
 ## No war target left (peace signed mid-voyage): land on an own coast instead of
 ## keeping a field army afloat, and sail toward the nearest one when none is in
 ## reach.
@@ -308,7 +310,7 @@ static func _has_overseas_war(
 	var home: int = FactionCatalog.region_of(owner)
 	if home < 0 or world.warp_zones(home).is_empty():
 		return false
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	var here: MapModel = world.region(home)
 	if here != null and not AiMilitaryPlanner.frontier_hostile(here, owner, state).is_empty():
 		if not wants_income or AiMilitaryPlanner.invader_on_home_soil(
@@ -356,30 +358,3 @@ static func _invadable(owner: int, hostile: Dictionary) -> bool:
 	if hostile.has(owner):
 		return true
 	return FactionCatalog.type_of(owner) == FactionCatalog.Type.TRIBE
-
-
-## Factions this court is at war with, as a membership set.
-static func _hostile_owners(state: DiplomacyState, owner: int) -> Dictionary:
-	var hostile: Dictionary = {}
-	for record: DiplomacyRelation in state.relations_of(owner):
-		if record.at_war:
-			hostile[record.other(owner)] = true
-	return hostile
-
-
-static func _home_army(armies: Array, owner: int) -> ArmyState:
-	for raw: Variant in armies:
-		var army: ArmyState = raw
-		if army != null and army.owner == owner and army.home:
-			return army
-	return null
-
-
-static func _field_armies(armies: Array, owner: int) -> Array[ArmyState]:
-	var field: Array[ArmyState] = []
-	for raw: Variant in armies:
-		var army: ArmyState = raw
-		if army != null and army.owner == owner and not army.home and not army.is_empty():
-			field.append(army)
-	field.sort_custom(func(a: ArmyState, b: ArmyState) -> bool: return a.id < b.id)
-	return field

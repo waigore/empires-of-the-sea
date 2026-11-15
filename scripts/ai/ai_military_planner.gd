@@ -29,9 +29,9 @@ static func split_orders(
 	var owner: int = config.faction
 	if frontier_hostile(model, owner, state).is_empty():
 		return actions
-	if not _field_armies(armies, owner).is_empty():
+	if not ArmyRoster.field_armies(armies, owner).is_empty():
 		return actions
-	var home: ArmyState = _home_army(armies, owner)
+	var home: ArmyState = ArmyTraining.home_army(armies, owner)
 	if home == null or home.count() < 2:
 		return actions
 	var ordered: Array[String] = home.regiments.duplicate()
@@ -62,11 +62,11 @@ static func march_orders(
 	if config == null or state == null or model == null:
 		return {"orders": orders, "candidates": candidates}
 	var owner: int = config.faction
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	if hostile.is_empty():
 		return {"orders": orders, "candidates": candidates}
 	var frontier: Array[int] = _staging_provinces(model, owner, state)
-	for army: ArmyState in _field_armies(armies, owner):
+	for army: ArmyState in ArmyRoster.field_armies(armies, owner):
 		if army.moved or army.is_empty():
 			continue
 		var best: Dictionary = _best_order(config, model, armies, army, hostile, frontier)
@@ -161,15 +161,6 @@ static func province_score(config: AiConfig, model: MapModel, province: int) -> 
 	return score
 
 
-## Factions this court is at war with, as a membership set.
-static func _hostile_owners(state: DiplomacyState, owner: int) -> Dictionary:
-	var hostile: Dictionary = {}
-	for record: DiplomacyRelation in state.relations_of(owner):
-		if record.at_war:
-			hostile[record.other(owner)] = true
-	return hostile
-
-
 ## Provinces owned by the court that touch a province of a hostile faction. The
 ## invasion planner reads it too: a war on the court's own border is a land war.
 static func frontier_hostile(
@@ -196,7 +187,7 @@ static func frontier_hostile(
 static func invader_on_home_soil(
 	model: MapModel, owner: int, armies: Array, state: DiplomacyState
 ) -> bool:
-	var hostile: Dictionary = _hostile_owners(state, owner)
+	var hostile: Dictionary = Hostility.owners(state, owner)
 	for raw: Variant in armies:
 		var army: ArmyState = raw
 		if army == null or army.is_empty() or army.owner == owner:
@@ -236,22 +227,6 @@ static func _hostile_army_at(
 		if army.owner != owner and hostile.has(army.owner):
 			return true
 	return false
-
-
-static func _home_army(armies: Array[ArmyState], owner: int) -> ArmyState:
-	for army: ArmyState in armies:
-		if army != null and army.owner == owner and army.home:
-			return army
-	return null
-
-
-static func _field_armies(armies: Array[ArmyState], owner: int) -> Array[ArmyState]:
-	var field: Array[ArmyState] = []
-	for army: ArmyState in armies:
-		if army != null and army.owner == owner and not army.home and not army.is_empty():
-			field.append(army)
-	field.sort_custom(func(a: ArmyState, b: ArmyState) -> bool: return a.id < b.id)
-	return field
 
 
 ## BFS distance through the court's own provinces, so staging picks the nearest

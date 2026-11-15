@@ -40,7 +40,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 						kind, config, play.ledger_for(faction),
 						MapPlayCourt.at_war(play, faction),
 						MapPlayCourt.regiments(play, faction),
-						MapPlayCourt.navy_chest(play, faction)
+						MapPlayCourt.navy_chest(play, faction),
+						MapPlayCourt.warships(play, faction)
 					).get("goal", "")
 				)
 				== "earn"
@@ -97,7 +98,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 ## yet (the opening turn, an old save, a fixture) keeps the published footing, so
 ## the war gate still holds until the first ledger is written.
 static func _voyage_posture(play: PlaySession, faction: int, posture: String) -> String:
-	if not AiPhasePlanner.is_war_footing(posture):
+	if AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE):
 		return posture
 	var claim: Dictionary = play.ai.objectives_for(faction) if play.ai != null else {}
 	if claim.is_empty():

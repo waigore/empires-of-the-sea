@@ -52,7 +52,8 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var income: Dictionary = AiIncome.plan(
 		config, economy, MapPlayCourt.at_war(play, faction),
 		play.army_layer.regiment_count_all(faction),
-		MapPlayCourt.navy_chest(play, faction)
+		MapPlayCourt.navy_chest(play, faction),
+		MapPlayCourt.warships(play, faction)
 	)
 	var strength: float = _strength(play, faction)
 	var ships: int = play.ship_layer.hull_count_all(faction)
@@ -84,6 +85,10 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"strength": int(roundf(strength)),
 		"regiments": play.army_layer.regiment_count_all(faction),
 		"ships": ships,
+		# Holds the crown keeps in port at its seat: the import gate every build
+		# input and overseas voyage passes (wiki: ships-and-naval § Cargo holds
+		# and capacity; issue #530).
+		"holds": TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction),
 		"civilians": play.civilian_layer.unit_count_all(faction),
 		"treasury": economy.treasury if economy != null else 0,
 		"stock": economy.total_units() if economy != null else 0,

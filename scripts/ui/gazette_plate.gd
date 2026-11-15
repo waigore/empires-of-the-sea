@@ -10,14 +10,14 @@ signal dismissed
 ## The player added or removed a court on the watchlist.
 signal watch_changed(faction: int)
 
-enum Mode { SHEET, ARCHIVE, WATCHLIST }
+enum Mode { SHEET, ARCHIVE, WATCHLIST, AGE }
 
 const MAX_WIDTH: float = 640.0
 const MIN_WIDTH: float = 288.0
 const PLATE_TOP: float = 88.0
 const VIEWPORT_MARGIN: float = 12.0
-const EMPTY_LINE: String = "Nothing reached the presses this turn."
-const NO_HISTORY: String = "The presses have not run yet."
+const EMPTY_LINE: String = GazetteParts.EMPTY_LINE
+const NO_HISTORY: String = GazetteArchiveRoom.NO_HISTORY
 const INK_SOFT: Color = Color(0.34, 0.26, 0.16)
 
 var state: GazetteState = null
@@ -25,14 +25,18 @@ var diplomacy: DiplomacyState = null
 var viewer: int = 0
 ## The age's race at the live sheet's foot (wiki: victory § Victory Check).
 var _age: String = ""
+## The whole race, for the age's own tab: `rows`, `human`, `calendar`, `note`
+## (see MapPlayGazette.age_payload). Empty when the session has no crown.
+var _age_data: Dictionary = {}
 ## The HUD's despatch lane: while this sheet is up the news stacks below it
 ## instead of printing across the masthead (REQ-P5-05).
 var despatches: HudDespatches = null
 
 var _mode: Mode = Mode.SHEET
 var _sheet: Dictionary = {}
-## Index into `state.history()` (newest first) while reading the archive.
-var _at: int = 0
+## The archive's page and its reading filter — every class, or one class alone
+## (wiki: the-gazette § History screen; DR-20261115-06).
+var _archive_room: GazetteArchiveRoom = null
 var _shown: bool = false
 
 var _panel: PanelContainer = null
@@ -43,9 +47,16 @@ var _scroll: ScrollContainer = null
 var _tabs: HBoxContainer = null
 var _nav: HBoxContainer = null
 var _watchlist: GazetteWatchlist = null
+var _age_room: AgeRoom = null
 var _newer: Button = null
 var _older: Button = null
 var _nav_label: Label = null
+var _header_row: HBoxContainer = null
+## The sheet is movable by its masthead, so the chart it covers can be read
+## without setting the news aside (REQ-P1-07). The plate repaints its own rect
+## on every fit, so the drag hands it an offset instead of a position.
+var _drag: ModalDrag = null
+var _drag_offset: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -57,16 +68,18 @@ func _ready() -> void:
 	resized.connect(_fit)
 
 
-## Raises the sheet the turn just produced; `age_line` is its standing column.
+## Raises the sheet the turn just produced; `age_line` is its standing column and
+## `age` the whole race its own tab prints (MapPlayGazette.age_payload).
 func open_sheet(
 	sheet: Dictionary, p_state: GazetteState, p_diplomacy: DiplomacyState, who: int,
-	age_line: String = ""
+	age_line: String = "", age: Dictionary = {}
 ) -> void:
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
 	_sheet = sheet
 	_age = age_line
+	_age_data = age
 	_mode = Mode.SHEET
 	_show()
 
@@ -74,14 +87,17 @@ func open_sheet(
 ## Raises the history screen with the live sheet one tab back: that tab keeps
 ## the standing the turn-start open prints; a past sheet stays bare (DR-20261112-05).
 func open_archive(
-	p_state: GazetteState, p_diplomacy: DiplomacyState, who: int, age_line: String = ""
+	p_state: GazetteState, p_diplomacy: DiplomacyState, who: int, age_line: String = "",
+	age: Dictionary = {}
 ) -> void:
 	state = p_state
 	diplomacy = p_diplomacy
 	viewer = who
-	_at = 0
+	if _archive_room != null:
+		_archive_room.at = 0
 	_sheet = p_state.newest() if p_state != null else {}
 	_age = age_line
+	_age_data = age
 	_mode = Mode.ARCHIVE
 	_show()
 
@@ -105,6 +121,7 @@ func dismiss() -> void:
 		return
 	_shown = false
 	visible = false
+	_drag_offset = Vector2.ZERO
 	_fit()
 	dismissed.emit()
 
@@ -149,10 +166,12 @@ func _build() -> void:
 	column.add_theme_constant_override("separation", 6)
 	_panel.add_child(column)
 	column.add_child(_header())
+	var grabs: Array[Control] = [_header_row]
+	_drag = ModalDrag.attach(self, _panel, grabs, _panel, _place)
 	# Double rule under the masthead, the way a printed gazette divides its flag
 	# from the field (REQ-P1-02).
-	column.add_child(_rule(Palette.INK_LINE))
-	column.add_child(_rule(Palette.GOLD, 2))
+	column.add_child(GazetteParts.rule(Palette.INK_LINE))
+	column.add_child(GazetteParts.rule(Palette.GOLD, 2))
 	_tabs = _tabs_row()
 	column.add_child(_tabs)
 	_nav = _nav_row()
@@ -174,17 +193,31 @@ func _build() -> void:
 	_watchlist.visible = false
 	_watchlist.watch_changed.connect(func(faction: int) -> void: watch_changed.emit(faction))
 	_body.add_child(_watchlist)
+	# The age's own tab: the whole race, printed from the same read the check
+	# acts on (wiki: victory § Victory Check; DR-20261115-05).
+	_age_room = AgeRoom.new()
+	_age_room.visible = false
+	_body.add_child(_age_room)
+	# The archive's page: the filed sheets, the reading filter and the walk
+	# through them (wiki: the-gazette § History screen; DR-20261115-06).
+	_archive_room = GazetteArchiveRoom.new()
+	_archive_room.visible = false
+	# A chip press re-reads the page; the plate's stamp and walk follow it.
+	_archive_room.filter_changed.connect(func(_cls: int) -> void: _render())
+	_body.add_child(_archive_room)
 
 
 func _header() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
+	row.add_child(ModalDrag.grip())
+	_header_row = row
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.add_theme_constant_override("separation", 0)
-	_title = _label("THE GAZETTE", 26, Palette.INK)
+	_title = GazetteParts.label("THE GAZETTE", 26, Palette.INK)
 	column.add_child(_title)
-	_stamp = _label("", 12, INK_SOFT, true)
+	_stamp = GazetteParts.label("", 12, INK_SOFT, true)
 	column.add_child(_stamp)
 	row.add_child(column)
 	var close := Button.new()
@@ -199,7 +232,8 @@ func _tabs_row() -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	for entry: Array in [
-		[Mode.SHEET, "The sheet"], [Mode.ARCHIVE, "History"], [Mode.WATCHLIST, "Watchlist"]
+		[Mode.SHEET, "The sheet"], [Mode.ARCHIVE, "History"], [Mode.WATCHLIST, "Watchlist"],
+		[Mode.AGE, "The age"]
 	]:
 		var button := Button.new()
 		button.text = String(entry[1])
@@ -216,7 +250,7 @@ func _nav_row() -> HBoxContainer:
 	_newer.text = "◀  Newer"
 	_newer.pressed.connect(_step.bind(-1))
 	row.add_child(_newer)
-	_nav_label = _label("", 13, INK_SOFT)
+	_nav_label = GazetteParts.label("", 13, INK_SOFT)
 	_nav_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_nav_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	row.add_child(_nav_label)
@@ -233,24 +267,27 @@ func _nav_row() -> HBoxContainer:
 func _go(mode: int) -> void:
 	_mode = mode
 	if _mode == Mode.ARCHIVE:
-		_at = 0
+		if _archive_room != null:
+			_archive_room.at = 0
 	_render()
 
 
 func _step(delta: int) -> void:
-	if state == null:
+	if _archive_room == null:
 		return
-	_at = clampi(_at + delta, 0, maxi(state.sheets.size() - 1, 0))
+	_archive_room.step(delta)
 	_render()
 
 
 func _render() -> void:
 	for child: Node in _body.get_children():
-		if child == _watchlist:
+		if child == _watchlist or child == _age_room or child == _archive_room:
 			continue
 		_body.remove_child(child)
 		child.queue_free()
 	_watchlist.visible = _mode == Mode.WATCHLIST
+	_age_room.visible = _mode == Mode.AGE
+	_archive_room.visible = _mode == Mode.ARCHIVE
 	for child: Node in _tabs.get_children():
 		var button: Button = child as Button
 		if button == null:
@@ -273,56 +310,35 @@ func _render() -> void:
 		Mode.SHEET:
 			_title.text = "THE GAZETTE"
 			_stamp.text = DiplomacyHistory.stamp_for_turn(int(_sheet.get("turn", 0)))
-			_sections(_sheet)
+			GazetteParts.sections(_body, _sheet)
 			if not _age.is_empty():
-				_body.add_child(_spacer(8))
-				_body.add_child(_rule(Palette.INK_FAINT))
-				_body.add_child(_label("THE STATE OF THE AGE", 11, INK_SOFT))
-				_body.add_child(_label(_age, 14, Palette.INK))
+				_body.add_child(GazetteParts.spacer(8))
+				_body.add_child(GazetteParts.rule(Palette.INK_FAINT))
+				_body.add_child(GazetteParts.label("THE STATE OF THE AGE", 11, INK_SOFT))
+				_body.add_child(GazetteParts.label(_age, 14, Palette.INK))
 		Mode.ARCHIVE:
 			_render_archive()
 		Mode.WATCHLIST:
 			_render_watchlist()
+		Mode.AGE:
+			_render_age()
 
 
 func _render_archive() -> void:
 	_title.text = "THE GAZETTE  ·  ARCHIVE"
-	var sheets: Array[Dictionary] = state.history() if state != null else []
-	if sheets.is_empty():
-		_stamp.text = ""
-		_body.add_child(_label(NO_HISTORY, 14, Palette.INK))
-		return
-	_at = clampi(_at, 0, sheets.size() - 1)
-	var sheet: Dictionary = sheets[_at]
-	_stamp.text = DiplomacyHistory.stamp_for_turn(int(sheet.get("turn", 0)))
-	_nav_label.text = "%d of %d" % [_at + 1, sheets.size()]
-	_newer.disabled = _at <= 0
-	_older.disabled = _at >= sheets.size() - 1
-	_sections(sheet)
+	_archive_room.fill(state, _archive_room.filter)
+	_stamp.text = _archive_room.stamp()
+	_nav_label.text = _archive_room.position_text()
+	_newer.disabled = _archive_room.at_newest()
+	_older.disabled = _archive_room.at_oldest()
 
 
-## Items arrive grouped World -> Our court -> Courts of interest, so a heading is
-## printed whenever the class changes (wiki: the-gazette § Classes).
-func _sections(sheet: Dictionary) -> void:
-	var items: Array = sheet.get("items", []) as Array
-	if items.is_empty():
-		_body.add_child(_label(EMPTY_LINE, 14, Palette.INK))
-		return
-	var last: int = -1
-	for raw: Variant in items:
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var item: Dictionary = raw
-		var cls: int = int(item.get("class", Gazette.Class.COURT))
-		if cls != last:
-			if last >= 0:
-				_body.add_child(_spacer(8))
-			_body.add_child(_rule(Palette.INK_FAINT))
-			_body.add_child(_label(Gazette.heading(cls), 11, Color(0.45, 0.33, 0.12)))
-			last = cls
-		var text: String = String(item.get("text", ""))
-		if not text.is_empty():
-			_body.add_child(_label(text, 14, Palette.INK))
+## The whole race on its own tab: the foot's one line is the live sheet's
+## standing; this prints every crown against its own bar (DR-20261115-05).
+func _render_age() -> void:
+	_title.text = "THE GAZETTE  ·  THE AGE"
+	_stamp.text = "The Old World against every crown's bar"
+	_age_room.fill(_age_data)
 
 
 func _render_watchlist() -> void:
@@ -342,17 +358,25 @@ func _fit() -> void:
 		return
 	var room: float = maxf(size.x - VIEWPORT_MARGIN * 2.0, MIN_WIDTH)
 	var width: float = minf(MAX_WIDTH, room)
-	var left: float = (size.x - width) * 0.5
+	var left: float = (size.x - width) * 0.5 + _drag_offset.x
+	var top: float = PLATE_TOP + _drag_offset.y
 	_panel.offset_left = left
 	_panel.offset_right = left + width
-	_panel.offset_top = PLATE_TOP
+	_panel.offset_top = top
 	# The container takes its own content height; only the news scroll is capped,
 	# so a quiet sheet is a short plate and a busy one runs on inside the scroll.
-	_panel.offset_bottom = PLATE_TOP
-	var room_left: float = maxf(size.y - PLATE_TOP - VIEWPORT_MARGIN - 150.0, 120.0)
+	_panel.offset_bottom = top
+	var room_left: float = maxf(size.y - top - VIEWPORT_MARGIN - 150.0, 120.0)
 	var content: float = _body.get_combined_minimum_size().y
 	_scroll.custom_minimum_size = Vector2(0, clampf(content, 120.0, room_left))
 	_avoid_toasts()
+
+
+## A drag moved the sheet: repaint its rect around the new place (the plate owns
+## its own geometry, so the offset rides the fit rather than a position).
+func _place(offset: Vector2) -> void:
+	_drag_offset = offset
+	_fit()
 
 
 ## Toasts are the moment's acknowledgement (REQ-P5-05). While the sheet is up
@@ -367,34 +391,10 @@ func _avoid_toasts() -> void:
 	if height <= 0.0:
 		return
 	# Room below the sheet for three plates: push the lane under it, else leave
-	# the lane where the viewport put it (a phone's bar is shorter than 84).
-	if _shown and size.y - (PLATE_TOP + height) >= 180.0:
-		despatches.push_below(PLATE_TOP + height + 10.0)
+	# the lane where the viewport put it (a phone's bar is shorter than 84). The
+	# foot follows a dragged sheet, so the lane never prints across it.
+	var bottom: float = _panel.position.y + height
+	if _shown and size.y - bottom >= 180.0:
+		despatches.push_below(bottom + 10.0)
 		return
 	despatches.clear_plate()
-
-
-func _label(text: String, pixels: int, ink: Color, italic: bool = false) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.add_theme_font_override("font", UiTheme.serif_italic() if italic else UiTheme.serif())
-	label.add_theme_font_size_override("font_size", pixels)
-	label.add_theme_color_override("font_color", ink)
-	return label
-
-
-func _rule(ink: Color, thickness: int = 1) -> Control:
-	var line := ColorRect.new()
-	line.color = ink
-	line.custom_minimum_size = Vector2(0, thickness)
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return line
-
-
-func _spacer(height: int) -> Control:
-	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, height)
-	gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return gap

@@ -90,7 +90,7 @@ func relayout(wrap: Control, shown: bool) -> void:
 
 
 func slide_in(host: Node, wrap: Control) -> void:
-	_stop_slide(wrap)
+	stop_slide(wrap)
 	prepare_wrap(wrap)
 	wrap.visible = true
 	wrap.modulate.a = 0.0
@@ -107,7 +107,7 @@ func slide_in(host: Node, wrap: Control) -> void:
 
 
 func slide_out(host: Node, wrap: Control, on_done: Callable) -> void:
-	_stop_slide(wrap)
+	stop_slide(wrap)
 	var tween := host.create_tween().set_parallel(true)
 	wrap.set_meta(SLIDE_KEY, tween)
 	tween.set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
@@ -122,8 +122,9 @@ func slide_out(host: Node, wrap: Control, on_done: Callable) -> void:
 
 
 ## A hide followed by a show in the same frame must not let the old slide-out
-## callback park the panel hidden while its open flag says visible.
-func _stop_slide(wrap: Control) -> void:
+## callback park the panel hidden while its open flag says visible. Static: a
+## drag also has to take a plate off its slide without owning the dock.
+static func stop_slide(wrap: Control) -> void:
 	if not wrap.has_meta(SLIDE_KEY):
 		return
 	var tween: Tween = wrap.get_meta(SLIDE_KEY) as Tween

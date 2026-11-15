@@ -19,25 +19,23 @@ Movement, cargo, fog, battles; stations, raids:
   through save and merge (DR-20261111-07).
 - **Yard:** launch for its row + **one peasant**; the hull lands next turn at
   Build/work; breaking up returns a peasant, no refund (DR-20261109-01).
-- **Home cargo:** merchant hulls give **cargo holds** (1/turn) capping
-  **imports**; exports free (DR-20261109-03).
-- **Home-fleet merge:** docking at the seat or a dossier **Join the home
-  fleet** tap folds it in (`FleetHomeMerge`); ids, names and passengers
-  keep; old saves repair.
-- **Home sortie** (DR-20261109-17): the home squadron may sail, spending move
-  and holds; colonists ride as passengers (one per hull) and land beside the
-  zone.
+- **Home cargo:** merchant **holds** (1/turn) cap imports; seat harbour grants
+  one hold with no merchant; flown types stay rebuildable; GPs start with
+  ≥1 warship (DR-20261109-03, #484).
+- **Home-fleet merge:** seat dock or dossier **Join the home fleet**
+  (`FleetHomeMerge`); ids, names, passengers keep; old saves repair.
+- **Home sortie** (DR-20261109-17): home squadron may sail (spends move/holds);
+  colonists ride (one per hull) and land beside the zone.
 - Contested zones fight at turn end: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
-- **Markers:** escorts, hull badge and her strength; a sighted rival prints
-  `*`, her dossier `???`, until watched across a turn (DR-20261113-20).
+- **Markers:** escorts, hull badge, strength; sighted rival `*` / dossier `???`
+  until watched a turn (DR-20261113-20).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13, DR-20261109-16).
-- **Army transport** (`NavalTransport`): an army boards in port (one regiment per
-  hull), sails or crosses and lands on an owned coast; troops drown with a sunk
-  squadron.
-- **Beachhead:** a squadron marks a hostile coast (spends the move); the army
-  lands next turn; unused markers lapse.
+- **Army transport** (`NavalTransport`): board in port (one regiment/hull),
+  sail or cross, land on owned coast; troops drown with a sunk squadron.
+- **Beachhead:** mark a hostile coast (spends the move); army lands next turn;
+  unused markers lapse.
 
 Raids sink one merchant hull (DR-20261111-17).
 
@@ -71,6 +69,10 @@ No node deps (`REQ-P3-03`).
 | Mark beachhead | dossier coast button | same |
 | Shipyard | capital dossier → Shipyard | same |
 | Cancel | `Esc` | close panel |
+
+## Deferred (REQ-P2-02)
+
+None — ranked gaps: [`deferred.md`](deferred.md).
 
 ## Tests
 

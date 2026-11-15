@@ -390,6 +390,82 @@ func test_plan_places_names_without_a_node() -> void:
 	assert_false(plan.passages.size() > 0, "no world means no sea-lane marks")
 
 
+## Every warp zone on both regions is marked: a centre, a wash over its water,
+## an inked edge and a Passage label. The wash covers exactly the zone's water,
+## so ordinary sea is never painted as a crossing (REQ-P1-07).
+func test_plan_marks_every_warp_zone_on_both_regions() -> void:
+	var world: WorldMap = Fixture.world()
+	for region in world.region_count():
+		var model: MapModel = world.region(region)
+		var plan := MapCanvasPlan.new()
+		plan.build(model, world, MapCanvas.TILE_SIZE)
+		var zones: Array[int] = world.warp_zones(region)
+		assert_gt(zones.size(), 0, "the fixture world has crossings")
+		assert_eq(plan.passages.size(), zones.size(), "one mark per warp zone")
+		assert_gt(plan.passage_water.size(), 0, "the zone water is washed")
+		assert_gt(plan.passage_edges.size(), 0, "the wash has a drawn edge")
+		var labelled: int = 0
+		for label: Dictionary in plan.labels:
+			if String(label["kind"]) == "passage":
+				labelled += 1
+		assert_eq(labelled, zones.size(), "every crossing is named")
+		var covered: int = 0
+		for run: Rect2 in plan.passage_water:
+			var tile: Vector2i = MapGeo.tile_at_world(
+				run.position + Vector2(1, 1), MapCanvas.TILE_SIZE
+			)
+			assert_true(model.is_sea(tile.x, tile.y), "the wash sits on water")
+			assert_true(
+				zones.has(model.sea_zone_at(tile.x, tile.y)), "only warp water is washed"
+			)
+			covered += int(run.size.x / MapCanvas.TILE_SIZE) * int(run.size.y / MapCanvas.TILE_SIZE)
+		var expected: int = 0
+		for zone_id: int in zones:
+			for tile: Vector2i in model.get_sea_zone(zone_id).tiles:
+				if model.sea_zone_at(tile.x, tile.y) == zone_id:
+					expected += 1
+		assert_eq(covered, expected, "the whole zone is washed, no more")
+
+
+## The zone's own name steps above the crossing mark, so the emblem and the
+## Passage slip do not overprint the type.
+func test_passage_mark_keeps_the_sea_name_clear() -> void:
+	var plan := MapCanvasPlan.new()
+	plan.labels.append({
+		"text": "Mar", "position": Vector2(100, 100), "size": 13, "kind": "sea"
+	})
+	plan._lift_sea_name(Vector2(100, 100))
+	var at: Vector2 = plan.labels[0]["position"]
+	assert_lt(at.y, 100.0, "the sea name sits above the mark")
+	assert_almost_eq(at.x, 100.0, 0.001, "the name keeps its column")
+	var world: WorldMap = Fixture.world()
+	var model: MapModel = world.region(FactionCatalog.OLD_WORLD)
+	var chart := MapCanvasPlan.new()
+	chart.build(model, world, MapCanvas.TILE_SIZE)
+	for centre: Vector2 in chart.passages:
+		for label: Dictionary in chart.labels:
+			if String(label["kind"]) != "sea":
+				continue
+			assert_gt(
+				(label["position"] as Vector2).distance_to(centre), 1.0,
+				"no sea name sits on a crossing mark"
+			)
+
+
+## The Passage artwork is drawn, not only planned: mounting a canvas on the
+## shared world inks the wash boundary and survives a repaint.
+func test_passage_artwork_draws_on_the_shared_world() -> void:
+	var world: WorldMap = Fixture.world()
+	var canvas := MapCanvas.new()
+	add_child(canvas)
+	canvas.build(world.region(FactionCatalog.OLD_WORLD), world)
+	assert_gt(canvas.plan.passages.size(), 0)
+	assert_gt(canvas._passage_ink.size(), 0, "the wash edge is inked")
+	canvas.queue_redraw()
+	await get_tree().process_frame
+	canvas.queue_free()
+
+
 ## The bake is the costliest part of showing a map, so a repeat ask for the same
 ## map state must reuse it: a second screen on the shared world, or a region a
 ## player switches back to, has nothing new to paint.

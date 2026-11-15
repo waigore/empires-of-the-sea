@@ -1,6 +1,6 @@
 # Economy: stockpile, production and riches
 
-One stockpile per Great Power, the end-of-turn pipeline and raw →
+One stockpile per Great Power, the end-of-turn pipeline, raw →
 manufactured recipes. **Pillars:** P2, P3, P5.
 
 **Wiki:** [stockpiles-and-production](https://github.com/waigore/empires-of-the-sea/wiki/stockpiles-and-production),
@@ -34,32 +34,33 @@ Projections never mutate.
 | paper | timber ×2 | 2 |
 | bronze | copper ×1 + tin ×1 | 3 |
 
-`fabric_from_cotton` needs Cotton Weaving. A hand in the Labour column is a
-worker-tier gate (`min_tier`): inert until the court trains one.
-Runs are whole; incomplete rows skip.
+`fabric_from_cotton` needs Cotton Weaving; a Labour-column hand is a
+`min_tier` gate. Runs are whole; short rows skip.
 
-Steel, bronze, cigars and fur hats take **two turns** (`turns`): the alloys
-combine two inputs (DR-20261114-10). Inputs and labour are paid up front; the batch lands **one unit a phase**, WIP riding the
-save (`PlayerEconomy.production_wip`, DR-20261112-11/13-02). A row left set
-starts a batch a phase, so `5→1t` lands two (`ProductionWorkshop.ready_units`).
+Steel, bronze, cigars and fur hats take **two turns** (`turns`); the alloys
+combine two inputs (DR-20261114-10). Inputs and labour are paid up front; the
+batch lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02). A
+row left set starts a batch a phase.
+
+A slow row's bench holds **three pieces** (`QUEUE_CAP`): a fourth run waits for
+a landing (DR-20261114-12). The room is read after the landings, so a
+landing frees its place; a paid batch keeps its. A full bench reads `3/3→2t`.
 
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns connected raw into ×1/×2 manufactures:
-`floor(input / 4) × multiplier`, no inputs, labour or cargo. A colony pays on
-landed tons; rivals upgrade towns. A
-Minor/Tribe town auto-offers them; estates sell in full; a deed lifts it
-(`min(4, 1+deeds)`).
+`floor(input / 4) × multiplier`, no inputs, labour, cargo. A colony pays on
+landed tons; rivals upgrade towns; a Minor/Tribe town auto-offers them; estates
+sell in full; a deed lifts it (`min(4, 1+deeds)`).
 
 ## World-market auction
 
-One global book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches
-court orders plus Minor/Tribe per-tile auto-offers.
-Tiebreaks: priority, pact, colony favour, Consulate, then relation; a colony's
-suzerain clears first (`MarketFavoured`, R7.1). First right fills
-a purchased tile's owner first, paying relation share plus embassy kickback.
-Unfilled orders carry while holds cover; fills move prices. Offers cap at
-post-production stock.
+One book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches orders
+plus Minor/Tribe auto-offers.
+Tiebreaks: priority, pact, colony favour, Consulate, relation; a colony's
+suzerain clears (`MarketFavoured`, R7.1). A boycott bars the pair. First right pays
+a purchased tile's owner, relation share and embassy cut.
+Unfilled orders carry while holds cover; offers cap post-production.
 
 ## Trade terms
 
@@ -68,19 +69,17 @@ Prices publish once; pact, boycott, subsidy apply at settlement
 
 ## UI
 
-Ledger `PRODUCTION`: stockpile by catalogue group (`FOOD`, `RAW MATERIALS`,
-`MANUFACTURED`, `RICHES`), holdings and next figures. Manufactured
-steppers capped by labour/inputs (`ProductionRecipes.allowance`); a worked row names its output (`made 3`). `MARKET`:
-staged orders and Minor/Tribe/world rows under medallions, priced for the
-crown's terms. `WORKERS`: tier
-medallions, `RECRUIT`, trained `DISBAND` (no refund); a `LARDER` block
-forecasts the next Consumption — the store, every appetite and who strikes first
-(`LarderRead`).
+Ledger `PRODUCTION`: stockpile by catalogue group, holdings; steppers capped by
+labour/inputs (`allowance`), a worked row naming its output (`made 3`).
+`MARKET`: staged orders and Minor/Tribe/world rows. `WORKERS`: tier medallions,
+`RECRUIT`, `DISBAND`, a **batch press** (`recruit_affordable`; `UNDER ORDERS`
+folds a batch), a `LARDER` block (`LarderRead`) reading the next Consumption's
+store, every appetite in its order, and the striking tier.
 
 
 ## Deferred (REQ-P2-02)
 
-Building gates; a queue cap; multi-turn rows beyond these four
+Building gates; rows past the four
 ([`deferred.md`](deferred.md)).
 
 ## Architecture

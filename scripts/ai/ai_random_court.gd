@@ -73,7 +73,21 @@ static func _random_production(economy: PlayerEconomy, rng: RandomNumberGenerato
 	var assignments: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
 	var ids: Array[String] = []
-	ids.assign(ProductionRecipes.available_ids(economy.tech_unlocked))
+	ids.assign(
+		ProductionRecipes.available_ids_for(economy.tech_unlocked, economy.workers)
+	)
+	# A slow row whose bench is full has no run to give this phase, so the filler
+	# draws from the rows that can start rather than asking for one the phase
+	# refuses (wiki: production-recipes § Workshop queue; DR-20261114-12).
+	var open: Array[String] = []
+	for recipe_id: String in ids:
+		var turns: int = ProductionRecipes.turns(recipe_id)
+		if turns > 1 and ProductionWorkshop.room(
+			economy.production.wip, recipe_id, turns
+		) <= 0:
+			continue
+		open.append(recipe_id)
+	ids = open
 	if ids.is_empty():
 		return {"assignments": assignments, "candidates": candidates}
 	if rng.randf() < 0.35:

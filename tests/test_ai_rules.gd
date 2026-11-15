@@ -62,7 +62,7 @@ func test_the_planner_reads_power_from_the_order_of_battle() -> void:
 	for _index in 20:
 		owners.append(1)
 	var world: WorldMap = AiFixture.world(owners)
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world,
 		{"regiments": {0: 40, 1: 5}, "ships": {}, "strengths": {0: 360.0, 1: 45.0}},
 		0
@@ -81,7 +81,7 @@ func test_the_planner_reads_power_from_the_order_of_battle() -> void:
 ## headless fixture (no army layer) still scores instead of reading zero.
 func test_a_context_without_strengths_keeps_the_head_count() -> void:
 	var world: WorldMap = AiFixture.world([0, 0, 0, 0, 0, 1, 1, 1])
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world, {"regiments": {0: 40, 1: 5}, "ships": {}}, 0
 	)
 	assert_eq(int(context["power"][0]), 90, "5 × 10 provinces + 40 regiments")
@@ -93,7 +93,7 @@ func test_a_context_without_strengths_keeps_the_head_count() -> void:
 ## (wiki: diplomacy § Great Power power score; DR-20261112-09).
 func test_a_charted_docket_powers_the_reading_by_strength() -> void:
 	var world: WorldMap = AiFixture.world([0, 0, 1, 1])
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world,
 		{
 			"regiments": {0: 2, 1: 9},
@@ -109,7 +109,7 @@ func test_a_charted_docket_powers_the_reading_by_strength() -> void:
 		},
 		0
 	)
-	var reading: Dictionary = AiTurn._reading(context, 0)
+	var reading: Dictionary = AiTurnRead.reading(context, 0)
 	assert_eq(int(reading["power"][1]), 47, "2 × 10 provinces + 27 strength seen")
 	assert_eq(int(reading["power"][0]), 38, "2 × 10 + the court's own 18")
 
@@ -124,6 +124,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("diplomacy.war_relation_ceiling"), 50)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.war_cooldown_turns"), 4)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.overture_cooldown_turns"), 2)
+	assert_eq(AiParameterRegistry.default_of("diplomacy.peace_refusal_cap"), 24)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_province_weight"), 10)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_regiment_weight"), 1)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_ship_weight"), 5)
@@ -132,6 +133,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_start"), 500)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_regiments"), 2)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_boost"), 1250)
+	assert_eq(AiParameterRegistry.default_of("victory.pressure_war"), 30)
 	assert_eq(AiParameterRegistry.keys().size(), AiParameterRegistry.entries().size())
 
 
@@ -1356,16 +1358,119 @@ func test_ai_naval_blockades_only_charted_water() -> void:
 	play.court_charts.setup(world, 0, {})
 	var fleet := FleetState.at_sea(1, 2, 1)
 	var roster: Array[FleetState] = [fleet]
-	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	var trace: Array[Dictionary] = []
+	MapPlayFleetAi._station_orders(play, model, roster, 2, trace)
 	assert_eq(fleet.mission, FleetState.Mission.NONE, "no blockade on uncharted water")
 	fleet.mission = FleetState.Mission.BLOCKADE
 	fleet.blockade_province = 1
-	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	MapPlayFleetAi._station_orders(play, model, roster, 2, trace)
 	assert_eq(fleet.mission, FleetState.Mission.NONE, "the blockade lapses there")
 	play.court_charts.reveal_sea_zone(2, 1, 1)
-	MapPlayFleetAi._station_orders(play, model, roster, 2)
+	MapPlayFleetAi._station_orders(play, model, roster, 2, trace)
 	assert_eq(fleet.mission, FleetState.Mission.BLOCKADE, "charted water takes the station")
 	assert_eq(fleet.blockade_province, 1)
+
+
+## A court that keeps no holds in port at its seat is closed to every import,
+## so the squadron carrying them comes home even with a weaker hostile one zone
+## over: a merchant hull is cargo, and the holds are the build inputs and the
+## colony voyage (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
+func test_ai_naval_a_trade_garrison_comes_home_instead_of_hunting() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 0, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME)
+	assert_eq(String(plan["orders"][0]["reason"]), AiNavalPlanner.REASON_TRADE)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "one leg toward Cádiz")
+
+
+## The garrison stays berthed: a court with its holds nowhere else does not sail
+## the squadron that carries them out to work a coast (issue #530).
+func test_ai_naval_a_trade_garrison_does_not_put_to_sea_to_raid() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var moored := FleetState.in_port(
+		0, 0, 0, ["h0", "h1"] as Array[String], {"h0": "sloop", "h1": "galleon"}
+	)
+	var fleets: Array[FleetState] = [moored]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 0, "the holds stay berthed")
+	assert_true(moored.is_in_port())
+
+
+## A berth ashore is what the policy answers: with another squadron's holds in
+## port at the seat the first is free to hunt again (issue #530).
+func test_ai_naval_a_berth_ashore_frees_a_squadron_to_hunt() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var berthed := FleetState.in_port(
+		9, 0, 0, ["h9"] as Array[String], {"h9": "fluyte"}
+	)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 0, 1, "galleon"),
+		berthed,
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	var order: Dictionary = {}
+	for raw: Variant in plan["orders"]:
+		if int((raw as Dictionary)["fleet_id"]) == 0:
+			order = raw
+	assert_eq(String(order.get("kind", "")), AiNavalPlanner.KIND_PURSUE, "the holds can wait")
+
+
+## The station pass gives the station up rather than strand the holds: a court
+## at war that keeps none in port at its seat needs them ashore, and the trace
+## names the station abandoned (wiki: ships-and-naval § Missions and Movement;
+## issue #530).
+func test_map_phase_releases_a_trade_garrison_from_its_station() -> void:
+	var world := WorldMap.new()
+	var model: MapModel = NavalFixture.build()
+	world.add_region(model)
+	var raider: FleetState = _squadron(0, 0, 0, "galleon")
+	raider.mission = FleetState.Mission.BLOCKADE
+	raider.blockade_province = 1
+	var roster: Array[FleetState] = [raider]
+	var play := _naval_play(world, model, ShipLayer.new())
+	play.diplomacy = _war_state(0, 1)
+	play.court_charts = CourtCharts.new()
+	play.court_charts.setup(world, 0, {})
+	var trace: Array[Dictionary] = []
+	MapPlayFleetAi._station_orders(play, model, roster, 0, trace)
+	assert_eq(raider.mission, FleetState.Mission.NONE, "the station is given up")
+	assert_eq(raider.blockade_province, MapModel.NO_ID, "the blockade hook goes with it")
+	assert_eq(trace.size(), 1)
+	assert_eq(String(trace[0]["reason"]), AiNavalPlanner.REASON_TRADE)
+	assert_eq(String(trace[0]["released"]), "blockade")
+
+
+## The turn log names the trade garrison: the row reads as the holds coming
+## home, not as a squadron sailing into the sea zone it just left (issue #530).
+func test_the_observer_log_reads_the_trade_garrison() -> void:
+	var play := PlaySession.new()
+	var fleet_trace: Array[Dictionary] = [
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_HOME,
+			"fleet": 0,
+			"zone": 0,
+			"zone_name": "Mar Caribe",
+			"region": 0,
+			"threat": 0,
+			"reason": AiNavalPlanner.REASON_TRADE,
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], fleet_trace, {})
+	var record: Dictionary = merged["factions"][0]
+	assert_eq(int(record["actions"].get("home", 0)), 1, "a sailing home, not a pursuit")
+	var lines: Array = record["events"]
+	assert_eq(lines.size(), 1)
+	assert_true(String(lines[0]).contains("holds home"), "the row names why")
 
 
 func test_ai_naval_skips_a_squadron_that_already_moved() -> void:
@@ -1587,6 +1692,73 @@ func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
 	assert_true((plan["assignments"] as Array).is_empty())
 
 
+## A luxury row is a trained hand's work: a court with tobacco and furs but no
+## apprentice is offered neither cigars nor fur hats, because the Production
+## phase would refuse the run (wiki: production-recipes § Worker-tier gates;
+## DR-20261114-07; REQ-P2-03).
+func test_ai_economy_offers_no_gated_row_without_the_hand() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 20, "furs": 20}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	for assignment: Dictionary in plan["assignments"]:
+		assert_ne(String(assignment["recipe"]), "cigars", "no apprentice, no cigars")
+		assert_ne(String(assignment["recipe"]), "furHats", "no journeyman, no fur hats")
+	for candidate: Dictionary in plan["candidates"]:
+		assert_ne(String(candidate["recipe"]), "cigars", "a gated row is no candidate")
+		assert_ne(String(candidate["recipe"]), "furHats", "a gated row is no candidate")
+	# One apprentice opens the cigar row, and the court takes it.
+	economy.workers = WorkerPool.make(5, 1)
+	var opened: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var cigars: int = 0
+	for assignment: Dictionary in opened["assignments"]:
+		if String(assignment["recipe"]) == "cigars":
+			cigars = int(assignment["units"])
+	assert_true(cigars > 0, "an apprentice opens the cigar row")
+	for assignment: Dictionary in opened["assignments"]:
+		assert_ne(String(assignment["recipe"]), "furHats", "an apprentice is no journeyman")
+
+
+## A phantom run spends the plan's labour and reserves its inputs, then the phase
+## refuses it: the court works less than it could. The plan must spend the whole
+## idle labour on rows the phase will actually run (REQ-P2-03).
+func test_ai_economy_plan_spends_the_labour_the_phase_will_use() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 20, "timber": 20}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var report: Dictionary = ProductionRecipes.plan(
+		plan["assignments"] as Array[Dictionary],
+		economy.stockpile.duplicate(),
+		6,
+		economy.tech_unlocked,
+		{},
+		economy.workers
+	)
+	assert_eq(int(report["labour_used"]), 6, "the plan spends the labour the phase can use")
+
+
+## The bench's random filler court draws from the same legal rows: a gated row is
+## never its pick (wiki: production-recipes § Worker-tier gates; REQ-P2-03).
+func test_random_court_never_picks_a_gated_row() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"tobacco": 40, "furs": 40}
+	economy.workers = WorkerPool.make(8)
+	for seed_value in 40:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var plan: Dictionary = AiRandomCourt._random_production(economy, rng)
+		for assignment: Dictionary in plan["assignments"]:
+			assert_ne(String(assignment["recipe"]), "cigars", "no apprentice, no cigars")
+			assert_ne(String(assignment["recipe"]), "furHats", "no journeyman, no fur hats")
+
+
 func test_ai_economy_is_deterministic() -> void:
 	var first := PlayerEconomy.starting()
 	first.stockpile = {"timber": 8, "wool": 6}
@@ -1614,6 +1786,95 @@ func test_ai_economy_does_not_restack_the_workshop() -> void:
 	var second: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 	for assignment: Dictionary in second["assignments"]:
 		assert_ne(String(assignment["recipe"]), "bronze", "the workshop already fills the deficit")
+
+
+## A slow row's bench holds three pieces, so a fourth run waits for a landing.
+## A plan that asks for it anyway spends the labour and reserves the inputs for
+## a run the phase refuses, and the court works less than it could (wiki:
+## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
+func test_ai_economy_asks_no_run_the_full_bench_will_refuse() -> void:
+	var economy := PlayerEconomy.starting()
+	# Only lumber and steel are short: the bench's row is the one the plan must
+	# leave alone, and the lumber runs are what the freed labour goes to.
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "timber": 40, "lumber": 0,
+		"castIron": 20, "fabric": 20, "paper": 20, "bronze": 20, "steel": 0,
+	}
+	economy.workers = WorkerPool.make(6)
+	# The bench is full and still serving its first phase: no steel run starts.
+	economy.production_wip = {"steel": [{"units": 3, "turns_left": 2}]}
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var steel: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "steel":
+			steel = int(assignment["units"])
+	assert_eq(steel, 0, "a full bench takes no fourth run")
+	# The labour the phantom run would have eaten goes to the rows that start.
+	var report: Dictionary = ProductionRecipes.plan(
+		plan["assignments"] as Array[Dictionary],
+		economy.stockpile.duplicate(),
+		6,
+		economy.tech_unlocked,
+		economy.production.wip.duplicate(true),
+		economy.workers
+	)
+	assert_eq(int(report["labour_used"]), 6, "the plan spends the labour the phase can use")
+	assert_eq(
+		int((report["runs"] as Dictionary).get("steel", 0)), 0,
+		"the phase starts no steel run the plan did not ask for"
+	)
+
+
+## A bench with one place left takes exactly one run: the plan reads the room,
+## never the row's whole reserve (DR-20261114-12).
+func test_ai_economy_fills_only_the_room_left_on_the_bench() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "lumber": 20,
+		"castIron": 20, "fabric": 20, "paper": 20, "bronze": 20, "steel": 0,
+	}
+	economy.workers = WorkerPool.make(8)
+	economy.production_wip = {"steel": [{"units": 2, "turns_left": 2}]}
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var steel: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "steel":
+			steel = int(assignment["units"])
+	assert_eq(steel, 1, "two pieces on the anvil leave one place, not a whole batch")
+
+
+## The bench's random filler court draws from the rows that can start: a full
+## bench is no candidate either (wiki: production-recipes § Workshop queue;
+## REQ-P2-03).
+func test_random_court_never_asks_a_full_bench() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "copper": 40, "tin": 40, "tobacco": 40, "furs": 40,
+	}
+	economy.workers = WorkerPool.make(0, 0, 1, 8)
+	economy.production_wip = {
+		"steel": [{"units": 3, "turns_left": 2}],
+		"bronze": [{"units": 3, "turns_left": 2}],
+		"cigars": [{"units": 3, "turns_left": 2}],
+		"furHats": [{"units": 3, "turns_left": 2}],
+	}
+	for seed_value in 40:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var plan: Dictionary = AiRandomCourt._random_production(economy, rng)
+		for assignment: Dictionary in plan["assignments"]:
+			var recipe_id: String = String(assignment["recipe"])
+			assert_true(
+				ProductionWorkshop.room(
+					economy.production.wip, recipe_id,
+					ProductionRecipes.turns(recipe_id)
+				) > 0,
+				"a full bench is no candidate: %s" % recipe_id
+			)
 
 
 ## A plan takes effect after this phase resolves, so the run the queued
@@ -1883,6 +2144,47 @@ func test_ai_civilian_leaves_a_working_unit_alone() -> void:
 	)
 	assert_true((plan["orders"] as Array).is_empty())
 	assert_true((plan["moves"] as Array).is_empty())
+
+
+## One ranker for every civilian work module (REQ-P3-01 reuse): the highest
+## score wins, and a tie falls back to the earlier tile, then the earlier action
+## name, so two closures over one tile never depend on evaluation order.
+func test_civilian_candidate_ranking_is_one_shared_rule() -> void:
+	var low: Dictionary = {"action": "build_road", "tile": Vector2i(4, 4), "score": 10}
+	var high: Dictionary = {"action": "build_rail", "tile": Vector2i(9, 9), "score": 30}
+	assert_eq(
+		String(AiCivilianCandidate.better(low, high)["action"]), "build_rail"
+	)
+	assert_eq(String(AiCivilianCandidate.better(high, low)["action"]), "build_rail")
+	var east: Dictionary = {"action": "build_road", "tile": Vector2i(5, 2), "score": 10}
+	var north: Dictionary = {"action": "build_road", "tile": Vector2i(1, 1), "score": 10}
+	assert_eq(AiCivilianCandidate.better(east, north)["tile"], Vector2i(1, 1))
+	var rail: Dictionary = {"action": "build_rail", "tile": Vector2i(1, 1), "score": 10}
+	assert_eq(String(AiCivilianCandidate.better(rail, north)["action"]), "build_rail")
+	assert_eq(String(AiCivilianCandidate.better(north, rail)["action"]), "build_rail")
+	assert_eq(
+		AiCivilianCandidate.better(low, {}).get("action"), low["action"],
+		"an empty candidate never displaces a real one"
+	)
+	assert_eq(AiCivilianCandidate.better({}, low).get("action"), low["action"])
+	assert_true(AiCivilianCandidate.better({}, {}).is_empty())
+
+
+## A closure that decides somewhere other than where its unit stands ranks by
+## that site, so a sailed charter is ordered by its destination.
+func test_civilian_candidate_ranks_by_site_before_the_unit() -> void:
+	var stand: Vector2i = CivilianFixture.BARE_TILE
+	var unit: CivilianState = CivilianState.create(1, 0, "merchant", stand)
+	assert_eq(AiCivilianCandidate.rank_tile({"tile": Vector2i(3, 1)}), Vector2i(3, 1))
+	assert_eq(
+		AiCivilianCandidate.rank_tile({"tile": CivilianState.NO_TILE, "target": Vector2i(7, 2)}),
+		Vector2i(7, 2)
+	)
+	assert_eq(AiCivilianCandidate.rank_tile({"unit": unit}), stand)
+	assert_eq(
+		AiCivilianCandidate.rank_tile({"action": "sail"}),
+		CivilianState.NO_TILE
+	)
 
 
 func test_ai_civilian_never_plans_another_courts_units() -> void:
@@ -2269,6 +2571,52 @@ func test_the_door_the_court_walked_up_to_is_studied_first() -> void:
 	)
 
 
+## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
+## the same door pattern a Tribe chain uses, so the chest fills for a hull the
+## yard will actually accept.
+## Issue #484: while the navy chest is the money-goal reserve, the standing
+## study must not drip 50 ducats a turn — that income has to reach the yard.
+func test_a_navy_chest_defers_the_standing_study() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(400)
+	# An empty slot + a purse parked under the surplus ladder: without deferral
+	# the standing study still fills it at the cheapest preset (#490).
+	var without: Dictionary = AiResearchPlanner.plan(
+		config, economy, {"treasury_floor": 5500, "cash_floor": 500}
+	)
+	assert_false(without["assignments"].is_empty(), "standing study fills a slot")
+	assert_eq(
+		String(without["assignments"][0]["funding"]),
+		AiResearchPlanner.STANDING_FUNDING
+	)
+	var with_hull: Dictionary = AiResearchPlanner.plan(
+		config, economy, {
+			"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true
+		}
+	)
+	assert_true(
+		with_hull["assignments"].is_empty(),
+		"the navy chest pays no standing study — every ducat waits for the yard"
+	)
+
+
+func test_a_due_navy_studies_the_unlock_before_other_branches() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var door: String = AiNavy.unlock_tech(economy)
+	assert_eq(door, "superior_hull_design", "the first door on the path to a sloop")
+	var plan: Dictionary = AiResearchPlanner.plan(config, economy, {"door": door})
+	assert_false(plan["assignments"].is_empty())
+	assert_eq(
+		String(plan["assignments"][0]["tech"]), door,
+		"the navy door is taken first"
+	)
+	economy.tech_unlocked[door] = true
+	assert_eq(AiNavy.unlock_tech(economy), ShipEconomy.tech_for("sloop"))
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	assert_eq(AiNavy.unlock_tech(economy), "", "open, so no navy door remains")
+
+
 func test_research_personality_weights_steer_the_branch() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var soldier: AiConfig = _research_config({"military": 3, "economy": 1})
@@ -2470,6 +2818,46 @@ func test_the_standing_study_helper_reads_the_same_purse_as_the_planner() -> voi
 	assert_eq(
 		AiResearchPlanner.standing_funding(config, economy), "",
 		"the surplus preset pays; there is no standing study to price"
+	)
+
+
+func test_the_ledger_helper_prices_the_study_the_planner_pays() -> void:
+	# The helper reads the same reserve the planner's ladder does: at war a
+	# purse above half the cash floor but under the muster pays the standing
+	# study, and the ledger must price it, not read a 0-gold row (issue #590).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+	economy.treasury = 600
+	assert_true(muster > 600, "600 sits under the war chest")
+	assert_eq(
+		AiResearchPlanner.standing_funding(config, economy, muster), "low",
+		"the standing study the planner pays is the one the ledger prices"
+	)
+
+
+func test_the_refusal_names_the_bar_a_broke_court_cannot_clear() -> void:
+	# The ledger's blocked reading for a study the planner will not pay (#590).
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+
+	economy.treasury = 40
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster),
+		"purse under half the cash floor",
+		"under half the floor no study is paid"
+	)
+	economy.treasury = muster - 1
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster),
+		"saving for its reserve",
+		"the last payment of a war chest stays in it"
+	)
+	economy.treasury = 3000
+	assert_eq(
+		AiResearchPlanner.standing_refusal(config, economy, muster), "",
+		"the surplus ladder pays; there is no refusal to name"
 	)
 
 
@@ -2728,6 +3116,153 @@ func test_the_same_state_reads_the_same_footing() -> void:
 	var second: Dictionary = AiPhasePlanner.plan(_phase_config(), _phase_court())
 
 	assert_eq(first, second, "replay-safe: the footing is a pure function")
+
+
+# --- dispatch: an overstretched court opens no third front -------------------
+
+
+const PHASE_OTHER: int = 3
+
+
+## A court at `wars` Great Power fronts beside a crown next door. `peer` puts that
+## crown on the court's own power score — a war it could not count on winning —
+## while without it the neighbour is the weak one every planner prefers.
+## `colonial` adds a Minor Nation next door; `posted` hands the footing in with
+## the reading, and a caller that hands in none must read the same footing.
+func _front_turn(
+	wars: int, peer: bool = false, colonial: bool = false, posted: bool = true,
+	powers: bool = true
+) -> Dictionary:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	var neighbours: Array[int] = [PHASE_RIVAL, PHASE_THIRD, PHASE_OTHER]
+	if colonial:
+		neighbours.append(PHASE_MINOR)
+	for other: int in neighbours:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+	for index in wars:
+		_phase_war(state, [PHASE_RIVAL, PHASE_THIRD][index])
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	var theirs: int = 4 if peer else 1
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_OTHER: theirs, PHASE_MINOR: 1},
+		"regiments": {PHASE_OWNER: 4, PHASE_OTHER: theirs, PHASE_MINOR: 1},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+	}
+	if posted:
+		context["posture"] = posture
+	if not powers:
+		context.erase("power")
+		context.erase("regiments")
+	var world: WorldMap = AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, AiState.new(), world, 1, context
+	)
+	return {"plan": plan, "posture": posture}
+
+
+## The court's candidate row for one target in a decide() result.
+func _candidate(plan: Dictionary, target: int) -> Dictionary:
+	for raw: Variant in plan.get("candidates", []):
+		var entry: Dictionary = raw
+		if int(entry.get("target", -1)) == target:
+			return entry
+	return {}
+
+
+func test_the_footing_opens_only_its_published_slots() -> void:
+	assert_true(AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_VOYAGE))
+	assert_false(AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_VOYAGE))
+	assert_false(AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_VOYAGE))
+	assert_true(AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_DECLARE_WAR))
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_DECLARE_WAR),
+		"one front leaves the court free to open a second"
+	)
+	assert_false(AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_DECLARE_WAR))
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_DECLARE_WAR),
+		"a caller with no relations concludes nothing"
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, "diplomacy.pact"),
+		"a slot no footing names keeps the dispatch default"
+	)
+
+
+func test_an_overstretched_court_opens_no_war_on_a_peer() -> void:
+	var run: Dictionary = _front_turn(2, true)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_ne(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the frontier is full: no third Great Power war on a crown it cannot beat"
+	)
+	assert_eq(String(candidate.get("blocked", "")), "overstretched: no third front")
+
+
+func test_an_overstretched_court_still_takes_a_crown_it_outmatches() -> void:
+	var run: Dictionary = _front_turn(2)
+	var action: Dictionary = run["plan"]["action"]
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(
+		String(action.get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the cheap province next door is a war the court can already win"
+	)
+	assert_eq(int(action.get("target", -1)), PHASE_OTHER)
+	assert_eq(String(candidate.get("blocked", "")), "")
+
+
+func test_a_court_at_one_front_still_opens_its_next_war() -> void:
+	var run: Dictionary = _front_turn(1, true)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_WAR)
+	assert_eq(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"one front is under the threshold: the published planner declares"
+	)
+	assert_eq(String(candidate.get("blocked", "")), "")
+
+
+func test_an_overstretched_court_still_takes_the_cheap_province_next_door() -> void:
+	var run: Dictionary = _front_turn(2, true, true)
+	var action: Dictionary = run["plan"]["action"]
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_MINOR)
+
+	assert_eq(String(action.get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+	assert_eq(int(action.get("target", -1)), PHASE_MINOR)
+	assert_eq(
+		String(candidate.get("blocked", "")), "",
+		"a Minor Nation is colonial business, not a Great Power front"
+	)
+
+
+func test_a_caller_with_no_order_of_battle_keeps_the_published_planner() -> void:
+	var run: Dictionary = _front_turn(2, true, false, true, false)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_ne(
+		String(candidate.get("blocked", "")), "overstretched: no third front",
+		"an unknown order of battle is not a war the court cannot win"
+	)
+
+
+func test_the_planner_reads_the_footing_it_is_not_handed() -> void:
+	var run: Dictionary = _front_turn(2, true, false, false)
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(
+		String(candidate.get("blocked", "")), "overstretched: no third front",
+		"a caller that hands in no posture gets the same reading"
+	)
 
 
 # --- dispatch: no new voyage on a war footing ---------------------------------
@@ -3029,6 +3564,83 @@ func test_a_court_at_peace_keeps_only_its_cash_floor() -> void:
 	)
 
 
+func test_a_stalled_war_chest_re_routes_the_reserve() -> void:
+	# The deferred-aim escalation (#603): a muster the court has stalled on for
+	# the escalation bar's turns drops the war chest out of the reserve, so the
+	# court's own income planners lead again instead of freezing behind a chest
+	# it cannot reach. Below the bar the chest stands as published.
+	var config: AiConfig = _phase_config()
+	var thin: PlayerEconomy = _purse(300)
+	var floor: int = config.parameter("economy.min_treasury")
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var chest: int = AiArmyReinforce.muster_floor(config, thin, 1, true)
+	assert_true(chest > floor, "the war chest is the muster the court saves for")
+
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1), chest,
+		"below the bar the court still banks for its regiment"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, 0, -1, bar - 1), chest,
+		"one turn short of the bar changes nothing"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, 0, -1, bar), floor,
+		"a stalled chest re-routes to the cash floor"
+	)
+	assert_eq(
+		String(AiIncome.plan(config, thin, true, 1, 0, -1, bar)["goal"]),
+		AiIncome.GOAL_EARN,
+		"the re-routed court still reads its own purse first"
+	)
+
+
+func test_a_stalled_chest_keeps_the_hull_chest_it_can_fill() -> void:
+	# The hull chest keeps its own reach rule (#591) through the re-route: a
+	# chest the purse already fills is the fleet's, one it cannot fill waits
+	# behind the army (issue #484, #603).
+	var config: AiConfig = _phase_config()
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var rich: PlayerEconomy = _purse(6000)
+	var thin: PlayerEconomy = _purse(300)
+	var tech: String = ShipEconomy.tech_for("sloop")
+	rich.tech_unlocked[tech] = true
+	thin.tech_unlocked[tech] = true
+	var chest: int = AiNavy.price(rich)
+	assert_true(chest > 0, "the yard price is real")
+
+	assert_eq(
+		AiIncome.reserve(config, rich, true, 1, chest, -1, bar), chest,
+		"a reachable hull chest survives the re-route"
+	)
+	assert_eq(
+		AiIncome.reserve(config, thin, true, 1, chest, -1, bar),
+		config.parameter("economy.min_treasury"),
+		"an unreachable hull chest never outmuscles the cash floor"
+	)
+
+
+func test_a_peaceful_court_in_reach_banks_its_war_chest() -> void:
+	# At peace the war chest is kept only once the purse already holds the
+	# cheapest line's own price (wiki: ai-architecture § Land reinforcement):
+	# a poorer court grows, and a court in reach banks the last of the chest
+	# instead of auctioning it away the turn peace opens (issue #603).
+	var config: AiConfig = _phase_config()
+	var floor: int = config.parameter("economy.min_treasury")
+	var price: int = AiArmyReinforce.cheapest_line_price(_purse(0))
+	assert_true(price > 0, "the techs open a line to save for")
+
+	assert_eq(
+		AiIncome.reserve(config, _purse(price - 1), false, 1), floor,
+		"below the line's own price the court grows"
+	)
+	assert_eq(
+		AiIncome.reserve(config, _purse(price), false, 1),
+		AiArmyReinforce.muster_floor(config, _purse(price), 1, false),
+		"in reach the chest stands: the last ducats are not auctioned"
+	)
+
+
 func test_a_court_with_no_ledger_keeps_the_published_behaviour() -> void:
 	assert_eq(AiIncome.reserve(_phase_config(), null, true, 0), 0)
 	assert_eq(AiIncome.goal_for(_phase_config(), null, true, 0), AiIncome.GOAL_SPEND)
@@ -3063,59 +3675,157 @@ func test_an_earning_court_bids_no_imports() -> void:
 # --- the fleet claim: the hull a court saves for (issue #484) ----------------
 
 
-## A court at war with no fighting hull, or one outmatched at sea, means to lay
-## one down; a fleet that matches its enemies has nothing to save for.
+## A court with no fighting hull, or one outmatched at sea, means to lay one
+## down; a fleet that matches its enemies has nothing to save for.
 func test_the_fleet_claim_reads_the_war_and_the_odds_at_sea() -> void:
 	var economy: PlayerEconomy = _purse(0)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
 
-	assert_false(AiNavy.due(false, 0, 5), "a court at peace lays down no hull")
+	assert_true(AiNavy.due(false, 0, 5), "no fighting hull: rebuild even at peace")
 	assert_true(AiNavy.due(true, 0, 0), "a court at war with no fighting hull wants one")
 	assert_true(AiNavy.due(true, 1, 2), "outmatched at sea, it wants one too")
 	assert_false(AiNavy.due(true, 2, 2), "a fleet that matches its enemies holds")
+	assert_false(AiNavy.due(false, 2, 5), "at peace with hulls, no yard claim")
 	assert_eq(AiNavy.chest(true, 2, 2, economy), 0, "and reserves nothing for the yard")
-	assert_eq(AiNavy.chest(false, 0, 3, economy), 0, "peace reserves nothing either")
+	assert_eq(
+		AiNavy.chest(false, 0, 3, economy), ShipEconomy.treasury_cost("sloop"),
+		"peace still reserves the yard when no fighting hull remains"
+	)
 
 
-## The chest is the yard row of the cheapest warship the court's techs open: the
-## price a saving court must hold, not the one it could pay today.
+## Issue #484: a court that already flies a sloop may rebuild it without
+## Navigation — the craft is aboard — so the chest opens at once.
+func test_a_court_that_flies_a_sloop_can_rebuild_it_without_navigation() -> void:
+	var economy: PlayerEconomy = _purse(0)
+	var flown: Array[String] = ["sloop"]
+	assert_eq(AiNavy.saving_type(economy, flown), "sloop")
+	assert_eq(AiNavy.unlock_tech(economy, flown), "", "already flown, no door")
+	assert_eq(
+		AiNavy.chest(true, 0, 1, economy, flown), ShipEconomy.treasury_cost("sloop"),
+		"the chest opens without the tech unlock"
+	)
+	assert_true(ShipEconomy.buildable("sloop", {}, flown))
+
+
+## Issue #484: shipcraft remembers a lost last sloop so the yard stays open.
+func test_shipcraft_remembers_a_lost_sloop() -> void:
+	var economy: PlayerEconomy = _purse(0)
+	economy.note_shipcraft(["sloop"])
+	assert_true(economy.shipcraft.has("sloop"))
+	assert_true(ShipEconomy.buildable("sloop", {}, economy.shipcraft))
+	assert_eq(AiNavy.unlock_tech(economy, economy.shipcraft), "")
+	assert_eq(
+		AiNavy.chest(false, 0, 0, economy, economy.shipcraft),
+		ShipEconomy.treasury_cost("sloop")
+	)
+
+
+## The chest is the yard row of the cheapest warship: a type the court's techs
+## already open, else the catalog's cheapest so the court saves while it studies
+## the unlock (issue #484).
 func test_the_yard_price_is_the_cheapest_warship_the_techs_open() -> void:
 	var economy: PlayerEconomy = _purse(0)
 
-	assert_eq(AiNavy.saving_type(economy), "", "no naval tech opens no warship")
-	assert_eq(AiNavy.price(economy), 0)
-	assert_eq(AiNavy.chest(true, 0, 1, economy), 0, "so the court saves for nothing")
+	assert_eq(AiNavy.saving_type(economy), "sloop", "the catalog names the hull it means to lay")
+	assert_eq(AiNavy.price(economy), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(
+		AiNavy.chest(true, 0, 1, economy), 0,
+		"no chest while the unlock is still shut — research must be able to pay"
+	)
+	assert_eq(
+		AiNavy.unlock_tech(economy), "superior_hull_design",
+		"Navigation's prerequisite is the first door"
+	)
 
+	economy.tech_unlocked["superior_hull_design"] = true
+	assert_eq(AiNavy.unlock_tech(economy), ShipEconomy.tech_for("sloop"))
+	assert_eq(AiNavy.chest(true, 0, 1, economy), 0, "still shut until Navigation lands")
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
 	assert_eq(AiNavy.saving_type(economy), "sloop")
-	assert_eq(AiNavy.price(economy), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(AiNavy.unlock_tech(economy), "", "open, so research walks no navy door")
 	assert_eq(AiNavy.chest(true, 0, 1, economy), ShipEconomy.treasury_cost("sloop"))
 
 	economy.tech_unlocked[ShipEconomy.tech_for("frigate")] = true
 	assert_eq(AiNavy.saving_type(economy), "sloop", "the cheapest row is the one it saves for")
 
 
-## The hull outranks the muster: a court holding a purse that would raise a
-## regiment reads `earn` until the yard's price is in hand (issue #484).
+## A hull the court can already pay for outranks the muster: the purse is the
+## fleet's, the army waits (issue #484). A ducat short with fighting hulls still
+## afloat, the unaffordable chest yields to the muster (#591).
 func test_a_court_saving_for_a_hull_reserves_the_yard_price() -> void:
 	var config: AiConfig = _phase_config()
 	var economy: PlayerEconomy = _purse(4600)
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
-	var chest: int = AiNavy.chest(true, 0, 1, economy)
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
 	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
 
 	assert_true(chest > muster, "the hull is the larger commitment")
-	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest)
-	assert_eq(String(plan["goal"]), AiIncome.GOAL_EARN, "4,600 ducats is short of the yard")
+	var plan: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest, 1)
+	assert_eq(String(plan["goal"]), AiIncome.GOAL_SPEND, "the chest is in hand: it may spend")
 	assert_eq(int(plan["reserve"]), chest, "the reserve is the hull, not the muster")
 	assert_eq(int(plan["hull_chest"]), chest)
-	assert_true(AiIncome.wants_income(config, economy, true, 1, chest))
-
-	var paid: Dictionary = AiIncome.plan(config, _purse(chest), true, 1, chest)
-	assert_eq(String(paid["goal"]), AiIncome.GOAL_SPEND, "the chest is in hand: it may spend")
+	var short: Dictionary = AiIncome.plan(config, _purse(chest - 1), true, 1, chest, 1)
+	assert_eq(int(short["reserve"]), muster, "a ducat short, the yard's price is not the reserve")
+	assert_eq(String(short["goal"]), AiIncome.GOAL_SPEND, "so the court is not frozen on earn")
 	assert_eq(
 		AiIncome.reserve(config, economy, true, 1), muster,
 		"with no fleet claim the muster is the whole reserve"
 	)
+
+
+## Issue #591: an outmatched court that still has a fighting hull does not freeze
+## the purse on an unaffordable yard price — the muster it can pay for leads.
+func test_a_chest_the_court_cannot_fill_waits_behind_the_muster() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(4600)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
+	var muster: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
+
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest, 1), 0, "the yard holds nothing")
+	assert_eq(
+		AiIncome.reserve(config, economy, true, 1, chest, 1), muster,
+		"a court under its target saves for the regiment it can raise"
+	)
+	var plan: Dictionary = AiIncome.plan(config, economy, true, 1, chest, 1)
+	assert_eq(int(plan["reserve"]), muster)
+	assert_eq(int(plan["hull_chest"]), chest, "the yard's price is still the reading")
+
+	# Once the line stands at target the yard takes the purse back, even though
+	# the chest is still out of reach: there is no regiment left to starve.
+	var at_target: int = config.parameter("army.regiment_target") + config.parameter(
+		"army.war_extra"
+	)
+	assert_eq(
+		AiIncome.hull_held(config, economy, true, at_target, chest, 1), chest,
+		"a court at target saves for its hull again"
+	)
+	# A hull its techs never open is no claim at all.
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, 0, 1), 0)
+	assert_eq(AiIncome.hull_held(null, economy, true, 1, chest, 1), chest, "no config, no claim")
+	# Fleetless rebuild holds the chest even under the muster (#484).
+	assert_eq(AiIncome.hull_held(config, economy, true, 1, chest, 0), chest)
+	assert_eq(
+		AiIncome.reserve(config, economy, false, 1, chest, 0), chest,
+		"at peace a lost last sloop still reserves the yard"
+	)
+
+
+## The muster reads the same rule: a chest it cannot fill is not the army's
+## ceiling when fighting hulls remain, so the regiment it can pay for is raised
+## (issue #591).
+func test_the_muster_spends_a_chest_it_cannot_fill() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(4600)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var chest: int = AiNavy.chest(true, 1, 2, economy)
+	var plan: Dictionary = AiArmyReinforce.plan(config, economy, 1, true, 0, -1, chest)
+
+	assert_eq(
+		String(plan["muster"]), AiArmyReinforce.saving_type(config, economy),
+		"the line the court can pay for is raised"
+	)
+	assert_false((plan["reasons"] as Array).has("saving for a hull"))
 
 
 
@@ -3181,6 +3891,31 @@ func test_a_court_at_the_bar_reads_at_bar() -> void:
 	assert_eq(int(read["need"]), 0)
 	assert_eq(int(read["share_mille"]), AiVictoryPressure.NEUTRAL)
 	assert_true(AiVictoryPressure.presses(String(read["stage"])))
+
+
+func test_the_press_reaches_the_war_aim_only_from_near_the_bar() -> void:
+	var config: AiConfig = _phase_config()
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_FAR, config), 0,
+		"a court that cannot see the bar wants no war for it"
+	)
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_NEAR, config),
+		config.parameter("victory.pressure_war")
+	)
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_AT_BAR, config),
+		config.parameter("victory.pressure_war")
+	)
+	assert_eq(AiVictoryPressure.war_press(AiVictoryPressure.STAGE_NEAR, null), 0)
+	var read: Dictionary = AiVictoryPressure.read(
+		AiFixture.world(_owners(PHASE_OWNER, 21)), PHASE_OWNER, MapModel.NO_ID,
+		Difficulty.DEFAULT, config
+	)
+	assert_eq(
+		int(read["war_press"]), config.parameter("victory.pressure_war"),
+		"the reading hands the planner the press"
+	)
 
 
 func test_the_pressure_threshold_is_a_registry_knob() -> void:
@@ -3808,14 +4543,14 @@ func test_the_tie_break_is_row_major_then_action_name() -> void:
 	var lower: Dictionary = {"action": "build_hospital", "tile": Vector2i(4, 3), "score": 40}
 	var left: Dictionary = {"action": "build_hospital", "tile": Vector2i(2, 3), "score": 40}
 	var early: Dictionary = {"action": "build_fort", "tile": Vector2i(1, 2), "score": 40}
-	assert_eq(Vector2i(AiHospitalWork._better(lower, upper)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(upper, lower)["tile"]), Vector2i(1, 2))
-	assert_eq(Vector2i(AiHospitalWork._better(lower, left)["tile"]), Vector2i(2, 3))
-	assert_eq(Vector2i(AiHospitalWork._better(left, lower)["tile"]), Vector2i(2, 3))
-	assert_eq(String(AiHospitalWork._better(upper, early)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better(early, upper)["action"]), "build_fort")
-	assert_eq(String(AiHospitalWork._better({}, upper)["action"]), "build_hospital")
-	assert_eq(String(AiHospitalWork._better(upper, {})["action"]), "build_hospital")
+	assert_eq(Vector2i(AiCivilianCandidate.better(lower, upper)["tile"]), Vector2i(1, 2))
+	assert_eq(Vector2i(AiCivilianCandidate.better(upper, lower)["tile"]), Vector2i(1, 2))
+	assert_eq(Vector2i(AiCivilianCandidate.better(lower, left)["tile"]), Vector2i(2, 3))
+	assert_eq(Vector2i(AiCivilianCandidate.better(left, lower)["tile"]), Vector2i(2, 3))
+	assert_eq(String(AiCivilianCandidate.better(upper, early)["action"]), "build_fort")
+	assert_eq(String(AiCivilianCandidate.better(early, upper)["action"]), "build_fort")
+	assert_eq(String(AiCivilianCandidate.better({}, upper)["action"]), "build_hospital")
+	assert_eq(String(AiCivilianCandidate.better(upper, {})["action"]), "build_hospital")
 
 
 ## AI engineers connect every province town to the capital network (wiki:
@@ -4395,3 +5130,83 @@ func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
 
 	assert_eq(starved.size(), 0, "no ration, no hire")
 	assert_eq(fed.size(), 1, "one mouth the larder can feed, and no more")
+
+
+# --- a land march (AiLandRoute, shared by the rival civilians) ---------------
+
+## The same walk the Explorer, Merchant and Spy planners ask for: one legal land
+## tile toward a goal, a field step for a Spy, and the nearest goal of a list
+## (wiki: civilian-work-planner § Relations; the land counterpart of AiSeaRoute).
+
+
+## A goal pulls the walk closer, the step is on land, and it names the unit it
+## belongs to so any planner's order reads the same.
+func test_a_land_step_closes_on_its_goal() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+	var step: Dictionary = AiLandRoute.step_toward(model, unit, Vector2i(2, 2))
+	var tile: Vector2i = step.get("tile", CivilianState.NO_TILE)
+
+	assert_eq(String(step.get("kind", "")), AiLandRoute.KIND_MOVE)
+	assert_eq(int(step.get("unit_id", -1)), 1)
+	assert_eq(
+		AiLandRoute.manhattan(tile, Vector2i(2, 2)),
+		AiLandRoute.manhattan(unit.tile, Vector2i(2, 2)) - 1,
+		"one tile nearer"
+	)
+	assert_true(model.is_land(tile.x, tile.y), "a civilian never walks onto water")
+
+
+## A march with no goal, no unit or no chart offers nothing rather than a
+## plausible-looking tile.
+func test_a_land_step_needs_a_goal_and_a_unit() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+
+	assert_true(AiLandRoute.step_toward(model, unit, CivilianState.NO_TILE).is_empty())
+	assert_true(AiLandRoute.step_toward(null, unit, Vector2i(1, 1)).is_empty())
+	assert_true(AiLandRoute.step_toward(model, null, Vector2i(1, 1)).is_empty())
+
+
+## A Spy walks its own distance field: the step must be one the field reaches
+## cheaply, and a field that reaches nothing this turn offers no march.
+func test_a_field_step_takes_only_a_reachable_tile() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "spy", Vector2i(1, 1))
+
+	var reachable: Dictionary = AiLandRoute.step_by_field(
+		model, unit, {Vector2i(2, 1): 3}
+	)
+	assert_eq(Vector2i(reachable.get("tile", CivilianState.NO_TILE)), Vector2i(2, 1))
+	assert_eq(int(reachable.get("distance", -1)), 3)
+
+	assert_true(
+		AiLandRoute.step_by_field(model, unit, {Vector2i(0, 3): 0}).is_empty(),
+		"a field that reaches no neighbouring tile is no march"
+	)
+	assert_true(AiLandRoute.step_by_field(model, unit, {}).is_empty())
+	assert_true(AiLandRoute.step_by_field(null, unit, {Vector2i(2, 1): 0}).is_empty())
+
+
+## The nearest goal of a list, with the lower tile breaking a tie so the same
+## state always picks the same goal; an empty list has none.
+func test_the_nearest_goal_wins_a_tie_by_its_lower_tile() -> void:
+	var goals: Array[Vector2i] = [Vector2i(3, 1), Vector2i(1, 1)]
+
+	assert_eq(AiLandRoute.nearest(goals, Vector2i(2, 2)), Vector2i(1, 1))
+	assert_eq(AiLandRoute.nearest([] as Array[Vector2i], Vector2i(2, 2)), CivilianState.NO_TILE)
+
+
+## A Spy's field counts land tiles away from its targets and leaves open water
+## with no entry, so a BFS never pretends a hull's route is a walk.
+func test_the_land_distance_field_counts_land_and_leaves_water_out() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var water: Vector2i = Vector2i(1, 4)
+	var field: Dictionary = AiLandRoute.distance_field(
+		model, [CivilianFixture.BARE_TILE, water, CivilianFixture.BARE_TILE]
+	)
+
+	assert_eq(int(field.get(CivilianFixture.BARE_TILE, -1)), 0)
+	assert_eq(int(field.get(Vector2i(1, 0), -1)), 1)
+	assert_eq(int(field.get(Vector2i(2, 0), -1)), 2)
+	assert_false(field.has(water), "water is not a step")
