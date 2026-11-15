@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:94166ddc76b807b0b0f5a5a2fc54d57c9ac87d3a4e29a1dd11f80dcb5b344372",
-  "submission_git": "fix/474-stalled-muster-stands-the-yard-down@6c0a0254",
+  "submission_hash": "sha256:bf6c4447d9c8a4eb05c49f1e56cb165a7d66941d179e41885be4932efbd2d51d",
+  "submission_git": "main@7a65753+dirty",
   "passed": true,
   "config": [
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 69.70519480519481,
+      "value": 88.83019480519481,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0f6ddba74d6f6b5137cf78b7f53c4f5d59aacfe52e9e7ef5bcc501e294905bed",
+    "ai_surface_hash": "sha256:050c3d996d88576ef60b9828969f2d4ce9cb7963d3d7790aefb48804941c2348",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -66,14 +66,14 @@
       "workers": 9,
       "extraction_per_turn": 1.0,
       "income_per_turn": 87.08536585365853,
-      "funded_pct": 69.70519480519481
+      "funded_pct": 88.83019480519481
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 69.70519480519481
+    "funded_pct": 88.83019480519481
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-15T16:11:35Z",
+  "timestamp": "2026-11-15T16:13:02Z",
   "report_version": 1,
-  "signature": "hmac-sha256:8750d8e61b98a01a1314c13ba82d5a47f75219bd9a4d3e1b3839e0011babab28"
+  "signature": "hmac-sha256:8c4c53b6709fafd124bf63f2501c41c1b2daf0d608407e84338b6c4f4b6a8313"
 }
