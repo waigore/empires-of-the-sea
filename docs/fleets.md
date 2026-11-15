@@ -82,7 +82,7 @@ None.
 
 ## Tests
 
-`test_naval_rules`, `test_fleet_orders`, `test_ledgers`, `test_map_lenses`.
+`test_naval_rules`, `test_fleet_orders`, `test_ledgers`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80
