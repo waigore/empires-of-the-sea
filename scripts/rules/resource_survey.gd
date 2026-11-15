@@ -287,7 +287,6 @@ static func _province_entry(
 		"anchor": _anchor_tile(model, province, rows, visibility),
 		"owner": province.owner,
 		"capital": province.capital,
-		"labelled": province.area >= 26,
 		"charted": charted,
 		"rows": rows,
 		"counts": counts,

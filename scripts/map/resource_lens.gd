@@ -275,10 +275,10 @@ func _pack_step() -> float:
 	return 24.0
 
 
-## Slips drop below the province name where the chart prints one, so the label
-## is never covered.
-func _pack_drop(entry: Dictionary) -> float:
-	return LABEL_DROP if bool(entry.get("labelled", false)) else 0.0
+## Slips drop below the province name, which every chart now prints, so the
+## label is never covered.
+func _pack_drop(_entry: Dictionary) -> float:
+	return LABEL_DROP
 
 
 func _plate_size(entry: Dictionary) -> Vector2:

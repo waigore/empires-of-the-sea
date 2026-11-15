@@ -99,24 +99,26 @@ func _apply_filter() -> void:
 	if shown == 0:
 		_empty.text = _empty_text()
 		return
-	for group: Dictionary in groups:
-		var heading := Label.new()
-		var rows: Array = group["rows"]
-		heading.text = "%s  ·  %s  ·  %d civilian%s" % [
-			String(group["region_label"]).to_upper(),
-			String(group["province_name"]).to_upper(),
-			rows.size(),
-			"" if rows.size() == 1 else "s",
-		]
-		heading.add_theme_font_size_override("font_size", 11)
-		heading.add_theme_color_override("font_color", Palette.GOLD_DIM)
-		_rows.add_child(heading)
-		for raw: Variant in rows:
-			var row := CivilianRosterRow.new()
-			row.compact = HudLayout.is_compact(get_viewport_rect().size)
-			row.visit_pressed.connect(_visit)
-			_rows.add_child(row)
-			row.setup(raw)
+	LedgerList.fill(_rows, _empty, groups, _heading, _make_row)
+
+
+## The civilian roster's headings name the province as well as the chart: a
+## crew is posted on a tile, so the ground it stands on is part of the reading.
+func _heading(group: Dictionary, count: int) -> Control:
+	return LedgerList.heading("%s  ·  %s  ·  %d civilian%s" % [
+		String(group["region_label"]).to_upper(),
+		String(group["province_name"]).to_upper(),
+		count,
+		"" if count == 1 else "s",
+	])
+
+
+func _make_row(raw: Variant, compact: bool) -> Control:
+	var row := CivilianRosterRow.new()
+	row.compact = compact
+	row.visit_pressed.connect(_visit)
+	row.setup(raw as Dictionary)
+	return row
 
 
 func _subtitle_text(shown: int) -> String:
