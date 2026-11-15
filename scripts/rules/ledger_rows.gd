@@ -107,21 +107,25 @@ static func counts(
 	return counts
 
 
-## Rows nested under the chart that holds them, in the order they arrive: the
-## snapshot's one heading per chart. Rows must already be in reading order and
-## keep their chart together.
+## Rows nested under the chart that holds them, in the order they arrive: one
+## heading per chart, however the sheet's own reading order interleaves the
+## charts (a town's level, a spy's duty). A chart's heading stands where its
+## first row does, and its rows keep the order they arrive in, so a sheet that
+## sorts by its own key before the chart still prints one heading per chart
+## instead of splitting a chart in two.
 static func group(rows: Array[Dictionary]) -> Array[Dictionary]:
 	var groups: Array[Dictionary] = []
-	var key: int = -1
+	var at: Dictionary = {}
 	for row: Dictionary in rows:
-		if int(row["region"]) != key:
-			key = int(row["region"])
+		var region: int = int(row["region"])
+		if not at.has(region):
+			at[region] = groups.size()
 			groups.append({
-				"region": key,
+				"region": region,
 				"region_label": String(row["region_label"]),
 				"rows": [] as Array[Dictionary],
 			})
-		(groups[groups.size() - 1]["rows"] as Array[Dictionary]).append(row)
+		(groups[int(at[region])]["rows"] as Array[Dictionary]).append(row)
 	return groups
 
 
