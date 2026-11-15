@@ -33,10 +33,14 @@ static func caption(text: String, size: int, color: Color, width: float = 0.0) -
 
 
 ## A prose line: wraps at the sheet's width, and reserves a column when `width`
-## is positive so a ledger's facts stay aligned.
+## is positive so a ledger's facts stay aligned. An autowrapped label reports a
+## one-pixel minimum width, so a row that lays one out beside a fixed column
+## hands it a single glyph and the sentence prints down the margin (issues #669,
+## #693); the line takes whatever width its row has left instead.
 static func wrapped_line(text: String, size: int, color: Color, width: float = 0.0) -> Label:
 	var out := label(text, size, color)
 	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	out.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if width > 0.0:
 		out.custom_minimum_size = Vector2(width, 0)
 	return out
@@ -54,6 +58,7 @@ static func serif_line(text: String, size: int, color: Color) -> Label:
 static func serif_wrapped(text: String, size: int, color: Color) -> Label:
 	var out := serif_line(text, size, color)
 	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	out.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	return out
 
 
