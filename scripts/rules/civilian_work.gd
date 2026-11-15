@@ -133,9 +133,9 @@ static func validate(
 		if not bool(free_site.get("ok", false)):
 			return free_site
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
-	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
-	if not short.is_empty():
-		return _no("Stores are short of %s." % cost_text(short))
+	var stores_gate: String = CivilianWorkPlan.stores_refusal(cost, stockpile)
+	if not stores_gate.is_empty():
+		return _no(stores_gate)
 	check["cost"] = cost
 	check["duration"] = duration_for(model, action, tile, works)
 	check["tile"] = tile

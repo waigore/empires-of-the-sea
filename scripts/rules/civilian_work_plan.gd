@@ -105,10 +105,12 @@ static func town_after_upgrade(current: int, priced: int) -> int:
 
 ## Why this crown cannot raise the province's town now, or "" when the order is
 ## open. Ownership and the Builder are the work order's own business; this
-## answers the two gates the province dossier also has to show (wiki:
-## civilian-units § Builder; tech-tree-diplomacy-civilian).
+## answers the gates the province dossier also has to show — the town, its
+## ladder, the study and the stores (wiki: civilian-units § Builder;
+## tech-tree-diplomacy-civilian). `stockpile` is the crown's own purse when the
+## caller knows it; null leaves the money gate to the order that charges it.
 static func town_upgrade_refusal(
-	province: ProvinceState, tech_unlocked: Dictionary = {}
+	province: ProvinceState, tech_unlocked: Dictionary = {}, stockpile: Variant = null
 ) -> String:
 	if province == null or not province.has_town():
 		return "This province has no town to upgrade."
@@ -116,14 +118,21 @@ static func town_upgrade_refusal(
 		return "This town is already fully developed."
 	if not bool(tech_unlocked.get(TOWN_TECH, false)):
 		return "Requires %s to upgrade a town." % TechCatalog.display_name(TOWN_TECH)
-	return ""
+	return _known_stores_refusal(
+		cost_for("upgrade_town", clampi(province.town_level() + 1, 2, MAX_TOWN)),
+		stockpile
+	)
 
 
 ## Why this crown cannot raise the province's wall now, or "" when the order is
 ## open. The province dossier's order and the walls ledger's rows read this one
 ## wording, so a row can never offer a wall the order would refuse (wiki:
-## siege-mechanics § Fort Levels; DR-20261116-01).
-static func fort_refusal(level: int, tech_unlocked: Dictionary = {}) -> String:
+## siege-mechanics § Fort Levels; DR-20261116-01). `stockpile` is the crown's
+## own stores when the caller knows them; null leaves the money gate to the
+## order that charges it.
+static func fort_refusal(
+	level: int, tech_unlocked: Dictionary = {}, stockpile: Variant = null
+) -> String:
 	if FortRules.clamp_level(level) >= FortRules.MAX_LEVEL:
 		return "This province already holds a modern fort."
 	var next: int = FortRules.next_level(level)
@@ -132,7 +141,26 @@ static func fort_refusal(level: int, tech_unlocked: Dictionary = {}) -> String:
 		return "A %s fort needs %s." % [
 			FortRules.level_name(next), TechCatalog.display_name(gate)
 		]
-	return ""
+	return _known_stores_refusal(FortRules.cost(next), stockpile)
+
+
+## The money gate the order itself charges, in the order's own wording: the
+## materials the crown cannot pay today. Every surface that prices a spend reads
+## this one sentence (wiki: civilian-units § Work Order Summary; REQ-P2-03).
+static func stores_refusal(cost: Dictionary, stockpile: Dictionary) -> String:
+	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
+	if short.is_empty():
+		return ""
+	return "Stores are short of %s." % cost_text(short)
+
+
+## The same gate for a caller that may not know the purse: unknown stores (null)
+## leave the money gate to the order that charges it, so a reading that never
+## prices a spend is not told it is short.
+static func _known_stores_refusal(cost: Dictionary, stockpile: Variant) -> String:
+	if typeof(stockpile) != TYPE_DICTIONARY:
+		return ""
+	return stores_refusal(cost, stockpile as Dictionary)
 
 
 ## The order as the court reads it. A fort is the one order that lands at one of

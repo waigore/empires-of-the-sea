@@ -61,10 +61,15 @@ static func snapshot(regions: Array[Dictionary], owner: int) -> Dictionary:
 		var units: Array[CivilianState] = []
 		units.assign(entry.get("units", []))
 		var tech_unlocked: Dictionary = entry.get("tech_unlocked", {})
+		## The crown's own stores, when the caller knows them: the row reads the
+		## same money gate the order charges (REQ-P2-03).
+		var stockpile: Variant = entry.get("stockpile", null)
 		for province: ProvinceState in model.provinces:
 			if province == null or province.owner != owner or not province.has_town():
 				continue
-			var row: Dictionary = _row(model, province, region, units, tech_unlocked)
+			var row: Dictionary = _row(
+				model, province, region, units, tech_unlocked, stockpile
+			)
 			rows.append(row)
 			var state: String = String(row["state"])
 			counts[state] = int(counts.get(state, 0)) + 1
@@ -136,7 +141,8 @@ static func _row(
 	province: ProvinceState,
 	region: int,
 	units: Array[CivilianState],
-	tech_unlocked: Dictionary
+	tech_unlocked: Dictionary,
+	stockpile: Variant = null
 ) -> Dictionary:
 	var level: int = province.town_level()
 	var town: Vector2i = _town_tile(province)
@@ -145,7 +151,9 @@ static func _row(
 		CivilianWork.cost_for("upgrade_town", next_level)
 	)
 	var turns: int = CivilianWorkPlan.duration_for(model, "upgrade_town", town, null)
-	var refusal: String = CivilianWorkPlan.town_upgrade_refusal(province, tech_unlocked)
+	var refusal: String = CivilianWorkPlan.town_upgrade_refusal(
+		province, tech_unlocked, stockpile
+	)
 	var crew: CivilianState = _crew(units, province.owner, town)
 	var state: String = _state(level, crew, refusal, units, province.owner, town)
 	return {

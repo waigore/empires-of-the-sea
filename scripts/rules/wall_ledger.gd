@@ -63,10 +63,15 @@ static func snapshot(regions: Array[Dictionary], owner: int) -> Dictionary:
 		var units: Array[CivilianState] = []
 		units.assign(entry.get("units", []))
 		var tech_unlocked: Dictionary = entry.get("tech_unlocked", {})
+		## The crown's own stores, when the caller knows them: the row reads the
+		## same money gate the order charges (REQ-P2-03).
+		var stockpile: Variant = entry.get("stockpile", null)
 		for province: ProvinceState in model.provinces:
 			if province == null or province.owner != owner:
 				continue
-			var row: Dictionary = _row(model, province, region, units, tech_unlocked)
+			var row: Dictionary = _row(
+				model, province, region, units, tech_unlocked, stockpile
+			)
 			if row.is_empty():
 				continue
 			rows.append(row)
@@ -159,14 +164,15 @@ static func _row(
 	province: ProvinceState,
 	region: int,
 	units: Array[CivilianState],
-	tech_unlocked: Dictionary
+	tech_unlocked: Dictionary,
+	stockpile: Variant = null
 ) -> Dictionary:
 	var site: Vector2i = FortRules.site_tile(model, province.id)
 	if site.x < 0:
 		return {}
 	var level: int = FortRules.clamp_level(province.fort_level)
 	var next: int = FortRules.next_level(level)
-	var refusal: String = CivilianWorkPlan.fort_refusal(level, tech_unlocked)
+	var refusal: String = CivilianWorkPlan.fort_refusal(level, tech_unlocked, stockpile)
 	var crew: CivilianState = _crew(units, province.owner, site)
 	var state: String = _state(level, crew, refusal, units, province.owner, site)
 	var cost_text: String = CivilianWorkPlan.cost_text(FortRules.cost(next))

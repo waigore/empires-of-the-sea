@@ -24,6 +24,9 @@ static func snapshot(play: PlaySession) -> Dictionary:
 			"model": model,
 			"units": _civilians(play, region),
 			"tech_unlocked": tech_unlocked,
+			## The crown's own stores: the price a row prints is the price the
+			## order charges, so the press is never offered short (REQ-P2-03).
+			"stockpile": play.stockpile(),
 		})
 	return WallLedger.snapshot(regions, play.player_faction)
 
