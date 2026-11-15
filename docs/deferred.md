@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-18 + #744 (REQ-P2-02).
+Audited through DR-20261115-19 + #765 (REQ-P2-02).
 
 ## Already live
 
@@ -15,7 +15,7 @@ Audited through DR-20261115-18 + #744 (REQ-P2-02).
 | Counter-spy; court reports; fog/Passage | espionage; `CourtCharts`, DR-11-05 |
 | Favoured partner; GP–Tribe contact | `MarketFavoured`; `TribeContact`, DR-11-11/14 |
 | Hospitals; rival builders/trains | `HospitalRules`, `AiHospitalWork`, `HospitalTrain` |
-| Research goal; fabric + works reserve | `ResearchSlots`; muster/works keep-back, DR-13-08/14 |
+| Research goal; fabric + works reserve | `ResearchSlots`; muster/works keep-back (`MapPlayCivilianAi.work_rows`), DR-13-08/14 |
 | Regiment records/rename; decorations; leader bonuses | `RegimentRecord`, `RegimentDecorations`, `LeaderCatalog`, DR-13-18 |
 | Raid hulls; rival raids; naval plate | `NavalRaid`, `NavalPlate`, DR-11-17/20/13-17 |
 | Road L2; gathering; path transport | `TechUnlocks` / `Extraction` |
@@ -34,8 +34,8 @@ Audited through DR-20261115-18 + #744 (REQ-P2-02).
 ## Remaining gaps (impact order)
 
 1. **Building gates / further rows** — `ProductionRecipes` gates on tech and
-   worker tier; a building gate and rows past the alloy/luxury four need a
-   rules call.
+   worker tier; a building-gated recipe and a slower row past the alloy/luxury
+   four need a rules call.
 2. **Domain dispatch beyond the voyage** — `AiPhasePlanner.opens` ships voyage
    and declare-war; soft weights, treasury recovery and further slots stay seed
    (DR-13-15).
@@ -58,7 +58,7 @@ Building gates / further rows (rules call).
   floor, Quick Battle lanes/collapse, warehouse logistics, sea-zone names — out
   of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
-- Growth coexistence — seed (DR-13-08); per-hull / rival-fight plate — DR-13-17.
+- Per-hull damage; a rival-fight plate — DR-13-17.
 - Further tongues — out of scope (DR-13-12).
 - 30% floor — data-gated (DR-20261115-18).
 

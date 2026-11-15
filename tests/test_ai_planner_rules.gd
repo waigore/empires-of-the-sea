@@ -2207,6 +2207,42 @@ func test_an_aim_that_closes_its_shortfall_restarts_the_stall() -> void:
 	)
 
 
+## A shortfall that wobbles above the best gap the stall has seen is no
+## progress: one ducat of noise must not reset the escalation bar forever, or
+## a court whose chest oscillates never escalates and its worker training
+## freezes for the rest of the campaign (issue #603, the 2026-11-15 full-AI
+## measurement).
+func test_a_wobble_above_the_best_gap_is_still_a_stall() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2400})]
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2300})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 1, "a new low is progress")
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2450})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 2,
+		"the wobble is above the best gap: the count continues"
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2350})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 3,
+		"a shrink that stops above the best gap is still the stall"
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2200})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 1,
+		"a shortfall below the best the stall has seen restarts it"
+	)
+
+
 func test_a_funded_or_absent_aim_clears_its_stall() -> void:
 	var records: Dictionary = AiDeferral.note(
 		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
@@ -2444,6 +2480,32 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 		AiObjectivesPlan.W_NAVY_BUILD,
 		"a lost last sloop keeps the yard ahead of the line"
 	)
+
+
+## Issue #474 clause 2: a court holding the purse for its next regiment but no
+## cloth reads the row it actually lacks, and stays deferred, so the escalation
+## keeps re-routing the chest instead of banking one the muster never spends.
+func test_the_muster_row_prices_the_cloth_it_needs() -> void:
+	var readings: Dictionary = _readings()
+	readings["muster_row"] = {"fabric": 1}
+	readings["muster_floor"] = 2400
+	readings["treasury"] = 5000
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var muster: AiObjective = _by_id(objectives, "muster.line")
+
+	assert_eq(int(muster.cost["fabric"]), 1, "the ledger prices the pattern's row")
+	AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 0}
+	)
+	assert_eq(
+		muster.status, AiObjective.STATUS_DEFERRED,
+		"a full purse and no cloth is not a funded muster"
+	)
+	assert_eq(int((muster.shortfall() as Dictionary).get("fabric", 0)), 1)
+	AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 1}
+	)
+	assert_eq(muster.status, AiObjective.STATUS_FUNDED, "with the cloth in store it funds")
 
 
 ## A court whose techs open no warship says so instead of claiming a hull it can

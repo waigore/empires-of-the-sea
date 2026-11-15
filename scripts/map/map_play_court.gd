@@ -67,6 +67,44 @@ static func ships(play: PlaySession, faction: int) -> int:
 	return play.ship_layer.hull_count_all(faction)
 
 
+## The published order of battle every map read shares: each crown's land
+## strength and its hull total. The court panel, the calendar's declared winner
+## and the rival pass all read this one pass, so the published power score
+## cannot drift between them (wiki: diplomacy § Great Power power score;
+## REQ-P2-03, REQ-P3-02).
+static func public_orders(play: PlaySession) -> Dictionary:
+	return {"strength": public_strength(play), "ships": public_ships(play)}
+
+
+## Land strength per faction over the whole roster: FPN + FPM over every army it
+## holds in both regions, without the general medal multiplier (wiki: diplomacy
+## § Great Power power score).
+static func public_strength(play: PlaySession) -> Dictionary:
+	var strength: Dictionary = {}
+	if play == null or play.army_layer == null:
+		return strength
+	for raw: Variant in play.army_layer.regions.values():
+		var stored: Array[ArmyState] = []
+		stored.assign(raw)
+		for army: ArmyState in stored:
+			if army == null:
+				continue
+			strength[army.owner] = (
+				float(strength.get(army.owner, 0.0)) + army.strength()
+			)
+	return strength
+
+
+## Hull count of every Great Power, the term the power score multiplies.
+static func public_ships(play: PlaySession) -> Dictionary:
+	var ships: Dictionary = {}
+	if play == null or play.ship_layer == null:
+		return ships
+	for faction: int in FactionCatalog.great_power_ids():
+		ships[faction] = play.ship_layer.hull_count_all(faction)
+	return ships
+
+
 ## Hulls of a court that can fight: the build objective's own reading, so a
 ## court with only merchant hulls still wants a warship (issue #491 T5, #484).
 static func warships(play: PlaySession, owner: int) -> int:
