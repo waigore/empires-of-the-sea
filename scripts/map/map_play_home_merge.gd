@@ -114,6 +114,25 @@ static func settle_seats(play: PlaySession) -> int:
 	return joined
 
 
+## A docking move folds into the home fleet where the move happens, so a planner
+## that only moves hulls never leaves two squadrons at the seat (wiki:
+## ships-and-naval § Home Fleet — "any naval move that docks at the capital
+## resolves by merging"). A merge that finds an army already aboard lands the
+## surplus at the port rather than drowning it. Empty when she did not moor at
+## her own seat.
+static func fold(
+	play: PlaySession, model: MapModel, roster: Array[FleetState], fleet: FleetState
+) -> Dictionary:
+	var merged: Dictionary = FleetHomeMerge.absorb(model, roster, fleet)
+	var home: FleetState = merged.get("fleet") as FleetState
+	if home == null:
+		return {}
+	var displaced: int = int(merged.get("displaced", -1))
+	if displaced >= 0:
+		MapPlayPortLoss.put_ashore(play, displaced, home.province)
+	return merged
+
+
 ## Load repair: a save written before the merge could park a squadron at the
 ## seat. Fold it in on load and say so, so holds, the yard and the dossier all
 ## read one home fleet (wiki: ships-and-naval § Home Fleet).

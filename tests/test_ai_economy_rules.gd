@@ -916,6 +916,31 @@ func test_the_adapter_docks_a_rival_squadron_and_its_holds_count() -> void:
 	(built["ships"] as Node).free()
 
 
+## A merchant coming home folds into the home fleet as she docks: the cargo pass
+## only moves hulls, so without the fold the seat would end the order holding two
+## squadrons (wiki: ships-and-naval § Home Fleet — "any naval move that docks at
+## the capital resolves by merging").
+func test_the_adapter_folds_a_merchant_docking_at_the_seat_into_the_home_fleet() -> void:
+	var model: MapModel = _old_world()
+	var home := FleetState.in_port(2, OWNER, 0, ["hull_home"], {"hull_home": "fluyte"})
+	var merchant: FleetState = _merchant_fleet(1)
+	var built: Dictionary = _session(model, [home, merchant])
+	var play: PlaySession = built["play"]
+	var report: Dictionary = MapPlayCargoAi.run(
+		play, OWNER, _cargo_economy(), {"used": 0, "left_total": 6}
+	)
+	assert_eq((report["routes"] as Array).size(), 1, "the merchant is walked home")
+	var roster: Array = play.ship_layer.regions.value(model.region_id, [])
+	assert_false(roster.has(merchant), "the docked squadron joins the home fleet")
+	assert_true(home.hulls.has("hull_1"), "the hull keeps its instance id")
+	var at_seat: int = 0
+	for fleet: FleetState in roster:
+		if fleet.is_in_port() and fleet.province == 0:
+			at_seat += 1
+	assert_eq(at_seat, 1, "one squadron in port at the seat")
+	(built["ships"] as Node).free()
+
+
 func test_the_adapter_puts_a_merchant_to_sea_for_the_crossing() -> void:
 	var model: MapModel = _old_world()
 	var fleet := FleetState.in_port(5, OWNER, 1, ["hull_5"], {"hull_5": "carrack"})
