@@ -296,6 +296,11 @@ func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
 	assert_eq(_army_count(screen, minor), 0)
 	assert_null(screen.play.diplomacy.relation(minor, 0))
 	assert_eq(screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	# The fall record keeps the knowledge the crown held when the court left
+	# play: the relations are gone by the time the Gazette reads the turn
+	# (wiki: the-gazette § Item catalog — World, "Great Power terminal fall").
+	assert_eq(screen.play.last_falls.size(), 1)
+	assert_true(bool(screen.play.last_falls[0].get("known", false)), "the crown had met the court")
 	screen.free()
 
 
