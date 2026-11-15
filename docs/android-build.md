@@ -19,7 +19,9 @@ landscape, and exclude `addons/`, `tests/` and Markdown from the pack. `build/` 
 
 ```bash
 mkdir -p build/android
+tools/bake_build_identity.sh
 godot --headless --path . --export-debug "Android Debug" build/android/empires-of-the-sea-debug.apk
+tools/bake_build_identity.sh --restore
 adb install -r build/android/empires-of-the-sea-debug.apk
 adb shell am start -n com.waigore.empiresofthesea.debug/com.godot.game.GodotAppLauncher
 ```
@@ -57,6 +59,9 @@ is **not** required on `main`.
   `gradle_build/export_format` to AAB.
 - Version bumps live in `scripts/game_version.gd` (`GameVersion`) and the presets' `version/name`
   and `version/code` — update all three together.
+- Before any desktop or mobile export, run `tools/bake_build_identity.sh` so the main menu can
+  show short SHA + UTC `yyyyMMdd-HHmm`; restore with `--restore` afterward. Android CI bakes
+  automatically in [`export_android_debug.sh`](../.github/scripts/export_android_debug.sh).
 
 ## Device quirks
 
