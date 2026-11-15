@@ -72,8 +72,8 @@ Rules: `diplomacy_catalog`, `diplomacy_state`,
 
 ## Tests
 
-Suites: `test_diplomacy_*`, `test_campaign_rules`, `test_tribe_contact`,
-`test_intel_dossier`, `test_espionage`.
+Suites: `test_diplomacy_*`, `test_campaign_rules`, `test_intel_dossier`,
+`test_espionage`.
 
 ```bash
 gd-tools test --coverage --min 80

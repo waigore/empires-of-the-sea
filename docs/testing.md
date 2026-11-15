@@ -12,7 +12,7 @@ Unit/integration tests and the headless e2e smoke; two CI tiers, hard budgets.
 Tier 1 is the merge gate (`tests` / `e2e-smoke`); tier 2 failures open a sticky `ci-tier2` issue the **fix-tests** agent closes.
 
 Tier 2 shards because `gd-tools` boots one process **per suite**; `coverage-gate`
-merges shards for the project-wide 80% gate.
+merges them for the 80% gate.
 
 Strict map: unmapped in-scope paths fail; `full = true` runs every suite. Keep it
 complete (`python tools/select_impacted_tests.py --check-complete`).
@@ -26,32 +26,32 @@ loads, returns to title. Deep rules stay in `tests/`.
 
 ## Speed rules
 
-- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
+- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) to map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
-  `Main.preset_world`; snapshot/restore when a case mutates the chart. A
-  published chart draws once per seed and size.
+  `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
   civilians, passing fair split on the **first** attempt.
 - Terrain wash, fog tables and chart layers build once per map state: a re-seat
-  redraws nothing and `fog_changed` rises on a moved tile.
+  redraws nothing, `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
-  (`_attach()`) so rule-only cases never paint.
-- **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
-  case on a pristine save (~0.15 s) instead of remounting (~0.5 s), dropping
-  selection, sheets, lenses and news; a suite that swaps screens frees its own.
-  `SaveCodec.restore` is the in-place path; reuse a preset only when sizes match.
+  (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
+  gd-tools hands each case a fresh instance, so an instance dictionary redraws
+  per case; a case that **mutates** a chart takes its own draw.
+- **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
+  pristine save (~0.15 s vs ~0.5 s remount), dropping selection, sheets and
+  lenses; a suite that swaps screens frees its own. Reuse a preset only when
+  sizes match.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
-  session and `ai_turns`, then re-seat each case (~0.2 s vs ~1.5–2 s). Mode
-  cases start at turn 1. `test_ai_observer` is the reference.
+  session and `ai_turns`, re-seat each case (~0.2 s vs ~1.5–2 s). Mode cases
+  start at turn 1; `test_ai_observer` is the reference.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
-  not `generate_world` (builds and discards the other region).
-- A suite whose cases mutate its fixture builds a fresh one per case.
+  never `generate_world`.
 - **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
   `world_…` suite drains alone.
-- One Godot boot per theme (merged pure suites) — coverage ~11 s a boot: fold
-  leftovers in; delete suites covered elsewhere. Nine folds (39 → 30 suites)
-  cut the wall 230 s → 200 s. `gd-tools.toml` keeps `parallel = 4`; profile
-  with `--durations 20`.
+- One Godot boot per theme — coverage ~15 s a boot: fold leftovers into their
+  theme's boot; delete suites covered elsewhere. 39 → 25 suites cut the wall
+  230 s → 207 s. `gd-tools.toml` keeps `parallel = 4`; profile with
+  `--durations 20`.
 - Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
   landed on exit).
 

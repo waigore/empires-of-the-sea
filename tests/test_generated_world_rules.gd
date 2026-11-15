@@ -2,10 +2,12 @@ extends GdToolsTest
 ## Two-region world setup (wiki: game-setup, map-topology, factions), the setup
 ## post-pass, generation invariants and the advanced-start presets and estates.
 ## Old World holds Great Powers + Minor Nations; the New World holds Tribes.
-## Merged from test_world_bootstrap, test_map_generator and test_advanced_start.
+## Merged from test_world_bootstrap, test_map_generator, test_advanced_start and
+## test_advanced_start_live: the tier's rules and the screen it opens share one
+## boot.
 ##
 ## The name sorts **early** on purpose: gd-tools dispatches suites in plan
-## (name) order four workers wide, so this 91-case suite with a ~15 s chart draw
+## (name) order four workers wide, so this suite with its ~14 s Large chart draw
 ## used to sort last as `test_world_setup` and run alone for ~50 s after every
 ## other worker had drained (docs/testing.md § Speed rules). Rename it into the
 ## front half of the alphabet, never back into `w…`/`x…`/`y…`/`z…`.
@@ -621,8 +623,8 @@ func test_the_new_world_gets_no_great_power_farms() -> void:
 ## Advanced starts: tier tables, tech lists, musters, colonies and estates.
 ## Advanced starts (wiki: advanced-starts; DR-20261111-01): tier tables, the
 ## fixed tech lists, the balanced muster, inherited colonies, chart and estates.
-## The live setup path (a real map screen opening mid-age) lives in
-## test_advanced_start_live so these cheap cases never wait behind those mounts.
+## The live setup path (a real map screen opening mid-age) is folded in below —
+## one boot pays the tier's rules and the screen it opens.
 
 const NEW_WORLD: int = 1
 
@@ -1275,21 +1277,34 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 
 
 ## The published charts are drawn **once per seed and size** and re-read by
-## every case below: the runner hands each case the same dictionary, so a draw
-## is paid once (docs/testing.md § Speed rules). Keyed by size because the
-## weighting case reads Large and the density cases read Standard.
+## every case below. `static` is what makes that true: gd-tools runs each case
+## on a fresh instance, so an instance dictionary would start empty and redraw
+## the chart per case (the census cases alone drew Standard four times).
+## Keyed by size because the weighting case reads Large and the density cases
+## read Standard (docs/testing.md § Speed rules).
 ##
 ## A draw is this suite's most expensive fixture: ~14 s under coverage at
 ## 128×84, and the price is the **tiles** — 8× the 48×32 fixture's tiles is 8.6×
-## its draw — so the census below draws one chart, not two.
-var drawn_charts: Dictionary = {}
+## its draw — so the census below draws one chart, not two. A case that
+## **mutates** a chart takes `_fresh_standard_world()` instead of dirtying this
+## cache.
+static var _drawn_charts: Dictionary = {}
 
 
 func _chart(seed_value: int, width: int, height: int) -> WorldMap:
 	var key: String = "%d/%d/%d" % [seed_value, width, height]
-	if not drawn_charts.has(key):
-		drawn_charts[key] = MapGenerator.new().generate_world(seed_value, width, height)
-	return drawn_charts[key]
+	if not _drawn_charts.has(key):
+		_drawn_charts[key] = MapGenerator.new().generate_world(seed_value, width, height)
+	return _drawn_charts[key]
+
+
+## An unshared Standard draw for a case that writes to the chart (town levels,
+## owners, works): the cached chart above is read-only.
+func _fresh_standard_world() -> WorldMap:
+	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
+	return MapGenerator.new().generate_world(
+		SEED, int(preset["width"]), int(preset["height"])
+	)
 
 
 func _standard_world(seed_value: int) -> WorldMap:
@@ -3265,7 +3280,9 @@ func test_a_closed_works_gate_stops_the_row_and_its_ceiling() -> void:
 ## never a rival's town (wiki: production-recipes § Town-works gates;
 ## DR-20261116-04).
 func test_the_works_gate_reads_the_crowns_best_town() -> void:
-	var world_map: WorldMap = _standard_world(SEED)
+	# Levels every province's town, so it takes a chart of its own rather than
+	# dirtying the shared draw the census cases read.
+	var world_map: WorldMap = _fresh_standard_world()
 	assert_eq(TownIndustry.best_level(null, FactionCatalog.PLAYER_FACTION), 0, "no world, no town")
 	var own: ProvinceState = null
 	var rival: ProvinceState = null
@@ -3522,3 +3539,167 @@ func test_rows_lead_with_what_the_crown_can_muster_today() -> void:
 			seen_locked = true
 		elif seen_locked:
 			assert_true(false, "buildable rows must come before locked rows")
+
+
+# --- folded: the live advanced start (one mount per tier) ---
+## The live setup path of an advanced start (wiki: advanced-starts;
+## DR-20261111-01): a real map screen opening at a mid-age tier, with the
+## treasury, the muster, the chart and the roster the tier promises (merged
+## from test_advanced_start_live). Each case mounts its own screen — a tier
+## re-seats nothing, so there is no pristine save to share.
+
+
+func test_a_new_campaign_opens_on_the_preset() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS50)
+	var play: PlaySession = screen.play
+	assert_eq(play.turn, 50, "the age opens at turn 50")
+	assert_eq(TurnTime.year_for_turn(play.turn), 1598)
+	assert_eq(play.advanced_start, AdvancedStart.TURNS50)
+	assert_eq(play.treasury(), 40000, "the tier purse")
+	assert_eq(play.economy.economy.workers.count(WorkerPool.Tier.PEASANT), 16)
+	assert_eq(play.economy.economy.research.unlocked_ids().size(), 23)
+	assert_gte(
+		play.economy.economy.quantity("grain"), 16 * PlayerEconomy.START_GRAIN_TURNS,
+		"the tier workforce is fed from the first turn"
+	)
+	assert_true(play.visibility_by_region.has(NEW_WORLD), "the inherited chart exists")
+	var home: ArmyState = _home_army(screen, play.player_faction)
+	assert_not_null(home)
+	assert_eq(home.count(), 11, "five opening regiments plus the tier's six")
+	assert_gte(_home_galleons(screen, play.player_faction), 1, "a Galleon waits in port")
+	var roster: Array = screen.civilian_layer.regions.value(0, [])
+	assert_eq(_civilian_count(roster, play.player_faction, "explorer"), 3)
+	assert_eq(_civilian_count(roster, play.player_faction, "spy"), 1)
+	screen.free()
+
+
+func test_a_late_campaign_opens_with_the_documented_progress() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS100)
+	var play: PlaySession = screen.play
+	assert_eq(play.turn, 100, "the age opens at turn 100")
+	assert_eq(TurnTime.year_for_turn(play.turn), 1698)
+	assert_eq(play.treasury(), 40000)
+	assert_eq(
+		play.hud._treasury_label.text, TextFormat.thousands(play.treasury()),
+		"the top bar reads the tier purse, not the turn-0 ledger it opened on",
+	)
+	assert_eq(
+		play.hud._income_label.text, TextFormat.delta(play.income),
+		"the per-turn figure follows the tier ledger too",
+	)
+	assert_eq(play.economy.economy.workers.count(WorkerPool.Tier.APPRENTICE), 4)
+	assert_eq(play.economy.economy.research.unlocked_ids().size(), 45)
+	assert_gte(_home_galleons(screen, play.player_faction), 6, "the late tier sails a convoy")
+	var home: ArmyState = _home_army(screen, play.player_faction)
+	assert_not_null(home)
+	assert_eq(home.count(), 17, "five opening regiments plus the tier's twelve")
+	var roster: Array = screen.civilian_layer.regions.value(0, [])
+	assert_gte(
+		_civilian_count(roster, play.player_faction, "rail_builder"), 1,
+		"the late tier fields a Rail Builder"
+	)
+	screen.free()
+
+
+## Every court inherits the same New World chart (wiki § NW sea-zone visibility
+## is per Great Power): a rival reads the Passage lanes its own grid holds, so
+## its voyages are not blind to water the player was given.
+func test_rivals_inherit_the_passage_lanes() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS50)
+	var play: PlaySession = screen.play
+	var human: int = play.player_faction
+	var human_zones: Array[int] = play.court_charts.known_zones(human, NEW_WORLD)
+	assert_false(human_zones.is_empty(), "the crown inherits the Passage lanes")
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == human:
+			continue
+		var view: VisibilityModel = play.court_charts.model_for(faction, NEW_WORLD)
+		assert_not_null(view, "a rival holds a New World chart")
+		assert_eq(view.player_id, faction, "each court reads its own grid")
+		var rival_zones: Array[int] = play.court_charts.known_zones(faction, NEW_WORLD)
+		assert_eq(rival_zones, human_zones, "every court reads the same lanes")
+	screen.free()
+
+
+## A rival reads its own colony beach (100-turn claim): owned shore, fully
+## visible water, through the court's own grid rather than the player's.
+func test_a_rival_reads_its_own_colony_coast() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS100)
+	var play: PlaySession = screen.play
+	var model: MapModel = play.world.region(NEW_WORLD)
+	for faction: int in FactionCatalog.great_power_ids():
+		var view: VisibilityModel = play.court_charts.model_for(faction, NEW_WORLD)
+		assert_not_null(view)
+		var held: int = 0
+		for province: ProvinceState in model.provinces:
+			if province.owner != faction:
+				continue
+			held += 1
+			assert_true(
+				view.is_province_fully_visible(province.id),
+				"a crown reads its own colony"
+			)
+		assert_gte(held, 1, "the late tier seats every crown in the New World")
+	screen.free()
+
+
+## Every hull id is minted once for the life of the save (wiki: ships-and-naval
+## § Ship instances — "the same id must never appear in two fleets"). The tier's
+## cargo muster founds a squadron at each seat, so a fleet born with an empty
+## roster must not take the `ship_<fleet id>` default.
+func test_the_tier_musters_unique_hull_ids() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS100)
+	var seen: Dictionary = {}
+	for region: int in screen.ship_layer.regions.region_ids():
+		for raw: Variant in screen.ship_layer.regions.value(region, []):
+			var fleet: FleetState = raw as FleetState
+			if fleet == null:
+				continue
+			for hull_id: String in fleet.hulls:
+				assert_false(
+					seen.has(hull_id),
+					"%s sails in two fleets (%d and %d)" % [
+						hull_id, int(seen.get(hull_id, -1)), fleet.id,
+					]
+				)
+				seen[hull_id] = fleet.id
+	screen.free()
+
+
+func _open(tier: String) -> MapScreen:
+	var screen: MapScreen = Fixture.SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = world
+	screen.advanced_start = tier
+	add_child(screen)
+	return screen
+
+
+func _home_army(screen: MapScreen, faction: int) -> ArmyState:
+	for raw: Variant in screen.army_layer.regions.value(0, []):
+		var army: ArmyState = raw as ArmyState
+		if army != null and army.owner == faction and army.is_home_army():
+			return army
+	return null
+
+
+func _home_galleons(screen: MapScreen, faction: int) -> int:
+	var count: int = 0
+	for raw: Variant in screen.ship_layer.regions.value(0, []):
+		var fleet: FleetState = raw as FleetState
+		if fleet == null or fleet.owner != faction:
+			continue
+		for hull: String in fleet.hulls:
+			if fleet.type_of(hull) == "galleon":
+				count += 1
+	return count
+
+
+func _civilian_count(roster: Array, faction: int, type_id: String) -> int:
+	var count: int = 0
+	for raw: Variant in roster:
+		var unit: CivilianState = raw as CivilianState
+		if unit != null and unit.owner == faction and unit.type_id == type_id:
+			count += 1
+	return count
