@@ -1542,6 +1542,114 @@ func test_every_ledger_row_keeps_its_name_on_one_line_beside_its_chip() -> void:
 			row.free()
 
 
+## Every sheet the HUD mounts is read at a desktop and a phone width (issue
+## #693). The courts print a court's line beside a fixed name column, and an
+## autowrapped label reports a one-pixel minimum, so a row that does not hand it
+## the remaining width prints one glyph per line down the margin (the same
+## failure as #669, one drawer further down). The guard here is the whole sheet:
+## every visible autowrapped label must be at least as wide as its widest word.
+func test_every_sheet_reads_its_prose_across_at_desktop_and_phone_widths() -> void:
+	for size: Vector2i in [Vector2i(1280, 720), Vector2i(914, 411)]:
+		var viewport := SubViewport.new()
+		viewport.size = size
+		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		add_child(viewport)
+		var chart: MapScreen = Fixture.attach_screen(viewport)
+		chart.hud._relayout()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		for sheet: SheetFrame in _hud_sheets(chart.hud):
+			sheet.open()
+			await get_tree().process_frame
+			await get_tree().process_frame
+			var caption: String = (sheet.get_script() as Script).resource_path.get_file()
+			_assert_prose_reads_across(sheet, caption, size)
+			if sheet is SpyLedgerPanel:
+				_assert_the_courts_read_across(sheet as SpyLedgerPanel, size)
+			sheet.close()
+			await get_tree().process_frame
+		chart.free()
+		viewport.free()
+
+
+## The nine sheets the HUD mounts on its modal layers.
+func _hud_sheets(hud: GameHud) -> Array[SheetFrame]:
+	var sheets: Array[SheetFrame] = []
+	for sheet: SheetFrame in [
+		hud.spy_ledger, hud.province_ledger, hud.muster_roll, hud.command_ledger,
+		hud.towns_ledger, hud.navy_ledger, hud.civilian_roster, hud.tech_tree,
+		hud.dossier_screen,
+	]:
+		if sheet != null:
+			sheets.append(sheet)
+	assert_eq(sheets.size(), 9, "every sheet the HUD mounts is read")
+	return sheets
+
+
+func _assert_prose_reads_across(sheet: Control, caption: String, width: Vector2i) -> void:
+	for node: Node in sheet.find_children("*", "Label", true, false):
+		var label := node as Label
+		if label == null or not label.is_visible_in_tree():
+			continue
+		if label.autowrap_mode == TextServer.AUTOWRAP_OFF:
+			continue
+		var text: String = label.text.strip_edges()
+		if text.is_empty():
+			continue
+		var holder := label.get_parent() as Control
+		var room: float = holder.size.x if holder != null else label.size.x
+		var needed: float = minf(_widest_word(label), room)
+		assert_true(
+			label.size.x + 0.5 >= needed,
+			"%s @%s: '%s' reads across, not down (%.1f of %.1f)"
+			% [caption, width, text.substr(0, 40), label.size.x, needed]
+		)
+
+
+## The courts' rows: each line takes the width its name column leaves, so the
+## sentence wraps at the sheet's width instead of one glyph per line.
+func _assert_the_courts_read_across(sheet: SpyLedgerPanel, width: Vector2i) -> void:
+	var courts: int = 0
+	for node: Node in sheet._rows.get_children():
+		var row := node as HBoxContainer
+		if row == null or row.get_child_count() != 2:
+			continue
+		var name_label := row.get_child(0) as Label
+		var line := row.get_child(1) as Label
+		if name_label == null or line == null:
+			continue
+		if line.autowrap_mode == TextServer.AUTOWRAP_OFF:
+			continue
+		courts += 1
+		var room: float = (
+			row.size.x - name_label.size.x - row.get_theme_constant("separation")
+		)
+		assert_true(
+			line.size.x + 0.5 >= room,
+			"%s @%s: the line takes the row's width (%.1f of %.1f)"
+			% [name_label.text, width, line.size.x, room]
+		)
+		assert_true(
+			line.get_line_count() <= 3,
+			"%s @%s: the line wraps in a few rows, not %d"
+			% [name_label.text, width, line.get_line_count()]
+		)
+	assert_eq(courts, 5, "every Great Power but the crown's own is read")
+
+
+## The widest word in pixels: a wrapped label narrower than this breaks words
+## mid-glyph, which is what the letter stack looks like.
+func _widest_word(label: Label) -> float:
+	var font: Font = label.get_theme_font("font")
+	var size: int = label.get_theme_font_size("font_size")
+	var widest: float = 0.0
+	for word: String in label.text.split(" ", false):
+		widest = maxf(
+			widest, font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		)
+	return widest
+
+
 ## The army dossier's command door, found by its word so the suite reads the
 ## button the player presses.
 func _command_door() -> Button:

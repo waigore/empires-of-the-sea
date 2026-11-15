@@ -2227,11 +2227,13 @@ func test_one_press_sets_the_sheet_aside() -> void:
 	assert_eq(dismissed.size(), 1)
 
 
-## The plate is soft: the map under and around it keeps its pointer.
-func test_only_the_plate_takes_the_pointer() -> void:
+## The sheet is modal: its wash takes the pointer, so no chart control or bar
+## door answers a press while the crown's news is up (issue #692; REQ-P1-07).
+func test_the_sheet_is_modal() -> void:
 	_setup_gazette_plate()
 	plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
-	assert_eq(plate.mouse_filter, Control.MOUSE_FILTER_IGNORE, "the map stays usable")
+	assert_eq(plate.mouse_filter, Control.MOUSE_FILTER_IGNORE, "the shell itself is no wall")
+	assert_eq(plate._overlay.mouse_filter, Control.MOUSE_FILTER_STOP, "the wash takes the pointer")
 	assert_eq(plate._panel.mouse_filter, Control.MOUSE_FILTER_STOP, "the sheet is readable")
 
 
@@ -2241,16 +2243,21 @@ func test_a_turn_that_printed_nothing_says_so() -> void:
 	assert_true(_has_text(plate, GazettePlate.EMPTY_LINE))
 
 
-## The plate stands as tall as its news and only the news scrolls, so a quiet
-## sheet never leaves a reef of blank paper under it.
-func test_the_plate_takes_the_height_of_its_news() -> void:
+## The sheet takes the room its door gives it — the cartouche's GAZETTE door
+## opens a full-screen modal, not a plate sized to its news — and the news runs
+## on inside the scroll (issue #692; REQ-P1-05, REQ-P1-07).
+func test_the_sheet_takes_the_doors_whole_room() -> void:
 	_setup_gazette_plate()
-	plate.size = Vector2(1280, 800)
 	plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
-	plate._fit()
-	assert_eq(plate._panel.offset_bottom, plate._panel.offset_top, "height follows content")
-	assert_true(plate._scroll.custom_minimum_size.y >= 120.0, "the sheet keeps a readable body")
-	assert_true(plate._scroll.custom_minimum_size.y <= 600.0, "a long sheet scrolls")
+	await get_tree().process_frame
+	var shell: Vector2 = plate.size
+	assert_true(plate._panel.size.x >= shell.x * 0.8, "the plate takes the sheet's width")
+	assert_true(plate._panel.size.y >= shell.y * 0.8, "and its height")
+	assert_eq(
+		plate._scroll.size_flags_vertical,
+		Control.SIZE_EXPAND_FILL,
+		"the news takes the room the masthead leaves"
+	)
 
 
 ## The sheet's foot states the race for the age; the archive, a past sheet, does
@@ -2453,68 +2460,37 @@ func test_the_watchlist_lists_met_courts_and_toggles_the_list() -> void:
 	assert_true(state.removed.has(gazette_plate_ENGLAND), "and the removal is remembered")
 
 
-func test_the_plate_narrows_to_a_phone_viewport() -> void:
+func test_the_plate_never_outgrows_the_screen() -> void:
 	_setup_gazette_plate()
-	plate.size = Vector2(480, 800)
-	plate._fit()
-	var width: float = plate._panel.offset_right - plate._panel.offset_left
-	assert_true(width <= 480.0, "the sheet never outgrows the screen")
-	assert_true(width >= GazettePlate.MIN_WIDTH)
+	plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
+	await get_tree().process_frame
+	var rect: Rect2 = plate._panel.get_global_rect()
+	assert_true(rect.position.x >= -0.5 and rect.position.y >= -0.5, "the sheet starts inside")
+	assert_true(
+		rect.end.x <= plate.size.x + 0.5 and rect.end.y <= plate.size.y + 0.5,
+		"and ends inside: %s of %s" % [rect, plate.size]
+	)
 
 
-## The archive's filter chips ride a strip that scrolls sideways, so a phone's
-## plate never widens for them (REQ-P1-05, REQ-P5-07).
-func test_the_archive_filter_strip_never_widens_a_phone_plate() -> void:
+## The archive's filter chips ride a strip that scrolls sideways, so the chips
+## never decide the sheet's width (REQ-P1-05, REQ-P5-07).
+func test_the_archive_filter_strip_never_widens_the_plate() -> void:
 	_setup_gazette_plate()
-	plate.size = Vector2(320, 640)
 	var state := GazetteState.new()
 	state.append(gazette_plate_sheet(2))
 	plate.open_archive(state, null, gazette_plate_VIEWER)
-	plate._fit()
-	var width: float = plate._panel.offset_right - plate._panel.offset_left
-	assert_true(width <= 320.0, "the sheet never outgrows the screen")
-	var chips: Dictionary = plate._archive_room.filter_buttons()
-	var chips_width: float = 0.0
-	for key: Variant in chips.keys():
-		chips_width += (chips[key] as Button).get_combined_minimum_size().x
-	assert_true(chips_width > width, "the chips are wider than a phone's plate")
+	await get_tree().process_frame
+	var width: float = plate._panel.size.x
+	assert_true(width > 0.0, "the sheet has a body")
 	assert_true(
 		plate._archive_room.get_combined_minimum_size().x <= width,
 		"the strip scrolls instead of widening the sheet"
 	)
 
 
-## Toasts stay readable: while the sheet is up they are pushed to the lane under
-## it, and the moment it goes they return to the top (REQ-P5-05). A phone's
-## resting lane is not the atlas 84, so the plate gives back the lane's own top.
-func test_the_sheet_moves_the_toast_lane_below_itself() -> void:
-	_setup_gazette_plate()
-	var host := ToastHost.new()
-	host.size = Vector2(1280, 800)
-	add_child(host)
-	var lane := HudDespatches.new()
-	host.add_child(lane)
-	# A compact bar (56) + 6 is well above the atlas 84 the old plate assumed.
-	lane.fit(true, 56.0, 382.0)
-	var resting: float = lane.resting_top()
-	assert_eq(resting, 62.0)
-
-	var sheet_plate := GazettePlate.new()
-	sheet_plate.despatches = lane
-	host.add_child(sheet_plate)
-	sheet_plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
-	# The lane follows the laid-out sheet, so let one layout pass settle.
-	await get_tree().process_frame
-	sheet_plate._fit()
-	assert_true(lane.lane_top() > resting, "the lane drops below the sheet")
-	sheet_plate.dismiss()
-	assert_eq(lane.lane_top(), resting, "the lane comes back to its own top")
-	host.free()
-
-
-## A stand-in for the HUD: the plate only needs the despatch lane.
-class ToastHost:
-	extends Control
+## A sheet holds the court's news while it is up: HudDespatchCover owns that
+## rule for every cartouche door, and the phone lane test in test_mobile_layout
+## drives it (REQ-P5-05).
 
 
 # --- helpers -----------------------------------------------------------------
@@ -2640,7 +2616,8 @@ func test_the_age_room_names_no_crown_when_the_session_has_none() -> void:
 ## keeps its two columns side by side. A wrapped cell reports no minimum width,
 ## so the row's HBox used to hand the standing a single glyph and stack it.
 func test_the_age_room_reads_across_at_both_plate_widths() -> void:
-	for width: float in [GazettePlate.MAX_WIDTH, GazettePlate.MIN_WIDTH]:
+	# The sheet's body at an atlas width and at a phone's.
+	for width: float in [640.0, 288.0]:
 		_setup_age_room()
 		age_room_room.size = Vector2(width, 0.0)
 		var rows: Array[Dictionary] = [

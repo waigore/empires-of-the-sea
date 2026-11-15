@@ -931,7 +931,24 @@ func test_price_discovery_reads_filled_bids_and_submitted_offers() -> void:
 		{"cargo_free": 8, "treasury": 5000, "buy_price": 30}
 	)
 	MarketClearing.clear(market, world, economies, {0: 8, 1: 8})
-	assert_eq(market.price("timber"), 27, "5 filled bids against 10 submitted offers")
+	# 5 filled bids against 10 submitted offers: 0.5 x (5 - 10) / 15 = -16.7%,
+	# so 30 falls to 25 (wiki: world-market § Price discovery).
+	assert_eq(market.price("timber"), 25, "5 filled bids against 10 submitted offers")
+
+## One unit of demand is a whole side of the book: the clearing publishes the
+## formula's ±20% cap, not a damped step (wiki: world-market § Price discovery;
+## the denominator's depth stand-in contradicted the published rule).
+func test_one_unit_of_clearing_moves_the_price_the_published_step() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "iron", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 80}
+	)
+	MarketClearing.clear(market, world, economies, {0: 4, 1: 4})
+	assert_eq(market.price("iron"), 96, "one filled bid at 80: +20% cap")
 
 func test_purchased_tile_still_publishes_its_harvest() -> void:
 	var world: WorldMap = _market_engine_world()
@@ -2077,7 +2094,7 @@ func test_projection_has_no_side_effects() -> void:
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), 2)
 
 func test_turn_advances_market_prices_but_projection_does_not() -> void:
-	var market: WorldMarket = WorldMarket.with_default_prices(0)
+	var market: WorldMarket = WorldMarket.with_default_prices()
 	var economy: PlayerEconomy = _economy(1)
 	market.buy(economy, "grain", 10)
 	var projection: Dictionary = EconomyTurn.project(economy, market, {"grain": 10}, 0)
@@ -2647,14 +2664,22 @@ func test_price_is_floored_at_thirty_percent_of_base() -> void:
 	assert_eq(WorldMarket.next_price(10, 100, 0, 10), 30)
 	assert_eq(WorldMarket.next_price(0, 100, 10, 0), 30)
 
-func test_world_depth_damps_one_sided_trades() -> void:
-	var shallow: int = WorldMarket.next_price(30, 30, 10, 0, 100)
-	assert_eq(shallow, 30)
-	var capped: int = WorldMarket.next_price(30, 30, 1000, 0, 0)
-	assert_eq(capped, 36)
+## One unit of flow is still a full side of the book: the formula caps at ±20%,
+## so the smallest trade moves the price as far as a giant one (wiki:
+## world-market § Price discovery). A market depth stand-in in the denominator
+## used to damp this to 3% and contradicted the published rule.
+func test_one_sided_trades_reach_the_published_cap() -> void:
+	assert_eq(WorldMarket.next_price(30, 30, 1, 0), 36)
+	assert_eq(WorldMarket.next_price(30, 30, 0, 1), 24)
+	# A balanced book moves nothing, however small or large.
+	assert_eq(WorldMarket.next_price(30, 30, 1, 1), 30)
+	assert_eq(WorldMarket.next_price(30, 30, 400, 400), 30)
+	# Inside the cap the step is the formula's own share.
+	assert_eq(WorldMarket.next_price(30, 30, 2, 1), 35, "0.5 x 1 / 3 = +16.7%")
+	assert_eq(WorldMarket.next_price(30, 30, 1, 2), 25, "0.5 x -1 / 3 = -16.7%")
 
 func test_advance_prices_publishes_and_resets_volumes() -> void:
-	var market: WorldMarket = WorldMarket.with_default_prices(0)
+	var market: WorldMarket = WorldMarket.with_default_prices()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	market.buy(economy, "grain", 10)
 	var changed: Dictionary = market.advance_prices()
@@ -2671,7 +2696,7 @@ func test_copy_keeps_prices_and_volumes_separate() -> void:
 	var clone: WorldMarket = market.copy()
 	clone.advance_prices()
 	assert_eq(market.price("timber"), 30)
-	assert_eq(clone.price("timber"), 35)
+	assert_eq(clone.price("timber"), 36, "10 filled bids alone: the +20% cap")
 	assert_eq(market.bid_volume("timber"), 10)
 	assert_eq(clone.bid_volume("timber"), 0)
 

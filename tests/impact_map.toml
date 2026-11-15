@@ -138,6 +138,22 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# The shared widget kit every sheet's prose, captions and rows come from (issue
+# #693): a size-flag change here collapses or widens text on all nine HUD sheets
+# at once, so the suites that mount them follow — plus the two that build its
+# widgets directly and the plate that prints its serif wrap.
+[domains.row_builder]
+suites = [
+  "test_ledgers.gd",
+  "test_town_ledger.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+  "test_court_ui_parts.gd",
+  "test_market_economy_rules.gd",
+  "test_quick_battle_overlay.gd",
+]
+
 [domains.ledger_shell]
 # The shared docked-ledger chrome: each ledger's own suite proves its body on
 # the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
@@ -475,6 +491,24 @@ domain = "pause"
 [[rules]]
 match = "scripts/ui/sheet_frame.gd*"
 domain = "ui"
+
+# The one modal every cartouche door stands on and the door that hosts a panel
+# carrying its own chrome (issue #692). They are the sheet chrome plus the bar's
+# doors, so a shell change runs the suites that mount those sheets instead of the
+# menu catch-all's eight.
+[[rules]]
+match = "scripts/ui/modal_shell.gd*"
+domain = "sheet"
+
+[[rules]]
+match = "scripts/ui/modal_door.gd*"
+domain = "sheet"
+
+# The crown's news sheet is the Gazette's own surface (wiki: the-gazette): its
+# one suite drives the sheet, so a plate change never pays for the menu set.
+[[rules]]
+match = "scripts/ui/gazette_plate.gd*"
+domain = "gazette"
 
 [[rules]]
 match = "scripts/ui/civilian_roster_panel.gd*"
@@ -2863,7 +2897,7 @@ domain = "ui"
 
 [[rules]]
 match = "scripts/ui/ui_row_builder.gd*"
-domain = "ui"
+domain = "row_builder"
 
 # Shared theme: canvas mounts call build(); menu catch-all is too wide.
 [[rules]]

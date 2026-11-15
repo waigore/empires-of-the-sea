@@ -15,6 +15,11 @@ const SMALL := Vector2i(800, 360)
 const TABLET := Vector2i(1180, 820)
 const DESKTOP := Vector2i(1280, 720)
 const TOUCH_MIN := 40.0
+## The bar's reading doors: each one opens the same full-screen modal (issue
+## #692). The crew chip opens the roster, which already did.
+const MODAL_DOORS: Array[String] = [
+	"LEDGER", "RESEARCH", "COURT", "MUSTER", "ESTATES", "GAZETTE",
+]
 
 var _viewport: SubViewport = null
 var _screen: MapScreen = null
@@ -508,53 +513,13 @@ func test_end_turn_is_the_bars_gold_door() -> void:
 	)
 
 
-## An opened plate is movable by its own chrome, so the chart feature it covers
-## can be read without closing it (REQ-P1-07).
-func test_opened_plates_can_be_pushed_aside() -> void:
+## An opened dossier is movable by its own chrome, so the chart feature it covers
+## can be read without closing it (REQ-P1-07). The bar's doors are not draggable:
+## they are modals and take the screen (REQ-P1-05).
+func test_opened_dossiers_can_be_pushed_aside() -> void:
 	_open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	var card: ImprovementPanel = _screen.improvements
-	card.open()
-	await get_tree().process_frame
-	var start: Vector2 = card._panel.get_global_rect().position
-	_drag(card._header_row, Vector2(-30.0, 20.0))
-	await get_tree().process_frame
-	var moved: Vector2 = card._panel.get_global_rect().position
-	assert_almost_eq(moved.x, start.x - 30.0, 1.0, "the card follows its header west")
-	assert_almost_eq(moved.y, start.y + 20.0, 1.0, "and south")
-	# A near-full-screen card can still be pushed clear of the chart: only a
-	# grabbable strip has to stay on screen.
-	_drag(card._header_row, Vector2(-1400.0, 0.0))
-	await get_tree().process_frame
-	assert_almost_eq(
-		card._panel.get_global_rect().end.x, ModalDrag.MIN_VISIBLE.x, 1.0,
-		"a grabbable strip stays on screen"
-	)
-	card.close()
-	await get_tree().process_frame
-	assert_almost_eq(
-		card._panel.get_global_rect().position.x, start.x, 1.0, "a closed card docks again"
-	)
-
-	# The soft Gazette paints its own rect, so its drag rides an offset instead.
-	hud.gazette_plate.open_watchlist(
-		_screen.play.gazette, _screen.play.diplomacy, _screen.play.player_faction
-	)
-	await get_tree().process_frame
-	var sheet: Vector2 = hud.gazette_plate._panel.get_global_rect().position
-	_drag(hud.gazette_plate._header_row, Vector2(60.0, 20.0))
-	await get_tree().process_frame
-	assert_almost_eq(
-		hud.gazette_plate._panel.get_global_rect().position.x,
-		sheet.x + 60.0, 1.0, "the Gazette follows its masthead"
-	)
-	hud.gazette_plate.dismiss()
-	await get_tree().process_frame
-	assert_almost_eq(
-		hud.gazette_plate._panel.get_global_rect().position.x,
-		sheet.x, 1.0, "setting the news aside resets its place"
-	)
 
 	# A docked dossier moves too, and opens from the dock again next time.
 	hud.panels.show_province(_screen.model, _screen.capital_province)
@@ -575,6 +540,43 @@ func test_opened_plates_can_be_pushed_aside() -> void:
 	assert_not_null(engine, "the dossier carries its drag")
 	if engine != null:
 		assert_eq(engine.offset(), Vector2.ZERO, "a reopened dossier starts from the dock")
+
+
+## Every door on the cartouche opens the one full-screen modal: a wash that takes
+## the pointer, a plate that takes the screen's room, and back closing it cleanly
+## (issue #692; REQ-P1-05, REQ-P1-07, REQ-P5-07).
+func test_every_cartouche_door_opens_a_full_screen_modal() -> void:
+	_open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var opened: int = 0
+	for door: Button in _bar_doors(hud):
+		var caption: String = _caption(door)
+		if not MODAL_DOORS.has(caption):
+			continue
+		door.pressed.emit()
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var shell: ModalShell = _open_shell(_screen)
+		assert_not_null(shell, "%s opens a sheet" % caption)
+		if shell == null:
+			continue
+		opened += 1
+		assert_true(shell.is_open(), "%s stays open" % caption)
+		assert_true(shell._margin.get_global_rect().size.x >= hud.size.x - 0.5, "%s takes the bar's width" % caption)
+		assert_eq(shell._overlay.mouse_filter, Control.MOUSE_FILTER_STOP, "%s takes the pointer" % caption)
+		# Android delivers back twice for one press, so the helper debounces;
+		# let the clock pass between doors instead of borrowing a real wait.
+		BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
+		assert_true(
+			BackRequest.handle(_screen.play, _screen.improvements),
+			"%s back closes the sheet" % caption
+		)
+		await get_tree().process_frame
+		assert_false(shell.is_open(), "%s closes on back" % caption)
+		assert_false(shell._panel.get_global_rect().size.y > hud.size.y + 0.5, "%s fits the screen" % caption)
+	assert_eq(opened, MODAL_DOORS.size(), "every bar reading has its own door")
+
 
 
 ## --- dossiers --------------------------------------------------------------
@@ -929,6 +931,25 @@ func test_phone_news_waits_while_the_estates_card_is_open() -> void:
 	assert_eq(hud.despatches.box.get_child_count(), 1, "the news prints once the card closes")
 
 
+## The cartouche's GAZETTE door is a full-screen modal too, so the lane holds
+## its lines while the crown reads the news it is standing on (issue #692).
+func test_phone_news_waits_while_the_gazette_is_open() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	_clear_news(hud)
+	hud.toast("The Indies await")
+	await get_tree().process_frame
+	hud.gazette_pressed.emit()
+	await get_tree().process_frame
+	assert_true(hud.gazette_plate.is_shown(), "the GAZETTE door opens the sheet")
+	assert_eq(hud.despatches.box.get_child_count(), 0, "no plate over the news sheet")
+	assert_true(hud.despatches.held().has("The Indies await"), "the news waits")
+	hud.gazette_plate.dismiss()
+	await get_tree().process_frame
+	assert_eq(hud.despatches.box.get_child_count(), 1, "the news prints once the sheet closes")
+
+
 func test_phone_news_waits_while_a_dossier_is_open() -> void:
 	_open(PHONE)
 	await get_tree().process_frame
@@ -1049,6 +1070,15 @@ func _open(size: Vector2i) -> void:
 
 func _screen_rect() -> Rect2:
 	return Rect2(Vector2.ZERO, _screen.hud.size)
+
+
+## The modal a cartouche door just opened.
+func _open_shell(screen: MapScreen) -> ModalShell:
+	for node: Node in screen.find_children("*", "", true, false):
+		var shell: ModalShell = node as ModalShell
+		if shell != null and shell.is_open():
+			return shell
+	return null
 
 
 func _fits(inner: Rect2, outer: Rect2, what: String) -> void:

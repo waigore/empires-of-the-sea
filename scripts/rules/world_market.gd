@@ -6,12 +6,8 @@ extends RefCounted
 
 const PRICE_FLOOR_RATIO: float = 0.30
 const MAX_PRICE_STEP: float = 0.20
-## The slice has no AI order flow yet; depth stands in for the rest of the world so
-## one nation's trades nudge prices instead of pinning them to the cap every turn.
-const DEFAULT_WORLD_DEPTH: int = 8
 
 var prices: Dictionary = {}
-var world_depth: int = DEFAULT_WORLD_DEPTH
 ## Faction -> {"buy": {commodity|"*": multiplier}, "sell": {...}}. Trade
 ## diplomacy publishes these; an empty book means the published price for all.
 var trade_terms: Dictionary = {}
@@ -31,9 +27,8 @@ var minor_offers: Array[Dictionary] = []
 var book: MarketBook = MarketBook.new()
 
 
-static func with_default_prices(depth: int = DEFAULT_WORLD_DEPTH) -> WorldMarket:
+static func with_default_prices() -> WorldMarket:
 	var market := WorldMarket.new()
-	market.world_depth = maxi(depth, 0)
 	for id: String in CommodityCatalog.all_ids():
 		if CommodityCatalog.is_tradeable(id):
 			market.prices[id] = CommodityCatalog.base_price(id)
@@ -194,18 +189,20 @@ func sell(
 	return {"ok": true, "reason": "", "unit_price": unit_price, "revenue": revenue}
 
 
-## Published formula, floored to an integer and clamped to 30% of the base price.
+## Published formula, floored to an integer and clamped to 30% of the base price
+## (wiki: world-market § Price discovery): the step is half the imbalance between
+## this turn's filled bids and submitted offers, capped at ±20%. No market depth
+## term stands in the denominator — the rule is the courts' own order flow.
 static func next_price(
 	current: int,
 	base: int,
 	bids: int,
-	offers: int,
-	depth: int = 0
+	offers: int
 ) -> int:
 	var total: int = maxi(bids, 0) + maxi(offers, 0)
 	if total <= 0:
 		return maxi(current, 0)
-	var spread: float = 0.5 * float(bids - offers) / float(total + 2 * maxi(depth, 0))
+	var spread: float = 0.5 * float(bids - offers) / float(total)
 	spread = clampf(spread, -MAX_PRICE_STEP, MAX_PRICE_STEP)
 	var stepped: int = int(floor(float(current) * (1.0 + spread)))
 	var floor_price: int = int(floor(float(base) * PRICE_FLOOR_RATIO))
@@ -220,7 +217,7 @@ func advance_prices() -> Dictionary:
 			continue
 		var current: int = price(id)
 		var updated: int = next_price(
-			current, CommodityCatalog.base_price(id), bid_volume(id), offer_volume(id), world_depth
+			current, CommodityCatalog.base_price(id), bid_volume(id), offer_volume(id)
 		)
 		prices[id] = updated
 		if updated != current:
@@ -237,7 +234,6 @@ func advance_prices() -> Dictionary:
 func copy() -> WorldMarket:
 	var clone := WorldMarket.new()
 	clone.prices = prices.duplicate()
-	clone.world_depth = world_depth
 	clone.trade_terms = trade_terms.duplicate(true)
 	clone.subsidy_terms = subsidy_terms.duplicate()
 	clone.minor_offers = minor_offers.duplicate(true)
@@ -249,14 +245,13 @@ func copy() -> WorldMarket:
 func to_dict() -> Dictionary:
 	return {
 		"prices": prices.duplicate(),
-		"world_depth": world_depth,
 		"minor_offers": minor_offers.duplicate(true),
 		"book": book.to_dict(),
 	}
 
 
 static func from_dict(data: Dictionary) -> WorldMarket:
-	var market := WorldMarket.with_default_prices(int(data.get("world_depth", DEFAULT_WORLD_DEPTH)))
+	var market := WorldMarket.with_default_prices()
 	var saved: Dictionary = data.get("prices", {})
 	for key: Variant in saved.keys():
 		market.prices[String(key)] = int(saved[key])
