@@ -223,17 +223,9 @@ static func refresh_after_load(play: PlaySession) -> void:
 	# A save written before the home-fleet merge could park two squadrons at the
 	# seat; fold them in before the court reads its squadrons.
 	MapPlayHomeMerge.repair(play)
-	# A call to arms waiting in the save keeps the turn suspended, with the court
+	# A decision waiting in the save keeps the turn suspended, with the court
 	# open for the answer (wiki: diplomacy § Alliances § Mutual defence).
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_call(play)
-	elif Intervention.has_pending(play.diplomacy, play.player_faction):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_intervention(play)
-	elif DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_offer(play)
+	MapPlayDiplomacyConsent.hold_turn(play, play.player_faction)
 	# A slot saved after the human crown fell re-mounts the defeat plate; the
 	# defeat variant wins over military and calendar endings (wiki: victory
 	# § Victory Screen, campaign-persistence § Load and resume).

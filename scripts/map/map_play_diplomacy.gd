@@ -82,20 +82,13 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		return
 	if play.diplomacy == null:
 		return
-	# While a call to arms waits, the court entertains no other business.
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		play.hud.toast("Answer the call to arms first.")
-		MapPlayDiplomacyConsent.show_call(play)
-		return
-	# An intervention offer holds the court just as firmly.
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
-		play.hud.toast("Answer the intervention first.")
-		MapPlayDiplomacyConsent.show_intervention(play)
-		return
-	# A rival proposal waits for the court's answer before any new business.
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		play.hud.toast("Answer the proposal first.")
-		MapPlayDiplomacyConsent.show_offer(play)
+	# While a consent decision waits, the court entertains no other business: the
+	# order is refused and the panel opens on the answer the court owes first
+	# (`ConsentLadder` owns that order).
+	var waiting: String = ConsentLadder.pending_kind(play.diplomacy, play.player_faction)
+	if not waiting.is_empty():
+		play.hud.toast(ConsentCopy.held(waiting))
+		MapPlayDiplomacyConsent.show_waiting(play, waiting)
 		return
 	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
 	if kind == DiplomacyOrders.KIND_OVERTURE:
@@ -141,18 +134,7 @@ static func resolve_turn(play: PlaySession) -> bool:
 		return true
 	sync_first_contact(play)
 	MapPlayDiplomacyAi.run(play)
-	var human: int = play.human_faction_id()
-	if CallToArms.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_call(play)
-		return false
-	if Intervention.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_intervention(play)
-		return false
-	if DiplomacyProposals.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_offer(play)
+	if MapPlayDiplomacyConsent.hold_turn(play, play.human_faction_id()):
 		return false
 	close_turn(play)
 	return true

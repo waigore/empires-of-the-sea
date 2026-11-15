@@ -62,6 +62,11 @@ const SOURCES: Dictionary = {
 	"proposal/terms": "Favoured terms: imports at %d%%, exports at %d%%.",
 	"proposal/quote": "“%s”",
 	"proposal/answer": "Answer the proposal.",
+	# What the court is told when an order arrives while a decision still
+	# waits: the one answer it owes first (ConsentLadder owns the order).
+	"held/call": "Answer the call to arms first.",
+	"held/intervention": "Answer the intervention first.",
+	"held/offer": "Answer the proposal first.",
 	# The words on the answers themselves, named for the intent they emit.
 	"button/join": "Join the war",
 	"button/refuse": "Refuse",
@@ -102,6 +107,12 @@ static func catalogue() -> Dictionary:
 	for name: Variant in SOURCES.keys():
 		found[key(String(name))] = String(SOURCES[name])
 	return found
+
+
+## The refusal a new order earns while decision `kind` still waits on the court
+## (`ConsentLadder.CALL` / `INTERVENTION` / `OFFER`).
+static func held(kind: String) -> String:
+	return say("held/%s" % kind)
 
 
 ## Who moved, and the stake the court is weighing for each answer.
