@@ -17,9 +17,18 @@ godot --path . -- --agent-debug=8765   # everything after -- is a user arg
   leaves the bridge off. On Android the launch intent's `command_line` extra
   reaches the engine as plain args, so the full command line is scanned as a
   fallback when the user-arg list has no flag.
-- Android debug builds run the same in-app listener; the host reaches it
-  through `adb forward tcp:8765 tcp:8765`, then connects to
-  `ws://127.0.0.1:8765`. (`forward`, not `reverse`: the listener lives on the
+- Android debug builds run the same in-app listener. The launcher alias drops
+  the launch intent's `command_line` extra (a Godot 4.7 template limitation
+  its own instrumented tests assert), so Android's opt-in is a one-line
+  enable file instead: write the port into the app's `user://` storage and
+  restart the app, then `adb forward tcp:8765 tcp:8765` and connect to
+  `ws://127.0.0.1:8765` from the host (`forward`, not `reverse`: the listener
+  lives on the device, so the host→device tunnel is what agents need):
+
+  ```bash
+  adb shell run-as com.waigore.empiresofthesea.debug sh -c 'echo 8765 > files/agent_debug.enable'
+  # force-stop + relaunch the app; the boot reads and consumes the file
+  ``` (`forward`, not `reverse`: the listener lives on the
   device, so the host→device tunnel is what agents need.)
 
 ## Protocol
