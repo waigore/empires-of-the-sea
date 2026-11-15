@@ -30,15 +30,13 @@ var _peers: Array[WebSocketPeer] = []
 
 
 func _ready() -> void:
-	var requested: int = parse_port(OS.get_cmdline_user_args())
-	if requested == 0:
-		# Android export templates carry the `command_line` intent extra as
-		# engine args, not user args, so the full cmdline is scanned as a
-		# fallback (docs/agent-debug.md).
-		requested = parse_port(OS.get_cmdline_args())
-		if requested == 0 and _flag_requested():
-			print("AgentDebugBridge: flag seen but not parsed; args=%s" %
-				[OS.get_cmdline_args()])
+	var launch: Dictionary = resolve_launch(
+		OS.get_cmdline_user_args(), OS.get_cmdline_args()
+	)
+	var requested: int = int(launch["port"])
+	if bool(launch["warn_unparsed"]):
+		print("AgentDebugBridge: flag seen but not parsed; args=%s" %
+			[OS.get_cmdline_args()])
 	if requested > 0 and not _release_export():
 		start(requested)
 	elif requested != 0:
@@ -46,13 +44,29 @@ func _ready() -> void:
 			("release export" if _release_export() else "bad port"))
 
 
-## True when either arg list names the flag, so a launch that tried to enable
+## User args first, then full cmdline (Android intent extras land there).
+## `warn_unparsed` is true when the flag was named but neither list parsed.
+static func resolve_launch(
+	user_args: PackedStringArray, cmdline_args: PackedStringArray
+) -> Dictionary:
+	var requested: int = parse_port(user_args)
+	if requested != 0:
+		return {"port": requested, "warn_unparsed": false}
+	# Android export templates carry the `command_line` intent extra as
+	# engine args, not user args (docs/agent-debug.md).
+	requested = parse_port(cmdline_args)
+	var warn: bool = requested == 0 and (
+		flag_mentioned(user_args) or flag_mentioned(cmdline_args)
+	)
+	return {"port": requested, "warn_unparsed": warn}
+
+
+## True when an arg list names the flag, so a launch that tried to enable
 ## the bridge but misformed the value still explains itself in the log.
-static func _flag_requested() -> bool:
-	for args: Array in [OS.get_cmdline_user_args(), OS.get_cmdline_args()]:
-		for raw: String in args:
-			if raw.contains(FLAG):
-				return true
+static func flag_mentioned(args: PackedStringArray) -> bool:
+	for raw: String in args:
+		if raw.contains(FLAG):
+			return true
 	return false
 
 
