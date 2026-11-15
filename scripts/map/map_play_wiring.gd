@@ -26,6 +26,11 @@ static func connect_views(play: PlaySession) -> void:
 		_connect_civilians(play, play.civilian_layer)
 	if play.improvements != null:
 		_connect_improvements(play, play.improvements)
+	# Auto mode's plaque and its pacing driver ride the HUD; the seat is bound
+	# here with every other view so a screen mount needs no extra call
+	# (wiki: auto-mode).
+	if play.hud != null and play.hud.auto_bar != null:
+		play.hud.auto_bar.bind(play, play.hud)
 
 
 ## Camera taps and pans: a tap is a map intent, a pan re-reads hover.

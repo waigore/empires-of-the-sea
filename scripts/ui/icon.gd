@@ -42,6 +42,12 @@ func _draw() -> void:
 			_draw_compass(center, radius)
 		"bell":
 			_draw_bell(center, radius)
+		"play":
+			_draw_play(center, radius)
+		"pause":
+			_draw_pause(center, radius)
+		"auto":
+			_draw_helm(center, radius)
 		_:
 			draw_circle(center, radius * 0.6, tint)
 
@@ -243,3 +249,35 @@ func _draw_bell(center: Vector2, radius: float) -> void:
 	draw_line(Vector2(dome.x - width * 1.15, lip_y), Vector2(dome.x + width * 1.15, lip_y),
 		tint, maxf(1.0, radius * 0.13), true)
 	draw_circle(Vector2(dome.x, lip_y + radius * 0.16), radius * 0.12, tint)
+
+
+## The Auto mode's pace and seat (wiki: auto-mode): a triangle for play, two bars
+## for pause and a ship's helm for the court handed to the AI. Vector, so the
+## speed seal keeps one crisp medallion at every size (REQ-P4-04).
+func _draw_play(center: Vector2, radius: float) -> void:
+	var points := PackedVector2Array([
+		center + Vector2(-radius * 0.42, -radius * 0.62),
+		center + Vector2(radius * 0.66, 0.0),
+		center + Vector2(-radius * 0.42, radius * 0.62),
+	])
+	draw_colored_polygon(points, tint)
+
+
+func _draw_pause(center: Vector2, radius: float) -> void:
+	var bar := Vector2(radius * 0.24, radius * 1.16)
+	draw_rect(Rect2(center + Vector2(-radius * 0.44, -radius * 0.58), bar), tint, true)
+	draw_rect(Rect2(center + Vector2(radius * 0.20, -radius * 0.58), bar), tint, true)
+
+
+## A pilot's wheel: rim, hub and eight spokes, the seat's own pictogram.
+func _draw_helm(center: Vector2, radius: float) -> void:
+	draw_arc(center, radius * 0.72, 0.0, TAU, 28, tint, maxf(1.0, radius * 0.14), true)
+	draw_circle(center, radius * 0.2, tint)
+	for i in 8:
+		var angle: float = TAU * float(i) / 8.0
+		var direction := Vector2(cos(angle), sin(angle))
+		draw_line(
+			center + direction * radius * 0.2,
+			center + direction * radius * 1.0,
+			tint, maxf(1.0, radius * 0.11), true
+		)

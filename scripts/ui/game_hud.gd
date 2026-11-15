@@ -83,6 +83,9 @@ var _toast_queue: PackedStringArray:
 		return despatches.waiting() if despatches != null else PackedStringArray()
 ## Survey key, shown only while a lens is on.
 var lens_legend: LensLegend = null
+## Auto mode's chrome and pacing driver: the seal, the AUTO badge, the speed
+## control and the crown's own action log (wiki: auto-mode; issue #725).
+var auto_bar: AutoBar = null
 ## The bar's one lens seal (HudChrome builds it); null before the chrome mounts.
 var lens_seal: LensSeal = null
 ## Touch platforms: no hover, so hover tooltips stay silent.

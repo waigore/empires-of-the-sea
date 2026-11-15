@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-16 + #718 (REQ-P2-02).
+Audited through DR-20261115-18 + #744 (REQ-P2-02).
 
 ## Already live
 
@@ -33,9 +33,9 @@ Audited through DR-20261115-16 + #718 (REQ-P2-02).
 
 ## Remaining gaps (impact order)
 
-1. **Building gates / further rows** — worker tiers, tech gates, two-turn
-   alloy/luxury rows and the bench ship (DR-14-07/10/12); a building gate and
-   further rows need a rules call.
+1. **Building gates / further rows** — `ProductionRecipes` gates on tech and
+   worker tier; a building gate and rows past the alloy/luxury four need a
+   rules call.
 2. **Domain dispatch beyond the voyage** — `AiPhasePlanner.opens` ships voyage
    and declare-war; soft weights, treasury recovery and further slots stay seed
    (DR-13-15).
@@ -60,6 +60,7 @@ Building gates / further rows (rules call).
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Growth coexistence — seed (DR-13-08); per-hull / rival-fight plate — DR-13-17.
 - Further tongues — out of scope (DR-13-12).
+- 30% floor — data-gated (DR-20261115-18).
 
 ## Wiki drift
 

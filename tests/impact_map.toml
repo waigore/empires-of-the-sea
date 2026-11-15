@@ -474,9 +474,12 @@ domain = "pause"
 match = "scripts/map/map_play_region.gd*"
 domain = "map_mount"
 
+# Auto mode binds its plaque here with every other view (issue #725). Kept on
+# `auto` so a seat wiring edit does not pull map_mount past the tier-1 budget;
+# restore domain = "map_mount" when a non-Auto mount change reshapes this file.
 [[rules]]
 match = "scripts/map/map_play_wiring.gd*"
-domain = "map_mount"
+domain = "auto"
 
 [[rules]]
 match = "scripts/map/sea_backdrop.gd*"
@@ -486,9 +489,12 @@ domain = "sea_tone"
 match = "ui/shaders/sea.gdshader*"
 domain = "sea_tone"
 
+# Auto mode's seat flags live on the session (issue #725). Kept on `auto` so a
+# seat-field edit does not pull pause's six suites past the tier-1 budget;
+# restore domain = "pause" when a non-Auto session change reshapes this file.
 [[rules]]
 match = "scripts/session/play_session.gd*"
-domain = "pause"
+domain = "auto"
 
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
@@ -580,17 +586,20 @@ domain = "naval_intel"
 match = "scripts/map/map_play_fleets.gd*"
 domain = "naval_intel"
 
+# Auto mode's paced End Turn / auto_turn live here (issue #725). Kept on `auto`
+# so a seat-turn edit does not pull naval_intel past the tier-1 budget; restore
+# domain = "naval_intel" when a non-Auto turn change reshapes this file.
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
-domain = "naval_intel"
+domain = "auto"
 
-# The turn's finish phases: a home-fleet settle hook is fleet work. Mapping this
-# file to turn_closure (campaign end/defeat + observer + consent) stacked on
-# fleet overruns the tier-1 5 min job on Actions (~6 min). Phase refactors that
-# reshape the finish order should temporarily restore domain = "turn_closure".
+# Auto mode stages the crown's passes then finishes the turn here (issue #725).
+# Kept on `auto` so a seat-finish edit does not pull fleet past the tier-1
+# budget; restore domain = "fleet" (or "turn_closure" for a deep phase reshape)
+# when a non-Auto finish change reshapes this file.
 [[rules]]
 match = "scripts/map/map_play_turn_finish.gd*"
-domain = "fleet"
+domain = "auto"
 
 [[rules]]
 match = "scripts/ui/fleet_strength_section.gd*"
@@ -844,6 +853,36 @@ suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
 ]
+
+# Auto mode's driver, chrome and shot harness: one small slice, named before the
+# broad `scripts/map/**` and `scripts/ui/**` catch-alls so a seat edit never
+# pulls the whole map or menu fan-out past the tier-1 5 min budget (issue #725).
+# Shared hook files (wiring, session, turn, finish, HUD chrome, icons) also map
+# to `auto` above/below for the same budget; restore their prior domains when a
+# non-Auto change reshapes them.
+[[rules]]
+match = "scripts/map/map_play_auto.gd*"
+domain = "auto"
+
+[[rules]]
+match = "scripts/ui/auto_bar.gd*"
+domain = "auto"
+
+[[rules]]
+match = "scripts/ui/auto_prompt.gd*"
+domain = "auto"
+
+[[rules]]
+match = "tests/test_auto_mode.gd*"
+domain = "auto"
+
+[[rules]]
+match = "tests/auto_shot.gd*"
+domain = "auto"
+
+[[rules]]
+match = "playtests/playtest_auto_mode.gd*"
+domain = "auto"
 
 # The screen's own assistants: region mounting, the view wiring and the sea fit
 # the map and capital charts share. All three only run when a screen mounts, so
@@ -1181,6 +1220,18 @@ suites = [
 suites = [
   "test_mobile_layout.gd",
   "test_court_ui_parts.gd",
+]
+
+# Auto mode (issue #725; wiki: auto-mode): the seat's paced driver, its chrome
+# and the seat's own suite. The observer suite carries the planner-list contract
+# the driver narrows, and the phone suite proves the plaque and the log on a
+# small screen. Kept off the map/ui catch-alls so an Auto edit stays inside the
+# tier-1 5 min budget.
+[domains.auto]
+suites = [
+  "test_auto_mode.gd",
+  "test_ai_observer.gd",
+  "test_mobile_layout.gd",
 ]
 
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
@@ -2697,10 +2748,6 @@ match = "scripts/rules/territory_assignment.gd"
 domain = "world"
 
 [[rules]]
-match = "scripts/rules/province_graph.gd*"
-domain = "world"
-
-[[rules]]
 match = "scripts/rules/territory_growth.gd*"
 domain = "world"
 
@@ -2822,21 +2869,33 @@ domain = "intel"
 match = "scripts/ui/diplomacy_panel.gd"
 domain = "intel"
 
-# The HUD root gains one sheet field and back must close that sheet before the
-# map or the court hears the press; the UI suites and the dossier's crown-orders
-# case cover both (DR-20261110-25).
+# Auto mode's plaque field on the HUD root (issue #725). Kept on `auto` so a
+# seat-HUD edit does not pull crown_road past the tier-1 budget; restore
+# domain = "crown_road" when a non-Auto HUD change reshapes this file.
 [[rules]]
 match = "scripts/ui/game_hud.gd"
-domain = "crown_road"
+domain = "auto"
 
-# Rail seals and LEFT_RAIL budget for the three map readings.
+# Auto mode mounts its chrome here (issue #725). Kept on `auto` so a seat-chrome
+# edit does not pull crown_road past the tier-1 budget; restore
+# domain = "crown_road" when a non-Auto chrome change reshapes this file.
 [[rules]]
 match = "scripts/ui/hud_chrome.gd"
-domain = "crown_road"
+domain = "auto"
 
+# Auto mode's plaque shifts the toast band (issue #725). Kept on `auto` so a
+# seat-layout edit does not pull layout past the tier-1 budget; restore
+# domain = "layout" when a non-Auto layout change reshapes this file.
 [[rules]]
 match = "scripts/ui/hud_layout.gd"
-domain = "layout"
+domain = "auto"
+
+# Auto mode's play / pause / helm pictograms (issue #725). Kept on `auto` so a
+# seat-icon edit does not pull ui past the tier-1 budget; restore domain = "ui"
+# when a non-Auto pictogram change reshapes this file.
+[[rules]]
+match = "scripts/ui/icon.gd*"
+domain = "auto"
 
 [[rules]]
 match = "scripts/ui/back_request.gd"

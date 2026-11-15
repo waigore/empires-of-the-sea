@@ -57,6 +57,7 @@ func fill(
 	_add_terms_banner()
 	_add_staged()
 	_add_deals()
+	_add_prices()
 	_add_offers(offers)
 	var header := UiRowBuilder.row(0.0)
 	header.add_child(UiRowBuilder.caption("COMMODITY", 10, Palette.TEXT_DIM, 132.0))
@@ -173,6 +174,41 @@ func _add_deals() -> void:
 			+ "and embassy kickbacks (wiki: world-market § First right of refusal)."
 		)
 		add_child(shares)
+
+
+## The clearing's price pass in one line: the goods that moved and the price they
+## now stand at, so a turn's new market is read and never a silent change (wiki:
+## world-market § Price discovery; REQ-P5-05). Empty when no price moved.
+static func price_moves_line(report: Dictionary, limit: int = 4) -> String:
+	var moved: Dictionary = report.get("prices", {}) as Dictionary
+	if moved.is_empty():
+		return ""
+	var ids: Array[String] = []
+	for raw: Variant in moved.keys():
+		ids.append(String(raw))
+	ids.sort()
+	var parts: PackedStringArray = []
+	for index in mini(ids.size(), limit):
+		var id: String = ids[index]
+		parts.append("%s %d" % [CommodityCatalog.label(id), int(moved[id])])
+	var text: String = "Prices moved: " + "  ·  ".join(parts)
+	if ids.size() > limit:
+		text += "  ·  +%d more" % (ids.size() - limit)
+	return text + "."
+
+
+## The clearing moved prices: the goods and the price they now stand at, so the
+## turn's new market is read where the clearing is narrated and never arrives as
+## a silent change (wiki: world-market § Price discovery; REQ-P5-05).
+func _add_prices() -> void:
+	var line: String = price_moves_line(_clearing)
+	if line.is_empty():
+		return
+	UiRowBuilder.spacer(self, 4.0)
+	var moved := UiRowBuilder.label(line, 11, Palette.TEXT_DIM)
+	moved.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	moved.custom_minimum_size = Vector2(240, 0)
+	add_child(moved)
 
 
 ## The tribes' book stands above the world price rows on its own plate: the
