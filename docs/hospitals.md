@@ -1,11 +1,10 @@
 # The crown's hospitals
 
 Every province the crown holds that can carry a ward, in one ledger — the level,
-whether its staff ate, the next step, and the press that files it.
+whether its staff ate, the next step and the press.
 
-**Pillars:** P1 (the level reads as a numeral), P2 (the price, the wait and the
-gate are the ward table's own), P3 (pure projection), P5 (one press instead of
-thirty dossiers).
+**Pillars:** P1 (numerals), P2 (the ward table's own price, wait and gate),
+P3 (pure projection), P5 (one press, not thirty).
 
 **Wiki:** [combat](https://github.com/waigore/empires-of-the-sea/wiki/combat)
 § Regiment condition. Decision: DR-20261116-02.
@@ -24,10 +23,10 @@ the reading that raises the question ([`provinces.md`](provinces.md)).
 | Place | `Field hospital · rest 40% · wear 80% · staff 2 food`, or `unstaffed` |
 | Note | `Next: field hospital · 3 lumber + 2 fabric · 1 turn`, the crew's own record, the study or the stores the order waits on, or the finished ward |
 
-The sheet states the rule a crown pays by: rest 40% / 55%, the wear a defeat
+The rule a crown pays by: rest 40% / 55%, the wear a defeat
 leaves cut to 80% / 65%, and a staff that eats 2 food a turn per level — a ward
-the larder cannot cover goes unfed: its walls still shelter the wounded, but its
-nurses are lost and the province rests at the field's 25%.
+the larder cannot cover goes unfed: its walls still shelter the wounded, but the
+province rests at the field's 25%.
 
 ## Filters
 
@@ -42,17 +41,13 @@ is in hand, then what waits, the finished wards last; the weakest ward leads.
 **Raise** sends the nearest idle Engineer through the same `build_hospital`
 order the civilian panel files (`ImprovementOrders.build_hospital` →
 `CivilianWork`), swapping the chart first when the province lies on the other
-<<<<<<< HEAD
-one; its message is the toast and the row repaints as `AT WORK`. A row that
-cannot be raised carries no press: the note names the wait. **Raise all ready
-(n)** files every ready row the view prints, arm then confirm, and stops at the
-first refusal (DR-20261116-03).
-=======
 one. The order's message reaches the court as the toast, and the row repaints as
 `AT WORK`. A row that cannot be raised carries no press: the note names the wait
 — the study, the stores, or another crew already working the town tile — in the
 order's own words.
->>>>>>> origin/main
+
+**Raise all ready (n)** files every ready row the view prints, arm then
+confirm, and stops at the first refusal (DR-20261116-03).
 
 ## Architecture
 
@@ -64,16 +59,10 @@ order's own words.
 | `scripts/ui/hospital_ledger_row.gd` | one ward |
 | `scripts/ui/province_ledger_panel.gd` | the `Hospitals ›` door |
 
-<<<<<<< HEAD
-No figure is recomputed: the level, rest share, triage, ration, price and wait
-are `HospitalRules`; the gate is `CivilianWorkPlan.hospital_refusal`, the wording
-the order itself refuses with (`REQ-P2-03`).
-=======
 No figure is recomputed: the level, rest share, triage and ration are
 `HospitalRules`, the price `HospitalRules.cost`, the wait `HospitalRules.turns`,
 and the gate `CivilianWorkPlan.hospital_refusal` — the order's own wording
 (`REQ-P2-03`).
->>>>>>> origin/main
 
 ## Tests
 

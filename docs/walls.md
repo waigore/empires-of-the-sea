@@ -4,9 +4,8 @@ Every province the crown holds that can carry a fort, in one ledger — the wall
 that meets an attack, the step the Engineer would take next, and the press that
 files it.
 
-**Pillars:** P1 (the level reads as a numeral), P2 (the price, the wait and the
-gate are the fort table's own), P3 (pure projection), P5 (one press instead of
-thirty dossiers).
+**Pillars:** P1 (numerals), P2 (the fort table's own price, wait and gate),
+P3 (pure projection), P5 (one press, not thirty).
 
 **Wiki:** [siege-mechanics](https://github.com/waigore/empires-of-the-sea/wiki/siege-mechanics)
 § Fort Levels, § Wall Protection, § Emplaced Artillery. Decision: DR-20261116-01.
@@ -26,15 +25,9 @@ door sits on the reading that raises the question
 | Chip | `READY`, `AT WORK`, `NO ENGINEER`, `LOCKED`, `WALLED` |
 | Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, the study the order waits on, or the finished wall |
 
-<<<<<<< HEAD
-The note is the step. The sheet states the rule a crown pays by: 10 / 20 / 30
-wall hp by level and 1–3 emplaced guns, and the last gun falls even when an
-assault is repelled.
-=======
 The chip names what the step waits on; the note is the step. The sheet states
 the rule: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns, and the last gun
 falls even when an assault is repelled.
->>>>>>> origin/main
 
 ## Filters
 

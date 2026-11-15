@@ -2060,6 +2060,61 @@ func test_the_spine_reads_the_finished_and_no_crew_words_the_sheet_passes() -> v
 	)
 
 
+# --- the batch press ---------------------------------------------------------
+
+
+## The press files exactly what the view prints: the ready rows, in the sheet's
+## own order, and nothing a filter has hidden (REQ-P5-04; DR-20261116-03).
+func test_the_batch_press_reads_only_the_ready_rows_the_view_prints() -> void:
+	var snapshot: Dictionary = TownLedger.snapshot(_town_regions(_builders()), 0)
+	var targets: Array[Dictionary] = RaiseLedger.ready_targets(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(targets.size(), 1, "one ready town, one target")
+	assert_eq(int(targets[0]["region"]), FactionCatalog.OLD_WORLD, "the chart it stands on")
+	assert_eq(
+		RaiseLedger.ready_targets(snapshot, LedgerRows.REGION_NEW).size(),
+		0,
+		"a chart with nothing ready offers no target"
+	)
+	assert_eq(
+		RaiseLedger.ready_targets(
+			snapshot, LedgerRows.REGION_ALL, TownLedger.FILTER_DEVELOPED
+		).size(),
+		0,
+		"a finished reading offers no press"
+	)
+
+
+## The walk stops at the first refusal — the rules' own answer — so a press never
+## claims a step the order refused (REQ-P2-03, REQ-P5-05; DR-20261116-03).
+func test_the_batch_walk_stops_at_the_first_refusal() -> void:
+	_filed.clear()
+	var targets: Array[Dictionary] = [
+		{"region": 0, "id": 1},
+		{"region": 0, "id": 2},
+		{"region": 0, "id": 3},
+	]
+	var result: Dictionary = RaiseLedger.file_batch(targets, _refuse_second)
+	assert_eq(_filed.size(), 2, "the walk stops at the refusal")
+	assert_eq(_filed[0], 1, "the first target was filed")
+	assert_eq(_filed[1], 2, "the refusing target was asked, and the walk stopped")
+	assert_eq(int(result["raised"]), 1, "one order was filed")
+	assert_eq(int(result["total"]), 3, "the view held three")
+	assert_eq(String(result["refusal"]), "No idle Builder musters.", "the refusal is kept")
+
+
+func test_the_receipt_names_what_the_press_left() -> void:
+	assert_eq(
+		RaiseLedger.batch_receipt({"raised": 3, "total": 3, "refusal": ""}, "towns"),
+		"Raised 3 towns — every ready step in this view is ordered."
+	)
+	assert_eq(
+		RaiseLedger.batch_receipt(
+			{"raised": 1, "total": 3, "refusal": "No idle Builder musters."}, "towns"
+		),
+		"Raised 1 of 3 towns. The next waits: No idle Builder musters."
+	)
+
+
 # --- towns: the sheet ---
 
 
@@ -2153,6 +2208,53 @@ func test_back_and_the_key_close_the_towns_ledger() -> void:
 	assert_true(panel.is_open(), "the key opens it from the map")
 	panel._unhandled_input(toggle)
 	assert_false(panel.is_open(), "and closes it again")
+
+
+## One arm, one confirm, and every ready town the view prints takes a Builder —
+## the receipt is the one line the court reads (REQ-P5-04, REQ-P5-05;
+## DR-20261116-03).
+func test_the_batch_press_files_every_ready_town_in_one_confirmed_press() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	screen.play.tech_unlocked()["national_bureaucracy"] = true
+	var stock: Dictionary = screen.play.stockpile()
+	stock["lumber"] = 400
+	stock["castIron"] = 400
+	panel.open()
+	panel._on_filter(LedgerRows.REGION_OLD, true)
+	var targets: Array[Dictionary] = panel._ready_targets()
+	assert_true(
+		targets.size() >= 2,
+		"the campaign seats two towns the crown can raise: %d" % targets.size()
+	)
+	for index in targets.size():
+		var province: ProvinceState = screen.play.model.province_data(int(targets[index]["id"]))
+		screen.play.civilian_layer.units.append(
+			CivilianState.create(
+				300 + index, screen.play.player_faction, "builder", province.town_tile
+			)
+		)
+	panel.refresh()
+	var press: RaiseBatchPress = panel._batch
+	assert_not_null(press, "the sheet carries the batch press")
+	assert_true(press.visible, "the press stands when the view holds a ready step")
+	assert_eq(press.text, "Raise all ready (%d)" % targets.size(), "the press names the count")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(
+		press.text, "Confirm — raise %d towns" % targets.size(), "the second tap is named"
+	)
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the press forgets the arm once it files")
+	assert_eq(_working_town_builders(), targets.size(), "every ready town took a Builder")
+	assert_eq(panel._ready_targets().size(), 0, "the view holds no ready step after the press")
+	assert_false(press.visible, "and the press stands down")
+
+
+func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	panel.open()
+	panel._on_filter(TownLedger.FILTER_DEVELOPED, false)
+	assert_false(panel._batch.visible, "a reading with nothing ready carries no press")
 
 
 # --- towns: fixtures ---
@@ -2273,6 +2375,31 @@ func _row_widgets(panel: TownLedgerPanel) -> int:
 		if child is TownLedgerRow:
 			total += 1
 	return total
+
+## Every target the batch walk asked for, in the order it asked: the pure walk's
+## own record, so a refusal's cost is read (DR-20261116-03).
+var _filed: Array[int] = []
+
+
+## An order hook that files the first two targets and refuses the third the way a
+## sheet with no free Builder would.
+func _refuse_second(_region: int, province_id: int) -> Dictionary:
+	_filed.append(province_id)
+	if province_id == 2:
+		return {"ok": false, "message": "No idle Builder musters."}
+	return {"ok": true, "message": ""}
+
+
+## How many of the crown's Builders in the mounted chart are raising a town now.
+func _working_town_builders() -> int:
+	var working: int = 0
+	for unit: CivilianState in screen.play.civilian_layer.units:
+		if unit == null or unit.owner != screen.play.player_faction:
+			continue
+		if unit.work_action() == "upgrade_town":
+			working += 1
+	return working
+
 
 # --- the crown's walls ---
 
@@ -2525,6 +2652,15 @@ func test_back_and_the_key_close_the_walls_ledger() -> void:
 	assert_true(panel.is_open(), "the key opens it from the map")
 	panel._unhandled_input(toggle)
 	assert_false(panel.is_open(), "and closes it again")
+
+
+## The walls sheet is the towns sheet's sibling, so it carries the same one-press
+## batch under its chips (DR-20261116-03).
+func test_the_walls_sheet_carries_the_batch_press() -> void:
+	var panel: WallLedgerPanel = screen.hud.walls_ledger
+	panel.open()
+	assert_not_null(panel._batch, "the sheet carries the batch press")
+	assert_true(panel._batch is RaiseBatchPress, "and it is the shared press")
 
 
 # --- walls: fixtures ---
