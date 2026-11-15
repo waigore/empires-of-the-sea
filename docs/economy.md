@@ -76,12 +76,12 @@ labour/inputs (`allowance`), a worked row naming its output (`made 3`).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget. `WORKERS`: tier medallions,
 `RECRUIT`, `DISBAND`, a **batch press** (`recruit_affordable`; `UNDER ORDERS`
 folds a batch), a `LARDER` block (`LarderRead`) reading the next Consumption's
-store, every appetite, and the striking tier.
+store, every appetite, the striking tier.
 
 
 ## Deferred (REQ-P2-02)
 
-Building gates; rows past the four
+Building-gated recipes; slower rows past the four
 ([`deferred.md`](deferred.md)).
 
 ## Architecture
