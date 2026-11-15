@@ -66,11 +66,10 @@ keeps one merged record per turn (wiki: turn-trace-interpretation).
 It then prints the **coverage checklist** (`AiCoverage`): every shipped rival
 rule — its order row in the turn trace, or the ledger aim that prices it —
 with count, crowns and window that prove it, and a `never`/`gated` reading when
-none did. `army.muster` and `navy.launch` also
-report how often their aim was ranked and funded, so a rule asked for and never
-paid for reads as starved. A **major** rule left never-exercised fails a
-`--ai=full` run (a bench run only prints it) — an under-use gap by scan, not a
-forensic run (#605).
+none did. `army.muster` and `navy.launch` also report aim ranked vs funded, so a
+rule asked for and never paid for reads starved. A **major** rule left
+never-exercised fails a `--ai=full` run that reached its cap; a bench run, or one
+cut short by victory, only prints the checklist (#605).
 
 ## Scope
 
