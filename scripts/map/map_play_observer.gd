@@ -35,8 +35,23 @@ static func snapshot(play: PlaySession) -> Dictionary:
 		"winner": winner,
 		"leader": leader,
 		"result": _result_text(play, winner),
+		"market": market_reading(play),
 		"rows": rows,
 	}
+
+
+## The shared world market as this turn left it: the prices a run's courts paid
+## and the Minor/Tribe rows on the book. A run that starves has to show what it
+## paid for grain (wiki: world-market § Price discovery; issues #676, #730).
+static func market_reading(play: PlaySession) -> Dictionary:
+	if play == null or play.economy == null or play.economy.market == null:
+		return {}
+	var book: WorldMarket = play.economy.market
+	var prices: Dictionary = {}
+	for id: String in ["grain", "meat", "timber", "wool", "iron"]:
+		prices[id] = book.price(id)
+	prices["minor_offers"] = book.minor_offers.size()
+	return prices
 
 
 ## One court's observable state. `economy` is that court's ledger whichever
@@ -57,6 +72,9 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	)
 	var strength: float = _strength(play, faction)
 	var ships: int = play.ship_layer.hull_count_all(faction)
+	# Fighting hulls alone: a merchant hull is cargo, not a predator, so the
+	# yard's claim and every naval aim are priced on these (issue #484).
+	var warships: int = MapPlayCourt.warships(play, faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
 	var new_world: int = play.world.owned_provinces(WorldMap.NEW_WORLD, faction)
 	# How close the court stands to the bar it must clear, and whether it is
@@ -85,6 +103,7 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"strength": int(roundf(strength)),
 		"regiments": play.army_layer.regiment_count_all(faction),
 		"ships": ships,
+		"warships": warships,
 		# Holds the crown keeps in port at its seat: the import gate every build
 		# input and overseas voyage passes (wiki: ships-and-naval § Cargo holds
 		# and capacity; issue #530).

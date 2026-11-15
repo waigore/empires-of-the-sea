@@ -48,6 +48,9 @@ var _old_total: Dictionary = {}
 var _power_total: Dictionary = {}
 var _falls: Dictionary = {}
 var _appearances: int = 0
+## Shipped-rule → order-row checklist (issue #605): every rule the run's trace
+## proves a court exercised, and every one it never did.
+var _coverage: Array[Dictionary] = AiCoverage.scan([])
 
 
 func _initialize() -> void:
@@ -119,13 +122,17 @@ func _run_one(run: int, seed_value: int) -> Dictionary:
 		)
 	screen.free()
 	await process_frame
-	return {"run": run, "seed": seed_value, "final": final, "turns": records.size()}
+	return {
+		"run": run, "seed": seed_value, "final": final, "turns": records.size(),
+		"coverage": AiCoverage.scan(records),
+	}
 
 
 func _aggregate(result: Dictionary) -> void:
 	if result.is_empty():
 		return
 	_appearances += 1
+	AiCoverage.merge(_coverage, result.get("coverage", []) as Array[Dictionary])
 	var final: Dictionary = result.get("final", {})
 	var winner: int = int(final.get("winner", MapModel.NO_ID))
 	if winner == MapModel.NO_ID:
@@ -195,6 +202,7 @@ func _report(seeds: PackedStringArray) -> void:
 			]
 		)
 	print("Unfinished / no declared winner: %d of %d" % [_unfinished, _appearances])
+	_report_coverage()
 	var seconds: float = float(_elapsed_usec) / 1e6
 	var per_run: float = seconds / float(maxi(_appearances, 1))
 	print(
@@ -217,6 +225,15 @@ func _report(seeds: PackedStringArray) -> void:
 
 
 # --- plumbing ----------------------------------------------------------------
+
+
+## The shipped-rule checklist, then a failure per major rule the campaign never
+## exercised: an under-use gap fails the harness by scan instead of waiting for
+## a forensic run (issue #605).
+func _report_coverage() -> void:
+	print(AiCoverage.report(_coverage))
+	for rule: String in AiCoverage.missing_major(_coverage):
+		_fail("coverage: %s was never exercised in %d run(s)" % [rule, _appearances])
 
 
 func _parse_args() -> void:
