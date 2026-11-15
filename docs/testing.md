@@ -25,7 +25,8 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
-  `Main.preset_world`; snapshot/restore when a case mutates the chart.
+  `Main.preset_world`; snapshot/restore when a case mutates the chart. A
+  published Standard/Large chart is drawn once per seed and size, then re-read.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
   civilians, passing fair split on the **first** attempt.
 - Terrain wash (`MapWash.baked`), fog tables (`VisibilityModel`) and chart
