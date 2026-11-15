@@ -386,6 +386,55 @@ func test_a_rival_proposal_is_declined_without_stopping_the_turn() -> void:
 	)
 
 
+func test_battles_never_open_a_plate() -> void:
+	var play: PlaySession = _seat_the_ai()
+	# Seat a real clash on land and at sea so the Auto gate is walked, not only
+	# asserted against an empty battle pass (wiki: auto-mode § No interruptions).
+	var rival: int = 2
+	var province: int = Fixture.foreign_province(play.model)
+	assert_true(province >= 0, "the fixture seats a foreign province")
+	play.model.province_data(province).owner = rival
+	play.model.province_data(province).fort_level = 0
+	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, rival)
+	play.army_layer.armies.clear()
+	var holding: ArmyState = ArmyState.muster(
+		1, rival, province, false, ["guards", "guards"], 1
+	)
+	var field: ArmyState = ArmyState.muster(
+		2, play.player_faction, province, false,
+		["guards", "guards", "guards", "guards", "guards", "guards", "guards", "guards"],
+		100
+	)
+	field.moved = true
+	play.army_layer.armies.append(holding)
+	play.army_layer.armies.append(field)
+	play.army_layer._rebuild_markers()
+	var land: Array[Dictionary] = MapPlayLandTurn.resolve(play)
+	assert_false(land.is_empty(), "the crown fights on land under Auto")
+	assert_false(play.hud.is_quick_battle_shown(), "Auto fights Quick Battles silently")
+	assert_true(play.hud.plates.land_queue.is_empty(), "no land plate is queued")
+
+	var zone: int = int(play.model.sea_zones[0].id)
+	# Dock every standing squadron so only the minted pair shares the water.
+	for fleet: FleetState in play.ship_layer.fleets:
+		fleet.location = FleetState.Location.IN_PORT
+		fleet.province = int(play.model.provinces[0].id)
+	var player_fleet: FleetState = FleetState.at_sea(
+		901, play.player_faction, zone, ["hull_player"], {"hull_player": "carrack"}
+	)
+	player_fleet.moved = true
+	var enemy_fleet: FleetState = FleetState.at_sea(
+		902, rival, zone, ["hull_enemy"], {"hull_enemy": "fluyte"}
+	)
+	play.ship_layer.fleets.append(player_fleet)
+	play.ship_layer.fleets.append(enemy_fleet)
+	play.ship_layer.regions.set_region(play.model.region_id, play.ship_layer.fleets)
+	play.ship_layer.rebuild_markers()
+	var sea: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
+	assert_false(sea.is_empty(), "the crown fights at sea under Auto")
+	assert_true(play.hud.plates.sea_queue.is_empty(), "no sea plate is queued")
+
+
 # --- fixtures ----------------------------------------------------------------
 
 
