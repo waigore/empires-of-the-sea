@@ -242,17 +242,76 @@ func test_the_driver_holds_the_clock_for_a_prompt_and_a_pause() -> void:
 
 func test_the_chart_stays_readable_but_raises_no_order() -> void:
 	var play: PlaySession = _seat_the_ai()
-	var army: ArmyState = _own_army(play)
-	if army == null:
-		return
+	var army: ArmyState = _ensure_army(play)
 	var marker: ArmyMarker = play.army_layer.marker_for(army)
-	if marker != null:
-		MapPlayInput.on_tapped(play, marker.position)
-		assert_eq(play.army_layer.selected_army, army, "a marker still opens its dossier")
-	var tile: Vector2i = _land_tile(play.model, army)
-	MapPlayInput.on_tapped(play, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE))
+	assert_not_null(marker, "the fixture seats a marker the chart can open")
+	MapPlayInput.on_tapped(play, marker.position)
+	assert_eq(play.army_layer.selected_army, army, "a marker still opens its dossier")
+	# Far from the marker so the tap is an order attempt, not a re-select.
+	var away: Vector2 = marker.position + Vector2(PlaySession.TILE_SIZE * 3, 0)
+	MapPlayInput.on_tapped(play, away)
 	assert_false(army.moved, "a tap on the chart raises no march")
-	assert_true(play.economy.orders.seat_held_elsewhere(), "the ledger is gated too")
+	play.army_layer.selected_army = null
+	var ship: Ship = _ensure_ship(play)
+	assert_not_null(ship, "the capital still has a hull")
+	play.ship_layer.select(ship)
+	MapPlayInput.on_tapped(play, away)
+	assert_false(army.moved, "and a sailing tap raises no march either")
+	MapPlayInput.on_panel_action(play, "recruit")
+	assert_true(MapPlayAuto.blocks_orders(play), "the province sheet is gated too")
+
+
+func test_the_ledger_and_college_raise_no_order() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var orders: LedgerOrders = play.economy.orders
+	var book: MarketBook = play.economy.market.book
+	var before: int = book.orders_for(play.player_faction).size()
+	var treasury: int = play.economy.economy.treasury
+	assert_true(orders.seat_held_elsewhere(), "Auto holds the ledger")
+	assert_eq(orders.trade("grain", 1, true), {}, "a bid is ignored")
+	orders.offer("no-court-sells-this", 1)
+	orders.withdraw("no-such-order")
+	orders.set_production("lumber", 2)
+	orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	orders.assign_research("land_enclosure")
+	orders.cancel_research(0)
+	orders.cycle_research_funding(0)
+	assert_eq(book.orders_for(play.player_faction).size(), before, "the book is untouched")
+	assert_eq(play.economy.economy.treasury, treasury, "the purse is untouched")
+	assert_eq(
+		play.economy.economy.production.assignment_units("lumber"), 0, "no run is assigned"
+	)
+
+
+## Court in hand: the ordering gates open so a march tap is attempted (covers
+## the `if ordering:` true branch the Auto-on cases leave cold).
+func test_the_ordering_gates_open_when_the_court_holds_the_seat() -> void:
+	var play: PlaySession = screen.play
+	assert_false(MapPlayAuto.blocks_orders(play), "the court still holds the seat")
+	var army: ArmyState = _ensure_army(play)
+	play.army_layer.select(army)
+	var away: Vector2 = play.army_layer.marker_for(army).position + Vector2(
+		PlaySession.TILE_SIZE * 3, 0
+	)
+	MapPlayInput.on_tapped(play, away)
+	play.army_layer.selected_army = null
+	var ship: Ship = _ensure_ship(play)
+	play.ship_layer.select(ship)
+	MapPlayInput.on_tapped(play, ship.position)
+	assert_eq(play.ship_layer.selected(), ship, "a hull marker still opens its dossier")
+	# Off the chart, a held turn, and a decided campaign: the early returns the
+	# seat-gate insert shifts into the patch.
+	MapPlayInput.on_tapped(play, Vector2(-10000, -10000))
+	play.turn_suspended = true
+	MapPlayInput.on_panel_action(play, "recruit")
+	play.turn_suspended = false
+	play.campaign_halted = true
+	MapPlayInput.on_panel_action(play, "recruit")
+	play.campaign_halted = false
+	# Null-host short-circuit on the ledger gates the insert also shifts.
+	var bare := LedgerOrders.new(null)
+	bare.offer("x", 1)
+	bare.assign_research("land_enclosure")
 
 
 # --- no interruptions --------------------------------------------------------
@@ -298,6 +357,30 @@ func _own_army(play: PlaySession) -> ArmyState:
 			if army != null and army.owner == play.player_faction:
 				return army
 	return null
+
+
+## Seats a crown army on the capital when the fixture chart has none yet.
+func _ensure_army(play: PlaySession) -> ArmyState:
+	var army: ArmyState = _own_army(play)
+	if army != null:
+		return army
+	var capital: int = play.capital_province
+	army = ArmyState.muster(99, play.player_faction, capital, false, ["pikemen"], 990)
+	play.army_layer.armies.append(army)
+	play.army_layer.add_marker(army)
+	return army
+
+
+## Seats a crown hull when the fixture chart has none yet, so a sailing tap can
+## hit the Auto gate rather than the empty-selection path.
+func _ensure_ship(play: PlaySession) -> Ship:
+	var capital: int = play.capital_province
+	var fleet: FleetState = play.ship_layer.home_fleet(capital)
+	if fleet == null:
+		fleet = FleetState.in_port(90, play.player_faction, capital, ["ship_90"], {})
+		play.ship_layer.fleets.append(fleet)
+		play.ship_layer.rebuild_markers()
+	return play.ship_layer.ship_for(fleet)
 
 
 ## A land tile of the army's own province, so a refused order is refused by the

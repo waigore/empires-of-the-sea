@@ -28,24 +28,27 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if civilian != null:
 		play.civilian_layer.select(civilian)
 		return
-	if ordering and MapPlayCivilians.try_move(play, world_position):
-		return
+	if ordering:
+		if MapPlayCivilians.try_move(play, world_position):
+			return
 	if army != null:
 		play.army_layer.select(army)
 		return
 	var tile: Vector2i = MapGeo.tile_at_world(world_position, PlaySession.TILE_SIZE)
 	if not play.model.in_bounds(tile.x, tile.y):
 		return
-	if ordering and play.army_layer.selected_army != null and MapPlayArmies.try_order(play, tile):
-		return
+	if ordering:
+		if play.army_layer.selected_army != null and MapPlayArmies.try_order(play, tile):
+			return
 	var ship: Ship = play.ship_layer.ship_at(
 		world_position, 30.0 / maxf(play.camera.zoom.x, 0.001)
 	)
 	if ship != null:
 		play.ship_layer.select(ship)
 		return
-	if ordering and play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):
-		return
+	if ordering:
+		if play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):
+			return
 	# The sea reading is a reading, not a door: a tap on its water says the line
 	# a hover would print, because a phone has no cursor to hover with
 	# (REQ-P1-05, REQ-P5-05).
