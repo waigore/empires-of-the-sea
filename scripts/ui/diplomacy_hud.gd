@@ -26,12 +26,8 @@ static func build(hud: GameHud) -> void:
 
 ## One sheet, built with the court, over its own canvas layer.
 static func _build_dossier_screen(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "DossierLayer"
-	layer.layer = 6
-	hud.add_child(layer)
 	hud.dossier_screen = CourtDossierScreen.new()
-	layer.add_child(hud.dossier_screen)
+	ModalShell.mount_layer(hud, "DossierLayer").add_child(hud.dossier_screen)
 
 
 ## The court takes the whole screen like the ledger and the college: its summary

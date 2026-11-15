@@ -27,6 +27,14 @@ var hint_text: String = ""
 var hint_pixels: int = 10
 
 
+## The one session the sheet reads. Every crown sheet binds it the same way, so
+## the family assigns it here instead of repeating the same override
+## (REQ-P3-01). A sheet opened from another sheet binds nothing and keeps the
+## session the sheet under it carried.
+func bind(p_session: PlaySession) -> void:
+	play = p_session
+
+
 # --- subclass hooks ----------------------------------------------------------
 
 
