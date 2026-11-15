@@ -16,6 +16,7 @@ static func step(run) -> void:
 	await _province_ledger(run, screen)
 	await _spy_ledger(run, screen)
 	await _command_ledger(run, screen)
+	await _bid_budget(run, screen)
 
 
 ## Map readings: the crown-road lens mounts on the real map, fills its survey
@@ -163,3 +164,19 @@ static func _command_ledger(run, screen: MapScreen) -> void:
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the command ledger sets itself aside")
+
+
+## The ledger's market tab prints the purse the auction may spend before a bid
+## is staged (wiki: world-market § Treasury budget for bids; DR-20261115-13).
+static func _bid_budget(run, screen: MapScreen) -> void:
+	screen.hud.economy_pressed.emit()
+	await run.tree.process_frame
+	var panel: EconomyPanel = screen.hud._economy_panel
+	if panel == null:
+		run.check(false, "the ledger opens from the purse")
+		return
+	panel.select_tab(1)
+	await run.tree.process_frame
+	run.check(panel._market_page != null, "the market tab mounts")
+	run.check(run.has_text(panel._market_page, "BIDS"), "the budget line prints")
+	screen.hud.panels.hide_economy()

@@ -115,6 +115,7 @@ suites = [
 [domains.economy]
 suites = [
   "test_market_economy_rules.gd",
+  "test_market_budget.gd",
   "test_diplomacy_rules.gd",
 ]
 
@@ -1168,6 +1169,13 @@ domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy_ui"
+
+# The market tab's bid-budget banner (wiki: world-market § Treasury budget for
+# bids): the sheet reads one figure from MarketBudget, so it rides the economy
+# suites that prove that projection instead of the menu catch-all.
+[[rules]]
+match = "scripts/ui/ledger_budget.gd*"
 domain = "economy_ui"
 
 [[rules]]

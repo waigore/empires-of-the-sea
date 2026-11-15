@@ -209,6 +209,32 @@ static func cargo_color(cargo: Dictionary) -> Color:
 	return Palette.TEXT
 
 
+## The bid budget above the market rows: the purse the auction may spend after
+## the turn's waiting Build/work orders are paid (wiki: world-market § Treasury
+## budget for bids; DR-20261115-13). A promised purse is named, never hidden —
+## the refusal a crown meets on a bid is this line's own figure (REQ-P5-05).
+static func bid_budget_line(budget: Dictionary) -> String:
+	var purse: int = int(budget.get("treasury", 0))
+	var promised: int = int(budget.get("promised", 0))
+	var left: int = int(budget.get("budget", 0))
+	if promised <= 0:
+		return "BIDS  the whole purse — %s ducats" % TextFormat.thousands(purse)
+	var orders: int = (budget.get("orders", []) as Array).size()
+	var count: String = "%d waiting order%s" % [orders, "" if orders == 1 else "s"]
+	if left <= 0:
+		return "BIDS  nothing this turn — %s ducats promised to %s" % [
+			TextFormat.thousands(promised), count
+		]
+	return "BIDS  %s of %s ducats — %s promised to %s" % [
+		TextFormat.thousands(left), TextFormat.thousands(purse),
+		TextFormat.thousands(promised), count,
+	]
+
+
+static func bid_budget_color(budget: Dictionary) -> Color:
+	return Palette.GOLD_PALE if int(budget.get("budget", 0)) <= 0 else Palette.TEXT
+
+
 static func idle_labour(report: Dictionary) -> int:
 	return int((report.get("consumption", {}) as Dictionary).get("idle_labour", 0))
 
