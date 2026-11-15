@@ -146,10 +146,14 @@ func _end_turn(hud: GameHud) -> void:
 
 
 ## Toasts sit under the cartouche. The rail below it is empty now, so the lane
-## runs the full width on a phone too. The lane owns the geometry.
+## runs the full width on a phone too. The lane owns the geometry; while Auto's
+## plaque and pace hold that band, the lane starts below them (wiki: auto-mode).
 func _toasts(hud: GameHud) -> void:
 	if hud.despatches == null:
 		return
-	hud.despatches.fit(compact, hud.top_bar.offset_bottom, LEFT_RAIL)
+	var top: float = hud.top_bar.offset_bottom
+	if hud.auto_bar != null and hud.auto_bar.is_showing():
+		top += AutoBar.CHROME_HEIGHT
+	hud.despatches.fit(compact, top, LEFT_RAIL)
 
 
