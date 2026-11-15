@@ -85,6 +85,31 @@ func _add_cargo_banner() -> void:
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.custom_minimum_size = Vector2(240, 0)
 	add_child(banner)
+	_add_crossing()
+
+
+## The crossing the holds will make this turn, under the holds they spend: the
+## Extraction phase ships the richest tonnage first and leaves the rest on the
+## far shore, and the despatch only says so after the fact (wiki: ships-and-naval
+## § Cargo holds and capacity; DR-20261116-05). Printed only when tonnage waits,
+## so a court with no overseas estate reads no extra chrome (REQ-P1-07), and the
+## rule sits on the page rather than in a hover a phone never shows (REQ-P5-07).
+func _add_crossing() -> void:
+	var read: Dictionary = _cargo.get("crossing", {}) as Dictionary
+	var line: String = CargoRead.line(read)
+	if line.is_empty():
+		return
+	var crossing := UiRowBuilder.label(line, 12, Palette.GOLD_PALE)
+	crossing.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	crossing.custom_minimum_size = Vector2(240, 0)
+	add_child(crossing)
+	var note: String = CargoRead.note(read)
+	if note.is_empty():
+		return
+	var rule := UiRowBuilder.label(note, 11, Palette.TEXT_DIM)
+	rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rule.custom_minimum_size = Vector2(240, 0)
+	add_child(rule)
 
 
 ## Staged bids and offers: what the court will take to the turn-end auction. A

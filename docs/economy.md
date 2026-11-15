@@ -39,8 +39,7 @@ Projections never mutate.
 
 Steel, bronze, cigars and fur hats take **two turns** (`turns`); the alloys
 combine two inputs (DR-20261114-10). Inputs and labour are paid up front; the
-batch lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02). A
-set row starts a batch a phase.
+batch lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
 
 A slow row's bench holds **three pieces** (`QUEUE_CAP`): a fourth run waits for
 a landing (DR-20261114-12). A landing frees its place; a paid batch keeps its.
@@ -61,8 +60,7 @@ Tiebreaks: priority, pact, colony favour, Consulate, relation; a suzerain
 clears its colony (`MarketFavoured`). A boycott bars the pair. First right pays
 a purchased tile's owner, relation share and embassy cut.
 Unfilled orders carry while holds cover; offers cap post-production.
-Bids spend `treasury − waiting build orders` (`MarketBudget`); the MARKET tab
-prints it.
+Bids spend `treasury − waiting build orders` (`MarketBudget`).
 
 ## Trade terms
 
@@ -73,20 +71,22 @@ Prices publish once; pact, boycott, subsidy apply at settlement
 
 Ledger `PRODUCTION`: stockpile by group, holdings; steppers capped by
 labour/inputs (`allowance`), a worked row naming its output (`made 3`).
-`MARKET`: staged orders, Minor/Tribe/world rows, the bid budget. `WORKERS`: tier medallions,
-`RECRUIT`, `DISBAND`, a **batch press** (`recruit_affordable`; `UNDER ORDERS`
-folds a batch), a `LARDER` block (`LarderRead`) reading the next Consumption's
-store, every appetite, the striking tier.
-
+`MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, and a
+`CROSSING` line (`CargoRead`) naming tonnage left abroad.
+`WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
+(`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
+(`LarderRead`) reading the next Consumption's store, every appetite, the
+striking tier.
 
 ## Deferred (REQ-P2-02)
 
-Building-gated recipes; slower rows past the four
-([`deferred.md`](deferred.md)).
+None — the town-works gate shipped (DR-20261116-04). Gaps:
+[`deferred.md`](deferred.md).
 
 ## Architecture
 
 `player_economy`, `economy_turn`, `economy_consumption`, `larder_read`,
+`cargo_read`,
 `production_recipes`,
 `commodity_catalog`, `world_market`, `market_*`, `first_right`,
 `market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,

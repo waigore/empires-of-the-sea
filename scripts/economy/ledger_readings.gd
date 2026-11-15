@@ -48,18 +48,24 @@ func army_food() -> int:
 
 ## Merchant cargo for the ledger: holds in the home fleet, this turn's colonial
 ## delivery reserved first, imports laden this turn (wiki: ships-and-naval
-## § Cargo holds and capacity; DR-20261109-03, DR-20261109-17).
+## § Cargo holds and capacity; DR-20261109-03, DR-20261109-17) — and the crossing
+## those holds will make, so the ledger names the tonnage it strands before the
+## turn closes (DR-20261116-05; REQ-P5-05).
 func trade_cargo() -> Dictionary:
 	if host == null or host.market == null:
-		return {"holds": 0, "used": 0, "reserved": 0, "free": 0}
+		return {
+			"holds": 0, "used": 0, "reserved": 0, "free": 0,
+			"crossing": CargoRead.reading({}),
+		}
 	var market: WorldMarket = host.market
+	var plan: Dictionary = overseas_plan()
 	var status: Dictionary
 	if host.ship_layer == null or host.ship_layer.world == null:
 		status = {"holds": 0, "used": TradeCargo.used(market), "reserved": 0, "free": 0}
 	else:
 		status = TradeCargo.status(
 			host.ship_layer.world, host.ship_layer.regions.snapshot(),
-			host.player_faction, market, int(overseas_plan().get("used", 0))
+			host.player_faction, market, int(plan.get("used", 0))
 		)
 	# The ledger shows what is still free after staged bids; the clearing pass
 	# needs the gross figure, because the bids themselves are not yet laden.
@@ -68,6 +74,7 @@ func trade_cargo() -> Dictionary:
 	status["pending"] = pending
 	status["clear_free"] = gross
 	status["free"] = maxi(gross - pending, 0)
+	status["crossing"] = CargoRead.reading(plan)
 	return status
 
 

@@ -2610,6 +2610,12 @@ domain = "economy"
 match = "scripts/rules/larder_read.gd*"
 domain = "economy"
 
+# The crossing forecast the MARKET tab reads: the overseas plan's own holds and
+# stranded tonnage, so it travels with the economy rules it mirrors.
+[[rules]]
+match = "scripts/rules/cargo_read.gd*"
+domain = "economy"
+
 [[rules]]
 match = "scripts/rules/extraction.gd"
 domain = "economy"
