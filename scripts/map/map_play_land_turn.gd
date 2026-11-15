@@ -116,8 +116,16 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 	var changed: bool = false
 	var fallen: Array = losses.get("fallen", [])
 	for entry: Dictionary in fallen:
-		play.last_falls.append(entry)
 		var faction: int = int(entry["faction"])
+		# The crown's knowledge of the court at the moment it leaves play: the
+		# fall below clears the fallen court's relations, and the Gazette's World
+		# page still owes a line for a court the crown had met (wiki: the-gazette
+		# § Item catalog — World, "Great Power terminal fall").
+		entry["known"] = (
+			play.diplomacy != null
+			and play.diplomacy.has_relation(play.player_faction, faction)
+		)
+		play.last_falls.append(entry)
 		var conqueror: int = int(entry["conqueror"])
 		if play.army_layer != null:
 			# A fall removes the crown's armies: hand them to nobody.
