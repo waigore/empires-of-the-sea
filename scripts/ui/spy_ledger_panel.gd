@@ -134,7 +134,7 @@ func _heading(caption: String, tally: String) -> void:
 
 func _spy_row(row: Dictionary) -> Control:
 	var widget := SpyLedgerRow.new()
-	widget.compact = HudLayout.is_compact(get_viewport_rect().size)
+	widget.compact = LedgerList.is_compact(_rows)
 	widget.visit_pressed.connect(_visit)
 	widget.setup(row)
 	return widget

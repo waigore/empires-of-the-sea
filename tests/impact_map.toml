@@ -287,6 +287,18 @@ suites = [
   "test_naval_ledger.gd",
 ]
 
+# The dress the crown's sheets all print in — the chart/reading strip and the
+# grouped list — shared by the provinces, towns, muster, navy, people and
+# command sheets. A change to it runs the suites that drive those sheets,
+# instead of the whole map or ui fan-out.
+[domains.ledger_dress]
+suites = [
+  "test_ledgers.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_town_ledger.gd",
+]
+
 # A rival's naval strength is read only after the crown has watched her across
 # a turn (wiki: ships-and-naval § Sighted strength; DR-20261113-20). The watch,
 # the marker that prints `*`, the dossier that prints ???, the turn hook that
@@ -649,6 +661,18 @@ domain = "navy"
 [[rules]]
 match = "tests/test_naval_ledger.gd*"
 domain = "navy"
+
+# The dress every crown ledger prints in: the two-row chart/reading strip and
+# the grouped list the provinces, towns, muster, navy, people and command
+# sheets all build their body from. One shared change runs the suites that
+# drive those sheets, and no map, menu or ui catch-all.
+[[rules]]
+match = "scripts/ui/ledger_filter_bar.gd*"
+domain = "ledger_dress"
+
+[[rules]]
+match = "scripts/ui/ledger_list.gd*"
+domain = "ledger_dress"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
 # The sheet rides the court ledger's door, so it is mapped before the ui glob;
