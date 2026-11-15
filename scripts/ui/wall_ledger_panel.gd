@@ -65,19 +65,12 @@ func _empty_text() -> String:
 func _subtitle_text(shown: int) -> String:
 	var counts: Dictionary = WallLedger.filter_counts(_snapshot, _region)
 	var reading: Dictionary = WallLedger.summary(_snapshot, _region)
-	var line: String = (
-		"Showing %d of %d walls %s — %d bare, %d ready, %d at work, %d walled."
-		% [
-			shown,
-			int(_snapshot.get("total", 0)),
-			LedgerRows.scope_text(_region),
-			int(reading["bare"]),
-			int(counts.get(WallLedger.FILTER_READY, 0)),
-			int(counts.get(WallLedger.FILTER_AT_WORK, 0)),
-			int(reading["walled"]) + int(reading["citadel"]),
-		]
-	)
-	return line + _reading_note()
+	return _count_line(shown, "%d bare, %d ready, %d at work, %d walled." % [
+		int(reading["bare"]),
+		int(counts.get(WallLedger.FILTER_READY, 0)),
+		int(counts.get(WallLedger.FILTER_AT_WORK, 0)),
+		int(reading["walled"]) + int(reading["citadel"]),
+	])
 
 
 func _make_row(raw: Variant, compact: bool) -> Control:

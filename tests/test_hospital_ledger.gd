@@ -135,6 +135,21 @@ func test_a_crew_already_on_the_town_tile_closes_the_press() -> void:
 	)
 
 
+## A ward row is minted on the same head and the same step fields as the town
+## and the wall, so the raise spine reads all three sheets alike (REQ-P3-01).
+func test_a_ward_row_carries_the_shared_head_and_step_fields() -> void:
+	var row: Dictionary = _row(
+		HospitalLedger.snapshot(_regions(_engineers()), 0), FactionCatalog.OLD_WORLD
+	)
+	for key: String in [
+		"id", "region", "region_label", "name", "capital", "level", "level_text"
+	]:
+		assert_true(row.has(key), "the shared head: %s" % key)
+	for key: String in ["state", "crew", "remaining", "cost_text", "turns"]:
+		assert_true(row.has(key), "the shared step: %s" % key)
+	assert_eq(String(row["level_text"]), "—", "an open shore prints the sheet's own dash")
+
+
 ## A finished ward that went unfed keeps its walls and loses its nurses: the note
 ## must not claim the ward's own rest share (wiki: combat § Regiment condition;
 ## DR-20261112-04).

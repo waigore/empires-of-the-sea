@@ -45,7 +45,6 @@ const STATE_ORDER: Dictionary = {
 }
 
 const ROMAN: Array[String] = ["—", "I", "II", "III"]
-const NO_ID: int = -1
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
@@ -111,7 +110,7 @@ static func summary(data: Dictionary, region_key: String) -> Dictionary:
 ## The level as the court reads it: a wall is a numeral, and an open shore is a
 ## dash rather than a zero (P1).
 static func level_text(level: int) -> String:
-	return ROMAN[clampi(level, 0, FortRules.MAX_LEVEL)]
+	return RaiseLedger.numeral(ROMAN, level, FortRules.MAX_LEVEL)
 
 
 ## The rule a crown pays by, printed on the sheet rather than hidden in a hover
@@ -141,62 +140,39 @@ static func _row(
 	var level: int = FortRules.clamp_level(province.fort_level)
 	var next: int = FortRules.next_level(level)
 	var refusal: String = CivilianWorkPlan.fort_refusal(level, tech_unlocked, stockpile)
-	var crew: CivilianState = _crew(units, province.owner, site)
-	var state: String = _state(level, crew, refusal, units, province.owner, site)
-	var cost_text: String = CivilianWorkPlan.cost_text(FortRules.cost(next))
-	return {
-		"id": province.id,
-		"region": region,
-		"region_label": FactionCatalog.region_label(region),
-		"name": String(province.name),
-		"capital": province.capital,
-		"level": level,
-		"level_text": level_text(level),
-		"line": FortRules.describe(level),
-		"guns": FortRules.guns(level),
-		"wall_hp": int(round(FortRules.wall_hp(level))),
-		"next_level": next,
-		"next_name": FortRules.level_name(next),
-		"cost_text": cost_text,
-		"turns": FortRules.turns(next),
-		"state": state,
-		"crew": String(crew.display_name()) if crew != null else "",
-		"remaining": crew.remaining_turns() if crew != null else 0,
-		"note": _note(state, next, cost_text, refusal, crew),
-	}
-
-
-## What the next step waits on, worst first: a finished wall, a crew already at
-## work, the study the order needs, a free Engineer, else the order is open.
-static func _state(
-	level: int,
-	crew: CivilianState,
-	refusal: String,
-	units: Array[CivilianState],
-	owner: int,
-	site: Vector2i
-) -> String:
-	return RaiseLedger.state_for(
+	var crew: CivilianState = RaiseLedger.crew_for(units, province.owner, site, "build_fort")
+	# What the next step waits on, worst first: a finished wall, a crew already
+	# at work, the study the order needs, a free Engineer, else the order is
+	# open.
+	var state: String = RaiseLedger.state_for(
 		level,
 		FortRules.MAX_LEVEL,
 		crew,
 		refusal,
-		ImprovementOrders.nearest_engineer(units, owner, site) != null,
+		ImprovementOrders.nearest_engineer(units, province.owner, site) != null,
 		STATE_RAISED,
 		STATE_NO_ENGINEER
 	)
-
-
-## The Engineer already raising this wall, read from the crew's own record so
-## the row names the level the order was priced for.
-static func _crew(
-	units: Array[CivilianState], owner: int, site: Vector2i
-) -> CivilianState:
-	return RaiseLedger.crew_for(units, owner, site, "build_fort")
+	var cost_text: String = CivilianWorkPlan.cost_text(FortRules.cost(next))
+	var turns: int = FortRules.turns(next)
+	var row: Dictionary = RaiseLedger.row_head(province, region, level, level_text(level))
+	row.merge(RaiseLedger.row_step(state, crew, cost_text, turns))
+	row["line"] = FortRules.describe(level)
+	row["guns"] = FortRules.guns(level)
+	row["wall_hp"] = int(round(FortRules.wall_hp(level)))
+	row["next_level"] = next
+	row["next_name"] = FortRules.level_name(next)
+	row["note"] = _note(state, next, cost_text, turns, refusal, crew)
+	return row
 
 
 static func _note(
-	state: String, next: int, cost_text: String, refusal: String, crew: CivilianState
+	state: String,
+	next: int,
+	cost_text: String,
+	turns: int,
+	refusal: String,
+	crew: CivilianState
 ) -> String:
 	match state:
 		STATE_RAISED:
@@ -205,16 +181,13 @@ static func _note(
 			]
 		STATE_AT_WORK:
 			var target: int = crew.work_detail("fort_level", next)
-			var left: int = crew.remaining_turns()
-			return "%s raises the %s fort · %d turn%s left." % [
-				crew.display_name(), FortRules.level_name(target).to_lower(), left,
-				"" if left == 1 else "s",
-			]
+			return RaiseLedger.at_work_note(
+				crew, "the %s fort" % FortRules.level_name(target).to_lower()
+			)
 		STATE_LOCKED:
 			return refusal
 		STATE_NO_ENGINEER:
-			return "No idle Engineer musters — train one at the capital."
-	var turns: int = FortRules.turns(next)
-	return "Next: %s fort · %s · %d turn%s" % [
-		FortRules.level_name(next).to_lower(), cost_text, turns, "" if turns == 1 else "s",
-	]
+			return RaiseLedger.no_crew_note("Engineer")
+	return RaiseLedger.next_note(
+		"%s fort" % FortRules.level_name(next).to_lower(), cost_text, turns
+	)

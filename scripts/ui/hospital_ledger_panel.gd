@@ -65,23 +65,17 @@ func _empty_text() -> String:
 func _subtitle_text(shown: int) -> String:
 	var counts: Dictionary = HospitalLedger.filter_counts(_snapshot, _region)
 	var reading: Dictionary = HospitalLedger.summary(_snapshot, _region)
-	var line: String = (
-		"Showing %d of %d wards %s — %d bare, %d ready, %d at work, %d standing."
-		% [
-			shown,
-			int(_snapshot.get("total", 0)),
-			LedgerRows.scope_text(_region),
-			int(reading["bare"]),
-			int(counts.get(HospitalLedger.FILTER_READY, 0)),
-			int(counts.get(HospitalLedger.FILTER_AT_WORK, 0)),
-			int(reading["standing"]),
-		]
-	)
+	var line: String = _count_line(shown, "%d bare, %d ready, %d at work, %d standing." % [
+		int(reading["bare"]),
+		int(counts.get(HospitalLedger.FILTER_READY, 0)),
+		int(counts.get(HospitalLedger.FILTER_AT_WORK, 0)),
+		int(reading["standing"]),
+	])
 	line += " Staffs eat %d food a turn." % int(reading["ration"])
 	var unfed: int = int(reading["unfed"])
 	if unfed > 0:
 		line += " %d went unfed this turn." % unfed
-	return line + _reading_note()
+	return line
 
 
 func _make_row(raw: Variant, compact: bool) -> Control:

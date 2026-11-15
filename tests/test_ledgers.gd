@@ -2104,6 +2104,98 @@ func test_the_spine_reads_the_finished_and_no_crew_words_the_sheet_passes() -> v
 	)
 
 
+## The head of a row is minted once for every raise sheet: the province, the
+## chart it stands on and the level as the court reads it, so a town, a wall and
+## a ward can never disagree about what a row is (REQ-P3-01; DR-20261116-01).
+func test_the_spine_mints_the_head_every_raise_row_carries() -> void:
+	var province: ProvinceState = Naval.build().provinces[0]
+	var head: Dictionary = RaiseLedger.row_head(
+		province, FactionCatalog.NEW_WORLD, 3, "III"
+	)
+	assert_eq(int(head["id"]), province.id, "the press reads the province by its id")
+	assert_eq(int(head["region"]), FactionCatalog.NEW_WORLD, "the chart the row stands on")
+	assert_eq(
+		String(head["region_label"]), FactionCatalog.region_label(FactionCatalog.NEW_WORLD)
+	)
+	assert_eq(String(head["name"]), String(province.name))
+	assert_eq(bool(head["capital"]), province.capital)
+	assert_eq(int(head["level"]), 3)
+	assert_eq(String(head["level_text"]), "III")
+	var town_row: Dictionary = _row(
+		TownLedger.snapshot(_town_regions(_builders()), 0), FactionCatalog.OLD_WORLD
+	)
+	var wall_row: Dictionary = _row(
+		WallLedger.snapshot(_wall_regions(_engineers()), 0), FactionCatalog.OLD_WORLD
+	)
+	for key: String in head.keys():
+		assert_true(town_row.has(key), "a town row carries the shared head: %s" % key)
+		assert_true(wall_row.has(key), "a wall row carries the shared head: %s" % key)
+
+
+## A row's middle names the crew at the step and the price the press would pay,
+## so the row and the order can never disagree (REQ-P2-03).
+func test_the_spine_mints_the_step_fields_every_raise_row_carries() -> void:
+	var builder: CivilianState = CivilianState.create(1, 0, "builder", TOWN_TILE)
+	builder.start_work("upgrade_town", TOWN_TILE, 2, TOWN_TILE, {"town_level": 2})
+	var step: Dictionary = RaiseLedger.row_step(
+		TownLedger.STATE_AT_WORK, builder, "4 lumber + 4 cast iron", 2
+	)
+	assert_eq(String(step["state"]), TownLedger.STATE_AT_WORK)
+	assert_eq(String(step["crew"]), builder.display_name(), "the crew that works it")
+	assert_eq(int(step["remaining"]), 2, "the wait it still owes")
+	assert_eq(String(step["cost_text"]), "4 lumber + 4 cast iron")
+	assert_eq(int(step["turns"]), 2)
+	var empty: Dictionary = RaiseLedger.row_step(TownLedger.STATE_NO_BUILDER, null, "—", 1)
+	assert_eq(String(empty["crew"]), "", "no crew, no name")
+	assert_eq(int(empty["remaining"]), 0)
+
+
+## One wait, one wording: a single turn is never "1 turns" (REQ-P5-03).
+func test_the_spine_prints_one_wait_for_a_step_however_long() -> void:
+	assert_eq(RaiseLedger.turn_text(1), "1 turn")
+	assert_eq(RaiseLedger.turn_text(3), "3 turns")
+	assert_eq(RaiseLedger.turns_left(1), "1 turn left")
+	assert_eq(RaiseLedger.turns_left(2), "2 turns left")
+	assert_eq(
+		RaiseLedger.next_note("wood fort", "3 lumber", 1), "Next: wood fort · 3 lumber · 1 turn"
+	)
+	assert_eq(
+		RaiseLedger.next_note("field hospital", "3 lumber", 2),
+		"Next: field hospital · 3 lumber · 2 turns"
+	)
+
+
+## The note a crew already at the work leaves names who works it and what it
+## raises; a crown with no free hand names the crew it must train.
+func test_the_spine_names_the_crew_the_step_and_the_training_a_wait_needs() -> void:
+	var builder: CivilianState = CivilianState.create(1, 0, "builder", TOWN_TILE)
+	builder.start_work("upgrade_town", TOWN_TILE, 2, TOWN_TILE, {"town_level": 2})
+	assert_eq(
+		RaiseLedger.at_work_note(builder, "it to II"),
+		"%s raises it to II · 2 turns left." % builder.display_name()
+	)
+	assert_eq(
+		RaiseLedger.no_crew_note("Builder"),
+		"No idle Builder musters — train one at the capital."
+	)
+	assert_eq(
+		RaiseLedger.no_crew_note("Engineer"),
+		"No idle Engineer musters — train one at the capital."
+	)
+
+
+## The numeral is the sheet's own table, clamped to the ceiling its domain
+## allows, so a level past the top still prints the sheet's top numeral (P1).
+func test_the_spine_clamps_the_numeral_to_the_sheet_table() -> void:
+	var walls: Array[String] = ["—", "I", "II", "III"]
+	assert_eq(RaiseLedger.numeral(walls, 0, 3), "—", "an open shore is a dash")
+	assert_eq(RaiseLedger.numeral(walls, 2, 3), "II")
+	assert_eq(RaiseLedger.numeral(walls, 9, 3), "III", "past the top, the top numeral")
+	var towns: Array[String] = ["", "I", "II", "III", "IV"]
+	assert_eq(RaiseLedger.numeral(towns, 0, 4, 1), "I", "a town never prints a blank level")
+	assert_eq(RaiseLedger.numeral(towns, 9, 4, 1), "IV")
+
+
 # --- the batch press ---------------------------------------------------------
 
 
