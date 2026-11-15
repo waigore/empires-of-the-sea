@@ -11,7 +11,7 @@ Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are har
 
 Tier 1 is the merge gate (`tests` / `e2e-smoke`). Tier 2 does not block PRs; failures open a sticky `ci-tier2` issue the **fix-tests** agent closes.
 
-Tier 2 shards because `gd-tools` boots one Godot process **per suite**; shards run on separate runners and `coverage-gate` merges their coverage so the 80% gate spans the project.
+Tier 2 shards because `gd-tools` boots one Godot process **per suite**; shards run on separate runners; `coverage-gate` merges them for the project-wide 80% gate.
 
 Strict map: unmapped in-scope paths fail. `full = true` runs every suite. Keep the map complete (`python tools/select_impacted_tests.py --check-complete`).
 
@@ -26,7 +26,7 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
   `Main.preset_world`; snapshot/restore when a case mutates the chart. A
-  published Standard/Large chart is drawn once per seed and size, then re-read.
+  published chart draws once per seed and size; two seeds prove a price order.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
   civilians, passing fair split on the **first** attempt.
 - Terrain wash (`MapWash.baked`), fog tables (`VisibilityModel`) and chart

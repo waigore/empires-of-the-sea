@@ -26,9 +26,15 @@ Install over a previous build: `adb install -r <apk>`.
 ## Agent debug bridge on a device
 
 Android debug builds carry the opt-in localhost bridge (see
-[agent-debug.md](agent-debug.md)): launch with the `command_line` extra
-`-- --agent-debug=8765`, then `adb forward tcp:8765 tcp:8765` and connect to
-`ws://127.0.0.1:8765` from the host.
+[agent-debug.md](agent-debug.md)). The launcher alias drops the launch
+intent's command-line extra, so Android's opt-in is the enable file: write the
+port into the app's `user://` storage and restart the app, then
+`adb forward tcp:8765 tcp:8765` and connect to `ws://127.0.0.1:8765` from the
+host:
+
+```bash
+adb shell run-as com.waigore.empiresofthesea.debug sh -c 'echo 8765 > files/agent_debug.enable'
+```
 
 ## Out of scope
 
