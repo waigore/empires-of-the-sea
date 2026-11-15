@@ -17,6 +17,10 @@ static var view_live: bool = true
 
 
 static func end_turn(play: PlaySession) -> void:
+	# Auto holds the seat: the paced driver presses the turn, not the court
+	# (wiki: auto-mode § End Turn. The seal stays visible and inert).
+	if play.auto_active:
+		return
 	# The battle plate owns input while a Quick Battle plays; a second turn would
 	# stack behind it (REQ-P5-06).
 	if play.hud != null and play.hud.is_quick_battle_shown():
@@ -42,6 +46,29 @@ static func end_turn(play: PlaySession) -> void:
 		return
 	if not MapPlayDiplomacy.resolve_turn(play):
 		return
+	_finish_turn(play)
+
+
+## The paced driver's turn, once Auto holds the crown's seat: each waiting
+## decision is answered in the crown's own interest, then the turn runs to its
+## staged passes (wiki: auto-mode § No interruptions).
+static func auto_turn(play: PlaySession) -> void:
+	if play.hud != null and play.hud.is_quick_battle_shown():
+		return
+	if play.campaign_over():
+		MapPlayAuto.note(play, MapPlayCampaign.closed_message(play))
+		return
+	# A decision the player left open when the seat changed hands, and any the
+	# rival pass raises below: Auto answers each one rather than holding the
+	# calendar. The guard keeps a malformed ladder from spinning the driver.
+	var answered: int = 0
+	while MapPlayAuto.answer_pending(play) and answered < 8:
+		answered += 1
+	if not MapPlayDiplomacy.resolve_turn(play):
+		if not MapPlayAuto.answer_pending(play):
+			return
+		MapPlayDiplomacy.close_turn(play)
+	play.turn_suspended = false
 	_finish_turn(play)
 
 
