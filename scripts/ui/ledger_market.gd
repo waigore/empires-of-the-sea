@@ -1,8 +1,12 @@
 class_name LedgerMarket
 extends VBoxContainer
-## MARKET tab of the ledger: the cargo-hold banner and one Buy/Sell row per
-## commodity. A full hold or an unknown fleet locks imports; every press is an
-## intent and the controller decides (wiki: ships-and-naval; REQ-P2-03).
+## MARKET tab of the ledger: the crown's own trade — cargo-hold banner, trade
+## terms, staged orders, the last clearing and one Buy/Sell row per commodity.
+## A full hold or an unknown fleet locks imports; every press is an intent and
+## the controller decides (wiki: ships-and-naval; REQ-P2-03).
+##
+## The Minor Nations & Tribes book is its own plate (LedgerOffers), so this page
+## keeps one domain: the world price and the court's orders against it.
 
 signal trade_requested(commodity: String, quantity: int, is_buy: bool)
 signal offer_requested(offer_id: String, quantity: int)
@@ -14,7 +18,6 @@ const CATEGORIES: Array = [
 	CommodityCatalog.Category.RAW,
 	CommodityCatalog.Category.MANUFACTURED,
 ]
-const OFFER_HEADER: String = "MINOR NATIONS & TRIBES"
 
 var _economy: PlayerEconomy = null
 var _market: WorldMarket = null
@@ -22,14 +25,8 @@ var _market: WorldMarket = null
 var _cargo: Dictionary = {}
 ## Last clearing report: the deals it settled and the overseas share it paid.
 var _clearing: Dictionary = {}
-## This turn's Minor/Tribe book, kept so a chip press redraws rows only.
-var _offers: Array = []
-## The seller and good chips (and the row order) narrow the published book.
-var _seller_filter: int = MarketOffersHead.ALL_SELLERS
-var _good_filter: String = MarketOffersHead.ALL_GOODS
-var _offer_sort: String = MarketOffersHead.SORT_SELLER
-var _offers_head: MarketOffersHead = null
-var _offers_box: VBoxContainer = null
+## The offers plate: the tribes' book and the chips that narrow it.
+var _offers_plate: LedgerOffers = null
 ## A phone viewport wants thumb-sized chips; remembered for the next rebuild.
 var _compact: bool = false
 ## The crown reading the book: its own staged orders, deals, terms and subsidy.
@@ -178,133 +175,53 @@ func _add_deals() -> void:
 		add_child(shares)
 
 
-## Direct offers sit above the world price rows: who sells, what is left, and
-## what the court asks. The seller/good chips and the row order are presentation
-## only — they narrow the book the auction already published and never stage or
-## edit an order (REQ-P2-03). An empty book still says so, so the section never
-## looks broken (REQ-P1-07, REQ-P5-03).
+## The tribes' book stands above the world price rows on its own plate: the
+## chips, the reading they select and the rows they narrow never touch this
+## page (REQ-P3-01). A bid is still an intent — the plate emits it and the
+## controller decides (REQ-P2-03).
 func _add_offers(offers: Array) -> void:
-	_offers = offers
-	_offers_head = null
-	_offers_box = null
+	_offers_plate = null
 	UiRowBuilder.spacer(self, 6.0)
-	var title := UiRowBuilder.label(OFFER_HEADER, 11, Palette.GOLD_DIM)
-	title.tooltip_text = "Direct purchases from the Minor Nations and Tribes, below the world price."
-	add_child(title)
-	var hint := UiRowBuilder.label(
-		"The courts' harvest enters the turn-end auction at the published price.", 11,
-		Palette.TEXT_DIM
+	_offers_plate = LedgerOffers.new()
+	_offers_plate.offer_requested.connect(
+		func(offer_id: String, quantity: int) -> void:
+			offer_requested.emit(offer_id, quantity)
 	)
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	hint.custom_minimum_size = Vector2(240, 0)
-	add_child(hint)
-	if offers.is_empty():
-		var none := UiRowBuilder.label(
-			"No court has goods for sale this turn.", 12, Palette.TEXT_DIM
-		)
-		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		none.custom_minimum_size = Vector2(240, 0)
-		add_child(none)
-		UiRowBuilder.spacer(self, 4.0)
-		return
-	_offers_head = MarketOffersHead.new()
-	_offers_head.filters_changed.connect(_on_offers_filtered)
-	_offers_head.set_compact(_compact)
-	add_child(_offers_head)
-	_offers_box = VBoxContainer.new()
-	_offers_box.add_theme_constant_override("separation", 4)
-	add_child(_offers_box)
-	_offers_head.render(offers, _seller_filter, _good_filter, _offer_sort)
-	_render_offers()
+	add_child(_offers_plate)
+	_offers_plate.fill(offers, _cargo, _compact, _market, _viewer)
 	UiRowBuilder.spacer(self, 4.0)
 
 
-## Rebuilds only the offer rows, so a chip press never re-runs the rest of the
-## page and the pressed chip and the list always move together (REQ-P5-05).
-func _render_offers() -> void:
-	if _offers_box == null:
-		return
-	UiRowBuilder.clear(_offers_box)
-	var rows: Array[Dictionary] = visible_offers()
-	if rows.is_empty():
-		var none := UiRowBuilder.label("No offers match this filter.", 12, Palette.TEXT_DIM)
-		none.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		none.custom_minimum_size = Vector2(240, 0)
-		_offers_box.add_child(none)
-		return
-	var header := UiRowBuilder.row(0.0)
-	header.add_child(UiRowBuilder.caption("SELLER", 10, Palette.TEXT_DIM, 96.0))
-	header.add_child(UiRowBuilder.caption("GOOD", 10, Palette.TEXT_DIM, 84.0))
-	header.add_child(UiRowBuilder.caption("LEFT", 10, Palette.TEXT_DIM, 40.0))
-	header.add_child(UiRowBuilder.caption("PRICE", 10, Palette.TEXT_DIM, 46.0))
-	_offers_box.add_child(header)
-	for row: Dictionary in rows:
-		_offers_box.add_child(_offer_row(row))
-
-
-## The head's chips are an intent, not a rule: the page only remembers which
-## slice of the published book to draw.
-func _on_offers_filtered(seller: int, good: String, sort_key: String) -> void:
-	_seller_filter = seller
-	_good_filter = good
-	_offer_sort = sort_key
-	_render_offers()
-
-
-## Rows the strip is drawing right now, in display order (tests and tooling use
-## this instead of reaching into the offer box; REQ-P3-02).
+## Rows the offers plate is drawing right now, in display order (tests and
+## tooling use this instead of reaching into the offer box; REQ-P3-02).
 func visible_offers() -> Array[Dictionary]:
-	return MarketOffersHead.apply(_offers, _seller_filter, _good_filter, _offer_sort)
+	return _offers_plate.visible_offers() if _offers_plate != null else []
 
 
 ## The seller/good/sort chips, for tests and the mobile layout audit.
 func offer_filters() -> Dictionary:
-	return _offers_head.filter_buttons() if _offers_head != null else {}
+	return _offers_plate.offer_filters() if _offers_plate != null else {}
+
+
+## The Bid buttons the offers plate is drawing, in row order (REQ-P3-02).
+func offer_buttons() -> Array[Button]:
+	if _offers_plate == null:
+		return []
+	return _offers_plate.offer_buttons()
 
 
 ## Thumb-sized chips on a phone viewport (REQ-P5-07).
 func set_compact(compact: bool) -> void:
 	_compact = compact
-	if _offers_head != null:
-		_offers_head.set_compact(compact)
+	if _offers_plate != null:
+		_offers_plate.set_compact(compact)
 
 
-func _offer_row(offer: Dictionary) -> Control:
-	var row := UiRowBuilder.row(ROW_HEIGHT)
-	var seller: int = int(offer.get("faction", -1))
-	var commodity: String = String(offer.get("commodity", ""))
-	var left: int = int(offer.get("quantity", 0))
-	var ask: int = MinorMarket.ask_for_reader(_market, offer, _viewer)
-
-	row.add_child(
-		UiRowBuilder.caption(FactionCatalog.name_of(seller), 13, FactionCatalog.color_of(seller), 96.0)
-	)
-	row.add_child(CommodityIcons.cell(commodity, 84.0, 13))
-	var left_label := UiRowBuilder.label("%d" % left, 13, Palette.GOLD_PALE)
-	left_label.custom_minimum_size = Vector2(40, 0)
-	left_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(left_label)
-
-	var ask_label := UiRowBuilder.label("%d" % ask, 13, Palette.GOLD_PALE)
-	ask_label.custom_minimum_size = Vector2(46, 0)
-	ask_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(ask_label)
-
-	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 54.0)
-	# The ask is what the clearing charges this pair — the published price with
-	# the crown's terms and any subsidy step — so the tooltip names it rather
-	# than the untaxed price (wiki: world-market § Subsidy price adjustment).
-	buy.tooltip_text = "Bid 1 %s at the ask of %d — it clears when the turn closes" % [
-		CommodityCatalog.label(commodity), ask
-	]
-	# Imports need a free hold in the home fleet (DR-20261109-03).
-	if int(_cargo.get("free", -1)) == 0:
-		buy.disabled = true
-		buy.tooltip_text = "No cargo holds free this turn"
-	var row_id: String = String(offer.get("id", ""))
-	buy.pressed.connect(func() -> void: offer_requested.emit(row_id, 1))
-	row.add_child(buy)
-	return row
+## Drops the reading back to the whole book: the page is rebuilt in place, so a
+## chip a reader (or a case) pressed stays pressed into the next book.
+func reset_offer_filters() -> void:
+	if _offers_plate != null:
+		_offers_plate.reset_filters()
 
 
 ## One plain sentence for the court's trade diplomacy, so an adjusted price is

@@ -4158,16 +4158,17 @@ func _has_cancel(node: Node) -> bool:
 ## price with the crown's terms and the pair's subsidy step (wiki: world-market
 ## § Subsidy price adjustment; REQ-P5-05).
 func test_the_minor_offer_bid_names_the_ask() -> void:
-	var ledger := LedgerMarket.new()
-	var row: Control = ledger._offer_row({
+	var plate := LedgerOffers.new()
+	plate.fill([{
 		"id": "6:timber", "faction": 6, "commodity": "timber",
 		"quantity": 1, "unit_price": 33,
-	})
-	var buy: Button = row.get_child(row.get_child_count() - 1) as Button
+	}], {})
+	var bids: Array[Button] = plate.offer_buttons()
+	assert_eq(bids.size(), 1)
+	var buy: Button = bids[0]
 	assert_eq(buy.text, "Bid")
 	assert_true(buy.tooltip_text.contains("ask of 33"), buy.tooltip_text)
-	row.free()
-	ledger.free()
+	plate.free()
 
 
 ## The Deal Book prices every commodity row for the crown reading it: a court
