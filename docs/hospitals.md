@@ -12,10 +12,8 @@ thirty dossiers).
 
 ## Opening it
 
-The realm ledger carries **Hospitals ›** beside **Towns ›** and **Walls ›**. The
-realm prints each province's ward; this sheet prints the step that raises it, so
-the door sits on the reading that raises the question
-([`provinces.md`](provinces.md), [`towns.md`](towns.md), [`walls.md`](walls.md)).
+The realm ledger carries **Hospitals ›** beside **Towns ›** and **Walls ›**, on
+the reading that raises the question ([`provinces.md`](provinces.md)).
 
 ## What a row reads
 
@@ -28,7 +26,8 @@ the door sits on the reading that raises the question
 
 The sheet states the rule a crown pays by: rest 40% / 55% and the wear a defeat
 leaves cut to 80% / 65%, and a staff that eats 2 food a turn per level — a ward
-the larder cannot cover goes unfed and heals nothing that turn.
+the larder cannot cover goes unfed: its walls still shelter the wounded, but its
+nurses are lost and the province rests at the field's 25%.
 
 ## Filters
 
@@ -44,7 +43,9 @@ is in hand, then what waits, the finished wards last; the weakest ward leads.
 order the civilian panel files (`ImprovementOrders.build_hospital` →
 `CivilianWork`), swapping the chart first when the province lies on the other
 one. The order's message reaches the court as the toast, and the row repaints as
-`AT WORK`. A row that cannot be raised carries no press: the note names the wait.
+`AT WORK`. A row that cannot be raised carries no press: the note names the wait
+— the study, the stores, or another crew already working the town tile — in the
+order's own words.
 
 ## Architecture
 
@@ -56,10 +57,10 @@ one. The order's message reaches the court as the toast, and the row repaints as
 | `scripts/ui/hospital_ledger_row.gd` | one ward |
 | `scripts/ui/province_ledger_panel.gd` | the `Hospitals ›` door |
 
-No figure is recomputed: the level, the rest share, the triage and the ration
-are `HospitalRules`, the price is `HospitalRules.cost`, the wait is
-`HospitalRules.turns`, and the gate is `CivilianWorkPlan.hospital_refusal` — the
-wording the order itself refuses with (`REQ-P2-03`).
+No figure is recomputed: the level, rest share, triage and ration are
+`HospitalRules`, the price `HospitalRules.cost`, the wait `HospitalRules.turns`,
+and the gate `CivilianWorkPlan.hospital_refusal` — the order's own wording
+(`REQ-P2-03`).
 
 ## Tests
 

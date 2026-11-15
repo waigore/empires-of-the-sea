@@ -163,6 +163,23 @@ static func _known_stores_refusal(cost: Dictionary, stockpile: Variant) -> Strin
 	return stores_refusal(cost, stockpile as Dictionary)
 
 
+## The per-player tile exclusivity rule the orders enforce, in the order's own
+## wording: one Builder, Engineer or Merchant works a tile at a time (wiki:
+## civilian-units § Per-player tile exclusivity). `crew` is the hand the order
+## would send; a null hand is the row's own "no crew" word, not a busy tile.
+## Every raise sheet reads this before it offers a press, so a row can never
+## promise an order the exclusivity rule refuses (REQ-P2-03).
+static func tile_busy_refusal(
+	units: Array[CivilianState], crew: CivilianState, tile: Vector2i
+) -> String:
+	if crew == null:
+		return ""
+	var free: Dictionary = CivilianTransport.exclusive(units, crew, tile)
+	if bool(free.get("ok", false)):
+		return ""
+	return String(free.get("reason", ""))
+
+
 ## Why this crown cannot raise the province's ward now, or "" when the order is
 ## open. The hospitals ledger's rows read this one wording, so a row can never
 ## offer a ward the order would refuse: the level cap and the study are
