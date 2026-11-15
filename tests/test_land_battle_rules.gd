@@ -2481,6 +2481,13 @@ func test_normal_leaves_every_court_on_the_published_start_row() -> void:
 	assert_eq(rival.quantity("grain"), PlayerEconomy.START_PEASANTS * PlayerEconomy.START_GRAIN_TURNS)
 	assert_eq(rival.quantity("wool"), 4)
 
+## The published seed capital (#676, wiki: ruleset-config § Starting stockpiles):
+## the income chain costs cash up front, so the opening purse must carry it.
+func test_the_published_starting_purse_is_twenty_thousand() -> void:
+	assert_eq(PlayerEconomy.START_TREASURY, 20000)
+	assert_eq(PlayerEconomy.starting().treasury, 20000)
+	assert_eq(Difficulty.scaled(PlayerEconomy.START_TREASURY, 100), 20000)
+
 func test_the_human_crown_is_never_scaled() -> void:
 	var play := PlaySession.new()
 	play.player_faction = 2

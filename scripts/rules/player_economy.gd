@@ -10,7 +10,10 @@ extends RefCounted
 ## slice's starting purse). Grain is seeded from peasants x turns of food. The
 ## manufactured lines also fund the opening civilian work orders (improvements,
 ## roads, training), which used to be a separate demo stockpile.
-const START_TREASURY: int = 2500
+## The seed capital the income chain needs: the college trains, explorers survey
+## and prospect, builders open mines and roads while the purse still exists
+## (wiki: ruleset-config § Starting stockpiles; #676).
+const START_TREASURY: int = 20000
 const START_PEASANTS: int = 6
 const START_GRAIN_TURNS: int = 20
 ## Materials the opening civilian work orders (improvements, roads, training)

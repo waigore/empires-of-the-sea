@@ -28,17 +28,18 @@ Minors track the strongest Great Power's regiment era; Tribes stay level 1
 - `WorldMap` holds both grids. Regions share no grid adjacency; **warp zones**
   (one edge sea zone per side) pair 1:1, marked “Passage”; fleets cross to the
   other world.
-- A sea zone wears the water it lies on, not pool order (wiki: naming §
-  Sea zones, DR-20261113-07).
+- Resources stand on 30% of each region's land; forests always carry one
+  (DR-20261115-16).
+- A sea zone wears the water it lies on, not pool order (DR-20261113-07).
 - The region button swaps canvas, fog, fleets, civilians, works and camera
   bounds. Rosters persist per region; each region advances every turn. Chips are
-  empire totals; squadrons stay where provinces are held.
+  empire totals; squadrons stay put.
 
 ## Setup post-pass
 
 After capitals are fixed, `WorldBootstrap` turns the capital-choice plan into
 works (ports, harbour roads), sets capital town development to 4 and
-places four L1 grain farms per Great Power on plains (thin sites levelled),
+places four L1 grain farms per Great Power on plains,
 road-wired to the seat (wiki: capital-and-connectivity).
 
 ## Ownership

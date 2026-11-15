@@ -38,11 +38,15 @@ func generate_region(
 	MapLandform.build(model, seed_value, region_id)
 	_build_provinces(model)
 	_build_sea_zones(model)
-	_build_resources(model)
 	_build_ports(model)
 	_assign_factions(model, region_id)
 	_place_capitals(model, region_id)
+	# Towns before resources: the town tile is converted to plains and never
+	# carries a resource (capital-and-connectivity § Town per province), so the
+	# seeder must read the final town tiles or the published density loses a tile
+	# per province (#676).
 	_assign_town_tiles(model)
+	_build_resources(model)
 	_name_provinces(model)
 	return model
 

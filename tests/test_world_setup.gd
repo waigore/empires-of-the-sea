@@ -643,7 +643,7 @@ func _advanced_after_each() -> void:
 func test_presets_match_the_published_tiers() -> void:
 	assert_eq(AdvancedStart.turn(AdvancedStart.TURNS50), 50)
 	assert_eq(AdvancedStart.turn(AdvancedStart.TURNS100), 100)
-	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS50)["treasury"]), 20000)
+	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS50)["treasury"]), 40000)
 	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS100)["treasury"]), 40000)
 	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS100)["apprentices"]), 4)
 	assert_eq(AdvancedStart.regiments(AdvancedStart.TURNS50), 6)
@@ -1183,6 +1183,66 @@ func test_resources_sit_on_allowed_terrain() -> void:
 		var terrain: int = gen_model.terrain_at(tile.x, tile.y)
 		var allowed: Array = table[resource]["terrain"]
 		assert_true(allowed.has(terrain), "%s on %d" % [table[resource]["name"], terrain])
+
+
+## The published density (#676): 30% of a region's land tiles carry a resource.
+## Measured, not eyeballed — the old one-to-three-per-province draw measured
+## ~3%, which left courts nothing to extract (wiki: resource-terrain-region-rules).
+func test_a_region_carries_thirty_percent_of_its_land_in_resources() -> void:
+	for model: MapModel in [gen_model, world.region(FactionCatalog.NEW_WORLD)]:
+		var land: int = 0
+		var carrying: int = 0
+		for y in model.height:
+			for x in model.width:
+				if model.is_sea(x, y):
+					continue
+				land += 1
+				if model.resource_at(x, y) != MapModel.NO_ID:
+					carrying += 1
+		assert_gt(land, 0)
+		var share: float = float(carrying) / float(land)
+		assert_between(share, 0.28, 0.32, "%s carries %.2f%%" % [model.region_key, share * 100.0])
+
+
+## Spawn weight is inverse to the default market price (wiki § Table), so on one
+## terrain the cheap commodities outweigh the dear ones.
+func test_the_resource_draw_orders_by_inverse_price() -> void:
+	var model := MapModel.new()
+	model.setup(1, 1)
+	model.terrain[0] = MapModel.Terrain.PLAINS
+	var table: Array[Dictionary] = MapGenerator.resource_table()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1500
+	var counts: Dictionary = {}
+	for _draw in 3000:
+		var pick: int = ResourceSeeder._pick_resource(model, table, Vector2i(0, 0), rng)
+		assert_gte(pick, 0)
+		var commodity: String = String(table[pick]["commodity"])
+		counts[commodity] = int(counts.get(commodity, 0)) + 1
+	# Old World plains: meat (45), grain (50), horses (60).
+	assert_gt(int(counts.get("meat", 0)), int(counts.get("grain", 0)), "meat outdraws grain")
+	assert_gt(int(counts.get("grain", 0)), int(counts.get("horses", 0)), "grain outdraws horses")
+
+
+## The multi-region cap binds as the open ground fills: once `both`-scope rows
+## hold their 30%, a tile that offers a region-exclusive row takes it, and only a
+## tile with no alternative keeps placing `both` (wiki § Multi-region resource cap).
+func test_the_cap_takes_the_region_exclusive_row_when_one_is_offered() -> void:
+	var model := MapModel.new()
+	model.setup(1, 1)
+	var table: Array[Dictionary] = MapGenerator.resource_table()
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 1500
+	assert_false(ResourceSeeder._cap_reached(1, 10), "a tenth is under the cap")
+	assert_true(ResourceSeeder._cap_reached(3, 10), "three tenths reaches the cap")
+	model.terrain[0] = MapModel.Terrain.HILLS
+	for _draw in 200:
+		var pick: int = ResourceSeeder._pick_resource(model, table, Vector2i(0, 0), rng, true)
+		assert_eq(String(table[pick]["commodity"]), "wool", "Old World hills offer wool")
+	model.terrain[0] = MapModel.Terrain.MOUNTAINS
+	for _draw in 50:
+		var pick: int = ResourceSeeder._pick_resource(model, table, Vector2i(0, 0), rng, true)
+		assert_gte(pick, 0, "mountains carry no exclusive row, so `both` still lands")
 
 
 ## Every row of the published resource–terrain–region table, so a crop left out

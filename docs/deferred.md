@@ -34,7 +34,7 @@ Audited through DR-20261115-15 + #676 (REQ-P2-02).
 
 1. **Rival purse / starved economy** — Join Empire waits on
    `5,000 + 2,000 × provinces` (#489) while landings grow them (DR-14-14);
-   density and purse starve the same loop (#676).
+   density and purse ship per DR-15-16; re-measure waits.
 2. **Building gates / further rows** — worker tiers, alloy + luxury four and
    bench cap ship (DR-14-07/10/12); building gates remain.
 3. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship; soft
@@ -44,7 +44,7 @@ Audited through DR-20261115-15 + #676 (REQ-P2-02).
 
 ## Next pick
 
-Rival purse / starved economy (#489, #676) — rules call.
+Rival purse / starved economy (#489) — re-measure after DR-15-16.
 
 ## Blocked footnotes
 

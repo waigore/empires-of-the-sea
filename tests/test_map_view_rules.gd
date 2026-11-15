@@ -927,7 +927,10 @@ func _foreign_resource_tile(model: MapModel) -> Vector2i:
 		if province.owner == FactionCatalog.PLAYER_FACTION:
 			continue
 		for tile: Vector2i in province.tiles:
-			if model.resource_at(tile.x, tile.y) >= 0:
+			var resource: int = model.resource_at(tile.x, tile.y)
+			# A known (non-prospect) row, so the survey lists the tile without a
+			# prospecting pass (a mineral only shows once surveyed).
+			if resource >= 0 and not ImprovementCatalog.needs_prospecting(resource):
 				return tile
 	return Vector2i(-1, -1)
 
