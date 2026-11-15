@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:94166ddc76b807b0b0f5a5a2fc54d57c9ac87d3a4e29a1dd11f80dcb5b344372",
-  "submission_git": "fix/474-stalled-muster-stands-the-yard-down@6c0a0254",
+  "submission_hash": "sha256:d8ff8f491f15f33c5c434586227c5ac7eda5c8bdfa6dc8a33640b3ebddf629ca",
+  "submission_git": "orc/implement-then-hunt-1-s2-implement-then-hunt-hunt-defects-agent/20261115T162531851994Z@5a2e938a",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0f6ddba74d6f6b5137cf78b7f53c4f5d59aacfe52e9e7ef5bcc501e294905bed",
+    "ai_surface_hash": "sha256:8c2e16de97f4ef887640510be999b5e9e37f63f238207c6c14b15db25aeb76cc",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-15T16:11:35Z",
+  "timestamp": "2026-11-15T16:58:41Z",
   "report_version": 1,
-  "signature": "hmac-sha256:8750d8e61b98a01a1314c13ba82d5a47f75219bd9a4d3e1b3839e0011babab28"
+  "signature": "hmac-sha256:35806d8058ca3fb1898e64f91e23d4c85739b6c65967b81c30108ae5b93ddc03"
 }
