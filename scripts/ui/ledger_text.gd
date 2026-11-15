@@ -354,8 +354,8 @@ static func turn_summary(report: Dictionary) -> String:
 	var strikes: int = int(consumption.get("strikers", 0))
 	if strikes > 0:
 		parts.append("%d on strike" % strikes)
-	# A ward whose staff went unfed heals nothing next turn: say it, never
-	# silently (wiki: combat § Regiment condition; DR-20261112-04).
+	# A ward whose staff went unfed keeps its walls but loses its nurses: say it,
+	# never silently (wiki: combat § Regiment condition; DR-20261112-04).
 	var hungry: Array = (report.get("hospital", {}) as Dictionary).get("hungry", [])
 	if not hungry.is_empty():
 		parts.append(

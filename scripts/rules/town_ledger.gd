@@ -129,7 +129,13 @@ static func _row(
 		province, tech_unlocked, stockpile
 	)
 	var crew: CivilianState = _crew(units, province.owner, town)
-	var state: String = _state(level, crew, refusal, units, province.owner, town)
+	var hand: CivilianState = ImprovementOrders.nearest_builder(units, province.owner, town)
+	if refusal.is_empty():
+		# The town tile is shared with the wall and the ward, so another crew
+		# already at work there is the order's own refusal, not a press (wiki:
+		# civilian-units § Per-player tile exclusivity).
+		refusal = CivilianWorkPlan.tile_busy_refusal(units, hand, town)
+	var state: String = _state(level, crew, refusal, hand)
 	return {
 		"id": province.id,
 		"region": region,
@@ -161,21 +167,17 @@ static func _town_tile(province: ProvinceState) -> Vector2i:
 
 
 ## What the next step waits on, worst first: a finished town, a crew already at
-## work, the study the order needs, a free Builder, else the order is open.
+## work, the study, the stores or the busy tile the order needs, a free Builder,
+## else the order is open.
 static func _state(
-	level: int,
-	crew: CivilianState,
-	refusal: String,
-	units: Array[CivilianState],
-	owner: int,
-	town: Vector2i
+	level: int, crew: CivilianState, refusal: String, hand: CivilianState
 ) -> String:
 	return RaiseLedger.state_for(
 		level,
 		CivilianWorkPlan.MAX_TOWN,
 		crew,
 		refusal,
-		ImprovementOrders.nearest_builder(units, owner, town) != null,
+		hand != null,
 		STATE_DEVELOPED,
 		STATE_NO_BUILDER
 	)

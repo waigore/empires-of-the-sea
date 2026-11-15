@@ -41,6 +41,7 @@ within a state the cheapest step leads.
 
 ## Raise
 
+<<<<<<< HEAD
 **Raise** sends the nearest idle Builder through the dossier's own order
 (`ImprovementOrders.upgrade_town`), swapping the chart first when the province
 lies on the other one; its message is the toast, and the row repaints as
@@ -48,6 +49,15 @@ lies on the other one; its message is the toast, and the row repaints as
 press: the note names the wait. That includes the crown's stores — a town it
 cannot pay for reads `LOCKED` and names the materials, so the press is never
 offered an order the Builder would refuse.
+=======
+**Raise** sends the nearest idle Builder through the province dossier's own
+order (`ImprovementOrders.upgrade_town`), swapping the chart first when the
+province lies on the other one. The order's message reaches the court as the
+toast, and the row repaints as `AT WORK`. A row that cannot be raised carries no
+press: the note names the wait — the stores a town cannot pay for, or another
+crew already working the town tile (a wall or a ward rising there), in the
+order's own words.
+>>>>>>> origin/main
 
 **Raise all ready (n)** files every ready row the view prints — arm once,
 confirm once — in the sheet's order, and stops at the first refusal. One
@@ -69,5 +79,6 @@ record (`REQ-P2-03`).
 
 ## Tests
 
-`tests/test_town_ledger.gd` — the projection over both charts, every state, the
-tallies and the reading order, and the door, Raise, back and key.
+`tests/test_ledgers.gd` — the towns cases read the projection over both charts,
+every state, the tallies and the reading order, and the door, Raise, back and
+key.

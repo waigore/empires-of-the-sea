@@ -56,7 +56,7 @@ Rules need no nodes (`REQ-P3-03`).
 
 Suites: `test_campaign_rules` (standings, capital falls and plate),
 `test_campaign_end` (the victory, cap and defeat plates),
-`test_campaign_intro`.
+`test_menu_flow` (the crown's charge).
 
 ```bash
 gd-tools test --coverage --min 80
