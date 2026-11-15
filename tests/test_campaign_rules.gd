@@ -2635,6 +2635,73 @@ func test_the_age_room_names_no_crown_when_the_session_has_none() -> void:
 	_teardown_age_room()
 
 
+## The room is a table, not two strips (issue #672): the standing column and its
+## heading read on one line at a desktop and a phone plate width, and each row
+## keeps its two columns side by side. A wrapped cell reports no minimum width,
+## so the row's HBox used to hand the standing a single glyph and stack it.
+func test_the_age_room_reads_across_at_both_plate_widths() -> void:
+	for width: float in [GazettePlate.MAX_WIDTH, GazettePlate.MIN_WIDTH]:
+		_setup_age_room()
+		age_room_room.size = Vector2(width, 0.0)
+		var rows: Array[Dictionary] = [
+			_age_row(ENGLAND, "England", 28, 31, false),
+			_age_row(SPAIN, "Spain", 12, 36, true),
+		]
+		rows[0]["leader"] = true
+		age_room_room.fill({"rows": rows, "human": SPAIN, "calendar": "", "note": ""})
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var names: Array[Label] = []
+		var standing: Array[Label] = []
+		for row: Node in age_room_room.get_children():
+			if not row is HBoxContainer:
+				continue
+			var cells: Array[Node] = row.get_children()
+			if cells.size() != 2:
+				continue
+			names.append(cells[0] as Label)
+			standing.append(cells[1] as Label)
+		assert_eq(standing.size(), 3, "the heading and both crowns print a standing cell")
+		assert_eq(standing[0].text, AgeRoom.HEADINGS[1], "the standing heading leads the column")
+		for label: Label in standing:
+			assert_eq(label.get_line_count(), 1, "%s at %s" % [label.text, width])
+			assert_true(
+				label.size.x + 0.5 >= _one_line_width(label),
+				"%s reads across, not down: %s of %s" % [
+					label.text, label.size.x, _one_line_width(label)
+				]
+			)
+		for i: int in names.size():
+			assert_true(
+				standing[i].get_rect().position.x + 0.5 >= names[i].get_rect().end.x,
+				"the standing sits beside %s, not on it" % names[i].text
+			)
+			assert_true(
+				names[i].size.x + 0.5 >= _longest_word_width(names[i]),
+				"%s keeps its words whole: %s" % [names[i].text, names[i].size.x]
+			)
+		_teardown_age_room()
+
+
+## The width a label's text needs on one line, in its own face and size.
+func _one_line_width(label: Label) -> float:
+	return label.get_theme_font("font").get_string_size(
+		label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")
+	).x
+
+
+## The width of the label's longest word: below it the text breaks mid-word.
+func _longest_word_width(label: Label) -> float:
+	var font: Font = label.get_theme_font("font")
+	var size: int = label.get_theme_font_size("font_size")
+	var widest: float = 0.0
+	for word: String in label.text.split(" ", false):
+		widest = maxf(
+			widest, font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		)
+	return widest
+
+
 func test_the_plate_prints_the_whole_race_on_its_age_tab() -> void:
 	_setup_gazette_plate()
 	var rows: Array[Dictionary] = [

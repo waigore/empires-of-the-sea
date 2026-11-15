@@ -10,6 +10,7 @@ static func build(hud: GameHud) -> void:
 	_fleet(hud)
 	_economy(hud)
 	_research(hud)
+	_tech_tree(hud)
 	DiplomacyHud.build(hud)
 	_civilian(hud)
 	_roster(hud)
@@ -74,6 +75,28 @@ static func _research(hud: GameHud) -> void:
 		hud, hud._research_panel, HudPanelSlot.LEDGER_WIDTH, false
 	)
 	hud._research_wrap = hud.panels.research.wrap
+
+
+## The college's whole tree, full screen over the ledger: every advance as a
+## node on a pannable chart, its prerequisite edges drawn, the aimed advance's
+## ancestor road lit, and the goal door on the reading (DR-20261115-15).
+static func _tech_tree(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "TechTreeLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.tech_tree = TechTreePanel.new()
+	layer.add_child(hud.tech_tree)
+	hud._research_panel.tree_requested.connect(
+		func() -> void: hud.tech_tree.present(hud._research_panel.research_state())
+	)
+	# The chart's one intent is the college's own goal: steering it writes the
+	# state the ledger already keeps, and the chart repaints on the new goal.
+	hud.tech_tree.goal_requested.connect(func(tech_id: String) -> void:
+		var current: String = hud._research_panel.goal_tech()
+		hud._research_panel.set_goal("" if tech_id == current else tech_id)
+		hud.tech_tree.refresh()
+	)
 
 
 static func _civilian(hud: GameHud) -> void:

@@ -1288,6 +1288,12 @@ domain = "economy_ui"
 match = "tests/ledger_shot.gd*"
 domain = "economy_ui"
 
+# The chart's by-hand shot harness draws the college's full-screen tree
+# (DR-20261115-15), so it stays on the research reading's own suites.
+[[rules]]
+match = "tests/tech_tree_shot.gd*"
+domain = "research"
+
 [[rules]]
 match = "tests/test_market_economy_rules.gd*"
 domain = "economy"
@@ -2453,7 +2459,7 @@ match = "scripts/rules/research_*.gd"
 domain = "research"
 
 [[rules]]
-match = "scripts/rules/tech_*.gd"
+match = "scripts/rules/tech_*.gd*"
 domain = "research"
 
 [[rules]]
@@ -2747,7 +2753,7 @@ match = "scripts/ui/research_*.gd*"
 domain = "research"
 
 [[rules]]
-match = "scripts/ui/tech_*.gd"
+match = "scripts/ui/tech_*.gd*"
 domain = "research"
 
 [[rules]]

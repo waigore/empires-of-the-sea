@@ -71,7 +71,7 @@ func _headings() -> Control:
 	var first := GazetteParts.label(HEADINGS[0], 11, INK_SOFT)
 	first.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(first)
-	row.add_child(GazetteParts.label(HEADINGS[1], 11, INK_SOFT))
+	row.add_child(cell(HEADINGS[1], 11, INK_SOFT))
 	return row
 
 
@@ -81,8 +81,19 @@ func _row(entry: Dictionary) -> Control:
 	var name := GazetteParts.label(name_text(entry, human), 14, ink)
 	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(name)
-	row.add_child(GazetteParts.label(standing_text(entry), 14, ink))
+	row.add_child(cell(standing_text(entry), 14, ink))
 	return row
+
+
+## A table cell is one line (issue #672): a cell left to wrap reports no minimum
+## width, so the row's HBox hands it a strip of glyphs and the standing column
+## stacks one letter per line. The name column keeps the sheet's wrap, so a
+## phone plate breaks a long court name at a word instead of crushing the
+## standing beside it.
+static func cell(text: String, pixels: int, ink: Color) -> Label:
+	var out := GazetteParts.label(text, pixels, ink)
+	out.autowrap_mode = TextServer.AUTOWRAP_OFF
+	return out
 
 
 func _footer() -> void:
