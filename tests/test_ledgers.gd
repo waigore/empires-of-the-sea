@@ -58,8 +58,8 @@ func test_snapshot_lists_every_own_province_in_both_charts() -> void:
 	var snapshot: Dictionary = ProvinceLedger.snapshot(_regions(), 0)
 	assert_eq(int(snapshot["total"]), 2, "one crown province per chart")
 	assert_eq((snapshot["groups"] as Array).size(), 2, "one heading per chart")
-	assert_eq(ProvinceLedger.count(snapshot, ProvinceLedger.REGION_OLD), 1)
-	assert_eq(ProvinceLedger.count(snapshot, ProvinceLedger.REGION_NEW), 1)
+	assert_eq(ProvinceLedger.count(snapshot, LedgerRows.REGION_OLD), 1)
+	assert_eq(ProvinceLedger.count(snapshot, LedgerRows.REGION_NEW), 1)
 	for raw: Variant in snapshot["rows"]:
 		var row: Dictionary = raw
 		assert_ne(String(row["name"]), "Coro", "the rival's province stays out")
@@ -83,7 +83,7 @@ func test_a_cut_off_province_is_flagged_and_counted() -> void:
 		String(overseas["state"]).contains("Cut off — 3 road tiles to lay"),
 		"the row names the gap it waits on"
 	)
-	var counts: Dictionary = ProvinceLedger.filter_counts(snapshot, ProvinceLedger.REGION_ALL)
+	var counts: Dictionary = ProvinceLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)
 	assert_eq(int(counts[ProvinceLedger.FILTER_CUT]), 1, "one province is cut off")
 
 
@@ -122,19 +122,19 @@ func test_estates_read_the_ledgers_own_yield_and_works() -> void:
 
 func test_filters_narrow_the_ledger_and_keep_their_tallies() -> void:
 	var snapshot: Dictionary = ProvinceLedger.snapshot(_regions(), 0)
-	var counts: Dictionary = ProvinceLedger.filter_counts(snapshot, ProvinceLedger.REGION_ALL)
+	var counts: Dictionary = ProvinceLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)
 	assert_eq(int(counts[ProvinceLedger.FILTER_ALL]), 2)
 	assert_eq(int(counts[ProvinceLedger.FILTER_UNGARRISONED]), 1)
 	assert_eq(int(counts[ProvinceLedger.FILTER_WORKS]), 1)
 	var cut: Array[Dictionary] = ProvinceLedger.groups(
-		snapshot, ProvinceLedger.REGION_ALL, ProvinceLedger.FILTER_CUT
+		snapshot, LedgerRows.REGION_ALL, ProvinceLedger.FILTER_CUT
 	)
 	assert_eq(cut.size(), 1, "only the chart that holds a cut-off province")
 	for group: Dictionary in cut:
 		assert_eq(int(group["region"]), FactionCatalog.NEW_WORLD)
 		assert_eq((group["rows"] as Array).size(), 1)
 	assert_eq(
-		ProvinceLedger.count(snapshot, ProvinceLedger.REGION_OLD, ProvinceLedger.FILTER_CUT),
+		ProvinceLedger.count(snapshot, LedgerRows.REGION_OLD, ProvinceLedger.FILTER_CUT),
 		0,
 		"the seat is not cut off"
 	)
@@ -647,20 +647,20 @@ func test_snapshot_lists_every_own_force_in_both_regions() -> void:
 	assert_eq(int(snapshot["by_kind"][ForceLedger.KIND_ARMY]), 3, "the rival colours stay out")
 	assert_eq(int(snapshot["by_kind"][ForceLedger.KIND_SQUADRON]), 2, "the rival hulls stay out")
 	assert_eq((snapshot["groups"] as Array).size(), 2, "one heading per chart")
-	assert_eq(ForceLedger.count(snapshot, ForceLedger.REGION_OLD), 3)
-	assert_eq(ForceLedger.count(snapshot, ForceLedger.REGION_NEW), 2)
-	var counts: Dictionary = ForceLedger.kind_counts(snapshot, ForceLedger.REGION_OLD)
+	assert_eq(ForceLedger.count(snapshot, LedgerRows.REGION_OLD), 3)
+	assert_eq(ForceLedger.count(snapshot, LedgerRows.REGION_NEW), 2)
+	var counts: Dictionary = ForceLedger.kind_counts(snapshot, LedgerRows.REGION_OLD)
 	assert_eq(int(counts[ForceLedger.KIND_ARMY]), 2)
 	assert_eq(int(counts[ForceLedger.KIND_SQUADRON]), 1)
 
 
 func test_region_and_kind_filters_narrow_the_ledger() -> void:
 	var snapshot: Dictionary = ForceLedger.snapshot(_force_world(), _armies(), _fleets(), 0)
-	assert_eq(ForceLedger.count(snapshot, ForceLedger.REGION_OLD, ForceLedger.KIND_ARMY), 2)
-	assert_eq(ForceLedger.count(snapshot, ForceLedger.REGION_OLD, ForceLedger.KIND_SQUADRON), 1)
-	assert_eq(ForceLedger.count(snapshot, ForceLedger.REGION_NEW, ForceLedger.KIND_ARMY), 1)
-	assert_eq(ForceLedger.count(snapshot, ForceLedger.REGION_NEW, ForceLedger.KIND_SQUADRON), 1)
-	for group: Dictionary in ForceLedger.groups(snapshot, ForceLedger.REGION_NEW):
+	assert_eq(ForceLedger.count(snapshot, LedgerRows.REGION_OLD, ForceLedger.KIND_ARMY), 2)
+	assert_eq(ForceLedger.count(snapshot, LedgerRows.REGION_OLD, ForceLedger.KIND_SQUADRON), 1)
+	assert_eq(ForceLedger.count(snapshot, LedgerRows.REGION_NEW, ForceLedger.KIND_ARMY), 1)
+	assert_eq(ForceLedger.count(snapshot, LedgerRows.REGION_NEW, ForceLedger.KIND_SQUADRON), 1)
+	for group: Dictionary in ForceLedger.groups(snapshot, LedgerRows.REGION_NEW):
 		assert_eq(int(group["region"]), FactionCatalog.NEW_WORLD)
 		for raw: Variant in group["rows"]:
 			assert_ne(String((raw as Dictionary)["kind"]), "", "every row names its kind")
@@ -722,7 +722,7 @@ func test_empty_or_missing_rosters_project_an_empty_ledger() -> void:
 	var snapshot: Dictionary = ForceLedger.snapshot(null, null, null, 0)
 	assert_eq(int(snapshot["total"]), 0)
 	assert_true((snapshot["groups"] as Array).is_empty())
-	assert_eq(ForceLedger.count(snapshot, ForceLedger.REGION_ALL), 0)
+	assert_eq(ForceLedger.count(snapshot, LedgerRows.REGION_ALL), 0)
 	var empty_world: WorldMap = WorldMap.new()
 	assert_eq(int(ForceLedger.snapshot(empty_world, null, null, 0)["total"]), 0)
 
@@ -750,7 +750,7 @@ func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 	panel._on_filter(ForceLedger.KIND_ARMY, false)
 	assert_eq(panel._kind, ForceLedger.KIND_ARMY)
 	var shown: int = ForceLedger.count(
-		panel._snapshot, ForceLedger.REGION_ALL, ForceLedger.KIND_ARMY
+		panel._snapshot, LedgerRows.REGION_ALL, ForceLedger.KIND_ARMY
 	)
 	assert_true(
 		String(panel._subtitle.text).begins_with("Showing %d of" % shown),
@@ -768,7 +768,7 @@ func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 func test_region_filter_with_no_force_says_so() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.muster_roll_pressed.emit()
-	panel._on_filter(ForceLedger.REGION_OLD, true)
+	panel._on_filter(LedgerRows.REGION_OLD, true)
 	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
 	panel._apply_filter()
 	var shown: int = ForceLedger.count(panel._snapshot, panel._region, panel._kind)
@@ -867,17 +867,17 @@ func test_the_keyboard_action_toggles_from_the_map() -> void:
 
 
 func test_the_filter_bar_states_the_chart_once_and_reports_the_press() -> void:
-	assert_eq(LedgerFilterBar.chart_word(ProvinceLedger.REGION_OLD), "Old World")
-	assert_eq(LedgerFilterBar.chart_word(ProvinceLedger.REGION_NEW), "New World")
-	assert_eq(LedgerFilterBar.chart_word(ProvinceLedger.REGION_ALL), "Both charts")
+	assert_eq(LedgerFilterBar.chart_word(LedgerRows.REGION_OLD), "Old World")
+	assert_eq(LedgerFilterBar.chart_word(LedgerRows.REGION_NEW), "New World")
+	assert_eq(LedgerFilterBar.chart_word(LedgerRows.REGION_ALL), "Both charts")
 	assert_eq(LedgerFilterBar.chart_word("unknown"), "Both charts", "an unknown key filters nothing")
 	# A bar that was never filled paints nothing: a ledger may refresh first.
-	LedgerFilterBar.new().render(ProvinceLedger.REGION_ALL, ProvinceLedger.FILTER_ALL)
+	LedgerFilterBar.new().render(LedgerRows.REGION_ALL, ProvinceLedger.FILTER_ALL)
 
 	var bar := LedgerFilterBar.new()
 	add_child(bar)
 	bar.fill(
-		"Chart", "Reading", ProvinceLedger.REGION_FILTERS, ProvinceLedger.FILTERS,
+		"Chart", "Reading", LedgerRows.REGION_FILTERS, ProvinceLedger.FILTERS,
 		ProvinceLedger.filter_label
 	)
 	var chart_row := bar.get_child(0) as HBoxContainer
@@ -898,7 +898,7 @@ func test_the_filter_bar_states_the_chart_once_and_reports_the_press() -> void:
 	assert_eq(String((presses[0] as Array)[0]), ProvinceLedger.FILTER_CUT)
 	assert_false(bool((presses[0] as Array)[1]), "a reading chip is not the chart row")
 
-	bar.render(ProvinceLedger.REGION_OLD, ProvinceLedger.FILTER_CUT)
+	bar.render(LedgerRows.REGION_OLD, ProvinceLedger.FILTER_CUT)
 	var lit: Color = _chip(chart_row, "Old World").get_theme_color("font_color")
 	var plain: Color = _chip(chart_row, "Both charts").get_theme_color("font_color")
 	assert_eq(lit, Palette.GOLD_PALE, "the chosen chart reads gold")

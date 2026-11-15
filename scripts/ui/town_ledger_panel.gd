@@ -12,7 +12,7 @@ extends SheetFrame
 var _rows: VBoxContainer = null
 var _empty: Label = null
 var _bar: LedgerFilterBar = null
-var _region: String = TownLedger.REGION_ALL
+var _region: String = LedgerRows.REGION_ALL
 var _filter: String = TownLedger.FILTER_ALL
 var _snapshot: Dictionary = {}
 
@@ -49,7 +49,7 @@ func _build_crest() -> Control:
 func _build_body(column: VBoxContainer) -> void:
 	_bar = LedgerFilterBar.new()
 	_bar.fill(
-		"Chart", "Reading", TownLedger.REGION_FILTERS, TownLedger.FILTERS,
+		"Chart", "Reading", LedgerRows.REGION_FILTERS, TownLedger.FILTERS,
 		TownLedger.filter_label
 	)
 	_bar.chosen.connect(_on_filter)
@@ -116,9 +116,9 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 ## what it is looking at before it reads a row (REQ-P5-05).
 func _subtitle_text(shown: int) -> String:
 	var scope: String = "in both charts"
-	if _region == TownLedger.REGION_OLD:
+	if _region == LedgerRows.REGION_OLD:
 		scope = "in the Old World"
-	elif _region == TownLedger.REGION_NEW:
+	elif _region == LedgerRows.REGION_NEW:
 		scope = "in the New World"
 	var counts: Dictionary = TownLedger.filter_counts(_snapshot, _region)
 	var line: String = "Showing %d of %d towns %s — %d ready, %d at work, %d developed." % [

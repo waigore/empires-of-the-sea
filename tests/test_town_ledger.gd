@@ -40,8 +40,8 @@ func test_snapshot_lists_every_town_the_crown_holds_in_both_charts() -> void:
 	var snapshot: Dictionary = TownLedger.snapshot(_regions(_builders()), 0)
 	assert_eq(int(snapshot["total"]), 2, "one crown town per chart")
 	assert_eq((snapshot["groups"] as Array).size(), 2, "one heading per chart")
-	assert_eq(TownLedger.count(snapshot, TownLedger.REGION_OLD), 1)
-	assert_eq(TownLedger.count(snapshot, TownLedger.REGION_NEW), 1)
+	assert_eq(TownLedger.count(snapshot, LedgerRows.REGION_OLD), 1)
+	assert_eq(TownLedger.count(snapshot, LedgerRows.REGION_NEW), 1)
 	for raw: Variant in snapshot["rows"]:
 		var row: Dictionary = raw
 		assert_ne(String(row["name"]), "Coro", "the rival's town stays out")
@@ -71,7 +71,7 @@ func test_a_town_without_the_study_is_locked_and_names_it() -> void:
 		"the row names the study that opens it"
 	)
 	assert_eq(
-		int(TownLedger.filter_counts(snapshot, TownLedger.REGION_ALL)[TownLedger.FILTER_READY]),
+		int(TownLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)[TownLedger.FILTER_READY]),
 		0,
 		"a locked town is not counted as ready"
 	)
@@ -105,17 +105,17 @@ func test_a_developed_town_reads_finished() -> void:
 
 func test_filters_narrow_the_ledger_and_keep_their_tallies() -> void:
 	var snapshot: Dictionary = TownLedger.snapshot(_regions(_builders()), 0)
-	var counts: Dictionary = TownLedger.filter_counts(snapshot, TownLedger.REGION_ALL)
+	var counts: Dictionary = TownLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)
 	assert_eq(int(counts[TownLedger.FILTER_ALL]), 2)
 	assert_eq(int(counts[TownLedger.FILTER_READY]), 1)
 	assert_eq(int(counts[TownLedger.FILTER_DEVELOPED]), 1)
 	assert_eq(int(counts[TownLedger.FILTER_AT_WORK]), 0)
 	var ready: Array[Dictionary] = TownLedger.groups(
-		snapshot, TownLedger.REGION_ALL, TownLedger.FILTER_READY
+		snapshot, LedgerRows.REGION_ALL, TownLedger.FILTER_READY
 	)
 	assert_eq(ready.size(), 1, "only the chart that holds a ready town")
 	assert_eq(int(ready[0]["region"]), FactionCatalog.OLD_WORLD)
-	assert_eq(TownLedger.count(snapshot, TownLedger.REGION_NEW, TownLedger.FILTER_READY), 0)
+	assert_eq(TownLedger.count(snapshot, LedgerRows.REGION_NEW, TownLedger.FILTER_READY), 0)
 
 
 func test_the_reading_leads_with_what_can_be_raised_now() -> void:

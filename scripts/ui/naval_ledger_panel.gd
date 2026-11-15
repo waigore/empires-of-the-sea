@@ -10,7 +10,7 @@ extends SheetFrame
 var _rows: VBoxContainer = null
 var _empty: Label = null
 var _bar: LedgerFilterBar = null
-var _region: String = NavalLedger.REGION_ALL
+var _region: String = LedgerRows.REGION_ALL
 var _reading: String = NavalLedger.READING_ALL
 var _snapshot: Dictionary = {}
 
@@ -61,7 +61,7 @@ func _can_open() -> bool:
 func _build_body(column: VBoxContainer) -> void:
 	_bar = LedgerFilterBar.new()
 	_bar.fill(
-		"Chart", "Hull", NavalLedger.REGION_FILTERS, NavalLedger.READINGS,
+		"Chart", "Hull", LedgerRows.REGION_FILTERS, NavalLedger.READINGS,
 		NavalLedger.reading_label
 	)
 	_bar.chosen.connect(_on_filter)
