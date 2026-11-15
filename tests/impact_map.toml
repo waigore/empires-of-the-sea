@@ -289,6 +289,7 @@ suites = [
 suites = [
   "test_ledgers.gd",
   "test_town_ledger.gd",
+  "test_wall_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -682,6 +683,26 @@ domain = "muster"
 
 [[rules]]
 match = "tests/test_town_ledger.gd*"
+domain = "muster"
+
+# The crown's walls (DR-20261116-01): the projection, its row and panel, the
+# map hook behind Raise and the realm ledger's second door. It rides the muster
+# domain with the other sheets — one chrome, one modal layer — so a reading
+# change never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/wall_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/wall_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_walls.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_wall_ledger.gd*"
 domain = "muster"
 
 # The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet.

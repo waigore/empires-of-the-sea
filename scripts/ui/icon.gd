@@ -40,6 +40,8 @@ func _draw() -> void:
 			_draw_crown(center, radius)
 		"compass":
 			_draw_compass(center, radius)
+		"wall":
+			_draw_wall(center, radius)
 		"bell":
 			_draw_bell(center, radius)
 		"play":
@@ -234,6 +236,30 @@ func _draw_compass(center: Vector2, radius: float) -> void:
 			center + Vector2(-radius * 0.22, 0),
 		]),
 		tint
+	)
+
+
+## A curtain wall with three merlons: the walls sheet's own crest, so a crown
+## reads the fort it raises as a pictogram rather than a bullet (REQ-P1-08).
+func _draw_wall(center: Vector2, radius: float) -> void:
+	var body := Rect2(
+		center + Vector2(-radius * 0.82, -radius * 0.1), Vector2(radius * 1.64, radius * 0.82)
+	)
+	draw_rect(body, tint)
+	for i in 3:
+		var x: float = body.position.x + float(i) * radius * 0.58
+		draw_rect(
+			Rect2(Vector2(x, body.position.y - radius * 0.34), Vector2(radius * 0.4, radius * 0.36)),
+			tint
+		)
+	# The gate: the one opening an assault is trying to make.
+	draw_rect(
+		Rect2(center + Vector2(-radius * 0.2, radius * 0.22), Vector2(radius * 0.4, radius * 0.5)),
+		Palette.INK
+	)
+	draw_line(
+		center + Vector2(-radius * 0.82, radius * 0.72),
+		center + Vector2(radius * 0.82, radius * 0.72), tint, maxf(1.0, radius * 0.12), true
 	)
 
 

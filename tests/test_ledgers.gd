@@ -1573,17 +1573,17 @@ func test_every_sheet_reads_its_prose_across_at_desktop_and_phone_widths() -> vo
 		viewport.free()
 
 
-## The nine sheets the HUD mounts on its modal layers.
+## The ten sheets the HUD mounts on its modal layers.
 func _hud_sheets(hud: GameHud) -> Array[SheetFrame]:
 	var sheets: Array[SheetFrame] = []
 	for sheet: SheetFrame in [
 		hud.spy_ledger, hud.province_ledger, hud.muster_roll, hud.command_ledger,
-		hud.towns_ledger, hud.navy_ledger, hud.civilian_roster, hud.tech_tree,
-		hud.dossier_screen,
+		hud.towns_ledger, hud.walls_ledger, hud.navy_ledger, hud.civilian_roster,
+		hud.tech_tree, hud.dossier_screen,
 	]:
 		if sheet != null:
 			sheets.append(sheet)
-	assert_eq(sheets.size(), 9, "every sheet the HUD mounts is read")
+	assert_eq(sheets.size(), 10, "every sheet the HUD mounts is read")
 	return sheets
 
 

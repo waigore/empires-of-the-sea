@@ -119,6 +119,22 @@ static func town_upgrade_refusal(
 	return ""
 
 
+## Why this crown cannot raise the province's wall now, or "" when the order is
+## open. The province dossier's order and the walls ledger's rows read this one
+## wording, so a row can never offer a wall the order would refuse (wiki:
+## siege-mechanics § Fort Levels; DR-20261116-01).
+static func fort_refusal(level: int, tech_unlocked: Dictionary = {}) -> String:
+	if FortRules.clamp_level(level) >= FortRules.MAX_LEVEL:
+		return "This province already holds a modern fort."
+	var next: int = FortRules.next_level(level)
+	var gate: String = FortRules.tech_gate(next)
+	if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):
+		return "A %s fort needs %s." % [
+			FortRules.level_name(next), TechCatalog.display_name(gate)
+		]
+	return ""
+
+
 ## The order as the court reads it. A fort is the one order that lands at one of
 ## three levels, each with its own price, wait and tech gate, so the order names
 ## the level it would raise — "Build fort" alone cannot be told from "Build

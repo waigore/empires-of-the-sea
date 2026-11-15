@@ -20,6 +20,7 @@ static func build(hud: GameHud) -> void:
 	ArmyHud.build(hud)
 	_command(hud)
 	_towns(hud)
+	_walls(hud)
 	_navy(hud)
 	# The army dossier's command door opens the crown's commanders: the dossier
 	# is where a crown asks who leads, and the pool is the whole of it
@@ -29,6 +30,8 @@ static func build(hud: GameHud) -> void:
 	# each province's level, and the towns sheet is the step that raises it
 	# (DR-20261115-12).
 	hud.province_ledger.towns_pressed.connect(func() -> void: hud.towns_pressed.emit())
+	# Its walls door is the same reach for the province's fort (DR-20261116-01).
+	hud.province_ledger.walls_pressed.connect(func() -> void: hud.walls_pressed.emit())
 
 
 static func _province(hud: GameHud) -> void:
@@ -194,6 +197,19 @@ static func _towns(hud: GameHud) -> void:
 	hud.towns_ledger = TownLedgerPanel.new()
 	layer.add_child(hud.towns_ledger)
 	hud.towns_pressed.connect(hud.towns_ledger.toggle)
+
+
+## The walls ledger is the towns sheet's sibling: the same layer, the same
+## chrome, opened by the realm ledger's walls door or the V key
+## (DR-20261116-01).
+static func _walls(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "WallLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.walls_ledger = WallLedgerPanel.new()
+	layer.add_child(hud.walls_ledger)
+	hud.walls_pressed.connect(hud.walls_ledger.toggle)
 
 
 ## The muster roll's navy door opens the crown's navy: the roll names each

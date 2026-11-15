@@ -36,12 +36,13 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [espionage.md](espionage.md) | Spies: presence, counter-espionage, research and reports |
 | [improvements.md](improvements.md) | Estates: improvement yields, connectivity, management ledger |
 | [provinces.md](provinces.md) | The crown's provinces: one ledger for every holding |
-| [towns.md](towns.md) | The crown's towns: levels, the next step, and the Raise press |
-| [economy.md](economy.md) | Stockpile, production recipes, town bonus, riches |
-| [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |
+| [towns.md](towns.md) | The crown's towns: levels, the next step, Raise |
+| [walls.md](walls.md) | The crown's walls: levels and Raise |
+| [economy.md](economy.md) | Stockpile, recipes, town bonus, riches |
+| [technology.md](technology.md) | Tech tree, slots, funding, extraction caps |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |
-| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose rule, removed controls, geometry |
-| [audio.md](audio.md) | Music beds, cues, mix controls, rebuild |
+| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose rule, geometry |
+| [audio.md](audio.md) | Music, cues, mix |
 
 ## Process
 
