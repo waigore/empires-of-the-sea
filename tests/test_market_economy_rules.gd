@@ -931,9 +931,11 @@ func test_price_discovery_reads_filled_bids_and_submitted_offers() -> void:
 		{"cargo_free": 8, "treasury": 5000, "buy_price": 30}
 	)
 	MarketClearing.clear(market, world, economies, {0: 8, 1: 8})
-	# 5 filled bids against 10 submitted offers: 0.5 x (5 - 10) / 15 = -16.7%,
-	# so 30 falls to 25 (wiki: world-market § Price discovery).
-	assert_eq(market.price("timber"), 25, "5 filled bids against 10 submitted offers")
+	# 5 filled bids against 10 submitted offers AND the Minor/Tribe harvest that
+	# stands on the same book (2 timber units here): the spread's supply side is
+	# the whole book (wiki: world-market § Price discovery; issue #730).
+	# 0.5 x (5 - 12) / 17 = -20.6%, capped at -20%, so 30 falls to 24.
+	assert_eq(market.price("timber"), 24, "5 bids against 10 offers and the 2-unit harvest")
 
 ## One unit of demand is a whole side of the book: the clearing publishes the
 ## formula's ±20% cap, not a damped step (wiki: world-market § Price discovery;
@@ -2664,6 +2666,37 @@ func test_price_is_floored_at_thirty_percent_of_base() -> void:
 	assert_eq(WorldMarket.next_price(10, 100, 0, 10), 30)
 	assert_eq(WorldMarket.next_price(0, 100, 10, 0), 30)
 
+## The published ceiling: a deficit may ratchet a price to ten times its default
+## and no further, while falling demand still walks it down (wiki: world-market
+## § Price discovery; issue #730).
+func test_price_is_capped_at_ten_times_base() -> void:
+	assert_eq(WorldMarket.next_price(500, 50, 100, 0), 500, "at the ceiling it holds")
+	assert_eq(WorldMarket.next_price(490, 50, 100, 0), 500, "a step past it clamps")
+	assert_eq(WorldMarket.next_price(500, 50, 0, 100), 400, "demand below the cap still falls")
+	assert_eq(WorldMarket.next_price(4, 50, 0, 100), 15, "the floor still holds")
+
+## The Minor/Tribe auto-offer units clear in matching, so they are the spread's
+## supply side too: a turn with only auto-offers on the book drives the price
+## down (wiki: world-market § Price discovery; issue #730).
+func test_auto_offer_units_move_the_spread_down() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.advance_prices({"timber": 40})
+	assert_eq(int(market.price("timber")), 24, "supply alone: the -20% cap")
+	var courts_only: WorldMarket = WorldMarket.with_default_prices()
+	courts_only.advance_prices()
+	assert_eq(int(courts_only.price("timber")), 30, "no auto-offer row, no move")
+
+## The clearing hands this turn's harvest in: the same turn read through
+## `MarketClearing` falls on the Minor's offer with no court bidding.
+func test_the_clearing_reads_the_minor_harvest_as_supply() -> void:
+	var world: WorldMap = _offer_world()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4})
+	assert_true(
+		int(market.price("timber")) < 30,
+		"the Minor's timber offer is a supply row the spread reads",
+	)
+
 ## One unit of flow is still a full side of the book: the formula caps at ±20%,
 ## so the smallest trade moves the price as far as a giant one (wiki:
 ## world-market § Price discovery). A market depth stand-in in the denominator
@@ -4216,15 +4249,18 @@ func test_the_clearing_publishes_the_minor_book_for_the_reading_crown() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.0}})
 	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4}, {"viewer": 1})
+	# The harvest on the book moves the price before the book is republished, so
+	# both readings are taken against the price the clearing left (issue #730).
+	var published: int = market.price("timber")
 	var english: Dictionary = market.minor_offers[
 		MinorMarket.index_of(market.minor_offers, "6:timber")
 	]
-	assert_eq(int(english["unit_price"]), 27, "England reads her own terms")
+	assert_eq(int(english["unit_price"]), roundi(float(published) * 0.9), "England reads her own terms")
 	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4})
 	var spain: Dictionary = market.minor_offers[
 		MinorMarket.index_of(market.minor_offers, "6:timber")
 	]
-	assert_eq(int(spain["unit_price"]), 30, "no viewer keeps the published price")
+	assert_eq(int(spain["unit_price"]), market.price("timber"), "no viewer keeps the published price")
 
 
 ## The Bid button of one commodity row, found by the good its tooltip names.
