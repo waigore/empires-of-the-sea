@@ -29,6 +29,17 @@ static func context(
 	}
 
 
+## The tons the court's assigned runs eat before the auction clears:
+## `ProductionRecipes.reserved_inputs` for its current plan, empty for a court
+## with no plan (or none at all). One owner for the read the sheet, the row's
+## caption and the validator all price (wiki: world-market § Trade orders — the
+## offer cap is the post-production stockpile minus industry reservations).
+static func reservations(economy: PlayerEconomy) -> Dictionary:
+	if economy == null:
+		return {}
+	return ProductionRecipes.reserved_inputs(economy.production.assignments())
+
+
 ## Units a bid on `commodity` may carry in one order: the free holds after the
 ## staged bids, and the purse after the waiting orders and the bids already
 ## committed. Zero when the rules would refuse the order outright — a closed

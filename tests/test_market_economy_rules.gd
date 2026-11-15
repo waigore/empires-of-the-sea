@@ -5020,6 +5020,14 @@ func test_the_batch_never_crosses_the_side_or_the_bid_type_cap() -> void:
 	)
 
 
+## A court with no plan (or no economy) reserves nothing, so the sheet's offer
+## cap is the whole holding.
+func test_no_plan_reserves_nothing() -> void:
+	assert_eq(MarketBatch.reservations(null), {})
+	var economy := PlayerEconomy.new()
+	assert_eq(MarketBatch.reservations(economy), {})
+
+
 ## The offer batch is the stock the assigned runs leave, less the tons already
 ## offered this turn.
 func test_the_offer_batch_leaves_production_and_the_staged_offers_out() -> void:
