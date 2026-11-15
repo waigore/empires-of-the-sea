@@ -1287,6 +1287,13 @@ domain = "victory_bar"
 match = "scripts/rules/victory_standings.gd*"
 domain = "victory_standings"
 
+# Calendar declared-leader reads the published OOB; keep it on victory_standings
+# so a one-line power-score call does not pull the scripts/map/** fan-out past
+# the tier-1 5 min budget.
+[[rules]]
+match = "scripts/map/map_play_campaign.gd*"
+domain = "victory_standings"
+
 [[rules]]
 match = "scripts/rules/difficulty.gd*"
 domain = "victory_bar"

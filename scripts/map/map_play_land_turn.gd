@@ -137,7 +137,7 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		if play.ship_layer != null:
 			play.ship_layer.transfer_owner(faction, MapModel.NO_ID)
 		CivilianStrandingPass.remove_owner(play.civilian_layer, faction)
-		if play.diplomacy != null:
+		if play.diplomacy != null and not _keeps_record(play, faction):
 			play.diplomacy.clear_relations_of(faction)
 		play.hud.toast(
 			"%s falls to %s — its provinces change hands"
@@ -188,6 +188,14 @@ static func _recall_home(
 		play.army_layer.next_army += 1
 	play.army_layer.regions.set_region(region, roster)
 	return true
+
+
+## The human crown's own fall keeps its dealings until the turn's close has filed
+## the sheet: the news the crown reads last names the courts it met, and a court
+## the fall had struck from the record would print as an unknown one (wiki:
+## the-gazette § What the crown can know). The close drops them once written.
+static func _keeps_record(play: PlaySession, faction: int) -> bool:
+	return not play.observer_mode and faction == play.human_faction_id()
 
 
 ## The human crown's terminal fall becomes the session's defeat exactly once.

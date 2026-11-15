@@ -223,6 +223,15 @@ godot --headless --path . --script res://playtests/playtest_campaign_end.gd
 # their asks, the bid pressed from the colony's own row, and the turn close
 # (despatch, LAST CLEARING, notes, carry) two turns running.
 godot --headless --path . --script res://playtests/playtest_boycott_block.gd
+
+# Defeat — the crown's own end, which no play reaches by hand (terminal fall:
+# the capital lost with nothing left in its region). Strips the crown to its
+# seat, lets a rival host at war take it in a real Combat phase, then reads the
+# battle despatch, the defeat plate, the seal and the turn's sheet in the
+# archive; saves and reloads the fallen campaign; presses the seal again; and
+# seats a rival on the bar in the same turn to read that the fall, not a
+# military victory, decides it.
+godot --headless --path . --script res://playtests/playtest_defeat.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
