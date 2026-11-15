@@ -144,6 +144,51 @@ func test_the_fallback_reads_the_leaders_own_medals() -> void:
 	assert_true(CommandLedger.fallback_line(data).contains("4 medals"))
 
 
+# --- the row ----------------------------------------------------------------
+
+
+func test_a_row_prints_the_medals_and_what_they_buy() -> void:
+	var row := CommandLedgerRow.new()
+	row.setup({
+		"name": "Don Álvaro",
+		"medals": 2,
+		"effects": CommandLedger.effects(2),
+		"full": false,
+	})
+	assert_eq(row._name.text, "Don Álvaro")
+	assert_eq(row._medals.text, "×2")
+	assert_true(row._effects.text.contains("Line +2"), "the line a medal adds")
+	assert_true(row._effects.text.contains("morale +10%"))
+	assert_true(row._effects.text.contains("initiative +20"))
+	row.free()
+
+
+func test_a_row_reads_a_commander_with_no_medals_and_one_at_the_ceiling() -> void:
+	var bare := CommandLedgerRow.new()
+	bare.compact = true
+	bare.setup({"name": "A new commander", "medals": 0, "effects": CommandLedger.effects(0)})
+	assert_eq(bare._medals.text, "—", "no decoration reads as none")
+	assert_true(bare._effects.text.contains("No medals yet"))
+	bare.free()
+	var full := CommandLedgerRow.new()
+	full.setup({
+		"name": "A veteran",
+		"medals": GeneralRoster.MAX_MEDALS,
+		"effects": CommandLedger.effects(GeneralRoster.MAX_MEDALS),
+		"full": true,
+	})
+	assert_eq(full._medals.text, "×4")
+	assert_true(full._effects.text.contains("every medal he can earn"))
+	full.free()
+
+
+func test_a_session_with_no_army_layer_reads_an_empty_pool() -> void:
+	var data: Dictionary = MapPlayCommand.snapshot(null)
+	assert_eq(int(data["held"]), 0, "no layer, no commanders")
+	assert_true((data["rows"] as Array).is_empty())
+	assert_eq(int(data["cap"]), GeneralRoster.BASE_CAP, "the cap is still the rules'")
+
+
 # --- the sheet --------------------------------------------------------------
 
 
