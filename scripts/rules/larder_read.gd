@@ -81,6 +81,7 @@ static func forecast(economy: PlayerEconomy, mouths: Dictionary = {}) -> Diction
 		economy.stockpile,
 		mouths,
 		economy.recruits.pending_kind(RecruitQueue.KIND_WORKER),
+		economy.recruits.arriving_by_tier(),
 	)
 
 
@@ -90,8 +91,15 @@ static func forecast(economy: PlayerEconomy, mouths: Dictionary = {}) -> Diction
 ## the before-shot a crown needs to plan a recruit. `store_short` is the whole
 ## larder's shortfall — every mouth the phase feeds, not the pool alone — so a
 ## store that covers the pool but starves a ward or the army reads short here.
+## `arriving` is the per-tier roster that lands at this turn's Build/work: it eats
+## here but its labour is the next Production phase's (wiki:
+## workers-and-population § Phase placement).
 static func reading(
-	pool: WorkerPool, stockpile: Dictionary, mouths: Dictionary = {}, arriving: int = 0
+	pool: WorkerPool,
+	stockpile: Dictionary,
+	mouths: Dictionary = {},
+	arriving: int = 0,
+	arriving_tiers: Array[int] = []
 ) -> Dictionary:
 	var larder: EconomyConsumption.Pass = EconomyConsumption.pass_over(
 		pool,
@@ -99,6 +107,7 @@ static func reading(
 		int(mouths.get("ships", 0)),
 		int(mouths.get("army", 0)),
 		_wards(mouths),
+		arriving_tiers,
 	)
 	larder.serve()
 	var report: Dictionary = larder.report()

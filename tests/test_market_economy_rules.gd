@@ -1767,6 +1767,84 @@ func test_larder_reading_takes_a_built_pool() -> void:
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
 	assert_eq(int(read["store_food"]), 2)
 
+## A hand hired in Build/work eats with the court but labours the **next**
+## Production phase: the phase that lets a new recruit turn the wheel the turn it
+## is hired is a rule the wiki refuses (wiki: workers-and-population
+## § Phase placement — same-turn labour is not supported).
+func test_a_recruit_labours_the_phase_after_it_lands() -> void:
+	var pool: WorkerPool = WorkerPool.make(2)
+	var stock: Dictionary = {"grain": 8, "meat": 0}
+	# One of the two peasants landed at this turn's Build/work.
+	var report: Dictionary = EconomyConsumption.resolve(pool, stock, 0, 0, [], [1, 0, 0, 0])
+	assert_eq(int(report["fed_workers"]), 2, "the arrival eats with the court")
+	assert_eq(int(report["strikers"]), 0, "and is not a striker")
+	assert_eq(int(report["idle_labour"]), 1, "one hand labours now, not two")
+	assert_eq(int(report["labour_next_turn"]), 1, "the arrival turns the wheel next turn")
+	# The next phase pays it in full: the same pool with nothing arriving.
+	var later: Dictionary = EconomyConsumption.resolve(pool, stock, 0)
+	assert_eq(int(later["idle_labour"]), 2, "both hands labour once the turn has closed")
+
+
+## A hungry arrival withholds nothing: only a worker who kept their ration could
+## have laboured at all, so a strike is never double-counted as withheld labour.
+func test_a_starving_arrival_withholds_no_labour() -> void:
+	var report: Dictionary = EconomyConsumption.resolve(
+		WorkerPool.make(2), {"grain": 0, "meat": 0}, 0, 0, [], [1, 0, 0, 0]
+	)
+	assert_eq(int(report["idle_labour"]), 0)
+	assert_eq(int(report["labour_next_turn"]), 0, "a striker has no labour to defer")
+	assert_eq(int(report["strikers"]), 2)
+
+
+## The phase budgets Production from the hands it already had: the pool holds the
+## hire, but a run only the newcomer could pay for does not start until the next
+## turn (wiki: workers-and-population § Phase placement).
+func test_the_phase_never_spends_a_recruits_labour_early() -> void:
+	# Two peasants in the pool, one of them landed at this turn's Build/work.
+	# Lumber asks two labour a run, so only the old hand's labour can pay it.
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 40, "meat": 0, "timber": 4}
+	economy.production.set_assignment("lumber", 2)
+	var report: Dictionary = EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {}, 0, 0, false, {}, [], "", 0,
+		[1, 0, 0, 0],
+	)
+	var runs: Dictionary = (report.get("production", {}) as Dictionary).get("runs", {})
+	assert_eq(int(runs.get("lumber", 0)), 0, "one labour cannot start a two-labour run")
+	assert_eq(
+		int((report.get("consumption", {}) as Dictionary).get("labour_next_turn", 0)), 1,
+		"the hire's labour is the next phase's",
+	)
+	# With nothing arriving, the same two hands start the run.
+	var settled: PlayerEconomy = PlayerEconomy.starting()
+	settled.workers = WorkerPool.make(2)
+	settled.stockpile = {"grain": 40, "meat": 0, "timber": 4}
+	settled.production.set_assignment("lumber", 2)
+	var paid: Dictionary = EconomyTurn.resolve(
+		settled, WorldMarket.with_default_prices(), {}, 0, 0, false
+	)
+	var paid_runs: Dictionary = (paid.get("production", {}) as Dictionary).get("runs", {})
+	assert_eq(int(paid_runs.get("lumber", 0)), 1, "both hands labour once the turn closed")
+
+
+## The queue reads the hands it will land, one count per tier, and pays no
+## attention to the civilian, regiment and hull orders beside them: only a worker
+## joins the pool (wiki: workers-and-population § Phase placement).
+func test_the_queue_names_the_hands_it_lands_by_tier() -> void:
+	var queue := RecruitQueue.new()
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
+	queue.add(RecruitQueue.KIND_REGIMENT, "peasant_levies")
+	queue.add(RecruitQueue.KIND_SHIP, "carrack")
+	queue.add(RecruitQueue.KIND_CIVILIAN, "builder")
+	var arriving: Array[int] = queue.arriving_by_tier()
+	assert_eq(arriving.size(), WorkerPool.TIER_COUNT)
+	assert_eq(arriving, [2, 1, 0, 0])
+	assert_eq(queue.reserved_peasants(), 3, "the train, the muster and the hull promise a peasant")
+
+
 ## The WORKERS tab's larder reading: the store, every appetite, and the tier a
 ## shortfall bites first — Masters before Peasants
 ## (wiki: workers-and-population § Consumption; REQ-P5-06).
