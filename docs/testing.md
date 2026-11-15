@@ -46,7 +46,7 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
   cases start at turn 1. `test_ai_observer` is the reference.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   not `generate_world` (builds and discards the other region).
-- One Godot boot per theme (merged pure suites) — coverage ~6 s a boot: fold
+- One Godot boot per theme (merged pure suites) — coverage ~11 s a boot: fold
   leftovers in; delete suites already covered elsewhere. `gd-tools.toml` keeps
   `parallel = 4`; profile with `--durations 20`. Smoke: short boot, no sleeps.
 
