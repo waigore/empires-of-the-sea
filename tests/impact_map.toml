@@ -82,7 +82,7 @@ suites = [
 [domains.diplomacy]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_diplomacy_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
   "test_diplomacy_screen.gd",
   "test_spycraft_rules.gd",
@@ -252,8 +252,7 @@ suites = [
 # catch-alls past the tier-1 5 min budget.
 [domains.muster]
 suites = [
-  "test_force_ledger_rules.gd",
-  "test_province_ledger.gd",
+  "test_ledgers.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -264,7 +263,7 @@ suites = [
 # them) never ride a reading change.
 [domains.eyes]
 suites = [
-  "test_spy_ledger.gd",
+  "test_ledgers.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -571,7 +570,7 @@ match = "scripts/map/map_play_provinces.gd*"
 domain = "muster"
 
 [[rules]]
-match = "tests/test_province_ledger.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "muster"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
@@ -587,7 +586,7 @@ match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
 [[rules]]
-match = "tests/test_spy_ledger.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "eyes"
 
 [[rules]]
@@ -599,7 +598,7 @@ match = "scripts/map/map_play_force_ledger.gd*"
 domain = "muster"
 
 [[rules]]
-match = "tests/test_force_ledger_*.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "muster"
 
 # The cartouche seal, the Android back chain and the HUD build/bind that mount
@@ -705,7 +704,7 @@ suites = [
   "test_court_ui_parts.gd",
   "test_audio_rules.gd",
   "test_mobile_layout.gd",
-  "test_force_ledger_rules.gd",
+  "test_ledgers.gd",
 ]
 
 # The one full-screen sheet frame: the civilian roster, the muster roll and the
@@ -714,7 +713,7 @@ suites = [
 [domains.sheet]
 suites = [
   "test_court_ui_parts.gd",
-  "test_force_ledger_rules.gd",
+  "test_ledgers.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
   "test_panel_parts_rules.gd",
@@ -730,9 +729,8 @@ suites = [
   "test_map_data_rules.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
-  "test_diplomacy_lens.gd",
+  "test_map_lenses.gd",
   "test_diplomacy_rules.gd",
-  "test_resource_lens.gd",
   "test_civilian_turn_rules.gd",
 ]
 
@@ -743,7 +741,7 @@ suites = [
 suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_defence_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 # The defence reading's projection; first match wins, so it is named before the
@@ -753,7 +751,7 @@ match = "scripts/rules/defence_survey.gd*"
 domain = "crown_road"
 
 [[rules]]
-match = "tests/test_defence_*.gd*"
+match = "tests/test_map_lenses.gd*"
 domain = "crown_road"
 
 # Shared lens kit: activation, tap resolution and slip packing every reading
@@ -762,9 +760,7 @@ domain = "crown_road"
 [domains.lens_kit]
 suites = [
   "test_map_view_rules.gd",
-  "test_defence_lens.gd",
-  "test_diplomacy_lens.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 [[rules]]
@@ -802,7 +798,7 @@ suites = [
   "test_map_data_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_panel_parts_rules.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_map_view_rules.gd",
 ]
 
@@ -824,7 +820,7 @@ suites = [
 # map + ui fan-out blowing the tier-1 5 min budget.
 [domains.resource_ink]
 suites = [
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -833,7 +829,7 @@ suites = [
 # tone can never drift away from the minimap that draws the same table (#456).
 [domains.palette]
 suites = [
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
   "test_map_canvas.gd",
   "test_map_view_rules.gd",
@@ -895,7 +891,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
+  "test_world_setup.gd",
   "test_main.gd",
   "test_map_screen.gd",
   "test_menu_flow.gd",
@@ -913,7 +909,7 @@ suites = [
   "test_campaign_end.gd",
   "test_campaign_intro.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
+  "test_world_setup.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
   "test_victory_screen.gd",
@@ -932,13 +928,11 @@ suites = [
   "test_world_setup.gd",
   "test_advanced_start_live.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
   "test_court_ui_parts.gd",
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
-  "test_diplomacy_lens.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 [domains.misc]
@@ -1376,7 +1370,7 @@ match = "scripts/ui/improvement_row.gd*"
 domain = "resource_ink"
 
 [[rules]]
-match = "tests/test_resource_lens.gd*"
+match = "tests/test_map_lenses.gd*"
 domain = "resource_ink"
 
 [[rules]]

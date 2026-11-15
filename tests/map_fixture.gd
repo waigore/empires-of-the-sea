@@ -217,6 +217,8 @@ static func _reset_view(screen: MapScreen) -> void:
 		# open would answer for a case that expects a bare chart.
 		_close_sheet(screen.hud.civilian_roster)
 		_close_sheet(screen.hud.muster_roll)
+		_close_sheet(screen.hud.province_ledger)
+		_close_sheet(screen.hud.spy_ledger)
 		_close_sheet(screen.hud.dossier_screen)
 	if screen.game_menu != null and screen.game_menu.is_open():
 		screen.game_menu.close()

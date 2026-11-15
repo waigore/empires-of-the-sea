@@ -65,7 +65,7 @@ same +15% boost the player does.
 
 ## Tests
 
-`test_spycraft_rules`, `test_spy_ledger`, `test_court_ui_parts`, `test_ai_rules`,
+`test_spycraft_rules`, `test_ledgers`, `test_court_ui_parts`, `test_ai_rules`,
 `test_research_rules`.
 
 ```bash
