@@ -1341,6 +1341,29 @@ func test_two_rivals_at_war_in_water_we_do_not_hold() -> void:
 	)
 
 
+## Two rivals at war with each other, with a crown squadron standing in the same
+## water at peace with both: the close fights the rivals and never the crown, so
+## the reading must not claim that battle as ours (wiki: ships-and-naval § Naval
+## Combat Resolution; DR-20261115-17 § Change — "the chart can never promise a
+## battle the close would not strike").
+func test_a_spectator_squadron_does_not_claim_a_rival_battle() -> void:
+	_setup_sea_survey()
+	_fleet(SEA_PLAYER, SEA_WEST, ["frigate"])
+	_fleet(SEA_RIVAL, SEA_WEST, ["frigate"])
+	_fleet(SEA_OTHER, SEA_WEST, ["frigate"])
+	var entry: Dictionary = sea_entry(
+		_sea_snapshot(_war_between(SEA_RIVAL, SEA_OTHER), _view(true, true)),
+		SEA_WEST
+	)
+	assert_true(bool(entry["fight"]), "the rivals fight this zone")
+	assert_false(bool(entry["own_engaged"]), "no hostile sail of ours shares the water")
+	assert_eq(String(entry["band"]), SeaSurvey.BAND_WATCHED)
+	assert_true(
+		SeaSurvey.summary_text(entry).contains("two rivals fight here at turn end"),
+		SeaSurvey.summary_text(entry)
+	)
+
+
 func test_a_squadron_in_port_reads_no_water() -> void:
 	_setup_sea_survey()
 	var moored: FleetState = FleetState.in_port(9, SEA_PLAYER, 0, ["ship_9"], {"ship_9": "frigate"})
