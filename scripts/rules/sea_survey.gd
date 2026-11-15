@@ -97,12 +97,18 @@ static func snapshot(
 ## they are at war) plus what the crown may know of the weight of the sail she
 ## would fight. A fight between two rivals in water the crown does not hold
 ## reads as hostile water too: the crown is not in it, whatever it costs them.
+## A crown squadron standing in that water is a spectator, not a belligerent —
+## the resolver excludes a court hostile to nobody there — so `engaged` is what
+## the close strikes, never merely "a sail of ours is in the zone".
 static func band_for(
-	own: bool, foe: bool, hostile_here: bool, unread: int, fight: bool
+	own: bool, foe: bool, hostile_here: bool, unread: int, fight: bool,
+	engaged: bool = true
 ) -> String:
 	if fight:
 		if not own:
 			return BAND_STANDOFF
+		if not engaged:
+			return BAND_WATCHED
 		return BAND_BLIND if unread > 0 else BAND_CONTESTED
 	if foe and hostile_here:
 		return BAND_STANDOFF
@@ -152,6 +158,11 @@ static func _entry(
 	var own: Array = row["own"]
 	var foe: Array = row["foe"]
 	var unread: int = int(row["unread"])
+	var hostile_here: bool = bool(row["hostile"])
+	# The close fights a court only against someone it is at war with. A crown
+	# squadron beside two rivals fighting each other is a spectator: the
+	# resolver names no belligerent of ours, so the reading must not either.
+	var engaged: bool = fights and not own.is_empty() and hostile_here
 	var entry: Dictionary = {
 		"id": zone_id,
 		"name": model.sea_zone_name(zone_id),
@@ -175,9 +186,9 @@ static func _entry(
 		"foe_unread": unread,
 		"foe_courts": _court_names(row["courts"]),
 		"fight": fights,
-		"own_engaged": fights and not own.is_empty(),
+		"own_engaged": engaged,
 		"band": band_for(
-			not own.is_empty(), not foe.is_empty(), bool(row["hostile"]), unread, fights
+			not own.is_empty(), not foe.is_empty(), hostile_here, unread, fights, engaged
 		),
 	}
 	entry["station_text"] = _station_text(entry)

@@ -931,11 +931,11 @@ func test_price_discovery_reads_filled_bids_and_submitted_offers() -> void:
 		{"cargo_free": 8, "treasury": 5000, "buy_price": 30}
 	)
 	MarketClearing.clear(market, world, economies, {0: 8, 1: 8})
-	# 5 filled bids against 11 submitted offers — the 10 staged plus the Minor's
-	# 1 auto-offer estate the spread now reads (DR-20261115-18):
-	# 0.5 x (5 - 11) / 16 = -18.75%, so 30 falls to 24
-	# (wiki: world-market § Price discovery).
-	assert_eq(market.price("timber"), 24, "5 filled bids against 11 submitted offers")
+	# 5 filled bids against 10 submitted offers AND the Minor/Tribe harvest that
+	# stands on the same book (2 timber units here): the spread's supply side is
+	# the whole book (wiki: world-market § Price discovery; issue #730).
+	# 0.5 x (5 - 12) / 17 = -20.6%, capped at -20%, so 30 falls to 24.
+	assert_eq(market.price("timber"), 24, "5 bids against 10 offers and the 2-unit harvest")
 
 ## One unit of demand is a whole side of the book: the clearing publishes the
 ## formula's ±20% cap, not a damped step (wiki: world-market § Price discovery;
@@ -2666,52 +2666,36 @@ func test_price_is_floored_at_thirty_percent_of_base() -> void:
 	assert_eq(WorldMarket.next_price(10, 100, 0, 10), 30)
 	assert_eq(WorldMarket.next_price(0, 100, 10, 0), 30)
 
-## The band's other rail (DR-20261115-18): a deficit book ratchets the price up
-## to 10 x base and no further; excess supply still falls per the published
-## step, and the 30% floor keeps binding (wiki: world-market § Price discovery).
+## The published ceiling: a deficit may ratchet a price to ten times its default
+## and no further, while falling demand still walks it down (wiki: world-market
+## § Price discovery; issue #730).
 func test_price_is_capped_at_ten_times_base() -> void:
-	assert_eq(WorldMarket.next_price(500, 50, 100, 0), 500, "the rise stops at 10 x base")
-	assert_eq(WorldMarket.next_price(460, 50, 100, 0), 500, "the step lands on the ceiling")
-	assert_eq(WorldMarket.next_price(500, 50, 0, 100), 400, "the falling path is untouched")
-	assert_eq(WorldMarket.next_price(30, 50, 0, 100), 24, "the 30% floor still binds")
+	assert_eq(WorldMarket.next_price(500, 50, 100, 0), 500, "at the ceiling it holds")
+	assert_eq(WorldMarket.next_price(490, 50, 100, 0), 500, "a step past it clamps")
+	assert_eq(WorldMarket.next_price(500, 50, 0, 100), 400, "demand below the cap still falls")
+	assert_eq(WorldMarket.next_price(4, 50, 0, 100), 15, "the floor still holds")
 
-func test_the_ceiling_holds_under_persistent_deficit_demand() -> void:
+## The Minor/Tribe auto-offer units clear in matching, so they are the spread's
+## supply side too: a turn with only auto-offers on the book drives the price
+## down (wiki: world-market § Price discovery; issue #730).
+func test_auto_offer_units_move_the_spread_down() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	market.prices["grain"] = 500
-	market.buy(economy, "grain", 10)
-	market.advance_prices()
-	assert_eq(market.price("grain"), 500, "10 x base under deficit demand reads 10 x base")
-	# A legacy save priced above the band falls back inside it on the next step.
-	market.prices["grain"] = 1165
-	market.buy(economy, "grain", 10)
-	market.advance_prices()
-	assert_eq(market.price("grain"), 500, "an above-band price steps back to the ceiling")
+	market.advance_prices({"timber": 40})
+	assert_eq(int(market.price("timber")), 24, "supply alone: the -20% cap")
+	var courts_only: WorldMarket = WorldMarket.with_default_prices()
+	courts_only.advance_prices()
+	assert_eq(int(courts_only.price("timber")), 30, "no auto-offer row, no move")
 
-## The spread reads the whole book (DR-20261115-18): the Minor/Tribe harvest the
-## matcher already clears prices the turn too, so N auto-offer units with no GP
-## bids drive the spread negative.
-func test_auto_offers_join_the_price_discovery_volume() -> void:
+## The clearing hands this turn's harvest in: the same turn read through
+## `MarketClearing` falls on the Minor's offer with no court bidding.
+func test_the_clearing_reads_the_minor_harvest_as_supply() -> void:
+	var world: WorldMap = _offer_world()
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	var world: WorldMap = _market_engine_world()
-	var economies: Dictionary = _economies()
-	MarketClearing.clear(market, world, economies, {0: 8, 1: 8})
-	assert_eq(market.price("timber"), 24, "one auto-offer unit, no bids: the -20% cap")
-	assert_eq(market.price("grain"), 40, "the grain estate prices its own book")
-
-## A court's ration bid and the auto offer it clears balance the spread: the
-## price holds instead of ratcheting on filled bids against a starved supply.
-func test_a_ration_bid_and_the_auto_offer_balance_the_spread() -> void:
-	var market: WorldMarket = WorldMarket.with_default_prices()
-	var world: WorldMap = _market_engine_world()
-	var economies: Dictionary = _economies()
-	MarketOrders.submit(
-			market,
-		0, "timber", MarketOrder.SIDE_BID, 1,
-		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4})
+	assert_true(
+		int(market.price("timber")) < 30,
+		"the Minor's timber offer is a supply row the spread reads",
 	)
-	MarketClearing.clear(market, world, economies, {0: 4, 1: 4})
-	assert_eq(market.price("timber"), 30, "1 filled bid against 1 auto-offer unit")
 
 ## One unit of flow is still a full side of the book: the formula caps at ±20%,
 ## so the smallest trade moves the price as far as a giant one (wiki:
@@ -4264,29 +4248,19 @@ func test_the_clearing_publishes_the_minor_book_for_the_reading_crown() -> void:
 	var world: WorldMap = _offer_world()
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.0}})
-	# A ration bid balances the minor's auto-offer, so the spread holds the
-	# published price and this test reads the terms, not the step
-	# (the step itself is tested above).
-	MarketOrders.submit(
-			market,
-		0, "timber", MarketOrder.SIDE_BID, 1,
-		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
-	)
 	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4}, {"viewer": 1})
+	# The harvest on the book moves the price before the book is republished, so
+	# both readings are taken against the price the clearing left (issue #730).
+	var published: int = market.price("timber")
 	var english: Dictionary = market.minor_offers[
 		MinorMarket.index_of(market.minor_offers, "6:timber")
 	]
-	assert_eq(int(english["unit_price"]), 27, "England reads her own terms")
-	MarketOrders.submit(
-			market,
-		0, "timber", MarketOrder.SIDE_BID, 1,
-		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
-	)
+	assert_eq(int(english["unit_price"]), roundi(float(published) * 0.9), "England reads her own terms")
 	MarketClearing.clear(market, world, _economies(), {0: 4, 1: 4})
 	var spain: Dictionary = market.minor_offers[
 		MinorMarket.index_of(market.minor_offers, "6:timber")
 	]
-	assert_eq(int(spain["unit_price"]), 30, "no viewer keeps the published price")
+	assert_eq(int(spain["unit_price"]), market.price("timber"), "no viewer keeps the published price")
 
 
 ## The Bid button of one commodity row, found by the good its tooltip names.

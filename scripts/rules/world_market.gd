@@ -5,9 +5,9 @@ extends RefCounted
 ## (wiki: world-market). Riches never trade here; they convert in their own phase.
 
 const PRICE_FLOOR_RATIO: float = 0.30
-## The published band's other rail: no commodity ratchets past ten times its
-## default market price (wiki: world-market § Price discovery;
-## DR-20261115-18).
+## The ceiling the published spread may ratchet to: ten times the default price.
+## A deficit may lift a price no further, while falling demand lets it fall
+## naturally to the floor (wiki: world-market § Price discovery; issue #730).
 const PRICE_CEILING_RATIO: float = 10.0
 const MAX_PRICE_STEP: float = 0.20
 
@@ -193,12 +193,13 @@ func sell(
 	return {"ok": true, "reason": "", "unit_price": unit_price, "revenue": revenue}
 
 
-## Published formula, floored to an integer and clamped to the published band —
-## 30% of the base price at the floor, 10 × the base price at the ceiling
-## (wiki: world-market § Price discovery; DR-20261115-18): the step is half the
-## imbalance between this turn's filled bids and submitted offers, capped at
-## ±20%. No market depth term stands in the denominator — the rule is the
-## courts' own order flow.
+## Published formula, floored to an integer and clamped between 30% and ten
+## times the base price (wiki: world-market § Price discovery; issue #730): the
+## step is half the imbalance between this turn's filled bids and submitted
+## offers, capped at ±20%. No market depth term stands in the denominator — the
+## rule is the courts' own order flow. The ceiling is the safety rail a
+## pathological spike (war, blockade, a failed harvest) cannot climb past, not a
+## target: a price under it moves by the spread exactly as before.
 static func next_price(
 	current: int,
 	base: int,
@@ -212,19 +213,24 @@ static func next_price(
 	spread = clampf(spread, -MAX_PRICE_STEP, MAX_PRICE_STEP)
 	var stepped: int = int(floor(float(current) * (1.0 + spread)))
 	var floor_price: int = int(floor(float(base) * PRICE_FLOOR_RATIO))
-	var ceiling_price: int = int(floor(float(base) * PRICE_CEILING_RATIO))
-	return clampi(stepped, floor_price, ceiling_price)
+	var ceiling: int = int(floor(float(base) * PRICE_CEILING_RATIO))
+	return clampi(stepped, floor_price, maxi(ceiling, floor_price))
 
 
 ## Applies this turn's price discovery and starts the next turn with clean books.
-func advance_prices() -> Dictionary:
+## `auto_offers` is the commodity → units of Minor/Tribe auto-offer quantity on
+## the book this turn: it clears in matching, so it is the spread's supply side
+## too (wiki: world-market § Price discovery; issue #730). Carry-forward
+## unfilled quantities stay out, as published.
+func advance_prices(auto_offers: Dictionary = {}) -> Dictionary:
 	var changed: Dictionary = {}
 	for id: String in CommodityCatalog.all_ids():
 		if not can_trade(id):
 			continue
 		var current: int = price(id)
+		var supply: int = offer_volume(id) + maxi(int(auto_offers.get(id, 0)), 0)
 		var updated: int = next_price(
-			current, CommodityCatalog.base_price(id), bid_volume(id), offer_volume(id)
+			current, CommodityCatalog.base_price(id), bid_volume(id), supply
 		)
 		prices[id] = updated
 		if updated != current:

@@ -160,6 +160,62 @@ func test_parse_port_refuses_bad_ports() -> void:
 	)
 
 
+func test_flag_mentioned_spots_a_misformed_enable() -> void:
+	assert_false(
+		AgentDebugBridge.flag_mentioned(PackedStringArray()),
+		"an empty list never mentions the flag"
+	)
+	assert_false(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--quiet"])),
+		"unrelated args do not mention the flag"
+	)
+	assert_true(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--agent-debug"])),
+		"a bare flag is mentioned"
+	)
+	assert_true(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--agent-debug=8765"])),
+		"an explicit port is mentioned"
+	)
+	assert_true(
+		AgentDebugBridge.flag_mentioned(PackedStringArray(["--agent-debugfoo"])),
+		"a misformed token still mentions the flag for the diagnostic"
+	)
+
+
+func test_resolve_launch_prefers_user_args_then_cmdline() -> void:
+	var from_user: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(["--agent-debug=1234"]),
+		PackedStringArray(["--agent-debug=9999"]),
+	)
+	assert_eq(int(from_user["port"]), 1234, "user args win over the full cmdline")
+	assert_false(bool(from_user["warn_unparsed"]), "a parsed port needs no warn")
+	var from_cmdline: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(),
+		PackedStringArray(["--agent-debug=4321"]),
+	)
+	assert_eq(int(from_cmdline["port"]), 4321, "Android-style cmdline is the fallback")
+	assert_false(bool(from_cmdline["warn_unparsed"]), "a cmdline parse needs no warn")
+	var absent: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(["--quiet"]),
+		PackedStringArray(["--path", "."]),
+	)
+	assert_eq(int(absent["port"]), 0, "no flag means the bridge stays off")
+	assert_false(bool(absent["warn_unparsed"]), "absence is not a misform")
+	var misformed: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(),
+		PackedStringArray(["--agent-debugfoo"]),
+	)
+	assert_eq(int(misformed["port"]), 0, "a misformed token does not parse")
+	assert_true(bool(misformed["warn_unparsed"]), "a misformed enable still warns")
+	var bad_port: Dictionary = AgentDebugBridge.resolve_launch(
+		PackedStringArray(["--agent-debug=0"]),
+		PackedStringArray(),
+	)
+	assert_eq(int(bad_port["port"]), -1, "an out-of-range user port is refused")
+	assert_false(bool(bad_port["warn_unparsed"]), "a refused parse is not unparsed")
+
+
 # --- the thin server -----------------------------------------------------------
 
 
@@ -195,6 +251,38 @@ func test_start_stop_and_a_live_loopback_round_trip() -> void:
 			assert_true(bool(answer["ok"]), "ping rides the live socket")
 	bridge.stop()
 	assert_false(bridge.is_listening(), "stop closes the listener")
+	bridge.free()
+
+
+func test_the_enable_file_optin_is_read_and_consumed() -> void:
+	# The Android path: the launcher alias drops the launch intent's extra, so
+	# the bridge also accepts a one-line `user://agent_debug.enable`. One
+	# boot, one file: it is removed when the boot acts on it.
+	var handle := FileAccess.open("user://agent_debug.enable", FileAccess.WRITE)
+	handle.store_line("9377")
+	handle = null
+	var bridge := AgentDebugBridge.new()
+	bridge.name = "AgentDebugBridgeFile"
+	add_child(bridge)
+	assert_true(bridge.is_listening(), "the enable file starts the listener")
+	assert_eq(bridge.port, 9377, "the file names the port")
+	assert_false(
+		FileAccess.file_exists("user://agent_debug.enable"),
+		"a consumed enable file is removed"
+	)
+	bridge.stop()
+	bridge.free()
+
+
+func test_an_empty_enable_file_takes_the_default_port() -> void:
+	var handle := FileAccess.open("user://agent_debug.enable", FileAccess.WRITE)
+	handle.store_line("")
+	handle = null
+	var bridge := AgentDebugBridge.new()
+	bridge.name = "AgentDebugBridgeFileDefault"
+	add_child(bridge)
+	assert_eq(bridge.port, AgentDebugBridge.DEFAULT_PORT, "empty file, default port")
+	bridge.stop()
 	bridge.free()
 
 

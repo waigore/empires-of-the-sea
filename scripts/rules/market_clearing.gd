@@ -23,7 +23,11 @@ static func clear(
 	if market == null:
 		return {"deals": [], "notes": notes, "credits": {}, "prices": {}, "sink": 0.0}
 	var orders: Array[MarketOrder] = _prepare_orders(market, world, notes)
-	_record_auto_offers(market, orders)
+	# The Minor/Tribe auto-offers stand on this turn's book, so they are the
+	# spread's supply side as much as the courts' own offers are (wiki:
+	# world-market § Price discovery; issue #730). Read before matching so each
+	# row still carries the units it was published with.
+	var auto_offers: Dictionary = _auto_supply(orders)
 	var treasuries: Dictionary = {}
 	var stock: Dictionary = {}
 	for raw: Variant in economies.keys():
@@ -47,7 +51,7 @@ static func clear(
 		notes.append(note as Dictionary)
 	var settled: Dictionary = _settle(market, economies, deals, context, notes)
 	var credits: Dictionary = _first_right(world, economies, deals, context)
-	var changed: Dictionary = market.advance_prices()
+	var changed: Dictionary = market.advance_prices(auto_offers)
 	var carry: Array[MarketOrder] = _carry(orders, matched, economies, free_holds, notes)
 	market.book.close_turn()
 	market.book.set_carry(carry)
@@ -95,14 +99,17 @@ static func _prepare_orders(
 	return kept
 
 
-## This turn's Minor/Tribe auto-offer quantity joins the offer volume: the
-## spread reads the whole book, so the supply the matcher already clears also
-## prices it (wiki: world-market § Price discovery; DR-20261115-18).
-## Carry-forward unfilled quantities stay excluded, as published.
-static func _record_auto_offers(market: WorldMarket, orders: Array[MarketOrder]) -> void:
+## Units the Minor Nations and Tribes auto-offer per commodity this turn: their
+## rows clear in matching at the published price, so the spread's supply side
+## counts them (wiki: world-market § Price discovery; DR-20261115-18). Read
+## before matching, while every row still holds the units it was published with.
+static func _auto_supply(orders: Array[MarketOrder]) -> Dictionary:
+	var supply: Dictionary = {}
 	for order: MarketOrder in orders:
-		if order.auto and not order.is_world():
-			market.book.volumes.record_offer(order.commodity, order.remaining())
+		if order == null or not order.auto or order.is_bid():
+			continue
+		supply[order.commodity] = int(supply.get(order.commodity, 0)) + order.remaining()
+	return supply
 
 
 ## The standing world counterparty: enough units to clear every finite order on

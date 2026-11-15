@@ -5,9 +5,11 @@ extends Node
 ## agents can inspect a running session without screenshots or save files.
 ##
 ## Off by default. Enabled with a cmdline user arg —
-## `godot --path . -- --agent-debug=8765` — and refused on release player
-## exports. Binds `127.0.0.1` only; on Android the host reaches it through
-## `adb reverse tcp:PORT tcp:PORT` (docs/agent-debug.md). Responses come from
+## `godot --path . -- --agent-debug=8765` — or, on Android where the launcher
+## alias drops the launch intent's `command_line` extra (a Godot 4.7 template
+## limitation its own instrumented tests assert), with a one-line enable file
+## in `user://`. Binds `127.0.0.1` only; on Android the host reaches it through
+## `adb forward tcp:PORT tcp:PORT` (docs/agent-debug.md). Responses come from
 ## `AgentDebugDump`; this node owns only the socket (REQ-P3-02/03).
 
 const FLAG: String = "--agent-debug"
@@ -15,6 +17,9 @@ const DEFAULT_PORT: int = 8765
 ## Query-only channel for tooling: a small peer cap keeps one bridge from
 ## fanning out wide.
 const MAX_PEERS: int = 4
+## The Android enable file: `user://agent_debug.enable`, one line with the
+## port (or empty for the default). Consumed on the boot that reads it.
+const ENABLE_FILE: String = "agent_debug.enable"
 ## A full-world `dump` answer is a single text frame (~100 KB+), above the
 ## 64 KB peer defaults, so each accepted peer gets a megabyte both ways
 ## (issue #699).
@@ -30,12 +35,71 @@ var _peers: Array[WebSocketPeer] = []
 
 
 func _ready() -> void:
-	var requested: int = parse_port(OS.get_cmdline_user_args())
+	var launch: Dictionary = resolve_launch(
+		OS.get_cmdline_user_args(), OS.get_cmdline_args()
+	)
+	var requested: int = int(launch["port"])
+	if bool(launch["warn_unparsed"]):
+		print("AgentDebugBridge: flag seen but not parsed; args=%s" %
+			[OS.get_cmdline_args()])
+	if requested <= 0:
+		# Android's launcher alias drops the launch intent's `command_line`
+		# extra, so the channel also accepts the enable file (Android path).
+		requested = read_enable_file()
 	if requested > 0 and not _release_export():
 		start(requested)
 	elif requested != 0:
 		print("AgentDebugBridge: disabled (%s)" %
 			("release export" if _release_export() else "bad port"))
+
+
+## The Android opt-in: a one-line `user://agent_debug.enable` with the port
+## (or empty for the default). Consumed on the boot that reads it, so a stale
+## file never silently re-enables a later session. Desktop agents use the
+## cmdline flag; the file is the documented Android path (docs/agent-debug.md).
+static func read_enable_file() -> int:
+	if not FileAccess.file_exists("user://" + ENABLE_FILE):
+		return 0
+	var handle := FileAccess.open("user://" + ENABLE_FILE, FileAccess.READ)
+	if handle == null:
+		return 0
+	var line := handle.get_line().strip_edges()
+	handle.close()
+	var requested: int = (
+		DEFAULT_PORT if line.is_empty()
+		else parse_port(PackedStringArray(["--agent-debug=%s" % line]))
+	)
+	if requested > 0:
+		var dir := DirAccess.open("user://")
+		if dir != null:
+			dir.remove(ENABLE_FILE)
+	return requested
+
+
+## User args first, then full cmdline (Android intent extras land there).
+## `warn_unparsed` is true when the flag was named but neither list parsed.
+static func resolve_launch(
+	user_args: PackedStringArray, cmdline_args: PackedStringArray
+) -> Dictionary:
+	var requested: int = parse_port(user_args)
+	if requested != 0:
+		return {"port": requested, "warn_unparsed": false}
+	# Android export templates carry the `command_line` intent extra as
+	# engine args, not user args (docs/agent-debug.md).
+	requested = parse_port(cmdline_args)
+	var warn: bool = requested == 0 and (
+		flag_mentioned(user_args) or flag_mentioned(cmdline_args)
+	)
+	return {"port": requested, "warn_unparsed": warn}
+
+
+## True when an arg list names the flag, so a launch that tried to enable
+## the bridge but misformed the value still explains itself in the log.
+static func flag_mentioned(args: PackedStringArray) -> bool:
+	for raw: String in args:
+		if raw.contains(FLAG):
+			return true
+	return false
 
 
 ## Reads the flag out of parsed user args: `--agent-debug` (default port),
@@ -68,6 +132,7 @@ func start(p_port: int) -> void:
 		_server = null
 		return
 	port = p_port
+	print("AgentDebugBridge: listening on 127.0.0.1:%d" % p_port)
 	if play == null:
 		var screen := get_parent() as MapScreen
 		if screen != null:
