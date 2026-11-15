@@ -2359,6 +2359,18 @@ domain = "chart_bake"
 match = "scripts/map/map_relief.gd*"
 domain = "chart_bake"
 
+# The shore the bake paints from: one field, read by the relief bake alone, so
+# it follows the same two chart suites instead of the whole map domain.
+[[rules]]
+match = "scripts/map/map_coast_field.gd*"
+domain = "chart_bake"
+
+# How much water a shore has beside it: read by the canvas, the surf and the
+# chart's tests only, so it takes chart_art rather than the broad map fan-out.
+[[rules]]
+match = "scripts/map/coast_room.gd*"
+domain = "chart_art"
+
 [[rules]]
 # The capital chart's own marker: only scenes/capital_choice.tscn mounts it, so
 # a chart tweak stays in the campaign suites instead of pulling the whole map

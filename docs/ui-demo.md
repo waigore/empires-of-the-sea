@@ -35,7 +35,8 @@ scripts/map/map_model.gd    pure tile data (region-scoped)
 scripts/map/map_generator.gd generation + world
 scripts/map/country_borders.gd owner borders from the grid
 scripts/map/map_canvas.gd   static artwork (terrain, coast, province ink)
-scripts/map/map_relief.gd   sub-tile bake: coast field, beach, shoal, paint
+scripts/map/map_relief.gd   sub-tile bake: beach, shoal, paint
+scripts/map/map_coast_field.gd  shore reading: signed distance, basin reach
 scripts/map/map_canvas_plan.gd names + symbols (pure)
 scripts/map/map_glyphs.gd   ink symbols (fallback)
 scripts/map/map_symbols.gd  painted stamps (assets/art/map)

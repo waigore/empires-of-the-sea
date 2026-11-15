@@ -2203,6 +2203,57 @@ func test_a_pacted_rival_breaks_the_pact_instead_of_the_illegal_war() -> void:
 		AiDiplomacyOffers.KIND_BREAK_NAP,
 	)
 	assert_eq(int(plan["action"]["target"]), 1)
+	# The break is priced at `warDesireScore − 10`, the published worth of a
+	# blocked war (wiki: diplomacy § Planner selection; issue #752).
+	var desire: int = int((plan["candidates"] as Array)[0]["desire"])
+	assert_eq(
+		int(((plan["candidates"] as Array)[0]["offer"] as Dictionary)["utility"]),
+		desire - 10,
+	)
+
+## The published price holds through the band where the break is closest to
+## losing its slot: at war desire 60–70 the `warDesireScore − 10` break must
+## still outrank every other peaceful order the court could spend its one order
+## on, so a dearer cut hands the turn to an overture or retaliation and stalls
+## the war the break exists to open (wiki: diplomacy § Planner selection;
+## issue #752).
+func test_the_pact_break_keeps_the_peaceful_slot_in_the_60_to_70_desire_band() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	# A cold standing: the relation pull is the hostile +10, the lowest desire
+	# that still clears the declare bar once a pact stands.
+	ai_planner_state.relation(0, 1).score = 20.0
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	# Even powers put the desire inside the band under test: 50 base + 5 even
+	# band + 10 cold standing.
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 100, 1: 100})
+	)
+	var entry: Dictionary = (plan["candidates"] as Array)[0]
+	var desire: int = int(entry["desire"])
+	assert_true(desire >= 60 and desire <= 70, "desire %d is the band under test" % desire)
+	assert_eq(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_BREAK_NAP,
+	)
+	var offer: Dictionary = entry["offer"]
+	assert_eq(int(offer["utility"]), desire - 10, "the published break price")
+	# The band leaves no slack for a dearer cut: the break is the best peaceful
+	# order, not merely a legal one.
+	for candidate: Dictionary in offer["candidates"]:
+		if not bool(candidate.get("ok", false)):
+			continue
+		if String(candidate["kind"]) == AiDiplomacyOffers.KIND_BREAK_NAP:
+			continue
+		assert_true(
+			int(candidate["utility"]) < int(offer["utility"]),
+			"%s at %d must not outrank the break at %d" % [
+				String(candidate["kind"]), int(candidate["utility"]),
+				int(offer["utility"]),
+			],
+		)
 
 func test_after_the_break_the_next_turn_declares_the_war() -> void:
 	_setup_ai_planner()
