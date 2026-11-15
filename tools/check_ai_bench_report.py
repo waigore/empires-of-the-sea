@@ -62,8 +62,13 @@ def _changed_paths(base: str) -> list[str]:
 def _is_ai_path(path: str) -> bool:
     if path.startswith("scripts/ai/") and path.endswith(".gd"):
         return True
+    # Require *_ai.gd — substring "ai" false-positives raids/campaign/training.
     name = Path(path).name
-    if path.startswith("scripts/map/") and path.endswith(".gd") and "ai" in name:
+    if (
+        path.startswith("scripts/map/")
+        and name.startswith("map_play_")
+        and name.endswith("_ai.gd")
+    ):
         return True
     return False
 
