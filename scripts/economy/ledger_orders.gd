@@ -22,9 +22,7 @@ func _init(p_host: EconomyController = null) -> void:
 ## holds and purse it needs, an offer by stock after the assigned runs eat their
 ## inputs (wiki: world-market § Trade orders).
 func trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
-	if host == null or host.market == null or host.economy == null:
-		return {}
-	if seat_held_elsewhere():
+	if host == null or host.market == null or host.economy == null or seat_held_elsewhere():
 		return {}
 	var market: WorldMarket = host.market
 	var result: Dictionary
