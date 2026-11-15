@@ -902,7 +902,7 @@ suites = [
 
 [domains.map]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_advanced_start_live.gd",
   "test_map_view_rules.gd",
   "test_map_canvas.gd",
@@ -1009,7 +1009,7 @@ suites = [
   "test_ai_planner_rules.gd",
   "test_tables_rules.gd",
   "test_civilian_field_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_map_data_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_panel_parts_rules.gd",
@@ -1084,7 +1084,7 @@ suites = [
 # dozen heavy MapScreen suites miss the 5 min tier-1 budget.
 [domains.map_fixture]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_map_screen.gd",
   "test_save_codec.gd",
   "test_campaign_end.gd",
@@ -1092,7 +1092,7 @@ suites = [
 
 [domains.advanced]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_advanced_start_live.gd",
 ]
 
@@ -1106,7 +1106,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_map_screen.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
@@ -1123,7 +1123,7 @@ suites = [
   "test_campaign_end.gd",
   "test_campaign_intro.gd",
   "test_land_battle_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
 ]
@@ -1138,7 +1138,7 @@ suites = [
 
 [domains.menu]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_advanced_start_live.gd",
   "test_land_battle_rules.gd",
   "test_court_ui_parts.gd",
@@ -1158,7 +1158,7 @@ suites = [
 [domains.world]
 suites = [
   "test_tables_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
 ]
 
 [domains.research]
@@ -1592,7 +1592,7 @@ suites = [
   "test_map_lenses.gd",
   "test_ledgers.gd",
   "test_naval_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
 ]
 
 [[rules]]
@@ -2009,7 +2009,7 @@ domain = "hospital"
 match = "scripts/world/**"
 domain = "map"
 
-# Chart size presets (#700): world_setup owns the tile/province band; the menu
+# Chart size presets (#700): the generated-world suite owns the tile/province band; the menu
 # catch-all's eight MapScreen mounts miss the tier-1 5 min budget.
 [[rules]]
 match = "scripts/session/game_config.gd*"
@@ -3297,7 +3297,7 @@ match = "tests/test_spy_*.gd*"
 domain = "espionage"
 
 [[rules]]
-match = "tests/test_world_setup.gd*"
+match = "tests/test_generated_world_rules.gd*"
 domain = "advanced"
 
 [[rules]]

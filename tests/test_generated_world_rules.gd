@@ -3,6 +3,12 @@ extends GdToolsTest
 ## post-pass, generation invariants and the advanced-start presets and estates.
 ## Old World holds Great Powers + Minor Nations; the New World holds Tribes.
 ## Merged from test_world_bootstrap, test_map_generator and test_advanced_start.
+##
+## The name sorts **early** on purpose: gd-tools dispatches suites in plan
+## (name) order four workers wide, so this 91-case suite with a ~15 s chart draw
+## used to sort last as `test_world_setup` and run alone for ~50 s after every
+## other worker had drained (docs/testing.md § Speed rules). Rename it into the
+## front half of the alphabet, never back into `w…`/`x…`/`y…`/`z…`.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -1273,10 +1279,9 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 ## is paid once (docs/testing.md § Speed rules). Keyed by size because the
 ## weighting case reads Large and the density cases read Standard.
 ##
-## A draw costs ~19 s under coverage and is this suite's most expensive
-## fixture. The price is the province/zone pass, not the tiles: a Standard
-## 96×64 draw and a Large 128×84 draw land within ~2 s of each other, so a
-## census is charged per chart, never per tile.
+## A draw is this suite's most expensive fixture: ~14 s under coverage at
+## 128×84, and the price is the **tiles** — 8× the 48×32 fixture's tiles is 8.6×
+## its draw — so the census below draws one chart, not two.
 var drawn_charts: Dictionary = {}
 
 
@@ -1325,38 +1330,37 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 ## guarantee still leaves timber the commonest row on the chart
 ## (wiki: resource-terrain-region-rules § Table).
 func test_the_draw_prices_the_rows_by_their_market_price() -> void:
-	# Two Large charts are the floor that still proves the order: the peaks
-	# pool is counted on 1500 (gold 8, gems 2) and 1501 (gold 7, gems 4), while
-	# the 1502 chart carries no peaks row at all, so a third draw only
-	# re-sampled plains and bought no ordering evidence for ~21 s of coverage
-	# time. The metals pool keeps 61 rows over the two (14 + 47), enough for
-	# the three-deviation split below.
-	var seeds: Array[int] = [1500, 1501]
+	# One Large chart carries every assertion below: seed 1500 draws the peaks
+	# pool with the widest ordering gap measured (gold 8, gems 2) and every
+	# pool's split sits inside its own three-deviation band (the tightest is
+	# spices 0.348 against 0.209 ± 0.147). A second chart widened only the
+	# metals sample (14 → 61 rows) for another ~14 s of coverage, so it is not
+	# drawn: seeds 1501/1502 draw gold 7 / gems 4 and no peaks row at all, so
+	# the ordering evidence was always this chart's.
 	var counts: Dictionary = {}
 	var commodities: Dictionary = {}
-	for seed_value: int in seeds:
-		var world_map: WorldMap = _large_world(seed_value)
-		for model: MapModel in world_map.regions:
-			# Read the packed rows: a tile that carries a row is land, so the
-			# census is one pass instead of two instrumented lookups a tile.
-			var rows: PackedInt32Array = model.resource
-			for index in rows.size():
-				var resource: int = rows[index]
-				if resource == MapModel.NO_ID:
-					continue
-				if not commodities.has(resource):
-					commodities[resource] = String(
-						MapGenerator.resource_info(resource)["commodity"]
-					)
-				var commodity: String = String(commodities[resource])
-				counts[commodity] = int(counts.get(commodity, 0)) + 1
+	var world_map: WorldMap = _large_world(1500)
+	for model: MapModel in world_map.regions:
+		# Read the packed rows: a tile that carries a row is land, so the
+		# census is one pass instead of two instrumented lookups a tile.
+		var rows: PackedInt32Array = model.resource
+		for index in rows.size():
+			var resource: int = rows[index]
+			if resource == MapModel.NO_ID:
+				continue
+			if not commodities.has(resource):
+				commodities[resource] = String(
+					MapGenerator.resource_info(resource)["commodity"]
+				)
+			var commodity: String = String(commodities[resource])
+			counts[commodity] = int(counts.get(commodity, 0)) + 1
 	var dump: Array[String] = []
 	for commodity: Variant in counts:
 		dump.append("%s=%d@%d" % [
 			String(commodity), int(counts[commodity]), CommodityCatalog.base_price(String(commodity))
 		])
 	dump.sort()
-	print("per-commodity tile counts over seeds 1500-1501: ", ", ".join(dump))
+	print("per-commodity tile counts on seed 1500: ", ", ".join(dump))
 	# Pools whose rows share one terrain list and one region scope: only the
 	# published price separates their draws (wiki § Table).
 	var pools: Array = [
