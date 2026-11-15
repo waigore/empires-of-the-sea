@@ -111,6 +111,16 @@ static func _resolve_battles(play: PlaySession, book: TurnBook) -> void:
 ## conqueror a military win (wiki: victory; DR-20261109-05).
 static func _close_if_decided(play: PlaySession, book: TurnBook) -> bool:
 	if play.defeat != null:
+		# The turn that ends the crown's age is still a turn: the sheet that
+		# narrates it is filed under its own number while the defeat plate keeps
+		# the screen, so the archive holds the capital's fall and no gap at the
+		# end (wiki: the-gazette § When it appears; victory § Great Power defeat).
+		_file_decided_sheet(play, book)
+		# The fallen crown's dealings are dropped once its last sheet is written:
+		# the news names the courts it met, then the record goes (wiki: victory
+		# § Great Power defeat § Fall effects).
+		if play.diplomacy != null:
+			play.diplomacy.clear_relations_of(play.defeat.fallen_player_id)
 		play.emit_turn_ended(play.turn)
 		return true
 	# Victory is checked after every phase, once per turn, and never re-checked.
