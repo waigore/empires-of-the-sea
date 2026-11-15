@@ -18,10 +18,6 @@ func _init() -> void:
 	toggle_action = InputActions.NAVY_LEDGER
 
 
-func bind(p_session: PlaySession) -> void:
-	play = p_session
-
-
 ## Re-reads both charts' fleet rosters for the player's crown and repaints.
 func refresh() -> void:
 	if play == null or play.world == null or play.ship_layer == null:

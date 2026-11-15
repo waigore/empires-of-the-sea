@@ -862,6 +862,24 @@ func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 	assert_false(panel.is_open(), "Escape closes the ledger")
 
 
+## Every whole-empire sheet reads the one session the screen plays, and the back
+## gesture walks that same registry instead of a second copy of the list
+## (REQ-P3-01, REQ-P5-07).
+func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
+	var sheets: Array[SheetFrame] = HudLedgerDoors.sheets(screen.hud)
+	assert_eq(sheets.size(), 9, "the registry names every whole-empire sheet")
+	for sheet: SheetFrame in sheets:
+		assert_eq(sheet.play, screen.play, "the sheet reads the screen's session")
+	screen.hud.muster_roll_pressed.emit()
+	screen.hud.navy_pressed.emit()
+	assert_true(HudLedgerDoors.dismiss_open(screen.hud), "back takes the first open sheet")
+	assert_false(screen.hud.muster_roll.is_open(), "the muster roll sets itself aside")
+	assert_true(screen.hud.navy_ledger.is_open(), "the navy sheet waits its turn")
+	assert_true(HudLedgerDoors.dismiss_open(screen.hud), "a second press closes the next")
+	assert_false(screen.hud.navy_ledger.is_open(), "the navy sheet sets itself aside")
+	assert_false(HudLedgerDoors.dismiss_open(screen.hud), "nothing open, nothing taken")
+
+
 func test_the_rows_own_tap_visits_its_force() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.muster_roll_pressed.emit()
