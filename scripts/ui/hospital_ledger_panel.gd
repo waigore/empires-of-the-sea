@@ -1,13 +1,13 @@
 class_name HospitalLedgerPanel
-extends LedgerSheet
+extends RaiseLedgerPanel
 ## The crown's hospitals: every province it holds that can carry a ward, the
-## level it stands at, whether its staff ate and the step the Engineer would
-## take next, narrowed by chart and by what the step waits on, with one press
-## that files the order (wiki: combat § Regiment condition; DR-20261116-02). The
-## projection lives in [HospitalLedger] and the map hooks in [MapPlayHospitals];
-## this class only renders rows and asks for the order (REQ-P3-02, REQ-P3-03).
-## The sheet chrome, fade and pause-door park come from SheetFrame; the chips,
-## rows and empty notice from LedgerSheet.
+## level it stands at, whether its staff ate and the step the Engineer would take
+## next, narrowed by chart and by what the step waits on, with one press that
+## files the order and one confirmed press that files every ready ward the view
+## prints (wiki: combat § Regiment condition; DR-20261116-02, DR-20261116-03).
+## The projection lives in [HospitalLedger] and the map hooks in
+## [MapPlayHospitals]; this class names the ward words and the order, and borrows
+## the rest of the sheet from [RaiseLedgerPanel] (REQ-P3-01, REQ-P3-02).
 
 
 func _init() -> void:
@@ -19,66 +19,44 @@ func _init() -> void:
 	)
 
 
-func bind(p_session: PlaySession) -> void:
-	play = p_session
+func _read() -> Dictionary:
+	return MapPlayHospitals.snapshot(play)
 
 
-## Re-reads both charts for the player's crown and repaints the view.
-func refresh() -> void:
-	if play == null or play.world == null:
-		return
-	_snapshot = MapPlayHospitals.snapshot(play)
-	_fit()
-	_apply_filter()
+func _filters() -> Array:
+	return HospitalLedger.FILTERS
 
 
-# --- sheet hooks -------------------------------------------------------------
+func _reading_word(key: String) -> String:
+	return HospitalLedger.filter_label(key)
 
 
-func _build_crest() -> Control:
-	return Icon.new("hospital", 42.0, Palette.GOLD)
+func _groups(region_key: String, reading_key: String) -> Array[Dictionary]:
+	return HospitalLedger.groups(_snapshot, region_key, reading_key)
 
 
-func _build_body(column: VBoxContainer) -> void:
-	_build_filter_body(
-		column, "Chart", "Reading", HospitalLedger.FILTERS,
-		HospitalLedger.filter_label, _rule_note
-	)
+func _count(region_key: String, reading_key: String) -> int:
+	return HospitalLedger.count(_snapshot, region_key, reading_key)
 
 
-## The rule a crown needs before it pays for a ward sits on the sheet, not in a
+func _crest_icon() -> String:
+	return "hospital"
+
+
+func _row_word(count: int) -> String:
+	return "ward" if count == 1 else "wards"
+
+
+## The rule a crown needs before it pays for a step sits on the sheet, not in a
 ## hover: a phone hides the footer hint (REQ-P1-07, REQ-P5-03).
-func _rule_note() -> Control:
+func _note() -> Control:
 	var note := UiRowBuilder.label(HospitalLedger.rule_note(), 11, Palette.TEXT_DIM)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return note
 
 
-# --- rows --------------------------------------------------------------------
-
-
-func _apply_filter() -> void:
-	var groups: Array[Dictionary] = HospitalLedger.groups(_snapshot, _region, _reading)
-	var shown: int = HospitalLedger.count(_snapshot, _region, _reading)
-	_paint_filtered(groups, shown, _heading, _make_row)
-
-
 func _empty_text() -> String:
 	return "No ward answers this view. Clear a filter to see the whole realm."
-
-
-func _heading(group: Dictionary, count: int) -> Control:
-	return LedgerList.heading("%s  ·  %d ward%s" % [
-		String(group["region_label"]).to_upper(), count, "" if count == 1 else "s"
-	])
-
-
-func _make_row(raw: Variant, compact: bool) -> Control:
-	var row := HospitalLedgerRow.new()
-	row.compact = compact
-	row.raise_pressed.connect(_raise)
-	row.setup(raw as Dictionary)
-	return row
 
 
 ## The count line names the filter and what the view means — and what the whole
@@ -108,8 +86,15 @@ func _subtitle_text(shown: int) -> String:
 	return line
 
 
-func _raise(region: int, province_id: int) -> void:
+func _make_row(raw: Variant, compact: bool) -> Control:
+	var row := HospitalLedgerRow.new()
+	row.compact = compact
+	row.raise_pressed.connect(_on_raise)
+	row.setup(raw as Dictionary)
+	return row
+
+
+func _file_order(region: int, province_id: int, quiet: bool = false) -> Dictionary:
 	if play == null:
-		return
-	MapPlayHospitals.raise(play, region, province_id)
-	refresh()
+		return {"ok": false, "message": ""}
+	return MapPlayHospitals.raise(play, region, province_id, quiet)
