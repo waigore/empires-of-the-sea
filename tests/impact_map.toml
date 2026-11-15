@@ -1522,7 +1522,6 @@ domain = "fold_survivors"
 suites = [
   "test_panel_parts_rules.gd",
   "test_mobile_layout.gd",
-  "test_road_works_rules.gd",
 ]
 
 [[rules]]
@@ -1535,10 +1534,6 @@ domain = "province_sheet"
 
 [[rules]]
 match = "scripts/rules/road_works.gd*"
-domain = "province_sheet"
-
-[[rules]]
-match = "tests/test_road_works_rules.gd*"
 domain = "province_sheet"
 
 # Commodity ink for the resource pictograms. Named before the prospect /

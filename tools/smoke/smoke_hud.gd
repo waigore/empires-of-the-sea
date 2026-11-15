@@ -74,6 +74,10 @@ static func _audio(run, screen: MapScreen) -> void:
 	run.check(controls != null, "sound desk in the pause menu")
 	if run.audio == null:
 		return
+	# The drive is a wall-clock gate, so every fade it asks for lands at once:
+	# a bed nobody waits out buys frames, not quieter rules (docs/testing.md
+	# § Speed rules). The knobs the asserts read below are the live ones.
+	run.audio.fade_scale = 0.0
 	run.check(
 		run.audio.current_track_id() == MusicPlaylist.AGE_OF_DISCOVERY, "opening bed playing"
 	)
@@ -86,6 +90,11 @@ static func _audio(run, screen: MapScreen) -> void:
 		run.audio._active_player().volume_db == AudioDirector.SILENT_DB, "mute silences music"
 	)
 	run.audio.set_muted(false)
+	# A driven run ends its fades on the frame it asks for them (fade_scale 0),
+	# so nothing keeps resolving after the asserts above — a killed frame would
+	# leave the next step's boot or the exit waiting on it (docs/testing.md
+	# § Speed rules).
+	run.audio.land_fades()
 
 
 ## One tap on an inland province: the selection sticks and its dossier opens.
