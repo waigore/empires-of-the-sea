@@ -32,6 +32,12 @@ var _compact: bool = false
 ## The crown reading the book: its own staged orders, deals, terms and subsidy.
 ## A player who sails as England must read England's trade, never Spain's.
 var _viewer: int = FactionCatalog.PLAYER_FACTION
+## The batch reading every row shares for one repaint: the purse the auction may
+## spend, the holds free after the staged bids, the tons production claimed.
+var _order_ctx: Dictionary = {}
+## Batch presses keyed "bid:<commodity>" / "offer:<commodity>", for tests and
+## tooling (REQ-P3-02).
+var _batches: Dictionary = {}
 
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
@@ -50,6 +56,8 @@ func fill(
 	_clearing = clearing
 	_viewer = viewer
 	UiRowBuilder.clear(self)
+	_batches.clear()
+	_order_ctx = MarketBatch.context(_economy, _cargo)
 	_add_cargo_banner()
 	var budget: Label = LedgerBudget.banner(_economy)
 	if budget != null:
@@ -249,7 +257,7 @@ func _add_offers(offers: Array) -> void:
 			offer_requested.emit(offer_id, quantity)
 	)
 	add_child(_offers_plate)
-	_offers_plate.fill(offers, _cargo, _compact, _market, _viewer)
+	_offers_plate.fill(offers, _cargo, _compact, _market, _viewer, _order_ctx)
 	UiRowBuilder.spacer(self, 4.0)
 
 
@@ -322,57 +330,21 @@ func _subsidy_rate() -> int:
 
 
 func _market_row(id: String, held: int, claimed: int = 0) -> Control:
-	var row := UiRowBuilder.row(ROW_HEIGHT)
-	row.add_child(CommodityIcons.cell(id, 132.0))
+	var built: Dictionary = MarketRow.build(
+		id, held, claimed, _cargo, _market, _viewer, _order_ctx, _compact,
+		func(commodity: String, quantity: int, is_buy: bool) -> void:
+			trade_requested.emit(commodity, quantity, is_buy)
+	)
+	for side: String in (built["batches"] as Dictionary).keys():
+		_batches["%s:%s" % [side, id]] = built["batches"][side]
+	return built["row"] as Control
 
-	var qty := UiRowBuilder.label("%d" % held, 14, Palette.GOLD_PALE)
-	qty.custom_minimum_size = Vector2(44, 0)
-	qty.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(qty)
-
-	var buy_unit: int = _market.buy_price(id, _viewer)
-	var sell_unit: int = _market.sell_price(id, _viewer)
-	var price := UiRowBuilder.label("%d" % buy_unit, 13, Palette.TEXT_DIM)
-	price.custom_minimum_size = Vector2(44, 0)
-	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(price)
-
-	# The court can only sell what its own production runs leave behind, and the
-	# cap is a readout on the page, not a hover: a phone player must see why the
-	# Offer is dead (wiki: world-market § Trade orders — the sellable readout;
-	# REQ-P1-05, REQ-P5-05).
-	var sellable: int = maxi(held - claimed, 0)
-	var sell := UiRowBuilder.button("Offer", ROW_HEIGHT, 70.0)
-	sell.disabled = sellable <= 0
-	if claimed > 0:
-		sell.tooltip_text = "%d %s claimed by production — %d sellable at %d ducats" % [
-			claimed, CommodityCatalog.label(id), sellable, sell_unit,
-		]
-	else:
-		sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
-			CommodityCatalog.label(id), sell_unit,
-		]
-	sell.pressed.connect(func() -> void: trade_requested.emit(id, 1, false))
-	row.add_child(sell)
-
-	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 70.0)
-	buy.tooltip_text = "Bid 1 %s at %d ducats — it clears when the turn closes" % [
-		CommodityCatalog.label(id), buy_unit
-	]
-	# Imports need a free hold in the home fleet (DR-20261109-03).
-	if int(_cargo.get("free", -1)) == 0:
-		buy.disabled = true
-		buy.tooltip_text = "No cargo holds free this turn"
-	buy.pressed.connect(func() -> void: trade_requested.emit(id, 1, true))
-	row.add_child(buy)
-	if claimed <= 0:
-		return row
-	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 2)
-	block.add_child(row)
-	block.add_child(UiRowBuilder.caption(
-		"%d %s claimed by production — %d sellable"
-		% [claimed, CommodityCatalog.label(id), sellable],
-		10, Palette.TEXT_DIM, 0.0
-	))
-	return block
+## Batch presses keyed "bid:<commodity>" / "offer:<commodity>" for this page's
+## rows, plus the offers plate's own presses keyed by offer id; tests and
+## tooling read this instead of walking the page's children (REQ-P3-02).
+func batch_buttons() -> Dictionary:
+	if _offers_plate == null:
+		return _batches
+	var out: Dictionary = _batches.duplicate()
+	out.merge(_offers_plate.batch_buttons(), true)
+	return out
