@@ -566,6 +566,49 @@ func test_court_reader_counts_the_order_of_battle() -> void:
 		)
 
 
+## One published pass: the panel, the calendar's declared winner and the
+## observer all read the strength and hulls `public_orders` builds, so a new
+## regiment moves every published score together (wiki: diplomacy § Great Power
+## power score; REQ-P2-03, REQ-P3-02).
+func test_court_reader_publishes_one_order_of_battle() -> void:
+	_seat(0)
+	var play: PlaySession = _screen.play
+	var crowns: Array[int] = FactionCatalog.great_power_ids()
+	var owner: int = crowns[0]
+	var before: float = float(
+		MapPlayCourt.public_strength(play).get(owner, 0.0)
+	)
+	var region: int = play.region_index
+	var armies: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
+	var province: int = int(play.world.region(region).provinces[0].id)
+	armies.append(
+		ArmyState.muster(9201, owner, province, false, ["knights"])
+	)
+	play.army_layer.regions.set_region(region, armies)
+	var orders: Dictionary = MapPlayCourt.public_orders(play)
+	var strength: Dictionary = orders["strength"]
+	var ships: Dictionary = orders["ships"]
+	assert_almost_eq(
+		float(strength.get(owner, 0.0)), before + 6.0, 0.001,
+		"a knight adds its FPN + FPM to the published strength"
+	)
+	for faction: int in crowns:
+		assert_eq(
+			int(ships.get(faction, 0)), MapPlayCourt.ships(play, faction),
+			"the published hulls read the same navy"
+		)
+	assert_eq(
+		int(MapPlayObserver.row(play, owner)["power"]),
+		AiPower.score(
+			play.world,
+			owner,
+			int(roundf(float(strength.get(owner, 0.0)))),
+			int(ships.get(owner, 0))
+		),
+		"the observer prints the published score, not its own arithmetic"
+	)
+
+
 func test_court_reader_counts_only_fighting_hulls() -> void:
 	# From the top of turn 1: the cached turn's AI pass may already hold wars,
 	# and this case names its own.

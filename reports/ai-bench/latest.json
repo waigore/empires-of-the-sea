@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:d8ff8f491f15f33c5c434586227c5ac7eda5c8bdfa6dc8a33640b3ebddf629ca",
-  "submission_git": "orc/implement-then-hunt-1-s2-implement-then-hunt-hunt-defects-agent/20261115T162531851994Z@5a2e938a",
+  "submission_hash": "sha256:8751852aa8268661dafb3b6227d704be884a9ec31c8c3fe05053a072e59f1f24",
+  "submission_git": "orc/implement-then-hunt-1-s2-implement-then-hunt-hunt-defects-agent/20261115T162531851994Z@a5ae93b0+dirty",
   "passed": true,
   "config": [
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 69.70519480519481,
+      "value": 88.83019480519481,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:8c2e16de97f4ef887640510be999b5e9e37f63f238207c6c14b15db25aeb76cc",
+    "ai_surface_hash": "sha256:11221b8d91b3e220fe3c6906695f6c37f44b9e866acffad62d6baed2a75a1d1e",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -66,14 +66,14 @@
       "workers": 9,
       "extraction_per_turn": 1.0,
       "income_per_turn": 87.08536585365853,
-      "funded_pct": 69.70519480519481
+      "funded_pct": 88.83019480519481
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 69.70519480519481
+    "funded_pct": 88.83019480519481
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-15T16:58:41Z",
+  "timestamp": "2026-11-15T17:06:16Z",
   "report_version": 1,
-  "signature": "hmac-sha256:35806d8058ca3fb1898e64f91e23d4c85739b6c65967b81c30108ae5b93ddc03"
+  "signature": "hmac-sha256:17fddce9a39466511fd36cf6a9dac5152810bb01d90ccab4ca6107820348e0a1"
 }

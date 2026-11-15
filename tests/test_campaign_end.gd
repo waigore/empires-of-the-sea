@@ -340,6 +340,42 @@ func test_the_calendar_cap_turn_still_files_its_sheet() -> void:
 	assert_false(screen.play.gazette.has_sheet(CAP - 1), "no sheet is filed twice")
 
 
+## The turn that ends the crown's age is still a turn: its sheet is filed under
+## its own number, so the archive holds the capital's fall and does not stop one
+## turn short of the end, while the defeat plate keeps the screen (wiki:
+## the-gazette § When it appears; victory § Great Power defeat, § Victory Screen).
+func test_the_fallen_turn_still_files_its_sheet() -> void:
+	var target: MapScreen = _attach()
+	var play: PlaySession = target.play
+	var rival: int = _defeat_rival(play.player_faction)
+	DiplomacyRules.declare_war(play.diplomacy, rival, play.player_faction)
+	_fall_crown(target, play.player_faction, rival)
+	assert_not_null(play.defeat, "the crown fell")
+	assert_true(
+		play.diplomacy.has_relation(play.player_faction, rival),
+		"the fall keeps the dealings its last sheet has to name"
+	)
+
+	var closed: bool = MapPlayTurnFinish._close_if_decided(
+		play, MapPlayTurnFinish.TurnBook.new()
+	)
+
+	assert_true(closed, "the turn that lost the crown closes the campaign")
+	assert_not_null(play.gazette)
+	assert_true(
+		play.gazette.has_sheet(play.turn),
+		"the fallen turn's sheet is filed under its own turn"
+	)
+	assert_false(
+		play.diplomacy.has_relation(play.player_faction, rival),
+		"the close drops the fallen crown's dealings once the sheet is written"
+	)
+	assert_true(
+		target.hud.victory_overlay.is_shown(),
+		"the defeat plate keeps the screen; the sheet waits in the archive"
+	)
+
+
 func test_an_endless_campaign_sails_past_the_cap() -> void:
 	_attach()
 	screen.play.infinite_mode = true

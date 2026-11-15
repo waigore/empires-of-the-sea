@@ -12,19 +12,24 @@ extends RefCounted
 ##
 ## `note` reads one allocated ledger (the rows `AiObjectiveLedger.allocate`
 ## produced, children included) and keeps, per aim id, how many consecutive
-## turns the aim has been deferred **without its shortfall shrinking** — a
-## stall. An aim that funds clears its record; one that starts closing the gap
-## restarts it; one that stands still or falls further behind counts the turn.
-## The ledger itself stays a pure reading (REQ-P2-03): the escalation lives in
-## what the planners read back — `AiIncome` re-routes a stalled war chest, and
-## the trace names an aim stalled past `ledger.blocked_turns` as `blocked`
-## with its reason instead of another silent deferred row.
+## turns the aim has been deferred **without its shortfall reaching a new low** —
+## a stall. An aim that funds clears its record; one whose gap falls below the
+## best the stall has seen restarts it; a per-turn wobble above that best —
+## standing still, falling behind, one ducat of noise — counts the turn, so an
+## oscillating chest cannot reset the escalation bar forever (the 2026-11-15
+## full-AI measurement: a wobbling shortfall kept the re-route from ever
+## answering and the court's worker training froze for 175 turns). The ledger
+## itself stays a pure reading (REQ-P2-03): the escalation lives in what the
+## planners read back — `AiIncome` re-routes a stalled war chest, and the trace
+## names an aim stalled past `ledger.blocked_turns` as `blocked` with its
+## reason instead of another silent deferred row.
 ##
 ## Pure: rows in, records out. No order is issued and no state is mutated
 ## outside the records the caller keeps (REQ-P4-03).
 
-## Record shape: aim id -> {turns: int, shortfall: Dictionary}. The shortfall is
-## the row this record is stalling on; `turns` is the stall length in turns.
+## Record shape: aim id -> {turns: int, shortfall: Dictionary, low: int}. The
+## shortfall is the row this record is stalling on; `turns` is the stall length
+## in turns; `low` is the smallest shortfall total the stall has seen.
 
 
 ## Fold one allocated ledger into the next record map. A deferred aim with a
@@ -73,7 +78,9 @@ static func stall_for(deferrals: Dictionary, faction: int, aim_id: String) -> in
 
 
 ## A loaded stall map, validated: a record a save could not describe is
-## dropped, and the survivor is the plain {turns, shortfall} row (issue #603).
+## dropped, and the survivor is the plain {turns, shortfall, low} row (issue
+## #603). A record written before the low water existed reads the gap it was
+## stalling on as its best.
 static func clean(records: Dictionary) -> Dictionary:
 	var out: Dictionary = {}
 	for aim_id: Variant in records.keys():
@@ -81,9 +88,13 @@ static func clean(records: Dictionary) -> Dictionary:
 		var shortfall: Dictionary = _dictionary(record.get("shortfall", {}))
 		if shortfall.is_empty():
 			continue
+		var low: int = int(record.get("low", -1))
+		if low < 0:
+			low = _total(shortfall)
 		out[String(aim_id)] = {
 			"turns": maxi(int(record.get("turns", 0)), 0),
 			"shortfall": shortfall,
+			"low": low,
 		}
 	return out
 
@@ -114,6 +125,7 @@ static func _note_aim(
 		next[aim_id] = {
 			"turns": _stall_turns(previous, shortfall),
 			"shortfall": shortfall,
+			"low": _low_water(previous, shortfall),
 		}
 	elif status == AiObjective.STATUS_BLOCKED and not previous.is_empty():
 		# An escalation-blocked reading keeps the stall it names; a rule-blocked
@@ -123,15 +135,34 @@ static func _note_aim(
 	# stall this record was counting is over.
 
 
-## The next stall length for one aim: 1 when the shortfall just started
-## shrinking (or the aim is newly deferred); otherwise the count continues —
-## standing still and falling further behind are the same stall to the court.
+## The next stall length for one aim: 1 when the aim is newly deferred or the
+## shortfall just reached a new low; otherwise the count continues — standing
+## still, falling behind and a per-turn wobble above the best gap are the same
+## stall to the court.
 static func _stall_turns(previous: Dictionary, shortfall: Dictionary) -> int:
 	if previous.is_empty():
 		return 1
-	if _total(shortfall) < _total(_dictionary(previous.get("shortfall", {}))):
+	if _total(shortfall) < _held_low(previous, shortfall):
 		return 1
 	return maxi(int(previous.get("turns", 0)), 0) + 1
+
+
+## The best gap the stall has seen, carried in the record; a record a save
+## wrote before the low water existed reads the gap it was stalling on.
+static func _held_low(previous: Dictionary, shortfall: Dictionary) -> int:
+	var held: int = int(previous.get("low", -1))
+	if held < 0:
+		return _total(_dictionary(previous.get("shortfall", {})))
+	return held
+
+
+## The record's low water: the smaller of the gap the stall has seen and this
+## turn's shortfall, so the next turn's progress check reads the true best. A
+## new stall's best is this turn's own shortfall.
+static func _low_water(previous: Dictionary, shortfall: Dictionary) -> int:
+	if previous.is_empty():
+		return _total(shortfall)
+	return mini(_held_low(previous, shortfall), _total(shortfall))
 
 
 ## Total shortfall across the row's resources, so a stall that changes shape

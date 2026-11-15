@@ -4,8 +4,8 @@ extends RefCounted
 ## and computes the calendar's declared leader (wiki: victory § Victory Check;
 ## turn-time-mapping § Campaign calendar cap).
 ##
-## One home for the power formula so the turn, the setup intro and the observer
-## panel never duplicate it (REQ-P3-02). Presentation only: every winner is
+## The published order of battle comes from one reader — `MapPlayCourt` — so the
+## turn, the setup intro and the observer panel never duplicate it (REQ-P3-02). Presentation only: every winner is
 ## already decided by VictoryRules.
 
 
@@ -39,26 +39,16 @@ static func close_calendar(play: PlaySession) -> void:
 
 
 ## Strongest crown by power score, or NO_ID when the top score is shared. The
-## strength term is the public order of battle — FPN + FPM over every regiment
-## the crown holds, in both regions, without the general medal multiplier — and
-## the hull term counts every ship it floats, again in both regions
+## public order of battle comes from `MapPlayCourt.public_orders`, so the
+## calendar, the court panel and the rival pass read one formula
 ## (wiki: victory § Calendar campaign end, diplomacy § Great Power power score).
 static func declared_leader(play: PlaySession) -> int:
-	var strength: Dictionary = {}
-	var ships: Dictionary = {}
-	if play.army_layer != null:
-		for raw: Variant in play.army_layer.regions.values():
-			var stored: Array = []
-			stored.assign(raw)
-			for army: ArmyState in stored:
-				if army != null:
-					strength[army.owner] = (
-						float(strength.get(army.owner, 0.0)) + army.strength()
-					)
-	if play.ship_layer != null:
-		for faction: int in FactionCatalog.great_power_ids():
-			ships[faction] = play.ship_layer.hull_count_all(faction)
-	return VictoryRules.declared_leader(play.world, strength, ships)
+	var orders: Dictionary = MapPlayCourt.public_orders(play)
+	return VictoryRules.declared_leader(
+		play.world,
+		orders.get("strength", {}) as Dictionary,
+		orders.get("ships", {}) as Dictionary
+	)
 
 
 ## Great Power research state for a rules pass over every crown. Rivals keep
