@@ -11,8 +11,10 @@ extends LedgerSheet
 
 ## The realm prints each province's town level; the towns sheet is the step
 ## that raises it, so the door sits on the reading that raises the question
-## (DR-20261115-12).
+## (DR-20261115-12). The walls door is its sibling: the realm prints the fort,
+## the walls sheet is the step that raises it (DR-20261116-01).
 signal towns_pressed
+signal walls_pressed
 
 
 func _init() -> void:
@@ -47,21 +49,36 @@ func _build_crest() -> Control:
 func _build_body(column: VBoxContainer) -> void:
 	_build_filter_body(
 		column, "Chart", "Reading", ProvinceLedger.FILTERS, ProvinceLedger.filter_label,
-		_towns_door
+		_doors
 	)
 
 
-## The door to the crown's towns: the realm prints the level, the towns sheet
-## prints the step that raises it, and the press is one reach from here
-## (REQ-P5-01, REQ-P5-04; DR-20261115-12). A full-width row keeps it a
-## thumb-sized tap on a phone sheet.
-func _towns_door() -> Control:
+## The doors a step is one reach from the reading that raises it: the realm
+## prints the town level and the fort, so the towns and walls sheets are the
+## steps that raise them (REQ-P5-01, REQ-P5-04; DR-20261115-12,
+## DR-20261116-01). Full-width rows keep each a thumb-sized tap on a phone.
+func _doors() -> Control:
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 6)
+	row.add_child(_door(
+		"Towns ›", "Every town the crown holds, and the step that raises it (B)",
+		func() -> void: towns_pressed.emit()
+	))
+	row.add_child(_door(
+		"Walls ›", "Every wall the crown holds, and the step that raises it (V)",
+		func() -> void: walls_pressed.emit()
+	))
+	return row
+
+
+func _door(label: String, hint: String, press: Callable) -> Button:
 	var door := Button.new()
-	door.text = "Towns ›"
-	door.tooltip_text = "Every town the crown holds, and the step that raises it (B)"
+	door.text = label
+	door.tooltip_text = hint
 	door.custom_minimum_size = Vector2(0, 34)
+	door.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	door.add_theme_font_size_override("font_size", 12)
-	door.pressed.connect(func() -> void: towns_pressed.emit())
+	door.pressed.connect(press)
 	return door
 
 

@@ -92,6 +92,7 @@ const GROUPS: Array[Dictionary] = [
 				"door": "Province dossier › Realm",
 			},
 			{"label": "Towns", "actions": [InputActions.TOWNS_LEDGER], "door": "Realm ledger › Towns"},
+			{"label": "Walls", "actions": [InputActions.WALLS_LEDGER], "door": "Realm ledger › Walls"},
 			{
 				"label": "Commanders",
 				"actions": [InputActions.COMMAND_LEDGER],

@@ -16,6 +16,7 @@ static func step(run) -> void:
 	await _muster_roll(run, screen)
 	await _province_ledger(run, screen)
 	await _town_ledger(run, screen)
+	await _wall_ledger(run, screen)
 	await _spy_ledger(run, screen)
 	await _command_ledger(run, screen)
 	await _navy_ledger(run, screen)
@@ -176,6 +177,33 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the towns ledger sets itself aside")
+
+
+## The walls ledger: the realm ledger's Walls door raises the crown's walls on
+## the real map and sets itself aside (DR-20261116-01). No Engineer is sent.
+static func _wall_ledger(run, screen: MapScreen) -> void:
+	run.check(screen.hud.walls_ledger != null, "walls ledger mounted")
+	screen.hud.provinces_pressed.emit()
+	await run.tree.process_frame
+	var door: Button = null
+	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Walls ›":
+			door = button
+			break
+	run.check(door != null, "the realm ledger carries the walls door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await run.tree.process_frame
+	var panel: WallLedgerPanel = screen.hud.walls_ledger
+	run.check(panel.is_open(), "the walls ledger opens from the realm's door")
+	run.check(int(panel._snapshot.get("total", 0)) > 0, "the ledger lists the crown's walls")
+	run.check(run.has_text(panel._rows, "Fort") or run.has_text(panel._rows, "wall"),
+		"a row reads the wall that stands or the one next")
+	panel.close()
+	await run.tree.process_frame
+	run.check(not panel.is_open(), "the walls ledger sets itself aside")
 
 
 ## The crown's eyes: the court ledger's EYES door raises the intelligence

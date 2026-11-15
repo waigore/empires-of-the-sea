@@ -296,15 +296,11 @@ static func _check_action(
 			var held: Dictionary = _owned_land(model, unit, tile)
 			if not bool(held["ok"]):
 				return held
-			if FortRules.level_at(model, province) >= FortRules.MAX_LEVEL:
-				return _no("This province already holds a modern fort.")
-			var next_fort: int = CivilianWorkPlan.fort_target(model, tile)
-			var gate: String = FortRules.tech_gate(next_fort)
-			if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):
-				return _no(
-					"A %s fort needs %s."
-					% [FortRules.level_name(next_fort), TechCatalog.display_name(gate)]
-				)
+			var wall_gate: String = CivilianWorkPlan.fort_refusal(
+				FortRules.level_at(model, province), tech_unlocked
+			)
+			if not wall_gate.is_empty():
+				return _no(wall_gate)
 			# Two projects in one province may run; the later completion cannot
 			# leap a level (wiki: siege-mechanics § Fort Levels), so the town
 			# tile is not exclusive the way an estate tile is.

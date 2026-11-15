@@ -49,6 +49,12 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if towns != null and towns.is_open():
 		towns.close()
 		return true
+	# Its walls sibling stands on the same layer and closes the same way
+	# (DR-20261116-01).
+	var walls: WallLedgerPanel = play.hud.walls_ledger
+	if walls != null and walls.is_open():
+		walls.close()
+		return true
 	# The province ledger is the muster roll's sibling sheet (DR-20261115-09).
 	var provinces: ProvinceLedgerPanel = play.hud.province_ledger
 	if provinces != null and provinces.is_open():

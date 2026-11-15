@@ -122,6 +122,58 @@ static func upgrade_town(
 	}
 
 
+## Dispatch the nearest idle Engineer to the province's wall and start a
+## build_fort order. The site, the price, the wait and every gate stay in
+## `FortRules`/`CivilianWork`; this only chooses the crew and words the report,
+## so the walls ledger's Raise press is the Engineer's own order
+## (REQ-P2-03; DR-20261116-01).
+static func build_fort(
+	model: MapModel,
+	units: Array[CivilianState],
+	works: LandWorks,
+	stockpile: Dictionary,
+	visibility: VisibilityModel,
+	owner: int,
+	province_id: int,
+	tech_caps: Dictionary = {},
+	tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	var province: ProvinceState = model.province_data(province_id)
+	if province == null:
+		return {"ok": false, "message": "This province has no wall to raise."}
+	if province.owner != owner:
+		return {"ok": false, "message": "This province is not held by your crown."}
+	# The wall rises on the province's town tile (wiki: siege-mechanics
+	# § Fort Levels). A hand-built chart with neither a town nor a seat keeps the
+	# old any-land rule, so the crew's own ground takes the order.
+	var site: Vector2i = FortRules.site_tile(model, province_id)
+	var target: Vector2i = site if site.x >= 0 else CivilianState.NO_TILE
+	var engineer: CivilianState = nearest_engineer(units, owner, site)
+	if engineer == null:
+		return {
+			"ok": false,
+			"message": "No idle Engineer musters — train one at the capital.",
+		}
+	var result: Dictionary = CivilianWork.assign(
+		model, engineer, "build_fort", works, units, stockpile, visibility, target,
+		tech_caps, tech_unlocked
+	)
+	if not bool(result.get("ok", false)):
+		return {"ok": false, "message": String(result.get("reason", ""))}
+	var ordered: int = FortRules.next_level(FortRules.level_at(model, province_id))
+	var turns: int = int(result.get("duration", FortRules.turns(ordered)))
+	return {
+		"ok": true,
+		"message": "%s raises the wall of %s — %s, %d turn%s." % [
+			engineer.display_name(),
+			model.province_name(province_id),
+			FortRules.describe(ordered),
+			turns,
+			"" if turns == 1 else "s",
+		],
+	}
+
+
 static func cancel(
 	model: MapModel, units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> Dictionary:
@@ -149,9 +201,17 @@ static func working_builder(
 
 
 static func idle_builders(units: Array[CivilianState], owner: int) -> Array[CivilianState]:
+	return idle_crews(units, owner, "builder")
+
+
+## Every idle crew of one trade, so a sheet can ask who is free without owning
+## the roster's type ids (the towns read a Builder, the walls an Engineer).
+static func idle_crews(
+	units: Array[CivilianState], owner: int, type_id: String
+) -> Array[CivilianState]:
 	var result: Array[CivilianState] = []
 	for unit: CivilianState in units:
-		if unit != null and unit.owner == owner and unit.type_id == "builder" and unit.is_idle():
+		if unit != null and unit.owner == owner and unit.type_id == type_id and unit.is_idle():
 			result.append(unit)
 	return result
 
@@ -160,9 +220,22 @@ static func idle_builders(units: Array[CivilianState], owner: int) -> Array[Civi
 static func nearest_builder(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:
+	return nearest_crew(units, owner, tile, "builder")
+
+
+## Closest idle Engineer by Manhattan distance; ties break on unit id.
+static func nearest_engineer(
+	units: Array[CivilianState], owner: int, tile: Vector2i
+) -> CivilianState:
+	return nearest_crew(units, owner, tile, "engineer")
+
+
+static func nearest_crew(
+	units: Array[CivilianState], owner: int, tile: Vector2i, type_id: String
+) -> CivilianState:
 	var best: CivilianState = null
 	var best_distance: int = 1 << 30
-	for unit: CivilianState in idle_builders(units, owner):
+	for unit: CivilianState in idle_crews(units, owner, type_id):
 		var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
 		if distance < best_distance or (distance == best_distance and unit.id < best.id):
 			best = unit

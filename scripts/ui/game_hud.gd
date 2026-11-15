@@ -60,6 +60,10 @@ signal towns_pressed
 ## squadron by squadron, with her class, her guns and her holds
 ## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
 signal navy_pressed
+## The realm ledger's walls door opens the crown's walls — every province it
+## holds that can carry a fort and the step the Engineer would take next
+## (REQ-P5-01, REQ-P5-03; DR-20261116-01).
+signal walls_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -127,6 +131,9 @@ var towns_ledger: TownLedgerPanel = null
 var tech_tree: TechTreePanel = null
 ## The crown's navy: every hull it floats, squadron by squadron (DR-20261115-14).
 var navy_ledger: NavalLedgerPanel = null
+## The crown's walls: every province it holds that can carry a fort and the step
+## the Engineer would take next (DR-20261116-01).
+var walls_ledger: WallLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
