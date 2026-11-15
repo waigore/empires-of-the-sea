@@ -23,15 +23,52 @@ const MODAL_DOORS: Array[String] = [
 
 var _viewport: SubViewport = null
 var _screen: MapScreen = null
+## One mount for the whole suite (docs/testing.md § Speed rules): a case that
+## reads the chrome at a size re-seats the shared screen from this pristine save
+## (~0.15 s) instead of mounting the chart again (~0.5 s under coverage).
+var screen_pristine: Dictionary = {}
+var world_snapshot: Array = []
 
 
-func after_each() -> void:
+func before_all() -> void:
+	_mount(PHONE)
+
+
+func after_all() -> void:
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
 	if is_instance_valid(_viewport):
 		_viewport.free()
 	_viewport = null
+	Fixture.restore(Fixture.world(), world_snapshot)
+
+
+## The suite's one chart, mounted inside the phone-sized viewport the geometry is
+## read in. The viewport is resized per case; the screen under it is not rebuilt.
+func _mount(size: Vector2i) -> void:
+	if is_instance_valid(_screen) or is_instance_valid(_viewport):
+		return
+	if world_snapshot.is_empty():
+		world_snapshot = Fixture.snapshot(Fixture.world())
+	Fixture.restore(Fixture.world(), world_snapshot)
+	_viewport = SubViewport.new()
+	_viewport.size = size
+	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(_viewport)
+	_screen = Fixture.attach_screen(_viewport)
+	if screen_pristine.is_empty():
+		screen_pristine = Fixture.suite_capture(_screen)
+	_screen.hud._relayout()
+
+
+## Drops a door the last case left open: a full-screen modal is not a docked
+## sheet, so the shared reset does not know to close it.
+func _close_modals() -> void:
+	for node: Node in _screen.find_children("*", "", true, false):
+		var shell: ModalShell = node as ModalShell
+		if shell != null and shell.is_open():
+			shell.close()
 
 
 ## --- density ---------------------------------------------------------------
@@ -1072,17 +1109,13 @@ func _clear_news(hud: GameHud) -> void:
 
 
 func _open(size: Vector2i) -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
-		_screen = null
-	if is_instance_valid(_viewport):
-		_viewport.free()
-		_viewport = null
-	_viewport = SubViewport.new()
+	_mount(size)
+	if not is_instance_valid(_screen):
+		return
+	_close_modals()
 	_viewport.size = size
-	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	add_child(_viewport)
-	_screen = Fixture.attach_screen(_viewport)
+	Fixture.restore(Fixture.world(), world_snapshot)
+	Fixture.suite_reset(_screen, screen_pristine)
 	_screen.hud._relayout()
 
 

@@ -321,7 +321,6 @@ suites = [
   "test_naval_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_town_ledger.gd",
-  "test_ledger_rows.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -727,10 +726,6 @@ domain = "ledger_dress"
 match = "scripts/rules/ledger_rows.gd*"
 domain = "ledger_dress"
 
-[[rules]]
-match = "tests/test_ledger_rows.gd*"
-domain = "ledger_dress"
-
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
 # The sheet rides the court ledger's door, so it is mapped before the ui glob;
 # its suite is named before the espionage glob so a reading change never pulls
@@ -832,7 +827,6 @@ domain = "diplomacy"
 suites = [
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
-  "test_main.gd",
   "test_menu_flow.gd",
   "test_save_codec.gd",
   "test_army_orders.gd",
@@ -888,7 +882,6 @@ suites = [
 [domains.pause]
 suites = [
   "test_menu_flow.gd",
-  "test_main.gd",
   "test_court_ui_parts.gd",
   "test_audio_rules.gd",
   "test_mobile_layout.gd",
@@ -909,7 +902,7 @@ suites = [
 
 [domains.map]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_advanced_start_live.gd",
   "test_map_view_rules.gd",
   "test_map_canvas.gd",
@@ -1016,7 +1009,7 @@ suites = [
   "test_ai_planner_rules.gd",
   "test_tables_rules.gd",
   "test_civilian_field_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_map_data_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_panel_parts_rules.gd",
@@ -1091,7 +1084,7 @@ suites = [
 # dozen heavy MapScreen suites miss the 5 min tier-1 budget.
 [domains.map_fixture]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_map_screen.gd",
   "test_save_codec.gd",
   "test_campaign_end.gd",
@@ -1099,7 +1092,7 @@ suites = [
 
 [domains.advanced]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_advanced_start_live.gd",
 ]
 
@@ -1113,8 +1106,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
-  "test_world_setup.gd",
-  "test_main.gd",
+  "test_generated_world_rules.gd",
   "test_map_screen.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
@@ -1131,7 +1123,7 @@ suites = [
   "test_campaign_end.gd",
   "test_campaign_intro.gd",
   "test_land_battle_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
 ]
@@ -1146,11 +1138,10 @@ suites = [
 
 [domains.menu]
 suites = [
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
   "test_advanced_start_live.gd",
   "test_land_battle_rules.gd",
   "test_court_ui_parts.gd",
-  "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
   "test_map_lenses.gd",
@@ -1167,7 +1158,7 @@ suites = [
 [domains.world]
 suites = [
   "test_tables_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
 ]
 
 [domains.research]
@@ -1294,6 +1285,13 @@ domain = "victory_bar"
 # (DR-20261112-05).
 [[rules]]
 match = "scripts/rules/victory_standings.gd*"
+domain = "victory_standings"
+
+# Calendar declared-leader reads the published OOB; keep it on victory_standings
+# so a one-line power-score call does not pull the scripts/map/** fan-out past
+# the tier-1 5 min budget.
+[[rules]]
+match = "scripts/map/map_play_campaign.gd*"
 domain = "victory_standings"
 
 [[rules]]
@@ -1601,7 +1599,7 @@ suites = [
   "test_map_lenses.gd",
   "test_ledgers.gd",
   "test_naval_rules.gd",
-  "test_world_setup.gd",
+  "test_generated_world_rules.gd",
 ]
 
 [[rules]]
@@ -1834,6 +1832,10 @@ match = "scripts/ai/ai_diplomacy_offers.gd*"
 domain = "ai_colony"
 
 [[rules]]
+match = "scripts/ai/ai_diplomacy_treaties.gd*"
+domain = "ai_colony"
+
+[[rules]]
 match = "scripts/ai/ai_objectives_plan.gd*"
 domain = "ai_colony"
 
@@ -2014,7 +2016,7 @@ domain = "hospital"
 match = "scripts/world/**"
 domain = "map"
 
-# Chart size presets (#700): world_setup owns the tile/province band; the menu
+# Chart size presets (#700): the generated-world suite owns the tile/province band; the menu
 # catch-all's eight MapScreen mounts miss the tier-1 5 min budget.
 [[rules]]
 match = "scripts/session/game_config.gd*"
@@ -3241,10 +3243,6 @@ match = "tests/test_land_battle_rules.gd*"
 domain = "difficulty"
 
 [[rules]]
-match = "tests/test_main.gd"
-domain = "menu"
-
-[[rules]]
 match = "tests/test_menu_*.gd"
 domain = "menu"
 
@@ -3312,7 +3310,7 @@ match = "tests/test_spy_*.gd*"
 domain = "espionage"
 
 [[rules]]
-match = "tests/test_world_setup.gd*"
+match = "tests/test_generated_world_rules.gd*"
 domain = "advanced"
 
 [[rules]]

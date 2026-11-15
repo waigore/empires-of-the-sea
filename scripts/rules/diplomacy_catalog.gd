@@ -71,6 +71,15 @@ const ALLY_DEFENCE_MIN_SCORE: float = 50.0
 const ALLIANCE_CLAMP: float = 76.0
 const BREAK_ALLY_PENALTY: float = 50.0
 const BREAK_CASCADE_PENALTY: float = 10.0
+## Breaking a non-aggression pact (issue #750): the former partner drops 20 and
+## every other court the breaker holds a relation with drops 3. A pact break
+## that also clears a formal alliance carries the larger alliance price instead.
+const BREAK_NAP_PENALTY: float = 20.0
+const BREAK_NAP_CASCADE_PENALTY: float = 3.0
+## Join Empire acceptance reads the published power map: an offerer at least
+## this many times the target's power has left the target no road alone
+## (wiki: diplomacy § Join Empire; issue #750).
+const JOIN_EMPIRE_POWER_RATIO: float = 2.0
 const PROTEST_PENALTY: float = 10.0
 ## Protest against an aggressor holding Propaganda (wiki: tech-tree-diplomacy-civilian).
 const PROTEST_PENALTY_PROPAGANDA: float = 5.0

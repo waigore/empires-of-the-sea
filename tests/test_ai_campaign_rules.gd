@@ -1315,6 +1315,7 @@ func test_every_court_menu_order_has_a_rival_policy() -> void:
 		DiplomacyOrders.KIND_PEACE,
 		DiplomacyOrders.KIND_ALLIANCE,
 		DiplomacyOrders.KIND_BREAK,
+		DiplomacyOrders.KIND_BREAK_NAP,
 		DiplomacyOrders.KIND_OVERTURE,
 		DiplomacyOrders.KIND_AID,
 		DiplomacyOrders.KIND_SUBSIDY,
@@ -1357,7 +1358,9 @@ func test_a_warm_rival_sends_aid_and_pays_from_its_own_purse() -> void:
 	# A healthy purse below the war chest's reach: the court is not saving for
 	# a regiment it is one payment short of, so the gift goes out (#603).
 	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 1500
-	var result: Dictionary = _run([0, 2, 3, 3, 3, 3], [], 1)
+	# The pairing keeps neither crown stronger than the other, so the binding
+	# pact still serves both ends and the gift goes out (issue #752).
+	var result: Dictionary = _run([0, 2, 2, 3, 3], [], 1)
 	var action: Dictionary = _action(result, 2)
 	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_AID)
 	assert_eq(int(action["amount"]), DiplomacyCatalog.GRANT_AID_STEP)
@@ -1469,7 +1472,10 @@ func test_a_rival_ends_a_subsidy_once_the_friendship_cools() -> void:
 	_setup_ai_diplomacy_offers()
 	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)
 	ai_diplomacy_offers_state.relation(2, 6).score = 40.0
-	_stage(2, 6, DiplomacyCatalog.STAGE_NAP)
+	# The pair holds no pact, so the cooled friendship only ends the subsidy:
+	# a court that wants the war a pact would ban breaks the pact first
+	# (wiki: diplomacy § Breaking a pact; issue #752).
+	_stage(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	ai_diplomacy_offers_state.set_subsidy(2, 6, 10)
 	ai_diplomacy_offers_ai_state.note_war(2, 6, 1)
 	var result: Dictionary = _run([0, 0, 0, 2, 6], [], 2, {2: 3})
@@ -1554,6 +1560,7 @@ func test_one_sided_acts_and_consent_offers_are_told_apart() -> void:
 		DiplomacyOrders.KIND_CANCEL_SUBSIDY,
 		DiplomacyOrders.KIND_REVOKE_FTP,
 		DiplomacyOrders.KIND_BREAK,
+		DiplomacyOrders.KIND_BREAK_NAP,
 	]
 	for kind: String in AiDiplomacyOffers.KINDS:
 		var queued: bool = DiplomacyProposals.knows(kind)
@@ -2174,17 +2181,148 @@ func test_declares_war_when_strong_and_relations_are_cool() -> void:
 	assert_eq(int(action["target"]), 1)
 	assert_eq(int(action["desired_territory"]), 2, "clamp(round(75/25), 1, 2)")
 
+# --- the binding-treaty AI (issue #752) ---
+
+func test_a_pacted_rival_breaks_the_pact_instead_of_the_illegal_war() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	# The war is banned, so the court's highest act is the pact break that opens
+	# it (wiki: diplomacy § Breaking a pact; issue #752).
+	assert_true(
+		String(plan["candidates"][0]["blocked"]).contains("non-aggression pact"),
+		String(plan["candidates"][0]["blocked"]),
+	)
+	assert_eq(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_BREAK_NAP,
+	)
+	assert_eq(int(plan["action"]["target"]), 1)
+
+func test_after_the_break_the_next_turn_declares_the_war() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var first: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	assert_eq(String(first["action"]["kind"]), AiDiplomacyOffers.KIND_BREAK_NAP)
+	assert_true(
+		bool(
+			AiTurnApply.apply_order(
+				ai_planner_state, ai_planner_AiFixture.world([0, 1, 1]),
+				ai_planner_ai_state, 0, first["action"]
+			)["result"]["ok"]
+		),
+	)
+	ai_planner_state.end_turn()
+	# The lock has elapsed and the break's price dropped the standing below the
+	# ceiling, so the war is declared on the next free order (issue #752).
+	var second: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 2,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	assert_eq(String(second["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+	assert_eq(int(second["action"]["target"]), 1)
+
+func test_a_pacted_rival_with_an_alliance_breaks_the_pact_once() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).formal_alliance = true
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	# One stroke clears both treaties, so the alliance-only break would waste
+	# the turn (issue #752).
+	assert_eq(String((plan["action"] as Dictionary).get("kind", "")), AiDiplomacyOffers.KIND_BREAK_NAP)
+	assert_eq(
+		String(_planner_offer_block(plan, 0, AiDiplomacyOffers.KIND_BREAK)),
+		"the pact break clears the alliance too",
+	)
+
+func test_join_empire_is_scored_by_the_targets_answer() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 30000
+	ai_diplomacy_offers_ai_state.economy_for(2).tech_unlocked["empire_building"] = true
+	# The target holds four provinces (never nearly defeated) and outpowers the
+	# offerer: the offer would only burn the turn (issue #752).
+	var unlikely: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state, ai_diplomacy_offers_ai_state,
+		ai_diplomacy_offers_AiFixture.world([0, 2, 2, 3, 3, 3, 3]), 1, 3, 45,
+		_context({2: 20, 3: 40})
+	)
+	assert_eq(
+		_offer_blocked_kind(unlikely, AiDiplomacyOffers.KIND_OVERTURE),
+		"the crown would refuse absorption",
+	)
+	# A crown the offerer so far outpowers that standing alone is hopeless
+	# accepts: the rung carries the absorption bonus (issue #752).
+	var likely_context: Dictionary = _context({2: 100, 3: 20})
+	likely_context["treasury"] = {2: 30000}
+	likely_context["tech"] = {2: {"empire_building": true}}
+	var likely: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state, ai_diplomacy_offers_ai_state,
+		ai_diplomacy_offers_AiFixture.world([0, 2, 2, 3, 3, 3, 3]), 1, 3, 45,
+		likely_context
+	)
+	assert_eq(
+		_utility_of(likely, AiDiplomacyOffers.KIND_OVERTURE),
+		55 + AiDiplomacyTreaties.JOIN_EMPIRE_ACCEPT_BONUS,
+	)
+
+func _planner_offer_block(plan: Dictionary, index: int, kind: String) -> String:
+	var offer: Dictionary = plan["candidates"][index].get("offer", {})
+	for entry: Dictionary in offer.get("candidates", []):
+		if String(entry.get("kind", "")) == kind:
+			return String(entry.get("blocked", ""))
+	return ""
+
 func test_friendly_relations_block_war_even_when_desire_is_high() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 70.0
+	var purse: Dictionary = ai_planner_AiFixture.context({0: 400, 1: 100})
+	purse["treasury"] = {0: 2000}
+	var warm: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1]), 1,
+		purse
+	)
+	assert_eq(String(warm["candidates"][0]["blocked"]), "relations too warm")
+	# The standing earns its next treaty instead of the war (issue #750).
+	assert_eq(
+		String((warm["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_OVERTURE,
+		"the court works for the chain the standing earns"
+	)
+	assert_eq(String(warm["action"].get("stage", "")), DiplomacyCatalog.STAGE_CONSULATE)
+	# With the pact standing the pair locks: the war is banned and the Allied
+	# band takes the formal alliance (wiki: diplomacy § Alliances; issue #752).
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
 	ai_planner_state.relation(0, 1).score = 80.0
-	var plan: Dictionary = AiDiplomacyPlanner.decide(
+	var pacted: Dictionary = AiDiplomacyPlanner.decide(
 		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1]), 1,
 		ai_planner_AiFixture.context({0: 400, 1: 100})
 	)
-	assert_eq(String(plan["candidates"][0]["blocked"]), "relations too warm")
+	assert_true(
+		String(pacted["candidates"][0]["blocked"]).contains("non-aggression pact"),
+		String(pacted["candidates"][0]["blocked"]),
+	)
 	assert_eq(
-		String((plan["action"] as Dictionary).get("kind", "")),
+		String((pacted["action"] as Dictionary).get("kind", "")),
 		AiDiplomacyOffers.KIND_ALLIANCE,
 		"the court works for the treaty the standing already earns"
 	)

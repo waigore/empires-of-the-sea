@@ -70,8 +70,10 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		MapPlayCourt.navy_chest(play, faction),
 		MapPlayCourt.warships(play, faction)
 	)
-	var strength: float = _strength(play, faction)
-	var ships: int = play.ship_layer.hull_count_all(faction)
+	var strength: float = float(
+		MapPlayCourt.public_strength(play).get(faction, 0.0)
+	)
+	var ships: int = MapPlayCourt.ships(play, faction)
 	# Fighting hulls alone: a merchant hull is cargo, not a predator, so the
 	# yard's claim and every naval aim are priced on these (issue #484).
 	var warships: int = MapPlayCourt.warships(play, faction)
@@ -137,21 +139,6 @@ static func _last_turn(play: PlaySession, faction: int) -> Dictionary:
 
 static func _economy(play: PlaySession, faction: int) -> PlayerEconomy:
 	return play.ledger_for(faction)
-
-
-## Public order-of-battle strength: FPN + FPM over every land army, no medals
-## (wiki: diplomacy § Great Power power score).
-static func _strength(play: PlaySession, faction: int) -> float:
-	if play.army_layer == null:
-		return 0.0
-	var total: float = 0.0
-	for raw: Variant in play.army_layer.regions.values():
-		var stored: Array[ArmyState] = []
-		stored.assign(raw)
-		for army: ArmyState in stored:
-			if army != null and army.owner == faction:
-				total += army.strength()
-	return total
 
 
 static func _war_names(play: PlaySession, faction: int) -> Array[String]:

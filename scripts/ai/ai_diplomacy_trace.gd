@@ -44,7 +44,7 @@ static func key(kind: String) -> String:
 	if kind in AiDiplomacyOffers.KINDS:
 		if kind == AiDiplomacyOffers.KIND_ALLIANCE or kind == AiDiplomacyOffers.KIND_OVERTURE:
 			return "treaty"
-		if kind == AiDiplomacyOffers.KIND_BREAK:
+		if kind == AiDiplomacyOffers.KIND_BREAK or kind == AiDiplomacyOffers.KIND_BREAK_NAP:
 			return "treaty"
 		return "trade"
 	return "treaty"
@@ -77,4 +77,6 @@ static func line(kind: String, faction: int, target: int) -> String:
 			return "%s ends its subsidy to %s." % [who, them]
 		AiDiplomacyOffers.KIND_BREAK:
 			return "%s breaks its alliance with %s." % [who, them]
+		AiDiplomacyOffers.KIND_BREAK_NAP:
+			return "%s breaks its pact with %s." % [who, them]
 	return "%s proposes a treaty to %s." % [who, them]

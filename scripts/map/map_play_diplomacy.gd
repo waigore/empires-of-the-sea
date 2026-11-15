@@ -27,33 +27,11 @@ static func open(play: PlaySession) -> void:
 	)
 
 
-## The public order of battle every crown's power score is read from: FPN + FPM
-## over every land army, without the general medal multiplier, and every hull —
-## each summed across both regions (wiki: diplomacy § Great Power power score).
-## The campaign close reads the same terms in MapPlayCampaign.declared_leader;
-## this pass is the one the court panel opens with.
-static func public_orders(play: PlaySession) -> Dictionary:
-	var strength: Dictionary = {}
-	var ships: Dictionary = {}
-	if play.army_layer != null:
-		for raw: Variant in play.army_layer.regions.values():
-			var stored: Array[ArmyState] = []
-			stored.assign(raw)
-			for army: ArmyState in stored:
-				if army == null:
-					continue
-				strength[army.owner] = float(strength.get(army.owner, 0.0)) + army.strength()
-	if play.ship_layer != null:
-		for faction: int in FactionCatalog.great_power_ids():
-			ships[faction] = play.ship_layer.hull_count_all(faction)
-	return {"strength": strength, "ships": ships}
-
-
-## The published power score for every crown, from those orders. The panel
-## compares each court against the reader with it; no screen reads an army or a
-## hull itself.
+## The published power score for every crown, from the public order of battle
+## `MapPlayCourt` reads once. The panel compares each court against the reader
+## with it; no screen reads an army or a hull itself.
 static func public_power(play: PlaySession) -> Dictionary:
-	var orders: Dictionary = public_orders(play)
+	var orders: Dictionary = MapPlayCourt.public_orders(play)
 	return DiplomacyPower.public_power(
 		play.world,
 		orders.get("strength", {}) as Dictionary,
@@ -97,7 +75,7 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		order["amount"] = arg.to_int()
 	var economy: PlayerEconomy = play.economy.economy if play.economy != null else null
 	var result: Dictionary = DiplomacyOrders.apply(
-		play.diplomacy, play.world, economy, order, _tech(play)
+		play.diplomacy, play.world, economy, order, _tech(play), public_power(play)
 	)
 	var message: String = String(result.get("message", ""))
 	if not bool(result.get("ok", false)):
