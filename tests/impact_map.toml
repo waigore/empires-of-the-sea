@@ -321,7 +321,6 @@ suites = [
   "test_naval_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_town_ledger.gd",
-  "test_ledger_rows.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -740,10 +739,6 @@ domain = "ledger_dress"
 match = "scripts/rules/ledger_rows.gd*"
 domain = "ledger_dress"
 
-[[rules]]
-match = "tests/test_ledger_rows.gd*"
-domain = "ledger_dress"
-
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
 # The sheet rides the court ledger's door, so it is mapped before the ui glob;
 # its suite is named before the espionage glob so a reading change never pulls
@@ -845,7 +840,6 @@ domain = "diplomacy"
 suites = [
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
-  "test_main.gd",
   "test_menu_flow.gd",
   "test_save_codec.gd",
   "test_army_orders.gd",
@@ -901,7 +895,6 @@ suites = [
 [domains.pause]
 suites = [
   "test_menu_flow.gd",
-  "test_main.gd",
   "test_court_ui_parts.gd",
   "test_audio_rules.gd",
   "test_mobile_layout.gd",
@@ -1127,7 +1120,6 @@ suites = [
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
   "test_world_setup.gd",
-  "test_main.gd",
   "test_map_screen.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
@@ -1163,7 +1155,6 @@ suites = [
   "test_advanced_start_live.gd",
   "test_land_battle_rules.gd",
   "test_court_ui_parts.gd",
-  "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
   "test_map_lenses.gd",
@@ -3245,10 +3236,6 @@ domain = "map"
 [[rules]]
 match = "tests/test_land_battle_rules.gd*"
 domain = "difficulty"
-
-[[rules]]
-match = "tests/test_main.gd"
-domain = "menu"
 
 [[rules]]
 match = "tests/test_menu_*.gd"
