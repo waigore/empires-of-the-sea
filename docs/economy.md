@@ -72,8 +72,8 @@ Prices publish once; pact, boycott, subsidy apply at settlement
 `PRODUCTION`: stockpile by group, holdings; steppers capped by labour/inputs
 (`allowance`), a worked row naming its output (`made 3`).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
-line (`CargoRead`), and a **batch press** per row (`MarketBatch`) as one order;
-a Minor/Tribe row batches its left.
+line (`CargoRead`), and a **batch press** per row (`MarketBatch`); a
+Minor/Tribe row batches its left.
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.
@@ -85,8 +85,7 @@ The rival's appetite for the second-stage rows ([`deferred.md`](deferred.md)).
 ## Architecture
 
 `player_economy`, `economy_turn`, `economy_consumption`, `larder_read`,
-`cargo_read`,
-`production_recipes`,
+`cargo_read`, `production_recipes`,
 `commodity_catalog`, `world_market`, `market_*`, `first_right`,
 `market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,
 `economy/economy_controller`, `economy/ledger_readings`,
