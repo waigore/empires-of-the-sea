@@ -1306,3 +1306,140 @@ func _label_containing(text: String) -> Label:
 		if node is Label and (node as Label).text.contains(text):
 			return node as Label
 	return null
+
+
+# --- the college on the chart -----------------------------------------------
+## Merged from test_research_screen: the research ledger drives the real
+## economy (REQ-P2-03). The chart is mounted once for the boot and re-seated for
+## each screen case, so this merged suite pays one mount instead of one boot.
+
+## The one chart the sheet cases drive (the rules cases need no nodes).
+const ScreenFixture = preload("res://tests/map_fixture.gd")
+
+var research_mounted: MapScreen = null
+var research_pristine: Dictionary = {}
+var research_pristine_map: Array = []
+
+
+func before_all() -> void:
+	research_pristine_map = ScreenFixture.snapshot(ScreenFixture.world())
+	research_mounted = ScreenFixture.attach_screen(self)
+	research_pristine = ScreenFixture.suite_capture(research_mounted)
+
+
+func after_all() -> void:
+	if is_instance_valid(research_mounted):
+		research_mounted.free()
+	research_mounted = null
+	research_pristine = {}
+	research_pristine_map = []
+
+
+## A screen case starts on a pristine chart, as a mount did. Cases that never
+## read the chart never pay the re-seat.
+func _screen() -> MapScreen:
+	ScreenFixture.restore(ScreenFixture.world(), research_pristine_map)
+	ScreenFixture.suite_reset(research_mounted, research_pristine)
+	return research_mounted
+
+
+func test_the_screen_owns_three_research_slots() -> void:
+	var screen: MapScreen = _screen()
+	var state: ResearchState = screen.economy.economy.research
+	assert_not_null(state)
+	assert_eq(state.slots.size(), ResearchState.DEFAULT_SLOTS)
+	assert_gt(state.researchable().size(), 0)
+
+
+func test_the_research_ledger_opens_and_closes() -> void:
+	var screen: MapScreen = _screen()
+	assert_false(screen.hud.panels.is_research_open())
+	screen.hud.research_pressed.emit()
+	assert_true(screen.hud.panels.is_research_open())
+	var panel: ResearchPanel = screen.hud.panels.research_panel
+	assert_not_null(panel)
+	assert_gt(panel.get_combined_minimum_size().y, 200.0)
+	screen.hud.panels.hide_research()
+	assert_false(screen.hud.panels.is_research_open())
+
+
+func test_assigning_through_the_controller_holds_the_slot() -> void:
+	var screen: MapScreen = _screen()
+	var state: ResearchState = screen.economy.economy.research
+	screen.economy.open_research()
+	screen.economy.orders.assign_research("land_enclosure")
+	assert_eq(state.tech_at(0), "land_enclosure")
+	assert_eq(state.funding_at(0), ResearchFunding.DEFAULT)
+	screen.economy.orders.cancel_research(0)
+	assert_eq(state.tech_at(0), ResearchState.EMPTY_TECH)
+
+
+func test_ending_the_turn_pays_for_research() -> void:
+	var screen: MapScreen = _screen()
+	var economy: PlayerEconomy = screen.economy.economy
+	assert_true(bool(economy.research.assign("crop_rotation", "low")["ok"]))
+	MapPlayTurn.end_turn(screen.play)
+	ScreenFixture.settle(screen.play)
+	assert_eq(economy.research.progress_of("crop_rotation"), 100)
+
+
+func test_researched_techs_lift_the_estate_caps() -> void:
+	var screen: MapScreen = _screen()
+	assert_eq(int(screen.play.tech_caps().get("timber", 1)), 1)
+	screen.economy.economy.research.unlock("saw_mill")
+	assert_eq(int(screen.play.tech_caps().get("timber", 1)), 2)
+	assert_eq(int(screen.economy.readings.tech_caps().get("timber", 1)), 2)
+
+
+func test_the_projection_includes_research_gold() -> void:
+	var screen: MapScreen = _screen()
+	var economy: PlayerEconomy = screen.economy.economy
+	assert_true(bool(economy.research.assign("crop_rotation", "low")["ok"]))
+	var preview: Dictionary = screen.economy.readings.projected()
+	var research: Dictionary = preview["research"]
+	assert_eq(int(research["spent"]), ResearchFunding.gold("low"))
+
+
+## Changing a slot's priority used to repaint the whole dialog. The row the
+## player pressed must survive and its spend line and gauge must follow at once
+## (REQ-P1-05).
+func test_a_priority_change_repaints_the_slot_at_once_without_reloading() -> void:
+	var screen: MapScreen = _screen()
+	screen.economy.open_research()
+	screen.economy.orders.assign_research("land_enclosure")
+	var panel: ResearchPanel = screen.hud.panels.research_panel
+	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	assert_eq(row.bar().next_gain(), 300, "Medium buys 300 points")
+	screen.economy.orders.cycle_research_funding(0)
+	assert_is(row, panel._slots_body.get_child(0), "the slot is repainted, not rebuilt")
+	assert_true(screen.hud.panels.is_research_open())
+	assert_eq(row.bar().next_gain(), 800, "High buys 800 points")
+	assert_eq(row.gold_next(), 400)
+
+
+func test_cancelling_a_study_keeps_the_ledger_and_its_rows() -> void:
+	var screen: MapScreen = _screen()
+	screen.economy.open_research()
+	screen.economy.orders.assign_research("land_enclosure")
+	var panel: ResearchPanel = screen.hud.panels.research_panel
+	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	screen.economy.orders.cancel_research(0)
+	assert_is(row, panel._slots_body.get_child(0), "no button rebuilds the slot")
+	assert_true(screen.hud.panels.is_research_open())
+	assert_eq(row.bar().next_gain(), 0, "an idle slot buys nothing")
+
+
+## The sheet fades in once. A repaint while it is open must not restart the
+## fade, which is what read as the dialog reloading.
+func test_repainting_the_open_ledger_does_not_fade_it_back_in() -> void:
+	var screen: MapScreen = _screen()
+	screen.economy.open_research()
+	var wrap: Control = screen.hud._research_wrap
+	for _frame in 120:
+		if wrap.modulate.a >= 0.999:
+			break
+		await get_tree().process_frame
+	wrap.modulate.a = 0.5
+	screen.economy.open_research()
+	await get_tree().process_frame
+	assert_true(wrap.modulate.a > 0.3, "a repaint must not restart the reveal fade")

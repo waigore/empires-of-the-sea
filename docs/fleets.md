@@ -39,8 +39,8 @@ Movement, cargo, fog, battles; stations, raids:
 
 Raids sink one merchant hull (DR-20261111-17).
 
-**The crown's navy** (DR-20261115-14): the muster roll's door (`N`)
-reads every hull — class, stats, holds, station; **Visit** frames her squadron.
+**The crown's navy** (DR-20261115-14): muster door (`N`) lists each hull
+(class, stats, holds, station); **Visit** frames her squadron.
 
 ## Architecture
 
@@ -80,7 +80,8 @@ None.
 
 ## Tests
 
-`test_naval_rules`, `test_fleet_orders`, `test_naval_ledger`, `test_map_screen`.
+`test_naval_rules`, `test_fleet_orders`, `test_naval_ledger`, `test_ship_*`,
+`test_economy_rules`, `test_civilian_voyage`, `test_visibility`, `test_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

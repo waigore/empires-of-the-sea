@@ -100,8 +100,7 @@ func _paint() -> void:
 	_empty.visible = rows.is_empty()
 	if rows.is_empty():
 		_empty.text = (
-			"The crown holds no commanders yet: only a Great Power musters a "
-			+ "general, and the pool opens with the first turn."
+			"The crown holds no commanders: only a Great Power musters a general."
 		)
 		return
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)

@@ -42,8 +42,8 @@ suites = [
   "test_land_battle_rules.gd",
   "test_army_orders.gd",
   "test_battle_rules.gd",
-  "test_campaign_defeat.gd",
-  "test_capital_loss.gd",
+  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
 ]
 
 [domains.audio]
@@ -61,12 +61,10 @@ suites = [
 [domains.campaign]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_campaign_defeat.gd",
   "test_campaign_end.gd",
   "test_civilian_turn_rules.gd",
-  "test_capital_loss.gd",
+  "test_campaign_rules.gd",
   "test_capital_seat_screen.gd",
-  "test_victory_screen.gd",
 ]
 
 [domains.civilian]
@@ -133,7 +131,7 @@ suites = [
 # the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
 suites = [
   "test_economy_screen.gd",
-  "test_research_screen.gd",
+  "test_research_rules.gd",
   "test_court_ui_parts.gd",
   "test_panel_parts_rules.gd",
   "test_spycraft_rules.gd",
@@ -254,7 +252,6 @@ suites = [
 [domains.muster]
 suites = [
   "test_ledgers.gd",
-  "test_command_ledger.gd",
   "test_town_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
@@ -602,7 +599,7 @@ match = "scripts/map/map_play_command.gd*"
 domain = "muster"
 
 [[rules]]
-match = "tests/test_command_ledger.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "muster"
 
 # The crown's towns (DR-20261115-12): the projection, its row and panel, the
@@ -940,7 +937,7 @@ suites = [
   "test_world_setup.gd",
   "test_map_screen.gd",
   "test_save_codec.gd",
-  "test_victory_screen.gd",
+  "test_campaign_end.gd",
 ]
 
 [domains.advanced]
@@ -980,7 +977,6 @@ suites = [
   "test_world_setup.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
-  "test_victory_screen.gd",
 ]
 
 # The age's race helper: the standing math, the sheet's foot and the turn's
@@ -1020,7 +1016,6 @@ suites = [
 [domains.research]
 suites = [
   "test_panel_parts_rules.gd",
-  "test_research_screen.gd",
   "test_research_rules.gd",
   "test_yarn_plates_rules.gd",
 ]
@@ -1112,7 +1107,6 @@ suites = [
 [domains.turn_closure]
 suites = [
   "test_campaign_end.gd",
-  "test_campaign_defeat.gd",
   "test_ai_observer.gd",
   "test_diplomacy_screen.gd",
 ]
@@ -2539,7 +2533,7 @@ domain = "civilian"
 
 # Its own suite rides with the fleet set too.
 [[rules]]
-match = "tests/test_home_merge.gd*"
+match = "tests/test_fleet_orders.gd*"
 domain = "fleet"
 
 [[rules]]
