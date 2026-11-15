@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261116-03 + #782 (REQ-P2-02).
+Audited through DR-20261116-04 + #782 (REQ-P2-02).
 
 ## Already live
 
@@ -30,46 +30,46 @@ Audited through DR-20261116-03 + #782 (REQ-P2-02).
 | War-time trade garrison | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
 | Rival bench room | `AiEconomyPlanner._bench_room`, `AiRandomCourt`, DR-15-02 |
 | Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20,000; DR-15-16/#688/#676 |
+| Recipe building gate | `ProductionRecipes.min_town`; garments/rum, DR-20261116-04 |
 
-## Remaining gaps (impact order)
+## Gaps (impact order)
 
-1. **Building gates / further rows** — `ProductionRecipes` gates on tech and
-   worker tier; a building gate and a slower row past the alloy/luxury four need
-   a rules call.
+1. **Rival appetite for the second-stage rows** — the gate is one rule for
+   every court, but `AiEconomyPlanner` does not yet choose garments or rum; an
+   AI pass that moves the ai-bench score.
 2. **Domain dispatch beyond the voyage** — `AiPhasePlanner.opens` ships voyage
    and declare-war; soft weights, treasury recovery and more slots stay seed
    (DR-13-15).
 3. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
    (`civilian-build-planner`); polish.
 4. **Quick Battle multi-lane / collapse** — `QuickBattle` fights one lane;
-   wider deployment and the full collapse model need a design call (DR-10-24).
+   wider deployment and the collapse model need a design call (DR-10-24).
 
-Join Empire keeps the published cost table.
+Join Empire: published cost table.
 
 ## Next pick
 
-Building gates / further rows (rules call).
+Rival appetite for the second-stage rows (AI; re-bind ai-bench).
 
 ## Blocked footnotes
 
-- Predict-the-line — declined (DR-12-02); era dialogue — no era model
-  (DR-11-08).
+- Predict-the-line — declined (DR-12-02); era dialogue — no era model (DR-11-08).
 - Healing at 0 health; last-known OOB — DR-12-04/09.
 - General-grade/sheltering trains — pending design (DR-12-07).
-- Alt victory, difficulty extras, ruleset loaders, loans beyond the research
+- Alt victory, difficulty extras, ruleset loaders, loans past the research
   floor, warehouse logistics, sea-zone names — out of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
-- Per-hull damage; a rival-fight plate — DR-13-17.
+- Per-hull damage; rival-fight plate — DR-13-17.
 - Further tongues — out of scope (DR-13-12); 30% floor — data-gated
   (DR-20261115-18).
 
 ## Wiki drift
 
-- `civilian-units` calls Road L2, gathering and transport caps deferred (live:
+- `civilian-units` calls Road L2 and gathering deferred (live:
   `TechUnlocks`/`Extraction`).
 - `ai-architecture` seed list still names victory pressure (live, DR-15-04).
-- `phase-planner-*` cite DR-14-11 for DR-14-13's slot.
+- `phase-planner-*` cite DR-14-11 for DR-14-13.
 - DR-11-05 Deferred + DR-14-11 fleetless leg — live (`TribeContact`,
   `AiTribeColony`, `FleetMuster`).
-- Ruleset loader and borrowing (`leader-bonuses`, `military-generals`,
-  `tech-tree-labour-economy`) read deferred; both out of scope.
+- Ruleset loader and borrowing (`leader-bonuses`, `military-generals`) stay
+  out of scope.

@@ -1949,6 +1949,8 @@ const MANUFACTURED_ROWS: Dictionary = {
 	"steel": 170,
 	"paper": 60,
 	"bronze": 145,
+	"garments": 160,
+	"rum": 140,
 }
 const ROSTER: Array[String] = [
 	"carrack",
@@ -2762,14 +2764,17 @@ func test_unknown_types_fall_back_to_a_known_row() -> void:
 func test_catalog_covers_the_wiki_lists() -> void:
 	assert_eq(CommodityCatalog.FOOD, ["grain", "meat"] as Array[String])
 	assert_eq(CommodityCatalog.RAW.size(), 11)
-	assert_eq(CommodityCatalog.MANUFACTURED.size(), 9)
+	# Two second-stage rows join the catalogue: garments from fabric and rum
+	# from refined sugar (wiki: production-recipes § Town-works gates;
+	# DR-20261116-04).
+	assert_eq(CommodityCatalog.MANUFACTURED.size(), 11)
 	assert_eq(CommodityCatalog.LUXURY.size(), 0)
 	assert_eq(
 		CommodityCatalog.RICHES,
 		["gold", "silver", "gems", "diamonds", "spices"] as Array[String]
 	)
 	assert_eq(CommodityCatalog.ADVANCED, [] as Array[String])
-	assert_eq(CommodityCatalog.all_ids().size(), 27)
+	assert_eq(CommodityCatalog.all_ids().size(), 29)
 
 func test_categories_match_the_table() -> void:
 	assert_eq(CommodityCatalog.category_of("grain"), CommodityCatalog.Category.FOOD)
@@ -2795,7 +2800,7 @@ func test_tradeable_excludes_only_riches() -> void:
 	for id: String in CommodityCatalog.all_ids():
 		if CommodityCatalog.is_tradeable(id):
 			tradeable += 1
-	assert_eq(tradeable, 22)
+	assert_eq(tradeable, 24)
 
 func test_manufactured_prices_are_break_even() -> void:
 	for id: String in MANUFACTURED_ROWS.keys():
@@ -2984,7 +2989,9 @@ func test_missing_inputs_lists_shortfalls() -> void:
 	assert_eq(ShipEconomy.missing_inputs("carrack", {"lumber": 2, "fabric": 1}), {})
 
 func test_catalog_has_the_published_recipes() -> void:
-	assert_eq(ProductionRecipes.ids().size(), 10)
+	# Ten first-stage rows plus the two second-stage works rows the town's
+	# works open (wiki: production-recipes § Town-works gates; DR-20261116-04).
+	assert_eq(ProductionRecipes.ids().size(), 12)
 	assert_eq(ProductionRecipes.output("lumber"), "lumber")
 	assert_eq(ProductionRecipes.inputs("lumber"), {"timber": 2})
 	assert_eq(ProductionRecipes.labour("lumber"), 2)
@@ -3203,6 +3210,83 @@ func test_a_gated_row_does_not_run_and_its_ceiling_is_zero() -> void:
 	)
 	assert_eq(allowed["runs"], {"cigars": 2})
 	assert_eq(stock["tobacco"], 0)
+
+
+## A second-stage row is the town's own work: garments need a level-2 town and
+## rum a level-4 one, and the gate is a presence test on the crown's best town,
+## not a count of towns (wiki: production-recipes § Town-works gates;
+## DR-20261116-04).
+func test_town_rows_need_the_town_works() -> void:
+	assert_eq(ProductionRecipes.min_town("garments"), 2)
+	assert_eq(ProductionRecipes.min_town("rum"), 4)
+	assert_eq(ProductionRecipes.min_town("lumber"), 0, "a plain row asks nothing of the town")
+	assert_false(ProductionRecipes.town_met("garments", 0))
+	assert_false(ProductionRecipes.town_met("garments", 1))
+	assert_true(ProductionRecipes.town_met("garments", 2))
+	assert_false(ProductionRecipes.town_met("rum", 2))
+	assert_true(ProductionRecipes.town_met("rum", 4), "a fully developed town opens the finer works")
+	assert_true(ProductionRecipes.town_met("lumber", 0), "an ungated row never waits on a town")
+	assert_false(ProductionRecipes.available_for("garments", {}, null, 1))
+	assert_true(ProductionRecipes.available_for("garments", {}, null, 2))
+	assert_false(ProductionRecipes.available_ids_for({}, null, 1).has("garments"))
+	assert_true(ProductionRecipes.available_ids_for({}, null, 2).has("garments"))
+	assert_false(ProductionRecipes.available_ids_for({}, null, 2).has("rum"))
+
+
+## A closed works gate neither runs the row nor offers a ceiling, and the phase
+## leaves its inputs alone; the town's works claims nothing from the rows that
+## do run (REQ-P2-03).
+func test_a_closed_works_gate_stops_the_row_and_its_ceiling() -> void:
+	var stock: Dictionary = {"fabric": 4, "refinedSugar": 4}
+	var report: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "garments", "units": 2}, {"recipe": "rum", "units": 2}],
+		stock, 20, {}, {}, null, 1
+	)
+	assert_eq(report["runs"], {})
+	assert_eq(stock["fabric"], 4)
+	assert_eq(stock["refinedSugar"], 4)
+	assert_eq(ProductionRecipes.allowance("garments", stock, 20, [], null, {}, 1), 0)
+	assert_eq(
+		ProductionRecipes.allowance(
+			"lumber", {"timber": 8}, 6, [{"recipe": "garments", "units": 2}], null, {}, 1
+		),
+		3,
+		"a row behind a closed works gate claims nothing from the rows that run"
+	)
+	var open_town: Dictionary = ProductionRecipes.plan(
+		[{"recipe": "garments", "units": 2}], stock, 20, {}, {}, null, 2
+	)
+	assert_eq(open_town["runs"], {"garments": 2})
+	assert_eq(stock["fabric"], 0)
+	assert_eq(ProductionRecipes.allowance("garments", {"fabric": 4}, 20, [], null, {}, 2), 2)
+
+
+## The presence test reads the crown's best town in any province on any chart,
+## never a rival's town (wiki: production-recipes § Town-works gates;
+## DR-20261116-04).
+func test_the_works_gate_reads_the_crowns_best_town() -> void:
+	var world_map: WorldMap = _standard_world(SEED)
+	assert_eq(TownIndustry.best_level(null, FactionCatalog.PLAYER_FACTION), 0, "no world, no town")
+	var own: ProvinceState = null
+	var rival: ProvinceState = null
+	for model_index in world_map.region_count():
+		var model: MapModel = world_map.region(model_index)
+		for province_index in model.province_count():
+			var data: ProvinceState = model.province_data(province_index)
+			if data == null:
+				continue
+			data.town_development = 0
+			if own == null and data.owner == FactionCatalog.PLAYER_FACTION:
+				own = data
+			elif rival == null and data.owner != FactionCatalog.PLAYER_FACTION and data.owner != MapModel.NO_ID:
+				rival = data
+	assert_true(own != null and rival != null, "the standard world seats both a crown and a rival")
+	own.town_development = 3
+	rival.town_development = 4
+	assert_eq(
+		TownIndustry.best_level(world_map, FactionCatalog.PLAYER_FACTION), 3,
+		"a rival's finer town does not open the crown's works"
+	)
 
 
 ## A batch already on the anvil was paid when it started: losing the hand that

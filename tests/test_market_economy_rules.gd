@@ -2602,7 +2602,7 @@ func _fixture() -> MapModel:
 
 func test_market_seeds_tradeable_catalog_prices() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	assert_eq(market.prices.size(), 22)
+	assert_eq(market.prices.size(), 24)
 	assert_eq(market.price("timber"), 30)
 	assert_eq(market.price("lumber"), 60)
 	assert_eq(market.price("iron"), 80)
