@@ -26,18 +26,17 @@ door sits on the reading that raises the question
 | Chip | `READY`, `AT WORK`, `NO ENGINEER`, `LOCKED`, `WALLED` |
 | Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, the study the order waits on, or the finished wall |
 
-The chip names what the step waits on; the note is the step itself. The sheet
-states the rule a crown pays by: a wall soaks the attack before it tells — 10 /
-20 / 30 wall hp by level and 1–3 emplaced guns — and the last gun falls even
-when an assault is repelled.
+The chip names what the step waits on; the note is the step. The sheet states
+the rule a crown pays by: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns,
+and the last gun falls even when an assault is repelled.
 
 ## Filters
 
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
-ready / at work / walled) — each carrying its own tally. The count line names
-how many shores stand **bare**. The reading leads with what can be raised now,
-then what is in hand, then what waits on a study or a crew, and the finished
-walls last; the weakest wall leads.
+ready / at work / walled) — each with its own tally; the count line names the
+bare shores. The reading leads with what can be raised now, then what is in
+hand, then what waits on a study, a crew or the stores, and the finished walls
+last; the weakest wall leads.
 
 ## Raise
 
@@ -45,7 +44,8 @@ walls last; the weakest wall leads.
 the civilian panel files (`ImprovementOrders.build_fort` → `CivilianWork`),
 swapping the chart first when the province lies on the other one. The order's
 message reaches the court as the toast, and the row repaints as `AT WORK`. A row
-that cannot be raised carries no press: the note names the wait.
+that cannot be raised carries no press: the note names the wait — the study, the
+crew, or the stores a `LOCKED` shore is short of.
 
 ## Architecture
 
