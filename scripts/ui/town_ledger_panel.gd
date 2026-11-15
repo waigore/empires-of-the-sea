@@ -1,5 +1,5 @@
 class_name TownLedgerPanel
-extends SheetFrame
+extends LedgerSheet
 ## The crown's towns: every province it holds that has a town, the level it
 ## stands at and the step the Builder would take next, narrowed by chart and by
 ## what the step waits on, with one press that files the order (wiki:
@@ -7,14 +7,9 @@ extends SheetFrame
 ## § Builder upgrade_town; DR-20261115-12). The projection lives in
 ## [TownLedger] and the map hooks in [MapPlayTowns]; this class only renders
 ## rows and asks for the order (REQ-P3-02, REQ-P3-03). The sheet chrome, fade
-## and pause-door park come from SheetFrame.
+## and pause-door park come from SheetFrame; the chips, rows and empty notice
+## from LedgerSheet.
 
-var _rows: VBoxContainer = null
-var _empty: Label = null
-var _bar: LedgerFilterBar = null
-var _region: String = LedgerRows.REGION_ALL
-var _filter: String = TownLedger.FILTER_ALL
-var _snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -47,55 +42,30 @@ func _build_crest() -> Control:
 
 
 func _build_body(column: VBoxContainer) -> void:
-	_bar = LedgerFilterBar.new()
-	_bar.fill(
-		"Chart", "Reading", LedgerRows.REGION_FILTERS, TownLedger.FILTERS,
-		TownLedger.filter_label
+	_build_filter_body(
+		column, "Chart", "Reading", TownLedger.FILTERS, TownLedger.filter_label, _bonus_note
 	)
-	_bar.chosen.connect(_on_filter)
-	column.add_child(_bar)
-	# The rule a crown needs before it pays for a level sits on the sheet, not
-	# in a hover: a phone hides the footer hint (REQ-P1-07, REQ-P5-03).
+
+
+## The rule a crown needs before it pays for a level sits on the sheet, not in a
+## hover: a phone hides the footer hint (REQ-P1-07, REQ-P5-03).
+func _bonus_note() -> Control:
 	var note := UiRowBuilder.label(TownLedger.bonus_note(), 11, Palette.TEXT_DIM)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(note)
-
-	_rows = VBoxContainer.new()
-	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_rows.add_theme_constant_override("separation", 5)
-	_append_scroll(column).add_child(_rows)
-	_empty = _make_empty(_rows)
-
-
-func _on_profile_changed() -> void:
-	if visible and not _snapshot.is_empty():
-		_apply_filter()
-
-
-# --- filters -----------------------------------------------------------------
-
-
-func _on_filter(key: String, region_row: bool) -> void:
-	if region_row:
-		_region = key
-	else:
-		_filter = key
-	refresh()
+	return note
 
 
 # --- rows --------------------------------------------------------------------
 
 
 func _apply_filter() -> void:
-	_bar.render(_region, _filter)
-	var groups: Array[Dictionary] = TownLedger.groups(_snapshot, _region, _filter)
-	var shown: int = TownLedger.count(_snapshot, _region, _filter)
-	_subtitle.text = _subtitle_text(shown)
-	_empty.visible = shown == 0
-	if shown == 0:
-		_empty.text = "No town answers this view. Clear a filter to see the whole realm."
-		return
-	LedgerList.fill(_rows, _empty, groups, _heading, _make_row)
+	var groups: Array[Dictionary] = TownLedger.groups(_snapshot, _region, _reading)
+	var shown: int = TownLedger.count(_snapshot, _region, _reading)
+	_paint_filtered(groups, shown, _heading, _make_row)
+
+
+func _empty_text() -> String:
+	return "No town answers this view. Clear a filter to see the whole realm."
 
 
 func _heading(group: Dictionary, count: int) -> Control:
@@ -115,22 +85,17 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 ## The count line names the filter and what the view means, so a crown reads
 ## what it is looking at before it reads a row (REQ-P5-05).
 func _subtitle_text(shown: int) -> String:
-	var scope: String = "in both charts"
-	if _region == LedgerRows.REGION_OLD:
-		scope = "in the Old World"
-	elif _region == LedgerRows.REGION_NEW:
-		scope = "in the New World"
 	var counts: Dictionary = TownLedger.filter_counts(_snapshot, _region)
 	var line: String = "Showing %d of %d towns %s — %d ready, %d at work, %d developed." % [
 		shown,
 		int(_snapshot.get("total", 0)),
-		scope,
+		LedgerRows.scope_text(_region),
 		int(counts.get(TownLedger.FILTER_READY, 0)),
 		int(counts.get(TownLedger.FILTER_AT_WORK, 0)),
 		int(counts.get(TownLedger.FILTER_DEVELOPED, 0)),
 	]
-	if _filter != TownLedger.FILTER_ALL:
-		line += " Reading: %s only." % TownLedger.filter_label(_filter).to_lower()
+	if _reading != TownLedger.FILTER_ALL:
+		line += " Reading: %s only." % TownLedger.filter_label(_reading).to_lower()
 	return line
 
 
