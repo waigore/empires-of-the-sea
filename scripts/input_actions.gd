@@ -35,6 +35,9 @@ const SPY_LEDGER := "spy_ledger"
 ## Opens the towns ledger: every town the crown holds and the step that raises
 ## it (DR-20261115-12).
 const TOWNS_LEDGER := "towns_ledger"
+## Opens the navy ledger: every hull the crown floats, squadron by squadron
+## (DR-20261115-14).
+const NAVY_LEDGER := "navy_ledger"
 
 
 static func ensure_actions() -> void:
@@ -58,6 +61,7 @@ static func ensure_actions() -> void:
 	_bind(COMMAND_LEDGER, [KEY_G])
 	_bind(SPY_LEDGER, [KEY_I])
 	_bind(TOWNS_LEDGER, [KEY_B])
+	_bind(NAVY_LEDGER, [KEY_N])
 
 
 static func _bind(action: StringName, keys: Array) -> void:

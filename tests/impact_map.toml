@@ -269,6 +269,15 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet.
+# Its own suite reads the projection on a two-chart fixture and drives the sheet
+# on the shared map screen, so a navy reading change never pulls the fleet
+# domain's four suites or the ui catch-all's.
+[domains.navy]
+suites = [
+  "test_naval_ledger.gd",
+]
+
 # A rival's naval strength is read only after the crown has watched her across
 # a turn (wiki: ships-and-naval § Sighted strength; DR-20261113-20). The watch,
 # the marker that prints `*`, the dossier that prints ???, the turn hook that
@@ -615,6 +624,22 @@ domain = "muster"
 [[rules]]
 match = "tests/test_town_ledger.gd*"
 domain = "muster"
+
+# The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet.
+# The sheet rides the fleet dossier's door, so it is mapped before the ui and
+# fleet globs, and its suite before the fleet domain's own — a navy reading
+# change never pulls either.
+[[rules]]
+match = "scripts/rules/naval_ledger.gd*"
+domain = "navy"
+
+[[rules]]
+match = "scripts/ui/naval_ledger_*.gd*"
+domain = "navy"
+
+[[rules]]
+match = "tests/test_naval_ledger.gd*"
+domain = "navy"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
 # The sheet rides the court ledger's door, so it is mapped before the ui glob;
