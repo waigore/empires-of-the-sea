@@ -248,19 +248,4 @@ static func types_flown(fleets: Array) -> Array[String]:
 
 ## "8,000 ducats · 2 Lumber · 1 Fabric · 1 worker" for the yard ledger.
 static func cost_text(type_id: String) -> String:
-	var parts: PackedStringArray = PackedStringArray()
-	parts.append("%s ducats" % _thousands(treasury_cost(type_id)))
-	var inputs: Dictionary = build_inputs(type_id)
-	for commodity: Variant in inputs.keys():
-		parts.append("%d %s" % [int(inputs[commodity]), CommodityCatalog.label(String(commodity))])
-	parts.append("%d worker" % WORKER_COST)
-	return " · ".join(parts)
-
-
-static func _thousands(value: int) -> String:
-	var text: String = str(value)
-	var out: String = ""
-	while text.length() > 3:
-		out = "," + text.substr(text.length() - 3) + out
-		text = text.substr(0, text.length() - 3)
-	return text + out
+	return MoneyText.cost_line(treasury_cost(type_id), build_inputs(type_id), WORKER_COST)

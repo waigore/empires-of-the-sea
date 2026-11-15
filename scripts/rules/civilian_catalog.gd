@@ -158,18 +158,6 @@ static func can_afford(type_id: String, treasury: int, paper: int) -> bool:
 ## "1,000 cash + 2 paper" for the training buttons and dossiers.
 static func training_cost_text(type_id: String) -> String:
 	return "%s cash + %d paper" % [
-		thousands(treasury_cost(type_id)),
+		MoneyText.thousands(treasury_cost(type_id)),
 		paper_cost(type_id),
 	]
-
-
-static func thousands(value: int) -> String:
-	var text: String = str(absi(value))
-	var out: String = ""
-	var count: int = 0
-	for i in range(text.length() - 1, -1, -1):
-		out = text[i] + out
-		count += 1
-		if count % 3 == 0 and i > 0:
-			out = "," + out
-	return ("-" if value < 0 else "") + out
