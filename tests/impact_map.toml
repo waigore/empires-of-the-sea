@@ -476,6 +476,24 @@ domain = "pause"
 match = "scripts/ui/sheet_frame.gd*"
 domain = "ui"
 
+# The one modal every cartouche door stands on and the door that hosts a panel
+# carrying its own chrome (issue #692). They are the sheet chrome plus the bar's
+# doors, so a shell change runs the suites that mount those sheets instead of the
+# menu catch-all's eight.
+[[rules]]
+match = "scripts/ui/modal_shell.gd*"
+domain = "sheet"
+
+[[rules]]
+match = "scripts/ui/modal_door.gd*"
+domain = "sheet"
+
+# The crown's news sheet is the Gazette's own surface (wiki: the-gazette): its
+# one suite drives the sheet, so a plate change never pays for the menu set.
+[[rules]]
+match = "scripts/ui/gazette_plate.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/ui/civilian_roster_panel.gd*"
 domain = "sheet"
