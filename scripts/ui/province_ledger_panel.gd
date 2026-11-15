@@ -16,7 +16,7 @@ signal towns_pressed
 var _rows: VBoxContainer = null
 var _empty: Label = null
 var _bar: LedgerFilterBar = null
-var _region: String = ProvinceLedger.REGION_ALL
+var _region: String = LedgerRows.REGION_ALL
 var _filter: String = ProvinceLedger.FILTER_ALL
 var _snapshot: Dictionary = {}
 
@@ -53,7 +53,7 @@ func _build_crest() -> Control:
 func _build_body(column: VBoxContainer) -> void:
 	_bar = LedgerFilterBar.new()
 	_bar.fill(
-		"Chart", "Reading", ProvinceLedger.REGION_FILTERS, ProvinceLedger.FILTERS,
+		"Chart", "Reading", LedgerRows.REGION_FILTERS, ProvinceLedger.FILTERS,
 		ProvinceLedger.filter_label
 	)
 	_bar.chosen.connect(_on_filter)
@@ -130,9 +130,9 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 ## what it is looking at before it reads a row (REQ-P5-05).
 func _subtitle_text(shown: int) -> String:
 	var scope: String = "in both charts"
-	if _region == ProvinceLedger.REGION_OLD:
+	if _region == LedgerRows.REGION_OLD:
 		scope = "in the Old World"
-	elif _region == ProvinceLedger.REGION_NEW:
+	elif _region == LedgerRows.REGION_NEW:
 		scope = "in the New World"
 	var counts: Dictionary = ProvinceLedger.filter_counts(_snapshot, _region)
 	var line: String = "Showing %d of %d provinces %s — %d cut off, %d ungarrisoned, %d at works." % [

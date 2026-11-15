@@ -14,17 +14,26 @@ const MAX_REPORTS: int = 4
 
 static func resolve(play: PlaySession) -> Dictionary:
 	if play.ship_layer == null or play.economy == null:
+		# No raid pass: nobody read the cargo afloat, and it is not afloat next
+		# turn either (wiki: ships-and-naval § Trade and Transport Interception).
+		if play.economy != null and play.economy.market != null:
+			play.economy.market.close_cargo_book()
 		return {}
 	if play.economy.economy == null or play.economy.market == null:
 		return {}
 	var reports: Array[Dictionary] = []
 	var incoming: Dictionary = _incoming(play)
+	# The raid pass is the cargo book's one reader: the clearing filled it at the
+	# turn's close and it is spent once these raids have taken their share, so a
+	# stale row can never be raided twice (DR-20261111-17).
+	var prizes: Array[Dictionary] = _prizes(play)
+	play.economy.market.close_cargo_book()
 	# The crown's raids reach its own despatch; two rivals' raids are theirs
 	# alone, so they pay the raider's ledger and stay off the crown's page
 	# (DR-20261111-20).
 	var ours: Array[Dictionary] = []
 	var rivals: Array[Dictionary] = []
-	for raid: Dictionary in _prizes(play):
+	for raid: Dictionary in prizes:
 		if int(raid.get("raider", -1)) == play.player_faction:
 			ours.append(raid)
 		else:
