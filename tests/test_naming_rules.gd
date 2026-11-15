@@ -276,8 +276,8 @@ func test_the_dossier_shows_the_commanders_under_their_medallion() -> void:
 		"the block wraps at a phone sheet instead of clipping"
 	)
 	assert_true(
-		String(panel._command.text).contains("\n"),
-		"the medal's worth sits on its own line"
+		not String(panel._command.text).contains("\n"),
+		"the row keeps one line; the medal's worth is the ledger's note (DR-20261115-11)"
 	)
 	assert_not_null(panel._command_icon.texture, "the commander has his own medallion")
 	panel.free()

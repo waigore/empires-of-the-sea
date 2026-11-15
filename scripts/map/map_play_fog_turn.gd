@@ -18,7 +18,10 @@ static func resolve(play: PlaySession) -> void:
 		var held: Array = CivilianMovement.held_provinces(
 			play.world.region(index), _civilians_of(play, index), play.player_faction
 		)
-		var changed: Array = visibility.end_of_turn(at_sea, held)
+		var spies: Array = CivilianMovement.spy_provinces(
+			play.world.region(index), _civilians_of(play, index), play.player_faction
+		)
+		var changed: Array = visibility.end_of_turn(at_sea, held, spies)
 		if index == play.region_index and not changed.is_empty():
 			play.overlay.sync_visibility(visibility, changed)
 

@@ -1980,6 +1980,12 @@ domain = "map"
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "fog"
 
+# The crown's own fog pass is the same glue: a fog change must not pull the
+# whole map domain past the tier-1 budget.
+[[rules]]
+match = "scripts/map/map_play_fog_turn.gd*"
+domain = "fog"
+
 [[rules]]
 match = "scripts/map/map_generator.gd"
 domain = "world"
@@ -2346,6 +2352,12 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/visibility.gd"
+domain = "fog"
+
+# The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
+# § Spy timer expiry), so it travels with the fog domain.
+[[rules]]
+match = "scripts/rules/spy_charter.gd*"
 domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
