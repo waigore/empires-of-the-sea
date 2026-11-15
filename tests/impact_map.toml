@@ -2867,6 +2867,16 @@ domain = "menu"
 match = "scripts/ui/game_menu.gd"
 domain = "pause"
 
+# The pause page's KEYS reading (its catalogue and its sheet) rides the same
+# domain: only the suites that mount the pause page can read it.
+[[rules]]
+match = "scripts/ui/key_reference.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/keys_sheet.gd*"
+domain = "pause"
+
 [[rules]]
 match = "scripts/ui/back_request.gd"
 domain = "menu"

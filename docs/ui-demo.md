@@ -18,9 +18,9 @@ Player-facing map UI: antique-atlas look, animated world, and the input model.
 | Back | `Esc` deselects | system back closes the top layer, then quits |
 | Lenses | `L` survey; `P`/`R`/`K` name one | one bar seal, hold for the list |
 
-Pan has inertia; zoom anchors under the cursor; the camera clamps cover-fit.
-One lens at a time: the defence reading prints each charted province's published
-garrison strength, its wall's guns and its hospital.
+Pan has inertia; zoom anchors under the cursor; the camera clamps cover-fit. The
+defence reading prints each province's garrison, wall guns and hospital.
+**MENU › KEYS** prints this table (`KeyReference`).
 
 ## Phone layout
 
@@ -54,6 +54,8 @@ scripts/rules/capital_choice.gd  capital-choice phase (tested)
 scripts/rules/world_bootstrap.gd setup ports, roads, grain farms
 scripts/rules/diplomacy_*.gd relations, war, alliances, overtures
 scripts/ui/diplomacy_panel.gd the court ledger (tested via screen)
+scripts/ui/key_reference.gd the chart's controls: keys and touch doors (pure)
+scripts/ui/keys_sheet.gd    the pause page's KEYS reading
 scripts/ui/*                HUD, dossier, fleet panel, minimap, theme
 scripts/platform/*          display scale + safe area (P3)
 ui/shaders/*                sea, fog, grain, vignette
