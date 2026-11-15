@@ -124,8 +124,7 @@ func _process(delta: float) -> void:
 func _draw() -> void:
 	if not _visible():
 		return
-	if _font == null:
-		_font = UiTheme.serif()
+	_ensure_font()
 	RoadInk.draw_runs(self, _runs, _reveal)
 	var provinces: Array = survey.get("provinces", [])
 	for raw: Variant in provinces:
@@ -140,26 +139,7 @@ func _draw_plate(entry: Dictionary) -> void:
 	var alpha: float = _reveal * _charted_alpha(int(entry["charted"]))
 	if alpha <= 0.01:
 		return
-	var shape: PackedVector2Array = _plate_shape(rect, 3.0)
-	var shadow := _offset_shape(shape, Vector2(1.4, 2.2))
-	draw_colored_polygon(shadow, Color(0.10, 0.08, 0.05, 0.32 * alpha))
-	draw_colored_polygon(shape, Color(0.945, 0.902, 0.792, 0.99 * alpha))
-	draw_polyline(
-		_closed(shape), Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.90 * alpha),
-		1.5, true
-	)
-	# A second engraved rule inside the edge: printed slip, not plastic tile.
-	draw_polyline(
-		_closed(_plate_shape(rect.grow(-2.0), 2.0)),
-		Color(0.420, 0.337, 0.216, 0.30 * alpha), 0.8, true
-	)
-
-	var owner_id: int = int(entry["owner"])
-	var ribbon: Color = _owner_tint(owner_id)
-	ribbon.a *= alpha
-	draw_rect(
-		Rect2(rect.position + Vector2(2, 4), Vector2(2.4, rect.size.y - 8)), ribbon
-	)
+	LensSlip.draw_plaque(self, rect, alpha, _owner_tint(int(entry["owner"])))
 
 	# One column a type: the emblem, then the badge that counts its estates.
 	var left: float = rect.position.x + PLATE_PAD + RIBBON
@@ -168,13 +148,7 @@ func _draw_plate(entry: Dictionary) -> void:
 		_draw_type(types[i], Rect2(left + float(i) * TYPE_COL, top, TYPE_COL, 38.0), alpha)
 	_draw_prospect_cue(entry, rect, alpha)
 	if int(entry["id"]) == hover_province:
-		draw_rect(
-			Rect2(
-				rect.position + Vector2(2, rect.size.y - 4),
-				Vector2(rect.size.x - 4, 2)
-			),
-			Color(Palette.GOLD.r, Palette.GOLD.g, Palette.GOLD.b, alpha)
-		)
+		LensSlip.hover_rule(self, rect, alpha)
 
 
 ## One type's column: the emblem ringed in the state its estates stand in, and
@@ -219,7 +193,7 @@ func _draw_prospect_cue(entry: Dictionary, rect: Rect2, alpha: float) -> void:
 	var column := Rect2(
 		rect.end.x - PLATE_PAD - CUE_W, rect.position.y + 4.0, CUE_W, 38.0
 	)
-	var ink := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.74 * alpha)
+	var ink: Color = Palette.ink(0.74 * alpha)
 	var needle: Color = Palette.survey_color("survey")
 	needle.a *= alpha
 	var center := Vector2(column.position.x + column.size.x * 0.5, column.position.y + 8.5)
@@ -235,7 +209,7 @@ func _draw_prospect_cue(entry: Dictionary, rect: Rect2, alpha: float) -> void:
 ## they are all cut off, and quiet ink while nothing is built.
 func _link_tint(developed: int, linked: int) -> Color:
 	if developed <= 0:
-		return Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.46)
+		return Palette.ink(0.46)
 	if linked >= developed:
 		return Palette.SURVEY_YIELDING
 	if linked > 0:

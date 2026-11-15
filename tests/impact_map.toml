@@ -968,6 +968,12 @@ suites = [
 match = "scripts/map/map_lens.gd*"
 domain = "lens_kit"
 
+# The reading's printed slip and wash: the paper every lens prints on, so it
+# rides the same kit suites as the base the lenses inherit.
+[[rules]]
+match = "scripts/map/lens_slip.gd*"
+domain = "lens_kit"
+
 # Every reading inherits the kit; route each lens here before the broader
 # resource-ink / crown-road / scripts/map globs so one reading stays small.
 [[rules]]

@@ -54,14 +54,7 @@ func _draw() -> void:
 	if not _visible():
 		return
 	var runs: Dictionary = survey.get("runs", {})
-	for band: String in DiplomacySurvey.BANDS:
-		var veil := Color(
-			Palette.PAPER.r, Palette.PAPER.g, Palette.PAPER.b, VEIL_ALPHA * _reveal
-		)
-		var tint: Color = Palette.diplo_color(band)
-		tint.a = WASH_ALPHA * _reveal
-		for raw: Variant in runs.get(band, []):
-			var run: Rect2 = raw
-			var rect := Rect2(run.position * TILE_SIZE, run.size * TILE_SIZE)
-			draw_rect(rect, veil)
-			draw_rect(rect, tint)
+	LensSlip.wash(
+		self, _reveal, runs, DiplomacySurvey.BANDS, Palette.diplo_color,
+		WASH_ALPHA, VEIL_ALPHA, TILE_SIZE
+	)
