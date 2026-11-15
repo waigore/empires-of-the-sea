@@ -29,26 +29,29 @@ raises the question.
 | Note | `Next: II · 4 lumber + 4 cast iron · 2 turns`, the crew's own record, the study the order waits on, or the finished town |
 
 The sheet states the rule a crown pays by: a town pays manufactures at levels
-**2 and 4** only — level 3 buys the road to 4 — and the bonus is made from the
-raw its own estates deliver, so a town with no works pays nothing.
+**2 and 4** only — level 3 buys the road to 4 — from the raw its own estates
+deliver.
 
 ## Filters
 
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
 ready / at work / developed) — each carrying its own tally. The reading leads
-with what can be raised now, then what is in hand, then what waits on a study, a
-crew or the stores, and the finished towns last; within a state the cheapest
-step leads.
+with what can be raised now, then what is in hand, then what waits, the finished towns last;
+within a state the cheapest step leads.
 
 ## Raise
 
-**Raise** sends the nearest idle Builder through the province dossier's own
-order (`ImprovementOrders.upgrade_town`), swapping the chart first when the
-province lies on the other one. The order's message reaches the court as the
-toast, and the row repaints as `AT WORK`. A row that cannot be raised carries no
+**Raise** sends the nearest idle Builder through the dossier's own order
+(`ImprovementOrders.upgrade_town`), swapping the chart first when the province
+lies on the other one; its message is the toast, and the row repaints as
+`AT WORK`. A row that cannot be raised carries no
 press: the note names the wait. That includes the crown's stores — a town it
 cannot pay for reads `LOCKED` and names the materials, so the press is never
 offered an order the Builder would refuse.
+
+**Raise all ready (n)** files every ready row the view prints — arm once,
+confirm once — in the sheet's order, and stops at the first refusal. One
+receipt names what it raised and what waits (DR-20261116-03).
 
 ## Architecture
 
@@ -60,9 +63,9 @@ offered an order the Builder would refuse.
 | `scripts/ui/town_ledger_row.gd` | one town |
 | `scripts/ui/province_ledger_panel.gd` | the `Towns ›` door |
 
-No figure is recomputed: the price is `CivilianWork.cost_for`, the wait is
-`CivilianWorkPlan.duration_for`, the gate is `town_upgrade_refusal` and the crew
-is the unit's own work record (`REQ-P2-03`).
+No figure is recomputed: price is `CivilianWork.cost_for`, wait
+`CivilianWorkPlan.duration_for`, gate `town_upgrade_refusal`, crew the work
+record (`REQ-P2-03`).
 
 ## Tests
 

@@ -189,6 +189,16 @@ func test_the_realm_door_opens_the_walls_ledger() -> void:
 	assert_true(_row_widgets(panel) > 0, "the crown's walls are listed")
 
 
+## The walls sheet is the towns sheet's sibling, so it carries the same one-press
+## batch under its chips (DR-20261116-03).
+func test_the_walls_sheet_carries_the_batch_press() -> void:
+	var panel: WallLedgerPanel = screen.hud.walls_ledger
+	panel.open()
+	assert_not_null(panel._batch, "the sheet carries the batch press")
+	assert_true(panel._batch is RaiseBatchPress, "and it is the shared press")
+	panel.close()
+
+
 func test_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
 	var province: ProvinceState = _crown_wall()

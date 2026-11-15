@@ -678,6 +678,12 @@ domain = "muster"
 match = "scripts/ui/raise_ledger_*.gd*"
 domain = "muster"
 
+# The one-press batch under the raise sheets' chips (DR-20261116-03): the arm, its
+# timeout and its words. It rides the muster domain with the sheets it serves.
+[[rules]]
+match = "scripts/ui/raise_batch_press.gd*"
+domain = "muster"
+
 [[rules]]
 match = "scripts/map/map_play_charts.gd*"
 domain = "muster"

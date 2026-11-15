@@ -176,6 +176,20 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 	panel._on_filter(TownLedger.FILTER_READY, false)
 	await run.tree.process_frame
 	run.check(panel._reading == TownLedger.FILTER_READY, "the ledger narrows to one reading")
+	# The one press that files every ready step arms on the first tap and files on
+	# the second; the smoke only arms it, so no Builder is sent (DR-20261116-03).
+	var press: RaiseBatchPress = panel._batch
+	run.check(press != null, "the towns sheet carries the batch press")
+	if press != null and press.visible:
+		press.pressed.emit()
+		run.check(press.is_armed(), "the batch press arms on the first tap")
+		run.check(press.text.begins_with("Confirm"), "and names the confirm")
+		press.disarm()
+		run.check(not press.is_armed(), "and forgets the arm")
+	elif press != null:
+		run.check(
+			panel._ready_targets().is_empty(), "a view with no ready step carries no press"
+		)
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the towns ledger sets itself aside")

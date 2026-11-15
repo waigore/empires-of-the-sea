@@ -77,8 +77,7 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 	return row
 
 
-func _file_order(region: int, province_id: int) -> void:
+func _file_order(region: int, province_id: int, quiet: bool = false) -> Dictionary:
 	if play == null:
-		return
-	MapPlayTowns.raise(play, region, province_id)
-	refresh()
+		return {"ok": false, "message": ""}
+	return MapPlayTowns.raise(play, region, province_id, quiet)

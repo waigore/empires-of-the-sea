@@ -26,26 +26,27 @@ door sits on the reading that raises the question
 | Chip | `READY`, `AT WORK`, `NO ENGINEER`, `LOCKED`, `WALLED` |
 | Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, the study the order waits on, or the finished wall |
 
-The chip names what the step waits on; the note is the step. The sheet states
-the rule a crown pays by: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns,
-and the last gun falls even when an assault is repelled.
+The note is the step. The sheet states the rule a crown pays by: 10 / 20 / 30
+wall hp by level and 1–3 emplaced guns, and the last gun falls even when an
+assault is repelled.
 
 ## Filters
 
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
 ready / at work / walled) — each with its own tally; the count line names the
 bare shores. The reading leads with what can be raised now, then what is in
-hand, then what waits on a study, a crew or the stores, and the finished walls
-last; the weakest wall leads.
+hand, then what waits, the finished walls last; the weakest wall leads.
 
 ## Raise
 
 **Raise** sends the nearest idle Engineer through the same `build_fort` order
 the civilian panel files (`ImprovementOrders.build_fort` → `CivilianWork`),
-swapping the chart first when the province lies on the other one. The order's
-message reaches the court as the toast, and the row repaints as `AT WORK`. A row
-that cannot be raised carries no press: the note names the wait — the study, the
-crew, or the stores a `LOCKED` shore is short of.
+swapping the chart first when the province lies on the other one; its message is
+the toast and the row repaints as `AT WORK`. A row that cannot be raised carries
+no press: the note names the wait — the study, the crew, or the stores a
+`LOCKED` shore is short of. **Raise all ready (n)** files every ready row the
+view prints, arm then confirm, and stops at the first refusal
+(DR-20261116-03).
 
 ## Architecture
 
@@ -57,10 +58,9 @@ crew, or the stores a `LOCKED` shore is short of.
 | `scripts/ui/wall_ledger_row.gd` | one wall |
 | `scripts/ui/province_ledger_panel.gd` | the `Walls ›` door |
 
-No figure is recomputed: the level and its guns are `FortRules`, the price is
-`FortRules.cost`, the wait is `FortRules.turns`, and the gate is
-`CivilianWorkPlan.fort_refusal` — the wording the order itself refuses with
-(`REQ-P2-03`).
+No figure is recomputed: the level and its guns are `FortRules`, as are the
+price and the wait; the gate is `CivilianWorkPlan.fort_refusal`, the wording the
+order itself refuses with (`REQ-P2-03`).
 
 ## Tests
 

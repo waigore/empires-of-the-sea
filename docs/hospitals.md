@@ -26,7 +26,7 @@ the door sits on the reading that raises the question
 | Place | `Field hospital · rest 40% · wear 80% · staff 2 food`, or `unstaffed` |
 | Note | `Next: field hospital · 3 lumber + 2 fabric · 1 turn`, the crew's own record, the study or the stores the order waits on, or the finished ward |
 
-The sheet states the rule a crown pays by: rest 40% / 55% and the wear a defeat
+The sheet states the rule a crown pays by: rest 40% / 55%, the wear a defeat
 leaves cut to 80% / 65%, and a staff that eats 2 food a turn per level — a ward
 the larder cannot cover goes unfed and heals nothing that turn.
 
@@ -43,8 +43,10 @@ is in hand, then what waits, the finished wards last; the weakest ward leads.
 **Raise** sends the nearest idle Engineer through the same `build_hospital`
 order the civilian panel files (`ImprovementOrders.build_hospital` →
 `CivilianWork`), swapping the chart first when the province lies on the other
-one. The order's message reaches the court as the toast, and the row repaints as
-`AT WORK`. A row that cannot be raised carries no press: the note names the wait.
+one; its message is the toast and the row repaints as `AT WORK`. A row that
+cannot be raised carries no press: the note names the wait. **Raise all ready
+(n)** files every ready row the view prints, arm then confirm, and stops at the
+first refusal (DR-20261116-03).
 
 ## Architecture
 
@@ -56,10 +58,9 @@ one. The order's message reaches the court as the toast, and the row repaints as
 | `scripts/ui/hospital_ledger_row.gd` | one ward |
 | `scripts/ui/province_ledger_panel.gd` | the `Hospitals ›` door |
 
-No figure is recomputed: the level, the rest share, the triage and the ration
-are `HospitalRules`, the price is `HospitalRules.cost`, the wait is
-`HospitalRules.turns`, and the gate is `CivilianWorkPlan.hospital_refusal` — the
-wording the order itself refuses with (`REQ-P2-03`).
+No figure is recomputed: the level, rest share, triage, ration, price and wait
+are `HospitalRules`; the gate is `CivilianWorkPlan.hospital_refusal`, the wording
+the order itself refuses with (`REQ-P2-03`).
 
 ## Tests
 
