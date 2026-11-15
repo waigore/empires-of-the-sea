@@ -79,6 +79,20 @@ static func unit_price(
 	return MarketRules.deal_unit(market, commodity, buyer, step, true)
 
 
+## The ask a published offer row prints: the row's own price, re-read against
+## the crown's live terms, so a pact, subsidy or boycott that moved after the
+## publish is never a price the clearing will not honour (REQ-P5-05).
+static func ask_for_reader(
+	market: WorldMarket, row: Dictionary, buyer: int = FactionCatalog.PLAYER_FACTION
+) -> int:
+	var stored: int = int(row.get("unit_price", 0))
+	if market == null:
+		return stored
+	var commodity: String = String(row.get("commodity", ""))
+	var live: int = unit_price(market, commodity, buyer, int(row.get("faction", -1)))
+	return live if live > 0 else stored
+
+
 static func _is_minor(faction: int) -> bool:
 	if faction < 0:
 		return false

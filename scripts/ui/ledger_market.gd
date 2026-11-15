@@ -274,7 +274,7 @@ func _offer_row(offer: Dictionary) -> Control:
 	var seller: int = int(offer.get("faction", -1))
 	var commodity: String = String(offer.get("commodity", ""))
 	var left: int = int(offer.get("quantity", 0))
-	var ask: int = int(offer.get("unit_price", 0))
+	var ask: int = MinorMarket.ask_for_reader(_market, offer, _viewer)
 
 	row.add_child(
 		UiRowBuilder.caption(FactionCatalog.name_of(seller), 13, FactionCatalog.color_of(seller), 96.0)
