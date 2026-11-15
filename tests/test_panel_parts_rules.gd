@@ -950,6 +950,9 @@ func test_a_pact_proposal_names_its_terms_and_its_envoy() -> void:
 func test_a_rival_proposal_prompts_and_emits_the_answer() -> void:
 	_setup_diplomacy_panel()
 	state.relation(0, 2).score = 80.0
+	# The alliance rides on the pact (wiki: diplomacy § Alliances; issue #750).
+	state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_ALLIANCE)
 	panel.refresh(state, null, 0, 2500)
 	assert_true(_has_text(panel._call_box, "PROPOSAL"))
@@ -994,6 +997,8 @@ func test_a_declaration_is_quoted_under_the_herald() -> void:
 func test_a_waiting_proposal_banner_quotes_the_proposing_court() -> void:
 	_setup_diplomacy_panel()
 	state.relation(0, 2).score = 80.0
+	state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	DiplomacyProposals.queue(state, null, 2, DiplomacyProposals.KIND_ALLIANCE)
 	panel.refresh(state, null, 0, 2500)
 	assert_true(_has_text(panel._call_box, "PROPOSAL  ·  "), "the face rides the banner")

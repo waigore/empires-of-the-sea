@@ -104,7 +104,7 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 		order["amount"] = arg.to_int()
 	var economy: PlayerEconomy = play.economy.economy if play.economy != null else null
 	var result: Dictionary = DiplomacyOrders.apply(
-		play.diplomacy, play.world, economy, order, _tech(play)
+		play.diplomacy, play.world, economy, order, _tech(play), public_power(play)
 	)
 	var message: String = String(result.get("message", ""))
 	if not bool(result.get("ok", false)):

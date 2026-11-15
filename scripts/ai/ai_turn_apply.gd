@@ -36,7 +36,10 @@ static func apply(
 		return _peace(state, world, ai_state, faction, action, turn, game_seed, shared)
 	if bool(action.get("propose", false)):
 		return propose(state, world, faction, action)
-	return apply_order(state, world, ai_state, faction, action)
+	return apply_order(
+		state, world, ai_state, faction, action,
+		(shared.get("power", {}) as Dictionary)
+	)
 
 
 ## A declaration of war: the declarer's own Propaganda softens a protest against
@@ -168,10 +171,11 @@ static func propose(
 
 ## One-sided acts and offers a fellow AI court answers by rule run through the
 ## shared order catalogue the court panel calls, spending the rival's own ledger
-## (wiki: diplomacy § Diplomatic Order Types; REQ-P2-03).
+## (wiki: diplomacy § Diplomatic Order Types; REQ-P2-03). `power` is the
+## published power map a Join Empire acceptance reads (issue #750).
 static func apply_order(
 	state: DiplomacyState, world: WorldMap, ai_state: AiState, faction: int,
-	action: Dictionary
+	action: Dictionary, power: Dictionary = {}
 ) -> Dictionary:
 	var kind: String = String(action.get("kind", ""))
 	var order: Dictionary = {
@@ -185,7 +189,7 @@ static func apply_order(
 		order["amount"] = int(action.get("amount", 0))
 	var economy: PlayerEconomy = ai_state.economy_for(faction)
 	var result: Dictionary = DiplomacyOrders.apply(
-		state, world, economy, order, economy.tech_unlocked
+		state, world, economy, order, economy.tech_unlocked, power
 	)
 	return {"result": result, "message": order_message(faction, action, result)}
 
@@ -210,6 +214,8 @@ static func order_message(
 			return "%s reopens its colonies to %s." % [who, them]
 		DiplomacyOrders.KIND_BREAK:
 			return "%s breaks its alliance with %s." % [who, them]
+		DiplomacyOrders.KIND_BREAK_NAP:
+			return "%s breaks its non-aggression pact with %s." % [who, them]
 		DiplomacyOrders.KIND_SUBSIDY:
 			return "%s sets a %d%% subsidy for %s." % [
 				who, int(action.get("amount", 0)), them
