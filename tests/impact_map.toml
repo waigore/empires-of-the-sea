@@ -717,6 +717,13 @@ domain = "ledger_dress"
 match = "scripts/ui/ledger_list.gd*"
 domain = "ledger_dress"
 
+# The filtered sheet spine over both: the chips, the scrolling rows, the count
+# line and the empty notice the provinces, towns, muster, navy and people sheets
+# stand on. A spine change runs the suites that drive those sheets.
+[[rules]]
+match = "scripts/ui/ledger_sheet.gd*"
+domain = "ledger_dress"
+
 # The projection plumbing under those sheets: the chart keys, the narrowing, the
 # chip tallies and the one heading per chart. Every ledger reads it, so it rides
 # the same domain as the dress and never the rules catch-all's battle suites.
@@ -934,6 +941,23 @@ domain = "lens_kit"
 
 [[rules]]
 match = "scripts/map/crown_road_lens.gd*"
+domain = "lens_kit"
+
+# The survey's road ink and the civilians' chart marks: drawn by the survey lens
+# (and its key) and nothing else, so they ride the reading's own narrow kit
+# domain instead of the 11-suite `scripts/map/**` fan-out below.
+[[rules]]
+match = "scripts/map/road_ink.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/civic_glyphs.gd*"
+domain = "lens_kit"
+
+# The plate's per-type projection: one node-free module read by the survey and
+# its two suites, never a reason to run the prospect fan-out on its own.
+[[rules]]
+match = "scripts/rules/resource_types.gd*"
 domain = "lens_kit"
 
 [[rules]]
@@ -2589,10 +2613,6 @@ domain = "prospect"
 # The survey's road projection: same lens, same suites (the chart draws no roads).
 [[rules]]
 match = "scripts/rules/resource_routes.gd"
-domain = "map"
-
-[[rules]]
-match = "scripts/map/road_ink.gd"
 domain = "map"
 
 [[rules]]
