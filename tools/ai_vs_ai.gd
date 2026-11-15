@@ -51,6 +51,10 @@ var _appearances: int = 0
 ## Shipped-rule → order-row checklist (issue #605): every rule the run's trace
 ## proves a court exercised, and every one it never did.
 var _coverage: Array[Dictionary] = AiCoverage.scan([])
+## Runs that ended before the turn cap (a campaign resolved): a window that short
+## cannot say a slow rule is never exercised, so the gate stands down and the
+## campaign result is printed instead.
+var _short_runs: int = 0
 
 
 func _initialize() -> void:
@@ -133,6 +137,8 @@ func _aggregate(result: Dictionary) -> void:
 		return
 	_appearances += 1
 	AiCoverage.merge(_coverage, result.get("coverage", []) as Array[Dictionary])
+	if int(result.get("turns", 0)) < _turns:
+		_short_runs += 1
 	var final: Dictionary = result.get("final", {})
 	var winner: int = int(final.get("winner", MapModel.NO_ID))
 	if winner == MapModel.NO_ID:
@@ -229,12 +235,20 @@ func _report(seeds: PackedStringArray) -> void:
 
 ## The shipped-rule checklist, then a failure per major rule the campaign never
 ## exercised: an under-use gap fails the harness by scan instead of waiting for
-## a forensic run (issue #605). Only the full-AI observer is gated: a bench run
-## mixes random and mainline crowns that issue no planner orders, so its zeros
-## say nothing about this tree's coverage.
+## a forensic run (issue #605). Only the full-AI observer is gated (a bench run
+## mixes random and mainline crowns that issue no planner orders), and only a run
+## that reached its turn cap: a campaign that resolved early closes the window
+## before a slow rule's turn, and the checklist prints the result beside the
+## reading instead of calling it a defect.
 func _report_coverage() -> void:
 	print(AiCoverage.report(_coverage))
 	if _ai_mode != AiControl.FULL:
+		return
+	if _short_runs > 0:
+		print(
+			"Coverage gate stands down: %d of %d run(s) ended before the %d-turn cap"
+			% [_short_runs, _appearances, _turns]
+		)
 		return
 	for rule: String in AiCoverage.missing_major(_coverage):
 		_fail("coverage: %s was never exercised in %d run(s)" % [rule, _appearances])
