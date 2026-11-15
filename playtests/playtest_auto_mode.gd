@@ -77,14 +77,15 @@ func _close_turn(play: PlaySession) -> void:
 	var guard: int = 0
 	while play.turn_suspended and guard < 6:
 		guard += 1
-		if CallToArms.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_call(play, false)
-		elif Intervention.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_intervention(play, Intervention.KIND_NOTHING)
-		elif DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_offer(play, false)
-		else:
-			play.turn_suspended = false
+		match ConsentLadder.pending_kind(play.diplomacy, play.player_faction):
+			ConsentLadder.CALL:
+				MapPlayTurn.answer_call(play, false)
+			ConsentLadder.INTERVENTION:
+				MapPlayTurn.answer_intervention(play, Intervention.KIND_NOTHING)
+			ConsentLadder.OFFER:
+				MapPlayTurn.answer_offer(play, false)
+			_:
+				play.turn_suspended = false
 
 
 ## Spends the driver's ticks until the turn in flight closes.

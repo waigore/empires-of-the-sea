@@ -18,27 +18,27 @@ Minors track the strongest Great Power's regiment era; Tribes stay level 1.
 
 ## Regions
 
-- One deterministic tile map per region; a seed reproduces both. Chart presets
-  (Small / Standard / Large) change grid size — Standard ≈30–40 tiles/province
-  (#700); province counts fixed.
+- One deterministic tile map per region; a seed reproduces both. Presets cascade
+  in area (Small `84×56` / Standard `96×64` / Large `128×84`); province counts
+  fixed. Standard sits in the wiki's ~30–40 tiles/province band (Old World 37.7;
+  New World 41.3, documented 30–45, #700).
 - Old World: temperate, 60 provinces for 6 GPs + 6 Minors — Minor 3 each, rest
   to GPs. New World: wetter, 30 provinces for 10 Tribes; 3 each.
-- `WorldMap` holds both grids. Regions share no grid adjacency; **warp zones**
+- `WorldMap` holds both grids. No adjacency across regions; **warp zones**
   (one edge sea zone per side) pair 1:1, marked “Passage”; fleets cross.
 - A sea zone wears the water it lies on, not pool order (wiki: naming §
   Sea zones, DR-20261113-07).
 - **Resources:** `ResourceSeeder` puts a row on **30% of region land** — every
   forest cell always, the rest by `1/price` weight, each province a slice of its
   eligible ground (DR-20261115-16).
-- Region button swaps canvas, fog, fleets, civilians, works and camera. Rosters
-  persist per region; both advance each turn. Chips are empire totals.
+- Region button swaps canvas, fog, fleets, civilians, works and camera; rosters
+  persist per region, both advancing each turn.
 
 ## Setup post-pass
 
-After capitals are fixed, `WorldBootstrap` turns the capital-choice plan into
-works (ports, harbour roads), sets capital towns to level 4 and places four L1
-grain farms per Great Power on plains, road-wired to the seat (wiki:
-capital-and-connectivity).
+After capitals are fixed, `WorldBootstrap` builds the capital-choice works
+(ports, harbour roads), levels capital towns to 4 and seats four road-wired L1
+grain farms per Great Power on plains (wiki: capital-and-connectivity).
 
 ## Ownership
 
@@ -58,15 +58,15 @@ inland); with none left it falls, holdings to the conqueror
 
 ## Borders on the map
 
-`country_borders` derives owner boundaries from the tile grid; `MapOverlay`
-draws them **above fog** as engraved shadow plus owner colour, hairlines
-beneath; terrain and minimap carry owner tint.
+`country_borders` derives owner boundaries from the grid; `MapOverlay` draws
+them **above fog** as engraved shadow plus owner colour; terrain and minimap
+carry owner tint.
 
 ## Campaign length
 
 Setup offers a **historical** campaign (halts after turn 201, i.e. 1800) or an
 **endless** one (military victory only). At the cap an undecided age reads
-“Campaign complete”, naming the strongest crown — a tie names no-one
+“Campaign complete”, naming the strongest crown; a tie names no-one
 (`TurnTime`, `VictoryRules`, `MapPlayCampaign`).
 
 ## Known limits

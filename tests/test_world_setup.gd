@@ -1212,21 +1212,60 @@ func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
 		assert_eq(bare_forests, 0, "region %d has %d bare forest cells" % [model.region_id, bare_forests])
 		assert_true(open_carrying > 0, "region %d left its open ground bare" % model.region_id)
 		# Absolute supply for #676: Standard still funds a market book (not the
-		# old ~3% sparse plot). OW land on Standard is ~2k tiles → ~600 rows.
+		# old ~3% sparse plot). OW land on Standard is ~2.3k tiles → ~670 rows.
 		assert_true(carrying >= 300,
 			"region %d only places %d resources on Standard" % [model.region_id, carrying])
 
 
-## Standard chart keeps mean tiles/province in the published ~30–40 band while
-## holding 60/30 province counts (wiki: tile-map-and-generation; #700).
+## Standard chart keeps mean tiles/province in the published band while holding
+## 60/30 province counts (wiki: tile-map-and-generation; #700). Measured on seed
+## 1500: OW 37.7 (the wiki's ~30–40), NW 41.3 — 30 provinces share a smaller
+## New World grid, so its band is the documented 30–45 in docs/world.md.
 func test_standard_provinces_sit_in_the_published_size_band() -> void:
 	var world_map: WorldMap = _standard_world(1500)
 	var old_world: MapModel = world_map.region(FactionCatalog.OLD_WORLD)
 	var new_world: MapModel = world_map.region(FactionCatalog.NEW_WORLD)
 	assert_eq(old_world.provinces.size(), MapGenerator.OLD_WORLD_PROVINCES)
 	assert_eq(new_world.provinces.size(), MapGenerator.NEW_WORLD_PROVINCES)
-	_assert_mean_tiles(old_world, 28.0, 45.0)
-	_assert_mean_tiles(new_world, 28.0, 50.0)
+	_assert_mean_tiles(old_world, 30.0, 40.0)
+	_assert_mean_tiles(new_world, 30.0, 45.0)
+
+
+## The chart presets cascade in area, the default points at Standard, and the
+## config's own width/height defaults follow that preset — no stale 128×84
+## literal left over from the pre-#700 chart (tests build the default world off
+## the table, not off a hard-coded size).
+func test_the_chart_presets_cascade_from_a_standard_default() -> void:
+	assert_eq(GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]["label"], "Standard")
+	var config := GameConfig.new()
+	assert_eq(config.map_width, int(GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]["width"]))
+	assert_eq(config.map_height, int(GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]["height"]))
+	var previous: int = 0
+	for preset: Dictionary in GameConfig.SIZES:
+		var area: int = int(preset["width"]) * int(preset["height"])
+		assert_true(area > previous,
+			"preset %s is not larger than the one before it" % preset["label"])
+		previous = area
+
+
+## #676's supply clause survives the smaller Standard chart: the Minor/Tribe
+## book still fills a larder (grain offered) and carries an absolute volume
+## (485 offers from 16 sellers measured on seed 1500, down from 603 on the old
+## 128×84 chart but far from empty).
+func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
+	var orders: Array[MarketOrder] = MinorMarket.emit_orders(_standard_world(1500))
+	var sellers: Dictionary = {}
+	var units: int = 0
+	var grain: int = 0
+	for order: MarketOrder in orders:
+		units += order.quantity
+		sellers[order.faction] = true
+		if order.commodity == "grain":
+			grain += order.quantity
+	assert_true(units >= 400, "Standard's Minor/Tribe book fell to %d units" % units)
+	assert_true(sellers.size() >= 12,
+		"only %d Minor/Tribe courts sell on Standard" % sellers.size())
+	assert_true(grain > 0, "no Minor/Tribe court offers grain on Standard")
 
 
 ## The published charts are drawn **once per seed and size** and re-read by
