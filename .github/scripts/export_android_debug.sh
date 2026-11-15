@@ -59,11 +59,15 @@ export/android/debug_keystore_pass = "$GODOT_ANDROID_KEYSTORE_DEBUG_PASSWORD"
 EOF
 
 backup="$(mktemp)"
+identity_backup="$(mktemp)"
+identity="$PROJECT/scripts/platform/build_identity.gd"
 cp "$PRESET" "$backup"
+cp "$identity" "$identity_backup"
 cleanup() {
   local status=$?
   cp "$backup" "$PRESET"
-  rm -f "$backup"
+  cp "$identity_backup" "$identity"
+  rm -f "$backup" "$identity_backup"
   exit "$status"
 }
 trap cleanup EXIT
@@ -72,6 +76,8 @@ sed -i "s|^version/code=.*|version/code=${code}|" "$PRESET"
 sed -i "s|^version/name=.*|version/name=\"${name}\"|" "$PRESET"
 grep -q "^version/code=${code}$" "$PRESET" || fail "export preset is missing version/code"
 grep -q "^version/name=\"${name}\"$" "$PRESET" || fail "export preset is missing version/name"
+
+"$PROJECT/tools/bake_build_identity.sh"
 
 mkdir -p "$(dirname "$OUTPUT")"
 echo "Exporting Android debug APK to $OUTPUT (versionName=${name:-} versionCode=${code})"

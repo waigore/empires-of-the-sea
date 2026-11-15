@@ -34,6 +34,10 @@ static func step(run) -> bool:
 	run.check(
 		GameVersion.is_compatible_with(GameVersion.MAJOR), "GameVersion major compatible"
 	)
+	run.check(
+		GameVersion.menu_caption().begins_with("version "),
+		"GameVersion.menu_caption starts with version"
+	)
 
 	var menu: MainMenu = main.current_page as MainMenu
 	run.check(menu != null, "main menu boots first")

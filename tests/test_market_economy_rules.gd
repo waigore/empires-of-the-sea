@@ -996,6 +996,112 @@ func test_the_order_book_survives_a_save_round_trip() -> void:
 	assert_eq(MarketOrders.cancel(restored, 0, order.id), true)
 	assert_eq(restored.book.pending_buy_units(0), 0)
 
+func test_the_trade_volumes_survive_a_save_round_trip() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(market.settle_purchase(economy, "grain", 2, 2, 100), true)
+	assert_true(bool(MarketOrders.submit(
+		market,
+		3, "timber", MarketOrder.SIDE_OFFER, 1,
+		{"stock": 4, "buy_price": 30}
+	)["ok"]))
+
+	var restored: WorldMarket = WorldMarket.from_dict(market.to_dict())
+
+	assert_eq(restored.bid_volume("grain"), 2)
+	assert_eq(restored.bought_units_for(2), 2)
+	assert_eq(restored.imports_for(2), {"grain": 2})
+	assert_eq(restored.importing_factions(), [2])
+	assert_eq(restored.book.volumes.offer_volume("timber"), 1)
+	assert_eq(restored.offer_volume("timber"), 1)
+	assert_eq(restored.book.volumes.bought_units(), market.book.volumes.bought_units())
+	assert_eq(restored.book.volumes.to_dict(), market.book.volumes.to_dict())
+
+func test_a_save_from_before_the_book_held_its_volumes_still_loads() -> void:
+	var saved: Dictionary = {
+		"prices": {"grain": 44},
+		"book": {
+			"bids": {"grain": 3},
+			"offers": {"timber": 2},
+			"bought_by_faction": {"2": 3},
+			"imports_by_faction": {"2": {"grain": 3}},
+		},
+	}
+
+	var restored: WorldMarket = WorldMarket.from_dict(saved)
+
+	assert_eq(restored.price("grain"), 44)
+	assert_eq(restored.bid_volume("grain"), 3)
+	assert_eq(restored.offer_volume("timber"), 2)
+	assert_eq(restored.bought_units_for(2), 3)
+	assert_eq(restored.imports_for(2), {"grain": 3})
+	# The next turn still clears cleanly, and nothing leaks between markets.
+	assert_eq(WorldMarket.with_default_prices().imports_for(2), {})
+
+func test_a_market_saved_with_flat_volumes_still_loads() -> void:
+	# The first shape folded the volumes beside the order book, on the market.
+	var restored: WorldMarket = WorldMarket.from_dict({
+		"book": {"submitted": []},
+		"bids": {"grain": 2},
+		"offers": {"timber": 1},
+		"bought_by_faction": {"1": 2},
+		"imports_by_faction": {"1": {"grain": 2}},
+	})
+
+	assert_eq(restored.price("grain"), CommodityCatalog.base_price("grain"))
+	assert_eq(restored.bid_volume("grain"), 2)
+	assert_eq(restored.offer_volume("timber"), 1)
+	assert_eq(restored.bought_units_for(1), 2)
+	assert_eq(restored.imports_for(1), {"grain": 2})
+
+func test_a_settled_buy_books_the_purse_stock_and_cargo_together() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var purse: int = economy.treasury
+	var grain_start: int = economy.quantity("grain")
+
+	assert_true(market.settle_purchase(economy, "grain", 2, 2, 10))
+	assert_eq(economy.treasury, purse - 10)
+	assert_eq(economy.quantity("grain"), grain_start + 2)
+	assert_eq(market.bid_volume("grain"), 2)
+	assert_eq(market.imports_for(2), {"grain": 2})
+	# A purse that cannot cover the deal moves nothing at all.
+	economy.treasury = 3
+	var grain: int = economy.quantity("grain")
+	assert_false(market.settle_purchase(economy, "timber", 1, 2, 9))
+	assert_eq(economy.treasury, 3)
+	assert_eq(economy.quantity("timber"), 0)
+	assert_eq(economy.quantity("grain"), grain)
+	assert_eq(market.bid_volume("timber"), 0)
+
+func test_a_cancelled_offer_gives_its_supply_back_and_never_below_zero() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	MarketOrders.submit(
+		market,
+		3, "timber", MarketOrder.SIDE_OFFER, 2,
+		{"stock": 4, "buy_price": 30}
+	)
+	var order: MarketOrder = market.book.submitted[0]
+	assert_eq(market.offer_volume("timber"), 2)
+
+	assert_true(MarketOrders.cancel(market, 3, order.id))
+	assert_eq(market.offer_volume("timber"), 0)
+	market.book.volumes.withdraw_offer("timber", 5)
+	assert_eq(market.offer_volume("timber"), 0)
+
+func test_one_court_holding_both_sides_is_dropped_by_pair() -> void:
+	var rows: Array[MarketOrder] = [
+		_order(0, "timber", MarketOrder.SIDE_BID, 2, 1),
+		_order(0, "timber", MarketOrder.SIDE_OFFER, 1, 1),
+		_order(1, "timber", MarketOrder.SIDE_BID, 2, 1),
+		_order(2, "grain", MarketOrder.SIDE_BID, 1, 1),
+	]
+
+	var dropped: Dictionary = MarketRules.staged_both_sides(rows)
+
+	assert_eq(dropped.keys(), ["0:timber"])
+	assert_eq(MarketRules.order_pair_key(rows[3]), "2:grain")
+
 func test_first_right_beats_a_favoured_partner() -> void:
 	var orders: Array[MarketOrder] = [
 		_order(0, "timber", MarketOrder.SIDE_BID, 4, 5),

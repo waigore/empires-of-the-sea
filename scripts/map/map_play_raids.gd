@@ -17,7 +17,7 @@ static func resolve(play: PlaySession) -> Dictionary:
 		# No raid pass: nobody read the cargo afloat, and it is not afloat next
 		# turn either (wiki: ships-and-naval § Trade and Transport Interception).
 		if play.economy != null and play.economy.market != null:
-			play.economy.market.close_cargo_book()
+			play.economy.market.book.close_cargo()
 		return {}
 	if play.economy.economy == null or play.economy.market == null:
 		return {}
@@ -27,7 +27,7 @@ static func resolve(play: PlaySession) -> Dictionary:
 	# turn's close and it is spent once these raids have taken their share, so a
 	# stale row can never be raided twice (DR-20261111-17).
 	var prizes: Array[Dictionary] = _prizes(play)
-	play.economy.market.close_cargo_book()
+	play.economy.market.book.close_cargo()
 	# The crown's raids reach its own despatch; two rivals' raids are theirs
 	# alone, so they pay the raider's ledger and stay off the crown's page
 	# (DR-20261111-20).
