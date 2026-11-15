@@ -192,6 +192,27 @@ func test_a_session_with_no_army_layer_reads_an_empty_pool() -> void:
 # --- the sheet --------------------------------------------------------------
 
 
+## The campaign opens with its commander on the roll. Nothing else syncs a pool
+## before the first turn tick, so a sheet that opens on turn 0 read "0 of 1
+## commander" with no row while the wiki says the faction always holds its cap
+## (wiki: military-generals § Count and tech-gated cap).
+func test_a_fresh_campaign_opens_with_its_commander() -> void:
+	var play: PlaySession = screen.play
+	var data: Dictionary = MapPlayCommand.snapshot(play)
+
+	assert_eq(int(data["cap"]), GeneralRoster.BASE_CAP, "the opening cap")
+	assert_eq(int(data["held"]), 1, "the crown holds its opening commander")
+	assert_false((data["rows"] as Array).is_empty(), "and the roll names him")
+
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	screen.hud.command_pressed.emit()
+	assert_true(
+		panel._subtitle.text.contains("1 of 1 commander"),
+		"the count line reads the pool the rows print"
+	)
+	assert_true(not panel._empty.visible, "no empty-state note on the opening sheet")
+
+
 func test_the_command_door_opens_the_ledger_and_lists_the_pool() -> void:
 	var panel: CommandLedgerPanel = screen.hud.command_ledger
 	assert_not_null(panel, "the HUD mounts the command ledger")

@@ -52,6 +52,7 @@ static func build_hud(play: PlaySession) -> void:
 		hud.command_ledger.bind(play)
 	if hud.towns_ledger != null:
 		hud.towns_ledger.bind(play)
+	_seat_commanders(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
 	# Build/work's recruits land on the session's layers when the ledger closes.
@@ -81,6 +82,17 @@ static func build_hud(play: PlaySession) -> void:
 	# screen keeps a single path for all four lenses (REQ-P5-03).
 	hud.lens_cycle_pressed.connect(func() -> void: MapPlayInput.cycle_lens(play))
 	hud.lens_selected.connect(func(kind: String) -> void: MapPlayInput.select_lens(play, kind))
+
+
+## Seats every Great Power's opening commanders before any reading touches the
+## pool: the wiki's cap is a state, not a goal, so THE CROWN'S COMMAND must not
+## open on "0 of 1 commander" with the commander's own row missing (wiki:
+## military-generals § Count and tech-gated cap; REQ-P2-03). Spawn-only, so a
+## loaded save keeps the roster it carried.
+static func _seat_commanders(play: PlaySession) -> void:
+	if play == null or play.army_layer == null:
+		return
+	play.army_layer.generals.seat_great_powers()
 
 
 ## The province dossier reads the same live tables as the estates ledger: the
