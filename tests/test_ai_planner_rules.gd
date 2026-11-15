@@ -2207,6 +2207,42 @@ func test_an_aim_that_closes_its_shortfall_restarts_the_stall() -> void:
 	)
 
 
+## A shortfall that wobbles above the best gap the stall has seen is no
+## progress: one ducat of noise must not reset the escalation bar forever, or
+## a court whose chest oscillates never escalates and its worker training
+## freezes for the rest of the campaign (issue #603, the 2026-11-15 full-AI
+## measurement).
+func test_a_wobble_above_the_best_gap_is_still_a_stall() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2400})]
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2300})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 1, "a new low is progress")
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2450})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 2,
+		"the wobble is above the best gap: the count continues"
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2350})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 3,
+		"a shrink that stops above the best gap is still the stall"
+	)
+	records = AiDeferral.note(
+		records, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2200})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 1,
+		"a shortfall below the best the stall has seen restarts it"
+	)
+
+
 func test_a_funded_or_absent_aim_clears_its_stall() -> void:
 	var records: Dictionary = AiDeferral.note(
 		{}, [_row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
