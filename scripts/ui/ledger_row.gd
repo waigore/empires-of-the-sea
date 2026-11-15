@@ -106,7 +106,9 @@ func _build() -> void:
 		name_holder = heading
 
 	_name = UiRowBuilder.serif_line("", 17 if compact else 19, Palette.GOLD_PALE)
-	_name.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	# A heading is one line: an autowrapped name inside this HBox reports no
+	# minimum width, so the box hands it one glyph and the chip lands on it.
+	_name.autowrap_mode = TextServer.AUTOWRAP_OFF
 	name_holder.add_child(_name)
 
 	if _wants_chip():

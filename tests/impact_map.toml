@@ -126,6 +126,18 @@ suites = [
   "test_yarn_plates_rules.gd",
 ]
 
+# The shared row skeleton every crown ledger prints (issue #669): the name, its
+# chip and the Visit door. Each sheet's own suite mounts its rows, so they all
+# follow rather than the ledger_* glob's economy_ui, which never builds one.
+[domains.ledger_row]
+suites = [
+  "test_ledgers.gd",
+  "test_town_ledger.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+]
+
 [domains.ledger_shell]
 # The shared docked-ledger chrome: each ledger's own suite proves its body on
 # the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
@@ -2662,6 +2674,12 @@ domain = "economy_ui"
 [[rules]]
 match = "scripts/ui/ledger_frame.gd*"
 domain = "ledger_shell"
+
+# The shared row skeleton (issue #669) is printed by every crown ledger, so its
+# suites follow instead of the ledger_* glob's economy_ui alone.
+[[rules]]
+match = "scripts/ui/ledger_row.gd*"
+domain = "ledger_row"
 
 [[rules]]
 match = "scripts/ui/ledger_*.gd"
