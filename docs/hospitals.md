@@ -67,5 +67,5 @@ and the gate `CivilianWorkPlan.hospital_refusal` — the order's own wording
 
 ## Tests
 
-`tests/test_hospital_ledger.gd` — the projection, every state, the stores gate,
+`tests/test_ledgers.gd` — the projection, every state, the stores gate,
 the tallies, the rule note, and the sheet.

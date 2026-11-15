@@ -6,8 +6,8 @@ extends GdToolsTest
 ## seal, key, filters, Visit and back (wiki: world-model § Provinces and Tiles;
 ## civilian-units § Spy; military-armies § The muster roll).
 ##
-## Merged from test_province_ledger, test_spy_ledger, test_force_ledger_rules and
-## test_ledger_rows:
+## Merged from test_province_ledger, test_spy_ledger, test_force_ledger_rules,
+## test_ledger_rows and the hospital train ledger:
 ## one Godot boot pays one coverage instrumentation pass instead of three (~11 s
 ## a suite under coverage), and the three sheets share the one mounted chart.
 
@@ -26,12 +26,14 @@ var pristine_map: Array = []
 
 
 func before_all() -> void:
+	_hospital_before_all()
 	pristine_map = Fixture.snapshot(Fixture.world())
 	screen = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(screen)
 
 
 func after_all() -> void:
+	_hospital_after_all()
 	if is_instance_valid(screen):
 		screen.hud.command_ledger.close()
 		screen.hud.towns_ledger.close()
@@ -44,6 +46,7 @@ func after_all() -> void:
 
 
 func before_each() -> void:
+	_hospital_before_each()
 	if screen == null or not is_instance_valid(screen):
 		screen = Fixture.attach_screen(self)
 		return
@@ -3339,3 +3342,570 @@ func _has_text(root: Node, needle: String) -> bool:
 		if label != null and label.text.contains(needle):
 			return true
 	return false
+
+# ==== merged from test_hospital_ledger.gd (one coverage boot; docs/testing.md § Speed rules) ====
+## The crown's hospitals: the whole-empire ward ledger reads every province the
+## crown holds that can carry a ward, the level it stands at, whether its staff
+## ate and the step the Engineer would take next (wiki: combat § Regiment
+## condition; DR-20261116-02) and the sheet drives it — the realm's door, the
+## Raise press and back. One Godot boot: the projection suite reads small
+## fixtures, the drive mounts the shared map hospital_screen (docs/testing.md).
+
+const hospital_Naval = preload("res://tests/naval_fixture.gd")
+const hospital_Fixture = preload("res://tests/map_fixture.gd")
+const hospital_TOWN_TILE: Vector2i = Vector2i(1, 0)
+
+var hospital_screen: MapScreen = null
+
+
+func _hospital_before_all() -> void:
+	hospital_screen = hospital_Fixture.attach_screen(self)
+
+
+func _hospital_after_all() -> void:
+	if is_instance_valid(hospital_screen):
+		hospital_screen.hud.hospitals_ledger.close()
+		hospital_screen.hud.province_ledger.close()
+		hospital_screen.free()
+	hospital_screen = null
+
+
+func _hospital_before_each() -> void:
+	if hospital_screen == null or not is_instance_valid(hospital_screen):
+		hospital_screen = hospital_Fixture.attach_screen(self)
+		return
+	hospital_screen.hud.hospitals_ledger.close()
+	hospital_screen.hud.province_ledger.close()
+
+
+# --- projection -------------------------------------------------------------
+
+
+func test_snapshot_lists_every_ward_the_crown_can_raise_in_both_charts() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(hospital__regions(hospital__engineers()), 0)
+	assert_eq(int(snapshot["total"]), 2, "one crown province per chart")
+	assert_eq((snapshot["groups"] as Array).size(), 2, "one heading per chart")
+	assert_eq(HospitalLedger.count(snapshot, LedgerRows.REGION_OLD), 1)
+	assert_eq(HospitalLedger.count(snapshot, LedgerRows.REGION_NEW), 1)
+	for raw: Variant in snapshot["rows"]:
+		var row: Dictionary = raw
+		assert_ne(String(row["name"]), "Coro", "the rival's shore stays out")
+
+
+## A ward on each chart at different levels: one heading per chart, however the
+## level order interleaves the charts (DR-20261116-02).
+func test_the_wards_sheet_prints_one_heading_per_chart_whatever_the_levels() -> void:
+	var regions: Array[Dictionary] = hospital__regions(hospital__engineers(), hospital__wide_tech())
+	var home: MapModel = regions[0]["model"] as MapModel
+	home.provinces[1].owner = 0
+	home.provinces[1].hospital_level = 1
+	var abroad: MapModel = regions[1]["model"] as MapModel
+	abroad.provinces[0].hospital_level = 0
+	var snapshot: Dictionary = HospitalLedger.snapshot(regions, 0)
+	assert_eq(int(snapshot["total"]), 3, "two shores at home, one abroad")
+	var groups: Array[Dictionary] = HospitalLedger.groups(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(groups.size(), 2, "one heading per chart, not one per level")
+	assert_eq(int(groups[0]["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq((groups[0]["rows"] as Array).size(), 2, "both home shores under one heading")
+	assert_eq((groups[1]["rows"] as Array).size(), 1, "the colony under its own")
+
+
+func test_hospital_a_bare_shore_names_the_step_it_waits_on_and_its_price() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(hospital__regions(hospital__engineers()), 0)
+	var home: Dictionary = hospital__row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), HospitalLedger.STATE_READY, "a crew is free and no study is owed")
+	assert_eq(String(home["level_text"]), "—", "an empty shore is a dash, not a zero")
+	assert_eq(String(home["line"]), "No hospital")
+	assert_eq(int(home["next_level"]), 1)
+	assert_eq(String(home["cost_text"]), "3 lumber + 2 fabric", "the ward table's own price")
+	assert_eq(int(home["turns"]), 1, "a field ward is one turn")
+	assert_eq(
+		String(home["note"]),
+		"Next: field hospital · 3 lumber + 2 fabric · 1 turn",
+		"the row names the ward, the price and the wait"
+	)
+
+
+func test_a_ward_without_the_study_is_locked_and_names_it() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(
+		hospital__regions(hospital__engineers(), {"organised_regiments": true, "modern_military_funding": false}), 0
+	)
+	var overseas: Dictionary = hospital__row(snapshot, FactionCatalog.NEW_WORLD)
+	assert_eq(String(overseas["state"]), HospitalLedger.STATE_LOCKED, "a field ward is up; the general one is gated")
+	assert_true(
+		String(overseas["note"]).contains("Modern Military Funding"),
+		"the row names the study that opens it"
+	)
+	assert_eq(
+		int(HospitalLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)[HospitalLedger.FILTER_READY]),
+		1,
+		"a locked ward is not counted as ready"
+	)
+
+
+func test_hospital_a_shore_with_no_idle_crew_waits_on_an_engineer() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(hospital__regions([] as Array), 0)
+	var home: Dictionary = hospital__row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), HospitalLedger.STATE_NO_ENGINEER, "no crew musters")
+	assert_true(String(home["note"]).contains("No idle Engineer"), "the row names the wait")
+
+
+## The ward shares the town tile with the town and the wall, and the crew rule
+## keeps one Builder, Engineer or Merchant a tile: a Raise offered while another
+## crew already works the site would be refused, so the row names the busy tile
+## instead (wiki: civilian-units § Per-player tile exclusivity; DR-20261116-02 —
+## "no row offers a ward the order would refuse").
+func test_hospital_a_crew_already_on_the_town_tile_closes_the_press() -> void:
+	var builder: CivilianState = CivilianState.create(2, 0, "builder", hospital_TOWN_TILE)
+	builder.start_work("upgrade_town", hospital_TOWN_TILE, 2, hospital_TOWN_TILE, {"town_level": 2})
+	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", Vector2i(0, 0))
+	var units: Array[CivilianState] = [engineer, builder]
+	var regions: Array[Dictionary] = hospital__regions(units)
+	var home: Dictionary = hospital__row(HospitalLedger.snapshot(regions, 0), FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), HospitalLedger.STATE_LOCKED, "the order would refuse the tile")
+	# The row speaks the order's own words, so the promise and the refusal match.
+	var order: Dictionary = ImprovementOrders.build_hospital(
+		regions[0]["model"] as MapModel, units, LandWorks.new(),
+		{"lumber": 9, "fabric": 9}, VisibilityModel.new(), 0, 0, {},
+		{"organised_regiments": true}
+	)
+	assert_false(bool(order.get("ok", true)), "the order refuses the busy tile")
+	assert_eq(String(home["note"]), String(order.get("message", "")), "one wording")
+	assert_eq(
+		int(HospitalLedger.filter_counts(
+			HospitalLedger.snapshot(regions, 0), LedgerRows.REGION_ALL
+		)[HospitalLedger.FILTER_READY]),
+		0,
+		"a busy shore is never counted as ready"
+	)
+
+
+## A ward row is minted on the same head and the same step fields as the town
+## and the wall, so the raise spine reads all three sheets alike (REQ-P3-01).
+func test_a_ward_row_carries_the_shared_head_and_step_fields() -> void:
+	var row: Dictionary = hospital__row(
+		HospitalLedger.snapshot(hospital__regions(hospital__engineers()), 0),
+		FactionCatalog.OLD_WORLD
+	)
+	for key: String in [
+		"id", "region", "region_label", "name", "capital", "level", "level_text"
+	]:
+		assert_true(row.has(key), "the shared head: %s" % key)
+	for key: String in ["state", "crew", "remaining", "cost_text", "turns"]:
+		assert_true(row.has(key), "the shared step: %s" % key)
+	assert_eq(String(row["level_text"]), "—", "an open shore prints the sheet's own dash")
+
+
+## A finished ward that went unfed keeps its walls and loses its nurses: the note
+## must not claim the ward's own rest share (wiki: combat § Regiment condition;
+## DR-20261112-04).
+func test_a_finished_ward_that_went_unfed_names_the_field_rest() -> void:
+	var regions: Array[Dictionary] = hospital__regions(hospital__engineers(), hospital__wide_tech())
+	var home: MapModel = regions[0]["model"] as MapModel
+	home.provinces[0].hospital_level = HospitalRules.MAX_LEVEL
+	home.provinces[0].hospital_staffed = false
+	var row: Dictionary = hospital__row(HospitalLedger.snapshot(regions, 0), FactionCatalog.OLD_WORLD)
+	assert_eq(String(row["state"]), HospitalLedger.STATE_RAISED, "nothing is left to raise")
+	assert_true(String(row["line"]).contains("unstaffed"), "the line names the hunger")
+	assert_true(String(row["note"]).contains("rest 25%"), "the note names the rest it gets")
+	assert_false(String(row["note"]).contains("55%"), "never the ward's own share")
+	assert_eq(
+		HospitalRules.rest_share_at(home, 0),
+		RegimentCondition.REST_SHARE,
+		"and that is the share the province actually rests at"
+	)
+
+
+func test_hospital_an_engineer_already_at_work_is_read_from_its_own_record() -> void:
+	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", hospital_TOWN_TILE)
+	engineer.start_work("build_hospital", hospital_TOWN_TILE, 2, hospital_TOWN_TILE, {"hospital_level": 1})
+	var snapshot: Dictionary = HospitalLedger.snapshot(hospital__regions([engineer]), 0)
+	var home: Dictionary = hospital__row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), HospitalLedger.STATE_AT_WORK)
+	assert_eq(int(home["remaining"]), 2)
+	assert_true(String(home["note"]).contains("raises the field hospital"), "the target ward is named")
+	assert_true(String(home["note"]).contains("2 turns left"))
+
+
+func test_a_general_hospital_reads_finished() -> void:
+	var raised: Dictionary = hospital__raised()
+	assert_eq(int(raised["level"]), HospitalRules.MAX_LEVEL)
+	assert_eq(String(raised["state"]), HospitalLedger.STATE_RAISED, "a general ward owes nothing")
+	assert_eq(
+		String(raised["note"]),
+		"Fully warded — rest 55%, wear 65%, staff 4 food a turn."
+	)
+	assert_eq(String(raised["level_text"]), "II")
+
+
+func test_a_ward_that_went_unfed_says_so_and_leads_its_state() -> void:
+	var regions: Array[Dictionary] = hospital__regions(hospital__engineers())
+	(regions[0]["model"] as MapModel).provinces[0].hospital_level = 1
+	(regions[0]["model"] as MapModel).provinces[0].hospital_staffed = false
+	var snapshot: Dictionary = HospitalLedger.snapshot(regions, 0)
+	var home: Dictionary = hospital__row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_false(bool(home["staffed"]), "the row knows the staff went unfed")
+	assert_true(
+		String(home["line"]).contains("unstaffed — no rations this turn"),
+		"the line names the hunger"
+	)
+	var reading: Dictionary = HospitalLedger.summary(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(int(reading["unfed"]), 1, "the count line names it too")
+	assert_eq(int(reading["ration"]), 4, "a hungry ward still owes its ration")
+
+
+func test_the_stores_gate_closes_a_row_the_order_would_refuse() -> void:
+	var broke: Dictionary = HospitalLedger.snapshot(
+		hospital__regions(hospital__engineers(), {"organised_regiments": true}, {}), 0
+	)
+	var home: Dictionary = hospital__row(broke, FactionCatalog.OLD_WORLD)
+	assert_eq(String(home["state"]), HospitalLedger.STATE_LOCKED, "an empty purse offers no press")
+	assert_true(
+		String(home["note"]).contains("Stores are short of 3 lumber + 2 fabric"),
+		"the row names the shortfall"
+	)
+	var paid: Dictionary = HospitalLedger.snapshot(
+		hospital__regions(hospital__engineers(), {"organised_regiments": true}, {"lumber": 3, "fabric": 2}), 0
+	)
+	assert_eq(
+		String(hospital__row(paid, FactionCatalog.OLD_WORLD)["state"]),
+		HospitalLedger.STATE_READY,
+		"paying the price opens the press"
+	)
+	var unpriced: Dictionary = HospitalLedger.snapshot(hospital__regions(hospital__engineers()), 0)
+	assert_eq(
+		String(hospital__row(unpriced, FactionCatalog.OLD_WORLD)["state"]),
+		HospitalLedger.STATE_READY,
+		"a projection that prices no spend never reads LOCKED on an empty purse"
+	)
+
+
+func test_hospital_filters_narrow_the_ledger_and_keep_their_tallies() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(
+		hospital__regions(hospital__engineers(), {"organised_regiments": true, "modern_military_funding": false}), 0
+	)
+	var counts: Dictionary = HospitalLedger.filter_counts(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(int(counts[HospitalLedger.FILTER_ALL]), 2)
+	assert_eq(int(counts[HospitalLedger.FILTER_READY]), 1)
+	assert_eq(int(counts[HospitalLedger.FILTER_RAISED]), 0)
+	assert_eq(int(counts[HospitalLedger.FILTER_AT_WORK]), 0)
+	var ready: Array[Dictionary] = HospitalLedger.groups(
+		snapshot, LedgerRows.REGION_ALL, HospitalLedger.FILTER_READY
+	)
+	assert_eq(ready.size(), 1, "only the chart that holds a ready ward")
+	assert_eq(int(ready[0]["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq(
+		HospitalLedger.count(snapshot, LedgerRows.REGION_NEW, HospitalLedger.FILTER_READY), 0
+	)
+
+
+func test_hospital_the_reading_leads_with_what_can_be_raised_now() -> void:
+	var rows: Array = hospital__raised_snapshot()["rows"]
+	assert_eq(
+		String((rows[0] as Dictionary)["state"]),
+		HospitalLedger.STATE_READY,
+		"the empty shore leads"
+	)
+	assert_eq(
+		String((rows[1] as Dictionary)["state"]),
+		HospitalLedger.STATE_RAISED,
+		"the general ward follows"
+	)
+
+
+func test_the_summary_names_where_nothing_heals_and_what_the_staffs_eat() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(hospital__regions(hospital__engineers(), hospital__wide_tech()), 0)
+	var reading: Dictionary = HospitalLedger.summary(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(int(reading["total"]), 2)
+	assert_eq(int(reading["bare"]), 1, "one empty shore")
+	assert_eq(int(reading["standing"]), 1, "one field ward")
+	assert_eq(int(reading["ration"]), 2, "a field ward eats 2 food a turn")
+	var built: Dictionary = hospital__raised_snapshot()
+	var home: Dictionary = hospital__row(built, FactionCatalog.OLD_WORLD)
+	assert_eq(int(home["level"]), HospitalRules.MAX_LEVEL, "the general ward stands")
+	assert_eq(int(home["demand"]), 4, "and eats 4")
+	assert_eq(
+		int(HospitalLedger.summary(built, LedgerRows.REGION_ALL)["ration"]),
+		6,
+		"the whole staff's bill is the sum of the wards"
+	)
+
+
+func test_the_rule_note_states_what_a_ward_buys() -> void:
+	var note: String = HospitalLedger.rule_note()
+	assert_true(note.contains("rest 40%"), "the field ward's rest is printed")
+	assert_true(note.contains("55%"), "the general ward's rest is printed")
+	assert_true(note.contains("2 food a turn per level"), "the ration is printed")
+	assert_true(note.contains("unfed"), "and what a hungry ward costs")
+	# An unfed ward keeps its walls and loses its nurses: it rests at the field's
+	# share, so the note must not claim it heals nothing (wiki: combat
+	# § Regiment condition; DR-20261112-04).
+	assert_true(note.contains("rests at the field's 25%"), "the share it still gets")
+	assert_false(note.contains("heals nothing"), "never the old claim")
+
+
+# --- the sheet --------------------------------------------------------------
+
+
+func test_the_realm_door_opens_the_hospitals_ledger() -> void:
+	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	assert_not_null(panel, "the HUD mounts the hospitals ledger")
+	var door: Button = _hospitals_door()
+	assert_not_null(door, "the realm ledger carries the hospitals door")
+	door.pressed.emit()
+	assert_true(panel.is_open(), "the realm's hospitals door opens it")
+	assert_true(hospital__row_widgets(panel) > 0, "the crown's wards are listed")
+
+
+## The wards sheet joined the raise spine with the towns and the walls, so it
+## carries the same one-press batch under its chips (DR-20261116-03).
+func test_the_wards_sheet_carries_the_batch_press() -> void:
+	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	panel.open()
+	assert_not_null(panel._batch, "the sheet carries the batch press")
+	assert_true(panel._batch is RaiseBatchPress, "and it is the shared press")
+	panel.close()
+
+
+func test_hospital_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
+	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	var province: ProvinceState = _crown_ward()
+	assert_not_null(province, "the campaign seats the crown on ground that can carry a ward")
+	hospital_screen.play.tech_unlocked()["organised_regiments"] = true
+	hospital_screen.play.tech_unlocked()["modern_military_funding"] = true
+	var stock: Dictionary = hospital_screen.play.stockpile()
+	stock["lumber"] = 40
+	stock["fabric"] = 40
+	stock["steel"] = 40
+	var site: Vector2i = HospitalRules.site_tile(hospital_screen.play.model, province.id)
+	var price: Dictionary = HospitalRules.cost(HospitalRules.next_level(province.hospital_level))
+	var lumber: int = int(stock["lumber"])
+	panel.open()
+	var row: HospitalLedgerRow = hospital__row_for(panel, province.id)
+	assert_not_null(row, "the province is on the sheet")
+	assert_eq(String(row.data.get("state", "")), HospitalLedger.STATE_READY, "the row offers the press")
+	row.press_raise()
+	var crew: CivilianState = _ward_crew(site)
+	assert_not_null(crew, "the press sends an Engineer")
+	assert_eq(crew.work_action(), "build_hospital", "and files the ward order")
+	assert_eq(crew.work_tile(), site, "on the province's own town tile")
+	assert_eq(
+		int(stock["lumber"]), lumber - int(price.get("lumber", 0)),
+		"the price is the ward table's own"
+	)
+	assert_eq(hospital__state_of(hospital__row_for(panel, province.id)), "at_work", "and the row reads it")
+
+
+## The map hooks answer a missing session and an unreadable province without
+## folding: a sheet that opens before the campaign seats reads an empty roll.
+func test_hospital_the_map_hooks_guard_a_missing_session() -> void:
+	assert_eq(int(MapPlayHospitals.snapshot(null).get("total", -1)), 0, "no session, no wards")
+	MapPlayHospitals.raise(null, FactionCatalog.OLD_WORLD, 0)
+	MapPlayHospitals.raise(hospital_screen.play, FactionCatalog.OLD_WORLD, -1)
+	MapPlayHospitals.raise(hospital_screen.play, 99, 0)
+	assert_eq(int(MapPlayHospitals.snapshot(hospital_screen.play).get("total", 0)), _crown_wards())
+
+
+func test_back_closes_the_hospitals_ledger() -> void:
+	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	hospital_screen.hud.hospitals_pressed.emit()
+	assert_true(panel.is_open())
+	assert_true(BackRequest.handle(hospital_screen.play, hospital_screen.play.improvements))
+	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+func test_the_ration_the_sheet_prints_is_the_larder_demand_the_turn_pays() -> void:
+	## The count line's "staffs eat N food a turn" must be the same number the
+	## Consumption phase takes from the larder (`HospitalRules.demand_list`), or
+	## the sheet prices a bill the turn never charges.
+	var paid: int = 0
+	for demand: int in HospitalRules.demand_list(hospital_screen.play.world, hospital_screen.play.player_faction):
+		paid += demand
+	var reading: Dictionary = HospitalLedger.summary(
+		MapPlayHospitals.snapshot(hospital_screen.play), LedgerRows.REGION_ALL
+	)
+	assert_eq(int(reading["ration"]), paid, "the sheet's bill is the larder's own")
+
+
+func test_the_sheet_offers_no_press_the_stores_refuse() -> void:
+	## The walls/towns sheets shipped this defect once: a `READY` row whose
+	## Raise the order refuses for want of materials. The ward sheet reads the
+	## same purse the order charges, so a broke crown sees `LOCKED` and no press.
+	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	var province: ProvinceState = _crown_ward()
+	assert_not_null(province, "the campaign seats the crown on ground that can carry a ward")
+	hospital_screen.play.tech_unlocked()["organised_regiments"] = true
+	var stock: Dictionary = hospital_screen.play.stockpile()
+	stock["lumber"] = 0
+	stock["fabric"] = 0
+	stock["steel"] = 0
+	panel.open()
+	var row: HospitalLedgerRow = hospital__row_for(panel, province.id)
+	assert_not_null(row, "the province is on the sheet")
+	assert_eq(
+		String(row.data.get("state", "")),
+		HospitalLedger.STATE_LOCKED,
+		"a broke crown is offered no ward"
+	)
+	assert_true(
+		String(row.data.get("note", "")).contains("Stores are short of"),
+		"the row names the shortfall the order would refuse on"
+	)
+	assert_false(_raise_visible(row), "and carries no press")
+	var order: Dictionary = ImprovementOrders.build_hospital(
+		hospital_screen.play.model, hospital_screen.play.civilian_layer.units, hospital_screen.play.land_works,
+		stock, hospital_screen.play.visibility, hospital_screen.play.player_faction, province.id,
+		hospital_screen.play.tech_caps(), hospital_screen.play.tech_unlocked()
+	)
+	assert_false(bool(order.get("ok", true)), "the order refuses too, so the two agree")
+
+
+# --- fixtures ---------------------------------------------------------------
+
+
+## Two charts of the naval fixture: the crown holds Cádiz at home (a bare town)
+## and Veracruz abroad (a field ward), and the rival's Coro carries a town of its
+## own that must never reach the reading. The purse rides every chart the way
+## [MapPlayCharts] hands it over; `null` prices no spend.
+func hospital__regions(
+	units: Array, tech: Dictionary = {"organised_regiments": true}, stockpile: Variant = null
+) -> Array[Dictionary]:
+	var old: MapModel = hospital_Naval.build()
+	var new: MapModel = hospital_Naval.build()
+	new.region_id = FactionCatalog.NEW_WORLD
+	new.provinces[0].name = "Veracruz"
+	new.provinces[0].capital = false
+	new.provinces[0].town_tile = hospital_TOWN_TILE
+	new.provinces[0].hospital_level = 1
+	old.provinces[0].town_tile = hospital_TOWN_TILE
+	old.provinces[1].town_tile = Vector2i(5, 1)
+	return [
+		{
+			"region": FactionCatalog.OLD_WORLD,
+			"model": old,
+			"units": units,
+			"tech_unlocked": tech,
+			"stockpile": stockpile,
+		},
+		{
+			"region": FactionCatalog.NEW_WORLD,
+			"model": new,
+			"units": units,
+			"tech_unlocked": tech,
+			"stockpile": stockpile,
+		},
+	]
+
+
+## The gates a general ward owes: Organised Regiments for the field ward, Modern
+## Military Funding for the general one, so a raised ward is a finished ward.
+func hospital__wide_tech() -> Dictionary:
+	return {"organised_regiments": true, "modern_military_funding": true}
+
+
+## One idle Engineer on the crown's own ground, so a ready shore has a crew free.
+func hospital__engineers() -> Array:
+	return [CivilianState.create(1, 0, "engineer", hospital_TOWN_TILE)]
+
+
+## The crown's province at home, warded to the second level, so the finished
+## reading has a row of its own.
+func hospital__raised_snapshot() -> Dictionary:
+	var regions: Array[Dictionary] = hospital__regions(hospital__engineers(), hospital__wide_tech())
+	(regions[0]["model"] as MapModel).provinces[0].hospital_level = HospitalRules.MAX_LEVEL
+	return HospitalLedger.snapshot(regions, 0)
+
+
+func hospital__raised() -> Dictionary:
+	return hospital__row(hospital__raised_snapshot(), FactionCatalog.OLD_WORLD)
+
+
+func hospital__row(snapshot: Dictionary, region: int) -> Dictionary:
+	for raw: Variant in snapshot["rows"]:
+		var row: Dictionary = raw
+		if int(row["region"]) == region:
+			return row
+	return {}
+
+
+## The first crown province of the mounted campaign that can carry a ward, has
+## not been finished yet and has no crew already at work on its site — so a case
+## that raises a ward never leaves the next one reading `AT WORK`.
+func _crown_ward() -> ProvinceState:
+	for province: ProvinceState in hospital_screen.play.model.provinces:
+		if province.owner != hospital_screen.play.player_faction:
+			continue
+		if province.hospital_level >= HospitalRules.MAX_LEVEL:
+			continue
+		var site: Vector2i = HospitalRules.site_tile(hospital_screen.play.model, province.id)
+		if site.x < 0:
+			continue
+		if _ward_crew(site) != null:
+			continue
+		return province
+	return null
+
+
+## The realm ledger's hospitals door, found by its word so the suite reads the
+## button the player presses.
+func _hospitals_door() -> Button:
+	for node: Node in hospital_screen.hud.province_ledger.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Hospitals ›":
+			return button
+	return null
+
+
+## The Engineer the sheet sent: the crown's crew with a ward order on this site.
+func _ward_crew(site: Vector2i) -> CivilianState:
+	for unit: CivilianState in hospital_screen.play.civilian_layer.units:
+		if unit.owner != hospital_screen.play.player_faction or not unit.is_working():
+			continue
+		if unit.work_action() == "build_hospital" and unit.work_tile() == site:
+			return unit
+	return null
+
+
+func hospital__row_for(panel: HospitalLedgerPanel, province_id: int) -> HospitalLedgerRow:
+	for child: Node in panel._rows.get_children():
+		var row := child as HospitalLedgerRow
+		if row != null and int(row.data.get("id", -1)) == province_id:
+			return row
+	return null
+
+
+func hospital__state_of(row: HospitalLedgerRow) -> String:
+	if row == null:
+		return ""
+	return String(row.data.get("state", ""))
+
+
+## Whether the row carries the Raise press at all — a row the order would refuse
+## must not (REQ-P2-03).
+func _raise_visible(row: HospitalLedgerRow) -> bool:
+	return row != null and row._raise != null and row._raise.visible
+
+
+## How many provinces the mounted campaign's crown holds that can carry a ward,
+## so the sheet's own total is checked against the chart rather than a hand
+## count.
+func _crown_wards() -> int:
+	var total: int = 0
+	for region: int in hospital_screen.play.world.region_count():
+		var model: MapModel = hospital_screen.play.world.region(region)
+		if model == null:
+			continue
+		for province: ProvinceState in model.provinces:
+			if province == null or province.owner != hospital_screen.play.player_faction:
+				continue
+			if HospitalRules.site_tile(model, province.id).x >= 0:
+				total += 1
+	return total
+
+
+func hospital__row_widgets(panel: HospitalLedgerPanel) -> int:
+	var total: int = 0
+	for child: Node in panel._rows.get_children():
+		if child is HospitalLedgerRow:
+			total += 1
+	return total

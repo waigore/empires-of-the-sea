@@ -334,7 +334,9 @@ static func turn_summary(report: Dictionary) -> String:
 		parts.append("%s made in colonial towns" % ImprovementSystem.output_text(made))
 	var left: int = int(overseas.get("left_total", 0))
 	if left > 0:
-		parts.append("%d left on the far shore" % left)
+		# The number names its rule: the holds were the cap, not the harvest
+		# (wiki: ships-and-naval § Cargo holds and capacity; DR-20261116-05).
+		parts.append("%d left on the far shore — the holds were full" % left)
 	# Why a coast paid nothing this turn, in the court's own despatch
 	# (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
 	var shut: String = String(report.get("blockade", ""))

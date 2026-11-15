@@ -107,6 +107,10 @@ static func _ledger(run, screen: MapScreen) -> void:
 		int(screen.economy.trade_cargo().get("holds", 0)) > 0,
 		"the home fleet carries trade cargo"
 	)
+	run.check(
+		bool((screen.economy.trade_cargo().get("crossing", {}) as Dictionary).get("known", false)),
+		"the ledger reads the crossing its holds will make"
+	)
 	var grain_before: int = screen.economy.economy.quantity("grain")
 	screen.economy.orders.trade("grain", 1, true)
 	run.check(

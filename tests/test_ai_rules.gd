@@ -1,8 +1,9 @@
 extends GdToolsTest
 ## Pure AI contracts: power bands, parameters, personalities and turn records,
 ## the war-footing phase and the civilian work planners.
-## Merged from test_ai_phase_rules and test_ai_work_rules so coverage pays a
-## single Godot boot per theme (docs/testing.md speed rules).
+## Merged from test_ai_phase_rules, test_ai_work_rules, test_ai_campaign_rules
+## and test_ai_planner_rules so coverage pays a single Godot boot for the whole
+## AI surface (docs/testing.md speed rules).
 
 const AiFixture = preload("res://tests/ai_fixture.gd")
 const NavalFixture = preload("res://tests/naval_fixture.gd")
@@ -6540,3 +6541,6309 @@ func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 		"the seat's own ground still yields: a blockade severs the sea, not the land"
 	)
 	screen.free()
+
+# ==== merged from test_ai_campaign_rules.gd (one coverage boot; docs/testing.md § Speed rules) ====
+## One boot for the rival campaign plans: invasion, colonisation, court offers and
+## the planner that orders them (docs/ai.md).
+
+## Merged from test_ai_invasion, test_ai_colonisation, test_ai_diplomacy_offers,
+## test_ai_planner, test_ai_war_memory.
+## One Godot boot (coverage instrumentation) per theme instead of one per file.
+## Each test runs only its own suite's setup; teardown follows the setup.
+const campaign_NavalFixture = preload("res://tests/naval_fixture.gd")
+const campaign_CivilianFixture = preload("res://tests/civilian_fixture.gd")
+const ai_diplomacy_offers_AiFixture = preload("res://tests/ai_fixture.gd")
+const ai_planner_AiFixture = preload("res://tests/ai_fixture.gd")
+const army_AiFixture = preload("res://tests/ai_fixture.gd")
+
+const campaign_OWNER: int = 1
+const RIVAL: int = 2
+const TRIBE: int = 9
+const HULLS: Array[String] = ["h1", "h2"]
+const HULL_TYPES: Dictionary = {"h1": "carrack", "h2": "carrack"}
+const ai_colonisation_OWNER: int = 1
+
+var ai_diplomacy_offers_state: DiplomacyState
+var ai_diplomacy_offers_config: AiConfig
+var ai_diplomacy_offers_ai_state: AiState
+var ai_planner_state: DiplomacyState
+var ai_planner_config: AiConfig
+var ai_planner_ai_state: AiState
+
+var _suite_setup: String = ""
+
+func _setup_ai_diplomacy_offers() -> void:
+	_suite_setup = "ai_diplomacy_offers"
+	ai_diplomacy_offers_state = DiplomacyState.new()
+	ai_diplomacy_offers_state.reset(1)
+	ai_diplomacy_offers_state.human_faction = 0
+	ai_diplomacy_offers_config = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_diplomacy_offers_config.personality = AiPersonality.NEUTRAL
+	ai_diplomacy_offers_config.agenda_traits = AiAgenda.NEUTRAL
+	ai_diplomacy_offers_ai_state = AiState.new()
+
+func _setup_ai_planner() -> void:
+	_suite_setup = "ai_planner"
+	ai_planner_state = DiplomacyState.new()
+	ai_planner_state.reset(1)
+	ai_planner_config = AiConfig.build(FactionCatalog.PLAYER_FACTION, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_planner_ai_state = AiState.new()
+
+# --- test_ai_invasion ---
+
+## `enemy_border` puts a hostile province on the seat's land border, so the
+## court has a land war and no reason to sail.
+func campaign__old_world(enemy_border: bool = false) -> MapModel:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	model.region_id = WorldMap.OLD_WORLD
+	model.region_key = "old_world"
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 5:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0 if x < 3 or not enemy_border else 1
+			if x < 3 or not enemy_border:
+				tiles.append(Vector2i(x, y))
+	for x in 5:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+	var seat := ProvinceState.create(
+		0, "Seat", tiles, Vector2(2.0, 0.5), tiles.size(), campaign_OWNER, true
+	)
+	seat.capital_tile = Vector2i(0, 0)
+	seat.port_tile = Vector2i(0, 1)
+	seat.coastal = true
+	model.provinces = [seat]
+	if enemy_border:
+		var border_tiles: Array[Vector2i] = []
+		for y in 2:
+			for x in range(3, 5):
+				border_tiles.append(Vector2i(x, y))
+		var border := ProvinceState.create(
+			1, "Border", border_tiles, Vector2(4.0, 0.5), border_tiles.size(), RIVAL, false
+		)
+		model.provinces.append(border)
+	var sea: Array[Vector2i] = []
+	for x in 5:
+		sea.append(Vector2i(x, 2))
+	model.sea_zones = [SeaZoneState.create(0, "Home Waters", sea, Vector2(2.0, 2.0), 5)]
+	return model
+
+## New World: the enemy coast (province 0) and an own colony (province 1), both
+## on the same sea zone so a landing is one step from the crossing.
+func campaign__new_world(own_colony: bool = true) -> MapModel:
+	var model := MapModel.new()
+	model.setup(4, 3)
+	model.region_id = WorldMap.NEW_WORLD
+	model.region_key = "new_world"
+	for y in 2:
+		for x in 4:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	for tile: Vector2i in [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)]:
+		model.province[model.index_of(tile.x, tile.y)] = 0
+	if own_colony:
+		for tile: Vector2i in [Vector2i(3, 0), Vector2i(3, 1)]:
+			model.province[model.index_of(tile.x, tile.y)] = 1
+	for x in 4:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+	var coast_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1)]
+	var coast := ProvinceState.create(0, "Coast", coast_tiles, Vector2(0.5, 0.5), 4, TRIBE, false)
+	coast.coastal = true
+	model.provinces = [coast]
+	if own_colony:
+		var colony_tiles: Array[Vector2i] = [Vector2i(3, 0), Vector2i(3, 1)]
+		var colony := ProvinceState.create(
+			1, "Colony", colony_tiles, Vector2(3.0, 0.5), 3, campaign_OWNER, false
+		)
+		colony.coastal = true
+		model.provinces.append(colony)
+	var sea: Array[Vector2i] = []
+	for x in 4:
+		sea.append(Vector2i(x, 2))
+	model.sea_zones = [SeaZoneState.create(0, "Far Shore", sea, Vector2(1.5, 2.0), 4)]
+	return model
+
+func campaign__world(own_colony: bool = true) -> WorldMap:
+	var map := WorldMap.new()
+	map.add_region(campaign__old_world())
+	map.add_region(campaign__new_world(own_colony))
+	map.warp_links = [
+		{"from_region": 0, "from_zone": 0, "to_region": 1, "to_zone": 0},
+		{"from_region": 1, "from_zone": 0, "to_region": 0, "to_zone": 0},
+	]
+	return map
+
+func campaign__config() -> AiConfig:
+	return AiConfig.build(campaign_OWNER, 1500)
+
+func _war(target: int = RIVAL) -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(campaign_OWNER, target, 1)
+	state.relation(campaign_OWNER, target).at_war = true
+	return state
+
+func _peace(target: int = RIVAL) -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(campaign_OWNER, target, 1)
+	return state
+
+func _home_army(regiments: Array[String] = ["peasant_levies", "pikemen", "squires"]) -> ArmyState:
+	return ArmyState.muster(1, campaign_OWNER, 0, true, regiments, 1)
+
+func _field_army(
+	regiments: Array[String] = ["pikemen", "squires"], province: int = 0
+) -> ArmyState:
+	return ArmyState.muster(2, campaign_OWNER, province, false, regiments, 10)
+
+func campaign__squadron(id: int = 1, owner: int = campaign_OWNER, zone: int = 0) -> FleetState:
+	return FleetState.at_sea(id, owner, zone, HULLS, HULL_TYPES)
+
+## The seat moves when the old capital is taken; the Home Army must follow it or
+## the court can never muster again (issue #474).
+func test_a_moved_seat_recalls_the_home_army() -> void:
+	assert_eq(AiArmyReinforce.recall_target(14, 20), 20, "the army marches to the new seat")
+	assert_eq(AiArmyReinforce.recall_target(20, 20), -1, "an army already home is left alone")
+	assert_eq(AiArmyReinforce.recall_target(3, -1), -1, "no seat, no recall")
+
+
+## The recall itself: a Home Army standing off its seat marches one hop home and
+## the pass reports it, so the trace explains why no regiment was raised
+## (issue #474).
+func test_the_recall_marches_the_home_army_to_the_new_seat() -> void:
+	var world: WorldMap = army_AiFixture.land_world([campaign_OWNER, campaign_OWNER], {0: true})
+	var model: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.world = world
+	var home: ArmyState = ArmyState.muster(1, campaign_OWNER, 1, true, ["peasant_levies"], 1)
+	var trace: Array[Dictionary] = []
+
+	assert_true(MapPlayArmyAi._recall(play, model, home, campaign_OWNER, 0, trace))
+	assert_eq(home.province, 0, "the garrison re-forms at the seat")
+	assert_eq(trace.size(), 1)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_RECALL)
+	assert_false(
+		MapPlayArmyAi._recall(play, model, home, campaign_OWNER, 0, trace),
+		"an army already home is not marched again"
+	)
+
+
+func test_a_war_across_the_water_detaches_a_crossing_army() -> void:
+	var world: WorldMap = campaign__world()
+	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()], [_home_army()]
+	)
+	assert_eq(actions.size(), 1)
+	assert_eq(String(actions[0]["kind"]), AiInvasionPlanner.KIND_SPLIT)
+	assert_eq(int(actions[0]["regiments"].size()), 2, "one regiment keeps the seat")
+
+func test_a_war_on_the_court_s_own_border_stays_a_land_war() -> void:
+	var world: WorldMap = _border_world()
+	assert_true(AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()], [_home_army()]
+	).is_empty(), "the field army is needed on the border")
+
+## The Passage map with a hostile province on the seat's land border.
+func _border_world() -> WorldMap:
+	var world := WorldMap.new()
+	world.add_region(campaign__old_world(true))
+	world.add_region(campaign__new_world())
+	world.warp_links = [
+		{"from_region": 0, "from_zone": 0, "to_region": 1, "to_zone": 0},
+		{"from_region": 1, "from_zone": 0, "to_region": 0, "to_zone": 0},
+	]
+	return world
+
+## The money goal lifts the frontier guard: a court on **earn** sends its spare
+## regiments across the Passage even while a war sits on its border, because the
+## gold that ends the impasse is overseas (DR-20261113-19).
+func test_an_earning_court_sails_into_a_border_war() -> void:
+	var world: WorldMap = _border_world()
+	var armies: Array = [_home_army()]
+	assert_true(AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()], armies
+	).is_empty(), "the published rule keeps the army home")
+	var earning: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()], armies, null, true
+	)
+	assert_eq(earning.size(), 1, "a court on earn sails for the far coast")
+	assert_eq(
+		int(earning[0]["regiments"].size()), 2,
+		"one regiment always keeps the seat"
+	)
+
+## The defence guard survives the goal: a hostile host already standing on the
+## court's own soil is never left behind (DR-20261113-19).
+func test_a_hostile_host_on_the_court_s_soil_keeps_the_army_home() -> void:
+	var world: WorldMap = _border_world()
+	var invader: ArmyState = ArmyState.muster(9, RIVAL, 0, false, ["pikemen"], 5)
+	assert_true(AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()],
+		[_home_army(), invader], null, true
+	).is_empty(), "a war on its own soil comes before a voyage")
+
+func test_only_a_declared_enemy_or_a_tribe_may_be_invaded() -> void:
+	assert_true(DiplomacyRules.invadable(_peace(), campaign_OWNER, TRIBE), "tribes need no declaration")
+	assert_false(DiplomacyRules.invadable(_peace(), campaign_OWNER, RIVAL), "peace holds with a crown")
+	assert_true(DiplomacyRules.invadable(_war(), campaign_OWNER, RIVAL))
+
+func test_a_tribe_coast_is_a_lawful_target_without_a_declaration() -> void:
+	var world: WorldMap = campaign__world()
+	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _peace(), world, world.region(0), [campaign__squadron()], [_home_army()]
+	)
+	assert_eq(actions.size(), 1, "the New World is open to a crown at peace")
+
+func test_no_detachment_without_a_shore_across_the_water() -> void:
+	# A war with a crown holding no New World coast, and no tribe, is a land war.
+	var home_only := WorldMap.new()
+	home_only.add_region(campaign__old_world())
+	var coastless: MapModel = campaign__new_world(false)
+	coastless.provinces[0].owner = campaign_OWNER
+	home_only.add_region(coastless)
+	home_only.warp_links = [{"from_region": 0, "from_zone": 0, "to_region": 1, "to_zone": 0}]
+	assert_true(AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), home_only, home_only.region(0), [campaign__squadron()], [_home_army()]
+	).is_empty())
+
+func test_the_landing_targets_a_tribe_coast_without_a_war() -> void:
+	var world: WorldMap = campaign__world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _peace(), world, 1, new_world, [fleet], [army]
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(int(order.get("province", -1)), 0)
+
+func test_a_field_army_already_afield_is_not_split_again() -> void:
+	var world: WorldMap = campaign__world()
+	assert_true(AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()],
+		[_home_army(), _field_army()]
+	).is_empty())
+
+## One hull carries one regiment (wiki: ships-and-naval § Naval transport), so a
+## field army too large for the only squadron is cut down to the hulls: a court
+## with two hulls still lands a two-regiment beachhead instead of keeping the
+## whole host at home.
+func test_a_field_army_too_large_for_the_squadron_is_cut_to_the_hulls() -> void:
+	var world: WorldMap = campaign__world()
+	var field: ArmyState = _field_army(
+		["pikemen", "squires", "peasant_levies", "musketeers"]
+	)
+	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()], [field]
+	)
+	assert_eq(actions.size(), 1)
+	assert_eq(String(actions[0]["kind"]), AiInvasionPlanner.KIND_SPLIT)
+	assert_eq(int(actions[0]["army_id"]), field.id, "the field army is cut, not the seat")
+	assert_eq(int(actions[0]["regiments"].size()), 2, "two hulls carry two regiments")
+
+## The boarding step takes the force the hulls can hold, not the first army in
+## the list.
+func test_the_boarding_step_takes_the_force_that_fits() -> void:
+	var world: WorldMap = campaign__world()
+	var big: ArmyState = _field_army(["pikemen", "squires", "peasant_levies"], 0)
+	var small: ArmyState = ArmyState.muster(3, campaign_OWNER, 0, false, ["pikemen", "squires"], 11)
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 0, HULLS, HULL_TYPES)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 0, world.region(0), [fleet],
+		[_home_army(), big, small]
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_EMBARK)
+	assert_eq(int(order.get("army", -1)), 3, "the two-regiment force fits two hulls")
+
+## The crossing force reads the rosters: a moved, laden or foreign squadron is
+## no crossing, and the Home Army, an army too large and an army inland all stay
+## behind.
+func test_the_crossing_force_reads_the_rosters() -> void:
+	var world: WorldMap = campaign__world()
+	var model: MapModel = world.region(0)
+	var busy: FleetState = FleetState.in_port(2, campaign_OWNER, 0, HULLS, HULL_TYPES)
+	busy.moved = true
+	var laden: FleetState = FleetState.in_port(3, campaign_OWNER, 0, HULLS, HULL_TYPES)
+	laden.add_civilian(99)
+	var foreign: FleetState = FleetState.in_port(4, RIVAL, 0, HULLS, HULL_TYPES)
+	assert_true(
+		AiCrossingForce.fleet([busy, laden, foreign], campaign_OWNER) == null,
+		"a moved, laden or foreign squadron is no crossing"
+	)
+	var free: FleetState = FleetState.in_port(5, campaign_OWNER, 0, HULLS, HULL_TYPES)
+	assert_eq(AiCrossingForce.fleet([busy, laden, foreign, free], campaign_OWNER).id, 5)
+	var home: ArmyState = _home_army()
+	var big: ArmyState = _field_army(["pikemen", "squires", "peasant_levies"], 0)
+	var inland: ArmyState = ArmyState.muster(4, campaign_OWNER, 1, false, ["pikemen"], 12)
+	assert_true(
+		AiCrossingForce.army(model, [home, big, inland], campaign_OWNER, 2) == null,
+		"the Home Army, an army too large and an army inland all stay"
+	)
+	var fits: ArmyState = _field_army(["pikemen", "squires"], 0)
+	assert_eq(AiCrossingForce.army(model, [home, big, inland, fits], campaign_OWNER, 2).id, fits.id)
+	assert_false(AiCrossingForce.may_sail(model, inland, campaign_OWNER), "no harbour, no crossing")
+	assert_true(AiCrossingForce.may_sail(model, fits, campaign_OWNER))
+
+func test_an_idle_squadron_docks_for_the_crossing_army() -> void:
+	var world: WorldMap = campaign__world()
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 0, world.region(0), [campaign__squadron()], [_home_army(), _field_army()]
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_DOCK)
+	assert_eq(int(order.get("province", -1)), 0)
+
+func test_a_docked_squadron_takes_the_army_aboard() -> void:
+	var world: WorldMap = campaign__world()
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 0, HULLS, HULL_TYPES)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 0, world.region(0), [fleet],
+		[_home_army(), _field_army()]
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_EMBARK)
+	assert_eq(int(order.get("army", -1)), 2)
+
+func test_a_squadron_with_no_room_takes_no_troops() -> void:
+	var world: WorldMap = campaign__world()
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 0, ["h1"] as Array[String], {"h1": "sloop"})
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 0, world.region(0), [fleet],
+		[_home_army(), _field_army()]
+	)
+	assert_true(order.is_empty(), "one hull cannot carry two regiments")
+
+func test_an_expedition_crosses_then_marks_the_enemy_coast() -> void:
+	var world: WorldMap = campaign__world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 0, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army()
+	assert_true(bool(NavalTransport.embark(old_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	var cross: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 0, old_world, [fleet], [army]
+	)
+	assert_eq(String(cross.get("kind", "")), AiInvasionPlanner.KIND_CROSS)
+	var mark: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 1, new_world, [fleet], [army]
+	)
+	assert_eq(String(mark.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(int(mark.get("province", -1)), 0)
+
+func test_a_ready_beachhead_lands_the_army_the_next_turn() -> void:
+	var world: WorldMap = campaign__world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	assert_true(bool(NavalTransport.establish_beachhead(
+		new_world, fleet, 0, 1, Callable()
+	)["ok"]))
+	var waiting: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 1, new_world, [fleet], [army], 1
+	)
+	assert_true(waiting.is_empty(), "the landing opens the turn after the marker")
+	var land: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 1, new_world, [fleet], [army], 2
+	)
+	assert_eq(String(land.get("kind", "")), AiInvasionPlanner.KIND_LAND)
+	assert_eq(int(land.get("province", -1)), 0)
+
+## A site marked in good faith lapses when the war ends before the landing: the
+## rules refuse it, so the court must not order it and lose the turn — it brings
+## the troops ashore on an own coast instead (wiki: ships-and-naval § Missions
+## and Movement).
+func test_a_lapsed_beachhead_is_not_ordered_as_a_landing() -> void:
+	var world: WorldMap = campaign__world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	new_world.provinces[0].owner = RIVAL
+	assert_true(bool(NavalTransport.establish_beachhead(
+		new_world, fleet, 0, 1, Callable()
+	)["ok"]))
+	# Peace is signed before the site opens, so the marked shore is no enemy's.
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 2
+	)
+	assert_true(
+		String(order.get("kind", "")) != AiInvasionPlanner.KIND_LAND
+		or int(order.get("province", -1)) != 0,
+		"the lapsed site is never ordered as a landing"
+	)
+	assert_eq(
+		int(order.get("province", -1)), 1,
+		"the troops go ashore on the crown's own coast"
+	)
+
+
+## A site that lapsed while another hostile coast lies in the same water is
+## replaced in the same turn: the expedition marks a fresh shore instead of
+## spending the turn on a landing the rules refuse.
+func test_a_lapsed_beachhead_is_replaced_by_a_fresh_coast() -> void:
+	var world: WorldMap = campaign__world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	new_world.provinces[0].owner = RIVAL
+	assert_true(bool(NavalTransport.establish_beachhead(
+		new_world, fleet, 0, 1, Callable()
+	)["ok"]))
+	# A second hostile shore on the same water: a Tribe coast beside the colony.
+	var tiles: Array[Vector2i] = [Vector2i(2, 1)]
+	new_world.province[new_world.index_of(2, 1)] = 2
+	var extra := ProvinceState.create(2, "Second Coast", tiles, Vector2(2.0, 1.0), 1, TRIBE, false)
+	extra.coastal = true
+	new_world.provinces.append(extra)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 2
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(int(order.get("province", -1)), 2, "a fresh coast is marked this turn")
+
+
+func test_a_coast_the_army_cannot_storm_sends_it_home() -> void:
+	var world: WorldMap = campaign__world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["peasant_levies"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	var guards: ArmyState = ArmyState.muster(9, TRIBE, 0, false, [
+		"guards", "guards", "guards",
+	], 20)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _war(), world, 1, new_world, [fleet], [army, guards]
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_LAND)
+	assert_eq(int(order.get("province", -1)), 1, "the army goes ashore on its own colony")
+
+func test_the_observer_counts_an_expedition_and_its_landing() -> void:
+	var play := PlaySession.new()
+	play.turn = 3
+	var trace: Array[Dictionary] = [
+		{"faction": campaign_OWNER, "kind": AiInvasionPlanner.KIND_SPLIT, "province": 0},
+		{"faction": campaign_OWNER, "kind": AiInvasionPlanner.KIND_EMBARK},
+		{"faction": campaign_OWNER, "kind": AiInvasionPlanner.KIND_CROSS},
+		{"faction": campaign_OWNER, "kind": AiInvasionPlanner.KIND_LAND, "province_name": "Coast"},
+	]
+	var record: Dictionary = AiTurnLog.record(play, [], [], {}, trace)
+	var actions: Dictionary = record["factions"][campaign_OWNER]["actions"]
+	assert_eq(int(actions.get("split", 0)), 1)
+	assert_eq(int(actions.get("invade", 0)), 3)
+	var court: Dictionary = record["factions"][campaign_OWNER]
+	assert_true(AiTurnLog.headline(court).contains("landings"))
+
+func test_the_observer_counts_a_colony_voyage() -> void:
+	var play := PlaySession.new()
+	play.turn = 3
+	var trace: Array[Dictionary] = [
+		{"faction": campaign_OWNER, "kind": "embark", "province_name": "Seat"},
+		{"faction": campaign_OWNER, "kind": "sail", "zone": 0},
+		{"faction": campaign_OWNER, "kind": "cross"},
+		{"faction": campaign_OWNER, "kind": "land", "province_name": "Coast"},
+	]
+	var record: Dictionary = AiTurnLog.record(play, [], [], {}, [], trace)
+	var actions: Dictionary = record["factions"][campaign_OWNER]["actions"]
+	assert_eq(int(actions.get("voyage", 0)), 4, "every applied step is a voyage order")
+	assert_eq(int(actions.get("colony", 0)), 1, "only the landing is a colony landing")
+	var court: Dictionary = record["factions"][campaign_OWNER]
+	var line: String = AiTurnLog.headline(court)
+	assert_true(line.contains("voyage orders"), line)
+	assert_true(line.contains("colony landings"), line)
+	var texts: PackedStringArray = []
+	for event: Dictionary in record["events"]:
+		texts.append(String(event["text"]))
+	var joined: String = " · ".join(texts)
+	assert_true(joined.contains("boards at Seat"), joined)
+	assert_true(joined.contains("crosses the Passage"), joined)
+	assert_true(joined.contains("lands at Coast"), joined)
+
+func test_the_expedition_log_reads_both_traces() -> void:
+	var rows: Array[Dictionary] = AiExpeditionLog.rows(
+		[{"faction": campaign_OWNER, "kind": AiInvasionPlanner.KIND_LAND, "province_name": ""}],
+		[
+			{"faction": campaign_OWNER, "kind": "sail", "zone": 2},
+			{"faction": campaign_OWNER, "kind": "land"},
+		]
+	)
+	assert_eq(rows.size(), 4, "a landing is a voyage order and a colony landing")
+	assert_eq(String(rows[0]["action"]), "invade")
+	assert_eq(String(rows[0].get("event", "")), "", "no place name, no line")
+	assert_eq(String(rows[1]["action"]), "voyage")
+	assert_eq(String(rows[1].get("event", "")), "", "a sail carries no line")
+	assert_eq(String(rows[2]["action"]), "voyage")
+	assert_eq(String(rows[3]["action"]), "colony")
+
+func test_the_naval_planner_leaves_a_troop_ship_to_its_expedition() -> void:
+	var model: MapModel = campaign_NavalFixture.build()
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, 1, 1)
+	state.relation(2, 1).at_war = true
+	var troop: FleetState = FleetState.at_sea(1, 2, 0, HULLS, HULL_TYPES)
+	troop.embarked_army = 7
+	var plan: Dictionary = AiNavalPlanner.orders(config, state, model, [troop])
+	assert_true(plan["orders"].is_empty(), "the expedition keeps its course")
+
+func test_the_adapter_detaches_the_crossing_army_first() -> void:
+	var world: WorldMap = campaign__world()
+	var old_world: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.turn = 0
+	play.world = world
+	play.model = old_world
+	play.diplomacy = _war()
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [campaign__squadron()])
+	play.ship_layer.regions.set_region(1, [])
+	play.army_layer = ArmyLayer.new()
+	play.army_layer.model = old_world
+	play.army_layer.armies = [_home_army()]
+	play.army_layer.next_army = 2
+	play.army_layer.next_regiment = 10
+	play.army_layer.regions.set_region(0, play.army_layer.armies)
+	play.army_layer.regions.set_region(1, [])
+	var trace: Array[Dictionary] = MapPlayInvasionAi.run(play)
+	assert_eq(String(trace[0]["kind"]), AiInvasionPlanner.KIND_SPLIT)
+	assert_eq(String(trace[1]["kind"]), AiInvasionPlanner.KIND_DOCK)
+	var roster: Array = play.army_layer.regions.value(0, [])
+	assert_eq(roster.size(), 2, "a field army joins the Home Army at the seat")
+	assert_eq((roster[1] as ArmyState).count(), 2)
+	play.ship_layer.free()
+	play.army_layer.free()
+
+func test_the_map_adapter_runs_the_whole_expedition() -> void:
+	var world: WorldMap = campaign__world()
+	var old_world: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.turn = 0
+	play.world = world
+	play.model = old_world
+	play.diplomacy = _war()
+	var fleet: FleetState = campaign__squadron()
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [fleet])
+	play.ship_layer.regions.set_region(1, [])
+	var army: ArmyState = _field_army()
+	play.army_layer = ArmyLayer.new()
+	play.army_layer.model = old_world
+	play.army_layer.armies = [army]
+	play.army_layer.next_army = 3
+	play.army_layer.next_regiment = 30
+	play.army_layer.regions.set_region(0, play.army_layer.armies)
+	play.army_layer.regions.set_region(1, [])
+	assert_eq(String(MapPlayInvasionAi.run(play)[0]["kind"]), AiInvasionPlanner.KIND_DOCK)
+	fleet.moved = false
+	assert_eq(String(MapPlayInvasionAi.run(play)[0]["kind"]), AiInvasionPlanner.KIND_EMBARK)
+	assert_true(army.is_embarked())
+	fleet.moved = false
+	assert_eq(String(MapPlayInvasionAi.run(play)[0]["kind"]), AiInvasionPlanner.KIND_SAIL)
+	fleet.moved = false
+	assert_eq(String(MapPlayInvasionAi.run(play)[0]["kind"]), AiInvasionPlanner.KIND_CROSS)
+	assert_true(play.ship_layer.regions.value(0, []).is_empty(), "the squadron left the Old World")
+	assert_eq(play.ship_layer.regions.value(1, []).size(), 1)
+	assert_eq(play.army_layer.regions.value(1, []).size(), 1, "the army crossed with it")
+	fleet.moved = false
+	assert_eq(String(MapPlayInvasionAi.run(play)[0]["kind"]), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(fleet.beachhead_province, 0)
+	play.turn = 1
+	fleet.moved = false
+	assert_eq(String(MapPlayInvasionAi.run(play)[0]["kind"]), AiInvasionPlanner.KIND_LAND)
+	assert_eq(army.province, 0)
+	assert_eq(fleet.embarked_army, -1)
+	play.ship_layer.free()
+	play.army_layer.free()
+
+## A court does not sail an army at a shore it has never charted: the New World
+## starts unknown, so the crossing waits for a sighting (wiki: fog-and-exploration;
+## DR-20261110-21).
+func test_an_uncharted_coast_is_not_worth_a_crossing() -> void:
+	var world: WorldMap = campaign__world()
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	assert_true(AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()], [_home_army()], charts
+	).is_empty(), "no hostile coast is charted across the water")
+	charts.reveal_sea_zone(campaign_OWNER, 1, 0)
+	assert_eq(AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, world.region(0), [campaign__squadron()], [_home_army()], charts
+	).size(), 1, "the charted coast is a war worth a fleet")
+
+func test_a_charted_coast_is_the_only_landing_target() -> void:
+	var world: WorldMap = campaign__world()
+	var new_world: MapModel = world.region(1)
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	var fleet: FleetState = FleetState.in_port(1, campaign_OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	var blind: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+	)
+	assert_true(
+		String(blind.get("kind", "")) != AiInvasionPlanner.KIND_BEACHHEAD,
+		"an uncharted beach is no target"
+	)
+	charts.reveal_sea_zone(campaign_OWNER, 1, 0)
+	var ready: Dictionary = AiInvasionPlanner.plan(
+		campaign__config(), _peace(), world, 1, new_world, [fleet], [army], 0, charts
+	)
+	assert_eq(String(ready.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(int(ready.get("province", -1)), 0)
+
+# --- test_ai_colonisation ---
+
+func _ai_colonisation_old_world() -> MapModel:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	model.region_id = WorldMap.OLD_WORLD
+	model.region_key = "old_world"
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 5:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(tile)
+	for x in 5:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+	var province := ProvinceState.create(
+		0, "Seat", tiles, Vector2(2.0, 0.5), tiles.size(), ai_colonisation_OWNER, true
+	)
+	province.capital_tile = Vector2i(0, 0)
+	province.port_tile = Vector2i(0, 1)
+	province.coastal = true
+	model.provinces = [province]
+	var sea: Array[Vector2i] = []
+	for x in 5:
+		sea.append(Vector2i(x, 2))
+	model.sea_zones = [SeaZoneState.create(0, "Home Waters", sea, Vector2(2.0, 2.0), 5)]
+	return model
+
+func _ai_colonisation_new_world() -> MapModel:
+	var model := MapModel.new()
+	model.setup(4, 3)
+	model.region_id = WorldMap.NEW_WORLD
+	model.region_key = "new_world"
+	for y in 2:
+		for x in 4:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	for x in 4:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+	var sea: Array[Vector2i] = []
+	for x in 4:
+		sea.append(Vector2i(x, 2))
+	model.sea_zones = [SeaZoneState.create(0, "Far Shore", sea, Vector2(1.5, 2.0), 4)]
+	return model
+
+func _ai_colonisation_world() -> WorldMap:
+	var map := WorldMap.new()
+	map.add_region(_ai_colonisation_old_world())
+	map.add_region(_ai_colonisation_new_world())
+	map.warp_links = [
+		{"from_region": 0, "from_zone": 0, "to_region": 1, "to_zone": 0},
+		{"from_region": 1, "from_zone": 0, "to_region": 0, "to_zone": 0},
+	]
+	return map
+
+func _ai_colonisation_config() -> AiConfig:
+	return AiConfig.build(ai_colonisation_OWNER, 1500)
+
+func test_an_idle_explorer_boards_a_squadron_in_port() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [unit], {}
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 1)
+
+func test_a_passenger_sails_crosses_and_lands() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	assert_true(bool(CivilianVoyage.embark(old_world, unit, fleet)["ok"]))
+	var sail: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [unit], {}
+	)
+	assert_eq(String(sail.get("kind", "")), "sail")
+	assert_eq(int(sail.get("zone", -1)), 0)
+	assert_true(
+		bool(FleetSortie.apply(old_world, fleet, 0)["ok"]),
+		"a squadron in port at its own capital sorties"
+	)
+	fleet.moved = false
+	var cross: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [unit], {}
+	)
+	assert_eq(String(cross.get("kind", "")), "cross")
+	var crossed: Dictionary = WarpTravel.apply_crossing(world, 0, fleet)
+	assert_true(bool(crossed["ok"]))
+	fleet.moved = false
+	var land: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {}
+	)
+	assert_eq(String(land.get("kind", "")), "land")
+	assert_eq(Vector2i(land.get("tile", Vector2i(-1, -1))), Vector2i(0, 1))
+
+func test_no_second_expedition_when_a_colonist_is_already_abroad() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [unit], {"explorer": 1}
+	)
+	assert_true(order.is_empty())
+
+func test_the_map_adapter_embarks_and_sails_the_rival() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [fleet])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = [unit]
+	play.civilian_layer.regions.set_region(0, [unit])
+	play.civilian_layer.regions.set_region(1, [])
+	var first: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(first.size(), 1)
+	assert_eq(String(first[0]["kind"]), "embark")
+	assert_eq(String(first[0].get("province_name", "")), "Seat")
+	assert_true(unit.is_embarked())
+	assert_eq(fleet.civilian_count(), 1)
+	var second: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(second.size(), 1)
+	assert_eq(String(second[0]["kind"]), "sail")
+	assert_true(fleet.is_at_sea())
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+func test_a_squadron_at_sea_docks_for_its_colonist() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [unit], {}
+	)
+	assert_eq(String(order.get("kind", "")), "dock")
+	assert_eq(int(order.get("province", -1)), 0)
+
+func test_a_builder_boards_when_the_crown_owns_overseas_land() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			tiles.append(Vector2i(x, y))
+	var colony := ProvinceState.create(0, "Colony", tiles, Vector2(1.5, 0.5), 8, ai_colonisation_OWNER, false)
+	colony.town_tile = Vector2i(0, 0)
+	new_world.provinces = [colony]
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "builder", Vector2i(0, 0))
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [unit], {}
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 1)
+
+func test_a_docked_passenger_lands_without_sailing_first() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			var tile := Vector2i(x, y)
+			tiles.append(tile)
+			new_world.province[new_world.index_of(x, y)] = 0
+	var colony := ProvinceState.create(0, "Colony", tiles, Vector2(1.5, 0.5), 8, ai_colonisation_OWNER, false)
+	colony.port_tile = Vector2i(0, 1)
+	colony.coastal = true
+	new_world.provinces = [colony]
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "builder", Vector2i(0, 0))
+	assert_true(bool(CivilianVoyage.embark(new_world, unit, fleet)["ok"]))
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {}
+	)
+	assert_eq(String(order.get("kind", "")), "land")
+
+func test_the_map_adapter_crosses_and_lands() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [fleet])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = [unit]
+	play.civilian_layer.regions.set_region(0, [unit])
+	play.civilian_layer.regions.set_region(1, [])
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "embark")
+	fleet.moved = false
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "sail")
+	fleet.moved = false
+	var crossed: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(String(crossed[0]["kind"]), "cross")
+	assert_true((play.ship_layer.regions.value(0, []) as Array).is_empty())
+	assert_eq((play.ship_layer.regions.value(1, []) as Array).size(), 1)
+	fleet.moved = false
+	var landed: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(String(landed[0]["kind"]), "land")
+	assert_false(unit.is_embarked())
+	assert_true(unit.tile.y <= 1)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+func test_the_planner_guards_empty_inputs() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	assert_true(AiColonisationPlanner.plan(null, world, 0, old_world, [], []).is_empty())
+	assert_true(AiColonisationPlanner.plan(_ai_colonisation_config(), null, 0, old_world, [], []).is_empty())
+	assert_true(AiColonisationPlanner.plan(_ai_colonisation_config(), world, 0, null, [], []).is_empty())
+	assert_true(
+		AiColonisationPlanner.plan(
+			AiConfig.build(99, 1500), world, 0, old_world, [], []
+		).is_empty(),
+		"an unknown court has no home region"
+	)
+	assert_true(
+		AiColonisationPlanner.plan(
+			AiConfig.build(9, 1500), world, 1, world.region(1), [], []
+		).is_empty(),
+		"a New World court with no Old World land has nowhere to sail"
+	)
+
+func test_a_carrying_fleet_without_its_civilian_is_ignored() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	fleet.add_civilian(77)
+	assert_true(
+		AiColonisationPlanner.plan(_ai_colonisation_config(), world, 0, old_world, [fleet], []).is_empty()
+	)
+
+func test_a_working_builder_falls_back_to_an_idle_explorer() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			tiles.append(Vector2i(x, y))
+	var colony := ProvinceState.create(0, "Colony", tiles, Vector2(1.5, 0.5), 8, ai_colonisation_OWNER, false)
+	new_world.provinces = [colony]
+	var builder: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "builder", Vector2i(0, 0))
+	builder.start_work("build_improvement", Vector2i(0, 0), 2)
+	var explorer: CivilianState = CivilianState.create(2, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [builder, explorer], {}
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 2)
+
+func test_the_lowest_idle_squadron_is_chosen() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var moved: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	moved.moved = true
+	var troop_carrier: FleetState = FleetState.at_sea(2, ai_colonisation_OWNER, 0)
+	troop_carrier.embarked_army = 9
+	var ready: FleetState = FleetState.at_sea(3, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [moved, troop_carrier, ready], [unit], {}
+	)
+	assert_eq(String(order.get("kind", "")), "dock")
+	assert_eq(int(order.get("fleet", -1)), 3)
+
+func test_a_moved_carrying_fleet_does_not_sail_twice() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var first: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var second: CivilianState = CivilianState.create(2, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var moved: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	moved.add_civilian(1)
+	moved.moved = true
+	var ready: FleetState = FleetState.in_port(2, ai_colonisation_OWNER, 0)
+	ready.add_civilian(2)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [moved, ready], [first, second], {}
+	)
+	assert_eq(String(order.get("kind", "")), "sail")
+	assert_eq(int(order.get("fleet", -1)), 2)
+
+func test_board_refusals_without_a_reachable_port() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var elsewhere: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 1)
+	assert_true(
+		AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 0, old_world, [elsewhere], [unit], {}
+		).is_empty(),
+		"a squadron in another port cannot take this colonist"
+	)
+	var stray: CivilianState = CivilianState.create(9, ai_colonisation_OWNER, "explorer", Vector2i(9, 9))
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [FleetState.at_sea(1, ai_colonisation_OWNER, 0)], [stray], {}
+	)
+	assert_eq(
+		String(order.get("kind", "")), "dock",
+		"the squadron musters at the crown's harbour, not on the colonist's tile"
+	)
+	assert_eq(int(order.get("province", -1)), 0)
+
+## A court with no harbour of its own cannot start an expedition, however many
+## colonists and hulls it has (wiki: ships-and-naval § Home Fleet).
+func test_no_owned_harbour_means_no_voyage() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	old_world.provinces[0].port_tile = Vector2i(-1, -1)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	assert_eq(AiColonisationPlanner.harbour(old_world, ai_colonisation_OWNER), MapModel.NO_ID)
+	assert_true(
+		AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 0, old_world, [FleetState.at_sea(1, ai_colonisation_OWNER, 0)], [unit], {}
+		).is_empty(),
+		"a crown with no port has nowhere to take a colonist aboard"
+	)
+
+## The court's seat, when it has a port, is the muster harbour even if another
+## owned province has a lower id.
+func test_the_seat_is_the_muster_harbour() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var seat: ProvinceState = old_world.provinces[0]
+	seat.capital = false
+	var coast: ProvinceState = ProvinceState.create(
+		0, "Anchorage", seat.tiles.duplicate(), Vector2(2.0, 0.5), 10, ai_colonisation_OWNER, true
+	)
+	coast.port_tile = Vector2i(1, 0)
+	old_world.provinces = [coast, seat]
+	assert_eq(
+		AiColonisationPlanner.harbour(old_world, ai_colonisation_OWNER), 0,
+		"the seat outranks a lower-id anchorage"
+	)
+
+## An Explorer with a voyage ahead waits at its crown's harbour and marches home
+## when something has carried it off, so the boarding step always finds it there
+## (wiki: civilian-units § Overseas deployment; DR-20261111-05).
+func test_an_explorer_musters_at_the_crowns_harbour() -> void:
+	var model: MapModel = campaign_CivilianFixture.build()
+	var port: Vector2i = campaign_CivilianFixture.COAST_TILE
+	var here: CivilianState = CivilianState.create(1, 0, "explorer", campaign_CivilianFixture.BARE_TILE)
+	var away: CivilianState = CivilianState.create(2, 0, "explorer", campaign_CivilianFixture.RIVAL_GRAIN_TILE)
+	var context: Dictionary = {"muster_port": port}
+	assert_true(
+		AiExplorerWork.best_move(model, here, LandWorks.new(), context).is_empty(),
+		"an Explorer in the harbour province waits for its voyage"
+	)
+	var march: Dictionary = AiExplorerWork.best_move(model, away, LandWorks.new(), context)
+	assert_eq(String(march.get("kind", "")), "move")
+	var before: int = absi(away.tile.x - port.x) + absi(away.tile.y - port.y)
+	var step: Vector2i = march.get("tile", CivilianState.NO_TILE)
+	assert_true(
+		absi(step.x - port.x) + absi(step.y - port.y) < before,
+		"the march closes on the harbour"
+	)
+	assert_true(
+		AiExplorerWork.best_candidate(
+			AiConfig.build(0, 1500), model, away, [away], LandWorks.new(),
+			campaign_CivilianFixture.stockpile(), {}, {}, context, {}
+		).is_empty(),
+		"a colonist on the way to its port takes no survey work"
+	)
+
+## The muster only stands while a squadron is free to carry the colonist and the
+## court has none abroad yet; otherwise the Explorer is back on survey duty.
+func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.regions.set_region(0, [FleetState.at_sea(1, ai_colonisation_OWNER, 0)])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = []
+	play.civilian_layer.regions.set_region(0, [])
+	play.civilian_layer.regions.set_region(1, [])
+	assert_eq(
+		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
+		"a court with a free squadron musters at its seat's port"
+	)
+	var abroad: CivilianState = CivilianState.create(7, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	play.civilian_layer.regions.set_region(1, [abroad])
+	assert_eq(
+		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		"a court with a colonist already abroad sends no second expedition"
+	)
+	play.civilian_layer.regions.set_region(1, [])
+	play.ship_layer.regions.set_region(0, [])
+	assert_eq(
+		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		"no squadron, no muster"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+func test_region_helpers_pick_the_opposite_map() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.OLD_WORLD, ai_colonisation_OWNER), WorldMap.NEW_WORLD)
+	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.NEW_WORLD, ai_colonisation_OWNER), WorldMap.OLD_WORLD)
+	assert_false(AiColonisationPlanner._owns_land_in(world, 9, ai_colonisation_OWNER))
+
+func test_no_passage_keeps_a_carrying_squadron_home() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	world.warp_links = []
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	assert_true(bool(CivilianVoyage.embark(old_world, unit, fleet)["ok"]))
+	assert_true(
+		AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 0, old_world, [fleet], [unit], {}
+		).is_empty()
+	)
+
+func test_a_multi_zone_crossing_steps_toward_the_far_coast() -> void:
+	var model := MapModel.new()
+	model.setup(6, 2)
+	model.region_id = WorldMap.NEW_WORLD
+	for x in 6:
+		var y0: int = model.index_of(x, 0)
+		model.terrain[y0] = MapModel.Terrain.PLAINS if x >= 4 else MapModel.Terrain.OCEAN
+		var y1: int = model.index_of(x, 1)
+		model.terrain[y1] = MapModel.Terrain.OCEAN
+		model.sea_zone[y1] = 0 if x < 2 else (1 if x < 4 else 2)
+	var zones: Array[SeaZoneState] = []
+	for zone_id in 3:
+		var tiles: Array[Vector2i] = []
+		for x in range(zone_id * 2, zone_id * 2 + 2):
+			tiles.append(Vector2i(x, 1))
+		zones.append(SeaZoneState.create(zone_id, "Z%d" % zone_id, tiles, Vector2.ZERO, 2))
+	model.sea_zones = zones
+	var world := WorldMap.new()
+	world.add_region(_ai_colonisation_old_world())
+	world.add_region(model)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	unit.embark_on(fleet.id)
+	fleet.add_civilian(unit.id)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, model, [fleet], [unit], {}
+	)
+	assert_eq(String(order.get("kind", "")), "sail")
+	assert_eq(int(order.get("zone", -1)), 1)
+	assert_eq(AiSeaRoute.step_toward(model, 0, [0]), -1)
+	assert_eq(AiColonisationPlanner._carried_id(FleetState.in_port(9, ai_colonisation_OWNER, 0)), -1)
+
+## A court lands only on a coast it has charted (wiki: fog-and-exploration;
+## DR-20261110-21).
+func test_an_uncharted_coast_is_not_a_landing_ground() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var charts := CourtCharts.new()
+	charts.setup(world, 0, {})
+	assert_true(
+		AiColonisationPlanner._landing_zones(new_world, "explorer", ai_colonisation_OWNER, charts).is_empty(),
+		"the New World water is unknown"
+	)
+	charts.reveal_sea_zone(ai_colonisation_OWNER, 1, 0)
+	var zones: Array[int] = AiColonisationPlanner._landing_zones(
+		new_world, "explorer", ai_colonisation_OWNER, charts
+	)
+	var expected: Array[int] = [0]
+	assert_eq(zones, expected, "the charted coast opens the landing")
+	assert_true(
+		AiColonisationPlanner._landing_zones(new_world, "explorer", ai_colonisation_OWNER).size() == 1,
+		"without a chart the fixture reading keeps every coast"
+	)
+
+## The map adapter charts the water a rival enters, so a crossing opens the far
+## coast for that court alone — the player's fog stays untouched.
+func test_the_adapter_charts_the_coast_its_squadron_crosses_to() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [fleet])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = [unit]
+	play.civilian_layer.regions.set_region(0, [unit])
+	play.civilian_layer.regions.set_region(1, [])
+	MapPlayCourtFog.build(play)
+	assert_false(play.court_charts.knows_zone(ai_colonisation_OWNER, 1, 0), "the far water is unknown")
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "embark")
+	fleet.moved = false
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "sail")
+	fleet.moved = false
+	assert_eq(String(MapPlayColonisationAi.run(play)[0]["kind"]), "cross")
+	assert_true(
+		play.court_charts.knows_zone(ai_colonisation_OWNER, 1, 0),
+		"the entered zone is charted for the rival"
+	)
+	fleet.moved = false
+	var landed: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(String(landed[0]["kind"]), "land", "the charted coast takes the colonist")
+	assert_true(play.court_charts.regions_of(0).is_empty(), "the player charts nothing")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+func test_the_adapter_docks_and_refuses_illegal_orders() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.map_seed = 1500
+	play.world = world
+	play.model = old_world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [fleet])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = old_world
+	play.civilian_layer.units = [unit]
+	play.civilian_layer.regions.set_region(0, [unit])
+	var docked: Array[Dictionary] = MapPlayColonisationAi.run(play)
+	assert_eq(String(docked[0]["kind"]), "dock")
+	assert_true(fleet.is_in_port())
+	assert_true(MapPlayColonisationAi.run(null).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world, {"kind": "bogus", "fleet": fleet.id}
+	).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world, {"kind": "sail", "fleet": fleet.id, "zone": 99}
+	).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world, {"kind": "cross", "fleet": fleet.id}
+	).is_empty())
+	assert_true(MapPlayColonisationAi._apply(
+		play, 0, old_world,
+		{"kind": "land", "fleet": fleet.id, "unit": 999, "tile": Vector2i(0, 0)}
+	).is_empty())
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+## A squadron left across the water with nothing aboard sails home, so the
+## court's hulls are not stranded there for the rest of the campaign: they carry
+## the next voyage and an overseas invasion.
+func test_a_stranded_squadron_sails_home() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [], {}
+	)
+	assert_eq(String(order.get("kind", "")), "cross", "the empty squadron crosses home")
+
+## The home squadron is the naval planner's: the colonisation pass never sends a
+## court's own water home.
+func test_a_squadron_at_home_is_not_sent_home() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [], {}
+	)
+	assert_true(order.is_empty(), "the home squadron is the naval planner's")
+
+## A squadron that already sailed this turn waits for the next one.
+func test_a_squadron_that_already_sailed_waits() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.at_sea(1, ai_colonisation_OWNER, 0)
+	fleet.moved = true
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [], {}
+	)
+	assert_true(order.is_empty(), "one crossing a turn")
+
+# --- test_ai_diplomacy_offers ---
+
+func test_every_court_menu_order_has_a_rival_policy() -> void:
+	_setup_ai_diplomacy_offers()
+	var menu: Array[String] = [
+		DiplomacyOrders.KIND_WAR,
+		DiplomacyOrders.KIND_PEACE,
+		DiplomacyOrders.KIND_ALLIANCE,
+		DiplomacyOrders.KIND_BREAK,
+		DiplomacyOrders.KIND_BREAK_NAP,
+		DiplomacyOrders.KIND_OVERTURE,
+		DiplomacyOrders.KIND_AID,
+		DiplomacyOrders.KIND_SUBSIDY,
+		DiplomacyOrders.KIND_CANCEL_SUBSIDY,
+		DiplomacyOrders.KIND_FTP,
+		DiplomacyOrders.KIND_REVOKE_FTP,
+		DiplomacyOrders.KIND_BOYCOTT,
+		DiplomacyOrders.KIND_REVOKE_BOYCOTT,
+	]
+	var planned: Array[String] = AiDiplomacyPlanner.kinds()
+	assert_eq(planned.size(), menu.size(), "no order kind is left out of the rival menu")
+	for kind: String in menu:
+		assert_true(planned.has(kind), "%s has a rival policy" % kind)
+
+func test_a_warm_rival_signs_a_trade_pact_with_a_fellow_court() -> void:
+	_setup_ai_diplomacy_offers()
+	# Turn one takes the free Non-Aggression Pact; Join Empire stays closed to a
+	# Great Power still holding four provinces, so the next turn spends its one
+	# order on the favoured trading pact (wiki: world-market § FTP).
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 70.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_EMBASSY)
+	var world: Array[int] = [0, 2, 3, 3, 3, 3]
+	var first: Dictionary = campaign__run(world, [[2, 3, 70.0]], 1)
+	assert_eq(String(_action(first, 2)["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
+	assert_eq(String(_action(first, 2)["stage"]), DiplomacyCatalog.STAGE_NAP)
+	assert_eq(ai_diplomacy_offers_state.overture(2, 3), DiplomacyCatalog.STAGE_NAP, "a fellow court answers")
+	# The warmer court, acting later in the same pass, spends its one order on
+	# the trade pact the treaty just unlocked.
+	assert_eq(String(_action(first, 3)["kind"]), AiDiplomacyOffers.KIND_FTP)
+	assert_true(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 2, 3), "the pact is signed at once")
+	assert_true(String(campaign__record(first, 3)["message"]).contains("favoured trading pact"))
+
+func test_a_warm_rival_sends_aid_and_pays_from_its_own_purse() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
+	# A healthy purse below the war chest's reach: the court is not saving for
+	# a regiment it is one payment short of, so the gift goes out (#603).
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 1500
+	# The pairing keeps neither crown stronger than the other, so the binding
+	# pact still serves both ends and the gift goes out (issue #752).
+	var result: Dictionary = campaign__run([0, 2, 2, 3, 3], [], 1)
+	var action: Dictionary = _action(result, 2)
+	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_AID)
+	assert_eq(int(action["amount"]), DiplomacyCatalog.GRANT_AID_STEP)
+	assert_eq(int(action["target"]), 3)
+	assert_true(ai_diplomacy_offers_state.relation(2, 3).score > 60.0, "the court remembers the gift")
+	assert_true(_event("grantAid"), "the shared aid rules made the transfer")
+
+func test_aid_stops_when_the_purse_cannot_cover_it() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state, ai_diplomacy_offers_ai_state, ai_diplomacy_offers_AiFixture.world([0, 2, 3, 3, 3, 3]), 1,
+		campaign__context({2: 10, 3: 40})
+	)
+	assert_true((plan["action"] as Dictionary).is_empty())
+	assert_eq(_offer_blocked(plan, AiDiplomacyOffers.KIND_AID), "The treasury cannot cover that aid.")
+
+func test_a_saving_rival_grants_no_aid_and_names_the_reserve_it_keeps() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	# The purse is under the court's own cash floor, so it reads `earn` and every
+	# spender that can wait stands down (wiki: treasury-planner § Priority; #580).
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 10
+	var result: Dictionary = campaign__run([0, 2, 3, 3, 3, 3], [], 1)
+	assert_false(_event("grantAid"), "a saving court gifts nothing")
+	assert_ne(String(_action(result, 2).get("kind", "")), AiDiplomacyOffers.KIND_AID)
+	var reserve: int = int(campaign__record(result, 2)["income"]["reserve"])
+	assert_true(reserve > 10, "the court reads earn below its reserve")
+	assert_eq(
+		_offer_blocked(campaign__record(result, 2), AiDiplomacyOffers.KIND_AID),
+		"the court is saving for its reserve (%d)" % reserve,
+		"the refusal names the reserve the court keeps",
+	)
+
+
+## A fleetless court saving for its yard does not gift the chest as aid — the
+## diplomacy pass reads the same hull claim the money goal reserves (#484, #580).
+func test_a_fleetless_court_saving_for_a_hull_grants_no_aid() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	var economy: PlayerEconomy = ai_diplomacy_offers_ai_state.economy_for(2)
+	economy.treasury = 4000
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var chest: int = ShipEconomy.treasury_cost("sloop")
+	var result: Dictionary = campaign__run(
+		[0, 2, 3, 3, 3, 3], [], 1, {}, {2: chest}, {2: 0}
+	)
+	assert_false(_event("grantAid"), "the yard chest is not gifted away")
+	assert_ne(String(_action(result, 2).get("kind", "")), AiDiplomacyOffers.KIND_AID)
+	assert_eq(int(campaign__record(result, 2)["income"]["reserve"]), chest)
+	assert_eq(
+		_offer_blocked(campaign__record(result, 2), AiDiplomacyOffers.KIND_AID),
+		"the court is saving for its reserve (%d)" % chest,
+	)
+
+func test_a_saving_rival_sets_no_subsidy() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)
+	ai_diplomacy_offers_state.relation(2, 6).score = 70.0
+	_stage(2, 6, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 10
+	var result: Dictionary = campaign__run([0, 0, 0, 2, 6], [], 1)
+	assert_eq(ai_diplomacy_offers_state.subsidy(2, 6), 0, "no subsidy is set")
+	var reserve: int = int(campaign__record(result, 2)["income"]["reserve"])
+	assert_eq(
+		_offer_blocked(campaign__record(result, 2), AiDiplomacyOffers.KIND_SUBSIDY),
+		"the court is saving for its reserve (%d)" % reserve,
+	)
+
+func test_a_gift_that_would_break_the_reserve_is_refused() -> void:
+	# A court above its reserve may still not gift itself back under it: the
+	# reserve is the purse the muster is waiting for (wiki: treasury-planner
+	# § Priority; #580).
+	var income: Dictionary = {"goal": "spend", "reserve": 2400, "treasury": 3000}
+	assert_eq(
+		AiIncome.saving_reason(income, 1000),
+		"the court is saving for its reserve (2400)",
+	)
+	assert_eq(AiIncome.saving_reason(income, 0), "", "a subsidy takes nothing today")
+	income["treasury"] = 3400
+	assert_eq(AiIncome.saving_reason(income, 1000), "", "the gift leaves the reserve whole")
+	assert_eq(
+		AiIncome.saving_reason({"goal": "earn", "reserve": 500, "treasury": 900}),
+		"the court is saving for its reserve (500)",
+	)
+
+func test_a_rival_subsidises_a_minor_it_wants_close() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)
+	ai_diplomacy_offers_state.relation(2, 6).score = 70.0
+	_stage(2, 6, DiplomacyCatalog.STAGE_NAP)
+	# The colony door (Join Empire) is worth more than a subsidy while the purse
+	# covers it (DR-20261114-02), so the court that wants this Minor close but
+	# cannot buy it takes the free warm step instead.
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 4500
+	var result: Dictionary = campaign__run([0, 0, 0, 2, 6], [], 1)
+	var action: Dictionary = _action(result, 2)
+	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_SUBSIDY)
+	assert_eq(int(ai_diplomacy_offers_state.subsidy(2, 6)), int(action["amount"]))
+	assert_eq(int(ai_diplomacy_offers_state.subsidy(2, 6)), DiplomacyCatalog.SUBSIDY_MIN)
+
+func test_a_rival_ends_a_subsidy_once_the_friendship_cools() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)
+	ai_diplomacy_offers_state.relation(2, 6).score = 40.0
+	# The pair holds no pact, so the cooled friendship only ends the subsidy:
+	# a court that wants the war a pact would ban breaks the pact first
+	# (wiki: diplomacy § Breaking a pact; issue #752).
+	_stage(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	ai_diplomacy_offers_state.set_subsidy(2, 6, 10)
+	ai_diplomacy_offers_ai_state.note_war(2, 6, 1)
+	var result: Dictionary = campaign__run([0, 0, 0, 2, 6], [], 2, {2: 3})
+	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_CANCEL_SUBSIDY)
+	assert_eq(ai_diplomacy_offers_state.subsidy(2, 6), 0, "the shared rules end the subsidy")
+
+func test_a_rival_too_weak_to_fight_boycotts_a_rival_it_has_fallen_out_with() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 30.0
+	ai_diplomacy_offers_state.set_colony(9, 2)
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 0
+	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
+	var result: Dictionary = campaign__run([0, 2, 3, 3, 3, 3], [], 1)
+	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_BOYCOTT)
+	assert_true(DiplomacyTrade.is_boycotting(ai_diplomacy_offers_state, 2, 3), "the colonies close at once")
+	assert_true(String(campaign__record(result, 2)["message"]).contains("closes its colonies"))
+
+func test_a_recovered_standing_lifts_the_boycott() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 65.0
+	ai_diplomacy_offers_state.set_colony(9, 2)
+	ai_diplomacy_offers_state.boycotts["2>3"] = 1
+	ai_diplomacy_offers_state.ftps[ai_diplomacy_offers_state.pair_key(2, 3)] = 1
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 0
+	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
+	var result: Dictionary = campaign__run([0, 2, 3, 3, 3, 3], [], 1)
+	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_REVOKE_BOYCOTT)
+	assert_false(DiplomacyTrade.is_boycotting(ai_diplomacy_offers_state, 2, 3))
+
+func test_a_pact_that_no_longer_matches_the_standing_is_revoked() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 30.0
+	ai_diplomacy_offers_state.ftps[ai_diplomacy_offers_state.pair_key(2, 3)] = 1
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 0
+	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
+	var result: Dictionary = campaign__run([0, 2, 3, 3, 3, 3], [], 2)
+	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_REVOKE_FTP)
+	assert_false(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 2, 3))
+
+func test_an_alliance_the_court_no_longer_means_is_broken() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	ai_diplomacy_offers_state.relation(2, 3).formal_alliance = true
+	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
+	var result: Dictionary = campaign__run([0, 2, 2, 2, 2, 3], [], 1)
+	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_BREAK)
+	assert_false(ai_diplomacy_offers_state.relation(2, 3).formal_alliance, "the treaty is dissolved")
+	assert_true(String(campaign__record(result, 2)["message"]).contains("breaks its alliance"))
+
+func test_a_trade_pact_offer_to_the_human_court_waits_for_the_answer() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(0, 2, 1)
+	ai_diplomacy_offers_state.relation(0, 2).score = 70.0
+	_stage(0, 2, DiplomacyCatalog.STAGE_NAP)
+	var result: Dictionary = campaign__run([0, 0, 0, 0, 2, 3], [], 1)
+	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_FTP)
+	assert_true(bool(_action(result, 2)["propose"]), "the human keeps consent")
+	assert_false(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 0, 2), "nothing is signed yet")
+	assert_eq(ai_diplomacy_offers_state.pending_offers.size(), 1)
+	assert_eq(String(ai_diplomacy_offers_state.pending_offers[0]["kind"]), DiplomacyProposals.KIND_FTP)
+	assert_true(String(campaign__record(result, 2)["message"]).contains("favoured trading pact"))
+	var answer: Dictionary = DiplomacyProposals.resolve_human(ai_diplomacy_offers_state, null, true)
+	assert_true(bool(answer.get("accepted", false)), answer.get("reason", ""))
+	assert_true(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 0, 2), "the court's answer signs the pact")
+
+func test_one_sided_acts_and_consent_offers_are_told_apart() -> void:
+	_setup_ai_diplomacy_offers()
+	# A new order kind must reach the rival courts the turn it reaches the panel:
+	# either through the court queue or as a one-sided act.
+	var one_sided: Array[String] = [
+		DiplomacyOrders.KIND_AID,
+		DiplomacyOrders.KIND_BOYCOTT,
+		DiplomacyOrders.KIND_REVOKE_BOYCOTT,
+		DiplomacyOrders.KIND_SUBSIDY,
+		DiplomacyOrders.KIND_CANCEL_SUBSIDY,
+		DiplomacyOrders.KIND_REVOKE_FTP,
+		DiplomacyOrders.KIND_BREAK,
+		DiplomacyOrders.KIND_BREAK_NAP,
+	]
+	for kind: String in AiDiplomacyOffers.KINDS:
+		var queued: bool = DiplomacyProposals.knows(kind)
+		assert_true(queued or one_sided.has(kind), "%s has a path to the human court" % kind)
+	for kind: String in one_sided:
+		assert_false(
+			DiplomacyProposals.knows(kind),
+			"%s needs no consent, so it never blocks the court" % kind
+		)
+
+func test_an_isolationist_values_a_trade_pact_less() -> void:
+	_setup_ai_diplomacy_offers()
+	# Same warm standing, same one order: the isolationist prices the pact 20
+	# lower, so it keeps to the overture chain where a plain court would trade
+	# (wiki: hidden-agendas — minimal trade; DR-20261111-27).
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 75.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_EMBASSY)
+	var context: Dictionary = campaign__context({2: 100, 3: 100})
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, 3, 3, 3, 3])
+	var plain_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state, ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
+	)
+	var loner: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ISOLATIONIST)
+	loner.personality = AiPersonality.NEUTRAL
+	var loner_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		loner, ai_diplomacy_offers_state, ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
+	)
+	var plain_pact: int = _utility_of(plain_entries, AiDiplomacyOffers.KIND_FTP)
+	assert_true(plain_pact > 0, "the pact is legal at a warm standing")
+	assert_eq(plain_pact, _utility_of(loner_entries, AiDiplomacyOffers.KIND_FTP) + 20)
+	assert_eq(
+		_utility_of(plain_entries, AiDiplomacyOffers.KIND_OVERTURE),
+		_utility_of(loner_entries, AiDiplomacyOffers.KIND_OVERTURE),
+		"the envoy chain is untouched"
+	)
+
+## A rival opens an envoy chain to a Minor or Tribe because it has seen land worth
+## buying there; a province it has never charted buys no nudge at all, so the
+## overture stays closed while the court is in no mood to improve relations
+## (wiki: civilian-units § Merchant, fog-and-exploration § Visibility Levels;
+## DR-20261113-03).
+func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
+	_setup_ai_diplomacy_offers()
+	# A Minor Nation, so the read is the deed nudge alone: a Tribe also answers
+	# to the colony ambition (DR-20261114-02), priced in its own test.
+	var minor: int = FactionCatalog.minor_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
+	ai_diplomacy_offers_state.relation(2, minor).score = 50.0
+	var world: WorldMap = _uncharted_tribe_world(minor)
+	var context: Dictionary = campaign__context({2: 100, minor: 100})
+	context["treasury"] = {2: 2000}
+	context["tech"] = {2: {"merchant_companies": true}}
+	var published: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
+	)
+	assert_eq(
+		_utility_of(published, AiDiplomacyOffers.KIND_OVERTURE), 52,
+		"no chart at all still prices the published map"
+	)
+	var charts: CourtCharts = _charts(world)
+	context["charts"] = charts
+	var blind: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
+	)
+	assert_eq(
+		_offer_blocked_kind(blind, AiDiplomacyOffers.KIND_OVERTURE),
+		"improve-relations desire too low",
+		"a chart that never reached the province buys no nudge"
+	)
+	charts.reveal_province(2, 0, 0)
+	var seen: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
+	)
+	assert_eq(
+		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
+		"charted land lifts the overture by the deed nudge"
+	)
+
+
+## The refusal an offers candidate list recorded for one order kind ("" when the
+## candidate was legal).
+func _offer_blocked_kind(entries: Array[Dictionary], kind: String) -> String:
+	for entry: Dictionary in entries:
+		if String(entry.get("kind", "")) == kind and not bool(entry.get("ok", false)):
+			return String(entry.get("blocked", ""))
+	return ""
+
+
+## The legal candidate's utility for one kind, or -1 when it was refused.
+func _utility_of(entries: Array[Dictionary], kind: String) -> int:
+	for entry: Dictionary in entries:
+		if String(entry.get("kind", "")) != kind:
+			continue
+		assert_true(
+			bool(entry.get("ok", false)),
+			"%s is legal: %s" % [kind, String(entry.get("blocked", ""))]
+		)
+		return int(entry.get("utility", -1))
+	return -1
+
+## Opens the turn pass with the given relation scores applied (default 50).
+func campaign__run(
+	world: Array[int], scores: Array, turn: int, regiments: Dictionary = {},
+	hull_chests: Dictionary = {}, warships: Dictionary = {}
+) -> Dictionary:
+	for entry: Array in scores:
+		ai_diplomacy_offers_state.ensure_relation(int(entry[0]), int(entry[1]), turn)
+		ai_diplomacy_offers_state.relation(int(entry[0]), int(entry[1])).score = float(entry[2])
+	return AiTurn.run(
+		ai_diplomacy_offers_state, ai_diplomacy_offers_AiFixture.world(world), ai_diplomacy_offers_ai_state, turn, 0, 1500,
+		{
+			"regiments": regiments, "ships": {},
+			"hull_chests": hull_chests, "warships": warships,
+		}
+	)
+
+## A New World region (every tile unknown at setup) holding one Tribe province
+## with a timber tile, so only a court that charts it can price the land or the
+## commodity (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
+func _uncharted_tribe_world(owner: int = TRIBE) -> WorldMap:
+	var model := MapModel.new()
+	model.setup(3, 2)
+	model.region_id = FactionCatalog.NEW_WORLD
+	model.region_key = "new_world"
+	model.faction_ids = [owner]
+	var tiles: Array[Vector2i] = []
+	for x in 3:
+		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(Vector2i(x, 0))
+	model.resource[model.index_of(0, 0)] = 0
+	var province := ProvinceState.create(
+		0, "P0", tiles, Vector2(0.0, 0.0), 3, owner, false
+	)
+	province.resource = 0
+	province.resource_tile = Vector2i(0, 0)
+	model.provinces.append(province)
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+## Charts cut from `world`. `human` is a court the tests never read as, so every
+## reader gets its own rival grid (the human's table stays empty).
+func _charts(world: WorldMap, human: int = 7) -> CourtCharts:
+	var charts := CourtCharts.new()
+	charts.setup(world, human, {})
+	return charts
+
+
+func campaign__context(power: Dictionary) -> Dictionary:
+	var context: Dictionary = ai_diplomacy_offers_AiFixture.context(power)
+	context["treasury"] = {}
+	context["tech"] = {}
+	context["player"] = 0
+	return context
+
+## Both directions at one stage, as a signed overture lands.
+func _stage(a: int, b: int, stage: String) -> void:
+	ai_diplomacy_offers_state.set_overture(a, b, stage)
+	ai_diplomacy_offers_state.set_overture(b, a, stage)
+
+## The refusal the offers module recorded for one order kind.
+func _offer_blocked(plan: Dictionary, kind: String) -> String:
+	var offer: Dictionary = plan["candidates"][0].get("offer", {})
+	for entry: Dictionary in offer.get("candidates", []):
+		if String(entry.get("kind", "")) == kind:
+			return String(entry.get("blocked", ""))
+	return ""
+
+func _action(run: Dictionary, faction: int) -> Dictionary:
+	return campaign__record(run, faction).get("action", {})
+
+func campaign__record(run: Dictionary, faction: int) -> Dictionary:
+	for record: Dictionary in run["trace"]:
+		if int(record["faction"]) == faction:
+			return record
+	return {}
+
+func _event(kind: String) -> bool:
+	for entry: Dictionary in ai_diplomacy_offers_state.events:
+		if String(entry.get("kind", "")) == kind:
+			return true
+	return false
+
+## A Tribe the court has charted and can still buy is drawn into the empire
+## before it is fought: the declaration would clear the chain, and its provinces
+## never count toward victory (wiki: factions § Tribe; DR-20261114-02).
+func test_a_charted_tribe_is_bought_before_it_is_fought() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 5000})
+	)
+	var action: Dictionary = plan["action"]
+	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_OVERTURE)
+	assert_eq(String(action["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
+	assert_true(bool(action.get("tribe_colony", false)), "the colony ambition raised the envoy offer")
+
+
+## The same court with no money to buy the colony still fights: the ambition
+## lowers no legality, it only says what the court wants (REQ-P2-03).
+func test_a_poor_court_still_fights_a_tribe_it_cannot_buy() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 100})
+	)
+	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+
+
+## A chain already opened is a stake: a court that has paid a Consulate does not
+## clear it by declaring because the Embassy is out of reach this turn.
+func test_a_chain_already_opened_is_not_cleared_by_a_war() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	_stage(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 100})
+	)
+	assert_true((plan["action"] as Dictionary).is_empty(), "the chain holds the court")
+	assert_eq(
+		ai_diplomacy_offers_state.overture(2, tribe),
+		DiplomacyCatalog.STAGE_CONSULATE,
+		"no declaration cleared the chain"
+	)
+
+
+## A Tribe the court has never charted is no colony in reach: the published map
+## is not a chart, and the offer stands down as before (DR-20261113-03).
+func test_an_uncharted_tribe_is_not_a_colony_in_reach() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 40.0
+	var world: WorldMap = _uncharted_tribe_world()
+	var goal: Dictionary = AiTribeColony.ambition(
+		ai_diplomacy_offers_state, world, _charts(world), 2, tribe, 5000, {}
+	)
+	assert_false(bool(goal["wanted"]), "an uncharted shore offers nothing it can price")
+	assert_eq(String(goal["reason"]), "the court has not charted that shore")
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1,
+		_tribe_context({2: 120, tribe: 20}, {2: 5000}, _charts(world))
+	)
+	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+
+
+## The Tribe nearest the colony wins the court's ambition: the furthest overture
+## stage, then the warmer herald, then the lower id (REQ-P2-03).
+func test_the_tribe_furthest_along_the_chain_is_the_one_wanted() -> void:
+	var first: int = FactionCatalog.tribe_ids()[0]
+	var second: int = FactionCatalog.tribe_ids()[1]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, first, 1).score = 70.0
+	state.ensure_relation(2, second, 1).score = 55.0
+	state.set_overture(2, first, DiplomacyCatalog.STAGE_CONSULATE)
+	state.set_overture(2, second, DiplomacyCatalog.STAGE_EMBASSY)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, first, second])
+	var best: Dictionary = AiTribeColony.best(state, world, null, 2, 5000, {})
+	assert_eq(int(best["target"]), second, "the embassy is nearer the colony than the consulate")
+	assert_eq(String(best["stage"]), DiplomacyCatalog.STAGE_NAP)
+	assert_eq(int(best["bonus"]), AiTribeColony.BONUS)
+	# Another crown's colony is closed to this one, so the consulate stands in.
+	state.set_colony(second, 3)
+	var fallback: Dictionary = AiTribeColony.best(state, world, null, 2, 5000, {})
+	assert_eq(int(fallback["target"]), first)
+	assert_eq(String(fallback["stage"]), DiplomacyCatalog.STAGE_EMBASSY)
+
+
+## The step that founds the colony is worth more than the steps before it.
+func test_the_join_empire_is_the_prize_the_chain_is_walking_to() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NAP)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var goal: Dictionary = AiTribeColony.ambition(state, world, null, 2, tribe, 12000, {})
+	assert_true(bool(goal["wanted"]))
+	assert_eq(String(goal["stage"]), DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(int(goal["bonus"]), AiTribeColony.BONUS + AiTribeColony.JOIN_BONUS)
+	assert_eq(int(goal["cost"]), DiplomacyCatalog.stage_cost(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, DiplomacyRules.provinces_owned(world, tribe)
+	))
+
+
+## Every refusal names its own reason, so a trace or a test never guesses why a
+## Tribe was passed over (wiki: turn-trace-interpretation).
+func test_the_ambition_names_why_a_tribe_is_out_of_reach() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var none: Dictionary = AiTribeColony.ambition(null, world, null, 2, tribe, 5000, {})
+	assert_eq(String(none["reason"]), "no tribal court")
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, minor, 5000, {})["reason"]),
+		"not a tribe"
+	)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"no envoy has reached that court"
+	)
+	state.ensure_relation(2, tribe, 1).at_war = true
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"at war with the tribal court"
+	)
+	state.relation(2, tribe).at_war = false
+	state.set_colony(tribe, 2)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"already a colony of this crown"
+	)
+	state.set_colony(tribe, 3)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"another crown's colony"
+	)
+	state.colonies.clear()
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 5000, {})["reason"]),
+		"the envoy chain is complete"
+	)
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NONE)
+	assert_eq(
+		String(AiTribeColony.ambition(state, world, null, 2, tribe, 100, {})["reason"]),
+		"the treasury cannot cover the Trade Consulate"
+	)
+
+
+## The door the court is walking to: a chain with a charted Tribe is only as open
+## as its next stage, so the tech that stage needs is the study the court owes
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-05).
+func test_the_door_names_the_study_the_chain_needs() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	# The Consulate needs no study, so the first link has no door.
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+	# The Embassy does: a court that never studies it leaves the chain dead.
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	assert_eq(
+		AiTribeColony.door(state, world, null, 2, {}), "diplomatic_expertise"
+	)
+	assert_eq(
+		AiTribeColony.door(state, world, null, 2, {"diplomatic_expertise": true}), "",
+		"the study is already held"
+	)
+	# A war clears the chain, so there is no door to walk to.
+	state.relation(2, tribe).at_war = true
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+	state.relation(2, tribe).at_war = false
+	# Another crown's colony is closed to this one.
+	state.set_colony(tribe, 3)
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+	state.colonies.clear()
+	# An uncharted shore is not a chain the court is buying (DR-20261113-03).
+	var uncharted: WorldMap = _uncharted_tribe_world()
+	assert_eq(AiTribeColony.door(state, uncharted, _charts(uncharted), 2, {}), "")
+	# A chain already complete has no next link.
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_eq(AiTribeColony.door(state, world, null, 2, {}), "")
+
+
+## A court's own ledger read for the ambition tests: the treasury it must pay
+## from and the chart it priced the shore on.
+func _tribe_context(
+	power: Dictionary, treasury: Dictionary, charts: CourtCharts = null
+) -> Dictionary:
+	var context: Dictionary = ai_diplomacy_offers_AiFixture.context(
+		power, {power.keys()[0]: 10}
+	)
+	context["treasury"] = treasury
+	context["tech"] = {}
+	context["player"] = 0
+	if charts != null:
+		context["charts"] = charts
+	return context
+
+
+# --- test_ai_planner ---
+func test_desire_starts_at_the_base_and_adds_power_and_relation() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 1]), 0, 1,
+		ai_planner_AiFixture.context({0: 100, 1: 100})
+	)
+	assert_eq(int(desire["score"]), 35, "50 base + 5 even power - 20 neutral relations")
+	var factors: Dictionary = desire["factors"]
+	assert_eq(int(factors["base"]), 50)
+	assert_eq(int(factors["relative_power"]), 5)
+	assert_eq(int(factors["relation"]), -20)
+	assert_eq(int(factors["personality"]), 0)
+
+func test_relative_power_dominates_the_score() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var strong: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, ai_planner_AiFixture.context({0: 135, 1: 100})
+	)
+	assert_eq(int(strong["score"]), 60, "50 + 30 strong - 20 neutral")
+	var weak: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, ai_planner_AiFixture.context({0: 84, 1: 100})
+	)
+	assert_eq(int(weak["score"]), 5, "50 - 25 weak - 20 neutral")
+
+func test_a_pressing_court_prices_the_war_that_takes_its_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var calm: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	var pressed: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	pressed["victory_press"] = 30
+	var before: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, calm
+	)
+	var after: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, pressed
+	)
+	assert_eq(int(before["score"]), 35, "a court far from the bar keeps the published score")
+	assert_eq(int(after["score"]), 65, "the press reaches the war aim")
+	assert_eq(int((after["factors"] as Dictionary)["victory_press"]), 30)
+	assert_false(
+		(before["factors"] as Dictionary).has("victory_press"),
+		"no press, no factor"
+	)
+
+func test_the_press_is_read_per_court_from_the_map_pass() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["victory_press"] = {0: 30, 1: 0}
+	var mine: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, context
+	)
+	var theirs: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 1, 0, context
+	)
+	assert_eq(int(mine["score"]), 65, "the pressing court prices its own finish")
+	assert_eq(int(theirs["score"]), 35, "a neighbour's press arms nothing")
+
+func test_the_press_ignores_a_target_with_no_old_world_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["victory_press"] = 30
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, context
+	)
+	assert_eq(
+		int(desire["score"]), 35,
+		"the bar counts Old World land, and this court holds none"
+	)
+	assert_false((desire["factors"] as Dictionary).has("victory_press"))
+
+func test_relation_pressure_bands() -> void:
+	_setup_ai_planner()
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 25.0
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 65)
+	ai_planner_state.relation(0, 1).score = 40.0
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 55)
+	ai_planner_state.relation(0, 1).score = 75.0
+	assert_eq(int(AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)["score"]), 15)
+
+func test_minor_targets_pay_the_invasion_capacity_cost() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 6, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 6])
+	var weak: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 6, ai_planner_AiFixture.context({0: 100, 6: 100})
+	)
+	assert_eq(int(weak["score"]), 15, "no regiments is -20")
+	var ready: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 6, ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
+	)
+	assert_eq(int(ready["score"]), 45, "superior regiments is +10")
+
+func test_two_active_wars_add_the_multi_war_penalty() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 6, 1)
+	ai_planner_state.ensure_relation(0, 7, 1)
+	ai_planner_state.ensure_relation(0, 8, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 0, 7)
+	DiplomacyRules.declare_war(ai_planner_state, 0, 8)
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
+		ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
+	)
+	assert_eq(int(desire["factors"]["wars"]), -15)
+	assert_eq(int(desire["score"]), 30)
+
+func test_missing_stockpiles_are_scored_against_the_target() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 6, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 6, 6, 6, 6], {1: 0, 2: 1, 3: 2, 4: 3})
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 6: 100})
+	context["stockpiles"] = {0: {}}
+	var need: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	assert_eq(int(need["factors"]["resource_need"]), 15, "four missing resources cap at +15")
+	context["stockpiles"] = {0: {"timber": 4, "iron": 4, "coal": 4}}
+	var partly: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	assert_eq(int(partly["factors"]["resource_need"]), 5)
+
+## The commodity term reads only land the court has charted: a province it has
+## never sailed past adds nothing to its war desire, and charting it restores the
+## bonus (wiki: fog-and-exploration § Visibility Levels; DR-20261113-03).
+func test_the_resource_need_counts_only_charted_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, TRIBE, 1)
+	var world: WorldMap = _uncharted_tribe_world()
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, TRIBE: 100})
+	context["stockpiles"] = {0: {}}
+	var published: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
+	)
+	assert_eq(
+		int(published["factors"]["resource_need"]), 5, "no chart still reads the published map"
+	)
+	var charts: CourtCharts = _charts(world)
+	context["charts"] = charts
+	var blind: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
+	)
+	assert_eq(int(blind["factors"]["resource_need"]), 0, "unseen land offers no commodity")
+	charts.reveal_province(0, 0, 0)
+	var seen: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, TRIBE, context
+	)
+	assert_eq(int(seen["factors"]["resource_need"]), 5, "charted ground prices the commodity")
+	assert_eq(
+		int(seen["score"]),
+		int(blind["score"]),
+		"the chart moved the one term the fog reaches, not the whole formula"
+	)
+
+func test_rival_embassies_add_the_intervention_risk_penalty() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 6, 1)
+	ai_planner_state.set_overture(1, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	ai_planner_state.set_overture(2, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	ai_planner_state.set_overture(3, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
+		ai_planner_AiFixture.context({0: 100, 6: 100})
+	)
+	assert_eq(int(desire["factors"]["intervention"]), -24, "three embassies cap at -24")
+	ai_planner_state.set_overture(2, 6, DiplomacyCatalog.STAGE_NONE)
+	ai_planner_state.set_overture(3, 6, DiplomacyCatalog.STAGE_NONE)
+	var single: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, ai_planner_AiFixture.world([0, 6]), 0, 6,
+		ai_planner_AiFixture.context({0: 100, 6: 100})
+	)
+	assert_eq(int(single["factors"]["intervention"]), -8)
+
+## A deed is protection in the attacker's eyes too: a rival's purchased land in
+## the minor's provinces is a Great Power the declaration would call to the
+## victim's aid, so it costs the same -8 as an embassy (wiki: diplomacy
+## § Intervention "investment protection"; DR-20261110-20).
+func test_a_rival_deed_in_the_minors_land_adds_the_intervention_risk_penalty() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 6, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 6])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 6: 100}, {0: 3, 6: 0})
+	var bare: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	assert_eq(int(bare["factors"]["intervention"]), 0, "no one would answer")
+	var model: MapModel = world.region(0)
+	assert_true(model.ownership.purchase(model.index_of(1, 0), 1), "a rival buys land")
+	var bought: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 6, context)
+	assert_eq(int(bought["factors"]["intervention"]), -8, "the deed holder answers")
+	assert_true(
+		int(bought["score"]) < int(bare["score"]),
+		"the protected minor is the harder war"
+	)
+
+func test_declares_war_when_strong_and_relations_are_cool() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	var action: Dictionary = plan["action"]
+	assert_eq(String(action["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+	assert_eq(int(action["target"]), 1)
+	assert_eq(int(action["desired_territory"]), 2, "clamp(round(75/25), 1, 2)")
+
+# --- the binding-treaty AI (issue #752) ---
+
+func test_a_pacted_rival_breaks_the_pact_instead_of_the_illegal_war() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	# The war is banned, so the court's highest act is the pact break that opens
+	# it (wiki: diplomacy § Breaking a pact; issue #752).
+	assert_true(
+		String(plan["candidates"][0]["blocked"]).contains("non-aggression pact"),
+		String(plan["candidates"][0]["blocked"]),
+	)
+	assert_eq(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_BREAK_NAP,
+	)
+	assert_eq(int(plan["action"]["target"]), 1)
+	# The break is priced at `warDesireScore − 10`, the published worth of a
+	# blocked war (wiki: diplomacy § Planner selection; issue #752).
+	var desire: int = int((plan["candidates"] as Array)[0]["desire"])
+	assert_eq(
+		int(((plan["candidates"] as Array)[0]["offer"] as Dictionary)["utility"]),
+		desire - 10,
+	)
+
+## The published price holds through the band where the break is closest to
+## losing its slot: at war desire 60–70 the `warDesireScore − 10` break must
+## still outrank every other peaceful order the court could spend its one order
+## on, so a dearer cut hands the turn to an overture or retaliation and stalls
+## the war the break exists to open (wiki: diplomacy § Planner selection;
+## issue #752).
+func test_the_pact_break_keeps_the_peaceful_slot_in_the_60_to_70_desire_band() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	# A cold standing: the relation pull is the hostile +10, the lowest desire
+	# that still clears the declare bar once a pact stands.
+	ai_planner_state.relation(0, 1).score = 20.0
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	# Even powers put the desire inside the band under test: 50 base + 5 even
+	# band + 10 cold standing.
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 100, 1: 100})
+	)
+	var entry: Dictionary = (plan["candidates"] as Array)[0]
+	var desire: int = int(entry["desire"])
+	assert_true(desire >= 60 and desire <= 70, "desire %d is the band under test" % desire)
+	assert_eq(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_BREAK_NAP,
+	)
+	var offer: Dictionary = entry["offer"]
+	assert_eq(int(offer["utility"]), desire - 10, "the published break price")
+	# The band leaves no slack for a dearer cut: the break is the best peaceful
+	# order, not merely a legal one.
+	for candidate: Dictionary in offer["candidates"]:
+		if not bool(candidate.get("ok", false)):
+			continue
+		if String(candidate["kind"]) == AiDiplomacyOffers.KIND_BREAK_NAP:
+			continue
+		assert_true(
+			int(candidate["utility"]) < int(offer["utility"]),
+			"%s at %d must not outrank the break at %d" % [
+				String(candidate["kind"]), int(candidate["utility"]),
+				int(offer["utility"]),
+			],
+		)
+
+func test_after_the_break_the_next_turn_declares_the_war() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var first: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	assert_eq(String(first["action"]["kind"]), AiDiplomacyOffers.KIND_BREAK_NAP)
+	assert_true(
+		bool(
+			AiTurnApply.apply_order(
+				ai_planner_state, ai_planner_AiFixture.world([0, 1, 1]),
+				ai_planner_ai_state, 0, first["action"]
+			)["result"]["ok"]
+		),
+	)
+	ai_planner_state.end_turn()
+	# The lock has elapsed and the break's price dropped the standing below the
+	# ceiling, so the war is declared on the next free order (issue #752).
+	var second: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 2,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	assert_eq(String(second["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+	assert_eq(int(second["action"]["target"]), 1)
+
+func test_a_pacted_rival_with_an_alliance_breaks_the_pact_once() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).formal_alliance = true
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1, 1]), 1,
+		ai_planner_AiFixture.context({0: 200, 1: 100})
+	)
+	# One stroke clears both treaties, so the alliance-only break would waste
+	# the turn (issue #752).
+	assert_eq(String((plan["action"] as Dictionary).get("kind", "")), AiDiplomacyOffers.KIND_BREAK_NAP)
+	assert_eq(
+		String(_planner_offer_block(plan, 0, AiDiplomacyOffers.KIND_BREAK)),
+		"the pact break clears the alliance too",
+	)
+
+func test_join_empire_is_scored_by_the_targets_answer() -> void:
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 30000
+	ai_diplomacy_offers_ai_state.economy_for(2).tech_unlocked["empire_building"] = true
+	# The target holds four provinces (never nearly defeated) and outpowers the
+	# offerer: the offer would only burn the turn (issue #752).
+	var unlikely: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state, ai_diplomacy_offers_ai_state,
+		ai_diplomacy_offers_AiFixture.world([0, 2, 2, 3, 3, 3, 3]), 1, 3, 45,
+		campaign__context({2: 20, 3: 40})
+	)
+	assert_eq(
+		_offer_blocked_kind(unlikely, AiDiplomacyOffers.KIND_OVERTURE),
+		"the crown would refuse absorption",
+	)
+	# A crown the offerer so far outpowers that standing alone is hopeless
+	# accepts: the rung carries the absorption bonus (issue #752).
+	var likely_context: Dictionary = campaign__context({2: 100, 3: 20})
+	likely_context["treasury"] = {2: 30000}
+	likely_context["tech"] = {2: {"empire_building": true}}
+	var likely: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state, ai_diplomacy_offers_ai_state,
+		ai_diplomacy_offers_AiFixture.world([0, 2, 2, 3, 3, 3, 3]), 1, 3, 45,
+		likely_context
+	)
+	assert_eq(
+		_utility_of(likely, AiDiplomacyOffers.KIND_OVERTURE),
+		55 + AiDiplomacyTreaties.JOIN_EMPIRE_ACCEPT_BONUS,
+	)
+
+func _planner_offer_block(plan: Dictionary, index: int, kind: String) -> String:
+	var offer: Dictionary = plan["candidates"][index].get("offer", {})
+	for entry: Dictionary in offer.get("candidates", []):
+		if String(entry.get("kind", "")) == kind:
+			return String(entry.get("blocked", ""))
+	return ""
+
+func test_friendly_relations_block_war_even_when_desire_is_high() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 70.0
+	var purse: Dictionary = ai_planner_AiFixture.context({0: 400, 1: 100})
+	purse["treasury"] = {0: 2000}
+	var warm: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1]), 1,
+		purse
+	)
+	assert_eq(String(warm["candidates"][0]["blocked"]), "relations too warm")
+	# The standing earns its next treaty instead of the war (issue #750).
+	assert_eq(
+		String((warm["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_OVERTURE,
+		"the court works for the chain the standing earns"
+	)
+	assert_eq(String(warm["action"].get("stage", "")), DiplomacyCatalog.STAGE_CONSULATE)
+	# With the pact standing the pair locks: the war is banned and the Allied
+	# band takes the formal alliance (wiki: diplomacy § Alliances; issue #752).
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.relation(0, 1).score = 80.0
+	var pacted: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1]), 1,
+		ai_planner_AiFixture.context({0: 400, 1: 100})
+	)
+	assert_true(
+		String(pacted["candidates"][0]["blocked"]).contains("non-aggression pact"),
+		String(pacted["candidates"][0]["blocked"]),
+	)
+	assert_eq(
+		String((pacted["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyOffers.KIND_ALLIANCE,
+		"the court works for the treaty the standing already earns"
+	)
+
+func test_war_cooldown_blocks_the_pair_for_four_turns() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_ai_state.note_war(0, 1, 1)
+	var context: Dictionary = ai_planner_AiFixture.context({0: 200, 1: 100})
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var cooling: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 2, context)
+	assert_true((cooling["action"] as Dictionary).is_empty())
+	assert_eq(String(cooling["candidates"][0]["blocked"]), "war cooldown")
+	var ready: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 5, context)
+	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
+
+func test_war_desire_below_the_minimum_blocks_war() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 45.0
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1]), 1,
+		ai_planner_AiFixture.context({0: 84, 1: 100})
+	)
+	assert_true((plan["action"] as Dictionary).is_empty())
+	assert_eq(String(plan["candidates"][0]["blocked"]), "war desire too low")
+
+func test_peace_is_offered_when_the_war_stops_being_worth_it() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 0, 1)
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["player"] = 5
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1]), 2, context
+	)
+	assert_eq(String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_eq(int(plan["action"]["target"]), 1)
+
+## The other half of the exchange: a court still wants the war it declared, so
+## the defender's white peace is refused and the war reaches Movement (wiki:
+## diplomacy § Planner selection; hidden-agendas — a warmonger keeps the war
+## alive; DR-20261111-27). The observer run showed the opposite: every rival war
+## was dissolved in the phase it was declared.
+func test_a_warmonger_refuses_the_peace_offered_in_the_phase_it_declared() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(1, 2, 1)
+	ai_planner_state.relation(1, 2).score = 35.0
+	var war: Dictionary = DiplomacyRules.declare_war(ai_planner_state, 1, 2)
+	assert_true(bool(war["ok"]), "the declaration stands")
+	ai_planner_ai_state.agendas[1] = AiAgenda.WARMONGER
+	ai_planner_ai_state.agendas[2] = AiAgenda.ISOLATIONIST
+	var result: Dictionary = AiTurn.run(
+		ai_planner_state,
+		ai_planner_AiFixture.world([1, 1, 1, 1, 2]),
+		ai_planner_ai_state,
+		1,
+		0,
+		1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var record: Dictionary = _campaign_record_for(result["trace"], 2)
+	assert_eq(String(record["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_true(
+		ai_planner_state.relation(1, 2).at_war,
+		"the war it declared still stands after the defender's offer"
+	)
+	assert_true(String(record["message"]).contains("refuses a white peace"))
+	assert_true(
+		ai_planner_ai_state.peace_on_cooldown(2, 1, 2, 3),
+		"the refusal starts the pair's peace-offer cooldown"
+	)
+
+## A refused white peace is not put again the next turn: the pair waits out the
+## cooldown (wiki: diplomacy § Planner selection — either answer starts it, so a
+## court does not ask again every turn; DR-20261109-07).
+func test_a_refused_peace_waits_out_the_pair_cooldown() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(1, 2, 1)
+	ai_planner_state.relation(1, 2).score = 35.0
+	DiplomacyRules.declare_war(ai_planner_state, 1, 2)
+	ai_planner_ai_state.agendas[1] = AiAgenda.WARMONGER
+	ai_planner_ai_state.agendas[2] = AiAgenda.ISOLATIONIST
+	var world: WorldMap = ai_planner_AiFixture.world([1, 1, 1, 1, 2])
+	AiTurn.run(
+		ai_planner_state, world, ai_planner_ai_state, 1, 0, 1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var cooling: Dictionary = AiTurn.run(
+		ai_planner_state, world, ai_planner_ai_state, 2, 0, 1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var cooling_record: Dictionary = _campaign_record_for(cooling["trace"], 2)
+	assert_true(
+		cooling_record["action"].is_empty(),
+		"a refused peace is not offered again the next turn"
+	)
+	assert_eq(
+		_campaign_blocked(cooling_record, 1), "peace cooldown, refused 1× (6 turns)",
+		"the trace explains the wait, and the refusal doubled it (DR-20261115-01)"
+	)
+	var ready: Dictionary = AiTurn.run(
+		ai_planner_state, world, ai_planner_ai_state, 7, 0, 1500,
+		{"regiments": {}, "ships": {}}
+	)
+	var ready_record: Dictionary = _campaign_record_for(ready["trace"], 2)
+	assert_eq(String(ready_record["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_true(ai_planner_state.relation(1, 2).at_war, "the warmonger still refuses")
+
+## The trace row one court recorded for its target ("{}" when it did nothing).
+func _campaign_record_for(trace: Array, faction: int) -> Dictionary:
+	for record: Dictionary in trace:
+		if int(record["faction"]) == faction:
+			return record
+	return {}
+
+## The reason the planner recorded against one target ("" when it was legal).
+func _campaign_blocked(record: Dictionary, target: int) -> String:
+	for row: Dictionary in record.get("candidates", []):
+		if int(row.get("target", -1)) == target:
+			return String(row.get("blocked", ""))
+	return ""
+
+func test_peace_with_the_human_is_proposed_and_waits_for_the_player() -> void:
+	_setup_ai_planner()
+	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_planner_state.ensure_relation(2, 0, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 2, 0)
+	var context: Dictionary = ai_planner_AiFixture.context({2: 84, 0: 100})
+	context["player"] = 0
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 2, context
+	)
+	var action: Dictionary = plan["action"]
+	assert_eq(String(action["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_eq(int(action["target"]), 0)
+	assert_true(bool(action.get("propose", false)), "the human court answers the offer")
+	assert_true(ai_planner_state.relation(0, 2).at_war, "nothing is signed before the answer")
+
+func test_a_refused_peace_waits_the_peace_cooldown() -> void:
+	_setup_ai_planner()
+	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_planner_state.ensure_relation(2, 0, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 2, 0)
+	ai_planner_ai_state.note_peace(2, 0, 2)
+	var context: Dictionary = ai_planner_AiFixture.context({2: 84, 0: 100})
+	context["player"] = 0
+	var cooling: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 3, context
+	)
+	assert_true((cooling["action"] as Dictionary).is_empty())
+	assert_eq(String(cooling["candidates"][0]["blocked"]), "peace cooldown")
+	var ready: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 5, context
+	)
+	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+
+func test_a_refused_peace_widens_the_wait() -> void:
+	_setup_ai_planner()
+	# A refusal is information: after one no the pair waits twice the published
+	# base clock, so a court is not asking the same question every third turn
+	# (wiki: diplomacy § Cooldowns; DR-20261115-01). Base 3, so 6 after one.
+	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_planner_state.ensure_relation(2, 0, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 2, 0)
+	ai_planner_ai_state.note_peace(2, 0, 2, false)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 1, "the no is remembered")
+	var context: Dictionary = ai_planner_AiFixture.context({2: 84, 0: 100})
+	context["player"] = 0
+	var waiting: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 6, context
+	)
+	assert_true((waiting["action"] as Dictionary).is_empty(), "the widened wait holds")
+	assert_eq(
+		String(waiting["candidates"][0]["blocked"]),
+		"peace cooldown, refused 1× (6 turns)"
+	)
+	var ready: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 8, context
+	)
+	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+
+func test_the_refusal_wait_is_capped() -> void:
+	_setup_ai_planner()
+	# Six refusals double the base clock out to 96 turns; the registry caps the
+	# wait at 24 so a court at war is still asking within a generation
+	# (DR-20261115-01).
+	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_planner_state.ensure_relation(2, 0, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 2, 0)
+	for turn in [2, 3, 4, 5, 6, 7]:
+		ai_planner_ai_state.note_peace(2, 0, turn, false)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 6)
+	var context: Dictionary = ai_planner_AiFixture.context({2: 84, 0: 100})
+	context["player"] = 0
+	var waiting: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 30, context
+	)
+	assert_eq(
+		String(waiting["candidates"][0]["blocked"]),
+		"peace cooldown, refused 6× (24 turns)"
+	)
+	var ready: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 31, context
+	)
+	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+
+func test_a_signed_peace_and_a_new_war_clear_the_refusal_book() -> void:
+	_setup_ai_planner()
+	# The war is over, so the next war's first ask waits the published base
+	# clock rather than the last war's doubled wait (DR-20261115-01).
+	ai_planner_ai_state.note_peace(2, 0, 2, false)
+	ai_planner_ai_state.note_peace(2, 0, 4, false)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 2)
+	ai_planner_ai_state.note_truce(2, 0, 9)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 0, "the peace spent the refusals")
+	ai_planner_ai_state.note_peace(2, 0, 12, false)
+	ai_planner_ai_state.note_war(2, 0, 20)
+	assert_eq(
+		ai_planner_ai_state.peace_refusals_for(2, 0), 0,
+		"a new war is a new question"
+	)
+
+func test_a_recent_war_declaration_does_not_silence_a_peace_offer() -> void:
+	_setup_ai_planner()
+	# The 4-turn war cooldown gates another Declare War on that pair, never the
+	# peace leg of the same pair (wiki: diplomacy § Configurable Values —
+	# "Applies to AI-initiated Declare War re-attempts"; DR-20261108-01).
+	ai_planner_state.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 0, 1)
+	ai_planner_ai_state.note_war(0, 1, 1)
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["player"] = 5
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 1]), 2, context
+	)
+	assert_eq(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a war that stopped being worth waging still offers peace after declaring"
+	)
+	assert_eq(int((plan["action"] as Dictionary).get("target", -1)), 1)
+
+func test_war_goal_clamps_to_the_target_province_count() -> void:
+	_setup_ai_planner()
+	assert_eq(AiDiplomacyPlanner.desired_territory(75, 5), 3)
+	assert_eq(AiDiplomacyPlanner.desired_territory(75, 2), 2)
+	assert_eq(AiDiplomacyPlanner.desired_territory(12, 3), 1)
+	assert_eq(AiDiplomacyPlanner.desired_territory(100, 0), 1)
+
+func test_a_peacemaker_offers_peace_where_a_plain_court_fights_on() -> void:
+	_setup_ai_planner()
+	# Same war, same standing: the dove's peace bar sits 15 higher, so a war it
+	# no longer means is put to its enemy a turn earlier (wiki: hidden-agendas —
+	# peacemaker early peace).
+	ai_planner_state.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 0, 1)
+	ai_planner_state.relation(0, 1).score = 40.0
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["player"] = 5
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var plain: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 2, context)
+	assert_eq(String(plain["candidates"][0]["blocked"]), "war still worth waging")
+	var dove: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.PEACEMAKER)
+	var peace: Dictionary = AiDiplomacyPlanner.decide(dove, ai_planner_state, ai_planner_ai_state, world, 2, context)
+	assert_eq(String(peace["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	assert_eq(int(peace["action"]["target"]), 1)
+
+func test_a_warmonger_keeps_a_war_a_plain_court_would_end() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 0, 1)
+	ai_planner_state.relation(0, 1).score = 60.0
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["player"] = 5
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var plain: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 2, context)
+	assert_eq(String(plain["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+	var hawk: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	var keep: Dictionary = AiDiplomacyPlanner.decide(hawk, ai_planner_state, ai_planner_ai_state, world, 2, context)
+	assert_true((keep["action"] as Dictionary).is_empty(), "the war is still worth waging")
+	assert_eq(String(keep["candidates"][0]["blocked"]), "war still worth waging")
+
+func test_a_backstabber_breaks_an_alliance_it_would_otherwise_keep() -> void:
+	_setup_ai_planner()
+	# A formal ally that is weaker than the court: the treaty still serves an
+	# honest court, but the backstabber's desire against its own ally clears the
+	# break bar (wiki: hidden-agendas — hits allies when weak).
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 70.0
+	ai_planner_state.relation(0, 1).formal_alliance = true
+	var context: Dictionary = ai_planner_AiFixture.context({0: 135, 1: 100})
+	context["player"] = 5
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var honest: Dictionary = AiDiplomacyDesire.war_desire(ai_planner_config, ai_planner_state, world, 0, 1, context)
+	assert_false((honest["factors"] as Dictionary).has("betrayal"))
+	assert_eq(int(honest["score"]), 40, "50 + 30 strong - 40 allied")
+	var snake: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.BACKSTABBER)
+	var snake_desire: Dictionary = AiDiplomacyDesire.war_desire(snake, ai_planner_state, world, 0, 1, context)
+	assert_eq(int(snake_desire["factors"]["betrayal"]), 25)
+	var keep: Dictionary = AiDiplomacyPlanner.decide(ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context)
+	assert_true(
+		String((keep["action"] as Dictionary).get("kind", "")) != AiDiplomacyOffers.KIND_BREAK,
+		"an honest court keeps the treaty its standing earned"
+	)
+	var betray: Dictionary = AiDiplomacyPlanner.decide(snake, ai_planner_state, ai_planner_ai_state, world, 1, context)
+	assert_eq(String(betray["action"]["kind"]), AiDiplomacyOffers.KIND_BREAK)
+	assert_true(ai_planner_state.relation(0, 1).formal_alliance, "the planner only plans the break")
+
+func test_an_envious_court_resents_a_human_crown_that_pulled_ahead() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 2, 1)
+	var context: Dictionary = ai_planner_AiFixture.context({0: 135, 2: 100})
+	context["player"] = 0
+	var world: WorldMap = ai_planner_AiFixture.world([0, 2, 2])
+	var plain_config: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	var plain: Dictionary = AiDiplomacyDesire.war_desire(plain_config, ai_planner_state, world, 2, 0, context)
+	assert_false((plain["factors"] as Dictionary).has("rival"))
+	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
+	var envy: Dictionary = AiDiplomacyDesire.war_desire(jealous, ai_planner_state, world, 2, 0, context)
+	assert_eq(int(envy["factors"]["rival"]), 20)
+	assert_eq(
+		int(envy["score"]) - int(plain["score"]), 25,
+		"20 rival_bias + 5 war_bias"
+	)
+	assert_true(int(envy["score"]) > int(plain["score"]), "the lead is felt")
+
+func test_an_envious_court_does_not_resent_a_crown_that_trails_it() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 2, 1)
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 2: 135})
+	context["player"] = 0
+	var jealous: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.ENVY)
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
+		jealous, ai_planner_state, ai_planner_AiFixture.world([0, 2, 2]), 2, 0, context
+	)
+	assert_false((desire["factors"] as Dictionary).has("rival"), "envy is not a grudge")
+	# Nor is it a grudge against another rival: the pull is for the human crown.
+	var other: Dictionary = AiDiplomacyDesire.war_desire(
+		jealous, ai_planner_state, ai_planner_AiFixture.world([0, 1, 2]), 2, 1, context
+	)
+	assert_false((other["factors"] as Dictionary).has("rival"))
+
+# --- from test_ai_war_memory.gd ---
+## War memory: an unfought war wears the attacker down.
+## War memory (wiki: diplomacy § Cooldowns, § War goals and in-war reassessment;
+## issue #475): a war that takes nothing wears the attacker down, and a peace
+## that ends an unfought war holds the pair below the declaration bar past the
+## 4-turn cooldown — so a crown stops re-declaring on the same enemy forever.
+
+const campaign_AiFixture = preload("res://tests/ai_fixture.gd")
+
+const WAR_OWNER: int = 0
+const WAR_RIVAL: int = 1
+const WAR_TRIBE: int = 11
+const WAR_SEED: int = 1500
+
+
+func _war_config(faction: int = WAR_RIVAL, agenda: String = AiAgenda.WARMONGER) -> AiConfig:
+	return AiConfig.build(faction, WAR_SEED, AiProfile.NORMAL, agenda)
+
+
+func _war_court() -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(WAR_OWNER, WAR_RIVAL, 1)
+	return state
+
+
+# --- the arithmetic ----------------------------------------------------------
+
+
+func test_a_war_inside_the_grace_carries_no_weariness() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 10)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, 10, WAR_RIVAL, WAR_OWNER), 0)
+	assert_eq(AiWarMemory.weariness(config, ai_state, 10 + grace, WAR_RIVAL, WAR_OWNER), 0)
+	assert_eq(
+		AiWarMemory.weariness(config, ai_state, 10 + grace + 1, WAR_RIVAL, WAR_OWNER),
+		config.parameter("diplomacy.war_weariness"),
+		"the first turn beyond the grace costs one step"
+	)
+
+
+func test_weariness_grows_turn_by_turn_and_stops_at_the_scale() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var step: int = config.parameter("diplomacy.war_weariness")
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, grace + 3, WAR_RIVAL, WAR_OWNER), step * 3)
+	assert_eq(AiWarMemory.weariness(config, ai_state, 400, WAR_RIVAL, WAR_OWNER), 100, "capped at the scale")
+
+
+func test_a_truce_holds_the_pair_and_then_expires() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 10)  # a two-turn war: unfought
+	ai_state.note_truce(WAR_RIVAL, WAR_OWNER, 12)
+	var turns: int = config.parameter("diplomacy.truce_turns")
+
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 12, WAR_RIVAL, WAR_OWNER),
+		config.parameter("diplomacy.truce_penalty")
+	)
+	assert_eq(AiWarMemory.truce(config, ai_state, 12 + turns - 1, WAR_RIVAL, WAR_OWNER),
+		config.parameter("diplomacy.truce_penalty"))
+	assert_eq(AiWarMemory.truce(config, ai_state, 12 + turns, WAR_RIVAL, WAR_OWNER), 0)
+
+
+func test_the_penalty_reads_the_right_memory_for_the_footing() -> void:
+	var config: AiConfig = _war_config()
+	var at_war := AiState.new()
+	at_war.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	var peaceful := AiState.new()
+	peaceful.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	peaceful.note_truce(WAR_RIVAL, WAR_OWNER, 1)
+	var fought: int = config.parameter("diplomacy.war_weariness_grace") + 2
+	var later: int = config.parameter("diplomacy.truce_turns") + 1
+
+	assert_true(
+		AiWarMemory.penalty(config, at_war, fought, WAR_RIVAL, WAR_OWNER, true) > 0,
+		"at war the court reads its weariness"
+	)
+	assert_eq(
+		AiWarMemory.penalty(config, peaceful, 1, WAR_RIVAL, WAR_OWNER, false),
+		config.parameter("diplomacy.truce_penalty"),
+		"at peace inside the truce an unfought war left it carries the truce"
+	)
+	assert_eq(
+		AiWarMemory.penalty(config, peaceful, later, WAR_RIVAL, WAR_OWNER, false), 0,
+		"past the truce a peace carries nothing"
+	)
+	assert_eq(AiWarMemory.penalty(null, at_war, fought, WAR_RIVAL, WAR_OWNER, true), 0)
+	assert_eq(AiWarMemory.penalty(config, null, fought, WAR_RIVAL, WAR_OWNER, true), 0)
+	# Each reading has its own empty guard, so a caller may ask it directly.
+	assert_eq(AiWarMemory.weariness(null, at_war, fought, WAR_RIVAL, WAR_OWNER), 0)
+	assert_eq(AiWarMemory.truce(null, peaceful, 1, WAR_RIVAL, WAR_OWNER), 0)
+
+
+# --- the planner -------------------------------------------------------------
+
+
+## One decision by the warmonger against a relation at war. The declaration is
+## recorded so the weariness clock has a start.
+func _decide(at_war: bool, turn: int, truce: int = -1, power: int = 10) -> Dictionary:
+	var state: DiplomacyState = _war_court()
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	if at_war:
+		assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
+		ai_state.note_war(WAR_RIVAL, WAR_OWNER, 1)
+	if truce >= 0:
+		ai_state.note_truce(WAR_RIVAL, WAR_OWNER, truce)
+	return AiDiplomacyPlanner.decide(
+		_war_config(), state, ai_state, campaign_AiFixture.world([WAR_OWNER, WAR_RIVAL, WAR_RIVAL, WAR_RIVAL]),
+		turn, {
+			"regiments": {}, "ships": {}, "player": WAR_OWNER,
+			"power": {WAR_RIVAL: power, WAR_OWNER: 10},
+		}
+	)
+
+
+func test_a_worn_attacker_puts_peace_to_an_even_enemy() -> void:
+	var fresh: Dictionary = _decide(true, 1)
+	assert_true(
+		String(fresh["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"inside the grace a warmonger keeps its war"
+	)
+	var worn: Dictionary = _decide(true, 200)
+	assert_eq(
+		String(worn["action"].get("kind", "")), AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"weariness ends a war no assault has won"
+	)
+	var candidate: Dictionary = (worn["candidates"] as Array)[0]
+	assert_true(int(candidate["factors"].get("memory", 0)) < 0, "the trace names the weariness")
+
+
+func test_a_court_that_clearly_outmatches_its_enemy_does_not_tire() -> void:
+	# The war it is winning is the war it wants: no weariness, no white peace.
+	var plan: Dictionary = _decide(true, 200, -1, 90)
+	assert_true(
+		String(plan["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a stronger court prosecutes its war"
+	)
+
+
+func test_a_truce_keeps_the_pair_below_the_declaration_bar() -> void:
+	var barred: Dictionary = _decide(false, 8, 4)
+	assert_true(
+		String(barred["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the 4-turn cooldown alone no longer re-opens the war"
+	)
+	var candidate: Dictionary = (barred["candidates"] as Array)[0]
+	assert_eq(String(candidate["blocked"]), "war desire too low")
+	assert_eq(
+		int(candidate["factors"].get("memory", 0)),
+		-_war_config().parameter("diplomacy.truce_penalty"),
+		"the trace names the truce"
+	)
+
+
+func test_the_declaration_returns_once_the_truce_expires() -> void:
+	var turn: int = 4 + _war_config().parameter("diplomacy.truce_turns")
+	var freed: Dictionary = _decide(false, turn, 4, 90)
+	assert_eq(
+		String(freed["action"].get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the war may be declared again after the truce"
+	)
+
+
+func test_a_peace_concludes_and_records_the_truce() -> void:
+	# The warmonger is worn past its bar, so the target takes the white peace the
+	# planning pass offers; the pair then carries a truce.
+	var state: DiplomacyState = _war_court()
+	state.human_faction = -1
+	assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	ai_state.agendas[WAR_OWNER] = AiAgenda.WARMONGER
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 1)
+	var run: Dictionary = AiTurn.run(
+		state, campaign_AiFixture.world([WAR_OWNER, WAR_RIVAL]), ai_state,
+		200, 4, WAR_SEED, {"regiments": {}, "ships": {}}
+	)
+
+	assert_true(
+		ai_state.last_truce_turn.has(AiState.pair_key(WAR_OWNER, WAR_RIVAL)),
+		"a concluded peace starts the truce"
+	)
+	assert_false((state.relation(WAR_RIVAL, WAR_OWNER) as DiplomacyRelation).at_war)
+	assert_true(run.has("trace"))
+
+
+func test_a_peace_offered_to_the_human_starts_the_truce_too() -> void:
+	# The worn warmonger puts the white peace to the human court instead of
+	# signing it: the offer alone ends its appetite, so a refusal does not hand
+	# the court a fresh war at the cooldown (issue #475).
+	var state: DiplomacyState = _war_court()
+	state.human_faction = WAR_OWNER
+	assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 1)
+	AiTurn.run(
+		state, campaign_AiFixture.world([WAR_OWNER, WAR_RIVAL]), ai_state,
+		200, 4, WAR_SEED, {"regiments": {}, "ships": {}}
+	)
+
+	assert_true(
+		ai_state.last_truce_turn.has(AiState.pair_key(WAR_OWNER, WAR_RIVAL)),
+		"the offer starts the truce"
+	)
+
+
+func test_a_colonial_war_carries_the_truce() -> void:
+	# A war on a Minor Nation or Tribe is still a war: the peace that ended an
+	# unfought one holds the pair below the declaration bar (issue #511).
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	var minor: int = 6
+	ai_state.note_war(WAR_RIVAL, minor, 0)
+	ai_state.note_truce(WAR_RIVAL, minor, 4)
+
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 5, WAR_RIVAL, minor),
+		config.parameter("diplomacy.truce_penalty"),
+		"a colonial peace leaves the same truce a crown one does"
+	)
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 4 + config.parameter("diplomacy.truce_turns"), WAR_RIVAL, minor),
+		0,
+		"and it expires on the same clock"
+	)
+
+
+func test_a_colonial_war_wears_the_attacker_down() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	var tribe: int = 11
+	ai_state.note_war(WAR_RIVAL, tribe, 0)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var step: int = config.parameter("diplomacy.war_weariness")
+
+	assert_eq(AiWarMemory.weariness(config, ai_state, grace, WAR_RIVAL, tribe), 0)
+	assert_eq(
+		AiWarMemory.weariness(config, ai_state, grace + 2, WAR_RIVAL, tribe), step * 2,
+		"a colonial war that takes nothing tires the court too"
+	)
+
+
+## One decision by the warmonger against a Tribe. `power` is the court's own
+## reading of the balance against it.
+func _decide_colonial(
+	at_war: bool, turn: int, truce: int = -1, power: int = 10
+) -> Dictionary:
+	var state: DiplomacyState = _war_court()
+	state.ensure_relation(WAR_RIVAL, WAR_TRIBE, 1)
+	var ai_state := AiState.new()
+	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
+	if at_war:
+		assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_TRIBE)["ok"]))
+		ai_state.note_war(WAR_RIVAL, WAR_TRIBE, 1)
+	if truce >= 0:
+		ai_state.note_truce(WAR_RIVAL, WAR_TRIBE, truce)
+	return AiDiplomacyPlanner.decide(
+		_war_config(), state, ai_state,
+		campaign_AiFixture.world([WAR_OWNER, WAR_RIVAL, WAR_RIVAL, WAR_RIVAL, WAR_TRIBE]), turn, {
+			"regiments": {}, "ships": {}, "player": WAR_OWNER,
+			"power": {WAR_RIVAL: power, WAR_TRIBE: 1},
+		}
+	)
+
+
+func campaign__candidate(plan: Dictionary, target: int) -> Dictionary:
+	for raw: Variant in plan.get("candidates", []):
+		var entry: Dictionary = raw
+		if int(entry.get("target", -1)) == target:
+			return entry
+	return {}
+
+
+func test_a_colonial_truce_keeps_the_tribe_below_the_declaration_bar() -> void:
+	# The carousel #511 measured: declare, white peace in the same phase, and
+	# re-declare at the 4-turn cooldown. The truce now holds the pair.
+	var barred: Dictionary = _decide_colonial(false, 8, 4)
+	var entry: Dictionary = campaign__candidate(barred, WAR_TRIBE)
+
+	assert_eq(
+		String(entry.get("blocked", "")), "war desire too low",
+		"the cooldown alone no longer re-opens a colonial war"
+	)
+	assert_eq(
+		int((entry.get("factors", {}) as Dictionary).get("memory", 0)),
+		-_war_config().parameter("diplomacy.truce_penalty"),
+		"the trace names the colonial truce"
+	)
+
+
+func test_a_court_that_outmatches_a_tribe_still_tires() -> void:
+	# Strength against a Tribe is the precondition for a landing, not proof of
+	# one, so the peer-only exemption does not cover a colonial war (#511).
+	var plan: Dictionary = _decide_colonial(true, 200, -1, 90)
+	var entry: Dictionary = campaign__candidate(plan, WAR_TRIBE)
+
+	assert_eq(
+		int((entry.get("factors", {}) as Dictionary).get("memory", 0)), -100,
+		"a colonial war that takes nothing wears the court to the scale"
+	)
+
+
+func test_a_fought_war_leaves_no_truce() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 4)
+	ai_state.note_truce(WAR_RIVAL, WAR_OWNER, 20)  # a 16-turn war: prosecuted
+
+	assert_eq(
+		AiWarMemory.truce(config, ai_state, 21, WAR_RIVAL, WAR_OWNER), 0,
+		"a war that was fought ends in a real settlement"
+	)
+
+
+func test_a_save_round_trips_the_truce() -> void:
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 16)
+	ai_state.note_truce(WAR_RIVAL, WAR_OWNER, 17)
+	var restored := AiState.from_dict(ai_state.to_dict())
+
+	assert_eq(
+		AiWarMemory.truce(_war_config(), restored, 18, WAR_RIVAL, WAR_OWNER),
+		_war_config().parameter("diplomacy.truce_penalty")
+	)
+
+# ==== merged from test_ai_planner_rules.gd (one coverage boot; docs/testing.md § Speed rules) ====
+## One boot for the rival planners: cargo, market, merchant, army reinforcement
+## and the civilian work planners (wiki: civilian-units; docs/ai.md).
+
+## Merged from test_ai_cargo, test_ai_market, test_ai_merchant,
+## test_ai_army_reinforce, test_ai_builder_work, test_ai_engineer_work,
+## test_ai_hospital_work, test_ai_town_roads, test_ai_civilian_dispatch,
+## test_ai_objective_rules.
+## One Godot boot (coverage instrumentation) per theme instead of one per file.
+## Each test runs only its own suite's setup; teardown follows the setup.
+const planner_Fixture = preload("res://tests/civilian_fixture.gd")
+const planner_AiFixture = preload("res://tests/ai_fixture.gd")
+const ai_engineer_work_CivilianFixture = preload("res://tests/civilian_fixture.gd")
+const planner_Engineer = preload("res://scripts/ai/ai_engineer_work.gd")
+const ai_civilian_dispatch_CivilianFixture = preload("res://tests/civilian_fixture.gd")
+const planner_Planner = preload("res://scripts/ai/ai_civilian_planner.gd")
+
+const planner_OWNER: int = 1
+const planner_CONFIG_FACTION: int = 1
+const planner_GRAIN: Vector2i = Vector2i(3, 1)
+const planner_IRON: Vector2i = Vector2i(2, 1)
+const planner_AWAY: Vector2i = Vector2i(1, 1)
+const planner_MINOR: int = 6
+const ai_army_reinforce_OWNER: int = 2
+const HUMAN: int = 1
+const ai_builder_work_TOWN: Vector2i = Vector2i(0, 0)
+const planner_TIMBER: Vector2i = Vector2i(1, 0)
+const planner_TIMBER_FAR: Vector2i = Vector2i(2, 0)
+const planner_SEAT: Vector2i = Vector2i(0, 0)
+const planner_SEAT_ESTATE: Vector2i = Vector2i(1, 0)
+const planner_SEAT_ESTATE_FAR: Vector2i = Vector2i(2, 0)
+const ai_engineer_work_BARE: Vector2i = Vector2i(0, 0)
+const ai_hospital_work_CAPITAL: Vector2i = Vector2i(0, 1)
+const planner_OUTER_TOWN: Vector2i = Vector2i(4, 1)
+const planner_CAPITAL_PROVINCE: int = 0
+const planner_OUTER_PROVINCE: int = 1
+const planner_TECH: Dictionary = {
+	"organised_regiments": true,
+	"modern_military_funding": true,
+}
+const ai_town_roads_CAPITAL: Vector2i = Vector2i(0, 1)
+const ai_town_roads_TOWN: Vector2i = Vector2i(4, 1)
+const ai_civilian_dispatch_BARE: Vector2i = Vector2i(0, 0)
+const planner_RAIL_TECHS: Dictionary = {"early_steam_engine": true}
+
+# --- test_ai_cargo ---
+
+func planner__old_world() -> MapModel:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	model.region_id = WorldMap.OLD_WORLD
+	model.region_key = "old_world"
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 5:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0 if x < 4 else 1
+			if x < 4:
+				tiles.append(tile)
+	for x in 5:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+	var province := ProvinceState.create(
+		0, "Seat", tiles, Vector2(2.0, 0.5), tiles.size(), planner_OWNER, true
+	)
+	province.capital_tile = Vector2i(0, 0)
+	province.port_tile = Vector2i(0, 1)
+	province.coastal = true
+	var harbour: Array[Vector2i] = [Vector2i(4, 0), Vector2i(4, 1)]
+	var outport := ProvinceState.create(
+		1, "Outport", harbour, Vector2(4.0, 0.5), harbour.size(), planner_OWNER, false
+	)
+	outport.port_tile = Vector2i(4, 1)
+	outport.coastal = true
+	model.provinces = [province, outport]
+	var sea: Array[Vector2i] = []
+	for x in 5:
+		sea.append(Vector2i(x, 2))
+	model.sea_zones = [SeaZoneState.create(0, "Home Waters", sea, Vector2(2.0, 2.0), 5)]
+	return model
+
+func planner__config() -> AiConfig:
+	return AiConfig.build(planner_OWNER, 1500)
+
+func planner__economy(treasury: int = 2500) -> PlayerEconomy:
+	var economy := PlayerEconomy.starting()
+	economy.treasury = treasury
+	return economy
+
+func planner__merchant(fleet_id: int, type_id: String = "carrack") -> FleetState:
+	var hull_id: String = "hull_%d" % fleet_id
+	return FleetState.at_sea(fleet_id, planner_OWNER, 0, [hull_id], {hull_id: type_id})
+
+func test_planner_an_idle_merchant_squadron_is_walked_home_and_docks() -> void:
+	var model: MapModel = planner__old_world()
+	var fleet: FleetState = planner__merchant(1)
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(), model, [fleet], 0, 5
+	)
+	var routes: Array = plan["routes"]
+	assert_eq(routes.size(), 1, "one idle merchant squadron is ordered home")
+	assert_true(bool(routes[0]["dock"]), "the seat's harbour borders the zone")
+	var moved: Dictionary = AiCargoPlanner.apply_route(model, fleet, routes[0])
+	assert_true(bool(moved["ok"]))
+	assert_true(fleet.is_in_port())
+	assert_eq(fleet.province, 0, "it berths at the crown's seat")
+	assert_eq(int(plan["holds"]), 0, "the holds did not count afloat")
+	assert_eq(int(plan["projected"]), 3, "the projected berths count its cargo")
+
+func test_planner_a_warship_is_never_a_cargo_route() -> void:
+	var model: MapModel = planner__old_world()
+	var sloop := FleetState.at_sea(2, planner_OWNER, 0, ["hull_2"], {"hull_2": "sloop"})
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(), model, [sloop], 0, 5
+	)
+	assert_true((plan["routes"] as Array).is_empty())
+	assert_true((plan["launch"] as Dictionary).is_empty(), "no purse for a hull yet")
+
+func test_planner_a_merchant_in_another_port_puts_to_sea_toward_the_seat() -> void:
+	var model: MapModel = planner__old_world()
+	var fleet := FleetState.in_port(5, planner_OWNER, 1, ["hull_5"], {"hull_5": "carrack"})
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(), model, [fleet], 0, 5
+	)
+	var routes: Array = plan["routes"]
+	assert_eq(routes.size(), 1)
+	assert_true(not bool(routes[0]["dock"]), "the outport is not the seat")
+	assert_eq(int(routes[0]["zone"]), 0, "it puts to sea into the seat's water")
+
+func test_planner_hostile_water_holds_a_merchant_in_port() -> void:
+	var model: MapModel = planner__old_world()
+	var fleet := FleetState.in_port(5, planner_OWNER, 1, ["hull_5"], {"hull_5": "carrack"})
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(), model, [fleet], 0, 5, {0: true}
+	)
+	assert_true((plan["routes"] as Array).is_empty(), "it waits for safer water")
+
+func test_planner_berths_at_the_seat_already_cover_the_need() -> void:
+	var model: MapModel = planner__old_world()
+	var fluyte := FleetState.in_port(3, planner_OWNER, 0, ["hull_3"], {"hull_3": "fluyte"})
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(20000), model, [fluyte], 0, 4
+	)
+	assert_eq(int(plan["holds"]), 4, "a fluyte's four holds are home cargo")
+	assert_true((plan["routes"] as Array).is_empty())
+	assert_true((plan["launch"] as Dictionary).is_empty())
+
+func test_planner_a_shortfall_that_pays_lays_down_a_merchant_hull() -> void:
+	var model: MapModel = planner__old_world()
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(20000), model, [], 0, 10
+	)
+	var launch: Dictionary = plan["launch"]
+	assert_eq(String(launch.get("kind", "")), "launch")
+	assert_eq(String(launch.get("type_id", "")), "carrack", "the only buildable hull")
+	assert_eq(int(launch.get("cargo", 0)), 3)
+
+func test_planner_the_better_merchant_wins_on_cargo_then_price() -> void:
+	var model: MapModel = planner__old_world()
+	var economy: PlayerEconomy = planner__economy(20000)
+	economy.tech_unlocked["superior_hull_design"] = true
+	var plan: Dictionary = AiCargoPlanner.plan(planner__config(), economy, model, [], 0, 10)
+	assert_eq(
+		String(plan["launch"].get("type_id", "")), "fluyte",
+		"four holds for less money beats three"
+	)
+
+func test_planner_the_purse_floor_keeps_the_yard_shut() -> void:
+	var model: MapModel = planner__old_world()
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(9000), model, [], 0, 10
+	)
+	assert_true((plan["launch"] as Dictionary).is_empty(), "£1,000 left is not enough")
+
+func test_planner_a_squadron_carrying_an_expedition_keeps_its_course() -> void:
+	var model: MapModel = planner__old_world()
+	var fleet: FleetState = planner__merchant(4)
+	fleet.embarked_army = 7
+	var plan: Dictionary = AiCargoPlanner.plan(
+		planner__config(), planner__economy(), model, [fleet], 0, 5
+	)
+	assert_true((plan["routes"] as Array).is_empty())
+
+func test_planner_missing_inputs_make_the_plan_empty() -> void:
+	var model: MapModel = planner__old_world()
+	assert_true((AiCargoPlanner.plan(null, planner__economy(), model, [], 0, 5)["routes"] as Array).is_empty())
+	assert_true((AiCargoPlanner.plan(planner__config(), null, model, [], 0, 5)["routes"] as Array).is_empty())
+	assert_true((AiCargoPlanner.plan(planner__config(), planner__economy(), null, [], 0, 5)["routes"] as Array).is_empty())
+	assert_true(not bool(AiCargoPlanner.apply_route(model, null, {})["ok"]))
+
+func planner__session(model: MapModel, fleets: Array[FleetState]) -> Dictionary:
+	var play := PlaySession.new()
+	play.map_seed = 1
+	play.player_faction = 0
+	var world := WorldMap.new()
+	world.add_region(model)
+	play.world = world
+	var ships := ShipLayer.new()
+	ships.player_faction = 0
+	ships.regions.set_region(model.region_id, fleets)
+	play.ship_layer = ships
+	return {"play": play, "ships": ships, "model": model}
+
+func test_planner_the_adapter_docks_a_rival_squadron_and_its_holds_count() -> void:
+	var model: MapModel = planner__old_world()
+	var fleet: FleetState = planner__merchant(1)
+	var built: Dictionary = planner__session(model, [fleet])
+	var play: PlaySession = built["play"]
+	var economy: PlayerEconomy = planner__economy()
+	var report: Dictionary = MapPlayCargoAi.run(
+		play, planner_OWNER, economy, {"used": 0, "left_total": 2}
+	)
+	assert_eq((report["routes"] as Array).size(), 1)
+	assert_true(fleet.is_in_port())
+	assert_eq(
+		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), planner_OWNER),
+		3, "the docked hull's three holds now count"
+	)
+	(built["ships"] as Node).free()
+
+func test_planner_the_adapter_puts_a_merchant_to_sea_for_the_crossing() -> void:
+	var model: MapModel = planner__old_world()
+	var fleet := FleetState.in_port(5, planner_OWNER, 1, ["hull_5"], {"hull_5": "carrack"})
+	var built: Dictionary = planner__session(model, [fleet])
+	var play: PlaySession = built["play"]
+	var report: Dictionary = MapPlayCargoAi.run(
+		play, planner_OWNER, planner__economy(), {"used": 0, "left_total": 2}
+	)
+	assert_eq((report["routes"] as Array).size(), 1)
+	assert_true(fleet.is_at_sea(), "the outport merchant puts to sea")
+	assert_eq(fleet.sea_zone, 0)
+	(built["ships"] as Node).free()
+
+func test_planner_the_adapter_keeps_a_merchant_out_of_hostile_water() -> void:
+	var model: MapModel = planner__old_world()
+	var fleet := FleetState.in_port(5, planner_OWNER, 1, ["hull_5"], {"hull_5": "carrack"})
+	var player := FleetState.at_sea(9, 0, 0, ["hull_9"], {"hull_9": "carrack"})
+	var built: Dictionary = planner__session(model, [fleet, player])
+	var play: PlaySession = built["play"]
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(planner_OWNER, 0, 1)
+	assert_true(bool(DiplomacyRules.declare_war(state, planner_OWNER, 0)["ok"]))
+	play.diplomacy = state
+	var report: Dictionary = MapPlayCargoAi.run(
+		play, planner_OWNER, planner__economy(), {"used": 0, "left_total": 2}
+	)
+	assert_true((report["routes"] as Array).is_empty())
+	assert_true(fleet.is_in_port(), "the merchant never enters the hostile zone")
+	(built["ships"] as Node).free()
+
+func test_planner_the_adapter_founds_a_slip_when_no_squadron_is_in_port() -> void:
+	var model: MapModel = planner__old_world()
+	var built: Dictionary = planner__session(model, [])
+	var play: PlaySession = built["play"]
+	var economy: PlayerEconomy = planner__economy(20000)
+	var report: Dictionary = MapPlayCargoAi.run(
+		play, planner_OWNER, economy, {"used": 0, "left_total": 8}
+	)
+	var launch: Dictionary = report["launch"]
+	assert_eq(String(launch.get("type_id", "")), "carrack")
+	assert_true(bool(launch.get("founded", false)), "the yard founds the home squadron")
+	var roster: Array = play.ship_layer.regions.value(model.region_id, [])
+	assert_eq(roster.size(), 1)
+	var fleet: FleetState = roster[0]
+	assert_true(fleet.is_in_port() and fleet.province == 0)
+	assert_eq(economy.treasury, 12000, "the yard took its published price")
+	(built["ships"] as Node).free()
+
+# --- test_ai_market ---
+
+func _ai_market_config() -> AiConfig:
+	return AiConfig.build(planner_CONFIG_FACTION, 1500)
+
+func _ai_market_economy(stock: Dictionary, treasury: int = 5000) -> PlayerEconomy:
+	var economy := PlayerEconomy.starting()
+	economy.treasury = treasury
+	economy.stockpile = stock.duplicate()
+	return economy
+
+func test_planner_a_court_sells_surplus_above_the_reserve() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({"grain": 100})
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_ai_market_config(), economy, market, 0)
+	var offers: Array = plan["offers"]
+	assert_eq(offers.size(), 1)
+	assert_eq(String(offers[0]["commodity"]), "grain")
+	assert_eq(int(offers[0]["quantity"]), 10, "market.max_offer_units caps the lot")
+	var result: Dictionary = AiMarketPlanner.apply(economy, market, plan, planner_CONFIG_FACTION)
+	assert_eq((result["sold"] as Array).size(), 1)
+	assert_eq((result["bought"] as Array).size(), 0, "no holds means no imports")
+	assert_eq(economy.quantity("grain"), 90)
+	assert_true(economy.treasury > 5000)
+
+func test_planner_production_inputs_are_never_sold_under_the_court() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({"lumber": 30, "grain": 100})
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 0, {}, {"lumber": 20}
+	)
+	for raw: Variant in plan["offers"]:
+		var offer: Dictionary = raw
+		assert_ne(String(offer["commodity"]), "lumber")
+
+func test_planner_bids_short_build_inputs_with_free_holds_and_the_purse() -> void:
+	var economy: PlayerEconomy = _ai_market_economy(
+		{"lumber": 0, "castIron": 0, "fabric": 0, "paper": 0}, 5000
+	)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_ai_market_config(), economy, market, 20)
+	var bids: Array = plan["bids"]
+	assert_eq(bids.size(), 3, "baseline bid-type cap")
+	for raw: Variant in bids:
+		var bid: Dictionary = raw
+		assert_true(int(bid["quantity"]) <= 5)
+	var result: Dictionary = AiMarketPlanner.apply(economy, market, plan, planner_CONFIG_FACTION)
+	assert_eq((result["bought"] as Array).size(), 3)
+	assert_true(economy.quantity("bronze") > 0)
+
+func test_planner_no_bid_can_break_the_minimum_treasury() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({"lumber": 0, "castIron": 0}, 520)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_ai_market_config(), economy, market, 20)
+	var spend: int = 0
+	for raw: Variant in plan["bids"]:
+		var bid: Dictionary = raw
+		spend += int(bid["quantity"]) * int(market.price(String(bid["commodity"])))
+	assert_true(spend <= 20, "only the £20 above the floor may be bid")
+	assert_true(economy.treasury - spend >= 500 - 1)
+
+func test_planner_trade_fairs_raise_the_bid_type_cap_to_six() -> void:
+	var economy: PlayerEconomy = _ai_market_economy(
+		{"lumber": 0, "castIron": 0, "fabric": 0, "paper": 0, "steel": 0, "bronze": 0},
+		100000
+	)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 100, {"trade_fairs": true}
+	)
+	assert_eq((plan["bids"] as Array).size(), 6)
+
+func test_planner_a_buyer_spends_only_its_own_holds() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({}, 5000)
+	var market := WorldMarket.with_default_prices()
+	assert_true(bool(market.buy(economy, "grain", 2, 1)["ok"]))
+	assert_eq(market.bought_units_for(1), 2)
+	assert_eq(market.bought_units_for(0), 0)
+	assert_eq(market.bought_units(), 2, "the price book still sees the tonnage")
+	assert_true(bool(market.buy(economy, "grain", 1)["ok"]))
+	assert_eq(market.bought_units_for(0), 1)
+	assert_eq(TradeCargo.used(market, 1), 2)
+	assert_eq(TradeCargo.used(market, 0), 1)
+	var restored: WorldMarket = WorldMarket.from_dict(market.to_dict())
+	assert_eq(restored.bought_units_for(1), 2)
+	assert_eq(restored.bought_units_for(0), 1)
+
+func test_missing_inputs_make_the_plan_empty_ai_market() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({"grain": 100})
+	var market := WorldMarket.with_default_prices()
+	assert_true((AiMarketPlanner.plan(null, economy, market, 0)["offers"] as Array).is_empty())
+	assert_true((AiMarketPlanner.plan(_ai_market_config(), null, market, 0)["offers"] as Array).is_empty())
+	assert_true((AiMarketPlanner.plan(_ai_market_config(), economy, null, 0)["offers"] as Array).is_empty())
+	assert_true((AiMarketPlanner.apply(null, null, {})["sold"] as Array).is_empty())
+
+func test_planner_offers_stop_at_the_type_cap() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({
+		"grain": 100, "timber": 100, "iron": 100, "wool": 100,
+	})
+	var plan: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, WorldMarket.with_default_prices(), 0
+	)
+	assert_eq((plan["offers"] as Array).size(), 3)
+
+func test_planner_a_refused_trade_is_reported_not_swallowed() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({"grain": 0}, 0)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = {
+		"offers": [{"commodity": "grain", "quantity": 5}],
+		"bids": [{"commodity": "lumber", "quantity": 5, "unit_price": 60}],
+	}
+	var result: Dictionary = AiMarketPlanner.apply(economy, market, plan, planner_CONFIG_FACTION)
+	assert_eq((result["sold"] as Array).size(), 0)
+	assert_eq((result["bought"] as Array).size(), 0)
+	assert_eq((result["refused"] as Array).size(), 2)
+
+func test_planner_price_falls_back_to_the_catalog_and_zero_sales_are_refused() -> void:
+	var market := WorldMarket.with_default_prices()
+	market.prices.erase("grain")
+	assert_eq(market.price("grain"), CommodityCatalog.base_price("grain"))
+	var economy: PlayerEconomy = _ai_market_economy({"grain": 4})
+	assert_false(bool(market.sell(economy, "grain", 0)["ok"]))
+
+func test_planner_a_legacy_book_attributes_bids_to_the_player() -> void:
+	var market: WorldMarket = WorldMarket.from_dict({"bids": {"grain": 3}})
+	assert_eq(market.bought_units_for(FactionCatalog.PLAYER_FACTION), 3)
+	assert_eq(market.bought_units_for(1), 0)
+	var economy: PlayerEconomy = _ai_market_economy({}, 5000)
+	assert_true(bool(market.buy(economy, "grain", 1, 1)["ok"]))
+	assert_eq(market.bought_units_for(FactionCatalog.PLAYER_FACTION), 3)
+	assert_eq(market.bought_units_for(1), 1)
+
+func test_planner_a_plan_stages_orders_for_the_turn_end_auction() -> void:
+	var economy: PlayerEconomy = _ai_market_economy(
+		{"grain": 100, "lumber": 0, "castIron": 0, "fabric": 0, "paper": 0}, 5000
+	)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_ai_market_config(), economy, market, 20)
+	plan["free_holds"] = 20
+	var result: Dictionary = AiMarketPlanner.stage(
+		economy, market, plan, planner_CONFIG_FACTION, {}
+	)
+	assert_eq((result["refused"] as Array).size(), 0)
+	assert_gt((result["staged"] as Array).size(), 0)
+	assert_eq(economy.quantity("grain"), 100, "nothing moves before the clearing")
+	assert_gt(market.book.pending_buy_units(planner_CONFIG_FACTION), 0)
+	var cleared: Dictionary = MarketClearing.clear(
+		market, WorldMap.new(), {planner_CONFIG_FACTION: economy}, {planner_CONFIG_FACTION: 20}
+	)
+	assert_gt((cleared["deals"] as Array).size(), 0)
+	assert_gt(economy.total_units(), 100)
+
+func test_planner_a_stage_refuses_what_the_book_cannot_cover() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({"grain": 0}, 10)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = {
+		"free_holds": 0,
+		"offers": [{"commodity": "grain", "quantity": 5}],
+		"bids": [{"commodity": "timber", "quantity": 5}],
+	}
+	var result: Dictionary = AiMarketPlanner.stage(
+		economy, market, plan, planner_CONFIG_FACTION, {}
+	)
+	assert_eq((result["staged"] as Array).size(), 0)
+	assert_eq((result["refused"] as Array).size(), 2)
+
+# --- test_ai_merchant ---
+
+func test_planner_a_merchant_on_a_genoese_grain_tile_signs_the_deed() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var merchant: CivilianState = _ai_merchant_merchant(planner_GRAIN)
+	var plan: Dictionary = _ai_merchant_plan(model, [merchant])
+
+	assert_eq((plan["orders"] as Array).size(), 1)
+	assert_eq(String(plan["orders"][0]["action"]), "purchase_land")
+	assert_eq(Vector2i(plan["orders"][0]["tile"]), planner_GRAIN)
+	assert_true((plan["moves"] as Array).is_empty(), "standing on the tile, it works")
+
+func test_planner_a_merchant_away_from_the_offer_walks_toward_it() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var merchant: CivilianState = _ai_merchant_merchant(planner_AWAY)
+	var plan: Dictionary = _ai_merchant_plan(model, [merchant])
+
+	assert_true((plan["orders"] as Array).is_empty(), "the tile is out of reach")
+	var moves: Array = plan["moves"]
+	assert_eq(moves.size(), 1)
+	var move_tile: Vector2i = moves[0]["tile"]
+	assert_eq(move_tile, planner_IRON, "one step into the Minor's land")
+
+func test_planner_without_an_embassy_the_merchant_stays_home() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var court := DiplomacyState.new()
+	court.initialize(1)
+	court.ensure_relation(0, planner_MINOR, 1)
+	var plan: Dictionary = _ai_merchant_plan(model, [_ai_merchant_merchant(planner_GRAIN)], court)
+
+	assert_true((plan["orders"] as Array).is_empty())
+	assert_true((plan["moves"] as Array).is_empty())
+
+func test_planner_a_war_with_the_seller_closes_the_market() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var court: DiplomacyState = planner_Fixture.merchant_court()
+	assert_true(
+		bool(DiplomacyRules.declare_war(court, 0, planner_MINOR, true, world).get("ok", false))
+	)
+	var plan: Dictionary = _ai_merchant_plan(model, [_ai_merchant_merchant(planner_GRAIN)], court)
+
+	assert_true((plan["orders"] as Array).is_empty())
+	assert_true((plan["moves"] as Array).is_empty())
+
+func test_planner_a_deeded_tile_is_offered_to_nobody_again() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	assert_true(model.purchase_tile(planner_GRAIN, 1), "a rival's deed")
+	var plan: Dictionary = _ai_merchant_plan(model, [_ai_merchant_merchant(planner_GRAIN)])
+
+	assert_true((plan["orders"] as Array).is_empty())
+	assert_true(
+		(plan["moves"] as Array).is_empty(),
+		"the only other offer needs a prospect, so the merchant idles"
+	)
+
+func test_planner_a_mineral_waits_for_the_explorers_prospect() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var works := LandWorks.new()
+	var merchant: CivilianState = _ai_merchant_merchant(planner_IRON)
+	var plan: Dictionary = _ai_merchant_plan(model, [merchant])
+
+	assert_true((plan["orders"] as Array).is_empty(), "iron is not prospected yet")
+	var move_tile: Vector2i = (plan["moves"] as Array)[0]["tile"]
+	assert_eq(move_tile, planner_GRAIN, "the grain deed wins")
+
+	works.set_prospected(0, model, planner_IRON)
+	var ready: Dictionary = _ai_merchant_plan(model, [merchant], null, works)
+	assert_eq((ready["orders"] as Array).size(), 1)
+	assert_eq(Vector2i(ready["orders"][0]["tile"]), planner_IRON)
+
+func test_planner_a_court_with_a_deed_on_offer_trains_one_merchant() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var roster: Array = planner__staffed_roster()
+	var context: Dictionary = _ai_merchant_context(model, planner_Fixture.merchant_court())
+	var plan: Dictionary = _ai_merchant_plan(model, roster, planner_Fixture.merchant_court(), null, context)
+
+	assert_true(bool(plan["training"].get("ok", false)))
+	assert_eq(String(plan["training"]["type_id"]), "merchant")
+
+	var techless: Dictionary = _ai_merchant_context(model, planner_Fixture.merchant_court())
+	techless["tech_unlocked"] = {}
+	var plain: Dictionary = _ai_merchant_plan(model, roster, planner_Fixture.merchant_court(), null, techless)
+	assert_true(
+		(plain["training"] as Dictionary).is_empty(),
+		"no merchant companies and the staff is already at target"
+	)
+
+## The merchant follows the door, not just the deed: with no embassy yet but a
+## priced deed from a charted Minor, the staff target still names one Merchant —
+## the embassy waits on the merchant, so the hire cannot wait on the embassy
+## (issue #724; wiki: civilian-units § Merchant).
+func test_an_openable_chain_trains_one_merchant() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var court := DiplomacyState.new()
+	court.initialize(1)
+	court.ensure_relation(0, planner_MINOR, 1)
+	var roster: Array = planner__staffed_roster()
+	var plan: Dictionary = _ai_merchant_plan(model, roster, court)
+
+	assert_true(bool(plan["training"].get("ok", false)))
+	assert_eq(String(plan["training"]["type_id"]), "merchant")
+
+func test_the_openable_chain_needs_peace_charting_and_an_unsigned_deed() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var view: VisibilityModel = planner_Fixture.visibility(model)
+	# An open court with no embassy, at any purse: the chain is openable.
+	var open: Dictionary = {"diplomacy": planner_Fixture.merchant_court_unembarked(), "visibility": view}
+	assert_true(
+		AiMerchantWork.chain_openable(model, 0, open),
+		"no embassy, peace, a priced deed: the chain is openable"
+	)
+	var poor: Dictionary = {"treasury": 0, "diplomacy": open["diplomacy"], "visibility": view}
+	assert_true(
+		AiMerchantWork.chain_openable(model, 0, poor),
+		"the chain opens before the deed is affordable"
+	)
+	# An embassy already stands: the deed must be affordable to matter.
+	var walked: Dictionary = {"diplomacy": planner_Fixture.merchant_court(), "visibility": view}
+	assert_false(
+		AiMerchantWork.chain_openable(model, 0, walked),
+		"the embassy stands, so the chain is walked"
+	)
+	# A war with the seller closes it.
+	var world := WorldMap.new()
+	world.add_region(model)
+	var war_court: DiplomacyState = planner_Fixture.merchant_court_unembarked()
+	assert_true(
+		bool(DiplomacyRules.declare_war(war_court, 0, planner_MINOR, true, world).get("ok", false))
+	)
+	var war: Dictionary = {"diplomacy": war_court, "visibility": view}
+	assert_false(
+		AiMerchantWork.chain_openable(model, 0, war),
+		"a war with the seller closes the chain"
+	)
+	# The deed is already signed: nothing is left to open the door for.
+	model.purchase_tile(planner_GRAIN, 1)
+	var deeded: Dictionary = {"diplomacy": planner_Fixture.merchant_court_unembarked(), "visibility": view}
+	assert_false(
+		AiMerchantWork.chain_openable(model, 0, deeded),
+		"a signed deed leaves no chain to open"
+	)
+
+func test_planner_one_merchant_is_enough() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var roster: Array = planner__staffed_roster()
+	roster.append(CivilianState.create(9, 0, "merchant", Vector2i(0, 2)))
+	var plan: Dictionary = _ai_merchant_plan(model, roster)
+
+	assert_true(
+		(plan["training"] as Dictionary).is_empty(),
+		"one merchant fills the deed slot; the college trains nothing more"
+	)
+
+## The Build/Work pass answers each owner with its own ledger: the rival's deed
+## debits the rival, and the human crown's purse is untouched (wiki:
+## civilian-units § Merchant — "debit at completion").
+func test_planner_a_rivals_deed_is_charged_to_the_rival_ledger() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var layer := CivilianLayer.new()
+	layer.spawn(model, 0, 0, [], false)
+	var merchant: CivilianState = layer.add_unit(1, "merchant", planner_GRAIN)
+	var court: DiplomacyState = planner_Fixture.merchant_court()
+	court.ensure_relation(1, planner_MINOR, 1)
+	court.set_overture(1, planner_MINOR, DiplomacyCatalog.STAGE_EMBASSY)
+	var units: Array[CivilianState] = [merchant]
+	var context: Dictionary = {"treasury": 5000, "diplomacy": court}
+	var check: Dictionary = CivilianWork.assign(
+		model, merchant, "purchase_land", layer.works, units, planner_Fixture.stockpile(),
+		null, planner_GRAIN, {}, {}, context
+	)
+	assert_true(bool(check.get("ok", false)), String(check.get("reason", "")))
+
+	var human: PlayerEconomy = planner__ledger(5000)
+	var rival: PlayerEconomy = planner__ledger(5000)
+	var reports: Array[Dictionary] = CivilianTurnPass.resolve(
+		layer, world, null, {0: human, 1: rival}
+	)
+	assert_true(bool(reports[0]["completed"]))
+	assert_eq(rival.treasury, 4250, "the rival paid the price")
+	assert_eq(human.treasury, 5000, "the human purse is untouched")
+	assert_true(model.is_purchased_tile(planner_GRAIN))
+	assert_eq(model.owner_at(planner_GRAIN.x, planner_GRAIN.y), 1)
+	layer.free()
+
+## A deed is never recorded without a purse to close it (wiki: § Merchant —
+## the price is debited when the work completes).
+func test_planner_a_deed_without_a_ledger_is_not_signed() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var works := LandWorks.new()
+	var merchant: CivilianState = _ai_merchant_merchant(planner_GRAIN)
+	var units: Array[CivilianState] = [merchant]
+	var context: Dictionary = {"treasury": 5000, "diplomacy": planner_Fixture.merchant_court()}
+	assert_true(bool(CivilianWork.assign(
+		model, merchant, "purchase_land", works, units, planner_Fixture.stockpile(), null,
+		planner_GRAIN, {}, {}, context
+	).get("ok", false)))
+
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(model, units, works)
+	assert_true(bool(reports[0]["completed"]))
+	assert_false(model.is_purchased_tile(planner_GRAIN), "no ledger, no deed")
+	assert_false(LandPurchase.complete(model, planner_GRAIN, 0, null))
+
+## A court that could sign a deed wants the envoy chain: the Consulate outranks
+## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
+## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
+## the gate: a chain opened without a buyer at the end of it warms the relation
+## past the war ceiling and bars the conquest for nothing (issue #724, measured
+## 2026-11-15).
+func test_planner_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
+	config.agenda_traits = AiAgenda.NEUTRAL
+
+	var plain: Dictionary = planner__overture(world, state, config, {})
+	var merchant_tech: Dictionary = planner__overture(world, state, config, {
+		"merchant_companies": true,
+	})
+	assert_true(bool(plain.get("ok", false)), "the Consulate is legal either way")
+	assert_true(bool(merchant_tech.get("ok", false)))
+	assert_eq(
+		int(merchant_tech["utility"]) - int(plain["utility"]),
+		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
+		"a deed worth buying lifts the envoy"
+	)
+	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
+
+## The whole rival pass: the economy adapter musters the order for a court that
+## already holds the embassy and the tech, and the next Build/Work signs it from
+## that court's own purse (wiki: civilian-units § Merchant; docs/ai.md).
+func test_planner_the_rival_turn_signs_the_deed_for_its_own_crown() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	model.provinces[0].owner = 1
+	model.faction_ids.append(1)
+	var world := WorldMap.new()
+	world.add_region(model)
+	var layer := CivilianLayer.new()
+	layer.spawn(model, 0, 0, [], false)
+	var merchant: CivilianState = layer.add_unit(1, "merchant", planner_GRAIN)
+	# `spawn(place_units=false)` prepares the works only; the adapter walks the
+	# region table, so the roster must be registered like a mustered crew.
+	layer.regions.set_region(model.region_id, layer.units)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.world = world
+	play.model = model
+	play.civilian_layer = layer
+	play.map_seed = 1500
+	play.ai = AiState.new()
+	play.diplomacy = planner_Fixture.merchant_court()
+	play.diplomacy.ensure_relation(1, planner_MINOR, 1)
+	play.diplomacy.set_overture(1, planner_MINOR, DiplomacyCatalog.STAGE_EMBASSY)
+	var ledger: PlayerEconomy = play.ai.economy_for(1)
+	ledger.tech_unlocked["merchant_companies"] = true
+	ledger.treasury = 5000
+
+	MapPlayEconomyAi.run(play)
+	assert_true(merchant.is_working(), "the rival turn musters the purchase")
+	assert_eq(merchant.work_action(), "purchase_land")
+	assert_eq(merchant.work_tile(), planner_GRAIN)
+
+	var purse: int = ledger.treasury
+	CivilianTurnPass.resolve(layer, world, null, {1: ledger})
+	assert_true(model.is_purchased_tile(planner_GRAIN), "the deed is signed next turn")
+	assert_eq(ledger.treasury, purse - 750, "the buyer's own purse paid")
+
+## Only a Merchant carries the order, and a tile another crew already holds is
+## not offered twice (wiki: civilian-units § Per-player tile exclusivity).
+func test_planner_only_a_merchant_and_an_unreserved_tile_get_the_order() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var context: Dictionary = _ai_merchant_context(model, planner_Fixture.merchant_court())
+	var builder: CivilianState = CivilianState.create(1, 0, "builder", planner_GRAIN)
+	var none: Dictionary = AiMerchantWork.best_candidate(
+		AiConfig.build(0, 1500), model, builder, [builder], LandWorks.new(),
+		planner_Fixture.stockpile(), {}, {}, context, {}
+	)
+	assert_true(none.is_empty(), "a builder cannot buy land")
+	var merchant: CivilianState = _ai_merchant_merchant(planner_GRAIN)
+	var taken: Dictionary = AiMerchantWork.best_candidate(
+		AiConfig.build(0, 1500), model, merchant, [merchant], LandWorks.new(),
+		planner_Fixture.stockpile(), {}, {}, context, {planner_GRAIN: true}
+	)
+	assert_true(taken.is_empty(), "another crew already has this tile")
+
+## An empty purse or an unaffordable price leaves nothing on offer, and a deed
+## is never a Great Power's to sell (wiki: civilian-units § Merchant).
+func test_planner_an_empty_purse_and_a_great_power_land_offer_nothing() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var court: DiplomacyState = planner_Fixture.merchant_court()
+	assert_true(
+		AiMerchantWork.buyable_tiles(model, 0, LandWorks.new(), {
+			"treasury": 0, "diplomacy": court,
+		}).is_empty(),
+		"no treasury, no offer"
+	)
+	var gp: MapModel = planner_Fixture.build()
+	var gp_court := DiplomacyState.new()
+	gp_court.initialize(1)
+	gp_court.ensure_relation(0, 1, 1)
+	gp_court.set_overture(0, 1, DiplomacyCatalog.STAGE_EMBASSY)
+	assert_true(
+		AiMerchantWork.buyable_tiles(gp, 0, LandWorks.new(), {
+			"treasury": 5000, "diplomacy": gp_court,
+		}).is_empty(),
+		"only Minor Nations and Tribes sell land"
+	)
+	assert_eq(AiMerchantWork.cheapest_offer(gp, 0, 1, 5000), 0)
+	assert_true(AiMerchantWork.best_move(gp, _ai_merchant_merchant(planner_GRAIN), LandWorks.new()).is_empty())
+	# The priced read lifts no treasury bar: the deed has a published price even
+	# when this turn's floor cannot cover it (issue #724).
+	assert_eq(AiMerchantWork.priced_offer(model, 0, planner_MINOR, null), 750)
+	assert_eq(
+		AiMerchantWork.cheapest_offer(model, 0, planner_MINOR, 0), 0,
+		"this turn's floor still bars the signature"
+	)
+
+func _ai_merchant_merchant(tile: Vector2i, owner: int = 0) -> CivilianState:
+	return CivilianState.create(1, owner, "merchant", tile)
+
+func planner__ledger(treasury: int) -> PlayerEconomy:
+	var economy := PlayerEconomy.starting()
+	economy.treasury = treasury
+	return economy
+
+## Builders, engineer_target, explorer_target and a spy: every earlier training
+## slot is filled, so a deed on offer makes the merchant the next craft.
+func planner__staffed_roster() -> Array:
+	return [
+		CivilianState.create(1, 0, "builder", Vector2i(0, 0)),
+		CivilianState.create(2, 0, "builder", Vector2i(1, 0)),
+		CivilianState.create(3, 0, "engineer", Vector2i(0, 1)),
+		CivilianState.create(6, 0, "engineer", Vector2i(1, 2)),
+		CivilianState.create(4, 0, "explorer", Vector2i(1, 1)),
+		CivilianState.create(7, 0, "explorer", Vector2i(0, 0)),
+		CivilianState.create(8, 0, "explorer", Vector2i(1, 0)),
+		CivilianState.create(5, 0, "spy", Vector2i(0, 2)),
+	]
+
+func _ai_merchant_context(
+	model: MapModel, court: DiplomacyState, treasury: int = 5000
+) -> Dictionary:
+	return {
+		"treasury": treasury,
+		"paper": 8,
+		"capital_province": 0,
+		"capital_tile": Vector2i(0, 0),
+		"at_war": false,
+		"diplomacy": court,
+		"tech_unlocked": {"merchant_companies": true},
+		"visibility": planner_Fixture.visibility(model),
+	}
+
+func _ai_merchant_plan(
+	model: MapModel,
+	units: Array,
+	court: DiplomacyState = null,
+	works: LandWorks = null,
+	context: Dictionary = {}
+) -> Dictionary:
+	var diplomacy: DiplomacyState = court if court != null else planner_Fixture.merchant_court()
+	return AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, works if works != null else LandWorks.new(),
+		planner_Fixture.stockpile(), {}, {"merchant_companies": true},
+		context if not context.is_empty() else _ai_merchant_context(model, diplomacy)
+	)
+
+func planner__overture(
+	world: WorldMap, state: DiplomacyState, config: AiConfig, tech: Dictionary
+) -> Dictionary:
+	var context: Dictionary = {
+		"treasury": {config.faction: 5000},
+		"tech": {config.faction: tech},
+		"player": -1,
+	}
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		config, state, AiState.new(), world, 1, planner_MINOR, 50, context
+	)
+	for entry: Dictionary in entries:
+		if String(entry.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE:
+			return entry
+	return {}
+
+# --- test_ai_army_reinforce ---
+
+func _ai_army_reinforce_config() -> AiConfig:
+	return AiConfig.build(ai_army_reinforce_OWNER, 1500)
+
+## A court with its own ledger: treasury and the opening stock of fabric and
+## cast iron the line rows need.
+func _ai_army_reinforce_economy(treasury: int = 12000, peasants: int = 6) -> PlayerEconomy:
+	var economy := PlayerEconomy.starting()
+	economy.treasury = treasury
+	economy.workers = WorkerPool.make(peasants)
+	return economy
+
+func test_planner_a_rival_musters_the_strongest_line_it_can_pay_for() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 3, false)
+
+	assert_eq(String(plan["muster"]), "arquebusiers", "the strongest era-1 line")
+	var candidates: Array = plan["candidates"]
+	assert_true(candidates.size() > 0)
+	assert_eq(String(candidates[0]["type_id"]), "arquebusiers")
+	for entry: Dictionary in candidates:
+		assert_true(
+			RegimentCatalog.category(String(entry["type_id"]))
+			in AiArmyReinforce.LINE_CATEGORIES,
+			"a mustered regiment is a line regiment"
+		)
+
+func test_planner_the_war_chest_keeps_the_court_from_overspending() -> void:
+	# 4,000 ducats covers a pike, but that would empty the purse; the 2,000 levy
+	# is the only line that leaves the court's thousand-ducat floor in the bank.
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(4000), 3, false)
+
+	assert_eq(String(plan["muster"]), "peasant_levies")
+	var priced: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(1500), 3, false)
+	assert_eq(String(priced["muster"]), "", "nothing payable leaves the floor alone")
+	assert_true((priced["reasons"] as Array).has("nothing payable"))
+
+
+## The hull the court is saving for outranks the next regiment once it can fill
+## the chest: a muster spends only what stands above it, so the yard's price
+## survives the army's turn and the hull is actually laid (issue #484). A chest
+## the court cannot fill yet is not held back at all (issue #591).
+func test_the_muster_waits_for_the_hull_it_is_saving_for() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var economy: PlayerEconomy = _ai_army_reinforce_economy(4600)
+	var free: Dictionary = AiArmyReinforce.plan(config, economy, 3, true)
+	assert_ne(String(free["muster"]), "", "with no fleet claim the court arms up")
+
+	# 4,600 ducats is short of the 5,500 yard: the army it can pay for is raised.
+	var short: Dictionary = AiArmyReinforce.plan(config, economy, 3, true, 0, -1, 5500)
+	assert_ne(String(short["muster"]), "", "a chest it cannot fill is not the army's ceiling")
+	assert_false((short["reasons"] as Array).has("saving for a hull"))
+
+	# With the chest in hand the fleet's claim comes first again.
+	var held: Dictionary = AiArmyReinforce.plan(
+		config, _ai_army_reinforce_economy(5500), 5, true, 0, -1, 5500
+	)
+	assert_eq(String(held["muster"]), "", "the hull's chest is not the army's to spend")
+	assert_true(
+		(held["reasons"] as Array).has("saving for a hull"),
+		"and the trace says which claim held it back"
+	)
+
+	# Once the purse covers the chest and the line, the muster resumes.
+	var rich: Dictionary = AiArmyReinforce.plan(
+		config, _ai_army_reinforce_economy(9000), 5, true, 0, -1, 5500
+	)
+	assert_ne(String(rich["muster"]), "", "a purse above the chest may arm up again")
+
+func test_the_muster_trace_names_the_row_that_blocks_it() -> void:
+	# A court holding its whole war chest and no fabric musters nothing; the
+	# trace must say which row is missing, not only `nothing payable` (#474).
+	var economy: PlayerEconomy = _ai_army_reinforce_economy(12000)
+	economy.stockpile["fabric"] = 0
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_ai_army_reinforce_config(), economy, 5, true
+	)
+	assert_eq(String(plan["muster"]), "", "no line is payable without fabric")
+	var reasons: Array = plan["reasons"]
+	assert_true(reasons.has("nothing payable"))
+	assert_true(reasons.has("missing fabric 1"), "the trace names the row")
+
+
+## Issue #484: once the chest is full the hull's row is the fleet's too. A court
+## that wove one cloth a turn and mustered it away could never lay the hull it
+## had already paid for, so the muster spends only the cloth above that row.
+func test_the_muster_yields_the_hull_s_row_once_the_chest_is_full() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var economy: PlayerEconomy = _ai_army_reinforce_economy(9000)
+	economy.stockpile["fabric"] = 1
+	var row: Dictionary = {"lumber": 1, "fabric": 1}
+	var held: Dictionary = AiArmyReinforce.plan(
+		config, economy, 5, true, 0, -1, 5500, row
+	)
+	assert_eq(String(held["muster"]), "", "the last cloth is the hull's")
+	assert_true(
+		(held["reasons"] as Array).has("missing fabric 1"),
+		"and the trace names the row the fleet holds"
+	)
+	# One cloth above the row is the army's again.
+	economy.stockpile["fabric"] = 2
+	var spare: Dictionary = AiArmyReinforce.plan(
+		config, economy, 5, true, 0, -1, 5500, row
+	)
+	assert_ne(String(spare["muster"]), "", "the surplus above the row may be spent")
+	# With no hull due the row is not held at all.
+	var free: Dictionary = AiArmyReinforce.plan(config, economy, 3, true, 0, -1, 5500)
+	assert_ne(String(free["muster"]), "", "no fleet claim, no held row")
+
+
+func test_planner_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var peace_target: int = config.parameter("army.regiment_target")
+	var war_target: int = peace_target + config.parameter("army.war_extra")
+	var peace: Dictionary = AiArmyReinforce.plan(config, _ai_army_reinforce_economy(), peace_target, false)
+	assert_eq(String(peace["muster"]), "", "at the peace target the court waits")
+	assert_eq(int(peace["target"]), peace_target)
+
+	var war: Dictionary = AiArmyReinforce.plan(config, _ai_army_reinforce_economy(), peace_target, true)
+	assert_eq(int(war["target"]), war_target, "the war footing raises the target")
+	assert_eq(String(war["muster"]), "arquebusiers", "a court at war arms up")
+
+	var full: Dictionary = AiArmyReinforce.plan(config, _ai_army_reinforce_economy(), war_target, true)
+	assert_eq(String(full["muster"]), "", "the war target is a ceiling too")
+
+## A court that can see the bar arms up for the finish (DR-20261114-04): the
+## target rises by the pressure extra, so a court already at its published
+## target keeps mustering, and the price rules are unchanged.
+func test_the_victory_pressure_raises_the_muster_target() -> void:
+	var config: AiConfig = _ai_army_reinforce_config()
+	var economy: PlayerEconomy = _ai_army_reinforce_economy()
+	var at: int = config.parameter("army.regiment_target")
+	var peace: Dictionary = AiArmyReinforce.plan(config, economy, at, false)
+	var extra: int = config.parameter("victory.pressure_regiments")
+	var pressed: Dictionary = AiArmyReinforce.plan(config, economy, at, false, extra)
+
+	assert_eq(int(peace["target"]), at)
+	assert_eq(int(pressed["target"]), at + extra, "the pressing court aims higher")
+	assert_eq(String(peace["muster"]), "", "at the published target")
+	assert_eq(String(pressed["muster"]), "arquebusiers", "the pressing court keeps arming")
+	assert_true(
+		AiArmyReinforce.muster_reserve(config, economy, at, false).is_empty(),
+		"a court at its published target reserves no more cloth"
+	)
+	assert_false(
+		AiArmyReinforce.muster_reserve(config, economy, at, false, extra).is_empty(),
+		"the pressing court provisions for the bigger army"
+	)
+
+
+func test_planner_a_thin_labour_pool_stops_the_muster() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 3), 3, false)
+
+	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
+	assert_true((plan["reasons"] as Array).has("labour floor"))
+
+func test_planner_a_researched_pattern_is_the_one_that_musters() -> void:
+	var economy: PlayerEconomy = _ai_army_reinforce_economy()
+	economy.tech_unlocked["weapon_craftsmanship"] = true
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), economy, 3, false)
+
+	assert_eq(String(plan["muster"]), "musketeers", "the newest legal line wins")
+
+## One peace-time world: England's seat at province 0, France's at province 1,
+## with a rival ledger already resolved for France. `extra` appends the caller's
+## field armies to the region roster.
+func planner__play(
+	treasury: int = 12000, with_ledger: bool = true, extra: Array[ArmyState] = []
+) -> PlaySession:
+	var world: WorldMap = planner_AiFixture.land_world([HUMAN, ai_army_reinforce_OWNER], {0: true, 1: true})
+	var model: MapModel = world.region(0)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, HUMAN, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(
+			2, ai_army_reinforce_OWNER, 1, true, ["peasant_levies", "peasant_levies"] as Array[String], 101
+		),
+	]
+	armies.append_array(extra)
+	var layer := ArmyLayer.new()
+	layer.model = model
+	layer.next_army = 100
+	layer.next_regiment = 1000
+	layer.regions.set_region(0, armies)
+	var play := PlaySession.new()
+	play.player_faction = HUMAN
+	play.world = world
+	play.model = model
+	var court := DiplomacyState.new()
+	court.reset(HUMAN)
+	court.ensure_relation(HUMAN, ai_army_reinforce_OWNER, 1)
+	play.diplomacy = court
+	play.army_layer = layer
+	play.map_seed = 1500
+	if with_ledger:
+		play.ai = AiState.new()
+		play.ai.economies[ai_army_reinforce_OWNER] = _ai_army_reinforce_economy(treasury)
+	return play
+
+func test_planner_the_map_pass_musters_a_rival_from_its_own_ledger() -> void:
+	var play: PlaySession = planner__play(12000)
+	var economy: PlayerEconomy = play.ai.economies[ai_army_reinforce_OWNER]
+	var before: int = play.army_layer.regiment_count_all(ai_army_reinforce_OWNER)
+	var peasants: int = economy.available_peasants()
+
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	assert_eq(trace.size(), 1, "a muster and nothing else in peace")
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_REINFORCE)
+	assert_eq(String(trace[0]["type"]), "arquebusiers")
+	assert_eq(play.army_layer.regiment_count_all(ai_army_reinforce_OWNER), before + 1)
+	assert_eq(economy.available_peasants(), peasants - 1, "one peasant joins the colours")
+	assert_true(
+		economy.treasury < 12000, "the court's own purse pays, never the crown's"
+	)
+	var home: ArmyState = ArmyTraining.home_army(play.army_layer.armies, ai_army_reinforce_OWNER)
+	assert_not_null(home)
+	assert_true(
+		home.regiments.has(String(trace[0]["regiment"])),
+		"the new regiment wears France's colours in the Home Army"
+	)
+	play.army_layer.free()
+
+func test_planner_the_human_crown_is_never_mustered_for() -> void:
+	var play: PlaySession = planner__play(12000)
+	var before: int = play.army_layer.regiment_count_all(HUMAN)
+
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	assert_eq(play.army_layer.regiment_count_all(HUMAN), before)
+	for record: Dictionary in trace:
+		assert_eq(int(record["faction"]), ai_army_reinforce_OWNER, "the crown musters its own men")
+	play.army_layer.free()
+
+func test_planner_a_court_without_a_ledger_never_musters() -> void:
+	var play: PlaySession = planner__play(12000, false)
+	var before: int = play.army_layer.regiment_count_all(ai_army_reinforce_OWNER)
+
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	assert_eq(trace.size(), 0, "no ledger, no muster")
+	assert_eq(play.army_layer.regiment_count_all(ai_army_reinforce_OWNER), before)
+	play.army_layer.free()
+
+func test_planner_the_observer_log_reads_the_muster() -> void:
+	var play: PlaySession = planner__play(12000)
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+	var merged: Dictionary = AiTurnLog.record(play, trace, [], {})
+	var record: Dictionary = merged["factions"][ai_army_reinforce_OWNER]
+	assert_eq(int(record["actions"].get("reinforce", 0)), 1, "one regiment raised")
+	var lines: Array = record["events"]
+	assert_true(lines.size() > 0, "the event list names the pattern")
+	play.army_layer.free()
+
+# --- test_ai_hospital_train_work ---
+
+## France's ledger at war: enough lumber and cloth for a train and a yard's work
+## behind it, Organised Regiments, and three peasants — so the fields keep their
+## hands and the muster stays silent in these tests.
+func _train_economy(lumber: int = 40, fabric: int = 12, tech: bool = true) -> PlayerEconomy:
+	var economy: PlayerEconomy = _ai_army_reinforce_economy()
+	economy.stockpile["lumber"] = lumber
+	economy.stockpile["fabric"] = fabric
+	economy.workers = WorkerPool.make(3)
+	if tech:
+		economy.tech_unlocked["organised_regiments"] = true
+	return economy
+
+
+## A worn field army of France's standing on France's own ground, and a war on.
+## `extra` adds more field armies for the one-train-a-turn case.
+func _train_play(
+	worn_health: int = 12, war: bool = true, extra: Array[ArmyState] = []
+) -> PlaySession:
+	var field := ArmyState.muster(
+		3, ai_army_reinforce_OWNER, 1, false,
+		["peasant_levies", "peasant_levies"] as Array[String], 201
+	)
+	for regiment_id: String in field.regiments:
+		field.regiment_health[regiment_id] = worn_health
+	## It has marched already, so the turn's trace carries the surgeons alone.
+	field.moved = true
+	var armies: Array[ArmyState] = [field]
+	armies.append_array(extra)
+	var play: PlaySession = planner__play(12000, true, armies)
+	play.ai.economies[ai_army_reinforce_OWNER] = _train_economy()
+	if war:
+		DiplomacyRules.declare_war(play.diplomacy, ai_army_reinforce_OWNER, HUMAN)
+	return play
+
+
+func _train_ledger(play: PlaySession) -> PlayerEconomy:
+	return play.ai.economies[ai_army_reinforce_OWNER]
+
+
+func _train_roster(play: PlaySession) -> Array[ArmyState]:
+	var roster: Array[ArmyState] = []
+	roster.assign(play.army_layer.regions.value(0, []))
+	return roster
+
+
+func _chosen(play: PlaySession, at_war: bool = true) -> ArmyState:
+	return AiHospitalTrainWork.best_army(
+		play.model, _train_roster(play), ai_army_reinforce_OWNER, _train_ledger(play), at_war
+	)
+
+
+func test_a_worn_field_army_gets_the_rivals_surgeons() -> void:
+	var play: PlaySession = _train_play()
+	var chosen: ArmyState = _chosen(play)
+
+	assert_not_null(chosen, "a court at war will not leave a mauled host in the field")
+	if chosen != null:
+		assert_eq(chosen.id, 3, "the field army, not the Home Army at its seat")
+		assert_true(
+			AiHospitalTrainWork.worn(chosen) < AiHospitalTrainWork.WORN_SHARE,
+			"one wound short of a rest is all the policy asks",
+		)
+	play.army_layer.free()
+
+
+func test_peace_leaves_the_tents_in_the_wagon() -> void:
+	var play: PlaySession = _train_play(12, false)
+
+	assert_true(_chosen(play, false) == null, "nurses eat: no tents are pitched in peace")
+	play.army_layer.free()
+
+
+func test_a_fresh_army_needs_no_surgeon() -> void:
+	var play: PlaySession = _train_play(9999)
+
+	assert_true(_chosen(play) == null, "an unwounded host has nothing to mend")
+	play.army_layer.free()
+
+
+func test_a_province_ward_beats_the_train() -> void:
+	var play: PlaySession = _train_play()
+	for province: ProvinceState in play.model.provinces:
+		if province.owner == ai_army_reinforce_OWNER:
+			province.hospital_level = HospitalRules.MAX_LEVEL
+
+	assert_true(_chosen(play) == null, "a General hospital already heals better")
+	play.army_layer.free()
+
+
+func test_the_train_waits_for_organised_regiments() -> void:
+	var play: PlaySession = _train_play()
+	_train_ledger(play).tech_unlocked.erase("organised_regiments")
+
+	assert_true(_chosen(play) == null, "the rule's tech gate is the planner's too")
+	play.army_layer.free()
+
+
+func test_the_yard_keeps_its_timber() -> void:
+	var play: PlaySession = _train_play()
+	_train_ledger(play).stockpile["lumber"] = 3
+
+	assert_true(_chosen(play) == null, "the price must leave a working stock behind")
+	play.army_layer.free()
+
+
+func test_the_map_pass_pitches_the_rivals_train() -> void:
+	var play: PlaySession = _train_play()
+	var economy: PlayerEconomy = _train_ledger(play)
+	var lumber: int = economy.quantity("lumber")
+	var fabric: int = economy.quantity("fabric")
+
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	var hops: Array[Dictionary] = []
+	for record: Dictionary in trace:
+		if String(record["kind"]) == MapPlayArmyAi.KIND_HOSPITAL:
+			hops.append(record)
+	assert_eq(hops.size(), 1, "one train in the turn")
+	assert_eq(int(hops[0]["faction"]), ai_army_reinforce_OWNER)
+	assert_eq(int(hops[0]["army"]), 3)
+	assert_true(
+		planner__field_army(play).field_hospital,
+		"the standard carries the tents from now on"
+	)
+	assert_eq(economy.quantity("lumber"), lumber - 2, "the court's own timber pays")
+	assert_eq(economy.quantity("fabric"), fabric - 1)
+	play.army_layer.free()
+
+
+## Two equally worn hosts: the lowest army id carries the tents, so a given
+## roster always answers the same way.
+func test_a_tie_goes_to_the_lowest_army_id() -> void:
+	var twin := ArmyState.muster(
+		4, ai_army_reinforce_OWNER, 1, false,
+		["peasant_levies", "peasant_levies"] as Array[String], 301
+	)
+	for regiment_id: String in twin.regiments:
+		twin.regiment_health[regiment_id] = 12
+	twin.moved = true
+	var play: PlaySession = _train_play(12, true, [twin] as Array[ArmyState])
+	var chosen: ArmyState = _chosen(play)
+
+	assert_not_null(chosen)
+	if chosen != null:
+		assert_eq(chosen.id, 3, "army 3 and army 4 are worn alike; the lower id wins")
+	play.army_layer.free()
+
+
+func test_the_court_brings_one_train_a_turn() -> void:
+	var second := ArmyState.muster(
+		4, ai_army_reinforce_OWNER, 1, false,
+		["peasant_levies", "peasant_levies"] as Array[String], 301
+	)
+	for regiment_id: String in second.regiments:
+		second.regiment_health[regiment_id] = 12
+	second.moved = true
+	var play: PlaySession = _train_play(12, true, [second] as Array[ArmyState])
+
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+
+	var trained: int = 0
+	for record: Dictionary in trace:
+		if String(record["kind"]) == MapPlayArmyAi.KIND_HOSPITAL:
+			trained += 1
+	assert_eq(trained, 1, "a court equips one train a turn")
+	var carrying: int = 0
+	for army: ArmyState in _train_roster(play):
+		if army != null and army.field_hospital:
+			carrying += 1
+	assert_eq(carrying, 1)
+	play.army_layer.free()
+
+
+func test_the_observer_log_reads_the_train() -> void:
+	var play: PlaySession = _train_play()
+	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
+	var merged: Dictionary = AiTurnLog.record(play, trace, [], {})
+	var record: Dictionary = merged["factions"][ai_army_reinforce_OWNER]
+
+	assert_eq(int(record["actions"].get("hospital", 0)), 1, "the train is its own act")
+	assert_eq(int(record["actions"].get("march", 0)), 0, "never miscounted as a march")
+	var named: bool = false
+	for line: Dictionary in merged["events"]:
+		if String(line.get("text", "")).contains("field hospital train"):
+			named = true
+	assert_true(named, "the log names the train and the ground")
+	assert_true(
+		AiTurnLog.headline(record).contains("field hospitals ×1"),
+		"the observer panel headline counts the train",
+	)
+	play.army_layer.free()
+
+
+func planner__field_army(play: PlaySession) -> ArmyState:
+	for army: ArmyState in _train_roster(play):
+		if army != null and army.id == 3:
+			return army
+	return null
+
+# --- test_ai_builder_work ---
+
+func _ai_builder_work_model(level: int) -> MapModel:
+	var model := MapModel.new()
+	model.setup(3, 1)
+	var tiles: Array[Vector2i] = []
+	for tile: Vector2i in [ai_builder_work_TOWN, planner_TIMBER, planner_TIMBER_FAR]:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 0
+		tiles.append(tile)
+	var province := ProvinceState.create(0, "Plantation", tiles, Vector2.ZERO, 3, 1)
+	province.town_tile = ai_builder_work_TOWN
+	province.town_development = level
+	model.provinces = [province]
+	model.faction_ids.append(1)
+	for tile: Vector2i in [planner_TIMBER, planner_TIMBER_FAR]:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	return model
+
+func _ai_builder_work_works(model: MapModel) -> LandWorks:
+	var works := LandWorks.new()
+	works.add_port(model, ai_builder_work_TOWN)
+	for tile: Vector2i in [planner_TIMBER, planner_TIMBER_FAR]:
+		works.set_improvement(model, tile, LandWorks.MAX_IMPROVEMENT)
+		works.set_transport(model, tile, LandWorks.TRANSPORT_RAIL)
+	return works
+
+func _ai_builder_work_stockpile() -> Dictionary:
+	return {"timber": 200, "lumber": 40, "castIron": 40}
+
+func _ai_builder_work_plan(model: MapModel, context: Dictionary = {}) -> Dictionary:
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", planner_TIMBER)
+	return AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [builder], _ai_builder_work_works(model), _ai_builder_work_stockpile(),
+		{"timber": 4}, {"national_bureaucracy": true}, context
+	)
+
+## The estates are finished, so the town is the only order left; a level-1 town
+## that would pay 4 lumber a turn is worth more than idling the Builder.
+func test_planner_a_developing_town_becomes_the_builders_order() -> void:
+	var plan: Dictionary = _ai_builder_work_plan(_ai_builder_work_model(1))
+	var orders: Array = plan["orders"]
+
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "upgrade_town")
+	assert_eq(Vector2i(orders[0]["tile"]), ai_builder_work_TOWN)
+
+## An overseas province is priced on the tons the holds landed, not on the far
+## shore's harvest: with nothing delivered the town pays nothing and is left.
+func test_planner_an_overseas_town_with_nothing_landed_is_left_alone() -> void:
+	var plan: Dictionary = _ai_builder_work_plan(_ai_builder_work_model(1), {"delivered_raw": {}})
+
+	assert_true((plan["orders"] as Array).is_empty())
+	assert_true((plan["moves"] as Array).is_empty())
+
+func test_planner_an_overseas_town_is_upgraded_from_the_tons_that_landed() -> void:
+	var plan: Dictionary = _ai_builder_work_plan(_ai_builder_work_model(1), {"delivered_raw": {0: {"timber": 8}}})
+	var orders: Array = plan["orders"]
+
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "upgrade_town")
+
+func test_planner_a_finished_town_is_left_alone() -> void:
+	assert_true((_ai_builder_work_plan(_ai_builder_work_model(CivilianWorkPlan.MAX_TOWN))["orders"] as Array).is_empty())
+
+func test_planner_the_bureaucracy_gate_still_refuses_the_order() -> void:
+	var model: MapModel = _ai_builder_work_model(1)
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", planner_TIMBER)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [builder], _ai_builder_work_works(model), _ai_builder_work_stockpile(),
+		{"timber": 4}, {}, {}
+	)
+
+	assert_true((plan["orders"] as Array).is_empty(), "no national_bureaucracy")
+
+func planner__seat_model(town_level: int, estate_level: int) -> MapModel:
+	var model := MapModel.new()
+	model.setup(3, 1)
+	var tiles: Array[Vector2i] = []
+	for tile: Vector2i in [planner_SEAT, planner_SEAT_ESTATE, planner_SEAT_ESTATE_FAR]:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 0
+		tiles.append(tile)
+	var province := ProvinceState.create(0, "Seat", tiles, Vector2.ZERO, 3, 1, true)
+	province.town_tile = planner_SEAT
+	province.capital_tile = planner_SEAT
+	province.town_development = town_level
+	model.provinces = [province]
+	model.faction_ids.append(1)
+	for tile: Vector2i in [planner_SEAT_ESTATE, planner_SEAT_ESTATE_FAR]:
+		model.resource[model.index_of(tile.x, tile.y)] = 0
+	return model
+
+func planner__seat_works(model: MapModel, estate_level: int) -> LandWorks:
+	var works := LandWorks.new()
+	works.add_port(model, planner_SEAT)
+	for tile: Vector2i in [planner_SEAT_ESTATE, planner_SEAT_ESTATE_FAR]:
+		if estate_level > 0:
+			works.set_improvement(model, tile, estate_level)
+		works.set_transport(model, tile, LandWorks.TRANSPORT_RAIL)
+	return works
+
+func planner__seat_plan(town_level: int, estate_level: int) -> Dictionary:
+	var model: MapModel = planner__seat_model(town_level, estate_level)
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", planner_SEAT_ESTATE)
+	return AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [builder], planner__seat_works(model, estate_level),
+		{"timber": 2, "lumber": 40, "castIron": 40}, {"timber": 4},
+		{"national_bureaucracy": true}
+	)
+
+## Stores are short of timber, but a level-1 estate in a level-1 seat gathers
+## nothing more at level 2: the town is the order that pays, so the Builder
+## raises the town instead of buying a dead estate level.
+func test_planner_a_town_capping_its_estates_is_raised_before_the_estate() -> void:
+	var plan: Dictionary = planner__seat_plan(1, 1)
+	var orders: Array = plan["orders"]
+
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "upgrade_town")
+	assert_eq(Vector2i(orders[0]["tile"]), planner_SEAT)
+
+## Once the estate is fully improved the town is the only order left, and it is
+## raised even though its manufactures are still short of one four-ton run: the
+## estate levels it unlocks are what the Builder is buying.
+func test_planner_a_town_is_raised_for_the_estate_levels_it_unlocks() -> void:
+	var plan: Dictionary = planner__seat_plan(1, LandWorks.MAX_IMPROVEMENT)
+	var orders: Array = plan["orders"]
+
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "upgrade_town")
+	assert_eq(Vector2i(orders[0]["tile"]), planner_SEAT)
+
+## A developed town no longer caps its estates, so the Builder raises the estate
+## at once — the cap read must not idle a court that can gather.
+func test_planner_a_developed_town_frees_the_estate_order() -> void:
+	var plan: Dictionary = planner__seat_plan(CivilianWorkPlan.MAX_TOWN, 1)
+	var orders: Array = plan["orders"]
+
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_improvement")
+	assert_eq(Vector2i(orders[0]["tile"]), planner_SEAT_ESTATE)
+
+## An estate held back by the town cap earns no shortage premium: an estate the
+## crown can gather from wins the Builder even when its commodity is abundant.
+func test_planner_a_capped_estate_earns_no_shortage_premium() -> void:
+	var row: Dictionary = {
+		"tile": planner_SEAT_ESTATE, "province": 0, "commodity": "timber", "level": 1,
+		"tech_cap": 4, "terrain_cap": 4, "transport": 4, "town_cap": 1,
+		"output": 1, "connected": true,
+	}
+	var open_row: Dictionary = row.duplicate()
+	open_row["town_cap"] = 4
+	open_row["output"] = 1
+
+	assert_eq(AiBuilderWork.paid_gain(row), 0, "the town cap pays nothing more")
+	assert_eq(AiBuilderWork.paid_gain(open_row), 1, "the next level pays")
+	assert_eq(AiBuilderWork.town_unlocks([row], 0), 1, "the town unlocks one level")
+	assert_eq(AiBuilderWork.town_unlocks([open_row], 0), 0, "a free estate unlocks nothing")
+
+# --- test_ai_engineer_work ---
+
+func _ai_engineer_work_context(at_war: bool = false) -> Dictionary:
+	return {
+		"treasury": 2500,
+		"paper": 8,
+		"capital_province": ai_engineer_work_CivilianFixture.PLAYER_PROVINCE,
+		"capital_tile": ai_engineer_work_BARE,
+		"at_war": at_war,
+	}
+
+func planner__engineer_order(model: MapModel, works: LandWorks, at_war: bool = false) -> Dictionary:
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_engineer_work_BARE)
+	return planner_Engineer.best_candidate(
+		AiConfig.build(0, 1500), model, unit, [unit] as Array, works,
+		ai_engineer_work_CivilianFixture.stockpile(), {}, {}, _ai_engineer_work_context(at_war), {}
+	)
+
+## Every owned tile improved and ported, so the only work left is transport.
+func _ai_engineer_work_works(model: MapModel) -> LandWorks:
+	var works := LandWorks.new()
+	works.add_port(model, ai_engineer_work_CivilianFixture.COAST_TILE)
+	for tile: Vector2i in model.ownership.owned_tiles(model, 0):
+		works.set_improvement(model, tile, LandWorks.MAX_IMPROVEMENT)
+	return works
+
+func test_planner_a_road_still_reaches_a_resource_without_one() -> void:
+	var model: MapModel = ai_engineer_work_CivilianFixture.build()
+	var order: Dictionary = planner__engineer_order(model, _ai_engineer_work_works(model))
+	assert_eq(String(order.get("action", "")), "build_road")
+	var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
+	assert_ne(model.resource_at(tile.x, tile.y), MapModel.NO_ID, "the road reaches a resource")
+
+func test_planner_a_coastal_province_without_a_port_gets_one() -> void:
+	var model: MapModel = ai_engineer_work_CivilianFixture.build()
+	for tile: Vector2i in model.provinces[0].tiles:
+		model.resource[model.index_of(tile.x, tile.y)] = MapModel.NO_ID
+	var order: Dictionary = planner__engineer_order(model, LandWorks.new())
+	var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
+	assert_eq(String(order.get("action", "")), "build_port")
+	assert_true(MapGeo.is_coastal_tile(model, tile.x, tile.y), "a port only rises on the coast")
+
+func test_planner_an_invaded_court_prices_its_fort_with_wartime_urgency() -> void:
+	var model: MapModel = ai_engineer_work_CivilianFixture.build()
+	var works := LandWorks.new()
+	works.add_port(model, ai_engineer_work_CivilianFixture.COAST_TILE)
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_engineer_work_BARE)
+	var fort: Dictionary = planner_Engineer.fort_candidate(
+		AiConfig.build(0, 1500), model, unit, [unit] as Array, works,
+		ai_engineer_work_CivilianFixture.stockpile(), {}, {}, _ai_engineer_work_context(true)
+	)
+	var road: Dictionary = planner__engineer_order(model, works)
+	assert_eq(String(fort.get("action", "")), "build_fort")
+	assert_eq(Vector2i(fort["tile"]), FortRules.site_tile(model, ai_engineer_work_CivilianFixture.PLAYER_PROVINCE))
+	# An invaded court prices its fort above its other works as a floor: the fort
+	# weight plus the wartime urgency, whatever the hinterland still owes.
+	var weight: int = AiConfig.build(0, 1500).parameter("civilian.fort_weight")
+	assert_true(int(fort["score"]) >= weight + 50, "the fort carries its wartime urgency")
+	assert_eq(String(road.get("action", "")), "build_road")
+
+func test_planner_the_engineer_never_offers_a_rail() -> void:
+	var model: MapModel = ai_engineer_work_CivilianFixture.build()
+	var works: LandWorks = _ai_engineer_work_works(model)
+	works.set_transport(model, ai_engineer_work_CivilianFixture.TIMBER_TILE, LandWorks.TRANSPORT_ROAD)
+	for at_war: bool in [false, true]:
+		var order: Dictionary = planner__engineer_order(model, works, at_war)
+		assert_ne(String(order.get("action", "")), "build_rail", "a rail is the Rail Builder's work")
+
+func test_planner_no_engineer_work_without_a_config() -> void:
+	var model: MapModel = ai_engineer_work_CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_engineer_work_BARE)
+	assert_true(planner_Engineer.best_candidate(
+		null, model, unit, [unit] as Array, LandWorks.new(),
+		ai_engineer_work_CivilianFixture.stockpile(), {}, {}, _ai_engineer_work_context(), {}
+	).is_empty())
+
+# --- test_ai_hospital_work ---
+
+## A capital province with a seat and a second owned town province; no resource
+## tiles and no coast, so an planner_Engineer's only other work is the town sweep.
+func _ai_hospital_work_model() -> MapModel:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	var capital_tiles: Array[Vector2i] = []
+	var outer_tiles: Array[Vector2i] = []
+	for y in 3:
+		for x in 5:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			if x < 3:
+				model.province[model.index_of(x, y)] = planner_CAPITAL_PROVINCE
+				capital_tiles.append(tile)
+			else:
+				model.province[model.index_of(x, y)] = planner_OUTER_PROVINCE
+				outer_tiles.append(tile)
+	var capital := ProvinceState.create(
+		planner_CAPITAL_PROVINCE, "Cádiz", capital_tiles, Vector2(1.0, 1.0),
+		capital_tiles.size(), 0, true
+	)
+	capital.capital_tile = ai_hospital_work_CAPITAL
+	capital.town_tile = ai_hospital_work_CAPITAL
+	var outer := ProvinceState.create(
+		planner_OUTER_PROVINCE, "Coro", outer_tiles, Vector2(4.0, 1.0),
+		outer_tiles.size(), 0, false
+	)
+	outer.town_tile = planner_OUTER_TOWN
+	model.provinces = [capital, outer]
+	return model
+
+func _ai_hospital_work_stockpile() -> Dictionary:
+	return {"lumber": 20, "fabric": 20, "steel": 20, "castIron": 20}
+
+func _ai_hospital_work_context(at_war: bool = true) -> Dictionary:
+	return {
+		"treasury": 2500,
+		"paper": 8,
+		"capital_province": planner_CAPITAL_PROVINCE,
+		"capital_tile": ai_hospital_work_CAPITAL,
+		"at_war": at_war,
+	}
+
+func planner__best(
+	model: MapModel, tech_unlocked: Dictionary = planner_TECH, reserved: Dictionary = {}
+) -> Dictionary:
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_hospital_work_CAPITAL)
+	return AiHospitalWork.best_candidate(
+		AiConfig.build(0, 1500), model, unit, [unit], LandWorks.new(),
+		_ai_hospital_work_stockpile(), {}, tech_unlocked, _ai_hospital_work_context(), reserved
+	)
+
+func test_planner_the_seat_raises_the_first_hospital() -> void:
+	var best: Dictionary = planner__best(_ai_hospital_work_model())
+	assert_eq(String(best.get("action", "")), "build_hospital")
+	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), ai_hospital_work_CAPITAL)
+	assert_eq(int((best.get("cost", {}) as Dictionary).get("lumber", 0)), 3)
+	assert_eq(int((best.get("cost", {}) as Dictionary).get("fabric", 0)), 2)
+	assert_eq(int(best.get("duration", 0)), 1, "a field hospital takes one turn")
+
+func test_planner_the_seat_is_upgraded_before_a_new_province() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).hospital_level = 1
+	var best: Dictionary = planner__best(model)
+	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), ai_hospital_work_CAPITAL)
+	assert_eq(int((best.get("cost", {}) as Dictionary).get("steel", 0)), 2)
+	assert_eq(int(best.get("duration", 0)), 2, "a general hospital takes two turns")
+
+func test_planner_a_field_hospital_waits_while_its_tech_is_unknown() -> void:
+	var best: Dictionary = planner__best(_ai_hospital_work_model(), {})
+	assert_true(best.is_empty(), "Organised Regiments gates the first hospital")
+
+func test_planner_a_general_hospital_waits_for_its_own_tech() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).hospital_level = 1
+	var best: Dictionary = planner__best(model, {"organised_regiments": true})
+	assert_eq(String(best.get("action", "")), "build_hospital")
+	assert_eq(
+		Vector2i(best.get("tile", Vector2i(-1, -1))), planner_OUTER_TOWN,
+		"the gated upgrade gives way to a field hospital elsewhere"
+	)
+
+func test_planner_a_second_province_follows_the_seat() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).hospital_level = HospitalRules.MAX_LEVEL
+	var best: Dictionary = planner__best(model)
+	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), planner_OUTER_TOWN)
+
+func test_planner_a_reserved_town_waits_its_turn() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	var reserved: Dictionary = {ai_hospital_work_CAPITAL: true}
+	var best: Dictionary = planner__best(model, planner_TECH, reserved)
+	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), planner_OUTER_TOWN)
+
+func test_planner_a_built_out_court_raises_no_more() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).hospital_level = HospitalRules.MAX_LEVEL
+	model.province_data(planner_OUTER_PROVINCE).hospital_level = HospitalRules.MAX_LEVEL
+	assert_true(planner__best(model).is_empty())
+
+func test_planner_a_townless_province_is_skipped() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).hospital_level = HospitalRules.MAX_LEVEL
+	var bare := ProvinceState.create(
+		2, "Wilds", [Vector2i(2, 2)] as Array[Vector2i], Vector2(2.0, 2.0),
+		1, 0, false
+	)
+	model.provinces.append(bare)
+	var best: Dictionary = planner__best(model)
+	assert_eq(
+		Vector2i(best.get("tile", Vector2i(-1, -1))), planner_OUTER_TOWN,
+		"only the province with a town can host a hospital"
+	)
+
+func test_planner_another_courts_province_is_never_planned() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).hospital_level = HospitalRules.MAX_LEVEL
+	model.province_data(planner_OUTER_PROVINCE).owner = 1
+	assert_true(planner__best(model).is_empty())
+
+func test_planner_the_engineer_planner_raises_a_hospital_at_war() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).fort_level = FortRules.MAX_LEVEL
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_hospital_work_CAPITAL)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, [unit], LandWorks.new(), _ai_hospital_work_stockpile(),
+		{}, planner_TECH, _ai_hospital_work_context(true)
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_hospital")
+	assert_eq(Vector2i(orders[0]["tile"]), ai_hospital_work_CAPITAL)
+
+func test_planner_peace_leaves_the_town_sweep_first() -> void:
+	var model: MapModel = _ai_hospital_work_model()
+	model.province_data(planner_CAPITAL_PROVINCE).fort_level = FortRules.MAX_LEVEL
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_hospital_work_CAPITAL)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, [unit], LandWorks.new(), _ai_hospital_work_stockpile(),
+		{}, planner_TECH, _ai_hospital_work_context(false)
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_road")
+
+func test_planner_nothing_is_planned_without_a_world() -> void:
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_hospital_work_CAPITAL)
+	assert_true(AiHospitalWork.best_candidate(
+		AiConfig.build(0, 1500), null, unit, [unit], null, _ai_hospital_work_stockpile(), {},
+		planner_TECH, _ai_hospital_work_context(), {}
+	).is_empty())
+
+func test_planner_a_fort_always_holds_over_the_town_sweep() -> void:
+	assert_true(AiHospitalWork.holds_over_town_link(
+		{"action": "build_fort"}, _ai_hospital_work_context(false)
+	))
+	assert_false(AiHospitalWork.holds_over_town_link(
+		{"action": "build_hospital"}, _ai_hospital_work_context(false)
+	))
+	assert_true(AiHospitalWork.holds_over_town_link(
+		{"action": "build_hospital"}, _ai_hospital_work_context(true)
+	))
+	assert_false(AiHospitalWork.holds_over_town_link({}, _ai_hospital_work_context(true)))
+
+func test_planner_the_tie_break_is_row_major_then_action_name() -> void:
+	var upper: Dictionary = {"action": "build_hospital", "tile": Vector2i(1, 2), "score": 40}
+	var lower: Dictionary = {"action": "build_hospital", "tile": Vector2i(4, 3), "score": 40}
+	var left: Dictionary = {"action": "build_hospital", "tile": Vector2i(2, 3), "score": 40}
+	var early: Dictionary = {"action": "build_fort", "tile": Vector2i(1, 2), "score": 40}
+	assert_eq(Vector2i(AiCivilianCandidate.better(lower, upper)["tile"]), Vector2i(1, 2))
+	assert_eq(Vector2i(AiCivilianCandidate.better(upper, lower)["tile"]), Vector2i(1, 2))
+	assert_eq(Vector2i(AiCivilianCandidate.better(lower, left)["tile"]), Vector2i(2, 3))
+	assert_eq(Vector2i(AiCivilianCandidate.better(left, lower)["tile"]), Vector2i(2, 3))
+	assert_eq(String(AiCivilianCandidate.better(upper, early)["action"]), "build_fort")
+	assert_eq(String(AiCivilianCandidate.better(early, upper)["action"]), "build_fort")
+	assert_eq(String(AiCivilianCandidate.better({}, upper)["action"]), "build_hospital")
+	assert_eq(String(AiCivilianCandidate.better(upper, {})["action"]), "build_hospital")
+
+# --- test_ai_town_roads ---
+
+func _ai_town_roads_model() -> MapModel:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	var tiles: Array[Vector2i] = []
+	for y in 3:
+		for x in 5:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(tile)
+	var province := ProvinceState.create(
+		0, "Townshire", tiles, Vector2(2.0, 1.0), tiles.size(), 1, true
+	)
+	province.capital_tile = ai_town_roads_CAPITAL
+	province.town_tile = ai_town_roads_TOWN
+	model.provinces = [province]
+	return model
+
+func _ai_town_roads_stockpile() -> Dictionary:
+	return {"lumber": 20, "castIron": 20}
+
+func planner__connected(model: MapModel, tiles: Array[Vector2i]) -> Dictionary:
+	var seen: Dictionary = {}
+	for tile: Vector2i in tiles:
+		seen[model.index_of(tile.x, tile.y)] = true
+	return seen
+
+func test_planner_an_unconnected_town_targets_its_own_tile_first() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var works := LandWorks.new()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	var best: Dictionary = AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, works, [unit], _ai_town_roads_stockpile(),
+		{}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
+	)
+	assert_eq(String(best.get("action", "")), "build_road")
+	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), ai_town_roads_TOWN)
+
+func test_planner_the_next_step_follows_the_shortest_owned_path() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var works := LandWorks.new()
+	works.set_transport(model, ai_town_roads_TOWN, LandWorks.TRANSPORT_ROAD)
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	var best: Dictionary = AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, works, [unit], _ai_town_roads_stockpile(),
+		{}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
+	)
+	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), Vector2i(3, 1))
+
+func test_planner_a_connected_town_is_left_alone() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	var best: Dictionary = AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
+		_ai_town_roads_stockpile(), {}, {}, {},
+		planner__connected(model, [ai_town_roads_CAPITAL, ai_town_roads_TOWN]), {}
+	)
+	assert_true(best.is_empty())
+
+func test_planner_the_engineer_planner_emits_the_town_road_order() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var works := LandWorks.new()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [unit], works, _ai_town_roads_stockpile(), {}, {},
+		{
+			"treasury": 2500,
+			"paper": 8,
+			"capital_province": 0,
+			"capital_tile": ai_town_roads_CAPITAL,
+		}
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_road")
+	assert_eq(
+		model.resource_at(Vector2i(orders[0]["tile"]).x, Vector2i(orders[0]["tile"]).y),
+		MapModel.NO_ID
+	)
+
+func test_planner_without_a_capital_network_no_order_is_offered() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	assert_true(AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
+		_ai_town_roads_stockpile(), {}, {}, {}, {}, {}
+	).is_empty())
+
+func test_planner_a_reserved_town_is_left_for_another_crew() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	assert_true(AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
+		_ai_town_roads_stockpile(), {}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {ai_town_roads_TOWN: true}
+	).is_empty())
+
+func test_planner_a_foreign_town_is_ignored() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	model.provinces[0].owner = 2
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	assert_true(AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
+		_ai_town_roads_stockpile(), {}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
+	).is_empty())
+
+func test_planner_missing_inputs_are_guarded() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	assert_true(AiTownRoads.best_candidate(
+		null, model, unit, LandWorks.new(), [unit], _ai_town_roads_stockpile(), {}, {}, {},
+		planner__connected(model, [ai_town_roads_CAPITAL]), {}
+	).is_empty())
+
+func test_planner_a_reserved_path_tile_is_left_alone() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var works := LandWorks.new()
+	works.set_transport(model, ai_town_roads_TOWN, LandWorks.TRANSPORT_ROAD)
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	assert_true(AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, works, [unit], _ai_town_roads_stockpile(),
+		{}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {Vector2i(3, 1): true}
+	).is_empty())
+
+func test_planner_a_working_engineer_gets_no_second_order() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	unit.start_work("build_road", ai_town_roads_TOWN, 1)
+	assert_true(AiTownRoads.best_candidate(
+		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
+		_ai_town_roads_stockpile(), {}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
+	).is_empty())
+
+## Wiki: ai-architecture § Town-per-province roads — a town road outranks
+## incidental works, so a resource road next to the capital never pre-empts the
+## link that lets the Town rule connect the province's estates.
+func test_planner_a_town_road_outranks_an_incidental_resource_road() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var grain: Vector2i = Vector2i(1, 1)
+	model.resource[model.index_of(grain.x, grain.y)] = 4
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [unit], LandWorks.new(), _ai_town_roads_stockpile(), {}, {},
+		{
+			"treasury": 2500,
+			"paper": 8,
+			"capital_province": 0,
+			"capital_tile": ai_town_roads_CAPITAL,
+		}
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_road")
+	assert_eq(
+		Vector2i(orders[0]["tile"]), ai_town_roads_TOWN, "the town link comes before an incidental road"
+	)
+
+## Wiki: ai-architecture § Town-per-province roads — the court's own fort still
+## comes first when it is invaded. The fort stands on the province's own site
+## (CivilianWork sites it on the town), so this pins the choice, not the seat.
+func test_planner_an_invaded_court_raises_its_fort_before_a_town_road() -> void:
+	var model: MapModel = _ai_town_roads_model()
+	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(1, 1500), model, [unit], LandWorks.new(),
+		{"lumber": 20, "castIron": 20, "bronze": 20}, {}, {},
+		{
+			"treasury": 2500,
+			"paper": 8,
+			"capital_province": 0,
+			"capital_tile": ai_town_roads_CAPITAL,
+			"at_war": true,
+		}
+	)
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1)
+	assert_eq(String(orders[0]["action"]), "build_fort")
+	assert_eq(
+		Vector2i(orders[0]["tile"]),
+		FortRules.site_tile(model, 0),
+		"the fort stands where the rules site it"
+	)
+
+# --- test_ai_civilian_dispatch ---
+
+func _ai_civilian_dispatch_context(at_war: bool = false) -> Dictionary:
+	return {
+		"treasury": 2500,
+		"paper": 8,
+		"capital_province": ai_civilian_dispatch_CivilianFixture.PLAYER_PROVINCE,
+		"capital_tile": ai_civilian_dispatch_BARE,
+		"at_war": at_war,
+	}
+
+func _ai_civilian_dispatch_plan(model: MapModel, unit: CivilianState, works: LandWorks) -> Dictionary:
+	return planner_Planner.plan(
+		AiConfig.build(0, 1500), model, [unit] as Array, works,
+		ai_civilian_dispatch_CivilianFixture.stockpile(), {}, planner_RAIL_TECHS, _ai_civilian_dispatch_context()
+	)
+
+func planner__roaded_works(model: MapModel) -> LandWorks:
+	var works := LandWorks.new()
+	works.add_port(model, ai_civilian_dispatch_CivilianFixture.COAST_TILE)
+	for tile: Vector2i in model.ownership.owned_tiles(model, 0):
+		works.set_improvement(model, tile, LandWorks.MAX_IMPROVEMENT)
+	works.set_transport(model, ai_civilian_dispatch_CivilianFixture.TIMBER_TILE, LandWorks.TRANSPORT_ROAD)
+	return works
+
+func test_planner_a_rail_builder_lays_a_rail_on_an_existing_road() -> void:
+	var model: MapModel = ai_civilian_dispatch_CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(
+		1, 0, "rail_builder", ai_civilian_dispatch_CivilianFixture.TIMBER_TILE
+	)
+	var plan: Dictionary = _ai_civilian_dispatch_plan(model, unit, planner__roaded_works(model))
+	var orders: Array = plan["orders"]
+	assert_eq(orders.size(), 1, "the planner_Engineer policy answers for a Rail Builder")
+	assert_eq(String(orders[0]["action"]), "build_rail")
+	assert_eq(Vector2i(orders[0]["tile"]), ai_civilian_dispatch_CivilianFixture.TIMBER_TILE)
+
+func test_planner_a_rival_without_steam_never_orders_a_rail() -> void:
+	var model: MapModel = ai_civilian_dispatch_CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(
+		1, 0, "rail_builder", ai_civilian_dispatch_CivilianFixture.TIMBER_TILE
+	)
+	var plan: Dictionary = planner_Planner.plan(
+		AiConfig.build(0, 1500), model, [unit] as Array, planner__roaded_works(model),
+		ai_civilian_dispatch_CivilianFixture.stockpile(), {}, {}, _ai_civilian_dispatch_context()
+	)
+	for order: Dictionary in plan["orders"]:
+		assert_ne(String(order["action"]), "build_rail", "no rail without its tech")
+
+func test_planner_every_dispatched_order_is_a_work_the_unit_may_do() -> void:
+	var model: MapModel = ai_civilian_dispatch_CivilianFixture.build()
+	var works := LandWorks.new()
+	works.add_port(model, ai_civilian_dispatch_CivilianFixture.COAST_TILE)
+	for type_id: String in ["builder", "engineer", "explorer", "rail_builder"]:
+		var unit: CivilianState = CivilianState.create(1, 0, type_id, ai_civilian_dispatch_BARE)
+		for order: Dictionary in _ai_civilian_dispatch_plan(model, unit, works)["orders"]:
+			assert_true(
+				CivilianCatalog.works(type_id).has(String(order["action"])),
+				"%s may work %s" % [type_id, order["action"]]
+			)
+
+# --- from test_ai_objective_rules.gd ---
+## The rival objective ledger.
+## The rival objective ledger (docs/ai.md; issue #491 T1): one 0–100 currency,
+## a rank pass and an allocate pass, the claims a court keeps, and the trace
+## rows that explain a starved objective instead of hiding it.
+
+const OBJ_OWNER: int = 0
+const OBJ_RIVAL: int = 1
+const OBJ_SEED: int = 1500
+
+
+func _objective_config(faction: int = OBJ_OWNER) -> AiConfig:
+	return AiConfig.build(faction, OBJ_SEED)
+
+
+# --- the one currency --------------------------------------------------------
+
+
+func test_every_planner_scale_normalizes_into_the_same_currency() -> void:
+	assert_eq(AiUtility.clamp_utility(-10), 0)
+	assert_eq(AiUtility.clamp_utility(140), 100)
+	assert_eq(AiUtility.scale(50, 0, 100), 50)
+	assert_eq(AiUtility.scale(0, 50, 150), 0)
+	assert_eq(AiUtility.scale(150, 50, 150), 100)
+	assert_eq(AiUtility.scale(7, 5, 5), 100, "a flat band tops out")
+	assert_eq(AiUtility.ratio(1, 2), 50)
+	assert_eq(AiUtility.ratio(3, 2), 100, "a ratio above the whole is clamped")
+	assert_eq(AiUtility.ratio(0, 0), 0)
+	assert_eq(AiUtility.ratio(2, 0), 100, "strength against nothing reads full")
+
+
+func test_the_rank_modifier_is_per_mille_and_clamped() -> void:
+	assert_eq(AiUtility.modified(80, 1000), 80)
+	assert_eq(AiUtility.modified(80, 600), 48, "a war footing scales a voyage down")
+	assert_eq(AiUtility.modified(80, 1500), 100, "a boost never passes the scale")
+	assert_eq(AiUtility.modified(80, 0), 0)
+
+
+# --- the allocate pass -------------------------------------------------------
+
+
+func _hull_objective(objective_id: String, utility: int, hulls: int = 1) -> AiObjective:
+	return AiObjective.create(objective_id, "expansion", utility, {"hull": hulls})
+
+
+func test_claims_follow_rank_order() -> void:
+	var top: AiObjective = _hull_objective("colonise.a", 80)
+	var bottom: AiObjective = _hull_objective("colonise.b", 40)
+	var report: Dictionary = AiObjectiveLedger.run([bottom, top], {"hull": 1})
+
+	assert_eq(int(report["ranked"]), 2)
+	assert_eq(int(report["funded"]), 1, "one hull funds exactly one voyage")
+	assert_eq(top.status, AiObjective.STATUS_FUNDED)
+	assert_eq(bottom.status, AiObjective.STATUS_DEFERRED)
+	assert_eq(int(bottom.claim["hull"]), 0)
+	assert_eq(int(bottom.shortfall()["hull"]), 1, "the shortfall is named")
+	assert_eq(int(report["pools"]["hull"]), 0, "a grant spends the pool")
+
+
+func test_a_deferred_objective_names_its_shortfall_in_the_line() -> void:
+	var objective: AiObjective = AiObjective.create(
+		"colonise.new_world", "expansion", 50, {"hull": 1, "civilian": 1}
+	)
+	var report: Dictionary = AiObjectiveLedger.run([objective], {"hull": 0, "civilian": 1})
+
+	assert_eq(objective.status, AiObjective.STATUS_DEFERRED)
+	assert_true(String(report["lines"][0]).contains("hull 0/1"))
+	assert_true(String(report["lines"][0]).contains("civilian 1/1"))
+	assert_eq(String(report["lines"][0]), "colonise.new_world u50 hull 0/1, civilian 1/1 deferred")
+
+
+func test_a_blocked_objective_claims_nothing_and_keeps_its_reason() -> void:
+	var pools: Dictionary = {"hull": 2}
+	var blocked: AiObjective = _hull_objective("colonise.new_world", 50).block("no harbour")
+	var report: Dictionary = AiObjectiveLedger.run([blocked], pools)
+
+	assert_eq(blocked.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(int(report["blocked"]), 1)
+	assert_eq(int(report["funded"]), 0)
+	assert_eq(int(pools["hull"]), 2, "a blocked aim spends nothing")
+	assert_eq(String(report["lines"][0]), "colonise.new_world u50 hull 0/1 blocked (no harbour)")
+
+
+func test_children_are_walked_after_their_parent() -> void:
+	var child: AiObjective = _hull_objective("expedition.hull", 60)
+	var parent: AiObjective = AiObjective.create(
+		"colonise.new_world", "expansion", 80, {"hull": 1}
+	).with_child(child)
+	var order: Array[AiObjective] = AiObjectiveLedger.walk([parent])
+
+	assert_eq(order.size(), 2)
+	assert_eq(order[0].id, "colonise.new_world")
+	assert_eq(order[1].id, "expedition.hull")
+
+
+func test_the_same_state_ranks_the_same_way() -> void:
+	var first: Array[AiObjective] = [
+		_hull_objective("b", 50), _hull_objective("a", 50), _hull_objective("c", 90),
+	]
+	var second: Array[AiObjective] = [
+		_hull_objective("c", 90), _hull_objective("b", 50), _hull_objective("a", 50),
+	]
+	var left: Array[AiObjective] = AiObjectiveLedger.rank(first)
+	var right: Array[AiObjective] = AiObjectiveLedger.rank(second)
+
+	assert_eq(left[0].id, "c")
+	assert_eq(left[1].id, "a", "the id breaks a utility tie")
+	assert_eq(left[2].id, "b")
+	assert_eq(left[1].id, right[1].id, "order of emission never decides the rank")
+
+
+func test_a_modifier_reorders_the_rank_without_deleting_an_objective() -> void:
+	var colony: AiObjective = _hull_objective("colonise.new_world", 50)
+	var fleet: AiObjective = AiObjective.create("navy.sortie", "naval", 60, {"hull": 1})
+	var ranked: Array[AiObjective] = AiObjectiveLedger.rank(
+		[colony, fleet], {"expansion": 600, "naval": 1400}
+	)
+
+	assert_eq(ranked[0].id, "navy.sortie", "the war footing lifts the fleet")
+	assert_eq(ranked[1].id, "colonise.new_world", "the voyage stays ranked, only cheaper")
+
+
+# --- the emitter -------------------------------------------------------------
+
+
+func _readings() -> Dictionary:
+	return {
+		"posture": AiPhasePlanner.PHASE_PEACE,
+		"at_war": false,
+		"war_desire": 40,
+		"regiments": 1,
+		"muster_due": true,
+		"muster_floor": 300,
+		"ships": 2,
+		"warships": 4,
+		"warship_price": 5500,
+		"warship_open": true,
+		"hostile_ships": 0,
+		"hostile_warships": 0,
+		"treasury": 2000,
+		"reserve": 500,
+		"goal": AiIncome.GOAL_SPEND,
+		"colony_target": true,
+		"harbour": true,
+		"idle_hulls": 1,
+		"explorer_ready": true,
+		"voyage_afloat": false,
+		"cargo_shortfall": 0,
+		"research_slots": 1,
+		"research_funding": 2,
+		"research_cost": 150,
+	}
+
+
+## Walks the ledger tree: T2 prices the expedition on its children.
+func _by_id(objectives: Array[AiObjective], objective_id: String) -> AiObjective:
+	for objective: AiObjective in objectives:
+		if objective.id == objective_id:
+			return objective
+		var found: AiObjective = _by_id(objective.children, objective_id)
+		if found != null:
+			return found
+	return null
+
+
+## Flattens the trace rows to id → status.
+func _statuses(rows: Variant, out: Dictionary) -> void:
+	for raw: Variant in rows:
+		var row: Dictionary = raw
+		out[String(row["id"])] = String(row["status"])
+		_statuses(row.get("children", []), out)
+
+
+func _child_ids(objective: AiObjective) -> Array[String]:
+	var ids: Array[String] = []
+	for child: AiObjective in objective.children:
+		ids.append(child.id)
+	return ids
+
+
+func test_the_plan_prices_the_expedition_the_muster_and_the_order() -> void:
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(_readings())
+
+	var colony: AiObjective = _by_id(objectives, "colonise.new_world")
+	assert_true(colony != null, "the expedition is always priced while it has a target")
+	assert_eq(int(colony.utility), AiObjectivesPlan.W_PROVINCES_NEW)
+	assert_eq(_child_ids(colony), ["expedition.hull", "expedition.explorer"])
+	assert_eq(int(_by_id(objectives, "expedition.hull").cost["hull"]), 1)
+	assert_eq(int(_by_id(objectives, "expedition.explorer").cost["civilian"]), 1)
+	assert_eq(_by_id(objectives, "muster.line").cost["regiment"], 1)
+	assert_eq(int(_by_id(objectives, "war.declare").cost["orders"]), 1)
+	assert_eq(int(_by_id(objectives, "research.study").utility), 55, "the funding step lifts the study")
+
+
+func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:
+	var readings: Dictionary = _readings()
+	readings["tribe_target"] = FactionCatalog.tribe_ids()[0]
+	readings["tribe_stage"] = DiplomacyCatalog.STAGE_EMBASSY
+	readings["tribe_stage_cost"] = DiplomacyCatalog.EMBASSY_COST
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var chain: AiObjective = _by_id(objectives, "colonise.tribe_chain")
+
+	assert_true(chain != null, "a colony in reach is a priced aim")
+	assert_eq(int(chain.utility), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain.cost["treasury"]), DiplomacyCatalog.EMBASSY_COST)
+	assert_eq(int(chain.cost["orders"]), 1, "the chain spends the court's one order")
+	var report: Dictionary = AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "hull": 1, "civilian": 1, "orders": 1}
+	)
+	assert_true(chain.status == AiObjective.STATUS_FUNDED, "the purse can buy this step")
+	assert_eq(
+		_by_id(objectives, "war.declare").status, AiObjective.STATUS_DEFERRED,
+		"the envoy chain outranks a war the court does not need"
+	)
+	var line: String = ""
+	for raw: String in report["lines"]:
+		if raw.begins_with("colonise.tribe_chain"):
+			line = raw
+	assert_true(line.ends_with("funded"), "the trace says the chain is bought")
+
+
+func test_a_court_with_no_charted_tribe_prices_no_chain() -> void:
+	assert_eq(_by_id(AiObjectivesPlan.build(_readings()), "colonise.tribe_chain"), null)
+
+
+# --- the deferred-aim escalation (issue #603) --------------------------------
+
+
+func planner__row(id: String, status: String, shortfall: Dictionary = {}) -> Dictionary:
+	var row: Dictionary = {"id": id, "status": status}
+	if not shortfall.is_empty():
+		row["shortfall"] = shortfall
+	return row
+
+
+func test_a_stalled_aim_counts_its_deferred_turns() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 1)
+	# Standing still is the same stall — and so is falling further behind: the
+	# count only restarts when the shortfall actually shrinks (issue #603).
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 2)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2200})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 3)
+
+
+func test_an_aim_that_closes_its_shortfall_restarts_the_stall() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2000})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 1,
+		"progress is not a stall: the count restarts"
+	)
+
+
+## A shortfall that wobbles above the best gap the stall has seen is no
+## progress: one ducat of noise must not reset the escalation bar forever, or
+## a court whose chest oscillates never escalates and its worker training
+## freezes for the rest of the campaign (issue #603, the 2026-11-15 full-AI
+## measurement).
+func test_a_wobble_above_the_best_gap_is_still_a_stall() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2400})]
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2300})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 1, "a new low is progress")
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2450})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 2,
+		"the wobble is above the best gap: the count continues"
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2350})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 3,
+		"a shrink that stops above the best gap is still the stall"
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2200})]
+	)
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 1,
+		"a shortfall below the best the stall has seen restarts it"
+	)
+
+
+func test_a_funded_or_absent_aim_clears_its_stall() -> void:
+	var records: Dictionary = AiDeferral.note(
+		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_FUNDED, {"treasury": 0})]
+	)
+	assert_eq(AiDeferral.stall(records, "muster.line"), 0, "funded ends the stall")
+	records = AiDeferral.note(
+		records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	# The note rebuilds from this turn's rows, so an aim the court no longer
+	# emits (at target, say) leaves no record behind.
+	records = AiDeferral.note(records, [])
+	assert_eq(AiDeferral.stall(records, "muster.line"), 0)
+
+
+func test_a_starved_parent_carries_no_stall_of_its_own() -> void:
+	# The parent names the child that starved it; the child's shortfall is the
+	# stall the tracker follows, so the parent's empty shortfall counts nothing.
+	var parent: Dictionary = planner__row("colonise.new_world", AiObjective.STATUS_DEFERRED)
+	parent["children"] = [
+		planner__row("expedition.hull", AiObjective.STATUS_DEFERRED, {"hull": 1}),
+	]
+	var records: Dictionary = AiDeferral.note({}, [parent])
+	assert_eq(AiDeferral.stall(records, "colonise.new_world"), 0)
+	assert_eq(AiDeferral.stall(records, "expedition.hull"), 1)
+
+
+func test_a_blocked_aim_keeps_the_stall_its_reason_names() -> void:
+	# An escalation-blocked reading keeps the count (so the escalation stays
+	# applied while the aim stays out of reach); a rule-blocked aim never had a
+	# record to keep.
+	var records: Dictionary = AiDeferral.note(
+		{}, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})]
+	)
+	records = AiDeferral.note(records, [planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100})])
+	records = AiDeferral.note(records, [planner__row("muster.line", AiObjective.STATUS_BLOCKED)])
+	assert_eq(
+		AiDeferral.stall(records, "muster.line"), 2,
+		"blocked keeps the stall it names"
+	)
+	records = AiDeferral.note({}, [planner__row("expedition.hull", AiObjective.STATUS_BLOCKED)])
+	assert_eq(AiDeferral.stall(records, "expedition.hull"), 0)
+
+
+func test_the_escalated_map_names_the_aims_past_the_bar() -> void:
+	var records: Dictionary = {}
+	var rows: Array = []
+	for turn in 12:
+		rows.append(planner__row("muster.line", AiObjective.STATUS_DEFERRED, {"treasury": 2100}))
+		records = AiDeferral.note(records, rows)
+	var escalated: Dictionary = AiDeferral.escalated(records, 10)
+	assert_true(escalated.has("muster.line"), "a 12-turn stall escalates")
+	assert_eq(int(escalated["muster.line"]), 12)
+	assert_true(AiDeferral.escalated(records, 13).is_empty(), "13 turns would not")
+	assert_true(
+		AiDeferral.escalated(records, 1).has("muster.line"),
+		"every recorded stall is at least 1"
+	)
+
+
+func test_a_muster_stalled_past_the_blocked_bar_names_its_reason() -> void:
+	# The escalation's explicit terminal reading: a stall past the blocked bar
+	# is a blocked row with its reason, never another silent deferred line.
+	var readings: Dictionary = _readings()
+	readings["blockings"] = {"muster.line": 41}
+	var muster: AiObjective = _by_id(AiObjectivesPlan.build(readings), "muster.line")
+	assert_eq(muster.status, AiObjective.STATUS_BLOCKED)
+	assert_true(String(muster.blocked).contains("41"), "the stall length is named")
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"treasury": 2000, "regiment": 1, "labour": 1, "orders": 1}
+	)
+	assert_eq(int(report["blocked"]), 1, "a blocked muster claims nothing")
+
+	readings["blockings"] = {}
+	assert_eq(
+		String(_by_id(AiObjectivesPlan.build(readings), "muster.line").blocked), "",
+		"a stall below the bar stays a deferred row"
+	)
+
+
+func test_a_yard_stalled_past_the_blocked_bar_names_its_reason() -> void:
+	# A warship build the court cannot reach names the stall (issue #603);
+	# the chest keeps its own reach rule and the launch its own gate.
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["posture"] = AiPhasePlanner.PHASE_WAR
+	readings["war_desire"] = 60
+	readings["warships"] = 0
+	readings["warship_price"] = 5500
+	readings["warship_open"] = true
+	readings["hostile_ships"] = 3
+	readings["hostile_warships"] = 2
+	readings["blockings"] = {"navy.build": 45}
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+	assert_ne(build, null)
+	assert_eq(build.status, AiObjective.STATUS_BLOCKED)
+	assert_true(String(build.blocked).contains("45"), "the stall length is named")
+
+	readings["blockings"] = {}
+	assert_eq(
+		String(_by_id(AiObjectivesPlan.build(readings), "navy.build").blocked), "",
+		"a stall below the bar stays a deferred row"
+	)
+
+
+func test_an_unpayable_study_reads_blocked_not_funded() -> void:
+	# A study the purse cannot fund must never read `funded` at zero gold: the
+	# refusal the planner made is the row's reason (issue #590).
+	var readings: Dictionary = _readings()
+	readings["research_cost"] = 50
+	readings["research_refusal"] = "purse under half the cash floor"
+	var study: AiObjective = _by_id(AiObjectivesPlan.build(readings), "research.study")
+	assert_eq(study.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(String(study.blocked), "purse under half the cash floor")
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"treasury": 40, "orders": 1, "hull": 1, "civilian": 1}
+	)
+	assert_eq(String(study.status), AiObjective.STATUS_BLOCKED, "a blocked study funds nothing")
+	assert_true((study.claim as Dictionary).is_empty(), "a blocked study claims nothing")
+
+
+
+func test_a_war_footing_prices_the_peace_window_and_the_sortie() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["posture"] = AiPhasePlanner.PHASE_WAR
+	readings["war_desire"] = 70
+	readings["hostile_ships"] = 3
+	readings["hostile_warships"] = 3
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+
+	assert_eq(int(_by_id(objectives, "peace.window").utility), 30)
+	assert_true(
+		_by_id(objectives, "colonise.new_world").requires.has("peace.window"),
+		"the expedition waits on the court's one peace window, not a second order"
+	)
+	assert_true(_by_id(objectives, "navy.sortie") != null)
+	assert_eq(_by_id(objectives, "navy.build"), null, "a court with hulls sorties instead of building")
+
+
+func test_a_court_with_no_harbour_blocks_the_hull_with_a_reason() -> void:
+	var readings: Dictionary = _readings()
+	readings["harbour"] = false
+	var hull: AiObjective = _by_id(AiObjectivesPlan.build(readings), "expedition.hull")
+
+	assert_eq(hull.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(hull.blocked, "no harbour")
+
+
+func test_a_starved_expedition_names_the_child_it_lacks() -> void:
+	# No squadron to spare: the hull child defers and the trace says so, instead
+	# of the voyage vanishing without a word (issue #476, #497).
+	var readings: Dictionary = _readings()
+	readings["idle_hulls"] = 0
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"hull": 0, "civilian": 1, "orders": 1}
+	)
+	var line: String = ""
+	for raw: Variant in report["lines"]:
+		if String(raw).begins_with("expedition.hull"):
+			line = String(raw)
+
+	assert_true(line.contains("deferred"), "the starved hull is reported: %s" % line)
+	assert_true(line.contains("hull 0/1"), "with its shortfall: %s" % line)
+
+
+func test_a_court_with_no_fighting_hull_lays_one_down() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	readings["treasury"] = 5500
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+
+	assert_true(build != null, "a court at war with no fighting hull builds one")
+	assert_eq(int(build.utility), AiObjectivesPlan.W_NAVY_BUILD, "the yard leads")
+	assert_eq(int(build.cost["treasury"]), 5500, "priced at the cheapest warship")
+	assert_false(
+		(build.cost as Dictionary).has("hull"),
+		"the yard founds its own slip, so the build claims no idle hull (#484)"
+	)
+
+
+## Issue #591: a chest the court has not reached yet yields to the muster in the
+## ledger too, so the purse the yard's phantom price pinned goes to the line the
+## court can actually raise. A court that still has a fighting hull is the case;
+## a fleetless rebuild keeps the yard ahead (#484).
+func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 1
+	readings["hostile_warships"] = 2
+	readings["treasury"] = 5342
+	readings["muster_floor"] = 2400
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var build: AiObjective = _by_id(objectives, "navy.build")
+	var muster: AiObjective = _by_id(objectives, "muster.line")
+
+	assert_true(build != null, "the yard is still the court's aim")
+	assert_eq(
+		int(build.utility), AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		"but the yard waits behind the army it would starve"
+	)
+	assert_true(
+		int(muster.utility) > int(build.utility),
+		"so the ledger funds the regiment first"
+	)
+	var report: Dictionary = AiObjectiveLedger.run(
+		objectives,
+		{"treasury": 5342, "regiment": 2, "labour": 3, "hull": 1, "civilian": 1, "orders": 1}
+	)
+	var statuses: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		statuses[String(row["id"])] = String(row["status"])
+	assert_eq(String(statuses["muster.line"]), AiObjective.STATUS_FUNDED, "the line musters")
+	assert_eq(
+		String(statuses["navy.build"]), AiObjective.STATUS_DEFERRED,
+		"and the hull it cannot fill declares its shortfall instead"
+	)
+
+	# A court that already holds the yard's price is no longer beyond reach.
+	readings["treasury"] = 5500
+	assert_true(
+		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility)
+		> AiObjectivesPlan.W_NAVY_BUILD_WAITING,
+		"the chest is in hand: the yard is no longer parked behind the line"
+	)
+	# Fleetless rebuild never yields the yard to the muster (#484).
+	readings["warships"] = 0
+	readings["treasury"] = 5342
+	assert_eq(
+		int(_by_id(AiObjectivesPlan.build(readings), "navy.build").utility),
+		AiObjectivesPlan.W_NAVY_BUILD,
+		"a lost last sloop keeps the yard ahead of the line"
+	)
+
+
+## Issue #474 clause 2: a court holding the purse for its next regiment but no
+## cloth reads the row it actually lacks, and stays deferred, so the escalation
+## keeps re-routing the chest instead of banking one the muster never spends.
+func test_the_muster_row_prices_the_cloth_it_needs() -> void:
+	var readings: Dictionary = _readings()
+	readings["muster_row"] = {"fabric": 1}
+	readings["muster_floor"] = 2400
+	readings["treasury"] = 5000
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var muster: AiObjective = _by_id(objectives, "muster.line")
+
+	assert_eq(int(muster.cost["fabric"]), 1, "the ledger prices the pattern's row")
+	AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 0}
+	)
+	assert_eq(
+		muster.status, AiObjective.STATUS_DEFERRED,
+		"a full purse and no cloth is not a funded muster"
+	)
+	assert_eq(int((muster.shortfall() as Dictionary).get("fabric", 0)), 1)
+	AiObjectiveLedger.run(
+		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 1}
+	)
+	assert_eq(muster.status, AiObjective.STATUS_FUNDED, "with the cloth in store it funds")
+
+
+## A court whose techs open no warship says so instead of claiming a hull it can
+## never lay — the trace used to read `funded` forever (issue #484). The chest
+## is still priced so the money goal can save while research opens the door.
+func test_a_court_with_no_warship_open_blocks_the_build() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	readings["warship_price"] = 5500
+	readings["warship_open"] = false
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+
+	assert_true(build != null, "the yard is still the court's aim")
+	assert_eq(build.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(build.blocked, "no warship its techs open")
+
+
+func test_a_court_outmatched_on_its_own_coast_replaces_before_it_expands() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 1
+	readings["hostile_warships"] = 3
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+
+	assert_true(build != null, "outmatched, the court replaces its hulls")
+	assert_true(
+		int(build.utility) > int(AiObjectivesPlan.W_NAVY),
+		"and the replacement outranks a sortie"
+	)
+
+
+func test_a_court_at_peace_with_no_fighting_hull_still_rebuilds() -> void:
+	var readings: Dictionary = _readings()
+	readings["warships"] = 0
+	readings["warship_open"] = true
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+	assert_true(build != null, "a lost last warship is replaced even at peace")
+
+
+func test_a_court_at_peace_with_hulls_lays_down_nothing() -> void:
+	var readings: Dictionary = _readings()
+	readings["warships"] = 2
+	assert_eq(_by_id(AiObjectivesPlan.build(readings), "navy.build"), null)
+
+
+## A colonist already on the far shore is the voyage's progress, not a missing
+## Explorer: the child that musters a new one is not blocked, and the parent
+## prices the protected voyage instead (#497).
+func test_a_colonist_ashore_is_the_voyage_in_progress() -> void:
+	var readings: Dictionary = _readings()
+	readings["explorer_ready"] = false
+	readings["voyage_abroad"] = true
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var colony: AiObjective = _by_id(objectives, "colonise.new_world")
+
+	assert_eq(
+		_child_ids(colony), ["expedition.hull", "expedition.explorer", "expedition.voyage"],
+		"the landed colonist keeps the voyage priced"
+	)
+	assert_eq(_by_id(objectives, "expedition.explorer").status, AiObjective.STATUS_RANKED)
+	var report: Dictionary = AiObjectiveLedger.run(objectives, {"hull": 1, "civilian": 1})
+	assert_eq(
+		_by_id(objectives, "colonise.new_world").status, AiObjective.STATUS_FUNDED,
+		"a funded hull and a landed colonist leave nothing deferred"
+	)
+
+
+## An Explorer ashore where the crown owns no land cannot found a province (a
+## Builder needs crown land) and cannot board again (docking needs a crown port),
+## so the expedition is over: the aim is blocked with the reason instead of
+## pricing a voyage that will never sail (issue #602).
+func test_a_stranded_explorer_blocks_the_expedition() -> void:
+	var readings: Dictionary = _readings()
+	readings["voyage_abroad"] = true
+	readings["voyage_stranded"] = true
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var colony: AiObjective = _by_id(objectives, "colonise.new_world")
+
+	assert_eq(colony.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(colony.blocked, "the Explorer is ashore with no crown land")
+	assert_eq(_child_ids(colony).size(), 0, "no hull and no colonist are wanted")
+	var report: Dictionary = AiObjectiveLedger.run(objectives, {"hull": 1, "civilian": 1})
+	assert_eq(
+		_by_id(objectives, "colonise.new_world").status, AiObjective.STATUS_BLOCKED,
+		"the allocate pass leaves the reason in place"
+	)
+	var named: bool = false
+	for line: Variant in report["lines"]:
+		if String(line).contains("no crown land"):
+			named = true
+	assert_true(named, "the trace names the strand")
+
+
+## The adapter reads an Explorer ashore where the crown owns nothing as a
+## stranded expedition (issue #602), not as a voyage under way (#497).
+func test_the_adapter_reads_a_stranded_explorer() -> void:
+	var play: PlaySession = _objective_session(_court())
+	play.civilian_layer.units.clear()
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(
+		1, [CivilianState.create(2, OBJ_OWNER, "explorer", Vector2i(0, 0))]
+	)
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_false(colony.is_empty(), "the court still prices its expedition")
+	assert_eq(String(colony["status"]), AiObjective.STATUS_BLOCKED)
+	assert_eq(
+		String(colony.get("blocked", "")), "the Explorer is ashore with no crown land",
+		"the aim names the strand"
+	)
+	assert_eq((colony.get("children", []) as Array).size(), 0, "no sailing is priced")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## A Merchant ashore is still the voyage's progress (#497): the deeds it buys
+## are what founds the colony, so the expedition stays funded.
+func test_the_adapter_reads_the_merchant_ashore_as_progress() -> void:
+	var play: PlaySession = _objective_session(_court())
+	play.civilian_layer.units.clear()
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(
+		1, [CivilianState.create(3, OBJ_OWNER, "merchant", Vector2i(0, 0))]
+	)
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_false(colony.is_empty(), "the court still prices its expedition")
+	assert_eq(String(colony["status"]), AiObjective.STATUS_FUNDED)
+	var voyage: bool = false
+	for child: Dictionary in colony.get("children", []):
+		if String(child["id"]) == "expedition.voyage":
+			voyage = true
+	assert_true(voyage, "the voyage child stands in for the landed colonist")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## The adapter prices the Tribe the court is drawing in: a charted shore and a
+## purse that covers the next envoy step put the chain in the ledger
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+func test_the_adapter_reads_a_charted_tribe_as_a_colony_in_reach() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state: DiplomacyState = _court()
+	state.ensure_relation(OBJ_OWNER, tribe, 1).score = 55.0
+	state.set_overture(OBJ_OWNER, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var play: PlaySession = _objective_session(state)
+	play.ai.economy_for(OBJ_OWNER).treasury = 20000
+	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
+	var shore: Array[Vector2i] = [Vector2i(0, 0)]
+	new_world.provinces = [
+		ProvinceState.create(0, "Shore", shore, Vector2.ZERO, 1, tribe, false)
+	]
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	var chain: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.tribe_chain":
+			chain = row
+	assert_false(chain.is_empty(), "the envoy chain is priced")
+	assert_eq(int(chain["utility"]), AiObjectivesPlan.W_TRIBE_COLONY)
+	assert_eq(int(chain["cost"]["treasury"]), DiplomacyCatalog.EMBASSY_COST)
+	assert_ne(String(chain["status"]), AiObjective.STATUS_BLOCKED, "the shore and the purse both stand")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+# --- the adapter and the trace ----------------------------------------------
+
+func _court() -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(OBJ_OWNER, OBJ_RIVAL, 1)
+	return state
+
+
+func _objective_session(diplomacy: DiplomacyState) -> PlaySession:
+	var model := MapModel.new()
+	model.setup(5, 3)
+	model.region_id = WorldMap.OLD_WORLD
+	model.region_key = "old_world"
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 5:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(Vector2i(x, y))
+	for x in 5:
+		var index: int = model.index_of(x, 2)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+	var province := ProvinceState.create(
+		0, "Seat", tiles, Vector2(2.0, 0.5), tiles.size(), OBJ_OWNER, true
+	)
+	province.capital_tile = Vector2i(0, 0)
+	province.port_tile = Vector2i(0, 1)
+	province.coastal = true
+	model.provinces = [province]
+	var sea: Array[Vector2i] = []
+	for x in 5:
+		sea.append(Vector2i(x, 2))
+	model.sea_zones = [SeaZoneState.create(0, "Home Waters", sea, Vector2(2.0, 2.0), 5)]
+	var new_world := MapModel.new()
+	new_world.setup(3, 2)
+	new_world.region_id = WorldMap.NEW_WORLD
+	new_world.region_key = "new_world"
+	var world := WorldMap.new()
+	world.add_region(model)
+	world.add_region(new_world)
+	var play := PlaySession.new()
+	play.player_faction = OBJ_RIVAL
+	play.map_seed = OBJ_SEED
+	play.world = world
+	play.model = model
+	play.diplomacy = diplomacy
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = model
+	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [FleetState.in_port(1, OBJ_OWNER, 0)])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = model
+	play.civilian_layer.units = [CivilianState.create(1, OBJ_OWNER, "explorer", Vector2i(0, 0))]
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(1, [])
+	play.ensure_ai()
+	return play
+
+
+func test_the_adapter_stamps_a_ledger_for_every_planning_court() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var ledgers: Dictionary = MapPlayObjectivesAi.run(play)
+
+	assert_true(ledgers.has(OBJ_OWNER))
+	var report: Dictionary = ledgers[OBJ_OWNER]
+	assert_true(int(report["ranked"]) > 0)
+	assert_true((report["lines"] as Array).size() >= int(report["ranked"]))
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_false(colony.is_empty(), "the court with a harbour prices the expedition")
+	assert_eq(String(colony["status"]), AiObjective.STATUS_FUNDED)
+	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
+	assert_eq(int(claim["turn"]), play.turn, "the claim is kept on the court's state")
+	assert_eq(int(claim["ranked"]), int(report["ranked"]))
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_the_turn_trace_carries_every_objective() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var ledgers: Dictionary = MapPlayObjectivesAi.run(play)
+	var merged: Dictionary = AiTurnLog.record(
+		play, [], [], {"factions": {}}, [], [], ledgers
+	)
+	var bucket: Dictionary = (merged["factions"] as Dictionary)[OBJ_OWNER]
+
+	assert_eq(String(bucket["phase"]), AiPhasePlanner.PHASE_PEACE)
+	assert_eq(String(bucket["goal"]), AiIncome.GOAL_SPEND)
+	var ledger: Dictionary = bucket["objectives"]
+	assert_eq(int(ledger["ranked"]), int((ledgers[OBJ_OWNER] as Dictionary)["ranked"]))
+	for row: Dictionary in ledger["rows"]:
+		assert_true(row.has("utility"), "every row carries its utility")
+		assert_true(row.has("cost"), "every row carries its cost")
+		assert_true(row.has("claim"), "every row carries its claim")
+		assert_true(row.has("status"), "every row carries its status")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_the_ledger_prices_the_standing_study_not_the_war_chest() -> void:
+	# The surplus ladder reads the money-goal reserve, so at war no slot pays the
+	# published preset; the one standing study at Low is what the court actually
+	# spends, and the ledger must name that figure — beside the chest the muster
+	# claims, not against the purse the chest consumes (issues #490, #590).
+	var court: DiplomacyState = _court()
+	court.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(court)
+	play.ai.economy_for(OBJ_OWNER).treasury = 500
+	var report: Dictionary = MapPlayObjectivesAi.court(play, OBJ_OWNER)
+	var study: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "research.study":
+			study = row
+	assert_false(study.is_empty(), "the study is priced")
+	assert_eq(int((study["cost"] as Dictionary).get("standing", 0)), 1,
+		"one standing study at Low, priced on its own budget")
+	assert_eq(
+		String(study["status"]), AiObjective.STATUS_FUNDED,
+		"the bounded exception funds even under the chest claim"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_a_broke_court_reads_a_blocked_study_not_a_funded_zero() -> void:
+	# A purse under half the cash floor funds no study; the ledger says so
+	# instead of reading a 0-gold study as funded for 200 turns (issue #590).
+	var play: PlaySession = _objective_session(_court())
+	play.ai.economy_for(OBJ_OWNER).treasury = 40
+	var report: Dictionary = MapPlayObjectivesAi.court(play, OBJ_OWNER)
+	var study: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "research.study":
+			study = row
+	assert_eq(String(study["status"]), AiObjective.STATUS_BLOCKED)
+	assert_eq(String(study["blocked"]), "purse under half the cash floor")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+func test_planner_a_stalled_war_chest_re_routes_the_reserve() -> void:
+	# The escalation's acting lever (issue #603): a muster deferred past the
+	# escalation bar with its shortfall standing still drops the war chest out
+	# of the reserve, so every spend floor that reads it opens. The muster row
+	# itself stays deferred (the blocked bar is farther out), and the report
+	# names the escalation.
+	var court: DiplomacyState = _court()
+	court.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(court)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 300
+	var rows: Array = []
+	var stall: Dictionary = {}
+	for turn in 12:
+		rows = [{
+			"id": "muster.line", "status": AiObjective.STATUS_DEFERRED,
+			"shortfall": {"treasury": 2100},
+		}]
+		stall = {"objectives": rows}
+		play.ai.note_objectives(OBJ_OWNER, stall, play.turn)
+	var report: Dictionary = MapPlayObjectivesAi.court(play, OBJ_OWNER)
+	var floor: int = AiConfig.build(OBJ_OWNER, OBJ_SEED).parameter("economy.min_treasury")
+	assert_eq(
+		int(report["reserve"]), floor,
+		"a stalled chest re-routes to the cash floor"
+	)
+	var escalations: Dictionary = report["escalations"]
+	assert_true(escalations.has("muster.line"), "the escalation rides the report")
+	assert_eq(int(escalations["muster.line"]), 12)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+
+## The voyage musters behind the ledger's claim (issue #491 T2): a funded hull
+## opens the harbour gate, a deferred one leaves the Explorer ashore.
+func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
+	var play: PlaySession = _objective_session(_court())
+	MapPlayObjectivesAi.run(play)
+	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
+	assert_true((claim["funded_ids"] as Array).has("expedition.hull"))
+	var open_port: Vector2i = MapPlayCivilianAi._muster_port(
+		play, OBJ_OWNER, play.model.region_id, play.model
+	)
+	assert_true(open_port.x >= 0, "a funded hull opens the muster")
+
+	# The same ledger with the hull starved: the gate stays shut.
+	play.ai.note_objectives(OBJ_OWNER, {
+		"phase": AiPhasePlanner.PHASE_PEACE, "ranked": 1, "funded": 0, "lines": [],
+		"objectives": [{"id": "expedition.hull", "status": AiObjective.STATUS_DEFERRED}],
+	}, play.turn)
+	var shut: Vector2i = MapPlayCivilianAi._muster_port(
+		play, OBJ_OWNER, play.model.region_id, play.model
+	)
+	assert_eq(shut, CivilianState.NO_TILE, "a deferred hull keeps the Explorer ashore")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #497's scripted case: a court at peace, with a harbour, a free hull and
+## an Explorer, issues its colonisation order on the turn the ledger funds the
+## claim — no 200 turns of luck.
+func test_a_peaceful_court_with_a_funded_claim_issues_the_voyage() -> void:
+	var play: PlaySession = _objective_session(_court())
+	MapPlayObjectivesAi.run(play)
+	var trace: Array[Dictionary] = MapPlayColonisationAi.run(play)
+
+	assert_eq(trace.size(), 1, "the court under way gets one step")
+	assert_eq(String(trace[0]["kind"]), "embark")
+	assert_eq(int(trace[0]["faction"]), OBJ_OWNER)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #500: a court at war with a hostile squadron and a funded build aim
+## lays a warship down through the yard, not just on paper.
+func test_a_funded_navy_build_lays_a_warship_down() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var report: Dictionary = MapPlayObjectivesAi.run(play)
+	assert_true(
+		((report[OBJ_OWNER] as Dictionary)["lines"] as Array).any(
+			func(line: Variant) -> bool: return String(line).begins_with("navy.build")
+		),
+		"the court at war prices its yard"
+	)
+	assert_true(
+		(play.ai.objectives_for(OBJ_OWNER)["funded_ids"] as Array).has("navy.build"),
+		"a rich court funds it"
+	)
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	assert_false((cargo.get("warship", {}) as Dictionary).is_empty(), "the hull is laid down")
+	assert_eq(
+		String((cargo["warship"] as Dictionary)["type_id"]), "sloop",
+		"the cheapest warship its techs open"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #484: the purse a court held for its hull is the fleet's, even though a
+## war footing clamps the yard and the muster to the same ceiling. The unmodified
+## utility breaks the tie, so the chest funds the hull and the army keeps saving.
+func test_the_chest_funds_the_hull_before_the_next_muster() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = ShipEconomy.treasury_cost("sloop")
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	MapPlayObjectivesAi.run(play)
+	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
+
+	assert_true(
+		(claim["funded_ids"] as Array).has("navy.build"),
+		"the chest is the fleet's, not the army's"
+	)
+	assert_false(
+		(claim["funded_ids"] as Array).has("muster.line"),
+		"the muster it outranks waits its turn"
+	)
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	var warship: Dictionary = cargo.get("warship", {})
+	assert_false(warship.is_empty(), "the hull the court saved for is laid down")
+	assert_eq(int(warship.get("price", 0)), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(
+		int(warship.get("chest", 0)), ShipEconomy.treasury_cost("sloop"),
+		"the launch names the chest that allowed it"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #484: the fleet claim holds the hull's material row the way the muster
+## holds its own — the cloth and lumber the yard wants, read off the catalog for
+## the cheapest warship (open, or the one the court is studying toward).
+func test_the_fleet_claim_knows_the_hull_s_material_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	assert_eq(
+		AiNavy.saving_row(economy), ShipEconomy.build_inputs("sloop"),
+		"the row is reserved while the unlock is still shut"
+	)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	assert_eq(
+		AiNavy.saving_row(economy), ShipEconomy.build_inputs("sloop"),
+		"the row the yard charges for the hull it is saving for"
+	)
+	assert_eq(
+		AiNavy.due_row(false, 0, 3, economy), ShipEconomy.build_inputs("sloop"),
+		"no fighting hull: the row is held even at peace"
+	)
+	assert_true(
+		AiNavy.due_row(false, 2, 3, economy).is_empty(),
+		"at peace with hulls, no fleet claim"
+	)
+	assert_eq(
+		AiNavy.due_row(true, 0, 3, economy), ShipEconomy.build_inputs("sloop"),
+		"a court at war with no warship holds the row"
+	)
+
+
+## Issue #484: a court that saved the whole chest but sold its cloth still
+## funds the treasury claim (cloth stays on AiClaims.NAVY, not double-booked on
+## the objective), yet the yard refuses the launch without fabric.
+func test_a_fleet_claim_short_of_cloth_does_not_launch() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 0
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	MapPlayObjectivesAi.run(play)
+	assert_true(
+		(play.ai.objectives_for(OBJ_OWNER)["funded_ids"] as Array).has("navy.build"),
+		"the chest claim funds without double-booking cloth"
+	)
+	assert_true(
+		(MapPlayCargoAi.run(play, OBJ_OWNER, economy).get("warship", {}) as Dictionary).is_empty(),
+		"the yard still refuses without fabric"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #484: the economy keeps the hull's row back beside the muster's, so a
+## court saving 5,500 ducats does not sell the cloth the yard wants.
+func test_the_economy_reserves_the_hull_row_beside_the_muster() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var production: Dictionary = {"assignments": []}
+	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+		production, 0, economy, {"fabric": 1}, {}, {"lumber": 1, "fabric": 1}
+	)
+	var reserved: Dictionary = AiClaims.reserve(rows)["reserved"]
+
+	assert_eq(int(reserved["fabric"]), 2, "the muster's cloth plus the hull's")
+	assert_eq(int(reserved["lumber"]), 1, "and the hull's timber")
+	assert_true(
+		(rows as Array).any(
+			func(row: Variant) -> bool: return String((row as Dictionary)["id"]) == AiClaims.NAVY
+		),
+		"the hull's row is its own claim, not the muster's"
+	)
+
+
+func test_a_war_footing_scales_the_military_up_and_the_voyage_down() -> void:
+	var config: AiConfig = _objective_config()
+	var peace: Dictionary = AiPosture.modifiers(AiPhasePlanner.PHASE_PEACE, config)
+	var war: Dictionary = AiPosture.modifiers(AiPhasePlanner.PHASE_WAR, config)
+	var fronts: Dictionary = AiPosture.modifiers(AiPhasePlanner.PHASE_FRONTS, config)
+
+	assert_eq(int(peace["military"]), AiPosture.weight_mille(config, "military"))
+	assert_true(int(war["military"]) > int(peace["military"]), "the army leads at war")
+	assert_true(int(war["expansion"]) < int(peace["expansion"]), "the voyage is cheaper at war")
+	assert_true(int(fronts["expansion"]) < int(war["expansion"]), "and cheaper still on two fronts")
+	assert_true(int(fronts["expansion"]) >= config.parameter("posture.floor"), "never zeroed")
+
+
+func test_the_leader_s_weights_reorder_the_rank() -> void:
+	var napoleon: AiConfig = AiConfig.build(OBJ_OWNER, OBJ_SEED, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	napoleon.personality = AiPersonality.resolve("napoleon")
+	var victoria: AiConfig = AiConfig.build(OBJ_OWNER, OBJ_SEED, AiProfile.NORMAL, AiAgenda.ISOLATIONIST)
+	victoria.personality = AiPersonality.resolve("victoria")
+	var phase: String = AiPhasePlanner.PHASE_WAR
+
+	assert_true(
+		int(AiPosture.modifiers(phase, napoleon)["military"])
+		> int(AiPosture.modifiers(phase, victoria)["military"]),
+		"a soldier ranks the army higher than a trader does"
+	)
+	assert_true(
+		int(AiPosture.modifiers(phase, victoria)["economy"])
+		> int(AiPosture.modifiers(phase, napoleon)["economy"]),
+		"and a trader ranks the ledger higher"
+	)
+
+
+func test_a_parent_defers_with_the_child_that_starved_it() -> void:
+	# At war the expedition needs the court's one order for its peace window; a
+	# war it still wants spends that order pressing the war instead.
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["posture"] = AiPhasePlanner.PHASE_WAR
+	readings["war_desire"] = 70
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"hull": 2, "civilian": 1, "orders": 1}
+	)
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+
+	assert_false(colony.is_empty(), "the voyage is still ranked at war")
+	assert_eq(String(colony["status"]), AiObjective.STATUS_DEFERRED)
+	assert_true(
+		String(colony.get("blocked", "")).contains("peace.window"),
+		"the trace names the aim the voyage waited on"
+	)
+	var line: String = ""
+	for raw: Variant in report["lines"]:
+		if String(raw).begins_with("colonise.new_world"):
+			line = String(raw)
+	assert_true(line.contains("deferred"), "and the line says so: %s" % line)
+
+
+func test_a_won_peace_window_opens_the_voyage_at_war() -> void:
+	# A court that wants peace more than it wants the war spends its order on
+	# the window, so the expedition funds and the muster gate opens (issue #497).
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["posture"] = AiPhasePlanner.PHASE_WAR
+	readings["war_desire"] = 20
+	var report: Dictionary = AiObjectiveLedger.run(
+		AiObjectivesPlan.build(readings), {"hull": 2, "civilian": 1, "orders": 1}
+	)
+	var status: Dictionary = {}
+	_statuses(report["objectives"], status)
+	assert_eq(String(status["peace.window"]), AiObjective.STATUS_FUNDED)
+	assert_eq(String(status["colonise.new_world"]), AiObjective.STATUS_FUNDED)
+
+
+# --- commodity claims: the reservations (issue #498) -------------------------
+
+
+func test_a_commodity_claim_reads_after_the_named_resources() -> void:
+	var objective: AiObjective = AiObjective.create(
+		"reserve.muster", "economy", 90, {"fabric": 1, "treasury": 400, "grain": 2}
+	)
+
+	assert_eq(
+		String(objective.line()),
+		"reserve.muster u90 treasury 0/400, fabric 0/1, grain 0/2 ranked",
+		"named resources first, commodities sorted after them"
+	)
+
+
+func test_the_reservation_rows_merge_into_one_claim_set() -> void:
+	var rows: Array[Dictionary] = AiClaims.sources({
+		AiClaims.RATIONS: {"grain": 5},
+		AiClaims.MUSTER: {"fabric": 1, "grain": 2},
+		AiClaims.WORKS: {"lumber": 3},
+	})
+	var report: Dictionary = AiClaims.reserve(rows)
+	var reserved: Dictionary = report["reserved"]
+
+	assert_eq(int(reserved["grain"]), 7, "the rows add up")
+	assert_eq(int(reserved["fabric"]), 1)
+	assert_eq(int(reserved["lumber"]), 3)
+	assert_eq((report["lines"] as Array).size(), 3, "every reservation is a claim line")
+	assert_true(
+		String((report["lines"] as Array)[0]).begins_with(AiClaims.RATIONS),
+		"rations outrank the rest"
+	)
+
+
+func test_a_pool_short_of_a_commodity_defers_the_rest() -> void:
+	var rows: Array[Dictionary] = AiClaims.sources({
+		AiClaims.RATIONS: {"grain": 3},
+		AiClaims.MUSTER: {"grain": 4},
+	})
+	var report: Dictionary = AiClaims.reserve(rows, {"grain": 3})
+
+	assert_eq(int((report["reserved"] as Dictionary)["grain"]), 3, "only what is held")
+	var second: Dictionary = (report["rows"] as Array)[1]
+	assert_eq(String(second["status"]), AiObjective.STATUS_DEFERRED)
+	assert_eq(int((second["shortfall"] as Dictionary)["grain"]), 4)
+
+
+func test_the_civilian_purse_is_one_treasury_claim() -> void:
+	assert_eq(int(AiClaims.purse(2000, 500)["treasury"]), 1500)
+	assert_eq(int(AiClaims.purse(400, 500).get("treasury", 0)), 0, "no purse below its floor")
+	assert_eq(int(AiClaims.purse(500, 500).get("treasury", 0)), 0)
+
+
+func test_the_routes_of_the_economy_pass_are_the_same_reservation() -> void:
+	# The parity invariant: the claim set merges to the dictionary the market has
+	# always read, so no sale, bid or work changes (issue #498).
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var production: Dictionary = {
+		"assignments": [{"recipe": ProductionRecipes.ids()[0], "units": 2}],
+	}
+	var muster: Dictionary = {"fabric": 1}
+	var works: Dictionary = {"lumber": 2}
+	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+		production, 4, economy, muster, works
+	)
+	var merged: Dictionary = AiClaims.reserve(rows)["reserved"]
+	var published: Dictionary = MapPlayEconomyAi._reserved_inputs(
+		production, 4, economy, muster, works
+	)
+
+	assert_eq(merged, published, "one primitive, the same floor")
+	var ids: Array[String] = []
+	for row: Dictionary in rows:
+		ids.append(String(row["id"]))
+	assert_true(ids.has(AiClaims.RATIONS) and ids.has(AiClaims.WORKS))
+
+
+# --- the save round-trip -----------------------------------------------------
+
+
+func test_a_save_round_trips_the_ledger() -> void:
+	var state := AiState.new()
+	state.note_objectives(
+		OBJ_OWNER,
+		{
+			"phase": AiPhasePlanner.PHASE_WAR, "ranked": 4, "funded": 3,
+			"lines": ["colonise.new_world u50 hull 0/1 deferred"],
+		},
+		7
+	)
+	var restored := AiState.from_dict(state.to_dict())
+	var claim: Dictionary = restored.objectives_for(OBJ_OWNER)
+
+	assert_eq(int(claim["turn"]), 7)
+	assert_eq(String(claim["phase"]), AiPhasePlanner.PHASE_WAR)
+	assert_eq(int(claim["ranked"]), 4)
+	assert_eq(int(claim["funded"]), 3)
+	assert_eq(String((claim["lines"] as Array)[0]), "colonise.new_world u50 hull 0/1 deferred")
+
+
+func test_a_save_round_trips_the_deferral_stalls() -> void:
+	# The escalation's records ride the save, so a stalled war chest survives a
+	# load instead of restarting its count (issue #603).
+	var state := AiState.new()
+	var rows: Array = []
+	for turn in 3:
+		rows = [{
+			"id": "muster.line", "status": AiObjective.STATUS_DEFERRED,
+			"shortfall": {"treasury": 2100},
+		}]
+		state.note_objectives(OBJ_OWNER, {"objectives": rows}, turn)
+	assert_eq(
+		AiDeferral.stall(AiDeferral.records_for(state.deferrals, OBJ_OWNER), "muster.line"), 3,
+	)
+	var restored := AiState.from_dict(state.to_dict())
+	assert_eq(
+		AiDeferral.stall(AiDeferral.records_for(restored.deferrals, OBJ_OWNER), "muster.line"), 3,
+		"the stall count carries the load"
+	)
+	# A funded aim leaves no record, so a fresh campaign reads none either.
+	assert_true(
+		AiDeferral.records_for(restored.deferrals, OBJ_RIVAL).is_empty(),
+		"other courts read empty"
+	)
+
+
+func test_an_old_save_reads_an_empty_ledger() -> void:
+	var restored := AiState.from_dict({"difficulty": Difficulty.DEFAULT})
+
+	assert_true(restored.objectives_for(OBJ_OWNER).is_empty(), "an old save simply has no ledger")
+	assert_eq(int(restored.to_dict().get("objective_claims", {}).size()), 0)
+	assert_true(
+		AiDeferral.records_for(restored.deferrals, OBJ_OWNER).is_empty(),
+		"and no stall records"
+	)
