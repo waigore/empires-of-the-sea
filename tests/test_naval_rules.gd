@@ -1351,6 +1351,100 @@ func test_settlement_sorts_out_and_reports_every_region() -> void:
 	assert_eq((result["sorties"] as Array).size(), 1)
 	assert_true(fleet.is_at_sea())
 
+## A squadron that sorts out of a captured port in the other chart enters that
+## water exactly as a sail order does, so the crown charts the zone even though
+## the court is looking at the other chart (wiki: ships-and-naval § Ports that
+## change hands — "The entry reveals the zone for its owner like any move").
+func test_a_sort_out_in_the_other_chart_charts_the_zone() -> void:
+	var play: PlaySession = _two_chart_session()
+	var fleet: FleetState = FleetState.in_port(1, 0, SEAT, ["ship_1"])
+	play.ship_layer.regions.set_region(1, [fleet])
+	play.world.region(1).province_data(SEAT).owner = 1
+
+	MapPlayPortLoss.settle(play, [])
+
+	assert_true(fleet.is_at_sea(), "the port fell, so the squadron sorts out")
+	assert_eq(fleet.sea_zone, 0)
+	var chart: VisibilityModel = play.visibility_by_region.get(1, null)
+	assert_not_null(chart, "the other chart is minted for the entry")
+	if chart == null:
+		return
+	for tile: Vector2i in play.world.region(1).sea_zone_data(0).tiles:
+		assert_eq(
+			chart.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE,
+			"the entered zone's water is charted"
+		)
+	# The strict coastal ring comes with the water, as any sail order charts it.
+	assert_eq(chart.level_at(1, 0), VisibilityModel.Level.FULLY_VISIBLE)
+	# The shown chart is the ship layer's own signal, so nothing is minted here.
+	assert_false(play.visibility_by_region.has(0))
+
+## A re-mooring is administrative and charts nothing, a rival's sortie is not
+## the crown's reading, and a scuttled squadron enters no water at all.
+func test_only_the_crowns_own_sort_out_charts_the_other_chart() -> void:
+	var play: PlaySession = _two_chart_session()
+	var reports: Array[Dictionary] = [
+		{"fleet": 1, "owner": 1, "province": SEAT, "zone": 0, "scuttled": false, "region": 1},
+		{"fleet": 2, "owner": 0, "from": SEAT, "to": HARBOUR, "region": 1},
+		{"fleet": 3, "owner": 0, "province": SEAT, "zone": MapModel.NO_ID, "scuttled": true, "region": 1},
+	]
+
+	MapPlayPortLoss.chart_sorties(play, reports)
+
+	assert_false(play.visibility_by_region.has(1), "no chart is minted for nothing")
+
+## Two charts, the crown looking at the old one: the fixture's chart twice, the
+## second standing in for the New World. The layer knows both rosters.
+func _two_chart_session() -> PlaySession:
+	var old_world: MapModel = naval_port_loss_Fixture.build()
+	var new_world: MapModel = naval_port_loss_Fixture.build()
+	new_world.region_id = 1
+	var world := WorldMap.new()
+	world.add_region(old_world)
+	world.add_region(new_world)
+	var play := PlaySession.new()
+	play.world = world
+	play.model = old_world
+	play.player_faction = 0
+	play.region_index = 0
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.player_faction = 0
+	return play
+
+## The chart helper's own guards: the shown region hands back the session's
+## model, a region the world does not have mints nothing, and a session with no
+## world or no reports is a no-op.
+func test_the_chart_helper_guards_what_it_cannot_chart() -> void:
+	var play: PlaySession = _two_chart_session()
+	var shown := VisibilityModel.new()
+	shown.setup(play.model, 0)
+	play.visibility = shown
+
+	assert_eq(MapPlayFogTurn.chart(play, 0), shown, "the shown chart is the session's")
+	assert_eq(MapPlayFogTurn.chart(play, 9), null, "no such region")
+	assert_eq(MapPlayFogTurn.chart(null, 0), null, "no session")
+	var bare := PlaySession.new()
+	bare.player_faction = 0
+	assert_eq(MapPlayFogTurn.chart(bare, 1), null, "no world to cut a chart from")
+	MapPlayPortLoss.chart_sorties(null, [])
+	MapPlayPortLoss.chart_sorties(bare, [{"owner": 0, "zone": 0, "region": 1}])
+	assert_true(bare.visibility_by_region.is_empty(), "nothing is charted without a world")
+
+## A sort-out the crown is already looking at is the ship layer's own signal,
+## and a report with no zone enters no water.
+func test_a_shown_chart_sort_out_and_a_zoneless_report_chart_nothing() -> void:
+	var play: PlaySession = _two_chart_session()
+	var reports: Array[Dictionary] = [
+		{"fleet": 1, "owner": 0, "province": SEAT, "zone": 0, "scuttled": false, "region": 0},
+		{"fleet": 2, "owner": 0, "province": SEAT, "zone": MapModel.NO_ID, "scuttled": false, "region": 1},
+	]
+
+	MapPlayPortLoss.chart_sorties(play, reports)
+
+	assert_true(play.visibility_by_region.is_empty(), "neither report charts a chart")
+
 func test_settlement_re_moors_a_reassigned_home_squadron() -> void:
 	var model: MapModel = naval_port_loss_Fixture.build()
 	var world := WorldMap.new()

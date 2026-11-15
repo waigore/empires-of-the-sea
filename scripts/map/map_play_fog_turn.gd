@@ -26,6 +26,36 @@ static func resolve(play: PlaySession) -> void:
 			play.overlay.sync_visibility(visibility, changed)
 
 
+## The crown's chart for one region, set up on first use. A rule that charts
+## water while the court looks at the other chart (a squadron sorting out of a
+## captured port) must not lose the entry because the chart was never opened:
+## the model is minted here with the region's own baseline, exactly as the first
+## visit would (wiki: fog-and-exploration § Initial Visibility; ships-and-naval
+## § Ports that change hands). Null when the region does not exist.
+static func chart(play: PlaySession, region: int) -> VisibilityModel:
+	if play == null:
+		return null
+	var stored: VisibilityModel = play.visibility_by_region.get(region, null)
+	if stored != null:
+		return stored
+	if region == play.region_index:
+		# The shown region's model is the session's own; it is built by the map
+		# setup pass and never minted a second time here.
+		if play.visibility != null:
+			play.visibility_by_region[region] = play.visibility
+		return play.visibility
+	if play.world == null:
+		return null
+	var model: MapModel = play.world.region(region)
+	if model == null:
+		return null
+	var visibility := VisibilityModel.new()
+	visibility.setup(model, play.player_faction)
+	visibility.apply_initial()
+	play.visibility_by_region[region] = visibility
+	return visibility
+
+
 ## Live roster for the shown region; stored table for the other.
 static func _fleets_of(play: PlaySession, index: int) -> Array[FleetState]:
 	var fleets: Array[FleetState] = []

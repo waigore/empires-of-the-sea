@@ -18,6 +18,46 @@ static func settle(play: PlaySession, reassigned: Array) -> void:
 			_report_merge(play, report)
 			continue
 		_report_move(play, report)
+	chart_sorties(play, reports)
+
+
+## A squadron that sorts out of a captured port enters that water exactly as a
+## sail order does, so the crown charts the zone even when the court is looking
+## at the other chart (wiki: ships-and-naval § Ports that change hands — "It is
+## now a sea-going squadron at sea… The entry reveals the zone for its owner like
+## any move"). The shown chart's entry is charted by the ship layer's own signal;
+## this covers the chart the event happened off-screen in, minting that chart on
+## first use so nothing is lost before the court opens it. A re-mooring is
+## administrative and charts nothing, and a rival's sortie is not the crown's
+## reading. A whole-game observer has no crown table, so it charts nothing here
+## and its courts read their own charts as rivals do (issue #603).
+static func chart_sorties(play: PlaySession, reports: Array) -> void:
+	if play == null or play.world == null:
+		return
+	var crown: int = play.human_faction_id()
+	if crown == MapModel.NO_ID:
+		return
+	var rings: int = LeaderCatalog.coastal_rings(
+		String(play.leaders.get(crown, ""))
+	)
+	for raw: Variant in reports:
+		var report: Dictionary = raw as Dictionary
+		if report.has("merged") or report.has("from"):
+			continue
+		if bool(report.get("scuttled", false)):
+			continue
+		if int(report.get("owner", MapModel.NO_ID)) != crown:
+			continue
+		var region: int = int(report.get("region", play.region_index))
+		if region == play.region_index:
+			continue
+		var zone: int = int(report.get("zone", MapModel.NO_ID))
+		if zone == MapModel.NO_ID:
+			continue
+		var visibility: VisibilityModel = MapPlayFogTurn.chart(play, region)
+		if visibility == null:
+			continue
+		visibility.reveal_sea_zone(zone, rings)
 
 
 ## The re-mooring is administrative, so the squadron keeps its passengers. One
@@ -28,7 +68,8 @@ static func _report_merge(play: PlaySession, report: Dictionary) -> void:
 	var owner: int = int(report.get("owner", MapModel.NO_ID))
 	var owner_name: String = FactionCatalog.name_of(owner)
 	var place: String = _place(play, report, seat)
-	play.hud.toast("%s's home squadron re-moors at %s" % [owner_name, place])
+	if play.hud != null:
+		play.hud.toast("%s's home squadron re-moors at %s" % [owner_name, place])
 	for raw: Variant in report.get("ashore", []):
 		put_ashore(play, int(raw), seat, place)
 
@@ -54,6 +95,8 @@ static func put_ashore(
 
 ## A re-moored squadron or a squadron that sorted out of a lost port.
 static func _report_move(play: PlaySession, report: Dictionary) -> void:
+	if play.hud == null:
+		return
 	var owner: int = int(report.get("owner", MapModel.NO_ID))
 	var owner_name: String = FactionCatalog.name_of(owner)
 	if report.has("from"):
