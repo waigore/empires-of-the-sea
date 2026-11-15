@@ -427,8 +427,11 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 		_screen.world.region(1).province_at(tile.x, tile.y)
 	))
 
-	row._visit_unit()
-	assert_false(roster.is_open(), "visiting closes the ledger")
+	var tap := InputEventMouseButton.new()
+	tap.pressed = true
+	tap.button_index = MOUSE_BUTTON_LEFT
+	row._gui_input(tap)
+	assert_false(roster.is_open(), "a tap on the row visits the civilian")
 	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
 	assert_eq(_screen.civilian_layer.selected_unit, unit)
 	assert_true(_screen.hud.panels.is_civilian_panel_open())
