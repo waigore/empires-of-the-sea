@@ -3061,7 +3061,7 @@ func test_the_cargo_book_outlives_the_price_pass_and_closes_at_the_raid() -> voi
 		"price discovery does not empty the cargo the raid pass reads"
 	)
 	assert_eq(market.importing_factions(), [0] as Array[int])
-	market.close_cargo_book()
+	market.book.close_cargo()
 	assert_true(market.imports_for(0).is_empty())
 	assert_true(market.importing_factions().is_empty())
 
@@ -3443,7 +3443,7 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 		MapPlayFleetMissions.prize_note(play, blockader).contains("Prize:"),
 		"the dossier still prices cargo the clearing left afloat"
 	)
-	economy.market.close_cargo_book()
+	economy.market.book.close_cargo()
 	assert_true(
 		MapPlayFleetMissions.prize_note(play, blockader).contains("no cargo afloat")
 	)
