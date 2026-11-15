@@ -12,13 +12,16 @@ extends RefCounted
 ## crown's own shores keep no ward, what the next one costs, what it waits on,
 ## who is free to raise it and what the whole staff eats — so a crown heals its
 ## armies from one page instead of thirty dossiers (REQ-P5-03, REQ-P5-04).
+## The snapshot walk, the chip tallies and the state ladder are
+## [RaiseLedger]'s; the ward row, its states and its words are this sheet's own
+## (REQ-P3-01).
 
 ## What the ward's next step is waiting on. One state per row, so the reading
 ## chips and the row's own word can never disagree.
-const STATE_READY: String = "ready"
-const STATE_AT_WORK: String = "at_work"
+const STATE_READY: String = RaiseLedger.STATE_READY
+const STATE_AT_WORK: String = RaiseLedger.STATE_AT_WORK
 const STATE_NO_ENGINEER: String = "no_engineer"
-const STATE_LOCKED: String = "locked"
+const STATE_LOCKED: String = RaiseLedger.STATE_LOCKED
 const STATE_RAISED: String = "raised"
 
 const FILTER_ALL: String = "all"
@@ -26,6 +29,11 @@ const FILTER_READY: String = "ready"
 const FILTER_AT_WORK: String = "at_work"
 const FILTER_RAISED: String = "raised"
 const FILTERS: Array[String] = [FILTER_ALL, FILTER_READY, FILTER_AT_WORK, FILTER_RAISED]
+
+## Every state a row can carry, in the order the snapshot tallies them.
+const STATES: Array[String] = [
+	STATE_READY, STATE_AT_WORK, STATE_NO_ENGINEER, STATE_LOCKED, STATE_RAISED
+]
 
 ## The order the sheet prints its states in: what can be raised now leads, what
 ## is already in hand follows, and what is finished reads last.
@@ -42,70 +50,37 @@ const NO_ID: int = -1
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
-## {region, model, units, tech_unlocked} — the crown's crews there and the
-## studies it holds. `stockpile` is the crown's live purse, or `null` when the
-## caller prices no spend (the ledger's own fixtures do not). A chart with no
-## model is skipped, so a one-region world reads as one heading. A province with
-## no town tile and no seat cannot carry a ward (it is raised on the town tile),
-## so it earns no row.
-static func snapshot(
-	regions: Array[Dictionary], owner: int, stockpile: Variant = null
-) -> Dictionary:
-	var rows: Array[Dictionary] = []
-	var counts: Dictionary = {
-		STATE_READY: 0,
-		STATE_AT_WORK: 0,
-		STATE_NO_ENGINEER: 0,
-		STATE_LOCKED: 0,
-		STATE_RAISED: 0,
-	}
-	for entry: Dictionary in regions:
-		var model := entry.get("model") as MapModel
-		if model == null:
-			continue
-		var region: int = int(entry.get("region", model.region_id))
-		var units: Array[CivilianState] = []
-		units.assign(entry.get("units", []))
-		var tech_unlocked: Dictionary = entry.get("tech_unlocked", {})
-		for province: ProvinceState in model.provinces:
-			if province == null or province.owner != owner:
-				continue
-			var row: Dictionary = _row(model, province, region, units, tech_unlocked, stockpile)
-			if row.is_empty():
-				continue
-			rows.append(row)
-			var state: String = String(row["state"])
-			counts[state] = int(counts.get(state, 0)) + 1
-	rows.sort_custom(_before)
-	return {
-		"rows": rows,
-		"groups": LedgerRows.group(rows),
-		"counts": counts,
-		"total": rows.size(),
-	}
+## {region, model, units, tech_unlocked, stockpile} — the crown's crews there,
+## the studies it holds and the stores the next step is paid from. A chart with
+## no model is skipped, so a one-region world reads as one heading. A province
+## with no town tile and no seat cannot carry a ward (it is raised on the town
+## tile), so it earns no row.
+static func snapshot(regions: Array[Dictionary], owner: int) -> Dictionary:
+	return RaiseLedger.snapshot(regions, owner, _row, STATES, STATE_ORDER, Callable(), _before)
 
 
 ## Rows narrowed to one chart and one reading, grouped under their chart.
 static func groups(
 	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
 ) -> Array[Dictionary]:
-	return LedgerRows.groups(data, region_key, matches.bind(filter_key))
+	return RaiseLedger.groups(data, region_key, filter_key)
 
 
 static func count(
 	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
 ) -> int:
-	return LedgerRows.count(data, region_key, matches.bind(filter_key))
+	return RaiseLedger.count(data, region_key, filter_key)
 
 
 ## How many wards each reading would show inside one chart, so a chip carries
 ## its own tally and a zero stays legible rather than hidden.
 static func filter_counts(data: Dictionary, region_key: String) -> Dictionary:
-	return LedgerRows.counts(data, region_key, FILTERS, matches)
+	return RaiseLedger.filter_counts(data, region_key, FILTERS)
 
 
+## A ward reading is the row's own state word.
 static func matches(row: Dictionary, filter_key: String) -> bool:
-	return LedgerRows.field_matches(row, "state", filter_key)
+	return RaiseLedger.matches(row, filter_key)
 
 
 ## One-word name of a reading, for its chip and the sheet's count line.
@@ -238,15 +213,15 @@ static func _row(
 static func _state(
 	level: int, crew: CivilianState, refusal: String, hand: CivilianState
 ) -> String:
-	if level >= HospitalRules.MAX_LEVEL:
-		return STATE_RAISED
-	if crew != null:
-		return STATE_AT_WORK
-	if not refusal.is_empty():
-		return STATE_LOCKED
-	if hand == null:
-		return STATE_NO_ENGINEER
-	return STATE_READY
+	return RaiseLedger.state_for(
+		level,
+		HospitalRules.MAX_LEVEL,
+		crew,
+		refusal,
+		hand != null,
+		STATE_RAISED,
+		STATE_NO_ENGINEER
+	)
 
 
 ## The Engineer already raising this ward, read from the crew's own record so
@@ -254,13 +229,7 @@ static func _state(
 static func _crew(
 	units: Array[CivilianState], owner: int, site: Vector2i
 ) -> CivilianState:
-	for raw: Variant in units:
-		var unit := raw as CivilianState
-		if unit == null or unit.owner != owner or not unit.is_working():
-			continue
-		if unit.work_action() == "build_hospital" and unit.work_tile() == site:
-			return unit
-	return null
+	return RaiseLedger.crew_for(units, owner, site, "build_hospital")
 
 
 static func _note(

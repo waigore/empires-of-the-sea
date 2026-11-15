@@ -176,7 +176,9 @@ func test_a_ward_that_went_unfed_says_so_and_leads_its_state() -> void:
 
 
 func test_the_stores_gate_closes_a_row_the_order_would_refuse() -> void:
-	var broke: Dictionary = HospitalLedger.snapshot(_regions(_engineers()), 0, {})
+	var broke: Dictionary = HospitalLedger.snapshot(
+		_regions(_engineers(), {"organised_regiments": true}, {}), 0
+	)
 	var home: Dictionary = _row(broke, FactionCatalog.OLD_WORLD)
 	assert_eq(String(home["state"]), HospitalLedger.STATE_LOCKED, "an empty purse offers no press")
 	assert_true(
@@ -184,7 +186,7 @@ func test_the_stores_gate_closes_a_row_the_order_would_refuse() -> void:
 		"the row names the shortfall"
 	)
 	var paid: Dictionary = HospitalLedger.snapshot(
-		_regions(_engineers()), 0, {"lumber": 3, "fabric": 2}
+		_regions(_engineers(), {"organised_regiments": true}, {"lumber": 3, "fabric": 2}), 0
 	)
 	assert_eq(
 		String(_row(paid, FactionCatalog.OLD_WORLD)["state"]),
@@ -303,7 +305,7 @@ func test_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
 	var row: HospitalLedgerRow = _row_for(panel, province.id)
 	assert_not_null(row, "the province is on the sheet")
 	assert_eq(String(row.data.get("state", "")), HospitalLedger.STATE_READY, "the row offers the press")
-	row._raise_ward()
+	row.press_raise()
 	var crew: CivilianState = _ward_crew(site)
 	assert_not_null(crew, "the press sends an Engineer")
 	assert_eq(crew.work_action(), "build_hospital", "and files the ward order")
@@ -384,8 +386,11 @@ func test_the_sheet_offers_no_press_the_stores_refuse() -> void:
 
 ## Two charts of the naval fixture: the crown holds Cádiz at home (a bare town)
 ## and Veracruz abroad (a field ward), and the rival's Coro carries a town of its
-## own that must never reach the reading.
-func _regions(units: Array, tech: Dictionary = {"organised_regiments": true}) -> Array[Dictionary]:
+## own that must never reach the reading. The purse rides every chart the way
+## [MapPlayCharts] hands it over; `null` prices no spend.
+func _regions(
+	units: Array, tech: Dictionary = {"organised_regiments": true}, stockpile: Variant = null
+) -> Array[Dictionary]:
 	var old: MapModel = Naval.build()
 	var new: MapModel = Naval.build()
 	new.region_id = FactionCatalog.NEW_WORLD
@@ -401,12 +406,14 @@ func _regions(units: Array, tech: Dictionary = {"organised_regiments": true}) ->
 			"model": old,
 			"units": units,
 			"tech_unlocked": tech,
+			"stockpile": stockpile,
 		},
 		{
 			"region": FactionCatalog.NEW_WORLD,
 			"model": new,
 			"units": units,
 			"tech_unlocked": tech,
+			"stockpile": stockpile,
 		},
 	]
 
