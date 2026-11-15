@@ -4,6 +4,10 @@ extends RefCounted
 ## persistence). Staged orders belong to the turn being played; carry-forward
 ## orders are unfilled residuals the next turn may still clear. Pure data so the
 ## market, the matcher, the ledger and saves share one book (REQ-P3-03).
+##
+## The turn's trade volumes live here too — what each crown actually bought and
+## sold, its cargo afloat and its price-discovery demand — so [WorldMarket] stays
+## a price and terms face and one module answers "what moved this turn".
 
 var submitted: Array[MarketOrder] = []
 ## Unfilled Great-Power orders carried from the previous turn.
@@ -12,6 +16,9 @@ var carry: Array[MarketOrder] = []
 var last_deals: Array[Dictionary] = []
 var last_notes: Array[Dictionary] = []
 var _seq: int = 0
+## Units traded this turn per commodity ([method record_import],
+## [method record_offer]) and the volumes that query them.
+var volumes: MarketVolumes = MarketVolumes.new()
 
 
 ## Adds one order and gives it a unique id. The caller validates first.
@@ -110,6 +117,12 @@ func close_turn() -> void:
 	submitted.clear()
 
 
+## Starts the next turn with clean trade volumes: the harvest is re-emitted by
+## the ledger after the pass (DR-20261110-08).
+func reset_turn_volumes() -> void:
+	volumes.reset()
+
+
 func set_carry(orders: Array[MarketOrder]) -> void:
 	carry.clear()
 	for order: MarketOrder in orders:
@@ -125,6 +138,7 @@ func copy() -> MarketBook:
 	clone.last_deals = last_deals.duplicate(true)
 	clone.last_notes = last_notes.duplicate(true)
 	clone._seq = _seq
+	clone.volumes = volumes.copy()
 	return clone
 
 
@@ -135,6 +149,7 @@ func to_dict() -> Dictionary:
 		"last_deals": last_deals.duplicate(true),
 		"last_notes": last_notes.duplicate(true),
 		"seq": _seq,
+		"volumes": volumes.to_dict(),
 	}
 
 
@@ -149,6 +164,11 @@ static func from_dict(data: Dictionary) -> MarketBook:
 	book.last_deals = _dict_array(data.get("last_deals", []))
 	book.last_notes = _dict_array(data.get("last_notes", []))
 	book._seq = int(data.get("seq", 0))
+	var saved: Variant = data.get("volumes", {})
+	if saved is Dictionary:
+		book.volumes = MarketVolumes.from_dict(saved)
+	# A save from before the volumes moved into the book keeps them beside it.
+	book.volumes.adopt_legacy(data)
 	return book
 
 

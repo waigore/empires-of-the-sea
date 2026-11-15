@@ -23,17 +23,11 @@ var subsidy_terms: Dictionary = {}
 ## This turn's Minor Nation and Tribe offers, re-emitted each turn from their
 ## estates (wiki: world-market § Minor and tribe auto-sell; DR-20261110-08).
 var minor_offers: Array[Dictionary] = []
-## Staged bids/offers and carried residuals (wiki: world-market § Trade orders,
-## § Order persistence). The ledger and the AI stage here; the matcher clears.
+## Staged bids/offers, carried residuals and the turn's trade volumes (wiki:
+## world-market § Trade orders, § Order persistence). The ledger and the AI stage
+## here; the matcher clears. The queries below read through, so callers keep one
+## book to ask about what moved this turn.
 var book: MarketBook = MarketBook.new()
-var _bids: Dictionary = {}
-var _offers: Dictionary = {}
-## Units bought this turn per buyer, so each crown spends its own cargo holds
-## (DR-20261109-03); the price book stays one global order book.
-var _bought_by_faction: Dictionary = {}
-## Each buyer's own cargo this turn, commodity -> units. A raid takes the
-## victim's goods only, never the whole book's (DR-20261110-13).
-var _imports_by_faction: Dictionary = {}
 
 
 static func with_default_prices(depth: int = DEFAULT_WORLD_DEPTH) -> WorldMarket:
@@ -93,80 +87,45 @@ func can_trade(id: String) -> bool:
 	return CommodityCatalog.is_tradeable(id)
 
 
+## Units bid this turn on one commodity: the price-discovery demand side.
 func bid_volume(id: String) -> int:
-	return int(_bids.get(id, 0))
+	return book.volumes.bid_volume(id)
 
 
+## Units offered this turn on one commodity: the price-discovery supply side.
 func offer_volume(id: String) -> int:
-	return int(_offers.get(id, 0))
+	return book.volumes.offer_volume(id)
 
 
 ## Units bought this turn across every commodity: the tonnage merchant cargo
 ## must carry (wiki: world-market § Cargo).
 func bought_units() -> int:
-	var total: int = 0
-	for id: Variant in _bids.keys():
-		total += int(_bids[id])
-	return total
+	return book.volumes.bought_units()
 
 
 ## Units one crown bought this turn. Legacy books that predate per-buyer
 ## accounting attribute every laden hold to the player.
 func bought_units_for(faction: int) -> int:
-	if _bought_by_faction.is_empty() and not _bids.is_empty():
-		return bought_units() if faction == FactionCatalog.PLAYER_FACTION else 0
-	return int(_bought_by_faction.get(faction, 0))
+	return book.volumes.bought_units_for(faction)
 
 
 ## This turn's imports per commodity across every buyer, for price discovery.
 ## A raid must read one crown's own cargo instead: [method imports_for].
 func imports_this_turn() -> Dictionary:
-	return _bids.duplicate()
+	return book.volumes.imports_this_turn()
 
 
 ## One crown's own cargo this turn, commodity -> units: what a raid can take off
 ## its merchant hulls (wiki: ships-and-naval § Trade and Transport Interception;
-## DR-20261110-13). Legacy books that predate per-buyer cargo attribute the whole
-## book to the player, as [method bought_units_for] does.
+## DR-20261110-13).
 func imports_for(faction: int) -> Dictionary:
-	if _imports_by_faction.is_empty():
-		return _bids.duplicate() if faction == FactionCatalog.PLAYER_FACTION else {}
-	var own: Variant = _imports_by_faction.get(faction, null)
-	if own == null:
-		# A saved book round-tripped through JSON keeps string keys.
-		own = _imports_by_faction.get(str(faction), {})
-	if own is Dictionary:
-		return (own as Dictionary).duplicate()
-	return {}
+	return book.volumes.imports_for(faction)
 
 
 ## Every crown with cargo afloat this turn, ascending: the courts a blockade can
 ## raid (DR-20261110-13).
 func importing_factions() -> Array[int]:
-	var out: Array[int] = []
-	if _imports_by_faction.is_empty():
-		if not _bids.is_empty():
-			out.append(FactionCatalog.PLAYER_FACTION)
-		return out
-	for raw: Variant in _imports_by_faction.keys():
-		var cargo: Dictionary = _imports_by_faction[raw] as Dictionary
-		if not cargo.is_empty():
-			out.append(int(raw))
-	out.sort()
-	return out
-
-
-## The live per-crown cargo row, created on the first buy this turn. A loaded
-## book may key factions by string, so a new purchase keeps filling that row.
-func _cargo_book(faction: int) -> Dictionary:
-	var existing: Variant = _imports_by_faction.get(faction, null)
-	if existing == null:
-		existing = _imports_by_faction.get(str(faction), null)
-	if existing is Dictionary:
-		return existing as Dictionary
-	var fresh: Dictionary = {}
-	_imports_by_faction[faction] = fresh
-	return fresh
+	return book.volumes.importing_factions()
 
 
 ## Buys at the current price and records the bid for price discovery.
@@ -182,28 +141,31 @@ func buy(
 		return {"ok": false, "reason": "Quantity must be positive"}
 	var unit_price: int = buy_price(id, faction)
 	var cost: int = unit_price * quantity
-	if not economy.spend_treasury(cost):
+	if not settle_purchase(economy, id, quantity, faction, cost):
 		return {"ok": false, "reason": "Insufficient treasury", "cost": cost}
+	return {"ok": true, "reason": "", "unit_price": unit_price, "cost": cost}
+
+
+## Pays a purchase and lands the goods: the purse edge, the stockpile and the
+## book's cargo and price-discovery demand move as one. The ledger's own buy and
+## the end-of-turn clearing settle through here, so a filled deal is booked
+## exactly like a click (wiki: world-market § Trade orders). False when the
+## purse cannot cover `cost`; nothing moves.
+func settle_purchase(
+	economy: PlayerEconomy, id: String, quantity: int, faction: int, cost: int
+) -> bool:
+	if economy == null or not economy.spend_treasury(cost):
+		return false
 	economy.add(id, quantity)
 	record_import(id, quantity, faction)
-	return {"ok": true, "reason": "", "unit_price": unit_price, "cost": cost}
+	return true
 
 
 ## Books a purchase whose goods never sat in another crown's stockpile (a Minor
 ## or Tribe offer): the buyer's import and its price-discovery demand are the
 ## same as an ordinary bid (wiki: world-market § Minor and tribe auto-sell).
 func record_import(id: String, quantity: int, faction: int) -> void:
-	if quantity <= 0:
-		return
-	# A legacy book that only knows global bids attributes them to the player
-	# before the first per-buyer entry is written.
-	if _bought_by_faction.is_empty() and not _bids.is_empty():
-		_bought_by_faction[FactionCatalog.PLAYER_FACTION] = bought_units()
-	var prior: int = int(_bought_by_faction.get(faction, 0))
-	_bids[id] = bid_volume(id) + quantity
-	_bought_by_faction[faction] = prior + quantity
-	var cargo: Dictionary = _cargo_book(faction)
-	cargo[id] = int(cargo.get(id, 0)) + quantity
+	book.volumes.record_import(id, quantity, faction)
 
 
 ## Sells from the stockpile at the current price and records the offer.
@@ -223,7 +185,7 @@ func sell(
 	var revenue: int = unit_price * quantity
 	economy.take(id, quantity)
 	economy.add_treasury(revenue)
-	_offers[id] = offer_volume(id) + quantity
+	book.volumes.record_offer(id, quantity)
 	return {"ok": true, "reason": "", "unit_price": unit_price, "revenue": revenue}
 
 
@@ -258,10 +220,7 @@ func advance_prices() -> Dictionary:
 		prices[id] = updated
 		if updated != current:
 			changed[id] = updated
-	_bids.clear()
-	_offers.clear()
-	_bought_by_faction.clear()
-	_imports_by_faction.clear()
+	book.reset_turn_volumes()
 	# A court's offers are its harvest of the turn, re-emitted by the ledger
 	# after this pass (DR-20261110-08).
 	minor_offers.clear()
@@ -276,10 +235,6 @@ func copy() -> WorldMarket:
 	clone.subsidy_terms = subsidy_terms.duplicate()
 	clone.minor_offers = minor_offers.duplicate(true)
 	clone.book = book.copy()
-	clone._bids = _bids.duplicate()
-	clone._offers = _offers.duplicate()
-	clone._bought_by_faction = _bought_by_faction.duplicate()
-	clone._imports_by_faction = _imports_by_faction.duplicate(true)
 	return clone
 
 
@@ -290,10 +245,6 @@ func to_dict() -> Dictionary:
 		"world_depth": world_depth,
 		"minor_offers": minor_offers.duplicate(true),
 		"book": book.to_dict(),
-		"bids": _bids.duplicate(),
-		"offers": _offers.duplicate(),
-		"bought_by_faction": _bought_by_faction.duplicate(),
-		"imports_by_faction": _imports_by_faction.duplicate(true),
 	}
 
 
@@ -306,12 +257,10 @@ static func from_dict(data: Dictionary) -> WorldMarket:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		market.minor_offers.append((entry as Dictionary).duplicate())
-	var book: Variant = data.get("book", {})
-	if book is Dictionary and not (book as Dictionary).is_empty():
-		market.book = MarketBook.from_dict(book)
-	market._bids = data.get("bids", {}).duplicate()
-	market._offers = data.get("offers", {}).duplicate()
-	market._bought_by_faction = data.get("bought_by_faction", {}).duplicate()
-	var cargo: Variant = data.get("imports_by_faction", {})
-	market._imports_by_faction = (cargo as Dictionary).duplicate(true) if cargo is Dictionary else {}
+	var book_data: Variant = data.get("book", {})
+	if book_data is Dictionary and not (book_data as Dictionary).is_empty():
+		market.book = MarketBook.from_dict(book_data)
+	# Saves written while the volumes sat beside the book keep loading: they
+	# are folded into the book's volumes on the way in.
+	market.book.volumes.adopt_legacy(data)
 	return market
