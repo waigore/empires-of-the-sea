@@ -1927,6 +1927,12 @@ domain = "hospital"
 match = "scripts/world/**"
 domain = "map"
 
+# Chart size presets (#700): world_setup owns the tile/province band; the menu
+# catch-all's eight MapScreen mounts miss the tier-1 5 min budget.
+[[rules]]
+match = "scripts/session/game_config.gd*"
+domain = "world"
+
 [[rules]]
 match = "scripts/session/**"
 domain = "menu"
