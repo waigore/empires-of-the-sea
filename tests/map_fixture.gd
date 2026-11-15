@@ -177,6 +177,10 @@ static func suite_reset(
 	SaveCodec.restore_diplomacy(play, data)
 	play.diplomacy.human_faction = play.human_faction_id()
 	play.turn_suspended = false
+	# A case that ended the campaign left the seal shut; the restored session is
+	# live again, so the chrome opens with it (the plate was dismissed above).
+	if screen.hud != null and screen.hud.campaign_over:
+		screen.hud.set_campaign_over(false)
 	if shown != target:
 		# A case left the view on the other chart: only a swap repaints, and it
 		# rebuilds every layer on the way, so the cheap path below is skipped.
@@ -226,6 +230,11 @@ static func _reset_view(screen: MapScreen) -> void:
 	if screen.hud != null and screen.hud.gazette_plate != null:
 		if screen.hud.gazette_plate.is_shown():
 			screen.hud.gazette_plate.dismiss()
+	# A decided campaign's plate is not a docked sheet: the next case starts on
+	# a live chart, as a mount did.
+	if screen.hud != null and screen.hud.victory_overlay != null:
+		if screen.hud.victory_overlay.is_shown():
+			screen.hud.victory_overlay.dismiss()
 	if screen.improvements != null and screen.improvements.is_open():
 		screen.improvements.close()
 	if screen.hud != null:

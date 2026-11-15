@@ -56,6 +56,6 @@ pool and never `pool()`.
 
 ## Tests
 
-`tests/test_command_ledger.gd` — the pool and its medals, the cap rungs and the
-next study, an above-cap roster, the effects and the fallback, and the door,
-back and key.
+`tests/test_ledgers.gd` (the command section) — the pool and its medals, the
+cap rungs and the next study, an above-cap roster, the effects and the
+fallback, and the door, back and key.
