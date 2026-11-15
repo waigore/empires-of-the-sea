@@ -13,6 +13,9 @@ const SmokeFind = preload("res://tools/smoke/smoke_find.gd")
 static func step(run) -> void:
 	var screen: MapScreen = run.screen
 	var turn_before: int = screen.turn
+	# The desk's fades are already landed by the HUD step (`fade_scale = 0`), so
+	# the bed this turn keeps costs no frame to hear (docs/testing.md § Speed
+	# rules). Nothing about what the turn resolves changes.
 	MapPlayTurn.end_turn(screen.play)
 	await run.tree.process_frame
 	await _answer_proposal(run, screen, turn_before)

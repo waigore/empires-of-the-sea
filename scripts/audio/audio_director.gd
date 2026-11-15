@@ -14,6 +14,11 @@ const SFX_VOICES := 6
 const SILENT_DB := -80.0
 const AMBIENCE_GAIN := 0.55
 
+## Multiplier on every bed fade. Live play reads each knob as its published
+## length; a driven run (the headless smoke) sets it to 0 so no frame is spent
+## waiting out a fade nothing listens to (docs/testing.md § Speed rules).
+var fade_scale: float = 1.0
+
 var mix: AudioMix = AudioMix.new()
 var settings_path: String = AudioMix.SETTINGS_PATH
 ## Last cue / bed requested — intent, even when the stream is missing on disk.
@@ -88,6 +93,21 @@ func stop_music(fade: float = MUSIC_FADE) -> void:
 	_current_track = ""
 	var player: AudioStreamPlayer = _active_player()
 	_fade_to(player, SILENT_DB, fade, true)
+
+
+## Lands every bed now at the knob it is fading toward, the way `_apply_mix`
+## does when the mix changes. A driven run ends its fades this way so no Tween
+## keeps the tree busy after the last assert (docs/testing.md § Speed rules).
+func land_fades() -> void:
+	for tween: Tween in _fades:
+		if tween.is_valid():
+			tween.custom_step(60.0)
+	_fades.clear()
+	# The stopped bed stays stopped; the desk only restores the live one, and
+	# only when the mix is not muted (the mute assert left it at silence).
+	if _current_track.is_empty() or mix.muted:
+		return
+	_active_player().volume_db = mix.music_db()
 
 
 ## One-shot musical hit (victory fanfare, defeat knell) over the running bed.
@@ -225,6 +245,9 @@ func _crossfade(stream: AudioStream, fade: float) -> void:
 
 func _fade_to(player: AudioStreamPlayer, target_db: float, fade: float,
 		stop_when_done: bool) -> void:
+	# A driven run asks for no fade: land on the knob at once, as a zero-length
+	# crossfade already does, so the bed is the same without the wait.
+	fade *= fade_scale
 	if fade <= 0.0:
 		player.volume_db = target_db
 		if stop_when_done:

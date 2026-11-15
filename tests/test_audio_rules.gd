@@ -184,6 +184,36 @@ func test_mute_silences_the_bed_and_the_ambience() -> void:
 	assert_almost_eq(_director._active_player().volume_db,
 		linear_to_db(_director.mix.music), 0.01)
 
+## A driven run asks for no fades: the bed lands on its knob on the same frame
+## the desk is told to play it, with no Tween left to resolve (docs/testing.md
+## § Speed rules).
+func test_a_driven_run_lands_its_bed_while_the_knobs_are_read() -> void:
+	_setup_audio_director()
+	_director.fade_scale = 0.0
+	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
+	assert_almost_eq(
+		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+	)
+	assert_true(_director._fades.is_empty(), "no fade waits behind the bed")
+	_director.set_muted(true)
+	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+	_director.set_muted(false)
+	assert_true(_director._fades.is_empty(), "nor behind the mute")
+
+func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> void:
+	_setup_audio_director()
+	_director.fade_scale = 0.0
+	_director.play_music(MusicPlaylist.BROADSIDES)
+	_director.set_muted(true)
+	assert_true(_director.play_stinger(MusicPlaylist.SPANISH_MAIN), "a stinger still lands")
+	_director.set_muted(false)
+	_director.land_fades()
+	assert_true(_director._fades.is_empty(), "every fade is ended")
+	assert_almost_eq(
+		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+	)
+	assert_eq(_director.current_track_id(), MusicPlaylist.BROADSIDES)
+
 func test_volume_changes_are_clamped_and_broadcast() -> void:
 	_setup_audio_director()
 	var seen: Array = []

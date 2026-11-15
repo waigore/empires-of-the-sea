@@ -1,9 +1,11 @@
 extends GdToolsTest
-## One boot for the side panels: research, province and diplomacy.
+## One boot for the side panels: research, province and diplomacy, plus the
+## road works the province dossier's Build road control dispatches.
 
-## Merged from test_research_panel, test_province_panel, test_diplomacy_panel.
-## One Godot boot (coverage instrumentation) per theme instead of one per file.
-## Each test runs only its own suite's setup; teardown follows the setup.
+## Merged from test_research_panel, test_province_panel, test_diplomacy_panel,
+## test_road_works_rules. One Godot boot (coverage instrumentation) per theme
+## instead of one per file. Each test runs only its own suite's setup; teardown
+## follows the setup.
 const Fixture = preload("res://tests/civilian_fixture.gd")
 
 const LINKED_TILE: Vector2i = Vector2i(1, 0)
@@ -21,6 +23,12 @@ var panel: DiplomacyPanel
 
 var _suite_setup: String = ""
 
+## The road works read the dossier's chart, network and orders; the three are
+## shared with the province panel cases, so they live beside them.
+var _roads_stock: Dictionary = {}
+var _roads_view: VisibilityModel = null
+var _roads_units: Array[CivilianState] = []
+
 func after_each() -> void:
 	match _suite_setup:
 		"research_panel":
@@ -29,6 +37,8 @@ func after_each() -> void:
 			_teardown_province_panel()
 		"diplomacy_panel":
 			_teardown_diplomacy_panel()
+		"road_works":
+			_teardown_road_works()
 	_suite_setup = ""
 
 func _setup_research_panel() -> void:
@@ -72,6 +82,27 @@ func _teardown_diplomacy_panel() -> void:
 	if is_instance_valid(panel):
 		panel.free()
 	panel = null
+
+## The road-works cases read the bare chart and its stockpile, so they pay one
+## small fixture between them; the grid is dropped beside the units it spawned.
+func _setup_road_works() -> void:
+	_suite_setup = "road_works"
+	_model = Fixture.build()
+	_model.resource[_model.index_of(LINKED_TILE.x, LINKED_TILE.y)] = 0
+	_model.resource[_model.index_of(VACANT_TILE.x, VACANT_TILE.y)] = 4
+	_works = LandWorks.new()
+	_works.set_improvement(_model, LINKED_TILE, 2)
+	_works.set_improvement(_model, OFF_ROAD_TILE, 1)
+	_works.set_prospected(0, _model, OFF_ROAD_TILE)
+	_units = []
+	_roads_stock = Fixture.stockpile()
+	_roads_view = Fixture.visibility(_model)
+	_roads_units = []
+
+func _teardown_road_works() -> void:
+	_roads_units = []
+	_roads_stock = {}
+	_roads_view = null
 
 # --- test_research_panel ---
 
@@ -1289,3 +1320,215 @@ func test_both_tabbed_ledgers_share_the_strip() -> void:
 		assert_not_null(economy.page_body(title), title)
 	economy.free()
 	college.free()
+
+# --- from test_road_works_rules ---
+# The crown's road works (wiki: capital-and-connectivity § Connectivity,
+# civilian-units § Work Order Summary): the route that links a cut-off estate
+# and the Engineer dispatch the province dossier's Build road control makes
+# (issue #671). The dossier's own chart and network are already set up above.
+
+
+func _roads_resolved() -> Dictionary:
+	return LandConnectivity.resolve(_model, _works, 0, Fixture.BARE_TILE)
+
+
+func _roads_engineer(tile: Vector2i = Vector2i(0, 2)) -> CivilianState:
+	var unit: CivilianState = Fixture.unit("engineer", tile)
+	_roads_units.append(unit)
+	return unit
+
+
+## The route is the tiles between the crown network and the estate: the network
+## tile is already roaded and the estate extracts as soon as it stands beside
+## the road, so neither is laid.
+func test_the_route_lays_only_the_tiles_between_the_network_and_the_estate() -> void:
+	_setup_road_works()
+	var route: Array[Vector2i] = RoadWorks.route(
+		_model, 0, _roads_resolved()["network"], OFF_ROAD_TILE
+	)
+	assert_eq(route.size(), 1, "one road tile links the cut-off estate")
+	var step: Vector2i = route[0]
+	assert_true(
+		absi(step.x - Fixture.BARE_TILE.x) + absi(step.y - Fixture.BARE_TILE.y) == 1,
+		"the first tile is the one beside the crown network"
+	)
+	assert_false(route.has(OFF_ROAD_TILE), "the estate tile itself is never laid")
+
+
+## A tile the crown does not hold has no owned-land route at all.
+func test_a_foreign_tile_has_no_route() -> void:
+	_setup_road_works()
+	var route: Array[Vector2i] = RoadWorks.route(
+		_model, 0, _roads_resolved()["network"], Fixture.RIVAL_GRAIN_TILE
+	)
+	assert_true(route.is_empty(), "the route never crosses another crown's land")
+
+
+func test_an_empty_network_has_no_route() -> void:
+	_setup_road_works()
+	var route: Array[Vector2i] = RoadWorks.route(_model, 0, {}, OFF_ROAD_TILE)
+	assert_true(route.is_empty(), "no crown network, nothing to extend")
+
+
+func test_a_missing_map_reads_no_plan() -> void:
+	_setup_road_works()
+	var plan: Dictionary = RoadWorks.plan(
+		null, _works, _roads_units, 0, Fixture.BARE_TILE, OFF_ROAD_TILE
+	)
+	assert_false(bool(plan["needed"]), "nothing to read without a chart")
+	plan = RoadWorks.plan(
+		_model, _works, _roads_units, -1, Fixture.BARE_TILE, OFF_ROAD_TILE
+	)
+	assert_false(bool(plan["needed"]), "no crown, no estate of ours")
+
+
+## The plan the dossier reads off its own chart.
+func test_a_cut_off_estate_needs_a_road() -> void:
+	_setup_road_works()
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, OFF_ROAD_TILE, _roads_resolved()
+	)
+	assert_true(bool(plan["needed"]), "the estate is developed and cut off")
+	assert_eq(int(plan["gap"]), 1, "one road tile still to lay")
+	assert_false(bool(plan["engineer"]), "no crew musters yet")
+	assert_true(
+		String(plan["reason"]).contains("Engineer"),
+		"the reason names the missing crew: %s" % plan["reason"]
+	)
+
+
+func test_a_linked_estate_needs_no_road() -> void:
+	_setup_road_works()
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, LINKED_TILE, _roads_resolved()
+	)
+	assert_false(bool(plan["needed"]), "an estate beside the road already extracts")
+
+
+## A bare tile is the Build control's business: a road under it would still
+## yield nothing (wiki: extraction-and-improvements).
+func test_a_bare_estate_needs_no_road() -> void:
+	_setup_road_works()
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, Fixture.BARE_TILE,
+		_roads_resolved()
+	)
+	assert_false(bool(plan["needed"]), "an unimproved tile has no yield to link")
+
+
+func test_a_foreign_estate_needs_no_road() -> void:
+	_setup_road_works()
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, Fixture.RIVAL_GRAIN_TILE,
+		_roads_resolved()
+	)
+	assert_false(bool(plan["needed"]), "another crown's estate is not ours to road")
+
+
+## The dossier resolves the crown network once and hands it in, so a province of
+## many estates costs one BFS (REQ-P4-01). The reading must not change.
+func test_the_plan_reads_the_network_the_dossier_handed_in() -> void:
+	_setup_road_works()
+	var handed: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, OFF_ROAD_TILE, _roads_resolved()
+	)
+	var fresh: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, OFF_ROAD_TILE
+	)
+	assert_eq(int(handed["gap"]), int(fresh["gap"]), "same gap either way")
+	assert_eq(
+		(handed["route"] as Array).size(), (fresh["route"] as Array).size(),
+		"same route either way"
+	)
+
+
+## The dispatch the Build road control issues.
+func test_dispatch_refuses_without_an_engineer() -> void:
+	_setup_road_works()
+	var result: Dictionary = RoadWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, Fixture.BARE_TILE,
+		OFF_ROAD_TILE
+	)
+	assert_false(bool(result["ok"]), "no crew, no order")
+	assert_true(
+		String(result["message"]).contains("Engineer"),
+		"the refusal names the crew: %s" % result["message"]
+	)
+
+
+func test_dispatch_puts_the_engineer_on_the_first_road_tile() -> void:
+	_setup_road_works()
+	var engineer: CivilianState = _roads_engineer()
+	var result: Dictionary = RoadWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, Fixture.BARE_TILE,
+		OFF_ROAD_TILE
+	)
+	assert_true(bool(result["ok"]), String(result["message"]))
+	assert_true(engineer.is_working(), "the Engineer takes the order")
+	assert_eq(engineer.work_action(), "build_road")
+	assert_true(
+		engineer.work_tile() != OFF_ROAD_TILE,
+		"the crew roads the tile beside the estate, not the estate itself"
+	)
+	assert_true(
+		String(result["message"]).contains("last road tile"),
+		"a one-tile gap reads as the last tile: %s" % result["message"]
+	)
+
+
+## The order is the rules' own: the road lands on completion and the estate
+## starts reaching the crown (wiki: civilian-units § Work Types).
+func test_the_road_links_the_estate_when_the_work_completes() -> void:
+	_setup_road_works()
+	_roads_engineer()
+	RoadWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, Fixture.BARE_TILE,
+		OFF_ROAD_TILE
+	)
+	CivilianWork.resolve_turn(_model, _roads_units, _works, _roads_view)
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, OFF_ROAD_TILE
+	)
+	assert_false(bool(plan["needed"]), "the estate reaches the crown now")
+	var tiles: Dictionary = _roads_resolved()["tiles"]
+	assert_true(
+		tiles.has(_model.index_of(OFF_ROAD_TILE.x, OFF_ROAD_TILE.y)),
+		"the estate is on the crown's network"
+	)
+
+
+## A second press on a linked estate is refused, never a silent no-op.
+func test_dispatch_refuses_an_estate_that_already_reaches_the_crown() -> void:
+	_setup_road_works()
+	_roads_engineer()
+	var result: Dictionary = RoadWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, Fixture.BARE_TILE,
+		LINKED_TILE
+	)
+	assert_false(bool(result["ok"]))
+	assert_true(
+		String(result["message"]).contains("already reaches"),
+		String(result["message"])
+	)
+
+
+## A gap of several tiles reads as the first of them, so the court knows the
+## link is a road works, not one order (issue #671).
+func test_a_multi_tile_gap_reads_as_the_first_of_many() -> void:
+	_setup_road_works()
+	var far: Vector2i = Vector2i(2, 3)
+	_works.set_improvement(_model, far, 1)
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _roads_units, 0, Fixture.BARE_TILE, far, _roads_resolved()
+	)
+	assert_true(bool(plan["needed"]), "the far estate is cut off")
+	assert_gt(int(plan["gap"]), 1, "more than one road tile to lay")
+	_roads_engineer()
+	var result: Dictionary = RoadWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, Fixture.BARE_TILE, far
+	)
+	assert_true(bool(result["ok"]), String(result["message"]))
+	assert_true(
+		String(result["message"]).contains("first of"),
+		String(result["message"])
+	)
