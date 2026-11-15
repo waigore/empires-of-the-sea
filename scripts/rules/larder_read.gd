@@ -87,10 +87,21 @@ static func reading(
 		var short: int = int(luxury[id]) - int(larder.luxury_spent.get(String(id), 0))
 		if short > 0:
 			luxury_short[id] = short
+	# Every appetite this pass pays, in the phase's own deduction order: the army
+	# and the navy eat before the pool, the wards after it (wiki:
+	# workers-and-population § Consumption). The ledger names each one, because a
+	# store that covers the pool alone must not read as a calm larder.
+	var appetites: Dictionary = {
+		"army": int(report["army_demand"]),
+		"navy": int(report["navy_demand"]),
+		"pool": larder.food_wanted(),
+		"wards": int(report["hospital_demand"]),
+	}
 	return {
 		"mouths": pool.total(),
 		"arriving": arriving,
 		"food": larder.food_wanted(),
+		"appetites": appetites,
 		"luxury": luxury,
 		"store_food": EconomyConsumption.food_available(stockpile),
 		"store_luxury": store_luxury,

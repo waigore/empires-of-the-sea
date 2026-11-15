@@ -17,7 +17,7 @@ func _init() -> void:
 
 ## Rebuilds the rows for `state`'s list, as the crown sees the world.
 func fill(state: GazetteState, diplomacy: DiplomacyState, viewer: int) -> void:
-	_clear()
+	UiRowBuilder.clear(self)
 	add_child(
 		GazetteParts.label(
 			"Every court your crown has met may be followed. Struck-off courts stay "
@@ -65,9 +65,3 @@ static func _known_courts(state: GazetteState, diplomacy: DiplomacyState, viewer
 				ids.append(other)
 	ids.sort()
 	return ids
-
-
-func _clear() -> void:
-	for child: Node in get_children():
-		remove_child(child)
-		child.queue_free()

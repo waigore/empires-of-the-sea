@@ -148,11 +148,11 @@ func _header() -> Control:
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(titles)
 
-	_title = _label(title_text, title_pixels, Palette.GOLD_PALE)
+	_title = UiRowBuilder.label(title_text, title_pixels, Palette.GOLD_PALE)
 	_title.add_theme_font_override("font", UiTheme.serif())
 	titles.add_child(_title)
 
-	_subtitle = _label("", 12, Palette.TEXT_DIM)
+	_subtitle = UiRowBuilder.label("", 12, Palette.TEXT_DIM)
 	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	titles.add_child(_subtitle)
 
@@ -165,7 +165,7 @@ func _header() -> Control:
 
 
 func _footer() -> Control:
-	_hint = _label(hint_text, hint_pixels, Color(0.80, 0.74, 0.62, 0.76))
+	_hint = UiRowBuilder.label(hint_text, hint_pixels, Color(0.80, 0.74, 0.62, 0.76))
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return _hint
 
@@ -181,18 +181,10 @@ func _append_scroll(column: VBoxContainer) -> ScrollContainer:
 
 ## The explanation a ledger prints when a filter leaves no row.
 func _make_empty(rows: VBoxContainer, font_size: int = 15) -> Label:
-	var empty := _label("", font_size, Palette.TEXT_DIM)
+	var empty := UiRowBuilder.label("", font_size, Palette.TEXT_DIM)
 	empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rows.add_child(empty)
 	return empty
-
-
-static func _label(text: String, size: int, ink: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", ink)
-	return label
 
 
 # --- open / close ------------------------------------------------------------

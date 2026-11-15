@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:83f45ce1590b4cfee15d8b5fcfdb69f1f2d65f3ec056924c994eecbf4bd3b8b2",
-  "submission_git": "feat/603-deferral-escalation-r2@f1bca882",
+  "submission_hash": "sha256:be56a457d8c5e6267310402347def31b78bf2c0fe598aea2210c93c1444f70f8",
+  "submission_git": "refactor/ai-trace-seams@5dcd3ebd",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1973.3708609271523,
+      "value": 1973.4370860927152,
       "direction": "max"
     },
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 72.2260101010101,
+      "value": 71.18156565656565,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:ecb6eec760266e8b429641ada4912f34d7c18032578496dbd9d19bdf9cabddc5",
+    "ai_surface_hash": "sha256:780b5980acd5c0fbd67762adba4f47635801946c28152ba91d7c40a788ec0f83",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 18,
@@ -65,15 +65,15 @@
       "ships": 2,
       "workers": 4,
       "extraction_per_turn": 1.0,
-      "income_per_turn": 81.37086092715232,
-      "funded_pct": 72.2260101010101
+      "income_per_turn": 81.43708609271523,
+      "funded_pct": 71.18156565656565
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 72.2260101010101
+    "funded_pct": 71.18156565656565
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-14T16:19:45Z",
+  "timestamp": "2026-11-14T20:25:10Z",
   "report_version": 1,
-  "signature": "hmac-sha256:a0481eb551827072297c44908e333b3ef94f8d30dfd1b55ccacd2e02d44138df"
+  "signature": "hmac-sha256:a051795d1351afcab9bd4a2f7aff2ff8ecef5e8bc3f17ab8e4c764dd6ce1a77d"
 }

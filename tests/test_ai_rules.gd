@@ -62,7 +62,7 @@ func test_the_planner_reads_power_from_the_order_of_battle() -> void:
 	for _index in 20:
 		owners.append(1)
 	var world: WorldMap = AiFixture.world(owners)
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world,
 		{"regiments": {0: 40, 1: 5}, "ships": {}, "strengths": {0: 360.0, 1: 45.0}},
 		0
@@ -81,7 +81,7 @@ func test_the_planner_reads_power_from_the_order_of_battle() -> void:
 ## headless fixture (no army layer) still scores instead of reading zero.
 func test_a_context_without_strengths_keeps_the_head_count() -> void:
 	var world: WorldMap = AiFixture.world([0, 0, 0, 0, 0, 1, 1, 1])
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world, {"regiments": {0: 40, 1: 5}, "ships": {}}, 0
 	)
 	assert_eq(int(context["power"][0]), 90, "5 × 10 provinces + 40 regiments")
@@ -93,7 +93,7 @@ func test_a_context_without_strengths_keeps_the_head_count() -> void:
 ## (wiki: diplomacy § Great Power power score; DR-20261112-09).
 func test_a_charted_docket_powers_the_reading_by_strength() -> void:
 	var world: WorldMap = AiFixture.world([0, 0, 1, 1])
-	var context: Dictionary = AiTurn._context(
+	var context: Dictionary = AiTurnRead.context(
 		world,
 		{
 			"regiments": {0: 2, 1: 9},
@@ -109,7 +109,7 @@ func test_a_charted_docket_powers_the_reading_by_strength() -> void:
 		},
 		0
 	)
-	var reading: Dictionary = AiTurn._reading(context, 0)
+	var reading: Dictionary = AiTurnRead.reading(context, 0)
 	assert_eq(int(reading["power"][1]), 47, "2 × 10 provinces + 27 strength seen")
 	assert_eq(int(reading["power"][0]), 38, "2 × 10 + the court's own 18")
 
@@ -124,6 +124,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("diplomacy.war_relation_ceiling"), 50)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.war_cooldown_turns"), 4)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.overture_cooldown_turns"), 2)
+	assert_eq(AiParameterRegistry.default_of("diplomacy.peace_refusal_cap"), 24)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_province_weight"), 10)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_regiment_weight"), 1)
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_ship_weight"), 5)
@@ -132,6 +133,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_start"), 500)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_regiments"), 2)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_boost"), 1250)
+	assert_eq(AiParameterRegistry.default_of("victory.pressure_war"), 30)
 	assert_eq(AiParameterRegistry.keys().size(), AiParameterRegistry.entries().size())
 
 
@@ -1784,6 +1786,95 @@ func test_ai_economy_does_not_restack_the_workshop() -> void:
 	var second: Dictionary = AiEconomyPlanner.production_orders(config, economy)
 	for assignment: Dictionary in second["assignments"]:
 		assert_ne(String(assignment["recipe"]), "bronze", "the workshop already fills the deficit")
+
+
+## A slow row's bench holds three pieces, so a fourth run waits for a landing.
+## A plan that asks for it anyway spends the labour and reserves the inputs for
+## a run the phase refuses, and the court works less than it could (wiki:
+## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
+func test_ai_economy_asks_no_run_the_full_bench_will_refuse() -> void:
+	var economy := PlayerEconomy.starting()
+	# Only lumber and steel are short: the bench's row is the one the plan must
+	# leave alone, and the lumber runs are what the freed labour goes to.
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "timber": 40, "lumber": 0,
+		"castIron": 20, "fabric": 20, "paper": 20, "bronze": 20, "steel": 0,
+	}
+	economy.workers = WorkerPool.make(6)
+	# The bench is full and still serving its first phase: no steel run starts.
+	economy.production_wip = {"steel": [{"units": 3, "turns_left": 2}]}
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var steel: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "steel":
+			steel = int(assignment["units"])
+	assert_eq(steel, 0, "a full bench takes no fourth run")
+	# The labour the phantom run would have eaten goes to the rows that start.
+	var report: Dictionary = ProductionRecipes.plan(
+		plan["assignments"] as Array[Dictionary],
+		economy.stockpile.duplicate(),
+		6,
+		economy.tech_unlocked,
+		economy.production.wip.duplicate(true),
+		economy.workers
+	)
+	assert_eq(int(report["labour_used"]), 6, "the plan spends the labour the phase can use")
+	assert_eq(
+		int((report["runs"] as Dictionary).get("steel", 0)), 0,
+		"the phase starts no steel run the plan did not ask for"
+	)
+
+
+## A bench with one place left takes exactly one run: the plan reads the room,
+## never the row's whole reserve (DR-20261114-12).
+func test_ai_economy_fills_only_the_room_left_on_the_bench() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "lumber": 20,
+		"castIron": 20, "fabric": 20, "paper": 20, "bronze": 20, "steel": 0,
+	}
+	economy.workers = WorkerPool.make(8)
+	economy.production_wip = {"steel": [{"units": 2, "turns_left": 2}]}
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	var steel: int = 0
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == "steel":
+			steel = int(assignment["units"])
+	assert_eq(steel, 1, "two pieces on the anvil leave one place, not a whole batch")
+
+
+## The bench's random filler court draws from the rows that can start: a full
+## bench is no candidate either (wiki: production-recipes § Workshop queue;
+## REQ-P2-03).
+func test_random_court_never_asks_a_full_bench() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {
+		"iron": 40, "coal": 40, "copper": 40, "tin": 40, "tobacco": 40, "furs": 40,
+	}
+	economy.workers = WorkerPool.make(0, 0, 1, 8)
+	economy.production_wip = {
+		"steel": [{"units": 3, "turns_left": 2}],
+		"bronze": [{"units": 3, "turns_left": 2}],
+		"cigars": [{"units": 3, "turns_left": 2}],
+		"furHats": [{"units": 3, "turns_left": 2}],
+	}
+	for seed_value in 40:
+		var rng := RandomNumberGenerator.new()
+		rng.seed = seed_value
+		var plan: Dictionary = AiRandomCourt._random_production(economy, rng)
+		for assignment: Dictionary in plan["assignments"]:
+			var recipe_id: String = String(assignment["recipe"])
+			assert_true(
+				ProductionWorkshop.room(
+					economy.production.wip, recipe_id,
+					ProductionRecipes.turns(recipe_id)
+				) > 0,
+				"a full bench is no candidate: %s" % recipe_id
+			)
 
 
 ## A plan takes effect after this phase resolves, so the run the queued
@@ -3802,6 +3893,31 @@ func test_a_court_at_the_bar_reads_at_bar() -> void:
 	assert_true(AiVictoryPressure.presses(String(read["stage"])))
 
 
+func test_the_press_reaches_the_war_aim_only_from_near_the_bar() -> void:
+	var config: AiConfig = _phase_config()
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_FAR, config), 0,
+		"a court that cannot see the bar wants no war for it"
+	)
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_NEAR, config),
+		config.parameter("victory.pressure_war")
+	)
+	assert_eq(
+		AiVictoryPressure.war_press(AiVictoryPressure.STAGE_AT_BAR, config),
+		config.parameter("victory.pressure_war")
+	)
+	assert_eq(AiVictoryPressure.war_press(AiVictoryPressure.STAGE_NEAR, null), 0)
+	var read: Dictionary = AiVictoryPressure.read(
+		AiFixture.world(_owners(PHASE_OWNER, 21)), PHASE_OWNER, MapModel.NO_ID,
+		Difficulty.DEFAULT, config
+	)
+	assert_eq(
+		int(read["war_press"]), config.parameter("victory.pressure_war"),
+		"the reading hands the planner the press"
+	)
+
+
 func test_the_pressure_threshold_is_a_registry_knob() -> void:
 	assert_eq(
 		AiVictoryPressure.stage_for(21, 31, 677, 500), AiVictoryPressure.STAGE_NEAR
@@ -5014,3 +5130,83 @@ func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
 
 	assert_eq(starved.size(), 0, "no ration, no hire")
 	assert_eq(fed.size(), 1, "one mouth the larder can feed, and no more")
+
+
+# --- a land march (AiLandRoute, shared by the rival civilians) ---------------
+
+## The same walk the Explorer, Merchant and Spy planners ask for: one legal land
+## tile toward a goal, a field step for a Spy, and the nearest goal of a list
+## (wiki: civilian-work-planner § Relations; the land counterpart of AiSeaRoute).
+
+
+## A goal pulls the walk closer, the step is on land, and it names the unit it
+## belongs to so any planner's order reads the same.
+func test_a_land_step_closes_on_its_goal() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+	var step: Dictionary = AiLandRoute.step_toward(model, unit, Vector2i(2, 2))
+	var tile: Vector2i = step.get("tile", CivilianState.NO_TILE)
+
+	assert_eq(String(step.get("kind", "")), AiLandRoute.KIND_MOVE)
+	assert_eq(int(step.get("unit_id", -1)), 1)
+	assert_eq(
+		AiLandRoute.manhattan(tile, Vector2i(2, 2)),
+		AiLandRoute.manhattan(unit.tile, Vector2i(2, 2)) - 1,
+		"one tile nearer"
+	)
+	assert_true(model.is_land(tile.x, tile.y), "a civilian never walks onto water")
+
+
+## A march with no goal, no unit or no chart offers nothing rather than a
+## plausible-looking tile.
+func test_a_land_step_needs_a_goal_and_a_unit() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(0, 0))
+
+	assert_true(AiLandRoute.step_toward(model, unit, CivilianState.NO_TILE).is_empty())
+	assert_true(AiLandRoute.step_toward(null, unit, Vector2i(1, 1)).is_empty())
+	assert_true(AiLandRoute.step_toward(model, null, Vector2i(1, 1)).is_empty())
+
+
+## A Spy walks its own distance field: the step must be one the field reaches
+## cheaply, and a field that reaches nothing this turn offers no march.
+func test_a_field_step_takes_only_a_reachable_tile() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var unit: CivilianState = CivilianState.create(1, 0, "spy", Vector2i(1, 1))
+
+	var reachable: Dictionary = AiLandRoute.step_by_field(
+		model, unit, {Vector2i(2, 1): 3}
+	)
+	assert_eq(Vector2i(reachable.get("tile", CivilianState.NO_TILE)), Vector2i(2, 1))
+	assert_eq(int(reachable.get("distance", -1)), 3)
+
+	assert_true(
+		AiLandRoute.step_by_field(model, unit, {Vector2i(0, 3): 0}).is_empty(),
+		"a field that reaches no neighbouring tile is no march"
+	)
+	assert_true(AiLandRoute.step_by_field(model, unit, {}).is_empty())
+	assert_true(AiLandRoute.step_by_field(null, unit, {Vector2i(2, 1): 0}).is_empty())
+
+
+## The nearest goal of a list, with the lower tile breaking a tie so the same
+## state always picks the same goal; an empty list has none.
+func test_the_nearest_goal_wins_a_tie_by_its_lower_tile() -> void:
+	var goals: Array[Vector2i] = [Vector2i(3, 1), Vector2i(1, 1)]
+
+	assert_eq(AiLandRoute.nearest(goals, Vector2i(2, 2)), Vector2i(1, 1))
+	assert_eq(AiLandRoute.nearest([] as Array[Vector2i], Vector2i(2, 2)), CivilianState.NO_TILE)
+
+
+## A Spy's field counts land tiles away from its targets and leaves open water
+## with no entry, so a BFS never pretends a hull's route is a walk.
+func test_the_land_distance_field_counts_land_and_leaves_water_out() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var water: Vector2i = Vector2i(1, 4)
+	var field: Dictionary = AiLandRoute.distance_field(
+		model, [CivilianFixture.BARE_TILE, water, CivilianFixture.BARE_TILE]
+	)
+
+	assert_eq(int(field.get(CivilianFixture.BARE_TILE, -1)), 0)
+	assert_eq(int(field.get(Vector2i(1, 0), -1)), 1)
+	assert_eq(int(field.get(Vector2i(2, 0), -1)), 2)
+	assert_false(field.has(water), "water is not a step")

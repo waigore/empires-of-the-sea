@@ -31,4 +31,12 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 2000,
 		"default": 1250,
 	},
+	{
+		"key": "victory.pressure_war",
+		"category": "victory",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 100,
+		"default": 30,
+	},
 ]

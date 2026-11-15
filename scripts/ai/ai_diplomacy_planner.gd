@@ -166,14 +166,25 @@ static func _peace_block(
 	return ""
 
 
-## The pair's peace-offer cooldown: either answer starts it, so a court does not
-## ask again every turn (wiki: diplomacy § Planner selection; DR-20261109-07).
+## The pair's peace-offer cooldown. Either answer starts the base wait, so a
+## court does not ask again every turn (wiki: diplomacy § Planner selection;
+## DR-20261109-07). Every refusal then doubles the next wait up to the
+## registry's cap: a court told no three times does not spend its one diplomacy
+## order per cooldown turn asking the same question again (wiki: diplomacy
+## § Cooldowns; DR-20261115-01).
 static func _peace_cooldown(
 	config: AiConfig, ai_state: AiState, turn: int, target: int
 ) -> String:
-	var cooldown: int = config.parameter("diplomacy.peace_cooldown_turns")
+	var base: int = config.parameter("diplomacy.peace_cooldown_turns")
+	var refusals: int = ai_state.peace_refusals_for(config.faction, target)
+	# The cap never shortens the published base wait, and the shift is bounded
+	# so a long war cannot overflow the doubling.
+	var cap: int = maxi(config.parameter("diplomacy.peace_refusal_cap"), base)
+	var cooldown: int = mini(base * (1 << mini(refusals, 4)), cap)
 	if ai_state.peace_on_cooldown(config.faction, target, turn, cooldown):
-		return "peace cooldown"
+		if refusals <= 0:
+			return "peace cooldown"
+		return "peace cooldown, refused %d× (%d turns)" % [refusals, cooldown]
 	return ""
 
 

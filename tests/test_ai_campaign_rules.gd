@@ -418,6 +418,67 @@ func test_a_ready_beachhead_lands_the_army_the_next_turn() -> void:
 	assert_eq(String(land.get("kind", "")), AiInvasionPlanner.KIND_LAND)
 	assert_eq(int(land.get("province", -1)), 0)
 
+## A site marked in good faith lapses when the war ends before the landing: the
+## rules refuse it, so the court must not order it and lose the turn — it brings
+## the troops ashore on an own coast instead (wiki: ships-and-naval § Missions
+## and Movement).
+func test_a_lapsed_beachhead_is_not_ordered_as_a_landing() -> void:
+	var world: WorldMap = _world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	new_world.provinces[0].owner = RIVAL
+	assert_true(bool(NavalTransport.establish_beachhead(
+		new_world, fleet, 0, 1, Callable()
+	)["ok"]))
+	# Peace is signed before the site opens, so the marked shore is no enemy's.
+	var order: Dictionary = AiInvasionPlanner.plan(
+		_config(), _peace(), world, 1, new_world, [fleet], [army], 2
+	)
+	assert_true(
+		String(order.get("kind", "")) != AiInvasionPlanner.KIND_LAND
+		or int(order.get("province", -1)) != 0,
+		"the lapsed site is never ordered as a landing"
+	)
+	assert_eq(
+		int(order.get("province", -1)), 1,
+		"the troops go ashore on the crown's own coast"
+	)
+
+
+## A site that lapsed while another hostile coast lies in the same water is
+## replaced in the same turn: the expedition marks a fresh shore instead of
+## spending the turn on a landing the rules refuse.
+func test_a_lapsed_beachhead_is_replaced_by_a_fresh_coast() -> void:
+	var world: WorldMap = _world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, OWNER, 1, HULLS, HULL_TYPES)
+	var army: ArmyState = _field_army(["pikemen", "squires"], 1)
+	assert_true(bool(NavalTransport.embark(new_world, army, fleet)["ok"]))
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 0
+	fleet.province = MapModel.NO_ID
+	new_world.provinces[0].owner = RIVAL
+	assert_true(bool(NavalTransport.establish_beachhead(
+		new_world, fleet, 0, 1, Callable()
+	)["ok"]))
+	# A second hostile shore on the same water: a Tribe coast beside the colony.
+	var tiles: Array[Vector2i] = [Vector2i(2, 1)]
+	new_world.province[new_world.index_of(2, 1)] = 2
+	var extra := ProvinceState.create(2, "Second Coast", tiles, Vector2(2.0, 1.0), 1, TRIBE, false)
+	extra.coastal = true
+	new_world.provinces.append(extra)
+	var order: Dictionary = AiInvasionPlanner.plan(
+		_config(), _peace(), world, 1, new_world, [fleet], [army], 2
+	)
+	assert_eq(String(order.get("kind", "")), AiInvasionPlanner.KIND_BEACHHEAD)
+	assert_eq(int(order.get("province", -1)), 2, "a fresh coast is marked this turn")
+
+
 func test_a_coast_the_army_cannot_storm_sends_it_home() -> void:
 	var world: WorldMap = _world()
 	var new_world: MapModel = world.region(1)
@@ -1924,6 +1985,57 @@ func test_relative_power_dominates_the_score() -> void:
 	)
 	assert_eq(int(weak["score"]), 5, "50 - 25 weak - 20 neutral")
 
+func test_a_pressing_court_prices_the_war_that_takes_its_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var calm: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	var pressed: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	pressed["victory_press"] = 30
+	var before: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, calm
+	)
+	var after: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, pressed
+	)
+	assert_eq(int(before["score"]), 35, "a court far from the bar keeps the published score")
+	assert_eq(int(after["score"]), 65, "the press reaches the war aim")
+	assert_eq(int((after["factors"] as Dictionary)["victory_press"]), 30)
+	assert_false(
+		(before["factors"] as Dictionary).has("victory_press"),
+		"no press, no factor"
+	)
+
+func test_the_press_is_read_per_court_from_the_map_pass() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["victory_press"] = {0: 30, 1: 0}
+	var mine: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, context
+	)
+	var theirs: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 1, 0, context
+	)
+	assert_eq(int(mine["score"]), 65, "the pressing court prices its own finish")
+	assert_eq(int(theirs["score"]), 35, "a neighbour's press arms nothing")
+
+func test_the_press_ignores_a_target_with_no_old_world_land() -> void:
+	_setup_ai_planner()
+	ai_planner_state.ensure_relation(0, 1, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0])
+	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
+	context["victory_press"] = 30
+	var desire: Dictionary = AiDiplomacyDesire.war_desire(
+		ai_planner_config, ai_planner_state, world, 0, 1, context
+	)
+	assert_eq(
+		int(desire["score"]), 35,
+		"the bar counts Old World land, and this court holds none"
+	)
+	assert_false((desire["factors"] as Dictionary).has("victory_press"))
+
 func test_relation_pressure_bands() -> void:
 	_setup_ai_planner()
 	var world: WorldMap = ai_planner_AiFixture.world([0, 1])
@@ -2167,11 +2279,11 @@ func test_a_refused_peace_waits_out_the_pair_cooldown() -> void:
 		"a refused peace is not offered again the next turn"
 	)
 	assert_eq(
-		_campaign_blocked(cooling_record, 1), "peace cooldown",
-		"the trace explains the wait"
+		_campaign_blocked(cooling_record, 1), "peace cooldown, refused 1× (6 turns)",
+		"the trace explains the wait, and the refusal doubled it (DR-20261115-01)"
 	)
 	var ready: Dictionary = AiTurn.run(
-		ai_planner_state, world, ai_planner_ai_state, 4, 0, 1500,
+		ai_planner_state, world, ai_planner_ai_state, 7, 0, 1500,
 		{"regiments": {}, "ships": {}}
 	)
 	var ready_record: Dictionary = _campaign_record_for(ready["trace"], 2)
@@ -2225,6 +2337,72 @@ func test_a_refused_peace_waits_the_peace_cooldown() -> void:
 		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 5, context
 	)
 	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+
+func test_a_refused_peace_widens_the_wait() -> void:
+	_setup_ai_planner()
+	# A refusal is information: after one no the pair waits twice the published
+	# base clock, so a court is not asking the same question every third turn
+	# (wiki: diplomacy § Cooldowns; DR-20261115-01). Base 3, so 6 after one.
+	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_planner_state.ensure_relation(2, 0, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 2, 0)
+	ai_planner_ai_state.note_peace(2, 0, 2, false)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 1, "the no is remembered")
+	var context: Dictionary = ai_planner_AiFixture.context({2: 84, 0: 100})
+	context["player"] = 0
+	var waiting: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 6, context
+	)
+	assert_true((waiting["action"] as Dictionary).is_empty(), "the widened wait holds")
+	assert_eq(
+		String(waiting["candidates"][0]["blocked"]),
+		"peace cooldown, refused 1× (6 turns)"
+	)
+	var ready: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 8, context
+	)
+	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+
+func test_the_refusal_wait_is_capped() -> void:
+	_setup_ai_planner()
+	# Six refusals double the base clock out to 96 turns; the registry caps the
+	# wait at 24 so a court at war is still asking within a generation
+	# (DR-20261115-01).
+	var france: AiConfig = AiConfig.build(2, 1500, AiProfile.NORMAL, AiAgenda.TECH_THIEF)
+	ai_planner_state.ensure_relation(2, 0, 1)
+	DiplomacyRules.declare_war(ai_planner_state, 2, 0)
+	for turn in [2, 3, 4, 5, 6, 7]:
+		ai_planner_ai_state.note_peace(2, 0, turn, false)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 6)
+	var context: Dictionary = ai_planner_AiFixture.context({2: 84, 0: 100})
+	context["player"] = 0
+	var waiting: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 30, context
+	)
+	assert_eq(
+		String(waiting["candidates"][0]["blocked"]),
+		"peace cooldown, refused 6× (24 turns)"
+	)
+	var ready: Dictionary = AiDiplomacyPlanner.decide(
+		france, ai_planner_state, ai_planner_ai_state, ai_planner_AiFixture.world([0, 2]), 31, context
+	)
+	assert_eq(String(ready["action"]["kind"]), AiDiplomacyPlanner.KIND_OFFER_PEACE)
+
+func test_a_signed_peace_and_a_new_war_clear_the_refusal_book() -> void:
+	_setup_ai_planner()
+	# The war is over, so the next war's first ask waits the published base
+	# clock rather than the last war's doubled wait (DR-20261115-01).
+	ai_planner_ai_state.note_peace(2, 0, 2, false)
+	ai_planner_ai_state.note_peace(2, 0, 4, false)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 2)
+	ai_planner_ai_state.note_truce(2, 0, 9)
+	assert_eq(ai_planner_ai_state.peace_refusals_for(2, 0), 0, "the peace spent the refusals")
+	ai_planner_ai_state.note_peace(2, 0, 12, false)
+	ai_planner_ai_state.note_war(2, 0, 20)
+	assert_eq(
+		ai_planner_ai_state.peace_refusals_for(2, 0), 0,
+		"a new war is a new question"
+	)
 
 func test_a_recent_war_declaration_does_not_silence_a_peace_offer() -> void:
 	_setup_ai_planner()

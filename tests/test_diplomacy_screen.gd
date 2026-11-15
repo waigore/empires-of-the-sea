@@ -82,7 +82,7 @@ func test_the_rival_pass_weighs_power_the_published_way() -> void:
 		(context.get("strengths", {}) as Dictionary).is_empty(),
 		"the pass hands the planner the order of battle"
 	)
-	var shared: Dictionary = AiTurn._context(
+	var shared: Dictionary = AiTurnRead.context(
 		_screen.play.world, context, _screen.play.player_faction
 	)
 	var published: Dictionary = MapPlayDiplomacy.public_power(_screen.play)

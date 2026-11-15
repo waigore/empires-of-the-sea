@@ -277,6 +277,7 @@ jobs:
               - 'project.godot'
               - 'icon.svg'
               - 'tools/e2e_smoke.gd'
+              - 'tools/smoke/**'
 
       - name: Skip suite (no code/test changes)
         if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.code != 'true'
@@ -366,6 +367,7 @@ jobs:
               - 'project.godot'
               - 'icon.svg'
               - 'tools/e2e_smoke.gd'
+              - 'tools/smoke/**'
 
       - name: Skip suite (no code/test changes)
         if: github.event_name != 'workflow_dispatch' && steps.filter.outputs.code != 'true'

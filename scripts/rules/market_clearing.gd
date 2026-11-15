@@ -168,6 +168,11 @@ static func _matcher_context(
 		out["relation_for"] = func(gp: int, minor: int) -> float:
 			var record: DiplomacyRelation = diplomacy.relation(gp, minor)
 			return record.score if record != null else 0.0
+		# A boycott bars the deal, not the price: the boycotted court may not buy
+		# from or sell to a Tribe that is the issuer's colony, so the pair never
+		# fills and both orders carry (wiki: diplomacy § GP–Tribe — Boycott, R6).
+		out["boycott_for"] = func(a: int, b: int) -> bool:
+			return DiplomacyTrade.blocked_by_boycott(diplomacy, a, b)
 	return out
 
 
@@ -212,6 +217,15 @@ static func _settle(
 			buyer_economy.spend_treasury(cost)
 			buyer_economy.add(commodity, quantity)
 			market.record_import(commodity, quantity, buyer)
+		# The row carries what the clearing actually settled, not what the matcher
+		# proposed: a purse-truncated deal buys fewer tons, and the debt is rounded
+		# once from the whole deal, so the Deal Book must read the charged total
+		# (wiki: world-market § Subsidy price adjustment — "never a sum of per-unit
+		# roundings"; REQ-P5-05).
+		deal["quantity"] = quantity
+		deal["cost"] = cost
+		deal["buy_unit"] = buy_unit
+		deal["subsidy_percent"] = subsidy
 		var seller_economy: PlayerEconomy = _economy(economies, seller)
 		var proceeds: int = 0
 		if seller_economy != null:
@@ -224,9 +238,6 @@ static func _settle(
 			# The receipt names the ducats, not only the tons (REQ-P5-05): a sale
 			# is the one trade a court cannot see the price of in the ledger.
 			deal["earned"] = proceeds
-		deal["quantity"] = quantity
-		deal["buy_unit"] = buy_unit
-		deal["subsidy_percent"] = subsidy
 		var row: Dictionary = fills.get(buyer, {}) as Dictionary
 		row["bought"] = int(row.get("bought", 0)) + quantity
 		row["spent"] = int(row.get("spent", 0)) + cost

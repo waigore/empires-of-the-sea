@@ -43,6 +43,21 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if muster != null and muster.is_open():
 		muster.close()
 		return true
+	# The province ledger is the muster roll's sibling sheet (DR-20261115-09).
+	var provinces: ProvinceLedgerPanel = play.hud.province_ledger
+	if provinces != null and provinces.is_open():
+		provinces.close()
+		return true
+	# The crown's eyes is the same sibling (DR-20261115-10).
+	var eyes: SpyLedgerPanel = play.hud.spy_ledger
+	if eyes != null and eyes.is_open():
+		eyes.close()
+		return true
+	# The command ledger is the same sibling (DR-20261115-11).
+	var command: CommandLedgerPanel = play.hud.command_ledger
+	if command != null and command.is_open():
+		command.close()
+		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()

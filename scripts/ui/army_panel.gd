@@ -8,6 +8,10 @@ extends PanelContainer
 signal close_pressed
 signal dock_side_pressed
 signal action_pressed(action: String)
+## The command door: the crown's whole pool, its medals and the road to the next
+## commander (DR-20261115-11). The dossier names who leads; the ledger explains
+## what a medal buys, so the sheet keeps one line instead of a paragraph.
+signal command_pressed
 ## The crown named one of its colours: the roster's edit row committed text
 ## (wiki: naming § Regiment names; DR-20261113-03).
 signal rename_pressed(regiment_id: String, wanted: String)
@@ -18,6 +22,7 @@ var _strength: Label = null
 var _command: Label = null
 var _command_row: HBoxContainer = null
 var _command_icon: TextureRect = null
+var _command_door: Button = null
 var _composition: Label = null
 var _status: Label = null
 var _hint: Label = null
@@ -79,6 +84,16 @@ func _build() -> void:
 	_command.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_command.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_command_row.add_child(_command)
+
+	# The command door: the dossier names the crown's commanders, the ledger
+	# reads the pool they are drawn from (DR-20261115-11).
+	_command_door = UiRowBuilder.button("Commanders", 30.0, 0.0)
+	_command_door.custom_minimum_size = Vector2(96, 30)
+	_command_door.add_theme_font_size_override("font_size", 11)
+	_command_door.tooltip_text = "Every commander the crown holds (G)"
+	_command_door.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_command_door.pressed.connect(func() -> void: command_pressed.emit())
+	_command_row.add_child(_command_door)
 
 	_composition = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	_composition.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -197,7 +212,7 @@ func refresh(
 	else:
 		_location.text = "At %s" % model.province_name(army.province)
 	_strength.text = _strength_line(model, army)
-	_command.text = command
+	_command.text = _command_head(command)
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
 	_roster.fill(army, is_player and not army.is_embarked(), model)
@@ -215,6 +230,13 @@ func refresh(
 	_hospital.disabled = not bool(hospital.get("ok", false))
 	_hospital.text = String(hospital.get("caption", "Pitch a field hospital"))
 	_apply_status(army, is_player)
+
+
+## The dossier names the crown's commanders in one line; what a medal buys in
+## the field is the command ledger's own note, one press away (DR-20261115-11),
+## so a phone sheet is not asked to wrap a paragraph over the orders.
+func _command_head(command: String) -> String:
+	return command.split("\n")[0]
 
 
 ## Strength line: count, firepower, food, chevrons and the ward or train.

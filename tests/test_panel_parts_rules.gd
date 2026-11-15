@@ -1116,3 +1116,117 @@ func test_army_roster_block_hides_detach_while_embarked() -> void:
 		"medallion and name only while aboard"
 	)
 	panel.free()
+
+
+# --- ledger_frame (the docked ledgers' one chrome) ---
+
+func _ledger_frames() -> Array[LedgerFrame]:
+	var frames: Array[LedgerFrame] = [
+		EconomyPanel.new(), ResearchPanel.new(), DiplomacyPanel.new()
+	]
+	for frame: LedgerFrame in frames:
+		add_child(frame)
+	return frames
+
+
+func _free_ledger_frames(frames: Array[LedgerFrame]) -> void:
+	for frame: LedgerFrame in frames:
+		if is_instance_valid(frame):
+			frame.free()
+
+
+## The economy, college and court ledgers draw one sheet: the same padding, the
+## same masthead and the same Close door, so a chrome fix lands in all three
+## (REQ-P3-01).
+func test_every_ledger_draws_the_same_sheet() -> void:
+	var frames: Array[LedgerFrame] = _ledger_frames()
+	for frame: LedgerFrame in frames:
+		var sheet: StyleBoxFlat = frame.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_not_null(sheet, "%s paints its own sheet" % frame.title_text)
+		assert_almost_eq(sheet.content_margin_left, LedgerFrame.PADDING.x, 0.01)
+		assert_almost_eq(sheet.content_margin_bottom, LedgerFrame.PADDING.w, 0.01)
+		assert_eq(frame._title.text, frame.title_text, "the masthead names the ledger")
+		assert_eq(
+			frame._title.get_theme_font_size("font_size"), LedgerFrame.TITLE_PIXELS
+		)
+		assert_not_null(frame._close, "every ledger has a door")
+	_free_ledger_frames(frames)
+
+
+## A phone takes the same two bites out of every ledger: the smaller padding,
+## the smaller masthead and a thumb-sized door (REQ-P1-07, REQ-P5-07).
+func test_a_phone_ledger_shrinks_its_chrome() -> void:
+	var frames: Array[LedgerFrame] = _ledger_frames()
+	for frame: LedgerFrame in frames:
+		frame.set_compact(true)
+		var sheet: StyleBoxFlat = frame.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_almost_eq(sheet.content_margin_left, LedgerFrame.PADDING_COMPACT.x, 0.01)
+		assert_eq(
+			frame._title.get_theme_font_size("font_size"),
+			LedgerFrame.TITLE_PIXELS_COMPACT
+		)
+		assert_eq(frame._close.custom_minimum_size, LedgerFrame.CLOSE_SIZE_COMPACT)
+		if frame._hint != null:
+			assert_false(frame._hint.visible, "a phone keeps the room for the list")
+	for frame: LedgerFrame in frames:
+		frame.set_compact(false)
+		var sheet: StyleBoxFlat = frame.get_theme_stylebox("panel") as StyleBoxFlat
+		assert_almost_eq(sheet.content_margin_left, LedgerFrame.PADDING.x, 0.01)
+		assert_eq(frame._title.get_theme_font_size("font_size"), LedgerFrame.TITLE_PIXELS)
+		assert_eq(frame._close.custom_minimum_size, LedgerFrame.CLOSE_SIZE)
+		if frame._hint != null:
+			assert_true(frame._hint.visible, "the standing line returns")
+	_free_ledger_frames(frames)
+
+
+## The court's medallion is chrome too: it rides the same phone profile.
+func test_the_court_crest_rides_the_phone_profile() -> void:
+	var court := DiplomacyPanel.new()
+	add_child(court)
+	var wide := Vector2(LedgerFrame.CREST_PIXELS, LedgerFrame.CREST_PIXELS)
+	assert_eq(court._crest.custom_minimum_size, wide)
+	court.set_compact(true)
+	assert_eq(
+		court._crest.custom_minimum_size,
+		Vector2(LedgerFrame.CREST_PIXELS_COMPACT, LedgerFrame.CREST_PIXELS_COMPACT)
+	)
+	court.free()
+
+
+## One door per ledger, one signal: a button press anywhere reports through the
+## frame the HUD already listens to (REQ-P3-02).
+func test_every_close_door_emits_the_one_signal() -> void:
+	var frames: Array[LedgerFrame] = _ledger_frames()
+	var heard: Array[int] = [0]
+	for frame: LedgerFrame in frames:
+		frame.close_pressed.connect(func() -> void: heard[0] += 1)
+		frame._close.pressed.emit()
+	assert_eq(heard[0], frames.size(), "every ledger's door reports through the frame")
+	_free_ledger_frames(frames)
+
+
+## The tabbed ledgers share the strip: same name, same scroll wrapper and the
+## same body gap, so a page added to either reads the same (REQ-P3-01). The
+## college's tree is the one page that brings its own scroll, so its branch chips
+## stay pinned while 113 rows move under them (DR-20261115-08).
+func test_both_tabbed_ledgers_share_the_strip() -> void:
+	var economy := EconomyPanel.new()
+	add_child(economy)
+	var college := ResearchPanel.new()
+	add_child(college)
+	assert_eq(economy._tabs.get_tab_count(), 3)
+	assert_eq(college._tabs.get_tab_count(), 3)
+	for tabs: TabContainer in [economy._tabs, college._tabs]:
+		assert_eq(tabs.name, "Tabs")
+		for page: Node in tabs.get_children():
+			if page is ResearchTreeTab:
+				continue
+			var scroll := page as ScrollContainer
+			assert_not_null(scroll, "each page is a scroll")
+			assert_true(scroll.get_child(0) is VBoxContainer, "each page holds a column")
+	for title: String in [
+		EconomyPanel.TAB_PRODUCTION, EconomyPanel.TAB_MARKET, EconomyPanel.TAB_WORKERS
+	]:
+		assert_not_null(economy.page_body(title), title)
+	economy.free()
+	college.free()

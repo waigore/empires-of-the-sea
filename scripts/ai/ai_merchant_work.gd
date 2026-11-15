@@ -50,16 +50,9 @@ static func best_move(
 	var goals: Array[Vector2i] = buyable_tiles(model, unit.owner, works, context)
 	if goals.is_empty():
 		return {}
-	var goal: Vector2i = _nearest(goals, unit.tile)
+	var goal: Vector2i = AiLandRoute.nearest(goals, unit.tile)
 	var view: VisibilityModel = context.get("visibility", null)
-	var best: Dictionary = {}
-	for tile: Vector2i in CivilianMovement.valid_tiles(model, unit, view):
-		var distance: int = absi(tile.x - goal.x) + absi(tile.y - goal.y)
-		if best.is_empty() or distance < int(best["distance"]):
-			best = {"kind": "move", "unit_id": unit.id, "tile": tile, "distance": distance}
-		elif distance == int(best["distance"]) and tile < Vector2i(best["tile"]):
-			best = {"kind": "move", "unit_id": unit.id, "tile": tile, "distance": distance}
-	return best
+	return AiLandRoute.step_toward(model, unit, goal, view)
 
 
 ## Every tile this court could buy this turn, in row-major order: a resource tile
@@ -89,6 +82,10 @@ static func buyable_tiles(
 		if DiplomacyRules.at_war_with(diplomacy, faction, seller):
 			continue
 		if not DiplomacyRules.has_embassy(diplomacy, faction, seller):
+			continue
+		# A boycotted court has no deed to sign here, so the planner must not
+		# name one or march toward it (wiki: diplomacy § GP–Tribe — Boycott, R6).
+		if DiplomacyTrade.blocked_by_boycott(diplomacy, faction, seller):
 			continue
 		for tile: Vector2i in province.tiles:
 			if not _buyable_tile(model, faction, works, tile, treasury):
@@ -169,14 +166,3 @@ static func _score(
 		commodity, stockpile, config.parameter("civilian.need_target")
 	) * 5
 	return score
-
-
-static func _nearest(goals: Array[Vector2i], from: Vector2i) -> Vector2i:
-	var best: Vector2i = goals[0]
-	var best_distance: int = absi(best.x - from.x) + absi(best.y - from.y)
-	for tile: Vector2i in goals:
-		var distance: int = absi(tile.x - from.x) + absi(tile.y - from.y)
-		if distance < best_distance or (distance == best_distance and tile < best):
-			best = tile
-			best_distance = distance
-	return best

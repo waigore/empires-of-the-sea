@@ -84,6 +84,36 @@ static func merged_line(play: PlaySession, home: FleetState, hulls: int) -> Stri
 	]
 
 
+## One squadron per seat, every turn. A rival that docks at its own capital
+## through a planner that only moves hulls — the invasion, voyage or cargo pass —
+## is folded into the home fleet here, so the seat never ends a turn holding two
+## (wiki: ships-and-naval § Home Fleet — "any naval move that docks at the
+## capital resolves by merging"). Idempotent, and administrative: no move is
+## spent, no fog revealed. Returns how many squadrons joined.
+static func settle_seats(play: PlaySession) -> int:
+	if play == null or play.ship_layer == null or play.world == null:
+		return 0
+	var joined: int = 0
+	for region: int in play.ship_layer.regions.region_ids():
+		var model: MapModel = play.world.region(region)
+		if model == null:
+			continue
+		var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+		var changed: bool = false
+		for faction: int in FactionCatalog.great_power_ids():
+			var reports: Array[Dictionary] = FleetHomeMerge.settle(model, roster, faction)
+			for report: Dictionary in reports:
+				changed = true
+				joined += 1
+				# put_ashore is quiet without a HUD, so the pass still lands a
+				# displaced army when the harness runs headless.
+				if int(report.get("displaced", -1)) >= 0:
+					MapPlayPortLoss.put_ashore(play, int(report["displaced"]), int(report["seat"]))
+		if changed:
+			play.ship_layer.regions.set_region(region, roster)
+	return joined
+
+
 ## Load repair: a save written before the merge could park a squadron at the
 ## seat. Fold it in on load and say so, so holds, the yard and the dossier all
 ## read one home fleet (wiki: ships-and-naval § Home Fleet).

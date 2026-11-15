@@ -17,6 +17,17 @@ const CATEGORY_LABELS: Dictionary = {
 	"naval": "Naval",
 	"new-world": "New World",
 }
+## The one-word branch names the tree's filter chips carry: a 360-point sheet
+## fits seven of these on one scrolling row (REQ-P1-07).
+const CATEGORY_SHORT: Dictionary = {
+	"gathering": "Gathering",
+	"transport": "Transport",
+	"labour": "Labour",
+	"diplomatic": "Diplomacy",
+	"military": "Military",
+	"naval": "Naval",
+	"new-world": "New World",
+}
 const ERA_NAMES: Dictionary = {
 	1: "Renaissance",
 	2: "Enlightenment",
@@ -182,6 +193,11 @@ static func category(tech_id: String) -> String:
 
 static func category_label(tech_id: String) -> String:
 	return String(CATEGORY_LABELS.get(category(tech_id), category(tech_id)))
+
+
+## The branch name a filter chip carries, one word per category.
+static func category_short_label(category_key: String) -> String:
+	return String(CATEGORY_SHORT.get(category_key, category_key))
 
 
 static func era(tech_id: String) -> int:

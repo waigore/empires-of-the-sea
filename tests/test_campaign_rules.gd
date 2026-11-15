@@ -1782,6 +1782,81 @@ func test_a_minor_nations_fall_is_not_world_news() -> void:
 	assert_eq(_items(_state(3), [], [], [], {}, 0, [], falls).size(), 0)
 
 
+## A crown leaves play with its dealings: the fall clears the fallen court's
+## relations, so the sheet must read the knowledge the crown held when the court
+## fell, not the relations left afterwards (wiki: the-gazette § Item catalog —
+## World, "Great Power terminal fall").
+func test_a_great_powers_fall_prints_after_its_relations_are_cleared() -> void:
+	var state: DiplomacyState = _state(3)
+	var falls: Array = [{"faction": GAZ_FRANCE, "conqueror": GAZ_ENGLAND, "known": true}]
+	state.clear_relations_of(GAZ_FRANCE)
+	var items: Array = _items(state, [], [], [], {}, 0, [], falls)
+	assert_eq(items.size(), 1, "a met crown's fall is still world news")
+	assert_eq(int(items[0]["class"]), Gazette.Class.WORLD)
+	assert_true(String(items[0]["text"]).contains("France"))
+
+
+## The World page is the epoch's own news: a Great Power's war or peace with a
+## Minor Nation is that court's doing, not the world's (wiki: the-gazette
+## § Item catalog — World, "GP–GP declaration of war or peace").
+func test_a_great_powers_war_on_a_minor_is_not_world_news() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event("warDeclared", GAZ_ENGLAND, GENOA)
+	var items: Array = _items(state, [GAZ_ENGLAND])
+	assert_eq(items.size(), 1)
+	assert_eq(
+		int(items[0]["class"]), Gazette.Class.INTEREST,
+		"a watched court's war on a Minor is news of interest"
+	)
+	assert_eq(_items(state, []).size(), 0, "an unwatched court's war on a Minor is no news")
+
+
+func test_a_great_powers_peace_with_a_minor_is_not_world_news() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event("peaceMade", GAZ_ENGLAND, GENOA)
+	var items: Array = _items(state, [GAZ_ENGLAND])
+	assert_eq(items.size(), 1)
+	assert_eq(int(items[0]["class"]), Gazette.Class.INTEREST)
+
+
+## One act, one line: a proposal answer is the treaty it answered, so the sheet
+## prints the act once (wiki: the-gazette § Item catalog — the catalogue lists
+## the acts, not the offers that led to them).
+func test_a_refused_overture_proposal_prints_once() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"overtureRejected", GAZ_FRANCE, VIEWER, {"stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	state.record_event(
+		"proposalRefused", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_OVERTURE, "stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	assert_eq(_items(state, []).size(), 1, "the refusal prints once")
+
+
+func test_an_accepted_overture_proposal_prints_once() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"overtureEstablished", GAZ_FRANCE, VIEWER, {"stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	state.record_event(
+		"proposalAccepted", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_OVERTURE, "stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	assert_eq(_items(state, []).size(), 1, "the establishment prints once")
+
+
+## A refused alliance or peace offer has no act of its own, so the answer is the
+## news and must still print.
+func test_a_refused_alliance_proposal_still_prints() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"proposalRefused", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_ALLIANCE, "stage": ""}
+	)
+	assert_eq(_items(state, []).size(), 1)
+
+
 # --- prose -------------------------------------------------------------------
 
 
@@ -1983,6 +2058,23 @@ func test_a_regiment_line_carries_its_title_when_it_has_one() -> void:
 	assert_true(titled.contains("Peasant Levies"))
 	var plain: String = GazetteCopyMuster.regiment_mustered({"label": "Peasant Levies"})
 	assert_true(plain.contains("new regiment of Peasant Levies"))
+
+
+## A launched hull prints the name it was christened with beside its type and
+## the capital it slid from (wiki: the-gazette § Item catalog — "a hull keeps
+## the name it was christened with"; naming § Ship names).
+func test_a_launched_hull_line_carries_its_christened_name() -> void:
+	var named: String = GazetteCopyMuster.ship_launched(
+		{"label": "Carrack", "name": "Trinidad", "place": "Madrid"}
+	)
+	assert_true(named.contains("Trinidad"), "the christened name prints")
+	assert_true(named.contains("Carrack"), "the hull's type prints")
+	assert_true(named.contains("Madrid"), "the capital she slid from prints")
+	## A record that carries no name keeps the plain launch line.
+	var plain: String = GazetteCopyMuster.ship_launched(
+		{"label": "Carrack", "place": "Madrid"}
+	)
+	assert_true(plain.contains("A Carrack slides from the slips at Madrid"))
 
 
 ## A record whose kind has no copy prints nothing, so a sheet never carries an
@@ -2211,6 +2303,132 @@ func test_an_archive_without_sheets_says_the_presses_have_not_run() -> void:
 	assert_true(_has_text(plate, GazettePlate.NO_HISTORY))
 
 
+# --- the archive's reading filter (DR-20261115-06) ---------------------------
+## A campaign files one sheet a turn and keeps every one, so a long age's
+## archive is a hundred pages of three classes mixed together. The chips read
+## one class across the whole campaign; the filter never re-orders, re-words or
+## invents a line (wiki: the-gazette § History screen; REQ-P2-03, REQ-P5-03).
+
+
+func test_the_filter_keeps_the_sheets_order_and_prose() -> void:
+	var sheet: Dictionary = gazette_plate_sheet(3)
+	var court: Dictionary = GazetteArchive.sheet(sheet, Gazette.Class.COURT)
+	assert_eq(int(court["turn"]), 3, "the page keeps its turn")
+	assert_eq((court["items"] as Array).size(), 1, "only the chosen class prints")
+	assert_eq(
+		String((court["items"] as Array)[0]["text"]),
+		"Our scholars have finished the Crop Rotation.",
+		"the line is the one the turn wrote"
+	)
+	assert_eq(
+		GazetteArchive.sheet(sheet, GazetteArchive.ALL), sheet,
+		"the unfiltered page is the filed one, untouched"
+	)
+	assert_true(GazetteArchive.holds(sheet, Gazette.Class.WORLD))
+	assert_false(GazetteArchive.holds(sheet, Gazette.Class.INTEREST))
+	assert_eq(GazetteArchive.tally([sheet], GazetteArchive.ALL), 2)
+	assert_eq(GazetteArchive.tally([sheet], Gazette.Class.WORLD), 1)
+	assert_true(GazetteArchive.walk([sheet], Gazette.Class.INTEREST).is_empty())
+	assert_eq(GazetteArchive.label(Gazette.Class.COURT), "Our court", "a chip keeps the sheet's heading")
+	assert_false(GazetteArchive.hint(Gazette.Class.INTEREST).is_empty(), "a chip says what it buys")
+
+
+func test_the_archive_reads_one_class_across_the_campaign() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(_court_only_sheet(2))
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_true(_has_text(plate, "The gauntlet passes between them."), "every class prints")
+	(_chip(plate, Gazette.Class.COURT) as Button).pressed.emit()
+	assert_false(
+		_has_text(plate, "The gauntlet passes between them."), "the world's news is set aside"
+	)
+	assert_true(_has_text(plate, "Our scholars have finished the Crop Rotation."))
+	assert_eq(plate._nav_label.text, "1 of 2", "the walk counts the pages that hold the class")
+	plate._step(1)
+	assert_true(_has_text(plate, DiplomacyHistory.stamp_for_turn(2)))
+	assert_true(plate._older.disabled, "the oldest page that holds the class ends the walk")
+
+
+func test_a_class_filter_skips_the_quiet_turns_the_archive_still_keeps() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append({"turn": 2, "items": []})
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_eq(plate._nav_label.text, "1 of 2", "the unfiltered archive keeps the quiet turn")
+	plate._step(1)
+	assert_true(_has_text(plate, GazettePlate.EMPTY_LINE), "a quiet turn still reads as quiet")
+	(_chip(plate, Gazette.Class.COURT) as Button).pressed.emit()
+	assert_eq(plate._nav_label.text, "1 of 1", "a class filter walks only the pages that hold it")
+
+
+func test_a_filter_that_matches_nothing_says_so() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(gazette_plate_sheet(2))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	(_chip(plate, Gazette.Class.INTEREST) as Button).pressed.emit()
+	assert_true(_has_text(plate, GazetteArchive.NONE_LINE))
+	assert_eq(plate._nav_label.text, "", "there is no page to count")
+	assert_true(plate._newer.disabled and plate._older.disabled, "there is nowhere to walk")
+
+
+func test_the_filter_chips_carry_the_archive_tally() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(gazette_plate_sheet(2))
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_eq((_chip(plate, GazetteArchive.ALL) as Button).text, "All news 4")
+	assert_eq((_chip(plate, Gazette.Class.WORLD) as Button).text, "The world 2")
+	assert_eq((_chip(plate, Gazette.Class.COURT) as Button).text, "Our court 2")
+	assert_true(
+		(_chip(plate, GazetteArchive.ALL) as Button).button_pressed, "the archive opens unfiltered"
+	)
+	(_chip(plate, Gazette.Class.WORLD) as Button).pressed.emit()
+	assert_true(
+		(_chip(plate, Gazette.Class.WORLD) as Button).button_pressed, "the chip shows the reading"
+	)
+	assert_false((_chip(plate, GazetteArchive.ALL) as Button).button_pressed)
+
+
+## The filter is the reader's, not the page's: reopening the archive keeps it
+## and starts again at the newest page that holds the class.
+func test_reopening_the_archive_keeps_the_filter() -> void:
+	_setup_gazette_plate()
+	var state := GazetteState.new()
+	state.append(_court_only_sheet(2))
+	state.append(gazette_plate_sheet(3))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	(_chip(plate, Gazette.Class.COURT) as Button).pressed.emit()
+	plate._step(1)
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	assert_eq(plate._nav_label.text, "1 of 2", "the walk restarts at the newest page")
+	assert_false(
+		_has_text(plate, "The gauntlet passes between them."), "the reading is still the crown's own"
+	)
+
+
+func _chip(node: Node, cls: int) -> Button:
+	var chips: Dictionary = (node as GazettePlate)._archive_room.filter_buttons()
+	return chips.get(cls, null) as Button
+
+
+func _court_only_sheet(turn: int) -> Dictionary:
+	return {
+		"turn": turn,
+		"items": [
+			{
+				"class": Gazette.Class.COURT,
+				"kind": "techFinished",
+				"text": "Our scholars have finished the Crop Rotation.",
+			},
+		],
+	}
+
+
 func test_the_watchlist_lists_met_courts_and_toggles_the_list() -> void:
 	_setup_gazette_plate()
 	var state := GazetteState.new()
@@ -2234,6 +2452,28 @@ func test_the_plate_narrows_to_a_phone_viewport() -> void:
 	var width: float = plate._panel.offset_right - plate._panel.offset_left
 	assert_true(width <= 480.0, "the sheet never outgrows the screen")
 	assert_true(width >= GazettePlate.MIN_WIDTH)
+
+
+## The archive's filter chips ride a strip that scrolls sideways, so a phone's
+## plate never widens for them (REQ-P1-05, REQ-P5-07).
+func test_the_archive_filter_strip_never_widens_a_phone_plate() -> void:
+	_setup_gazette_plate()
+	plate.size = Vector2(320, 640)
+	var state := GazetteState.new()
+	state.append(gazette_plate_sheet(2))
+	plate.open_archive(state, null, gazette_plate_VIEWER)
+	plate._fit()
+	var width: float = plate._panel.offset_right - plate._panel.offset_left
+	assert_true(width <= 320.0, "the sheet never outgrows the screen")
+	var chips: Dictionary = plate._archive_room.filter_buttons()
+	var chips_width: float = 0.0
+	for key: Variant in chips.keys():
+		chips_width += (chips[key] as Button).get_combined_minimum_size().x
+	assert_true(chips_width > width, "the chips are wider than a phone's plate")
+	assert_true(
+		plate._archive_room.get_combined_minimum_size().x <= width,
+		"the strip scrolls instead of widening the sheet"
+	)
 
 
 ## Toasts stay readable: while the sheet is up they are pushed to the lane under
@@ -2309,3 +2549,140 @@ func _has_text(node: Node, needle: String) -> bool:
 		if _has_text(child, needle):
 			return true
 	return false
+
+
+# --- the age's room (DR-20261115-05) -----------------------------------------
+## The whole race on the Gazette's own tab: one row per Great Power, read from
+## the same standings the end-of-turn check acts on (wiki: victory § Victory
+## Check; REQ-P2-03, REQ-P5-03). Presentation only — the room counts nothing.
+
+var age_room_room: AgeRoom = null
+
+
+func _setup_age_room() -> void:
+	age_room_room = AgeRoom.new()
+	add_child(age_room_room)
+
+
+func _teardown_age_room() -> void:
+	if is_instance_valid(age_room_room):
+		age_room_room.free()
+	age_room_room = null
+
+
+func _age_row(id: int, name: String, holdings: int, bar: int, human: bool) -> Dictionary:
+	return {
+		"id": id,
+		"name": name,
+		"holdings": holdings,
+		"bar": bar,
+		"need": maxi(bar - holdings, 0),
+		"human": human,
+		"leader": false,
+	}
+
+
+func test_the_age_room_prints_every_crown_against_its_own_bar() -> void:
+	_setup_age_room()
+	var rows: Array[Dictionary] = [
+		_age_row(ENGLAND, "England", 28, 31, false),
+		_age_row(SPAIN, "Spain", 12, 36, true),
+	]
+	rows[0]["leader"] = true
+	age_room_room.fill(
+		{
+			"rows": rows,
+			"human": SPAIN,
+			"calendar": "the calendar closes in 140 turns",
+			"note": VictoryStandings.bar_note(SPAIN, HARD),
+		}
+	)
+	assert_true(_has_text(age_room_room, "England · leads"), "the race's leader is named")
+	assert_true(_has_text(age_room_room, "28 of 31 · 3 to go"), "holdings against its own bar")
+	assert_true(_has_text(age_room_room, "Spain · your crown"), "the reader's row is marked")
+	assert_true(_has_text(age_room_room, "12 of 36 · 24 to go"), "the crown's bar is the level's")
+	assert_true(
+		_has_text(age_room_room, "The calendar closes in 140 turns"),
+		"the calendar opens the sentence"
+	)
+	assert_true(_has_text(age_room_room, "every rival keeps 31"), "the bar rule is printed")
+	_teardown_age_room()
+
+
+## A crown already on its bar is never told it has "0 to go": the check would
+## have closed the campaign first (wiki: victory § Victory Check).
+func test_a_crown_on_its_bar_reads_on_the_bar() -> void:
+	assert_eq(
+		AgeRoom.standing_text(_age_row(SPAIN, "Spain", 31, 31, true)), "31 of 31 · on the bar"
+	)
+	assert_eq(
+		AgeRoom.standing_text(_age_row(ENGLAND, "England", 30, 31, false)), "30 of 31 · 1 to go"
+	)
+
+
+func test_the_age_room_names_no_crown_when_the_session_has_none() -> void:
+	_setup_age_room()
+	age_room_room.fill({})
+	assert_true(_has_text(age_room_room, AgeRoom.EMPTY_LINE))
+	_teardown_age_room()
+
+
+func test_the_plate_prints_the_whole_race_on_its_age_tab() -> void:
+	_setup_gazette_plate()
+	var rows: Array[Dictionary] = [
+		_age_row(ENGLAND, "England", 28, 31, false),
+		_age_row(SPAIN, "Spain", 12, 31, true),
+	]
+	rows[0]["leader"] = true
+	plate.open_sheet(
+		gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER,
+		"",
+		{"rows": rows, "human": SPAIN, "calendar": "", "note": VictoryStandings.bar_note()}
+	)
+	plate._go(GazettePlate.Mode.AGE)
+	assert_true(_has_text(plate, "THE GAZETTE  ·  THE AGE"))
+	assert_true(_has_text(plate, "28 of 31 · 3 to go"))
+	assert_true(_has_text(plate, "12 of 31 · 19 to go"))
+	assert_true(plate._age_room.visible, "the room takes the body on its tab")
+	plate._go(GazettePlate.Mode.SHEET)
+	assert_false(plate._age_room.visible, "and gives it back on any other tab")
+	assert_true(_has_text(plate, "The gauntlet passes between them."), "the sheet still prints")
+	_teardown_gazette_plate()
+
+
+## The payload is the check's own read: same rows, same order, the leader
+## stamped from that order, and the calendar and bar in the sheet's words.
+func test_the_age_payload_carries_the_checks_own_rows() -> void:
+	_setup_victory_standings()
+	var world := _victory_standings_old_world()
+	_victory_standings_seat(world.region(WorldMap.OLD_WORLD), {SPAIN: 12, ENGLAND: 9})
+	var play := PlaySession.new()
+	play.world = world
+	play.turn = 5
+	play.player_faction = SPAIN
+	play.difficulty = HARD
+	var payload: Dictionary = MapPlayGazette.age_payload(play)
+	assert_eq(int(payload["human"]), SPAIN)
+	var rows: Array = payload["rows"] as Array
+	assert_eq(rows.size(), FactionCatalog.great_power_ids().size())
+	assert_eq(String(rows[0]["name"]), "England", "the nearer crown leads")
+	assert_true(bool(rows[0]["leader"]), "the leader is the race's first row")
+	assert_false(bool(rows[1]["leader"]), "only one crown leads")
+	assert_eq(
+		String(payload["note"]), VictoryStandings.bar_note(SPAIN, HARD), "the bar's own words"
+	)
+	assert_eq(
+		String(payload["calendar"]), VictoryStandings.calendar_text(5), "the sheet's calendar"
+	)
+	victory_standings_Fixture.restore(
+		victory_standings_Fixture.world(), victory_standings_saved_world
+	)
+
+
+func test_the_age_payload_is_empty_without_a_world() -> void:
+	assert_eq(MapPlayGazette.age_payload(null), {})
+
+
+func test_an_endless_age_closes_no_calendar_in_the_table() -> void:
+	assert_eq(VictoryStandings.calendar_text(5, true), "no calendar closes this age")
+	assert_eq(VictoryStandings.calendar_text(5), VictoryStandings.calendar_text(5, false))

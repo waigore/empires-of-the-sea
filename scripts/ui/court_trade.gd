@@ -7,6 +7,10 @@ extends VBoxContainer
 
 signal order_pressed(kind: String, target: int, arg: String)
 
+## The trade sheet's prose column: a sentence wraps inside this width so the
+## terms never squeeze the orders beside them.
+const TERM_WIDTH: float = 240.0
+
 var _target: int = -1
 
 
@@ -22,7 +26,7 @@ func fill(
 	if options.is_empty():
 		return
 	add_theme_constant_override("separation", 6)
-	add_child(_caption("TRADE TERMS"))
+	add_child(UiRowBuilder.caption("TRADE TERMS", 11, Palette.TEXT_DIM))
 	if state != null:
 		_add_summary(state, world, player, target)
 	for option: Dictionary in options:
@@ -88,7 +92,7 @@ func _add_option(option: Dictionary) -> void:
 		text = "✓ %s" % text
 	if not cost.is_empty():
 		text = "%s  ·  %s" % [text, cost]
-	var button := _button(text)
+	var button := UiRowBuilder.button(text, 36.0, 0.0)
 	button.disabled = not bool(option["ok"])
 	var kind: String = String(option["kind"])
 	var arg: String = String(option.get("arg", ""))
@@ -102,23 +106,5 @@ func _add_option(option: Dictionary) -> void:
 		add_child(_label(hint, 11, Palette.TEXT_DIM))
 
 
-func _caption(text: String) -> Label:
-	return _label(text, 11, Palette.TEXT_DIM)
-
-
 func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size = Vector2(240, 0)
-	return label
-
-
-func _button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.custom_minimum_size = Vector2(0, 36)
-	button.add_theme_font_size_override("font_size", 13)
-	return button
+	return UiRowBuilder.wrapped_line(text, size, color, TERM_WIDTH)

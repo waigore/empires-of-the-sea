@@ -24,6 +24,14 @@ const DEFENCE_LENS := "defence_lens"
 const CIVILIAN_ROSTER := "civilian_roster"
 ## Opens the muster roll: every army and squadron the crown holds (DR-20261113-12).
 const MUSTER_ROLL := "muster_roll"
+## Opens the province ledger: every province the crown holds (DR-20261115-09).
+const PROVINCE_LEDGER := "province_ledger"
+## Opens the command ledger: every commander the crown's pool holds
+## (DR-20261115-11).
+const COMMAND_LEDGER := "command_ledger"
+## Opens the crown's eyes: the spy network and the courts it shadows
+## (DR-20261115-10).
+const SPY_LEDGER := "spy_ledger"
 
 
 static func ensure_actions() -> void:
@@ -43,6 +51,9 @@ static func ensure_actions() -> void:
 	_bind(DEFENCE_LENS, [KEY_K])
 	_bind(CIVILIAN_ROSTER, [KEY_C])
 	_bind(MUSTER_ROLL, [KEY_O])
+	_bind(PROVINCE_LEDGER, [KEY_T])
+	_bind(COMMAND_LEDGER, [KEY_G])
+	_bind(SPY_LEDGER, [KEY_I])
 
 
 static func _bind(action: StringName, keys: Array) -> void:

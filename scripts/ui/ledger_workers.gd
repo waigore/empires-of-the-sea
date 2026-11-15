@@ -68,33 +68,17 @@ func _larder(economy: PlayerEconomy, report: Dictionary) -> Control:
 	var read: Dictionary = LarderRead.forecast(economy, LarderRead.mouths(report))
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
-	box.add_child(_line("LARDER · NEXT TURN", 11, Palette.TEXT_DIM))
-	box.add_child(_line(_store_copy(read), 12, Palette.TEXT))
-	box.add_child(_line(_appetite_copy(read), 12, Palette.TEXT_DIM))
+	box.add_child(UiRowBuilder.wrapped_line("LARDER · NEXT TURN", 11, Palette.TEXT_DIM))
+	box.add_child(UiRowBuilder.wrapped_line(_store_copy(read), 12, Palette.TEXT))
+	box.add_child(UiRowBuilder.wrapped_line(_appetite_copy(read), 12, Palette.TEXT_DIM))
 	var short: bool = int(read["strikers"]) > 0
 	box.add_child(
-		_line(
-			_shortfall_copy(read),
-			12,
-			Palette.CRIMSON if short else Palette.TEXT_DIM
+		UiRowBuilder.wrapped_line(
+			_shortfall_copy(read), 12, Palette.CRIMSON if short else Palette.TEXT_DIM
 		)
 	)
-	box.add_child(_pad(4))
+	UiRowBuilder.spacer(box, 4.0)
 	return box
-
-
-## A wrapping ledger line: a phone narrows instead of clipping the sentence
-## (REQ-P1-05).
-func _line(text: String, size: int, color: Color) -> Label:
-	var out: Label = UiRowBuilder.label(text, size, color)
-	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return out
-
-
-func _pad(height: float) -> Control:
-	var pad := Control.new()
-	pad.custom_minimum_size = Vector2(0, height)
-	return pad
 
 
 ## "Store 16 food · Fur Hats ×1" — the larder as it stands, naming only the
@@ -107,10 +91,34 @@ func _store_copy(read: Dictionary) -> String:
 	return "Store " + "  ·  ".join(parts)
 
 
-## "24 mouths eat 18 food · Refined Sugar ×3 · 2 arriving" — every appetite the
-## phase pays before the larder can be called short.
+## "20 food wanted — army 8 · navy 4 · pool 6 · wards 2 · Refined Sugar ×3", or
+## the short form "24 mouths eat 24 food" when the pool is the only appetite.
+## Every appetite the phase pays is named in its own deduction order, because the
+## army and the navy eat before the pool: a store that covers the pool alone still
+## strikes it, and a reading that showed only the pool's mouths had the store
+## cover them (wiki: workers-and-population § Consumption; REQ-P2-03).
 func _appetite_copy(read: Dictionary) -> String:
-	var text: String = "%d mouths eat %d food" % [int(read["mouths"]), int(read["food"])]
+	var appetites: Dictionary = read.get("appetites", {}) as Dictionary
+	var army: int = int(appetites.get("army", 0))
+	var navy: int = int(appetites.get("navy", 0))
+	var pool: int = int(appetites.get("pool", int(read["food"])))
+	var wards: int = int(appetites.get("wards", 0))
+	var text: String
+	if army + navy + wards <= 0:
+		text = "%d mouths eat %d food" % [int(read["mouths"]), pool]
+	else:
+		var parts: PackedStringArray = []
+		if army > 0:
+			parts.append("army %d" % army)
+		if navy > 0:
+			parts.append("navy %d" % navy)
+		if pool > 0:
+			parts.append("pool %d" % pool)
+		if wards > 0:
+			parts.append("wards %d" % wards)
+		text = "%d food wanted — %s" % [
+			army + navy + pool + wards, " · ".join(parts),
+		]
 	var want: Dictionary = read["luxury"]
 	for id: Variant in want.keys():
 		text += "  ·  %s ×%d" % [CommodityCatalog.label(String(id)), int(want[id])]

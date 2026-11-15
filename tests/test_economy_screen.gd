@@ -213,7 +213,19 @@ func test_the_workers_tab_reads_the_larder() -> void:
 	assert_true(printed.contains("LARDER · NEXT TURN"), "the head names the reading: %s" % printed)
 	assert_true(printed.contains("Store 1 food"), "the larder as it stands: %s" % printed)
 	assert_true(printed.contains("Fur Hats ×1"), "the luxury the pool wants: %s" % printed)
-	assert_true(printed.contains("2 mouths eat 3 food"), "every appetite: %s" % printed)
+	var read: Dictionary = LarderRead.forecast(
+		economy, LarderRead.mouths(_screen.economy.readings.projected())
+	)
+	assert_true(
+		printed.contains(
+			"army %d" % int((read["appetites"] as Dictionary)["army"])
+		) or int((read["appetites"] as Dictionary)["army"]) <= 0,
+		"the army that eats first is named: %s" % printed
+	)
+	assert_true(
+		printed.contains("pool %d" % int((read["appetites"] as Dictionary)["pool"])),
+		"the pool's own rations are named: %s" % printed
+	)
 	# The screen's army and navy eat before the pool, so the master cannot be fed
 	# its grain and meat: the shortfall is food and it bites the top tier first.
 	assert_true(printed.contains("food — "), "a food shortfall: %s" % printed)
@@ -227,6 +239,30 @@ func test_the_workers_tab_reads_the_larder() -> void:
 	var calm: String = _printed(workers)
 	assert_true(calm.contains("The larder covers every mouth."), calm)
 	assert_false(calm.contains("striker,"), "no striker when the larder covers: %s" % calm)
+
+
+## A store that covers the pool alone must not read as a calm larder: the army
+## and the navy eat before the pool, so the larder names every appetite the phase
+## pays, in its own order, and the numbers add up
+## (wiki: workers-and-population § Consumption; REQ-P2-03).
+func test_the_larder_names_the_appetites_that_eat_first() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(6)
+	economy.stockpile = {"grain": 12, "meat": 0}
+	var report: Dictionary = {
+		"consumption": {"army_demand": 8, "navy_demand": 4, "hospital_demand": 2}
+	}
+	var page := LedgerWorkers.new()
+	page.fill(economy, report)
+	var printed: String = _printed(page)
+	page.free()
+	assert_true(printed.contains("Store 12 food"), printed)
+	assert_true(
+		printed.contains("20 food wanted — army 8 · navy 4 · pool 6 · wards 2"),
+		"every appetite, in the phase's own order: %s" % printed
+	)
+	assert_true(printed.contains("Short 6 food"), "the pool is short: %s" % printed)
+	assert_true(printed.contains("6 strikers"), printed)
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.
@@ -907,6 +943,25 @@ func test_the_offer_chip_names_what_production_claims() -> void:
 	assert_not_null(claimed_chip, "the chip explains the claim")
 	assert_true(claimed_chip.disabled, "nothing is left to offer")
 	assert_true(claimed_chip.tooltip_text.contains("0 sellable"))
+
+
+## The claim is a readout on the page, not only a hover: a phone player sees why
+## the Offer is dead (wiki: world-market § Trade orders — the per-commodity
+## sellable readout; REQ-P1-05, REQ-P5-05).
+func test_the_market_row_prints_the_sellable_cap() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 4
+	_screen.economy.orders.set_production("lumber", 2)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var caption: Label = null
+	for node: Node in body.find_children("*", "Label", true, false):
+		var label: Label = node
+		if label.text.contains("claimed by production"):
+			caption = label
+	assert_not_null(caption, "the row prints the claim, not only a tooltip")
+	assert_eq(caption.text, "4 Timber claimed by production — 0 sellable")
 
 
 ## Every MARKET row shows its good's own medallion: grain, wool and timber used

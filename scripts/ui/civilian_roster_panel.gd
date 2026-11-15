@@ -11,14 +11,15 @@ var _rows: VBoxContainer = null
 var _empty: Label = null
 var _region: String = CivilianRoster.REGION_ALL
 var _type: String = CivilianRosterHead.TYPE_ALL
+var _status: String = CivilianRoster.STATUS_ALL
 var _snapshot: Dictionary = {}
 
 
 func _init() -> void:
 	title_text = "THE CROWN'S PEOPLE"
 	hint_text = (
-		"Visit opens the civilian's map and dossier. Filter by Old or New World, "
-		+ "or by craft; the C key opens this roster from anywhere on the map."
+		"Visit opens the civilian's map and dossier. Filter by world, craft or "
+		+ "who waits for orders; the C key opens this roster from anywhere on the map."
 	)
 	toggle_action = InputActions.CIVILIAN_ROSTER
 
@@ -33,7 +34,7 @@ func refresh() -> void:
 	_snapshot = CivilianRoster.snapshot(
 		play.world, play.civilian_layer.regions, play.player_faction
 	)
-	_head.render(_snapshot, _region, _type)
+	_head.render(_snapshot, _region, _type, _status)
 	_fit()
 	_apply_filter()
 
@@ -80,10 +81,11 @@ func _on_profile_changed() -> void:
 # --- rows --------------------------------------------------------------------
 
 
-func _on_filter(region_key: String, type_id: String) -> void:
+func _on_filter(region_key: String, type_id: String, status_key: String) -> void:
 	_region = region_key
 	_type = type_id
-	_head.render(_snapshot, _region, _type)
+	_status = status_key
+	_head.render(_snapshot, _region, _type, _status)
 	_apply_filter()
 
 
@@ -93,15 +95,14 @@ func _apply_filter() -> void:
 			continue
 		_rows.remove_child(child)
 		child.queue_free()
-	var groups: Array[Dictionary] = CivilianRoster.groups(_snapshot, _region, _type)
-	var shown: int = CivilianRoster.count(_snapshot, _region, _type)
+	var groups: Array[Dictionary] = CivilianRoster.groups(
+		_snapshot, _region, _type, _status
+	)
+	var shown: int = CivilianRoster.count(_snapshot, _region, _type, _status)
 	_subtitle.text = _subtitle_text(shown)
 	_empty.visible = shown == 0
 	if shown == 0:
-		_empty.text = (
-			"No civilians answer this view. Train another at the capital, or clear "
-			+ "a filter."
-		)
+		_empty.text = _empty_text()
 		return
 	for group: Dictionary in groups:
 		var heading := Label.new()
@@ -132,9 +133,35 @@ func _subtitle_text(shown: int) -> String:
 	var craft: String = ""
 	if not _type.is_empty():
 		craft = " · %s only" % CivilianCatalog.display_name(_type)
-	return "Showing %d of %d civilians %s%s. Idle crews wait for orders." % [
-		shown, int(_snapshot.get("total", 0)), scope, craft
+	var orders: String = ""
+	if _status != CivilianRoster.STATUS_ALL:
+		orders = " · %s only" % CivilianRoster.status_label(_status).to_lower()
+	return "Showing %d of %d civilians %s%s%s. %s" % [
+		shown, int(_snapshot.get("total", 0)), scope, craft, orders, _tail_text()
 	]
+
+
+## The line under the count says what the view is for, so the idle reading never
+## reads like the whole roster (REQ-P5-05).
+func _tail_text() -> String:
+	if _status == CivilianRoster.STATUS_IDLE:
+		return "Every one of them waits for an order."
+	if _status == CivilianRoster.STATUS_WORKING:
+		return "Their orders are paid and running."
+	return "Idle crews wait for orders."
+
+
+## An empty view names the filter that emptied it, so a crown never reads a
+## filter for a lost unit (REQ-P5-05).
+func _empty_text() -> String:
+	if _status == CivilianRoster.STATUS_IDLE:
+		return "No idle crews — every civilian in this view has an order."
+	if _status == CivilianRoster.STATUS_WORKING:
+		return "No civilian in this view is at work. Clear the filter to see who waits."
+	return (
+		"No civilians answer this view. Train another at the capital, or clear "
+		+ "a filter."
+	)
 
 
 func _visit(region: int, unit_id: int) -> void:

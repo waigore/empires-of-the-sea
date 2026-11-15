@@ -1,9 +1,13 @@
 class_name MapPlayTurn
 extends RefCounted
-## Turn closure: the consent ladder, then movement/combat/upkeep and the new
-## turn. Campaign close and standing live in MapPlayCampaign, land battles in
-## MapPlayLandTurn, sea battles in MapPlayNavalTurn, fog decay in MapPlayFogTurn
-## (REQ-P3-02). This only orders them and reports what the rules decided.
+## Turn closure: the consent ladder, then the handed-over finish. A pending
+## consent decision stops the calendar until the court answers; once the ladder
+## is clear, every answer path resumes the same way (REQ-P3-02).
+##
+## Movement, rearmament, combat, upkeep and the new turn live in
+## MapPlayTurnFinish, one named phase per step. Campaign close and standing live
+## in MapPlayCampaign, land battles in MapPlayLandTurn, sea battles in
+## MapPlayNavalTurn, fog decay in MapPlayFogTurn.
 
 ## False when no view is mounted to follow: the headless harness
 ## (`tools/ai_vs_ai.gd`) runs the same rules with no chart, HUD or lens refresh,
@@ -50,20 +54,7 @@ static func answer_call(play: PlaySession, accept: bool) -> void:
 	if not CallToArms.has_pending(play.diplomacy, play.player_faction):
 		return
 	var result: Dictionary = CallToArms.resolve_human(play.diplomacy, accept)
-	if not bool(result.get("ok", false)):
-		if play.hud != null:
-			play.hud.toast(String(result.get("reason", "No call awaits an answer.")))
-		return
-	if play.hud != null:
-		var message: String = String(result.get("message", ""))
-		if not message.is_empty():
-			play.hud.toast(message)
-	MapPlayDiplomacy.refresh(play)
-	if _show_pending(play):
-		return
-	play.turn_suspended = false
-	MapPlayDiplomacy.close_turn(play)
-	_finish_turn(play)
+	_resume(play, result, "No call awaits an answer.")
 
 
 ## The player answers a waiting intervention; the suspended turn then runs to
@@ -79,20 +70,7 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 	var ledger: PlayerEconomy = play.ledger_for(int(offer.get("aggressor", -1)))
 	var tech: Dictionary = ledger.tech_unlocked if ledger != null else {}
 	var result: Dictionary = Intervention.resolve_human(play.diplomacy, kind, tech)
-	if not bool(result.get("ok", false)):
-		if play.hud != null:
-			play.hud.toast(String(result.get("reason", "No intervention awaits an answer.")))
-		return
-	if play.hud != null:
-		var message: String = String(result.get("message", ""))
-		if not message.is_empty():
-			play.hud.toast(message)
-	MapPlayDiplomacy.refresh(play)
-	if _show_pending(play):
-		return
-	play.turn_suspended = false
-	MapPlayDiplomacy.close_turn(play)
-	_finish_turn(play)
+	_resume(play, result, "No intervention awaits an answer.")
 
 
 ## The player answers a rival proposal; the suspended turn then runs to its end,
@@ -103,19 +81,34 @@ static func answer_offer(play: PlaySession, accept: bool) -> void:
 	if not DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
 		return
 	var result: Dictionary = DiplomacyProposals.resolve_human(play.diplomacy, play.world, accept)
+	if bool(result.get("ok", false)):
+		_book_overture(play, result, accept)
+	_resume(play, result, "No proposal awaits an answer.")
+
+
+## The proposing court pays for its overture; the human treasury is untouched.
+## A peace offer starts its own cooldown once the court answers; every other
+## proposal starts the improve-relations cooldown (DR-20261109-06/07). The answer
+## is the asking court's memory either way (DR-20261115-01).
+static func _book_overture(play: PlaySession, result: Dictionary, accept: bool) -> void:
+	if play.ai == null:
+		return
+	var from_id: int = int(result.get("from", -1))
+	if String(result.get("kind", "")) == DiplomacyProposals.KIND_PEACE:
+		play.ai.note_peace(from_id, play.player_faction, play.turn, accept)
+	else:
+		play.ai.note_overture(from_id, play.player_faction, play.turn)
+
+
+## One answer path: a refused answer says why and leaves the phase shut; an
+## accepted one says its piece, refreshes the ladder and either opens the next
+## waiting decision or runs the suspended turn to its end (wiki: diplomacy).
+## `fallback` names the refusal when the rules gave no reason.
+static func _resume(play: PlaySession, result: Dictionary, fallback: String) -> void:
 	if not bool(result.get("ok", false)):
 		if play.hud != null:
-			play.hud.toast(String(result.get("reason", "No proposal awaits an answer.")))
+			play.hud.toast(String(result.get("reason", fallback)))
 		return
-	# The proposing court pays for its overture; the human treasury is untouched.
-	# A peace offer starts its own cooldown once the court answers; every other
-	# proposal starts the improve-relations cooldown (DR-20261109-06/07).
-	var from_id: int = int(result.get("from", -1))
-	if play.ai != null:
-		if String(result.get("kind", "")) == DiplomacyProposals.KIND_PEACE:
-			play.ai.note_peace(from_id, play.player_faction, play.turn)
-		else:
-			play.ai.note_overture(from_id, play.player_faction, play.turn)
 	if play.hud != null:
 		var message: String = String(result.get("message", ""))
 		if not message.is_empty():
@@ -144,143 +137,7 @@ static func _show_pending(play: PlaySession) -> bool:
 	return false
 
 
-## The turn's view follow-up: the toast, the open dossiers, the survey lens and
-## the province sheet. Pure presentation — a headless run (`view_live` false)
-## has nothing on screen to follow, so it skips the whole pass and the rules
-## outcome is unchanged (docs/ai-observer.md § Performance budget).
-static func _follow_view(play: PlaySession, year: int) -> void:
-	if not view_live:
-		return
-	var market_line: String = LedgerText.market_summary(
-		play.market_report, play.player_faction
-	)
-	if play.observer_mode or market_line.is_empty():
-		play.hud.toast("Turn %d — %d" % [play.turn, year])
-	else:
-		play.hud.toast("Turn %d — %d. %s" % [play.turn, year, market_line])
-	var selected: Ship = play.ship_layer.selected()
-	if selected != null:
-		var fleet: FleetState = play.ship_layer.fleet_of(selected)
-		if fleet != null:
-			MapPlayFleets.show_dossier(play, fleet)
-			MapPlayFleets.refresh_options(play, fleet)
-	if play.civilian_layer.selected_unit != null:
-		MapPlayCivilians.refresh_panel(play)
-	if play.army_layer.selected_army != null:
-		MapPlayArmies.refresh_panel(play)
-	play.improvements.refresh_if_open()
-	# An open dossier follows the works, the town and the tech the turn changed.
-	MapPlaySetup.refresh_dossier(play)
-	MapPlaySetup.build_lens(play)
-
-
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
+## MapPlayTurnFinish owns the phases and their order.
 static func _finish_turn(play: PlaySession) -> void:
-	MapPlayCivilians.resolve_work(play)
-	# Rival expeditions board and sail before the field armies march, so an army
-	# chosen for the crossing is not also ordered inland (docs/ai.md).
-	var invasion_trace: Array[Dictionary] = MapPlayInvasionAi.run(play)
-	var army_trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
-	# Colonisation counts every applied voyage step, so the observer's trace can
-	# show an expedition crossing even when no army is aboard (issue #476).
-	var colonisation_trace: Array[Dictionary] = MapPlayColonisationAi.run(play)
-	var fleet_trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
-	# Regiment upgrade runs after movement and before combat: a crown's men take
-	# up the newest pattern its own techs allow, and Minors follow the leading
-	# power (wiki: tech-tree-military § Infantry/Cavalry/Artillery; factions
-	# § Minor military parity).
-	var tech_by_faction: Dictionary = MapPlayCampaign.tech_by_faction(play)
-	var upgrades: Dictionary = RegimentUpgrades.apply(play.army_layer.regions, tech_by_faction)
-	MilitaryParity.apply(play.army_layer.regions, tech_by_faction)
-	if play.hud != null:
-		var rearmed: int = int((upgrades["by_faction"] as Dictionary).get(play.player_faction, 0))
-		if rearmed > 0:
-			play.hud.toast("%d regiment%s re-equipped with the new pattern" % [
-				rearmed, "" if rearmed == 1 else "s"])
-	var land_battles: Array[Dictionary] = MapPlayLandTurn.resolve(play)
-	var naval_battles: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
-	MapPlaySpies.resolve(play)
-	MapPlayCivilians.settle_stranding(play)  # crews caught by conquest
-	MapPlayFogTurn.resolve(play)
-	MapPlayCourtFog.resolve(play)
-	# Every chart is final now, so a rival court opens first contact with the
-	# Tribes it has charted before the turn closes (wiki: diplomacy § GP–Tribe
-	# first contact).
-	MapPlayTribeContact.resolve(play)
-	# The human crown's terminal fall seals the session before any victory check:
-	# defeat never hands the conqueror a military win (wiki: victory; DR-20261109-05).
-	if play.defeat != null:
-		play.emit_turn_ended(play.turn)
-		return
-	# Victory is checked after every phase, once per turn, and never re-checked.
-	# The crown's own bar carries the campaign's level; every rival keeps the
-	# published one (wiki: victory § Military victory; DR-20261111-28).
-	var victory: VictoryState = VictoryRules.resolve(
-		play.victory, play.world, play.turn, play.human_faction_id(), play.difficulty
-	)
-	if victory != null:
-		MapPlayCampaign.close_victory(play, victory)
-		return
-	# Military victory wins the turn; otherwise the calendar cap closes an
-	# undecided campaign on its last full turn (wiki: turn-time-mapping).
-	if VictoryRules.calendar_halt(play.turn, play.infinite_mode):
-		MapPlayCampaign.close_calendar(play)
-		return
-	# The raid pass runs after the rival ledgers book the new turn's buys and
-	# before the crown's ledger closes: both sides' cargo is afloat, and losses
-	# leave the stockpile before anything resolves (wiki: ships-and-naval
-	# § Trade and Transport Interception; DR-20261109-16, DR-20261110-13).
-	play.ship_layer.expire_beachheads(play.turn)
-	play.ship_layer.begin_turn()
-	play.army_layer.begin_turn(play.world)
-	# A turn's falls feed the Gazette's World page (DR-20261110-14).
-	play.last_falls.clear()
-	MapPlayFleets.refresh_visibility(play)
-	MapPlayArmies.refresh_visibility(play)
-	# Rival ledgers resolve on post-combat ownership and plan civilian work for
-	# the new turn; the observer runs every crown on that same pass.
-	var economy_report: Dictionary = MapPlayEconomyAi.run(play)
-	var raid_report: Dictionary = MapPlayRaids.resolve(play)
-	AiTurnLog.record(
-		play, army_trace, fleet_trace, economy_report, invasion_trace,
-		colonisation_trace
-	)
-	play.turn += 1
-	# The new turn opens the crown's watch: a rival squadron still under the same
-	# eye that saw her last turn is read now, and her weight reaches the markers
-	# (wiki: ships-and-naval § Sighted strength).
-	MapPlayFleets.refresh_visibility(play)
-	var year: int = TurnTime.year_for_turn(play.turn)
-	var crown_report: Dictionary = {}
-	if play.observer_mode:
-		AiTurnLog.apply_feeding(play, economy_report)
-	else:
-		play.refresh_research()
-		play.economy.research_boost = MapPlayEspionage.research_boost(play)
-		crown_report = play.economy.resolve_turn()
-		# The crown's own rations are filed under the crown the player chose: a
-		# rival's id must never carry them, and her own armies must read them at
-		# the published feeding band (wiki: combat § Feeding modifiers;
-		# game-setup § Human/AI slot assignment).
-		play.feeding[play.player_faction] = play.economy.feeding_coverage()
-		# The crown's own turn speaks: a finished study and a host at the seat
-		# are answered by the courts before the panel is refreshed below
-		# (wiki: dialogue-and-mood § Design intent; DR-20261111-08).
-		MapPlayCourtVoice.record_turn(play, crown_report)
-	# Every court has staged its orders by now: clear the shared book once.
-	MapPlayMarket.run(play, economy_report)
-	if not play.observer_mode:
-		play.income = play.economy.projected_income()
-	play.hud.set_turn(play.turn, year)
-	if not play.observer_mode:
-		play.hud.set_income(play.income)
-		MapPlayDiplomacy.refresh(play)
-	play.improvements.set_tech_caps(play.tech_caps())
-	_follow_view(play, year)
-	MapPlaySpies.report(play, land_battles, naval_battles, economy_report)
-	# The sheet narrates the turn that just resolved; the overlay opens only when
-	# it found news (wiki: the-gazette § When it appears).
-	MapPlayGazette.close_turn(
-		play, land_battles, naval_battles, economy_report, crown_report, raid_report
-	)
-	play.emit_turn_ended(play.turn)
+	MapPlayTurnFinish.run(play)
