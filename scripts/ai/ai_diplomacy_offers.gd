@@ -59,10 +59,10 @@ const REVOKE_UTILITY_COST: int = 15
 ## An alliance that no longer matches the standing is dissolved, never defended.
 const BREAK_MIN_DESIRE: int = 60
 const BREAK_UTILITY_COST: int = 20
-## A court that could sign a deed with this Minor or Tribe wants its envoy chain
-## opened, so the Consulate/Embassy outranks the small peaceful orders it
-## competes with — and is offered even when the court is in no mood to improve
-## relations for their own sake (wiki: civilian-units § Merchant).
+## A court that has Merchant Companies and could sign a deed with this Minor or
+## Tribe wants its envoy chain opened, so the Consulate/Embassy outranks the small
+## peaceful orders it competes with — and is offered even when the court is in no
+## mood to improve relations for their own sake (wiki: civilian-units § Merchant).
 const LAND_ENVOY_BONUS: int = 12
 
 ## Highest-utility peaceful candidate for one court, or a blocked explanation
@@ -215,14 +215,16 @@ static func _treaty(
 
 
 ## The land-deed nudge for this target: a Minor or Tribe this court could buy
-## from once an envoy reaches it, while no embassy stands yet. The Merchant tech
-## is the hire the chain makes possible — a reason to open it, not a bar in
-## front of it — and the purse reads the deed's published price, not only this
-## turn's floor: the court the chain will serve may still be saving toward it
-## (issue #724). Only charted land counts — a province never reached offers
-## nothing it can price, while any charted region's offer counts, so a court
-## that has not yet met the seller can still want the door opened (wiki:
-## civilian-units § Merchant; fog-and-exploration § Visibility Levels).
+## from once an envoy reaches it, while no embassy stands yet and the court holds
+## the merchant tech. Only land the court has **charted** counts: a province it
+## has never reached offers nothing it can price (wiki: fog-and-exploration
+## § Visibility Levels; DR-20261113-03). Any charted region's offer counts (the
+## deed's price must fit the treasury), so a court that has not yet met the
+## seller can still want the door opened (wiki: civilian-units § Merchant).
+## The tech gate is also the conquest bar's guard: a chain opened on credit —
+## no tech, no deed the court could ever sign — warms the relation past the
+## war ceiling and the buyer's own conquest option closes with nothing bought
+## (issue #724, measured 2026-11-15).
 static func _land_envoy_bonus(
 	state: DiplomacyState,
 	world: WorldMap,
@@ -239,12 +241,14 @@ static func _land_envoy_bonus(
 		return 0
 	if DiplomacyRules.has_embassy(state, faction, target):
 		return 0
+	if not CivilianCatalog.is_unlocked("merchant", tech):
+		return 0
 	for index in world.region_count():
 		var model: MapModel = world.region(index)
 		if model == null:
 			continue
 		var view: VisibilityModel = charts.model_for(faction, index) if charts != null else null
-		if AiMerchantWork.priced_offer(model, faction, target, view) > 0:
+		if AiMerchantWork.cheapest_offer(model, faction, target, treasury, view) > 0:
 			return LAND_ENVOY_BONUS
 	return 0
 

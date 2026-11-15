@@ -496,12 +496,13 @@ func test_a_deed_without_a_ledger_is_not_signed() -> void:
 	assert_false(LandPurchase.complete(model, GRAIN, 0, null))
 
 
-## A priced deed opens the envoy chain with or without the Merchant tech, and
-## reads the deed's published price rather than this turn's floor: the tech is
-## the hire the chain makes possible, not a bar in front of it (issue #724;
-## wiki: civilian-units § Merchant; docs/ai.md — land purchase needs the envoy
-## first).
-func test_a_priced_deed_opens_the_envoy_chain_tech_or_not() -> void:
+## A court that could sign a deed wants the envoy chain: the Consulate outranks
+## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
+## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
+## the gate: a chain opened without a buyer at the end of it warms the relation
+## past the war ceiling and bars the conquest for nothing (issue #724, measured
+## 2026-11-15).
+func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var world := WorldMap.new()
 	world.add_region(model)
@@ -511,24 +512,18 @@ func test_a_priced_deed_opens_the_envoy_chain_tech_or_not() -> void:
 	config.personality = AiPersonality.NEUTRAL
 	config.agenda_traits = AiAgenda.NEUTRAL
 
-	var open: Dictionary = _overture(world, state, config, {})
-	var brokered: Dictionary = _overture(world, state, config, {
+	var plain: Dictionary = _overture(world, state, config, {})
+	var merchant_tech: Dictionary = _overture(world, state, config, {
 		"merchant_companies": true,
 	})
-	assert_true(bool(open.get("ok", false)), "the chain opens without the tech")
+	assert_true(bool(plain.get("ok", false)), "the Consulate is legal either way")
+	assert_true(bool(merchant_tech.get("ok", false)))
 	assert_eq(
-		int(brokered["utility"]), int(open["utility"]),
-		"the tech is no longer the bar; the priced deed is the reason"
-	)
-	assert_eq(String(open["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
-
-	model.purchase_tile(GRAIN, 1)
-	var closed: Dictionary = _overture(world, state, config, {})
-	assert_eq(
-		int(open["utility"]) - int(closed["utility"]),
+		int(merchant_tech["utility"]) - int(plain["utility"]),
 		AiDiplomacyOffers.LAND_ENVOY_BONUS,
-		"the priced deed alone lifts the envoy"
+		"a deed worth buying lifts the envoy"
 	)
+	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
 
 
 ## The whole rival pass: the economy adapter musters the order for a court that
