@@ -254,6 +254,38 @@ func test_start_stop_and_a_live_loopback_round_trip() -> void:
 	bridge.free()
 
 
+func test_the_enable_file_optin_is_read_and_consumed() -> void:
+	# The Android path: the launcher alias drops the launch intent's extra, so
+	# the bridge also accepts a one-line `user://agent_debug.enable`. One
+	# boot, one file: it is removed when the boot acts on it.
+	var handle := FileAccess.open("user://agent_debug.enable", FileAccess.WRITE)
+	handle.store_line("9377")
+	handle = null
+	var bridge := AgentDebugBridge.new()
+	bridge.name = "AgentDebugBridgeFile"
+	add_child(bridge)
+	assert_true(bridge.is_listening(), "the enable file starts the listener")
+	assert_eq(bridge.port, 9377, "the file names the port")
+	assert_false(
+		FileAccess.file_exists("user://agent_debug.enable"),
+		"a consumed enable file is removed"
+	)
+	bridge.stop()
+	bridge.free()
+
+
+func test_an_empty_enable_file_takes_the_default_port() -> void:
+	var handle := FileAccess.open("user://agent_debug.enable", FileAccess.WRITE)
+	handle.store_line("")
+	handle = null
+	var bridge := AgentDebugBridge.new()
+	bridge.name = "AgentDebugBridgeFileDefault"
+	add_child(bridge)
+	assert_eq(bridge.port, AgentDebugBridge.DEFAULT_PORT, "empty file, default port")
+	bridge.stop()
+	bridge.free()
+
+
 func _await_open(bridge: AgentDebugBridge, ws: WebSocketPeer) -> bool:
 	for _attempt in 200:
 		ws.poll()
