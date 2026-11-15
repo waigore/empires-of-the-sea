@@ -1522,6 +1522,110 @@ func test_short_inputs_explain_missing_materials() -> void:
 	assert_eq(short, {"lumber": 4})
 
 
+# --- the province dossier's one-tap road (issue #671) ---
+
+
+## A developed estate two tiles off the crown road: the plan names the tile
+## nearest the network, and one order lays exactly that tile.
+func test_the_road_order_lays_the_next_tile_toward_the_crown() -> void:
+	var estate := Vector2i(2, 1)
+	_works.set_improvement(_model, estate, 1)
+	var engineer := Fixture.unit("engineer", Vector2i(2, 2))
+	engineer.id = 1
+	_units = [engineer]
+	var plan: Dictionary = EstateRoadPlan.plan(
+		_model, _works, _units, 0, Fixture.BARE_TILE, estate
+	)
+	assert_true(bool(plan["ok"]), String(plan["reason"]))
+	assert_eq(int(plan["gap"]), 2, "two road tiles still separate the estate")
+	assert_eq(plan["step"], Vector2i(1, 0), "the tile beside the crown network")
+	var result: Dictionary = ImprovementOrders.build_road(
+		_model, _units, _works, _stock, null, 0, estate, Fixture.BARE_TILE
+	)
+	assert_true(bool(result["ok"]), String(result.get("message", "")))
+	assert_true(engineer.is_working())
+	assert_eq(engineer.work_tile(), Vector2i(1, 0))
+	assert_eq(engineer.work_action(), "build_road")
+	assert_true(String(result["message"]).contains("2 road tiles"), String(result["message"]))
+	assert_eq(int(_stock["lumber"]), 39, "the road's lumber is paid at assign")
+	# One order lays one tile, so the estate is still cut off — and the row now
+	# says the crew is already on it rather than offering a second press.
+	var busy: Dictionary = EstateRoadPlan.plan(
+		_model, _works, _units, 0, Fixture.BARE_TILE, estate
+	)
+	assert_false(bool(busy["ok"]))
+	assert_true(String(busy["reason"]).contains("already laying"), String(busy["reason"]))
+
+
+## The estate links the turn the last road tile completes, and the plan then
+## stops offering the order.
+func test_the_estate_links_when_the_last_road_completes() -> void:
+	var estate := Vector2i(2, 1)
+	_works.set_improvement(_model, estate, 1)
+	var engineer := Fixture.unit("engineer", Vector2i(2, 2))
+	engineer.id = 1
+	_units = [engineer]
+	_works.set_transport(_model, Vector2i(1, 0), LandWorks.TRANSPORT_ROAD)
+	var second: Dictionary = EstateRoadPlan.plan(
+		_model, _works, _units, 0, Fixture.BARE_TILE, estate
+	)
+	assert_true(bool(second["ok"]), String(second["reason"]))
+	assert_eq(int(second["gap"]), 1)
+	assert_eq(second["step"], Vector2i(2, 0))
+	_works.set_transport(_model, Vector2i(2, 0), LandWorks.TRANSPORT_ROAD)
+	var linked: Dictionary = EstateRoadPlan.plan(
+		_model, _works, _units, 0, Fixture.BARE_TILE, estate
+	)
+	assert_false(bool(linked["ok"]))
+	assert_true(String(linked["reason"]).contains("Already linked"), String(linked["reason"]))
+
+
+func test_the_road_order_refuses_without_an_idle_engineer() -> void:
+	var estate := Vector2i(2, 1)
+	_works.set_improvement(_model, estate, 1)
+	var builder := Fixture.unit("builder", Vector2i(2, 2))
+	builder.id = 1
+	_units = [builder]
+	var result: Dictionary = ImprovementOrders.build_road(
+		_model, _units, _works, _stock, null, 0, estate, Fixture.BARE_TILE
+	)
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["message"]).contains("No idle Engineer"), String(result["message"]))
+	assert_true(builder.is_idle(), "a Builder is not sent to lay a road")
+
+
+func test_the_road_order_refuses_foreign_and_bare_estates() -> void:
+	var engineer := Fixture.unit("engineer", Vector2i(2, 2))
+	engineer.id = 1
+	_units = [engineer]
+	_works.set_improvement(_model, Fixture.RIVAL_GRAIN_TILE, 1)
+	var foreign: Dictionary = EstateRoadPlan.plan(
+		_model, _works, _units, 0, Fixture.BARE_TILE, Fixture.RIVAL_GRAIN_TILE
+	)
+	assert_false(bool(foreign["ok"]))
+	assert_true(String(foreign["reason"]).contains("another crown"), String(foreign["reason"]))
+	var bare: Dictionary = EstateRoadPlan.plan(
+		_model, _works, _units, 0, Fixture.BARE_TILE, Vector2i(2, 1)
+	)
+	assert_false(bool(bare["ok"]))
+	assert_true(String(bare["reason"]).contains("Raise the estate"), String(bare["reason"]))
+
+
+## No owned-land route at all (the crown network never seeds): the row says so
+## instead of offering a road that cannot be laid.
+func test_the_road_order_names_a_missing_route() -> void:
+	var estate := Vector2i(2, 1)
+	_works.set_improvement(_model, estate, 1)
+	var engineer := Fixture.unit("engineer", Vector2i(2, 2))
+	engineer.id = 1
+	_units = [engineer]
+	var plan: Dictionary = EstateRoadPlan.plan(
+		_model, _works, _units, 0, Vector2i(3, 3), estate
+	)
+	assert_false(bool(plan["ok"]))
+	assert_true(String(plan["reason"]).contains("No owned-land route"), String(plan["reason"]))
+
+
 # --- crews caught by a province changing hands ---
 
 

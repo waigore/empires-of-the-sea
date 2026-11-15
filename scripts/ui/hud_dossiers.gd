@@ -34,6 +34,7 @@ static func build(hud: GameHud) -> void:
 static func _province(hud: GameHud) -> void:
 	hud._panel = ProvincePanel.new()
 	hud._panel.action_pressed.connect(func(action: String) -> void: hud.panel_action.emit(action))
+	hud._panel.road_pressed.connect(func(tile: Vector2i) -> void: hud.panel_road.emit(tile))
 	hud._panel.close_pressed.connect(func() -> void: hud.panel_closed.emit())
 	hud._panel.dock_side_pressed.connect(func() -> void: hud.panels.toggle_dock_side())
 	hud.panels.province = HudPanelSlot.build(hud, hud._panel, GameHud.PANEL_WIDTH, true)

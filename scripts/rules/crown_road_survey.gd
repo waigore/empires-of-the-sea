@@ -220,7 +220,7 @@ static func _collect_provinces(
 					"province": province.id,
 					"town": town,
 					"gap": gap,
-					"tiles": _route(model, owner, network, town),
+					"tiles": route_to(model, owner, network, town),
 				})
 		else:
 			counts["linked"] = int(counts["linked"]) + 1
@@ -253,8 +253,9 @@ static func _anchor(
 
 ## Tiles the crown must road before `target` stands beside the crown network:
 ## the BFS path over owned land minus the network tile it starts from and the
-## target tile itself. Empty when no owned-land route exists.
-static func _route(
+## target tile itself, ordered from the network side. Empty when no owned-land
+## route exists. The province dossier's one-tap road reads this (EstateRoadPlan).
+static func route_to(
 	model: MapModel, owner: int, network: Dictionary, target: Vector2i
 ) -> Array[Vector2i]:
 	var route: Array[Vector2i] = []

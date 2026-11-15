@@ -6,6 +6,7 @@ extends PanelContainer
 ## player can act on; the rules decide what an order may do (REQ-P3-02).
 
 signal action_pressed(action: String)
+signal road_pressed(tile: Vector2i)
 signal close_pressed
 signal dock_side_pressed
 
@@ -71,6 +72,9 @@ func _build() -> void:
 	column.add_child(_divider())
 
 	_resources = ProvinceResources.new()
+	_resources.road_pressed.connect(
+		func(tile: Vector2i) -> void: road_pressed.emit(tile)
+	)
 	column.add_child(_resources)
 
 	column.add_child(_divider())
@@ -151,6 +155,7 @@ func set_compact(compact: bool) -> void:
 	# Recruit is a live order now, so it stays on the phone sheet too.
 	var orders_at: int = _orders.get_index()
 	var grid_at: int = _grid.get_index()
+	_resources.set_compact(compact)
 	if compact == (orders_at < grid_at):
 		return
 	_column.move_child(_orders, grid_at if compact else _orders_index)
@@ -181,6 +186,7 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
 		_tech_caps
 	)
+	_annotate_roads(rows)
 	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
 		model, _works, _faction, province_id, _visibility
 	).size()
@@ -190,6 +196,18 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	_orders.set_shipyard_visible(
 		data.owner == _faction and data.capital and data.port_tile.x >= 0
 	)
+
+
+## A developed estate of ours that is cut off carries the road plan its row's
+## one-tap order needs. EstateRoadPlan owns the reading; the row only prints it
+## and emits the press (REQ-P3-03).
+func _annotate_roads(rows: Array[Dictionary]) -> void:
+	for row: Dictionary in rows:
+		if not bool(row["ours"]) or int(row["level"]) <= 0 or bool(row["connected"]):
+			continue
+		row["road"] = EstateRoadPlan.plan(
+			_model, _works, _units, _faction, _capital_tile, Vector2i(row["tile"])
+		)
 
 
 func _divider() -> Control:

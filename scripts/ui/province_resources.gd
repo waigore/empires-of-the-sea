@@ -11,11 +11,19 @@ const LINKED: String = "linked"
 const UNLINKED: String = "no road"
 const FOREIGN: String = "foreign"
 const EMPTY: String = "No charted resource tiles in this province."
+## The one-tap order on a cut-off estate: an Engineer lays the next road tile
+## (EstateRoadPlan names it; the row only offers the press).
+const ROAD: String = "Road"
+
+signal road_pressed(tile: Vector2i)
 
 var _lines: Array[Dictionary] = []
 var _body: VBoxContainer = null
 var _empty: Label = null
 var _survey: Label = null
+var _unsurveyed: int = 0
+## Phone rows get thumb-sized actions instead of the atlas strip.
+var _compact: bool = false
 
 
 func _ready() -> void:
@@ -57,10 +65,21 @@ func survey_text() -> String:
 	return _survey.text if _survey != null and _survey.visible else ""
 
 
+## A resized sheet re-lays its rows: the atlas keeps the 30 px action strip and a
+## phone row gets a thumb-sized one (REQ-P1-07).
+func set_compact(compact: bool) -> void:
+	if compact == _compact:
+		return
+	_compact = compact
+	if not _lines.is_empty():
+		render(_lines, _unsurveyed)
+
+
 ## One line per estate. An empty list says the province holds no charted
 ## resource tile; `unsurveyed` names the ground an Explorer could still read.
 func render(rows: Array[Dictionary], unsurveyed: int = 0) -> void:
 	_lines = rows
+	_unsurveyed = unsurveyed
 	if _body == null:
 		_ready()
 	for child: Node in _body.get_children():
@@ -94,7 +113,35 @@ func _line(row: Dictionary) -> HBoxContainer:
 	line.add_child(title)
 	line.add_child(_text(_level_text(row), 13, _level_color(row), 30))
 	line.add_child(_text(_link_text(row), 12, _link_color(row), 62))
+	var road: Dictionary = row.get("road", {})
+	if not road.is_empty():
+		line.add_child(_road_button(row, road))
 	return line
+
+
+## The one-tap dispatch on a cut-off estate. Offered only while it cannot run:
+## a linked estate, a foreign holding or a bare tile never carries the plan, and
+## a crowded list (no idle Engineer, no owned-land route) greys the button with
+## the plan's own reason (REQ-P2-03, REQ-P5-01).
+func _road_button(row: Dictionary, road: Dictionary) -> Button:
+	var button := Button.new()
+	button.text = ROAD
+	button.disabled = not bool(road.get("ok", false))
+	button.tooltip_text = _road_tip(road)
+	button.custom_minimum_size = Vector2(0, 40 if _compact else 30)
+	button.add_theme_font_size_override("font_size", 12)
+	var tile: Vector2i = row["tile"]
+	button.pressed.connect(func() -> void: road_pressed.emit(tile))
+	return button
+
+
+func _road_tip(road: Dictionary) -> String:
+	if not bool(road.get("ok", false)):
+		return String(road.get("reason", ""))
+	var gap: int = int(road.get("gap", 1))
+	return "Send an idle Engineer to lay the next road to the crown — %d tile%s still cut off." % [
+		gap, "" if gap == 1 else "s",
+	]
 
 
 func _text(value: String, size: int, ink: Color, width: float = 0.0) -> Label:

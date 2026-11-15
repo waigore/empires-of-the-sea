@@ -10,6 +10,9 @@ signal zoom_in_pressed
 signal zoom_out_pressed
 signal minimap_jump(world_position: Vector2)
 signal panel_action(action: String)
+## The province dossier's one-tap road: the estate tile whose next road tile an
+## Engineer should lay (EstateRoadPlan names it).
+signal panel_road(tile: Vector2i)
 signal panel_closed
 signal fleet_action(action: String)
 signal fleet_closed

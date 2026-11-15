@@ -45,3 +45,25 @@ static func upgrade_town(play: PlaySession, province_id: int) -> void:
 	play.hud.toast(String(result.get("message", "")))
 	play.improvements.refresh()
 	play.civilian_layer.sync()
+
+
+## Province dossier intent: send the nearest idle Engineer to the next road tile
+## that links a cut-off estate. One order lays one tile, so a longer route is
+## laid a press at a time; the sheet then names the next step (EstateRoadPlan).
+static func build_road(play: PlaySession, tile: Vector2i) -> void:
+	var result: Dictionary = ImprovementOrders.build_road(
+		play.model, play.civilian_layer.units, play.land_works, play.stockpile(),
+		play.visibility, play.player_faction, tile, play.capital_tile,
+		play.tech_unlocked()
+	)
+	play.hud.toast(String(result.get("message", "")))
+	play.civilian_layer.sync()
+	var province_id: int = play.model.province_at(tile.x, tile.y)
+	if province_id < 0 or play.selected_province < 0 or not play.hud.panels.is_panel_open():
+		return
+	# The Engineer is now at work, so the row's own reading moves on without the
+	# player reopening the province.
+	play.hud.panels.panel.refresh(
+		play.model, play.selected_province,
+		crown_link(play, play.selected_province)
+	)

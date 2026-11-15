@@ -122,6 +122,52 @@ static func upgrade_town(
 	}
 
 
+## Dispatch the nearest idle Engineer to the next road tile that links a
+## developed estate to the crown. EstateRoadPlan names the tile and the reason
+## no order can run; CivilianWork owns the gates and the cost (REQ-P2-03).
+static func build_road(
+	model: MapModel,
+	units: Array[CivilianState],
+	works: LandWorks,
+	stockpile: Dictionary,
+	visibility: VisibilityModel,
+	owner: int,
+	tile: Vector2i,
+	capital_tile: Vector2i,
+	tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	var plan: Dictionary = EstateRoadPlan.plan(
+		model, works, units, owner, capital_tile, tile
+	)
+	if not bool(plan.get("ok", false)):
+		return {"ok": false, "message": String(plan.get("reason", ""))}
+	var step: Vector2i = plan["step"]
+	var engineer: CivilianState = EstateRoadPlan.nearest_engineer(units, owner, step)
+	if engineer == null:
+		return {"ok": false, "message": "No idle Engineer musters — train one at the capital."}
+	var result: Dictionary = CivilianWork.assign(
+		model, engineer, EstateRoadPlan.ROAD, works, units, stockpile, visibility,
+		step, {}, tech_unlocked
+	)
+	if not bool(result.get("ok", false)):
+		return {"ok": false, "message": String(result.get("reason", ""))}
+	var place: String = model.province_name(model.province_at(tile.x, tile.y))
+	var gap: int = int(plan["gap"])
+	if gap <= 1:
+		return {
+			"ok": true,
+			"message": "%s lays the last road into %s — the estate links when the work completes." % [
+				engineer.display_name(), place,
+			],
+		}
+	return {
+		"ok": true,
+		"message": "%s roads toward %s — %d road tile%s still to lay." % [
+			engineer.display_name(), place, gap, "" if gap == 1 else "s",
+		],
+	}
+
+
 static func cancel(
 	model: MapModel, units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> Dictionary:

@@ -54,6 +54,9 @@ static func _connect_bar(play: PlaySession, hud: GameHud) -> void:
 	hud.panel_action.connect(
 		func(action: String) -> void: MapPlayInput.on_panel_action(play, action)
 	)
+	hud.panel_road.connect(
+		func(tile: Vector2i) -> void: MapPlayImprovements.build_road(play, tile)
+	)
 	hud.panel_closed.connect(MapPlayInput.deselect.bind(play))
 	hud.army_action.connect(
 		func(action: String) -> void: MapPlayArmies.on_action(play, action)

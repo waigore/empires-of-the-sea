@@ -627,6 +627,68 @@ func _row_text(block: ProvinceResources, tile: Vector2i) -> Array[String]:
 			words.append((node as Label).text)
 	return words
 
+## The Button the estate block prints on one tile's line (null when the row
+## carries no road order).
+func _road_button(tile: Vector2i) -> Button:
+	var rows: Array[Dictionary] = _province_panel_panel._resources.lines()
+	for i in rows.size():
+		if rows[i]["tile"] != tile:
+			continue
+		var line: Node = _province_panel_panel._resources._body.get_child(i)
+		for node: Node in line.find_children("*", "Button", true, false):
+			return node as Button
+	return null
+
+
+## The dossier's one-tap road (issue #671): a developed estate that yields
+## nothing for want of a road offers the order, and says why when it cannot run.
+func test_a_cut_off_estate_offers_the_road_order() -> void:
+	_setup_province_panel()
+	_show()
+	var road: Dictionary = _by_tile()[OFF_ROAD_TILE].get("road", {})
+	assert_false(road.is_empty(), "the cut-off estate carries a road plan")
+	assert_false(bool(road["ok"]))
+	assert_true(String(road["reason"]).contains("No idle Engineer"), String(road["reason"]))
+	var button := _road_button(OFF_ROAD_TILE)
+	assert_not_null(button)
+	assert_true(button.disabled, "greyed with the plan's reason")
+	assert_eq(button.text, ProvinceResources.ROAD)
+	assert_false(
+		button.custom_minimum_size.y < 30.0, "a row action, not a word in a label"
+	)
+
+
+## With an idle Engineer the press is live, and the block hands the estate tile
+## up: the rules decide which road tile gets laid (REQ-P3-02).
+func test_the_road_order_is_offered_when_an_engineer_stands_idle() -> void:
+	_setup_province_panel()
+	var engineer := Fixture.unit("engineer", Vector2i(2, 3))
+	engineer.id = 1
+	_units = [engineer]
+	var picked: Array[Vector2i] = []
+	_province_panel_panel.road_pressed.connect(
+		func(tile: Vector2i) -> void: picked.append(tile)
+	)
+	_show()
+	var button := _road_button(OFF_ROAD_TILE)
+	assert_not_null(button)
+	assert_false(button.disabled, button.tooltip_text)
+	assert_true(String(button.tooltip_text).contains("1 tile"), button.tooltip_text)
+	button.pressed.emit()
+	assert_eq(picked, [OFF_ROAD_TILE])
+
+
+## A linked estate and a bare tile never carry the order: the row already says
+## what is missing there.
+func test_only_a_cut_off_developed_estate_carries_the_road_order() -> void:
+	_setup_province_panel()
+	_show()
+	assert_false(_by_tile()[LINKED_TILE].has("road"), "a linked estate needs no road")
+	assert_null(_road_button(LINKED_TILE))
+	assert_false(_by_tile()[VACANT_TILE].has("road"), "an undeveloped tile has nothing to link")
+	assert_null(_road_button(VACANT_TILE))
+
+
 func _captions(grid: GridContainer) -> Array[String]:
 	var captions: Array[String] = []
 	for node: Node in grid.get_children():
