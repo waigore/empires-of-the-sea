@@ -1873,6 +1873,61 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 	assert_eq(MapPlayHomeMerge.settle_seats(_screen.play), 0, "the pass is idempotent")
 
 
+## A docking move folds where it happens, not only at the next turn's pass: an
+## AI planner that only moves hulls still leaves the seat holding one squadron
+## (wiki: ships-and-naval § Home Fleet — "any naval move that docks at the
+## capital resolves by merging").
+func test_a_docking_move_folds_into_the_home_fleet_at_once() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var sea: FleetState = _moored_squadron_at_the_seat()
+	var roster: Array[FleetState] = _screen.ship_layer.fleets
+	var hulls_before: int = home.ship_count()
+	var hulls: int = sea.ship_count()
+
+	assert_true(bool(NavalMovement.apply_move(
+		_screen.model, sea, FleetState.Location.IN_PORT, capital
+	).get("ok", false)), "the squadron docks")
+
+	var merged: Dictionary = MapPlayHomeMerge.fold(
+		_screen.play, _screen.model, roster, sea
+	)
+
+	assert_eq(merged.get("fleet"), home, "the fold names the home fleet")
+	assert_false(roster.has(sea), "the docked squadron is struck off the roster")
+	assert_eq(home.ship_count(), hulls_before + hulls, "every hull keeps sailing")
+	assert_eq(_squadrons_at(roster, MapScreen.PLAYER_FACTION, capital), 1,
+		"one squadron in port at the seat")
+
+
+## A fold that finds an army already aboard lands the docking squadron's army at
+## the port: one squadron carries one army (wiki: ships-and-naval § Naval
+## transport), so the struck-off squadron's soldier must not drown in the roster.
+func test_a_fold_lands_the_army_it_cannot_keep_aboard() -> void:
+	var capital: int = _screen.play.capital_province
+	var play: PlaySession = _screen.play
+	var home: FleetState = play.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var kept := ArmyState.muster(180, MapScreen.PLAYER_FACTION, capital, false, ["pikemen"], 1800)
+	var surplus := ArmyState.muster(181, MapScreen.PLAYER_FACTION, capital, false, ["pikemen"], 1810)
+	play.army_layer.armies.append(kept)
+	play.army_layer.armies.append(surplus)
+	home.embarked_army = kept.id
+	kept.embarked_fleet = home.id
+	var sea: FleetState = _moored_squadron_at_the_seat()
+	sea.embarked_army = surplus.id
+	surplus.embarked_fleet = sea.id
+	surplus.province = MapModel.NO_ID
+
+	NavalMovement.apply_move(_screen.model, sea, FleetState.Location.IN_PORT, capital)
+	MapPlayHomeMerge.fold(play, _screen.model, play.ship_layer.fleets, sea)
+
+	assert_eq(surplus.embarked_fleet, -1, "the surplus army goes ashore")
+	assert_eq(surplus.province, capital, "it lands at the port")
+	assert_eq(home.embarked_army, kept.id, "the home squadron keeps its own army")
+
+
 ## A missing play, chart or roster leaves the harbour alone (the headless pass
 ## must not crash when a harness tears the session down mid-turn).
 func test_settle_seats_guards_a_missing_play() -> void:
