@@ -25,7 +25,21 @@ static func can_declare_war(
 	var record: DiplomacyRelation = state.relation(player, target)
 	if record.at_war:
 		return _deny("%s is already at war with us." % FactionCatalog.name_of(target))
+	if record.formal_alliance:
+		return _deny("A formal alliance binds us; break it before war.")
+	if has_pact(state, player, target):
+		return _deny("A non-aggression pact binds us; break it before war.")
+	if record.treaty_break_turn >= 0 and state.turn <= record.treaty_break_turn:
+		return _deny("A pact was broken this turn; war on that court must wait.")
 	return _allow()
+
+
+## An active non-aggression pact: the overture chain stands at the pact or any
+## later rung, in either direction (wiki: diplomacy § Breaking a pact; #750).
+static func has_pact(state: DiplomacyState, a: int, b: int) -> bool:
+	var nap_tier: int = _tier(DiplomacyCatalog.STAGE_NAP)
+	return _tier(state.overture(a, b)) >= nap_tier \
+		or _tier(state.overture(b, a)) >= nap_tier
 
 
 ## `world` reaches deed holders; `aggressor_tech` is the declarer's own tech.
@@ -36,6 +50,22 @@ static func declare_war(
 	var check: Dictionary = can_declare_war(state, player, target)
 	if not bool(check["ok"]):
 		return check
+	return _apply_war(state, player, target, call_to_arms, world, aggressor_tech)
+
+
+## Third-party war entry (a call-to-arms join, an intervention): the joining
+## court is honouring a duty, so the war gate is not asked. The war itself ends
+## the treaties the pair holds — the pact stage downgrades, the alliance flag
+## drops — the same turn the pair stands on opposite sides (wiki: diplomacy
+## § GP–GP Rules — war invariant; issue #750).
+static func enter_war(state: DiplomacyState, player: int, target: int) -> Dictionary:
+	return _apply_war(state, player, target, false, null, {})
+
+
+static func _apply_war(
+	state: DiplomacyState, player: int, target: int,
+	call_to_arms: bool, world: WorldMap, aggressor_tech: Dictionary
+) -> Dictionary:
 	var record: DiplomacyRelation = state.relation(player, target)
 	record.at_war = true
 	record.since_turn = state.turn
@@ -119,6 +149,8 @@ static func can_form_alliance(
 		return _deny("No alliance can be signed while at war.")
 	if record.formal_alliance:
 		return _deny("A formal alliance already binds us.")
+	if not has_pact(state, player, target):
+		return _deny("An alliance needs a non-aggression pact first.")
 	if record.score < DiplomacyCatalog.ALLIANCE_MIN_SCORE:
 		# Same rule as the Join Empire gate: the sheet's word at this score is
 		# not the rule's level name, so the refusal names warmth, not a band
@@ -153,30 +185,6 @@ static func form_alliance(
 		"ok": true,
 		"accepted": true,
 		"message": "A formal alliance is sealed with %s." % FactionCatalog.name_of(target),
-	}
-
-
-static func break_alliance(
-	state: DiplomacyState, player: int, target: int
-) -> Dictionary:
-	var record: DiplomacyRelation = state.relation(player, target)
-	if record == null or not record.formal_alliance:
-		return _deny("There is no formal alliance to break.")
-	record.formal_alliance = false
-	state.apply_delta(player, target, -DiplomacyCatalog.BREAK_ALLY_PENALTY, "allianceBroken")
-	for other: DiplomacyRelation in state.relations_of(player):
-		var peer: int = other.other(player)
-		if peer == target or FactionCatalog.type_of(peer) != FactionCatalog.Type.GREAT_POWER:
-			continue
-		state.apply_delta(
-			player, peer, -DiplomacyCatalog.BREAK_CASCADE_PENALTY, "allianceBreakCascade"
-		)
-	return {
-		"ok": true,
-		"reason": "",
-		"message": "The alliance with %s is broken; the other courts take note." % (
-			FactionCatalog.name_of(target)
-		),
 	}
 
 
@@ -288,8 +296,9 @@ static func can_establish_overture(
 		# Empire would charge the full price for a record that already stands.
 		if target_type == FactionCatalog.Type.TRIBE and state.colony_of(target) == player:
 			return _deny("That tribe is already your colony.")
-		if target_type == FactionCatalog.Type.GREAT_POWER and not nearly_defeated(world, target):
-			return _deny("Only a nearly defeated Great Power may be absorbed.")
+		# A Great Power target is offered to a court that still stands on its own
+		# provinces: acceptance, not the offer, reads the near-defeat and power
+		# gates (wiki: diplomacy § Join Empire; issue #750).
 	var cost: int = DiplomacyCatalog.stage_cost(stage, provinces)
 	if treasury < cost:
 		return _deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
@@ -300,6 +309,24 @@ static func _accepts_peace(record: DiplomacyRelation, target: int) -> bool:
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
 		return true
 	return record.score >= DiplomacyCatalog.PEACE_MIN_SCORE
+
+
+## Join Empire acceptance for a Great Power target: the target is nearly
+## defeated, or the offerer's published power is at least
+## `JOIN_EMPIRE_POWER_RATIO` times the target's, so standing alone is hopeless
+## (wiki: diplomacy § Join Empire; issue #750). A human target answers the
+## consent prompt itself; this predicate is the rule- and AI-driven accept.
+## Without a power map only the near-defeat criterion answers.
+static func accepts_join_empire(
+	world: WorldMap, offerer: int, target: int, power: Dictionary = {}
+) -> bool:
+	if nearly_defeated(world, target):
+		return true
+	if power.is_empty():
+		return false
+	var theirs: int = maxi(int(power.get(target, 0)), 1)
+	return float(int(power.get(offerer, 0))) \
+		>= DiplomacyCatalog.JOIN_EMPIRE_POWER_RATIO * float(theirs)
 
 
 static func _accepts_alliance(record: DiplomacyRelation) -> bool:

@@ -20,6 +20,7 @@ const SAMPLES: Dictionary = {
 	"peaceMade": {},
 	"allianceFormed": {},
 	"allianceBroken": {},
+	"napBroken": {},
 	"callToArmsAccepted": {"aggressor": 2},
 	"callToArmsRefused": {"aggressor": 2},
 	"interventionIntervened": {"aggressor": 2},
@@ -53,6 +54,7 @@ const VOICED: Dictionary = {
 	"peaceMade": {},
 	"allianceFormed": {},
 	"allianceBroken": {},
+	"napBroken": {},
 	"callToArmsAccepted": {"aggressor": 2},
 	"callToArmsRefused": {"aggressor": 2},
 	"interventionIntervened": {"aggressor": 2},
@@ -386,7 +388,9 @@ func test_the_sealed_relation_number_never_reaches_the_page() -> void:
 func test_a_war_records_the_overtures_it_ends() -> void:
 	_setup_diplomacy_history()
 	diplomacy_history_state.set_overture(0, 6, DiplomacyCatalog.STAGE_NAP)
-	DiplomacyRules.declare_war(diplomacy_history_state, 0, 6)
+	# A pact is binding, so the war reaches the pair through the third-party
+	# entry (a duty), which ends the treaties with the war itself (issue #750).
+	DiplomacyRules.enter_war(diplomacy_history_state, 0, 6)
 	assert_true(_has_event("overturesCleared"), "the lost NAP is written down")
 	assert_true(
 		_diplomacy_history_joined(DiplomacyHistory.entries(diplomacy_history_state, 0, 6)).contains("ended the overtures")
@@ -576,6 +580,10 @@ func _has_text(node: Node, needle: String) -> bool:
 func test_accepting_an_alliance_proposal_signs_the_treaty() -> void:
 	_setup_diplomacy_proposals()
 	diplomacy_proposals_state.relation(0, 2).score = 80.0
+	# The alliance rides on the pact, so the proposal queues one court that
+	# holds it (wiki: diplomacy § Alliances; issue #750).
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	var queued: Dictionary = DiplomacyProposals.queue(
 		diplomacy_proposals_state, null, 2, DiplomacyProposals.KIND_ALLIANCE
 	)
@@ -593,6 +601,8 @@ func test_accepting_an_alliance_proposal_signs_the_treaty() -> void:
 func test_refusing_an_alliance_proposal_leaves_the_courts_at_peace() -> void:
 	_setup_diplomacy_proposals()
 	diplomacy_proposals_state.relation(0, 2).score = 80.0
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	DiplomacyProposals.queue(diplomacy_proposals_state, null, 2, DiplomacyProposals.KIND_ALLIANCE)
 	var answer: Dictionary = DiplomacyProposals.resolve_human(diplomacy_proposals_state, null, false)
 	assert_true(answer["ok"], answer.get("reason", ""))
@@ -630,6 +640,10 @@ func test_only_one_proposal_waits_on_the_court() -> void:
 	_setup_diplomacy_proposals()
 	diplomacy_proposals_state.relation(0, 2).score = 80.0
 	diplomacy_proposals_state.relation(0, 3).score = 80.0
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(0, 3, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(3, 0, DiplomacyCatalog.STAGE_NAP)
 	assert_true(DiplomacyProposals.queue(diplomacy_proposals_state, null, 2, DiplomacyProposals.KIND_ALLIANCE)["ok"])
 	var second: Dictionary = DiplomacyProposals.queue(
 		diplomacy_proposals_state, null, 3, DiplomacyProposals.KIND_ALLIANCE
@@ -794,7 +808,9 @@ func test_an_allied_court_proposes_a_formal_alliance() -> void:
 	fresh.reset(1)
 	fresh.ensure_relation(0, 2, 1)
 	fresh.relation(0, 2).score = 80.0
-	fresh.set_overture(2, 0, DiplomacyCatalog.STAGE_EMBASSY)
+	# The pact the alliance requires stands (wiki: diplomacy § Alliances; #750).
+	fresh.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	fresh.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
 	var config: AiConfig = AiConfig.build(2, 1500)
 	config.personality = AiPersonality.NEUTRAL
 	config.agenda_traits = AiAgenda.NEUTRAL
@@ -1262,7 +1278,9 @@ func test_declare_war_sets_war_and_keeps_gp_auto_embassy() -> void:
 	diplomacy_orders_state.relation(0, 1).score = 60.0
 	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
 	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
-	var result: Dictionary = _apply("declare_war", 1)
+	# A pact binds the pair, so the war reaches it through the duty entry and
+	# ends the treaties with the war itself (wiki: diplomacy § Alliances; #750).
+	var result: Dictionary = DiplomacyRules.enter_war(diplomacy_orders_state, 0, 1)
 	assert_true(result["ok"], result.get("reason", ""))
 	assert_true(diplomacy_orders_state.relation(0, 1).at_war)
 	assert_eq(diplomacy_orders_state.relation(0, 1).score, 60.0, "war freezes the score")
@@ -1306,6 +1324,8 @@ func test_hostile_great_power_refuses_white_peace() -> void:
 func test_alliance_clamps_into_the_allied_band() -> void:
 	_setup_diplomacy_orders()
 	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
 	var result: Dictionary = _apply("alliance", 1)
 	assert_true(result["ok"], result.get("reason", ""))
 	assert_true(bool(result["accepted"]))
@@ -1317,6 +1337,8 @@ func test_alliance_clamps_into_the_allied_band() -> void:
 func test_alliance_offer_can_be_refused_below_allied_standing() -> void:
 	_setup_diplomacy_orders()
 	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
 	var result: Dictionary = _apply("alliance", 1)
 	assert_true(result["ok"], result.get("reason", ""))
 	assert_false(bool(result["accepted"]))
@@ -1345,6 +1367,8 @@ func test_alliance_needs_a_warmer_court() -> void:
 	_setup_diplomacy_orders()
 	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 1)
 	record.score = 50.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
 	var result: Dictionary = _apply("alliance", 1)
 	assert_false(result["ok"])
 	# The sheet reads Neutral at 50, so the refusal names warmth instead of a
@@ -1352,6 +1376,133 @@ func test_alliance_needs_a_warmer_court() -> void:
 	# § Player-facing relation display).
 	assert_true(String(result["reason"]).contains("warm"), String(result["reason"]))
 	assert_false(_names_a_herald_word(String(result["reason"])), String(result["reason"]))
+
+# --- binding pacts (issue #750) ---
+
+func test_a_pact_binds_the_war_until_it_is_broken() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var shut: Dictionary = _apply("declare_war", 1)
+	assert_false(shut["ok"])
+	assert_true(String(shut["reason"]).contains("non-aggression pact"), String(shut["reason"]))
+	# A Join Empire stage keeps the pact's ban alive as well.
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_false(_apply("declare_war", 1)["ok"], "the later rung still carries the pact")
+
+func test_an_alliance_binds_the_war_too() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var shut: Dictionary = _apply("declare_war", 1)
+	assert_false(shut["ok"])
+	assert_true(String(shut["reason"]).contains("formal alliance"), String(shut["reason"]))
+
+func test_an_alliance_needs_the_pact() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	var result: Dictionary = _apply("alliance", 1)
+	assert_false(result["ok"])
+	assert_true(
+		String(result["reason"]).contains("non-aggression pact"), String(result["reason"])
+	)
+
+func test_breaking_the_pact_costs_the_partner_and_the_web() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var result: Dictionary = _apply("break_nap", 1)
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_false(DiplomacyRules.has_pact(diplomacy_orders_state, 0, 1), "the pact is gone")
+	assert_eq(diplomacy_orders_state.relation(0, 1).score, 40.0, "−20 with the partner")
+	assert_eq(diplomacy_orders_state.relation(0, 2).score, 47.0, "−3 to another court")
+	assert_eq(diplomacy_orders_state.relation(0, 6).score, 47.0, "−3 to a Minor the court knows")
+	assert_eq(diplomacy_orders_state.overture(0, 1), DiplomacyCatalog.STAGE_EMBASSY, "the embassy survives")
+	assert_eq(diplomacy_orders_state.overture(1, 0), DiplomacyCatalog.STAGE_EMBASSY)
+	assert_true(_orders_event("napBroken"))
+
+func test_breaking_the_pact_opens_the_war_next_turn() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	_apply("break_nap", 1)
+	var same_turn: Dictionary = _apply("declare_war", 1)
+	assert_false(same_turn["ok"], "one full turn must pass")
+	assert_true(String(same_turn["reason"]).contains("must wait"), String(same_turn["reason"]))
+	diplomacy_orders_state.end_turn()
+	var war: Dictionary = _apply("declare_war", 1)
+	assert_true(war["ok"], war.get("reason", ""))
+
+func test_breaking_the_pact_clears_the_alliance_at_its_price() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	diplomacy_orders_state.relation(0, 6).score = 80.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var result: Dictionary = _apply("break_nap", 1)
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_false(diplomacy_orders_state.relation(0, 1).formal_alliance, "the alliance rides the pact")
+	assert_eq(diplomacy_orders_state.relation(0, 1).score, 30.0, "−50 with the partner")
+	assert_eq(diplomacy_orders_state.relation(0, 2).score, 40.0, "−10 cascade to a Great Power")
+	assert_eq(diplomacy_orders_state.relation(0, 6).score, 80.0, "the Minor is out of the alliance cascade")
+	assert_false(_apply("break_alliance", 1)["ok"], "no alliance left to break")
+
+func test_breaking_the_alliance_leaves_the_pact() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var broken: Dictionary = _apply("break_alliance", 1)
+	assert_true(broken["ok"], broken.get("reason", ""))
+	assert_false(diplomacy_orders_state.relation(0, 1).formal_alliance)
+	assert_true(DiplomacyRules.has_pact(diplomacy_orders_state, 0, 1), "the pact survives the alliance break")
+	assert_false(_apply("declare_war", 1)["ok"], "the pact still bans the war")
+	_apply("break_nap", 1)
+	diplomacy_orders_state.end_turn()
+	assert_true(_apply("declare_war", 1)["ok"], "the broken pact opens the war next turn")
+
+func test_the_pact_break_stamp_survives_a_save() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	_apply("break_nap", 1)
+	var captured: Dictionary = SaveCourt.capture_diplomacy(diplomacy_orders_state)
+	var restored: DiplomacyState = SaveCourt._diplomacy_from(captured)
+	assert_eq(restored.relation(0, 1).treaty_break_turn, 1, "the lock loads back")
+	assert_false(DiplomacyRules.has_pact(restored, 0, 1))
+	assert_eq(restored.overture(0, 1), DiplomacyCatalog.STAGE_EMBASSY)
+
+func test_the_court_menu_offers_the_pact_break_and_gates_the_alliance() -> void:
+	_setup_diplomacy_orders()
+	var before: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	assert_false(_diplomacy_orders_has(before, "break_nap"), "no pact, no break")
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var pacted: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	assert_true(_diplomacy_orders_has(pacted, "break_nap"), "the pact has its way out")
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	var both: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	assert_true(_diplomacy_orders_has(both, "break_alliance"))
+	assert_true(_diplomacy_orders_has(both, "break_nap"), "the pact break clears both treaties")
+
+func _orders_event(kind: String) -> bool:
+	for event: Dictionary in diplomacy_orders_state.events:
+		if String(event.get("kind", "")) == kind:
+			return true
+	return false
+
+func _diplomacy_orders_has(options: Array[Dictionary], kind: String) -> bool:
+	return not _diplomacy_orders_first(options, kind).is_empty()
 
 func test_overture_chain_pays_once_per_stage_and_turn() -> void:
 	_setup_diplomacy_orders()
@@ -1498,16 +1649,41 @@ func test_join_empire_absorbs_a_nearly_defeated_great_power() -> void:
 	assert_false(diplomacy_orders_state.has_relation(0, 2))
 	assert_eq(diplomacy_orders_economy.treasury, 19000)
 
-func test_join_empire_refuses_a_great_power_still_holding_its_capital() -> void:
+func test_join_empire_is_refused_by_a_great_power_still_holding_its_capital() -> void:
 	_setup_diplomacy_orders()
 	var world: WorldMap = _world([0, 2, 2, 2], [1])
 	diplomacy_orders_state.relation(0, 2).score = 60.0
 	diplomacy_orders_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
 	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	diplomacy_orders_economy.treasury = 30000
+	# The offer is always open; the answer is the gate (wiki: diplomacy
+	# § Join Empire; issue #750). Without a power read the nearly defeated
+	# criterion answers, and a crown holding its seat is not nearly defeated.
 	var result: Dictionary = _apply("overture", 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, world)
-	assert_false(result["ok"])
-	assert_true(String(result["reason"]).contains("nearly defeated"))
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_false(bool(result["accepted"]), "the court declines absorption")
+	assert_true(
+		String(result["message"]).contains("declines"), String(result["message"])
+	)
+	assert_true(diplomacy_orders_state.has_relation(0, 2), "the court stands")
+
+func test_join_empire_accepts_a_court_that_cannot_stand_alone() -> void:
+	# No crown is nearly defeated, but the offerer's published power is at least
+	# twice the target's: standing alone is hopeless (issue #750).
+	_setup_diplomacy_orders()
+	var world: WorldMap = _world([0, 2, 2, 2], [1])
+	diplomacy_orders_state.relation(0, 2).score = 60.0
+	diplomacy_orders_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_economy.treasury = 30000
+	var result: Dictionary = DiplomacyOvertures.establish_overture(
+		diplomacy_orders_state, diplomacy_orders_economy, world, 0, 2,
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, diplomacy_orders_economy.tech_unlocked,
+		DiplomacyRules.DECISION_AUTO, {0: 100, 2: 20}
+	)
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_true(bool(result["accepted"]), "the hopeless crown accepts")
+	assert_false(diplomacy_orders_state.has_relation(0, 2), "absorbed")
 
 func test_the_join_empire_gate_is_not_the_heralds_word() -> void:
 	_setup_diplomacy_orders()
@@ -1918,6 +2094,34 @@ func test_answering_without_a_waiting_call_is_refused() -> void:
 	assert_false(answer["ok"])
 	assert_false(call_to_arms_state.relation(0, 3).at_war)
 
+# --- binding pacts at a call to arms (issue #750) ---
+
+func test_a_duty_join_clears_the_pact_with_the_aggressor() -> void:
+	_setup_call_to_arms()
+	_ally(1, 2, 80.0)
+	call_to_arms_state.set_overture(1, 3, DiplomacyCatalog.STAGE_NAP)
+	call_to_arms_state.set_overture(3, 1, DiplomacyCatalog.STAGE_NAP)
+	# The declaration itself is shut by the pact; the duty is not asked at the
+	# gate, and the war ends the treaties the same turn the pair stands opposed.
+	assert_false(DiplomacyRules.declare_war(call_to_arms_state, 1, 3)["ok"])
+	call_to_arms_state.relation(1, 3).score = 80.0
+	var war: Dictionary = DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
+	assert_true(war["ok"], war.get("reason", ""))
+	assert_true(call_to_arms_state.relation(1, 3).at_war, "England joins the war")
+	assert_false(DiplomacyRules.has_pact(call_to_arms_state, 1, 3), "the pact ends at once")
+	assert_eq(call_to_arms_state.overture(1, 3), DiplomacyCatalog.STAGE_EMBASSY)
+
+func test_an_ally_holding_a_pact_with_the_aggressor_joins_only_warm() -> void:
+	_setup_call_to_arms()
+	_ally(1, 2, 80.0)
+	call_to_arms_state.set_overture(1, 3, DiplomacyCatalog.STAGE_NAP)
+	call_to_arms_state.set_overture(3, 1, DiplomacyCatalog.STAGE_NAP)
+	# A cold court burns no pact for a cold ally: it refuses and pays the
+	# alliance price instead.
+	assert_false(CallToArms.ai_joins(call_to_arms_state, 1, 2, 3))
+	call_to_arms_state.relation(1, 3).score = 80.0
+	assert_true(CallToArms.ai_joins(call_to_arms_state, 1, 2, 3), "a warm court honours the duty")
+
 func _ally(a: int, b: int, score: float) -> void:
 	var record: DiplomacyRelation = call_to_arms_state.relation(a, b)
 	record.formal_alliance = true
@@ -1979,6 +2183,18 @@ func test_intervening_joins_the_war_and_keeps_the_embassy() -> void:
 	assert_eq(intervention_state.overture(0, 6), DiplomacyCatalog.STAGE_EMBASSY)
 	assert_false(Intervention.has_pending(intervention_state, 0))
 	assert_true(_intervention_event("interventionIntervened"))
+
+func test_intervening_through_a_pact_clears_it_in_the_same_turn() -> void:
+	_setup_intervention()
+	intervention_state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	intervention_state.set_overture(0, 3, DiplomacyCatalog.STAGE_NAP)
+	intervention_state.set_overture(3, 0, DiplomacyCatalog.STAGE_NAP)
+	assert_false(DiplomacyRules.declare_war(intervention_state, 0, 3)["ok"], "the pact binds the direct war")
+	DiplomacyRules.declare_war(intervention_state, 3, 6)
+	var answer: Dictionary = Intervention.resolve_human(intervention_state, Intervention.KIND_INTERVENE)
+	assert_true(answer["ok"], answer.get("reason", ""))
+	assert_true(intervention_state.relation(0, 3).at_war, "the duty is honoured")
+	assert_false(DiplomacyRules.has_pact(intervention_state, 0, 3), "the pact ends the turn the pair stands opposed")
 
 func test_standing_aside_costs_the_embassy_and_subsidy() -> void:
 	_setup_intervention()

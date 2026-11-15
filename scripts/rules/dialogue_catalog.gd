@@ -77,6 +77,24 @@ const POINTS: Dictionary = {
 			"So a crown keeps faith. Good to know before the next treaty.",
 		],
 	},
+	"diplomatic/pact_broken_by_them": {
+		"category": CAT_DIPLOMATIC,
+		"moods": ["dismissive", "calculating"],
+		"lines": [
+			"The pact is torn up, then. Neither of us was fooled.",
+			"We note the broken pact, and note who held the pen.",
+			"So much for the promise of peace. Our fleets take their own counsel now.",
+		],
+	},
+	"diplomatic/pact_broken_by_you": {
+		"category": CAT_DIPLOMATIC,
+		"moods": ["irritated", "dismissive"],
+		"lines": [
+			"You tear up a signed pact and call it statecraft. We shall remember it.",
+			"The pact is broken; our harbour is closed to your excuses.",
+			"A promise of peace, kept for barely a season. Noted in the book.",
+		],
+	},
 	"diplomatic/overture_granted": {
 		"category": CAT_DIPLOMATIC,
 		"moods": ["gracious", "pleased"],

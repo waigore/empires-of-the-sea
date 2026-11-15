@@ -665,7 +665,7 @@ func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
 	assert_true(bool(merchant_tech.get("ok", false)))
 	assert_eq(
 		int(merchant_tech["utility"]) - int(plain["utility"]),
-		AiDiplomacyOffers.LAND_ENVOY_BONUS,
+		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
 		"a deed worth buying lifts the envoy"
 	)
 	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)

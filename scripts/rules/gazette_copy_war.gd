@@ -58,6 +58,23 @@ static func alliance_broken(rec: Dictionary) -> String:
 	return "%s has broken faith with %s and quitted the alliance." % [who, whom]
 
 
+static func pact_broken(rec: Dictionary) -> String:
+	var who: String = String(rec.get("who", ""))
+	var whom: String = String(rec.get("whom", ""))
+	if bool(rec.get("cleared_alliance", false)):
+		if bool(rec.get("self_act", false)):
+			return (
+				"Our pact and our alliance with %s are broken; the court will "
+				+ "remember who quitted whom."
+			) % whom
+		return "%s has broken faith with %s, quitting pact and alliance together." % [
+			who, whom
+		]
+	if bool(rec.get("self_act", false)):
+		return "Our non-aggression pact with %s is broken; war must wait its turn." % whom
+	return "%s has torn up its non-aggression pact with %s." % [who, whom]
+
+
 static func call_to_arms_accepted(rec: Dictionary) -> String:
 	var who: String = String(rec.get("who", ""))
 	var whom: String = String(rec.get("whom", ""))

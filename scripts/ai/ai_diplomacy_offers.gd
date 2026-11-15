@@ -23,6 +23,7 @@ const KIND_AID: String = DiplomacyOrders.KIND_AID
 const KIND_SUBSIDY: String = DiplomacyOrders.KIND_SUBSIDY
 const KIND_CANCEL_SUBSIDY: String = DiplomacyOrders.KIND_CANCEL_SUBSIDY
 const KIND_BREAK: String = DiplomacyOrders.KIND_BREAK
+const KIND_BREAK_NAP: String = DiplomacyOrders.KIND_BREAK_NAP
 
 ## Every kind this module can emit; the planner adds Declare War and Offer Peace.
 const KINDS: Array[String] = [
@@ -36,6 +37,7 @@ const KINDS: Array[String] = [
 	KIND_SUBSIDY,
 	KIND_CANCEL_SUBSIDY,
 	KIND_BREAK,
+	KIND_BREAK_NAP,
 ]
 
 ## What a friendly order costs the giver: aid drains the treasury, a subsidy
@@ -59,11 +61,11 @@ const REVOKE_UTILITY_COST: int = 15
 ## An alliance that no longer matches the standing is dissolved, never defended.
 const BREAK_MIN_DESIRE: int = 60
 const BREAK_UTILITY_COST: int = 20
-## A court that has Merchant Companies and could sign a deed with this Minor or
-## Tribe wants its envoy chain opened, so the Consulate/Embassy outranks the small
-## peaceful orders it competes with — and is offered even when the court is in no
-## mood to improve relations for their own sake (wiki: civilian-units § Merchant).
-const LAND_ENVOY_BONUS: int = 12
+## A pact the court means to march on is broken first: the war ban lifts at the
+## next turn, so the break costs less resolve than the alliance it may carry —
+## but it still pays the cascade it inflicts, so the price is a real one
+## (wiki: diplomacy § Breaking a pact; issue #752).
+const BREAK_NAP_UTILITY_COST: int = 35
 
 ## Highest-utility peaceful candidate for one court, or a blocked explanation
 ## the turn trace can print. `context` carries the planner read model:
@@ -130,123 +132,19 @@ static func candidates(
 	var saving: String = AiIncome.saving_reason(income)
 	var gift: String = AiIncome.saving_reason(income, AID_AMOUNT)
 	return [
-		_treaty(
+		AiDiplomacyTreaties.best(
 			config, state, ai_state, world, turn, target, improve, min_improve,
-			treasury, tech, charts
+			treasury, tech, context
 		),
 		_trade_pact(config, state, faction, target, desire, improve, min_improve, record.score),
 		_aid(state, faction, target, improve, min_improve, treasury, record.score, gift),
 		_subsidy(config, state, faction, target, desire, improve, min_improve, saving),
 		_boycott(state, faction, target, record.score, improve),
-		_break_alliance(target, record, desire),
+		_break_alliance(state, faction, target, record, desire),
+		_break_nap(
+			config, state, world, ai_state, turn, faction, target, record, desire, context
+		),
 	]
-
-
-## The next free overture, or a formal alliance once the pair is Allied. The
-## proposing court pays its own stage cost, so the treasury read is its own.
-static func _treaty(
-	config: AiConfig,
-	state: DiplomacyState,
-	ai_state: AiState,
-	world: WorldMap,
-	turn: int,
-	target: int,
-	improve: int,
-	min_improve: int,
-	treasury: int,
-	tech: Dictionary,
-	charts: CourtCharts = null
-) -> Dictionary:
-	var bonus: int = _land_envoy_bonus(
-		state, world, config.faction, target, treasury, tech, charts
-	)
-	# The colony ambition: a charted Tribe the court can still buy is worth the
-	# next envoy step even when the court is in no mood to improve relations for
-	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
-	var colony: Dictionary = AiTribeColony.ambition(
-		state, world, charts, config.faction, target, treasury, tech
-	)
-	if (
-		improve < min_improve and bonus == 0
-		and not bool(colony.get("wanted", false))
-		and not bool(colony.get("held", false))
-	):
-		return _blocked("improve-relations desire too low", KIND_OVERTURE)
-	var cooldown: int = config.parameter("diplomacy.overture_cooldown_turns")
-	if ai_state.overture_on_cooldown(config.faction, target, turn, cooldown):
-		return _blocked("overture cooldown", KIND_OVERTURE)
-	var best_entry: Dictionary = {}
-	var record: DiplomacyRelation = state.relation(config.faction, target)
-	if record != null and record.score >= DiplomacyCatalog.ALLIANCE_CLAMP:
-		var alliance: Dictionary = DiplomacyRules.can_form_alliance(
-			state, config.faction, target
-		)
-		if bool(alliance.get("ok", false)):
-			best_entry = _offer(
-				KIND_ALLIANCE,
-				target,
-				improve + int(config.agenda_traits.get("alliance_bias", 0)),
-			)
-	var next: String = DiplomacyCatalog.next_stage(state.overture(config.faction, target))
-	var colony_raise: int = (
-		int(colony.get("bonus", 0))
-		if String(colony.get("stage", "")) == next
-		else 0
-	)
-	if not next.is_empty():
-		var check: Dictionary = DiplomacyRules.can_establish_overture(
-			state, world, config.faction, target, next, treasury, tech
-		)
-		if bool(check.get("ok", false)) and (
-			best_entry.is_empty() or improve + colony_raise > int(best_entry["utility"])
-		):
-			best_entry = _offer(KIND_OVERTURE, target, improve)
-			best_entry["stage"] = next
-			if colony_raise > 0:
-				best_entry["tribe_colony"] = true
-	if best_entry.is_empty():
-		return _blocked("no legal treaty", KIND_OVERTURE)
-	if String(best_entry["kind"]) == KIND_OVERTURE:
-		var raise: int = bonus
-		if bool(best_entry.get("tribe_colony", false)):
-			raise += colony_raise
-		best_entry["utility"] = clampi(int(best_entry["utility"]) + raise, 0, 100)
-	return best_entry
-
-
-## The land-deed nudge for this target: a Minor or Tribe this court could buy
-## from once an envoy reaches it, while no embassy stands yet and the court holds
-## the merchant tech. Only charted land counts: a province never reached offers
-## nothing it can price, while any charted region's offer counts, so a court
-## that has not yet met the seller can still want the door opened (wiki:
-## civilian-units § Merchant; fog-and-exploration § Visibility Levels). A chain
-## opened on credit warms the relation past the war ceiling and bars the conquest for nothing (issue #724).
-static func _land_envoy_bonus(
-	state: DiplomacyState,
-	world: WorldMap,
-	faction: int,
-	target: int,
-	treasury: int,
-	tech: Dictionary,
-	charts: CourtCharts = null
-) -> int:
-	if world == null or state == null:
-		return 0
-	var kind: int = FactionCatalog.type_of(target)
-	if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
-		return 0
-	if DiplomacyRules.has_embassy(state, faction, target):
-		return 0
-	if not CivilianCatalog.is_unlocked("merchant", tech):
-		return 0
-	for index in world.region_count():
-		var model: MapModel = world.region(index)
-		if model == null:
-			continue
-		var view: VisibilityModel = charts.model_for(faction, index) if charts != null else null
-		if AiMerchantWork.cheapest_offer(model, faction, target, treasury, view) > 0:
-			return LAND_ENVOY_BONUS
-	return 0
 
 
 ## A favoured trading pact while the standing is warm; the way back out once it
@@ -364,15 +262,78 @@ static func _boycott(
 
 ## A treaty the court no longer means to honour is dissolved before it costs
 ## more than the standing it was signed on (wiki: diplomacy § Breaking an
-## alliance).
+## alliance). While the pact stands, one Break NAP clears pact and alliance
+## together, so the alliance-only break would be a wasted turn (issue #752).
 static func _break_alliance(
-	target: int, record: DiplomacyRelation, desire: int
+	state: DiplomacyState, faction: int, target: int,
+	record: DiplomacyRelation, desire: int
 ) -> Dictionary:
 	if record == null or not record.formal_alliance:
 		return _blocked("no formal alliance stands", KIND_BREAK)
+	if state != null and DiplomacyRules.has_pact(state, faction, target):
+		return _blocked("the pact break clears the alliance too", KIND_BREAK)
 	if desire < BREAK_MIN_DESIRE:
 		return _blocked("the alliance still serves", KIND_BREAK)
 	return _offer(KIND_BREAK, target, desire - BREAK_UTILITY_COST)
+
+
+## The pact the court means to march on is broken first: the war ban lifts at
+## the next turn, and a formal alliance rides the break at the alliance price
+## (wiki: diplomacy § Breaking a pact; issue #752). The break is only worth the
+## price it pays when the war could actually follow: the pair off its war
+## cooldown, no envoy chain with a claim on the target (a declaration would
+## clear what the court has paid for), and a footing that opens the front
+## (issues #724, #752).
+static func _break_nap(
+	config: AiConfig,
+	state: DiplomacyState,
+	world: WorldMap,
+	ai_state: AiState,
+	turn: int,
+	faction: int,
+	target: int,
+	record: DiplomacyRelation,
+	desire: int,
+	context: Dictionary
+) -> Dictionary:
+	if record == null or not DiplomacyRules.has_pact(state, faction, target):
+		return _blocked("no non-aggression pact stands", KIND_BREAK_NAP)
+	if desire < BREAK_MIN_DESIRE:
+		return _blocked("the pact still serves", KIND_BREAK_NAP)
+	if ai_state.war_on_cooldown(
+		faction, target, turn, config.parameter("diplomacy.war_cooldown_turns")
+	):
+		return _blocked("the pair is on its war cooldown", KIND_BREAK_NAP)
+	# A pact break to open a new front while the court is already fighting is
+	# how crowns drown: the ban stands until this court is at peace elsewhere
+	# (wiki: diplomacy § Breaking a pact; issue #752).
+	for other: DiplomacyRelation in state.relations_of(faction):
+		if other.at_war:
+			return _blocked("the court is at war on another front", KIND_BREAK_NAP)
+	var colony: Dictionary = AiTribeColony.ambition(
+		state, world, context.get("charts", null), faction, target,
+		int((context.get("treasury", {}) as Dictionary).get(faction, 0)),
+		(context.get("tech", {}) as Dictionary).get(faction, {})
+	)
+	if bool(colony.get("wanted", false)) or bool(colony.get("held", false)):
+		return _blocked("an envoy chain has a claim on that court", KIND_BREAK_NAP)
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	if (
+		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)
+		and not _outmatches(faction, target, context)
+	):
+		return _blocked("overstretched: no third front", KIND_BREAK_NAP)
+	return _offer(KIND_BREAK_NAP, target, desire - BREAK_NAP_UTILITY_COST)
+
+
+## Whether this court is the stronger of the pair on the published power score —
+## the same read the planner's war gate applies (DR-20261114-11).
+static func _outmatches(faction: int, target: int, context: Dictionary) -> bool:
+	var powers: Dictionary = context.get("power", {})
+	if not powers.has(faction) or not powers.has(target):
+		return true
+	return int(powers[faction]) > int(powers[target])
 
 
 static func _offer(kind: String, target: int, utility: int) -> Dictionary:

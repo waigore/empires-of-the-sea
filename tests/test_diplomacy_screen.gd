@@ -309,6 +309,8 @@ func test_consent_and_ai_extracts_keep_their_own_doors() -> void:
 	assert_false(state.relation(0, 1).at_war)
 
 	state.relation(0, 4).score = 80.0
+	state.set_overture(0, 4, DiplomacyCatalog.STAGE_NAP)
+	state.set_overture(4, 0, DiplomacyCatalog.STAGE_NAP)
 	assert_true(
 		DiplomacyProposals.queue(
 			state, play.world, 4, DiplomacyProposals.KIND_ALLIANCE
@@ -443,6 +445,9 @@ func test_court_intent_router_sends_orders_and_call_answers() -> void:
 func test_a_rival_proposal_suspends_the_turn_until_the_court_answers() -> void:
 	var state: DiplomacyState = _screen.play.diplomacy
 	state.relation(0, 2).score = 80.0
+	# The alliance rides on the pact (wiki: diplomacy § Alliances; issue #750).
+	state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	assert_true(
 		DiplomacyProposals.queue(
 			state, _screen.play.world, 2, DiplomacyProposals.KIND_ALLIANCE

@@ -66,7 +66,7 @@ static func collect(
 		var weights: Dictionary = _weights_for(world, viewer, subject, event, allies)
 		if kind == "allianceFormed" and a != b:
 			allies[key] = true
-		elif kind == "allianceBroken" or kind == "warDeclared":
+		elif kind == "allianceBroken" or kind == "napBroken" or kind == "warDeclared":
 			allies.erase(key)
 		if weights.is_empty():
 			continue
@@ -132,6 +132,13 @@ static func _weights_for(
 				return weights
 			weights[AiAgenda.BACKSTABBER] = W_BREAK_ALLY
 			weights[AiAgenda.ISOLATIONIST] = W_BREAK_ISOLATION
+		"napBroken":
+			# A pact broken for war's sake reads as a backstab or a march to
+			# battle, never as a court keeping to itself.
+			if a != subject:
+				return weights
+			weights[AiAgenda.BACKSTABBER] = W_BREAK_ALLY
+			weights[AiAgenda.WARMONGER] = W_WAR
 		"callToArmsRefused":
 			if a == subject:
 				weights[AiAgenda.ISOLATIONIST] = W_CTA_REFUSED
@@ -194,6 +201,8 @@ static func _text_for(
 			return "Declared war on %s." % other
 		"allianceBroken":
 			return "Broke its formal alliance with %s." % other
+		"napBroken":
+			return "Broke its non-aggression pact with %s." % other
 		"callToArmsRefused":
 			return "Refused %s's call to arms." % other
 		"interventionDoNothing":

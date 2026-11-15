@@ -18,6 +18,7 @@ const NARRATED: Array[String] = [
 	"peaceMade",
 	"allianceFormed",
 	"allianceBroken",
+	"napBroken",
 	"callToArmsAccepted",
 	"callToArmsRefused",
 	"interventionIntervened",
@@ -115,6 +116,10 @@ static func describe(state: DiplomacyState, event: Dictionary, viewer: int) -> S
 			return "%s and %s signed a formal alliance." % [a, b]
 		"allianceBroken":
 			return "%s broke its formal alliance with %s." % [a, b]
+		"napBroken":
+			if bool(data.get("cleared_alliance", false)):
+				return "%s broke its pact and formal alliance with %s." % [a, b]
+			return "%s broke its non-aggression pact with %s." % [a, b]
 		"callToArmsAccepted":
 			return "%s joined %s's war against %s." % [a, b, aggressor]
 		"callToArmsRefused":

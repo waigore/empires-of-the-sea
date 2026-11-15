@@ -4475,3 +4475,104 @@ func test_the_larder_reading_counts_only_food() -> void:
 	economy.stockpile = {"grain": 7, "meat": 3, "wool": 40, "timber": 12}
 	assert_eq(MapPlayEconomyAi._food_held(economy), 10)
 	assert_eq(MapPlayEconomyAi._food_held(null), 0)
+
+
+## The debt is rounded once from the whole deal, so the per-unit charge cannot
+## say whether one more ton fits: a subsidised deal whose total rounds past the
+## purse must settle the tons that do fit. Before, the truncation re-derived the
+## size from the rounded unit price, landed on the same quantity, and the payment
+## was refused with the deal still booked — the crown paid nothing, received
+## nothing, and the Deal Book named a purchase that never happened (wiki:
+## world-market § Treasury budget for bids — the resolver-side clamp;
+## § Subsidy price adjustment; REQ-P5-05).
+func test_a_deal_whose_whole_total_rounds_past_the_purse_settles_what_fits() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	# 42 x 1.15 = 48.3: the whole-deal total rounds above the unit charge.
+	market.prices["lumber"] = 42
+	var offer := MarketOrder.create(6, "lumber", MarketOrder.SIDE_OFFER, 3, 1)
+	offer.auto = true
+	market.book.submit(offer)
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	buyer.treasury = 144
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 15)
+	var staged: Dictionary = MarketOrders.submit(
+		market,
+		0, "lumber", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 10, "treasury": 144, "buy_price": 42}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var report: Dictionary = MarketClearing.clear(
+		market, null, economies, {0: 10}, {"diplomacy": diplomacy}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			deal = raw
+			break
+	assert_false(deal.is_empty(), "the minor's offer filled the bid")
+	# 3 x 42 x 1.15 = 144.9 -> 145, one ducat past the purse; 2 tons are 97.
+	assert_eq(int(deal["quantity"]), 2, "only the tons the whole total covers")
+	assert_eq(int(deal["cost"]), 97, "2 x 42 x 1.15, rounded once")
+	assert_eq(buyer.quantity("lumber"), 40 + 2, "the goods actually landed")
+	assert_eq(buyer.treasury, 47, "and the purse paid exactly the deal total")
+	var mine: Dictionary = (report["fills"] as Dictionary).get(0, {}) as Dictionary
+	assert_eq(int(mine.get("bought", 0)), 2, "the fills row names the settled tons")
+	assert_eq(int(mine.get("spent", 0)), 97, "and the ducats that left the purse")
+	var truncation: Dictionary = {}
+	for raw: Variant in report["notes"]:
+		if String((raw as Dictionary).get("code", "")) == "bid_partial_fill_treasury_insufficient":
+			truncation = raw
+	assert_false(truncation.is_empty(), "the Deal Book can audit the truncation")
+	assert_eq(int(truncation.get("quantity", 0)), 1, "the one ton the purse could not buy")
+
+
+## A purse that cannot pay even the whole-deal rounding of one ton buys nothing:
+## the seller keeps the goods and the row names no ducats (wiki: world-market
+## § Treasury budget for bids; REQ-P5-05 never a silent outcome).
+func test_a_deal_the_purse_cannot_pay_hands_nothing_over() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.prices["lumber"] = 42
+	var offer := MarketOrder.create(6, "lumber", MarketOrder.SIDE_OFFER, 2, 1)
+	offer.auto = true
+	market.book.submit(offer)
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	buyer.treasury = 45
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 15)
+	# The validator knows the published 42, so the bid is admitted; the clearing
+	# charges 48 a ton at the surcharge, which the purse cannot cover.
+	MarketOrders.submit(
+		market,
+		0, "lumber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 10, "treasury": 45, "buy_price": 42}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, null, economies, {0: 10}, {"diplomacy": diplomacy}
+	)
+	assert_eq(buyer.treasury, 45, "nothing left the purse")
+	assert_eq(buyer.quantity("lumber"), 40, "and nothing landed")
+	assert_true(
+		(report["fills"] as Dictionary).get(0, {}).is_empty(),
+		"a deal that never paid is no fill"
+	)
+	for raw: Variant in report["deals"]:
+		assert_ne(
+			int((raw as Dictionary).get("buyer", -2)), 0,
+			"nor a booked sale: %s" % str(raw)
+		)
+
+
+## Prices are a non-negative integer band: a legacy save that wrote a negative
+## entry loads it as zero rather than publishing a price no deal ever charged
+## (wiki: world-market § Price discovery).
+func test_a_legacy_negative_price_loads_as_zero() -> void:
+	var market: WorldMarket = WorldMarket.from_dict({
+		"prices": {"timber": -5, "lumber": 60, "meat": 0},
+	})
+	assert_eq(market.price("timber"), 0, "the negative entry clamps to zero")
+	assert_eq(market.price("lumber"), 60, "a published price survives")
+	assert_eq(market.price("meat"), 0, "and a legal floor stays where it is")
+
