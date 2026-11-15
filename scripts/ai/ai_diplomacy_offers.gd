@@ -216,15 +216,11 @@ static func _treaty(
 
 ## The land-deed nudge for this target: a Minor or Tribe this court could buy
 ## from once an envoy reaches it, while no embassy stands yet and the court holds
-## the merchant tech. Only land the court has **charted** counts: a province it
-## has never reached offers nothing it can price (wiki: fog-and-exploration
-## § Visibility Levels; DR-20261113-03). Any charted region's offer counts (the
-## deed's price must fit the treasury), so a court that has not yet met the
-## seller can still want the door opened (wiki: civilian-units § Merchant).
-## The tech gate is also the conquest bar's guard: a chain opened on credit —
-## no tech, no deed the court could ever sign — warms the relation past the
-## war ceiling and the buyer's own conquest option closes with nothing bought
-## (issue #724, measured 2026-11-15).
+## the merchant tech. Only charted land counts: a province never reached offers
+## nothing it can price, while any charted region's offer counts, so a court
+## that has not yet met the seller can still want the door opened (wiki:
+## civilian-units § Merchant; fog-and-exploration § Visibility Levels). A chain
+## opened on credit warms the relation past the war ceiling and bars the conquest for nothing (issue #724).
 static func _land_envoy_bonus(
 	state: DiplomacyState,
 	world: WorldMap,
