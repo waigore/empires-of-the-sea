@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-16 + #676 (REQ-P2-02).
+Audited through DR-20261115-16 + #688 (REQ-P2-02).
 
 ## Already live
 
@@ -29,18 +29,18 @@ Audited through DR-20261115-16 + #676 (REQ-P2-02).
 | AI candidates respect worker-tier | `AiEconomyPlanner` / `AiRandomCourt`, #568 |
 | War-time trade garrison | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
 | Rival bench room | `AiEconomyPlanner._bench_room`, `AiRandomCourt`, DR-15-02 |
+| Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20,000; DR-15-16/#688 |
 
 ## Remaining gaps (impact order)
 
 1. **Building gates / further rows** — worker tiers, alloy + luxury four and
-   bench cap ship (DR-14-07/10/12); building gates remain.
+   bench cap ship (DR-14-07/10/12); building gates and further rows remain.
 2. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship; soft
    weights and treasury recovery stay seed (DR-13-15).
 3. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
    (`civilian-build-planner`); polish.
 
-The starved economy is funded: 30% land density, the Minor/Tribe book with
-something to sell, and a 20,000 purse (DR-15-16, #676).
+#676's starvation ships in #688; Join Empire stays the published cost table.
 
 ## Next pick
 
@@ -65,4 +65,4 @@ Building gates / further rows — rules call.
 - `phase-planner-*` cite DR-14-11 for DR-14-13's declare slot.
 - DR-14-11 fleetless leg — cleared by #606.
 - `playtest-learnings` calls the boycott blocked deal unread; suite reads it
-  (#629).
+  (#627/#629).
