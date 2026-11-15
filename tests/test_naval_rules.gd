@@ -2749,7 +2749,11 @@ func test_the_market_reports_this_turns_imports() -> void:
 	assert_eq(market.bought_units(), 3)
 
 
-func test_the_map_raid_pass_takes_the_losses_from_the_ledger() -> void:
+## The live order: the crown's bid is filled by the turn's clearing, and the
+## cargo it bought is what the next raid pass takes. A price pass that emptied
+## the book left the raid with nothing (wiki: ships-and-naval § Trade and
+## Transport Interception; DR-20261111-17).
+func test_the_map_raid_pass_takes_the_cargo_the_clearing_bought() -> void:
 	_setup_naval_raid()
 	var play := PlaySession.new()
 	play.model = _naval_raid_model
@@ -2774,16 +2778,33 @@ func test_the_map_raid_pass_takes_the_losses_from_the_ledger() -> void:
 	economy.economy = PlayerEconomy.starting()
 	economy.market = WorldMarket.with_default_prices()
 	economy.economy.treasury = 5000
-	assert_true(bool(economy.market.buy(economy.economy, "grain", 4)["ok"]))
 	play.ship_layer = ships
 	play.economy = economy
+	var submit: Dictionary = MarketOrders.submit(
+		economy.market, 0, "grain", MarketOrder.SIDE_BID, 4,
+		{
+			"cargo_free": 4,
+			"treasury": economy.economy.treasury,
+			"buy_price": economy.market.buy_price("grain", 0),
+		}
+	)
+	assert_true(bool(submit["ok"]), String(submit.get("reason", "")))
+	MarketClearing.clear(economy.market, null, {0: economy.economy}, {0: 4})
 	var before: int = economy.economy.quantity("grain")
+	assert_eq(
+		int(economy.market.imports_for(0).get("grain", 0)), 4,
+		"the clearing's purchase is cargo afloat"
+	)
 
 	var result: Dictionary = MapPlayRaids.resolve(play)
 
 	assert_true(bool(result.get("ok", false)))
 	assert_gt(int(result.get("taken", 0)), 0)
 	assert_lt(economy.economy.quantity("grain"), before)
+	assert_true(
+		economy.market.importing_factions().is_empty(),
+		"the raid pass is the cargo book's one reader and closes it"
+	)
 	ships.free()
 	economy.free()
 
@@ -3024,18 +3045,46 @@ func test_the_market_keeps_each_crowns_cargo_apart() -> void:
 	assert_eq(market.importing_factions(), expected)
 
 
-func test_the_book_closes_with_the_turn() -> void:
+## The cargo the auction filled is afloat until the raid pass has read it: a
+## price pass that emptied the book left hostile squadrons nothing to take
+## (wiki: ships-and-naval § Trade and Transport Interception — "the victim's own
+## purchases this turn"; DR-20261111-17).
+func test_the_cargo_book_outlives_the_price_pass_and_closes_at_the_raid() -> void:
 	_setup_naval_raid()
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var mine: PlayerEconomy = PlayerEconomy.starting()
 	mine.treasury = 5000
 	assert_true(bool(market.buy(mine, "grain", 2, 0)["ok"]))
 	market.advance_prices()
-	assert_true(
-		market.imports_for(0).is_empty(),
-		"price discovery closes the cargo book the raid pass reads"
+	assert_eq(
+		int(market.imports_for(0).get("grain", 0)), 2,
+		"price discovery does not empty the cargo the raid pass reads"
 	)
+	assert_eq(market.importing_factions(), [0] as Array[int])
+	market.book.close_cargo()
+	assert_true(market.imports_for(0).is_empty())
 	assert_true(market.importing_factions().is_empty())
+
+
+## A bid staged on the book is only cargo once the clearing fills it, and it is
+## afloat for the next raid pass (the live path: no direct buy record).
+func test_a_filled_bid_leaves_its_cargo_afloat_for_the_raid_pass() -> void:
+	_setup_naval_raid()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 5000
+	var submit: Dictionary = MarketOrders.submit(
+		market, 0, "grain", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 4, "treasury": economy.treasury, "buy_price": market.buy_price("grain", 0)}
+	)
+	assert_true(bool(submit["ok"]), String(submit.get("reason", "")))
+	MarketClearing.clear(market, null, {0: economy}, {0: 4})
+	assert_eq(economy.quantity("grain"), PlayerEconomy.starting().quantity("grain") + 3)
+	assert_eq(
+		int(market.imports_for(0).get("grain", 0)), 3,
+		"the clearing's purchase is the tonnage the next raid pass reads"
+	)
+	assert_eq(market.importing_factions(), [0] as Array[int])
 
 
 func test_a_saved_book_keeps_each_crowns_cargo() -> void:
@@ -3386,8 +3435,15 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 		"the dossier reads the chance the rules roll"
 	)
 	assert_true(note.contains("~%d" % int(odds["expected"])))
-	# With nothing bought this turn there is no cargo afloat to take.
+	# Cargo afloat lasts until the raid pass has read it: a price pass alone does
+	# not empty the book (wiki: ships-and-naval § Trade and Transport
+	# Interception).
 	economy.market.advance_prices()
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, blockader).contains("Prize:"),
+		"the dossier still prices cargo the clearing left afloat"
+	)
+	economy.market.book.close_cargo()
 	assert_true(
 		MapPlayFleetMissions.prize_note(play, blockader).contains("no cargo afloat")
 	)

@@ -26,7 +26,8 @@ var minor_offers: Array[Dictionary] = []
 ## Staged bids/offers, carried residuals and the turn's trade volumes (wiki:
 ## world-market § Trade orders, § Order persistence). The ledger and the AI stage
 ## here; the matcher clears. The queries below read through, so callers keep one
-## book to ask about what moved this turn.
+## book to ask about what moved this turn. Cargo afloat lives on the volumes and
+## outlives the price pass until the raid pass closes it (DR-20261111-17).
 var book: MarketBook = MarketBook.new()
 
 
@@ -115,15 +116,19 @@ func imports_this_turn() -> Dictionary:
 	return book.volumes.imports_this_turn()
 
 
-## One crown's own cargo this turn, commodity -> units: what a raid can take off
+## One crown's own cargo afloat, commodity -> units: what a raid can take off
 ## its merchant hulls (wiki: ships-and-naval § Trade and Transport Interception;
-## DR-20261110-13).
+## DR-20261110-13). Legacy books that predate per-buyer cargo attribute the whole
+## book to the player, as [method bought_units_for] does — but only until a
+## per-crown row exists: once one is written (or the book has been spent for the
+## turn) the explicit rows are authoritative even when empty.
 func imports_for(faction: int) -> Dictionary:
 	return book.volumes.imports_for(faction)
 
 
-## Every crown with cargo afloat this turn, ascending: the courts a blockade can
-## raid (DR-20261110-13).
+## Every crown with cargo afloat, ascending: the courts a blockade can raid
+## (DR-20261110-13). The cargo book closes via [method MarketBook.close_cargo]
+## when the raid pass has read it, not when prices move (DR-20261111-17).
 func importing_factions() -> Array[int]:
 	return book.volumes.importing_factions()
 
@@ -221,6 +226,8 @@ func advance_prices() -> Dictionary:
 		if updated != current:
 			changed[id] = updated
 	book.reset_turn_volumes()
+	# The cargo book outlives the price pass: the raid pass reads it next turn
+	# and closes it (wiki: ships-and-naval § Trade and Transport Interception).
 	# A court's offers are its harvest of the turn, re-emitted by the ledger
 	# after this pass (DR-20261110-08).
 	minor_offers.clear()
@@ -261,6 +268,7 @@ static func from_dict(data: Dictionary) -> WorldMarket:
 	if book_data is Dictionary and not (book_data as Dictionary).is_empty():
 		market.book = MarketBook.from_dict(book_data)
 	# Saves written while the volumes sat beside the book keep loading: they
-	# are folded into the book's volumes on the way in.
+	# are folded into the book's volumes on the way in. Top-level cargo from
+	# the MarketCargo extract lands the same way.
 	market.book.volumes.adopt_legacy(data)
 	return market

@@ -13,8 +13,9 @@ var bids: Dictionary
 var offers: Dictionary
 ## Faction -> units bought this turn.
 var bought_by_faction: Dictionary
-## Faction -> {commodity: units}: cargo afloat this turn.
-var imports_by_faction: Dictionary
+## Each buyer's own cargo afloat: survives the price pass until the raid pass
+## closes it (DR-20261111-17).
+var cargo: MarketCargo = MarketCargo.new()
 
 
 ## Godot shares a typed default literal across instances, so every volume dict
@@ -23,7 +24,7 @@ func _init() -> void:
 	bids = _fresh_dict()
 	offers = _fresh_dict()
 	bought_by_faction = _fresh_dict()
-	imports_by_faction = _fresh_dict()
+	cargo = MarketCargo.new()
 
 
 ## Units bid this turn on one commodity ([method record_import] writes them).
@@ -64,30 +65,24 @@ func imports_this_turn() -> Dictionary:
 
 ## One crown's own cargo this turn, commodity -> units: what a raid can take off
 ## its merchant hulls. Legacy books that predate per-buyer cargo attribute the
-## whole book to the player, as [method bought_units_for] does.
+## whole book to the player, as [method bought_units_for] does — but only until a
+## per-crown row exists: once one is written (or the book has been spent) the
+## explicit rows are authoritative even when empty.
 func imports_for(faction: int) -> Dictionary:
-	if imports_by_faction.is_empty():
+	if not cargo.tracked:
 		return bids.duplicate() if faction == FactionCatalog.PLAYER_FACTION else {}
-	var own: Variant = _cargo_row(faction)
-	if own is Dictionary:
-		return (own as Dictionary).duplicate()
-	return {}
+	return cargo.of(faction)
 
 
 ## Every crown with cargo afloat this turn, ascending: the courts a blockade can
 ## raid (DR-20261110-13).
 func importing_factions() -> Array[int]:
-	var out: Array[int] = []
-	if imports_by_faction.is_empty():
+	if not cargo.tracked:
+		var out: Array[int] = []
 		if not bids.is_empty():
 			out.append(FactionCatalog.PLAYER_FACTION)
 		return out
-	for raw: Variant in imports_by_faction.keys():
-		var cargo: Dictionary = imports_by_faction[raw] as Dictionary
-		if not cargo.is_empty():
-			out.append(int(raw))
-	out.sort()
-	return out
+	return cargo.factions()
 
 
 ## Books a purchase whose goods never sat another crown's stockpile: the buyer's
@@ -105,8 +100,7 @@ func record_import(commodity: String, quantity: int, faction: int) -> void:
 		int(bought_by_faction[faction]) if bought_by_faction.has(faction) else 0
 	)
 	bought_by_faction[faction] = prior + quantity
-	var cargo: Dictionary = _cargo_book(faction)
-	cargo[commodity] = int(cargo.get(commodity, 0)) + quantity
+	cargo.record(faction, commodity, quantity)
 
 
 ## Books a sale for price discovery (wiki: world-market § Price discovery).
@@ -121,12 +115,17 @@ func withdraw_offer(commodity: String, quantity: int) -> void:
 	offers[commodity] = maxi(offer_volume(commodity) - maxi(quantity, 0), 0)
 
 
-## Starts a clean turn: nothing bought, sold or afloat yet.
+## Starts a clean price-discovery turn: nothing bid or offered yet. Cargo stays
+## afloat for the raid pass (DR-20261111-17).
 func reset() -> void:
 	bids.clear()
 	offers.clear()
 	bought_by_faction.clear()
-	imports_by_faction.clear()
+
+
+## Spends the cargo book once the raid pass has read it.
+func close_cargo() -> void:
+	cargo.close()
 
 
 func copy() -> MarketVolumes:
@@ -134,7 +133,7 @@ func copy() -> MarketVolumes:
 	clone.bids = bids.duplicate()
 	clone.offers = offers.duplicate()
 	clone.bought_by_faction = bought_by_faction.duplicate()
-	clone.imports_by_faction = imports_by_faction.duplicate(true)
+	clone.cargo = cargo.copy()
 	return clone
 
 
@@ -143,7 +142,7 @@ func to_dict() -> Dictionary:
 		"bids": bids.duplicate(),
 		"offers": offers.duplicate(),
 		"bought_by_faction": bought_by_faction.duplicate(),
-		"imports_by_faction": imports_by_faction.duplicate(true),
+		"imports_by_faction": cargo.to_dict(),
 	}
 
 
@@ -152,7 +151,7 @@ static func from_dict(data: Dictionary) -> MarketVolumes:
 	volumes.bids = _dict_copy(data.get("bids"))
 	volumes.offers = _dict_copy(data.get("offers"))
 	volumes.bought_by_faction = _dict_copy(data.get("bought_by_faction"))
-	volumes.imports_by_faction = _dict_copy(data.get("imports_by_faction"), true)
+	volumes._adopt_cargo(data.get("imports_by_faction"))
 	return volumes
 
 
@@ -166,7 +165,14 @@ func adopt_legacy(host: Dictionary) -> void:
 	if host.has("bought_by_faction"):
 		bought_by_faction = _dict_copy(host.get("bought_by_faction"))
 	if host.has("imports_by_faction"):
-		imports_by_faction = _dict_copy(host.get("imports_by_faction"), true)
+		_adopt_cargo(host.get("imports_by_faction"))
+
+
+## A save that carries the cargo book is authoritative even when empty; one
+## written before per-crown cargo keeps the pooled-demand fallback.
+func _adopt_cargo(raw: Variant) -> void:
+	if raw is Dictionary:
+		cargo = MarketCargo.from_dict(raw as Dictionary)
 
 
 ## A map no other instance shares. Godot's debugger can hand back one constant
@@ -177,34 +183,6 @@ static func _fresh_dict() -> Dictionary:
 	if raw is Dictionary:
 		return raw as Dictionary
 	return {}
-
-
-static func _empty_book() -> Dictionary:
-	return _fresh_dict()
-
-
-## The turn's cargo row for one crown, or null when it ships nothing. A loaded
-## book may key factions by string, so both spellings are read.
-func _cargo_row(faction: int) -> Variant:
-	if imports_by_faction.has(faction):
-		return imports_by_faction[faction]
-	# String keys come from a JSON round trip. Never fall back to `get(key, {})`:
-	# Godot hands back the mutable default literal, shared by every caller.
-	if imports_by_faction.has(str(faction)):
-		return imports_by_faction[str(faction)]
-	return null
-
-
-## The live per-crown cargo row, created on the first buy this turn. A loaded
-## book may key factions by string, so a new purchase keeps filling that row.
-func _cargo_book(faction: int) -> Dictionary:
-	# Read the row straight from the book: a lookup funnelled through a Variant
-	# return hands back a copy, and a purchase would then fill a detached row.
-	var existing: Variant = _cargo_row(faction)
-	if existing is Dictionary:
-		return imports_by_faction[faction]
-	imports_by_faction[faction] = {}
-	return imports_by_faction[faction]
 
 
 static func _dict_copy(raw: Variant, deep: bool = false) -> Dictionary:

@@ -118,9 +118,15 @@ func close_turn() -> void:
 
 
 ## Starts the next turn with clean trade volumes: the harvest is re-emitted by
-## the ledger after the pass (DR-20261110-08).
+## the ledger after the pass (DR-20261110-08). Cargo afloat is left for the raid
+## pass (DR-20261111-17).
 func reset_turn_volumes() -> void:
 	volumes.reset()
+
+
+## Spends the cargo book once the raid pass has read it.
+func close_cargo() -> void:
+	volumes.close_cargo()
 
 
 func set_carry(orders: Array[MarketOrder]) -> void:

@@ -137,6 +137,9 @@ func _setup_diplomacy_orders() -> void:
 	diplomacy_orders_state = DiplomacyState.new()
 	diplomacy_orders_state.initialize(1)
 	diplomacy_orders_economy = PlayerEconomy.starting()
+	# The overture and aid arithmetic pins a small purse, so the fixture sets one
+	# rather than riding the published starting row (DR-20261115-16).
+	diplomacy_orders_economy.treasury = 2500
 	diplomacy_orders_economy.tech_unlocked = {"diplomatic_expertise": true, "empire_building": true}
 
 func _setup_diplomacy_survey() -> void:

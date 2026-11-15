@@ -2448,13 +2448,65 @@ func test_a_colonist_ashore_is_the_voyage_in_progress() -> void:
 	)
 
 
-## The adapter reads a colonist ashore as a voyage under way (issue #497).
-func test_the_adapter_reads_the_colonist_ashore() -> void:
+## An Explorer ashore where the crown owns no land cannot found a province (a
+## Builder needs crown land) and cannot board again (docking needs a crown port),
+## so the expedition is over: the aim is blocked with the reason instead of
+## pricing a voyage that will never sail (issue #602).
+func test_a_stranded_explorer_blocks_the_expedition() -> void:
+	var readings: Dictionary = _readings()
+	readings["voyage_abroad"] = true
+	readings["voyage_stranded"] = true
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var colony: AiObjective = _by_id(objectives, "colonise.new_world")
+
+	assert_eq(colony.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(colony.blocked, "the Explorer is ashore with no crown land")
+	assert_eq(_child_ids(colony).size(), 0, "no hull and no colonist are wanted")
+	var report: Dictionary = AiObjectiveLedger.run(objectives, {"hull": 1, "civilian": 1})
+	assert_eq(
+		_by_id(objectives, "colonise.new_world").status, AiObjective.STATUS_BLOCKED,
+		"the allocate pass leaves the reason in place"
+	)
+	var named: bool = false
+	for line: Variant in report["lines"]:
+		if String(line).contains("no crown land"):
+			named = true
+	assert_true(named, "the trace names the strand")
+
+
+## The adapter reads an Explorer ashore where the crown owns nothing as a
+## stranded expedition (issue #602), not as a voyage under way (#497).
+func test_the_adapter_reads_a_stranded_explorer() -> void:
 	var play: PlaySession = _objective_session(_court())
 	play.civilian_layer.units.clear()
 	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
 	play.civilian_layer.regions.set_region(
 		1, [CivilianState.create(2, OBJ_OWNER, "explorer", Vector2i(0, 0))]
+	)
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_false(colony.is_empty(), "the court still prices its expedition")
+	assert_eq(String(colony["status"]), AiObjective.STATUS_BLOCKED)
+	assert_eq(
+		String(colony.get("blocked", "")), "the Explorer is ashore with no crown land",
+		"the aim names the strand"
+	)
+	assert_eq((colony.get("children", []) as Array).size(), 0, "no sailing is priced")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## A Merchant ashore is still the voyage's progress (#497): the deeds it buys
+## are what founds the colony, so the expedition stays funded.
+func test_the_adapter_reads_the_merchant_ashore_as_progress() -> void:
+	var play: PlaySession = _objective_session(_court())
+	play.civilian_layer.units.clear()
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(
+		1, [CivilianState.create(3, OBJ_OWNER, "merchant", Vector2i(0, 0))]
 	)
 	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
 	var colony: Dictionary = {}
