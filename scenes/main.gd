@@ -12,8 +12,8 @@ const SAVE_BROWSER: PackedScene = preload("res://scenes/save_browser.tscn")
 
 ## Overridable for tests / e2e smoke (set before add_child).
 var auto_start: bool = false
-var map_width: int = 128
-var map_height: int = 84
+var map_width: int = 96
+var map_height: int = 64
 var map_seed: int = GameConfig.DEFAULT_SEED
 var player_faction: int = FactionCatalog.PLAYER_FACTION
 ## Tests may pin the generated size while still driving the real setup screen.

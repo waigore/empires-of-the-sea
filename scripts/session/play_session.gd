@@ -43,8 +43,8 @@ var campaign_halted: bool = false
 var pause_menu: GameMenu = null
 ## Generation recipe, kept so a save can rebuild the identical world.
 var map_seed: int = 1500
-var map_width: int = 128
-var map_height: int = 84
+var map_width: int = 96
+var map_height: int = 64
 
 var world: WorldMap = null
 ## Region currently on screen (Old World first).

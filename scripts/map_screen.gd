@@ -33,8 +33,8 @@ const STARTING_CIVILIANS: Array[String] = MapPlayRegion.STARTING_CIVILIANS
 
 var play: PlaySession = null
 var map_seed: int = MAP_SEED
-var map_width: int = 128
-var map_height: int = 84
+var map_width: int = 96
+var map_height: int = 64
 ## Human Great Power chosen in game setup (Spain by default).
 var player_faction: int = FactionCatalog.PLAYER_FACTION
 ## LeaderKey chosen for that crown; empty means the crown's configured leader.
