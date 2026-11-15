@@ -140,7 +140,7 @@ static func _fill(
 		return 0
 	var quantity: int = mini(bid.remaining(), offer.remaining())
 	var gated_seller: bool = (
-		not offer.is_world() and not _is_minor(offer.faction) and not offer.auto
+		not offer.is_world() and not MarketRules.is_minor(offer.faction) and not offer.auto
 	)
 	if gated_seller:
 		var stock_left: int = _stock_left(state, offer.faction, commodity)
@@ -172,7 +172,7 @@ static func _fill(
 	# Flags the sale a colony's suzerain took (DR-20261111-11).
 	var is_favoured: bool = false
 	var favoured_for: Variant = state["context"].get("favoured_for", null)
-	if favoured_for is Callable and not bid.is_world() and _is_minor(offer.faction):
+	if favoured_for is Callable and not bid.is_world() and MarketRules.is_minor(offer.faction):
 		is_favoured = int((favoured_for as Callable).call(offer.faction)) == bid.faction
 	deals.append({
 		"commodity": commodity,
@@ -184,7 +184,7 @@ static func _fill(
 		"is_frr": is_frr,
 		"is_ftp": is_ftp and not is_frr,
 		"is_favoured": is_favoured and not is_frr,
-		"seller_is_minor": _is_minor(offer.faction),
+		"seller_is_minor": MarketRules.is_minor(offer.faction),
 		"origin_region": offer.origin_region,
 		"origin_index": offer.origin_index,
 		"offer_id": offer.id,
@@ -240,7 +240,7 @@ static func _bid_less(
 		var b_ftp: bool = bool((ftp_for as Callable).call(b.faction, offer.faction))
 		if a_ftp != b_ftp:
 			return a_ftp
-	if _is_minor(offer.faction):
+	if MarketRules.is_minor(offer.faction):
 		# A colony's suzerain clears its goods first inside the tier, whatever
 		# the rivals' relations (wiki: diplomacy § Favoured trading partner, R7.1;
 		# DR-20261111-11). Independent courts keep the R7.3 order below.
@@ -370,16 +370,6 @@ static func _take_stock(
 		key = faction
 	var row: Dictionary = stock[key] as Dictionary
 	row[commodity] = maxi(int(row.get(commodity, 0)) - quantity, 0)
-
-
-static func _is_minor(faction: int) -> bool:
-	if faction == MarketOrder.WORLD:
-		return false
-	var type_id: int = FactionCatalog.type_of(faction)
-	return (
-		type_id == FactionCatalog.Type.MINOR_NATION
-		or type_id == FactionCatalog.Type.TRIBE
-	)
 
 
 static func _int_copy(raw: Variant) -> Dictionary:

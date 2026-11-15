@@ -52,6 +52,10 @@ static func run(
 		var moved: Dictionary = AiBind.cargo_apply_route(kind, model, fleet, route)
 		if not bool(moved.get("ok", false)):
 			continue
+		# A route that ends at the crown's own seat folds into the home fleet as
+		# it docks, never a turn later (wiki: ships-and-naval § Home Fleet).
+		if bool(route.get("dock", false)):
+			MapPlayHomeMerge.fold(play, model, roster, fleet)
 		# A rival merchant charts the water it enters for its own court
 		# (wiki: fog-and-exploration; DR-20261110-23).
 		if not bool(route.get("dock", false)):

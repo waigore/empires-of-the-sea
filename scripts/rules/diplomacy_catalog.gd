@@ -213,17 +213,6 @@ static func state_label(at_war: bool) -> String:
 	return "At War" if at_war else "At Peace"
 
 
-static func thousands(value: int) -> String:
-	var text: String = str(absi(value))
-	var out: String = ""
-	var count: int = 0
-	for i in range(text.length() - 1, -1, -1):
-		out = text[i] + out
-		count += 1
-		if count % 3 == 0 and i > 0:
-			out = "," + out
-	return ("-" if value < 0 else "") + out
-
-
+## "£1,234": the diplomacy pages' purse, read from the one money formatter.
 static func money(value: int) -> String:
-	return "£%s" % thousands(value)
+	return MoneyText.money(value)

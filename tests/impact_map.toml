@@ -964,6 +964,17 @@ domain = "lens_kit"
 match = "scripts/map/diplomacy_lens.gd*"
 domain = "lens_kit"
 
+# The sea reading (DR-20261115-17): the zones the crown's sail is under its eye
+# in, and the fight the turn resolves there. Projection and view ride the same
+# narrow kit domain as the other readings.
+[[rules]]
+match = "scripts/rules/sea_survey.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/sea_lens.gd*"
+domain = "lens_kit"
+
 # Prospect / mineral uncover (wiki: fog-and-exploration § Prospect; DR-20261111-26).
 # Catalog + seeder + survey + Explorer policy travel together; kept off the full
 # map + AI + economy fan-out so tier 1 stays inside 5 min.
@@ -2184,6 +2195,12 @@ domain = "diplomacy"
 match = "scripts/map/map_play_input.gd"
 domain = "crown_road"
 
+# The chart's readings (raise, walk, fade) moved out of MapPlayInput to keep it
+# under the 400-line bar (REQ-P3-01). Same domain: the lens board and its suites.
+[[rules]]
+match = "scripts/map/map_play_lens.gd*"
+domain = "crown_road"
+
 # Lens rebuild path (survey / diplomacy / crown-road); keep off the full map set.
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
@@ -2329,6 +2346,21 @@ domain = "army"
 [[rules]]
 match = "scripts/rules/military_parity.gd"
 domain = "ai"
+
+# Presentation catalogs and the shared purse formatter. Declared before the
+# civilian_*/diplomacy_*/ship_*/regiment_* globs so a MoneyText extract does not
+# steal *_catalog → misc and pull the screen/lens suites past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/money_text.gd*"
+domain = "misc"
+
+[[rules]]
+match = "scripts/rules/civilian_catalog.gd*"
+domain = "misc"
+
+[[rules]]
+match = "scripts/rules/diplomacy_catalog.gd*"
+domain = "misc"
 
 [[rules]]
 match = "scripts/rules/civilian_*.gd*"
@@ -2499,6 +2531,13 @@ domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/market_offers_head.gd"
+domain = "economy_ui"
+
+# The Minor Nations & Tribes book on the market tab: the chip strip, the
+# reading it selects and the rows it narrows. Presentation over the published
+# book, so it rides the same economy_ui suites as the page that mounts it.
+[[rules]]
+match = "scripts/ui/ledger_offers.gd*"
 domain = "economy_ui"
 
 [[rules]]
@@ -2865,6 +2904,16 @@ domain = "menu"
 # land-battle suites never open it.
 [[rules]]
 match = "scripts/ui/game_menu.gd"
+domain = "pause"
+
+# The pause page's KEYS reading (its catalogue and its sheet) rides the same
+# domain: only the suites that mount the pause page can read it.
+[[rules]]
+match = "scripts/ui/key_reference.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/keys_sheet.gd*"
 domain = "pause"
 
 [[rules]]

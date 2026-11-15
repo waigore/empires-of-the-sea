@@ -65,6 +65,7 @@ static func join(play: PlaySession) -> void:
 	var displaced: int = int(merged.get("displaced", -1))
 	if displaced >= 0:
 		MapPlayPortLoss.put_ashore(play, displaced, home.province)
+	_seat_carried(play, home)
 	play.ship_layer.rebuild_markers()
 	play.ship_layer.select(play.ship_layer.ship_for(home))
 	play.hud.toast(merged_line(play, home, hulls))
@@ -102,6 +103,7 @@ static func settle_seats(play: PlaySession) -> int:
 		var changed: bool = false
 		for faction: int in FactionCatalog.great_power_ids():
 			var reports: Array[Dictionary] = FleetHomeMerge.settle(model, roster, faction)
+			var home: FleetState = FleetHomeMerge.home_fleet(model, roster, faction)
 			for report: Dictionary in reports:
 				changed = true
 				joined += 1
@@ -109,9 +111,47 @@ static func settle_seats(play: PlaySession) -> int:
 				# displaced army when the harness runs headless.
 				if int(report.get("displaced", -1)) >= 0:
 					MapPlayPortLoss.put_ashore(play, int(report["displaced"]), int(report["seat"]))
+			if not reports.is_empty():
+				_seat_carried(play, home)
 		if changed:
 			play.ship_layer.regions.set_region(region, roster)
 	return joined
+
+
+## A docking move folds into the home fleet where the move happens, so a planner
+## that only moves hulls never leaves two squadrons at the seat (wiki:
+## ships-and-naval § Home Fleet — "any naval move that docks at the capital
+## resolves by merging"). A merge that finds an army already aboard lands the
+## surplus at the port rather than drowning it. Empty when she did not moor at
+## her own seat.
+static func fold(
+	play: PlaySession, model: MapModel, roster: Array[FleetState], fleet: FleetState
+) -> Dictionary:
+	var merged: Dictionary = FleetHomeMerge.absorb(model, roster, fleet)
+	var home: FleetState = merged.get("fleet") as FleetState
+	if home == null:
+		return {}
+	var displaced: int = int(merged.get("displaced", -1))
+	if displaced >= 0:
+		MapPlayPortLoss.put_ashore(play, displaced, home.province)
+	_seat_carried(play, home)
+	return merged
+
+
+## The army a merge keeps aboard rides the squadron that now holds her hulls: her
+## id is stored on the squadron that carries her (wiki: ships-and-naval
+## § Naval transport), so the court's book, the OOB and the invasion pass find a
+## live seat instead of the squadron the merge struck off. The naval pass's
+## `ArmyTransport.drop_lost` would repair the seat a turn later; a merge must not
+## leave a carried army pointing at a squadron no chart holds.
+static func _seat_carried(play: PlaySession, home: FleetState) -> void:
+	if play == null or play.army_layer == null or home == null:
+		return
+	if home.embarked_army < 0:
+		return
+	var army: ArmyState = ArmyTransport.army_by_id(play.army_layer, home.embarked_army)
+	if army != null and army.embarked_fleet != home.id:
+		army.embarked_fleet = home.id
 
 
 ## Load repair: a save written before the merge could park a squadron at the
@@ -134,6 +174,9 @@ static func repair(play: PlaySession) -> void:
 			"%s rejoined the home fleet at %s"
 			% [squadron(int(report.get("hulls", 0))), play.model.province_name(seat)]
 		)
+	_seat_carried(play, FleetHomeMerge.home_fleet(
+		play.model, play.ship_layer.fleets, play.player_faction
+	))
 
 
 ## "1 hull" / "4 hulls", for a report line.

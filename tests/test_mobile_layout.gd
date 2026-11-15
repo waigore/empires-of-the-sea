@@ -212,6 +212,24 @@ func test_phone_chrome_fits_the_screen() -> void:
 		)
 
 
+## The sea key dresses the same cartouche and stays right-docked on a phone: its
+## five pennant rows are the tallest reading the cartouche carries.
+func test_the_sea_key_fits_a_phone() -> void:
+	_open(PHONE)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	MapPlayInput.set_sea_lens(_screen.play, true)
+	await get_tree().process_frame
+	assert_true(hud.lens_legend.visible)
+	assert_eq(hud.lens_legend.kind, LensLegend.KIND_SEA)
+	_fits(hud.lens_legend.get_global_rect(), _screen_rect(), "sea key")
+	assert_gt(
+		hud.lens_legend.get_global_rect().position.x,
+		hud.size.x - LensLegend.WIDTH - 20.0,
+		"sea key right-docked"
+	)
+
+
 ## The political key dresses the same cartouche as the survey key and stays
 ## right-docked on a phone.
 func test_diplomacy_key_fits_a_phone() -> void:
@@ -387,7 +405,7 @@ func test_the_bar_seals_cycle_the_readings_and_open_the_menu() -> void:
 
 	for kind: String in [
 		LensLegend.KIND_SURVEY, LensLegend.KIND_DIPLOMACY,
-		LensLegend.KIND_CROWN_ROAD, LensLegend.KIND_DEFENCE,
+		LensLegend.KIND_CROWN_ROAD, LensLegend.KIND_DEFENCE, LensLegend.KIND_SEA,
 	]:
 		seal.pressed.emit()
 		assert_eq(seal.active_kind, kind, "the click walks to %s" % kind)

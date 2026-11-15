@@ -15,6 +15,7 @@ var _lens := false
 var _political := false
 var _crown := false
 var _defence := false
+var _sea := false
 var _war := false
 var _gazette := false
 var _dossier := false
@@ -49,6 +50,8 @@ func _initialize() -> void:
 			_crown = arg.substr(6) == "1"
 		elif arg.begins_with("defence="):
 			_defence = arg.substr(8) == "1"
+		elif arg.begins_with("sea="):
+			_sea = arg.substr(4) == "1"
 		elif arg.begins_with("war="):
 			_war = arg.substr(4) == "1"
 		elif arg.begins_with("gazette="):
@@ -83,6 +86,8 @@ func _process(_delta: float) -> bool:
 		MapPlayInput.set_crown_lens(_screen.play, true)
 	if _frames == 4 and _defence and _screen != null:
 		MapPlayInput.set_defence_lens(_screen.play, true)
+	if _frames == 4 and _sea and _screen != null:
+		MapPlayInput.set_sea_lens(_screen.play, true)
 	if _frames == 4 and _war and _screen != null:
 		_sample_war()
 	if _frames == 4 and _gazette and _screen != null:

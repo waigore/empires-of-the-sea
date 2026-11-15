@@ -201,6 +201,62 @@ func test_back_from_the_save_browser_returns_to_pause() -> void:
 	assert_false(screen.game_menu.handle_back(), "back is a no-op when closed")
 
 
+## The chart's controls read on one page from the pause (REQ-P5-03, REQ-P5-07):
+## every action the map registers is named, each row prints the key the InputMap
+## actually holds, and back returns to the pause rows.
+func test_the_pause_page_reads_the_charts_keys() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	InputActions.ensure_actions()
+	screen.game_menu.open()
+	screen.game_menu.keys_button.emit_signal("pressed")
+	assert_true(screen.game_menu.is_open(), "the pause stays open")
+	assert_true(screen.game_menu._keys_page.visible, "the keys page is up")
+	assert_false(screen.game_menu._pause_page.visible, "the pause rows step aside")
+	var rows: Array[Control] = _key_rows(screen.game_menu._keys_page)
+	var listed: int = 0
+	for group: Dictionary in KeyReference.groups():
+		listed += (group["rows"] as Array).size()
+	assert_eq(rows.size(), listed, "one row per control on the page")
+	for row: Control in rows:
+		assert_ne(_key_chip(row), KeyReference.NO_KEY, "every row prints a key")
+	# A named control reads its own binding, so a rebind moves the page.
+	assert_eq(
+		_key_chip(_row_for(rows, "Muster roll")),
+		KeyReference.primary(InputActions.MUSTER_ROLL),
+		"the muster row prints the key the InputMap holds (O on a QWERTY cap)"
+	)
+	assert_true(
+		_key_chip(_row_for(rows, "Pan")).contains(" "), "the four pan keys read as a cluster"
+	)
+	assert_true(screen.game_menu.handle_back(), "back is handled")
+	assert_false(screen.game_menu._keys_page.visible, "the keys page steps aside")
+	assert_true(screen.game_menu._pause_page.visible, "the pause rows come back")
+	assert_true(screen.game_menu.is_open(), "the pause menu stays open")
+	screen.game_menu.close()
+
+
+## No control ships unread: every action `InputActions` registers has a row on
+## the page (REQ-P5-03). The guard is the catalogue's own constant map, so a new
+## key cannot land without the sheet naming it.
+func test_every_registered_action_is_on_the_keys_page() -> void:
+	InputActions.ensure_actions()
+	var named: Array[String] = KeyReference.actions()
+	var table: Dictionary = load("res://scripts/input_actions.gd").get_script_constant_map()
+	var missing: Array[String] = []
+	for constant: Variant in table.keys():
+		var action: String = String(table[constant])
+		if action.is_empty() or named.has(action):
+			continue
+		# The page prints the actions the chart answers to; a constant that is
+		# not an InputMap action is not a key.
+		if InputMap.has_action(action):
+			missing.append(action)
+	assert_eq(missing, [] as Array[String], "every registered action is named")
+
+
 func test_menu_save_load_and_return_flow() -> void:
 	await _start_game()
 	var screen: MapScreen = main.current_screen
@@ -404,3 +460,39 @@ func _clean_dir() -> void:
 		for file_name: String in dir.get_files():
 			dir.remove(file_name)
 	DirAccess.remove_absolute(path)
+
+
+## The keys page's rows, in reading order: one `KeyRow` per control. Godot gives
+## duplicate sibling names an internal spelling, so the cases read the rows by
+## shape (an HBox row beside the group captions and rules) rather than by name.
+func _key_rows(page: Control) -> Array[Control]:
+	var out: Array[Control] = []
+	for node: Node in page.get_children():
+		var row := node as HBoxContainer
+		if row != null:
+			out.append(row)
+	return out
+
+
+## The key a row prints, read off its own cap; "" when the row has none.
+func _key_chip(row: Control) -> String:
+	if row == null:
+		return ""
+	for node: Node in row.find_children("KeyChip", "", true, false):
+		var plate := node as PanelContainer
+		if plate == null or plate.get_child_count() == 0:
+			continue
+		var label := plate.get_child(0) as Label
+		if label != null:
+			return label.text
+	return ""
+
+
+## The row whose words open with this control's name.
+func _row_for(rows: Array[Control], label: String) -> Control:
+	for row: Control in rows:
+		for raw: Variant in row.get_children():
+			var text := raw as Label
+			if text != null and text.text.begins_with(label):
+				return row
+	return null
