@@ -103,6 +103,13 @@ static func note(play: PlaySession, line: String) -> void:
 		play.auto_log.remove_at(0)
 
 
+## The crown's own orders are ignored while Auto holds the seat; the chart, the
+## dossiers and the ledgers stay open for inspection (wiki: auto-mode
+## § Read-only while it runs).
+static func blocks_orders(play: PlaySession) -> bool:
+	return play != null and play.auto_active
+
+
 ## The seat's passes for the turn about to resolve, in phase order.
 static func begin_turn(play: PlaySession) -> void:
 	play.auto_steps.assign(STEPS)
