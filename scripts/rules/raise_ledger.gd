@@ -17,6 +17,9 @@ extends RefCounted
 const STATE_READY: String = "ready"
 const STATE_AT_WORK: String = "at_work"
 const STATE_LOCKED: String = "locked"
+## A hard stop on a batch press: a sheet that never leaves a row ready cannot
+## spin, whatever a hand-built chart holds (DR-20261116-03).
+const BATCH_LIMIT: int = 64
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
@@ -106,6 +109,55 @@ static func filter_counts(
 ## A raise reading is the row's own state word.
 static func matches(row: Dictionary, filter_key: String) -> bool:
 	return LedgerRows.field_matches(row, "state", filter_key)
+
+
+## The ready steps a view prints, in the order it prints them: one target per row
+## a press could file now, so the batch press files exactly what the crown can see
+## and a narrowed reading narrows the press (REQ-P5-04; DR-20261116-03).
+static func ready_targets(
+	data: Dictionary, region_key: String, filter_key: String = LedgerRows.ALL
+) -> Array[Dictionary]:
+	var targets: Array[Dictionary] = []
+	for group: Dictionary in groups(data, region_key, filter_key):
+		for raw: Variant in group["rows"]:
+			var row: Dictionary = raw
+			if String(row.get("state", "")) != STATE_READY:
+				continue
+			targets.append({
+				"region": int(row.get("region", 0)),
+				"id": int(row.get("id", -1)),
+				"name": String(row.get("name", "")),
+			})
+	return targets
+
+
+## Files a batch of ready targets through `file` — the sheet's own order hook —
+## and stops at the first refusal, because that refusal is the rules' answer for
+## the realm: no free crew, or stores short of the price (REQ-P2-03, REQ-P5-04;
+## DR-20261116-03). Returns {raised, total, refusal}.
+static func file_batch(targets: Array[Dictionary], file: Callable) -> Dictionary:
+	var raised: int = 0
+	var refusal: String = ""
+	for target: Dictionary in targets:
+		if raised >= BATCH_LIMIT:
+			break
+		var result: Dictionary = file.call(int(target["region"]), int(target["id"]))
+		if not bool(result.get("ok", false)):
+			refusal = String(result.get("message", ""))
+			break
+		raised += 1
+	return {"raised": raised, "total": targets.size(), "refusal": refusal}
+
+
+## The one line a batch press leaves on the court's lane: what it paid for, and
+## what the realm still waits on (REQ-P5-05).
+static func batch_receipt(result: Dictionary, word: String) -> String:
+	var raised: int = int(result.get("raised", 0))
+	var total: int = int(result.get("total", 0))
+	var refusal: String = String(result.get("refusal", ""))
+	if refusal.is_empty():
+		return "Raised %d %s — every ready step in this view is ordered." % [raised, word]
+	return "Raised %d of %d %s. The next waits: %s" % [raised, total, word, refusal]
 
 
 ## What the next step waits on, worst first: a finished work, a crew already at

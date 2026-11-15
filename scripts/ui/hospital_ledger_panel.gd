@@ -3,10 +3,11 @@ extends RaiseLedgerPanel
 ## The crown's hospitals: every province it holds that can carry a ward, the
 ## level it stands at, whether its staff ate and the step the Engineer would
 ## take next, narrowed by chart and by what the step waits on, with one press
-## that files the order (wiki: combat § Regiment condition; DR-20261116-02). The
-## projection lives in [HospitalLedger] and the map hooks in [MapPlayHospitals];
-## this class names the ward words and the order, and borrows the rest of the
-## sheet from [RaiseLedgerPanel] (REQ-P3-02, REQ-P3-03).
+## that files the order and one confirmed press that files every ready ward the
+## view prints (wiki: combat § Regiment condition; DR-20261116-02,
+## DR-20261116-03). The projection lives in [HospitalLedger] and the map hooks
+## in [MapPlayHospitals]; this class names the ward words and the order, and
+## borrows the rest of the sheet from [RaiseLedgerPanel] (REQ-P3-02, REQ-P3-03).
 
 
 func _init() -> void:
@@ -46,7 +47,7 @@ func _row_word(count: int) -> String:
 	return "ward" if count == 1 else "wards"
 
 
-## The rule a crown needs before it pays for a ward sits on the sheet, not in a
+## The rule a crown needs before it pays for a step sits on the sheet, not in a
 ## hover: a phone hides the footer hint (REQ-P1-07, REQ-P5-03).
 func _note() -> Control:
 	var note := UiRowBuilder.label(HospitalLedger.rule_note(), 11, Palette.TEXT_DIM)
@@ -90,8 +91,7 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 	return row
 
 
-func _file_order(region: int, province_id: int) -> void:
+func _file_order(region: int, province_id: int, quiet: bool = false) -> Dictionary:
 	if play == null:
-		return
-	MapPlayHospitals.raise(play, region, province_id)
-	refresh()
+		return {"ok": false, "message": ""}
+	return MapPlayHospitals.raise(play, region, province_id, quiet)

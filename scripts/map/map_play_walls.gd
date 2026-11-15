@@ -19,13 +19,17 @@ static func snapshot(play: PlaySession) -> Dictionary:
 ## Files the wall order on the chart the province lies on. The order reads the
 ## mounted chart's crews and works, so the chart is swapped first when the
 ## province is on the other one — the same step Visit takes. The order's own
-## message reaches the court as the toast (REQ-P5-05).
-static func raise(play: PlaySession, region: int, province_id: int) -> void:
+## message reaches the court as the toast (REQ-P5-05); `quiet` keeps it off the
+## lane for a batch press, whose receipt is the one line the court reads
+## (DR-20261116-03).
+static func raise(
+	play: PlaySession, region: int, province_id: int, quiet: bool = false
+) -> Dictionary:
 	if play == null or play.world == null:
-		return
+		return {"ok": false, "message": ""}
 	var model: MapModel = play.world.region(region)
 	if model == null or model.province_data(province_id) == null:
-		return
+		return {"ok": false, "message": ""}
 	if region != play.region_index:
 		play.switch_region(region)
 	var result: Dictionary = ImprovementOrders.build_fort(
@@ -33,6 +37,8 @@ static func raise(play: PlaySession, region: int, province_id: int) -> void:
 		play.visibility, play.player_faction, province_id, play.tech_caps(),
 		play.tech_unlocked()
 	)
-	play.hud.toast(String(result.get("message", "")))
+	if not quiet:
+		play.hud.toast(String(result.get("message", "")))
 	play.improvements.refresh()
 	play.civilian_layer.sync()
+	return result

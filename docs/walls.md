@@ -4,9 +4,8 @@ Every province the crown holds that can carry a fort, in one ledger — the wall
 that meets an attack, the step the Engineer would take next, and the press that
 files it.
 
-**Pillars:** P1 (the level reads as a numeral), P2 (the price, the wait and the
-gate are the fort table's own), P3 (pure projection), P5 (one press instead of
-thirty dossiers).
+**Pillars:** P1 (numerals), P2 (the fort table's own price, wait and gate),
+P3 (pure projection), P5 (one press, not thirty).
 
 **Wiki:** [siege-mechanics](https://github.com/waigore/empires-of-the-sea/wiki/siege-mechanics)
 § Fort Levels, § Wall Protection, § Emplaced Artillery. Decision: DR-20261116-01.
@@ -35,17 +34,18 @@ falls even when an assault is repelled.
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
 ready / at work / walled) — each with its own tally; the count line names the
 bare shores. The reading leads with what can be raised now, then what is in
-hand, then what waits on a study, a crew or the stores, and the finished walls
-last; the weakest wall leads.
+hand, then what waits, the finished walls last; the weakest wall leads.
 
 ## Raise
 
 **Raise** sends the nearest idle Engineer through the same `build_fort` order
 the civilian panel files (`ImprovementOrders.build_fort` → `CivilianWork`),
-swapping the chart first when the province lies on the other one. The order's
-message reaches the court as the toast, and the row repaints as `AT WORK`. A row
-that cannot be raised carries no press: the note names the wait — the study, the
-crew, or the stores a `LOCKED` shore is short of.
+swapping the chart first when the province lies on the other one; its message is
+the toast and the row repaints as `AT WORK`. A row that cannot be raised carries
+no press: the note names the wait — the study, the crew, or the stores a
+`LOCKED` shore is short of. **Raise all ready (n)** files every ready row the
+view prints, arm then confirm, and stops at the first refusal
+(DR-20261116-03).
 
 ## Architecture
 
@@ -57,10 +57,9 @@ crew, or the stores a `LOCKED` shore is short of.
 | `scripts/ui/wall_ledger_row.gd` | one wall |
 | `scripts/ui/province_ledger_panel.gd` | the `Walls ›` door |
 
-No figure is recomputed: the level and its guns are `FortRules`, the price is
-`FortRules.cost`, the wait is `FortRules.turns`, and the gate is
-`CivilianWorkPlan.fort_refusal` — the wording the order itself refuses with
-(`REQ-P2-03`).
+No figure is recomputed: the level and its guns are `FortRules`, as are the
+price and the wait; the gate is `CivilianWorkPlan.fort_refusal`, the wording the
+order itself refuses with (`REQ-P2-03`).
 
 ## Tests
 
