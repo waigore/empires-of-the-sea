@@ -15,7 +15,8 @@ static func establish_overture(
 	target: int,
 	stage: String,
 	tech: Dictionary = {},
-	decision: String = DiplomacyRules.DECISION_AUTO
+	decision: String = DiplomacyRules.DECISION_AUTO,
+	power: Dictionary = {}
 ) -> Dictionary:
 	var treasury: int = economy.treasury if economy != null else 0
 	var check: Dictionary = DiplomacyRules.can_establish_overture(
@@ -25,7 +26,7 @@ static func establish_overture(
 		return check
 	state.claim(player, target, "overture")
 	var record: DiplomacyRelation = state.relation(player, target)
-	var accepts: bool = _accepts_overture(record, target, stage)
+	var accepts: bool = _accepts_overture(record, target, stage, world, player, power)
 	if decision == DiplomacyRules.DECISION_ACCEPT:
 		accepts = true
 	elif decision == DiplomacyRules.DECISION_REFUSE:
@@ -96,14 +97,19 @@ static func _absorb(world: WorldMap, state: DiplomacyState, winner: int, loser: 
 
 
 static func _accepts_overture(
-	record: DiplomacyRelation, target: int, stage: String
+	record: DiplomacyRelation, target: int, stage: String,
+	world: WorldMap, player: int, power: Dictionary
 ) -> bool:
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
 		return true
 	if stage == DiplomacyCatalog.STAGE_NAP:
 		return record.score >= DiplomacyCatalog.NAP_MIN_SCORE
 	if stage == DiplomacyCatalog.STAGE_JOIN_EMPIRE:
-		return record.score >= DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+		# The warmth the court must hold joins the absorption gate: a nearly
+		# defeated crown, or one the offerer so far outpowers that standing
+		# alone is hopeless (wiki: diplomacy § Join Empire; issue #750).
+		return record.score >= DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE \
+			and DiplomacyRules.accepts_join_empire(world, player, target, power)
 	return true
 
 

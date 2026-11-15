@@ -8,6 +8,7 @@ const KIND_WAR: String = "declare_war"
 const KIND_PEACE: String = "offer_peace"
 const KIND_ALLIANCE: String = "alliance"
 const KIND_BREAK: String = "break_alliance"
+const KIND_BREAK_NAP: String = "break_nap"
 const KIND_OVERTURE: String = "overture"
 const KIND_AID: String = "grant_aid"
 const KIND_SUBSIDY: String = "set_subsidy"
@@ -65,6 +66,14 @@ static func options(
 					KIND_ALLIANCE, "", "", GROUP_TREATIES
 				)
 			)
+	if not record.at_war and DiplomacyRules.has_pact(state, player, target):
+		result.append(
+			_valued(
+				"Break NAP", _can_break_nap(state, player, target), KIND_BREAK_NAP,
+				"", "", GROUP_TREATIES,
+				"The pact ends at once; war on this court must wait a turn."
+			)
+		)
 	var next: String = DiplomacyCatalog.next_stage(state.overture(player, target))
 	if next != "" and not record.at_war:
 		var cost: int = DiplomacyCatalog.stage_cost(
@@ -205,6 +214,8 @@ static func validate(
 		KIND_BREAK:
 			var record: DiplomacyRelation = state.relation(player, target)
 			return _can_break(record) if record != null else _deny("No envoy has reached that court.")
+		KIND_BREAK_NAP:
+			return _can_break_nap(state, player, target)
 		KIND_OVERTURE:
 			return DiplomacyRules.can_establish_overture(
 				state, world, player, target, String(order.get("stage", "")), treasury, tech
@@ -236,7 +247,8 @@ static func apply(
 	world: WorldMap,
 	economy: PlayerEconomy,
 	order: Dictionary,
-	tech: Dictionary = {}
+	tech: Dictionary = {},
+	power: Dictionary = {}
 ) -> Dictionary:
 	var player: int = int(order.get("from", FactionCatalog.PLAYER_FACTION))
 	var target: int = int(order.get("target", -1))
@@ -255,10 +267,13 @@ static func apply(
 		KIND_ALLIANCE:
 			return DiplomacyRules.form_alliance(state, player, target)
 		KIND_BREAK:
-			return DiplomacyRules.break_alliance(state, player, target)
+			return DiplomacyTreaties.break_alliance(state, player, target)
+		KIND_BREAK_NAP:
+			return DiplomacyTreaties.break_nap(state, player, target)
 		KIND_OVERTURE:
 			return DiplomacyOvertures.establish_overture(
-				state, economy, world, player, target, String(order.get("stage", "")), tech
+				state, economy, world, player, target, String(order.get("stage", "")), tech,
+				DiplomacyRules.DECISION_AUTO, power
 			)
 		KIND_AID:
 			return DiplomacyAid.grant_aid(
@@ -312,6 +327,12 @@ static func _valued(
 static func _can_break(record: DiplomacyRelation) -> Dictionary:
 	if not record.formal_alliance:
 		return _deny("There is no formal alliance to break.")
+	return _allow()
+
+
+static func _can_break_nap(state: DiplomacyState, player: int, target: int) -> Dictionary:
+	if not DiplomacyRules.has_pact(state, player, target):
+		return _deny("There is no non-aggression pact to break.")
 	return _allow()
 
 

@@ -67,6 +67,7 @@ static func _table() -> Dictionary:
 			"peaceMade": GazetteCopyWar.peace_made,
 			"allianceFormed": GazetteCopyWar.alliance_formed,
 			"allianceBroken": GazetteCopyWar.alliance_broken,
+			"napBroken": GazetteCopyWar.pact_broken,
 			"callToArmsAccepted": GazetteCopyWar.call_to_arms_accepted,
 			"callToArmsRefused": GazetteCopyWar.call_to_arms_refused,
 			"greatPowerFell": GazetteCopyWar.great_power_fell,

@@ -526,7 +526,7 @@ func test_a_priced_deed_opens_the_envoy_chain_tech_or_not() -> void:
 	var closed: Dictionary = _overture(world, state, config, {})
 	assert_eq(
 		int(open["utility"]) - int(closed["utility"]),
-		AiDiplomacyOffers.LAND_ENVOY_BONUS,
+		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
 		"the priced deed alone lifts the envoy"
 	)
 
