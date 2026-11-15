@@ -188,7 +188,7 @@ func _add_offers(offers: Array) -> void:
 			offer_requested.emit(offer_id, quantity)
 	)
 	add_child(_offers_plate)
-	_offers_plate.fill(offers, _cargo, _compact)
+	_offers_plate.fill(offers, _cargo, _compact, _market, _viewer)
 	UiRowBuilder.spacer(self, 4.0)
 
 

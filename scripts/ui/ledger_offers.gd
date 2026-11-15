@@ -29,6 +29,10 @@ var _offers_head: MarketOffersHead = null
 var _offers_box: VBoxContainer = null
 ## A phone viewport wants thumb-sized chips; remembered for the next rebuild.
 var _compact: bool = false
+## Live market + viewing crown: the row re-reads the ask against terms that may
+## have moved after the book was published (REQ-P5-05).
+var _market: WorldMarket = null
+var _viewer: int = FactionCatalog.PLAYER_FACTION
 
 
 func _init() -> void:
@@ -39,10 +43,19 @@ func _init() -> void:
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
 ## `cargo` is the home fleet's holds, so a full hold locks the Bid button.
-func fill(offers: Array, cargo: Dictionary, compact: bool = false) -> void:
+## `market` and `viewer` let each row name the ask the clearing will charge.
+func fill(
+	offers: Array,
+	cargo: Dictionary,
+	compact: bool = false,
+	market: WorldMarket = null,
+	viewer: int = FactionCatalog.PLAYER_FACTION
+) -> void:
 	_offers = offers
 	_cargo = cargo
 	_compact = compact
+	_market = market
+	_viewer = viewer
 	_offers_head = null
 	_offers_box = null
 	UiRowBuilder.clear(self)
@@ -154,7 +167,7 @@ func _offer_row(offer: Dictionary) -> Control:
 	var seller: int = int(offer.get("faction", -1))
 	var commodity: String = String(offer.get("commodity", ""))
 	var left: int = int(offer.get("quantity", 0))
-	var ask: int = int(offer.get("unit_price", 0))
+	var ask: int = MinorMarket.ask_for_reader(_market, offer, _viewer)
 
 	row.add_child(
 		UiRowBuilder.caption(FactionCatalog.name_of(seller), 13, FactionCatalog.color_of(seller), 96.0)

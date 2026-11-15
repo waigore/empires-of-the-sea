@@ -577,6 +577,40 @@ func test_bidding_from_an_offer_row_enters_the_auction() -> void:
 	assert_eq(economy.treasury, treasury_before - charged)
 
 
+## A term that moves after the book was published moves the deal the clearing
+## charges too, so the row reads the ask again where it is drawn: a stale row
+## must never name a price the auction will not honour (REQ-P5-05).
+func test_an_offer_row_names_the_ask_the_clearing_will_charge() -> void:
+	var market: WorldMarket = _screen.economy.market
+	var viewer: int = _screen.player_faction
+	var stale: Dictionary = {
+		"id": "7:timber",
+		"faction": 7,
+		"commodity": "timber",
+		"quantity": 2,
+		"unit_price": market.price("timber"),
+	}
+	# A boycott published after the book went out: 110% imports, 90% exports.
+	market.set_terms(viewer, {"buy": {"*": 1.1}, "sell": {"*": 0.9}})
+	var page := LedgerMarket.new()
+	page.fill(_screen.economy.economy, market, {}, [stale], {}, viewer)
+	var buttons: Array[Button] = page.offer_buttons()
+	assert_eq(buttons.size(), 1)
+	var button: Button = buttons[0]
+	var ask: int = market.buy_price("timber", viewer)
+	assert_ne(int(stale["unit_price"]), ask, "the terms really moved after the publish")
+	assert_true(
+		button.tooltip_text.contains("ask of %d" % ask),
+		"the row asks the clearing's price: %s" % button.tooltip_text
+	)
+	assert_eq(
+		MinorMarket.ask_for_reader(null, stale), int(stale["unit_price"]),
+		"with no market the row keeps the price it was published with"
+	)
+	market.set_terms(viewer, {})
+	page.free()
+
+
 func test_an_empty_offer_book_says_so() -> void:
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	panel.refresh(
