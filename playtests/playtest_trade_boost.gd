@@ -55,7 +55,7 @@ func _run() -> void:
 		str(play.diplomacy.trade_pairs.has(pair)),
 		play.diplomacy.relation(play.player_faction, seller).score,
 	])
-	_say(_boost_events(play.diplomacy))
+	_say(_boost_events(play.diplomacy, pair))
 	_end_turn(play)
 	var after: float = play.diplomacy.relation(play.player_faction, seller).score
 	var embassy: bool = DiplomacyRules.has_embassy(play.diplomacy, play.player_faction, seller)
@@ -63,17 +63,20 @@ func _run() -> void:
 		play.diplomacy.subsidy(play.player_faction, seller),
 		play.diplomacy.subsidy(seller, play.player_faction)
 	)
-	var expected: float = 2.0 + (0.4 if embassy else 0.0) + 0.2 * float(percent)
-	_say("after the paying close (turn %d): score %.1f (expected %.1f = %.1f + %.1f embassy + %.1f subsidy)" % [
-		play.turn, after, before + expected, before, 0.4 if embassy else 0.0, 0.2 * float(percent),
+	var published: float = 2.0 + (0.4 if embassy else 0.0) + 0.2 * float(percent)
+	_say("the published lift for this pair: %.1f (+2.0 base +%.1f embassy +%.1f subsidy)" % [
+		published, 0.4 if embassy else 0.0, 0.2 * float(percent),
 	])
-	_say(_boost_events(play.diplomacy))
+	_say("the pair's paid lifts: %s" % _paid_lift_text(play.diplomacy, pair))
+	_say("score now %.1f (was %.1f before the deal; the drift pays 4.0 a close after the lift)" % [
+		after, before,
+	])
 	_say("the pair's record is consumed: %s" % str(not play.diplomacy.trade_pairs.has(pair)))
 	_finish()
 
 
 ## Every trade-deal lift the phase has paid, so the receipt names the turn.
-func _boost_events(state: DiplomacyState) -> String:
+func _boost_events(state: DiplomacyState, pair: String) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	for raw: Variant in state.events:
 		if typeof(raw) != TYPE_DICTIONARY:
@@ -81,13 +84,33 @@ func _boost_events(state: DiplomacyState) -> String:
 		var event: Dictionary = raw
 		if String(event.get("kind", "")) != "tradeDealBoost":
 			continue
-		lines.append("turn %d: %d>%d +%s" % [
-			int(event.get("turn", -1)), int(event.get("a", -1)), int(event.get("b", -1)),
+		if state.pair_key(int(event.get("a", -1)), int(event.get("b", -1))) != pair:
+			continue
+		lines.append("turn %d +%s" % [
+			int(event.get("turn", -1)),
 			str((event.get("data", {}) as Dictionary).get("delta", 0.0)),
 		])
 	if lines.is_empty():
-		return "  no trade-deal lift has been paid yet"
-	return "  lifts: " + " · ".join(lines)
+		return "  the pair has had no trade-deal lift yet"
+	return "  the pair's lifts: " + " · ".join(lines)
+
+
+## The pair's paid lifts as one sum, for the one line that reads them against
+## the published figure.
+func _paid_lift_text(state: DiplomacyState, pair: String) -> String:
+	var total: float = 0.0
+	var count: int = 0
+	for raw: Variant in state.events:
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var event: Dictionary = raw
+		if String(event.get("kind", "")) != "tradeDealBoost":
+			continue
+		if state.pair_key(int(event.get("a", -1)), int(event.get("b", -1))) != pair:
+			continue
+		total += float((event.get("data", {}) as Dictionary).get("delta", 0.0))
+		count += 1
+	return "%.1f over %d lift(s)" % [total, count]
 
 
 ## The first Minor/Tribe offer the crown can pay for and ship this turn.
