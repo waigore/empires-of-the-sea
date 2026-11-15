@@ -58,6 +58,14 @@ suites = [
   "test_land_battle_rules.gd",
 ]
 
+# Agent Debug Bridge (issue #699): the pure projector and the thin loopback
+# WebSocket node. Query-only debug tooling, so a change here runs its own suite
+# instead of paying the map-screen fan-out.
+[domains.debug_bridge]
+suites = [
+  "test_agent_debug_bridge.gd",
+]
+
 [domains.campaign]
 suites = [
   "test_diplomacy_rules.gd",
@@ -2926,6 +2934,13 @@ domain = "menu"
 match = "scripts/input_actions.gd"
 domain = "crown_road"
 
+# Agent Debug Bridge (issue #699): the pure projector and the thin loopback
+# WebSocket node. Query-only debug tooling, so a change here runs its own suite
+# instead of paying the whole fleet.
+[[rules]]
+match = "scripts/debug/*.gd*"
+domain = "debug_bridge"
+
 [[rules]]
 match = "scripts/**"
 full = true
@@ -3169,6 +3184,10 @@ domain = "advanced"
 [[rules]]
 match = "tests/test_court_ui_parts.gd*"
 domain = "menu"
+
+[[rules]]
+match = "tests/test_agent_debug_bridge.gd*"
+domain = "debug_bridge"
 
 [[rules]]
 match = "tests/test_*.gd"
