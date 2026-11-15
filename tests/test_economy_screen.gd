@@ -603,6 +603,10 @@ func test_an_offer_row_names_the_ask_the_clearing_will_charge() -> void:
 		button.tooltip_text.contains("ask of %d" % ask),
 		"the row asks the clearing's price: %s" % button.tooltip_text
 	)
+	assert_eq(
+		MinorMarket.ask_for_reader(null, stale), int(stale["unit_price"]),
+		"with no market the row keeps the price it was published with"
+	)
 	market.set_terms(viewer, {})
 	page.free()
 
