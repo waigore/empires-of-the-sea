@@ -36,6 +36,13 @@ func trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 				"treasury": host.economy.treasury,
 				"tech_unlocked": host.economy.tech_unlocked,
 				"buy_price": market.buy_price(commodity, host.player_faction),
+				# The turn's waiting Build/work orders are paid before the
+				# auction clears, so the bid budget is the purse they leave
+				# (wiki: world-market § Treasury budget for bids;
+				# DR-20261115-13).
+				"projected_non_bid_delta": MarketBudget.projected_non_bid_delta(
+					host.economy
+				),
 			}
 		)
 	else:

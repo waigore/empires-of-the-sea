@@ -25,10 +25,6 @@ const STATE_LABELS: Dictionary = {
 	STATE_CUT: "No road to the crown",
 }
 
-const NEIGHBORS: Array[Vector2i] = [
-	Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP
-]
-
 
 ## Runs per state in tile coordinates, the province readings, the routes to
 ## lay, and the tile/province counts each state holds.
@@ -253,57 +249,12 @@ static func _anchor(
 
 ## Tiles the crown must road before `target` stands beside the crown network:
 ## the BFS path over owned land minus the network tile it starts from and the
-## target tile itself. Empty when no owned-land route exists.
+## target tile itself. Empty when no owned-land route exists. The route has one
+## home (RoadWorks), so the lens and the dossier's Build road control agree.
 static func _route(
 	model: MapModel, owner: int, network: Dictionary, target: Vector2i
 ) -> Array[Vector2i]:
-	var route: Array[Vector2i] = []
-	if model == null or target.x < 0 or network.is_empty():
-		return route
-	var target_index: int = model.index_of(target.x, target.y)
-	var parent: Dictionary = {}
-	var seen: Dictionary = {}
-	var queue: Array[Vector2i] = []
-	for raw: Variant in network.keys():
-		var index: int = int(raw)
-		seen[index] = true
-		parent[index] = -1
-		queue.append(_tile_of(model, index))
-	var head: int = 0
-	while head < queue.size():
-		var tile: Vector2i = queue[head]
-		head += 1
-		var index: int = model.index_of(tile.x, tile.y)
-		if index == target_index:
-			break
-		for offset: Vector2i in NEIGHBORS:
-			var next: Vector2i = tile + offset
-			if not model.in_bounds(next.x, next.y):
-				continue
-			if not model.is_land(next.x, next.y):
-				continue
-			if model.owner_at(next.x, next.y) != owner:
-				continue
-			var next_index: int = model.index_of(next.x, next.y)
-			if seen.has(next_index):
-				continue
-			seen[next_index] = true
-			parent[next_index] = index
-			queue.append(next)
-	if not seen.has(target_index) or int(parent.get(target_index, -1)) < 0:
-		return route
-	# Walk back from the town to the network, then keep only the tiles between
-	# them: the network tile is already roaded and the town extracts as soon as
-	# it stands beside the road, so neither is laid.
-	var chain: Array[Vector2i] = []
-	var index: int = target_index
-	while index >= 0:
-		chain.append(_tile_of(model, index))
-		index = int(parent.get(index, -1))
-	chain.reverse()
-	for i in range(1, chain.size() - 1):
-		route.append(chain[i])
-	return route
+	return RoadWorks.route(model, owner, network, target)
 
 
 # --- helpers -----------------------------------------------------------------
@@ -322,7 +273,3 @@ static func _empty_counts() -> Dictionary:
 		counts[state] = 0
 	return counts
 
-
-static func _tile_of(model: MapModel, index: int) -> Vector2i:
-	var y: int = int(float(index) / float(model.width))
-	return Vector2i(index - y * model.width, y)

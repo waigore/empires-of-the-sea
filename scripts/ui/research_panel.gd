@@ -16,6 +16,9 @@ signal assign_requested(tech_id: String)
 signal cancel_requested(slot: int)
 signal funding_requested(slot: int)
 signal goal_changed(tech_id: String)
+## The college's door into the full-screen chart: the sheet hands the HUD the
+## state it already reads, and the chart opens over the ledger (DR-20261115-15).
+signal tree_requested
 
 var _state: ResearchState = null
 ## Tech id -> spy-network percent, set by refresh (DR-20261110-03).
@@ -35,13 +38,12 @@ var _summary: Label = null
 var _notice: Label = null
 var _goal_row: ResearchGoalStrip = null
 var _slots_heading: Label = null
+## The college's one door into the full-screen chart (DR-20261115-15).
+var _tree_door: Button = null
 var _slots_body: VBoxContainer = null
 var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
-## The whole tree, read by branch: every advance and what it still needs
-## (wiki: tech-tree § Categories; REQ-P5-03).
-var _tree: ResearchTreeTab = null
 ## Slot index -> its persistent row (REQ-P1-05).
 var _slot_rows: Dictionary = {}
 ## Signatures of what each rebuilt region last drew, so a repaint that changes
@@ -81,13 +83,14 @@ func _apply_profile(compact: bool) -> void:
 		_goal_row.visible = not compact or not _goal.is_empty()
 	if _slots_heading != null:
 		_slots_heading.add_theme_font_size_override("font_size", 10 if compact else 11)
+	if _tree_door != null:
+		_tree_door.custom_minimum_size = Vector2(112.0 if compact else 118.0, 26.0 if compact else 28.0)
+		_tree_door.add_theme_font_size_override("font_size", 10 if compact else 11)
 	if _slots_body != null:
 		_slots_body.add_theme_constant_override("separation", 2 if compact else 4)
 	for row: Variant in _slot_rows.values():
 		if row is ResearchSlotRow:
 			(row as ResearchSlotRow).set_compact(compact)
-	if _tree != null:
-		_tree.set_compact(compact)
 
 
 func _build_body(column: VBoxContainer) -> void:
@@ -105,7 +108,19 @@ func _build_body(column: VBoxContainer) -> void:
 	column.add_child(_goal_row)
 
 	_slots_heading = UiRowBuilder.label("RESEARCH SLOTS", 11, Palette.TEXT_DIM)
-	column.add_child(_slots_heading)
+	# The whole tree is a full-screen chart of its own, so the college keeps one
+	# clear door beside the slots heading: it costs the lists no height, and the
+	# sheet's room stays for the slots and the two lists (DR-20261115-15).
+	var head_row := HBoxContainer.new()
+	head_row.add_theme_constant_override("separation", 8)
+	_slots_heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_slots_heading.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	head_row.add_child(_slots_heading)
+	_tree_door = UiRowBuilder.button("TECH TREE ›", 28.0, 118.0, 11)
+	_tree_door.tooltip_text = "Open the whole tree, every advance and its road"
+	_tree_door.pressed.connect(func() -> void: tree_requested.emit())
+	head_row.add_child(_tree_door)
+	column.add_child(head_row)
 
 	_slots_body = VBoxContainer.new()
 	_slots_body.add_theme_constant_override("separation", 4)
@@ -114,15 +129,6 @@ func _build_body(column: VBoxContainer) -> void:
 	_tabs = _make_tabs(300.0)
 	_available_body = _add_tab(_tabs, "AVAILABLE", VBoxContainer.new())
 	_known_body = _add_tab(_tabs, "KNOWN", VBoxContainer.new())
-	# The tree keeps its own scroll so the branch chips stay put while the list
-	# moves (REQ-P1-07); the panel only mounts it and relays the goal intent.
-	_tree = ResearchTreeTab.new()
-	_tree.name = "TREE"
-	_tree.goal_requested.connect(
-		func(tech_id: String) -> void: set_goal("" if tech_id == _goal else tech_id)
-	)
-
-	_tabs.add_child(_tree)
 
 	_make_hint("")
 
@@ -135,6 +141,12 @@ func select_tab(index: int) -> void:
 ## The goal tech, or "" when the queue is unsorted.
 func goal_tech() -> String:
 	return _goal
+
+
+## The live research state the sheet reads, so the full-screen chart opens on
+## the same college the ledger shows (DR-20261115-15).
+func research_state() -> ResearchState:
+	return _state
 
 
 ## Steers the queue toward `tech_id`; "" (or an unknown id) clears the goal.
@@ -181,10 +193,8 @@ func refresh(
 	_fill_slots()
 	_fill_available(open)
 	_fill_known()
-	_tree.refresh(_state, _goal)
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
-	_tabs.set_tab_title(2, "TREE (%d)" % TechCatalog.ids().size())
 	_hint.text = _hint_text(open.size(), _notice.visible)
 	_fit_deferred()
 

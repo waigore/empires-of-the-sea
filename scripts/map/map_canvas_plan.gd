@@ -15,6 +15,12 @@ const LABEL_CLEAR_ABOVE: float = 18.0
 const LABEL_CLEAR_BELOW: float = 26.0
 ## Air between a name stepped above its town and the hamlet's roof and spire.
 const TOWN_AIR: float = 8.0
+## A province with this much land carries its name at full size; a pocket
+## province still carries it, one step smaller, so no province is nameless on
+## the chart (issue #665: Málaga and Zaragoza fell under the old hard floor).
+const NAME_ROOM: int = 26
+const NAME_SIZE: int = 22
+const POCKET_NAME_SIZE: int = 15
 
 var labels: Array[Dictionary] = []
 var glyphs: Array[Dictionary] = []
@@ -47,12 +53,10 @@ func build(p_model: MapModel, p_world: WorldMap, tile_size: float) -> void:
 
 func _add_names(p_model: MapModel, tile_size: float) -> void:
 	for province: ProvinceState in p_model.provinces:
-		if province.area < 26:
-			continue
 		labels.append({
 			"text": province.name,
 			"position": _name_position(province, p_model, tile_size),
-			"size": 22,
+			"size": NAME_SIZE if province.area >= NAME_ROOM else POCKET_NAME_SIZE,
 			"kind": "province",
 			"capital": province.capital,
 		})
@@ -337,10 +341,13 @@ static func _sea_offset(p_model: MapModel, tile: Vector2i) -> Vector2:
 
 
 ## Province names sit in a clearing: a scattered symbol never lands on a label,
-## so the type stays readable however dense the terrain is.
+## so the type stays readable however dense the terrain is. Only full-size type
+## reserves one — a pocket name is set smaller than a single stamp and sits
+## under its parchment halo, so the scatter may pass behind it. That also keeps
+## a pocket-dense chart painted instead of blanketing its ground in type.
 func under_label(at: Vector2) -> bool:
 	for label: Dictionary in labels:
-		if String(label["kind"]) != "province":
+		if String(label["kind"]) != "province" or int(label["size"]) < NAME_SIZE:
 			continue
 		var anchor: Vector2 = label["position"]
 		if absf(at.x - anchor.x) < LABEL_HALF_WIDTH and _in_label_band(at, anchor):

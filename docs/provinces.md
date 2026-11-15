@@ -56,5 +56,5 @@ garrison is the resolver's own strength (`REQ-P2-03`).
 
 ## Tests
 
-`tests/test_province_ledger.gd` — the projection over both charts, the flags and
+`tests/test_ledgers.gd` — the province ledger projection over both charts, the flags and
 their tallies, the dossier's link readings, and the door, Visit, back and key.

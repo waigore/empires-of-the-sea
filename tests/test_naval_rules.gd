@@ -1351,6 +1351,100 @@ func test_settlement_sorts_out_and_reports_every_region() -> void:
 	assert_eq((result["sorties"] as Array).size(), 1)
 	assert_true(fleet.is_at_sea())
 
+## A squadron that sorts out of a captured port in the other chart enters that
+## water exactly as a sail order does, so the crown charts the zone even though
+## the court is looking at the other chart (wiki: ships-and-naval § Ports that
+## change hands — "The entry reveals the zone for its owner like any move").
+func test_a_sort_out_in_the_other_chart_charts_the_zone() -> void:
+	var play: PlaySession = _two_chart_session()
+	var fleet: FleetState = FleetState.in_port(1, 0, SEAT, ["ship_1"])
+	play.ship_layer.regions.set_region(1, [fleet])
+	play.world.region(1).province_data(SEAT).owner = 1
+
+	MapPlayPortLoss.settle(play, [])
+
+	assert_true(fleet.is_at_sea(), "the port fell, so the squadron sorts out")
+	assert_eq(fleet.sea_zone, 0)
+	var chart: VisibilityModel = play.visibility_by_region.get(1, null)
+	assert_not_null(chart, "the other chart is minted for the entry")
+	if chart == null:
+		return
+	for tile: Vector2i in play.world.region(1).sea_zone_data(0).tiles:
+		assert_eq(
+			chart.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE,
+			"the entered zone's water is charted"
+		)
+	# The strict coastal ring comes with the water, as any sail order charts it.
+	assert_eq(chart.level_at(1, 0), VisibilityModel.Level.FULLY_VISIBLE)
+	# The shown chart is the ship layer's own signal, so nothing is minted here.
+	assert_false(play.visibility_by_region.has(0))
+
+## A re-mooring is administrative and charts nothing, a rival's sortie is not
+## the crown's reading, and a scuttled squadron enters no water at all.
+func test_only_the_crowns_own_sort_out_charts_the_other_chart() -> void:
+	var play: PlaySession = _two_chart_session()
+	var reports: Array[Dictionary] = [
+		{"fleet": 1, "owner": 1, "province": SEAT, "zone": 0, "scuttled": false, "region": 1},
+		{"fleet": 2, "owner": 0, "from": SEAT, "to": HARBOUR, "region": 1},
+		{"fleet": 3, "owner": 0, "province": SEAT, "zone": MapModel.NO_ID, "scuttled": true, "region": 1},
+	]
+
+	MapPlayPortLoss.chart_sorties(play, reports)
+
+	assert_false(play.visibility_by_region.has(1), "no chart is minted for nothing")
+
+## Two charts, the crown looking at the old one: the fixture's chart twice, the
+## second standing in for the New World. The layer knows both rosters.
+func _two_chart_session() -> PlaySession:
+	var old_world: MapModel = naval_port_loss_Fixture.build()
+	var new_world: MapModel = naval_port_loss_Fixture.build()
+	new_world.region_id = 1
+	var world := WorldMap.new()
+	world.add_region(old_world)
+	world.add_region(new_world)
+	var play := PlaySession.new()
+	play.world = world
+	play.model = old_world
+	play.player_faction = 0
+	play.region_index = 0
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = old_world
+	play.ship_layer.world = world
+	play.ship_layer.player_faction = 0
+	return play
+
+## The chart helper's own guards: the shown region hands back the session's
+## model, a region the world does not have mints nothing, and a session with no
+## world or no reports is a no-op.
+func test_the_chart_helper_guards_what_it_cannot_chart() -> void:
+	var play: PlaySession = _two_chart_session()
+	var shown := VisibilityModel.new()
+	shown.setup(play.model, 0)
+	play.visibility = shown
+
+	assert_eq(MapPlayFogTurn.chart(play, 0), shown, "the shown chart is the session's")
+	assert_eq(MapPlayFogTurn.chart(play, 9), null, "no such region")
+	assert_eq(MapPlayFogTurn.chart(null, 0), null, "no session")
+	var bare := PlaySession.new()
+	bare.player_faction = 0
+	assert_eq(MapPlayFogTurn.chart(bare, 1), null, "no world to cut a chart from")
+	MapPlayPortLoss.chart_sorties(null, [])
+	MapPlayPortLoss.chart_sorties(bare, [{"owner": 0, "zone": 0, "region": 1}])
+	assert_true(bare.visibility_by_region.is_empty(), "nothing is charted without a world")
+
+## A sort-out the crown is already looking at is the ship layer's own signal,
+## and a report with no zone enters no water.
+func test_a_shown_chart_sort_out_and_a_zoneless_report_chart_nothing() -> void:
+	var play: PlaySession = _two_chart_session()
+	var reports: Array[Dictionary] = [
+		{"fleet": 1, "owner": 0, "province": SEAT, "zone": 0, "scuttled": false, "region": 0},
+		{"fleet": 2, "owner": 0, "province": SEAT, "zone": MapModel.NO_ID, "scuttled": false, "region": 1},
+	]
+
+	MapPlayPortLoss.chart_sorties(play, reports)
+
+	assert_true(play.visibility_by_region.is_empty(), "neither report charts a chart")
+
 func test_settlement_re_moors_a_reassigned_home_squadron() -> void:
 	var model: MapModel = naval_port_loss_Fixture.build()
 	var world := WorldMap.new()
@@ -2655,7 +2749,11 @@ func test_the_market_reports_this_turns_imports() -> void:
 	assert_eq(market.bought_units(), 3)
 
 
-func test_the_map_raid_pass_takes_the_losses_from_the_ledger() -> void:
+## The live order: the crown's bid is filled by the turn's clearing, and the
+## cargo it bought is what the next raid pass takes. A price pass that emptied
+## the book left the raid with nothing (wiki: ships-and-naval § Trade and
+## Transport Interception; DR-20261111-17).
+func test_the_map_raid_pass_takes_the_cargo_the_clearing_bought() -> void:
 	_setup_naval_raid()
 	var play := PlaySession.new()
 	play.model = _naval_raid_model
@@ -2680,16 +2778,33 @@ func test_the_map_raid_pass_takes_the_losses_from_the_ledger() -> void:
 	economy.economy = PlayerEconomy.starting()
 	economy.market = WorldMarket.with_default_prices()
 	economy.economy.treasury = 5000
-	assert_true(bool(economy.market.buy(economy.economy, "grain", 4)["ok"]))
 	play.ship_layer = ships
 	play.economy = economy
+	var submit: Dictionary = MarketOrders.submit(
+		economy.market, 0, "grain", MarketOrder.SIDE_BID, 4,
+		{
+			"cargo_free": 4,
+			"treasury": economy.economy.treasury,
+			"buy_price": economy.market.buy_price("grain", 0),
+		}
+	)
+	assert_true(bool(submit["ok"]), String(submit.get("reason", "")))
+	MarketClearing.clear(economy.market, null, {0: economy.economy}, {0: 4})
 	var before: int = economy.economy.quantity("grain")
+	assert_eq(
+		int(economy.market.imports_for(0).get("grain", 0)), 4,
+		"the clearing's purchase is cargo afloat"
+	)
 
 	var result: Dictionary = MapPlayRaids.resolve(play)
 
 	assert_true(bool(result.get("ok", false)))
 	assert_gt(int(result.get("taken", 0)), 0)
 	assert_lt(economy.economy.quantity("grain"), before)
+	assert_true(
+		economy.market.importing_factions().is_empty(),
+		"the raid pass is the cargo book's one reader and closes it"
+	)
 	ships.free()
 	economy.free()
 
@@ -2930,18 +3045,46 @@ func test_the_market_keeps_each_crowns_cargo_apart() -> void:
 	assert_eq(market.importing_factions(), expected)
 
 
-func test_the_book_closes_with_the_turn() -> void:
+## The cargo the auction filled is afloat until the raid pass has read it: a
+## price pass that emptied the book left hostile squadrons nothing to take
+## (wiki: ships-and-naval § Trade and Transport Interception — "the victim's own
+## purchases this turn"; DR-20261111-17).
+func test_the_cargo_book_outlives_the_price_pass_and_closes_at_the_raid() -> void:
 	_setup_naval_raid()
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var mine: PlayerEconomy = PlayerEconomy.starting()
 	mine.treasury = 5000
 	assert_true(bool(market.buy(mine, "grain", 2, 0)["ok"]))
 	market.advance_prices()
-	assert_true(
-		market.imports_for(0).is_empty(),
-		"price discovery closes the cargo book the raid pass reads"
+	assert_eq(
+		int(market.imports_for(0).get("grain", 0)), 2,
+		"price discovery does not empty the cargo the raid pass reads"
 	)
+	assert_eq(market.importing_factions(), [0] as Array[int])
+	market.book.close_cargo()
+	assert_true(market.imports_for(0).is_empty())
 	assert_true(market.importing_factions().is_empty())
+
+
+## A bid staged on the book is only cargo once the clearing fills it, and it is
+## afloat for the next raid pass (the live path: no direct buy record).
+func test_a_filled_bid_leaves_its_cargo_afloat_for_the_raid_pass() -> void:
+	_setup_naval_raid()
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 5000
+	var submit: Dictionary = MarketOrders.submit(
+		market, 0, "grain", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 4, "treasury": economy.treasury, "buy_price": market.buy_price("grain", 0)}
+	)
+	assert_true(bool(submit["ok"]), String(submit.get("reason", "")))
+	MarketClearing.clear(market, null, {0: economy}, {0: 4})
+	assert_eq(economy.quantity("grain"), PlayerEconomy.starting().quantity("grain") + 3)
+	assert_eq(
+		int(market.imports_for(0).get("grain", 0)), 3,
+		"the clearing's purchase is the tonnage the next raid pass reads"
+	)
+	assert_eq(market.importing_factions(), [0] as Array[int])
 
 
 func test_a_saved_book_keeps_each_crowns_cargo() -> void:
@@ -3292,8 +3435,15 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 		"the dossier reads the chance the rules roll"
 	)
 	assert_true(note.contains("~%d" % int(odds["expected"])))
-	# With nothing bought this turn there is no cargo afloat to take.
+	# Cargo afloat lasts until the raid pass has read it: a price pass alone does
+	# not empty the book (wiki: ships-and-naval § Trade and Transport
+	# Interception).
 	economy.market.advance_prices()
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, blockader).contains("Prize:"),
+		"the dossier still prices cargo the clearing left afloat"
+	)
+	economy.market.book.close_cargo()
 	assert_true(
 		MapPlayFleetMissions.prize_note(play, blockader).contains("no cargo afloat")
 	)
@@ -3947,3 +4097,223 @@ func test_owners_lists_every_court_at_war() -> void:
 	assert_true(hostile.has(2))
 	assert_false(hostile.has(3))
 	assert_false(hostile.has(1))
+
+
+# --- test_fleet_passes ---
+
+## The sea's node-free passes: a turn's battles resolve in every region and the
+## drowned leave their roster, while the roster surgery a hand-over, a passage
+## and a battle need lives in FleetRosters, where the layer, the save and the AI
+## read the same list (wiki: map-topology § two regions; ships-and-naval § Naval
+## Combat, § Ports that change hands).
+
+const passes_NavalFixture = preload("res://tests/naval_fixture.gd")
+const OWNER: int = 0
+const RIVAL: int = 1
+const CARIBBEAN: int = 0
+
+
+func test_every_region_fights_and_names_its_battle() -> void:
+	var world: WorldMap = _passes_world()
+	var regions: MapRegionTable = _passes_regions()
+
+	var battles: Array[Dictionary] = NavalBattles.resolve_region_turn(
+		world, regions, _passes_war, {"seed": 7, "turn": 3}
+	)
+
+	assert_true(battles.size() >= 1, "two crowns at war in one zone fight")
+	for battle: Dictionary in battles:
+		assert_eq(int(battle["region"]), 0, "only the Old World's zone is contested")
+	assert_eq(
+		(regions.value(1, []) as Array).size(), 2,
+		"a region with no battle keeps the roster it had"
+	)
+
+
+func test_a_beaten_squadron_leaves_its_region() -> void:
+	var world: WorldMap = _passes_world()
+	var regions: MapRegionTable = _passes_regions()
+
+	NavalBattles.resolve_region_turn(world, regions, _passes_war, {"seed": 7, "turn": 3})
+
+	var old_world: Array[FleetState] = []
+	old_world.assign(regions.value(0, []))
+	assert_eq(old_world.size(), 1, "the lone hull goes down and its squadron leaves the roster")
+	assert_eq(old_world[0].owner, OWNER, "the victor keeps the sea")
+	assert_true(old_world[0].is_afloat())
+
+
+func test_no_hostility_leaves_the_sea_alone() -> void:
+	var world: WorldMap = _passes_world()
+	var regions: MapRegionTable = _passes_regions()
+
+	var battles: Array[Dictionary] = NavalBattles.resolve_region_turn(
+		world, regions, _passes_peace, {"seed": 7, "turn": 3}
+	)
+
+	assert_true(battles.is_empty(), "peace spills no blood")
+	assert_eq((regions.value(0, []) as Array).size(), 2, "both squadrons keep the sea")
+
+
+## --- roster surgery ---------------------------------------------------------
+
+
+func test_prune_drops_a_squadron_with_no_hulls() -> void:
+	var live: FleetState = FleetState.at_sea(1, OWNER, CARIBBEAN, ["ship_1"])
+	var sunk: FleetState = FleetState.at_sea(2, RIVAL, CARIBBEAN, ["ship_2"])
+	sunk.hulls.clear()
+	var roster: Array[FleetState] = [live, sunk, null]
+
+	FleetRosters.prune(roster)
+
+	assert_eq(roster.size(), 2, "a hauled-out squadron leaves")
+	assert_eq(roster[0], live, "the live command keeps its berth")
+	assert_null(roster[1], "a null slot is not the same as a sunk one: only hulls decide")
+
+
+func test_hand_over_recolours_or_retires_a_crowns_squadrons() -> void:
+	var roster: Array[FleetState] = [
+		FleetState.at_sea(1, RIVAL, CARIBBEAN, ["ship_1"]),
+		FleetState.at_sea(2, OWNER, CARIBBEAN, ["ship_2"]),
+	]
+
+	FleetRosters.hand_over(roster, RIVAL, OWNER)
+
+	assert_eq(roster.size(), 2, "an absorption keeps every hull")
+	assert_eq(roster[0].owner, OWNER, "the loser's colours change")
+
+	FleetRosters.hand_over(roster, OWNER, MapModel.NO_ID)
+
+	assert_true(roster.is_empty(), "a terminal fall retires every squadron it owned")
+
+
+func test_a_passage_renumbers_the_crossing_squadron() -> void:
+	var regions: MapRegionTable = _passes_regions()
+	var from: Array[FleetState] = []
+	from.assign(regions.value(0, []))
+	var crossing: FleetState = from[0]
+
+	var destination: Array[FleetState] = FleetRosters.hand_to_region(
+		regions, 0, crossing, 1, from
+	)
+
+	assert_eq(destination.size(), 3, "the squadron lands in the other roster")
+	assert_eq(int((regions.value(0, []) as Array).size()), 1, "and leaves the one it sailed from")
+	assert_eq(crossing.id, 5, "it takes the next free id across every region")
+	var ids: Array[int] = []
+	for region: Array in FleetRosters.all(regions):
+		for fleet: FleetState in region:
+			ids.append(fleet.id)
+	ids.sort()
+	assert_eq(ids, [2, 3, 4, 5] as Array[int], "both rosters list every hull and no id twice")
+
+
+func test_zones_at_sea_lists_each_zone_once() -> void:
+	var roster: Array[FleetState] = [
+		FleetState.at_sea(1, OWNER, CARIBBEAN, ["ship_1"]),
+		FleetState.at_sea(2, OWNER, CARIBBEAN, ["ship_2"]),
+		FleetState.at_sea(3, OWNER, 1, ["ship_3"]),
+		FleetState.at_sea(4, RIVAL, 1, ["ship_4"]),
+		FleetState.in_port(5, OWNER, 0, ["ship_5"]),
+	]
+
+	assert_eq(
+		FleetRosters.zones_at_sea(roster, OWNER), [CARIBBEAN, 1] as Array[int],
+		"one entry per zone the crown holds, and no port"
+	)
+	assert_true(FleetRosters.zones_at_sea(roster, 9).is_empty(), "a crown at no sea holds no zone")
+
+
+func test_each_visits_every_region_roster() -> void:
+	var regions: MapRegionTable = _passes_regions()
+	var seen: Array[int] = []
+
+	FleetRosters.each(
+		regions, func(roster: Array[FleetState]) -> void: seen.append(roster.size())
+	)
+
+	seen.sort()
+	assert_eq(seen, [2, 2] as Array[int], "every stored roster is visited once")
+
+
+## --- berths -----------------------------------------------------------------
+
+
+func test_prune_drops_the_marker_of_a_sunk_squadron() -> void:
+	var markers := ShipMarkers.new()
+	markers.model = passes_NavalFixture.build()
+	var kept: FleetState = FleetState.at_sea(1, OWNER, CARIBBEAN, ["ship_1"])
+	var sunk: FleetState = FleetState.at_sea(2, RIVAL, CARIBBEAN, ["ship_2"])
+	var kept_marker: Ship = markers.make(kept)
+	var sunk_marker: Ship = markers.make(sunk)
+	markers.selected_ship = sunk_marker
+
+	markers.prune([kept] as Array[FleetState])
+
+	assert_eq(markers.ships.size(), 1, "only the squadron still on the roster keeps a marker")
+	assert_eq(markers.ships[0], kept_marker)
+	assert_null(markers.selected_ship, "a selection cannot outlive the hull that wore it")
+	markers.remove(kept_marker)
+
+
+func test_a_port_berth_prefers_the_registered_tile() -> void:
+	var model: MapModel = passes_NavalFixture.build()
+
+	assert_eq(
+		ShipMarkers.port_position(model, 0),
+		MapGeo.tile_center(1, 0, ShipMarkers.TILE_SIZE),
+		"the harbour tile is the berth"
+	)
+	model.provinces[0].port_tile = Vector2i(-1, -1)
+	assert_eq(
+		ShipMarkers.port_position(model, 0),
+		model.province_center(0) * ShipMarkers.TILE_SIZE,
+		"a province with no harbour tile berths at its centre"
+	)
+
+
+## --- fixtures ---------------------------------------------------------------
+
+
+## Two Old-World charts: region 0 is at war over the Caribbean with four carracks
+## against one sloop, region 1 keeps two squadrons of one crown in company.
+func _passes_world() -> WorldMap:
+	var world := WorldMap.new()
+	for index in 2:
+		var model: MapModel = passes_NavalFixture.build()
+		model.region_id = index
+		world.add_region(model)
+	return world
+
+
+func _passes_regions() -> MapRegionTable:
+	var regions := MapRegionTable.new()
+	var strong: Array[FleetState] = [
+		FleetState.at_sea(
+			1, OWNER, CARIBBEAN, ["ship_1", "ship_2", "ship_3", "ship_4"],
+			{"ship_1": "carrack", "ship_2": "carrack", "ship_3": "carrack", "ship_4": "carrack"}
+		),
+	]
+	var weak: Array[FleetState] = [
+		FleetState.at_sea(2, RIVAL, CARIBBEAN, ["ship_5"], {"ship_5": "sloop"}),
+	]
+	var company: Array[FleetState] = [
+		FleetState.at_sea(3, RIVAL, CARIBBEAN, ["ship_6"], {"ship_6": "carrack"}),
+		FleetState.at_sea(4, RIVAL, CARIBBEAN, ["ship_7"], {"ship_7": "carrack"}),
+	]
+	var old_world: Array[FleetState] = []
+	old_world.append_array(strong)
+	old_world.append_array(weak)
+	regions.set_region(0, old_world)
+	regions.set_region(1, company)
+	return regions
+
+
+## The court's war query: the two crowns of the Old World are at war.
+func _passes_war(a: int, b: int) -> bool:
+	return (a == OWNER and b == RIVAL) or (a == RIVAL and b == OWNER)
+
+
+## The same query in peacetime: no pair is hostile.
+func _passes_peace(_a: int, _b: int) -> bool:
+	return false

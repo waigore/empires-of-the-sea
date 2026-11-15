@@ -1130,11 +1130,15 @@ func test_ai_recalls_a_spy_to_screen_at_war() -> void:
 
 
 func test_ai_trains_a_spy_after_its_base_roster() -> void:
+	# Floors with no regional work: 2 builders, engineer_target (2), explorer_target (3).
 	var roster: Array[CivilianState] = [
 		CivilianState.create(1, RIVAL, "builder", CivilianFixture.BARE_TILE),
-		CivilianState.create(2, RIVAL, "builder", CivilianFixture.BARE_TILE),
+		CivilianState.create(9, RIVAL, "builder", CivilianFixture.BARE_TILE),
+		CivilianState.create(2, RIVAL, "engineer", CivilianFixture.BARE_TILE),
 		CivilianState.create(3, RIVAL, "engineer", CivilianFixture.BARE_TILE),
 		CivilianState.create(4, RIVAL, "explorer", CivilianFixture.BARE_TILE),
+		CivilianState.create(5, RIVAL, "explorer", CivilianFixture.BARE_TILE),
+		CivilianState.create(6, RIVAL, "explorer", CivilianFixture.BARE_TILE),
 	]
 	var order: Dictionary = AiCivilianPlanner.training_order(
 		AiConfig.build(RIVAL, 1500), roster, _context()
@@ -1143,7 +1147,8 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	assert_eq(String(order["type_id"]), "spy")
 	var war_roster: Array[CivilianState] = [
 		CivilianState.create(1, RIVAL, "builder", CivilianFixture.BARE_TILE),
-		CivilianState.create(2, RIVAL, "builder", CivilianFixture.BARE_TILE),
+		CivilianState.create(9, RIVAL, "builder", CivilianFixture.BARE_TILE),
+		CivilianState.create(2, RIVAL, "engineer", CivilianFixture.BARE_TILE),
 		CivilianState.create(3, RIVAL, "engineer", CivilianFixture.BARE_TILE),
 	]
 	var war_context: Dictionary = _context()

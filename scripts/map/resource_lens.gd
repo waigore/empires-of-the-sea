@@ -27,6 +27,10 @@ var _animating: bool = false
 ## nothing (`source_key`).
 var _baked_key: int = 0
 var _baked: bool = false
+## The road strokes, traced and smoothed once per refresh: the lens repaints on
+## a work in progress, and re-tracing the network every frame would be wasted
+## ink (REQ-P4-01).
+var _runs: Array = []
 
 
 func build(
@@ -60,6 +64,7 @@ func watch(civilians: CivilianLayer, fog: MapOverlay) -> void:
 func refresh() -> void:
 	if model == null or works == null:
 		survey = {}
+		_runs = []
 		_baked = false
 		_animating = false
 		queue_redraw()
@@ -79,6 +84,7 @@ func refresh() -> void:
 	survey["routes"] = ResourceRoutes.snapshot(
 		model, works, faction, capital_tile, visibility
 	)["segments"]
+	_runs = RoadInk.ink_paths(survey["routes"])
 	_animating = false
 	for raw: Variant in survey.get("provinces", []):
 		for raw_row: Variant in (raw as Dictionary)["rows"]:
@@ -117,7 +123,7 @@ func _draw() -> void:
 		return
 	if _font == null:
 		_font = UiTheme.serif()
-	RoadInk.draw_routes(self, survey.get("routes", []), _reveal)
+	RoadInk.draw_runs(self, _runs, _reveal)
 	var provinces: Array = survey.get("provinces", [])
 	for raw: Variant in provinces:
 		_draw_plate(raw)
@@ -275,10 +281,10 @@ func _pack_step() -> float:
 	return 24.0
 
 
-## Slips drop below the province name where the chart prints one, so the label
-## is never covered.
-func _pack_drop(entry: Dictionary) -> float:
-	return LABEL_DROP if bool(entry.get("labelled", false)) else 0.0
+## Slips drop below the province name, which every chart now prints, so the
+## label is never covered.
+func _pack_drop(_entry: Dictionary) -> float:
+	return LABEL_DROP
 
 
 func _plate_size(entry: Dictionary) -> Vector2:

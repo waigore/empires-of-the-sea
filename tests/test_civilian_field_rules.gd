@@ -1627,10 +1627,10 @@ func test_roster_region_filter_narrows_to_one_world() -> void:
 	var snapshot: Dictionary = CivilianRoster.snapshot(
 		_roster_world(), _roster_regions(), 0
 	)
-	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_ALL), 5)
-	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_OLD), 3)
-	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_NEW), 2)
-	for group: Dictionary in CivilianRoster.groups(snapshot, CivilianRoster.REGION_NEW):
+	assert_eq(CivilianRoster.count(snapshot, LedgerRows.REGION_ALL), 5)
+	assert_eq(CivilianRoster.count(snapshot, LedgerRows.REGION_OLD), 3)
+	assert_eq(CivilianRoster.count(snapshot, LedgerRows.REGION_NEW), 2)
+	for group: Dictionary in CivilianRoster.groups(snapshot, LedgerRows.REGION_NEW):
 		assert_eq(int(group["region"]), FactionCatalog.NEW_WORLD)
 
 
@@ -1638,9 +1638,9 @@ func test_roster_craft_filter_and_chip_counts() -> void:
 	var snapshot: Dictionary = CivilianRoster.snapshot(
 		_roster_world(), _roster_regions(), 0
 	)
-	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_ALL, "merchant"), 1)
-	assert_eq(CivilianRoster.count(snapshot, CivilianRoster.REGION_OLD, "merchant"), 0)
-	var counts: Dictionary = CivilianRoster.type_counts(snapshot, CivilianRoster.REGION_OLD)
+	assert_eq(CivilianRoster.count(snapshot, LedgerRows.REGION_ALL, "merchant"), 1)
+	assert_eq(CivilianRoster.count(snapshot, LedgerRows.REGION_OLD, "merchant"), 0)
+	var counts: Dictionary = CivilianRoster.type_counts(snapshot, LedgerRows.REGION_OLD)
 	assert_eq(int(counts["explorer"]), 1)
 	assert_eq(int(counts["builder"]), 1)
 	assert_eq(int(counts["merchant"]), 0)
@@ -1665,38 +1665,38 @@ func test_roster_status_filter_reads_who_waits_for_orders() -> void:
 		_roster_world(), _roster_regions(), 0
 	)
 	assert_eq(
-		CivilianRoster.count(snapshot, CivilianRoster.REGION_ALL, "", CivilianRoster.STATUS_IDLE),
+		CivilianRoster.count(snapshot, LedgerRows.REGION_ALL, "", CivilianRoster.STATUS_IDLE),
 		4,
 		"four crews have no order",
 	)
 	assert_eq(
 		CivilianRoster.count(
-			snapshot, CivilianRoster.REGION_ALL, "", CivilianRoster.STATUS_WORKING
+			snapshot, LedgerRows.REGION_ALL, "", CivilianRoster.STATUS_WORKING
 		),
 		1,
 	)
 	for group: Dictionary in CivilianRoster.groups(
-		snapshot, CivilianRoster.REGION_ALL, "", CivilianRoster.STATUS_WORKING
+		snapshot, LedgerRows.REGION_ALL, "", CivilianRoster.STATUS_WORKING
 	):
 		for row: Dictionary in group["rows"]:
 			assert_true(bool(row["working"]), "only a working crew answers the at-work view")
 	assert_eq(
 		CivilianRoster.count(
-			snapshot, CivilianRoster.REGION_OLD, "", CivilianRoster.STATUS_WORKING
+			snapshot, LedgerRows.REGION_OLD, "", CivilianRoster.STATUS_WORKING
 		),
 		0,
 		"the Old World column has no work running",
 	)
 	assert_eq(
 		CivilianRoster.count(
-			snapshot, CivilianRoster.REGION_OLD, "", CivilianRoster.STATUS_IDLE
+			snapshot, LedgerRows.REGION_OLD, "", CivilianRoster.STATUS_IDLE
 		),
 		3,
 		"the status reads against the world filter, not beside it",
 	)
 	assert_eq(
 		CivilianRoster.count(
-			snapshot, CivilianRoster.REGION_ALL, "merchant", CivilianRoster.STATUS_IDLE
+			snapshot, LedgerRows.REGION_ALL, "merchant", CivilianRoster.STATUS_IDLE
 		),
 		0,
 		"the merchant is at work, so the idle craft view is empty",
@@ -1707,25 +1707,25 @@ func test_roster_status_and_craft_tallies_agree_with_the_other_filters() -> void
 	var snapshot: Dictionary = CivilianRoster.snapshot(
 		_roster_world(), _roster_regions(), 0
 	)
-	var counts: Dictionary = CivilianRoster.status_counts(snapshot, CivilianRoster.REGION_ALL)
+	var counts: Dictionary = CivilianRoster.status_counts(snapshot, LedgerRows.REGION_ALL)
 	assert_eq(int(counts[CivilianRoster.STATUS_ALL]), 5)
 	assert_eq(int(counts[CivilianRoster.STATUS_IDLE]), 4)
 	assert_eq(int(counts[CivilianRoster.STATUS_WORKING]), 1)
 	assert_eq(
-		int(CivilianRoster.status_counts(snapshot, CivilianRoster.REGION_NEW)[
+		int(CivilianRoster.status_counts(snapshot, LedgerRows.REGION_NEW)[
 			CivilianRoster.STATUS_WORKING
 		]),
 		1,
 	)
 	assert_eq(
-		int(CivilianRoster.status_counts(snapshot, CivilianRoster.REGION_ALL, "spy")[
+		int(CivilianRoster.status_counts(snapshot, LedgerRows.REGION_ALL, "spy")[
 			CivilianRoster.STATUS_IDLE
 		]),
 		1,
 		"the idle tally counts what the craft filter leaves (the rival's spy is not ours)",
 	)
 	var types: Dictionary = CivilianRoster.type_counts(
-		snapshot, CivilianRoster.REGION_ALL, CivilianRoster.STATUS_WORKING
+		snapshot, LedgerRows.REGION_ALL, CivilianRoster.STATUS_WORKING
 	)
 	assert_eq(int(types["merchant"]), 1)
 	assert_eq(int(types["spy"]), 0, "a craft tally follows the order filter too")
@@ -2277,3 +2277,38 @@ func test_an_unsurveyed_mineral_reads_unprospected_until_an_explorer_reads_it() 
 	assert_false(bool(row["prospected"]))
 	assert_false(bool(row["can_build"]))
 	assert_true(String(row["build_reason"]).contains("prospect"))
+
+
+## Two fort projects may run in one province, and the later completion adds no
+## level (wiki: siege-mechanics § Fort Levels). The receipt must not claim a wall
+## the turn did not raise: the crown paid twice and bought one wall.
+func test_a_second_fort_project_reports_no_level_added() -> void:
+	var first := _add("engineer", Fixture.BARE_TILE)
+	var second := _add("engineer", Fixture.BARE_TILE)
+	assert_true(bool(CivilianWork.assign(
+		_model, first, "build_fort", _works, _units, _stock, _view
+	)["ok"]))
+	assert_true(bool(CivilianWork.assign(
+		_model, second, "build_fort", _works, _units, _stock, _view
+	)["ok"]))
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		_model, _units, _works, _view
+	)
+	assert_eq(reports.size(), 2)
+	assert_eq(int(reports[0]["fort_before"]), 0)
+	assert_eq(int(reports[0]["fort_level"]), 1)
+	assert_eq(int(reports[1]["fort_before"]), 1, "the wall already stood")
+	assert_eq(int(reports[1]["fort_level"]), 1, "and the duplicate added no level")
+	assert_eq(FortRules.level_at(_model, Fixture.PLAYER_PROVINCE), 1)
+	assert_true(
+		FortRules.raise_line(
+			int(reports[0]["fort_before"]), int(reports[0]["fort_level"])
+		).begins_with("wood fort raised"),
+		"the first project names the wall it raised"
+	)
+	assert_true(
+		FortRules.raise_line(
+			int(reports[1]["fort_before"]), int(reports[1]["fort_level"])
+		).begins_with("no level added"),
+		"the duplicate says it added nothing"
+	)

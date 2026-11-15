@@ -8,11 +8,6 @@ extends RefCounted
 ## moves, assigns or advances a unit. Rows carry the unit id and region, which is
 ## all the screen needs to jump to the unit on its own map.
 
-const REGION_ALL: String = "all"
-const REGION_OLD: String = "old_world"
-const REGION_NEW: String = "new_world"
-const REGION_FILTERS: Array[String] = [REGION_ALL, REGION_OLD, REGION_NEW]
-
 ## Who waits for orders. A working unit is paid for and counting down; an idle
 ## one is free to be given a new one, and a column of them is the crown's
 ## chore (REQ-P5-04).
@@ -63,35 +58,22 @@ static func groups(
 	snapshot_data: Dictionary, region_key: String, type_id: String = "",
 	status_key: String = STATUS_ALL
 ) -> Array[Dictionary]:
-	var kept: Array[Dictionary] = []
-	for raw: Variant in snapshot_data.get("groups", []):
-		var group: Dictionary = raw
-		if not region_matches(int(group.get("region", -1)), region_key):
-			continue
-		var rows: Array[Dictionary] = []
-		for entry: Variant in group.get("rows", []):
-			var row: Dictionary = entry
-			if not type_id.is_empty() and String(row["type_id"]) != type_id:
-				continue
-			if not status_matches(row, status_key):
-				continue
-			rows.append(row)
-		if rows.is_empty():
-			continue
-		var narrowed: Dictionary = group.duplicate()
-		narrowed["rows"] = rows
-		kept.append(narrowed)
-	return kept
+	return LedgerRows.groups(snapshot_data, region_key, _keep.bind(type_id, status_key))
 
 
 static func count(
 	snapshot_data: Dictionary, region_key: String, type_id: String = "",
 	status_key: String = STATUS_ALL
 ) -> int:
-	var total: int = 0
-	for group: Dictionary in groups(snapshot_data, region_key, type_id, status_key):
-		total += (group["rows"] as Array).size()
-	return total
+	return LedgerRows.count(snapshot_data, region_key, _keep.bind(type_id, status_key))
+
+
+## One row survives when it is the craft the type chip names (empty keeps every
+## craft) and the order the status chip names.
+static func _keep(row: Dictionary, type_id: String, status_key: String) -> bool:
+	if not type_id.is_empty() and String(row["type_id"]) != type_id:
+		return false
+	return status_matches(row, status_key)
 
 
 ## Type totals inside one region and order filter, for the icon chips (all six
@@ -104,7 +86,7 @@ static func type_counts(
 		counts[type_id] = 0
 	for raw: Variant in snapshot_data.get("rows", []):
 		var row: Dictionary = raw
-		if not region_matches(int(row["region"]), region_key):
+		if not LedgerRows.region_matches(int(row["region"]), region_key):
 			continue
 		if not status_matches(row, status_key):
 			continue
@@ -121,7 +103,7 @@ static func status_counts(
 	var counts: Dictionary = {STATUS_ALL: 0, STATUS_IDLE: 0, STATUS_WORKING: 0}
 	for raw: Variant in snapshot_data.get("rows", []):
 		var row: Dictionary = raw
-		if not region_matches(int(row["region"]), region_key):
+		if not LedgerRows.region_matches(int(row["region"]), region_key):
 			continue
 		if not type_id.is_empty() and String(row["type_id"]) != type_id:
 			continue
@@ -148,15 +130,6 @@ static func status_label(key: String) -> String:
 		STATUS_WORKING:
 			return "At work"
 	return "All orders"
-
-
-static func region_matches(region: int, key: String) -> bool:
-	match key:
-		REGION_OLD:
-			return region == FactionCatalog.OLD_WORLD
-		REGION_NEW:
-			return region == FactionCatalog.NEW_WORLD
-	return true
 
 
 ## "Surveying · 2 turns to go" / "Idle — ready for orders".

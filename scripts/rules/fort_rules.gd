@@ -171,6 +171,20 @@ static func raise_text(level: int) -> String:
 	]
 
 
+## The line a finished project reports, read against the level it found. Two
+## projects may run in one province, and the later completion adds no level
+## (wiki: siege-mechanics § Fort Levels), so a duplicate that finishes after the
+## wall already stands says so instead of claiming a raise it did not make.
+static func raise_line(before: int, after: int) -> String:
+	if after > before:
+		return raise_text(after)
+	if after <= 0:
+		return "no fort stands here"
+	return "no level added — the province already stands at a %s fort" % (
+		level_name(after).to_lower()
+	)
+
+
 ## Applies a finished build: the province reaches the level that project was
 ## ordered for, never past it. Two projects running in one province cannot
 ## leap a level (or the tech gate and materials that level costs).

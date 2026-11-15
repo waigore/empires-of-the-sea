@@ -119,15 +119,16 @@ static func _naval_plate(hud: GameHud) -> void:
 	hud.add_child(hud.naval_plate)
 
 
-## The crown's news sheet: over the dossiers, under the Quick Battle and
-## campaign-end plates, and soft — it never takes the whole screen. Its door is
-## the cartouche's GAZETTE seal, so no plate is parked over the chart.
+## The crown's news sheet: its own layer above the pause menu, so the GAZETTE
+## seal opens the one full-screen modal every bar door uses. The chart behind it
+## is read again when the crown sets the sheet aside (REQ-P1-05, REQ-P1-07).
 static func _gazette_plate(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "GazetteLayer"
+	layer.layer = 6
+	hud.add_child(layer)
 	hud.gazette_plate = GazettePlate.new()
-	hud.gazette_plate.z_index = 30
-	# The sheet pushes the despatch lane below its masthead while it is up.
-	hud.gazette_plate.despatches = hud.despatches
-	hud.add_child(hud.gazette_plate)
+	layer.add_child(hud.gazette_plate)
 
 
 static func _tooltip(hud: GameHud) -> void:

@@ -11,11 +11,6 @@ extends RefCounted
 ## (`ArmyForce.side_strength`, `NavalStrength.strength`), so a ledger row can
 ## never print a figure the battle would not use (REQ-P2-03).
 
-const REGION_ALL: String = "all"
-const REGION_OLD: String = "old_world"
-const REGION_NEW: String = "new_world"
-const REGION_FILTERS: Array[String] = [REGION_ALL, REGION_OLD, REGION_NEW]
-
 const KIND_ALL: String = "all"
 const KIND_ARMY: String = "army"
 const KIND_SQUADRON: String = "squadron"
@@ -41,7 +36,7 @@ static func snapshot(
 		if model == null:
 			continue
 		var fleets: Array[FleetState] = _fleets_of(fleet_regions, region, faction)
-		for raw: Variant in _stored(army_regions, region):
+		for raw: Variant in LedgerRows.stored_rows(army_regions, region):
 			var army := raw as ArmyState
 			if army == null or army.owner != faction:
 				continue
@@ -52,7 +47,7 @@ static func snapshot(
 			by_kind[KIND_SQUADRON] = int(by_kind[KIND_SQUADRON]) + 1
 	rows.sort_custom(_before)
 	var result: Dictionary = _empty(rows, by_kind)
-	result["groups"] = _group(rows)
+	result["groups"] = LedgerRows.group(rows)
 	return result
 
 
@@ -60,30 +55,11 @@ static func snapshot(
 static func groups(
 	data: Dictionary, region_key: String, kind: String = KIND_ALL
 ) -> Array[Dictionary]:
-	var kept: Array[Dictionary] = []
-	for raw: Variant in data.get("groups", []):
-		var group: Dictionary = raw
-		if not region_matches(int(group.get("region", -1)), region_key):
-			continue
-		var rows: Array[Dictionary] = []
-		for entry: Variant in group.get("rows", []):
-			var row: Dictionary = entry
-			if not kind.is_empty() and kind != KIND_ALL and String(row["kind"]) != kind:
-				continue
-			rows.append(row)
-		if rows.is_empty():
-			continue
-		var narrowed: Dictionary = group.duplicate()
-		narrowed["rows"] = rows
-		kept.append(narrowed)
-	return kept
+	return LedgerRows.groups(data, region_key, _kind_matches.bind(kind))
 
 
 static func count(data: Dictionary, region_key: String, kind: String = KIND_ALL) -> int:
-	var total: int = 0
-	for group: Dictionary in groups(data, region_key, kind):
-		total += (group["rows"] as Array).size()
-	return total
+	return LedgerRows.count(data, region_key, _kind_matches.bind(kind))
 
 
 ## Armies and squadrons inside one region filter, so the head can print both
@@ -92,20 +68,16 @@ static func kind_counts(data: Dictionary, region_key: String) -> Dictionary:
 	var counts: Dictionary = {KIND_ARMY: 0, KIND_SQUADRON: 0}
 	for raw: Variant in data.get("rows", []):
 		var row: Dictionary = raw
-		if not region_matches(int(row["region"]), region_key):
+		if not LedgerRows.region_matches(int(row["region"]), region_key):
 			continue
 		var kind: String = String(row["kind"])
 		counts[kind] = int(counts.get(kind, 0)) + 1
 	return counts
 
 
-static func region_matches(region: int, key: String) -> bool:
-	match key:
-		REGION_OLD:
-			return region == FactionCatalog.OLD_WORLD
-		REGION_NEW:
-			return region == FactionCatalog.NEW_WORLD
-	return true
+## True when a row is the kind the reading names; `all` keeps both.
+static func _kind_matches(row: Dictionary, kind: String) -> bool:
+	return LedgerRows.field_matches(row, "kind", kind)
 
 
 ## One-word name of a kind, and its plural, for headings and filter chips.
@@ -224,20 +196,11 @@ static func _fleets_of(
 	fleet_regions: MapRegionTable, region: int, faction: int
 ) -> Array[FleetState]:
 	var fleets: Array[FleetState] = []
-	for raw: Variant in _stored(fleet_regions, region):
+	for raw: Variant in LedgerRows.stored_rows(fleet_regions, region):
 		var fleet := raw as FleetState
 		if fleet != null and fleet.owner == faction:
 			fleets.append(fleet)
 	return fleets
-
-
-static func _stored(table: MapRegionTable, region: int) -> Array:
-	if table == null:
-		return []
-	var stored: Variant = table.value(region, [])
-	if stored is Array:
-		return stored
-	return []
 
 
 static func _empty(rows: Array[Dictionary], by_kind: Dictionary) -> Dictionary:
@@ -247,21 +210,6 @@ static func _empty(rows: Array[Dictionary], by_kind: Dictionary) -> Dictionary:
 		"by_kind": by_kind,
 		"total": rows.size(),
 	}
-
-
-static func _group(rows: Array[Dictionary]) -> Array[Dictionary]:
-	var groups: Array[Dictionary] = []
-	var key: int = -1
-	for row: Dictionary in rows:
-		if int(row["region"]) != key:
-			key = int(row["region"])
-			groups.append({
-				"region": key,
-				"region_label": String(row["region_label"]),
-				"rows": [],
-			})
-		(groups.back()["rows"] as Array).append(row)
-	return groups
 
 
 ## Armies first (the men hold ground), then squadrons; inside a kind, the

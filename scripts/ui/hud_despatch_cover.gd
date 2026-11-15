@@ -30,6 +30,9 @@ static func battle_shown(hud: GameHud) -> bool:
 
 
 ## True when a phone sheet covers the map area the lane would print in.
+## Full-screen cards that do not ride the panel dock — the empire roster, the
+## court's dossier, the muster roll, the Gazette and the estates card — cover the
+## lane just as completely (REQ-P1-07, REQ-P5-05).
 static func sheet_open(hud: GameHud) -> bool:
 	if hud.panels == null or not HudLayout.is_compact(hud.size):
 		return false
@@ -39,17 +42,17 @@ static func sheet_open(hud: GameHud) -> bool:
 	for slot: HudPanelSlot in [hud.panels.economy, hud.panels.research, hud.panels.diplomacy]:
 		if slot != null and slot.open:
 			return true
-	# Full-screen cards that do not ride the panel dock: the empire roster, the
-	# court's dossier and the muster roll cover the lane just as completely.
-	for card: Control in [hud.civilian_roster, hud.dossier_screen, hud.muster_roll]:
+	for card: Control in [
+		hud.civilian_roster, hud.dossier_screen, hud.muster_roll, hud.gazette_plate
+	]:
 		if card != null and card.visible:
 			return true
 	var estates: ImprovementPanel = estates_panel(hud)
 	return estates != null and estates.is_open()
 
 
-## The estates card is the HUD's sibling under the map screen's CanvasLayer, so
-## it is reached through the screen rather than by a child path.
+## The estates door is mounted on its own layer above the HUD, so it is reached
+## through the screen rather than by a child path.
 static func estates_panel(hud: GameHud) -> ImprovementPanel:
 	var screen := hud.owner as MapScreen
 	if screen != null:

@@ -5,14 +5,22 @@ extends VBoxContainer
 ## crown (wiki: extraction-and-improvements, capital-and-connectivity).
 ## Rows come from ResourceSurvey, so the dossier, the estates ledger and the
 ## survey lens never disagree about an estate (REQ-P3-02, REQ-P3-03).
+##
+## A developed estate the crown cannot reach carries **Build road**: one tap
+## dispatches an idle Engineer onto the first tile of the route RoadWorks plans
+## (issue #671). The block only prints the plan and emits the intent.
+
+signal road_pressed(tile: Vector2i)
 
 const CAPTION: String = "RESOURCES"
 const LINKED: String = "linked"
 const UNLINKED: String = "no road"
 const FOREIGN: String = "foreign"
 const EMPTY: String = "No charted resource tiles in this province."
+const ROAD: String = "Build road"
 
 var _lines: Array[Dictionary] = []
+var _roads: Dictionary = {}
 var _body: VBoxContainer = null
 var _empty: Label = null
 var _survey: Label = null
@@ -52,6 +60,11 @@ func lines() -> Array[Dictionary]:
 	return _lines
 
 
+## The road plan RoadWorks handed in for one estate, or {} when it needs none.
+func road_plan(tile: Vector2i) -> Dictionary:
+	return _roads.get(tile, {})
+
+
 ## The survey hook as last rendered ("" when every prospectable tile is known).
 func survey_text() -> String:
 	return _survey.text if _survey != null and _survey.visible else ""
@@ -59,8 +72,11 @@ func survey_text() -> String:
 
 ## One line per estate. An empty list says the province holds no charted
 ## resource tile; `unsurveyed` names the ground an Explorer could still read.
-func render(rows: Array[Dictionary], unsurveyed: int = 0) -> void:
+## `roads` maps a tile to the plan RoadWorks read for it, so a cut-off estate
+## carries its Build road control (issue #671).
+func render(rows: Array[Dictionary], unsurveyed: int = 0, roads: Dictionary = {}) -> void:
 	_lines = rows
+	_roads = roads
 	if _body == null:
 		_ready()
 	for child: Node in _body.get_children():
@@ -94,7 +110,40 @@ func _line(row: Dictionary) -> HBoxContainer:
 	line.add_child(title)
 	line.add_child(_text(_level_text(row), 13, _level_color(row), 30))
 	line.add_child(_text(_link_text(row), 12, _link_color(row), 62))
+	var road: Dictionary = _roads.get(row["tile"], {})
+	if bool(road.get("needed", false)):
+		line.add_child(_road_button(row, road))
 	return line
+
+
+## The one-tap dispatch for a cut-off estate: an idle Engineer takes the first
+## tile of the route. Disabled with the reason when no crew or no route exists,
+## so the control never offers an order the rules would refuse (REQ-P2-03).
+func _road_button(row: Dictionary, road: Dictionary) -> Button:
+	var button := Button.new()
+	button.text = ROAD
+	button.custom_minimum_size = Vector2(0, 40 if _compact() else 30)
+	button.add_theme_font_size_override("font_size", 12)
+	var ready: bool = (
+		bool(road.get("engineer", false))
+		and not (road.get("route", []) as Array).is_empty()
+	)
+	button.disabled = not ready
+	button.tooltip_text = _road_tip(road) if ready else String(road.get("reason", ""))
+	button.pressed.connect(func() -> void: road_pressed.emit(row["tile"]))
+	return button
+
+
+func _road_tip(road: Dictionary) -> String:
+	var gap: int = int(road.get("gap", 0))
+	if gap <= 1:
+		return "An Engineer lays the last road tile to this estate."
+	return "An Engineer lays the first of %d road tiles to this estate." % gap
+
+
+func _compact() -> bool:
+	return HudLayout.is_compact(get_viewport_rect().size)
+
 
 
 func _text(value: String, size: int, ink: Color, width: float = 0.0) -> Label:

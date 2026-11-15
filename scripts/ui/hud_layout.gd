@@ -37,7 +37,8 @@ func apply(hud: GameHud) -> void:
 
 ## Re-anchors every dossier for the viewport: a phone gets a full-height side
 ## sheet (the end-turn seal waits behind it, as with any modal), the atlas
-## layout keeps its gap above the seal; the ledger takes the whole edge.
+## layout keeps its gap above the seal. The ledgers are not here: they stand on
+## a ModalDoor and take the plate's whole room (REQ-P1-05).
 func _dossiers(panels: HudPanels, is_compact: bool, view: Vector2) -> void:
 	var width: float = GameHud.PANEL_WIDTH
 	if is_compact:
@@ -49,18 +50,6 @@ func _dossiers(panels: HudPanels, is_compact: bool, view: Vector2) -> void:
 	)
 	for slot: HudPanelSlot in panels.selections():
 		panels.dock.relayout(slot.wrap, slot.open)
-	# The ledgers take the whole edge on a phone, capped so the map stays visible.
-	for spec: Array in [
-		[panels.economy, HudPanelSlot.LEDGER_WIDTH],
-		[panels.research, HudPanelSlot.LEDGER_WIDTH],
-		[panels.diplomacy, HudPanelSlot.COURT_WIDTH],
-	]:
-		var slot: HudPanelSlot = spec[0]
-		slot.wrap.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-		slot.wrap.offset_left = -minf(view.x - 20.0, spec[1]) if is_compact else -spec[1]
-		slot.wrap.offset_right = -10.0 if is_compact else -GameHud.PANEL_MARGIN
-		slot.wrap.offset_top = 64.0 if is_compact else PanelDock.TOP
-		slot.wrap.offset_bottom = -10.0 if is_compact else PanelDock.BOTTOM
 
 
 ## The cartouche stacks its stat chips onto a second row when the row cannot fit
@@ -164,7 +153,3 @@ func _toasts(hud: GameHud) -> void:
 	hud.despatches.fit(compact, hud.top_bar.offset_bottom, LEFT_RAIL)
 
 
-## The estates card on a phone: the panel keeps the sizing rules, the head the
-## summary/filter widgets it resizes (REQ-P3-02).
-static func fit_estates(panel: ImprovementPanel) -> void:
-	panel.set_compact(is_compact(panel.get_viewport_rect().size))

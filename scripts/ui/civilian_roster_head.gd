@@ -8,7 +8,7 @@ signal filter_changed(region_key: String, type_id: String, status_key: String)
 
 const TYPE_ALL: String = ""
 
-var region: String = CivilianRoster.REGION_ALL
+var region: String = LedgerRows.REGION_ALL
 var type_id: String = TYPE_ALL
 var status: String = CivilianRoster.STATUS_ALL
 
@@ -72,7 +72,7 @@ func _build_regions() -> void:
 	caption.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	caption.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	row.add_child(caption)
-	for key: String in CivilianRoster.REGION_FILTERS:
+	for key: String in LedgerRows.REGION_FILTERS:
 		var button := Button.new()
 		button.toggle_mode = true
 		button.custom_minimum_size = Vector2(0, 30)
@@ -153,7 +153,7 @@ func _build_status() -> void:
 
 
 func _press_region(key: String) -> void:
-	region = key if CivilianRoster.REGION_FILTERS.has(key) else CivilianRoster.REGION_ALL
+	region = key if LedgerRows.REGION_FILTERS.has(key) else LedgerRows.REGION_ALL
 	filter_changed.emit(region, type_id, status)
 
 
@@ -194,9 +194,9 @@ func render(
 	]
 	for key: String in _region_buttons.keys():
 		var count: int = int(snapshot.get("total", 0))
-		if key == CivilianRoster.REGION_OLD:
+		if key == LedgerRows.REGION_OLD:
 			count = old_count
-		elif key == CivilianRoster.REGION_NEW:
+		elif key == LedgerRows.REGION_NEW:
 			count = new_count
 		var button: Button = _region_buttons[key]
 		button.text = "%s %d" % [_region_label(key), count]
@@ -205,8 +205,8 @@ func render(
 	for key: String in _type_buttons.keys():
 		var button: Button = _type_buttons[key]
 		var count: int = int(counts.get(key, 0)) if not key.is_empty() else int(snapshot.get("total", 0))
-		if key.is_empty() and region != CivilianRoster.REGION_ALL:
-			count = old_count if region == CivilianRoster.REGION_OLD else new_count
+		if key.is_empty() and region != LedgerRows.REGION_ALL:
+			count = old_count if region == LedgerRows.REGION_OLD else new_count
 		button.text = "%s  %d" % [
 			"All crafts" if key.is_empty() else CivilianCatalog.display_name(key), count
 		]
@@ -232,9 +232,9 @@ func _render_status(snapshot: Dictionary) -> void:
 
 func _region_label(key: String) -> String:
 	match key:
-		CivilianRoster.REGION_OLD:
+		LedgerRows.REGION_OLD:
 			return "Old World"
-		CivilianRoster.REGION_NEW:
+		LedgerRows.REGION_NEW:
 			return "New World"
 	return "All"
 

@@ -10,6 +10,7 @@ static func build(hud: GameHud) -> void:
 	_fleet(hud)
 	_economy(hud)
 	_research(hud)
+	_tech_tree(hud)
 	DiplomacyHud.build(hud)
 	_civilian(hud)
 	_roster(hud)
@@ -17,6 +18,17 @@ static func build(hud: GameHud) -> void:
 	_provinces(hud)
 	_eyes(hud)
 	ArmyHud.build(hud)
+	_command(hud)
+	_towns(hud)
+	_navy(hud)
+	# The army dossier's command door opens the crown's commanders: the dossier
+	# is where a crown asks who leads, and the pool is the whole of it
+	# (DR-20261115-11).
+	hud._army_panel.command_pressed.connect(func() -> void: hud.command_pressed.emit())
+	# The realm ledger's towns door opens the crown's towns: the realm prints
+	# each province's level, and the towns sheet is the step that raises it
+	# (DR-20261115-12).
+	hud.province_ledger.towns_pressed.connect(func() -> void: hud.towns_pressed.emit())
 
 
 static func _province(hud: GameHud) -> void:
@@ -47,11 +59,15 @@ static func _fleet(hud: GameHud) -> void:
 	hud._fleet_wrap = hud.panels.fleet.wrap
 
 
+## The three readings the bar's doors carry — the ledger, the college and the
+## court — stand on a ModalDoor: the panel keeps its own masthead and tabs, and
+## the door gives it the whole screen, the wash and the pause-door park every
+## cartouche door has (REQ-P1-05, REQ-P1-07, REQ-P5-07).
 static func _economy(hud: GameHud) -> void:
 	hud._economy_panel = EconomyPanel.new()
 	hud._economy_panel.close_pressed.connect(func() -> void: hud.panels.hide_economy())
-	hud.panels.economy = HudPanelSlot.build(
-		hud, hud._economy_panel, HudPanelSlot.LEDGER_WIDTH, false
+	hud.panels.economy = HudPanelSlot.build_modal(
+		ModalDoor.mount(hud, "LedgerDoor"), hud._economy_panel
 	)
 	hud._economy_wrap = hud.panels.economy.wrap
 
@@ -59,10 +75,32 @@ static func _economy(hud: GameHud) -> void:
 static func _research(hud: GameHud) -> void:
 	hud._research_panel = ResearchPanel.new()
 	hud._research_panel.close_pressed.connect(func() -> void: hud.panels.hide_research())
-	hud.panels.research = HudPanelSlot.build(
-		hud, hud._research_panel, HudPanelSlot.LEDGER_WIDTH, false
+	hud.panels.research = HudPanelSlot.build_modal(
+		ModalDoor.mount(hud, "CollegeDoor"), hud._research_panel
 	)
 	hud._research_wrap = hud.panels.research.wrap
+
+
+## The college's whole tree, full screen over the ledger: every advance as a
+## node on a pannable chart, its prerequisite edges drawn, the aimed advance's
+## ancestor road lit, and the goal door on the reading (DR-20261115-15).
+static func _tech_tree(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "TechTreeLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.tech_tree = TechTreePanel.new()
+	layer.add_child(hud.tech_tree)
+	hud._research_panel.tree_requested.connect(
+		func() -> void: hud.tech_tree.present(hud._research_panel.research_state())
+	)
+	# The chart's one intent is the college's own goal: steering it writes the
+	# state the ledger already keeps, and the chart repaints on the new goal.
+	hud.tech_tree.goal_requested.connect(func(tech_id: String) -> void:
+		var current: String = hud._research_panel.goal_tech()
+		hud._research_panel.set_goal("" if tech_id == current else tech_id)
+		hud.tech_tree.refresh()
+	)
 
 
 static func _civilian(hud: GameHud) -> void:
@@ -130,3 +168,43 @@ static func _eyes(hud: GameHud) -> void:
 	hud._diplomacy_panel.eyes_pressed.connect(
 		func() -> void: hud.spy_ledger_pressed.emit()
 	)
+
+
+## The command ledger is the muster roll's sibling: the same modal layer, the
+## same sheet chrome, one row per commander the crown's pool holds
+## (DR-20261115-11).
+static func _command(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "CommandLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.command_ledger = CommandLedgerPanel.new()
+	layer.add_child(hud.command_ledger)
+	hud.command_pressed.connect(hud.command_ledger.toggle)
+
+
+## The towns ledger is the same sibling sheet: its own canvas layer above the
+## pause menu, opened by the realm ledger's towns door or the B key
+## (DR-20261115-12).
+static func _towns(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "TownLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.towns_ledger = TownLedgerPanel.new()
+	layer.add_child(hud.towns_ledger)
+	hud.towns_pressed.connect(hud.towns_ledger.toggle)
+
+
+## The muster roll's navy door opens the crown's navy: the roll names each
+## squadron by her flagship, and the hull sheet is the whole of what she flies
+## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
+static func _navy(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "NavalLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.navy_ledger = NavalLedgerPanel.new()
+	layer.add_child(hud.navy_ledger)
+	hud.navy_pressed.connect(hud.navy_ledger.toggle)
+	hud.muster_roll.navy_pressed.connect(func() -> void: hud.navy_pressed.emit())

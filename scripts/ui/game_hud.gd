@@ -48,6 +48,18 @@ signal provinces_pressed
 ## holds, the courts they shadow and the screen (REQ-P5-01, REQ-P5-03;
 ## DR-20261115-10).
 signal spy_ledger_pressed
+## The army dossier's command door opens the crown's commanders — the pool, the
+## medals each wears and the study that raises the cap (REQ-P5-01, REQ-P5-03;
+## DR-20261115-11).
+signal command_pressed
+## The realm ledger's towns door opens the crown's towns — every town it holds,
+## the level it stands at and the step the Builder would take next
+## (REQ-P5-01, REQ-P5-04; DR-20261115-12).
+signal towns_pressed
+## The muster roll's navy door opens the crown's navy — every hull it floats,
+## squadron by squadron, with her class, her guns and her holds
+## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
+signal navy_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -101,6 +113,17 @@ var muster_roll: ForceLedgerPanel = null
 var province_ledger: ProvinceLedgerPanel = null
 ## The crown's eyes: every spy, the courts they shadow, the screen (DR-20261115-10).
 var spy_ledger: SpyLedgerPanel = null
+## The crown's commanders: the pool, its medals and the road to the next
+## (DR-20261115-11).
+var command_ledger: CommandLedgerPanel = null
+## The crown's towns: every town it holds and the step the Builder would take
+## next (DR-20261115-12).
+var towns_ledger: TownLedgerPanel = null
+## The college's whole tree, full screen: every advance on a pannable chart with
+## its prerequisite edges and the aimed advance's road lit (DR-20261115-15).
+var tech_tree: TechTreePanel = null
+## The crown's navy: every hull it floats, squadron by squadron (DR-20261115-14).
+var navy_ledger: NavalLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).

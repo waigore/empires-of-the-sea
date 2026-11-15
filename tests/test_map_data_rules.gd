@@ -474,6 +474,73 @@ func test_civilian_presence_holds_a_foreign_province() -> void:
 	_visibility.end_of_turn([])
 	assert_false(_visibility.is_province_fully_visible(1))
 
+func test_a_departed_spy_leaves_five_turns_of_charter() -> void:
+	_setup_visibility()
+	# Spy timer expiry (wiki: fog-and-exploration § Spy timer expiry): the
+	# province a Spy leaves keeps its charted tiles for five turns, then decays.
+	_visibility.reveal_province(1)
+	_visibility.end_of_turn([], [1], [1])
+	assert_eq(_visibility.spy_charter.left(1), SpyCharter.TURNS)
+	for turn in SpyCharter.TURNS:
+		_visibility.end_of_turn([], [], [])
+		assert_true(
+			_visibility.is_province_fully_visible(1),
+			"turn %d of the grace still reads the province" % (turn + 1)
+		)
+	_visibility.end_of_turn([], [], [])
+	assert_false(
+		_visibility.is_province_fully_visible(1), "the sixth turn puts it back in the fog"
+	)
+	assert_eq(_visibility.spy_charter.left(1), 0)
+
+func test_a_spy_in_the_province_holds_it_again() -> void:
+	_setup_visibility()
+	_visibility.reveal_province(1)
+	_visibility.end_of_turn([], [1], [1])
+	_visibility.end_of_turn([], [], [])
+	assert_eq(_visibility.spy_charter.left(1), 4)
+	# A spy posted again resets the clock rather than letting it run out.
+	_visibility.end_of_turn([], [1], [1])
+	assert_eq(_visibility.spy_charter.left(1), SpyCharter.TURNS)
+
+func test_a_spy_never_times_out_on_its_own_ground() -> void:
+	_setup_visibility()
+	var units: Array[CivilianState] = [
+		CivilianState.create(1, PLAYER, "spy", Vector2i(0, 1)),
+		CivilianState.create(2, PLAYER, "explorer", Vector2i(3, 1)),
+		CivilianState.create(3, PLAYER, "spy", Vector2i(3, 1)),
+	]
+	var spies: Array = CivilianMovement.spy_provinces(_visibility_model, units, PLAYER)
+	assert_eq(spies, [1], "only the rival province takes a timer")
+	_visibility.reveal_province(0)
+	_visibility.end_of_turn([], [], spies)
+	assert_eq(_visibility.spy_charter.left(0), 0, "own ground never carries a timer")
+
+func test_the_spy_grace_survives_a_save() -> void:
+	_setup_visibility()
+	_visibility.reveal_province(1)
+	_visibility.end_of_turn([], [1], [1])
+	_visibility.end_of_turn([], [], [])
+	var restored := VisibilityModel.new()
+	restored.setup(_visibility_model, PLAYER)
+	assert_true(restored.apply_dict(_visibility.to_dict()))
+	assert_eq(restored.spy_charter.left(1), 4, "the counter is carried with the grid")
+	var legacy := _visibility.to_dict()
+	legacy.erase("spy_hold")
+	var old_save := VisibilityModel.new()
+	old_save.setup(_visibility_model, PLAYER)
+	assert_true(old_save.apply_dict(legacy), "a save without the counter still loads")
+	assert_eq(old_save.spy_charter.left(1), 0, "and starts with no timer")
+
+func test_a_junk_charter_payload_starts_empty() -> void:
+	var charter := SpyCharter.new()
+	charter.apply_dict("not a dictionary")
+	assert_eq(charter.left(1), 0, "junk is dropped, never invented")
+	charter.apply_dict({1: 0, 2: 3})
+	assert_eq(charter.left(1), 0, "a spent clock is not carried")
+	assert_eq(charter.left(2), 3, "a live clock is")
+	assert_eq(charter.book([-1, 2], []), [2], "a bad id is skipped, the spy still holds")
+
 func test_presence_never_surveys_unknown_terrain() -> void:
 	_setup_visibility()
 	for tile: Vector2i in _visibility_model.province_tiles(1):
