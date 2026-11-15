@@ -67,6 +67,18 @@ func test_a_foreign_tile_has_no_route() -> void:
 	assert_true(route.is_empty(), "the route never crosses another crown's land")
 
 
+func test_an_empty_network_has_no_route() -> void:
+	var route: Array[Vector2i] = RoadWorks.route(_model, 0, {}, CUT_ESTATE)
+	assert_true(route.is_empty(), "no crown network, nothing to extend")
+
+
+func test_a_missing_map_reads_no_plan() -> void:
+	var plan: Dictionary = RoadWorks.plan(null, _works, _units, 0, CAPITAL, CUT_ESTATE)
+	assert_false(bool(plan["needed"]), "nothing to read without a chart")
+	plan = RoadWorks.plan(_model, _works, _units, -1, CAPITAL, CUT_ESTATE)
+	assert_false(bool(plan["needed"]), "no crown, no estate of ours")
+
+
 # --- the plan the dossier reads ----------------------------------------------
 
 
@@ -180,5 +192,26 @@ func test_dispatch_refuses_an_estate_that_already_reaches_the_crown() -> void:
 	assert_false(bool(result["ok"]))
 	assert_true(
 		String(result["message"]).contains("already reaches"),
+		String(result["message"])
+	)
+
+
+## A gap of several tiles reads as the first of them, so the court knows the
+## link is a road works, not one order (issue #671).
+func test_a_multi_tile_gap_reads_as_the_first_of_many() -> void:
+	var far: Vector2i = Vector2i(2, 3)
+	_works.set_improvement(_model, far, 1)
+	var plan: Dictionary = RoadWorks.plan(
+		_model, _works, _units, 0, CAPITAL, far, _resolved()
+	)
+	assert_true(bool(plan["needed"]), "the far estate is cut off")
+	assert_gt(int(plan["gap"]), 1, "more than one road tile to lay")
+	_engineer()
+	var result: Dictionary = RoadWorks.dispatch(
+		_model, _units, _works, _stock, _view, 0, CAPITAL, far
+	)
+	assert_true(bool(result["ok"]), String(result["message"]))
+	assert_true(
+		String(result["message"]).contains("first of"),
 		String(result["message"])
 	)
