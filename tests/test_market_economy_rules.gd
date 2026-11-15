@@ -4175,6 +4175,54 @@ func test_the_deal_book_reads_the_viewing_crowns_orders() -> void:
 	spain.free()
 
 
+## The clearing's price pass is read where the clearing is narrated: a turn that
+## moved prices says so, and a quiet market adds no line (wiki: world-market
+## § Price discovery; REQ-P5-05).
+func test_the_deal_book_names_the_prices_the_clearing_moved() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var ledger := LedgerMarket.new()
+	ledger.fill(
+		PlayerEconomy.starting(), market, {}, [], {"prices": {"grain": 24, "timber": 27}}, 0
+	)
+	assert_true(_has_text(ledger, "Prices moved"), "the clearing's prices are read")
+	assert_true(
+		_has_text(ledger, "%s 24" % CommodityCatalog.label("grain")),
+		"the moved good is named with the price it now stands at"
+	)
+	ledger.free()
+	var quiet := LedgerMarket.new()
+	quiet.fill(PlayerEconomy.starting(), market, {}, [], {}, 0)
+	assert_false(_has_text(quiet, "Prices moved"), "a quiet book adds no line")
+	quiet.free()
+
+
+## The line keeps one row: four goods, then a count of the rest.
+func test_the_price_line_caps_its_goods() -> void:
+	var moved: Dictionary = {}
+	for id: String in ["grain", "timber", "iron", "wool", "coal"]:
+		moved[id] = CommodityCatalog.base_price(id)
+	var line: String = LedgerMarket.price_moves_line({"prices": moved})
+	assert_true(line.begins_with("Prices moved:"), line)
+	assert_true(line.ends_with("+1 more."), line)
+	# The goods read in name order, so the fifth one is the one left out.
+	assert_true(line.contains(CommodityCatalog.label("coal")), line)
+	assert_false(
+		line.contains(CommodityCatalog.label("wool")), "the fifth good waits"
+	)
+	assert_eq(LedgerMarket.price_moves_line({}), "", "no move, no line")
+
+
+## Any label under `root` whose text contains `needle`.
+func _has_text(root: Node, needle: String) -> bool:
+	var label := root as Label
+	if label != null and label.text.contains(needle):
+		return true
+	for child: Node in root.get_children():
+		if _has_text(child, needle):
+			return true
+	return false
+
+
 ## A staged order is the only row that offers a Cancel, so its presence is the
 ## sheet's own answer to "is this my book?".
 func _has_cancel(node: Node) -> bool:
