@@ -31,11 +31,29 @@ var _peers: Array[WebSocketPeer] = []
 
 func _ready() -> void:
 	var requested: int = parse_port(OS.get_cmdline_user_args())
+	if requested == 0:
+		# Android export templates carry the `command_line` intent extra as
+		# engine args, not user args, so the full cmdline is scanned as a
+		# fallback (docs/agent-debug.md).
+		requested = parse_port(OS.get_cmdline_args())
+		if requested == 0 and _flag_requested():
+			print("AgentDebugBridge: flag seen but not parsed; args=%s" %
+				[OS.get_cmdline_args()])
 	if requested > 0 and not _release_export():
 		start(requested)
 	elif requested != 0:
 		print("AgentDebugBridge: disabled (%s)" %
 			("release export" if _release_export() else "bad port"))
+
+
+## True when either arg list names the flag, so a launch that tried to enable
+## the bridge but misformed the value still explains itself in the log.
+static func _flag_requested() -> bool:
+	for args: Array in [OS.get_cmdline_user_args(), OS.get_cmdline_args()]:
+		for raw: String in args:
+			if raw.contains(FLAG):
+				return true
+	return false
 
 
 ## Reads the flag out of parsed user args: `--agent-debug` (default port),
@@ -68,6 +86,7 @@ func start(p_port: int) -> void:
 		_server = null
 		return
 	port = p_port
+	print("AgentDebugBridge: listening on 127.0.0.1:%d" % p_port)
 	if play == null:
 		var screen := get_parent() as MapScreen
 		if screen != null:
