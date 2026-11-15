@@ -95,5 +95,4 @@ Building-gated recipes; slower rows past the four
 
 ## Tests
 
-`test_economy_rules`, `test_economy_screen`, `test_ai_economy_rules`,
-`test_catalogs`.
+`test_market_economy_rules`, `test_economy_screen`, `test_ai_rules`.

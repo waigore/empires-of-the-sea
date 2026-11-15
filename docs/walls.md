@@ -64,6 +64,6 @@ No figure is recomputed: the level and its guns are `FortRules`, the price is
 
 ## Tests
 
-`tests/test_wall_ledger.gd` — the projection over both charts, every state, the
-tallies and the reading order, the rule note, and the sheet: door, Raise, back
-and key. `tests/test_ledgers.gd` reads its prose at desktop and phone widths.
+`tests/test_ledgers.gd` — the walls cases read the projection over both charts,
+every state, the tallies and the reading order, the rule note, and the sheet:
+door, Raise, back and key; its prose is read at desktop and phone widths.

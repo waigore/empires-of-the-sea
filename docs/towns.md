@@ -63,5 +63,6 @@ is the unit's own work record (`REQ-P2-03`).
 
 ## Tests
 
-`tests/test_town_ledger.gd` — the projection over both charts, every state, the
-tallies and the reading order, and the door, Raise, back and key.
+`tests/test_ledgers.gd` — the towns cases read the projection over both charts,
+every state, the tallies and the reading order, and the door, Raise, back and
+key.
