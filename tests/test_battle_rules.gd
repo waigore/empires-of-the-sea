@@ -918,6 +918,26 @@ func test_sync_spawns_to_cap_and_never_trims() -> void:
 	assert_eq(roster.ids(0).size(), 2)
 
 
+## The opening frame holds the cap, not the first turn tick: every Great Power
+## is seated before any reading touches the pool (wiki: military-generals
+## § Count and tech-gated cap — "The faction always has exactly that many
+## generals"). A reading that spawned the pool itself would hide the gap.
+func test_the_opening_seats_one_commander_per_great_power() -> void:
+	var roster := GeneralRoster.new()
+	var powers: Array[int] = FactionCatalog.great_power_ids()
+	assert_eq(roster.seat_great_powers(), powers.size(), "one commander each")
+	for faction: int in powers:
+		assert_eq(
+			(roster.pools.get(faction, []) as Array).size(), 1,
+			"the pool holds the opening cap before anything reads it"
+		)
+	assert_eq(roster.seat_great_powers(), 0, "seating again spawns nothing")
+	assert_eq(
+		(roster.pools.get(FactionCatalog.minor_ids()[0], []) as Array).size(), 0,
+		"a Minor Nation musters no general"
+	)
+
+
 func test_medals_gain_one_per_win_and_cap_at_four() -> void:
 	var roster := GeneralRoster.new()
 	roster.pool(0)

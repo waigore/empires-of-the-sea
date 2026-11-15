@@ -398,6 +398,41 @@ func test_a_spy_aboard_or_on_a_bare_tile_names_its_own_duty() -> void:
 	)
 
 
+func test_every_duty_has_its_one_word_and_an_unknown_reads_idle() -> void:
+	assert_eq(SpyLedger.duty_word(SpyLedger.DUTY_SHADOW), "SHADOW")
+	assert_eq(SpyLedger.duty_word(SpyLedger.DUTY_SCREEN), "SCREEN")
+	assert_eq(SpyLedger.duty_word(SpyLedger.DUTY_WATCH), "WATCH")
+	assert_eq(SpyLedger.duty_word(SpyLedger.DUTY_ABOARD), "ABOARD")
+	assert_eq(SpyLedger.duty_word(SpyLedger.DUTY_IDLE), "IDLE")
+	assert_eq(SpyLedger.duty_word("no_such_duty"), "IDLE", "an unknown duty idles")
+
+
+func test_a_spy_row_wears_its_chip_and_visits_on_a_tap() -> void:
+	var row := SpyLedgerRow.new()
+	row.compact = true
+	row.setup({
+		"unit_id": 4,
+		"region": FactionCatalog.OLD_WORLD,
+		"region_label": "the Old World",
+		"province_name": "Cádiz",
+		"duty": SpyLedger.DUTY_SHADOW,
+		"duty_text": SpyLedger.duty_text(SpyLedger.DUTY_SHADOW, 1, "Cádiz"),
+	})
+	assert_eq(row._name.text, "Spy — Cádiz")
+	assert_eq(row._chip.text, "SHADOW", "the chip names the duty")
+	assert_true(row._detail.text.contains("Shadowing"), "the row prints what it buys")
+	var visited: Array = []
+	row.visit_pressed.connect(func(region: int, unit_id: int) -> void:
+		visited.append([region, unit_id])
+	)
+	var tap := InputEventMouseButton.new()
+	tap.pressed = true
+	tap.button_index = MOUSE_BUTTON_LEFT
+	row._gui_input(tap)
+	assert_eq(visited, [[FactionCatalog.OLD_WORLD, 4]], "the whole row is the Visit door")
+	row.free()
+
+
 func test_the_reading_orders_shadows_screens_watches_idle_and_passengers() -> void:
 	# Two charts: the Old World holds a rival Great Power (Coro, England) and the
 	# New World a Minor (Genoa), so one reading carries every duty but the screen.
@@ -471,7 +506,7 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 	for raw: Variant in panel._snapshot.get("rows", []):
 		var duty: String = String((raw as Dictionary)["duty"])
 		assert_true(
-			_has_duty_word(panel, panel._duty_word(duty)),
+			_has_duty_word(panel, SpyLedger.duty_word(duty)),
 			"a %s row wears its chip" % duty
 		)
 	var visit: Button = _first_visit(panel)
@@ -498,8 +533,8 @@ func test_the_phone_profile_repaints_the_reading() -> void:
 		SpyLedger.DUTY_SHADOW, SpyLedger.DUTY_SCREEN, SpyLedger.DUTY_WATCH,
 		SpyLedger.DUTY_IDLE, SpyLedger.DUTY_ABOARD,
 	]:
-		assert_ne(panel._duty_word(duty), "", "every duty has a chip word")
-	assert_eq(panel._duty_word(SpyLedger.DUTY_WATCH), "WATCH")
+		assert_ne(SpyLedger.duty_word(duty), "", "every duty has a chip word")
+	assert_eq(SpyLedger.duty_word(SpyLedger.DUTY_WATCH), "WATCH")
 	panel.close()
 
 
@@ -1067,9 +1102,9 @@ func test_a_command_row_prints_the_medals_and_what_they_buy() -> void:
 	})
 	assert_eq(row._name.text, "Don Álvaro")
 	assert_eq(row._medals.text, "×2")
-	assert_true(row._effects.text.contains("Line +2"), "the line a medal adds")
-	assert_true(row._effects.text.contains("morale +10%"))
-	assert_true(row._effects.text.contains("initiative +20"))
+	assert_true(row._detail.text.contains("Line +2"), "the line a medal adds")
+	assert_true(row._detail.text.contains("morale +10%"))
+	assert_true(row._detail.text.contains("initiative +20"))
 	row.free()
 
 
@@ -1078,7 +1113,7 @@ func test_a_command_row_reads_a_commander_with_no_medals_and_one_at_the_ceiling(
 	bare.compact = true
 	bare.setup({"name": "A new commander", "medals": 0, "effects": CommandLedger.effects(0)})
 	assert_eq(bare._medals.text, "—", "no decoration reads as none")
-	assert_true(bare._effects.text.contains("No medals yet"))
+	assert_true(bare._detail.text.contains("No medals yet"))
 	bare.free()
 	var full := CommandLedgerRow.new()
 	full.setup({
@@ -1088,7 +1123,7 @@ func test_a_command_row_reads_a_commander_with_no_medals_and_one_at_the_ceiling(
 		"full": true,
 	})
 	assert_eq(full._medals.text, "×4")
-	assert_true(full._effects.text.contains("every medal he can earn"))
+	assert_true(full._detail.text.contains("every medal he can earn"))
 	full.free()
 
 
@@ -1097,6 +1132,27 @@ func test_a_session_with_no_army_layer_reads_an_empty_command_pool() -> void:
 	assert_eq(int(data["held"]), 0, "no layer, no commanders")
 	assert_true((data["rows"] as Array).is_empty())
 	assert_eq(int(data["cap"]), GeneralRoster.BASE_CAP, "the cap is still the rules'")
+
+
+## The campaign opens with its commander on the roll. Nothing else syncs a pool
+## before the first turn tick, so a sheet that opens on turn 0 read "0 of 1
+## commander" with no row while the wiki says the faction always holds its cap
+## (wiki: military-generals § Count and tech-gated cap).
+func test_a_fresh_campaign_opens_with_its_commander() -> void:
+	var play: PlaySession = screen.play
+	var data: Dictionary = MapPlayCommand.snapshot(play)
+
+	assert_eq(int(data["cap"]), GeneralRoster.BASE_CAP, "the opening cap")
+	assert_eq(int(data["held"]), 1, "the crown holds its opening commander")
+	assert_false((data["rows"] as Array).is_empty(), "and the roll names him")
+
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	screen.hud.command_pressed.emit()
+	assert_true(
+		panel._subtitle.text.contains("1 of 1 commander"),
+		"the count line reads the pool the rows print"
+	)
+	assert_true(not panel._empty.visible, "no empty-state note on the opening sheet")
 
 
 func test_the_command_door_opens_the_ledger_and_lists_the_pool() -> void:

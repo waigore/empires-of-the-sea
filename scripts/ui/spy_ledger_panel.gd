@@ -61,15 +61,6 @@ func _build_body(column: VBoxContainer) -> void:
 	_append_scroll(column).add_child(_rows)
 
 
-func _apply_profile(compact: bool, narrow: bool) -> void:
-	super._apply_profile(compact, narrow)
-	_title.add_theme_font_size_override(
-		"font_size", 20 if narrow else (22 if compact else 28)
-	)
-	_crest.visible = not narrow
-	_subtitle.visible = not compact
-
-
 func _on_profile_changed() -> void:
 	if visible and not _snapshot.is_empty():
 		_paint()
@@ -142,51 +133,11 @@ func _heading(caption: String, tally: String) -> void:
 
 
 func _spy_row(row: Dictionary) -> Control:
-	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(
-			Color(0.13, 0.11, 0.08, 0.88),
-			Color(0.54, 0.43, 0.12, 0.55),
-			1,
-			3,
-			Vector4(10, 6, 10, 6)
-		)
-	)
-	var line := HBoxContainer.new()
-	line.add_theme_constant_override("separation", 10)
-	panel.add_child(line)
-
-	var info := VBoxContainer.new()
-	info.add_theme_constant_override("separation", 1)
-	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	line.add_child(info)
-
-	var heading := HBoxContainer.new()
-	heading.add_theme_constant_override("separation", 8)
-	info.add_child(heading)
-	var title := UiRowBuilder.serif_line(
-		"Spy — %s" % String(row.get("province_name", "Open country")), 17, Palette.GOLD_PALE
-	)
-	heading.add_child(title)
-	heading.add_child(_duty_chip(String(row.get("duty", SpyLedger.DUTY_IDLE))))
-
-	info.add_child(UiRowBuilder.wrapped_line(
-		"%s  ·  %s" % [
-			String(row.get("duty_text", "")), String(row.get("region_label", ""))
-		],
-		12,
-		Palette.TEXT
-	))
-
-	var visit := UiRowBuilder.button("Visit", 36.0, 78.0, 13)
-	visit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	visit.tooltip_text = "Open this spy on the map"
-	visit.pressed.connect(func() -> void:
-		_visit(int(row.get("region", 0)), int(row.get("unit_id", -1)))
-	)
-	line.add_child(visit)
-	return panel
+	var widget := SpyLedgerRow.new()
+	widget.compact = HudLayout.is_compact(get_viewport_rect().size)
+	widget.visit_pressed.connect(_visit)
+	widget.setup(row)
+	return widget
 
 
 func _court_row(court: Dictionary) -> Control:
@@ -204,29 +155,6 @@ func _court_row(court: Dictionary) -> Control:
 		Palette.TEXT if shadowed else Palette.TEXT_DIM
 	))
 	return row
-
-
-## The duty chip: the one word a crown scans for, in the row's own heading.
-func _duty_chip(duty: String) -> Label:
-	var chip := UiRowBuilder.label(_duty_word(duty), 9, Palette.INK)
-	var fill: Color = Palette.GOLD if duty == SpyLedger.DUTY_SHADOW else Palette.GOLD_DIM
-	chip.add_theme_stylebox_override(
-		"normal", UiTheme.box(fill, fill, 0, 2, Vector4(6, 1, 6, 1))
-	)
-	return chip
-
-
-func _duty_word(duty: String) -> String:
-	match duty:
-		SpyLedger.DUTY_SHADOW:
-			return "SHADOW"
-		SpyLedger.DUTY_SCREEN:
-			return "SCREEN"
-		SpyLedger.DUTY_WATCH:
-			return "WATCH"
-		SpyLedger.DUTY_ABOARD:
-			return "ABOARD"
-	return "IDLE"
 
 
 func _visit(region: int, unit_id: int) -> void:

@@ -55,6 +55,21 @@ func test_fort_levels_are_multi_turn_and_capped() -> void:
 	assert_eq(FortRules.next_level(2), 3)
 	assert_eq(FortRules.next_level(3), 3)
 
+## A finished project names the wall it actually left standing: the raise when
+## the level went up, and no claim at all when a second project finished after
+## the wall already stood (wiki: siege-mechanics § Fort Levels).
+func test_a_fort_receipt_names_only_the_level_it_raised() -> void:
+	_setup_fort_rules()
+	assert_eq(
+		FortRules.raise_line(1, 2),
+		"stone fort raised · 20 wall hp · 2 emplaced guns"
+	)
+	assert_eq(
+		FortRules.raise_line(2, 2),
+		"no level added — the province already stands at a stone fort"
+	)
+	assert_eq(FortRules.raise_line(0, 0), "no fort stands here")
+
 func test_emplaced_battery_follows_the_researched_line() -> void:
 	_setup_fort_rules()
 	assert_eq(FortRules.emplaced_type({}), "royal_artillery")

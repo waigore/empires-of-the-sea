@@ -42,7 +42,9 @@ published per side. No second table exists (`REQ-P2-03`).
 
 No appointment, muster, medal, save key or turn moves. A reading must not spawn
 or christen a commander the turn has not, so the projection reads the stored
-pool and never `pool()`.
+pool and never `pool()`. The pool itself is seated when the campaign opens
+(`MapPlaySetup` seats every Great Power at its cap), so the ledger reads the
+crown's commander from turn 0 instead of from the first turn tick.
 
 ## Architecture
 

@@ -64,11 +64,6 @@ func _build_body(column: VBoxContainer) -> void:
 
 func _apply_profile(compact: bool, narrow: bool) -> void:
 	super._apply_profile(compact, narrow)
-	_title.add_theme_font_size_override(
-		"font_size", 20 if narrow else (22 if compact else 28)
-	)
-	_crest.visible = not narrow
-	_subtitle.visible = not compact
 	if _head != null:
 		_head.set_compact(compact)
 

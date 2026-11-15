@@ -8,6 +8,11 @@ extends SheetFrame
 ## renders rows and asks for the jump (REQ-P3-02, REQ-P3-03). The sheet chrome,
 ## fade and pause-door park come from SheetFrame.
 
+## The realm prints each province's town level; the towns sheet is the step
+## that raises it, so the door sits on the reading that raises the question
+## (DR-20261115-12).
+signal towns_pressed
+
 var _rows: VBoxContainer = null
 var _empty: Label = null
 var _region_chips: Array[Button] = []
@@ -48,6 +53,7 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	column.add_child(_filters())
+	column.add_child(_towns_door())
 
 	_rows = VBoxContainer.new()
 	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -56,13 +62,18 @@ func _build_body(column: VBoxContainer) -> void:
 	_empty = _make_empty(_rows)
 
 
-func _apply_profile(compact: bool, narrow: bool) -> void:
-	super._apply_profile(compact, narrow)
-	_title.add_theme_font_size_override(
-		"font_size", 20 if narrow else (22 if compact else 28)
-	)
-	_crest.visible = not narrow
-	_subtitle.visible = not compact
+## The door to the crown's towns: the realm prints the level, the towns sheet
+## prints the step that raises it, and the press is one reach from here
+## (REQ-P5-01, REQ-P5-04; DR-20261115-12). A full-width row keeps it a
+## thumb-sized tap on a phone sheet.
+func _towns_door() -> Control:
+	var door := Button.new()
+	door.text = "Towns ›"
+	door.tooltip_text = "Every town the crown holds, and the step that raises it (B)"
+	door.custom_minimum_size = Vector2(0, 34)
+	door.add_theme_font_size_override("font_size", 12)
+	door.pressed.connect(func() -> void: towns_pressed.emit())
+	return door
 
 
 func _on_profile_changed() -> void:

@@ -77,9 +77,12 @@ static func _validate_bid(
 			market.buy_price(staged.commodity, order.faction), 0
 		)
 	if price > 0 and committed + order.quantity * price > budget:
-		return _no(
-			"The treasury cannot cover that bid.", "trade_order_bid_exceeds_treasury_budget"
-		)
+		var reason: String = "The treasury cannot cover that bid."
+		if int(context.get("projected_non_bid_delta", 0)) < 0:
+			# Name the cause: the purse is not empty, it is promised
+			# (wiki: world-market § Treasury budget for bids).
+			reason = "The treasury cannot cover that bid — this turn's waiting orders are paid first."
+		return _no(reason, "trade_order_bid_exceeds_treasury_budget")
 	return _yes()
 
 

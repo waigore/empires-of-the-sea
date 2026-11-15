@@ -78,15 +78,6 @@ func _note(column: VBoxContainer) -> Label:
 	return label
 
 
-func _apply_profile(compact: bool, narrow: bool) -> void:
-	super._apply_profile(compact, narrow)
-	_title.add_theme_font_size_override(
-		"font_size", 20 if narrow else (22 if compact else 28)
-	)
-	_crest.visible = not narrow
-	_subtitle.visible = not compact
-
-
 func _on_profile_changed() -> void:
 	if visible and not _snapshot.is_empty():
 		_paint()
@@ -109,8 +100,7 @@ func _paint() -> void:
 	_empty.visible = rows.is_empty()
 	if rows.is_empty():
 		_empty.text = (
-			"The crown holds no commanders yet: only a Great Power musters a "
-			+ "general, and the pool opens with the first turn."
+			"The crown holds no commanders: only a Great Power musters a general."
 		)
 		return
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
