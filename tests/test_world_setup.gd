@@ -188,7 +188,7 @@ func test_the_map_seats_the_published_roster() -> void:
 	for faction_id: int in FactionCatalog.minor_ids():
 		assert_gte(
 			_count_owned(old_world, faction_id),
-			TerritoryAssignment.MINOR_PROVINCES,
+			MinorShare.MINOR_PROVINCES,
 			"%s holds the minimum provinces" % FactionCatalog.name_of(faction_id)
 		)
 	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
@@ -1230,10 +1230,14 @@ func test_standard_provinces_sit_in_the_published_size_band() -> void:
 
 
 ## The published charts are drawn **once per seed and size** and re-read by
-## every case below: a draw costs ~9 s on Standard and ~14 s on Large under
-## coverage, so two cases reading one chart paid for it twice
-## (docs/testing.md § Speed rules). Keyed by size because the weighting case
-## reads Large and the density cases read Standard.
+## every case below: the runner hands each case the same dictionary, so a draw
+## is paid once (docs/testing.md § Speed rules). Keyed by size because the
+## weighting case reads Large and the density cases read Standard.
+##
+## A draw costs ~19 s under coverage and is this suite's most expensive
+## fixture. The price is the province/zone pass, not the tiles: a Standard
+## 96×64 draw and a Large 128×84 draw land within ~2 s of each other, so a
+## census is charged per chart, never per tile.
 var drawn_charts: Dictionary = {}
 
 
@@ -1282,10 +1286,13 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 ## guarantee still leaves timber the commonest row on the chart
 ## (wiki: resource-terrain-region-rules § Table).
 func test_the_draw_prices_the_rows_by_their_market_price() -> void:
-	# The Large chart, so the narrow gold/gems price gap still orders the way
-	# the table promises over three seeds; each chart is drawn once and kept,
-	# because a draw is this suite's most expensive fixture.
-	var seeds: Array[int] = [1500, 1501, 1502]
+	# Two Large charts are the floor that still proves the order: the peaks
+	# pool is counted on 1500 (gold 8, gems 2) and 1501 (gold 7, gems 4), while
+	# the 1502 chart carries no peaks row at all, so a third draw only
+	# re-sampled plains and bought no ordering evidence for ~21 s of coverage
+	# time. The metals pool keeps 61 rows over the two (14 + 47), enough for
+	# the three-deviation split below.
+	var seeds: Array[int] = [1500, 1501]
 	var counts: Dictionary = {}
 	var commodities: Dictionary = {}
 	for seed_value: int in seeds:
@@ -1310,7 +1317,7 @@ func test_the_draw_prices_the_rows_by_their_market_price() -> void:
 			String(commodity), int(counts[commodity]), CommodityCatalog.base_price(String(commodity))
 		])
 	dump.sort()
-	print("per-commodity tile counts over seeds 1500-1502: ", ", ".join(dump))
+	print("per-commodity tile counts over seeds 1500-1501: ", ", ".join(dump))
 	# Pools whose rows share one terrain list and one region scope: only the
 	# published price separates their draws (wiki § Table).
 	var pools: Array = [
