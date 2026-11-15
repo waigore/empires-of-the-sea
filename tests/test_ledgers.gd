@@ -1304,6 +1304,50 @@ func test_back_and_the_key_close_the_command_ledger() -> void:
 	assert_false(panel.is_open(), "and closes it again")
 
 
+## --- the shared row skeleton -------------------------------------------------
+
+
+## The heading is one line (issue #669): a name that autowraps inside the
+## heading's HBox reports no minimum width, so the box hands it a single glyph
+## and the chip lands on the letter stack. Every sheet that prints a LedgerRow
+## is read at a desktop and a phone width.
+func test_every_ledger_row_keeps_its_name_on_one_line_beside_its_chip() -> void:
+	var cases: Array = [
+		[ProvinceLedgerRow, {"name": "Nueva Cádiz"}],
+		[SpyLedgerRow, {"province_name": "Nueva Cádiz"}],
+		[ForceLedgerRow, {"title": "The Old Guard"}],
+		[CommandLedgerRow, {"name": "Don Álvaro"}],
+		[NavalLedgerRow, {"name": "Santa Ana"}],
+		[CivilianRosterRow, {"role": "Explorer"}],
+	]
+	for width: float in [640.0, 411.0]:
+		for entry: Array in cases:
+			var row: LedgerRow = (entry[0] as GDScript).new()
+			row.compact = width < 500.0
+			add_child(row)
+			row.setup(entry[1])
+			row.size = Vector2(width, 0.0)
+			await get_tree().process_frame
+			var name: Label = row._name
+			var font: Font = name.get_theme_font("font")
+			var size: int = name.get_theme_font_size("font_size")
+			var one_line: float = font.get_string_size(
+				name.text, HORIZONTAL_ALIGNMENT_LEFT, -1, size
+			).x
+			assert_eq(name.get_line_count(), 1, "%s at %s" % [name.text, width])
+			assert_true(
+				name.size.x + 0.5 >= one_line,
+				"%s reads across, not down: %s of %s" % [name.text, name.size.x, one_line]
+			)
+			if row._chip != null:
+				assert_true(
+					row._chip.get_global_rect().position.x + 0.5
+					>= name.get_global_rect().end.x,
+					"the chip sits beside %s, not on it" % name.text
+				)
+			row.free()
+
+
 ## The army dossier's command door, found by its word so the suite reads the
 ## button the player presses.
 func _command_door() -> Button:
