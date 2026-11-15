@@ -119,6 +119,9 @@ var command_ledger: CommandLedgerPanel = null
 ## The crown's towns: every town it holds and the step the Builder would take
 ## next (DR-20261115-12).
 var towns_ledger: TownLedgerPanel = null
+## The college's whole tree, full screen: every advance on a pannable chart with
+## its prerequisite edges and the aimed advance's road lit (DR-20261115-15).
+var tech_tree: TechTreePanel = null
 ## The crown's navy: every hull it floats, squadron by squadron (DR-20261115-14).
 var navy_ledger: NavalLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).

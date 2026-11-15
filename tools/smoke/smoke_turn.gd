@@ -147,26 +147,58 @@ static func _ledger(run, screen: MapScreen) -> void:
 	run.check(not screen.hud.panels.is_economy_open(), "ledger closes")
 
 
-## The college's tree tab prints the whole catalog and what stands between the
-## crown and any advance, so a goal can be aimed at from far out (REQ-P5-03).
+## The college's chart door prints the whole catalog as a graph and what stands
+## between the crown and any advance, so a goal can be aimed at from far out
+## (REQ-P5-03; DR-20261115-15).
 static func _college(run, screen: MapScreen) -> void:
 	screen.economy.open_research()
 	await run.tree.process_frame
 	run.check(screen.hud.panels.is_research_open(), "college opens")
 	var college: ResearchPanel = screen.hud.panels.research_panel
-	college.select_tab(2)
-	var tree: ResearchTreeTab = college._tree
+	var door: Button = _door(college)
+	run.check(door != null, "the college offers the chart")
+	if door != null:
+		door.pressed.emit()
+	await run.tree.process_frame
+	var chart: TechTreePanel = screen.hud.tech_tree
+	run.check(chart.is_open(), "the chart opens over the college")
 	run.check(
-		tree != null and tree._body.get_child_count() == TechCatalog.ids().size(),
-		"the tree tab lists every advance"
+		chart._canvas.node_count() == TechCatalog.ids().size(),
+		"the chart places every advance"
 	)
-	run.check(run.has_text(tree, "Needs "), "a locked advance names what it needs")
+	chart._canvas.node("safety_lamp").pressed.emit()
+	run.check(run.has_text(chart, "extraction cap"), "a tapped advance reads what it grants")
+	var aim: Button = _button(chart, "Set as research goal")
+	run.check(aim != null, "the reading carries the goal door")
+	if aim != null:
+		aim.pressed.emit()
+	run.check(
+		screen.economy.economy.research.goal == "safety_lamp",
+		"the chart aims the queue at the tapped advance"
+	)
+	chart.close()
+	run.check(not chart.is_open(), "the chart closes back to the college")
 	screen.hud.panels.hide_research()
 	run.check(not screen.hud.panels.is_research_open(), "college closes")
 	run.check(
 		TurnTime.year_for_turn(screen.turn) == TurnTime.START_YEAR + 2,
 		"turn maps to expected year"
 	)
+
+
+## The first button under `root` whose caption begins with `prefix`.
+static func _button(root: Node, prefix: String) -> Button:
+	if root is Button and String((root as Button).text).begins_with(prefix):
+		return root as Button
+	for child: Node in root.get_children():
+		var found: Button = _button(child, prefix)
+		if found != null:
+			return found
+	return null
+
+
+static func _door(college: ResearchPanel) -> Button:
+	return _button(college, "TECH TREE")
 
 
 ## The work the civilian pass queued resolves on the turn it was given.
