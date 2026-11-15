@@ -101,6 +101,22 @@ func reconcile(tech_by_faction: Dictionary) -> int:
 	return spawned
 
 
+## Seats every Great Power's opening pool. The pool's size is the cap, so a
+## faction holds its commander from the opening frame instead of from the first
+## turn tick or the first battle that happens to read the roster (wiki:
+## military-generals § Count and tech-gated cap — "The faction always has
+## exactly that many generals"). A normal opening has no techs; an advanced
+## start raises the cap right after, and sync only ever grows a pool, so a
+## saved roster keeps what it carries. Returns how many commanders were seated.
+func seat_great_powers() -> int:
+	var seated: int = 0
+	for faction: int in FactionCatalog.great_power_ids():
+		var before: int = (pools.get(faction, []) as Array).size()
+		sync(faction, {})
+		seated += (pools.get(faction, []) as Array).size() - before
+	return seated
+
+
 func ids(owner: int) -> Array[String]:
 	var result: Array[String] = []
 	for general: Dictionary in pool(owner):
