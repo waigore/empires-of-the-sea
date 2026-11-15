@@ -232,17 +232,23 @@ func _battle_pass(aggressor: int) -> void:
 ## (wiki: diplomacy § Alliances § Mutual defence, § Breaking an alliance).
 func _second_call_pass(ally: int) -> void:
 	_say("")
+	ally = _second_call_ally(ally)
+	if ally < 0:
+		_say("no ally has two free rivals to fall on it this turn — pass skipped")
+		return
 	if not _relation(ally).formal_alliance:
 		_sign_alliance(ally)
+		if not _relation(ally).formal_alliance:
+			_say("no alliance to defend — pass skipped")
+			return
 		# The same freeze the close of a turn performs, so the treaty is on the
 		# preceding turn's books (CallToArms reads only that snapshot).
 		CallToArms.freeze_alliances(_play.diplomacy)
-	var others: Array[int] = []
-	for gp: int in FactionCatalog.great_power_ids():
-		if gp != _play.player_faction and gp != ally and not _relation(gp).at_war:
-			others.append(gp)
+	var others: Array[int] = _free_declarers(ally)
 	if others.size() < 2:
-		_say("fewer than two rivals left to declare")
+		_say("fewer than two rivals free to declare on %s — pass skipped" % (
+			FactionCatalog.name_of(ally)
+		))
 		return
 	var first: int = others[0]
 	var second: int = others[1]
@@ -364,16 +370,78 @@ func _read_plate(held: int) -> void:
 # --- seating and turn plumbing ---------------------------------------------
 
 
-## Signs the treaty through the court's own order, with the goodwill a signing
-## court needs (a seat, as the rules tests set it).
+## Signs the treaty through the court's own orders, with the goodwill a signing
+## court needs (a seat, as the rules tests set it). The pact comes first: since
+## the binding pact shipped, an alliance on its own is refused, and a drive that
+## skipped the pact walked a treaty that never formed (wiki: diplomacy
+## § Alliances — an alliance needs an active non-aggression pact).
 func _sign_alliance(ally: int) -> void:
 	_relation(ally).score = ALLIANCE_SCORE
-	var economy: PlayerEconomy = _play.economy.economy if _play.economy != null else null
-	var result: Dictionary = DiplomacyOrders.apply(
-		_play.diplomacy, _play.world, economy,
-		{"kind": DiplomacyOrders.KIND_ALLIANCE, "from": _play.player_faction, "target": ally}
-	)
+	if not DiplomacyRules.has_pact(_play.diplomacy, _play.player_faction, ally):
+		var refused: Dictionary = _order(DiplomacyOrders.KIND_ALLIANCE, ally)
+		_say("alliance order before the pact: %s" % String(
+			refused.get("reason", refused.get("message", ""))
+		))
+		_check("an alliance without a pact is refused", not bool(refused.get("ok", false)))
+		_sign_pact(ally)
+	var result: Dictionary = _order(DiplomacyOrders.KIND_ALLIANCE, ally)
 	_say("alliance order: %s" % String(result.get("message", result.get("reason", ""))))
+	_check(
+		"the alliance is signed on the standing pact",
+		bool(result.get("ok", false)) and bool(result.get("accepted", true))
+	)
+
+
+## The free Non-Aggression Pact rung the GP auto-embassy already opens.
+func _sign_pact(ally: int) -> void:
+	var pact: Dictionary = _order(DiplomacyOrders.KIND_OVERTURE, ally, DiplomacyCatalog.STAGE_NAP)
+	_say("pact order: %s" % String(pact.get("message", pact.get("reason", ""))))
+	_check(
+		"the pact stands after the court's own order",
+		bool(pact.get("ok", false)) and bool(pact.get("accepted", true))
+		and DiplomacyRules.has_pact(_play.diplomacy, _play.player_faction, ally)
+	)
+
+
+## Picks the ally for the second pass: a court the crown can still ally with
+## (at peace) that at least two free rivals may declare on. A pact or an
+## alliance bans a declaration, so a court every rival is bound to offers no
+## second call (wiki: diplomacy § GP–GP Rules — Declare War).
+func _second_call_ally(first_choice: int) -> int:
+	var order: Array[int] = [first_choice]
+	for gp: int in FactionCatalog.great_power_ids():
+		if gp != _play.player_faction and gp != first_choice:
+			order.append(gp)
+	for candidate: int in order:
+		if _relation(candidate).at_war:
+			continue
+		if _free_declarers(candidate).size() >= 2:
+			return candidate
+	return -1
+
+
+## Rivals free to declare on `ally` this turn: no pact or alliance with it, and
+## not already at war there.
+func _free_declarers(ally: int) -> Array[int]:
+	var result: Array[int] = []
+	for gp: int in FactionCatalog.great_power_ids():
+		if gp == _play.player_faction or gp == ally:
+			continue
+		if _relation(gp).at_war:
+			continue
+		if bool(DiplomacyRules.can_declare_war(_play.diplomacy, gp, ally).get("ok", false)):
+			result.append(gp)
+	return result
+
+
+func _order(kind: String, target: int, arg: String = "") -> Dictionary:
+	var order: Dictionary = {
+		"kind": kind, "from": _play.player_faction, "target": target,
+	}
+	if kind == DiplomacyOrders.KIND_OVERTURE:
+		order["stage"] = arg
+	var economy: PlayerEconomy = _play.economy.economy if _play.economy != null else null
+	return DiplomacyOrders.apply(_play.diplomacy, _play.world, economy, order)
 
 
 ## One calendar turn, answering whatever consent decision it raises. Calls are

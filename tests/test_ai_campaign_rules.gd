@@ -2203,6 +2203,13 @@ func test_a_pacted_rival_breaks_the_pact_instead_of_the_illegal_war() -> void:
 		AiDiplomacyOffers.KIND_BREAK_NAP,
 	)
 	assert_eq(int(plan["action"]["target"]), 1)
+	# The break is priced at `warDesireScore − 10`, the published worth of a
+	# blocked war (wiki: diplomacy § Planner selection; issue #752).
+	var desire: int = int((plan["candidates"] as Array)[0]["desire"])
+	assert_eq(
+		int(((plan["candidates"] as Array)[0]["offer"] as Dictionary)["utility"]),
+		desire - 10,
+	)
 
 func test_after_the_break_the_next_turn_declares_the_war() -> void:
 	_setup_ai_planner()

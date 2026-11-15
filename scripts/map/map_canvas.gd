@@ -8,6 +8,18 @@ extends Node2D
 
 const TILE_SIZE: float = 22.0
 const CLOUD_MARGIN: float = 1400.0
+## The inked shoreline's paints: a pale surf rim, a wet-sand band and a damp edge
+## under a 1.8 px line.
+const COAST_SURF: Color = Color(0.72, 0.82, 0.80, 0.22)
+## The same rim where the water is narrow: a faint tint, so the shore reads on
+## into a creek without washing out the water between its banks.
+const COAST_SURF_FAINT: Color = Color(0.72, 0.82, 0.80, 0.09)
+const COAST_SAND_TONE: Color = Color(0.90, 0.84, 0.68, 0.42)
+const COAST_DAMP: Color = Color(0.24, 0.19, 0.13, 0.16)
+const COAST_INK: Color = Color(0.16, 0.12, 0.08, 0.85)
+const COAST_RIM: float = 15.0
+const COAST_SAND: float = 6.5
+const COAST_LINE: float = 1.8
 ## Passage water reads darker and colder than ordinary sea, so a warp zone is
 ## found at a glance without selecting a fleet (REQ-P1-07). Kept under the ink
 ## and inside the map artwork layer, so fog still fogs it like any other water.
@@ -29,10 +41,13 @@ var plan := MapCanvasPlan.new()
 var model: MapModel = null
 ## Owning world (both regions), used to mark the sea-lane passages.
 var world: WorldMap = null
-
-var _coast: Array[PackedVector2Array] = []
 ## The baked terrain paint (colour, height, coast field) for this map.
 var relief: MapRelief = null
+
+var _coast: Array[PackedVector2Array] = []
+## One flag per point of each `_coast` path: 1 where the sea has room for the
+## shore's paints, 0 where the bank is too narrow for them.
+var _coast_open: Array[PackedByteArray] = []
 var _province_borders: Array[PackedVector2Array] = []
 var _sea_borders: Array[PackedVector2Array] = []
 ## Smoothed ink boundary of the Passage water on this region.
@@ -101,6 +116,7 @@ func _build_coast() -> void:
 				var b: Vector2 = _edge_point(x, y, int(pair[1]))
 				raw.append(PackedVector2Array([a, b]))
 	_coast = _hand_paths(InkPaths.smooth_segments(raw, 2), 0.9, 0.6)
+	_coast_open = CoastRoom.new().measure(model, _coast, TILE_SIZE)
 
 
 func _edge_point(x: int, y: int, edge: int) -> Vector2:
@@ -188,7 +204,7 @@ func _build_animated_layers() -> void:
 	_surf = MapSurf.new()
 	_surf.name = "Surf"
 	add_child(_surf)
-	_surf.setup(model, _coast, TILE_SIZE)
+	_surf.setup(model, _coast, TILE_SIZE, _coast_open)
 
 	_cloud = ColorRect.new()
 	_cloud.name = "CloudShade"
@@ -217,11 +233,11 @@ func _draw() -> void:
 		draw_polyline(path, Color(0.18, 0.30, 0.33, 0.20), 1.0, true)
 	for path: PackedVector2Array in _province_borders:
 		draw_polyline(path, Color(0.235, 0.184, 0.129, 0.32), 1.2, true)
-	for path: PackedVector2Array in _coast:
-		draw_polyline(path, Color(0.72, 0.82, 0.80, 0.22), 15.0, true)
-		draw_polyline(path, Color(0.90, 0.84, 0.68, 0.42), 6.5, true)
-		draw_polyline(path, Color(0.24, 0.19, 0.13, 0.16), 6.5, true)
-		draw_polyline(path, Color(0.16, 0.12, 0.08, 0.85), 1.8, true)
+	for index in _coast.size():
+		var open: PackedByteArray = (
+			_coast_open[index] if index < _coast_open.size() else PackedByteArray()
+		)
+		_draw_coast(_coast[index], open)
 
 	for glyph: Dictionary in plan.glyphs:
 		if not MapSymbols.stamp(self, glyph):
@@ -235,6 +251,45 @@ func _draw() -> void:
 
 	if plan.compass_visible:
 		MapGlyphs.compass(self, plan.compass_position, 74.0, _font)
+
+
+## The inked shoreline. Water with room beside it takes the full shore: a pale
+## surf rim, a wet-sand band and a darker damp edge, each spilling a little into
+## the sea. Where the bank is narrow the rim drops to a faint tint and the warm
+## sands are left off — the bake already gives that shore its beach and shelf —
+## so a gulf a couple of tiles across stays water between its banks instead of
+## printing solid (#456).
+func _draw_coast(path: PackedVector2Array, open: PackedByteArray) -> void:
+	var start: int = 0
+	var wide: bool = _wide(open, 0)
+	for i in range(1, path.size()):
+		var here: bool = _wide(open, i)
+		if here == wide:
+			continue
+		_draw_coast_run(path, start, i, wide)
+		start = i
+		wide = here
+	_draw_coast_run(path, start, path.size() - 1, wide)
+
+
+func _draw_coast_run(path: PackedVector2Array, from: int, to: int, wide: bool) -> void:
+	if to - from < 1:
+		return
+	var run: PackedVector2Array = path.slice(from, to + 1)
+	# A narrow bank keeps the rim's cool tone at a faint weight and drops the warm
+	# sand: the rim still runs into the creek, the tones that read as ground do
+	# not meet in the middle of it.
+	draw_polyline(run, COAST_SURF if wide else COAST_SURF_FAINT, COAST_RIM, true)
+	if wide:
+		draw_polyline(run, COAST_SAND_TONE, COAST_SAND, true)
+		draw_polyline(run, COAST_DAMP, COAST_SAND, true)
+	draw_polyline(run, COAST_INK, COAST_LINE, true)
+
+
+## A point the room measurement never reached is drawn as open water: the chart
+## looks as it did before the banks were measured rather than losing its shore.
+static func _wide(open: PackedByteArray, index: int) -> bool:
+	return index >= open.size() or open[index] == 1
 
 
 ## A ringed crossing mark: two opposed arrows running through the ring, over a

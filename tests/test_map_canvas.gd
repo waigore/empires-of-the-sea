@@ -211,6 +211,61 @@ func test_open_water_keeps_the_full_shoal_band() -> void:
 	assert_lt(_painted_alpha(relief, Vector2i(12, 6)), 0.02, "deep water stays open")
 
 
+## The ink under a shore must not fill a basin either: the pale rim, the wet-sand
+## band and the damp edge each spill most of a tile into the sea, so a creek two
+## tiles across printed solid from bank to bank and read as barren ground while
+## the model — and the minimap — called it sea (#456).
+func test_a_narrow_gulf_takes_the_line_alone() -> void:
+	var model := _narrow_gulf()
+	var canvas := _chart_of(model)
+	var marked: int = 0
+	for path_index in canvas._coast.size():
+		var path: PackedVector2Array = canvas._coast[path_index]
+		for i in path.size():
+			if not _on_the_creek(path[i]):
+				continue
+			marked += 1
+			assert_eq(canvas._coast_open[path_index][i], 0, "the creek keeps only its line")
+	assert_gt(marked, 0, "the creek's walls were measured")
+	canvas.queue_free()
+
+
+## The same paints that would flood a creek are what draw a coast's beach and
+## surf rim, so open water keeps them (#456).
+func test_open_water_keeps_the_shores_full_paint() -> void:
+	var model := _open_coast()
+	var canvas := _chart_of(model)
+	var marked: int = 0
+	for path_index in canvas._coast.size():
+		var path: PackedVector2Array = canvas._coast[path_index]
+		for i in path.size():
+			var tile: Vector2i = MapGeo.tile_at_world(path[i], MapCanvas.TILE_SIZE)
+			if tile.y < 2 or tile.y > 6:
+				continue
+			marked += 1
+			assert_eq(canvas._coast_open[path_index][i], 1, "open water keeps its paints")
+	assert_gt(marked, 0, "the open coast was measured")
+	canvas.queue_free()
+
+
+## Two banks of breakers meeting in a creek would print it as foam-grey ground,
+## so the surf stays off water the shore cannot fit its paints in (#456).
+func test_a_narrow_gulf_carries_no_breaking_surf() -> void:
+	var canvas := _chart_of(_narrow_gulf())
+	var surf: MapSurf = canvas.get_node("Surf")
+	assert_gt(surf.dash_count(), 0, "the chart still breaks surf somewhere")
+	for dash: Dictionary in surf._dashes:
+		var probe: Vector2 = (
+			(dash["position"] as Vector2)
+			+ (dash["normal"] as Vector2) * MapCanvas.TILE_SIZE * 0.7
+		)
+		var tile: Vector2i = MapGeo.tile_at_world(probe, MapCanvas.TILE_SIZE)
+		assert_false(
+			tile.x >= 11 and tile.x <= 12 and tile.y >= 6, "no breakers inside the creek"
+		)
+	canvas.queue_free()
+
+
 ## A gulf must read as water by its tone, not only by its thin veil. Water is
 ## cool and land is warm, and no sea or shelf tone may sit within a confounding
 ## distance of any land tone — the chart's pale bands were exactly land-coloured
@@ -561,6 +616,24 @@ func test_a_full_cache_keeps_the_chart_in_use() -> void:
 	)
 	assert_lte(MapWash._baked.size(), MapWash.CACHE_LIMIT, "still bounded")
 	MapWash.clear_cache()
+
+
+## A canvas mounted on one fixture model, so a case can read the shoreline flags
+## the paints are drawn from.
+func _chart_of(model: MapModel) -> MapCanvas:
+	var canvas := MapCanvas.new()
+	add_child(canvas)
+	canvas.build(model)
+	return canvas
+
+
+## Whether a coast point stands on the walls of the fixture's creek, the two
+## water columns of `_narrow_gulf`.
+static func _on_the_creek(point: Vector2) -> bool:
+	var tile: Vector2i = MapGeo.tile_at_world(point, MapCanvas.TILE_SIZE)
+	if tile.y < 5:
+		return false
+	return tile.x >= 10 and tile.x <= 13
 
 
 ## A narrow gulf cut into a solid landmass: two tiles wide and open to the sea

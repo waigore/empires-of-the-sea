@@ -62,10 +62,12 @@ const REVOKE_UTILITY_COST: int = 15
 const BREAK_MIN_DESIRE: int = 60
 const BREAK_UTILITY_COST: int = 20
 ## A pact the court means to march on is broken first: the war ban lifts at the
-## next turn, so the break costs less resolve than the alliance it may carry —
-## but it still pays the cascade it inflicts, so the price is a real one
-## (wiki: diplomacy § Breaking a pact; issue #752).
-const BREAK_NAP_UTILITY_COST: int = 35
+## next turn, so the break is worth `warDesireScore − 10` — cheaper resolve than
+## the alliance break it may carry, and the price it pays is the relation
+## cascade, not a second discount on the resolve it takes to march
+## (wiki: diplomacy § Planner selection — a blocked war is a break, not a stall;
+## issue #752).
+const BREAK_NAP_UTILITY_COST: int = 10
 
 ## Highest-utility peaceful candidate for one court, or a blocked explanation
 ## the turn trace can print. `context` carries the planner read model:
