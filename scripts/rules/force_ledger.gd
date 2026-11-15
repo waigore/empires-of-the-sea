@@ -195,12 +195,7 @@ static func _fleet_state(model: MapModel, fleet: FleetState) -> String:
 static func _fleets_of(
 	fleet_regions: MapRegionTable, region: int, faction: int
 ) -> Array[FleetState]:
-	var fleets: Array[FleetState] = []
-	for raw: Variant in LedgerRows.stored_rows(fleet_regions, region):
-		var fleet := raw as FleetState
-		if fleet != null and fleet.owner == faction:
-			fleets.append(fleet)
-	return fleets
+	return LedgerRows.stored_fleets(fleet_regions, region, faction)
 
 
 static func _empty(rows: Array[Dictionary], by_kind: Dictionary) -> Dictionary:

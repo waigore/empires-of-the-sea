@@ -33,6 +33,17 @@ static func region_matches(region: int, key: String) -> bool:
 	return true
 
 
+## The chart a view is read in, as a sheet's count line says it: "in both charts",
+## "in the Old World", "in the New World". One wording, so no sheet writes the
+## same three branches again.
+static func scope_text(region_key: String) -> String:
+	if region_key == REGION_OLD:
+		return "in the Old World"
+	if region_key == REGION_NEW:
+		return "in the New World"
+	return "in both charts"
+
+
 ## True when a row's own reading equals the key; `all` (or an empty key) keeps
 ## every row. A sheet whose reading is one word on the row — a kind, a state, a
 ## role — reads it here instead of writing the same comparison again.
@@ -122,3 +133,17 @@ static func stored_rows(table: MapRegionTable, region: int) -> Array:
 		return []
 	var stored: Variant = table.value(region, [])
 	return stored if stored is Array else []
+
+
+## The crown's own squadrons in one chart: the region's roster read as fleets and
+## kept to `faction`. The muster roll and the navy both walk it, so the guard and
+## the owner test are asked for once here.
+static func stored_fleets(
+	table: MapRegionTable, region: int, faction: int
+) -> Array[FleetState]:
+	var fleets: Array[FleetState] = []
+	for raw: Variant in stored_rows(table, region):
+		var fleet := raw as FleetState
+		if fleet != null and fleet.owner == faction:
+			fleets.append(fleet)
+	return fleets
