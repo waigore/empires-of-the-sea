@@ -23,6 +23,13 @@ Install over a previous build: `adb install -r <apk>`.
 3. Wait for the **Android debug** check to succeed. Report the release URL and the `.apk` download URL. Do not stop at the PR URL alone.
 4. Leave auto-merge alone unless the user asks; merging updates `android-debug` for the next sync.
 
+## Agent debug bridge on a device
+
+Android debug builds carry the opt-in localhost bridge (see
+[agent-debug.md](agent-debug.md)): launch with `-- --agent-debug=8765`, then
+`adb reverse tcp:8765 tcp:8765` and connect to `ws://127.0.0.1:8765` from the
+host.
+
 ## Out of scope
 
 - Local JDK / Android SDK / Godot template install for this path
