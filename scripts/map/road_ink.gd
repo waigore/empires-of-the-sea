@@ -122,45 +122,6 @@ static func _alpha(linked: bool, fogged: bool, reveal: float) -> float:
 	return alpha
 
 
-## Segments only join a run when they read the same: a railroad never borrows a
-## plain road's stroke, and a fogged stretch keeps its own fade.
-static func _band(segment: Dictionary) -> String:
-	return "%s/%s/%s" % [
-		bool(segment["linked"]),
-		bool(segment["rail"]),
-		bool(segment.get("fogged", false)),
-	]
-
-
-static func _chord(segment: Dictionary, tile_size: float) -> PackedVector2Array:
-	var from: Vector2i = segment["a"]
-	var to: Vector2i = segment["b"]
-	return PackedVector2Array([
-		MapGeo.tile_center(from.x, from.y, tile_size),
-		MapGeo.tile_center(to.x, to.y, tile_size),
-	])
-
-
-## A small warp keyed on each point's own position: two runs that meet at a tile
-## centre still meet after it, and a long straight run bows like a drawn road
-## instead of ruling the grid.
-static func _warp(points: PackedVector2Array, amplitude: float) -> PackedVector2Array:
-	var warped := PackedVector2Array()
-	for point: Vector2 in points:
-		warped.append(point + Vector2(
-			sin(point.x * 0.21 + point.y * 0.13) * amplitude,
-			sin(point.x * 0.13 - point.y * 0.19 + 1.7) * amplitude
-		))
-	return warped
-
-
-static func _alpha(linked: bool, fogged: bool, reveal: float) -> float:
-	var alpha: float = reveal * (0.72 if linked else 0.36)
-	if fogged:
-		alpha *= 0.62
-	return alpha
-
-
 ## A cut road: short dashes rather than a solid line, so a break in the network
 ## is visible at fit zoom — and they follow the curve, not a straight chord.
 static func _dashes(canvas: CanvasItem, points: PackedVector2Array, ink: Color) -> void:
