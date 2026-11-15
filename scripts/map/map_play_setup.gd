@@ -109,7 +109,7 @@ static func refresh_dossier(play: PlaySession) -> void:
 	play.hud.panels.panel.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.visibility,
 		play.capital_tile, play.player_faction, play.tech_caps(),
-		play.tech_unlocked()
+		play.tech_unlocked(), play.stockpile()
 	)
 
 

@@ -531,6 +531,28 @@ func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 	_show({"national_bureaucracy": true})
 	assert_false(_province_panel_panel._orders.town_button.disabled, "researched, the order opens")
 
+## The dossier's town order reads the purse as well as the study: a crown that
+## cannot pay the materials is told which ones, not offered a button the work
+## order refuses (wiki: civilian-units § Builder; REQ-P2-03).
+func test_the_town_order_shuts_for_the_stores_it_cannot_pay() -> void:
+	_setup_province_panel()
+	_model.provinces[0].town_development = 1
+	var stock: Dictionary = {}
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {},
+		{"national_bureaucracy": true}, stock
+	)
+	_province_panel_panel.refresh(_model, 0)
+	assert_true(_province_panel_panel._orders.town_button.disabled, "an empty purse offers no order")
+	assert_true(
+		_province_panel_panel._orders.town_button.tooltip_text.contains("Stores are short of"),
+		"and names the shortfall: %s" % _province_panel_panel._orders.town_button.tooltip_text
+	)
+	stock["lumber"] = 4
+	stock["castIron"] = 4
+	_province_panel_panel.refresh(_model, 0)
+	assert_false(_province_panel_panel._orders.town_button.disabled, "paid, the order opens")
+
 func test_a_fully_developed_town_closes_the_order() -> void:
 	_setup_province_panel()
 	_model.provinces[0].town_development = 4

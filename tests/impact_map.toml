@@ -671,6 +671,18 @@ domain = "muster"
 # with the other sheets — one chrome, one modal layer — so a reading change
 # never pulls the map, menu or ui catch-alls past the tier-1 budget.
 [[rules]]
+match = "scripts/rules/raise_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/raise_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_charts.gd*"
+domain = "muster"
+
+[[rules]]
 match = "scripts/rules/town_ledger.gd*"
 domain = "muster"
 

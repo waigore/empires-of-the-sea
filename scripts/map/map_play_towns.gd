@@ -3,29 +3,16 @@ extends RefCounted
 ## The towns ledger's two map hooks: the reading (both charts assembled into one
 ## projection) and Raise (swap the chart when the province lies on the other
 ## one, then file the Builder's order). Presentation only — the rows come from
-## [TownLedger] and the order goes through [MapPlayImprovements], so the press
-## is the province dossier's own order and the rules stay in one place
-## (REQ-P2-03, REQ-P3-02).
+## [TownLedger], the two-chart read from [MapPlayCharts], and the order goes
+## through [MapPlayImprovements], so the press is the province dossier's own
+## order and the rules stay in one place (REQ-P2-03, REQ-P3-02).
 
 
 ## One entry per chart, in the order the ledger prints them: the region's own
-## model, the crown's crews there and the studies it holds.
+## model, the crown's crews there, the studies it holds and the stores the next
+## step is paid from.
 static func snapshot(play: PlaySession) -> Dictionary:
-	if play == null or play.world == null:
-		return TownLedger.snapshot([] as Array[Dictionary], MapModel.NO_ID)
-	var tech_unlocked: Dictionary = play.tech_unlocked()
-	var regions: Array[Dictionary] = []
-	for region: int in play.world.region_count():
-		var model: MapModel = play.world.region(region)
-		if model == null:
-			continue
-		regions.append({
-			"region": region,
-			"model": model,
-			"units": _civilians(play, region),
-			"tech_unlocked": tech_unlocked,
-		})
-	return TownLedger.snapshot(regions, play.player_faction)
+	return TownLedger.snapshot(MapPlayCharts.charts(play), MapPlayCharts.owner(play))
 
 
 ## Files the town order on the chart the province lies on. The order reads the
@@ -41,13 +28,3 @@ static func raise(play: PlaySession, region: int, province_id: int) -> void:
 	if region != play.region_index:
 		play.switch_region(region)
 	MapPlayImprovements.upgrade_town(play, province_id)
-
-
-## The chart's own crews: the civilian layer keeps one table per region, so the
-## reading never borrows the chart the player happens to be looking at.
-static func _civilians(play: PlaySession, region: int) -> Array[CivilianState]:
-	if play.civilian_layer == null:
-		return [] as Array[CivilianState]
-	var units: Array[CivilianState] = []
-	units.assign(play.civilian_layer.regions.value(region, []))
-	return units

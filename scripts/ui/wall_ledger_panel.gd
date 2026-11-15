@@ -1,13 +1,12 @@
 class_name WallLedgerPanel
-extends LedgerSheet
-## The crown's walls: every province it holds that can carry a fort, the level
-## it stands at and the step the Engineer would take next, narrowed by chart and
-## by what the step waits on, with one press that files the order (wiki:
+extends RaiseLedgerPanel
+## The crown's walls: every province it holds that can carry a fort, the level it
+## stands at and the step the Engineer would take next, narrowed by chart and by
+## what the step waits on, with one press that files the order (wiki:
 ## siege-mechanics § Fort Levels, § Wall Protection; DR-20261116-01). The
 ## projection lives in [WallLedger] and the map hooks in [MapPlayWalls]; this
-## class only renders rows and asks for the order (REQ-P3-02, REQ-P3-03). The
-## sheet chrome, fade and pause-door park come from SheetFrame; the chips, rows
-## and empty notice from LedgerSheet.
+## class names the wall words and the order, and borrows the rest of the sheet
+## from [RaiseLedgerPanel] (REQ-P3-02, REQ-P3-03).
 
 
 func _init() -> void:
@@ -20,65 +19,44 @@ func _init() -> void:
 	toggle_action = InputActions.WALLS_LEDGER
 
 
-func bind(p_session: PlaySession) -> void:
-	play = p_session
+func _read() -> Dictionary:
+	return MapPlayWalls.snapshot(play)
 
 
-## Re-reads both charts for the player's crown and repaints the view.
-func refresh() -> void:
-	if play == null or play.world == null:
-		return
-	_snapshot = MapPlayWalls.snapshot(play)
-	_fit()
-	_apply_filter()
+func _filters() -> Array:
+	return WallLedger.FILTERS
 
 
-# --- sheet hooks -------------------------------------------------------------
+func _reading_word(key: String) -> String:
+	return WallLedger.filter_label(key)
 
 
-func _build_crest() -> Control:
-	return Icon.new("wall", 42.0, Palette.GOLD)
+func _groups(region_key: String, reading_key: String) -> Array[Dictionary]:
+	return WallLedger.groups(_snapshot, region_key, reading_key)
 
 
-func _build_body(column: VBoxContainer) -> void:
-	_build_filter_body(
-		column, "Chart", "Reading", WallLedger.FILTERS, WallLedger.filter_label, _rule_note
-	)
+func _count(region_key: String, reading_key: String) -> int:
+	return WallLedger.count(_snapshot, region_key, reading_key)
+
+
+func _crest_icon() -> String:
+	return "wall"
+
+
+func _row_word(count: int) -> String:
+	return "wall" if count == 1 else "walls"
 
 
 ## The rule a crown needs before it pays for a wall sits on the sheet, not in a
 ## hover: a phone hides the footer hint (REQ-P1-07, REQ-P5-03).
-func _rule_note() -> Control:
+func _note() -> Control:
 	var note := UiRowBuilder.label(WallLedger.rule_note(), 11, Palette.TEXT_DIM)
 	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	return note
 
 
-# --- rows --------------------------------------------------------------------
-
-
-func _apply_filter() -> void:
-	var groups: Array[Dictionary] = WallLedger.groups(_snapshot, _region, _reading)
-	var shown: int = WallLedger.count(_snapshot, _region, _reading)
-	_paint_filtered(groups, shown, _heading, _make_row)
-
-
 func _empty_text() -> String:
 	return "No wall answers this view. Clear a filter to see the whole coast."
-
-
-func _heading(group: Dictionary, count: int) -> Control:
-	return LedgerList.heading("%s  ·  %d wall%s" % [
-		String(group["region_label"]).to_upper(), count, "" if count == 1 else "s"
-	])
-
-
-func _make_row(raw: Variant, compact: bool) -> Control:
-	var row := WallLedgerRow.new()
-	row.compact = compact
-	row.raise_pressed.connect(_raise)
-	row.setup(raw as Dictionary)
-	return row
 
 
 ## The count line names the filter and what the view means — and where nothing
@@ -99,12 +77,17 @@ func _subtitle_text(shown: int) -> String:
 			int(reading["walled"]) + int(reading["citadel"]),
 		]
 	)
-	if _reading != WallLedger.FILTER_ALL:
-		line += " Reading: %s only." % WallLedger.filter_label(_reading).to_lower()
-	return line
+	return line + _reading_note()
 
 
-func _raise(region: int, province_id: int) -> void:
+func _make_row(raw: Variant, compact: bool) -> Control:
+	var row := WallLedgerRow.new()
+	_dress_row(row, compact)
+	row.setup(raw as Dictionary)
+	return row
+
+
+func _file_order(region: int, province_id: int) -> void:
 	if play == null:
 		return
 	MapPlayWalls.raise(play, region, province_id)
