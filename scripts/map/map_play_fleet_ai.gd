@@ -50,7 +50,7 @@ static func _run_region(
 				continue
 			if bool(order.get("dock", false)):
 				changed = _dock_home(
-					model, roster, fleet, int(order.get("province", -1)), faction, trace,
+					play, model, roster, fleet, int(order.get("province", -1)), faction, trace,
 					String(order.get("reason", ""))
 				) or changed
 				continue
@@ -89,6 +89,7 @@ static func _run_region(
 ## (wiki: ships-and-naval § Home Fleet; DR-20261110-30). Never silent: the trace
 ## names the harbour it entered.
 static func _dock_home(
+	play: PlaySession,
 	model: MapModel,
 	roster: Array[FleetState],
 	fleet: FleetState,
@@ -116,7 +117,7 @@ static func _dock_home(
 		"province": province,
 		"reason": reason,
 	}
-	var merge: Dictionary = NavalMovement.merge_into_home(model, roster, fleet)
+	var merge: Dictionary = MapPlayHomeMerge.fold(play, model, roster, fleet)
 	var home: FleetState = merge.get("fleet") as FleetState
 	if home != null:
 		entry["merged_into"] = home.id

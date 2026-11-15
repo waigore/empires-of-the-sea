@@ -2501,6 +2501,13 @@ domain = "economy_ui"
 match = "scripts/ui/market_offers_head.gd"
 domain = "economy_ui"
 
+# The Minor Nations & Tribes book on the market tab: the chip strip, the
+# reading it selects and the rows it narrows. Presentation over the published
+# book, so it rides the same economy_ui suites as the page that mounts it.
+[[rules]]
+match = "scripts/ui/ledger_offers.gd*"
+domain = "economy_ui"
+
 [[rules]]
 match = "scripts/ui/ledger_text.gd"
 domain = "economy_ui"
@@ -2865,6 +2872,16 @@ domain = "menu"
 # land-battle suites never open it.
 [[rules]]
 match = "scripts/ui/game_menu.gd"
+domain = "pause"
+
+# The pause page's KEYS reading (its catalogue and its sheet) rides the same
+# domain: only the suites that mount the pause page can read it.
+[[rules]]
+match = "scripts/ui/key_reference.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/keys_sheet.gd*"
 domain = "pause"
 
 [[rules]]

@@ -67,8 +67,10 @@ func _add_summary(
 	if DiplomacyTrade.is_boycotting(state, player, target):
 		add_child(
 			_label(
-				"Our colonies are closed to %s: their market terms worsen 10%%."
-				% FactionCatalog.name_of(target),
+				(
+					"Our colonies are closed to %s: no deal clears between them "
+					+ "and us, and their market terms worsen 10%%."
+				) % FactionCatalog.name_of(target),
 				12, Color(0.85, 0.62, 0.42)
 			)
 		)
@@ -79,7 +81,10 @@ func _add_summary(
 			names.append(FactionCatalog.name_of(issuer))
 		add_child(
 			_label(
-				"Boycotted by %s: our market terms worsen 10%%." % ", ".join(names),
+				(
+					"Boycotted by %s: no deal of ours clears with its colonies, "
+					+ "and our market terms worsen 10%%."
+				) % ", ".join(names),
 				12, Color(0.85, 0.62, 0.42)
 			)
 		)
