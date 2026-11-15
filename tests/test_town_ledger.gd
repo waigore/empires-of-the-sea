@@ -165,6 +165,47 @@ func test_the_bonus_note_states_where_the_bonus_sits() -> void:
 	assert_true(note.contains("levels 2 and 4"), "the rule a crown pays by is printed")
 
 
+# --- the shared raise spine -------------------------------------------------
+
+
+## The spine under both raise sheets: a tally per state, the reading order and
+## the state words each sheet passes in (DR-20261115-12, DR-20261116-01).
+func test_the_spine_counts_every_state_a_row_can_carry() -> void:
+	var counts: Dictionary = RaiseLedger.empty_counts(TownLedger.STATES)
+	assert_eq(counts.size(), TownLedger.STATES.size(), "one tally per state")
+	for state: String in TownLedger.STATES:
+		assert_eq(int(counts[state]), 0, "a zero stays legible")
+
+
+func test_the_spine_orders_a_ready_step_before_a_finished_one() -> void:
+	var rows: Array[Dictionary] = [
+		{"state": TownLedger.STATE_DEVELOPED, "level": 1, "region": 0, "id": 1},
+		{"state": TownLedger.STATE_READY, "level": 3, "region": 1, "id": 2},
+		{"state": TownLedger.STATE_READY, "level": 1, "region": 0, "id": 3},
+	]
+	RaiseLedger.sort_rows(rows, TownLedger.STATE_ORDER)
+	assert_eq(int(rows[0]["id"]), 3, "the weakest ready step leads")
+	assert_eq(int(rows[1]["id"]), 2, "then the stronger ready step")
+	assert_eq(int(rows[2]["id"]), 1, "the finished work reads last")
+
+
+func test_the_spine_reads_the_finished_and_no_crew_words_the_sheet_passes() -> void:
+	assert_eq(
+		RaiseLedger.state_for(
+			4, 4, null, "", false, TownLedger.STATE_DEVELOPED, TownLedger.STATE_NO_BUILDER
+		),
+		TownLedger.STATE_DEVELOPED,
+		"a finished work is the sheet's own word"
+	)
+	assert_eq(
+		RaiseLedger.state_for(
+			1, 4, null, "", false, TownLedger.STATE_DEVELOPED, TownLedger.STATE_NO_BUILDER
+		),
+		TownLedger.STATE_NO_BUILDER,
+		"a missing crew is the sheet's own word"
+	)
+
+
 # --- the sheet --------------------------------------------------------------
 
 
@@ -192,7 +233,7 @@ func test_raise_files_the_builders_order_on_the_provinces_chart() -> void:
 	panel.open()
 	var row: TownLedgerRow = _row_for(panel, province.id)
 	assert_not_null(row, "the province is on the sheet")
-	row._raise_town()
+	row.press_raise()
 	assert_true(builder.is_working(), "the press files the order")
 	assert_eq(builder.work_action(), "upgrade_town", "the Builder raises the town")
 	assert_eq(builder.work_tile(), town, "on the province's own town tile")

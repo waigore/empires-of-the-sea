@@ -206,7 +206,7 @@ func test_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
 	var row: WallLedgerRow = _row_for(panel, province.id)
 	assert_not_null(row, "the province is on the sheet")
 	assert_eq(String(row.data.get("state", "")), WallLedger.STATE_READY, "the row offers the press")
-	row._raise_wall()
+	row.press_raise()
 	var crew: CivilianState = _wall_crew(site)
 	assert_not_null(crew, "the press sends an Engineer")
 	assert_eq(crew.work_action(), "build_fort", "and files the wall order")

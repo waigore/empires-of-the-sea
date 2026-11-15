@@ -100,7 +100,7 @@ static func _muster_roll(run, screen: MapScreen) -> void:
 	run.check(run.has_text(panel._rows, "strength"), "a row prints its strength")
 	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
 	await run.tree.process_frame
-	run.check(panel._kind == ForceLedger.KIND_SQUADRON, "the ledger narrows to squadrons")
+	run.check(panel._reading == ForceLedger.KIND_SQUADRON, "the ledger narrows to squadrons")
 	var only_squadrons: bool = true
 	for child: Node in panel._rows.get_children():
 		var row := child as ForceLedgerRow
@@ -135,7 +135,7 @@ static func _province_ledger(run, screen: MapScreen) -> void:
 	panel._on_filter(ProvinceLedger.FILTER_UNGARRISONED, false)
 	await run.tree.process_frame
 	run.check(
-		panel._filter == ProvinceLedger.FILTER_UNGARRISONED, "the ledger narrows to one reading"
+		panel._reading == ProvinceLedger.FILTER_UNGARRISONED, "the ledger narrows to one reading"
 	)
 	panel.close()
 	await run.tree.process_frame
@@ -173,7 +173,7 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 	)
 	panel._on_filter(TownLedger.FILTER_READY, false)
 	await run.tree.process_frame
-	run.check(panel._filter == TownLedger.FILTER_READY, "the ledger narrows to one reading")
+	run.check(panel._reading == TownLedger.FILTER_READY, "the ledger narrows to one reading")
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the towns ledger sets itself aside")
