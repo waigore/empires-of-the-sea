@@ -146,6 +146,10 @@ static func _ledger(run, screen: MapScreen) -> void:
 		EconomyPanel.TAB_PRODUCTION
 	)
 	run.check(run.has_text(production_body, "2t"), "the alloy rows name their two-turn wait")
+	# The second-stage rows are on the page too, so a crown can see the works a
+	# garment or a rum waits on (wiki: production-recipes § Town-works gates;
+	# DR-20261116-04).
+	run.check(run.has_text(production_body, "Garments"), "the works rows are on the page")
 	screen.hud.panels.hide_economy()
 	run.check(not screen.hud.panels.is_economy_open(), "ledger closes")
 

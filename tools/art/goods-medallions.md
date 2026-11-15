@@ -78,10 +78,12 @@ plate depicts), so keep the id and the row shape intact.
 | `castIron` | A squat three-legged cast-iron cooking pot with a swing handle over its rim, |
 | `fabric` | A rolled bolt of plain cloth with two folds spilling out at the side, no pattern or print, |
 | `refinedSugar` | A tall sugar loaf cone wrapped in paper at its base, the paper torn open at one corner, |
+| `garments` | A folded coat laid flat, its two sleeves falling out to the sides, a shallow V at the neck and a belt across the waist, |
 | `cigars` | Three rolled cigars bundled with a paper band, one drawn forward, their cut ends visible, |
 | `furHats` | A tall beaver top hat with a wide curled brim and a rounded crown, side view, crown and brim brightly lit with polished highlights, no band, no feather, no sewing spool, no needle, no thread, |
 | `steel` | Three long square steel bars standing upright in a tight bundle bound with a thin iron strap, bright polished faces with chamfered edges, no brick, no clay, |
 | `paper` | A stack of four loose foolscap sheets with one corner curled up and a small folded leaf on top, |
+| `rum` | A bulged wooden cask bound with three brass hoops, its bung plate and plug on the near face, |
 | `bronze` | A bronze hand bell standing upright, moulded handle on top, flared mouth downward with a small clapper visible at the rim, a raised band around its waist, |
 | `gold` | A small heap of thick gold coins with one coin standing upright on its edge, |
 | `silver` | A single silver goblet with a rounded bowl, a slim stem and a broad foot, a moulded rim, no coins, |

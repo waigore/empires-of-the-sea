@@ -170,7 +170,8 @@ func resolve_turn() -> Dictionary:
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, readings.extraction(), readings.fleet_ships(),
 		readings.army_food(), false, research_boost,
-		HospitalRules.demand_list(world, player_faction), leader_key
+		HospitalRules.demand_list(world, player_faction), leader_key,
+		TownIndustry.best_level(world, player_faction)
 	)
 	# The wards eat last and in whole staffs; the flags they set are what the
 	# next turn's rest tick reads (wiki: combat § Regiment condition;

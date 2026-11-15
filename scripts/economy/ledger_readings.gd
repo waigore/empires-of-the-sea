@@ -131,7 +131,7 @@ func projected() -> Dictionary:
 	var report: Dictionary = EconomyTurn.project(
 		host.economy, host.market, extraction(), fleet_ships(), army_food(),
 		host.research_boost, HospitalRules.demand_list(world, host.player_faction),
-		host.leader_key
+		host.leader_key, TownIndustry.best_level(world, host.player_faction)
 	)
 	# The auction clears after these phases, so the ledger names what is staged
 	# and what the last clearing paid: the per-turn figure alone is not the

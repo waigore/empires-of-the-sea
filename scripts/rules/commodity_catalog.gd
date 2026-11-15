@@ -33,6 +33,8 @@ const MANUFACTURED: Array[String] = [
 	"steel",
 	"paper",
 	"bronze",
+	"garments",
+	"rum",
 ]
 ## Reserved category: no current commodity is a luxury; trained-worker luxuries are
 ## manufactured goods (wiki: commodity-catalog § Categories).
@@ -61,7 +63,9 @@ const RAW_PRICES: Dictionary = {
 }
 
 ## Break-even prices derived from each manufactured commodity's canonical recipe
-## (wiki: commodity-catalog § Manufactured base prices).
+## (wiki: commodity-catalog § Manufactured base prices). The two second-stage
+## rows are priced from their own inputs: garments from two fabric (80 × 2) and
+## rum from two refined sugar (70 × 2) (DR-20261116-04).
 const MANUFACTURED_PRICES: Dictionary = {
 	"lumber": 60,
 	"castIron": 160,
@@ -72,6 +76,8 @@ const MANUFACTURED_PRICES: Dictionary = {
 	"steel": 170,
 	"paper": 60,
 	"bronze": 145,
+	"garments": 160,
+	"rum": 140,
 }
 
 ## Riches convert to treasury in their own phase; spices is fixed at 50.

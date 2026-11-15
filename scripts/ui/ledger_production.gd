@@ -146,10 +146,11 @@ func _recipe_row(recipe_id: String) -> Control:
 	row.add_child(title)
 
 	# The workshop tag: how long a multi-turn row waits, and what is already
-	# serving its turns. A row whose hand is missing says so here, on the row
-	# itself, because a touch player never sees a hover hint (wiki:
-	# production-recipes § Worker-tier gates; DR-20261114-07).
-	var gated: bool = not ProductionRecipes.tier_met(recipe_id, _economy.workers)
+	# serving its turns. A row whose hand or town's works is missing says so
+	# here, on the row itself, because a touch player never sees a hover hint
+	# (wiki: production-recipes § Worker-tier gates, § Town-works gates;
+	# DR-20261114-07, DR-20261116-04).
+	var gated: bool = not _open(recipe_id)
 	var note_text: String = (
 		_gate_note(recipe_id) if gated
 		else _workshop_note(recipe_id)
@@ -239,14 +240,19 @@ func _allowance(recipe_id: String) -> int:
 		labour,
 		_economy.production.assignments(),
 		_economy.workers,
-		_economy.production_wip
+		_economy.production_wip,
+		_town_level()
 	)
 
 
 ## The hand a row waits for, said on the row itself: a touch player never sees a
 ## hover hint, so the gate is text, not a tooltip (wiki: production-recipes
-## § Worker-tier gates; DR-20261114-07).
+## § Worker-tier gates; DR-20261114-07). A row that waits on the town's works
+## names that first: the town is the outer gate (DR-20261116-04).
 func _gate_note(recipe_id: String) -> String:
+	var town: int = ProductionRecipes.min_town(recipe_id)
+	if town > 0 and not ProductionRecipes.town_met(recipe_id, _town_level()):
+		return "needs a level-%d town" % town
 	var tier: int = ProductionRecipes.min_tier(recipe_id)
 	if tier <= 0:
 		return ""
@@ -257,6 +263,12 @@ func _gate_note(recipe_id: String) -> String:
 
 ## What the gate asks and where the court trains it.
 func _gate_tooltip(recipe_id: String) -> String:
+	var town: int = ProductionRecipes.min_town(recipe_id)
+	if town > 0 and not ProductionRecipes.town_met(recipe_id, _town_level()):
+		return (
+			"This row is the town's own work: it needs a town at level %d. "
+			+ "Raise one in the TOWNS sheet and the workshop will take it."
+		) % town
 	var tier: int = ProductionRecipes.min_tier(recipe_id)
 	if tier <= 0:
 		return ""
@@ -266,6 +278,22 @@ func _gate_tooltip(recipe_id: String) -> String:
 		"This row is a trained hand's work: it needs %s %s. Train one in the "
 		+ "WORKERS tab and the workshop will take it."
 	) % [article, hand]
+
+
+## True when both gates a row declares are open for this court: the hand it
+## needs and the town's works it needs (REQ-P2-03).
+func _open(recipe_id: String) -> bool:
+	return (
+		ProductionRecipes.tier_met(recipe_id, _economy.workers)
+		and ProductionRecipes.town_met(recipe_id, _town_level())
+	)
+
+
+## The crown's best town the projection was read against. Without a projection
+## the page reads no town, so a gated row fails closed exactly as the phase
+## would (DR-20261116-04).
+func _town_level() -> int:
+	return int(_report.get("town_level", 0))
 
 
 ## The MANUFACTURED heading's hint, plus what the workshop turned out in the last

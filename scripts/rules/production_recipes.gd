@@ -26,6 +26,13 @@ extends RefCounted
 ## for a landing, so a court cannot pay ten turns of inputs ahead (wiki:
 ## production-recipes § Workshop queue; DR-20261114-12).
 ##
+## A row may also need the **town's works**: `min_town` names the lowest town
+## level whose presence opens it, read as the crown's best town in any province
+## — a presence test like the hand gate, not a per-province count (wiki:
+## production-recipes § Town-works gates; DR-20261116-04). The two second-stage
+## rows are the catalogue's own: garments from fabric and rum from refined
+## sugar, both two-turn work.
+##
 ## The catalogue owns the rows, their gates and the phase plan; the batches a
 ## court has already paid for are read and served by `ProductionWorkshop`.
 
@@ -58,6 +65,22 @@ const RECIPES: Dictionary = {
 		"inputs": {"copper": 1, "tin": 1},
 		"labour": 3,
 		"turns": 2,
+	},
+	"garments":
+	{
+		"output": "garments",
+		"inputs": {"fabric": 2},
+		"labour": 2,
+		"turns": 2,
+		"min_town": 2,
+	},
+	"rum":
+	{
+		"output": "rum",
+		"inputs": {"refinedSugar": 2},
+		"labour": 2,
+		"turns": 2,
+		"min_town": 4,
 	},
 }
 
@@ -117,20 +140,43 @@ static func tier_met(recipe_id: String, workers: WorkerPool) -> bool:
 	return false
 
 
-## Both gates a row declares: the study it needs and the hand it needs.
+## The lowest town level whose works open the row; 0 when any town may run it
+## (wiki: production-recipes § Town-works gates; DR-20261116-04).
+static func min_town(recipe_id: String) -> int:
+	return int(entry(recipe_id).get("min_town", 0))
+
+
+## True when the crown owns a town at or above the row's works gate. The reading
+## is the crown's best town in any province — a presence test like the hand gate,
+## so a court with no town at all (a projection without a world) fails closed.
+static func town_met(recipe_id: String, town_level: int) -> bool:
+	var need: int = min_town(recipe_id)
+	return need <= 0 or town_level >= need
+
+
+## Both gates a row declares plus the town's works: the study, the hand and the
+## town the crown's best town stands at.
 static func available_for(
-	recipe_id: String, tech_unlocked: Dictionary, workers: WorkerPool
+	recipe_id: String,
+	tech_unlocked: Dictionary,
+	workers: WorkerPool,
+	town_level: int = 0
 ) -> bool:
-	return available(recipe_id, tech_unlocked) and tier_met(recipe_id, workers)
+	return (
+		available(recipe_id, tech_unlocked)
+		and tier_met(recipe_id, workers)
+		and town_met(recipe_id, town_level)
+	)
 
 
-## Rows a court may actually run: tech and hand both open (REQ-P2-03).
+## Rows a court may actually run: tech, hand and town's works all open
+## (REQ-P2-03).
 static func available_ids_for(
-	tech_unlocked: Dictionary, workers: WorkerPool
+	tech_unlocked: Dictionary, workers: WorkerPool, town_level: int = 0
 ) -> Array[String]:
 	var out: Array[String] = []
 	for recipe_id: String in ids():
-		if available_for(recipe_id, tech_unlocked, workers):
+		if available_for(recipe_id, tech_unlocked, workers, town_level):
 			out.append(recipe_id)
 	return out
 
@@ -203,9 +249,12 @@ static func allowance(
 	labour_points: int,
 	assignments: Array,
 	workers: WorkerPool = null,
-	wip: Dictionary = {}
+	wip: Dictionary = {},
+	town_level: int = 0
 ) -> int:
 	if not known(recipe_id) or not tier_met(recipe_id, workers):
+		return 0
+	if not town_met(recipe_id, town_level):
 		return 0
 	var others: Array = []
 	for raw: Variant in assignments:
@@ -215,7 +264,7 @@ static func allowance(
 		if other_id == recipe_id:
 			continue
 		# A gated row never runs, so it claims nothing from the rows that do.
-		if not tier_met(other_id, workers):
+		if not tier_met(other_id, workers) or not town_met(other_id, town_level):
 			continue
 		others.append(raw)
 	var left: Dictionary = stockpile.duplicate()
@@ -270,7 +319,8 @@ static func plan(
 	labour_points: int,
 	tech_unlocked: Dictionary,
 	wip: Dictionary = {},
-	workers: WorkerPool = null
+	workers: WorkerPool = null,
+	town_level: int = 0
 ) -> Dictionary:
 	var remaining_labour: int = maxi(labour_points, 0)
 	var runs_by_recipe: Dictionary = {}
@@ -296,7 +346,7 @@ static func plan(
 			next_wip[recipe_id] = kept
 	for assignment: Dictionary in assignments:
 		var recipe_id: String = String(assignment.get("recipe", ""))
-		if not available_for(recipe_id, tech_unlocked, workers):
+		if not available_for(recipe_id, tech_unlocked, workers, town_level):
 			continue
 		var desired: int = int(assignment.get("units", 0))
 		if desired <= 0:
