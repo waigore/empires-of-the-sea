@@ -112,17 +112,11 @@ static func _readings(
 		play.diplomacy, play.world, play.court_charts, faction,
 		economy.treasury, economy.tech_unlocked
 	)
-	# The deed the court is saving toward: the cheapest Minor or Tribe resource
-	# tile it could sign at the published price, charted and at peace with the
-	# seller. The Merchant's own order signs it, so the aim is a reading — the
-	# row the escalation tracks so a court saving for a deed cannot pin in
-	# silence (issue #724 task 3).
+	# The deed the court is saving toward: the cheapest Minor or Tribe tile it
+	# could sign, charted and at peace with the seller (issue #724 task 3).
 	var deed: Dictionary = AiMerchantWork.openable_deed(
 		play.world.region(home), faction,
-		{
-			"diplomacy": play.diplomacy,
-			"visibility": MapPlayCourtFog.view_for(play, faction, home),
-		}
+		{"diplomacy": play.diplomacy, "visibility": MapPlayCourtFog.view_for(play, faction, home)}
 	)
 	# The surplus ladder reads the money-goal reserve; the standing study is one
 	# slot at the cheapest preset above half the cash floor, so the ledger prices
