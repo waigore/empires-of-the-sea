@@ -40,9 +40,9 @@ func test_the_ledger_reads_every_hull_of_both_charts() -> void:
 	var data: Dictionary = NavalLedger.snapshot(_world(), _regions(), OWNER)
 	assert_eq(int(data["total"]), 3, "one row per hull the crown floats")
 	assert_eq((data["groups"] as Array).size(), 2, "one heading per squadron")
-	assert_eq(NavalLedger.count(data, NavalLedger.REGION_OLD), 2)
-	assert_eq(NavalLedger.count(data, NavalLedger.REGION_NEW), 1)
-	assert_eq(NavalLedger.squadron_count(data, NavalLedger.REGION_ALL), 2)
+	assert_eq(NavalLedger.count(data, LedgerRows.REGION_OLD), 2)
+	assert_eq(NavalLedger.count(data, LedgerRows.REGION_NEW), 1)
+	assert_eq(NavalLedger.squadron_count(data, LedgerRows.REGION_ALL), 2)
 	for raw: Variant in data["rows"]:
 		var row: Dictionary = raw
 		assert_ne(String(row["hull"]), "ship_9", "the rival's hull stays out")
@@ -73,7 +73,7 @@ func test_the_line_leads_every_squadron() -> void:
 
 func test_the_squadron_heading_reads_where_she_sails_and_her_station() -> void:
 	var data: Dictionary = NavalLedger.snapshot(_world(), _regions(), OWNER)
-	var groups: Array[Dictionary] = NavalLedger.groups(data, NavalLedger.REGION_ALL)
+	var groups: Array[Dictionary] = NavalLedger.groups(data, LedgerRows.REGION_ALL)
 	var home: Dictionary = groups[0]
 	assert_true(String(home["heading"]).contains("SQUADRON — "), "the heading names the flagship")
 	assert_eq(String(home["place"]), "In port at Cádiz")
@@ -87,13 +87,13 @@ func test_the_squadron_heading_reads_where_she_sails_and_her_station() -> void:
 
 func test_the_readings_narrow_the_ledger_and_keep_their_tallies() -> void:
 	var data: Dictionary = NavalLedger.snapshot(_world(), _regions(), OWNER)
-	var counts: Dictionary = NavalLedger.filter_counts(data, NavalLedger.REGION_ALL)
+	var counts: Dictionary = NavalLedger.filter_counts(data, LedgerRows.REGION_ALL)
 	assert_eq(int(counts[NavalLedger.READING_ALL]), 3)
 	assert_eq(int(counts[NavalLedger.READING_WARSHIP]), 1)
 	assert_eq(int(counts[NavalLedger.READING_MERCHANT]), 2)
-	assert_eq(NavalLedger.count(data, NavalLedger.REGION_NEW, NavalLedger.READING_WARSHIP), 0)
+	assert_eq(NavalLedger.count(data, LedgerRows.REGION_NEW, NavalLedger.READING_WARSHIP), 0)
 	var warships: Array[Dictionary] = NavalLedger.groups(
-		data, NavalLedger.REGION_ALL, NavalLedger.READING_WARSHIP
+		data, LedgerRows.REGION_ALL, NavalLedger.READING_WARSHIP
 	)
 	assert_eq(warships.size(), 1, "only the squadron that still has a standing hull")
 	for row: Dictionary in warships[0]["rows"]:
@@ -102,13 +102,13 @@ func test_the_readings_narrow_the_ledger_and_keep_their_tallies() -> void:
 
 func test_the_count_line_and_the_note_print_the_rules_own_figures() -> void:
 	var data: Dictionary = NavalLedger.snapshot(_world(), _regions(), OWNER)
-	var line: String = NavalLedger.summary(data, NavalLedger.REGION_ALL)
+	var line: String = NavalLedger.summary(data, LedgerRows.REGION_ALL)
 	assert_true(line.contains("3 of 3 hulls in 2 squadrons"))
 	assert_true(line.contains("1 warships, 2 merchant hulls"))
 	assert_true(line.contains("8 holds"), "the merchant hulls' own cargo")
 	assert_true(line.contains("strength"))
 	var narrowed: String = NavalLedger.summary(
-		data, NavalLedger.REGION_OLD, NavalLedger.READING_MERCHANT
+		data, LedgerRows.REGION_OLD, NavalLedger.READING_MERCHANT
 	)
 	assert_true(narrowed.contains("1 of 2 hulls in the Old World"), "the chart is the denominator")
 	assert_true(narrowed.contains("merchant hulls only"))
@@ -123,9 +123,9 @@ func test_a_chart_with_no_squadron_reads_empty_and_a_slip_reads_no_hull() -> voi
 	table.set_region(FactionCatalog.OLD_WORLD, [slip])
 	var data: Dictionary = NavalLedger.snapshot(_world(), table, OWNER)
 	assert_eq(int(data["total"]), 0, "a slip has no hull to read")
-	assert_eq(NavalLedger.squadron_count(data, NavalLedger.REGION_ALL), 1, "the yard is still counted")
+	assert_eq(NavalLedger.squadron_count(data, LedgerRows.REGION_ALL), 1, "the yard is still counted")
 	assert_eq((data["groups"] as Array).size(), 0, "an empty squadron prints no heading")
-	assert_true(NavalLedger.summary(data, NavalLedger.REGION_ALL).contains("0 hulls"))
+	assert_true(NavalLedger.summary(data, LedgerRows.REGION_ALL).contains("0 hulls"))
 
 
 # --- the row ----------------------------------------------------------------
@@ -196,9 +196,9 @@ func test_the_readings_narrow_the_sheet() -> void:
 		var row := child as NavalLedgerRow
 		if row != null:
 			assert_eq(String(row.data["role"]), NavalLedger.READING_WARSHIP)
-	panel._on_filter(NavalLedger.REGION_OLD, true)
-	assert_eq(panel._region, NavalLedger.REGION_OLD)
-	panel._on_filter(NavalLedger.REGION_ALL, true)
+	panel._on_filter(LedgerRows.REGION_OLD, true)
+	assert_eq(panel._region, LedgerRows.REGION_OLD)
+	panel._on_filter(LedgerRows.REGION_ALL, true)
 	panel._on_filter(NavalLedger.READING_ALL, false)
 
 
@@ -210,7 +210,7 @@ func test_the_empty_view_names_why_no_hull_answers() -> void:
 	panel.bind(screen.play)
 	# A chart the crown floats nothing in: the whole navy answers, this chart does not.
 	panel._snapshot = NavalLedger.snapshot(_world(), _old_only(), OWNER)
-	panel._region = NavalLedger.REGION_NEW
+	panel._region = LedgerRows.REGION_NEW
 	panel._apply_filter()
 	assert_true(panel._empty.visible, "an empty chart prints the empty line")
 	assert_true(panel._empty.text.contains("No hull answers this view"))
@@ -220,7 +220,7 @@ func test_the_empty_view_names_why_no_hull_answers() -> void:
 	var table := MapRegionTable.new()
 	table.set_region(FactionCatalog.OLD_WORLD, [slip])
 	panel._snapshot = NavalLedger.snapshot(_world(), table, OWNER)
-	panel._region = NavalLedger.REGION_ALL
+	panel._region = LedgerRows.REGION_ALL
 	panel._apply_filter()
 	assert_true(panel._empty.text.contains("the yard launches the first"))
 	# No squadron at all: clearing a filter is the way back.
@@ -228,7 +228,7 @@ func test_the_empty_view_names_why_no_hull_answers() -> void:
 	panel._apply_filter()
 	assert_true(panel._empty.text.contains("Clear a filter"))
 	panel._snapshot = {}
-	panel._region = NavalLedger.REGION_ALL
+	panel._region = LedgerRows.REGION_ALL
 	panel._reading = NavalLedger.READING_ALL
 
 

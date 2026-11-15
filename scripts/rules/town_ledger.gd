@@ -12,11 +12,6 @@ extends RefCounted
 ## and who is free to take it — so a crown with thirty provinces raises its
 ## towns from one page instead of thirty dossiers (REQ-P5-04).
 
-const REGION_ALL: String = "all"
-const REGION_OLD: String = "old_world"
-const REGION_NEW: String = "new_world"
-const REGION_FILTERS: Array[String] = [REGION_ALL, REGION_OLD, REGION_NEW]
-
 ## What the town's next step is waiting on. One state per row, so the reading
 ## chips and the row's own word can never disagree.
 const STATE_READY: String = "ready"
@@ -76,7 +71,7 @@ static func snapshot(regions: Array[Dictionary], owner: int) -> Dictionary:
 	rows.sort_custom(_before)
 	return {
 		"rows": rows,
-		"groups": _group(rows),
+		"groups": LedgerRows.group(rows),
 		"counts": counts,
 		"total": rows.size(),
 	}
@@ -86,56 +81,23 @@ static func snapshot(regions: Array[Dictionary], owner: int) -> Dictionary:
 static func groups(
 	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
 ) -> Array[Dictionary]:
-	var kept: Array[Dictionary] = []
-	for raw: Variant in data.get("groups", []):
-		var group: Dictionary = raw
-		if not region_matches(int(group.get("region", -1)), region_key):
-			continue
-		var rows: Array[Dictionary] = []
-		for entry: Variant in group.get("rows", []):
-			var row: Dictionary = entry
-			if not matches(row, filter_key):
-				continue
-			rows.append(row)
-		if rows.is_empty():
-			continue
-		var narrowed: Dictionary = group.duplicate()
-		narrowed["rows"] = rows
-		kept.append(narrowed)
-	return kept
+	return LedgerRows.groups(data, region_key, matches.bind(filter_key))
 
 
 static func count(
 	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
 ) -> int:
-	var total: int = 0
-	for group: Dictionary in groups(data, region_key, filter_key):
-		total += (group["rows"] as Array).size()
-	return total
+	return LedgerRows.count(data, region_key, matches.bind(filter_key))
 
 
 ## How many towns each reading would show inside one chart, so a chip carries
 ## its own tally and a zero stays legible rather than hidden.
 static func filter_counts(data: Dictionary, region_key: String) -> Dictionary:
-	var counts: Dictionary = {}
-	for key: String in FILTERS:
-		counts[key] = count(data, region_key, key)
-	return counts
+	return LedgerRows.counts(data, region_key, FILTERS, matches)
 
 
 static func matches(row: Dictionary, filter_key: String) -> bool:
-	if filter_key.is_empty() or filter_key == FILTER_ALL:
-		return true
-	return String(row.get("state", "")) == filter_key
-
-
-static func region_matches(region: int, key: String) -> bool:
-	match key:
-		REGION_OLD:
-			return region == FactionCatalog.OLD_WORLD
-		REGION_NEW:
-			return region == FactionCatalog.NEW_WORLD
-	return true
+	return LedgerRows.field_matches(row, "state", filter_key)
 
 
 ## One-word name of a reading, for its chip and the sheet's count line.
@@ -293,18 +255,3 @@ static func _before(a: Dictionary, b: Dictionary) -> bool:
 	if int(a["region"]) != int(b["region"]):
 		return int(a["region"]) < int(b["region"])
 	return int(a["id"]) < int(b["id"])
-
-
-static func _group(rows: Array[Dictionary]) -> Array[Dictionary]:
-	var groups: Array[Dictionary] = []
-	var key: int = -1
-	for row: Dictionary in rows:
-		if int(row["region"]) != key:
-			key = int(row["region"])
-			groups.append({
-				"region": key,
-				"region_label": String(row["region_label"]),
-				"rows": [] as Array[Dictionary],
-			})
-		(groups[groups.size() - 1]["rows"] as Array[Dictionary]).append(row)
-	return groups

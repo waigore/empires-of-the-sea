@@ -17,18 +17,11 @@ extends RefCounted
 ## station she holds) is read once on the squadron heading, and the row prints
 ## only what is her own: her name, her class, her guns and her holds.
 
-const REGION_ALL: String = "all"
-const REGION_OLD: String = "old_world"
-const REGION_NEW: String = "new_world"
-const REGION_FILTERS: Array[String] = [REGION_ALL, REGION_OLD, REGION_NEW]
-
 ## The reading's own filters: the two kinds of hull a crown acts on.
 const READING_ALL: String = "all"
 const READING_WARSHIP: String = "warship"
 const READING_MERCHANT: String = "merchant"
 const READINGS: Array[String] = [READING_ALL, READING_WARSHIP, READING_MERCHANT]
-
-const NO_ID: int = -1
 
 
 ## Whole-navy snapshot in reading order. `groups` nests each squadron's rows
@@ -84,39 +77,17 @@ static func snapshot(
 static func groups(
 	data: Dictionary, region_key: String, reading: String = READING_ALL
 ) -> Array[Dictionary]:
-	var kept: Array[Dictionary] = []
-	for raw: Variant in data.get("groups", []):
-		var group: Dictionary = raw
-		if not region_matches(int(group.get("region", NO_ID)), region_key):
-			continue
-		var rows: Array[Dictionary] = []
-		for entry: Variant in group.get("rows", []):
-			var row: Dictionary = entry
-			if not matches(row, reading):
-				continue
-			rows.append(row)
-		if rows.is_empty():
-			continue
-		var narrowed: Dictionary = group.duplicate()
-		narrowed["rows"] = rows
-		kept.append(narrowed)
-	return kept
+	return LedgerRows.groups(data, region_key, matches.bind(reading))
 
 
 static func count(data: Dictionary, region_key: String, reading: String = READING_ALL) -> int:
-	var total: int = 0
-	for group: Dictionary in groups(data, region_key, reading):
-		total += (group["rows"] as Array).size()
-	return total
+	return LedgerRows.count(data, region_key, matches.bind(reading))
 
 
 ## How many hulls each reading would show inside one chart, so a chip carries
 ## its own tally and a zero stays legible rather than hidden.
 static func filter_counts(data: Dictionary, region_key: String) -> Dictionary:
-	var counts: Dictionary = {}
-	for key: String in READINGS:
-		counts[key] = count(data, region_key, key)
-	return counts
+	return LedgerRows.counts(data, region_key, READINGS, matches)
 
 
 ## How many squadrons the crown floats inside one chart, hull-less slips
@@ -124,24 +95,13 @@ static func filter_counts(data: Dictionary, region_key: String) -> Dictionary:
 static func squadron_count(data: Dictionary, region_key: String) -> int:
 	var total: int = 0
 	for raw: Variant in (data.get("squadrons", {}) as Dictionary).keys():
-		if region_matches(int(raw), region_key):
+		if LedgerRows.region_matches(int(raw), region_key):
 			total += int(data["squadrons"][raw])
 	return total
 
 
 static func matches(row: Dictionary, reading: String) -> bool:
-	if reading.is_empty() or reading == READING_ALL:
-		return true
-	return String(row.get("role", "")) == reading
-
-
-static func region_matches(region: int, key: String) -> bool:
-	match key:
-		REGION_OLD:
-			return region == FactionCatalog.OLD_WORLD
-		REGION_NEW:
-			return region == FactionCatalog.NEW_WORLD
-	return true
+	return LedgerRows.field_matches(row, "role", reading)
 
 
 ## The reading's own word, for its chip and the sheet's count line.
@@ -194,9 +154,9 @@ static func summary(
 
 
 static func scope_text(region_key: String) -> String:
-	if region_key == REGION_OLD:
+	if region_key == LedgerRows.REGION_OLD:
 		return "in the Old World"
-	if region_key == REGION_NEW:
+	if region_key == LedgerRows.REGION_NEW:
 		return "in the New World"
 	return "in both charts"
 
@@ -307,20 +267,11 @@ static func _fleets_of(
 	fleet_regions: MapRegionTable, region: int, faction: int
 ) -> Array[FleetState]:
 	var fleets: Array[FleetState] = []
-	for raw: Variant in _stored(fleet_regions, region):
+	for raw: Variant in LedgerRows.stored_rows(fleet_regions, region):
 		var fleet := raw as FleetState
 		if fleet != null and fleet.owner == faction:
 			fleets.append(fleet)
 	return fleets
-
-
-static func _stored(table: MapRegionTable, region: int) -> Array:
-	if table == null:
-		return []
-	var stored: Variant = table.value(region, [])
-	if stored is Array:
-		return stored
-	return []
 
 
 static func _empty(

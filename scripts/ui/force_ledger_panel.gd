@@ -14,7 +14,7 @@ signal navy_pressed
 var _rows: VBoxContainer = null
 var _empty: Label = null
 var _bar: LedgerFilterBar = null
-var _region: String = ForceLedger.REGION_ALL
+var _region: String = LedgerRows.REGION_ALL
 var _kind: String = ForceLedger.KIND_ALL
 var _snapshot: Dictionary = {}
 
@@ -55,7 +55,7 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	_bar = LedgerFilterBar.new()
-	_bar.fill("Region", "Force", ForceLedger.REGION_FILTERS, ForceLedger.KIND_FILTERS, _kind_word)
+	_bar.fill("Region", "Force", LedgerRows.REGION_FILTERS, ForceLedger.KIND_FILTERS, _kind_word)
 	_bar.chosen.connect(_on_filter)
 	column.add_child(_bar)
 	column.add_child(_navy_door())
@@ -135,9 +135,9 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 
 func _subtitle_text(shown: int) -> String:
 	var scope: String = "in both charts"
-	if _region == ForceLedger.REGION_OLD:
+	if _region == LedgerRows.REGION_OLD:
 		scope = "in the Old World"
-	elif _region == ForceLedger.REGION_NEW:
+	elif _region == LedgerRows.REGION_NEW:
 		scope = "in the New World"
 	var counts: Dictionary = ForceLedger.kind_counts(_snapshot, _region)
 	var armies: int = int(counts.get(ForceLedger.KIND_ARMY, 0))
