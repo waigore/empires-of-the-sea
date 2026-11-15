@@ -6,6 +6,14 @@ extends RefCounted
 ## runs greedily under the labour and input budget the next Production phase
 ## will enforce. Recruitment spends the same ledger through PlayerEconomy, so a
 ## rival never invents resources or bypasses a tech gate (REQ-P2-03, REQ-P3-03).
+## A row that needs a trained hand is no candidate until the pool holds one: the
+## phase would refuse it, and a phantom run would spend the plan's labour and
+## reserve inputs for output that never lands (wiki: production-recipes
+## § Worker-tier gates; DR-20261114-07).
+## The same holds for the bench: a slow row whose workshop already holds three
+## pieces has no room for another run this phase, so the plan asks for none and
+## spends that labour on the rows the phase will actually start (wiki:
+## production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
 ## Pure rules: state in, orders out; the map adapter applies them.
 
 ## Outputs that unblock civilian work and industry; they win ties over purely
@@ -32,7 +40,13 @@ static func production_orders(
 	# not keep assigning alloy runs that are still serving their turns
 	# (DR-20261112-11).
 	var committed: Dictionary = _committed(economy)
-	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
+	# The room each slow row's bench has left once this phase's landings are
+	# served: the plan takes effect after the phase resolves, so this is the
+	# same reading `ProductionRecipes.plan` will cap the runs with.
+	var bench: Dictionary = _bench_room(economy)
+	for recipe_id: String in ProductionRecipes.available_ids_for(
+		economy.tech_unlocked, economy.workers
+	):
 		var output: String = ProductionRecipes.output(recipe_id)
 		var deficit: int = maxi(
 			target - int(stock.get(output, 0)) - int(committed.get(output, 0)), 0
@@ -60,9 +74,16 @@ static func production_orders(
 				continue
 			var recipe_id: String = String(entry["recipe"])
 			var runs: int = mini(1, ProductionRecipes.max_runs(recipe_id, stock, labour))
+			# A slow row's bench holds three pieces: a fourth run waits for a
+			# landing, so the phase would refuse it and the plan would have
+			# spent its labour and inputs on nothing (DR-20261114-12).
+			if bench.has(recipe_id):
+				runs = mini(runs, int(bench[recipe_id]))
 			if runs <= 0:
 				continue
 			entry["assigned"] = int(entry["assigned"]) + runs
+			if bench.has(recipe_id):
+				bench[recipe_id] = int(bench[recipe_id]) - runs
 			_reserve(recipe_id, runs, stock)
 			labour -= runs * ProductionRecipes.labour(recipe_id)
 			# Interchangeable recipes (wool/cotton fabric) must not both fill the
@@ -108,6 +129,26 @@ static func _committed(economy: PlayerEconomy) -> Dictionary:
 		var made: String = ProductionRecipes.output(recipe_id)
 		committed[made] = int(committed.get(made, 0)) + units
 	return committed
+
+
+## Room each slow row's bench has left for the runs this plan sets: recipe id ->
+## pieces, read from the workshop this phase leaves. The plan is applied after
+## the phase resolves, so its runs start one phase later — and by then every
+## batch on the bench has served another phase, and a batch that starts this
+## phase joins with one already served, so the bench it meets holds no more than
+## `serve` keeps. A one-turn row never waits, so it is absent and never capped
+## (wiki: production-recipes § Workshop queue; DR-20261114-12, DR-20261115-02).
+static func _bench_room(economy: PlayerEconomy) -> Dictionary:
+	var room: Dictionary = {}
+	if economy == null or economy.production == null:
+		return room
+	var wip: Dictionary = economy.production.wip
+	for recipe_id: String in ProductionRecipes.available_ids(economy.tech_unlocked):
+		var turns: int = ProductionRecipes.turns(recipe_id)
+		if turns <= 1:
+			continue
+		room[recipe_id] = ProductionWorkshop.room(wip, recipe_id, turns)
+	return room
 
 
 ## Recruit orders, highest affordable tier first, capped per turn and at the

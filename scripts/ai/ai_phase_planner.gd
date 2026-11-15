@@ -12,18 +12,30 @@ extends RefCounted
 ##   the fleet, so no new colonisation voyage opens.
 ## - `fronts` — the same, with `phase.overstretch_fronts` (2) or more Great
 ##   Power wars: the court also takes any white peace it is offered, because no
-##   court can win two wars at once.
+##   court can win two wars at once, and it opens no new Great Power war either —
+##   a crown suing for peace does not go looking for another front.
 ## - `peace` — no Great Power war: the published behaviour, every domain runs.
 ##
 ## The footing is a pure function of the relations, so the same state always
 ## reads the same phase and a replay never drifts. A war on a Minor Nation or a
 ## Tribe is colonial business and leaves the court at peace.
+##
+## A footing also decides which **dispatch slots** a court leaves open (wiki:
+## phase-planner-dispatch § Suppression matrix): a closed slot is the planner's
+## own default outcome, never a legality gate, and every order the court does
+## issue still passes the published rules (DR-20261113-15, DR-20261114-11).
 
 const PHASE_WAR: String = "war"
 const PHASE_FRONTS: String = "fronts"
 const PHASE_PEACE: String = "peace"
 ## No relations to read: nothing is concluded, every dispatch stays as published.
 const PHASE_UNKNOWN: String = ""
+
+## Dispatch slots a footing decides (wiki: phase-planner-dispatch § Suppression
+## matrix). Every slot reads its outcome from `opens`, so no caller invents its
+## own reading and the next slot lands on this one hook.
+const SLOT_VOYAGE: String = "expansion.voyage"
+const SLOT_DECLARE_WAR: String = "diplomacy.declare_war"
 
 const LABELS: Dictionary = {
 	PHASE_WAR: "at war",
@@ -64,6 +76,27 @@ static func is_war_footing(phase: String) -> bool:
 ## offered rather than refuse it.
 static func takes_any_peace(phase: String) -> bool:
 	return phase == PHASE_FRONTS
+
+
+## Whether the footing leaves a dispatch slot open. A closed slot is the planner's
+## own default outcome — the aim is not offered — never a legality gate: an order
+## the court does issue still passes the same published rules (DR-20261113-15,
+## DR-20261114-11).
+static func opens(phase: String, slot: String) -> bool:
+	match slot:
+		SLOT_VOYAGE:
+			# A Great Power war spends the hulls a voyage needs. Only a **new**
+			# voyage closes: an expedition already afloat keeps sailing, so the
+			# footing never strands it.
+			return not is_war_footing(phase)
+		SLOT_DECLARE_WAR:
+			# An overstretched court takes any white peace it is offered, so it
+			# opens no third Great Power front either: it is the one court no
+			# rival should be able to count on for another war.
+			return phase != PHASE_FRONTS
+	# A slot no footing names stays open: the dispatch matrix's default outcome
+	# keeps merges total (wiki: phase-planner-dispatch).
+	return true
 
 
 ## Reader-facing footing for the observer panel and the turn trace.

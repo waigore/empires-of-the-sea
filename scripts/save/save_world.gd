@@ -81,7 +81,9 @@ static func _restore_courts(play: PlaySession, data: Variant) -> void:
 		return
 	if play.court_charts == null:
 		play.court_charts = CourtCharts.new()
-	play.court_charts.setup(play.world, play.player_faction, play.visibility_by_region)
+	# The observer has no human court: the former human slot charts like a
+	# rival (MapPlayCourtFog.build; issue #603).
+	play.court_charts.setup(play.world, play.human_faction_id(), play.visibility_by_region)
 	play.court_charts.apply_dict(play.world, data)
 
 

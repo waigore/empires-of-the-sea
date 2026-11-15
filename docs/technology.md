@@ -10,45 +10,41 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
 
 ## Implemented
 
-- **Catalog:** 113 wiki techs (id, name, era, category, prerequisites, caps,
-  discovery); `TechAudit.validate()` enforces ids, prerequisites, the DAG,
-  reachability and caps.
+- **Catalog:** 113 wiki techs; `TechAudit.validate()` enforces ids, prerequisites,
+  the DAG, reachability and caps.
 - **Research state:** three slots (four with University), per-slot funding and
   `<techUnlocked>`.
 - **Costs:** `1800 + (tier - 1) * 600` — 1800/2400/3000/3600 RP.
 - **Funding:** presets pay 0/50/150/400/1000 ducats for 0/100/300/800/2500 RP;
   unpaid slots earn nothing.
-- **Treasury floor:** Money Lending allows −500 ducats, Banking with Money
-  Lending −1000.
-- **Bonuses:** Industrial Funding +20% (floored) RP for military and naval
-  techs; spies +15% per shadowed court (`SpyNetworks`).
+- **Treasury floor:** Money Lending −500 ducats, Banking with Money Lending −1000.
+- **Bonuses:** Industrial Funding +20% (floored) for military and naval techs;
+  spies +15% per shadowed court (`SpyNetworks`).
 - **Discovery:** New World techs need a revealed tile with the resource; gold,
-  silver, gems, diamonds must be prospected.
-- **Extraction caps:** techs cap extraction, estates and Builder orders:
-  `min(improvement, tech cap, terrain, path transport, town cap)`; exceptions
-  (horses 1, wool 3).
-- **Unlocks (`TechUnlocks`):** build orders from the canonical gates (regiments,
-  hulls, civilians, workers, forts, batteries, roads, generals) plus each
+  silver, gems, diamonds also prospected.
+- **Extraction caps:** `min(improvement, tech cap, terrain, path transport, town
+  cap)`; horses 1, wool 3.
+- **Unlocks (`TechUnlocks`):** every build order from the canonical gates, each
   military tech's upgrade path and attack price.
-- **Re-equipping (`RegimentUpgrades`):** regiments take the newest
-  same-category type its techs unlock — the tech is the whole price; minors
-  follow the leading power.
+- **Re-equipping (`RegimentUpgrades`):** regiments take the newest same-category
+  type its techs unlock; minors follow the leading power.
 - **Attack price (`ArmyAttackCost`):** 100 ducats per Great Power attacker per
-  land battle; ×0.75 Industrial Machinery, ×0.85 Modern Military Funding; once
-  per exchange, floored at zero.
+  land battle; ×0.75 Industrial Machinery, ×0.85 Modern Military Funding.
 - **Transport:** road 2 needs Road Construction; rail needs Early Steam Engine
   (flat), Later Steam Engine (hills, swamps), Dynamite (mountains).
 - **Privateering Companies:** a charter holder's interception and raids rise 25%.
 - **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its cash
   floor keeps one standing study at Low (DR-20261113-24).
-- **Goal slot:** a goal orders the queue (goal, prerequisites nearest-first,
-  catalog); it funds nothing and rides the save (`ResearchState.goal`,
-  DR-20261111-21).
+- **Goal slot:** orders the queue (goal, prerequisites nearest-first, catalog);
+  funds nothing, rides the save (`ResearchState.goal`, DR-20261111-21).
 - **Slot persistence:** saves keep each slot's tech and funding; load drops what
-  the catalog cannot hold and forfeits unbound progress.
+  the catalog cannot hold.
 - **UI:** `RESEARCH` opens the college ledger: goal strip, slot rows,
-  AVAILABLE/KNOWN tabs. A slot names its ducats beside an animated gauge of
-  banked points plus next turn's gain (`ResearchBar`); rows repaint in place.
+  AVAILABLE/KNOWN/TREE tabs. A slot names its ducats beside an animated gauge of
+  banked points plus next turn's gain (`ResearchBar`); rows repaint in place. The
+  TREE tab prints every advance by branch (`TechPlan`) with what still stands
+  between the crown and it, and the road the goal walks — readable without a
+  hover (`REQ-P5-03`).
 
 ## Deferred (REQ-P2-02)
 
@@ -62,6 +58,7 @@ No research rule is deferred; gaps: [`deferred.md`](deferred.md).
 | `scripts/rules/tech_unlocks.gd` | what a tech opens |
 | `scripts/rules/tech_audit.gd` | catalog validation |
 | `scripts/rules/tech_order.gd` | goal-first queue order |
+| `scripts/rules/tech_plan.gd` | state, road, blocking line |
 | `scripts/rules/research_state.gd` | slots, funding, progress |
 | `scripts/rules/research_slots.gd` | slot saves |
 | `scripts/rules/research_funding.gd` | presets, treasury floor |
@@ -70,7 +67,8 @@ No research rule is deferred; gaps: [`deferred.md`](deferred.md).
 | `scripts/rules/regiment_upgrades.gd` | in-place re-equipping |
 | `scripts/rules/army_attack_cost.gd` | attack treasury |
 | `scripts/ui/research_panel.gd` | ledger shell and tabs |
-| `scripts/ui/research_row.gd` | available/known rows |
+| `scripts/ui/research_tree_tab.gd` | the whole tree by branch |
+| `scripts/ui/research_row.gd` | available/known/tree rows |
 | `scripts/ui/research_slot_row.gd` | slot spend and gauge |
 | `scripts/ui/research_bar.gd` | animated gauge |
 | `scripts/ui/tech_icons.gd` | tech → medallion |

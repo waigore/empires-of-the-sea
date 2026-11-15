@@ -31,6 +31,30 @@ static func build(
 	return result
 
 
+## Cheap identity of the political chart `build` reads: the province grid is
+## static per model, so the borders move only when an owner, a deed or the
+## viewer's chart does. Baked views (the map overlay, the minimap) keep this to
+## skip a rebuild that would draw the same ink again.
+static func signature(model: MapModel, visibility: VisibilityModel = null) -> int:
+	if model == null:
+		return 0
+	var owners := PackedInt32Array()
+	for province: ProvinceState in model.provinces:
+		owners.append(province.owner)
+	return hash([
+		model.get_instance_id(),
+		model.width,
+		model.height,
+		owners,
+		model.ownership.owners,
+		model.ownership.purchased,
+		# A load hands the session a fresh visibility for the same chart, so the
+		# fog is keyed by what it charts, not by which instance holds it.
+		0 if visibility == null else 1,
+		hash(visibility.levels) if visibility != null else 0,
+	])
+
+
 ## True when either side of the boundary has been charted by the viewer.
 static func _charted(
 	visibility: VisibilityModel, model: MapModel, ax: int, ay: int, bx: int, by: int

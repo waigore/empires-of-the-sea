@@ -104,7 +104,7 @@ static func hostile_coasts(
 		var owner: int = model.province_owner(province_id)
 		if owner == MapModel.NO_ID or owner == fleet.owner:
 			continue
-		if not _hostile(hostile, fleet.owner, owner):
+		if not Hostility.between(hostile, fleet.owner, owner):
 			continue
 		coasts.append(province_id)
 	return coasts
@@ -133,7 +133,7 @@ static func can_establish_beachhead(
 		return _deny("A beachhead is only needed on a hostile coast.")
 	if owner == MapModel.NO_ID:
 		return _deny("That coast belongs to no crown.")
-	if not _hostile(hostile, fleet.owner, owner):
+	if not Hostility.between(hostile, fleet.owner, owner):
 		return _deny("A beachhead needs a declared war with %s." % FactionCatalog.name_of(owner))
 	if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
 		return _deny("That coast does not border the fleet's sea zone.")
@@ -203,7 +203,7 @@ static func beachhead_target_valid(
 	var owner: int = model.province_owner(province_id)
 	if owner == MapModel.NO_ID or owner == fleet.owner:
 		return false
-	return _hostile(hostile, fleet.owner, owner)
+	return Hostility.between(hostile, fleet.owner, owner)
 
 
 ## Expires every beachhead whose one full turn has run; called at end of turn.
@@ -226,7 +226,8 @@ static func can_disembark(
 	fleet: FleetState,
 	province_id: int,
 	turn: int = 0,
-	hostile: Callable = Callable()
+	hostile: Callable = Callable(),
+	state: DiplomacyState = null
 ) -> Dictionary:
 	if army == null or fleet == null:
 		return _deny("No army is aboard this fleet.")
@@ -240,8 +241,28 @@ static func can_disembark(
 			# not asked to find a beachhead it already holds (wiki: ships-and-naval
 			# § Missions and Movement).
 			if fleet.beachhead_province == province_id and fleet.has_beachhead():
-				return _deny("The beachhead at %s opens next turn." % model.province_name(province_id))
+				if not beachhead_ready(fleet, turn):
+					return _deny(
+						"The beachhead at %s opens next turn."
+						% model.province_name(province_id)
+					)
+				# Open by the clock but no longer a hostile shore (it changed
+				# hands or the war ended): waiting never opens it, so the refusal
+				# names the loss instead of promising a turn that never comes.
+				return _deny(
+					"The beachhead at %s has lapsed — that shore is no longer an enemy's."
+					% model.province_name(province_id)
+				)
 			return _deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
+		# A Tribe shore another crown has bought land in is no undeclared
+		# landing (wiki: factions § Tribe; DR-20261110-20).
+		if state != null and not DiplomacyRules.invadable(
+			state, army.owner, model.province_owner(province_id), model, province_id
+		):
+			return _deny(
+				"Another crown has bought land in %s; declare war before landing."
+				% model.province_name(province_id)
+			)
 		return _allow()
 	if fleet.is_in_port():
 		if province_id != fleet.province:
@@ -260,10 +281,11 @@ static func disembark(
 	fleet: FleetState,
 	province_id: int,
 	turn: int = 0,
-	hostile: Callable = Callable()
+	hostile: Callable = Callable(),
+	state: DiplomacyState = null
 ) -> Dictionary:
 	var check: Dictionary = can_disembark(
-		model, army, fleet, province_id, turn, hostile
+		model, army, fleet, province_id, turn, hostile, state
 	)
 	if not bool(check.get("ok", false)):
 		return check
@@ -299,15 +321,6 @@ static func can_scrap(fleet: FleetState, army: ArmyState) -> Dictionary:
 
 static func _allow() -> Dictionary:
 	return {"ok": true, "reason": ""}
-
-
-## No callback means the isolated-fixture default: every other crown is hostile.
-static func _hostile(hostile: Callable, a: int, b: int) -> bool:
-	if a == b:
-		return false
-	if not hostile.is_valid():
-		return true
-	return bool(hostile.call(a, b))
 
 
 static func _deny(reason: String) -> Dictionary:

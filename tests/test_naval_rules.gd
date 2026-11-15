@@ -7,7 +7,7 @@ extends GdToolsTest
 ## Merged from test_fleet_yard, test_fleet_yard_block, test_fleet_names,
 ## test_fleet_rosters, test_fleet_sortie, test_fleet_missions, test_naval_strength,
 ## test_naval_retreat, test_naval_port_loss, test_naval_interception,
-## test_naval_movement, test_naval_raid, test_naval_intel.
+## test_naval_movement, test_naval_raid, test_naval_intel, test_hostility_rules.
 ## test_fleet_rules was a re-pointed copy of these 36 cases and is folded in.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
@@ -2079,6 +2079,30 @@ func test_beachhead_opens_a_hostile_coast_on_the_following_turn() -> void:
 	assert_eq(ArmyCombat.contested_provinces(_naval_movement_model, armies), [1])
 
 
+## A site open by the clock but no longer a hostile shore names the loss, not a
+## wait: the coast changed hands or the war ended, so no turn will open it.
+func test_a_lapsed_beachhead_names_the_loss_not_a_wait() -> void:
+	_setup_naval_movement()
+	var pair: Array = _naval_movement_transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_naval_movement_model, army, fleet)
+	fleet.location = FleetState.Location.AT_SEA
+	fleet.sea_zone = 1
+	fleet.province = MapModel.NO_ID
+	assert_true(bool(NavalTransport.establish_beachhead(
+		_naval_movement_model, fleet, 1, 5
+	)["ok"]))
+	# The war ends before the site opens.
+	var peace: Callable = func(_a: int, _b: int) -> bool: return false
+	var lapsed: Dictionary = NavalTransport.disembark(
+		_naval_movement_model, army, fleet, 1, 6, peace
+	)
+	assert_false(bool(lapsed["ok"]))
+	assert_true(String(lapsed["reason"]).contains("lapsed"), String(lapsed["reason"]))
+	assert_false(String(lapsed["reason"]).contains("opens next turn"))
+
+
 func test_beachhead_lasts_one_full_turn_then_expires() -> void:
 	_setup_naval_movement()
 	var fleet := FleetState.at_sea(3, 0, 1, ["ship_3"])
@@ -3889,3 +3913,37 @@ func test_a_sighted_rival_dossier_is_fogged() -> void:
 	assert_eq(int(fogged["count"]), 1, "the block still shows")
 	assert_false(bool(fogged["known"]))
 	assert_almost_eq(float(fogged["strength"]), 0.0, 0.0001, "no weight leaks")
+
+
+# --- the shared war query (from test_hostility_rules) ---
+## The naval rules and the rival planners read one hostility predicate
+## and one at-war membership set (REQ-P3-03, REQ-P3-04).
+
+func test_a_faction_is_never_hostile_to_itself() -> void:
+	assert_false(Hostility.between(Callable(), 3, 3))
+	assert_false(Hostility.between(func(_a: int, _b: int) -> bool: return true, 3, 3))
+
+
+func test_an_unset_query_keeps_every_other_faction_hostile() -> void:
+	assert_true(Hostility.between(Callable(), 1, 2))
+
+
+func test_a_set_query_decides_the_pair() -> void:
+	var at_war: Callable = func(a: int, b: int) -> bool: return a == 1 and b == 2
+	assert_true(Hostility.between(at_war, 1, 2))
+	assert_false(Hostility.between(at_war, 2, 1))
+
+
+func test_no_court_reads_no_known_wars() -> void:
+	assert_true(Hostility.owners(null, 1).is_empty())
+
+
+func test_owners_lists_every_court_at_war() -> void:
+	var state: DiplomacyState = DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(1, 2).at_war = true
+	state.ensure_relation(1, 3).at_war = false
+	var hostile: Dictionary = Hostility.owners(state, 1)
+	assert_true(hostile.has(2))
+	assert_false(hostile.has(3))
+	assert_false(hostile.has(1))

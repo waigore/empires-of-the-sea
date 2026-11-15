@@ -58,6 +58,34 @@ func refresh() -> void:
 	queue_redraw()
 
 
+## Identity of what this reading draws: the grid is static per model, so a
+## works-and-chart projection moves only when a work, a deed, an owner or the
+## viewer's chart does (`CountryBorders.signature`). A reading that finds the
+## key it already baked draws nothing again — a re-seat from the same save, a
+## fog pass that charted nothing, a region repaint of an unmoved chart.
+func source_key(
+	works: LandWorks, anchor: Vector2i, units: Array[CivilianState] = []
+) -> int:
+	var working: Array = []
+	for unit: CivilianState in units:
+		if unit == null or not unit.is_working():
+			continue
+		working.append([
+			unit.work_tile(), unit.work_action(),
+			unit.remaining_turns(), unit.total_turns(),
+		])
+	return hash([
+		CountryBorders.signature(model, visibility),
+		faction,
+		anchor,
+		hash(works.improvement) if works != null else 0,
+		hash(works.transport) if works != null else 0,
+		hash(works.ports) if works != null else 0,
+		hash(works.prospected) if works != null else 0,
+		working,
+	])
+
+
 ## Province whose slip covers a world point (-1 when none). Slips can be packed
 ## away from their anchor, so taps must resolve through the printed rect.
 func hit_test(world_position: Vector2) -> int:

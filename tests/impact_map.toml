@@ -11,6 +11,15 @@ suites = [
   "test_land_battle_rules.gd",
 ]
 
+# Observer panel chrome only: the planner/campaign AI fan-out overruns tier-1
+# when a sheet factory PR also touches other UI domains (docs/testing.md).
+[domains.ai_panel]
+suites = [
+  "test_ai_observer.gd",
+  "test_panel_parts_rules.gd",
+  "test_court_ui_parts.gd",
+]
+
 [domains.army]
 suites = [
   "test_land_battle_rules.gd",
@@ -116,6 +125,17 @@ suites = [
   "test_economy_screen.gd",
   "test_court_ui_parts.gd",
   "test_yarn_plates_rules.gd",
+]
+
+[domains.ledger_shell]
+# The shared docked-ledger chrome: each ledger's own suite proves its body on
+# the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
+suites = [
+  "test_economy_screen.gd",
+  "test_research_screen.gd",
+  "test_court_ui_parts.gd",
+  "test_panel_parts_rules.gd",
+  "test_spycraft_rules.gd",
 ]
 
 [domains.espionage]
@@ -224,16 +244,27 @@ suites = [
   "test_diplomacy_rules.gd",
 ]
 
-# The crown's muster roll (DR-20261113-12): the force projection, its ledger
-# row and panel, the map jump behind Visit and the chrome that opens it. Kept
-# its own small domain — the boards it touches (bar, back chain, HUD bind) are
-# all driven by the roster/chrome suites named here — so a ledger change never
-# pulls the map, menu or ui catch-alls past the tier-1 5 min budget.
+# The crown's sheets (DR-20261113-12, DR-20261115-09): the force projection,
+# its ledger row and panel, the map jump behind Visit, the province ledger
+# beside it and the chrome that opens both. Kept its own small domain — the
+# boards they touch (bar, back chain, HUD bind, dossier door) are all driven by
+# the suites named here — so a ledger change never pulls the map, menu or ui
+# catch-alls past the tier-1 5 min budget.
 [domains.muster]
 suites = [
   "test_force_ledger_rules.gd",
+  "test_province_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
+]
+
+# The crown's eyes (DR-20261115-10): the intelligence projection and its sheet.
+# One suite — it mounts the map screen, presses the court's EYES door and reads
+# the network — so the espionage domain's seven suites (test_map_screen among
+# them) never ride a reading change.
+[domains.eyes]
+suites = [
+  "test_spy_ledger.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -282,10 +313,83 @@ domain = "blockade"
 match = "scripts/economy/economy_controller.gd"
 domain = "blockade"
 
+# Shared war query (Hostility.at_war). Call-site edits that only switch the
+# query — and the helper itself — stay on this slice so they do not union
+# fleet + naval_feeding + naval_intel + ai past the tier-1 5 min budget.
+[domains.hostility]
+suites = [
+  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
+  "test_ai_rules.gd",
+  "test_army_orders.gd",
+]
+
+[[rules]]
+match = "scripts/rules/hostility.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_combat.gd*"
+domain = "hostility"
+
+# The turn's battles across every region (one pass, node-free): the fleet and
+# naval suites prove it, so it rides with the same domain instead of the rules
+# catch-all.
+[[rules]]
+match = "scripts/rules/naval_battles.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_strength.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_interception.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_raid.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_retreat.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_transport.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/fleet_missions.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/army_command.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/ai/ai_invasion_planner.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/ai/ai_military_planner.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/ai/ai_naval_planner.gd*"
+domain = "hostility"
+
 # Rival economy pass: stay on ai with the other MapPlay*Ai files so a court-
 # reader fan-out does not union blockade/economy boots past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
+domain = "ai"
+
+# One court's economy turn, split out of the pass above: the AI suites drive the
+# whole turn (test_ai_economy_rules' run coverage plus test_ai_rules' phase
+# call), so it stays on the same tier-1 slice as its orchestrator.
+[[rules]]
+match = "scripts/map/map_play_economy_court.gd*"
 domain = "ai"
 
 [[rules]]
@@ -333,9 +437,11 @@ domain = "pause"
 match = "scripts/map/map_play_setup.gd"
 domain = "pause"
 
+# Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
+# ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
 match = "scripts/ui/sheet_frame.gd*"
-domain = "sheet"
+domain = "ui"
 
 [[rules]]
 match = "scripts/ui/civilian_roster_panel.gd*"
@@ -403,6 +509,14 @@ domain = "naval_intel"
 match = "scripts/map/map_play_turn.gd*"
 domain = "naval_intel"
 
+# The turn's finish phases: a home-fleet settle hook is fleet work. Mapping this
+# file to turn_closure (campaign end/defeat + observer + consent) stacked on
+# fleet overruns the tier-1 5 min job on Actions (~6 min). Phase refactors that
+# reshape the finish order should temporarily restore domain = "turn_closure".
+[[rules]]
+match = "scripts/map/map_play_turn_finish.gd*"
+domain = "fleet"
+
 [[rules]]
 match = "scripts/ui/fleet_strength_section.gd*"
 domain = "naval_intel"
@@ -439,6 +553,42 @@ domain = "gazette"
 [[rules]]
 match = "scripts/rules/force_ledger.gd*"
 domain = "muster"
+
+# The crown's province ledger (DR-20261115-09): the projection, its row and
+# panel, the map hooks behind Visit and the dossier door that opens it. It
+# rides the muster domain — one sheet chrome, one modal layer — so a ledger
+# change never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/province_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/province_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_provinces.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_province_ledger.gd*"
+domain = "muster"
+
+# The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
+# The sheet rides the court ledger's door, so it is mapped before the ui glob;
+# its suite is named before the espionage glob so a reading change never pulls
+# that domain's seven suites.
+[[rules]]
+match = "scripts/rules/spy_ledger.gd*"
+domain = "eyes"
+
+[[rules]]
+match = "scripts/ui/spy_ledger_panel.gd*"
+domain = "eyes"
+
+[[rules]]
+match = "tests/test_spy_ledger.gd*"
+domain = "eyes"
 
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
@@ -487,6 +637,16 @@ domain = "oob"
 
 [[rules]]
 match = "scripts/ai/ai_turn.gd*"
+domain = "oob"
+
+# The turn pass's two seams travel with it: a court-read change is still the
+# OOB suite set, not the wider planner fan-out.
+[[rules]]
+match = "scripts/ai/ai_turn_read.gd*"
+domain = "oob"
+
+[[rules]]
+match = "scripts/ai/ai_turn_apply.gd*"
 domain = "oob"
 
 [[rules]]
@@ -540,7 +700,6 @@ suites = [
 # menu, civilian and economy_ui catch-alls would overrun it (docs/testing.md).
 [domains.pause]
 suites = [
-  "test_menu_door.gd",
   "test_menu_flow.gd",
   "test_main.gd",
   "test_court_ui_parts.gd",
@@ -558,7 +717,6 @@ suites = [
   "test_force_ledger_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
-  "test_menu_door.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -637,6 +795,7 @@ domain = "lens_kit"
 [domains.prospect]
 suites = [
   "test_ai_rules.gd",
+  "test_ai_planner_rules.gd",
   "test_tables_rules.gd",
   "test_civilian_field_rules.gd",
   "test_world_setup.gd",
@@ -886,6 +1045,16 @@ suites = [
   "test_ai_rules.gd",
 ]
 
+# The turn's finish: one phase per step, closing on a decided campaign, an
+# observed headless turn or an answered consent decision.
+[domains.turn_closure]
+suites = [
+  "test_campaign_end.gd",
+  "test_campaign_defeat.gd",
+  "test_ai_observer.gd",
+  "test_diplomacy_screen.gd",
+]
+
 # First matching rule wins. More specific globs before broader ones.
 
 [[rules]]
@@ -995,6 +1164,19 @@ domain = "economy_ui"
 # never remounts the hub pages.
 [[rules]]
 match = "scripts/ui/ledger_workers.gd*"
+domain = "economy_ui"
+
+# The production row's workshop copy (tag, long form, allowance) lives beside
+# the ledger text so a copy change runs the same economy_ui rows.
+[[rules]]
+match = "scripts/ui/ledger_workshop.gd*"
+domain = "economy_ui"
+
+# The PRODUCTION tab's sheet: the steppers and ceilings the workshop rules feed.
+# Declared before the `scripts/ui/**` menu catch-all so a row change stays tier-1
+# sized instead of remounting the setup and hub pages.
+[[rules]]
+match = "scripts/ui/ledger_production.gd*"
 domain = "economy_ui"
 
 # The tier medallions are the WORKERS tab's art table, and its by-hand shot
@@ -1108,6 +1290,13 @@ domain = "gazette"
 match = "scripts/ui/gazette*.gd*"
 domain = "gazette"
 
+# The age's own tab on the Gazette plate (DR-20261115-05): the room prints the
+# standings the end-of-turn check reads, so it rides the gazette slice instead
+# of the broad `scripts/ui/**` menu catch-all.
+[[rules]]
+match = "scripts/ui/age_room.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/map/map_play_gazette.gd*"
 domain = "gazette"
@@ -1152,11 +1341,16 @@ match = "gd-tools.toml"
 domain = "misc"
 
 # Map edits are exercised by the selection script in CI (--check-complete).
-# Stay on the ai set (not chart_bake/misc): an AI fan-out PR that also edits
-# the map must not add canvas/yarn/tables boots past the tier-1 5 min budget.
+# One light suite only: an impact-map edit must not union ai/fleet/naval boots
+# past the tier-1 5 min budget when it lands beside a call-site remap.
+[domains.impact_map]
+suites = [
+  "test_ai_rules.gd",
+]
+
 [[rules]]
 match = "tests/impact_map.toml"
-domain = "ai"
+domain = "impact_map"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
@@ -1196,6 +1390,10 @@ domain = "crown_road"
 # Opt-in drives are not the suite: a harness move/edit must not union every
 # gameplay domain past the tier-1 5 min budget (docs/testing.md).
 [[rules]]
+match = "playtests/playtest_invariants.gd*"
+domain = "fleet"
+
+[[rules]]
 match = "playtests/**"
 domain = "misc"
 
@@ -1225,6 +1423,11 @@ domain = "prospect"
 
 [[rules]]
 match = "scripts/ai/ai_civilian_planner.gd*"
+domain = "prospect"
+
+# The shared civilian gate and ranker every work module calls.
+[[rules]]
+match = "scripts/ai/ai_civilian_candidate.gd*"
 domain = "prospect"
 
 [[rules]]
@@ -1262,9 +1465,11 @@ domain = "civilian"
 match = "tests/test_civilian_field_rules.gd*"
 domain = "civilian"
 
+# Civilian sheet chrome — civilian suites cover orders/roster; prospect's
+# map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
 match = "scripts/ui/civilian_panel.gd*"
-domain = "prospect"
+domain = "civilian"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
@@ -1349,6 +1554,15 @@ suites = [
 match = "scripts/ai/ai_objective*.gd*"
 domain = "ai_ledger"
 
+# The deferred-aim escalation tracker and the reserve it re-routes (issue #603).
+[[rules]]
+match = "scripts/ai/ai_deferral.gd*"
+domain = "ai_ledger"
+
+[[rules]]
+match = "scripts/ai/ai_income.gd*"
+domain = "ai_ledger"
+
 [[rules]]
 match = "scripts/ai/ai_utility.gd*"
 domain = "ai_ledger"
@@ -1376,6 +1590,16 @@ suites = [
 [[rules]]
 match = "scripts/ai/ai_turn_log.gd*"
 domain = "ai_ledger"
+
+# The turn trace's two recorders: each pass that hands a report in owns its own
+# rows, so a recorder edit runs its pass's slice, not the whole AI fan-out.
+[[rules]]
+match = "scripts/ai/ai_diplomacy_trace.gd*"
+domain = "ai_diplomacy"
+
+[[rules]]
+match = "scripts/ai/ai_economy_trace.gd*"
+domain = "ai_economy"
 
 [[rules]]
 match = "scripts/map/map_play_objectives_ai.gd*"
@@ -1560,9 +1784,12 @@ domain = "ai"
 match = "scripts/map/map_play_cargo_ai.gd*"
 domain = "ai"
 
+# Rival invasion landing: same narrow army AI slice as map_play_army_ai — the
+# full ai domain (observer + land battle) overruns tier 1 when stacked on
+# diplomacy / hostility / fleet call sites for a deed-gated landing.
 [[rules]]
 match = "scripts/map/map_play_invasion_ai.gd"
-domain = "ai"
+domain = "ai_army"
 
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
@@ -1646,11 +1873,12 @@ domain = "fleet_yard"
 match = "scripts/map/map_play_fleet*.gd"
 domain = "fleet"
 
-# Beachhead mark / ready / lapse helpers: fleet dossier + transport rules. Kept
-# off scripts/map/** so a hint-line PR does not pull the full map suite past 5 min.
+# Beachhead mark / ready / lapse helpers: landing gates share hostility /
+# transport suites with naval_transport (deed-barred Tribe shores). Kept off
+# the fleet domain so a gate change does not also remount market_economy.
 [[rules]]
 match = "scripts/map/map_play_beachhead.gd*"
-domain = "fleet"
+domain = "hostility"
 
 # Naval combat pass + ration and difficulty context for each crown; keep it on
 # the naval-battle slice so a battle-hook change does not pull fleet/map past
@@ -1663,6 +1891,13 @@ domain = "naval_feeding"
 # work: keep it off the broad scripts/map/** set so tier 1 stays inside 5 min.
 [[rules]]
 match = "scripts/map/map_play_home_merge.gd*"
+domain = "fleet"
+
+# Port-loss toasts and put_ashore land a displaced army for the home-fleet merge;
+# keep them on fleet so a headless-null HUD guard does not pull the map set past
+# the tier-1 5 min budget.
+[[rules]]
+match = "scripts/map/map_play_port_loss.gd*"
 domain = "fleet"
 
 [[rules]]
@@ -2072,9 +2307,12 @@ domain = "campaign"
 match = "scripts/rules/intervention.gd"
 domain = "campaign"
 
+# Purchased-tile stake the intervention path and Tribe invadable gate read.
+# Diplomacy suites cover deeds / intervention; campaign (defeat / capital /
+# victory) overruns tier 1 when stacked on army / naval call-site remaps.
 [[rules]]
 match = "scripts/rules/deed_protection.gd"
-domain = "campaign"
+domain = "diplomacy"
 
 [[rules]]
 match = "scripts/rules/intervention_copy.gd"
@@ -2251,9 +2489,10 @@ domain = "fleet"
 
 # The dossier sheet and the court panel that opens it are presentation over
 # IntelDossier, so their suites are the intel domain (DR-20261110-25).
+# Court dossier body is intel depth (acts, suspicion), not sheet chrome fan-out.
 [[rules]]
 match = "scripts/ui/court_dossier*.gd*"
-domain = "sheet"
+domain = "intel"
 
 # The open court's detail block (orders, herald, chronicle) is the same sheet.
 [[rules]]
@@ -2299,6 +2538,12 @@ domain = "diplomacy"
 [[rules]]
 match = "scripts/ui/economy_*.gd"
 domain = "economy_ui"
+
+# The one sheet the three docked ledgers stand in. A chrome change lands in all
+# of them, so its suites follow instead of the ledger_* glob's economy_ui alone.
+[[rules]]
+match = "scripts/ui/ledger_frame.gd*"
+domain = "ledger_shell"
 
 [[rules]]
 match = "scripts/ui/ledger_*.gd"
@@ -2371,7 +2616,7 @@ domain = "map"
 
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"
-domain = "ai"
+domain = "ai_panel"
 
 # The court's news lane is not a dossier host: pin it to the suites that print
 # despatches (a phone tells one at a time and holds them under a sheet) before
@@ -2533,6 +2778,10 @@ domain = "intel"
 [[rules]]
 match = "tests/test_diplomacy_*.gd"
 domain = "diplomacy"
+
+[[rules]]
+match = "tests/test_hostility*.gd"
+domain = "hostility"
 
 [[rules]]
 match = "tests/test_intel_*.gd"

@@ -202,11 +202,13 @@ func test_the_map_seats_the_published_roster() -> void:
 
 ## A Great Power seated in a pocket used to start with a third of a rival's land
 ## (wiki: game-setup § GP assignment — "fair split"). Seed 4 was such a chart.
+## Only the Old World is read, so the chart is generated without the New World
+## `generate_world` would build and discard (`generate_region` is the same
+## first-attempt Old World, at half the cost under coverage).
 func test_a_pocket_never_cripples_a_great_power() -> void:
-	var chart: WorldMap = MapGenerator.new().generate_world(
-		4, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		4, FactionCatalog.OLD_WORLD, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
 	)
-	var old_world: MapModel = chart.region(FactionCatalog.OLD_WORLD)
 	assert_true(old_world.setup_errors.is_empty(), str(old_world.setup_errors))
 	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
 
@@ -215,12 +217,41 @@ func test_a_pocket_never_cripples_a_great_power() -> void:
 ## Genoa holding five against a 3.33 even share because nothing trimmed it back
 ## (wiki: game-setup § Minor Nation assignment — "within ±1"; § Feasibility).
 func test_a_sealed_cove_never_leaves_a_minor_oversized() -> void:
-	var chart: WorldMap = MapGenerator.new().generate_world(
-		9, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		9, FactionCatalog.OLD_WORLD, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
 	)
-	var old_world: MapModel = chart.region(FactionCatalog.OLD_WORLD)
 	assert_true(old_world.setup_errors.is_empty(), str(old_world.setup_errors))
 	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
+
+
+## A landmass too small to seat both rosters is infeasible, and the wiki wants a
+## clear failure rather than a half-painted chart (wiki: game-setup
+## § Feasibility). Seed 103's Old World holds 20 provinces: the six Minor
+## Nations' three-province reservation takes every one of them, so no chunk is
+## left for a Great Power. The split used to index an empty chunk list here —
+## a `SCRIPT ERROR` the runner counts as a broken suite — and only then report
+## `unfair_split` by accident.
+func test_a_chart_with_no_land_left_for_the_great_powers_fails_cleanly() -> void:
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		103, FactionCatalog.OLD_WORLD, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	)
+	assert_eq(
+		old_world.setup_errors,
+		["unfair_split"] as Array[String],
+		"the chart is rejected with the wiki's own code"
+	)
+	for faction_id: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			_count_owned(old_world, faction_id), 0,
+			"no Great Power is seated on a rejected chart"
+		)
+
+
+## The split itself never indexes a chunk list it was not given: a landmass with
+## nothing left to hand out yields no group rather than a runtime error.
+func test_the_split_handles_a_landmass_with_no_chunk_left() -> void:
+	var groups: Array = TerritoryAssignment._spread([] as Array, [0, 1])
+	assert_true(groups.is_empty(), "no chunk, no group")
 
 
 ## A court above the band hands back a province that already borders the

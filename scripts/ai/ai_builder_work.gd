@@ -54,7 +54,7 @@ static func best_candidate(
 		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
 		context, reserved, rows
 	)
-	return _better(
+	return AiCivilianCandidate.better(
 		best,
 		_town_candidate(
 			config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
@@ -190,7 +190,7 @@ static func _best_estate(
 			model, unit, "build_improvement", tile, works, units, stockpile,
 			tech_caps, tech_unlocked, context, score
 		)
-		best = _better(best, candidate)
+		best = AiCivilianCandidate.better(best, candidate)
 	return best
 
 
@@ -232,7 +232,7 @@ static func _town_candidate(
 			tech_unlocked, context,
 			weight + int(gain / VALUE_DIVISOR) + unlocks * UNLOCK_VALUE
 		)
-		best = _better(best, candidate)
+		best = AiCivilianCandidate.better(best, candidate)
 	return best
 
 
@@ -240,21 +240,3 @@ static func _rows(raw: Variant) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	rows.assign(raw)
 	return rows
-
-
-## Higher score wins; a tie goes to the earlier tile on the map, so the same save
-## makes the same order.
-static func _better(best: Dictionary, candidate: Dictionary) -> Dictionary:
-	if candidate.is_empty():
-		return best
-	if best.is_empty():
-		return candidate
-	if int(candidate["score"]) != int(best["score"]):
-		return candidate if int(candidate["score"]) > int(best["score"]) else best
-	var first: Vector2i = candidate["tile"]
-	var held: Vector2i = best["tile"]
-	if first.y != held.y:
-		return candidate if first.y < held.y else best
-	if first.x != held.x:
-		return candidate if first.x < held.x else best
-	return candidate if String(candidate["action"]) < String(best["action"]) else best

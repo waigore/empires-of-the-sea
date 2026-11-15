@@ -32,62 +32,6 @@ static func recipe_tooltip(recipe_id: String) -> String:
 	return text
 
 
-## The workshop tag on a production row: empty for one-turn work, "2t" when the
-## row waits, "3→1t" while three units serve and the next lands in one phase. The
-## row's stepper stays what the player set; this is only what the kiln is doing,
-## and one unit leaves it each Production phase (DR-20261113-02).
-static func workshop_note(economy: PlayerEconomy, recipe_id: String) -> String:
-	if economy == null:
-		return ""
-	var serving: int = economy.production.wip_units(recipe_id)
-	if serving > 0:
-		return "%d→%dt" % [serving, maxi(economy.production.wip_turns(recipe_id), 1)]
-	var turns: int = ProductionRecipes.turns(recipe_id)
-	return "" if turns <= 1 else "%dt" % turns
-
-
-## What the tag promises, spelled out for a long press or a hover. A multi-turn
-## batch lands one unit a Production phase, so the note says how many are still
-## on the anvil and when the next one lands (wiki: production-recipes § Turns per
-## unit; DR-20261113-02).
-##
-## A court that leaves the row set starts a fresh batch every phase, and those
-## batches each give up a unit — so the note names the cadence the phase will
-## actually pay (two batches, two a phase) rather than promising the single
-## batch's trickle (REQ-P2-03, REQ-P5-05).
-static func workshop_tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
-	var turns: int = ProductionRecipes.turns(recipe_id)
-	var serving: int = 0 if economy == null else economy.production.wip_units(recipe_id)
-	if serving <= 0:
-		if turns <= 1:
-			return ""
-		return "Ready next turn: a run pays its inputs and labour, then lands one unit a turn."
-	var wait: int = maxi(economy.production.wip_turns(recipe_id), 1)
-	# One unit leaves the workshop per batch on its landing phase, so the note
-	# counts batches, not units in flight (`ledger_market` reads its rules helper
-	# from here too).
-	var landings: int = 0 if economy == null else ProductionWorkshop.ready_units(
-		economy.production_wip, recipe_id, turns
-	)
-	var cadence: String = "still serving their turns"
-	if landings == 1:
-		cadence = "landing one a turn"
-	elif landings > 1:
-		cadence = "%d landing a turn" % landings
-	return (
-		"%d unit%s already in the workshop, %s — the next in %d turn%s. "
-		+ "Runs started now wait %d turn%s."
-	) % [
-		serving,
-		"" if serving == 1 else "s",
-		cadence,
-		wait,
-		"" if wait == 1 else "s",
-		turns,
-		"" if turns == 1 else "s",
-	]
-
-
 ## The next-turn figure beside a holding: "" when the phase leaves the store
 ## alone, so no row carries a column of "+0" (wiki: stockpiles-and-production
 ## § Production flow; REQ-P5-05).
@@ -95,18 +39,6 @@ static func stock_delta_text(delta: int) -> String:
 	if delta == 0:
 		return ""
 	return "%+d" % delta
-
-
-## What one manufacture row's "+" can still buy this turn: the phase's own
-## labour-and-inputs ceiling, so a court is never offered runs the Production
-## phase would refuse (wiki: stockpiles-and-production § Production flow).
-static func allowance_note(recipe_id: String, units: int) -> String:
-	var good: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
-	if units <= 0:
-		return "No labour or inputs spare a %s this turn." % good
-	if units == 1:
-		return "Labour and inputs allow 1 %s this turn." % good
-	return "Labour and inputs allow %d %s this turn." % [units, good]
 
 
 ## "120 ducats   Fabric ×2" — the visible cost of recruiting one tier.
@@ -119,6 +51,23 @@ static func recruit_cost(tier: int) -> String:
 	for commodity: Variant in materials.keys():
 		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(materials[commodity])])
 	return "   ".join(parts)
+
+
+## The whole batch's price: "600 ducats and Paper ×6" — the row's promise before
+## the press, so a batch is never a surprise (REQ-P5-05).
+static func recruit_batch_cost(tier: int, count: int) -> String:
+	var cost: Dictionary = WorkerPool.recruit_cost(tier)
+	var parts: PackedStringArray = []
+	var gold: int = int(cost.get("treasury", 0)) * count
+	if gold > 0:
+		parts.append("%d ducats" % gold)
+	var materials: Dictionary = cost.get("materials", {})
+	for commodity: Variant in materials.keys():
+		parts.append(
+			"%s ×%d"
+			% [CommodityCatalog.label(String(commodity)), int(materials[commodity]) * count]
+		)
+	return " and ".join(parts)
 
 
 ## "Send one back to the fields — no recruit cost is refunded. An apprentice eats
@@ -212,12 +161,24 @@ static func deal_line(deal: Dictionary, viewer: int = FactionCatalog.PLAYER_FACT
 			" as its favoured partner" if bool(deal.get("is_favoured", false)) else ""
 		)
 		var unit: int = int(deal.get("buy_unit", price))
+		# The debt is rounded once from the whole deal, so the per-unit ask need
+		# not multiply to it: name the ducats the clearing charged, and say so
+		# when the rounded rate is what moved them (wiki: world-market § Subsidy
+		# price adjustment; REQ-P5-05).
+		var paid: int = int(deal.get("cost", unit * quantity))
+		if quantity > 0 and unit * quantity != paid:
+			claim += " (rounded from the deal)"
 		return "Bought %d %s from %s at %d — %d ducats%s" % [
-			quantity, commodity, other, unit, unit * quantity, claim,
+			quantity, commodity, other, unit, paid, claim,
 		]
 	var earned: int = int(deal.get("earned", price * quantity))
-	return "Sold %d %s to %s at %d — %d ducats" % [
-		quantity, commodity, other, price, earned,
+	# A sale's receipt is rounded from the whole deal, so the published price need
+	# not multiply to it: name the rate that moved it (REQ-P5-05).
+	var note: String = ""
+	if quantity > 0 and price * quantity > 0 and earned != price * quantity:
+		note = " (exports %d%%)" % roundi(100.0 * float(earned) / float(price * quantity))
+	return "Sold %d %s to %s at %d — %d ducats%s" % [
+		quantity, commodity, other, price, earned, note,
 	]
 
 
@@ -316,7 +277,9 @@ static func research_floor_line(floor: int) -> String:
 			+ "Money Lending would let it spend down to %s"
 		) % [TextFormat.thousands(floor), TextFormat.thousands(ResearchFunding.DEBT_FLOOR)]
 	if floor <= ResearchFunding.BANK_DEBT_FLOOR:
-		return "Money Lending and Banking let research spend down to %s ducats" % TextFormat.thousands(floor)
+		return "Money Lending and Banking let research spend down to %s ducats" % (
+			TextFormat.thousands(floor)
+		)
 	return (
 		"Money Lending lets research spend the treasury down to %s ducats, "
 		+ "and Banking would extend it to %s"

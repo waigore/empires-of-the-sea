@@ -69,8 +69,13 @@ static func plan(
 	# the standing study is the first slot that already holds a tech, or the
 	# first slot filled this turn (issue #490). It never spends the last payment
 	# of a war chest that is already within reach of its muster (issue #474).
+	# A hull chest must actually fill: the standing study's cheapest preset
+	# otherwise eats the income that should reach the yard (issue #484). Muster
+	# reserves still allow the #490 standing study — only a caller that names
+	# the navy chest sets `defer_standing`.
 	var can_stand: bool = (
-		preset == ResearchFunding.ORDER[0]
+		not bool(context.get("defer_standing", false))
+		and preset == ResearchFunding.ORDER[0]
 		and _can_pay_standing(economy, cash_floor, save_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
@@ -98,6 +103,19 @@ static func plan(
 			var slot_funding: String = (
 				STANDING_FUNDING if slot == standing or wants_standing else preset
 			)
+			# A navy (or Tribe) door pays the richest preset the purse can spare
+			# above the cash floor, so the unlock lands before the court burns
+			# its opening chest on musters (issue #484). When even Low is too
+			# dear, fall back to the standing preset if the #490 gate allows —
+			# never skip the door for a lower-ranked candidate.
+			if tech == door and not door.is_empty():
+				slot_funding = _door_funding(economy, cash_floor)
+				if slot_funding == ResearchFunding.ORDER[0]:
+					if can_stand or wants_standing:
+						slot_funding = STANDING_FUNDING
+					else:
+						entry["taken"] = true
+						continue
 			var result: Dictionary = state.assign(tech, slot_funding, slot)
 			if not bool(result.get("ok", false)):
 				entry["taken"] = true
@@ -143,6 +161,24 @@ static func funding_for(
 	return ResearchFunding.ORDER[index]
 
 
+## Richest funding preset that still leaves `cash_floor` in the purse, or
+## `none` when even Low would dip below it. Used for a door study that must
+## finish before the court spends its opening treasury (issue #484).
+static func _door_funding(economy: PlayerEconomy, cash_floor: int) -> String:
+	if economy == null:
+		return ResearchFunding.ORDER[0]
+	var spare: int = economy.treasury - maxi(cash_floor, 0)
+	# Prefer richer presets first; Low is the last that still teaches.
+	for index in range(ResearchFunding.ORDER.size() - 1, 0, -1):
+		var name: String = ResearchFunding.ORDER[index]
+		if ResearchFunding.gold(name) <= spare:
+			return name
+	# Standing Low may dip to half the cash floor — same gate as #490.
+	if _can_pay_standing(economy, cash_floor):
+		return STANDING_FUNDING
+	return ResearchFunding.ORDER[0]
+
+
 ## The purse research must leave behind: the court's own cash floor, never the
 ## muster reserve. The reserve is a saving target the army planner enforces at
 ## muster time; gating studies on it froze every court at war for the whole
@@ -158,14 +194,43 @@ static func research_floor(config: AiConfig) -> int:
 ## planner funds (issue #491 T1 reads this planner, it does not spend).
 ## `save_floor` is the money-goal reserve the court is saving for (the muster at
 ## war); a negative value keeps the cash floor alone, as at peace.
+##
+## The helper reads the same purse as `plan`: the standing study exists only
+## when the surplus ladder — priced against that same reserve — cannot fund the
+## cheapest preset, else the ladder preset pays and no standing slot is priced
+## (issue #590: a ledger that priced the study against the cash floor alone
+## read a study the planner funds at Low as a 0-gold `funded` row).
 static func standing_funding(
 	config: AiConfig, economy: PlayerEconomy, save_floor: int = -1
 ) -> String:
 	var floor: int = research_floor(config)
-	if funding_for(config, economy, floor) != ResearchFunding.ORDER[0]:
-		return ""
 	var reserve: int = save_floor if save_floor >= 0 else floor
+	if funding_for(config, economy, reserve) != ResearchFunding.ORDER[0]:
+		return ""
 	return STANDING_FUNDING if _can_pay_standing(economy, floor, reserve) else ""
+
+
+## Why the court's slots go unfunded this turn, for the ledger's blocked
+## reading (issue #590): "" when a study will actually be paid — the surplus
+## ladder above the reserve, or the standing study above half the cash floor —
+## otherwise the refusal the trace names, instead of a 0-gold `funded` row.
+## Same purse as `plan` and `standing_funding`.
+static func standing_refusal(
+	config: AiConfig, economy: PlayerEconomy, save_floor: int = -1
+) -> String:
+	if config == null or economy == null:
+		return ""
+	var floor: int = research_floor(config)
+	var reserve: int = save_floor if save_floor >= 0 else floor
+	if funding_for(config, economy, reserve) != ResearchFunding.ORDER[0]:
+		return ""
+	var price: int = ResearchFunding.gold(STANDING_FUNDING)
+	var keep: int = maxi(floor / 2, 0)
+	if economy.treasury < keep + price:
+		return "purse under half the cash floor"
+	if reserve > floor and economy.treasury >= reserve - price:
+		return "saving for its reserve"
+	return ""
 
 
 ## The slot that keeps the standing study: the first slot already holding a

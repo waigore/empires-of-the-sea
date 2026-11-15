@@ -23,6 +23,10 @@ const ROUTE_WIDTH: float = 2.0
 
 var works: LandWorks = null
 var capital_tile: Vector2i = CivilianState.NO_TILE
+## State the projection was baked from, so a re-seat of the same save redraws
+## nothing (`source_key`).
+var _baked_key: int = 0
+var _baked: bool = false
 
 
 ## Recomputes the projection. Called on region load, work completion, fog change
@@ -52,8 +56,14 @@ func watch(civilians: CivilianLayer, fog: MapOverlay) -> void:
 func refresh() -> void:
 	if model == null or works == null:
 		survey = {}
+		_baked = false
 		queue_redraw()
 		return
+	var key: int = source_key(works, capital_tile)
+	if _baked and key == _baked_key:
+		return
+	_baked_key = key
+	_baked = true
 	survey = CrownRoadSurvey.snapshot(
 		model, works, faction, capital_tile, visibility
 	)

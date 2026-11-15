@@ -258,9 +258,9 @@ func _run() -> void:
 			"troop chip counts every region"
 		)
 
-	var estates_toggle: Button = screen.improvements._toggle
-	_check(estates_toggle != null, "estates toggle present")
-	screen.improvements.open()
+	var estates_door: Button = screen.hud.top_row.find_child("EstatesSeal", true, false) as Button
+	_check(estates_door != null, "estates door on the bar")
+	estates_door.pressed.emit()
 	await process_frame
 	_check(screen.improvements.is_open(), "estates ledger opens")
 	_check(
@@ -324,6 +324,8 @@ func _run() -> void:
 	await _smoke_crown_road_lens(screen)
 	await _smoke_defence_lens(screen)
 	await _smoke_muster_roll(screen)
+	await _smoke_province_ledger(screen)
+	await _smoke_spy_ledger(screen)
 	var works: Dictionary = await _smoke_civilians(screen)
 	await _smoke_navy(screen)
 	_smoke_army_recruit(screen, works)
@@ -422,6 +424,61 @@ func _smoke_muster_roll(screen: MapScreen) -> void:
 	panel.close()
 	await process_frame
 	_check(not panel.is_open(), "the muster roll sets itself aside")
+
+
+## The province ledger: the dossier's Realm door raises the whole-empire
+## province reading on the real map, prints the crown's own holdings, narrows to
+## one reading and sets itself aside (DR-20261115-09). No order is placed.
+func _smoke_province_ledger(screen: MapScreen) -> void:
+	_check(screen.hud.province_ledger != null, "province ledger mounted")
+	var door: Button = null
+	for node: Node in screen.hud._panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Realm":
+			door = button
+			break
+	_check(door != null, "the province dossier carries the realm door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await process_frame
+	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
+	_check(panel.is_open(), "province ledger opens from the realm door")
+	_check(int(panel._snapshot.get("total", 0)) > 0, "the ledger lists the crown's provinces")
+	_check(_has_text(panel._rows, "Town"), "a row prints what the province is built to")
+	panel._on_filter(ProvinceLedger.FILTER_UNGARRISONED, false)
+	await process_frame
+	_check(panel._filter == ProvinceLedger.FILTER_UNGARRISONED, "the ledger narrows to one reading")
+	panel.close()
+	await process_frame
+	_check(not panel.is_open(), "the province ledger sets itself aside")
+
+
+## The crown's eyes: the court ledger's EYES door raises the intelligence
+## reading on the real map, prints the courts it shadows and sets itself aside
+## (DR-20261115-10). No spy is moved and no order is placed.
+func _smoke_spy_ledger(screen: MapScreen) -> void:
+	_check(screen.hud.spy_ledger != null, "the crown's eyes mounted")
+	screen.hud.diplomacy_pressed.emit()
+	await process_frame
+	var door: Button = null
+	for node: Node in screen.hud._diplomacy_panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("EYES"):
+			door = button
+			break
+	_check(door != null, "the court ledger carries the eyes door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await process_frame
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_check(panel.is_open(), "the crown's eyes open from the court's door")
+	_check(_has_text(panel._rows, "THE COURTS"), "the sheet prints the courts it reads")
+	_check(_has_text(panel._rows, "THE SCREEN"), "and whether the screen is up")
+	panel.close()
+	await process_frame
+	_check(not panel.is_open(), "the crown's eyes set themselves aside")
 
 
 ## Player civilian path: select → march → work per type → cancel → train.
@@ -699,7 +756,7 @@ func _smoke_end_turn(
 		"the home fleet carries trade cargo"
 	)
 	var grain_before: int = screen.economy.economy.quantity("grain")
-	screen.economy._on_trade("grain", 1, true)
+	screen.economy.orders.trade("grain", 1, true)
 	_check(
 		screen.economy.market.book.pending_buy_units(screen.player_faction) == 1,
 		"the ledger stages imports against cargo holds"
@@ -726,7 +783,7 @@ func _smoke_end_turn(
 			screen.economy.economy.quantity(offer_good) == offer_stock + 1,
 			"the turn-end auction fills the offer bid"
 		)
-	screen.economy._on_production("lumber", 1)
+	screen.economy.orders.set_production("lumber", 1)
 	_check(
 		screen.economy.economy.production.assignment_units("lumber") == 1,
 		"production assignment sticks"
@@ -739,6 +796,21 @@ func _smoke_end_turn(
 	_check(_has_text(production_body, "2t"), "the alloy rows name their two-turn wait")
 	screen.hud.panels.hide_economy()
 	_check(not screen.hud.panels.is_economy_open(), "ledger closes")
+	# The college's tree tab prints the whole catalog and what stands between the
+	# crown and any advance, so a goal can be aimed at from far out (REQ-P5-03).
+	screen.economy.open_research()
+	await process_frame
+	_check(screen.hud.panels.is_research_open(), "college opens")
+	var college: ResearchPanel = screen.hud.panels.research_panel
+	college.select_tab(2)
+	var tree: ResearchTreeTab = college._tree
+	_check(
+		tree != null and tree._body.get_child_count() == TechCatalog.ids().size(),
+		"the tree tab lists every advance"
+	)
+	_check(_has_text(tree, "Needs "), "a locked advance names what it needs")
+	screen.hud.panels.hide_research()
+	_check(not screen.hud.panels.is_research_open(), "college closes")
 	_check(
 		TurnTime.year_for_turn(screen.turn) == TurnTime.START_YEAR + 2,
 		"turn maps to expected year"

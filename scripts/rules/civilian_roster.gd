@@ -13,6 +13,14 @@ const REGION_OLD: String = "old_world"
 const REGION_NEW: String = "new_world"
 const REGION_FILTERS: Array[String] = [REGION_ALL, REGION_OLD, REGION_NEW]
 
+## Who waits for orders. A working unit is paid for and counting down; an idle
+## one is free to be given a new one, and a column of them is the crown's
+## chore (REQ-P5-04).
+const STATUS_ALL: String = "all"
+const STATUS_IDLE: String = "idle"
+const STATUS_WORKING: String = "working"
+const STATUS_FILTERS: Array[String] = [STATUS_ALL, STATUS_IDLE, STATUS_WORKING]
+
 const NO_PROVINCE: int = -1
 
 
@@ -48,9 +56,12 @@ static func snapshot(
 	return result
 
 
-## Rows narrowed to one region key and one type (empty type keeps every type).
+## Rows narrowed to one region key, one type (empty type keeps every type) and
+## one order status (all keeps both). Each facet is read against the other two,
+## so a chip's tally is what pressing it would show.
 static func groups(
-	snapshot_data: Dictionary, region_key: String, type_id: String = ""
+	snapshot_data: Dictionary, region_key: String, type_id: String = "",
+	status_key: String = STATUS_ALL
 ) -> Array[Dictionary]:
 	var kept: Array[Dictionary] = []
 	for raw: Variant in snapshot_data.get("groups", []):
@@ -62,6 +73,8 @@ static func groups(
 			var row: Dictionary = entry
 			if not type_id.is_empty() and String(row["type_id"]) != type_id:
 				continue
+			if not status_matches(row, status_key):
+				continue
 			rows.append(row)
 		if rows.is_empty():
 			continue
@@ -71,16 +84,21 @@ static func groups(
 	return kept
 
 
-static func count(snapshot_data: Dictionary, region_key: String, type_id: String = "") -> int:
+static func count(
+	snapshot_data: Dictionary, region_key: String, type_id: String = "",
+	status_key: String = STATUS_ALL
+) -> int:
 	var total: int = 0
-	for group: Dictionary in groups(snapshot_data, region_key, type_id):
+	for group: Dictionary in groups(snapshot_data, region_key, type_id, status_key):
 		total += (group["rows"] as Array).size()
 	return total
 
 
-## Type totals inside one region filter, for the icon chips (all six types stay
-## listed so a zero is legible rather than a vanished button).
-static func type_counts(snapshot_data: Dictionary, region_key: String) -> Dictionary:
+## Type totals inside one region and order filter, for the icon chips (all six
+## types stay listed so a zero is legible rather than a vanished button).
+static func type_counts(
+	snapshot_data: Dictionary, region_key: String, status_key: String = STATUS_ALL
+) -> Dictionary:
 	var counts: Dictionary = {}
 	for type_id: String in CivilianCatalog.ORDER:
 		counts[type_id] = 0
@@ -88,9 +106,48 @@ static func type_counts(snapshot_data: Dictionary, region_key: String) -> Dictio
 		var row: Dictionary = raw
 		if not region_matches(int(row["region"]), region_key):
 			continue
+		if not status_matches(row, status_key):
+			continue
 		var type_id: String = String(row["type_id"])
 		counts[type_id] = int(counts.get(type_id, 0)) + 1
 	return counts
+
+
+## Idle and at-work totals inside one region and craft filter, for the order
+## chips. `all` is the sum, so the three chips always agree with the rows.
+static func status_counts(
+	snapshot_data: Dictionary, region_key: String, type_id: String = ""
+) -> Dictionary:
+	var counts: Dictionary = {STATUS_ALL: 0, STATUS_IDLE: 0, STATUS_WORKING: 0}
+	for raw: Variant in snapshot_data.get("rows", []):
+		var row: Dictionary = raw
+		if not region_matches(int(row["region"]), region_key):
+			continue
+		if not type_id.is_empty() and String(row["type_id"]) != type_id:
+			continue
+		counts[STATUS_ALL] = int(counts[STATUS_ALL]) + 1
+		var key: String = STATUS_WORKING if bool(row["working"]) else STATUS_IDLE
+		counts[key] = int(counts[key]) + 1
+	return counts
+
+
+static func status_matches(row: Dictionary, key: String) -> bool:
+	match key:
+		STATUS_IDLE:
+			return not bool(row.get("working", false))
+		STATUS_WORKING:
+			return bool(row.get("working", false))
+	return true
+
+
+## One-word name of an order filter, for the chips and the sheet's subtitle.
+static func status_label(key: String) -> String:
+	match key:
+		STATUS_IDLE:
+			return "Idle"
+		STATUS_WORKING:
+			return "At work"
+	return "All orders"
 
 
 static func region_matches(region: int, key: String) -> bool:

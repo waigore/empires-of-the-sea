@@ -4,7 +4,7 @@ extends VBoxContainer
 ## intents. Presentation only — blocked reasons come from PlayerEconomy, so the
 ## panel never invents a rule (REQ-P2-03).
 
-signal recruit_requested(tier: int)
+signal recruit_requested(tier: int, count: int)
 signal disband_requested(tier: int)
 
 const ROW_HEIGHT: float = 38.0
@@ -17,6 +17,9 @@ var _report: Dictionary = {}
 var _compact: bool = false
 ## Row actions keyed "<action>:<tier>" ("recruit:2", "disband:1") for tooling.
 var _buttons: Dictionary = {}
+## Batch presses keyed by tier: one full-width row under a tier the crown can
+## pay for more than once (REQ-P5-04).
+var _batches: Dictionary = {}
 ## Tier badges keyed by tier, so tooling reads the mark without walking rows.
 var _marks: Dictionary = {}
 
@@ -35,6 +38,7 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_economy = economy
 	_report = report
 	_buttons.clear()
+	_batches.clear()
 	_marks.clear()
 	UiRowBuilder.clear(self)
 	add_child(
@@ -47,6 +51,9 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	add_child(_larder(economy, report))
 	for tier in WorkerPool.TIER_COUNT:
 		add_child(_tier_row(tier))
+		var batch: Control = _batch_row(tier)
+		if batch != null:
+			add_child(batch)
 	UiRowBuilder.spacer(self)
 	_pending(economy)
 
@@ -61,33 +68,17 @@ func _larder(economy: PlayerEconomy, report: Dictionary) -> Control:
 	var read: Dictionary = LarderRead.forecast(economy, LarderRead.mouths(report))
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
-	box.add_child(_line("LARDER · NEXT TURN", 11, Palette.TEXT_DIM))
-	box.add_child(_line(_store_copy(read), 12, Palette.TEXT))
-	box.add_child(_line(_appetite_copy(read), 12, Palette.TEXT_DIM))
+	box.add_child(UiRowBuilder.wrapped_line("LARDER · NEXT TURN", 11, Palette.TEXT_DIM))
+	box.add_child(UiRowBuilder.wrapped_line(_store_copy(read), 12, Palette.TEXT))
+	box.add_child(UiRowBuilder.wrapped_line(_appetite_copy(read), 12, Palette.TEXT_DIM))
 	var short: bool = int(read["strikers"]) > 0
 	box.add_child(
-		_line(
-			_shortfall_copy(read),
-			12,
-			Palette.CRIMSON if short else Palette.TEXT_DIM
+		UiRowBuilder.wrapped_line(
+			_shortfall_copy(read), 12, Palette.CRIMSON if short else Palette.TEXT_DIM
 		)
 	)
-	box.add_child(_pad(4))
+	UiRowBuilder.spacer(box, 4.0)
 	return box
-
-
-## A wrapping ledger line: a phone narrows instead of clipping the sentence
-## (REQ-P1-05).
-func _line(text: String, size: int, color: Color) -> Label:
-	var out: Label = UiRowBuilder.label(text, size, color)
-	out.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return out
-
-
-func _pad(height: float) -> Control:
-	var pad := Control.new()
-	pad.custom_minimum_size = Vector2(0, height)
-	return pad
 
 
 ## "Store 16 food · Fur Hats ×1" — the larder as it stands, naming only the
@@ -100,10 +91,34 @@ func _store_copy(read: Dictionary) -> String:
 	return "Store " + "  ·  ".join(parts)
 
 
-## "24 mouths eat 18 food · Refined Sugar ×3 · 2 arriving" — every appetite the
-## phase pays before the larder can be called short.
+## "20 food wanted — army 8 · navy 4 · pool 6 · wards 2 · Refined Sugar ×3", or
+## the short form "24 mouths eat 24 food" when the pool is the only appetite.
+## Every appetite the phase pays is named in its own deduction order, because the
+## army and the navy eat before the pool: a store that covers the pool alone still
+## strikes it, and a reading that showed only the pool's mouths had the store
+## cover them (wiki: workers-and-population § Consumption; REQ-P2-03).
 func _appetite_copy(read: Dictionary) -> String:
-	var text: String = "%d mouths eat %d food" % [int(read["mouths"]), int(read["food"])]
+	var appetites: Dictionary = read.get("appetites", {}) as Dictionary
+	var army: int = int(appetites.get("army", 0))
+	var navy: int = int(appetites.get("navy", 0))
+	var pool: int = int(appetites.get("pool", int(read["food"])))
+	var wards: int = int(appetites.get("wards", 0))
+	var text: String
+	if army + navy + wards <= 0:
+		text = "%d mouths eat %d food" % [int(read["mouths"]), pool]
+	else:
+		var parts: PackedStringArray = []
+		if army > 0:
+			parts.append("army %d" % army)
+		if navy > 0:
+			parts.append("navy %d" % navy)
+		if pool > 0:
+			parts.append("pool %d" % pool)
+		if wards > 0:
+			parts.append("wards %d" % wards)
+		text = "%d food wanted — %s" % [
+			army + navy + pool + wards, " · ".join(parts),
+		]
 	var want: Dictionary = read["luxury"]
 	for id: Variant in want.keys():
 		text += "  ·  %s ×%d" % [CommodityCatalog.label(String(id)), int(want[id])]
@@ -140,19 +155,42 @@ func _shortfall_copy(read: Dictionary) -> String:
 
 ## The crown's Build/work queue: each order arrives with next turn, so a player
 ## can see what the press bought without waiting for the gazette
-## (wiki: workers-and-population § Phase placement).
+## (wiki: workers-and-population § Phase placement). Identical orders read as one
+## line with their count, so a batch is one promise and not a wall of rows.
 func _pending(economy: PlayerEconomy) -> void:
 	if economy.recruits.is_empty():
 		return
 	add_child(
 		UiRowBuilder.label("UNDER ORDERS · ARRIVES NEXT TURN", 11, Palette.TEXT_DIM)
 	)
-	for row: Dictionary in economy.recruits.orders:
+	for line: Dictionary in grouped_orders(economy.recruits.orders):
+		var row: Dictionary = line["row"]
+		var count: int = int(line["count"])
+		var name: String = RecruitQueue.label(row)
+		if count > 1:
+			name = "%s ×%d" % [name, count]
 		add_child(
-			UiRowBuilder.label(
-				"%s · %s" % [RecruitQueue.label(row), _kind(row)], 12, Palette.TEXT
-			)
+			UiRowBuilder.label("%s · %s" % [name, _kind(row)], 12, Palette.TEXT)
 		)
+
+
+## Orders in the order they were filed, identical neighbours folded into one
+## line with their count. Static and public so a test reads the fold without
+## mounting the page (REQ-P3-02).
+static func grouped_orders(orders: Array[Dictionary]) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	for row: Dictionary in orders:
+		if not out.is_empty():
+			var last: Dictionary = out[out.size() - 1]
+			var seen: Dictionary = last["row"]
+			if (
+				String(seen.get("kind", "")) == String(row.get("kind", ""))
+				and String(seen.get("key", "")) == String(row.get("key", ""))
+			):
+				last["count"] = int(last["count"]) + 1
+				continue
+		out.append({"row": row, "count": 1})
+	return out
 
 
 ## The phasing word on a pending row, so a hull is not read as a hired clerk.
@@ -224,9 +262,38 @@ func _action(
 	if kind == "disband":
 		button.pressed.connect(func() -> void: disband_requested.emit(tier))
 	else:
-		button.pressed.connect(func() -> void: recruit_requested.emit(tier))
+		button.pressed.connect(func() -> void: recruit_requested.emit(tier, 1))
 	_buttons["%s:%d" % [kind, tier]] = button
 	return button
+
+
+## A tier the crown can pay for more than once gets one full-width batch press
+## under its row: the count, the whole batch's price and the press that files
+## them all. The single-head RECRUIT stays, so a batch is never forced
+## (wiki: workers-and-population § Recruiting; REQ-P5-04, REQ-P5-05).
+func _batch_row(tier: int) -> Control:
+	if _economy == null:
+		return null
+	var count: int = _economy.recruit_affordable(tier)
+	if count <= 1:
+		return null
+	var height: float = COMPACT_ROW_HEIGHT if _compact else ROW_HEIGHT
+	var button := UiRowBuilder.button(
+		"Recruit ×%d  ·  %s" % [count, LedgerText.recruit_batch_cost(tier, count)], height, 0.0
+	)
+	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	button.tooltip_text = (
+		"Files %d orders at once — each pays its own cost in Build/work." % count
+	)
+	button.pressed.connect(func() -> void: recruit_requested.emit(tier, count))
+	_batches[tier] = button
+	return button
+
+
+## Batch presses keyed by tier; tests and tooling read this instead of walking
+## the page's children (REQ-P3-02).
+func batch_buttons() -> Dictionary:
+	return _batches
 
 
 ## Row action buttons keyed "<action>:<tier>"; tests and tooling read this

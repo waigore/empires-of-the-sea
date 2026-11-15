@@ -12,12 +12,17 @@ extends RefCounted
 ## Hands the session its courts' charts. Runs on every region load, but a
 ## court's grid is only cut the first time a rule reads it (`CourtCharts`), so a
 ## mounted campaign pays for the fog somebody actually looked at.
+##
+## A whole-game observer has no human court: the former human slot runs the
+## same planners as any rival, so it must chart like one — routing it to the
+## screen's own region table strands its expeditions on a New World chart the
+## pass never grows (issue #603).
 static func build(play: PlaySession) -> void:
 	if play == null or play.world == null:
 		return
 	if play.court_charts == null:
 		play.court_charts = CourtCharts.new()
-	play.court_charts.setup(play.world, play.player_faction, play.visibility_by_region)
+	play.court_charts.setup(play.world, play.human_faction_id(), play.visibility_by_region)
 
 
 ## A court's own view of one region, or null before its chart was built.
@@ -90,7 +95,7 @@ static func resolve(play: PlaySession) -> void:
 	if play == null or play.world == null or play.court_charts == null:
 		return
 	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction:
+		if faction == play.human_faction_id():
 			continue
 		for index in play.world.region_count():
 			var view: VisibilityModel = play.court_charts.model_for(faction, index)

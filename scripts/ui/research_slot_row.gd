@@ -46,7 +46,7 @@ func _init(index: int) -> void:
 	slot = index
 	add_theme_constant_override("separation", 8)
 	custom_minimum_size = Vector2(0.0, ROW_HEIGHT)
-	_idle = _label("Slot %d — idle" % (index + 1), 14, Palette.TEXT_DIM)
+	_idle = UiRowBuilder.label("Slot %d — idle" % (index + 1), 14, Palette.TEXT_DIM)
 	_idle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_idle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add_child(_idle)
@@ -163,7 +163,7 @@ func set_compact(compact: bool) -> void:
 func _head() -> HBoxContainer:
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 6)
-	_name = _label("", 14, Palette.TEXT)
+	_name = UiRowBuilder.label("", 14, Palette.TEXT)
 	_name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_name.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	_name.clip_text = true
@@ -178,19 +178,19 @@ func _head() -> HBoxContainer:
 	_coin.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	cost.add_child(_coin)
-	_spend = _label("", 12, Palette.GOLD)
+	_spend = UiRowBuilder.label("", 12, Palette.GOLD)
 	_spend.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	cost.add_child(_spend)
 	head.add_child(cost)
-	_spies = _label("", 12, Palette.GOLD)
+	_spies = UiRowBuilder.label("", 12, Palette.GOLD)
 	_spies.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	_spies.visible = false
 	head.add_child(_spies)
-	_funding = _button("")
+	_funding = UiRowBuilder.button("", 0.0, 0.0)
 	_funding.custom_minimum_size = Vector2(96, BUTTON_HEIGHT)
 	_funding.pressed.connect(func() -> void: funding_pressed.emit(slot))
 	head.add_child(_funding)
-	_cancel = _button("Cancel")
+	_cancel = UiRowBuilder.button("Cancel", 0.0, 0.0)
 	_cancel.custom_minimum_size = Vector2(74, BUTTON_HEIGHT)
 	_cancel.tooltip_text = "Abandon the study; all progress is lost"
 	_cancel.pressed.connect(func() -> void: cancel_pressed.emit(slot))
@@ -204,10 +204,10 @@ func _foot() -> HBoxContainer:
 	_bar = ResearchBar.new()
 	_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	foot.add_child(_bar)
-	_progress = _label("", 12, Palette.TEXT)
+	_progress = UiRowBuilder.label("", 12, Palette.TEXT)
 	_progress.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	foot.add_child(_progress)
-	_next = _label("", 11, Palette.GOLD_PALE)
+	_next = UiRowBuilder.label("", 11, Palette.GOLD_PALE)
 	_next.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	foot.add_child(_next)
 	return foot
@@ -255,18 +255,3 @@ func _spend_tip() -> String:
 	return "%s ducats buys %s research points each turn" % [
 		TextFormat.thousands(_gold_next), TextFormat.thousands(_rp_next),
 	]
-
-
-func _label(text: String, size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_size_override("font_size", size)
-	label.add_theme_color_override("font_color", color)
-	return label
-
-
-func _button(text: String) -> Button:
-	var button := Button.new()
-	button.text = text
-	button.add_theme_font_size_override("font_size", 13)
-	return button

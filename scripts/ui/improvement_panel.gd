@@ -20,7 +20,6 @@ var tech_caps: Dictionary = {}
 ## the card parks (GameMenu, REQ-P3-02) and the HUD it covers.
 var play: PlaySession = null
 
-var _toggle: Button = null
 var _overlay: Control = null
 var _margin: MarginContainer = null
 var _panel: PanelContainer = null
@@ -31,6 +30,10 @@ var _title: Label = null
 var _subtitle: Label = null
 var _footer_box: Control = null
 var _close_button: Button = null
+var _header_row: HBoxContainer = null
+## The card is movable by its masthead, so the chart it covers can be read
+## without closing the ledger (REQ-P1-07).
+var _drag: ModalDrag = null
 var _data: Dictionary = {}
 var _province_filter: int = -1
 var _compact: bool = false
@@ -42,7 +45,6 @@ func _ready() -> void:
 	set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
 	theme = UiTheme.build()
-	_build_toggle()
 	_build_overlay()
 	resized.connect(_fit_to_viewport)
 	_fit_to_viewport()
@@ -88,6 +90,7 @@ func open(province_id: int = -1, filter_key: String = "all") -> void:
 func close() -> void:
 	if _overlay != null:
 		_overlay.visible = false
+	ModalDrag.reset_on(_margin)
 	_set_menu_visible(true)
 	_sync_despatch_cover()
 
@@ -152,23 +155,6 @@ func _input(event: InputEvent) -> void:
 # --- construction -----------------------------------------------------------
 
 
-func _build_toggle() -> void:
-	_toggle = Button.new()
-	_toggle.text = "ESTATES"
-	_toggle.set_anchors_preset(Control.PRESET_TOP_LEFT)
-	# The pause seal owns the rail's first 46 px; start after it so the manor
-	# medallion is not hidden under the MENU button.
-	_toggle.offset_left = 70.0
-	_toggle.offset_top = 132.0
-	_toggle.offset_right = 176.0
-	_toggle.offset_bottom = 176.0
-	_toggle.add_theme_font_size_override("font_size", 14)
-	_toggle.tooltip_text = "The crown's estates and works"
-	ChromeIcons.apply(_toggle, "manor", 20)
-	_toggle.pressed.connect(func() -> void: open())
-	add_child(_toggle)
-
-
 func _build_overlay() -> void:
 	_overlay = Control.new()
 	_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -176,9 +162,11 @@ func _build_overlay() -> void:
 	_overlay.visible = false
 	add_child(_overlay)
 
+	# A soft wash, not a blackout: the card is movable, so the chart it stands
+	# over stays readable beside it (REQ-P1-07).
 	var dim := ColorRect.new()
 	dim.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	dim.color = Color(0.05, 0.04, 0.03, 0.74)
+	dim.color = Color(0.05, 0.04, 0.03, 0.34)
 	_overlay.add_child(dim)
 
 	_margin = MarginContainer.new()
@@ -201,6 +189,8 @@ func _build_overlay() -> void:
 	_panel.add_child(column)
 	_column = column
 	column.add_child(_header())
+	var grabs: Array[Control] = [_header_row]
+	_drag = ModalDrag.attach(self, _margin, grabs, _panel)
 	_head = EstatesHead.new()
 	_head.filter_selected.connect(_press_filter)
 	column.add_child(_head)
@@ -222,6 +212,8 @@ func _build_overlay() -> void:
 func _header() -> Control:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 12)
+	header.add_child(ModalDrag.grip())
+	_header_row = header
 
 	var titles := VBoxContainer.new()
 	titles.add_theme_constant_override("separation", -2)

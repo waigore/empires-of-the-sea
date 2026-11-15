@@ -57,6 +57,18 @@ func sync(fleets: Array) -> void:
 		hulls(fleet)
 
 
+## Drops the marker of every squadron the roster no longer carries (sunk this
+## turn): a marker without a command could still be tapped and ordered.
+func prune(fleets: Array) -> void:
+	var alive: Dictionary = {}
+	for fleet: FleetState in fleets:
+		if fleet != null:
+			alive[fleet.id] = true
+	for ship: Ship in ships.duplicate():
+		if not alive.has(ship.fleet_id):
+			remove(ship)
+
+
 ## Moves markers for a beaten squadron that escaped a naval battle: each one
 ## sails to its haven and reports the new zone (wiki: ships-and-naval § Naval
 ## Retreat Formula).
@@ -110,14 +122,7 @@ func place(ship: Ship, fleet: FleetState) -> void:
 	if model == null:
 		return
 	if fleet.is_in_port():
-		var data: ProvinceState = model.province_data(fleet.province)
-		var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
-		if port.x < 0 or port.y < 0:
-			# A reassigned seat may be coastal without a registered port tile
-			# (wiki: ships-and-naval § Ports that change hands; DR-20261109-12).
-			ship.position = model.province_center(fleet.province) * TILE_SIZE
-		else:
-			ship.position = MapGeo.tile_center(port.x, port.y, TILE_SIZE)
+		ship.position = port_position(model, fleet.province)
 		ship.docked = true
 		ship.zone = -1
 		ship.province = fleet.province
@@ -126,6 +131,20 @@ func place(ship: Ship, fleet: FleetState) -> void:
 	ship.docked = false
 	ship.zone = fleet.sea_zone
 	ship.province = MapModel.NO_ID
+
+
+## Where a squadron's marker berths in port: the province's registered port
+## tile, or its centre when a reassigned seat is coastal without one (wiki:
+## ships-and-naval § Ports that change hands; DR-20261109-12). The sail orders
+## take their target from here too, so a docking never lands twice.
+static func port_position(model: MapModel, province_id: int) -> Vector2:
+	if model == null:
+		return Vector2.ZERO
+	var data: ProvinceState = model.province_data(province_id)
+	var port: Vector2i = data.port_tile if data != null else Vector2i(-1, -1)
+	if port.x < 0 or port.y < 0:
+		return model.province_center(province_id) * TILE_SIZE
+	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 
 
 static func _fleet(fleets: Array, fleet_id: int) -> FleetState:

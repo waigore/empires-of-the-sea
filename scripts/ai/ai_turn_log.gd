@@ -4,12 +4,14 @@ extends RefCounted
 ## turn-trace-interpretation). Diplomacy, land, naval and economy adapters hand
 ## their traces in once per resolved turn; this module merges them into one
 ## record per crown, so the observatory panel and the headless exporter read the
-## same shape. It never changes rules state beyond `play.ai_turns` / feeding.
+## same shape. Each pass that hands in a report owns its rows (AiDiplomacyTrace,
+## AiEconomyTrace); this module owns the record, its event cap and the headline.
+## It never changes rules state beyond `play.ai_turns` / feeding.
 
 const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
-	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue",
+	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue", "home",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
 	"invade", "voyage", "colony", "build", "cargo",
 ]
@@ -22,6 +24,7 @@ const ACTION_LABELS: Dictionary = {
 	"march": "marches",
 	"sortie": "sorties",
 	"pursue": "pursuits",
+	"home": "sailings home",
 	"work": "work orders",
 	"production": "production",
 	"recruit": "workers",
@@ -57,10 +60,10 @@ static func record(
 	var factions: Dictionary = merged["factions"]
 	for faction: int in FactionCatalog.great_power_ids():
 		factions[faction] = {"actions": {}, "events": []}
-	_record_diplomacy(play, merged, factions)
+	AiDiplomacyTrace.record(play, merged, factions)
 	_record_armies(merged, factions, army_trace)
 	_record_fleets(merged, factions, fleet_trace)
-	_record_economy(merged, factions, economy_report)
+	AiEconomyTrace.record(merged, factions, economy_report)
 	_record_expeditions(merged, factions, invasion_trace, colonisation_trace)
 	_record_objectives(factions, _ledgers(play, objectives))
 	play.ai_turns.append(merged)
@@ -138,31 +141,6 @@ static func headline(last: Dictionary) -> String:
 # --- turn record -------------------------------------------------------------
 
 
-static func _record_diplomacy(
-	play: PlaySession, merged: Dictionary, factions: Dictionary
-) -> void:
-	for raw: Dictionary in play.ai_trace:
-		var faction: int = int(raw.get("faction", NO_ID))
-		if not factions.has(faction):
-			continue
-		var action: Dictionary = raw.get("action", {}) as Dictionary
-		if action.is_empty():
-			continue
-		# An order the rules refused never reached the court: counting it as a
-		# declaration (or inventing its sentence) would report a war that never
-		# happened (wiki: turn-trace-interpretation).
-		var result: Dictionary = raw.get("result", {}) as Dictionary
-		if result.has("ok") and not bool(result.get("ok", false)):
-			continue
-		var kind: String = String(action.get("kind", ""))
-		var target: int = int(action.get("target", NO_ID))
-		_bump(factions[faction]["actions"], _diplomacy_key(kind))
-		var text: String = String(raw.get("message", ""))
-		if text.is_empty():
-			text = _diplomacy_line(kind, faction, target)
-		_add_event(merged, factions[faction], faction, text)
-
-
 static func _record_armies(
 	merged: Dictionary, factions: Dictionary, trace: Array[Dictionary]
 ) -> void:
@@ -172,13 +150,13 @@ static func _record_armies(
 			continue
 		var kind: String = String(raw.get("kind", ""))
 		if kind == AiMilitaryPlanner.KIND_SPLIT:
-			_bump(factions[faction]["actions"], "split")
+			bump(factions[faction]["actions"], "split")
 			continue
 		if kind == MapPlayArmyAi.KIND_REINFORCE:
-			_bump(factions[faction]["actions"], "reinforce")
+			bump(factions[faction]["actions"], "reinforce")
 			var raised: String = RegimentCatalog.display_name(String(raw.get("type", "")))
 			if not raised.is_empty():
-				_add_event(
+				event(
 					merged,
 					factions[faction],
 					faction,
@@ -186,10 +164,10 @@ static func _record_armies(
 				)
 			continue
 		if kind == MapPlayArmyAi.KIND_HOSPITAL:
-			_bump(factions[faction]["actions"], "hospital")
+			bump(factions[faction]["actions"], "hospital")
 			var face: String = String(raw.get("province_name", ""))
 			if not face.is_empty():
-				_add_event(
+				event(
 					merged,
 					factions[faction],
 					faction,
@@ -198,14 +176,14 @@ static func _record_armies(
 				)
 			continue
 		var key: String = "attack" if bool(raw.get("attacked", false)) else "march"
-		_bump(factions[faction]["actions"], key)
+		bump(factions[faction]["actions"], key)
 		var place: String = String(raw.get("province_name", ""))
 		if place.is_empty():
 			continue
 		var line: String = (
 			"%s storms into %s." if key == "attack" else "%s marches into %s."
 		) % [FactionCatalog.name_of(faction), place]
-		_add_event(merged, factions[faction], faction, line)
+		event(merged, factions[faction], faction, line)
 
 
 static func _record_fleets(
@@ -216,11 +194,18 @@ static func _record_fleets(
 		if not factions.has(faction):
 			continue
 		var kind: String = String(raw.get("kind", ""))
-		_bump(factions[faction]["actions"], "sortie" if kind.ends_with("sortie") else "pursue")
+		var key: String = "home" if kind == AiNavalPlanner.KIND_HOME else (
+			"sortie" if kind.ends_with("sortie") else "pursue"
+		)
+		bump(factions[faction]["actions"], key)
 		var zone: String = String(raw.get("zone_name", ""))
 		if zone.is_empty():
 			continue
-		_add_event(
+		if String(raw.get("reason", "")) == AiNavalPlanner.REASON_TRADE:
+			var trade: String = "%s's squadron gives up its station to keep its holds home."
+			event(merged, factions[faction], faction, trade % FactionCatalog.name_of(faction))
+			continue
+		event(
 			merged,
 			factions[faction],
 			faction,
@@ -243,92 +228,14 @@ static func _record_expeditions(
 		var faction: int = int(row.get("faction", NO_ID))
 		if not factions.has(faction):
 			continue
-		_bump(factions[faction]["actions"], String(row.get("action", "")))
-		_add_event(merged, factions[faction], faction, String(row.get("event", "")))
+		bump(factions[faction]["actions"], String(row.get("action", "")))
+		event(merged, factions[faction], faction, String(row.get("event", "")))
 
 
-static func _record_economy(
-	merged: Dictionary, factions: Dictionary, report: Dictionary
-) -> void:
-	var per: Dictionary = report.get("factions", {})
-	for raw: Variant in per.keys():
-		var faction: int = int(raw)
-		if not factions.has(faction):
-			continue
-		var details: Dictionary = per[raw]
-		var bucket: Dictionary = factions[faction]
-		var assignments: Array = (details.get("production", {}) as Dictionary).get(
-			"assignments", []
-		)
-		var recruits: Array = details.get("recruits", [])
-		var civilians: Dictionary = details.get("civilians", {})
-		var orders: Array = civilians.get("orders", [])
-		var training: Array = civilians.get("training", [])
-		var who: String = FactionCatalog.name_of(faction)
-		if not assignments.is_empty():
-			_bump(bucket["actions"], "production")
-			_add_event(merged, bucket, faction, "%s sets %d production runs." % [
-				who, assignments.size(),
-			])
-		if not recruits.is_empty():
-			_bump(bucket["actions"], "recruit", recruits.size())
-			_add_event(merged, bucket, faction, "%s trains %d workers." % [
-				who, recruits.size(),
-			])
-		if not orders.is_empty():
-			_bump(bucket["actions"], "work", orders.size())
-			_add_event(merged, bucket, faction, "%s's civilians take %d work orders." % [
-				who, orders.size(),
-			])
-		if not training.is_empty():
-			_bump(bucket["actions"], "train")
-			_add_event(merged, bucket, faction, "%s musters a civilian." % who)
-		_record_cargo(merged, bucket, faction, details.get("cargo", {}))
-		_record_claims(bucket, details.get("claims", []))
-
-
-## Every reservation the court claimed this turn — rations, the muster's row,
-## the works, this turn's production — with what it was granted, so the trace
-## shows the same floor every spender left (issue #491 T3).
-static func _record_claims(bucket: Dictionary, lines: Variant) -> void:
-	if typeof(lines) != TYPE_ARRAY or (lines as Array).is_empty():
-		return
-	bucket["claims"] = (lines as Array).duplicate()
-
-
-## Cargo routes and a new hull from the yard: the colonies' left tonnage and the
-## court's trade holds explain why a rival moves or builds merchant hulls
-## (wiki: economy-planner § Cargo; DR-20261110-26).
-static func _record_cargo(
-	merged: Dictionary, bucket: Dictionary, faction: int, cargo: Dictionary
-) -> void:
-	var routes: Array = cargo.get("routes", [])
-	var launch: Dictionary = cargo.get("launch", {})
-	if routes.is_empty() and launch.is_empty():
-		return
-	var who: String = FactionCatalog.name_of(faction)
-	if not routes.is_empty():
-		_bump(bucket["actions"], "cargo", routes.size())
-		_add_event(merged, bucket, faction, "%s routes %d merchant squadron%s home." % [
-			who, routes.size(), "" if routes.size() == 1 else "s",
-		])
-	if not launch.is_empty():
-		_bump(bucket["actions"], "cargo")
-		_add_event(merged, bucket, faction, "%s lays down a %s for the cargo trade." % [
-			who, ShipStats.display_name(String(launch.get("type_id", ""))),
-		])
-	var warship: Dictionary = cargo.get("warship", {})
-	if not warship.is_empty():
-		_bump(bucket["actions"], "build")
-		# The row names the yard's price and the chest that allowed the launch,
-		# so the trace explains the build itself (issue #484).
-		_add_event(merged, bucket, faction, "%s lays down a %s for the fleet: %d ducats against a %d chest." % [
-			who, ShipStats.display_name(String(warship.get("type_id", ""))),
-			int(warship.get("price", 0)), int(warship.get("chest", 0)),
-		])
-
-
-static func _add_event(
+## One event row on the merged record and its crown, capped so a long turn
+## cannot flood the observatory panel. Every recorder shares this cap, so no pass
+## can print more than its peers.
+static func event(
 	merged: Dictionary, bucket: Dictionary, faction: int, text: String
 ) -> void:
 	if text.is_empty():
@@ -341,50 +248,9 @@ static func _add_event(
 	merged_events.append({"faction": faction, "text": text})
 
 
-static func _bump(actions: Dictionary, key: String, amount: int = 1) -> void:
+## One action count under the panel's headline key.
+static func bump(actions: Dictionary, key: String, amount: int = 1) -> void:
 	if key.is_empty():
 		return
 	actions[key] = int(actions.get(key, 0)) + amount
 
-
-static func _diplomacy_key(kind: String) -> String:
-	if kind == AiDiplomacyPlanner.KIND_DECLARE_WAR:
-		return "war"
-	if kind == AiDiplomacyPlanner.KIND_OFFER_PEACE:
-		return "peace"
-	if kind in AiDiplomacyOffers.KINDS:
-		if kind == AiDiplomacyOffers.KIND_ALLIANCE or kind == AiDiplomacyOffers.KIND_OVERTURE:
-			return "treaty"
-		if kind == AiDiplomacyOffers.KIND_BREAK:
-			return "treaty"
-		return "trade"
-	return "treaty"
-
-
-static func _diplomacy_line(kind: String, faction: int, target: int) -> String:
-	var who: String = FactionCatalog.name_of(faction)
-	if target == NO_ID:
-		return "%s adjusts its court." % who
-	var them: String = FactionCatalog.name_of(target)
-	match kind:
-		AiDiplomacyPlanner.KIND_DECLARE_WAR:
-			return "%s declares war on %s." % [who, them]
-		AiDiplomacyPlanner.KIND_OFFER_PEACE:
-			return "%s sues for peace with %s." % [who, them]
-		AiDiplomacyOffers.KIND_AID:
-			return "%s sends aid to %s." % [who, them]
-		AiDiplomacyOffers.KIND_FTP:
-			return "%s agrees a trade pact with %s." % [who, them]
-		AiDiplomacyOffers.KIND_REVOKE_FTP:
-			return "%s ends its trade pact with %s." % [who, them]
-		AiDiplomacyOffers.KIND_BOYCOTT:
-			return "%s boycotts %s." % [who, them]
-		AiDiplomacyOffers.KIND_REVOKE_BOYCOTT:
-			return "%s lifts its boycott of %s." % [who, them]
-		AiDiplomacyOffers.KIND_SUBSIDY:
-			return "%s subsidises %s." % [who, them]
-		AiDiplomacyOffers.KIND_CANCEL_SUBSIDY:
-			return "%s ends its subsidy to %s." % [who, them]
-		AiDiplomacyOffers.KIND_BREAK:
-			return "%s breaks its alliance with %s." % [who, them]
-	return "%s proposes a treaty to %s." % [who, them]

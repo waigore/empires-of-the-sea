@@ -8,6 +8,13 @@ extends Node2D
 
 const TILE_SIZE: float = 22.0
 const CLOUD_MARGIN: float = 1400.0
+## Passage water reads darker and colder than ordinary sea, so a warp zone is
+## found at a glance without selecting a fleet (REQ-P1-07). Kept under the ink
+## and inside the map artwork layer, so fog still fogs it like any other water.
+const PASSAGE_WASH: Color = Color(0.060, 0.170, 0.400, 0.55)
+const PASSAGE_EDGE: Color = Color(0.070, 0.150, 0.190, 0.72)
+const PASSAGE_INK: Color = Color(0.085, 0.175, 0.215, 0.84)
+const PASSAGE_HALO: Color = Color(0.945, 0.905, 0.805, 0.66)
 
 ## Marching-squares edge pairs per corner case (1=TL, 2=TR, 4=BR, 8=BL).
 ## Edge ids: 0=top, 1=right, 2=bottom, 3=left.
@@ -28,6 +35,8 @@ var _coast: Array[PackedVector2Array] = []
 var relief: MapRelief = null
 var _province_borders: Array[PackedVector2Array] = []
 var _sea_borders: Array[PackedVector2Array] = []
+## Smoothed ink boundary of the Passage water on this region.
+var _passage_ink: Array[PackedVector2Array] = []
 var _font: Font = null
 var _font_italic: Font = null
 var _surf: MapSurf = null
@@ -44,6 +53,7 @@ func build(p_model: MapModel, p_world: WorldMap = null) -> void:
 	_build_coast()
 	_build_borders()
 	plan.build(model, world, TILE_SIZE)
+	_build_passage_ink()
 	_build_animated_layers()
 	queue_redraw()
 
@@ -65,6 +75,7 @@ func refresh_ownership() -> void:
 			child.queue_free()
 	relief = MapWash.build(self, model)
 	plan.build(model, world, TILE_SIZE)
+	_build_passage_ink()
 	queue_redraw()
 
 
@@ -146,6 +157,18 @@ func _build_borders() -> void:
 	_sea_borders = _hand_paths(InkPaths.smooth_segments(sea_raw, 2), 1.1, 5.4)
 
 
+## The Passage wash is bounded by hand-inked water, not a tile staircase: the
+## zone edge is traced and smoothed like a sea border, so a warp zone reads as
+## charted water rather than a UI rectangle (REQ-P1-03 / REQ-P1-07).
+func _build_passage_ink() -> void:
+	_passage_ink.clear()
+	if plan.passage_edges.is_empty():
+		return
+	_passage_ink = _hand_paths(
+		InkPaths.smooth_segments(plan.passage_edges, 3, 1.2), 0.9, 7.1
+	)
+
+
 ## Hand-inked copies of the traced boundaries: the Chaikin pass rounds corners
 ## but leaves long runs straight, and a straight 90-degree run is what reads as
 ## a grid (REQ-P1-03). Each path gets its own phase so neighbouring provinces
@@ -186,6 +209,10 @@ func _draw() -> void:
 	if model == null:
 		return
 
+	for run: Rect2 in plan.passage_water:
+		draw_rect(run, PASSAGE_WASH, true)
+	for path: PackedVector2Array in _passage_ink:
+		draw_polyline(path, PASSAGE_EDGE, 1.6, true)
 	for path: PackedVector2Array in _sea_borders:
 		draw_polyline(path, Color(0.18, 0.30, 0.33, 0.20), 1.0, true)
 	for path: PackedVector2Array in _province_borders:
@@ -210,25 +237,43 @@ func _draw() -> void:
 		MapGlyphs.compass(self, plan.compass_position, 74.0, _font)
 
 
-## Two arrows around a ring: the sign of a sea lane between regions.
+## A ringed crossing mark: two opposed arrows running through the ring, over a
+## pale halo so it reads on the Passage wash at any zoom (REQ-P1-07). Opposed
+## arrows say "a lane through to the other world", where a single dot reads as
+## a mere point of interest.
 func _draw_passage(center: Vector2) -> void:
-	var ink := Color(0.16, 0.12, 0.08, 0.55)
-	var radius: float = 13.0
-	draw_arc(center, radius, 0.0, TAU, 28, ink, 1.6, true)
-	draw_arc(center, radius * 0.62, PI * 0.15, PI * 0.85, 12, ink, 1.4, true)
-	draw_arc(center, radius * 0.62, PI * 1.15, PI * 1.85, 12, ink, 1.4, true)
-	draw_circle(center, 2.2, ink)
+	draw_circle(center, 21.0, PASSAGE_HALO)
+	draw_arc(center, 18.0, 0.0, TAU, 32, PASSAGE_INK, 2.0, true)
+	_arrow(
+		Vector2(center.x - 11.0, center.y - 5.5), Vector2(center.x + 11.0, center.y - 5.5)
+	)
+	_arrow(
+		Vector2(center.x + 11.0, center.y + 5.5), Vector2(center.x - 11.0, center.y + 5.5)
+	)
+
+
+## A straight arrow: a shaft stroke and two head barbs.
+func _arrow(from: Vector2, to: Vector2) -> void:
+	draw_line(from, to, PASSAGE_INK, 2.0, true)
+	var direction: Vector2 = (to - from).normalized()
+	var normal := Vector2(-direction.y, direction.x)
+	draw_polyline(PackedVector2Array([
+		to + (-direction + normal) * 5.0, to, to + (-direction - normal) * 5.0
+	]), PASSAGE_INK, 2.0, true)
 
 
 func _draw_label(label: Dictionary) -> void:
 	var text: String = label["text"]
 	var position: Vector2 = label["position"]
+	if String(label["kind"]) == "passage":
+		_draw_passage_label(text, position, int(label["size"]))
+		return
 	if bool(label.get("capital", false)):
 		position += Vector2(0, 24)
 	var font_size: int = label["size"]
 	var width: float = 260.0
 	var origin := position - Vector2(width * 0.5, 0.0)
-	if String(label["kind"]) == "sea" or String(label["kind"]) == "passage":
+	if String(label["kind"]) == "sea":
 		draw_string_outline(
 			_font_italic, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size, 3,
 			Color(0.94, 0.90, 0.80, 0.42)
@@ -245,4 +290,24 @@ func _draw_label(label: Dictionary) -> void:
 	draw_string(
 		_font, origin, text, HORIZONTAL_ALIGNMENT_CENTER, width, font_size,
 		Color(0.11, 0.08, 0.05, 0.96)
+	)
+
+
+## The Passage name sits on a small paper slip under the crossing mark, so the
+## way across is named on the chart rather than floating as faint italic type.
+func _draw_passage_label(text: String, at: Vector2, font_size: int) -> void:
+	var slip_text: String = MapGlyphs.spaced(text.to_upper())
+	var width: float = _font.get_string_size(
+		slip_text, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size
+	).x
+	var ascent: float = _font.get_ascent(font_size)
+	var height: float = ascent + _font.get_descent(font_size) + 4.0
+	var slip := Rect2(
+		Vector2(at.x - width * 0.5 - 7.0, at.y - 2.0), Vector2(width + 14.0, height)
+	)
+	draw_rect(slip, Color(0.900, 0.855, 0.745, 0.72), true)
+	draw_rect(slip, Color(0.235, 0.184, 0.129, 0.55), false, 1.0)
+	draw_string(
+		_font, Vector2(slip.position.x, slip.position.y + 2.0 + ascent), slip_text,
+		HORIZONTAL_ALIGNMENT_CENTER, slip.size.x, font_size, PASSAGE_INK
 	)

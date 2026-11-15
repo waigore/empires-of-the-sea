@@ -23,6 +23,10 @@ var _pulse: float = 0.0
 var _clock: float = 0.0
 ## True while any estate is under works; only then does the lens repaint.
 var _animating: bool = false
+## State the projection was baked from, so a re-seat of the same save redraws
+## nothing (`source_key`).
+var _baked_key: int = 0
+var _baked: bool = false
 
 
 func build(
@@ -56,9 +60,18 @@ func watch(civilians: CivilianLayer, fog: MapOverlay) -> void:
 func refresh() -> void:
 	if model == null or works == null:
 		survey = {}
+		_baked = false
 		_animating = false
 		queue_redraw()
 		return
+	var key: int = hash([
+		source_key(works, capital_tile, units),
+		hash(tech_caps),
+	])
+	if _baked and key == _baked_key:
+		return
+	_baked_key = key
+	_baked = true
 	survey = ResourceSurvey.snapshot(
 		model, works, units, faction, visibility, capital_tile, tech_caps
 	)

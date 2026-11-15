@@ -38,7 +38,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 						kind, config, play.ledger_for(faction),
 						MapPlayCourt.at_war(play, faction),
 						MapPlayCourt.regiments(play, faction),
-						MapPlayCourt.navy_chest(play, faction)
+						MapPlayCourt.navy_chest(play, faction),
+						MapPlayCourt.warships(play, faction)
 					).get("goal", "")
 				)
 				== "earn"
@@ -187,7 +188,7 @@ static func _land(
 	var army: ArmyState = _carried_army(armies, fleet)
 	var province: int = int(order.get("province", -1))
 	var result: Dictionary = NavalTransport.disembark(
-		model, army, fleet, province, play.turn, _hostile(play)
+		model, army, fleet, province, play.turn, _hostile(play), play.diplomacy
 	)
 	if not bool(result.get("ok", false)):
 		return {}

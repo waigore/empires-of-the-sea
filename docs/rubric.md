@@ -38,8 +38,8 @@ Cite `REQ-*`/`RUB-*` in PRs.
 | RUB-P1-04 | Key actions/transitions animated (`REQ-P1-04`) |
 | RUB-P1-05 | Touch + mouse/keyboard OK (`REQ-P1-05`) |
 | RUB-P1-06 | Period music; mute/volume (`REQ-P1-06`) |
-| RUB-P1-07 | Readable UI at target sizes (`REQ-P1-07`) |
-| RUB-P1-08 | Entity icons; Hermes; theme + style (`REQ-P1-08`) |
+| RUB-P1-07 | Readable UI at target sizes; map unobscured, chrome on the bar (`REQ-P1-07`) |
+| RUB-P1-08 | Entity icons; theme + style (`REQ-P1-08`) |
 
 ### P2 — Rules fidelity
 
@@ -48,7 +48,7 @@ Cite `REQ-*`/`RUB-*` in PRs.
 | RUB-P2-01 | Matches wiki Game rules (`REQ-P2-01`) |
 | RUB-P2-02 | In-scope rules implemented (`REQ-P2-02`) |
 | RUB-P2-03 | Presentation cannot override outcomes (`REQ-P2-03`) |
-| RUB-P2-04 | Meaningful unit tests; CI (`REQ-P2-04`) |
+| RUB-P2-04 | Unit tests; CI (`REQ-P2-04`) |
 | RUB-P2-05 | Wiki updated same change (`REQ-P2-05`) |
 
 ### P3 — Modular architecture (`arch-lint`)
@@ -65,7 +65,7 @@ Cite `REQ-*`/`RUB-*` in PRs.
 
 | ID | Pass bar |
 |----|----------|
-| RUB-P4-01 | No material hitch on targets (`REQ-P4-01`) |
+| RUB-P4-01 | No material hitch (`REQ-P4-01`) |
 | RUB-P4-02 | Input ack within ~1–2 frames (`REQ-P4-02`) |
 | RUB-P4-03 | Long work does not freeze UI (`REQ-P4-03`) |
 | RUB-P4-04 | Reasonable imports; no leaks (`REQ-P4-04`) |
@@ -77,7 +77,7 @@ Cite `REQ-*`/`RUB-*` in PRs.
 |----|----------|
 | RUB-P5-01 | Clear empire/strategic action entry (`REQ-P5-01`) |
 | RUB-P5-02 | Choice primary; bookkeeping batched (`REQ-P5-02`) |
-| RUB-P5-03 | Competitive actions discoverable in scope (`REQ-P5-03`) |
+| RUB-P5-03 | Competitive actions discoverable (`REQ-P5-03`) |
 | RUB-P5-04 | Batch/default/confirm-once for chores (`REQ-P5-04`) |
 | RUB-P5-05 | State-change ack ~1–2 frames; never silent (`REQ-P5-05`) |
 | RUB-P5-06 | Juice non-modal/skippable; no hidden outcomes (`REQ-P5-06`) |

@@ -44,6 +44,8 @@ static func put_ashore(
 	)
 	if not bool(landed.get("ok", false)):
 		return
+	if play.hud == null:
+		return
 	var where: String = place
 	if where.is_empty():
 		where = _place(play, {}, province_id)

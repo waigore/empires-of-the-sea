@@ -29,6 +29,11 @@ var battle: Dictionary = {}
 var faction_names: Array = []
 
 var _panel: PanelContainer = null
+var _margin: MarginContainer = null
+var _header_row: HBoxContainer = null
+## The plate is movable by its header, so the chart it covers can be read while
+## the report plays (REQ-P1-07).
+var _drag: ModalDrag = null
 var _title: Label = null
 ## The place of the fight (land) or the despatch's headline (sea).
 var _headline: Label = null
@@ -124,6 +129,7 @@ func _build() -> void:
 	for side: String in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, MARGIN)
 	add_child(margin)
+	_margin = margin
 
 	_panel = PanelContainer.new()
 	_panel.add_theme_stylebox_override(
@@ -149,12 +155,16 @@ func _build_header(column: VBoxContainer) -> void:
 	var header := HBoxContainer.new()
 	header.add_theme_constant_override("separation", 10)
 	column.add_child(header)
-	_title = _label(
+	header.add_child(ModalDrag.grip())
+	_header_row = header
+	var grabs: Array[Control] = [header]
+	_drag = ModalDrag.attach(self, _margin, grabs, _panel)
+	_title = UiRowBuilder.serif_line(
 		String(_look_data.get("title", "")), int(_look_data.get("title_pixels", 24)),
 		Palette.GOLD_PALE
 	)
 	header.add_child(_title)
-	_headline = _label("", int(_look_data.get("headline_pixels", 16)), Palette.TEXT)
+	_headline = UiRowBuilder.serif_line("", int(_look_data.get("headline_pixels", 16)), Palette.TEXT)
 	_headline.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	if bool(_look_data.get("wrap_headline", false)):
 		_headline.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -175,14 +185,14 @@ func _build_bars(column: VBoxContainer) -> void:
 	column.add_child(row)
 	var width: float = float(_look_data.get("name_width", 120.0))
 	var wrap: bool = bool(_look_data.get("wrap_names", false))
-	_atk_name = _label("", 13, Palette.TEXT)
+	_atk_name = UiRowBuilder.serif_line("", 13, Palette.TEXT)
 	_atk_name.custom_minimum_size = Vector2(width, 0)
 	row.add_child(_atk_name)
 	_atk_bar = UiTheme.progress(Palette.CRIMSON)
 	row.add_child(_atk_bar)
 	_def_bar = UiTheme.progress(Palette.NAVY)
 	row.add_child(_def_bar)
-	_def_name = _label("", 13, Palette.TEXT)
+	_def_name = UiRowBuilder.serif_line("", 13, Palette.TEXT)
 	_def_name.custom_minimum_size = Vector2(width, 0)
 	_def_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(_def_name)
@@ -204,7 +214,7 @@ func _build_footer(column: VBoxContainer) -> void:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 10)
 	column.add_child(footer)
-	_outcome = _label(
+	_outcome = UiRowBuilder.serif_line(
 		"", int(_look_data.get("outcome_pixels", 22)), Palette.GOLD_PALE
 	)
 	_outcome.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -267,7 +277,7 @@ func _reset() -> void:
 
 ## Appends one despatch line and drops the oldest past the three the plate reads.
 func add_line(text: String) -> void:
-	var line := _label(text, 12, Palette.TEXT)
+	var line := UiRowBuilder.serif_line(text, 12, Palette.TEXT)
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_log.add_child(line)
 	while _log.get_child_count() > LOG_LINES:
@@ -307,13 +317,5 @@ func stamp_outcome(text: String, good: bool) -> void:
 func _on_continue() -> void:
 	_shown = false
 	visible = false
+	ModalDrag.reset_on(_margin)
 	finished.emit()
-
-
-func _label(text: String, size_px: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	label.add_theme_font_override("font", UiTheme.serif())
-	label.add_theme_font_size_override("font_size", size_px)
-	label.add_theme_color_override("font_color", color)
-	return label

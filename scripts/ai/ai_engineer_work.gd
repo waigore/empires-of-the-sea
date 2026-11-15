@@ -42,7 +42,7 @@ static func best_candidate(
 	var connected: Dictionary = ImprovementSystem.connected_tiles(
 		model, works, unit.owner, context.get("capital_tile", CivilianState.NO_TILE)
 	)
-	var best: Dictionary = _better(
+	var best: Dictionary = AiCivilianCandidate.better(
 		_network_candidate(
 			config, model, unit, units, works, stockpile, tech_caps,
 			tech_unlocked, context, reserved, connected
@@ -53,11 +53,11 @@ static func best_candidate(
 		)
 	)
 	if bool(context.get("at_war", false)):
-		best = _better(best, fort_candidate(
+		best = AiCivilianCandidate.better(best, fort_candidate(
 			config, model, unit, units, works, stockpile, tech_caps,
 			tech_unlocked, context
 		))
-	best = _better(best, AiHospitalWork.best_candidate(
+	best = AiCivilianCandidate.better(best, AiHospitalWork.best_candidate(
 		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
 		context, reserved
 	))
@@ -95,13 +95,13 @@ static func _network_candidate(
 			# A road only earns its keep as the link to a resource tile.
 			if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
 				continue
-			best = _better(best, _road(
-				config, model, unit, tile, works, units, stockpile, tech_caps,
+			best = AiCivilianCandidate.better(best, _road(
+				model, unit, tile, works, units, stockpile, tech_caps,
 				tech_unlocked, context, target, road_weight, connected
 			))
 		else:
-			best = _better(best, _candidate(
-				config, model, unit, "build_rail", tile, works, units, stockpile,
+			best = AiCivilianCandidate.better(best, AiCivilianCandidate.make(
+				model, unit, "build_rail", tile, works, units, stockpile,
 				tech_caps, tech_unlocked, context, RAIL_BASE
 			))
 	return best
@@ -110,8 +110,8 @@ static func _network_candidate(
 ## A road to a resource tile without road: worth more the shorter the stores
 ## are of its crop, and a premium beside the capital network.
 static func _road(
-	config: AiConfig, model: MapModel, unit: CivilianState, tile: Vector2i,
-	works: LandWorks, units: Array, stockpile: Dictionary, tech_caps: Dictionary,
+	model: MapModel, unit: CivilianState, tile: Vector2i, works: LandWorks,
+	units: Array, stockpile: Dictionary, tech_caps: Dictionary,
 	tech_unlocked: Dictionary, context: Dictionary, target: int,
 	road_weight: int, connected: Dictionary
 ) -> Dictionary:
@@ -126,8 +126,8 @@ static func _road(
 		score += IMPROVEMENT_BONUS
 	if _touches_connected(model, tile, connected):
 		score += CONNECTED_BONUS
-	return _candidate(
-		config, model, unit, "build_road", tile, works, units, stockpile,
+	return AiCivilianCandidate.make(
+		model, unit, "build_road", tile, works, units, stockpile,
 		tech_caps, tech_unlocked, context, score
 	)
 
@@ -159,8 +159,8 @@ static func _port_candidate(
 		for tile: Vector2i in province.tiles:
 			if reserved.has(tile) or not MapGeo.is_coastal_tile(model, tile.x, tile.y):
 				continue
-			return _candidate(
-				config, model, unit, "build_port", tile, works, units, stockpile,
+			return AiCivilianCandidate.make(
+				model, unit, "build_port", tile, works, units, stockpile,
 				tech_caps, tech_unlocked, context,
 				config.parameter("civilian.port_weight")
 			)
@@ -183,46 +183,8 @@ static func fort_candidate(
 	var site: Vector2i = FortRules.site_tile(model, province)
 	if site.x < 0:
 		return {}
-	return _candidate(
-		config, model, unit, "build_fort", site, works, units, stockpile,
+	return AiCivilianCandidate.make(
+		model, unit, "build_fort", site, works, units, stockpile,
 		tech_caps, tech_unlocked, context,
 		config.parameter("civilian.fort_weight") + FORT_URGENCY
 	)
-
-
-# --- shared helpers ---------------------------------------------------------
-
-
-## AiCivilianCandidate.make with the shared planner arguments, guarded against
-## a missing config so a narrow caller cannot raise an error. `target` lets a
-## caller validate the work somewhere other than the tile it names.
-static func _candidate(
-	config: AiConfig, model: MapModel, unit: CivilianState, action: String,
-	tile: Vector2i, works: LandWorks, units: Array, stockpile: Dictionary,
-	tech_caps: Dictionary, tech_unlocked: Dictionary, context: Dictionary,
-	score: int, target: Vector2i = CivilianState.NO_TILE
-) -> Dictionary:
-	if config == null:
-		return {}
-	return AiCivilianCandidate.make(
-		model, unit, action, tile, works, units, stockpile, tech_caps,
-		tech_unlocked, context, score, target
-	)
-
-
-## Higher score wins; a tile tie goes to the earlier action name, so the same
-## save always produces the same order, and stays fixed across candidates.
-static func _better(best: Dictionary, candidate: Dictionary) -> Dictionary:
-	if candidate.is_empty():
-		return best
-	if best.is_empty():
-		return candidate
-	if int(candidate["score"]) != int(best["score"]):
-		return candidate if int(candidate["score"]) > int(best["score"]) else best
-	var left: Vector2i = candidate["tile"]
-	var right: Vector2i = best["tile"]
-	if left.y != right.y:
-		return candidate if left.y < right.y else best
-	if left.x != right.x:
-		return candidate if left.x < right.x else best
-	return candidate if String(candidate["action"]) < String(best["action"]) else best

@@ -112,6 +112,20 @@ static func prune(armies: Array[ArmyState]) -> void:
 		index -= 1
 
 
+## The court's field armies: deployed, not the Home Army, and not empty, in
+## stable id order so the same save plans the same column. The list is read as
+## the layer's generic roster, so a caller holding an untyped `Array` needs no
+## copy of this scan.
+static func field_armies(armies: Array, owner: int) -> Array[ArmyState]:
+	var field: Array[ArmyState] = []
+	for raw: Variant in armies:
+		var army: ArmyState = raw
+		if army != null and army.owner == owner and not army.home and not army.is_empty():
+			field.append(army)
+	field.sort_custom(func(a: ArmyState, b: ArmyState) -> bool: return a.id < b.id)
+	return field
+
+
 ## Regiments owned by one faction in a roster (null entries skipped).
 static func count_of(armies: Array[ArmyState], owner: int) -> int:
 	var total: int = 0

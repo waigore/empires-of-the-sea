@@ -174,11 +174,14 @@ func _recipe_row(recipe_id: String) -> Control:
 	row.add_child(minus)
 
 	var limit: int = _allowance(recipe_id)
+	var full: bool = ProductionWorkshop.room(
+		_economy.production_wip, recipe_id, ProductionRecipes.turns(recipe_id)
+	) <= 0
 	var plus := UiRowBuilder.button("+", ROW_HEIGHT, BUTTON_WIDTH)
 	plus.disabled = units >= limit
 	plus.tooltip_text = (
 		_gate_tooltip(recipe_id) if gated
-		else LedgerText.allowance_note(recipe_id, limit)
+		else LedgerWorkshop.allowance_note(recipe_id, limit, full)
 	)
 	plus.pressed.connect(func() -> void: production_changed.emit(recipe_id, units + 1))
 	row.add_child(plus)
@@ -223,15 +226,20 @@ func _recipes_of(output_id: String) -> Array[String]:
 
 ## Units this row may still be set to: the whole runs the coming Production phase
 ## could start from the projected post-Consumption store and idle labour, less
-## the other rows' claims. The rules own the arithmetic; this only picks which
-## state the phase will see (REQ-P2-03).
+## the other rows' claims and the pieces already on the bench. The rules own the
+## arithmetic; this only picks which state the phase will see (REQ-P2-03).
 func _allowance(recipe_id: String) -> int:
 	var stock: Dictionary = _report.get("after_consumption", _economy.stockpile) as Dictionary
 	var labour: int = _economy.workers.labour()
 	if not _report.is_empty():
 		labour = LedgerText.idle_labour(_report)
 	return ProductionRecipes.allowance(
-		recipe_id, stock, labour, _economy.production.assignments(), _economy.workers
+		recipe_id,
+		stock,
+		labour,
+		_economy.production.assignments(),
+		_economy.workers,
+		_economy.production_wip
 	)
 
 
@@ -277,7 +285,7 @@ func _manufacture_hint() -> String:
 ## what it turned out. A row still serving keeps its tag: the present is what the
 ## next phase pays (DR-20261113-02).
 func _workshop_note(recipe_id: String) -> String:
-	var tag: String = LedgerText.workshop_note(_economy, recipe_id)
+	var tag: String = LedgerWorkshop.note(_economy, recipe_id)
 	if not tag.is_empty():
 		return tag
 	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
@@ -290,7 +298,7 @@ func _workshop_note(recipe_id: String) -> String:
 ## any: the detail a hover or a long press reads (REQ-P5-07 keeps the row's own
 ## note the visible reading).
 func _workshop_tooltip(recipe_id: String) -> String:
-	var text: String = LedgerText.workshop_tooltip(_economy, recipe_id)
+	var text: String = LedgerWorkshop.tooltip(_economy, recipe_id)
 	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
 	if made <= 0:
 		return text
