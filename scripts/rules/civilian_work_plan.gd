@@ -135,6 +135,30 @@ static func fort_refusal(level: int, tech_unlocked: Dictionary = {}) -> String:
 	return ""
 
 
+## Why this crown cannot raise the province's ward now, or "" when the order is
+## open. The hospitals ledger's rows read this one wording, so a row can never
+## offer a ward the order would refuse: the level cap and the study are
+## `HospitalRules.refusal`'s own, and the materials are the work order's own
+## shortfall sentence (wiki: combat § Regiment condition; DR-20261116-02).
+## `stockpile` is `null` when the caller prices no spend at all — a projection
+## that never charges a cost must never read LOCKED on an empty purse.
+static func hospital_refusal(
+	level: int, tech_unlocked: Dictionary = {}, stockpile: Variant = null
+) -> String:
+	var why: String = HospitalRules.refusal(level, tech_unlocked)
+	if not why.is_empty():
+		return why
+	if stockpile == null:
+		return ""
+	var stock: Dictionary = stockpile if stockpile is Dictionary else {}
+	var short: Dictionary = ImprovementSystem.short_inputs(
+		HospitalRules.cost(HospitalRules.next_level(level)), stock
+	)
+	if short.is_empty():
+		return ""
+	return "Stores are short of %s." % cost_text(short)
+
+
 ## The order as the court reads it. A fort is the one order that lands at one of
 ## three levels, each with its own price, wait and tech gate, so the order names
 ## the level it would raise — "Build fort" alone cannot be told from "Build
