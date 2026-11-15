@@ -105,23 +105,30 @@ static func matches(row: Dictionary, filter_key: String) -> bool:
 	return LedgerRows.field_matches(row, "state", filter_key)
 
 
-## The ready steps a view prints, in the order it prints them: one target per row
-## a press could file now, so the batch press files exactly what the crown can see
-## and a narrowed reading narrows the press (REQ-P5-04; DR-20261116-03).
+## The ready steps a view prints, in the sheet's own reading order: one target per
+## row a press could file now, so the batch press files exactly what the crown can
+## see and a narrowed reading narrows the press (REQ-P5-04; DR-20261116-03). The
+## walk follows the snapshot's order — the ready steps first, the weakest level
+## first, then the chart and the province — rather than the chart headings the
+## sheet prints those rows under, so the weakest step leads whichever chart it
+## stands on.
 static func ready_targets(
 	data: Dictionary, region_key: String, filter_key: String = LedgerRows.ALL
 ) -> Array[Dictionary]:
 	var targets: Array[Dictionary] = []
-	for group: Dictionary in groups(data, region_key, filter_key):
-		for raw: Variant in group["rows"]:
-			var row: Dictionary = raw
-			if String(row.get("state", "")) != STATE_READY:
-				continue
-			targets.append({
-				"region": int(row.get("region", 0)),
-				"id": int(row.get("id", -1)),
-				"name": String(row.get("name", "")),
-			})
+	for raw: Variant in data.get("rows", []):
+		var row: Dictionary = raw
+		if not LedgerRows.region_matches(int(row.get("region", -1)), region_key):
+			continue
+		if not matches(row, filter_key):
+			continue
+		if String(row.get("state", "")) != STATE_READY:
+			continue
+		targets.append({
+			"region": int(row.get("region", 0)),
+			"id": int(row.get("id", -1)),
+			"name": String(row.get("name", "")),
+		})
 	return targets
 
 

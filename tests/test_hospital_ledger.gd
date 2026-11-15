@@ -47,6 +47,24 @@ func test_snapshot_lists_every_ward_the_crown_can_raise_in_both_charts() -> void
 		assert_ne(String(row["name"]), "Coro", "the rival's shore stays out")
 
 
+## A ward on each chart at different levels: one heading per chart, however the
+## level order interleaves the charts (DR-20261116-02).
+func test_the_wards_sheet_prints_one_heading_per_chart_whatever_the_levels() -> void:
+	var regions: Array[Dictionary] = _regions(_engineers(), _wide_tech())
+	var home: MapModel = regions[0]["model"] as MapModel
+	home.provinces[1].owner = 0
+	home.provinces[1].hospital_level = 1
+	var abroad: MapModel = regions[1]["model"] as MapModel
+	abroad.provinces[0].hospital_level = 0
+	var snapshot: Dictionary = HospitalLedger.snapshot(regions, 0)
+	assert_eq(int(snapshot["total"]), 3, "two shores at home, one abroad")
+	var groups: Array[Dictionary] = HospitalLedger.groups(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(groups.size(), 2, "one heading per chart, not one per level")
+	assert_eq(int(groups[0]["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq((groups[0]["rows"] as Array).size(), 2, "both home shores under one heading")
+	assert_eq((groups[1]["rows"] as Array).size(), 1, "the colony under its own")
+
+
 func test_a_bare_shore_names_the_step_it_waits_on_and_its_price() -> void:
 	var snapshot: Dictionary = HospitalLedger.snapshot(_regions(_engineers()), 0)
 	var home: Dictionary = _row(snapshot, FactionCatalog.OLD_WORLD)

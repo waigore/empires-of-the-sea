@@ -1765,6 +1765,26 @@ func test_group_nests_rows_under_the_chart_that_holds_them() -> void:
 	assert_eq((groups[1]["rows"] as Array).size(), 1)
 
 
+## A sheet that sorts by its own key before the chart (a town's level, a spy's
+## duty) still prints one heading per chart: the chart's rows gather under the
+## heading its first row raised, in the order they arrived.
+func test_group_keeps_one_heading_per_chart_when_the_reading_interleaves() -> void:
+	var rows: Array[Dictionary] = [
+		_rows_row(0, "first"),
+		_rows_row(1, "second"),
+		_rows_row(0, "third"),
+	]
+	var groups: Array[Dictionary] = LedgerRows.group(rows)
+	assert_eq(groups.size(), 2, "one heading per chart, not one per run of rows")
+	assert_eq(int(groups[0]["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq((groups[0]["rows"] as Array).size(), 2, "both home rows under one heading")
+	assert_eq(
+		String((groups[0]["rows"] as Array)[1]["kind"]), "third", "in the order they arrived"
+	)
+	assert_eq(int(groups[1]["region"]), FactionCatalog.NEW_WORLD)
+	assert_eq((groups[1]["rows"] as Array).size(), 1)
+
+
 func test_a_row_reads_by_its_own_word_or_by_a_flag() -> void:
 	var row: Dictionary = {"kind": "army", "flags": ["cut_off"]}
 	assert_true(LedgerRows.field_matches(row, "kind", "army"))
@@ -1869,6 +1889,30 @@ func test_snapshot_lists_every_town_the_crown_holds_in_both_charts() -> void:
 	for raw: Variant in snapshot["rows"]:
 		var row: Dictionary = raw
 		assert_ne(String(row["name"]), "Coro", "the rival's town stays out")
+
+
+## A crown town on each chart at different levels: the sheet prints one heading
+## per chart, and the batch walk still leads with the weakest step whichever
+## chart it stands on (DR-20261116-03).
+func test_the_towns_sheet_prints_one_heading_per_chart_whatever_the_levels() -> void:
+	var regions: Array[Dictionary] = _town_regions(_builders())
+	var home: MapModel = regions[0]["model"] as MapModel
+	home.provinces[1].owner = 0
+	home.provinces[1].town_development = 2
+	var abroad: MapModel = regions[1]["model"] as MapModel
+	abroad.provinces[0].town_development = 1
+	var snapshot: Dictionary = TownLedger.snapshot(regions, 0)
+	assert_eq(int(snapshot["total"]), 3, "two towns at home, one abroad")
+	var groups: Array[Dictionary] = TownLedger.groups(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(groups.size(), 2, "one heading per chart, not one per level")
+	assert_eq(int(groups[0]["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq((groups[0]["rows"] as Array).size(), 2, "both home towns under one heading")
+	assert_eq((groups[1]["rows"] as Array).size(), 1, "the colony under its own")
+	var targets: Array[Dictionary] = RaiseLedger.ready_targets(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(targets.size(), 3, "every ready town is a target")
+	assert_eq(int(targets[0]["region"]), FactionCatalog.OLD_WORLD, "a level-1 town leads")
+	assert_eq(int(targets[1]["region"]), FactionCatalog.NEW_WORLD, "then the level-1 colony")
+	assert_eq(int(targets[2]["region"]), FactionCatalog.OLD_WORLD, "the level-2 town last")
 
 
 func test_a_ready_town_names_the_step_it_waits_on_and_its_price() -> void:
@@ -2425,6 +2469,24 @@ func test_snapshot_lists_every_wall_the_crown_can_raise_in_both_charts() -> void
 	for raw: Variant in snapshot["rows"]:
 		var row: Dictionary = raw
 		assert_ne(String(row["name"]), "Coro", "the rival's shore stays out")
+
+
+## A wall on each chart at different levels: one heading per chart, however the
+## level order interleaves the charts (DR-20261116-01).
+func test_the_walls_sheet_prints_one_heading_per_chart_whatever_the_levels() -> void:
+	var regions: Array[Dictionary] = _wall_regions(_engineers())
+	var home: MapModel = regions[0]["model"] as MapModel
+	home.provinces[1].owner = 0
+	home.provinces[1].fort_level = 1
+	var abroad: MapModel = regions[1]["model"] as MapModel
+	abroad.provinces[0].fort_level = 0
+	var snapshot: Dictionary = WallLedger.snapshot(regions, 0)
+	assert_eq(int(snapshot["total"]), 3, "two shores at home, one abroad")
+	var groups: Array[Dictionary] = WallLedger.groups(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(groups.size(), 2, "one heading per chart, not one per level")
+	assert_eq(int(groups[0]["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq((groups[0]["rows"] as Array).size(), 2, "both home shores under one heading")
+	assert_eq((groups[1]["rows"] as Array).size(), 1, "the colony under its own")
 
 
 func test_a_bare_shore_names_the_step_it_waits_on_and_its_price() -> void:

@@ -34,9 +34,9 @@ deliver.
 ## Filters
 
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
-ready / at work / developed) — each carrying its own tally. The reading leads
-with what can be raised now, then what is in hand, then what waits, the finished towns last;
-within a state the cheapest step leads.
+ready / at work / developed) — each with its own tally. The reading leads with
+what can be raised now, then what is in hand, then what waits, the finished towns last;
+within a state the cheapest step leads, and one heading per chart stands.
 
 ## Raise
 

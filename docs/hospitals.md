@@ -31,17 +31,18 @@ province rests at the field's 25%.
 ## Filters
 
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
-ready / at work / warded) — each carrying its own tally. The count line names
+ready / at work / warded) — each with its own tally. The count line names
 how many shores keep **no ward**, what the whole staff eats a turn, and how many
 wards went **unfed**. The reading leads with what can be raised now, then what
-is in hand, then what waits, the finished wards last; the weakest ward leads.
+is in hand, then what waits, the finished wards last; the weakest ward leads,
+and one heading per chart stands.
 
 ## Raise
 
 **Raise** sends the nearest idle Engineer through the same `build_hospital`
 order the civilian panel files (`ImprovementOrders.build_hospital` →
 `CivilianWork`), swapping the chart first when the province lies on the other
-one. The order's message reaches the court as the toast, and the row repaints as
+one. The order's message is the toast, and the row repaints as
 `AT WORK`. A row that cannot be raised carries no press: the note names the wait
 — the study, the stores, or another crew already working the town tile — in the
 order's own words.
