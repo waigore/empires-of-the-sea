@@ -10279,6 +10279,38 @@ func test_the_openable_chain_needs_peace_charting_and_an_unsigned_deed() -> void
 		"a signed deed leaves no chain to open"
 	)
 
+## The deed the ledger prices is the cheapest one the court could sign — with or
+## without the embassy — and it is priced before the purse can cover it, so a
+## court saving toward it has a row to read (issue #724 task 3).
+func test_the_openable_deed_prices_the_cheapest_signature() -> void:
+	var model: MapModel = planner_Fixture.build_minor()
+	var view: VisibilityModel = planner_Fixture.visibility(model)
+	var open: Dictionary = {
+		"diplomacy": planner_Fixture.merchant_court_unembarked(), "visibility": view,
+	}
+	var deed: Dictionary = AiMerchantWork.openable_deed(model, 0, open)
+	assert_eq(int(deed.get("price", 0)), 750, "the published 15 x base price")
+	assert_eq(int(deed.get("seller", -1)), planner_MINOR)
+	# The embassy already stands: the same deed is still the one to sign.
+	var walked: Dictionary = {"diplomacy": planner_Fixture.merchant_court(), "visibility": view}
+	assert_eq(int(AiMerchantWork.openable_deed(model, 0, walked).get("price", 0)), 750)
+	# The chain's own read is the rung it still has to walk.
+	assert_true(
+		AiMerchantWork.openable_deed(model, 0, walked, true).is_empty(),
+		"an embassy already standing leaves no rung to walk"
+	)
+	# A war with the seller leaves nothing to price.
+	var world := WorldMap.new()
+	world.add_region(model)
+	var war_court: DiplomacyState = planner_Fixture.merchant_court_unembarked()
+	DiplomacyRules.declare_war(war_court, 0, planner_MINOR, true, world)
+	assert_true(
+		AiMerchantWork.openable_deed(
+			model, 0, {"diplomacy": war_court, "visibility": view}
+		).is_empty(),
+		"a war with the seller leaves no deed to price"
+	)
+
 func test_planner_one_merchant_is_enough() -> void:
 	var model: MapModel = planner_Fixture.build_minor()
 	var roster: Array = planner__staffed_roster()
@@ -11862,6 +11894,46 @@ func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:
 
 func test_a_court_with_no_charted_tribe_prices_no_chain() -> void:
 	assert_eq(_by_id(AiObjectivesPlan.build(_readings()), "colonise.tribe_chain"), null)
+
+
+## The deed is an aim in the ledger: priced on the purse it must hold, ranked
+## below every other treasury claim so it never takes the chest the muster, the
+## yard or a study is saving for (issue #724 task 3).
+func test_the_deed_the_court_saves_for_is_a_priced_aim() -> void:
+	var readings: Dictionary = _readings()
+	readings["deed_price"] = 750
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var deed: AiObjective = _by_id(objectives, "market.deed")
+
+	assert_true(deed != null, "a priced deed is an aim")
+	assert_eq(int(deed.utility), AiObjectivesPlan.W_DEED)
+	assert_eq(int(deed.cost["treasury"]), 750, "the published 15 x base price")
+	AiObjectiveLedger.run(
+		objectives,
+		{"treasury": 500, "regiment": 1, "labour": 1, "orders": 1, "civilian": 1, "hull": 1}
+	)
+	assert_true(
+		_by_id(objectives, "muster.line").status == AiObjective.STATUS_FUNDED,
+		"the deed never takes the purse the muster is saving for"
+	)
+	assert_true(deed.status == AiObjective.STATUS_DEFERRED, "the purse is short of it")
+	assert_true(int(deed.shortfall().get("treasury", 0)) > 0, "the row names the gap")
+
+
+## A deed the court has stalled on past the blocked bar names the stall instead
+## of saving in silence (issue #724 task 3, #603).
+func test_a_deed_stalled_past_the_blocked_bar_names_its_stall() -> void:
+	var readings: Dictionary = _readings()
+	readings["deed_price"] = 750
+	readings["blockings"] = {"market.deed": 41}
+	var deed: AiObjective = _by_id(AiObjectivesPlan.build(readings), "market.deed")
+
+	assert_true(deed.status == AiObjective.STATUS_BLOCKED)
+	assert_eq(String(deed.blocked), "the deed is out of reach 41 turns")
+
+
+func test_a_court_with_no_charted_deed_prices_no_aim() -> void:
+	assert_eq(_by_id(AiObjectivesPlan.build(_readings()), "market.deed"), null)
 
 
 # --- the deferred-aim escalation (issue #603) --------------------------------

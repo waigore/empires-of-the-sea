@@ -112,6 +112,18 @@ static func _readings(
 		play.diplomacy, play.world, play.court_charts, faction,
 		economy.treasury, economy.tech_unlocked
 	)
+	# The deed the court is saving toward: the cheapest Minor or Tribe resource
+	# tile it could sign at the published price, charted and at peace with the
+	# seller. The Merchant's own order signs it, so the aim is a reading — the
+	# row the escalation tracks so a court saving for a deed cannot pin in
+	# silence (issue #724 task 3).
+	var deed: Dictionary = AiMerchantWork.openable_deed(
+		play.world.region(home), faction,
+		{
+			"diplomacy": play.diplomacy,
+			"visibility": MapPlayCourtFog.view_for(play, faction, home),
+		}
+	)
 	# The surplus ladder reads the money-goal reserve; the standing study is one
 	# slot at the cheapest preset above half the cash floor, so the ledger prices
 	# what the court will actually pay (issue #490).
@@ -177,6 +189,9 @@ static func _readings(
 		"research_refusal": research_refusal,
 		"tribe_target": int(colony_ambition.get("target", -1)),
 		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
+		# The deed the court is saving toward, 0 when no charted seller offers
+		# one (issue #724 task 3).
+		"deed_price": int(deed.get("price", 0)),
 		# The study that opens the chain's next link, so the trace names the door
 		# the court is walking to (DR-20261114-05).
 		"tribe_door": AiTribeColony.door(
