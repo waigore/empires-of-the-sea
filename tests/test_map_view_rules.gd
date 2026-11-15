@@ -563,7 +563,11 @@ func test_a_connected_estate_yields_and_counts_as_worked() -> void:
 	assert_eq(int(entry["counts"]["linked"]), 1)
 	assert_gt(int(entry["counts"]["producing"]), 0)
 	assert_false((entry["output"] as Dictionary).is_empty())
-	assert_true(String(entry["summary"]).contains("linked to the crown"))
+	# The hover names the type with its built/linked/held badge, the same numbers
+	# the plate prints (issue #698).
+	var type_name: String = String(ResourceTypes.NAMES.get(String(row["icon"]), ""))
+	assert_true(String(entry["summary"]).contains(type_name + " "))
+	assert_true(String(entry["summary"]).contains("1/1/"))
 
 func test_the_plate_counts_developed_estates_apart_from_linked_ones() -> void:
 	var model: MapModel = resource_survey_Fixture.region()
@@ -701,6 +705,111 @@ func test_builder_at_work_marks_building() -> void:
 	assert_eq(int(entry["counts"]["worked"]), 0)
 	assert_true(bool(row["working"]))
 	assert_eq(int(row["remaining"]), 2)
+
+func test_a_province_reads_one_row_per_resource_type() -> void:
+	var model: MapModel = resource_survey_Fixture.region()
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var survey: Dictionary = ResourceSurvey.snapshot(model, LandWorks.new(), [], owner)
+	var plates: int = 0
+	for raw: Variant in survey["provinces"]:
+		var entry: Dictionary = raw
+		var types: Array = entry["types"]
+		assert_false(types.is_empty(), "a province holding estates names its types")
+		assert_true(types.size() <= ResourceTypes.ORDER.size())
+		var held: int = 0
+		for raw_type: Variant in types:
+			var type_row: Dictionary = raw_type
+			held += int(type_row["total"])
+			assert_lte(int(type_row["linked"]), int(type_row["developed"]))
+			assert_lte(int(type_row["developed"]), int(type_row["total"]))
+			assert_eq(
+				String(type_row["badge"]),
+				ResourceTypes.badge(
+					int(type_row["developed"]), int(type_row["linked"]),
+					int(type_row["total"])
+				)
+			)
+		assert_eq(held, (entry["rows"] as Array).size(), "every estate counts once, by type")
+		plates += 1
+	assert_gt(plates, 0)
+
+func test_a_type_reads_its_estates_state_and_badge() -> void:
+	var entry: Dictionary = {"rows": [
+		_type_row("wheat", 1, true, "producing"),
+		_type_row("wheat", 1, false, "disconnected"),
+		_type_row("tree", 0, true, "foreign", false),
+		_type_row("ore", 0, true, "vacant"),
+		_type_row("coin", ImprovementCatalog.MAX_LEVEL, true, "maxed"),
+		_type_row("wheat", 0, true, "building"),
+	]}
+	var types: Array[Dictionary] = ResourceTypes.rows(entry)
+	assert_eq(types.size(), 4, "one row per emblem kind")
+	assert_eq(String(types[0]["icon"]), "tree", "types read in the plate's order")
+	assert_eq(String(types[0]["status"]), "foreign")
+	assert_eq(String(types[1]["status"]), "vacant")
+	assert_eq(String(types[2]["status"]), "maxed")
+	# Two wheats built, one of them linked, three held, one under works: the
+	# badge counts them and the ring says work is under way.
+	assert_eq(String(types[3]["badge"]), "2/1/3")
+	assert_eq(String(types[3]["status"]), "building")
+	assert_eq(String(types[3]["name"]), "farm")
+
+func test_a_built_type_counts_its_cut_estates() -> void:
+	var entry: Dictionary = {"rows": [
+		_type_row("ore", 1, true, "producing"),
+		_type_row("ore", 1, false, "disconnected"),
+	]}
+	var types: Array[Dictionary] = ResourceTypes.rows(entry)
+	assert_eq(types.size(), 1)
+	assert_eq(String(types[0]["badge"]), "2/1/2", "one of the two built is cut off")
+	assert_eq(String(types[0]["status"]), "disconnected")
+
+func test_a_type_with_no_built_estate_is_vacant_not_disconnected() -> void:
+	var entry: Dictionary = {"rows": [
+		_type_row("ore", 0, true, "vacant"),
+		_type_row("ore", 0, false, "foreign"),
+	]}
+	var types: Array[Dictionary] = ResourceTypes.rows(entry)
+	assert_eq(types.size(), 1, "a foreign estate of the same kind stays in the column")
+	assert_eq(String(types[0]["status"]), "vacant")
+	assert_eq(String(types[0]["badge"]), "0/0/2")
+
+func test_a_kind_outside_the_four_keeps_its_own_column() -> void:
+	var entry: Dictionary = {"rows": [
+		_type_row("wheat", 0, true, "vacant"),
+		_type_row("cartload", 1, true, "producing"),
+	]}
+	var types: Array[Dictionary] = ResourceTypes.rows(entry)
+	assert_eq(types.size(), 2)
+	assert_eq(String(types[0]["icon"]), "wheat", "the known kinds read first")
+	assert_eq(String(types[1]["icon"]), "cartload", "a kind the chart seeds later still shows")
+	assert_eq(String(types[1]["name"]), "cartload")
+	assert_eq(String(types[1]["badge"]), "1/1/1")
+
+func test_the_hover_names_every_type_and_the_ground_still_to_read() -> void:
+	var entry: Dictionary = {
+		"rows": [
+			_type_row("tree", 1, true, "producing"),
+			_type_row("coin", 0, true, "vacant"),
+		],
+		"unsurveyed": 5,
+	}
+	entry["types"] = ResourceTypes.rows(entry)
+	assert_eq(ResourceSurvey.summary_text(entry), "timber 1/1/1 · riches 0/0/1 · 5 unsurveyed")
+	assert_eq(ResourceSurvey.summary_text({}), "")
+	assert_eq(ResourceSurvey.summary_text({"rows": []}), "")
+
+## One resource row as `ResourceSurvey._row` hands it to the type projection.
+func _type_row(
+	icon: String, level: int, connected: bool, status: String, ours: bool = true
+) -> Dictionary:
+	return {
+		"icon": icon,
+		"ours": ours,
+		"level": level,
+		"connected": connected,
+		"status": status,
+	}
 
 func test_anchor_falls_back_to_a_charted_resource_tile() -> void:
 	var model: MapModel = resource_survey_Fixture.region()

@@ -12,6 +12,7 @@ static func step(run) -> void:
 	var screen: MapScreen = run.screen
 	await _crown_road_lens(run, screen)
 	await _defence_lens(run, screen)
+	await _survey_lens(run, screen)
 	await _muster_roll(run, screen)
 	await _province_ledger(run, screen)
 	await _town_ledger(run, screen)
@@ -59,6 +60,30 @@ static func _defence_lens(run, screen: MapScreen) -> void:
 	MapPlayInput.set_defence_lens(screen.play, false)
 	await run.tree.process_frame
 	run.check(not screen.hud.lens_legend.visible, "defence key closes")
+
+
+## The survey reading mounts on the real map: the key follows it and closes with
+## it, and a plate reads its province by resource type with a built/linked/held
+## badge (issue #698). No estate is raised and no Explorer is sent.
+static func _survey_lens(run, screen: MapScreen) -> void:
+	MapPlayInput.set_lens(screen.play, true)
+	await run.tree.process_frame
+	var lens: ResourceLens = screen.play.lens
+	run.check(lens != null and lens.active, "survey lens raises")
+	run.check(screen.hud.lens_legend.visible, "survey key shown")
+	run.check(screen.hud.lens_legend.kind == LensLegend.KIND_SURVEY, "survey key reads the lens")
+	var provinces: Array = lens.survey.get("provinces", [])
+	run.check(not provinces.is_empty(), "the survey reading covers the chart")
+	var types: Array = [] if provinces.is_empty() else (provinces[0] as Dictionary)["types"]
+	run.check(not types.is_empty(), "a plate names its resource types")
+	if not types.is_empty():
+		run.check(
+			String((types[0] as Dictionary)["badge"]).count("/") == 2,
+			"a type's badge counts built, linked and held"
+		)
+	MapPlayInput.set_lens(screen.play, false)
+	await run.tree.process_frame
+	run.check(not screen.hud.lens_legend.visible, "survey key closes")
 
 
 ## The muster roll: the cartouche seal raises the whole-empire force ledger on
