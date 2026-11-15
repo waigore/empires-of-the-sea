@@ -47,11 +47,11 @@ loads, returns to title. Deep rules stay in `tests/`.
   not `generate_world` (builds and discards the other region).
 - A suite whose cases mutate its fixture builds a fresh one per case.
 - **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
-  `world_…` suite runs alone after the others drain (rename cut the wall
-  323 s → 257 s).
+  `world_…` suite drains alone.
 - One Godot boot per theme (merged pure suites) — coverage ~11 s a boot: fold
-  leftovers in; delete suites already covered elsewhere. `gd-tools.toml` keeps
-  `parallel = 4`; profile with `--durations 20`.
+  leftovers in; delete suites covered elsewhere. Nine folds (39 → 30 suites)
+  cut the wall 230 s → 200 s. `gd-tools.toml` keeps `parallel = 4`; profile
+  with `--durations 20`.
 - Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
   landed on exit).
 

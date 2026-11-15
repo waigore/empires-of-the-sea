@@ -70,9 +70,9 @@ see [`deferred.md`](deferred.md).
 
 ## Tests
 
-`tests/test_land_battle_rules.gd` (the hospital and train cases),
-`tests/test_ai_planner_rules.gd` (the rival's pitch and the observer log).
+`tests/test_battle_rules.gd` (the hospital and train cases),
+`tests/test_ai_rules.gd` (the rival's pitch and the observer log).
 
 ```bash
-gd-tools test --no-cache tests/test_land_battle_rules.gd
+gd-tools test --no-cache tests/test_battle_rules.gd
 ```
