@@ -19,6 +19,24 @@ var observer_mode: bool = false
 ## `NOOP` / `BENCH`). Live campaigns leave this at FULL; only the observer
 ## harness changes it (docs/ai-observer.md).
 var ai_mode: String = AiControl.FULL
+## Auto mode (wiki: auto-mode): the court's own seat handed to the same planners
+## the rivals run, paced so the player can watch. `auto_armed` asks for it at the
+## close of this turn; `auto_active` means the AI holds the seat now — a player
+## mode, deliberately distinct from the debug `observer_mode` (saving allowed,
+## calendar rules intact). Not saved: a load always leaves Auto off.
+var auto_armed: bool = false
+var auto_active: bool = false
+## Pacing step: 0 PAUSE, 1 = 1 s, 2 = 0.5 s, 3 = 0.25 s per staged pass.
+var auto_speed: int = 1
+## The seat passes still owed this turn and the turn book the finish phases left
+## open while the crown acts; the paced driver drains both (MapPlayAuto). Derived.
+var auto_steps: Array[String] = []
+var auto_book: Variant = null
+## The Auto action log, oldest first, capped by MapPlayAuto; derived, never saved.
+var auto_log: Array[String] = []
+## When set, the planner passes plan this one court only: the Auto seat's own
+## staging. Never saved; NO_ID leaves every pass on its published list.
+var ai_stage_faction: int = MapModel.NO_ID
 ## When `ai_mode` is BENCH, this Great Power is the scored subject; two other
 ## GPs use origin/main planners and the rest take random legal actions.
 ## `NO_ID` means the setup's `player_faction` (former human slot).

@@ -1,0 +1,301 @@
+extends GdToolsTest
+## Auto mode (wiki: auto-mode; issue #725): the crown's own seat handed to the
+## shared planners, paced by the driver, read-only for the court, never stalled
+## on a consent decision, and off again after a load.
+##
+## One mount for the whole suite: the cases share the fixture chart and re-seat
+## it from the pristine save (docs/testing.md speed rules). Cases that need the
+## AI to hold the seat arm it and close one turn, which is the boundary the seat
+## changes at.
+
+const Fixture = preload("res://tests/map_fixture.gd")
+
+var screen: MapScreen = null
+var world_snapshot: Array = []
+var pristine: Dictionary = {}
+
+
+func before_all() -> void:
+	world_snapshot = Fixture.snapshot(Fixture.world())
+	screen = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(screen)
+
+
+func before_each() -> void:
+	Fixture.restore(Fixture.world(), world_snapshot)
+	Fixture.suite_reset(screen, pristine)
+	# Auto is a live-seat state a save never carries (wiki: auto-mode): a re-seat
+	# starts with the court in hand, exactly as a load does.
+	var play: PlaySession = screen.play
+	play.auto_armed = false
+	play.auto_active = false
+	play.auto_speed = 1
+	play.auto_steps.clear()
+	play.auto_book = null
+	play.auto_log.clear()
+	play.ai_stage_faction = MapModel.NO_ID
+	MapPlayTurn.view_live = true
+
+
+func after_all() -> void:
+	MapPlayTurn.view_live = true
+	if is_instance_valid(screen):
+		screen.free()
+	screen = null
+	pristine = {}
+
+
+## Hands the seat to the AI the way the player does: arm, then play the turn the
+## seat change waits for.
+func _seat_the_ai() -> PlaySession:
+	var play: PlaySession = screen.play
+	MapPlayAuto.arm(play)
+	_play_turn(play)
+	return play
+
+
+## Closes one turn the way the player does, answering whatever the court left
+## waiting so the fixture's seed never strands a case on a consent prompt.
+func _play_turn(play: PlaySession) -> void:
+	MapPlayTurn.end_turn(play)
+	var guard: int = 0
+	while play.turn_suspended and guard < 4:
+		guard += 1
+		Fixture.settle(play)
+		if CallToArms.has_pending(play.diplomacy, play.player_faction):
+			MapPlayTurn.answer_call(play, false)
+		elif Intervention.has_pending(play.diplomacy, play.player_faction):
+			MapPlayTurn.answer_intervention(play, Intervention.KIND_NOTHING)
+		elif DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+			MapPlayTurn.answer_offer(play, false)
+		else:
+			return
+
+
+## Drains the paced turn (the driver's ticks without the clock), so a case can
+## read a fully resolved Auto turn.
+func _drain(play: PlaySession) -> int:
+	var guard: int = 0
+	# The first tick presses the turn; the rest spend its staged passes.
+	MapPlayAuto.tick(play)
+	while play.auto_book != null and guard < 40:
+		MapPlayAuto.tick(play)
+		guard += 1
+	return guard
+
+
+# --- lifecycle ---------------------------------------------------------------
+
+
+func test_arming_waits_for_the_turn_to_close() -> void:
+	var play: PlaySession = screen.play
+	assert_false(play.auto_active, "a campaign starts with the court in hand")
+	MapPlayAuto.arm(play)
+	assert_true(play.auto_armed, "the seal asks for the seat")
+	assert_false(MapPlayAuto.active(play), "arming does not seize the turn in flight")
+	_play_turn(play)
+	assert_true(play.auto_active, "the AI takes the seat at the turn's close")
+
+
+func test_disarming_returns_the_court_at_the_turn_boundary() -> void:
+	var play: PlaySession = _seat_the_ai()
+	MapPlayAuto.disarm(play)
+	assert_true(play.auto_active, "a discharge still serves out the turn in flight")
+	assert_false(play.auto_armed, "the seat is already marked for release")
+	MapPlayAuto.tick(play)
+	_drain(play)
+	assert_false(play.auto_active, "the court answers the turn after the discharge")
+	assert_true(play.auto_log.has("The court returns to your hand."), "the release is told")
+
+
+func test_a_load_leaves_auto_off() -> void:
+	var play: PlaySession = screen.play
+	play.auto_armed = true
+	play.auto_active = true
+	play.auto_speed = 3
+	var data: Dictionary = SaveCodec.capture(play)
+	var reopened: MapScreen = Fixture.open_save(self, data)
+	assert_false(reopened.play.auto_active, "a load never seats the AI")
+	assert_false(reopened.play.auto_armed, "nor arms it")
+	assert_eq(reopened.play.auto_speed, 1, "nor carries the pace")
+	reopened.free()
+
+
+# --- pacing ------------------------------------------------------------------
+
+
+func test_the_speed_seal_cycles_pause_one_two_three() -> void:
+	var play: PlaySession = screen.play
+	assert_eq(MapPlayAuto.seconds(play), 1.0, "play is one second an action")
+	MapPlayAuto.cycle_speed(play)
+	assert_eq(MapPlayAuto.seconds(play), 0.5, "2x is half a second")
+	MapPlayAuto.cycle_speed(play)
+	assert_eq(MapPlayAuto.seconds(play), 0.25, "3x is a quarter")
+	MapPlayAuto.cycle_speed(play)
+	assert_eq(MapPlayAuto.speed_label(play), "PAUSE", "the cycle ends paused")
+	play.auto_active = true
+	assert_false(MapPlayAuto.running(play), "a paused seat spends no tick")
+	MapPlayAuto.cycle_speed(play)
+	assert_true(MapPlayAuto.running(play), "and resumes from the seal")
+
+
+func test_the_turn_waits_on_the_crowns_own_passes() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var before: int = play.turn
+	MapPlayAuto.tick(play)
+	assert_eq(play.turn, before, "one tick stages the seat; it does not resolve the turn")
+	assert_not_null(play.auto_book, "the turn book is held open for the driver")
+	assert_eq(play.auto_steps.size(), MapPlayAuto.STEPS.size(), "every seat pass is owed")
+	_drain(play)
+	assert_eq(play.turn, before + 1, "the turn resolves once the queue drains")
+	assert_null(play.auto_book, "and nothing is left open")
+
+
+func test_the_seat_runs_the_rivals_planner_surface() -> void:
+	var play: PlaySession = screen.play
+	play.auto_active = true
+	play.ai_stage_faction = play.player_faction
+	assert_eq(
+		MapPlayCourt.planning_factions(play), [play.player_faction],
+		"a staged pass plans the crown alone"
+	)
+	play.ai_stage_faction = MapModel.NO_ID
+	assert_false(
+		MapPlayCourt.planning_factions(play).has(play.player_faction),
+		"the rival passes never plan the crown's seat twice"
+	)
+	# The seat spends the crown's own purse: the planners read one ledger per
+	# court, and for the crown that ledger is its real one (REQ-P2-03).
+	MapPlayAuto.ensure_seat_ledger(play)
+	assert_eq(
+		play.ai.economies.get(play.player_faction), play.economy.economy,
+		"the seat reads the crown's own ledger, not a shadow copy"
+	)
+
+
+func test_the_crowns_orders_land_and_are_logged() -> void:
+	var play: PlaySession = _seat_the_ai()
+	_drain(play)
+	assert_eq(play.ai_stage_faction, MapModel.NO_ID, "the staged pass clears its court")
+	assert_true(
+		play.auto_log.has("Crews work the crown's orders."),
+		"the seat's own passes report into the log"
+	)
+	assert_true(
+		play.auto_log.size() > MapPlayAuto.STEPS.size(),
+		"the log carries the seat's despatches, not only the turn's opening line"
+	)
+
+
+# --- the plaque and its prompt -----------------------------------------------
+
+
+func test_the_plaque_asks_before_it_hands_the_seat_over() -> void:
+	var bar: AutoBar = screen.hud.auto_bar
+	var play: PlaySession = screen.play
+	assert_not_null(bar, "the plaque mounts with the HUD")
+	bar._on_toggle_pressed()
+	assert_true(bar._prompt.is_open(), "the plaque asks before it hands the seat over")
+	assert_eq(bar._prompt._confirm.text, "ENABLE", "arming says ENABLE")
+	bar._prompt._on_cancel()
+	assert_false(bar._prompt.is_open(), "cancel closes the plate")
+	assert_false(play.auto_armed, "and arms nothing")
+	bar._on_toggle_pressed()
+	bar._prompt._on_confirm()
+	assert_true(play.auto_armed, "the confirm arms the seat")
+	bar._on_speed_pressed()
+	assert_eq(play.auto_speed, 2, "the pace seal cycles from the plaque")
+
+
+func test_the_plaque_names_the_seat_state() -> void:
+	var bar: AutoBar = screen.hud.auto_bar
+	var play: PlaySession = screen.play
+	assert_eq(bar._state_text(), "hand the seat to the AI", "the idle plaque offers the seat")
+	MapPlayAuto.arm(play)
+	assert_eq(bar._state_text(), "arms after this turn", "an armed seat says when")
+	play.auto_active = true
+	assert_eq(bar._state_text(), "the AI holds your seat", "a held seat says who plays")
+	MapPlayAuto.disarm(play)
+	assert_eq(bar._state_text(), "ends with this turn", "a discharged seat says when it ends")
+	assert_true(bar.is_showing(), "the chrome stays up while the seat changes")
+
+
+func test_the_driver_holds_the_clock_for_a_prompt_and_a_pause() -> void:
+	var bar: AutoBar = screen.hud.auto_bar
+	var play: PlaySession = screen.play
+	play.auto_active = true
+	play.auto_speed = 0
+	bar._drive(10.0)
+	assert_null(play.auto_book, "a paused seat spends no tick")
+	bar._on_toggle_pressed()
+	play.auto_speed = 3
+	bar._drive(10.0)
+	assert_null(play.auto_book, "an open prompt holds the clock")
+	bar._prompt._on_cancel()
+	bar._drive(10.0)
+	assert_not_null(play.auto_book, "and the next tick presses the seat's turn")
+
+
+# --- the turn's seal ---------------------------------------------------------
+
+
+func test_the_end_turn_seal_does_not_drive_play() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var before: int = play.turn
+	MapPlayTurn.end_turn(play)
+	assert_eq(play.turn, before, "the court's press is ignored while the AI holds the seat")
+	assert_null(play.auto_book, "and it does not open a turn of its own")
+
+
+# --- no interruptions --------------------------------------------------------
+
+
+func test_a_waiting_call_to_arms_is_answered_not_held() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var state: DiplomacyState = play.diplomacy
+	var pact: DiplomacyRelation = state.relation(play.player_faction, 2)
+	pact.formal_alliance = true
+	pact.score = 80.0
+	CallToArms.freeze_alliances(state)
+	DiplomacyRules.declare_war(state, 3, 2)
+	assert_true(CallToArms.has_pending(state, play.player_faction), "the ally calls")
+	assert_true(MapPlayAuto.answer_pending(play), "Auto answers it at once")
+	assert_false(
+		CallToArms.has_pending(state, play.player_faction), "and the ladder is clear"
+	)
+	assert_true(
+		state.relation(play.player_faction, 3).at_war,
+		"the alliance is honoured against the aggressor"
+	)
+
+
+func test_a_rival_proposal_is_declined_without_stopping_the_turn() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.turn_suspended = true
+	_drain(play)
+	assert_false(play.turn_suspended, "Auto never leaves the calendar suspended")
+	assert_false(
+		DiplomacyProposals.has_pending(play.diplomacy, play.player_faction),
+		"and no proposal waits behind it"
+	)
+
+
+# --- fixtures ----------------------------------------------------------------
+
+
+func _own_army(play: PlaySession) -> ArmyState:
+	for region: int in play.army_layer.regions.region_ids():
+		for raw: Variant in play.army_layer.regions.value(region, []):
+			var army: ArmyState = raw
+			if army != null and army.owner == play.player_faction:
+				return army
+	return null
+
+
+## A land tile of the army's own province, so a refused order is refused by the
+## gate and not by the map.
+func _land_tile(model: MapModel, army: ArmyState) -> Vector2i:
+	var province: ProvinceState = model.province_data(army.province)
+	if province != null and not province.tiles.is_empty():
+		return province.tiles[0]
+	return Vector2i(1, 1)

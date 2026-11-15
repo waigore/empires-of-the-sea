@@ -18,13 +18,23 @@ const NO_OWNER: int = -1
 ## human court is skipped unless the full-AI observer seats it like any rival
 ## (wiki: game-setup § Human/AI slot assignment; docs/ai-observer.md), and the
 ## `AiControl` gate keeps a noop or bench crown inert.
+##
+## Auto mode asks for the same seat one pass at a time: `ai_stage_faction` names
+## the one court a pass may plan, so the paced driver can run the crown's own
+## orders without the rival passes planning them a second time
+## (wiki: auto-mode § Drawing on the same planners).
 static func planning_factions(play: PlaySession) -> Array[int]:
 	var factions: Array[int] = []
 	if play == null:
 		return factions
+	var staged: int = play.ai_stage_faction
 	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction and not play.observer_mode:
+		if staged != MapModel.NO_ID and faction != staged:
 			continue
+		if faction == play.player_faction and not play.observer_mode:
+			# The crown plans only when Auto hands it the seat for this pass.
+			if not (play.auto_active and staged == play.player_faction):
+				continue
 		if not AiControl.plans(play, faction):
 			continue
 		factions.append(faction)
