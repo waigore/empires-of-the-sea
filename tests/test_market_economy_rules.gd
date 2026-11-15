@@ -1845,6 +1845,46 @@ func test_the_queue_names_the_hands_it_lands_by_tier() -> void:
 	assert_eq(queue.reserved_peasants(), 3, "the train, the muster and the hull promise a peasant")
 
 
+## Build/work's own records name the hands that actually landed, so a refused
+## order — which leaves no record — withholds nothing from the phase it never
+## joined (wiki: workers-and-population § Phase placement — an order the turn
+## cannot keep is refused at resolution).
+func test_only_a_landed_hand_is_counted_arriving() -> void:
+	var done: Array[Dictionary] = [
+		{"kind": "workerRecruited", "label": "Peasant", "tier": WorkerPool.Tier.PEASANT},
+		{"kind": "workerRecruited", "label": "Apprentice", "tier": WorkerPool.Tier.APPRENTICE},
+		{"kind": "civilianMustered", "label": "Builder"},
+	]
+	assert_eq(MapPlayRecruits.arriving_tiers(done), [1, 1, 0, 0])
+	assert_eq(
+		MapPlayRecruits.arriving_tiers([] as Array[Dictionary]), [0, 0, 0, 0],
+		"a turn that landed nothing withholds nothing"
+	)
+
+
+## The crown's phase reads its arrivals from Build/work, not from the queue it
+## proposed: an order the turn refused never lands, so it must not take an idle
+## worker's labour with it (wiki: workers-and-population § Phase placement).
+func test_a_refused_hand_withholds_no_labour() -> void:
+	var controller := EconomyController.new()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2, 2)
+	economy.stockpile = {"grain": 40, "meat": 40, "refinedSugar": 4}
+	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
+	controller.economy = economy
+	controller.market = WorldMarket.with_default_prices()
+	# A session with no layers lands nothing: the queued apprentice is refused.
+	controller.play = PlaySession.new()
+	var report: Dictionary = controller.resolve_turn()
+	controller.free()
+	assert_eq(economy.workers.count(WorkerPool.Tier.APPRENTICE), 2, "the hire never landed")
+	assert_eq(
+		int((report["consumption"] as Dictionary).get("idle_labour", -1)),
+		economy.workers.labour(),
+		"both apprentices still turn the wheel"
+	)
+
+
 ## The WORKERS tab's larder reading: the store, every appetite, and the tier a
 ## shortfall bites first — Masters before Peasants
 ## (wiki: workers-and-population § Consumption; REQ-P5-06).
