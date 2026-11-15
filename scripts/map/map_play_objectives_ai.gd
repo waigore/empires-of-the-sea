@@ -93,6 +93,14 @@ static func _readings(
 		AiDeferral.stall(records, "muster.line")
 	)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
+	# The material row the pattern the court is saving for needs. The muster
+	# reserves it (`AiClaims.MUSTER`, #474) and the planner refuses without it, so
+	# the ledger prices it too: a row that reads `funded` on the purse alone would
+	# clear the escalation's stall and let the court bank a chest it can never
+	# spend — the deadlock this ledger exists to end (#603, #474).
+	var muster_row: Dictionary = AiArmyReinforce.muster_reserve(
+		config, economy, regiments, at_war
+	)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
@@ -129,6 +137,7 @@ static func _readings(
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
+		"muster_row": muster_row,
 		"escalations": escalations,
 		"blockings": blockings,
 		"ships": MapPlayCourt.ships(play, faction),
@@ -194,6 +203,12 @@ static func _pools(
 	}
 	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
 		pools[String(commodity)] = maxi(economy.quantity(String(commodity)), 0)
+	# The muster's own material row, bounded by the store: a line short of its
+	# cloth reads `deferred fabric 0/1`, the row the planner actually refuses on
+	# (#474), instead of a funded purse the muster never spends.
+	for commodity: Variant in (readings.get("muster_row", {}) as Dictionary).keys():
+		var id: String = String(commodity)
+		pools[id] = maxi(economy.quantity(id), 0)
 	return pools
 
 
