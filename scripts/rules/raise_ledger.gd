@@ -24,14 +24,17 @@ const STATE_LOCKED: String = "locked"
 ## the studies it holds and the stores the next step is paid from. `row` mints
 ## one province's row and `states` are the tallies the chips read; `admit` says
 ## whether a province earns a row at all, and a row the sheet mints empty earns
-## none, so a province that cannot carry the work is skipped.
+## none, so a province that cannot carry the work is skipped. `before` is the
+## sheet's own full reading order when its domain ranks rows past the state
+## (a hungry ward leads its own state); the shared order serves the rest.
 static func snapshot(
 	regions: Array[Dictionary],
 	owner: int,
 	row: Callable,
 	states: Array,
 	order: Dictionary,
-	admit: Callable = Callable()
+	admit: Callable = Callable(),
+	before: Callable = Callable()
 ) -> Dictionary:
 	var rows: Array[Dictionary] = []
 	var counts: Dictionary = empty_counts(states)
@@ -59,7 +62,10 @@ static func snapshot(
 			rows.append(line)
 			var state: String = String(line["state"])
 			counts[state] = int(counts.get(state, 0)) + 1
-	sort_rows(rows, order)
+	if before.is_valid():
+		rows.sort_custom(before)
+	else:
+		sort_rows(rows, order)
 	return {
 		"rows": rows,
 		"groups": LedgerRows.group(rows),
