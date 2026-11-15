@@ -192,6 +192,12 @@ godot --headless --path . --script res://playtests/playtest_trade_terms.gd
 # good with production runs and reads the row's sellable cap.
 godot --headless --path . --script res://playtests/playtest_market_receipt.gd
 
+# Market batch — reads every whole-order press on the MARKET tab (label, caption,
+# single press) and presses them past their own cap: a production claim, a staged
+# offer, a bid that empties the holds, and a Minor row whose ask carries a
+# subsidy step against a purse that binds at the ask.
+godot --headless --path . --script res://playtests/playtest_market_batch.gd
+
 # Sieges — raises a wall from the Engineer's own order (caption, receipt,
 # despatch, province sheet, military lens), storms rival walls at wood and modern
 # levels with guns and reads the plate's wall block, the battery, the lanes, the

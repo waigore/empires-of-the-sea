@@ -17,10 +17,7 @@ func _dress_plate(_compact_now: bool) -> void:
 ## Builds a door over `host` and gives it its own layer, so the sheet stands
 ## above the pause menu like the muster roll and the roster do.
 static func mount(host: Node, door_name: String) -> ModalDoor:
-	var layer := CanvasLayer.new()
-	layer.name = "%sLayer" % door_name
-	layer.layer = 6
-	host.add_child(layer)
+	var layer: CanvasLayer = ModalShell.mount_layer(host, "%sLayer" % door_name)
 	var door := ModalDoor.new()
 	door.name = door_name
 	layer.add_child(door)

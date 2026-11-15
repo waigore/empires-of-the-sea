@@ -57,7 +57,7 @@ func fill(
 	_viewer = viewer
 	UiRowBuilder.clear(self)
 	_batches.clear()
-	_order_ctx = MarketBatch.context(_economy, _cargo)
+	_order_ctx = MarketBatch.context(_economy, _cargo, MarketBatch.reservations(_economy))
 	_add_cargo_banner()
 	var budget: Label = LedgerBudget.banner(_economy)
 	if budget != null:
@@ -82,10 +82,7 @@ func fill(
 ## clears: the tons an offer can never sell (wiki: world-market § Trade orders —
 ## the offer cap is the post-production stockpile minus industry reservations).
 static func claimed_by_production(economy: PlayerEconomy, commodity: String) -> int:
-	if economy == null:
-		return 0
-	var reserved: Dictionary = ProductionRecipes.reserved_inputs(economy.production.assignments())
-	return maxi(int(reserved.get(commodity, 0)), 0)
+	return maxi(int(MarketBatch.reservations(economy).get(commodity, 0)), 0)
 
 
 func _add_cargo_banner() -> void:

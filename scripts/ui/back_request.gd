@@ -33,53 +33,10 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if gazette != null and gazette.is_shown():
 		gazette.dismiss()
 		return true
-	var roster: CivilianRosterPanel = play.hud.civilian_roster
-	if roster != null and roster.is_open():
-		roster.close()
-		return true
-	# The muster roll sits on the same layer as the roster, so back closes it
-	# before the dossiers (REQ-P5-07; DR-20261113-12).
-	var muster: ForceLedgerPanel = play.hud.muster_roll
-	if muster != null and muster.is_open():
-		muster.close()
-		return true
-	# The towns ledger is the realm's own door's sheet and stands above it, so
-	# it closes first (DR-20261115-12).
-	var towns: TownLedgerPanel = play.hud.towns_ledger
-	if towns != null and towns.is_open():
-		towns.close()
-		return true
-	# Its walls sibling stands on the same layer and closes the same way
-	# (DR-20261116-01).
-	var walls: WallLedgerPanel = play.hud.walls_ledger
-	if walls != null and walls.is_open():
-		walls.close()
-		return true
-	# And the hospitals sheet beside them (DR-20261116-02).
-	var hospitals: HospitalLedgerPanel = play.hud.hospitals_ledger
-	if hospitals != null and hospitals.is_open():
-		hospitals.close()
-		return true
-	# The province ledger is the muster roll's sibling sheet (DR-20261115-09).
-	var provinces: ProvinceLedgerPanel = play.hud.province_ledger
-	if provinces != null and provinces.is_open():
-		provinces.close()
-		return true
-	# The crown's eyes is the same sibling (DR-20261115-10).
-	var eyes: SpyLedgerPanel = play.hud.spy_ledger
-	if eyes != null and eyes.is_open():
-		eyes.close()
-		return true
-	# The command ledger is the same sibling (DR-20261115-11).
-	var command: CommandLedgerPanel = play.hud.command_ledger
-	if command != null and command.is_open():
-		command.close()
-		return true
-	# The navy ledger is the same sibling, and the muster roll stands under it
-	# (DR-20261115-14).
-	var navy: NavalLedgerPanel = play.hud.navy_ledger
-	if navy != null and navy.is_open():
-		navy.close()
+	# The crown's whole-empire sheets stand over the map: back sets the newest
+	# ledger a door opened aside first, so a phone never quits from under it
+	# (REQ-P5-07; DR-20261113-12, DR-20261115-09…14, DR-20261116-01…02).
+	if HudLedgerDoors.dismiss_open(play.hud):
 		return true
 	# The college's chart is a sheet standing over the college, so back sets it
 	# aside before the ledger under it hears the press (DR-20261115-15).

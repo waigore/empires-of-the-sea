@@ -40,24 +40,9 @@ static func build_hud(play: PlaySession) -> void:
 		if play.improvements != null:
 			play.improvements.open()
 	)
-	if hud.civilian_roster != null:
-		hud.civilian_roster.bind(play)
-	if hud.muster_roll != null:
-		hud.muster_roll.bind(play)
-	if hud.province_ledger != null:
-		hud.province_ledger.bind(play)
-	if hud.spy_ledger != null:
-		hud.spy_ledger.bind(play)
-	if hud.command_ledger != null:
-		hud.command_ledger.bind(play)
-	if hud.towns_ledger != null:
-		hud.towns_ledger.bind(play)
-	if hud.walls_ledger != null:
-		hud.walls_ledger.bind(play)
-	if hud.hospitals_ledger != null:
-		hud.hospitals_ledger.bind(play)
-	if hud.navy_ledger != null:
-		hud.navy_ledger.bind(play)
+	# The crown's whole-empire sheets read the session this screen is playing:
+	# one registry binds them all (REQ-P5-01, REQ-P5-03).
+	HudLedgerDoors.bind_all(hud, play)
 	_seat_commanders(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)

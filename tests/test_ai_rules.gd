@@ -1724,6 +1724,63 @@ func test_ai_economy_offers_no_gated_row_without_the_hand() -> void:
 		assert_ne(String(assignment["recipe"]), "furHats", "an apprentice is no journeyman")
 
 
+## A court whose best town is too young for the second-stage rows is offered
+## neither garments nor rum, because the Production phase would refuse the run;
+## a level-2 town opens the cloth and a level-4 town the finer works (wiki:
+## production-recipes § Town-works gates; DR-20261116-04; REQ-P2-03).
+func test_ai_economy_offers_no_town_row_without_the_works() -> void:
+	var economy := PlayerEconomy.starting()
+	# Cloth and refined sugar in store: the second-stage rows are the only
+	# deficits left, so the plan's answer is the works gate alone.
+	economy.stockpile = {"fabric": 40, "refinedSugar": 40}
+	economy.workers = WorkerPool.make(6)
+	var config: AiConfig = AiConfig.build(1, 1500)
+	for town_level in [0, 1]:
+		var young: Dictionary = AiEconomyPlanner.production_orders(
+			config, economy, town_level
+		)
+		for candidate: Dictionary in young["candidates"]:
+			assert_ne(String(candidate["recipe"]), "garments", "a village has no works")
+			assert_ne(String(candidate["recipe"]), "rum", "a village has no works")
+	var town_two: Dictionary = AiEconomyPlanner.production_orders(config, economy, 2)
+	assert_true(_units_for(town_two, "garments") > 0, "a level-2 town beats out cloth")
+	assert_eq(_units_for(town_two, "rum"), 0, "the finer works wait on a level-4 town")
+	var town_four: Dictionary = AiEconomyPlanner.production_orders(config, economy, 4)
+	assert_true(_units_for(town_four, "rum") > 0, "a level-4 town opens the finer works")
+
+
+## The plan and the phase read one town: a run the plan offers must be a run
+## Production starts, or the court spends labour on nothing (REQ-P2-03).
+func test_ai_economy_plan_runs_the_town_row_it_offers() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"fabric": 40, "refinedSugar": 40}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy, 2
+	)
+	var report: Dictionary = ProductionRecipes.plan(
+		plan["assignments"] as Array[Dictionary],
+		economy.stockpile.duplicate(),
+		6,
+		economy.tech_unlocked,
+		{},
+		economy.workers,
+		2
+	)
+	assert_true(
+		int((report["runs"] as Dictionary).get("garments", 0)) > 0,
+		"the phase starts the cloth its town opened"
+	)
+
+
+## Units the plan assigns to one recipe, 0 when it names none.
+func _units_for(plan: Dictionary, recipe_id: String) -> int:
+	for assignment: Dictionary in plan["assignments"]:
+		if String(assignment["recipe"]) == recipe_id:
+			return int(assignment["units"])
+	return 0
+
+
 ## A phantom run spends the plan's labour and reserves its inputs, then the phase
 ## refuses it: the court works less than it could. The plan must spend the whole
 ## idle labour on rows the phase will actually run (REQ-P2-03).
@@ -2284,6 +2341,31 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	)
 	layer.free()
 
+
+
+## The rival's court reads the crown's best town from the world and hands it to
+## the planner and the phase alike: a village court is offered no second-stage
+## row, and a court whose own province grows a level-2 town beats out cloth
+## (wiki: production-recipes § Town-works gates; DR-20261116-04; REQ-P2-03).
+func test_rival_court_runs_the_town_rows_its_works_open() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.stockpile = {"grain": 200, "fabric": 20, "refinedSugar": 20}
+	economy.workers = WorkerPool.make(6)
+	var village: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]
+	assert_eq(
+		_units_for(village["production"], "garments"), 0,
+		"a village has no works to beat out cloth"
+	)
+	# The rival's own province grows a level-2 town: the cloth row opens.
+	var data: ProvinceState = play.world.region(0).province_data(1)
+	data.town_development = 2
+	var town: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]
+	assert_true(
+		_units_for(town["production"], "garments") > 0,
+		"the works open the cloth for the rival"
+	)
+	play.civilian_layer.free()
 
 
 ## The sale is staged after the works are priced: what a crew is about to spend
@@ -3866,6 +3948,26 @@ func test_the_muster_spends_a_chest_it_cannot_fill() -> void:
 		"the line the court can pay for is raised"
 	)
 	assert_false((plan["reasons"] as Array).has("saving for a hull"))
+
+
+## Issue #603: the yard's chest re-routes like the war chest. A court that has
+## stalled on `navy.build` past the escalation bar while a regiment is due and
+## its chest is already in hand stops holding the purse for a hull it never
+## lays — the measured deadlock is a court 98 ducats short of a sloop that
+## cannot buy the 320-ducat row of the regiment whose chest sits inside that
+## same purse.
+func test_a_stalled_yard_chest_yields_to_the_muster() -> void:
+	var economy: PlayerEconomy = _purse(0)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var price: int = ShipEconomy.treasury_cost("sloop")
+
+	# Fleetless: the #484 rebuild chest, held while the yard is still moving.
+	assert_eq(AiNavy.chest(true, 0, 1, economy), price)
+	assert_eq(AiNavy.chest(true, 0, 1, economy, [], false), price, "the yard still leads")
+	# Stalled past the bar with the regiment's chest in hand: it stands down.
+	assert_eq(AiNavy.chest(true, 0, 1, economy, [], true), 0)
+	# A court with fighting hulls keeps the published reading either way.
+	assert_eq(AiNavy.chest(true, 2, 2, economy, [], true), 0, "no hull due at all")
 
 
 

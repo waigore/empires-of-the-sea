@@ -20,10 +20,16 @@ static func config(kind: String, faction: int, game_seed: int) -> Variant:
 	return AiConfig.build(faction, game_seed)
 
 
-static func production_orders(kind: String, config: Variant, economy: PlayerEconomy) -> Dictionary:
+## `town_level` is the court's best town: the second-stage rows' works gate. The
+## origin/main planners have no town reading, so the baseline call stays as it
+## was and its rivals keep the old behaviour (wiki: production-recipes
+## § Town-works gates; DR-20261116-04).
+static func production_orders(
+	kind: String, config: Variant, economy: PlayerEconomy, town_level: int = 0
+) -> Dictionary:
 	if _baseline(kind):
 		return _ml("ai_economy_planner.gd", "production_orders", [config, economy])
-	return AiEconomyPlanner.production_orders(config, economy)
+	return AiEconomyPlanner.production_orders(config, economy, town_level)
 
 
 static func recruitment_orders(

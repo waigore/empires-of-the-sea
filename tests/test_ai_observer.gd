@@ -179,6 +179,35 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	assert_ne(JSON.stringify(snapshot), "", "the snapshot is JSON-safe")
 
 
+func test_market_reading_names_the_book_food_against_every_courts_ration() -> void:
+	# Issue #766 clause 3: the book's food supply against the courts' demand is a
+	# reading on the turn trace, so the acceptance never needs a throwaway probe.
+	var play: PlaySession = _screen.play
+	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
+	var market: Dictionary = snapshot["market"] as Dictionary
+	var offered: int = 0
+	for offer: Dictionary in play.economy.market.minor_offers:
+		if CommodityCatalog.is_food(String(offer["commodity"])):
+			offered += int(offer["quantity"])
+	var demand: int = 0
+	for raw: Dictionary in (snapshot["rows"] as Array):
+		demand += int((raw["larder"] as Dictionary)["wanted"])
+	assert_gt(demand, 0, "a resolved turn's courts all eat")
+	assert_eq(
+		int(market["minor_food"]), offered,
+		"minor_food is the food tonnage the book offers, not every offer row"
+	)
+	assert_eq(
+		int(market["ration_demand"]), demand,
+		"ration_demand sums every court's larder"
+	)
+	assert_eq(
+		int(market["food_gap"]), maxi(demand - offered, 0),
+		"food_gap is the book's food against the courts' demand"
+	)
+	assert_true(market.has("minor_offers"), "the offer-row count still prints")
+
+
 func test_observer_former_crown_plays_through_the_planners() -> void:
 	var play: PlaySession = _screen.play
 	var economy: PlayerEconomy = play.ai.economy_for(play.player_faction)

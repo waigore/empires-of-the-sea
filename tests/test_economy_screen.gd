@@ -718,6 +718,32 @@ func _market_page() -> LedgerMarket:
 	return _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
 
 
+## The Minor row's batch is the deal the clearing will pay: the subsidy step
+## rides on the ask, so the press stages only what the purse covers and never
+## names more ducats than the crown holds (wiki: world-market § Subsidy price
+## adjustment, § Treasury budget for bids; REQ-P2-03, REQ-P5-05).
+func test_the_minor_batch_pays_the_ask_the_press_prints() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var seller: int = 9
+	var market: WorldMarket = _screen.economy.market
+	market.subsidy_terms["%d>%d" % [_screen.player_faction, seller]] = 20
+	var economy: PlayerEconomy = _screen.economy.economy
+	var ask: int = MinorMarket.unit_price(market, "timber", _screen.player_faction, seller)
+	# Two tons fit at the ask; three would fit at the world price alone.
+	economy.treasury = ask * 2 + ask / 2
+	var page: LedgerMarket = _market_page()
+	var press: Button = page.batch_buttons().get("%d:timber" % seller) as Button
+	assert_not_null(press, "the surcharge still leaves two tons payable")
+	assert_true(press.text.begins_with("Bid ×2"), press.text)
+	var total: int = int(press.text.split("·")[1].strip_edges().split(" ")[0])
+	assert_lte(total, economy.treasury, "the press names only ducats the purse holds")
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 2,
+		"one press files the whole deal the ask pays for",
+	)
+
+
 ## The seller and good chips narrow the court book without leaving the tab
 ## (REQ-P1-07, REQ-P5-03).
 func test_the_market_tab_filters_the_court_book_by_seller_and_good() -> void:
@@ -1327,3 +1353,78 @@ func test_the_minor_book_row_files_the_sellers_left_in_one_press() -> void:
 		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 2,
 		"the seller's whole row is one order",
 	)
+
+
+## The offer batch is the stock the assigned runs leave, so the press and the
+## rules price one cap (wiki: world-market § Trade orders — the offer cap is the
+## post-production stockpile minus industry reservations; REQ-P2-03).
+func test_the_offer_batch_leaves_the_assigned_runs_their_inputs() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 4
+	economy.production.set_assignment("lumber", 1)
+	var market: LedgerMarket = _market_page()
+	var batches: Dictionary = market.batch_buttons()
+	assert_true(batches.has("offer:timber"), "the two spare tons batch")
+	var press: Button = batches["offer:timber"] as Button
+	var units: int = int(press.text.split("×")[1].split(" ")[0])
+	assert_eq(units, 2, "four held less the lumber run's two tons")
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_sell_units(_screen.player_faction, "timber"), 2,
+		"the press stages only what the rules accept",
+	)
+
+
+## A ton already staged is not sellable twice: the chip, the readout and the
+## rules price one cap (wiki: world-market § Trade orders — the offer cap is the
+## post-production stockpile; § Order persistence).
+func test_a_staged_offer_spends_the_sellable_cap() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 3
+	_screen.economy.open_panel()
+	var staged: Dictionary = _screen.economy.orders.trade("timber", 3, false)
+	assert_true(bool(staged.get("ok", false)), String(staged.get("reason", "")))
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var chip: Button = _row_button(body, "timber", "Offer")
+	assert_not_null(chip, "the timber row draws its Offer")
+	assert_true(chip.disabled, "the staged tons are not offered twice")
+	assert_true(chip.tooltip_text.contains("3 Timber already offered"), chip.tooltip_text)
+	var caption: Label = null
+	for node: Node in body.find_children("*", "Label", true, false):
+		if (node as Label).text.contains("already offered"):
+			caption = node
+	assert_not_null(caption, "the row prints what is already offered")
+	assert_eq(caption.text, "3 Timber already offered — 0 sellable")
+
+
+## A purse the rules will not open files no bid: the chip dies before the press
+## (wiki: world-market § Treasury budget for bids — the UI clamps the bid chip).
+func test_a_spent_purse_disables_the_bid_chip() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.treasury = 0
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var chips: Array[Button] = []
+	for node: Node in body.find_children("*", "Button", true, false):
+		if (node as Button).text == "Bid":
+			chips.append(node as Button)
+	assert_gt(chips.size(), 0, "the page draws Bid chips")
+	for chip: Button in chips:
+		assert_true(chip.disabled, "an empty purse files no bid")
+		assert_true(chip.tooltip_text.contains("no room"), chip.tooltip_text)
+
+
+## The single press on a commodity row, found by the row's own good name.
+func _row_button(body: Node, commodity: String, text: String) -> Button:
+	for node: Node in body.find_children("*", "Label", true, false):
+		if (node as Label).text != CommodityCatalog.label(commodity):
+			continue
+		var row: Node = node.get_parent()
+		while row != null and row != body:
+			for child: Node in row.get_children():
+				if child is Button and (child as Button).text == text:
+					return child as Button
+			row = row.get_parent()
+	return null
