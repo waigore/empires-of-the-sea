@@ -2480,6 +2480,12 @@ domain = "dialogue"
 match = "scripts/rules/consent_copy.gd*"
 domain = "dialogue"
 
+# Which blocking decision the court answers first. Read by the court panel, the
+# turn press and the Auto seat, so it travels with the diplomacy suites.
+[[rules]]
+match = "scripts/rules/consent_ladder.gd*"
+domain = "diplomacy"
+
 [[rules]]
 match = "scripts/rules/auto_siege.gd*"
 domain = "fort"

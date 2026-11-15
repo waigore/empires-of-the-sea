@@ -6,7 +6,9 @@ extends RefCounted
 ##
 ## The AI pass marks decisions announced after it speaks them; the turn resolver
 ## then opens the panel without repeating the line. Court orders stay in
-## MapPlayDiplomacy; rival AI stays in MapPlayDiplomacyAi.
+## MapPlayDiplomacy; rival AI stays in MapPlayDiplomacyAi. Which decision the
+## court answers first is `ConsentLadder`'s rule, so every path that stops the
+## calendar asks there and opens the prompt here.
 
 
 ## Marks every decision now waiting as told. The AI pass raises each new
@@ -76,6 +78,38 @@ static func show_offer(play: PlaySession) -> void:
 			int(offer["from"]), String(offer["kind"]), String(offer.get("stage", ""))
 		)
 	)
+
+
+## Opens the court on whichever decision still waits — a call to arms, an
+## intervention or a rival proposal — so each answer path resumes the same
+## ladder (`ConsentLadder` owns the order). True when one did.
+static func show_next(play: PlaySession, faction: int) -> bool:
+	return show_waiting(play, ConsentLadder.pending_kind(play.diplomacy, faction))
+
+
+## Opens the court on the decision named by `ConsentLadder.pending_kind`; false
+## when `kind` is none of the three prompts.
+static func show_waiting(play: PlaySession, kind: String) -> bool:
+	match kind:
+		ConsentLadder.CALL:
+			show_call(play)
+		ConsentLadder.INTERVENTION:
+			show_intervention(play)
+		ConsentLadder.OFFER:
+			show_offer(play)
+		_:
+			return false
+	return true
+
+
+## Stops the calendar on whichever decision waits and opens the court on it, so
+## the turn press, the loaded save and the diplomacy phase all suspend the same
+## way. True when the turn must stay shut.
+static func hold_turn(play: PlaySession, faction: int) -> bool:
+	if not show_next(play, faction):
+		return false
+	play.turn_suspended = true
+	return true
 
 
 ## One decision's identity, so the court is told about it once and not again on

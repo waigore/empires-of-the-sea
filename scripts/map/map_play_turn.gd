@@ -2,7 +2,8 @@ class_name MapPlayTurn
 extends RefCounted
 ## Turn closure: the consent ladder, then the handed-over finish. A pending
 ## consent decision stops the calendar until the court answers; once the ladder
-## is clear, every answer path resumes the same way (REQ-P3-02).
+## is clear, every answer path resumes the same way (REQ-P3-02). The ladder's
+## order is `ConsentLadder`'s rule, never a copy kept here.
 ##
 ## Movement, rearmament, combat, upkeep and the new turn live in
 ## MapPlayTurnFinish, one named phase per step. Campaign close and standing live
@@ -32,17 +33,7 @@ static func end_turn(play: PlaySession) -> void:
 		return
 	# A consent decision already waiting keeps the calendar shut.
 	var human: int = play.human_faction_id()
-	if CallToArms.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_call(play)
-		return
-	if Intervention.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_intervention(play)
-		return
-	if DiplomacyProposals.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_offer(play)
+	if MapPlayDiplomacyConsent.hold_turn(play, human):
 		return
 	if not MapPlayDiplomacy.resolve_turn(play):
 		return
@@ -141,27 +132,11 @@ static func _resume(play: PlaySession, result: Dictionary, fallback: String) -> 
 		if not message.is_empty():
 			play.hud.toast(message)
 	MapPlayDiplomacy.refresh(play)
-	if _show_pending(play):
+	if MapPlayDiplomacyConsent.show_next(play, play.player_faction):
 		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
 	_finish_turn(play)
-
-
-## Opens the court on whichever consent decision still waits — a call to arms,
-## an intervention or a rival proposal — so each answer path resumes the same
-## ladder. True when one did.
-static func _show_pending(play: PlaySession) -> bool:
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacyConsent.show_call(play)
-		return true
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacyConsent.show_intervention(play)
-		return true
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacyConsent.show_offer(play)
-		return true
-	return false
 
 
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.
