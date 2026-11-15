@@ -26,6 +26,10 @@ const STAGE_LABELS: Dictionary = {
 	STAGE_NAP: "Non-Aggression Pact",
 	STAGE_JOIN_EMPIRE: "Join Empire",
 }
+## The rungs that count as "an Embassy in effect" between two courts: the
+## embassy itself and every stage above it (wiki: diplomacy § Relation Model —
+## trade-deal boost; § GP–Minor Rules — Set Subsidy).
+const EMBASSY_STAGES: Array[String] = [STAGE_EMBASSY, STAGE_NAP, STAGE_JOIN_EMPIRE]
 
 ## Costs in pounds (wiki: diplomacy § Configurable Values).
 const CONSULATE_COST: int = 500
@@ -84,6 +88,13 @@ const PROTEST_PENALTY: float = 10.0
 ## Protest against an aggressor holding Propaganda (wiki: tech-tree-diplomacy-civilian).
 const PROTEST_PENALTY_PROPAGANDA: float = 5.0
 const SPY_DEATH_PENALTY: float = 8.0
+
+## Trade-deal relation boost (wiki: diplomacy § Relation Model — R10): a pair
+## that cleared at least one world-market deal is lifted the next Diplomacy
+## phase, before decay. Volume-independent and applied once per pair.
+const TRADE_BOOST_BASE: float = 2.0
+const TRADE_BOOST_EMBASSY: float = 0.4
+const TRADE_BOOST_PER_SUBSIDY: float = 0.2
 
 const METER_LABELS: Array[String] = [
 	"Hostile",
@@ -144,6 +155,11 @@ static func next_stage(stage: String) -> String:
 
 static func knows_stage(stage: String) -> bool:
 	return STAGES.has(stage)
+
+
+## True for the rungs that count as an Embassy in effect between two courts.
+static func is_embassy_stage(stage: String) -> bool:
+	return EMBASSY_STAGES.has(stage)
 
 
 ## Stage costs. Join Empire scales with the target's province count.
