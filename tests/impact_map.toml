@@ -675,6 +675,13 @@ domain = "ledger_dress"
 match = "scripts/ui/ledger_list.gd*"
 domain = "ledger_dress"
 
+# The filtered sheet spine over both: the chips, the scrolling rows, the count
+# line and the empty notice the provinces, towns, muster, navy and people sheets
+# stand on. A spine change runs the suites that drive those sheets.
+[[rules]]
+match = "scripts/ui/ledger_sheet.gd*"
+domain = "ledger_dress"
+
 # The projection plumbing under those sheets: the chart keys, the narrowing, the
 # chip tallies and the one heading per chart. Every ledger reads it, so it rides
 # the same domain as the dress and never the rules catch-all's battle suites.

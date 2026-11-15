@@ -1,18 +1,17 @@
 class_name CivilianRosterPanel
-extends SheetFrame
+extends LedgerSheet
 ## Whole-empire civilian roster (REQ-P5-01, REQ-P5-03): every unit in the Old
 ## and New World in one ledger, filtered by region or craft, with a Visit action
 ## that opens the unit's map and dossier. The data projection lives in
 ## CivilianRoster; this class only renders rows and emits no rules calls. The
-## sheet chrome, fade and pause-door park come from SheetFrame.
+## sheet chrome, fade and pause-door park come from SheetFrame; the rows and
+## their empty notice from LedgerSheet. Its own head carries three filter rows
+## (world, craft, orders), so it builds those from the head instead of the
+## two-row [LedgerFilterBar].
 
 var _head: CivilianRosterHead = null
-var _rows: VBoxContainer = null
-var _empty: Label = null
-var _region: String = LedgerRows.REGION_ALL
 var _type: String = CivilianRosterHead.TYPE_ALL
 var _status: String = CivilianRoster.STATUS_ALL
-var _snapshot: Dictionary = {}
 
 
 func _init() -> void:
@@ -52,14 +51,9 @@ func _can_open() -> bool:
 
 func _build_body(column: VBoxContainer) -> void:
 	_head = CivilianRosterHead.new()
-	_head.filter_changed.connect(_on_filter)
+	_head.filter_changed.connect(_on_head_filter)
 	column.add_child(_head)
-
-	_rows = VBoxContainer.new()
-	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_rows.add_theme_constant_override("separation", 5)
-	_append_scroll(column).add_child(_rows)
-	_empty = _make_empty(_rows)
+	_build_rows(column)
 
 
 func _apply_profile(compact: bool, narrow: bool) -> void:
@@ -68,15 +62,10 @@ func _apply_profile(compact: bool, narrow: bool) -> void:
 		_head.set_compact(compact)
 
 
-func _on_profile_changed() -> void:
-	if visible and not _snapshot.is_empty():
-		_apply_filter()
-
-
 # --- rows --------------------------------------------------------------------
 
 
-func _on_filter(region_key: String, type_id: String, status_key: String) -> void:
+func _on_head_filter(region_key: String, type_id: String, status_key: String) -> void:
 	_region = region_key
 	_type = type_id
 	_status = status_key
@@ -85,21 +74,11 @@ func _on_filter(region_key: String, type_id: String, status_key: String) -> void
 
 
 func _apply_filter() -> void:
-	for child: Node in _rows.get_children():
-		if child == _empty:
-			continue
-		_rows.remove_child(child)
-		child.queue_free()
 	var groups: Array[Dictionary] = CivilianRoster.groups(
 		_snapshot, _region, _type, _status
 	)
 	var shown: int = CivilianRoster.count(_snapshot, _region, _type, _status)
-	_subtitle.text = _subtitle_text(shown)
-	_empty.visible = shown == 0
-	if shown == 0:
-		_empty.text = _empty_text()
-		return
-	LedgerList.fill(_rows, _empty, groups, _heading, _make_row)
+	_paint_filtered(groups, shown, _heading, _make_row)
 
 
 ## The civilian roster's headings name the province as well as the chart: a
