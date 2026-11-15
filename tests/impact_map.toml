@@ -1177,6 +1177,18 @@ suites = [
   "test_court_ui_parts.gd",
 ]
 
+# Auto mode (issue #725; wiki: auto-mode): the seat's paced driver, its chrome
+# and the seat's own suite. The observer suite carries the planner-list contract
+# the driver narrows, and the phone suite proves the plaque and the log on a
+# small screen. Kept off the map/ui catch-alls so an Auto edit stays inside the
+# tier-1 5 min budget.
+[domains.auto]
+suites = [
+  "test_auto_mode.gd",
+  "test_ai_observer.gd",
+  "test_mobile_layout.gd",
+]
+
 # Quick Battle: its UI plate, its resolver and the playtest instruments that
 # drive it are exercised together.
 [domains.quick_battle]
@@ -2827,6 +2839,32 @@ domain = "crown_road"
 [[rules]]
 match = "scripts/ui/hud_layout.gd"
 domain = "layout"
+
+# Auto mode's driver, chrome, pictograms and shot harness: one small slice, so a
+# seat edit never pulls the whole map or menu fan-out (issue #725).
+[[rules]]
+match = "scripts/map/map_play_auto.gd*"
+domain = "auto"
+
+[[rules]]
+match = "scripts/ui/auto_bar.gd*"
+domain = "auto"
+
+[[rules]]
+match = "scripts/ui/auto_prompt.gd*"
+domain = "auto"
+
+[[rules]]
+match = "scripts/ui/icon.gd*"
+domain = "ui"
+
+[[rules]]
+match = "tests/test_auto_mode.gd*"
+domain = "auto"
+
+[[rules]]
+match = "tests/auto_shot.gd*"
+domain = "auto"
 
 [[rules]]
 match = "scripts/ui/back_request.gd"

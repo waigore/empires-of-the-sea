@@ -79,6 +79,8 @@ static func build_hud(play: PlaySession) -> void:
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
 	)
+	if hud.auto_bar != null:
+		hud.auto_bar.bind(play, hud)
 	refresh_dossier(play)
 	# One seal now: the click walks the readings and the menu names one, so the
 	# screen keeps a single path for all four lenses (REQ-P5-03).

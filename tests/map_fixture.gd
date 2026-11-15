@@ -177,6 +177,15 @@ static func suite_reset(
 	SaveCodec.restore_diplomacy(play, data)
 	play.diplomacy.human_faction = play.human_faction_id()
 	play.turn_suspended = false
+	# Auto mode is a live-seat state a save never carries (wiki: auto-mode): a
+	# re-seat starts with the court in hand, exactly as a load does.
+	play.auto_armed = false
+	play.auto_active = false
+	play.auto_steps.clear()
+	play.auto_book = null
+	play.auto_log.clear()
+	play.ai_stage_faction = MapModel.NO_ID
+	play.auto_speed = 1
 	# A case that ended the campaign left the seal shut; the restored session is
 	# live again, so the chrome opens with it (the plate was dismissed above).
 	if screen.hud != null and screen.hud.campaign_over:

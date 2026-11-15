@@ -15,6 +15,9 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	# A pending call to arms holds the turn; map intents wait for the answer.
 	if play.turn_suspended:
 		return
+	# Auto holds the crown's seat: the chart stays pannable and every marker
+	# selectable, but a tap raises no order (wiki: auto-mode § Read-only).
+	var ordering: bool = not MapPlayAuto.blocks_orders(play)
 	var civilian: CivilianState = play.civilian_layer.unit_at(world_position)
 	var army: ArmyState = play.army_layer.army_at(world_position)
 	# Overlapping medallions (a capital muster beside its civilians) go to the
@@ -25,7 +28,7 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if civilian != null:
 		play.civilian_layer.select(civilian)
 		return
-	if MapPlayCivilians.try_move(play, world_position):
+	if ordering and MapPlayCivilians.try_move(play, world_position):
 		return
 	if army != null:
 		play.army_layer.select(army)
@@ -33,7 +36,7 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	var tile: Vector2i = MapGeo.tile_at_world(world_position, PlaySession.TILE_SIZE)
 	if not play.model.in_bounds(tile.x, tile.y):
 		return
-	if play.army_layer.selected_army != null and MapPlayArmies.try_order(play, tile):
+	if ordering and play.army_layer.selected_army != null and MapPlayArmies.try_order(play, tile):
 		return
 	var ship: Ship = play.ship_layer.ship_at(
 		world_position, 30.0 / maxf(play.camera.zoom.x, 0.001)
@@ -41,7 +44,7 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 	if ship != null:
 		play.ship_layer.select(ship)
 		return
-	if play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):
+	if ordering and play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):
 		return
 	# The sea reading is a reading, not a door: a tap on its water says the line
 	# a hover would print, because a phone has no cursor to hover with
@@ -295,6 +298,10 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 	if play.campaign_over():
 		return
 	if play.turn_suspended:
+		return
+	# Auto holds the seat: the province sheet stays readable, but a press raises
+	# no order (wiki: auto-mode § Read-only while it runs).
+	if MapPlayAuto.blocks_orders(play):
 		return
 	if play.selected_province < 0:
 		return

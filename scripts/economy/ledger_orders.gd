@@ -24,6 +24,8 @@ func _init(p_host: EconomyController = null) -> void:
 func trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 	if host == null or host.market == null or host.economy == null:
 		return {}
+	if seat_held_elsewhere():
+		return {}
 	var market: WorldMarket = host.market
 	var result: Dictionary
 	if is_buy:
@@ -73,7 +75,7 @@ func trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 
 ## A Minor or Tribe harvest row: the offer id names the commodity it sells.
 func offer(offer_id: String, quantity: int) -> void:
-	if host == null or host.market == null:
+	if host == null or host.market == null or seat_held_elsewhere():
 		return
 	var index: int = MinorMarket.index_of(host.market.minor_offers, offer_id)
 	if index < 0:
@@ -87,7 +89,7 @@ func offer(offer_id: String, quantity: int) -> void:
 
 ## Cancels one staged order; carry-forward orders are left alone.
 func withdraw(order_id: String) -> void:
-	if host == null or host.market == null:
+	if host == null or host.market == null or seat_held_elsewhere():
 		return
 	if not MarketOrders.cancel(host.market, host.player_faction, order_id):
 		_toast("That order can no longer be withdrawn.")
@@ -95,7 +97,7 @@ func withdraw(order_id: String) -> void:
 
 
 func set_production(recipe_id: String, units: int) -> void:
-	if host == null or host.economy == null:
+	if host == null or host.economy == null or seat_held_elsewhere():
 		return
 	host.economy.production.set_assignment(recipe_id, units)
 	host.refresh_panel()
@@ -109,7 +111,7 @@ func set_production(recipe_id: String, units: int) -> void:
 ## demotes one trained worker to a peasant at once and refunds nothing — the
 ## rules own both verdicts.
 func worker_action(tier: int, action: String, count: int = 1) -> void:
-	if host == null or host.economy == null:
+	if host == null or host.economy == null or seat_held_elsewhere():
 		return
 	if action == "disband":
 		var blocked: String = host.economy.disband_blocked_reason(tier)
@@ -148,22 +150,28 @@ func worker_action(tier: int, action: String, count: int = 1) -> void:
 
 
 func assign_research(tech_id: String) -> void:
-	if host == null or host.economy == null:
+	if host == null or host.economy == null or seat_held_elsewhere():
 		return
 	host.report_research(host.economy.research.assign(tech_id))
 
 
 func cancel_research(slot: int) -> void:
-	if host == null or host.economy == null:
+	if host == null or host.economy == null or seat_held_elsewhere():
 		return
 	host.report_research(host.economy.research.cancel(slot))
 
 
 func cycle_research_funding(slot: int) -> void:
-	if host == null or host.economy == null:
+	if host == null or host.economy == null or seat_held_elsewhere():
 		return
 	host.economy.research.cycle_funding(slot)
 	host.report_funding()
+
+
+## Auto holds the crown's seat: the ledger and the college stay readable, but
+## no press on them raises an order (wiki: auto-mode § Read-only while it runs).
+func seat_held_elsewhere() -> bool:
+	return host != null and MapPlayAuto.blocks_orders(host.play)
 
 
 func _toast(message: String) -> void:
