@@ -28,8 +28,7 @@ godot --path . -- --agent-debug=8765   # everything after -- is a user arg
   ```bash
   adb shell run-as com.waigore.empiresofthesea.debug sh -c 'echo 8765 > files/agent_debug.enable'
   # force-stop + relaunch the app; the boot reads and consumes the file
-  ``` (`forward`, not `reverse`: the listener lives on the
-  device, so the host→device tunnel is what agents need.)
+  ```
 
 ## Protocol
 
