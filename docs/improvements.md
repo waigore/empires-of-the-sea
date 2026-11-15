@@ -39,9 +39,8 @@ level-4 Great Power towns and four L1 grain farms.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, path transport, town cap)`; only
   connected, prospected improvements yield; purchased enclaves pay their buyer.
-- **Survey lens** (bar's lens seal): charted provinces;
-  seals for resources, worked badge, link row, dotted ring on unsurveyed
-  ground; roads solid when linked, dashed when cut.
+- **Survey lens** (lens seal): charted provinces; emblem + built / linked /
+  estates badge per resource type, Explorer mark + count, roads solid or dashed.
 - **Crown-road lens** (`R`): gold / amber / crimson for crown, town-only, or
   cut; cut provinces show the road tiles to lay, count and route.
 - **Estates ledger** (`ESTATES`): totals, filters, blockers, Build / Cancel /
@@ -65,7 +64,7 @@ ranked gaps: [`deferred.md`](deferred.md).
 | `scripts/rules/land_connectivity.gd` | roads, town rules, transport |
 | `scripts/rules/town_industry.gd` | town manufacturing |
 | `scripts/rules/improvement_*.gd` | ledger, dispatch, link |
-| `scripts/rules/resource_survey.gd`, `resource_routes.gd`, `scripts/map/resource_lens.gd` | survey, roads, plaques |
+| `scripts/rules/resource_survey.gd`, `resource_types.gd`, `resource_routes.gd`, `scripts/map/resource_lens.gd` | survey, types, roads, plaques |
 | `scripts/rules/crown_road_survey.gd`, `scripts/map/crown_road_lens.gd` | crown-road reading |
 | `scripts/ui/lens_legend.gd` | lens keys |
 | `scripts/rules/extraction.gd` | end-turn extraction |

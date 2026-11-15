@@ -182,7 +182,6 @@ func test_summary_for_an_unsurveyed_province_is_empty() -> void:
 
 func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 	var probe := _RoadInkProbe.new()
-	probe.font = UiTheme.serif()
 	# Each reading takes a turn as well as a straight, so the sleeper and dash
 	# walks are exercised over a bend and not only a single chord.
 	probe.segments = [
@@ -203,12 +202,6 @@ func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 			"rail": false,
 			"fogged": true,
 		},
-	]
-	probe.links = [
-		{"counts": {"developed": 0, "linked": 0}, "origin": Vector2.ZERO},
-		{"counts": {"developed": 2, "linked": 2}, "origin": Vector2(0, 12)},
-		{"counts": {"developed": 2, "linked": 1}, "origin": Vector2(0, 24)},
-		{"counts": {"developed": 2, "linked": 0}, "origin": Vector2(0, 36)},
 	]
 	add_child(probe)
 	probe.queue_redraw()
@@ -266,7 +259,9 @@ func test_runs_of_different_readings_still_meet_at_a_junction() -> void:
 	assert_almost_eq(road[road.size() - 1].distance_to(rail[0]), 0.0, 0.01)
 
 
-func test_an_unsurveyed_province_draws_its_survey_ring() -> void:
+## Ground still to survey carries the Explorer's compass and its count, and the
+## line clears the moment the province is read through (issue #698).
+func test_the_explorer_mark_counts_the_ground_left_to_prospect() -> void:
 	MapPlayInput.set_lens(_screen.play, true)
 	var lens: ResourceLens = _screen.play.lens
 	var found: Dictionary = {}
@@ -275,12 +270,88 @@ func test_an_unsurveyed_province_draws_its_survey_ring() -> void:
 		if int(entry.get("unsurveyed", 0)) > 0:
 			found = entry
 			break
-	if found.is_empty():
-		return
+	assert_false(found.is_empty(), "the fixture chart leaves ground to survey")
 	assert_true(String(found["summary"]).contains("unsurveyed"))
+	var tiles: Array[Vector2i] = MineralSurvey.unsurveyed_in_province(
+		_screen.model, _screen.land_works, _screen.player_faction, int(found["id"]),
+		_screen.visibility
+	)
+	assert_eq(tiles.size(), int(found["unsurveyed"]), "the count is the dossier's list")
+	assert_gt(
+		lens._plate_size(found).y, ResourceLens.PLATE_H, "the Explorer line adds a row"
+	)
 	lens._reveal = 1.0
 	lens.queue_redraw()
 	await get_tree().process_frame
+	for tile: Vector2i in tiles:
+		_screen.land_works.set_prospected(_screen.player_faction, _screen.model, tile)
+	_screen.civilian_layer.refresh_works()
+	var after: Dictionary = _entry(lens.survey, int(found["id"]))
+	assert_eq(int(after["unsurveyed"]), 0, "nothing is left to dig")
+	assert_almost_eq(
+		lens._plate_size(after).y, ResourceLens.PLATE_H, 0.01,
+		"the mark goes with the ground it named"
+	)
+	lens.queue_redraw()
+	await get_tree().process_frame
+
+
+## One emblem per resource type, each with its own built / linked / total badge:
+## no estate is dropped the way the old three-seal cap dropped them (issue #698).
+func test_every_type_keeps_its_own_emblem_and_badge() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	var counted: int = 0
+	for raw: Variant in lens.survey["provinces"]:
+		var entry: Dictionary = raw
+		var types: Array = entry["types"]
+		assert_false(types.is_empty())
+		var categories: Array[String] = []
+		var estated: int = 0
+		for raw_type: Variant in types:
+			var type: Dictionary = raw_type
+			var category: String = String(type["category"])
+			assert_false(categories.has(category), "a type prints one emblem")
+			categories.append(category)
+			assert_gt(int(type["estates"]), 0)
+			assert_true(
+				int(type["linked"]) <= int(type["developed"]),
+				"only built works can reach the crown"
+			)
+			assert_true(int(type["developed"]) <= int(type["estates"]))
+			estated += int(type["estates"])
+			counted += 1
+		assert_eq(estated, (entry["rows"] as Array).size(), "every estate lands in a type")
+	assert_gt(counted, 0)
+
+
+## The slip is as wide as its types and one row taller while the Explorer line
+## prints; the old fixed badge column is gone (issue #698).
+func test_a_plate_sizes_to_its_types_and_the_explorer_line() -> void:
+	var lens: ResourceLens = _screen.play.lens
+	var single: Dictionary = {"types": [{"category": "wood"}], "unsurveyed": 0}
+	var several: Dictionary = {
+		"types": [
+			{"category": "wood"}, {"category": "mine"}, {"category": "farm"},
+		],
+		"unsurveyed": 2,
+	}
+	var one: Vector2 = lens._plate_size(single)
+	var many: Vector2 = lens._plate_size(several)
+	assert_lt(one.x, many.x, "each type adds its own cell")
+	assert_almost_eq(one.y, ResourceLens.PLATE_H, 0.01)
+	assert_gt(many.y, one.y, "the cue adds a line under the badges")
+
+
+## The key names both new readings, so the swatch and the slip cannot drift
+## (issue #698).
+func test_the_survey_key_names_the_badges_and_the_explorer_mark() -> void:
+	var survey_row: Dictionary = {}
+	for row: Dictionary in LensLegend.SURVEY_ROWS:
+		if String(row["status"]) == "survey":
+			survey_row = row
+	assert_false(survey_row.is_empty())
+	assert_true(String(survey_row["text"]).contains("Explorer"))
 
 
 ## Every resource kind owns its commodity ink, so the lens never paints a coin,
@@ -338,17 +409,10 @@ class _EmblemProbe extends Node2D:
 
 ## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.
 class _RoadInkProbe extends Node2D:
-	var font: Font = null
 	var segments: Array = []
-	var links: Array = []
 
 	func _draw() -> void:
 		RoadInk.draw_routes(self, segments, 1.0)
-		for raw: Variant in links:
-			var link: Dictionary = raw
-			RoadInk.draw_link(
-				self, font, link["counts"], link["origin"], 40.0, 1.0
-			)
 
 
 # --- helpers -----------------------------------------------------------------

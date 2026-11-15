@@ -290,6 +290,8 @@ static func _province_entry(
 		"charted": charted,
 		"rows": rows,
 		"counts": counts,
+		# The lens prints one emblem per type, not one per estate (issue #698).
+		"types": ResourceTypes.aggregate(rows),
 		"output": output,
 		"output_text": ImprovementSystem.output_text(output),
 		"tile_owners": tile_owners.keys(),

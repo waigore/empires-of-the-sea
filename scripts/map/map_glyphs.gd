@@ -103,14 +103,10 @@ static func _hill(item: CanvasItem, center: Vector2, size: float) -> void:
 	)
 	# Two contour arcs inside the dome: the rise is drawn, not just filled.
 	var contour := Color(0.259, 0.204, 0.145, 0.30)
-	item.draw_arc(
-		center + Vector2(0, radius * 0.16), radius * 0.62, PI * 1.12, PI * 1.88, 10,
-		contour, 0.8, true
-	)
-	item.draw_arc(
-		center + Vector2(0, radius * 0.16), radius * 0.34, PI * 1.18, PI * 1.82, 8,
-		contour, 0.7, true
-	)
+	item.draw_arc(center + Vector2(0, radius * 0.16), radius * 0.62,
+		PI * 1.12, PI * 1.88, 10, contour, 0.8, true)
+	item.draw_arc(center + Vector2(0, radius * 0.16), radius * 0.34,
+		PI * 1.18, PI * 1.82, 8, contour, 0.7, true)
 
 
 ## Broadleaf grove: shadow, trunk, a secondary crown, then the lit main crown.
@@ -165,14 +161,11 @@ static func _shade(base: Color, tone: float) -> Color:
 
 static func _dune(item: CanvasItem, center: Vector2, size: float) -> void:
 	var width: float = size * 0.52
-	item.draw_arc(
-		center + Vector2(0, size * 0.16), width, PI * 1.05, PI * 1.95, 12,
-		Color(0.545, 0.435, 0.278, 0.42), 1.4, true
-	)
-	item.draw_arc(
-		center + Vector2(width * 0.55, size * 0.30), width * 0.60, PI * 1.05, PI * 1.95, 10,
-		Color(0.545, 0.435, 0.278, 0.30), 1.1, true
-	)
+	var crest := Color(0.545, 0.435, 0.278, 0.42)
+	item.draw_arc(center + Vector2(0, size * 0.16), width, PI * 1.05, PI * 1.95, 12,
+		crest, 1.4, true)
+	item.draw_arc(center + Vector2(width * 0.55, size * 0.30), width * 0.60,
+		PI * 1.05, PI * 1.95, 10, Color(0.545, 0.435, 0.278, 0.30), 1.1, true)
 
 
 ## Resource emblem for the survey lens: the commodity a tile yields, drawn as a
@@ -191,6 +184,20 @@ static func resource(
 			_wheat_emblem(item, center, size, tint)
 		_:
 			_ore_emblem(item, center, size, tint)
+
+
+## The Explorer's compass: the needle the civilian medallion carries, so a slip
+## can say "send an Explorer" without a word (DR-20261111-26).
+static func explorer(
+	item: CanvasItem, center: Vector2, size: float, tint: Color
+) -> void:
+	var r: float = size * 0.44
+	item.draw_arc(center, r, 0, TAU, 20, tint, 1.1, true)
+	item.draw_line(center + Vector2(0, -r * 0.9), center + Vector2(0, r * 0.9), tint, 0.9, true)
+	item.draw_colored_polygon(PackedVector2Array([
+		center + Vector2(0, -r * 0.78), center + Vector2(r * 0.34, 0),
+		center + Vector2(0, r * 0.78), center + Vector2(-r * 0.34, 0),
+	]), tint)
 
 
 ## A cluster of three cut stones, each with a lit facet and an ink edge.

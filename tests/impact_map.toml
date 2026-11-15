@@ -2578,6 +2578,12 @@ domain = "intel"
 match = "scripts/rules/resource_survey.gd*"
 domain = "prospect"
 
+# The survey's per-type fold: the lens plate and the dossier read one fold, so
+# the same suites own it.
+[[rules]]
+match = "scripts/rules/resource_types.gd"
+domain = "prospect"
+
 # The survey's road projection: same lens, same suites (the chart draws no roads).
 [[rules]]
 match = "scripts/rules/resource_routes.gd"
