@@ -78,7 +78,7 @@ Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 
-`test_civilian_field_rules`, `test_civilian_turn_rules`, `test_diplomacy_rules`,
+`test_civilian_turn_rules`, `test_diplomacy_rules`,
 `test_map_screen_crown_orders`.
 
 ```bash

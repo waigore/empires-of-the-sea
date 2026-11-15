@@ -74,8 +74,8 @@ The dossier never reads
 ## Tests
 
 `tests/test_diplomacy_rules.gd` (the espionage block: evidence and the reading
-built on it), plus panel and sheet cases in `tests/test_court_ui_parts.gd`.
+built on it), plus panel and sheet cases in `tests/test_panel_parts_rules.gd`.
 
 ```bash
-gd-tools test --no-cache tests/test_diplomacy_rules.gd tests/test_court_ui_parts.gd
+gd-tools test --no-cache tests/test_diplomacy_rules.gd tests/test_panel_parts_rules.gd
 ```

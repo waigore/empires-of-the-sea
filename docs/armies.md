@@ -82,7 +82,7 @@ ArmyLayer        hands a crown over in place, then writes stored rosters back
 
 ## Tests
 
-`test_army_*`, `test_battle_rules`, `test_hospital_rules`, `test_land_battle_rules`.
+`test_army_*`, `test_battle_rules` (forts, sieges).
 
 ```bash
 gd-tools test --coverage --min 80
