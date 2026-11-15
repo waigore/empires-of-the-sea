@@ -104,14 +104,18 @@ static func build(
 	# above stay, so a batch is never forced.
 	var batches: Dictionary = {}
 	var press := MarketBatchPress.attach(
-		block, "Bid", bid_units, id, buy_unit, compact,
+		block, "Bid", bid_units, id,
+		MarketRules.deal_total(market, id, bid_units, viewer, 1.0, true),
+		compact,
 		func() -> void: on_trade.call(id, bid_units, true)
 	)
 	if press != null:
 		batches["bid"] = press
 	var offer_units: int = MarketBatch.offer_units(market, viewer, id, held, ctx)
 	press = MarketBatchPress.attach(
-		block, "Offer", offer_units, id, sell_unit, compact,
+		block, "Offer", offer_units, id,
+		MarketRules.deal_total(market, id, offer_units, viewer, 1.0, false),
+		compact,
 		func() -> void: on_trade.call(id, offer_units, false)
 	)
 	if press != null:
@@ -123,3 +127,4 @@ static func build(
 	block.remove_child(row)
 	block.free()
 	return {"row": row, "batches": batches}
+

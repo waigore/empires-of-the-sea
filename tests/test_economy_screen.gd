@@ -718,6 +718,32 @@ func _market_page() -> LedgerMarket:
 	return _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
 
 
+## The Minor row's batch is the deal the clearing will pay: the subsidy step
+## rides on the ask, so the press stages only what the purse covers and never
+## names more ducats than the crown holds (wiki: world-market § Subsidy price
+## adjustment, § Treasury budget for bids; REQ-P2-03, REQ-P5-05).
+func test_the_minor_batch_pays_the_ask_the_press_prints() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var seller: int = 9
+	var market: WorldMarket = _screen.economy.market
+	market.subsidy_terms["%d>%d" % [_screen.player_faction, seller]] = 20
+	var economy: PlayerEconomy = _screen.economy.economy
+	var ask: int = MinorMarket.unit_price(market, "timber", _screen.player_faction, seller)
+	# Two tons fit at the ask; three would fit at the world price alone.
+	economy.treasury = ask * 2 + ask / 2
+	var page: LedgerMarket = _market_page()
+	var press: Button = page.batch_buttons().get("%d:timber" % seller) as Button
+	assert_not_null(press, "the surcharge still leaves two tons payable")
+	assert_true(press.text.begins_with("Bid ×2"), press.text)
+	var total: int = int(press.text.split("·")[1].strip_edges().split(" ")[0])
+	assert_lte(total, economy.treasury, "the press names only ducats the purse holds")
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 2,
+		"one press files the whole deal the ask pays for",
+	)
+
+
 ## The seller and good chips narrow the court book without leaving the tab
 ## (REQ-P1-07, REQ-P5-03).
 func test_the_market_tab_filters_the_court_book_by_seller_and_good() -> void:
