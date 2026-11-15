@@ -1495,6 +1495,31 @@ func test_the_court_menu_offers_the_pact_break_and_gates_the_alliance() -> void:
 	assert_true(_diplomacy_orders_has(both, "break_alliance"))
 	assert_true(_diplomacy_orders_has(both, "break_nap"), "the pact break clears both treaties")
 
+func test_the_court_menu_names_the_price_of_each_break() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var pacted: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	var nap_hint: String = String(_diplomacy_orders_first(pacted, "break_nap").get("hint", ""))
+	assert_true(nap_hint.contains("−20"), nap_hint)
+	assert_true(nap_hint.contains("−3"), nap_hint)
+	assert_true(nap_hint.contains("war must wait"), nap_hint)
+	# An alliance riding the pact is paid at the alliance price, and the menu
+	# says so before the court takes it (wiki: diplomacy § Breaking a pact).
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	var both: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	var both_hint: String = String(_diplomacy_orders_first(both, "break_nap").get("hint", ""))
+	assert_true(both_hint.contains("−50"), both_hint)
+	assert_true(both_hint.contains("−10"), both_hint)
+	assert_true(both_hint.contains("alliance end at once"), both_hint)
+	var ally_hint: String = String(
+		_diplomacy_orders_first(both, "break_alliance").get("hint", "")
+	)
+	assert_true(ally_hint.contains("−50"), ally_hint)
+	assert_true(ally_hint.contains("−10"), ally_hint)
+	assert_true(ally_hint.contains("pact survives"), ally_hint)
+
 func _orders_event(kind: String) -> bool:
 	for event: Dictionary in diplomacy_orders_state.events:
 		if String(event.get("kind", "")) == kind:

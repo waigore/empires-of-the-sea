@@ -57,7 +57,13 @@ static func options(
 	if type == FactionCatalog.Type.GREAT_POWER and not record.at_war:
 		if record.formal_alliance:
 			result.append(
-				_valued("Break Alliance", _can_break(record), KIND_BREAK, "", "", GROUP_TREATIES)
+				_valued(
+					"Break Alliance", _can_break(record), KIND_BREAK, "", "", GROUP_TREATIES,
+					"−%d with this court, −%d with every other Great Power; the pact survives." % [
+						int(DiplomacyCatalog.BREAK_ALLY_PENALTY),
+						int(DiplomacyCatalog.BREAK_CASCADE_PENALTY),
+					]
+				)
 			)
 		else:
 			result.append(
@@ -70,8 +76,7 @@ static func options(
 		result.append(
 			_valued(
 				"Break NAP", _can_break_nap(state, player, target), KIND_BREAK_NAP,
-				"", "", GROUP_TREATIES,
-				"The pact ends at once; war on this court must wait a turn."
+				"", "", GROUP_TREATIES, _break_nap_hint(record)
 			)
 		)
 	var next: String = DiplomacyCatalog.next_stage(state.overture(player, target))
@@ -334,6 +339,28 @@ static func _can_break_nap(state: DiplomacyState, player: int, target: int) -> D
 	if not DiplomacyRules.has_pact(state, player, target):
 		return _deny("There is no non-aggression pact to break.")
 	return _allow()
+
+
+## What the break costs, in the words the court that pays it reads: the pact's
+## price, or the alliance's when the pact carries one out with it
+## (wiki: diplomacy § Breaking a pact; REQ-P5-02 — a one-sided act says its
+## price before it is taken).
+static func _break_nap_hint(record: DiplomacyRelation) -> String:
+	if record != null and record.formal_alliance:
+		return (
+			"The pact and the alliance end at once: −%d with this court, −%d with "
+			+ "every other Great Power; war must wait a turn."
+		) % [
+			int(DiplomacyCatalog.BREAK_ALLY_PENALTY),
+			int(DiplomacyCatalog.BREAK_CASCADE_PENALTY),
+		]
+	return (
+		"The pact ends at once: −%d with this court, −%d with every other court; "
+		+ "war must wait a turn."
+	) % [
+		int(DiplomacyCatalog.BREAK_NAP_PENALTY),
+		int(DiplomacyCatalog.BREAK_NAP_CASCADE_PENALTY),
+	]
 
 
 static func _allow() -> Dictionary:
