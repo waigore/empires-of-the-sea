@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-12 + #657 (`REQ-P2-02`).
+Audited through DR-20261115-15 + #676 (REQ-P2-02).
 
 ## Already live
 
@@ -32,19 +32,19 @@ Audited through DR-20261115-12 + #657 (`REQ-P2-02`).
 
 ## Remaining gaps (impact order)
 
-1. **Rival purse behind Join Empire** — colonies wait on
+1. **Rival purse / starved economy** — Join Empire waits on
    `5,000 + 2,000 × provinces` (#489) while landings grow them (DR-14-14);
-   the income deadlock is a rules call.
-2. **Building gates / further rows** — worker tiers, the alloy + luxury four and
-   the bench cap ship (DR-14-07/10/12); building gates remain.
+   density and purse starve the same loop (#676).
+2. **Building gates / further rows** — worker tiers, alloy + luxury four and
+   bench cap ship (DR-14-07/10/12); building gates remain.
 3. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship; soft
-   priority weights and treasury recovery stay seed (DR-13-15).
+   weights and treasury recovery stay seed (DR-13-15).
 4. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
-   (`civilian-build-planner`); optional polish.
+   (`civilian-build-planner`); polish.
 
 ## Next pick
 
-The rival purse (#489) — a rules call.
+Rival purse / starved economy (#489, #676) — rules call.
 
 ## Blocked footnotes
 
@@ -61,8 +61,8 @@ The rival purse (#489) — a rules call.
 ## Wiki drift
 
 - `civilian-units` calls Road L2, gathering and transport caps deferred.
-- `ai-architecture`'s seed list names victory pressure (DR-15-04).
+- `ai-architecture` seed list still names victory pressure (live, DR-15-04).
 - `phase-planner-*` cite DR-14-11 for DR-14-13's declare slot.
-- DR-14-11's out-of-scope fleetless leg — cleared by #606.
-- `playtest-learnings` calls the boycott's blocked deal unread; a suite reads
-  it (#629).
+- DR-14-11 fleetless leg — cleared by #606.
+- `playtest-learnings` calls the boycott blocked deal unread; suite reads it
+  (#629).
