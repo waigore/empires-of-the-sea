@@ -77,31 +77,19 @@ static func _prepare_orders(
 	var rows: Array[MarketOrder] = []
 	rows.append_array(market.book.all_open())
 	rows.append_array(MinorMarket.emit_orders(world))
-	var pairs: Dictionary = {}
-	for order: MarketOrder in rows:
-		if order.remaining() <= 0 or order.is_world():
-			continue
-		var key: String = "%d:%s" % [order.faction, order.commodity]
-		var sides: Dictionary = pairs.get(key, {}) as Dictionary
-		sides[order.side] = true
-		pairs[key] = sides
-	var dropped: Dictionary = {}
-	for key: String in pairs.keys():
-		var sides: Dictionary = pairs[key]
-		if sides.has(MarketOrder.SIDE_BID) and sides.has(MarketOrder.SIDE_OFFER):
-			dropped[key] = true
-			var parts: PackedStringArray = key.split(":")
-			notes.append({
-				"code": "trade_order_mutual_exclusion",
-				"faction": int(parts[0]),
-				"commodity": parts[1],
-			})
+	var dropped: Dictionary = MarketRules.staged_both_sides(rows)
+	for key: String in dropped.keys():
+		var parts: PackedStringArray = key.split(":")
+		notes.append({
+			"code": "trade_order_mutual_exclusion",
+			"faction": int(parts[0]),
+			"commodity": parts[1],
+		})
 	if dropped.is_empty():
 		return rows
 	var kept: Array[MarketOrder] = []
 	for order: MarketOrder in rows:
-		var key: String = "%d:%s" % [order.faction, order.commodity]
-		if not dropped.has(key):
+		if not dropped.has(MarketRules.order_pair_key(order)):
 			kept.append(order)
 	return kept
 
@@ -214,9 +202,7 @@ static func _settle(
 				})
 			if quantity <= 0:
 				continue
-			buyer_economy.spend_treasury(cost)
-			buyer_economy.add(commodity, quantity)
-			market.record_import(commodity, quantity, buyer)
+			market.settle_purchase(buyer_economy, commodity, quantity, buyer, cost)
 		# The row carries what the clearing actually settled, not what the matcher
 		# proposed: a purse-truncated deal buys fewer tons, and the debt is rounded
 		# once from the whole deal, so the Deal Book must read the charged total

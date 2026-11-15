@@ -38,8 +38,7 @@ static func validate(
 		return _no("Unknown order side", "trade_order_side")
 	if order.priority < 1:
 		return _no("Priority must be one or higher", "trade_order_priority")
-	var book: MarketBook = market.book
-	if book.has_opposite(order.faction, order.commodity, order.side):
+	if market.book.has_opposite(order.faction, order.commodity, order.side):
 		return _no(
 			"A court may bid or offer a commodity, never both in one turn.",
 			"trade_order_mutual_exclusion"
@@ -100,6 +99,32 @@ static func _validate_offer(
 	if order.quantity > maxi(stock - claimed - promised, 0):
 		return _no("Not enough stock to offer that many.", "trade_order_stock_insufficient")
 	return _yes()
+
+
+## One court's one commodity: the key the mutual-exclusion rule reads sides by.
+static func order_pair_key(order: MarketOrder) -> String:
+	return "%d:%s" % [order.faction, order.commodity]
+
+
+## The staged pairs a clearing pass must drop whole: keys from
+## [method order_pair_key] where one court holds both sides of a commodity in
+## one turn (wiki: world-market § Trade orders — validation rules). The world
+## counterparty and spent orders never conflict.
+static func staged_both_sides(orders: Array[MarketOrder]) -> Dictionary:
+	var sides_by_key: Dictionary = {}
+	for order: MarketOrder in orders:
+		if order == null or order.remaining() <= 0 or order.is_world():
+			continue
+		var key: String = order_pair_key(order)
+		var sides: Dictionary = sides_by_key.get(key, {}) as Dictionary
+		sides[order.side] = true
+		sides_by_key[key] = sides
+	var dropped: Dictionary = {}
+	for key: String in sides_by_key.keys():
+		var sides: Dictionary = sides_by_key[key]
+		if sides.has(MarketOrder.SIDE_BID) and sides.has(MarketOrder.SIDE_OFFER):
+			dropped[key] = true
+	return dropped
 
 
 ## Notional of one order at a per-unit price, for the ledger and tests.
