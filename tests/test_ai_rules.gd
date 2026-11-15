@@ -3957,6 +3957,44 @@ func test_the_press_reaches_the_war_aim_only_from_near_the_bar() -> void:
 	)
 
 
+## The press must reach the order, not only the score (issue #601): a court
+## that does not outmatch the crown holding its land prices 25 against the
+## declaration minimum of 51 and opens nothing, while the same pair with the
+## press (30) clears the minimum and declares the war it needs.
+func test_a_pressing_court_declares_the_war_it_needs() -> void:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(PHASE_OWNER, PHASE_RIVAL, 1)
+	state.relation(PHASE_OWNER, PHASE_RIVAL).score = 40.0
+	var world: WorldMap = AiFixture.world([PHASE_OWNER, PHASE_RIVAL])
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 84, PHASE_RIVAL: 100},
+		"regiments": {PHASE_OWNER: 1, PHASE_RIVAL: 2},
+		"ships": {PHASE_OWNER: 1, PHASE_RIVAL: 2},
+		"player": -1,
+	}
+	var calm: Dictionary = AiDiplomacyPlanner.decide(
+		_phase_config(), state, AiState.new(), world, 1, context
+	)
+	assert_eq(String(calm["candidates"][0]["blocked"]), "war desire too low")
+	assert_ne(
+		String((calm["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"a court far from the bar opens no finish it cannot reach"
+	)
+	var pressed_context: Dictionary = context.duplicate(true)
+	pressed_context["victory_press"] = 30
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		_phase_config(), state, AiState.new(), world, 1, pressed_context
+	)
+	assert_eq(
+		String(plan["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the press reaches the order that takes the land"
+	)
+	assert_eq(int(plan["action"]["target"]), PHASE_RIVAL)
+	assert_eq(int(plan["candidates"][0]["factors"]["victory_press"]), 30)
+
+
 func test_the_pressure_threshold_is_a_registry_knob() -> void:
 	assert_eq(
 		AiVictoryPressure.stage_for(21, 31, 677, 500), AiVictoryPressure.STAGE_NEAR
