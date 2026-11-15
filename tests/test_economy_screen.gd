@@ -1152,6 +1152,35 @@ func test_a_luxury_row_names_the_hand_it_waits_for() -> void:
 	assert_true(_row_has_text(body, "needs a Journeyman"), "fur hats still wait for a journeyman")
 
 
+## A second-stage row names the town's works it waits for on the row itself, and
+## its "+" is inert until the crown holds a town at that level: a touch player
+## never sees a hover hint (wiki: production-recipes § Town-works gates;
+## DR-20261116-04).
+func test_a_town_row_names_the_works_it_waits_for() -> void:
+	var faction: int = _screen.economy.player_faction
+	var own: Array[ProvinceState] = []
+	for index in _screen.world.region_count():
+		var model: MapModel = _screen.world.region(index)
+		for province in model.province_count():
+			var data: ProvinceState = model.province_data(province)
+			if data != null and data.owner == faction:
+				data.town_development = 1
+				own.append(data)
+	assert_gt(own.size(), 0, "the crown holds a province to read")
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_true(_row_has_text(body, "needs a level-2 town"), "the garments row names its works")
+	assert_true(_row_has_text(body, "needs a level-4 town"), "the rum row names the finer works")
+	var rows: Dictionary = (body as LedgerProduction).recipe_rows()
+	assert_true((rows["garments"]["plus"] as Button).disabled, "a gated row offers no run")
+	own[0].town_development = 2
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_false(_row_has_text(body, "needs a level-2 town"), "a level-2 town opens the garments row")
+	assert_true(_row_has_text(body, "needs a level-4 town"), "rum still waits for a level-4 town")
+
+
 ## A full bench is named on the row itself and its "+" is inert: a touch player
 ## never sees a hover hint (wiki: production-recipes § Workshop queue;
 ## DR-20261114-12).
