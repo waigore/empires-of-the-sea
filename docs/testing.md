@@ -25,7 +25,8 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
 
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
-  `Main.preset_world`; snapshot/restore when a case mutates the chart.
+  `Main.preset_world`; snapshot/restore when a case mutates the chart. A
+  published Standard/Large chart is drawn once per seed and size, then re-read.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
   civilians, passing fair split on the **first** attempt.
 - Terrain wash (`MapWash.baked`), fog tables (`VisibilityModel`) and chart
@@ -209,6 +210,14 @@ godot --headless --path . --script res://playtests/playtest_colony.gd
 # and a rival on the bar taking the military plate — then reads the deciding
 # turn's own sheet once the plate steps aside.
 godot --headless --path . --script res://playtests/playtest_campaign_end.gd
+
+# Boycott blocked deal — seats the two records no session waits for (a rival
+# holding a Tribe as its colony, that rival boycotting the crown), then reads
+# what each court is told: the court sheet's trade block and the colony's page
+# (where Grant Aid and every subsidy are refused), the market page's offers and
+# their asks, the bid pressed from the colony's own row, and the turn close
+# (despatch, LAST CLEARING, notes, carry) two turns running.
+godot --headless --path . --script res://playtests/playtest_boycott_block.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

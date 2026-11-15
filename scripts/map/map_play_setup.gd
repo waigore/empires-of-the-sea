@@ -123,6 +123,28 @@ static func build_lens(play: PlaySession) -> void:
 	build_diplomacy_lens(play)
 	build_crown_road_lens(play)
 	build_defence_lens(play)
+	build_sea_lens(play)
+
+
+## The sea reading follows the region's roster, the fog and the court's wars: it
+## reads what each zone holds and whether the turn resolves a battle there. The
+## war test is the one the naval turn resolves the zones with and the view is the
+## chart's own `drawn`/`read` answer, so a plate can never name a fight or a
+## weight the resolver would not (REQ-P2-03).
+static func build_sea_lens(play: PlaySession) -> void:
+	var lens: SeaLens = play.sea_lens
+	if lens == null and play.host != null:
+		lens = play.host.get_node_or_null("World/SeaLens") as SeaLens
+		play.sea_lens = lens
+	if lens == null:
+		return
+	var war := func(a: int, b: int) -> bool:
+		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
+	lens.build(
+		play.model, play.ship_layer, play.visibility, play.player_faction,
+		war, MapPlayFleets.view_filter(play)
+	)
+	lens.watch(play.overlay)
 
 
 ## The defence reading follows the region, its roster and the fog. The snapshot

@@ -72,13 +72,13 @@ func prune(fleets: Array) -> void:
 ## Moves markers for a beaten squadron that escaped a naval battle: each one
 ## sails to its haven and reports the new zone (wiki: ships-and-naval § Naval
 ## Retreat Formula).
-func retreat(battle: Dictionary, fleets: Array) -> Array[Ship]:
+func retreat(battle: Dictionary, fleets: Array[FleetState]) -> Array[Ship]:
 	var moved: Array[Ship] = []
 	var retreat: Dictionary = battle.get("retreat", {})
 	if not bool(retreat.get("success", false)):
 		return moved
 	for raw: Variant in retreat.get("fleets", []):
-		var fleet: FleetState = _fleet(fleets, int(raw))
+		var fleet: FleetState = FleetRosters.find(fleets, int(raw))
 		if fleet == null:
 			continue
 		var ship: Ship = find(fleet.id)
@@ -145,13 +145,6 @@ static func port_position(model: MapModel, province_id: int) -> Vector2:
 	if port.x < 0 or port.y < 0:
 		return model.province_center(province_id) * TILE_SIZE
 	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)
-
-
-static func _fleet(fleets: Array, fleet_id: int) -> FleetState:
-	for fleet: FleetState in fleets:
-		if fleet != null and fleet.id == fleet_id:
-			return fleet
-	return null
 
 
 ## Sails one marker to a new berth, replacing any sail already under way.

@@ -119,7 +119,7 @@ static func _fleet_row(model: MapModel, fleet: FleetState, region: int) -> Dicti
 		"region": region,
 		"region_label": FactionCatalog.region_label(region),
 		"title": _squadron_title(fleet),
-		"place": _fleet_place(model, fleet),
+		"place": LedgerRows.fleet_place(model, fleet),
 		"line": "%d hull%s · %d holds · %.1f strength" % [
 			count, "" if count == 1 else "s", TradeCargo.fleet_holds(fleet),
 			NavalStrength.strength(fleet)
@@ -146,7 +146,7 @@ static func _army_place(model: MapModel, army: ArmyState, fleets: Array[FleetSta
 	if army.embarked_fleet != NO_ID:
 		for fleet: FleetState in fleets:
 			if fleet.id == army.embarked_fleet:
-				return "Aboard a squadron — %s" % _fleet_place(model, fleet)
+				return "Aboard a squadron — %s" % LedgerRows.fleet_place(model, fleet)
 		return "Aboard a squadron"
 	var name: String = model.province_name(army.province)
 	return name if not name.is_empty() else "In the field"
@@ -161,14 +161,6 @@ static func _army_state(army: ArmyState) -> String:
 	if army.field_hospital:
 		state += " · field hospital"
 	return state
-
-
-static func _fleet_place(model: MapModel, fleet: FleetState) -> String:
-	if fleet.is_in_port():
-		var port: String = model.province_name(fleet.province)
-		return ("In port at %s" % port) if not port.is_empty() else "In port"
-	var zone: String = model.sea_zone_name(fleet.sea_zone)
-	return ("At sea — %s" % zone) if not zone.is_empty() else "At sea"
 
 
 static func _fleet_state(model: MapModel, fleet: FleetState) -> String:

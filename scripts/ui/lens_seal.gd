@@ -10,7 +10,7 @@ signal cycle_requested
 signal lens_chosen(kind: String)
 
 const TOOLTIP: String = "Map lens — click to cycle, hold for the list"
-## The walk a click makes: no lens, then the four readings. The last reading
+## The walk a click makes: no lens, then the five readings. The last reading
 ## steps back to the plain map because touch has no other way to clear it.
 const CYCLE: Array = [
 	"",
@@ -18,6 +18,7 @@ const CYCLE: Array = [
 	LensLegend.KIND_DIPLOMACY,
 	LensLegend.KIND_CROWN_ROAD,
 	LensLegend.KIND_DEFENCE,
+	LensLegend.KIND_SEA,
 ]
 const MENU_LABELS: Array = [
 	"No lens",
@@ -25,12 +26,14 @@ const MENU_LABELS: Array = [
 	"Diplomacy  (P)",
 	"Crown road  (R)",
 	"Defence  (K)",
+	"The sea  (H)",
 ]
-## R and K keep their old home on the seals (L and P stay on the screen's key
+## R, K and H answer on the seal itself (L and P stay on the screen's key
 ## table), so a press raises its reading and a second press puts it down.
 const KEY_READINGS: Array = [
 	[InputActions.CROWN_LENS, LensLegend.KIND_CROWN_ROAD],
 	[InputActions.DEFENCE_LENS, LensLegend.KIND_DEFENCE],
+	[InputActions.SEA_LENS, LensLegend.KIND_SEA],
 ]
 const KIND_NAMES := {
 	"": "no lens",
@@ -38,6 +41,7 @@ const KIND_NAMES := {
 	LensLegend.KIND_DIPLOMACY: "the political map",
 	LensLegend.KIND_CROWN_ROAD: "the crown road",
 	LensLegend.KIND_DEFENCE: "the defences",
+	LensLegend.KIND_SEA: "the sea",
 }
 const KIND_ICONS := {
 	"": "lens",
@@ -45,6 +49,7 @@ const KIND_ICONS := {
 	LensLegend.KIND_DIPLOMACY: "diplomacy",
 	LensLegend.KIND_CROWN_ROAD: "road",
 	LensLegend.KIND_DEFENCE: "swords",
+	LensLegend.KIND_SEA: "ship",
 }
 ## Seconds a press must be held before the menu replaces the cycle.
 const HOLD_SECONDS: float = 0.5

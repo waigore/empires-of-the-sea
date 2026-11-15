@@ -1873,6 +1873,121 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 	assert_eq(MapPlayHomeMerge.settle_seats(_screen.play), 0, "the pass is idempotent")
 
 
+## A docking move folds where it happens, not only at the next turn's pass: an
+## AI planner that only moves hulls still leaves the seat holding one squadron
+## (wiki: ships-and-naval § Home Fleet — "any naval move that docks at the
+## capital resolves by merging").
+func test_a_docking_move_folds_into_the_home_fleet_at_once() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var sea: FleetState = _moored_squadron_at_the_seat()
+	var roster: Array[FleetState] = _screen.ship_layer.fleets
+	var hulls_before: int = home.ship_count()
+	var hulls: int = sea.ship_count()
+
+	assert_true(bool(NavalMovement.apply_move(
+		_screen.model, sea, FleetState.Location.IN_PORT, capital
+	).get("ok", false)), "the squadron docks")
+
+	var merged: Dictionary = MapPlayHomeMerge.fold(
+		_screen.play, _screen.model, roster, sea
+	)
+
+	assert_eq(merged.get("fleet"), home, "the fold names the home fleet")
+	assert_false(roster.has(sea), "the docked squadron is struck off the roster")
+	assert_eq(home.ship_count(), hulls_before + hulls, "every hull keeps sailing")
+	assert_eq(_squadrons_at(roster, MapScreen.PLAYER_FACTION, capital), 1,
+		"one squadron in port at the seat")
+
+
+## A fold that finds an army already aboard lands the docking squadron's army at
+## the port: one squadron carries one army (wiki: ships-and-naval § Naval
+## transport), so the struck-off squadron's soldier must not drown in the roster.
+func test_a_fold_lands_the_army_it_cannot_keep_aboard() -> void:
+	var capital: int = _screen.play.capital_province
+	var play: PlaySession = _screen.play
+	var home: FleetState = play.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var kept := ArmyState.muster(180, MapScreen.PLAYER_FACTION, capital, false, ["pikemen"], 1800)
+	var surplus := ArmyState.muster(181, MapScreen.PLAYER_FACTION, capital, false, ["pikemen"], 1810)
+	play.army_layer.armies.append(kept)
+	play.army_layer.armies.append(surplus)
+	home.embarked_army = kept.id
+	kept.embarked_fleet = home.id
+	var sea: FleetState = _moored_squadron_at_the_seat()
+	sea.embarked_army = surplus.id
+	surplus.embarked_fleet = sea.id
+	surplus.province = MapModel.NO_ID
+
+	NavalMovement.apply_move(_screen.model, sea, FleetState.Location.IN_PORT, capital)
+	MapPlayHomeMerge.fold(play, _screen.model, play.ship_layer.fleets, sea)
+
+	assert_eq(surplus.embarked_fleet, -1, "the surplus army goes ashore")
+	assert_eq(surplus.province, capital, "it lands at the port")
+	assert_eq(home.embarked_army, kept.id, "the home squadron keeps its own army")
+
+
+## The army a merge keeps aboard rides the squadron that now holds her hulls: her
+## id is stored on the squadron that carries her (wiki: ships-and-naval
+## § Naval transport), so the court's book, the OOB and the invasion pass read a
+## live seat instead of the squadron the merge struck off.
+func test_a_fold_moves_a_kept_armys_seat_to_the_home_fleet() -> void:
+	var capital: int = _screen.play.capital_province
+	var play: PlaySession = _screen.play
+	var home: FleetState = play.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	home.embarked_army = -1
+	var carried := ArmyState.muster(
+		182, MapScreen.PLAYER_FACTION, MapModel.NO_ID, false, ["pikemen"], 1820
+	)
+	play.army_layer.armies.append(carried)
+	var sea: FleetState = _moored_squadron_at_the_seat()
+	sea.embarked_army = carried.id
+	carried.embarked_fleet = sea.id
+
+	assert_true(bool(NavalMovement.apply_move(
+		_screen.model, sea, FleetState.Location.IN_PORT, capital
+	).get("ok", false)), "the squadron docks")
+	MapPlayHomeMerge.fold(play, _screen.model, play.ship_layer.fleets, sea)
+
+	assert_eq(home.embarked_army, carried.id, "the home squadron carries her now")
+	assert_true(
+		MapPlayForceLedger.focus(
+			play, play.region_index, ForceLedger.KIND_ARMY, carried.id
+		),
+		"the book reaches a hull marker for the carried army"
+	)
+	assert_eq(
+		play.ship_layer.fleet_of(play.ship_layer.selected()), home,
+		"the book opens the squadron she rides, not the one struck off"
+	)
+	assert_eq(carried.embarked_fleet, home.id, "the army answers the squadron she rides")
+
+
+## The one-tap join moves the seat the same way: the dossier button is the
+## player's own merge, so a carried army must follow the hulls there too.
+func test_joining_the_home_fleet_moves_a_kept_armys_seat() -> void:
+	var capital: int = _screen.play.capital_province
+	var play: PlaySession = _screen.play
+	var home: FleetState = play.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	home.embarked_army = -1
+	var carried := ArmyState.muster(
+		183, MapScreen.PLAYER_FACTION, MapModel.NO_ID, false, ["pikemen"], 1830
+	)
+	play.army_layer.armies.append(carried)
+	var stray: FleetState = _stray_at_the_seat()
+	stray.embarked_army = carried.id
+	carried.embarked_fleet = stray.id
+	play.ship_layer.select(play.ship_layer.ship_for(stray))
+
+	MapPlayHomeMerge.join(play)
+
+	assert_false(play.ship_layer.fleets.has(stray), "the moored squadron is folded in")
+	assert_eq(carried.embarked_fleet, home.id, "the army answers the home fleet")
+
+
 ## A missing play, chart or roster leaves the harbour alone (the headless pass
 ## must not crash when a harness tears the session down mid-turn).
 func test_settle_seats_guards_a_missing_play() -> void:
@@ -1910,7 +2025,7 @@ func test_settle_seats_lands_a_displaced_army() -> void:
 	play.army_layer.armies.append(kept)
 	play.army_layer.armies.append(surplus)
 	home.embarked_army = kept.id
-	kept.embarked_fleet = home.id
+	kept.embarked_fleet = 999
 	stray.embarked_army = surplus.id
 	surplus.embarked_fleet = stray.id
 	roster.append(home)
@@ -1920,6 +2035,10 @@ func test_settle_seats_lands_a_displaced_army() -> void:
 	assert_gte(MapPlayHomeMerge.settle_seats(play), 1)
 	assert_eq(surplus.embarked_fleet, -1, "the surplus army goes ashore")
 	assert_eq(surplus.province, seat)
+	assert_eq(
+		kept.embarked_fleet, home.id,
+		"the army the home squadron keeps rides it, not the seat it lost"
+	)
 
 	# The HUD-null path: same landing, no toast (REQ-P3-02 headless turn close).
 	var quiet := PlaySession.new()

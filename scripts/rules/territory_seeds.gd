@@ -40,26 +40,10 @@ static func pick(
 	return seeds
 
 
-## BFS hops from `seed` across the landmass, cached per seed.
+## Hops from `seed` across the landmass, cached per seed.
 static func _hops(
 	model: MapModel, ids: Array, seed: int, cache: Dictionary
 ) -> Dictionary:
-	if cache.has(seed):
-		return cache[seed]
-	var allowed: Dictionary = {}
-	for raw: Variant in ids:
-		allowed[int(raw)] = true
-	var distance: Dictionary = {seed: 0}
-	var queue: Array[int] = [seed]
-	var head: int = 0
-	while head < queue.size():
-		var current: int = queue[head]
-		head += 1
-		var step: int = int(distance[current]) + 1
-		for neighbor: int in MapGeo.province_neighbors(model, current):
-			if not allowed.has(neighbor) or distance.has(neighbor):
-				continue
-			distance[neighbor] = step
-			queue.append(neighbor)
-	cache[seed] = distance
-	return distance
+	if not cache.has(seed):
+		cache[seed] = ProvinceGraph.hops(model, ids, seed)
+	return cache[seed]

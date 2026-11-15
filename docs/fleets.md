@@ -1,6 +1,6 @@
 # Fleets and naval combat
 
-Movement, cargo, fog, battles; stations, raids:
+Fog, cargo, battles, raids, stations:
 [naval-missions.md](naval-missions.md).
 
 **Pillars:** P2, P3, P1, P4.
@@ -12,25 +12,23 @@ Movement, cargo, fog, battles; stations, raids:
 
 - Sea zone or port, never both; one roster/region.
 - **One move / turn:** S↔S; undock; dock at an owned port; a warp crosses.
-- A new zone reveals water + **coastal ring** (a captured port's sort-out
-  charts too); fog decays.
+- A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
   `ShipEconomy` builds with tech gates, **2 food upkeep**.
-- **Named hulls** (`ShipNames`): period, unique per squadron, kept through save
-  and merge (DR-20261111-07).
-- **Yard:** launch for its row + **one peasant**; the hull lands next turn at
-  Build/work; break-up returns a peasant, no refund (DR-20261109-01).
+- **Named hulls** (`ShipNames`): period, unique, kept through save and merge
+  (DR-20261111-07).
+- **Yard:** launch for its row + **one peasant**; lands next turn; break-up
+  returns a peasant, no refund (DR-20261109-01).
 - **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
-  one with no merchant; flown types stay rebuildable; GPs start with ≥1 warship
-  (DR-20261109-03, #484).
+  one with no merchant; GPs start with ≥1 warship (DR-20261109-03).
 - **Home merge:** seat dock or dossier **Join the home fleet**
-  (`FleetHomeMerge`); ids, names, passengers keep; saves repair.
+  (`FleetHomeMerge`); ids, names, passengers keep.
 - **Home sortie** (DR-20261109-17): home squadron may sail (spends move/holds);
   colonists ride one per hull and land beside the zone.
 - Contested zones fight at turn end: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
-- **Markers:** escorts, hull badge, strength; sighted rival `*` / dossier `???`
-  until watched a turn (DR-20261113-20).
+- **Markers:** escorts, hull badge, strength; a rival `*` / `???` until watched
+  (DR-20261113-20).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13, DR-20261109-16).
 - **Army transport** (`NavalTransport`): board (one regiment/hull), sail or
@@ -42,6 +40,9 @@ Raids sink one merchant hull (DR-20261111-17).
 
 **The crown's navy** (DR-20261115-14): muster door (`N`) lists each hull;
 **Visit** frames her squadron.
+
+**The sea reading** (`H`, DR-20261115-17; `SeaSurvey`/`SeaLens`): the zones the
+crown's sail is in eye of — hulls, strength, station, rival, the fight at close.
 
 ## Architecture
 
@@ -81,8 +82,7 @@ None.
 
 ## Tests
 
-`test_naval_rules`, `test_fleet_orders`, `test_naval_ledger`, `test_ship_*`,
-`test_economy_rules`, `test_civilian_voyage`, `test_visibility`, `test_map_screen`.
+`test_naval_rules`, `test_fleet_orders`, `test_naval_ledger`, `test_map_lenses`.
 
 ```bash
 gd-tools test --coverage --min 80
