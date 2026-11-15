@@ -70,6 +70,12 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if navy != null and navy.is_open():
 		navy.close()
 		return true
+	# The college's chart is a sheet standing over the college, so back sets it
+	# aside before the ledger under it hears the press (DR-20261115-15).
+	var chart: TechTreePanel = play.hud.tech_tree if play.hud != null else null
+	if chart != null and chart.is_open():
+		chart.close()
+		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()
