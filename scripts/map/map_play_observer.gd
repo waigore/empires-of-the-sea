@@ -35,7 +35,7 @@ static func snapshot(play: PlaySession) -> Dictionary:
 		"winner": winner,
 		"leader": leader,
 		"result": _result_text(play, winner),
-		"market": market_reading(play),
+		"market": market_reading(play, rows),
 		"rows": rows,
 	}
 
@@ -43,7 +43,15 @@ static func snapshot(play: PlaySession) -> Dictionary:
 ## The shared world market as this turn left it: the prices a run's courts paid
 ## and the Minor/Tribe rows on the book. A run that starves has to show what it
 ## paid for grain (wiki: world-market § Price discovery; issues #676, #730).
-static func market_reading(play: PlaySession) -> Dictionary:
+##
+## The food half is the famine's own reading (issue #766 clause 3): `minor_food`
+## is the ration tonnage the book offers this turn, `ration_demand` is what every
+## court in play wants to eat, and `food_gap` is the difference. A deficit there
+## is the world's supply, not a court's bid, so the issue's own acceptance can be
+## checked on the turn trace instead of a throwaway probe.
+static func market_reading(
+	play: PlaySession, rows: Array[Dictionary] = []
+) -> Dictionary:
 	if play == null or play.economy == null or play.economy.market == null:
 		return {}
 	var book: WorldMarket = play.economy.market
@@ -51,7 +59,32 @@ static func market_reading(play: PlaySession) -> Dictionary:
 	for id: String in ["grain", "meat", "timber", "wool", "iron"]:
 		prices[id] = book.price(id)
 	prices["minor_offers"] = book.minor_offers.size()
+	prices["minor_food"] = _book_food(book)
+	prices["ration_demand"] = _ration_demand(rows)
+	prices["food_gap"] = maxi(int(prices["ration_demand"]) - int(prices["minor_food"]), 0)
 	return prices
+
+
+## The food tonnage the Minor Nation and Tribe estates offer on this turn's book:
+## one unit per level-1 estate, the published yield (wiki: world-market
+## § Minor and tribe auto-sell; DR-20261110-32).
+static func _book_food(book: WorldMarket) -> int:
+	var units: int = 0
+	for offer: Dictionary in book.minor_offers:
+		if CommodityCatalog.is_food(String(offer.get("commodity", ""))):
+			units += maxi(int(offer.get("quantity", 0)), 0)
+	return units
+
+
+## What every court in play wants to eat at its next Consumption phase, read from
+## the same larder row the scoreboard prints (wiki: workers-and-population
+## § Consumption).
+static func _ration_demand(rows: Array[Dictionary]) -> int:
+	var demand: int = 0
+	for row: Dictionary in rows:
+		var larder: Dictionary = row.get("larder", {}) as Dictionary
+		demand += maxi(int(larder.get("wanted", 0)), 0)
+	return demand
 
 
 ## What the next Consumption phase does to one court's larder, as the strike
