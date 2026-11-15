@@ -95,6 +95,7 @@ func test_arming_waits_for_the_turn_to_close() -> void:
 	assert_false(MapPlayAuto.active(play), "arming does not seize the turn in flight")
 	_play_turn(play)
 	assert_true(play.auto_active, "the AI takes the seat at the turn's close")
+	assert_true(MapPlayAuto.blocks_orders(play), "and the court is read-only from then on")
 
 
 func test_disarming_returns_the_court_at_the_turn_boundary() -> void:
@@ -236,15 +237,120 @@ func test_the_driver_holds_the_clock_for_a_prompt_and_a_pause() -> void:
 	assert_not_null(play.auto_book, "and the next tick presses the seat's turn")
 
 
-# --- the turn's seal ---------------------------------------------------------
+# --- read-only while it runs -------------------------------------------------
 
 
-func test_the_end_turn_seal_does_not_drive_play() -> void:
+func test_the_chart_stays_readable_but_raises_no_order() -> void:
 	var play: PlaySession = _seat_the_ai()
-	var before: int = play.turn
-	MapPlayTurn.end_turn(play)
-	assert_eq(play.turn, before, "the court's press is ignored while the AI holds the seat")
-	assert_null(play.auto_book, "and it does not open a turn of its own")
+	var army: ArmyState = _ensure_army(play)
+	var marker: ArmyMarker = play.army_layer.marker_for(army)
+	assert_not_null(marker, "the fixture seats a marker the chart can open")
+	MapPlayInput.on_tapped(play, marker.position)
+	assert_eq(play.army_layer.selected_army, army, "a marker still opens its dossier")
+	# Far from the marker so the tap is an order attempt, not a re-select.
+	var away: Vector2 = marker.position + Vector2(PlaySession.TILE_SIZE * 3, 0)
+	MapPlayInput.on_tapped(play, away)
+	assert_false(army.moved, "a tap on the chart raises no march")
+	play.army_layer.selected_army = null
+	var ship: Ship = _ensure_ship(play)
+	assert_not_null(ship, "the capital still has a hull")
+	play.ship_layer.select(ship)
+	MapPlayInput.on_tapped(play, away)
+	assert_false(army.moved, "and a sailing tap raises no march either")
+	MapPlayInput.on_panel_action(play, "recruit")
+	assert_true(MapPlayAuto.blocks_orders(play), "the province sheet is gated too")
+
+
+func test_the_ledger_and_college_raise_no_order() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var orders: LedgerOrders = play.economy.orders
+	var book: MarketBook = play.economy.market.book
+	var before: int = book.orders_for(play.player_faction).size()
+	var treasury: int = play.economy.economy.treasury
+	assert_true(orders.seat_held_elsewhere(), "Auto holds the ledger")
+	assert_eq(orders.trade("grain", 1, true), {}, "a bid is ignored")
+	orders.offer("no-court-sells-this", 1)
+	orders.withdraw("no-such-order")
+	orders.set_production("lumber", 2)
+	orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	orders.assign_research("land_enclosure")
+	orders.cancel_research(0)
+	orders.cycle_research_funding(0)
+	assert_eq(book.orders_for(play.player_faction).size(), before, "the book is untouched")
+	assert_eq(play.economy.economy.treasury, treasury, "the purse is untouched")
+	assert_eq(
+		play.economy.economy.production.assignment_units("lumber"), 0, "no run is assigned"
+	)
+
+
+## Court in hand: the ordering gates open so a march tap is attempted (covers
+## the `if ordering:` true branch the Auto-on cases leave cold).
+func test_the_ordering_gates_open_when_the_court_holds_the_seat() -> void:
+	var play: PlaySession = screen.play
+	assert_false(MapPlayAuto.blocks_orders(play), "the court still holds the seat")
+	var army: ArmyState = _ensure_army(play)
+	play.army_layer.select(army)
+	var away: Vector2 = play.army_layer.marker_for(army).position + Vector2(
+		PlaySession.TILE_SIZE * 3, 0
+	)
+	MapPlayInput.on_tapped(play, away)
+	play.army_layer.selected_army = null
+	var ship: Ship = _ensure_ship(play)
+	play.ship_layer.select(ship)
+	MapPlayInput.on_tapped(play, ship.position)
+	assert_eq(play.ship_layer.selected(), ship, "a hull marker still opens its dossier")
+	# Off the chart, a held turn, and a decided campaign: the early returns the
+	# seat-gate insert shifts into the patch.
+	MapPlayInput.on_tapped(play, Vector2(-10000, -10000))
+	play.turn_suspended = true
+	MapPlayInput.on_panel_action(play, "recruit")
+	play.turn_suspended = false
+	play.campaign_halted = true
+	MapPlayInput.on_panel_action(play, "recruit")
+	play.campaign_halted = false
+	# Null-host short-circuit on the ledger gates the insert also shifts.
+	var bare := LedgerOrders.new(null)
+	bare.offer("x", 1)
+	bare.assign_research("land_enclosure")
+
+
+func test_the_court_plays_normally_when_it_holds_the_seat() -> void:
+	var play: PlaySession = screen.play
+	play.selected_province = play.capital_province
+	MapPlayInput.on_panel_action(play, "upgrade_town")
+	_tap_crew_then_ground(play)
+	var book: Dictionary = play.economy.market.to_dict()
+	play.economy.orders.offer("", 1)
+	play.economy.orders.withdraw("no-such-order")
+	play.economy.orders.set_production("", 0)
+	play.economy.orders.worker_action(0, "recruit")
+	play.economy.orders.assign_research("")
+	play.economy.orders.cancel_research(0)
+	play.economy.orders.cycle_research_funding(0)
+	play.economy.orders.trade("grain", 1, true)
+	assert_ne(play.economy.market.to_dict(), book, "the book takes the court's own order")
+
+
+func test_every_door_shuts_while_the_ai_holds_the_seat() -> void:
+	var play: PlaySession = _seat_the_ai()
+	# The province sheet's own orders.
+	play.selected_province = play.capital_province
+	MapPlayInput.on_panel_action(play, "upgrade_town")
+	# The chart's orders, with a crew and an army selected in turn.
+	_tap_crew_then_ground(play)
+	# The ledger's and the college's intents, one of each.
+	var book: Dictionary = play.economy.market.to_dict()
+	var research: String = _research_signature(play)
+	assert_eq(play.economy.orders.trade("grain", 5, true), {}, "no bid reaches the book")
+	play.economy.orders.offer("", 1)
+	play.economy.orders.withdraw("no-such-order")
+	play.economy.orders.set_production("", 0)
+	play.economy.orders.worker_action(0, "recruit")
+	play.economy.orders.assign_research("")
+	play.economy.orders.cancel_research(0)
+	play.economy.orders.cycle_research_funding(0)
+	assert_eq(play.economy.market.to_dict(), book, "the book is untouched")
+	assert_eq(_research_signature(play), research, "the college is untouched")
 
 
 # --- no interruptions --------------------------------------------------------
@@ -280,6 +386,55 @@ func test_a_rival_proposal_is_declined_without_stopping_the_turn() -> void:
 	)
 
 
+func test_battles_never_open_a_plate() -> void:
+	var play: PlaySession = _seat_the_ai()
+	# Seat a real clash on land and at sea so the Auto gate is walked, not only
+	# asserted against an empty battle pass (wiki: auto-mode § No interruptions).
+	var rival: int = 2
+	var province: int = Fixture.foreign_province(play.model)
+	assert_true(province >= 0, "the fixture seats a foreign province")
+	play.model.province_data(province).owner = rival
+	play.model.province_data(province).fort_level = 0
+	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, rival)
+	play.army_layer.armies.clear()
+	var holding: ArmyState = ArmyState.muster(
+		1, rival, province, false, ["guards", "guards"], 1
+	)
+	var field: ArmyState = ArmyState.muster(
+		2, play.player_faction, province, false,
+		["guards", "guards", "guards", "guards", "guards", "guards", "guards", "guards"],
+		100
+	)
+	field.moved = true
+	play.army_layer.armies.append(holding)
+	play.army_layer.armies.append(field)
+	play.army_layer._rebuild_markers()
+	var land: Array[Dictionary] = MapPlayLandTurn.resolve(play)
+	assert_false(land.is_empty(), "the crown fights on land under Auto")
+	assert_false(play.hud.is_quick_battle_shown(), "Auto fights Quick Battles silently")
+	assert_true(play.hud.plates.land_queue.is_empty(), "no land plate is queued")
+
+	var zone: int = int(play.model.sea_zones[0].id)
+	# Dock every standing squadron so only the minted pair shares the water.
+	for fleet: FleetState in play.ship_layer.fleets:
+		fleet.location = FleetState.Location.IN_PORT
+		fleet.province = int(play.model.provinces[0].id)
+	var player_fleet: FleetState = FleetState.at_sea(
+		901, play.player_faction, zone, ["hull_player"], {"hull_player": "carrack"}
+	)
+	player_fleet.moved = true
+	var enemy_fleet: FleetState = FleetState.at_sea(
+		902, rival, zone, ["hull_enemy"], {"hull_enemy": "fluyte"}
+	)
+	play.ship_layer.fleets.append(player_fleet)
+	play.ship_layer.fleets.append(enemy_fleet)
+	play.ship_layer.regions.set_region(play.model.region_id, play.ship_layer.fleets)
+	play.ship_layer.rebuild_markers()
+	var sea: Array[Dictionary] = MapPlayNavalTurn.resolve(play)
+	assert_false(sea.is_empty(), "the crown fights at sea under Auto")
+	assert_true(play.hud.plates.sea_queue.is_empty(), "no sea plate is queued")
+
+
 # --- fixtures ----------------------------------------------------------------
 
 
@@ -290,6 +445,71 @@ func _own_army(play: PlaySession) -> ArmyState:
 			if army != null and army.owner == play.player_faction:
 				return army
 	return null
+
+
+## Seats a crown army on the capital when the fixture chart has none yet.
+func _ensure_army(play: PlaySession) -> ArmyState:
+	var army: ArmyState = _own_army(play)
+	if army != null:
+		return army
+	var capital: int = play.capital_province
+	army = ArmyState.muster(99, play.player_faction, capital, false, ["pikemen"], 990)
+	play.army_layer.armies.append(army)
+	play.army_layer.add_marker(army)
+	return army
+
+
+## Seats a crown hull when the fixture chart has none yet, so a sailing tap can
+## hit the Auto gate rather than the empty-selection path.
+func _ensure_ship(play: PlaySession) -> Ship:
+	var capital: int = play.capital_province
+	var fleet: FleetState = play.ship_layer.home_fleet(capital)
+	if fleet == null:
+		fleet = FleetState.in_port(90, play.player_faction, capital, ["ship_90"], {})
+		play.ship_layer.fleets.append(fleet)
+		play.ship_layer.rebuild_markers()
+	return play.ship_layer.ship_for(fleet)
+
+
+## Selects an own crew, then taps bare ground: both the crew's work order and
+## the army's march order are asked for and refused by the gate.
+func _tap_crew_then_ground(play: PlaySession) -> void:
+	var unit: CivilianState = _own_civilian(play)
+	if unit == null:
+		return
+	var marker: CivilianMarker = play.civilian_layer.marker_for(unit)
+	if marker != null:
+		MapPlayInput.on_tapped(play, marker.position)
+	var army: ArmyState = _own_army(play)
+	var province: ProvinceState = (
+		play.model.province_data(army.province) if army != null
+		else play.model.province_data(play.capital_province)
+	)
+	if province == null or province.tiles.is_empty():
+		return
+	var tile: Vector2i = province.tiles[0]
+	MapPlayInput.on_tapped(play, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE))
+
+
+## One crew of the crown's, standing in the region on screen.
+func _own_civilian(play: PlaySession) -> CivilianState:
+	for raw: Variant in play.civilian_layer.units:
+		var unit: CivilianState = raw
+		if unit != null and unit.owner == play.player_faction:
+			return unit
+	return null
+
+
+## What the college would say it is studying, so a refused intent can be told
+## from one that landed.
+func _research_signature(play: PlaySession) -> String:
+	if play.economy == null or play.economy.economy == null:
+		return ""
+	var research: ResearchState = play.economy.economy.research
+	var parts := PackedStringArray()
+	for slot: int in research.slot_count():
+		parts.append("%s/%s" % [research.tech_at(slot), research.funding_at(slot)])
+	return "|".join(parts)
 
 
 ## A land tile of the army's own province, so a refused order is refused by the

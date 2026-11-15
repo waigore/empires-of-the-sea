@@ -68,8 +68,11 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 			line += " — %d ducats spent" % int(battle["attack_paid"])
 		# A Quick Battle plate replays this clash for the court, so the despatch
 		# that repeats its outcome is the first line the held-news cap may drop
-		# (REQ-P5-06).
-		var on_plate: bool = battle.has("quick") and play.hud != null
+		# (REQ-P5-06). Auto fights every clash as Quick Battle with no plate at
+		# all: AFK play is never interrupted (wiki: auto-mode § No interruptions).
+		var on_plate: bool = (
+			battle.has("quick") and play.hud != null and not play.auto_active
+		)
 		if on_plate:
 			battle["player_faction"] = play.player_faction
 			play.hud.show_quick_battle(battle, prefix + province)

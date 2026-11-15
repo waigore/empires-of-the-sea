@@ -99,7 +99,8 @@ static func buyable_tiles(
 	return result
 
 
-## Cheapest deed on offer from one seller, or 0 when nothing there can be signed.
+## Cheapest deed on offer from one seller, or 0 when nothing there can be signed
+## **this turn**: the published price must fit the treasury the caller passes.
 ## A coarse reading for the diplomacy planner: the province's headline resource
 ## is enough to know a court would want its envoy chain opened. `view` is the
 ## buyer's chart of that region, so a province it has never reached offers
@@ -108,6 +109,17 @@ static func buyable_tiles(
 static func cheapest_offer(
 	model: MapModel, faction: int, seller: int, treasury: int,
 	view: VisibilityModel = null
+) -> int:
+	var price: int = priced_offer(model, faction, seller, view)
+	return price if price <= treasury else 0
+
+
+## The same coarse read without the treasury bar: the deed's published price
+## whenever charted land offers one, so the envoy chain may open before the
+## court can pay — the chain takes turns to walk and the purse refills while it
+## does (issue #724; wiki: civilian-units § Merchant).
+static func priced_offer(
+	model: MapModel, faction: int, seller: int, view: VisibilityModel = null
 ) -> int:
 	if model == null:
 		return 0
@@ -127,11 +139,45 @@ static func cheapest_offer(
 		if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
 			continue
 		var price: int = LandPurchase.cost(model, tile)
-		if price <= 0 or price > treasury:
+		if price <= 0:
 			continue
 		if best == 0 or price < best:
 			best = price
 	return best
+
+
+## True while an envoy chain toward a priced deed still has a rung to walk: a
+## charted Minor or Tribe province offers a deed the court holds no embassy
+## for, and neither war nor boycott stands in the way. The deed need not be
+## affordable yet — this is the openable read the staff planner hires on, the
+## court the chain will serve (issue #724; wiki: civilian-units § Merchant).
+static func chain_openable(
+	model: MapModel, faction: int, context: Dictionary
+) -> bool:
+	if model == null or faction < 0:
+		return false
+	var diplomacy: DiplomacyState = context.get("diplomacy", null)
+	if diplomacy == null:
+		return false
+	var view: VisibilityModel = context.get("visibility", null)
+	for province: ProvinceState in model.provinces:
+		var seller: int = province.owner
+		var kind: int = FactionCatalog.type_of(seller)
+		if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
+			continue
+		if seller == faction:
+			continue
+		if DiplomacyRules.has_embassy(diplomacy, faction, seller):
+			continue
+		if DiplomacyRules.at_war_with(diplomacy, faction, seller):
+			continue
+		if DiplomacyTrade.blocked_by_boycott(diplomacy, faction, seller):
+			continue
+		if view != null and not view.is_province_known(province.id):
+			continue
+		if priced_offer(model, faction, seller, view) > 0:
+			return true
+	return false
 
 
 static func _buyable_tile(
