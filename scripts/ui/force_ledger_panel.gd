@@ -7,6 +7,10 @@ extends SheetFrame
 ## rows and asks MapPlayForceLedger to jump (REQ-P3-02, REQ-P3-03). The sheet
 ## chrome, fade and pause-door park come from SheetFrame.
 
+## The muster roll names each squadron; the hull sheet behind this door reads
+## every hull she flies (REQ-P5-01, REQ-P5-03; DR-20261115-14).
+signal navy_pressed
+
 var _rows: VBoxContainer = null
 var _empty: Label = null
 var _region_chips: Array[Button] = []
@@ -52,12 +56,27 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	column.add_child(_filters())
+	column.add_child(_navy_door())
 
 	_rows = VBoxContainer.new()
 	_rows.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_rows.add_theme_constant_override("separation", 5)
 	_append_scroll(column).add_child(_rows)
 	_empty = _make_empty(_rows)
+
+
+## The door to the crown's navy: the roll counts a squadron's hulls, the hull
+## sheet reads each of them, and the press is one reach from the row that raises
+## the question (REQ-P5-01, REQ-P5-03; DR-20261115-14). A full-width row keeps
+## it a thumb-sized tap on a phone sheet.
+func _navy_door() -> Control:
+	var door := Button.new()
+	door.text = "The crown's navy ›"
+	door.tooltip_text = "Every hull the crown floats, squadron by squadron (N)"
+	door.custom_minimum_size = Vector2(0, 34)
+	door.add_theme_font_size_override("font_size", 12)
+	door.pressed.connect(func() -> void: navy_pressed.emit())
+	return door
 
 
 func _on_profile_changed() -> void:

@@ -19,6 +19,7 @@ static func build(hud: GameHud) -> void:
 	ArmyHud.build(hud)
 	_command(hud)
 	_towns(hud)
+	_navy(hud)
 	# The army dossier's command door opens the crown's commanders: the dossier
 	# is where a crown asks who leads, and the pool is the whole of it
 	# (DR-20261115-11).
@@ -166,3 +167,17 @@ static func _towns(hud: GameHud) -> void:
 	hud.towns_ledger = TownLedgerPanel.new()
 	layer.add_child(hud.towns_ledger)
 	hud.towns_pressed.connect(hud.towns_ledger.toggle)
+
+
+## The muster roll's navy door opens the crown's navy: the roll names each
+## squadron by her flagship, and the hull sheet is the whole of what she flies
+## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
+static func _navy(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "NavalLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.navy_ledger = NavalLedgerPanel.new()
+	layer.add_child(hud.navy_ledger)
+	hud.navy_pressed.connect(hud.navy_ledger.toggle)
+	hud.muster_roll.navy_pressed.connect(func() -> void: hud.navy_pressed.emit())

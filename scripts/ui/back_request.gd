@@ -64,6 +64,12 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if command != null and command.is_open():
 		command.close()
 		return true
+	# The navy ledger is the same sibling, and the muster roll stands under it
+	# (DR-20261115-14).
+	var navy: NavalLedgerPanel = play.hud.navy_ledger
+	if navy != null and navy.is_open():
+		navy.close()
+		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()
