@@ -386,6 +386,14 @@ func test_a_rival_proposal_is_declined_without_stopping_the_turn() -> void:
 	)
 
 
+func test_battles_never_open_a_plate() -> void:
+	var play: PlaySession = _seat_the_ai()
+	_drain(play)
+	assert_false(play.hud.is_quick_battle_shown(), "Auto fights Quick Battles silently")
+	assert_true(play.hud.plates.land_queue.is_empty(), "no land plate is queued")
+	assert_true(play.hud.plates.sea_queue.is_empty(), "no sea plate is queued")
+
+
 # --- fixtures ----------------------------------------------------------------
 
 

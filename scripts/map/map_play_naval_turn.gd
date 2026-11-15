@@ -61,8 +61,10 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		# The human's own engagement reads on the sea's despatch plate, so the
 		# despatch that repeats its outcome is the first line the held-news cap
 		# may drop (REQ-P5-06). A rival's fight stays the court's news alone.
+		# Auto fights the crown's sea battles with no plate: AFK play is never
+		# interrupted (wiki: auto-mode § No interruptions).
 		var player: int = play.human_faction_id()
-		var on_plate: bool = play.hud != null and (
+		var on_plate: bool = play.hud != null and not play.auto_active and (
 			int(battle.get("attacker", -1)) == player or int(battle.get("defender", -1)) == player
 		)
 		if on_plate:
