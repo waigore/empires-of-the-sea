@@ -110,6 +110,31 @@ func test_one_region_reads_as_a_roster_and_answers_empty_when_it_cannot() -> voi
 	assert_eq(LedgerRows.stored_rows(table, 2), [], "a works table is not a roster")
 
 
+func test_the_chart_scope_is_one_wording_every_count_line_reads() -> void:
+	assert_eq(LedgerRows.scope_text(LedgerRows.REGION_OLD), "in the Old World")
+	assert_eq(LedgerRows.scope_text(LedgerRows.REGION_NEW), "in the New World")
+	assert_eq(LedgerRows.scope_text(LedgerRows.REGION_ALL), "in both charts")
+	assert_eq(
+		LedgerRows.scope_text("a_chart_no_sheet_names"),
+		"in both charts",
+		"an unknown key keeps every chart, as the narrowing does"
+	)
+
+
+func test_the_crowns_fleets_are_walked_once_for_both_ledgers() -> void:
+	var table := MapRegionTable.new()
+	var mine := FleetState.new()
+	mine.owner = 4
+	var theirs := FleetState.new()
+	theirs.owner = 7
+	table.set_region(0, [mine, theirs])
+	var fleets: Array[FleetState] = LedgerRows.stored_fleets(table, 0, 4)
+	assert_eq(fleets.size(), 1, "a rival's squadron drops out")
+	assert_eq(fleets[0], mine)
+	assert_eq(LedgerRows.stored_fleets(table, 1, 4), [], "a chart never visited is empty")
+	assert_eq(LedgerRows.stored_fleets(null, 0, 4), [], "a missing table reads empty, not an error")
+
+
 # --- fixtures ---------------------------------------------------------------
 
 

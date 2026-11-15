@@ -208,11 +208,14 @@ func test_the_readings_narrow_the_sheet() -> void:
 func test_the_empty_view_names_why_no_hull_answers() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	panel.bind(screen.play)
+	screen.hud.navy_pressed.emit()
+	assert_true(_row_widgets(panel) > 0, "the sheet opens on the crown's hulls")
 	# A chart the crown floats nothing in: the whole navy answers, this chart does not.
 	panel._snapshot = NavalLedger.snapshot(_world(), _old_only(), OWNER)
 	panel._region = LedgerRows.REGION_NEW
 	panel._apply_filter()
 	assert_true(panel._empty.visible, "an empty chart prints the empty line")
+	assert_eq(_row_widgets(panel), 0, "and the rows the last press left are cleared")
 	assert_true(panel._empty.text.contains("No hull answers this view"))
 	assert_true(panel._subtitle.text.contains("0 of 0 hulls"), "the count line stays honest")
 	# Nothing afloat but a yard slip: the sheet names the yard rather than a gap.
