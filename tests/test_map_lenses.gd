@@ -57,6 +57,10 @@ func test_lens_toggle_raises_the_key_and_builds_a_survey() -> void:
 	assert_eq(_screen.hud.lens_seal.active_kind, LensLegend.KIND_SURVEY)
 	assert_gt(int(lens.survey["counts"]["estates"]), 0)
 	assert_gt((lens.survey.get("routes", []) as Array).size(), 0, "the lens carries the roads")
+	assert_eq(
+		(lens._runs as Array).size(), RoadInk.ink_paths(lens.survey["routes"]).size(),
+		"the lens bakes the road ink once, from the same segments"
+	)
 	assert_almost_eq(_screen.civilian_layer.modulate.a, 0.22, 0.001)
 
 	lens._reveal = 1.0
@@ -179,12 +183,22 @@ func test_summary_for_an_unsurveyed_province_is_empty() -> void:
 func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 	var probe := _RoadInkProbe.new()
 	probe.font = UiTheme.serif()
+	# Each reading takes a turn as well as a straight, so the sleeper and dash
+	# walks are exercised over a bend and not only a single chord.
 	probe.segments = [
 		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
 		{"a": Vector2i(2, 1), "b": Vector2i(3, 1), "linked": true, "rail": true},
+		{"a": Vector2i(3, 1), "b": Vector2i(3, 2), "linked": true, "rail": true},
 		{
 			"a": Vector2i(1, 2),
 			"b": Vector2i(2, 2),
+			"linked": false,
+			"rail": false,
+			"fogged": true,
+		},
+		{
+			"a": Vector2i(2, 2),
+			"b": Vector2i(2, 3),
 			"linked": false,
 			"rail": false,
 			"fogged": true,
@@ -199,8 +213,57 @@ func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 	add_child(probe)
 	probe.queue_redraw()
 	await get_tree().process_frame
-	assert_eq(probe.segments.size(), 3)
+	assert_eq(probe.segments.size(), 5)
 	probe.queue_free()
+
+
+## A road that turns is one inked curve, not two tile-centre chords: the corner
+## is cut, so the stroke never passes through the grid vertex (REQ-P1-03).
+func test_a_turning_road_inks_as_one_curve_with_a_cut_corner() -> void:
+	var runs: Array[Dictionary] = RoadInk.ink_paths([
+		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
+		{"a": Vector2i(2, 1), "b": Vector2i(2, 2), "linked": true, "rail": false},
+	])
+	assert_eq(runs.size(), 1, "a linked turn is one run, not one stroke a tile")
+	var points: PackedVector2Array = runs[0]["points"]
+	assert_gt(points.size(), 4, "the corner is subdivided, not a hard vertex")
+	var corner: Vector2 = MapGeo.tile_center(2, 1, RoadInk.TILE_SIZE)
+	var nearest: float = INF
+	for point: Vector2 in points:
+		nearest = minf(nearest, point.distance_to(corner))
+	assert_gt(nearest, 1.5, "the stroke cuts the corner instead of touching the vertex")
+
+
+## A long straight run bows off the tile-centre line, so the network does not
+## read as a ruled grid (REQ-P1-03).
+func test_a_straight_road_bows_off_the_tile_centres() -> void:
+	var runs: Array[Dictionary] = RoadInk.ink_paths([
+		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
+		{"a": Vector2i(2, 1), "b": Vector2i(3, 1), "linked": true, "rail": false},
+		{"a": Vector2i(3, 1), "b": Vector2i(4, 1), "linked": true, "rail": false},
+	])
+	assert_eq(runs.size(), 1)
+	var points: PackedVector2Array = runs[0]["points"]
+	var a: Vector2 = MapGeo.tile_center(1, 1, RoadInk.TILE_SIZE)
+	var b: Vector2 = MapGeo.tile_center(4, 1, RoadInk.TILE_SIZE)
+	var bow: float = 0.0
+	for point: Vector2 in points:
+		bow = maxf(bow, absf((b - a).cross(point - a) / a.distance_to(b)))
+	assert_gt(bow, 0.3, "the stroke bows off the straight chord")
+	assert_lt(bow, 3.0, "and stays on its own tiles")
+
+
+## Two runs of different readings still meet at the tile centre they share, so a
+## road never breaks where a railroad begins.
+func test_runs_of_different_readings_still_meet_at_a_junction() -> void:
+	var runs: Array[Dictionary] = RoadInk.ink_paths([
+		{"a": Vector2i(1, 1), "b": Vector2i(2, 1), "linked": true, "rail": false},
+		{"a": Vector2i(2, 1), "b": Vector2i(3, 1), "linked": true, "rail": true},
+	])
+	assert_eq(runs.size(), 2, "a road and a railroad keep their own strokes")
+	var road: PackedVector2Array = runs[0]["points"]
+	var rail: PackedVector2Array = runs[1]["points"]
+	assert_almost_eq(road[road.size() - 1].distance_to(rail[0]), 0.0, 0.01)
 
 
 func test_an_unsurveyed_province_draws_its_survey_ring() -> void:
