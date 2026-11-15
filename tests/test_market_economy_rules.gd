@@ -557,6 +557,44 @@ func test_no_purchased_tile_means_no_profit_share() -> void:
 	assert_eq(int((report["credits"] as Dictionary)["by_gp"].get(1, 0)), 0)
 	assert_eq((economies[1] as PlayerEconomy).treasury, before)
 
+## A settled court-to-court deal is recorded for the next Diplomacy phase's
+## trade-deal lift (wiki: diplomacy § Relation Model — trade-deal boost, R10).
+func test_a_settled_deal_records_the_pair_for_the_lift() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(50.0)
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_true(
+		diplomacy.trade_pairs.has(diplomacy.pair_key(0, 6)),
+		"the minor's harvest lifts the pair"
+	)
+
+## The standing world counterparty is no court, so a bid it fills records no
+## pair (wiki: diplomacy § Relation Model — trade-deal boost, R10).
+func test_the_world_counterparty_is_no_trade_pair() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	MarketOrders.submit(
+			market,
+		0, "iron", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 80}
+	)
+	MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_true(diplomacy.trade_pairs.is_empty())
+
 func test_first_right_pays_the_tile_owner_on_a_rival_sale() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var world: WorldMap = _market_engine_world()

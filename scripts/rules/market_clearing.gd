@@ -195,6 +195,7 @@ static func _settle(
 ) -> Dictionary:
 	var fills: Dictionary = {}
 	var kept: Array[Dictionary] = []
+	var diplomacy: DiplomacyState = context.get("diplomacy", null)
 	for deal: Dictionary in deals:
 		var buyer: int = int(deal.get("buyer", MarketOrder.WORLD))
 		var seller: int = int(deal.get("seller", MarketOrder.WORLD))
@@ -231,6 +232,11 @@ static func _settle(
 		):
 			continue
 		kept.append(deal)
+		# A settled deal lifts its pair's relation next turn (wiki: diplomacy
+		# § Relation Model — trade-deal boost, R10). Volume-independent; the
+		# state drops the world counterparty and Minor-to-Minor pairs.
+		if diplomacy != null:
+			DiplomacyTrade.record_deal(diplomacy, buyer, seller)
 		# The row carries what the clearing actually settled, not what the matcher
 		# proposed: the debt is rounded once from the whole deal, so the Deal Book
 		# must read the charged total (wiki: world-market § Subsidy price

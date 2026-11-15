@@ -24,6 +24,10 @@ var human_faction: int = FactionCatalog.PLAYER_FACTION
 ## Pair key -> true for formal alliances at the close of the preceding turn.
 ## A treaty signed this turn never grants mutual defence for this turn.
 var alliance_snapshot: Dictionary = {}
+## Pair key -> true for pairs that cleared a world-market deal this turn: the
+## next Diplomacy phase lifts them before decay (wiki: diplomacy § Relation
+## Model — trade-deal boost, R10).
+var trade_pairs: Dictionary = {}
 ## Calls to arms the human court has not answered: {aggressor, defender, ally}.
 var pending_calls: Array[Dictionary] = []
 ## Intervention offers the human court has not answered:
@@ -62,6 +66,7 @@ func reset(at_turn: int) -> void:
 	colonies.clear()
 	events.clear()
 	alliance_snapshot.clear()
+	trade_pairs.clear()
 	pending_calls.clear()
 	pending_interventions.clear()
 	pending_offers.clear()
@@ -221,11 +226,7 @@ func end_turn() -> Dictionary:
 		var target: int = int(parts[1])
 		var record: DiplomacyRelation = relation(payer, target)
 		var stage: String = overture(payer, target)
-		var embassy: bool = stage in [
-			DiplomacyCatalog.STAGE_EMBASSY,
-			DiplomacyCatalog.STAGE_NAP,
-			DiplomacyCatalog.STAGE_JOIN_EMPIRE,
-		]
+		var embassy: bool = DiplomacyCatalog.is_embassy_stage(stage)
 		if record == null or record.at_war or not embassy:
 			cancelled.append(key)
 	for key: String in cancelled:
@@ -237,6 +238,10 @@ func end_turn() -> Dictionary:
 			{"percent": int(subsidies[key])}
 		)
 		subsidies.erase(key)
+	# The trade-deal lift lands before the drift, so a pair that just traded is
+	# event-modified and skips this turn's decay (wiki: diplomacy § Relation
+	# Model — trade-deal boost, R10).
+	DiplomacyTrade.pay_trade_boosts(self)
 	var decayed: int = apply_decay()
 	# The mutual-defence snapshot is the state at the close of this turn: a
 	# treaty signed next turn cannot be pulled into today's war (wiki: diplomacy).

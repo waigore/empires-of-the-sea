@@ -277,6 +277,68 @@ func test_newly_created_relation_skips_its_creation_turn() -> void:
 	state.end_turn()
 	assert_eq(state.relation(0, tribe).score, 40.0)
 
+## wiki: diplomacy § Relation Model — trade-deal boost (R10). A pair that cleared
+## a world-market deal is lifted +2.0 the next Diplomacy phase, before decay, so
+## it is event-modified and does not also drift.
+func test_a_traded_pair_is_lifted_before_decay() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 50.0
+	state.relation(0, 7).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 52.0, "+2.0 base, no embassy")
+	assert_eq(state.relation(0, 7).score, 50.0, "a pair that did not trade is unchanged")
+
+func test_the_trade_lift_adds_the_embassy_bonus() -> void:
+	_setup_diplomacy_state()
+	# GP–GP pairs are seeded at embassy, so the lift carries the +0.4 bonus.
+	state.relation(0, 1).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 1)
+	state.end_turn()
+	assert_eq(state.relation(0, 1).score, 52.4, "+2.0 base +0.4 embassy")
+
+func test_the_trade_lift_scales_with_the_subsidy() -> void:
+	_setup_diplomacy_state()
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_subsidy(0, 6, 10)
+	state.relation(0, 6).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 54.4, "+2.0 +0.4 embassy +2.0 for 10%")
+
+func test_the_trade_lift_is_paid_once_per_pair() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	DiplomacyTrade.record_deal(state, 6, 0)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 52.0, "volume-independent, once per pair")
+	assert_true(state.trade_pairs.is_empty(), "the phase consumes the record")
+
+func test_a_war_pair_keeps_its_frozen_score() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 30.0
+	state.relation(0, 6).at_war = true
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 30.0, "war scores are frozen")
+
+func test_the_trade_lift_clamps_at_one_hundred() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 99.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 100.0)
+
+func test_only_a_court_deal_with_a_great_power_is_recorded() -> void:
+	_setup_diplomacy_state()
+	DiplomacyTrade.record_deal(state, -1, 0)
+	DiplomacyTrade.record_deal(state, 6, 7)
+	DiplomacyTrade.record_deal(state, 0, 0)
+	assert_true(state.trade_pairs.is_empty(), "no court pair, no lift")
+	DiplomacyTrade.record_deal(state, 0, 6)
+	assert_true(state.trade_pairs.has(state.pair_key(0, 6)))
+
 func test_subsidies_survive_while_the_embassy_stands() -> void:
 	_setup_diplomacy_state()
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)

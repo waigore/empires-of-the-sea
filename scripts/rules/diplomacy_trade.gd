@@ -315,6 +315,57 @@ static func terms_for_court(
 	return faction_terms(state, {}, faction)
 
 
+## Records that a pair cleared a world-market deal this turn: the next Diplomacy
+## phase lifts it before decay (wiki: diplomacy § Relation Model — trade-deal
+## boost, R10). Volume-independent and once per pair, so a second deal between
+## the same courts adds nothing. Only a court-to-court deal involving at least
+## one Great Power counts: the standing world counterparty is no court, and two
+## Minor/Tribe courts never trade with each other.
+static func record_deal(state: DiplomacyState, a: int, b: int) -> void:
+	if state == null or a < 0 or b < 0 or a == b:
+		return
+	var type_a: int = FactionCatalog.type_of(a)
+	var type_b: int = FactionCatalog.type_of(b)
+	if type_a < 0 or type_b < 0:
+		return
+	var gp: int = FactionCatalog.Type.GREAT_POWER
+	if type_a != gp and type_b != gp:
+		return
+	state.trade_pairs[state.pair_key(a, b)] = true
+
+
+## Pays this turn's trade-deal lifts, once per pair, before the drift reads the
+## pairs: +2.0 base, +0.4 while an Embassy is in effect, +0.2 per subsidy
+## percentage point between the parties. A boosted pair is event-modified and
+## skips its decay; a pair at war keeps its frozen score (wiki: diplomacy
+## § Relation Model — trade-deal boost, R10).
+static func pay_trade_boosts(state: DiplomacyState) -> int:
+	if state == null:
+		return 0
+	var paid: int = 0
+	for key: String in state.trade_pairs.keys():
+		var parts: PackedStringArray = key.split(":")
+		if parts.size() != 2:
+			continue
+		var a: int = int(parts[0])
+		var b: int = int(parts[1])
+		var record: DiplomacyRelation = state.relation(a, b)
+		if record == null or record.at_war:
+			continue
+		var boost: float = DiplomacyCatalog.TRADE_BOOST_BASE
+		if (
+			DiplomacyCatalog.is_embassy_stage(state.overture(a, b))
+			or DiplomacyCatalog.is_embassy_stage(state.overture(b, a))
+		):
+			boost += DiplomacyCatalog.TRADE_BOOST_EMBASSY
+		var percent: int = maxi(state.subsidy(a, b), state.subsidy(b, a))
+		boost += DiplomacyCatalog.TRADE_BOOST_PER_SUBSIDY * float(percent)
+		state.apply_delta(a, b, boost, "tradeDealBoost", {"boost": boost})
+		paid += 1
+	state.trade_pairs.clear()
+	return paid
+
+
 static func _colony_tribes(state: DiplomacyState, gp: int) -> Array[int]:
 	var tribes: Array[int] = []
 	if state == null:
