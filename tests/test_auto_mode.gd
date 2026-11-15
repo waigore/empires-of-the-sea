@@ -255,6 +255,45 @@ func test_the_chart_stays_readable_but_raises_no_order() -> void:
 	assert_true(play.economy.orders.seat_held_elsewhere(), "the ledger is gated too")
 
 
+func test_the_court_plays_normally_when_it_holds_the_seat() -> void:
+	var play: PlaySession = screen.play
+	play.selected_province = play.capital_province
+	MapPlayInput.on_panel_action(play, "upgrade_town")
+	_tap_crew_then_ground(play)
+	var book: Dictionary = play.economy.market.to_dict()
+	play.economy.orders.offer("", 1)
+	play.economy.orders.withdraw("no-such-order")
+	play.economy.orders.set_production("", 0)
+	play.economy.orders.worker_action(0, "recruit")
+	play.economy.orders.assign_research("")
+	play.economy.orders.cancel_research(0)
+	play.economy.orders.cycle_research_funding(0)
+	play.economy.orders.trade("grain", 1, true)
+	assert_ne(play.economy.market.to_dict(), book, "the book takes the court's own order")
+
+
+func test_every_door_shuts_while_the_ai_holds_the_seat() -> void:
+	var play: PlaySession = _seat_the_ai()
+	# The province sheet's own orders.
+	play.selected_province = play.capital_province
+	MapPlayInput.on_panel_action(play, "upgrade_town")
+	# The chart's orders, with a crew and an army selected in turn.
+	_tap_crew_then_ground(play)
+	# The ledger's and the college's intents, one of each.
+	var book: Dictionary = play.economy.market.to_dict()
+	var research: String = _research_signature(play)
+	assert_eq(play.economy.orders.trade("grain", 5, true), {}, "no bid reaches the book")
+	play.economy.orders.offer("", 1)
+	play.economy.orders.withdraw("no-such-order")
+	play.economy.orders.set_production("", 0)
+	play.economy.orders.worker_action(0, "recruit")
+	play.economy.orders.assign_research("")
+	play.economy.orders.cancel_research(0)
+	play.economy.orders.cycle_research_funding(0)
+	assert_eq(play.economy.market.to_dict(), book, "the book is untouched")
+	assert_eq(_research_signature(play), research, "the college is untouched")
+
+
 # --- no interruptions --------------------------------------------------------
 
 
@@ -298,6 +337,47 @@ func _own_army(play: PlaySession) -> ArmyState:
 			if army != null and army.owner == play.player_faction:
 				return army
 	return null
+
+
+## Selects an own crew, then taps bare ground: both the crew's work order and
+## the army's march order are asked for and refused by the gate.
+func _tap_crew_then_ground(play: PlaySession) -> void:
+	var unit: CivilianState = _own_civilian(play)
+	if unit == null:
+		return
+	var marker: CivilianMarker = play.civilian_layer.marker_for(unit)
+	if marker != null:
+		MapPlayInput.on_tapped(play, marker.position)
+	var army: ArmyState = _own_army(play)
+	var province: ProvinceState = (
+		play.model.province_data(army.province) if army != null
+		else play.model.province_data(play.capital_province)
+	)
+	if province == null or province.tiles.is_empty():
+		return
+	var tile: Vector2i = province.tiles[0]
+	MapPlayInput.on_tapped(play, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE))
+
+
+## One crew of the crown's, standing in the region on screen.
+func _own_civilian(play: PlaySession) -> CivilianState:
+	for raw: Variant in play.civilian_layer.units:
+		var unit: CivilianState = raw
+		if unit != null and unit.owner == play.player_faction:
+			return unit
+	return null
+
+
+## What the college would say it is studying, so a refused intent can be told
+## from one that landed.
+func _research_signature(play: PlaySession) -> String:
+	if play.economy == null or play.economy.economy == null:
+		return ""
+	var research: ResearchState = play.economy.economy.research
+	var parts := PackedStringArray()
+	for slot: int in research.slot_count():
+		parts.append("%s/%s" % [research.tech_at(slot), research.funding_at(slot)])
+	return "|".join(parts)
 
 
 ## A land tile of the army's own province, so a refused order is refused by the
