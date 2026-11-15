@@ -28,15 +28,11 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
   civilians, passing fair split on the **first** attempt.
-- Terrain wash (`MapWash.baked`) and fog coast tables (`VisibilityModel`) build
-  once per map state — many mounts repaint nothing.
-- Chart layers bake on change (`CountryBorders.signature`, `MapLens.source_key`):
-  a re-seat of the same chart redraws nothing; `sync_visibility` raises
-  `fog_changed` only when a tile moved.
-- A mount paints chips, minimap and readings once (`load_region`); `build_hud`
-  adds turn, economy, income and dossier.
+- Terrain wash (`MapWash.baked`), fog tables (`VisibilityModel`) and chart
+  layers (`CountryBorders.signature`, `MapLens.source_key`) build once per map
+  state: a re-seat redraws nothing and `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
-  (`_attach()`) so rule-only cases never paint; region-only suites too.
+  (`_attach()`) so rule-only cases never paint.
 - **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
   case on a pristine save (~0.15 s) instead of remounting (~0.5 s), dropping
   selection, sheets, lenses and news; a suite that swaps screens frees its own.
@@ -46,9 +42,12 @@ Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** 
   cases start at turn 1. `test_ai_observer` is the reference.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   not `generate_world` (builds and discards the other region).
+- A suite whose cases mutate its fixture builds a fresh one per case.
 - One Godot boot per theme (merged pure suites) — coverage ~11 s a boot: fold
   leftovers in; delete suites already covered elsewhere. `gd-tools.toml` keeps
-  `parallel = 4`; profile with `--durations 20`. Smoke: short boot, no sleeps.
+  `parallel = 4`; profile with `--durations 20`.
+- Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
+  landed on exit).
 
 ## Local
 
