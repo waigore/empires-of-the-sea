@@ -182,7 +182,6 @@ func test_summary_for_an_unsurveyed_province_is_empty() -> void:
 
 func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 	var probe := _RoadInkProbe.new()
-	probe.font = UiTheme.serif()
 	# Each reading takes a turn as well as a straight, so the sleeper and dash
 	# walks are exercised over a bend and not only a single chord.
 	probe.segments = [
@@ -203,12 +202,6 @@ func test_road_ink_draws_linked_cut_rail_and_fogged_strokes() -> void:
 			"rail": false,
 			"fogged": true,
 		},
-	]
-	probe.links = [
-		{"counts": {"developed": 0, "linked": 0}, "origin": Vector2.ZERO},
-		{"counts": {"developed": 2, "linked": 2}, "origin": Vector2(0, 12)},
-		{"counts": {"developed": 2, "linked": 1}, "origin": Vector2(0, 24)},
-		{"counts": {"developed": 2, "linked": 0}, "origin": Vector2(0, 36)},
 	]
 	add_child(probe)
 	probe.queue_redraw()
@@ -266,21 +259,104 @@ func test_runs_of_different_readings_still_meet_at_a_junction() -> void:
 	assert_almost_eq(road[road.size() - 1].distance_to(rail[0]), 0.0, 0.01)
 
 
-func test_an_unsurveyed_province_draws_its_survey_ring() -> void:
+## Ground still to read is a count on the plate, so a province says how many
+## tiles an Explorer could prospect instead of only that some exist (#698).
+func test_an_unsurveyed_province_carries_its_prospect_count() -> void:
 	MapPlayInput.set_lens(_screen.play, true)
 	var lens: ResourceLens = _screen.play.lens
-	var found: Dictionary = {}
-	for raw: Variant in lens.survey["provinces"]:
-		var entry: Dictionary = raw
-		if int(entry.get("unsurveyed", 0)) > 0:
-			found = entry
-			break
+	var found: Dictionary = _first_with_ground(lens)
 	if found.is_empty():
 		return
 	assert_true(String(found["summary"]).contains("unsurveyed"))
+	var plain: float = (
+		ResourceLens.PLATE_PAD * 2.0 + ResourceLens.RIBBON
+		+ float((found["types"] as Array).size()) * ResourceLens.TYPE_COL
+	)
+	assert_almost_eq(lens._plate_size(found).x, plain + ResourceLens.CUE_W, 0.01)
+	found["unsurveyed"] = 0
+	assert_almost_eq(lens._plate_size(found).x, plain, 0.01, "no ground, no cue column")
+	found["unsurveyed"] = 1
 	lens._reveal = 1.0
 	lens.queue_redraw()
 	await get_tree().process_frame
+
+
+## The plate draws a column per type in every estate state, the badge inks amber
+## when a kind is only partly linked, and the key names the Explorer cue.
+func test_a_plate_draws_every_type_state_and_the_explorer_cue() -> void:
+	MapPlayInput.set_lens(_screen.play, true)
+	var lens: ResourceLens = _screen.play.lens
+	var first: Dictionary = _crafted_plate(
+		1, ["producing", "vacant", "foreign", "disconnected"], 3
+	)
+	var second: Dictionary = _crafted_plate(2, ["building", "maxed", "producing", "vacant"])
+	# One kind, one estate cut off: the reading a single-estate column never makes.
+	var third: Dictionary = _crafted_plate(3, ["producing", "disconnected"], 0, "tree")
+	var saved: Dictionary = lens.survey
+	lens._reveal = 1.0
+	lens.survey = {"provinces": [first, second, third], "counts": {}, "routes": []}
+	lens._layout_plates()
+	lens.queue_redraw()
+	await get_tree().process_frame
+	assert_eq((lens._plate_rect(first).size as Vector2).y, ResourceLens.PLATE_H)
+	assert_eq(String(first["types"][0]["status"]), "producing")
+	assert_eq(String(second["types"][0]["status"]), "building")
+	assert_eq(String(third["types"][0]["badge"]), "2/1/2", "one of the two is cut off")
+	lens.survey = saved
+	lens.refresh()
+	var key: LensLegend = _screen.hud.lens_legend
+	assert_true(key.is_survey())
+	var named: bool = false
+	for row: Dictionary in LensLegend.SURVEY_ROWS:
+		if String(row["status"]) == "survey":
+			named = String(row["text"]).contains("Explorer")
+	assert_true(named, "the key still says an Explorer reads the ground")
+	key.queue_redraw()
+	await get_tree().process_frame
+
+
+## The first plate with ground still to read (empty when the chart is read).
+func _first_with_ground(lens: ResourceLens) -> Dictionary:
+	for raw: Variant in lens.survey.get("provinces", []):
+		if int((raw as Dictionary).get("unsurveyed", 0)) > 0:
+			return raw
+	return {}
+
+
+## A plate holding one estate of every kind in the states a case asks for.
+## `kind` pins every row to one emblem so a case can build a multi-estate column.
+func _crafted_plate(
+	province_id: int, statuses: Array, unsurveyed: int = 0, kind: String = ""
+) -> Dictionary:
+	var rows: Array[Dictionary] = []
+	for i in statuses.size():
+		var icon: String = kind if not kind.is_empty() else (
+			ResourceTypes.ORDER[i % ResourceTypes.ORDER.size()]
+		)
+		rows.append(_crafted_row(icon, String(statuses[i]), i))
+	var entry: Dictionary = {
+		"id": province_id, "name": "Fixture", "center": Vector2(6, 6),
+		"anchor": Vector2(6, 6), "owner": _screen.player_faction, "capital": false,
+		"charted": VisibilityModel.Level.FULLY_VISIBLE, "rows": rows,
+		"counts": {}, "output": {}, "output_text": "", "tile_owners": [],
+		"unsurveyed": unsurveyed,
+	}
+	entry["types"] = ResourceTypes.rows(entry)
+	entry["summary"] = ResourceSurvey.summary_text(entry)
+	return entry
+
+
+## One crafted estate row in the state a case asks for.
+func _crafted_row(kind: String, status: String, index: int) -> Dictionary:
+	var maxed: bool = status == "maxed"
+	return {
+		"icon": kind, "ours": status != "foreign", "status": status,
+		"level": ImprovementCatalog.MAX_LEVEL if maxed else (
+			1 if status in ["producing", "disconnected"] else 0
+		),
+		"connected": status != "disconnected", "tile": Vector2i(index, index),
+		"commodity": "timber",
+	}
 
 
 ## Every resource kind owns its commodity ink, so the lens never paints a coin,
@@ -338,17 +414,10 @@ class _EmblemProbe extends Node2D:
 
 ## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.
 class _RoadInkProbe extends Node2D:
-	var font: Font = null
 	var segments: Array = []
-	var links: Array = []
 
 	func _draw() -> void:
 		RoadInk.draw_routes(self, segments, 1.0)
-		for raw: Variant in links:
-			var link: Dictionary = raw
-			RoadInk.draw_link(
-				self, font, link["counts"], link["origin"], 40.0, 1.0
-			)
 
 
 # --- helpers -----------------------------------------------------------------
