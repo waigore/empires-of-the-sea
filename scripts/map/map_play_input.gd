@@ -6,14 +6,6 @@ extends RefCounted
 ## Copy for land no fleet or explorer has charted. The hover tooltip is
 ## mouse-only, so a tap repeats it as a toast for touch players.
 const UNCHARTED_TEXT: String = "Uncharted land"
-## The readings in the order the bar's seal walks them (REQ-P5-03).
-const LENS_ORDER: Array = [
-	LensLegend.KIND_SURVEY,
-	LensLegend.KIND_DIPLOMACY,
-	LensLegend.KIND_CROWN_ROAD,
-	LensLegend.KIND_DEFENCE,
-]
-
 
 
 static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
@@ -51,6 +43,14 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 		return
 	if play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):
 		return
+	# The sea reading is a reading, not a door: a tap on its water says the line
+	# a hover would print, because a phone has no cursor to hover with
+	# (REQ-P1-05, REQ-P5-05).
+	if play.sea_lens != null and play.sea_lens.active:
+		var sea: String = play.sea_lens.summary_at(world_position)
+		if not sea.is_empty():
+			play.hud.toast(sea)
+			return
 	var province_id: int = play.model.province_at(tile.x, tile.y)
 	if play.lens != null and play.lens.active:
 		var surveyed: int = play.lens.hit_test(world_position)
@@ -111,136 +111,51 @@ static func on_minimap_jump(play: PlaySession, world_position: Vector2) -> void:
 
 
 ## Toggles the survey lens and keeps the cartouche seal and key in step. The
-## map lenses are exclusive readings: raising one lowers the others.
+## map lenses are exclusive readings: raising one lowers the others. Every
+## reading's own raise, walk and fade is MapPlayLens' (REQ-P3-01).
 static func set_lens(play: PlaySession, active: bool) -> void:
-	_raise_lens(play, play.lens, LensLegend.KIND_SURVEY, active)
+	MapPlayLens.set_kind(play, LensLegend.KIND_SURVEY, active)
 
 
 ## The diplomatic lens reads the political map; it shares the key cartouche and
 ## the unit fade with the other lenses, never both at once.
 static func set_diplomacy_lens(play: PlaySession, active: bool) -> void:
-	_raise_lens(play, play.diplomacy_lens, LensLegend.KIND_DIPLOMACY, active)
+	MapPlayLens.set_kind(play, LensLegend.KIND_DIPLOMACY, active)
 
 
 ## The crown-road lens reads the crown's own connectivity to its capital.
 static func set_crown_lens(play: PlaySession, active: bool) -> void:
-	_raise_lens(play, play.crown_lens, LensLegend.KIND_CROWN_ROAD, active)
+	MapPlayLens.set_kind(play, LensLegend.KIND_CROWN_ROAD, active)
 
 
 ## The defence lens reads every charted province's garrison, wall and hospital.
 static func set_defence_lens(play: PlaySession, active: bool) -> void:
-	_raise_lens(play, play.defence_lens, LensLegend.KIND_DEFENCE, active)
+	MapPlayLens.set_kind(play, LensLegend.KIND_DEFENCE, active)
 
 
-## One lens up: the others come down and the key cartouche follows the reading
-## that was raised (REQ-P5-03).
-static func _raise_lens(
-	play: PlaySession, lens: Variant, kind: String, active: bool
-) -> void:
-	if lens == null:
-		return
-	if active:
-		_lower_other_lenses(play, lens)
-	lens.set_active(active)
-	play.hud.set_lens(active, kind)
-	_fade_field_units(play, _any_lens(play))
-	# A stationary cursor would keep the pre-lens tooltip: rebuild it next frame.
-	clear_hover(play)
-
-
-## The four readings never stack: each open lens takes its own toggle down so
-## no button claims a mode that is not on.
-static func _lower_other_lenses(play: PlaySession, keep: Variant) -> void:
-	var lenses: Array = [play.lens, play.diplomacy_lens, play.crown_lens, play.defence_lens]
-	var kinds: Array[String] = [
-		LensLegend.KIND_SURVEY, LensLegend.KIND_DIPLOMACY,
-		LensLegend.KIND_CROWN_ROAD, LensLegend.KIND_DEFENCE,
-	]
-	for i in lenses.size():
-		var other: Variant = lenses[i]
-		if other == null or other == keep or not bool(other.active):
-			continue
-		other.set_active(false)
-		play.hud.set_lens(false, kinds[i])
-
-
-## The survey is the subject while a lens is on: land units ghost back so the
-## reading stays legible, and return to full ink when every lens closes.
-static func _fade_field_units(play: PlaySession, active: bool) -> void:
-	var alpha: float = 0.22 if active else 1.0
-	if play.civilian_layer != null:
-		play.civilian_layer.modulate.a = alpha
-	if play.army_layer != null:
-		play.army_layer.modulate.a = alpha
-
-
-static func _any_lens(play: PlaySession) -> bool:
-	var survey: bool = play.lens != null and play.lens.active
-	var political: bool = play.diplomacy_lens != null and play.diplomacy_lens.active
-	var crown: bool = play.crown_lens != null and play.crown_lens.active
-	var defence: bool = play.defence_lens != null and play.defence_lens.active
-	return survey or political or crown or defence
+## The sea reading names what stands in every zone the crown has a sail under
+## its eye in, and whether the turn resolves a battle there.
+static func set_sea_lens(play: PlaySession, active: bool) -> void:
+	MapPlayLens.set_kind(play, LensLegend.KIND_SEA, active)
 
 
 ## L still toggles the survey reading (the seal walks them; P names the court).
 static func toggle_lens(play: PlaySession) -> void:
-	if play.lens == null:
-		return
-	set_lens(play, not play.lens.active)
+	MapPlayLens.toggle(play, LensLegend.KIND_SURVEY)
 
 
 static func toggle_diplomacy_lens(play: PlaySession) -> void:
-	if play.diplomacy_lens == null:
-		return
-	set_diplomacy_lens(play, not play.diplomacy_lens.active)
+	MapPlayLens.toggle(play, LensLegend.KIND_DIPLOMACY)
 
 
-## The reading a click on the bar's seal walks next: none -> survey ->
-## diplomacy -> crown road -> defence -> none. The last step clears the map
-## because touch has no other way to put a reading down (REQ-P5-03).
+## The bar's one seal steps to the next reading (MapPlayLens.ORDER).
 static func cycle_lens(play: PlaySession) -> void:
-	var next: int = 0
-	for i in LENS_ORDER.size():
-		var lens: Variant = _lens_for(play, String(LENS_ORDER[i]))
-		if lens != null and bool(lens.active):
-			next = i + 1
-			break
-	for offset in LENS_ORDER.size() + 1:
-		var index: int = next + offset
-		if index >= LENS_ORDER.size():
-			select_lens(play, "")
-			return
-		if _lens_for(play, String(LENS_ORDER[index])) != null:
-			select_lens(play, String(LENS_ORDER[index]))
-			return
+	MapPlayLens.cycle(play)
 
 
-## Raises one named reading, or clears them all with an empty kind. The menu
-## and the keys share this, so neither can leave two lenses on.
+## The seal's menu and the keys name one reading, or none with an empty kind.
 static func select_lens(play: PlaySession, kind: String) -> void:
-	if kind.is_empty():
-		_lower_other_lenses(play, null)
-		_fade_field_units(play, false)
-		clear_hover(play)
-		return
-	var lens: Variant = _lens_for(play, kind)
-	if lens == null:
-		return
-	_raise_lens(play, lens, kind, true)
-
-
-## The lens that draws one reading; null before its layer exists or is bound.
-static func _lens_for(play: PlaySession, kind: String) -> Variant:
-	match kind:
-		LensLegend.KIND_SURVEY:
-			return play.lens
-		LensLegend.KIND_DIPLOMACY:
-			return play.diplomacy_lens
-		LensLegend.KIND_CROWN_ROAD:
-			return play.crown_lens
-		LensLegend.KIND_DEFENCE:
-			return play.defence_lens
-	return null
+	MapPlayLens.select(play, kind)
 
 
 static func on_view_changed(play: PlaySession) -> void:
@@ -268,7 +183,14 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 	)
 	var tile: Vector2i = MapGeo.tile_at_world(world, PlaySession.TILE_SIZE)
 	var province_id: int = play.model.province_at(tile.x, tile.y)
-	if province_id == play.hover_province:
+	# Water moves zone to zone without a province changing, so the hover is only
+	# a repeat when the ground and the sea under it both agree: otherwise a
+	# cursor gliding across the chart would keep the first zone's line.
+	var sea_zone: int = -1
+	if play.sea_lens != null:
+		sea_zone = play.sea_lens.zone_at(world)
+	var sea_moved: bool = play.sea_lens != null and sea_zone != play.sea_lens.hover_zone
+	if province_id == play.hover_province and not sea_moved:
 		return
 	play.hover_province = province_id
 	play.overlay.hover_province = province_id
@@ -276,7 +198,16 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		play.lens.hover_province = province_id
 	if play.defence_lens != null:
 		play.defence_lens.hover_province = province_id
+	if play.sea_lens != null:
+		play.sea_lens.hover_zone = sea_zone
 	if province_id < 0:
+		# Over water the sea reading is the only line there is: read it here, so
+		# a chart reading never silences itself on the element it describes.
+		if play.sea_lens != null and play.sea_lens.active:
+			var water: String = play.sea_lens.summary_at(world)
+			if not water.is_empty():
+				HudChrome.show_tooltip(play.hud, water)
+				return
 		HudChrome.hide_tooltip(play.hud)
 		return
 	if (
@@ -310,6 +241,12 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 		var defence: String = play.defence_lens.summary_for(province_id)
 		if not defence.is_empty():
 			text += "\nDefence: " + defence
+	# A sea slip packed over the coast still reads: the plaque's own rect answers
+	# before the water under the cursor does.
+	if play.sea_lens != null and play.sea_lens.active:
+		var sea: String = play.sea_lens.summary_at(world)
+		if not sea.is_empty():
+			text += "\nSea: " + sea
 	HudChrome.show_tooltip(play.hud, text)
 
 
@@ -326,6 +263,9 @@ static func _over_gui(view: Viewport) -> bool:
 
 static func clear_hover(play: PlaySession) -> void:
 	if play.hover_province == -1:
+		if play.sea_lens != null and play.sea_lens.hover_zone >= 0:
+			play.sea_lens.hover_zone = -1
+			HudChrome.hide_tooltip(play.hud)
 		return
 	play.hover_province = -1
 	play.overlay.hover_province = -1
@@ -333,6 +273,8 @@ static func clear_hover(play: PlaySession) -> void:
 		play.lens.hover_province = -1
 	if play.defence_lens != null:
 		play.defence_lens.hover_province = -1
+	if play.sea_lens != null:
+		play.sea_lens.hover_zone = -1
 	HudChrome.hide_tooltip(play.hud)
 
 

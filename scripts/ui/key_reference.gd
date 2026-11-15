@@ -69,6 +69,11 @@ const GROUPS: Array[Dictionary] = [
 				"actions": [InputActions.DEFENCE_LENS],
 				"door": "Lens seal cycles",
 			},
+			{
+				"label": "Squadrons & fights",
+				"actions": [InputActions.SEA_LENS],
+				"door": "Lens seal cycles",
+			},
 		],
 	},
 	{

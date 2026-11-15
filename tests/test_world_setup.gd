@@ -188,7 +188,7 @@ func test_the_map_seats_the_published_roster() -> void:
 	for faction_id: int in FactionCatalog.minor_ids():
 		assert_gte(
 			_count_owned(old_world, faction_id),
-			TerritoryAssignment.MINOR_PROVINCES,
+			MinorShare.MINOR_PROVINCES,
 			"%s holds the minimum provinces" % FactionCatalog.name_of(faction_id)
 		)
 	_assert_even_share(old_world, FactionCatalog.great_power_ids(), "Old World Great Power")
