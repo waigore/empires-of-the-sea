@@ -31,8 +31,16 @@ godot --path . -- --agent-debug=8765     # bare --agent-debug = 8765
 ```
 
 - Desktop: connect straight to `ws://127.0.0.1:8765`.
-- Android debug build: `adb reverse tcp:8765 tcp:8765` first, then the same
-  `ws://127.0.0.1:8765` from the host.
+- Android debug build: the launcher alias drops the launch intent's extra, so
+  the opt-in is the enable file — write the port into the app's `user://`
+  storage and restart the app — then `adb forward tcp:8765 tcp:8765` and the
+  same `ws://127.0.0.1:8765` from the host (`forward`, not `reverse`: the
+  listener lives on the device, so the host→device tunnel is what agents
+  need):
+
+  ```bash
+  adb shell run-as com.waigore.empiresofthesea.debug sh -c 'echo 8765 > files/agent_debug.enable'
+  ```
 - A malformed / out-of-range port leaves the bridge off; the game plays
   normally either way.
 

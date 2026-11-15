@@ -2703,6 +2703,10 @@ match = "scripts/rules/territory_assignment.gd"
 domain = "world"
 
 [[rules]]
+match = "scripts/rules/province_graph.gd*"
+domain = "world"
+
+[[rules]]
 match = "scripts/rules/territory_growth.gd*"
 domain = "world"
 
