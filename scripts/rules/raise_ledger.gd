@@ -139,7 +139,9 @@ static func ready_targets(
 	return targets
 
 
-## Files a batch of ready targets through `file` — the sheet's own order hook —
+## Files a batch of ready targets through `file` — the sheet's own order hook,
+## which reads one target whole: a raise row is keyed by province, an estate row
+## by its tile, so the walk hands the target over rather than two of its fields —
 ## and stops at the first refusal, because that refusal is the rules' answer for
 ## the realm: no free crew, or stores short of the price (REQ-P2-03, REQ-P5-04;
 ## DR-20261116-03). Returns {raised, total, refusal}.
@@ -149,7 +151,7 @@ static func file_batch(targets: Array[Dictionary], file: Callable) -> Dictionary
 	for target: Dictionary in targets:
 		if raised >= BATCH_LIMIT:
 			break
-		var result: Dictionary = file.call(int(target["region"]), int(target["id"]))
+		var result: Dictionary = file.call(target)
 		if not bool(result.get("ok", false)):
 			refusal = String(result.get("message", ""))
 			break

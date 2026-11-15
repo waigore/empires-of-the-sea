@@ -16,7 +16,8 @@ extends RefCounted
 ##   treasury, reserve, goal, colony_target, harbour, idle_hulls, explorer_ready,
 ##   voyage_afloat, voyage_abroad, voyage_stranded, cargo_shortfall,
 ##   research_slots, research_funding,
-##   research_cost, research_refusal, tribe_target, tribe_stage_cost.
+##   research_cost, research_refusal, tribe_target, tribe_stage_cost,
+##   deed_price.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 
@@ -49,6 +50,11 @@ const W_VOYAGE: int = 75
 ## the chain, priced at its published cost and the court's one order
 ## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
 const W_TRIBE_COLONY: int = 55
+## The deed the court is saving toward: the cheapest Minor or Tribe resource
+## tile it could sign at the published 15 x base price. Ranked below every other
+## treasury claim, so the aim names the intent without taking the purse the
+## muster, the yard or a study is saving for (issue #724 task 3).
+const W_DEED: int = 40
 
 
 static func build(readings: Dictionary) -> Array[AiObjective]:
@@ -74,6 +80,9 @@ static func build(readings: Dictionary) -> Array[AiObjective]:
 	var research: AiObjective = _research(readings)
 	if research != null:
 		objectives.append(research)
+	var deed: AiObjective = _deed(readings)
+	if deed != null:
+		objectives.append(deed)
 	objectives.append(_economy())
 	return objectives
 
@@ -328,3 +337,22 @@ static func _research(readings: Dictionary) -> AiObjective:
 ## The standing growth aim: a crew hand on the works.
 static func _economy() -> AiObjective:
 	return AiObjective.create("economy.production", "economy", W_ECONOMY, {"labour": 1})
+
+
+## The deed the court is saving toward: the cheapest Minor or Tribe resource
+## tile it could sign at the published 15 x base price, priced on the purse it
+## must hold. The aim is a reading — the Merchant's own order is what signs the
+## deed — but it is the row the deferred-aim escalation tracks, so a court that
+## never reaches the price reads `blocked` with the stall named instead of
+## saving in silence (issue #724 task 3, #603).
+static func _deed(readings: Dictionary) -> AiObjective:
+	var price: int = int(readings.get("deed_price", 0))
+	if price <= 0:
+		return null
+	var aim := AiObjective.create("market.deed", "economy", W_DEED, {"treasury": price})
+	var stall: int = int(
+		(readings.get("blockings", {}) as Dictionary).get("market.deed", 0)
+	)
+	if stall > 0:
+		aim.block("the deed is out of reach %d turns" % stall)
+	return aim

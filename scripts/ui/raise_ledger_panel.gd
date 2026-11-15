@@ -181,5 +181,7 @@ func _raise_all() -> void:
 
 
 ## The batch's own order hook: the sheet's hook with its line held back.
-func _file_quiet(region: int, province_id: int) -> Dictionary:
-	return _file_order(region, province_id, true)
+func _file_quiet(target: Dictionary) -> Dictionary:
+	return _file_order(
+		int(target.get("region", 0)), int(target.get("id", -1)), true
+	)

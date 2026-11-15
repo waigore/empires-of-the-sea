@@ -154,11 +154,28 @@ static func priced_offer(
 static func chain_openable(
 	model: MapModel, faction: int, context: Dictionary
 ) -> bool:
+	return not openable_deed(model, faction, context, true).is_empty()
+
+
+## The cheapest deed the court can sign, or is walking its envoy chain toward:
+## `{"seller": int, "price": int}` for a charted Minor or Tribe province that
+## offers a resource tile at the published 15 x base price, with neither war nor
+## boycott in the way. The treasury is deliberately not read: an embassy takes
+## turns to open and the purse refills while it does, so this is the deed a
+## court saves toward, not only the one it can pay for this turn — the reading
+## the objective ledger prices (issue #724; wiki: civilian-units § Merchant).
+## `without_embassy` narrows it to the rung a chain still has to walk. {} when
+## no charted seller offers one.
+static func openable_deed(
+	model: MapModel, faction: int, context: Dictionary,
+	without_embassy: bool = false
+) -> Dictionary:
+	var best: Dictionary = {}
 	if model == null or faction < 0:
-		return false
+		return best
 	var diplomacy: DiplomacyState = context.get("diplomacy", null)
 	if diplomacy == null:
-		return false
+		return best
 	var view: VisibilityModel = context.get("visibility", null)
 	for province: ProvinceState in model.provinces:
 		var seller: int = province.owner
@@ -167,7 +184,7 @@ static func chain_openable(
 			continue
 		if seller == faction:
 			continue
-		if DiplomacyRules.has_embassy(diplomacy, faction, seller):
+		if without_embassy and DiplomacyRules.has_embassy(diplomacy, faction, seller):
 			continue
 		if DiplomacyRules.at_war_with(diplomacy, faction, seller):
 			continue
@@ -175,9 +192,20 @@ static func chain_openable(
 			continue
 		if view != null and not view.is_province_known(province.id):
 			continue
-		if priced_offer(model, faction, seller, view) > 0:
-			return true
-	return false
+		# The price of this province's headline deed — the same row
+		# `priced_offer` reads, one province at a time so the cheapest seller is
+		# found in a single pass.
+		var tile: Vector2i = province.resource_tile
+		if tile.x < 0 or model.is_purchased_tile(tile):
+			continue
+		if model.resource_at(tile.x, tile.y) == MapModel.NO_ID:
+			continue
+		var price: int = LandPurchase.cost(model, tile)
+		if price <= 0:
+			continue
+		if best.is_empty() or price < int(best["price"]):
+			best = {"seller": seller, "price": price}
+	return best
 
 
 static func _buyable_tile(

@@ -2270,6 +2270,14 @@ func test_the_receipt_names_what_the_press_left() -> void:
 		),
 		"Raised 1 of 3 towns. The next waits: No idle Builder musters."
 	)
+	# The estates press reads its own noun on the same line (DR-20261116-06).
+	assert_eq(
+		RaiseLedger.batch_receipt(
+			{"raised": 2, "total": 5, "refusal": "Stores are short of 1 lumber."},
+			"estates"
+		),
+		"Raised 2 of 5 estates. The next waits: Stores are short of 1 lumber."
+	)
 
 
 # --- towns: the sheet ---
@@ -2447,6 +2455,123 @@ func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> voi
 	assert_false(panel._batch.visible, "a reading with nothing ready carries no press")
 
 
+# --- the crown's estates: the one press --------------------------------------
+
+
+## The estates reading and its ready walk: the press files the rows the view
+## prints that the Build gate opens, in the order it prints them, and a narrowed
+## reading narrows the press (REQ-P5-04; DR-20261116-06).
+func test_the_estates_ready_walk_reads_only_the_rows_the_view_prints() -> void:
+	var groups: Array[Dictionary] = [
+		{
+			"id": 0,
+			"name": "Cádiz",
+			"rows": [
+				{"tile": Vector2i(1, 1), "can_build": true, "status": "vacant"},
+				{"tile": Vector2i(2, 1), "can_build": false, "status": "maxed"},
+				{"tile": Vector2i(3, 1), "can_build": true, "status": "producing"},
+			],
+		},
+		{
+			"id": 1,
+			"name": "Coro",
+			"rows": [
+				{"tile": Vector2i(4, 1), "can_build": true, "status": "vacant"},
+			],
+		},
+	]
+	var all_ready: Array[Vector2i] = EstateLedger.ready_tiles(groups, "all")
+	assert_eq(all_ready.size(), 3, "every open row is a target")
+	assert_eq(all_ready[0], Vector2i(1, 1), "the sheet's own order leads")
+	assert_eq(all_ready[1], Vector2i(3, 1), "a closed row is skipped, not reordered")
+	assert_eq(all_ready[2], Vector2i(4, 1), "the second province follows")
+	assert_eq(
+		EstateLedger.ready_tiles(groups, "ready").size(), 3,
+		"the ready reading is the same walk"
+	)
+	var vacant: Array[Vector2i] = EstateLedger.ready_tiles(groups, "vacant")
+	assert_eq(vacant.size(), 2, "a narrowed reading narrows the press")
+	assert_eq(vacant[1], Vector2i(4, 1), "and keeps the sheet's order")
+	assert_eq(
+		EstateLedger.ready_tiles(groups, "issues").size(), 0,
+		"a reading with nothing open offers no press"
+	)
+
+
+## One arm, one confirm, and every ready estate the view prints takes a Builder —
+## the receipt is the one line the court reads (REQ-P5-04, REQ-P5-05;
+## DR-20261116-06).
+func test_the_estates_press_files_every_ready_estate_in_one_confirmed_press() -> void:
+	var panel: ImprovementPanel = screen.improvements
+	var stock: Dictionary = screen.play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	panel.open()
+	var ready: Array[Vector2i] = panel._ready_tiles()
+	assert_true(
+		ready.size() >= 2,
+		"the capital holds estates the crown can raise: %d" % ready.size()
+	)
+	# One Builder per ready estate, so the walk files them all.
+	for index in ready.size():
+		screen.play.civilian_layer.units.append(
+			CivilianState.create(
+				400 + index, screen.play.player_faction, "builder", ready[index]
+			)
+		)
+	panel.refresh()
+	var press: RaiseBatchPress = panel._batch
+	assert_not_null(press, "the card carries the batch press")
+	assert_true(press.visible, "the press stands when the view holds a ready estate")
+	assert_eq(
+		press.text, "Raise all ready (%d)" % ready.size(), "the press names the count"
+	)
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(
+		press.text, "Confirm — raise %d estates" % ready.size(), "the second tap is named"
+	)
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the press forgets the arm once it files")
+	assert_eq(
+		_working_estate_builders(), ready.size(), "every ready estate took a Builder"
+	)
+	assert_eq(panel._ready_tiles().size(), 0, "the view holds no ready estate after the press")
+	assert_false(press.visible, "and the press stands down")
+
+
+## A card that opens fresh never carries an arm from the last visit, so one tap
+## on a reopened sheet can never spend the stores (REQ-P5-04).
+func test_the_estates_press_forgets_its_arm_when_the_card_reopens() -> void:
+	var panel: ImprovementPanel = screen.improvements
+	panel.open()
+	var press: RaiseBatchPress = panel._batch
+	if not press.visible:
+		return
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap arms")
+	panel.close()
+	panel.open()
+	assert_false(press.is_armed(), "a reopened card carries no arm")
+
+
+## A press with no session behind it files nothing and prints nothing, so a
+## screen torn down mid-press cannot raise an order on a freed chart.
+func test_the_estates_press_files_nothing_without_a_session() -> void:
+	MapPlayImprovements.raise_all(null, [Vector2i(1, 1)])
+	assert_true(true, "a null session is a no-op")
+
+
+func _working_estate_builders() -> int:
+	var working: int = 0
+	for unit: CivilianState in screen.play.civilian_layer.units:
+		if unit == null or unit.owner != screen.play.player_faction:
+			continue
+		if unit.work_action() == "build_improvement":
+			working += 1
+	return working
+
+
 # --- towns: fixtures ---
 
 
@@ -2573,7 +2698,8 @@ var _filed: Array[int] = []
 
 ## An order hook that files the first two targets and refuses the third the way a
 ## sheet with no free Builder would.
-func _refuse_second(_region: int, province_id: int) -> Dictionary:
+func _refuse_second(_target: Dictionary) -> Dictionary:
+	var province_id: int = int(_target["id"])
 	_filed.append(province_id)
 	if province_id == 2:
 		return {"ok": false, "message": "No idle Builder musters."}
