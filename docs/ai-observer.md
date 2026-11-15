@@ -55,6 +55,10 @@ The hill scores **only the subject**.
 `MapPlayObserver.snapshot` reports per crown: leader, agenda, profile,
 `court_kind`, war footing, provinces / victory progress, power, forces (hulls,
 warships, holds), ledger, wars, last-turn order mix and the market's prices.
+The market row also carries the famine reading: `minor_food` (the ration tonnage
+the Minor/Tribe book offers this turn), `ration_demand` (what every court wants
+to eat) and `food_gap` (the difference), so a starving run names the world's
+supply instead of a court's bid (issue #766).
 Dashboard: orders feed, pause / step / speed, campaign result. `play.ai_turns`
 keeps one merged record per turn (wiki: turn-trace-interpretation).
 
