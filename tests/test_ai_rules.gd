@@ -7769,7 +7769,7 @@ func test_region_helpers_pick_the_opposite_map() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.OLD_WORLD, ai_colonisation_OWNER), WorldMap.NEW_WORLD)
 	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.NEW_WORLD, ai_colonisation_OWNER), WorldMap.OLD_WORLD)
-	assert_false(AiColonisationPlanner._owns_land_in(world, 9, ai_colonisation_OWNER))
+	assert_false(VoyageRead.owns_land_in(world, 9, ai_colonisation_OWNER))
 
 func test_no_passage_keeps_a_carrying_squadron_home() -> void:
 	var world: WorldMap = _ai_colonisation_world()

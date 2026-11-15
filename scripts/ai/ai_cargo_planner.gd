@@ -106,11 +106,9 @@ static func _merchant_squadrons(
 ) -> Array[FleetState]:
 	var rows: Array[FleetState] = []
 	for fleet: FleetState in fleets:
-		if fleet == null or fleet.owner != owner or fleet.moved or not fleet.is_afloat():
+		if fleet == null or fleet.owner != owner or fleet.moved:
 			continue
-		if TradeCargo.fleet_holds(fleet) <= 0:
-			continue
-		if fleet.embarked_army >= 0 or not fleet.embarked_civilians.is_empty():
+		if not VoyageRead.is_free(fleet) or TradeCargo.fleet_holds(fleet) <= 0:
 			continue
 		if fleet.is_in_port() and fleet.province == seat:
 			continue
