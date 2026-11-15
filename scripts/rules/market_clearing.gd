@@ -23,6 +23,7 @@ static func clear(
 	if market == null:
 		return {"deals": [], "notes": notes, "credits": {}, "prices": {}, "sink": 0.0}
 	var orders: Array[MarketOrder] = _prepare_orders(market, world, notes)
+	_record_auto_offers(market, orders)
 	var treasuries: Dictionary = {}
 	var stock: Dictionary = {}
 	for raw: Variant in economies.keys():
@@ -92,6 +93,16 @@ static func _prepare_orders(
 		if not dropped.has(MarketRules.order_pair_key(order)):
 			kept.append(order)
 	return kept
+
+
+## This turn's Minor/Tribe auto-offer quantity joins the offer volume: the
+## spread reads the whole book, so the supply the matcher already clears also
+## prices it (wiki: world-market § Price discovery; DR-20261115-18).
+## Carry-forward unfilled quantities stay excluded, as published.
+static func _record_auto_offers(market: WorldMarket, orders: Array[MarketOrder]) -> void:
+	for order: MarketOrder in orders:
+		if order.auto and not order.is_world():
+			market.book.volumes.record_offer(order.commodity, order.remaining())
 
 
 ## The standing world counterparty: enough units to clear every finite order on

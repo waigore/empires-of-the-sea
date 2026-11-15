@@ -5,6 +5,10 @@ extends RefCounted
 ## (wiki: world-market). Riches never trade here; they convert in their own phase.
 
 const PRICE_FLOOR_RATIO: float = 0.30
+## The published band's other rail: no commodity ratchets past ten times its
+## default market price (wiki: world-market § Price discovery;
+## DR-20261115-18).
+const PRICE_CEILING_RATIO: float = 10.0
 const MAX_PRICE_STEP: float = 0.20
 
 var prices: Dictionary = {}
@@ -189,10 +193,12 @@ func sell(
 	return {"ok": true, "reason": "", "unit_price": unit_price, "revenue": revenue}
 
 
-## Published formula, floored to an integer and clamped to 30% of the base price
-## (wiki: world-market § Price discovery): the step is half the imbalance between
-## this turn's filled bids and submitted offers, capped at ±20%. No market depth
-## term stands in the denominator — the rule is the courts' own order flow.
+## Published formula, floored to an integer and clamped to the published band —
+## 30% of the base price at the floor, 10 × the base price at the ceiling
+## (wiki: world-market § Price discovery; DR-20261115-18): the step is half the
+## imbalance between this turn's filled bids and submitted offers, capped at
+## ±20%. No market depth term stands in the denominator — the rule is the
+## courts' own order flow.
 static func next_price(
 	current: int,
 	base: int,
@@ -206,7 +212,8 @@ static func next_price(
 	spread = clampf(spread, -MAX_PRICE_STEP, MAX_PRICE_STEP)
 	var stepped: int = int(floor(float(current) * (1.0 + spread)))
 	var floor_price: int = int(floor(float(base) * PRICE_FLOOR_RATIO))
-	return maxi(stepped, floor_price)
+	var ceiling_price: int = int(floor(float(base) * PRICE_CEILING_RATIO))
+	return clampi(stepped, floor_price, ceiling_price)
 
 
 ## Applies this turn's price discovery and starts the next turn with clean books.
