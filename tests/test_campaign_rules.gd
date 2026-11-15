@@ -1316,10 +1316,18 @@ var world: WorldMap = null
 
 func before_all() -> void:
 	world = Fixture.world()
+	loss_pristine_map = Fixture.snapshot(Fixture.world())
+	loss_mounted = Fixture.attach_screen(self)
+	loss_pristine = Fixture.suite_capture(loss_mounted)
 
 
 func after_all() -> void:
 	world = null
+	if is_instance_valid(loss_mounted):
+		loss_mounted.free()
+	loss_mounted = null
+	loss_pristine = {}
+	loss_pristine_map = []
 
 
 func after_each() -> void:
@@ -1782,6 +1790,81 @@ func test_a_minor_nations_fall_is_not_world_news() -> void:
 	assert_eq(_items(_state(3), [], [], [], {}, 0, [], falls).size(), 0)
 
 
+## A crown leaves play with its dealings: the fall clears the fallen court's
+## relations, so the sheet must read the knowledge the crown held when the court
+## fell, not the relations left afterwards (wiki: the-gazette § Item catalog —
+## World, "Great Power terminal fall").
+func test_a_great_powers_fall_prints_after_its_relations_are_cleared() -> void:
+	var state: DiplomacyState = _state(3)
+	var falls: Array = [{"faction": GAZ_FRANCE, "conqueror": GAZ_ENGLAND, "known": true}]
+	state.clear_relations_of(GAZ_FRANCE)
+	var items: Array = _items(state, [], [], [], {}, 0, [], falls)
+	assert_eq(items.size(), 1, "a met crown's fall is still world news")
+	assert_eq(int(items[0]["class"]), Gazette.Class.WORLD)
+	assert_true(String(items[0]["text"]).contains("France"))
+
+
+## The World page is the epoch's own news: a Great Power's war or peace with a
+## Minor Nation is that court's doing, not the world's (wiki: the-gazette
+## § Item catalog — World, "GP–GP declaration of war or peace").
+func test_a_great_powers_war_on_a_minor_is_not_world_news() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event("warDeclared", GAZ_ENGLAND, GENOA)
+	var items: Array = _items(state, [GAZ_ENGLAND])
+	assert_eq(items.size(), 1)
+	assert_eq(
+		int(items[0]["class"]), Gazette.Class.INTEREST,
+		"a watched court's war on a Minor is news of interest"
+	)
+	assert_eq(_items(state, []).size(), 0, "an unwatched court's war on a Minor is no news")
+
+
+func test_a_great_powers_peace_with_a_minor_is_not_world_news() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event("peaceMade", GAZ_ENGLAND, GENOA)
+	var items: Array = _items(state, [GAZ_ENGLAND])
+	assert_eq(items.size(), 1)
+	assert_eq(int(items[0]["class"]), Gazette.Class.INTEREST)
+
+
+## One act, one line: a proposal answer is the treaty it answered, so the sheet
+## prints the act once (wiki: the-gazette § Item catalog — the catalogue lists
+## the acts, not the offers that led to them).
+func test_a_refused_overture_proposal_prints_once() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"overtureRejected", GAZ_FRANCE, VIEWER, {"stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	state.record_event(
+		"proposalRefused", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_OVERTURE, "stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	assert_eq(_items(state, []).size(), 1, "the refusal prints once")
+
+
+func test_an_accepted_overture_proposal_prints_once() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"overtureEstablished", GAZ_FRANCE, VIEWER, {"stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	state.record_event(
+		"proposalAccepted", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_OVERTURE, "stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	assert_eq(_items(state, []).size(), 1, "the establishment prints once")
+
+
+## A refused alliance or peace offer has no act of its own, so the answer is the
+## news and must still print.
+func test_a_refused_alliance_proposal_still_prints() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"proposalRefused", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_ALLIANCE, "stage": ""}
+	)
+	assert_eq(_items(state, []).size(), 1)
+
+
 # --- prose -------------------------------------------------------------------
 
 
@@ -2144,11 +2227,13 @@ func test_one_press_sets_the_sheet_aside() -> void:
 	assert_eq(dismissed.size(), 1)
 
 
-## The plate is soft: the map under and around it keeps its pointer.
-func test_only_the_plate_takes_the_pointer() -> void:
+## The sheet is modal: its wash takes the pointer, so no chart control or bar
+## door answers a press while the crown's news is up (issue #692; REQ-P1-07).
+func test_the_sheet_is_modal() -> void:
 	_setup_gazette_plate()
 	plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
-	assert_eq(plate.mouse_filter, Control.MOUSE_FILTER_IGNORE, "the map stays usable")
+	assert_eq(plate.mouse_filter, Control.MOUSE_FILTER_IGNORE, "the shell itself is no wall")
+	assert_eq(plate._overlay.mouse_filter, Control.MOUSE_FILTER_STOP, "the wash takes the pointer")
 	assert_eq(plate._panel.mouse_filter, Control.MOUSE_FILTER_STOP, "the sheet is readable")
 
 
@@ -2158,16 +2243,21 @@ func test_a_turn_that_printed_nothing_says_so() -> void:
 	assert_true(_has_text(plate, GazettePlate.EMPTY_LINE))
 
 
-## The plate stands as tall as its news and only the news scrolls, so a quiet
-## sheet never leaves a reef of blank paper under it.
-func test_the_plate_takes_the_height_of_its_news() -> void:
+## The sheet takes the room its door gives it — the cartouche's GAZETTE door
+## opens a full-screen modal, not a plate sized to its news — and the news runs
+## on inside the scroll (issue #692; REQ-P1-05, REQ-P1-07).
+func test_the_sheet_takes_the_doors_whole_room() -> void:
 	_setup_gazette_plate()
-	plate.size = Vector2(1280, 800)
 	plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
-	plate._fit()
-	assert_eq(plate._panel.offset_bottom, plate._panel.offset_top, "height follows content")
-	assert_true(plate._scroll.custom_minimum_size.y >= 120.0, "the sheet keeps a readable body")
-	assert_true(plate._scroll.custom_minimum_size.y <= 600.0, "a long sheet scrolls")
+	await get_tree().process_frame
+	var shell: Vector2 = plate.size
+	assert_true(plate._panel.size.x >= shell.x * 0.8, "the plate takes the sheet's width")
+	assert_true(plate._panel.size.y >= shell.y * 0.8, "and its height")
+	assert_eq(
+		plate._scroll.size_flags_vertical,
+		Control.SIZE_EXPAND_FILL,
+		"the news takes the room the masthead leaves"
+	)
 
 
 ## The sheet's foot states the race for the age; the archive, a past sheet, does
@@ -2370,68 +2460,37 @@ func test_the_watchlist_lists_met_courts_and_toggles_the_list() -> void:
 	assert_true(state.removed.has(gazette_plate_ENGLAND), "and the removal is remembered")
 
 
-func test_the_plate_narrows_to_a_phone_viewport() -> void:
+func test_the_plate_never_outgrows_the_screen() -> void:
 	_setup_gazette_plate()
-	plate.size = Vector2(480, 800)
-	plate._fit()
-	var width: float = plate._panel.offset_right - plate._panel.offset_left
-	assert_true(width <= 480.0, "the sheet never outgrows the screen")
-	assert_true(width >= GazettePlate.MIN_WIDTH)
+	plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
+	await get_tree().process_frame
+	var rect: Rect2 = plate._panel.get_global_rect()
+	assert_true(rect.position.x >= -0.5 and rect.position.y >= -0.5, "the sheet starts inside")
+	assert_true(
+		rect.end.x <= plate.size.x + 0.5 and rect.end.y <= plate.size.y + 0.5,
+		"and ends inside: %s of %s" % [rect, plate.size]
+	)
 
 
-## The archive's filter chips ride a strip that scrolls sideways, so a phone's
-## plate never widens for them (REQ-P1-05, REQ-P5-07).
-func test_the_archive_filter_strip_never_widens_a_phone_plate() -> void:
+## The archive's filter chips ride a strip that scrolls sideways, so the chips
+## never decide the sheet's width (REQ-P1-05, REQ-P5-07).
+func test_the_archive_filter_strip_never_widens_the_plate() -> void:
 	_setup_gazette_plate()
-	plate.size = Vector2(320, 640)
 	var state := GazetteState.new()
 	state.append(gazette_plate_sheet(2))
 	plate.open_archive(state, null, gazette_plate_VIEWER)
-	plate._fit()
-	var width: float = plate._panel.offset_right - plate._panel.offset_left
-	assert_true(width <= 320.0, "the sheet never outgrows the screen")
-	var chips: Dictionary = plate._archive_room.filter_buttons()
-	var chips_width: float = 0.0
-	for key: Variant in chips.keys():
-		chips_width += (chips[key] as Button).get_combined_minimum_size().x
-	assert_true(chips_width > width, "the chips are wider than a phone's plate")
+	await get_tree().process_frame
+	var width: float = plate._panel.size.x
+	assert_true(width > 0.0, "the sheet has a body")
 	assert_true(
 		plate._archive_room.get_combined_minimum_size().x <= width,
 		"the strip scrolls instead of widening the sheet"
 	)
 
 
-## Toasts stay readable: while the sheet is up they are pushed to the lane under
-## it, and the moment it goes they return to the top (REQ-P5-05). A phone's
-## resting lane is not the atlas 84, so the plate gives back the lane's own top.
-func test_the_sheet_moves_the_toast_lane_below_itself() -> void:
-	_setup_gazette_plate()
-	var host := ToastHost.new()
-	host.size = Vector2(1280, 800)
-	add_child(host)
-	var lane := HudDespatches.new()
-	host.add_child(lane)
-	# A compact bar (56) + 6 is well above the atlas 84 the old plate assumed.
-	lane.fit(true, 56.0, 382.0)
-	var resting: float = lane.resting_top()
-	assert_eq(resting, 62.0)
-
-	var sheet_plate := GazettePlate.new()
-	sheet_plate.despatches = lane
-	host.add_child(sheet_plate)
-	sheet_plate.open_sheet(gazette_plate_sheet(3), GazetteState.new(), null, gazette_plate_VIEWER)
-	# The lane follows the laid-out sheet, so let one layout pass settle.
-	await get_tree().process_frame
-	sheet_plate._fit()
-	assert_true(lane.lane_top() > resting, "the lane drops below the sheet")
-	sheet_plate.dismiss()
-	assert_eq(lane.lane_top(), resting, "the lane comes back to its own top")
-	host.free()
-
-
-## A stand-in for the HUD: the plate only needs the despatch lane.
-class ToastHost:
-	extends Control
+## A sheet holds the court's news while it is up: HudDespatchCover owns that
+## rule for every cartouche door, and the phone lane test in test_mobile_layout
+## drives it (REQ-P5-05).
 
 
 # --- helpers -----------------------------------------------------------------
@@ -2552,6 +2611,74 @@ func test_the_age_room_names_no_crown_when_the_session_has_none() -> void:
 	_teardown_age_room()
 
 
+## The room is a table, not two strips (issue #672): the standing column and its
+## heading read on one line at a desktop and a phone plate width, and each row
+## keeps its two columns side by side. A wrapped cell reports no minimum width,
+## so the row's HBox used to hand the standing a single glyph and stack it.
+func test_the_age_room_reads_across_at_both_plate_widths() -> void:
+	# The sheet's body at an atlas width and at a phone's.
+	for width: float in [640.0, 288.0]:
+		_setup_age_room()
+		age_room_room.size = Vector2(width, 0.0)
+		var rows: Array[Dictionary] = [
+			_age_row(ENGLAND, "England", 28, 31, false),
+			_age_row(SPAIN, "Spain", 12, 36, true),
+		]
+		rows[0]["leader"] = true
+		age_room_room.fill({"rows": rows, "human": SPAIN, "calendar": "", "note": ""})
+		await get_tree().process_frame
+		await get_tree().process_frame
+		var names: Array[Label] = []
+		var standing: Array[Label] = []
+		for row: Node in age_room_room.get_children():
+			if not row is HBoxContainer:
+				continue
+			var cells: Array[Node] = row.get_children()
+			if cells.size() != 2:
+				continue
+			names.append(cells[0] as Label)
+			standing.append(cells[1] as Label)
+		assert_eq(standing.size(), 3, "the heading and both crowns print a standing cell")
+		assert_eq(standing[0].text, AgeRoom.HEADINGS[1], "the standing heading leads the column")
+		for label: Label in standing:
+			assert_eq(label.get_line_count(), 1, "%s at %s" % [label.text, width])
+			assert_true(
+				label.size.x + 0.5 >= _one_line_width(label),
+				"%s reads across, not down: %s of %s" % [
+					label.text, label.size.x, _one_line_width(label)
+				]
+			)
+		for i: int in names.size():
+			assert_true(
+				standing[i].get_rect().position.x + 0.5 >= names[i].get_rect().end.x,
+				"the standing sits beside %s, not on it" % names[i].text
+			)
+			assert_true(
+				names[i].size.x + 0.5 >= _longest_word_width(names[i]),
+				"%s keeps its words whole: %s" % [names[i].text, names[i].size.x]
+			)
+		_teardown_age_room()
+
+
+## The width a label's text needs on one line, in its own face and size.
+func _one_line_width(label: Label) -> float:
+	return label.get_theme_font("font").get_string_size(
+		label.text, HORIZONTAL_ALIGNMENT_LEFT, -1, label.get_theme_font_size("font_size")
+	).x
+
+
+## The width of the label's longest word: below it the text breaks mid-word.
+func _longest_word_width(label: Label) -> float:
+	var font: Font = label.get_theme_font("font")
+	var size: int = label.get_theme_font_size("font_size")
+	var widest: float = 0.0
+	for word: String in label.text.split(" ", false):
+		widest = maxf(
+			widest, font.get_string_size(word, HORIZONTAL_ALIGNMENT_LEFT, -1, size).x
+		)
+	return widest
+
+
 func test_the_plate_prints_the_whole_race_on_its_age_tab() -> void:
 	_setup_gazette_plate()
 	var rows: Array[Dictionary] = [
@@ -2611,3 +2738,530 @@ func test_the_age_payload_is_empty_without_a_world() -> void:
 func test_an_endless_age_closes_no_calendar_in_the_table() -> void:
 	assert_eq(VictoryStandings.calendar_text(5, true), "no calendar closes this age")
 	assert_eq(VictoryStandings.calendar_text(5), VictoryStandings.calendar_text(5, false))
+
+
+# --- capital loss (wiki: capital-and-connectivity § Capital loss and reassignment;
+# DR-20261109-02) -------------------------------------------------------------
+## Merged from test_capital_loss. The rules cases build a hand-made 6x4 chart:
+## Seat/Harbour/Uplands belong to one crown and Rival Seat to another, so a
+## captured seat has a deterministic seaboard successor, an inland-only crown has
+## a fallback, and a crown with a single province has nothing to fall back on.
+## The wiring cases drive the one mounted chart instead of mounting per case.
+
+const SEAT: int = 0
+const HARBOUR: int = 1
+const UPLANDS: int = 2
+const RIVAL: int = 3
+
+var loss_mounted: MapScreen = null
+var loss_pristine: Dictionary = {}
+var loss_pristine_map: Array = []
+
+
+## A wiring case starts on the pristine chart, as a mount did.
+func _loss_screen() -> MapScreen:
+	Fixture.restore(Fixture.world(), loss_pristine_map)
+	Fixture.suite_reset(loss_mounted, loss_pristine)
+	return loss_mounted
+
+
+func test_snapshot_records_the_capital_of_each_crown() -> void:
+	var model: MapModel = _chart()
+	var seats: Dictionary = CapitalLoss.snapshot(model)
+	assert_eq(int(seats[0]), SEAT)
+	assert_eq(int(seats[1]), RIVAL)
+
+
+func test_a_captured_seat_moves_to_the_lowest_seaboard_province() -> void:
+	var model: MapModel = _chart()
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 1
+
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+
+	assert_eq(result["reassigned"].size(), 1)
+	var row: Dictionary = result["reassigned"][0]
+	assert_eq(int(row["faction"]), 0)
+	assert_eq(int(row["province"]), HARBOUR, "seaboard first, ascending id")
+	assert_eq(int(row["lost"]), SEAT)
+	assert_true(model.province_data(HARBOUR).capital)
+	assert_false(model.province_data(SEAT).capital, "the captured seat stops being a capital")
+	assert_false(model.province_data(UPLANDS).capital)
+
+
+func test_a_crown_with_only_inland_provinces_falls_back_to_them() -> void:
+	var model: MapModel = _chart()
+	model.province_data(HARBOUR).owner = 1
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 1
+
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+
+	assert_eq(int(result["reassigned"][0]["province"]), UPLANDS)
+	assert_true(model.province_data(UPLANDS).capital)
+
+
+func test_a_great_power_seat_reaches_town_development_four() -> void:
+	var model: MapModel = _chart()
+	model.province_data(HARBOUR).town_development = 1
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 1
+
+	CapitalLoss.resolve(model, before)
+
+	assert_eq(model.province_data(HARBOUR).town_development, 4)
+
+
+func test_a_minor_nation_keeps_its_new_seats_town_development() -> void:
+	var model: MapModel = _chart()
+	_hand_over(model, 0, [SEAT, HARBOUR, UPLANDS])
+	_hand_over(model, 6, [SEAT, HARBOUR, UPLANDS])
+	model.province_data(SEAT).capital = true
+	model.province_data(HARBOUR).town_development = 2
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 1
+
+	CapitalLoss.resolve(model, before)
+
+	assert_eq(model.province_data(HARBOUR).town_development, 2)
+	assert_true(model.province_data(HARBOUR).capital)
+	assert_eq(CapitalLoss.seat_of(model, 6), HARBOUR)
+
+
+func test_the_new_seat_gets_a_tile_near_the_province_centre() -> void:
+	var model: MapModel = _chart()
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 1
+
+	CapitalLoss.resolve(model, before)
+
+	var seat: ProvinceState = model.province_data(HARBOUR)
+	assert_in(seat.capital_tile, seat.tiles)
+	assert_eq(seat.capital_tile, CapitalLoss.town_tile(seat), "deterministic on a re-read")
+
+
+func test_an_intact_capital_is_left_alone() -> void:
+	var model: MapModel = _chart()
+	var before: Dictionary = CapitalLoss.snapshot(model)
+
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+
+	assert_eq(result["reassigned"].size(), 0)
+	assert_eq(result["fallen"].size(), 0)
+	assert_eq(CapitalLoss.seat_of(model, 0), SEAT)
+	assert_eq(CapitalLoss.seat_of(model, 1), RIVAL)
+
+
+func test_a_crown_with_no_province_left_falls_to_the_conqueror() -> void:
+	var model: MapModel = _chart()
+	_hand_over(model, 0, [SEAT, HARBOUR, UPLANDS])
+	_hand_over(model, 6, [SEAT])
+	_hand_over(model, 1, [HARBOUR, UPLANDS])
+	model.province_data(SEAT).capital = true
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 0
+
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+
+	assert_eq(result["fallen"].size(), 1)
+	var row: Dictionary = result["fallen"][0]
+	assert_eq(int(row["faction"]), 6)
+	assert_eq(int(row["conqueror"]), 0)
+	assert_eq(int(row["lost"]), SEAT)
+	assert_false(model.province_data(SEAT).capital)
+
+
+func test_a_crown_that_already_fell_is_not_reported_again() -> void:
+	var model: MapModel = _chart()
+	_hand_over(model, 0, [SEAT, HARBOUR, UPLANDS])
+	_hand_over(model, 6, [SEAT])
+	_hand_over(model, 1, [HARBOUR, UPLANDS])
+	model.province_data(SEAT).capital = true
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	model.province_data(SEAT).owner = 0
+	var first: Dictionary = CapitalLoss.resolve(model, before)
+	assert_eq(first["fallen"].size(), 1)
+
+	# The next Combat phase snapshots a crown that no longer holds a seat.
+	var after: Dictionary = CapitalLoss.snapshot(model)
+	var again: Dictionary = CapitalLoss.resolve(model, after)
+
+	assert_eq(again["fallen"].size(), 0, "a fallen crown does not fall twice")
+	assert_eq(again["reassigned"].size(), 0, "and is not given a new seat")
+
+
+func test_a_crown_without_a_snapshot_seat_is_not_given_one() -> void:
+	var model: MapModel = _chart()
+	_hand_over(model, 6, [HARBOUR, UPLANDS])
+	var before: Dictionary = CapitalLoss.snapshot(model)
+	assert_eq(int(before[6]), CapitalLoss.NO_ID)
+
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+
+	assert_eq(result["reassigned"].size(), 0, "no seat was lost, so none is reassigned")
+	assert_eq(result["fallen"].size(), 0)
+	assert_eq(CapitalLoss.seat_of(model, 6), CapitalLoss.NO_ID)
+
+
+func test_a_fall_hands_every_province_in_every_region_to_the_conqueror() -> void:
+	var old_world: MapModel = _chart()
+	var new_world: MapModel = _chart()
+	new_world.region_id = FactionCatalog.NEW_WORLD
+	new_world.region_key = FactionCatalog.region_key(FactionCatalog.NEW_WORLD)
+	var world := WorldMap.new()
+	world.add_region(old_world)
+	world.add_region(new_world)
+	_hand_over(old_world, 6, [SEAT])
+	_hand_over(old_world, 1, [HARBOUR, UPLANDS])
+	_hand_over(new_world, 6, [RIVAL])
+	_hand_over(new_world, 0, [SEAT, HARBOUR, UPLANDS])
+	var before: Array = CapitalLoss.snapshot_world(world)
+	old_world.province_data(SEAT).owner = 0
+
+	var result: Dictionary = CapitalLoss.resolve_world(world, before)
+
+	assert_eq(result["fallen"].size(), 1)
+	assert_eq(result["reassigned"].size(), 0, "no seat is invented in the overseas region")
+	assert_eq(int(result["fallen"][0]["conqueror"]), 0)
+	assert_eq(new_world.province_data(RIVAL).owner, 0, "the overseas holding follows")
+	assert_eq(world.owned_provinces(WorldMap.NEW_WORLD, 6), 0)
+
+
+func test_the_pick_is_stable_across_calls() -> void:
+	var model: MapModel = _chart()
+	var owned: Array[int] = [HARBOUR, UPLANDS]
+
+	var first: int = CapitalLoss.pick_capital_province(model, owned)
+	var second: int = CapitalLoss.pick_capital_province(model, owned)
+
+	assert_eq(first, HARBOUR)
+	assert_eq(second, first)
+
+
+# --- screen wiring -----------------------------------------------------------
+
+func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
+	var screen: MapScreen = _loss_screen()
+	var model: MapModel = screen.model
+	var saved: Array[Dictionary] = _save_seats(model)
+	var pair: Dictionary = _enemy_capital_next_door(screen)
+	assert_false(pair.is_empty(), "an enemy seat borders crown land")
+	var target: int = int(pair["target"])
+	var enemy: int = model.province_owner(target)
+	assert_eq(_capital_count(model, enemy), 1, "the crown has exactly one seat to lose")
+	# Rival land AI can split and march into a declared seat on the same
+	# end-turn pass; strip that crown's armies so the capture stays unopposed.
+	screen.army_layer.transfer_owner(enemy, MapModel.NO_ID)
+	_declare_war(screen, enemy)
+	var army: ArmyState = _detach_one(screen)
+	army.province = int(pair["start"])
+	var tile: Vector2i = model.province_data(target).tiles[0]
+	assert_true(MapPlayArmies.try_order(screen.play, tile))
+
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+
+	assert_eq(model.province_owner(target), MapScreen.PLAYER_FACTION)
+	assert_false(model.province_data(target).capital, "the captured seat stops being a capital")
+	assert_eq(_capital_count(model, enemy), 1, "the crown keeps exactly one seat")
+	_restore_seats(model, saved)
+
+
+## The Home Army always stands on its court's seat: a reassignment takes the
+## guard to the new capital, so a court that lost its seat can muster again
+## (wiki: military-armies § Home Army; issue #474). Without the recall the
+## capital guard in `MapPlayArmyAi._reinforce` blocks every muster for the rest
+## of the campaign.
+func test_a_reassignment_takes_the_home_army_to_the_new_seat() -> void:
+	var screen: MapScreen = _loss_screen()
+	var model: MapModel = screen.model
+	var home: ArmyState = _home_of(screen, MapScreen.PLAYER_FACTION)
+	assert_not_null(home, "the crown musters a Home Army")
+	var seat: int = _successor(model, home.province)
+	assert_gt(seat, -1, "the court holds another province to move to")
+	var original: int = home.province
+
+	# The row `CapitalLoss.resolve` emits when the seat falls.
+	var changed: bool = MapPlayLandTurn.apply_capital_loss(
+		screen.play,
+		{
+			"fallen": [],
+			"reassigned": [
+				{
+					"faction": MapScreen.PLAYER_FACTION,
+					"province": seat,
+					"lost": original,
+					"region": model.region_id,
+				},
+			],
+		}
+	)
+
+	assert_true(changed)
+	assert_eq(home.province, seat, "the guard follows the court")
+
+	home.province = original
+
+
+func test_the_player_capital_framing_follows_a_reassignment() -> void:
+	var screen: MapScreen = _loss_screen()
+	var model: MapModel = screen.model
+	var home: int = screen.capital_province
+	var home_tile: Vector2i = model.capital_tile_of(home)
+	var successor: int = _successor(model, home)
+	assert_gt(successor, -1)
+	model.province_data(successor).capital = true
+	model.province_data(successor).capital_tile = CapitalLoss.town_tile(
+		model.province_data(successor)
+	)
+	model.province_data(home).capital = false
+
+	MapPlayLandTurn.sync_player_capital(screen.play)
+
+	assert_eq(screen.capital_province, successor)
+	assert_eq(screen.capital_tile, model.capital_tile_of(successor))
+	model.province_data(home).capital = true
+	model.province_data(home).capital_tile = home_tile
+	model.province_data(successor).capital = false
+	model.province_data(successor).capital_tile = CapitalLoss.NO_TILE
+
+
+func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
+	var screen: MapScreen = _loss_screen()
+	var minor: int = FactionCatalog.minor_ids()[0]
+	screen.play.diplomacy.ensure_relation(minor, 0, screen.play.diplomacy.turn)
+	assert_not_null(screen.play.diplomacy.relation(minor, 0))
+	var armies_before: int = _army_count(screen, minor)
+	assert_gt(armies_before, 0)
+	var toasts_before: int = screen.hud._toast_box.get_child_count()
+
+	var changed: bool = MapPlayLandTurn.apply_capital_loss(
+		screen.play, {"fallen": [{"faction": minor, "conqueror": 0}], "reassigned": []}
+	)
+
+	assert_true(changed)
+	assert_eq(_army_count(screen, minor), 0)
+	assert_null(screen.play.diplomacy.relation(minor, 0))
+	assert_eq(screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	# The fall record keeps the knowledge the crown held when the court left
+	# play: the relations are gone by the time the Gazette reads the turn
+	# (wiki: the-gazette § Item catalog — World, "Great Power terminal fall").
+	assert_eq(screen.play.last_falls.size(), 1)
+	assert_true(bool(screen.play.last_falls[0].get("known", false)), "the crown had met the court")
+
+
+# --- transfer and retirement (wiki: diplomacy § GP–Minor Rules) --------------
+
+
+func test_a_retired_crown_leaves_the_regions_it_was_stored_in() -> void:
+	var screen: MapScreen = _loss_screen()
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var roster: Array = []
+	roster.assign(screen.army_layer.regions.value(screen.model.region_id, []))
+	var doomed: ArmyState = null
+	for raw: Variant in roster:
+		var army: ArmyState = raw
+		if army != null and army.owner == minor:
+			doomed = army
+			break
+	assert_not_null(doomed, "the minor musters a Home Army")
+
+	# Handing a crown to nobody retires its armies, not just the on-screen list.
+	screen.army_layer.transfer_owner(minor, MapModel.NO_ID)
+
+	roster = []
+	roster.assign(screen.army_layer.regions.value(screen.model.region_id, []))
+	assert_false(roster.has(doomed), "a fallen crown's army leaves the stored roster")
+	assert_eq(_army_count(screen, minor), 0)
+	assert_null(screen.army_layer.marker_for(doomed), "and its standard leaves the map")
+	# A roster on another map is not on screen at all; a fall rewrites it too.
+	var elsewhere: Array[ArmyState] = [ArmyState.muster(77, minor, 0, true, ["pikemen"], 1)]
+	screen.army_layer.regions.set_region(FactionCatalog.NEW_WORLD, elsewhere)
+	screen.army_layer.transfer_owner(minor, MapModel.NO_ID)
+	var stored: Array = []
+	stored.assign(screen.army_layer.regions.value(FactionCatalog.NEW_WORLD, []))
+	assert_eq(stored.size(), 0, "an off-screen roster is retired, not merely the shown one")
+
+
+func test_a_join_empire_keeps_every_army_in_play() -> void:
+	var screen: MapScreen = _loss_screen()
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var won: Array[ArmyState] = _armies_of(screen, minor)
+	assert_gt(won.size(), 0)
+
+	screen.army_layer.transfer_owner(minor, MapScreen.PLAYER_FACTION)
+
+	assert_eq(_army_count(screen, minor), 0)
+	for army: ArmyState in won:
+		assert_true(
+			_armies_of(screen, MapScreen.PLAYER_FACTION).has(army),
+			"an absorbed army stays in play under the winner's colours"
+		)
+		assert_false(army.home, "and becomes a field army so the winner keeps one Home Army")
+
+
+# --- fixtures ----------------------------------------------------------------
+
+## Lands and waters of the test chart, in tile coordinates.
+func _chart() -> MapModel:
+	var model := MapModel.new()
+	model.setup(6, 4)
+	model.region_id = FactionCatalog.OLD_WORLD
+	model.region_key = FactionCatalog.region_key(FactionCatalog.OLD_WORLD)
+	model.faction_ids = [0, 1, 2, 6]
+	var land: Dictionary = {
+		SEAT: [Vector2i(0, 0), Vector2i(1, 0), Vector2i(0, 1), Vector2i(0, 2), Vector2i(1, 2)],
+		HARBOUR: [Vector2i(3, 0), Vector2i(3, 1), Vector2i(2, 0), Vector2i(2, 2), Vector2i(3, 2)],
+		UPLANDS: [Vector2i(1, 1), Vector2i(2, 1)],
+	}
+	# The rival seat sits apart on the eastern seaboard.
+	var rival_tiles: Array[Vector2i] = [Vector2i(5, 0), Vector2i(5, 1)]
+	for province_id: int in land.keys():
+		_fill(model, land[province_id], province_id)
+	_fill(model, rival_tiles, RIVAL)
+	model.provinces = [
+		_loss_province(SEAT, "Seat", land[SEAT], 0, true),
+		_loss_province(HARBOUR, "Harbour", land[HARBOUR], 0, false),
+		_loss_province(UPLANDS, "Uplands", land[UPLANDS], 0, false),
+		_loss_province(RIVAL, "Rival Seat", rival_tiles, 1, true),
+	]
+	var water: Array[Vector2i] = []
+	for y in model.height:
+		for x in model.width:
+			if model.province_at(x, y) == MapModel.NO_ID:
+				water.append(Vector2i(x, y))
+	for tile: Vector2i in water:
+		model.sea_zone[model.index_of(tile.x, tile.y)] = 0
+	model.sea_zones = [SeaZoneState.create(0, "Open Water", water, Vector2(4.0, 3.0), water.size())]
+	return model
+
+
+func _fill(model: MapModel, tiles: Array, province_id: int) -> void:
+	for tile: Vector2i in tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = province_id
+
+
+func _loss_province(
+	id: int, title: String, tiles: Array, owner: int, capital: bool
+) -> ProvinceState:
+	var typed: Array[Vector2i] = []
+	typed.assign(tiles)
+	var sum := Vector2.ZERO
+	for tile: Vector2i in typed:
+		sum += Vector2(tile)
+	var center: Vector2 = sum / maxf(float(typed.size()), 1.0)
+	var data := ProvinceState.create(id, title, typed, center, typed.size(), owner, capital)
+	if capital:
+		data.capital_tile = CapitalLoss.town_tile(data)
+	return data
+
+
+## Hands provinces to a faction without touching anything else on the chart.
+func _hand_over(model: MapModel, faction: int, provinces: Array) -> void:
+	for province_id: int in provinces:
+		model.province_data(province_id).owner = faction
+
+
+func _successor(model: MapModel, capital: int) -> int:
+	var owned: Array[int] = []
+	for province: ProvinceState in model.provinces:
+		if province.owner == MapScreen.PLAYER_FACTION and province.id != capital:
+			owned.append(province.id)
+	return CapitalLoss.pick_capital_province(model, owned)
+
+
+func _army_count(screen: MapScreen, faction: int) -> int:
+	return _armies_of(screen, faction).size()
+
+
+## The faction's Home Army among every stored roster, or null.
+func _home_of(screen: MapScreen, faction: int) -> ArmyState:
+	for army: ArmyState in _armies_of(screen, faction):
+		if army.is_home_army():
+			return army
+	return null
+
+
+## Every army in the regions the layer has visited (the screen's own included).
+func _armies_of(screen: MapScreen, faction: int) -> Array[ArmyState]:
+	var found: Array[ArmyState] = []
+	for raw: Variant in screen.army_layer.regions.values():
+		var roster: Array = raw
+		for army: ArmyState in roster:
+			if army != null and army.owner == faction:
+				found.append(army)
+	return found
+
+
+## Marks a province next to the player's capital as a rival crown's only seat,
+## so one march captures a capital without disturbing the rest of the map.
+## A crown province bordering a rival one; the rival province is made that
+## crown's seat so the capture has a capital to lose. Returns {start, target}.
+func _enemy_capital_next_door(screen: MapScreen) -> Dictionary:
+	var model: MapModel = screen.model
+	for province: ProvinceState in model.provinces:
+		if province.owner != MapScreen.PLAYER_FACTION:
+			continue
+		for province_id: int in MapGeo.province_neighbors(model, province.id):
+			var data: ProvinceState = model.province_data(province_id)
+			if data == null or data.owner == MapScreen.PLAYER_FACTION:
+				continue
+			if data.owner == MapModel.NO_ID:
+				continue
+			if not data.capital:
+				for other: ProvinceState in model.provinces:
+					if other.owner == data.owner and other.capital:
+						other.capital = false
+				data.capital = true
+				data.capital_tile = CapitalLoss.town_tile(data)
+			return {"start": province.id, "target": province_id}
+	return {}
+
+
+func _capital_count(model: MapModel, faction: int) -> int:
+	var total: int = 0
+	for province: ProvinceState in model.provinces:
+		if province.owner == faction and province.capital:
+			total += 1
+	return total
+
+
+func _save_seats(model: MapModel) -> Array[Dictionary]:
+	var saved: Array[Dictionary] = []
+	for province: ProvinceState in model.provinces:
+		saved.append({
+			"id": province.id,
+			"owner": province.owner,
+			"capital": province.capital,
+			"tile": province.capital_tile,
+			"town": province.town_development,
+		})
+	return saved
+
+
+func _restore_seats(model: MapModel, saved: Array[Dictionary]) -> void:
+	for row: Dictionary in saved:
+		var province: ProvinceState = model.province_data(int(row["id"]))
+		if province == null:
+			continue
+		province.owner = int(row["owner"])
+		province.capital = bool(row["capital"])
+		province.capital_tile = row["tile"]
+		province.town_development = int(row["town"])
+
+
+func _declare_war(screen: MapScreen, faction: int) -> void:
+	screen.play.diplomacy.ensure_relation(
+		screen.play.player_faction, faction, screen.play.diplomacy.turn
+	)
+	DiplomacyRules.declare_war(screen.play.diplomacy, screen.play.player_faction, faction)
+
+
+func _detach_one(screen: MapScreen) -> ArmyState:
+	for army: ArmyState in screen.army_layer.armies:
+		if army.owner == screen.play.player_faction and army.is_home_army():
+			screen.army_layer.select(army)
+			MapPlayArmies.on_action(screen.play, "detach:%s" % army.regiments[0])
+			return screen.army_layer.selected_army
+	return null

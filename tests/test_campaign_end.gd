@@ -1,42 +1,62 @@
 # gdlint: disable=max-public-methods
 extends GdToolsTest
-## Campaign calendar cap, endless mode and the campaign-complete plate (wiki:
-## turn-time-mapping § Campaign calendar cap, victory § Calendar campaign end).
+## The campaign's end: the calendar cap, endless mode, the campaign-complete
+## plate, the military-victory plate and the defeat plate on the real map screen
+## (wiki: turn-time-mapping § Campaign calendar cap, victory § Calendar campaign
+## end, § Victory Screen, § Great Power defeat).
+##
+## Merged from test_campaign_end, test_victory_screen and test_campaign_defeat:
+## one Godot boot and one mounted chart for the whole theme. Every case re-seats
+## the shared screen from the pristine save (`Fixture.suite_reset`), which drops
+## a decided victory, a defeat, an open plate and a selection, so a case starts
+## as the mount did.
 
 const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const Fixture = preload("res://tests/map_fixture.gd")
 const CAP: int = 201
 const SAVE_DIR: String = "user://test_campaign_end"
+const DEFEAT_SAVE_DIR: String = "user://test_campaign_defeat"
 
 var screen: MapScreen = null
-## Ownership as the shared world was generated: `_seat_crowns` rewrites owners,
-## so each case starts from the same pristine world instead of a new one.
+## One mount for the suite: under coverage a mount costs ~0.5 s and a re-seat
+## ~0.15 s, so the cases share the chart and reset the session instead.
+var mounted: MapScreen = null
+var pristine: Dictionary = {}
+## Ownership and seats as the shared world was generated: `_seat_crowns` and the
+## fall cases rewrite owners, so each case starts from the same pristine world.
 var saved: Array = []
 
 
 ## Snapshotted before any case touches the fixture, so the base is a clean world.
 func before_all() -> void:
 	saved = Fixture.snapshot(Fixture.world())
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
 
 
 func before_each() -> void:
 	Fixture.restore(Fixture.world(), saved)
-
-
-## The chart is only built for the cases that read it: the calendar and config
-## rules here assert on constants, and a screen attach paints the whole map.
-func _attach() -> MapScreen:
-	if screen == null:
-		screen = Fixture.attach_screen(self)
-	return screen
+	Fixture.suite_reset(mounted, pristine)
+	screen = mounted
 
 
 func after_each() -> void:
 	Fixture.restore(Fixture.world(), saved)
-	if is_instance_valid(screen):
-		screen.free()
-	screen = null
 	get_tree().paused = false
+
+
+func after_all() -> void:
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
+	screen = null
+	pristine = {}
+
+
+## The chart is mounted once for the boot; a case that never reads it never pays
+## the re-seat (the fixture is re-seated in `before_each` regardless).
+func _attach() -> MapScreen:
+	return screen
 
 
 # --- calendar rules ----------------------------------------------------------
@@ -400,8 +420,6 @@ func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
 	assert_true(screen.play.campaign_halted)
 	var save: Dictionary = SaveCodec.capture(screen.play)
 	assert_true(SaveCodec.is_valid(save))
-	screen.free()
-	screen = null
 
 	var reopened: MapScreen = _load(save)
 
@@ -415,6 +433,7 @@ func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
 	MapPlayTurn.end_turn(reopened.play)
 	Fixture.settle(reopened.play)
 	assert_eq(reopened.turn, turn_before, "turns stay shut after a load")
+	reopened.free()
 
 
 func test_an_endless_choice_survives_the_save() -> void:
@@ -422,12 +441,11 @@ func test_an_endless_choice_survives_the_save() -> void:
 	screen.save_dir = SAVE_DIR
 	screen.play.infinite_mode = true
 	var save: Dictionary = SaveCodec.capture(screen.play)
-	screen.free()
-	screen = null
 
 	var reopened: MapScreen = _load(save)
 
 	assert_true(reopened.play.infinite_mode, "endless campaigns stay endless")
+	reopened.free()
 
 
 func _load(data: Dictionary) -> MapScreen:
@@ -454,3 +472,288 @@ func _has_text(node: Node, needle: String) -> bool:
 		if _has_text(child, needle):
 			return true
 	return false
+
+
+# --- the military-victory plate ---------------------------------------------
+## Merged from test_victory_screen: the campaign-end plate on the real map
+## screen (wiki: victory). The shared Old World holds 60 provinces, so the 31 a
+## military victory needs are always there.
+
+
+func test_end_turn_crowns_the_player_and_stops_the_calendar() -> void:
+	_grant_old_world(MapScreen.PLAYER_FACTION)
+	var turn_before: int = screen.turn
+
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+
+	assert_not_null(screen.play.victory)
+	assert_true(screen.play.victory.won_by(MapScreen.PLAYER_FACTION))
+	assert_eq(screen.play.victory.turn_number, turn_before)
+	assert_eq(screen.turn, turn_before, "the campaign stops on the deciding turn")
+	assert_true(screen.hud.is_victory_shown())
+	assert_true(screen.hud._end_turn_button.disabled)
+	assert_eq(screen.hud._end_turn_button.text, "CAMPAIGN ENDED")
+	assert_eq(screen.hud.victory_overlay._title.text, "MILITARY VICTORY")
+	assert_true(String(screen.hud.victory_overlay._winner.text).contains("SPAIN"))
+
+
+func test_a_rival_crown_wins_and_the_map_stops_taking_orders() -> void:
+	_grant_old_world(1)
+
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+
+	assert_not_null(screen.play.victory)
+	assert_true(screen.play.victory.won_by(1))
+	assert_true(String(screen.hud.victory_overlay._tagline.text).contains("England"))
+	var capital: Vector2 = (
+		screen.model.province_center(screen.capital_province) * MapScreen.TILE_SIZE
+	)
+	MapPlayInput.on_tapped(screen.play, capital)
+	assert_eq(screen.selected_province, -1, "a decided campaign takes no orders")
+	assert_false(screen.hud.panels.is_panel_open())
+
+
+func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
+	_grant_old_world(MapScreen.PLAYER_FACTION)
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+	assert_true(screen.hud.is_victory_shown())
+
+	screen.hud.victory_overlay.dismiss()
+
+	assert_false(screen.hud.is_victory_shown())
+	var turn_before: int = screen.turn
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+	assert_eq(screen.turn, turn_before, "dismissing the plate does not reopen play")
+	assert_false(screen.hud.is_victory_shown(), "no second plate; the campaign stays decided")
+
+
+func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
+	_grant_old_world(MapScreen.PLAYER_FACTION)
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+	var decided: VictoryState = screen.play.victory
+	assert_not_null(decided)
+	var save: Dictionary = SaveCodec.capture(screen.play)
+	assert_true(SaveCodec.is_valid(save), "a decided save is valid")
+
+	var reopened: MapScreen = Fixture.open_save(self, save)
+
+	assert_not_null(reopened.play.victory, "the decided campaign survives the save")
+	assert_eq(reopened.play.victory.winner_player_id, decided.winner_player_id)
+	assert_eq(reopened.play.victory.turn_number, decided.turn_number)
+	assert_true(reopened.hud.is_victory_shown(), "the plate returns on load")
+	assert_true(reopened.hud._end_turn_button.disabled)
+	assert_eq(reopened.hud._end_turn_button.text, "CAMPAIGN ENDED")
+	var turn_before: int = reopened.turn
+	MapPlayTurn.end_turn(reopened.play)
+	Fixture.settle(reopened.play)
+	assert_eq(reopened.turn, turn_before, "turns stay shut after a load")
+	reopened.free()
+
+
+func _grant_old_world(faction_id: int) -> void:
+	for province: ProvinceState in _old_world().provinces:
+		province.owner = faction_id
+
+
+func _old_world() -> MapModel:
+	return Fixture.world().region(FactionCatalog.OLD_WORLD)
+
+
+# --- the defeat plate --------------------------------------------------------
+## Merged from test_campaign_defeat: Great Power defeat on terminal fall (wiki:
+## victory § Great Power defeat, capital-and-connectivity § Great Power fall;
+## DR-20261109-05). Each case strips a crown down to its seat, hands that seat to
+## a rival and resolves the capital-loss pass, which is exactly how defeat
+## happens in a real Combat phase.
+
+
+func test_a_human_terminal_fall_is_defeat() -> void:
+	var player: int = FactionCatalog.PLAYER_FACTION
+	var rival: int = _defeat_rival(player)
+
+	var state: DefeatState = CampaignDefeat.resolve(
+		[{"faction": player, "conqueror": rival, "lost": 3}], player, 12
+	)
+
+	assert_not_null(state)
+	assert_eq(state.fallen_player_id, player)
+	assert_eq(state.conqueror_player_id, rival)
+	assert_eq(state.turn_number, 12)
+	assert_eq(state.fallen_name(), FactionCatalog.name_of(player))
+	assert_eq(state.conqueror_name(), FactionCatalog.name_of(rival))
+
+
+func test_an_ai_fall_never_defeats_the_human_crown() -> void:
+	var player: int = FactionCatalog.PLAYER_FACTION
+	var rival: int = _defeat_rival(player)
+
+	var state: DefeatState = CampaignDefeat.resolve(
+		[{"faction": rival, "conqueror": player}], player, 12
+	)
+
+	assert_null(state, "only the human crown's fall seals the session")
+
+
+func test_a_minor_or_tribe_fall_is_map_cleanup_only() -> void:
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+
+	var minor_state: DefeatState = CampaignDefeat.resolve(
+		[{"faction": minor, "conqueror": 0}], minor, 4
+	)
+	var tribe_state: DefeatState = CampaignDefeat.resolve(
+		[{"faction": tribe, "conqueror": 0}], tribe, 4
+	)
+
+	assert_null(minor_state, "Minor Nations cannot be defeated")
+	assert_null(tribe_state, "Tribes cannot be defeated")
+
+
+func test_a_malformed_fall_report_is_ignored() -> void:
+	var player: int = FactionCatalog.PLAYER_FACTION
+
+	assert_null(CampaignDefeat.resolve([], player, 3))
+	assert_null(CampaignDefeat.resolve(["not a row"], player, 3))
+	assert_null(
+		CampaignDefeat.resolve([{"faction": MapModel.NO_ID, "conqueror": 1}], player, 3)
+	)
+
+
+func test_a_human_terminal_fall_seals_the_session_and_mounts_the_defeat_plate() -> void:
+	var target: MapScreen = _attach()
+	var conqueror: int = _defeat_rival(target.play.player_faction)
+
+	_fall_crown(target, target.play.player_faction, conqueror)
+
+	assert_not_null(target.play.defeat)
+	assert_true(target.play.campaign_over())
+	assert_true(target.hud.is_victory_shown())
+	assert_eq(target.hud.victory_overlay._title.text, "DEFEAT")
+	assert_eq(
+		target.hud.victory_overlay._winner.text,
+		"%s falls to %s" % [
+			FactionCatalog.name_of(target.play.player_faction),
+			FactionCatalog.name_of(conqueror),
+		]
+	)
+	assert_eq(
+		target.hud.victory_overlay._tagline.text,
+		"The age has ended for your court."
+	)
+	assert_true(target.hud._end_turn_button.disabled)
+	assert_eq(target.hud._end_turn_button.text, "CAMPAIGN ENDED")
+
+
+func test_a_defeated_campaign_takes_no_more_turns_and_awards_no_victory() -> void:
+	var target: MapScreen = _attach()
+	var conqueror: int = _defeat_rival(target.play.player_faction)
+	_fall_crown(target, target.play.player_faction, conqueror)
+	var turn_before: int = target.turn
+
+	MapPlayTurn.end_turn(target.play)
+
+	assert_eq(target.turn, turn_before, "the seal keeps the turn number")
+	assert_null(target.play.victory, "defeat does not grant a military victory")
+	assert_not_null(target.play.defeat)
+	assert_eq(target.hud.victory_overlay._title.text, "DEFEAT")
+
+
+func test_an_ai_fall_removes_the_crown_and_the_campaign_sails_on() -> void:
+	var target: MapScreen = _attach()
+	var rival: int = _defeat_rival(target.play.player_faction)
+	var holdings_before: int = target.play.world.owned_provinces(0, rival)
+
+	_fall_crown(target, rival, target.play.player_faction)
+
+	assert_null(target.play.defeat, "an AI fall is not the human's defeat")
+	assert_false(target.play.campaign_over(), "the campaign continues")
+	assert_false(target.hud.is_victory_shown())
+	assert_eq(
+		target.play.world.owned_provinces(0, rival), 0, "the crown left the map"
+	)
+	assert_gt(holdings_before, 0)
+
+
+func test_a_defeated_slot_reopens_on_the_defeat_plate() -> void:
+	var target: MapScreen = _attach()
+	target.save_dir = DEFEAT_SAVE_DIR
+	var conqueror: int = _defeat_rival(target.play.player_faction)
+	_fall_crown(target, target.play.player_faction, conqueror)
+	var save: Dictionary = SaveCodec.capture(target.play)
+	assert_true(SaveCodec.is_valid(save))
+
+	var reopened: MapScreen = _open_defeated(save)
+
+	assert_not_null(reopened.play.defeat, "the defeat survives the save")
+	assert_eq(reopened.play.defeat.conqueror_player_id, conqueror)
+	assert_true(reopened.play.campaign_over())
+	assert_true(reopened.hud.is_victory_shown(), "the plate returns on load")
+	assert_eq(reopened.hud.victory_overlay._title.text, "DEFEAT")
+	assert_true(reopened.hud._end_turn_button.disabled)
+	var turn_before: int = reopened.turn
+	MapPlayTurn.end_turn(reopened.play)
+	assert_eq(reopened.turn, turn_before, "turns stay shut after a load")
+	reopened.free()
+
+
+func test_a_legacy_slot_without_a_defeat_field_stays_undefeated() -> void:
+	var target: MapScreen = _attach()
+	target.save_dir = DEFEAT_SAVE_DIR
+	var save: Dictionary = SaveCodec.capture(target.play)
+	save.erase("defeat")
+
+	var reopened: MapScreen = _open_defeated(save)
+
+	assert_null(reopened.play.defeat, "absent -> human not defeated")
+	assert_false(reopened.play.campaign_over())
+	reopened.free()
+
+
+func test_a_fallen_crowns_civilians_leave_play() -> void:
+	var target: MapScreen = _attach()
+	var player: int = FactionCatalog.PLAYER_FACTION
+	var rival: int = _defeat_rival(player)
+	var civil: CivilianLayer = target.play.civilian_layer
+	var tile: Vector2i = target.play.model.province_tiles(target.play.capital_province)[0]
+	var crew: CivilianState = civil.add_unit(rival, "builder", tile)
+	assert_true(civil.units.has(crew), "the fixture crew musters")
+
+	_fall_crown(target, rival, player)
+
+	assert_eq(civil.unit_count_all(rival), 0, "its crews leave with the crown")
+	assert_false(civil.units.has(crew))
+
+
+func _defeat_rival(player: int) -> int:
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != player:
+			return faction
+	return MapModel.NO_ID
+
+
+## Leaves `fallen` owning only its capital in its home region, hands that seat
+## to `conqueror` and resolves the capital-loss pass like a Combat phase would.
+func _fall_crown(target: MapScreen, fallen: int, conqueror: int) -> void:
+	var play: PlaySession = target.play
+	var model: MapModel = play.world.region(FactionCatalog.region_of(fallen))
+	var capital: int = CapitalLoss.seat_of(model, fallen)
+	assert_gte(capital, 0, "the fixture crown has a seat")
+	for province: ProvinceState in model.provinces:
+		if province.owner == fallen and province.id != capital:
+			province.owner = MapModel.NO_ID
+	var before: Array = CapitalLoss.snapshot_world(play.world)
+	model.province_data(capital).owner = conqueror
+	var losses: Dictionary = CapitalLoss.resolve_world(play.world, before)
+	assert_eq(
+		int(losses["fallen"].size()), 1, "the stripped crown falls on its lost seat"
+	)
+	MapPlayLandTurn.apply_capital_loss(play, losses)
+
+
+func _open_defeated(data: Dictionary) -> MapScreen:
+	return Fixture.open_save(self, data, DEFEAT_SAVE_DIR)

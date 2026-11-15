@@ -265,27 +265,11 @@ static func _own_losses(battle: Dictionary, viewer: int) -> int:
 	return (battle.get(side + "_lost", []) as Array).size()
 
 
+## A Great Power's fall is the World page's news; the rules of who may be named
+## live with the rest of the diplomacy desk (wiki: the-gazette § Item catalog).
 static func _falls(pages: Array[Array], viewer: int, state: DiplomacyState, falls: Array) -> void:
-	for raw: Variant in falls:
-		if typeof(raw) != TYPE_DICTIONARY:
-			continue
-		var fallen: Dictionary = raw
-		var faction: int = int(fallen.get("faction", -1))
-		# Only a Great Power's fall is world news; a Minor or Tribe falling is
-		# map cleanup, not a struck name (wiki: the-gazette § Item catalog).
-		if faction < 0 or faction == viewer or not FactionCatalog.can_win(faction):
-			continue
-		if not _met(state, viewer, faction):
-			continue
-		push(
-			pages,
-			Class.WORLD,
-			"greatPowerFell",
-			{
-				"who": GazetteDiplomacy.name_for(state, viewer, faction),
-				"whom": GazetteDiplomacy.name_for(state, viewer, int(fallen.get("conqueror", -1))),
-			}
-		)
+	for entry: Dictionary in GazetteDiplomacy.falls(viewer, state, falls):
+		push(pages, Class.WORLD, String(entry["kind"]), entry["rec"] as Dictionary)
 
 
 ## Only the crown's own studies print. Another court's finished technology is
@@ -371,14 +355,6 @@ static func _charted(
 	if at_sea:
 		return charts.knows_zone(viewer, region, int(battle.get("zone", -1)))
 	return charts.knows_province(viewer, region, int(battle.get("province", -1)))
-
-
-static func _met(state: DiplomacyState, viewer: int, faction: int) -> bool:
-	if faction == viewer:
-		return true
-	if faction < 0 or state == null:
-		return false
-	return state.has_relation(viewer, faction)
 
 
 static func _province(world: WorldMap, battle: Dictionary) -> String:

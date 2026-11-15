@@ -365,10 +365,13 @@ static func _apply(
 				)
 			return [model.index_of(tile.x, tile.y)]
 		"build_fort":
+			# The level it found and the level it raised: a duplicate project
+			# finishing after the wall stands reports no raise (wiki § Fort Levels).
+			var fort_before: int = FortRules.level_at(model, province)
 			FortRules.apply_build(
 				model.province_data(province), unit.work_detail("fort_level")
 			)
-			# The level the turn actually raised, so the despatch can name it.
+			report["fort_before"] = fort_before
 			report["fort_level"] = FortRules.level_at(model, province)
 			return [model.index_of(tile.x, tile.y)]
 		"build_hospital":

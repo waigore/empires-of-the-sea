@@ -225,7 +225,11 @@ func test_menu_save_load_and_return_flow() -> void:
 	assert_true(loaded != screen, "the old screen is replaced")
 	assert_null(screen.get_parent(), "the old screen left the tree")
 	assert_eq(loaded.play.turn, 1, "saved turn restored")
-	assert_eq(loaded.play.economy.economy.treasury, 2500, "saved treasury restored")
+	assert_eq(
+		loaded.play.economy.economy.treasury,
+		PlayerEconomy.START_TREASURY,
+		"saved treasury restored"
+	)
 	assert_eq(loaded.save_dir, DIR, "load keeps the slot directory")
 	assert_eq(loaded.player_faction, 2, "saved human crown restored")
 	assert_eq(loaded.play.economy.player_faction, 2, "economy follows the crown")

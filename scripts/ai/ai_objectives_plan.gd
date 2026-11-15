@@ -14,7 +14,8 @@ extends RefCounted
 ##   escalations, blockings,
 ##   ships, warships, warship_price, navy_due, hostile_ships, hostile_warships,
 ##   treasury, reserve, goal, colony_target, harbour, idle_hulls, explorer_ready,
-##   voyage_afloat, cargo_shortfall, research_slots, research_funding,
+##   voyage_afloat, voyage_abroad, voyage_stranded, cargo_shortfall,
+##   research_slots, research_funding,
 ##   research_cost, research_refusal, tribe_target, tribe_stage_cost.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
@@ -163,6 +164,13 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 	)
 	var afloat: bool = bool(readings.get("voyage_afloat", false))
 	var abroad: bool = bool(readings.get("voyage_abroad", false))
+	# A colonist ashore where the crown owns no land neither founds a province
+	# nor boards again (docking needs a crown port), so no voyage can be sailed:
+	# the aim says why instead of funding a sailing it cannot order (issue #602).
+	# The Explorer is not idle — the civilian planner keeps it on the far shore's
+	# chart — but the expedition is over, not under way.
+	if bool(readings.get("voyage_stranded", false)):
+		return parent.block("the Explorer is ashore with no crown land")
 	var under_way: bool = afloat or abroad
 	var harbour: bool = bool(readings.get("harbour", false))
 	var hull := AiObjective.create("expedition.hull", "naval", W_HULL, {"hull": 1})
@@ -237,6 +245,15 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 		# unlock keeps that chest but does not claim a launch it cannot lay.
 		if not bool(readings.get("warship_open", false)):
 			build.block("no warship its techs open")
+		else:
+			# A yard the court has stalled on for the blocked bar's turns names
+			# it — the chest stays out of reach and the trace says so instead
+			# of another silent deferred row (issue #603).
+			var yard_stall: int = int(
+				(readings.get("blockings", {}) as Dictionary).get("navy.build", 0)
+			)
+			if yard_stall > 0:
+				build.block("the yard is out of reach %d turns" % yard_stall)
 		return build
 	if not at_war:
 		return null

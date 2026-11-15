@@ -4,12 +4,13 @@ extends GdToolsTest
 ## the player can read, and symbols must never bury a province name.
 
 const Fixture = preload("res://tests/map_fixture.gd")
-## The plan's name floor (a province needs 26 tiles to carry its name) is too
-## tight on the shared 48x32 fixture, so the two placement cases read a
-## 72x52 chart. It is generated once per worker: under coverage a chart costs
-## seconds, and a case that rebuilt it would pay that again. Old World only —
-## the placement rules never read a world's sea lanes, and one region keeps the
-## retry loop (setup_errors -> a fresh seed) from paying for a second chart.
+## The shared 48x32 fixture is all pocket provinces (every one under
+## `MapCanvasPlan.NAME_ROOM`), so the case that reads both type sizes — full and
+## pocket — uses a 72x52 chart instead. It is generated once per worker: under
+## coverage a chart costs seconds, and a case that rebuilt it would pay that
+## again. Old World only — the placement rules never read a world's sea lanes,
+## and one region keeps the retry loop (setup_errors -> a fresh seed) from
+## paying for a second chart.
 const NAME_CHART: Vector2i = Vector2i(72, 52)
 
 static var _name_chart: MapModel = null
@@ -285,9 +286,8 @@ func test_every_non_capital_town_is_marked() -> void:
 	assert_eq(marks.size(), expected)
 
 
-## The shared fixture is too small for province names on every province, so the
-## case that bit: a named inland province picks the tile nearest its centroid as
-## its town, which is where the name is drawn. The mark has to stand on that
+## The case that bit: a named inland province picks the tile nearest its centroid
+## as its town, which is where the name is drawn. The mark has to stand on that
 ## tile and the name has to clear it.
 func test_a_province_name_clears_its_town_mark() -> void:
 	var region: MapModel = _name_chart_model()
@@ -369,9 +369,8 @@ func test_capital_star_has_ten_points() -> void:
 
 
 ## Placement stays pure: the plan can be built headless, and every province
-## with enough land carries its name at the province centre. The shared
-## Fixture region is too small to clear the label area floor, so this case
-## reads the per-worker name chart (see `NAME_CHART`) without mounting a canvas.
+## carries its name at the province centre — a pocket province one step smaller
+## rather than nameless (issue #665). The name chart carries both sizes.
 func test_plan_places_names_without_a_node() -> void:
 	var region: MapModel = _name_chart_model()
 	var plan := MapCanvasPlan.new()
@@ -380,13 +379,19 @@ func test_plan_places_names_without_a_node() -> void:
 	for label: Dictionary in plan.labels:
 		if String(label["kind"]) == "province":
 			named[String(label["text"])] = label
-	var expected: int = 0
+	var full: int = 0
+	var pockets: int = 0
 	for province: ProvinceState in region.provinces:
-		if province.area < 26:
-			continue
-		expected += 1
-		assert_true(named.has(province.name))
-	assert_gt(expected, 0)
+		assert_true(named.has(province.name), "%s has no chart name" % province.name)
+		var size: int = int(named[province.name]["size"])
+		if province.area < MapCanvasPlan.NAME_ROOM:
+			pockets += 1
+			assert_eq(size, MapCanvasPlan.POCKET_NAME_SIZE, "%s is a pocket" % province.name)
+		else:
+			full += 1
+			assert_eq(size, MapCanvasPlan.NAME_SIZE, "%s has room" % province.name)
+	assert_gt(full, 0, "the chart carries a province with room for full type")
+	assert_gt(pockets, 0, "the chart carries a pocket province")
 	assert_false(plan.passages.size() > 0, "no world means no sea-lane marks")
 
 

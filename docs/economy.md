@@ -1,7 +1,7 @@
 # Economy: stockpile, production and riches
 
-One stockpile per Great Power, the end-of-turn pipeline, raw →
-manufactured recipes. **Pillars:** P2, P3, P5.
+One stockpile per Great Power, the turn pipeline, raw → manufactures.
+**Pillars:** P2, P3, P5.
 
 **Wiki:** [stockpiles-and-production](https://github.com/waigore/empires-of-the-sea/wiki/stockpiles-and-production),
 [production-recipes](https://github.com/waigore/empires-of-the-sea/wiki/production-recipes),
@@ -40,27 +40,29 @@ Projections never mutate.
 Steel, bronze, cigars and fur hats take **two turns** (`turns`); the alloys
 combine two inputs (DR-20261114-10). Inputs and labour are paid up front; the
 batch lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02). A
-row left set starts a batch a phase.
+set row starts a batch a phase.
 
 A slow row's bench holds **three pieces** (`QUEUE_CAP`): a fourth run waits for
-a landing (DR-20261114-12). The room is read after the landings, so a
-landing frees its place; a paid batch keeps its. A full bench reads `3/3→2t`.
+a landing (DR-20261114-12). A landing frees its place; a paid batch keeps its.
+A full bench reads `3/3→2t`.
 
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns connected raw into ×1/×2 manufactures:
 `floor(input / 4) × multiplier`, no inputs, labour, cargo. A colony pays on
-landed tons; rivals upgrade towns; a Minor/Tribe town auto-offers them; estates
+landed tons; rivals upgrade towns; a Minor/Tribe town auto-offers; estates
 sell in full; a deed lifts it (`min(4, 1+deeds)`).
 
 ## World-market auction
 
 One book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches orders
 plus Minor/Tribe auto-offers.
-Tiebreaks: priority, pact, colony favour, Consulate, relation; a colony's
-suzerain clears (`MarketFavoured`, R7.1). A boycott bars the pair. First right pays
+Tiebreaks: priority, pact, colony favour, Consulate, relation; a suzerain
+clears its colony (`MarketFavoured`). A boycott bars the pair. First right pays
 a purchased tile's owner, relation share and embassy cut.
 Unfilled orders carry while holds cover; offers cap post-production.
+Bids spend `treasury − waiting build orders` (`MarketBudget`); the MARKET tab
+prints it.
 
 ## Trade terms
 
@@ -69,12 +71,12 @@ Prices publish once; pact, boycott, subsidy apply at settlement
 
 ## UI
 
-Ledger `PRODUCTION`: stockpile by catalogue group, holdings; steppers capped by
+Ledger `PRODUCTION`: stockpile by group, holdings; steppers capped by
 labour/inputs (`allowance`), a worked row naming its output (`made 3`).
-`MARKET`: staged orders and Minor/Tribe/world rows. `WORKERS`: tier medallions,
+`MARKET`: staged orders, Minor/Tribe/world rows, the bid budget. `WORKERS`: tier medallions,
 `RECRUIT`, `DISBAND`, a **batch press** (`recruit_affordable`; `UNDER ORDERS`
 folds a batch), a `LARDER` block (`LarderRead`) reading the next Consumption's
-store, every appetite in its order, and the striking tier.
+store, every appetite, and the striking tier.
 
 
 ## Deferred (REQ-P2-02)

@@ -78,7 +78,7 @@ func _build() -> void:
 	_notice.visible = false
 	box.add_child(_notice)
 
-	var version := MenuFrame.caption("version %s" % GameVersion.as_string())
+	var version := MenuFrame.caption(GameVersion.menu_caption())
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	box.add_child(version)
 

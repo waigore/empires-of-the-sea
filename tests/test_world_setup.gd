@@ -643,7 +643,7 @@ func _advanced_after_each() -> void:
 func test_presets_match_the_published_tiers() -> void:
 	assert_eq(AdvancedStart.turn(AdvancedStart.TURNS50), 50)
 	assert_eq(AdvancedStart.turn(AdvancedStart.TURNS100), 100)
-	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS50)["treasury"]), 20000)
+	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS50)["treasury"]), 40000)
 	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS100)["treasury"]), 40000)
 	assert_eq(int(AdvancedStart.entry(AdvancedStart.TURNS100)["apprentices"]), 4)
 	assert_eq(AdvancedStart.regiments(AdvancedStart.TURNS50), 6)
@@ -1173,6 +1173,56 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 		assert_true(MapGeo.is_coastal_tile(gen_model, port.x, port.y))
 
 
+## The published placement rate: a resource on three land tiles in ten, every
+## forest cell carrying one whatever the share says, and the open ground filled
+## after the guarantee rather than by a fixed one to three tiles a province
+## (wiki: resource-terrain-region-rules § Placement rate, § Forest terrain split;
+## DR-20261115-16, #676). Measured on the game's own seed and chart size.
+func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
+	var world_map: WorldMap = MapGenerator.new().generate_world(1500, 128, 84)
+	for model: MapModel in world_map.regions:
+		var land: int = 0
+		var carrying: int = 0
+		var forests: int = 0
+		var bare_forests: int = 0
+		var open_carrying: int = 0
+		for y in model.height:
+			for x in model.width:
+				if not model.is_land(x, y):
+					continue
+				land += 1
+				var terrain: int = model.terrain_at(x, y)
+				var forest: bool = terrain == MapModel.Terrain.HARDWOOD_FOREST \
+					or terrain == MapModel.Terrain.SCRUB_FOREST
+				var carries: bool = model.resource_at(x, y) != MapModel.NO_ID
+				if carries:
+					carrying += 1
+					if not forest:
+						open_carrying += 1
+				if forest:
+					forests += 1
+					if not carries:
+						bare_forests += 1
+		var share: float = float(carrying) / float(maxi(land, 1))
+		assert_true(share >= 0.28 and share <= 0.33,
+			"region %d carries %.3f of its %d land tiles" % [model.region_id, share, land])
+		assert_true(forests > 0)
+		# A town tile is levelled to plains before this reading, so every cell
+		# still forest must carry its guaranteed row.
+		assert_eq(bare_forests, 0, "region %d has %d bare forest cells" % [model.region_id, bare_forests])
+		assert_true(open_carrying > 0, "region %d left its open ground bare" % model.region_id)
+
+
+## The published multi-region cap: at most 30% of placed rows are "both", and a
+## tile offering a region-exclusive row takes it once the cap is reached (wiki:
+## resource-terrain-region-rules § Multi-region resource cap).
+func test_the_multi_region_cap_binds_where_a_choice_exists() -> void:
+	assert_true(ResourceSeeder.both_allowed(0, 0), "the first row is always free")
+	assert_true(ResourceSeeder.both_allowed(2, 8), "20% both still leaves room")
+	assert_false(ResourceSeeder.both_allowed(3, 7), "30% both is the cap")
+	assert_false(ResourceSeeder.both_allowed(9, 1), "a both-heavy plot stays barred")
+
+
 func test_resources_sit_on_allowed_terrain() -> void:
 	var table: Array[Dictionary] = MapGenerator.resource_table()
 	for province: ProvinceState in gen_model.provinces:
@@ -1449,3 +1499,225 @@ func before_each() -> void:
 
 func after_each() -> void:
 	_advanced_after_each()
+	_setup_page_after_each()
+
+
+# --- test_game_setup ---
+
+## New-game setup: nation, seed and map-size choices resolve into one config.
+
+const setup_page_SCENE: PackedScene = preload("res://scenes/game_setup.tscn")
+
+var setup_page: GameSetupScreen = null
+var setup_started: GameConfig = null
+var setup_back_presses: int = 0
+
+
+## Only the setup cases mount the page; the world cases above never pay for one.
+func _open_setup_page() -> GameSetupScreen:
+	if is_instance_valid(setup_page):
+		return setup_page
+	setup_started = null
+	setup_back_presses = 0
+	setup_page = setup_page_SCENE.instantiate()
+	setup_page.start_requested.connect(
+		func(config: GameConfig) -> void: setup_started = config
+	)
+	setup_page.back_pressed.connect(
+		func() -> void: setup_back_presses += 1
+	)
+	add_child(setup_page)
+	return setup_page
+
+
+func _setup_page_after_each() -> void:
+	if is_instance_valid(setup_page):
+		setup_page.free()
+	setup_page = null
+
+
+func test_offers_every_great_power_and_size_preset() -> void:
+	setup_page = _open_setup_page()
+	assert_eq(setup_page.nation_option.item_count, FactionCatalog.great_power_ids().size())
+	assert_eq(setup_page.nation_option.get_item_text(0), "Spain")
+	assert_eq(setup_page.nation_option.get_item_id(1), 1, "England keeps its faction id")
+	assert_eq(setup_page.size_option.item_count, GameConfig.SIZES.size())
+	assert_eq(setup_page.size_option.selected, GameConfig.DEFAULT_SIZE_INDEX)
+	assert_true(setup_page.seed_field.placeholder_text.contains("random"))
+
+
+func test_leader_choices_follow_the_chosen_crown() -> void:
+	setup_page = _open_setup_page()
+	assert_eq(setup_page.leader_option.item_count, LeaderCatalog.keys_for(0).size())
+	assert_true(setup_page.leader_option.get_item_text(0).contains("Isabella I"))
+	assert_true(
+		setup_page.leader_option.get_item_text(0).contains("Tribe first contact"),
+		"the label names Spain's real effect, not a missing land bonus"
+	)
+	setup_page.nation_option.select(2)
+	setup_page.nation_option.emit_signal("item_selected", 2)
+	assert_eq(setup_page.leader_option.item_count, LeaderCatalog.keys_for(2).size())
+	assert_true(setup_page.leader_option.get_item_text(0).contains("Napoleon"))
+	assert_true(setup_page.leader_option.get_item_text(0).contains("+25%"))
+	# Every default crown names its own published bonus (leader-bonuses § UI).
+	for faction: int in FactionCatalog.great_power_ids():
+		setup_page.nation_option.select(faction)
+		setup_page.nation_option.emit_signal("item_selected", faction)
+		var text: String = setup_page.leader_option.get_item_text(0)
+		assert_true(text.contains(LeaderCatalog.bonus_label(LeaderCatalog.default_key(faction))),
+			"%s's label names its effect" % FactionCatalog.name_of(faction))
+		assert_false(
+			text.contains("no bonus"),
+			"%s fields a published bonus" % FactionCatalog.name_of(faction)
+		)
+
+
+func test_start_carries_the_chosen_leader_into_the_config() -> void:
+	setup_page = _open_setup_page()
+	setup_page.nation_option.select(2)
+	setup_page.nation_option.emit_signal("item_selected", 2)
+	setup_page.seed_field.text = "42"
+	setup_page.start_button.emit_signal("pressed")
+	assert_not_null(setup_started)
+	if setup_started != null:
+		assert_eq(setup_started.player_faction, 2)
+		assert_eq(setup_started.player_leader, "napoleon")
+
+
+func test_start_resolves_nation_seed_and_size() -> void:
+	setup_page = _open_setup_page()
+	setup_page.nation_option.select(1)
+	setup_page.size_option.select(2)
+	setup_page.seed_field.text = "777"
+	setup_page.start_button.emit_signal("pressed")
+	assert_not_null(setup_started, "start emits a config")
+	if setup_started == null:
+		return
+	assert_eq(setup_started.player_faction, 1, "England is the human slot")
+	assert_eq(setup_started.map_seed, 777)
+	assert_eq(setup_started.map_width, int(GameConfig.SIZES[2]["width"]))
+	assert_eq(setup_started.map_height, int(GameConfig.SIZES[2]["height"]))
+
+
+func test_invalid_seed_keeps_the_player_on_setup() -> void:
+	setup_page = _open_setup_page()
+	setup_page.seed_field.text = "not-a-number"
+	setup_page.start_button.emit_signal("pressed")
+	assert_null(setup_started, "no config on an invalid seed")
+	assert_true(setup_page._error.visible, "the error is shown")
+
+
+func test_blank_seed_rolls_a_non_zero_seed() -> void:
+	setup_page = _open_setup_page()
+	setup_page.seed_field.text = ""
+	setup_page.start_button.emit_signal("pressed")
+	assert_not_null(setup_started)
+	if setup_started != null:
+		assert_gt(setup_started.map_seed, 0, "blank seed becomes random")
+
+
+func test_back_emits_once() -> void:
+	setup_page = _open_setup_page()
+	setup_page.back_button.emit_signal("pressed")
+	assert_eq(setup_back_presses, 1)
+
+
+func test_config_round_trips_through_plain_data() -> void:
+	var config: GameConfig = GameConfig.make(1234, 0, 3, "henry")
+	var restored: GameConfig = GameConfig.from_dict(config.to_dict())
+	assert_eq(restored.map_seed, 1234)
+	assert_eq(restored.map_width, int(GameConfig.SIZES[0]["width"]))
+	assert_eq(restored.map_height, int(GameConfig.SIZES[0]["height"]))
+	assert_eq(restored.player_faction, 3)
+	assert_eq(restored.player_leader, "henry")
+
+
+func test_config_refuses_a_leader_the_crown_does_not_field() -> void:
+	var config: GameConfig = GameConfig.make(1234, 0, 0, "napoleon")
+	assert_eq(config.player_leader, "isabella", "Spain keeps its configured leader")
+
+
+func test_difficulty_starts_on_normal_and_states_its_effect() -> void:
+	setup_page = _open_setup_page()
+	assert_eq(setup_page.difficulty_option.item_count, Difficulty.IDS.size())
+	assert_eq(setup_page.difficulty_option.selected, Difficulty.index_of(Difficulty.DEFAULT))
+	assert_eq(setup_page.difficulty_option.get_item_text(0), "Introductory")
+	assert_true(
+		setup_page._difficulty_hint.text.contains("alike"),
+		"Normal reads as the published rules"
+	)
+	assert_true(
+		setup_page._difficulty_hint.text.contains("hold 31 Old World provinces"),
+		"the hint states the crown's published bar"
+	)
+
+
+func test_start_carries_the_chosen_difficulty_into_the_config() -> void:
+	setup_page = _open_setup_page()
+	setup_page.difficulty_option.select(Difficulty.index_of("hard"))
+	setup_page.difficulty_option.emit_signal("item_selected", Difficulty.index_of("hard"))
+	assert_true(setup_page._difficulty_hint.text.contains("140%"))
+	assert_true(
+		setup_page._difficulty_hint.text.contains("hold 36 Old World provinces"),
+		"the hint states the bar the level sets (DR-20261111-28)"
+	)
+	setup_page.start_button.emit_signal("pressed")
+	assert_not_null(setup_started)
+	if setup_started != null:
+		assert_eq(setup_started.difficulty, "hard")
+		assert_eq(setup_started.to_dict()["difficulty"], "hard")
+
+
+func test_config_round_trips_the_difficulty_layer() -> void:
+	var config: GameConfig = GameConfig.make(99, 1, 1, "", false, "", "impossible")
+	var restored: GameConfig = GameConfig.from_dict(config.to_dict())
+	assert_eq(restored.difficulty, "impossible")
+	assert_eq(GameConfig.make(99, 1, 1).difficulty, Difficulty.DEFAULT)
+
+
+## The extra row must not push SET SAIL off a landscape phone; the row itself
+## rides the page's scroll like every later field (REQ-P1-05, REQ-P1-07;
+## geometry measured like tests/test_mobile_layout.gd).
+func test_phone_setup_keeps_the_difficulty_row_reachable() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(914, 411)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var page: GameSetupScreen = setup_page_SCENE.instantiate()
+	viewport.add_child(page)
+	await get_tree().process_frame
+	var screen := Rect2(Vector2.ZERO, Vector2(viewport.size))
+	assert_true(page.difficulty_option.is_visible_in_tree(), "the row is mounted")
+	assert_true(_contains(screen, page.start_button.get_global_rect()), "SET SAIL stays on screen")
+	assert_gt(page.start_button.size.y, 39.5, "SET SAIL is thumb-sized")
+	assert_gt(page.difficulty_option.size.y, 39.5, "the Difficulty row is thumb-sized")
+	var scroll: ScrollContainer = _page_scroll(page)
+	assert_not_null(scroll, "the setup page scrolls its fields")
+	if scroll != null:
+		assert_true(scroll.scroll_vertical == 0, "the page opens at its top")
+		assert_gt(
+			scroll.get_v_scroll_bar().max_value,
+			0.0,
+			"the fields below the fold stay reachable by scrolling"
+		)
+		assert_true(
+			scroll.find_children("*", "", true, false).has(page.difficulty_option),
+			"the Difficulty row rides that scroll"
+		)
+	viewport.free()
+
+
+func _page_scroll(page: Control) -> ScrollContainer:
+	for node: Node in page.find_children("*", "ScrollContainer", true, false):
+		return node as ScrollContainer
+	return null
+
+
+func _contains(outer: Rect2, inner: Rect2) -> bool:
+	var pad: float = 0.5
+	return (
+		inner.position.x >= outer.position.x - pad
+		and inner.position.y >= outer.position.y - pad
+		and inner.end.x <= outer.end.x + pad
+		and inner.end.y <= outer.end.y + pad
+	)

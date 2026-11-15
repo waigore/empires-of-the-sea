@@ -42,8 +42,8 @@ suites = [
   "test_land_battle_rules.gd",
   "test_army_orders.gd",
   "test_battle_rules.gd",
-  "test_campaign_defeat.gd",
-  "test_capital_loss.gd",
+  "test_campaign_end.gd",
+  "test_campaign_rules.gd",
 ]
 
 [domains.audio]
@@ -61,12 +61,10 @@ suites = [
 [domains.campaign]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_campaign_defeat.gd",
   "test_campaign_end.gd",
   "test_civilian_turn_rules.gd",
-  "test_capital_loss.gd",
+  "test_campaign_rules.gd",
   "test_capital_seat_screen.gd",
-  "test_victory_screen.gd",
 ]
 
 [domains.civilian]
@@ -82,7 +80,7 @@ suites = [
 [domains.diplomacy]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_diplomacy_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
   "test_diplomacy_screen.gd",
   "test_spycraft_rules.gd",
@@ -115,6 +113,7 @@ suites = [
 [domains.economy]
 suites = [
   "test_market_economy_rules.gd",
+  "test_market_budget.gd",
   "test_diplomacy_rules.gd",
 ]
 
@@ -127,12 +126,40 @@ suites = [
   "test_yarn_plates_rules.gd",
 ]
 
+# The shared row skeleton every crown ledger prints (issue #669): the name, its
+# chip and the Visit door. Each sheet's own suite mounts its rows, so they all
+# follow rather than the ledger_* glob's economy_ui, which never builds one.
+[domains.ledger_row]
+suites = [
+  "test_ledgers.gd",
+  "test_town_ledger.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+]
+
+# The shared widget kit every sheet's prose, captions and rows come from (issue
+# #693): a size-flag change here collapses or widens text on all nine HUD sheets
+# at once, so the suites that mount them follow — plus the two that build its
+# widgets directly and the plate that prints its serif wrap.
+[domains.row_builder]
+suites = [
+  "test_ledgers.gd",
+  "test_town_ledger.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_mobile_layout.gd",
+  "test_court_ui_parts.gd",
+  "test_market_economy_rules.gd",
+  "test_quick_battle_overlay.gd",
+]
+
 [domains.ledger_shell]
 # The shared docked-ledger chrome: each ledger's own suite proves its body on
 # the sheet that LedgerFrame draws, and panel_parts holds the chrome cases.
 suites = [
   "test_economy_screen.gd",
-  "test_research_screen.gd",
+  "test_research_rules.gd",
   "test_court_ui_parts.gd",
   "test_panel_parts_rules.gd",
   "test_spycraft_rules.gd",
@@ -252,8 +279,8 @@ suites = [
 # catch-alls past the tier-1 5 min budget.
 [domains.muster]
 suites = [
-  "test_force_ledger_rules.gd",
-  "test_province_ledger.gd",
+  "test_ledgers.gd",
+  "test_town_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -264,7 +291,29 @@ suites = [
 # them) never ride a reading change.
 [domains.eyes]
 suites = [
-  "test_spy_ledger.gd",
+  "test_ledgers.gd",
+]
+
+# The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet.
+# Its own suite reads the projection on a two-chart fixture and drives the sheet
+# on the shared map screen, so a navy reading change never pulls the fleet
+# domain's four suites or the ui catch-all's.
+[domains.navy]
+suites = [
+  "test_naval_ledger.gd",
+]
+
+# The dress the crown's sheets all print in — the chart/reading strip and the
+# grouped list — shared by the provinces, towns, muster, navy, people and
+# command sheets. A change to it runs the suites that drive those sheets,
+# instead of the whole map or ui fan-out.
+[domains.ledger_dress]
+suites = [
+  "test_ledgers.gd",
+  "test_naval_ledger.gd",
+  "test_map_screen_crown_orders.gd",
+  "test_town_ledger.gd",
+  "test_ledger_rows.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -443,6 +492,24 @@ domain = "pause"
 match = "scripts/ui/sheet_frame.gd*"
 domain = "ui"
 
+# The one modal every cartouche door stands on and the door that hosts a panel
+# carrying its own chrome (issue #692). They are the sheet chrome plus the bar's
+# doors, so a shell change runs the suites that mount those sheets instead of the
+# menu catch-all's eight.
+[[rules]]
+match = "scripts/ui/modal_shell.gd*"
+domain = "sheet"
+
+[[rules]]
+match = "scripts/ui/modal_door.gd*"
+domain = "sheet"
+
+# The crown's news sheet is the Gazette's own surface (wiki: the-gazette): its
+# one suite drives the sheet, so a plate change never pays for the menu set.
+[[rules]]
+match = "scripts/ui/gazette_plate.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/ui/civilian_roster_panel.gd*"
 domain = "sheet"
@@ -571,8 +638,87 @@ match = "scripts/map/map_play_provinces.gd*"
 domain = "muster"
 
 [[rules]]
-match = "tests/test_province_ledger.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "muster"
+
+# The crown's command ledger (DR-20261115-11): the projection, its row and
+# panel, the map hook and the army dossier's door. It rides the muster domain
+# with the other sheets — one chrome, one modal layer — so a reading change
+# never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/command_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/command_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_command.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_ledgers.gd*"
+domain = "muster"
+
+# The crown's towns (DR-20261115-12): the projection, its row and panel, the
+# map hook behind Raise and the realm ledger's door. It rides the muster domain
+# with the other sheets — one chrome, one modal layer — so a reading change
+# never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/town_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/town_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_towns.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_town_ledger.gd*"
+domain = "muster"
+
+# The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet.
+# The sheet rides the fleet dossier's door, so it is mapped before the ui and
+# fleet globs, and its suite before the fleet domain's own — a navy reading
+# change never pulls either.
+[[rules]]
+match = "scripts/rules/naval_ledger.gd*"
+domain = "navy"
+
+[[rules]]
+match = "scripts/ui/naval_ledger_*.gd*"
+domain = "navy"
+
+[[rules]]
+match = "tests/test_naval_ledger.gd*"
+domain = "navy"
+
+# The dress every crown ledger prints in: the two-row chart/reading strip and
+# the grouped list the provinces, towns, muster, navy, people and command
+# sheets all build their body from. One shared change runs the suites that
+# drive those sheets, and no map, menu or ui catch-all.
+[[rules]]
+match = "scripts/ui/ledger_filter_bar.gd*"
+domain = "ledger_dress"
+
+[[rules]]
+match = "scripts/ui/ledger_list.gd*"
+domain = "ledger_dress"
+
+# The projection plumbing under those sheets: the chart keys, the narrowing, the
+# chip tallies and the one heading per chart. Every ledger reads it, so it rides
+# the same domain as the dress and never the rules catch-all's battle suites.
+[[rules]]
+match = "scripts/rules/ledger_rows.gd*"
+domain = "ledger_dress"
+
+[[rules]]
+match = "tests/test_ledger_rows.gd*"
+domain = "ledger_dress"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
 # The sheet rides the court ledger's door, so it is mapped before the ui glob;
@@ -587,7 +733,7 @@ match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
 [[rules]]
-match = "tests/test_spy_ledger.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "eyes"
 
 [[rules]]
@@ -599,7 +745,7 @@ match = "scripts/map/map_play_force_ledger.gd*"
 domain = "muster"
 
 [[rules]]
-match = "tests/test_force_ledger_*.gd*"
+match = "tests/test_ledgers.gd*"
 domain = "muster"
 
 # The cartouche seal, the Android back chain and the HUD build/bind that mount
@@ -705,7 +851,7 @@ suites = [
   "test_court_ui_parts.gd",
   "test_audio_rules.gd",
   "test_mobile_layout.gd",
-  "test_force_ledger_rules.gd",
+  "test_ledgers.gd",
 ]
 
 # The one full-screen sheet frame: the civilian roster, the muster roll and the
@@ -714,7 +860,7 @@ suites = [
 [domains.sheet]
 suites = [
   "test_court_ui_parts.gd",
-  "test_force_ledger_rules.gd",
+  "test_ledgers.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
   "test_panel_parts_rules.gd",
@@ -730,9 +876,8 @@ suites = [
   "test_map_data_rules.gd",
   "test_map_screen.gd",
   "test_map_screen_crown_orders.gd",
-  "test_diplomacy_lens.gd",
+  "test_map_lenses.gd",
   "test_diplomacy_rules.gd",
-  "test_resource_lens.gd",
   "test_civilian_turn_rules.gd",
 ]
 
@@ -743,7 +888,7 @@ suites = [
 suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_defence_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 # The defence reading's projection; first match wins, so it is named before the
@@ -753,7 +898,7 @@ match = "scripts/rules/defence_survey.gd*"
 domain = "crown_road"
 
 [[rules]]
-match = "tests/test_defence_*.gd*"
+match = "tests/test_map_lenses.gd*"
 domain = "crown_road"
 
 # Shared lens kit: activation, tap resolution and slip packing every reading
@@ -762,9 +907,7 @@ domain = "crown_road"
 [domains.lens_kit]
 suites = [
   "test_map_view_rules.gd",
-  "test_defence_lens.gd",
-  "test_diplomacy_lens.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 [[rules]]
@@ -802,7 +945,7 @@ suites = [
   "test_map_data_rules.gd",
   "test_map_screen_crown_orders.gd",
   "test_panel_parts_rules.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_map_view_rules.gd",
 ]
 
@@ -824,7 +967,7 @@ suites = [
 # map + ui fan-out blowing the tier-1 5 min budget.
 [domains.resource_ink]
 suites = [
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -833,7 +976,7 @@ suites = [
 # tone can never drift away from the minimap that draws the same table (#456).
 [domains.palette]
 suites = [
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
   "test_panel_parts_rules.gd",
   "test_map_canvas.gd",
   "test_map_view_rules.gd",
@@ -876,7 +1019,7 @@ suites = [
   "test_world_setup.gd",
   "test_map_screen.gd",
   "test_save_codec.gd",
-  "test_victory_screen.gd",
+  "test_campaign_end.gd",
 ]
 
 [domains.advanced]
@@ -895,7 +1038,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
+  "test_world_setup.gd",
   "test_main.gd",
   "test_map_screen.gd",
   "test_menu_flow.gd",
@@ -913,10 +1056,9 @@ suites = [
   "test_campaign_end.gd",
   "test_campaign_intro.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
+  "test_world_setup.gd",
   "test_menu_flow.gd",
   "test_tables_rules.gd",
-  "test_victory_screen.gd",
 ]
 
 # The age's race helper: the standing math, the sheet's foot and the turn's
@@ -932,13 +1074,11 @@ suites = [
   "test_world_setup.gd",
   "test_advanced_start_live.gd",
   "test_land_battle_rules.gd",
-  "test_game_setup.gd",
   "test_court_ui_parts.gd",
   "test_main.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
-  "test_diplomacy_lens.gd",
-  "test_resource_lens.gd",
+  "test_map_lenses.gd",
 ]
 
 [domains.misc]
@@ -958,7 +1098,6 @@ suites = [
 [domains.research]
 suites = [
   "test_panel_parts_rules.gd",
-  "test_research_screen.gd",
   "test_research_rules.gd",
   "test_yarn_plates_rules.gd",
 ]
@@ -1050,7 +1189,6 @@ suites = [
 [domains.turn_closure]
 suites = [
   "test_campaign_end.gd",
-  "test_campaign_defeat.gd",
   "test_ai_observer.gd",
   "test_diplomacy_screen.gd",
 ]
@@ -1149,6 +1287,13 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_market.gd"
 domain = "economy_ui"
 
+# The market tab's bid-budget banner (wiki: world-market § Treasury budget for
+# bids): the sheet reads one figure from MarketBudget, so it rides the economy
+# suites that prove that projection instead of the menu catch-all.
+[[rules]]
+match = "scripts/ui/ledger_budget.gd*"
+domain = "economy_ui"
+
 [[rules]]
 match = "scripts/ui/ledger_text.gd"
 domain = "economy_ui"
@@ -1188,6 +1333,12 @@ domain = "economy_ui"
 [[rules]]
 match = "tests/ledger_shot.gd*"
 domain = "economy_ui"
+
+# The chart's by-hand shot harness draws the college's full-screen tree
+# (DR-20261115-15), so it stays on the research reading's own suites.
+[[rules]]
+match = "tests/tech_tree_shot.gd*"
+domain = "research"
 
 [[rules]]
 match = "tests/test_market_economy_rules.gd*"
@@ -1348,9 +1499,76 @@ suites = [
   "test_ai_rules.gd",
 ]
 
+# Folded micro-suites still appear as deletions in the PR diff. Map those names
+# to the four survivors before the catch-all globs (diplomacy_*, fleet_*,
+# resource_*, …) so tier 1 re-runs the theme boot, not the whole fan-out.
+[domains.fold_survivors]
+suites = [
+  "test_map_lenses.gd",
+  "test_ledgers.gd",
+  "test_naval_rules.gd",
+  "test_world_setup.gd",
+]
+
 [[rules]]
 match = "tests/impact_map.toml"
 domain = "impact_map"
+
+[[rules]]
+match = "tests/test_resource_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_diplomacy_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_defence_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_force_ledger_rules.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_province_ledger.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_spy_ledger.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_fleet_passes.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_game_setup.gd*"
+domain = "fold_survivors"
+
+# The province dossier's estate block and the road works it dispatches (issue
+# #671): the sheet, its rows, the route the Build road control plans and the
+# suite that proves it. The panel's own suites prove the geometry and the
+# content, so a dossier change never pulls the prospect fan-out (ten suites)
+# past the tier-1 budget. Named before the resource_ink / prospect / ui rules
+# below (first match wins).
+[domains.province_sheet]
+suites = [
+  "test_panel_parts_rules.gd",
+  "test_mobile_layout.gd",
+]
+
+[[rules]]
+match = "scripts/ui/province_panel.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_resources.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/rules/road_works.gd*"
+domain = "province_sheet"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
@@ -1376,7 +1594,7 @@ match = "scripts/ui/improvement_row.gd*"
 domain = "resource_ink"
 
 [[rules]]
-match = "tests/test_resource_lens.gd*"
+match = "tests/test_map_lenses.gd*"
 domain = "resource_ink"
 
 [[rules]]
@@ -1959,6 +2177,12 @@ domain = "map"
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "fog"
 
+# The crown's own fog pass is the same glue: a fog change must not pull the
+# whole map domain past the tier-1 budget.
+[[rules]]
+match = "scripts/map/map_play_fog_turn.gd*"
+domain = "fog"
+
 [[rules]]
 match = "scripts/map/map_generator.gd"
 domain = "world"
@@ -2271,12 +2495,18 @@ domain = "economy"
 match = "scripts/rules/world_market.gd"
 domain = "economy"
 
+# The cargo afloat the raid pass reads: economy prices it, the fleet suites raid
+# it (wiki: ships-and-naval § Trade and Transport Interception).
+[[rules]]
+match = "scripts/rules/market_cargo.gd*"
+domain = "economy"
+
 [[rules]]
 match = "scripts/rules/research_*.gd"
 domain = "research"
 
 [[rules]]
-match = "scripts/rules/tech_*.gd"
+match = "scripts/rules/tech_*.gd*"
 domain = "research"
 
 [[rules]]
@@ -2325,6 +2555,12 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/visibility.gd"
+domain = "fog"
+
+# The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
+# § Spy timer expiry), so it travels with the fog domain.
+[[rules]]
+match = "scripts/rules/spy_charter.gd*"
 domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
@@ -2415,7 +2651,7 @@ domain = "civilian"
 
 # Its own suite rides with the fleet set too.
 [[rules]]
-match = "tests/test_home_merge.gd*"
+match = "tests/test_fleet_orders.gd*"
 domain = "fleet"
 
 [[rules]]
@@ -2545,6 +2781,12 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_frame.gd*"
 domain = "ledger_shell"
 
+# The shared row skeleton (issue #669) is printed by every crown ledger, so its
+# suites follow instead of the ledger_* glob's economy_ui alone.
+[[rules]]
+match = "scripts/ui/ledger_row.gd*"
+domain = "ledger_row"
+
 [[rules]]
 match = "scripts/ui/ledger_*.gd"
 domain = "economy_ui"
@@ -2558,7 +2800,7 @@ match = "scripts/ui/research_*.gd*"
 domain = "research"
 
 [[rules]]
-match = "scripts/ui/tech_*.gd"
+match = "scripts/ui/tech_*.gd*"
 domain = "research"
 
 [[rules]]
@@ -2648,7 +2890,7 @@ domain = "ui"
 
 [[rules]]
 match = "scripts/ui/ui_row_builder.gd*"
-domain = "ui"
+domain = "row_builder"
 
 # Shared theme: canvas mounts call build(); menu catch-all is too wide.
 [[rules]]
@@ -2840,10 +3082,6 @@ domain = "map"
 [[rules]]
 match = "tests/test_world_*.gd"
 domain = "map"
-
-[[rules]]
-match = "tests/test_game_setup.gd"
-domain = "menu"
 
 [[rules]]
 match = "tests/test_land_battle_rules.gd*"

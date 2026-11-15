@@ -184,6 +184,68 @@ func test_mute_silences_the_bed_and_the_ambience() -> void:
 	assert_almost_eq(_director._active_player().volume_db,
 		linear_to_db(_director.mix.music), 0.01)
 
+## A driven run asks for no fades: the bed lands on its knob on the same frame
+## the desk is told to play it, with no Tween left to resolve (docs/testing.md
+## § Speed rules).
+func test_a_driven_run_lands_its_bed_while_the_knobs_are_read() -> void:
+	_setup_audio_director()
+	_director.fade_scale = 0.0
+	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
+	assert_almost_eq(
+		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+	)
+	assert_true(_director._fades.is_empty(), "no fade waits behind the bed")
+	_director.set_muted(true)
+	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+	_director.set_muted(false)
+	assert_true(_director._fades.is_empty(), "nor behind the mute")
+
+func test_a_stinger_lands_with_the_bed_when_the_drive_asks_for_no_fades() -> void:
+	_setup_audio_director()
+	_director.fade_scale = 0.0
+	_director.play_music(MusicPlaylist.BROADSIDES)
+	_director.set_muted(true)
+	assert_true(_director.play_stinger(MusicPlaylist.SPANISH_MAIN), "a stinger still lands")
+	_director.set_muted(false)
+	_director.land_fades()
+	assert_true(_director._fades.is_empty(), "every fade is ended")
+	assert_almost_eq(
+		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+	)
+	assert_eq(_director.current_track_id(), MusicPlaylist.BROADSIDES)
+
+## Live fades still resolve when a driven run lands them: the Tween steps out,
+## then the live bed sits on its mix knob (docs/testing.md § Speed rules).
+func test_land_fades_steps_pending_bed_tweens() -> void:
+	_setup_audio_director()
+	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
+	assert_false(_director._fades.is_empty(), "a live crossfade waits")
+	_director.land_fades()
+	assert_true(_director._fades.is_empty(), "every fade is stepped out")
+	assert_almost_eq(
+		_director._active_player().volume_db, linear_to_db(_director.mix.music), 0.01
+	)
+
+## Mute keeps the bed silent after a land: the desk must not restore volume
+## over a muted mix (the smoke mute assert left it at silence).
+func test_land_fades_keeps_silence_when_muted() -> void:
+	_setup_audio_director()
+	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
+	_director.set_muted(true)
+	_director.land_fades()
+	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+
+## Stopping the bed clears the track; landing then leaves the stopped player
+## alone instead of writing a mix knob onto an empty desk.
+func test_land_fades_skips_restore_when_no_bed() -> void:
+	_setup_audio_director()
+	assert_true(_director.play_music(MusicPlaylist.SPANISH_MAIN))
+	_director.stop_music()
+	assert_eq(_director.current_track_id(), "")
+	_director.land_fades()
+	assert_eq(_director.current_track_id(), "")
+	assert_true(_director._fades.is_empty())
+
 func test_volume_changes_are_clamped_and_broadcast() -> void:
 	_setup_audio_director()
 	var seen: Array = []

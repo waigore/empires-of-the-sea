@@ -54,6 +54,9 @@ func fill(
 	_viewer = viewer
 	UiRowBuilder.clear(self)
 	_add_cargo_banner()
+	var budget: Label = LedgerBudget.banner(_economy)
+	if budget != null:
+		add_child(budget)
 	_add_terms_banner()
 	_add_staged()
 	_add_deals()
@@ -277,7 +280,6 @@ func _offer_row(offer: Dictionary) -> Control:
 		UiRowBuilder.caption(FactionCatalog.name_of(seller), 13, FactionCatalog.color_of(seller), 96.0)
 	)
 	row.add_child(CommodityIcons.cell(commodity, 84.0, 13))
-
 	var left_label := UiRowBuilder.label("%d" % left, 13, Palette.GOLD_PALE)
 	left_label.custom_minimum_size = Vector2(40, 0)
 	left_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT

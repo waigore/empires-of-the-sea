@@ -50,7 +50,7 @@ const TIERS: Dictionary = {
 	TURNS50:
 	{
 		"turn": 50,
-		"treasury": 20000,
+		"treasury": 40000,
 		"peasants": 16,
 		"apprentices": 0,
 		"regiments": 6,

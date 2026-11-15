@@ -41,7 +41,7 @@ static func snapshot(
 		var model: MapModel = world.region(region)
 		if model == null:
 			continue
-		var units: Array = _stored(regions, region)
+		var units: Array = LedgerRows.stored_rows(regions, region)
 		for raw: Variant in units:
 			var unit := raw as CivilianState
 			if unit == null or unit.owner != faction or not SpyRules.is_spy(unit):
@@ -82,6 +82,20 @@ static func duty_of(model: MapModel, unit: CivilianState) -> String:
 	if unit.is_working() and unit.work_action() == SpyRules.WORK_COUNTER:
 		return DUTY_SCREEN
 	return DUTY_IDLE
+
+
+## The one word a network row scans for, in the same reading order as the rows.
+static func duty_word(duty: String) -> String:
+	match duty:
+		DUTY_SHADOW:
+			return "SHADOW"
+		DUTY_SCREEN:
+			return "SCREEN"
+		DUTY_WATCH:
+			return "WATCH"
+		DUTY_ABOARD:
+			return "ABOARD"
+	return "IDLE"
 
 
 ## One sentence for a network row: what this spy is doing for the crown.
@@ -248,15 +262,6 @@ static func _empty(
 	result["courts"] = courts
 	result["screen"] = screen
 	return result
-
-
-static func _stored(table: MapRegionTable, region: int) -> Array:
-	if table == null:
-		return []
-	var stored: Variant = table.value(region, [])
-	if stored is Array:
-		return stored
-	return []
 
 
 ## Shadowed spies first (the crown reads its gains), then the screen, the

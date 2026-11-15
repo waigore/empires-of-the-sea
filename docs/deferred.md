@@ -1,17 +1,17 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-08 + #644 (`REQ-P2-02`).
+Audited through DR-20261115-16 + #688 (REQ-P2-02).
 
 ## Already live
 
 | Was deferred | Where it lives |
 |--------------|----------------|
 | War research; war memory; ledger T1–T6 | `research_floor`; `AiWarMemory`; `AiObjective*`, #496–#501 |
-| Difficulty; agendas; boycotts (deal bar) | `Difficulty`/`VictoryRules`; `AiAgenda`; `AiDiplomacyOffers`, DR-15-03 |
-| Home-fleet; forts; civilian AI | `FleetHomeMerge`, `AiCivilianPlanner`, forts |
+| Difficulty; agendas; boycotts | `Difficulty`/`VictoryRules`; `AiAgenda`; `AiDiplomacyOffers`, DR-15-03 |
+| Home-fleet; forts; civilian AI | `FleetHomeMerge`, `AiCivilianPlanner` |
 | Minor/Tribe market + town growth | `MinorMarket`, `TownIndustry`, `MinorTownGrowth` |
 | Overseas cargo; colony profit; Join Empire | `EconomyOverseas`, `FirstRight`, `DiplomacyOvertures` |
-| Fleetless first-hull import (seat harbour hold) | `TradeCargo.PORT_ALLOWANCE`, #606 |
+| Fleetless first-hull import | `TradeCargo.PORT_ALLOWANCE`, #606 |
 | Counter-spy; court reports; fog/Passage | espionage; `CourtCharts`, DR-11-05 |
 | Favoured partner; GP–Tribe contact | `MarketFavoured`; `TribeContact`, DR-11-11/14 |
 | Hospitals; rival builders/trains | `HospitalRules`, `AiHospitalWork`, `HospitalTrain` |
@@ -23,41 +23,46 @@ Audited through DR-20261115-08 + #644 (`REQ-P2-02`).
 | Yarn + consent | `DialogueYarn`, `ConsentCopy` |
 | War footing; money-first; victory pressure | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure`, DR-15-04 |
 | Tribe buy; landings; overseas conquest | `AiTribeColony`; `AiColonisationPlanner`, DR-14-02/03 |
-| Tribe chain door study | `AiTribeColony.door`, research planner, DR-14-05/#554 |
+| Tribe chain door | `AiTribeColony.door`, research planner, DR-14-05/#554 |
 | Hull chest + material row | `AiNavy` / `AiClaims.HULLS`, DR-14-06/09 |
 | Worker tiers; slow luxury rows; bench cap | `min_tier`/`turns`, `QUEUE_CAP`, DR-14-07/10/12 |
 | AI candidates respect worker-tier | `AiEconomyPlanner` / `AiRandomCourt`, #568 |
-| War-time trade garrison (holds home) | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
+| War-time trade garrison | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
 | Rival bench room | `AiEconomyPlanner._bench_room`, `AiRandomCourt`, DR-15-02 |
+| Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20,000; DR-15-16/#688 |
 
 ## Remaining gaps (impact order)
 
-1. **Rival purse behind Join Empire** — the colony waits on
-   `5,000 + 2,000 × provinces` (#489) while landings and storms grow colonies
-   (DR-14-14); the famine/income deadlock behind it is a rules call.
-2. **Building gates / further rows** — worker tiers, the alloy + luxury four and
-   the bench cap ship (DR-14-07/10/12); building-gated recipes remain.
-3. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship;
-   the soft priority weight vector and treasury-recovery reweighting stay seed
-   (DR-13-15) — internal knobs.
+1. **Building gates / further rows** — worker tiers, alloy + luxury four and
+   bench cap ship (DR-14-07/10/12); building gates and further rows remain.
+2. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship; soft
+   weights and treasury recovery stay seed (DR-13-15).
+3. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
+   (`civilian-build-planner`); polish.
+
+#676's starvation ships in #688; Join Empire stays the published cost table.
 
 ## Next pick
 
-The rival purse (#489) — a rules call.
+Building gates / further rows — rules call.
 
 ## Blocked footnotes
 
-- Predict-the-line — declined (combat / DR-12-02).
+- Predict-the-line — declined (DR-12-02).
 - Era dialogue — no era model (DR-11-08).
 - Healing at 0 health; last-known OOB — DR-12-04/09.
-- General-grade/sheltering trains — pending design (DR-12-07); L1 live.
-- Alt victory, difficulty extras, ruleset loaders, loans past the research debt
-  floor, Quick Battle lanes — out of scope.
+- General-grade/sheltering trains — pending design (DR-12-07).
+- Alt victory, difficulty extras, ruleset loaders, loans outside the research
+  floor, Quick Battle lanes/collapse, warehouse logistics — out of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Growth coexistence — seed (DR-13-08); per-hull / rival-fight plate — DR-13-17.
 - Further tongues — out of scope (DR-13-12).
-- Wiki drift (read-only): `civilian-units` calls Road L2/gathering deferred;
-  `ai-architecture`'s seed list names victory pressure; `phase-planner-*` cite
-  DR-14-11 for DR-14-13's declare slot; DR-14-11 still calls the fleetless
-  import leg unshipped (#606); `playtest-learnings` calls the boycott's
-  blocked deal unread.
+
+## Wiki drift
+
+- `civilian-units` calls Road L2, gathering and transport caps deferred.
+- `ai-architecture` seed list still names victory pressure (live, DR-15-04).
+- `phase-planner-*` cite DR-14-11 for DR-14-13's declare slot.
+- DR-14-11 fleetless leg — cleared by #606.
+- `playtest-learnings` calls the boycott blocked deal unread; suite reads it
+  (#627/#629).

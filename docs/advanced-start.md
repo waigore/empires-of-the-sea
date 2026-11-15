@@ -16,7 +16,7 @@ campaign; it is saved with the session (`advanced_start`).
 
 | | Turn 50 | Turn 100 |
 |---|---|---|
-| Treasury | 20,000 | 40,000 |
+| Treasury | 40,000 | 40,000 |
 | Workforce | 16 peasants | 16 peasants + 4 apprentices |
 | Techs | 23 fixed | 45 fixed |
 | Civilians | 3 Explorer, 3 Builder, 2 Engineer, 1 Spy, 1 Merchant | +1 each, +1 Rail Builder |

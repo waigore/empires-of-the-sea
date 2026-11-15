@@ -397,7 +397,7 @@ func test_the_civilian_chip_opens_the_whole_empire_roster() -> void:
 	assert_not_null(roster)
 	assert_true(roster.is_open())
 	assert_eq(int(roster._snapshot["total"]), MapScreen.STARTING_CIVILIANS.size())
-	assert_eq(roster._head.region, CivilianRoster.REGION_ALL)
+	assert_eq(roster._head.region, LedgerRows.REGION_ALL)
 	assert_eq(roster._head.type_id, CivilianRosterHead.TYPE_ALL)
 	roster.close()
 	assert_false(roster.is_open())
@@ -415,10 +415,10 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 
 	_screen.hud.civilian_roster_pressed.emit()
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
-	roster._head._region_buttons[CivilianRoster.REGION_NEW].pressed.emit()
+	roster._head._region_buttons[LedgerRows.REGION_NEW].pressed.emit()
 	roster._head._type_buttons["merchant"].pressed.emit()
 	assert_eq(
-		CivilianRoster.count(roster._snapshot, CivilianRoster.REGION_NEW, "merchant"), 1
+		CivilianRoster.count(roster._snapshot, LedgerRows.REGION_NEW, "merchant"), 1
 	)
 	var row: CivilianRosterRow = _first_row(roster)
 	assert_not_null(row)
@@ -427,8 +427,11 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 		_screen.world.region(1).province_at(tile.x, tile.y)
 	))
 
-	row._visit_unit()
-	assert_false(roster.is_open(), "visiting closes the ledger")
+	var tap := InputEventMouseButton.new()
+	tap.pressed = true
+	tap.button_index = MOUSE_BUTTON_LEFT
+	row._gui_input(tap)
+	assert_false(roster.is_open(), "a tap on the row visits the civilian")
 	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
 	assert_eq(_screen.civilian_layer.selected_unit, unit)
 	assert_true(_screen.hud.panels.is_civilian_panel_open())
@@ -438,8 +441,8 @@ func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
 	_screen.hud.civilian_roster_pressed.emit()
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	var head: CivilianRosterHead = roster._head
-	head._region_buttons[CivilianRoster.REGION_OLD].pressed.emit()
-	assert_eq(roster._region, CivilianRoster.REGION_OLD)
+	head._region_buttons[LedgerRows.REGION_OLD].pressed.emit()
+	assert_eq(roster._region, LedgerRows.REGION_OLD)
 	assert_eq(CivilianRoster.count(roster._snapshot, roster._region), 3)
 	head._type_buttons["explorer"].pressed.emit()
 	assert_eq(roster._type, "explorer")
@@ -447,7 +450,7 @@ func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
 	head._type_buttons["explorer"].pressed.emit()
 	assert_eq(roster._type, CivilianRosterHead.TYPE_ALL, "tapping the craft clears it")
 	head._type_buttons[CivilianRosterHead.TYPE_ALL].pressed.emit()
-	head._region_buttons[CivilianRoster.REGION_NEW].pressed.emit()
+	head._region_buttons[LedgerRows.REGION_NEW].pressed.emit()
 	assert_true(roster._empty.visible, "an empty world gets an explanation")
 	assert_true(String(roster._empty.text).contains("No civilians"))
 	assert_true(roster.is_open())
@@ -457,7 +460,7 @@ func test_the_roster_reads_who_waits_for_orders() -> void:
 	_screen.hud.civilian_roster_pressed.emit()
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	var head: CivilianRosterHead = roster._head
-	head._region_buttons[CivilianRoster.REGION_ALL].pressed.emit()
+	head._region_buttons[LedgerRows.REGION_ALL].pressed.emit()
 	head._type_buttons[CivilianRosterHead.TYPE_ALL].pressed.emit()
 	var total: int = int(roster._snapshot["total"])
 	var idle: int = int(roster._snapshot["idle"])

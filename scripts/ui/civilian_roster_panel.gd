@@ -9,7 +9,7 @@ extends SheetFrame
 var _head: CivilianRosterHead = null
 var _rows: VBoxContainer = null
 var _empty: Label = null
-var _region: String = CivilianRoster.REGION_ALL
+var _region: String = LedgerRows.REGION_ALL
 var _type: String = CivilianRosterHead.TYPE_ALL
 var _status: String = CivilianRoster.STATUS_ALL
 var _snapshot: Dictionary = {}
@@ -64,11 +64,6 @@ func _build_body(column: VBoxContainer) -> void:
 
 func _apply_profile(compact: bool, narrow: bool) -> void:
 	super._apply_profile(compact, narrow)
-	_title.add_theme_font_size_override(
-		"font_size", 20 if narrow else (22 if compact else 28)
-	)
-	_crest.visible = not narrow
-	_subtitle.visible = not compact
 	if _head != null:
 		_head.set_compact(compact)
 
@@ -104,31 +99,33 @@ func _apply_filter() -> void:
 	if shown == 0:
 		_empty.text = _empty_text()
 		return
-	for group: Dictionary in groups:
-		var heading := Label.new()
-		var rows: Array = group["rows"]
-		heading.text = "%s  ·  %s  ·  %d civilian%s" % [
-			String(group["region_label"]).to_upper(),
-			String(group["province_name"]).to_upper(),
-			rows.size(),
-			"" if rows.size() == 1 else "s",
-		]
-		heading.add_theme_font_size_override("font_size", 11)
-		heading.add_theme_color_override("font_color", Palette.GOLD_DIM)
-		_rows.add_child(heading)
-		for raw: Variant in rows:
-			var row := CivilianRosterRow.new()
-			row.compact = HudLayout.is_compact(get_viewport_rect().size)
-			row.visit_pressed.connect(_visit)
-			_rows.add_child(row)
-			row.setup(raw)
+	LedgerList.fill(_rows, _empty, groups, _heading, _make_row)
+
+
+## The civilian roster's headings name the province as well as the chart: a
+## crew is posted on a tile, so the ground it stands on is part of the reading.
+func _heading(group: Dictionary, count: int) -> Control:
+	return LedgerList.heading("%s  ·  %s  ·  %d civilian%s" % [
+		String(group["region_label"]).to_upper(),
+		String(group["province_name"]).to_upper(),
+		count,
+		"" if count == 1 else "s",
+	])
+
+
+func _make_row(raw: Variant, compact: bool) -> Control:
+	var row := CivilianRosterRow.new()
+	row.compact = compact
+	row.visit_pressed.connect(_visit)
+	row.setup(raw as Dictionary)
+	return row
 
 
 func _subtitle_text(shown: int) -> String:
 	var scope: String = "in both worlds"
-	if _region == CivilianRoster.REGION_OLD:
+	if _region == LedgerRows.REGION_OLD:
 		scope = "in the Old World"
-	elif _region == CivilianRoster.REGION_NEW:
+	elif _region == LedgerRows.REGION_NEW:
 		scope = "in the New World"
 	var craft: String = ""
 	if not _type.is_empty():
