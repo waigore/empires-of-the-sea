@@ -544,7 +544,7 @@ func test_the_ledger_lists_minor_and_tribe_offers() -> void:
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
-	assert_not_null(_find_label(body, LedgerMarket.OFFER_HEADER))
+	assert_not_null(_find_label(body, LedgerOffers.OFFER_HEADER))
 	assert_gt(
 		_screen.economy.market.minor_offers.size(), 0,
 		"the Old World's minor courts publish their harvest"
@@ -661,14 +661,30 @@ func test_a_filter_never_edits_the_book_and_a_shown_row_still_bids() -> void:
 	assert_eq(_screen.economy.market.minor_offers, published, "the book is not rewritten")
 	assert_eq(_screen.economy.market.book.pending_buy_units(_screen.player_faction), 0)
 
-	var bids: Array[Button] = []
-	_collect_buttons(market._offers_box, bids)
+	var bids: Array[Button] = market.offer_buttons()
 	assert_eq(bids.size(), 3, "every offer is still on the table")
 	bids[0].pressed.emit()
 	assert_eq(
 		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 1,
 		"the deepest book leads under Most stock first"
 	)
+
+
+## The page is repainted in place, so the reading has to be droppable: a chip a
+## reader (or a mounted case) pressed would otherwise hide the next book
+## (REQ-P5-03).
+func test_the_reading_drops_back_to_the_whole_book() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var market: LedgerMarket = _market_page()
+	(market.offer_filters()["seller:7"] as Button).pressed.emit()
+	assert_eq(market.visible_offers().size(), 2, "the chosen court's book only")
+
+	market.reset_offer_filters()
+	assert_eq(market.visible_offers().size(), 3, "the whole book is back")
+	var all_chip: Button = market.offer_filters()[
+		"seller:%d" % MarketOffersHead.ALL_SELLERS
+	] as Button
+	assert_true(all_chip.button_pressed, "the strip shows All courts again")
 
 
 func test_an_empty_offer_book_offers_no_chips() -> void:
