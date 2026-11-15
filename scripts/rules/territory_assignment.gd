@@ -4,9 +4,10 @@ extends RefCounted
 ## grows from a sea-bound seed inside one P–P continent, so its holdings stay
 ## contiguous and never span two landmasses. Great Powers and Tribes are seeded
 ## on sea-bound provinces; Minor Nations may take an inland province. Pure rules:
-## no nodes, deterministic, unit-testable.
+## no nodes, deterministic, unit-testable. The province graph, the growth pass
+## and the Minor share each stand in their own module; this one only decides who
+## is seated where.
 
-const MINOR_PROVINCES: int = 3
 ## Seed rotations tried before a landmass is called infeasible: a faction seeded
 ## into a pocket too small for its budget leaves the split lopsided (game-setup § Feasibility).
 const LAYOUT_ATTEMPTS: int = 6
@@ -79,15 +80,15 @@ static func _assign(
 				model, remaining, minors, minor_seeds,
 				_minor_targets(remaining.size(), minors), false, true
 			)
-			remaining = MinorShare.trim(model, _absorb_pockets(
+			remaining = MinorShare.trim(model, MinorShare.absorb_pockets(
 				model, ids, minors, primary_ids.size()), ids, minors)
 		if greats.is_empty():
 			continue
-		var chunks: Array = _chunks(model, remaining)
+		var chunks: Array = ProvinceGraph.components(model, remaining)
 		var spread: Array = _spread(chunks, greats)
 		var layouts: Array = []
 		for chunk_index in chunks.size():
-			var chunk_ids: Array = (chunks[chunk_index] as Dictionary)["ids"]
+			var chunk_ids: Array = chunks[chunk_index]
 			var group: Array = spread[chunk_index]
 			if group.is_empty():
 				continue
@@ -139,49 +140,20 @@ static func _layout_ids(layouts: Array) -> Array:
 # --- continents -------------------------------------------------------------
 
 
-## Connected components of the land subgraph (P–P edges only), largest first.
+## Connected components of the land subgraph (P–P edges only), largest first,
+## each carrying the provinces that touch a sea zone (a valid seed).
 static func _continents(model: MapModel) -> Array:
-	var seen: Dictionary = {}
 	var ids: Array[int] = []
 	for province: ProvinceState in model.provinces:
 		ids.append(province.id)
-	ids.sort()
 	var result: Array = []
-	for province_id: int in ids:
-		if seen.has(province_id):
-			continue
-		var group: Array[int] = _component(model, province_id, seen)
-		group.sort()
+	for group: Array in ProvinceGraph.components(model, ids):
 		var sea_bound: Array[int] = []
 		for member: int in group:
 			if CapitalChoice.is_sea_bound(model, member):
 				sea_bound.append(member)
 		result.append({"ids": group, "sea_bound": sea_bound})
-	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var size_a: int = (a["ids"] as Array).size()
-		var size_b: int = (b["ids"] as Array).size()
-		if size_a != size_b:
-			return size_a > size_b
-		return int((a["ids"] as Array)[0]) < int((b["ids"] as Array)[0])
-	)
 	return result
-
-
-static func _component(model: MapModel, start: int, seen: Dictionary) -> Array[int]:
-	var group: Array[int] = []
-	var queue: Array[int] = [start]
-	seen[start] = true
-	var head: int = 0
-	while head < queue.size():
-		var current: int = queue[head]
-		head += 1
-		group.append(current)
-		for neighbor: int in MapGeo.province_neighbors(model, current):
-			if seen.has(neighbor):
-				continue
-			seen[neighbor] = true
-			queue.append(neighbor)
-	return group
 
 
 ## Round-robin factions onto continents, preferring one with a free sea-bound seed.
@@ -227,42 +199,6 @@ static func _next_continent(
 # --- targets and seeds ------------------------------------------------------
 
 
-## Connected chunks of a province set (largest first, then lowest first id).
-static func _chunks(model: MapModel, ids: Array) -> Array:
-	var lookup: Dictionary = {}
-	for raw: Variant in ids:
-		lookup[int(raw)] = true
-	var seen: Dictionary = {}
-	var result: Array = []
-	var ordered: Array = ids.duplicate()
-	ordered.sort()
-	for raw: Variant in ordered:
-		var start: int = int(raw)
-		if seen.has(start):
-			continue
-		var group: Array[int] = []
-		var queue: Array[int] = [start]
-		seen[start] = true
-		var head: int = 0
-		while head < queue.size():
-			var current: int = queue[head]
-			head += 1
-			group.append(current)
-			for neighbor: int in MapGeo.province_neighbors(model, current):
-				if lookup.has(neighbor) and not seen.has(neighbor):
-					seen[neighbor] = true
-					queue.append(neighbor)
-		result.append({"ids": group})
-	result.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var size_a: int = (a["ids"] as Array).size()
-		var size_b: int = (b["ids"] as Array).size()
-		if size_a != size_b:
-			return size_a > size_b
-		return int((a["ids"] as Array)[0]) < int((b["ids"] as Array)[0])
-	)
-	return result
-
-
 ## One Great Power per chunk, then the rest by share so no chunk goes unheld. A
 ## landmass the Minor reservation took whole yields no chunk, so no group either.
 static func _spread(chunks: Array, factions: Array[int]) -> Array:
@@ -279,7 +215,7 @@ static func _spread(chunks: Array, factions: Array[int]) -> Array:
 		var best: int = 0
 		var best_score: float = -1.0
 		for index in chunks.size():
-			var size: int = (chunks[index]["ids"] as Array).size()
+			var size: int = (chunks[index] as Array).size()
 			var taken: int = (groups[index] as Array).size()
 			var score: float = float(size) / float(taken + 1)
 			if score > best_score:
@@ -298,73 +234,12 @@ static func _sea_pool(model: MapModel, ids: Array) -> Array:
 	return pool
 
 
-static func _unowned(model: MapModel, ids: Array) -> Array:
-	var open: Array = []
-	for raw: Variant in ids:
-		var province: ProvinceState = model.province_data(int(raw))
-		if province != null and province.owner == MapModel.NO_ID:
-			open.append(int(raw))
-	open.sort()
-	return open
-
-
-## A Minor Nation's cell can seal off a cove of a province or two. Such a pocket
-## is too small to seat a Great Power, so the bordering Minor Nation takes it.
-static func _absorb_pockets(
-	model: MapModel, ids: Array, minors: Array[int], max_chunks: int
-) -> Array:
-	var changed: bool = true
-	while changed:
-		changed = false
-		var counts: Dictionary = _owner_counts(model, ids)
-		var chunks: Array = _chunks(model, _unowned(model, ids))
-		for chunk: Dictionary in chunks:
-			var chunk_ids: Array = chunk["ids"]
-			var too_small: bool = chunk_ids.size() < MINOR_PROVINCES
-			var too_many: bool = chunks.size() > max_chunks and chunk == chunks[-1]
-			if not too_small and not too_many:
-				continue
-			var taker: int = _bordering_minor(model, chunk_ids, minors, counts)
-			if taker == MapModel.NO_ID:
-				continue
-			for raw: Variant in chunk_ids:
-				var province_id: int = int(raw)
-				var province: ProvinceState = model.province_data(province_id)
-				province.owner = taker
-				province.population = 180 + province.area * 9 + (province_id * 37) % 90
-			counts[taker] = int(counts.get(taker, 0)) + chunk_ids.size()
-			changed = true
-	return _unowned(model, ids)
-
-
-static func _owner_counts(model: MapModel, ids: Array) -> Dictionary:
-	var counts: Dictionary = {}
-	for raw: Variant in ids:
-		var province: ProvinceState = model.province_data(int(raw))
-		if province != null and province.owner != MapModel.NO_ID:
-			counts[province.owner] = int(counts.get(province.owner, 0)) + 1
-	return counts
-
-
-## Minor Nation touching the pocket that holds fewest provinces (ties: lowest id).
-static func _bordering_minor(
-	model: MapModel, chunk_ids: Array, minors: Array[int], counts: Dictionary
-) -> int:
-	var best: int = MapModel.NO_ID
-	for raw: Variant in chunk_ids:
-		for neighbor: int in MapGeo.province_neighbors(model, int(raw)):
-			var owner: int = model.province_data(neighbor).owner
-			if not minors.has(owner):
-				continue
-			if best == MapModel.NO_ID or int(counts.get(owner, 0)) < int(counts.get(best, 0)):
-				best = owner
-	return best
-
-
 ## Minor Nations take MINOR_PROVINCES each, or an even share when the landmass
 ## cannot seat that floor (wiki: game-setup § Minor Nation assignment).
 static func _minor_targets(count: int, minors: Array[int]) -> Dictionary:
-	var each: int = mini(MINOR_PROVINCES, maxi(1, count / minors.size()))
+	var each: int = mini(
+		MinorShare.MINOR_PROVINCES, maxi(1, count / minors.size())
+	)
 	var targets: Dictionary = {}
 	_share(mini(count, each * minors.size()), minors, targets)
 	return targets
@@ -382,7 +257,7 @@ static func _share(total: int, factions: Array[int], targets: Dictionary) -> voi
 ## An even split: every faction holds at least one province and no count strays
 ## more than one from the even share (game-setup § GP / Minor / Tribe, "within ±1").
 static func _split_even(model: MapModel, ids: Array, factions: Array) -> bool:
-	var counts: Dictionary = _owner_counts(model, ids)
+	var counts: Dictionary = ProvinceGraph.owner_counts(model, ids)
 	var total: int = 0
 	for faction_id: int in factions:
 		var count: int = int(counts.get(faction_id, 0))

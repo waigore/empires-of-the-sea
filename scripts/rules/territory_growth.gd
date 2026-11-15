@@ -20,7 +20,7 @@ static func paint(
 	for index in factions.size():
 		owner[seeds[index]] = factions[index]
 		counts[factions[index]] = 1
-		distances.append(_distances(model, lookup, seeds[index]))
+		distances.append(ProvinceGraph.hops(model, ids, seeds[index]))
 	_grow(model, lookup, owner, counts, factions, distances, targets, capped)
 	if fill:
 		_settle(model, lookup, owner, counts, targets)
@@ -80,23 +80,6 @@ static func _nearest(distances: Array[Dictionary], province_id: int) -> float:
 	for map: Dictionary in distances:
 		best = minf(best, float(map.get(province_id, INF)))
 	return best
-
-
-## BFS step count from the seed to every province of the landmass.
-static func _distances(model: MapModel, lookup: Dictionary, seed_id: int) -> Dictionary:
-	var distances: Dictionary = {seed_id: 0}
-	var queue: Array[int] = [seed_id]
-	var head: int = 0
-	while head < queue.size():
-		var current: int = queue[head]
-		head += 1
-		var step: int = int(distances[current]) + 1
-		for neighbor: int in MapGeo.province_neighbors(model, current):
-			if not lookup.has(neighbor) or distances.has(neighbor):
-				continue
-			distances[neighbor] = step
-			queue.append(neighbor)
-	return distances
 
 
 ## Any province no faction could reach joins the neediest neighbour. Holdings
@@ -351,35 +334,14 @@ static func _move_set(
 static func _pockets(
 	model: MapModel, owner: Dictionary, giver: int, removed: int, provinces: Array
 ) -> Array[int]:
-	var remaining: Dictionary = {}
+	var remaining: Array[int] = []
 	for raw: Variant in provinces:
 		var province_id: int = int(raw)
 		if province_id != removed and int(owner.get(province_id, MapModel.NO_ID)) == giver:
-			remaining[province_id] = true
-	if remaining.is_empty():
-		return [] as Array[int]
-	var components: Array = []
-	var seen: Dictionary = {}
-	var keys: Array = remaining.keys()
-	keys.sort()
-	for raw: Variant in keys:
-		var start: int = int(raw)
-		if seen.has(start):
-			continue
-		var component: Array[int] = [start]
-		seen[start] = true
-		var head: int = 0
-		while head < component.size():
-			var current: int = component[head]
-			head += 1
-			for neighbor: int in MapGeo.province_neighbors(model, current):
-				if remaining.has(neighbor) and not seen.has(neighbor):
-					seen[neighbor] = true
-					component.append(neighbor)
-		components.append(component)
+			remaining.append(province_id)
+	var components: Array = ProvinceGraph.components(model, remaining)
 	if components.size() <= 1:
 		return [] as Array[int]
-	components.sort_custom(func(a: Array, b: Array) -> bool: return a.size() > b.size())
 	var pockets: Array[int] = []
 	for index in range(1, components.size()):
 		pockets.append_array(components[index])
