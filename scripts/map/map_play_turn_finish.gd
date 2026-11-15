@@ -29,6 +29,13 @@ class TurnBook:
 
 static func run(play: PlaySession) -> void:
 	var book := TurnBook.new()
+	if MapPlayAuto.active(play):
+		# Auto holds the crown's seat: its own passes are paced by the driver,
+		# so the turn opens here and waits on `auto_book` (MapPlayAuto.tick).
+		play.auto_book = book
+		MapPlayAuto.begin_turn(play)
+		return
+	resolve_work(play)
 	_march(play, book)
 	_rearm(play)
 	_resolve_battles(play, book)
@@ -37,11 +44,31 @@ static func run(play: PlaySession) -> void:
 	_open_new_turn(play, book)
 
 
-## Civilians work first, then the rival expeditions board and sail before the
-## field armies march, so an army chosen for the crossing is not also ordered
-## inland (docs/ai.md).
-static func _march(play: PlaySession, book: TurnBook) -> void:
+## The paced driver's second half: once the crown's own passes are spent, the
+## rivals plan, the battles resolve and the new turn opens — the same phases a
+## human seat's End Turn runs (wiki: auto-mode § Pacing).
+static func finish(play: PlaySession) -> void:
+	var book: TurnBook = play.auto_book if play.auto_book is TurnBook else TurnBook.new()
+	play.auto_book = null
+	_march(play, book)
+	_rearm(play)
+	_resolve_battles(play, book)
+	if _close_if_decided(play, book):
+		return
+	_open_new_turn(play, book)
+
+
+## Civilians work first, before anything marches. The Auto seat runs this as its
+## own paced step, so it is its own phase here rather than a prelude of _march.
+static func resolve_work(play: PlaySession) -> void:
 	MapPlayCivilians.resolve_work(play)
+
+
+## Rival expeditions board and sail before the field armies march, so an army
+## chosen for the crossing is not also ordered inland (docs/ai.md). The crown's
+## own seat has run its version of these passes already, so every pass here
+## plans the rival courts only (MapPlayCourt.planning_factions).
+static func _march(play: PlaySession, book: TurnBook) -> void:
 	book.invasion = MapPlayInvasionAi.run(play)
 	book.army = MapPlayArmies.run_ai(play)
 	# Colonisation counts every applied voyage step, so the observer's trace can
@@ -124,6 +151,10 @@ static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 	play.turn += 1
 	_crown_ledger(play, book)
 	_report_turn(play, book)
+	# The boundary Auto waits for: an armed court takes the seat at the close of
+	# the turn the player played; a discharged one gives it back (wiki: auto-mode
+	# § Arming and disarming).
+	MapPlayAuto.settle_turn_end(play)
 
 
 ## Every layer turns over onto the new turn before any ledger resolves: launched
