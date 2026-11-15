@@ -165,6 +165,16 @@ func test_raise_files_the_builders_order_on_the_provinces_chart() -> void:
 	assert_true(_state_of(_row_for(panel, province.id)) == "at_work", "and the row reads it")
 
 
+## The map hooks answer a missing session and an unreadable province without
+## folding: a sheet that opens before the campaign seats reads an empty roll.
+func test_the_map_hooks_guard_a_missing_session() -> void:
+	assert_eq(int(MapPlayTowns.snapshot(null).get("total", -1)), 0, "no session, no towns")
+	MapPlayTowns.raise(null, FactionCatalog.OLD_WORLD, 0)
+	MapPlayTowns.raise(screen.play, FactionCatalog.OLD_WORLD, -1)
+	MapPlayTowns.raise(screen.play, 99, 0)
+	assert_eq(int(MapPlayTowns.snapshot(screen.play).get("total", 0)), _crown_towns())
+
+
 func test_back_and_the_key_close_the_towns_ledger() -> void:
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	screen.hud.towns_pressed.emit()
@@ -263,6 +273,22 @@ func _state_of(row: TownLedgerRow) -> String:
 	if row == null:
 		return ""
 	return String(row.data.get("state", ""))
+
+
+## How many towns the mounted campaign's crown holds in both charts, so the
+## sheet's own total is checked against the chart rather than a hand count.
+func _crown_towns() -> int:
+	var total: int = 0
+	for region: int in screen.play.world.region_count():
+		var model: MapModel = screen.play.world.region(region)
+		if model == null:
+			continue
+		for province: ProvinceState in model.provinces:
+			if province == null or province.owner != screen.play.player_faction:
+				continue
+			if province.has_town():
+				total += 1
+	return total
 
 
 func _row_widgets(panel: TownLedgerPanel) -> int:

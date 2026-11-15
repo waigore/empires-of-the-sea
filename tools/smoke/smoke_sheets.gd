@@ -135,7 +135,14 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	run.check(panel.is_open(), "the towns ledger opens from the realm's door")
 	run.check(int(panel._snapshot.get("total", 0)) > 0, "the ledger lists the crown's towns")
-	run.check(run.has_text(panel._rows, "Next:"), "a row prints the step it waits on")
+	run.check(
+		run.has_text(panel._rows, "READY")
+		or run.has_text(panel._rows, "AT WORK")
+		or run.has_text(panel._rows, "NO BUILDER")
+		or run.has_text(panel._rows, "LOCKED")
+		or run.has_text(panel._rows, "DEVELOPED"),
+		"a row names what its town waits on"
+	)
 	panel._on_filter(TownLedger.FILTER_READY, false)
 	await run.tree.process_frame
 	run.check(panel._filter == TownLedger.FILTER_READY, "the ledger narrows to one reading")
