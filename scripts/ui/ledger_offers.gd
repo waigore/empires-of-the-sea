@@ -214,8 +214,17 @@ func _offer_row(offer: Dictionary) -> Control:
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 2)
 	block.add_child(row)
+	# The press names the whole deal's ducats as the clearing charges them: the
+	# ask with the pair's subsidy step, rounded once for the order (wiki:
+	# world-market § Subsidy price adjustment; REQ-P5-05).
+	var total: int = units * ask
+	if _market != null:
+		total = MarketRules.deal_total_for(
+			_market, commodity, units, _viewer, seller,
+			MarketRules.subsidy_percent(_market, _viewer, seller), true
+		)
 	var press := MarketBatchPress.attach(
-		block, "Bid", units, commodity, ask, _compact,
+		block, "Bid", units, commodity, total, _compact,
 		func() -> void: offer_requested.emit(row_id, units)
 	)
 	if press == null:

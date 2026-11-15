@@ -38,16 +38,19 @@ static func build(
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(price)
 
-	# The court can only sell what its own production runs leave behind, and the
-	# cap is a readout on the page, not a hover: a phone player must see why the
-	# Offer is dead (wiki: world-market § Trade orders — the sellable readout;
+	# The court can only sell what its own production runs leave behind and what
+	# it has not already offered this turn, and the cap is a readout on the page,
+	# not a hover: a phone player must see why the Offer is dead (wiki:
+	# world-market § Trade orders — the sellable readout, the offer cap is the
+	# post-production stockpile minus industry reservations and staged offers;
 	# REQ-P1-05, REQ-P5-05).
-	var sellable: int = maxi(held - claimed, 0)
+	var promised: int = market.book.pending_sell_units(viewer, id) if market != null else 0
+	var sellable: int = maxi(held - claimed - promised, 0)
 	var sell := UiRowBuilder.button("Offer", ROW_HEIGHT, 70.0)
 	sell.disabled = sellable <= 0
-	if claimed > 0:
-		sell.tooltip_text = "%d %s claimed by production — %d sellable at %d ducats" % [
-			claimed, CommodityCatalog.label(id), sellable, sell_unit,
+	if claimed > 0 or promised > 0:
+		sell.tooltip_text = "%s — %d sellable at %d ducats" % [
+			_claim_line(id, claimed, promised), sellable, sell_unit,
 		]
 	else:
 		sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
@@ -70,10 +73,9 @@ static func build(
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 2)
 	block.add_child(row)
-	if claimed > 0:
+	if claimed > 0 or promised > 0:
 		block.add_child(UiRowBuilder.caption(
-			"%d %s claimed by production — %d sellable"
-			% [claimed, CommodityCatalog.label(id), sellable],
+			"%s — %d sellable" % [_claim_line(id, claimed, promised), sellable],
 			10, Palette.TEXT_DIM, 0.0
 		))
 	# One press files the whole order the rules accept, so a court buying a
@@ -82,14 +84,18 @@ static func build(
 	var batches: Dictionary = {}
 	var bid_units: int = MarketBatch.bid_units(market, viewer, id, ctx)
 	var press := MarketBatchPress.attach(
-		block, "Bid", bid_units, id, buy_unit, compact,
+		block, "Bid", bid_units, id,
+		MarketRules.deal_total(market, id, bid_units, viewer, 1.0, true),
+		compact,
 		func() -> void: on_trade.call(id, bid_units, true)
 	)
 	if press != null:
 		batches["bid"] = press
 	var offer_units: int = MarketBatch.offer_units(market, viewer, id, held, ctx)
 	press = MarketBatchPress.attach(
-		block, "Offer", offer_units, id, sell_unit, compact,
+		block, "Offer", offer_units, id,
+		MarketRules.deal_total(market, id, offer_units, viewer, 1.0, false),
+		compact,
 		func() -> void: on_trade.call(id, offer_units, false)
 	)
 	if press != null:
@@ -101,3 +107,16 @@ static func build(
 	block.remove_child(row)
 	block.free()
 	return {"row": row, "batches": batches}
+
+
+## What the crown cannot sell off this row, in words: the assigned runs' claim
+## and the tons already offered. The readout names only what is there, so a row
+## with neither reads no caption at all (REQ-P1-07).
+static func _claim_line(id: String, claimed: int, promised: int) -> String:
+	var label: String = CommodityCatalog.label(id)
+	var parts: PackedStringArray = PackedStringArray()
+	if claimed > 0:
+		parts.append("%d %s claimed by production" % [claimed, label])
+	if promised > 0:
+		parts.append("%d offered" % promised)
+	return ", ".join(parts)

@@ -57,7 +57,15 @@ func fill(
 	_viewer = viewer
 	UiRowBuilder.clear(self)
 	_batches.clear()
-	_order_ctx = MarketBatch.context(_economy, _cargo)
+	# The assigned runs eat their inputs before the auction clears, so the batch
+	# press must read the same reservation the validator does (wiki: world-market
+	# § Trade orders — the offer cap is the post-production stockpile minus
+	# industry reservations; REQ-P2-03).
+	_order_ctx = MarketBatch.context(
+		_economy, _cargo,
+		ProductionRecipes.reserved_inputs(_economy.production.assignments())
+		if _economy != null else {}
+	)
 	_add_cargo_banner()
 	var budget: Label = LedgerBudget.banner(_economy)
 	if budget != null:

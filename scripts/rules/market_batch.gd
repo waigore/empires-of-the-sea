@@ -62,13 +62,18 @@ static func bid_units(
 		int(context.get("treasury", 0)),
 		int(context.get("projected_non_bid_delta", 0))
 	)
-	var committed: int = 0
-	for staged: MarketOrder in book.orders_for(faction, MarketOrder.SIDE_BID):
-		committed += staged.remaining() * maxi(
-			market.buy_price(staged.commodity, faction), 0
-		)
+	var committed: int = _committed(market, faction)
 	var by_purse: int = maxi(int(floor(float(budget - committed) / float(price))), 0)
 	return mini(hold_cap, by_purse)
+
+
+## Ducats the crown's already-staged bids will take from the auction, priced at
+## their own commodity's live buy price.
+static func _committed(market: WorldMarket, faction: int) -> int:
+	var total: int = 0
+	for staged: MarketOrder in market.book.orders_for(faction, MarketOrder.SIDE_BID):
+		total += staged.remaining() * maxi(market.buy_price(staged.commodity, faction), 0)
+	return total
 
 
 ## Units an offer on `commodity` may carry in one order: the stock the assigned
@@ -88,8 +93,11 @@ static func offer_units(
 	return maxi(maxi(stock, 0) - claimed - promised, 0)
 
 
-## Units one press on a Minor/Tribe book row may carry: the bid cap above, and
-## never more than the seller has left on that row.
+## Units one press on a Minor/Tribe book row may carry: the bid cap above, never
+## more than the seller has left on that row, and never more than the purse pays
+## at the ask the press prints — the pair's subsidy step rides on the deal, so
+## the world price would promise ducats the clearing will not charge (wiki:
+## world-market § Subsidy price adjustment, § Treasury budget for bids).
 static func offer_row_units(
 	market: WorldMarket, faction: int, offer: Dictionary, context: Dictionary
 ) -> int:
@@ -97,4 +105,17 @@ static func offer_row_units(
 	if left <= 0:
 		return 0
 	var commodity: String = String(offer.get("commodity", ""))
-	return mini(bid_units(market, faction, commodity, context), left)
+	var units: int = mini(bid_units(market, faction, commodity, context), left)
+	if units <= 0:
+		return 0
+	var seller: int = int(offer.get("faction", -1))
+	var budget: int = MarketRules.treasury_budget(
+		int(context.get("treasury", 0)),
+		int(context.get("projected_non_bid_delta", 0))
+	) - _committed(market, faction)
+	# The resolver clamps a deal by the whole-order rounding, so the batch reads
+	# that same figure forward instead of a per-unit division (REQ-P2-03).
+	return MarketRules.payable_units(
+		market, commodity, units, faction, seller,
+		MarketRules.subsidy_percent(market, faction, seller), budget
+	)

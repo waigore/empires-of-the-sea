@@ -5057,6 +5057,32 @@ func test_the_minor_row_batch_stops_at_the_seller_s_left() -> void:
 	)
 
 
+## The Minor/Tribe row's batch pays the ask it prints: a surcharge rides on the
+## deal, so a purse that covers three tons at the world price covers two at the
+## ask, and the press never names more ducats than the crown holds (wiki:
+## world-market § Subsidy price adjustment, § Treasury budget for bids).
+func test_the_minor_row_batch_pays_the_ask_the_press_prints() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.subsidy_terms["0>6"] = 20
+	var offer: Dictionary = {
+		"id": "6:timber", "faction": 6, "commodity": "timber",
+		"quantity": 9, "unit_price": 30,
+	}
+	var ctx: Dictionary = _batch_ctx({"cargo_free": 9, "treasury": 100})
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", ctx), 3,
+		"the world price alone would buy three tons",
+	)
+	var units: int = MarketBatch.offer_row_units(market, 0, offer, ctx)
+	assert_eq(units, 2, "the ask of 36 pays two tons from 100 ducats")
+	var total: int = MarketRules.deal_total_for(market, "timber", units, 0, 6, 20, true)
+	assert_lte(total, 100, "the whole deal fits the purse")
+	assert_gt(
+		MarketRules.deal_total_for(market, "timber", units + 1, 0, 6, 20, true), 100,
+		"one more ton is a deal the purse cannot pay",
+	)
+
+
 ## The figure is the validator's own cap: the batch is accepted and one more
 ## unit is refused, so a press can never stage an order the rules would not
 ## (REQ-P2-03).

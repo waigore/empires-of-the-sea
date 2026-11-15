@@ -718,6 +718,34 @@ func _market_page() -> LedgerMarket:
 	return _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
 
 
+## The single Offer press of one commodity's row: the page draws one row per
+## commodity, category by category, so the row is paired by that order.
+func _offer_chip_for(page: LedgerMarket, commodity: String) -> Button:
+	var ids: Array[String] = []
+	for category: Variant in LedgerMarket.CATEGORIES:
+		ids.append_array(CommodityCatalog.ids_in(category))
+	var index: int = ids.find(commodity)
+	var rows: Array[Node] = []
+	for child: Node in page.get_children():
+		if child is Label:
+			continue
+		if _button_titled(child, "Offer") != null:
+			rows.append(child)
+	if index < 0 or index >= rows.size():
+		return null
+	return _button_titled(rows[index], "Offer")
+
+
+func _button_titled(node: Node, title: String) -> Button:
+	for child: Node in node.get_children():
+		if child is Button and (child as Button).text.strip_edges() == title:
+			return child as Button
+		var found: Button = _button_titled(child, title)
+		if found != null:
+			return found
+	return null
+
+
 ## The seller and good chips narrow the court book without leaving the tab
 ## (REQ-P1-07, REQ-P5-03).
 func test_the_market_tab_filters_the_court_book_by_seller_and_good() -> void:
@@ -1311,6 +1339,34 @@ func test_the_market_row_files_its_batch_in_one_press() -> void:
 		_screen.economy.market.book.pending_buy_units(_screen.player_faction), units,
 		"one press staged the whole order",
 	)
+
+
+## The offer batch is the validator's cap: the assigned runs' claim and the tons
+## already offered are never offered twice, and the row's own readout shuts with
+## them (wiki: world-market § Trade orders — the offer cap is the post-production
+## stockpile minus industry reservations; REQ-P2-03, REQ-P5-05).
+func test_the_offer_batch_leaves_production_and_staged_offers_out() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 6
+	_screen.economy.orders.set_production("lumber", 1)
+	var market: LedgerMarket = _market_page()
+	var press: Button = market.batch_buttons().get("offer:timber") as Button
+	assert_not_null(press, "four tons are left after the run's two")
+	assert_true(press.text.begins_with("Offer ×4"), press.text)
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_sell_units(_screen.player_faction, "timber"), 4,
+		"one press files the whole sellable order",
+	)
+	market = _market_page()
+	assert_null(market.batch_buttons().get("offer:timber"), "the cap is spent")
+	assert_true(
+		_row_has_text(market, "2 Timber claimed by production, 4 offered — 0 sellable"),
+		"the row names the claim and the offers it cannot sell",
+	)
+	var chip: Button = _offer_chip_for(market, "timber")
+	assert_not_null(chip, "the timber row keeps its single press")
+	assert_true(chip.disabled, "the single press shuts with the cap")
 
 
 ## The Minor/Tribe row batches the seller's whole row, and a row with one ton
