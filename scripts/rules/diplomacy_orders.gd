@@ -147,7 +147,8 @@ static func _add_boycott_options(
 			"Boycott Their Trade",
 			DiplomacyTrade.can_boycott(state, player, target),
 			KIND_BOYCOTT, "", "", GROUP_TRADE,
-			"Our colonies shut to them: their market terms worsen 10%."
+			"Our colonies shut to them: no deal clears between them and us, "
+			+ "and their terms worsen 10%."
 		)
 	)
 
