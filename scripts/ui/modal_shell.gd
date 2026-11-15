@@ -14,6 +14,9 @@ extends Control
 
 const MARGIN_WIDE: int = 42
 const MARGIN_COMPACT: int = 10
+## The canvas layer every sheet rides: above the HUD's chrome and the pause menu,
+## so no bar door or menu row can bleed through an open sheet (REQ-P1-07).
+const LAYER: int = 6
 ## The wash a door lays over the chart: heavy enough that the bar behind it stops
 ## competing with the sheet. A soft plate used to leave the map readable, and the
 ## door's information was the worse for it (REQ-P1-05, REQ-P1-07).
@@ -38,6 +41,17 @@ var _was_compact: int = -1
 var _compact: bool = false
 ## This shell holds the pause door while it is up (mirrored park/release).
 var _parked_menu: bool = false
+
+
+## Gives a sheet its own named layer, so the sheet stands above the pause menu
+## and the bar without sharing their canvas item order. Every sheet that is not
+## hosted by a ModalDoor rides one of these (REQ-P1-07, REQ-P5-07).
+static func mount_layer(host: Node, layer_name: String) -> CanvasLayer:
+	var layer := CanvasLayer.new()
+	layer.name = layer_name
+	layer.layer = LAYER
+	host.add_child(layer)
+	return layer
 
 
 func _ready() -> void:

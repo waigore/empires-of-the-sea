@@ -25,10 +25,6 @@ func _init() -> void:
 	toggle_action = InputActions.COMMAND_LEDGER
 
 
-func bind(p_session: PlaySession) -> void:
-	play = p_session
-
-
 ## Re-reads the crown's pool and repaints the view.
 func refresh() -> void:
 	if play == null:

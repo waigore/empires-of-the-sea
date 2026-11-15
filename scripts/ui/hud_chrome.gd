@@ -133,10 +133,7 @@ static func _naval_plate(hud: GameHud) -> void:
 ## seal opens the one full-screen modal every bar door uses. The chart behind it
 ## is read again when the crown sets the sheet aside (REQ-P1-05, REQ-P1-07).
 static func _gazette_plate(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "GazetteLayer"
-	layer.layer = 6
-	hud.add_child(layer)
+	var layer: CanvasLayer = ModalShell.mount_layer(hud, "GazetteLayer")
 	hud.gazette_plate = GazettePlate.new()
 	layer.add_child(hud.gazette_plate)
 
