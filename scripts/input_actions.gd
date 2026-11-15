@@ -20,6 +20,9 @@ const DIPLOMACY_LENS := "diplomacy_lens"
 const CROWN_LENS := "crown_road_lens"
 ## Fourth map reading: the garrison, wall and hospital of every charted province.
 const DEFENCE_LENS := "defence_lens"
+## Fifth map reading: the squadrons in every zone the crown charts, the station
+## they hold and the battle the turn will resolve there.
+const SEA_LENS := "sea_lens"
 ## Opens the whole-empire civilian roster from anywhere on the map.
 const CIVILIAN_ROSTER := "civilian_roster"
 ## Opens the muster roll: every army and squadron the crown holds (DR-20261113-12).
@@ -55,6 +58,7 @@ static func ensure_actions() -> void:
 	_bind(DIPLOMACY_LENS, [KEY_P])
 	_bind(CROWN_LENS, [KEY_R])
 	_bind(DEFENCE_LENS, [KEY_K])
+	_bind(SEA_LENS, [KEY_H])
 	_bind(CIVILIAN_ROSTER, [KEY_C])
 	_bind(MUSTER_ROLL, [KEY_O])
 	_bind(PROVINCE_LEDGER, [KEY_T])

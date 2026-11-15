@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261115-16 + #688 (REQ-P2-02).
+Audited through DR-20261115-16 + #718 (REQ-P2-02).
 
 ## Already live
 
@@ -29,22 +29,24 @@ Audited through DR-20261115-16 + #688 (REQ-P2-02).
 | AI candidates respect worker-tier | `AiEconomyPlanner` / `AiRandomCourt`, #568 |
 | War-time trade garrison | `AiNavalPlanner.trade_garrison`, DR-14-08/#567 |
 | Rival bench room | `AiEconomyPlanner._bench_room`, `AiRandomCourt`, DR-15-02 |
-| Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20,000; DR-15-16/#688 |
+| Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20,000; DR-15-16/#688/#676 |
 
 ## Remaining gaps (impact order)
 
-1. **Building gates / further rows** — worker tiers, alloy + luxury four and
-   bench cap ship (DR-14-07/10/12); building gates and further rows remain.
-2. **Domain dispatch beyond the voyage** — voyage/declare-war slots ship; soft
-   weights and treasury recovery stay seed (DR-13-15).
+1. **Building gates / further rows** — worker tiers, tech gates, two-turn
+   alloy/luxury rows and the bench ship (DR-14-07/10/12); a building gate and
+   further rows need a rules call.
+2. **Domain dispatch beyond the voyage** — `AiPhasePlanner.opens` ships voyage
+   and declare-war; soft weights, treasury recovery and further slots stay seed
+   (DR-13-15).
 3. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
    (`civilian-build-planner`); polish.
 
-#676's starvation ships in #688; Join Empire stays the published cost table.
+Join Empire keeps the published cost table.
 
 ## Next pick
 
-Building gates / further rows — rules call.
+Building gates / further rows (rules call).
 
 ## Blocked footnotes
 
@@ -53,16 +55,17 @@ Building gates / further rows — rules call.
 - Healing at 0 health; last-known OOB — DR-12-04/09.
 - General-grade/sheltering trains — pending design (DR-12-07).
 - Alt victory, difficulty extras, ruleset loaders, loans outside the research
-  floor, Quick Battle lanes/collapse, warehouse logistics — out of scope.
+  floor, Quick Battle lanes/collapse, warehouse logistics, sea-zone names — out
+  of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Growth coexistence — seed (DR-13-08); per-hull / rival-fight plate — DR-13-17.
 - Further tongues — out of scope (DR-13-12).
 
 ## Wiki drift
 
-- `civilian-units` calls Road L2, gathering and transport caps deferred.
+- `civilian-units` calls Road L2, gathering and transport caps deferred (live:
+  `TechUnlocks`, `Extraction`).
 - `ai-architecture` seed list still names victory pressure (live, DR-15-04).
-- `phase-planner-*` cite DR-14-11 for DR-14-13's declare slot.
-- DR-14-11 fleetless leg — cleared by #606.
-- `playtest-learnings` calls the boycott blocked deal unread; suite reads it
-  (#627/#629).
+- `phase-planner-*` cite DR-14-11 for DR-14-13's slot.
+- DR-11-05 Deferred + DR-14-11 fleetless leg — live (`TribeContact`,
+  `AiTribeColony`, `FleetMuster`).

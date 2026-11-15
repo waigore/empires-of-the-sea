@@ -27,6 +27,13 @@ static func step(run) -> void:
 	run.check(screen.capital_province >= 0, "capital province chosen")
 	run.check(screen.canvas != null and screen.canvas.model == screen.model, "map canvas wired")
 	run.check(screen.hud != null, "HUD present")
+	# The sea reading raises from the bar's one seal and reads the chart's own
+	# squadrons (DR-20261115-17), not only the court's lists.
+	run.check(screen.play.sea_lens != null, "the sea reading is mounted")
+	MapPlayInput.select_lens(screen.play, LensLegend.KIND_SEA)
+	run.check(screen.play.sea_lens.active, "the sea reading raises")
+	run.check(screen.hud.lens_legend.kind == LensLegend.KIND_SEA, "the key names the sea")
+	MapPlayInput.select_lens(screen.play, "")
 	run.check(screen.world != null and screen.world.region_count() == 2, "world has two regions")
 	run.check(
 		screen.overlay._country_borders.size() >= 4,
@@ -62,6 +69,11 @@ static func step(run) -> void:
 	screen.game_menu.open()
 	run.check(screen.game_menu.is_open(), "in-game menu opens")
 	run.check(run.tree.paused, "in-game menu pauses the tree")
+	# The chart's controls are readable from the pause, never hover-only
+	# (REQ-P5-03).
+	screen.game_menu.open_keys()
+	run.check(screen.game_menu._keys_page.visible, "the pause reads the chart's keys")
+	screen.game_menu.handle_back()
 	# English-only: no mid-campaign tongue page.
 	screen.game_menu.open_save()
 	run.check(screen.game_menu.browser.visible, "save browser opens")

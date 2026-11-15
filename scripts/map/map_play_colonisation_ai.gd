@@ -65,6 +65,16 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			if not bool(applied.get("ok", false)):
 				continue
 			trace.append(applied)
+			# A voyage that moors at the court's own seat folds into the home
+			# fleet, in the same roster this pass writes back (wiki:
+			# ships-and-naval § Home Fleet — "any naval move that docks at the
+			# capital resolves by merging").
+			if String(order.get("kind", "")) == "dock":
+				var moored: FleetState = MapPlayCourt.fleet_in(
+					play, region, int(order.get("fleet", -1))
+				)
+				if moored != null:
+					MapPlayHomeMerge.fold(play, model, fleets, moored)
 			# A crossing already moved the fleet and its passengers; the local
 			# snapshot must not write them back into this region.
 			if crossing != null:
