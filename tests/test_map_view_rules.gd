@@ -339,6 +339,27 @@ func test_resyncing_the_painted_chart_raises_no_change() -> void:
 	_overlay.sync_visibility(visibility)
 	assert_true(raises.size() > 1, "a chart that moved raises its change")
 
+## A charted basin the court cannot see keeps the sea's own family: the mist
+## over water is the palette's pale sea, not the warm page haze, so a gulf is
+## never washed into blank ground while the minimap still paints it as sea
+## (#456). Charted land keeps the page mist it had.
+func test_charted_water_keeps_the_sea_family_under_the_mist() -> void:
+	_setup_fog_layer()
+	var model: MapModel = _overlay.model
+	var sea: Vector2i = _fog_tile(model, true)
+	var land: Vector2i = _fog_tile(model, false)
+	for tile: Vector2i in [sea, land]:
+		_overlay.set_fog_state(model.index_of(tile.x, tile.y), MapOverlay.FOG_FOGGED)
+	_overlay.snap_fog()
+	_overlay.fog_layer.advance(0.016)
+	var sea_mist: Color = _overlay.fog_layer._image.get_pixel(sea.x, sea.y)
+	var land_mist: Color = _overlay.fog_layer._image.get_pixel(land.x, land.y)
+	assert_gt(sea_mist.a, 0.2, "charted water is still hazed")
+	assert_gt(sea_mist.b, sea_mist.r + 0.10, "charted water is misted cool, not grey")
+	assert_gt(land_mist.r, land_mist.b, "charted land keeps the warm page haze")
+	assert_almost_eq(sea_mist.a, land_mist.a, 0.001, "both are charted, under one haze")
+
+
 func test_snapped_fog_settles_and_stops_fading() -> void:
 	_setup_fog_layer()
 	var tile: Vector2i = Vector2i(2, 2)
@@ -365,6 +386,17 @@ func _fog_sprite(fog: FogLayer) -> Sprite2D:
 		if child is Sprite2D:
 			return child as Sprite2D
 	return null
+
+
+## First tile on the asked side of the shore, so a fog case can name water and
+## ground on the fixture chart.
+func _fog_tile(model: MapModel, sea: bool) -> Vector2i:
+	for y in model.height:
+		for x in model.width:
+			if model.is_sea(x, y) == sea:
+				return Vector2i(x, y)
+	return Vector2i.ZERO
+
 
 # --- test_minimap ---
 

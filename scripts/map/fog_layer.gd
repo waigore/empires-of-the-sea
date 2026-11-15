@@ -14,6 +14,14 @@ const FOG_VISIBLE: int = 0
 const FOG_FOGGED: int = 1
 const FOG_UNKNOWN: int = 2
 
+## Haze a charted tile wears while it is out of sight: warm page mist over land,
+## and the palette's own pale sea over water. A neutral mist over water lightens
+## and greys it until a gulf reads as blank ground while the minimap still shows
+## sea (#456); the sea keeps its family instead.
+const FOG_MIST: Color = Color(0.80, 0.82, 0.79)
+const FOG_SEA_MIST: Color = Palette.SEA_PALE
+
+
 var model: MapModel = null
 var fog: PackedByteArray = PackedByteArray()
 
@@ -155,7 +163,7 @@ func is_fading() -> bool:
 	return _fade_active
 
 
-## Fog opacity a tile settles at: none, a thin mist over charted land, or paper
+## Fog opacity a tile settles at: none, a thin mist over charted ground, or paper
 ## covering the unknown.
 static func target_alpha(state: int) -> float:
 	match state:
@@ -180,5 +188,6 @@ func _rebuild() -> void:
 				var paper: Color = Palette.PAPER
 				_image.set_pixel(x, y, Color(paper.r, paper.g, paper.b, amount))
 			else:
-				_image.set_pixel(x, y, Color(0.80, 0.82, 0.79, amount * 0.48))
+				var mist: Color = FOG_SEA_MIST if model.is_sea(x, y) else FOG_MIST
+				_image.set_pixel(x, y, Color(mist.r, mist.g, mist.b, amount * 0.48))
 	_texture.update(_image)
