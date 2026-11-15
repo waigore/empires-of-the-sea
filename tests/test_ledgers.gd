@@ -177,6 +177,20 @@ func test_back_and_the_key_close_the_ledger() -> void:
 	assert_false(panel.is_open(), "and closes it again")
 
 
+## An emptied view prints its notice alone: the rows the last press left must not
+## stand under it, or a crown reads a stale province beside "no province answers".
+func test_an_emptied_realm_prints_its_notice_alone() -> void:
+	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
+	screen.hud.provinces_pressed.emit()
+	assert_true(_province_row_widgets(panel) > 0, "the sheet opens on the crown's holdings")
+	panel._snapshot = {}
+	panel._apply_filter()
+	assert_true(panel._empty.visible, "an empty realm prints the empty line")
+	assert_true(panel._empty.text.contains("No province answers this view"))
+	assert_eq(_province_row_widgets(panel), 0, "and the rows it stood over are cleared")
+	panel.close()
+
+
 # --- fixtures ---------------------------------------------------------------
 
 
@@ -748,7 +762,7 @@ func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.muster_roll_pressed.emit()
 	panel._on_filter(ForceLedger.KIND_ARMY, false)
-	assert_eq(panel._kind, ForceLedger.KIND_ARMY)
+	assert_eq(panel._reading, ForceLedger.KIND_ARMY)
 	var shown: int = ForceLedger.count(
 		panel._snapshot, LedgerRows.REGION_ALL, ForceLedger.KIND_ARMY
 	)
@@ -771,7 +785,7 @@ func test_region_filter_with_no_force_says_so() -> void:
 	panel._on_filter(LedgerRows.REGION_OLD, true)
 	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
 	panel._apply_filter()
-	var shown: int = ForceLedger.count(panel._snapshot, panel._region, panel._kind)
+	var shown: int = ForceLedger.count(panel._snapshot, panel._region, panel._reading)
 	assert_eq(panel._empty.visible, shown == 0)
 	if shown == 0:
 		assert_true(String(panel._empty.text).contains("No force"))

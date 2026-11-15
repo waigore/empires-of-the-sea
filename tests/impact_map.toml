@@ -58,6 +58,14 @@ suites = [
   "test_land_battle_rules.gd",
 ]
 
+# Agent Debug Bridge (issue #699): the pure projector and the thin loopback
+# WebSocket node. Query-only debug tooling, so a change here runs its own suite
+# instead of paying the map-screen fan-out.
+[domains.debug_bridge]
+suites = [
+  "test_agent_debug_bridge.gd",
+]
+
 [domains.campaign]
 suites = [
   "test_diplomacy_rules.gd",
@@ -709,6 +717,13 @@ domain = "ledger_dress"
 match = "scripts/ui/ledger_list.gd*"
 domain = "ledger_dress"
 
+# The filtered sheet spine over both: the chips, the scrolling rows, the count
+# line and the empty notice the provinces, towns, muster, navy and people sheets
+# stand on. A spine change runs the suites that drive those sheets.
+[[rules]]
+match = "scripts/ui/ledger_sheet.gd*"
+domain = "ledger_dress"
+
 # The projection plumbing under those sheets: the chart keys, the narrowing, the
 # chip tallies and the one heading per chart. Every ledger reads it, so it rides
 # the same domain as the dress and never the rules catch-all's battle suites.
@@ -926,6 +941,23 @@ domain = "lens_kit"
 
 [[rules]]
 match = "scripts/map/crown_road_lens.gd*"
+domain = "lens_kit"
+
+# The survey's road ink and the civilians' chart marks: drawn by the survey lens
+# (and its key) and nothing else, so they ride the reading's own narrow kit
+# domain instead of the 11-suite `scripts/map/**` fan-out below.
+[[rules]]
+match = "scripts/map/road_ink.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "scripts/map/civic_glyphs.gd*"
+domain = "lens_kit"
+
+# The plate's per-type projection: one node-free module read by the survey and
+# its two suites, never a reason to run the prospect fan-out on its own.
+[[rules]]
+match = "scripts/rules/resource_types.gd*"
 domain = "lens_kit"
 
 [[rules]]
@@ -1920,6 +1952,12 @@ domain = "hospital"
 match = "scripts/world/**"
 domain = "map"
 
+# Chart size presets (#700): world_setup owns the tile/province band; the menu
+# catch-all's eight MapScreen mounts miss the tier-1 5 min budget.
+[[rules]]
+match = "scripts/session/game_config.gd*"
+domain = "world"
+
 [[rules]]
 match = "scripts/session/**"
 domain = "menu"
@@ -2584,10 +2622,6 @@ match = "scripts/rules/resource_routes.gd"
 domain = "map"
 
 [[rules]]
-match = "scripts/map/road_ink.gd"
-domain = "map"
-
-[[rules]]
 match = "scripts/rules/crown_road_survey.gd"
 domain = "crown_road"
 
@@ -2926,6 +2960,13 @@ domain = "menu"
 match = "scripts/input_actions.gd"
 domain = "crown_road"
 
+# Agent Debug Bridge (issue #699): the pure projector and the thin loopback
+# WebSocket node. Query-only debug tooling, so a change here runs its own suite
+# instead of paying the whole fleet.
+[[rules]]
+match = "scripts/debug/*.gd*"
+domain = "debug_bridge"
+
 [[rules]]
 match = "scripts/**"
 full = true
@@ -3169,6 +3210,10 @@ domain = "advanced"
 [[rules]]
 match = "tests/test_court_ui_parts.gd*"
 domain = "menu"
+
+[[rules]]
+match = "tests/test_agent_debug_bridge.gd*"
+domain = "debug_bridge"
 
 [[rules]]
 match = "tests/test_*.gd"

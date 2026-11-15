@@ -200,6 +200,12 @@ func _ready() -> void:
 	if observer_mode:
 		_setup_observer()
 	pending_save = {}
+	# Opt-in localhost debug bridge (issue #699): inert without the
+	# `-- --agent-debug=PORT` user arg; answers god-mode queries only.
+	var bridge: AgentDebugBridge = AgentDebugBridge.new()
+	bridge.name = "AgentDebugBridge"
+	bridge.play = play
+	add_child(bridge)
 
 
 func _process(_delta: float) -> void:
