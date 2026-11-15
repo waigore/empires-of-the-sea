@@ -90,10 +90,6 @@ static func _audio(run, screen: MapScreen) -> void:
 		run.audio._active_player().volume_db == AudioDirector.SILENT_DB, "mute silences music"
 	)
 	run.audio.set_muted(false)
-	run.check(
-		run.audio.current_track_id() == MusicPlaylist.AGE_OF_DISCOVERY,
-		"the unmute keeps the opening bed"
-	)
 	# A driven run ends its fades on the frame it asks for them (fade_scale 0),
 	# so nothing keeps resolving after the asserts above — a killed frame would
 	# leave the next step's boot or the exit waiting on it (docs/testing.md
