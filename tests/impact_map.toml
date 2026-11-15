@@ -51,14 +51,6 @@ suites = [
   "test_battle_rules.gd",
 ]
 
-# Agent Debug Bridge (issue #699): the pure projector and the thin loopback
-# WebSocket node. Query-only debug tooling, so a change here runs its own suite
-# instead of paying the map-screen fan-out.
-[domains.debug_bridge]
-suites = [
-  "test_agent_debug_bridge.gd",
-]
-
 [domains.campaign]
 suites = [
   "test_diplomacy_rules.gd",
@@ -72,14 +64,14 @@ suites = [
 suites = [
   "test_civilian_turn_rules.gd",
   "test_panel_parts_rules.gd",
-  "test_map_screen_crown_orders.gd",
+  "test_map_screen.gd",
   "test_battle_rules.gd",
 ]
 
 [domains.diplomacy]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_map_lenses.gd",
+  "test_map_screen.gd",
   "test_panel_parts_rules.gd",
   "test_diplomacy_screen.gd",
 ]
@@ -125,7 +117,7 @@ suites = [
 [domains.ledger_row]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen_crown_orders.gd",
+  "test_map_screen.gd",
   "test_mobile_layout.gd",
 ]
 
@@ -136,7 +128,7 @@ suites = [
 [domains.row_builder]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen_crown_orders.gd",
+  "test_map_screen.gd",
   "test_mobile_layout.gd",
   "test_panel_parts_rules.gd",
   "test_market_economy_rules.gd",
@@ -261,7 +253,7 @@ suites = [
 [domains.muster]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen_crown_orders.gd",
+  "test_map_screen.gd",
   "test_mobile_layout.gd",
 ]
 
@@ -290,7 +282,7 @@ suites = [
 [domains.ledger_dress]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen_crown_orders.gd",
+  "test_map_screen.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -839,7 +831,6 @@ domain = "diplomacy"
 [domains.screen]
 suites = [
   "test_map_screen.gd",
-  "test_map_screen_crown_orders.gd",
   "test_menu_flow.gd",
   "test_save_codec.gd",
   "test_army_orders.gd",
@@ -908,18 +899,15 @@ suites = [
 suites = [
   "test_panel_parts_rules.gd",
   "test_ledgers.gd",
-  "test_map_screen_crown_orders.gd",
+  "test_map_screen.gd",
   "test_mobile_layout.gd",
 ]
 
 [domains.map]
 suites = [
   "test_generated_world_rules.gd",
-  "test_advanced_start_live.gd",
   "test_map_view_rules.gd",
   "test_map_screen.gd",
-  "test_map_screen_crown_orders.gd",
-  "test_map_lenses.gd",
   "test_diplomacy_rules.gd",
   "test_civilian_turn_rules.gd",
   "test_panel_parts_rules.gd",
@@ -932,7 +920,7 @@ suites = [
 suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_map_lenses.gd",
+  "test_map_screen.gd",
 ]
 
 # The defence reading's projection; first match wins, so it is named before the
@@ -943,7 +931,7 @@ domain = "crown_road"
 
 [[rules]]
 match = "tests/test_map_lenses.gd*"
-domain = "crown_road"
+domain = "fold_map_screen"
 
 # Shared lens kit: activation, tap resolution and slip packing every reading
 # inherits. One kit change reaches all four readings, so their four suites
@@ -951,7 +939,7 @@ domain = "crown_road"
 [domains.lens_kit]
 suites = [
   "test_map_view_rules.gd",
-  "test_map_lenses.gd",
+  "test_map_screen.gd",
 ]
 
 [[rules]]
@@ -1019,9 +1007,8 @@ suites = [
   "test_civilian_turn_rules.gd",
   "test_generated_world_rules.gd",
   "test_map_view_rules.gd",
-  "test_map_screen_crown_orders.gd",
+  "test_map_screen.gd",
   "test_panel_parts_rules.gd",
-  "test_map_lenses.gd",
 ]
 
 # Painted chart art: symbol stamps, the canvas that draws them and the fleet
@@ -1042,7 +1029,7 @@ suites = [
 # map + ui fan-out blowing the tier-1 5 min budget.
 [domains.resource_ink]
 suites = [
-  "test_map_lenses.gd",
+  "test_map_screen.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -1051,7 +1038,7 @@ suites = [
 # tone can never drift away from the minimap that draws the same table (#456).
 [domains.palette]
 suites = [
-  "test_map_lenses.gd",
+  "test_map_screen.gd",
   "test_panel_parts_rules.gd",
   "test_map_view_rules.gd",
 ]
@@ -1098,7 +1085,6 @@ suites = [
 [domains.advanced]
 suites = [
   "test_generated_world_rules.gd",
-  "test_advanced_start_live.gd",
 ]
 
 # Setup difficulty layer (wiki: ruleset-config § Layers). Hub files that only
@@ -1139,12 +1125,11 @@ suites = [
 [domains.menu]
 suites = [
   "test_generated_world_rules.gd",
-  "test_advanced_start_live.gd",
   "test_battle_rules.gd",
   "test_panel_parts_rules.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
-  "test_map_lenses.gd",
+  "test_map_screen.gd",
 ]
 
 [domains.misc]
@@ -1251,7 +1236,6 @@ suites = [
 # already drive a rival chart (visibility / AI sight) stay one domain.
 [domains.tribe_contact]
 suites = [
-  "test_tribe_contact.gd",
   "test_diplomacy_screen.gd",
   "test_map_view_rules.gd",
   "test_ai_rules.gd",
@@ -1316,7 +1300,7 @@ domain = "tribe_contact"
 
 [[rules]]
 match = "tests/test_tribe_contact.gd*"
-domain = "tribe_contact"
+domain = "fold_diplomacy_screen"
 
 [[rules]]
 match = "scripts/rules/market_*.gd*"
@@ -1587,7 +1571,7 @@ suites = [
 # resource_*, …) so tier 1 re-runs the theme boot, not the whole fan-out.
 [domains.fold_survivors]
 suites = [
-  "test_map_lenses.gd",
+  "test_map_screen.gd",
   "test_ledgers.gd",
   "test_naval_rules.gd",
   "test_generated_world_rules.gd",
@@ -1629,6 +1613,16 @@ suites = [
 [domains.fold_map_view]
 suites = [
   "test_map_view_rules.gd",
+]
+
+[domains.fold_map_screen]
+suites = [
+  "test_map_screen.gd",
+]
+
+[domains.fold_diplomacy_screen]
+suites = [
+  "test_diplomacy_screen.gd",
 ]
 
 [[rules]]
@@ -1798,7 +1792,7 @@ domain = "resource_ink"
 
 [[rules]]
 match = "tests/test_map_lenses.gd*"
-domain = "resource_ink"
+domain = "fold_map_screen"
 
 [[rules]]
 match = "tests/map_fixture.gd"
@@ -3204,7 +3198,7 @@ domain = "crown_road"
 # instead of paying the whole fleet.
 [[rules]]
 match = "scripts/debug/*.gd*"
-domain = "debug_bridge"
+domain = "fold_map_screen"
 
 [[rules]]
 match = "scripts/**"
@@ -3340,8 +3334,8 @@ domain = "map"
 # Crown-order coverage for civilian stranding lives here; map it with the
 # civilian domain so a stranding assert does not pull the whole map suite set.
 [[rules]]
-match = "tests/test_map_screen_crown_orders.gd"
-domain = "civilian"
+match = "tests/test_map_screen_crown_orders.gd*"
+domain = "fold_map_screen"
 
 [[rules]]
 match = "tests/test_map_view_rules.gd*"
@@ -3440,7 +3434,7 @@ domain = "menu"
 
 [[rules]]
 match = "tests/test_agent_debug_bridge.gd*"
-domain = "debug_bridge"
+domain = "fold_map_screen"
 
 [[rules]]
 match = "tests/test_*.gd"

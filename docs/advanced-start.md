@@ -66,8 +66,9 @@ preset once at new-game time, after the HUD's ledger exists.
 
 `tests/test_generated_world_rules.gd` — tier tables, tech closure, balanced muster,
 colonies (contiguity, Tribe survival, parity), chart, estates, and deeds; the
-live screen path for both tiers is `test_advanced_start_live.gd`.
+live screen path for both tiers (`test_advanced_start_live`) is folded into the
+same boot.
 
 ```bash
-gd-tools test tests/test_generated_world_rules.gd tests/test_advanced_start_live.gd
+gd-tools test tests/test_generated_world_rules.gd
 ```

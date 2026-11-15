@@ -76,6 +76,7 @@ surface for player data. Close the game (or omit the flag) when unattended.
 
 ## Tests
 
-`tests/test_agent_debug_bridge.gd` covers the projector's JSON shapes, the
-flag parser and a live in-process loopback round trip. Suite is mapped under
-the `debug_bridge` domain in `tests/impact_map.toml`.
+`tests/test_map_screen.gd` (its folded bridge section) covers the projector's
+JSON shapes, the flag parser and a live in-process loopback round trip. The
+folded path is mapped under the `fold_map_screen` domain in
+`tests/impact_map.toml`.
