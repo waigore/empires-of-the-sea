@@ -160,6 +160,7 @@ static func _readings(
 		"explorer_ready": _explorer_ready(play, faction),
 		"voyage_afloat": _voyage_afloat(play, faction),
 		"voyage_abroad": _voyage_abroad(play, faction),
+		"voyage_stranded": _voyage_stranded(play, faction),
 		"research_slots": slots,
 		"research_funding": funding_index,
 		"research_cost": research_cost,
@@ -334,6 +335,34 @@ static func _voyage_abroad(play: PlaySession, faction: int) -> bool:
 		for raw: Variant in play.civilian_layer.regions.value(region, []):
 			var unit: CivilianState = raw
 			if unit != null and unit.owner == faction:
+				return true
+	return false
+
+
+## True while an Explorer of this court stands ashore in a region its crown does
+## not own. It founds nothing (a Builder needs crown land) and cannot board again
+## — boarding needs a squadron in port and docking needs a crown port — so the
+## expedition can never sail on: the ledger reads the aim blocked with that
+## reason instead of funding a voyage the planner will not order (issue #602).
+## A Merchant ashore is left to #497's reading: it buys the deeds that found the
+## colony, so its voyage is still progress.
+static func _voyage_stranded(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null or play.world == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	for region: int in play.civilian_layer.regions.region_ids():
+		if region == home:
+			continue
+		var model: MapModel = play.world.region(region)
+		if model == null or _owns_land(model, faction):
+			continue
+		for raw: Variant in play.civilian_layer.regions.value(region, []):
+			var unit: CivilianState = raw
+			if unit == null or unit.owner != faction:
+				continue
+			if unit.type_id == "explorer" and not unit.is_embarked():
 				return true
 	return false
 
