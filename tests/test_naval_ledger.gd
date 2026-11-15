@@ -234,12 +234,10 @@ func test_the_empty_view_names_why_no_hull_answers() -> void:
 
 func test_every_chip_names_its_own_reading() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
-	assert_eq(panel._chip_text(NavalLedger.REGION_ALL, true), "Both charts")
-	assert_eq(panel._chip_text(NavalLedger.REGION_OLD, true), "Old World")
-	assert_eq(panel._chip_text(NavalLedger.REGION_NEW, true), "New World")
-	assert_eq(panel._chip_text(NavalLedger.READING_ALL, false), "All hulls")
-	assert_eq(panel._chip_text(NavalLedger.READING_WARSHIP, false), "Warships")
-	assert_eq(panel._chip_text(NavalLedger.READING_MERCHANT, false), "Merchant hulls")
+	var chart_row := panel._bar.get_child(0) as HBoxContainer
+	var reading_row := panel._bar.get_child(1) as HBoxContainer
+	assert_eq(_chip_captions(chart_row), ["Both charts", "Old World", "New World"])
+	assert_eq(_chip_captions(reading_row), ["All hulls", "Warships", "Merchant hulls"])
 
 
 func test_back_and_the_key_close_the_ledger() -> void:
@@ -352,6 +350,15 @@ func _row_widgets(panel: NavalLedgerPanel) -> int:
 		if child is NavalLedgerRow:
 			total += 1
 	return total
+
+
+func _chip_captions(row: HBoxContainer) -> Array[String]:
+	var captions: Array[String] = []
+	for child: Node in row.get_children():
+		var chip := child as Button
+		if chip != null:
+			captions.append(chip.text)
+	return captions
 
 
 func _has_text(root: Node, needle: String) -> bool:

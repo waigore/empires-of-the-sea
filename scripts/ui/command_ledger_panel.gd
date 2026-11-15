@@ -91,11 +91,6 @@ func _paint() -> void:
 	_subtitle.text = CommandLedger.summary(_snapshot)
 	_medal.text = CommandLedger.medal_line()
 	_fallback.text = CommandLedger.fallback_line(_snapshot)
-	for child: Node in _rows.get_children():
-		if child == _empty:
-			continue
-		_rows.remove_child(child)
-		child.queue_free()
 	var rows: Array = _snapshot.get("rows", []) as Array
 	_empty.visible = rows.is_empty()
 	if rows.is_empty():
@@ -103,12 +98,14 @@ func _paint() -> void:
 			"The crown holds no commanders: only a Great Power musters a general."
 		)
 		return
-	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
-	for raw: Variant in rows:
-		var row := CommandLedgerRow.new()
-		row.compact = compact
-		_rows.add_child(row)
-		row.setup(raw as Dictionary)
+	LedgerList.flat(_rows, _empty, rows, _make_row)
+
+
+func _make_row(raw: Variant, compact: bool) -> Control:
+	var row := CommandLedgerRow.new()
+	row.compact = compact
+	row.setup(raw as Dictionary)
+	return row
 
 
 func _paint_road() -> void:

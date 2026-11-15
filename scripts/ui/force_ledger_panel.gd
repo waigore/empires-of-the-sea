@@ -13,8 +13,7 @@ signal navy_pressed
 
 var _rows: VBoxContainer = null
 var _empty: Label = null
-var _region_chips: Array[Button] = []
-var _kind_chips: Array[Button] = []
+var _bar: LedgerFilterBar = null
 var _region: String = ForceLedger.REGION_ALL
 var _kind: String = ForceLedger.KIND_ALL
 var _snapshot: Dictionary = {}
@@ -55,7 +54,10 @@ func _build_crest() -> Control:
 
 
 func _build_body(column: VBoxContainer) -> void:
-	column.add_child(_filters())
+	_bar = LedgerFilterBar.new()
+	_bar.fill("Region", "Force", ForceLedger.REGION_FILTERS, ForceLedger.KIND_FILTERS, _kind_word)
+	_bar.chosen.connect(_on_filter)
+	column.add_child(_bar)
 	column.add_child(_navy_door())
 
 	_rows = VBoxContainer.new()
@@ -87,59 +89,11 @@ func _on_profile_changed() -> void:
 # --- filters -----------------------------------------------------------------
 
 
-## Two chip rows: which chart, and which kind of force. Every option stays on
-## the page even at zero, so a filter never hides its own way back
-## (REQ-P5-03, REQ-P5-07).
-func _filters() -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 4)
-	for spec: Array in [
-		["Region", ForceLedger.REGION_FILTERS, true],
-		["Force", ForceLedger.KIND_FILTERS, false],
-	]:
-		box.add_child(_filter_row(String(spec[0]), spec[1], bool(spec[2])))
-	return box
-
-
-func _filter_row(caption: String, keys: Array, region_row: bool) -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	var label := Label.new()
-	label.text = caption.to_upper()
-	label.custom_minimum_size = Vector2(58, 0)
-	label.add_theme_font_size_override("font_size", 9)
-	label.add_theme_color_override("font_color", Palette.GOLD_DIM)
-	row.add_child(label)
-	for key: String in keys:
-		var chip := Button.new()
-		chip.text = _chip_text(key, region_row)
-		chip.custom_minimum_size = Vector2(0, 34)
-		chip.focus_mode = Control.FOCUS_ALL
-		chip.add_theme_font_size_override("font_size", 12)
-		chip.set_meta("key", key)
-		chip.pressed.connect(func() -> void: _on_filter(key, region_row))
-		row.add_child(chip)
-		if region_row:
-			_region_chips.append(chip)
-		else:
-			_kind_chips.append(chip)
-	return row
-
-
-func _chip_text(key: String, region_row: bool) -> String:
-	if region_row:
-		match key:
-			ForceLedger.REGION_OLD:
-				return "Old World"
-			ForceLedger.REGION_NEW:
-				return "New World"
-		return "Both charts"
-	match key:
-		ForceLedger.KIND_ARMY:
-			return "Armies"
-		ForceLedger.KIND_SQUADRON:
-			return "Squadrons"
-	return "All forces"
+## The reading chips: "All forces", "Armies", "Squadrons".
+func _kind_word(key: String) -> String:
+	if key == ForceLedger.KIND_ALL:
+		return "All forces"
+	return ForceLedger.kind_label(key, true).capitalize()
 
 
 func _on_filter(key: String, region_row: bool) -> void:
@@ -154,12 +108,7 @@ func _on_filter(key: String, region_row: bool) -> void:
 
 
 func _apply_filter() -> void:
-	for child: Node in _rows.get_children():
-		if child == _empty:
-			continue
-		_rows.remove_child(child)
-		child.queue_free()
-	_paint_chips()
+	_bar.render(_region, _kind)
 	var groups: Array[Dictionary] = ForceLedger.groups(_snapshot, _region, _kind)
 	var shown: int = ForceLedger.count(_snapshot, _region, _kind)
 	_subtitle.text = _subtitle_text(shown)
@@ -167,38 +116,21 @@ func _apply_filter() -> void:
 	if shown == 0:
 		_empty.text = "No force answers this view. Clear a filter to see the whole muster."
 		return
-	for group: Dictionary in groups:
-		var heading := Label.new()
-		var rows: Array = group["rows"]
-		heading.text = "%s  ·  %d force%s" % [
-			String(group["region_label"]).to_upper(), rows.size(), "" if rows.size() == 1 else "s"
-		]
-		heading.add_theme_font_size_override("font_size", 11)
-		heading.add_theme_color_override("font_color", Palette.GOLD_DIM)
-		_rows.add_child(heading)
-		for raw: Variant in rows:
-			var row := ForceLedgerRow.new()
-			row.compact = HudLayout.is_compact(get_viewport_rect().size)
-			row.visit_pressed.connect(_visit)
-			_rows.add_child(row)
-			row.setup(raw)
+	LedgerList.fill(_rows, _empty, groups, _heading, _make_row)
 
 
-func _paint_chips() -> void:
-	for chip: Button in _region_chips:
-		_style_chip(chip, String(chip.get_meta("key")) == _region)
-	for chip: Button in _kind_chips:
-		_style_chip(chip, String(chip.get_meta("key")) == _kind)
+func _heading(group: Dictionary, count: int) -> Control:
+	return LedgerList.heading("%s  ·  %d force%s" % [
+		String(group["region_label"]).to_upper(), count, "" if count == 1 else "s"
+	])
 
 
-func _style_chip(chip: Button, active: bool) -> void:
-	var fill: Color = Color(0.20, 0.16, 0.10, 0.95) if active else Color(0.12, 0.10, 0.07, 0.55)
-	var edge: Color = Palette.GOLD if active else Color(0.54, 0.43, 0.12, 0.55)
-	var pad := Vector4(9, 3, 9, 3)
-	chip.add_theme_stylebox_override("normal", UiTheme.box(fill, edge, 1, 3, pad))
-	chip.add_theme_stylebox_override("hover", UiTheme.box(fill, Palette.GOLD, 1, 3, pad))
-	var ink: Color = Palette.GOLD_PALE if active else Color(0.78, 0.72, 0.60)
-	chip.add_theme_color_override("font_color", ink)
+func _make_row(raw: Variant, compact: bool) -> Control:
+	var row := ForceLedgerRow.new()
+	row.compact = compact
+	row.visit_pressed.connect(_visit)
+	row.setup(raw as Dictionary)
+	return row
 
 
 func _subtitle_text(shown: int) -> String:
