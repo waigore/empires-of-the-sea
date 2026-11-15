@@ -22,7 +22,8 @@ var _rng := RandomNumberGenerator.new()
 
 
 ## Default entry point: one Old World map (6 Great Powers + 6 Minor Nations).
-func generate(seed_value: int, p_width: int = 128, p_height: int = 84) -> MapModel:
+## Defaults match GameConfig Standard (#700 — wiki ~30–40 tiles/province).
+func generate(seed_value: int, p_width: int = 96, p_height: int = 64) -> MapModel:
 	return generate_region(seed_value, FactionCatalog.OLD_WORLD, p_width, p_height)
 
 
@@ -49,7 +50,7 @@ func generate_region(
 
 ## Two-region world, regenerated with bumped seeds while ownership is infeasible
 ## (wiki: game-setup § Tribe assignment regen-until-pass).
-func generate_world(seed_value: int, p_width: int = 128, p_height: int = 84) -> WorldMap:
+func generate_world(seed_value: int, p_width: int = 96, p_height: int = 64) -> WorldMap:
 	var new_width: int = maxi(48, int(round(float(p_width) * 0.88)))
 	var new_height: int = maxi(36, int(round(float(p_height) * 0.9)))
 	var world := WorldMap.new()

@@ -7,16 +7,17 @@ extends RefCounted
 const DEFAULT_SEED: int = 1500
 const DEFAULT_SIZE_INDEX: int = 1
 
-## Playable map presets; Standard matches the desktop default.
+## Playable map presets. Standard targets the wiki's ~30–40 tiles/province
+## band (tile-map-and-generation; #700) while keeping 60/30 province counts.
 const SIZES: Array[Dictionary] = [
-	{"label": "Small", "width": 96, "height": 64},
-	{"label": "Standard", "width": 128, "height": 84},
-	{"label": "Large", "width": 160, "height": 104},
+	{"label": "Small", "width": 84, "height": 56},
+	{"label": "Standard", "width": 96, "height": 64},
+	{"label": "Large", "width": 128, "height": 84},
 ]
 
 var map_seed: int = DEFAULT_SEED
-var map_width: int = 128
-var map_height: int = 84
+var map_width: int = 96
+var map_height: int = 64
 ## The human Great Power slot; the rest are AI.
 var player_faction: int = FactionCatalog.PLAYER_FACTION
 ## LeaderKey chosen for the human crown; empty means the crown's default
@@ -81,8 +82,8 @@ func to_dict() -> Dictionary:
 static func from_dict(data: Dictionary) -> GameConfig:
 	var config := GameConfig.new()
 	config.map_seed = int(data.get("map_seed", DEFAULT_SEED))
-	config.map_width = int(data.get("map_width", 128))
-	config.map_height = int(data.get("map_height", 84))
+	config.map_width = int(data.get("map_width", 96))
+	config.map_height = int(data.get("map_height", 64))
 	config.player_faction = int(data.get("player_faction", FactionCatalog.PLAYER_FACTION))
 	config.player_leader = LeaderCatalog.resolve_key(
 		config.player_faction, String(data.get("player_leader", ""))

@@ -1177,9 +1177,9 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 ## forest cell carrying one whatever the share says, and the open ground filled
 ## after the guarantee rather than by a fixed one to three tiles a province
 ## (wiki: resource-terrain-region-rules § Placement rate, § Forest terrain split;
-## DR-20261115-16, #676). Measured on the game's own seed and chart size.
+## DR-20261115-16, #676). Measured on the game's own seed and Standard chart.
 func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
-	var world_map: WorldMap = MapGenerator.new().generate_world(1500, 128, 84)
+	var world_map: WorldMap = _standard_world(1500)
 	for model: MapModel in world_map.regions:
 		var land: int = 0
 		var carrying: int = 0
@@ -1211,6 +1211,42 @@ func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
 		# still forest must carry its guaranteed row.
 		assert_eq(bare_forests, 0, "region %d has %d bare forest cells" % [model.region_id, bare_forests])
 		assert_true(open_carrying > 0, "region %d left its open ground bare" % model.region_id)
+		# Absolute supply for #676: Standard still funds a market book (not the
+		# old ~3% sparse plot). OW land on Standard is ~2k tiles → ~600 rows.
+		assert_true(carrying >= 300,
+			"region %d only places %d resources on Standard" % [model.region_id, carrying])
+
+
+## Standard chart keeps mean tiles/province in the published ~30–40 band while
+## holding 60/30 province counts (wiki: tile-map-and-generation; #700).
+func test_standard_provinces_sit_in_the_published_size_band() -> void:
+	var world_map: WorldMap = _standard_world(1500)
+	var old_world: MapModel = world_map.region(FactionCatalog.OLD_WORLD)
+	var new_world: MapModel = world_map.region(FactionCatalog.NEW_WORLD)
+	assert_eq(old_world.provinces.size(), MapGenerator.OLD_WORLD_PROVINCES)
+	assert_eq(new_world.provinces.size(), MapGenerator.NEW_WORLD_PROVINCES)
+	_assert_mean_tiles(old_world, 28.0, 45.0)
+	_assert_mean_tiles(new_world, 28.0, 50.0)
+
+
+func _standard_world(seed_value: int) -> WorldMap:
+	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
+	return MapGenerator.new().generate_world(
+		seed_value, int(preset["width"]), int(preset["height"])
+	)
+
+
+func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
+	var land: int = 0
+	for province: ProvinceState in model.provinces:
+		land += province.tiles.size()
+	var mean: float = float(land) / float(maxi(model.provinces.size(), 1))
+	assert_true(
+		mean >= lo and mean <= hi,
+		"region %d mean tiles/province %.1f outside [%.0f, %.0f]" % [
+			model.region_id, mean, lo, hi
+		]
+	)
 
 
 ## The published multi-region cap: at most 30% of placed rows are "both", and a
