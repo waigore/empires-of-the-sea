@@ -2224,6 +2224,31 @@ func test_a_muster_stalled_past_the_blocked_bar_names_its_reason() -> void:
 	)
 
 
+func test_a_yard_stalled_past_the_blocked_bar_names_its_reason() -> void:
+	# A warship build the court cannot reach names the stall (issue #603);
+	# the chest keeps its own reach rule and the launch its own gate.
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["posture"] = AiPhasePlanner.PHASE_WAR
+	readings["war_desire"] = 60
+	readings["warships"] = 0
+	readings["warship_price"] = 5500
+	readings["warship_open"] = true
+	readings["hostile_ships"] = 3
+	readings["hostile_warships"] = 2
+	readings["blockings"] = {"navy.build": 45}
+	var build: AiObjective = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+	assert_ne(build, null)
+	assert_eq(build.status, AiObjective.STATUS_BLOCKED)
+	assert_true(String(build.blocked).contains("45"), "the stall length is named")
+
+	readings["blockings"] = {}
+	assert_eq(
+		String(_by_id(AiObjectivesPlan.build(readings), "navy.build").blocked), "",
+		"a stall below the bar stays a deferred row"
+	)
+
+
 func test_an_unpayable_study_reads_blocked_not_funded() -> void:
 	# A study the purse cannot fund must never read `funded` at zero gold: the
 	# refusal the planner made is the row's reason (issue #590).
