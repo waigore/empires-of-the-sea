@@ -132,6 +132,31 @@ func test_coast_field_is_negative_at_sea_and_positive_on_land() -> void:
 	assert_eq(wrong, 0, "every tile centre sits on the right side of the shore")
 
 
+## The shore is one published reading: the bake paints from `MapCoastField`, so
+## a later reader of the coastline cannot end up with a second answer, and the
+## basin reach the shoal veil follows is the deepest sounding within its reach.
+func test_the_bake_paints_from_the_published_coast_field() -> void:
+	var model: MapModel = _mounted().model
+	var relief: MapRelief = _canvas.relief
+	var field: MapCoastField = relief.coast
+	assert_not_null(field, "the bake keeps the field it read")
+	assert_false(field.sd.is_empty(), "the field carries a distance per tile")
+	assert_eq(field.width, model.width)
+	assert_eq(field.height, model.height)
+	var shallow: int = 0
+	var drift: int = 0
+	for y in model.height:
+		for x in model.width:
+			var i: int = y * model.width + x
+			if field.reach[i] < maxf(-field.sd[i], 0.0):
+				shallow += 1
+			var centre := Vector2(float(x) + 0.5, float(y) + 0.5)
+			if absf(relief.coast_at(centre) - field.coast_at(centre)) > 0.00001:
+				drift += 1
+	assert_eq(shallow, 0, "the reach holds the deepest sounding of every basin")
+	assert_eq(drift, 0, "the bake reads the field's shore, never its own copy")
+
+
 ## A beach inside the shore and a pale shoal outside it: that band is what makes
 ## a coastline read as drawn water rather than a soft smear.
 func test_wash_paints_a_beach_and_a_shallow_band() -> void:
