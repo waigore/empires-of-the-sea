@@ -496,3 +496,77 @@ func _row_for(rows: Array[Control], label: String) -> Control:
 			if text != null and text.text.begins_with(label):
 				return row
 	return null
+
+
+# --- application shell -------------------------------------------------------
+## The shell's own boot (merged from test_main): the title is the entry point,
+## an auto-start goes straight to the chart, and the debug door seats an all-AI
+## observer. Each case drops the flow's shell first, so only one campaign is
+## ever mounted in the tree.
+
+
+func _drop_flow_shell() -> void:
+	if is_instance_valid(main):
+		main.free()
+	main = null
+
+
+func test_main_shell_boots_the_title_screen() -> void:
+	_drop_flow_shell()
+	var shell: Node = MAIN.instantiate()
+	add_child(shell)
+	assert_true(shell.current_page is MainMenu, "title screen is the entry point")
+	assert_null(shell.current_screen)
+	assert_not_null(shell.audio, "the shell mounts one audio director")
+	assert_not_null(shell.soundtrack, "the shell mounts the launch score")
+	shell.free()
+
+
+func test_auto_start_boots_the_map_screen() -> void:
+	_drop_flow_shell()
+	var chart: WorldMap = Fixture.world()
+	var snap: Array = Fixture.snapshot(chart)
+	var shell: Node = MAIN.instantiate()
+	shell.auto_start = true
+	shell.map_width = Fixture.WORLD_WIDTH
+	shell.map_height = Fixture.WORLD_HEIGHT
+	shell.preset_world = chart
+	add_child(shell)
+	assert_true(shell.current_screen is MapScreen, "auto-start goes straight to play")
+	assert_true(shell.current_screen.play.world == chart, "auto-start reused the cached chart")
+	shell.free()
+	Fixture.restore(chart, snap)
+
+
+## Debug door: the title screen starts a fully-AI campaign with no human court.
+func test_observer_entry_starts_an_all_ai_campaign() -> void:
+	_drop_flow_shell()
+	var chart: WorldMap = Fixture.world()
+	var snap: Array = Fixture.snapshot(chart)
+	var shell: Node = MAIN.instantiate()
+	shell.size_override = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
+	shell.preset_world = chart
+	add_child(shell)
+	var menu: MainMenu = shell.current_page as MainMenu
+	assert_not_null(menu, "the title screen offers the door")
+	if menu == null:
+		shell.free()
+		Fixture.restore(chart, snap)
+		return
+	menu.observer_pressed.emit()
+	var screen: MapScreen = shell.current_screen
+	assert_not_null(screen, "the observer builds a map screen")
+	if screen == null:
+		shell.free()
+		Fixture.restore(chart, snap)
+		return
+	assert_true(screen.play.world == chart, "the observer reused the cached chart")
+	assert_true(screen.observer_mode, "the screen runs the full-AI observer")
+	assert_true(screen.play.observer_mode, "the session runs the full-AI observer")
+	assert_true(screen.play.infinite_mode, "an observer may outlast the calendar cap")
+	assert_eq(screen.play.diplomacy.human_faction, MapModel.NO_ID, "no human court")
+	assert_false(screen.hud.visible, "the human chrome stays hidden")
+	assert_true(screen.game_menu.save_button.disabled, "an observer session is not saved")
+	assert_not_null(screen.get_node_or_null("AiObserver"), "the dashboard mounts")
+	shell.free()
+	Fixture.restore(chart, snap)
