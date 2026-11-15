@@ -116,6 +116,18 @@ static func faction_color(owner: int) -> Color:
 	return FactionCatalog.color_of(owner)
 
 
+## The chart's ink at a given weight: one mix for a slip's edge, a hover rule, a
+## quieter second line. A reading names how loud it speaks, never its own brown
+## (REQ-P1-02).
+static func ink(alpha: float) -> Color:
+	return Color(INK.r, INK.g, INK.b, alpha)
+
+
+## The chart's paper at a given weight: a reading's wash veil over the terrain.
+static func paper(alpha: float) -> Color:
+	return Color(PAPER.r, PAPER.g, PAPER.b, alpha)
+
+
 ## Ink for a survey status; unknown statuses fall back to the offline brown.
 static func survey_color(status: String) -> Color:
 	match status:

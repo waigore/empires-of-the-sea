@@ -11,8 +11,6 @@ extends MapLens
 
 const PLATE_W: float = 104.0
 const PLATE_H: float = 40.0
-const PLATE_PAD: float = 6.0
-const RIBBON: float = 2.4
 
 ## Region roster the reading is derived from; null in a hand-built test.
 var roster: ShipLayer = null
@@ -84,8 +82,7 @@ func refresh() -> void:
 func _draw() -> void:
 	if not _visible():
 		return
-	if _font == null:
-		_font = UiTheme.serif()
+	_ensure_font()
 	for raw: Variant in _rows():
 		_draw_plate(raw)
 
@@ -95,33 +92,22 @@ func _draw_plate(entry: Dictionary) -> void:
 	var alpha: float = _reveal * _charted_alpha(int(entry["charted"]))
 	if alpha <= 0.01:
 		return
-	var shape: PackedVector2Array = _plate_shape(rect, 3.0)
-	draw_colored_polygon(
-		_offset_shape(shape, Vector2(1.4, 2.2)), Color(0.10, 0.08, 0.05, 0.32 * alpha)
-	)
-	draw_colored_polygon(shape, Color(0.945, 0.902, 0.792, 0.99 * alpha))
-	draw_polyline(
-		_closed(shape), Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.90 * alpha),
-		1.4, true
-	)
 	var band: String = String(entry["band"])
 	var tint: Color = Palette.sea_color(band)
-	var ribbon: Color = tint
-	ribbon.a *= alpha
-	draw_rect(Rect2(rect.position + Vector2(2, 4), Vector2(RIBBON, rect.size.y - 8)), ribbon)
+	LensSlip.draw_slip(self, rect, alpha, tint)
 
 	_draw_pennant(Vector2(rect.position.x + 15.0, rect.position.y + 13.0), tint, alpha)
-	var ink := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, alpha)
+	var ink: Color = Palette.ink(alpha)
 	draw_string(
 		_font, Vector2(rect.position.x + 27.0, rect.position.y + 18.0),
 		_hull_line(entry), HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 38.0, 13, ink
 	)
 	var second: String = _second_line(entry)
 	if not second.is_empty():
-		var dim := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.72 * alpha)
 		draw_string(
 			_font, Vector2(rect.position.x + 27.0, rect.position.y + 32.0),
-			second, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 38.0, 10, dim
+			second, HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 38.0, 10,
+			Palette.ink(0.72 * alpha)
 		)
 	# A marker for the fight itself, under the pennant: a battle the court can
 	# see coming is the one thing this reading exists to say.
@@ -131,17 +117,16 @@ func _draw_plate(entry: Dictionary) -> void:
 			Color(Palette.DIPLO_WAR.r, Palette.DIPLO_WAR.g, Palette.DIPLO_WAR.b, alpha)
 		)
 	if int(entry["id"]) == hover_zone:
-		draw_rect(
-			Rect2(rect.position + Vector2(2, rect.size.y - 4), Vector2(rect.size.x - 4, 2)),
-			Color(Palette.GOLD.r, Palette.GOLD.g, Palette.GOLD.b, alpha)
-		)
+		LensSlip.hover_rule(self, rect, alpha)
 
 
 ## A pennant over a short mast, in the band's ink — the reading's one emblem,
 ## the same shape the key prints.
 func _draw_pennant(center: Vector2, tint: Color, alpha: float) -> void:
-	var mast: Color = Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55 * alpha)
-	draw_line(center + Vector2(-4.0, -8.0), center + Vector2(-4.0, 8.0), mast, 1.2, true)
+	draw_line(
+		center + Vector2(-4.0, -8.0), center + Vector2(-4.0, 8.0),
+		Palette.ink(0.55 * alpha), 1.2, true
+	)
 	var fly := PackedVector2Array([
 		center + Vector2(-3.0, -7.0),
 		center + Vector2(8.0, -3.0),
