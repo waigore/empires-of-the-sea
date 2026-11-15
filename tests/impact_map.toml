@@ -1363,9 +1363,52 @@ suites = [
   "test_ai_rules.gd",
 ]
 
+# Folded micro-suites still appear as deletions in the PR diff. Map those names
+# to the four survivors before the catch-all globs (diplomacy_*, fleet_*,
+# resource_*, …) so tier 1 re-runs the theme boot, not the whole fan-out.
+[domains.fold_survivors]
+suites = [
+  "test_map_lenses.gd",
+  "test_ledgers.gd",
+  "test_naval_rules.gd",
+  "test_world_setup.gd",
+]
+
 [[rules]]
 match = "tests/impact_map.toml"
 domain = "impact_map"
+
+[[rules]]
+match = "tests/test_resource_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_diplomacy_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_defence_lens.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_force_ledger_rules.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_province_ledger.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_spy_ledger.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_fleet_passes.gd*"
+domain = "fold_survivors"
+
+[[rules]]
+match = "tests/test_game_setup.gd*"
+domain = "fold_survivors"
 
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
@@ -2867,10 +2910,6 @@ domain = "map"
 [[rules]]
 match = "tests/test_world_*.gd"
 domain = "map"
-
-[[rules]]
-match = "tests/test_game_setup.gd"
-domain = "menu"
 
 [[rules]]
 match = "tests/test_land_battle_rules.gd*"
