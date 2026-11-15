@@ -80,8 +80,8 @@ striking tier.
 
 ## Deferred (REQ-P2-02)
 
-None — the town-works gate shipped (DR-20261116-04). Gaps:
-[`deferred.md`](deferred.md).
+The rival's appetite for the second-stage rows
+([`deferred.md`](deferred.md)).
 
 ## Architecture
 

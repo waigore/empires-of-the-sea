@@ -1868,11 +1868,16 @@ func test_larder_forecast_reads_the_other_mouths() -> void:
 	var mouths: Dictionary = LarderRead.mouths(
 		{"consumption": {"army_demand": 2, "navy_demand": 2, "hospital_demand": 0}}
 	)
-	assert_eq(mouths, {"army": 2, "ships": 1, "hospital": 0})
+	assert_eq(
+		mouths, {"army": 2, "ships": 1, "hospital": 0, "wards": [0]},
+		"a report without the ward list reads as the one ward its sum says",
+	)
 	var read: Dictionary = LarderRead.forecast(economy, mouths)
 	assert_eq(int(read["strikers"]), 2, "the army and the hull eat before the pool")
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
-	assert_eq(LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0})
+	assert_eq(
+		LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0, "wards": []}
+	)
 
 ## Every appetite the phase pays, in its own deduction order, so the ledger can
 ## show why a store that covers the pool still strikes it
@@ -1902,6 +1907,49 @@ func test_larder_reading_with_no_other_mouths() -> void:
 	var read: Dictionary = LarderRead.forecast(economy)
 	assert_eq(read["appetites"], {"army": 0, "navy": 0, "pool": 3, "wards": 0})
 	assert_eq(int(read["strikers"]), 0, "five grain feeds three peasants")
+	assert_eq(int(read["store_short"]), 0)
+
+
+## The wards eat last and only in whole staffs, so a larder that covers the small
+## one behind a big one must feed it: a summed appetite would read a shortfall the
+## phase never strikes, and the forecast has to be the phase's own answer
+## (wiki: workers-and-population § Consumption; DR-20261112-04; REQ-P2-03).
+func test_the_forecast_feeds_the_wards_the_phase_feeds() -> void:
+	var pool: WorkerPool = WorkerPool.make(0)
+	var store: Dictionary = {"grain": 3}
+	var wards: Array[int] = [4, 2]
+	var phase: Dictionary = EconomyConsumption.resolve(pool, store.duplicate(), 0, 0, wards)
+	assert_eq(int(phase["hospital_fed"]), 2, "the field ward eats, the general one waits")
+	var listed: Dictionary = LarderRead.reading(
+		pool, store, {"army": 0, "ships": 0, "hospital": 6, "wards": wards}
+	)
+	var listed_report: Dictionary = listed["report"]
+	assert_eq(
+		int(listed_report["hospital_fed"]), int(phase["hospital_fed"]),
+		"one ward at a time: the forecast spends what the phase spends",
+	)
+	# The summed appetite, which is all a report without the list carries, would
+	# have fed nothing: the list is what keeps the two readers one rule.
+	var summed: Dictionary = LarderRead.reading(
+		pool, store, {"army": 0, "ships": 0, "hospital": 6}
+	)
+	assert_eq(int((summed["report"] as Dictionary)["hospital_fed"]), 0)
+	assert_eq(int(listed["store_short"]), 3, "six food wanted, three held")
+
+
+## The store's shortfall is every mouth's, not the pool's: a court that keeps its
+## workers fed while the army or a ward goes without is still short
+## (wiki: workers-and-population § Consumption — total food demand).
+func test_the_store_shortfall_counts_every_mouth() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 3, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(
+		economy, {"army": 0, "ships": 0, "hospital": 4, "wards": [4]}
+	)
+	assert_eq(int(read["strikers"]), 0, "the pool ate: no worker strikes")
+	assert_eq(int(read["food_short"]), 0, "the pool's own rations were paid")
+	assert_eq(int(read["store_short"]), 3, "the ward's rations were not")
 
 func test_luxury_is_all_or_nothing_per_food_fed_worker() -> void:
 	var pool: WorkerPool = WorkerPool.make(0, 2)

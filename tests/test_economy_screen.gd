@@ -261,8 +261,43 @@ func test_the_larder_names_the_appetites_that_eat_first() -> void:
 		printed.contains("20 food wanted — army 8 · navy 4 · pool 6 · wards 2"),
 		"every appetite, in the phase's own order: %s" % printed
 	)
-	assert_true(printed.contains("Short 6 food"), "the pool is short: %s" % printed)
+	assert_true(
+		printed.contains("Short 8 food"),
+		"the whole larder is short, not the pool alone: %s" % printed
+	)
 	assert_true(printed.contains("6 strikers"), printed)
+
+
+## A larder that keeps the workers fed while a ward goes unfed is not calm: the
+## ward loses its nurses and the province rests at the field's share, so the tab
+## names the shortfall and the mouth that missed it
+## (wiki: workers-and-population § Consumption — total food demand;
+## combat § Regiment condition; DR-20261112-04).
+func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 3, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(
+		economy, {"army": 0, "ships": 0, "hospital": 4, "wards": [4]}
+	)
+	var page := LedgerWorkers.new()
+	assert_eq(
+		page._shortfall_copy(read),
+		"Short 3 food — the wards go unfed.",
+		"the pool ate, the ward did not"
+	)
+	# A court with no workers at all still reads its army's hunger.
+	economy.workers = WorkerPool.make(0)
+	economy.stockpile = {"grain": 2, "meat": 0}
+	var army: Dictionary = LarderRead.forecast(
+		economy, {"army": 5, "ships": 0, "hospital": 0}
+	)
+	assert_eq(
+		page._shortfall_copy(army),
+		"Short 3 food — the army goes short.",
+		"no striker, and still short"
+	)
+	page.free()
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.

@@ -1,9 +1,12 @@
 extends GdToolsTest
-## One boot for the chart's view: the camera, the fog layer, the minimap, the
-## resource survey and the crown road lens.
+## One boot for the map: the model and region table, fog visibility, the save
+## halves, the camera, the fog layer, the minimap, the resource survey, the
+## crown road lens and the canvas painting (wash, ink, names, plan marks).
 
-## Merged from test_map_camera, test_fog_layer, test_minimap, test_resource_survey,
-## test_crown_road_lens.
+## Merged from test_map_model, test_map_region_table, test_visibility,
+## test_save_world, test_save_store, test_province_graph, test_map_camera,
+## test_fog_layer, test_minimap, test_resource_survey, test_crown_road_lens,
+## test_map_canvas.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const fog_layer_Fixture = preload("res://tests/map_fixture.gd")
@@ -25,12 +28,15 @@ var saved: Array = []
 var _suite_setup: String = ""
 
 func before_all() -> void:
+	_data_before_all()
 	_hook_crown_road_lens_before_all()
 
 func after_all() -> void:
 	_hook_crown_road_lens_after_all()
 
 func after_each() -> void:
+	_canvas_after_each()
+	_data_after_each()
 	match _suite_setup:
 		"map_camera":
 			_teardown_map_camera()
@@ -1213,4 +1219,2161 @@ func _screen_point(world_in_tiles: Vector2) -> Vector2:
 	return CameraMath.world_to_screen(
 		screen.camera.position, screen.camera.zoom.x, world,
 		screen.camera.viewport_size()
+	)
+
+# ==== merged from test_map_data_rules.gd (one coverage boot; docs/testing.md § Speed rules) ====
+## One boot for the map data: the model and region table, fog visibility, and the
+## world/store halves of a save (wiki: the-map).
+
+## Merged from test_map_model, test_map_region_table, test_visibility,
+## test_save_world, test_save_store, test_province_graph.
+## One Godot boot (coverage instrumentation) per theme instead of one per file.
+## Each test runs only its own suite's setup; teardown follows the setup.
+
+const PLAYER: int = 0
+const DIR: String = "user://test_save_store"
+
+var data__model: MapModel = null
+var _visibility_model: MapModel = null
+var data__visibility: VisibilityModel = null
+
+var data__suite_setup: String = ""
+
+func _data_after_each() -> void:
+	match data__suite_setup:
+		"save_store":
+			_teardown_save_store()
+	data__suite_setup = ""
+
+func _setup_map_model() -> void:
+	data__suite_setup = "map_model"
+	data__model = MapModel.new()
+	data__model.setup(4, 3)
+	for x in 4:
+		data__model.terrain[data__model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+	data__model.terrain[data__model.index_of(1, 1)] = MapModel.Terrain.HARDWOOD_FOREST
+	data__model.terrain[data__model.index_of(2, 1)] = MapModel.Terrain.SHALLOW
+	data__model.province[data__model.index_of(0, 0)] = 0
+	data__model.province[data__model.index_of(1, 0)] = 0
+	data__model.province[data__model.index_of(1, 1)] = 1
+	data__model.sea_zone[data__model.index_of(2, 1)] = 0
+	data__model.sea_zone[data__model.index_of(3, 1)] = 0
+	var cadiz_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var coro_tiles: Array[Vector2i] = [Vector2i(1, 1)]
+	var sea_tiles: Array[Vector2i] = [Vector2i(2, 1), Vector2i(3, 1)]
+	data__model.provinces = [
+		ProvinceState.create(0, "Cádiz", cadiz_tiles, Vector2(1.0, 0.5), 2, 0, true),
+		ProvinceState.create(1, "Coro", coro_tiles, Vector2(1.5, 1.5), 1, 1, false),
+	]
+	data__model.sea_zones = [
+		SeaZoneState.create(0, "Mar Caribe", sea_tiles, Vector2(3.0, 1.5), 2),
+	]
+
+func _setup_visibility() -> void:
+	data__suite_setup = "visibility"
+	_visibility_model = _build_region()
+	data__visibility = VisibilityModel.new()
+	data__visibility.setup(_visibility_model, PLAYER)
+
+func _setup_save_store() -> void:
+	data__suite_setup = "save_store"
+	_clean_dir()
+
+func _teardown_save_store() -> void:
+	_clean_dir()
+
+# --- test_map_model ---
+
+func test_setup_sizes_and_clears_arrays() -> void:
+	_setup_map_model()
+	var fresh := MapModel.new()
+	fresh.setup(7, 5)
+	assert_eq(fresh.terrain.size(), 35)
+	assert_eq(fresh.province.size(), 35)
+	assert_eq(fresh.province[0], MapModel.NO_ID)
+	assert_eq(fresh.province_count(), 0)
+
+func test_capital_tile_follows_the_province_record() -> void:
+	_setup_map_model()
+	data__model.provinces[0].capital_tile = Vector2i(0, 0)
+	assert_eq(data__model.capital_tile_of(0), Vector2i(0, 0))
+	assert_eq(data__model.capital_tile_of(1), CapitalChoice.NO_TILE)
+	assert_eq(data__model.capital_tile_of(-1), CapitalChoice.NO_TILE)
+
+func test_land_and_sea_classification() -> void:
+	_setup_map_model()
+	assert_true(data__model.is_land(0, 0))
+	assert_false(data__model.is_land(2, 1))
+	assert_true(data__model.is_sea(2, 1))
+	assert_false(data__model.is_land(-1, 0))
+	assert_false(data__model.is_land(0, 99))
+
+func test_out_of_bounds_reads_as_ocean_and_no_id() -> void:
+	_setup_map_model()
+	assert_eq(data__model.terrain_at(50, 50), MapModel.Terrain.OCEAN)
+	assert_eq(data__model.province_at(50, 50), MapModel.NO_ID)
+	assert_eq(data__model.sea_zone_at(-3, 0), MapModel.NO_ID)
+
+func test_province_lookup_helpers() -> void:
+	_setup_map_model()
+	assert_eq(data__model.province_at(1, 0), 0)
+	assert_eq(data__model.province_name(1), "Coro")
+	assert_eq(data__model.province_owner(1), 1)
+	assert_eq(data__model.province_owner(99), MapModel.NO_ID)
+	assert_eq(data__model.province_center(0), Vector2(1.0, 0.5))
+	assert_eq(data__model.province_tiles(99), [])
+
+func test_coastal_tiles_touch_sea() -> void:
+	_setup_map_model()
+	assert_true(MapGeo.is_coastal_tile(data__model, 1, 1))
+	assert_false(MapGeo.is_coastal_tile(data__model, 1, 0))
+	assert_false(MapGeo.is_coastal_tile(data__model, 2, 1))
+	assert_eq(MapGeo.coastal_tiles(data__model, 1), [Vector2i(1, 1)])
+
+func test_map_border_is_not_a_coast() -> void:
+	_setup_map_model()
+	var border := MapModel.new()
+	border.setup(3, 3)
+	for index in border.terrain.size():
+		border.terrain[index] = MapModel.Terrain.PLAINS
+	assert_false(MapGeo.is_coastal_tile(border, 0, 0))
+	assert_false(MapGeo.is_coastal_tile(border, 2, 2))
+
+func test_tile_deeds_override_the_province_owner() -> void:
+	_setup_map_model()
+	var tile := Vector2i(1, 1)
+	assert_eq(data__model.owner_at(tile.x, tile.y), 1)
+	assert_true(data__model.purchase_tile(tile, 6))
+	assert_eq(data__model.owner_at(tile.x, tile.y), 6)
+	assert_eq(data__model.province_owner(1), 1, "the province itself does not change hands")
+	assert_true(data__model.is_purchased_tile(tile))
+	assert_false(data__model.purchase_tile(tile, 7), "one deed per tile")
+
+func test_owned_tiles_follow_deeds_in_both_directions() -> void:
+	_setup_map_model()
+	var deed := Vector2i(1, 1)
+	assert_true(data__model.purchase_tile(deed, 6))
+	var ownership: TileOwnership = data__model.ownership
+	assert_true(ownership.owned_tiles(data__model, 6).has(deed), "buyer holds the enclave")
+	assert_false(ownership.owned_tiles(data__model, 1).has(deed), "seller no longer holds it")
+	assert_true(
+		ownership.owned_tiles(data__model, 0).has(Vector2i(0, 0)),
+		"ordinary province tiles remain"
+	)
+
+func test_tile_deeds_round_trip_through_plain_data() -> void:
+	_setup_map_model()
+	assert_true(data__model.purchase_tile(Vector2i(1, 1), 6))
+	var restored := TileOwnership.new()
+	restored.apply_dict(data__model.ownership.to_dict())
+	assert_true(restored.is_purchased(data__model.index_of(1, 1)))
+	assert_eq(restored.owner_of(data__model.index_of(1, 1), -1), 6)
+
+func test_province_neighbors_are_cached_and_sorted() -> void:
+	_setup_map_model()
+	assert_eq(MapGeo.province_neighbors(data__model, 0), [1])
+	assert_true(data__model.provinces[0].neighbors_cached)
+	assert_eq(MapGeo.province_neighbors(data__model, 99), [])
+
+func test_sea_zone_neighbors() -> void:
+	_setup_map_model()
+	var second := MapModel.new()
+	second.setup(3, 1)
+	second.sea_zone[0] = 0
+	second.sea_zone[1] = 0
+	second.sea_zone[2] = 1
+	var tiles_a: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var tiles_b: Array[Vector2i] = [Vector2i(2, 0)]
+	second.sea_zones = [
+		SeaZoneState.create(0, "A", tiles_a, Vector2.ZERO, 2),
+		SeaZoneState.create(1, "B", tiles_b, Vector2.ZERO, 1),
+	]
+	assert_eq(MapGeo.sea_zone_neighbors(second, 0), [1])
+	assert_eq(MapGeo.sea_zone_neighbors(second, 99), [])
+
+func test_world_helpers() -> void:
+	_setup_map_model()
+	assert_eq(MapGeo.world_size(data__model, 10.0), Vector2(40.0, 30.0))
+	assert_eq(MapGeo.tile_center(0, 0, 10.0), Vector2(5.0, 5.0))
+	assert_eq(MapGeo.tile_at_world(Vector2(15.0, 25.0), 10.0), Vector2i(1, 2))
+
+func test_land_tile_count() -> void:
+	_setup_map_model()
+	assert_eq(MapGeo.land_tile_count(data__model), 5)
+
+func test_terrain_labels_cover_every_type() -> void:
+	_setup_map_model()
+	for terrain in MapModel.Terrain.values():
+		assert_true(MapModel.TERRAIN_LABELS.has(terrain))
+
+func test_palette_covers_every_terrain() -> void:
+	_setup_map_model()
+	for terrain in MapModel.Terrain.values():
+		assert_true(terrain < Palette.TERRAIN_COLORS.size())
+	assert_eq(Palette.faction_color(-1), Palette.INK_LINE)
+	assert_eq(Palette.faction_color(99), Palette.INK_LINE)
+	assert_eq(Palette.terrain_color(99), Color(0.5, 0.5, 0.5))
+
+# --- test_map_region_table ---
+
+func test_missing_region_falls_back_without_creating_a_row() -> void:
+	var table := MapRegionTable.new()
+
+	assert_false(table.has_region(3))
+	assert_eq(table.value(3, []), [])
+	assert_false(table.has_region(3))
+
+func test_rows_are_addressed_by_region_and_clear_together() -> void:
+	var table := MapRegionTable.new()
+	var roster: Array[int] = [1, 2]
+	table.set_region(5, roster)
+	table.set_region(2, [9])
+
+	assert_true(table.has_region(5))
+	assert_eq(table.value(5, []), [1, 2])
+	assert_eq(table.region_ids(), [2, 5])
+	assert_eq(table.values().size(), 2)
+
+	table.clear()
+	assert_false(table.has_region(5))
+	assert_eq(table.values(), [])
+
+func test_snapshot_copies_rosters_so_readers_do_not_alias_live_state() -> void:
+	var table := MapRegionTable.new()
+	var roster: Array[int] = [1, 2]
+	table.set_region(5, roster)
+	table.set_region(2, 7)
+
+	var snap: Dictionary = table.snapshot()
+
+	assert_eq(snap.size(), 2)
+	assert_eq(snap[5], [1, 2])
+	assert_eq(snap[2], 7)
+	var live: Array = table.value(5, [])
+	live.append(9)
+	assert_eq(snap[5], [1, 2], "the snapshot copied the roster")
+	table.set_region(5, [4])
+	assert_eq(snap[5], [1, 2], "the snapshot does not follow later writes")
+
+func test_encode_walks_rosters_and_single_values() -> void:
+	var table := MapRegionTable.new()
+	table.set_region(0, [1, 2])
+	table.set_region(1, 7)
+	table.set_region(2, [])
+
+	var encoded: Dictionary = table.encode(
+		func(item: Variant) -> Dictionary: return {"n": int(item)}
+	)
+
+	assert_eq(encoded[0], [{"n": 1}, {"n": 2}])
+	assert_eq(encoded[1], {"n": 7})
+	assert_eq(encoded[2], [])
+
+func test_encode_drops_null_entries_and_null_rows() -> void:
+	var table := MapRegionTable.new()
+	table.set_region(0, [1, null, 2])
+	table.set_region(1, null)
+
+	var encoded: Dictionary = table.encode(func(item: Variant) -> int: return int(item))
+
+	assert_eq(encoded[0], [1, 2])
+	assert_false(encoded.has(1))
+
+func test_decode_replaces_rows_and_skips_null_results() -> void:
+	var table := MapRegionTable.new()
+	table.set_region(9, 99)
+
+	table.decode({0: 4, 1: 5, 2: 6}, func(raw: Variant) -> Variant:
+		return null if int(raw) == 5 else int(raw)
+	)
+
+	assert_eq(table.value(0, -1), 4)
+	assert_eq(table.value(2, -1), 6)
+	assert_false(table.has_region(1))
+	assert_false(table.has_region(9))
+
+# --- test_visibility ---
+
+func test_old_world_starts_fogged_before_the_setup_pass() -> void:
+	_setup_visibility()
+	assert_eq(data__visibility.level_at(0, 0), VisibilityModel.Level.FOGGED)
+	assert_eq(data__visibility.level_at(11, 5), VisibilityModel.Level.FOGGED)
+
+func test_new_world_starts_unknown_until_a_reveal() -> void:
+	_setup_visibility()
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	var view := VisibilityModel.new()
+	view.setup(map, PLAYER)
+	var unknown: int = 0
+	for index in view.levels.size():
+		if view.level_at_index(index) == VisibilityModel.Level.UNKNOWN:
+			unknown += 1
+	assert_eq(unknown, view.levels.size(), "New World starts unknown, not fogged")
+	view.apply_initial()
+	unknown = 0
+	for index in view.levels.size():
+		if view.level_at_index(index) == VisibilityModel.Level.UNKNOWN:
+			unknown += 1
+	assert_eq(unknown, view.levels.size(), "no ownership means no setup reveal")
+
+func test_new_world_setup_still_lights_land_the_player_owns() -> void:
+	_setup_visibility()
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	map.provinces[0].owner = PLAYER
+	var view := VisibilityModel.new()
+	view.setup(map, PLAYER)
+	view.apply_initial()
+	var tile: Vector2i = map.province_tiles(0)[0]
+	assert_eq(view.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE)
+
+func test_coast_links_follow_the_tile_grid() -> void:
+	_setup_visibility()
+	assert_eq(data__visibility.province_sea_zones.get(0), [0])
+	assert_eq(data__visibility.province_sea_zones.get(3), [1, 2])
+	assert_false(data__visibility.sea_zone_provinces.has(3))
+	assert_false(data__visibility.sea_zone_provinces.has(4))
+
+func test_setup_makes_own_provinces_visible_and_rival_land_fogged() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	assert_eq(data__visibility.level_at(0, 0), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(6, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(2, 2), VisibilityModel.Level.FOGGED)
+	assert_eq(data__visibility.level_at(5, 0), VisibilityModel.Level.FOGGED)
+
+func test_setup_reveals_sea_zones_next_to_owned_coast() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	for tile: Vector2i in [
+		Vector2i(0, 4), Vector2i(3, 5), Vector2i(4, 4), Vector2i(6, 5), Vector2i(7, 0)
+	]:
+		assert_eq(data__visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(8, 0), VisibilityModel.Level.FOGGED)
+	assert_eq(data__visibility.level_at(11, 5), VisibilityModel.Level.FOGGED)
+
+func test_ship_reveal_lights_water_and_the_strict_coastal_ring_only() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	var changed: Array = data__visibility.reveal_sea_zone(0)
+	assert_eq(changed.size(), 2)
+	assert_eq(data__visibility.level_at(2, 3), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(3, 3), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(4, 3), VisibilityModel.Level.FOGGED)
+	assert_eq(data__visibility.level_at(2, 2), VisibilityModel.Level.FOGGED)
+
+func test_ship_reveal_opens_open_water_without_touching_land() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	var changed: Array = data__visibility.reveal_sea_zone(3)
+	assert_eq(changed.size(), 18)
+	assert_eq(data__visibility.level_at(8, 0), VisibilityModel.Level.FULLY_VISIBLE)
+
+
+## A crown whose leader publishes the charting lean charts one further orthogonal
+## land ring off the strict coastal ring, and stops there (wiki: leader-bonuses
+## § Bonus Table — Henry the Navigator).
+func test_the_charting_leader_adds_one_coastal_land_ring() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	var charted: Array = data__visibility.reveal_sea_zone(
+		0, LeaderCatalog.coastal_rings("henry")
+	)
+	assert_eq(charted.size(), 5, "the strict coastal ring plus one further step")
+	assert_eq(data__visibility.level_at(2, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(3, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(
+		data__visibility.level_at(4, 3), VisibilityModel.Level.FULLY_VISIBLE,
+		"the ring wraps the end of the coast, one step inland"
+	)
+	assert_eq(
+		data__visibility.level_at(2, 1), VisibilityModel.Level.FOGGED,
+		"the bonus is one ring, not the province interior"
+	)
+
+
+func test_a_ship_reveal_without_the_charting_leader_keeps_the_strict_ring() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	assert_eq(LeaderCatalog.coastal_rings("de_ruyter"), 0)
+	var changed: Array = data__visibility.reveal_sea_zone(0)
+	assert_eq(changed.size(), 2)
+	assert_eq(data__visibility.level_at(2, 2), VisibilityModel.Level.FOGGED)
+
+func test_end_of_turn_decays_only_foreign_fully_visible_land() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	data__visibility.reveal_sea_zone(0)
+	data__visibility.end_of_turn([])
+	assert_eq(data__visibility.level_at(2, 3), VisibilityModel.Level.FOGGED)
+	assert_eq(data__visibility.level_at(0, 0), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(6, 2), VisibilityModel.Level.FULLY_VISIBLE)
+
+func test_end_of_turn_never_raises_unknown_tiles() -> void:
+	_setup_visibility()
+	var index: int = _visibility_model.index_of(8, 0)
+	data__visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
+	data__visibility.end_of_turn([])
+	assert_eq(data__visibility.level_at(8, 0), VisibilityModel.Level.UNKNOWN)
+
+func test_end_of_turn_fogs_distant_sea_without_a_fleet() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	data__visibility.reveal_sea_zone(3)
+	data__visibility.end_of_turn([])
+	assert_eq(data__visibility.level_at(8, 0), VisibilityModel.Level.FOGGED)
+
+func test_end_of_turn_keeps_a_zone_where_the_fleet_rides() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	data__visibility.reveal_sea_zone(3)
+	data__visibility.end_of_turn([3])
+	assert_eq(data__visibility.level_at(8, 0), VisibilityModel.Level.FULLY_VISIBLE)
+
+func test_owning_a_coast_reveals_its_zone_at_end_of_turn() -> void:
+	_setup_visibility()
+	_visibility_model.provinces[1].owner = PLAYER
+	data__visibility.end_of_turn([])
+	assert_eq(data__visibility.level_at(2, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(3, 3), VisibilityModel.Level.FULLY_VISIBLE)
+
+func test_losing_the_only_coast_fogs_its_zone() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	_visibility_model.provinces[3].owner = 2
+	data__visibility.end_of_turn([])
+	assert_eq(data__visibility.level_at(4, 4), VisibilityModel.Level.FOGGED)
+	assert_eq(data__visibility.level_at(7, 0), VisibilityModel.Level.FOGGED)
+	assert_eq(data__visibility.level_at(0, 4), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(5, 2), VisibilityModel.Level.FOGGED)
+
+func test_a_purchased_tile_stays_visible_in_a_rival_province() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	var tile := Vector2i(2, 2)
+	assert_true(_visibility_model.purchase_tile(tile, PLAYER))
+	data__visibility.end_of_turn([])
+	assert_eq(data__visibility.level_at(2, 2), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(3, 2), VisibilityModel.Level.FOGGED)
+
+func test_each_player_has_an_independent_map() -> void:
+	_setup_visibility()
+	var rival := VisibilityModel.new()
+	rival.setup(_visibility_model, 1)
+	rival.apply_initial()
+	data__visibility.apply_initial()
+	data__visibility.reveal_sea_zone(0)
+	assert_eq(rival.level_at(0, 0), VisibilityModel.Level.FOGGED)
+	assert_eq(rival.level_at(2, 3), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(2, 3), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.level_at(2, 2), VisibilityModel.Level.FOGGED)
+
+func test_knowledge_levels_are_ordered() -> void:
+	_setup_visibility()
+	var index: int = _visibility_model.index_of(2, 2)
+	assert_false(data__visibility.raise_to(index, VisibilityModel.Level.FOGGED))
+	assert_true(data__visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE))
+	assert_false(data__visibility.raise_to(index, VisibilityModel.Level.FOGGED))
+	assert_false(data__visibility.lower_to(index, VisibilityModel.Level.FULLY_VISIBLE))
+	assert_true(data__visibility.lower_to(index, VisibilityModel.Level.FOGGED))
+	assert_false(data__visibility.lower_to(index, VisibilityModel.Level.FOGGED))
+
+func test_reveal_province_opens_every_tile() -> void:
+	_setup_visibility()
+	var changed: Array = data__visibility.reveal_province(1)
+	assert_true(changed.size() > 0)
+	assert_true(data__visibility.is_province_fully_visible(1))
+
+func test_civilian_presence_holds_a_foreign_province() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	data__visibility.end_of_turn([], [1])
+	assert_true(data__visibility.is_province_fully_visible(1))
+	data__visibility.end_of_turn([])
+	assert_false(data__visibility.is_province_fully_visible(1))
+
+func test_a_departed_spy_leaves_five_turns_of_charter() -> void:
+	_setup_visibility()
+	# Spy timer expiry (wiki: fog-and-exploration § Spy timer expiry): the
+	# province a Spy leaves keeps its charted tiles for five turns, then decays.
+	data__visibility.reveal_province(1)
+	data__visibility.end_of_turn([], [1], [1])
+	assert_eq(data__visibility.spy_charter.left(1), SpyCharter.TURNS)
+	for turn in SpyCharter.TURNS:
+		data__visibility.end_of_turn([], [], [])
+		assert_true(
+			data__visibility.is_province_fully_visible(1),
+			"turn %d of the grace still reads the province" % (turn + 1)
+		)
+	data__visibility.end_of_turn([], [], [])
+	assert_false(
+		data__visibility.is_province_fully_visible(1), "the sixth turn puts it back in the fog"
+	)
+	assert_eq(data__visibility.spy_charter.left(1), 0)
+
+func test_a_spy_in_the_province_holds_it_again() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	data__visibility.end_of_turn([], [1], [1])
+	data__visibility.end_of_turn([], [], [])
+	assert_eq(data__visibility.spy_charter.left(1), 4)
+	# A spy posted again resets the clock rather than letting it run out.
+	data__visibility.end_of_turn([], [1], [1])
+	assert_eq(data__visibility.spy_charter.left(1), SpyCharter.TURNS)
+
+func test_a_spy_never_times_out_on_its_own_ground() -> void:
+	_setup_visibility()
+	var units: Array[CivilianState] = [
+		CivilianState.create(1, PLAYER, "spy", Vector2i(0, 1)),
+		CivilianState.create(2, PLAYER, "explorer", Vector2i(3, 1)),
+		CivilianState.create(3, PLAYER, "spy", Vector2i(3, 1)),
+	]
+	var spies: Array = CivilianMovement.spy_provinces(_visibility_model, units, PLAYER)
+	assert_eq(spies, [1], "only the rival province takes a timer")
+	data__visibility.reveal_province(0)
+	data__visibility.end_of_turn([], [], spies)
+	assert_eq(data__visibility.spy_charter.left(0), 0, "own ground never carries a timer")
+
+func test_the_spy_grace_survives_a_save() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	data__visibility.end_of_turn([], [1], [1])
+	data__visibility.end_of_turn([], [], [])
+	var restored := VisibilityModel.new()
+	restored.setup(_visibility_model, PLAYER)
+	assert_true(restored.apply_dict(data__visibility.to_dict()))
+	assert_eq(restored.spy_charter.left(1), 4, "the counter is carried with the grid")
+	var legacy := data__visibility.to_dict()
+	legacy.erase("spy_hold")
+	var old_save := VisibilityModel.new()
+	old_save.setup(_visibility_model, PLAYER)
+	assert_true(old_save.apply_dict(legacy), "a save without the counter still loads")
+	assert_eq(old_save.spy_charter.left(1), 0, "and starts with no timer")
+
+func test_a_junk_charter_payload_starts_empty() -> void:
+	var charter := SpyCharter.new()
+	charter.apply_dict("not a dictionary")
+	assert_eq(charter.left(1), 0, "junk is dropped, never invented")
+	charter.apply_dict({1: 0, 2: 3})
+	assert_eq(charter.left(1), 0, "a spent clock is not carried")
+	assert_eq(charter.left(2), 3, "a live clock is")
+	assert_eq(charter.book([-1, 2], []), [2], "a bad id is skipped, the spy still holds")
+
+func test_presence_never_surveys_unknown_terrain() -> void:
+	_setup_visibility()
+	for tile: Vector2i in _visibility_model.province_tiles(1):
+		var index: int = _visibility_model.index_of(tile.x, tile.y)
+		data__visibility.levels[index] = VisibilityModel.Level.UNKNOWN
+	var held: Array = data__visibility.hold_explored_province(1)
+	var unknown_left: int = 0
+	for tile: Vector2i in _visibility_model.province_tiles(1):
+		var index: int = _visibility_model.index_of(tile.x, tile.y)
+		if data__visibility.level_at_index(index) == VisibilityModel.Level.UNKNOWN:
+			unknown_left += 1
+	assert_eq(held, [], "presence holds nothing unknown")
+	assert_eq(unknown_left, 12, "every tile stays unknown")
+
+func test_presence_holds_only_the_fogged_tile() -> void:
+	_setup_visibility()
+	var tiles: Array[Vector2i] = _visibility_model.province_tiles(1)
+	var charted: Vector2i = tiles[0]
+	var charted_index: int = _visibility_model.index_of(charted.x, charted.y)
+	data__visibility.levels[charted_index] = VisibilityModel.Level.UNKNOWN
+	var opened: int = data__visibility.hold_explored_province(1).size()
+	var charted_level: int = data__visibility.level_at_index(charted_index)
+	var still_unknown: int = 0
+	for tile: Vector2i in tiles:
+		if data__visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.UNKNOWN:
+			still_unknown += 1
+	assert_eq(opened, 11, "every fogged tile is held")
+	assert_eq(charted_level, VisibilityModel.Level.UNKNOWN, "unknown stays unknown")
+	assert_eq(still_unknown, 1, "only the cleared tile stays unknown")
+
+func test_a_spy_holds_the_province_it_shadows() -> void:
+	_setup_visibility()
+	# Presence holds, presence never reveals (DR-20261109-04): a spy posted in a
+	# rival province keeps its charted tiles in view for its own crown.
+	var units: Array[CivilianState] = []
+	units.append(CivilianState.create(1, PLAYER, "spy", Vector2i(2, 2)))
+	units.append(CivilianState.create(2, 1, "explorer", Vector2i(2, 2)))
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, units, PLAYER), [1], "a spy holds")
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, units, 1), [1], "own explorer holds")
+	assert_eq(
+		CivilianMovement.held_provinces(_visibility_model, units, 2), [],
+		"another crown reads nothing from these units"
+	)
+
+func test_a_spy_never_promotes_unknown_ground() -> void:
+	_setup_visibility()
+	# A New World province starts unknown; a spy posted there holds it but the
+	# tiles stay dark until an Explorer surveys them (DR-20261109-04).
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	var view := VisibilityModel.new()
+	view.setup(map, PLAYER)
+	var units: Array[CivilianState] = [CivilianState.create(1, PLAYER, "spy", Vector2i(2, 2))]
+	assert_eq(CivilianMovement.held_provinces(map, units, PLAYER), [1], "posted")
+	assert_eq(view.hold_explored_province(1), [], "unknown ground never opens")
+	assert_eq(
+		view.province_visibility(1), VisibilityModel.Level.UNKNOWN,
+		"the province stays unknown"
+	)
+
+func test_province_visibility_uses_the_highest_tile() -> void:
+	_setup_visibility()
+	data__visibility.apply_initial()
+	assert_eq(data__visibility.province_visibility(0), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_eq(data__visibility.province_visibility(1), VisibilityModel.Level.FOGGED)
+	assert_true(data__visibility.is_province_known(1))
+	assert_false(data__visibility.is_province_fully_visible(1))
+	data__visibility.reveal_sea_zone(0)
+	assert_false(data__visibility.is_province_fully_visible(1))
+	for tile: Vector2i in _visibility_model.province_tiles(1):
+		data__visibility.raise_to(_visibility_model.index_of(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE)
+	assert_true(data__visibility.is_province_fully_visible(1))
+
+func test_out_of_range_reads_are_safe() -> void:
+	_setup_visibility()
+	assert_eq(data__visibility.level_at(-1, 0), VisibilityModel.Level.UNKNOWN)
+	assert_eq(data__visibility.level_at_index(9999), VisibilityModel.Level.UNKNOWN)
+	assert_false(data__visibility.raise_to(-1, VisibilityModel.Level.FULLY_VISIBLE))
+	assert_false(data__visibility.lower_to(9999, VisibilityModel.Level.UNKNOWN))
+	assert_eq(data__visibility.reveal_sea_zone(99), [])
+	assert_eq(data__visibility.province_visibility(99), VisibilityModel.Level.UNKNOWN)
+	assert_false(data__visibility.is_province_fully_visible(99))
+	assert_false(data__visibility.owns_coast(99))
+
+func test_unassigned_tiles_are_ignored() -> void:
+	_setup_visibility()
+	var map := MapModel.new()
+	map.setup(4, 2)
+	for x in 4:
+		map.terrain[map.index_of(x, 0)] = MapModel.Terrain.PLAINS
+	for x in range(1, 4):
+		map.province[map.index_of(x, 0)] = 0
+	var lonely_tiles: Array[Vector2i] = [Vector2i(1, 0), Vector2i(2, 0), Vector2i(3, 0)]
+	map.provinces.append(
+		ProvinceState.create(0, "Lonely", lonely_tiles, Vector2.ZERO, 3, PLAYER)
+	)
+	for x in 2:
+		map.sea_zone[map.index_of(x, 1)] = 0
+	var bay_tiles: Array[Vector2i] = [Vector2i(0, 1), Vector2i(1, 1)]
+	map.sea_zones.append(SeaZoneState.create(0, "Bay", bay_tiles, Vector2.ZERO, 2))
+	var orphan_tiles: Array[Vector2i] = []
+	map.sea_zones.append(SeaZoneState.create(1, "Orphan", orphan_tiles, Vector2.ZERO, 0))
+
+	var visibility := VisibilityModel.new()
+	visibility.setup(map, PLAYER)
+	visibility.apply_initial()
+	assert_eq(visibility.province_sea_zones.get(0), [0])
+	assert_eq(visibility.level_at(0, 1), VisibilityModel.Level.FULLY_VISIBLE)
+	visibility.end_of_turn([])
+	assert_eq(visibility.level_at(0, 0), VisibilityModel.Level.FOGGED)
+
+## One region as a world with a rival chart per Great Power. `human_views` is
+## the table the session's own grid lives in, so the human court routes there.
+func _charts_for(model: MapModel, human_views: Dictionary = {}) -> CourtCharts:
+	var world := WorldMap.new()
+	world.add_region(model)
+	var charts := CourtCharts.new()
+	charts.setup(world, PLAYER, human_views)
+	return charts
+
+func test_every_rival_carries_its_own_chart() -> void:
+	_setup_visibility()
+	var charts: CourtCharts = _charts_for(_visibility_model)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var other: int = FactionCatalog.great_power_ids()[2]
+	var view: VisibilityModel = charts.model_for(rival, 0)
+	assert_true(view != null, "a rival Great Power has a chart")
+	assert_eq(view.player_id, rival)
+	assert_true(view != charts.model_for(other, 0), "each court reads its own grid")
+
+func test_a_rival_chart_is_cut_only_when_a_rule_reads_it() -> void:
+	_setup_visibility()
+	var charts: CourtCharts = _charts_for(_visibility_model)
+	assert_true(charts.courts.is_empty(), "mounting a chart cuts no rival grid")
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	assert_not_null(charts.model_for(rival, 0), "the first read cuts that court")
+	assert_eq(charts.courts.size(), 1, "and only that court")
+	assert_not_null(charts.regions_of(rival), "a table read cuts the whole court")
+
+func test_a_save_carries_every_rival_chart_even_when_unread() -> void:
+	_setup_visibility()
+	var charts: CourtCharts = _charts_for(_visibility_model)
+	assert_true(charts.courts.is_empty(), "nothing was read before the save")
+	var data: Dictionary = charts.to_dict()
+	var courts: Dictionary = data["courts"]
+	assert_eq(
+		courts.size(), FactionCatalog.great_power_ids().size() - 1,
+		"the save still carries one grid per rival Great Power"
+	)
+	assert_eq((courts[FactionCatalog.great_power_ids()[1]] as Dictionary).size(), 1)
+
+func test_a_rival_chart_follows_the_setup_reveals() -> void:
+	_setup_visibility()
+	var charts: CourtCharts = _charts_for(_visibility_model)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var view: VisibilityModel = charts.model_for(rival, 0)
+	assert_eq(
+		view.province_visibility(1), VisibilityModel.Level.FULLY_VISIBLE,
+		"its own province is fully visible"
+	)
+	assert_eq(
+		view.province_visibility(0), VisibilityModel.Level.FOGGED,
+		"a rival coast is fogged, not charted"
+	)
+	assert_eq(
+		view.province_visibility(2), VisibilityModel.Level.FOGGED,
+		"another court's land is fogged too"
+	)
+	assert_true(charts.knows_province(rival, 0, 0))
+	assert_true(charts.knows_zone(rival, 0, 0), "its coastal zone is charted")
+
+func test_the_human_grid_is_shared_not_copied() -> void:
+	_setup_visibility()
+	var human := VisibilityModel.new()
+	human.setup(_visibility_model, PLAYER)
+	var human_views: Dictionary = {0: human}
+	var charts: CourtCharts = _charts_for(_visibility_model, human_views)
+	assert_eq(charts.model_for(PLAYER, 0), human, "the session owns the human grid")
+	charts.reveal_province(PLAYER, 0, 2)
+	assert_eq(
+		human.province_visibility(2), VisibilityModel.Level.FULLY_VISIBLE,
+		"a human reveal lands on the shared grid"
+	)
+	assert_eq(charts.regions_of(PLAYER), human_views)
+
+func test_an_uncharted_new_world_is_unknown_to_every_rival() -> void:
+	_setup_visibility()
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	var charts: CourtCharts = _charts_for(map)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	assert_true(charts.known_zones(rival, 0).is_empty(), "no water is charted")
+	assert_false(charts.knows_province(rival, 0, 0))
+	assert_true(
+		charts.charted_tiles(rival, 0, [Vector2i(1, 3)]).is_empty(),
+		"no land is charted"
+	)
+	charts.reveal_sea_zone(rival, 0, 0)
+	assert_true(charts.knows_zone(rival, 0, 0), "the entered zone is charted")
+	var zones: Array[int] = [0]
+	assert_eq(charts.known_zones(rival, 0), zones)
+	var expected: Array[Vector2i] = [Vector2i(1, 3)]
+	assert_eq(
+		charts.charted_tiles(rival, 0, [Vector2i(1, 3), Vector2i(1, 0)]),
+		expected,
+		"the coastal ring is charted, the province interior is not"
+	)
+
+func test_a_rival_explore_completion_reveals_only_its_own_chart() -> void:
+	_setup_visibility()
+	var map: MapModel = _build_region()
+	map.region_id = FactionCatalog.NEW_WORLD
+	for province: ProvinceState in map.provinces:
+		province.owner = FactionCatalog.tribe_ids()[0]
+	var human := VisibilityModel.new()
+	human.setup(map, PLAYER)
+	var charts: CourtCharts = _charts_for(map, {0: human})
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var beach: Vector2i = map.province_tiles(2)[0]
+	charts.reveal_landing(rival, 0, beach)
+	var unit: CivilianState = CivilianState.create(1, rival, "explorer", beach)
+	unit.start_work("explore", beach, 1)
+	var crew: Array[CivilianState] = [unit]
+	var reports: Array[Dictionary] = CivilianWork.resolve_turn(
+		map, crew, LandWorks.new(), charts.model_for(rival, 0)
+	)
+	assert_true(bool(reports[0]["completed"]))
+	assert_eq(
+		charts.model_for(rival, 0).province_visibility(2),
+		VisibilityModel.Level.FULLY_VISIBLE,
+		"the explorer charts the province for its own court"
+	)
+	assert_eq(
+		human.province_visibility(2), VisibilityModel.Level.UNKNOWN,
+		"the player's fog is untouched"
+	)
+
+func test_rival_fog_decays_at_the_end_of_the_turn() -> void:
+	_setup_visibility()
+	var world := WorldMap.new()
+	world.add_region(_build_region())
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.player_faction = PLAYER
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = play.model
+	play.ship_layer.world = world
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = play.model
+	MapPlayCourtFog.build(play)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	play.court_charts.reveal_sea_zone(rival, 0, 0)
+	var view: VisibilityModel = play.court_charts.model_for(rival, 0)
+	assert_eq(view.level_at(0, 3), VisibilityModel.Level.FULLY_VISIBLE)
+	MapPlayCourtFog.resolve(play)
+	assert_eq(
+		view.level_at(0, 3), VisibilityModel.Level.FOGGED,
+		"a foreign coast fogs once the squadron is gone"
+	)
+	assert_eq(
+		view.province_visibility(1), VisibilityModel.Level.FULLY_VISIBLE,
+		"the court's own land never decays"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+func test_no_difficulty_level_widens_a_rival_chart() -> void:
+	_setup_visibility()
+	var baseline: PackedByteArray = _court_grid(Difficulty.DEFAULT)
+	for level: String in Difficulty.IDS:
+		assert_eq(_court_grid(level), baseline, "%s charts the same fog" % level)
+
+func _court_grid(difficulty_id: String) -> PackedByteArray:
+	var world := WorldMap.new()
+	world.add_region(_build_region())
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.player_faction = PLAYER
+	play.difficulty = Difficulty.normalize(difficulty_id)
+	MapPlayCourtFog.build(play)
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	return play.court_charts.model_for(rival, 0).levels
+
+func test_a_rival_chart_round_trips_through_the_save() -> void:
+	_setup_visibility()
+	var map: MapModel = _build_region()
+	var world := WorldMap.new()
+	world.add_region(map)
+	var charts := CourtCharts.new()
+	charts.setup(world, PLAYER, {})
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	charts.reveal_sea_zone(rival, 0, 0)
+	var restored := CourtCharts.new()
+	assert_true(restored.apply_dict(world, charts.to_dict()))
+	assert_eq(
+		restored.model_for(rival, 0).levels, charts.model_for(rival, 0).levels,
+		"a load restores the chart the rival earned"
+	)
+	assert_false(restored.apply_dict(world, 7), "a malformed payload is refused")
+	assert_false(restored.apply_dict(world, {}), "a save without charts keeps the grid")
+	assert_true(restored.courts.is_empty() == false, "the good grid survives")
+
+## The links are pure map data, so every court charting one region asks for the
+## same table: it is built once per grid state and handed out as a copy.
+func test_the_coast_table_is_built_once_per_grid() -> void:
+	VisibilityModel.clear_cache()
+	var grid := _build_region()
+	var first := VisibilityModel.new()
+	first.setup(grid, PLAYER)
+	assert_eq(VisibilityModel._coast_cache.size(), 1, "one table for one grid")
+	var second := VisibilityModel.new()
+	second.setup(grid, 1)
+	assert_eq(VisibilityModel._coast_cache.size(), 1, "a second court reuses it")
+	assert_eq(second.province_sea_zones, first.province_sea_zones, "the copy answers alike")
+	second.province_sea_zones[99] = [9]
+	assert_false(first.province_sea_zones.has(99), "each chart keeps its own table")
+	first.province_sea_zones[98] = [8]
+	var third := VisibilityModel.new()
+	third.setup(grid, 2)
+	assert_false(third.province_sea_zones.has(98), "a chart cannot edit the shelf")
+	VisibilityModel.clear_cache()
+
+
+func test_an_edited_grid_builds_its_own_table() -> void:
+	VisibilityModel.clear_cache()
+	var first := VisibilityModel.new()
+	var grid := _build_region()
+	first.setup(grid, PLAYER)
+	var edited: MapModel = _build_region()
+	edited.terrain[edited.index_of(0, 4)] = MapModel.Terrain.PLAINS
+	_claim(edited, 4, 0, 2, 4, 4, PLAYER)
+	var second := VisibilityModel.new()
+	second.setup(edited, PLAYER)
+	assert_eq(VisibilityModel._coast_cache.size(), 2, "an edited grid gets its own table")
+	assert_ne(second.province_sea_zones, first.province_sea_zones, "and it reads differently")
+	VisibilityModel.clear_cache()
+
+
+func test_the_coast_cache_stays_bounded() -> void:
+	VisibilityModel.clear_cache()
+	var model: MapModel = _build_region()
+	for step in VisibilityModel.CACHE_LIMIT + 2:
+		model.terrain[model.index_of(step % 6, 5)] = (
+			MapModel.Terrain.HILLS if step % 2 == 0 else MapModel.Terrain.OCEAN
+		)
+		var view := VisibilityModel.new()
+		view.setup(model, PLAYER)
+	assert_lte(VisibilityModel._coast_cache.size(), VisibilityModel.CACHE_LIMIT, "bounded")
+	VisibilityModel.clear_cache()
+	assert_eq(VisibilityModel._coast_cache.size(), 0, "clearing drops every table")
+
+
+func _build_region() -> MapModel:
+	var map := MapModel.new()
+	map.setup(12, 6)
+	for y in 4:
+		for x in 7:
+			map.terrain[map.index_of(x, y)] = MapModel.Terrain.PLAINS
+	_claim(map, 0, 0, 1, 0, 3, PLAYER)
+	_claim(map, 1, 2, 4, 0, 3, 1)
+	_claim(map, 2, 5, 6, 0, 1, 2)
+	_claim(map, 3, 5, 6, 2, 3, PLAYER)
+	_zone(map, 0, 0, 3, 4, 5)
+	_zone(map, 1, 4, 6, 4, 5)
+	_zone(map, 2, 7, 7, 0, 5)
+	_zone(map, 3, 8, 10, 0, 5)
+	_zone(map, 4, 11, 11, 0, 5)
+	return map
+
+func _claim(
+	map: MapModel, id: int, x_min: int, x_max: int, y_min: int, y_max: int, owner: int
+) -> void:
+	var tiles: Array[Vector2i] = []
+	for y in range(y_min, y_max + 1):
+		for x in range(x_min, x_max + 1):
+			map.province[map.index_of(x, y)] = id
+			tiles.append(Vector2i(x, y))
+	map.provinces.append(
+		ProvinceState.create(id, "Province %d" % id, tiles, Vector2.ZERO, tiles.size(), owner)
+	)
+
+func _zone(
+	map: MapModel, id: int, x_min: int, x_max: int, y_min: int, y_max: int
+) -> void:
+	var tiles: Array[Vector2i] = []
+	for y in range(y_min, y_max + 1):
+		for x in range(x_min, x_max + 1):
+			map.sea_zone[map.index_of(x, y)] = id
+			tiles.append(Vector2i(x, y))
+	map.sea_zones.append(
+		SeaZoneState.create(id, "Sea %d" % id, tiles, Vector2.ZERO, tiles.size())
+	)
+
+# --- test_save_world ---
+
+func test_round_trip_applies_owners_resources_and_array_tiles() -> void:
+	var world: WorldMap = _world()
+	var captured: Array[Dictionary] = SaveWorld.capture(world)
+	var region: Dictionary = captured[0]
+	var province: Dictionary = region["provinces"][0]
+	province["owner"] = 3
+	province["capital"] = true
+	province["town_development"] = 2
+	province["town_tile"] = [2, 1]
+	province["fort_level"] = FortRules.MAX_LEVEL + 4
+	province["resource"] = 7
+	province["resource_tile"] = [1, 0]
+	province["population"] = 42
+	province["road_paths"] = [[Vector2i(0, 0), Vector2i(1, 0)]]
+	region["provinces"][0] = province
+	# JSON-shaped resources arrive as Array; PackedInt32Array is the capture path.
+	var resources: Array = []
+	for index in world.region(0).resource.size():
+		resources.append(9 if index == 0 else -1)
+	region["resources"] = resources
+	region["tile_deeds"] = {"owners": {0: 3}, "purchased": {0: 3}}
+	captured[0] = region
+
+	assert_true(SaveWorld.apply(world, captured), "matching save applies")
+	var model: MapModel = world.region(0)
+	assert_eq(model.provinces[0].owner, 3)
+	assert_true(model.provinces[0].capital)
+	assert_eq(model.provinces[0].town_development, 2)
+	assert_eq(model.provinces[0].town_tile, Vector2i(2, 1))
+	assert_eq(model.provinces[0].fort_level, FortRules.MAX_LEVEL)
+	assert_eq(model.provinces[0].resource, 7)
+	assert_eq(model.provinces[0].resource_tile, Vector2i(1, 0))
+	assert_eq(model.provinces[0].population, 42)
+	assert_eq(model.provinces[0].road_paths, [[Vector2i(0, 0), Vector2i(1, 0)]])
+	assert_eq(model.resource[0], 9)
+	assert_eq(model.owner_at(0, 0), 3)
+
+func test_apply_refuses_shape_mismatches_and_corrupt_entries() -> void:
+	var world: WorldMap = _world()
+	var good: Array[Dictionary] = SaveWorld.capture(world)
+
+	assert_false(SaveWorld.apply(world, {}), "non-array regions refuse")
+	assert_false(SaveWorld.apply(world, []), "wrong region count refuses")
+	assert_false(SaveWorld.apply(world, [good[0], "x"]), "non-dict region refuses")
+
+	var wide: Dictionary = good[0].duplicate(true)
+	wide["width"] = world.region(0).width + 1
+	assert_false(SaveWorld.apply(world, [wide]), "size mismatch refuses")
+
+	var short_provinces: Dictionary = good[0].duplicate(true)
+	short_provinces["provinces"] = []
+	assert_false(SaveWorld.apply(world, [short_provinces]), "province count refuses")
+
+	var bad_province: Dictionary = good[0].duplicate(true)
+	bad_province["provinces"] = ["x"]
+	assert_false(SaveWorld.apply(world, [bad_province]), "non-dict province refuses")
+
+	var missing_id: Dictionary = good[0].duplicate(true)
+	var row: Dictionary = missing_id["provinces"][0].duplicate(true)
+	row["id"] = 99
+	missing_id["provinces"][0] = row
+	assert_false(SaveWorld.apply(world, [missing_id]), "unknown province refuses")
+
+	var bad_roads: Dictionary = good[0].duplicate(true)
+	row = bad_roads["provinces"][0].duplicate(true)
+	row["road_paths"] = "not-an-array"
+	bad_roads["provinces"][0] = row
+	assert_false(SaveWorld.apply(world, [bad_roads]), "bad road_paths refuse")
+
+	var bad_resources: Dictionary = good[0].duplicate(true)
+	bad_resources["resources"] = PackedInt32Array([1])
+	assert_false(SaveWorld.apply(world, [bad_resources]), "wrong packed size refuses")
+	bad_resources["resources"] = [1]
+	assert_false(SaveWorld.apply(world, [bad_resources]), "wrong array size refuses")
+
+func test_reusable_requires_matching_region_sizes() -> void:
+	var world: WorldMap = _world()
+	var regions: Array[Dictionary] = SaveWorld.capture(world)
+
+	assert_null(SaveWorld.reusable(null, regions))
+	assert_null(SaveWorld.reusable(WorldMap.new(), regions))
+	assert_eq(SaveWorld.reusable(world, regions), world, "matching region sizes reuse")
+
+	var other: WorldMap = WorldMap.new()
+	var model: MapModel = MapModel.new()
+	model.setup(world.region(0).width + 1, world.region(0).height)
+	other.add_region(model)
+	assert_null(SaveWorld.reusable(other, regions), "wrong size is not reused")
+	assert_null(SaveWorld.reusable(world, {}), "non-array regions refuse")
+	assert_null(SaveWorld.reusable(world, []), "wrong region count refuses")
+
+## A world's charts are sized per region (the New World is wider than the Old),
+## so the save's own sizes must be the check — one shared width rejected every
+## real preset and regenerated the whole world on each load.
+func test_reusable_accepts_charts_of_differing_sizes() -> void:
+	var world := WorldMap.new()
+	var old: MapModel = MapModel.new()
+	old.setup(4, 3)
+	world.add_region(old)
+	var new_world: MapModel = MapModel.new()
+	new_world.setup(6, 3)
+	world.add_region(new_world)
+
+	var regions: Array = [
+		{"width": 4, "height": 3},
+		{"width": 6, "height": 3},
+	]
+	assert_eq(SaveWorld.reusable(world, regions), world, "per-chart sizes reuse")
+	regions[1] = {"width": 5, "height": 3}
+	assert_null(SaveWorld.reusable(world, regions), "a mismatched chart refuses")
+	regions[1] = "x"
+	assert_null(SaveWorld.reusable(world, regions), "a non-dict chart refuses")
+
+func test_resource_tile_accepts_vector2i_and_falls_back() -> void:
+	var world: WorldMap = _world()
+	var captured: Array[Dictionary] = SaveWorld.capture(world)
+	var region: Dictionary = captured[0]
+	var row: Dictionary = region["provinces"][0].duplicate(true)
+	row["resource_tile"] = Vector2i(0, 0)
+	region["provinces"][0] = row
+	assert_true(SaveWorld.apply(world, [region]))
+	assert_eq(world.region(0).provinces[0].resource_tile, Vector2i(0, 0))
+
+	row = region["provinces"][0].duplicate(true)
+	row["resource_tile"] = "junk"
+	region["provinces"][0] = row
+	assert_true(SaveWorld.apply(world, [region]))
+	assert_eq(world.region(0).provinces[0].resource_tile, Vector2i(-1, -1))
+
+	row = region["provinces"][0].duplicate(true)
+	row["resource_tile"] = [1]
+	region["provinces"][0] = row
+	assert_true(SaveWorld.apply(world, [region]))
+	assert_eq(world.region(0).provinces[0].resource_tile, Vector2i(-1, -1))
+
+func test_visibility_round_trips_and_skips_unknown_regions() -> void:
+	var play := PlaySession.new()
+	play.world = _world()
+	play.player_faction = 0
+	var visibility := VisibilityModel.new()
+	visibility.setup(play.world.region(0), play.player_faction)
+	visibility.raise_to(0, VisibilityModel.Level.FULLY_VISIBLE)
+	play.visibility_by_region[0] = visibility
+
+	var captured: Dictionary = SaveWorld.capture_visibility(play)
+	assert_true(captured["by_region"].has(0), "every charted region is captured")
+
+	var restored := PlaySession.new()
+	restored.world = _world()
+	restored.player_faction = 0
+	SaveWorld.restore_visibility(restored, captured)
+	assert_true(restored.visibility_by_region.has(0), "the charted region comes back")
+	assert_eq(
+		restored.visibility_by_region[0].level_at(0, 0),
+		VisibilityModel.Level.FULLY_VISIBLE,
+		"seen tiles stay seen"
+	)
+
+func test_visibility_restore_tolerates_junk_and_unknown_regions() -> void:
+	var play := PlaySession.new()
+	play.world = _world()
+	play.player_faction = 0
+	SaveWorld.restore_visibility(play, "not-a-dict")
+	assert_true(play.visibility_by_region.is_empty(), "junk clears to no fog model")
+	SaveWorld.restore_visibility(play, {"by_region": {7: {"seen": []}, 0: "junk"}})
+	assert_true(
+		play.visibility_by_region.is_empty(),
+		"an unknown region and a malformed entry are both skipped"
+	)
+
+## A court seated by hand round-trips its tile and harbour, so a reload keeps
+## the seat the player chose instead of the regenerated auto-choice one
+## (wiki: capital-choice-phase § Player choice).
+func test_a_chosen_seat_round_trips_its_tile_and_ports() -> void:
+	var world: WorldMap = _world()
+	var model: MapModel = world.region(0)
+	model.provinces[0].capital_tile = Vector2i(1, 0)
+	model.provinces[0].ports = {2: Vector2i(1, 0)}
+	var captured: Array[Dictionary] = SaveWorld.capture(world)
+
+	model.provinces[0].capital_tile = Vector2i(-1, -1)
+	model.provinces[0].ports = {}
+	assert_true(SaveWorld.apply(world, captured))
+	assert_eq(model.provinces[0].capital_tile, Vector2i(1, 0))
+	assert_eq(model.provinces[0].ports, {2: Vector2i(1, 0)})
+
+	# A malformed port entry is dropped; the rest of the harbour still loads.
+	var region: Dictionary = captured[0].duplicate(true)
+	var row: Dictionary = region["provinces"][0].duplicate(true)
+	row["ports"] = {0: "junk", 1: [0, 1]}
+	region["provinces"][0] = row
+	assert_true(SaveWorld.apply(world, [region]))
+	assert_eq(model.provinces[0].ports, {1: Vector2i(0, 1)})
+
+func _world() -> WorldMap:
+	var model := MapModel.new()
+	model.setup(2, 1)
+	model.terrain[0] = MapModel.Terrain.PLAINS
+	model.terrain[1] = MapModel.Terrain.PLAINS
+	model.province[0] = 0
+	model.province[1] = 0
+	model.provinces = [
+		ProvinceState.create(0, "A", [Vector2i(0, 0), Vector2i(1, 0)], Vector2(0.5, 0.5), 2, 0, true),
+	]
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+# --- test_save_store ---
+
+func test_slots_report_existing_saves_and_empty_slots() -> void:
+	_setup_save_store()
+	var rows: Array[Dictionary] = SaveStore.slots(DIR)
+	assert_eq(rows.size(), SaveStore.SLOT_COUNT)
+	assert_false(bool(rows[0]["exists"]), "fresh slot is empty")
+
+	assert_true(SaveStore.save_slot(3, _data(7), DIR), "slot 3 saves")
+	assert_true(SaveStore.has_slot(3, DIR), "slot 3 exists")
+	assert_false(SaveStore.has_slot(2, DIR), "slot 2 stays empty")
+	rows = SaveStore.slots(DIR)
+	assert_true(bool(rows[2]["exists"]), "row reports the save")
+	assert_eq(int(rows[2]["turn"]), 7, "row carries the turn")
+	assert_eq(String(rows[2]["nation"]), "Spain", "row carries the nation")
+	assert_eq(String(rows[2]["region"]), "Old World", "row carries the region")
+	assert_eq(int(rows[2]["seed"]), 4242, "row carries the seed")
+	assert_false(String(rows[2]["saved_at"]).is_empty(), "row carries a timestamp")
+	assert_eq(String(rows[2]["length"]), "Historical", "row names the campaign length")
+
+## The campaign length is a rule a load cannot change, so the row that offers
+## the load names it; a save without the key reads Historical, exactly as the
+## loaded campaign will (wiki: campaign-persistence § Load and resume).
+func test_slot_rows_name_the_campaign_length() -> void:
+	_setup_save_store()
+	assert_true(SaveStore.save_slot(1, _data(4, true), DIR), "the endless save writes")
+	assert_true(SaveStore.save_slot(2, _data(5, false), DIR), "the historical save writes")
+	assert_true(SaveStore.save_slot(3, _data(6), DIR), "the legacy save writes")
+	var rows: Array[Dictionary] = SaveStore.slots(DIR)
+	assert_eq(String(rows[0]["length"]), "Endless", "endless is named")
+	assert_eq(String(rows[1]["length"]), "Historical", "historical is named")
+	assert_eq(String(rows[2]["length"]), "Historical", "a save without the key is historical")
+	assert_eq(SaveCodec.length_label(true), "Endless")
+	assert_eq(SaveCodec.length_label(false), "Historical")
+
+## A slot holding a file this build cannot read is not an empty slot: the row
+## keeps the file's presence (so the overwrite guard still asks) and says it
+## cannot be read, inventing no summary (wiki: campaign-persistence
+## § Load and resume — announced, never silent).
+func test_an_unreadable_slot_is_reported_not_empty() -> void:
+	_setup_save_store()
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(DIR))
+	var file := FileAccess.open(SaveStore.path_for(2, DIR), FileAccess.WRITE)
+	assert_not_null(file, "the corrupt fixture opens")
+	if file == null:
+		return
+	file.store_string("not a variant")
+	file.close()
+	# A save written by a newer format is a readable dictionary this build must
+	# still refuse (wiki: campaign-persistence § Snapshots — version).
+	assert_true(
+		SaveStore.write(SaveStore.path_for(3, DIR), {"version": SaveCodec.VERSION + 1}),
+		"the newer-format fixture writes"
+	)
+
+	var rows: Array[Dictionary] = SaveStore.slots(DIR)
+	assert_true(bool(rows[1]["exists"]), "a file is in the slot")
+	assert_false(bool(rows[1]["readable"]), "the corrupt file cannot be read")
+	assert_false(rows[1].has("turn"), "no summary is invented for it")
+	assert_true(bool(rows[2]["exists"]), "the newer-format slot is not empty")
+	assert_false(bool(rows[2]["readable"]), "a newer format is refused")
+
+func test_overwrite_replaces_the_slot_and_delete_clears_it() -> void:
+	_setup_save_store()
+	assert_true(SaveStore.save_slot(1, _data(2), DIR))
+	assert_true(SaveStore.save_slot(1, _data(11), DIR), "slot overwrites")
+	assert_eq(int(SaveStore.slots(DIR)[0]["turn"]), 11, "newer save wins")
+	assert_true(SaveStore.delete_slot(1, DIR), "slot deletes")
+	assert_false(SaveStore.has_slot(1, DIR), "deleted slot is gone")
+	assert_false(SaveStore.delete_slot(1, DIR), "deleting twice is a no-op")
+
+func test_slot_numbers_are_clamped_and_bad_data_is_refused() -> void:
+	_setup_save_store()
+	assert_eq(SaveStore.path_for(0, DIR), SaveStore.path_for(1, DIR))
+	assert_eq(SaveStore.path_for(99, DIR), SaveStore.path_for(SaveStore.SLOT_COUNT, DIR))
+	assert_false(SaveStore.save_slot(1, {}, DIR), "empty data is refused")
+	assert_false(SaveStore.save_slot(1, {"version": 999}, DIR), "bad version refused")
+
+## `infinite` is left null for a save written before the key existed.
+func _data(turn: int, infinite: Variant = null) -> Dictionary:
+	var session: Dictionary = {
+		"map_seed": 4242,
+		"map_width": 64,
+		"map_height": 42,
+		"player_faction": 0,
+		"region_index": 0,
+		"turn": turn,
+	}
+	if infinite != null:
+		session["infinite_mode"] = infinite
+	return {
+		"version": SaveCodec.VERSION,
+		"saved_at": "2026-11-08 12:00:00",
+		"session": session,
+		"regions": [{}],
+	}
+
+func _clean_dir() -> void:
+	var path: String = ProjectSettings.globalize_path(DIR)
+	if not DirAccess.dir_exists_absolute(path):
+		return
+	var dir := DirAccess.open(DIR)
+	if dir != null:
+		for file_name: String in dir.get_files():
+			dir.remove(file_name)
+	DirAccess.remove_absolute(path)
+
+
+# --- province graph ----------------------------------------------------------
+## Province-graph queries (`ProvinceGraph`) and the Minor share's pocket pass:
+## components, connectivity, land hops and ownership tallies over an induced set
+## (wiki: game-setup, map-topology). Pure rules, so one row of tiles per case.
+
+## Non-underscore so before_all state is copied onto each test instance.
+var province_graph_grid: MapModel = null
+
+
+func _data_before_all() -> void:
+	province_graph_grid = _graph_owners(9, 1, [])
+
+
+func test_components_split_a_set_into_its_landmasses_largest_first() -> void:
+	# Runs 0-1-2 and 6-7-8 are equal-sized and apart.
+	assert_eq(
+		_graph_components([0, 1, 2, 6, 7, 8]), [[0, 1, 2], [6, 7, 8]]
+	)
+	# The longer run comes first whatever its ids are.
+	assert_eq(
+		_graph_components([0, 1, 4, 5, 6, 7]), [[4, 5, 6, 7], [0, 1]]
+	)
+
+
+func test_components_of_an_empty_set_is_no_landmass() -> void:
+	assert_eq(_graph_components([]), [])
+
+
+func test_a_set_is_connected_only_when_nothing_sits_apart() -> void:
+	assert_true(
+		ProvinceGraph.is_contiguous(province_graph_grid, [4, 5, 6, 7]), "one run"
+	)
+	assert_true(
+		ProvinceGraph.is_contiguous(province_graph_grid, [3]), "one province holds"
+	)
+	assert_false(
+		ProvinceGraph.is_contiguous(province_graph_grid, [0, 1, 8]),
+		"an island splits it",
+	)
+	assert_false(
+		ProvinceGraph.is_contiguous(province_graph_grid, []),
+		"no land is no holding",
+	)
+
+
+func test_hops_count_land_steps_from_the_source() -> void:
+	assert_eq(
+		ProvinceGraph.hops(province_graph_grid, [0, 1, 2, 3], 0),
+		{0: 0, 1: 1, 2: 2, 3: 3},
+	)
+	# A source outside the set reaches nothing.
+	assert_eq(ProvinceGraph.hops(province_graph_grid, [0, 1], 9), {})
+
+
+func test_owner_counts_and_unowned_read_one_set() -> void:
+	# Tile 0 and 1 belong to court 2, tile 2 to court 3, the rest are open.
+	var model: MapModel = _graph_owners(3, 1, [2, 2, 3])
+	assert_eq(ProvinceGraph.owner_counts(model, [0, 1, 2]), {2: 2, 3: 1})
+	assert_eq(ProvinceGraph.unowned(model, [0, 1, 2]), [])
+	model.province_data(1).owner = MapModel.NO_ID
+	assert_eq(ProvinceGraph.unowned(model, [0, 1, 2]), [1], "open land, ascending")
+
+
+## A cove a Minor Nation seals is too small to seat a Great Power, so the
+## bordering court takes it and the pool comes back without it
+## (wiki: game-setup § Minor Nation assignment).
+func test_a_sealed_cove_joins_the_bordering_minor() -> void:
+	# 10 owns tile 0, 11 owns tile 1; pocket tiles 2-3 sit on the bottom row
+	# beside 10's tile, and no Great Power is left to take them.
+	var model: MapModel = _graph_owners(
+		2, 2, [10, 11, MapModel.NO_ID, MapModel.NO_ID]
+	)
+	var pool: Array = MinorShare.absorb_pockets(model, _graph_ids(model), [10, 11], 0)
+	assert_eq(model.province_data(2).owner, 10, "the bordering court takes the cove")
+	assert_eq(model.province_data(3).owner, 10, "the whole cove follows")
+	assert_true(pool.is_empty(), "nothing is left for the Great Powers")
+	assert_true(model.province_data(2).population > 0, "a taken pocket is settled")
+
+
+## A court that cannot take a pocket leaves it open rather than vanish land.
+func test_a_pocket_with_no_minor_border_stays_open() -> void:
+	var model: MapModel = _graph_owners(
+		2, 2, [10, 11, MapModel.NO_ID, MapModel.NO_ID]
+	)
+	var pool: Array = MinorShare.absorb_pockets(
+		model, _graph_ids(model), [] as Array[int], 0
+	)
+	assert_eq(pool, [2, 3], "no taker, no change")
+	assert_eq(model.province_data(2).owner, MapModel.NO_ID, "the cove keeps no owner")
+
+
+func _graph_components(ids: Array) -> Array:
+	return ProvinceGraph.components(province_graph_grid, ids)
+
+
+## One-tile provinces on a square grid; `owners` is row-major (index -> owner).
+func _graph_owners(width: int, height: int, owners: Array) -> MapModel:
+	var model: MapModel = MapModel.new()
+	model.setup(width, height)
+	var provinces: Array[ProvinceState] = []
+	for y in height:
+		for x in width:
+			var index: int = model.index_of(x, y)
+			model.terrain[index] = MapModel.Terrain.PLAINS
+			model.province[index] = index
+			var tiles: Array[Vector2i] = [Vector2i(x, y)]
+			var owner: int = (
+				int(owners[index]) if index < owners.size() else MapModel.NO_ID
+			)
+			provinces.append(ProvinceState.create(
+				index, "P%d" % index, tiles, Vector2(x + 0.5, y + 0.5), 1, owner
+			))
+	model.provinces = provinces
+	return model
+
+
+func _graph_ids(model: MapModel) -> Array:
+	return range(model.provinces.size())
+
+# ==== merged from test_map_canvas.gd (one coverage boot; docs/testing.md § Speed rules) ====
+## Presentation contract for the map artwork: the wash must sit behind the ink,
+## the animated layers must exist, the bake must carry a coastline and a beach
+## the player can read, and symbols must never bury a province name.
+
+const Fixture = preload("res://tests/map_fixture.gd")
+## The shared 48x32 fixture is all pocket provinces (every one under
+## `MapCanvasPlan.NAME_ROOM`), so the case that reads both type sizes — full and
+## pocket — uses a 72x52 chart instead. It is generated once per worker: under
+## coverage a chart costs seconds, and a case that rebuilt it would pay that
+## again. Old World only — the placement rules never read a world's sea lanes,
+## and one region keeps the retry loop (setup_errors -> a fresh seed) from
+## paying for a second chart.
+const NAME_CHART: Vector2i = Vector2i(72, 52)
+
+static var _name_chart: MapModel = null
+
+var _canvas: MapCanvas = null
+
+
+## Mounted lazily: only the cases that read the artwork pay for a canvas, and
+## the plan cases below read the chart without one.
+func _mounted() -> MapCanvas:
+	if not is_instance_valid(_canvas):
+		_canvas = MapCanvas.new()
+		_canvas.build(Fixture.region())
+		add_child(_canvas)
+	return _canvas
+
+
+func _canvas_after_each() -> void:
+	if is_instance_valid(_canvas):
+		_canvas.queue_free()
+	_canvas = null
+
+
+## The name-placement chart the two placement cases share, generated once per
+## worker.
+func _name_chart_model() -> MapModel:
+	if _name_chart == null:
+		_name_chart = MapGenerator.new().generate_region(
+			Fixture.SEED, FactionCatalog.OLD_WORLD, NAME_CHART.x, NAME_CHART.y
+		)
+	return _name_chart
+
+
+func test_wash_draws_behind_the_inked_layer() -> void:
+	var canvas: MapCanvas = _mounted()
+	var wash: Sprite2D = canvas.get_node_or_null("Wash")
+	assert_not_null(wash)
+	assert_true(wash.show_behind_parent)
+	assert_true(wash.material is ShaderMaterial)
+	# The paint is baked finer than the tile grid but the sprite still covers
+	# exactly one map.
+	var relief: MapRelief = canvas.relief
+	assert_true(relief.scale > 1, "the wash is baked at sub-tile resolution")
+	assert_almost_eq(wash.scale.x * float(relief.scale), MapCanvas.TILE_SIZE, 0.001)
+	assert_almost_eq(
+		wash.scale.x * float(wash.texture.get_width()), canvas.map_size().x, 0.05
+	)
+
+
+func test_land_shadow_sits_under_the_wash() -> void:
+	var canvas: MapCanvas = _mounted()
+	var shade: Sprite2D = canvas.get_node_or_null("Shade")
+	assert_not_null(shade)
+	assert_true(shade.show_behind_parent)
+	assert_lt(canvas.get_children().find(shade), canvas.get_children().find(canvas.get_node("Wash")))
+
+
+## The ink coast is what demarcates the land the wash fills, so it has to sit on
+## the tile edge, not half a tile inside it: marching squares samples a tile at
+## its corner, and an unshifted contour drifts up and left of the fill.
+func test_ink_coast_sits_on_the_tile_edge_the_wash_fills() -> void:
+	var model := MapModel.new()
+	model.setup(16, 8)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = (
+				MapModel.Terrain.PLAINS if x < 8 else MapModel.Terrain.OCEAN
+			)
+	var canvas := MapCanvas.new()
+	add_child(canvas)
+	canvas.build(model)
+	var edge: float = 8.0 * MapCanvas.TILE_SIZE
+	var reach := Vector2(-INF, -INF)
+	for path: PackedVector2Array in canvas._coast:
+		for point: Vector2 in path:
+			reach.x = maxf(reach.x, point.x)
+			reach.y = maxf(reach.y, point.y)
+	assert_almost_eq(reach.x, edge, 1.0, "the coast ends on the shore, not inside it")
+	assert_almost_eq(reach.y, edge, 1.0, "the coast ends on the shore, not inside it")
+	canvas.queue_free()
+
+
+## Ownership has to read by fill, not only by the border ribbon: the wash moves
+## each owned tile toward its crown's heraldic colour, and the baked paint keeps
+## that tint despite the noise laid over it.
+func test_canvas_owned_land_is_washed_toward_its_crown() -> void:
+	_mounted()
+	var model: MapModel = _canvas.model
+	var tile: Vector2i = _inland_owned_tile(model)
+	assert_true(tile.x >= 0, "fixture has an owned inland tile")
+	var terrain: Color = Palette.terrain_color(model.terrain_at(tile.x, tile.y))
+	var crown: Color = FactionCatalog.color_of(model.owner_at(tile.x, tile.y))
+	var expected: Color = terrain.lerp(crown, MapWash.OWNER_TINT)
+	assert_true(MapWash.OWNER_TINT >= 0.5, "ownership stays readable at play zoom")
+	var base: Color = _canvas.relief.tile_color(tile)
+	assert_almost_eq(base.r, expected.r, 0.001)
+	assert_almost_eq(base.g, expected.g, 0.001)
+	assert_almost_eq(base.b, expected.b, 0.001)
+	var painted: Color = _painted_mean(tile)
+	assert_almost_eq(painted.r, expected.r, 0.14)
+	assert_almost_eq(painted.g, expected.g, 0.14)
+	assert_almost_eq(painted.b, expected.b, 0.14)
+
+
+## The bake owns the shore: land on one side of the distance field, water on the
+## other, so the painted edge and the ink agree instead of blurring together.
+func test_coast_field_is_negative_at_sea_and_positive_on_land() -> void:
+	var model: MapModel = _mounted().model
+	var relief: MapRelief = _canvas.relief
+	var wrong: int = 0
+	for y in model.height:
+		for x in model.width:
+			var centre := Vector2(float(x) + 0.5, float(y) + 0.5)
+			var distance: float = relief.coast_at(centre)
+			if model.is_land(x, y) and distance <= 0.0:
+				wrong += 1
+			elif not model.is_land(x, y) and distance >= 0.0:
+				wrong += 1
+	assert_eq(wrong, 0, "every tile centre sits on the right side of the shore")
+
+
+## The shore is one published reading: the bake paints from `MapCoastField`, so
+## a later reader of the coastline cannot end up with a second answer, and the
+## basin reach the shoal veil follows is the deepest sounding within its reach.
+func test_the_bake_paints_from_the_published_coast_field() -> void:
+	var model: MapModel = _mounted().model
+	var relief: MapRelief = _canvas.relief
+	var field: MapCoastField = relief.coast
+	assert_not_null(field, "the bake keeps the field it read")
+	assert_false(field.sd.is_empty(), "the field carries a distance per tile")
+	assert_eq(field.width, model.width)
+	assert_eq(field.height, model.height)
+	var shallow: int = 0
+	var drift: int = 0
+	for y in model.height:
+		for x in model.width:
+			var i: int = y * model.width + x
+			if field.reach[i] < maxf(-field.sd[i], 0.0):
+				shallow += 1
+			var centre := Vector2(float(x) + 0.5, float(y) + 0.5)
+			if absf(relief.coast_at(centre) - field.coast_at(centre)) > 0.00001:
+				drift += 1
+	assert_eq(shallow, 0, "the reach holds the deepest sounding of every basin")
+	assert_eq(drift, 0, "the bake reads the field's shore, never its own copy")
+
+
+## A beach inside the shore and a pale shoal outside it: that band is what makes
+## a coastline read as drawn water rather than a soft smear.
+func test_wash_paints_a_beach_and_a_shallow_band() -> void:
+	var model: MapModel = _mounted().model
+	var relief: MapRelief = _canvas.relief
+	var image: Image = relief.color
+	var sand: int = 0
+	var shoal: int = 0
+	var deep: int = 0
+	for y in image.get_height():
+		for x in image.get_width():
+			var pixel: Color = image.get_pixel(x, y)
+			if pixel.a < 0.02:
+				deep += 1
+				continue
+			if pixel.a > 0.85 and _near(pixel, MapRelief.SAND, 0.06):
+				sand += 1
+			elif pixel.a < 0.75 and _near(pixel, MapRelief.SHOAL, 0.14):
+				shoal += 1
+	assert_gt(sand, 40, "the shore carries a sand band")
+	assert_gt(shoal, 40, "open water carries a shoal veil")
+	assert_gt(deep, 40, "deep water is left to the sea shader")
+	var coast: float = relief.coast_at(_land_centre(model))
+	assert_gt(coast, 0.3, "inland ground sits well inside the shore")
+
+
+## A narrow gulf must read as water, not as a land-coloured wash. The shoal veil
+## follows the basin instead of a fixed width, so open water shows down the
+## middle and only a thin shelf clings to the shore (issue #456). The minimap
+## colours these tiles from terrain, so agreeing with it means the basin stays
+## water the model already called sea, with solid ground on its walls.
+func test_a_narrow_gulf_keeps_open_water_down_its_middle() -> void:
+	var model := _narrow_gulf()
+	var relief := MapRelief.new()
+	relief.build(model, MapWash.OWNER_TINT)
+	var centre: float = _painted_alpha(relief, Vector2i(11, 12))
+	assert_lt(centre, 0.02, "the gulf's middle is left to the sea backdrop")
+	# The shelf survives, just thin: it hugs the shore inside the gulf.
+	var shelf: float = _widest_alpha(relief, 12, 11, 12)
+	assert_gt(shelf, 0.10, "a thin shoal shelf still clings to the gulf's shore")
+	assert_lt(shelf, 0.45, "the shelf is a band, never a fill")
+	assert_true(model.is_sea(11, 12) and model.is_sea(12, 12))
+	assert_gt(_painted_alpha(relief, Vector2i(10, 12)), 0.9, "the walls stay solid land")
+
+
+## Open water keeps the chart's full shoal band: the veil narrows only where the
+## basin itself is narrow, so a coast does not lose its drawn shallows (#456).
+func test_open_water_keeps_the_full_shoal_band() -> void:
+	var relief := MapRelief.new()
+	relief.build(_open_coast(), MapWash.OWNER_TINT)
+	assert_gt(_painted_alpha(relief, Vector2i(12, 2)), 0.04, "the shelf is still drawn")
+	assert_lt(_painted_alpha(relief, Vector2i(12, 6)), 0.02, "deep water stays open")
+
+
+## The ink under a shore must not fill a basin either: the pale rim, the wet-sand
+## band and the damp edge each spill most of a tile into the sea, so a creek two
+## tiles across printed solid from bank to bank and read as barren ground while
+## the model — and the minimap — called it sea (#456).
+func test_a_narrow_gulf_takes_the_line_alone() -> void:
+	var model := _narrow_gulf()
+	var canvas := _chart_of(model)
+	var marked: int = 0
+	for path_index in canvas._coast.size():
+		var path: PackedVector2Array = canvas._coast[path_index]
+		for i in path.size():
+			if not _on_the_creek(path[i]):
+				continue
+			marked += 1
+			assert_eq(canvas._coast_open[path_index][i], 0, "the creek keeps only its line")
+	assert_gt(marked, 0, "the creek's walls were measured")
+	canvas.queue_free()
+
+
+## The same paints that would flood a creek are what draw a coast's beach and
+## surf rim, so open water keeps them (#456).
+func test_open_water_keeps_the_shores_full_paint() -> void:
+	var model := _open_coast()
+	var canvas := _chart_of(model)
+	var marked: int = 0
+	for path_index in canvas._coast.size():
+		var path: PackedVector2Array = canvas._coast[path_index]
+		for i in path.size():
+			var tile: Vector2i = MapGeo.tile_at_world(path[i], MapCanvas.TILE_SIZE)
+			if tile.y < 2 or tile.y > 6:
+				continue
+			marked += 1
+			assert_eq(canvas._coast_open[path_index][i], 1, "open water keeps its paints")
+	assert_gt(marked, 0, "the open coast was measured")
+	canvas.queue_free()
+
+
+## Two banks of breakers meeting in a creek would print it as foam-grey ground,
+## so the surf stays off water the shore cannot fit its paints in (#456).
+func test_a_narrow_gulf_carries_no_breaking_surf() -> void:
+	var canvas := _chart_of(_narrow_gulf())
+	var surf: MapSurf = canvas.get_node("Surf")
+	assert_gt(surf.dash_count(), 0, "the chart still breaks surf somewhere")
+	for dash: Dictionary in surf._dashes:
+		var probe: Vector2 = (
+			(dash["position"] as Vector2)
+			+ (dash["normal"] as Vector2) * MapCanvas.TILE_SIZE * 0.7
+		)
+		var tile: Vector2i = MapGeo.tile_at_world(probe, MapCanvas.TILE_SIZE)
+		assert_false(
+			tile.x >= 11 and tile.x <= 12 and tile.y >= 6, "no breakers inside the creek"
+		)
+	canvas.queue_free()
+
+
+## A gulf must read as water by its tone, not only by its thin veil. Water is
+## cool and land is warm, and no sea or shelf tone may sit within a confounding
+## distance of any land tone — the chart's pale bands were exactly land-coloured
+## and made a basin look like barren ground (issue #456).
+func test_sea_tones_never_read_as_land() -> void:
+	var land_tones: Array[Color] = []
+	for terrain in Palette.TERRAIN_COLORS.size():
+		if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
+			continue
+		land_tones.append(Palette.TERRAIN_COLORS[terrain])
+	for sea: Color in [Palette.SEA_DEEP, Palette.SEA_MID, Palette.SEA_PALE]:
+		assert_gt(sea.b, sea.r + 0.12, "a sea tone stays cool; land is warm")
+		for land: Color in land_tones:
+			assert_gt(_tone_distance(sea, land), 0.30, "sea and land keep their distance")
+	for shelf: Color in [MapRelief.SHOAL, MapRelief.SHOAL_DEEP, MapRelief.SHOAL_RING]:
+		assert_gt(shelf.b, shelf.r + 0.12, "the coastal shelf is painted as water too")
+
+
+## The chart's water comes from the palette table the minimap paints, so the two
+## views can never disagree about which side of the coast is sea (issue #456).
+func test_chart_water_is_the_minimap_water() -> void:
+	# Shader defaults are not readable until set; pin them in the source so a
+	# backdrop that has not been fitted yet still paints the same water.
+	var src := FileAccess.get_file_as_string("res://ui/shaders/sea.gdshader")
+	for tone: Color in [Palette.SEA_DEEP, Palette.SEA_MID, Palette.SEA_PALE, Palette.SEA_CREST]:
+		var lit := "%.3f, %.3f, %.3f" % [tone.r, tone.g, tone.b]
+		assert_true(src.contains(lit), "sea shader default matches palette %s" % lit)
+	var material := ShaderMaterial.new()
+	material.shader = load("res://ui/shaders/sea.gdshader")
+	var backdrop := ColorRect.new()
+	backdrop.material = material
+	SeaBackdrop.fit(backdrop, Vector2(1000.0, 700.0))
+	assert_eq(material.get_shader_parameter("deep_color"), Palette.SEA_DEEP)
+	assert_eq(material.get_shader_parameter("mid_color"), Palette.SEA_MID)
+	assert_eq(material.get_shader_parameter("pale_color"), Palette.SEA_PALE)
+	assert_eq(material.get_shader_parameter("crest_color"), Palette.SEA_CREST)
+	backdrop.free()
+
+
+func test_animated_layers_exist() -> void:
+	var canvas: MapCanvas = _mounted()
+	var surf: MapSurf = canvas.get_node_or_null("Surf")
+	assert_not_null(surf)
+	assert_gt(surf.dash_count(), 0)
+	var cloud: ColorRect = canvas.get_node_or_null("CloudShade")
+	assert_not_null(cloud)
+	assert_true(cloud.material is ShaderMaterial)
+	assert_gt(cloud.size.x, canvas.map_size().x)
+
+
+func test_surf_points_always_face_open_water() -> void:
+	var canvas: MapCanvas = _mounted()
+	var surf: MapSurf = canvas.get_node("Surf")
+	for dash: Dictionary in surf._dashes:
+		var origin: Vector2 = dash["position"]
+		var normal: Vector2 = dash["normal"]
+		var probe: Vector2 = origin + normal * MapCanvas.TILE_SIZE * 0.7
+		var tile: Vector2i = MapGeo.tile_at_world(probe, MapCanvas.TILE_SIZE)
+		assert_true(canvas.model.is_sea(tile.x, tile.y))
+
+
+## Scenery never sits in a province name's clearing. Places do carry the same
+## exemption the capital star and the port anchor always had: a town mark stands
+## on its tile whether or not a neighbouring province's name runs across it.
+func test_terrain_symbols_never_cover_province_labels() -> void:
+	var plan: MapCanvasPlan = _mounted().plan
+	var marks: int = 0
+	for glyph: Dictionary in plan.glyphs:
+		var kind: String = String(glyph["kind"])
+		if kind == "port" or kind == "capital" or kind == "town":
+			continue
+		marks += 1
+		assert_false(plan.under_label(glyph["position"]))
+	assert_gt(marks, 0)
+
+
+## Every non-capital province town is drawn on the chart, so a crown can see
+## where its estates anchor (wiki: capital-and-connectivity § Town per province).
+## The mark never steps aside for the province name: the name steps aside for it.
+func test_every_non_capital_town_is_marked() -> void:
+	var model: MapModel = _mounted().model
+	var marks: Dictionary = {}
+	for glyph: Dictionary in _canvas.plan.glyphs:
+		if String(glyph["kind"]) == "town":
+			marks[glyph["position"]] = true
+	var expected: int = 0
+	for province: ProvinceState in model.provinces:
+		if province.capital or province.town_tile.x < 0:
+			continue
+		if not model.is_land(province.town_tile.x, province.town_tile.y):
+			continue
+		expected += 1
+		var at: Vector2 = MapGeo.tile_center(
+			province.town_tile.x, province.town_tile.y, MapCanvas.TILE_SIZE
+		)
+		assert_true(marks.has(at), "%s has no town mark" % province.name)
+	assert_gt(expected, 0)
+	assert_eq(marks.size(), expected)
+
+
+## The case that bit: a named inland province picks the tile nearest its centroid
+## as its town, which is where the name is drawn. The mark has to stand on that
+## tile and the name has to clear it.
+func test_a_province_name_clears_its_town_mark() -> void:
+	var region: MapModel = _name_chart_model()
+	var plan := MapCanvasPlan.new()
+	plan.build(region, null, MapCanvas.TILE_SIZE)
+	var marks: Dictionary = {}
+	for glyph: Dictionary in plan.glyphs:
+		if String(glyph["kind"]) == "town":
+			marks[glyph["position"]] = true
+	var named: Dictionary = {}
+	for label: Dictionary in plan.labels:
+		if String(label["kind"]) == "province":
+			named[String(label["text"])] = label["position"]
+	var moved: int = 0
+	var marked: int = 0
+	for province: ProvinceState in region.provinces:
+		if province.capital or province.town_tile.x < 0:
+			continue
+		if not region.is_land(province.town_tile.x, province.town_tile.y):
+			continue
+		marked += 1
+		var at: Vector2 = MapGeo.tile_center(
+			province.town_tile.x, province.town_tile.y, MapCanvas.TILE_SIZE
+		)
+		assert_true(marks.has(at), "%s has no town mark" % province.name)
+		if not named.has(province.name):
+			continue
+		var anchor: Vector2 = named[province.name]
+		var clear: bool = (
+			absf(at.x - anchor.x) >= MapCanvasPlan.LABEL_HALF_WIDTH
+			or at.y <= anchor.y - MapCanvasPlan.LABEL_CLEAR_ABOVE
+			or at.y >= anchor.y + MapCanvasPlan.LABEL_CLEAR_BELOW
+		)
+		assert_true(clear, "%s hides its town under its own name" % province.name)
+		if anchor != Vector2(province.center) * MapCanvas.TILE_SIZE:
+			moved += 1
+	assert_gt(marked, 20, "the chart carries a town per province")
+	assert_gt(moved, 0, "a name made room for its town mark")
+
+
+## A province is painted, not speckled once: the scatter lays a second, smaller
+## stamp on top of the first so a forest or an upland reads as a cluster.
+func test_terrain_is_dense_with_two_stamp_kinds_per_tile() -> void:
+	var canvas: MapCanvas = _mounted()
+	var kinds: Dictionary = {}
+	var per_tile: Dictionary = {}
+	for glyph: Dictionary in canvas.plan.glyphs:
+		var kind: String = String(glyph["kind"])
+		kinds[kind] = int(kinds.get(kind, 0)) + 1
+		if kind == "port" or kind == "capital":
+			continue
+		var at: Vector2 = glyph["position"]
+		var tile: Vector2i = MapGeo.tile_at_world(at, MapCanvas.TILE_SIZE)
+		per_tile[tile] = int(per_tile.get(tile, 0)) + 1
+	var land: int = 0
+	for y in canvas.model.height:
+		for x in canvas.model.width:
+			if canvas.model.is_land(x, y):
+				land += 1
+	var marks: int = 0
+	for kind: String in kinds.keys():
+		if kind == "port" or kind == "capital":
+			continue
+		marks += int(kinds[kind])
+	assert_gt(marks, land * 4 / 10, "the ground is painted, not left bare")
+	assert_gt(kinds.size(), 5, "upland, woodland, scrub and plain marks all appear")
+	assert_true(kinds.has("mountain") and kinds.has("tree"), "upland and woodland are drawn")
+	var clustered: int = 0
+	for tile: Vector2i in per_tile.keys():
+		if int(per_tile[tile]) > 1:
+			clustered += 1
+	assert_gt(clustered, 4, "some tiles carry a second, smaller stamp")
+
+
+func test_capital_star_has_ten_points() -> void:
+	var star: PackedVector2Array = MapGlyphs.star_points(Vector2.ZERO, 10.0, 5, 0.45)
+	assert_eq(star.size(), 10)
+	assert_almost_eq(star[0].distance_to(Vector2.ZERO), 10.0, 0.001)
+
+
+## Placement stays pure: the plan can be built headless, and every province
+## carries its name at the province centre — a pocket province one step smaller
+## rather than nameless (issue #665). The name chart carries both sizes.
+func test_plan_places_names_without_a_node() -> void:
+	var region: MapModel = _name_chart_model()
+	var plan := MapCanvasPlan.new()
+	plan.build(region, null, MapCanvas.TILE_SIZE)
+	var named: Dictionary = {}
+	for label: Dictionary in plan.labels:
+		if String(label["kind"]) == "province":
+			named[String(label["text"])] = label
+	var full: int = 0
+	var pockets: int = 0
+	for province: ProvinceState in region.provinces:
+		assert_true(named.has(province.name), "%s has no chart name" % province.name)
+		var size: int = int(named[province.name]["size"])
+		if province.area < MapCanvasPlan.NAME_ROOM:
+			pockets += 1
+			assert_eq(size, MapCanvasPlan.POCKET_NAME_SIZE, "%s is a pocket" % province.name)
+		else:
+			full += 1
+			assert_eq(size, MapCanvasPlan.NAME_SIZE, "%s has room" % province.name)
+	assert_gt(full, 0, "the chart carries a province with room for full type")
+	assert_gt(pockets, 0, "the chart carries a pocket province")
+	assert_false(plan.passages.size() > 0, "no world means no sea-lane marks")
+
+
+## Every warp zone on both regions is marked: a centre, a wash over its water,
+## an inked edge and a Passage label. The wash covers exactly the zone's water,
+## so ordinary sea is never painted as a crossing (REQ-P1-07).
+func test_plan_marks_every_warp_zone_on_both_regions() -> void:
+	var world: WorldMap = Fixture.world()
+	for region in world.region_count():
+		var model: MapModel = world.region(region)
+		var plan := MapCanvasPlan.new()
+		plan.build(model, world, MapCanvas.TILE_SIZE)
+		var zones: Array[int] = world.warp_zones(region)
+		assert_gt(zones.size(), 0, "the fixture world has crossings")
+		assert_eq(plan.passages.size(), zones.size(), "one mark per warp zone")
+		assert_gt(plan.passage_water.size(), 0, "the zone water is washed")
+		assert_gt(plan.passage_edges.size(), 0, "the wash has a drawn edge")
+		var labelled: int = 0
+		for label: Dictionary in plan.labels:
+			if String(label["kind"]) == "passage":
+				labelled += 1
+		assert_eq(labelled, zones.size(), "every crossing is named")
+		var covered: int = 0
+		for run: Rect2 in plan.passage_water:
+			var tile: Vector2i = MapGeo.tile_at_world(
+				run.position + Vector2(1, 1), MapCanvas.TILE_SIZE
+			)
+			assert_true(model.is_sea(tile.x, tile.y), "the wash sits on water")
+			assert_true(
+				zones.has(model.sea_zone_at(tile.x, tile.y)), "only warp water is washed"
+			)
+			covered += int(run.size.x / MapCanvas.TILE_SIZE) * int(run.size.y / MapCanvas.TILE_SIZE)
+		var expected: int = 0
+		for zone_id: int in zones:
+			for tile: Vector2i in model.get_sea_zone(zone_id).tiles:
+				if model.sea_zone_at(tile.x, tile.y) == zone_id:
+					expected += 1
+		assert_eq(covered, expected, "the whole zone is washed, no more")
+
+
+## The zone's own name steps above the crossing mark, so the emblem and the
+## Passage slip do not overprint the type.
+func test_passage_mark_keeps_the_sea_name_clear() -> void:
+	var plan := MapCanvasPlan.new()
+	plan.labels.append({
+		"text": "Mar", "position": Vector2(100, 100), "size": 13, "kind": "sea"
+	})
+	plan._lift_sea_name(Vector2(100, 100))
+	var at: Vector2 = plan.labels[0]["position"]
+	assert_lt(at.y, 100.0, "the sea name sits above the mark")
+	assert_almost_eq(at.x, 100.0, 0.001, "the name keeps its column")
+	var world: WorldMap = Fixture.world()
+	var model: MapModel = world.region(FactionCatalog.OLD_WORLD)
+	var chart := MapCanvasPlan.new()
+	chart.build(model, world, MapCanvas.TILE_SIZE)
+	for centre: Vector2 in chart.passages:
+		for label: Dictionary in chart.labels:
+			if String(label["kind"]) != "sea":
+				continue
+			assert_gt(
+				(label["position"] as Vector2).distance_to(centre), 1.0,
+				"no sea name sits on a crossing mark"
+			)
+
+
+## The Passage artwork is drawn, not only planned: mounting a canvas on the
+## shared world inks the wash boundary and survives a repaint.
+func test_passage_artwork_draws_on_the_shared_world() -> void:
+	var world: WorldMap = Fixture.world()
+	var canvas := MapCanvas.new()
+	add_child(canvas)
+	canvas.build(world.region(FactionCatalog.OLD_WORLD), world)
+	assert_gt(canvas.plan.passages.size(), 0)
+	assert_gt(canvas._passage_ink.size(), 0, "the wash edge is inked")
+	canvas.queue_redraw()
+	await get_tree().process_frame
+	canvas.queue_free()
+
+
+## The bake is the costliest part of showing a map, so a repeat ask for the same
+## map state must reuse it: a second screen on the shared world, or a region a
+## player switches back to, has nothing new to paint.
+func test_an_unchanged_map_reuses_its_bake() -> void:
+	var model := _small_chart()
+	var first: MapRelief = MapWash.baked(model)
+	assert_eq(MapWash.baked(model), first, "the same map state reuses its bake")
+	var province: ProvinceState = model.provinces[0]
+	var tile: Vector2i = province.tiles[0]
+	var owner: int = province.owner
+	var crown: int = FactionCatalog.great_power_ids()[1]
+
+	province.owner = crown if owner != crown else FactionCatalog.great_power_ids()[2]
+	var repainted: MapRelief = MapWash.baked(model)
+	assert_ne(repainted, first, "a new crown repaints the wash")
+	assert_ne(
+		repainted.tile_color(tile), first.tile_color(tile), "the tint follows the crown"
+	)
+
+	province.owner = owner
+	assert_eq(MapWash.baked(model), first, "the restored map finds its own bake")
+
+
+## The cache is a bound, not a leak: a run that keeps redrawing a changing map
+## drops the oldest bakes instead of keeping every one of them.
+func test_the_bake_cache_stays_bounded() -> void:
+	MapWash.clear_cache()
+	var model := _small_chart()
+	var province: ProvinceState = model.provinces[0]
+	var owner: int = province.owner
+	for step in MapWash.CACHE_LIMIT + 2:
+		province.owner = owner + step + 1
+		MapWash.baked(model)
+	assert_lte(MapWash._baked.size(), MapWash.CACHE_LIMIT, "bakes stay bounded")
+	MapWash.clear_cache()
+	assert_eq(MapWash._baked.size(), 0, "clearing drops every bake")
+
+
+## A full cache drops the state the run stopped asking for, not the whole
+## shelf: a suite that keeps mounting the shared chart between one-off states
+## finds its bake still there.
+func test_a_full_cache_keeps_the_chart_in_use() -> void:
+	MapWash.clear_cache()
+	var kept := _small_chart()
+	var kept_province: ProvinceState = kept.provinces[0]
+	var kept_owner: int = kept_province.owner
+	var kept_bake: MapRelief = MapWash.baked(kept)
+	var first_one_off: MapRelief = null
+	# Each case visits the shared chart, then a state it never returns to.
+	for step in MapWash.CACHE_LIMIT + 2:
+		MapWash.baked(kept)
+		var other := _small_chart()
+		var province: ProvinceState = other.provinces[0]
+		province.owner = kept_owner + step + 1
+		var one_off: MapRelief = MapWash.baked(other)
+		if first_one_off == null:
+			first_one_off = one_off
+	assert_eq(
+		MapWash.baked(kept), kept_bake, "the chart in use survives a full cache"
+	)
+	assert_false(
+		MapWash._baked.values().has(first_one_off), "a state the run left behind is gone"
+	)
+	assert_lte(MapWash._baked.size(), MapWash.CACHE_LIMIT, "still bounded")
+	MapWash.clear_cache()
+
+
+## A canvas mounted on one fixture model, so a case can read the shoreline flags
+## the paints are drawn from.
+func _chart_of(model: MapModel) -> MapCanvas:
+	var canvas := MapCanvas.new()
+	add_child(canvas)
+	canvas.build(model)
+	return canvas
+
+
+## Whether a coast point stands on the walls of the fixture's creek, the two
+## water columns of `_narrow_gulf`.
+static func _on_the_creek(point: Vector2) -> bool:
+	var tile: Vector2i = MapGeo.tile_at_world(point, MapCanvas.TILE_SIZE)
+	if tile.y < 5:
+		return false
+	return tile.x >= 10 and tile.x <= 13
+
+
+## A narrow gulf cut into a solid landmass: two tiles wide and open to the sea
+## at the bottom, the basin the shoal veil used to flood from shore to shore.
+func _narrow_gulf() -> MapModel:
+	var model := MapModel.new()
+	model.setup(24, 20)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	for y in range(6, model.height):
+		for x in range(11, 13):
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.SHALLOW
+	return model
+
+
+## A straight coast with the whole sea below it, so a veil can be read at its
+## designed width away from any basin wall.
+func _open_coast() -> MapModel:
+	var model := MapModel.new()
+	model.setup(24, 20)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = (
+				MapModel.Terrain.PLAINS if y < 2 else MapModel.Terrain.OCEAN
+			)
+	return model
+
+
+## Straight RGB distance between two tones: how far apart they read.
+func _tone_distance(a: Color, b: Color) -> float:
+	return Vector3(a.r - b.r, a.g - b.g, a.b - b.b).length()
+
+
+## Mean paint alpha around a tile centre: the shoal veil's strength there.
+func _painted_alpha(relief: MapRelief, tile: Vector2i) -> float:
+	var image: Image = relief.color
+	var scale: int = relief.scale
+	var cx: int = tile.x * scale + scale / 2
+	var cy: int = tile.y * scale + scale / 2
+	var total: float = 0.0
+	var count: int = 0
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var x: int = clampi(cx + dx, 0, image.get_width() - 1)
+			var y: int = clampi(cy + dy, 0, image.get_height() - 1)
+			total += image.get_pixel(x, y).a
+			count += 1
+	return total / float(count)
+
+
+## Widest paint alpha over one bake row inside a tile span: a narrow basin's
+## shelf is only a texel or two wide, so a tile mean would read as open water.
+func _widest_alpha(relief: MapRelief, tile_y: int, x0: int, x1: int) -> float:
+	var image: Image = relief.color
+	var scale: int = relief.scale
+	var best: float = 0.0
+	for sy in scale:
+		var y: int = clampi(tile_y * scale + sy, 0, image.get_height() - 1)
+		for x in range(x0 * scale, (x1 + 1) * scale):
+			best = maxf(best, image.get_pixel(clampi(x, 0, image.get_width() - 1), y).a)
+	return best
+
+
+## A tiny chart for cache cases: two coastal provinces on an eight by six grid,
+## cheap to paint, whose owners can be changed in place.
+func _small_chart() -> MapModel:
+	var model := MapModel.new()
+	model.setup(8, 6)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = (
+				MapModel.Terrain.OCEAN if y >= 4 else MapModel.Terrain.PLAINS
+			)
+	for index in 2:
+		var tiles: Array[Vector2i] = []
+		for y in 4:
+			for x in 2:
+				var tile := Vector2i(index * 4 + x + 1, y)
+				tiles.append(tile)
+				model.province[model.index_of(tile.x, tile.y)] = index
+		var province := ProvinceState.create(
+			index,
+			"P%d" % index,
+			tiles,
+			Vector2(float(index * 4 + 2), 1.0),
+			tiles.size(),
+			FactionCatalog.PLAYER_FACTION + index,
+			index == 0
+		)
+		model.provinces.append(province)
+	return model
+
+
+func _inland_owned_tile(model: MapModel) -> Vector2i:
+	var best := Vector2i(-1, -1)
+	var best_depth: float = 0.9
+	for province: ProvinceState in model.provinces:
+		if province.owner != FactionCatalog.PLAYER_FACTION:
+			continue
+		for tile: Vector2i in province.tiles:
+			var depth: float = _canvas.relief.coast_at(
+				Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+			)
+			if depth > best_depth:
+				best_depth = depth
+				best = tile
+	return best
+
+
+## Mean of the bake texels around a tile centre, so a single grain texel does
+## not decide the assertion.
+func _painted_mean(tile: Vector2i) -> Color:
+	var image: Image = _canvas.relief.color
+	var scale: int = _canvas.relief.scale
+	var cx: int = tile.x * scale + scale / 2
+	var cy: int = tile.y * scale + scale / 2
+	var total := Color(0.0, 0.0, 0.0, 0.0)
+	var count: int = 0
+	for dy in range(-1, 2):
+		for dx in range(-1, 2):
+			var x: int = clampi(cx + dx, 0, image.get_width() - 1)
+			var y: int = clampi(cy + dy, 0, image.get_height() - 1)
+			total += image.get_pixel(x, y)
+			count += 1
+	return total / float(count)
+
+
+func _land_centre(model: MapModel) -> Vector2:
+	for province: ProvinceState in model.provinces:
+		for tile: Vector2i in province.tiles:
+			var centre := Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
+			if _canvas.relief.coast_at(centre) > 1.2:
+				return centre
+	return Vector2(0.5, 0.5)
+
+
+func _near(pixel: Color, target: Color, tolerance: float) -> bool:
+	return (
+		absf(pixel.r - target.r) < tolerance
+		and absf(pixel.g - target.g) < tolerance
+		and absf(pixel.b - target.b) < tolerance
 	)

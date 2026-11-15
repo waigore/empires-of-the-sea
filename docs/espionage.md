@@ -65,7 +65,7 @@ Rival research is live, so AI spies earn the same +15% boost.
 
 ## Tests
 
-`test_diplomacy_rules`, `test_ledgers`, `test_court_ui_parts`, `test_ai_rules`,
+`test_diplomacy_rules`, `test_ledgers`, `test_panel_parts_rules`, `test_ai_rules`,
 `test_research_rules`.
 
 ```bash
