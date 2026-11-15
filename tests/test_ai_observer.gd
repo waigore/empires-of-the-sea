@@ -609,6 +609,37 @@ func test_court_reader_publishes_one_order_of_battle() -> void:
 	)
 
 
+## The observer row names the larder the next Consumption phase will eat — the
+## store, every mouth the phase feeds and the shortfall that strikes — so the
+## destitute-court signature is measured from a turn trace instead of a
+## throwaway probe (issues #676 clause 4, #766).
+func test_court_reader_names_the_larder_the_next_consumption_eats() -> void:
+	_seat(1)
+	var play: PlaySession = _screen.play
+	var owner: int = FactionCatalog.great_power_ids()[0]
+	var economy: PlayerEconomy = play.ledger_for(owner)
+	assert_true(economy != null, "the court keeps a ledger to read")
+	var larder: Dictionary = MapPlayObserver.row(play, owner)["larder"]
+	for key: String in ["store", "wanted", "army", "navy", "pool", "wards", "strikers", "short"]:
+		assert_true(larder.has(key), "the row names the larder's %s" % key)
+	assert_eq(
+		int(larder["wanted"]),
+		int(larder["army"]) + int(larder["navy"]) + int(larder["pool"]) + int(larder["wards"]),
+		"every mouth the phase feeds is counted once"
+	)
+	# A full larder covers every mouth and strikes no one.
+	economy.add("grain", int(larder["wanted"]) + 10)
+	var fed: Dictionary = MapPlayObserver.larder_reading(economy)
+	assert_true(int(fed["store"]) >= int(fed["wanted"]), "the store covers the mouths")
+	assert_eq(int(fed["strikers"]), 0, "a fed court strikes no one")
+	# The same mouths from an empty larder are the strike the signature measures.
+	economy.take("grain", economy.quantity("grain"))
+	economy.take("meat", economy.quantity("meat"))
+	var starved: Dictionary = MapPlayObserver.larder_reading(economy)
+	assert_true(int(starved["short"]) > 0, "the shortfall the store cannot cover is named")
+	assert_true(int(starved["strikers"]) > 0, "and the workforce strikes")
+
+
 func test_court_reader_counts_only_fighting_hulls() -> void:
 	# From the top of turn 1: the cached turn's AI pass may already hold wars,
 	# and this case names its own.
