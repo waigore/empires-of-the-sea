@@ -1,8 +1,9 @@
 class_name GameMenu
 extends CanvasLayer
 ## In-game pause menu (REQ-P5-01): resume, save to a local slot, load a local
-## slot (the router rebuilds the whole screen), the sound desk and the way back
-## to the title. The cartouche's own MENU seal opens it.
+## slot (the router rebuilds the whole screen), the sound desk, the chart's keys
+## (`KeysSheet`) and the way back to the title. The cartouche's own MENU seal
+## opens it.
 
 signal save_chosen(slot: int)
 signal load_chosen(slot: int)
@@ -12,6 +13,7 @@ const SAVE_BROWSER: PackedScene = preload("res://scenes/save_browser.tscn")
 
 var save_button: Button = null
 var load_button: Button = null
+var keys_button: Button = null
 var main_menu_button: Button = null
 var resume_button: Button = null
 var browser: SaveBrowser = null
@@ -29,6 +31,9 @@ var copy_seed_button: Button = null
 var _ui: Control = null
 var _overlay: Control = null
 var _pause_page: VBoxContainer = null
+## The pause page's KEYS reading, filled by `KeysSheet` on first open so the
+## chart's bindings are read once the map has registered its actions.
+var _keys_page: VBoxContainer = null
 var _status: Label = null
 var _owns_pause: bool = false
 var _shown_seed: int = 0
@@ -121,6 +126,13 @@ func _build_overlay() -> void:
 	load_button.pressed.connect(open_load)
 	_pause_page.add_child(load_button)
 
+	# The chart's controls, one press from the pause: a keyboard player never
+	# guesses a key, and a touch player reads the door that does the same work
+	# (`KeyReference`; REQ-P5-03).
+	keys_button = MenuFrame.action_button("KEYS", row)
+	keys_button.pressed.connect(open_keys)
+	_pause_page.add_child(keys_button)
+
 	main_menu_button = MenuFrame.action_button("MAIN MENU", row)
 	main_menu_button.pressed.connect(_on_main_menu)
 	_pause_page.add_child(main_menu_button)
@@ -193,6 +205,19 @@ func open_load() -> void:
 	browser.setup(SaveBrowser.Mode.LOAD, _save_dir())
 
 
+## The chart's controls on one page (docs/ui-demo.md § Controls): the key each
+## action answers to and the door a touch player presses instead
+## (`KeyReference`; REQ-P5-03, REQ-P5-07). The page is filled on first open,
+## because the map registers its InputMap actions in its own `_ready` and a
+## sheet built earlier could print blank caps.
+func open_keys() -> void:
+	if _overlay == null:
+		return
+	if not _overlay.visible:
+		open()
+	_show_keys_page()
+
+
 func show_save_result(ok: bool, slot: int) -> void:
 	_show_pause_page()
 	_status.text = (
@@ -214,8 +239,29 @@ func show_load_refused(message: String) -> void:
 func _show_pause_page() -> void:
 	if _pause_page != null:
 		_pause_page.visible = true
+	if _keys_page != null:
+		_keys_page.visible = false
 	if browser != null:
 		browser.visible = false
+
+
+## The pause page's KEYS reading, built on first open from the live InputMap.
+func _show_keys_page() -> void:
+	if _keys_page == null:
+		var frame := _pause_page.get_parent() if _pause_page != null else null
+		var host := frame as Control
+		if host == null:
+			return
+		var short: bool = MenuFrame.is_short(_ui)
+		_keys_page = VBoxContainer.new()
+		_keys_page.name = "KeysPage"
+		_keys_page.add_theme_constant_override("separation", 8 if short else 10)
+		host.add_child(_keys_page)
+		KeysSheet.build(_keys_page, short, _show_pause_page)
+	_pause_page.visible = false
+	if browser != null:
+		browser.visible = false
+	_keys_page.visible = true
 
 
 func _on_browser_slot(slot: int) -> void:
@@ -274,13 +320,18 @@ func _input(event: InputEvent) -> void:
 		get_viewport().set_input_as_handled()
 
 
-## Android/iOS back gesture: the save browser steps aside before the pause menu
-## itself closes (REQ-P5-07).
+## Android/iOS back gesture: the save browser and the keys page step aside before
+## the pause menu itself closes (REQ-P5-07).
 func handle_back() -> bool:
 	if not is_open():
 		return false
 	if browser != null and browser.visible:
 		# Prefer the shared closer so pause rows and the browser stay in sync.
+		_show_pause_page()
+		return true
+	if _keys_page != null and _keys_page.visible:
+		# The keys reading is one page of the pause, not a layer of its own: back
+		# returns to the rows it was opened from.
 		_show_pause_page()
 		return true
 	close()
