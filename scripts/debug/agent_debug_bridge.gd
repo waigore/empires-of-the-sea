@@ -15,6 +15,10 @@ const DEFAULT_PORT: int = 8765
 ## Query-only channel for tooling: a small peer cap keeps one bridge from
 ## fanning out wide.
 const MAX_PEERS: int = 4
+## A full-world `dump` answer is a single text frame (~100 KB+), above the
+## 64 KB peer defaults, so each accepted peer gets a megabyte both ways
+## (issue #699).
+const PEER_BUFFER_BYTES: int = 1048576
 
 var play: PlaySession = null
 ## Port the bridge listens on, 0 while disabled. A negative parse result
@@ -113,6 +117,8 @@ func _accept() -> void:
 			continue
 		var peer := WebSocketPeer.new()
 		if peer.accept_stream(stream) == OK:
+			peer.inbound_buffer_size = PEER_BUFFER_BYTES
+			peer.outbound_buffer_size = PEER_BUFFER_BYTES
 			_peers.append(peer)
 		else:
 			stream.disconnect_from_host()
@@ -126,7 +132,11 @@ func _poll_peers() -> void:
 		match peer.get_ready_state():
 			WebSocketPeer.STATE_OPEN:
 				while peer.get_available_packet_count() > 0:
-					peer.send_text(_answer(peer.get_packet().get_string_from_utf8()))
+					var sent: Error = peer.send_text(
+						_answer(peer.get_packet().get_string_from_utf8())
+					)
+					if sent != OK:
+						push_warning("AgentDebugBridge: send failed (%d)" % sent)
 			WebSocketPeer.STATE_CLOSED:
 				closed.append(index)
 	# Remove from the back so the queued indices stay valid.

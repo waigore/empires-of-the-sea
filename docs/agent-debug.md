@@ -34,6 +34,8 @@ Text JSON frames; one answer per request.
 Errors answer `{"id":N,"ok":false,"error":"..."}` — a first probe never
 dangles. Unknown op, unknown path, or a frame that is not a JSON object all
 answer an error. Requests may omit `id`; the answer then carries `-1`.
+A full `dump` is one large text frame (~100 KB and up for a whole world); the
+bridge gives each peer a 1 MB WebSocket buffer both ways.
 
 ## The dump
 
