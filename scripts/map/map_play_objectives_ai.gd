@@ -74,9 +74,9 @@ static func _readings(
 	var warships: int = MapPlayCourt.warships(play, faction)
 	var hostile_warships: int = MapPlayCourt.hostile_warships(play, faction)
 	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
-	var hull_chest: int = AiNavy.chest(
-		at_war, warships, hostile_warships, economy, flown
-	)
+	# The one chest every pass reads: the yard's row, re-routed when the court
+	# has stalled on it past the escalation bar (issue #603, `MapPlayCourt`).
+	var hull_chest: int = MapPlayCourt.navy_chest(play, faction)
 	# The deferred-aim escalation readings (#603): how long each aim has been
 	# deferred without its shortfall shrinking. A stalled war chest re-routes
 	# (`AiIncome.reserve`); a stall past the blocked bar names its reason in the

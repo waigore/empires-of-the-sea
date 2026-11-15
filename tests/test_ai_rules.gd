@@ -3950,6 +3950,26 @@ func test_the_muster_spends_a_chest_it_cannot_fill() -> void:
 	assert_false((plan["reasons"] as Array).has("saving for a hull"))
 
 
+## Issue #603: the yard's chest re-routes like the war chest. A court that has
+## stalled on `navy.build` past the escalation bar while a regiment is due and
+## its chest is already in hand stops holding the purse for a hull it never
+## lays — the measured deadlock is a court 98 ducats short of a sloop that
+## cannot buy the 320-ducat row of the regiment whose chest sits inside that
+## same purse.
+func test_a_stalled_yard_chest_yields_to_the_muster() -> void:
+	var economy: PlayerEconomy = _purse(0)
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var price: int = ShipEconomy.treasury_cost("sloop")
+
+	# Fleetless: the #484 rebuild chest, held while the yard is still moving.
+	assert_eq(AiNavy.chest(true, 0, 1, economy), price)
+	assert_eq(AiNavy.chest(true, 0, 1, economy, [], false), price, "the yard still leads")
+	# Stalled past the bar with the regiment's chest in hand: it stands down.
+	assert_eq(AiNavy.chest(true, 0, 1, economy, [], true), 0)
+	# A court with fighting hulls keeps the published reading either way.
+	assert_eq(AiNavy.chest(true, 2, 2, economy, [], true), 0, "no hull due at all")
+
+
 
 
 # --- victory pressure --------------------------------------------------------
