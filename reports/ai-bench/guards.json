@@ -1,4 +1,4 @@
 {
   "funded_pct_floor": 58.0,
-  "note": "Share of a live crown's top-ranked objectives the ledger must fund (issue #491 T6). Re-measured ~59.03 on seed 1500 / Standard after mainline drift (was 70.68); floor 58 catches a real starvation collapse without blocking a bound re-score of the same seed."
+  "note": "Share of a live crown's top-ranked objectives the ledger must fund (issue #491 T6). Re-measured 58.005 on seed 1500 / Standard after the published market change (DR-20261115-18: auto-offer supply + 10x price ceiling) moved the bench floor it was bound to; floor 58 still catches a real starvation collapse, and the margin is thin enough that a further rules change should re-measure it."
 }
