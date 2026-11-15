@@ -17,6 +17,11 @@ static func build(hud: GameHud) -> void:
 	_provinces(hud)
 	_eyes(hud)
 	ArmyHud.build(hud)
+	_command(hud)
+	# The army dossier's command door opens the crown's commanders: the dossier
+	# is where a crown asks who leads, and the pool is the whole of it
+	# (DR-20261115-11).
+	hud._army_panel.command_pressed.connect(func() -> void: hud.command_pressed.emit())
 
 
 static func _province(hud: GameHud) -> void:
@@ -130,3 +135,16 @@ static func _eyes(hud: GameHud) -> void:
 	hud._diplomacy_panel.eyes_pressed.connect(
 		func() -> void: hud.spy_ledger_pressed.emit()
 	)
+
+
+## The command ledger is the muster roll's sibling: the same modal layer, the
+## same sheet chrome, one row per commander the crown's pool holds
+## (DR-20261115-11).
+static func _command(hud: GameHud) -> void:
+	var layer := CanvasLayer.new()
+	layer.name = "CommandLedgerLayer"
+	layer.layer = 6
+	hud.add_child(layer)
+	hud.command_ledger = CommandLedgerPanel.new()
+	layer.add_child(hud.command_ledger)
+	hud.command_pressed.connect(hud.command_ledger.toggle)

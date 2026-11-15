@@ -53,6 +53,11 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if eyes != null and eyes.is_open():
 		eyes.close()
 		return true
+	# The command ledger is the same sibling (DR-20261115-11).
+	var command: CommandLedgerPanel = play.hud.command_ledger
+	if command != null and command.is_open():
+		command.close()
+		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()

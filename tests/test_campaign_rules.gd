@@ -1782,6 +1782,81 @@ func test_a_minor_nations_fall_is_not_world_news() -> void:
 	assert_eq(_items(_state(3), [], [], [], {}, 0, [], falls).size(), 0)
 
 
+## A crown leaves play with its dealings: the fall clears the fallen court's
+## relations, so the sheet must read the knowledge the crown held when the court
+## fell, not the relations left afterwards (wiki: the-gazette § Item catalog —
+## World, "Great Power terminal fall").
+func test_a_great_powers_fall_prints_after_its_relations_are_cleared() -> void:
+	var state: DiplomacyState = _state(3)
+	var falls: Array = [{"faction": GAZ_FRANCE, "conqueror": GAZ_ENGLAND, "known": true}]
+	state.clear_relations_of(GAZ_FRANCE)
+	var items: Array = _items(state, [], [], [], {}, 0, [], falls)
+	assert_eq(items.size(), 1, "a met crown's fall is still world news")
+	assert_eq(int(items[0]["class"]), Gazette.Class.WORLD)
+	assert_true(String(items[0]["text"]).contains("France"))
+
+
+## The World page is the epoch's own news: a Great Power's war or peace with a
+## Minor Nation is that court's doing, not the world's (wiki: the-gazette
+## § Item catalog — World, "GP–GP declaration of war or peace").
+func test_a_great_powers_war_on_a_minor_is_not_world_news() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event("warDeclared", GAZ_ENGLAND, GENOA)
+	var items: Array = _items(state, [GAZ_ENGLAND])
+	assert_eq(items.size(), 1)
+	assert_eq(
+		int(items[0]["class"]), Gazette.Class.INTEREST,
+		"a watched court's war on a Minor is news of interest"
+	)
+	assert_eq(_items(state, []).size(), 0, "an unwatched court's war on a Minor is no news")
+
+
+func test_a_great_powers_peace_with_a_minor_is_not_world_news() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event("peaceMade", GAZ_ENGLAND, GENOA)
+	var items: Array = _items(state, [GAZ_ENGLAND])
+	assert_eq(items.size(), 1)
+	assert_eq(int(items[0]["class"]), Gazette.Class.INTEREST)
+
+
+## One act, one line: a proposal answer is the treaty it answered, so the sheet
+## prints the act once (wiki: the-gazette § Item catalog — the catalogue lists
+## the acts, not the offers that led to them).
+func test_a_refused_overture_proposal_prints_once() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"overtureRejected", GAZ_FRANCE, VIEWER, {"stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	state.record_event(
+		"proposalRefused", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_OVERTURE, "stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	assert_eq(_items(state, []).size(), 1, "the refusal prints once")
+
+
+func test_an_accepted_overture_proposal_prints_once() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"overtureEstablished", GAZ_FRANCE, VIEWER, {"stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	state.record_event(
+		"proposalAccepted", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_OVERTURE, "stage": DiplomacyCatalog.STAGE_NAP}
+	)
+	assert_eq(_items(state, []).size(), 1, "the establishment prints once")
+
+
+## A refused alliance or peace offer has no act of its own, so the answer is the
+## news and must still print.
+func test_a_refused_alliance_proposal_still_prints() -> void:
+	var state: DiplomacyState = _state(3)
+	state.record_event(
+		"proposalRefused", GAZ_FRANCE, VIEWER,
+		{"kind": DiplomacyProposals.KIND_ALLIANCE, "stage": ""}
+	)
+	assert_eq(_items(state, []).size(), 1)
+
+
 # --- prose -------------------------------------------------------------------
 
 

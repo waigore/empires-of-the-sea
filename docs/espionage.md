@@ -12,9 +12,9 @@ P5 hidden spies leave no trace.
 - **Roster:** Spy trains at the capital for 2,000 cash + 4 paper. It may enter
   any land province, including rival Great Powers, Minor Nations and Tribes.
 - **Presence reveal** (`SpyNetworks`, `CivilianMovement`): a spy in a non-owner
-  province holds that province's charted tiles visible at end-of-turn. It never
-  promotes `unknown` terrain or an unprospected mineral, and the province fogs
-  the moment the last spy leaves.
+  province holds its charted tiles visible. It never promotes `unknown` terrain
+  or an unprospected mineral; a province the last spy leaves keeps its charter
+  five turns, then fogs (wiki: fog-and-exploration).
 - **Invisibility:** rival spies are never drawn, hovered or selectable
   (`CivilianLayer.viewer_faction`); the AI never sees human spies.
 - **Counter-espionage** (`counter_spy`): an ongoing order on any owned province.
@@ -47,8 +47,7 @@ reading is the rules' own predicate; the sheet moves nothing.
 toward the nearest unobserved rival Great Power province (one spy per rival
 first), and raises a counter-espionage screen at home while at war. Rivals open
 with a spy and train more after their builder/engineer/explorer base.
-Rival research is live (`AiResearchPlanner`), so the AI's own spies earn the
-same +15% boost the player does.
+Rival research is live, so AI spies earn the same +15% boost.
 
 ## Architecture
 
@@ -56,6 +55,7 @@ same +15% boost the player does.
 |------|------|
 | `scripts/rules/spy_networks.gd` | presence hosts, qualifying rivals, RP boost |
 | `scripts/rules/spy_rules.gd` | screen, dice, kills, defections |
+| `scripts/rules/spy_charter.gd` | the departed spy's charter |
 | `scripts/rules/spy_ledger.gd` | the crown's eyes: duties, courts, screen |
 | `scripts/rules/civilian_movement.gd`, `civilian_work.gd` | entry and order |
 | `scripts/ai/ai_spy_planner.gd` | rival work and march policy |

@@ -253,6 +253,7 @@ suites = [
 [domains.muster]
 suites = [
   "test_ledgers.gd",
+  "test_command_ledger.gd",
   "test_map_screen_crown_orders.gd",
   "test_mobile_layout.gd",
 ]
@@ -571,6 +572,26 @@ domain = "muster"
 
 [[rules]]
 match = "tests/test_ledgers.gd*"
+domain = "muster"
+
+# The crown's command ledger (DR-20261115-11): the projection, its row and
+# panel, the map hook and the army dossier's door. It rides the muster domain
+# with the other sheets — one chrome, one modal layer — so a reading change
+# never pulls the map, menu or ui catch-alls past the tier-1 budget.
+[[rules]]
+match = "scripts/rules/command_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/command_ledger_*.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/map/map_play_command.gd*"
+domain = "muster"
+
+[[rules]]
+match = "tests/test_command_ledger.gd*"
 domain = "muster"
 
 # The crown's eyes (DR-20261115-10): the projection, the sheet and its suite.
@@ -1953,6 +1974,12 @@ domain = "map"
 match = "scripts/map/map_play_court_fog.gd*"
 domain = "fog"
 
+# The crown's own fog pass is the same glue: a fog change must not pull the
+# whole map domain past the tier-1 budget.
+[[rules]]
+match = "scripts/map/map_play_fog_turn.gd*"
+domain = "fog"
+
 [[rules]]
 match = "scripts/map/map_generator.gd"
 domain = "world"
@@ -2319,6 +2346,12 @@ domain = "campaign"
 
 [[rules]]
 match = "scripts/rules/visibility.gd"
+domain = "fog"
+
+# The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
+# § Spy timer expiry), so it travels with the fog domain.
+[[rules]]
+match = "scripts/rules/spy_charter.gd*"
 domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).

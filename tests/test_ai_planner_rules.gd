@@ -519,20 +519,21 @@ func test_a_court_with_a_deed_on_offer_trains_one_merchant() -> void:
 	var techless: Dictionary = _ai_merchant_context(model, Fixture.merchant_court())
 	techless["tech_unlocked"] = {}
 	var plain: Dictionary = _ai_merchant_plan(model, roster, Fixture.merchant_court(), null, techless)
-	assert_eq(String(plain["training"]["type_id"]), "builder", "no merchant companies")
+	assert_true(
+		(plain["training"] as Dictionary).is_empty(),
+		"no merchant companies and the staff is already at target"
+	)
 
 func test_one_merchant_is_enough() -> void:
 	var model: MapModel = Fixture.build_minor()
-	var roster: Array = [
-		CivilianState.create(1, 0, "builder", Vector2i(0, 0)),
-		CivilianState.create(3, 0, "engineer", Vector2i(0, 1)),
-		CivilianState.create(4, 0, "explorer", Vector2i(1, 1)),
-		CivilianState.create(5, 0, "spy", Vector2i(0, 2)),
-		CivilianState.create(9, 0, "merchant", Vector2i(0, 2)),
-	]
+	var roster: Array = _staffed_roster()
+	roster.append(CivilianState.create(9, 0, "merchant", Vector2i(0, 2)))
 	var plan: Dictionary = _ai_merchant_plan(model, roster)
 
-	assert_eq(String(plan["training"]["type_id"]), "builder")
+	assert_true(
+		(plan["training"] as Dictionary).is_empty(),
+		"one merchant fills the deed slot; the college trains nothing more"
+	)
 
 ## The Build/Work pass answers each owner with its own ledger: the rival's deed
 ## debits the rival, and the human crown's purse is untouched (wiki:
@@ -701,14 +702,17 @@ func _ledger(treasury: int) -> PlayerEconomy:
 	economy.treasury = treasury
 	return economy
 
-## Two builders, an engineer, an explorer and a spy: every earlier training slot
-## is filled, so the merchant is the next craft the court would want.
+## Builders, engineer_target, explorer_target and a spy: every earlier training
+## slot is filled, so a deed on offer makes the merchant the next craft.
 func _staffed_roster() -> Array:
 	return [
 		CivilianState.create(1, 0, "builder", Vector2i(0, 0)),
 		CivilianState.create(2, 0, "builder", Vector2i(1, 0)),
 		CivilianState.create(3, 0, "engineer", Vector2i(0, 1)),
+		CivilianState.create(6, 0, "engineer", Vector2i(1, 2)),
 		CivilianState.create(4, 0, "explorer", Vector2i(1, 1)),
+		CivilianState.create(7, 0, "explorer", Vector2i(0, 0)),
+		CivilianState.create(8, 0, "explorer", Vector2i(1, 0)),
 		CivilianState.create(5, 0, "spy", Vector2i(0, 2)),
 	]
 
@@ -770,7 +774,7 @@ func _ai_army_reinforce_economy(treasury: int = 12000, peasants: int = 6) -> Pla
 	return economy
 
 func test_a_rival_musters_the_strongest_line_it_can_pay_for() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 3, false)
 
 	assert_eq(String(plan["muster"]), "arquebusiers", "the strongest era-1 line")
 	var candidates: Array = plan["candidates"]
@@ -786,10 +790,10 @@ func test_a_rival_musters_the_strongest_line_it_can_pay_for() -> void:
 func test_the_war_chest_keeps_the_court_from_overspending() -> void:
 	# 4,000 ducats covers a pike, but that would empty the purse; the 2,000 levy
 	# is the only line that leaves the court's thousand-ducat floor in the bank.
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(4000), 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(4000), 3, false)
 
 	assert_eq(String(plan["muster"]), "peasant_levies")
-	var priced: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(1500), 5, false)
+	var priced: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(1500), 3, false)
 	assert_eq(String(priced["muster"]), "", "nothing payable leaves the floor alone")
 	assert_true((priced["reasons"] as Array).has("nothing payable"))
 
@@ -801,11 +805,11 @@ func test_the_war_chest_keeps_the_court_from_overspending() -> void:
 func test_the_muster_waits_for_the_hull_it_is_saving_for() -> void:
 	var config: AiConfig = _ai_army_reinforce_config()
 	var economy: PlayerEconomy = _ai_army_reinforce_economy(4600)
-	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true)
+	var free: Dictionary = AiArmyReinforce.plan(config, economy, 3, true)
 	assert_ne(String(free["muster"]), "", "with no fleet claim the court arms up")
 
 	# 4,600 ducats is short of the 5,500 yard: the army it can pay for is raised.
-	var short: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	var short: Dictionary = AiArmyReinforce.plan(config, economy, 3, true, 0, -1, 5500)
 	assert_ne(String(short["muster"]), "", "a chest it cannot fill is not the army's ceiling")
 	assert_false((short["reasons"] as Array).has("saving for a hull"))
 
@@ -862,20 +866,23 @@ func test_the_muster_yields_the_hull_s_row_once_the_chest_is_full() -> void:
 	)
 	assert_ne(String(spare["muster"]), "", "the surplus above the row may be spent")
 	# With no hull due the row is not held at all.
-	var free: Dictionary = AiArmyReinforce.plan(config, economy, 5, true, 0, -1, 5500)
+	var free: Dictionary = AiArmyReinforce.plan(config, economy, 3, true, 0, -1, 5500)
 	assert_ne(String(free["muster"]), "", "no fleet claim, no held row")
 
 
 func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
-	var peace: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 8, false)
-	assert_eq(String(peace["muster"]), "", "eight regiments is the peace target")
-	assert_eq(int(peace["target"]), 8)
+	var config: AiConfig = _ai_army_reinforce_config()
+	var peace_target: int = config.parameter("army.regiment_target")
+	var war_target: int = peace_target + config.parameter("army.war_extra")
+	var peace: Dictionary = AiArmyReinforce.plan(config, _ai_army_reinforce_economy(), peace_target, false)
+	assert_eq(String(peace["muster"]), "", "at the peace target the court waits")
+	assert_eq(int(peace["target"]), peace_target)
 
-	var war: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 8, true)
-	assert_eq(int(war["target"]), 12, "the war footing raises the target by four")
+	var war: Dictionary = AiArmyReinforce.plan(config, _ai_army_reinforce_economy(), peace_target, true)
+	assert_eq(int(war["target"]), war_target, "the war footing raises the target")
 	assert_eq(String(war["muster"]), "arquebusiers", "a court at war arms up")
 
-	var full: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(), 12, true)
+	var full: Dictionary = AiArmyReinforce.plan(config, _ai_army_reinforce_economy(), war_target, true)
 	assert_eq(String(full["muster"]), "", "the war target is a ceiling too")
 
 ## A court that can see the bar arms up for the finish (DR-20261114-04): the
@@ -884,26 +891,27 @@ func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 func test_the_victory_pressure_raises_the_muster_target() -> void:
 	var config: AiConfig = _ai_army_reinforce_config()
 	var economy: PlayerEconomy = _ai_army_reinforce_economy()
-	var peace: Dictionary = AiArmyReinforce.plan(config, economy, 8, false)
+	var at: int = config.parameter("army.regiment_target")
+	var peace: Dictionary = AiArmyReinforce.plan(config, economy, at, false)
 	var extra: int = config.parameter("victory.pressure_regiments")
-	var pressed: Dictionary = AiArmyReinforce.plan(config, economy, 8, false, extra)
+	var pressed: Dictionary = AiArmyReinforce.plan(config, economy, at, false, extra)
 
-	assert_eq(int(peace["target"]), config.parameter("army.regiment_target"))
-	assert_eq(int(pressed["target"]), int(peace["target"]) + extra, "the pressing court aims higher")
+	assert_eq(int(peace["target"]), at)
+	assert_eq(int(pressed["target"]), at + extra, "the pressing court aims higher")
 	assert_eq(String(peace["muster"]), "", "at the published target")
 	assert_eq(String(pressed["muster"]), "arquebusiers", "the pressing court keeps arming")
 	assert_true(
-		AiArmyReinforce.muster_reserve(config, economy, 8, false).is_empty(),
+		AiArmyReinforce.muster_reserve(config, economy, at, false).is_empty(),
 		"a court at its published target reserves no more cloth"
 	)
 	assert_false(
-		AiArmyReinforce.muster_reserve(config, economy, 8, false, extra).is_empty(),
+		AiArmyReinforce.muster_reserve(config, economy, at, false, extra).is_empty(),
 		"the pressing court provisions for the bigger army"
 	)
 
 
 func test_a_thin_labour_pool_stops_the_muster() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 3), 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 3), 3, false)
 
 	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
 	assert_true((plan["reasons"] as Array).has("labour floor"))
@@ -911,7 +919,7 @@ func test_a_thin_labour_pool_stops_the_muster() -> void:
 func test_a_researched_pattern_is_the_one_that_musters() -> void:
 	var economy: PlayerEconomy = _ai_army_reinforce_economy()
 	economy.tech_unlocked["weapon_craftsmanship"] = true
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), economy, 5, false)
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), economy, 3, false)
 
 	assert_eq(String(plan["muster"]), "musketeers", "the newest legal line wins")
 

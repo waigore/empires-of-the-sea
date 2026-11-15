@@ -219,6 +219,7 @@ static func _reset_view(screen: MapScreen) -> void:
 		_close_sheet(screen.hud.muster_roll)
 		_close_sheet(screen.hud.province_ledger)
 		_close_sheet(screen.hud.spy_ledger)
+		_close_sheet(screen.hud.command_ledger)
 		_close_sheet(screen.hud.dossier_screen)
 	if screen.game_menu != null and screen.game_menu.is_open():
 		screen.game_menu.close()

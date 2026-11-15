@@ -48,6 +48,8 @@ static func build_hud(play: PlaySession) -> void:
 		hud.province_ledger.bind(play)
 	if hud.spy_ledger != null:
 		hud.spy_ledger.bind(play)
+	if hud.command_ledger != null:
+		hud.command_ledger.bind(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
 	# Build/work's recruits land on the session's layers when the ledger closes.
