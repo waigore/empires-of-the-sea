@@ -4,7 +4,7 @@ description: |-
   Use the Empires of the Sea opt-in localhost WebSocket debug bridge to inspect
   a running campaign: launch/enable it, connect, `dump` god-mode state,
   `observer` scoreboard, and `get` path slices, on desktop and Android
-  (`adb reverse`). Use when an agent or playtest needs live in-session state
+  (`adb forward`). Use when an agent or playtest needs live in-session state
   without screenshots or save files, or when asked to debug/query a live
   session, enable the agent debug bridge, or read `ai_turns` / `market_report`
   / court reports from a running game.
@@ -85,7 +85,7 @@ ws.send('{"id":1,"op":"ping"}'); print(ws.recv())   # {"id":1,"ok":true,...}
 ```
 
 If the handshake fails: is the flag after `--`? Is the port the one the game
-printed? On Android, did `adb reverse` run after the (re)install?
+printed? On Android, did `adb forward` run after the (re)install?
 
 ## Out of scope
 
