@@ -1455,6 +1455,10 @@ func test_a_rival_subsidises_a_minor_it_wants_close() -> void:
 	ai_diplomacy_offers_state.ensure_relation(2, 6, 1)
 	ai_diplomacy_offers_state.relation(2, 6).score = 70.0
 	_stage(2, 6, DiplomacyCatalog.STAGE_NAP)
+	# The colony door (Join Empire) is worth more than a subsidy while the purse
+	# covers it (DR-20261114-02), so the court that wants this Minor close but
+	# cannot buy it takes the free warm step instead.
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 4500
 	var result: Dictionary = _run([0, 0, 0, 2, 6], [], 1)
 	var action: Dictionary = _action(result, 2)
 	assert_eq(String(action["kind"]), AiDiplomacyOffers.KIND_SUBSIDY)

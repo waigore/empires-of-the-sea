@@ -278,9 +278,7 @@ static func _reset_ledger_filters(hud: GameHud) -> void:
 	) as LedgerMarket
 	if market == null:
 		return
-	market._seller_filter = MarketOffersHead.ALL_SELLERS
-	market._good_filter = MarketOffersHead.ALL_GOODS
-	market._offer_sort = MarketOffersHead.SORT_SELLER
+	market.reset_offer_filters()
 
 
 ## Drops any plate covering the lane and the news queued behind it, so a case
