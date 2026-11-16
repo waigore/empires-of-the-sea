@@ -45,7 +45,8 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		MapPlayCivilianVoyage.crew(play, fleet),
 		strength,
 		MapPlayHomeMerge.row(play, fleet),
-		MapPlayFleetMissions.hint(play, fleet)
+		MapPlayFleetMissions.hint(play, fleet),
+		play.ship_layer.fleets
 	)
 
 
@@ -317,6 +318,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		MapPlayHomeMerge.join(play)
 	elif action.begins_with("split:"):
 		MapPlayFleetSplit.detach(play, action.trim_prefix("split:"))
+	elif action.begins_with("combine:"):
+		MapPlayFleetCombine.combine(play, int(action.trim_prefix("combine:")))
 	elif action.begins_with("land:"):
 		land(play, int(action.trim_prefix("land:")))
 	elif MapPlayCivilianVoyage.on_action(play, action):

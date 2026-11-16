@@ -2232,3 +2232,147 @@ func test_a_split_keeps_the_charts_close_reading_on_every_marker() -> void:
 	for marker: Ship in _screen.ship_layer.ships:
 		assert_false(marker.detail, "fit zoom prints the whole number")
 		assert_almost_eq(marker.scale.x, 1.0, 0.001, "fit zoom draws the full silhouette")
+
+
+# --- combining two squadrons in one station (DR-20261116-13) -----------------
+
+
+## A second sea-going squadron of the crown's in `zone`, on the roster and drawn.
+func _partner_cmd(zone: int, hulls: Array[String]) -> FleetState:
+	var types: Dictionary = {}
+	for hull_id: String in hulls:
+		types[hull_id] = "sloop"
+	var partner: FleetState = FleetState.at_sea(
+		FleetRosters.next_id(_screen.ship_layer.fleets),
+		MapScreen.PLAYER_FACTION, zone, hulls, types
+	)
+	_screen.ship_layer.fleets.append(partner)
+	_screen.ship_layer.rebuild_markers()
+	return partner
+
+
+func test_two_squadrons_in_one_zone_combine_into_the_one_that_keeps_the_station() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleet_of(_player_ship_at_sea())
+	fleet.mission = FleetState.Mission.PATROL
+	var partner: FleetState = _partner_cmd(fleet.sea_zone, ["partner_a", "partner_b"])
+	partner.moved = true
+	var partner_ship: Ship = _screen.ship_layer.ship_for(partner)
+	var kept_name: String = String(partner.hull_names.get("partner_a", ""))
+	var roster_before: int = _screen.ship_layer.fleets.size()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	_screen.ship_layer.select(partner_ship)
+	MapPlayFleets.on_action(_screen.play, "combine:%d" % fleet.id)
+
+	assert_eq(_screen.ship_layer.fleets.size(), roster_before - 1, "one command leaves")
+	assert_null(FleetRosters.find(_screen.ship_layer.fleets, partner.id), "the emptied command is retired")
+	assert_eq(fleet.ship_count(), 3, "every hull joins the squadron that keeps the station")
+	assert_eq(fleet.type_of("partner_a"), "sloop", "a hull keeps her catalog type")
+	assert_false(kept_name.is_empty(), "the fixture christened the joining hull")
+	assert_eq(String(fleet.hull_names.get("partner_a", "")), kept_name, "she keeps the name she flew")
+	assert_null(_screen.ship_layer.ship_for(partner), "her marker is retired")
+	assert_eq(fleet.mission, FleetState.Mission.PATROL, "the station stays with the squadron")
+	assert_true(fleet.moved, "a hull that has sailed does not sail again")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_true(
+		_toast_texts().back().contains("joins"),
+		"the news names the combine: '%s'" % _toast_texts().back()
+	)
+	assert_eq(
+		_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), fleet,
+		"the player keeps the squadron that keeps the station in view"
+	)
+
+
+func test_the_dossier_offers_the_combine_only_beside_another_squadron() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+
+	# A roster that holds only her offers nothing: no neighbour, no press.
+	var alone: Array[FleetState] = [fleet]
+	assert_true(
+		FleetCombine.rows(_screen.model, alone, fleet).is_empty(),
+		"alone in her water"
+	)
+
+	_screen.ship_layer.select(ship)
+	var before: int = _screen.hud._fleet_panel._combine._rows.size()
+
+	_partner_cmd(fleet.sea_zone, ["partner_a"])
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(fleet))
+
+	assert_eq(
+		_screen.hud._fleet_panel._combine._rows.size(), before + 1,
+		"the squadron beside her is offered"
+	)
+	assert_true(_screen.hud._fleet_panel._combine._button.visible, "the drawer is offered")
+	assert_true(_screen.hud._fleet_panel._combine._note.visible, "the rule is on the sheet")
+
+
+func test_a_combine_refuses_two_armies_and_an_army_with_colonists() -> void:
+	var fleet := FleetState.at_sea(21, 0, 7, ["a"], {"a": "sloop"})
+	var target := FleetState.at_sea(22, 0, 7, ["b", "c"], {"b": "sloop", "c": "sloop"})
+	fleet.embarked_army = 3
+	target.embarked_army = 4
+	assert_true(
+		String(FleetCombine.can_combine(null, fleet, target)["reason"]).contains("armies"),
+		"one army per squadron"
+	)
+
+	fleet.embarked_army = -1
+	fleet.embarked_civilians = [8]
+	assert_true(
+		String(FleetCombine.can_combine(null, fleet, target)["reason"]).contains("colonists"),
+		"a squadron carrying an army carries no colonists"
+	)
+	target.embarked_army = -1
+	fleet.embarked_army = 3
+	fleet.embarked_civilians = []
+	target.embarked_civilians = [9]
+	assert_true(
+		String(FleetCombine.can_combine(null, fleet, target)["reason"]).contains("colonists"),
+		"the gate reads both decks"
+	)
+
+
+func test_a_combine_refuses_the_home_fleet_a_beachhead_and_another_station() -> void:
+	var home: FleetState = _screen.ship_layer.home_fleet(_screen.play.capital_province)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var stray := FleetState.in_port(
+		900, MapScreen.PLAYER_FACTION, home.province, ["stray"], {"stray": "sloop"}
+	)
+	assert_true(
+		String(FleetCombine.can_combine(_screen.model, stray, home)["reason"]).contains("home fleet"),
+		"the home fleet takes her joiners through Join the home fleet"
+	)
+	assert_true(
+		String(FleetCombine.can_combine(_screen.model, home, stray)["reason"]).contains("home fleet"),
+		"a home squadron does not fold into a sea-going one either"
+	)
+
+	var fleet := FleetState.at_sea(23, 0, 7, ["a"], {"a": "sloop"})
+	var target := FleetState.at_sea(24, 0, 7, ["b"], {"b": "sloop"})
+	fleet.beachhead_province = 5
+	assert_true(
+		String(FleetCombine.can_combine(null, fleet, target)["reason"]).contains("beachhead"),
+		"a beachhead belongs to the squadron that holds it"
+	)
+
+	var elsewhere := FleetState.at_sea(25, 0, 8, ["c"], {"c": "sloop"})
+	assert_true(
+		String(FleetCombine.can_combine(null, target, elsewhere)["reason"]).contains("same sea zone"),
+		"squadrons combine only in one station"
+	)
+
+
+func test_the_combine_receipt_names_both_flagships() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleet_of(_player_ship_at_sea())
+
+	var line: String = MapPlayFleetCombine.line(
+		_screen.play, fleet, {"name": "San Salvador", "into": "Trinidad"}
+	)
+
+	assert_true(line.begins_with("San Salvador joins Trinidad in the "), line)
+	assert_true(
+		line.ends_with("one squadron of %d." % fleet.ship_count()), line
+	)
