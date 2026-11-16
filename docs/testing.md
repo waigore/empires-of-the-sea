@@ -36,7 +36,8 @@ loads, returns to title. Deep rules stay in `tests/`.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
   gd-tools hands each case a fresh instance, so an instance dictionary redraws
-  per case; a case that **mutates** a chart takes its own draw.
+  per case. Prefer a pocket chart over regenerating Standard; the price census
+  rides **Small** (not Large) when a seed keeps the published order.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
   pristine save (~0.15 s vs ~0.5 s remount), dropping selection, sheets and
   lenses; a suite that swaps screens frees its own. Reuse a preset only when
@@ -126,6 +127,12 @@ godot --headless --path . --script res://playtests/playtest_persistence_advanced
 # shore, resolves a sea battle (the despatch against the hulls actually lost),
 # and sorts a rival squadron out of a captured port.
 godot --headless --path . --script res://playtests/playtest_naval.gd
+
+# Split / combine — folds the opening's single-hull commands into one squadron,
+# reads the troops that hold a split back, detaches a named hull into a command
+# of her own, folds her back, and follows the army a combine carries from the
+# dossier to the muster roll (the row's place and its own Visit press).
+godot --headless --path . --script res://playtests/playtest_fleet_split_combine.gd
 
 # Beachhead — boards a field army and marks a landing site on a hostile coast,
 # reads the same-turn refusal, lands on the ready turn into the land battle, and

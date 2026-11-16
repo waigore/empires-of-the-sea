@@ -3,7 +3,7 @@ extends LedgerRow
 ## One regiment in the crown's army: its medallion, the class it is, its own
 ## stat line, the condition it holds and a Visit action that opens its standard's
 ## map and dossier (wiki: military-armies § The regiments behind an army;
-## DR-20261116-07). A regiment's orders are its standard's, so the row prints
+## DR-20261116-16). A regiment's orders are its standard's, so the row prints
 ## what is the regiment's own and the sheet headings carry the standing. The
 ## skeleton, the tap and the Visit door come from LedgerRow.
 

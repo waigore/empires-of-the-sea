@@ -35,7 +35,7 @@
   survivor's despatch keeps its newest eight fields, one won mauled being a
   **citation** (`cited` ×1, `laurelled` ×3). A citation buys rank — +5%, or
   +10% laurelled — so decorated colours lead and fall last.
-- **The crown's army** (`ArmyLedger`, DR-20261116-07): the muster roll's door
+- **The crown's army** (`ArmyLedger`, DR-20261116-16): the muster roll's door
   reads every regiment, standard by standard — class, stat line, health,
   chevrons and citations.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): a crown-pool name per

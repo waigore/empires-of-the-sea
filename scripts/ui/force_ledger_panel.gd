@@ -12,7 +12,7 @@ extends LedgerSheet
 ## every hull she flies (REQ-P5-01, REQ-P5-03; DR-20261115-14).
 signal navy_pressed
 ## The muster roll names each standard; the regiment sheet behind this door reads
-## every regiment it flies (REQ-P5-01, REQ-P5-03; DR-20261116-07).
+## every regiment it flies (REQ-P5-01, REQ-P5-03; DR-20261116-16).
 signal army_pressed
 
 
@@ -56,7 +56,7 @@ func _build_body(column: VBoxContainer) -> void:
 ## flies, the crown's navy every hull a squadron floats. The roll counts them;
 ## the sheets read them, one reach from the row that raises the question. A
 ## full-width row keeps each a thumb-sized tap on a phone sheet (REQ-P5-01,
-## REQ-P5-03; DR-20261115-14, DR-20261116-07).
+## REQ-P5-03; DR-20261115-14, DR-20261116-16).
 func _doors() -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 4)

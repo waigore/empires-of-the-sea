@@ -344,7 +344,7 @@ static func _navy_ledger(run, screen: MapScreen) -> void:
 
 ## The crown's army: the muster roll's army door raises the regiment-by-regiment
 ## reading on the real map, prints a standard heading with its men and sets
-## itself aside (DR-20261116-07). No regiment is mustered, detached or dismissed.
+## itself aside (DR-20261116-16). No regiment is mustered, detached or dismissed.
 static func _army_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.army_ledger != null, "army ledger mounted")
 	screen.hud.muster_roll_pressed.emit()

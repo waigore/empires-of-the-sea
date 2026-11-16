@@ -3,7 +3,7 @@ extends RefCounted
 ## The crown's army, regiment by regiment: every regiment it fields in both
 ## charts, the standard it marches under, its class and its own condition
 ## (wiki: military-armies § The muster roll, § The regiments behind an army;
-## DR-20261116-07). Pure read-only projection of the layer rosters — it never
+## DR-20261116-16). Pure read-only projection of the layer rosters — it never
 ## musters, detaches, dismisses or marches a regiment (REQ-P3-02, REQ-P3-03).
 ##
 ## No number here is recomputed: a regiment's line is

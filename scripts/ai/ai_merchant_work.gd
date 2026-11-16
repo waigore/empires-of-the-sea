@@ -137,6 +137,53 @@ static func priced_offer(
 	return best
 
 
+## The Minor or Tribe whose deed this court would sign first, or -1 when no
+## charted seller offers one: the cheapest priced offer across every region the
+## court has charted, with neither war nor boycott in the way. One seller, not
+## every seller — the warmth that prices a deed is the warmth that bars the war,
+## so a court warms the one partner it means to buy from and keeps every
+## conquest target cold (issue #841, the owner's warmth-targeting decision on
+## #840; wiki: civilian-units § Merchant; diplomacy § GP AI policy for war vs.
+## relations).
+static func deed_seller(
+	world: WorldMap, faction: int, charts: CourtCharts, diplomacy: DiplomacyState
+) -> int:
+	if world == null or diplomacy == null or faction < 0:
+		return -1
+	var best: int = -1
+	var best_price: int = 0
+	for index in world.region_count():
+		var model: MapModel = world.region(index)
+		if model == null:
+			continue
+		var view: VisibilityModel = charts.model_for(faction, index) if charts != null else null
+		var deed: Dictionary = openable_deed(
+			model, faction, {"diplomacy": diplomacy, "visibility": view}
+		)
+		if deed.is_empty():
+			continue
+		var price: int = int(deed["price"])
+		if best < 0 or price < best_price:
+			best = int(deed["seller"])
+			best_price = price
+	return best
+
+
+## The study that opens the deed path, or "" when the court already holds it or
+## has no priced deed to buy. The buyer-exists guard is the deed itself: a court
+## with nothing on its chart to sign never spends a research slot on the tech
+## (issue #841; wiki: civilian-units § Merchant).
+static func deed_door(
+	world: WorldMap, faction: int, charts: CourtCharts,
+	diplomacy: DiplomacyState, tech: Dictionary
+) -> String:
+	if CivilianCatalog.is_unlocked("merchant", tech):
+		return ""
+	if deed_seller(world, faction, charts, diplomacy) < 0:
+		return ""
+	return CivilianCatalog.unlock_tech("merchant")
+
+
 ## True while an envoy chain toward a priced deed still has a rung to walk: a
 ## charted Minor or Tribe province offers a deed the court holds no embassy
 ## for, and neither war nor boycott stands in the way. The deed need not be

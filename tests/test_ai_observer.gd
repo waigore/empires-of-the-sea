@@ -208,6 +208,39 @@ func test_market_reading_names_the_book_food_against_every_courts_ration() -> vo
 	assert_true(market.has("minor_offers"), "the offer-row count still prints")
 
 
+## The deed gate's own readings ride the trace: the purchased tiles each court
+## holds and the deals the last clearing settled through first right of refusal,
+## so a run that never signs a deed or never fills one through the privilege
+## says so on the turn line instead of needing a throwaway probe (issue #841).
+func test_the_trace_reads_deeds_and_first_right_fills() -> void:
+	var play: PlaySession = _screen.play
+	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
+	var market: Dictionary = snapshot["market"] as Dictionary
+	assert_true(market.has("frr_fills"), "the clearing's first-right fills print")
+	var frr: int = 0
+	for deal: Dictionary in play.economy.market.book.last_deals:
+		if bool(deal.get("is_frr", false)):
+			frr += 1
+	assert_eq(int(market["frr_fills"]), frr, "frr_fills counts the Deal Book's own rows")
+	for raw: Dictionary in (snapshot["rows"] as Array):
+		assert_true(raw.has("deeds"), "every court row prints its deeds")
+		assert_eq(
+			int(raw["deeds"]),
+			MapPlayObserver.deeds_held(play, int(raw["faction"])),
+			"the row's deed count is the court's purchased land"
+		)
+	# A deed signed on the chart is the count the row reads.
+	var model: MapModel = play.world.region(WorldMap.OLD_WORLD)
+	var province: ProvinceState = model.provinces[0]
+	var buyer: int = int(snapshot["rows"][0]["faction"])
+	var before: int = MapPlayObserver.deeds_held(play, buyer)
+	model.purchase_tile(province.tiles[0], buyer)
+	assert_eq(
+		MapPlayObserver.deeds_held(play, buyer), before + 1,
+		"a signed deed is one more purchased tile"
+	)
+
+
 func test_observer_former_crown_plays_through_the_planners() -> void:
 	var play: PlaySession = _screen.play
 	var economy: PlayerEconomy = play.ai.economy_for(play.player_faction)

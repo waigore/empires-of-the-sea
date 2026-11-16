@@ -156,6 +156,6 @@ static func _ledgers(hud: GameHud) -> void:
 	# The muster roll's doors open the sheets behind it: the roll names each
 	# standard by its kind and each squadron by her flagship, and the regiment
 	# and hull sheets are the whole of what they fly (REQ-P5-01, REQ-P5-03;
-	# DR-20261115-14, DR-20261116-07).
+	# DR-20261115-14, DR-20261116-16).
 	hud.muster_roll.navy_pressed.connect(func() -> void: hud.navy_pressed.emit())
 	hud.muster_roll.army_pressed.connect(func() -> void: hud.army_pressed.emit())

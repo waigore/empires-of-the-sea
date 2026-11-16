@@ -1998,6 +1998,18 @@ func test_settle_seats_guards_a_missing_play() -> void:
 	assert_eq(MapPlayHomeMerge.settle_seats(bare), 0, "no world yet")
 
 
+## A torn-down army layer must not crash the merge's re-seat (REQ-P3-02
+## headless turn close): the play-side wrapper returns before it asks the
+## transport book to rewrite a seat.
+func test_home_merge_seat_carried_guards_a_missing_army_layer() -> void:
+	var home := FleetState.in_port(1, 0, 0, ["ship_a"], {"ship_a": "fluyte"})
+	home.embarked_army = 7
+	MapPlayHomeMerge._seat_carried(null, home)
+	var bare := PlaySession.new()
+	bare.army_layer = null
+	MapPlayHomeMerge._seat_carried(bare, home)
+
+
 ## When two armies ride the merge, the surplus lands ashore (wiki: ships-and-naval
 ## § Home Fleet). put_ashore stays quiet when no HUD is mounted, so the same
 ## landing works headless.
@@ -2281,6 +2293,37 @@ func test_two_squadrons_in_one_zone_combine_into_the_one_that_keeps_the_station(
 	assert_eq(
 		_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), fleet,
 		"the player keeps the squadron that keeps the station in view"
+	)
+
+
+## The army a combine keeps aboard rides the squadron that now holds her hulls.
+## The emptied command leaves the roster, so a seat left on her names a squadron
+## no chart holds: the muster roll loses the water she stands in and its own
+## press finds no marker (wiki: military-armies § The muster roll — an embarked
+## army stands under the squadron that carries it).
+func test_a_combine_re_seats_the_army_it_carries() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleet_of(_player_ship_at_sea())
+	var partner: FleetState = _partner_cmd(fleet.sea_zone, ["partner_a"])
+	var army: ArmyState = ArmyState.muster(
+		_screen.play.army_layer.next_army, MapScreen.PLAYER_FACTION,
+		_screen.play.capital_province, false, ["infantry"],
+		_screen.play.army_layer.next_regiment
+	)
+	_screen.play.army_layer.armies.append(army)
+	army.province = MapModel.NO_ID
+	army.embarked_fleet = partner.id
+	partner.embarked_army = army.id
+
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(partner))
+	MapPlayFleets.on_action(_screen.play, "combine:%d" % fleet.id)
+
+	assert_eq(fleet.embarked_army, army.id, "the troops come aboard the kept squadron")
+	assert_eq(army.embarked_fleet, fleet.id, "the army's seat follows her hulls")
+	assert_true(
+		MapPlayForceLedger.focus(
+			_screen.play, _screen.play.region_index, ForceLedger.KIND_ARMY, army.id
+		),
+		"the muster roll's press finds the squadron that carries her"
 	)
 
 
