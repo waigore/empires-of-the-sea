@@ -229,7 +229,7 @@ func _sample_war() -> void:
 		DiplomacyRules.form_alliance(
 			play.diplomacy, play.player_faction, owners[1], DiplomacyRules.DECISION_ACCEPT
 		)
-	MapPlaySetup.build_diplomacy_lens(play)
+	MapPlayLens.mount_diplomacy(play)
 	MapPlayInput.set_diplomacy_lens(play, true)
 
 
