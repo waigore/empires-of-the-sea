@@ -131,14 +131,14 @@ static func resolve(model: MapModel, before: Dictionary) -> Dictionary:
 			continue
 		var owned: Array[int] = owned_provinces(model, faction)
 		if owned.is_empty():
-			_clear_seat(model.province_data(lost))
+			clear_seat(model.province_data(lost))
 			fallen.append({
 				"faction": faction,
 				"conqueror": _owner_of(model, lost),
 				"lost": lost,
 			})
 			continue
-		_clear_seat(model.province_data(lost))
+		clear_seat(model.province_data(lost))
 		var pick: int = pick_capital_province(model, owned)
 		if pick == NO_ID:
 			continue
@@ -195,13 +195,16 @@ static func transfer_all(world: WorldMap, faction: int, conqueror: int) -> int:
 			if province.owner != faction:
 				continue
 			province.owner = conqueror
-			province.capital = false
-			province.capital_tile = NO_TILE
+			clear_seat(province)
 			moved += 1
 	return moved
 
 
-static func _clear_seat(province: ProvinceState) -> void:
+## Clears a province's seat. A seat belongs to the court, not to the land: a
+## province that changes hands carries no seat with it, so the conqueror never
+## inherits a phantom capital and the loser's reassignment still sees its seat
+## gone (wiki: capital-and-connectivity § Capital loss and reassignment).
+static func clear_seat(province: ProvinceState) -> void:
 	if province == null:
 		return
 	province.capital = false
