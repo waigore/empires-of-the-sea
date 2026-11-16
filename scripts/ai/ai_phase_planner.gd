@@ -39,8 +39,15 @@ const SLOT_DECLARE_WAR: String = "diplomacy.declare_war"
 ## The Tribe a court is drawing into its empire: the next envoy step of a chain
 ## it has not opened yet (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
 const SLOT_TRIBE_CHAIN: String = "expansion.tribe_chain"
+## The crews a court hires for the two expansion doors the footing can shut: an
+## Explorer surveys the sea and the ground a colony voyage needs, a Merchant
+## signs the deed a Tribe chain points at (wiki: civilian-units § Training;
+## DR-20261116-15).
+const SLOT_CREWS: String = "expansion.crews"
 ## Every slot the table names, in the order the trace prints them.
-const SLOTS: Array[String] = [SLOT_VOYAGE, SLOT_DECLARE_WAR, SLOT_TRIBE_CHAIN]
+const SLOTS: Array[String] = [
+	SLOT_VOYAGE, SLOT_DECLARE_WAR, SLOT_TRIBE_CHAIN, SLOT_CREWS
+]
 
 const LABELS: Dictionary = {
 	PHASE_WAR: "at war",
@@ -104,6 +111,13 @@ static func opens(phase: String, slot: String) -> bool:
 			# chain needs. Only a **new** chain closes: a chain already opened
 			# keeps its next step, so the footing never strands a stake the
 			# court has already paid for.
+			return not is_war_footing(phase)
+		SLOT_CREWS:
+			# The two crews that serve the doors above: an Explorer charts the
+			# voyage the footing holds shut and a Merchant signs the deed the
+			# chain it holds shut points at. A court at war hires neither, and
+			# keeps the Builders, Engineers and Spies the front itself needs
+			# (DR-20261116-15).
 			return not is_war_footing(phase)
 	# A slot no footing names stays open: the dispatch matrix's default outcome
 	# keeps merges total (wiki: phase-planner-dispatch).

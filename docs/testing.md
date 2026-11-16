@@ -36,7 +36,8 @@ loads, returns to title. Deep rules stay in `tests/`.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
   gd-tools hands each case a fresh instance, so an instance dictionary redraws
-  per case; a case that **mutates** a chart takes its own draw.
+  per case. Prefer a pocket chart over regenerating Standard; the price census
+  rides **Small** (not Large) when a seed keeps the published order.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
   pristine save (~0.15 s vs ~0.5 s remount), dropping selection, sheets and
   lenses; a suite that swaps screens frees its own. Reuse a preset only when

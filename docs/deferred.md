@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261116-11 + #825 (REQ-P2-02).
+Audited through DR-20261116-17; #846–#847 live (REQ-P2-02).
 
 ## Already live
 
@@ -32,45 +32,43 @@ Audited through DR-20261116-11 + #825 (REQ-P2-02).
 | Recipe gate + rival second-stage | `min_town`; `TownIndustry.best_level`, #798 |
 | Regiment dismiss | `ArmyDismiss`, DR-16-07/#809 |
 | Money-goal reweight + Tribe-chain slot | `goal_mille` #821; `SLOT_TRIBE_CHAIN` #825 |
-| Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823 |
+| Expansion-crew slot | `SLOT_CREWS`, DR-16-15 |
+| Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823/#834 |
 
 ## Gaps (impact order)
 
-1. **Domain dispatch beyond the three live slots** — voyage, declare-war,
-   Tribe-chain ship in `opens`; civilian, market, naval stay seed
-   (DR-13-15 / DR-16-11).
+1. **Market and naval dispatch stay seed** — four live slots including
+   `expansion.crews` (#847, DR-16-15); only market bids and naval missions
+   stay outside (DR-13-15/16-11).
 2. **Civilian-build seeds** — exotic mixes / per-tile previews
    (`civilian-build-planner`).
-3. **Quick Battle multi-lane / collapse** — one lane; wider deployment /
-   collapse need a design call (DR-10-24).
+3. **Quick Battle multi-lane / collapse** — one lane; needs a design call
+   (DR-10-24).
 
 ## Next pick
 
-Domain dispatch beyond voyage/declare-war/Tribe-chain — civilian, market,
-naval (DR-13-15 / DR-16-11).
+Market/naval dispatch; else civilian build seeds.
 
 ## Blocked footnotes
 
-- Predict-the-line — declined (DR-12-02); era dialogue — no era model (DR-11-08).
-- Healing at 0 health; last-known OOB — DR-12-04/09.
-- General-grade/sheltering trains — pending design (DR-12-07).
-- Alt victory, difficulty extras, ruleset loaders, loans past the research
-  floor, warehouse logistics, sea-zone names — out of scope.
-- Join Empire cost table — rules call.
+- Predict-the-line declined (DR-12-02); era dialogue — no era model (DR-11-08).
+- Healing at 0 health; last-known OOB (DR-12-04/09); general-grade/sheltering
+  trains pending design (DR-12-07).
+- Alt victory, difficulty extras, ruleset loaders, warehouse logistics,
+  undrawn loans, sea-zone names — out of scope; Join Empire cost — rules call.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
+- Rival squadron split/combine, cross-station folds, passenger transfers — out
+  of scope (DR-16-12/13).
 - Further tongues out of scope (DR-13-12); 30% floor data-gated (DR-15-18).
 - Resource-need phase reweight — no need reading (DR-16-09).
 
 ## Wiki drift
 
-- `civilian-units`: Road L2/gathering/transport deferred → live
-  (`TechUnlocks`/`Extraction`).
-- `phase-planner-*`: DR-14-11 for declare-war → true DR-14-13.
+- `civilian-units`: Road L2/gathering deferred → live (`TechUnlocks`).
+- `phase-planner-*`: declare-war cites DR-14-11 → DR-14-13; four slots live.
 - `production-recipes`: rival second-stage deferred → live #798.
-- `ai-architecture`: soft weights + treasury-recovery seed → live
-  (`AiPosture`/`goal_mille` #821; tribe-chain #825).
-- DR-11-05 + DR-14-11 fleetless leg — live (`TribeContact`,
-  `AiTribeColony`, `FleetMuster`).
+- `ai-architecture`: soft weights/treasury-recovery seed → live (#821); deed
+  partner claimed.
+- DR-11-05/14-11 fleetless leg — live (`FleetMuster`).
 - Ruleset loader / borrowing — out of scope.
-
