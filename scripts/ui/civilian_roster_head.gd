@@ -5,6 +5,9 @@ extends VBoxContainer
 ## state; the panel hands it a snapshot and it emits filter intents (REQ-P3-02).
 
 signal filter_changed(region_key: String, type_id: String, status_key: String)
+## The chore's own door: the crown asks to be taken to the next crew that waits
+## (REQ-P5-04). The panel owns the walk; the head only asks for it.
+signal find_idle_pressed
 
 const TYPE_ALL: String = ""
 
@@ -21,6 +24,8 @@ var _type_flow: HBoxContainer = null
 var _type_scroll: ScrollContainer = null
 var _status_buttons: Dictionary = {}
 var _status_flow: HBoxContainer = null
+## The find press: one door to the next crew that waits, under the order chips.
+var _find: Button = null
 
 
 func _init() -> void:
@@ -150,6 +155,17 @@ func _build_status() -> void:
 		button.pressed.connect(_press_status.bind(key))
 		_status_buttons[key] = button
 		_status_flow.add_child(button)
+	# The chore's own door. The chips narrow the reading to who waits; this press
+	# takes the crown to the next one on the map, so a column of idle crews is
+	# walked one press at a time instead of hunted province by province
+	# (REQ-P5-01, REQ-P5-04). It carries no rule and offers nothing when no crew
+	# waits, so the sheet never promises a find the roster cannot make.
+	_find = Button.new()
+	_find.custom_minimum_size = Vector2(0, 32)
+	_find.add_theme_font_size_override("font_size", 12)
+	_find.pressed.connect(func() -> void: find_idle_pressed.emit())
+	_find.visible = false
+	add_child(_find)
 
 
 func _press_region(key: String) -> void:
@@ -212,6 +228,7 @@ func render(
 		]
 		button.set_pressed_no_signal(key == type_id)
 	_render_status(snapshot)
+	_render_find(snapshot)
 
 
 ## The order chips count what the world and craft filters leave, so a tally is
@@ -228,6 +245,21 @@ func _render_status(snapshot: Dictionary) -> void:
 			button.add_theme_color_override("font_color", Palette.GOLD)
 		else:
 			button.remove_theme_color_override("font_color")
+
+
+## The find press reads the roster's own idle total, so its count and the IDLE
+## stat can never disagree, and a crown with every crew at work is offered no
+## press at all (REQ-P5-05).
+func _render_find(snapshot: Dictionary) -> void:
+	if _find == null:
+		return
+	var caption: String = CivilianRoster.find_caption(snapshot)
+	_find.visible = not caption.is_empty()
+	_find.text = caption
+	_find.tooltip_text = (
+		"Open the next idle crew's map and dossier. The chips narrow the list, "
+		+ "not the walk: every crew that waits is found, in both worlds."
+	)
 
 
 func _region_label(key: String) -> String:
@@ -254,6 +286,11 @@ func filter_buttons() -> Dictionary:
 	return out
 
 
+## The find press, for the panel's own wiring and the suites that press it.
+func find_button() -> Button:
+	return _find
+
+
 func set_compact(compact: bool) -> void:
 	_stats.visible = not compact
 	_region_line.visible = not compact
@@ -264,5 +301,7 @@ func set_compact(compact: bool) -> void:
 		button.custom_minimum_size.y = 40.0 if compact else 30.0
 	for button: Button in _status_buttons.values():
 		button.custom_minimum_size.y = 40.0 if compact else 30.0
+	if _find != null:
+		_find.custom_minimum_size.y = 40.0 if compact else 32.0
 	if _type_scroll != null:
 		_type_scroll.custom_minimum_size.y = 40.0 if compact else 30.0

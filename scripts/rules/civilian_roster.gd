@@ -17,6 +17,9 @@ const STATUS_WORKING: String = "working"
 const STATUS_FILTERS: Array[String] = [STATUS_ALL, STATUS_IDLE, STATUS_WORKING]
 
 const NO_PROVINCE: int = -1
+## The line a walk prints when no crew waits: the press is hidden in that state,
+## so this is the answer to a press that raced the turn's close.
+const IDLE_NONE: String = "No crew waits for orders."
 
 
 ## Whole-empire snapshot in map order. `groups` nests rows under region then
@@ -130,6 +133,68 @@ static func status_label(key: String) -> String:
 		STATUS_WORKING:
 			return "At work"
 	return "All orders"
+
+
+## The crews that wait for orders, in the roster's own reading order, so the walk
+## that finds them never depends on the chips the reader left set (REQ-P5-04).
+static func idle_rows(snapshot_data: Dictionary) -> Array[Dictionary]:
+	var waiting: Array[Dictionary] = []
+	for raw: Variant in snapshot_data.get("rows", []):
+		var row: Dictionary = raw
+		if not bool(row.get("working", false)):
+			waiting.append(row)
+	return waiting
+
+
+## The crew that waits after the one the crown is looking at — the next press's
+## own answer, wrapping onto the first so a walk covers the whole column. An
+## empty dictionary when every crew has an order. A selection that is at work (or
+## none at all) starts the walk at the first crew that waits.
+static func next_idle(
+	snapshot_data: Dictionary, region: int, unit_id: int
+) -> Dictionary:
+	var waiting: Array[Dictionary] = idle_rows(snapshot_data)
+	if waiting.is_empty():
+		return {}
+	var start: int = 0
+	for index in waiting.size():
+		var row: Dictionary = waiting[index]
+		if int(row["unit_id"]) == unit_id and int(row["region"]) == region:
+			start = (index + 1) % waiting.size()
+			break
+	return waiting[start]
+
+
+## How many crews wait, in the words the press and its receipt use: "2 crews
+## wait for orders", "1 crew waits for orders", "every crew has its order".
+static func idle_note(snapshot_data: Dictionary) -> String:
+	var idle: int = int(snapshot_data.get("idle", 0))
+	if idle <= 0:
+		return "every crew has its order"
+	if idle == 1:
+		return "1 crew waits for orders"
+	return "%d crews wait for orders" % idle
+
+
+## The line a walk prints: the crew the crown was sent to and how many others
+## still wait behind it. The press gives the crew the court's eye, not an order,
+## so the count is the roster's own less the one now on screen (REQ-P5-05).
+static func idle_receipt(row: Dictionary, waiting: int) -> String:
+	var crew: String = String(row.get("role", "Crew"))
+	var place: String = String(row.get("province_name", "the map"))
+	if waiting <= 0:
+		return "%s at %s — the only crew that waited." % [crew, place]
+	if waiting == 1:
+		return "%s at %s — 1 crew still waits." % [crew, place]
+	return "%s at %s — %d crews still wait." % [crew, place, waiting]
+
+
+## The press's own caption: what it does and how many it can find.
+static func find_caption(snapshot_data: Dictionary) -> String:
+	var idle: int = int(snapshot_data.get("idle", 0))
+	if idle <= 0:
+		return ""
+	return "Find the next crew that waits (%d)" % idle
 
 
 ## "Surveying · 2 turns to go" / "Idle — ready for orders".

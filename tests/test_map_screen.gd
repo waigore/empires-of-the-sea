@@ -2702,6 +2702,67 @@ func test_the_roster_reads_who_waits_for_orders() -> void:
 	roster.close()
 
 
+## The chore's own door: one press takes the crown to the next crew that waits,
+## closing the sheet and opening that crew's dossier, and the walk covers both
+## worlds (REQ-P5-03, REQ-P5-04).
+func test_the_roster_finds_the_next_crew_that_waits() -> void:
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	var head: CivilianRosterHead = roster._head
+	var idle: int = int(roster._snapshot["idle"])
+	assert_gt(idle, 0, "the opening roster holds a crew with no order")
+	var expected: Dictionary = CivilianRoster.next_idle(
+		roster._snapshot, _screen.play.region_index, -1
+	)
+	var press: Button = head.find_button()
+	assert_not_null(press)
+	assert_true(press.visible, "a crown with a crew waiting is offered the walk")
+	assert_eq(press.text, CivilianRoster.find_caption(roster._snapshot))
+	assert_eq(press.text, "Find the next crew that waits (%d)" % idle)
+
+	press.pressed.emit()
+	assert_false(roster.is_open(), "the sheet steps aside for the crew it found")
+	var first: CivilianState = _screen.civilian_layer.selected_unit
+	assert_not_null(first, "the walk selects the crew it found")
+	assert_eq(first.id, int(expected["unit_id"]), "the walk starts at the first crew that waits")
+	assert_false(first.is_working(), "the walk lands on a crew that waits")
+	assert_true(_screen.hud.panels.is_civilian_panel_open(), "its dossier is open")
+	assert_eq(
+		_toast_texts().back(),
+		CivilianRoster.idle_receipt(expected, idle - 1),
+		"the receipt is the rules' own line",
+	)
+
+	# A second walk starts after the crew now selected, so the press covers the
+	# whole column instead of landing on the same crew twice.
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	head.find_button().pressed.emit()
+	var second: CivilianState = _screen.civilian_layer.selected_unit
+	assert_not_null(second)
+	assert_false(second.is_working())
+	if idle > 1:
+		assert_ne(second.id, first.id, "the walk moves on to the next crew that waits")
+
+
+## A crown with every crew at work is offered no walk at all, and the press that
+## races the turn's close is answered rather than silent (REQ-P5-05).
+func test_the_roster_offers_no_walk_when_every_crew_has_an_order() -> void:
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit != null and unit.owner == _screen.play.player_faction:
+			unit.start_work("build_improvement", unit.tile, 2, unit.tile)
+	roster.refresh()
+	assert_eq(int(roster._snapshot["idle"]), 0)
+	assert_false(roster._head.find_button().visible, "no crew waits, so no press")
+	roster._find_idle()
+	assert_true(
+		_toast_texts().back().contains("No crew waits for orders"),
+		"a press with nothing to find says so: '%s'" % _toast_texts().back(),
+	)
+	roster.close()
+
+
 func test_the_roster_opens_and_closes_from_the_keyboard() -> void:
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	var toggle := InputEventAction.new()
