@@ -1998,6 +1998,18 @@ func test_settle_seats_guards_a_missing_play() -> void:
 	assert_eq(MapPlayHomeMerge.settle_seats(bare), 0, "no world yet")
 
 
+## A torn-down army layer must not crash the merge's re-seat (REQ-P3-02
+## headless turn close): the play-side wrapper returns before it asks the
+## transport book to rewrite a seat.
+func test_home_merge_seat_carried_guards_a_missing_army_layer() -> void:
+	var home := FleetState.in_port(1, 0, 0, ["ship_a"], {"ship_a": "fluyte"})
+	home.embarked_army = 7
+	MapPlayHomeMerge._seat_carried(null, home)
+	var bare := PlaySession.new()
+	bare.army_layer = null
+	MapPlayHomeMerge._seat_carried(bare, home)
+
+
 ## When two armies ride the merge, the surplus lands ashore (wiki: ships-and-naval
 ## § Home Fleet). put_ashore stays quiet when no HUD is mounted, so the same
 ## landing works headless.
