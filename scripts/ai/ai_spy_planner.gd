@@ -11,30 +11,20 @@ extends RefCounted
 
 ## Work the spy should take this turn, or {} to move/stay. `counter_spy` is the
 ## only spy order; it is raised when the court is at war and has no screen.
-static func best_work(
-	config: AiConfig,
-	model: MapModel,
-	unit: CivilianState,
-	units: Array,
-	works: LandWorks,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	screen_up: bool = false
-) -> Dictionary:
-	if SpyRules.is_foreign(model, unit):
+static func best_work(query: AiWorkQuery, screen_up: bool = false) -> Dictionary:
+	if SpyRules.is_foreign(query.model, query.unit):
 		return {}
-	var province: int = model.province_at(unit.tile.x, unit.tile.y)
-	if province == MapModel.NO_ID or model.province_owner(province) != unit.owner:
+	var province: int = query.model.province_at(
+		query.unit.tile.x, query.unit.tile.y
+	)
+	if province == MapModel.NO_ID:
 		return {}
-	var at_war: bool = bool(context.get("at_war", false))
-	if at_war and not screen_up:
-		return _counter(config, model, unit, units, works, stockpile, tech_caps,
-			tech_unlocked, context)
-	if target_province(model, units, unit) < 0:
-		return _counter(config, model, unit, units, works, stockpile, tech_caps,
-			tech_unlocked, context)
+	if query.model.province_owner(province) != query.unit.owner:
+		return {}
+	if query.at_war() and not screen_up:
+		return _counter(query)
+	if target_province(query.model, query.units, query.unit) < 0:
+		return _counter(query)
 	return {}
 
 
@@ -118,15 +108,10 @@ static func target_province(
 # --- internals ---------------------------------------------------------------
 
 
-static func _counter(
-	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
-	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary
-) -> Dictionary:
-	var score: int = config.parameter("civilian.spy_weight") + 40
+static func _counter(query: AiWorkQuery) -> Dictionary:
+	var score: int = query.config.parameter("civilian.spy_weight") + 40
 	return AiCivilianCandidate.make(
-		model, unit, SpyRules.WORK_COUNTER, unit.tile, works, units, stockpile,
-		tech_caps, tech_unlocked, context, score
+		query, SpyRules.WORK_COUNTER, query.unit.tile, score
 	)
 
 
