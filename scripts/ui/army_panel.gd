@@ -8,10 +8,10 @@ extends PanelContainer
 signal close_pressed
 signal dock_side_pressed
 signal action_pressed(action: String)
-## The command door: the crown's whole pool, its medals and the road to the next
-## commander (DR-20261115-11). The dossier names who leads; the ledger explains
-## what a medal buys, so the sheet keeps one line instead of a paragraph.
-signal command_pressed
+## The ledger doors the dossier carries: the crown's whole pool, its medals and
+## the road to the next commander (DR-20261115-11). The press names the sheet by
+## its HudLedgerDoors key; the dossier never needs the sheet's class.
+signal door_pressed(key: String)
 ## The crown named one of its colours: the roster's edit row committed text
 ## (wiki: naming § Regiment names; DR-20261113-03).
 signal rename_pressed(regiment_id: String, wanted: String)
@@ -98,7 +98,9 @@ func _build() -> void:
 	_command_door.add_theme_font_size_override("font_size", 11)
 	_command_door.tooltip_text = "Every commander the crown holds (G)"
 	_command_door.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_command_door.pressed.connect(func() -> void: command_pressed.emit())
+	_command_door.pressed.connect(
+		func() -> void: door_pressed.emit(HudLedgerDoors.COMMAND)
+	)
 	_command_row.add_child(_command_door)
 
 	_composition = UiRowBuilder.line(13, Palette.GOLD_PALE)

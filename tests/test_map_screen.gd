@@ -2592,7 +2592,7 @@ func test_empire_counters_survive_a_region_switch() -> void:
 
 
 func test_the_civilian_chip_opens_the_whole_empire_roster() -> void:
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	assert_not_null(roster)
 	assert_true(roster.is_open())
@@ -2613,7 +2613,7 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD)
 
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	roster._head._region_buttons[LedgerRows.REGION_NEW].pressed.emit()
 	roster._head._type_buttons["merchant"].pressed.emit()
@@ -2638,7 +2638,7 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 
 
 func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	var head: CivilianRosterHead = roster._head
 	head._region_buttons[LedgerRows.REGION_OLD].pressed.emit()
@@ -2657,7 +2657,7 @@ func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
 
 
 func test_the_roster_reads_who_waits_for_orders() -> void:
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	var head: CivilianRosterHead = roster._head
 	head._region_buttons[LedgerRows.REGION_ALL].pressed.emit()
@@ -2696,7 +2696,7 @@ func test_the_roster_reads_who_waits_for_orders() -> void:
 	)
 	head._status_buttons[CivilianRoster.STATUS_IDLE].pressed.emit()
 	roster.close()
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	assert_eq(roster._status, CivilianRoster.STATUS_IDLE, "the filter is the reader's")
 	assert_eq(roster._head.status, CivilianRoster.STATUS_IDLE, "the chips mirror it back")
 	roster.close()

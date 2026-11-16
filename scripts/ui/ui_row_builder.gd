@@ -72,6 +72,22 @@ static func button(
 	return out
 
 
+## A step door under a reading: the caption, the one hint that names what it
+## opens, and the press. Every ledger sheet's door wears this dress, so a phone
+## keeps a thumb-sized tap wherever a reading raises the next question
+## (REQ-P3-01, REQ-P5-01, REQ-P5-04).
+static func door(caption: String, hint: String, press: Callable, expand: bool = true) -> Button:
+	var out := Button.new()
+	out.text = caption
+	out.tooltip_text = hint
+	out.custom_minimum_size = Vector2(0, 34)
+	if expand:
+		out.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	out.add_theme_font_size_override("font_size", 12)
+	out.pressed.connect(press)
+	return out
+
+
 ## An empty themed line the caller fills afterwards.
 static func line(size: int, color: Color) -> Label:
 	return label("", size, color)
