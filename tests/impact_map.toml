@@ -586,6 +586,12 @@ domain = "fleet_split"
 match = "scripts/map/ship_layer.gd*"
 domain = "fleet_split"
 
+# The marker bookkeeping the layer delegates to; it shares the naval suites,
+# so a marker change never pulls the whole `scripts/map/**` fan-out.
+[[rules]]
+match = "scripts/map/ship_markers.gd*"
+domain = "fleet_split"
+
 [[rules]]
 match = "scripts/ui/fleet_split_block.gd*"
 domain = "fleet_split"
