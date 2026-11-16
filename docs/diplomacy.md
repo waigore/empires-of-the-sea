@@ -14,7 +14,9 @@ War, peace, treaties, aid, intervention, chronicle (wiki:
 - **Spy death:** −8 for a Spy killed abroad.
 - **War / peace:** war needs peace, freezes the score, clears overtures
   (GP pairs keep Embassy); battles need war, except a Tribe — unless another
-  crown has bought land there. Minors/Tribes accept peace; GP 26+.
+  crown has bought land there. Minors/Tribes accept peace; GP 26+. A duty path
+  (call to arms, intervention) creates the pair's record when the courts never
+  met, so a court can stand at war with one it has never dealt with.
 - **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs
   −50 with the ally, −10 with others; never in war.
 - **Call to arms:** a GP war calls each ally once. AI allies join at 50+;

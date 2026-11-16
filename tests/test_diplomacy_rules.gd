@@ -1425,6 +1425,24 @@ func test_declare_war_sets_war_and_keeps_gp_auto_embassy() -> void:
 	assert_false(again["ok"])
 	assert_true(String(again["reason"]).contains("already at war"))
 
+## A duty path never asks the gate, so a court that has never met the aggressor
+## still enters the war: the record is created, not assumed (wiki: diplomacy
+## § GP–GP Rules — war invariant; § Intervention).
+func test_a_court_that_never_met_the_aggressor_still_enters_the_war() -> void:
+	var state := DiplomacyState.new()
+	state.turn = 7
+	assert_null(state.relation(0, 1), "the pair has never met")
+
+	var result: Dictionary = DiplomacyRules.enter_war(state, 0, 1)
+
+	assert_true(bool(result["ok"]), String(result.get("reason", "")))
+	var record: DiplomacyRelation = state.relation(0, 1)
+	assert_not_null(record, "the war is a relation state")
+	assert_true(record.at_war)
+	assert_eq(record.since_turn, 7)
+	assert_false(record.formal_alliance, "the war invariant clears the treaty flag")
+
+
 func test_war_on_a_minor_clears_overtures_and_subsidy() -> void:
 	_setup_diplomacy_orders()
 	diplomacy_orders_state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
