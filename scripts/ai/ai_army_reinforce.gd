@@ -70,9 +70,7 @@ static func plan(
 	if own_regiments >= target:
 		result["reasons"].append("at target strength")
 		return result
-	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
-		"army.min_peasants"
-	):
+	if not _labour_floor_ok(config, economy):
 		result["reasons"].append("labour floor")
 		return result
 	if fed_slack >= 0 and fed_slack < 1:
@@ -158,31 +156,22 @@ static func recall_target(home_province: int, capital: int) -> int:
 	return capital
 
 
-## Grain and meat the larder holds: the two ration commodities, nothing else
-## (wiki: workers-and-population § Consumption).
-static func larder(economy: PlayerEconomy) -> int:
-	if economy == null:
-		return 0
-	var held: int = 0
-	for id: String in CommodityCatalog.FOOD:
-		held += maxi(economy.quantity(id), 0)
-	return held
-
-
-## Grain the larder leaves once the consumption phase has fed the army, the navy
-## and every worker (wiki: workers-and-population § Consumption: land military
-## first, then navy, then workers). Negative means the workers strike for food
-## and the court's labour is gone for the turn; 0 means they eat but nothing is
-## left for one more man. The reading is the same one the strike rule makes, so
-## a court never musters into a famine it cannot feed (issue #489).
+## Grain the larder leaves once the army, the navy and every worker have eaten
+## (wiki: workers-and-population § Consumption, in that order). Negative means
+## the workers strike and the court's labour is gone for the turn; 0 means they
+## eat but nothing is left for one more man. The arithmetic is the phase's own:
+## `LarderRead` serves the published larder in its deduction order, so the muster
+## gate, the strike rule and the ledger's larder line name one number and never
+## drift apart (issue #489; REQ-P2-03).
 static func fed_slack(economy: PlayerEconomy, army_food: int, ships: int) -> int:
 	if economy == null:
 		return 0
-	var navy: int = maxi(ships, 0) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
-	var workers: int = 0
-	for tier in WorkerPool.TIER_COUNT:
-		workers += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
-	return larder(economy) - maxi(army_food, 0) - navy - workers
+	var read: Dictionary = LarderRead.reading(
+		economy.workers, economy.stockpile, {"army": army_food, "ships": ships}
+	)
+	var mouths: Dictionary = read["appetites"]
+	var wanted: int = int(mouths["army"]) + int(mouths["navy"]) + int(mouths["pool"])
+	return int(read["store_food"]) - wanted
 
 
 ## True when this court's own people are on strike for food: the ration the
@@ -219,6 +208,16 @@ static func muster_hands(
 	if economy.treasury < muster_floor(config, economy, own_regiments, at_war):
 		return 0
 	return config.parameter("army.min_peasants") + RegimentEconomy.WORKER_COST
+
+
+## True while the fields can spare the levy's own hand above `army.min_peasants`,
+## so the muster, the pattern it saves for and the war chest it holds all gate on
+## one labour reading (wiki: ai-architecture § Land reinforcement).
+static func _labour_floor_ok(config: AiConfig, economy: PlayerEconomy) -> bool:
+	if config == null or economy == null:
+		return false
+	var spare: int = economy.available_peasants() - RegimentEconomy.WORKER_COST
+	return spare >= int(config.parameter("army.min_peasants"))
 
 
 ## Regiments the court aims at: the peace target, raised by `army.war_extra` at
@@ -285,9 +284,7 @@ static func muster_reserve(
 static func saving_type(config: AiConfig, economy: PlayerEconomy) -> String:
 	if config == null or economy == null:
 		return ""
-	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
-		"army.min_peasants"
-	):
+	if not _labour_floor_ok(config, economy):
 		return ""
 	var type_id: String = next_type(config, economy)
 	if not type_id.is_empty():
@@ -312,9 +309,7 @@ static func muster_floor(
 		return 0
 	if own_regiments >= _target(config, at_war):
 		return 0
-	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
-		"army.min_peasants"
-	):
+	if not _labour_floor_ok(config, economy):
 		return 0
 	var floor_treasury: int = maxi(config.parameter("army.min_treasury"), 0)
 	var cheapest: int = _cheapest_line(economy)
@@ -328,8 +323,7 @@ static func muster_floor(
 ## techs open no line at all. The reach test the money goal reads for a
 ## peace-time war chest (wiki: ai-architecture § Land reinforcement).
 static func cheapest_line_price(economy: PlayerEconomy) -> int:
-	var type_id: String = _cheapest_line_type(economy)
-	return 0 if type_id.is_empty() else RegimentCatalog.treasury_cost(type_id)
+	return maxi(_cheapest_line(economy), 0)
 
 
 ## Price of the cheapest line pattern this court's techs open today, ignoring the
@@ -369,9 +363,7 @@ static func _legal_candidates(
 	var candidates: Array[Dictionary] = []
 	if config == null or economy == null:
 		return candidates
-	if economy.available_peasants() - RegimentEconomy.WORKER_COST < config.parameter(
-		"army.min_peasants"
-	):
+	if not _labour_floor_ok(config, economy):
 		return candidates
 	var floor_treasury: int = maxi(config.parameter("army.min_treasury"), maxi(reserve, 0))
 	for type_id: String in RegimentCatalog.ids():
