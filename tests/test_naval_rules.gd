@@ -1793,6 +1793,34 @@ func test_owned_provinces_by_zone() -> void:
 	assert_eq(NavalMovement.owned_provinces_by_zone(_naval_movement_model, 0, 1), [])
 
 
+## One reading says where a court's seat harbour and home harbour are: the seat
+## when it has a port, else the lowest-id own harbour, else NO_ID (wiki:
+## ships-and-naval § Home Fleet, § Cargo holds and capacity).
+func test_seat_and_home_harbour_read_the_same_seat() -> void:
+	_setup_naval_movement()
+	var model: MapModel = _naval_movement_model
+	assert_eq(NavalMovement.seat_harbour(model, 0), 0)
+	assert_eq(NavalMovement.home_harbour(model, 0), 0)
+	# A court with a harbour but no capital seat still musters somewhere.
+	assert_eq(NavalMovement.seat_harbour(model, 1), MapModel.NO_ID)
+	assert_eq(NavalMovement.home_harbour(model, 1), 1)
+	assert_eq(NavalMovement.seat_harbour(model, 9), MapModel.NO_ID)
+	assert_eq(NavalMovement.home_harbour(model, 9), MapModel.NO_ID)
+	assert_eq(NavalMovement.home_harbour(null, 0), MapModel.NO_ID)
+
+
+## The seat outranks a lower-id harbour, and an inland seat falls back to the
+## lowest-id own harbour rather than reading NO_ID.
+func test_home_harbour_prefers_the_seat_then_the_lowest_id() -> void:
+	_setup_naval_movement()
+	var model: MapModel = _naval_movement_model
+	model.provinces[1].owner = 0
+	assert_eq(NavalMovement.home_harbour(model, 0), 0, "the seat outranks province 1")
+	model.provinces[0].port_tile = Vector2i(-1, -1)
+	assert_eq(NavalMovement.seat_harbour(model, 0), MapModel.NO_ID)
+	assert_eq(NavalMovement.home_harbour(model, 0), 1, "an inland seat falls back to a port")
+
+
 func test_sea_fleet_moves_one_adjacent_zone() -> void:
 	_setup_naval_movement()
 	var fleet := FleetState.at_sea(1, 0, 0)

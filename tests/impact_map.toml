@@ -2088,6 +2088,28 @@ domain = "ai_ledger"
 match = "scripts/rules/voyage_read.gd*"
 domain = "ai_works"
 
+# One seat/harbour reading (NavalMovement.seat_harbour / home_harbour) and the
+# capital_province delegates that call WorldBootstrap (REQ-P3-01). Naval + AI +
+# capital seat prove it; campaign/map catch-alls overrun the tier-1 5 min budget.
+[domains.seat_harbour]
+suites = [
+  "test_naval_rules.gd",
+  "test_ai_rules.gd",
+  "test_capital_seat_screen.gd",
+]
+
+[[rules]]
+match = "scripts/rules/world_map.gd*"
+domain = "seat_harbour"
+
+[[rules]]
+match = "scripts/rules/capital_choice.gd*"
+domain = "seat_harbour"
+
+[[rules]]
+match = "scripts/ai/ai_colonisation_planner.gd*"
+domain = "seat_harbour"
+
 [[rules]]
 match = "tests/test_ai_rules.gd*"
 domain = "ai_ledger"

@@ -225,6 +225,8 @@ static func _reset_view(screen: MapScreen) -> void:
 		_close_sheet(screen.hud.spy_ledger)
 		_close_sheet(screen.hud.command_ledger)
 		_close_sheet(screen.hud.dossier_screen)
+	if screen.hud != null and screen.hud.plates != null:
+		_reset_battle_plates(screen.hud.plates)
 	if screen.game_menu != null and screen.game_menu.is_open():
 		screen.game_menu.close()
 	if screen.hud != null and screen.hud.gazette_plate != null:
@@ -250,6 +252,21 @@ static func _reset_view(screen: MapScreen) -> void:
 static func _close_sheet(sheet: SheetFrame) -> void:
 	if sheet != null and sheet.is_open():
 		sheet.close()
+
+
+## A battle plate left up would answer for a case that expects a bare chart, and
+## its queue would raise the previous case's engagement on the next press. Drop
+## the queues first, then close the plate so its `finished` signal finds nothing
+## to serve (the news lane is cleared by `_clear_news`).
+static func _reset_battle_plates(plates: BattlePlates) -> void:
+	plates.land_queue.clear()
+	plates.sea_queue.clear()
+	if plates.land_plate != null and plates.land_plate.is_shown():
+		plates.land_plate.skip()
+		plates.land_plate._on_continue()
+	if plates.sea_plate != null and plates.sea_plate.is_shown():
+		plates.sea_plate.skip()
+		plates.sea_plate._on_continue()
 
 
 ## Every reading a case may have raised, lowered in turn: the map opens on the

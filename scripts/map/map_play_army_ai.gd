@@ -205,7 +205,7 @@ static func _reinforce(
 ) -> bool:
 	if play.ai == null or play.army_layer == null or play.diplomacy == null:
 		return false
-	var capital: int = _capital_province(model, faction)
+	var capital: int = WorldBootstrap.capital_province(model, faction)
 	if capital < 0:
 		return false
 	var home: ArmyState = ArmyTraining.home_army(roster, faction)
@@ -344,10 +344,3 @@ static func _trained_this_turn(trace: Array[Dictionary], faction: int) -> bool:
 		if int(record.get("faction", MapModel.NO_ID)) == faction:
 			return true
 	return false
-
-
-static func _capital_province(model: MapModel, faction: int) -> int:
-	for province: ProvinceState in model.provinces:
-		if province.owner == faction and province.capital:
-			return province.id
-	return MapModel.NO_ID
