@@ -57,7 +57,6 @@ suites = [
   "test_campaign_end.gd",
   "test_civilian_turn_rules.gd",
   "test_campaign_rules.gd",
-  "test_capital_seat_screen.gd",
 ]
 
 [domains.civilian]
