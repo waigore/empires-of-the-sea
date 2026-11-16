@@ -80,6 +80,11 @@ static func dismiss(play: PlaySession, army: ArmyState, ids: Array[String]) -> v
 		else "%s dismissed — one peasant returns to the pool" % _dismissed_name(result)
 	)
 	if bool(result.get("retired", false)):
+		# An embarked army that retires leaves the deck with the field: the
+		# squadron no longer carries an army nobody can land (wiki:
+		# ships-and-naval § Naval transport).
+		if play.ship_layer != null:
+			play.ship_layer.release_deck(army.id)
 		play.hud.toast(line + " — the standard retires")
 		play.hud.panels.hide_army()
 		return
