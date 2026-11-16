@@ -189,6 +189,114 @@ func test_the_crowns_orders_land_and_are_logged() -> void:
 	)
 
 
+# --- the action log ----------------------------------------------------------
+
+
+## The plate prints the newest lines only; the rest of a busy turn is what the
+## LOG seal opens (REQ-P5-05).
+func test_the_plate_prints_the_newest_lines_and_holds_the_rest_back() -> void:
+	var play: PlaySession = _seat_the_ai()
+	_drain(play)
+	var plate: AutoLogPlate = screen.hud.auto_bar._log
+	assert_not_null(plate, "the log plate mounts with the seat's chrome")
+	# A busy turn raises more orders than the plate has room for.
+	while play.auto_log.size() <= plate.visible_lines():
+		MapPlayAuto.note(play, "Sorties — Mar Tirreno")
+	var bar: AutoBar = screen.hud.auto_bar
+	bar._signature = ""
+	bar._mirror()
+	assert_eq(
+		_printed(plate), plate.visible_lines(), "the plate prints its own count and no more"
+	)
+	assert_eq(
+		plate.held_back(),
+		play.auto_log.size() - plate.visible_lines(),
+		"the seal's count is exactly what the plate held back"
+	)
+	var foot: Label = plate._box.get_child(plate._box.get_child_count() - 1) as Label
+	assert_eq(foot.text, String(play.auto_log.back()), "the plate's foot is the newest line")
+
+
+## The sheet is the whole kept log, oldest first, so the turn's first orders are
+## read after the plate has moved on.
+func test_the_log_sheet_prints_every_kept_line_oldest_first() -> void:
+	var play: PlaySession = _seat_the_ai()
+	_drain(play)
+	var plate: AutoLogPlate = screen.hud.auto_bar._log
+	plate.open_sheet()
+	var sheet: AutoLogSheet = plate.sheet
+	assert_true(sheet.is_open(), "the plate's seal opens the whole log")
+	var rows: Array[String] = _sheet_rows(sheet)
+	assert_eq(rows.size(), play.auto_log.size(), "every kept line is on the sheet")
+	assert_true(
+		rows[0].ends_with(String(play.auto_log[0])), "the oldest line leads the sheet"
+	)
+	assert_true(
+		rows[rows.size() - 1].ends_with(String(play.auto_log[play.auto_log.size() - 1])),
+		"the newest line is at the foot"
+	)
+
+
+## A log that grew under the reader would move the lines they opened it to read,
+## so the sheet holds the clock the way a confirmation does (wiki: auto-mode
+## § Pacing).
+func test_the_log_sheet_holds_the_clock_while_it_is_open() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var bar: AutoBar = screen.hud.auto_bar
+	play.auto_speed = 3
+	bar._on_log_pressed()
+	assert_true(bar._log.sheet_open(), "the LOG seal opens the whole log")
+	bar._drive(10.0)
+	assert_null(play.auto_book, "a held clock spends no tick")
+	bar._log.sheet.close()
+	bar._drive(10.0)
+	assert_not_null(play.auto_book, "the seat resumes its turn when the sheet closes")
+
+
+## The seal is offered exactly when there is something behind it, and its caption
+## names how many lines the plate does not print.
+func test_the_log_seal_names_what_the_plate_holds_back() -> void:
+	var play: PlaySession = _seat_the_ai()
+	_drain(play)
+	var bar: AutoBar = screen.hud.auto_bar
+	while play.auto_log.size() <= bar._log.visible_lines():
+		MapPlayAuto.note(play, "Sorties — Mar Tirreno")
+	bar._signature = ""
+	bar._mirror()
+	assert_true(bar._log_seal.visible, "the seat's chrome offers the log door")
+	assert_eq(
+		bar._log_caption.text,
+		"LOG +%d" % bar._log.held_back(),
+		"the caption counts the lines the plate holds back"
+	)
+
+
+func test_a_quiet_seat_offers_no_log_door() -> void:
+	var bar: AutoBar = screen.hud.auto_bar
+	bar._signature = ""
+	bar._mirror()
+	assert_false(bar._log_seal.visible, "no news, no log door")
+	assert_false(bar._log.sheet_open(), "and nothing opens")
+
+
+## Labels the plate actually prints (the box holds nothing else).
+func _printed(plate: AutoLogPlate) -> int:
+	var shown: int = 0
+	for child: Node in plate._box.get_children():
+		if child is Label:
+			shown += 1
+	return shown
+
+
+## The sheet's rows in print order, without the empty notice it keeps.
+func _sheet_rows(sheet: AutoLogSheet) -> Array[String]:
+	var rows: Array[String] = []
+	for child: Node in sheet._rows.get_children():
+		if child is Label and child != sheet._empty:
+			rows.append((child as Label).text)
+	return rows
+
+
 # --- the plaque and its prompt -----------------------------------------------
 
 

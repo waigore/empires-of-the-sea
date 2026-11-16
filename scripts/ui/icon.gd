@@ -52,6 +52,8 @@ func _draw() -> void:
 			_draw_pause(center, radius)
 		"auto":
 			_draw_helm(center, radius)
+		"scroll":
+			_draw_scroll(center, radius)
 		_:
 			draw_circle(center, radius * 0.6, tint)
 
@@ -323,4 +325,23 @@ func _draw_helm(center: Vector2, radius: float) -> void:
 			center + direction * radius * 0.2,
 			center + direction * radius * 1.0,
 			tint, maxf(1.0, radius * 0.11), true
+		)
+
+
+## A rolled despatch: the Auto seat's action log (wiki: auto-mode § Pacing).
+func _draw_scroll(center: Vector2, radius: float) -> void:
+	var half := Vector2(radius * 0.62, radius * 0.78)
+	var body := Rect2(center - half, half * 2.0)
+	draw_rect(body, tint, false, maxf(1.0, radius * 0.12), true)
+	# The two rolls the sheet is wound on, at its head and its foot.
+	var roll: float = radius * 0.2
+	draw_circle(Vector2(center.x, body.position.y), roll, tint)
+	draw_circle(Vector2(center.x, body.end.y), roll, tint)
+	# Three lines of writing, so the seal reads as a despatch and not a page.
+	for i in 3:
+		var y: float = body.position.y + body.size.y * (0.32 + 0.18 * float(i))
+		draw_line(
+			Vector2(body.position.x + body.size.x * 0.22, y),
+			Vector2(body.end.x - body.size.x * 0.22, y),
+			tint, maxf(1.0, radius * 0.08), true
 		)
