@@ -8,7 +8,11 @@ extends RefCounted
 
 ## `by_region` holds each region's live roster (the caller's array is mutated).
 ## `context` carries the court's `hostile` war query plus an optional `seed`, so
-## peace never spills blood. Returns one entry per battle with its `region`.
+## peace never spills blood. `context["ids"]` is the crown's id cursors — one
+## dictionary shared by every region's pass, so a garrison the rules reform takes
+## an army id and a regiment id no standard or man in any chart wears
+## (wiki: military-armies § Split and combine). Returns one entry per battle with
+## its `region`.
 static func resolve_region_turn(
 	world: WorldMap,
 	by_region: Dictionary,

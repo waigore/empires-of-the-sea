@@ -15,6 +15,14 @@ const MINOR_ERA: int = 1
 
 ## Restores 20% (ceil, at least one, never above the initial count) of the
 ## defender's starting regiments as the era's most advanced infantry.
+##
+## The reformed standard and its men are new instances, so they take their ids
+## from the crown's own cursors (`context["ids"]`, seeded by the map layer from
+## the saved `next_army` / `next_regiment`). A pass with no cursors — a battle
+## simulation or a hand-built roster — falls back to the roster's own scan. A
+## scan alone is not enough on the map: a region's roster never holds another
+## chart's ids, so minting above the local maximum reuses an id that is still
+## standing elsewhere, and the next split or muster hands out the same one.
 static func recover(
 	armies: Array[ArmyState], province: int, defender: int, initial: int,
 	context: Dictionary = {}
@@ -26,13 +34,23 @@ static func recover(
 	var types: Array[String] = []
 	for _index in count:
 		types.append(type_id)
+	var army_id: int = ArmyCommand.next_army_id(armies)
+	var first_unit: int = ArmyCommand.next_unit_number(armies)
+	var cursors: Dictionary = context.get("ids", {}) as Dictionary
+	if not cursors.is_empty():
+		# Above both the cursor and everything still standing, so a stale cursor
+		# can never mint an id a live army already wears.
+		army_id = maxi(int(cursors.get("army", army_id)), army_id)
+		first_unit = maxi(int(cursors.get("regiment", first_unit)), first_unit)
+		cursors["army"] = army_id + 1
+		cursors["regiment"] = first_unit + count
 	var army := ArmyState.muster(
-		ArmyCommand.next_army_id(armies),
+		army_id,
 		defender,
 		province,
 		false,
 		types,
-		ArmyCommand.next_unit_number(armies)
+		first_unit
 	)
 	armies.append(army)
 	return {"count": count, "type": type_id}
