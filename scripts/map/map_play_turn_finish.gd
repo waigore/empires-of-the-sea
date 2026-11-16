@@ -178,7 +178,7 @@ static func _begin_layers(play: PlaySession) -> void:
 	play.army_layer.begin_turn(play.world)
 	MapPlayHomeMerge.settle_seats(play)
 	play.last_falls.clear()
-	MapPlayFleetIntel.refresh_visibility(play)
+	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
 
 
@@ -208,7 +208,7 @@ static func _crown_ledger(play: PlaySession, book: TurnBook) -> void:
 	# The new turn opens the crown's watch: a rival squadron still under the same
 	# eye that saw her last turn is read now, and her weight reaches the markers
 	# (wiki: ships-and-naval § Sighted strength).
-	MapPlayFleetIntel.refresh_visibility(play)
+	MapPlayFleets.refresh_visibility(play)
 	book.year = TurnTime.year_for_turn(play.turn)
 	if play.observer_mode:
 		AiTurnLog.apply_feeding(play, book.economy_report)

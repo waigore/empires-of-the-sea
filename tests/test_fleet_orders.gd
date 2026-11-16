@@ -265,12 +265,12 @@ func test_enemy_markers_follow_fog_intel() -> void:
 
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	assert_false(enemy.visible)
 
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	assert_true(enemy.visible)
 
 
@@ -283,20 +283,20 @@ func test_a_rivals_strength_waits_for_the_watch_to_close() -> void:
 	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 
 	assert_true(enemy.visible, "she is under the crown's eye")
 	assert_false(enemy.strength_known, "a first sighting gives up no weight")
 	assert_false(_screen.play.naval_intel.is_revealed(fleet.id, _screen.play.region_index))
 
 	_screen.play.turn += 1
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 
 	assert_true(enemy.strength_known, "still in view next turn, her weight is read")
 	assert_true(_screen.play.naval_intel.is_revealed(fleet.id, _screen.play.region_index))
 
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 
 	assert_false(enemy.strength_known, "out of sight is out of knowledge")
 	assert_false(_screen.play.naval_intel.is_revealed(fleet.id, _screen.play.region_index),
@@ -313,7 +313,7 @@ func test_a_rebuilt_marker_keeps_the_watch() -> void:
 	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 
 	_screen.ship_layer.rebuild_markers()
 	var unread: Ship = _screen.ship_layer.ship_for(fleet)
@@ -321,7 +321,7 @@ func test_a_rebuilt_marker_keeps_the_watch() -> void:
 	assert_false(unread.strength_known, "a rebuilt marker still flies *")
 
 	_screen.play.turn += 1
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	_screen.ship_layer.rebuild_markers()
 	var read: Ship = _screen.ship_layer.ship_for(fleet)
 	assert_not_null(read)
@@ -337,7 +337,7 @@ func test_a_rebuilt_marker_stays_under_the_fog() -> void:
 	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	assert_false(enemy.visible, "the fog keeps her off the chart")
 
 	_screen.ship_layer.rebuild_markers()
@@ -355,7 +355,7 @@ func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
 	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	_screen.ship_layer.select(enemy)
 	var block: FleetStrengthSection = _screen.hud._fleet_panel._strength
 
@@ -368,7 +368,7 @@ func test_a_sighted_rivals_dossier_withholds_her_maths() -> void:
 	assert_true(block._strength.text.contains("strength"), block._strength.text)
 
 	_screen.play.turn += 1
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	MapPlayFleets.show_dossier(_screen.play, fleet)
 
 	assert_true(block._strength.text.contains("strength ="), block._strength.text)
@@ -386,9 +386,9 @@ func test_a_read_rival_keeps_her_weight_across_the_chart_switch() -> void:
 	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	_screen.play.turn += 1
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	assert_true(_screen.play.naval_intel.is_revealed(fleet.id, FactionCatalog.OLD_WORLD))
 
 	_screen.load_region(FactionCatalog.NEW_WORLD)
@@ -412,11 +412,11 @@ func test_the_watch_closing_names_the_read() -> void:
 	var tile: Vector2i = _screen.model.sea_zones[fleet.sea_zone].tiles[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 	var before: Array[String] = _toast_texts()
 
 	_screen.play.turn += 1
-	MapPlayFleetIntel.refresh_visibility(_screen.play)
+	MapPlayFleets.refresh_visibility(_screen.play)
 
 	var named: String = ""
 	for text: String in _toast_texts():

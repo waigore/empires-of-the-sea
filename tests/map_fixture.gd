@@ -194,7 +194,7 @@ static func suite_reset(
 	# re-read from the restored fog tables rather than repainted.
 	MapPlaySetup.build_visibility(play)
 	screen.overlay.snap_fog()
-	MapPlayFleetIntel.refresh_visibility(play)
+	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
 	MapPlaySetup.refresh_after_load(play)
 

@@ -27,7 +27,7 @@ static func on_crossed(play: PlaySession, fleet: FleetState, result: Dictionary)
 	var ship: Ship = play.ship_layer.ship_for(fleet)
 	if ship != null:
 		play.ship_layer.select(ship)
-		MapPlayFleetIntel.on_zone_entered(play, zone, ship)
+		MapPlayFleets.on_zone_entered(play, zone, ship)
 	# Contact follows the coast the arrival reveals (wiki: fog § Initial Visibility).
 	MapPlayDiplomacy.sync_first_contact(play)
 	MapPlayDiplomacy.refresh(play)

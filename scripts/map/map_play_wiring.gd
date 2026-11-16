@@ -90,7 +90,7 @@ static func _connect_bar(play: PlaySession, hud: GameHud) -> void:
 static func _connect_fleets(play: PlaySession, ships: ShipLayer) -> void:
 	ships.zone_entered.connect(
 		func(zone_id: int, ship: Ship) -> void:
-			MapPlayFleetIntel.on_zone_entered(play, zone_id, ship)
+			MapPlayFleets.on_zone_entered(play, zone_id, ship)
 	)
 	ships.ship_selected.connect(
 		func(ship: Ship) -> void: MapPlayFleets.select(play, ship)

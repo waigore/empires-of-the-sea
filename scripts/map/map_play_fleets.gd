@@ -2,13 +2,27 @@ class_name MapPlayFleets
 extends RefCounted
 ## Fleet selection, sail and dock orders. Naval rules stay in NavalMovement;
 ## this only drives PlaySession views. The crown's watch over rival squadrons
-## (fog, sighted strength, charted coast) lives on MapPlayFleetIntel, and the
+## (fog, sighted strength, charted coast) lives on MapPlayFleetIntel — thin
+## forwards below keep call sites off that module's impact fan-out — and the
 ## capital shipyard's slip rows and hull orders on MapPlayFleetYard.
 
 
 ## Rival naval turn — see MapPlayFleetAi (docs/ai.md).
 static func run_ai(play: PlaySession) -> Array[Dictionary]:
 	return MapPlayFleetAi.run(play)
+
+
+## Forwards: the crown's watch (see MapPlayFleetIntel).
+static func view_filter(play: PlaySession) -> Callable:
+	return MapPlayFleetIntel.view_filter(play)
+
+
+static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void:
+	MapPlayFleetIntel.on_zone_entered(play, zone_id, ship)
+
+
+static func refresh_visibility(play: PlaySession) -> void:
+	MapPlayFleetIntel.refresh_visibility(play)
 
 
 static func select(play: PlaySession, ship: Ship) -> void:
