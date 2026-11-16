@@ -85,7 +85,9 @@ static func _seat(
 
 
 ## The estates ledger's own snapshot for this chart, so a row's yield is the
-## figure the extraction would pay, never a second sum.
+## figure the extraction would pay, never a second sum. The crown's sealed
+## coasts are read too: a blockaded colony's estates reach the crown by road
+## only (wiki: capital-and-connectivity § Blockade).
 static func _estates(
 	play: PlaySession,
 	model: MapModel,
@@ -98,7 +100,7 @@ static func _estates(
 		return {}
 	return ImprovementLedger.snapshot(
 		model, works, MapPlayCharts.crews(play, region), play.stockpile(), owner, seat,
-		play.tech_caps()
+		play.tech_caps(), MapPlayBlockades.crown(play)
 	)
 
 

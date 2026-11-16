@@ -7,6 +7,10 @@ extends RefCounted
 
 
 ## One row per owned resource tile, grouped by province, plus kingdom totals.
+## `blockade` is the court's own sealed coasts: a blockaded port province is no
+## landfall, so its estates reach the crown by road only and read as cut (wiki:
+## capital-and-connectivity § Blockade). Omitted, the reading is the unsealed
+## chart the rules fall back to.
 static func snapshot(
 	model: MapModel,
 	works: LandWorks,
@@ -14,7 +18,8 @@ static func snapshot(
 	stockpile: Dictionary,
 	owner: int,
 	capital_tile: Vector2i,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	blockade: Blockades = null
 ) -> Dictionary:
 	var result: Dictionary = {
 		"estates": [] as Array[Dictionary],
@@ -36,7 +41,7 @@ static func snapshot(
 	if model == null or works == null:
 		return result
 	var resolved: Dictionary = LandConnectivity.resolve(
-		model, works, owner, capital_tile
+		model, works, owner, capital_tile, blockade
 	)
 	var connected: Dictionary = resolved.get("tiles", {}) as Dictionary
 	var idle: Array[CivilianState] = ImprovementOrders.idle_builders(units, owner)
@@ -51,13 +56,16 @@ static func snapshot(
 		)
 		if tiles.is_empty():
 			continue
+		# The row names the seal rather than a missing road, so a crown with a
+		# blockaded colony never lays a road it does not need (REQ-P2-03).
+		var sealed: bool = blockade != null and blockade.cuts(model.region_id, province.id)
 		var rows: Array[Dictionary] = []
 		for tile: Vector2i in tiles:
 			rows.append(EstateRows.project(
 				model, works, units, stockpile, owner, tile,
 				model.resource_at(tile.x, tile.y), province.id,
 				connected.get(model.index_of(tile.x, tile.y), {}) as Dictionary,
-				resolved, idle, tech_caps, gaps
+				resolved, idle, tech_caps, gaps, sealed
 			))
 		rows.sort_custom(_row_before)
 		groups.append(_group(province, rows))
@@ -83,22 +91,25 @@ static func estate_row(
 	owner: int,
 	tile: Vector2i,
 	capital_tile: Vector2i,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	blockade: Blockades = null
 ) -> Dictionary:
 	if not MineralSurvey.is_known(model, works, owner, tile):
 		return {}
+	var province_id: int = model.province_at(tile.x, tile.y)
 	var resolved: Dictionary = LandConnectivity.resolve(
-		model, works, owner, capital_tile
+		model, works, owner, capital_tile, blockade
 	)
 	var connected: Dictionary = resolved.get("tiles", {}) as Dictionary
 	return EstateRows.project(
 		model, works, units, stockpile, owner, tile,
-		model.resource_at(tile.x, tile.y), model.province_at(tile.x, tile.y),
+		model.resource_at(tile.x, tile.y), province_id,
 		connected.get(model.index_of(tile.x, tile.y), {}) as Dictionary,
 		resolved, ImprovementOrders.idle_builders(units, owner), tech_caps,
 		LandConnectivity.network_gaps(
 			model, owner, resolved.get("network", {}) as Dictionary
-		)
+		),
+		blockade != null and blockade.cuts(model.region_id, province_id)
 	)
 
 

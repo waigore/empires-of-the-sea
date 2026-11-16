@@ -23,6 +23,9 @@ const ROUTE_WIDTH: float = 2.0
 
 var works: LandWorks = null
 var capital_tile: Vector2i = CivilianState.NO_TILE
+## The crown's sealed coasts this turn, so a blockaded colony paints cut until
+## the war lifts (wiki: capital-and-connectivity § Blockade).
+var blockade: Blockades = null
 ## State the projection was baked from, so a re-seat of the same save redraws
 ## nothing (`source_key`).
 var _baked_key: int = 0
@@ -36,13 +39,15 @@ func build(
 	p_works: LandWorks,
 	p_owner: int,
 	p_visibility: VisibilityModel = null,
-	p_capital_tile: Vector2i = CivilianState.NO_TILE
+	p_capital_tile: Vector2i = CivilianState.NO_TILE,
+	p_blockade: Blockades = null
 ) -> void:
 	model = p_model
 	works = p_works
 	faction = p_owner
 	visibility = p_visibility
 	capital_tile = p_capital_tile
+	blockade = p_blockade
 	refresh()
 
 
@@ -59,15 +64,23 @@ func refresh() -> void:
 		_baked = false
 		queue_redraw()
 		return
-	var key: int = source_key(works, capital_tile)
+	var key: int = source_key(works, capital_tile) ^ _seal_key()
 	if _baked and key == _baked_key:
 		return
 	_baked_key = key
 	_baked = true
 	survey = CrownRoadSurvey.snapshot(
-		model, works, faction, capital_tile, visibility
+		model, works, faction, capital_tile, visibility, blockade
 	)
 	queue_redraw()
+
+
+## The seals the projection was read under: a war that opens or lifts on a coast
+## moves the reading without moving a single work, so the key carries it.
+func _seal_key() -> int:
+	if blockade == null:
+		return 0
+	return hash([blockade.sealed, blockade.sea_cut])
 
 
 ## One hover line for a province: what links it, or how far the road still has

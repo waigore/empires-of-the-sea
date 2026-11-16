@@ -27,13 +27,17 @@ const STATE_LABELS: Dictionary = {
 
 
 ## Runs per state in tile coordinates, the province readings, the routes to
-## lay, and the tile/province counts each state holds.
+## lay, and the tile/province counts each state holds. `blockade` is the court's
+## own sealed coasts: a sealed harbour is no landfall, so the province it holds
+## reads cut and its row names the seal instead of a road still to lay (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03).
 static func snapshot(
 	model: MapModel,
 	works: LandWorks,
 	owner: int,
 	capital_tile: Vector2i,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null,
+	blockade: Blockades = null
 ) -> Dictionary:
 	var result: Dictionary = {
 		"runs": _empty_runs(),
@@ -45,11 +49,14 @@ static func snapshot(
 	}
 	if model == null or works == null or owner < 0:
 		return result
-	var resolved: Dictionary = LandConnectivity.resolve(model, works, owner, capital_tile)
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, owner, capital_tile, blockade
+	)
 	var states: Dictionary = _tile_states(model, resolved, owner, visibility)
 	_merge_runs(result, model, states)
 	_collect_provinces(
-		result, model, works, owner, capital_tile, resolved, states, visibility
+		result, model, works, owner, capital_tile, resolved, states, visibility,
+		blockade
 	)
 	return result
 
@@ -69,6 +76,15 @@ static func summary_text(entry: Dictionary) -> String:
 		return "Crown road: linked by road"
 	if state == STATE_TOWN:
 		return _town_text(entry)
+	# A sealed harbour is a rule, not a missing road, so the row names the seal
+	# first and the road still to lay beside it (REQ-P2-03).
+	if bool(entry.get("blockaded", false)):
+		var sealed_gap: int = int(entry.get("gap", -1))
+		if sealed_gap > 0:
+			return "Crown road: harbour blockaded · %d road tile%s from the crown" % [
+				sealed_gap, "" if sealed_gap == 1 else "s"
+			]
+		return "Crown road: harbour blockaded, no sea path to the crown"
 	var gap: int = int(entry.get("gap", -1))
 	if gap < 0:
 		return "Crown road: no owned-land route to the crown"
@@ -173,7 +189,8 @@ static func _collect_provinces(
 	capital_tile: Vector2i,
 	resolved: Dictionary,
 	states: Dictionary,
-	visibility: VisibilityModel
+	visibility: VisibilityModel,
+	blockade: Blockades = null
 ) -> void:
 	var provinces: Array = result["provinces"]
 	var routes: Array = result["routes"]
@@ -193,12 +210,14 @@ static func _collect_provinces(
 		)
 		var town_index: int = -1 if town.x < 0 else model.index_of(town.x, town.y)
 		var state: String = String(states.get(town_index, STATE_CUT))
+		var sealed: bool = blockade != null and blockade.cuts(model.region_id, province.id)
 		var gap: int = 0 if state != STATE_CUT else int(gaps.get(town_index, -1))
 		var entry: Dictionary = {
 			"id": province.id,
 			"name": province.name,
 			"state": state,
 			"linked": state != STATE_CUT,
+			"blockaded": sealed,
 			"gap": gap,
 			"town": town,
 			"town_level": province.town_development,

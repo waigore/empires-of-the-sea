@@ -57,8 +57,13 @@ static func build_hud(play: PlaySession) -> void:
 	# whole works table (the world already reaches it through the ship layer).
 	play.economy.works_by_region = play.civilian_layer.works_regions
 	# A blockade severs the harvest, so the ledger prices it against the court's
-	# own sealed ports (wiki: capital-and-connectivity § Blockade).
+	# own sealed ports (wiki: capital-and-connectivity § Blockade). The estates
+	# ledger and its rows read the same seals, so a sealed colony's row is the
+	# yield the Extraction phase pays, never a second sum (REQ-P2-03).
 	play.economy.blockade_source = func() -> Blockades: return MapPlayBlockades.crown(play)
+	play.improvements.blockade_source = (
+		func() -> Blockades: return MapPlayBlockades.crown(play)
+	)
 	hud.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
@@ -151,8 +156,9 @@ static func build_defence_lens(play: PlaySession) -> void:
 	lens.watch(play.overlay)
 
 
-## Crown-road reading follows the region, the works and the fog. The projection
-## is one connectivity pass, so it still runs on events only, never per frame.
+## Crown-road reading follows the region, the works, the fog and the war's
+## sealed coasts. The projection is one connectivity pass, so it still runs on
+## events only, never per frame.
 static func build_crown_road_lens(play: PlaySession) -> void:
 	var lens: CrownRoadLens = play.crown_lens
 	if lens == null and play.host != null:
@@ -162,7 +168,7 @@ static func build_crown_road_lens(play: PlaySession) -> void:
 		return
 	lens.build(
 		play.model, play.land_works, play.player_faction, play.visibility,
-		play.capital_tile
+		play.capital_tile, MapPlayBlockades.crown(play)
 	)
 	lens.watch(play.civilian_layer, play.overlay)
 
