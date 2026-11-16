@@ -3,7 +3,7 @@ extends RefCounted
 ## The crown's army, regiment by regiment: every regiment it fields in both
 ## charts, the standard it marches under, its class and its own condition
 ## (wiki: military-armies § The muster roll, § The regiments behind an army;
-## DR-20261116-07). Pure read-only projection of the layer rosters — it never
+## DR-20261116-16). Pure read-only projection of the layer rosters — it never
 ## musters, detaches, dismisses or marches a regiment (REQ-P3-02, REQ-P3-03).
 ##
 ## No number here is recomputed: a regiment's line is
@@ -354,21 +354,11 @@ static func _reading_rank(reading: String) -> int:
 ## orders them by their number and not by their spelling: unit_9 reads before
 ## unit_10. An id that carries no number falls back to its text.
 static func _unit_before(a: String, b: String) -> bool:
-	var left: int = _unit_number(a)
-	var right: int = _unit_number(b)
+	var left: int = ArmyCommand.unit_number(a)
+	var right: int = ArmyCommand.unit_number(b)
 	if left >= 0 and right >= 0 and left != right:
 		return left < right
 	return a < b
-
-
-## The number in a regiment instance id, or -1 when the id is not `unit_<n>`.
-static func _unit_number(regiment_id: String) -> int:
-	if not regiment_id.begins_with("unit_"):
-		return -1
-	var tail: String = regiment_id.substr(5)
-	if not tail.is_valid_int():
-		return -1
-	return tail.to_int()
 
 
 ## The seat leads its chart, then the field armies by id, so the same muster

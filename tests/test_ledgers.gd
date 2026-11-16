@@ -3457,7 +3457,7 @@ func test_a_visit_frames_her_squadron_and_sets_the_sheet_aside() -> void:
 # --- the crown's army, regiment by regiment ---
 
 ## The crown's army, regiment by regiment (wiki: military-armies § The muster
-## roll, § The regiments behind an army; DR-20261116-07): the projection reads
+## roll, § The regiments behind an army; DR-20261116-16): the projection reads
 ## every regiment the crown fields in both charts, standard by standard, and the
 ## sheet drives it — the muster roll's door, the readings, back and the registry.
 ## One Godot boot: the projection cases read the muster fixture, the sheet cases

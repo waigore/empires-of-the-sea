@@ -274,7 +274,7 @@ suites = [
   "test_ledgers.gd",
 ]
 
-# The crown's army (DR-20261116-07): the regiment-by-regiment projection and its
+# The crown's army (DR-20261116-16): the regiment-by-regiment projection and its
 # sheet share the ledgers boot — the projection on the muster fixture and the
 # sheet on the shared map screen — so an army reading change never pulls the army
 # rules' suites or the ui catch-all's.
@@ -802,7 +802,7 @@ domain = "navy"
 match = "scripts/ui/naval_ledger_*.gd*"
 domain = "navy"
 
-# The crown's army (DR-20261116-07): the regiment-by-regiment projection and its
+# The crown's army (DR-20261116-16): the regiment-by-regiment projection and its
 # sheet, the muster roll's second door. Both ride the ledgers boot — the
 # projection on the muster fixture and the sheet on the shared map screen — so an
 # army reading change never pulls the army rules' suites or the ui catch-all's.

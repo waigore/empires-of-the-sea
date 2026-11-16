@@ -250,6 +250,11 @@ func begin_turn(world: WorldMap = null) -> void:
 ## Resolves land battles in every region: a battle must not wait for the player
 ## to open that map (wiki: map-topology § two regions); `context["hostile"]` is
 ## the court's war query so peace never spills blood.
+##
+## The pass may mint a garrison (wiki: combat § Garrison recovery), so the
+## crown's own id cursors travel with it: one army id and one regiment id per
+## instance, never a number a standard or a man already wears in the other chart
+## (wiki: military-armies § Split and combine).
 func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Dictionary]:
 	var by_region: Dictionary = {}
 	for index in world.region_count():
@@ -259,10 +264,28 @@ func resolve_battles(world: WorldMap, context: Dictionary = {}) -> Array[Diction
 		else:
 			region_armies.assign(regions.value(index, []))
 		by_region[index] = region_armies
-	var all: Array[Dictionary] = ArmyBattles.resolve_region_turn(world, by_region, generals, context)
+	var pass_context: Dictionary = context.duplicate()
+	var ids: Dictionary = {"army": next_army, "regiment": next_regiment}
+	pass_context["ids"] = ids
+	var all: Array[Dictionary] = ArmyBattles.resolve_region_turn(
+		world, by_region, generals, pass_context
+	)
+	next_army = maxi(next_army, int(ids.get("army", next_army)))
+	next_regiment = maxi(next_regiment, int(ids.get("regiment", next_regiment)))
 	for index in world.region_count():
 		var region_armies: Array[ArmyState] = []
 		region_armies.assign(by_region.get(index, []))
+		# Whatever the pass minted, a cursor never falls behind a live instance:
+		# the next split and the next muster hand out a number no standard or
+		# man wears (a save written before the cursors travelled keeps its ids).
+		for army: ArmyState in region_armies:
+			if army == null:
+				continue
+			next_army = maxi(next_army, army.id + 1)
+			for regiment_id: String in army.regiments:
+				var number: int = ArmyCommand.unit_number(regiment_id)
+				if number >= 0:
+					next_regiment = maxi(next_regiment, number + 1)
 		regions.set_region(index, region_armies)
 		if model != null and index == model.region_id:
 			armies = region_armies
