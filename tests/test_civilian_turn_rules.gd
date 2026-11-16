@@ -2250,6 +2250,48 @@ func test_rail_builder_lays_rail_on_a_road() -> void:
 	assert_eq(field__works.transport_at(field__model, tile), LandWorks.TRANSPORT_RAIL)
 
 
+## Every order that charges a price also says what it buys: a road, a harbour and
+## a railroad name the transport they land on the crew's own tile, which is the
+## ceiling the Extraction formula puts on the estate there (wiki:
+## extraction-and-improvements § Extraction; REQ-P5-06, REQ-P2-03;
+## DR-20261117-05). The orders a ledger already prices carry no second line.
+func test_the_transport_orders_name_the_path_they_land() -> void:
+	var tile := Vector2i(0, 1)
+	var engineer := _add("engineer", tile)
+	assert_eq(
+		String(_option(engineer, "build_road").get("preview_text", "")),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"a first road caps the tile at one"
+	)
+	assert_eq(
+		String(_option(engineer, "build_fort").get("preview_text", "")),
+		"",
+		"the wall is priced on the walls sheet, not here"
+	)
+	field__works.set_transport(field__model, tile, LandWorks.TRANSPORT_ROAD)
+	assert_eq(
+		String(_option(engineer, "build_road", {"road_construction": true}).get(
+			"preview_text", ""
+		)),
+		"Transport 2 — an estate here gathers up to 2 a turn",
+		"an improved road lifts the path a step"
+	)
+	var rail := _add("rail_builder", tile)
+	assert_eq(
+		String(_option(rail, "build_rail", {"early_steam_engine": true}).get(
+			"preview_text", ""
+		)),
+		"Transport 4 — an estate here gathers up to 4 a turn",
+		"a railroad lands the top transport"
+	)
+	var harbour := _add("engineer", field_Fixture.COAST_TILE)
+	assert_eq(
+		String(_option(harbour, "build_port").get("preview_text", "")),
+		"Landfall · Transport 4 — an estate here gathers up to 4 a turn",
+		"a harbour is a landfall carrying the rail's transport"
+	)
+
+
 func test_rail_needs_an_existing_road_and_an_unrailed_tile() -> void:
 	var tile := Vector2i(0, 1)
 	var rail := _add("rail_builder", tile)
@@ -2817,6 +2859,17 @@ func _validate(
 		field__model, unit, action, field__works, _units, _stock, _view,
 		CivilianState.NO_TILE, {}, tech_unlocked
 	)
+
+## One order in the crew's own list, as the dossier reads it.
+func _option(
+	unit: CivilianState, action: String, tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	for option: Dictionary in CivilianWork.options(
+		field__model, unit, field__works, _units, _stock, _view, {}, tech_unlocked
+	):
+		if String(option["action"]) == action:
+			return option
+	return {}
 
 
 func _cost_text(cost: Dictionary) -> String:

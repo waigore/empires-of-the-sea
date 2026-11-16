@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261117-04; #846–#871 live (REQ-P2-02).
+Audited through DR-20261117-05; #846–#874 live (REQ-P2-02).
 
 ## Already live
 
@@ -37,17 +37,16 @@ Audited through DR-20261117-04; #846–#871 live (REQ-P2-02).
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
 | Estate previews | `EstateRows.preview_text`, DR-20261117-03 |
+| Walls/wards/transport previews | `WallLedger`/`HospitalLedger`; `CivilianWorkPlan`, DR-20261117-05 |
 
 ## Gaps (ranked)
 
-1. **Civilian previews beyond estates** — ports/roads/forts/hospitals/rail
-   price no next level (estates do, DR-20261117-03).
-2. **Quick Battle multi-lane/collapse** — one lane; design call first
+1. **Quick Battle multi-lane/collapse** — one lane; design call first
    (DR-10-24).
 
 ## Next pick
 
-Other-work previews; else P5/P1 polish.
+P5/P1 polish; else the planner's on-chart per-tile preview seed.
 
 ## Blocked
 

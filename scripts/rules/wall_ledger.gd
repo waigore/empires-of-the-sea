@@ -163,7 +163,38 @@ static func _row(
 	row["next_level"] = next
 	row["next_name"] = FortRules.level_name(next)
 	row["note"] = _note(state, next, cost_text, turns, refusal, crew)
+	# The raise is priced, so the prize is too: the soak and the battery the
+	# next wall brings, read off the same fort table the order charges. A
+	# finished wall and one an Engineer is already raising have no level to
+	# price (REQ-P2-03, REQ-P5-06; DR-20261117-05).
+	row["preview_text"] = (
+		preview_text(level, next)
+		if state != STATE_RAISED and state != STATE_AT_WORK
+		else ""
+	)
 	return row
+
+
+## What one more wall buys, in the sheet's own words: the soak it stands behind
+## and the battery it mounts, with the step the crown pays for. The figures are
+## `FortRules`' own table, the one combat resolves against, so a row can never
+## sell a wall the battle would not honour (REQ-P2-03). Empty at the top level:
+## there is no raise to price.
+static func preview_text(level: int, next: int) -> String:
+	if level >= FortRules.MAX_LEVEL:
+		return ""
+	var pieces: int = FortRules.guns(next)
+	var add_guns: int = pieces - FortRules.guns(level)
+	var add_hp: int = roundi(FortRules.wall_hp(next) - FortRules.wall_hp(level))
+	return "L%d soaks %d wall hp with %d gun%s (+%d hp, +%d gun%s)" % [
+		next,
+		roundi(FortRules.wall_hp(next)),
+		pieces,
+		"" if pieces == 1 else "s",
+		add_hp,
+		add_guns,
+		"" if add_guns == 1 else "s",
+	]
 
 
 static func _note(

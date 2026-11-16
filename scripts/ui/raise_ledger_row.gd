@@ -21,6 +21,7 @@ var _name: Label = null
 var _chip: Label = null
 var _place: Label = null
 var _note: Label = null
+var _preview: Label = null
 var _raise: Button = null
 
 
@@ -94,6 +95,14 @@ func _build() -> void:
 	_note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	info.add_child(_note)
 
+	# What the raise buys, in the crown's gold under the price, the way the
+	# estates ledger prints its own payoff line (REQ-P5-06; DR-20261117-05).
+	_preview = Label.new()
+	_preview.add_theme_font_size_override("font_size", 11)
+	_preview.add_theme_color_override("font_color", Palette.GOLD)
+	_preview.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(_preview)
+
 	_raise = Button.new()
 	_raise.text = "Raise"
 	_raise.custom_minimum_size = Vector2(72 if compact else 78, 42 if compact else 36)
@@ -120,6 +129,10 @@ func _fill() -> void:
 	)
 	_place.text = _place_text()
 	_note.text = String(data.get("note", ""))
+	# The rules leave `preview_text` empty where there is no raise to price
+	# (a finished work, or a crew already on it), so a row never invents one.
+	_preview.text = String(data.get("preview_text", ""))
+	_preview.visible = not _preview.text.is_empty()
 	_raise.visible = String(data.get("state", "")) == RaiseLedger.STATE_READY
 	_raise.tooltip_text = _raise_tooltip()
 

@@ -3069,6 +3069,40 @@ func test_a_bare_shore_names_the_step_it_waits_on_and_its_price() -> void:
 	)
 
 
+## The sheet prices the raise, so it prices the prize too: the soak and the
+## battery the next wall brings, read off the very fort table combat resolves
+## against (REQ-P2-03, REQ-P5-06; DR-20261117-05).
+func test_a_bare_shore_prices_the_wall_it_offers() -> void:
+	var snapshot: Dictionary = WallLedger.snapshot(_wall_regions(_engineers()), 0)
+	var home: Dictionary = _wall_row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(
+		String(home["preview_text"]),
+		"L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)",
+		"an open shore reads the first wall whole"
+	)
+	var overseas: Dictionary = _wall_row(snapshot, FactionCatalog.NEW_WORLD)
+	assert_eq(
+		String(overseas["preview_text"]),
+		"L2 soaks 20 wall hp with 2 guns (+10 hp, +1 gun)",
+		"a wood wall's step names only what the level adds"
+	)
+
+
+## No line where there is no raise: a citadel has no level left, and a wall an
+## Engineer is already raising has no press to price.
+func test_a_finished_wall_and_a_crew_at_work_price_no_raise() -> void:
+	var raised: Dictionary = _raised()
+	assert_eq(String(raised["state"]), WallLedger.STATE_RAISED)
+	assert_eq(String(raised["preview_text"]), "", "a citadel owes nothing")
+	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", TOWN_TILE)
+	engineer.start_work("build_fort", TOWN_TILE, 2, TOWN_TILE, {"fort_level": 2})
+	var working: Dictionary = _wall_row(
+		WallLedger.snapshot(_wall_regions([engineer]), 0), FactionCatalog.OLD_WORLD
+	)
+	assert_eq(String(working["state"]), WallLedger.STATE_AT_WORK)
+	assert_eq(String(working["preview_text"]), "", "the works in hand are the news")
+
+
 func test_a_wall_without_the_study_is_locked_and_names_it() -> void:
 	var snapshot: Dictionary = WallLedger.snapshot(
 		_wall_regions(_engineers(), {"mine_engineering": false}), 0
@@ -3262,6 +3296,46 @@ func test_wall_the_map_hooks_guard_a_missing_session() -> void:
 	MapPlayWalls.raise(screen.play, FactionCatalog.OLD_WORLD, -1)
 	MapPlayWalls.raise(screen.play, 99, 0)
 	assert_eq(int(MapPlayWalls.snapshot(screen.play).get("total", 0)), _crown_walls())
+
+
+## The sheet prints the payoff under the price, in the crown's gold, and hides
+## the line where the rules price no raise — the row invents no figure of its
+## own (REQ-P3-02, REQ-P5-06; DR-20261117-05).
+func test_a_raise_row_prints_the_payoff_the_rules_hand_it() -> void:
+	var wall := WallLedgerRow.new()
+	add_child(wall)
+	wall.setup({
+		"id": 3,
+		"region": FactionCatalog.OLD_WORLD,
+		"region_label": "Old World",
+		"name": "Wessex",
+		"level": 0,
+		"level_text": "—",
+		"state": WallLedger.STATE_READY,
+		"note": "Next: wood fort · 3 lumber + 3 bronze · 1 turn",
+		"preview_text": "L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)",
+		"line": "No fort",
+	})
+	assert_true(wall._preview.visible, "a raise the sheet offers carries its payoff")
+	assert_eq(wall._preview.text, "L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)")
+	assert_eq(wall._preview.get_theme_color("font_color"), Palette.GOLD)
+	wall.free()
+	var ward := HospitalLedgerRow.new()
+	add_child(ward)
+	ward.setup({
+		"id": 4,
+		"region": FactionCatalog.OLD_WORLD,
+		"region_label": "Old World",
+		"name": "Wessex",
+		"level": 2,
+		"level_text": "II",
+		"state": HospitalLedger.STATE_RAISED,
+		"note": "Fully warded — rest 55%, wear 65%, staff 4 food a turn.",
+		"preview_text": "",
+		"line": "General hospital · rest 55% · wear 65% · staff 4 food",
+	})
+	assert_false(ward._preview.visible, "a finished ward prices no raise")
+	ward.free()
 
 
 func test_back_and_the_key_close_the_walls_ledger() -> void:
@@ -4290,6 +4364,42 @@ func test_hospital_a_bare_shore_names_the_step_it_waits_on_and_its_price() -> vo
 		"Next: field hospital · 3 lumber + 2 fabric · 1 turn",
 		"the row names the ward, the price and the wait"
 	)
+
+
+## The ward's own arithmetic, priced before the crown pays: the rest, the wear
+## and the ration the next level brings, straight off the table the turn's rest
+## pass heals by (REQ-P2-03, REQ-P5-06; DR-20261117-05).
+func test_hospital_a_bare_shore_prices_the_ward_it_offers() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(hospital__regions(hospital__engineers()), 0)
+	var home: Dictionary = hospital__row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(
+		String(home["preview_text"]),
+		"L1 rests 40%, wear 80%, staff 2 food (+15% rest, -20% wear, +2 food)",
+		"an empty shore reads the first ward whole"
+	)
+	var overseas: Dictionary = hospital__row(snapshot, FactionCatalog.NEW_WORLD)
+	assert_eq(
+		String(overseas["preview_text"]),
+		"L2 rests 55%, wear 65%, staff 4 food (+15% rest, -15% wear, +2 food)",
+		"a field ward's step names only what the level adds"
+	)
+
+
+## No line where there is no raise: a general ward has no level left, and a ward
+## an Engineer is already raising has no press to price.
+func test_hospital_a_finished_ward_and_a_crew_at_work_price_no_raise() -> void:
+	var raised: Dictionary = hospital__raised()
+	assert_eq(String(raised["state"]), HospitalLedger.STATE_RAISED)
+	assert_eq(String(raised["preview_text"]), "", "a general ward owes nothing")
+	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", hospital_TOWN_TILE)
+	engineer.start_work(
+		"build_hospital", hospital_TOWN_TILE, 2, hospital_TOWN_TILE, {"hospital_level": 1}
+	)
+	var working: Dictionary = hospital__row(
+		HospitalLedger.snapshot(hospital__regions([engineer]), 0), FactionCatalog.OLD_WORLD
+	)
+	assert_eq(String(working["state"]), HospitalLedger.STATE_AT_WORK)
+	assert_eq(String(working["preview_text"]), "", "the works in hand are the news")
 
 
 func test_a_ward_without_the_study_is_locked_and_names_it() -> void:
