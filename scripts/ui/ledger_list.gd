@@ -52,6 +52,23 @@ static func heading(text: String) -> Label:
 	return UiRowBuilder.label(text, HEADING_PIXELS, Palette.GOLD_DIM)
 
 
+## A group heading with its own standing line under it: the force sheets print
+## where the standard stands and what it is doing above the regiments it flies
+## (wiki: military-armies § The regiments behind an army; ships-and-naval
+## § Ship combat and cargo stats). The dress is the same on every such sheet, so
+## it is written once here.
+static func standing_heading(title: String, standing: String) -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 1)
+	var label := heading(title)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(label)
+	var line := UiRowBuilder.label(standing, 10, Color(0.74, 0.68, 0.55, 0.85))
+	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(line)
+	return box
+
+
 ## Paints rows with no heading between them: one reading, printed straight down.
 static func flat(
 	list: VBoxContainer, keep: Control, rows: Array, row: Callable

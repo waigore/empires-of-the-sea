@@ -5,13 +5,12 @@ extends LedgerRow
 ## and dossier (wiki: ships-and-naval § Ship combat and cargo stats;
 ## DR-20261115-14). A hull's orders are her squadron's, so the row prints what is
 ## hers alone and the sheet headings carry the station. The skeleton, the tap and
-## the Visit door come from LedgerRow.
+## the Visit door come from LedgerRow; so do the two-line state column and the
+## place line every force row wears.
 
 signal visit_pressed(region: int, fleet_id: int)
 
 var _medallion: TextureRect = null
-var _standing: Label = null
-var _reading: Label = null
 
 
 func _build_icon() -> Control:
@@ -27,13 +26,7 @@ func _build_icon() -> Control:
 
 
 func _build_state(state: VBoxContainer) -> void:
-	state.add_theme_constant_override("separation", 3)
-	state.custom_minimum_size = Vector2(196, 0)
-	state.visible = not compact
-	_standing = UiRowBuilder.wrapped_line("", 11, Palette.TEXT)
-	state.add_child(_standing)
-	_reading = UiRowBuilder.wrapped_line("", 11, Palette.TEXT_DIM)
-	state.add_child(_reading)
+	_reading_column(state, 11, 196)
 
 
 func _fill() -> void:
@@ -43,15 +36,9 @@ func _fill() -> void:
 		Palette.GOLD if String(data.get("role", "")) == NavalLedger.READING_WARSHIP
 		else Palette.GOLD_DIM
 	)
-	var place: String = String(data.get("place", "In port"))
-	var reading: String = String(data.get("state", ""))
-	_detail.text = "%s  ·  %s" % [place, String(data.get("region_label", "Uncharted"))]
-	if compact:
-		_detail.text = "%s  ·  %s  ·  %s" % [
-			place, String(data.get("class", "")), String(data.get("region_label", "Uncharted"))
-		]
+	_place_detail(String(data.get("place", "In port")), String(data.get("class", "")))
 	_standing.text = String(data.get("line", ""))
-	_reading.text = reading
+	_reading.text = String(data.get("state", ""))
 	_visit.tooltip_text = "Open %s's squadron on the map" % String(data.get("fleet_title", "her"))
 
 
