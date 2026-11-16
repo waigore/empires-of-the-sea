@@ -7,7 +7,12 @@ extends CanvasLayer
 
 const SPEEDS: Array[float] = [1.4, 0.7, 0.3]
 const SPEED_LABELS: Array[String] = ["1×", "2×", "4×"]
-const MAX_LOG_LINES: int = 12
+## Turns the feed keeps. A merged turn is one record for every crown, so a turn
+## with a war in it raises rows by the dozen (T1 of a standard campaign: 41);
+## the feed scrolls through the turns it keeps instead of cutting a busy turn's
+## first rows, the way the Auto seat's log does (REQ-P5-05).
+const FEED_TURNS: int = 2
+const FEED_MIN_HEIGHT: float = 128.0
 
 var play: PlaySession = null
 var running: bool = true
@@ -21,6 +26,7 @@ var _standing: Label = null
 var _result: Label = null
 var _crowns: VBoxContainer = null
 var _log: Label = null
+var _log_caption: Label = null
 var _pause: Button = null
 var _step: Button = null
 var _speed: Button = null
@@ -122,10 +128,12 @@ func _build() -> void:
 		_add_card(faction)
 
 	box.add_child(MenuFrame.separator())
-	box.add_child(MenuFrame.caption("Recent orders"))
+	_log_caption = MenuFrame.caption("Recent orders")
+	_log_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_log_caption)
 	var log_scroll := ScrollContainer.new()
 	log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	log_scroll.custom_minimum_size = Vector2(0.0, 96.0)
+	log_scroll.custom_minimum_size = Vector2(0.0, FEED_MIN_HEIGHT)
 	box.add_child(log_scroll)
 	_log = Label.new()
 	_log.add_theme_font_size_override("font_size", 12)
@@ -212,6 +220,8 @@ func refresh() -> void:
 	for row: Dictionary in snap["rows"]:
 		_refresh_card(row)
 	_log.text = _recent_log()
+	if _log_caption != null:
+		_log_caption.text = _feed_caption()
 	_sync_controls()
 
 
@@ -274,23 +284,38 @@ func _short_name(name: String) -> String:
 	return "U. Provinces" if name == "United Provinces" else name
 
 
-## Two most recent resolved turns, newest order first.
+## The turns the feed keeps, newest row first, every row printed: the plate
+## scrolls rather than choosing which of a busy turn's orders a watcher may read
+## (REQ-P5-05). Rows keep the record's own order, so a turn reads diplomacy,
+## armies, fleets, economy, then the battles.
 func _recent_log() -> String:
 	if play.ai_turns.is_empty():
 		return "No orders recorded yet."
-	var lines: PackedStringArray = []
-	var first: int = maxi(play.ai_turns.size() - 2, 0)
+	var lines: PackedStringArray = PackedStringArray()
+	var first: int = maxi(play.ai_turns.size() - FEED_TURNS, 0)
 	for index in range(play.ai_turns.size() - 1, first - 1, -1):
 		var merged: Dictionary = play.ai_turns[index]
 		var events: Array = merged.get("events", [])
 		for cursor in range(events.size() - 1, -1, -1):
 			var event: Dictionary = events[cursor]
 			lines.append("T%d  %s" % [int(merged["turn"]), String(event["text"])])
-			if lines.size() >= MAX_LOG_LINES:
-				break
-		if lines.size() >= MAX_LOG_LINES:
-			break
 	return "\n".join(lines) if not lines.is_empty() else "No orders recorded yet."
+
+
+## What the feed holds, so the rows a reader cannot see at once are counted
+## rather than silently missing (REQ-P5-05).
+func _feed_caption() -> String:
+	var rows: int = 0
+	var turns: int = 0
+	var first: int = maxi(play.ai_turns.size() - FEED_TURNS, 0)
+	for index in range(first, play.ai_turns.size()):
+		rows += (play.ai_turns[index].get("events", []) as Array).size()
+		turns += 1
+	if turns == 0:
+		return "Recent orders"
+	return "Recent orders  ·  %d rows over %d turn%s, newest first" % [
+		rows, turns, "" if turns == 1 else "s",
+	]
 
 
 func _sync_controls() -> void:
