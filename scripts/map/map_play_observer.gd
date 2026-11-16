@@ -62,7 +62,24 @@ static func market_reading(
 	prices["minor_food"] = _book_food(book)
 	prices["ration_demand"] = _ration_demand(rows)
 	prices["food_gap"] = maxi(int(prices["ration_demand"]) - int(prices["minor_food"]), 0)
+	# The deed's own privilege, read off the same clearing the Deal Book prints:
+	# a deed owner's bid fills at absolute top priority, so a run that never
+	# shows an `is_frr` deal never exercised the path the deed is bought for
+	# (issue #841; wiki: world-market § First right of refusal).
+	prices["frr_fills"] = _frr_fills(book)
 	return prices
+
+
+## The deals the last clearing settled through first right of refusal: the
+## reading the deed gate is measured on (issue #841).
+static func _frr_fills(book: WorldMarket) -> int:
+	var fills: int = 0
+	if book == null or book.book == null:
+		return fills
+	for deal: Dictionary in book.book.last_deals:
+		if bool(deal.get("is_frr", false)):
+			fills += 1
+	return fills
 
 
 ## The food tonnage the Minor Nation and Tribe estates offer on this turn's book:
@@ -204,6 +221,10 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		# and capacity; issue #530).
 		"holds": TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction),
 		"civilians": play.civilian_layer.unit_count_all(faction),
+		# The deeds this court holds: purchased Minor/Tribe land, the tile the
+		# Merchant signs and the first-right-of-refusal privilege rides on
+		# (issue #841; wiki: civilian-units § Merchant).
+		"deeds": deeds_held(play, faction),
 		"treasury": economy.treasury if economy != null else 0,
 		"stock": economy.total_units() if economy != null else 0,
 		# The larder the next Consumption phase will eat: the famine reading the
@@ -222,6 +243,25 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"last": last,
 		"headline": AiTurnLog.headline(last),
 	}
+
+
+## The purchased tiles one court holds across every region: the deeds its
+## Merchants signed. A deed keeps its buyer when the province changes hands, so
+## the count reads the tile's owner, not the province's (issue #841; wiki:
+## civilian-units § Merchant).
+static func deeds_held(play: PlaySession, faction: int) -> int:
+	if play == null or play.world == null:
+		return 0
+	var count: int = 0
+	for index in play.world.region_count():
+		var model: MapModel = play.world.region(index)
+		if model == null:
+			continue
+		for province: ProvinceState in model.provinces:
+			for tile: Vector2i in province.tiles:
+				if model.is_purchased_tile(tile) and model.owner_at(tile.x, tile.y) == faction:
+					count += 1
+	return count
 
 
 ## Turn record of one court, empty before its first resolved turn.

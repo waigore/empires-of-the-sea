@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261116-17; #846–#847 in flight (REQ-P2-02).
+Audited through DR-20261116-17; #846–#847 live (REQ-P2-02).
 
 ## Already live
 
@@ -32,13 +32,14 @@ Audited through DR-20261116-17; #846–#847 in flight (REQ-P2-02).
 | Recipe gate + rival second-stage | `min_town`; `TownIndustry.best_level`, #798 |
 | Regiment dismiss | `ArmyDismiss`, DR-16-07/#809 |
 | Money-goal reweight + Tribe-chain slot | `goal_mille` #821; `SLOT_TRIBE_CHAIN` #825 |
+| Expansion-crew slot | `SLOT_CREWS`, DR-16-15 |
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823/#834 |
 
 ## Gaps (impact order)
 
-1. **Market and naval dispatch stay seed** — `expansion.crews` (#847, DR-16-15)
-   is in flight; then only market bids and naval missions stay outside
-   (DR-13-15/16-11).
+1. **Market and naval dispatch stay seed** — four live slots including
+   `expansion.crews` (#847, DR-16-15); only market bids and naval missions
+   stay outside (DR-13-15/16-11).
 2. **Civilian-build seeds** — exotic mixes / per-tile previews
    (`civilian-build-planner`).
 3. **Quick Battle multi-lane / collapse** — one lane; needs a design call
@@ -46,7 +47,7 @@ Audited through DR-20261116-17; #846–#847 in flight (REQ-P2-02).
 
 ## Next pick
 
-Market/naval dispatch once #847 merges; else civilian build seeds.
+Market/naval dispatch; else civilian build seeds.
 
 ## Blocked footnotes
 
@@ -65,8 +66,7 @@ Market/naval dispatch once #847 merges; else civilian build seeds.
 ## Wiki drift
 
 - `civilian-units`: Road L2/gathering deferred → live (`TechUnlocks`).
-- `phase-planner-*`: declare-war cites DR-14-11 → DR-14-13; four slots claimed
-  live, three in code.
+- `phase-planner-*`: declare-war cites DR-14-11 → DR-14-13; four slots live.
 - `production-recipes`: rival second-stage deferred → live #798.
 - `ai-architecture`: soft weights/treasury-recovery seed → live (#821); deed
   partner claimed.
