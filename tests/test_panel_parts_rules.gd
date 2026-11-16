@@ -4230,6 +4230,9 @@ func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
 
 ## The map screen hands its menu to the session, so the ledgers reach the seal
 ## through the narrow session surface, and the observer seals it for the run.
+## The screen is freed on every exit — the two guard returns included — so the
+## case never leaves a live chart behind (docs/testing.md § Speed rules: tear
+## down hard).
 func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
 	var screen: MapScreen = SCREEN.instantiate()
 	screen.map_width = 32
@@ -4238,11 +4241,13 @@ func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
 	add_child(screen)
 	assert_not_null(screen.play, "the session is live")
 	if screen.play == null:
+		screen.free()
 		return
 	assert_true(screen.play.pause_menu == screen.game_menu, "the session names its pause menu")
 	var seal: Button = screen.hud.top_row.find_child("MenuSeal", true, false) as Button
 	assert_not_null(seal, "the MENU seal is mounted on the bar")
 	if seal == null:
+		screen.free()
 		return
 	assert_false(seal.visible, "the observer owns no pause door")
 	assert_true(screen.game_menu.door.is_sealed(), "the door stays sealed for the run")
@@ -4250,3 +4255,4 @@ func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
 	# that close must never hand the observer's chrome back.
 	screen.improvements.close()
 	assert_false(seal.visible, "a stray close leaves the observer's door sealed")
+	screen.free()

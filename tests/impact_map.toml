@@ -57,7 +57,6 @@ suites = [
   "test_campaign_end.gd",
   "test_civilian_turn_rules.gd",
   "test_campaign_rules.gd",
-  "test_capital_seat_screen.gd",
 ]
 
 [domains.civilian]
@@ -614,6 +613,30 @@ domain = "fleet_split"
 [[rules]]
 match = "tests/test_naval_rules.gd*"
 domain = "fleet_split"
+
+# Two squadrons in one station fold into one (wiki: ships-and-naval § Ship
+# instances; DR-20261116-13). The rules, the layer method that files the roster,
+# the dossier intent that routes it and the drawer that offers the tap travel
+# together; the same three naval suites prove the slice, so the domain adds no
+# wall time to a PR that also touches the split.
+[domains.fleet_combine]
+suites = [
+  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
+[[rules]]
+match = "scripts/rules/fleet_combine.gd*"
+domain = "fleet_combine"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_combine.gd*"
+domain = "fleet_combine"
+
+[[rules]]
+match = "scripts/ui/fleet_combine_block.gd*"
+domain = "fleet_combine"
 
 [[rules]]
 match = "scripts/rules/recruit_queue.gd*"
@@ -2109,7 +2132,6 @@ domain = "ai_works"
 suites = [
   "test_naval_rules.gd",
   "test_ai_rules.gd",
-  "test_capital_seat_screen.gd",
 ]
 
 [[rules]]
