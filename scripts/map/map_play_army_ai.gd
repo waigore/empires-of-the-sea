@@ -247,7 +247,11 @@ static func _reinforce(
 		),
 		chest,
 		held,
-		own_warships
+		own_warships,
+		# The harvest the court's land carries, noted by the economy pass: the
+		# desired army is provisioned before it is raised (issue #807). No
+		# reading keeps the store gate.
+		int(play.ai.food_slack[faction]) if play.ai.food_slack.has(faction) else -2
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():

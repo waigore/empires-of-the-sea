@@ -49,7 +49,7 @@ loads, returns to title. Deep rules stay in `tests/`.
 - **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
   `world_…` suite drains alone.
 - One Godot boot per theme — coverage ~15 s a boot: fold leftovers into their
-  theme's boot; delete suites covered elsewhere. 39 → 25 suites cut the wall
+  theme's boot; delete suites covered elsewhere. 39 → 24 suites cut the wall
   230 s → 207 s. `gd-tools.toml` keeps `parallel = 4`; profile with
   `--durations 20`.
 - Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
@@ -206,6 +206,11 @@ godot --headless --path . --script res://playtests/playtest_market_batch.gd
 # gates and the level the fort is left at, then mans the crown's own frontier wall
 # and reads the defending plate.
 godot --headless --path . --script res://playtests/playtest_siege.gd
+
+# Observer siege — seats a wall, its garrison and a besieging train between two
+# rival crowns in the full-AI observer, then reads the panel's orders feed, the
+# cards, the merged turn record and the province the rules actually left.
+godot --headless --path . --script res://playtests/playtest_observer_siege.gd
 
 # Colony chain — opens the turn-100 advanced start (the New World charted, so a
 # Tribe is in contact) and walks the four overture stages on the court sheet's own

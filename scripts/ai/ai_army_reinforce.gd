@@ -33,7 +33,14 @@ const LINE_CATEGORIES: Array[int] = [
 ## raises no more men, because the men it has would go hungry instead
 ## (wiki: workers-and-population § Strike workers; issue #489). A negative
 ## reading means the caller has no larder to read, and the food gates do not
-## apply.
+## apply. `harvest_slack` is the reading the growth gate plans with: the ration
+## food the court's own harvest carries less every mouth it already feeds
+## (`AiState.food_slack`, noted by the economy pass). The army the court
+## desires is provisioned before it is raised — a court whose harvest cannot
+## carry one more ration arms no further, and its food income is grown first,
+## so the store's runway no longer lets the court arm past its land (issue
+## #807; the fallback trim's measured lesson). The sentinel -2 keeps the
+## store gate alone.
 ## `reserve` is the purse a claim above this muster holds back — the hull the
 ## court is saving for (`AiNavy`). A muster spends only what stands above it, so
 ## the fleet's chest survives the army's turn (issue #484) — but only when the
@@ -50,7 +57,8 @@ static func plan(
 	fed_slack: int = -1,
 	reserve: int = 0,
 	held_row: Dictionary = {},
-	own_warships: int = -1
+	own_warships: int = -1,
+	harvest_slack: int = -2
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
@@ -69,6 +77,9 @@ static func plan(
 		return result
 	if fed_slack >= 0 and fed_slack < 1:
 		result["reasons"].append("striking for food")
+		return result
+	if harvest_slack >= -1 and harvest_slack < 1:
+		result["reasons"].append("the harvest cannot carry one more ration")
 		return result
 	var chest: int = AiIncome.hull_held(
 		config, economy, at_war, own_regiments, reserve, own_warships
@@ -217,6 +228,15 @@ static func _target(config: AiConfig, at_war: bool) -> int:
 	if at_war:
 		target += config.parameter("army.war_extra")
 	return target
+
+
+## The army the court desires at its published target — the size it plans food
+## income for while it stands under it (issue #807). The same table
+## `_target` prices the muster with.
+static func desired_regiments(config: AiConfig, at_war: bool) -> int:
+	if config == null:
+		return 0
+	return _target(config, at_war)
 
 
 ## The line regiment this court would raise if its stores could pay for it:

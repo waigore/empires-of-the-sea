@@ -150,6 +150,15 @@ static func town_raw(
 
 ## The estate the stores are shortest of; a fresh estate scores higher than an
 ## upgrade of the same crop, and a level the crown can gather pays a premium.
+## A court whose muster is due while its harvest cannot carry the mouths it
+## already feeds leads its Builders to the ration estates: the food income for
+## the army it desires is provisioned before that army is raised (issue #807).
+## The premium stands beside the stock shortage, not over it — a fat store
+## still reads a shortage of zero, so a court whose larder is full but whose
+## land is short still provisions.
+const PROVISION_WEIGHT: int = 25
+
+
 static func _best_estate(query: AiWorkQuery, estates: Array) -> Dictionary:
 	var best: Dictionary = {}
 	var target: int = query.config.parameter("civilian.need_target")
@@ -171,6 +180,13 @@ static func _best_estate(query: AiWorkQuery, estates: Array) -> Dictionary:
 		# links it is already the Engineer's business.
 		if gain > 0 or not connected:
 			score += need(crop, query.stockpile, target) * 10
+		# Provision the food income for the desired army: a ration estate pays
+		# the premium while the court stands under its muster and its harvest
+		# cannot carry the mouths it has (issue #807).
+		if bool(query.context.get("provision_food", false)) and CommodityCatalog.FOOD.has(
+			crop
+		):
+			score += PROVISION_WEIGHT
 		if level <= 0:
 			score += 10
 		score += gain * GAIN_WEIGHT

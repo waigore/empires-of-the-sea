@@ -2,16 +2,16 @@
 
 Pits every Great Power against the others with no human court: an empty human
 slot set makes the whole session AI (wiki: game-setup § Human/AI slot
-assignment). New-game defaults otherwise — seed 1500, Standard map, six crowns.
+assignment). Otherwise new-game defaults — seed 1500, Standard, six crowns.
 
-Not a player mode: saving is disabled, consent decisions never queue, battles
-auto-resolve, and the campaign may run past the 1800 cap (DR-20261108-05).
+Not a player mode: saving is off, consent never queues, battles auto-resolve,
+and the campaign may run past the 1800 cap (DR-20261108-05).
 
 ## Entry points
 
 | Path | Use |
 |------|-----|
-| Title screen → `AI OBSERVER (DEBUG)` | Live dashboard over the real map |
+| Title → `AI OBSERVER (DEBUG)` | Live dashboard over the real map |
 | `tools/ai_vs_ai.gd` | Headless batch runs + JSON export |
 
 ```bash
@@ -21,20 +21,20 @@ godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
 
 Options: `--turns`, `--seed`, `--size` (0 Small / 1 Standard / 2 Large),
 `--runs` (seeds `seed+i`), `--historical` (stop at the calendar cap),
-`--ai=full|noop|bench` (planner gate), `--live=ID` (BENCH subject;
-default setup faction), `--out=DIR` (default `user://ai_vs_ai`),
-`--budget=S` (per-run wall-clock budget, default 420).
+`--ai=full|noop|bench` (planner gate), `--live=ID` (BENCH subject; default setup
+faction), `--out=DIR` (default `user://ai_vs_ai`), `--budget=S` (per-run budget,
+default 420).
 
 ## Performance budget
 
 **One 200-turn run must finish in ≤ 7 minutes** wall clock (bench: seed 1500,
-Standard, `--ai=bench`). A run that outgrows the budget is a defect, not a slow
-machine; the harness prints what it spent and names `OVER BUDGET` on stderr.
+Standard, `--ai=bench`). A run that outgrows it is a defect, not a slow machine;
+the harness prints what it spent and names `OVER BUDGET` on stderr.
 
-What keeps a headless run inside it (keep these when editing): `view_live =
-false` skips the chart, dossier and panel follow-up (rules unchanged), and the
-grouped estate ledger reuses the ledger's network walk instead of a BFS per
-disconnected tile. A new per-turn full-map scan is what pushes a run over budget.
+What keeps a headless run inside it: `view_live = false` skips the chart,
+dossier and panel follow-up (rules unchanged), and the grouped estate ledger
+reuses the ledger's network walk instead of a BFS per disconnected tile. A new
+per-turn full-map scan pushes a run over budget.
 
 Local bench needs mainline planners once: `python tools/sync_ai_mainline.py`.
 
@@ -46,27 +46,28 @@ Local bench needs mainline planners once: `python tools/sync_ai_mainline.py`.
 | `noop` | Every Great Power issues no planner orders (inert control) |
 | `bench` | Subject (live) = submission AI; two baselines = `origin/main` planners in `scripts/ai_mainline/`; three fillers = random legal economy/civilian actions |
 
-Official scored climbs use hills **`ai-bench`** (`.autolab/hills/ai-bench/`).
-The hill scores **only the subject**.
+Official scored climbs use hills **`ai-bench`** (`.autolab/hills/ai-bench/`),
+which scores **only the subject**.
 
 ## Metrics
 
 `MapPlayObserver.snapshot` reports per crown: leader, agenda, profile,
 `court_kind`, war footing, provinces / victory progress, power, forces (hulls,
 warships, holds), ledger, wars, last-turn order mix and the market's prices.
-The market row also carries `minor_food` (the book's food tonnage),
-`ration_demand` (every court's appetite) and `food_gap` (#766).
-Dashboard: orders feed, pause / step / speed, campaign result. `play.ai_turns`
-keeps one merged record per turn (wiki: turn-trace-interpretation).
+The market row adds `minor_food` (the book's tonnage), `ration_demand` (every
+court's appetite) and `food_gap` (#766). Dashboard: orders feed, pause / step /
+speed, campaign result. `play.ai_turns` keeps one merged record per turn, Combat's
+battles included (`BattleTrace`), so a siege reads without a plate; the exporter
+writes it on each line (wiki: turn-trace-interpretation).
 
 ## Export and coverage
 
 `tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` and `run_NN_summary.json`
-(`ai_mode` / `ai_live` / `ai_baselines`) and prints a win-rate table.
+(`ai_mode` / `ai_live` / `ai_baselines`) and a win-rate table.
 
 It then prints the **coverage checklist** (`AiCoverage`): every shipped rival
 rule — its order row or the ledger aim that prices it — with count, crowns and
-window, and a `never`/`gated` reading when none did. `army.muster` and
+window, and `never`/`gated` when none did. `army.muster` and
 `navy.launch` also report aim ranked vs funded, so a rule asked for and never
 paid for reads starved. A **major** rule left never-exercised fails a `--ai=full`
 run that reached its cap; a bench run or one cut short by victory only prints it
@@ -75,5 +76,5 @@ run that reached its cap; a bench run or one cut short by victory only prints it
 ## Scope
 
 Rival fog and colonisation planners are live under `full` and BENCH subject /
-baseline crowns (`CourtCharts`, `AiColonisationPlanner`). Ranked gaps:
+baseline crowns (`CourtCharts`, `AiColonisationPlanner`). Gaps:
 [`deferred.md`](deferred.md).

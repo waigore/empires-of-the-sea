@@ -33,6 +33,15 @@ var deferrals: Dictionary = {}
 ## the trace lines that explain them (docs/ai.md; issue #491 T1). Kept here so a
 ## save carries the ledger the court reported.
 var objective_claims: Dictionary = {}
+## Faction id -> the food slack the court's own harvest carries: the ration
+## food the extraction just landed, less every mouth the consumption phase
+## feeds. Noted by the economy pass each turn (`note_food_slack`) and read by
+## the muster's growth gate the next, so a court arms only as fast as its land
+## can carry — the army it desires is provisioned before it is raised (issue
+## #807). Transient: the economy pass re-notes it every turn, so a save needs
+## no copy. A faction the pass has not noted has no reading, and the gates
+## that read it stand down.
+var food_slack: Dictionary = {}
 ## Difficulty layer this run plays at; rival ledgers are founded at its level
 ## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
 var difficulty: String = Difficulty.DEFAULT
@@ -180,6 +189,11 @@ static func _collect_ids(rows: Variant, ids: Dictionary) -> void:
 func objectives_for(faction: int) -> Dictionary:
 	var claim: Dictionary = _dictionary(objective_claims.get(faction, {}))
 	return claim
+
+
+## Notes the harvest slack the economy pass just read for this court.
+func note_food_slack(faction: int, slack: int) -> void:
+	food_slack[faction] = slack
 
 
 ## Plain data for local saves. Agendas are rolled once per court and cooldowns
