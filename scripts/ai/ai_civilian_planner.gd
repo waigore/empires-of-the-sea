@@ -62,13 +62,18 @@ static func plan(
 	var deed_tiles: int = AiMerchantWork.buyable_tiles(
 		model, config.faction, works, context
 	).size()
-	# The merchant follows the door, not just the deed: one Merchant while an
-	# envoy chain toward a priced deed is openable — the embassy waits on the
-	# merchant, so the hire cannot wait on the embassy (issue #724; wiki:
+	# The merchant follows the door, not just the deed: one Merchant while a
+	# priced deed is openable — the embassy waits on the merchant, so the hire
+	# cannot wait on the embassy, and a deed the purse cannot cover this turn is
+	# still the deed the merchant will walk to (issue #724, #841; wiki:
 	# civilian-units § Merchant).
 	train_context["merchant_targets"] = (
 		deed_tiles if deed_tiles > 0
-		else (1 if AiMerchantWork.chain_openable(model, config.faction, context) else 0)
+		else (
+			1 if not AiMerchantWork.openable_deed(
+				model, config.faction, context
+			).is_empty() else 0
+		)
 	)
 	train_context["staff_targets"] = staff_targets(
 		config, model, works, units, stockpile, tech_caps, train_context

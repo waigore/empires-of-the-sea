@@ -40,7 +40,7 @@ static func best(
 ) -> Dictionary:
 	var bonus: int = _land_envoy_bonus(
 		state, world, config.faction, target, tech,
-		context.get("charts", null)
+		context.get("charts", null), _deed_seller(state, world, config.faction, context)
 	)
 	# The colony ambition: a charted Tribe the court can still buy is worth the
 	# next envoy step even when the court is in no mood to improve relations for
@@ -109,6 +109,20 @@ static func best(
 	return best_entry
 
 
+## The single seller this court warms for a deed: the reading the planner hands
+## in (one scan per court per turn) or, for a caller that named none, the same
+## cheapest-offer scan the merchant module runs. -1 when no charted seller
+## offers one (issue #841).
+static func _deed_seller(
+	state: DiplomacyState, world: WorldMap, faction: int, context: Dictionary
+) -> int:
+	if context.has("deed_seller"):
+		return int(context["deed_seller"])
+	return AiMerchantWork.deed_seller(
+		world, faction, context.get("charts", null), state
+	)
+
+
 ## The land-deed nudge for this target: a Minor or Tribe this court could buy
 ## from once an envoy reaches it, while no embassy stands yet and the court holds
 ## the merchant tech. The tech is the buyer the chain serves — a court with no
@@ -121,13 +135,20 @@ static func best(
 ## charted region's offer counts, so a court that has not yet met the seller can
 ## still want the door opened (wiki: civilian-units § Merchant;
 ## fog-and-exploration § Visibility Levels).
+##
+## **One seller, by name** (issue #841): the nudge goes to the court's cheapest
+## deed partner alone, never to every charted Minor with a priced offer. Warmth
+## is the same scale that bars a declaration, so warming every seller closed the
+## conquest path outright (issue #724 round 3); a court now buys from the one
+## minor it means to trade with and keeps its war-path minors cold.
 static func _land_envoy_bonus(
 	state: DiplomacyState,
 	world: WorldMap,
 	faction: int,
 	target: int,
 	tech: Dictionary,
-	charts: CourtCharts = null
+	charts: CourtCharts = null,
+	deed_seller: int = -1
 ) -> int:
 	if world == null or state == null:
 		return 0
@@ -137,6 +158,8 @@ static func _land_envoy_bonus(
 	if DiplomacyRules.has_embassy(state, faction, target):
 		return 0
 	if not CivilianCatalog.is_unlocked("merchant", tech):
+		return 0
+	if target != deed_seller:
 		return 0
 	for index in world.region_count():
 		var model: MapModel = world.region(index)
