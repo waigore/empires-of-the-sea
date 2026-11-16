@@ -219,9 +219,14 @@ func _report(seeds: PackedStringArray) -> void:
 		]
 	)
 	if per_run > float(_budget_s):
+		# The `%` binds tighter than `+`, so the whole sentence must be
+		# parenthesised or the format runs on the tail alone and the warning
+		# dies with "not all arguments converted" instead of naming the run.
 		printerr(
-			"ai_vs_ai: run took %.1fs, over the %ds harness budget "
-			+ "(docs/ai-observer.md § Performance budget)" % [per_run, _budget_s]
+			(
+				"ai_vs_ai: run took %.1fs, over the %ds harness budget "
+				+ "(docs/ai-observer.md § Performance budget)"
+			) % [per_run, _budget_s]
 		)
 	print("Per-turn metrics: %s/run_NN_turns.jsonl · final standing: %s/run_NN_summary.json" % [
 		ProjectSettings.globalize_path(_out_dir), ProjectSettings.globalize_path(_out_dir),
