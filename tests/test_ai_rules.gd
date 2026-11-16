@@ -13511,6 +13511,42 @@ func test_the_adapter_stamps_a_ledger_for_every_planning_court() -> void:
 	play.civilian_layer.free()
 
 
+## The reading pass is one module, one reading per domain: force, navy, purse,
+## study, court and voyage all stand, and the pools it hands the allocate pass
+## are those readings bounded by the store (REQ-P3-01; issue #484).
+func test_the_reading_pass_names_every_domain() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	var config: AiConfig = AiConfig.build(OBJ_OWNER, play.map_seed)
+	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
+	var readings: Dictionary = MapPlayObjectiveReadings.readings(
+		play, OBJ_OWNER, config, economy, phase
+	)
+
+	for key: String in [
+		"at_war", "war_desire", "regiments", "muster_floor", "muster_due",
+		"muster_row", "escalations", "blockings",
+		"ships", "warships", "warship_price", "warship_row", "warship_open",
+		"navy_due", "hostile_ships", "hostile_warships",
+		"treasury", "reserve", "goal",
+		"research_slots", "research_funding", "research_cost",
+		"standing_study", "research_refusal",
+		"posture", "colony_target", "harbour", "tribe_target",
+		"tribe_stage_cost", "deed_price", "tribe_door", "tribe_closed",
+		"idle_hulls", "explorer_ready", "voyage_afloat", "voyage_abroad",
+		"voyage_stranded",
+	]:
+		assert_true(readings.has(key), "the reading pass names %s" % key)
+	var pools: Dictionary = MapPlayObjectivesAi.pools(economy, readings)
+	assert_eq(
+		int(pools["hull"]), int(readings["idle_hulls"]),
+		"the hull pool is the reading, not a second count"
+	)
+	assert_eq(int(pools["treasury"]), maxi(economy.treasury, 0))
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 func test_the_turn_trace_carries_every_objective() -> void:
 	var play: PlaySession = _objective_session(_court())
 	var ledgers: Dictionary = MapPlayObjectivesAi.run(play)
