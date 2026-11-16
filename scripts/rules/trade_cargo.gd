@@ -67,6 +67,8 @@ static func _owns_merchant_hull(fleets_by_region: Dictionary, owner: int) -> boo
 
 
 ## True when the crown's seat in any region still has a harbour to trade from.
+## The seat is `WorldMap.seat_province` (capital, else any holding), so the
+## allowance follows the same province the holds are counted at.
 static func _seat_has_harbour(world: WorldMap, owner: int) -> bool:
 	for region_index in world.region_count():
 		var seat: int = world.seat_province(region_index, owner)

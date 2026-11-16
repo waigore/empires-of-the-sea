@@ -78,41 +78,12 @@ static func orders(
 	return {"orders": planned, "candidates": candidates}
 
 
-## The harbour a court calls home: its seat when the seat is still its own and
-## has a harbour, else the lowest-id own harbour. -1 when the crown holds no
-## harbour at all (an inland capital with no coast), so nothing can dock.
-static func home_port(model: MapModel, owner: int) -> int:
-	if model == null:
-		return -1
-	var seat: int = WorldBootstrap.capital_province(model, owner)
-	if seat >= 0 and NavalMovement.has_harbour(model, seat):
-		return seat
-	for province: ProvinceState in model.provinces:
-		if province == null or model.province_owner(province.id) != owner:
-			continue
-		if NavalMovement.has_harbour(model, province.id):
-			return province.id
-	return -1
-
-
-## The harbour whose holds count for trade: only a squadron in port at the
-## crown's own seat reaches the ledger (wiki: ships-and-naval § Cargo holds and
-## capacity), so a court whose seat has no harbour imports nothing at all.
-static func seat_port(model: MapModel, owner: int) -> int:
-	if model == null:
-		return -1
-	var seat: int = WorldBootstrap.capital_province(model, owner)
-	if seat >= 0 and NavalMovement.has_harbour(model, seat):
-		return seat
-	return -1
-
-
 ## Holds the crown keeps in port at its seat, ignoring one squadron by id so a
 ## caller can ask what the court would still have ashore without it.
 static func holds_ashore(
 	model: MapModel, fleets: Array, owner: int, except_id: int = -1
 ) -> int:
-	var port: int = seat_port(model, owner)
+	var port: int = NavalMovement.seat_harbour(model, owner)
 	if port < 0:
 		return 0
 	var total: int = 0
@@ -134,7 +105,7 @@ static func trade_garrison(model: MapModel, fleets: Array, fleet: FleetState) ->
 		return false
 	if fleet.has_beachhead() or not fleet.embarked_civilians.is_empty():
 		return false
-	if seat_port(model, fleet.owner) < 0:
+	if NavalMovement.seat_harbour(model, fleet.owner) < 0:
 		return false
 	return holds_ashore(model, fleets, fleet.owner, fleet.id) <= 0
 
@@ -164,7 +135,7 @@ static func _home_order(
 		return {}
 	if _stationed(fleet) and not release:
 		return {}
-	var port: int = home_port(model, owner)
+	var port: int = NavalMovement.home_harbour(model, owner)
 	if port < 0:
 		return {}
 	if NavalMovement.dockable_provinces(model, fleet).has(port):

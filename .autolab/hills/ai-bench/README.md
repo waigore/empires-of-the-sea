@@ -10,6 +10,11 @@ This number stands in for a competitive, win-seeking AI under the same rules
 the player uses. It is a proxy: a single seed can be overfit, and random fillers
 are noisy opponents.
 
+**Owner decision (issue #807, 2026-11-16):** `income_per_turn` scores the
+**earned flow** — the treasury delta plus the growth of the war chest the court
+is saving for — not the purse alone, so the published saving behaviour the
+muster needs is no longer scored as idling.
+
 ## What you may change
 
 Edit only the **AI surface** inside a Godot project submission:

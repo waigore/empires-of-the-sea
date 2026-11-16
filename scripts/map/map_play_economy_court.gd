@@ -75,6 +75,20 @@ func plan_turn() -> void:
 	hull_chest = MapPlayCourt.navy_chest(play, faction)
 	army_food = MapPlayEconomyAi._army_food(play, faction)
 	leader = MapPlayEconomyAi._leader(play, faction)
+	# The harvest slack the court's land carries — the ration food the
+	# extraction just landed, less every mouth the consumption phase feeds
+	# (issue #807). The muster's growth gate and the provision premium both read
+	# it, so a court desires its larger army and provisions the food income
+	# first; the economy pass re-notes it every turn.
+	var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
+	if not harvest.is_empty() and play.ai != null:
+		var harvest_food: int = 0
+		for id: String in CommodityCatalog.FOOD:
+			harvest_food += maxi(int(harvest.get(id, 0)), 0)
+		play.ai.note_food_slack(
+			faction,
+			harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
+		)
 	# The goal the court plans with this turn: money first (DR-20261113-19).
 	# The reserve is the muster it is saving for while it stands under its
 	# regiment target, else its own cash floor; a court short of it is on

@@ -25,6 +25,7 @@ var _land_rows: Array[Dictionary] = []
 var _mission: FleetMissionSection = null
 var _crew: FleetCrewSection = null
 var _strength: FleetStrengthSection = null
+var _split: FleetSplitBlock = null
 
 
 func _ready() -> void:
@@ -84,6 +85,11 @@ func _build() -> void:
 	_land_box.add_theme_constant_override("separation", 6)
 	_land_box.visible = false
 	column.add_child(_land_box)
+
+	# The split drawer: one hull leaves as a squadron of her own (DR-20261116-12).
+	_split = FleetSplitBlock.new()
+	_split.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	column.add_child(_split)
 
 	_yard = FleetYardBlock.new()
 	_yard.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
@@ -146,6 +152,7 @@ func refresh(
 	_mission.set_data(beach_note, beach_rows)
 	_crew.set_data(crew)
 	_set_standing(fleet, is_player, passage, beach_note, beach_hint, merge, carried, colonists)
+	_show_split(model, fleet, is_player)
 	_show_yard(yard_rows, merge)
 
 
@@ -215,6 +222,14 @@ func _show_yard(yard_rows: Array[Dictionary], merge: Dictionary) -> void:
 	_yard.set_offer_join(bool(merge.get("ok", false)))
 
 
+## The split drawer: every hull with the tap that detaches her. It stays where
+## the player left it, so a repaint never closes the list under a finger.
+func _show_split(model: MapModel, fleet: FleetState, is_player: bool) -> void:
+	if _split == null:
+		return
+	_split.show_rows(model, fleet, is_player, _split.is_open())
+
+
 ## The crown's capital yard with no squadron afloat: the first launch founds the
 ## home fleet, so the dossier still has to list what can be built.
 func refresh_slip(
@@ -245,6 +260,8 @@ func refresh_slip(
 		_land_box.visible = false
 	if _mission != null:
 		_mission.set_data("", [] as Array[Dictionary])
+	if _split != null:
+		_split.show_rows(model, null, false, false)
 	if _yard != null:
 		_yard.show_slip(rows, is_player)
 

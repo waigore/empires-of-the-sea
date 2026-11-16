@@ -207,6 +207,11 @@ godot --headless --path . --script res://playtests/playtest_market_batch.gd
 # and reads the defending plate.
 godot --headless --path . --script res://playtests/playtest_siege.gd
 
+# Observer siege — seats a wall, its garrison and a besieging train between two
+# rival crowns in the full-AI observer, then reads the panel's orders feed, the
+# cards, the merged turn record and the province the rules actually left.
+godot --headless --path . --script res://playtests/playtest_observer_siege.gd
+
 # Colony chain — opens the turn-100 advanced start (the New World charted, so a
 # Tribe is in contact) and walks the four overture stages on the court sheet's own
 # buttons, reading the sheet, the despatch and the chronicle at each step; then

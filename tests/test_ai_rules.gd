@@ -4562,6 +4562,51 @@ func test_a_capped_estate_earns_no_shortage_premium() -> void:
 	assert_eq(AiBuilderWork.town_unlocks([open_row], 0), 0, "a free estate unlocks nothing")
 
 
+## The provision premium (issue #807): a court whose muster is due while its
+## harvest cannot carry the mouths it has leads its Builders to the ration
+## estates — the planner-level case below pins the split.
+
+
+func test_a_muster_due_court_provisions_the_ration_estates() -> void:
+	# Two transport-capped estates that read identically (zero gain, equal
+	# shortage), one wool at the seat and one grain across the map: the tie
+	# ranks the seat first, so only the premium moves the grain estate up.
+	var model: MapModel = _hospital_model()
+	model.resource[model.index_of(3, 1)] = 5
+	model.resource[model.index_of(OUTER_TOWN.x, OUTER_TOWN.y)] = 4
+	var works := LandWorks.new()
+	for x in 5:
+		works.set_transport(model, Vector2i(x, 1), LandWorks.TRANSPORT_ROAD)
+	# Two level-1 estates the road's own transport caps: zero gain, so only the
+	# provision premium can split them.
+	works.set_improvement(model, Vector2i(3, 1), 1)
+	works.set_improvement(model, OUTER_TOWN, 1)
+	var unit: CivilianState = CivilianState.create(1, 0, "builder", CAPITAL)
+	var provision: Dictionary = {"provision_food": true, "capital_tile": CAPITAL}
+	var plain: Dictionary = {"capital_tile": CAPITAL}
+	var stock: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 20}
+	var rationed: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, stock,
+			{"grain": 2, "wool": 2}, {"land_enclosure": true}, provision, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(rationed["tile"]), OUTER_TOWN,
+		"the ration estate leads the provision walk"
+	)
+	var seat: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, stock,
+			{"grain": 2, "wool": 2}, {"land_enclosure": true}, plain, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(seat["tile"]), Vector2i(3, 1),
+		"the flag off keeps the published order (the lower tile ranks first)"
+	)
+
+
 ## Rival Engineer policy after it left the civilian dispatcher
 ## (wiki: civilian-work-planner § Engineer; capital-and-connectivity;
 ## civilian-units § Engineer, § Rail Builder). These cases pin the split: the
@@ -5545,12 +5590,70 @@ func test_a_court_striking_for_food_musters_nothing() -> void:
 	assert_true((plan["reasons"] as Array).has("striking for food"))
 
 
+## The growth gate plans with the harvest, not the pantry: a court whose own
+## ration harvest cannot carry one more ration arms no further, even while the
+## store could still pay for the mouth — the army it desires is provisioned
+## before it is raised (issue #807; the fallback trim's measured lesson: a
+## store-runway overshoot arms the court past its land).
+func test_a_court_whose_harvest_cannot_carry_one_more_ration_waits() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, 0
+	)
+
+	assert_eq(String(plan["muster"]), "")
+	assert_true(
+		(plan["reasons"] as Array).has("the harvest cannot carry one more ration")
+	)
+
+
+func test_a_harvest_with_one_free_ration_raises_the_line() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, 1
+	)
+
+	assert_eq(String(plan["muster"]), "arquebusiers")
+
+
+func test_a_court_with_no_harvest_reading_keeps_the_store_gate() -> void:
+	var starved: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 0, 0, {}, -1, -2
+	)
+	assert_true((starved["reasons"] as Array).has("striking for food"))
+	var fed: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, -2
+	)
+	assert_eq(String(fed["muster"]), "arquebusiers", "no reading, no gate")
+
+
+func test_a_harvest_one_ration_short_also_waits() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, -1
+	)
+
+	assert_eq(String(plan["muster"]), "")
+	assert_true(
+		(plan["reasons"] as Array).has("the harvest cannot carry one more ration")
+	)
+
+
 func test_a_court_with_room_for_one_more_ration_musters() -> void:
 	var plan: Dictionary = AiArmyReinforce.plan(
 		_work_config(), _work_economy(), 1, false, 0, 1
 	)
 
 	assert_eq(String(plan["muster"]), "arquebusiers")
+
+
+## The economy pass notes the harvest slack each turn and the army pass reads
+## it back the next; a fresh load has no reading and the gate stands down
+## (issue #807).
+func test_the_harvest_slack_is_noted_and_read_per_court() -> void:
+	var state := AiState.new()
+	assert_false(state.food_slack.has(WORK_OWNER), "no reading, no gate")
+	state.note_food_slack(WORK_OWNER, 3)
+	state.note_food_slack(WORK_OWNER + 1, -2)
+	assert_eq(int(state.food_slack[WORK_OWNER]), 3)
+	assert_eq(int(state.food_slack[WORK_OWNER + 1]), -2)
 
 
 func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
