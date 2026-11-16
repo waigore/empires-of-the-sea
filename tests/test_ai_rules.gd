@@ -3313,6 +3313,148 @@ func test_the_footing_opens_only_its_published_slots() -> void:
 		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, "diplomacy.pact"),
 		"a slot no footing names keeps the dispatch default"
 	)
+	# The Tribe chain is the third live slot: a Great Power war holds it shut,
+	# and a caller with no relations concludes nothing (DR-20261116-11).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_TRIBE_CHAIN)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_TRIBE_CHAIN)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_TRIBE_CHAIN)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_TRIBE_CHAIN)
+	)
+
+
+## The trace reading: the slots a footing holds shut, in the table's own order.
+func test_the_trace_names_the_slots_a_footing_holds_shut() -> void:
+	assert_eq(
+		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_PEACE)), "",
+		"a court at peace holds nothing shut"
+	)
+	assert_eq(
+		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_WAR)),
+		"expansion.voyage,expansion.tribe_chain",
+		"one front closes the voyage and the new chain, never the declare slot"
+	)
+	assert_eq(
+		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_FRONTS)),
+		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain",
+		"an overstretched court holds every named slot shut"
+	)
+	assert_eq(
+		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_UNKNOWN)), "",
+		"a caller with no relations closes nothing"
+	)
+
+
+## A court at war opens no **new** Tribe chain: the coin and the envoy's one
+## order belong to the front (DR-20261116-11).
+func test_a_court_at_war_opens_no_new_tribe_chain() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var peace: Dictionary = AiTribeColony.ambition(
+		state, world, null, 2, tribe, 5000, {}, AiPhasePlanner.PHASE_PEACE
+	)
+	assert_true(bool(peace["wanted"]), "at peace the chain is open")
+	var war: Dictionary = AiTribeColony.ambition(
+		state, world, null, 2, tribe, 5000, {}, AiPhasePlanner.PHASE_WAR
+	)
+	assert_false(bool(war["wanted"]), "a war footing opens no new chain")
+	assert_eq(String(war["reason"]), AiTribeColony.REASON_WAR)
+	assert_false(bool(war["held"]), "a chain never opened is no stake to keep")
+	assert_true(
+		AiTribeColony.best(
+			state, world, null, 2, 5000, {}, AiPhasePlanner.PHASE_WAR
+		).is_empty(),
+		"the rank of wanted Tribes is empty on a war footing"
+	)
+	assert_eq(
+		AiTribeColony.closed_reason(AiPhasePlanner.PHASE_WAR), AiTribeColony.REASON_WAR
+	)
+	assert_eq(AiTribeColony.closed_reason(AiPhasePlanner.PHASE_PEACE), "")
+	# The claim reading is what the war gate asks: a footing is one turn's
+	# choice, so a closed chain never frees the court to clear it by force.
+	assert_true(
+		bool(AiTribeColony.ambition(
+			state, world, null, 2, tribe, 5000, {}, AiTribeColony.CLAIM_POSTURE
+		)["wanted"]),
+		"the claim on that Tribe outlives the footing"
+	)
+
+
+## A chain already opened is a stake: the footing never strands the step the
+## court has already paid for (DR-20261116-11).
+func test_a_chain_already_opened_keeps_its_step_at_war() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var war: Dictionary = AiTribeColony.ambition(
+		state, world, null, 2, tribe, 5000, {}, AiPhasePlanner.PHASE_WAR
+	)
+	assert_true(bool(war["wanted"]), "the held chain keeps its next step")
+	assert_true(bool(war["held"]))
+	assert_eq(String(war["stage"]), DiplomacyCatalog.STAGE_EMBASSY)
+
+
+## The study the chain needs is no study the court owes while the footing holds
+## the chain shut (DR-20261116-11).
+func test_the_door_closes_with_the_chain_at_war() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(2, tribe, 1).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_CONSULATE)
+	assert_eq(
+		AiTribeColony.door(state, world, null, 2, {}, AiPhasePlanner.PHASE_WAR),
+		"diplomatic_expertise",
+		"a held chain still names the study it walks to"
+	)
+	state.set_overture(2, tribe, DiplomacyCatalog.STAGE_NONE)
+	assert_eq(
+		AiTribeColony.door(state, world, null, 2, {}, AiPhasePlanner.PHASE_WAR), "",
+		"a chain the footing holds shut has no door"
+	)
+	assert_eq(
+		AiTribeColony.door(state, world, null, 2, {}, AiPhasePlanner.PHASE_PEACE),
+		"", "the first link needs no study at peace either"
+	)
+
+
+## The ledger names the aim the footing closed instead of dropping the row, so
+## the trace reads why the court buys no colony this turn (REQ-P5-05).
+func test_the_ledger_names_the_chain_the_footing_holds_shut() -> void:
+	var closed: Array[AiObjective] = AiObjectivesPlan.build({
+		"tribe_target": -1, "tribe_closed": AiTribeColony.REASON_WAR,
+	})
+	var row: AiObjective = _objective(closed, "colonise.tribe_chain")
+	assert_true(row != null, "the closed aim still prints")
+	assert_eq(row.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(row.blocked, AiTribeColony.REASON_WAR)
+	assert_true(row.cost.is_empty(), "a closed aim claims nothing")
+	var open: Array[AiObjective] = AiObjectivesPlan.build({"tribe_target": -1})
+	assert_true(
+		_objective(open, "colonise.tribe_chain") == null,
+		"a footing that opens the slot emits no row"
+	)
+
+
+## The first objective with `id` in a built set, or null.
+func _objective(objectives: Array[AiObjective], id: String) -> AiObjective:
+	for objective: AiObjective in objectives:
+		if objective.id == id:
+			return objective
+	return null
 
 
 func test_an_overstretched_court_opens_no_war_on_a_peer() -> void:
