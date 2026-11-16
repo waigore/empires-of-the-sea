@@ -14,7 +14,7 @@ Fog, cargo, battles, raids, stations:
 - **One move / turn:** S↔S; undock; dock at an owned port; a warp crosses.
 - A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type); `ShipStats` FRP/RNG/ARM/HULL/MV;
-  `ShipEconomy` builds with tech gates, **1 food upkeep** (DR-20261116-08).
+  `ShipEconomy` builds with tech gates, **2 food upkeep**.
 - **Named hulls** (`ShipNames`): period, unique, kept through save and merge
   (DR-20261111-07).
 - **Yard:** launch for its row + **one peasant**; lands next turn; break-up

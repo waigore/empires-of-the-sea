@@ -1345,7 +1345,7 @@ func test_pool_counts_labour_and_food_by_tier() -> void:
 	assert_eq(pool.count(WorkerPool.Tier.MASTER), 1)
 	assert_eq(pool.total(), 7)
 	assert_eq(pool.labour(), 3 * 1 + 2 * 4 + 1 * 6 + 1 * 8)
-	assert_eq(pool.food_demand(), 3 * 1 + 2 * 1 + 1 * 1 + 1 * 1)
+	assert_eq(pool.food_demand(), 3 * 1 + 2 * 2 + 1 * 2 + 1 * 2)
 
 func test_pool_ignores_unknown_tiers_and_negative_counts() -> void:
 	var pool: WorkerPool = WorkerPool.make(2)
@@ -1673,26 +1673,26 @@ func test_disband_names_its_blocked_reasons() -> void:
 	)
 	assert_eq(WorkerPool.tier_one(WorkerPool.Tier.APPRENTICE), "Apprentice")
 
-func test_navy_eats_before_workers_at_the_hulls_ration() -> void:
+func test_navy_eats_before_workers_and_two_units_per_ship() -> void:
 	var pool: WorkerPool = WorkerPool.make(3)
 	var stock: Dictionary = {"grain": 10, "meat": 0}
 	var report: Dictionary = EconomyConsumption.resolve(pool, stock, 2)
-	assert_eq(report["navy_demand"], 2)
-	assert_eq(report["navy_fed"], 2)
-	assert_eq(stock["grain"], 5)
+	assert_eq(report["navy_demand"], 4)
+	assert_eq(report["navy_fed"], 4)
+	assert_eq(stock["grain"], 3)
 	assert_eq(report["fed_workers"], 3)
 	assert_eq(report["strikers"], 0)
 	assert_eq(report["idle_labour"], 3)
 
-## Fully fed hulls over hulls, not food units over food units: two food for
-## three hulls feeds two hulls in full, so the coverage is 2/3, not 1.0
+## Fully fed hulls over hulls, not food units over food units: three food for
+## two hulls feeds one hull in full, so the coverage is 0.5, not 0.75
 ## (wiki: workers-and-population § Consumption).
 func test_navy_coverage_counts_fully_fed_hulls() -> void:
 	assert_almost_eq(
 		EconomyConsumption.navy_coverage({"navy_demand": 4, "navy_fed": 4}), 1.0, 0.0001
 	)
 	assert_almost_eq(
-		EconomyConsumption.navy_coverage({"navy_demand": 4, "navy_fed": 3}), 0.75, 0.0001
+		EconomyConsumption.navy_coverage({"navy_demand": 4, "navy_fed": 3}), 0.5, 0.0001
 	)
 	assert_almost_eq(
 		EconomyConsumption.navy_coverage({"navy_demand": 4, "navy_fed": 0}), 0.0, 0.0001
@@ -1703,9 +1703,9 @@ func test_food_is_eaten_from_grain_before_meat() -> void:
 	var pool: WorkerPool = WorkerPool.make(0)
 	var stock: Dictionary = {"grain": 1, "meat": 5}
 	var report: Dictionary = EconomyConsumption.resolve(pool, stock, 2)
-	assert_eq(report["navy_fed"], 2)
+	assert_eq(report["navy_fed"], 4)
 	assert_eq(stock["grain"], 0)
-	assert_eq(stock["meat"], 4)
+	assert_eq(stock["meat"], 2)
 
 func test_army_rations_come_first() -> void:
 	var pool: WorkerPool = WorkerPool.make(1)
@@ -1716,17 +1716,16 @@ func test_army_rations_come_first() -> void:
 	assert_eq(report["strikers"], 1)
 	assert_eq(stock["grain"], 0)
 
-func test_a_trained_worker_eats_one_food_unit() -> void:
+func test_trained_workers_need_grain_and_meat() -> void:
 	var pool: WorkerPool = WorkerPool.make(0, 1)
 	var stock: Dictionary = {"grain": 4, "meat": 0}
 	var report: Dictionary = EconomyConsumption.resolve(pool, stock, 0)
-	assert_eq(report["fed_workers"], 1, "one unit of either kind feeds a trained hand")
-	assert_eq(report["strikers"], 1, "no luxury for the tier, no labour")
+	assert_eq(report["fed_workers"], 0)
+	assert_eq(report["strikers"], 1)
 	assert_eq(report["idle_labour"], 0)
-	assert_eq(stock["grain"], 3)
-	assert_eq(stock["meat"], 0)
+	assert_eq(stock["grain"], 4)
 
-	var fed_stock: Dictionary = {"grain": 0, "meat": 1, "refinedSugar": 1}
+	var fed_stock: Dictionary = {"grain": 1, "meat": 1, "refinedSugar": 1}
 	var fed: Dictionary = EconomyConsumption.resolve(WorkerPool.make(0, 1), fed_stock, 0)
 	assert_eq(fed["fed_workers"], 1)
 	assert_eq(fed["luxury_spent"], {"refinedSugar": 1})
@@ -1736,11 +1735,11 @@ func test_a_trained_worker_eats_one_food_unit() -> void:
 
 func test_workers_are_fed_masters_before_peasants() -> void:
 	var pool: WorkerPool = WorkerPool.make(1, 0, 0, 1)
-	var stock: Dictionary = {"grain": 2, "meat": 0, "furHats": 1}
+	var stock: Dictionary = {"grain": 1, "meat": 1, "furHats": 1}
 	var report: Dictionary = EconomyConsumption.resolve(pool, stock, 0)
-	assert_eq(report["fed_counts"], [1, 0, 0, 1])
-	assert_eq(report["strikers"], 0)
-	assert_eq(report["idle_labour"], 9)
+	assert_eq(report["fed_counts"], [0, 0, 0, 1])
+	assert_eq(report["strikers"], 1)
+	assert_eq(report["idle_labour"], 8)
 	assert_eq(report["luxury_spent"], {"furHats": 1})
 	assert_eq(stock["grain"], 0)
 	assert_eq(stock["meat"], 0)
@@ -1761,9 +1760,9 @@ func test_consumption_preview_spends_nothing() -> void:
 	assert_eq(stock["grain"], 3, "the preview leaves the larder alone")
 	assert_eq(stock["meat"], 1)
 	assert_eq(stock["refinedSugar"], 1)
-	assert_eq(report["navy_demand"], 1)
-	assert_eq(report["fed_workers"], 3, "the navy eats first, then the pool")
-	assert_eq(report["strikers"], 0)
+	assert_eq(report["navy_demand"], 2)
+	assert_eq(report["fed_workers"], 1, "the navy eats first, then the pool")
+	assert_eq(report["strikers"], 2)
 	# The same state resolved for real spends exactly what the preview promised.
 	var spent: Dictionary = stock.duplicate()
 	var real: Dictionary = EconomyConsumption.resolve(pool, spent, 1)
@@ -1779,14 +1778,14 @@ func test_a_larder_pass_answers_before_it_is_served() -> void:
 	var pool: WorkerPool = WorkerPool.make(1, 0, 0, 1)
 	var stock: Dictionary = {"grain": 1, "meat": 0, "furHats": 1}
 	var larder: EconomyConsumption.Pass = EconomyConsumption.pass_over(pool, stock.duplicate(), 0)
-	assert_eq(larder.food_wanted(), 2, "a master eats one, a peasant one")
+	assert_eq(larder.food_wanted(), 3, "a master eats two, a peasant one")
 	assert_eq(larder.food_fed(), 0, "nothing is served yet")
 	assert_eq(larder.striking_tier(), WorkerPool.Tier.MASTER, "an empty larder bites from the top")
 	larder.serve()
 	assert_eq(larder.food_fed(), 1, "one ration feeds the master, not the peasant")
 	assert_eq(larder.strikers(), 1)
-	assert_eq(larder.striking_tier(), WorkerPool.Tier.PEASANT, "the fed tier holds, the peasant strikes")
-	assert_eq(larder.report()["fed_counts"], [0, 0, 0, 1], "the master eats first")
+	assert_eq(larder.striking_tier(), WorkerPool.Tier.MASTER)
+	assert_eq(larder.report()["fed_counts"], [1, 0, 0, 0], "the master eats first")
 	assert_eq(stock["grain"], 1, "the pass read a copy, the store is untouched")
 
 ## The forecast reads a pool the caller already made: arriving recruits stay a
@@ -1933,11 +1932,11 @@ func test_larder_forecast_names_the_tier_that_strikes_first() -> void:
 	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
 	var read: Dictionary = LarderRead.forecast(economy)
 	assert_eq(int(read["mouths"]), 2)
-	assert_eq(int(read["food"]), 2, "a master eats one, a peasant one")
+	assert_eq(int(read["food"]), 3, "a master eats two, a peasant one")
 	assert_eq(int(read["store_food"]), 1)
 	assert_eq(int(read["strikers"]), 1)
-	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT, "the fed tier holds, the peasant strikes")
-	assert_eq(int(read["food_short"]), 1)
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.MASTER, "the master strikes first")
+	assert_eq(int(read["food_short"]), 2)
 	assert_eq(read["luxury"], {"furHats": 1})
 	assert_eq(read["store_luxury"], {"furHats": 1})
 
@@ -1996,7 +1995,7 @@ func test_larder_forecast_spends_the_peasant_a_train_takes() -> void:
 	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
 	var read: Dictionary = LarderRead.forecast(economy)
 	assert_eq(int(read["mouths"]), 1, "the peasant becomes the apprentice")
-	assert_eq(int(read["food"]), 1, "one apprentice ration, not a peasant's too")
+	assert_eq(int(read["food"]), 2, "one apprentice ration, not a peasant's too")
 	assert_eq(int(read["strikers"]), 0, "the larder covers the one mouth")
 	assert_eq(int(read["food_short"]), 0)
 	assert_eq(int(read["striking_tier"]), -1)
@@ -2026,7 +2025,7 @@ func test_larder_forecast_reads_the_other_mouths() -> void:
 		{"consumption": {"army_demand": 2, "navy_demand": 2, "hospital_demand": 0}}
 	)
 	assert_eq(
-		mouths, {"army": 2, "ships": 2, "hospital": 0, "wards": [0]},
+		mouths, {"army": 2, "ships": 1, "hospital": 0, "wards": [0]},
 		"a report without the ward list reads as the one ward its sum says",
 	)
 	var read: Dictionary = LarderRead.forecast(economy, mouths)
@@ -2049,11 +2048,11 @@ func test_larder_reading_names_every_appetite() -> void:
 	assert_eq(int(read["store_food"]), 12)
 	assert_eq(
 		read["appetites"],
-		{"army": 8, "navy": 2, "pool": 6, "wards": 2},
+		{"army": 8, "navy": 4, "pool": 6, "wards": 2},
 		"army, navy, pool then wards: the phase's own order",
 	)
-	assert_eq(int(read["strikers"]), 4, "the army and the navy eat the store first")
-	assert_eq(int(read["food_short"]), 4)
+	assert_eq(int(read["strikers"]), 6, "the army and the navy eat the store first")
+	assert_eq(int(read["food_short"]), 6)
 
 ## A court with no army, navy or ward reads the pool alone, and the appetites
 ## still add up to the pool's own rations.
@@ -2250,9 +2249,9 @@ func test_navy_eats_before_production_labour() -> void:
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, WorldMarket.with_default_prices(), {}, 1
 	)
-	assert_eq(int(report["consumption"]["navy_fed"]), 1)
-	assert_eq(int(report["consumption"]["navy_demand"]), 1)
-	assert_eq(int(report["consumption"]["fed_workers"]), 1)
+	assert_eq(int(report["consumption"]["navy_fed"]), 2)
+	assert_eq(int(report["consumption"]["navy_demand"]), 2)
+	assert_eq(int(report["consumption"]["fed_workers"]), 0)
 	assert_eq(report["production"]["runs"], {})
 
 func test_projection_matches_the_live_resolution() -> void:
@@ -3806,10 +3805,10 @@ func test_a_quiet_market_prints_nothing() -> void:
 func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
 	var hint: String = LedgerText.disband_hint(WorkerPool.Tier.APPRENTICE)
 	assert_true(hint.contains("no recruit cost is refunded"), hint)
-	assert_true(hint.contains("An apprentice eats 1 food"), hint)
+	assert_true(hint.contains("An apprentice eats 2 food"), hint)
 	assert_true(hint.contains("a unit of Refined Sugar"), hint)
 	var master: String = LedgerText.disband_hint(WorkerPool.Tier.MASTER)
-	assert_true(master.contains("A master eats 1 food and a unit of Fur Hats"), master)
+	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
 
 
 

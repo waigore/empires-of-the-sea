@@ -5370,8 +5370,8 @@ func test_fed_slack_reads_the_ration_after_army_and_navy() -> void:
 	economy.stockpile["grain"] = 10
 	economy.stockpile["meat"] = 0
 
-	# 10 grain − 3 army − 1 navy (one hull) − 4 peasants
-	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 1), 2)
+	# 10 grain − 3 army − 2 navy (one hull) − 4 peasants
+	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 1), 1)
 	assert_true(not AiArmyReinforce.starving(economy, 3, 1))
 
 

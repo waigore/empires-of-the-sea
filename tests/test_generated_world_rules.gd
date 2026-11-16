@@ -2957,17 +2957,17 @@ func test_unknown_ship_economy_falls_back_to_the_carrack() -> void:
 	assert_eq(ShipEconomy.entry("dromon"), ShipEconomy.entry("carrack"))
 	assert_eq(ShipEconomy.treasury_cost("dromon"), 8000)
 
-func test_food_upkeep_is_one_per_hull() -> void:
-	assert_eq(ShipEconomy.FOOD_UPKEEP_PER_SHIP, 1)
-	assert_eq(ShipEconomy.food_upkeep_per_ship("carrack"), 1)
-	assert_eq(ShipEconomy.food_upkeep_per_ship("ironclad"), 1)
+func test_food_upkeep_is_two_per_hull() -> void:
+	assert_eq(ShipEconomy.FOOD_UPKEEP_PER_SHIP, 2)
+	assert_eq(ShipEconomy.food_upkeep_per_ship("carrack"), 2)
+	assert_eq(ShipEconomy.food_upkeep_per_ship("ironclad"), 2)
 	var fleet: FleetState = FleetState.at_sea(
 		1, 0, 3, ["ship_1", "ship_2", "ship_3"], {"ship_1": "sloop", "ship_2": "carrack"}
 	)
-	assert_eq(ShipEconomy.food_upkeep_for_fleet(fleet), 3)
+	assert_eq(ShipEconomy.food_upkeep_for_fleet(fleet), 6)
 	var minted: FleetState = FleetState.at_sea(2, 0, 3, [])
 	# Factory still mints one default hull when none are given.
-	assert_eq(ShipEconomy.food_upkeep_for_fleet(minted), 1)
+	assert_eq(ShipEconomy.food_upkeep_for_fleet(minted), 2)
 	var sunk: FleetState = FleetState.at_sea(3, 0, 3, ["ship_9"])
 	sunk.remove_hull("ship_9")
 	assert_eq(ShipEconomy.food_upkeep_for_fleet(sunk), 0)
@@ -2979,8 +2979,8 @@ func test_food_upkeep_sums_owned_fleets_only() -> void:
 		FleetState.at_sea(2, 1, 2, ["ship_3", "ship_4", "ship_5"]),
 		FleetState.in_port(3, 0, 4, ["ship_6"]),
 	]
-	assert_eq(ShipEconomy.food_upkeep_for_owner(fleets, 0), 3)
-	assert_eq(ShipEconomy.food_upkeep_for_owner(fleets, 1), 3)
+	assert_eq(ShipEconomy.food_upkeep_for_owner(fleets, 0), 6)
+	assert_eq(ShipEconomy.food_upkeep_for_owner(fleets, 1), 6)
 	assert_eq(ShipEconomy.food_upkeep_for_owner(fleets, 2), 0)
 
 func test_can_afford_checks_treasury_and_materials() -> void:

@@ -4,11 +4,8 @@ extends RefCounted
 ## build economy, § Ship food upkeep). Pure catalog: BuildUnitOrder validation
 ## and consumption phases read this; no nodes (REQ-P3-03).
 
-## Per hull, per turn (grain/meat stockpile abstraction). Published 2, trimmed
-## once to 1 as the #807 fallback dial alongside the trained-tier ration
-## (evidence/issue-766 pass five): the ration rows share the estate doubling
-## or the parity courts keep striking.
-const FOOD_UPKEEP_PER_SHIP: int = 1
+## Per hull, per turn (grain/meat stockpile abstraction).
+const FOOD_UPKEEP_PER_SHIP: int = 2
 
 ## One peasant leaves the pool when a hull is launched (wiki: ships-and-naval
 ## § Ship muster; DR-20261109-01 § Paying the muster).

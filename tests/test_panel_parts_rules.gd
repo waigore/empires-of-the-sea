@@ -3571,10 +3571,10 @@ func test_a_quiet_market_prints_nothing() -> void:
 func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
 	var hint: String = LedgerText.disband_hint(WorkerPool.Tier.APPRENTICE)
 	assert_true(hint.contains("no recruit cost is refunded"), hint)
-	assert_true(hint.contains("An apprentice eats 1 food"), hint)
+	assert_true(hint.contains("An apprentice eats 2 food"), hint)
 	assert_true(hint.contains("a unit of Refined Sugar"), hint)
 	var master: String = LedgerText.disband_hint(WorkerPool.Tier.MASTER)
-	assert_true(master.contains("A master eats 1 food and a unit of Fur Hats"), master)
+	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
 
 func test_fills_carry_and_lapse_are_named() -> void:
 	var report: Dictionary = {
