@@ -274,14 +274,41 @@ static func _empty(
 	}
 
 
-## The line leads: warships before merchantmen, then the heavier class, then
-## the instance id, so a squadron reads the same way every turn.
+## The line leads: warships before merchantmen, then the heavier class — the
+## class's own weighted strength, the figure her row prints — then the instance
+## id, so a squadron reads the same way every turn and a ship-of-the-line never
+## reads under a frigate (wiki: ships-and-naval § The crown's navy).
 static func _before_hull(a: Dictionary, b: Dictionary) -> bool:
 	if String(a["role"]) != String(b["role"]):
 		return String(a["role"]) == READING_WARSHIP
+	var left: float = float(a["strength"])
+	var right: float = float(b["strength"])
+	if not is_equal_approx(left, right):
+		return left > right
 	if String(a["class"]) != String(b["class"]):
 		return String(a["class"]) < String(b["class"])
-	return String(a["hull"]) < String(b["hull"])
+	return _hull_before(String(a["hull"]), String(b["hull"]))
+
+
+## Hull instance ids are `ship_<n>` (wiki: ships-and-naval § Ship instances), so
+## the reading orders them by their number and not by their spelling: ship_9
+## reads before ship_10. An id that carries no number falls back to its text.
+static func _hull_before(a: String, b: String) -> bool:
+	var left: int = _hull_number(a)
+	var right: int = _hull_number(b)
+	if left >= 0 and right >= 0 and left != right:
+		return left < right
+	return a < b
+
+
+## The number in a hull instance id, or -1 when the id is not `ship_<n>`.
+static func _hull_number(hull_id: String) -> int:
+	if not hull_id.begins_with("ship_"):
+		return -1
+	var tail: String = hull_id.substr(5)
+	if not tail.is_valid_int():
+		return -1
+	return tail.to_int()
 
 
 static func _before_group(a: Dictionary, b: Dictionary) -> bool:
