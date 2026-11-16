@@ -160,6 +160,11 @@ static func on_action(play: PlaySession, action: String) -> void:
 		MapPlayArmyMuster.detach(play, army, ids)
 	elif action == "detach_all":
 		MapPlayArmyMuster.detach(play, army, army.regiments.duplicate())
+	elif action.begins_with("dismiss:"):
+		var shed: Array[String] = [action.trim_prefix("dismiss:")]
+		MapPlayArmyMuster.dismiss(play, army, shed)
+	elif action == "dismiss_all":
+		MapPlayArmyMuster.dismiss(play, army, army.regiments.duplicate())
 	elif action == "merge":
 		MapPlayArmyMuster.merge(play, army)
 	elif action == "embark":
