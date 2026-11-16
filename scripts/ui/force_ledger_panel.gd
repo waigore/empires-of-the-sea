@@ -11,6 +11,9 @@ extends LedgerSheet
 ## The muster roll names each squadron; the hull sheet behind this door reads
 ## every hull she flies (REQ-P5-01, REQ-P5-03; DR-20261115-14).
 signal navy_pressed
+## The muster roll names each standard; the regiment sheet behind this door reads
+## every regiment it flies (REQ-P5-01, REQ-P5-03; DR-20261116-07).
+signal army_pressed
 
 
 func _init() -> void:
@@ -45,21 +48,38 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	_build_filter_body(
-		column, "Region", "Force", ForceLedger.KIND_FILTERS, _kind_word, _navy_door
+		column, "Region", "Force", ForceLedger.KIND_FILTERS, _kind_word, _doors
 	)
 
 
-## The door to the crown's navy: the roll counts a squadron's hulls, the hull
-## sheet reads each of them, and the press is one reach from the row that raises
-## the question (REQ-P5-01, REQ-P5-03; DR-20261115-14). A full-width row keeps
-## it a thumb-sized tap on a phone sheet.
-func _navy_door() -> Control:
+## The doors behind the roll: the crown's army reads every regiment a standard
+## flies, the crown's navy every hull a squadron floats. The roll counts them;
+## the sheets read them, one reach from the row that raises the question. A
+## full-width row keeps each a thumb-sized tap on a phone sheet (REQ-P5-01,
+## REQ-P5-03; DR-20261115-14, DR-20261116-07).
+func _doors() -> Control:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 4)
+	box.add_child(_door(
+		"The crown's army ›",
+		"Every regiment the crown fields, standard by standard",
+		army_pressed
+	))
+	box.add_child(_door(
+		"The crown's navy ›",
+		"Every hull the crown floats, squadron by squadron (N)",
+		navy_pressed
+	))
+	return box
+
+
+func _door(caption: String, hint: String, door_signal: Signal) -> Button:
 	var door := Button.new()
-	door.text = "The crown's navy ›"
-	door.tooltip_text = "Every hull the crown floats, squadron by squadron (N)"
+	door.text = caption
+	door.tooltip_text = hint
 	door.custom_minimum_size = Vector2(0, 34)
 	door.add_theme_font_size_override("font_size", 12)
-	door.pressed.connect(func() -> void: navy_pressed.emit())
+	door.pressed.connect(func() -> void: door_signal.emit())
 	return door
 
 
