@@ -280,6 +280,33 @@ func test_combining_armies_uses_the_home_army_as_target() -> void:
 	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
 
 
+## Away from the seat the Home Army is not in the group, so the panel's own order
+## decides: the standard the crown sees first absorbs the one it tapped, because
+## the province's standards stack by army id (wiki: military-armies
+## § Split and combine).
+func test_a_combine_keeps_the_standard_the_panel_prints_first() -> void:
+	var play: PlaySession = _screen.play
+	var earlier: ArmyState = ArmyState.muster(
+		4, play.player_faction, 1, false, ["pikemen"], 401
+	)
+	var later: ArmyState = ArmyState.muster(
+		9, play.player_faction, 1, false, ["squires"], 901
+	)
+	_screen.army_layer.armies.clear()
+	_screen.army_layer.armies.append(later)
+	_screen.army_layer.armies.append(earlier)
+	_screen.army_layer._rebuild_markers()
+
+	_screen.army_layer.select(later)
+	MapPlayArmies.on_action(play, "merge")
+
+	assert_eq(
+		_screen.army_layer.selected_army, earlier, "the earlier standard keeps the field"
+	)
+	assert_eq(earlier.count(), 2)
+	assert_false(_screen.army_layer.armies.has(later))
+
+
 ## The train (DR-20261112-07): the dossier names the offer or its refusal, the
 ## register spends the materials, and a second pitch is refused in the rules'
 ## own words.
@@ -823,6 +850,14 @@ func test_a_fed_ward_is_named_beside_the_tents() -> void:
 	var line: String = String(panel._strength.text)
 	assert_true(line.contains("field hospital · rest 40%"), line)
 	assert_true(line.contains("ward 55%"), line)
+	assert_true(
+		line.contains(
+			"%d food" % (
+				RegimentCatalog.food_upkeep("guards") + HospitalTrain.food()
+			)
+		),
+		"the train's staff rides in the dossier's own larder line: " + line
+	)
 
 	model.province_data(1).hospital_staffed = false
 

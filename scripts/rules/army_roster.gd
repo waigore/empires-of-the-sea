@@ -67,13 +67,15 @@ static func split(
 
 
 ## Combines same-owner armies sharing a province: the Home Army is always the
-## merge target, else the first in panel order (military-armies § Split and combine).
+## merge target, else the first in panel order — the panel stacks a province's
+## standards by army id (wiki: military-armies § Split and combine), so the
+## standard the crown sees first absorbs the rest whoever it tapped.
 static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dictionary:
 	if selected.size() < 2 or selected[0] == null:
 		return _deny("Select two armies in the same province to combine.")
 	var province: int = selected[0].province
 	var owner: int = selected[0].owner
-	var target: ArmyState = selected[0]
+	var target: ArmyState = null
 	var any_moved: bool = false
 	for army: ArmyState in selected:
 		if army == null or not armies.has(army):
@@ -83,8 +85,7 @@ static func combine(armies: Array[ArmyState], selected: Array[ArmyState]) -> Dic
 		if army.owner != owner or army.province != province:
 			return _deny("Armies must share a province and an owner to combine.")
 		any_moved = any_moved or army.moved
-		if army.home:
-			target = army
+		target = _merge_target(target, army)
 	for army: ArmyState in selected:
 		if army == target:
 			continue
@@ -171,3 +172,16 @@ static func food_upkeep_all(regions: MapRegionTable, owner: int) -> int:
 
 static func _deny(reason: String) -> Dictionary:
 	return {"ok": false, "reason": reason, "army": null}
+
+
+## The merge target after one more army joins the group: the Home Army always
+## wins, and otherwise the lowest army id — the order the panel stacks a
+## province's standards in (wiki: military-armies § Split and combine).
+static func _merge_target(current: ArmyState, army: ArmyState) -> ArmyState:
+	if current == null:
+		return army
+	if army.home:
+		return army
+	if current.home:
+		return current
+	return army if army.id < current.id else current

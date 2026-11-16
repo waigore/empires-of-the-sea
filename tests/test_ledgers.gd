@@ -3524,7 +3524,42 @@ func test_the_standard_heading_reads_where_it_stands_and_what_it_eats() -> void:
 	var army: ArmyState = _army_of(_armies(), 1)
 	var one: Array[ArmyState] = [army]
 	assert_almost_eq(float(home["strength"]), ArmyForce.side_strength(one), 0.001)
-	assert_eq(int(home["food"]), RegimentCatalog.food_upkeep("pikemen") + RegimentCatalog.food_upkeep("arquebusiers"))
+	assert_eq(
+		int(home["food"]),
+		RegimentCatalog.food_upkeep("pikemen") + RegimentCatalog.food_upkeep("arquebusiers")
+	)
+
+
+## A standard's larder bill is the rules' own reading, the same one the dossier
+## and the Consumption phase pay: the regiments' upkeep plus the staff of the
+## field hospital train it carries (wiki: military-armies § The regiments behind
+## an army, combat § Feeding; DR-20261112-07).
+func test_a_standard_carrying_a_train_eats_its_staff_too() -> void:
+	var table: MapRegionTable = _armies()
+	var home: ArmyState = _army_of(table, 1)
+	home.field_hospital = true
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), table, _fleets(), OWNER)
+	var group: Dictionary = ArmyLedger.groups(data, LedgerRows.REGION_OLD)[0]
+	var one: Array[ArmyState] = [home]
+	assert_eq(int(group["food"]), ArmyRoster.food_upkeep_of(one, OWNER), "the larder's own bill")
+	assert_eq(
+		int(group["food"]),
+		RegimentCatalog.food_upkeep("pikemen")
+		+ RegimentCatalog.food_upkeep("arquebusiers")
+		+ HospitalTrain.food(),
+		"the train's staff eats with the men"
+	)
+	var chart: Array[ArmyState] = []
+	for raw: Variant in table.value(FactionCatalog.OLD_WORLD, []):
+		var army := raw as ArmyState
+		if army != null and army.owner == OWNER:
+			chart.append(army)
+	assert_true(
+		ArmyLedger.summary(data, LedgerRows.REGION_OLD).contains(
+			"%d food a turn" % ArmyRoster.food_upkeep_of(chart, OWNER)
+		),
+		"the count line bills the same larder as the Consumption phase"
+	)
 
 
 func test_an_embarked_standard_reads_aboard_its_squadron() -> void:
