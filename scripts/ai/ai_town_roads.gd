@@ -19,45 +19,36 @@ const NEIGHBORS: Array[Vector2i] = [
 ## dictionary when every owned town already reaches the network (or no legal
 ## step exists). `connected` is the capital network from ImprovementSystem.
 static func best_candidate(
-	config: AiConfig,
-	model: MapModel,
-	unit: CivilianState,
-	works: LandWorks,
-	units: Array,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	connected: Dictionary,
-	reserved: Dictionary
+	query: AiWorkQuery, connected: Dictionary
 ) -> Dictionary:
 	var best: Dictionary = {}
-	if config == null or model == null or unit == null or works == null:
+	if query.config == null or query.model == null:
+		return best
+	if query.unit == null or query.works == null:
 		return best
 	if connected.is_empty():
 		return best
-	var weight: int = config.parameter("civilian.town_road_weight")
-	for province: ProvinceState in model.provinces:
-		if province.owner != unit.owner:
+	var weight: int = query.config.parameter("civilian.town_road_weight")
+	for province: ProvinceState in query.model.provinces:
+		if province.owner != query.unit.owner:
 			continue
 		var town: Vector2i = ImprovementSystem.town_tile(
-			model, works, province.id, CivilianState.NO_TILE
+			query.model, query.works, province.id, CivilianState.NO_TILE
 		)
-		if town.x < 0 or reserved.has(town):
+		if town.x < 0 or query.reserved.has(town):
 			continue
-		if connected.has(model.index_of(town.x, town.y)):
+		if connected.has(query.model.index_of(town.x, town.y)):
 			continue
 		var step: Vector2i = _first_unroaded(
-			model, works, unit.owner, town, connected
+			query.model, query.works, query.unit.owner, town, connected
 		)
-		if step.x < 0 or reserved.has(step):
+		if step.x < 0 or query.reserved.has(step):
 			continue
 		var score: int = weight + province.town_level() * 10
 		if province.capital:
 			score += 10
 		var candidate: Dictionary = AiCivilianCandidate.make(
-			model, unit, "build_road", step, works, units, stockpile,
-			tech_caps, tech_unlocked, context, score
+			query, "build_road", step, score
 		)
 		best = AiCivilianCandidate.better(best, candidate)
 	return best

@@ -4376,10 +4376,10 @@ func _context(at_war: bool = false) -> Dictionary:
 
 func _engineer_order(model: MapModel, works: LandWorks, at_war: bool = false) -> Dictionary:
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", BARE)
-	return Engineer.best_candidate(
+	return Engineer.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, unit, [unit] as Array, works,
 		CivilianFixture.stockpile(), {}, {}, _context(at_war), {}
-	)
+	))
 
 
 ## Every owned tile improved and ported, so the only work left is transport.
@@ -4414,10 +4414,10 @@ func test_an_invaded_court_prices_its_fort_with_wartime_urgency() -> void:
 	var works := LandWorks.new()
 	works.add_port(model, CivilianFixture.COAST_TILE)
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", BARE)
-	var fort: Dictionary = Engineer.fort_candidate(
+	var fort: Dictionary = Engineer.fort_candidate(_work_query(
 		AiConfig.build(0, 1500), model, unit, [unit] as Array, works,
-		CivilianFixture.stockpile(), {}, {}, _context(true)
-	)
+		CivilianFixture.stockpile(), {}, {}, _context(true), {}
+	))
 	var road: Dictionary = _engineer_order(model, works)
 	assert_eq(String(fort.get("action", "")), "build_fort")
 	assert_eq(Vector2i(fort["tile"]), FortRules.site_tile(model, CivilianFixture.PLAYER_PROVINCE))
@@ -4440,10 +4440,10 @@ func test_the_engineer_never_offers_a_rail() -> void:
 func test_no_engineer_work_without_a_config() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", BARE)
-	assert_true(Engineer.best_candidate(
+	assert_true(Engineer.best_candidate(_work_query(
 		null, model, unit, [unit] as Array, LandWorks.new(),
 		CivilianFixture.stockpile(), {}, {}, _context(), {}
-	).is_empty())
+	)).is_empty())
 
 
 ## The civilian dispatcher after the Engineer policy left it
@@ -4583,14 +4583,26 @@ func _hospital_context(at_war: bool = true) -> Dictionary:
 	}
 
 
+## One work reading for the suites, in the order the civilian pass builds it.
+func _work_query(
+	config: AiConfig, model: MapModel, unit: CivilianState, units: Array,
+	works: LandWorks, stockpile: Dictionary, tech_caps: Dictionary,
+	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary
+) -> AiWorkQuery:
+	return AiWorkQuery.make(
+		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
+		context, reserved
+	)
+
+
 func _best(
 	model: MapModel, tech_unlocked: Dictionary = TECH, reserved: Dictionary = {}
 ) -> Dictionary:
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", CAPITAL)
-	return AiHospitalWork.best_candidate(
+	return AiHospitalWork.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, unit, [unit], LandWorks.new(),
 		_hospital_stockpile(), {}, tech_unlocked, _hospital_context(), reserved
-	)
+	))
 
 
 func test_the_seat_raises_the_first_hospital() -> void:
@@ -4699,10 +4711,10 @@ func test_peace_leaves_the_town_sweep_first() -> void:
 
 func test_nothing_is_planned_without_a_world() -> void:
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", CAPITAL)
-	assert_true(AiHospitalWork.best_candidate(
-		AiConfig.build(0, 1500), null, unit, [unit], null, _hospital_stockpile(), {},
-		TECH, _hospital_context(), {}
-	).is_empty())
+	assert_true(AiHospitalWork.best_candidate(_work_query(
+		AiConfig.build(0, 1500), null, unit, [unit], null, _hospital_stockpile(),
+		{}, TECH, _hospital_context(), {}
+	)).is_empty())
 
 
 func test_a_fort_always_holds_over_the_town_sweep() -> void:
@@ -4774,10 +4786,10 @@ func test_an_unconnected_town_targets_its_own_tile_first() -> void:
 	var model: MapModel = _road_model()
 	var works := LandWorks.new()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	var best: Dictionary = AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, works, [unit], _road_stockpile(),
-		{}, {}, {}, _connected(model, [ROAD_CAPITAL]), {}
-	)
+	var best: Dictionary = AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], works, _road_stockpile(), {}, {}, {},
+		{}
+	), _connected(model, [ROAD_CAPITAL]))
 	assert_eq(String(best.get("action", "")), "build_road")
 	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), ROAD_TOWN)
 
@@ -4787,21 +4799,20 @@ func test_the_next_step_follows_the_shortest_owned_path() -> void:
 	var works := LandWorks.new()
 	works.set_transport(model, ROAD_TOWN, LandWorks.TRANSPORT_ROAD)
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	var best: Dictionary = AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, works, [unit], _road_stockpile(),
-		{}, {}, {}, _connected(model, [ROAD_CAPITAL]), {}
-	)
+	var best: Dictionary = AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], works, _road_stockpile(), {}, {}, {},
+		{}
+	), _connected(model, [ROAD_CAPITAL]))
 	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), Vector2i(3, 1))
 
 
 func test_a_connected_town_is_left_alone() -> void:
 	var model: MapModel = _road_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	var best: Dictionary = AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_road_stockpile(), {}, {}, {},
-		_connected(model, [ROAD_CAPITAL, ROAD_TOWN]), {}
-	)
+	var best: Dictionary = AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(), _road_stockpile(),
+		{}, {}, {}, {}
+	), _connected(model, [ROAD_CAPITAL, ROAD_TOWN]))
 	assert_true(best.is_empty())
 
 
@@ -4830,38 +4841,37 @@ func test_the_engineer_planner_emits_the_town_road_order() -> void:
 func test_without_a_capital_network_no_order_is_offered() -> void:
 	var model: MapModel = _road_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_road_stockpile(), {}, {}, {}, {}, {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(), _road_stockpile(),
+		{}, {}, {}, {}
+	), {}).is_empty())
 
 
 func test_a_reserved_town_is_left_for_another_crew() -> void:
 	var model: MapModel = _road_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_road_stockpile(), {}, {}, {}, _connected(model, [ROAD_CAPITAL]), {ROAD_TOWN: true}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(), _road_stockpile(),
+		{}, {}, {}, {ROAD_TOWN: true}
+	), _connected(model, [ROAD_CAPITAL])).is_empty())
 
 
 func test_a_foreign_town_is_ignored() -> void:
 	var model: MapModel = _road_model()
 	model.provinces[0].owner = 2
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_road_stockpile(), {}, {}, {}, _connected(model, [ROAD_CAPITAL]), {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(), _road_stockpile(),
+		{}, {}, {}, {}
+	), _connected(model, [ROAD_CAPITAL])).is_empty())
 
 
 func test_missing_inputs_are_guarded() -> void:
 	var model: MapModel = _road_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		null, model, unit, LandWorks.new(), [unit], _road_stockpile(), {}, {}, {},
-		_connected(model, [ROAD_CAPITAL]), {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		null, model, unit, [unit], LandWorks.new(), _road_stockpile(), {}, {}, {}, {}
+	), _connected(model, [ROAD_CAPITAL])).is_empty())
 
 
 func test_a_reserved_path_tile_is_left_alone() -> void:
@@ -4869,20 +4879,20 @@ func test_a_reserved_path_tile_is_left_alone() -> void:
 	var works := LandWorks.new()
 	works.set_transport(model, ROAD_TOWN, LandWorks.TRANSPORT_ROAD)
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, works, [unit], _road_stockpile(),
-		{}, {}, {}, _connected(model, [ROAD_CAPITAL]), {Vector2i(3, 1): true}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], works, _road_stockpile(), {}, {}, {},
+		{Vector2i(3, 1): true}
+	), _connected(model, [ROAD_CAPITAL])).is_empty())
 
 
 func test_a_working_engineer_gets_no_second_order() -> void:
 	var model: MapModel = _road_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ROAD_CAPITAL)
 	unit.start_work("build_road", ROAD_TOWN, 1)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_road_stockpile(), {}, {}, {}, _connected(model, [ROAD_CAPITAL]), {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(), _road_stockpile(),
+		{}, {}, {}, {}
+	), _connected(model, [ROAD_CAPITAL])).is_empty())
 
 
 ## Wiki: ai-architecture § Town-per-province roads — a town road outranks
@@ -6131,16 +6141,16 @@ func test_only_a_merchant_and_an_unreserved_tile_get_the_order() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var context: Dictionary = _market_context(model, Fixture.merchant_court())
 	var builder: CivilianState = CivilianState.create(1, 0, "builder", GRAIN)
-	var none: Dictionary = AiMerchantWork.best_candidate(
+	var none: Dictionary = AiMerchantWork.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, builder, [builder], LandWorks.new(),
 		Fixture.stockpile(), {}, {}, context, {}
-	)
+	))
 	assert_true(none.is_empty(), "a builder cannot buy land")
 	var merchant: CivilianState = _merchant(GRAIN)
-	var taken: Dictionary = AiMerchantWork.best_candidate(
+	var taken: Dictionary = AiMerchantWork.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, merchant, [merchant], LandWorks.new(),
 		Fixture.stockpile(), {}, {}, context, {GRAIN: true}
-	)
+	))
 	assert_true(taken.is_empty(), "another crew already has this tile")
 
 
@@ -7720,10 +7730,10 @@ func test_an_explorer_musters_at_the_crowns_harbour() -> void:
 		"the march closes on the harbour"
 	)
 	assert_true(
-		AiExplorerWork.best_candidate(
+		AiExplorerWork.best_candidate(_work_query(
 			AiConfig.build(0, 1500), model, away, [away], LandWorks.new(),
 			campaign_CivilianFixture.stockpile(), {}, {}, context, {}
-		).is_empty(),
+		)).is_empty(),
 		"a colonist on the way to its port takes no survey work"
 	)
 
@@ -10447,16 +10457,16 @@ func test_planner_only_a_merchant_and_an_unreserved_tile_get_the_order() -> void
 	var model: MapModel = planner_Fixture.build_minor()
 	var context: Dictionary = _ai_merchant_context(model, planner_Fixture.merchant_court())
 	var builder: CivilianState = CivilianState.create(1, 0, "builder", planner_GRAIN)
-	var none: Dictionary = AiMerchantWork.best_candidate(
+	var none: Dictionary = AiMerchantWork.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, builder, [builder], LandWorks.new(),
 		planner_Fixture.stockpile(), {}, {}, context, {}
-	)
+	))
 	assert_true(none.is_empty(), "a builder cannot buy land")
 	var merchant: CivilianState = _ai_merchant_merchant(planner_GRAIN)
-	var taken: Dictionary = AiMerchantWork.best_candidate(
+	var taken: Dictionary = AiMerchantWork.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, merchant, [merchant], LandWorks.new(),
 		planner_Fixture.stockpile(), {}, {}, context, {planner_GRAIN: true}
-	)
+	))
 	assert_true(taken.is_empty(), "another crew already has this tile")
 
 ## An empty purse or an unaffordable price leaves nothing on offer, and a deed
@@ -11184,10 +11194,11 @@ func _ai_engineer_work_context(at_war: bool = false) -> Dictionary:
 
 func planner__engineer_order(model: MapModel, works: LandWorks, at_war: bool = false) -> Dictionary:
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_engineer_work_BARE)
-	return planner_Engineer.best_candidate(
+	return planner_Engineer.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, unit, [unit] as Array, works,
-		ai_engineer_work_CivilianFixture.stockpile(), {}, {}, _ai_engineer_work_context(at_war), {}
-	)
+		ai_engineer_work_CivilianFixture.stockpile(), {}, {},
+		_ai_engineer_work_context(at_war), {}
+	))
 
 ## Every owned tile improved and ported, so the only work left is transport.
 func _ai_engineer_work_works(model: MapModel) -> LandWorks:
@@ -11218,10 +11229,11 @@ func test_planner_an_invaded_court_prices_its_fort_with_wartime_urgency() -> voi
 	var works := LandWorks.new()
 	works.add_port(model, ai_engineer_work_CivilianFixture.COAST_TILE)
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_engineer_work_BARE)
-	var fort: Dictionary = planner_Engineer.fort_candidate(
+	var fort: Dictionary = planner_Engineer.fort_candidate(_work_query(
 		AiConfig.build(0, 1500), model, unit, [unit] as Array, works,
-		ai_engineer_work_CivilianFixture.stockpile(), {}, {}, _ai_engineer_work_context(true)
-	)
+		ai_engineer_work_CivilianFixture.stockpile(), {}, {},
+		_ai_engineer_work_context(true), {}
+	))
 	var road: Dictionary = planner__engineer_order(model, works)
 	assert_eq(String(fort.get("action", "")), "build_fort")
 	assert_eq(Vector2i(fort["tile"]), FortRules.site_tile(model, ai_engineer_work_CivilianFixture.PLAYER_PROVINCE))
@@ -11242,10 +11254,11 @@ func test_planner_the_engineer_never_offers_a_rail() -> void:
 func test_planner_no_engineer_work_without_a_config() -> void:
 	var model: MapModel = ai_engineer_work_CivilianFixture.build()
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_engineer_work_BARE)
-	assert_true(planner_Engineer.best_candidate(
+	assert_true(planner_Engineer.best_candidate(_work_query(
 		null, model, unit, [unit] as Array, LandWorks.new(),
-		ai_engineer_work_CivilianFixture.stockpile(), {}, {}, _ai_engineer_work_context(), {}
-	).is_empty())
+		ai_engineer_work_CivilianFixture.stockpile(), {}, {},
+		_ai_engineer_work_context(), {}
+	)).is_empty())
 
 # --- test_ai_hospital_work ---
 
@@ -11296,10 +11309,11 @@ func planner__best(
 	model: MapModel, tech_unlocked: Dictionary = planner_TECH, reserved: Dictionary = {}
 ) -> Dictionary:
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_hospital_work_CAPITAL)
-	return AiHospitalWork.best_candidate(
+	return AiHospitalWork.best_candidate(_work_query(
 		AiConfig.build(0, 1500), model, unit, [unit], LandWorks.new(),
-		_ai_hospital_work_stockpile(), {}, tech_unlocked, _ai_hospital_work_context(), reserved
-	)
+		_ai_hospital_work_stockpile(), {}, tech_unlocked,
+		_ai_hospital_work_context(), reserved
+	))
 
 func test_planner_the_seat_raises_the_first_hospital() -> void:
 	var best: Dictionary = planner__best(_ai_hospital_work_model())
@@ -11396,10 +11410,11 @@ func test_planner_peace_leaves_the_town_sweep_first() -> void:
 
 func test_planner_nothing_is_planned_without_a_world() -> void:
 	var unit: CivilianState = CivilianState.create(1, 0, "engineer", ai_hospital_work_CAPITAL)
-	assert_true(AiHospitalWork.best_candidate(
-		AiConfig.build(0, 1500), null, unit, [unit], null, _ai_hospital_work_stockpile(), {},
-		planner_TECH, _ai_hospital_work_context(), {}
-	).is_empty())
+	assert_true(AiHospitalWork.best_candidate(_work_query(
+		AiConfig.build(0, 1500), null, unit, [unit], null,
+		_ai_hospital_work_stockpile(), {}, planner_TECH,
+		_ai_hospital_work_context(), {}
+	)).is_empty())
 
 func test_planner_a_fort_always_holds_over_the_town_sweep() -> void:
 	assert_true(AiHospitalWork.holds_over_town_link(
@@ -11460,10 +11475,10 @@ func test_planner_an_unconnected_town_targets_its_own_tile_first() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	var works := LandWorks.new()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	var best: Dictionary = AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, works, [unit], _ai_town_roads_stockpile(),
-		{}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
-	)
+	var best: Dictionary = AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], works, _ai_town_roads_stockpile(),
+		{}, {}, {}, {}
+	), planner__connected(model, [ai_town_roads_CAPITAL]))
 	assert_eq(String(best.get("action", "")), "build_road")
 	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), ai_town_roads_TOWN)
 
@@ -11472,20 +11487,19 @@ func test_planner_the_next_step_follows_the_shortest_owned_path() -> void:
 	var works := LandWorks.new()
 	works.set_transport(model, ai_town_roads_TOWN, LandWorks.TRANSPORT_ROAD)
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	var best: Dictionary = AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, works, [unit], _ai_town_roads_stockpile(),
-		{}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
-	)
+	var best: Dictionary = AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], works, _ai_town_roads_stockpile(),
+		{}, {}, {}, {}
+	), planner__connected(model, [ai_town_roads_CAPITAL]))
 	assert_eq(Vector2i(best.get("tile", Vector2i(-1, -1))), Vector2i(3, 1))
 
 func test_planner_a_connected_town_is_left_alone() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	var best: Dictionary = AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_ai_town_roads_stockpile(), {}, {}, {},
-		planner__connected(model, [ai_town_roads_CAPITAL, ai_town_roads_TOWN]), {}
-	)
+	var best: Dictionary = AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(),
+		_ai_town_roads_stockpile(), {}, {}, {}, {}
+	), planner__connected(model, [ai_town_roads_CAPITAL, ai_town_roads_TOWN]))
 	assert_true(best.is_empty())
 
 func test_planner_the_engineer_planner_emits_the_town_road_order() -> void:
@@ -11512,54 +11526,54 @@ func test_planner_the_engineer_planner_emits_the_town_road_order() -> void:
 func test_planner_without_a_capital_network_no_order_is_offered() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_ai_town_roads_stockpile(), {}, {}, {}, {}, {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(),
+		_ai_town_roads_stockpile(), {}, {}, {}, {}
+	), {}).is_empty())
 
 func test_planner_a_reserved_town_is_left_for_another_crew() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_ai_town_roads_stockpile(), {}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {ai_town_roads_TOWN: true}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(),
+		_ai_town_roads_stockpile(), {}, {}, {}, {ai_town_roads_TOWN: true}
+	), planner__connected(model, [ai_town_roads_CAPITAL])).is_empty())
 
 func test_planner_a_foreign_town_is_ignored() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	model.provinces[0].owner = 2
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_ai_town_roads_stockpile(), {}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(),
+		_ai_town_roads_stockpile(), {}, {}, {}, {}
+	), planner__connected(model, [ai_town_roads_CAPITAL])).is_empty())
 
 func test_planner_missing_inputs_are_guarded() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		null, model, unit, LandWorks.new(), [unit], _ai_town_roads_stockpile(), {}, {}, {},
-		planner__connected(model, [ai_town_roads_CAPITAL]), {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		null, model, unit, [unit], LandWorks.new(), _ai_town_roads_stockpile(), {}, {}, {},
+		{}
+	), planner__connected(model, [ai_town_roads_CAPITAL])).is_empty())
 
 func test_planner_a_reserved_path_tile_is_left_alone() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	var works := LandWorks.new()
 	works.set_transport(model, ai_town_roads_TOWN, LandWorks.TRANSPORT_ROAD)
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, works, [unit], _ai_town_roads_stockpile(),
-		{}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {Vector2i(3, 1): true}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], works, _ai_town_roads_stockpile(),
+		{}, {}, {}, {Vector2i(3, 1): true}
+	), planner__connected(model, [ai_town_roads_CAPITAL])).is_empty())
 
 func test_planner_a_working_engineer_gets_no_second_order() -> void:
 	var model: MapModel = _ai_town_roads_model()
 	var unit: CivilianState = CivilianState.create(1, 1, "engineer", ai_town_roads_CAPITAL)
 	unit.start_work("build_road", ai_town_roads_TOWN, 1)
-	assert_true(AiTownRoads.best_candidate(
-		AiConfig.build(1, 1500), model, unit, LandWorks.new(), [unit],
-		_ai_town_roads_stockpile(), {}, {}, {}, planner__connected(model, [ai_town_roads_CAPITAL]), {}
-	).is_empty())
+	assert_true(AiTownRoads.best_candidate(_work_query(
+		AiConfig.build(1, 1500), model, unit, [unit], LandWorks.new(),
+		_ai_town_roads_stockpile(), {}, {}, {}, {}
+	), planner__connected(model, [ai_town_roads_CAPITAL])).is_empty())
 
 ## Wiki: ai-architecture § Town-per-province roads — a town road outranks
 ## incidental works, so a resource road next to the capital never pre-empts the
