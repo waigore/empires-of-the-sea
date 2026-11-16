@@ -57,6 +57,30 @@ static func step_navy(run) -> void:
 	run.check(MapPlayFleets.try_order(screen.play, tile), "fleet sails")
 	run.check(fleet.sea_zone == zone and fleet.moved, "fleet spends its move")
 	run.check(fleet.mission == FleetState.Mission.NONE, "sailing clears the station")
+	# A hull leaves the squadron as a command of her own (wiki: ships-and-naval
+	# § Ship instances; DR-20261116-12): the roster keeps both and both fly.
+	fleet.add_hull("smoke_split", "sloop")
+	var hulls_before: int = fleet.ship_count()
+	var roster_before: int = screen.ship_layer.fleets.size()
+	MapPlayFleets.on_action(screen.play, "split:smoke_split")
+	run.check(
+		screen.ship_layer.fleets.size() == roster_before + 1,
+		"a hull detaches into a squadron of her own"
+	)
+	run.check(fleet.ship_count() == hulls_before - 1, "the squadron keeps her other hulls")
+	var split_fleet: FleetState = null
+	for other: FleetState in screen.ship_layer.fleets:
+		if other != fleet and other.hulls.has("smoke_split"):
+			split_fleet = other
+	run.check(split_fleet != null, "the detached hull flies alone")
+	run.check(
+		split_fleet != null and split_fleet.sea_zone == fleet.sea_zone,
+		"the new squadron keeps her station"
+	)
+	run.check(
+		split_fleet != null and screen.ship_layer.ship_for(split_fleet) != null,
+		"the new squadron flies a marker"
+	)
 
 
 ## Army training is live: the recruit order musters a regiment into the Home

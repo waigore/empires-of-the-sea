@@ -4317,3 +4317,194 @@ func _passes_war(a: int, b: int) -> bool:
 ## The same query in peacetime: no pair is hostile.
 func _passes_peace(_a: int, _b: int) -> bool:
 	return false
+
+# --- fleet_split ---
+
+## A sea-going squadron of three hulls, mixed types, moored nowhere.
+func _split_fleet() -> FleetState:
+	return FleetState.at_sea(
+		2, 0, 0, ["ship_1", "ship_2", "ship_3"],
+		{"ship_1": "carrack", "ship_2": "sloop", "ship_3": "fluyte"}
+	)
+
+func test_a_hull_detaches_into_a_squadron_of_her_own() -> void:
+	_setup_fleet_sortie()
+	var fleet: FleetState = _split_fleet()
+	var fleets: Array[FleetState] = [fleet]
+	var flown: String = ShipNames.of(fleet, "ship_2")
+
+	var result: Dictionary = FleetSplit.detach(
+		_fleet_sortie_model, fleets, fleet, "ship_2", 9
+	)
+
+	assert_true(bool(result["ok"]), String(result["reason"]))
+	assert_eq(fleet.hulls, ["ship_1", "ship_3"], "the squadron keeps her other hulls")
+	var split: FleetState = result["fleet"] as FleetState
+	assert_not_null(split)
+	assert_eq(split.id, 9, "she takes the id the roster offered")
+	assert_eq(split.hulls, ["ship_2"], "the detached hull flies alone")
+	assert_eq(split.type_of("ship_2"), "sloop", "she keeps her catalog type")
+	assert_eq(ShipNames.of(split, "ship_2"), flown, "she keeps the name she flew")
+	assert_true(split.is_at_sea())
+	assert_eq(split.sea_zone, fleet.sea_zone, "she stands in the same water")
+	assert_eq(fleets.size(), 2, "the roster keeps both commands")
+	assert_eq(String(result["name"]), flown)
+
+func test_the_new_squadron_takes_no_station_and_keeps_the_readiness() -> void:
+	_setup_fleet_sortie()
+	var fleet: FleetState = _split_fleet()
+	fleet.moved = true
+	fleet.mission = FleetState.Mission.PATROL
+	fleet.beachhead_province = 1
+	fleet.beachhead_turn = 4
+	fleet.add_civilian(11)
+	var fleets: Array[FleetState] = [fleet]
+
+	var result: Dictionary = FleetSplit.detach(
+		_fleet_sortie_model, fleets, fleet, "ship_3", 9
+	)
+
+	assert_true(bool(result["ok"]), String(result["reason"]))
+	var split: FleetState = result["fleet"] as FleetState
+	assert_true(split.moved, "a hull that has sailed does not sail again")
+	assert_eq(split.mission, FleetState.Mission.NONE, "the station stays with the squadron")
+	assert_eq(split.blockade_province, MapModel.NO_ID)
+	assert_false(split.has_beachhead(), "a landing site is one squadron's")
+	assert_eq(split.civilian_count(), 0, "the colonists stay aboard the squadron")
+	assert_eq(fleet.civilian_count(), 1)
+
+func test_a_squadron_of_one_hull_has_nothing_to_detach() -> void:
+	_setup_fleet_sortie()
+	var fleet := FleetState.at_sea(2, 0, 0, ["ship_1"])
+	var fleets: Array[FleetState] = [fleet]
+
+	var check: Dictionary = FleetSplit.can_detach(_fleet_sortie_model, fleet, "ship_1")
+
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("one hull"))
+	assert_eq(fleets.size(), 1)
+
+func test_a_hull_that_is_not_aboard_is_refused() -> void:
+	_setup_fleet_sortie()
+	var fleet: FleetState = _split_fleet()
+	var fleets: Array[FleetState] = [fleet]
+
+	var result: Dictionary = FleetSplit.detach(
+		_fleet_sortie_model, fleets, fleet, "ship_99", 9
+	)
+
+	assert_false(bool(result["ok"]))
+	assert_true(String(result["reason"]).contains("not aboard"))
+	assert_eq(fleet.hulls.size(), 3, "nothing leaves the squadron")
+	assert_eq(fleets.size(), 1, "no command is founded")
+
+func test_the_home_squadron_keeps_the_seat() -> void:
+	_setup_fleet_sortie()
+	var home := FleetState.in_port(1, 0, 0, ["a", "b"], {"a": "fluyte", "b": "carrack"})
+	var moored := FleetState.in_port(4, 1, 0, ["c", "d"], {"c": "fluyte", "d": "carrack"})
+
+	var check: Dictionary = FleetSplit.can_detach(_fleet_sortie_model, home, "a")
+
+	assert_true(NavalMovement.is_home_fleet(_fleet_sortie_model, home))
+	assert_false(bool(check["ok"]), "only the home fleet lies in port at the seat")
+	assert_true(String(check["reason"]).contains("home squadron"))
+	assert_true(
+		bool(FleetSplit.can_detach(_fleet_sortie_model, moored, "c")["ok"]),
+		"a squadron in a foreign port may still split"
+	)
+
+func test_a_hull_leaves_only_when_the_passengers_fit() -> void:
+	_setup_fleet_sortie()
+	var crowded := FleetState.at_sea(
+		2, 0, 0, ["ship_1", "ship_2"], {"ship_1": "carrack", "ship_2": "sloop"}
+	)
+	crowded.add_civilian(11)
+	crowded.add_civilian(12)
+
+	var check: Dictionary = FleetSplit.can_detach(_fleet_sortie_model, crowded, "ship_1")
+
+	assert_false(bool(check["ok"]), "two colonists need two hulls")
+	assert_true(String(check["reason"]).contains("2 passengers"))
+	crowded.add_hull("ship_3", "carrack")
+	assert_true(bool(FleetSplit.can_detach(_fleet_sortie_model, crowded, "ship_1")["ok"]))
+
+func test_troops_aboard_hold_the_squadron_whole() -> void:
+	_setup_fleet_sortie()
+	var fleet: FleetState = _split_fleet()
+	fleet.embarked_army = 7
+
+	var check: Dictionary = FleetSplit.can_detach(_fleet_sortie_model, fleet, "ship_1")
+
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("Land the troops"))
+
+func test_the_rows_read_every_hull_and_name_her() -> void:
+	_setup_fleet_sortie()
+	var fleet: FleetState = _split_fleet()
+
+	var rows: Array[Dictionary] = FleetSplit.rows(_fleet_sortie_model, fleet)
+
+	assert_eq(rows.size(), 3, "every hull of the squadron is on the list")
+	for row: Dictionary in rows:
+		assert_true(bool(row["ok"]), String(row["reason"]))
+		assert_eq(String(row["name"]), ShipNames.of(fleet, String(row["hull"])))
+		assert_false(String(row["type_name"]).is_empty())
+	assert_eq(FleetSplit.rows(_fleet_sortie_model, null), [] as Array[Dictionary])
+
+func test_the_split_drawer_lists_every_hull_and_files_one_tap() -> void:
+	_setup_fleet_sortie()
+	var block := FleetSplitBlock.new()
+	add_child(block)
+	var fleet: FleetState = _split_fleet()
+	var emitted: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: emitted.append(action))
+
+	block.show_rows(_fleet_sortie_model, fleet, true, false)
+
+	assert_true(block._button.visible, "a squadron of three hulls may split")
+	assert_false(block._scroll.visible, "the drawer waits for a tap")
+	assert_eq(block._note.text, FleetSplit.NOTE, "the rule sits on the sheet")
+	block.set_open(true)
+	assert_true(block._scroll.visible)
+	var detaches: Array[Button] = []
+	for node: Node in block.find_children("*", "Button", true, false):
+		if (node as Button).text == "Detach":
+			detaches.append(node as Button)
+	assert_eq(detaches.size(), 3, "every hull offers her own detach")
+	var hull_name: String = ShipNames.of(fleet, "ship_1")
+	var printed: bool = false
+	for node: Node in block.find_children("*", "Label", true, false):
+		var text: String = (node as Label).text
+		if text.contains(hull_name) and text.contains("Carrack"):
+			printed = true
+	assert_true(printed, "the row prints '%s — Carrack'" % hull_name)
+	detaches[0].pressed.emit()
+	assert_eq(emitted, ["split:ship_1"], "the tap hands the hull to the dossier")
+	block.free()
+
+func test_the_split_drawer_names_the_gate_instead_of_a_press() -> void:
+	_setup_fleet_sortie()
+	var block := FleetSplitBlock.new()
+	add_child(block)
+	var home := FleetState.in_port(1, 0, 0, ["a", "b"], {"a": "fluyte", "b": "carrack"})
+
+	block.show_rows(_fleet_sortie_model, home, true, false)
+
+	assert_false(block._button.visible, "the home squadron keeps the seat")
+	assert_true(block._note.visible, "the reason is on the sheet, not in a hover")
+	assert_true(block._note.text.contains("home squadron"), block._note.text)
+	block.show_rows(_fleet_sortie_model, home, false, false)
+	assert_false(block._note.visible, "a rival's squadron reads nothing")
+	block.free()
+
+func test_a_squadron_of_one_hull_shows_no_drawer() -> void:
+	_setup_fleet_sortie()
+	var block := FleetSplitBlock.new()
+	add_child(block)
+	var fleet := FleetState.at_sea(2, 0, 0, ["ship_1"])
+
+	block.show_rows(_fleet_sortie_model, fleet, true, false)
+
+	assert_false(block._button.visible)
+	assert_false(block._note.visible, "nothing to explain on a single hull")
+	block.free()
