@@ -424,7 +424,7 @@ func _tips(row: Dictionary) -> String:
 	return String(row.get("tips", ""))
 
 
-## The turn's own summary line from the toast box (LedgerText.turn_summary).
+## The turn's own summary line from the toast box (LedgerReportText.turn_summary).
 func _toast_line() -> String:
 	var labels: PackedStringArray = PackedStringArray()
 	SaveDrive.collect_text(_play.hud._toast_box, "", labels)

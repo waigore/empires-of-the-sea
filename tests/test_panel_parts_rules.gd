@@ -3624,16 +3624,16 @@ func test_a_slide_in_cancels_a_running_slide_out() -> void:
 # --- test_ledger_text ---
 
 func test_a_quiet_market_prints_nothing() -> void:
-	assert_eq(LedgerText.market_summary({}, 0), "")
+	assert_eq(LedgerMarketText.market_summary({}, 0), "")
 
 ## The disband row promises no refund and names what the tier eats
 ## (wiki: workers-and-population § Disband, § Tiers).
 func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
-	var hint: String = LedgerText.disband_hint(WorkerPool.Tier.APPRENTICE)
+	var hint: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.APPRENTICE)
 	assert_true(hint.contains("no recruit cost is refunded"), hint)
 	assert_true(hint.contains("An apprentice eats 2 food"), hint)
 	assert_true(hint.contains("a unit of Refined Sugar"), hint)
-	var master: String = LedgerText.disband_hint(WorkerPool.Tier.MASTER)
+	var master: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.MASTER)
 	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
 
 func test_fills_carry_and_lapse_are_named() -> void:
@@ -3646,7 +3646,7 @@ func test_fills_carry_and_lapse_are_named() -> void:
 			"commodity": "grain",
 		}],
 	}
-	var line: String = LedgerText.market_summary(report, 0)
+	var line: String = LedgerMarketText.market_summary(report, 0)
 	assert_true(line.contains("bought 2 for 60 ducats"))
 	assert_true(line.contains("sold 1"))
 	assert_true(line.contains("1 order carried"))
@@ -3663,16 +3663,16 @@ func test_a_sale_and_an_overseas_share_are_named() -> void:
 		"carry": [],
 		"notes": [],
 	}
-	var line: String = LedgerText.market_summary(report, 0)
+	var line: String = LedgerMarketText.market_summary(report, 0)
 	assert_true(line.contains("sold 1 for 50 ducats"), line)
 	assert_true(line.contains("89 ducats in shares"), line)
 	# A court with no fills of its own still reads its share.
 	var quiet: Dictionary = {"fills": {}, "credits": {"by_gp": {0: 12.0}}}
 	assert_true(
-		LedgerText.market_summary(quiet, 0).contains("12 ducats in shares"),
-		LedgerText.market_summary(quiet, 0),
+		LedgerMarketText.market_summary(quiet, 0).contains("12 ducats in shares"),
+		LedgerMarketText.market_summary(quiet, 0),
 	)
-	assert_eq(LedgerText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
+	assert_eq(LedgerMarketText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
 
 ## The "Next turn" promise names the orders that settle after it, so a staged
 ## order is never read as already counted (wiki: stockpiles-and-production
@@ -3683,17 +3683,17 @@ func test_the_preview_names_the_auction_it_excludes() -> void:
 		"treasury_delta": 0,
 		"staged_orders": 2,
 	}
-	var line: String = LedgerText.preview(staged)
+	var line: String = LedgerMarketText.preview(staged)
 	assert_true(line.contains("Grain +3"), line)
 	assert_true(line.contains("2 orders settle at the auction"), line)
 	var one: Dictionary = {"stockpile_delta": {}, "treasury_delta": 0, "staged_orders": 1}
 	assert_true(
-		LedgerText.preview(one).contains("1 order settles at the auction"),
-		LedgerText.preview(one),
+		LedgerMarketText.preview(one).contains("1 order settles at the auction"),
+		LedgerMarketText.preview(one),
 	)
 	# Nothing staged: the calm line stays exactly as it was.
 	assert_eq(
-		LedgerText.preview({"stockpile_delta": {}, "treasury_delta": 0}),
+		LedgerMarketText.preview({"stockpile_delta": {}, "treasury_delta": 0}),
 		"Next turn: no stock changes.",
 	)
 
@@ -3707,7 +3707,7 @@ func test_another_courts_lapse_is_not_ours() -> void:
 			"commodity": "grain",
 		}],
 	}
-	assert_eq(LedgerText.market_summary(report, 0), "")
+	assert_eq(LedgerMarketText.market_summary(report, 0), "")
 
 # --- test_ledger_helpers ---
 
@@ -3720,9 +3720,9 @@ func test_thousands_groups_and_keeps_the_sign() -> void:
 
 func test_recipe_title_names_the_single_input() -> void:
 	var recipe_id: String = ProductionRecipes.available_ids({})[0]
-	var title: String = LedgerText.recipe_title(recipe_id)
+	var title: String = LedgerProductionText.recipe_title(recipe_id)
 	assert_true(title.contains(CommodityCatalog.label(ProductionRecipes.output(recipe_id))))
-	assert_true(LedgerText.recipe_tooltip(recipe_id).contains("→"))
+	assert_true(LedgerProductionText.recipe_tooltip(recipe_id).contains("→"))
 
 func test_the_summary_reads_the_report() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.new()
@@ -3730,31 +3730,31 @@ func test_the_summary_reads_the_report() -> void:
 	var report: Dictionary = {
 		"consumption": {"idle_labour": 3, "strikers": 2, "navy_demand": 5},
 	}
-	var line: String = LedgerText.summary(economy, report)
+	var line: String = LedgerReportText.summary(economy, report)
 	assert_true(line.contains("1,234 ducats"))
 	assert_true(line.contains("labour 3 /"))
 	assert_true(line.contains("strikes 2"))
 
 func test_the_preview_reports_deltas_or_calm() -> void:
-	assert_eq(LedgerText.preview({}), "Next turn: no stock changes.")
-	var line: String = LedgerText.preview(
+	assert_eq(LedgerMarketText.preview({}), "Next turn: no stock changes.")
+	var line: String = LedgerMarketText.preview(
 		{"stockpile_delta": {"grain": 3}, "treasury_delta": -10}
 	)
 	assert_true(line.contains("+3"))
 	assert_true(line.contains("ducats -10"))
 
 func test_the_cargo_banner_covers_three_states() -> void:
-	assert_true(LedgerText.cargo_line({}).contains("unknown"))
+	assert_true(LedgerMarketText.cargo_line({}).contains("unknown"))
 	var empty: Dictionary = {"holds": 0, "free": 0}
-	assert_true(LedgerText.cargo_line(empty).contains("No cargo holds"))
-	assert_eq(LedgerText.cargo_color(empty), Palette.GOLD_PALE)
+	assert_true(LedgerMarketText.cargo_line(empty).contains("No cargo holds"))
+	assert_eq(LedgerMarketText.cargo_color(empty), Palette.GOLD_PALE)
 	var laden: Dictionary = {"holds": 4, "free": 1}
-	assert_true(LedgerText.cargo_line(laden).contains("4 holds"))
-	assert_eq(LedgerText.cargo_color(laden), Palette.TEXT)
+	assert_true(LedgerMarketText.cargo_line(laden).contains("4 holds"))
+	assert_eq(LedgerMarketText.cargo_color(laden), Palette.TEXT)
 
 func test_report_counters_default_to_zero() -> void:
-	assert_eq(LedgerText.idle_labour({}), 0)
-	assert_eq(LedgerText.navy_food({"consumption": {"navy_demand": 7}}), 7)
+	assert_eq(LedgerReportText.idle_labour({}), 0)
+	assert_eq(LedgerReportText.navy_food({"consumption": {"navy_demand": 7}}), 7)
 
 func _group(id: int, name: String, rows: Array) -> Dictionary:
 	var producing: int = 0
