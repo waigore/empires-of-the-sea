@@ -21,6 +21,9 @@ REPO_ROOT = HILL.parents[2]  # .autolab/hills/ai-bench → repo root
 SYNC_SCRIPT = REPO_ROOT / "tools" / "sync_ai_mainline.py"
 
 # Weights: provinces dominate, then forces, workforce, extraction, income.
+# Income is the **earned flow** (treasury delta plus the growth of the chest
+# the court is saving for), not the money in hand — an owner decision on
+# issue #807: a court saving its muster chest is earning, not idling.
 W_PROVINCES_OLD = 100.0
 W_PROVINCES_NEW = 50.0
 W_REGIMENTS = 10.0
@@ -103,10 +106,15 @@ def _live_row(summary: dict) -> dict | None:
 
 
 def _rates_from_turns(turns_path: Path, faction: int) -> tuple[float, float]:
-    """Mean positive treasury / stock deltas per turn for the live crown."""
+    """Mean **earned** income per turn for the live crown: the treasury delta
+    plus the growth of the chest the court is saving for. Money parked in a war
+    chest is earned income, not lost — scoring the purse alone punishes the
+    published saving behaviour the muster needs (owner decision on issue #807:
+    score the flow, not the money in hand)."""
     if not turns_path.is_file():
         return 0.0, 0.0
     prev_treasury: int | None = None
+    prev_reserve: int | None = None
     prev_stock: int | None = None
     income_vals: list[float] = []
     extract_vals: list[float] = []
@@ -122,9 +130,10 @@ def _rates_from_turns(turns_path: Path, faction: int) -> tuple[float, float]:
         if row is None:
             continue
         treasury = int(row.get("treasury", 0))
+        reserve = int(row.get("reserve", 0))
         stock = int(row.get("stock", 0))
         if prev_treasury is not None:
-            delta_t = treasury - prev_treasury
+            delta_t = (treasury - prev_treasury) + (reserve - prev_reserve)
             if delta_t > 0:
                 income_vals.append(float(delta_t))
         if prev_stock is not None:
@@ -132,6 +141,7 @@ def _rates_from_turns(turns_path: Path, faction: int) -> tuple[float, float]:
             if delta_s > 0:
                 extract_vals.append(float(delta_s))
         prev_treasury = treasury
+        prev_reserve = reserve
         prev_stock = stock
     income = sum(income_vals) / len(income_vals) if income_vals else 0.0
     extraction = sum(extract_vals) / len(extract_vals) if extract_vals else 0.0
