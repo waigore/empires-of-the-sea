@@ -1,9 +1,9 @@
 class_name HudLedgerDoors
 extends RefCounted
-## The crown's whole-empire sheets — the people, the muster roll, the realm's
-## provinces, the crown's eyes, its commanders, its towns, walls, hospitals and
-## navy. Each rides its own layer above the pause menu, binds the one session it
-## reads and sets itself aside when a phone's back gesture lands.
+## The crown's whole-empire sheets — the people, the muster roll, its army, the
+## realm's provinces, the crown's eyes, its commanders, its towns, walls,
+## hospitals and navy. Each rides its own layer above the pause menu, binds the
+## one session it reads and sets itself aside when a phone's back gesture lands.
 ##
 ## Those three readings are written once here, so a new sheet is one entry in
 ## `sheets` rather than another copy of the same layer, the same bind and the
@@ -27,6 +27,7 @@ static func sheets(hud: GameHud) -> Array[SheetFrame]:
 	for sheet: SheetFrame in [
 		hud.civilian_roster,
 		hud.muster_roll,
+		hud.army_ledger,
 		hud.towns_ledger,
 		hud.walls_ledger,
 		hud.hospitals_ledger,
