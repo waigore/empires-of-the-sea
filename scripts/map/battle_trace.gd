@@ -1,41 +1,39 @@
-class_name AiBattleLog
+class_name BattleTrace
 extends RefCounted
 ## Combat's rows in the merged observer turn record (wiki:
-## turn-trace-interpretation § Observer export). The full-AI observer has no
-## plate, no Gazette and no toast — the HUD is hidden — so the turn trace is the
-## only place a run can read that a wall was stormed, a battery silenced or a
-## province taken. Without these rows a siege resolves in silence: the standing
-## loses regiments and a fort level with nothing naming the fight.
+## turn-trace-interpretation § Observer export). The full-AI observer hides the
+## HUD, so it has no plate, no Gazette and no toast: the observatory panel's
+## orders feed and the per-turn record are the only narration a run has. Without
+## these rows a siege resolves in silence — the standing loses regiments and a
+## fort level with nothing naming the fight.
 ##
-## Pure translation: the battle records the rules resolved in, one row per
-## battle out, worded by the same [BattleReport] the live despatch uses, so the
-## observer reads exactly the sentence a crown would. The merged record and its
-## event cap belong to [AiTurnLog].
+## Files after `AiTurnLog.record` has written the turn's record, from the book
+## `MapPlayTurnFinish` keeps: the adapter owns the Combat pass, the merged record
+## and its event cap belong to [AiTurnLog]. Pure translation, worded by the same
+## [BattleReport] the live despatch uses, so the observer reads exactly the
+## sentence a crown would.
 
 const NO_ID: int = MapModel.NO_ID
 
 
-## Writes one turn's Combat pass into the merged record: land battles first,
-## then sea battles, each in the order the rules resolved them. Both sides of a
-## fight count it in their headline; the event itself is filed under the
-## attacker, whose sentence names both courts.
+## Writes one turn's Combat pass into an already-written merged record: land
+## battles first, then sea battles, each in the order the rules resolved them.
+## The event is filed under the attacker, whose sentence names both courts.
 static func record(
-	merged: Dictionary,
-	factions: Dictionary,
-	play: PlaySession,
-	land: Array[Dictionary],
-	naval: Array[Dictionary]
+	merged: Dictionary, play: PlaySession,
+	land: Array[Dictionary], naval: Array[Dictionary]
 ) -> void:
+	var factions: Dictionary = merged.get("factions", {})
 	for battle: Dictionary in land:
 		_file(
-			merged, factions, battle, "battle",
+			merged, factions, battle,
 			BattleReport.describe_land(
 				battle, _province_name(play, battle), FactionCatalog.names()
 			)
 		)
 	for battle: Dictionary in naval:
 		_file(
-			merged, factions, battle, "sea_battle",
+			merged, factions, battle,
 			BattleReport.describe(
 				battle, _zone_name(play, battle), FactionCatalog.names()
 			)
@@ -43,19 +41,11 @@ static func record(
 
 
 static func _file(
-	merged: Dictionary,
-	factions: Dictionary,
-	battle: Dictionary,
-	key: String,
-	text: String
+	merged: Dictionary, factions: Dictionary, battle: Dictionary, text: String
 ) -> void:
 	var attacker: int = int(battle.get("attacker", NO_ID))
-	var defender: int = int(battle.get("defender", NO_ID))
 	if not factions.has(attacker):
 		return
-	AiTurnLog.bump(factions[attacker]["actions"], key)
-	if factions.has(defender):
-		AiTurnLog.bump(factions[defender]["actions"], key)
 	AiTurnLog.event(merged, factions[attacker], attacker, text)
 
 

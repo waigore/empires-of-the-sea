@@ -11,8 +11,7 @@ extends RefCounted
 const NO_ID: int = MapModel.NO_ID
 ## Action keys shown in the panel headline, in reading order.
 const ACTION_ORDER: Array[String] = [
-	"war", "peace", "treaty", "trade", "attack", "battle", "sea_battle", "march",
-	"sortie", "pursue", "home",
+	"war", "peace", "treaty", "trade", "attack", "march", "sortie", "pursue", "home",
 	"work", "production", "recruit", "reinforce", "hospital", "train", "split",
 	"invade", "voyage", "colony", "build", "cargo",
 ]
@@ -22,10 +21,6 @@ const ACTION_LABELS: Dictionary = {
 	"treaty": "treaty",
 	"trade": "trade terms",
 	"attack": "assaults",
-	# Combat's own rows (AiBattleLog): a resolved fight, not an order, so the
-	# headline names it apart from the assaults the planner asked for.
-	"battle": "battles",
-	"sea_battle": "sea battles",
 	"march": "marches",
 	"sortie": "sorties",
 	"pursue": "pursuits",
@@ -47,8 +42,6 @@ const ACTION_LABELS: Dictionary = {
 
 ## Appends one merged turn record to `play.ai_turns` and returns it. Call right
 ## after the rival/economy pass, while the turn traces are still in hand.
-## `land_battles`/`naval_battles` are the Combat pass's own records: the observer
-## has no plate or Gazette, so the trace is where a siege is read (AiBattleLog).
 static func record(
 	play: PlaySession,
 	army_trace: Array[Dictionary],
@@ -56,9 +49,7 @@ static func record(
 	economy_report: Dictionary,
 	invasion_trace: Array[Dictionary] = [],
 	colonisation_trace: Array[Dictionary] = [],
-	objectives: Dictionary = {},
-	land_battles: Array[Dictionary] = [],
-	naval_battles: Array[Dictionary] = []
+	objectives: Dictionary = {}
 ) -> Dictionary:
 	var merged: Dictionary = {
 		"turn": play.turn,
@@ -74,9 +65,6 @@ static func record(
 	_record_fleets(merged, factions, fleet_trace)
 	AiEconomyTrace.record(merged, factions, economy_report)
 	_record_expeditions(merged, factions, invasion_trace, colonisation_trace)
-	# Combat last: the panel's feed prints the newest rows first, so the turn's
-	# battles lead it instead of being pushed off by the economy's rows.
-	AiBattleLog.record(merged, factions, play, land_battles, naval_battles)
 	_record_objectives(factions, _ledgers(play, objectives))
 	play.ai_turns.append(merged)
 	return merged

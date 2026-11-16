@@ -57,7 +57,7 @@ warships, holds), ledger, wars, last-turn order mix and the market's prices.
 The market row adds `minor_food` (the book's tonnage), `ration_demand` (every
 court's appetite) and `food_gap` (#766). Dashboard: orders feed, pause / step /
 speed, campaign result. `play.ai_turns` keeps one merged record per turn, Combat's
-battles included (`AiBattleLog`), so a siege reads without a plate; the exporter
+battles included (`BattleTrace`), so a siege reads without a plate; the exporter
 writes it on each line (wiki: turn-trace-interpretation).
 
 ## Export and coverage
