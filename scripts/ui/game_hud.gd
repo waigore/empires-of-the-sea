@@ -60,6 +60,8 @@ signal towns_pressed
 ## squadron by squadron, with her class, her guns and her holds
 ## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
 signal navy_pressed
+## The muster roll's army door opens the crown's army (REQ-P5-01; DR-20261116-07).
+signal army_pressed
 ## The realm ledger's walls door opens the crown's walls — every province it
 ## holds that can carry a fort and the step the Engineer would take next
 ## (REQ-P5-01, REQ-P5-03; DR-20261116-01).
@@ -135,6 +137,8 @@ var towns_ledger: TownLedgerPanel = null
 var tech_tree: TechTreePanel = null
 ## The crown's navy: every hull it floats, squadron by squadron (DR-20261115-14).
 var navy_ledger: NavalLedgerPanel = null
+## The crown's army: every regiment it fields (DR-20261116-07).
+var army_ledger: ArmyLedgerPanel = null
 ## The crown's walls: every province it holds that can carry a fort and the step
 ## the Engineer would take next (DR-20261116-01).
 var walls_ledger: WallLedgerPanel = null
