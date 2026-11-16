@@ -51,6 +51,16 @@ static func record(merged: Dictionary, factions: Dictionary, report: Dictionary)
 			AiTurnLog.event(
 				merged, bucket, faction, "%s hires no new crew (%s)." % [who, held]
 			)
+		var bids: String = String((details.get("trade", {}) as Dictionary).get(
+			"bids_blocked", ""
+		))
+		if not bids.is_empty():
+			# The footing held the speculative bid shut: the market says why the
+			# court bought nothing above its commitments (REQ-P5-05;
+			# DR-20261117-01).
+			AiTurnLog.event(
+				merged, bucket, faction, "%s opens no speculative bid (%s)." % [who, bids]
+			)
 		_cargo(merged, bucket, faction, details.get("cargo", {}))
 		_claims(bucket, details.get("claims", []))
 
