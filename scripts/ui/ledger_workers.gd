@@ -252,7 +252,7 @@ func _tier_row(tier: int) -> Control:
 			tier,
 			"Recruit",
 			_economy.recruit_blocked_reason(tier),
-			LedgerText.recruit_cost(tier),
+			LedgerWorkersText.recruit_cost(tier),
 			height
 		)
 	)
@@ -263,7 +263,7 @@ func _tier_row(tier: int) -> Control:
 				tier,
 				"Disband",
 				_economy.disband_blocked_reason(tier),
-				LedgerText.disband_hint(tier),
+				LedgerWorkersText.disband_hint(tier),
 				height
 			)
 		)
@@ -299,7 +299,7 @@ func _batch_row(tier: int) -> Control:
 		return null
 	var height: float = COMPACT_ROW_HEIGHT if _compact else ROW_HEIGHT
 	var button := UiRowBuilder.button(
-		"Recruit ×%d  ·  %s" % [count, LedgerText.recruit_batch_cost(tier, count)], height, 0.0
+		"Recruit ×%d  ·  %s" % [count, LedgerWorkersText.recruit_batch_cost(tier, count)], height, 0.0
 	)
 	button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	button.tooltip_text = (

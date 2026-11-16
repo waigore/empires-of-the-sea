@@ -516,9 +516,12 @@ domain = "blockade"
 match = "scripts/ui/dossier_copy.gd"
 domain = "blockade"
 
+# The ledger's prose, one file per domain it speaks for (production, workers,
+# market, the court's report). A wording change runs the sheets that print the
+# lines, so the text files ride the economy_ui suites with their panels.
 [[rules]]
-match = "scripts/ui/ledger_text.gd"
-domain = "blockade"
+match = "scripts/ui/ledger_*_text.gd*"
+domain = "economy_ui"
 
 [[rules]]
 match = "tests/test_civilian_turn_rules.gd*"
@@ -1509,10 +1512,6 @@ domain = "economy_ui"
 # suites that prove that projection instead of the menu catch-all.
 [[rules]]
 match = "scripts/ui/ledger_budget.gd*"
-domain = "economy_ui"
-
-[[rules]]
-match = "scripts/ui/ledger_text.gd"
 domain = "economy_ui"
 
 # The commodity medallions are the ledger's own art table; keep them on the
@@ -2932,10 +2931,6 @@ domain = "economy_ui"
 # the page that mounts it, never the scripts/ui/** menu catch-all.
 [[rules]]
 match = "scripts/ui/market_row.gd*"
-domain = "economy_ui"
-
-[[rules]]
-match = "scripts/ui/ledger_text.gd"
 domain = "economy_ui"
 
 [[rules]]

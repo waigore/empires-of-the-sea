@@ -12,7 +12,7 @@ static func banner(economy: PlayerEconomy) -> Label:
 		return null
 	var reading: Dictionary = MarketBudget.budget(economy)
 	var line := UiRowBuilder.label(
-		LedgerText.bid_budget_line(reading), 12, LedgerText.bid_budget_color(reading)
+		LedgerMarketText.bid_budget_line(reading), 12, LedgerMarketText.bid_budget_color(reading)
 	)
 	line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	line.custom_minimum_size = Vector2(240, 0)

@@ -138,10 +138,10 @@ func _next_turn(id: String) -> Label:
 	var deltas: Dictionary = _report.get("stockpile_delta", {}) as Dictionary
 	var change: int = int(deltas.get(id, 0))
 	var color: Color = Palette.GOLD_PALE if change > 0 else Palette.TEXT_DIM
-	var out := _figure(LedgerText.stock_delta_text(change), 12, color, DELTA_WIDTH)
+	var out := _figure(LedgerProductionText.stock_delta_text(change), 12, color, DELTA_WIDTH)
 	if change != 0:
 		out.tooltip_text = "Next turn:  %s %s" % [
-			CommodityCatalog.label(id), LedgerText.stock_delta_text(change)
+			CommodityCatalog.label(id), LedgerProductionText.stock_delta_text(change)
 		]
 	return out
 
@@ -153,8 +153,8 @@ func _recipe_row(recipe_id: String) -> Control:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
 	var output_id: String = ProductionRecipes.output(recipe_id)
 	row.add_child(CommodityIcons.badge(output_id))
-	var title := UiRowBuilder.label(LedgerText.recipe_title(recipe_id), 14, Palette.TEXT)
-	title.tooltip_text = LedgerText.recipe_tooltip(recipe_id)
+	var title := UiRowBuilder.label(LedgerProductionText.recipe_title(recipe_id), 14, Palette.TEXT)
+	title.tooltip_text = LedgerProductionText.recipe_tooltip(recipe_id)
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
 
