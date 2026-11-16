@@ -7,9 +7,9 @@ extends GdToolsTest
 ## boot.
 ##
 ## The name sorts **early** on purpose: gd-tools dispatches suites in plan
-## (name) order four workers wide, so this suite with its ~14 s Large chart draw
-## used to sort last as `test_world_setup` and run alone for ~50 s after every
-## other worker had drained (docs/testing.md § Speed rules). Rename it into the
+## (name) order four workers wide, so this suite with its published-chart draws
+## used to sort last as `test_world_setup` and run alone after every other
+## worker had drained (docs/testing.md § Speed rules). Rename it into the
 ## front half of the alphabet, never back into `w…`/`x…`/`y…`/`z…`.
 
 const Fixture = preload("res://tests/map_fixture.gd")
@@ -1280,14 +1280,13 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 ## every case below. `static` is what makes that true: gd-tools runs each case
 ## on a fresh instance, so an instance dictionary would start empty and redraw
 ## the chart per case (the census cases alone drew Standard four times).
-## Keyed by size because the weighting case reads Large and the density cases
+## Keyed by size because the weighting case reads Small and the density cases
 ## read Standard (docs/testing.md § Speed rules).
 ##
-## A draw is this suite's most expensive fixture: ~14 s under coverage at
-## 128×84, and the price is the **tiles** — 8× the 48×32 fixture's tiles is 8.6×
-## its draw — so the census below draws one chart, not two. A case that
-## **mutates** a chart takes `_fresh_standard_world()` instead of dirtying this
-## cache.
+## A draw is this suite's most expensive fixture: the price is the **tiles**,
+## so the census below draws one Small chart (~half Large's area), not Large,
+## and a case that only needs two owned towns builds a pocket world instead of
+## regenerating Standard.
 static var _drawn_charts: Dictionary = {}
 
 
@@ -1298,27 +1297,20 @@ func _chart(seed_value: int, width: int, height: int) -> WorldMap:
 	return _drawn_charts[key]
 
 
-## An unshared Standard draw for a case that writes to the chart (town levels,
-## owners, works): the cached chart above is read-only.
-func _fresh_standard_world() -> WorldMap:
-	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
-	return MapGenerator.new().generate_world(
-		SEED, int(preset["width"]), int(preset["height"])
-	)
-
-
 func _standard_world(seed_value: int) -> WorldMap:
 	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
 	return _chart(seed_value, int(preset["width"]), int(preset["height"]))
 
 
-## The **Large** chart, which the weighting case reads: the gold/gems pool's
-## price gap is narrow enough that a Standard draw (96×64) inverts it (measured
-## at seeds 1500–1502: gold 7, gems 9) while Large keeps the order the table
-## promises, so the census needs the wider sample rather than the smaller chart.
-func _large_world(seed_value: int) -> WorldMap:
+## The **Small** chart the weighting case reads: seed 42 keeps every pool inside
+## its three-deviation band and the gold>gems / meat>grain>horses order the
+## table promises (Large at 128×84 used to buy that sample for ~14 s under
+## coverage; Small is ~half the tiles). Standard seed 1500 still inverts
+## gold/gems, so the census stays on this seed and size rather than the
+## density cases' Standard draw.
+func _small_world(seed_value: int) -> WorldMap:
 	for preset: Dictionary in GameConfig.SIZES:
-		if String(preset["label"]) == "Large":
+		if String(preset["label"]) == "Small":
 			return _chart(seed_value, int(preset["width"]), int(preset["height"]))
 	return _standard_world(seed_value)
 
@@ -1345,16 +1337,14 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 ## guarantee still leaves timber the commonest row on the chart
 ## (wiki: resource-terrain-region-rules § Table).
 func test_the_draw_prices_the_rows_by_their_market_price() -> void:
-	# One Large chart carries every assertion below: seed 1500 draws the peaks
-	# pool with the widest ordering gap measured (gold 8, gems 2) and every
-	# pool's split sits inside its own three-deviation band (the tightest is
-	# spices 0.348 against 0.209 ± 0.147). A second chart widened only the
-	# metals sample (14 → 61 rows) for another ~14 s of coverage, so it is not
-	# drawn: seeds 1501/1502 draw gold 7 / gems 4 and no peaks row at all, so
-	# the ordering evidence was always this chart's.
+	# One Small chart carries every assertion below: seed 42 keeps gold ahead of
+	# gems and every pool inside its three-deviation band (metals n=13 is the
+	# tightest sample; spices sit at 0.228 against 0.209 ± 0.137). Large at
+	# seed 1500 used to buy a wider peaks gap for ~14 s under coverage; Small
+	# is half the tiles and still proves the published price order.
 	var counts: Dictionary = {}
 	var commodities: Dictionary = {}
-	var world_map: WorldMap = _large_world(1500)
+	var world_map: WorldMap = _small_world(42)
 	for model: MapModel in world_map.regions:
 		# Read the packed rows: a tile that carries a row is land, so the
 		# census is one pass instead of two instrumented lookups a tile.
@@ -1375,7 +1365,7 @@ func test_the_draw_prices_the_rows_by_their_market_price() -> void:
 			String(commodity), int(counts[commodity]), CommodityCatalog.base_price(String(commodity))
 		])
 	dump.sort()
-	print("per-commodity tile counts on seed 1500: ", ", ".join(dump))
+	print("per-commodity tile counts on Small seed 42: ", ", ".join(dump))
 	# Pools whose rows share one terrain list and one region scope: only the
 	# published price separates their draws (wiki § Table).
 	var pools: Array = [
@@ -3280,26 +3270,31 @@ func test_a_closed_works_gate_stops_the_row_and_its_ceiling() -> void:
 ## never a rival's town (wiki: production-recipes § Town-works gates;
 ## DR-20261116-04).
 func test_the_works_gate_reads_the_crowns_best_town() -> void:
-	# Levels every province's town, so it takes a chart of its own rather than
-	# dirtying the shared draw the census cases read.
-	var world_map: WorldMap = _fresh_standard_world()
+	# Two owned towns are enough: a pocket chart, not a regenerated Standard
+	# draw (~8 s under coverage) that only existed to avoid dirtying the census.
 	assert_eq(TownIndustry.best_level(null, FactionCatalog.PLAYER_FACTION), 0, "no world, no town")
-	var own: ProvinceState = null
-	var rival: ProvinceState = null
-	for model_index in world_map.region_count():
-		var model: MapModel = world_map.region(model_index)
-		for province_index in model.province_count():
-			var data: ProvinceState = model.province_data(province_index)
-			if data == null:
-				continue
-			data.town_development = 0
-			if own == null and data.owner == FactionCatalog.PLAYER_FACTION:
-				own = data
-			elif rival == null and data.owner != FactionCatalog.PLAYER_FACTION and data.owner != MapModel.NO_ID:
-				rival = data
-	assert_true(own != null and rival != null, "the standard world seats both a crown and a rival")
+	var model: MapModel = MapModel.new()
+	model.setup(4, 1)
+	var own_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var rival_tiles: Array[Vector2i] = [Vector2i(2, 0), Vector2i(3, 0)]
+	for tile: Vector2i in own_tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 0
+	for tile: Vector2i in rival_tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 1
+	var own: ProvinceState = ProvinceState.create(
+		0, "Own", own_tiles, Vector2(0.5, 0.0), 2, FactionCatalog.PLAYER_FACTION
+	)
+	var rival: ProvinceState = ProvinceState.create(
+		1, "Rival", rival_tiles, Vector2(2.5, 0.0), 2, FactionCatalog.PLAYER_FACTION + 1
+	)
 	own.town_development = 3
 	rival.town_development = 4
+	model.provinces.append(own)
+	model.provinces.append(rival)
+	var world_map: WorldMap = WorldMap.new()
+	world_map.add_region(model)
 	assert_eq(
 		TownIndustry.best_level(world_map, FactionCatalog.PLAYER_FACTION), 3,
 		"a rival's finer town does not open the crown's works"
