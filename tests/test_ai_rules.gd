@@ -6867,14 +6867,42 @@ func test_a_court_saving_for_its_muster_never_bids_the_war_chest_away() -> void:
 	)
 
 
+## The rival's home chart as a rules session, no MapScreen: `_overseas` reads the
+## world, the works and the fleet tables, and a mount costs seconds under
+## coverage that this case does not need (docs/testing.md § Speed rules).
+func _blockade_play() -> PlaySession:
+	var world: WorldMap = MapFixture.world()
+	var play := PlaySession.new()
+	play.player_faction = FactionCatalog.PLAYER_FACTION
+	play.world = world
+	play.region_index = 0
+	play.model = world.region(0)
+	play.map_seed = MapFixture.SEED
+	play.turn = 1
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = play.model
+	play.ship_layer.world = world
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = play.model
+	play.civilian_layer.viewer_faction = play.player_faction
+	for index in world.region_count():
+		var works := LandWorks.new()
+		WorldBootstrap.apply(world.region(index), works)
+		play.civilian_layer.works_regions.set_region(index, works)
+		play.ship_layer.regions.set_region(index, [])
+		play.civilian_layer.regions.set_region(index, [])
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.human_faction = play.player_faction
+	play.ensure_ai()
+	return play
+
+
 ## A rival's home harvest is priced against its own sealed ports, exactly as the
 ## crown's is (wiki: capital-and-connectivity § Blockade — "rival ledgers take
 ## the same reading so a crown's own blockade bites on both sides"; REQ-P2-03).
 ## The seat's own ground still yields: a blockade severs the sea, not the land.
 func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
-	var screen: MapScreen = MapFixture.attach_screen(self)
-	var play: PlaySession = screen.play
-	play.ensure_ai()
+	var play: PlaySession = _blockade_play()
 	var rival: int = -1
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction != play.player_faction:
@@ -6931,7 +6959,8 @@ func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 		int(after.get("grain", 0)) >= Extraction.CAPITAL_GRAIN_BONUS,
 		"the seat's own ground still yields: a blockade severs the sea, not the land"
 	)
-	screen.free()
+	play.ship_layer.free()
+	play.civilian_layer.free()
 
 # ==== merged from test_ai_campaign_rules.gd (one coverage boot; docs/testing.md § Speed rules) ====
 ## One boot for the rival campaign plans: invasion, colonisation, court offers and
