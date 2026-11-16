@@ -28,6 +28,11 @@ const AiMerchantWork = preload("res://scripts/ai/ai_merchant_work.gd")
 const AiSpyPlanner = preload("res://scripts/ai/ai_spy_planner.gd")
 
 const KIND_WORK: String = "work"
+## Why a court at war hires no expansion crew, printed by the economy trace so
+## the closed hire is never silent (REQ-P5-05; DR-20261116-15).
+const REASON_CREWS: String = "at war: no new crew"
+## The two crews that serve the expansion doors the footing can shut.
+const EXPANSION_CREWS: Array[String] = ["explorer", "merchant"]
 
 
 ## Work and movement orders for one court in one region, plus the scored
@@ -119,6 +124,13 @@ static func plan(
 ## region's staff targets. A court whose staff already meets every target trains
 ## nothing — there is no staff cap and no unconditional builder fill (wiki:
 ## civilian-build-planner; DR staff lever).
+##
+## A court at war hires no **expansion** crew: the Explorer and the Merchant
+## serve the voyage and the Tribe chain the same footing holds shut, so the hire
+## order stops at them and the yard keeps its coin for the muster
+## (DR-20261116-15). Builders, Engineers and Spies are the front's own staff and
+## stay open. A caller that passes no footing (`phase` absent) hires exactly as
+## published.
 static func training_order(
 	config: AiConfig, units: Array, context: Dictionary
 ) -> Dictionary:
@@ -146,6 +158,11 @@ static func training_order(
 	)
 	if type_id.is_empty() or not CivilianCatalog.is_implemented(type_id):
 		return {}
+	# The footing's own reading, never a legality gate: the hire is the court's
+	# choice, and a crew it does hire still passes the same catalog gate
+	# (DR-20261116-15).
+	if not crews_open(context) and is_expansion_crew(type_id):
+		return {"ok": false, "reason": REASON_CREWS}
 	var tech: Dictionary = context.get("tech_unlocked", {})
 	if not CivilianCatalog.is_unlocked(type_id, tech):
 		return {}
@@ -157,6 +174,22 @@ static func training_order(
 	):
 		return {}
 	return {"ok": true, "type_id": type_id}
+
+
+## True when the court's footing leaves the expansion-crew slot open. A caller
+## that passes no `phase` (fixtures, the mainline planners) reads the published
+## behaviour: every crew is open.
+static func crews_open(context: Dictionary) -> bool:
+	return AiPhasePlanner.opens(
+		String(context.get("phase", AiPhasePlanner.PHASE_UNKNOWN)),
+		AiPhasePlanner.SLOT_CREWS
+	)
+
+
+## True for the crews the voyage and the Tribe chain need: an Explorer charts
+## them, a Merchant signs the deed.
+static func is_expansion_crew(type_id: String) -> bool:
+	return EXPANSION_CREWS.has(type_id)
 
 
 ## Per-type staff the college wants in this region: one base (or the published

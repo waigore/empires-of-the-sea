@@ -3456,6 +3456,21 @@ func test_the_footing_opens_only_its_published_slots() -> void:
 	assert_true(
 		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_TRIBE_CHAIN)
 	)
+	# The expansion crews are the fourth live slot: the same war footing that
+	# shuts the voyage and the chain shuts the crews that serve them
+	# (DR-20261116-15).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_CREWS)
+	)
 
 
 ## The trace reading: the slots a footing holds shut, in the table's own order.
@@ -3466,12 +3481,12 @@ func test_the_trace_names_the_slots_a_footing_holds_shut() -> void:
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_WAR)),
-		"expansion.voyage,expansion.tribe_chain",
-		"one front closes the voyage and the new chain, never the declare slot"
+		"expansion.voyage,expansion.tribe_chain,expansion.crews",
+		"one front closes the voyage, the new chain and the crews that serve them"
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_FRONTS)),
-		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain",
+		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain,expansion.crews",
 		"an overstretched court holds every named slot shut"
 	)
 	assert_eq(
@@ -3515,6 +3530,75 @@ func test_a_court_at_war_opens_no_new_tribe_chain() -> void:
 			state, world, null, 2, tribe, 5000, {}, AiTribeColony.CLAIM_POSTURE
 		)["wanted"]),
 		"the claim on that Tribe outlives the footing"
+	)
+
+
+## A court at war hires no expansion crew: the Explorer charts the voyage the
+## footing holds shut and the Merchant signs the deed the chain it holds shut
+## points at, while the front's own staff stays open (DR-20261116-15).
+func test_a_court_at_war_hires_no_expansion_crew() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
+	crews["phase"] = AiPhasePlanner.PHASE_PEACE
+	var peace: Dictionary = AiCivilianPlanner.training_order(config, [], crews)
+	assert_true(bool(peace.get("ok", false)), "at peace the court hires its Explorer")
+	assert_eq(String(peace["type_id"]), "explorer")
+	crews["phase"] = AiPhasePlanner.PHASE_WAR
+	var war: Dictionary = AiCivilianPlanner.training_order(config, [], crews)
+	assert_false(bool(war.get("ok", true)), "a war footing hires no new crew")
+	assert_eq(String(war.get("reason", "")), AiCivilianPlanner.REASON_CREWS)
+	# The Merchant is the other expansion crew: the deed it signs is the chain's.
+	var deed: Dictionary = _civilian_context()
+	deed["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	deed["tech_unlocked"] = {"merchant_companies": true}
+	deed["phase"] = AiPhasePlanner.PHASE_PEACE
+	assert_eq(
+		String(AiCivilianPlanner.training_order(config, [], deed)["type_id"]),
+		"merchant"
+	)
+	deed["phase"] = AiPhasePlanner.PHASE_FRONTS
+	assert_eq(
+		String(AiCivilianPlanner.training_order(config, [], deed).get("reason", "")),
+		AiCivilianPlanner.REASON_CREWS
+	)
+	# The front's own staff stays open: the footing closes expansion, not the war.
+	var front: Dictionary = _civilian_context()
+	front["staff_targets"] = {"builder": 2, "engineer": 0, "explorer": 0, "spy": 0}
+	front["phase"] = AiPhasePlanner.PHASE_WAR
+	var builder: Dictionary = AiCivilianPlanner.training_order(config, [], front)
+	assert_true(bool(builder.get("ok", false)), "a court at war still raises Builders")
+	assert_eq(String(builder["type_id"]), "builder")
+	# A caller with no footing (fixtures, the mainline planners) hires as published.
+	var unaware: Dictionary = _civilian_context()
+	unaware["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
+	assert_eq(
+		String(AiCivilianPlanner.training_order(config, [], unaware)["type_id"]),
+		"explorer",
+		"no footing read means the published hire order"
+	)
+
+
+## The economy trace names the hire the footing held shut, so a court at war is
+## never silent about the crew it did not take (REQ-P5-05; DR-20261116-15).
+func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: court},
+		{"factions": {2: {"civilians": {
+			"orders": [], "training": [],
+			"training_blocked": AiCivilianPlanner.REASON_CREWS,
+		}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text = String(entry)
+	assert_true(
+		text.contains(AiCivilianPlanner.REASON_CREWS),
+		"the trace names why the yard took no crew"
 	)
 
 

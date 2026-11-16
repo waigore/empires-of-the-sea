@@ -32,13 +32,13 @@ Audited through DR-20261116-11 + #825 (REQ-P2-02).
 | Recipe gate + rival second-stage | `min_town`; `TownIndustry.best_level`, #798 |
 | Regiment dismiss | `ArmyDismiss`, DR-16-07/#809 |
 | Money-goal reweight + Tribe-chain slot | `goal_mille` #821; `SLOT_TRIBE_CHAIN` #825 |
+| Expansion-crew slot | `SLOT_CREWS`, DR-16-15 |
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823 |
 
 ## Gaps (impact order)
 
-1. **Domain dispatch beyond the three live slots** — voyage, declare-war,
-   Tribe-chain ship in `opens`; civilian, market, naval stay seed
-   (DR-13-15 / DR-16-11).
+1. **Domain dispatch beyond the four live slots** — market and naval stay
+   seed (DR-13-15/16-11/16-15).
 2. **Civilian-build seeds** — exotic mixes / per-tile previews
    (`civilian-build-planner`).
 3. **Quick Battle multi-lane / collapse** — one lane; wider deployment /
@@ -46,8 +46,7 @@ Audited through DR-20261116-11 + #825 (REQ-P2-02).
 
 ## Next pick
 
-Domain dispatch beyond voyage/declare-war/Tribe-chain — civilian, market,
-naval (DR-13-15 / DR-16-11).
+Domain dispatch — the market and the naval mission (DR-13-15/16-11/16-15).
 
 ## Blocked footnotes
 
