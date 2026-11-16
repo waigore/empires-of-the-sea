@@ -2502,10 +2502,10 @@ func test_civilian_pass_seeds_once_and_only_at_a_capital() -> void:
 ## province, no unit for a missing id, and training refuses an empty order.
 func test_civilian_pass_helpers_refuse_empty_inputs() -> void:
 	assert_eq(
-		MapPlayCivilianAi._mustering_tile(null, -1, []),
+		CivilianMuster.mustering_tile(null, -1, []),
 		CivilianState.NO_TILE
 	)
-	assert_eq(MapPlayCivilianAi._unit_by_id([], 99), null)
+	assert_eq(CivilianMuster.unit_by_id([], 99), null)
 	var play := PlaySession.new()
 	play.world = AiFixture.land_world([0], {0: true})
 	play.model = play.world.region(0)
@@ -2514,11 +2514,73 @@ func test_civilian_pass_helpers_refuse_empty_inputs() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.new()
 	economy.treasury = 100
 	assert_true(
-		MapPlayCivilianAi._train(
+		CivilianMuster.train(
 			play, play.model.region_id, [], 1, economy, {}, {"capital_province": 0}
 		).is_empty(),
 		"training with no type_id pays nothing"
 	)
+	play.civilian_layer.free()
+
+
+## The muster seam's own refusals: no world, no home region, no squadron, no
+## purse, and a province with no seat tile still musters at its first tile. An
+## off-screen region stores the new unit in its table instead of the live layer.
+func test_the_muster_seam_refuses_what_it_cannot_pay_for() -> void:
+	var bare := PlaySession.new()
+	assert_eq(
+		CivilianMuster.muster_port(bare, 1, 0, null), CivilianState.NO_TILE,
+		"no world, no harbour"
+	)
+	assert_false(CivilianMuster.has_free_squadron(bare, 0, 1), "no layer, no squadron")
+
+	var world: WorldMap = AiFixture.land_world([1], {0: true})
+	world.add_region(AiFixture.land_world([1], {0: true}).region(0))
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.spawn(play.model, 1, 0, [], false)
+	assert_eq(
+		CivilianMuster.muster_port(play, 1, WorldMap.NEW_WORLD, world.region(1)),
+		CivilianState.NO_TILE,
+		"a court musters only in its own region"
+	)
+
+	var ships := ShipLayer.new()
+	ships.regions.set_region(0, [FleetState.at_sea(1, 2, 0)])
+	play.ship_layer = ships
+	assert_false(
+		CivilianMuster.has_free_squadron(play, 0, 1), "another court's hull is no lift"
+	)
+
+	var poor: PlayerEconomy = PlayerEconomy.new()
+	assert_true(
+		CivilianMuster.train(
+			play, 0, [], 1, poor, {"ok": true, "type_id": "builder"},
+			{"capital_province": 0}
+		).is_empty(),
+		"an empty purse raises nobody"
+	)
+
+	var rich: PlayerEconomy = PlayerEconomy.new()
+	rich.treasury = 1000
+	rich.add("paper", 10)
+	var stored: Array[CivilianState] = []
+	var next_id: int = play.civilian_layer.next_id
+	var hired: Dictionary = CivilianMuster.train(
+		play, WorldMap.NEW_WORLD, stored, 1, rich, {"ok": true, "type_id": "builder"},
+		{"capital_province": 0}
+	)
+	assert_eq(String(hired.get("type_id", "")), "builder", "the off-screen muster pays")
+	assert_eq(stored.size(), 1, "and lands in the region's own table")
+	assert_eq(play.civilian_layer.next_id, next_id + 1, "through the layer's id counter")
+
+	var seatless := MapModel.new()
+	assert_eq(
+		CivilianMuster.mustering_tile(seatless, 0, []), CivilianState.NO_TILE,
+		"a province with no tiles musters nowhere"
+	)
+	ships.free()
 	play.civilian_layer.free()
 
 
@@ -3394,6 +3456,21 @@ func test_the_footing_opens_only_its_published_slots() -> void:
 	assert_true(
 		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_TRIBE_CHAIN)
 	)
+	# The expansion crews are the fourth live slot: the same war footing that
+	# shuts the voyage and the chain shuts the crews that serve them
+	# (DR-20261116-15).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_CREWS)
+	)
 
 
 ## The trace reading: the slots a footing holds shut, in the table's own order.
@@ -3404,12 +3481,12 @@ func test_the_trace_names_the_slots_a_footing_holds_shut() -> void:
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_WAR)),
-		"expansion.voyage,expansion.tribe_chain",
-		"one front closes the voyage and the new chain, never the declare slot"
+		"expansion.voyage,expansion.tribe_chain,expansion.crews",
+		"one front closes the voyage, the new chain and the crews that serve them"
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_FRONTS)),
-		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain",
+		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain,expansion.crews",
 		"an overstretched court holds every named slot shut"
 	)
 	assert_eq(
@@ -3453,6 +3530,75 @@ func test_a_court_at_war_opens_no_new_tribe_chain() -> void:
 			state, world, null, 2, tribe, 5000, {}, AiTribeColony.CLAIM_POSTURE
 		)["wanted"]),
 		"the claim on that Tribe outlives the footing"
+	)
+
+
+## A court at war hires no expansion crew: the Explorer charts the voyage the
+## footing holds shut and the Merchant signs the deed the chain it holds shut
+## points at, while the front's own staff stays open (DR-20261116-15).
+func test_a_court_at_war_hires_no_expansion_crew() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
+	crews["phase"] = AiPhasePlanner.PHASE_PEACE
+	var peace: Dictionary = AiCivilianPlanner.training_order(config, [], crews)
+	assert_true(bool(peace.get("ok", false)), "at peace the court hires its Explorer")
+	assert_eq(String(peace["type_id"]), "explorer")
+	crews["phase"] = AiPhasePlanner.PHASE_WAR
+	var war: Dictionary = AiCivilianPlanner.training_order(config, [], crews)
+	assert_false(bool(war.get("ok", true)), "a war footing hires no new crew")
+	assert_eq(String(war.get("reason", "")), AiCivilianPlanner.REASON_CREWS)
+	# The Merchant is the other expansion crew: the deed it signs is the chain's.
+	var deed: Dictionary = _civilian_context()
+	deed["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	deed["tech_unlocked"] = {"merchant_companies": true}
+	deed["phase"] = AiPhasePlanner.PHASE_PEACE
+	assert_eq(
+		String(AiCivilianPlanner.training_order(config, [], deed)["type_id"]),
+		"merchant"
+	)
+	deed["phase"] = AiPhasePlanner.PHASE_FRONTS
+	assert_eq(
+		String(AiCivilianPlanner.training_order(config, [], deed).get("reason", "")),
+		AiCivilianPlanner.REASON_CREWS
+	)
+	# The front's own staff stays open: the footing closes expansion, not the war.
+	var front: Dictionary = _civilian_context()
+	front["staff_targets"] = {"builder": 2, "engineer": 0, "explorer": 0, "spy": 0}
+	front["phase"] = AiPhasePlanner.PHASE_WAR
+	var builder: Dictionary = AiCivilianPlanner.training_order(config, [], front)
+	assert_true(bool(builder.get("ok", false)), "a court at war still raises Builders")
+	assert_eq(String(builder["type_id"]), "builder")
+	# A caller with no footing (fixtures, the mainline planners) hires as published.
+	var unaware: Dictionary = _civilian_context()
+	unaware["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
+	assert_eq(
+		String(AiCivilianPlanner.training_order(config, [], unaware)["type_id"]),
+		"explorer",
+		"no footing read means the published hire order"
+	)
+
+
+## The economy trace names the hire the footing held shut, so a court at war is
+## never silent about the crew it did not take (REQ-P5-05; DR-20261116-15).
+func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: court},
+		{"factions": {2: {"civilians": {
+			"orders": [], "training": [],
+			"training_blocked": AiCivilianPlanner.REASON_CREWS,
+		}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text = String(entry)
+	assert_true(
+		text.contains(AiCivilianPlanner.REASON_CREWS),
+		"the trace names why the yard took no crew"
 	)
 
 
@@ -6052,14 +6198,14 @@ func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
 	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
 	var orders: Array = _market_plan(model, builder, null, works)["orders"]
 	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
-	MapPlayCivilianAi._price(orders, model, works)
+	MapPlayCivilianAi.price(orders, model, works)
 	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
 	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
 	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
 
 	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
 	var survey: Array = _market_plan(model, explorer, null, works)["orders"]
-	MapPlayCivilianAi._price(survey, model, works)
+	MapPlayCivilianAi.price(survey, model, works)
 	assert_true(
 		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
 		"a survey costs no material, so it reserves none"
@@ -6247,6 +6393,11 @@ const GRAIN: Vector2i = Vector2i(3, 1)
 const IRON: Vector2i = Vector2i(2, 1)
 const AWAY: Vector2i = Vector2i(1, 1)
 const MINOR: int = 6
+## The second Minor Nation the deed-targeting cases pair with Genoa: a dearer
+## iron deed, so the cheapest offer names one seller and not the other
+## (issue #841).
+const DEED_MINOR: int = 6
+const DEAR_MINOR: int = 7
 
 
 func test_a_merchant_on_a_genoese_grain_tile_signs_the_deed() -> void:
@@ -6652,7 +6803,7 @@ func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
 
 func _overture(
 	world: WorldMap, state: DiplomacyState, config: AiConfig, tech: Dictionary,
-	treasury: int = 5000
+	treasury: int = 5000, target: int = MINOR
 ) -> Dictionary:
 	var context: Dictionary = {
 		"treasury": {config.faction: treasury},
@@ -6660,7 +6811,7 @@ func _overture(
 		"player": -1,
 	}
 	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		config, state, AiState.new(), world, 1, MINOR, 50, context
+		config, state, AiState.new(), world, 1, target, 50, context
 	)
 	for entry: Dictionary in entries:
 		if String(entry.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE:
@@ -8168,19 +8319,19 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	play.civilian_layer.regions.set_region(0, [])
 	play.civilian_layer.regions.set_region(1, [])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
 		"a court with a free squadron musters at its seat's port"
 	)
 	var abroad: CivilianState = CivilianState.create(7, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
 	play.civilian_layer.regions.set_region(1, [abroad])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
 		"a court with a colonist already abroad sends no second expedition"
 	)
 	play.civilian_layer.regions.set_region(1, [])
 	play.ship_layer.regions.set_region(0, [])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
 		"no squadron, no muster"
 	)
 	play.ship_layer.free()
@@ -8709,6 +8860,221 @@ func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
 		"charted land lifts the overture by the deed nudge"
 	)
+
+
+## The warmth that prices a deed is the warmth that bars a declaration, so the
+## envoy nudge goes to the court's cheapest deed partner alone: warming every
+## charted Minor closed the conquest path outright (issue #724 round 3), and the
+## owner's call on #840 is one targeted seller per court (issue #841).
+func test_the_envoy_nudge_goes_to_the_deed_seller_alone() -> void:
+	var world: WorldMap = _two_minor_world()
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, DEED_MINOR, 1)
+	state.ensure_relation(0, DEAR_MINOR, 1)
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
+	config.agenda_traits = AiAgenda.NEUTRAL
+	var tech: Dictionary = {"merchant_companies": true}
+
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
+		"the cheaper deed names the court's one seller"
+	)
+	var seller: Dictionary = _overture(world, state, config, tech, 5000, DEED_MINOR)
+	var other: Dictionary = _overture(world, state, config, tech, 5000, DEAR_MINOR)
+	assert_eq(
+		int(seller["utility"]) - int(other["utility"]), AiDiplomacyTreaties.LAND_ENVOY_BONUS,
+		"the deed seller is warmed, the other Minor stays cold"
+	)
+	# No Merchant Companies, no nudge: the tech is the buyer the warmth serves.
+	var techless: Dictionary = _overture(world, state, config, {}, 5000, DEED_MINOR)
+	assert_eq(
+		int(techless["utility"]), int(other["utility"]),
+		"a court with no merchant to walk the last rung warms no seller"
+	)
+	# A war with the seller leaves no deed to price, so nothing to warm.
+	var war_court := DiplomacyState.new()
+	war_court.initialize(1)
+	war_court.ensure_relation(0, DEED_MINOR, 1)
+	war_court.ensure_relation(0, DEAR_MINOR, 1)
+	assert_true(
+		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
+	)
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
+		"the war closes the cheap seller and the next offer names the other"
+	)
+
+
+## The study door the deed opens is the buyer's own tech, and it stays shut for
+## a court that already holds it or has no priced deed on its chart (issue
+## #841; wiki: civilian-units § Merchant).
+func test_the_deed_door_studies_merchant_companies_when_a_deed_is_priced() -> void:
+	var world: WorldMap = _two_minor_world()
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, DEED_MINOR, 1)
+	state.ensure_relation(0, DEAR_MINOR, 1)
+	assert_eq(
+		AiMerchantWork.deed_door(world, 0, null, state, {}), "merchant_companies",
+		"a priced deed opens the study door"
+	)
+	assert_eq(
+		AiMerchantWork.deed_door(
+			world, 0, null, state, {"merchant_companies": true}
+		),
+		"", "the court already holds the buyer's tech"
+	)
+	var bare := DiplomacyState.new()
+	bare.initialize(1)
+	bare.ensure_relation(0, DEED_MINOR, 1)
+	# Both deeds signed: the door shuts with the last priced offer.
+	var deeded: WorldMap = _two_minor_world()
+	var region: MapModel = deeded.region(WorldMap.OLD_WORLD)
+	for tile: Vector2i in [Vector2i(2, 0), Vector2i(5, 0)]:
+		region.purchase_tile(tile, 0)
+	assert_eq(
+		AiMerchantWork.deed_door(deeded, 0, null, bare, {}), "",
+		"a court with no deed on offer studies something else"
+	)
+	# And the door is the one the research planner takes first.
+	var config: AiConfig = _research_config()
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, PlayerEconomy.starting(),
+		{"door": AiMerchantWork.deed_door(world, 0, null, state, {})}
+	)
+	assert_eq(
+		String(plan["assignments"][0]["tech"]), "merchant_companies",
+		"the deed door is taken first"
+	)
+
+
+## The turn pass names the court's one deed partner before the planner runs: the
+## trace carries the seller so a warm Minor reads as the deed partner and not as
+## a conquest (issue #841). A court with no Merchant Companies names none — it
+## has no chain to open and pays for no scan.
+func test_the_turn_pass_names_the_deed_seller_for_the_planner() -> void:
+	_setup_ai_diplomacy_offers()
+	var world: WorldMap = _two_minor_world(2)
+	ai_diplomacy_offers_state.ensure_relation(2, DEED_MINOR, 1)
+	ai_diplomacy_offers_state.ensure_relation(2, DEAR_MINOR, 1)
+	ai_diplomacy_offers_state.relation(2, DEED_MINOR).score = 50.0
+	ai_diplomacy_offers_state.relation(2, DEAR_MINOR).score = 50.0
+	var context: Dictionary = {"regiments": {}, "ships": {}}
+	var techless: Dictionary = AiTurn.run(
+		ai_diplomacy_offers_state, world, ai_diplomacy_offers_ai_state, 1, 0, 1500, context
+	)
+	assert_eq(
+		_trace_deed_seller(techless, 2), -1,
+		"no Merchant Companies, no chain to warm"
+	)
+	ai_diplomacy_offers_ai_state.economy_for(2).tech_unlocked["merchant_companies"] = true
+	var result: Dictionary = AiTurn.run(
+		ai_diplomacy_offers_state, world, ai_diplomacy_offers_ai_state, 1, 0, 1500, context
+	)
+	assert_eq(
+		_trace_deed_seller(result, 2), DEED_MINOR,
+		"the pass names the cheapest deed partner"
+	)
+
+
+## The deed partner the turn trace recorded for one court, or -1.
+func _trace_deed_seller(result: Dictionary, faction: int) -> int:
+	for record: Dictionary in result.get("trace", []):
+		if int(record.get("faction", -1)) == faction:
+			return int(record.get("deed_seller", -1))
+	return -1
+
+
+## One Minor is warmed and the other is not: the deed nudge is priced on the
+## seller the reading names, and the second offer stands at its plain worth
+## (issue #841).
+func test_the_planner_warms_the_named_deed_seller_alone() -> void:
+	_setup_ai_diplomacy_offers()
+	var world: WorldMap = _two_minor_world(2)
+	ai_diplomacy_offers_state.ensure_relation(2, DEED_MINOR, 1)
+	ai_diplomacy_offers_state.ensure_relation(2, DEAR_MINOR, 1)
+	ai_diplomacy_offers_state.relation(2, DEED_MINOR).score = 20.0
+	ai_diplomacy_offers_state.relation(2, DEAR_MINOR).score = 20.0
+	var context: Dictionary = {
+		"treasury": {2: 5000},
+		"tech": {2: {"merchant_companies": true}},
+		"player": -1,
+		"deed_seller": DEED_MINOR,
+	}
+	var seller: int = _candidate_overture(
+		world, ai_diplomacy_offers_state, context, DEED_MINOR
+	)
+	var other: int = _candidate_overture(
+		world, ai_diplomacy_offers_state, context, DEAR_MINOR
+	)
+	assert_gt(seller, 0, "the deed seller's chain opens on the nudge alone")
+	assert_eq(
+		other, -1,
+		"the other Minor stays cold: no chain, no warmth, no bar on its conquest"
+	)
+
+
+## The overture utility one candidate list priced for a target, or -1.
+func _candidate_overture(
+	world: WorldMap, state: DiplomacyState, context: Dictionary, target: int
+) -> int:
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, state, ai_diplomacy_offers_ai_state,
+		world, 1, target, 60, context
+	)
+	for entry: Dictionary in entries:
+		if String(entry.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE:
+			return int(entry.get("utility", -1))
+	return -1
+
+
+## Two Minor Nations beside one crown, each with a priced resource tile: the
+## cheap grain deed names one seller and the dear iron deed the other, so the
+## warmth a court spends on a deed can be aimed at one partner (issue #841).
+func _two_minor_world(crown: int = 0) -> WorldMap:
+	var model := MapModel.new()
+	model.setup(6, 2)
+	var crown_tiles: Array[Vector2i] = []
+	var cheap_tiles: Array[Vector2i] = []
+	var dear_tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 6:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			if x < 2:
+				model.province[model.index_of(x, y)] = 0
+				crown_tiles.append(tile)
+			elif x < 4:
+				model.province[model.index_of(x, y)] = 1
+				cheap_tiles.append(tile)
+			else:
+				model.province[model.index_of(x, y)] = 2
+				dear_tiles.append(tile)
+	model.resource[model.index_of(2, 0)] = 4
+	model.terrain[model.index_of(5, 0)] = MapModel.Terrain.HILLS
+	model.resource[model.index_of(5, 0)] = 1
+	var seat := ProvinceState.create(
+		0, "Cádiz", crown_tiles, Vector2(0.5, 1.0), crown_tiles.size(), crown, true
+	)
+	seat.capital_tile = Vector2i(0, 0)
+	var cheap := ProvinceState.create(
+		1, "Genoa", cheap_tiles, Vector2(2.5, 1.0), cheap_tiles.size(), DEED_MINOR, false
+	)
+	cheap.capital_tile = Vector2i(2, 0)
+	cheap.resource = 4
+	cheap.resource_tile = Vector2i(2, 0)
+	var dear := ProvinceState.create(
+		2, "Venice", dear_tiles, Vector2(4.5, 1.0), dear_tiles.size(), DEAR_MINOR, false
+	)
+	dear.capital_tile = Vector2i(4, 0)
+	dear.resource = 1
+	dear.resource_tile = Vector2i(5, 0)
+	model.provinces = [seat, cheap, dear]
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
 
 
 ## The refusal an offers candidate list recorded for one order kind ("" when the
@@ -13082,7 +13448,7 @@ func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 	MapPlayObjectivesAi.run(play)
 	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
 	assert_true((claim["funded_ids"] as Array).has("expedition.hull"))
-	var open_port: Vector2i = MapPlayCivilianAi._muster_port(
+	var open_port: Vector2i = CivilianMuster.muster_port(
 		play, OBJ_OWNER, play.model.region_id, play.model
 	)
 	assert_true(open_port.x >= 0, "a funded hull opens the muster")
@@ -13092,7 +13458,7 @@ func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 		"phase": AiPhasePlanner.PHASE_PEACE, "ranked": 1, "funded": 0, "lines": [],
 		"objectives": [{"id": "expedition.hull", "status": AiObjective.STATUS_DEFERRED}],
 	}, play.turn)
-	var shut: Vector2i = MapPlayCivilianAi._muster_port(
+	var shut: Vector2i = CivilianMuster.muster_port(
 		play, OBJ_OWNER, play.model.region_id, play.model
 	)
 	assert_eq(shut, CivilianState.NO_TILE, "a deferred hull keeps the Explorer ashore")

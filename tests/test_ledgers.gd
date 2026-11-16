@@ -39,6 +39,7 @@ func after_all() -> void:
 		screen.hud.towns_ledger.close()
 		screen.hud.walls_ledger.close()
 		screen.hud.navy_ledger.close()
+		screen.hud.army_ledger.close()
 		screen.hud.province_ledger.close()
 		screen.free()
 	screen = null
@@ -58,6 +59,7 @@ func before_each() -> void:
 	screen.hud.towns_ledger.close()
 	screen.hud.walls_ledger.close()
 	screen.hud.navy_ledger.close()
+	screen.hud.army_ledger.close()
 	screen.hud.province_ledger.close()
 	# Back's debounce is static (one press per 300 ms per process), so the two
 	# back cases in this boot must not swallow each other's press.
@@ -867,7 +869,7 @@ func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 ## (REQ-P3-01, REQ-P5-07).
 func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 	var sheets: Array[SheetFrame] = HudLedgerDoors.sheets(screen.hud)
-	assert_eq(sheets.size(), 9, "the registry names every whole-empire sheet")
+	assert_eq(sheets.size(), 10, "the registry names every whole-empire sheet")
 	for sheet: SheetFrame in sheets:
 		assert_eq(sheet.play, screen.play, "the sheet reads the screen's session")
 	screen.hud.muster_roll_pressed.emit()
@@ -1603,17 +1605,17 @@ func test_every_sheet_reads_its_prose_across_at_desktop_and_phone_widths() -> vo
 		viewport.free()
 
 
-## The ten sheets the HUD mounts on its modal layers.
+## The eleven sheets the HUD mounts on its modal layers.
 func _hud_sheets(hud: GameHud) -> Array[SheetFrame]:
 	var sheets: Array[SheetFrame] = []
 	for sheet: SheetFrame in [
 		hud.spy_ledger, hud.province_ledger, hud.muster_roll, hud.command_ledger,
-		hud.towns_ledger, hud.walls_ledger, hud.navy_ledger, hud.civilian_roster,
-		hud.tech_tree, hud.dossier_screen,
+		hud.towns_ledger, hud.walls_ledger, hud.navy_ledger, hud.army_ledger,
+		hud.civilian_roster, hud.tech_tree, hud.dossier_screen,
 	]:
 		if sheet != null:
 			sheets.append(sheet)
-	assert_eq(sheets.size(), 10, "every sheet the HUD mounts is read")
+	assert_eq(sheets.size(), 11, "every sheet the HUD mounts is read")
 	return sheets
 
 
@@ -3450,6 +3452,319 @@ func test_a_visit_frames_her_squadron_and_sets_the_sheet_aside() -> void:
 	row._on_visit()
 	assert_false(panel.is_open(), "the sheet sets itself aside")
 	assert_not_null(screen.play.ship_layer.selected(), "her squadron is the selection")
+
+
+# --- the crown's army, regiment by regiment ---
+
+## The crown's army, regiment by regiment (wiki: military-armies § The muster
+## roll, § The regiments behind an army; DR-20261116-16): the projection reads
+## every regiment the crown fields in both charts, standard by standard, and the
+## sheet drives it — the muster roll's door, the readings, back and the registry.
+## One Godot boot: the projection cases read the muster fixture, the sheet cases
+## mount the shared map screen (docs/testing.md).
+
+
+func test_the_army_reads_every_regiment_of_both_charts() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	assert_eq(int(data["total"]), 5, "one row per regiment the crown fields")
+	assert_eq((data["groups"] as Array).size(), 3, "one heading per standard")
+	assert_eq(ArmyLedger.count(data, LedgerRows.REGION_OLD), 3)
+	assert_eq(ArmyLedger.count(data, LedgerRows.REGION_NEW), 2)
+	assert_eq(ArmyLedger.army_count(data, LedgerRows.REGION_ALL), 3)
+	for raw: Variant in data["rows"]:
+		assert_ne(int((raw as Dictionary)["army"]), 3, "the rival's men stay out")
+
+
+func test_a_regiment_row_reads_its_class_and_its_own_line() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var pikemen: Dictionary = _army_row_for(data, 1, "unit_1")
+	assert_eq(String(pikemen["class"]), "Pikemen")
+	assert_eq(String(pikemen["reading"]), ArmyLedger.READING_FOOT)
+	assert_eq(String(pikemen["role_label"]), "FOOT")
+	assert_eq(String(pikemen["line"]), RegimentCatalog.detail_line("pikemen"), "the catalogue's own line")
+	assert_eq(String(pikemen["category"]), "Regular infantry")
+	assert_true(String(pikemen["state"]).contains("health"), "the row reads its condition")
+	assert_eq(String(pikemen["place"]), "Cádiz")
+
+
+## The reading order is the sheet's own: the foot lead, then the horse, then the
+## guns; inside a kind the heavier class, then the instance number.
+func test_the_foot_lead_then_the_horse_then_the_guns() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["regiment"]))
+	assert_eq(order, ["unit_501", "unit_502", "unit_503"], "the foot read before the horse and the guns")
+	var guns: Dictionary = _army_row_of(data, "unit_503")
+	assert_eq(String(guns["role_label"]), "GUNS")
+
+
+func test_a_condition_reads_health_chevrons_and_colours() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var wounded: Dictionary = _army_row_of(data, "unit_501")
+	assert_true(String(wounded["state"]).contains("20/"), "the health it holds")
+	assert_eq(int(wounded["health"]), 20)
+	assert_eq(int(wounded["max_health"]), RegimentCondition.max_health("pikemen"))
+	var decorated: Dictionary = _army_row_of(data, "unit_502")
+	assert_true(String(decorated["state"]).contains("2 chevrons"))
+	var laurelled: Dictionary = _army_row_of(data, "unit_503")
+	assert_true(String(laurelled["state"]).contains("laurelled +10%"), "the citation's own weight")
+	assert_eq(int(laurelled["cited"]), 3)
+
+
+func test_the_standard_heading_reads_where_it_stands_and_what_it_eats() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var groups: Array[Dictionary] = ArmyLedger.groups(data, LedgerRows.REGION_OLD)
+	var home: Dictionary = groups[0]
+	assert_eq(String(home["title"]), "Home Army", "the seat leads its chart")
+	assert_true(String(home["heading"]).contains("HOME ARMY"))
+	assert_eq(String(home["place"]), "Cádiz")
+	assert_true(String(home["standing"]).contains("seat"))
+	assert_eq(int(home["regiments"]), 2)
+	var army: ArmyState = _army_of(_armies(), 1)
+	var one: Array[ArmyState] = [army]
+	assert_almost_eq(float(home["strength"]), ArmyForce.side_strength(one), 0.001)
+	assert_eq(int(home["food"]), RegimentCatalog.food_upkeep("pikemen") + RegimentCatalog.food_upkeep("arquebusiers"))
+
+
+func test_an_embarked_standard_reads_aboard_its_squadron() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var embarked: Dictionary = _army_row_for(data, 2, "unit_1")
+	assert_true(String(embarked["place"]).contains("Aboard a squadron"))
+	assert_true(String(embarked["place"]).contains("Cádiz"), "the carrying squadron's station")
+
+
+## A standard whose carrying squadron the roster no longer holds, and one with
+## no shore at all: the reading names the gap instead of inventing a place.
+func test_a_standard_without_its_squadron_or_a_shore_reads_the_gap() -> void:
+	var table := MapRegionTable.new()
+	var adrift: ArmyState = ArmyState.muster(8, OWNER, MapModel.NO_ID, false, ["pikemen"], 801)
+	adrift.embarked_fleet = 99
+	var ashore: ArmyState = ArmyState.muster(9, OWNER, MapModel.NO_ID, false, ["pikemen"], 901)
+	table.set_region(FactionCatalog.OLD_WORLD, [adrift, ashore])
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), table, _fleets(), OWNER)
+	assert_eq(String(_army_row_for(data, 8, "unit_801")["place"]), "Aboard a squadron")
+	assert_eq(String(_army_row_for(data, 9, "unit_901")["place"]), "In the field")
+
+
+func test_the_readings_narrow_the_army_and_keep_their_tallies() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var counts: Dictionary = ArmyLedger.filter_counts(data, LedgerRows.REGION_ALL)
+	assert_eq(int(counts[ArmyLedger.READING_ALL]), 3)
+	assert_eq(int(counts[ArmyLedger.READING_FOOT]), 1)
+	assert_eq(int(counts[ArmyLedger.READING_HORSE]), 1)
+	assert_eq(int(counts[ArmyLedger.READING_GUNS]), 1)
+	assert_eq(ArmyLedger.count(data, LedgerRows.REGION_NEW, ArmyLedger.READING_FOOT), 0)
+	var horse: Array[Dictionary] = ArmyLedger.groups(
+		data, LedgerRows.REGION_ALL, ArmyLedger.READING_HORSE
+	)
+	assert_eq(horse.size(), 1, "only the standard that still has a rider")
+	for row: Dictionary in horse[0]["rows"]:
+		assert_eq(String(row["reading"]), ArmyLedger.READING_HORSE)
+
+
+func test_the_army_count_line_and_the_note_print_the_rules_own_figures() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var line: String = ArmyLedger.summary(data, LedgerRows.REGION_ALL)
+	assert_true(line.contains("3 of 3 regiments in 1 standard"), "the count line reads the standard")
+	assert_true(line.contains("1 foot, 1 horse, 1 gun"))
+	assert_true(line.contains("strength"))
+	assert_true(line.contains("food a turn"))
+	var narrowed: String = ArmyLedger.summary(
+		data, LedgerRows.REGION_OLD, ArmyLedger.READING_HORSE
+	)
+	assert_true(narrowed.contains("1 of 3 regiments in the Old World"), "the chart is the denominator")
+	assert_true(narrowed.contains("horse only"))
+	assert_true(ArmyLedger.note().contains("chevrons"), "the rule a crown fields by is printed")
+
+
+func test_a_chart_with_no_standard_reads_empty_and_a_standard_without_men_reads_no_row() -> void:
+	assert_eq(int(ArmyLedger.snapshot(null, _armies(), _fleets(), OWNER).get("total", -1)), 0)
+	assert_eq(int(ArmyLedger.snapshot(_force_world(), null, _fleets(), OWNER).get("total", -1)), 0)
+	var bare := ArmyState.muster(7, OWNER, 0, false, [], 1)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [bare])
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), table, _fleets(), OWNER)
+	assert_eq(int(data["total"]), 0, "a standard with no regiment has no row to read")
+	assert_eq(ArmyLedger.army_count(data, LedgerRows.REGION_ALL), 1, "the standard is still counted")
+	assert_eq((data["groups"] as Array).size(), 0, "an empty standard prints no heading")
+	assert_true(ArmyLedger.summary(data, LedgerRows.REGION_ALL).contains("0 of 0 regiments"))
+
+
+# --- army: the row ---
+
+
+func test_an_army_row_prints_its_name_chip_and_its_own_line() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var row := ArmyLedgerRow.new()
+	row.setup(_army_row_of(data, "unit_501"))
+	assert_ne(row._name.text, "", "every regiment flies a title")
+	assert_eq(row._chip.text, "FOOT")
+	assert_true(row._detail.text.contains("Cádiz"))
+	assert_true(row._standing.text.contains("FPN"), "the catalogue's own line")
+	assert_true(row._reading.text.contains("20/"), "the condition it holds")
+	row.free()
+
+
+func test_a_compact_army_row_folds_its_class_into_the_detail_line() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var row := ArmyLedgerRow.new()
+	row.compact = true
+	row.setup(_army_row_of(data, "unit_502"))
+	assert_true(row._detail.text.contains("Knights"), "a phone row names the class")
+	assert_true(row._detail.text.contains("Cádiz"))
+	row.free()
+
+
+func test_an_army_visit_asks_for_its_standards_chart() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var row := ArmyLedgerRow.new()
+	row.setup(_army_row_for(data, 2, "unit_1"))
+	var seen: Array = []
+	row.visit_pressed.connect(func(region: int, army_id: int) -> void:
+		seen.append([region, army_id])
+	)
+	row._on_visit()
+	assert_eq(seen.size(), 1)
+	assert_eq(int((seen[0] as Array)[0]), FactionCatalog.OLD_WORLD)
+	assert_eq(int((seen[0] as Array)[1]), 2, "the standard, not the regiment")
+	row.free()
+
+
+# --- army: the sheet ---
+
+
+func test_the_muster_rolls_army_door_opens_the_army_ledger() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	assert_not_null(panel, "the HUD mounts the army ledger")
+	screen.hud.muster_roll_pressed.emit()
+	var door: Button = _army_door()
+	assert_not_null(door, "the muster roll carries the army door")
+	door.pressed.emit()
+	assert_true(panel.is_open(), "the muster roll's army door opens it")
+	assert_true(_army_row_widgets(panel) > 0, "the crown's regiments are listed")
+	assert_true(panel._subtitle.text.contains("regiments"), "the count line names the army")
+	assert_true(_has_text(panel._rows, "strength"), "a standard heading prints its strength")
+	screen.hud.muster_roll.close()
+
+
+func test_the_army_readings_narrow_the_sheet() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	screen.hud.army_pressed.emit()
+	assert_true(panel.is_open())
+	panel._on_filter(ArmyLedger.READING_HORSE, false)
+	assert_eq(panel._reading, ArmyLedger.READING_HORSE)
+	assert_true(panel._subtitle.text.contains("horse only"))
+	for child: Node in panel._rows.get_children():
+		var row := child as ArmyLedgerRow
+		if row != null:
+			assert_eq(String(row.data["reading"]), ArmyLedger.READING_HORSE)
+	panel._on_filter(LedgerRows.REGION_OLD, true)
+	assert_eq(panel._region, LedgerRows.REGION_OLD)
+	panel._on_filter(LedgerRows.REGION_ALL, true)
+	panel._on_filter(ArmyLedger.READING_ALL, false)
+
+
+func test_an_emptied_army_names_why_no_regiment_answers() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	panel.bind(screen.play)
+	screen.hud.army_pressed.emit()
+	assert_true(_army_row_widgets(panel) > 0, "the sheet opens on the crown's regiments")
+	# A chart the crown fields nothing in: the whole army answers, this chart not.
+	panel._snapshot = ArmyLedger.snapshot(_world(), _old_only_armies(), _fleets(), OWNER)
+	panel._region = LedgerRows.REGION_NEW
+	panel._apply_filter()
+	assert_true(panel._empty.visible, "an empty chart prints the empty line")
+	assert_eq(_army_row_widgets(panel), 0, "and the rows the last press left are cleared")
+	assert_true(panel._empty.text.contains("No regiment answers this view"))
+	# A standard with no men: the sheet names the drill yard rather than a gap.
+	var bare := ArmyState.muster(7, OWNER, 0, false, [], 1)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [bare])
+	panel._snapshot = ArmyLedger.snapshot(_world(), table, _fleets(), OWNER)
+	panel._region = LedgerRows.REGION_ALL
+	panel._apply_filter()
+	assert_true(panel._empty.text.contains("the drill yard raises the first"))
+	# No standard at all: clearing a filter is the way back.
+	panel._snapshot = ArmyLedger.snapshot(_world(), MapRegionTable.new(), _fleets(), OWNER)
+	panel._apply_filter()
+	assert_true(panel._empty.text.contains("Clear a filter"))
+	panel._snapshot = {}
+	panel._region = LedgerRows.REGION_ALL
+	panel._reading = ArmyLedger.READING_ALL
+
+
+func test_every_army_chip_names_its_own_reading() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	var chart_row := panel._bar.get_child(0) as HBoxContainer
+	var reading_row := panel._bar.get_child(1) as HBoxContainer
+	assert_eq(_navy_chip_captions(chart_row), ["Both charts", "Old World", "New World"])
+	assert_eq(_navy_chip_captions(reading_row), ["All regiments", "Foot", "Horse", "Guns"])
+
+
+func test_army_back_closes_the_ledger() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	screen.hud.army_pressed.emit()
+	assert_true(panel.is_open())
+	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
+	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+## One standard of three kinds, weakened and decorated, so the row reads the
+## condition the rules would use: a wounded foot regiment, a chevroned rider and
+## a laurelled gun.
+func _line_standard() -> MapRegionTable:
+	var table := MapRegionTable.new()
+	var army: ArmyState = ArmyState.muster(
+		5, OWNER, 0, false, ["pikemen", "knights", "culverin"], 501
+	)
+	army.regiment_health["unit_501"] = 20
+	army.regiment_medals["unit_502"] = 2
+	army.regiment_history["unit_503"] = {"cited": 3, "fields": []}
+	table.set_region(FactionCatalog.OLD_WORLD, [army])
+	return table
+
+
+## The home chart alone: the New World holds no standard, so a one-chart view has
+## an empty page and the whole army still answers.
+func _old_only_armies() -> MapRegionTable:
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [_army_of(_armies(), 1)])
+	return table
+
+
+func _army_row_of(data: Dictionary, regiment_id: String) -> Dictionary:
+	for raw: Variant in data["rows"]:
+		var row: Dictionary = raw
+		if String(row["regiment"]) == regiment_id:
+			return row
+	return {}
+
+
+func _army_row_for(data: Dictionary, army_id: int, regiment_id: String) -> Dictionary:
+	for raw: Variant in data["rows"]:
+		var row: Dictionary = raw
+		if int(row["army"]) == army_id and String(row["regiment"]) == regiment_id:
+			return row
+	return {}
+
+
+## The muster roll's army door, found by its word so the suite reads the button
+## the player presses.
+func _army_door() -> Button:
+	for node: Node in screen.hud.muster_roll.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("The crown's army"):
+			return button
+	return null
+
+
+func _army_row_widgets(panel: ArmyLedgerPanel) -> int:
+	var total: int = 0
+	for child: Node in panel._rows.get_children():
+		if child is ArmyLedgerRow:
+			total += 1
+	return total
 
 
 # --- navy: fixtures ---

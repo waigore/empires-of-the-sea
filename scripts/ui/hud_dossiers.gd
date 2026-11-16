@@ -150,7 +150,12 @@ static func _ledgers(hud: GameHud) -> void:
 	hud.navy_ledger = NavalLedgerPanel.new()
 	HudLedgerDoors.mount(hud, "NavalLedgerLayer", hud.navy_ledger)
 	hud.navy_pressed.connect(hud.navy_ledger.toggle)
-	# The muster roll's navy door opens the crown's navy: the roll names each
-	# squadron by her flagship, and the hull sheet is the whole of what she flies
-	# (REQ-P5-01, REQ-P5-03; DR-20261115-14).
+	hud.army_ledger = ArmyLedgerPanel.new()
+	HudLedgerDoors.mount(hud, "ArmyLedgerLayer", hud.army_ledger)
+	hud.army_pressed.connect(hud.army_ledger.toggle)
+	# The muster roll's doors open the sheets behind it: the roll names each
+	# standard by its kind and each squadron by her flagship, and the regiment
+	# and hull sheets are the whole of what they fly (REQ-P5-01, REQ-P5-03;
+	# DR-20261115-14, DR-20261116-16).
 	hud.muster_roll.navy_pressed.connect(func() -> void: hud.navy_pressed.emit())
+	hud.muster_roll.army_pressed.connect(func() -> void: hud.army_pressed.emit())

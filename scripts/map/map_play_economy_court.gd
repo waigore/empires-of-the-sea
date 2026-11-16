@@ -203,6 +203,15 @@ func _plan_research() -> Dictionary:
 			play.diplomacy, play.world, play.court_charts, faction,
 			economy.tech_unlocked, AiPhasePlanner.phase_for(config, play.diplomacy)
 		)
+	# The deed door, buyer-gated: a court that has a priced deed on its chart and
+	# no Merchant Companies studies the tech that hires the buyer. The study is
+	# the closed link — the hire, the envoy chain and the purchase all wait on it
+	# (issue #841; wiki: civilian-units § Merchant).
+	if door.is_empty():
+		door = AiMerchantWork.deed_door(
+			play.world, faction, play.court_charts, play.diplomacy,
+			economy.tech_unlocked
+		)
 	return AiBind.research_plan(
 		kind, config, economy,
 		{

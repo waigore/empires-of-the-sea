@@ -3,9 +3,10 @@ extends PanelContainer
 ## Dockable dossier for the selected fleet: colours, station, the remaining move
 ## and the naval yard (wiki: ships-and-naval § Ship build economy, § Ship muster
 ## and the breaker's yard). The panel owns the header, the standing lines and the
-## merge/land blocks; FleetYardBlock owns the shipyard drawer, FleetDossierSection
-## subclasses own the mission and passenger blocks. The panel reads state and
-## emits intents; the rules modules decide what may run (REQ-P3-02, REQ-P3-03).
+## merge block; orders under them scroll so a phone sheet never grows past its
+## dock (REQ-P1-05). FleetYardBlock owns the shipyard drawer, FleetDossierSection
+## subclasses the mission and passenger blocks. The panel reads state and emits
+## intents; the rules modules decide what may run (REQ-P3-02, REQ-P3-03).
 
 signal close_pressed
 signal dock_side_pressed
@@ -27,6 +28,7 @@ var _crew: FleetCrewSection = null
 var _strength: FleetStrengthSection = null
 var _split: FleetSplitBlock = null
 var _combine: FleetCombineBlock = null
+var _scroll: ScrollContainer = null
 
 
 func _ready() -> void:
@@ -43,6 +45,7 @@ func _ready() -> void:
 func _build() -> void:
 	var column := VBoxContainer.new()
 	column.add_theme_constant_override("separation", 5)
+	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(column)
 
 	_header = DossierHeader.make(20)
@@ -70,41 +73,71 @@ func _build() -> void:
 	_merge_box.visible = false
 	column.add_child(_merge_box)
 
+	# Orders scroll under the standing lines so a phone sheet never grows past
+	# its dock (REQ-P1-05): missions, passengers, split, combine and the yard.
+	_scroll = ScrollContainer.new()
+	_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	column.add_child(_scroll)
+	var body := VBoxContainer.new()
+	body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	body.add_theme_constant_override("separation", 5)
+	_scroll.add_child(body)
+
 	# Every block emits the same intent, so one wire carries them all up.
 	_mission = FleetMissionSection.new()
 	_mission.visible = false
 	_mission.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
-	column.add_child(_mission)
+	body.add_child(_mission)
 
 	_crew = FleetCrewSection.new()
 	_crew.visible = false
 	_crew.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
-	column.add_child(_crew)
+	body.add_child(_crew)
 
 	_land_box = VBoxContainer.new()
 	_land_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_land_box.add_theme_constant_override("separation", 6)
 	_land_box.visible = false
-	column.add_child(_land_box)
+	body.add_child(_land_box)
 
 	# The split drawer: one hull leaves as a squadron of her own (DR-20261116-12).
 	_split = FleetSplitBlock.new()
 	_split.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
-	column.add_child(_split)
+	body.add_child(_split)
 
 	# The combine drawer: this squadron folds into another of the crown's in the
 	# same station (DR-20261116-13).
 	_combine = FleetCombineBlock.new()
 	_combine.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
-	column.add_child(_combine)
+	body.add_child(_combine)
 
 	_yard = FleetYardBlock.new()
 	_yard.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
-	column.add_child(_yard)
+	body.add_child(_yard)
 
 	_hint = UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_hint)
+	body.add_child(_hint)
+
+	get_viewport().size_changed.connect(_fit_to_viewport)
+	_fit_to_viewport()
+
+
+## Cap the orders scroll to the sheet's room so the standing lines stay put and
+## a phone never clips the dossier (REQ-P1-05, REQ-P1-07).
+func _fit_to_viewport() -> void:
+	if _scroll == null or not is_inside_tree():
+		return
+	var view: Vector2 = get_viewport_rect().size
+	if view.y < 1.0:
+		return
+	var compact: bool = HudLayout.is_compact(view)
+	var top: float = 64.0 if compact else PanelDock.TOP
+	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
+	var room: float = maxf(view.y - top - bottom, 0.0)
+	var chrome: float = get_combined_minimum_size().y - _scroll.custom_minimum_size.y
+	_scroll.custom_minimum_size = Vector2(0.0, maxf(room - chrome, 0.0))
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
@@ -163,6 +196,7 @@ func refresh(
 	_show_split(model, fleet, is_player)
 	_show_combine(model, roster, fleet, is_player)
 	_show_yard(yard_rows, merge)
+	_fit_to_viewport()
 
 
 ## The composition line under the title: count, hull types and the upkeep they
@@ -285,6 +319,7 @@ func refresh_slip(
 		_combine.show_rows(model, [] as Array[FleetState], null, false, false)
 	if _yard != null:
 		_yard.show_slip(rows, is_player)
+	_fit_to_viewport()
 
 
 ## The home-fleet row: one tap when the squadron can join. Nothing destructive,

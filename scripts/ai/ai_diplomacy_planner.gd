@@ -106,6 +106,16 @@ static func decide(
 				best_offer = offer
 		candidates.append(entry)
 	var action: Dictionary = {}
+	# The deed partner's chain outranks a Minor war. A court spends one order a
+	# turn, and the warmth that prices a deed is the warmth that bars the
+	# declaration, so a court opening the chain it means to buy on takes that
+	# step instead of opening one more front — a Great Power war still outranks
+	# it, and the chain's own embassy ends the preference (issue #841; wiki:
+	# civilian-units § Merchant, diplomacy § GP AI policy for war vs. relations).
+	if not best_war.is_empty() and _opens_deed_chain(
+		config, state, candidates, best_war, context
+	):
+		best_war = {}
 	if not best_war.is_empty():
 		var provinces: int = DiplomacyRules.provinces_owned(world, int(best_war["target"]))
 		action = {
@@ -132,6 +142,36 @@ static func decide(
 			and DiplomacyProposals.knows(String(best_offer["kind"]))
 		)
 	return {"action": action, "candidates": candidates}
+
+
+## True when the court owes its deed partner the next envoy step and the war on
+## the table is only a Minor or Tribe: the one order this turn goes to the chain
+## that prices the deed. False for a Great Power war (a front is not a deed), for
+## a court with no named seller, for a seller whose embassy already stands, and
+## for a chain with no legal overture left (issue #841).
+static func _opens_deed_chain(
+	config: AiConfig,
+	state: DiplomacyState,
+	candidates: Array[Dictionary],
+	best_war: Dictionary,
+	context: Dictionary
+) -> bool:
+	var seller: int = int(context.get("deed_seller", -1))
+	if seller < 0:
+		return false
+	if FactionCatalog.type_of(int(best_war["target"])) == FactionCatalog.Type.GREAT_POWER:
+		return false
+	if DiplomacyRules.has_embassy(state, config.faction, seller):
+		return false
+	for entry: Dictionary in candidates:
+		if int(entry.get("target", -1)) != seller:
+			continue
+		var offer: Dictionary = entry.get("offer", {})
+		if bool(offer.get("ok", false)) and (
+			String(offer.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE
+		):
+			return true
+	return false
 
 
 ## Every order kind the planner can emit: war and peace are scored here, the
