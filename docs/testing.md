@@ -49,7 +49,7 @@ loads, returns to title. Deep rules stay in `tests/`.
 - **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
   `world_…` suite drains alone.
 - One Godot boot per theme — coverage ~15 s a boot: fold leftovers into their
-  theme's boot; delete suites covered elsewhere. 39 → 25 suites cut the wall
+  theme's boot; delete suites covered elsewhere. 39 → 24 suites cut the wall
   230 s → 207 s. `gd-tools.toml` keeps `parallel = 4`; profile with
   `--durations 20`.
 - Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
