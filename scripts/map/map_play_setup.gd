@@ -99,19 +99,20 @@ static func refresh_dossier(play: PlaySession) -> void:
 	play.hud.panels.panel.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.visibility,
 		play.capital_tile, play.player_faction, play.tech_caps(),
-		play.tech_unlocked(), play.stockpile()
+		play.tech_unlocked(), play.stockpile(), MapPlayBlockades.crown(play)
 	)
 
 
-## Survey lens data follows the region on screen and the works just completed.
-## Rebuilding also refreshes the extraction caps the plaque totals use.
+## Survey lens data follows the region on screen, the works just completed and
+## the court's sealed coasts. Rebuilding also refreshes the extraction caps the
+## plaque totals use.
 static func build_lens(play: PlaySession) -> void:
 	var lens: ResourceLens = play.lens
 	if lens != null:
 		lens.build(
 			play.model, play.land_works, play.civilian_layer.units,
 			play.player_faction, play.visibility, play.capital_tile,
-			play.tech_caps()
+			play.tech_caps(), MapPlayBlockades.crown(play)
 		)
 		lens.watch(play.civilian_layer, play.overlay)
 	build_diplomacy_lens(play)

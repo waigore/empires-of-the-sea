@@ -652,6 +652,76 @@ func test_a_coastal_road_does_not_pair_onto_the_sea() -> void:
 	var routes: Dictionary = ResourceRoutes.snapshot(model, works, owner, coast)
 	assert_eq(int(routes["counts"]["road"]), 0, "sea never completes a road pair")
 
+## The survey lens reads the court's seals itself, and a war that lifts one
+## re-bakes the plate without a work moving: the same coast the phase withholds
+## must never print a linked estate or a solid road (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03, REQ-P4-01).
+func test_the_survey_lens_reads_the_seals_and_rebakes_when_they_lift() -> void:
+	var model := MapModel.new()
+	model.setup(12, 9)
+	var groups: Dictionary = {0: [], 1: [], 2: []}
+	for y in 8:
+		for x in 12:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			var province_id: int = 0 if x < 3 else (1 if x < 6 else 2)
+			model.province[model.index_of(x, y)] = province_id
+			(groups[province_id] as Array).append(Vector2i(x, y))
+	for x in 12:
+		model.terrain[model.index_of(x, 8)] = MapModel.Terrain.OCEAN
+		model.sea_zone[model.index_of(x, 8)] = 0
+	var provinces: Array[ProvinceState] = []
+	for province_id in 3:
+		var tiles: Array[Vector2i] = []
+		for raw: Variant in groups[province_id]:
+			tiles.append(raw as Vector2i)
+		provinces.append(
+			ProvinceState.create(
+				province_id, "P%d" % province_id, tiles, Vector2(1.0, 1.0),
+				tiles.size(), FactionCatalog.PLAYER_FACTION, province_id == 0
+			)
+		)
+	var capital := Vector2i(0, 1)
+	var town := Vector2i(7, 2)
+	var estate := Vector2i(6, 2)
+	provinces[0].capital_tile = capital
+	provinces[0].town_tile = capital
+	provinces[1].town_tile = Vector2i(4, 1)
+	provinces[2].town_tile = town
+	provinces[2].town_development = 2
+	model.provinces = provinces
+	var works := LandWorks.new()
+	works.add_port(model, town)
+	works.set_transport(model, town, LandWorks.TRANSPORT_ROAD)
+	works.set_improvement(model, estate, 4)
+	works.set_transport(model, estate, LandWorks.TRANSPORT_ROAD)
+	model.resource[model.index_of(estate.x, estate.y)] = 4
+	var caps: Dictionary = {"grain": 4}
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var lens := ResourceLens.new()
+	add_child(lens)
+	lens.build(model, works, [], owner, null, capital, caps)
+	assert_eq(int(lens.survey["counts"]["blocked"]), 0, "no seal, no cut")
+	assert_eq(int(lens.survey["counts"]["linked"]), 1, "the open harbour links")
+	assert_true(
+		bool((lens.survey["routes"] as Array)[0]["linked"]),
+		"the stroke reaches the crown through the harbour"
+	)
+	var seals := Blockades.new()
+	seals.sealed = {model.region_id: {2: true}}
+	lens.build(model, works, [], owner, null, capital, caps, seals)
+	assert_eq(int(lens.survey["counts"]["blocked"]), 1, "the sealed estate reads cut")
+	assert_eq(int(lens.survey["counts"]["linked"]), 0, "and stops counting as linked")
+	assert_false(
+		bool((lens.survey["routes"] as Array)[0]["linked"]),
+		"the same stroke draws dashed under the seal"
+	)
+	# The war ends: the seal lifts with no work laid, so the plate re-bakes.
+	seals.sealed = {}
+	lens.build(model, works, [], owner, null, capital, caps, seals)
+	assert_eq(int(lens.survey["counts"]["blocked"]), 0, "the lifted seal re-reads")
+	assert_eq(int(lens.survey["counts"]["linked"]), 1)
+	lens.free()
+
 func test_severed_estate_reports_disconnected() -> void:
 	var model: MapModel = resource_survey_Fixture.region()
 	var works := LandWorks.new()

@@ -29,6 +29,9 @@ var _tech_unlocked: Dictionary = {}
 ## The crown's live purse, or null when the caller keeps no stores: the town
 ## order reads one money gate with the order itself (REQ-P2-03).
 var _stockpile: Variant = null
+## The crown's sealed coasts: a blockaded harbour's estates read cut here exactly
+## as the Extraction phase cuts them (wiki: capital-and-connectivity § Blockade).
+var _blockade: Blockades = null
 var _province_id: int = -1
 
 
@@ -115,6 +118,8 @@ func _build() -> void:
 ## dossier without the map layer handing it over again. `stockpile` is the
 ## crown's live purse (null when the caller has none), so the town order greys
 ## out for the materials it cannot pay as well as the study it lacks.
+## `blockade` is the court's sealed coasts, so a blockaded colony's estates read
+## the cut the Extraction phase pays (wiki: capital-and-connectivity § Blockade).
 func set_data(
 	model: MapModel,
 	works: LandWorks,
@@ -124,7 +129,8 @@ func set_data(
 	faction: int,
 	tech_caps: Dictionary,
 	tech_unlocked: Dictionary,
-	stockpile: Variant = null
+	stockpile: Variant = null,
+	blockade: Blockades = null
 ) -> void:
 	var same_map: bool = model != null and model == _model
 	_model = model
@@ -136,6 +142,7 @@ func set_data(
 	_tech_caps = tech_caps
 	_tech_unlocked = tech_unlocked
 	_stockpile = stockpile
+	_blockade = blockade
 	if not same_map:
 		# A region switch invalidates the province id it was showing.
 		_province_id = -1
@@ -187,7 +194,7 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	_grid.show_province(model, province_id, data)
 	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
 		model, _works, _units, _faction, province_id, _visibility, _capital_tile,
-		_tech_caps
+		_tech_caps, _blockade
 	)
 	var unsurveyed: int = MineralSurvey.unsurveyed_in_province(
 		model, _works, _faction, province_id, _visibility

@@ -15,19 +15,23 @@ const STEPS: Array[Vector2i] = [Vector2i.RIGHT, Vector2i.DOWN]
 
 ## `segments` are `{a, b, rail, linked, fogged}` in tile coordinates, in
 ## row-major order; `counts` totals road/rail segments and the linked ones.
+## `blockade` is the court's own sealed coasts: a stroke that only reached the
+## crown through a blockaded harbour no longer does, so the lens dashes it
+## (wiki: capital-and-connectivity § Blockade).
 static func snapshot(
 	model: MapModel,
 	works: LandWorks,
 	owner: int,
 	capital_tile: Vector2i = CivilianState.NO_TILE,
-	visibility: VisibilityModel = null
+	visibility: VisibilityModel = null,
+	blockade: Blockades = null
 ) -> Dictionary:
 	var segments: Array[Dictionary] = []
 	var counts: Dictionary = {"road": 0, "rail": 0, "linked": 0}
 	if model == null or works == null or owner < 0:
 		return {"segments": segments, "counts": counts}
 	var network: Dictionary = LandConnectivity.resolve(
-		model, works, owner, capital_tile
+		model, works, owner, capital_tile, blockade
 	).get("network", {}) as Dictionary
 	for y in model.height:
 		for x in model.width:

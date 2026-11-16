@@ -27,6 +27,10 @@ const BLOCKED_STATUSES: Array[String] = ["disconnected"]
 
 ## One entry per charted province that holds at least one resource tile we can
 ## see, plus realm totals. `visibility` may be null for isolated fixtures.
+## `blockade` is the court's own sealed coasts: a blockaded port province is no
+## landfall, so its estates reach the crown by road only and read as cut, the
+## same harvest the Extraction phase withholds (wiki: capital-and-connectivity
+## § Blockade). Omitted, the reading is the unsealed chart.
 static func snapshot(
 	model: MapModel,
 	works: LandWorks,
@@ -34,7 +38,8 @@ static func snapshot(
 	owner: int,
 	visibility: VisibilityModel = null,
 	capital_tile: Vector2i = CivilianState.NO_TILE,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	blockade: Blockades = null
 ) -> Dictionary:
 	var result: Dictionary = {
 		"provinces": [] as Array[Dictionary],
@@ -43,10 +48,13 @@ static func snapshot(
 	}
 	if model == null or works == null:
 		return result
-	var resolved: Dictionary = LandConnectivity.resolve(model, works, owner, capital_tile)
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, owner, capital_tile, blockade
+	)
 	for province: ProvinceState in model.provinces:
 		var rows: Array[Dictionary] = _rows(
-			model, works, units, owner, resolved, province, visibility, tech_caps
+			model, works, units, owner, resolved, province, visibility, tech_caps,
+			blockade != null and blockade.cuts(model.region_id, province.id)
 		)
 		if rows.is_empty():
 			continue
@@ -72,7 +80,9 @@ static func snapshot(
 
 ## One province's resource rows, in the same vocabulary the survey lens and the
 ## estates ledger use. The province dossier reads this so it can name every
-## estate a province holds, not just the province's headline resource.
+## estate a province holds, not just the province's headline resource. `blockade`
+## reads the crown's sealed coasts, so a sealed harbour's estates are cut here
+## exactly as the phase cuts them.
 static func province_rows(
 	model: MapModel,
 	works: LandWorks,
@@ -81,16 +91,20 @@ static func province_rows(
 	province_id: int,
 	visibility: VisibilityModel = null,
 	capital_tile: Vector2i = CivilianState.NO_TILE,
-	tech_caps: Dictionary = {}
+	tech_caps: Dictionary = {},
+	blockade: Blockades = null
 ) -> Array[Dictionary]:
 	if model == null or works == null:
 		return [] as Array[Dictionary]
 	var province: ProvinceState = model.province_data(province_id)
 	if province == null:
 		return [] as Array[Dictionary]
-	var resolved: Dictionary = LandConnectivity.resolve(model, works, owner, capital_tile)
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, owner, capital_tile, blockade
+	)
 	return _rows(
-		model, works, units, owner, resolved, province, visibility, tech_caps
+		model, works, units, owner, resolved, province, visibility, tech_caps,
+		blockade != null and blockade.cuts(model.region_id, province_id)
 	)
 
 
@@ -117,7 +131,9 @@ static func summary_text(entry: Dictionary) -> String:
 # --- rows --------------------------------------------------------------------
 
 
-## Every charted resource tile in one province, in reading order.
+## Every charted resource tile in one province, in reading order. `sealed` is
+## the province's own harbour held by a hostile squadron, so its estates read the
+## cut the phase pays (wiki: capital-and-connectivity § Blockade).
 static func _rows(
 	model: MapModel,
 	works: LandWorks,
@@ -126,7 +142,8 @@ static func _rows(
 	resolved: Dictionary,
 	province: ProvinceState,
 	visibility: VisibilityModel,
-	tech_caps: Dictionary
+	tech_caps: Dictionary,
+	sealed: bool = false
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = [] as Array[Dictionary]
 	for tile: Vector2i in province.tiles:
@@ -137,7 +154,9 @@ static func _rows(
 		)
 		if resource < 0:
 			continue
-		rows.append(_row(model, works, units, owner, resolved, tile, resource, tech_caps))
+		rows.append(
+			_row(model, works, units, owner, resolved, tile, resource, tech_caps, sealed)
+		)
 	rows.sort_custom(_row_before)
 	return rows
 
@@ -150,7 +169,8 @@ static func _row(
 	resolved: Dictionary,
 	tile: Vector2i,
 	resource: int,
-	tech_caps: Dictionary
+	tech_caps: Dictionary,
+	sealed: bool = false
 ) -> Dictionary:
 	var tile_owner: int = model.owner_at(tile.x, tile.y)
 	var level: int = works.improvement_at(model, tile)
@@ -163,6 +183,9 @@ static func _row(
 	var is_connected: bool = not connection.is_empty()
 	var working: CivilianState = _working_unit(units, tile)
 	var status: String = _status(ours, level, is_connected, working)
+	# A sealed coast is not a missing road: the row names the rule that cut it
+	# rather than the road the crown would still have to lay (REQ-P2-03).
+	var blockaded: bool = ours and sealed and not is_connected
 	var output: int = 0
 	if status == "producing" or status == "maxed":
 		# The same arithmetic Extraction runs, so the lens never prices an estate
@@ -200,6 +223,7 @@ static func _row(
 		"prospected": prospected,
 		"needs_prospecting": mineral,
 		"connected": is_connected,
+		"blockaded": blockaded,
 		"working": working != null,
 		"remaining": remaining,
 		"total_turns": total_turns,

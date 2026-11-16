@@ -1009,6 +1009,70 @@ func test_a_blockaded_crown_link_says_which_rule_cut_it() -> void:
 	assert_false(bool(open["blockaded"]), "no blockade, no excuse")
 
 
+## A sealed coast is cut for the survey lens and the dossier's estate block too,
+## not only for the estates ledger: the phase pays nothing there, so no sheet may
+## price the ton or count the estate linked (wiki: capital-and-connectivity
+## § Blockade; REQ-P2-03).
+func test_a_sealed_coast_reads_cut_in_the_survey_and_dossier() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	_works.add_port(model, TOWN_PORT)
+	model.provinces[2].town_development = 0
+	var estate := Vector2i(6, 2)
+	_works.set_improvement(model, estate, 4)
+	model.resource[model.index_of(estate.x, estate.y)] = 4
+	var caps: Dictionary = {"grain": 4}
+	var open: Dictionary = ResourceSurvey.snapshot(
+		model, _works, [], PLAYER, null, CAPITAL, caps
+	)
+	var open_row: Dictionary = _survey_row(open, estate)
+	assert_true(bool(open_row["connected"]), "the open harbour reaches the crown")
+	assert_eq(int(open_row["output"]), 8, "and prices the doubled ration estate")
+	assert_false(bool(open_row["blockaded"]), "no seal, no excuse")
+	# The phase withholds the ton; both sheets must read the same coast cut.
+	var seals: Blockades = _blockade_of(model, 2)
+	assert_eq(
+		Extraction.yields(
+			model, PLAYER, -1, caps, _works, Vector2i(-1, -1), {}, true, {}, seals
+		),
+		{},
+		"a blockaded harbour carries nothing home"
+	)
+	var sealed: Dictionary = ResourceSurvey.snapshot(
+		model, _works, [], PLAYER, null, CAPITAL, caps, seals
+	)
+	var sealed_row: Dictionary = _survey_row(sealed, estate)
+	assert_false(bool(sealed_row["connected"]), "the sealed estate reaches the crown by road only")
+	assert_eq(int(sealed_row["output"]), 0, "and gathers nothing")
+	assert_eq(String(sealed_row["status"]), "disconnected")
+	assert_true(bool(sealed_row["blockaded"]), "the row names the rule that cut it")
+	var entry: Dictionary = _entry(sealed, 2)
+	assert_eq(int(entry["counts"]["linked"]), 0, "no developed estate is linked")
+	assert_eq(int(entry["counts"]["producing"]), 0, "and none produces")
+	assert_eq(int(entry["counts"]["blocked"]), 1, "the seal is the block")
+	assert_true((entry["output"] as Dictionary).is_empty(), "the plaque prices no harvest")
+	# The dossier's own rows read the same seal.
+	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
+		model, _works, [], PLAYER, 2, null, CAPITAL, caps, seals
+	)
+	var one: Dictionary = {}
+	for row: Dictionary in rows:
+		if row["tile"] == estate:
+			one = row
+	assert_eq(int(one.get("output", -1)), 0, "the dossier's estate line gathers nothing")
+	assert_true(bool(one.get("blockaded", false)), "and names the harbour")
+
+
+## The survey row for one tile, from any snapshot's province entries.
+func _survey_row(survey: Dictionary, tile: Vector2i) -> Dictionary:
+	for raw: Variant in survey.get("provinces", []):
+		for raw_row: Variant in (raw as Dictionary).get("rows", []):
+			var row: Dictionary = raw_row
+			if row.get("tile", Vector2i(-1, -1)) == tile:
+				return row
+	return {}
+
+
 ## A station seals a coast only while it is at sea, at war, and over a province
 ## the asking court still holds (wiki: capital-and-connectivity § Blockade).
 func test_a_blockade_seals_a_coast_only_while_at_war_and_at_sea() -> void:
