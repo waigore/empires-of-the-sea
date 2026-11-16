@@ -8,9 +8,13 @@ enum Tier { PEASANT, APPRENTICE, JOURNEYMAN, MASTER }
 
 const TIER_COUNT: int = 4
 
-## Labour, food and luxury per worker by tier (wiki: workers-and-population § Tiers).
+## Labour, food and luxury per worker by tier (wiki: workers-and-population
+## § Tiers). The trained tiers' ration is the published two-unit row, trimmed
+## once to 1 as the #807 fallback dial: the famine arithmetic measured on seed
+## 1500 (evidence/issue-766 pass five) closes only when the ration rows share
+## the estate doubling, and the peasant row keeps its unit.
 const LABOUR_PER_WORKER: Array[int] = [1, 4, 6, 8]
-const FOOD_PER_WORKER: Array[int] = [1, 2, 2, 2]
+const FOOD_PER_WORKER: Array[int] = [1, 1, 1, 1]
 const LUXURY_PER_TIER: Array[String] = ["", "refinedSugar", "cigars", "furHats"]
 
 const TIER_NAMES: Array[String] = ["Peasants", "Apprentices", "Journeymen", "Masters"]

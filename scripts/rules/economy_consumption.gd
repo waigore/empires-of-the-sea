@@ -270,16 +270,15 @@ static func _eat_food(stockpile: Dictionary, demand: int) -> int:
 	return fed
 
 
-## Trained workers need one grain and one meat; peasants need a single food unit.
+## One food unit of either kind feeds a worker at any tier: the published
+## trained ration ("one grain and one meat") is trimmed once to the unit row
+## as the #807 fallback dial, alongside the hulls' ration, and the forecast's
+## `_rations` reads the same table so the phase and the ledger cannot drift
+## (wiki: workers-and-population § Consumption; DR-20261116-08).
 static func _feed_worker(stockpile: Dictionary, tier: int) -> bool:
-	if not WorkerPool.is_trained(tier):
-		return _eat_food(stockpile, 1) == 1
-	for id: String in CommodityCatalog.FOOD:
-		if int(stockpile.get(id, 0)) < 1:
-			return false
-	for id: String in CommodityCatalog.FOOD:
-		stockpile[id] = int(stockpile.get(id, 0)) - 1
-	return true
+	return _eat_food(stockpile, WorkerPool.FOOD_PER_WORKER[tier]) == (
+		WorkerPool.FOOD_PER_WORKER[tier]
+	)
 
 
 ## Rations a tier roster eats at one Consumption: a tier's workers times its

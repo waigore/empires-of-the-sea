@@ -47,7 +47,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   Tribe, then overtures and deeds (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
   builders finish towns, engineers raise roads/ports/forts/hospitals
-  (DR-20261111-16), explorers prospect, merchants buy deeds (DR-20261111-10).
+  (DR-20261111-16) — no ward while the larder slack is under its ration
+  (DR-20261116-08), explorers prospect, merchants buy deeds (DR-20261111-10).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
   bid short inputs; merchants sail home, a hull more when tonnage
@@ -56,7 +57,9 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   stay 1; rivals re-equip, pay to attack.
 - **Rival muster** (`AiArmyReinforce`): a line regiment a turn under
   `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
-  (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest trains (DR-20261112-08).
+  (DR-20261111-04) and pattern inputs (DR-20261113-08); the seat guard claims
+  no regiment slot while a line is due, and a legal muster keeps its hand
+  (DR-20261116-08); at war the wornest trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes

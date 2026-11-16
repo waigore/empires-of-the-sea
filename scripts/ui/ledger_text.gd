@@ -71,7 +71,7 @@ static func recruit_batch_cost(tier: int, count: int) -> String:
 
 
 ## "Send one back to the fields — no recruit cost is refunded. An apprentice eats
-## 2 food and a unit of Refined Sugar a turn." The row's promise and its saving.
+## 1 food and a unit of Refined Sugar a turn." The row's promise and its saving.
 static func disband_hint(tier: int) -> String:
 	var one: String = WorkerPool.tier_one(tier).to_lower()
 	var article: String = "an" if one.begins_with("a") else "a"
