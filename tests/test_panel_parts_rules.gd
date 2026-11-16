@@ -649,6 +649,66 @@ func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
 	assert_eq(row._status_chip.text, "DISCONNECTED", "the chip still names the status")
 	row.free()
 
+
+## The row prices the raise beside its cost: the rules hand it the words and the
+## row prints them in the crown's gold, never inventing a figure of its own
+## (REQ-P3-02, REQ-P5-06).
+func test_an_estate_row_prints_the_payoff_of_its_next_level() -> void:
+	_setup_province_panel()
+	var row := ImprovementRow.new()
+	add_child(row)
+	row.setup({
+		"tile": Vector2i(0, 0),
+		"level": 2,
+		"status": "producing",
+		"resource": 0,
+		"name": "Lumber camp",
+		"province_name": "Test",
+		"connected": true,
+		"output": 2,
+		"commodity": "timber",
+		"status_text": "Yields 2 timber / turn",
+		"max_level": ImprovementCatalog.MAX_LEVEL,
+		"cost_text": "4 lumber + 4 cast iron",
+		"duration": 2,
+		"build_reason": "",
+		"working": false,
+		"can_build": true,
+		"builder_id": 2,
+		"next_level": 3,
+		"preview_text": "L3 pays 3 timber / turn (+1)",
+	})
+	assert_true(row._preview.visible, "a raise the ledger offers carries its payoff")
+	assert_eq(row._preview.text, "L3 pays 3 timber / turn (+1)")
+	assert_eq(row._preview.get_theme_color("font_color"), Palette.GOLD)
+	row.free()
+	# A finished estate's row has no raise to price, so no line prints.
+	var done := ImprovementRow.new()
+	add_child(done)
+	done.setup({
+		"tile": Vector2i(0, 0),
+		"level": 4,
+		"status": "maxed",
+		"resource": 0,
+		"name": "Lumber camp",
+		"province_name": "Test",
+		"connected": true,
+		"output": 4,
+		"commodity": "timber",
+		"status_text": "Fully improved · 4 timber / turn",
+		"max_level": ImprovementCatalog.MAX_LEVEL,
+		"cost_text": "",
+		"duration": 0,
+		"build_reason": "",
+		"working": false,
+		"can_build": false,
+		"builder_id": -1,
+		"next_level": 4,
+		"preview_text": "",
+	})
+	assert_false(done._preview.visible, "a finished estate prices no raise")
+	done.free()
+
 func test_an_empty_estate_block_still_names_the_ground_to_read() -> void:
 	_setup_province_panel()
 	var block := ProvinceResources.new()
