@@ -219,8 +219,8 @@ godot --headless --path . --script res://playtests/playtest_observer_siege.gd
 # Observer feed — plays a real all-AI campaign forward and, after every turn,
 # reads the panel's "Recent orders" feed against the merged record the same turn
 # wrote: how many rows exist, how many the feed prints, which rows a busy turn
-# loses, and the plate's geometry (the feed's window, the crowns' room) on a
-# desktop and a short handset-sized viewport.
+# loses, and the plate's geometry (the feed's window, the crowns' room, whether
+# the plate scrolls) on the engine's own and on a 720x360 handset viewport.
 godot --headless --path . --script res://playtests/playtest_observer_feed.gd
 
 # Colony chain — opens the turn-100 advanced start (the New World charted, so a

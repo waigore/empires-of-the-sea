@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261117-02; #846–#859 live (REQ-P2-02).
+Audited through DR-20261117-04; #846–#871 live (REQ-P2-02).
 
 ## Already live
 
@@ -36,38 +36,41 @@ Audited through DR-20261117-02; #846–#859 live (REQ-P2-02).
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823/#834 |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
+| Estate previews | `EstateRows.preview_text`, DR-20261117-03 |
 
-## Gaps (impact order)
+## Gaps (ranked)
 
-1. **Civilian-build per-tile previews** (`AiStaffTaste` covers the mixes).
-2. **Quick Battle multi-lane / collapse** — one lane; design call first
+1. **Civilian previews beyond estates** — ports/roads/forts/hospitals/rail
+   price no next level (estates do, DR-20261117-03).
+2. **Quick Battle multi-lane/collapse** — one lane; design call first
    (DR-10-24).
 
 ## Next pick
 
-Per-tile previews; else P5/P1 polish.
+Other-work previews; else P5/P1 polish.
 
-## Blocked footnotes
+## Blocked
 
 - Predict-the-line declined (DR-12-02); era — no model (DR-11-08).
-- Healing at 0 health; last-known OOB (DR-12-04/09); general-grade/sheltering
-  trains pending design (DR-12-07).
-- Alt victory, difficulty extras, ruleset loaders, warehouse logistics,
-  undrawn loans, sea-zone names — out of scope; Join Empire cost — rules call.
+- Healing at 0 health; last-known OOB (DR-12-04/09); general-grade trains await
+  design (DR-12-07).
+- Alt victory, difficulty extras, ruleset loaders/borrowing,
+  warehousing, loans, sea-zone names — out of scope; Join Empire cost —
+  rules call.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
-- Rival squadron split/combine, cross-station folds, passenger transfers — out
-  of scope (DR-16-12/13).
+- Rival split/combine, cross-station folds, passenger transfers — out of
+  scope (DR-16-12/13).
 - Further tongues out of scope (DR-13-12); 30% floor data-gated (DR-15-18).
 - Resource-need phase reweight — no need reading (DR-16-09).
 
 ## Wiki drift
 
+- `civilian-build-planner`: per-tile previews → estates leg live
+  (DR-20261117-03); planner leg remains.
 - `civilian-units`: Road L2/gathering deferred → live (`TechUnlocks`).
-- `phase-planner-*`: declare-war cites DR-14-11 → DR-14-13; six slots live.
-- `production-recipes`: rival second-stage deferred → live #798.
-- `ai-architecture`: soft weights/treasury-recovery seed → live (#821), restated
+- `phase-planner-*`: declare-war → DR-14-13; six slots live.
+- `production-recipes`: rival second-stage appetite → live #798.
+- `ai-architecture`: soft weights/treasury seed → live (#821), restated
   in DR-20261117-01; deed partner claimed.
-- DR-11-17 rival-on-rival raids and prizes → live (`MapPlayRaids`).
-- DR-11-05/14-11 fleetless leg — live (`FleetMuster`).
-- Ruleset loader / borrowing — out of scope.
+- DR-11-17 prizes, DR-11-05/14-11 fleetless leg — live (`MapPlayRaids`).
