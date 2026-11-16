@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:46fe05c6f4754bc0d9bd22384c3bea45212f3e4483802ae8a812eba983ae2f6a",
-  "submission_git": "feat/807-plan-the-harvest@a2572614",
+  "submission_hash": "sha256:3e8b19ad2277113bdd982fed48e4f4ad5e646162daff1c0122c32a51ac2c0d3f",
+  "submission_git": "orc/hourly-refactor-refactor-code-agent-1/20261116T140003345443Z@37cacc58",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:3cf77924d329e1e26ce58d46d737c566bada60fe87fbdb9d9cf15d9a1ffeee3a",
+    "ai_surface_hash": "sha256:cc2f77ca4fec9e27d5701298d8364425d9bc2d36a407ce6e157ebaa6c4cb731f",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-16T13:01:04Z",
+  "timestamp": "2026-11-16T15:37:38Z",
   "report_version": 1,
-  "signature": "hmac-sha256:4df156eb4903a62e91dbbe33738ec440bb9bcae29d144353c46a08220f73f010"
+  "signature": "hmac-sha256:801f975741954d529e50cab897002d1de50663a466fa06e35f0e4d89e4fe4ef0"
 }
