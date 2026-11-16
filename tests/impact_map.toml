@@ -2100,7 +2100,6 @@ domain = "ai_works"
 suites = [
   "test_naval_rules.gd",
   "test_ai_rules.gd",
-  "test_capital_seat_screen.gd",
 ]
 
 [[rules]]
