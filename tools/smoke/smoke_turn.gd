@@ -154,6 +154,12 @@ static func _ledger(run, screen: MapScreen) -> void:
 	# garment or a rum waits on (wiki: production-recipes § Town-works gates;
 	# DR-20261116-04).
 	run.check(run.has_text(production_body, "Garments"), "the works rows are on the page")
+	# The tab carries its one press, so a crown files a run on every ready row
+	# without walking the steppers (DR-20261116-08).
+	run.check(
+		run.has_text(production_body, "Queue all ready ("),
+		"the production tab carries its one press"
+	)
 	screen.hud.panels.hide_economy()
 	run.check(not screen.hud.panels.is_economy_open(), "ledger closes")
 
