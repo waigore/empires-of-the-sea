@@ -44,7 +44,14 @@ static func dismiss(
 	if not reason.is_empty():
 		return _deny(reason)
 	var names: Array[String] = []
+	## One instance leaves once: a batch that names the same colours twice still
+	## returns one peasant for them (wiki: military-armies § Dismissing
+	## regiments).
+	var seen: Dictionary = {}
 	for regiment_id: String in regiment_ids:
+		if seen.has(regiment_id):
+			continue
+		seen[regiment_id] = true
 		names.append(RegimentNames.of(army, regiment_id))
 		army.remove_regiment(regiment_id)
 		economy.workers.add(WorkerPool.Tier.PEASANT, PEASANTS_PER_REGIMENT)

@@ -43,12 +43,12 @@ combine two inputs (DR-20261114-10). Inputs and labour pay up front; the batch
 lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
 
 A slow row's bench holds **three pieces** (`QUEUE_CAP`): a fourth run waits for
-a landing (DR-20261114-12). A landing frees its place; a paid batch keeps its.
+a landing (DR-20261114-12).
 
 ## Town manufacturing bonus
 
 Town development 2 or 4 turns connected raw into ×1/×2 manufactures:
-`floor(input / 4) × multiplier`, no inputs, labour, cargo. A colony pays on
+`floor(input / 4) × multiplier`, no inputs or labour. A colony pays on
 landed tons; rivals upgrade towns; a Minor/Tribe town auto-offers; estates sell
 whole; a deed lifts it (`min(4, 1+deeds)`).
 
@@ -70,10 +70,10 @@ Prices publish once; pact, boycott, subsidy apply at settlement
 ## UI
 
 `PRODUCTION`: stockpile by group, holdings; steppers capped by labour/inputs
-(`allowance`), a worked row naming its output (`made 3`).
+(`allowance`), a worked row naming its output (`made 3`), and one **batch press**:
+one run on every ready row (`ProductionBatch`, DR-20261116-08).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
-line (`CargoRead`), and a **batch press** per row (`MarketBatch`); a
-Minor/Tribe row batches its left.
+line (`CargoRead`), and a **batch press** per row (`MarketBatch`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.

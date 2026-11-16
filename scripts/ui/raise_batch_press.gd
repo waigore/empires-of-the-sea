@@ -14,6 +14,9 @@ const ARM_SECONDS: float = 4.0
 
 var _count: int = 0
 var _word: String = "rows"
+## What the press files, as its face says it: "raise" for a raise sheet, "queue"
+## for the PRODUCTION tab's runs (DR-20261116-08).
+var _verb: String = "raise"
 var _armed: bool = false
 var _timer: Timer = null
 
@@ -41,6 +44,14 @@ func set_ready(count: int, word: String) -> void:
 		if _timer != null:
 			_timer.stop()
 	visible = _count > 0
+	_retitle()
+
+
+## The verb the press files with, so a tab that sets runs instead of raising
+## steps reads its own word on the face ("Queue all ready (3)"). Defaults to
+## "raise", so every raise sheet keeps its published face (DR-20261116-08).
+func set_verb(verb: String) -> void:
+	_verb = verb if not verb.is_empty() else "raise"
 	_retitle()
 
 
@@ -76,9 +87,9 @@ func _on_pressed() -> void:
 ## tap says what the second will do (REQ-P5-05).
 func _retitle() -> void:
 	text = (
-		"Confirm — raise %d %s" % [_count, _word]
+		"Confirm — %s %d %s" % [_verb, _count, _word]
 		if _armed
-		else "Raise all ready (%d)" % _count
+		else "%s all ready (%d)" % [_verb.capitalize(), _count]
 	)
 	tooltip_text = (
 		"Press again to file every ready step in this view"

@@ -1388,6 +1388,13 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_workshop.gd*"
 domain = "economy_ui"
 
+# The PRODUCTION tab's one press (DR-20261116-08): the walk that plans one run on
+# every ready row, and the ceiling it shares with the row's "+". It rides the
+# economy_ui domain with the tab it serves.
+[[rules]]
+match = "scripts/rules/production_batch.gd*"
+domain = "economy_ui"
+
 # The PRODUCTION tab's sheet: the steppers and ceilings the workshop rules feed.
 # Declared before the `scripts/ui/**` menu catch-all so a row change stays tier-1
 # sized instead of remounting the setup and hub pages.
