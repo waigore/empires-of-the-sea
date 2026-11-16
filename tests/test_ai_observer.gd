@@ -693,6 +693,48 @@ func test_the_feed_prints_a_busy_turn_whole() -> void:
 	)
 
 
+## The dashboard on a landscape handset (360 points tall): its stack is taller
+## than the screen, so the plate scrolls and the crown cards keep their room
+## instead of being squeezed to nothing (REQ-P1-07, RUB-P1-07).
+func test_the_plate_fits_a_landscape_handset() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(720, 360)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var screen: MapScreen = SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = Fixture.world()
+	screen.observer_mode = true
+	screen.infinite_mode = true
+	viewport.add_child(screen)
+	for _frame in 4:
+		await get_tree().process_frame
+	var panel := screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts on a handset")
+	if panel == null:
+		screen.free()
+		viewport.free()
+		return
+	panel._fit()
+	for _frame in 2:
+		await get_tree().process_frame
+	assert_true(
+		panel._crowns_scroll.size.y >= AiObserverPanel.CARD_MIN_HEIGHT - 1.0,
+		"the crown cards keep their window on a 360-point-tall screen"
+	)
+	assert_true(
+		panel._plate.get_v_scroll_bar().max_value > panel._plate.size.y,
+		"the plate scrolls when its stack is taller than the screen"
+	)
+	assert_true(
+		panel._frame.size.x > 200.0 and panel._frame.size.x < 720.0,
+		"the plate keeps a readable width"
+	)
+	screen.free()
+	viewport.free()
+
+
 func test_dashboard_controls_step_pause_and_collapse() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")
