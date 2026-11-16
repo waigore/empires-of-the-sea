@@ -18,7 +18,6 @@ var world: WorldMap = null
 var fleets: Array[FleetState] = []
 
 var _markers := ShipMarkers.new()
-var _zoom: float = 1.0
 var _muster := FleetMuster.new()
 ## The crown that owns the home fleet and may launch hulls at its capital.
 var player_faction: int = FactionCatalog.PLAYER_FACTION
@@ -79,13 +78,7 @@ func rebuild_markers() -> void:
 
 
 func set_zoom(value: float) -> void:
-	_zoom = maxf(value, 0.001)
-	for ship: Ship in _markers.ships:
-		var scale_factor: float = clampf(1.0 / _zoom, 0.6, 1.0)
-		ship.scale = Vector2.ONE * scale_factor
-		# Fit zoom keeps the silhouettes; the printed strength needs the closer
-		# chart to stay legible (REQ-P1-07).
-		ship.detail = _zoom >= Ship.DETAIL_ZOOM
+	_markers.set_zoom(value)
 
 
 func select(ship: Ship) -> void:

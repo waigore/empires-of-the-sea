@@ -2206,3 +2206,29 @@ func test_the_receipt_reads_a_hull_in_port_with_no_name() -> void:
 
 	assert_true(line.begins_with("Fluyte detaches at "), line)
 	assert_true(line.ends_with("as a squadron of her own."), line)
+
+
+## A split repaints every marker, and a repainted marker must keep the chart's
+## own reading: the closer chart prints the strength to one decimal and scales
+## the silhouette in (wiki: ships-and-naval § Sighted strength, REQ-P1-07).
+func test_a_split_keeps_the_charts_close_reading_on_every_marker() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.add_hull("split_ship", "sloop")
+	_screen.ship_layer.set_zoom(1.4)
+	var close_scale: float = clampf(1.0 / 1.4, 0.6, 1.0)
+	_screen.ship_layer.select(ship)
+	assert_true(_screen.ship_layer.ship_for(fleet).detail, "the close chart is reading")
+
+	MapPlayFleets.on_action(_screen.play, "split:split_ship")
+
+	assert_gt(_screen.ship_layer.fleets.size(), 1, "the split founded a command")
+	for marker: Ship in _screen.ship_layer.ships:
+		assert_true(marker.detail, "marker %d keeps the one-decimal reading" % marker.fleet_id)
+		assert_almost_eq(marker.scale.x, close_scale, 0.001, "marker %d keeps the chart's scale" % marker.fleet_id)
+	# A marker minted by the yard or a region mount reads the chart the same way.
+	_screen.ship_layer.set_zoom(0.6)
+	_screen.ship_layer.rebuild_markers()
+	for marker: Ship in _screen.ship_layer.ships:
+		assert_false(marker.detail, "fit zoom prints the whole number")
+		assert_almost_eq(marker.scale.x, 1.0, 0.001, "fit zoom draws the full silhouette")
