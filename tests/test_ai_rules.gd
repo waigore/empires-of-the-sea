@@ -6259,11 +6259,50 @@ func _market_plan(
 	)
 
 
+## The purse does not price the chain: the Merchant tech is the buyer the chain
+## serves, and the envoy takes turns to walk while the purse refills, so a charted
+## deed opens it even on this turn's floor (issue #724 task 2). The buyer stays
+## the bar: a court without Merchant Companies opens nothing, however cheaply a
+## Minor would sell — a chain opened on credit warms the relation past the war
+## ceiling and bars the conquest for nothing (#762, measured 2026-11-15).
+func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var world := WorldMap.new()
+	world.add_region(model)
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
+	config.agenda_traits = AiAgenda.NEUTRAL
+
+	var broke: Dictionary = _overture(world, state, config, {
+		"merchant_companies": true,
+	}, DiplomacyCatalog.CONSULATE_COST)
+	var paid: Dictionary = _overture(world, state, config, {
+		"merchant_companies": true,
+	})
+	var no_buyer: Dictionary = _overture(world, state, config, {})
+	assert_true(
+		bool(broke.get("ok", false)),
+		"the chain is legal on a purse that covers the Consulate alone"
+	)
+	assert_eq(
+		int(broke["utility"]), int(paid["utility"]),
+		"a priced deed opens the chain at any purse the stage fits"
+	)
+	assert_eq(
+		int(no_buyer["utility"]) + AiDiplomacyTreaties.LAND_ENVOY_BONUS,
+		int(paid["utility"]),
+		"no Merchant tech, no chain"
+	)
+
+
 func _overture(
-	world: WorldMap, state: DiplomacyState, config: AiConfig, tech: Dictionary
+	world: WorldMap, state: DiplomacyState, config: AiConfig, tech: Dictionary,
+	treasury: int = 5000
 ) -> Dictionary:
 	var context: Dictionary = {
-		"treasury": {config.faction: 5000},
+		"treasury": {config.faction: treasury},
 		"tech": {config.faction: tech},
 		"player": -1,
 	}
