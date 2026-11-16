@@ -306,6 +306,17 @@ static func _preferred_type(
 		return "builder"
 	if engineers < int(targets.get("engineer", 0)):
 		return "engineer"
+	# The deed partner waits on the crew, not on the estate queue: once the
+	# court holds its first Builder and Engineer, one Merchant is taken ahead of
+	# the second Builder and the survey queue. The door it serves closes again
+	# when the Minor is absorbed or the war turns, so a hire parked behind an
+	# unbounded staff target is a deed never signed (issue #841; wiki:
+	# civilian-units § Merchant).
+	if merchants < int(targets.get("merchant", 0)) and builders >= 1 and engineers >= 1:
+		if CivilianCatalog.is_unlocked("merchant", tech_unlocked) and (
+			CivilianCatalog.can_afford("merchant", treasury, paper)
+		):
+			return "merchant"
 	if at_war and spies < int(targets.get("spy", 0)):
 		return "spy"
 	if explorers < int(targets.get("explorer", 0)):
