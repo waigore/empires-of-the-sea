@@ -43,7 +43,8 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	var report: Dictionary = AiObjectiveLedger.run(
 		AiObjectivesPlan.build(readings), _pools(play, faction, economy, readings),
 		AiPosture.modifiers(
-			String(phase.get("phase", "")), config, int(pressure["boost_mille"])
+			String(phase.get("phase", "")), config, int(pressure["boost_mille"]),
+			String(readings["goal"])
 		)
 	)
 	report["phase"] = String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))

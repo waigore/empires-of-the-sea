@@ -46,4 +46,20 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 1000,
 		"default": 200,
 	},
+	{
+		"key": "posture.earn_income",
+		"category": "posture",
+		"type": TYPE_INT,
+		"min": 1000,
+		"max": 2000,
+		"default": 1200,
+	},
+	{
+		"key": "posture.earn_defer",
+		"category": "posture",
+		"type": TYPE_INT,
+		"min": 100,
+		"max": 1000,
+		"default": 800,
+	},
 ]

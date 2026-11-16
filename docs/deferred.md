@@ -35,8 +35,8 @@ Audited through DR-20261116-09 + #820 (REQ-P2-02).
 ## Gaps (impact order)
 
 1. **Domain dispatch beyond voyage/declare-war** — `opens` ships those two;
-   further slots stay seed (DR-13-15 / DR-16-09). Treasury-recovery reweight
-   is designed (DR-16-09) and open as #821 — still Gap on main.
+   further slots stay seed (DR-13-15 / DR-16-09). Treasury-recovery reweighting
+   is live (`AiPosture.goal_mille`, DR-20261116-09).
 2. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
    (`civilian-build-planner`); polish.
 3. **Quick Battle multi-lane / collapse** — one lane today; wider deployment
@@ -44,8 +44,7 @@ Audited through DR-20261116-09 + #820 (REQ-P2-02).
 
 ## Next pick
 
-Domain dispatch beyond voyage/declare-war (DR-13-15). Leave #821 to land
-treasury-recovery.
+Domain dispatch beyond voyage/declare-war (DR-13-15) — the further slots.
 
 ## Blocked footnotes
 
