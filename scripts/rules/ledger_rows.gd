@@ -20,6 +20,8 @@ const REGION_ALL: String = ALL
 const REGION_OLD: String = "old_world"
 const REGION_NEW: String = "new_world"
 const REGION_FILTERS: Array[String] = [REGION_ALL, REGION_OLD, REGION_NEW]
+## The id a force carries when it holds no province or no carrying squadron.
+const NO_ID: int = -1
 
 
 ## Which chart a row sits on, read against one of REGION_FILTERS. `all` — and any
@@ -151,6 +153,35 @@ static func stored_fleets(
 		if fleet != null and fleet.owner == faction:
 			fleets.append(fleet)
 	return fleets
+
+
+## Where one army stands, as both the muster roll and the army sheet read it:
+## "Cádiz", or "Aboard a squadron — In port at Cádiz" for an embarked standard.
+## One wording, so the two sheets can never name the same standard differently.
+static func army_place(
+	model: MapModel, army: ArmyState, fleets: Array[FleetState]
+) -> String:
+	if army.embarked_fleet != NO_ID:
+		for fleet: FleetState in fleets:
+			if fleet.id == army.embarked_fleet:
+				return "Aboard a squadron — %s" % fleet_place(model, fleet)
+		return "Aboard a squadron"
+	var name: String = model.province_name(army.province)
+	return name if not name.is_empty() else "In the field"
+
+
+## What one army is doing this turn, as both sheets read it: the Home Army
+## musters at the seat, an embarked standard fights where it lands, and a field
+## army has marched or held.
+static func army_standing(army: ArmyState) -> String:
+	if army.home:
+		return "Musters at the seat — never marches"
+	if army.embarked_fleet != NO_ID:
+		return "Embarked — fights where it lands"
+	var state: String = "Marched this turn" if army.moved else "Held in place"
+	if army.field_hospital:
+		state += " · field hospital"
+	return state
 
 
 ## Where one squadron stands, as both the muster roll and the navy sheet read

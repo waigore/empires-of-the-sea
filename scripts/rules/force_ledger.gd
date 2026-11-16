@@ -101,11 +101,11 @@ static func _army_row(
 		"region": region,
 		"region_label": FactionCatalog.region_label(region),
 		"title": "Home Army" if army.home else "Field army",
-		"place": _army_place(model, army, fleets),
+		"place": LedgerRows.army_place(model, army, fleets),
 		"line": "%d regiment%s · %.1f strength" % [
 			count, "" if count == 1 else "s", ArmyForce.side_strength(one)
 		],
-		"state": _army_state(army),
+		"state": LedgerRows.army_standing(army),
 		"strength": ArmyForce.side_strength(one),
 		"moved": army.moved,
 	}
@@ -138,29 +138,6 @@ static func _squadron_title(fleet: FleetState) -> String:
 		return "Squadron"
 	var flagship: String = String(fleet.hull_names.get(String(fleet.hulls[0]), ""))
 	return ("Squadron — %s" % flagship) if not flagship.is_empty() else "Squadron"
-
-
-## Where an army stands. An embarked army has no province of its own, so the
-## reading names the squadron that carries it instead of the last shore.
-static func _army_place(model: MapModel, army: ArmyState, fleets: Array[FleetState]) -> String:
-	if army.embarked_fleet != NO_ID:
-		for fleet: FleetState in fleets:
-			if fleet.id == army.embarked_fleet:
-				return "Aboard a squadron — %s" % LedgerRows.fleet_place(model, fleet)
-		return "Aboard a squadron"
-	var name: String = model.province_name(army.province)
-	return name if not name.is_empty() else "In the field"
-
-
-static func _army_state(army: ArmyState) -> String:
-	if army.home:
-		return "Musters at the seat — never marches"
-	if army.embarked_fleet != NO_ID:
-		return "Embarked — fights where it lands"
-	var state: String = "Marched this turn" if army.moved else "Held in place"
-	if army.field_hospital:
-		state += " · field hospital"
-	return state
 
 
 static func _fleet_state(model: MapModel, fleet: FleetState) -> String:

@@ -274,6 +274,15 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The crown's army (DR-20261116-07): the regiment-by-regiment projection and its
+# sheet share the ledgers boot — the projection on the muster fixture and the
+# sheet on the shared map screen — so an army reading change never pulls the army
+# rules' suites or the ui catch-all's.
+[domains.army_read]
+suites = [
+  "test_ledgers.gd",
+]
+
 # The dress the crown's sheets all print in — the chart/reading strip and the
 # grouped list — shared by the provinces, towns, muster, navy, people and
 # command sheets. A change to it runs the suites that drive those sheets,
@@ -792,6 +801,18 @@ domain = "navy"
 [[rules]]
 match = "scripts/ui/naval_ledger_*.gd*"
 domain = "navy"
+
+# The crown's army (DR-20261116-07): the regiment-by-regiment projection and its
+# sheet, the muster roll's second door. Both ride the ledgers boot — the
+# projection on the muster fixture and the sheet on the shared map screen — so an
+# army reading change never pulls the army rules' suites or the ui catch-all's.
+[[rules]]
+match = "scripts/rules/army_ledger.gd*"
+domain = "army_read"
+
+[[rules]]
+match = "scripts/ui/army_ledger_*.gd*"
+domain = "army_read"
 
 # The dress every crown ledger prints in: the two-row chart/reading strip and
 # the grouped list the provinces, towns, muster, navy, people and command
