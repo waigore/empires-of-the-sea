@@ -26,6 +26,7 @@ var _mission: FleetMissionSection = null
 var _crew: FleetCrewSection = null
 var _strength: FleetStrengthSection = null
 var _split: FleetSplitBlock = null
+var _combine: FleetCombineBlock = null
 
 
 func _ready() -> void:
@@ -91,6 +92,12 @@ func _build() -> void:
 	_split.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
 	column.add_child(_split)
 
+	# The combine drawer: this squadron folds into another of the crown's in the
+	# same station (DR-20261116-13).
+	_combine = FleetCombineBlock.new()
+	_combine.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	column.add_child(_combine)
+
 	_yard = FleetYardBlock.new()
 	_yard.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
 	column.add_child(_yard)
@@ -124,7 +131,8 @@ func refresh(
 	crew: Dictionary = {},
 	strength: Dictionary = {},
 	merge: Dictionary = {},
-	beach_hint: String = ""
+	beach_hint: String = "",
+	roster: Array[FleetState] = []
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -153,6 +161,7 @@ func refresh(
 	_crew.set_data(crew)
 	_set_standing(fleet, is_player, passage, beach_note, beach_hint, merge, carried, colonists)
 	_show_split(model, fleet, is_player)
+	_show_combine(model, roster, fleet, is_player)
 	_show_yard(yard_rows, merge)
 
 
@@ -230,6 +239,16 @@ func _show_split(model: MapModel, fleet: FleetState, is_player: bool) -> void:
 	_split.show_rows(model, fleet, is_player, _split.is_open())
 
 
+## The combine drawer: every other squadron in this station with the tap that
+## folds this one into her. It stays where the player left it, too.
+func _show_combine(
+	model: MapModel, roster: Array[FleetState], fleet: FleetState, is_player: bool
+) -> void:
+	if _combine == null:
+		return
+	_combine.show_rows(model, roster, fleet, is_player, _combine.is_open())
+
+
 ## The crown's capital yard with no squadron afloat: the first launch founds the
 ## home fleet, so the dossier still has to list what can be built.
 func refresh_slip(
@@ -262,6 +281,8 @@ func refresh_slip(
 		_mission.set_data("", [] as Array[Dictionary])
 	if _split != null:
 		_split.show_rows(model, null, false, false)
+	if _combine != null:
+		_combine.show_rows(model, [] as Array[FleetState], null, false, false)
 	if _yard != null:
 		_yard.show_slip(rows, is_player)
 
