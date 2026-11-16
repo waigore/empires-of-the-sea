@@ -23,6 +23,11 @@ var stockpile: Dictionary = {}
 var capital_tile: Vector2i = CivilianState.NO_TILE
 var faction: int = 0
 var tech_caps: Dictionary = {}
+## The crown's sealed coasts, asked at every refresh: a sealed harbour severs a
+## colony's harvest, so the ledger prices the rows the way the Extraction phase
+## pays them (wiki: capital-and-connectivity § Blockade, REQ-P2-03). Unwired
+## seals nothing — the rules fall back to the unsealed chart.
+var blockade_source: Callable = Callable()
 
 var _rows: VBoxContainer = null
 var _head: EstatesHead = null
@@ -75,7 +80,8 @@ func refresh() -> void:
 	if model == null or works == null:
 		return
 	_data = ImprovementLedger.snapshot(
-		model, works, units, stockpile, faction, capital_tile, tech_caps
+		model, works, units, stockpile, faction, capital_tile, tech_caps,
+		Blockades.of(blockade_source)
 	)
 	_head.render(_data, stockpile)
 	_subtitle.text = _subtitle_text()
