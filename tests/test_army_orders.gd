@@ -225,6 +225,43 @@ func test_a_dismissal_refuses_a_regiment_the_army_does_not_hold() -> void:
 	assert_true(_last_toast().contains("does not stand"), _last_toast())
 
 
+## A batch that names one instance twice still sheds it once: each dismissed
+## regiment returns exactly one peasant (wiki: military-armies § Dismissing
+## regiments).
+func test_a_batch_naming_one_instance_twice_returns_one_peasant() -> void:
+	var home: ArmyState = _player_home()
+	var ledger: PlayerEconomy = _screen.play.economy.economy
+	var before: int = home.count()
+	var peasants: int = ledger.workers.count(WorkerPool.Tier.PEASANT)
+	var regiment: String = home.regiments[0]
+
+	var result: Dictionary = ArmyDismiss.dismiss(ledger, home, [regiment, regiment])
+
+	assert_eq(int(result["count"]), 1, "one instance leaves once")
+	assert_eq(int(result["peasants"]), 1, "one peasant, not two")
+	assert_eq(home.count(), before - 1, "only one regiment leaves the standard")
+	assert_eq(ledger.workers.count(WorkerPool.Tier.PEASANT), peasants + 1, "one peasant returns")
+
+
+## An embarked army that sheds its last regiment retires with its deck freed:
+## no squadron carries an army nobody can land (wiki: military-armies
+## § Dismissing regiments; ships-and-naval § Naval transport).
+func test_dismissing_an_embarked_army_frees_its_squadron() -> void:
+	var field: ArmyState = _detach_one()
+	_screen.army_layer.select(field)
+	MapPlayArmies.on_action(_screen.play, "embark")
+	var fleet_id: int = field.embarked_fleet
+	assert_true(fleet_id >= 0, "the squadron carries it")
+
+	MapPlayArmies.on_action(_screen.play, "dismiss_all")
+
+	assert_false(_screen.army_layer.armies.has(field), "the standard retires")
+	var carrier: FleetState = _fleet_by_id(fleet_id)
+	assert_not_null(carrier, "the squadron is still afloat")
+	assert_eq(carrier.embarked_army, -1, "the empty deck is free again")
+	assert_true(VoyageRead.is_free(carrier), "she can take a new charge")
+
+
 func test_combining_armies_uses_the_home_army_as_target() -> void:
 	var home: ArmyState = _player_home()
 	_screen.army_layer.select(home)
@@ -632,6 +669,17 @@ func _detach_one() -> ArmyState:
 	_screen.army_layer.select(home)
 	MapPlayArmies.on_action(_screen.play, "detach:%s" % home.regiments[0])
 	return _screen.army_layer.selected_army
+
+
+## A squadron by id, in the shown region or in any stored region roster.
+func _fleet_by_id(fleet_id: int) -> FleetState:
+	var ships: ShipLayer = _screen.play.ship_layer
+	for region: int in ships.regions.region_ids():
+		var stored: Array = ships.regions.value(region, [])
+		for fleet: FleetState in stored:
+			if fleet != null and fleet.id == fleet_id:
+				return fleet
+	return null
 
 
 func _enemy_army() -> ArmyState:
