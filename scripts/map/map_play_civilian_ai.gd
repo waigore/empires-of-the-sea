@@ -57,8 +57,7 @@ static func plan_all(
 	var spendable: int = int(purses["spendable"])
 	var works_cash: int = int(purses["works"])
 	var earn: bool = bool(purses["earn"])
-	# The court's war footing, read once for every region: a court at war hires
-	# no expansion crew (DR-20261116-15). The baseline planners ignore the key.
+	# The footing, read once: a court at war hires no expansion crew (DR-16-15).
 	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
@@ -121,10 +120,9 @@ static func plan_all(
 
 
 ## The two purses a crew reads. A hire may spend what the standing reserve
-## leaves; the works may spend down to the cash floor when the court is on
-## `earn`, because extraction is what refills the store the muster is saved for
-## (wiki: ai-architecture § Money first; issue #489). `works_floor` below zero
-## keeps both purses on the standing reserve.
+## leaves; the works may spend down to the cash floor on `earn`, because
+## extraction refills the store the muster is saved for (issue #489). A
+## `works_floor` below zero keeps both purses on the standing reserve.
 static func purses_for(treasury: int, floor: int, works_floor: int) -> Dictionary:
 	var spendable: int = int(AiClaims.purse(treasury, floor).get("treasury", 0))
 	if works_floor < 0:
@@ -145,11 +143,9 @@ static func _keep_extraction(plan: Dictionary, model: MapModel) -> void:
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
 		# A survey comes first: the deposit is hidden until the Explorer digs, so
-		# a prospect order never names the resource it is looking for and must
-		# not be read as a town level or a road. Dropping it left every rival
-		# with an idle Explorer for the whole campaign — and a mine is the only
-		# income a court has apart from sales (wiki: fog-and-exploration
-		# § Prospecting; issue #489).
+		# a prospect order names no resource and must not be read as a town level
+		# or a road — dropping it left every rival with an idle Explorer for the
+		# whole campaign (wiki: fog-and-exploration § Prospecting; issue #489).
 		if String(order.get("action", "")) == "prospect":
 			kept.append(order)
 			continue
@@ -160,9 +156,8 @@ static func _keep_extraction(plan: Dictionary, model: MapModel) -> void:
 	plan["orders"] = kept
 
 
-## The material row a planned work will be charged when it is assigned, read from
-## the same two rules the assignment itself reads, so the row the market keeps
-## back is the row the crew pays (wiki: civilian-units § Work Order Summary).
+## The material row a planned work will be charged, read from the same two rules
+## the assignment reads, so the row the market keeps back is the row it pays.
 static func _price(orders: Array, model: MapModel, works: LandWorks) -> void:
 	for raw: Variant in orders:
 		var order: Dictionary = raw
@@ -174,8 +169,7 @@ static func _price(orders: Array, model: MapModel, works: LandWorks) -> void:
 
 
 ## The material rows the planned works will be charged, read ahead of the sale
-## they must survive (wiki: economy-planner § Reservations). Training's paper is
-## a separate claim and stays with the ledger.
+## they must survive (wiki: economy-planner § Reservations).
 static func work_rows(plans: Array[Dictionary]) -> Dictionary:
 	var rows: Dictionary = {}
 	for entry: Dictionary in plans:
@@ -230,8 +224,6 @@ static func apply(
 			if not hired.is_empty():
 				report["training"].append(hired)
 		elif not String(training.get("reason", "")).is_empty():
-			# The footing held the hire shut: the reason rides the report so the
-			# trace names it instead of the yard going quiet (REQ-P5-05).
 			report["training_blocked"] = String(training["reason"])
 		play.civilian_layer.regions.set_region(region, roster)
 		if (
