@@ -3850,6 +3850,103 @@ func test_an_unsurveyed_mineral_reads_unprospected_until_an_explorer_reads_it() 
 	assert_true(String(row["build_reason"]).contains("prospect"))
 
 
+## The ledger prices the raise it offers: what one more level actually gathers
+## once the works stand, read by the phase's own formula (REQ-P2-03, REQ-P5-06).
+func test_a_producing_estate_prices_the_next_level_it_gathers() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_IMPROVED_ROAD}, {"network": {}}, [],
+		{"timber": 2}
+	)
+	assert_eq(int(row["output"]), 1)
+	assert_eq(int(row["next_output"]), 2, "the raised camp gathers two")
+	assert_eq(int(row["gain"]), 1)
+	assert_eq(
+		String(row["preview_text"]), "L2 pays 2 timber / turn (+1)",
+		"the row names the harvest the raise buys"
+	)
+
+
+## A road the crown has not widened caps the estate: the next level costs
+## lumber and iron and gathers nothing, so the line says so rather than pricing
+## a raise the harvest cannot pay.
+func test_a_transport_capped_estate_says_the_raise_adds_nothing() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [],
+		{"timber": 2}
+	)
+	assert_eq(int(row["gain"]), 0)
+	assert_eq(
+		String(row["preview_text"]),
+		"L2 adds nothing — the road's transport holds this estate"
+	)
+
+
+## Ground no road reaches gathers nothing at any level: the preview names the
+## wait, never a figure the estate cannot pay.
+func test_a_roadless_estate_is_priced_by_its_wait() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 2)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE, {}, {"network": {}}, [], {}
+	)
+	assert_false(bool(row["connected"]))
+	assert_eq(
+		String(row["preview_text"]),
+		"No road yet — L3 pays nothing until one reaches it"
+	)
+
+
+## A finished estate and one a Builder is already raising have no raise to
+## price, so the ledger prints no line at all.
+func test_no_preview_is_printed_for_a_finished_or_working_estate() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, LandWorks.MAX_IMPROVEMENT)
+	var finished: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_IMPROVED_ROAD}, {"network": {}}, [],
+		{"timber": 4}
+	)
+	assert_eq(String(finished["preview_text"]), "", "nothing left to raise")
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var builder := field_Fixture.unit("builder", field_Fixture.TIMBER_TILE)
+	builder.start_work("build_improvement", field_Fixture.TIMBER_TILE, 1)
+	var working: Dictionary = EstateRows.project(
+		field__model, field__works, [builder], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_IMPROVED_ROAD}, {"network": {}}, [builder],
+		{"timber": 2}
+	)
+	assert_true(bool(working["working"]))
+	assert_eq(String(working["preview_text"]), "", "the works in hand are the news")
+
+
+## An unsurveyed deposit pays nothing yet, so the line names the Explorer's
+## survey it waits on beside the level it would buy.
+func test_an_unsurveyed_deposit_prices_the_level_and_its_gate() -> void:
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.IRON_TILE,
+		field__model.resource_at(field_Fixture.IRON_TILE.x, field_Fixture.IRON_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [], {}
+	)
+	assert_eq(int(row["gain"]), 1)
+	assert_eq(
+		String(row["preview_text"]),
+		"L1 pays 1 iron / turn (+1) once an Explorer prospects it"
+	)
+
+
 ## Two fort projects may run in one province, and the later completion adds no
 ## level (wiki: siege-mechanics § Fort Levels). The receipt must not claim a wall
 ## the turn did not raise: the crown paid twice and bought one wall.

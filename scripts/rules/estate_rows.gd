@@ -72,6 +72,20 @@ static func project(
 			level, mini(tech_cap, terrain_cap), transport, town_cap
 		) * Extraction.estate_yield_per_level(owner, commodity)
 	var next_level: int = mini(level + 1, ImprovementCatalog.MAX_LEVEL)
+	# What one more level pays once the works stand: the phase's own formula read
+	# at that level, so the crown prices a raise against the harvest it will
+	# actually gather and never against a level the caps hold flat (REQ-P2-03,
+	# REQ-P5-06). `capped_now` is the same read at today's level, which is the
+	# base the next level is measured against even while a gate (no road, no
+	# survey) is keeping the estate from paying at all.
+	var capped_now: int = Extraction.effective_yield(
+		level, mini(tech_cap, terrain_cap), transport, town_cap
+	) * Extraction.estate_yield_per_level(owner, commodity)
+	var next_output: int = capped_now
+	if level < ImprovementCatalog.MAX_LEVEL:
+		next_output = Extraction.effective_yield(
+			next_level, mini(tech_cap, terrain_cap), transport, town_cap
+		) * Extraction.estate_yield_per_level(owner, commodity)
 	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
 	var builder: CivilianState = _nearest(idle, tile)
 	var status: String = status_for(level, is_connected, working, mineral, prospected)
@@ -84,7 +98,7 @@ static func project(
 		status_text += " · %d tile%s to the crown network" % [
 			gap, "" if gap == 1 else "s"
 		]
-	return {
+	var row: Dictionary = {
 		"tile": tile,
 		"index": model.index_of(tile.x, tile.y),
 		"province": province,
@@ -130,7 +144,66 @@ static func project(
 			level, tech_cap, terrain_cap, mineral, prospected, working, builder,
 			cost, stockpile
 		),
+		"next_output": next_output,
+		"gain": maxi(next_output - capped_now, 0),
 	}
+	# The preview is read off the finished row so one home answers both the
+	# per-estate figure and the words the ledger prints for it.
+	row["preview_text"] = preview_text(row)
+	return row
+
+
+## What one more level buys, in the ledger's own words. The figure is the
+## phase's arithmetic at the next level (`gain`, `next_output`), so a crown is
+## never told a raise pays when a cap holds the estate flat; the line names the
+## cap instead, and names the gate a raise still waits on (REQ-P2-03, REQ-P5-06).
+## Empty for a finished estate and while a Builder is on it: there is no raise to
+## price.
+static func preview_text(row: Dictionary) -> String:
+	if bool(row.get("working", false)):
+		return ""
+	var level: int = int(row.get("level", 0))
+	if level >= int(row.get("max_level", ImprovementCatalog.MAX_LEVEL)):
+		return ""
+	var next_level: int = int(row.get("next_level", level + 1))
+	# Ground no road reaches gathers nothing at any level, so the raise is priced
+	# by the wait rather than by a figure the harvest cannot pay. A deposit no
+	# Explorer has read is the same wait, named after the level it would buy.
+	if not bool(row.get("connected", false)):
+		return "No road yet — L%d pays nothing until one reaches it" % next_level
+	if int(row.get("gain", 0)) <= 0:
+		return "L%d adds nothing — %s holds this estate" % [
+			next_level, binding_cap(row)
+		]
+	var text: String = "L%d pays %s (+%d)" % [
+		next_level,
+		ImprovementCatalog.output_text(
+			int(row.get("resource", -1)), int(row.get("next_output", 0))
+		),
+		int(row.get("gain", 0)),
+	]
+	if bool(row.get("needs_prospecting", false)) and not bool(row.get("prospected", false)):
+		return text + " once an Explorer prospects it"
+	return text
+
+
+## The cap that stops the next level from paying more, in the row's own words:
+## the tightest of the four the phase's formula reads (road transport, town,
+## terrain, study). The estate's own output names the same four.
+static func binding_cap(row: Dictionary) -> String:
+	var limits: Array[Array] = [
+		["the road's transport", int(row.get("transport", 0))],
+		["the town", int(row.get("town_cap", 0))],
+		["the terrain", int(row.get("terrain_cap", 0))],
+		["the crown's study", int(row.get("tech_cap", 0))],
+	]
+	var cap: String = "the terrain"
+	var lowest: int = 1 << 30
+	for spec: Array in limits:
+		if int(spec[1]) < lowest:
+			lowest = int(spec[1])
+			cap = String(spec[0])
+	return cap
 
 
 ## A Builder at work outranks level; a surveyed mineral is vacant, an unseen

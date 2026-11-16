@@ -27,6 +27,7 @@ var _output: Label = null
 var _commodity: Label = null
 var _status: Label = null
 var _cost: Label = null
+var _preview: Label = null
 var _reason: Label = null
 var _build_button: Button = null
 var _cancel: Button = null
@@ -103,6 +104,7 @@ func _build_wide() -> void:
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_cost = _label(state, "", 10, Color(0.80, 0.70, 0.48, 0.9))
 	_cost.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_preview = _payoff_label(state)
 	_reason = _label(state, "", 10, Color(0.86, 0.58, 0.36, 0.95))
 	_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
@@ -139,6 +141,7 @@ func _build_compact() -> void:
 	_detail = _label(info, "", 10, Color(0.82, 0.76, 0.64))
 	_detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_cost = _label(info, "", 10, Color(0.80, 0.70, 0.48, 0.9))
+	_preview = _payoff_label(info)
 	_reason = _label(info, "", 10, Color(0.86, 0.58, 0.36, 0.95))
 	_reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 
@@ -202,6 +205,14 @@ func _label(
 	return label
 
 
+## What the raise pays, in the crown's gold: the row prices the next level after
+## the cost, so the prize and the price sit on one line pair (REQ-P5-06).
+func _payoff_label(parent: Control) -> Label:
+	var payoff := _label(parent, "", 10, Palette.GOLD)
+	payoff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return payoff
+
+
 func _chip(parent: Control, size: int) -> Label:
 	var chip := Label.new()
 	chip.add_theme_font_size_override("font_size", size)
@@ -259,6 +270,10 @@ func _fill() -> void:
 			int(data["duration"]),
 			"" if int(data["duration"]) == 1 else "s",
 		]
+	# The rules leave `preview_text` empty for an estate with no raise to price
+	# (finished, or a Builder already on it), so the row never invents one.
+	_preview.text = String(data.get("preview_text", ""))
+	_preview.visible = not _preview.text.is_empty()
 	_reason.text = String(data["build_reason"])
 	var working: bool = bool(data["working"])
 	_cost.visible = level < int(data["max_level"]) and not working
