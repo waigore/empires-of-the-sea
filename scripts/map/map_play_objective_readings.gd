@@ -1,0 +1,382 @@
+class_name MapPlayObjectiveReadings
+extends RefCounted
+## What a rival court's objective ledger reads before it prices an aim: its
+## force, its purse, the yard's hull, the college's study, the Tribe it is
+## drawing in and the expedition it has afloat (docs/ai.md; issue #491 T1).
+##
+## One reading per domain, each domain read once: the same figures feed the
+## ledger's rank, the allocate pass's pools and the turn trace, so a court never
+## prices an aim against a number the planner would not spend (REQ-P2-03,
+## REQ-P3-01).
+##
+## Reads state only: no order is issued here, so the same seed plays the same
+## campaign and the ledger stays a reading of the court, not a second planner
+## (REQ-P4-03).
+
+
+## Every reading `AiObjectivesPlan` prices, gathered domain by domain. The host
+## readings are taken once and handed down, because the purse, the yard and the
+## college all price against the same counts.
+static func readings(
+	play: PlaySession, faction: int, config: AiConfig, economy: PlayerEconomy,
+	phase: Dictionary, pressure: Dictionary = {}
+) -> Dictionary:
+	var host: Dictionary = _host(play, faction, economy)
+	var readings: Dictionary = _force(play, config, faction, economy, pressure, host)
+	readings.merge(_navy(economy, host))
+	var purse: Dictionary = _purse(config, economy, host)
+	readings.merge(purse)
+	readings.merge(_study(config, economy, purse))
+	readings.merge(_court(play, faction, economy, phase))
+	readings.merge(_voyage(play, faction))
+	return readings
+
+
+# --- host --------------------------------------------------------------------
+
+
+## The counts every other reading prices against: the footing, the men on the
+## field, the hulls afloat and the chest the yard has banked, plus the deferral
+## records the escalation bar is read from (issue #603).
+static func _host(play: PlaySession, faction: int, economy: PlayerEconomy) -> Dictionary:
+	return {
+		"at_war": AiIncome.at_war(play.diplomacy, faction),
+		"regiments": MapPlayCourt.regiments(play, faction),
+		"ships": MapPlayCourt.ships(play, faction),
+		"warships": MapPlayCourt.warships(play, faction),
+		"hostile_ships": MapPlayCourt.hostile_ships(play, faction),
+		"hostile_warships": MapPlayCourt.hostile_warships(play, faction),
+		"flown": MapPlayCourt.hull_types(play, faction),
+		"hull_chest": MapPlayCourt.navy_chest(play, faction),
+		"records": AiDeferral.records_for(play.ai.deferrals, faction),
+		"treasury": economy.treasury,
+	}
+
+
+# --- domains ----------------------------------------------------------------
+
+
+## The court's force and its footing: the men it fields, the muster it owes, and
+## the aims it has deferred past the escalation bar (issue #603). The muster
+## reserves the material row the pattern it is saving for needs (`AiClaims.MUSTER`,
+## #474), so the ledger prices that row too: a line that read `funded` on the
+## purse alone would clear the escalation's stall and let the court bank a chest
+## it can never spend — the deadlock this ledger exists to end.
+static func _force(
+	play: PlaySession, config: AiConfig, faction: int, economy: PlayerEconomy,
+	pressure: Dictionary, host: Dictionary
+) -> Dictionary:
+	var at_war: bool = bool(host["at_war"])
+	var regiments: int = int(host["regiments"])
+	var records: Dictionary = host["records"]
+	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
+	return {
+		"at_war": at_war,
+		"war_desire": _war_desire(play, config, faction, pressure),
+		"regiments": regiments,
+		"muster_floor": muster_floor,
+		"muster_due": muster_floor > 0,
+		"muster_row": AiArmyReinforce.muster_reserve(config, economy, regiments, at_war),
+		"escalations": AiDeferral.escalated(
+			records, maxi(config.parameter("ledger.escalate_turns"), 1)
+		),
+		"blockings": AiDeferral.escalated(
+			records, maxi(config.parameter("ledger.blocked_turns"), 1)
+		),
+	}
+
+
+## The navy: the hull the court means to lay, its price and its material row,
+## and the hostile sail it must answer (issue #484).
+static func _navy(economy: PlayerEconomy, host: Dictionary) -> Dictionary:
+	var flown: Array[String] = host["flown"]
+	return {
+		"ships": int(host["ships"]),
+		"warships": int(host["warships"]),
+		"warship_price": AiNavy.price(economy, flown),
+		"warship_row": AiNavy.saving_row(economy, flown),
+		# False while the court still studies the unlock: the build keeps its
+		# chest and cloth reserved but will not fund a launch the yard refuses
+		# (issue #484). A type the court already flies counts as open.
+		"warship_open": (
+			not AiNavy.saving_type(economy, flown).is_empty()
+			and ShipEconomy.buildable(
+				AiNavy.saving_type(economy, flown), economy.tech_unlocked, flown
+			)
+		),
+		"navy_due": int(host["hull_chest"]) > 0,
+		"hostile_ships": int(host["hostile_ships"]),
+		"hostile_warships": int(host["hostile_warships"]),
+	}
+
+
+## The chest and the aim it is banked for: the reserve the other claims leave,
+## the money goal the court is walking toward (issue #484, #603).
+static func _purse(
+	config: AiConfig, economy: PlayerEconomy, host: Dictionary
+) -> Dictionary:
+	var at_war: bool = bool(host["at_war"])
+	var regiments: int = int(host["regiments"])
+	var hull_chest: int = int(host["hull_chest"])
+	var warships: int = int(host["warships"])
+	return {
+		"treasury": int(host["treasury"]),
+		"reserve": AiIncome.reserve(
+			config, economy, at_war, regiments, hull_chest, warships,
+			AiDeferral.stall(host["records"], "muster.line")
+		),
+		"goal": AiIncome.goal_for(
+			config, economy, at_war, regiments, hull_chest, warships
+		),
+	}
+
+
+## The college: the study the purse can fund, the standing study it may still
+## dip into the chest for, and the refusal the ledger names instead of reading a
+## 0-gold study as funded (issue #490, #590).
+static func _study(
+	config: AiConfig, economy: PlayerEconomy, purse: Dictionary
+) -> Dictionary:
+	var reserve: int = int(purse["reserve"])
+	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
+	var standing: String = AiResearchPlanner.standing_funding(config, economy, reserve)
+	var slots: int = economy.research.slots.size() if economy.research != null else 0
+	var funding_index: int = ResearchFunding.ORDER.find(funding)
+	var research_cost: int = ResearchFunding.gold(funding) * maxi(slots, 0)
+	var research_refusal: String = ""
+	var standing_study: int = 0
+	if not standing.is_empty():
+		# The standing study is the bounded exception that may dip into the
+		# chest the muster claims, so it prices its own one-slot budget beside
+		# the chest rather than against the purse the chest consumes (#590).
+		standing_study = 1
+		funding_index = maxi(funding_index, ResearchFunding.ORDER.find(standing))
+	elif funding == ResearchFunding.ORDER[0]:
+		research_refusal = AiResearchPlanner.standing_refusal(config, economy, reserve)
+		research_cost = ResearchFunding.gold(AiResearchPlanner.STANDING_FUNDING)
+	return {
+		"research_slots": slots,
+		"research_funding": funding_index,
+		"research_cost": research_cost,
+		"standing_study": standing_study,
+		"research_refusal": research_refusal,
+	}
+
+
+## The court's court: the Tribe it is drawing into its empire (wiki: diplomacy
+## § GP–Tribe Rules; DR-20261114-02), the deed it is saving toward (issue #724),
+## and the colony its own chart no longer offers. A war footing opens no new
+## chain; the stake it already holds keeps its step (DR-20261116-11).
+static func _court(
+	play: PlaySession, faction: int, economy: PlayerEconomy, phase: Dictionary
+) -> Dictionary:
+	var posture: String = String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
+	var home: int = FactionCatalog.region_of(faction)
+	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
+	var colony_ambition: Dictionary = AiTribeColony.best(
+		play.diplomacy, play.world, play.court_charts, faction,
+		economy.treasury, economy.tech_unlocked, posture
+	)
+	var deed: Dictionary = AiMerchantWork.openable_deed(
+		play.world.region(home), faction,
+		{"diplomacy": play.diplomacy, "visibility": MapPlayCourtFog.view_for(play, faction, home)}
+	)
+	return {
+		"posture": posture,
+		"colony_target": home == WorldMap.OLD_WORLD and not VoyageRead.owns_land(
+			new_world, faction
+		),
+		"harbour": home >= 0 and AiColonisationPlanner.harbour(
+			play.world.region(home), faction
+		) >= 0,
+		"tribe_target": int(colony_ambition.get("target", -1)),
+		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
+		# The deed the court is saving toward, 0 when no charted seller offers
+		# one (issue #724 task 3).
+		"deed_price": int(deed.get("price", 0)),
+		# The study that opens the chain's next link, so the trace names the door
+		# the court is walking to (DR-20261114-05). A chain the footing holds
+		# shut has no door (DR-20261116-11).
+		"tribe_door": AiTribeColony.door(
+			play.diplomacy, play.world, play.court_charts, faction,
+			economy.tech_unlocked, posture
+		),
+		# Why the footing holds a new chain shut this turn, "" when it opens one:
+		# the ledger prints the closed aim with this reason instead of dropping
+		# the row (DR-20261116-11).
+		"tribe_closed": AiTribeColony.closed_reason(posture),
+	}
+
+
+## The expedition: the hulls and the Explorer that could still sail, and the
+## voyage already under way or stranded (issue #491 T2, #497, #602).
+static func _voyage(play: PlaySession, faction: int) -> Dictionary:
+	return {
+		"idle_hulls": _idle_hulls(play, faction),
+		"explorer_ready": _explorer_ready(play, faction),
+		"voyage_afloat": _voyage_afloat(play, faction),
+		"voyage_abroad": _voyage_abroad(play, faction),
+		"voyage_stranded": _voyage_stranded(play, faction),
+	}
+
+
+# --- war ---------------------------------------------------------------------
+
+
+## War desire against the court's enemy, else against the weakest Great Power —
+## the same score the diplomacy planner weighs, read once per turn for the trace.
+## The victory press rides the same reading, so the ledger's war aim and the
+## planner's declaration price the same war (DR-20261115-04).
+static func _war_desire(
+	play: PlaySession, config: AiConfig, faction: int, pressure: Dictionary = {}
+) -> int:
+	var target: int = _war_target(play, faction)
+	if target < 0:
+		target = _weakest_rival(play, faction)
+	if target < 0 or play.diplomacy.relation(faction, target) == null:
+		return 0
+	var powers: Dictionary = {
+		faction: _power(play, faction), target: _power(play, target),
+	}
+	var context: Dictionary = {
+		"power": powers,
+		"victory_press": int(pressure.get("war_press", 0)),
+		"regiments": {
+			faction: MapPlayCourt.regiments(play, faction),
+			target: MapPlayCourt.regiments(play, target),
+		},
+		"ships": {
+			faction: MapPlayCourt.ships(play, faction),
+			target: MapPlayCourt.ships(play, target),
+		},
+	}
+	return int(
+		AiDiplomacyDesire.war_desire(
+			config, play.diplomacy, play.world, faction, target, context
+		).get("score", 0)
+	)
+
+
+## The first Great Power this court is at war with, or -1.
+static func _war_target(play: PlaySession, faction: int) -> int:
+	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
+		if record == null or not record.at_war:
+			continue
+		var other: int = record.other(faction)
+		if FactionCatalog.type_of(other) == FactionCatalog.Type.GREAT_POWER:
+			return other
+	return -1
+
+
+## Weakest rival by the published power score; the id breaks a tie, so the same
+## chart always reads the same target.
+static func _weakest_rival(play: PlaySession, faction: int) -> int:
+	var best: int = -1
+	var best_score: int = 0
+	for rival: int in FactionCatalog.great_power_ids():
+		if rival == faction:
+			continue
+		var score: int = _power(play, rival)
+		if best < 0 or score < best_score:
+			best = rival
+			best_score = score
+	return best
+
+
+static func _power(play: PlaySession, faction: int) -> int:
+	return AiPower.score(
+		play.world, faction, MapPlayCourt.regiments(play, faction),
+		MapPlayCourt.ships(play, faction)
+	)
+
+
+# --- voyage state ------------------------------------------------------------
+
+
+## Squadrons that could take an expedition: afloat, un-moved, no troops and no
+## colonists aboard. The same hull reading the colonisation planner sails.
+static func _idle_hulls(play: PlaySession, faction: int) -> int:
+	if play.ship_layer == null:
+		return 0
+	var total: int = 0
+	for region: int in play.ship_layer.regions.region_ids():
+		total += VoyageRead.free_count(
+			MapPlayCourt.region_fleets(play, region), faction
+		)
+	return total
+
+
+## An idle Explorer of this court at home: the colonist the next train slot
+## musters (issue #491 T2).
+static func _explorer_ready(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	return VoyageRead.idle_colonist(
+		play.civilian_layer.regions.value(home, []), faction, "explorer"
+	) != null
+
+
+## True while an expedition of this court is already at sea (a protected claim
+## in T2, #497).
+static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
+	if play.ship_layer == null:
+		return false
+	for region: int in play.ship_layer.regions.region_ids():
+		if VoyageRead.carrying(
+			MapPlayCourt.region_fleets(play, region), faction
+		) != null:
+			return true
+	return false
+
+
+## True while a colonist of this court already stands on the far shore (its
+## landing is the voyage's own progress, not a missing Explorer): the child that
+## musters a new one is not blocked, and the parent prices the voyage instead
+## (#497). A court with a civilian in the other region has nothing left to
+## muster either — `CivilianMuster.muster_port` holds the gate shut until
+## that colonist leaves or works.
+static func _voyage_abroad(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	for region: int in play.civilian_layer.regions.region_ids():
+		if region == home:
+			continue
+		for raw: Variant in play.civilian_layer.regions.value(region, []):
+			var unit: CivilianState = raw
+			if unit != null and unit.owner == faction:
+				return true
+	return false
+
+
+## True while an Explorer of this court stands ashore in a region its crown does
+## not own. It founds nothing (a Builder needs crown land) and cannot board again
+## — boarding needs a squadron in port and docking needs a crown port — so the
+## expedition can never sail on: the ledger reads the aim blocked with that
+## reason instead of funding a voyage the planner will not order (issue #602).
+## A Merchant ashore is left to #497's reading: it buys the deeds that found the
+## colony, so its voyage is still progress.
+static func _voyage_stranded(play: PlaySession, faction: int) -> bool:
+	if play.civilian_layer == null or play.world == null:
+		return false
+	var home: int = FactionCatalog.region_of(faction)
+	if home < 0:
+		return false
+	for region: int in play.civilian_layer.regions.region_ids():
+		if region == home:
+			continue
+		var model: MapModel = play.world.region(region)
+		if model == null or VoyageRead.owns_land(model, faction):
+			continue
+		for raw: Variant in play.civilian_layer.regions.value(region, []):
+			var unit: CivilianState = raw
+			if unit == null or unit.owner != faction:
+				continue
+			if unit.type_id == "explorer" and not unit.is_embarked():
+				return true
+	return false
