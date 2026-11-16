@@ -57,6 +57,50 @@ static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> vo
 	)
 
 
+## Dismisses a batch of regiments in one order (Dismiss and Dismiss all share
+## this path, so a chore stays batched — REQ-P5-04; wiki: military-armies
+## § Dismissing regiments). Each dismissed regiment returns one peasant and
+## nothing else; an emptied field army retires at once, so the dossier closes
+## with the standard it was reading.
+static func dismiss(play: PlaySession, army: ArmyState, ids: Array[String]) -> void:
+	if play.economy == null or play.economy.economy == null:
+		return
+	var result: Dictionary = play.army_layer.dismiss(army, ids, play.economy.economy)
+	if not bool(result.get("ok", false)):
+		play.hud.toast(String(result.get("reason", "The regiments stay.")))
+		MapPlayArmies.show_panel(play, army)
+		return
+	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
+	var count: int = int(result.get("count", 0))
+	var peasants: int = int(result.get("peasants", 0))
+	var line: String = (
+		"%d regiments dismissed — %d peasants return to the pool"
+		% [count, peasants]
+		if count > 1
+		else "%s dismissed — one peasant returns to the pool" % _dismissed_name(result)
+	)
+	if bool(result.get("retired", false)):
+		# An embarked army that retires leaves the deck with the field: the
+		# squadron no longer carries an army nobody can land (wiki:
+		# ships-and-naval § Naval transport).
+		if play.ship_layer != null:
+			play.ship_layer.release_deck(army.id)
+		play.hud.toast(line + " — the standard retires")
+		play.hud.panels.hide_army()
+		return
+	play.hud.toast(line)
+	MapPlayArmies.show_panel(play, army)
+
+
+## The colours that left, by the name the crown gave them (a single dismissal
+## names its regiment; a batch names the count instead).
+static func _dismissed_name(result: Dictionary) -> String:
+	var names: Array = result.get("names", [])
+	if names.is_empty():
+		return "The regiment"
+	return String(names[0])
+
+
 ## Pitching a field hospital train: the register's materials buy the tents that
 ## march with the standard from now on (DR-20261112-07). The rules own the
 ## refusal; this spends the stockpile and reports it.

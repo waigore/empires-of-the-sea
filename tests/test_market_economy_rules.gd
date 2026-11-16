@@ -557,6 +557,44 @@ func test_no_purchased_tile_means_no_profit_share() -> void:
 	assert_eq(int((report["credits"] as Dictionary)["by_gp"].get(1, 0)), 0)
 	assert_eq((economies[1] as PlayerEconomy).treasury, before)
 
+## A settled court-to-court deal is recorded for the next Diplomacy phase's
+## trade-deal lift (wiki: diplomacy § Relation Model — trade-deal boost, R10).
+func test_a_settled_deal_records_the_pair_for_the_lift() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	diplomacy.ensure_relation(0, 6, 0).set_score(50.0)
+	MarketOrders.submit(
+			market,
+		0, "timber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 30}
+	)
+	MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_true(
+		diplomacy.trade_pairs.has(diplomacy.pair_key(0, 6)),
+		"the minor's harvest lifts the pair"
+	)
+
+## The standing world counterparty is no court, so a bid it fills records no
+## pair (wiki: diplomacy § Relation Model — trade-deal boost, R10).
+func test_the_world_counterparty_is_no_trade_pair() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var diplomacy := DiplomacyState.new()
+	MarketOrders.submit(
+			market,
+		0, "iron", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 4, "treasury": 5000, "buy_price": 80}
+	)
+	MarketClearing.clear(
+		market, world, economies, {0: 4, 1: 4}, {"diplomacy": diplomacy}
+	)
+	assert_true(diplomacy.trade_pairs.is_empty())
+
 func test_first_right_pays_the_tile_owner_on_a_rival_sale() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var world: WorldMap = _market_engine_world()
@@ -1767,6 +1805,124 @@ func test_larder_reading_takes_a_built_pool() -> void:
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
 	assert_eq(int(read["store_food"]), 2)
 
+## A hand hired in Build/work eats with the court but labours the **next**
+## Production phase: the phase that lets a new recruit turn the wheel the turn it
+## is hired is a rule the wiki refuses (wiki: workers-and-population
+## § Phase placement — same-turn labour is not supported).
+func test_a_recruit_labours_the_phase_after_it_lands() -> void:
+	var pool: WorkerPool = WorkerPool.make(2)
+	var stock: Dictionary = {"grain": 8, "meat": 0}
+	# One of the two peasants landed at this turn's Build/work.
+	var report: Dictionary = EconomyConsumption.resolve(pool, stock, 0, 0, [], [1, 0, 0, 0])
+	assert_eq(int(report["fed_workers"]), 2, "the arrival eats with the court")
+	assert_eq(int(report["strikers"]), 0, "and is not a striker")
+	assert_eq(int(report["idle_labour"]), 1, "one hand labours now, not two")
+	assert_eq(int(report["labour_next_turn"]), 1, "the arrival turns the wheel next turn")
+	# The next phase pays it in full: the same pool with nothing arriving.
+	var later: Dictionary = EconomyConsumption.resolve(pool, stock, 0)
+	assert_eq(int(later["idle_labour"]), 2, "both hands labour once the turn has closed")
+
+
+## A hungry arrival withholds nothing: only a worker who kept their ration could
+## have laboured at all, so a strike is never double-counted as withheld labour.
+func test_a_starving_arrival_withholds_no_labour() -> void:
+	var report: Dictionary = EconomyConsumption.resolve(
+		WorkerPool.make(2), {"grain": 0, "meat": 0}, 0, 0, [], [1, 0, 0, 0]
+	)
+	assert_eq(int(report["idle_labour"]), 0)
+	assert_eq(int(report["labour_next_turn"]), 0, "a striker has no labour to defer")
+	assert_eq(int(report["strikers"]), 2)
+
+
+## The phase budgets Production from the hands it already had: the pool holds the
+## hire, but a run only the newcomer could pay for does not start until the next
+## turn (wiki: workers-and-population § Phase placement).
+func test_the_phase_never_spends_a_recruits_labour_early() -> void:
+	# Two peasants in the pool, one of them landed at this turn's Build/work.
+	# Lumber asks two labour a run, so only the old hand's labour can pay it.
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 40, "meat": 0, "timber": 4}
+	economy.production.set_assignment("lumber", 2)
+	var report: Dictionary = EconomyTurn.resolve(
+		economy, WorldMarket.with_default_prices(), {}, 0, 0, false, {}, [], "", 0,
+		[1, 0, 0, 0],
+	)
+	var runs: Dictionary = (report.get("production", {}) as Dictionary).get("runs", {})
+	assert_eq(int(runs.get("lumber", 0)), 0, "one labour cannot start a two-labour run")
+	assert_eq(
+		int((report.get("consumption", {}) as Dictionary).get("labour_next_turn", 0)), 1,
+		"the hire's labour is the next phase's",
+	)
+	# With nothing arriving, the same two hands start the run.
+	var settled: PlayerEconomy = PlayerEconomy.starting()
+	settled.workers = WorkerPool.make(2)
+	settled.stockpile = {"grain": 40, "meat": 0, "timber": 4}
+	settled.production.set_assignment("lumber", 2)
+	var paid: Dictionary = EconomyTurn.resolve(
+		settled, WorldMarket.with_default_prices(), {}, 0, 0, false
+	)
+	var paid_runs: Dictionary = (paid.get("production", {}) as Dictionary).get("runs", {})
+	assert_eq(int(paid_runs.get("lumber", 0)), 1, "both hands labour once the turn closed")
+
+
+## The queue reads the hands it will land, one count per tier, and pays no
+## attention to the civilian, regiment and hull orders beside them: only a worker
+## joins the pool (wiki: workers-and-population § Phase placement).
+func test_the_queue_names_the_hands_it_lands_by_tier() -> void:
+	var queue := RecruitQueue.new()
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT))
+	queue.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
+	queue.add(RecruitQueue.KIND_REGIMENT, "peasant_levies")
+	queue.add(RecruitQueue.KIND_SHIP, "carrack")
+	queue.add(RecruitQueue.KIND_CIVILIAN, "builder")
+	var arriving: Array[int] = queue.arriving_by_tier()
+	assert_eq(arriving.size(), WorkerPool.TIER_COUNT)
+	assert_eq(arriving, [2, 1, 0, 0])
+	assert_eq(queue.reserved_peasants(), 3, "the train, the muster and the hull promise a peasant")
+
+
+## Build/work's own records name the hands that actually landed, so a refused
+## order — which leaves no record — withholds nothing from the phase it never
+## joined (wiki: workers-and-population § Phase placement — an order the turn
+## cannot keep is refused at resolution).
+func test_only_a_landed_hand_is_counted_arriving() -> void:
+	var done: Array[Dictionary] = [
+		{"kind": "workerRecruited", "label": "Peasant", "tier": WorkerPool.Tier.PEASANT},
+		{"kind": "workerRecruited", "label": "Apprentice", "tier": WorkerPool.Tier.APPRENTICE},
+		{"kind": "civilianMustered", "label": "Builder"},
+	]
+	assert_eq(MapPlayRecruits.arriving_tiers(done), [1, 1, 0, 0])
+	assert_eq(
+		MapPlayRecruits.arriving_tiers([] as Array[Dictionary]), [0, 0, 0, 0],
+		"a turn that landed nothing withholds nothing"
+	)
+
+
+## The crown's phase reads its arrivals from Build/work, not from the queue it
+## proposed: an order the turn refused never lands, so it must not take an idle
+## worker's labour with it (wiki: workers-and-population § Phase placement).
+func test_a_refused_hand_withholds_no_labour() -> void:
+	var controller := EconomyController.new()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2, 2)
+	economy.stockpile = {"grain": 40, "meat": 40, "refinedSugar": 4}
+	economy.recruits.add(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.APPRENTICE))
+	controller.economy = economy
+	controller.market = WorldMarket.with_default_prices()
+	# A session with no layers lands nothing: the queued apprentice is refused.
+	controller.play = PlaySession.new()
+	var report: Dictionary = controller.resolve_turn()
+	controller.free()
+	assert_eq(economy.workers.count(WorkerPool.Tier.APPRENTICE), 2, "the hire never landed")
+	assert_eq(
+		int((report["consumption"] as Dictionary).get("idle_labour", -1)),
+		economy.workers.labour(),
+		"both apprentices still turn the wheel"
+	)
+
+
 ## The WORKERS tab's larder reading: the store, every appetite, and the tier a
 ## shortfall bites first — Masters before Peasants
 ## (wiki: workers-and-population § Consumption; REQ-P5-06).
@@ -1868,11 +2024,16 @@ func test_larder_forecast_reads_the_other_mouths() -> void:
 	var mouths: Dictionary = LarderRead.mouths(
 		{"consumption": {"army_demand": 2, "navy_demand": 2, "hospital_demand": 0}}
 	)
-	assert_eq(mouths, {"army": 2, "ships": 1, "hospital": 0})
+	assert_eq(
+		mouths, {"army": 2, "ships": 1, "hospital": 0, "wards": [0]},
+		"a report without the ward list reads as the one ward its sum says",
+	)
 	var read: Dictionary = LarderRead.forecast(economy, mouths)
 	assert_eq(int(read["strikers"]), 2, "the army and the hull eat before the pool")
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.PEASANT)
-	assert_eq(LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0})
+	assert_eq(
+		LarderRead.mouths({}), {"army": 0, "ships": 0, "hospital": 0, "wards": []}
+	)
 
 ## Every appetite the phase pays, in its own deduction order, so the ledger can
 ## show why a store that covers the pool still strikes it
@@ -1902,6 +2063,49 @@ func test_larder_reading_with_no_other_mouths() -> void:
 	var read: Dictionary = LarderRead.forecast(economy)
 	assert_eq(read["appetites"], {"army": 0, "navy": 0, "pool": 3, "wards": 0})
 	assert_eq(int(read["strikers"]), 0, "five grain feeds three peasants")
+	assert_eq(int(read["store_short"]), 0)
+
+
+## The wards eat last and only in whole staffs, so a larder that covers the small
+## one behind a big one must feed it: a summed appetite would read a shortfall the
+## phase never strikes, and the forecast has to be the phase's own answer
+## (wiki: workers-and-population § Consumption; DR-20261112-04; REQ-P2-03).
+func test_the_forecast_feeds_the_wards_the_phase_feeds() -> void:
+	var pool: WorkerPool = WorkerPool.make(0)
+	var store: Dictionary = {"grain": 3}
+	var wards: Array[int] = [4, 2]
+	var phase: Dictionary = EconomyConsumption.resolve(pool, store.duplicate(), 0, 0, wards)
+	assert_eq(int(phase["hospital_fed"]), 2, "the field ward eats, the general one waits")
+	var listed: Dictionary = LarderRead.reading(
+		pool, store, {"army": 0, "ships": 0, "hospital": 6, "wards": wards}
+	)
+	var listed_report: Dictionary = listed["report"]
+	assert_eq(
+		int(listed_report["hospital_fed"]), int(phase["hospital_fed"]),
+		"one ward at a time: the forecast spends what the phase spends",
+	)
+	# The summed appetite, which is all a report without the list carries, would
+	# have fed nothing: the list is what keeps the two readers one rule.
+	var summed: Dictionary = LarderRead.reading(
+		pool, store, {"army": 0, "ships": 0, "hospital": 6}
+	)
+	assert_eq(int((summed["report"] as Dictionary)["hospital_fed"]), 0)
+	assert_eq(int(listed["store_short"]), 3, "six food wanted, three held")
+
+
+## The store's shortfall is every mouth's, not the pool's: a court that keeps its
+## workers fed while the army or a ward goes without is still short
+## (wiki: workers-and-population § Consumption — total food demand).
+func test_the_store_shortfall_counts_every_mouth() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 3, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(
+		economy, {"army": 0, "ships": 0, "hospital": 4, "wards": [4]}
+	)
+	assert_eq(int(read["strikers"]), 0, "the pool ate: no worker strikes")
+	assert_eq(int(read["food_short"]), 0, "the pool's own rations were paid")
+	assert_eq(int(read["store_short"]), 3, "the ward's rations were not")
 
 func test_luxury_is_all_or_nothing_per_food_fed_worker() -> void:
 	var pool: WorkerPool = WorkerPool.make(0, 2)
@@ -2602,7 +2806,7 @@ func _fixture() -> MapModel:
 
 func test_market_seeds_tradeable_catalog_prices() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	assert_eq(market.prices.size(), 22)
+	assert_eq(market.prices.size(), 24)
 	assert_eq(market.price("timber"), 30)
 	assert_eq(market.price("lumber"), 60)
 	assert_eq(market.price("iron"), 80)
@@ -3203,6 +3407,89 @@ func test_the_turn_summary_names_colonial_manufactures() -> void:
 	assert_true(line.contains("2 cast iron made in colonial towns"))
 	assert_true(line.contains("2 left on the far shore"))
 	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))
+
+
+# --- test_cargo_read ---------------------------------------------------------
+
+
+## The crossing the holds will make, read before the turn closes: the overseas
+## plan's own figures, the stranded tonnage named by commodity and the rule that
+## caps it (wiki: ships-and-naval § Cargo holds and capacity; DR-20261116-05;
+## REQ-P5-05).
+func test_the_crossing_reads_the_plan_before_the_turn_closes() -> void:
+	var plan: Dictionary = {
+		"holds": 4, "used": 4, "left": {"timber": 3, "grain": 2}, "left_total": 5,
+	}
+	var read: Dictionary = CargoRead.reading(plan)
+
+	assert_true(bool(read["known"]))
+	assert_eq(int(read["holds"]), 4)
+	assert_eq(int(read["waiting"]), 9, "every ton the estates yield must cross")
+	assert_eq(int(read["crossing"]), 4)
+	assert_eq(int(read["stranded"]), 5)
+	var goods: Array = read["goods"] as Array
+	assert_eq(goods.size(), 2, "every stranded commodity is named")
+	var total: int = 0
+	for entry: Dictionary in goods:
+		total += int(entry["amount"])
+	assert_eq(total, 5)
+	var richest: String = String(EconomyOverseas.priority(["timber", "grain"])[0])
+	assert_eq(
+		String((goods[0] as Dictionary)["id"]), richest,
+		"richest first — the plan's own shipping order",
+	)
+	assert_eq(String((goods[1] as Dictionary)["id"]), "grain" if richest == "timber" else "timber")
+
+	var line: String = CargoRead.line(read)
+	assert_true(line.contains("9 tons abroad"), line)
+	assert_true(line.contains("4 tons cross this turn"), line)
+	assert_true(line.contains("5 tons left on the far shore"), line)
+	var note: String = CargoRead.note(read)
+	assert_true(note.contains("5 more would land the rest"), note)
+	assert_true(note.contains("no per-province storage"), note)
+	assert_true(note.contains("Left: "), note)
+
+
+## The reading is the phase's own plan, not a figure of its own: the overseas
+## plan's used/left split is what the line prints.
+func test_the_crossing_reads_the_overseas_plans_own_split() -> void:
+	var read: Dictionary = CargoRead.reading(EconomyOverseas.plan({1: {"timber": 9}}, 4))
+
+	assert_eq(int(read["waiting"]), 9)
+	assert_eq(int(read["crossing"]), 4)
+	assert_eq(int(read["stranded"]), 5)
+	assert_eq((read["goods"] as Array).size(), 1, "one commodity, one entry")
+	assert_true(CargoRead.line(read).contains("5 tons left on the far shore"))
+
+
+## A crown whose home squadron is away (or carries no merchantman) has no holds:
+## the reading names that cause instead of only the tonnage it loses.
+func test_a_crown_with_no_holds_names_the_merchantmen_it_needs() -> void:
+	var read: Dictionary = CargoRead.reading(EconomyOverseas.plan({1: {"timber": 3}}, 0))
+
+	assert_eq(int(read["crossing"]), 0)
+	assert_eq(int(read["stranded"]), 3)
+	assert_true(CargoRead.line(read).contains("0 tons cross this turn"), CargoRead.line(read))
+	var note: String = CargoRead.note(read)
+	assert_true(note.contains("merchant hulls are the only holds"), note)
+	assert_true(note.contains("Launch a merchant hull"), note)
+
+
+## The reading appears only when the rule bites: an estate that ships everything,
+## a crown with no colonial tonnage and a caller with no world all print nothing.
+func test_a_crossing_with_nothing_to_wait_for_prints_nothing() -> void:
+	var quiet: Dictionary = CargoRead.reading(EconomyOverseas.plan({}, 4))
+	assert_eq(CargoRead.line(quiet), "")
+	assert_eq(CargoRead.note(quiet), "")
+
+	var roomy: Dictionary = CargoRead.reading(EconomyOverseas.plan({1: {"timber": 3}}, 8))
+	assert_true(CargoRead.line(roomy).contains("3 tons cross this turn"))
+	assert_eq(CargoRead.note(roomy), "", "every ton crosses: no wait to name")
+
+	var unknown: Dictionary = CargoRead.reading({})
+	assert_false(bool(unknown["known"]))
+	assert_eq(CargoRead.line(unknown), "", "no world, no promise")
+	assert_eq(CargoRead.note(unknown), "")
 
 
 ## A coast the sea has shut is a rule, not a lean harvest: the despatch names it
@@ -4175,6 +4462,81 @@ func test_the_deal_book_reads_the_viewing_crowns_orders() -> void:
 	spain.free()
 
 
+## The clearing's price pass is read where the clearing is narrated: a turn that
+## moved prices says so, and a quiet market adds no line (wiki: world-market
+## § Price discovery; REQ-P5-05).
+func test_the_deal_book_names_the_prices_the_clearing_moved() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var ledger := LedgerMarket.new()
+	ledger.fill(
+		PlayerEconomy.starting(), market, {}, [], {"prices": {"grain": 24, "timber": 27}}, 0
+	)
+	assert_true(_has_text(ledger, "Prices moved"), "the clearing's prices are read")
+	assert_true(
+		_has_text(ledger, "%s 24" % CommodityCatalog.label("grain")),
+		"the moved good is named with the price it now stands at"
+	)
+	ledger.free()
+	var quiet := LedgerMarket.new()
+	quiet.fill(PlayerEconomy.starting(), market, {}, [], {}, 0)
+	assert_false(_has_text(quiet, "Prices moved"), "a quiet book adds no line")
+	quiet.free()
+
+
+## The line keeps one row: four goods, then a count of the rest.
+func test_the_price_line_caps_its_goods() -> void:
+	var moved: Dictionary = {}
+	for id: String in ["grain", "timber", "iron", "wool", "coal"]:
+		moved[id] = CommodityCatalog.base_price(id)
+	var line: String = LedgerMarket.price_moves_line({"prices": moved})
+	assert_true(line.begins_with("Prices moved:"), line)
+	assert_true(line.ends_with("+1 more."), line)
+	# The goods read in name order, so the fifth one is the one left out.
+	assert_true(line.contains(CommodityCatalog.label("coal")), line)
+	assert_false(
+		line.contains(CommodityCatalog.label("wool")), "the fifth good waits"
+	)
+	assert_eq(LedgerMarket.price_moves_line({}), "", "no move, no line")
+
+
+## The crossing the holds will make is read on the MARKET page, under the holds
+## it spends, with the rule that caps it on the page and not in a hover
+## (wiki: ships-and-naval § Cargo holds and capacity; DR-20261116-05;
+## REQ-P5-05, REQ-P5-07).
+func test_the_market_page_reads_the_crossing_the_holds_will_make() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var cargo: Dictionary = {
+		"holds": 4, "used": 4, "reserved": 4, "free": 0, "clear_free": 0, "pending": 0,
+		"crossing": CargoRead.reading(
+			EconomyOverseas.plan({1: {"timber": 6, "grain": 3}}, 4)
+		),
+	}
+	var ledger := LedgerMarket.new()
+	ledger.fill(PlayerEconomy.starting(), market, cargo, [], {}, 0)
+	assert_true(_has_text(ledger, "CROSSING"), "the crossing is on the page")
+	assert_true(_has_text(ledger, "9 tons abroad"), "the tonnage that waits is named")
+	assert_true(
+		_has_text(ledger, "no per-province storage"), "the rule sits on the page"
+	)
+	ledger.free()
+
+	var ashore := LedgerMarket.new()
+	ashore.fill(PlayerEconomy.starting(), market, {"holds": 4}, [], {}, 0)
+	assert_false(_has_text(ashore, "CROSSING"), "no overseas tonnage, no line")
+	ashore.free()
+
+
+## Any label under `root` whose text contains `needle`.
+func _has_text(root: Node, needle: String) -> bool:
+	var label := root as Label
+	if label != null and label.text.contains(needle):
+		return true
+	for child: Node in root.get_children():
+		if _has_text(child, needle):
+			return true
+	return false
+
+
 ## A staged order is the only row that offers a Cancel, so its presence is the
 ## sheet's own answer to "is this my book?".
 func _has_cancel(node: Node) -> bool:
@@ -4427,3 +4789,487 @@ func test_the_larder_reading_counts_only_food() -> void:
 	economy.stockpile = {"grain": 7, "meat": 3, "wool": 40, "timber": 12}
 	assert_eq(MapPlayEconomyAi._food_held(economy), 10)
 	assert_eq(MapPlayEconomyAi._food_held(null), 0)
+
+
+## The debt is rounded once from the whole deal, so the per-unit charge cannot
+## say whether one more ton fits: a subsidised deal whose total rounds past the
+## purse must settle the tons that do fit. Before, the truncation re-derived the
+## size from the rounded unit price, landed on the same quantity, and the payment
+## was refused with the deal still booked — the crown paid nothing, received
+## nothing, and the Deal Book named a purchase that never happened (wiki:
+## world-market § Treasury budget for bids — the resolver-side clamp;
+## § Subsidy price adjustment; REQ-P5-05).
+func test_a_deal_whose_whole_total_rounds_past_the_purse_settles_what_fits() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	# 42 x 1.15 = 48.3: the whole-deal total rounds above the unit charge.
+	market.prices["lumber"] = 42
+	var offer := MarketOrder.create(6, "lumber", MarketOrder.SIDE_OFFER, 3, 1)
+	offer.auto = true
+	market.book.submit(offer)
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	buyer.treasury = 144
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 15)
+	var staged: Dictionary = MarketOrders.submit(
+		market,
+		0, "lumber", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 10, "treasury": 144, "buy_price": 42}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var report: Dictionary = MarketClearing.clear(
+		market, null, economies, {0: 10}, {"diplomacy": diplomacy}
+	)
+	var deal: Dictionary = {}
+	for raw: Variant in report["deals"]:
+		if int((raw as Dictionary).get("buyer", -2)) == 0:
+			deal = raw
+			break
+	assert_false(deal.is_empty(), "the minor's offer filled the bid")
+	# 3 x 42 x 1.15 = 144.9 -> 145, one ducat past the purse; 2 tons are 97.
+	assert_eq(int(deal["quantity"]), 2, "only the tons the whole total covers")
+	assert_eq(int(deal["cost"]), 97, "2 x 42 x 1.15, rounded once")
+	assert_eq(buyer.quantity("lumber"), 40 + 2, "the goods actually landed")
+	assert_eq(buyer.treasury, 47, "and the purse paid exactly the deal total")
+	var mine: Dictionary = (report["fills"] as Dictionary).get(0, {}) as Dictionary
+	assert_eq(int(mine.get("bought", 0)), 2, "the fills row names the settled tons")
+	assert_eq(int(mine.get("spent", 0)), 97, "and the ducats that left the purse")
+	var truncation: Dictionary = {}
+	for raw: Variant in report["notes"]:
+		if String((raw as Dictionary).get("code", "")) == "bid_partial_fill_treasury_insufficient":
+			truncation = raw
+	assert_false(truncation.is_empty(), "the Deal Book can audit the truncation")
+	assert_eq(int(truncation.get("quantity", 0)), 1, "the one ton the purse could not buy")
+
+
+## A purse that cannot pay even the whole-deal rounding of one ton buys nothing:
+## the seller keeps the goods and the row names no ducats (wiki: world-market
+## § Treasury budget for bids; REQ-P5-05 never a silent outcome).
+func test_a_deal_the_purse_cannot_pay_hands_nothing_over() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.prices["lumber"] = 42
+	var offer := MarketOrder.create(6, "lumber", MarketOrder.SIDE_OFFER, 2, 1)
+	offer.auto = true
+	market.book.submit(offer)
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	buyer.treasury = 45
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 15)
+	# The validator knows the published 42, so the bid is admitted; the clearing
+	# charges 48 a ton at the surcharge, which the purse cannot cover.
+	MarketOrders.submit(
+		market,
+		0, "lumber", MarketOrder.SIDE_BID, 1,
+		{"cargo_free": 10, "treasury": 45, "buy_price": 42}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, null, economies, {0: 10}, {"diplomacy": diplomacy}
+	)
+	assert_eq(buyer.treasury, 45, "nothing left the purse")
+	assert_eq(buyer.quantity("lumber"), 40, "and nothing landed")
+	assert_true(
+		(report["fills"] as Dictionary).get(0, {}).is_empty(),
+		"a deal that never paid is no fill"
+	)
+	for raw: Variant in report["deals"]:
+		assert_ne(
+			int((raw as Dictionary).get("buyer", -2)), 0,
+			"nor a booked sale: %s" % str(raw)
+		)
+
+
+## Prices are a non-negative integer band: a legacy save that wrote a negative
+## entry loads it as zero rather than publishing a price no deal ever charged
+## (wiki: world-market § Price discovery).
+func test_a_legacy_negative_price_loads_as_zero() -> void:
+	var market: WorldMarket = WorldMarket.from_dict({
+		"prices": {"timber": -5, "lumber": 60, "meat": 0},
+	})
+	assert_eq(market.price("timber"), 0, "the negative entry clamps to zero")
+	assert_eq(market.price("lumber"), 60, "a published price survives")
+	assert_eq(market.price("meat"), 0, "and a legal floor stays where it is")
+
+# --- the crown's bid budget ---
+
+## The crown's bid budget: the purse the turn's auction may spend once the waiting
+## Build/work orders are paid (wiki: world-market § Treasury budget for bids;
+## DR-20261115-13). One boot for the projection, the validator's refusal and the ledger
+## line.
+
+const TIMBER_PRICE: int = 30
+
+
+func _bid_economy(treasury: int = PlayerEconomy.START_TREASURY) -> PlayerEconomy:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = treasury
+	return economy
+
+
+func _market() -> WorldMarket:
+	return WorldMarket.with_default_prices()
+
+
+func test_no_waiting_order_leaves_the_whole_purse() -> void:
+	var economy: PlayerEconomy = _bid_economy(2500)
+	var reading: Dictionary = MarketBudget.budget(economy)
+	assert_eq(int(reading["treasury"]), 2500)
+	assert_eq(int(reading["promised"]), 0)
+	assert_eq(int(reading["budget"]), 2500)
+	assert_eq(MarketBudget.projected_non_bid_delta(economy), 0)
+	assert_true(LedgerText.bid_budget_line(reading).contains("whole purse"))
+
+
+func test_a_waiting_hull_is_promised_before_the_auction() -> void:
+	var economy: PlayerEconomy = _bid_economy(10000)
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	var reading: Dictionary = MarketBudget.budget(economy)
+	assert_eq(int(reading["promised"]), ShipEconomy.treasury_cost("carrack"))
+	assert_eq(int(reading["budget"]), 10000 - ShipEconomy.treasury_cost("carrack"))
+	assert_eq(
+		MarketBudget.projected_non_bid_delta(economy),
+		-ShipEconomy.treasury_cost("carrack")
+	)
+
+
+func test_each_kind_is_priced_by_its_own_catalog() -> void:
+	var economy: PlayerEconomy = _bid_economy(20000)
+	economy.queue_build(RecruitQueue.KIND_WORKER, "1")
+	economy.queue_build(RecruitQueue.KIND_CIVILIAN, "builder")
+	economy.queue_build(RecruitQueue.KIND_REGIMENT, RegimentCatalog.DEFAULT_TYPE)
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	var expected: int = (
+		int(WorkerPool.recruit_cost(1)["treasury"])
+		+ CivilianCatalog.treasury_cost("builder")
+		+ RegimentCatalog.treasury_cost(RegimentCatalog.DEFAULT_TYPE)
+		+ ShipEconomy.treasury_cost("carrack")
+	)
+	assert_eq(MarketBudget.promised(economy), expected)
+	var rows: Array[Dictionary] = MarketBudget.pending(economy)
+	assert_eq(rows.size(), 4)
+	assert_eq(String(rows[0]["label"]), WorkerPool.tier_one(1))
+	assert_eq(String(rows[3]["label"]), ShipStats.display_name("carrack"))
+
+
+func test_an_unknown_order_costs_nothing() -> void:
+	assert_eq(MarketBudget.order_cost("bogus", "nothing"), 0)
+	assert_eq(MarketBudget.order_label("bogus", "nothing"), "")
+
+
+func test_a_missing_ledger_asks_nothing_of_the_purse() -> void:
+	assert_eq(MarketBudget.pending(null).size(), 0)
+	assert_eq(MarketBudget.promised(null), 0)
+	var reading: Dictionary = MarketBudget.budget(null)
+	assert_eq(int(reading["treasury"]), 0)
+	assert_eq(int(reading["budget"]), 0)
+
+
+func test_a_promise_beyond_the_purse_leaves_nothing_to_bid() -> void:
+	var economy: PlayerEconomy = _bid_economy(2500)
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	var reading: Dictionary = MarketBudget.budget(economy)
+	assert_eq(int(reading["budget"]), 0)
+	assert_true(LedgerText.bid_budget_line(reading).contains("nothing this turn"))
+
+
+func test_a_bid_the_promise_cannot_cover_is_refused() -> void:
+	var economy: PlayerEconomy = _bid_economy(10000)
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	var market: WorldMarket = _market()
+	var context: Dictionary = {
+		"cargo_free": 200,
+		"treasury": economy.treasury,
+		"buy_price": TIMBER_PRICE,
+		"projected_non_bid_delta": MarketBudget.projected_non_bid_delta(economy),
+	}
+	var greedy: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 100, context
+	)
+	assert_false(bool(greedy["ok"]))
+	assert_eq(String(greedy["code"]), "trade_order_bid_exceeds_treasury_budget")
+	assert_true(String(greedy["reason"]).contains("waiting orders"))
+	var modest: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 1, context
+	)
+	assert_true(bool(modest["ok"]), "one ton fits the purse the hull leaves")
+
+
+func test_the_same_bid_clears_without_a_waiting_order() -> void:
+	var economy: PlayerEconomy = _bid_economy(10000)
+	var market: WorldMarket = _market()
+	var result: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 100,
+		{
+			"cargo_free": 200,
+			"treasury": economy.treasury,
+			"buy_price": TIMBER_PRICE,
+			"projected_non_bid_delta": MarketBudget.projected_non_bid_delta(economy),
+		}
+	)
+	assert_true(bool(result["ok"]), "an uncommitted purse covers the same bid")
+
+
+func test_the_line_names_the_promised_purse() -> void:
+	var economy: PlayerEconomy = _bid_economy(10000)
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	var line: String = LedgerText.bid_budget_line(MarketBudget.budget(economy))
+	assert_true(line.contains("2,000 of 10,000 ducats"))
+	assert_true(line.contains("8,000 promised to 1 waiting order"))
+
+
+# --- MarketBatch: one press files the whole order (REQ-P5-04) ---
+
+func _batch_ctx(overrides: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = {
+		"cargo_free": 4,
+		"treasury": 1000,
+		"tech_unlocked": {},
+		"projected_non_bid_delta": 0,
+		"reserved": {},
+	}
+	for key: Variant in overrides.keys():
+		out[key] = overrides[key]
+	return out
+
+
+## The bid batch is the holds and the purse, whichever binds first.
+func test_the_bid_batch_is_the_holds_and_the_purse() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var price: int = market.buy_price("timber", 0)
+	assert_eq(MarketBatch.bid_units(market, 0, "timber", _batch_ctx()), 4, "four holds")
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx({"treasury": price * 2})),
+		2,
+		"the purse binds before the holds",
+	)
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx({"cargo_free": 0})), 0,
+		"no holds, no bid",
+	)
+
+
+## The staged bids and the waiting Build/work orders are paid first, so the
+## batch is what is left of the holds and the purse.
+func test_the_batch_leaves_the_staged_bids_and_the_waiting_orders_out() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var price: int = market.buy_price("timber", 0)
+	var staged: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 1, {"cargo_free": 4, "treasury": 1000}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx()), 3,
+		"one hold and one unit's ducats are already promised",
+	)
+	var promised: Dictionary = _batch_ctx({
+		"treasury": price * 3, "projected_non_bid_delta": -price,
+	})
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", promised), 1,
+		"the waiting order is paid before the auction",
+	)
+
+
+## One side per commodity, and the bid-type cap still holds: a commodity the
+## court already bids on keeps batching, a fourth one does not open.
+func test_the_batch_never_crosses_the_side_or_the_bid_type_cap() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offer: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_OFFER, 1, {"stock": 4}
+	)
+	assert_true(bool(offer["ok"]), String(offer.get("reason", "")))
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", _batch_ctx()), 0,
+		"a court bids or offers a commodity, never both",
+	)
+	var capped: WorldMarket = WorldMarket.with_default_prices()
+	for id: String in ["timber", "iron", "wool"]:
+		MarketOrders.submit(
+			capped, 0, id, MarketOrder.SIDE_BID, 1, {"cargo_free": 8, "treasury": 9000}
+		)
+	var rich: Dictionary = _batch_ctx({"cargo_free": 8, "treasury": 9000})
+	assert_eq(
+		MarketBatch.bid_units(capped, 0, "grain", rich), 0,
+		"a fourth commodity is refused by the cap",
+	)
+	assert_gt(
+		MarketBatch.bid_units(capped, 0, "timber", rich), 1,
+		"a commodity already bid on still batches",
+	)
+
+
+## A court with no plan (or no economy) reserves nothing, so the sheet's offer
+## cap is the whole holding.
+func test_no_plan_reserves_nothing() -> void:
+	assert_eq(MarketBatch.reservations(null), {})
+	var economy := PlayerEconomy.new()
+	assert_eq(MarketBatch.reservations(economy), {})
+
+
+## The offer batch is the stock the assigned runs leave, less the tons already
+## offered this turn.
+func test_the_offer_batch_leaves_production_and_the_staged_offers_out() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var ctx: Dictionary = _batch_ctx({"reserved": {"timber": 2}})
+	assert_eq(
+		MarketBatch.offer_units(market, 0, "timber", 5, ctx), 3,
+		"the assigned runs eat two tons",
+	)
+	var staged: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_OFFER, 1, {"stock": 5}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	assert_eq(
+		MarketBatch.offer_units(market, 0, "timber", 5, ctx), 2,
+		"the ton already offered is not offered twice",
+	)
+	assert_eq(MarketBatch.offer_units(market, 0, "timber", 0, ctx), 0)
+
+
+## A Minor/Tribe row batches the seller's whole row, never more than it has left.
+func test_the_minor_row_batch_stops_at_the_seller_s_left() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var offer: Dictionary = {
+		"id": "6:timber", "faction": 6, "commodity": "timber",
+		"quantity": 2, "unit_price": 30,
+	}
+	assert_eq(MarketBatch.offer_row_units(market, 0, offer, _batch_ctx()), 2)
+	assert_eq(
+		MarketBatch.offer_row_units(market, 0, offer, _batch_ctx({"cargo_free": 1})), 1,
+		"one hold, one ton",
+	)
+	assert_eq(
+		MarketBatch.offer_row_units(market, 0, offer, _batch_ctx({"cargo_free": 0})), 0
+	)
+
+
+## The Minor/Tribe row's batch pays the ask it prints: a surcharge rides on the
+## deal, so a purse that covers three tons at the world price covers two at the
+## ask, and the press never names more ducats than the crown holds (wiki:
+## world-market § Subsidy price adjustment, § Treasury budget for bids).
+func test_the_minor_row_batch_pays_the_ask_the_press_prints() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	market.subsidy_terms["0>6"] = 20
+	var offer: Dictionary = {
+		"id": "6:timber", "faction": 6, "commodity": "timber",
+		"quantity": 9, "unit_price": 30,
+	}
+	var ctx: Dictionary = _batch_ctx({"cargo_free": 9, "treasury": 100})
+	assert_eq(
+		MarketBatch.bid_units(market, 0, "timber", ctx), 3,
+		"the world price alone would buy three tons",
+	)
+	var units: int = MarketBatch.offer_row_units(market, 0, offer, ctx)
+	assert_eq(units, 2, "the ask of 36 pays two tons from 100 ducats")
+	var total: int = MarketRules.deal_total_for(market, "timber", units, 0, 6, 20, true)
+	assert_lte(total, 100, "the whole deal fits the purse")
+	assert_gt(
+		MarketRules.deal_total_for(market, "timber", units + 1, 0, 6, 20, true), 100,
+		"one more ton is a deal the purse cannot pay",
+	)
+
+
+## The figure is the validator's own cap: the batch is accepted and one more
+## unit is refused, so a press can never stage an order the rules would not
+## (REQ-P2-03).
+func test_the_batch_is_exactly_what_the_validator_accepts() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var price: int = market.buy_price("timber", 0)
+	var by_holds: Dictionary = _batch_ctx({"cargo_free": 3, "treasury": 1000})
+	var units: int = MarketBatch.bid_units(market, 0, "timber", by_holds)
+	assert_eq(units, 3)
+	var accepted: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, units, by_holds
+	)
+	assert_true(bool(accepted["ok"]), String(accepted.get("reason", "")))
+	var refused: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, units + 1, by_holds
+	)
+	assert_false(bool(refused["ok"]))
+	assert_eq(String(refused["code"]), "trade_order_cargo_insufficient")
+
+	var purse_market: WorldMarket = WorldMarket.with_default_prices()
+	var by_purse: Dictionary = _batch_ctx({
+		"cargo_free": 5, "treasury": price * 2, "buy_price": price,
+	})
+	var purse_units: int = MarketBatch.bid_units(purse_market, 0, "timber", by_purse)
+	assert_eq(purse_units, 2)
+	var fits: Dictionary = MarketOrders.submit(
+		purse_market, 0, "timber", MarketOrder.SIDE_BID, purse_units, by_purse
+	)
+	assert_true(bool(fits["ok"]), String(fits.get("reason", "")))
+	var over: Dictionary = MarketOrders.submit(
+		purse_market, 0, "timber", MarketOrder.SIDE_BID, 1, by_purse
+	)
+	assert_false(bool(over["ok"]))
+	assert_eq(String(over["code"]), "trade_order_bid_exceeds_treasury_budget")
+
+
+# --- the PRODUCTION tab's one press (DR-20261116-08) -------------------------
+
+
+## One press files one run on every ready row, in the page's order, and each row
+## is capped by the allowance the rows before it leave: the walk reads the same
+## arithmetic the row's "+" is capped by (REQ-P2-03, REQ-P5-04).
+func test_the_production_batch_sets_one_run_on_every_ready_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10, "iron": 10, "coal": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool", "steel"], economy, 0, stock, 20, []
+	)
+	var plan: Dictionary = result["plan"]
+	assert_eq(int(result["runs"]), 3, "every ready row took a step")
+	assert_eq(int(plan["lumber"]), 1)
+	assert_eq(int(plan["fabric_from_wool"]), 1)
+	assert_eq(int(plan["steel"]), 1, "the slow row takes one run, not its whole bench")
+
+
+## A row already at its ceiling has no step to file, and the press never fills a
+## row to the ceiling: one press is one step per row (REQ-P5-04).
+func test_the_production_batch_skips_a_row_at_its_ceiling() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10}
+	var assignments: Array = [{"recipe": "lumber", "units": 5}]
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool"], economy, 0, stock, 20, assignments
+	)
+	assert_eq(int(result["runs"]), 1, "only the row with room takes a step")
+	assert_false((result["plan"] as Dictionary).has("lumber"), "the full row is left alone")
+	assert_eq(int(result["skipped"]), 1)
+
+
+## The labour the earlier rows claim is gone for the rows after them, so the walk
+## can never set a run the phase would refuse (REQ-P2-03).
+func test_the_production_batch_spends_the_labour_it_claims() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool"], economy, 0, stock, 2, []
+	)
+	assert_eq(int(result["runs"]), 1, "two labour points buy one run")
+	assert_eq(int((result["plan"] as Dictionary)["lumber"]), 1)
+	assert_eq(int(result["skipped"]), 1, "the second row waits on the labour")
+
+
+## A row whose hand or town's works is missing is no step at all: the press names
+## only what the phase would start (wiki: production-recipes § Worker-tier gates).
+func test_the_production_batch_skips_a_gated_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"tobacco": 10, "fabric": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["cigars", "garments"], economy, 0, stock, 20, []
+	)
+	assert_eq(int(result["runs"]), 0, "no gated row is offered")
+	assert_eq(int(result["skipped"]), 2)
+
+
+## The receipt names what the press set, and says why a page with nothing ready
+## offered no step (REQ-P5-05).
+func test_the_production_batch_receipt_names_the_runs() -> void:
+	assert_eq(
+		ProductionBatch.receipt(3), "Set 3 runs — every ready row in this view is ordered."
+	)
+	assert_eq(
+		ProductionBatch.receipt(1), "Set 1 run — every ready row in this view is ordered."
+	)
+	assert_true(ProductionBatch.receipt(0).begins_with("No ready row to set"))

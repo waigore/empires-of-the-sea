@@ -13,14 +13,8 @@ static func build(hud: GameHud) -> void:
 	_tech_tree(hud)
 	DiplomacyHud.build(hud)
 	_civilian(hud)
-	_roster(hud)
-	_muster(hud)
-	_provinces(hud)
-	_eyes(hud)
+	_ledgers(hud)
 	ArmyHud.build(hud)
-	_command(hud)
-	_towns(hud)
-	_navy(hud)
 	# The army dossier's command door opens the crown's commanders: the dossier
 	# is where a crown asks who leads, and the pool is the whole of it
 	# (DR-20261115-11).
@@ -29,6 +23,12 @@ static func build(hud: GameHud) -> void:
 	# each province's level, and the towns sheet is the step that raises it
 	# (DR-20261115-12).
 	hud.province_ledger.towns_pressed.connect(func() -> void: hud.towns_pressed.emit())
+	# Its walls door is the same reach for the province's fort (DR-20261116-01).
+	hud.province_ledger.walls_pressed.connect(func() -> void: hud.walls_pressed.emit())
+	# And its hospitals door for the province's ward (DR-20261116-02).
+	hud.province_ledger.hospitals_pressed.connect(
+		func() -> void: hud.hospitals_pressed.emit()
+	)
 
 
 static func _province(hud: GameHud) -> void:
@@ -85,12 +85,8 @@ static func _research(hud: GameHud) -> void:
 ## node on a pannable chart, its prerequisite edges drawn, the aimed advance's
 ## ancestor road lit, and the goal door on the reading (DR-20261115-15).
 static func _tech_tree(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "TechTreeLayer"
-	layer.layer = 6
-	hud.add_child(layer)
 	hud.tech_tree = TechTreePanel.new()
-	layer.add_child(hud.tech_tree)
+	ModalShell.mount_layer(hud, "TechTreeLayer").add_child(hud.tech_tree)
 	hud._research_panel.tree_requested.connect(
 		func() -> void: hud.tech_tree.present(hud._research_panel.research_state())
 	)
@@ -117,94 +113,44 @@ static func _civilian(hud: GameHud) -> void:
 	hud._civilian_wrap = hud.panels.civilian.wrap
 
 
-## Whole-empire civilian roster: its own canvas layer above the pause menu, so
-## the ledger is truly modal (the menu trigger cannot bleed through the panel).
-static func _roster(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "CivilianRosterLayer"
-	layer.layer = 6
-	hud.add_child(layer)
+## The crown's whole-empire sheets: the people, the muster roll, the realm's
+## provinces, the eyes, the commanders, the towns, walls, hospitals and navy.
+## Each mounts on its own layer through HudLedgerDoors; its cartouche or sheet
+## door opens it in place (REQ-P5-01, REQ-P5-03, REQ-P5-07).
+static func _ledgers(hud: GameHud) -> void:
 	hud.civilian_roster = CivilianRosterPanel.new()
-	layer.add_child(hud.civilian_roster)
+	HudLedgerDoors.mount(hud, "CivilianRosterLayer", hud.civilian_roster)
 	hud.civilian_roster_pressed.connect(hud.civilian_roster.toggle)
-
-
-## The muster roll shares the roster's treatment: its own canvas layer above the
-## pause menu, so the force ledger is modal too (DR-20261113-12).
-static func _muster(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "MusterRollLayer"
-	layer.layer = 6
-	hud.add_child(layer)
 	hud.muster_roll = ForceLedgerPanel.new()
-	layer.add_child(hud.muster_roll)
+	HudLedgerDoors.mount(hud, "MusterRollLayer", hud.muster_roll)
 	hud.muster_roll_pressed.connect(hud.muster_roll.toggle)
-
-
-## The province ledger is the muster roll's sibling: the same modal layer, the
-## same sheet chrome, one row per province the crown holds (DR-20261115-09).
-static func _provinces(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "ProvinceLedgerLayer"
-	layer.layer = 6
-	hud.add_child(layer)
 	hud.province_ledger = ProvinceLedgerPanel.new()
-	layer.add_child(hud.province_ledger)
+	HudLedgerDoors.mount(hud, "ProvinceLedgerLayer", hud.province_ledger)
 	hud.provinces_pressed.connect(hud.province_ledger.toggle)
-
-
-## The crown's eyes is the same sibling sheet: its own canvas layer above the
-## pause menu, opened by the court's EYES door or the I key (DR-20261115-10).
-static func _eyes(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "SpyLedgerLayer"
-	layer.layer = 6
-	hud.add_child(layer)
 	hud.spy_ledger = SpyLedgerPanel.new()
-	layer.add_child(hud.spy_ledger)
+	HudLedgerDoors.mount(hud, "SpyLedgerLayer", hud.spy_ledger)
 	hud.spy_ledger_pressed.connect(hud.spy_ledger.toggle)
 	# The court ledger carries the door: the crowns a spy shadows are the crowns
 	# that ledger lists, so the reading is one press from them (REQ-P5-01).
 	hud._diplomacy_panel.eyes_pressed.connect(
 		func() -> void: hud.spy_ledger_pressed.emit()
 	)
-
-
-## The command ledger is the muster roll's sibling: the same modal layer, the
-## same sheet chrome, one row per commander the crown's pool holds
-## (DR-20261115-11).
-static func _command(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "CommandLedgerLayer"
-	layer.layer = 6
-	hud.add_child(layer)
 	hud.command_ledger = CommandLedgerPanel.new()
-	layer.add_child(hud.command_ledger)
+	HudLedgerDoors.mount(hud, "CommandLedgerLayer", hud.command_ledger)
 	hud.command_pressed.connect(hud.command_ledger.toggle)
-
-
-## The towns ledger is the same sibling sheet: its own canvas layer above the
-## pause menu, opened by the realm ledger's towns door or the B key
-## (DR-20261115-12).
-static func _towns(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "TownLedgerLayer"
-	layer.layer = 6
-	hud.add_child(layer)
 	hud.towns_ledger = TownLedgerPanel.new()
-	layer.add_child(hud.towns_ledger)
+	HudLedgerDoors.mount(hud, "TownLedgerLayer", hud.towns_ledger)
 	hud.towns_pressed.connect(hud.towns_ledger.toggle)
-
-
-## The muster roll's navy door opens the crown's navy: the roll names each
-## squadron by her flagship, and the hull sheet is the whole of what she flies
-## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
-static func _navy(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "NavalLedgerLayer"
-	layer.layer = 6
-	hud.add_child(layer)
+	hud.walls_ledger = WallLedgerPanel.new()
+	HudLedgerDoors.mount(hud, "WallLedgerLayer", hud.walls_ledger)
+	hud.walls_pressed.connect(hud.walls_ledger.toggle)
+	hud.hospitals_ledger = HospitalLedgerPanel.new()
+	HudLedgerDoors.mount(hud, "HospitalLedgerLayer", hud.hospitals_ledger)
+	hud.hospitals_pressed.connect(hud.hospitals_ledger.toggle)
 	hud.navy_ledger = NavalLedgerPanel.new()
-	layer.add_child(hud.navy_ledger)
+	HudLedgerDoors.mount(hud, "NavalLedgerLayer", hud.navy_ledger)
 	hud.navy_pressed.connect(hud.navy_ledger.toggle)
+	# The muster roll's navy door opens the crown's navy: the roll names each
+	# squadron by her flagship, and the hull sheet is the whole of what she flies
+	# (REQ-P5-01, REQ-P5-03; DR-20261115-14).
 	hud.muster_roll.navy_pressed.connect(func() -> void: hud.navy_pressed.emit())

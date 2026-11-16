@@ -55,6 +55,8 @@ static func matching(row_list: Array, filter_key: String) -> Array[Dictionary]:
 
 static func _matches(row: Dictionary, filter_key: String) -> bool:
 	match filter_key:
+		"ready":
+			return bool(row.get("can_build", false))
 		"producing":
 			return int(row.get("output", 0)) > 0
 		"building":
@@ -64,6 +66,22 @@ static func _matches(row: Dictionary, filter_key: String) -> bool:
 		"issues":
 			return String(row.get("status", "")) in ["disconnected", "unprospected"]
 	return true
+
+
+## Every estate the view prints that a press could order now, in the order it
+## prints them: the row's own Build gate (`can_build` — the level, the tech and
+## terrain caps, the survey, the free Builder and the stores), so the one press
+## files exactly what the crown can see and never a step the order would refuse
+## (REQ-P2-03, REQ-P5-04; DR-20261116-06).
+static func ready_tiles(
+	groups: Array[Dictionary], filter_key: String
+) -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = []
+	for group: Dictionary in groups:
+		for row: Dictionary in matching(group["rows"], filter_key):
+			if bool(row.get("can_build", false)):
+				tiles.append(row["tile"])
+	return tiles
 
 
 ## Sum of every projected yield in a totals table.

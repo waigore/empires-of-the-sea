@@ -179,6 +179,35 @@ func test_snapshot_ranks_every_crown_and_exposes_the_metrics() -> void:
 	assert_ne(JSON.stringify(snapshot), "", "the snapshot is JSON-safe")
 
 
+func test_market_reading_names_the_book_food_against_every_courts_ration() -> void:
+	# Issue #766 clause 3: the book's food supply against the courts' demand is a
+	# reading on the turn trace, so the acceptance never needs a throwaway probe.
+	var play: PlaySession = _screen.play
+	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
+	var market: Dictionary = snapshot["market"] as Dictionary
+	var offered: int = 0
+	for offer: Dictionary in play.economy.market.minor_offers:
+		if CommodityCatalog.is_food(String(offer["commodity"])):
+			offered += int(offer["quantity"])
+	var demand: int = 0
+	for raw: Dictionary in (snapshot["rows"] as Array):
+		demand += int((raw["larder"] as Dictionary)["wanted"])
+	assert_gt(demand, 0, "a resolved turn's courts all eat")
+	assert_eq(
+		int(market["minor_food"]), offered,
+		"minor_food is the food tonnage the book offers, not every offer row"
+	)
+	assert_eq(
+		int(market["ration_demand"]), demand,
+		"ration_demand sums every court's larder"
+	)
+	assert_eq(
+		int(market["food_gap"]), maxi(demand - offered, 0),
+		"food_gap is the book's food against the courts' demand"
+	)
+	assert_true(market.has("minor_offers"), "the offer-row count still prints")
+
+
 func test_observer_former_crown_plays_through_the_planners() -> void:
 	var play: PlaySession = _screen.play
 	var economy: PlayerEconomy = play.ai.economy_for(play.player_faction)
@@ -564,6 +593,80 @@ func test_court_reader_counts_the_order_of_battle() -> void:
 			play.ship_layer.hull_count_all(faction),
 			"hulls read the whole navy"
 		)
+
+
+## One published pass: the panel, the calendar's declared winner and the
+## observer all read the strength and hulls `public_orders` builds, so a new
+## regiment moves every published score together (wiki: diplomacy § Great Power
+## power score; REQ-P2-03, REQ-P3-02).
+func test_court_reader_publishes_one_order_of_battle() -> void:
+	_seat(0)
+	var play: PlaySession = _screen.play
+	var crowns: Array[int] = FactionCatalog.great_power_ids()
+	var owner: int = crowns[0]
+	var before: float = float(
+		MapPlayCourt.public_strength(play).get(owner, 0.0)
+	)
+	var region: int = play.region_index
+	var armies: Array[ArmyState] = MapPlayCourt.region_armies(play, region)
+	var province: int = int(play.world.region(region).provinces[0].id)
+	armies.append(
+		ArmyState.muster(9201, owner, province, false, ["knights"])
+	)
+	play.army_layer.regions.set_region(region, armies)
+	var orders: Dictionary = MapPlayCourt.public_orders(play)
+	var strength: Dictionary = orders["strength"]
+	var ships: Dictionary = orders["ships"]
+	assert_almost_eq(
+		float(strength.get(owner, 0.0)), before + 6.0, 0.001,
+		"a knight adds its FPN + FPM to the published strength"
+	)
+	for faction: int in crowns:
+		assert_eq(
+			int(ships.get(faction, 0)), MapPlayCourt.ships(play, faction),
+			"the published hulls read the same navy"
+		)
+	assert_eq(
+		int(MapPlayObserver.row(play, owner)["power"]),
+		AiPower.score(
+			play.world,
+			owner,
+			int(roundf(float(strength.get(owner, 0.0)))),
+			int(ships.get(owner, 0))
+		),
+		"the observer prints the published score, not its own arithmetic"
+	)
+
+
+## The observer row names the larder the next Consumption phase will eat — the
+## store, every mouth the phase feeds and the shortfall that strikes — so the
+## destitute-court signature is measured from a turn trace instead of a
+## throwaway probe (issues #676 clause 4, #766).
+func test_court_reader_names_the_larder_the_next_consumption_eats() -> void:
+	_seat(1)
+	var play: PlaySession = _screen.play
+	var owner: int = FactionCatalog.great_power_ids()[0]
+	var economy: PlayerEconomy = play.ledger_for(owner)
+	assert_true(economy != null, "the court keeps a ledger to read")
+	var larder: Dictionary = MapPlayObserver.row(play, owner)["larder"]
+	for key: String in ["store", "wanted", "army", "navy", "pool", "wards", "strikers", "short"]:
+		assert_true(larder.has(key), "the row names the larder's %s" % key)
+	assert_eq(
+		int(larder["wanted"]),
+		int(larder["army"]) + int(larder["navy"]) + int(larder["pool"]) + int(larder["wards"]),
+		"every mouth the phase feeds is counted once"
+	)
+	# A full larder covers every mouth and strikes no one.
+	economy.add("grain", int(larder["wanted"]) + 10)
+	var fed: Dictionary = MapPlayObserver.larder_reading(economy)
+	assert_true(int(fed["store"]) >= int(fed["wanted"]), "the store covers the mouths")
+	assert_eq(int(fed["strikers"]), 0, "a fed court strikes no one")
+	# The same mouths from an empty larder are the strike the signature measures.
+	economy.take("grain", economy.quantity("grain"))
+	economy.take("meat", economy.quantity("meat"))
+	var starved: Dictionary = MapPlayObserver.larder_reading(economy)
+	assert_true(int(starved["short"]) > 0, "the shortfall the store cannot cover is named")
+	assert_true(int(starved["strikers"]) > 0, "and the workforce strikes")
 
 
 func test_court_reader_counts_only_fighting_hulls() -> void:

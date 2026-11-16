@@ -124,6 +124,15 @@ static func merchant_court() -> DiplomacyState:
 	return state
 
 
+## Genoa's court at peace with no envoy chain at all, for openable-chain tests
+## (issue #724).
+static func merchant_court_unembarked() -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, 6, 1)
+	return state
+
+
 static func stockpile() -> Dictionary:
 	return {
 		"lumber": 40, "castIron": 40, "bronze": 10, "paper": 8, "steel": 8, "fabric": 20,

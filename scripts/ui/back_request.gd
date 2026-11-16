@@ -33,15 +33,16 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if gazette != null and gazette.is_shown():
 		gazette.dismiss()
 		return true
-	var roster: CivilianRosterPanel = play.hud.civilian_roster
-	if roster != null and roster.is_open():
-		roster.close()
+	# The crown's whole-empire sheets stand over the map: back sets the newest
+	# ledger a door opened aside first, so a phone never quits from under it
+	# (REQ-P5-07; DR-20261113-12, DR-20261115-09…14, DR-20261116-01…02).
+	if HudLedgerDoors.dismiss_open(play.hud):
 		return true
-	# The muster roll sits on the same layer as the roster, so back closes it
-	# before the dossiers (REQ-P5-07; DR-20261113-12).
-	var muster: ForceLedgerPanel = play.hud.muster_roll
-	if muster != null and muster.is_open():
-		muster.close()
+	# The college's chart is a sheet standing over the college, so back sets it
+	# aside before the ledger under it hears the press (DR-20261115-15).
+	var chart: TechTreePanel = play.hud.tech_tree if play.hud != null else null
+	if chart != null and chart.is_open():
+		chart.close()
 		return true
 	# The towns ledger is the realm's own door's sheet and stands above it, so
 	# it closes first (DR-20261115-12).

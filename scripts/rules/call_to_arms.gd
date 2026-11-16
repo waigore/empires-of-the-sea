@@ -26,7 +26,7 @@ static func on_war_declared(
 					ConsentCopy.call_toast({"aggressor": aggressor, "defender": defender})
 				)
 			continue
-		var join: bool = ai_joins(state, ally, defender)
+		var join: bool = ai_joins(state, ally, defender, aggressor)
 		var message: String = _resolve(state, ally, aggressor, defender, join)
 		if not message.is_empty():
 			messages.append(message)
@@ -54,10 +54,18 @@ static func candidates(state: DiplomacyState, aggressor: int, defender: int) -> 
 
 
 ## AI allies join while their relation with the defended ally holds at 50+
-## (DiplomacyCatalog.ALLY_DEFENCE_MIN_SCORE).
-static func ai_joins(state: DiplomacyState, ally: int, defender: int) -> bool:
+## (DiplomacyCatalog.ALLY_DEFENCE_MIN_SCORE). A court holding a non-aggression
+## pact with the aggressor burns it by joining, so it honours the call only from
+## a warmer standing (wiki: diplomacy § Alliances; issue #752).
+static func ai_joins(state: DiplomacyState, ally: int, defender: int, aggressor: int = -1) -> bool:
 	var record: DiplomacyRelation = state.relation(ally, defender)
-	return record != null and record.score >= DiplomacyCatalog.ALLY_DEFENCE_MIN_SCORE
+	if record == null or record.score < DiplomacyCatalog.ALLY_DEFENCE_MIN_SCORE:
+		return false
+	if aggressor >= 0 and DiplomacyRules.has_pact(state, ally, aggressor):
+		var with_aggressor: DiplomacyRelation = state.relation(ally, aggressor)
+		return with_aggressor != null \
+			and with_aggressor.score >= DiplomacyCatalog.ALLIANCE_CLAMP
+	return true
 
 
 static func has_pending(state: DiplomacyState, human: int) -> bool:
@@ -151,8 +159,11 @@ static func _resolve(
 
 
 ## Joining enters the war with the aggressor; its subsidies fall like any war's.
+## The join is a duty, not a declaration: the war gate is not asked, and the
+## war itself ends any pact or alliance the pair held (wiki: diplomacy
+## § GP–GP Rules — war invariant; issue #750).
 static func _join(state: DiplomacyState, ally: int, aggressor: int, defender: int) -> String:
-	var war: Dictionary = DiplomacyRules.declare_war(state, ally, aggressor, false)
+	var war: Dictionary = DiplomacyRules.enter_war(state, ally, aggressor)
 	if not bool(war.get("ok", false)):
 		return ""
 	state.touch(ally, defender, "callToArmsAccepted", {"aggressor": aggressor})

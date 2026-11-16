@@ -26,6 +26,11 @@ static func connect_views(play: PlaySession) -> void:
 		_connect_civilians(play, play.civilian_layer)
 	if play.improvements != null:
 		_connect_improvements(play, play.improvements)
+	# Auto mode's plaque and its pacing driver ride the HUD; the seat is bound
+	# here with every other view so a screen mount needs no extra call
+	# (wiki: auto-mode).
+	if play.hud != null and play.hud.auto_bar != null:
+		play.hud.auto_bar.bind(play, play.hud)
 
 
 ## Camera taps and pans: a tap is a map intent, a pan re-reads hover.
@@ -49,6 +54,8 @@ static func _connect_bar(play: PlaySession, hud: GameHud) -> void:
 	hud.diplomacy_pressed.connect(MapPlayDiplomacy.open.bind(play))
 	hud.diplomacy_order.connect(
 		func(kind: String, target: int, arg: String) -> void:
+			if MapPlayAuto.blocks_orders(play):
+				return
 			MapCourtOrders.apply(play, kind, target, arg)
 	)
 	hud.panel_action.connect(
@@ -56,15 +63,24 @@ static func _connect_bar(play: PlaySession, hud: GameHud) -> void:
 	)
 	hud.panel_closed.connect(MapPlayInput.deselect.bind(play))
 	hud.army_action.connect(
-		func(action: String) -> void: MapPlayArmies.on_action(play, action)
+		func(action: String) -> void:
+			if MapPlayAuto.blocks_orders(play):
+				return
+			MapPlayArmies.on_action(play, action)
 	)
 	hud.army_closed.connect(MapPlayInput.deselect.bind(play))
 	hud.fleet_action.connect(
-		func(action: String) -> void: MapPlayFleets.on_action(play, action)
+		func(action: String) -> void:
+			if MapPlayAuto.blocks_orders(play):
+				return
+			MapPlayFleets.on_action(play, action)
 	)
 	hud.fleet_closed.connect(MapPlayInput.deselect.bind(play))
 	hud.civilian_action.connect(
-		func(action: String) -> void: MapPlayCivilians.on_action(play, action)
+		func(action: String) -> void:
+			if MapPlayAuto.blocks_orders(play):
+				return
+			MapPlayCivilians.on_action(play, action)
 	)
 	hud.civilian_cancel.connect(MapPlayCivilians.on_cancel.bind(play))
 	hud.civilian_closed.connect(MapPlayInput.deselect.bind(play))
@@ -120,8 +136,16 @@ static func _connect_civilians(play: PlaySession, civilians: CivilianLayer) -> v
 static func _connect_improvements(play: PlaySession, improvements: ImprovementPanel) -> void:
 	improvements.action_pressed.connect(
 		func(action: String, tile: Vector2i) -> void:
+			if MapPlayAuto.blocks_orders(play):
+				return
 			MapPlayImprovements.on_action(play, action, tile)
 	)
 	improvements.focus_pressed.connect(
 		func(tile: Vector2i) -> void: MapPlayImprovements.on_action(play, "focus", tile)
+	)
+	improvements.raise_all_pressed.connect(
+		func(tiles: Array) -> void:
+			if MapPlayAuto.blocks_orders(play):
+				return
+			MapPlayImprovements.raise_all(play, tiles)
 	)

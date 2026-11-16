@@ -301,10 +301,13 @@ static func _resolve(
 
 
 ## Joining declares war on the aggressor; the embassy in the victim court stands.
+## The join is a duty, not a declaration: the war gate is not asked, and the war
+## itself ends any pact or alliance the pair held (wiki: diplomacy
+## § GP–GP Rules — war invariant; issue #750).
 static func _intervene(
 	state: DiplomacyState, court: int, aggressor: int, target: int
 ) -> String:
-	var war: Dictionary = DiplomacyRules.declare_war(state, court, aggressor, false)
+	var war: Dictionary = DiplomacyRules.enter_war(state, court, aggressor)
 	if not bool(war.get("ok", false)):
 		return ""
 	state.record_event("interventionIntervened", court, target, {"aggressor": aggressor})

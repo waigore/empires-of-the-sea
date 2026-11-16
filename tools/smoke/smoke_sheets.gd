@@ -1,9 +1,10 @@
 extends RefCounted
 ## Fifth step of the e2e smoke: every sheet and reading the bar can raise — the
 ## crown-road and defence lenses with their keys, the muster roll, the province
-## ledger, the crown's towns, the crown's eyes, the command pool and the crown's
-## navy — opened from the door the player uses and set aside without placing an
-## order (DR-20261113-12, DR-20261115-09/10/11/12/14).
+## ledger, the crown's towns, the crown's walls, the crown's hospitals, the
+## crown's eyes, the command pool and the crown's navy — opened from the door the
+## player uses and set aside without placing an order (DR-20261113-12,
+## DR-20261115-09/10/11/12/14, DR-20261116-01/02).
 ##
 ## No `class_name`: the driver (tools/e2e_smoke.gd) preloads this file.
 
@@ -16,6 +17,8 @@ static func step(run) -> void:
 	await _muster_roll(run, screen)
 	await _province_ledger(run, screen)
 	await _town_ledger(run, screen)
+	await _wall_ledger(run, screen)
+	await _hospital_ledger(run, screen)
 	await _spy_ledger(run, screen)
 	await _command_ledger(run, screen)
 	await _navy_ledger(run, screen)
@@ -99,7 +102,7 @@ static func _muster_roll(run, screen: MapScreen) -> void:
 	run.check(run.has_text(panel._rows, "strength"), "a row prints its strength")
 	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
 	await run.tree.process_frame
-	run.check(panel._kind == ForceLedger.KIND_SQUADRON, "the ledger narrows to squadrons")
+	run.check(panel._reading == ForceLedger.KIND_SQUADRON, "the ledger narrows to squadrons")
 	var only_squadrons: bool = true
 	for child: Node in panel._rows.get_children():
 		var row := child as ForceLedgerRow
@@ -134,7 +137,7 @@ static func _province_ledger(run, screen: MapScreen) -> void:
 	panel._on_filter(ProvinceLedger.FILTER_UNGARRISONED, false)
 	await run.tree.process_frame
 	run.check(
-		panel._filter == ProvinceLedger.FILTER_UNGARRISONED, "the ledger narrows to one reading"
+		panel._reading == ProvinceLedger.FILTER_UNGARRISONED, "the ledger narrows to one reading"
 	)
 	panel.close()
 	await run.tree.process_frame
@@ -172,10 +175,85 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 	)
 	panel._on_filter(TownLedger.FILTER_READY, false)
 	await run.tree.process_frame
-	run.check(panel._filter == TownLedger.FILTER_READY, "the ledger narrows to one reading")
+	run.check(panel._reading == TownLedger.FILTER_READY, "the ledger narrows to one reading")
+	# The one press that files every ready step arms on the first tap and files on
+	# the second; the smoke only arms it, so no Builder is sent (DR-20261116-03).
+	var press: RaiseBatchPress = panel._batch
+	run.check(press != null, "the towns sheet carries the batch press")
+	if press != null and press.visible:
+		press.pressed.emit()
+		run.check(press.is_armed(), "the batch press arms on the first tap")
+		run.check(press.text.begins_with("Confirm"), "and names the confirm")
+		press.disarm()
+		run.check(not press.is_armed(), "and forgets the arm")
+	elif press != null:
+		run.check(
+			panel._ready_targets().is_empty(), "a view with no ready step carries no press"
+		)
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the towns ledger sets itself aside")
+
+
+## The walls ledger: the realm ledger's Walls door raises the crown's walls on
+## the real map and sets itself aside (DR-20261116-01). No Engineer is sent.
+static func _wall_ledger(run, screen: MapScreen) -> void:
+	run.check(screen.hud.walls_ledger != null, "walls ledger mounted")
+	screen.hud.provinces_pressed.emit()
+	await run.tree.process_frame
+	var door: Button = null
+	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Walls ›":
+			door = button
+			break
+	run.check(door != null, "the realm ledger carries the walls door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await run.tree.process_frame
+	var panel: WallLedgerPanel = screen.hud.walls_ledger
+	run.check(panel.is_open(), "the walls ledger opens from the realm's door")
+	run.check(int(panel._snapshot.get("total", 0)) > 0, "the ledger lists the crown's walls")
+	run.check(run.has_text(panel._rows, "Fort") or run.has_text(panel._rows, "wall"),
+		"a row reads the wall that stands or the one next")
+	panel.close()
+	await run.tree.process_frame
+	run.check(not panel.is_open(), "the walls ledger sets itself aside")
+
+
+## The hospitals ledger: the realm ledger's Hospitals door raises the crown's
+## wards on the real map, prints the step a ward waits on and sets itself aside
+## (DR-20261116-02). No Engineer is sent, so no order is placed.
+static func _hospital_ledger(run, screen: MapScreen) -> void:
+	run.check(screen.hud.hospitals_ledger != null, "hospitals ledger mounted")
+	screen.hud.provinces_pressed.emit()
+	await run.tree.process_frame
+	var door: Button = null
+	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text == "Hospitals ›":
+			door = button
+			break
+	run.check(door != null, "the realm ledger carries the hospitals door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await run.tree.process_frame
+	var panel: HospitalLedgerPanel = screen.hud.hospitals_ledger
+	run.check(panel.is_open(), "the hospitals ledger opens from the realm's door")
+	run.check(int(panel._snapshot.get("total", 0)) > 0, "the ledger lists the crown's wards")
+	run.check(
+		run.has_text(panel._rows, "READY")
+		or run.has_text(panel._rows, "AT WORK")
+		or run.has_text(panel._rows, "NO ENGINEER")
+		or run.has_text(panel._rows, "LOCKED")
+		or run.has_text(panel._rows, "WARDED"),
+		"a row names what its ward waits on"
+	)
+	panel.close()
+	await run.tree.process_frame
+	run.check(not panel.is_open(), "the hospitals ledger sets itself aside")
 
 
 ## The crown's eyes: the court ledger's EYES door raises the intelligence

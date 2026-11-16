@@ -68,18 +68,28 @@ func town_level() -> int:
 	return clampi(maxi(town_development, 1), 1, 4)
 
 
-func is_town_tile(tile: Vector2i) -> bool:
+## The tile a town order is filed on: the province's own town, or the seat on a
+## hand-built chart that predates town assignment; (-1, -1) when it carries
+## neither. The row a raise sheet prints, the press it offers and the Builder's
+## order all read this one rule, so a sheet can never name a site the order does
+## not use (REQ-P2-03).
+func town_site() -> Vector2i:
 	if town_tile.x >= 0:
-		return town_tile == tile
-	if capital and capital_tile.x >= 0:
-		return capital_tile == tile
-	return false
+		return town_tile
+	if capital:
+		return capital_tile
+	return Vector2i(-1, -1)
+
+
+func is_town_tile(tile: Vector2i) -> bool:
+	var site: Vector2i = town_site()
+	return site.x >= 0 and site == tile
 
 
 ## A province with a town tile, or a capital with a seat, has a town to raise
 ## (hand-built maps predate town assignment and fall back to the seat).
 func has_town() -> bool:
-	return town_tile.x >= 0 or (capital and capital_tile.x >= 0)
+	return town_site().x >= 0
 
 
 func clear_resource_tile_if(tile: Vector2i) -> void:

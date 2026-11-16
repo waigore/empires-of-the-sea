@@ -20,6 +20,7 @@ const SAMPLES: Dictionary = {
 	"peaceMade": {},
 	"allianceFormed": {},
 	"allianceBroken": {},
+	"napBroken": {},
 	"callToArmsAccepted": {"aggressor": 2},
 	"callToArmsRefused": {"aggressor": 2},
 	"interventionIntervened": {"aggressor": 2},
@@ -53,6 +54,7 @@ const VOICED: Dictionary = {
 	"peaceMade": {},
 	"allianceFormed": {},
 	"allianceBroken": {},
+	"napBroken": {},
 	"callToArmsAccepted": {"aggressor": 2},
 	"callToArmsRefused": {"aggressor": 2},
 	"interventionIntervened": {"aggressor": 2},
@@ -275,6 +277,68 @@ func test_newly_created_relation_skips_its_creation_turn() -> void:
 	state.end_turn()
 	assert_eq(state.relation(0, tribe).score, 40.0)
 
+## wiki: diplomacy § Relation Model — trade-deal boost (R10). A pair that cleared
+## a world-market deal is lifted +2.0 the next Diplomacy phase, before decay, so
+## it is event-modified and does not also drift.
+func test_a_traded_pair_is_lifted_before_decay() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 50.0
+	state.relation(0, 7).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 52.0, "+2.0 base, no embassy")
+	assert_eq(state.relation(0, 7).score, 50.0, "a pair that did not trade is unchanged")
+
+func test_the_trade_lift_adds_the_embassy_bonus() -> void:
+	_setup_diplomacy_state()
+	# GP–GP pairs are seeded at embassy, so the lift carries the +0.4 bonus.
+	state.relation(0, 1).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 1)
+	state.end_turn()
+	assert_eq(state.relation(0, 1).score, 52.4, "+2.0 base +0.4 embassy")
+
+func test_the_trade_lift_scales_with_the_subsidy() -> void:
+	_setup_diplomacy_state()
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_subsidy(0, 6, 10)
+	state.relation(0, 6).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 54.4, "+2.0 +0.4 embassy +2.0 for 10%")
+
+func test_the_trade_lift_is_paid_once_per_pair() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 50.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	DiplomacyTrade.record_deal(state, 6, 0)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 52.0, "volume-independent, once per pair")
+	assert_true(state.trade_pairs.is_empty(), "the phase consumes the record")
+
+func test_a_war_pair_keeps_its_frozen_score() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 30.0
+	state.relation(0, 6).at_war = true
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 30.0, "war scores are frozen")
+
+func test_the_trade_lift_clamps_at_one_hundred() -> void:
+	_setup_diplomacy_state()
+	state.relation(0, 6).score = 99.0
+	DiplomacyTrade.record_deal(state, 0, 6)
+	state.end_turn()
+	assert_eq(state.relation(0, 6).score, 100.0)
+
+func test_only_a_court_deal_with_a_great_power_is_recorded() -> void:
+	_setup_diplomacy_state()
+	DiplomacyTrade.record_deal(state, -1, 0)
+	DiplomacyTrade.record_deal(state, 6, 7)
+	DiplomacyTrade.record_deal(state, 0, 0)
+	assert_true(state.trade_pairs.is_empty(), "no court pair, no lift")
+	DiplomacyTrade.record_deal(state, 0, 6)
+	assert_true(state.trade_pairs.has(DiplomacyKeys.pair(0, 6)))
+
 func test_subsidies_survive_while_the_embassy_stands() -> void:
 	_setup_diplomacy_state()
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
@@ -315,11 +379,69 @@ func test_absorbed_faction_leaves_no_relations_or_colonies() -> void:
 	state.set_colony(9, 6)
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_NAP)
 	state.set_subsidy(0, 6, 5)
-	state.clear_relations_of(6)
+	DiplomacyLifetime.absorb(state, 6)
 	assert_false(state.has_relation(0, 6))
 	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_NONE)
 	assert_eq(state.subsidy(0, 6), 0)
 	assert_eq(state.colony_of(9), -1)
+
+
+# --- diplomacy_keys / diplomacy_lifetime ---
+
+func test_the_key_vocabulary_writes_and_reads_either_way() -> void:
+	assert_eq(DiplomacyKeys.pair(6, 0), DiplomacyKeys.pair(0, 6), "a pair key has no direction")
+	assert_eq(DiplomacyKeys.pair(0, 6), "0:6")
+	assert_eq(DiplomacyKeys.pair_courts("0:6"), Vector2i(0, 6))
+	assert_eq(DiplomacyKeys.directed(6, 0), "6>0", "a directive keeps its arrow")
+	assert_eq(DiplomacyKeys.directed_courts("6>0"), Vector2i(6, 0))
+	assert_eq(DiplomacyKeys.claim("ftp", 2, 3), "ftp:2>3")
+	assert_true(DiplomacyKeys.touches("0:6", 6), "a court on either side of a pair")
+	assert_true(DiplomacyKeys.touches("6>0", 6), "or of a directive")
+	assert_false(DiplomacyKeys.touches("lonely", 6), "a junk key names no court")
+	assert_eq(DiplomacyKeys.pair_courts("lonely"), Vector2i(-1, -1), "junk reads as nobody")
+
+func test_lifetime_open_seats_every_great_power_at_embassy() -> void:
+	var fresh := DiplomacyState.new()
+	DiplomacyLifetime.open(fresh, 7)
+	assert_eq(fresh.turn, 7)
+	assert_eq(fresh.relations.size(), 111, "the same opening ledger as initialize")
+	assert_eq(fresh.overture(0, 5), DiplomacyCatalog.STAGE_EMBASSY)
+	assert_eq(fresh.overture(5, 0), DiplomacyCatalog.STAGE_EMBASSY, "both ways")
+
+func test_absorbing_a_crown_clears_every_table_it_touched() -> void:
+	_setup_diplomacy_trade()
+	var loser: int = 1
+	diplomacy_trade_state.ftps[DiplomacyKeys.pair(0, loser)] = diplomacy_trade_state.turn
+	diplomacy_trade_state.boycotts[DiplomacyKeys.directed(loser, 0)] = diplomacy_trade_state.turn
+	diplomacy_trade_state.alliance_snapshot[DiplomacyKeys.pair(0, loser)] = true
+	diplomacy_trade_state.set_colony(9, loser)
+	diplomacy_trade_state.pending_calls.append({"aggressor": 0, "defender": 2, "ally": loser})
+	diplomacy_trade_state.pending_interventions.append(
+		{"aggressor": loser, "target": 2, "court": 0}
+	)
+	diplomacy_trade_state.pending_offers.append({"from": loser, "kind": "peace", "stage": ""})
+	DiplomacyLifetime.absorb(diplomacy_trade_state, loser)
+	assert_false(diplomacy_trade_state.ftps.has(DiplomacyKeys.pair(0, loser)))
+	assert_false(diplomacy_trade_state.boycotts.has(DiplomacyKeys.directed(loser, 0)))
+	assert_false(diplomacy_trade_state.alliance_snapshot.has(DiplomacyKeys.pair(0, loser)))
+	assert_eq(diplomacy_trade_state.colony_of(9), -1)
+	assert_true(diplomacy_trade_state.pending_calls.is_empty(), "no call waits on a lost court")
+	assert_true(diplomacy_trade_state.pending_interventions.is_empty())
+	assert_true(diplomacy_trade_state.pending_offers.is_empty())
+	var released: bool = false
+	for event: Dictionary in diplomacy_trade_state.events:
+		released = released or String(event["kind"]) == "colonyReleased"
+	assert_true(released, "the tribe is told it stands alone again")
+
+
+## The state's public sweep is the lifetime module's absorb, not a second copy of
+## it: the map and the overtures still call the state's name (api-stable).
+func test_the_states_sweep_defers_to_the_lifetime_module() -> void:
+	_setup_diplomacy_state()
+	state.set_subsidy(0, 6, 5)
+	state.clear_relations_of(6)
+	assert_false(state.has_relation(0, 6))
+	assert_eq(state.subsidy(0, 6), 0)
 
 func test_consulate_gate_reads_the_overture_chain() -> void:
 	_setup_diplomacy_state()
@@ -386,7 +508,9 @@ func test_the_sealed_relation_number_never_reaches_the_page() -> void:
 func test_a_war_records_the_overtures_it_ends() -> void:
 	_setup_diplomacy_history()
 	diplomacy_history_state.set_overture(0, 6, DiplomacyCatalog.STAGE_NAP)
-	DiplomacyRules.declare_war(diplomacy_history_state, 0, 6)
+	# A pact is binding, so the war reaches the pair through the third-party
+	# entry (a duty), which ends the treaties with the war itself (issue #750).
+	DiplomacyRules.enter_war(diplomacy_history_state, 0, 6)
 	assert_true(_has_event("overturesCleared"), "the lost NAP is written down")
 	assert_true(
 		_diplomacy_history_joined(DiplomacyHistory.entries(diplomacy_history_state, 0, 6)).contains("ended the overtures")
@@ -576,6 +700,10 @@ func _has_text(node: Node, needle: String) -> bool:
 func test_accepting_an_alliance_proposal_signs_the_treaty() -> void:
 	_setup_diplomacy_proposals()
 	diplomacy_proposals_state.relation(0, 2).score = 80.0
+	# The alliance rides on the pact, so the proposal queues one court that
+	# holds it (wiki: diplomacy § Alliances; issue #750).
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	var queued: Dictionary = DiplomacyProposals.queue(
 		diplomacy_proposals_state, null, 2, DiplomacyProposals.KIND_ALLIANCE
 	)
@@ -593,6 +721,8 @@ func test_accepting_an_alliance_proposal_signs_the_treaty() -> void:
 func test_refusing_an_alliance_proposal_leaves_the_courts_at_peace() -> void:
 	_setup_diplomacy_proposals()
 	diplomacy_proposals_state.relation(0, 2).score = 80.0
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	DiplomacyProposals.queue(diplomacy_proposals_state, null, 2, DiplomacyProposals.KIND_ALLIANCE)
 	var answer: Dictionary = DiplomacyProposals.resolve_human(diplomacy_proposals_state, null, false)
 	assert_true(answer["ok"], answer.get("reason", ""))
@@ -630,6 +760,10 @@ func test_only_one_proposal_waits_on_the_court() -> void:
 	_setup_diplomacy_proposals()
 	diplomacy_proposals_state.relation(0, 2).score = 80.0
 	diplomacy_proposals_state.relation(0, 3).score = 80.0
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(0, 3, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(3, 0, DiplomacyCatalog.STAGE_NAP)
 	assert_true(DiplomacyProposals.queue(diplomacy_proposals_state, null, 2, DiplomacyProposals.KIND_ALLIANCE)["ok"])
 	var second: Dictionary = DiplomacyProposals.queue(
 		diplomacy_proposals_state, null, 3, DiplomacyProposals.KIND_ALLIANCE
@@ -794,7 +928,9 @@ func test_an_allied_court_proposes_a_formal_alliance() -> void:
 	fresh.reset(1)
 	fresh.ensure_relation(0, 2, 1)
 	fresh.relation(0, 2).score = 80.0
-	fresh.set_overture(2, 0, DiplomacyCatalog.STAGE_EMBASSY)
+	# The pact the alliance requires stands (wiki: diplomacy § Alliances; #750).
+	fresh.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	fresh.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
 	var config: AiConfig = AiConfig.build(2, 1500)
 	config.personality = AiPersonality.NEUTRAL
 	config.agenda_traits = AiAgenda.NEUTRAL
@@ -983,6 +1119,20 @@ func test_subsidy_terms_publish_only_real_pairs() -> void:
 	assert_eq(terms.size(), 1)
 	assert_eq(int(terms["0>9"]), 10)
 
+
+## The banner names the largest step this crown pays, read back through the same
+## key vocabulary that published it (wiki: world-market § Subsidy price
+## adjustment).
+func test_the_banner_reads_the_largest_subsidy_this_crown_pays() -> void:
+	var market := WorldMarket.with_default_prices()
+	assert_eq(MarketRules.subsidy_rate_paid(null, 0), 0)
+	assert_eq(MarketRules.subsidy_rate_paid(market, 0), 0)
+	market.subsidy_terms[DiplomacyKeys.directed(0, 6)] = 10
+	market.subsidy_terms[DiplomacyKeys.directed(0, 7)] = 15
+	market.subsidy_terms[DiplomacyKeys.directed(6, 0)] = 20
+	market.subsidy_terms["lonely"] = 25
+	assert_eq(MarketRules.subsidy_rate_paid(market, 0), 15, "only what this crown pays")
+
 func test_the_market_charges_a_crowns_buy_and_sell_terms() -> void:
 	_setup_diplomacy_trade()
 	var market := WorldMarket.with_default_prices()
@@ -1099,7 +1249,7 @@ func test_a_subsidy_without_an_embassy_explains_itself() -> void:
 func test_terms_stay_inside_the_rails() -> void:
 	_setup_diplomacy_trade()
 	for other: int in [10, 11, 12, 13, 14, 15]:
-		diplomacy_trade_state.ftps[diplomacy_trade_state.pair_key(0, other)] = diplomacy_trade_state.turn
+		diplomacy_trade_state.ftps[DiplomacyKeys.pair(0, other)] = diplomacy_trade_state.turn
 	var terms: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(
 		float(terms["buy"]["*"]), DiplomacyCatalog.TERMS_BUY_MIN, 0.001, "buy floor"
@@ -1126,9 +1276,9 @@ func test_absorbing_a_crown_clears_its_trade_ties() -> void:
 	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
 	diplomacy_trade_state.set_colony(9, 0)
 	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
-	diplomacy_trade_state.clear_relations_of(1)
+	DiplomacyLifetime.absorb(diplomacy_trade_state, 1)
 	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1), "the pact dies with the court")
-	diplomacy_trade_state.clear_relations_of(2)
+	DiplomacyLifetime.absorb(diplomacy_trade_state, 2)
 	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "so does its boycott")
 
 func test_every_trade_gate_says_why_it_refuses() -> void:
@@ -1262,7 +1412,9 @@ func test_declare_war_sets_war_and_keeps_gp_auto_embassy() -> void:
 	diplomacy_orders_state.relation(0, 1).score = 60.0
 	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
 	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
-	var result: Dictionary = _apply("declare_war", 1)
+	# A pact binds the pair, so the war reaches it through the duty entry and
+	# ends the treaties with the war itself (wiki: diplomacy § Alliances; #750).
+	var result: Dictionary = DiplomacyRules.enter_war(diplomacy_orders_state, 0, 1)
 	assert_true(result["ok"], result.get("reason", ""))
 	assert_true(diplomacy_orders_state.relation(0, 1).at_war)
 	assert_eq(diplomacy_orders_state.relation(0, 1).score, 60.0, "war freezes the score")
@@ -1306,6 +1458,8 @@ func test_hostile_great_power_refuses_white_peace() -> void:
 func test_alliance_clamps_into_the_allied_band() -> void:
 	_setup_diplomacy_orders()
 	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
 	var result: Dictionary = _apply("alliance", 1)
 	assert_true(result["ok"], result.get("reason", ""))
 	assert_true(bool(result["accepted"]))
@@ -1317,6 +1471,8 @@ func test_alliance_clamps_into_the_allied_band() -> void:
 func test_alliance_offer_can_be_refused_below_allied_standing() -> void:
 	_setup_diplomacy_orders()
 	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
 	var result: Dictionary = _apply("alliance", 1)
 	assert_true(result["ok"], result.get("reason", ""))
 	assert_false(bool(result["accepted"]))
@@ -1345,6 +1501,8 @@ func test_alliance_needs_a_warmer_court() -> void:
 	_setup_diplomacy_orders()
 	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 1)
 	record.score = 50.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
 	var result: Dictionary = _apply("alliance", 1)
 	assert_false(result["ok"])
 	# The sheet reads Neutral at 50, so the refusal names warmth instead of a
@@ -1352,6 +1510,158 @@ func test_alliance_needs_a_warmer_court() -> void:
 	# § Player-facing relation display).
 	assert_true(String(result["reason"]).contains("warm"), String(result["reason"]))
 	assert_false(_names_a_herald_word(String(result["reason"])), String(result["reason"]))
+
+# --- binding pacts (issue #750) ---
+
+func test_a_pact_binds_the_war_until_it_is_broken() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var shut: Dictionary = _apply("declare_war", 1)
+	assert_false(shut["ok"])
+	assert_true(String(shut["reason"]).contains("non-aggression pact"), String(shut["reason"]))
+	# A Join Empire stage keeps the pact's ban alive as well.
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	assert_false(_apply("declare_war", 1)["ok"], "the later rung still carries the pact")
+
+func test_an_alliance_binds_the_war_too() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var shut: Dictionary = _apply("declare_war", 1)
+	assert_false(shut["ok"])
+	assert_true(String(shut["reason"]).contains("formal alliance"), String(shut["reason"]))
+
+func test_an_alliance_needs_the_pact() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	var result: Dictionary = _apply("alliance", 1)
+	assert_false(result["ok"])
+	assert_true(
+		String(result["reason"]).contains("non-aggression pact"), String(result["reason"])
+	)
+
+func test_breaking_the_pact_costs_the_partner_and_the_web() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var result: Dictionary = _apply("break_nap", 1)
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_false(DiplomacyRules.has_pact(diplomacy_orders_state, 0, 1), "the pact is gone")
+	assert_eq(diplomacy_orders_state.relation(0, 1).score, 40.0, "−20 with the partner")
+	assert_eq(diplomacy_orders_state.relation(0, 2).score, 47.0, "−3 to another court")
+	assert_eq(diplomacy_orders_state.relation(0, 6).score, 47.0, "−3 to a Minor the court knows")
+	assert_eq(diplomacy_orders_state.overture(0, 1), DiplomacyCatalog.STAGE_EMBASSY, "the embassy survives")
+	assert_eq(diplomacy_orders_state.overture(1, 0), DiplomacyCatalog.STAGE_EMBASSY)
+	assert_true(_orders_event("napBroken"))
+
+func test_breaking_the_pact_opens_the_war_next_turn() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	_apply("break_nap", 1)
+	var same_turn: Dictionary = _apply("declare_war", 1)
+	assert_false(same_turn["ok"], "one full turn must pass")
+	assert_true(String(same_turn["reason"]).contains("must wait"), String(same_turn["reason"]))
+	diplomacy_orders_state.end_turn()
+	var war: Dictionary = _apply("declare_war", 1)
+	assert_true(war["ok"], war.get("reason", ""))
+
+func test_breaking_the_pact_clears_the_alliance_at_its_price() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	diplomacy_orders_state.relation(0, 6).score = 80.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var result: Dictionary = _apply("break_nap", 1)
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_false(diplomacy_orders_state.relation(0, 1).formal_alliance, "the alliance rides the pact")
+	assert_eq(diplomacy_orders_state.relation(0, 1).score, 30.0, "−50 with the partner")
+	assert_eq(diplomacy_orders_state.relation(0, 2).score, 40.0, "−10 cascade to a Great Power")
+	assert_eq(diplomacy_orders_state.relation(0, 6).score, 80.0, "the Minor is out of the alliance cascade")
+	assert_false(_apply("break_alliance", 1)["ok"], "no alliance left to break")
+
+func test_breaking_the_alliance_leaves_the_pact() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var broken: Dictionary = _apply("break_alliance", 1)
+	assert_true(broken["ok"], broken.get("reason", ""))
+	assert_false(diplomacy_orders_state.relation(0, 1).formal_alliance)
+	assert_true(DiplomacyRules.has_pact(diplomacy_orders_state, 0, 1), "the pact survives the alliance break")
+	assert_false(_apply("declare_war", 1)["ok"], "the pact still bans the war")
+	_apply("break_nap", 1)
+	diplomacy_orders_state.end_turn()
+	assert_true(_apply("declare_war", 1)["ok"], "the broken pact opens the war next turn")
+
+func test_the_pact_break_stamp_survives_a_save() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 60.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	_apply("break_nap", 1)
+	var captured: Dictionary = SaveCourt.capture_diplomacy(diplomacy_orders_state)
+	var restored: DiplomacyState = SaveCourt._diplomacy_from(captured)
+	assert_eq(restored.relation(0, 1).treaty_break_turn, 1, "the lock loads back")
+	assert_false(DiplomacyRules.has_pact(restored, 0, 1))
+	assert_eq(restored.overture(0, 1), DiplomacyCatalog.STAGE_EMBASSY)
+
+func test_the_court_menu_offers_the_pact_break_and_gates_the_alliance() -> void:
+	_setup_diplomacy_orders()
+	var before: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	assert_false(_diplomacy_orders_has(before, "break_nap"), "no pact, no break")
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var pacted: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	assert_true(_diplomacy_orders_has(pacted, "break_nap"), "the pact has its way out")
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	var both: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	assert_true(_diplomacy_orders_has(both, "break_alliance"))
+	assert_true(_diplomacy_orders_has(both, "break_nap"), "the pact break clears both treaties")
+
+func test_the_court_menu_names_the_price_of_each_break() -> void:
+	_setup_diplomacy_orders()
+	diplomacy_orders_state.relation(0, 1).score = 80.0
+	diplomacy_orders_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var pacted: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	var nap_hint: String = String(_diplomacy_orders_first(pacted, "break_nap").get("hint", ""))
+	assert_true(nap_hint.contains("−20"), nap_hint)
+	assert_true(nap_hint.contains("−3"), nap_hint)
+	assert_true(nap_hint.contains("war must wait"), nap_hint)
+	# An alliance riding the pact is paid at the alliance price, and the menu
+	# says so before the court takes it (wiki: diplomacy § Breaking a pact).
+	diplomacy_orders_state.relation(0, 1).formal_alliance = true
+	var both: Array[Dictionary] = DiplomacyOrders.options(diplomacy_orders_state, null, 2500, 0, 1)
+	var both_hint: String = String(_diplomacy_orders_first(both, "break_nap").get("hint", ""))
+	assert_true(both_hint.contains("−50"), both_hint)
+	assert_true(both_hint.contains("−10"), both_hint)
+	assert_true(both_hint.contains("alliance end at once"), both_hint)
+	var ally_hint: String = String(
+		_diplomacy_orders_first(both, "break_alliance").get("hint", "")
+	)
+	assert_true(ally_hint.contains("−50"), ally_hint)
+	assert_true(ally_hint.contains("−10"), ally_hint)
+	assert_true(ally_hint.contains("pact survives"), ally_hint)
+
+func _orders_event(kind: String) -> bool:
+	for event: Dictionary in diplomacy_orders_state.events:
+		if String(event.get("kind", "")) == kind:
+			return true
+	return false
+
+func _diplomacy_orders_has(options: Array[Dictionary], kind: String) -> bool:
+	return not _diplomacy_orders_first(options, kind).is_empty()
 
 func test_overture_chain_pays_once_per_stage_and_turn() -> void:
 	_setup_diplomacy_orders()
@@ -1498,16 +1808,41 @@ func test_join_empire_absorbs_a_nearly_defeated_great_power() -> void:
 	assert_false(diplomacy_orders_state.has_relation(0, 2))
 	assert_eq(diplomacy_orders_economy.treasury, 19000)
 
-func test_join_empire_refuses_a_great_power_still_holding_its_capital() -> void:
+func test_join_empire_is_refused_by_a_great_power_still_holding_its_capital() -> void:
 	_setup_diplomacy_orders()
 	var world: WorldMap = _world([0, 2, 2, 2], [1])
 	diplomacy_orders_state.relation(0, 2).score = 60.0
 	diplomacy_orders_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
 	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
 	diplomacy_orders_economy.treasury = 30000
+	# The offer is always open; the answer is the gate (wiki: diplomacy
+	# § Join Empire; issue #750). Without a power read the nearly defeated
+	# criterion answers, and a crown holding its seat is not nearly defeated.
 	var result: Dictionary = _apply("overture", 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, world)
-	assert_false(result["ok"])
-	assert_true(String(result["reason"]).contains("nearly defeated"))
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_false(bool(result["accepted"]), "the court declines absorption")
+	assert_true(
+		String(result["message"]).contains("declines"), String(result["message"])
+	)
+	assert_true(diplomacy_orders_state.has_relation(0, 2), "the court stands")
+
+func test_join_empire_accepts_a_court_that_cannot_stand_alone() -> void:
+	# No crown is nearly defeated, but the offerer's published power is at least
+	# twice the target's: standing alone is hopeless (issue #750).
+	_setup_diplomacy_orders()
+	var world: WorldMap = _world([0, 2, 2, 2], [1])
+	diplomacy_orders_state.relation(0, 2).score = 60.0
+	diplomacy_orders_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_economy.treasury = 30000
+	var result: Dictionary = DiplomacyOvertures.establish_overture(
+		diplomacy_orders_state, diplomacy_orders_economy, world, 0, 2,
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, diplomacy_orders_economy.tech_unlocked,
+		DiplomacyRules.DECISION_AUTO, {0: 100, 2: 20}
+	)
+	assert_true(result["ok"], result.get("reason", ""))
+	assert_true(bool(result["accepted"]), "the hopeless crown accepts")
+	assert_false(diplomacy_orders_state.has_relation(0, 2), "absorbed")
 
 func test_the_join_empire_gate_is_not_the_heralds_word() -> void:
 	_setup_diplomacy_orders()
@@ -1918,6 +2253,34 @@ func test_answering_without_a_waiting_call_is_refused() -> void:
 	assert_false(answer["ok"])
 	assert_false(call_to_arms_state.relation(0, 3).at_war)
 
+# --- binding pacts at a call to arms (issue #750) ---
+
+func test_a_duty_join_clears_the_pact_with_the_aggressor() -> void:
+	_setup_call_to_arms()
+	_ally(1, 2, 80.0)
+	call_to_arms_state.set_overture(1, 3, DiplomacyCatalog.STAGE_NAP)
+	call_to_arms_state.set_overture(3, 1, DiplomacyCatalog.STAGE_NAP)
+	# The declaration itself is shut by the pact; the duty is not asked at the
+	# gate, and the war ends the treaties the same turn the pair stands opposed.
+	assert_false(DiplomacyRules.declare_war(call_to_arms_state, 1, 3)["ok"])
+	call_to_arms_state.relation(1, 3).score = 80.0
+	var war: Dictionary = DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
+	assert_true(war["ok"], war.get("reason", ""))
+	assert_true(call_to_arms_state.relation(1, 3).at_war, "England joins the war")
+	assert_false(DiplomacyRules.has_pact(call_to_arms_state, 1, 3), "the pact ends at once")
+	assert_eq(call_to_arms_state.overture(1, 3), DiplomacyCatalog.STAGE_EMBASSY)
+
+func test_an_ally_holding_a_pact_with_the_aggressor_joins_only_warm() -> void:
+	_setup_call_to_arms()
+	_ally(1, 2, 80.0)
+	call_to_arms_state.set_overture(1, 3, DiplomacyCatalog.STAGE_NAP)
+	call_to_arms_state.set_overture(3, 1, DiplomacyCatalog.STAGE_NAP)
+	# A cold court burns no pact for a cold ally: it refuses and pays the
+	# alliance price instead.
+	assert_false(CallToArms.ai_joins(call_to_arms_state, 1, 2, 3))
+	call_to_arms_state.relation(1, 3).score = 80.0
+	assert_true(CallToArms.ai_joins(call_to_arms_state, 1, 2, 3), "a warm court honours the duty")
+
 func _ally(a: int, b: int, score: float) -> void:
 	var record: DiplomacyRelation = call_to_arms_state.relation(a, b)
 	record.formal_alliance = true
@@ -1979,6 +2342,18 @@ func test_intervening_joins_the_war_and_keeps_the_embassy() -> void:
 	assert_eq(intervention_state.overture(0, 6), DiplomacyCatalog.STAGE_EMBASSY)
 	assert_false(Intervention.has_pending(intervention_state, 0))
 	assert_true(_intervention_event("interventionIntervened"))
+
+func test_intervening_through_a_pact_clears_it_in_the_same_turn() -> void:
+	_setup_intervention()
+	intervention_state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	intervention_state.set_overture(0, 3, DiplomacyCatalog.STAGE_NAP)
+	intervention_state.set_overture(3, 0, DiplomacyCatalog.STAGE_NAP)
+	assert_false(DiplomacyRules.declare_war(intervention_state, 0, 3)["ok"], "the pact binds the direct war")
+	DiplomacyRules.declare_war(intervention_state, 3, 6)
+	var answer: Dictionary = Intervention.resolve_human(intervention_state, Intervention.KIND_INTERVENE)
+	assert_true(answer["ok"], answer.get("reason", ""))
+	assert_true(intervention_state.relation(0, 3).at_war, "the duty is honoured")
+	assert_false(DiplomacyRules.has_pact(intervention_state, 0, 3), "the pact ends the turn the pair stands opposed")
 
 func test_standing_aside_costs_the_embassy_and_subsidy() -> void:
 	_setup_intervention()
@@ -2102,7 +2477,7 @@ func test_an_absorbed_faction_drops_its_waiting_offer() -> void:
 	intervention_state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(intervention_state, 3, 6)
 	assert_true(Intervention.has_pending(intervention_state, 0))
-	intervention_state.clear_relations_of(6)
+	DiplomacyLifetime.absorb(intervention_state, 6)
 	assert_false(Intervention.has_pending(intervention_state, 0))
 
 ## Wiki: diplomacy § GP–Minor Rules § Join Empire — an absorbed crown leaves the
@@ -2113,7 +2488,7 @@ func test_an_absorbed_aggressor_drops_its_waiting_call_to_arms() -> void:
 	_ally(0, 2, 80.0)
 	DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
 	assert_true(CallToArms.has_pending(call_to_arms_state, 0), "the court is asked")
-	call_to_arms_state.clear_relations_of(3)
+	DiplomacyLifetime.absorb(call_to_arms_state, 3)
 	assert_false(
 		CallToArms.has_pending(call_to_arms_state, 0),
 		"the aggressor left play, so the call goes with it"
@@ -2125,7 +2500,7 @@ func test_an_absorbed_defender_drops_the_call_too() -> void:
 	_ally(0, 2, 80.0)
 	DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
 	assert_true(CallToArms.has_pending(call_to_arms_state, 0), "the court is asked")
-	call_to_arms_state.clear_relations_of(2)
+	DiplomacyLifetime.absorb(call_to_arms_state, 2)
 	assert_false(CallToArms.has_pending(call_to_arms_state, 0))
 
 ## The frozen mutual-defence map is a treaty record as well: a pair whose court
@@ -2135,7 +2510,7 @@ func test_an_absorbed_faction_leaves_no_frozen_alliance() -> void:
 	_ally(1, 2, 80.0)
 	CallToArms.freeze_alliances(call_to_arms_state)
 	assert_true(CallToArms.allied_in_snapshot(call_to_arms_state, 1, 2))
-	call_to_arms_state.clear_relations_of(2)
+	DiplomacyLifetime.absorb(call_to_arms_state, 2)
 	assert_false(
 		CallToArms.allied_in_snapshot(call_to_arms_state, 1, 2),
 		"the pact is not a record we keep of a crown that left play"
@@ -3331,3 +3706,616 @@ func _land_battle(
 		"outcome": outcome,
 		"battle_mode": mode,
 	}
+
+# --- the consent ladder ---
+
+## The consent ladder: which blocking decision the court answers first, and the words a new
+## order is refused with while one waits (wiki: diplomacy § Alliances § Mutual defence, §
+## Intervention, § Court proposals). Pure state: the ladder reads the pending queues the
+## three rules own, so a case needs no world, no screen and no turn.
+
+func _free_court() -> DiplomacyState:
+	var state: DiplomacyState = DiplomacyState.new()
+	state.human_faction = 0
+	return state
+
+
+func _offer(state: DiplomacyState, from_id: int = 2) -> void:
+	state.pending_offers.append(
+		{"from": from_id, "kind": DiplomacyProposals.KIND_PEACE, "stage": ""}
+	)
+
+
+func _intervention(state: DiplomacyState, court: int = 0) -> void:
+	state.pending_interventions.append(
+		{"aggressor": 3, "target": 6, "court": court}
+	)
+
+
+func _call(state: DiplomacyState, ally: int = 0) -> void:
+	state.pending_calls.append({"aggressor": 3, "defender": 2, "ally": ally})
+
+
+func test_a_free_court_owes_no_answer() -> void:
+	assert_eq(ConsentLadder.pending_kind(_free_court(), 0), "")
+
+
+func test_a_missing_ledger_owes_no_answer() -> void:
+	assert_eq(ConsentLadder.pending_kind(null, 0), "")
+
+
+func test_a_rival_proposal_waits_last() -> void:
+	var state: DiplomacyState = _free_court()
+	_offer(state)
+	assert_eq(ConsentLadder.pending_kind(state, 0), ConsentLadder.OFFER)
+
+
+func test_an_intervention_outranks_a_proposal() -> void:
+	var state: DiplomacyState = _free_court()
+	_offer(state)
+	_intervention(state)
+	assert_eq(ConsentLadder.pending_kind(state, 0), ConsentLadder.INTERVENTION)
+
+
+func test_a_call_to_arms_comes_first() -> void:
+	var state: DiplomacyState = _free_court()
+	_offer(state)
+	_intervention(state)
+	_call(state)
+	assert_eq(ConsentLadder.pending_kind(state, 0), ConsentLadder.CALL)
+
+
+## The ladder answers for the court named, not for whoever holds a decision.
+func test_the_ladder_reads_the_named_court() -> void:
+	var state: DiplomacyState = _free_court()
+	_call(state, 2)
+	_offer(state)
+	assert_eq(ConsentLadder.pending_kind(state, 0), ConsentLadder.OFFER)
+	assert_eq(ConsentLadder.pending_kind(state, 2), ConsentLadder.CALL)
+
+
+## A new order's refusal names the answer the court owes first, in the ladder's
+## own order.
+func test_the_refusal_names_the_answer_owed() -> void:
+	assert_eq(ConsentCopy.held(ConsentLadder.CALL), "Answer the call to arms first.")
+	assert_eq(
+		ConsentCopy.held(ConsentLadder.INTERVENTION), "Answer the intervention first."
+	)
+	assert_eq(ConsentCopy.held(ConsentLadder.OFFER), "Answer the proposal first.")
+
+# --- espionage ---
+
+## One boot for espionage: spy networks, the evidence an agent gathers and the dossier the
+## court reads (wiki: civilian-units § Spy).
+
+const Fixture = preload("res://tests/civilian_fixture.gd")
+const intel_dossier_Fixture = preload("res://tests/map_fixture.gd")
+
+const PLAYER: int = 0
+const RIVAL: int = 1
+const MINOR: int = 6
+const intel_evidence_VIEWER: int = 0
+const intel_evidence_ENGLAND: int = 1
+const intel_evidence_GENOA: int = 6
+const intel_evidence_PORTUGAL: int = 3
+const intel_dossier_VIEWER: int = 0
+const intel_dossier_ENGLAND: int = 1
+const intel_dossier_GENOA: int = 6
+const intel_dossier_PORTUGAL: int = 3
+
+var intel_evidence_state: DiplomacyState
+var intel_dossier_state: DiplomacyState
+
+
+var _spy_model: MapModel = null
+var _spy_suite_setup: String = ""
+
+
+func _setup_spy_networks() -> void:
+	_spy_suite_setup = "spy_networks"
+	_spy_model = Fixture.build()
+
+func _setup_intel_evidence() -> void:
+	_spy_suite_setup = "intel_evidence"
+	intel_evidence_state = DiplomacyState.new()
+	intel_evidence_state.initialize(1)
+
+func _setup_intel_dossier() -> void:
+	_spy_suite_setup = "intel_dossier"
+	intel_dossier_state = DiplomacyState.new()
+	intel_dossier_state.initialize(1)
+
+# --- test_spy_networks ---
+
+func _spy(tile: Vector2i, owner: int = PLAYER) -> CivilianState:
+	return CivilianState.create(1, owner, "spy", tile)
+
+func test_a_spy_on_a_rival_great_powers_land_shadows_that_court() -> void:
+	_setup_spy_networks()
+	# (3, 1) sits in province 1, owned by Great Power 1.
+	var rivals: Array[int] = SpyNetworks.qualifying_rivals(
+		_spy_model, [_spy(Vector2i(3, 1))], PLAYER
+	)
+	assert_eq(rivals, [RIVAL])
+
+func test_a_spy_on_the_crowns_own_land_shadows_nobody() -> void:
+	_setup_spy_networks()
+	var rivals: Array[int] = SpyNetworks.qualifying_rivals(
+		_spy_model, [_spy(Vector2i(1, 1))], PLAYER
+	)
+	assert_eq(rivals, [], "own soil is no rival court")
+
+func test_minor_nations_and_tribes_are_not_research_rivals() -> void:
+	_setup_spy_networks()
+	var model: MapModel = Fixture.build_minor()
+	# build_minor() province 1 belongs to Minor Nation 6.
+	var rivals: Array[int] = SpyNetworks.qualifying_rivals(
+		model, [_spy(Vector2i(2, 1))], PLAYER
+	)
+	assert_eq(rivals, [], "the wiki names rival Great Powers only")
+	assert_eq(model.province_owner(1), MINOR, "fixture sanity")
+
+func test_two_spies_in_one_court_shadow_it_once() -> void:
+	_setup_spy_networks()
+	var units: Array[CivilianState] = [
+		_spy(Vector2i(3, 0)), _spy(Vector2i(3, 1)),
+	]
+	var rivals: Array[int] = SpyNetworks.qualifying_rivals(_spy_model, units, PLAYER)
+	assert_eq(rivals, [RIVAL], "one court, one share")
+
+func test_each_shadowed_court_counts_its_own_land() -> void:
+	_setup_spy_networks()
+	var model: MapModel = _three_courts_map()
+	var units: Array[CivilianState] = [
+		_spy(Vector2i(2, 1)), _spy(Vector2i(4, 1)),
+	]
+	var rivals: Array[int] = SpyNetworks.qualifying_rivals(model, units, PLAYER)
+	assert_eq(rivals, [RIVAL, 2], "ascending, one entry per court")
+	assert_eq(SpyNetworks.rival_names(rivals), "England, France")
+
+func test_a_deed_putting_land_in_a_crowns_hands_counts_as_its_land() -> void:
+	_setup_spy_networks()
+	# An England-owned deed inside Genoa's province makes England the host.
+	var model: MapModel = Fixture.build_minor()
+	assert_true(model.purchase_tile(Vector2i(3, 1), RIVAL))
+	var rivals: Array[int] = SpyNetworks.qualifying_rivals(
+		model, [_spy(Vector2i(3, 1))], PLAYER
+	)
+	assert_eq(rivals, [RIVAL])
+
+func test_an_offscreen_spy_reads_nothing() -> void:
+	_setup_spy_networks()
+	var rivals: Array[int] = SpyNetworks.qualifying_rivals(
+		_spy_model, [_spy(Vector2i(99, 99))], PLAYER
+	)
+	assert_eq(rivals, [])
+
+func test_a_boost_lands_only_on_techs_the_shadowed_court_already_knows() -> void:
+	_setup_spy_networks()
+	var boost: Dictionary = SpyNetworks.research_boost(
+		[RIVAL], {RIVAL: {"navigation": true, "land_enclosure": false}}
+	)
+	assert_eq(SpyNetworks.boost_for(boost, "navigation"), 15)
+	assert_eq(SpyNetworks.boost_for(boost, "land_enclosure"), 0, "locked tech")
+	assert_eq(SpyNetworks.boost_for(boost, "saw_mill"), 0, "unknown tech")
+
+func test_two_shadowed_courts_stack_on_a_shared_advance() -> void:
+	_setup_spy_networks()
+	var boost: Dictionary = SpyNetworks.research_boost(
+		[RIVAL, 2],
+		{
+			RIVAL: {"navigation": true},
+			2: {"navigation": true, "saw_mill": true},
+		}
+	)
+	assert_eq(SpyNetworks.boost_for(boost, "navigation"), 30)
+	assert_eq(SpyNetworks.boost_for(boost, "saw_mill"), 15)
+
+func test_no_rivals_means_no_boost() -> void:
+	_setup_spy_networks()
+	assert_true(SpyNetworks.research_boost([], {}).is_empty())
+	assert_eq(SpyNetworks.boost_for({}, "navigation"), 0)
+
+## Six tiles wide: the crown's province, England's, then France's.
+func _three_courts_map() -> MapModel:
+	var model := MapModel.new()
+	model.setup(6, 3)
+	var mine: Array[Vector2i] = []
+	var england: Array[Vector2i] = []
+	var france: Array[Vector2i] = []
+	for y in 3:
+		for x in 6:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			if x < 2:
+				model.province[model.index_of(x, y)] = 0
+				mine.append(tile)
+			elif x < 4:
+				model.province[model.index_of(x, y)] = 1
+				england.append(tile)
+			else:
+				model.province[model.index_of(x, y)] = 2
+				france.append(tile)
+	var provinces: Array[ProvinceState] = [
+		ProvinceState.create(0, "Cádiz", mine, Vector2(0.5, 1.0), mine.size(), PLAYER, true),
+		ProvinceState.create(1, "Plymouth", england, Vector2(2.5, 1.0), england.size(), 1, false),
+		ProvinceState.create(2, "Brest", france, Vector2(4.5, 1.0), france.size(), 2, false),
+	]
+	model.provinces = provinces
+	return model
+
+# --- test_intel_evidence ---
+
+func test_evidence_is_capped_and_newest_first_intel_evidence() -> void:
+	_setup_intel_evidence()
+	for index in 60:
+		intel_evidence_state.turn = 1 + index
+		intel_evidence_state.record_event("warDeclared", intel_evidence_ENGLAND, intel_evidence_GENOA)
+	var entries: Array[Dictionary] = IntelEvidence.collect(intel_evidence_state, null, intel_evidence_VIEWER, intel_evidence_ENGLAND)
+	assert_eq(entries.size(), IntelEvidence.EVIDENCE_CAP, "the read is capped at 50")
+	assert_eq(int(entries[0]["turn"]), 60, "the newest observation leads")
+	assert_eq(int(entries[entries.size() - 1]["turn"]), 11, "the oldest drop first")
+
+func test_an_unmet_court_is_named_not_leaked_intel_evidence() -> void:
+	_setup_intel_evidence()
+	intel_evidence_state.record_event("callToArmsRefused", intel_evidence_ENGLAND, 9, {"aggressor": intel_evidence_PORTUGAL})
+	var text: String = String((IntelEvidence.collect(intel_evidence_state, null, intel_evidence_VIEWER, intel_evidence_ENGLAND)[0])["text"])
+	assert_true(text.contains(IntelEvidence.UNKNOWN_COURT), "the stranger stays masked")
+	assert_false(text.contains("Aztec"), "its name never reaches the page")
+
+## The despatch narrates the turn that resolved, though the spy reports after the
+## calendar has advanced: the observation keeps its own turn.
+func test_a_despatch_keeps_the_turn_it_resolved_intel_evidence() -> void:
+	_setup_intel_evidence()
+	intel_evidence_state.turn = 9
+	intel_evidence_state.record_event(
+		IntelEvidence.SPY_TECH, intel_evidence_ENGLAND, intel_evidence_VIEWER,
+		{"tech": "crop_rotation", IntelEvidence.OBSERVED_TURN: 8}
+	)
+	var entries: Array[Dictionary] = IntelEvidence.collect(intel_evidence_state, null, intel_evidence_VIEWER, intel_evidence_ENGLAND)
+	assert_eq(int(entries[0]["turn"]), 8, "the act belongs to the turn it resolved")
+	intel_evidence_state.record_event("warDeclared", intel_evidence_ENGLAND, intel_evidence_GENOA)
+	assert_eq(IntelEvidence.turn_of(intel_evidence_state.events[1]), 9, "a plain act keeps the chronicle stamp")
+
+func test_a_viewer_reads_nothing_about_itself() -> void:
+	_setup_intel_evidence()
+	intel_evidence_state.record_event("warDeclared", intel_evidence_VIEWER, intel_evidence_GENOA)
+	assert_true(IntelEvidence.collect(intel_evidence_state, null, intel_evidence_VIEWER, intel_evidence_VIEWER).is_empty())
+
+func test_a_missing_world_counts_no_provinces() -> void:
+	_setup_intel_evidence()
+	assert_eq(IntelEvidence.provinces(null, intel_evidence_ENGLAND), 0)
+
+# --- test_intel_dossier ---
+
+func test_the_bands_follow_the_dossier_table() -> void:
+	_setup_intel_dossier()
+	var cases: Dictionary = {
+		0: ["Unknown", 0], 2: ["Unknown", 0],
+		3: ["Possible", 25], 5: ["Possible", 25],
+		6: ["Likely", 60], 8: ["Likely", 60],
+		9: ["Almost certain", 85], 10: ["Almost certain", 85],
+		11: ["Confirmed", 100], 20: ["Confirmed", 100],
+	}
+	for score: int in cases.keys():
+		var band: Dictionary = IntelDossier.band_for(score)
+		assert_eq(String(band["label"]), String(cases[score][0]), "band at %d" % score)
+		assert_eq(int(band["confidence"]), int(cases[score][1]), "confidence at %d" % score)
+	assert_eq(String(IntelDossier.band_for(-4)["label"]), "Unknown", "a negative never reads")
+
+func test_a_declaration_of_war_reads_as_a_warmonger() -> void:
+	_setup_intel_dossier()
+	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_GENOA)
+	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
+	assert_eq(int(scores.get(AiAgenda.WARMONGER, 0)), IntelEvidence.W_WAR, "the act is evidence")
+	assert_true(
+		(IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)["guess"] as Dictionary).is_empty(),
+		"one act alone stays below Possible"
+	)
+
+func test_breaking_an_alliance_reads_as_a_backstabber() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.relation(intel_dossier_ENGLAND, intel_dossier_VIEWER).score = 80.0
+	# The alliance rides on the pact (wiki: diplomacy § Alliances; issue #750).
+	intel_dossier_state.set_overture(intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyCatalog.STAGE_NAP)
+	intel_dossier_state.set_overture(intel_dossier_VIEWER, intel_dossier_ENGLAND, DiplomacyCatalog.STAGE_NAP)
+	DiplomacyRules.form_alliance(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyRules.DECISION_ACCEPT)
+	DiplomacyTreaties.break_alliance(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER)
+	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
+	assert_eq(int(scores.get(AiAgenda.BACKSTABBER, 0)), IntelEvidence.W_BREAK_ALLY)
+	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelEvidence.W_BREAK_ISOLATION)
+
+func test_a_war_on_a_former_ally_reads_as_a_backstabber() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.relation(intel_dossier_ENGLAND, intel_dossier_VIEWER).score = 80.0
+	intel_dossier_state.set_overture(intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyCatalog.STAGE_NAP)
+	intel_dossier_state.set_overture(intel_dossier_VIEWER, intel_dossier_ENGLAND, DiplomacyCatalog.STAGE_NAP)
+	DiplomacyRules.form_alliance(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER, DiplomacyRules.DECISION_ACCEPT)
+	# The binding path: the pact break clears the alliance and reads as the
+	# betrayal; the war it opens the next turn reads as the march (issue #750).
+	DiplomacyTreaties.break_nap(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER)
+	intel_dossier_state.end_turn()
+	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_VIEWER)
+	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
+	assert_eq(
+		int(scores.get(AiAgenda.BACKSTABBER, 0)),
+		IntelEvidence.W_BREAK_ALLY,
+		"the treaty it broke is what the reading weighs"
+	)
+	# The march: the break names the war it wanted, the declaration confirms it.
+	assert_eq(
+		int(scores.get(AiAgenda.WARMONGER, 0)),
+		IntelEvidence.W_WAR + IntelEvidence.W_WAR,
+	)
+
+func test_a_refused_call_to_arms_reads_as_isolationist() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event("callToArmsRefused", intel_dossier_ENGLAND, intel_dossier_PORTUGAL, {"aggressor": intel_dossier_VIEWER})
+	assert_eq(int(_scores(intel_dossier_ENGLAND).get(AiAgenda.ISOLATIONIST, 0)), IntelEvidence.W_CTA_REFUSED)
+
+func test_a_peace_and_an_intervention_read_as_a_peacemaker() -> void:
+	_setup_intel_dossier()
+	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_GENOA)
+	DiplomacyRules.make_peace(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_GENOA)
+	intel_dossier_state.record_event("interventionIntervened", intel_dossier_ENGLAND, intel_dossier_GENOA, {"aggressor": intel_dossier_PORTUGAL})
+	assert_eq(
+		int(_scores(intel_dossier_ENGLAND).get(AiAgenda.PEACEMAKER, 0)),
+		IntelEvidence.W_PEACE + IntelEvidence.W_INTERVENED,
+		"treaties and interventions add up"
+	)
+
+## A court that does not join the war but protests it still reads as a
+## peace-seeker, one point, and the dossier names the war it objected to
+## (DR-20261110-16).
+func test_a_protest_reads_as_a_quieter_peacemaker() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event(
+		"interventionProtest", intel_dossier_ENGLAND, intel_dossier_PORTUGAL,
+		{"target": intel_dossier_GENOA, "penalty": 10.0}
+	)
+	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
+	assert_eq(int(scores.get(AiAgenda.PEACEMAKER, 0)), IntelEvidence.W_PROTESTED)
+	assert_eq(
+		String((IntelDossier.evidence(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)[0])["text"]),
+		"Protested Portugal's war on Genoa."
+	)
+
+func test_a_weaker_neighbour_weighs_heavier() -> void:
+	_setup_intel_dossier()
+	var world: WorldMap = intel_dossier_Fixture.world()
+	var pair: Array[int] = _asym_pair()
+	var big: int = pair[0]
+	var small: int = pair[1]
+	intel_dossier_state.record_event("warDeclared", big, small)
+	var scores: Dictionary = _scores(big, world)
+	assert_eq(
+		int(scores.get(AiAgenda.WARMONGER, 0)),
+		IntelEvidence.W_WAR + IntelEvidence.W_WEAKER,
+		"striking downward is the warmonger's signature"
+	)
+	assert_eq(int(scores.get(AiAgenda.ENVY, 0)), 0, "no envy in striking a smaller court")
+
+func test_a_stronger_court_is_evidence_of_envy() -> void:
+	_setup_intel_dossier()
+	var world: WorldMap = intel_dossier_Fixture.world()
+	var pair: Array[int] = _asym_pair()
+	var big: int = pair[0]
+	var small: int = pair[1]
+	intel_dossier_state.record_event("warDeclared", small, big)
+	assert_eq(
+		int(_scores(small, world).get(AiAgenda.ENVY, 0)),
+		IntelEvidence.W_STRONGER,
+		"a smaller crown striking the one ahead reads as envy"
+	)
+
+func test_the_guess_needs_a_possible_band() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event("grantAid", intel_dossier_ENGLAND, intel_dossier_GENOA, {"amount": 1000})
+	assert_true((IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)["guess"] as Dictionary).is_empty())
+	intel_dossier_state.record_event("grantAid", intel_dossier_ENGLAND, intel_dossier_VIEWER, {"amount": 1000})
+	intel_dossier_state.record_event("allianceFormed", intel_dossier_ENGLAND, intel_dossier_PORTUGAL)
+	intel_dossier_state.record_event("grantAid", intel_dossier_ENGLAND, intel_dossier_PORTUGAL, {"amount": 1000})
+	var report: Dictionary = IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)
+	var guess: Dictionary = report["guess"] as Dictionary
+	assert_eq(String(guess["id"]), AiAgenda.PEACEMAKER, "three amiable acts reach Possible")
+	assert_eq(String(guess["band"]), "Possible")
+	assert_eq(int(guess["confidence"]), 25)
+
+func test_evidence_is_capped_and_newest_first_intel_dossier() -> void:
+	_setup_intel_dossier()
+	for index in 60:
+		intel_dossier_state.turn = 1 + index
+		intel_dossier_state.record_event("warDeclared", intel_dossier_ENGLAND, intel_dossier_GENOA)
+	var entries: Array[Dictionary] = IntelDossier.evidence(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)
+	assert_eq(entries.size(), IntelEvidence.EVIDENCE_CAP, "the dossier is capped at 50")
+	assert_eq(int(entries[0]["turn"]), 60, "the newest observation leads")
+	assert_eq(int(entries[entries.size() - 1]["turn"]), 11, "the oldest drop first")
+
+func test_only_the_subjects_own_acts_count() -> void:
+	_setup_intel_dossier()
+	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_PORTUGAL, intel_dossier_GENOA)
+	assert_true(_scores(intel_dossier_GENOA).is_empty(), "the target of an act is not its author")
+	intel_dossier_state.record_event("warDeclared", intel_dossier_VIEWER, intel_dossier_GENOA)
+	assert_true(_scores(intel_dossier_ENGLAND).is_empty(), "another crown's war stays out")
+
+func test_the_reading_never_holds_the_true_agenda() -> void:
+	_setup_intel_dossier()
+	var report: Dictionary = IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)
+	for key: String in ["subject", "evidence", "agendas", "guess", "notes"]:
+		assert_true(report.has(key), "the report carries %s" % key)
+	assert_false(report.has("agenda"), "no true agenda can leak through the report")
+	for row: Dictionary in report["agendas"] as Array:
+		assert_true(
+			["Unknown", "Possible", "Likely", "Almost certain", "Confirmed"].has(String(row["band"])),
+			"every row is a band, never a verdict"
+		)
+	assert_eq((report["agendas"] as Array).size(), AiAgenda.IDS.size(), "all six are weighed")
+
+func test_an_unmet_court_is_named_not_leaked_intel_dossier() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event("callToArmsRefused", intel_dossier_ENGLAND, 9, {"aggressor": intel_dossier_PORTUGAL})
+	var text: String = String((IntelDossier.evidence(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)[0])["text"])
+	assert_true(text.contains(IntelEvidence.UNKNOWN_COURT), "the stranger stays masked")
+	assert_false(text.contains("Aztec"), "its name never reaches the page")
+
+func test_the_notes_count_public_behaviour() -> void:
+	_setup_intel_dossier()
+	var world: WorldMap = intel_dossier_Fixture.world()
+	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_GENOA)
+	intel_dossier_state.record_event("callToArmsRefused", intel_dossier_ENGLAND, intel_dossier_PORTUGAL, {"aggressor": intel_dossier_VIEWER})
+	var notes: Dictionary = IntelDossier.report(intel_dossier_state, world, intel_dossier_VIEWER, intel_dossier_ENGLAND)["notes"] as Dictionary
+	assert_eq(int(notes["war"]), 1)
+	assert_eq(int(notes["refused"]), 1)
+	assert_eq(
+		int(notes["province"]),
+		DiplomacyRules.provinces_owned(world, intel_dossier_ENGLAND),
+		"the holding count is the shared public score, not a private tally"
+	)
+
+func test_offers_aid_and_absorption_are_read_and_spoken() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event("proposalAccepted", intel_dossier_PORTUGAL, intel_dossier_ENGLAND, {"kind": "alliance", "stage": ""})
+	intel_dossier_state.record_event("grantAid", intel_dossier_ENGLAND, intel_dossier_GENOA, {"amount": 1000})
+	intel_dossier_state.record_event("joinEmpire", intel_dossier_ENGLAND, intel_dossier_GENOA, {})
+	intel_dossier_state.record_event("interventionDoNothing", intel_dossier_ENGLAND, intel_dossier_GENOA, {"aggressor": intel_dossier_PORTUGAL})
+	var text: String = _joined(IntelDossier.evidence(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND))
+	assert_true(text.contains("Accepted Portugal's offer of a formal alliance."), text)
+	assert_true(text.contains("Stood aside while Portugal made war on Genoa."), text)
+	assert_true(text.contains("Sent aid to Genoa."), text)
+	assert_true(text.contains("Absorbed Genoa into its empire."), text)
+	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
+	assert_eq(
+		int(scores.get(AiAgenda.PEACEMAKER, 0)),
+		IntelEvidence.W_ACCEPTED_OFFER + IntelEvidence.W_AID,
+		"an answered offer and aid both read as peacemaking"
+	)
+	assert_eq(int(scores.get(AiAgenda.WARMONGER, 0)), IntelEvidence.W_ABSORB)
+	assert_eq(int(scores.get(AiAgenda.ISOLATIONIST, 0)), IntelEvidence.W_STOOD_ASIDE)
+
+func test_a_quiet_court_has_an_empty_dossier() -> void:
+	_setup_intel_dossier()
+	var report: Dictionary = IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_GENOA)
+	assert_true((report["evidence"] as Array).is_empty())
+	assert_true((report["guess"] as Dictionary).is_empty())
+	assert_true(_scores(intel_dossier_GENOA).is_empty())
+
+## A study is invisible to every crown but the one that posted the spy, so the
+## court report is its only path into the dossier and it reads as tech-catching
+## (DR-20261110-25).
+func test_a_study_seen_by_a_spy_reads_as_a_tech_thief() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event(IntelEvidence.SPY_TECH, intel_dossier_ENGLAND, intel_dossier_VIEWER, {"tech": "crop_rotation"})
+	var scores: Dictionary = _scores(intel_dossier_ENGLAND)
+	assert_eq(int(scores.get(AiAgenda.TECH_THIEF, 0)), IntelEvidence.W_SPY_TECH)
+	assert_eq(
+		String(IntelDossier.evidence(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)[0]["text"]),
+		"Finished Crop Rotation while our spy watched."
+	)
+
+## The despatch narrates the turn that resolved, though the spy reports after the
+## calendar has advanced: the observation keeps its own turn.
+func test_a_despatch_keeps_the_turn_it_resolved_intel_dossier() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.turn = 9
+	intel_dossier_state.record_event(
+		IntelEvidence.SPY_TECH, intel_dossier_ENGLAND, intel_dossier_VIEWER,
+		{"tech": "crop_rotation", IntelEvidence.OBSERVED_TURN: 8}
+	)
+	var entries: Array[Dictionary] = IntelDossier.evidence(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)
+	assert_eq(int(entries[0]["turn"]), 8, "the act belongs to the turn it resolved")
+	intel_dossier_state.record_event("warDeclared", intel_dossier_ENGLAND, intel_dossier_GENOA)
+	assert_eq(IntelEvidence.turn_of(intel_dossier_state.events[1]), 9, "a plain act keeps the chronicle stamp")
+
+func test_only_the_crown_that_posted_the_spy_hears_of_a_study() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event(IntelEvidence.SPY_TECH, intel_dossier_ENGLAND, intel_dossier_PORTUGAL, {"tech": "crop_rotation"})
+	assert_true(_scores(intel_dossier_ENGLAND).is_empty(), "the despatch belongs to the court that paid for it")
+
+func test_two_studies_under_the_spy_eye_reach_possible() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event(IntelEvidence.SPY_TECH, intel_dossier_ENGLAND, intel_dossier_VIEWER, {"tech": "crop_rotation"})
+	intel_dossier_state.record_event(IntelEvidence.SPY_TECH, intel_dossier_ENGLAND, intel_dossier_VIEWER, {"tech": "cartography"})
+	var guess: Dictionary = IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)["guess"]
+	assert_eq(String(guess["band"]), "Possible")
+	assert_eq(String(guess["id"]), AiAgenda.TECH_THIEF)
+	assert_eq(
+		int((IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)["notes"])["spy_tech"]), 2
+	)
+
+## Each agenda carries the observations that fed it, so the full screen can show
+## one timeline per reading (DR-20261110-25).
+func test_every_agenda_carries_its_own_timeline() -> void:
+	_setup_intel_dossier()
+	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_GENOA)
+	intel_dossier_state.record_event("grantAid", intel_dossier_ENGLAND, intel_dossier_PORTUGAL, {"amount": 100})
+	var rows: Array = IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)["agendas"]
+	var war: Dictionary = _row(rows, AiAgenda.WARMONGER)
+	var war_line: Array = war["timeline"] as Array
+	assert_eq(war_line.size(), 1, "one act feeds the warmonger reading")
+	assert_eq(int((war_line[0] as Dictionary)["points"]), IntelEvidence.W_WAR)
+	assert_eq(String((war_line[0] as Dictionary)["text"]), "Declared war on Genoa.")
+	var peace: Dictionary = _row(rows, AiAgenda.PEACEMAKER)
+	assert_eq((peace["timeline"] as Array).size(), 1, "the aid feeds peacemaker")
+	assert_true(_row(rows, AiAgenda.ENVY)["timeline"].is_empty())
+
+## Build notes are behaviour, not suspicion: the spy's sightings are counted and
+## weigh on no agenda.
+func test_build_notes_come_from_the_spy_and_weigh_nothing() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event(
+		IntelEvidence.SPY_BUILD, intel_dossier_ENGLAND, intel_dossier_VIEWER, {"works": {"improvement": 2, "town": 1}}
+	)
+	var report: Dictionary = IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)
+	var build: Dictionary = (report["notes"] as Dictionary)["build"]
+	assert_eq(int(build["improvement"]), 2)
+	assert_eq(int(build["town"]), 1)
+	assert_true((report["evidence"] as Array).is_empty(), "a build is a theme, not evidence")
+	assert_true(_scores(intel_dossier_ENGLAND).is_empty())
+
+func test_another_crowns_spy_build_notes_stay_out() -> void:
+	_setup_intel_dossier()
+	intel_dossier_state.record_event(IntelEvidence.SPY_BUILD, intel_dossier_ENGLAND, intel_dossier_PORTUGAL, {"works": {"town": 3}})
+	var notes: Dictionary = IntelDossier.report(intel_dossier_state, null, intel_dossier_VIEWER, intel_dossier_ENGLAND)["notes"]
+	assert_true((notes["build"] as Dictionary).is_empty())
+
+func _row(rows: Array, id: String) -> Dictionary:
+	for raw: Variant in rows:
+		var row: Dictionary = raw as Dictionary
+		if String(row["id"]) == id:
+			return row
+	return {}
+
+func _scores(subject: int, world: WorldMap = null) -> Dictionary:
+	return IntelDossier.suspicion(IntelDossier.evidence(intel_dossier_state, world, intel_dossier_VIEWER, subject))
+
+func _joined(entries: Array[Dictionary]) -> String:
+	var parts: PackedStringArray = []
+	for entry: Dictionary in entries:
+		parts.append(String(entry["text"]))
+	return " | ".join(parts)
+
+## The widest gap in holdings between two courts other than the viewer, read
+## from the shared generated world (never mutated).
+func _asym_pair() -> Array[int]:
+	var world: WorldMap = intel_dossier_Fixture.world()
+	var ids: Array[int] = []
+	for faction: Dictionary in FactionCatalog.all():
+		var id: int = int(faction["id"])
+		if id != intel_dossier_VIEWER:
+			ids.append(id)
+	ids.sort()
+	var big: int = ids[0]
+	var small: int = ids[ids.size() - 1]
+	var best: int = -1
+	for a: int in ids:
+		for b: int in ids:
+			if a == b:
+				continue
+			var gap: int = (
+				DiplomacyRules.provinces_owned(world, a) - DiplomacyRules.provinces_owned(world, b)
+			)
+			if gap > best:
+				best = gap
+				big = a
+				small = b
+	return [big, small]

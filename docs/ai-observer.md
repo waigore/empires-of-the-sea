@@ -28,30 +28,15 @@ default setup faction), `--out=DIR` (default `user://ai_vs_ai`),
 ## Performance budget
 
 **One 200-turn run must finish in ≤ 7 minutes** wall clock (bench: seed 1500,
-Standard, `--ai=bench`). Every AI change is validated on it, so a run that
-outgrows the budget is a defect, not a slow machine.
+Standard, `--ai=bench`). A run that outgrows the budget is a defect, not a slow
+machine; the harness prints what it spent and names `OVER BUDGET` on stderr.
 
-The harness reports what it spent, line by line:
+What keeps a headless run inside it (keep these when editing): `view_live =
+false` skips the chart, dossier and panel follow-up (rules unchanged), and the
+grouped estate ledger reuses the ledger's network walk instead of a BFS per
+disconnected tile. A new per-turn full-map scan is what pushes a run over budget.
 
-```text
-Elapsed: 104.3s for 1 run(s) · 104.3s per run · budget 420s per run
-```
-
-An over-budget run still scores normally and is named `OVER BUDGET` on stderr.
-
-What keeps a headless run inside it (keep these when editing):
-
-| Lever | Why |
-|-------|-----|
-| `MapPlayTurn.view_live = false` | No chart on screen: the turn skips the lens/dossier/panel follow-up and the civilian marker sync. Rules outcome is unchanged. |
-| Grouped estate ledger | `EstateRows.project` reads the network walk the ledger already made instead of re-seeding a BFS per disconnected tile. |
-
-A new per-turn full-map scan (a fresh `LandConnectivity.resolve`, an
-`ImprovementLedger.snapshot` per unit) is what pushes a run over budget.
-
-Local bench needs mainline planners once:
-
-`python tools/sync_ai_mainline.py`
+Local bench needs mainline planners once: `python tools/sync_ai_mainline.py`.
 
 ## Planner modes (`AiControl`)
 
@@ -66,18 +51,26 @@ The hill scores **only the subject**.
 
 ## Metrics
 
-Every crown — the former human slot included — is driven when `AiControl.plans`
-allows. `MapPlayObserver.snapshot` reports per crown: leader, agenda, profile,
-`court_kind`, whether it plans, war footing, provinces / victory progress,
-power, forces, ledger, wars, last-turn order mix. Dashboard: recent-orders
-feed, pause / step / speed, campaign result. `play.ai_turns` keeps one merged
-record per turn (wiki: turn-trace-interpretation).
+`MapPlayObserver.snapshot` reports per crown: leader, agenda, profile,
+`court_kind`, war footing, provinces / victory progress, power, forces (hulls,
+warships, holds), ledger, wars, last-turn order mix and the market's prices.
+The market row also carries `minor_food` (the book's food tonnage),
+`ration_demand` (every court's appetite) and `food_gap` (#766).
+Dashboard: orders feed, pause / step / speed, campaign result. `play.ai_turns`
+keeps one merged record per turn (wiki: turn-trace-interpretation).
 
-## Export
+## Export and coverage
 
 `tools/ai_vs_ai.gd` writes `run_NN_turns.jsonl` and `run_NN_summary.json`
-(includes `ai_mode` / `ai_live` / `ai_baselines`) and prints a win-rate /
-average-provinces table across runs.
+(`ai_mode` / `ai_live` / `ai_baselines`) and prints a win-rate table.
+
+It then prints the **coverage checklist** (`AiCoverage`): every shipped rival
+rule — its order row or the ledger aim that prices it — with count, crowns and
+window, and a `never`/`gated` reading when none did. `army.muster` and
+`navy.launch` also report aim ranked vs funded, so a rule asked for and never
+paid for reads starved. A **major** rule left never-exercised fails a `--ai=full`
+run that reached its cap; a bench run or one cut short by victory only prints it
+(#605).
 
 ## Scope
 

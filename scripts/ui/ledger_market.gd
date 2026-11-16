@@ -32,6 +32,12 @@ var _compact: bool = false
 ## The crown reading the book: its own staged orders, deals, terms and subsidy.
 ## A player who sails as England must read England's trade, never Spain's.
 var _viewer: int = FactionCatalog.PLAYER_FACTION
+## The batch reading every row shares for one repaint: the purse the auction may
+## spend, the holds free after the staged bids, the tons production claimed.
+var _order_ctx: Dictionary = {}
+## Batch presses keyed "bid:<commodity>" / "offer:<commodity>", for tests and
+## tooling (REQ-P3-02).
+var _batches: Dictionary = {}
 
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
@@ -50,6 +56,8 @@ func fill(
 	_clearing = clearing
 	_viewer = viewer
 	UiRowBuilder.clear(self)
+	_batches.clear()
+	_order_ctx = MarketBatch.context(_economy, _cargo, MarketBatch.reservations(_economy))
 	_add_cargo_banner()
 	var budget: Label = LedgerBudget.banner(_economy)
 	if budget != null:
@@ -57,6 +65,7 @@ func fill(
 	_add_terms_banner()
 	_add_staged()
 	_add_deals()
+	_add_prices()
 	_add_offers(offers)
 	var header := UiRowBuilder.row(0.0)
 	header.add_child(UiRowBuilder.caption("COMMODITY", 10, Palette.TEXT_DIM, 132.0))
@@ -73,10 +82,7 @@ func fill(
 ## clears: the tons an offer can never sell (wiki: world-market § Trade orders —
 ## the offer cap is the post-production stockpile minus industry reservations).
 static func claimed_by_production(economy: PlayerEconomy, commodity: String) -> int:
-	if economy == null:
-		return 0
-	var reserved: Dictionary = ProductionRecipes.reserved_inputs(economy.production.assignments())
-	return maxi(int(reserved.get(commodity, 0)), 0)
+	return maxi(int(MarketBatch.reservations(economy).get(commodity, 0)), 0)
 
 
 func _add_cargo_banner() -> void:
@@ -84,6 +90,31 @@ func _add_cargo_banner() -> void:
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.custom_minimum_size = Vector2(240, 0)
 	add_child(banner)
+	_add_crossing()
+
+
+## The crossing the holds will make this turn, under the holds they spend: the
+## Extraction phase ships the richest tonnage first and leaves the rest on the
+## far shore, and the despatch only says so after the fact (wiki: ships-and-naval
+## § Cargo holds and capacity; DR-20261116-05). Printed only when tonnage waits,
+## so a court with no overseas estate reads no extra chrome (REQ-P1-07), and the
+## rule sits on the page rather than in a hover a phone never shows (REQ-P5-07).
+func _add_crossing() -> void:
+	var read: Dictionary = _cargo.get("crossing", {}) as Dictionary
+	var line: String = CargoRead.line(read)
+	if line.is_empty():
+		return
+	var crossing := UiRowBuilder.label(line, 12, Palette.GOLD_PALE)
+	crossing.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	crossing.custom_minimum_size = Vector2(240, 0)
+	add_child(crossing)
+	var note: String = CargoRead.note(read)
+	if note.is_empty():
+		return
+	var rule := UiRowBuilder.label(note, 11, Palette.TEXT_DIM)
+	rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	rule.custom_minimum_size = Vector2(240, 0)
+	add_child(rule)
 
 
 ## Staged bids and offers: what the court will take to the turn-end auction. A
@@ -175,6 +206,41 @@ func _add_deals() -> void:
 		add_child(shares)
 
 
+## The clearing's price pass in one line: the goods that moved and the price they
+## now stand at, so a turn's new market is read and never a silent change (wiki:
+## world-market § Price discovery; REQ-P5-05). Empty when no price moved.
+static func price_moves_line(report: Dictionary, limit: int = 4) -> String:
+	var moved: Dictionary = report.get("prices", {}) as Dictionary
+	if moved.is_empty():
+		return ""
+	var ids: Array[String] = []
+	for raw: Variant in moved.keys():
+		ids.append(String(raw))
+	ids.sort()
+	var parts: PackedStringArray = []
+	for index in mini(ids.size(), limit):
+		var id: String = ids[index]
+		parts.append("%s %d" % [CommodityCatalog.label(id), int(moved[id])])
+	var text: String = "Prices moved: " + "  ·  ".join(parts)
+	if ids.size() > limit:
+		text += "  ·  +%d more" % (ids.size() - limit)
+	return text + "."
+
+
+## The clearing moved prices: the goods and the price they now stand at, so the
+## turn's new market is read where the clearing is narrated and never arrives as
+## a silent change (wiki: world-market § Price discovery; REQ-P5-05).
+func _add_prices() -> void:
+	var line: String = price_moves_line(_clearing)
+	if line.is_empty():
+		return
+	UiRowBuilder.spacer(self, 4.0)
+	var moved := UiRowBuilder.label(line, 11, Palette.TEXT_DIM)
+	moved.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	moved.custom_minimum_size = Vector2(240, 0)
+	add_child(moved)
+
+
 ## The tribes' book stands above the world price rows on its own plate: the
 ## chips, the reading they select and the rows they narrow never touch this
 ## page (REQ-P3-01). A bid is still an intent — the plate emits it and the
@@ -188,7 +254,7 @@ func _add_offers(offers: Array) -> void:
 			offer_requested.emit(offer_id, quantity)
 	)
 	add_child(_offers_plate)
-	_offers_plate.fill(offers, _cargo, _compact, _market, _viewer)
+	_offers_plate.fill(offers, _cargo, _compact, _market, _viewer, _order_ctx)
 	UiRowBuilder.spacer(self, 4.0)
 
 
@@ -239,7 +305,7 @@ func _add_terms_banner() -> void:
 	var text: String = "Trade terms: imports at %d%% and exports at %d%% of the world price." % [
 		roundi(buy_rate * 100.0), roundi(sell_rate * 100.0)
 	]
-	var subsidy: int = _subsidy_rate()
+	var subsidy: int = MarketRules.subsidy_rate_paid(_market, _viewer)
 	if subsidy > 0:
 		text += " Subsidy %d%%: a subsidised court's goods cost us more, ours earn less." % subsidy
 	var banner := UiRowBuilder.label(text, 12, Palette.GOLD_PALE)
@@ -248,70 +314,22 @@ func _add_terms_banner() -> void:
 	add_child(banner)
 
 
-## The largest subsidy this crown pays, so the banner names the step that prices
-## a pair's deals (wiki: world-market § Subsidy price adjustment).
-func _subsidy_rate() -> int:
-	var best: int = 0
-	for key: Variant in _market.subsidy_terms.keys():
-		var parts: PackedStringArray = String(key).split(">")
-		if parts.size() != 2 or int(parts[0]) != _viewer:
-			continue
-		best = maxi(best, int(_market.subsidy_terms[key]))
-	return best
-
-
 func _market_row(id: String, held: int, claimed: int = 0) -> Control:
-	var row := UiRowBuilder.row(ROW_HEIGHT)
-	row.add_child(CommodityIcons.cell(id, 132.0))
+	var built: Dictionary = MarketRow.build(
+		id, held, claimed, _cargo, _market, _viewer, _order_ctx, _compact,
+		func(commodity: String, quantity: int, is_buy: bool) -> void:
+			trade_requested.emit(commodity, quantity, is_buy)
+	)
+	for side: String in (built["batches"] as Dictionary).keys():
+		_batches["%s:%s" % [side, id]] = built["batches"][side]
+	return built["row"] as Control
 
-	var qty := UiRowBuilder.label("%d" % held, 14, Palette.GOLD_PALE)
-	qty.custom_minimum_size = Vector2(44, 0)
-	qty.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(qty)
-
-	var buy_unit: int = _market.buy_price(id, _viewer)
-	var sell_unit: int = _market.sell_price(id, _viewer)
-	var price := UiRowBuilder.label("%d" % buy_unit, 13, Palette.TEXT_DIM)
-	price.custom_minimum_size = Vector2(44, 0)
-	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	row.add_child(price)
-
-	# The court can only sell what its own production runs leave behind, and the
-	# cap is a readout on the page, not a hover: a phone player must see why the
-	# Offer is dead (wiki: world-market § Trade orders — the sellable readout;
-	# REQ-P1-05, REQ-P5-05).
-	var sellable: int = maxi(held - claimed, 0)
-	var sell := UiRowBuilder.button("Offer", ROW_HEIGHT, 70.0)
-	sell.disabled = sellable <= 0
-	if claimed > 0:
-		sell.tooltip_text = "%d %s claimed by production — %d sellable at %d ducats" % [
-			claimed, CommodityCatalog.label(id), sellable, sell_unit,
-		]
-	else:
-		sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
-			CommodityCatalog.label(id), sell_unit,
-		]
-	sell.pressed.connect(func() -> void: trade_requested.emit(id, 1, false))
-	row.add_child(sell)
-
-	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 70.0)
-	buy.tooltip_text = "Bid 1 %s at %d ducats — it clears when the turn closes" % [
-		CommodityCatalog.label(id), buy_unit
-	]
-	# Imports need a free hold in the home fleet (DR-20261109-03).
-	if int(_cargo.get("free", -1)) == 0:
-		buy.disabled = true
-		buy.tooltip_text = "No cargo holds free this turn"
-	buy.pressed.connect(func() -> void: trade_requested.emit(id, 1, true))
-	row.add_child(buy)
-	if claimed <= 0:
-		return row
-	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 2)
-	block.add_child(row)
-	block.add_child(UiRowBuilder.caption(
-		"%d %s claimed by production — %d sellable"
-		% [claimed, CommodityCatalog.label(id), sellable],
-		10, Palette.TEXT_DIM, 0.0
-	))
-	return block
+## Batch presses keyed "bid:<commodity>" / "offer:<commodity>" for this page's
+## rows, plus the offers plate's own presses keyed by offer id; tests and
+## tooling read this instead of walking the page's children (REQ-P3-02).
+func batch_buttons() -> Dictionary:
+	if _offers_plate == null:
+		return _batches
+	var out: Dictionary = _batches.duplicate()
+	out.merge(_offers_plate.batch_buttons(), true)
+	return out

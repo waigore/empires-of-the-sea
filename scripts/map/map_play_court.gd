@@ -18,13 +18,23 @@ const NO_OWNER: int = -1
 ## human court is skipped unless the full-AI observer seats it like any rival
 ## (wiki: game-setup § Human/AI slot assignment; docs/ai-observer.md), and the
 ## `AiControl` gate keeps a noop or bench crown inert.
+##
+## Auto mode asks for the same seat one pass at a time: `ai_stage_faction` names
+## the one court a pass may plan, so the paced driver can run the crown's own
+## orders without the rival passes planning them a second time
+## (wiki: auto-mode § Drawing on the same planners).
 static func planning_factions(play: PlaySession) -> Array[int]:
 	var factions: Array[int] = []
 	if play == null:
 		return factions
+	var staged: int = play.ai_stage_faction
 	for faction: int in FactionCatalog.great_power_ids():
-		if faction == play.player_faction and not play.observer_mode:
+		if staged != MapModel.NO_ID and faction != staged:
 			continue
+		if faction == play.player_faction and not play.observer_mode:
+			# The crown plans only when Auto hands it the seat for this pass.
+			if not (play.auto_active and staged == play.player_faction):
+				continue
 		if not AiControl.plans(play, faction):
 			continue
 		factions.append(faction)
@@ -55,6 +65,44 @@ static func ships(play: PlaySession, faction: int) -> int:
 	if play == null or play.ship_layer == null:
 		return 0
 	return play.ship_layer.hull_count_all(faction)
+
+
+## The published order of battle every map read shares: each crown's land
+## strength and its hull total. The court panel, the calendar's declared winner
+## and the rival pass all read this one pass, so the published power score
+## cannot drift between them (wiki: diplomacy § Great Power power score;
+## REQ-P2-03, REQ-P3-02).
+static func public_orders(play: PlaySession) -> Dictionary:
+	return {"strength": public_strength(play), "ships": public_ships(play)}
+
+
+## Land strength per faction over the whole roster: FPN + FPM over every army it
+## holds in both regions, without the general medal multiplier (wiki: diplomacy
+## § Great Power power score).
+static func public_strength(play: PlaySession) -> Dictionary:
+	var strength: Dictionary = {}
+	if play == null or play.army_layer == null:
+		return strength
+	for raw: Variant in play.army_layer.regions.values():
+		var stored: Array[ArmyState] = []
+		stored.assign(raw)
+		for army: ArmyState in stored:
+			if army == null:
+				continue
+			strength[army.owner] = (
+				float(strength.get(army.owner, 0.0)) + army.strength()
+			)
+	return strength
+
+
+## Hull count of every Great Power, the term the power score multiplies.
+static func public_ships(play: PlaySession) -> Dictionary:
+	var ships: Dictionary = {}
+	if play == null or play.ship_layer == null:
+		return ships
+	for faction: int in FactionCatalog.great_power_ids():
+		ships[faction] = play.ship_layer.hull_count_all(faction)
+	return ships
 
 
 ## Hulls of a court that can fight: the build objective's own reading, so a
@@ -106,9 +154,26 @@ static func navy_chest(play: PlaySession, faction: int) -> int:
 	var ledger: PlayerEconomy = play.ledger_for(faction)
 	if ledger == null:
 		return 0
+	var config: AiConfig = AiConfig.build(faction, play.map_seed)
+	var at_war_now: bool = at_war(play, faction)
+	var muster: int = AiArmyReinforce.muster_floor(
+		config, ledger, regiments(play, faction), at_war_now
+	)
+	# The yard's chest re-routes like the war chest (issue #603): a court that
+	# has stalled on `navy.build` past the escalation bar while a regiment is
+	# due — and already holds that regiment's chest — stops holding the purse
+	# for a hull it never lays, so the muster can buy its material row. Every
+	# consumer reads the one chest.
+	var stalled: int = (
+		AiDeferral.stall_for(play.ai.deferrals, faction, "navy.build")
+		if play.ai != null else 0
+	)
 	return AiNavy.chest(
-		at_war(play, faction), warships(play, faction), hostile_warships(play, faction),
-		ledger, hull_types(play, faction)
+		at_war_now, warships(play, faction), hostile_warships(play, faction),
+		ledger, hull_types(play, faction),
+		muster > 0
+		and stalled >= maxi(config.parameter("ledger.escalate_turns"), 1)
+		and ledger.treasury >= muster
 	)
 
 

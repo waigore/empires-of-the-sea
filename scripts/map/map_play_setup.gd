@@ -40,20 +40,9 @@ static func build_hud(play: PlaySession) -> void:
 		if play.improvements != null:
 			play.improvements.open()
 	)
-	if hud.civilian_roster != null:
-		hud.civilian_roster.bind(play)
-	if hud.muster_roll != null:
-		hud.muster_roll.bind(play)
-	if hud.province_ledger != null:
-		hud.province_ledger.bind(play)
-	if hud.spy_ledger != null:
-		hud.spy_ledger.bind(play)
-	if hud.command_ledger != null:
-		hud.command_ledger.bind(play)
-	if hud.towns_ledger != null:
-		hud.towns_ledger.bind(play)
-	if hud.navy_ledger != null:
-		hud.navy_ledger.bind(play)
+	# The crown's whole-empire sheets read the session this screen is playing:
+	# one registry binds them all (REQ-P5-01, REQ-P5-03).
+	HudLedgerDoors.bind_all(hud, play)
 	_seat_commanders(play)
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
@@ -105,7 +94,7 @@ static func refresh_dossier(play: PlaySession) -> void:
 	play.hud.panels.panel.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.visibility,
 		play.capital_tile, play.player_faction, play.tech_caps(),
-		play.tech_unlocked()
+		play.tech_unlocked(), play.stockpile()
 	)
 
 
@@ -223,17 +212,9 @@ static func refresh_after_load(play: PlaySession) -> void:
 	# A save written before the home-fleet merge could park two squadrons at the
 	# seat; fold them in before the court reads its squadrons.
 	MapPlayHomeMerge.repair(play)
-	# A call to arms waiting in the save keeps the turn suspended, with the court
+	# A decision waiting in the save keeps the turn suspended, with the court
 	# open for the answer (wiki: diplomacy § Alliances § Mutual defence).
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_call(play)
-	elif Intervention.has_pending(play.diplomacy, play.player_faction):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_intervention(play)
-	elif DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_offer(play)
+	MapPlayDiplomacyConsent.hold_turn(play, play.player_faction)
 	# A slot saved after the human crown fell re-mounts the defeat plate; the
 	# defeat variant wins over military and calendar endings (wiki: victory
 	# § Victory Screen, campaign-persistence § Load and resume).

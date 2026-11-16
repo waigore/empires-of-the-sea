@@ -35,7 +35,8 @@ scripts/map/map_model.gd    pure tile data (region-scoped)
 scripts/map/map_generator.gd generation + world
 scripts/map/country_borders.gd owner borders from the grid
 scripts/map/map_canvas.gd   static artwork (terrain, coast, province ink)
-scripts/map/map_relief.gd   sub-tile bake: coast field, beach, shoal, paint
+scripts/map/map_relief.gd   sub-tile bake: beach, shoal, paint
+scripts/map/map_coast_field.gd  shore reading: signed distance, basin reach
 scripts/map/map_canvas_plan.gd names + symbols (pure)
 scripts/map/map_glyphs.gd   ink symbols (fallback)
 scripts/map/map_symbols.gd  painted stamps (assets/art/map)
@@ -63,7 +64,7 @@ ui/shaders/*                sea, fog, grain, vignette
 
 `MapModel` + `MapGenerator` are the sim side; the view never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, six Minor Nations; New World: ten Tribes. One seed reproduces both (`test_world_setup.gd`).
+**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, six Minor Nations; New World: ten Tribes. One seed reproduces both (`test_generated_world_rules.gd`).
 
 **Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 

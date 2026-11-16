@@ -143,6 +143,7 @@ func _connect() -> void:
 	panel.offer_requested.connect(orders.offer)
 	panel.cancel_requested.connect(orders.withdraw)
 	panel.production_changed.connect(orders.set_production)
+	panel.production_batch_requested.connect(orders.set_production_batch)
 	panel.recruit_requested.connect(
 		func(tier: int, count: int) -> void: orders.worker_action(tier, "recruit", count)
 	)
@@ -156,11 +157,18 @@ func _connect() -> void:
 ## Runs Build/work's recruits, then Extraction -> Riches -> Consumption ->
 ## Production, and refreshes the HUD.
 func resolve_turn() -> Dictionary:
-	# The crown's queued orders land before the new turn's Consumption: the new
-	# worker eats and labours with the court from this turn, and the mustered
-	# units stand for the next Orders phase. They land after the fighting this
-	# turn ordered, so a regiment mustered now never fights in its own turn.
+	# The crown's queued orders land before the new turn's Consumption, so a hand
+	# hired now eats with the court at this turn's close; the mustered units stand
+	# for the next Orders phase. They land after the fighting this turn ordered,
+	# so a regiment mustered now never fights in its own turn.
+	# The hands that land eat this turn's larder but labour the **next**
+	# Production phase: a Build/work recruit never supplies same-turn labour
+	# (wiki: workers-and-population § Phase placement). The arrivals are read
+	# from Build/work's own records, after the queue has drained: an order the
+	# turn cannot keep never lands, and a hand that never landed must not take
+	# an idle worker's labour with it.
 	var musters: Array[Dictionary] = MapPlayRecruits.complete(play) if play != null else []
+	var leaving: Array[int] = MapPlayRecruits.arriving_tiers(musters)
 	var before: int = economy.treasury
 	var plan: Dictionary = readings.overseas_plan()
 	var world: WorldMap = ship_layer.world if ship_layer != null else null
@@ -170,7 +178,8 @@ func resolve_turn() -> Dictionary:
 	var report: Dictionary = EconomyTurn.resolve(
 		economy, market, readings.extraction(), readings.fleet_ships(),
 		readings.army_food(), false, research_boost,
-		HospitalRules.demand_list(world, player_faction), leader_key
+		HospitalRules.demand_list(world, player_faction), leader_key,
+		TownIndustry.best_level(world, player_faction), leaving
 	)
 	# The wards eat last and in whole staffs; the flags they set are what the
 	# next turn's rest tick reads (wiki: combat § Regiment condition;

@@ -144,7 +144,7 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 		"warships": warships,
 		"hull_chests": hull_chests,
 		"victory_press": press,
-		"strengths": MapPlayDiplomacy.public_orders(play).get("strength", {}),
+		"strengths": MapPlayCourt.public_strength(play),
 		"planning": planning,
 	}
 	var readings: Dictionary = MapPlayCourtFog.oob_readings(play)

@@ -12,27 +12,46 @@ signal action_pressed(action: String)
 signal rename_pressed(regiment_id: String, wanted: String)
 
 const NAME_BUTTON: String = "Name"
+## Dismissing a regiment is destructive, so the row asks once: a second tap
+## inside this window confirms and an expired arm does nothing
+## (wiki: military-armies § Dismissing regiments; DR-20261109-01).
+const ARM_SECONDS: float = 5.0
 
 var _army: ArmyState = null
 var _is_player: bool = false
+var _dismissable: bool = false
 var _model: MapModel = null
 ## The instance whose name is being edited, or empty when no edit row is open.
 var _editing: String = ""
 var _field: LineEdit = null
+## The instance whose dismissal is armed, or empty when no order is armed.
+var _armed: String = ""
+var _timer: Timer = null
 
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 4)
+	# The arm expires on its own; a freed dossier takes the timer with it.
+	_timer = Timer.new()
+	_timer.one_shot = true
+	_timer.wait_time = ARM_SECONDS
+	_timer.timeout.connect(_clear_arm)
+	add_child(_timer)
 
 
 ## Rebuilds every regiment row for the open army. An open edit row closes, so a
-## repaint never leaves a stale name field behind.
-func fill(army: ArmyState, is_player: bool, model: MapModel) -> void:
+## repaint never leaves a stale name field behind; a repaint also forgets an
+## armed dismissal, because the order it armed has been filed or the view moved.
+func fill(army: ArmyState, is_player: bool, model: MapModel, dismissable: bool = false) -> void:
 	_army = army
 	_is_player = is_player
+	_dismissable = dismissable
 	_model = model
 	_editing = ""
+	_armed = ""
+	if _timer != null:
+		_timer.stop()
 	_render()
 
 
@@ -64,11 +83,18 @@ func _render() -> void:
 			row.add_child(_name_button(regiment_id))
 		if _editing == regiment_id:
 			_add_edit_row(entry, regiment_id)
-		# Regiment detail: category, stats and its share of the food bill.
+		# Regiment detail: category, stats and its share of the food bill, with
+		# the dismissal beside it so a phone row never crowds its title.
+		var detail_row := HBoxContainer.new()
+		detail_row.add_theme_constant_override("separation", 8)
+		entry.add_child(detail_row)
 		var detail := UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
 		detail.text = RegimentCatalog.detail_line(type_id)
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		entry.add_child(detail)
+		detail.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		detail_row.add_child(detail)
+		if _dismissable:
+			detail_row.add_child(_dismiss_button(regiment_id))
 		_add_condition(entry, _army, regiment_id)
 		_add_record(entry, _army, regiment_id, _model)
 
@@ -92,6 +118,49 @@ func _detach_button(regiment_id: String) -> Button:
 		func() -> void: action_pressed.emit("detach:%s" % regiment_id)
 	)
 	return detach
+
+
+## The dismissal: one peasant returns and nothing else, so the press asks once
+## and names what the second tap does (wiki: military-armies § Dismissing
+## regiments; REQ-P5-05).
+func _dismiss_button(regiment_id: String) -> Button:
+	var armed: bool = _armed == regiment_id
+	var shed := UiRowBuilder.button("Confirm" if armed else "Dismiss", 32.0, 0.0)
+	shed.custom_minimum_size = Vector2(72, 32)
+	shed.add_theme_font_size_override("font_size", 11)
+	shed.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	shed.tooltip_text = (
+		"Press again to dismiss these colours: one peasant returns, no refund."
+		if armed
+		else "Dismiss this regiment: one peasant returns, no refund."
+	)
+	shed.pressed.connect(func() -> void: on_dismiss_pressed(regiment_id))
+	return shed
+
+
+## First tap arms and relabels, the second files the order (DR-20261109-01).
+func on_dismiss_pressed(regiment_id: String) -> void:
+	if _armed == regiment_id:
+		_clear_arm()
+		action_pressed.emit("dismiss:%s" % regiment_id)
+		return
+	_armed = regiment_id
+	_render()
+	# A sheet built outside the tree (a test sheet) keeps the arm and takes no
+	# clock; the press still asks once.
+	if _timer != null and _timer.is_inside_tree():
+		_timer.start()
+
+
+## Forgets an armed dismissal without filing it; an expired arm does nothing.
+func _clear_arm() -> void:
+	if _armed.is_empty():
+		return
+	_armed = ""
+	if _timer != null:
+		_timer.stop()
+	if is_inside_tree():
+		_render()
 
 
 ## Opens the name row for one instance without rebuilding the dossier.

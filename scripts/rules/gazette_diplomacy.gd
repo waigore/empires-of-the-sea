@@ -31,6 +31,7 @@ const COURT_KINDS: Array[String] = [
 	"peaceMade",
 	"allianceFormed",
 	"allianceBroken",
+	"napBroken",
 	"joinEmpire",
 	"colonyFormed",
 	"colonyReleased",
@@ -219,6 +220,8 @@ static func record(
 			rec["cause"] = String(data.get("cause", ""))
 		"callToArmsAccepted", "callToArmsRefused":
 			rec["aggressor"] = name_for(state, viewer, int(data.get("aggressor", -1)))
+		"napBroken":
+			rec["cleared_alliance"] = bool(data.get("cleared_alliance", false))
 		"interventionProtest":
 			# `b` is the aggressor the protest names; the target rides in the data.
 			rec["aggressor"] = String(rec["whom"])

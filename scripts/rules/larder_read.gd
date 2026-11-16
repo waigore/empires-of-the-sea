@@ -30,16 +30,43 @@ static func pool_next(economy: PlayerEconomy) -> WorkerPool:
 
 ## The other appetites the phase feeds **before** the workers, as the last
 ## resolution read them: `army` food, `ships` hulls and `hospital` food. A caller
-## with no report feeds the pool alone.
+## with no report feeds the pool alone. `wards` carries the hospital staffs'
+## demands **one per ward**, because the phase feeds them in order and in whole
+## staffs: a summed appetite would let one big ward swallow a larder that would
+## have covered a smaller one behind it (wiki: workers-and-population
+## § Consumption; DR-20261112-04). A report that predates the list keeps the
+## scalar, and the reading feeds it as the one ward it says.
 static func mouths(report: Dictionary) -> Dictionary:
 	var last: Dictionary = report.get("consumption", {}) as Dictionary
-	if last == null:
-		return {"army": 0, "ships": 0, "hospital": 0}
+	if last == null or last.is_empty():
+		return {"army": 0, "ships": 0, "hospital": 0, "wards": []}
+	var hospital: int = int(last.get("hospital_demand", 0))
+	var listed: Variant = last.get("hospital_demands", null)
+	var wards: Array[int] = []
+	if typeof(listed) == TYPE_ARRAY:
+		for value: Variant in listed:
+			wards.append(int(value))
+	else:
+		wards.append(hospital)
 	return {
 		"army": int(last.get("army_demand", 0)),
 		"ships": int(last.get("navy_demand", 0)) / ShipEconomy.FOOD_UPKEEP_PER_SHIP,
-		"hospital": int(last.get("hospital_demand", 0)),
+		"hospital": hospital,
+		"wards": wards,
 	}
+
+
+## The ward demands a call carries: the list when the caller has it, else the
+## scalar appetite as one ward. The phase reads the list, so this keeps the
+## dry-run the phase's own answer (REQ-P2-03).
+static func _wards(mouths: Dictionary) -> Array[int]:
+	var raw: Variant = mouths.get("wards", null)
+	if typeof(raw) != TYPE_ARRAY:
+		return [int(mouths.get("hospital", 0))]
+	var out: Array[int] = []
+	for value: Variant in raw:
+		out.append(int(value))
+	return out
 
 
 ## The next Consumption phase, dry-run: what the store holds, what every mouth
@@ -54,22 +81,33 @@ static func forecast(economy: PlayerEconomy, mouths: Dictionary = {}) -> Diction
 		economy.stockpile,
 		mouths,
 		economy.recruits.pending_kind(RecruitQueue.KIND_WORKER),
+		economy.recruits.arriving_by_tier(),
 	)
 
 
 ## The same dry-run for a pool the caller already made. The pool is read, never
 ## changed, and the store is served over a copy, so the answer is the phase's own
 ## and asking it spends nothing (REQ-P2-03). The phase owns the order; this owns
-## the before-shot a crown needs to plan a recruit.
+## the before-shot a crown needs to plan a recruit. `store_short` is the whole
+## larder's shortfall — every mouth the phase feeds, not the pool alone — so a
+## store that covers the pool but starves a ward or the army reads short here.
+## `arriving` is the per-tier roster that lands at this turn's Build/work: it eats
+## here but its labour is the next Production phase's (wiki:
+## workers-and-population § Phase placement).
 static func reading(
-	pool: WorkerPool, stockpile: Dictionary, mouths: Dictionary = {}, arriving: int = 0
+	pool: WorkerPool,
+	stockpile: Dictionary,
+	mouths: Dictionary = {},
+	arriving: int = 0,
+	arriving_tiers: Array[int] = []
 ) -> Dictionary:
 	var larder: EconomyConsumption.Pass = EconomyConsumption.pass_over(
 		pool,
 		stockpile.duplicate(),
 		int(mouths.get("ships", 0)),
 		int(mouths.get("army", 0)),
-		[int(mouths.get("hospital", 0))],
+		_wards(mouths),
+		arriving_tiers,
 	)
 	larder.serve()
 	var report: Dictionary = larder.report()
@@ -97,18 +135,27 @@ static func reading(
 		"pool": larder.food_wanted(),
 		"wards": int(report["hospital_demand"]),
 	}
+	var store_food: int = EconomyConsumption.food_available(stockpile)
+	var wanted: int = (
+		int(appetites["army"]) + int(appetites["navy"])
+		+ int(appetites["pool"]) + int(appetites["wards"])
+	)
 	return {
 		"mouths": pool.total(),
 		"arriving": arriving,
 		"food": larder.food_wanted(),
 		"appetites": appetites,
 		"luxury": luxury,
-		"store_food": EconomyConsumption.food_available(stockpile),
+		"store_food": store_food,
 		"store_luxury": store_luxury,
 		"fed": int(report["fed_workers"]),
 		"strikers": int(report["strikers"]),
 		"striking_tier": larder.striking_tier(),
 		"food_short": maxi(larder.food_wanted() - larder.food_fed(), 0),
+		# The whole larder's shortfall: every mouth the phase feeds, so a store
+		# that covers the pool but starves a ward or the army is never read calm
+		# (wiki: workers-and-population § Consumption — total food demand).
+		"store_short": maxi(wanted - store_food, 0),
 		"luxury_short": luxury_short,
 		"report": report,
 	}

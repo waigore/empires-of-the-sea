@@ -17,19 +17,19 @@
   feeding 1.0/0.75/0.5; wood 1.5/1.1 defender, 0.9 attacker.
 - **Armies** (`ArmyState`): one province per army; one Home Army per crown at
   its capital, never deleted; split/combine needs one province and owner; one
-  march a turn, foreign land must border.
+  march a turn, foreign land must border. **Dismiss** sheds a regiment (or all),
+  a peasant each, no refund; an emptied field army retires (`ArmyDismiss`,
+  DR-20261109-01).
 - **Upkeep:** 1–3 food a regiment by era.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
   citation weight; DEF/9; ratio bands; elimination precedes a flip. A hungrier
   attacker at 1.5–4.0 fights 0.6/0.4; mutual ruin restores `ceil(20%)` infantry.
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
-  alone; winners gain a chevron. A train marches with an army
-  ([field-hospital](field-hospital.md)).
+  alone; winners gain a chevron.
 - **Titles and records** (`RegimentNames`, `RegimentRecord`, DR-20261111-18): a
   period title, unique per army, kept through split/merge, with its tally.
-  Rename from the dossier (`RegimentRename`, DR-20261113-05); ≤28 letters,
-  identity only.
+  Rename from the dossier (`RegimentRename`, DR-20261113-05).
 - **Colours and citations** (`RegimentRecord`, `RegimentDecorations`,
   DR-20261112-02/-10, DR-20261113-04): winners take the province once; every
   survivor's despatch keeps its newest eight fields, one won mauled being a
@@ -37,23 +37,22 @@
   +10% laurelled — so decorated colours lead and fall last. Dossier:
   `Cited +5% — Lisboa won`; plate: `Citations — 2 cited (+5% each)`.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): a crown-pool name per
-  general, saved (legacy rosters christened on load); the dossier names him
-  with his medals.
+  general, saved (legacy rosters christened on load); the dossier names him and
+  his medals.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on the
   town tile; rest 40%/55%, wear 80%/65%; rivals raise them (DR-20261111-16).
-  Wards eat 2 food a level, last in Consumption; an unfed ward rests at 25% and
-  the summary names it (DR-20261112-04).
+  Wards eat 2 food a level; unfed they rest at 25%, and the summary names it
+  (DR-20261112-04).
 - **Re-equipping** (`RegimentUpgrades`): after Movement, before Combat, each
   Great Power's regiments take the newest same-category type its techs unlock;
-  Minors follow the leading power, Tribes stay level 1.
+  Minors follow the leading power; Tribes stay level 1.
 - **Attack price** (`ArmyAttackCost`): 100 ducats per attacker, ×0.75 Machinery,
-  ×0.85 Military Funding; once per exchange, floor zero.
+  ×0.85 Military Funding; floor zero.
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side, three stances.
   Strength `Σ (FPN + FPM) × chevrons × health` × cohesion. Guns soak fire and
   cut the fort; sieges split wall/behind (`SiegeLanes`); Sortie is its own order
   ([battle-sim](battle-sim.md)).
 - **Unopposed:** an army ending unopposed in hostile or neutral land takes it.
-
 ## Deferred (REQ-P2-02)
 
 See [`deferred.md`](deferred.md).
@@ -82,7 +81,7 @@ ArmyLayer        hands a crown over in place, then writes stored rosters back
 
 ## Tests
 
-`test_army_*`, `test_battle_rules`, `test_hospital_rules`, `test_land_battle_rules`.
+`test_army_*`, `test_battle_rules` (forts, sieges).
 
 ```bash
 gd-tools test --coverage --min 80

@@ -138,7 +138,7 @@ static func _notes(
 		"province": IntelEvidence.provinces(world, subject),
 		"war": int(counts.get("warDeclared", 0)),
 		"alliance": int(counts.get("allianceFormed", 0)),
-		"broken": int(counts.get("allianceBroken", 0)),
+		"broken": int(counts.get("allianceBroken", 0)) + int(counts.get("napBroken", 0)),
 		"refused": int(counts.get("callToArmsRefused", 0)),
 		"peace": int(counts.get("peaceMade", 0)),
 		"spy_tech": int(counts.get(IntelEvidence.SPY_TECH, 0)),

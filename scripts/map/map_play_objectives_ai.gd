@@ -74,9 +74,9 @@ static func _readings(
 	var warships: int = MapPlayCourt.warships(play, faction)
 	var hostile_warships: int = MapPlayCourt.hostile_warships(play, faction)
 	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
-	var hull_chest: int = AiNavy.chest(
-		at_war, warships, hostile_warships, economy, flown
-	)
+	# The one chest every pass reads: the yard's row, re-routed when the court
+	# has stalled on it past the escalation bar (issue #603, `MapPlayCourt`).
+	var hull_chest: int = MapPlayCourt.navy_chest(play, faction)
 	# The deferred-aim escalation readings (#603): how long each aim has been
 	# deferred without its shortfall shrinking. A stalled war chest re-routes
 	# (`AiIncome.reserve`); a stall past the blocked bar names its reason in the
@@ -93,6 +93,14 @@ static func _readings(
 		AiDeferral.stall(records, "muster.line")
 	)
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
+	# The material row the pattern the court is saving for needs. The muster
+	# reserves it (`AiClaims.MUSTER`, #474) and the planner refuses without it, so
+	# the ledger prices it too: a row that reads `funded` on the purse alone would
+	# clear the escalation's stall and let the court bank a chest it can never
+	# spend — the deadlock this ledger exists to end (#603, #474).
+	var muster_row: Dictionary = AiArmyReinforce.muster_reserve(
+		config, economy, regiments, at_war
+	)
 	var home: int = FactionCatalog.region_of(faction)
 	var new_world: MapModel = play.world.region(WorldMap.NEW_WORLD)
 	var funding: String = AiResearchPlanner.funding_for(config, economy, reserve)
@@ -103,6 +111,12 @@ static func _readings(
 	var colony_ambition: Dictionary = AiTribeColony.best(
 		play.diplomacy, play.world, play.court_charts, faction,
 		economy.treasury, economy.tech_unlocked
+	)
+	# The deed the court is saving toward: the cheapest Minor or Tribe tile it
+	# could sign, charted and at peace with the seller (issue #724 task 3).
+	var deed: Dictionary = AiMerchantWork.openable_deed(
+		play.world.region(home), faction,
+		{"diplomacy": play.diplomacy, "visibility": MapPlayCourtFog.view_for(play, faction, home)}
 	)
 	# The surplus ladder reads the money-goal reserve; the standing study is one
 	# slot at the cheapest preset above half the cash floor, so the ledger prices
@@ -129,6 +143,7 @@ static func _readings(
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
+		"muster_row": muster_row,
 		"escalations": escalations,
 		"blockings": blockings,
 		"ships": MapPlayCourt.ships(play, faction),
@@ -152,7 +167,9 @@ static func _readings(
 		"goal": AiIncome.goal_for(
 			config, economy, at_war, regiments, hull_chest, warships
 		),
-		"colony_target": home == WorldMap.OLD_WORLD and not _owns_land(new_world, faction),
+		"colony_target": home == WorldMap.OLD_WORLD and not VoyageRead.owns_land(
+			new_world, faction
+		),
 		"harbour": home >= 0 and AiColonisationPlanner.harbour(
 			play.world.region(home), faction
 		) >= 0,
@@ -168,6 +185,9 @@ static func _readings(
 		"research_refusal": research_refusal,
 		"tribe_target": int(colony_ambition.get("target", -1)),
 		"tribe_stage_cost": int(colony_ambition.get("cost", 0)),
+		# The deed the court is saving toward, 0 when no charted seller offers
+		# one (issue #724 task 3).
+		"deed_price": int(deed.get("price", 0)),
 		# The study that opens the chain's next link, so the trace names the door
 		# the court is walking to (DR-20261114-05).
 		"tribe_door": AiTribeColony.door(
@@ -194,6 +214,12 @@ static func _pools(
 	}
 	for commodity: Variant in (readings.get("warship_row", {}) as Dictionary).keys():
 		pools[String(commodity)] = maxi(economy.quantity(String(commodity)), 0)
+	# The muster's own material row, bounded by the store: a line short of its
+	# cloth reads `deferred fabric 0/1`, the row the planner actually refuses on
+	# (#474), instead of a funded purse the muster never spends.
+	for commodity: Variant in (readings.get("muster_row", {}) as Dictionary).keys():
+		var id: String = String(commodity)
+		pools[id] = maxi(economy.quantity(id), 0)
 	return pools
 
 
@@ -274,15 +300,9 @@ static func _idle_hulls(play: PlaySession, faction: int) -> int:
 		return 0
 	var total: int = 0
 	for region: int in play.ship_layer.regions.region_ids():
-		for raw: Variant in MapPlayCourt.region_fleets(play, region):
-			var fleet: FleetState = raw
-			if fleet == null or fleet.owner != faction or fleet.moved:
-				continue
-			if not fleet.is_afloat() or fleet.embarked_army >= 0:
-				continue
-			if fleet.carries_civilians():
-				continue
-			total += 1
+		total += VoyageRead.free_count(
+			MapPlayCourt.region_fleets(play, region), faction
+		)
 	return total
 
 
@@ -294,14 +314,9 @@ static func _explorer_ready(play: PlaySession, faction: int) -> bool:
 	var home: int = FactionCatalog.region_of(faction)
 	if home < 0:
 		return false
-	for raw: Variant in play.civilian_layer.regions.value(home, []):
-		var unit: CivilianState = raw
-		if unit == null or unit.owner != faction or unit.type_id != "explorer":
-			continue
-		if unit.is_working() or unit.moved or unit.is_embarked():
-			continue
-		return true
-	return false
+	return VoyageRead.idle_colonist(
+		play.civilian_layer.regions.value(home, []), faction, "explorer"
+	) != null
 
 
 ## True while an expedition of this court is already at sea (a protected claim
@@ -310,10 +325,10 @@ static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
 	if play.ship_layer == null:
 		return false
 	for region: int in play.ship_layer.regions.region_ids():
-		for raw: Variant in MapPlayCourt.region_fleets(play, region):
-			var fleet: FleetState = raw
-			if fleet != null and fleet.owner == faction and fleet.carries_civilians():
-				return true
+		if VoyageRead.carrying(
+			MapPlayCourt.region_fleets(play, region), faction
+		) != null:
+			return true
 	return false
 
 
@@ -356,7 +371,7 @@ static func _voyage_stranded(play: PlaySession, faction: int) -> bool:
 		if region == home:
 			continue
 		var model: MapModel = play.world.region(region)
-		if model == null or _owns_land(model, faction):
+		if model == null or VoyageRead.owns_land(model, faction):
 			continue
 		for raw: Variant in play.civilian_layer.regions.value(region, []):
 			var unit: CivilianState = raw
@@ -364,13 +379,4 @@ static func _voyage_stranded(play: PlaySession, faction: int) -> bool:
 				continue
 			if unit.type_id == "explorer" and not unit.is_embarked():
 				return true
-	return false
-
-
-static func _owns_land(model: MapModel, faction: int) -> bool:
-	if model == null:
-		return false
-	for province: ProvinceState in model.provinces:
-		if province.owner == faction:
-			return true
 	return false

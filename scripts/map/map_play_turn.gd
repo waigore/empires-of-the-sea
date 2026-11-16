@@ -2,7 +2,8 @@ class_name MapPlayTurn
 extends RefCounted
 ## Turn closure: the consent ladder, then the handed-over finish. A pending
 ## consent decision stops the calendar until the court answers; once the ladder
-## is clear, every answer path resumes the same way (REQ-P3-02).
+## is clear, every answer path resumes the same way (REQ-P3-02). The ladder's
+## order is `ConsentLadder`'s rule, never a copy kept here.
 ##
 ## Movement, rearmament, combat, upkeep and the new turn live in
 ## MapPlayTurnFinish, one named phase per step. Campaign close and standing live
@@ -17,6 +18,10 @@ static var view_live: bool = true
 
 
 static func end_turn(play: PlaySession) -> void:
+	# Auto holds the seat: the paced driver presses the turn, not the court
+	# (wiki: auto-mode § End Turn. The seal stays visible and inert).
+	if play.auto_active:
+		return
 	# The battle plate owns input while a Quick Battle plays; a second turn would
 	# stack behind it (REQ-P5-06).
 	if play.hud != null and play.hud.is_quick_battle_shown():
@@ -28,20 +33,33 @@ static func end_turn(play: PlaySession) -> void:
 		return
 	# A consent decision already waiting keeps the calendar shut.
 	var human: int = play.human_faction_id()
-	if CallToArms.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_call(play)
-		return
-	if Intervention.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_intervention(play)
-		return
-	if DiplomacyProposals.has_pending(play.diplomacy, human):
-		play.turn_suspended = true
-		MapPlayDiplomacyConsent.show_offer(play)
+	if MapPlayDiplomacyConsent.hold_turn(play, human):
 		return
 	if not MapPlayDiplomacy.resolve_turn(play):
 		return
+	_finish_turn(play)
+
+
+## The paced driver's turn, once Auto holds the crown's seat: each waiting
+## decision is answered in the crown's own interest, then the turn runs to its
+## staged passes (wiki: auto-mode § No interruptions).
+static func auto_turn(play: PlaySession) -> void:
+	if play.hud != null and play.hud.is_quick_battle_shown():
+		return
+	if play.campaign_over():
+		MapPlayAuto.note(play, MapPlayCampaign.closed_message(play))
+		return
+	# A decision the player left open when the seat changed hands, and any the
+	# rival pass raises below: Auto answers each one rather than holding the
+	# calendar. The guard keeps a malformed ladder from spinning the driver.
+	var answered: int = 0
+	while MapPlayAuto.answer_pending(play) and answered < 8:
+		answered += 1
+	if not MapPlayDiplomacy.resolve_turn(play):
+		if not MapPlayAuto.answer_pending(play):
+			return
+		MapPlayDiplomacy.close_turn(play)
+	play.turn_suspended = false
 	_finish_turn(play)
 
 
@@ -114,27 +132,11 @@ static func _resume(play: PlaySession, result: Dictionary, fallback: String) -> 
 		if not message.is_empty():
 			play.hud.toast(message)
 	MapPlayDiplomacy.refresh(play)
-	if _show_pending(play):
+	if MapPlayDiplomacyConsent.show_next(play, play.player_faction):
 		return
 	play.turn_suspended = false
 	MapPlayDiplomacy.close_turn(play)
 	_finish_turn(play)
-
-
-## Opens the court on whichever consent decision still waits — a call to arms,
-## an intervention or a rival proposal — so each answer path resumes the same
-## ladder. True when one did.
-static func _show_pending(play: PlaySession) -> bool:
-	if CallToArms.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacyConsent.show_call(play)
-		return true
-	if Intervention.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacyConsent.show_intervention(play)
-		return true
-	if DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-		MapPlayDiplomacyConsent.show_offer(play)
-		return true
-	return false
 
 
 ## Movement, combat, upkeep and the new turn, once the diplomacy phase closed.

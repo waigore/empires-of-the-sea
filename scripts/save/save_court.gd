@@ -28,6 +28,7 @@ static func capture_diplomacy(state: DiplomacyState) -> Dictionary:
 		"modified": state._modified.duplicate(),
 		"order_counts": state._order_counts.duplicate(),
 		"alliance_snapshot": state.alliance_snapshot.duplicate(),
+		"trade_pairs": state.trade_pairs.duplicate(),
 		"pending_calls": state.pending_calls.duplicate(true),
 		"pending_interventions": state.pending_interventions.duplicate(true),
 		"pending_offers": state.pending_offers.duplicate(true),
@@ -62,6 +63,7 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 	state._modified = data.get("modified", {}).duplicate()
 	state._order_counts = data.get("order_counts", {}).duplicate()
 	state.alliance_snapshot = data.get("alliance_snapshot", {}).duplicate()
+	state.trade_pairs = data.get("trade_pairs", {}).duplicate()
 	state.pending_calls.assign(data.get("pending_calls", []))
 	state.pending_interventions.assign(data.get("pending_interventions", []))
 	state.pending_offers.assign(data.get("pending_offers", []))

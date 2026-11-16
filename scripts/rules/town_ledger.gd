@@ -10,14 +10,16 @@ extends RefCounted
 ## The province ledger already prints each province's town level; this sheet is
 ## the decision the level raises — what the next step costs, what it waits on
 ## and who is free to take it — so a crown with thirty provinces raises its
-## towns from one page instead of thirty dossiers (REQ-P5-04).
+## towns from one page instead of thirty dossiers (REQ-P5-04). The snapshot walk,
+## the chip tallies and the reading order are [RaiseLedger]'s; the town row, the
+## states and the words are this sheet's own.
 
 ## What the town's next step is waiting on. One state per row, so the reading
 ## chips and the row's own word can never disagree.
-const STATE_READY: String = "ready"
-const STATE_AT_WORK: String = "at_work"
+const STATE_READY: String = RaiseLedger.STATE_READY
+const STATE_AT_WORK: String = RaiseLedger.STATE_AT_WORK
 const STATE_NO_BUILDER: String = "no_builder"
-const STATE_LOCKED: String = "locked"
+const STATE_LOCKED: String = RaiseLedger.STATE_LOCKED
 const STATE_DEVELOPED: String = "developed"
 
 const FILTER_ALL: String = "all"
@@ -25,6 +27,11 @@ const FILTER_READY: String = "ready"
 const FILTER_AT_WORK: String = "at_work"
 const FILTER_DEVELOPED: String = "developed"
 const FILTERS: Array[String] = [FILTER_ALL, FILTER_READY, FILTER_AT_WORK, FILTER_DEVELOPED]
+
+## Every state a row can carry, in the order the snapshot tallies them.
+const STATES: Array[String] = [
+	STATE_READY, STATE_AT_WORK, STATE_NO_BUILDER, STATE_LOCKED, STATE_DEVELOPED
+]
 
 ## The order the sheet prints its states in: what can be raised now leads, what
 ## is already in hand follows, and what is finished reads last.
@@ -37,67 +44,33 @@ const STATE_ORDER: Dictionary = {
 }
 
 const ROMAN: Array[String] = ["", "I", "II", "III", "IV"]
-const NO_ID: int = -1
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
-## {region, model, units, tech_unlocked} — the crown's crews there and the
-## studies it holds. A chart with no model is skipped, so a one-region world
-## reads as one heading.
+## {region, model, units, tech_unlocked, stockpile} — the crown's crews there,
+## the studies it holds and the stores the next step is paid from. A chart with
+## no model is skipped, so a one-region world reads as one heading.
 static func snapshot(regions: Array[Dictionary], owner: int) -> Dictionary:
-	var rows: Array[Dictionary] = []
-	var counts: Dictionary = {
-		STATE_READY: 0,
-		STATE_AT_WORK: 0,
-		STATE_NO_BUILDER: 0,
-		STATE_LOCKED: 0,
-		STATE_DEVELOPED: 0,
-	}
-	for entry: Dictionary in regions:
-		var model := entry.get("model") as MapModel
-		if model == null:
-			continue
-		var region: int = int(entry.get("region", model.region_id))
-		var units: Array[CivilianState] = []
-		units.assign(entry.get("units", []))
-		var tech_unlocked: Dictionary = entry.get("tech_unlocked", {})
-		for province: ProvinceState in model.provinces:
-			if province == null or province.owner != owner or not province.has_town():
-				continue
-			var row: Dictionary = _row(model, province, region, units, tech_unlocked)
-			rows.append(row)
-			var state: String = String(row["state"])
-			counts[state] = int(counts.get(state, 0)) + 1
-	rows.sort_custom(_before)
-	return {
-		"rows": rows,
-		"groups": LedgerRows.group(rows),
-		"counts": counts,
-		"total": rows.size(),
-	}
+	return RaiseLedger.snapshot(regions, owner, _row, STATES, STATE_ORDER, _admits)
 
 
 ## Rows narrowed to one chart and one reading, grouped under their chart.
 static func groups(
 	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
 ) -> Array[Dictionary]:
-	return LedgerRows.groups(data, region_key, matches.bind(filter_key))
+	return RaiseLedger.groups(data, region_key, filter_key)
 
 
 static func count(
 	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
 ) -> int:
-	return LedgerRows.count(data, region_key, matches.bind(filter_key))
+	return RaiseLedger.count(data, region_key, filter_key)
 
 
 ## How many towns each reading would show inside one chart, so a chip carries
 ## its own tally and a zero stays legible rather than hidden.
 static func filter_counts(data: Dictionary, region_key: String) -> Dictionary:
-	return LedgerRows.counts(data, region_key, FILTERS, matches)
-
-
-static func matches(row: Dictionary, filter_key: String) -> bool:
-	return LedgerRows.field_matches(row, "state", filter_key)
+	return RaiseLedger.filter_counts(data, region_key, FILTERS)
 
 
 ## One-word name of a reading, for its chip and the sheet's count line.
@@ -114,7 +87,7 @@ static func filter_label(key: String) -> String:
 
 ## The level as the court reads it: a town is a numeral, not a number.
 static func level_text(level: int) -> String:
-	return ROMAN[clampi(level, 1, CivilianWorkPlan.MAX_TOWN)]
+	return RaiseLedger.numeral(ROMAN, level, CivilianWorkPlan.MAX_TOWN, 1)
 
 
 ## The rule a crown needs before it pays for a level: the bonus sits at 2 and 4
@@ -131,86 +104,56 @@ static func bonus_note() -> String:
 # --- rows -------------------------------------------------------------------
 
 
+## Only a province with a town carries the work.
+static func _admits(province: ProvinceState) -> bool:
+	return province.has_town()
+
+
 static func _row(
 	model: MapModel,
 	province: ProvinceState,
 	region: int,
 	units: Array[CivilianState],
-	tech_unlocked: Dictionary
+	tech_unlocked: Dictionary,
+	stockpile: Variant = null
 ) -> Dictionary:
 	var level: int = province.town_level()
-	var town: Vector2i = _town_tile(province)
+	var town: Vector2i = province.town_site()
 	var next_level: int = clampi(level + 1, 2, CivilianWorkPlan.MAX_TOWN)
 	var cost_text: String = CivilianWork.cost_text(
 		CivilianWork.cost_for("upgrade_town", next_level)
 	)
 	var turns: int = CivilianWorkPlan.duration_for(model, "upgrade_town", town, null)
-	var refusal: String = CivilianWorkPlan.town_upgrade_refusal(province, tech_unlocked)
-	var crew: CivilianState = _crew(units, province.owner, town)
-	var state: String = _state(level, crew, refusal, units, province.owner, town)
-	return {
-		"id": province.id,
-		"region": region,
-		"region_label": FactionCatalog.region_label(region),
-		"name": String(province.name),
-		"capital": province.capital,
-		"level": level,
-		"level_text": level_text(level),
-		"next_level": next_level,
-		"next_text": level_text(next_level),
-		"cost_text": cost_text,
-		"turns": turns,
-		"state": state,
-		"crew": String(crew.display_name()) if crew != null else "",
-		"remaining": crew.remaining_turns() if crew != null else 0,
-		"note": _note(state, next_level, cost_text, turns, refusal, crew),
-	}
-
-
-## The town tile the order would be filed on: the province's own town, or the
-## seat on a hand-built chart that predates town assignment — the same two
-## steps `ImprovementOrders.upgrade_town` takes.
-static func _town_tile(province: ProvinceState) -> Vector2i:
-	if province.town_tile.x >= 0:
-		return province.town_tile
-	if province.capital:
-		return province.capital_tile
-	return Vector2i(-1, -1)
-
-
-## What the next step waits on, worst first: a finished town, a crew already at
-## work, the study the order needs, a free Builder, else the order is open.
-static func _state(
-	level: int,
-	crew: CivilianState,
-	refusal: String,
-	units: Array[CivilianState],
-	owner: int,
-	town: Vector2i
-) -> String:
-	if level >= CivilianWorkPlan.MAX_TOWN:
-		return STATE_DEVELOPED
-	if crew != null:
-		return STATE_AT_WORK
-	if not refusal.is_empty():
-		return STATE_LOCKED
-	if ImprovementOrders.nearest_builder(units, owner, town) == null:
-		return STATE_NO_BUILDER
-	return STATE_READY
-
-
-## The Builder already raising this town, read from the crew's own record so
-## the row names the level the order was priced for.
-static func _crew(
-	units: Array[CivilianState], owner: int, town: Vector2i
-) -> CivilianState:
-	for raw: Variant in units:
-		var unit := raw as CivilianState
-		if unit == null or unit.owner != owner or not unit.is_working():
-			continue
-		if unit.work_action() == "upgrade_town" and unit.work_tile() == town:
-			return unit
-	return null
+	var refusal: String = CivilianWorkPlan.town_upgrade_refusal(
+		province, tech_unlocked, stockpile
+	)
+	var crew: CivilianState = RaiseLedger.crew_for(
+		units, province.owner, town, "upgrade_town"
+	)
+	var hand: CivilianState = ImprovementOrders.nearest_builder(units, province.owner, town)
+	if refusal.is_empty():
+		# The town tile is shared with the wall and the ward, so another crew
+		# already at work there is the order's own refusal, not a press (wiki:
+		# civilian-units § Per-player tile exclusivity).
+		refusal = CivilianWorkPlan.tile_busy_refusal(units, hand, town)
+	# What the next step waits on, worst first: a finished town, a crew already
+	# at work, the study, the stores or the busy tile the order needs, a free
+	# Builder, else the order is open.
+	var state: String = RaiseLedger.state_for(
+		level,
+		CivilianWorkPlan.MAX_TOWN,
+		crew,
+		refusal,
+		hand != null,
+		STATE_DEVELOPED,
+		STATE_NO_BUILDER
+	)
+	var row: Dictionary = RaiseLedger.row_head(province, region, level, level_text(level))
+	row.merge(RaiseLedger.row_step(state, crew, cost_text, turns))
+	row["next_level"] = next_level
+	row["next_text"] = level_text(next_level)
+	row["note"] = _note(state, next_level, cost_text, turns, refusal, crew)
+	return row
 
 
 static func _note(
@@ -226,32 +169,9 @@ static func _note(
 			return "Fully developed — level 4 pays ×2 manufactures."
 		STATE_AT_WORK:
 			var target: int = crew.work_detail("town_level", next_level)
-			var left: int = crew.remaining_turns()
-			return "%s raises it to %s · %d turn%s left." % [
-				crew.display_name(), level_text(target), left, "" if left == 1 else "s"
-			]
+			return RaiseLedger.at_work_note(crew, "it to %s" % level_text(target))
 		STATE_LOCKED:
 			return refusal
 		STATE_NO_BUILDER:
-			return "No idle Builder musters — train one at the capital."
-	return "Next: %s · %s · %d turn%s" % [
-		level_text(next_level), cost_text, turns, "" if turns == 1 else "s"
-	]
-
-
-# --- assembly ---------------------------------------------------------------
-
-
-## Reading order: what can be raised now, then what is in hand, then what waits
-## on a study or a crew, and the finished towns last. Within a state the
-## cheapest step leads, so a crown reads its purse before its ambition.
-static func _before(a: Dictionary, b: Dictionary) -> bool:
-	var left: int = int(STATE_ORDER.get(String(a["state"]), 9))
-	var right: int = int(STATE_ORDER.get(String(b["state"]), 9))
-	if left != right:
-		return left < right
-	if int(a["level"]) != int(b["level"]):
-		return int(a["level"]) < int(b["level"])
-	if int(a["region"]) != int(b["region"]):
-		return int(a["region"]) < int(b["region"])
-	return int(a["id"]) < int(b["id"])
+			return RaiseLedger.no_crew_note("Builder")
+	return RaiseLedger.next_note(level_text(next_level), cost_text, turns)

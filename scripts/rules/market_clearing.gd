@@ -50,6 +50,8 @@ static func clear(
 	for note: Variant in matched["notes"]:
 		notes.append(note as Dictionary)
 	var settled: Dictionary = _settle(market, economies, deals, context, notes)
+	# A deal the purse refused is no deal: never in the Deal Book or a share.
+	deals = settled.get("deals", deals) as Array[Dictionary]
 	var credits: Dictionary = _first_right(world, economies, deals, context)
 	var changed: Dictionary = market.advance_prices(auto_offers)
 	var carry: Array[MarketOrder] = _carry(orders, matched, economies, free_holds, notes)
@@ -192,6 +194,8 @@ static func _settle(
 	notes: Array[Dictionary]
 ) -> Dictionary:
 	var fills: Dictionary = {}
+	var kept: Array[Dictionary] = []
+	var diplomacy: DiplomacyState = context.get("diplomacy", null)
 	for deal: Dictionary in deals:
 		var buyer: int = int(deal.get("buyer", MarketOrder.WORLD))
 		var seller: int = int(deal.get("seller", MarketOrder.WORLD))
@@ -199,33 +203,44 @@ static func _settle(
 		var quantity: int = int(deal.get("quantity", 0))
 		if quantity <= 0 or commodity.is_empty():
 			continue
-		var price: int = int(deal.get("price", 0))
 		var subsidy: int = _subsidy_percent(context, buyer, seller)
 		var buy_unit: int = _buy_unit(market, commodity, buyer, seller, subsidy)
-		var cost: int = MarketRules.deal_total_for(
-			market, commodity, quantity, buyer, seller, subsidy, true
-		)
+		var bid_quantity: int = quantity
 		var buyer_economy: PlayerEconomy = _economy(economies, buyer)
 		if buyer_economy != null:
-			if buyer_economy.treasury < cost:
-				quantity = int(floor(float(buyer_economy.treasury) / float(maxi(buy_unit, 1))))
-				cost = MarketRules.deal_total_for(
-					market, commodity, quantity, buyer, seller, subsidy, true
-				)
+			# The debt rounds once from the whole deal, so the per-unit charge
+			# cannot say whether one more ton fits (wiki: world-market
+			# § Treasury budget for bids — the resolver-side clamp).
+			quantity = MarketRules.payable_units(
+				market, commodity, quantity, buyer, seller, subsidy,
+				buyer_economy.treasury
+			)
+			if quantity != bid_quantity:
 				notes.append({
 					"code": "bid_partial_fill_treasury_insufficient",
 					"faction": buyer,
 					"commodity": commodity,
-					"quantity": int(deal.get("quantity", 0)) - quantity,
+					"quantity": bid_quantity - quantity,
 				})
-			if quantity <= 0:
-				continue
-			market.settle_purchase(buyer_economy, commodity, quantity, buyer, cost)
+		var cost: int = MarketRules.deal_total_for(
+			market, commodity, quantity, buyer, seller, subsidy, true
+		)
+		# A purse that cannot pay is not a sale: nothing changes hands.
+		if quantity <= 0 or (
+			buyer_economy != null
+			and not market.settle_purchase(buyer_economy, commodity, quantity, buyer, cost)
+		):
+			continue
+		kept.append(deal)
+		# A settled deal lifts its pair's relation next turn (wiki: diplomacy
+		# § Relation Model — trade-deal boost, R10). Volume-independent; the
+		# state drops the world counterparty and Minor-to-Minor pairs.
+		if diplomacy != null:
+			DiplomacyTrade.record_deal(diplomacy, buyer, seller)
 		# The row carries what the clearing actually settled, not what the matcher
-		# proposed: a purse-truncated deal buys fewer tons, and the debt is rounded
-		# once from the whole deal, so the Deal Book must read the charged total
-		# (wiki: world-market § Subsidy price adjustment — "never a sum of per-unit
-		# roundings"; REQ-P5-05).
+		# proposed: the debt is rounded once from the whole deal, so the Deal Book
+		# must read the charged total (wiki: world-market § Subsidy price
+		# adjustment — "never a sum of per-unit roundings"; REQ-P5-05).
 		deal["quantity"] = quantity
 		deal["cost"] = cost
 		deal["buy_unit"] = buy_unit
@@ -234,7 +249,6 @@ static func _settle(
 		var proceeds: int = 0
 		if seller_economy != null:
 			seller_economy.take(commodity, quantity)
-			var sell_unit: int = _sell_unit(market, commodity, seller, buyer, subsidy)
 			proceeds = MarketRules.deal_total_for(
 				market, commodity, quantity, buyer, seller, subsidy, false
 			)
@@ -251,7 +265,7 @@ static func _settle(
 			sold["sold"] = int(sold.get("sold", 0)) + quantity
 			sold["earned"] = int(sold.get("earned", 0)) + proceeds
 			fills[seller] = sold
-	return {"fills": fills}
+	return {"fills": fills, "deals": kept}
 
 
 ## What the buyer actually pays per unit: the published price times the crown's
@@ -264,14 +278,6 @@ static func _buy_unit(
 	if buyer == MarketOrder.WORLD:
 		return maxi(market.price(commodity), 1)
 	return MarketRules.deal_unit_for(market, commodity, buyer, seller, subsidy_percent, true)
-
-
-static func _sell_unit(
-	market: WorldMarket, commodity: String, seller: int, buyer: int, subsidy_percent: int
-) -> int:
-	if seller == MarketOrder.WORLD:
-		return maxi(market.price(commodity), 1)
-	return MarketRules.deal_unit_for(market, commodity, buyer, seller, subsidy_percent, false)
 
 
 ## The subsidy percent the pair carries: a Minor/Tribe sale to its payer, or a

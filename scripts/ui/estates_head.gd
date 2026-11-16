@@ -6,9 +6,12 @@ extends VBoxContainer
 
 signal filter_selected(key: String)
 
-const FILTERS: Array[String] = ["all", "producing", "building", "vacant", "issues"]
+const FILTERS: Array[String] = [
+	"all", "ready", "producing", "building", "vacant", "issues"
+]
 const FILTER_LABELS: Dictionary = {
 	"all": "All",
+	"ready": "Ready",
 	"producing": "Producing",
 	"building": "Works",
 	"vacant": "Vacant",

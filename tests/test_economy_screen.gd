@@ -92,8 +92,33 @@ func test_production_assignment_reaches_the_projection() -> void:
 	assert_lt(int(preview["stockpile_delta"].get("timber", 0)), 0)
 
 
-## A recruit pressed on the ledger is a queued order: the press files it, the
-## head arrives with the next Build/work, and the fabric is paid when it lands
+## A recruit joins the pool at the turn's close but turns no wheel until the
+## **next** Production phase: same-turn labour from a new hire is a rule the wiki
+## refuses (wiki: workers-and-population § Phase placement — the phase sequence
+## is not reordered for it). The phase report is the proof: the head ate with the
+## court and laboured for nobody.
+func test_a_queued_recruit_labours_next_turn() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["fabric"] = 2
+	economy.stockpile["grain"] = 200
+	economy.stockpile["meat"] = 200
+	economy.workers = WorkerPool.make(3)
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), 3, "a press only queues")
+	var report: Dictionary = _screen.economy.resolve_turn()
+	var consumed: Dictionary = report.get("consumption", {}) as Dictionary
+	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), 4, "the head landed")
+	assert_eq(int(consumed.get("fed_workers", 0)), 4, "it eats with the court")
+	assert_eq(int(consumed.get("idle_labour", 0)), 3, "three hands labour, not four")
+	assert_eq(int(consumed.get("labour_next_turn", 0)), 1, "the fourth turns the next phase")
+	var after: Dictionary = _screen.economy.readings.projected()
+	assert_eq(
+		int((after.get("consumption", {}) as Dictionary)["idle_labour"]), 4,
+		"the closed turn hands all four to the next phase",
+	)
+
+
+## A recruit pressed on the ledger files one order and costs nothing yet
 ## (wiki: workers-and-population § Phase placement).
 func test_recruiting_a_peasant_through_the_ledger() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
@@ -261,8 +286,43 @@ func test_the_larder_names_the_appetites_that_eat_first() -> void:
 		printed.contains("20 food wanted — army 8 · navy 4 · pool 6 · wards 2"),
 		"every appetite, in the phase's own order: %s" % printed
 	)
-	assert_true(printed.contains("Short 6 food"), "the pool is short: %s" % printed)
+	assert_true(
+		printed.contains("Short 8 food"),
+		"the whole larder is short, not the pool alone: %s" % printed
+	)
 	assert_true(printed.contains("6 strikers"), printed)
+
+
+## A larder that keeps the workers fed while a ward goes unfed is not calm: the
+## ward loses its nurses and the province rests at the field's share, so the tab
+## names the shortfall and the mouth that missed it
+## (wiki: workers-and-population § Consumption — total food demand;
+## combat § Regiment condition; DR-20261112-04).
+func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 3, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(
+		economy, {"army": 0, "ships": 0, "hospital": 4, "wards": [4]}
+	)
+	var page := LedgerWorkers.new()
+	assert_eq(
+		page._shortfall_copy(read),
+		"Short 3 food — the wards go unfed.",
+		"the pool ate, the ward did not"
+	)
+	# A court with no workers at all still reads its army's hunger.
+	economy.workers = WorkerPool.make(0)
+	economy.stockpile = {"grain": 2, "meat": 0}
+	var army: Dictionary = LarderRead.forecast(
+		economy, {"army": 5, "ships": 0, "hospital": 0}
+	)
+	assert_eq(
+		page._shortfall_copy(army),
+		"Short 3 food — the army goes short.",
+		"no striker, and still short"
+	)
+	page.free()
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.
@@ -656,6 +716,32 @@ func _offer_book() -> Array[Dictionary]:
 func _market_page() -> LedgerMarket:
 	_screen.economy.open_panel()
 	return _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
+
+
+## The Minor row's batch is the deal the clearing will pay: the subsidy step
+## rides on the ask, so the press stages only what the purse covers and never
+## names more ducats than the crown holds (wiki: world-market § Subsidy price
+## adjustment, § Treasury budget for bids; REQ-P2-03, REQ-P5-05).
+func test_the_minor_batch_pays_the_ask_the_press_prints() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var seller: int = 9
+	var market: WorldMarket = _screen.economy.market
+	market.subsidy_terms["%d>%d" % [_screen.player_faction, seller]] = 20
+	var economy: PlayerEconomy = _screen.economy.economy
+	var ask: int = MinorMarket.unit_price(market, "timber", _screen.player_faction, seller)
+	# Two tons fit at the ask; three would fit at the world price alone.
+	economy.treasury = ask * 2 + ask / 2
+	var page: LedgerMarket = _market_page()
+	var press: Button = page.batch_buttons().get("%d:timber" % seller) as Button
+	assert_not_null(press, "the surcharge still leaves two tons payable")
+	assert_true(press.text.begins_with("Bid ×2"), press.text)
+	var total: int = int(press.text.split("·")[1].strip_edges().split(" ")[0])
+	assert_lte(total, economy.treasury, "the press names only ducats the purse holds")
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 2,
+		"one press files the whole deal the ask pays for",
+	)
 
 
 ## The seller and good chips narrow the court book without leaving the tab
@@ -1152,6 +1238,35 @@ func test_a_luxury_row_names_the_hand_it_waits_for() -> void:
 	assert_true(_row_has_text(body, "needs a Journeyman"), "fur hats still wait for a journeyman")
 
 
+## A second-stage row names the town's works it waits for on the row itself, and
+## its "+" is inert until the crown holds a town at that level: a touch player
+## never sees a hover hint (wiki: production-recipes § Town-works gates;
+## DR-20261116-04).
+func test_a_town_row_names_the_works_it_waits_for() -> void:
+	var faction: int = _screen.economy.player_faction
+	var own: Array[ProvinceState] = []
+	for index in _screen.world.region_count():
+		var model: MapModel = _screen.world.region(index)
+		for province in model.province_count():
+			var data: ProvinceState = model.province_data(province)
+			if data != null and data.owner == faction:
+				data.town_development = 1
+				own.append(data)
+	assert_gt(own.size(), 0, "the crown holds a province to read")
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_true(_row_has_text(body, "needs a level-2 town"), "the garments row names its works")
+	assert_true(_row_has_text(body, "needs a level-4 town"), "the rum row names the finer works")
+	var rows: Dictionary = (body as LedgerProduction).recipe_rows()
+	assert_true((rows["garments"]["plus"] as Button).disabled, "a gated row offers no run")
+	own[0].town_development = 2
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION)
+	assert_false(_row_has_text(body, "needs a level-2 town"), "a level-2 town opens the garments row")
+	assert_true(_row_has_text(body, "needs a level-4 town"), "rum still waits for a level-4 town")
+
+
 ## A full bench is named on the row itself and its "+" is inert: a touch player
 ## never sees a hover hint (wiki: production-recipes § Workshop queue;
 ## DR-20261114-12).
@@ -1203,3 +1318,174 @@ func _collect_offer_chips(node: Node, out: Array[Button]) -> void:
 		out.append(node)
 	for child: Node in node.get_children():
 		_collect_offer_chips(child, out)
+
+
+## One press files the whole order the rules accept, so a court buying a turn's
+## ration never taps Bid ten times (wiki: world-market § Trade orders;
+## REQ-P5-04, REQ-P5-05).
+func test_the_market_row_files_its_batch_in_one_press() -> void:
+	var market: LedgerMarket = _market_page()
+	var batches: Dictionary = market.batch_buttons()
+	assert_true(batches.has("bid:grain"), "a grain bid batches")
+	var press: Button = batches["bid:grain"] as Button
+	var units: int = int(press.text.split("×")[1].split(" ")[0])
+	assert_gt(units, 1, "a batch is more than the single press")
+	assert_true(press.text.contains("ducats"), "the press names the whole order's ducats")
+	assert_gte(press.custom_minimum_size.y, 38.0, "the press is a row-height target")
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), units,
+		"one press staged the whole order",
+	)
+
+
+## The Minor/Tribe row batches the seller's whole row, and a row with one ton
+## left keeps its single press alone (REQ-P5-04, REQ-P1-07).
+func test_the_minor_book_row_files_the_sellers_left_in_one_press() -> void:
+	_screen.economy.market.minor_offers = _offer_book()
+	var market: LedgerMarket = _market_page()
+	var batches: Dictionary = market.batch_buttons()
+	assert_true(batches.has("7:timber"), "two tons left batch")
+	assert_false(batches.has("7:grain"), "one ton left is the single press")
+	var press: Button = batches["7:timber"] as Button
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_buy_units(_screen.player_faction), 2,
+		"the seller's whole row is one order",
+	)
+
+
+## The offer batch is the stock the assigned runs leave, so the press and the
+## rules price one cap (wiki: world-market § Trade orders — the offer cap is the
+## post-production stockpile minus industry reservations; REQ-P2-03).
+func test_the_offer_batch_leaves_the_assigned_runs_their_inputs() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 4
+	economy.production.set_assignment("lumber", 1)
+	var market: LedgerMarket = _market_page()
+	var batches: Dictionary = market.batch_buttons()
+	assert_true(batches.has("offer:timber"), "the two spare tons batch")
+	var press: Button = batches["offer:timber"] as Button
+	var units: int = int(press.text.split("×")[1].split(" ")[0])
+	assert_eq(units, 2, "four held less the lumber run's two tons")
+	press.pressed.emit()
+	assert_eq(
+		_screen.economy.market.book.pending_sell_units(_screen.player_faction, "timber"), 2,
+		"the press stages only what the rules accept",
+	)
+
+
+## A ton already staged is not sellable twice: the chip, the readout and the
+## rules price one cap (wiki: world-market § Trade orders — the offer cap is the
+## post-production stockpile; § Order persistence).
+func test_a_staged_offer_spends_the_sellable_cap() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 3
+	_screen.economy.open_panel()
+	var staged: Dictionary = _screen.economy.orders.trade("timber", 3, false)
+	assert_true(bool(staged.get("ok", false)), String(staged.get("reason", "")))
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var chip: Button = _row_button(body, "timber", "Offer")
+	assert_not_null(chip, "the timber row draws its Offer")
+	assert_true(chip.disabled, "the staged tons are not offered twice")
+	assert_true(chip.tooltip_text.contains("3 Timber already offered"), chip.tooltip_text)
+	var caption: Label = null
+	for node: Node in body.find_children("*", "Label", true, false):
+		if (node as Label).text.contains("already offered"):
+			caption = node
+	assert_not_null(caption, "the row prints what is already offered")
+	assert_eq(caption.text, "3 Timber already offered — 0 sellable")
+
+
+## A purse the rules will not open files no bid: the chip dies before the press
+## (wiki: world-market § Treasury budget for bids — the UI clamps the bid chip).
+func test_a_spent_purse_disables_the_bid_chip() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.treasury = 0
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	var chips: Array[Button] = []
+	for node: Node in body.find_children("*", "Button", true, false):
+		if (node as Button).text == "Bid":
+			chips.append(node as Button)
+	assert_gt(chips.size(), 0, "the page draws Bid chips")
+	for chip: Button in chips:
+		assert_true(chip.disabled, "an empty purse files no bid")
+		assert_true(chip.tooltip_text.contains("no room"), chip.tooltip_text)
+
+
+## The single press on a commodity row, found by the row's own good name.
+func _row_button(body: Node, commodity: String, text: String) -> Button:
+	for node: Node in body.find_children("*", "Label", true, false):
+		if (node as Label).text != CommodityCatalog.label(commodity):
+			continue
+		var row: Node = node.get_parent()
+		while row != null and row != body:
+			for child: Node in row.get_children():
+				if child is Button and (child as Button).text == text:
+					return child as Button
+			row = row.get_parent()
+	return null
+
+
+## The PRODUCTION tab's one press: a crown that set its runs row by row now files
+## one step on every ready row in a single confirmed press, and the press names
+## what it would set before any labour or input is claimed (REQ-P5-04;
+## DR-20261116-08).
+func test_the_production_tab_files_one_run_on_every_ready_row() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 10
+	economy.stockpile["wool"] = 10
+	economy.stockpile["iron"] = 6
+	economy.stockpile["coal"] = 6
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	var press: RaiseBatchPress = body.batch_press()
+	assert_not_null(press, "the tab carries the one press")
+	assert_true(press.visible, "the press stands when a row is ready")
+	var ready: int = int(body._plan()["runs"])
+	assert_gt(ready, 1, "the opening store opens more than one row: %d" % ready)
+	assert_eq(press.text, "Queue all ready (%d)" % ready, "the press names the count")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(press.text, "Confirm — queue %d runs" % ready, "the second tap is named")
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the press forgets the arm once it files")
+	var set_rows: Dictionary = {}
+	for entry: Dictionary in economy.production.assignments():
+		set_rows[String(entry["recipe"])] = int(entry["units"])
+	assert_eq(set_rows.size(), ready, "every ready row took one run")
+	for recipe_id: String in set_rows.keys():
+		assert_eq(int(set_rows[recipe_id]), 1, "%s took exactly one run" % recipe_id)
+	assert_true(
+		_toast_texts().has(ProductionBatch.receipt(ready)),
+		"the press prints one receipt: %s" % str(_toast_texts())
+	)
+
+
+## A page with nothing ready carries no press, so a crown is never offered a
+## press that would file nothing (REQ-P5-03).
+func test_the_production_press_stands_down_when_nothing_is_ready() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	# Every row set past any ceiling the store could open: no row has a step left.
+	for recipe_id: String in body.recipe_rows().keys():
+		economy.production.set_assignment(recipe_id, 99)
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	assert_eq(int(body._plan()["runs"]), 0, "no row has a step left to file")
+	assert_false(body.batch_press().visible, "a view with nothing ready carries no press")
+
+
+## Every line the court's toasts currently show.
+func _toast_texts() -> Array[String]:
+	var texts: Array[String] = []
+	for panel: Node in _screen.hud._toast_box.get_children():
+		for label: Label in panel.find_children("*", "Label", true, false):
+			texts.append(label.text)
+	return texts

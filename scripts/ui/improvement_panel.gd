@@ -11,6 +11,10 @@ extends ModalShell
 
 signal action_pressed(action: String, tile: Vector2i)
 signal focus_pressed(tile: Vector2i)
+## Every ready estate the view prints, in its order: the one press files them
+## through the screen's own order hook, so the panel stays a view and the rules
+## keep the walk (REQ-P3-03, REQ-P5-04; DR-20261116-06).
+signal raise_all_pressed(tiles: Array)
 
 var model: MapModel = null
 var works: LandWorks = null
@@ -22,6 +26,7 @@ var tech_caps: Dictionary = {}
 
 var _rows: VBoxContainer = null
 var _head: EstatesHead = null
+var _batch: RaiseBatchPress = null
 var _title: Label = null
 var _subtitle: Label = null
 var _footer_box: Control = null
@@ -36,6 +41,10 @@ func open(province_id: int = -1, filter_key: String = "all") -> void:
 	_province_filter = province_id
 	if _head != null:
 		_head.set_filter(filter_key)
+	# A card that opens fresh never carries an arm from the last visit, so one
+	# tap on a reopened sheet can never spend the stores (REQ-P5-04).
+	if _batch != null:
+		_batch.disarm()
 	super.open()
 
 
@@ -99,6 +108,12 @@ func _build_plate(host: VBoxContainer) -> void:
 	_head = EstatesHead.new()
 	_head.filter_selected.connect(_press_filter)
 	host.add_child(_head)
+
+	# The one press under the chips: it names how many estates the view would
+	# order and files them on the second tap (REQ-P5-04; DR-20261116-06).
+	_batch = RaiseBatchPress.new()
+	_batch.confirmed.connect(_raise_all)
+	host.add_child(_batch)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -218,6 +233,32 @@ func _apply_filter() -> void:
 		empty.add_theme_font_size_override("font_size", 14)
 		empty.add_theme_color_override("font_color", Palette.TEXT_DIM)
 		_rows.add_child(empty)
+	_sync_batch()
+
+
+# --- the one press -----------------------------------------------------------
+
+
+## The ready estates the current view prints, in the order it prints them: the
+## province the card was opened on, then the reading its chips hold, so the press
+## files exactly what the crown can see (REQ-P5-04; DR-20261116-06).
+func _ready_tiles() -> Array[Vector2i]:
+	return EstateLedger.ready_tiles(
+		EstateLedger.in_province(EstateLedger.grouped(_data), _province_filter),
+		_head.filter
+	)
+
+
+## The press names how many estates it would order, so the count is read before
+## the stores are spent; a view with nothing ready carries no press (REQ-P5-03).
+func _sync_batch() -> void:
+	_batch.set_ready(_ready_tiles().size(), "estates")
+
+
+## The second tap: the screen files the walk and prints its one receipt, so the
+## panel never owns an order of its own (REQ-P3-03, REQ-P5-05).
+func _raise_all() -> void:
+	raise_all_pressed.emit(_ready_tiles())
 
 
 func _add_group(group: Dictionary, rows: Array[Dictionary]) -> void:

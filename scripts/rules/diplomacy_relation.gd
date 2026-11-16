@@ -11,6 +11,10 @@ var score: float = DiplomacyCatalog.INITIAL_SCORE
 var since_turn: int = 0
 var last_interaction_turn: int = 0
 var formal_alliance: bool = false
+## Turn the pair's treaty was broken. A non-aggression-pact break stamps the
+## one-turn war lock: neither side may declare war on the pair until the turn
+## after the stamp (wiki: diplomacy § Breaking a pact; issue #750).
+var treaty_break_turn: int = -1
 
 
 static func create(faction_a: int, faction_b: int, turn: int = 0) -> DiplomacyRelation:
@@ -64,6 +68,7 @@ func to_dict() -> Dictionary:
 		"since_turn": since_turn,
 		"last_interaction_turn": last_interaction_turn,
 		"formal_alliance": formal_alliance,
+		"treaty_break_turn": treaty_break_turn,
 	}
 
 
@@ -76,5 +81,6 @@ static func from_dict(data: Dictionary) -> DiplomacyRelation:
 	relation.since_turn = int(data.get("since_turn", 0))
 	relation.last_interaction_turn = int(data.get("last_interaction_turn", 0))
 	relation.formal_alliance = bool(data.get("formal_alliance", false))
+	relation.treaty_break_turn = int(data.get("treaty_break_turn", -1))
 	relation.normalize()
 	return relation
