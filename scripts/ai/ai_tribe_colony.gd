@@ -13,12 +13,36 @@ extends RefCounted
 ## Pure: state, chart, treasury and tech reads in; a target and a utility bonus
 ## out (REQ-P2-03, REQ-P3-03). Every legality check stays in `DiplomacyRules`;
 ## this module only says how much the court wants the step.
+##
+## The court's war footing rides in beside them (DR-20261116-11): a court at war
+## on a Great Power opens no **new** chain — the coin and the envoy's one order
+## belong to the front — while a chain it has already opened keeps its next step.
 
 ## What the next envoy step is worth while the colony stands in reach, on the
 ## same 0–100 scale as every peaceful offer (AiUtility). The Join Empire itself
 ## is worth more than the steps before it: it is the step that founds the colony.
 const BONUS: int = 20
 const JOIN_BONUS: int = 15
+## The refusal a footing that holds the chain shut prints. A war on a Great
+## Power spends the coin and the envoy's one order a new chain needs, so a court
+## opens no **new** chain while it fights; a chain already opened keeps its next
+## step (wiki: phase-planner-dispatch § Suppression matrix; DR-20261116-11).
+const REASON_WAR: String = "at war: no new chain"
+## The claim reading: what the court wants of that Tribe when no footing is
+## holding the slot shut. A footing is one turn's choice, not a fact about the
+## claim — the Tribe is still the colony the court means to buy — so the war gate
+## asks its question this way and a closed chain never frees a court to clear it
+## by force (DR-20261116-11).
+const CLAIM_POSTURE: String = AiPhasePlanner.PHASE_PEACE
+
+
+## The reason a footing holds a **new** chain shut, or "" when it opens one.
+## One reading for the ambition, the door and the ledger, so the three never
+## disagree about the same turn.
+static func closed_reason(posture: String) -> String:
+	if AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_TRIBE_CHAIN):
+		return ""
+	return REASON_WAR
 
 
 ## The Tribe this court most wants, or {} when no charted Tribe is in reach:
@@ -31,11 +55,14 @@ static func best(
 	charts: CourtCharts,
 	faction: int,
 	treasury: int,
-	tech: Dictionary
+	tech: Dictionary,
+	posture: String = AiPhasePlanner.PHASE_UNKNOWN
 ) -> Dictionary:
 	var chosen: Dictionary = {}
 	for tribe: int in FactionCatalog.tribe_ids():
-		var read: Dictionary = ambition(state, world, charts, faction, tribe, treasury, tech)
+		var read: Dictionary = ambition(
+			state, world, charts, faction, tribe, treasury, tech, posture
+		)
 		if not bool(read.get("wanted", false)):
 			continue
 		if chosen.is_empty() or _before(read, chosen):
@@ -56,7 +83,8 @@ static func ambition(
 	faction: int,
 	target: int,
 	treasury: int,
-	tech: Dictionary
+	tech: Dictionary,
+	posture: String = AiPhasePlanner.PHASE_UNKNOWN
 ) -> Dictionary:
 	var read: Dictionary = {
 		"target": target, "wanted": false, "held": false, "stage": "", "cost": 0,
@@ -84,6 +112,13 @@ static func ambition(
 		return _deny(read, "the court has not charted that shore")
 	# An open chain is a stake: the court has paid for it and means to keep it.
 	read["held"] = state.overture(faction, target) != DiplomacyCatalog.STAGE_NONE
+	# A footing at war holds the slot shut for a chain the court has **not**
+	# opened: the coin and the order the next link needs belong to the front.
+	# The stake it already holds keeps its step (DR-20261116-11).
+	if not bool(read["held"]):
+		var closed: String = closed_reason(posture)
+		if not closed.is_empty():
+			return _deny(read, closed)
 	var provinces: int = DiplomacyRules.provinces_owned(world, target)
 	var cost: int = DiplomacyCatalog.stage_cost(stage, provinces)
 	if treasury < cost:
@@ -108,15 +143,22 @@ static func door(
 	world: WorldMap,
 	charts: CourtCharts,
 	faction: int,
-	tech: Dictionary
+	tech: Dictionary,
+	posture: String = AiPhasePlanner.PHASE_UNKNOWN
 ) -> String:
 	if state == null:
 		return ""
+	var closed: String = closed_reason(posture)
 	for tribe: int in FactionCatalog.tribe_ids():
 		var relation: DiplomacyRelation = state.relation(faction, tribe)
 		if relation == null or relation.at_war:
 			continue
 		if state.colony_of(tribe) >= 0:
+			continue
+		# A chain the footing holds shut is no chain the court means to finish:
+		# the study it would need is not the study the court owes this turn.
+		if not closed.is_empty() \
+				and state.overture(faction, tribe) == DiplomacyCatalog.STAGE_NONE:
 			continue
 		var stage: String = DiplomacyCatalog.next_stage(state.overture(faction, tribe))
 		if stage.is_empty():

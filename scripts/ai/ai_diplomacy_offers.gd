@@ -312,14 +312,17 @@ static func _break_nap(
 	for other: DiplomacyRelation in state.relations_of(faction):
 		if other.at_war:
 			return _blocked("the court is at war on another front", KIND_BREAK_NAP)
+	var posture: String = AiPhasePlanner.phase_for(config, state)
 	var colony: Dictionary = AiTribeColony.ambition(
 		state, world, context.get("charts", null), faction, target,
 		int((context.get("treasury", {}) as Dictionary).get(faction, 0)),
-		(context.get("tech", {}) as Dictionary).get(faction, {})
+		(context.get("tech", {}) as Dictionary).get(faction, {}),
+		# The claim, not this turn's slot: a footing never frees the court to
+		# clear a chain it means to buy (DR-20261116-11).
+		AiTribeColony.CLAIM_POSTURE
 	)
 	if bool(colony.get("wanted", false)) or bool(colony.get("held", false)):
 		return _blocked("an envoy chain has a claim on that court", KIND_BREAK_NAP)
-	var posture: String = AiPhasePlanner.phase_for(config, state)
 	if (
 		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
 		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)

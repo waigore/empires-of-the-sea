@@ -563,7 +563,11 @@ func test_a_connected_estate_yields_and_counts_as_worked() -> void:
 	var entry: Dictionary = _entry(survey, model.province_at(tile.x, tile.y))
 	var row: Dictionary = _row(entry, tile)
 	assert_eq(String(row["status"]), "producing")
-	assert_eq(int(row["output"]), 1)
+	assert_eq(
+		int(row["output"]),
+		Extraction.estate_yield_per_level(owner, String(row["commodity"])),
+		"the estate pays its level at the published per-level yield"
+	)
 	assert_eq(int(entry["counts"]["worked"]), 1)
 	assert_eq(int(entry["counts"]["developed"]), 1)
 	assert_eq(int(entry["counts"]["linked"]), 1)

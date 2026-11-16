@@ -170,7 +170,9 @@ static func _row(
 		# tile's own road), the town cap only where the Town rule is the whole
 		# link, and the terrain hard cap after the tech cap (wiki:
 		# extraction-and-improvements § Extraction formula and town development
-		# cap, § Terrain extraction hard caps).
+		# cap, § Terrain extraction hard caps). A Great Power's ration estates
+		# pay double per level, so the lens prints what the phase pays (issue
+		# #807).
 		var commodity: String = ImprovementCatalog.commodity(resource)
 		var cap: int = TerrainCaps.extraction_cap(
 			model.terrain_at(tile.x, tile.y), commodity,
@@ -179,7 +181,7 @@ static func _row(
 		output = Extraction.effective_yield(
 			level, cap, int(connection.get("transport", 0)),
 			LandConnectivity.town_cap_for(model, resolved, province_id, index)
-		)
+		) * Extraction.estate_yield_per_level(tile_owner, commodity)
 	var remaining: int = working.remaining_turns() if working != null else 0
 	var total_turns: int = working.total_turns() if working != null else 0
 	return {

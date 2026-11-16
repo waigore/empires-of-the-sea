@@ -21,9 +21,9 @@ resources print first.
 
 `MapPlayObjectivesAi.run` prices every planning court before the expedition
 pass: readings (footing, desire, muster, hulls, purse, research, tribe) become
-objectives, ranked (`utility × modifier / 1000`, id breaks ties) and allocated
+objectives, ranked (`utility × modifier / 1000`, id breaks ties) then allocated
 over the pools. Each aim ends `funded`, `deferred` with shortfall
-(`hull 0/1`), or `blocked`. `AiState.note_objectives` keeps the row and ids by
+(`hull 0/1`), or `blocked`. `AiState.note_objectives` keeps the rows by
 status; the save carries them.
 
 ## The expedition
@@ -40,7 +40,8 @@ colony muster gate reads the funded hull claim
 
 `AiPosture` turns footing into a per-mille vector (`posture.war_boost`,
 `posture.war_expansion`, `posture.fronts_expansion`) × leader domain weights
-(`posture.weight_step`, floor `posture.floor`) — scaled, never zeroed. A parent with a starved child, or a
+(`posture.weight_step`, floor `posture.floor`) × the money goal
+(`posture.earn_income` / `posture.earn_defer`) — scaled, never zeroed. A parent with a starved child, or a
 deferred required aim (`requires`), names what it waited on. A funded `colonise.new_world` opens the muster even
 at war.
 
@@ -55,9 +56,8 @@ funded.
 
 `AiClaims` ranks the ration consumption eats, the next regiment, the saving
 hull's row, planned works and this turn's production against the stockpile; the
-market reads their merged grant (same dictionary, trade behaviour-identical),
-the civilian purse is one treasury claim, and the turn record keeps `claims`
-beside ledger lines.
+market reads their merged grant, the civilian purse is one treasury claim, and
+the turn record keeps `claims` beside ledger lines.
 
 ## The colony
 
