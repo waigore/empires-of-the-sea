@@ -166,7 +166,12 @@ func count_of_type(type_id: String) -> int:
 	return total
 
 
-## Auto-resolve strength basis: Σ (FPN + FPM) × chevrons × health (wiki: combat).
+## The standard's paper sum: Σ (FPN + FPM) × chevrons × health, the aggregation
+## the published power score and the docket read (wiki: diplomacy § Great Power
+## power score). A battle adds the colours' citation weight on top of it, so a
+## sheet that must name the figure the battle would pay reads
+## [method ArmyForce.side_strength] instead (wiki: combat § Strength;
+## DR-20261113-04).
 func strength() -> float:
 	var total: float = 0.0
 	for regiment_id: String in regiments:

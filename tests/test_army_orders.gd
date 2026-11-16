@@ -547,6 +547,30 @@ func test_army_rations_enter_the_consumption_projection() -> void:
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
+## The dossier's strength is the resolver's own aggregation, not the paper sum:
+## a standard whose colours were all cited (a laurel each, +10%) reads the
+## weight the battle pays, the figure the muster roll prints too (wiki: combat
+## § Strength, military-armies § The muster roll; DR-20261113-04).
+func test_the_dossier_strength_is_the_resolvers_own_aggregation() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	var one: Array[ArmyState] = [home]
+	var paper: float = home.strength()
+	assert_true(String(panel._strength.text).contains("%d strength" % roundi(paper)))
+	for regiment_id: String in home.regiments:
+		home.regiment_history[regiment_id] = {"cited": 3, "fields": []}
+	_screen.army_layer.select(home)
+	var paid: float = ArmyModifiers.strength(one, 0, 1.0)
+	assert_almost_eq(paid, paper * 1.10, 0.001, "a laurel on every colours")
+	assert_almost_eq(ArmyForce.side_strength(one), paid, 0.001)
+	assert_true(
+		String(panel._strength.text).contains("%d strength" % roundi(paid)),
+		panel._strength.text
+	)
+	assert_ne(roundi(paid), roundi(paper), "the citation names a higher figure")
+
+
 func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	var field: ArmyState = _detach_one()
 	var home: ArmyState = _player_home()
