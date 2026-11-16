@@ -15,6 +15,11 @@ const DEFAULT_TECH_CAP: int = 1
 const DEFAULT_TRANSPORT: int = 1
 const MAX_YIELD: int = 4
 const CAPITAL_GRAIN_BONUS: int = 5
+## A Great Power's ration estates — grain and meat — yield double per level
+## (wiki: extraction-and-improvements § Ration estates; DR-20261116-07).
+## Doubled at the estate, never in the Minor/Tribe book: the ×3 book prototype
+## crashed the food price (issue #807, evidence/issue-766).
+const RATION_ESTATE_YIELD: int = 2
 
 const GRAIN: String = "grain"
 
@@ -30,6 +35,21 @@ static func effective_yield(
 ## Per-commodity tech ceiling; callers pass TechCatalog.extraction_caps().
 static func tech_cap_for(commodity: String, tech_caps: Dictionary) -> int:
 	return maxi(int(tech_caps.get(commodity, DEFAULT_TECH_CAP)), 0)
+
+
+## Per-level yield an estate of `commodity` owned by `owner` pays: double for a
+## Great Power's grain and meat, one for every other estate and every
+## Minor/Tribe tile, so the book's auto-offer keeps its published unit yield
+## (wiki: extraction-and-improvements § Ration estates; issue #807). An unknown
+## owner (-1, a thin fixture) reads one.
+static func estate_yield_per_level(owner: int, commodity: String) -> int:
+	if owner < 0 or not CommodityCatalog.FOOD.has(commodity):
+		return 1
+	return (
+		RATION_ESTATE_YIELD
+		if FactionCatalog.type_of(owner) == FactionCatalog.Type.GREAT_POWER
+		else 1
+	)
 
 
 ## Map resource index -> commodity id, via the generator's resource table.
@@ -111,6 +131,8 @@ static func yields(
 		var amount: int = effective_yield(level, cap, transport, town_cap)
 		if amount <= 0:
 			continue
+		# A Great Power's ration estates pay double per level (issue #807).
+		amount *= estate_yield_per_level(owner, commodity)
 		totals[commodity] = int(totals.get(commodity, 0)) + amount
 		if works == null or not CommodityCatalog.is_raw(commodity):
 			continue

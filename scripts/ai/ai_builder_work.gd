@@ -77,8 +77,12 @@ static func paid_gain(row: Dictionary) -> int:
 		return 0
 	var cap: int = mini(int(row.get("tech_cap", 0)), int(row.get("terrain_cap", 0)))
 	var now: int = int(row.get("output", 0))
+	# Ration estates pay double per level, so the next level's gain is read at
+	# the same multiplier the row's own output printed (issue #807).
 	var raised: int = Extraction.effective_yield(
 		level + 1, cap, int(row.get("transport", 0)), int(row.get("town_cap", 0))
+	) * Extraction.estate_yield_per_level(
+		int(row.get("owner", -1)), String(row.get("commodity", ""))
 	)
 	return maxi(raised - now, 0)
 
@@ -102,9 +106,15 @@ static func town_unlocks(estates: Array, province_id: int) -> int:
 		var cap: int = mini(int(row.get("tech_cap", 0)), int(row.get("terrain_cap", 0)))
 		var transport: int = int(row.get("transport", 0))
 		var town_cap: int = int(row.get("town_cap", 0))
-		var capped: int = Extraction.effective_yield(level, cap, transport, town_cap)
+		var capped: int = Extraction.effective_yield(level, cap, transport, town_cap) * (
+			Extraction.estate_yield_per_level(
+				int(row.get("owner", -1)), String(row.get("commodity", ""))
+			)
+		)
 		var lifted: int = Extraction.effective_yield(
 			level, cap, transport, LandWorks.MAX_IMPROVEMENT
+		) * Extraction.estate_yield_per_level(
+			int(row.get("owner", -1)), String(row.get("commodity", ""))
 		)
 		total += maxi(lifted - capped, 0)
 	return total
