@@ -222,32 +222,21 @@ static func _best_work(
 	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
 	screened: bool = false, town_raw: Dictionary = {}, estates: Array = []
 ) -> Dictionary:
+	var query: AiWorkQuery = AiWorkQuery.make(
+		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
+		context, reserved
+	)
 	match unit.type_id:
 		"builder":
-			return AiBuilderWork.best_candidate(
-				config, model, unit, works, units, stockpile, tech_caps,
-				tech_unlocked, context, reserved, town_raw, estates
-			)
+			return AiBuilderWork.best_candidate(query, town_raw, estates)
 		"engineer", "rail_builder":
-			return AiEngineerWork.best_candidate(
-				config, model, unit, units, works, stockpile, tech_caps,
-				tech_unlocked, context, reserved
-			)
+			return AiEngineerWork.best_candidate(query)
 		"explorer":
-			return AiExplorerWork.best_candidate(
-				config, model, unit, units, works, stockpile, tech_caps,
-				tech_unlocked, context, reserved
-			)
+			return AiExplorerWork.best_candidate(query)
 		"spy":
-			return AiSpyPlanner.best_work(
-				config, model, unit, units, works, stockpile, tech_caps,
-				tech_unlocked, context, screened
-			)
+			return AiSpyPlanner.best_work(query, screened)
 		"merchant":
-			return AiMerchantWork.best_candidate(
-				config, model, unit, units, works, stockpile, tech_caps,
-				tech_unlocked, context, reserved
-			)
+			return AiMerchantWork.best_candidate(query)
 	return {}
 
 

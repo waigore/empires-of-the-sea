@@ -31,6 +31,11 @@ static func step(run) -> void:
 	if field != null:
 		await _name_colours(run, screen, field)
 		await _train(run, screen, field)
+		await _dismiss(run, screen, field)
+	# The dismissal retired the field army; the smoke leaves the court reading the
+	# Home Army it opened on.
+	screen.army_layer.select(home_army)
+	await run.tree.process_frame
 	run.check(
 		screen.hud._army_label.text
 		== str(screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)),
@@ -80,4 +85,25 @@ static func _train(run, screen: MapScreen, field: ArmyState) -> void:
 	run.check(
 		not screen.hud.panels.army_panel._hospital.visible,
 		"a served train order is gone"
+	)
+
+
+## The published dismissal (wiki: military-armies § Dismissing regiments;
+## DR-20261116-07): the last colours of a field army leave, one peasant returns
+## to the pool and the standard retires with them.
+static func _dismiss(run, screen: MapScreen, field: ArmyState) -> void:
+	var ledger: PlayerEconomy = screen.play.economy.economy
+	var peasants: int = ledger.workers.count(WorkerPool.Tier.PEASANT)
+	var colours: String = field.regiments[0]
+	MapPlayArmies.on_action(screen.play, "dismiss:%s" % colours)
+	await run.tree.process_frame
+	run.check(field.count() == 0, "the last regiment is dismissed")
+	run.check(
+		ledger.workers.count(WorkerPool.Tier.PEASANT) == peasants + 1,
+		"one peasant returns to the pool"
+	)
+	run.check(not screen.army_layer.armies.has(field), "an emptied field army retires")
+	run.check(
+		not screen.hud.panels.is_army_panel_open(),
+		"the dossier closes with the standard"
 	)

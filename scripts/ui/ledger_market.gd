@@ -305,25 +305,13 @@ func _add_terms_banner() -> void:
 	var text: String = "Trade terms: imports at %d%% and exports at %d%% of the world price." % [
 		roundi(buy_rate * 100.0), roundi(sell_rate * 100.0)
 	]
-	var subsidy: int = _subsidy_rate()
+	var subsidy: int = MarketRules.subsidy_rate_paid(_market, _viewer)
 	if subsidy > 0:
 		text += " Subsidy %d%%: a subsidised court's goods cost us more, ours earn less." % subsidy
 	var banner := UiRowBuilder.label(text, 12, Palette.GOLD_PALE)
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.custom_minimum_size = Vector2(240, 0)
 	add_child(banner)
-
-
-## The largest subsidy this crown pays, so the banner names the step that prices
-## a pair's deals (wiki: world-market § Subsidy price adjustment).
-func _subsidy_rate() -> int:
-	var best: int = 0
-	for key: Variant in _market.subsidy_terms.keys():
-		var parts: PackedStringArray = String(key).split(">")
-		if parts.size() != 2 or int(parts[0]) != _viewer:
-			continue
-		best = maxi(best, int(_market.subsidy_terms[key]))
-	return best
 
 
 func _market_row(id: String, held: int, claimed: int = 0) -> Control:

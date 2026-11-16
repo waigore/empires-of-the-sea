@@ -32,6 +32,12 @@ var _muster_button: Button = null
 var _muster_box: ArmyMusterBlock = null
 var _muster_open: bool = false
 var _detach_all: Button = null
+var _dismiss_all: Button = null
+var _dismiss_armed: bool = false
+var _dismiss_timer: Timer = null
+## The regiments the open sheet is reading, so the dismissal press can count
+## what it would shed without reaching into the roster block.
+var _last_count: int = 0
 var _merge: Button = null
 var _embark: Button = null
 var _plan: Button = null
@@ -160,12 +166,66 @@ func _build() -> void:
 	_detach_all.visible = false
 	shell.add_child(_detach_all)
 
+	# Shedding the whole standard is destructive, so the press asks once
+	# (wiki: military-armies § Dismissing regiments; DR-20261109-01).
+	_dismiss_all = UiRowBuilder.button("Dismiss all regiments", 36.0, 0.0)
+	_dismiss_all.pressed.connect(on_dismiss_all_pressed)
+	_dismiss_all.visible = false
+	shell.add_child(_dismiss_all)
+	_dismiss_timer = Timer.new()
+	_dismiss_timer.one_shot = true
+	_dismiss_timer.wait_time = ArmyRosterBlock.ARM_SECONDS
+	_dismiss_timer.timeout.connect(_clear_dismiss_arm)
+	add_child(_dismiss_timer)
+
 	_status = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	shell.add_child(_status)
 
 	_hint = UiRowBuilder.line(11, Color(0.74, 0.68, 0.55, 0.75))
 	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	shell.add_child(_hint)
+
+
+## First tap arms and relabels, the second files the order (DR-20261109-01).
+func on_dismiss_all_pressed() -> void:
+	if _dismiss_armed:
+		_clear_dismiss_arm()
+		action_pressed.emit("dismiss_all")
+		return
+	_dismiss_armed = true
+	_retitle_dismiss(_roster_count())
+	if _dismiss_timer != null and _dismiss_timer.is_inside_tree():
+		_dismiss_timer.start()
+
+
+## Forgets an armed dismissal without filing it; an expired arm does nothing.
+func _clear_dismiss_arm() -> void:
+	_dismiss_armed = false
+	if _dismiss_timer != null:
+		_dismiss_timer.stop()
+	_retitle_dismiss(_roster_count())
+
+
+## The press names what the second tap does, before the colours leave
+## (REQ-P5-05).
+func _retitle_dismiss(count: int) -> void:
+	if _dismiss_all == null:
+		return
+	_dismiss_all.text = (
+		"Confirm — dismiss all %d regiments" % count
+		if _dismiss_armed
+		else "Dismiss all regiments"
+	)
+	_dismiss_all.tooltip_text = (
+		"Press again to dismiss every regiment: one peasant each, no refund."
+		if _dismiss_armed
+		else "Dismiss every regiment of this army: one peasant each, no refund."
+	)
+
+
+## The army the sheet is reading, so the press can count what it would shed.
+func _roster_count() -> int:
+	return _last_count
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
@@ -215,7 +275,12 @@ func refresh(
 	_command.text = _command_head(command)
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
-	_roster.fill(army, is_player and not army.is_embarked(), model)
+	_last_count = army.count()
+	# A repaint means the order landed or the view moved: no arm survives it.
+	_dismiss_armed = false
+	if _dismiss_timer != null:
+		_dismiss_timer.stop()
+	_roster.fill(army, is_player and not army.is_embarked(), model, is_player)
 	_muster_box.fill(muster)
 	if not (is_player and army.home):
 		_muster_open = false
@@ -223,6 +288,8 @@ func refresh(
 	_muster_box.visible = _muster_button.visible and _muster_open
 	_merge.visible = is_player and can_merge and not army.is_embarked() and army.count() > 0
 	_detach_all.visible = is_player and not army.is_embarked() and army.count() > 1
+	_dismiss_all.visible = is_player and army.count() > 0
+	_retitle_dismiss(army.count())
 	_embark.visible = is_player and not embark.is_empty() and not army.is_embarked()
 	_plan.visible = is_player and not army.is_embarked() and army.count() > 0
 	_plan.text = "Crown battle plan: %s" % QuickBattleActions.normalize_plan(plan).capitalize()

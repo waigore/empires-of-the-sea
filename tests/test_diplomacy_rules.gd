@@ -337,7 +337,7 @@ func test_only_a_court_deal_with_a_great_power_is_recorded() -> void:
 	DiplomacyTrade.record_deal(state, 0, 0)
 	assert_true(state.trade_pairs.is_empty(), "no court pair, no lift")
 	DiplomacyTrade.record_deal(state, 0, 6)
-	assert_true(state.trade_pairs.has(state.pair_key(0, 6)))
+	assert_true(state.trade_pairs.has(DiplomacyKeys.pair(0, 6)))
 
 func test_subsidies_survive_while_the_embassy_stands() -> void:
 	_setup_diplomacy_state()
@@ -379,11 +379,69 @@ func test_absorbed_faction_leaves_no_relations_or_colonies() -> void:
 	state.set_colony(9, 6)
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_NAP)
 	state.set_subsidy(0, 6, 5)
-	state.clear_relations_of(6)
+	DiplomacyLifetime.absorb(state, 6)
 	assert_false(state.has_relation(0, 6))
 	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_NONE)
 	assert_eq(state.subsidy(0, 6), 0)
 	assert_eq(state.colony_of(9), -1)
+
+
+# --- diplomacy_keys / diplomacy_lifetime ---
+
+func test_the_key_vocabulary_writes_and_reads_either_way() -> void:
+	assert_eq(DiplomacyKeys.pair(6, 0), DiplomacyKeys.pair(0, 6), "a pair key has no direction")
+	assert_eq(DiplomacyKeys.pair(0, 6), "0:6")
+	assert_eq(DiplomacyKeys.pair_courts("0:6"), Vector2i(0, 6))
+	assert_eq(DiplomacyKeys.directed(6, 0), "6>0", "a directive keeps its arrow")
+	assert_eq(DiplomacyKeys.directed_courts("6>0"), Vector2i(6, 0))
+	assert_eq(DiplomacyKeys.claim("ftp", 2, 3), "ftp:2>3")
+	assert_true(DiplomacyKeys.touches("0:6", 6), "a court on either side of a pair")
+	assert_true(DiplomacyKeys.touches("6>0", 6), "or of a directive")
+	assert_false(DiplomacyKeys.touches("lonely", 6), "a junk key names no court")
+	assert_eq(DiplomacyKeys.pair_courts("lonely"), Vector2i(-1, -1), "junk reads as nobody")
+
+func test_lifetime_open_seats_every_great_power_at_embassy() -> void:
+	var fresh := DiplomacyState.new()
+	DiplomacyLifetime.open(fresh, 7)
+	assert_eq(fresh.turn, 7)
+	assert_eq(fresh.relations.size(), 111, "the same opening ledger as initialize")
+	assert_eq(fresh.overture(0, 5), DiplomacyCatalog.STAGE_EMBASSY)
+	assert_eq(fresh.overture(5, 0), DiplomacyCatalog.STAGE_EMBASSY, "both ways")
+
+func test_absorbing_a_crown_clears_every_table_it_touched() -> void:
+	_setup_diplomacy_trade()
+	var loser: int = 1
+	diplomacy_trade_state.ftps[DiplomacyKeys.pair(0, loser)] = diplomacy_trade_state.turn
+	diplomacy_trade_state.boycotts[DiplomacyKeys.directed(loser, 0)] = diplomacy_trade_state.turn
+	diplomacy_trade_state.alliance_snapshot[DiplomacyKeys.pair(0, loser)] = true
+	diplomacy_trade_state.set_colony(9, loser)
+	diplomacy_trade_state.pending_calls.append({"aggressor": 0, "defender": 2, "ally": loser})
+	diplomacy_trade_state.pending_interventions.append(
+		{"aggressor": loser, "target": 2, "court": 0}
+	)
+	diplomacy_trade_state.pending_offers.append({"from": loser, "kind": "peace", "stage": ""})
+	DiplomacyLifetime.absorb(diplomacy_trade_state, loser)
+	assert_false(diplomacy_trade_state.ftps.has(DiplomacyKeys.pair(0, loser)))
+	assert_false(diplomacy_trade_state.boycotts.has(DiplomacyKeys.directed(loser, 0)))
+	assert_false(diplomacy_trade_state.alliance_snapshot.has(DiplomacyKeys.pair(0, loser)))
+	assert_eq(diplomacy_trade_state.colony_of(9), -1)
+	assert_true(diplomacy_trade_state.pending_calls.is_empty(), "no call waits on a lost court")
+	assert_true(diplomacy_trade_state.pending_interventions.is_empty())
+	assert_true(diplomacy_trade_state.pending_offers.is_empty())
+	var released: bool = false
+	for event: Dictionary in diplomacy_trade_state.events:
+		released = released or String(event["kind"]) == "colonyReleased"
+	assert_true(released, "the tribe is told it stands alone again")
+
+
+## The state's public sweep is the lifetime module's absorb, not a second copy of
+## it: the map and the overtures still call the state's name (api-stable).
+func test_the_states_sweep_defers_to_the_lifetime_module() -> void:
+	_setup_diplomacy_state()
+	state.set_subsidy(0, 6, 5)
+	state.clear_relations_of(6)
+	assert_false(state.has_relation(0, 6))
+	assert_eq(state.subsidy(0, 6), 0)
 
 func test_consulate_gate_reads_the_overture_chain() -> void:
 	_setup_diplomacy_state()
@@ -1061,6 +1119,20 @@ func test_subsidy_terms_publish_only_real_pairs() -> void:
 	assert_eq(terms.size(), 1)
 	assert_eq(int(terms["0>9"]), 10)
 
+
+## The banner names the largest step this crown pays, read back through the same
+## key vocabulary that published it (wiki: world-market § Subsidy price
+## adjustment).
+func test_the_banner_reads_the_largest_subsidy_this_crown_pays() -> void:
+	var market := WorldMarket.with_default_prices()
+	assert_eq(MarketRules.subsidy_rate_paid(null, 0), 0)
+	assert_eq(MarketRules.subsidy_rate_paid(market, 0), 0)
+	market.subsidy_terms[DiplomacyKeys.directed(0, 6)] = 10
+	market.subsidy_terms[DiplomacyKeys.directed(0, 7)] = 15
+	market.subsidy_terms[DiplomacyKeys.directed(6, 0)] = 20
+	market.subsidy_terms["lonely"] = 25
+	assert_eq(MarketRules.subsidy_rate_paid(market, 0), 15, "only what this crown pays")
+
 func test_the_market_charges_a_crowns_buy_and_sell_terms() -> void:
 	_setup_diplomacy_trade()
 	var market := WorldMarket.with_default_prices()
@@ -1177,7 +1249,7 @@ func test_a_subsidy_without_an_embassy_explains_itself() -> void:
 func test_terms_stay_inside_the_rails() -> void:
 	_setup_diplomacy_trade()
 	for other: int in [10, 11, 12, 13, 14, 15]:
-		diplomacy_trade_state.ftps[diplomacy_trade_state.pair_key(0, other)] = diplomacy_trade_state.turn
+		diplomacy_trade_state.ftps[DiplomacyKeys.pair(0, other)] = diplomacy_trade_state.turn
 	var terms: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(
 		float(terms["buy"]["*"]), DiplomacyCatalog.TERMS_BUY_MIN, 0.001, "buy floor"
@@ -1204,9 +1276,9 @@ func test_absorbing_a_crown_clears_its_trade_ties() -> void:
 	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
 	diplomacy_trade_state.set_colony(9, 0)
 	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
-	diplomacy_trade_state.clear_relations_of(1)
+	DiplomacyLifetime.absorb(diplomacy_trade_state, 1)
 	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1), "the pact dies with the court")
-	diplomacy_trade_state.clear_relations_of(2)
+	DiplomacyLifetime.absorb(diplomacy_trade_state, 2)
 	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "so does its boycott")
 
 func test_every_trade_gate_says_why_it_refuses() -> void:
@@ -1352,6 +1424,24 @@ func test_declare_war_sets_war_and_keeps_gp_auto_embassy() -> void:
 	var again: Dictionary = _apply("declare_war", 1)
 	assert_false(again["ok"])
 	assert_true(String(again["reason"]).contains("already at war"))
+
+## A duty path never asks the gate, so a court that has never met the aggressor
+## still enters the war: the record is created, not assumed (wiki: diplomacy
+## § GP–GP Rules — war invariant; § Intervention).
+func test_a_court_that_never_met_the_aggressor_still_enters_the_war() -> void:
+	var state := DiplomacyState.new()
+	state.turn = 7
+	assert_null(state.relation(0, 1), "the pair has never met")
+
+	var result: Dictionary = DiplomacyRules.enter_war(state, 0, 1)
+
+	assert_true(bool(result["ok"]), String(result.get("reason", "")))
+	var record: DiplomacyRelation = state.relation(0, 1)
+	assert_not_null(record, "the war is a relation state")
+	assert_true(record.at_war)
+	assert_eq(record.since_turn, 7)
+	assert_false(record.formal_alliance, "the war invariant clears the treaty flag")
+
 
 func test_war_on_a_minor_clears_overtures_and_subsidy() -> void:
 	_setup_diplomacy_orders()
@@ -2405,7 +2495,7 @@ func test_an_absorbed_faction_drops_its_waiting_offer() -> void:
 	intervention_state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(intervention_state, 3, 6)
 	assert_true(Intervention.has_pending(intervention_state, 0))
-	intervention_state.clear_relations_of(6)
+	DiplomacyLifetime.absorb(intervention_state, 6)
 	assert_false(Intervention.has_pending(intervention_state, 0))
 
 ## Wiki: diplomacy § GP–Minor Rules § Join Empire — an absorbed crown leaves the
@@ -2416,7 +2506,7 @@ func test_an_absorbed_aggressor_drops_its_waiting_call_to_arms() -> void:
 	_ally(0, 2, 80.0)
 	DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
 	assert_true(CallToArms.has_pending(call_to_arms_state, 0), "the court is asked")
-	call_to_arms_state.clear_relations_of(3)
+	DiplomacyLifetime.absorb(call_to_arms_state, 3)
 	assert_false(
 		CallToArms.has_pending(call_to_arms_state, 0),
 		"the aggressor left play, so the call goes with it"
@@ -2428,7 +2518,7 @@ func test_an_absorbed_defender_drops_the_call_too() -> void:
 	_ally(0, 2, 80.0)
 	DiplomacyRules.declare_war(call_to_arms_state, 3, 2)
 	assert_true(CallToArms.has_pending(call_to_arms_state, 0), "the court is asked")
-	call_to_arms_state.clear_relations_of(2)
+	DiplomacyLifetime.absorb(call_to_arms_state, 2)
 	assert_false(CallToArms.has_pending(call_to_arms_state, 0))
 
 ## The frozen mutual-defence map is a treaty record as well: a pair whose court
@@ -2438,7 +2528,7 @@ func test_an_absorbed_faction_leaves_no_frozen_alliance() -> void:
 	_ally(1, 2, 80.0)
 	CallToArms.freeze_alliances(call_to_arms_state)
 	assert_true(CallToArms.allied_in_snapshot(call_to_arms_state, 1, 2))
-	call_to_arms_state.clear_relations_of(2)
+	DiplomacyLifetime.absorb(call_to_arms_state, 2)
 	assert_false(
 		CallToArms.allied_in_snapshot(call_to_arms_state, 1, 2),
 		"the pact is not a record we keep of a crown that left play"

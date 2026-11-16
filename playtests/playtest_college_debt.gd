@@ -30,6 +30,7 @@ func _initialize() -> void:
 func _run() -> void:
 	await _no_borrowing_pass()
 	await _floor_edge_pass()
+	await _banking_pass()
 	_finish()
 
 
@@ -148,8 +149,140 @@ func _floor_edge_pass() -> void:
 		_play.hud.panels.hide_research()
 
 
-# --- booking ---------------------------------------------------------------
+# --- pass three: a crown that banks ----------------------------------------
 
+
+## Turn 100 with Banking seated: the floor is -1,000. Banking is era 3 behind
+## master_artisans and trade_fairs, so no session reaches it by play; the drive
+## seats the tech the wiki's floor reads (wiki: tech-tree-labour-economy
+## § banking). The purse is seated one Low payment short of the floor and a real
+## turn walks the last step down, then the drive reads the college, the chip,
+## the despatch, the ledger and the MARKET tab's bid budget with a purse in debt.
+func _banking_pass() -> void:
+	_say("")
+	_say("=== a crown that banks (turn 100, floor -1000) ===")
+	_screen = await Launch.open_map(self, SEED_TEXT, 0, AdvancedStart.TURNS100)
+	if _screen == null:
+		return
+	_play = _screen.play
+	_play.economy.economy.research.unlock(ResearchFunding.BANKING)
+	_play.economy.refresh_panel()
+	var floor: int = ResearchFunding.floor_for(_play.tech_unlocked())
+	_say("seed %s — %s, turn %d, %d ducats · money lending %s, banking %s · floor %d" % [
+		SEED_TEXT, FactionCatalog.name_of(_play.player_faction), _play.turn,
+		_play.treasury(),
+		str(bool(_play.tech_unlocked().get(ResearchFunding.MONEY_LENDING, false))),
+		str(bool(_play.tech_unlocked().get(ResearchFunding.BANKING, false))),
+		floor,
+	])
+	_play.economy.open_research()
+	await process_frame
+	await _book_every_slot("low")
+	_say("booked %d studies at Low (50 ducats each a turn)" % _play.economy.economy.research.researching().size())
+	_play.economy.economy.treasury = floor + ResearchFunding.gold("low")
+	_play.economy.refresh_panel()
+	_play.hud.panels.show_research(
+		_play.economy.economy.research, _play.treasury(), _play.economy.research_boost
+	)
+	await process_frame
+	_say("seated the purse at %d (the floor's edge) — the phase spends from here" % _play.treasury())
+	_read_college("at the floor's edge")
+	_play.hud.panels.hide_research()
+	if not _advance():
+		_say("the calendar never moved — the turn stayed shut")
+		return
+	_say("")
+	_say("--- turn %d closed at the floor ---" % _play.turn)
+	for _frame in 40:
+		await process_frame
+	_say("treasury after the turn: %d (must never pass %d)" % [_play.treasury(), floor])
+	_read_chip("at the floor")
+	for text: String in _toasts():
+		_say("turn toast: %s" % text)
+	_play.economy.open_research()
+	await process_frame
+	_read_college("at the floor")
+	_play.hud.panels.hide_research()
+	_play.economy.open_panel()
+	await process_frame
+	_say("ledger preview: %s" % _ledger_preview())
+	_say("ledger summary: %s" % _ledger_summary())
+	await _read_market_budget("with the purse in debt")
+	_play.hud.panels.hide_economy()
+	if _advance():
+		_say("")
+		_say("--- a second turn at the floor (turn %d) ---" % _play.turn)
+		_say("treasury now: %d" % _play.treasury())
+		_play.economy.open_research()
+		await process_frame
+		_read_college("after a second turn at the floor")
+		_play.hud.panels.hide_research()
+
+
+## The MARKET tab's bid budget and one bid pressed from a row: what a crown in
+## debt is told its purse can spend (wiki: world-market § Treasury budget for
+## bids; REQ-P5-05).
+func _read_market_budget(label: String) -> void:
+	var panel: EconomyPanel = _play.hud.panels.economy_panel
+	if panel == null:
+		_say("no ledger to read")
+		return
+	panel.select_tab(1)
+	await process_frame
+	var labels: PackedStringArray = PackedStringArray()
+	_collect(panel, labels)
+	for text: String in labels:
+		if text.begins_with("BIDS"):
+			_say("market budget %s: %s" % [label, text])
+	var page: LedgerMarket = panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
+	if page == null:
+		return
+	var bids: Array[Button] = _bid_presses(page)
+	if bids.is_empty():
+		_say("  no Bid press on the page")
+		return
+	for index in mini(2, bids.size()):
+		var bid: Button = bids[index]
+		_say("  a row: %s" % _row_text(bid.get_parent()))
+		_say("  the Bid press: %s — tooltip \"%s\"" % [
+			"off" if bid.disabled else "on", bid.tooltip_text,
+		])
+	var live: Button = bids[0]
+	if live.disabled:
+		return
+	live.pressed.emit()
+	await process_frame
+	_say("  pressed Bid — %s" % _last_toast())
+
+
+## Every Bid press the page draws, in the order it draws them (the Minor book
+## first, then the commodity rows).
+func _bid_presses(node: Node) -> Array[Button]:
+	var out: Array[Button] = []
+	if node is Button and (node as Button).text.strip_edges() == "Bid":
+		out.append(node as Button)
+	for child: Node in node.get_children():
+		out.append_array(_bid_presses(child))
+	return out
+
+
+func _row_text(row: Node) -> String:
+	var bits: PackedStringArray = PackedStringArray()
+	_collect(row, bits)
+	return " | ".join(bits)
+
+
+func _last_toast() -> String:
+	var despatches: HudDespatches = _play.hud.despatches
+	if despatches == null:
+		return "no despatch"
+	var waiting: PackedStringArray = despatches.waiting()
+	if not waiting.is_empty():
+		return waiting[waiting.size() - 1]
+	return "no despatch"
+
+
+# --- booking ---------------------------------------------------------------
 
 ## Books a study in every free slot from the college's own Research buttons and
 ## sets each occupied slot to `funding` with its own funding button. Returns how

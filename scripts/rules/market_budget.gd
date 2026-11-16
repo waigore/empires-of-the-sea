@@ -77,14 +77,19 @@ static func projected_non_bid_delta(economy: PlayerEconomy) -> int:
 
 ## The whole reading: the purse, what the waiting orders are promised, and what
 ## the auction may spend — `max(0, treasury − promised)`, the wiki's formula.
+## `purse` is the crown's own balance with its debt kept: a sheet that printed
+## `max(0, treasury)` as "the whole purse" would name a sum the crown does not
+## hold (wiki: world-market § Treasury budget for bids; REQ-P5-05).
 static func budget(economy: PlayerEconomy) -> Dictionary:
-	var treasury: int = maxi(economy.treasury, 0) if economy != null else 0
+	var purse: int = economy.treasury if economy != null else 0
+	var treasury: int = maxi(purse, 0)
 	var orders: Array[Dictionary] = pending(economy)
 	var promised_total: int = 0
 	for row: Dictionary in orders:
 		promised_total += int(row["treasury"])
 	return {
 		"treasury": treasury,
+		"purse": purse,
 		"promised": promised_total,
 		"budget": maxi(treasury - promised_total, 0),
 		"orders": orders,
