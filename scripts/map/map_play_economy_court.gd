@@ -187,7 +187,7 @@ func _plan_research() -> Dictionary:
 	if door.is_empty():
 		door = AiTribeColony.door(
 			play.diplomacy, play.world, play.court_charts, faction,
-			economy.tech_unlocked
+			economy.tech_unlocked, AiPhasePlanner.phase_for(config, play.diplomacy)
 		)
 	return AiBind.research_plan(
 		kind, config, economy,

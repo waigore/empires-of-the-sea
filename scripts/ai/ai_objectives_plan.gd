@@ -17,7 +17,7 @@ extends RefCounted
 ##   voyage_afloat, voyage_abroad, voyage_stranded, cargo_shortfall,
 ##   research_slots, research_funding,
 ##   research_cost, research_refusal, tribe_target, tribe_stage_cost,
-##   deed_price.
+##   tribe_closed, deed_price.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 
@@ -233,7 +233,15 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 static func _tribe_chain(readings: Dictionary) -> AiObjective:
 	var target: int = int(readings.get("tribe_target", -1))
 	if target < 0:
-		return null
+		# A footing that holds the slot shut still names the aim it closed, so
+		# the trace reads why the court is buying no colony this turn instead of
+		# the row simply vanishing (DR-20261116-11, REQ-P5-05).
+		var closed: String = String(readings.get("tribe_closed", ""))
+		if closed.is_empty():
+			return null
+		return AiObjective.create(
+			"colonise.tribe_chain", "expansion", W_TRIBE_COLONY
+		).block(closed)
 	var aim := AiObjective.create(
 		"colonise.tribe_chain", "expansion", W_TRIBE_COLONY,
 		{"treasury": int(readings.get("tribe_stage_cost", 0)), "orders": 1}

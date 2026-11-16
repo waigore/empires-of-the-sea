@@ -10,7 +10,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (`AiNavy`: no fighting hull at peace, chest in reach at war); else
   `economy.min_treasury`. On `earn` the auction holds it
   (DR-20261113-19/22, DR-20261114-06/11).
-- **Power** (`AiPower`): provinces × 10 + regiments + ships × 5; bands
+- **Power** (`AiPower`): provinces×10 + regiments + ships×5; bands
   +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda; goals
   `round(desire/25)`. Envy +20; a deed resists; weariness and truces lower it
@@ -23,13 +23,12 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
-- **Turn pass** (`AiTurn`): one order per rival, wars first; `AiTurnRead`
-  reads, `AiTurnApply` applies.
-- **Land planner** (`AiMilitaryPlanner`): at border war, detach all but one
+- **Turn pass** (`AiTurn`): one order per rival, wars first (`AiTurnRead`,
+  `AiTurnApply`).
+- **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
   Home regiment; armies save or storm.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17,
-  DR-20261109-17); at peace, home (DR-20261110-30).
+  squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's fog, read
   by voyages, invasions, diplomacy (DR-20261113-03).
@@ -38,7 +37,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): detach
   hulls, dock, board, cross, storm the coast (DR-20261114-03).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest affordable
-  tier keeping a peasant and the cash floor.
+  tier keeping a peasant and cash floor.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
   funding shifts with leader weight and a tech thief's +1 step
   (DR-20261111-27), above the money-goal reserve; when `none`, one Low study
@@ -60,7 +59,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes
-  peace, no peer war (DR-20261113-15/11). **Victory pressure**
+  peace, no peer war (DR-20261113-15/11); at war no new voyage or Tribe chain
+  (DR-20261116-11). **Victory pressure**
   (`AiVictoryPressure`): bigger aims near the bar (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
   allocate a 0–100 utility ([`ai-objectives.md`](ai-objectives.md)).
