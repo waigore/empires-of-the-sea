@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:d583588ec28c999b3c0a0f309918be16c999234ef2a77ab5e1b364b0e8ae2dad",
-  "submission_git": "feat/treasury-recovery-reweights@4589325",
+  "submission_hash": "sha256:37ab7653f1873a27c1e547d20199cc4a45f2f42a5251adc561b3a6a749033cd8",
+  "submission_git": "feat/treasury-recovery-reweights@bd6a7bc",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:8e15e9a50c991278459e4516531b6f76043724d5f295ca3b595f8c4013398358",
+    "ai_surface_hash": "sha256:37ac13d6b0a6f2e195c2f9293d36ea371e1aabce96d9caf2aab225c81af2e2cf",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-16T07:05:16Z",
+  "timestamp": "2026-11-16T07:35:58Z",
   "report_version": 1,
-  "signature": "hmac-sha256:2bc8ec3d29702adfbfe8a606cdb10e2a7e8c74034304305499b5cf3264ec17bb"
+  "signature": "hmac-sha256:8e3cdacabb4321501b1a88480c31e5fe63f56ced17f873049cc5654306546384"
 }
