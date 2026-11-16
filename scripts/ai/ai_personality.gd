@@ -7,7 +7,10 @@ extends RefCounted
 ## bypasses legality — it only moves scores (REQ-P2-03).
 
 ## Canonical archetypes. `war_gate` shifts the declare-war relation ceiling;
-## `war_bias` shifts war desire. `weights` order domain planners.
+## `war_bias` shifts war desire. `weights` order domain planners. `staff` is the
+## relative civilian-type preference — the one crew the archetype keeps beyond
+## the region's own work (AiStaffTaste; wiki: civilian-build-planner
+## § Architecture, "defaults follow explorer/trader/fortifier archetypes").
 const ARCHETYPES: Dictionary = {
 	"victoria": {
 		"title": "industrial_trader",
@@ -15,6 +18,7 @@ const ARCHETYPES: Dictionary = {
 		"war_gate": -10,
 		"war_bias": -10,
 		"weights": {"economy": 3, "military": 2, "diplomacy": 3, "research": 2},
+		"staff": {"builder": 3},
 	},
 	"napoleon": {
 		"title": "fortifier",
@@ -22,6 +26,7 @@ const ARCHETYPES: Dictionary = {
 		"war_gate": 20,
 		"war_bias": 15,
 		"weights": {"economy": 2, "military": 3, "diplomacy": 2, "research": 2},
+		"staff": {"engineer": 3},
 	},
 	"isabella": {
 		"title": "explorer",
@@ -29,6 +34,7 @@ const ARCHETYPES: Dictionary = {
 		"war_gate": 0,
 		"war_bias": 0,
 		"weights": {"economy": 2, "military": 2, "diplomacy": 2, "research": 2},
+		"staff": {"explorer": 3},
 	},
 	"henry": {
 		"title": "navigator",
@@ -36,6 +42,7 @@ const ARCHETYPES: Dictionary = {
 		"war_gate": -20,
 		"war_bias": -15,
 		"weights": {"economy": 3, "military": 1, "diplomacy": 3, "research": 2},
+		"staff": {"explorer": 3, "merchant": 2},
 	},
 	"de_ruyter": {
 		"title": "merchant",
@@ -43,6 +50,7 @@ const ARCHETYPES: Dictionary = {
 		"war_gate": -10,
 		"war_bias": -10,
 		"weights": {"economy": 3, "military": 1, "diplomacy": 3, "research": 1},
+		"staff": {"merchant": 3},
 	},
 	"frederick": {
 		"title": "defender",
@@ -50,6 +58,7 @@ const ARCHETYPES: Dictionary = {
 		"war_gate": 5,
 		"war_bias": 0,
 		"weights": {"economy": 2, "military": 3, "diplomacy": 2, "research": 2},
+		"staff": {"engineer": 3},
 	},
 	"gustavus": {
 		"title": "tactician",
@@ -57,6 +66,7 @@ const ARCHETYPES: Dictionary = {
 		"war_gate": 0,
 		"war_bias": 5,
 		"weights": {"economy": 2, "military": 3, "diplomacy": 2, "research": 3},
+		"staff": {"spy": 3},
 	},
 }
 
@@ -71,6 +81,7 @@ const NEUTRAL: Dictionary = {
 	"war_gate": 0,
 	"war_bias": 0,
 	"weights": {"economy": 2, "military": 2, "diplomacy": 2, "research": 2},
+	"staff": {},
 }
 
 
@@ -101,3 +112,10 @@ static func for_faction(faction: int) -> Dictionary:
 ## Domain weight vector for phase planning (economy/military/diplomacy/research).
 static func weights_for(faction: int) -> Dictionary:
 	return for_faction(faction).get("weights", NEUTRAL["weights"])
+
+
+## Relative civilian-type preference for the crown's archetype (wiki:
+## civilian-build-planner § Architecture). A type the archetype does not name
+## reads the published hire order; empty for a crown with no archetype.
+static func staff_for(faction: int) -> Dictionary:
+	return for_faction(faction).get("staff", {})

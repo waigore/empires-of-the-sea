@@ -48,7 +48,7 @@ static func mount(play: PlaySession, backdrop: ColorRect, index: int) -> void:
 	play.overlay.snap_fog()
 	MapPlayFleets.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
-	MapPlaySetup.build_lens(play)
+	MapPlayLens.mount_all(play)
 	MapPlaySetup.refresh_region_hud(play, map_size)
 
 
@@ -71,7 +71,7 @@ static func refresh_political(play: PlaySession) -> void:
 		return
 	play.canvas.build(play.model, play.world)
 	play.overlay.build(play.model)
-	MapPlaySetup.build_lens(play)
+	MapPlayLens.mount_all(play)
 	if play.visibility != null:
 		play.overlay.sync_visibility(play.visibility)
 	MapPlaySetup.refresh_region_hud(

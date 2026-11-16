@@ -1314,7 +1314,7 @@ func test_a_declaration_of_war_repaints_the_wash() -> void:
 		_screen.player_faction, owner, _screen.play.turn
 	)
 	relation.set_score(50.0)
-	MapPlaySetup.build_diplomacy_lens(_screen.play)
+	MapPlayLens.mount_diplomacy(_screen.play)
 	assert_eq(
 		DiplomacySurvey.band_for(
 			_screen.play.diplomacy, _screen.player_faction, owner
@@ -1324,7 +1324,7 @@ func test_a_declaration_of_war_repaints_the_wash() -> void:
 
 	relation.at_war = true
 	relation.normalize()
-	MapPlaySetup.build_diplomacy_lens(_screen.play)
+	MapPlayLens.mount_diplomacy(_screen.play)
 	var entry: Dictionary = _entry(_screen.play.diplomacy_lens.survey, _province_of(owner))
 	assert_eq(String(entry["band"]), DiplomacySurvey.BAND_WAR)
 	assert_gt(int(_screen.play.diplomacy_lens.survey["tiles"]["war"]), 0)
@@ -1342,7 +1342,7 @@ func test_region_switch_rebuilds_the_political_wash() -> void:
 	# Charting one province makes it readable as neutral (no court yet).
 	var province: ProvinceState = _screen.model.provinces[0]
 	_screen.visibility.reveal_province(province.id)
-	MapPlaySetup.build_diplomacy_lens(_screen.play)
+	MapPlayLens.mount_diplomacy(_screen.play)
 	assert_false(
 		_entry(_screen.play.diplomacy_lens.survey, province.id).is_empty()
 	)
@@ -1812,7 +1812,7 @@ func test_the_sea_reading_raises_its_key_and_survey() -> void:
 	var lens: SeaLens = _screen.play.sea_lens
 	assert_not_null(lens, "the chart mounts the sea lens")
 	_sail_a_crown_squadron()
-	MapPlaySetup.build_lens(_screen.play)
+	MapPlayLens.mount_all(_screen.play)
 	assert_false(lens.active)
 
 	MapPlayInput.set_sea_lens(_screen.play, true)
@@ -1844,7 +1844,7 @@ func test_the_sea_reading_raises_its_key_and_survey() -> void:
 
 func test_a_sail_repaints_the_sea_reading() -> void:
 	var fleet: FleetState = _sail_a_crown_squadron()
-	MapPlaySetup.build_lens(_screen.play)
+	MapPlayLens.mount_all(_screen.play)
 	var lens: SeaLens = _screen.play.sea_lens
 	var before: int = fleet.sea_zone
 	var next: int = _other_zone(before)
@@ -1861,7 +1861,7 @@ func test_a_sail_repaints_the_sea_reading() -> void:
 
 func test_hover_reports_the_sea_line_while_the_lens_is_on() -> void:
 	var fleet: FleetState = _sail_a_crown_squadron()
-	MapPlaySetup.build_lens(_screen.play)
+	MapPlayLens.mount_all(_screen.play)
 	MapPlayInput.set_sea_lens(_screen.play, true)
 	var zone: SeaZoneState = _screen.model.sea_zone_data(fleet.sea_zone)
 	var point: Vector2 = _screen_point(Vector2(zone.tiles[0]))
