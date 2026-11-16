@@ -2797,7 +2797,7 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 		CivilianState.create(5, RIVAL, "explorer", CivilianFixture.BARE_TILE),
 		CivilianState.create(6, RIVAL, "explorer", CivilianFixture.BARE_TILE),
 	]
-	var order: Dictionary = AiCivilianPlanner.training_order(config, roster, _context())
+	var order: Dictionary = AiCivilianHire.training_order(config, roster, _context())
 	assert_true(bool(order.get("ok", false)))
 	assert_eq(String(order["type_id"]), "spy")
 	var war_roster: Array[CivilianState] = [
@@ -2808,7 +2808,7 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	]
 	var war_context: Dictionary = _context()
 	war_context["at_war"] = true
-	var war_order: Dictionary = AiCivilianPlanner.training_order(config, war_roster, war_context)
+	var war_order: Dictionary = AiCivilianHire.training_order(config, war_roster, war_context)
 	assert_eq(String(war_order["type_id"]), "spy", "a war court wants a screen first")
 
 
