@@ -283,6 +283,15 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The world's colonies (DR-20261117-02): the colony projection and its sheet
+# share the ledgers boot — the projection on a two-chart fixture and the sheet on
+# the shared map screen — so a colony reading change never pulls the diplomacy
+# domain's four suites or the ui catch-all's.
+[domains.colonies]
+suites = [
+  "test_ledgers.gd",
+]
+
 # The dress the crown's sheets all print in — the chart/reading strip and the
 # grouped list — shared by the provinces, towns, muster, navy, people and
 # command sheets. A change to it runs the suites that drive those sheets,
@@ -719,6 +728,22 @@ domain = "muster"
 match = "tests/test_ledgers.gd*"
 domain = "muster"
 
+# The world's colonies (DR-20261117-02): the projection, its row and panel and
+# the map hook behind Visit. They share the ledgers boot — the projection on a
+# two-chart fixture and the sheet on the shared map screen — so a colony reading
+# change never pulls the diplomacy domain's court suites.
+[[rules]]
+match = "scripts/rules/colony_ledger.gd*"
+domain = "colonies"
+
+[[rules]]
+match = "scripts/ui/colony_ledger_*.gd*"
+domain = "colonies"
+
+[[rules]]
+match = "scripts/map/map_play_colonies.gd*"
+domain = "colonies"
+
 # The crown's towns (DR-20261115-12): the projection, its row and panel, the
 # map hook behind Raise and the realm ledger's door. It rides the muster domain
 # with the other sheets — one chrome, one modal layer — so a reading change
@@ -884,6 +909,13 @@ domain = "muster"
 # here instead of the ui catch-all's battle/court suites.
 [[rules]]
 match = "scripts/ui/hud_dossiers.gd"
+domain = "muster"
+
+# The sheet registry: every crown sheet's own layer, its bind and the back
+# walk. The ledgers boot drives all three (one bind, one back chain), so the
+# registry rides the muster domain instead of the menu catch-all.
+[[rules]]
+match = "scripts/ui/hud_ledger_doors.gd"
 domain = "muster"
 
 [[rules]]

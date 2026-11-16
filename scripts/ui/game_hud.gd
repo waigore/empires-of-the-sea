@@ -44,17 +44,16 @@ signal estates_pressed
 ## The cartouche's provinces door opens the crown's holdings ledger
 ## (REQ-P5-01, REQ-P5-03; DR-20261115-09).
 signal provinces_pressed
-## The court's eyes door opens the intelligence sheet — the spies the crown
-## holds, the courts they shadow and the screen (REQ-P5-01, REQ-P5-03;
-## DR-20261115-10).
+## The court's eyes door opens the intelligence sheet — the spies, the shadows
+## and the screen (REQ-P5-01; DR-20261115-10).
 signal spy_ledger_pressed
+## The court's colonies door opens the world's colonies (REQ-P5-01; DR-20261117-02).
+signal colonies_pressed
 ## The army dossier's command door opens the crown's commanders — the pool, the
-## medals each wears and the study that raises the cap (REQ-P5-01, REQ-P5-03;
-## DR-20261115-11).
+## medals and the cap road (REQ-P5-01; DR-20261115-11).
 signal command_pressed
-## The realm ledger's towns door opens the crown's towns — every town it holds,
-## the level it stands at and the step the Builder would take next
-## (REQ-P5-01, REQ-P5-04; DR-20261115-12).
+## The realm ledger's towns door opens the crown's towns — the level each holds
+## and the Builder's next step (REQ-P5-01, REQ-P5-04; DR-20261115-12).
 signal towns_pressed
 ## The muster roll's navy door opens the crown's navy — every hull it floats,
 ## squadron by squadron, with her class, her guns and her holds
@@ -126,6 +125,8 @@ var muster_roll: ForceLedgerPanel = null
 var province_ledger: ProvinceLedgerPanel = null
 ## The crown's eyes: every spy, the courts they shadow, the screen (DR-20261115-10).
 var spy_ledger: SpyLedgerPanel = null
+## The world's colonies: who holds them, what a boycott shuts (DR-20261117-02).
+var colonies_ledger: ColonyLedgerPanel = null
 ## The crown's commanders: the pool, its medals and the road to the next
 ## (DR-20261115-11).
 var command_ledger: CommandLedgerPanel = null

@@ -130,10 +130,21 @@ static func _ledgers(hud: GameHud) -> void:
 	hud.spy_ledger = SpyLedgerPanel.new()
 	HudLedgerDoors.mount(hud, "SpyLedgerLayer", hud.spy_ledger)
 	hud.spy_ledger_pressed.connect(hud.spy_ledger.toggle)
+	# The court's colonies door opens the colony ledger: a boycott is read on the
+	# colonies it shuts, so the sheet sits one press from the courts that hold
+	# them (REQ-P5-01, DR-20261117-02).
+	hud.colonies_ledger = ColonyLedgerPanel.new()
+	HudLedgerDoors.mount(hud, "ColonyLedgerLayer", hud.colonies_ledger)
+	hud.colonies_pressed.connect(hud.colonies_ledger.toggle)
 	# The court ledger carries the door: the crowns a spy shadows are the crowns
 	# that ledger lists, so the reading is one press from them (REQ-P5-01).
 	hud._diplomacy_panel.eyes_pressed.connect(
 		func() -> void: hud.spy_ledger_pressed.emit()
+	)
+	# The colonies door reads the same record: the courts that hold a colony are
+	# the courts a boycott is aimed from (REQ-P5-01, DR-20261117-02).
+	hud._diplomacy_panel.colonies_pressed.connect(
+		func() -> void: hud.colonies_pressed.emit()
 	)
 	hud.command_ledger = CommandLedgerPanel.new()
 	HudLedgerDoors.mount(hud, "CommandLedgerLayer", hud.command_ledger)

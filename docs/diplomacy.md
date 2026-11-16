@@ -7,17 +7,17 @@ War, peace, treaties, aid, intervention, chronicle — wiki
 
 ## Implemented
 
-- **Relations** (`DiplomacyState`): pair score, war, turn stamps; same-region
+- **Relations** (`DiplomacyState`): score, war, turn stamps; same-region
   seed 50; bands 0–25/26–50/51–75/76–100; GP pairs keep Embassy in war.
 - **Decay:** non-war pairs drift 4.0 to 50; war freezes.
 - **Spy death:** −8 for a Spy killed abroad.
 - **War / peace:** war needs peace, freezes the score, clears overtures
-  (GP pairs keep Embassy); battles need war, except a Tribe — unless another
-  crown has bought land there. Minors/Tribes accept peace; GP 26+. A duty path
+  (GP pairs keep Embassy); battles need war, except a Tribe unless another
+  crown bought land there. Minors/Tribes accept peace; GP 26+. A duty path
   (call to arms, intervention) creates the pair record if courts never met.
-- **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs
-  −50 with ally, −10 with others; never in war.
-- **Call to arms:** a GP war calls each ally once. AI allies join at 50+;
+- **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs −50 with
+  ally, −10 with others; never in war.
+- **Call to arms:** a GP war calls each ally once. AI allies join 50+;
   human calls wait; refusal breaks treaty.
 - **Intervention:** a war on a Minor/Tribe lets embassy and deed holders
   answer: intervene, stand aside (lose embassy) or protest −10 (−5 with
@@ -40,9 +40,9 @@ War, peace, treaties, aid, intervention, chronicle — wiki
   earn p% less. Rails 70–150% buy, 50–130% sell; court states it.
 - **First contact:** a Tribe enters court on a seen tile in its provinces, not
   sea-reach; rivals open theirs at turn close.
-- **Chronicle** (`DiplomacyHistory`): newest first, `Year Y (Turn N)`; unmet
-  crowns `Unknown faction`.
-- **Power line:** each GP reads its score against yours — red stronger, green
+- **Colonies:** the `COLONIES ›` reading ([`colonies.md`](colonies.md)).
+- **Chronicle** (`DiplomacyHistory`): `Year Y (Turn N)`; unmet crowns `Unknown faction`.
+- **Power line:** each GP reads its score against yours: red stronger, green
   matched.
 - **Dossier** (`IntelDossier`, `CourtDossier`): evidence, suspicion, behaviour
   ([`intel-dossier.md`](intel-dossier.md)).
