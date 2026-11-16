@@ -2284,6 +2284,37 @@ func test_two_squadrons_in_one_zone_combine_into_the_one_that_keeps_the_station(
 	)
 
 
+## The army a combine keeps aboard rides the squadron that now holds her hulls.
+## The emptied command leaves the roster, so a seat left on her names a squadron
+## no chart holds: the muster roll loses the water she stands in and its own
+## press finds no marker (wiki: military-armies § The muster roll — an embarked
+## army stands under the squadron that carries it).
+func test_a_combine_re_seats_the_army_it_carries() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleet_of(_player_ship_at_sea())
+	var partner: FleetState = _partner_cmd(fleet.sea_zone, ["partner_a"])
+	var army: ArmyState = ArmyState.muster(
+		_screen.play.army_layer.next_army, MapScreen.PLAYER_FACTION,
+		_screen.play.capital_province, false, ["infantry"],
+		_screen.play.army_layer.next_regiment
+	)
+	_screen.play.army_layer.armies.append(army)
+	army.province = MapModel.NO_ID
+	army.embarked_fleet = partner.id
+	partner.embarked_army = army.id
+
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(partner))
+	MapPlayFleets.on_action(_screen.play, "combine:%d" % fleet.id)
+
+	assert_eq(fleet.embarked_army, army.id, "the troops come aboard the kept squadron")
+	assert_eq(army.embarked_fleet, fleet.id, "the army's seat follows her hulls")
+	assert_true(
+		MapPlayForceLedger.focus(
+			_screen.play, _screen.play.region_index, ForceLedger.KIND_ARMY, army.id
+		),
+		"the muster roll's press finds the squadron that carries her"
+	)
+
+
 func test_the_dossier_offers_the_combine_only_beside_another_squadron() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
