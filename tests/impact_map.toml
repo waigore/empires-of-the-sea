@@ -1991,6 +1991,13 @@ domain = "prospect"
 match = "scripts/ai/ai_civilian_planner.gd*"
 domain = "prospect"
 
+# The staffing half of the same pass — the region's asks, the published hire
+# order and the footing gate — rides the same slice: the planner's plan call is
+# what proves the hire, so a staffing change runs the civilian suites it drives.
+[[rules]]
+match = "scripts/ai/ai_civilian_hire.gd*"
+domain = "prospect"
+
 # The archetype's own crew (the hire the planner takes beyond the region's
 # asks): the same plan pass and its suite prove it, so it rides with the
 # planner on the prospect slice rather than the broad `scripts/ai/**` fan-out.

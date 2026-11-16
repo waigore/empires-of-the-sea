@@ -2246,15 +2246,15 @@ func test_ai_engineer_raises_a_fort_when_at_war() -> void:
 func test_ai_civilian_training_needs_a_capital_and_a_purse() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
 	var rich: Dictionary = _civilian_context()
-	var order: Dictionary = AiCivilianPlanner.training_order(config, [], rich)
+	var order: Dictionary = AiCivilianHire.training_order(config, [], rich)
 	assert_true(bool(order.get("ok", false)))
 	assert_eq(String(order["type_id"]), "builder")
 	var poor: Dictionary = _civilian_context()
 	poor["treasury"] = 0
-	assert_false(bool(AiCivilianPlanner.training_order(config, [], poor).get("ok", false)))
+	assert_false(bool(AiCivilianHire.training_order(config, [], poor).get("ok", false)))
 	poor["capital_province"] = -1
 	poor["treasury"] = 2500
-	assert_false(bool(AiCivilianPlanner.training_order(config, [], poor).get("ok", false)))
+	assert_false(bool(AiCivilianHire.training_order(config, [], poor).get("ok", false)))
 
 
 ## Staff targets read the region's work: plains floor, hills digs, and the
@@ -2267,14 +2267,14 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var works := LandWorks.new()
 	var context: Dictionary = _civilian_context()
-	var floors: Dictionary = AiCivilianPlanner.staff_targets(
+	var floors: Dictionary = AiCivilianHire.staff_targets(
 		config, null, null, [], {}, {}, context
 	)
 	assert_eq(int(floors["builder"]), 2)
 	assert_eq(int(floors["engineer"]), config.parameter("civilian.engineer_target"))
 	assert_eq(int(floors["explorer"]), config.parameter("civilian.explorer_target"))
 	context["muster_port"] = CivilianFixture.COAST_TILE
-	var with_voyage: Dictionary = AiCivilianPlanner.staff_targets(
+	var with_voyage: Dictionary = AiCivilianHire.staff_targets(
 		config, model, works, [], CivilianFixture.stockpile(), {}, context
 	)
 	assert_true(
@@ -2293,7 +2293,7 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	var stop: Dictionary = _civilian_context()
 	stop["staff_targets"] = floors
 	assert_true(
-		AiCivilianPlanner.training_order(config, met, stop).is_empty(),
+		AiCivilianHire.training_order(config, met, stop).is_empty(),
 		"a court at its targets trains nothing"
 	)
 
@@ -2305,45 +2305,45 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 ## published targets exactly.
 func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
 	var context: Dictionary = _civilian_context()
-	var own: Dictionary = AiCivilianPlanner.region_targets(
+	var own: Dictionary = AiCivilianHire.region_targets(
 		AiConfig.new(), null, null, [], {}, {}, context
 	)
 	var fortifier: AiConfig = AiConfig.build(2, 1500)
-	var napoleon: Dictionary = AiCivilianPlanner.staff_targets(
+	var napoleon: Dictionary = AiCivilianHire.staff_targets(
 		fortifier, null, null, [], {}, {}, context
 	)
 	assert_eq(int(napoleon["engineer"]), int(own["engineer"]) + 1)
 	assert_eq(int(napoleon["builder"]), int(own["builder"]))
 	assert_eq(AiStaffTaste.note(fortifier), "the fortifier's taste")
-	var explorer: Dictionary = AiCivilianPlanner.staff_targets(
+	var explorer: Dictionary = AiCivilianHire.staff_targets(
 		AiConfig.build(0, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(explorer["explorer"]), int(own["explorer"]) + 1)
 	assert_eq(int(explorer["builder"]), int(own["builder"]))
-	var trader: Dictionary = AiCivilianPlanner.staff_targets(
+	var trader: Dictionary = AiCivilianHire.staff_targets(
 		AiConfig.build(1, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(trader["builder"]), int(own["builder"]) + 1)
 	# A merchant is only wanted when a deed door is open, so the trader's crew
 	# waits on the door rather than hiring a merchant with nowhere to walk.
 	var ruyter: AiConfig = AiConfig.build(4, 1500)
-	var no_deed: Dictionary = AiCivilianPlanner.staff_targets(
+	var no_deed: Dictionary = AiCivilianHire.staff_targets(
 		ruyter, null, null, [], {}, {}, context
 	)
 	assert_eq(int(no_deed["merchant"]), 0)
 	var deed: Dictionary = _civilian_context()
 	deed["merchant_targets"] = 1
 	assert_eq(
-		int(AiCivilianPlanner.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
+		int(AiCivilianHire.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
 		2,
 	)
-	var tactician: Dictionary = AiCivilianPlanner.staff_targets(
+	var tactician: Dictionary = AiCivilianHire.staff_targets(
 		AiConfig.build(5, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(tactician["spy"]), int(own["spy"]) + 1)
 	var no_archetype := AiConfig.new()
 	no_archetype.faction = 0
-	var plain: Dictionary = AiCivilianPlanner.staff_targets(
+	var plain: Dictionary = AiCivilianHire.staff_targets(
 		no_archetype, null, null, [], {}, {}, context
 	)
 	for type_id: String in AiStaffTaste.TYPES:
@@ -2360,7 +2360,7 @@ func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
 func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
 	var context: Dictionary = _civilian_context()
 	var fortifier: AiConfig = AiConfig.build(2, 1500)
-	var own: Dictionary = AiCivilianPlanner.region_targets(
+	var own: Dictionary = AiCivilianHire.region_targets(
 		fortifier, null, null, [], {}, {}, context
 	)
 	var met: Array[CivilianState] = []
@@ -2370,10 +2370,10 @@ func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
 				met.size() + 1, fortifier.faction, type_id, CivilianFixture.BARE_TILE
 			))
 	context["own_targets"] = own
-	context["staff_targets"] = AiCivilianPlanner.staff_targets(
+	context["staff_targets"] = AiCivilianHire.staff_targets(
 		fortifier, null, null, met, {}, {}, _civilian_context()
 	)
-	var order: Dictionary = AiCivilianPlanner.training_order(fortifier, met, context)
+	var order: Dictionary = AiCivilianHire.training_order(fortifier, met, context)
 	assert_true(bool(order.get("ok", false)), "the region's targets are met, the taste's is not")
 	assert_eq(String(order["type_id"]), "engineer")
 	assert_true(bool(order["taste"]), "the hire is the court's own crew")
@@ -2382,7 +2382,7 @@ func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
 	neutral["own_targets"] = own
 	neutral["staff_targets"] = own
 	assert_true(
-		AiCivilianPlanner.training_order(fortifier, met, neutral).is_empty(),
+		AiCivilianHire.training_order(fortifier, met, neutral).is_empty(),
 		"without a taste the same roster has nothing left to hire"
 	)
 
@@ -3690,13 +3690,13 @@ func test_a_court_at_war_hires_no_expansion_crew() -> void:
 	var crews: Dictionary = _civilian_context()
 	crews["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
 	crews["phase"] = AiPhasePlanner.PHASE_PEACE
-	var peace: Dictionary = AiCivilianPlanner.training_order(config, [], crews)
+	var peace: Dictionary = AiCivilianHire.training_order(config, [], crews)
 	assert_true(bool(peace.get("ok", false)), "at peace the court hires its Explorer")
 	assert_eq(String(peace["type_id"]), "explorer")
 	crews["phase"] = AiPhasePlanner.PHASE_WAR
-	var war: Dictionary = AiCivilianPlanner.training_order(config, [], crews)
+	var war: Dictionary = AiCivilianHire.training_order(config, [], crews)
 	assert_false(bool(war.get("ok", true)), "a war footing hires no new crew")
-	assert_eq(String(war.get("reason", "")), AiCivilianPlanner.REASON_CREWS)
+	assert_eq(String(war.get("reason", "")), AiCivilianHire.REASON_CREWS)
 	# The Merchant is the other expansion crew: the deed it signs is the chain's.
 	var deed: Dictionary = _civilian_context()
 	deed["staff_targets"] = {
@@ -3705,26 +3705,26 @@ func test_a_court_at_war_hires_no_expansion_crew() -> void:
 	deed["tech_unlocked"] = {"merchant_companies": true}
 	deed["phase"] = AiPhasePlanner.PHASE_PEACE
 	assert_eq(
-		String(AiCivilianPlanner.training_order(config, [], deed)["type_id"]),
+		String(AiCivilianHire.training_order(config, [], deed)["type_id"]),
 		"merchant"
 	)
 	deed["phase"] = AiPhasePlanner.PHASE_FRONTS
 	assert_eq(
-		String(AiCivilianPlanner.training_order(config, [], deed).get("reason", "")),
-		AiCivilianPlanner.REASON_CREWS
+		String(AiCivilianHire.training_order(config, [], deed).get("reason", "")),
+		AiCivilianHire.REASON_CREWS
 	)
 	# The front's own staff stays open: the footing closes expansion, not the war.
 	var front: Dictionary = _civilian_context()
 	front["staff_targets"] = {"builder": 2, "engineer": 0, "explorer": 0, "spy": 0}
 	front["phase"] = AiPhasePlanner.PHASE_WAR
-	var builder: Dictionary = AiCivilianPlanner.training_order(config, [], front)
+	var builder: Dictionary = AiCivilianHire.training_order(config, [], front)
 	assert_true(bool(builder.get("ok", false)), "a court at war still raises Builders")
 	assert_eq(String(builder["type_id"]), "builder")
 	# A caller with no footing (fixtures, the mainline planners) hires as published.
 	var unaware: Dictionary = _civilian_context()
 	unaware["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
 	assert_eq(
-		String(AiCivilianPlanner.training_order(config, [], unaware)["type_id"]),
+		String(AiCivilianHire.training_order(config, [], unaware)["type_id"]),
 		"explorer",
 		"no footing read means the published hire order"
 	)
@@ -3739,14 +3739,14 @@ func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
 		merged, {2: court},
 		{"factions": {2: {"civilians": {
 			"orders": [], "training": [],
-			"training_blocked": AiCivilianPlanner.REASON_CREWS,
+			"training_blocked": AiCivilianHire.REASON_CREWS,
 		}}}}
 	)
 	var text: String = ""
 	for entry: Variant in court["events"]:
 		text = String(entry)
 	assert_true(
-		text.contains(AiCivilianPlanner.REASON_CREWS),
+		text.contains(AiCivilianHire.REASON_CREWS),
 		"the trace names why the yard took no crew"
 	)
 
