@@ -923,6 +923,72 @@ func test_a_blockade_of_the_capital_cuts_every_sea_path() -> void:
 	)
 
 
+## A blockaded coast is no landfall, so the crown's estates ledger must read the
+## harvest the Extraction phase pays — never a sum of its own (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03).
+func test_a_blockaded_colony_reads_the_harvest_the_phase_pays() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	var estate := Vector2i(6, 2)
+	_works.add_port(model, TOWN_PORT)
+	_works.set_improvement(model, estate, 2)
+	_works.set_transport(model, estate, LandWorks.TRANSPORT_ROAD)
+	model.resource[model.index_of(estate.x, estate.y)] = 0
+	var caps: Dictionary = {"timber": 4}
+	var seals: Blockades = _blockade_of(model, 2)
+	var open: Dictionary = ImprovementLedger.snapshot(
+		model, _works, [], {}, PLAYER, CAPITAL, caps
+	)
+	assert_eq(open["totals"], {"timber": 1}, "the open coast ships one timber")
+	var sealed: Dictionary = ImprovementLedger.snapshot(
+		model, _works, [], {}, PLAYER, CAPITAL, caps, seals
+	)
+	assert_eq(
+		sealed["totals"], {},
+		"a sealed harbour ships nothing, the same ton the phase withholds"
+	)
+	var row: Dictionary = (sealed["estates"] as Array)[0]
+	assert_false(bool(row["connected"]), "the colony reaches the crown by road only")
+	assert_eq(int(row["output"]), 0, "and gathers nothing")
+	assert_eq(String(row["status"]), "disconnected")
+	assert_true(
+		String(row["status_text"]).contains("Harbour blockaded"),
+		String(row["status_text"])
+	)
+	assert_eq(
+		String(row["preview_text"]),
+		"Harbour blockaded — L3 pays nothing until the sea path opens",
+		"the raise is priced by the seal, not by a missing road"
+	)
+	var one: Dictionary = ImprovementLedger.estate_row(
+		model, _works, [], {}, PLAYER, estate, CAPITAL, caps, seals
+	)
+	assert_eq(int(one["output"]), 0, "the dossier's one tile reads the same")
+
+
+## The crown-road lens paints the same reading: a sealed colony is cut, and its
+## row names the seal rather than a road still to lay (REQ-P2-03).
+func test_a_blockaded_colony_reads_cut_in_the_crown_road_lens() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	_works.add_port(model, TOWN_PORT)
+	var open: Dictionary = CrownRoadSurvey.snapshot(model, _works, PLAYER, CAPITAL)
+	var seals: Blockades = _blockade_of(model, 2)
+	var sealed: Dictionary = CrownRoadSurvey.snapshot(
+		model, _works, PLAYER, CAPITAL, null, seals
+	)
+	var open_row: Dictionary = _entry(open, 2)
+	var sealed_row: Dictionary = _entry(sealed, 2)
+	assert_true(bool(open_row["linked"]), "the open coast reaches the crown")
+	assert_false(bool(sealed_row["linked"]), "the sealed coast does not")
+	assert_eq(String(sealed_row["state"]), CrownRoadSurvey.STATE_CUT)
+	assert_true(bool(sealed_row["blockaded"]), "the row names the rule that cut it")
+	assert_true(
+		CrownRoadSurvey.summary_text(sealed_row).contains("harbour blockaded"),
+		CrownRoadSurvey.summary_text(sealed_row)
+	)
+
+
 ## The province dossier names the rule that cut it: a sealed harbour is not a
 ## missing road (wiki: capital-and-connectivity § Blockade; REQ-P2-03).
 func test_a_blockaded_crown_link_says_which_rule_cut_it() -> void:

@@ -37,7 +37,8 @@ static func project(
 	resolved: Dictionary,
 	idle: Array[CivilianState],
 	tech_caps: Dictionary,
-	gaps: Dictionary = {}
+	gaps: Dictionary = {},
+	blockaded: bool = false
 ) -> Dictionary:
 	var level: int = works.improvement_at(model, tile)
 	var commodity: String = ImprovementCatalog.commodity(resource)
@@ -91,7 +92,7 @@ static func project(
 	var status: String = status_for(level, is_connected, working, mineral, prospected)
 	var status_text: String = _status_text(
 		status, resource, level, output, tech_cap, terrain_cap, transport,
-		town_cap, working, is_connected
+		town_cap, working, is_connected, blockaded
 	)
 	# How much road the crown still needs (wiki: capital-and-connectivity).
 	if gap > 0:
@@ -121,6 +122,7 @@ static func project(
 		"output": output,
 		"output_text": ImprovementCatalog.output_text(resource, output),
 		"connected": is_connected,
+		"blockaded": blockaded,
 		"prospected": prospected,
 		"needs_prospecting": mineral,
 		"working": working != null,
@@ -168,8 +170,13 @@ static func preview_text(row: Dictionary) -> String:
 	var next_level: int = int(row.get("next_level", level + 1))
 	# Ground no road reaches gathers nothing at any level, so the raise is priced
 	# by the wait rather than by a figure the harvest cannot pay. A deposit no
-	# Explorer has read is the same wait, named after the level it would buy.
+	# Explorer has read is the same wait, named after the level it would buy. A
+	# sealed harbour is a wait the crown cannot road away, so it is named too.
 	if not bool(row.get("connected", false)):
+		if bool(row.get("blockaded", false)):
+			return "Harbour blockaded — L%d pays nothing until the sea path opens" % (
+				next_level
+			)
 		return "No road yet — L%d pays nothing until one reaches it" % next_level
 	if int(row.get("gain", 0)) <= 0:
 		return "L%d adds nothing — %s holds this estate" % [
@@ -226,7 +233,7 @@ static func status_for(
 static func _status_text(
 	status: String, resource: int, level: int, output: int, tech_cap: int,
 	terrain_cap: int, transport: int, town_cap: int, working: CivilianState,
-	is_connected: bool
+	is_connected: bool, blockaded: bool = false
 ) -> String:
 	match status:
 		"building":
@@ -236,12 +243,18 @@ static func _status_text(
 			var vacant: String = (
 				"Vacant — a Builder can raise a %s" % ImprovementCatalog.base_name(resource)
 			)
-			if not is_connected:
+			if blockaded:
+				vacant += " · harbour blockaded, no sea path to the crown"
+			elif not is_connected:
 				vacant += " · no road to the crown yet"
 			return vacant
 		UNPROSPECTED:
 			return "Prospect this tile before a %s can rise" % ImprovementCatalog.base_name(resource)
 		"disconnected":
+			# A sealed harbour is a rule, not a missing road: say which one, so
+			# the crown never lays a road it does not need (REQ-P2-03).
+			if blockaded:
+				return "Harbour blockaded — no sea path to the crown"
 			return "No road or port to the crown — no yield yet"
 		"maxed":
 			return "Fully improved · %s" % ImprovementCatalog.output_text(resource, output)
