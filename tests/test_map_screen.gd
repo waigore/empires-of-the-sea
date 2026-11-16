@@ -526,17 +526,24 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 
 
 ## The end-of-turn fog pass is a rules pass, not a view pass: knowledge in the
-## region the player is not reading must still decay (wiki: fog-and-exploration
-## § Fog Decay). Otherwise a rival coast charted once stays charted forever just
-## because the map was switched before the turn closed.
-func test_end_turn_fogs_rival_coasts_in_the_region_off_screen() -> void:
+## region the player is not reading must still decay for rival coasts and for
+## distant water (wiki: fog-and-exploration § Fog Decay, § Distant sea zone fog).
+## One turn covers both: each used to pay a full end_turn under coverage (~2 s).
+func test_end_turn_fogs_rival_coasts_and_distant_water_off_screen() -> void:
 	_screen._cycle_region()
 	var new_world: MapModel = _screen.model
-	var province: int = Fixture.foreign_province(new_world)
-	var tile: Vector2i = new_world.province_tiles(province)[0]
-	var index: int = new_world.index_of(tile.x, tile.y)
 	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
-	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	var province: int = Fixture.foreign_province(new_world)
+	var coast: Vector2i = new_world.province_tiles(province)[0]
+	visibility.raise_to(
+		new_world.index_of(coast.x, coast.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	var zone_id: int = _quiet_zone(new_world, visibility)
+	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
+	var water: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
+	visibility.raise_to(
+		new_world.index_of(water.x, water.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
 
@@ -544,31 +551,12 @@ func test_end_turn_fogs_rival_coasts_in_the_region_off_screen() -> void:
 	Fixture.settle(_screen.play)
 
 	assert_eq(
-		visibility.level_at(tile.x, tile.y),
+		visibility.level_at(coast.x, coast.y),
 		VisibilityModel.Level.FOGGED,
 		"the New World chart decays while the Old World is on screen"
 	)
-
-
-## Same rule for water: a distant sea zone with no owned coast and no fleet at
-## sea reverts to fogged in every region, not only the one being looked at
-## (wiki: fog-and-exploration § Distant sea zone fog).
-func test_end_turn_fogs_distant_water_in_the_region_off_screen() -> void:
-	_screen._cycle_region()
-	var new_world: MapModel = _screen.model
-	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
-	var zone_id: int = _quiet_zone(new_world, visibility)
-	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
-	var tile: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
-	var index: int = new_world.index_of(tile.x, tile.y)
-	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	_screen._cycle_region()
-
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-
 	assert_eq(
-		visibility.level_at(tile.x, tile.y),
+		visibility.level_at(water.x, water.y),
 		VisibilityModel.Level.FOGGED,
 		"unwatched New World water refogs with the Old World on screen"
 	)
@@ -3479,15 +3467,21 @@ func test_the_enable_file_optin_is_read_and_consumed() -> void:
 
 
 func test_an_empty_enable_file_takes_the_default_port() -> void:
+	# Parse-only: binding DEFAULT_PORT under `--parallel` races any other
+	# worker that already holds 8765 and used to fail the suite on listen.
+	# The opt-in wire (file → start) is covered with an exclusive port above.
 	var handle := FileAccess.open("user://agent_debug.enable", FileAccess.WRITE)
 	handle.store_line("")
 	handle = null
-	var bridge := AgentDebugBridge.new()
-	bridge.name = "AgentDebugBridgeFileDefault"
-	add_child(bridge)
-	assert_eq(bridge.port, AgentDebugBridge.DEFAULT_PORT, "empty file, default port")
-	bridge.stop()
-	bridge.free()
+	assert_eq(
+		AgentDebugBridge.read_enable_file(),
+		AgentDebugBridge.DEFAULT_PORT,
+		"empty file, default port"
+	)
+	assert_false(
+		FileAccess.file_exists("user://agent_debug.enable"),
+		"a consumed enable file is removed"
+	)
 
 
 func _await_open(bridge: AgentDebugBridge, ws: WebSocketPeer) -> bool:

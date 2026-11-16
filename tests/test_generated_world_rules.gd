@@ -27,6 +27,7 @@ func before_all() -> void:
 	_bootstrap_world()
 	_advanced_before_all()
 	_generator_before_all()
+	_mount_advanced_tiers()
 
 
 func test_world_has_two_regions_with_clean_setup() -> void:
@@ -41,16 +42,12 @@ func test_world_has_two_regions_with_clean_setup() -> void:
 ## The shared fixture is generated once per suite, so it must pass its fair
 ## split on the first attempt: a seed that fails makes `generate_world` build a
 ## second world (wiki: game-setup § Tribe assignment regen-until-pass), and every
-## mounted suite pays that second build under coverage.
+## mounted suite pays that second build under coverage. Assert the cached chart
+## itself — regenerating both regions under coverage used to cost ~2 s for the
+## same reading `Fixture.world()` already proved when the suite booted.
 func test_the_fixture_world_passes_on_its_first_attempt() -> void:
-	var first: MapModel = MapGenerator.new().generate_region(
-		SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT
-	)
-	var second: MapModel = MapGenerator.new().generate_region(
-		SEED + 7919, FactionCatalog.NEW_WORLD,
-		maxi(48, int(round(float(WIDTH) * 0.88))),
-		maxi(36, int(round(float(HEIGHT) * 0.9))),
-	)
+	var first: MapModel = world.region(FactionCatalog.OLD_WORLD)
+	var second: MapModel = world.region(FactionCatalog.NEW_WORLD)
 	assert_true(first.setup_errors.is_empty(), "OW first attempt: %s" % str(first.setup_errors))
 	assert_true(second.setup_errors.is_empty(), "NW first attempt: %s" % str(second.setup_errors))
 
@@ -3540,8 +3537,57 @@ func test_rows_lead_with_what_the_crown_can_muster_today() -> void:
 ## The live setup path of an advanced start (wiki: advanced-starts;
 ## DR-20261111-01): a real map screen opening at a mid-age tier, with the
 ## treasury, the muster, the chart and the roster the tier promises (merged
-## from test_advanced_start_live). Each case mounts its own screen — a tier
-## re-seats nothing, so there is no pristine save to share.
+## from test_advanced_start_live). One mount per tier: under coverage a mount
+## costs ~0.5–2 s, so the five live cases re-seat from a pristine save
+## (`Fixture.suite_reset`, ~0.15 s) instead of remounting each time.
+
+## Non-underscore so before_all state is copied onto each test instance.
+## Live mounts use a private chart so idle screens cannot rewrite `Fixture.world`
+## under later cases (`test_same_seed_reproduces_the_world` reads that chart).
+var advanced_live_world: WorldMap = null
+var advanced_live_saved: Array = []
+var tier50_screen: MapScreen = null
+var tier50_pristine: Dictionary = {}
+var tier100_screen: MapScreen = null
+var tier100_pristine: Dictionary = {}
+
+
+func _mount_advanced_tiers() -> void:
+	advanced_live_world = MapGenerator.new().generate_world(SEED, WIDTH, HEIGHT)
+	# Full SaveWorld half: a shallow ownership snapshot cannot rewind town
+	# levels / resources the tier writes before suite_reset reseats a case.
+	advanced_live_saved = []
+	for entry: Dictionary in SaveWorld.capture(advanced_live_world):
+		advanced_live_saved.append(entry)
+	tier50_screen = _instantiate_tier(AdvancedStart.TURNS50)
+	tier50_pristine = Fixture.suite_capture(tier50_screen)
+	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+	tier100_screen = _instantiate_tier(AdvancedStart.TURNS100)
+	tier100_pristine = Fixture.suite_capture(tier100_screen)
+	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+
+
+func _instantiate_tier(tier: String) -> MapScreen:
+	var screen: MapScreen = Fixture.SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = advanced_live_world
+	screen.advanced_start = tier
+	add_child(screen)
+	return screen
+
+
+func after_all() -> void:
+	if is_instance_valid(tier50_screen):
+		tier50_screen.free()
+	if is_instance_valid(tier100_screen):
+		tier100_screen.free()
+	tier50_screen = null
+	tier100_screen = null
+	tier50_pristine = {}
+	tier100_pristine = {}
+	advanced_live_world = null
+	advanced_live_saved = []
 
 
 func test_a_new_campaign_opens_on_the_preset() -> void:
@@ -3565,7 +3611,6 @@ func test_a_new_campaign_opens_on_the_preset() -> void:
 	var roster: Array = screen.civilian_layer.regions.value(0, [])
 	assert_eq(_civilian_count(roster, play.player_faction, "explorer"), 3)
 	assert_eq(_civilian_count(roster, play.player_faction, "spy"), 1)
-	screen.free()
 
 
 func test_a_late_campaign_opens_with_the_documented_progress() -> void:
@@ -3593,7 +3638,6 @@ func test_a_late_campaign_opens_with_the_documented_progress() -> void:
 		_civilian_count(roster, play.player_faction, "rail_builder"), 1,
 		"the late tier fields a Rail Builder"
 	)
-	screen.free()
 
 
 ## Every court inherits the same New World chart (wiki § NW sea-zone visibility
@@ -3613,7 +3657,6 @@ func test_rivals_inherit_the_passage_lanes() -> void:
 		assert_eq(view.player_id, faction, "each court reads its own grid")
 		var rival_zones: Array[int] = play.court_charts.known_zones(faction, NEW_WORLD)
 		assert_eq(rival_zones, human_zones, "every court reads the same lanes")
-	screen.free()
 
 
 ## A rival reads its own colony beach (100-turn claim): owned shore, fully
@@ -3635,7 +3678,6 @@ func test_a_rival_reads_its_own_colony_coast() -> void:
 				"a crown reads its own colony"
 			)
 		assert_gte(held, 1, "the late tier seats every crown in the New World")
-	screen.free()
 
 
 ## Every hull id is minted once for the life of the save (wiki: ships-and-naval
@@ -3658,16 +3700,15 @@ func test_the_tier_musters_unique_hull_ids() -> void:
 					]
 				)
 				seen[hull_id] = fleet.id
-	screen.free()
 
 
 func _open(tier: String) -> MapScreen:
-	var screen: MapScreen = Fixture.SCENE.instantiate()
-	screen.map_width = Fixture.WORLD_WIDTH
-	screen.map_height = Fixture.WORLD_HEIGHT
-	screen.preset_world = world
-	screen.advanced_start = tier
-	add_child(screen)
+	var screen: MapScreen = tier50_screen if tier == AdvancedStart.TURNS50 else tier100_screen
+	var pristine: Dictionary = (
+		tier50_pristine if tier == AdvancedStart.TURNS50 else tier100_pristine
+	)
+	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+	Fixture.suite_reset(screen, pristine)
 	return screen
 
 
