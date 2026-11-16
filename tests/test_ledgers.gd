@@ -709,6 +709,48 @@ func test_army_row_reads_standing_composition_and_strength() -> void:
 	assert_true(String(home["line"]).contains("%.1f strength" % float(home["strength"])))
 
 
+## A standard whose colours have been cited (or laurelled) reads the weight the
+## battle pays for it, not the paper sum: a citation is +5% and a laurel +10% in
+## the line, so the muster roll, the crown's army and the battle must name one
+## figure (wiki: military-armies § The muster roll — "Both strengths are the
+## resolver's own aggregation"; combat § Strength; DR-20261113-04).
+func test_a_decorated_standard_reads_the_weight_the_battle_pays() -> void:
+	var army: ArmyState = ArmyState.muster(
+		6, OWNER, 0, false, ["pikemen", "pikemen", "knights"], 601
+	)
+	army.regiment_history["unit_601"] = {"cited": 3, "fields": []}
+	var one: Array[ArmyState] = [army]
+	var paper: float = army.strength()
+	var paid: float = ArmyModifiers.strength(one, 0, 1.0)
+	var laurel: float = ArmyModifiers.rank_of("pikemen", 0, 1.0) * 0.10
+	assert_almost_eq(paid, paper + laurel, 0.001, "one laurel in a three-regiment line")
+	assert_almost_eq(
+		ArmyForce.side_strength(one), paid, 0.001,
+		"the side's strength is the resolver's own aggregation"
+	)
+
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [army])
+	var muster: Dictionary = ForceLedger.snapshot(
+		_force_world(), table, MapRegionTable.new(), OWNER
+	)
+	var row: Dictionary = _force_row(muster, ForceLedger.KIND_ARMY, 6)
+	assert_almost_eq(
+		float(row["strength"]), paid, 0.001, "the muster roll reads the battle's figure"
+	)
+	assert_true(String(row["line"]).contains("%.1f strength" % paid))
+
+	var ledger: Dictionary = ArmyLedger.snapshot(
+		_force_world(), table, MapRegionTable.new(), OWNER
+	)
+	var standards: Array[Dictionary] = ArmyLedger.groups(ledger, LedgerRows.REGION_OLD)
+	assert_eq(standards.size(), 1, "one standard in the home chart")
+	assert_almost_eq(
+		float(standards[0]["strength"]), paid, 0.001,
+		"the crown's army heading reads it too"
+	)
+
+
 func test_embarked_army_reads_aboard_its_squadron() -> void:
 	var snapshot: Dictionary = ForceLedger.snapshot(_force_world(), _armies(), _fleets(), 0)
 	var embarked: Dictionary = _force_row(snapshot, ForceLedger.KIND_ARMY, 2)

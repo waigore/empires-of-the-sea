@@ -306,13 +306,16 @@ func _command_head(command: String) -> String:
 	return command.split("\n")[0]
 
 
-## Strength line: count, firepower, food, chevrons and the ward or train.
+## Strength line: count, firepower, food, chevrons and the ward or train. The
+## strength is the resolver's own aggregation, so the dossier, the muster roll
+## and the battle name one figure for a decorated standard (wiki: combat
+## § Strength, military-armies § The muster roll; REQ-P2-03).
 func _strength_line(model: MapModel, army: ArmyState) -> String:
+	var one: Array[ArmyState] = [army]
 	var text: String = "%d regiments · %d strength · %d food" % [
-		army.count(), int(army.strength()), _food(army)
+		army.count(), roundi(ArmyForce.side_strength(one)), _food(army)
 	]
-	var own_side: Array[ArmyState] = [army]
-	var chevrons: int = RegimentCondition.chevrons(own_side)
+	var chevrons: int = RegimentCondition.chevrons(one)
 	if chevrons > 0:
 		text += " · %d chevrons" % chevrons
 	if army.is_embarked():
