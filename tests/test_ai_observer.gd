@@ -651,6 +651,48 @@ func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
 	assert_false(progress.text.ends_with("pressing"), "a court far from the bar is not")
 
 
+## A busy turn raises more rows than the plate has room for. The feed scrolls
+## through the turns it keeps whole instead of printing the newest dozen and
+## dropping the rest — the war declared and the first march are the rows a
+## watcher most needs (REQ-P5-05).
+func test_the_feed_prints_a_busy_turn_whole() -> void:
+	var play: PlaySession = _screen.play
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {"factions": {crown: {}}})
+	var bucket: Dictionary = merged["factions"][crown]
+	for index in 30:
+		AiTurnLog.event(merged, bucket, crown, "Order %d." % index)
+	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts")
+	if panel == null:
+		return
+	panel.refresh()
+	var rows: int = (merged["events"] as Array).size()
+	assert_true(rows > 12, "the turn is busier than the plate's old dozen")
+	var lines: PackedStringArray = panel._log.text.split("\n")
+	var prefix: String = "T%d  " % int(merged["turn"])
+	var printed: int = 0
+	for line: String in lines:
+		if line.begins_with(prefix):
+			printed += 1
+	assert_eq(printed, rows, "every row of the turn reaches the feed")
+	assert_eq(
+		lines[0], "%sOrder 29." % prefix,
+		"the newest order still leads the feed"
+	)
+	assert_true(
+		lines.has("%sOrder 0." % prefix),
+		"the turn's first order is kept, not cut"
+	)
+	var kept: int = 0
+	for index in range(maxi(play.ai_turns.size() - AiObserverPanel.FEED_TURNS, 0), play.ai_turns.size()):
+		kept += (play.ai_turns[index]["events"] as Array).size()
+	assert_true(
+		panel._log_caption.text.contains("%d rows over 2 turns" % kept),
+		"the caption counts every row the feed holds"
+	)
+
+
 func test_dashboard_controls_step_pause_and_collapse() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")
