@@ -468,10 +468,6 @@ domain = "sea_tone"
 match = "scripts/session/play_session.gd*"
 domain = "pause"
 
-[[rules]]
-match = "scripts/map/map_play_setup.gd"
-domain = "pause"
-
 # Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
 # ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
@@ -507,10 +503,6 @@ domain = "pause"
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
 domain = "sheet"
-
-[[rules]]
-match = "scripts/map/map_play_setup.gd"
-domain = "blockade"
 
 [[rules]]
 match = "scripts/ui/dossier_copy.gd"
@@ -921,6 +913,9 @@ domain = "muster"
 match = "scripts/ui/hud_ledger_doors.gd"
 domain = "muster"
 
+# The screen's boot (HUD, economy, dossier, fog, intro) and the ledger doors it
+# binds. First match wins, so this is the one rule for the file: the pause,
+# blockade and crown-road copies that also named it never matched.
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
 domain = "muster"
@@ -2552,15 +2547,10 @@ domain = "diplomacy"
 match = "scripts/map/map_play_input.gd"
 domain = "crown_road"
 
-# The chart's readings (raise, walk, fade) moved out of MapPlayInput to keep it
-# under the 400-line bar (REQ-P3-01). Same domain: the lens board and its suites.
+# The chart's readings: raise, walk and fade (map_play_lens) and mount (its
+# lens mounts left MapPlaySetup, REQ-P3-01). Same domain as the reading's board.
 [[rules]]
 match = "scripts/map/map_play_lens.gd*"
-domain = "crown_road"
-
-# Lens rebuild path (survey / diplomacy / crown-road); keep off the full map set.
-[[rules]]
-match = "scripts/map/map_play_setup.gd"
 domain = "crown_road"
 
 [[rules]]

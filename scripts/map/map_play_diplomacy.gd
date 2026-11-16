@@ -101,7 +101,7 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 	play.hud.set_treasury(play.treasury())
 	refresh(play)
 	# War, peace and alliances repaint the political wash at once.
-	MapPlaySetup.build_diplomacy_lens(play)
+	MapPlayLens.mount_diplomacy(play)
 
 
 ## End-of-turn diplomacy phase: first contact, rival-court AI orders, subsidy

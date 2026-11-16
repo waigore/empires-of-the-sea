@@ -192,7 +192,7 @@ func _ready() -> void:
 	if restored and target_region != play.region_index:
 		load_region(target_region)
 	MapPlayDiplomacy.sync_first_contact(play)
-	MapPlaySetup.build_diplomacy_lens(play)
+	MapPlayLens.mount_diplomacy(play)
 	_connect()
 	if restored:
 		MapPlaySetup.refresh_after_load(play)

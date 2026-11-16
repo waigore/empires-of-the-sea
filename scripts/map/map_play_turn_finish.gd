@@ -277,4 +277,4 @@ static func _follow_view(play: PlaySession, year: int) -> void:
 	play.improvements.refresh_if_open()
 	# An open dossier follows the works, the town and the tech the turn changed.
 	MapPlaySetup.refresh_dossier(play)
-	MapPlaySetup.build_lens(play)
+	MapPlayLens.mount_all(play)
