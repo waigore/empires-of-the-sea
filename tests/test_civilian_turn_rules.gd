@@ -1573,11 +1573,11 @@ func test_a_hire_reads_the_hire_purse() -> void:
 	}
 
 	assert_true(
-		AiCivilianPlanner.training_order(config, units, rich).is_empty(),
+		AiCivilianHire.training_order(config, units, rich).is_empty(),
 		"a court saving for its muster hires nobody"
 	)
 	assert_false(
-		AiCivilianPlanner.training_order(config, units, poor).is_empty(),
+		AiCivilianHire.training_order(config, units, poor).is_empty(),
 		"the hire purse is what pays a new civilian"
 	)
 
