@@ -1,6 +1,6 @@
 # Fleets and naval combat
 
-Fog, cargo, battles, raids, stations:
+Fog, cargo, battles, raids:
 [naval-missions.md](naval-missions.md).
 
 **Pillars:** P2, P3, P1, P4.
@@ -20,29 +20,29 @@ Fog, cargo, battles, raids, stations:
 - **Yard:** launch for its row + **one peasant**; lands next turn; break-up
   returns a peasant, no refund (DR-20261109-01).
 - **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
-  one with no merchant; GPs start with ≥1 warship (DR-20261109-03).
-- **Home merge:** seat dock or dossier **Join the home fleet**
-  (`FleetHomeMerge`); ids, names, passengers keep.
-- **Home sortie** (DR-20261109-17): home squadron may sail (spends move/holds);
-  colonists ride one per hull and land beside the zone.
+  one; GPs start with ≥1 warship (DR-20261109-03).
+- **Home merge:** seat dock or dossier **Join the home fleet**; ids, names,
+  passengers keep.
+- **Home sortie** (DR-20261109-17): the home squadron may sail (spends
+  move/holds); colonists ride one per hull.
+- **Split a squadron** (DR-20261116-12): the dossier's **Split the squadron**
+  drawer detaches one hull into a command of her own in the same station.
 - Contested zones fight at turn end: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
 - **Markers:** escorts, hull badge, strength; a rival `*` / `???` until watched
   (DR-20261113-20).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
-  (DR-20261109-13, DR-20261109-16).
+  (DR-20261109-13/16); raids sink one merchant hull (DR-20261111-17).
 - **Army transport** (`NavalTransport`): board (one regiment/hull), sail or
   cross, land on an owned coast; troops drown with a sunk hull.
-- **Beachhead:** mark a hostile coast (spends the move); army lands next;
+- **Beachhead:** mark a hostile coast (spends the move); the army lands next;
   unused markers lapse.
 
-Raids sink one merchant hull (DR-20261111-17).
-
-**The crown's navy** (DR-20261115-14): muster door (`N`) lists each hull;
-**Visit** frames her squadron.
+**The crown's navy** (DR-20261115-14): the muster door (`N`) lists each hull;
+**Visit** frames her.
 
 **The sea reading** (`H`, DR-20261115-17; `SeaSurvey`/`SeaLens`): the zones the
-crown's sail is in eye of — hulls, strength, station, rival, the fight at close.
+crown's sail sees — hulls, strength, station, rival.
 
 ## Architecture
 
@@ -53,9 +53,9 @@ crown's sail is in eye of — hulls, strength, station, rival, the fight at clos
 | `scripts/rules/{naval_*,warp_travel}.gd` | battles, moves, stations, raids |
 | `scripts/rules/{naval_transport,civilian_voyage}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead |
 | `scripts/ai/ai_naval_planner.gd`, `scripts/map/{map_play_fleet_ai,map_play_fleet_missions,map_play_raids}.gd` | rival sorties, stations, raids |
-| `scripts/map/{map_play_fleets,map_play_fleet_yard}.gd` | sail orders, fog intel, shipyard |
+| `scripts/map/{map_play_fleets,map_play_fleet_yard,map_play_fleet_split}.gd` | sail orders, fog intel, shipyard, split |
 | `scripts/map/{ship_layer,ship_markers,fleet_rosters,map_overlay,map_play_warp,fog_layer}.gd` | orders, markers, rosters, fog |
-| `scripts/ui/{fleet_panel,fleet_*_section,panel_dock}.gd` | dossier, strength, passengers, stations |
+| `scripts/ui/{fleet_panel,fleet_*_section,fleet_split_block,panel_dock}.gd` | dossier, strength, passengers, stations, split |
 | `scripts/rules/naval_ledger.gd`, `scripts/ui/naval_ledger_*.gd` | the navy, hull by hull |
 | `scripts/economy/economy_controller.gd`, `scripts/map_screen.gd` | upkeep, intents |
 
@@ -66,7 +66,7 @@ No node deps (`REQ-P3-03`).
 | Action | Desktop | Touch |
 |--------|---------|-------|
 | Select fleet | click | tap |
-| Sail, dock, passages | highlight / ring | same |
+| Sail, dock, passages | highlight | same |
 | Join home | dossier button | same |
 | Station | dossier button | same |
 | Land troops | dossier button | same |
@@ -74,7 +74,6 @@ No node deps (`REQ-P3-03`).
 | Beachhead | dossier coast button | same |
 | Shipyard | capital | same |
 | Navy | roll's **Navy ›**, `N` | same |
-| Cancel | `Esc` | close |
 
 ## Deferred
 

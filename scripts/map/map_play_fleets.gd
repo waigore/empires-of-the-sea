@@ -315,6 +315,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		MapPlayFleetMissions.on_action(play, action)
 	elif action == "join_home":
 		MapPlayHomeMerge.join(play)
+	elif action.begins_with("split:"):
+		MapPlayFleetSplit.detach(play, action.trim_prefix("split:"))
 	elif action.begins_with("land:"):
 		land(play, int(action.trim_prefix("land:")))
 	elif MapPlayCivilianVoyage.on_action(play, action):

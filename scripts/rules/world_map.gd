@@ -60,10 +60,7 @@ func capital_province_of(region_index: int, faction_id: int) -> int:
 	var model: MapModel = region(region_index)
 	if model == null:
 		return MapModel.NO_ID
-	for province: ProvinceState in model.provinces:
-		if province.owner == faction_id and province.capital:
-			return province.id
-	return MapModel.NO_ID
+	return WorldBootstrap.capital_province(model, faction_id)
 
 
 ## Seat the faction rules from in a region: its capital, else any holding.

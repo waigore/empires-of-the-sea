@@ -114,10 +114,7 @@ static func seat_capital(
 
 ## The province a court sits in for this faction, or NO_ID when it has none.
 static func seat_province(model: MapModel, faction_id: int) -> int:
-	for province: ProvinceState in model.provinces:
-		if province.owner == faction_id and province.capital:
-			return province.id
-	return -1
+	return WorldBootstrap.capital_province(model, faction_id)
 
 
 # --- province choice --------------------------------------------------------
