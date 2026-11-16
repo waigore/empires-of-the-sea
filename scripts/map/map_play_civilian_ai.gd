@@ -234,6 +234,9 @@ static func apply(
 				play, region, roster, faction, economy, training, context
 			)
 			if not hired.is_empty():
+				# Whether the court's own archetype asked for this crew, or the
+				# region's work did: the trace names which (AiStaffTaste).
+				hired["taste"] = bool(training.get("taste", false))
 				report["training"].append(hired)
 		# A hire the footing held shut names why (REQ-P5-05).
 		report["training_blocked"] = String(

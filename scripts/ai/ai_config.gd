@@ -80,3 +80,11 @@ func research_bias() -> int:
 ## Domain weight vector (economy / military / diplomacy / research).
 func weights() -> Dictionary:
 	return personality.get("weights", AiPersonality.NEUTRAL["weights"])
+
+
+## Relative civilian-type preference from the archetype (wiki:
+## civilian-build-planner § Architecture): the one crew this court keeps beyond
+## the region's own work. Empty for a court with no archetype — the published
+## hire order and nothing more.
+func staff_preference() -> Dictionary:
+	return personality.get("staff", {})

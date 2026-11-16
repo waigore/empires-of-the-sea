@@ -15,10 +15,12 @@ extends RefCounted
 ##
 ## The pass itself owns what is genuinely per-run: one estate-ledger read per
 ## court, a per-tile reservation so two crews never claim one tile, and the next
-## civilian to train. Every candidate is checked by CivilianWork before it is
-## emitted, so the planner cannot invent an outcome or spend a commodity twice
-## (REQ-P2-03, REQ-P3-03). Modules are preloaded by path, so routing never
-## depends on the engine's global class cache.
+## civilian to train — the published hire order plus the one crew the court's
+## archetype keeps beyond the region's asks (AiStaffTaste). Every candidate is
+## checked by CivilianWork before it is emitted, so the planner cannot invent an
+## outcome or spend a commodity twice (REQ-P2-03, REQ-P3-03). Modules are
+## preloaded by path, so routing never depends on the engine's global class
+## cache.
 ## Pure rules: state in, orders out; the map adapter applies them.
 
 const AiBuilderWork = preload("res://scripts/ai/ai_builder_work.gd")
@@ -80,9 +82,12 @@ static func plan(
 			).is_empty() else 0
 		)
 	)
-	train_context["staff_targets"] = staff_targets(
+	# The region's asks, and the court's own crew on top (AiStaffTaste).
+	var own_targets: Dictionary = region_targets(
 		config, model, works, units, stockpile, tech_caps, train_context
 	)
+	train_context["own_targets"] = own_targets
+	train_context["staff_targets"] = AiStaffTaste.raises(config, own_targets)
 	for unit: CivilianState in roster:
 		if unit.is_working():
 			continue
@@ -123,7 +128,9 @@ static func plan(
 ## Next civilian to train: the published hire order, each step against the
 ## region's staff targets. A court whose staff already meets every target trains
 ## nothing — there is no staff cap and no unconditional builder fill (wiki:
-## civilian-build-planner; DR staff lever).
+## civilian-build-planner; DR staff lever). The exception is the crew the court's
+## own archetype keeps beyond the region's asks: that target is one higher, so a
+## court at the map's own target still hires in character (AiStaffTaste).
 ##
 ## A court at war hires no **expansion** crew: the Explorer and the Merchant
 ## serve the voyage and the Tribe chain the same footing holds shut, so the hire
@@ -138,8 +145,11 @@ static func training_order(
 		return {}
 	var own: Array[CivilianState] = _owned_units(units, config.faction)
 	var targets: Dictionary = context.get("staff_targets", {})
+	# The region's own asks, so the order can name a hire the taste alone wanted.
+	var region: Dictionary = context.get("own_targets", {})
 	if targets.is_empty():
-		targets = staff_targets(config, null, null, units, {}, {}, context)
+		region = region_targets(config, null, null, units, {}, {}, context)
+		targets = AiStaffTaste.raises(config, region)
 	# Discretionary hires (spy, merchant) spend the standing reserve. Extraction
 	# staff — builders, engineers, explorers — may draw on the works purse while
 	# the court is on `earn`, so a war chest does not freeze the mines that refill
@@ -148,7 +158,7 @@ static func training_order(
 	var works_purse: int = hire_purse
 	if bool(context.get("earn", false)):
 		works_purse = maxi(hire_purse, int(context.get("treasury", 0)))
-	var type_id: String = _preferred_type(
+	var queue: Array[String] = _hire_queue(
 		own,
 		targets,
 		bool(context.get("at_war", false)),
@@ -156,6 +166,14 @@ static func training_order(
 		hire_purse,
 		int(context.get("paper", 0))
 	)
+	# The court's own crew leads once the region can spare it — a taste, never a
+	# legality. A shut footing is not its to walk through: an expansion crew it
+	# names falls back to the published order's own report.
+	var type_id: String = AiStaffTaste.lead(config, queue, own)
+	if not crews_open(context) and is_expansion_crew(type_id):
+		type_id = ""
+	if type_id.is_empty() and not queue.is_empty():
+		type_id = queue[0]
 	if type_id.is_empty() or not CivilianCatalog.is_implemented(type_id):
 		return {}
 	# The footing's own reading, never a legality gate: the hire is the court's
@@ -173,7 +191,11 @@ static func training_order(
 		type_id, purse, int(context.get("paper", 0))
 	):
 		return {}
-	return {"ok": true, "type_id": type_id}
+	return {
+		"ok": true,
+		"type_id": type_id,
+		"taste": AiStaffTaste.drives(config, type_id, targets, region, own),
+	}
 
 
 ## True when the court's footing leaves the expansion-crew slot open. A caller
@@ -186,16 +208,32 @@ static func crews_open(context: Dictionary) -> bool:
 	)
 
 
-## True for the crews the voyage and the Tribe chain need: an Explorer charts
-## them, a Merchant signs the deed.
+## True for the crews the voyage and the Tribe chain need: Explorer, Merchant.
 static func is_expansion_crew(type_id: String) -> bool:
 	return EXPANSION_CREWS.has(type_id)
 
 
-## Per-type staff the college wants in this region: one base (or the published
-## explorer/engineer floor) plus the region's own work queue / work_per_staff,
-## and one Explorer kept free while a colonisation voyage is mustering.
+## The staff the court wants in this region: the region's owns plus its taste.
 static func staff_targets(
+	config: AiConfig,
+	model: MapModel,
+	works: LandWorks,
+	units: Array,
+	stockpile: Dictionary,
+	tech_caps: Dictionary,
+	context: Dictionary
+) -> Dictionary:
+	return AiStaffTaste.raises(
+		config,
+		region_targets(config, model, works, units, stockpile, tech_caps, context)
+	)
+
+
+## Per-type staff the region's own work asks for (the court's taste is the extra
+## crew [method staff_targets] adds): one base — or the published explorer and
+## engineer floor — plus the region's own work queue / work_per_staff, and one
+## Explorer kept free while a colonisation voyage is mustering.
+static func region_targets(
 	config: AiConfig,
 	model: MapModel,
 	works: LandWorks,
@@ -307,18 +345,19 @@ static func _owned_units(units: Array, owner: int) -> Array[CivilianState]:
 	return roster
 
 
-## Hire order against the region's targets: builders, engineers, a war spy
-## screen before another explorer, then the peace spy, then a merchant when a
-## deed is on offer or an envoy chain toward one is openable. Empty when every
-## target is already met.
-static func _preferred_type(
+## The crews the court may hire this turn, in the published order: builders,
+## engineers, the deed partner once the first two crews stand, a war spy screen
+## before another explorer, then the peace spy, then a merchant when a deed is
+## on offer or an envoy chain toward one is openable. Empty when every target is
+## already met; which of them is taken is the caller's (AiStaffTaste.lead).
+static func _hire_queue(
 	roster: Array[CivilianState],
 	targets: Dictionary,
 	at_war: bool = false,
 	tech_unlocked: Dictionary = {},
 	treasury: int = 0,
 	paper: int = 0
-) -> String:
+) -> Array[String]:
 	var builders: int = 0
 	var engineers: int = 0
 	var explorers: int = 0
@@ -335,30 +374,27 @@ static func _preferred_type(
 			spies += 1
 		elif unit.type_id == "merchant":
 			merchants += 1
+	var queue: Array[String] = []
 	if builders < int(targets.get("builder", 0)):
-		return "builder"
+		queue.append("builder")
 	if engineers < int(targets.get("engineer", 0)):
-		return "engineer"
-	# The deed partner waits on the crew, not on the estate queue: once the
-	# court holds its first Builder and Engineer, one Merchant is taken ahead of
-	# the second Builder and the survey queue. The door it serves closes again
-	# when the Minor is absorbed or the war turns, so a hire parked behind an
-	# unbounded staff target is a deed never signed (issue #841; wiki:
-	# civilian-units § Merchant).
-	if merchants < int(targets.get("merchant", 0)) and builders >= 1 and engineers >= 1:
-		if CivilianCatalog.is_unlocked("merchant", tech_unlocked) and (
-			CivilianCatalog.can_afford("merchant", treasury, paper)
-		):
-			return "merchant"
+		queue.append("engineer")
+	# The deed partner waits on the crew, not on the estate queue: with the first
+	# Builder and Engineer standing, one Merchant is taken ahead of the second
+	# Builder and the survey queue — a hire parked behind an unbounded target is
+	# a deed never signed (issue #841; wiki: civilian-units § Merchant).
+	var deeds: bool = merchants < int(targets.get("merchant", 0))
+	var merchant_ready: bool = CivilianCatalog.is_unlocked("merchant", tech_unlocked) and (
+		CivilianCatalog.can_afford("merchant", treasury, paper)
+	)
+	if deeds and merchant_ready and builders >= 1 and engineers >= 1:
+		queue.append("merchant")
 	if at_war and spies < int(targets.get("spy", 0)):
-		return "spy"
+		queue.append("spy")
 	if explorers < int(targets.get("explorer", 0)):
-		return "explorer"
-	if spies < int(targets.get("spy", 0)):
-		return "spy"
-	if merchants < int(targets.get("merchant", 0)) and (
-		CivilianCatalog.is_unlocked("merchant", tech_unlocked)
-		and CivilianCatalog.can_afford("merchant", treasury, paper)
-	):
-		return "merchant"
-	return ""
+		queue.append("explorer")
+	if spies < int(targets.get("spy", 0)) and not queue.has("spy"):
+		queue.append("spy")
+	if deeds and merchant_ready and not queue.has("merchant"):
+		queue.append("merchant")
+	return queue

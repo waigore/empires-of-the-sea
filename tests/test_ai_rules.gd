@@ -2258,9 +2258,12 @@ func test_ai_civilian_training_needs_a_capital_and_a_purse() -> void:
 
 
 ## Staff targets read the region's work: plains floor, hills digs, and the
-## voyage slot — and training stops when every target is already met.
+## voyage slot — and training stops when every target is already met. The court
+## here is neutral, so the targets are the region's own and nothing else: the
+## archetype's extra crew is the next test's reading.
 func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	var model: MapModel = CivilianFixture.build()
 	var works := LandWorks.new()
 	var context: Dictionary = _civilian_context()
@@ -2292,6 +2295,95 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	assert_true(
 		AiCivilianPlanner.training_order(config, met, stop).is_empty(),
 		"a court at its targets trains nothing"
+	)
+
+
+## The archetype's own crew (wiki: civilian-build-planner § Architecture): a
+## court keeps one more of the type its leader leans on than the region's work
+## asks, and nothing more — a merchant still waits on a deed, the spy's second
+## stands only for the tactician, and a court with no archetype keeps the
+## published targets exactly.
+func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
+	var context: Dictionary = _civilian_context()
+	var own: Dictionary = AiCivilianPlanner.region_targets(
+		AiConfig.new(), null, null, [], {}, {}, context
+	)
+	var fortifier: AiConfig = AiConfig.build(2, 1500)
+	var napoleon: Dictionary = AiCivilianPlanner.staff_targets(
+		fortifier, null, null, [], {}, {}, context
+	)
+	assert_eq(int(napoleon["engineer"]), int(own["engineer"]) + 1)
+	assert_eq(int(napoleon["builder"]), int(own["builder"]))
+	assert_eq(AiStaffTaste.note(fortifier), "the fortifier's taste")
+	var explorer: Dictionary = AiCivilianPlanner.staff_targets(
+		AiConfig.build(0, 1500), null, null, [], {}, {}, context
+	)
+	assert_eq(int(explorer["explorer"]), int(own["explorer"]) + 1)
+	assert_eq(int(explorer["builder"]), int(own["builder"]))
+	var trader: Dictionary = AiCivilianPlanner.staff_targets(
+		AiConfig.build(1, 1500), null, null, [], {}, {}, context
+	)
+	assert_eq(int(trader["builder"]), int(own["builder"]) + 1)
+	# A merchant is only wanted when a deed door is open, so the trader's crew
+	# waits on the door rather than hiring a merchant with nowhere to walk.
+	var ruyter: AiConfig = AiConfig.build(4, 1500)
+	var no_deed: Dictionary = AiCivilianPlanner.staff_targets(
+		ruyter, null, null, [], {}, {}, context
+	)
+	assert_eq(int(no_deed["merchant"]), 0)
+	var deed: Dictionary = _civilian_context()
+	deed["merchant_targets"] = 1
+	assert_eq(
+		int(AiCivilianPlanner.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
+		2,
+	)
+	var tactician: Dictionary = AiCivilianPlanner.staff_targets(
+		AiConfig.build(5, 1500), null, null, [], {}, {}, context
+	)
+	assert_eq(int(tactician["spy"]), int(own["spy"]) + 1)
+	var no_archetype := AiConfig.new()
+	no_archetype.faction = 0
+	var plain: Dictionary = AiCivilianPlanner.staff_targets(
+		no_archetype, null, null, [], {}, {}, context
+	)
+	for type_id: String in AiStaffTaste.TYPES:
+		assert_eq(
+			int(plain.get(type_id, 0)),
+			int(own.get(type_id, 0)),
+			"a court with no archetype keeps the published %s target" % type_id,
+		)
+
+
+## A court at every target the map asks for still hires its own crew, and the
+## order says the taste asked rather than the region (REQ-P5-05): the crew is
+## paid at the catalogue's price through the published gate.
+func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
+	var context: Dictionary = _civilian_context()
+	var fortifier: AiConfig = AiConfig.build(2, 1500)
+	var own: Dictionary = AiCivilianPlanner.region_targets(
+		fortifier, null, null, [], {}, {}, context
+	)
+	var met: Array[CivilianState] = []
+	for type_id: String in ["builder", "engineer", "explorer", "spy"]:
+		for i in int(own.get(type_id, 0)):
+			met.append(CivilianState.create(
+				met.size() + 1, fortifier.faction, type_id, CivilianFixture.BARE_TILE
+			))
+	context["own_targets"] = own
+	context["staff_targets"] = AiCivilianPlanner.staff_targets(
+		fortifier, null, null, met, {}, {}, _civilian_context()
+	)
+	var order: Dictionary = AiCivilianPlanner.training_order(fortifier, met, context)
+	assert_true(bool(order.get("ok", false)), "the region's targets are met, the taste's is not")
+	assert_eq(String(order["type_id"]), "engineer")
+	assert_true(bool(order["taste"]), "the hire is the court's own crew")
+	fortifier.personality = AiPersonality.NEUTRAL
+	var neutral: Dictionary = _civilian_context()
+	neutral["own_targets"] = own
+	neutral["staff_targets"] = own
+	assert_true(
+		AiCivilianPlanner.training_order(fortifier, met, neutral).is_empty(),
+		"without a taste the same roster has nothing left to hire"
 	)
 
 
@@ -3657,6 +3749,37 @@ func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
 		text.contains(AiCivilianPlanner.REASON_CREWS),
 		"the trace names why the yard took no crew"
 	)
+
+
+## The economy trace names the crew a rival musters, and says when the court's
+## own archetype asked for it rather than the region's work (REQ-P5-05;
+## AiStaffTaste).
+func test_the_trace_names_the_crew_a_court_musters() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: court},
+		{"factions": {2: {"civilians": {"orders": [], "training": [
+			{"type_id": "engineer", "unit": 1, "tile": Vector2i(0, 0), "taste": true},
+		]}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text = String(entry)
+	assert_true(text.contains("an Engineer"), "the trace names the crew it raised")
+	assert_true(text.contains("the court's taste"), "and the archetype that asked for it")
+	var plain: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: plain},
+		{"factions": {2: {"civilians": {"orders": [], "training": [
+			{"type_id": "builder", "unit": 2, "tile": Vector2i(0, 0), "taste": false},
+		]}}}}
+	)
+	text = ""
+	for entry: Variant in plain["events"]:
+		text = String(entry)
+	assert_true(text.contains("a Builder"), "the region's own hire is named too")
+	assert_false(text.contains("taste"), "nothing claims a taste that was not read")
 
 
 ## A court at war opens no speculative top-up: the coin and the holds belong to
@@ -6914,6 +7037,9 @@ func _market_context(
 	}
 
 
+## The deed door's own reading: the court is neutral here, so the staff targets
+## are the region's own work and the archetype's extra crew cannot colour a
+## merchant test (AiStaffTaste has its own cases).
 func _market_plan(
 	model: MapModel,
 	units: Array,
@@ -6922,8 +7048,10 @@ func _market_plan(
 	context: Dictionary = {}
 ) -> Dictionary:
 	var diplomacy: DiplomacyState = court if court != null else Fixture.merchant_court()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	return AiCivilianPlanner.plan(
-		AiConfig.build(0, 1500), model, units, works if works != null else LandWorks.new(),
+		config, model, units, works if works != null else LandWorks.new(),
 		Fixture.stockpile(), {}, {"merchant_companies": true},
 		context if not context.is_empty() else _market_context(model, diplomacy)
 	)
@@ -11480,6 +11608,8 @@ func _ai_merchant_context(
 		"visibility": planner_Fixture.visibility(model),
 	}
 
+## Neutral court for the same reason as `_market_plan`: these cases prove the
+## deed door and the merchant's slot, not the archetype's extra crew.
 func _ai_merchant_plan(
 	model: MapModel,
 	units: Array,
@@ -11488,8 +11618,10 @@ func _ai_merchant_plan(
 	context: Dictionary = {}
 ) -> Dictionary:
 	var diplomacy: DiplomacyState = court if court != null else planner_Fixture.merchant_court()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	return AiCivilianPlanner.plan(
-		AiConfig.build(0, 1500), model, units, works if works != null else LandWorks.new(),
+		config, model, units, works if works != null else LandWorks.new(),
 		planner_Fixture.stockpile(), {}, {"merchant_companies": true},
 		context if not context.is_empty() else _ai_merchant_context(model, diplomacy)
 	)
