@@ -1,0 +1,94 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
+  "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
+  "submission_hash": "sha256:683184494091f093d061b25e7d608743fad5ae9e2e47f68a1becdcd3ad81ec3c",
+  "submission_git": "feat/807-feed-the-courts@14227b1+dirty",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 1845.9294117647057,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 17.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 9.0,
+      "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 77.93212759462759,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:66b68cc304a65e79c7f6b839a71c6b59437edca03385555a6bd9bcc09cc4d241",
+    "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
+    "parts": {
+      "provinces_old": 17,
+      "provinces_new": 0,
+      "regiments": 7,
+      "ships": 2,
+      "workers": 4,
+      "extraction_per_turn": 1.0333333333333334,
+      "income_per_turn": 33.86274509803921,
+      "funded_pct": 77.93212759462759
+    },
+    "early_win": false,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 201,
+    "resolved_turns": 200,
+    "funded_pct": 77.93212759462759
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-16T08:47:15Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:a110d58ba2203cef403bc7fa13cbc42ae8fbacf0f2990ac5937f44c17482685e"
+}

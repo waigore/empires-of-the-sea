@@ -44,39 +44,6 @@ static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
 	if chart != null and chart.is_open():
 		chart.close()
 		return true
-	# The towns ledger is the realm's own door's sheet and stands above it, so
-	# it closes first (DR-20261115-12).
-	var towns: TownLedgerPanel = play.hud.towns_ledger
-	if towns != null and towns.is_open():
-		towns.close()
-		return true
-	# The province ledger is the muster roll's sibling sheet (DR-20261115-09).
-	var provinces: ProvinceLedgerPanel = play.hud.province_ledger
-	if provinces != null and provinces.is_open():
-		provinces.close()
-		return true
-	# The crown's eyes is the same sibling (DR-20261115-10).
-	var eyes: SpyLedgerPanel = play.hud.spy_ledger
-	if eyes != null and eyes.is_open():
-		eyes.close()
-		return true
-	# The command ledger is the same sibling (DR-20261115-11).
-	var command: CommandLedgerPanel = play.hud.command_ledger
-	if command != null and command.is_open():
-		command.close()
-		return true
-	# The navy ledger is the same sibling, and the muster roll stands under it
-	# (DR-20261115-14).
-	var navy: NavalLedgerPanel = play.hud.navy_ledger
-	if navy != null and navy.is_open():
-		navy.close()
-		return true
-	# The college's chart is a sheet standing over the college, so back sets it
-	# aside before the ledger under it hears the press (DR-20261115-15).
-	var chart: TechTreePanel = play.hud.tech_tree if play.hud != null else null
-	if chart != null and chart.is_open():
-		chart.close()
-		return true
 	var panels: HudPanels = play.hud.panels
 	if panels.is_economy_open():
 		panels.hide_economy()

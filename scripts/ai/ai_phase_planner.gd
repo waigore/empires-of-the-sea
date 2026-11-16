@@ -36,6 +36,11 @@ const PHASE_UNKNOWN: String = ""
 ## own reading and the next slot lands on this one hook.
 const SLOT_VOYAGE: String = "expansion.voyage"
 const SLOT_DECLARE_WAR: String = "diplomacy.declare_war"
+## The Tribe a court is drawing into its empire: the next envoy step of a chain
+## it has not opened yet (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+const SLOT_TRIBE_CHAIN: String = "expansion.tribe_chain"
+## Every slot the table names, in the order the trace prints them.
+const SLOTS: Array[String] = [SLOT_VOYAGE, SLOT_DECLARE_WAR, SLOT_TRIBE_CHAIN]
 
 const LABELS: Dictionary = {
 	PHASE_WAR: "at war",
@@ -94,9 +99,25 @@ static func opens(phase: String, slot: String) -> bool:
 			# opens no third Great Power front either: it is the one court no
 			# rival should be able to count on for another war.
 			return phase != PHASE_FRONTS
+		SLOT_TRIBE_CHAIN:
+			# A Great Power war spends the coin and the envoy's one order a new
+			# chain needs. Only a **new** chain closes: a chain already opened
+			# keeps its next step, so the footing never strands a stake the
+			# court has already paid for.
+			return not is_war_footing(phase)
 	# A slot no footing names stays open: the dispatch matrix's default outcome
 	# keeps merges total (wiki: phase-planner-dispatch).
 	return true
+
+
+## The slots a footing holds shut, in the table's own order — the reading the
+## turn trace prints so a closed aim is never silent (REQ-P5-05).
+static func closed_slots(phase: String) -> Array[String]:
+	var shut: Array[String] = []
+	for slot: String in SLOTS:
+		if not opens(phase, slot):
+			shut.append(slot)
+	return shut
 
 
 ## Reader-facing footing for the observer panel and the turn trace.

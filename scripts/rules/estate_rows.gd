@@ -67,9 +67,10 @@ static func project(
 	)
 	var output: int = 0
 	if level > 0 and is_connected and (not mineral or prospected):
+		# The phase's own arithmetic, ration estates doubled (issue #807).
 		output = Extraction.effective_yield(
 			level, mini(tech_cap, terrain_cap), transport, town_cap
-		)
+		) * Extraction.estate_yield_per_level(owner, commodity)
 	var next_level: int = mini(level + 1, ImprovementCatalog.MAX_LEVEL)
 	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
 	var builder: CivilianState = _nearest(idle, tile)
@@ -102,6 +103,7 @@ static func project(
 			next_level > terrain_cap and level < ImprovementCatalog.MAX_LEVEL
 		),
 		"commodity": commodity,
+		"owner": owner,
 		"output": output,
 		"output_text": ImprovementCatalog.output_text(resource, output),
 		"connected": is_connected,

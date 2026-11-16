@@ -66,7 +66,16 @@ static func _apply_war(
 	state: DiplomacyState, player: int, target: int,
 	call_to_arms: bool, world: WorldMap, aggressor_tech: Dictionary
 ) -> Dictionary:
-	var record: DiplomacyRelation = state.relation(player, target)
+	# A duty path (a call-to-arms join, an intervention) never asks the gate, so
+	# the pair may have met for the first time on the battlefield: the war is a
+	# relation state, so the record is created here rather than assumed
+	# (wiki: diplomacy § GP–GP Rules — war invariant; § Intervention).
+	var record: DiplomacyRelation = state.ensure_relation(player, target)
+	if record == null:
+		return {
+			"ok": false, "reason": "That court cannot be fought.",
+			"calls": [], "interventions": [], "message": "",
+		}
 	record.at_war = true
 	record.since_turn = state.turn
 	record.formal_alliance = false
