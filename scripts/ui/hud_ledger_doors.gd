@@ -33,6 +33,7 @@ static func sheets(hud: GameHud) -> Array[SheetFrame]:
 		hud.hospitals_ledger,
 		hud.province_ledger,
 		hud.spy_ledger,
+		hud.colonies_ledger,
 		hud.command_ledger,
 		hud.navy_ledger,
 	]:

@@ -869,7 +869,7 @@ func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 ## (REQ-P3-01, REQ-P5-07).
 func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 	var sheets: Array[SheetFrame] = HudLedgerDoors.sheets(screen.hud)
-	assert_eq(sheets.size(), 10, "the registry names every whole-empire sheet")
+	assert_eq(sheets.size(), 11, "the registry names every whole-empire sheet")
 	for sheet: SheetFrame in sheets:
 		assert_eq(sheet.play, screen.play, "the sheet reads the screen's session")
 	screen.hud.muster_roll_pressed.emit()
@@ -1477,6 +1477,7 @@ func test_a_session_with_no_army_layer_reads_an_empty_command_pool() -> void:
 	assert_eq(int(data["cap"]), GeneralRoster.BASE_CAP, "the cap is still the rules'")
 
 
+
 ## The campaign opens with its commander on the roll. Nothing else syncs a pool
 ## before the first turn tick, so a sheet that opens on turn 0 read "0 of 1
 ## commander" with no row while the wiki says the faction always holds its cap
@@ -1529,6 +1530,234 @@ func test_back_and_the_key_close_the_command_ledger() -> void:
 	assert_true(panel.is_open(), "the key opens it from the map")
 	panel._unhandled_input(toggle)
 	assert_false(panel.is_open(), "and closes it again")
+
+
+## --- the world's colonies ---------------------------------------------------
+## Every Tribe a Great Power bought into its empire, read as a ledger — who holds
+## it, where it stands and what its suzerain's boycott shuts (wiki: diplomacy
+## § GP–Tribe Rules — Join Empire, § Boycott; DR-20261117-02). The projection
+## reads a small record over a two-chart fixture; the drive presses the court's
+## COLONIES door on the mounted map.
+
+
+func test_a_colony_reads_its_suzerain_place_and_open_trade() -> void:
+	var state: DiplomacyState = _colony_state()
+	var data: Dictionary = ColonyLedger.snapshot(
+		_colony_regions(), state, FactionCatalog.PLAYER_FACTION
+	)
+	assert_eq(int(data["total"]), 1, "one tribe is bought")
+	var row: Dictionary = (data["rows"] as Array)[0]
+	assert_eq(
+		String(row["name"]), FactionCatalog.name_of(_colony_tribe()), "the people are named"
+	)
+	assert_eq(String(row["suzerain_name"]), "England", "the court that bought it is named")
+	assert_eq(String(row["place"]), "Veracruz", "the colony's capital is read off the chart")
+	assert_eq(int(row["provinces"]), 2, "every province the people hold is counted")
+	assert_eq(String(row["terms"]), "Open to every court", "no boycott, no bar")
+	assert_true(
+		String(row["standing"]).contains("Warm") or String(row["standing"]).length() > 0,
+		"the herald's word is printed, never the score"
+	)
+	assert_true(
+		ColonyLedger.summary(data, LedgerRows.REGION_ALL, 1).contains("1 of 1 colonies"),
+		"the count line reads the roll"
+	)
+
+
+## The rule's bigger half: a boycott applies to every colony the issuer holds,
+## so the bar is read on the colony and not only on the court pages.
+func test_a_boycott_seals_every_colony_of_the_issuer() -> void:
+	var state: DiplomacyState = _colony_state()
+	state.boycotts[DiplomacyKeys.directed(_colony_parent(), 0)] = 1
+	state.set_subsidy(_colony_parent(), _colony_tribe(), 10)
+	var data: Dictionary = ColonyLedger.snapshot(_colony_regions(), state, 0)
+	var row: Dictionary = (data["rows"] as Array)[0]
+	assert_true(bool(row["sealed"]), "the issuer's colony wears the bar")
+	assert_eq(String(row["terms"]), "Sealed to Spain", "the boycotted court is named")
+	assert_eq(int(data["sealed"]), 1)
+	assert_eq(int(row["subsidy"]), 10, "the subsidy the suzerain pays is read")
+	assert_true(String(row["standing"]).contains("subsidy 10%"))
+
+
+func test_the_colony_filters_narrow_the_roll_and_keep_their_tallies() -> void:
+	var state: DiplomacyState = _colony_state()
+	state.ensure_relation(0, _second_tribe(), 1)
+	state.set_colony(_second_tribe(), 0)
+	var data: Dictionary = ColonyLedger.snapshot(_colony_regions(), state, 0)
+	assert_eq(int(data["total"]), 2, "both colonies are read")
+	assert_eq(int(data["ours"]), 1, "one is the crown's own")
+	assert_eq(ColonyLedger.count(data, LedgerRows.REGION_ALL, ColonyLedger.FILTER_OURS), 1)
+	assert_eq(ColonyLedger.count(data, LedgerRows.REGION_ALL, ColonyLedger.FILTER_SEALED), 0)
+	assert_eq(ColonyLedger.count(data, LedgerRows.REGION_NEW, ColonyLedger.FILTER_ALL), 1)
+	var counts: Dictionary = ColonyLedger.filter_counts(data, LedgerRows.REGION_ALL)
+	assert_eq(int(counts[ColonyLedger.FILTER_ALL]), 2)
+	assert_true(
+		bool((data["rows"] as Array)[0]["ours"]), "the crown's own colony leads the reading"
+	)
+	assert_eq(ColonyLedger.filter_label(ColonyLedger.FILTER_SUBSIDY), "Subsidised")
+
+
+func test_an_unmet_people_prints_no_row() -> void:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.set_colony(_colony_tribe(), _colony_parent())
+	# The crown's own dealings are struck, so neither the people nor the court
+	# that bought them is known: a colony the crown never heard of is silent.
+	state.clear_relations_of(0)
+	var data: Dictionary = ColonyLedger.snapshot(_colony_regions(), state, 0)
+	assert_eq(int(data["total"]), 0, "an undiscovered people is nobody's news")
+	assert_true(
+		(MapPlayColonies.snapshot(null)["rows"] as Array).is_empty(),
+		"no session, no colony"
+	)
+
+
+func test_a_colony_row_reads_its_chip_place_and_bar() -> void:
+	var row := ColonyLedgerRow.new()
+	row.setup({
+		"name": "The Inca",
+		"suzerain_name": "Spain",
+		"place": "Cusco",
+		"region": 1,
+		"region_label": "New World",
+		"province": 4,
+		"provinces": 3,
+		"standing": "Warm · subsidy 10%",
+		"terms": "Sealed to England",
+		"flags": [ColonyLedger.FILTER_OURS],
+	})
+	assert_eq(row._name.text, "The Inca")
+	assert_eq(row._chip.text, "OURS", "the crown's own colony is read first")
+	assert_true(row._detail.text.contains("Cusco — colony of Spain"))
+	assert_true(row._reading.text.contains("3 provinces"))
+	assert_true(row._reading.text.contains("Sealed to England"))
+	assert_eq(row._standing.text, "Warm · subsidy 10%")
+	assert_not_null(row._visit, "a colony's capital is a place to visit")
+	row.free()
+
+
+func test_a_colony_row_with_no_seat_offers_no_visit_and_reads_its_subsidy() -> void:
+	var row := ColonyLedgerRow.new()
+	row.compact = true
+	row.setup({
+		"name": "A people",
+		"suzerain_name": "England",
+		"place": "No province",
+		"region": 1,
+		"province": ColonyLedger.NO_ID,
+		"provinces": 0,
+		"standing": "Neutral",
+		"terms": "Open to every court",
+		"flags": [ColonyLedger.FILTER_SUBSIDY],
+	})
+	assert_eq(row._chip.text, "PAYS", "a subsidy is the reading when nothing bars it")
+	assert_null(row._visit, "no seat, no Visit")
+	assert_true(row._detail.text.contains("0 provinces") or
+		row._detail.text.contains("Open to every court"), "a phone folds the terms in")
+	row.free()
+
+
+func test_the_colonies_door_opens_the_sheet_it_reads() -> void:
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	assert_not_null(panel, "the HUD mounts the colony ledger")
+	var door: Button = _colonies_door()
+	assert_not_null(door, "the court carries the colonies door")
+	door.pressed.emit()
+	assert_true(panel.is_open(), "the court's door opens it")
+	assert_true(panel._subtitle.text.contains("colonies"), "the count line names the roll")
+	assert_true(
+		panel._empty.visible and panel._empty.text.contains("Join Empire"),
+		"a world with no colony says how one is made"
+	)
+	panel.close()
+
+
+func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
+	var play: PlaySession = screen.play
+	play.diplomacy.ensure_relation(play.player_faction, _colony_tribe(), play.turn)
+	play.diplomacy.set_colony(_colony_tribe(), _colony_parent())
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	screen.hud.colonies_pressed.emit()
+	assert_true(panel.is_open())
+	assert_true(_colony_row_widgets(panel) > 0, "the colony is listed")
+	assert_true(panel._subtitle.text.contains("1 of 1"), "the count line reads the roll")
+	var row: ColonyLedgerRow = _colony_row(panel)
+	assert_not_null(row, "the colony mints its row")
+	var visited: Array = []
+	row.visit_pressed.connect(
+		func(region: int, province_id: int) -> void: visited.append([region, province_id])
+	)
+	row._visit.pressed.emit()
+	assert_eq(visited.size(), 1, "the row's Visit door asks for its capital")
+	assert_eq(int(visited[0][1]), int(row.data["province"]), "the colony's own province")
+	assert_true(BackRequest.handle(play, play.improvements), "back walks the sheets")
+	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+## The colony fixture: two charts where the first Tribe holds the New World land
+## and a second holds the Old World's, so a chart filter has something to narrow.
+func _colony_regions() -> Array[Dictionary]:
+	var old: MapModel = Naval.build()
+	var new: MapModel = Naval.build()
+	new.region_id = FactionCatalog.NEW_WORLD
+	new.provinces[0].name = "Veracruz"
+	new.provinces[0].capital = true
+	new.provinces[1].name = "Tenochtitlan"
+	new.provinces[1].capital = false
+	for province: ProvinceState in new.provinces:
+		province.owner = _colony_tribe()
+	for province: ProvinceState in old.provinces:
+		province.owner = _second_tribe()
+	return [
+		{"region": FactionCatalog.OLD_WORLD, "model": old},
+		{"region": FactionCatalog.NEW_WORLD, "model": new},
+	]
+
+
+func _colony_state() -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, _colony_tribe(), 1)
+	state.ensure_relation(0, _colony_parent(), 1)
+	state.set_colony(_colony_tribe(), _colony_parent())
+	return state
+
+
+func _colony_tribe() -> int:
+	return int(FactionCatalog.tribe_ids()[0])
+
+
+func _second_tribe() -> int:
+	return int(FactionCatalog.tribe_ids()[1])
+
+
+func _colony_parent() -> int:
+	return 1
+
+
+## The court ledger's COLONIES door, found by its word so the suite presses the
+## button the player presses.
+func _colonies_door() -> Button:
+	for node: Node in screen.hud._diplomacy_panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("COLONIES"):
+			return button
+	return null
+
+
+func _colony_row_widgets(panel: ColonyLedgerPanel) -> int:
+	var total: int = 0
+	for child: Node in panel._rows.get_children():
+		if child is ColonyLedgerRow:
+			total += 1
+	return total
+
+
+func _colony_row(panel: ColonyLedgerPanel) -> ColonyLedgerRow:
+	for child: Node in panel._rows.get_children():
+		if child is ColonyLedgerRow:
+			return child
+	return null
 
 
 ## --- the shared row skeleton -------------------------------------------------
