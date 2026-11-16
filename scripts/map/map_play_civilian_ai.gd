@@ -81,18 +81,22 @@ static func plan_all(
 			context["muster_port"] = muster
 		if region != int(overseas.get("home_region", region)):
 			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
-		# The larder slack the ward gate reads: the ration food this turn's
-		# harvest carries less every mouth the consumption phase already feeds
-		# (wiki: civilian-work-planner § Playable slice; issue #807). A caller
-		# with no harvest to read passes no key and keeps the old reading.
-		var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
-		if not harvest.is_empty():
-			var food: int = 0
-			for id: String in CommodityCatalog.FOOD:
-				food += maxi(int(harvest.get(id, 0)), 0)
-			context["larder_slack"] = (
-				food - MapPlayEconomyAi._food_demand(play, faction, economy)
-			)
+		# The larder slack the ward gate reads and the provision premium
+		# follows: the harvest this turn landed less every mouth the
+		# consumption phase feeds; the economy pass noted it. No reading keeps
+		# the old reading. A muster due with the slack at or under zero leads
+		# the Builders to the ration estates, so the food income for the army
+		# the court desires is provisioned before that army is raised (#807).
+		if play.ai != null and play.ai.food_slack.has(faction):
+			context["larder_slack"] = int(play.ai.food_slack[faction])
+			if (
+				int(context["larder_slack"]) <= 0
+				and AiArmyReinforce.muster_floor(
+					config, economy, MapPlayCourt.regiments(play, faction),
+					MapPlayCourt.at_war(play, faction)
+				) > 0
+			):
+				context["provision_food"] = true
 		var plan: Dictionary = AiBind.civilian_plan(
 			kind, config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context
