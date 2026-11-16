@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:6f20e525c019c5bf07fdec7dd48ca15c719fe054c21cd770eab5b525aca2feac",
-  "submission_git": "feat/807-feed-the-courts@61673543",
+  "submission_hash": "sha256:683184494091f093d061b25e7d608743fad5ae9e2e47f68a1becdcd3ad81ec3c",
+  "submission_git": "feat/807-feed-the-courts@14227b1+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:6847604699ed4de0a4ab74704a7354ff100caf8e382c368a67a075fe2613e492",
+    "ai_surface_hash": "sha256:66b68cc304a65e79c7f6b839a71c6b59437edca03385555a6bd9bcc09cc4d241",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-16T07:46:52Z",
+  "timestamp": "2026-11-16T08:47:15Z",
   "report_version": 1,
-  "signature": "hmac-sha256:297e97866e27a9c2dbbba735beb663cbb92827ff455429a915ca6ac08ebc3f73"
+  "signature": "hmac-sha256:a110d58ba2203cef403bc7fa13cbc42ae8fbacf0f2990ac5937f44c17482685e"
 }
