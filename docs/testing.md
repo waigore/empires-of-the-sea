@@ -43,8 +43,9 @@ loads, returns to title. Deep rules stay in `tests/`.
   lenses; a suite that swaps screens frees its own. Reuse a preset only when
   sizes match.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
-  session and `ai_turns`, re-seat each case (~0.2 s vs ~1.5–2 s). Mode cases
-  start at turn 1; `test_ai_observer` is the reference.
+  session (and `ai_turns` / Auto fields), re-seat each case (~0.2 s vs
+  ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` and
+  `test_auto_mode` are the references.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`.
 - **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
