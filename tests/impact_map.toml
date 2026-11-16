@@ -647,6 +647,13 @@ domain = "fleet_combine"
 match = "scripts/ui/fleet_combine_block.gd*"
 domain = "fleet_combine"
 
+# The seam all three dossier drawers share: the toggle, the open state, the row
+# shell and the gate's own reason. The split domain already mounts every drawer
+# through the two naval suites, so the seam adds no wall time.
+[[rules]]
+match = "scripts/ui/fleet_drawer.gd*"
+domain = "fleet_split"
+
 [[rules]]
 match = "scripts/rules/recruit_queue.gd*"
 domain = "economy"
