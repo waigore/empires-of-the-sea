@@ -157,7 +157,23 @@ static func subsidy_step(
 static func subsidy_percent(market: WorldMarket, buyer: int, seller: int) -> int:
 	if market == null or buyer < 0 or seller < 0:
 		return 0
-	return int(market.subsidy_terms.get("%d>%d" % [buyer, seller], 0))
+	return int(market.subsidy_terms.get(DiplomacyKeys.directed(buyer, seller), 0))
+
+
+## The largest subsidy a crown pays any court, 0 when it pays none: the published
+## pair steps read back through the same key vocabulary that wrote them, so the
+## banner never splits a key of its own (wiki: world-market § Subsidy price
+## adjustment).
+static func subsidy_rate_paid(market: WorldMarket, payer: int) -> int:
+	if market == null or payer < 0:
+		return 0
+	var best: int = 0
+	for key: String in market.subsidy_terms.keys():
+		var courts: Vector2i = DiplomacyKeys.directed_courts(key)
+		if courts.x != payer:
+			continue
+		best = maxi(best, int(market.subsidy_terms[key]))
+	return best
 
 
 ## The multiplier one deal actually lands at: the court's own terms times the

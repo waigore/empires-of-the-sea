@@ -158,6 +158,25 @@ func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
 	return result
 
 
+## Dismisses a batch of regiments from an own army (wiki: military-armies
+## § Dismissing regiments; DR-20261109-01). Each returns one peasant; an emptied
+## field army retires at once and its standard leaves the chart, while the Home
+## Army keeps its standard.
+func dismiss(
+	army: ArmyState, regiment_ids: Array[String], economy: PlayerEconomy
+) -> Dictionary:
+	var result: Dictionary = ArmyDismiss.dismiss(economy, army, regiment_ids)
+	if not bool(result.get("ok", false)):
+		return result
+	if bool(result.get("retired", false)):
+		armies.erase(army)
+		prune_markers()
+		return result
+	_markers.refresh(army)
+	place_all()
+	return result
+
+
 ## Combines the selected army with friendly armies in its province. The Home
 ## Army wins the merge target when it is in the group (wiki: military-armies).
 func combine(army: ArmyState) -> Dictionary:

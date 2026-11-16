@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261116-05 + #798 (REQ-P2-02).
+Audited through DR-20261116-07 + #809 (REQ-P2-02).
 
 ## Already live
 
@@ -31,7 +31,8 @@ Audited through DR-20261116-05 + #798 (REQ-P2-02).
 | Rival bench room | `AiEconomyPlanner._bench_room`, `AiRandomCourt`, DR-15-02 |
 | Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20,000; DR-15-16/#688/#676 |
 | Recipe building gate | `ProductionRecipes.min_town`; garments/rum, DR-20261116-04 |
-| Rival second-stage appetite | `TownIndustry.best_level` read by `AiEconomyPlanner`/`AiRandomCourt` plans and the rival phase, DR-20261116-04/#798 |
+| Rival second-stage appetite | `TownIndustry.best_level` via planners, #798 |
+| Regiment dismiss | `ArmyDismiss`, DR-20261116-07/#809 |
 
 ## Gaps (impact order)
 
@@ -54,17 +55,15 @@ Domain dispatch beyond the voyage (DR-13-15).
 - General-grade/sheltering trains — pending design (DR-12-07).
 - Alt victory, difficulty extras, ruleset loaders, loans past the research
   floor, warehouse logistics, sea-zone names — out of scope.
-- Join Empire keeps its published cost table.
+- Join Empire keeps its published cost table; rival purse (#489) — rules call.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
 - Further tongues — out of scope (DR-13-12); 30% floor — data-gated
   (DR-20261115-18).
-
 ## Wiki drift
 
 - `civilian-units` calls Road L2, gathering and transport caps deferred (live:
   `TechUnlocks`/`Extraction`).
-- `ai-architecture` seed list still names victory pressure (live, DR-15-04).
 - `phase-planner-*` cite DR-14-11 for DR-14-13.
 - `production-recipes` still calls the rival's second-stage appetite deferred
   (live: #798).

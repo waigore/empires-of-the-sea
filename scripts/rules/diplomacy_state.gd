@@ -45,15 +45,10 @@ var _modified: Dictionary = {}
 var _order_counts: Dictionary = {}
 
 
+## Opens the ledger for a new campaign; the seeding itself lives in
+## [DiplomacyLifetime] with the rest of a court's comings and goings.
 func initialize(at_turn: int) -> void:
-	reset(at_turn)
-	_seed_group(_region_peers(FactionCatalog.OLD_WORLD))
-	_seed_group(_region_peers(FactionCatalog.NEW_WORLD))
-	for gp_a: int in FactionCatalog.great_power_ids():
-		for gp_b: int in FactionCatalog.great_power_ids():
-			if gp_a == gp_b:
-				continue
-			set_overture(gp_a, gp_b, DiplomacyCatalog.STAGE_EMBASSY)
+	DiplomacyLifetime.open(self, at_turn)
 
 
 func reset(at_turn: int) -> void:
@@ -74,16 +69,18 @@ func reset(at_turn: int) -> void:
 	_order_counts.clear()
 
 
+## The state's accessor for a pair key; the format itself lives in
+## [DiplomacyKeys], which every rules module writes and reads.
 func pair_key(a: int, b: int) -> String:
-	return "%d:%d" % [mini(a, b), maxi(a, b)]
+	return DiplomacyKeys.pair(a, b)
 
 
 func relation(a: int, b: int) -> DiplomacyRelation:
-	return relations.get(pair_key(a, b), null)
+	return relations.get(DiplomacyKeys.pair(a, b), null)
 
 
 func has_relation(a: int, b: int) -> bool:
-	return relations.has(pair_key(a, b))
+	return relations.has(DiplomacyKeys.pair(a, b))
 
 
 ## Creates a relation on first contact. Existing records are returned untouched.
@@ -95,7 +92,7 @@ func ensure_relation(a: int, b: int, at_turn: int = -1) -> DiplomacyRelation:
 		return found
 	var created_turn: int = turn if at_turn < 0 else at_turn
 	var record: DiplomacyRelation = DiplomacyRelation.create(a, b, created_turn)
-	relations[pair_key(a, b)] = record
+	relations[DiplomacyKeys.pair(a, b)] = record
 	return record
 
 
@@ -112,11 +109,12 @@ func relations_of(faction: int) -> Array[DiplomacyRelation]:
 
 
 func overture(from_id: int, to_id: int) -> String:
-	return String(overtures.get("%d>%d" % [from_id, to_id], DiplomacyCatalog.STAGE_NONE))
+	var key: String = DiplomacyKeys.directed(from_id, to_id)
+	return String(overtures.get(key, DiplomacyCatalog.STAGE_NONE))
 
 
 func set_overture(from_id: int, to_id: int, stage: String) -> void:
-	var key: String = "%d>%d" % [from_id, to_id]
+	var key: String = DiplomacyKeys.directed(from_id, to_id)
 	if stage == DiplomacyCatalog.STAGE_NONE:
 		overtures.erase(key)
 	else:
@@ -124,18 +122,18 @@ func set_overture(from_id: int, to_id: int, stage: String) -> void:
 
 
 func subsidy(payer: int, target: int) -> int:
-	return int(subsidies.get("%d>%d" % [payer, target], 0))
+	return int(subsidies.get(DiplomacyKeys.directed(payer, target), 0))
 
 
 func set_subsidy(payer: int, target: int, percent: int) -> void:
-	subsidies["%d>%d" % [payer, target]] = percent
+	subsidies[DiplomacyKeys.directed(payer, target)] = percent
 	# Setting a subsidy is score-neutral, so it must not swallow the pair's
 	# per-turn drift (wiki: diplomacy § Relation Model, skip-on-event list).
 	record_event("subsidySet", payer, target, {"percent": percent})
 
 
 func cancel_subsidy(payer: int, target: int) -> bool:
-	var key: String = "%d>%d" % [payer, target]
+	var key: String = DiplomacyKeys.directed(payer, target)
 	if not subsidies.has(key):
 		return false
 	var percent: int = int(subsidies[key])
@@ -157,21 +155,21 @@ func set_colony(tribe: int, gp: int) -> void:
 
 
 func claimed(from_id: int, to_id: int, kind: String) -> bool:
-	return int(_order_counts.get("%s:%d>%d" % [kind, from_id, to_id], 0)) > 0
+	return int(_order_counts.get(DiplomacyKeys.claim(kind, from_id, to_id), 0)) > 0
 
 
 func claim(from_id: int, to_id: int, kind: String) -> void:
-	var key: String = "%s:%d>%d" % [kind, from_id, to_id]
+	var key: String = DiplomacyKeys.claim(kind, from_id, to_id)
 	_order_counts[key] = int(_order_counts.get(key, 0)) + 1
 
 
 func is_modified(a: int, b: int) -> bool:
-	return _modified.has(pair_key(a, b))
+	return _modified.has(DiplomacyKeys.pair(a, b))
 
 
 ## Records a score-neutral event (peace, war, overture) and suppresses decay.
 func touch(a: int, b: int, kind: String, data: Dictionary = {}) -> void:
-	_modified[pair_key(a, b)] = true
+	_modified[DiplomacyKeys.pair(a, b)] = true
 	var record: DiplomacyRelation = relation(a, b)
 	if record != null:
 		record.last_interaction_turn = turn
@@ -199,7 +197,7 @@ func record_event(kind: String, a: int, b: int, data: Dictionary = {}) -> void:
 func apply_decay() -> int:
 	var changed: int = 0
 	for record: DiplomacyRelation in relations.values():
-		if record.at_war or _modified.has(pair_key(record.a, record.b)):
+		if record.at_war or _modified.has(DiplomacyKeys.pair(record.a, record.b)):
 			continue
 		if is_equal_approx(record.score, DiplomacyCatalog.EQUILIBRIUM):
 			continue
@@ -217,25 +215,26 @@ func apply_decay() -> int:
 	return changed
 
 
+## Removes every trace of a faction absorbed by Join Empire. The sweep itself
+## lives in [DiplomacyLifetime] with the rest of a court's comings and goings.
+func clear_relations_of(faction: int) -> void:
+	DiplomacyLifetime.absorb(self, faction)
+
+
 ## Diplomacy phase close: drop broken subsidies, drift relations, clear claims.
 func end_turn() -> Dictionary:
 	var cancelled: Array[String] = []
 	for key: String in subsidies.keys():
-		var parts: PackedStringArray = key.split(">")
-		var payer: int = int(parts[0])
-		var target: int = int(parts[1])
-		var record: DiplomacyRelation = relation(payer, target)
-		var stage: String = overture(payer, target)
+		var pair: Vector2i = DiplomacyKeys.directed_courts(key)
+		var record: DiplomacyRelation = relation(pair.x, pair.y)
+		var stage: String = overture(pair.x, pair.y)
 		var embassy: bool = DiplomacyCatalog.is_embassy_stage(stage)
 		if record == null or record.at_war or not embassy:
 			cancelled.append(key)
 	for key: String in cancelled:
-		var parts: PackedStringArray = key.split(">")
+		var pair: Vector2i = DiplomacyKeys.directed_courts(key)
 		record_event(
-			"subsidyCancelled",
-			int(parts[0]),
-			int(parts[1]),
-			{"percent": int(subsidies[key])}
+			"subsidyCancelled", pair.x, pair.y, {"percent": int(subsidies[key])}
 		)
 		subsidies.erase(key)
 	# The trade-deal lift lands before the drift, so a pair that just traded is
@@ -252,77 +251,3 @@ func end_turn() -> Dictionary:
 	return {"decayed": decayed, "subsidies_cancelled": cancelled.size()}
 
 
-## Removes every trace of a faction absorbed by Join Empire.
-func clear_relations_of(faction: int) -> void:
-	for key: String in relations.keys():
-		var record: DiplomacyRelation = relations[key]
-		if record.a == faction or record.b == faction:
-			relations.erase(key)
-	for index in range(pending_interventions.size() - 1, -1, -1):
-		var offer: Dictionary = pending_interventions[index]
-		if int(offer.get("aggressor", -1)) == faction or int(offer.get("target", -1)) == faction:
-			pending_interventions.remove_at(index)
-	for index in range(pending_offers.size() - 1, -1, -1):
-		if int(pending_offers[index].get("from", -1)) == faction:
-			pending_offers.remove_at(index)
-	# A call to arms is a decision waiting on a court, and a crown that left play
-	# can neither answer one nor be answered for: the call goes with it, so the
-	# court is never asked to honour a treaty with a court that no longer exists
-	# (wiki: diplomacy § GP–Minor Rules — Join Empire; § Alliances).
-	for index in range(pending_calls.size() - 1, -1, -1):
-		var call: Dictionary = pending_calls[index]
-		if (
-			int(call.get("aggressor", -1)) == faction
-			or int(call.get("defender", -1)) == faction
-			or int(call.get("ally", -1)) == faction
-		):
-			pending_calls.remove_at(index)
-	# The frozen mutual-defence map is a treaty record too, read from the
-	# relations just dropped.
-	for key: String in alliance_snapshot.keys():
-		var pair: PackedStringArray = key.split(":")
-		if int(pair[0]) == faction or int(pair[1]) == faction:
-			alliance_snapshot.erase(key)
-	for key: String in overtures.keys():
-		var parts: PackedStringArray = key.split(">")
-		if int(parts[0]) == faction or int(parts[1]) == faction:
-			overtures.erase(key)
-	for key: String in subsidies.keys():
-		var parts: PackedStringArray = key.split(">")
-		if int(parts[0]) == faction or int(parts[1]) == faction:
-			subsidies.erase(key)
-	for key: String in ftps.keys():
-		var parts: PackedStringArray = key.split(":")
-		if int(parts[0]) == faction or int(parts[1]) == faction:
-			ftps.erase(key)
-	for key: String in boycotts.keys():
-		var parts: PackedStringArray = key.split(">")
-		if int(parts[0]) == faction or int(parts[1]) == faction:
-			boycotts.erase(key)
-	for tribe: int in colonies.keys():
-		if tribe == faction or int(colonies[tribe]) == faction:
-			if int(colonies[tribe]) == faction:
-				# The suzerain left play: the colony becomes independent again
-				# (wiki: diplomacy § GP–Tribe Rules — Join Empire, R5.5).
-				record_event("colonyReleased", tribe, faction)
-			colonies.erase(tribe)
-
-
-func _seed_group(ids: Array[int]) -> void:
-	for first in ids.size():
-		for second in range(first + 1, ids.size()):
-			ensure_relation(ids[first], ids[second], turn)
-
-
-func _region_peers(region: int) -> Array[int]:
-	var result: Array[int] = []
-	for faction: Dictionary in FactionCatalog.all():
-		var type: int = int(faction["type"])
-		if int(faction["region"]) != region:
-			continue
-		if region == FactionCatalog.OLD_WORLD:
-			if type == FactionCatalog.Type.GREAT_POWER or type == FactionCatalog.Type.MINOR_NATION:
-				result.append(int(faction["id"]))
-		elif type == FactionCatalog.Type.TRIBE:
-			result.append(int(faction["id"]))
-	return result
