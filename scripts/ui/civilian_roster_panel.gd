@@ -19,6 +19,7 @@ func _init() -> void:
 	hint_text = (
 		"Visit opens the civilian's map and dossier. Filter by world, craft or "
 		+ "who waits for orders; the C key opens this roster from anywhere on the map."
+		+ " Find the next crew that waits takes you to an idle one, in either world."
 	)
 	toggle_action = InputActions.CIVILIAN_ROSTER
 
@@ -48,6 +49,7 @@ func _can_open() -> bool:
 func _build_body(column: VBoxContainer) -> void:
 	_head = CivilianRosterHead.new()
 	_head.filter_changed.connect(_on_head_filter)
+	_head.find_idle_pressed.connect(_find_idle)
 	column.add_child(_head)
 	_build_rows(column)
 
@@ -141,3 +143,26 @@ func _visit(region: int, unit_id: int) -> void:
 		return
 	if MapPlayCivilianRoster.focus(play, region, unit_id):
 		close()
+
+
+## The chore's own door: the next crew that waits is brought under the camera and
+## its dossier opened, the chart swapping when it lies on the other world, and
+## the sheet steps aside so the crown sees the crew it was sent to (REQ-P5-03).
+## The walk starts after the crew already selected, so pressing again covers the
+## whole column; the receipt names the crew and how many still wait behind it.
+func _find_idle() -> void:
+	if play == null or play.civilian_layer == null:
+		return
+	var selected: CivilianState = play.civilian_layer.selected_unit
+	var unit_id: int = selected.id if selected != null else -1
+	var next: Dictionary = CivilianRoster.next_idle(_snapshot, play.region_index, unit_id)
+	if next.is_empty():
+		play.hud.toast(CivilianRoster.IDLE_NONE)
+		return
+	if not MapPlayCivilianRoster.focus(play, int(next["region"]), int(next["unit_id"])):
+		play.hud.toast(CivilianRoster.IDLE_NONE)
+		return
+	close()
+	play.hud.toast(
+		CivilianRoster.idle_receipt(next, int(_snapshot.get("idle", 0)) - 1)
+	)

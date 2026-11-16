@@ -3247,6 +3247,71 @@ func test_roster_empty_inputs_make_an_empty_roster() -> void:
 		assert_eq(int(snapshot["by_type"][type_id]), 0)
 
 
+## The walk behind the roster's find press: every crew with no order, in the
+## roster's own reading order, so the press never depends on the chips the reader
+## left set (REQ-P5-04).
+func test_roster_walk_lists_the_crews_that_wait() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	var waiting: Array[Dictionary] = CivilianRoster.idle_rows(snapshot)
+	assert_eq(waiting.size(), int(snapshot["idle"]))
+	for row: Dictionary in waiting:
+		assert_false(bool(row["working"]), "a crew at work never answers the walk")
+
+	var first: Dictionary = CivilianRoster.next_idle(snapshot, -1, -1)
+	assert_eq(
+		int(first["unit_id"]), int(waiting[0]["unit_id"]),
+		"no selection starts the walk at the first crew that waits",
+	)
+	var second: Dictionary = CivilianRoster.next_idle(
+		snapshot, int(first["region"]), int(first["unit_id"])
+	)
+	assert_eq(int(second["unit_id"]), int(waiting[1]["unit_id"]))
+	var last: Dictionary = waiting[waiting.size() - 1]
+	var wrapped: Dictionary = CivilianRoster.next_idle(
+		snapshot, int(last["region"]), int(last["unit_id"])
+	)
+	assert_eq(
+		int(wrapped["unit_id"]), int(waiting[0]["unit_id"]),
+		"the walk wraps onto the first crew",
+	)
+	# The merchant is at work, so the walk starts over rather than stranding the
+	# crown on a crew it cannot reach.
+	var busy: Dictionary = _row_of_type(snapshot, "merchant")
+	assert_true(bool(busy["working"]))
+	var from_work: Dictionary = CivilianRoster.next_idle(
+		snapshot, int(busy["region"]), int(busy["unit_id"])
+	)
+	assert_eq(int(from_work["unit_id"]), int(waiting[0]["unit_id"]))
+
+
+## The press's words are the roster's own count, and a crown with every crew at
+## work is offered no press at all (REQ-P5-05).
+func test_roster_walk_words_name_the_crews_that_wait() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	assert_eq(CivilianRoster.idle_note(snapshot), "4 crews wait for orders")
+	assert_eq(
+		CivilianRoster.find_caption(snapshot), "Find the next crew that waits (4)"
+	)
+	var row: Dictionary = CivilianRoster.idle_rows(snapshot)[0]
+	assert_true(CivilianRoster.idle_receipt(row, 3).contains("3 crews still wait"))
+	assert_true(CivilianRoster.idle_receipt(row, 1).contains("1 crew still waits"))
+	assert_true(
+		CivilianRoster.idle_receipt(row, 0).contains("the only crew that waited")
+	)
+	var busy: Dictionary = {"rows": [], "idle": 0, "working": 2}
+	assert_eq(CivilianRoster.idle_note(busy), "every crew has its order")
+	assert_eq(CivilianRoster.find_caption(busy), "", "no press when no crew waits")
+	assert_true(CivilianRoster.next_idle(busy, 0, 1).is_empty())
+	assert_eq(
+		CivilianRoster.idle_note({"rows": [], "idle": 1, "working": 0}),
+		"1 crew waits for orders",
+	)
+
+
 func _roster_regions() -> MapRegionTable:
 	var table := MapRegionTable.new()
 	var old_units: Array[CivilianState] = []
