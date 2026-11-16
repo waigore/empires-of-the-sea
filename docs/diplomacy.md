@@ -61,10 +61,10 @@ None — see [`deferred.md`](deferred.md).
 
 Rules: `diplomacy_catalog`, `diplomacy_state`,
 `diplomacy_rules` (treaties), `diplomacy_overtures` (rung taken), `diplomacy_aid`,
-`diplomacy_orders` (validate/apply),
+`diplomacy_orders`,
 `diplomacy_trade` (pacts, boycotts, price terms), `diplomacy_proposals`,
 `diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`, `deed_protection`,
-`tribe_contact`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`,
+`consent_ladder`, `tribe_contact`. Map glue: `map/diplomacy_lens`, `map/map_play_diplomacy`,
 `map/map_play_tribe_contact`. UI:
 `ui/diplomacy_panel`, `court_trade`, `court_dossier`, `court_prompts`,
 `diplomacy_history_panel`. No nodes (`REQ-P3-03`); panel →
@@ -72,8 +72,8 @@ Rules: `diplomacy_catalog`, `diplomacy_state`,
 
 ## Tests
 
-Suites: `test_diplomacy_*`, `test_campaign_rules`, `test_tribe_contact`,
-`test_intel_dossier`, `test_espionage`.
+Suites: `test_diplomacy_*`, `test_campaign_rules`, `test_intel_dossier`,
+`test_espionage`.
 
 ```bash
 gd-tools test --coverage --min 80

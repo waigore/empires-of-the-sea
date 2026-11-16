@@ -1,6 +1,6 @@
 # Testing
 
-Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are hard gates.
+Unit/integration tests and the headless e2e smoke; two CI tiers, hard budgets.
 
 ## Tiers
 
@@ -9,44 +9,49 @@ Unit/integration tests and the headless e2e smoke. Two CI tiers; budgets are har
 | **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
-Tier 1 is the merge gate (`tests` / `e2e-smoke`). Tier 2 does not block PRs; failures open a sticky `ci-tier2` issue the **fix-tests** agent closes.
+Tier 1 is the merge gate (`tests` / `e2e-smoke`); tier 2 failures open a sticky `ci-tier2` issue the **fix-tests** agent closes.
 
-Tier 2 shards because `gd-tools` boots one Godot process **per suite**; shards run on separate runners; `coverage-gate` merges them for the project-wide 80% gate.
+Tier 2 shards because `gd-tools` boots one process **per suite**; `coverage-gate`
+merges them for the 80% gate.
 
-Strict map: unmapped in-scope paths fail. `full = true` runs every suite. Keep the map complete (`python tools/select_impacted_tests.py --check-complete`).
+Strict map: unmapped in-scope paths fail; `full = true` runs every suite. Keep it
+complete (`python tools/select_impacted_tests.py --check-complete`).
 
 Patch coverage uses gd-tools’ plan (test dirs are not instrumented). Empty patches pass.
 
 ## E2E smoke (tier 1)
 
-Smoke boots the title, starts a game, opens the menu, saves, plays **one turn** (civilians / navy / army), loads, returns to title. Deep rules stay in `tests/`.
+Smoke boots the title, starts a game, opens the menu, saves, plays **one turn**,
+loads, returns to title. Deep rules stay in `tests/`.
 
 ## Speed rules
 
-- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) over map screens.
+- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) to map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
-  `Main.preset_world`; snapshot/restore when a case mutates the chart. A
-  published chart draws once per seed and size; two seeds prove a price order.
+  `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
   civilians, passing fair split on the **first** attempt.
-- Terrain wash (`MapWash.baked`), fog tables (`VisibilityModel`) and chart
-  layers (`CountryBorders.signature`, `MapLens.source_key`) build once per map
-  state: a re-seat redraws nothing and `fog_changed` rises on a moved tile.
+- Terrain wash, fog tables and chart layers build once per map state: a re-seat
+  redraws nothing, `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
-  (`_attach()`) so rule-only cases never paint.
-- **One mount per suite**: `MapFixture.suite_capture` / `suite_reset` re-seat a
-  case on a pristine save (~0.15 s) instead of remounting (~0.5 s), dropping
-  selection, sheets, lenses and news; a suite that swaps screens frees its own.
-  `SaveCodec.restore` is the in-place path; reuse a preset only when sizes match.
+  (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
+  gd-tools hands each case a fresh instance, so an instance dictionary redraws
+  per case; a case that **mutates** a chart takes its own draw.
+- **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
+  pristine save (~0.15 s vs ~0.5 s remount), dropping selection, sheets and
+  lenses; a suite that swaps screens frees its own. Reuse a preset only when
+  sizes match.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
-  session and `ai_turns`, then re-seat each case (~0.2 s vs ~1.5–2 s). Mode
-  cases start at turn 1. `test_ai_observer` is the reference.
+  session and `ai_turns`, re-seat each case (~0.2 s vs ~1.5–2 s). Mode cases
+  start at turn 1; `test_ai_observer` is the reference.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
-  not `generate_world` (builds and discards the other region).
-- A suite whose cases mutate its fixture builds a fresh one per case.
-- One Godot boot per theme (merged pure suites) — coverage ~11 s a boot: fold
-  leftovers in; delete suites already covered elsewhere. `gd-tools.toml` keeps
-  `parallel = 4`; profile with `--durations 20`.
+  never `generate_world`.
+- **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
+  `world_…` suite drains alone.
+- One Godot boot per theme — coverage ~15 s a boot: fold leftovers into their
+  theme's boot; delete suites covered elsewhere. 39 → 25 suites cut the wall
+  230 s → 207 s. `gd-tools.toml` keeps `parallel = 4`; profile with
+  `--durations 20`.
 - Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
   landed on exit).
 
@@ -187,6 +192,12 @@ godot --headless --path . --script res://playtests/playtest_trade_terms.gd
 # good with production runs and reads the row's sellable cap.
 godot --headless --path . --script res://playtests/playtest_market_receipt.gd
 
+# Market batch — reads every whole-order press on the MARKET tab (label, caption,
+# single press) and presses them past their own cap: a production claim, a staged
+# offer, a bid that empties the holds, and a Minor row whose ask carries a
+# subsidy step against a purse that binds at the ask.
+godot --headless --path . --script res://playtests/playtest_market_batch.gd
+
 # Sieges — raises a wall from the Engineer's own order (caption, receipt,
 # despatch, province sheet, military lens), storms rival walls at wood and modern
 # levels with guns and reads the plate's wall block, the battery, the lanes, the
@@ -218,6 +229,15 @@ godot --headless --path . --script res://playtests/playtest_campaign_end.gd
 # their asks, the bid pressed from the colony's own row, and the turn close
 # (despatch, LAST CLEARING, notes, carry) two turns running.
 godot --headless --path . --script res://playtests/playtest_boycott_block.gd
+
+# Defeat — the crown's own end, which no play reaches by hand (terminal fall:
+# the capital lost with nothing left in its region). Strips the crown to its
+# seat, lets a rival host at war take it in a real Combat phase, then reads the
+# battle despatch, the defeat plate, the seal and the turn's sheet in the
+# archive; saves and reloads the fallen campaign; presses the seal again; and
+# seats a rival on the bar in the same turn to read that the fall, not a
+# military victory, decides it.
+godot --headless --path . --script res://playtests/playtest_defeat.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

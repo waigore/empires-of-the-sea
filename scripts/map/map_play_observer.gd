@@ -35,7 +35,115 @@ static func snapshot(play: PlaySession) -> Dictionary:
 		"winner": winner,
 		"leader": leader,
 		"result": _result_text(play, winner),
+		"market": market_reading(play, rows),
 		"rows": rows,
+	}
+
+
+## The shared world market as this turn left it: the prices a run's courts paid
+## and the Minor/Tribe rows on the book. A run that starves has to show what it
+## paid for grain (wiki: world-market § Price discovery; issues #676, #730).
+##
+## The food half is the famine's own reading (issue #766 clause 3): `minor_food`
+## is the ration tonnage the book offers this turn, `ration_demand` is what every
+## court in play wants to eat, and `food_gap` is the difference. A deficit there
+## is the world's supply, not a court's bid, so the issue's own acceptance can be
+## checked on the turn trace instead of a throwaway probe.
+static func market_reading(
+	play: PlaySession, rows: Array[Dictionary] = []
+) -> Dictionary:
+	if play == null or play.economy == null or play.economy.market == null:
+		return {}
+	var book: WorldMarket = play.economy.market
+	var prices: Dictionary = {}
+	for id: String in ["grain", "meat", "timber", "wool", "iron"]:
+		prices[id] = book.price(id)
+	prices["minor_offers"] = book.minor_offers.size()
+	prices["minor_food"] = _book_food(book)
+	prices["ration_demand"] = _ration_demand(rows)
+	prices["food_gap"] = maxi(int(prices["ration_demand"]) - int(prices["minor_food"]), 0)
+	return prices
+
+
+## The food tonnage the Minor Nation and Tribe estates offer on this turn's book:
+## one unit per level-1 estate, the published yield (wiki: world-market
+## § Minor and tribe auto-sell; DR-20261110-32).
+static func _book_food(book: WorldMarket) -> int:
+	var units: int = 0
+	for offer: Dictionary in book.minor_offers:
+		if CommodityCatalog.is_food(String(offer.get("commodity", ""))):
+			units += maxi(int(offer.get("quantity", 0)), 0)
+	return units
+
+
+## What every court in play wants to eat at its next Consumption phase, read from
+## the same larder row the scoreboard prints (wiki: workers-and-population
+## § Consumption).
+static func _ration_demand(rows: Array[Dictionary]) -> int:
+	var demand: int = 0
+	for row: Dictionary in rows:
+		var larder: Dictionary = row.get("larder", {}) as Dictionary
+		demand += maxi(int(larder.get("wanted", 0)), 0)
+	return demand
+
+
+## What the next Consumption phase does to one court's larder, as the strike
+## reading: the store, every mouth the phase feeds in its own order, and the
+## shortfall that puts the workforce on strike (wiki: workers-and-population
+## § Consumption). `mouths` is the army, navy and ward ration the phase feeds
+## before the pool (`_mouths`); without it only the pool is fed, so a caller
+## that has the session should pass it. The destitute-court signature is
+## measured on exactly this — a store that collapses to strike levels while the
+## purse pins (issue #676 clause 4, #766) — so the turn trace names the famine
+## instead of a throwaway probe reading one run at a time.
+static func larder_reading(
+	economy: PlayerEconomy, mouths: Dictionary = {}
+) -> Dictionary:
+	if economy == null:
+		return {}
+	var reading: Dictionary = LarderRead.forecast(economy, mouths)
+	var appetites: Dictionary = reading["appetites"] as Dictionary
+	var store: int = int(reading["store_food"])
+	# Every mouth the phase feeds, in its own order, so the store can be read
+	# against the whole demand instead of the worker pool alone.
+	var wanted: int = (
+		int(appetites["army"]) + int(appetites["navy"])
+		+ int(appetites["pool"]) + int(appetites["wards"])
+	)
+	return {
+		"store": store,
+		"wanted": wanted,
+		"army": int(appetites["army"]),
+		"navy": int(appetites["navy"]),
+		"pool": int(appetites["pool"]),
+		"wards": int(appetites["wards"]),
+		"strikers": int(reading["strikers"]),
+		# The reading's own whole-larder shortfall, so the trace and the WORKERS
+		# tab can never disagree about what the store is short (REQ-P2-03).
+		"short": int(reading["store_short"]),
+	}
+
+
+## The mouths the next Consumption phase feeds before the worker pool: the army's
+## rations, the navy's upkeep and the hospital wards, each read the way the
+## phase itself reads it (wiki: workers-and-population § Consumption). A session
+## with no army or hospital yet reads zeros, so a fixture needs neither. The wards
+## ride **one per staff**, because the phase feeds them in order and whole.
+static func _mouths(play: PlaySession, faction: int) -> Dictionary:
+	var army: int = 0
+	if play.army_layer != null:
+		army = play.army_layer.food_upkeep_all(faction)
+	var wards: Array[int] = []
+	var wards_food: int = 0
+	if play.world != null:
+		wards = HospitalRules.demand_list(play.world, faction)
+		for ration: int in wards:
+			wards_food += ration
+	return {
+		"army": army,
+		"ships": MapPlayCourt.ships(play, faction),
+		"hospital": wards_food,
+		"wards": wards,
 	}
 
 
@@ -55,8 +163,13 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		MapPlayCourt.navy_chest(play, faction),
 		MapPlayCourt.warships(play, faction)
 	)
-	var strength: float = _strength(play, faction)
-	var ships: int = play.ship_layer.hull_count_all(faction)
+	var strength: float = float(
+		MapPlayCourt.public_strength(play).get(faction, 0.0)
+	)
+	var ships: int = MapPlayCourt.ships(play, faction)
+	# Fighting hulls alone: a merchant hull is cargo, not a predator, so the
+	# yard's claim and every naval aim are priced on these (issue #484).
+	var warships: int = MapPlayCourt.warships(play, faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
 	var new_world: int = play.world.owned_provinces(WorldMap.NEW_WORLD, faction)
 	# How close the court stands to the bar it must clear, and whether it is
@@ -85,6 +198,7 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"strength": int(roundf(strength)),
 		"regiments": play.army_layer.regiment_count_all(faction),
 		"ships": ships,
+		"warships": warships,
 		# Holds the crown keeps in port at its seat: the import gate every build
 		# input and overseas voyage passes (wiki: ships-and-naval § Cargo holds
 		# and capacity; issue #530).
@@ -92,6 +206,9 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 		"civilians": play.civilian_layer.unit_count_all(faction),
 		"treasury": economy.treasury if economy != null else 0,
 		"stock": economy.total_units() if economy != null else 0,
+		# The larder the next Consumption phase will eat: the famine reading the
+		# destitute-court signature is measured on (issue #766).
+		"larder": larder_reading(economy, _mouths(play, faction)),
 		"workers": economy.workers.total() if economy != null else 0,
 		"techs": economy.tech_unlocked.size() if economy != null else 0,
 		"wars": _war_names(play, faction),
@@ -118,21 +235,6 @@ static func _last_turn(play: PlaySession, faction: int) -> Dictionary:
 
 static func _economy(play: PlaySession, faction: int) -> PlayerEconomy:
 	return play.ledger_for(faction)
-
-
-## Public order-of-battle strength: FPN + FPM over every land army, no medals
-## (wiki: diplomacy § Great Power power score).
-static func _strength(play: PlaySession, faction: int) -> float:
-	if play.army_layer == null:
-		return 0.0
-	var total: float = 0.0
-	for raw: Variant in play.army_layer.regions.values():
-		var stored: Array[ArmyState] = []
-		stored.assign(raw)
-		for army: ArmyState in stored:
-			if army != null and army.owner == faction:
-				total += army.strength()
-	return total
 
 
 static func _war_names(play: PlaySession, faction: int) -> Array[String]:

@@ -11,6 +11,10 @@ extends VBoxContainer
 ## offers runs labour or inputs would refuse (REQ-P2-03).
 
 signal production_changed(recipe_id: String, units: int)
+## The PRODUCTION tab's one press: one run on every ready row it prints, applied
+## by the controller through the same `set_production` intent a row's "+" emits
+## (REQ-P5-04; DR-20261116-08).
+signal production_batch_requested(plan: Dictionary)
 
 const ROW_HEIGHT: float = 38.0
 ## Medallion and name column, so every row's figures start at one x.
@@ -33,6 +37,9 @@ var _report: Dictionary = {}
 ## (REQ-P3-02).
 var _rows: Dictionary = {}
 var _holdings: Dictionary = {}
+## The one press under the MANUFACTURED heading: one run on every ready row the
+## page prints, armed on the first tap and filed on the second (DR-20261116-08).
+var _batch: RaiseBatchPress = null
 
 
 ## `report` is the end-of-turn projection the panel already holds; without one
@@ -42,6 +49,7 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_report = report
 	_rows = {}
 	_holdings = {}
+	_batch = null
 	UiRowBuilder.clear(self)
 	if economy == null:
 		return
@@ -64,9 +72,14 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 		_manufacture_hint(),
 		MANUFACTURE_COLUMNS
 	)
+	_batch = RaiseBatchPress.new()
+	_batch.set_verb("queue")
+	_batch.confirmed.connect(_queue_all)
+	add_child(_batch)
 	for output_id: String in CommodityCatalog.MANUFACTURED:
 		for recipe_id: String in _recipes_of(output_id):
 			add_child(_recipe_row(recipe_id))
+	_sync_batch()
 	_section(
 		"RICHES",
 		"Cleared to the treasury each turn at their base price; never traded.",
@@ -146,10 +159,11 @@ func _recipe_row(recipe_id: String) -> Control:
 	row.add_child(title)
 
 	# The workshop tag: how long a multi-turn row waits, and what is already
-	# serving its turns. A row whose hand is missing says so here, on the row
-	# itself, because a touch player never sees a hover hint (wiki:
-	# production-recipes § Worker-tier gates; DR-20261114-07).
-	var gated: bool = not ProductionRecipes.tier_met(recipe_id, _economy.workers)
+	# serving its turns. A row whose hand or town's works is missing says so
+	# here, on the row itself, because a touch player never sees a hover hint
+	# (wiki: production-recipes § Worker-tier gates, § Town-works gates;
+	# DR-20261114-07, DR-20261116-04).
+	var gated: bool = not _open(recipe_id)
 	var note_text: String = (
 		_gate_note(recipe_id) if gated
 		else _workshop_note(recipe_id)
@@ -227,26 +241,72 @@ func _recipes_of(output_id: String) -> Array[String]:
 ## Units this row may still be set to: the whole runs the coming Production phase
 ## could start from the projected post-Consumption store and idle labour, less
 ## the other rows' claims and the pieces already on the bench. The rules own the
-## arithmetic; this only picks which state the phase will see (REQ-P2-03).
+## arithmetic; this only picks which state the phase will see (REQ-P2-03). The
+## batch press reads the same function, so the press and the row's "+" can never
+## disagree about a ceiling (DR-20261116-08).
 func _allowance(recipe_id: String) -> int:
-	var stock: Dictionary = _report.get("after_consumption", _economy.stockpile) as Dictionary
-	var labour: int = _economy.workers.labour()
-	if not _report.is_empty():
-		labour = LedgerText.idle_labour(_report)
-	return ProductionRecipes.allowance(
+	var seen: Dictionary = ProductionBatch.budget(_economy, _report)
+	return ProductionBatch.allowance(
+		_economy,
 		recipe_id,
-		stock,
-		labour,
-		_economy.production.assignments(),
-		_economy.workers,
-		_economy.production_wip
+		_town_level(),
+		seen["stock"],
+		int(seen["labour"]),
+		_economy.production.assignments()
 	)
+
+
+# --- the one press -----------------------------------------------------------
+
+
+## The press, for tests and the workshop drive (REQ-P3-02).
+func batch_press() -> RaiseBatchPress:
+	return _batch
+
+
+## One run on every ready row the page prints, in its own order, each capped by
+## the allowance the rows before it leave (REQ-P5-04; DR-20261116-08).
+func _plan() -> Dictionary:
+	if _economy == null:
+		return {"plan": {}, "runs": 0, "rows": 0, "skipped": 0}
+	var seen: Dictionary = ProductionBatch.budget(_economy, _report)
+	return ProductionBatch.plan(
+		_rows.keys(),
+		_economy,
+		_town_level(),
+		seen["stock"],
+		int(seen["labour"]),
+		_economy.production.assignments()
+	)
+
+
+## The press names how many runs it would set, so the count is read before the
+## labour and inputs are claimed (REQ-P5-03, REQ-P5-05).
+func _sync_batch() -> void:
+	if _batch == null:
+		return
+	var runs: int = int(_plan()["runs"])
+	_batch.set_ready(runs, "runs")
+
+
+## Files the plan as one intent: the controller applies every set through the
+## same `set_production` the row's "+" emits and repaints once, so the page never
+## rebuilds itself under a press that is still emitting (REQ-P2-03, REQ-P5-06).
+func _queue_all() -> void:
+	var plan: Dictionary = _plan()["plan"] as Dictionary
+	if plan.is_empty():
+		return
+	production_batch_requested.emit(plan)
 
 
 ## The hand a row waits for, said on the row itself: a touch player never sees a
 ## hover hint, so the gate is text, not a tooltip (wiki: production-recipes
-## § Worker-tier gates; DR-20261114-07).
+## § Worker-tier gates; DR-20261114-07). A row that waits on the town's works
+## names that first: the town is the outer gate (DR-20261116-04).
 func _gate_note(recipe_id: String) -> String:
+	var town: int = ProductionRecipes.min_town(recipe_id)
+	if town > 0 and not ProductionRecipes.town_met(recipe_id, _town_level()):
+		return "needs a level-%d town" % town
 	var tier: int = ProductionRecipes.min_tier(recipe_id)
 	if tier <= 0:
 		return ""
@@ -257,6 +317,12 @@ func _gate_note(recipe_id: String) -> String:
 
 ## What the gate asks and where the court trains it.
 func _gate_tooltip(recipe_id: String) -> String:
+	var town: int = ProductionRecipes.min_town(recipe_id)
+	if town > 0 and not ProductionRecipes.town_met(recipe_id, _town_level()):
+		return (
+			"This row is the town's own work: it needs a town at level %d. "
+			+ "Raise one in the TOWNS sheet and the workshop will take it."
+		) % town
 	var tier: int = ProductionRecipes.min_tier(recipe_id)
 	if tier <= 0:
 		return ""
@@ -266,6 +332,22 @@ func _gate_tooltip(recipe_id: String) -> String:
 		"This row is a trained hand's work: it needs %s %s. Train one in the "
 		+ "WORKERS tab and the workshop will take it."
 	) % [article, hand]
+
+
+## True when both gates a row declares are open for this court: the hand it
+## needs and the town's works it needs (REQ-P2-03).
+func _open(recipe_id: String) -> bool:
+	return (
+		ProductionRecipes.tier_met(recipe_id, _economy.workers)
+		and ProductionRecipes.town_met(recipe_id, _town_level())
+	)
+
+
+## The crown's best town the projection was read against. Without a projection
+## the page reads no town, so a gated row fails closed exactly as the phase
+## would (DR-20261116-04).
+func _town_level() -> int:
+	return int(_report.get("town_level", 0))
 
 
 ## The MANUFACTURED heading's hint, plus what the workshop turned out in the last

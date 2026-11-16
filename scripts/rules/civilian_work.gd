@@ -133,9 +133,9 @@ static func validate(
 		if not bool(free_site.get("ok", false)):
 			return free_site
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
-	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
-	if not short.is_empty():
-		return _no("Stores are short of %s." % cost_text(short))
+	var stores_gate: String = CivilianWorkPlan.stores_refusal(cost, stockpile)
+	if not stores_gate.is_empty():
+		return _no(stores_gate)
 	check["cost"] = cost
 	check["duration"] = duration_for(model, action, tile, works)
 	check["tile"] = tile
@@ -296,15 +296,11 @@ static func _check_action(
 			var held: Dictionary = _owned_land(model, unit, tile)
 			if not bool(held["ok"]):
 				return held
-			if FortRules.level_at(model, province) >= FortRules.MAX_LEVEL:
-				return _no("This province already holds a modern fort.")
-			var next_fort: int = CivilianWorkPlan.fort_target(model, tile)
-			var gate: String = FortRules.tech_gate(next_fort)
-			if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):
-				return _no(
-					"A %s fort needs %s."
-					% [FortRules.level_name(next_fort), TechCatalog.display_name(gate)]
-				)
+			var wall_gate: String = CivilianWorkPlan.fort_refusal(
+				FortRules.level_at(model, province), tech_unlocked
+			)
+			if not wall_gate.is_empty():
+				return _no(wall_gate)
 			# Two projects in one province may run; the later completion cannot
 			# leap a level (wiki: siege-mechanics § Fort Levels), so the town
 			# tile is not exclusive the way an estate tile is.

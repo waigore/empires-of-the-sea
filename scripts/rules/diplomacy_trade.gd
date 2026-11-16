@@ -29,15 +29,11 @@ static func ftps_of(state: DiplomacyState, faction: int) -> Array[int]:
 	if state == null:
 		return partners
 	for key: String in state.ftps.keys():
-		var parts: PackedStringArray = key.split(":")
-		if parts.size() != 2:
-			continue
-		var low: int = int(parts[0])
-		var high: int = int(parts[1])
-		if low == faction:
-			partners.append(high)
-		elif high == faction:
-			partners.append(low)
+		var courts: Vector2i = DiplomacyKeys.pair_courts(key)
+		if courts.x == faction:
+			partners.append(courts.y)
+		elif courts.y == faction:
+			partners.append(courts.x)
 	partners.sort()
 	return partners
 
@@ -124,7 +120,7 @@ static func revoke_ftp(state: DiplomacyState, player: int, target: int) -> Dicti
 static func is_boycotting(state: DiplomacyState, issuer: int, target: int) -> bool:
 	if state == null:
 		return false
-	return state.boycotts.has("%d>%d" % [issuer, target])
+	return state.boycotts.has(DiplomacyKeys.directed(issuer, target))
 
 
 static func boycotts_against(state: DiplomacyState, target: int) -> Array[int]:
@@ -132,9 +128,9 @@ static func boycotts_against(state: DiplomacyState, target: int) -> Array[int]:
 	if state == null:
 		return issuers
 	for key: String in state.boycotts.keys():
-		var parts: PackedStringArray = key.split(">")
-		if parts.size() == 2 and int(parts[1]) == target and int(parts[0]) != target:
-			issuers.append(int(parts[0]))
+		var courts: Vector2i = DiplomacyKeys.directed_courts(key)
+		if courts.y == target and courts.x != target:
+			issuers.append(courts.x)
 	issuers.sort()
 	return issuers
 
@@ -165,7 +161,7 @@ static func boycott(state: DiplomacyState, player: int, target: int) -> Dictiona
 	if not bool(check["ok"]):
 		return check
 	state.claim(player, target, "boycott")
-	state.boycotts["%d>%d" % [player, target]] = state.turn
+	state.boycotts[DiplomacyKeys.directed(player, target)] = state.turn
 	state.record_event("boycottSet", player, target)
 	for tribe: int in _colony_tribes(state, player):
 		state.cancel_subsidy(target, tribe)
@@ -193,7 +189,7 @@ static func revoke_boycott(state: DiplomacyState, player: int, target: int) -> D
 	if not bool(check["ok"]):
 		return check
 	state.claim(player, target, "boycott")
-	state.boycotts.erase("%d>%d" % [player, target])
+	state.boycotts.erase(DiplomacyKeys.directed(player, target))
 	state.record_event("boycottRevoked", player, target)
 	return {
 		"ok": true,
@@ -228,7 +224,7 @@ static func sever(state: DiplomacyState, a: int, b: int) -> void:
 	if state.ftps.erase(state.pair_key(a, b)):
 		state.record_event("ftpRevoked", a, b, {"cause": "war"})
 	for pair: Vector2i in [Vector2i(a, b), Vector2i(b, a)]:
-		if state.boycotts.erase("%d>%d" % [pair.x, pair.y]):
+		if state.boycotts.erase(DiplomacyKeys.directed(pair.x, pair.y)):
 			state.record_event("boycottRevoked", pair.x, pair.y, {"cause": "war"})
 
 
@@ -297,13 +293,13 @@ static func subsidy_terms(state: DiplomacyState) -> Dictionary:
 	if state == null:
 		return terms
 	for key: String in state.subsidies.keys():
-		var parts: PackedStringArray = key.split(">")
-		if parts.size() != 2:
+		var courts: Vector2i = DiplomacyKeys.directed_courts(key)
+		if courts.x < 0:
 			continue
 		var percent: int = int(state.subsidies[key])
 		if percent <= 0:
 			continue
-		terms["%d>%d" % [int(parts[0]), int(parts[1])]] = percent
+		terms[DiplomacyKeys.directed(courts.x, courts.y)] = percent
 	return terms
 
 
@@ -313,6 +309,57 @@ static func terms_for_court(
 	state: DiplomacyState, _world: WorldMap, faction: int
 ) -> Dictionary:
 	return faction_terms(state, {}, faction)
+
+
+## Records that a pair cleared a world-market deal this turn: the next Diplomacy
+## phase lifts it before decay (wiki: diplomacy § Relation Model — trade-deal
+## boost, R10). Volume-independent and once per pair, so a second deal between
+## the same courts adds nothing. Only a court-to-court deal involving at least
+## one Great Power counts: the standing world counterparty is no court, and two
+## Minor/Tribe courts never trade with each other.
+static func record_deal(state: DiplomacyState, a: int, b: int) -> void:
+	if state == null or a < 0 or b < 0 or a == b:
+		return
+	var type_a: int = FactionCatalog.type_of(a)
+	var type_b: int = FactionCatalog.type_of(b)
+	if type_a < 0 or type_b < 0:
+		return
+	var gp: int = FactionCatalog.Type.GREAT_POWER
+	if type_a != gp and type_b != gp:
+		return
+	state.trade_pairs[state.pair_key(a, b)] = true
+
+
+## Pays this turn's trade-deal lifts, once per pair, before the drift reads the
+## pairs: +2.0 base, +0.4 while an Embassy is in effect, +0.2 per subsidy
+## percentage point between the parties. A boosted pair is event-modified and
+## skips its decay; a pair at war keeps its frozen score (wiki: diplomacy
+## § Relation Model — trade-deal boost, R10).
+static func pay_trade_boosts(state: DiplomacyState) -> int:
+	if state == null:
+		return 0
+	var paid: int = 0
+	for key: String in state.trade_pairs.keys():
+		var courts: Vector2i = DiplomacyKeys.pair_courts(key)
+		if courts.x < 0:
+			continue
+		var a: int = courts.x
+		var b: int = courts.y
+		var record: DiplomacyRelation = state.relation(a, b)
+		if record == null or record.at_war:
+			continue
+		var boost: float = DiplomacyCatalog.TRADE_BOOST_BASE
+		if (
+			DiplomacyCatalog.is_embassy_stage(state.overture(a, b))
+			or DiplomacyCatalog.is_embassy_stage(state.overture(b, a))
+		):
+			boost += DiplomacyCatalog.TRADE_BOOST_EMBASSY
+		var percent: int = maxi(state.subsidy(a, b), state.subsidy(b, a))
+		boost += DiplomacyCatalog.TRADE_BOOST_PER_SUBSIDY * float(percent)
+		state.apply_delta(a, b, boost, "tradeDealBoost", {"boost": boost})
+		paid += 1
+	state.trade_pairs.clear()
+	return paid
 
 
 static func _colony_tribes(state: DiplomacyState, gp: int) -> Array[int]:

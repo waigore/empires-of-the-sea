@@ -53,6 +53,24 @@ func pending_kind(kind: String) -> int:
 	return total
 
 
+## Waiting worker orders, one count per tier: the hands that will join the pool
+## at this turn's Build/work. They eat the turn they land, but their labour is
+## the **next** Production phase's (wiki: workers-and-population § Phase
+## placement — same-turn labour is not supported, the phase sequence is not
+## reordered for it).
+func arriving_by_tier() -> Array[int]:
+	var counts: Array[int] = []
+	counts.resize(WorkerPool.TIER_COUNT)
+	counts.fill(0)
+	for row: Dictionary in orders:
+		if String(row.get("kind", "")) != KIND_WORKER:
+			continue
+		var tier: int = int(String(row.get("key", "-1")))
+		if tier >= 0 and tier < WorkerPool.TIER_COUNT:
+			counts[tier] += 1
+	return counts
+
+
 func total() -> int:
 	return orders.size()
 

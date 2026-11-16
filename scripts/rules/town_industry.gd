@@ -17,6 +17,27 @@ static func multiplier(town_level: int) -> int:
 	return int(MULTIPLIERS.get(town_level, 0))
 
 
+## The highest town level this crown holds in any province on any chart: the
+## presence test a production row's town-works gate reads. A gate asks whether
+## the court holds a town at a level at all, not how many it holds (wiki:
+## production-recipes § Town-works gates; DR-20261116-04). 0 when the court holds
+## no town.
+static func best_level(world: WorldMap, faction: int) -> int:
+	var best: int = 0
+	if world == null:
+		return best
+	for index in world.region_count():
+		var model: MapModel = world.region(index)
+		if model == null:
+			continue
+		for province in model.province_count():
+			var data: ProvinceState = model.province_data(province)
+			if data == null or data.owner != faction:
+				continue
+			best = maxi(best, data.town_level())
+	return best
+
+
 ## Base-price worth of one turn's bonus output, so a court can weigh a town
 ## upgrade against an estate, a road or a market order on one scale.
 static func value(bonus: Dictionary) -> int:

@@ -60,6 +60,14 @@ signal towns_pressed
 ## squadron by squadron, with her class, her guns and her holds
 ## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
 signal navy_pressed
+## The realm ledger's walls door opens the crown's walls — every province it
+## holds that can carry a fort and the step the Engineer would take next
+## (REQ-P5-01, REQ-P5-03; DR-20261116-01).
+signal walls_pressed
+## The realm ledger's hospitals door opens the crown's hospitals — every
+## province it holds that can carry a ward, the level it stands at and the step
+## the Engineer would take next (REQ-P5-01, REQ-P5-03; DR-20261116-02).
+signal hospitals_pressed
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -83,6 +91,9 @@ var _toast_queue: PackedStringArray:
 		return despatches.waiting() if despatches != null else PackedStringArray()
 ## Survey key, shown only while a lens is on.
 var lens_legend: LensLegend = null
+## Auto mode's chrome and pacing driver: the seal, the AUTO badge, the speed
+## control and the crown's own action log (wiki: auto-mode; issue #725).
+var auto_bar: AutoBar = null
 ## The bar's one lens seal (HudChrome builds it); null before the chrome mounts.
 var lens_seal: LensSeal = null
 ## Touch platforms: no hover, so hover tooltips stay silent.
@@ -124,6 +135,12 @@ var towns_ledger: TownLedgerPanel = null
 var tech_tree: TechTreePanel = null
 ## The crown's navy: every hull it floats, squadron by squadron (DR-20261115-14).
 var navy_ledger: NavalLedgerPanel = null
+## The crown's walls: every province it holds that can carry a fort and the step
+## the Engineer would take next (DR-20261116-01).
+var walls_ledger: WallLedgerPanel = null
+## The crown's hospitals: every province it holds that can carry a ward and the
+## step the Engineer would take next (DR-20261116-02).
+var hospitals_ledger: HospitalLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).

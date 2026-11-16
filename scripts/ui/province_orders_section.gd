@@ -64,12 +64,17 @@ func _ready() -> void:
 
 ## The town order is offered, not refused: the button greys out with the rule's
 ## own reason until the crown can actually raise the town (REQ-P2-03).
-func set_town_order(data: ProvinceState, faction: int, tech_unlocked: Dictionary) -> void:
+## `stockpile` is the crown's live purse when the caller knows it; null leaves
+## the money gate to the order that charges it.
+func set_town_order(
+	data: ProvinceState, faction: int, tech_unlocked: Dictionary,
+	stockpile: Variant = null
+) -> void:
 	var refusal: String = ""
 	if faction >= 0 and data.owner != faction:
 		refusal = "This land is not held by your crown."
 	if refusal.is_empty():
-		refusal = CivilianWorkPlan.town_upgrade_refusal(data, tech_unlocked)
+		refusal = CivilianWorkPlan.town_upgrade_refusal(data, tech_unlocked, stockpile)
 	town_button.disabled = not refusal.is_empty()
 	town_button.tooltip_text = DossierCopy.TOWN_TIP if refusal.is_empty() else refusal
 

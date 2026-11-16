@@ -40,8 +40,18 @@ func _draw() -> void:
 			_draw_crown(center, radius)
 		"compass":
 			_draw_compass(center, radius)
+		"wall":
+			_draw_wall(center, radius)
+		"hospital":
+			_draw_hospital(center, radius)
 		"bell":
 			_draw_bell(center, radius)
+		"play":
+			_draw_play(center, radius)
+		"pause":
+			_draw_pause(center, radius)
+		"auto":
+			_draw_helm(center, radius)
 		_:
 			draw_circle(center, radius * 0.6, tint)
 
@@ -231,6 +241,45 @@ func _draw_compass(center: Vector2, radius: float) -> void:
 	)
 
 
+## A curtain wall with three merlons: the walls sheet's own crest, so a crown
+## reads the fort it raises as a pictogram rather than a bullet (REQ-P1-08).
+func _draw_wall(center: Vector2, radius: float) -> void:
+	var body := Rect2(
+		center + Vector2(-radius * 0.82, -radius * 0.1), Vector2(radius * 1.64, radius * 0.82)
+	)
+	draw_rect(body, tint)
+	for i in 3:
+		var x: float = body.position.x + float(i) * radius * 0.58
+		draw_rect(
+			Rect2(Vector2(x, body.position.y - radius * 0.34), Vector2(radius * 0.4, radius * 0.36)),
+			tint
+		)
+	# The gate: the one opening an assault is trying to make.
+	draw_rect(
+		Rect2(center + Vector2(-radius * 0.2, radius * 0.22), Vector2(radius * 0.4, radius * 0.5)),
+		Palette.INK
+	)
+	draw_line(
+		center + Vector2(-radius * 0.82, radius * 0.72),
+		center + Vector2(radius * 0.82, radius * 0.72), tint, maxf(1.0, radius * 0.12), true
+	)
+
+
+## A ward: the surgeon's cross on a roundel, so the sheet's crest reads as the
+## building the row raises rather than a second wall.
+func _draw_hospital(center: Vector2, radius: float) -> void:
+	draw_circle(center, radius * 0.86, tint)
+	draw_circle(center, radius * 0.86, Palette.INK, false, maxf(1.0, radius * 0.1), true)
+	var arm: float = radius * 0.52
+	var thick: float = radius * 0.26
+	draw_rect(
+		Rect2(center + Vector2(-thick * 0.5, -arm), Vector2(thick, arm * 2.0)), Palette.INK
+	)
+	draw_rect(
+		Rect2(center + Vector2(-arm, -thick * 0.5), Vector2(arm * 2.0, thick)), Palette.INK
+	)
+
+
 func _draw_bell(center: Vector2, radius: float) -> void:
 	var dome := center + Vector2(0, radius * 0.2)
 	var width := radius * 0.56
@@ -243,3 +292,35 @@ func _draw_bell(center: Vector2, radius: float) -> void:
 	draw_line(Vector2(dome.x - width * 1.15, lip_y), Vector2(dome.x + width * 1.15, lip_y),
 		tint, maxf(1.0, radius * 0.13), true)
 	draw_circle(Vector2(dome.x, lip_y + radius * 0.16), radius * 0.12, tint)
+
+
+## The Auto mode's pace and seat (wiki: auto-mode): a triangle for play, two bars
+## for pause and a ship's helm for the court handed to the AI. Vector, so the
+## speed seal keeps one crisp medallion at every size (REQ-P4-04).
+func _draw_play(center: Vector2, radius: float) -> void:
+	var points := PackedVector2Array([
+		center + Vector2(-radius * 0.42, -radius * 0.62),
+		center + Vector2(radius * 0.66, 0.0),
+		center + Vector2(-radius * 0.42, radius * 0.62),
+	])
+	draw_colored_polygon(points, tint)
+
+
+func _draw_pause(center: Vector2, radius: float) -> void:
+	var bar := Vector2(radius * 0.24, radius * 1.16)
+	draw_rect(Rect2(center + Vector2(-radius * 0.44, -radius * 0.58), bar), tint, true)
+	draw_rect(Rect2(center + Vector2(radius * 0.20, -radius * 0.58), bar), tint, true)
+
+
+## A pilot's wheel: rim, hub and eight spokes, the seat's own pictogram.
+func _draw_helm(center: Vector2, radius: float) -> void:
+	draw_arc(center, radius * 0.72, 0.0, TAU, 28, tint, maxf(1.0, radius * 0.14), true)
+	draw_circle(center, radius * 0.2, tint)
+	for i in 8:
+		var angle: float = TAU * float(i) / 8.0
+		var direction := Vector2(cos(angle), sin(angle))
+		draw_line(
+			center + direction * radius * 0.2,
+			center + direction * radius * 1.0,
+			tint, maxf(1.0, radius * 0.11), true
+		)

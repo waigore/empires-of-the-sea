@@ -42,7 +42,7 @@ colony muster gate reads the funded hull claim
 `posture.war_expansion`, `posture.fronts_expansion`) × leader domain weights
 (`posture.weight_step`, floor `posture.floor`) — scaled, never zeroed. A parent with a starved child, or a
 deferred required aim (`requires`), names what it waited on. A funded `colonise.new_world` opens the muster even
-at war: the peace window bought it.
+at war.
 
 ## The navy's build leg
 
@@ -64,6 +64,11 @@ beside ledger lines.
 `colonise.tribe_chain` prices the next envoy step toward a charted Tribe the
 court can still buy (stage cost, one order); the diplomacy planner reads the
 same ambition and never declares on it (DR-20261114-02).
+
+## The deed
+
+`market.deed` prices the cheapest Minor or Tribe deed, ranked below every
+treasury claim; the escalation names its stall (#724).
 
 ## Migration
 

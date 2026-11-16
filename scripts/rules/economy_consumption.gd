@@ -34,6 +34,11 @@ class Pass:
 	## trained tier also holding their luxury).
 	var fed_counts: Array[int] = [0, 0, 0, 0]
 	var idle_counts: Array[int] = [0, 0, 0, 0]
+	## Hands that joined the pool at this turn's Build/work, one count per tier.
+	## They eat with the court, but their labour is the next Production phase's:
+	## same-turn labour from a new recruit is not supported (wiki:
+	## workers-and-population § Phase placement).
+	var arriving: Array[int] = [0, 0, 0, 0]
 	var luxury_spent: Dictionary = {}
 
 	func _init(
@@ -41,13 +46,17 @@ class Pass:
 		store: Dictionary,
 		ship_count: int,
 		army_food: int,
-		wards: Array[int]
+		wards: Array[int],
+		arriving_tiers: Array[int] = []
 	) -> void:
 		pool = roster
 		stockpile = store
 		army_demand = maxi(army_food, 0)
 		navy_demand = maxi(ship_count, 0) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
 		hospital_demands = wards
+		for tier in WorkerPool.TIER_COUNT:
+			if tier < arriving_tiers.size():
+				arriving[tier] = clampi(arriving_tiers[tier], 0, pool.count(tier))
 
 	## Serves the whole larder in the phase's order, mutating `stockpile`.
 	func serve() -> Pass:
@@ -105,10 +114,31 @@ class Pass:
 			idle_total += idle_counts[tier]
 		return pool.total() - idle_total
 
+	## Labour the pool gives **this** Production phase: the workers who kept their
+	## ration and their luxury, less the hands that joined at this turn's Build/work.
+	## A recruit's labour is the next Production phase's, so the phase that hands it
+	## the tools is the turn after it lands (wiki: workers-and-population
+	## § Phase placement).
 	func idle_labour() -> int:
 		var labour: int = 0
 		for tier in WorkerPool.TIER_COUNT:
-			labour += idle_counts[tier] * WorkerPool.LABOUR_PER_WORKER[tier]
+			labour += (idle_counts[tier] - _arriving_idle(tier)) * WorkerPool.LABOUR_PER_WORKER[tier]
+		return labour
+
+
+	## The arriving hands among a tier's labouring workers: only those who kept their
+	## ration (and luxury) could have laboured at all, so a hungry arrival withholds
+	## nothing.
+	func _arriving_idle(tier: int) -> int:
+		return mini(arriving[tier], idle_counts[tier])
+
+
+	## Labour this phase hands to the next one: what the recruits that landed at
+	## Build/work will add once the turn has closed.
+	func labour_next_turn() -> int:
+		var labour: int = 0
+		for tier in WorkerPool.TIER_COUNT:
+			labour += _arriving_idle(tier) * WorkerPool.LABOUR_PER_WORKER[tier]
 		return labour
 
 	## The highest tier with a worker who strikes, or -1 when every mouth eats.
@@ -133,25 +163,40 @@ class Pass:
 			"hospital_demand": hospital_demand,
 			"hospital_fed": hospital_fed,
 			"hospital_hungry": hospital_fed < hospital_demand,
+			# The staffs' demands one per ward, in the order the phase feeds
+			# them: a reader that only has the sum cannot tell a larder that
+			# covers a small ward from one that covers none (DR-20261112-04).
+			"hospital_demands": hospital_demands.duplicate(),
 			"fed_workers": fed_workers,
 			"strikers": strikers(),
 			"fed_counts": fed_counts,
 			"idle_counts": idle_counts,
 			"idle_labour": idle_labour(),
+			# The hands that landed at Build/work and labour from the next
+			# Production phase, so a reader can say why the pool and the labour
+			# figure differ (wiki: workers-and-population § Phase placement).
+			"arriving": arriving.duplicate(),
+			"labour_next_turn": labour_next_turn(),
 			"luxury_spent": luxury_spent,
 			"food_eaten": army_fed + navy_fed + hospital_fed + food_fed(),
 		}
 
 
 ## Mutates the stockpile and returns the phase report used by the turn log and UI.
+## `arriving` is the per-tier roster that landed at this turn's Build/work: it eats
+## here but labours from the next Production phase (wiki:
+## workers-and-population § Phase placement).
 static func resolve(
 	pool: WorkerPool,
 	stockpile: Dictionary,
 	ship_count: int,
 	army_food: int = 0,
-	hospital_demands: Array[int] = []
+	hospital_demands: Array[int] = [],
+	arriving: Array[int] = []
 ) -> Dictionary:
-	return pass_over(pool, stockpile, ship_count, army_food, hospital_demands).serve().report()
+	return pass_over(
+		pool, stockpile, ship_count, army_food, hospital_demands, arriving
+	).serve().report()
 
 
 ## The phase's larder read, served or not. `resolve` and the pre-turn forecast
@@ -162,9 +207,10 @@ static func pass_over(
 	stockpile: Dictionary,
 	ship_count: int,
 	army_food: int = 0,
-	hospital_demands: Array[int] = []
+	hospital_demands: Array[int] = [],
+	arriving: Array[int] = []
 ) -> Pass:
-	return Pass.new(pool, stockpile, ship_count, army_food, hospital_demands)
+	return Pass.new(pool, stockpile, ship_count, army_food, hospital_demands, arriving)
 
 
 
@@ -176,9 +222,12 @@ static func preview(
 	stockpile: Dictionary,
 	ship_count: int,
 	army_food: int = 0,
-	hospital_demands: Array[int] = []
+	hospital_demands: Array[int] = [],
+	arriving: Array[int] = []
 ) -> Dictionary:
-	return resolve(pool, stockpile.duplicate(), ship_count, army_food, hospital_demands)
+	return resolve(
+		pool, stockpile.duplicate(), ship_count, army_food, hospital_demands, arriving
+	)
 
 
 ## Fully fed hulls over hulls: each hull eats two food units, so a half-fed ship

@@ -41,7 +41,7 @@ FIT = {
     "furHats": 0.60, "furs": 0.58, "gems": 0.62, "horses": 0.58, "lumber": 0.60,
     "meat": 0.60, "paper": 0.60, "silver": 0.60, "spices": 0.62, "steel": 0.58,
     "sugarCane": 0.58, "timber": 0.58, "tobacco": 0.58, "diamonds": 0.58,
-    "wool": 0.56, "gold": 0.58, "furHats": 0.62,
+    "wool": 0.56, "gold": 0.58, "furHats": 0.62, "garments": 0.60, "rum": 0.60,
 }
 TAIL = (
     " sculpted in polished brass with warm gold highlights and deep bronze shadows, "

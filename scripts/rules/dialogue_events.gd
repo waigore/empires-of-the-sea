@@ -222,6 +222,10 @@ static func _plan(event: Dictionary, viewer: int) -> Dictionary:
 			if a == viewer:
 				return _told("diplomatic/alliance_broken_by_you", other)
 			return _told("diplomatic/alliance_broken_by_them", a)
+		"napBroken":
+			if a == viewer:
+				return _told("diplomatic/pact_broken_by_you", other)
+			return _told("diplomatic/pact_broken_by_them", a)
 		"callToArmsAccepted":
 			return _told("diplomatic/call_to_arms_joined", other)
 		"callToArmsRefused":

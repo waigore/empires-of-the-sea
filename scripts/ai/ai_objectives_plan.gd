@@ -16,7 +16,8 @@ extends RefCounted
 ##   treasury, reserve, goal, colony_target, harbour, idle_hulls, explorer_ready,
 ##   voyage_afloat, voyage_abroad, voyage_stranded, cargo_shortfall,
 ##   research_slots, research_funding,
-##   research_cost, research_refusal, tribe_target, tribe_stage_cost.
+##   research_cost, research_refusal, tribe_target, tribe_stage_cost,
+##   deed_price.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 
@@ -49,6 +50,11 @@ const W_VOYAGE: int = 75
 ## the chain, priced at its published cost and the court's one order
 ## (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
 const W_TRIBE_COLONY: int = 55
+## The deed the court is saving toward: the cheapest Minor or Tribe resource
+## tile it could sign at the published 15 x base price. Ranked below every other
+## treasury claim, so the aim names the intent without taking the purse the
+## muster, the yard or a study is saving for (issue #724 task 3).
+const W_DEED: int = 40
 
 
 static func build(readings: Dictionary) -> Array[AiObjective]:
@@ -74,6 +80,9 @@ static func build(readings: Dictionary) -> Array[AiObjective]:
 	var research: AiObjective = _research(readings)
 	if research != null:
 		objectives.append(research)
+	var deed: AiObjective = _deed(readings)
+	if deed != null:
+		objectives.append(deed)
 	objectives.append(_economy())
 	return objectives
 
@@ -98,10 +107,19 @@ static func _muster(readings: Dictionary, at_war: bool) -> AiObjective:
 	if not bool(readings.get("muster_due", false)):
 		return null
 	var utility: int = W_MUSTER + (W_MUSTER_WAR if at_war else 0)
-	var muster := AiObjective.create(
-		"muster.line", "military", utility,
-		{"regiment": 1, "labour": 1, "treasury": int(readings.get("muster_floor", 0))}
-	)
+	# The purse it must leave behind plus the material row of the pattern it is
+	# saving for: the planner refuses a muster short of that cloth (#474), so a
+	# row priced on the purse alone would read `funded` for a regiment the court
+	# cannot raise — and clear the very stall the escalation counts (#603).
+	var cost: Dictionary = {
+		"regiment": 1, "labour": 1, "treasury": int(readings.get("muster_floor", 0)),
+	}
+	for commodity: Variant in (readings.get("muster_row", {}) as Dictionary).keys():
+		var id: String = String(commodity)
+		var need: int = int((readings["muster_row"] as Dictionary)[commodity])
+		if need > 0:
+			cost[id] = int(cost.get(id, 0)) + need
+	var muster := AiObjective.create("muster.line", "military", utility, cost)
 	# The escalation's explicit terminal reading (#603): a muster that has been
 	# deferred past the blocked bar with its shortfall standing still names it,
 	# instead of another silent deferred row. The reserve re-route stays the
@@ -319,3 +337,22 @@ static func _research(readings: Dictionary) -> AiObjective:
 ## The standing growth aim: a crew hand on the works.
 static func _economy() -> AiObjective:
 	return AiObjective.create("economy.production", "economy", W_ECONOMY, {"labour": 1})
+
+
+## The deed the court is saving toward: the cheapest Minor or Tribe resource
+## tile it could sign at the published 15 x base price, priced on the purse it
+## must hold. The aim is a reading — the Merchant's own order is what signs the
+## deed — but it is the row the deferred-aim escalation tracks, so a court that
+## never reaches the price reads `blocked` with the stall named instead of
+## saving in silence (issue #724 task 3, #603).
+static func _deed(readings: Dictionary) -> AiObjective:
+	var price: int = int(readings.get("deed_price", 0))
+	if price <= 0:
+		return null
+	var aim := AiObjective.create("market.deed", "economy", W_DEED, {"treasury": price})
+	var stall: int = int(
+		(readings.get("blockings", {}) as Dictionary).get("market.deed", 0)
+	)
+	if stall > 0:
+		aim.block("the deed is out of reach %d turns" % stall)
+	return aim

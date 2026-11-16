@@ -11,6 +11,7 @@ static func build(hud: GameHud) -> void:
 	_zoom(hud)
 	_lens_key(hud)
 	_despatches(hud)
+	_auto_bar(hud)
 	HudDossiers.build(hud)
 	_tooltip(hud)
 	_victory_plate(hud)
@@ -20,6 +21,15 @@ static func build(hud: GameHud) -> void:
 	hud.plates = BattlePlates.new()
 	hud.plates.attach(hud.quick_battle_overlay, hud.naval_plate, hud.despatches)
 	_gazette_plate(hud)
+
+
+## Auto mode's chrome and driver (wiki: auto-mode): the bar seal, the AUTO badge,
+## the speed control and the crown's own action log. It mounts itself on the
+## cartouche once the screen binds the session (MapPlaySetup.build_hud).
+static func _auto_bar(hud: GameHud) -> void:
+	hud.auto_bar = AutoBar.new()
+	hud.auto_bar.name = "AutoBar"
+	hud.add_child(hud.auto_bar)
 
 
 ## The despatch lane owns its toast column, queue and geometry (HudDespatches);
@@ -123,10 +133,7 @@ static func _naval_plate(hud: GameHud) -> void:
 ## seal opens the one full-screen modal every bar door uses. The chart behind it
 ## is read again when the crown sets the sheet aside (REQ-P1-05, REQ-P1-07).
 static func _gazette_plate(hud: GameHud) -> void:
-	var layer := CanvasLayer.new()
-	layer.name = "GazetteLayer"
-	layer.layer = 6
-	hud.add_child(layer)
+	var layer: CanvasLayer = ModalShell.mount_layer(hud, "GazetteLayer")
 	hud.gazette_plate = GazettePlate.new()
 	layer.add_child(hud.gazette_plate)
 

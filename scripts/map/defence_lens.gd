@@ -11,8 +11,6 @@ const PLATE_W: float = 96.0
 ## A slip with a headcount and a wall needs a second line; open ground does not.
 const PLATE_H: float = 40.0
 const PLATE_H_OPEN: float = 26.0
-const PLATE_PAD: float = 6.0
-const RIBBON: float = 2.4
 
 ## Region roster the reading is derived from; null in a hand-built test.
 var roster: ArmyLayer = null
@@ -64,8 +62,7 @@ func refresh() -> void:
 func _draw() -> void:
 	if not _visible():
 		return
-	if _font == null:
-		_font = UiTheme.serif()
+	_ensure_font()
 	for raw: Variant in survey.get("provinces", []):
 		_draw_plate(raw)
 
@@ -75,18 +72,7 @@ func _draw_plate(entry: Dictionary) -> void:
 	var alpha: float = _reveal * _charted_alpha(int(entry["charted"]))
 	if alpha <= 0.01:
 		return
-	var shape: PackedVector2Array = _plate_shape(rect, 3.0)
-	draw_colored_polygon(
-		_offset_shape(shape, Vector2(1.4, 2.2)), Color(0.10, 0.08, 0.05, 0.32 * alpha)
-	)
-	draw_colored_polygon(shape, Color(0.945, 0.902, 0.792, 0.99 * alpha))
-	draw_polyline(
-		_closed(shape), Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.90 * alpha),
-		1.4, true
-	)
-	var ribbon: Color = _owner_tint(int(entry["owner"]))
-	ribbon.a *= alpha
-	draw_rect(Rect2(rect.position + Vector2(2, 4), Vector2(RIBBON, rect.size.y - 8)), ribbon)
+	LensSlip.draw_slip(self, rect, alpha, _owner_tint(int(entry["owner"])))
 
 	var band: String = String(entry["band"])
 	var tint: Color = Palette.defence_color(band)
@@ -95,14 +81,11 @@ func _draw_plate(entry: Dictionary) -> void:
 	var number: String = "—" if strength <= 0 else str(strength)
 	draw_string(
 		_font, Vector2(rect.position.x + 30.0, rect.position.y + 20.0), number,
-		HORIZONTAL_ALIGNMENT_LEFT, 30.0, 16, Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, alpha)
+		HORIZONTAL_ALIGNMENT_LEFT, 30.0, 16, Palette.ink(alpha)
 	)
 	_draw_marks(entry, rect, tint, alpha)
 	if int(entry["id"]) == hover_province:
-		draw_rect(
-			Rect2(rect.position + Vector2(2, rect.size.y - 4), Vector2(rect.size.x - 4, 2)),
-			Color(Palette.GOLD.r, Palette.GOLD.g, Palette.GOLD.b, alpha)
-		)
+		LensSlip.hover_rule(self, rect, alpha)
 
 
 ## A heraldic shield, filled in the band's ink: open rust, held ochre, walled
@@ -117,10 +100,7 @@ func _draw_shield(center: Vector2, tint: Color, alpha: float) -> void:
 	])
 	var fill := Color(tint.r, tint.g, tint.b, 0.90 * alpha)
 	draw_colored_polygon(points, fill)
-	draw_polyline(
-		_closed(points), Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.55 * alpha),
-		1.0, true
-	)
+	draw_polyline(LensSlip.closed(points), Palette.ink(0.55 * alpha), 1.0, true)
 
 
 ## Second line: the garrison's headcount and the wall, then a cross when the
@@ -137,10 +117,9 @@ func _draw_marks(entry: Dictionary, rect: Rect2, tint: Color, alpha: float) -> v
 	elif fort > 0:
 		line = "No garrison · Fort %d" % fort
 	if not line.is_empty():
-		var dim := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.72 * alpha)
 		draw_string(
 			_font, Vector2(rect.position.x + 30.0, rect.position.y + 34.0), line,
-			HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 46.0, 10, dim
+			HORIZONTAL_ALIGNMENT_LEFT, rect.size.x - 46.0, 10, Palette.ink(0.72 * alpha)
 		)
 	# One gold pip per standing gun, so a wall reads without the words.
 	for i in int(entry["guns"]):

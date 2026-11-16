@@ -249,6 +249,23 @@ func refresh_hulls(fleet: FleetState) -> void:
 		_markers.hulls(fleet)
 
 
+## Frees the deck of a squadron whose carried army has left the field: an
+## emptied field army retires, so no squadron carries it any more (wiki:
+## military-armies § Dismissing regiments; ships-and-naval § Naval transport).
+## Returns the squadron that was freed, or null when none carried it.
+func release_deck(army_id: int) -> FleetState:
+	if army_id < 0:
+		return null
+	for region: int in regions.region_ids():
+		var stored: Array = regions.value(region, [])
+		for fleet: FleetState in stored:
+			if fleet != null and fleet.embarked_army == army_id:
+				fleet.embarked_army = -1
+				_markers.hulls(fleet)
+				return fleet
+	return null
+
+
 ## Resets readiness in every region: a fleet parked off-screen must still be
 ## able to sail when its map is opened again.
 func begin_turn() -> void:

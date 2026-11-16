@@ -139,6 +139,129 @@ func test_detach_all_moves_the_whole_army_in_one_order() -> void:
 	assert_true(_screen.hud.panels.is_army_panel_open())
 
 
+## A dismissal sheds force instead of feeding it forever: exactly one peasant
+## returns, nothing else is refunded, and the report names the colours
+## (wiki: military-armies § Dismissing regiments; DR-20261109-01).
+func test_dismissing_a_regiment_returns_its_peasant_and_no_refund() -> void:
+	var home: ArmyState = _player_home()
+	var ledger: PlayerEconomy = _screen.play.economy.economy
+	var before: int = home.count()
+	var peasants: int = ledger.workers.count(WorkerPool.Tier.PEASANT)
+	var purse: int = ledger.treasury
+	var stock: Dictionary = ledger.stockpile.duplicate()
+	var regiment: String = home.regiments[0]
+	var borne: String = RegimentNames.of(home, regiment)
+	_screen.army_layer.select(home)
+	var plaque: int = _screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION)
+
+	MapPlayArmies.on_action(_screen.play, "dismiss:%s" % regiment)
+
+	assert_eq(home.count(), before - 1, "the colours leave the standard")
+	assert_false(home.regiments.has(regiment), "the instance is gone")
+	assert_eq(
+		ledger.workers.count(WorkerPool.Tier.PEASANT),
+		peasants + 1,
+		"one peasant returns to the pool"
+	)
+	assert_eq(ledger.treasury, purse, "no treasury is refunded")
+	assert_eq(ledger.stockpile, stock, "no material is refunded")
+	assert_eq(
+		_screen.army_layer.regiment_count_all(MapScreen.PLAYER_FACTION),
+		plaque - 1,
+		"the plaque counts what is left"
+	)
+	assert_true(_last_toast().contains(borne), _last_toast())
+	assert_true(_last_toast().contains("one peasant"), _last_toast())
+
+
+## Dismiss all is one batched order, and the Home Army keeps its standard when
+## it is emptied (wiki: military-armies § Dismissing regiments).
+func test_dismiss_all_sheds_the_whole_army_in_one_order() -> void:
+	var home: ArmyState = _player_home()
+	var ledger: PlayerEconomy = _screen.play.economy.economy
+	var total: int = home.count()
+	var peasants: int = ledger.workers.count(WorkerPool.Tier.PEASANT)
+	_screen.army_layer.select(home)
+
+	MapPlayArmies.on_action(_screen.play, "dismiss_all")
+
+	assert_eq(home.count(), 0, "every regiment leaves in one order")
+	assert_eq(
+		ledger.workers.count(WorkerPool.Tier.PEASANT),
+		peasants + total,
+		"one peasant per dismissed regiment"
+	)
+	assert_true(_screen.army_layer.armies.has(home), "the Home Army's standard stays")
+	assert_true(_last_toast().contains("%d peasants" % total), _last_toast())
+
+
+## An emptied field army retires at once: the state and the standard both go
+## (wiki: military-armies § Dismissing regiments).
+func test_dismissing_the_last_field_regiment_retires_its_standard() -> void:
+	var field: ArmyState = _detach_one()
+	_screen.army_layer.select(field)
+
+	MapPlayArmies.on_action(_screen.play, "dismiss:%s" % field.regiments[0])
+
+	assert_false(_screen.army_layer.armies.has(field), "the standard retires")
+	assert_null(_screen.army_layer.marker_for(field), "its marker leaves the chart")
+	assert_null(_screen.army_layer.selected_army, "nothing is selected on a retired standard")
+	assert_false(_screen.hud.panels.is_army_panel_open(), "the dossier closes with it")
+	assert_true(_last_toast().contains("standard retires"), _last_toast())
+
+
+## An order naming colours the army does not hold is refused with the reason and
+## changes nothing (REQ-P2-03, REQ-P5-05).
+func test_a_dismissal_refuses_a_regiment_the_army_does_not_hold() -> void:
+	var home: ArmyState = _player_home()
+	var before: int = home.count()
+	var ledger: PlayerEconomy = _screen.play.economy.economy
+	var peasants: int = ledger.workers.count(WorkerPool.Tier.PEASANT)
+
+	MapPlayArmyMuster.dismiss(_screen.play, home, ["no_such_regiment"])
+
+	assert_eq(home.count(), before, "no colours leave")
+	assert_eq(ledger.workers.count(WorkerPool.Tier.PEASANT), peasants, "no peasant returns")
+	assert_true(_last_toast().contains("does not stand"), _last_toast())
+
+
+## A batch that names one instance twice still sheds it once: each dismissed
+## regiment returns exactly one peasant (wiki: military-armies § Dismissing
+## regiments).
+func test_a_batch_naming_one_instance_twice_returns_one_peasant() -> void:
+	var home: ArmyState = _player_home()
+	var ledger: PlayerEconomy = _screen.play.economy.economy
+	var before: int = home.count()
+	var peasants: int = ledger.workers.count(WorkerPool.Tier.PEASANT)
+	var regiment: String = home.regiments[0]
+
+	var result: Dictionary = ArmyDismiss.dismiss(ledger, home, [regiment, regiment])
+
+	assert_eq(int(result["count"]), 1, "one instance leaves once")
+	assert_eq(int(result["peasants"]), 1, "one peasant, not two")
+	assert_eq(home.count(), before - 1, "only one regiment leaves the standard")
+	assert_eq(ledger.workers.count(WorkerPool.Tier.PEASANT), peasants + 1, "one peasant returns")
+
+
+## An embarked army that sheds its last regiment retires with its deck freed:
+## no squadron carries an army nobody can land (wiki: military-armies
+## § Dismissing regiments; ships-and-naval § Naval transport).
+func test_dismissing_an_embarked_army_frees_its_squadron() -> void:
+	var field: ArmyState = _detach_one()
+	_screen.army_layer.select(field)
+	MapPlayArmies.on_action(_screen.play, "embark")
+	var fleet_id: int = field.embarked_fleet
+	assert_true(fleet_id >= 0, "the squadron carries it")
+
+	MapPlayArmies.on_action(_screen.play, "dismiss_all")
+
+	assert_false(_screen.army_layer.armies.has(field), "the standard retires")
+	var carrier: FleetState = _fleet_by_id(fleet_id)
+	assert_not_null(carrier, "the squadron is still afloat")
+	assert_eq(carrier.embarked_army, -1, "the empty deck is free again")
+	assert_true(VoyageRead.is_free(carrier), "she can take a new charge")
+
+
 func test_combining_armies_uses_the_home_army_as_target() -> void:
 	var home: ArmyState = _player_home()
 	_screen.army_layer.select(home)
@@ -548,6 +671,17 @@ func _detach_one() -> ArmyState:
 	return _screen.army_layer.selected_army
 
 
+## A squadron by id, in the shown region or in any stored region roster.
+func _fleet_by_id(fleet_id: int) -> FleetState:
+	var ships: ShipLayer = _screen.play.ship_layer
+	for region: int in ships.regions.region_ids():
+		var stored: Array = ships.regions.value(region, [])
+		for fleet: FleetState in stored:
+			if fleet != null and fleet.id == fleet_id:
+				return fleet
+	return null
+
+
 func _enemy_army() -> ArmyState:
 	for army: ArmyState in _screen.army_layer.armies:
 		if army.owner != MapScreen.PLAYER_FACTION and army.count() > 0:
@@ -599,10 +733,13 @@ func test_roster_rows_carry_regiment_detail() -> void:
 		"%s — Guards" % RegimentNames.of(army, "unit_301"),
 		"the row names the regiment, then its type (DR-20261111-18)"
 	)
-	var detail: Label = first.get_child(1)
+	var detail_row: HBoxContainer = first.get_child(1)
+	var detail: Label = detail_row.get_child(0)
 	assert_eq(detail.text, RegimentCatalog.detail_line("guards"))
 	assert_true(detail.text.contains("FPN 12"), detail.text)
 	assert_true(detail.text.contains("food"), detail.text)
+	assert_eq(detail_row.get_child_count(), 2, "the dismissal sits beside the detail")
+	assert_eq((detail_row.get_child(1) as Button).text, "Dismiss")
 	panel.free()
 
 
@@ -620,7 +757,12 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 		2,
 		"medallion and name, no detach order"
 	)
-	assert_true((row.get_child(1) as Label).text.contains("Spear cavalry"))
+	assert_true((row.get_child(1) as HBoxContainer).get_child(0).text.contains("Spear cavalry"))
+	assert_eq(
+		(row.get_child(1) as HBoxContainer).get_child_count(),
+		1,
+		"a rival's colours are never dismissed by the crown"
+	)
 	assert_true(String(panel._status.text).contains("Enemy colours"))
 	panel.free()
 
@@ -927,6 +1069,58 @@ func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
 	).get_child(0) as HBoxContainer
 	assert_eq(enemy_row.get_child_count(), 2, "a rival's colours carry no order")
 	enemy_panel.free()
+
+
+## The dismissal is destructive, so the row asks once: the first tap arms and
+## relabels, the second files the order, and an unarmed tap files nothing
+## (wiki: military-armies § Dismissing regiments; DR-20261109-01).
+func test_the_roster_arms_a_dismissal_before_filing_it() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards", "pikemen"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var filed: Array = []
+	panel.action_pressed.connect(func(action: String) -> void: filed.append(action))
+
+	panel.refresh(model, army, true)
+
+	var entry: VBoxContainer = panel._roster.get_child(0)
+	var press: Button = (entry.get_child(1) as HBoxContainer).get_child(1) as Button
+	assert_eq(press.text, "Dismiss", "the row offers the order at rest")
+	press.pressed.emit()
+	assert_eq(filed, [], "one tap files nothing")
+	assert_eq(army.count(), 2, "the colours stay")
+	var armed_press: Button = (
+		(panel._roster.get_child(0) as VBoxContainer).get_child(1) as HBoxContainer
+	).get_child(1) as Button
+	assert_eq(armed_press.text, "Confirm", "the arm relabels the press")
+	armed_press.pressed.emit()
+	assert_eq(filed, ["dismiss:unit_301"], "the second tap files the order")
+	assert_eq(army.count(), 2, "the panel only names the order, the rules file it")
+	panel.free()
+
+
+## The whole standard is shed in one press, armed the same way (REQ-P5-04).
+func test_the_dossier_offers_dismiss_all_once() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards", "pikemen"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var filed: Array = []
+	panel.action_pressed.connect(func(action: String) -> void: filed.append(action))
+
+	panel.refresh(model, army, true)
+
+	var press: Button = panel._dismiss_all
+	assert_true(press.visible, "the crown may shed its own standard")
+	assert_eq(press.text, "Dismiss all regiments")
+	press.pressed.emit()
+	assert_eq(filed, [], "one tap files nothing")
+	assert_true(press.text.contains("Confirm"), press.text)
+	assert_true(press.text.contains("2"), press.text)
+	press.pressed.emit()
+	assert_eq(filed, ["dismiss_all"], "the second tap files the whole order")
+	panel.free()
 
 
 ## An order with no instance id is ignored rather than renaming the wrong

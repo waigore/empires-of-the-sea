@@ -2,7 +2,7 @@
 
 Index for product and process docs. Agent entry: [`../AGENTS.md`](../AGENTS.md).
 
-Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words** (fenced code excluded). Lint: `python tools/lint_docs_words.py` (CI job `docs-lint`).
+Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Lint: `python tools/lint_docs_words.py` (CI `docs-lint`).
 
 ## Product
 
@@ -36,12 +36,14 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [espionage.md](espionage.md) | Spies: presence, counter-espionage, research and reports |
 | [improvements.md](improvements.md) | Estates: improvement yields, connectivity, management ledger |
 | [provinces.md](provinces.md) | The crown's provinces: one ledger for every holding |
-| [towns.md](towns.md) | The crown's towns: levels, the next step, and the Raise press |
-| [economy.md](economy.md) | Stockpile, production recipes, town bonus, riches |
-| [technology.md](technology.md) | Tech tree, research slots, funding, extraction caps |
+| [towns.md](towns.md) | The crown's towns: levels, the next step, Raise |
+| [walls.md](walls.md) | The crown's walls: levels and Raise |
+| [hospitals.md](hospitals.md) | The crown's hospitals: levels, rations, Raise |
+| [economy.md](economy.md) | Stockpile, recipes, town bonus, riches |
+| [technology.md](technology.md) | Tech tree, slots, funding, extraction caps |
 | [ui-demo.md](ui-demo.md) | Map screen demo notes |
-| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose rule, removed controls, geometry |
-| [audio.md](audio.md) | Music beds, cues, mix controls, rebuild |
+| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose rule, geometry |
+| [audio.md](audio.md) | Music, cues, mix |
 
 ## Process
 
@@ -51,5 +53,5 @@ Every Markdown file at the repo root and under `docs/` must stay **≤ 500 words
 | [testing.md](testing.md) | Test + e2e budgets (≤5 min / ≤2 min) |
 | [android-build.md](android-build.md) | Android export presets, local build, release signing |
 | [android-debug.md](android-debug.md) | Debug APK via PR into `android-debug` |
-| [agent-debug.md](agent-debug.md) | Localhost agent debug bridge: enable flag, ops, adb reverse |
+| [agent-debug.md](agent-debug.md) | Localhost agent debug bridge: enable flag, ops, adb forward |
 | [skills.md](skills.md) | Project skills; Cursor/OpenCode/Grok facades; Hermes via `.agents` |

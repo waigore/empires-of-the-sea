@@ -22,7 +22,7 @@ func _init(p_host: EconomyController = null) -> void:
 ## holds and purse it needs, an offer by stock after the assigned runs eat their
 ## inputs (wiki: world-market § Trade orders).
 func trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
-	if host == null or host.market == null or host.economy == null:
+	if host == null or host.market == null or host.economy == null or seat_held_elsewhere():
 		return {}
 	var market: WorldMarket = host.market
 	var result: Dictionary
@@ -75,6 +75,8 @@ func trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 func offer(offer_id: String, quantity: int) -> void:
 	if host == null or host.market == null:
 		return
+	if seat_held_elsewhere():
+		return
 	var index: int = MinorMarket.index_of(host.market.minor_offers, offer_id)
 	if index < 0:
 		_toast("That court has nothing left to sell this turn.")
@@ -89,6 +91,8 @@ func offer(offer_id: String, quantity: int) -> void:
 func withdraw(order_id: String) -> void:
 	if host == null or host.market == null:
 		return
+	if seat_held_elsewhere():
+		return
 	if not MarketOrders.cancel(host.market, host.player_faction, order_id):
 		_toast("That order can no longer be withdrawn.")
 	host.refresh_panel()
@@ -97,8 +101,25 @@ func withdraw(order_id: String) -> void:
 func set_production(recipe_id: String, units: int) -> void:
 	if host == null or host.economy == null:
 		return
+	if seat_held_elsewhere():
+		return
 	host.economy.production.set_assignment(recipe_id, units)
 	host.refresh_panel()
+
+
+## The PRODUCTION tab's one press: every run the page's walk planned, set through
+## the same assignment a row's "+" makes, then one repaint and one receipt — the
+## press never leaves a lane of per-row lines (REQ-P5-04, REQ-P5-05).
+func set_production_batch(plan: Dictionary) -> void:
+	if host == null or host.economy == null:
+		return
+	if seat_held_elsewhere():
+		return
+	for raw: Variant in plan.keys():
+		var recipe_id: String = String(raw)
+		host.economy.production.set_assignment(recipe_id, int(plan[raw]))
+	host.refresh_panel()
+	_toast(ProductionBatch.receipt(plan.size()))
 
 
 ## One worker action from the ledger. Recruit only queues: the crown pays in
@@ -110,6 +131,8 @@ func set_production(recipe_id: String, units: int) -> void:
 ## rules own both verdicts.
 func worker_action(tier: int, action: String, count: int = 1) -> void:
 	if host == null or host.economy == null:
+		return
+	if seat_held_elsewhere():
 		return
 	if action == "disband":
 		var blocked: String = host.economy.disband_blocked_reason(tier)
@@ -150,11 +173,15 @@ func worker_action(tier: int, action: String, count: int = 1) -> void:
 func assign_research(tech_id: String) -> void:
 	if host == null or host.economy == null:
 		return
+	if seat_held_elsewhere():
+		return
 	host.report_research(host.economy.research.assign(tech_id))
 
 
 func cancel_research(slot: int) -> void:
 	if host == null or host.economy == null:
+		return
+	if seat_held_elsewhere():
 		return
 	host.report_research(host.economy.research.cancel(slot))
 
@@ -162,8 +189,16 @@ func cancel_research(slot: int) -> void:
 func cycle_research_funding(slot: int) -> void:
 	if host == null or host.economy == null:
 		return
+	if seat_held_elsewhere():
+		return
 	host.economy.research.cycle_funding(slot)
 	host.report_funding()
+
+
+## Auto holds the crown's seat: the ledger and the college stay readable, but
+## no press on them raises an order (wiki: auto-mode § Read-only while it runs).
+func seat_held_elsewhere() -> bool:
+	return host != null and MapPlayAuto.blocks_orders(host.play)
 
 
 func _toast(message: String) -> void:
