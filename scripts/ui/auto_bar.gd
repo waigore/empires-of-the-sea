@@ -13,19 +13,15 @@ extends Control
 ## for another seal without stacking its row (docs/hud-top-bar.md § Geometry), and
 ## the parent issue asks for a control that is always in reach (issue #725).
 
-## Lines the log panel prints, newest at the bottom.
-const LOG_LINES: int = 7
-const PANEL_WIDTH: float = 320.0
 const TOUCH_HEIGHT: float = 44.0
 const PLAQUE_WIDTH: float = 150.0
+## The LOG seal beside the pace: wide enough for its caption and the count of
+## lines the plate holds back.
+const LOG_SEAL_WIDTH: float = 64.0
+const LOG_SEAL_WIDTH_COUNTED: float = 88.0
 ## Height the plaque and pace take under the cartouche; the despatch lane starts
 ## below it while the seat's chrome shows, so no toast prints over the seat.
 const CHROME_HEIGHT: float = 52.0
-## The log's fixed plate: its lines at 12 pt plus margins, so the box always
-## carries its lines and never grows over the chart.
-const LOG_HEIGHT: float = 128.0
-const LOG_LINES_COMPACT: int = 4
-const LOG_HEIGHT_COMPACT: float = 82.0
 
 var play: PlaySession = null
 ## The always-present AUTO plaque: the seat's door and its state.
@@ -35,8 +31,13 @@ var _state_label: Label = null
 var _speed_seal: Button = null
 var _speed_icon: Icon = null
 var _speed_label: Label = null
-var _log_frame: PanelContainer = null
-var _log_box: VBoxContainer = null
+## The whole-log door: the plate prints the newest lines, this opens the rest.
+var _log_seal: Button = null
+var _log_caption: Label = null
+var _log: AutoLogPlate = null
+## Whether the plate held lines back on the last mirror, so the seal re-fits its
+## width once per boundary instead of every frame.
+var _was_counted: bool = false
 ## The seat change the player is being asked to confirm.
 var _prompt: AutoPrompt = null
 var _elapsed: float = 0.0
@@ -69,6 +70,7 @@ func is_showing() -> bool:
 ## Binds the session and lays the plaque out under the cartouche.
 func bind(p_session: PlaySession, hud: GameHud) -> void:
 	play = p_session
+	_log.bind(play, hud)
 	_layout(hud)
 	_signature = ""
 	_mirror()
@@ -89,6 +91,10 @@ func _process(delta: float) -> void:
 ## § Pacing).
 func _drive(delta: float) -> void:
 	if _prompt != null and _prompt.is_open():
+		return
+	# The whole-log sheet holds the clock too: a log that grew under the reader
+	# would move the lines they opened it to read (wiki: auto-mode § Pacing).
+	if _log != null and _log.sheet_open():
 		return
 	if not MapPlayAuto.running(play):
 		_elapsed = 0.0
@@ -176,7 +182,10 @@ func _build() -> void:
 	_speed_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	speed_row.add_child(_speed_label)
 
-	_build_log()
+	_build_log_seal()
+	_log = AutoLogPlate.new()
+	_log.name = "AutoLogPlate"
+	add_child(_log)
 	_prompt = AutoPrompt.new()
 	_prompt.name = "AutoPrompt"
 	_prompt.confirmed.connect(_on_prompt_confirmed)
@@ -192,21 +201,39 @@ func _plaque(fill: Color, border: Color) -> StyleBoxFlat:
 	return style
 
 
-func _build_log() -> void:
-	_log_frame = PanelContainer.new()
-	_log_frame.name = "AutoLog"
-	_log_frame.add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(Color(0.06, 0.05, 0.04, 0.90), Palette.GOLD_DIM, 1, 3, Vector4(10, 8, 10, 8))
+## The LOG seal: the plate's own door to the whole kept log, so a busy turn's
+## first orders are read after the plate has moved on (REQ-P5-05).
+func _build_log_seal() -> void:
+	_log_seal = Button.new()
+	_log_seal.name = "AutoLogSeal"
+	_log_seal.custom_minimum_size = Vector2(LOG_SEAL_WIDTH, TOUCH_HEIGHT)
+	_log_seal.focus_mode = Control.FOCUS_ALL
+	_log_seal.add_theme_stylebox_override(
+		"normal", _plaque(Color(0.13, 0.10, 0.07, 0.86), Palette.GOLD_DIM)
 	)
-	_log_frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_log_frame.visible = false
-	add_child(_log_frame)
+	_log_seal.add_theme_stylebox_override(
+		"hover", _plaque(Color(0.22, 0.17, 0.11, 0.94), Palette.GOLD)
+	)
+	_log_seal.add_theme_stylebox_override(
+		"pressed", _plaque(Color(0.09, 0.07, 0.05, 0.96), Palette.GOLD_PALE)
+	)
+	_log_seal.pressed.connect(_on_log_pressed)
+	add_child(_log_seal)
 
-	_log_box = VBoxContainer.new()
-	_log_box.add_theme_constant_override("separation", 2)
-	_log_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_log_frame.add_child(_log_box)
+	var row := HBoxContainer.new()
+	row.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 4)
+	row.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_log_seal.add_child(row)
+	row.add_child(Icon.new("scroll", 16.0, Palette.GOLD_PALE))
+	_log_caption = Label.new()
+	_log_caption.name = "Caption"
+	_log_caption.text = "LOG"
+	_log_caption.add_theme_font_size_override("font_size", 12)
+	_log_caption.add_theme_color_override("font_color", Palette.GOLD_PALE)
+	_log_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(_log_caption)
 
 
 ## Geometry follows the viewport: the plaque rides top-centre under the
@@ -228,27 +255,20 @@ func _layout(hud: GameHud) -> void:
 	_speed_seal.offset_right = plaque * 0.5 + 6.0 + TOUCH_HEIGHT
 	_speed_seal.offset_top = height + 8.0
 	_speed_seal.offset_bottom = height + 8.0 + TOUCH_HEIGHT
-	# The log keeps the left rail under the cartouche on the atlas layout, and
-	# the room above the minimap on a phone, so it never covers the despatch lane
-	# (HudDespatches, top centre) or the chart's own readings.
-	var view: Vector2 = hud.size if hud != null else size
-	var log_width: float = minf(PANEL_WIDTH, width * 0.46)
-	if HudLayout.is_compact(view):
-		# A phone's despatch lane runs the full width under the cartouche, so the
-		# log takes the foot of the chart instead, between the minimap and the
-		# zoom pair, where nothing else prints.
-		var compact_width: float = minf(PANEL_WIDTH, view.x * 0.62)
-		_log_frame.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-		_log_frame.offset_left = -compact_width * 0.5
-		_log_frame.offset_right = compact_width * 0.5
-		_log_frame.offset_top = -LOG_HEIGHT_COMPACT - 10.0
-		_log_frame.offset_bottom = -10.0
-		return
-	_log_frame.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
-	_log_frame.offset_left = 18.0
-	_log_frame.offset_right = 18.0 + log_width
-	_log_frame.offset_top = height + 8.0
-	_log_frame.offset_bottom = _log_frame.offset_top + LOG_HEIGHT
+	# The LOG seal follows the pace, so the seat's three controls read as one row
+	# and the chart keeps its middle (REQ-P1-07).
+	var seal_left: float = plaque * 0.5 + 6.0 + TOUCH_HEIGHT + 6.0
+	var counted: bool = _log != null and _log.held_back() > 0
+	var seal_width: float = LOG_SEAL_WIDTH_COUNTED if counted else LOG_SEAL_WIDTH
+	_log_seal.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
+	_log_seal.offset_left = seal_left
+	_log_seal.offset_right = seal_left + seal_width
+	_log_seal.offset_top = height + 8.0
+	_log_seal.offset_bottom = height + 8.0 + TOUCH_HEIGHT
+	# The plate keeps the left rail under the cartouche on the atlas layout, and
+	# the room above the minimap on a phone (AutoLogPlate owns that geometry).
+	if _log != null:
+		_log.layout(height)
 
 
 # --- presses -----------------------------------------------------------------
@@ -272,6 +292,11 @@ func _on_prompt_confirmed(kind: String) -> void:
 
 func _on_prompt_cancelled() -> void:
 	_mirror()
+
+
+func _on_log_pressed() -> void:
+	if _log != null:
+		_log.open_sheet()
 
 
 func _on_speed_pressed() -> void:
@@ -299,7 +324,14 @@ func _mirror() -> void:
 		return
 	_signature = signature
 	_speed_seal.visible = play.auto_active
-	_log_frame.visible = (play.auto_active or play.auto_armed) and not play.auto_log.is_empty()
+	_log.mirror()
+	_log_seal.visible = _log.is_showing()
+	var held: int = _log.held_back()
+	_log_caption.text = "LOG" if held <= 0 else "LOG +%d" % held
+	_log_seal.tooltip_text = _log_tooltip()
+	if (held > 0) != _was_counted:
+		_was_counted = held > 0
+		_relayout()
 	_state_label.text = _state_text()
 	_state_label.add_theme_color_override(
 		"font_color", Palette.GOLD_PALE if play.auto_active else Palette.TEXT_DIM
@@ -318,7 +350,6 @@ func _mirror() -> void:
 			Palette.GOLD if play.auto_active else Palette.GOLD_DIM
 		)
 	)
-	_refresh_log()
 	var hud := get_parent() as GameHud
 	if _was_showing != is_showing():
 		_was_showing = is_showing()
@@ -343,26 +374,10 @@ func _state_text() -> String:
 	return "hand the seat to the AI"
 
 
-## Lines the plate carries: a phone keeps the last four, the atlas seven.
-func _visible_lines() -> int:
-	var hud := get_parent() as GameHud
-	if hud != null and HudLayout.is_compact(hud.size):
-		return LOG_LINES_COMPACT
-	return LOG_LINES
-
-
-func _refresh_log() -> void:
-	for child: Node in _log_box.get_children():
-		child.queue_free()
-	var first: int = maxi(play.auto_log.size() - _visible_lines(), 0)
-	for index: int in range(first, play.auto_log.size()):
-		var line := Label.new()
-		line.text = String(play.auto_log[index])
-		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		line.add_theme_font_size_override("font_size", 12)
-		var newest: bool = index == play.auto_log.size() - 1
-		line.add_theme_color_override(
-			"font_color", Palette.GOLD_PALE if newest else Palette.TEXT_DIM
-		)
-		line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		_log_box.add_child(line)
+## The seal's caption names what the plate holds back, so the door is offered
+## exactly when there is something behind it (REQ-P5-05).
+func _log_tooltip() -> String:
+	var held: int = _log.held_back()
+	if held <= 0:
+		return "The crown's whole action log"
+	return "The crown's whole action log — %d earlier lines the plate does not print" % held
