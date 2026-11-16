@@ -49,28 +49,20 @@ static func rank_tile(row: Dictionary) -> Vector2i:
 ## gates the order exactly as the player's dossier is gated (DR-20261110-21).
 ## The order names the caller's `tile`; when `target` is given the rules check
 ## that site instead, for work the court names somewhere other than where it may
-## stand.
+## stand. The reading itself — crew, roster, works, stores, studies, docket and
+## claims — arrives as one [AiWorkQuery].
 static func make(
-	model: MapModel,
-	unit: CivilianState,
+	query: AiWorkQuery,
 	action: String,
 	tile: Vector2i,
-	works: LandWorks,
-	units: Array,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
 	score: int,
 	target: Vector2i = CivilianState.NO_TILE
 ) -> Dictionary:
-	var roster: Array[CivilianState] = []
-	roster.assign(units)
-	var view: VisibilityModel = context.get("visibility", null)
 	var site: Vector2i = tile if target.x < 0 else target
 	var check: Dictionary = CivilianWork.validate(
-		model, unit, action, works, roster, stockpile, view, site, tech_caps,
-		tech_unlocked, context
+		query.model, query.unit, action, query.works, query.roster(),
+		query.stockpile, query.view(), site, query.tech_caps,
+		query.tech_unlocked, query.context
 	)
 	if not bool(check.get("ok", false)):
 		return {}
