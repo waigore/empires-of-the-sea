@@ -248,7 +248,7 @@ func _set_notice(unpaid: int) -> void:
 		return
 	var subject: String = "1 study goes" if unpaid == 1 else "%d studies go" % unpaid
 	_notice.text = "%s unpaid — %s." % [
-		subject, LedgerText.research_floor_line(_state.treasury_floor()),
+		subject, LedgerReportText.research_floor_line(_state.treasury_floor()),
 	]
 
 

@@ -230,7 +230,7 @@ func _fill_next(banked: int, cost: int, paid: bool, floor: int) -> void:
 		_next.text = "unpaid next turn"
 		_next.add_theme_color_override("font_color", Palette.CRIMSON)
 		_next.tooltip_text = "The treasury cannot cover this slot next turn — %s." % (
-			LedgerText.research_floor_line(floor)
+			LedgerReportText.research_floor_line(floor)
 		)
 		return
 	if _rp_next <= 0:

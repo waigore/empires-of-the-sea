@@ -423,7 +423,7 @@ func test_the_crowns_wards_eat_from_the_larder() -> void:
 	var bare: Dictionary = _screen.economy.resolve_turn()
 	assert_false(province.hospital_staffed)
 	assert_eq((bare["hospital"] as Dictionary)["hungry"].size(), 1)
-	assert_true(LedgerText.turn_summary(bare).contains("1 hospital unstaffed"))
+	assert_true(LedgerReportText.turn_summary(bare).contains("1 hospital unstaffed"))
 	assert_eq(HospitalRules.effective_level(world.region(0), province.id), 0)
 
 
@@ -1127,7 +1127,7 @@ func test_every_production_row_carries_its_output_medallion() -> void:
 	assert_gt(recipes.size(), 0, "the opening court can run a recipe")
 	for recipe_id: String in recipes:
 		assert_eq(
-			_medallion_of(body, LedgerText.recipe_title(recipe_id)),
+			_medallion_of(body, LedgerProductionText.recipe_title(recipe_id)),
 			CommodityIcons.texture(ProductionRecipes.output(recipe_id)),
 			"the %s row draws its output's plate" % recipe_id
 		)

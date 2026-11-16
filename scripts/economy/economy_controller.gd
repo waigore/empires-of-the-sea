@@ -207,7 +207,7 @@ func resolve_turn() -> Dictionary:
 		hud.set_fleets(readings.fleet_ships())
 		if army_layer != null:
 			hud.set_armies(army_layer.regiment_count_all(player_faction))
-		hud.toast(LedgerText.turn_summary(report))
+		hud.toast(LedgerReportText.turn_summary(report))
 	refresh_research_panel()
 	treasury_changed.emit(economy.treasury)
 	return report

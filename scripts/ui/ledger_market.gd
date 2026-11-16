@@ -86,7 +86,7 @@ static func claimed_by_production(economy: PlayerEconomy, commodity: String) -> 
 
 
 func _add_cargo_banner() -> void:
-	var banner := UiRowBuilder.label(LedgerText.cargo_line(_cargo), 12, LedgerText.cargo_color(_cargo))
+	var banner := UiRowBuilder.label(LedgerMarketText.cargo_line(_cargo), 12, LedgerMarketText.cargo_color(_cargo))
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.custom_minimum_size = Vector2(240, 0)
 	add_child(banner)
@@ -184,13 +184,13 @@ func _add_deals() -> void:
 		var seller: int = int(deal.get("seller", -2))
 		if buyer == _viewer or seller == _viewer:
 			mine.append(deal)
-	var share: int = LedgerText.share_credit(_clearing, _viewer)
+	var share: int = LedgerMarketText.share_credit(_clearing, _viewer)
 	if mine.is_empty() and share <= 0:
 		return
 	UiRowBuilder.spacer(self, 4.0)
 	add_child(UiRowBuilder.label("LAST CLEARING", 11, Palette.GOLD_DIM))
 	for deal: Dictionary in mine.slice(0, 4):
-		add_child(UiRowBuilder.label(LedgerText.deal_line(deal, _viewer), 12, Palette.TEXT_DIM))
+		add_child(UiRowBuilder.label(LedgerMarketText.deal_line(deal, _viewer), 12, Palette.TEXT_DIM))
 	if mine.size() > 4:
 		add_child(UiRowBuilder.label(
 			"+%d more deals" % (mine.size() - 4), 11, Palette.TEXT_DIM

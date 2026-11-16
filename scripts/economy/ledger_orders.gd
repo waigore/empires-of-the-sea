@@ -160,7 +160,7 @@ func worker_action(tier: int, action: String, count: int = 1) -> void:
 		line = "%d %s are engaged — %s, arriving next turn" % [
 			queued,
 			WorkerPool.tier_name(tier).to_lower(),
-			LedgerText.recruit_batch_cost(tier, queued),
+			LedgerWorkersText.recruit_batch_cost(tier, queued),
 		]
 	if queued < asked:
 		line += " (%d of %d — %s)" % [

@@ -257,7 +257,7 @@ static func _report_turn(play: PlaySession, book: TurnBook) -> void:
 static func _follow_view(play: PlaySession, year: int) -> void:
 	if not MapPlayTurn.view_live:
 		return
-	var market_line: String = LedgerText.market_summary(
+	var market_line: String = LedgerMarketText.market_summary(
 		play.market_report, play.player_faction
 	)
 	if play.observer_mode or market_line.is_empty():
