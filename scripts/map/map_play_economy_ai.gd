@@ -178,29 +178,27 @@ static func _reserved_inputs(
 	return AiClaims.reserve(_claim_rows(production, food, economy, muster, works, navy))["reserved"]
 
 
-## Food the larder already holds: the two ration commodities, grain first.
-static func _food_held(economy: PlayerEconomy) -> int:
-	if economy == null:
-		return 0
-	var held: int = 0
-	for id: String in CommodityCatalog.FOOD:
-		held += maxi(economy.quantity(id), 0)
-	return held
-
-
 ## Food this court will eat before Production: army, navy, every worker ration
 ## and every hospital staff (wiki: workers-and-population § Consumption;
-## combat § Regiment condition).
+## combat § Regiment condition). The mouths are `LarderRead`'s own, so the
+## court's shortfall and the phase's bill name one total (issue #489; REQ-P2-03).
 static func _food_demand(
 	play: PlaySession, faction: int, economy: PlayerEconomy
 ) -> int:
-	var demand: int = _army_food(play, faction)
-	demand += MapPlayCourt.ships(play, faction) * ShipEconomy.FOOD_UPKEEP_PER_SHIP
-	for ration: int in HospitalRules.demand_list(play.world, faction):
-		demand += ration
-	for tier in WorkerPool.TIER_COUNT:
-		demand += economy.workers.count(tier) * WorkerPool.FOOD_PER_WORKER[tier]
-	return demand
+	var read: Dictionary = LarderRead.reading(
+		economy.workers,
+		economy.stockpile,
+		{
+			"army": _army_food(play, faction),
+			"ships": MapPlayCourt.ships(play, faction),
+			"wards": HospitalRules.demand_list(play.world, faction),
+		}
+	)
+	var appetites: Dictionary = read["appetites"]
+	return (
+		int(appetites["army"]) + int(appetites["navy"])
+		+ int(appetites["pool"]) + int(appetites["wards"])
+	)
 
 
 static func _army_food(play: PlaySession, faction: int) -> int:

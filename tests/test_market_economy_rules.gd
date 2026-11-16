@@ -4786,12 +4786,13 @@ func test_a_saving_court_never_sells_its_own_dinner() -> void:
 
 
 ## The larder reading the lock-recovery gate is built on: both ration
-## commodities, and nothing else in the stockpile (issue #489).
+## commodities, and nothing else in the stockpile — the Consumption phase's own
+## count, never a second sum (issue #489; REQ-P2-03).
 func test_the_larder_reading_counts_only_food() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.stockpile = {"grain": 7, "meat": 3, "wool": 40, "timber": 12}
-	assert_eq(MapPlayEconomyAi._food_held(economy), 10)
-	assert_eq(MapPlayEconomyAi._food_held(null), 0)
+	assert_eq(EconomyConsumption.food_available(economy.stockpile), 10)
+	assert_eq(EconomyConsumption.food_available({}), 0)
 
 
 ## The debt is rounded once from the whole deal, so the per-unit charge cannot

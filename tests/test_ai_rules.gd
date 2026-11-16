@@ -5871,6 +5871,28 @@ func test_a_short_worker_ration_is_a_strike() -> void:
 	assert_true(AiArmyReinforce.starving(economy, 3, 0))
 
 
+## The muster gate is the Consumption phase's own larder reading, so the court
+## arms no man the phase would starve and the crown's ledger line, the strike
+## rule and the AI never name two totals (issue #489; REQ-P2-03).
+func test_the_muster_slack_is_the_consumption_reading() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+	economy.stockpile["grain"] = 10
+	economy.stockpile["meat"] = 0
+	var fed: Dictionary = LarderRead.reading(
+		economy.workers, economy.stockpile, {"army": 3, "ships": 1}
+	)
+	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 1), 1)
+	assert_eq(int(fed["store_short"]), 0, "the phase covers every mouth the muster counts")
+	assert_true(not AiArmyReinforce.starving(economy, 3, 1))
+
+	economy.stockpile["grain"] = 2
+	var hungry: Dictionary = LarderRead.reading(
+		economy.workers, economy.stockpile, {"army": 3, "ships": 0}
+	)
+	assert_true(int(hungry["store_short"]) > 0, "the phase reads the larder short")
+	assert_true(AiArmyReinforce.starving(economy, 3, 0), "and the muster reads the same")
+
+
 func test_a_court_striking_for_food_musters_nothing() -> void:
 	var plan: Dictionary = AiArmyReinforce.plan(
 		_work_config(), _work_economy(), 1, false, 0, 0

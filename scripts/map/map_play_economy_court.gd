@@ -86,9 +86,9 @@ func plan_turn() -> void:
 	# first; the economy pass re-notes it every turn.
 	var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
 	if not harvest.is_empty() and play.ai != null:
-		var harvest_food: int = 0
-		for id: String in CommodityCatalog.FOOD:
-			harvest_food += maxi(int(harvest.get(id, 0)), 0)
+		# The harvest's ration food, counted the Consumption phase's way, so the
+		# growth gate plans with the same total the phase would eat (REQ-P2-03).
+		var harvest_food: int = EconomyConsumption.food_available(harvest)
 		play.ai.note_food_slack(
 			faction,
 			harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
@@ -269,7 +269,7 @@ func _plan_trade() -> Dictionary:
 	# must cover this turn's ration and leave the next one in hand, because a
 	# court that eats its last grain this turn strikes tomorrow.
 	var food: int = MapPlayEconomyAi._food_demand(play, faction, economy)
-	var food_short: int = maxi(food * 2 - MapPlayEconomyAi._food_held(economy), 0)
+	var food_short: int = maxi(food * 2 - EconomyConsumption.food_available(economy.stockpile), 0)
 	# One primitive for every reservation: the rations, the muster's row, the
 	# works and this turn's production are ranked claims, and the market reads
 	# what the allocator funded (issue #491 T3, #498).
