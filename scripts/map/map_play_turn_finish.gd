@@ -194,7 +194,7 @@ static func _rival_ledgers(play: PlaySession, book: TurnBook) -> void:
 	book.raid_report = MapPlayRaids.resolve(play)
 	AiTurnLog.record(
 		play, book.army, book.fleet, book.economy_report, book.invasion,
-		book.colonisation
+		book.colonisation, {}, book.land_battles, book.naval_battles
 	)
 
 

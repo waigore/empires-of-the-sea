@@ -502,6 +502,91 @@ func test_the_trace_caps_one_crown_events_and_ignores_an_empty_key() -> void:
 	assert_false(actions.has(""), "an empty key adds no row")
 
 
+func test_the_trace_files_a_siege_under_both_crowns_and_after_the_economy() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_trace = []
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var province: int = 0
+	var battle: Dictionary = {
+		"attacker": crown, "defender": rival, "province": province,
+		"region": play.region_index, "outcome": ArmyCombat.Outcome.STALEMATE,
+		"attacker_mauled": 5,
+		"siege": {
+			"guns_lost": 2, "guns_start": 2, "fort_downgraded": true,
+			"fort_before": 2, "fort_after": 1,
+		},
+	}
+	var report: Dictionary = {"factions": {crown: {
+		"production": {"assignments": [{"workshop": 1}]},
+	}}}
+	var merged: Dictionary = AiTurnLog.record(
+		play, [], [], report, [], [], {}, [battle], []
+	)
+	var attacker_actions: Dictionary = merged["factions"][crown]["actions"]
+	var defender_actions: Dictionary = merged["factions"][rival]["actions"]
+	assert_eq(int(attacker_actions.get("battle", 0)), 1, "the attacker counts the fight")
+	assert_eq(int(defender_actions.get("battle", 0)), 1, "the defender counts it too")
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(events.size(), 2, "the economy row and the fight both print")
+	assert_eq(
+		String(events[1]),
+		BattleReport.describe_land(
+			battle, play.model.province_name(province), FactionCatalog.names()
+		),
+		"the observer reads the same sentence the live despatch prints"
+	)
+	assert_true(
+		String(events[1]).contains("emplaced guns silenced"),
+		"the siege's battery and the fort level it left are named"
+	)
+	assert_eq(
+		String(merged["events"][1]["text"]), String(events[1]),
+		"the fight is the newest row, so the panel's feed leads with it"
+	)
+
+
+func test_the_trace_files_a_sea_battle_under_its_own_key() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_trace = []
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var battle: Dictionary = {
+		"attacker": crown, "defender": rival, "zone": 0,
+		"region": play.region_index, "outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"defender_lost": [1], "attacker_lost": [],
+	}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {}, [], [], {}, [], [battle])
+	var actions: Dictionary = merged["factions"][crown]["actions"]
+	assert_eq(int(actions.get("sea_battle", 0)), 1, "a sea fight is its own row")
+	assert_eq(int(actions.get("battle", 0)), 0, "and never reads as a land battle")
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(
+		String(events[0]),
+		BattleReport.describe(
+			battle, play.model.sea_zone_name(0), FactionCatalog.names()
+		),
+		"the sea despatch is the one the court would read"
+	)
+
+
+func test_the_trace_skips_a_battle_whose_attacker_is_no_great_power() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_trace = []
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var battle: Dictionary = {
+		"attacker": minor, "defender": crown, "province": 0,
+		"region": play.region_index, "outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+	}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {}, [], [], {}, [battle], [])
+	assert_true(
+		(merged["factions"][crown]["events"] as Array).is_empty(),
+		"a minor's fight files no row under the crown it beat"
+	)
+	assert_eq(int((merged["factions"][crown]["actions"] as Dictionary).get("battle", 0)), 0)
+
+
 func test_dashboard_renders_the_live_snapshot() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")
