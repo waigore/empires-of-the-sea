@@ -128,6 +128,12 @@ godot --headless --path . --script res://playtests/playtest_persistence_advanced
 # and sorts a rival squadron out of a captured port.
 godot --headless --path . --script res://playtests/playtest_naval.gd
 
+# Split / combine — folds the opening's single-hull commands into one squadron,
+# reads the troops that hold a split back, detaches a named hull into a command
+# of her own, folds her back, and follows the army a combine carries from the
+# dossier to the muster roll (the row's place and its own Visit press).
+godot --headless --path . --script res://playtests/playtest_fleet_split_combine.gd
+
 # Beachhead — boards a field army and marks a landing site on a hostile coast,
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
 # watches the site's three deaths: sailed away, left unused, and peace made.
