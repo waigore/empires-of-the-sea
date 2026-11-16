@@ -8,8 +8,11 @@ const SCENE: PackedScene = preload("res://scenes/capital_choice.tscn")
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const SEED: int = 1500
 ## The province targets clamp from 40x32 up, so this smaller chart seats the same
-## 19 crowns while the page paints far fewer tiles on every case.
-const SIZE: Vector2i = Vector2i(40, 32)
+## 60 provinces while the page paints far fewer tiles than the 96x64 game default.
+## 44x34 is the smallest size this seed rolls right the first time (40x32 fails
+## `unfair_split` and pays a second full generation, ~2 s under coverage) that
+## still holds several of the crown's seaboard provinces.
+const SIZE: Vector2i = Vector2i(44, 34)
 
 var world: WorldMap = null
 var page: CapitalChoiceScreen = null
