@@ -178,7 +178,7 @@ func test_the_realm_door_opens_the_ledger_and_its_rows_visit_a_province() -> voi
 
 func test_back_and_the_key_close_the_ledger() -> void:
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -196,7 +196,7 @@ func test_back_and_the_key_close_the_ledger() -> void:
 ## stand under it, or a crown reads a stale province beside "no province answers".
 func test_an_emptied_realm_prints_its_notice_alone() -> void:
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	assert_true(_province_row_widgets(panel) > 0, "the sheet opens on the crown's holdings")
 	panel._snapshot = {}
 	panel._apply_filter()
@@ -549,7 +549,7 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 ## and every duty has its own one-word chip.
 func test_the_phone_profile_repaints_the_reading() -> void:
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
-	screen.hud.spy_ledger_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.EYES)
 	assert_true(panel.is_open())
 	var before: int = _spy_row_widgets(panel)
 	panel._apply_profile(true, true)
@@ -569,7 +569,7 @@ func test_the_phone_profile_repaints_the_reading() -> void:
 
 func test_back_and_the_key_close_the_sheet() -> void:
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
-	screen.hud.spy_ledger_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.EYES)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the sheet aside first")
@@ -766,16 +766,16 @@ func test_muster_seal_key_and_keyboard_action_open_the_ledger() -> void:
 	assert_not_null(_seal_with_caption(screen.hud, "MUSTER"), "the cartouche carries the seal")
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	assert_not_null(panel)
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	assert_true(panel.is_open())
 	assert_true(int(panel._snapshot.get("total", 0)) > 0, "the crown holds forces on the chart")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	assert_false(panel.is_open())
 
 
 func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._on_filter(ForceLedger.KIND_ARMY, false)
 	assert_eq(panel._reading, ForceLedger.KIND_ARMY)
 	var shown: int = ForceLedger.count(
@@ -796,7 +796,7 @@ func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 
 func test_region_filter_with_no_force_says_so() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._on_filter(LedgerRows.REGION_OLD, true)
 	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
 	panel._apply_filter()
@@ -808,7 +808,7 @@ func test_region_filter_with_no_force_says_so() -> void:
 
 func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var rows: Array[Dictionary] = _rows_of_kind(panel._snapshot, ForceLedger.KIND_SQUADRON)
 	assert_true(rows.size() > 0, "the crown keeps a squadron afloat")
 	var fleet: Dictionary = rows[0]
@@ -826,7 +826,7 @@ func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
 
 func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var marker: Ship = null
 	for ship: Ship in screen.play.ship_layer.ships:
 		if ship.faction == screen.play.player_faction:
@@ -852,14 +852,14 @@ func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 
 func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
 	var escaped := InputEventAction.new()
 	escaped.action = InputActions.CANCEL
 	escaped.pressed = true
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._input(escaped)
 	assert_false(panel.is_open(), "Escape closes the ledger")
 
@@ -872,8 +872,8 @@ func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 	assert_eq(sheets.size(), 11, "the registry names every whole-empire sheet")
 	for sheet: SheetFrame in sheets:
 		assert_eq(sheet.play, screen.play, "the sheet reads the screen's session")
-	screen.hud.muster_roll_pressed.emit()
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(HudLedgerDoors.dismiss_open(screen.hud), "back takes the first open sheet")
 	assert_false(screen.hud.muster_roll.is_open(), "the muster roll sets itself aside")
 	assert_true(screen.hud.navy_ledger.is_open(), "the navy sheet waits its turn")
@@ -882,9 +882,28 @@ func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 	assert_false(HudLedgerDoors.dismiss_open(screen.hud), "nothing open, nothing taken")
 
 
+## Every door — a bar seal, a chip, a dossier line, a sibling sheet — names its
+## sheet by one key, so the table has to answer each one and one press has to
+## open it (REQ-P3-01, REQ-P3-02).
+func test_every_door_key_opens_its_own_sheet() -> void:
+	var keys: Dictionary = {}
+	for spec: Dictionary in HudLedgerDoors.SHEETS:
+		var key: String = String(spec["key"])
+		assert_false(keys.has(key), "one row per door key: %s" % key)
+		keys[key] = true
+		var sheet: SheetFrame = HudLedgerDoors.sheet_for(screen.hud, key)
+		assert_not_null(sheet, "the registry answers %s" % key)
+		screen.hud.ledger_door_pressed.emit(key)
+		assert_true(sheet.is_open(), "the key opens %s" % key)
+		sheet.close()
+	assert_null(
+		HudLedgerDoors.sheet_for(screen.hud, "no-such-door"), "an unknown key names nothing"
+	)
+
+
 func test_the_rows_own_tap_visits_its_force() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var row: ForceLedgerRow = null
 	for child: Node in panel._rows.get_children():
 		if child is ForceLedgerRow:
@@ -1491,7 +1510,7 @@ func test_a_fresh_campaign_opens_with_its_commander() -> void:
 	assert_false((data["rows"] as Array).is_empty(), "and the roll names him")
 
 	var panel: CommandLedgerPanel = screen.hud.command_ledger
-	screen.hud.command_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
 	assert_true(
 		panel._subtitle.text.contains("1 of 1 commander"),
 		"the count line reads the pool the rows print"
@@ -1518,7 +1537,7 @@ func test_the_command_door_opens_the_ledger_and_lists_the_pool() -> void:
 
 func test_back_and_the_key_close_the_command_ledger() -> void:
 	var panel: CommandLedgerPanel = screen.hud.command_ledger
-	screen.hud.command_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -1677,7 +1696,7 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 	play.diplomacy.ensure_relation(play.player_faction, _colony_tribe(), play.turn)
 	play.diplomacy.set_colony(_colony_tribe(), _colony_parent())
 	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
-	screen.hud.colonies_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
 	assert_true(panel.is_open())
 	assert_true(_colony_row_widgets(panel) > 0, "the colony is listed")
 	assert_true(panel._subtitle.text.contains("1 of 1"), "the count line reads the roll")
@@ -2625,7 +2644,7 @@ func test_the_map_hooks_guard_a_missing_session() -> void:
 
 func test_back_and_the_key_close_the_towns_ledger() -> void:
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
-	screen.hud.towns_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.TOWNS)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -3205,7 +3224,7 @@ func test_wall_the_map_hooks_guard_a_missing_session() -> void:
 
 func test_back_and_the_key_close_the_walls_ledger() -> void:
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
-	screen.hud.walls_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.WALLS)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -3583,7 +3602,7 @@ func test_a_visit_asks_for_her_squadrons_chart() -> void:
 func test_the_muster_rolls_door_opens_the_ledger() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	assert_not_null(panel, "the HUD mounts the navy ledger")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var door: Button = _navy_door()
 	assert_not_null(door, "the muster roll carries the navy door")
 	door.pressed.emit()
@@ -3596,7 +3615,7 @@ func test_the_muster_rolls_door_opens_the_ledger() -> void:
 
 func test_the_readings_narrow_the_sheet() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(panel.is_open())
 	panel._on_filter(NavalLedger.READING_WARSHIP, false)
 	assert_eq(panel._reading, NavalLedger.READING_WARSHIP)
@@ -3617,7 +3636,7 @@ func test_the_readings_narrow_the_sheet() -> void:
 func test_the_empty_view_names_why_no_hull_answers() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	panel.bind(screen.play)
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(_navy_row_widgets(panel) > 0, "the sheet opens on the crown's hulls")
 	# A chart the crown floats nothing in: the whole navy answers, this chart does not.
 	panel._snapshot = NavalLedger.snapshot(_world(), _old_only(), OWNER)
@@ -3654,7 +3673,7 @@ func test_every_chip_names_its_own_reading() -> void:
 
 func test_navy_back_and_the_key_close_the_ledger() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -3901,7 +3920,7 @@ func test_an_army_visit_asks_for_its_standards_chart() -> void:
 func test_the_muster_rolls_army_door_opens_the_army_ledger() -> void:
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
 	assert_not_null(panel, "the HUD mounts the army ledger")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var door: Button = _army_door()
 	assert_not_null(door, "the muster roll carries the army door")
 	door.pressed.emit()
@@ -3914,7 +3933,7 @@ func test_the_muster_rolls_army_door_opens_the_army_ledger() -> void:
 
 func test_the_army_readings_narrow_the_sheet() -> void:
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
-	screen.hud.army_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
 	assert_true(panel.is_open())
 	panel._on_filter(ArmyLedger.READING_HORSE, false)
 	assert_eq(panel._reading, ArmyLedger.READING_HORSE)
@@ -3932,7 +3951,7 @@ func test_the_army_readings_narrow_the_sheet() -> void:
 func test_an_emptied_army_names_why_no_regiment_answers() -> void:
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
 	panel.bind(screen.play)
-	screen.hud.army_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
 	assert_true(_army_row_widgets(panel) > 0, "the sheet opens on the crown's regiments")
 	# A chart the crown fields nothing in: the whole army answers, this chart not.
 	panel._snapshot = ArmyLedger.snapshot(_world(), _old_only_armies(), _fleets(), OWNER)
@@ -3968,7 +3987,7 @@ func test_every_army_chip_names_its_own_reading() -> void:
 
 func test_army_back_closes_the_ledger() -> void:
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
-	screen.hud.army_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -4513,7 +4532,7 @@ func test_hospital_the_map_hooks_guard_a_missing_session() -> void:
 
 func test_back_closes_the_hospitals_ledger() -> void:
 	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
-	hospital_screen.hud.hospitals_pressed.emit()
+	hospital_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.HOSPITALS)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(hospital_screen.play, hospital_screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")

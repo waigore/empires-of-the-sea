@@ -9,6 +9,11 @@ extends ModalShell
 ## A subclass owns what its sheet reads: it names the title, builds its body and
 ## repaints it. The frame never reads rules and never orders anything.
 
+## A door under a reading that opens another sheet: the press names that sheet by
+## the HUD's one door key, so a sheet never needs its sibling's class or signal
+## (REQ-P3-02, REQ-P5-01).
+signal door_pressed(key: String)
+
 ## The sheet is movable by its header, so the chart it covers can be read
 ## without closing the ledger (REQ-P1-07).
 var _drag: ModalDrag = null
@@ -143,3 +148,10 @@ func _make_empty(rows: VBoxContainer, font_size: int = 15) -> Label:
 	empty.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	rows.add_child(empty)
 	return empty
+
+
+## A step's door under the reading that raises the question: the one dress every
+## sheet's own door wears, and the press names the sheet it opens by the HUD's
+## one door key (REQ-P3-02, REQ-P5-01, REQ-P5-04).
+func _door(label: String, hint: String, key: String, expand: bool = true) -> Button:
+	return UiRowBuilder.door(label, hint, func() -> void: door_pressed.emit(key), expand)

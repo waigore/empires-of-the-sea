@@ -9,13 +9,10 @@ extends LedgerSheet
 ## fade and pause-door park come from SheetFrame; the chips, rows and empty
 ## notice from LedgerSheet.
 
-## The realm prints each province's town level; the towns sheet is the step
-## that raises it, so the door sits on the reading that raises the question
-## (DR-20261115-12). The walls door is its sibling: the realm prints the fort,
-## the walls sheet is the step that raises it (DR-20261116-01).
-signal towns_pressed
-signal walls_pressed
-signal hospitals_pressed
+## The steps a realm reading is one press from: the roll prints each province's
+## town level, its fort and its ward, so the sheets that raise them sit under
+## the reading that asks (DR-20261115-12, DR-20261116-01, DR-20261116-02). Each
+## door names its sheet by the HUD's door key.
 
 
 func _init() -> void:
@@ -54,34 +51,23 @@ func _build_body(column: VBoxContainer) -> void:
 ## prints the town level, the fort and the ward, so the towns, walls and
 ## hospitals sheets are the steps that raise them (REQ-P5-01, REQ-P5-04;
 ## DR-20261115-12, DR-20261116-01, DR-20261116-02). Full-width rows keep each a
-## thumb-sized tap on a phone.
+## thumb-sized tap on a phone; the dress and the key press are SheetFrame's.
 func _doors() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 6)
 	row.add_child(_door(
 		"Towns ›", "Every town the crown holds, and the step that raises it (B)",
-		func() -> void: towns_pressed.emit()
+		HudLedgerDoors.TOWNS
 	))
 	row.add_child(_door(
 		"Walls ›", "Every wall the crown holds, and the step that raises it (V)",
-		func() -> void: walls_pressed.emit()
+		HudLedgerDoors.WALLS
 	))
 	row.add_child(_door(
 		"Hospitals ›", "Every ward the crown holds, and the step that raises it",
-		func() -> void: hospitals_pressed.emit()
+		HudLedgerDoors.HOSPITALS
 	))
 	return row
-
-
-func _door(label: String, hint: String, press: Callable) -> Button:
-	var door := Button.new()
-	door.text = label
-	door.tooltip_text = hint
-	door.custom_minimum_size = Vector2(0, 34)
-	door.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	door.add_theme_font_size_override("font_size", 12)
-	door.pressed.connect(press)
-	return door
 
 
 # --- rows --------------------------------------------------------------------

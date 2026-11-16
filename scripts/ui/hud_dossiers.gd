@@ -15,20 +15,12 @@ static func build(hud: GameHud) -> void:
 	_civilian(hud)
 	_ledgers(hud)
 	ArmyHud.build(hud)
-	# The army dossier's command door opens the crown's commanders: the dossier
-	# is where a crown asks who leads, and the pool is the whole of it
-	# (DR-20261115-11).
-	hud._army_panel.command_pressed.connect(func() -> void: hud.command_pressed.emit())
-	# The realm ledger's towns door opens the crown's towns: the realm prints
-	# each province's level, and the towns sheet is the step that raises it
-	# (DR-20261115-12).
-	hud.province_ledger.towns_pressed.connect(func() -> void: hud.towns_pressed.emit())
-	# Its walls door is the same reach for the province's fort (DR-20261116-01).
-	hud.province_ledger.walls_pressed.connect(func() -> void: hud.walls_pressed.emit())
-	# And its hospitals door for the province's ward (DR-20261116-02).
-	hud.province_ledger.hospitals_pressed.connect(
-		func() -> void: hud.hospitals_pressed.emit()
-	)
+	# The two dossiers that carry a door of their own: the army's `Commanders`
+	# line (DR-20261115-11) and the court's EYES/COLONIES header
+	# (DR-20261115-10, DR-20261117-02). Both name their sheet by door key, so the
+	# HUD hears one press. The sheets' own doors bind in HudLedgerDoors.
+	hud._army_panel.door_pressed.connect(hud.ledger_door_pressed.emit)
+	hud._diplomacy_panel.door_pressed.connect(hud.ledger_door_pressed.emit)
 
 
 static func _province(hud: GameHud) -> void:
@@ -44,7 +36,9 @@ static func _province(hud: GameHud) -> void:
 	for node: Node in hud._panel.find_children("*", "ProvinceSheetHead", true, false):
 		var head := node as ProvinceSheetHead
 		if head != null:
-			head.realm_pressed.connect(func() -> void: hud.provinces_pressed.emit())
+			head.realm_pressed.connect(
+				func() -> void: hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+			)
 			break
 
 
@@ -115,58 +109,8 @@ static func _civilian(hud: GameHud) -> void:
 
 ## The crown's whole-empire sheets: the people, the muster roll, the realm's
 ## provinces, the eyes, the commanders, the towns, walls, hospitals and navy.
-## Each mounts on its own layer through HudLedgerDoors; its cartouche or sheet
-## door opens it in place (REQ-P5-01, REQ-P5-03, REQ-P5-07).
+## HudLedgerDoors' table mounts every one on its layer and gives each a door key;
+## the HUD's one keyed signal opens and closes them in that same order
+## (REQ-P3-01, REQ-P5-01, REQ-P5-07).
 static func _ledgers(hud: GameHud) -> void:
-	hud.civilian_roster = CivilianRosterPanel.new()
-	HudLedgerDoors.mount(hud, "CivilianRosterLayer", hud.civilian_roster)
-	hud.civilian_roster_pressed.connect(hud.civilian_roster.toggle)
-	hud.muster_roll = ForceLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "MusterRollLayer", hud.muster_roll)
-	hud.muster_roll_pressed.connect(hud.muster_roll.toggle)
-	hud.province_ledger = ProvinceLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "ProvinceLedgerLayer", hud.province_ledger)
-	hud.provinces_pressed.connect(hud.province_ledger.toggle)
-	hud.spy_ledger = SpyLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "SpyLedgerLayer", hud.spy_ledger)
-	hud.spy_ledger_pressed.connect(hud.spy_ledger.toggle)
-	# The court's colonies door opens the colony ledger: a boycott is read on the
-	# colonies it shuts, so the sheet sits one press from the courts that hold
-	# them (REQ-P5-01, DR-20261117-02).
-	hud.colonies_ledger = ColonyLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "ColonyLedgerLayer", hud.colonies_ledger)
-	hud.colonies_pressed.connect(hud.colonies_ledger.toggle)
-	# The court ledger carries the door: the crowns a spy shadows are the crowns
-	# that ledger lists, so the reading is one press from them (REQ-P5-01).
-	hud._diplomacy_panel.eyes_pressed.connect(
-		func() -> void: hud.spy_ledger_pressed.emit()
-	)
-	# The colonies door reads the same record: the courts that hold a colony are
-	# the courts a boycott is aimed from (REQ-P5-01, DR-20261117-02).
-	hud._diplomacy_panel.colonies_pressed.connect(
-		func() -> void: hud.colonies_pressed.emit()
-	)
-	hud.command_ledger = CommandLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "CommandLedgerLayer", hud.command_ledger)
-	hud.command_pressed.connect(hud.command_ledger.toggle)
-	hud.towns_ledger = TownLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "TownLedgerLayer", hud.towns_ledger)
-	hud.towns_pressed.connect(hud.towns_ledger.toggle)
-	hud.walls_ledger = WallLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "WallLedgerLayer", hud.walls_ledger)
-	hud.walls_pressed.connect(hud.walls_ledger.toggle)
-	hud.hospitals_ledger = HospitalLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "HospitalLedgerLayer", hud.hospitals_ledger)
-	hud.hospitals_pressed.connect(hud.hospitals_ledger.toggle)
-	hud.navy_ledger = NavalLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "NavalLedgerLayer", hud.navy_ledger)
-	hud.navy_pressed.connect(hud.navy_ledger.toggle)
-	hud.army_ledger = ArmyLedgerPanel.new()
-	HudLedgerDoors.mount(hud, "ArmyLedgerLayer", hud.army_ledger)
-	hud.army_pressed.connect(hud.army_ledger.toggle)
-	# The muster roll's doors open the sheets behind it: the roll names each
-	# standard by its kind and each squadron by her flagship, and the regiment
-	# and hull sheets are the whole of what they fly (REQ-P5-01, REQ-P5-03;
-	# DR-20261115-14, DR-20261116-16).
-	hud.muster_roll.navy_pressed.connect(func() -> void: hud.navy_pressed.emit())
-	hud.muster_roll.army_pressed.connect(func() -> void: hud.army_pressed.emit())
+	HudLedgerDoors.build_all(hud)

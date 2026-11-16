@@ -8,12 +8,9 @@ extends LedgerSheet
 ## chrome, fade and pause-door park come from SheetFrame; the chips, rows and
 ## empty notice from LedgerSheet.
 
-## The muster roll names each squadron; the hull sheet behind this door reads
-## every hull she flies (REQ-P5-01, REQ-P5-03; DR-20261115-14).
-signal navy_pressed
-## The muster roll names each standard; the regiment sheet behind this door reads
-## every regiment it flies (REQ-P5-01, REQ-P5-03; DR-20261116-16).
-signal army_pressed
+## The two fleet-and-regiment sheets behind the roll: the roll counts what a
+## standard and a squadron fly, those sheets read the whole of it
+## (REQ-P5-01, REQ-P5-03; DR-20261115-14, DR-20261116-16).
 
 
 func _init() -> void:
@@ -63,24 +60,14 @@ func _doors() -> Control:
 	box.add_child(_door(
 		"The crown's army ›",
 		"Every regiment the crown fields, standard by standard",
-		army_pressed
+		HudLedgerDoors.ARMY
 	))
 	box.add_child(_door(
 		"The crown's navy ›",
 		"Every hull the crown floats, squadron by squadron (N)",
-		navy_pressed
+		HudLedgerDoors.NAVY
 	))
 	return box
-
-
-func _door(caption: String, hint: String, door_signal: Signal) -> Button:
-	var door := Button.new()
-	door.text = caption
-	door.tooltip_text = hint
-	door.custom_minimum_size = Vector2(0, 34)
-	door.add_theme_font_size_override("font_size", 12)
-	door.pressed.connect(func() -> void: door_signal.emit())
-	return door
 
 
 # --- filters -----------------------------------------------------------------
