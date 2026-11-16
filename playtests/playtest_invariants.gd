@@ -49,8 +49,53 @@ func _run() -> void:
 
 func _check(play: PlaySession, label: String) -> void:
 	_check_fleets(play, label)
+	_check_armies(play, label)
 	_check_relations(play, label)
 	_check_prices(play, label)
+
+
+## military-armies § Definition / § Home Army: every land regiment stands in
+## exactly one army, an army occupies exactly one province (an embarked one
+## none), and every Great Power keeps exactly one Home Army at its seat.
+func _check_armies(play: PlaySession, label: String) -> void:
+	if play.army_layer == null:
+		return
+	var seen_regiments: Dictionary = {}
+	var homes: Dictionary = {}
+	for region in play.world.region_count():
+		var model: MapModel = play.world.region(region)
+		if model == null:
+			continue
+		var roster: Array = play.army_layer.regions.value(region, [])
+		for raw: Variant in roster:
+			var army: ArmyState = raw as ArmyState
+			if army == null:
+				continue
+			for regiment_id: String in army.regiments:
+				if seen_regiments.has(regiment_id):
+					_violation(label, "regiment %s stands in two armies (%d and %d)" % [
+						regiment_id, int(seen_regiments[regiment_id]), army.id,
+					])
+				seen_regiments[regiment_id] = army.id
+			if army.is_embarked():
+				continue
+			if army.province == MapModel.NO_ID or model.province_data(army.province) == null:
+				_violation(label, "army %d of %s holds no province" % [
+					army.id, FactionCatalog.name_of(army.owner),
+				])
+			if army.home:
+				homes[army.owner] = int(homes.get(army.owner, 0)) + 1
+				var capital: int = play.world.capital_province_of(region, army.owner)
+				if capital != MapModel.NO_ID and army.province != capital:
+					_violation(label, "Home Army %d of %s stands at %s, not its seat %s" % [
+						army.id, FactionCatalog.name_of(army.owner),
+						model.province_name(army.province), model.province_name(capital),
+					])
+	for faction: int in FactionCatalog.great_power_ids():
+		if int(homes.get(faction, 0)) > 1:
+			_violation(label, "%s keeps %d Home Armies" % [
+				FactionCatalog.name_of(faction), int(homes[faction]),
+			])
 
 
 ## ships-and-naval § Fleet location: a fleet in port is attached to a province
