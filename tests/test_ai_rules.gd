@@ -12862,6 +12862,46 @@ func test_a_war_footing_scales_the_military_up_and_the_voyage_down() -> void:
 	assert_true(int(fronts["expansion"]) >= config.parameter("posture.floor"), "never zeroed")
 
 
+## DR-20261116-09: treasury recovery reweights the rank. A court that cannot pay
+## its way leads with the domains that raise coin and lets the studies and the
+## crews it can defer fall behind them — never the army, the fleet or the court.
+func test_the_money_goal_leads_with_the_domains_that_pay() -> void:
+	var config: AiConfig = _objective_config()
+	var phase: String = AiPhasePlanner.PHASE_PEACE
+	var spend: Dictionary = AiPosture.modifiers(
+		phase, config, AiPosture.NEUTRAL, AiIncome.GOAL_SPEND
+	)
+	var earn: Dictionary = AiPosture.modifiers(
+		phase, config, AiPosture.NEUTRAL, AiIncome.GOAL_EARN
+	)
+
+	assert_true(int(earn["economy"]) > int(spend["economy"]), "the works lead while it earns")
+	assert_true(int(earn["expansion"]) > int(spend["expansion"]), "and the voyages that sell")
+	assert_true(int(earn["research"]) < int(spend["research"]), "the study waits its turn")
+	assert_true(int(earn["civilian"]) < int(spend["civilian"]), "and so do the crews")
+	assert_eq(int(earn["military"]), int(spend["military"]), "the army keeps its weight")
+	assert_eq(int(earn["diplomacy"]), int(spend["diplomacy"]), "and so does the court")
+	assert_true(int(earn["research"]) >= config.parameter("posture.floor"), "never zeroed")
+	assert_eq(
+		int(AiPosture.modifiers(phase, config, AiPosture.NEUTRAL, "")["economy"]),
+		int(spend["economy"]), "a caller with no goal read keeps the published weights"
+	)
+	# The two readings compose: a court at war that cannot pay still arms up and
+	# still sails for the far coast, which is the coin it cannot raise at home.
+	var armed: Dictionary = AiPosture.modifiers(
+		AiPhasePlanner.PHASE_WAR, config, AiPosture.NEUTRAL, AiIncome.GOAL_EARN
+	)
+	assert_eq(
+		int(armed["military"]),
+		int(AiPosture.modifiers(AiPhasePlanner.PHASE_WAR, config)["military"]),
+		"the footing's war boost stands beside the goal"
+	)
+	assert_true(
+		int(armed["expansion"]) > int(AiPosture.modifiers(AiPhasePlanner.PHASE_WAR, config)["expansion"]),
+		"and the voyage the footing closes is the income the goal reopens"
+	)
+
+
 func test_the_leader_s_weights_reorder_the_rank() -> void:
 	var napoleon: AiConfig = AiConfig.build(OBJ_OWNER, OBJ_SEED, AiProfile.NORMAL, AiAgenda.WARMONGER)
 	napoleon.personality = AiPersonality.resolve("napoleon")
