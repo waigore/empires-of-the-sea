@@ -142,7 +142,8 @@ func apply_turn() -> Dictionary:
 		)
 	var recruits: Array[Dictionary] = AiBind.recruitment_orders(
 		kind, config, economy, floor,
-		AiBind.fed_slack(kind, economy, army_food, ships)
+		AiBind.fed_slack(kind, economy, army_food, ships),
+		AiBind.muster_hands(kind, config, economy, regiments, at_war)
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))

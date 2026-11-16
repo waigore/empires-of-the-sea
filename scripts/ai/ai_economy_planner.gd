@@ -170,8 +170,13 @@ static func _bench_room(economy: PlayerEconomy) -> Dictionary:
 ## workers eat: a court hires no mouth it cannot feed, because a peasant it
 ## cannot feed strikes instead of working (issue #489). A negative reading means
 ## the caller has no larder to read, and the gate does not apply.
+## `hands` is the peasant count the muster reservation keeps
+## (`AiArmyReinforce.muster_hands`): a court whose muster is legal-and-funded
+## this turn trains no hand the levy itself would consume (issue #807). 0 keeps
+## the published last-peasant throttle.
 static func recruitment_orders(
-	config: AiConfig, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1
+	config: AiConfig, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1,
+	hands: int = 0
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	if config == null or economy == null:
@@ -183,8 +188,10 @@ static func recruitment_orders(
 	# The muster floor a caller hands in is a hard veto: a court saving for its
 	# next regiment buys no workers with that purse (issue #474). The court's own
 	# cash floor keeps its soft throttle, so peace-time growth still takes the
-	# one training a thin purse can pay.
+	# one training a thin purse can pay. The published last-peasant throttle
+	# stands whenever no muster reservation is read (issue #807).
 	var muster_floor: int = maxi(floor, 0)
+	var hand_floor: int = maxi(hands, 1)
 	var sim: PlayerEconomy = economy.copy()
 	for _turn in maxi(config.parameter("economy.max_recruits"), 0):
 		if sim.workers.total() >= target:
@@ -195,7 +202,7 @@ static func recruitment_orders(
 		if fed_slack >= 0 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
 			break
 		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
-				and sim.workers.count(WorkerPool.Tier.PEASANT) <= 1:
+				and sim.workers.count(WorkerPool.Tier.PEASANT) <= hand_floor:
 			break
 		if muster_floor > min_treasury and sim.treasury - _trains(sim, tier) < muster_floor:
 			break

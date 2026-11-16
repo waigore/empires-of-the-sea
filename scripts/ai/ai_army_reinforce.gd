@@ -181,6 +181,35 @@ static func starving(economy: PlayerEconomy, army_food: int, ships: int) -> bool
 	return fed_slack(economy, army_food, ships) < 0
 
 
+## Peasants a court keeps in the fields so its muster stays legal: the
+## `army.min_peasants` floor the muster itself reads plus the levy's own hand
+## (`RegimentEconomy.WORKER_COST`). The reservation is answered only while the
+## court stands under its target, is at war, holds the material row of the
+## pattern it is saving for, and its purse already holds the muster's war chest
+## — behind the slot un-latch and the chest escalation, never ahead of them
+## (issue #807, evidence/issue-474 Round 9: measured −3.65 % on the destitute
+## tree where it never fired). 0 otherwise, so a court that is not arming
+## trains freely.
+static func muster_hands(
+	config: AiConfig,
+	economy: PlayerEconomy,
+	own_regiments: int,
+	at_war: bool
+) -> int:
+	if config == null or economy == null or not at_war:
+		return 0
+	if own_regiments >= _target(config, at_war):
+		return 0
+	var type_id: String = saving_type(config, economy)
+	if type_id.is_empty():
+		return 0
+	if not RegimentEconomy.missing_inputs(type_id, economy.stockpile).is_empty():
+		return 0
+	if economy.treasury < muster_floor(config, economy, own_regiments, at_war):
+		return 0
+	return config.parameter("army.min_peasants") + RegimentEconomy.WORKER_COST
+
+
 ## Regiments the court aims at: the peace target, raised by `army.war_extra` at
 ## war (wiki: ai-architecture § Land reinforcement).
 static func _target(config: AiConfig, at_war: bool) -> int:

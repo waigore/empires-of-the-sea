@@ -12,6 +12,12 @@ extends RefCounted
 
 ## The hospital is a second legal work in a province that already hosts a fort
 ## project, so this scorer reads the province, never the town's occupancy.
+## `context["larder_slack"]` — the grain the court's own harvest leaves after
+## every mouth it already feeds — prices a ward against the larder that must
+## carry it: a ward is a permanent `HospitalRules.RATION_PER_LEVEL` mouth, so a
+## court whose slack is under that raises no ward, or it strikes itself into the
+## famine its own works made (issue #807, evidence/issue-766). A caller that
+## does not know the larder passes no key and keeps the old reading.
 static func best_candidate(
 	config: AiConfig,
 	model: MapModel,
@@ -27,6 +33,13 @@ static func best_candidate(
 	var best: Dictionary = {}
 	if config == null or model == null or unit == null or works == null:
 		return best
+	# The larder gate: a ward is a permanent two-food mouth, so a court whose
+	# harvest leaves less than one ward's ration after every mouth it feeds
+	# raises none (issue #807).
+	if context.has("larder_slack"):
+		var slack: int = int(context["larder_slack"])
+		if slack < HospitalRules.RATION_PER_LEVEL:
+			return best
 	var weight: int = config.parameter("civilian.hospital_weight")
 	var at_war: bool = bool(context.get("at_war", false))
 	for province: ProvinceState in model.provinces:

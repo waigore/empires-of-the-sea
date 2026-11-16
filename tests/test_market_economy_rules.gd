@@ -2553,19 +2553,22 @@ func test_seeded_map_resources_are_real_commodities() -> void:
 func test_yields_sum_owned_resource_tiles_and_the_capital_bonus() -> void:
 	var model: MapModel = _fixture()
 	var totals: Dictionary = Extraction.yields(model, 0, 0)
-	assert_eq(totals, {"timber": 1, "grain": 1 + Extraction.CAPITAL_GRAIN_BONUS})
+	assert_eq(
+		totals, {"timber": 1, "grain": 2 + Extraction.CAPITAL_GRAIN_BONUS},
+		"the ration estate pays its level doubled (issue #807)"
+	)
 
 func test_yields_ignore_tiles_owned_by_others() -> void:
 	var model: MapModel = _fixture()
 	var totals: Dictionary = Extraction.yields(model, 1, 1)
-	assert_eq(totals, {"grain": 1 + Extraction.CAPITAL_GRAIN_BONUS})
+	assert_eq(totals, {"grain": 2 + Extraction.CAPITAL_GRAIN_BONUS})
 	var none: Dictionary = Extraction.yields(model, 2, -1)
 	assert_eq(none, {})
 
 func test_capital_bonus_needs_an_owned_capital() -> void:
 	var model: MapModel = _fixture()
 	var foreign: Dictionary = Extraction.yields(model, 0, 1)
-	assert_eq(int(foreign.get("grain", 0)), 1)
+	assert_eq(int(foreign.get("grain", 0)), 2)
 	assert_eq(Extraction.yields(null, 0, 0), {})
 
 func test_improved_tiles_use_the_works_level_and_connectivity() -> void:
@@ -2576,7 +2579,7 @@ func test_improved_tiles_use_the_works_level_and_connectivity() -> void:
 	assert_eq(totals, {"timber": 1, "grain": Extraction.CAPITAL_GRAIN_BONUS})
 	# The unimproved grain tile on (1, 0) no longer pays the placeholder level 1.
 	var no_works: Dictionary = Extraction.yields(model, 0, 0)
-	assert_eq(no_works, {"timber": 1, "grain": 1 + Extraction.CAPITAL_GRAIN_BONUS})
+	assert_eq(no_works, {"timber": 1, "grain": 2 + Extraction.CAPITAL_GRAIN_BONUS})
 
 func test_disconnected_improvements_are_skipped() -> void:
 	var model: MapModel = _fixture()
@@ -2648,7 +2651,7 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	assert_false(Blockades.of(controller.blockade_source).any(), "no stations to read yet")
 	assert_eq(
 		int(controller.readings.extraction().get("grain", 0)),
-		1 + Extraction.CAPITAL_GRAIN_BONUS,
+		2 + Extraction.CAPITAL_GRAIN_BONUS,
 		"the harbour carries the estate's grain home"
 	)
 	var seals := Blockades.new()
@@ -3222,7 +3225,7 @@ func test_region_totals_skip_the_home_region_and_need_a_port() -> void:
 	)
 
 	assert_false(by_region.has(0), "home yield never needs a hold")
-	assert_eq(by_region.get(1, {}), {"grain": 1})
+	assert_eq(by_region.get(1, {}), {"grain": 2})
 
 func test_an_unconnected_colony_yields_nothing_to_ship() -> void:
 	var world := WorldMap.new()

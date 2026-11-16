@@ -60,7 +60,7 @@ const W_DEED: int = 40
 static func build(readings: Dictionary) -> Array[AiObjective]:
 	var objectives: Array[AiObjective] = []
 	var at_war: bool = bool(readings.get("at_war", false))
-	objectives.append(_defend(at_war))
+	objectives.append(_defend(readings, at_war))
 	var muster: AiObjective = _muster(readings, at_war)
 	if muster != null:
 		objectives.append(muster)
@@ -88,9 +88,15 @@ static func build(readings: Dictionary) -> Array[AiObjective]:
 
 
 ## The seat held: at war every court keeps a regiment home, at peace it is a
-## standing aim worth little next to growth.
-static func _defend(at_war: bool) -> AiObjective:
-	var cost: Dictionary = {"regiment": 1} if at_war else {}
+## standing aim worth little next to growth. While a line is due the guard
+## claims nothing — the muster's regiment *is* the Home Army, and a phantom
+## slot claim at 90 held the muster's own claim shut every warring turn
+## (issue #807, the #474 clause-1 un-latch; evidence/issue-766).
+static func _defend(readings: Dictionary, at_war: bool) -> AiObjective:
+	var due: bool = bool(readings.get("muster_due", false))
+	var cost: Dictionary = (
+		{"regiment": 1} if at_war and not due else {}
+	)
 	return AiObjective.create(
 		"defend.seat", "military", W_DEFEND if at_war else W_DEFEND_PEACE, cost
 	)

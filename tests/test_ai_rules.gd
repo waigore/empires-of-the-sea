@@ -2051,6 +2051,73 @@ func test_ai_economy_holds_the_muster_war_chest_before_training() -> void:
 	)
 
 
+## The muster hand reservation, behind the un-latch (issue #807): a court at war
+## under its target with the line's row in store and the chest in hand keeps
+## `army.min_peasants` + the levy's own hand in the fields, so training never
+## makes the muster illegal (`labour 0/1`).
+func test_ai_economy_keeps_the_musters_own_hand() -> void:
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.treasury = 5000
+	economy.stockpile = {"fabric": 10, "castIron": 10, "lumber": 10}
+	economy.add("paper", 10)
+	var hands: int = AiArmyReinforce.muster_hands(config, economy, 0, true)
+	assert_eq(
+		hands, config.parameter("army.min_peasants") + 1,
+		"the muster's floor plus the levy's own hand"
+	)
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, hands
+	)
+	assert_eq(orders.size(), 1, "one recruit a turn")
+	var applied: PlayerEconomy = economy.copy()
+	assert_true(bool(applied.recruit(int(orders[0]["tier"])).get("ok", false)))
+	var second: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		config, applied, 0, -1, hands
+	)
+	assert_eq(second.size(), 1, "still one peasant above the reserved hand")
+	assert_true(bool(applied.recruit(int(second[0]["tier"])).get("ok", false)))
+	assert_true(
+		AiEconomyPlanner.recruitment_orders(config, applied, 0, -1, hands).is_empty(),
+		"the reserved hand survives the pass"
+	)
+	assert_eq(
+		applied.available_peasants(), hands,
+		"the fields still spare the muster its hand"
+	)
+
+
+func test_a_court_not_arming_keeps_no_hand() -> void:
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.treasury = 5000
+	economy.add("paper", 10)
+	economy.stockpile = {"fabric": 10, "castIron": 10, "lumber": 10}
+
+	assert_eq(
+		AiArmyReinforce.muster_hands(config, economy, 0, false), 0,
+		"at peace the pool grows freely"
+	)
+	assert_eq(
+		AiArmyReinforce.muster_hands(config, economy, 12, true), 0,
+		"at the war target the court is not arming"
+	)
+	var broke: PlayerEconomy = economy.copy()
+	broke.treasury = 500
+	assert_eq(
+		AiArmyReinforce.muster_hands(config, broke, 0, true), 0,
+		"the chest is not in hand, so no hand is kept"
+	)
+	var short_row: PlayerEconomy = economy.copy()
+	short_row.stockpile = {"fabric": 0}
+	assert_eq(
+		AiArmyReinforce.muster_hands(config, short_row, 0, true), 0,
+		"the row is not in store, so no hand is kept"
+	)
+
+
 ## The reserve is a floor for a court with slack, not a veto: a purse that can no
 ## longer fund the next row (and more) still takes the one training it can.
 func test_ai_economy_spends_the_last_affordable_training() -> void:
@@ -4682,6 +4749,37 @@ func test_the_engineer_planner_raises_a_hospital_at_war() -> void:
 	assert_eq(orders.size(), 1)
 	assert_eq(String(orders[0]["action"]), "build_hospital")
 	assert_eq(Vector2i(orders[0]["tile"]), CAPITAL)
+
+
+## The ward's ration is priced against the larder that must carry it: a court
+## whose harvest leaves less than one ward's ration after every mouth it feeds
+## raises no ward, or it strikes itself into a famine its own works made
+## (wiki: civilian-work-planner § Playable slice; issue #807).
+func test_a_strapped_larder_raises_no_ward() -> void:
+	var context: Dictionary = _hospital_context()
+	context["larder_slack"] = HospitalRules.RATION_PER_LEVEL - 1
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", CAPITAL)
+	assert_true(AiHospitalWork.best_candidate(
+		AiConfig.build(0, 1500), _hospital_model(), unit, [unit], LandWorks.new(),
+		_hospital_stockpile(), {}, TECH, context, {}
+	).is_empty(), "a ward is a permanent two-food mouth the larder cannot carry")
+
+
+func test_a_larder_with_a_wards_ration_still_raises_one() -> void:
+	var context: Dictionary = _hospital_context()
+	context["larder_slack"] = HospitalRules.RATION_PER_LEVEL
+	var unit: CivilianState = CivilianState.create(1, 0, "engineer", CAPITAL)
+	assert_eq(
+		String(AiHospitalWork.best_candidate(
+			AiConfig.build(0, 1500), _hospital_model(), unit, [unit], LandWorks.new(),
+			_hospital_stockpile(), {}, TECH, context, {}
+		).get("action", "")),
+		"build_hospital"
+	)
+
+
+func test_a_caller_that_cannot_read_the_larder_keeps_the_old_reading() -> void:
+	assert_eq(String(_best(_hospital_model()).get("action", "")), "build_hospital")
 
 
 func test_peace_leaves_the_town_sweep_first() -> void:
@@ -11863,6 +11961,26 @@ func test_the_plan_prices_the_expedition_the_muster_and_the_order() -> void:
 	assert_eq(_by_id(objectives, "muster.line").cost["regiment"], 1)
 	assert_eq(int(_by_id(objectives, "war.declare").cost["orders"]), 1)
 	assert_eq(int(_by_id(objectives, "research.study").utility), 55, "the funding step lifts the study")
+
+
+## The #474 clause-1 un-latch (issue #807): while a line is due the seat guard
+## claims no regiment slot — the muster's regiment *is* the Home Army — so the
+## muster's own claim prices the seat's garrison instead of a phantom 90-point
+## claim holding it shut every warring turn.
+func test_the_seat_guard_stands_down_while_a_line_is_due() -> void:
+	var defend: AiObjective = _by_id(AiObjectivesPlan.build(_readings()), "defend.seat")
+	assert_true(
+		defend.cost.is_empty(),
+		"a due line takes the seat's own regiment slot"
+	)
+	var standing: Dictionary = _readings()
+	standing["at_war"] = true
+	standing["muster_due"] = false
+	defend = _by_id(AiObjectivesPlan.build(standing), "defend.seat")
+	assert_eq(
+		int(defend.cost.get("regiment", 0)), 1,
+		"at war with no line due the guard still holds the seat"
+	)
 
 
 func test_a_charted_tribe_prices_the_envoy_chain_it_is_buying() -> void:

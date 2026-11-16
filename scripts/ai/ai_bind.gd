@@ -33,12 +33,13 @@ static func production_orders(
 
 
 static func recruitment_orders(
-	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1
+	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0,
+	fed_slack: int = -1, hands: int = 0
 ) -> Array[Dictionary]:
 	var raw: Variant = (
 		_ml("ai_economy_planner.gd", "recruitment_orders", [config, economy, floor, fed_slack])
 		if _baseline(kind)
-		else AiEconomyPlanner.recruitment_orders(config, economy, floor, fed_slack)
+		else AiEconomyPlanner.recruitment_orders(config, economy, floor, fed_slack, hands)
 	)
 	var out: Array[Dictionary] = []
 	out.assign(raw)
@@ -165,6 +166,17 @@ static func fed_slack(
 	if _baseline(kind):
 		return int(_ml("ai_army_reinforce.gd", "fed_slack", [economy, army_food, ships]))
 	return AiArmyReinforce.fed_slack(economy, army_food, ships)
+
+
+## Peasants the court keeps in the fields so its muster stays legal; the
+## baseline planner has no reading, so its rivals keep the old throttle
+## (issue #807).
+static func muster_hands(
+	kind: String, config: Variant, economy: PlayerEconomy, regiments: int, at_war: bool
+) -> int:
+	if _baseline(kind):
+		return 0
+	return AiArmyReinforce.muster_hands(config, economy, regiments, at_war)
 
 
 static func civilian_plan(
