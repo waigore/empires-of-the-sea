@@ -116,12 +116,13 @@ func _build_row(row: Dictionary) -> Control:
 	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	top.add_child(label)
 	var ok: bool = bool(row["ok"])
-	var press := UiRowBuilder.button("Combine", 36.0, 0.0)
+	var press := UiRowBuilder.button("Join her", 36.0, 0.0)
 	press.custom_minimum_size = Vector2(84, 40)
 	press.add_theme_font_size_override("font_size", 12)
 	press.disabled = not ok
 	press.tooltip_text = "Fold this squadron into her" if ok else String(row["reason"])
 	var target_id: int = int(row["fleet"])
+	press.set_meta("combine_id", target_id)
 	press.pressed.connect(func() -> void: action_pressed.emit("combine:%d" % target_id))
 	top.add_child(press)
 	if not ok:

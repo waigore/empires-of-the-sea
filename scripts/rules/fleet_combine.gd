@@ -13,8 +13,8 @@ extends RefCounted
 
 ## The rule the sheet prints, so a phone never has to hover for it (REQ-P1-07).
 const NOTE: String = (
-	"Combine with another of your squadrons here: she keeps every hull, name "
-	+ "and passenger, and her orders go to the squadron that keeps the station."
+	"Combine with another of your squadrons here: this one folds into her, "
+	+ "keeping every hull, name and passenger, and takes the station she holds."
 )
 
 

@@ -2376,3 +2376,128 @@ func test_the_combine_receipt_names_both_flagships() -> void:
 	assert_true(
 		line.ends_with("one squadron of %d." % fleet.ship_count()), line
 	)
+
+
+## The in-port wording of the receipt, and a combine the roster cannot find: the
+## toast is the gate's own reason and nothing moves (REQ-P5-05).
+func test_a_combine_with_no_squadron_beside_and_the_in_port_receipt() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleet_of(_player_ship_at_sea())
+	var port := FleetState.in_port(910, 0, 3, ["c"], {"c": "sloop"})
+	assert_true(
+		MapPlayFleetCombine.line(_screen.play, port, {"name": "A", "into": "B"})
+			.begins_with("A joins B at "),
+		"a squadron in port is named by her province"
+	)
+
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(fleet))
+	var roster_before: int = _screen.ship_layer.fleets.size()
+	MapPlayFleets.on_action(_screen.play, "combine:99999")
+
+	assert_eq(_screen.ship_layer.fleets.size(), roster_before, "nothing moves")
+	assert_true(
+		_toast_texts().back().contains("Choose another"),
+		"the refusal names the gate: '%s'" % _toast_texts().back()
+	)
+
+
+## The drawer opened: one press per squadron beside her, and the press folds the
+## selected squadron into the one whose row it is (REQ-P5-04).
+func test_the_combine_drawer_files_the_press() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleet_of(_player_ship_at_sea())
+	var partner: FleetState = _partner_cmd(fleet.sea_zone, ["partner_a"])
+	var fleet_hulls: Array[String] = []
+	fleet_hulls.assign(fleet.hulls)
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(fleet))
+	var block: FleetCombineBlock = _screen.hud._fleet_panel._combine
+
+	block.set_open(true)
+
+	assert_true(block.is_open(), "the drawer opens")
+	var press: Button = _combine_press(block, partner.id)
+	assert_not_null(press, "the partner carries her own press")
+	press.pressed.emit()
+
+	assert_null(
+		FleetRosters.find(_screen.ship_layer.fleets, fleet.id),
+		"the press folded the selected squadron in"
+	)
+	for hull_id: String in fleet_hulls:
+		assert_true(
+			partner.hulls.has(hull_id),
+			"hull %s joined the squadron that keeps the station" % hull_id
+		)
+	assert_eq(
+		_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), partner,
+		"the player keeps the squadron that keeps the station in view"
+	)
+
+
+## A neighbour the rules hold back keeps her row and prints why (REQ-P1-07).
+func test_the_combine_drawer_names_a_held_back_neighbour() -> void:
+	var fleet: FleetState = _screen.ship_layer.fleet_of(_player_ship_at_sea())
+	fleet.embarked_civilians = [77]
+	_partner_cmd(fleet.sea_zone, ["partner_a"])
+	var carrying: FleetState = _partner_cmd(fleet.sea_zone, ["partner_b"])
+	carrying.embarked_army = 5
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(fleet))
+	var block: FleetCombineBlock = _screen.hud._fleet_panel._combine
+
+	block.set_open(true)
+
+	var held: Button = _combine_press(block, carrying.id)
+	assert_not_null(held, "the held-back squadron keeps her row")
+	assert_true(held.disabled, "her press is refused")
+	assert_true(held.tooltip_text.contains("colonists"), held.tooltip_text)
+	assert_true(block._button.visible, "a joinable neighbour keeps the drawer offered")
+
+
+## The gates that never move a hull, read straight off the rules module.
+func test_the_combine_gates_that_never_move_a_hull() -> void:
+	var none: Array[FleetState] = []
+	assert_true(FleetCombine.rows(null, none, null).is_empty(), "no squadron, no rows")
+
+	var fleet := FleetState.at_sea(31, 0, 7, ["a"], {"a": "sloop"})
+	var rival := FleetState.at_sea(32, 1, 7, ["b"], {"b": "sloop"})
+	assert_true(
+		String(FleetCombine.can_combine(null, null, fleet)["reason"]).contains("no squadron"),
+		"a caller with no squadron"
+	)
+	assert_true(
+		String(FleetCombine.can_combine(null, fleet, null)["reason"]).contains("Choose another"),
+		"no target"
+	)
+	assert_true(
+		String(FleetCombine.can_combine(null, fleet, fleet)["reason"]).contains("Choose another"),
+		"herself"
+	)
+	assert_true(
+		String(FleetCombine.can_combine(null, fleet, rival)["reason"]).contains("own squadrons"),
+		"a rival's squadron never folds in"
+	)
+	var slip := FleetState.empty_in_port(33, 0, 3)
+	var port := FleetState.in_port(34, 0, 3, ["c"], {"c": "sloop"})
+	assert_true(
+		String(FleetCombine.can_combine(null, slip, port)["reason"]).contains("slip with no hulls"),
+		"an empty slip combines nothing"
+	)
+	assert_true(
+		String(FleetCombine.can_combine(null, port, slip)["reason"]).contains("slip with no hulls"),
+		"nor takes a hull aboard by combining"
+	)
+	assert_eq(FleetCombine.flagship(slip), "", "a slip flies no flagship")
+	assert_false(FleetCombine.same_station(fleet, null), "no neighbour, no station")
+
+	var roster: Array[FleetState] = [fleet, rival]
+	var refused: Dictionary = FleetCombine.combine(null, roster, fleet, rival)
+	assert_false(bool(refused["ok"]), "a refused combine moves nothing")
+	assert_eq(roster.size(), 2, "both commands stay on the roster")
+	assert_false(FleetCombine.flagship(null).length() > 0, "no squadron, no name")
+
+
+## The press a row carries for `fleet_id`, or null when she has no row.
+func _combine_press(block: FleetCombineBlock, fleet_id: int) -> Button:
+	for entry: Node in block._box.get_children():
+		for press: Button in entry.find_children("*", "Button", true, false):
+			if int(press.get_meta("combine_id", -1)) == fleet_id:
+				return press
+	return null
