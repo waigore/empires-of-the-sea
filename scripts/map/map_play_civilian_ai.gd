@@ -5,8 +5,7 @@ extends RefCounted
 ## applies the legal moves, works and training through the same rules the
 ## human's orders use (REQ-P2-03, REQ-P3-03).
 ##
-## Split out of `MapPlayEconomyAi` so the civilian domain (units, mustering,
-## training) does not share a file with extraction, market and food.
+## Split out of `MapPlayEconomyAi`: units, mustering and training keep a file.
 
 ## Rivals open with a spy, so espionage is live from turn one.
 const RIVAL_STARTING_CIVILIANS: Array[String] = [
@@ -136,8 +135,7 @@ static func purses_for(treasury: int, floor: int, works_floor: int) -> Dictionar
 
 ## On `earn` only extraction is funded from the cash floor: a court that cannot
 ## pay its next commitment still works the resources that refill the store, and
-## leaves the town levels, roads and ports for the turn it can pay for them
-## (issue #489).
+## leaves the towns, roads and ports for a turn it can pay (issue #489).
 static func _keep_extraction(plan: Dictionary, model: MapModel) -> void:
 	var kept: Array[Dictionary] = []
 	for raw: Variant in plan.get("orders", []):
@@ -223,8 +221,10 @@ static func apply(
 			)
 			if not hired.is_empty():
 				report["training"].append(hired)
-		elif not String(training.get("reason", "")).is_empty():
-			report["training_blocked"] = String(training["reason"])
+		# A hire the footing held shut names why (REQ-P5-05).
+		report["training_blocked"] = String(
+			training.get("reason", report["training_blocked"])
+		)
 		play.civilian_layer.regions.set_region(region, roster)
 		if (
 			MapPlayTurn.view_live
