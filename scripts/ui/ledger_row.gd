@@ -23,6 +23,11 @@ var _chip: Label = null
 var _detail: Label = null
 var _state: VBoxContainer = null
 var _visit: Button = null
+## The state column's own two lines, mounted by `_reading_column`: the standing
+## line over the condition the row holds. A row that prints no column leaves both
+## null.
+var _standing: Label = null
+var _reading: Label = null
 
 
 func setup(row: Dictionary) -> void:
@@ -74,6 +79,35 @@ func _detail_color() -> Color:
 ## The row's own reading, painted into the labels the skeleton mounted.
 func _fill() -> void:
 	pass
+
+
+# --- the shared dress --------------------------------------------------------
+
+
+## The state column the crown's place and force rows wear: the place's standing
+## line over the condition it holds. The row names the column's width and the ink
+## of the line a crown scans first; a phone folds the column into the detail line,
+## so it is built once at phone sizes and never shown. A row with no such reading
+## never calls this, and its column stays unmounted.
+func _reading_column(state: VBoxContainer, standing_pixels: int = 12, width: int = 190) -> void:
+	state.add_theme_constant_override("separation", 3)
+	state.custom_minimum_size = Vector2(width, 0)
+	state.visible = not compact
+	_standing = UiRowBuilder.wrapped_line("", standing_pixels, Palette.TEXT)
+	state.add_child(_standing)
+	_reading = UiRowBuilder.wrapped_line("", 11, Palette.TEXT_DIM)
+	state.add_child(_reading)
+
+
+## The detail line of a row that prints where it stands: the place, the chart it
+## stands in and — on a phone, where the state column is folded away — the middle
+## reading the column would have carried.
+func _place_detail(place: String, compact_middle: String = "") -> void:
+	var chart: String = String(data.get("region_label", "Uncharted"))
+	if compact:
+		_detail.text = "%s  ·  %s  ·  %s" % [place, compact_middle, chart]
+		return
+	_detail.text = "%s  ·  %s" % [place, chart]
 
 
 # --- skeleton ----------------------------------------------------------------
