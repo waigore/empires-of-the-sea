@@ -95,7 +95,7 @@ static func _survey_lens(run, screen: MapScreen) -> void:
 ## itself aside (DR-20261113-12). No order is placed, so the turn is untouched.
 static func _muster_roll(run, screen: MapScreen) -> void:
 	run.check(screen.hud.muster_roll != null, "muster roll mounted")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	await run.tree.process_frame
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	run.check(panel.is_open(), "muster roll opens from the seal")
@@ -150,7 +150,7 @@ static func _province_ledger(run, screen: MapScreen) -> void:
 ## sets itself aside (DR-20261115-12). No Builder is sent, so no order is placed.
 static func _town_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.towns_ledger != null, "towns ledger mounted")
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
@@ -200,7 +200,7 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 ## the real map and sets itself aside (DR-20261116-01). No Engineer is sent.
 static func _wall_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.walls_ledger != null, "walls ledger mounted")
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
@@ -228,7 +228,7 @@ static func _wall_ledger(run, screen: MapScreen) -> void:
 ## (DR-20261116-02). No Engineer is sent, so no order is placed.
 static func _hospital_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.hospitals_ledger != null, "hospitals ledger mounted")
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
@@ -314,7 +314,7 @@ static func _command_ledger(run, screen: MapScreen) -> void:
 ## aside (DR-20261115-14). No hull is launched, docked or ordered.
 static func _navy_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.navy_ledger != null, "navy ledger mounted")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.muster_roll.find_children("*", "Button", true, false):
@@ -347,7 +347,7 @@ static func _navy_ledger(run, screen: MapScreen) -> void:
 ## itself aside (DR-20261116-16). No regiment is mustered, detached or dismissed.
 static func _army_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.army_ledger != null, "army ledger mounted")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.muster_roll.find_children("*", "Button", true, false):

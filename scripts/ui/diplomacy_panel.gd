@@ -8,13 +8,11 @@ extends LedgerFrame
 ## masthead and phone profile are LedgerFrame's (REQ-P3-01).
 
 signal order_pressed(kind: String, target: int, arg: String)
-## The court's own eyes: the intelligence sheet is one press from the crowns it
-## shadows (DR-20261115-10).
-signal eyes_pressed
-## The court's colonies: the world's colonies, who bought them and what their
-## suzerain's boycott shuts, are one press from the courts that hold them
-## (DR-20261117-02).
-signal colonies_pressed
+## The sheets one press from the court: its eyes, the crowns they shadow
+## (DR-20261115-10), and the colonies those courts hold, whose suzerain's
+## boycott a crown reads there (DR-20261117-02). Each press names its sheet by
+## the HUD's door key.
+signal door_pressed(key: String)
 
 var _state: DiplomacyState = null
 var _world: WorldMap = null
@@ -72,13 +70,13 @@ func _build_body(column: VBoxContainer) -> void:
 	# it shadows, and stays on a phone where the summary line folds away.
 	var eyes := UiRowBuilder.button("EYES ›", 30.0, 78.0, 12)
 	eyes.tooltip_text = "The crown's spies, the courts they shadow and the screen (I)"
-	eyes.pressed.connect(func() -> void: eyes_pressed.emit())
+	eyes.pressed.connect(func() -> void: door_pressed.emit(HudLedgerDoors.EYES))
 	head.add_child(eyes)
 	# The colonies the courts hold: the boycott a crown issues is read on the
 	# colony it shuts, so the sheet sits beside the eyes (DR-20261117-02).
 	var colonies := UiRowBuilder.button("COLONIES ›", 30.0, 96.0, 12)
 	colonies.tooltip_text = "Every colony, the court that bought it and what bars its trade"
-	colonies.pressed.connect(func() -> void: colonies_pressed.emit())
+	colonies.pressed.connect(func() -> void: door_pressed.emit(HudLedgerDoors.COLONIES))
 	head.add_child(colonies)
 	_call_box = VBoxContainer.new()
 	_call_box.add_theme_constant_override("separation", 6)

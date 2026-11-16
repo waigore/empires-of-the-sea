@@ -77,7 +77,7 @@ static func build(hud: GameHud) -> void:
 	))
 	command.add_child(_seal(
 		"commander", "MUSTER", "Every army and squadron in one ledger (O)",
-		func() -> void: hud.muster_roll_pressed.emit()
+		func() -> void: hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	))
 	# Non-navigation chrome lives on the bar, never as a loose seal over the
 	# chart (REQ-P1-07): the estates ledger and the crown's news.
@@ -148,7 +148,9 @@ static func _add_chips(hud: GameHud, row: HBoxContainer) -> void:
 	row.add_child(fleets["root"])
 
 	var civilians := _chip("CivilianChip", "people", "CREW ›", false)
-	civilians["root"].pressed.connect(func() -> void: hud.civilian_roster_pressed.emit())
+	civilians["root"].pressed.connect(
+		func() -> void: hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	)
 	civilians["root"].tooltip_text = "Every civilian in the realm (C)"
 	hud.chips.append(civilians["root"])
 	row.add_child(civilians["root"])
