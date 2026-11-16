@@ -17,8 +17,8 @@
   feeding 1.0/0.75/0.5; wood 1.5/1.1 defender, 0.9 attacker.
 - **Armies** (`ArmyState`): one province per army; one Home Army per crown at
   its capital, never deleted; split/combine needs one province and owner; one
-  march a turn, foreign land must border. **Dismiss** sheds a regiment (or all)
-  for a peasant each, no refund; an emptied field army retires (`ArmyDismiss`,
+  march a turn, foreign land must border. **Dismiss** sheds a regiment (or all),
+  a peasant each, no refund; an emptied field army retires (`ArmyDismiss`,
   DR-20261109-01).
 - **Upkeep:** 1–3 food a regiment by era.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
