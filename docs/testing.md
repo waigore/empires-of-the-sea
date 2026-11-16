@@ -39,23 +39,19 @@ loads, returns to title. Deep rules stay in `tests/`.
   per case. Prefer a pocket chart over regenerating Standard; the price census
   rides **Small** (not Large) when a seed keeps the published order.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
-  pristine save (~0.15 s vs ~0.5 s remount), dropping selection, sheets and
-  lenses; a suite that swaps screens frees its own. Reuse a preset only when
-  sizes match.
+  pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
+  **one mount per tier**. A suite that swaps screens frees its own.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
   session (and `ai_turns` / Auto fields), re-seat each case (~0.2 s vs
-  ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` and
-  `test_auto_mode` are the references.
+  ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` /
+  `test_auto_mode`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`.
-- **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
-  `world_…` suite drains alone.
-- One Godot boot per theme — coverage ~15 s a boot: fold leftovers into their
-  theme's boot; delete suites covered elsewhere. 39 → 23 suites (save_codec
-  rides campaign_end). `gd-tools.toml` keeps `parallel = 4`; profile with
-  `--durations 20`.
-- Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
-  landed on exit).
+- **Heaviest suite sorts first**: name order, four wide — a long `world_…`
+  suite must not drain alone at the end.
+- One Godot boot per theme — coverage ~15 s a boot; 39 → 23 suites
+  (`save_codec` rides campaign_end). `gd-tools.toml` keeps `parallel = 4`.
+- Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`).
 
 ## Local
 
