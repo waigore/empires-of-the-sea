@@ -168,17 +168,6 @@ static func fed_slack(
 	return AiArmyReinforce.fed_slack(economy, army_food, ships)
 
 
-## Peasants the court keeps in the fields so its muster stays legal; the
-## baseline planner has no reading, so its rivals keep the old throttle
-## (issue #807).
-static func muster_hands(
-	kind: String, config: Variant, economy: PlayerEconomy, regiments: int, at_war: bool
-) -> int:
-	if _baseline(kind):
-		return 0
-	return AiArmyReinforce.muster_hands(config, economy, regiments, at_war)
-
-
 static func civilian_plan(
 	kind: String,
 	config: Variant,
