@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
-  "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:249c14a3a2fcb37e15a5a93f8a6c1e9d91f2d623cf1bf7ed91629f7a76cd1053",
-  "submission_git": "refactor/voyage-read-one-roster@9182fd07",
+  "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
+  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
+  "submission_hash": "sha256:72b7e8527a46e7fcab0195cc6fcfe7b80126f935de4a9eafcc2d526355f34a9e",
+  "submission_git": "chore/807-income-scoring@053344a7",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1875.0553857906798,
+      "value": 1904.521119657042,
       "direction": "max"
     },
     {
@@ -50,7 +50,7 @@
     },
     {
       "name": "funded_pct",
-      "value": 88.32280219780219,
+      "value": 87.56208791208792,
       "direction": "max"
     }
   ],
@@ -65,15 +65,15 @@
       "ships": 2,
       "workers": 6,
       "extraction_per_turn": 1.0129870129870129,
-      "income_per_turn": 63.029411764705884,
-      "funded_pct": 88.32280219780219
+      "income_per_turn": 92.49514563106796,
+      "funded_pct": 87.56208791208792
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 88.32280219780219
+    "funded_pct": 87.56208791208792
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-15T23:25:18Z",
+  "timestamp": "2026-11-16T10:53:43Z",
   "report_version": 1,
-  "signature": "hmac-sha256:008abf71d703043241359d8531464c725d64a8c5fd0dc63c22728543ca8ce8ec"
+  "signature": "hmac-sha256:30db41f0a5df47ccba570c901b731373ca74ffe0218fa60ee1598ad0c9eb4669"
 }
