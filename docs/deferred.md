@@ -35,17 +35,17 @@ Audited through DR-20261117-02; #846–#859 live (REQ-P2-02).
 | Expansion-crew slot | `SLOT_CREWS`, DR-16-15 |
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823/#834 |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
+| Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
 
 ## Gaps (impact order)
 
-1. **Civilian-build seeds** — exotic mixes / per-tile previews
-   (`civilian-build-planner`).
+1. **Civilian-build per-tile previews** (`AiStaffTaste` covers the mixes).
 2. **Quick Battle multi-lane / collapse** — one lane; design call first
    (DR-10-24).
 
 ## Next pick
 
-Civilian build seeds; else P5/P1 polish.
+Per-tile previews; else P5/P1 polish.
 
 ## Blocked footnotes
 

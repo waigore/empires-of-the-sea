@@ -2756,6 +2756,10 @@ func test_ai_recalls_a_spy_to_screen_at_war() -> void:
 
 func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	# Floors with no regional work: 2 builders, engineer_target (2), explorer_target (3).
+	# The court is neutral here so the floors are the published ones — an
+	# archetype's own crew is a target of its own (AiStaffTaste, test_ai_rules).
+	var config: AiConfig = AiConfig.build(RIVAL, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	var roster: Array[CivilianState] = [
 		CivilianState.create(1, RIVAL, "builder", CivilianFixture.BARE_TILE),
 		CivilianState.create(9, RIVAL, "builder", CivilianFixture.BARE_TILE),
@@ -2765,9 +2769,7 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 		CivilianState.create(5, RIVAL, "explorer", CivilianFixture.BARE_TILE),
 		CivilianState.create(6, RIVAL, "explorer", CivilianFixture.BARE_TILE),
 	]
-	var order: Dictionary = AiCivilianPlanner.training_order(
-		AiConfig.build(RIVAL, 1500), roster, _context()
-	)
+	var order: Dictionary = AiCivilianPlanner.training_order(config, roster, _context())
 	assert_true(bool(order.get("ok", false)))
 	assert_eq(String(order["type_id"]), "spy")
 	var war_roster: Array[CivilianState] = [
@@ -2778,9 +2780,7 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	]
 	var war_context: Dictionary = _context()
 	war_context["at_war"] = true
-	var war_order: Dictionary = AiCivilianPlanner.training_order(
-		AiConfig.build(RIVAL, 1500), war_roster, war_context
-	)
+	var war_order: Dictionary = AiCivilianPlanner.training_order(config, war_roster, war_context)
 	assert_eq(String(war_order["type_id"]), "spy", "a war court wants a screen first")
 
 

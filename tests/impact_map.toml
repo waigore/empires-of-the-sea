@@ -1991,6 +1991,13 @@ domain = "prospect"
 match = "scripts/ai/ai_civilian_planner.gd*"
 domain = "prospect"
 
+# The archetype's own crew (the hire the planner takes beyond the region's
+# asks): the same plan pass and its suite prove it, so it rides with the
+# planner on the prospect slice rather than the broad `scripts/ai/**` fan-out.
+[[rules]]
+match = "scripts/ai/ai_staff_taste.gd*"
+domain = "prospect"
+
 # The shared civilian gate and ranker every work module calls.
 [[rules]]
 match = "scripts/ai/ai_civilian_candidate.gd*"
