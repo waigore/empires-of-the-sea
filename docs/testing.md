@@ -178,8 +178,10 @@ godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 
 # College debt — books every slot at Maximum from the college's own buttons on a
 # turn-0 crown that may not borrow and walks real turns until a study starves,
-# then seats a Money Lending crown at the -500 floor's edge and reads the phase's
-# last payment, the floor it will not pass, and every line the court is told.
+# then seats a Money Lending crown at the -500 floor's edge and a Money Lending
+# and Banking crown at the -1,000 floor, reading the phase's last payment, the
+# floor it will not pass, every line the court is told, and the MARKET tab's bid
+# budget and dead Bid presses with the purse in debt.
 godot --headless --path . --script res://playtests/playtest_college_debt.gd
 
 # Trade terms — walks the colony chain, bids the colony's own good (the Deal Book

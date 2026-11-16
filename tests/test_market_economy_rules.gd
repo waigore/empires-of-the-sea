@@ -4972,6 +4972,66 @@ func test_a_promise_beyond_the_purse_leaves_nothing_to_bid() -> void:
 	assert_true(LedgerText.bid_budget_line(reading).contains("nothing this turn"))
 
 
+## A purse in debt is named as debt: the college's lending floor (Money Lending
+## with Banking) can leave the crown owing more than it holds, and "the whole
+## purse — 0 ducats" would print a sum it does not hold (wiki:
+## tech-tree-labour-economy § banking; world-market § Treasury budget for bids;
+## REQ-P5-05).
+func test_a_purse_in_debt_is_named_as_debt_not_an_empty_purse() -> void:
+	var economy: PlayerEconomy = _bid_economy(-925)
+	var reading: Dictionary = MarketBudget.budget(economy)
+	assert_eq(int(reading["purse"]), -925, "the crown's own balance keeps its debt")
+	assert_eq(int(reading["treasury"]), 0, "the auction still spends max(0, treasury)")
+	assert_eq(int(reading["budget"]), 0)
+	var line: String = LedgerText.bid_budget_line(reading)
+	assert_true(line.contains("925 ducats in debt"), line)
+	assert_false(line.contains("whole purse"), line)
+
+
+## The same purse with orders already promised names both debts, so the crown
+## reads where the money went (REQ-P5-05).
+func test_a_purse_in_debt_names_the_orders_it_also_owes() -> void:
+	var economy: PlayerEconomy = _bid_economy(-925)
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	var line: String = LedgerText.bid_budget_line(MarketBudget.budget(economy))
+	assert_true(line.contains("925 ducats in debt"), line)
+	assert_true(line.contains("promised to 1 waiting order"), line)
+
+
+## The dead Bid press names the debt that shut it rather than the rules in the
+## abstract (wiki: world-market § Treasury budget for bids; REQ-P5-05).
+func test_the_bid_press_names_a_purse_in_debt() -> void:
+	var built: Dictionary = MarketRow.build(
+		"timber", 0, 0, {"free": 4}, _market(), 0,
+		{
+			"cargo_free": 4,
+			"treasury": -925,
+			"tech_unlocked": {},
+			"projected_non_bid_delta": 0,
+			"reserved": {},
+		},
+		false,
+		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass
+	)
+	var row: Node = built["row"] as Node
+	var bid: Button = _bid_press(row)
+	assert_not_null(bid, "the row draws a Bid press")
+	assert_true(bid.disabled, "a purse in debt buys nothing")
+	assert_true(bid.tooltip_text.contains("925 ducats in debt"), bid.tooltip_text)
+	row.free()
+
+
+## The first Bid press under `node`, so a row's own words can be read.
+func _bid_press(node: Node) -> Button:
+	for child: Node in node.get_children():
+		if child is Button and (child as Button).text.strip_edges() == "Bid":
+			return child as Button
+		var found: Button = _bid_press(child)
+		if found != null:
+			return found
+	return null
+
+
 func test_a_bid_the_promise_cannot_cover_is_refused() -> void:
 	var economy: PlayerEconomy = _bid_economy(10000)
 	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
