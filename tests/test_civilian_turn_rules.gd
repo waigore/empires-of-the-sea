@@ -793,8 +793,8 @@ func test_a_town_beside_a_port_is_not_capped() -> void:
 	)
 	assert_eq(
 		Extraction.yields(model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1)),
-		{"grain": 4},
-		"the estate beside the town pays its whole level"
+		{"grain": 8},
+		"the estate beside the town pays its whole level, doubled for a ration estate"
 	)
 
 
@@ -885,7 +885,7 @@ func test_a_sealed_harbour_cuts_the_provinces_harvest() -> void:
 	var open: Dictionary = Extraction.yields(
 		model, PLAYER, -1, {"grain": 4}, _works, Vector2i(-1, -1)
 	)
-	assert_eq(open, {"grain": 4}, "the harbour reaches the crown by sea")
+	assert_eq(open, {"grain": 8}, "the harbour reaches the crown by sea")
 	var seals: Blockades = _blockade_of(model, 2)
 	var shut: Dictionary = Extraction.yields(
 		model, PLAYER, -1, {"grain": 4}, _works, Vector2i(-1, -1), {}, true, {}, seals
@@ -898,7 +898,7 @@ func test_a_sealed_harbour_cuts_the_provinces_harvest() -> void:
 	var road: Dictionary = Extraction.yields(
 		model, PLAYER, -1, {"grain": 4}, _works, Vector2i(0, 1), {}, true, {}, seals
 	)
-	assert_eq(road, {"grain": 1}, "the road survives the blockade")
+	assert_eq(road, {"grain": 2}, "the road survives the blockade")
 
 
 ## A blockade of the court's own capital harbour cuts every sea path at once, so
@@ -2659,7 +2659,7 @@ func test_a_purchased_tile_becomes_an_owned_estate() -> void:
 	var totals: Dictionary = Extraction.yields(
 		model, 0, -1, {}, works, field_Fixture.BARE_TILE
 	)
-	assert_eq(totals, {"grain": 1}, "the deed yields for its buyer")
+	assert_eq(totals, {"grain": 2}, "the deed yields for its buyer, doubled for grain")
 	var seller: Dictionary = Extraction.yields(
 		model, 1, -1, {}, works, field_Fixture.BARE_TILE
 	)
@@ -2792,12 +2792,57 @@ func test_minerals_must_be_prospected_to_yield() -> void:
 	assert_eq(totals, {"iron": 1})
 
 
+## Foreign estates never pay the player's crown: the old owner no longer
+## extracts it.
 func test_foreign_estates_never_pay_the_player() -> void:
 	field__works.set_improvement(field__model, field_Fixture.RIVAL_GRAIN_TILE, 3)
 	var totals: Dictionary = Extraction.yields(
 		field__model, 0, -1, {}, field__works, field_Fixture.BARE_TILE
 	)
 	assert_eq(totals, {})
+
+
+## One bootstrap estate of `resource` in a lone owned province, read at the
+## phase's published level-1 yield.
+func _ration_estate_totals(owner: int, resource: int) -> Dictionary:
+	var model := MapModel.new()
+	model.setup(2, 1)
+	var tiles: Array[Vector2i] = []
+	for x in 2:
+		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(Vector2i(x, 0))
+	model.resource[model.index_of(1, 0)] = resource
+	var province := ProvinceState.create(
+		0, "Cádiz", tiles, Vector2(0.5, 0.0), tiles.size(), owner, true
+	)
+	province.capital_tile = Vector2i(0, 0)
+	model.provinces = [province]
+	return Extraction.yields(model, owner, -1)
+
+
+## A Great Power's ration estates — grain and meat — yield double per level;
+## every other estate and every Minor or Tribe tile keeps its published yield
+## (wiki: extraction-and-improvements § Ration estates; issue #807).
+func test_a_great_powers_ration_estates_pay_double() -> void:
+	var power: int = FactionCatalog.PLAYER_FACTION
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var grain: int = 4
+	var meat: int = 7
+	var wool: int = 5
+
+	assert_eq(_ration_estate_totals(power, grain), {"grain": 2})
+	assert_eq(_ration_estate_totals(power, meat), {"meat": 2})
+	assert_eq(_ration_estate_totals(power, wool), {"wool": 1}, "wool is not a ration")
+	assert_eq(_ration_estate_totals(minor, grain), {"grain": 1}, "the book keeps its unit yield")
+
+
+func test_a_ration_estate_levels_double_with_the_estate() -> void:
+	var power: int = FactionCatalog.PLAYER_FACTION
+	assert_eq(Extraction.estate_yield_per_level(power, "grain"), 2)
+	assert_eq(Extraction.estate_yield_per_level(power, "meat"), 2)
+	assert_eq(Extraction.estate_yield_per_level(power, "timber"), 1)
+	assert_eq(Extraction.estate_yield_per_level(-1, "grain"), 1, "no owner, no doubling")
 
 
 ## A colony's estates beside its port town are Town-rule connected, so the town's
@@ -2810,7 +2855,7 @@ func test_a_port_town_caps_the_estates_beside_it() -> void:
 	var totals: Dictionary = Extraction.yields(
 		model, 0, -1, {"grain": 4}, works, Vector2i(-1, -1)
 	)
-	assert_eq(totals, {"grain": 2})
+	assert_eq(totals, {"grain": 4}, "the ration estate pays its level doubled")
 
 
 ## A rail from the landfall lifts the cap: the estate then reaches the crown by
@@ -2823,7 +2868,7 @@ func test_a_colony_road_lifts_the_town_cap() -> void:
 	var totals: Dictionary = Extraction.yields(
 		model, 0, -1, {"grain": 4}, works, Vector2i(-1, -1)
 	)
-	assert_eq(totals, {"grain": 4})
+	assert_eq(totals, {"grain": 8})
 
 
 ## An inland town caps nothing: only a port town beside the crown's sea path

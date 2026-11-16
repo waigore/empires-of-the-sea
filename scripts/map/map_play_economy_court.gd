@@ -140,9 +140,17 @@ func apply_turn() -> Dictionary:
 		economy.production.set_assignment(
 			String(assignment["recipe"]), int(assignment["units"])
 		)
+	# The muster hand reservation keeps `army.min_peasants` + the levy's own
+	# hand in the fields while the muster is legal and funded (issue #807).
+	# The baseline planner has no reading, so its rivals keep the old throttle.
+	var hands: int = (
+		AiArmyReinforce.muster_hands(config, economy, regiments, at_war)
+		if kind != AiControl.KIND_BASELINE else 0
+	)
 	var recruits: Array[Dictionary] = AiBind.recruitment_orders(
 		kind, config, economy, floor,
-		AiBind.fed_slack(kind, economy, army_food, ships)
+		AiBind.fed_slack(kind, economy, army_food, ships),
+		hands
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))
@@ -179,7 +187,7 @@ func _plan_research() -> Dictionary:
 	if door.is_empty():
 		door = AiTribeColony.door(
 			play.diplomacy, play.world, play.court_charts, faction,
-			economy.tech_unlocked
+			economy.tech_unlocked, AiPhasePlanner.phase_for(config, play.diplomacy)
 		)
 	return AiBind.research_plan(
 		kind, config, economy,

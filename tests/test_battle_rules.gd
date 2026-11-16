@@ -7542,6 +7542,37 @@ func test_roster_counts_every_region() -> void:
 const overlay_Fixture = preload("res://tests/map_fixture.gd")
 const NAMES: Array[String] = ["España", "England"]
 
+## One mount for the HUD plate cases: under coverage a mount costs seconds and
+## each case only needs a bare chart with the news lane and the plates reset, so
+## they share the chart and re-seat from the pristine save (docs/testing.md
+## § Speed rules). Non-underscore: gd-tools clones a fresh suite instance per
+## test and does not copy underscore fields out of before_all.
+var hud_mounted: MapScreen = null
+var hud_pristine: Dictionary = {}
+var hud_pristine_map: Array = []
+
+
+func before_all() -> void:
+	hud_pristine_map = overlay_Fixture.snapshot(overlay_Fixture.world())
+	hud_mounted = overlay_Fixture.attach_screen(self)
+	hud_pristine = overlay_Fixture.suite_capture(hud_mounted)
+
+
+func after_all() -> void:
+	if is_instance_valid(hud_mounted):
+		hud_mounted.free()
+	hud_mounted = null
+	hud_pristine = {}
+	hud_pristine_map = []
+
+
+## A plate case starts on the pristine chart, as a mount did: the reset drops
+## the previous case's plates, queues, news and sheets.
+func _hud() -> MapScreen:
+	overlay_Fixture.restore(overlay_Fixture.world(), hud_pristine_map)
+	overlay_Fixture.suite_reset(hud_mounted, hud_pristine)
+	return hud_mounted
+
 
 func test_the_plate_shows_a_battle_and_finishes_on_skip() -> void:
 	var overlay := QuickBattleOverlay.new()
@@ -7579,7 +7610,7 @@ func test_the_plate_handles_a_battle_without_rounds() -> void:
 
 
 func test_the_hud_mounts_the_plate_and_queues_a_second_battle() -> void:
-	var screen: MapScreen = overlay_Fixture.attach_screen(self)
+	var screen: MapScreen = _hud()
 	screen.hud.show_quick_battle(_battle(), "Flanders")
 	assert_true(screen.hud.is_quick_battle_shown())
 	screen.hud.show_quick_battle(_battle(), "Burgundy")
@@ -7590,14 +7621,13 @@ func test_the_hud_mounts_the_plate_and_queues_a_second_battle() -> void:
 	screen.hud.quick_battle_overlay.skip()
 	screen.hud.quick_battle_overlay._on_continue()
 	assert_false(screen.hud.is_quick_battle_shown())
-	screen.free()
 
 
 ## The court's news waits for the plates: a despatch raised while a battle plays
 ## sits under the plate and expires unread, so the HUD holds it and raises it
 ## once the last plate closes (REQ-P5-06).
 func test_the_courts_news_waits_for_the_battle_plates() -> void:
-	var screen: MapScreen = overlay_Fixture.attach_screen(self)
+	var screen: MapScreen = _hud()
 	var raised: int = screen.hud.despatches.box.get_child_count()
 	screen.hud.show_quick_battle(_battle(), "Flanders")
 	screen.hud.toast("England occupies Burgundy unopposed")
@@ -7613,13 +7643,12 @@ func test_the_courts_news_waits_for_the_battle_plates() -> void:
 		"the court reads it after the battle"
 	)
 	assert_eq(screen.hud.despatches.held().size(), 0, "nothing is left waiting")
-	screen.free()
 
 
 ## A second battle of the same turn keeps the news waiting until the last plate
 ## closes, so an earlier despatch never slips out between the fights.
 func test_the_news_waits_for_every_plate_of_the_turn() -> void:
-	var screen: MapScreen = overlay_Fixture.attach_screen(self)
+	var screen: MapScreen = _hud()
 	var raised: int = screen.hud.despatches.box.get_child_count()
 	screen.hud.show_quick_battle(_battle(), "Flanders")
 	screen.hud.show_quick_battle(_battle(), "Burgundy")
@@ -7635,27 +7664,25 @@ func test_the_news_waits_for_every_plate_of_the_turn() -> void:
 	assert_eq(
 		screen.hud.despatches.box.get_child_count(), raised + 1, "the news arrives at the end"
 	)
-	screen.free()
 
 
 ## A long turn cannot bury the court in plates: the queue keeps the newest
 ## despatches, which are the ones the turn's orders produced.
 func test_the_news_queue_keeps_the_newest_despatches() -> void:
-	var screen: MapScreen = overlay_Fixture.attach_screen(self)
+	var screen: MapScreen = _hud()
 	screen.hud.show_quick_battle(_battle(), "Flanders")
 	for index in HudDespatches.QUEUE_CAP + 2:
 		screen.hud.toast("news %d" % index)
 
 	assert_eq(screen.hud.despatches.held().size(), HudDespatches.QUEUE_CAP)
 	assert_eq(String(screen.hud.despatches.held()[0]), "news 2", "the oldest lines go first")
-	screen.free()
 
 
 ## A full queue spends the line the plate already told before the court's own
 ## news: the seat lost and the court's move must never be the price of a battle
 ## despatch the plate narrated (REQ-P5-06).
 func test_the_plate_line_goes_before_the_courts_news() -> void:
-	var screen: MapScreen = overlay_Fixture.attach_screen(self)
+	var screen: MapScreen = _hud()
 	screen.hud.show_quick_battle(_battle(), "Flanders")
 	screen.hud.toast_plate_line("England takes Flanders")
 	for index in HudDespatches.QUEUE_CAP - 1:
@@ -7667,7 +7694,6 @@ func test_the_plate_line_goes_before_the_courts_news() -> void:
 	assert_eq(held.size(), HudDespatches.QUEUE_CAP)
 	assert_false(held.has("England takes Flanders"), "the plate's own line goes first")
 	assert_true(held.has("Spain moves its court to Cuenca"), "the court's news stays")
-	screen.free()
 
 
 ## A despatch states what the action did to the other side; an assault's price

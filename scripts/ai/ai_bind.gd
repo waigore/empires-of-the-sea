@@ -33,12 +33,13 @@ static func production_orders(
 
 
 static func recruitment_orders(
-	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1
+	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0,
+	fed_slack: int = -1, hands: int = 0
 ) -> Array[Dictionary]:
 	var raw: Variant = (
 		_ml("ai_economy_planner.gd", "recruitment_orders", [config, economy, floor, fed_slack])
 		if _baseline(kind)
-		else AiEconomyPlanner.recruitment_orders(config, economy, floor, fed_slack)
+		else AiEconomyPlanner.recruitment_orders(config, economy, floor, fed_slack, hands)
 	)
 	var out: Array[Dictionary] = []
 	out.assign(raw)

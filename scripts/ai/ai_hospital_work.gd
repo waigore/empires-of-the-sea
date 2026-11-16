@@ -10,42 +10,45 @@ extends RefCounted
 ## does, so the planner can never invent an outcome or spend a commodity twice
 ## (REQ-P2-03, REQ-P3-03). Pure rules: state in, candidate out.
 
+
 ## The hospital is a second legal work in a province that already hosts a fort
 ## project, so this scorer reads the province, never the town's occupancy.
-static func best_candidate(
-	config: AiConfig,
-	model: MapModel,
-	unit: CivilianState,
-	units: Array,
-	works: LandWorks,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	reserved: Dictionary
-) -> Dictionary:
+## `context["larder_slack"]` — the grain the court's own harvest leaves after
+## every mouth it already feeds — prices a ward against the larder that must
+## carry it: a ward is a permanent `HospitalRules.RATION_PER_LEVEL` mouth, so a
+## court whose slack is under that raises no ward, or it strikes itself into the
+## famine its own works made (issue #807, evidence/issue-766). A caller that
+## does not know the larder passes no key and keeps the old reading.
+static func best_candidate(query: AiWorkQuery) -> Dictionary:
 	var best: Dictionary = {}
-	if config == null or model == null or unit == null or works == null:
+	if query.config == null or query.model == null or query.unit == null:
 		return best
-	var weight: int = config.parameter("civilian.hospital_weight")
-	var at_war: bool = bool(context.get("at_war", false))
-	for province: ProvinceState in model.provinces:
-		if province.owner != unit.owner or not province.has_town():
+	if query.works == null:
+		return best
+	# The larder gate: a ward is a permanent two-food mouth, so a court whose
+	# harvest leaves less than one ward's ration after every mouth it feeds
+	# raises none (issue #807).
+	if query.context.has("larder_slack"):
+		var slack: int = int(query.context["larder_slack"])
+		if slack < HospitalRules.RATION_PER_LEVEL:
+			return best
+	var weight: int = query.config.parameter("civilian.hospital_weight")
+	for province: ProvinceState in query.model.provinces:
+		if province.owner != query.unit.owner or not province.has_town():
 			continue
-		if HospitalRules.level_at(model, province.id) >= HospitalRules.MAX_LEVEL:
+		if HospitalRules.level_at(query.model, province.id) >= HospitalRules.MAX_LEVEL:
 			continue
-		var tile: Vector2i = HospitalRules.site_tile(model, province.id)
-		if tile.x < 0 or reserved.has(tile):
+		var tile: Vector2i = HospitalRules.site_tile(query.model, province.id)
+		if tile.x < 0 or query.reserved.has(tile):
 			continue
 		var score: int = weight
-		if at_war:
+		if query.at_war():
 			score += 25
 		if province.capital:
 			score += 15
 		score += province.town_level() * 5
 		var candidate: Dictionary = AiCivilianCandidate.make(
-			model, unit, "build_hospital", tile, works, units, stockpile,
-			tech_caps, tech_unlocked, context, score
+			query, "build_hospital", tile, score
 		)
 		best = AiCivilianCandidate.better(best, candidate)
 	return best

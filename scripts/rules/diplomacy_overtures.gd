@@ -92,6 +92,10 @@ static func _absorb(world: WorldMap, state: DiplomacyState, winner: int, loser: 
 		for province: ProvinceState in model.provinces:
 			if province.owner == loser:
 				province.owner = winner
+				# The absorbed court's seat does not travel with its land
+				# (wiki: capital-and-connectivity § Capital loss and
+				# reassignment).
+				CapitalLoss.clear_seat(province)
 	state.clear_relations_of(loser)
 	state.record_event("joinEmpire", winner, loser)
 

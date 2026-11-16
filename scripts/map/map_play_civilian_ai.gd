@@ -81,6 +81,18 @@ static func plan_all(
 			context["muster_port"] = muster
 		if region != int(overseas.get("home_region", region)):
 			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
+		# The larder slack the ward gate reads: the ration food this turn's
+		# harvest carries less every mouth the consumption phase already feeds
+		# (wiki: civilian-work-planner § Playable slice; issue #807). A caller
+		# with no harvest to read passes no key and keeps the old reading.
+		var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
+		if not harvest.is_empty():
+			var food: int = 0
+			for id: String in CommodityCatalog.FOOD:
+				food += maxi(int(harvest.get(id, 0)), 0)
+			context["larder_slack"] = (
+				food - MapPlayEconomyAi._food_demand(play, faction, economy)
+			)
 		var plan: Dictionary = AiBind.civilian_plan(
 			kind, config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context

@@ -85,6 +85,12 @@ static func build(
 			if int(cargo.get("free", 0)) <= 0
 			else "the rules leave no room for a bid this turn"
 		)
+		# A purse in debt is the reason, named: the college's lending floor can
+		# leave the crown owing more than it holds, and "the rules leave no room"
+		# would hide the debt the banner above already prints (REQ-P5-05).
+		var purse: int = int(ctx.get("treasury", 0))
+		if int(cargo.get("free", 0)) > 0 and purse < 0:
+			why = "the purse is %s ducats in debt" % TextFormat.thousands(-purse)
 		buy.tooltip_text = "Bid 1 %s at %d ducats — %s" % [
 			CommodityCatalog.label(id), buy_unit, why,
 		]
