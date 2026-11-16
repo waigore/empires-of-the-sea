@@ -1,13 +1,28 @@
 class_name MapPlayFleets
 extends RefCounted
-## Fleet selection, sail and dock orders, and fog intel for enemy markers.
-## Naval rules stay in NavalMovement; this only drives PlaySession views. The
-## capital shipyard's slip rows and hull orders live on MapPlayFleetYard.
+## Fleet selection, sail and dock orders. Naval rules stay in NavalMovement;
+## this only drives PlaySession views. The crown's watch over rival squadrons
+## (fog, sighted strength, charted coast) lives on MapPlayFleetIntel — thin
+## forwards below keep call sites off that module's impact fan-out — and the
+## capital shipyard's slip rows and hull orders on MapPlayFleetYard.
 
 
 ## Rival naval turn — see MapPlayFleetAi (docs/ai.md).
 static func run_ai(play: PlaySession) -> Array[Dictionary]:
 	return MapPlayFleetAi.run(play)
+
+
+## Forwards: the crown's watch (see MapPlayFleetIntel).
+static func view_filter(play: PlaySession) -> Callable:
+	return MapPlayFleetIntel.view_filter(play)
+
+
+static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void:
+	MapPlayFleetIntel.on_zone_entered(play, zone_id, ship)
+
+
+static func refresh_visibility(play: PlaySession) -> void:
+	MapPlayFleetIntel.refresh_visibility(play)
 
 
 static func select(play: PlaySession, ship: Ship) -> void:
@@ -32,10 +47,11 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 	# the dossier can never assemble her maths (wiki: ships-and-naval
 	# § Sighted strength).
 	var strength: Dictionary = NavalStrength.fogged()
-	if strength_read(play, fleet):
+	if MapPlayFleetIntel.strength_read(play, fleet):
 		strength = NavalStrength.dossier(
 			play.ship_layer.fleets, fleet, MapPlayBeachhead.hostile(play),
-			MapPlayNavalTurn.strength_multipliers(play), play.leaders, intel_filter(play)
+			MapPlayNavalTurn.strength_multipliers(play), play.leaders,
+			MapPlayFleetIntel.intel_filter(play)
 		)
 	play.hud.panels.show_fleet(
 		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet),
@@ -48,32 +64,6 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		MapPlayFleetMissions.hint(play, fleet),
 		play.ship_layer.fleets
 	)
-
-
-## Whether the crown may read a squadron's fighting weight: its own squadrons
-## always, a rival's only once the watch has spanned a turn on this chart
-## (wiki: ships-and-naval § Sighted strength).
-static func strength_read(play: PlaySession, fleet: FleetState) -> bool:
-	if fleet == null or fleet.owner == play.player_faction:
-		return true
-	return play.naval_intel.is_revealed(fleet.id, play.region_index)
-
-
-## Which squadrons in a zone the crown can weigh; an unread rival contributes
-## no figure to the odds (wiki: ships-and-naval § Sighted strength).
-static func intel_filter(play: PlaySession) -> Callable:
-	return func(other: FleetState) -> bool:
-		return strength_read(play, other)
-
-
-## What the crown's chart says of one squadron: whether she is drawn at all and,
-## for a rival, whether her weight is read. Installed on the layer so a marker
-## minted by a merge, a passage or a captured port starts where the chart stands
-## instead of handing back intel the fog withholds (wiki: ships-and-naval
-## § Sighted strength; fog-and-exploration § Visibility Levels).
-static func view_filter(play: PlaySession) -> Callable:
-	return func(fleet: FleetState) -> Dictionary:
-		return {"drawn": _known(play, fleet), "read": strength_read(play, fleet)}
 
 
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval
@@ -201,104 +191,7 @@ static func on_moved(play: PlaySession, fleet: FleetState, result: Dictionary) -
 		play.hud.toast("The fleet enters the %s" % play.model.sea_zone_name(zone))
 	else:
 		play.hud.toast("The fleet docks at %s" % play.model.province_name(fleet.province))
-	refresh_visibility(play)
-
-
-static func on_zone_entered(play: PlaySession, zone_id: int, ship: Ship) -> void:
-	if ship == null or ship.faction != play.player_faction or play.visibility == null:
-		return
-	## A court whose leader publishes the charting lean charts one further land
-	## ring on the coast (wiki: leader-bonuses § Bonus Table — Henry).
-	var rings: int = LeaderCatalog.coastal_rings(
-		String(play.leaders.get(play.player_faction, ""))
-	)
-	var changed: Array = play.visibility.reveal_sea_zone(zone_id, rings)
-	if not changed.is_empty():
-		play.overlay.sync_visibility(play.visibility, changed)
-	_announce_charted_coast(play, changed)
-	refresh_visibility(play)
-
-
-static func refresh_visibility(play: PlaySession) -> void:
-	if play == null or play.ship_layer == null:
-		return
-	# A marker minted later (a merge, a passage, a captured port) asks the same
-	# chart this refresh just read, so a rebuild cannot hand back what the fog
-	# withholds (wiki: ships-and-naval § Sighted strength).
-	play.ship_layer.crown_view = view_filter(play)
-	var in_view: Array[int] = []
-	for ship: Ship in play.ship_layer.ships:
-		var fleet: FleetState = play.ship_layer.fleet_of(ship)
-		if fleet == null:
-			continue
-		var known: bool = _known(play, fleet)
-		ship.visible = known
-		if known and fleet.owner != play.player_faction:
-			in_view.append(fleet.id)
-	# One refresh of the crown's watch on this chart: a rival seen at the last
-	# close and still under the same eye is read now, and one that slipped away
-	# is unread again. The other chart's watch is untouched — a rival there never
-	# left the crown's water (wiki: ships-and-naval § Sighted strength).
-	var revealed: Array[int] = play.naval_intel.observe(in_view, play.turn, play.region_index)
-	for ship: Ship in play.ship_layer.ships:
-		var fleet: FleetState = play.ship_layer.fleet_of(ship)
-		if fleet != null:
-			ship.set_intel(strength_read(play, fleet))
-	# The watch closing is a beat the court should hear: her weight appears on the
-	# plate, and a player who never saw the rule would otherwise watch a number
-	# arrive from nowhere.
-	for fleet_id: int in revealed:
-		var fleet: FleetState = FleetRosters.find(play.ship_layer.fleets, fleet_id)
-		if fleet != null and play.hud != null:
-			play.hud.toast(read_line(play, fleet))
-
-
-## "Portugal's squadron in the Mar Egeo is read — 5.5 strength.": the news the
-## closing watch earns (wiki: ships-and-naval § Sighted strength).
-static func read_line(play: PlaySession, fleet: FleetState) -> String:
-	var where: String = "at %s" % play.model.province_name(fleet.province)
-	if fleet.is_at_sea():
-		where = "in the %s" % play.model.sea_zone_name(fleet.sea_zone)
-	return "%s's squadron %s is read — %.1f strength." % [
-		FactionCatalog.name_of(fleet.owner), where, NavalStrength.strength(fleet),
-	]
-
-
-## First sighting of a province's coast earns a quiet note, once per province.
-static func _announce_charted_coast(play: PlaySession, changed: Array) -> void:
-	for raw: Variant in changed:
-		var index: int = int(raw)
-		var y: int = int(floor(float(index) / float(play.model.width)))
-		var x: int = index - y * play.model.width
-		if not play.model.is_land(x, y):
-			continue
-		var province_id: int = play.model.province_at(x, y)
-		if province_id == MapModel.NO_ID or play.charted_provinces.has(province_id):
-			continue
-		play.charted_provinces[province_id] = true
-		play.hud.toast("The coast of %s is charted" % play.model.province_name(province_id))
-		play.emit_coast_charted(province_id)
-		return
-
-
-static func _known(play: PlaySession, fleet: FleetState) -> bool:
-	if fleet.owner == play.player_faction or play.visibility == null:
-		return true
-	var tile: Vector2i = _tile(play, fleet)
-	if tile.x < 0:
-		return true
-	return play.visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.FULLY_VISIBLE
-
-
-static func _tile(play: PlaySession, fleet: FleetState) -> Vector2i:
-	if fleet.is_at_sea():
-		var zone: SeaZoneState = play.model.sea_zone_data(fleet.sea_zone)
-		var tiles: Array = zone.tiles if zone != null else []
-		if tiles.is_empty():
-			return Vector2i(-1, -1)
-		return tiles[0]
-	var data: ProvinceState = play.model.province_data(fleet.province)
-	return data.port_tile if data != null else Vector2i(-1, -1)
+	MapPlayFleetIntel.refresh_visibility(play)
 
 
 ## The fleet dossier and the province yard both route here (REQ-P3-02). The
