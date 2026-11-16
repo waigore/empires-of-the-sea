@@ -3,7 +3,7 @@ extends LedgerSheet
 ## The crown's army: every regiment the crown fields in both charts, read
 ## standard by standard — its class, its stat line, the condition it holds and
 ## the colours it wears (wiki: military-armies § The regiments behind an army;
-## DR-20261116-07). The projection lives in [ArmyLedger]; this sheet only renders
+## DR-20261116-16). The projection lives in [ArmyLedger]; this sheet only renders
 ## headings and rows and asks MapPlayForceLedger to jump to a regiment's standard
 ## (REQ-P3-02, REQ-P3-03). The sheet chrome, fade and pause-door park come from
 ## SheetFrame; the chips, rows and empty notice from LedgerSheet.
