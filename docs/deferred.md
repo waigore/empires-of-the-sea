@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261117-01; #846–#847 live (REQ-P2-02).
+Audited through DR-20261117-02; #846–#859 live (REQ-P2-02).
 
 ## Already live
 
@@ -17,7 +17,7 @@ Audited through DR-20261117-01; #846–#847 live (REQ-P2-02).
 | Hospitals/rival builders/trains | `HospitalRules`, `AiHospitalWork`, `HospitalTrain` |
 | Research goal/fabric + works reserve | `ResearchSlots`; muster/works keep-back |
 | Regiment records/rename/decorations/leaders | `RegimentRecord`, `RegimentDecorations`, `LeaderCatalog` |
-| Raid hulls/rival raids/naval plate | `NavalRaid`, `NavalPlate`, DR-11-17/20/13-17 |
+| Raid hulls/rival-on-rival prizes/naval plate | `NavalRaid`, `MapPlayRaids`, `NavalPlate`, DR-11-17/20/13-17 |
 | Road L2/gathering/path transport | `TechUnlocks`/`Extraction` |
 | Advanced chart/Passage/rival OOB/fog | `AdvancedSeas`; `OobReadings`; `CourtCharts` |
 | Yarn + consent | `DialogueYarn`, `ConsentCopy` |
@@ -40,16 +40,16 @@ Audited through DR-20261117-01; #846–#847 live (REQ-P2-02).
 
 1. **Civilian-build seeds** — exotic mixes / per-tile previews
    (`civilian-build-planner`).
-2. **Quick Battle multi-lane / collapse** — one lane; needs a design call
+2. **Quick Battle multi-lane / collapse** — one lane; design call first
    (DR-10-24).
 
 ## Next pick
 
-Civilian build seeds; else a P5/P1 player surface.
+Civilian build seeds; else P5/P1 polish.
 
 ## Blocked footnotes
 
-- Predict-the-line declined (DR-12-02); era dialogue — no era model (DR-11-08).
+- Predict-the-line declined (DR-12-02); era — no model (DR-11-08).
 - Healing at 0 health; last-known OOB (DR-12-04/09); general-grade/sheltering
   trains pending design (DR-12-07).
 - Alt victory, difficulty extras, ruleset loaders, warehouse logistics,
@@ -64,9 +64,10 @@ Civilian build seeds; else a P5/P1 player surface.
 ## Wiki drift
 
 - `civilian-units`: Road L2/gathering deferred → live (`TechUnlocks`).
-- `phase-planner-*`: declare-war cites DR-14-11 → DR-14-13; four slots live.
+- `phase-planner-*`: declare-war cites DR-14-11 → DR-14-13; six slots live.
 - `production-recipes`: rival second-stage deferred → live #798.
-- `ai-architecture`: soft weights/treasury-recovery seed → live (#821); deed
-  partner claimed.
+- `ai-architecture`: soft weights/treasury-recovery seed → live (#821), restated
+  in DR-20261117-01; deed partner claimed.
+- DR-11-17 rival-on-rival raids and prizes → live (`MapPlayRaids`).
 - DR-11-05/14-11 fleetless leg — live (`FleetMuster`).
 - Ruleset loader / borrowing — out of scope.
