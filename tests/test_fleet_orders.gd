@@ -2179,3 +2179,30 @@ func test_the_dossier_offers_the_split_and_the_home_fleet_says_why_not() -> void
 	)
 	assert_true(_screen.hud._fleet_panel._split._note.visible, "the reason is on the sheet")
 	assert_true(_screen.hud._fleet_panel._split._note.text.contains("home squadron"))
+
+
+func test_a_refused_detach_names_the_gate_and_moves_nothing() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	_screen.ship_layer.select(ship)
+	var roster_before: int = _screen.ship_layer.fleets.size()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleets.on_action(_screen.play, "split:not_aboard")
+
+	assert_eq(_screen.ship_layer.fleets.size(), roster_before, "no command is founded")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_true(
+		_toast_texts().back().contains("not aboard"),
+		"the refusal names the hull: '%s'" % _toast_texts().back()
+	)
+
+
+func test_the_receipt_reads_a_hull_in_port_with_no_name() -> void:
+	var fleet := FleetState.in_port(3, 0, 0, ["a", "b"], {"a": "fluyte", "b": "carrack"})
+
+	var line: String = MapPlayFleetSplit.line(
+		_screen.play, fleet, {"name": "", "type": "fluyte"}
+	)
+
+	assert_true(line.begins_with("Fluyte detaches at "), line)
+	assert_true(line.ends_with("as a squadron of her own."), line)
