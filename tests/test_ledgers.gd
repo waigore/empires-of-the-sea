@@ -3745,6 +3745,26 @@ func test_army_back_closes_the_ledger() -> void:
 	assert_false(panel.is_open(), "back sets the ledger aside first")
 
 
+## The one dress both forces print in stays inert until a force names itself: a
+## bare spine has no layer to read, no projection, no rows and no Visit, so a
+## half-wired sheet paints nothing over the chart (REQ-P3-01, REQ-P3-02).
+func test_the_force_sheet_dress_reads_nothing_until_a_force_names_it() -> void:
+	var sheet := ForceLedgerSheet.new()
+	assert_false(sheet._can_open(), "no session, no sheet")
+	sheet.refresh()
+	assert_true(sheet._snapshot.is_empty(), "a bare spine reads no roster")
+	assert_true(sheet._filters().is_empty())
+	assert_eq(sheet._reading_word("all"), "all", "an unnamed reading names itself")
+	assert_eq(sheet._row_word(1), "row")
+	assert_eq(sheet._row_caption(), "Row", "the chip row capitalises the noun")
+	assert_true(sheet._groups(LedgerRows.REGION_ALL, LedgerRows.ALL).is_empty())
+	assert_eq(sheet._count(LedgerRows.REGION_ALL, LedgerRows.ALL), 0)
+	assert_true(sheet._standing_text({}).is_empty(), "no group, no standing line")
+	assert_null(sheet._note(), "no rule to print")
+	assert_null(sheet._make_row({}, false), "no row to mint")
+	sheet.free()
+
+
 ## One standard of three kinds, weakened and decorated, so the row reads the
 ## condition the rules would use: a wounded foot regiment, a chevroned rider and
 ## a laurelled gun.

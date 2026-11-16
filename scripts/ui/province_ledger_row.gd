@@ -3,14 +3,13 @@ extends LedgerRow
 ## One province in the crown's ledger: its medallion, where it stands, what it
 ## is built to, what it lacks and a Visit action that opens its map and dossier.
 ## The row itself is also a tap target, so a phone needs no hover (REQ-P5-01,
-## REQ-P5-04). The skeleton, the tap and the Visit door come from LedgerRow;
+## REQ-P5-04). The skeleton, the tap and the Visit door come from LedgerRow; so
+## do the two-line state column and the place line every place row wears;
 ## presentation only, every figure arrives in the row dictionary.
 
 signal visit_pressed(region: int, province_id: int)
 
 var _icon: Icon = null
-var _standing: Label = null
-var _reading: Label = null
 
 
 func _build_icon() -> Control:
@@ -19,13 +18,7 @@ func _build_icon() -> Control:
 
 
 func _build_state(state: VBoxContainer) -> void:
-	state.add_theme_constant_override("separation", 3)
-	state.custom_minimum_size = Vector2(190, 0)
-	state.visible = not compact
-	_standing = UiRowBuilder.wrapped_line("", 12, Palette.TEXT)
-	state.add_child(_standing)
-	_reading = UiRowBuilder.wrapped_line("", 11, Palette.TEXT_DIM)
-	state.add_child(_reading)
+	_reading_column(state, 12, 190)
 
 
 func _fill() -> void:
@@ -33,14 +26,7 @@ func _fill() -> void:
 	var chip: Dictionary = _chip_reading()
 	_chip.text = String(chip["text"])
 	_paint_chip(chip["color"])
-	var place: String = String(data.get("place", "Inland"))
-	_detail.text = "%s  ·  %s" % [place, String(data.get("region_label", "Uncharted"))]
-	if compact:
-		_detail.text = "%s  ·  %s  ·  %s" % [
-			place,
-			String(data.get("line", "")),
-			String(data.get("region_label", "Uncharted")),
-		]
+	_place_detail(String(data.get("place", "Inland")), String(data.get("line", "")))
 	_standing.text = String(data.get("line", ""))
 	_reading.text = String(data.get("state", ""))
 	_visit.tooltip_text = "Open %s on the map" % String(data.get("name", "the province"))
