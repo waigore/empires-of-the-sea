@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:3e8b19ad2277113bdd982fed48e4f4ad5e646162daff1c0122c32a51ac2c0d3f",
-  "submission_git": "orc/hourly-refactor-refactor-code-agent-1/20261116T140003345443Z@37cacc58",
+  "submission_hash": "sha256:b2b5cb1db44964973b08c674c4bbbbd697a75f4ae1bc302c3145bfe27af47dea",
+  "submission_git": "feat/war-crews-expansion@7104866a",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:cc2f77ca4fec9e27d5701298d8364425d9bc2d36a407ce6e157ebaa6c4cb731f",
+    "ai_surface_hash": "sha256:3ae7dd55763a390d9c6907ddf7b1e6526ea89dd1856a2a73e989cb984cd6beb7",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-16T15:36:15Z",
+  "timestamp": "2026-11-16T16:15:12Z",
   "report_version": 1,
-  "signature": "hmac-sha256:b4fba52ab7e3bc79d4b378523f0cd2743d00a0372df5a3fdb67d2f83f1385c7c"
+  "signature": "hmac-sha256:71824260b7793a0d92b411138b38f5a1dd452e416fbb20c50447b8bba433e88b"
 }
