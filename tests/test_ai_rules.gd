@@ -12900,6 +12900,15 @@ func test_the_money_goal_leads_with_the_domains_that_pay() -> void:
 		int(armed["expansion"]) > int(AiPosture.modifiers(AiPhasePlanner.PHASE_WAR, config)["expansion"]),
 		"and the voyage the footing closes is the income the goal reopens"
 	)
+	# The rank pass reads the vector: the same two aims swap on `earn`.
+	var study: AiObjective = AiObjective.create("research.study", "research", 45)
+	var cargo: AiObjective = AiObjective.create("cargo.route", "economy", 40)
+	var calm_order: Array[AiObjective] = AiObjectiveLedger.rank([study, cargo], spend)
+	var earn_order: Array[AiObjective] = AiObjectiveLedger.rank([study, cargo], earn)
+
+	assert_eq(String(calm_order[0].id), "research.study", "a spending court studies first")
+	assert_eq(String(earn_order[0].id), "cargo.route", "an earning one sells first")
+	assert_eq(String(earn_order[1].id), "research.study", "and the study waits behind it")
 
 
 func test_the_leader_s_weights_reorder_the_rank() -> void:
