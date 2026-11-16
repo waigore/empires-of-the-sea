@@ -353,11 +353,9 @@ func _apply_status(army: ArmyState, is_player: bool) -> void:
 		_hint.text = "Tap a highlighted province; your own land is open, enemy land must border you."
 
 
+## The dossier's larder line: the rules' own bill, so the dossier and the crown's
+## army sheet never name one standard two ways (wiki: military-armies § The
+## regiments behind an army, combat § Feeding; DR-20261112-07).
 func _food(army: ArmyState) -> int:
-	var total: int = 0
-	# A train's nurses eat inside the army's own upkeep line (DR-20261112-07).
-	if army.field_hospital:
-		total += HospitalTrain.food()
-	for regiment_id: String in army.regiments:
-		total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
-	return total
+	var one: Array[ArmyState] = [army]
+	return ArmyRoster.food_upkeep_of(one, army.owner)

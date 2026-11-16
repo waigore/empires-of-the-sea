@@ -306,6 +306,23 @@ func test_combine_keeps_the_first_army_when_no_home_army_is_present() -> void:
 	assert_false(armies.has(second))
 
 
+## The panel stacks a province's standards by army id, so the standard the crown
+## sees first absorbs the rest whatever it tapped (wiki: military-armies
+## § Split and combine — "the first selected army in panel display order").
+func test_combine_keeps_the_panel_first_army_whatever_the_tap() -> void:
+	var earlier := Fixture.army(3, 0, 0, ["pikemen"])
+	var later := Fixture.army(9, 0, 0, ["squires"])
+	var armies: Array[ArmyState] = [later, earlier]
+	var selected: Array[ArmyState] = [later, earlier]
+
+	var result: Dictionary = ArmyRoster.combine(armies, selected)
+
+	assert_true(bool(result["ok"]), String(result["reason"]))
+	assert_eq(result["army"], earlier, "the standard the panel prints first")
+	assert_eq(earlier.count(), 2)
+	assert_false(armies.has(later))
+
+
 func test_combine_rejects_armies_in_different_provinces() -> void:
 	var here := Fixture.army(1, 0, 0, ["pikemen"])
 	var there := Fixture.army(2, 0, 1, ["pikemen"])
