@@ -1,21 +1,26 @@
 # gdlint: disable=max-public-methods
 extends GdToolsTest
-## The campaign's end: the calendar cap, endless mode, the campaign-complete
-## plate, the military-victory plate and the defeat plate on the real map screen
-## (wiki: turn-time-mapping § Campaign calendar cap, victory § Calendar campaign
-## end, § Victory Screen, § Great Power defeat).
+## The campaign's end and the session codec that carries it: the calendar cap,
+## endless mode, the campaign-complete / victory / defeat plates, and the
+## SaveCodec round-trip on the real map screen (wiki: turn-time-mapping §
+## Campaign calendar cap, victory § Calendar campaign end, § Victory Screen,
+## § Great Power defeat; campaign-persistence; REQ-P3-03).
 ##
-## Merged from test_campaign_end, test_victory_screen and test_campaign_defeat:
-## one Godot boot and one mounted chart for the whole theme. Every case re-seats
-## the shared screen from the pristine save (`Fixture.suite_reset`), which drops
-## a decided victory, a defeat, an open plate and a selection, so a case starts
-## as the mount did.
+## Merged from test_campaign_end, test_victory_screen, test_campaign_defeat and
+## test_save_codec: one Godot boot and one mounted chart for the whole theme.
+## Every case re-seats the shared screen from the pristine save
+## (`Fixture.suite_reset`), which drops a decided victory, a defeat, an open
+## plate and a selection, so a case starts as the mount did. The codec cases
+## used to pay a second boot and a private 32×32 world; they now ride this
+## fixture chart (already ≥ `SaveCodec.MIN_MAP_SIDE`) and restore in place
+## (docs/testing.md § Speed rules).
 
 const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const Fixture = preload("res://tests/map_fixture.gd")
 const CAP: int = 201
 const SAVE_DIR: String = "user://test_campaign_end"
 const DEFEAT_SAVE_DIR: String = "user://test_campaign_defeat"
+const CODEC_DIR: String = "user://test_save_codec"
 
 var screen: MapScreen = null
 ## One mount for the suite: under coverage a mount costs ~0.5 s and a re-seat
@@ -35,14 +40,17 @@ func before_all() -> void:
 
 
 func before_each() -> void:
+	_clean_codec_dir()
 	Fixture.restore(Fixture.world(), saved)
 	Fixture.suite_reset(mounted, pristine)
 	screen = mounted
+	screen.save_dir = CODEC_DIR
 
 
 func after_each() -> void:
 	Fixture.restore(Fixture.world(), saved)
 	get_tree().paused = false
+	_clean_codec_dir()
 
 
 func after_all() -> void:
@@ -793,3 +801,503 @@ func _fall_crown(target: MapScreen, fallen: int, conqueror: int) -> void:
 
 func _open_defeated(data: Dictionary) -> MapScreen:
 	return Fixture.open_save(self, data, DEFEAT_SAVE_DIR)
+
+# --- session codec (folded from test_save_codec) -----------------------------
+## Save/load round trip on the shared mount: capture a live session, write it,
+## and prove the mutable state came back without tearing MapScreen down
+## (REQ-P3-03). Remounting under coverage was the codec suite's dominant cost;
+## restoring over the fixture world is the same path a load uses.
+
+
+## Applies a save onto the mounted screen without tearing it down.
+func _apply_codec_save(data: Dictionary) -> PlaySession:
+	var play: PlaySession = screen.play
+	assert_true(SaveCodec.restore(play, data, Fixture.world()), "save restores over the preset")
+	var target: int = play.region_index
+	# Economy always founds on the Old World; restore there, then return.
+	play.region_index = 0
+	play.model = play.world.region(0)
+	SaveCodec.restore_economy(play, data)
+	play.diplomacy = DiplomacyState.new()
+	SaveCodec.restore_diplomacy(play, data)
+	play.diplomacy.human_faction = play.human_faction_id()
+	play.region_index = target
+	play.model = play.world.region(target)
+	# Restore parks units in region tables and clears the live arrays; spawn
+	# rebinds without rebuilding the canvas (load_region would remount the map).
+	_rebind_codec_layers(play)
+	return play
+
+
+## Cheap post-restore: layers already hold the saved region tables, so spawn
+## only reassigns the live arrays and markers.
+func _rebind_codec_layers(play: PlaySession) -> void:
+	var model: MapModel = play.model
+	screen.army_layer.spawn(model)
+	screen.ship_layer.world = play.world
+	screen.ship_layer.spawn(
+		model,
+		MapScreen.SHIP_COUNT,
+		MapScreen.MAP_SEED + 3 + play.region_index,
+		play.capital_province,
+		play.player_present(),
+		play.player_faction
+	)
+	screen.civilian_layer.viewer_faction = play.player_faction
+	screen.civilian_layer.spawn(
+		model, play.capital_province, play.player_faction, MapScreen.STARTING_CIVILIANS
+	)
+	play.land_works = screen.civilian_layer.works
+
+
+func test_round_trip_restores_session_world_and_layers() -> void:
+	var play: PlaySession = screen.play
+	MapPlayTurn.end_turn(play)
+	while DiplomacyProposals.has_pending(play.diplomacy, 0):
+		MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 0, "")
+	play.economy.economy.treasury = 4321
+	play.economy.economy.stockpile["grain"] = 77
+	play.economy.economy.workers.set_count(1, 3)
+	play.economy.economy.research.unlocked["apprentice_workers"] = true
+	play.economy.market.prices["grain"] = 99
+
+	var foreign: int = _codec_foreign_province(play)
+	play.model.get_province(foreign).owner = play.player_faction
+	var deed_province: int = _codec_other_foreign_province(play, foreign)
+	var deed_tile: Vector2i = play.model.province_tiles(deed_province)[0]
+	assert_true(play.model.purchase_tile(deed_tile, play.player_faction))
+	var tile: Vector2i = play.model.province_tiles(play.capital_province)[0]
+	play.land_works.set_improvement(play.model, tile, 2)
+	play.land_works.set_transport(play.model, tile, LandWorks.TRANSPORT_ROAD)
+	play.land_works.add_port(play.model, tile)
+	play.land_works.set_prospected(play.player_faction, play.model, tile)
+
+	var fog_tile: Vector2i = _codec_fogged_tile(play)
+	play.visibility.raise_to(
+		play.model.index_of(fog_tile.x, fog_tile.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	var unit: CivilianState = play.civilian_layer.units[0]
+	unit.tile = tile
+	unit.start_work("build_improvement", tile, 3)
+	play.ship_layer.fleets[0].moved = true
+	play.army_layer.armies[0].moved = true
+	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, 1)
+	Intervention.queue_human(play.diplomacy, 3, 6, play.player_faction)
+	assert_true(
+		DiplomacyProposals.queue(
+			play.diplomacy, play.world, 2,
+			DiplomacyProposals.KIND_OVERTURE, DiplomacyCatalog.STAGE_NAP
+		)["ok"]
+	)
+	play.charted_provinces[foreign] = true
+	play.leaders[play.player_faction] = LeaderCatalog.DEFAULT_KEY
+
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveCodec.is_valid(data), "captured save is valid")
+	assert_false(
+		(data["session"] as Dictionary).has("prestige"),
+		"the dead prestige counter is no longer serialised"
+	)
+	assert_true(
+		SaveStore.write(CODEC_DIR + "/roundtrip.sav", data), "save file is written"
+	)
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/roundtrip.sav")
+	assert_false(loaded.is_empty(), "save file reads back")
+
+	# Restore in place: the nation chip is wired at mount; refresh_after_load
+	# re-reads turn/treasury so the HUD matches the slot (same path as a load).
+	play = _apply_codec_save(loaded)
+	MapPlaySetup.refresh_after_load(play)
+	assert_eq(play.turn, 2, "turn restored")
+	assert_eq(play.player_faction, FactionCatalog.PLAYER_FACTION, "nation restored")
+	assert_eq(play.economy.economy.treasury, 4321, "treasury restored")
+	assert_eq(play.economy.economy.quantity("grain"), 77, "stockpile restored")
+	assert_eq(play.economy.economy.workers.count(1), 3, "workers restored")
+	assert_true(
+		play.economy.economy.research.is_unlocked("apprentice_workers"),
+		"research restored"
+	)
+	assert_eq(play.economy.market.price("grain"), 99, "market prices restored")
+	assert_eq(
+		play.model.province_owner(foreign), play.player_faction, "province owners restored"
+	)
+	assert_eq(
+		play.model.owner_at(deed_tile.x, deed_tile.y),
+		play.player_faction,
+		"tile deed restored"
+	)
+	assert_true(play.model.is_purchased_tile(deed_tile), "deed marker restored")
+	assert_eq(play.land_works.improvement_at(play.model, tile), 2, "works restored")
+	assert_eq(
+		play.land_works.transport_at(play.model, tile),
+		LandWorks.TRANSPORT_ROAD,
+		"roads restored"
+	)
+	assert_true(play.land_works.has_port(play.model, tile), "ports restored")
+	assert_true(
+		play.land_works.is_prospected(play.player_faction, play.model, tile),
+		"prospect state restored"
+	)
+	assert_eq(
+		play.visibility.level_at(fog_tile.x, fog_tile.y),
+		VisibilityModel.Level.FULLY_VISIBLE,
+		"fog state restored"
+	)
+	var player_civilians: int = 0
+	for civilian: CivilianState in play.civilian_layer.units:
+		if civilian.owner == play.player_faction:
+			player_civilians += 1
+	assert_eq(player_civilians, 3, "the human civilians restored")
+	assert_true(
+		play.civilian_layer.unit_count_all(1) >= 3,
+		"a rival's seeded civilians restored too"
+	)
+	assert_eq(play.civilian_layer.units[0].tile, tile, "civilian tile restored")
+	assert_true(play.civilian_layer.units[0].is_working(), "civilian work restored")
+	assert_eq(play.civilian_layer.units[0].remaining_turns(), 3, "work turns restored")
+	assert_true(play.ship_layer.fleets[0].moved, "fleet orders restored")
+	assert_true(play.army_layer.armies[0].moved, "army orders restored")
+	assert_true(
+		play.diplomacy.relation(play.player_faction, 1).at_war, "war state restored"
+	)
+	assert_true(
+		Intervention.has_pending(play.diplomacy, play.player_faction),
+		"a waiting intervention restored"
+	)
+	assert_true(
+		DiplomacyProposals.has_pending(play.diplomacy, play.player_faction),
+		"a waiting rival proposal restored"
+	)
+	assert_true(play.charted_provinces.has(foreign), "charted provinces restored")
+	assert_eq(
+		String(play.leaders.get(play.player_faction, "")),
+		LeaderCatalog.DEFAULT_KEY,
+		"leader keys restored"
+	)
+	assert_eq(
+		String(play.leaders.get(1, "")),
+		LeaderCatalog.default_key(1),
+		"rival crowns keep their leader"
+	)
+	assert_eq(screen.hud._nation_label.text, "SPAIN", "HUD reads the restored nation")
+
+
+func test_saves_without_leaders_backfill_the_crown_roster() -> void:
+	var play: PlaySession = screen.play
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	session.erase("leaders")
+	data["session"] = session
+
+	play = _apply_codec_save(data)
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			String(play.leaders.get(faction, "")),
+			LeaderCatalog.default_key(faction),
+			"crown %d gets its configured leader" % faction
+		)
+
+
+## The crown's watch over rival squadrons rides the save (wiki: ships-and-naval
+## § Sighted strength): a read squadron stays read, a sighted one stays unread,
+## and each chart's watch lands back on its own map.
+func test_a_sighted_strength_read_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	var region: int = play.region_index
+	play.naval_intel.observe([7], play.turn, region)
+	play.naval_intel.observe([7, 8], play.turn + 1, region)
+
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	var watches: Dictionary = (session["naval_intel"] as Dictionary)["regions"]
+	assert_eq(
+		(watches[region] as Dictionary)["revealed"], [7],
+		"only the watched squadron is in the read list"
+	)
+
+	play = _apply_codec_save(data)
+	assert_true(play.naval_intel.is_revealed(7, region), "a read squadron stays read")
+	assert_false(play.naval_intel.is_revealed(8, region), "an unread squadron stays unread")
+
+
+func test_a_save_without_a_watch_resumes_unread() -> void:
+	var play: PlaySession = screen.play
+	var region: int = play.region_index
+	play.naval_intel.observe([7], play.turn, region)
+	play.naval_intel.observe([7], play.turn + 1, region)
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	session.erase("naval_intel")
+	data["session"] = session
+
+	play = _apply_codec_save(data)
+
+	assert_eq(play.naval_intel.watched(region), [], "a legacy save reads no squadron")
+
+
+func test_medals_and_feeding_survive_a_load() -> void:
+	var play: PlaySession = screen.play
+	var roster: GeneralRoster = play.army_layer.generals
+	roster.sync(play.player_faction, {})
+	roster.award(play.player_faction, "general_1")
+	roster.award(play.player_faction, "general_1")
+	play.feeding[play.player_faction] = 0.4
+	play.economy.economy.navy_feeding = 0.5
+	play.ai = AiState.new()
+	play.ai.agenda_for(AiConfig.build(2, 1))
+	play.ai.note_war(play.player_faction, 2, play.turn)
+	play.ai.note_peace(play.player_faction, 2, play.turn, false)
+
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(CODEC_DIR + "/generals.sav", data), "save file is written")
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/generals.sav")
+
+	play = _apply_codec_save(loaded)
+	assert_eq(
+		play.army_layer.generals.medals(play.player_faction, "general_1"),
+		2,
+		"medals never decrease across a load (wiki: military-generals § Medals)"
+	)
+	assert_eq(play.army_layer.generals.count(play.player_faction), 1, "roster size restored")
+	assert_true(play.feeding.has(play.player_faction), "feeding coverage restored")
+	assert_true(
+		is_equal_approx(float(play.feeding[play.player_faction]), 0.4),
+		"last rations feed the first battle after a load (wiki: combat § Feeding)"
+	)
+	assert_true(
+		is_equal_approx(play.economy.economy.navy_feeding, 0.5),
+		"last rations feed the first sea battle after a load"
+	)
+	assert_not_null(play.ai, "rival-court bookkeeping restored")
+	assert_true(
+		play.ai.war_on_cooldown(play.player_faction, 2, play.turn, 4),
+		"a load does not restart the war cooldown (wiki: diplomacy § Cooldowns)"
+	)
+	assert_true(
+		play.ai.peace_on_cooldown(play.player_faction, 2, play.turn, 3),
+		"a load does not restart the peace-offer cooldown (DR-20261109-07)"
+	)
+	assert_eq(
+		play.ai.peace_refusals_for(play.player_faction, 2), 1,
+		"a load keeps the refusal the court waits on (DR-20261115-01)"
+	)
+
+
+func test_saved_region_index_reopens_that_map() -> void:
+	var play: PlaySession = screen.play
+	screen._cycle_region()
+	assert_eq(play.region_index, 1)
+	play.turn = 9
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(CODEC_DIR + "/region.sav", data))
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/region.sav")
+
+	play = _apply_codec_save(loaded)
+	assert_eq(play.region_index, 1, "saved region reopened")
+	assert_eq(play.model.region_id, FactionCatalog.NEW_WORLD)
+	assert_eq(play.turn, 9)
+	assert_eq(play.economy.model.region_id, FactionCatalog.OLD_WORLD)
+
+
+func test_invalid_and_corrupt_saves_are_refused() -> void:
+	assert_false(SaveCodec.is_valid({}), "empty data is invalid")
+	assert_false(SaveCodec.is_valid({"version": 999}), "future version is invalid")
+	var data: Dictionary = SaveCodec.capture(screen.play)
+	data["version"] = 999
+	assert_false(SaveStore.save_slot(1, data, CODEC_DIR), "invalid save is not written")
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(CODEC_DIR))
+	var file := FileAccess.open(CODEC_DIR + "/broken.sav", FileAccess.WRITE)
+	assert_not_null(file, "corrupt fixture opens")
+	if file == null:
+		return
+	file.store_string("not a variant")
+	file.close()
+	assert_true(SaveStore.read(CODEC_DIR + "/broken.sav").is_empty(), "corrupt read is empty")
+
+
+func test_a_fort_stands_after_a_load() -> void:
+	var play: PlaySession = screen.play
+	var province: ProvinceState = play.model.provinces[0]
+	province.fort_level = FortRules.MAX_LEVEL
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(CODEC_DIR + "/forts.sav", data))
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/forts.sav")
+
+	play = _apply_codec_save(loaded)
+	assert_eq(
+		play.model.get_province(province.id).fort_level,
+		FortRules.MAX_LEVEL,
+		"walls are part of the world state a load restores"
+	)
+
+
+func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
+	var play: PlaySession = screen.play
+	var pact: DiplomacyRelation = play.diplomacy.relation(0, 2)
+	pact.formal_alliance = true
+	pact.score = 80.0
+	CallToArms.freeze_alliances(play.diplomacy)
+	DiplomacyRules.declare_war(play.diplomacy, 3, 2)
+	MapPlayTurn.end_turn(play)
+	assert_true(play.turn_suspended, "the call holds the turn")
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(CODEC_DIR + "/call.sav", data))
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/call.sav")
+
+	play = _apply_codec_save(loaded)
+	MapPlaySetup.refresh_after_load(play)
+	assert_true(CallToArms.has_pending(play.diplomacy, 0), "the call is restored")
+	assert_true(play.turn_suspended, "the loaded turn is still suspended")
+	assert_true(
+		screen.hud.panels.diplomacy_panel._call_box.visible,
+		"the court re-opens for the answer"
+	)
+
+
+## The crown's stance is state a battle reads this turn, so a save carries it
+## and a load must not silently reset it (wiki: campaign-persistence
+## § Snapshot contract — crown battle plan; DR-20261110-33).
+func test_the_crowns_battle_plan_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.battle_plan = "aggressive"
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(
+		String((data["session"] as Dictionary).get("battle_plan", "")),
+		"aggressive",
+		"the save carries the plan"
+	)
+	assert_true(SaveStore.write(CODEC_DIR + "/plan.sav", data))
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/plan.sav")
+
+	play = _apply_codec_save(loaded)
+	assert_eq(
+		play.battle_plan, "aggressive",
+		"the loaded crown still fights with its own plan"
+	)
+
+
+## A slot written before the plan was carried, or naming a script this build
+## does not have, resumes on the default stance without an error (wiki:
+## campaign-persistence § Load and resume — legacy defaults).
+func test_a_save_without_a_readable_plan_lands_on_the_default_stance() -> void:
+	var play: PlaySession = screen.play
+	play.battle_plan = "defensive"
+	# Both payloads come from the opening screen so the case pays for two loads,
+	# not a third remount just to re-capture a fresh session.
+	var data: Dictionary = SaveCodec.capture(play)
+	var session: Dictionary = data["session"]
+	session.erase("battle_plan")
+	data["session"] = session
+	play = _apply_codec_save(data)
+	assert_eq(
+		play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
+		"a legacy slot opens on the default stance"
+	)
+
+	var fresh: Dictionary = SaveCodec.capture(play)
+	var fresh_session: Dictionary = fresh["session"]
+	fresh_session["battle_plan"] = "reckless"
+	fresh["session"] = fresh_session
+	play = _apply_codec_save(fresh)
+	assert_eq(
+		play.battle_plan, SaveCodec.DEFAULT_BATTLE_PLAN,
+		"an unknown script falls back to the default"
+	)
+
+
+## The college ledger's goal is client state kept with the campaign, so a save
+## carries it and a load reopens the queue on the same path instead of catalog
+## order (wiki: tech-tree § Goal slot, campaign-persistence § Snapshot contract;
+## DR-20261111-21).
+func test_the_research_goal_survives_a_save() -> void:
+	var play: PlaySession = screen.play
+	play.economy.economy.research.goal = "bayonet"
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(
+		String(((data["economy"] as Dictionary).get("research", {}) as Dictionary).get("goal", "")),
+		"bayonet",
+		"the save carries the goal"
+	)
+	play.economy.economy.research.goal = ""
+	SaveCodec.restore_economy(play, data)
+	assert_eq(
+		play.economy.economy.research.goal, "bayonet",
+		"a load brings the goal back to the ledger"
+	)
+
+
+## The difficulty layer is fixed at creation, so a load must not re-roll it and
+## must bring the rival ledgers back at the level they were founded on
+## (wiki: ruleset-config § Layers).
+func test_the_difficulty_layer_survives_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.difficulty = "hard"
+	var rival: PlayerEconomy = play.ensure_ai().economy_for(1)
+	var purse: int = rival.treasury
+	assert_gt(purse, PlayerEconomy.START_TREASURY, "a hard rival opens with more")
+
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(String((data["session"] as Dictionary).get("difficulty", "")), "hard")
+	assert_true(SaveStore.write(CODEC_DIR + "/difficulty.sav", data))
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/difficulty.sav")
+
+	play = _apply_codec_save(loaded)
+	assert_eq(play.difficulty, "hard", "the layer is fixed for the campaign")
+	assert_eq(play.ai.difficulty, "hard")
+	assert_eq(play.ai.economy_for(1).treasury, purse, "the rival purse returns as saved")
+
+
+func test_the_gazette_watchlist_and_archive_survive_a_load() -> void:
+	var play: PlaySession = screen.play
+	MapPlayTurn.end_turn(play)
+	while DiplomacyProposals.has_pending(play.diplomacy, 0):
+		MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 0, "")
+	assert_true(play.gazette != null, "the close founded the watchlist")
+	assert_true(play.gazette.has_sheet(1), "the resolved turn is filed")
+	play.gazette.set_watched(1, false)
+	var filed: int = play.gazette.sheets.size()
+
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_true(SaveStore.write(CODEC_DIR + "/gazette.sav", data))
+	var loaded: Dictionary = SaveStore.read(CODEC_DIR + "/gazette.sav")
+
+	play = _apply_codec_save(loaded)
+	assert_true(play.gazette != null, "the sheet returns on load")
+	assert_eq(play.gazette.sheets.size(), filed, "the archive comes back whole")
+	assert_false(play.gazette.is_watched(1), "a struck-off court stays struck off")
+	assert_true(play.gazette.removed.has(1), "and the removal is remembered")
+
+
+func _codec_foreign_province(play: PlaySession) -> int:
+	for province: ProvinceState in play.model.provinces:
+		if province.owner != play.player_faction:
+			return province.id
+	return -1
+
+
+func _codec_other_foreign_province(play: PlaySession, skip: int) -> int:
+	for province: ProvinceState in play.model.provinces:
+		if province.owner != play.player_faction and province.id != skip:
+			return province.id
+	return skip
+
+
+func _codec_fogged_tile(play: PlaySession) -> Vector2i:
+	for province: ProvinceState in play.model.provinces:
+		if province.owner == play.player_faction:
+			continue
+		for tile: Vector2i in province.tiles:
+			if play.visibility.level_at(tile.x, tile.y) == VisibilityModel.Level.FOGGED:
+				return tile
+	return play.capital_tile
+
+
+func _clean_codec_dir() -> void:
+	var path: String = ProjectSettings.globalize_path(CODEC_DIR)
+	if not DirAccess.dir_exists_absolute(path):
+		return
+	var dir := DirAccess.open(CODEC_DIR)
+	if dir != null:
+		for file_name: String in dir.get_files():
+			dir.remove(file_name)
+	DirAccess.remove_absolute(path)
