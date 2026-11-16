@@ -618,6 +618,34 @@ func test_an_estate_without_a_medallion_keeps_its_commodity_ink() -> void:
 	block.free()
 
 
+## A sealed harbour is not a missing road: the estate line names the seal, so the
+## dossier never sends the crown to lay a road it does not need (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03).
+func test_a_sealed_estate_names_the_harbour_not_a_missing_road() -> void:
+	_setup_province_panel()
+	var block := ProvinceResources.new()
+	add_child(block)
+	block.render([{
+		"tile": Vector2i(0, 0),
+		"level": 2,
+		"resource": 0,
+		"commodity": "timber",
+		"icon": "tree",
+		"ours": true,
+		"connected": false,
+		"blockaded": true,
+		"output": 0,
+		"working": false,
+		"remaining": 0,
+		"prospected": true,
+		"needs_prospecting": false,
+	}])
+	var words: Array[String] = _row_text(block, Vector2i(0, 0))
+	assert_true(words.has(ProvinceResources.HARBOUR_CUT), str(words))
+	assert_false(words.has(ProvinceResources.UNLINKED), "the seal is not a missing road")
+	block.free()
+
+
 ## The management ledger's pictogram names the commodity; the chip and pips
 ## beside it carry the works' status.
 func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:

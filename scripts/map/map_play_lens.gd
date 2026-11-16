@@ -39,8 +39,9 @@ static func mount_all(play: PlaySession) -> void:
 	mount_sea(play)
 
 
-## Survey lens data follows the region on screen and the works just completed.
-## Rebuilding also refreshes the extraction caps the plaque totals use.
+## Survey lens data follows the region on screen, the works just completed and
+## the court's sealed coasts. Rebuilding also refreshes the extraction caps the
+## plaque totals use.
 static func mount_survey(play: PlaySession) -> void:
 	var lens: ResourceLens = play.lens
 	if lens == null:
@@ -48,7 +49,7 @@ static func mount_survey(play: PlaySession) -> void:
 	lens.build(
 		play.model, play.land_works, play.civilian_layer.units,
 		play.player_faction, play.visibility, play.capital_tile,
-		play.tech_caps()
+		play.tech_caps(), MapPlayBlockades.crown(play)
 	)
 	lens.watch(play.civilian_layer, play.overlay)
 

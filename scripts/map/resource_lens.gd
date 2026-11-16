@@ -21,6 +21,9 @@ var works: LandWorks = null
 var units: Array[CivilianState] = []
 var capital_tile: Vector2i = CivilianState.NO_TILE
 var tech_caps: Dictionary = {}
+## The crown's sealed coasts this turn, so a blockaded colony's estates read cut
+## until the war lifts (wiki: capital-and-connectivity § Blockade).
+var blockade: Blockades = null
 
 var _pulse: float = 0.0
 var _clock: float = 0.0
@@ -43,7 +46,8 @@ func build(
 	p_owner: int,
 	p_visibility: VisibilityModel,
 	p_capital_tile: Vector2i,
-	p_tech_caps: Dictionary = {}
+	p_tech_caps: Dictionary = {},
+	p_blockade: Blockades = null
 ) -> void:
 	model = p_model
 	works = p_works
@@ -52,6 +56,7 @@ func build(
 	visibility = p_visibility
 	capital_tile = p_capital_tile
 	tech_caps = p_tech_caps
+	blockade = p_blockade
 	refresh()
 
 
@@ -75,17 +80,18 @@ func refresh() -> void:
 	var key: int = hash([
 		source_key(works, capital_tile, units),
 		hash(tech_caps),
+		_seal_key(),
 	])
 	if _baked and key == _baked_key:
 		return
 	_baked_key = key
 	_baked = true
 	survey = ResourceSurvey.snapshot(
-		model, works, units, faction, visibility, capital_tile, tech_caps
+		model, works, units, faction, visibility, capital_tile, tech_caps, blockade
 	)
 	# The chart itself draws no roads, so the lens carries the built network.
 	survey["routes"] = ResourceRoutes.snapshot(
-		model, works, faction, capital_tile, visibility
+		model, works, faction, capital_tile, visibility, blockade
 	)["segments"]
 	_runs = RoadInk.ink_paths(survey["routes"])
 	_animating = false
@@ -96,6 +102,15 @@ func refresh() -> void:
 				_animating = true
 	_layout_plates()
 	queue_redraw()
+
+
+## The seals the projection was read under: a war that opens or lifts on a coast
+## moves the reading without moving a single work, so the key carries it
+## (wiki: capital-and-connectivity § Blockade).
+func _seal_key() -> int:
+	if blockade == null:
+		return 0
+	return hash([blockade.sealed, blockade.sea_cut])
 
 
 ## The survey lens holds its fade a beat longer than the wash-only readings.

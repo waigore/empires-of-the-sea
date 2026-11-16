@@ -15,6 +15,10 @@ signal road_pressed(tile: Vector2i)
 const CAPTION: String = "RESOURCES"
 const LINKED: String = "linked"
 const UNLINKED: String = "no road"
+## A sealed harbour is a rule, not a missing road: the line names the seal so the
+## crown never lays a road it does not need (wiki: capital-and-connectivity
+## § Blockade; REQ-P2-03).
+const HARBOUR_CUT: String = "harbour cut"
 const FOREIGN: String = "foreign"
 const EMPTY: String = "No charted resource tiles in this province."
 const ROAD: String = "Build road"
@@ -197,6 +201,8 @@ func _link_text(row: Dictionary) -> String:
 		return FOREIGN
 	if bool(row["connected"]):
 		return LINKED
+	if bool(row.get("blockaded", false)):
+		return HARBOUR_CUT
 	return UNLINKED
 
 
@@ -219,6 +225,8 @@ func _tip(row: Dictionary) -> String:
 		parts.append("Builder at work · %d turn%s left" % [left, "" if left == 1 else "s"])
 	if not bool(row["ours"]):
 		parts.append("held by another crown")
+	elif bool(row.get("blockaded", false)):
+		parts.append("harbour blockaded — no sea path to the crown, so it yields nothing")
 	elif not bool(row["connected"]):
 		parts.append("no road to the capital — it yields nothing yet")
 	elif int(row["output"]) > 0:
