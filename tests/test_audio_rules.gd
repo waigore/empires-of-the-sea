@@ -22,7 +22,7 @@ func after_each() -> void:
 		"audio_director":
 			_teardown_audio_director()
 		"map_soundtrack":
-			_teardown_map_soundtrack()
+			_after_soundtrack()
 	_suite_setup = ""
 
 func _setup_audio_mix() -> void:
@@ -295,33 +295,69 @@ const Fixture = preload("res://tests/map_fixture.gd")
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const map_soundtrack_TEMP_PATH := "user://test_map_soundtrack.cfg"
 
-var _screen: MapScreen = null
-var _audio: AudioDirector = null
-var _score: MapSoundtrack = null
-## Lazily filled on the first soundtrack mount so shell cases can restore the chart.
-var world_snapshot: Array = []
+## One mount for the whole suite: under coverage a chart mount costs ~1 s and a
+## re-seat from the pristine save ~0.15 s, so the score cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`). Static
+## because gd-tools hands each case a fresh instance: a shell case frees the
+## chart, and the next case must find the one the suite mounted.
+static var _screen: MapScreen = null
+static var _audio: AudioDirector = null
+static var _score: MapSoundtrack = null
+static var _pristine: Dictionary = {}
+static var _world_snapshot: Array = []
+## The before_all instance owns the mount, so a remount after a shell case
+## outlives the case that asked for it.
+static var _host: Node = null
 
 
-func _setup_map_soundtrack() -> void:
-	_teardown_map_soundtrack()
-	_suite_setup = "map_soundtrack"
-	if world_snapshot.is_empty():
-		world_snapshot = Fixture.snapshot(Fixture.world())
-	Fixture.restore(Fixture.world(), world_snapshot)
-	_screen = Fixture.attach_screen(self)
-	_audio = _screen.get_node("Audio") as AudioDirector
-	# Keep the suite's mix out of the player's own settings file.
-	_audio.settings_path = map_soundtrack_TEMP_PATH
-	_score = _screen.get_node("Soundtrack") as MapSoundtrack
+func before_all() -> void:
+	_host = self
+	_world_snapshot = Fixture.snapshot(Fixture.world())
+	_mount_soundtrack()
 
 
-func _teardown_map_soundtrack() -> void:
+func after_all() -> void:
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
 	_audio = null
 	_score = null
-	Fixture.restore(Fixture.world(), world_snapshot)
+	_pristine = {}
+	_world_snapshot = []
+	_host = null
+
+
+## The suite's one chart, mounted on the shared world with the suite's own mix
+## file so the player's settings are never touched. A driven run asks for no
+## fades: the bed lands on its knob the frame it is asked for.
+func _mount_soundtrack() -> void:
+	Fixture.restore(Fixture.world(), _world_snapshot)
+	_screen = Fixture.attach_screen(_host)
+	_audio = _screen.get_node("Audio") as AudioDirector
+	_audio.settings_path = map_soundtrack_TEMP_PATH
+	_audio.fade_scale = 0.0
+	_score = _screen.get_node("Soundtrack") as MapSoundtrack
+	_pristine = Fixture.suite_capture(_screen)
+
+
+## Re-seats the shared chart at the top of turn 1 and puts the mix and the era
+## bed back where the mount left them, so a case reads the score it expects.
+func _setup_map_soundtrack() -> void:
+	_suite_setup = "map_soundtrack"
+	if not is_instance_valid(_screen):
+		_mount_soundtrack()
+		return
+	Fixture.restore(Fixture.world(), _world_snapshot)
+	Fixture.suite_reset(_screen, _pristine)
+	_audio.set_music_volume(AudioMix.MUSIC_DEFAULT)
+	_audio.set_sfx_volume(AudioMix.SFX_DEFAULT)
+	_audio.set_muted(false)
+	_score._sync_bed()
+
+
+## The mount outlives the case; only the suite's own mix file is dropped.
+func _after_soundtrack() -> void:
+	Fixture.restore(Fixture.world(), _world_snapshot)
 	if FileAccess.file_exists(map_soundtrack_TEMP_PATH):
 		DirAccess.remove_absolute(ProjectSettings.globalize_path(map_soundtrack_TEMP_PATH))
 
@@ -529,7 +565,7 @@ func _boot_shell() -> Node:
 	_screen = null
 	_audio = null
 	_score = null
-	Fixture.restore(Fixture.world(), world_snapshot)
+	Fixture.restore(Fixture.world(), _world_snapshot)
 	var app: Node = MAIN.instantiate()
 	app.size_override = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 	# Observer / campaign doors reuse the shared chart so shell cases do not
