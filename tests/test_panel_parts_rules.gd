@@ -3183,6 +3183,35 @@ func test_the_dossier_promises_only_what_the_standing_buys() -> void:
 	panel.free()
 
 
+## The work list prices the spend, so it names the prize beside it: the transport
+## a road lands on the crew's own tile, printed under the button in the crown's
+## gold, and no second line for the orders a ledger already prices (REQ-P5-06,
+## REQ-P3-02; DR-20261117-05).
+func test_the_work_order_list_names_what_the_road_lands() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var engineer: CivilianState = CivilianState.create(1, PLAYER, "engineer", Vector2i(0, 1))
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile()
+	)
+	var lines: PackedStringArray = PackedStringArray()
+	for child: Node in panel._orders.get_children():
+		var label := child as Label
+		if label != null:
+			lines.append(label.text)
+	var printed: String = " | ".join(lines)
+	assert_true(
+		printed.contains("Transport 1 — an estate here gathers up to 1 a turn"),
+		"the road's payoff prints under its price: " + printed
+	)
+	assert_false(
+		printed.contains("soaks"),
+		"the wall is priced on the walls sheet, not here: " + printed
+	)
+	panel.free()
+
+
 ## The value column of one dossier row, or "" when the caption is absent.
 func _panel_row(panel: CivilianPanel, caption: String) -> String:
 	var children: Array[Node] = panel._detail.get_children()

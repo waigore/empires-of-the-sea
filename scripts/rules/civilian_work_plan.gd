@@ -219,6 +219,8 @@ static func order_label(
 ## One row of the work-order list: the label the court reads, the price beside
 ## it and the materials the rules charge. A fort's price also names the turns it
 ## takes, because its wall is the one order that arrives over several of them.
+## The row also says what the work lands, for the works no ledger prices: the
+## transport a road, a harbour or a railroad brings to the tile (DR-20261117-05).
 static func option_row(
 	action: String, model: MapModel, tile: Vector2i, works: LandWorks,
 	check: Dictionary, plain: String
@@ -231,12 +233,46 @@ static func option_row(
 		"label": order_label(action, model, tile, plain),
 		"cost": cost,
 		"cost_text": price,
+		"preview_text": transport_preview(action, model, tile, works),
 	}
 	if action != "build_fort":
 		return row
 	var turns: int = duration_for(model, action, tile, works)
 	row["cost_text"] = "%s · %d turn%s" % [price, turns, "" if turns == 1 else "s"]
 	return row
+
+
+## What a transport work lands on this tile, in the order's own words: the
+## transport level the path will carry, which is the ceiling the Extraction
+## formula puts on an estate here (wiki: extraction-and-improvements §
+## Extraction; capital-and-connectivity § Path transport cap). A port is read as
+## the landfall it is — a harbour tile carries the rail's transport and anchors
+## the sea road. Empty for every other order: those are priced where their own
+## ledger prints the payoff (REQ-P5-06, REQ-P2-03; DR-20261117-05).
+static func transport_preview(
+	action: String, model: MapModel, tile: Vector2i, works: LandWorks
+) -> String:
+	if not CivilianTransport.knows(action):
+		return ""
+	var level: int = transport_after(action, works.transport_at(model, tile))
+	var text: String = "Transport %d — an estate here gathers up to %d a turn" % [
+		level, level
+	]
+	if action == "build_port":
+		return "Landfall · " + text
+	return text
+
+
+## The transport level a finished work leaves on the tile: a road raises the
+## path one step (level 2 at most), a railroad lands 4, and a harbour carries
+## the rail's transport in the network's own reading (`LandConnectivity`).
+static func transport_after(action: String, current: int) -> int:
+	match action:
+		"build_road":
+			return mini(current + 1, LandWorks.TRANSPORT_IMPROVED_ROAD)
+		"build_port", "build_rail":
+			return LandWorks.TRANSPORT_RAIL
+	return current
 
 
 static func cost_level(

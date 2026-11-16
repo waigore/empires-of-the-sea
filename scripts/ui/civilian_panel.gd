@@ -327,6 +327,16 @@ func _fill_orders(
 		button.disabled = not bool(option["ok"]) or unit.is_working()
 		button.pressed.connect(func() -> void: action_pressed.emit(action))
 		_orders.add_child(button)
+		# What the order lands, in the crown's gold under the price: the works
+		# no ledger prices name their payoff here (REQ-P5-06; DR-20261117-05).
+		var preview_text: String = String(option.get("preview_text", ""))
+		if not preview_text.is_empty():
+			var payoff := Label.new()
+			payoff.text = preview_text
+			payoff.add_theme_font_size_override("font_size", 11)
+			payoff.add_theme_color_override("font_color", Palette.GOLD)
+			payoff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_orders.add_child(payoff)
 		if not bool(option["ok"]):
 			var reason := Label.new()
 			reason.text = String(option["reason"])
