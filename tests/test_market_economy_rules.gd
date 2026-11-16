@@ -5203,3 +5203,73 @@ func test_the_batch_is_exactly_what_the_validator_accepts() -> void:
 	)
 	assert_false(bool(over["ok"]))
 	assert_eq(String(over["code"]), "trade_order_bid_exceeds_treasury_budget")
+
+
+# --- the PRODUCTION tab's one press (DR-20261116-08) -------------------------
+
+
+## One press files one run on every ready row, in the page's order, and each row
+## is capped by the allowance the rows before it leave: the walk reads the same
+## arithmetic the row's "+" is capped by (REQ-P2-03, REQ-P5-04).
+func test_the_production_batch_sets_one_run_on_every_ready_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10, "iron": 10, "coal": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool", "steel"], economy, 0, stock, 20, []
+	)
+	var plan: Dictionary = result["plan"]
+	assert_eq(int(result["runs"]), 3, "every ready row took a step")
+	assert_eq(int(plan["lumber"]), 1)
+	assert_eq(int(plan["fabric_from_wool"]), 1)
+	assert_eq(int(plan["steel"]), 1, "the slow row takes one run, not its whole bench")
+
+
+## A row already at its ceiling has no step to file, and the press never fills a
+## row to the ceiling: one press is one step per row (REQ-P5-04).
+func test_the_production_batch_skips_a_row_at_its_ceiling() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10}
+	var assignments: Array = [{"recipe": "lumber", "units": 5}]
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool"], economy, 0, stock, 20, assignments
+	)
+	assert_eq(int(result["runs"]), 1, "only the row with room takes a step")
+	assert_false((result["plan"] as Dictionary).has("lumber"), "the full row is left alone")
+	assert_eq(int(result["skipped"]), 1)
+
+
+## The labour the earlier rows claim is gone for the rows after them, so the walk
+## can never set a run the phase would refuse (REQ-P2-03).
+func test_the_production_batch_spends_the_labour_it_claims() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool"], economy, 0, stock, 2, []
+	)
+	assert_eq(int(result["runs"]), 1, "two labour points buy one run")
+	assert_eq(int((result["plan"] as Dictionary)["lumber"]), 1)
+	assert_eq(int(result["skipped"]), 1, "the second row waits on the labour")
+
+
+## A row whose hand or town's works is missing is no step at all: the press names
+## only what the phase would start (wiki: production-recipes § Worker-tier gates).
+func test_the_production_batch_skips_a_gated_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"tobacco": 10, "fabric": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["cigars", "garments"], economy, 0, stock, 20, []
+	)
+	assert_eq(int(result["runs"]), 0, "no gated row is offered")
+	assert_eq(int(result["skipped"]), 2)
+
+
+## The receipt names what the press set, and says why a page with nothing ready
+## offered no step (REQ-P5-05).
+func test_the_production_batch_receipt_names_the_runs() -> void:
+	assert_eq(
+		ProductionBatch.receipt(3), "Set 3 runs — every ready row in this view is ordered."
+	)
+	assert_eq(
+		ProductionBatch.receipt(1), "Set 1 run — every ready row in this view is ordered."
+	)
+	assert_true(ProductionBatch.receipt(0).begins_with("No ready row to set"))

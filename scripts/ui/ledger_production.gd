@@ -11,6 +11,10 @@ extends VBoxContainer
 ## offers runs labour or inputs would refuse (REQ-P2-03).
 
 signal production_changed(recipe_id: String, units: int)
+## The PRODUCTION tab's one press: one run on every ready row it prints, applied
+## by the controller through the same `set_production` intent a row's "+" emits
+## (REQ-P5-04; DR-20261116-08).
+signal production_batch_requested(plan: Dictionary)
 
 const ROW_HEIGHT: float = 38.0
 ## Medallion and name column, so every row's figures start at one x.
@@ -33,6 +37,9 @@ var _report: Dictionary = {}
 ## (REQ-P3-02).
 var _rows: Dictionary = {}
 var _holdings: Dictionary = {}
+## The one press under the MANUFACTURED heading: one run on every ready row the
+## page prints, armed on the first tap and filed on the second (DR-20261116-08).
+var _batch: RaiseBatchPress = null
 
 
 ## `report` is the end-of-turn projection the panel already holds; without one
@@ -42,6 +49,7 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_report = report
 	_rows = {}
 	_holdings = {}
+	_batch = null
 	UiRowBuilder.clear(self)
 	if economy == null:
 		return
@@ -64,9 +72,14 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 		_manufacture_hint(),
 		MANUFACTURE_COLUMNS
 	)
+	_batch = RaiseBatchPress.new()
+	_batch.set_verb("queue")
+	_batch.confirmed.connect(_queue_all)
+	add_child(_batch)
 	for output_id: String in CommodityCatalog.MANUFACTURED:
 		for recipe_id: String in _recipes_of(output_id):
 			add_child(_recipe_row(recipe_id))
+	_sync_batch()
 	_section(
 		"RICHES",
 		"Cleared to the treasury each turn at their base price; never traded.",
@@ -228,21 +241,62 @@ func _recipes_of(output_id: String) -> Array[String]:
 ## Units this row may still be set to: the whole runs the coming Production phase
 ## could start from the projected post-Consumption store and idle labour, less
 ## the other rows' claims and the pieces already on the bench. The rules own the
-## arithmetic; this only picks which state the phase will see (REQ-P2-03).
+## arithmetic; this only picks which state the phase will see (REQ-P2-03). The
+## batch press reads the same function, so the press and the row's "+" can never
+## disagree about a ceiling (DR-20261116-08).
 func _allowance(recipe_id: String) -> int:
-	var stock: Dictionary = _report.get("after_consumption", _economy.stockpile) as Dictionary
-	var labour: int = _economy.workers.labour()
-	if not _report.is_empty():
-		labour = LedgerText.idle_labour(_report)
-	return ProductionRecipes.allowance(
+	var seen: Dictionary = ProductionBatch.budget(_economy, _report)
+	return ProductionBatch.allowance(
+		_economy,
 		recipe_id,
-		stock,
-		labour,
-		_economy.production.assignments(),
-		_economy.workers,
-		_economy.production_wip,
-		_town_level()
+		_town_level(),
+		seen["stock"],
+		int(seen["labour"]),
+		_economy.production.assignments()
 	)
+
+
+# --- the one press -----------------------------------------------------------
+
+
+## The press, for tests and the workshop drive (REQ-P3-02).
+func batch_press() -> RaiseBatchPress:
+	return _batch
+
+
+## One run on every ready row the page prints, in its own order, each capped by
+## the allowance the rows before it leave (REQ-P5-04; DR-20261116-08).
+func _plan() -> Dictionary:
+	if _economy == null:
+		return {"plan": {}, "runs": 0, "rows": 0, "skipped": 0}
+	var seen: Dictionary = ProductionBatch.budget(_economy, _report)
+	return ProductionBatch.plan(
+		_rows.keys(),
+		_economy,
+		_town_level(),
+		seen["stock"],
+		int(seen["labour"]),
+		_economy.production.assignments()
+	)
+
+
+## The press names how many runs it would set, so the count is read before the
+## labour and inputs are claimed (REQ-P5-03, REQ-P5-05).
+func _sync_batch() -> void:
+	if _batch == null:
+		return
+	var runs: int = int(_plan()["runs"])
+	_batch.set_ready(runs, "runs")
+
+
+## Files the plan as one intent: the controller applies every set through the
+## same `set_production` the row's "+" emits and repaints once, so the page never
+## rebuilds itself under a press that is still emitting (REQ-P2-03, REQ-P5-06).
+func _queue_all() -> void:
+	var plan: Dictionary = _plan()["plan"] as Dictionary
+	if plan.is_empty():
+		return
+	production_batch_requested.emit(plan)
 
 
 ## The hand a row waits for, said on the row itself: a touch player never sees a
