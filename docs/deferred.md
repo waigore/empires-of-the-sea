@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261116-17; #846–#847 live (REQ-P2-02).
+Audited through DR-20261117-01; #846–#847 live (REQ-P2-02).
 
 ## Already live
 
@@ -34,20 +34,18 @@ Audited through DR-20261116-17; #846–#847 live (REQ-P2-02).
 | Money-goal reweight + Tribe-chain slot | `goal_mille` #821; `SLOT_TRIBE_CHAIN` #825 |
 | Expansion-crew slot | `SLOT_CREWS`, DR-16-15 |
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823/#834 |
+| Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 
 ## Gaps (impact order)
 
-1. **Market and naval dispatch stay seed** — four live slots including
-   `expansion.crews` (#847, DR-16-15); only market bids and naval missions
-   stay outside (DR-13-15/16-11).
-2. **Civilian-build seeds** — exotic mixes / per-tile previews
+1. **Civilian-build seeds** — exotic mixes / per-tile previews
    (`civilian-build-planner`).
-3. **Quick Battle multi-lane / collapse** — one lane; needs a design call
+2. **Quick Battle multi-lane / collapse** — one lane; needs a design call
    (DR-10-24).
 
 ## Next pick
 
-Market/naval dispatch; else civilian build seeds.
+Civilian build seeds; else a P5/P1 player surface.
 
 ## Blocked footnotes
 

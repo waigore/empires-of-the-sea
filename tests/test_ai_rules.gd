@@ -2409,6 +2409,32 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	layer.free()
 
 
+## The economy pass reads the footing's market slot: a court at war bids only
+## the rows its commitments claim, and the report names the top-up it withheld
+## (DR-20261117-01).
+func test_map_phase_a_court_at_war_opens_no_speculative_bid() -> void:
+	var peace: PlaySession = _rival_economy_play()
+	var open: Dictionary = MapPlayEconomyAi.run(peace)["factions"][1]["trade"]
+	assert_eq(int((open["plan"] as Dictionary).get("held", 0)), 0, "at peace nothing is held")
+	assert_eq(String(open.get("bids_blocked", "")), "", "and nothing is reported")
+	peace.civilian_layer.free()
+	var play: PlaySession = _rival_economy_play()
+	play.diplomacy = _war_state(1, 0)
+	var ledger: PlayerEconomy = play.ai.economy_for(1)
+	for id: String in AiEconomyPlanner.BUILD_INPUTS:
+		ledger.stockpile[id] = 0
+	var trade: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]["trade"]
+	assert_true(
+		int((trade["plan"] as Dictionary).get("held", 0)) > 0,
+		"the war footing holds the unclaimed rows back"
+	)
+	assert_eq(
+		String(trade.get("bids_blocked", "")), AiMarketPlanner.REASON_SPECULATE,
+		"the report names the top-up the footing held shut"
+	)
+	play.civilian_layer.free()
+
+
 
 ## The rival's court reads the crown's best town from the world and hands it to
 ## the planner and the phase alike: a village court is offered no second-stage
@@ -3471,6 +3497,36 @@ func test_the_footing_opens_only_its_published_slots() -> void:
 	assert_true(
 		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_CREWS)
 	)
+	# The market's speculative top-up is the fifth live slot: the same war
+	# footing that spends the coin on the front opens no top-up above the rows
+	# the court's commitments already claim (DR-20261117-01).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_MARKET)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_MARKET)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_MARKET)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_MARKET)
+	)
+	# The naval mission is the sixth: only the overstretched footing shuts it,
+	# because a court at one front still works the enemy's trade
+	# (DR-20261117-01).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_NAVAL)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_NAVAL)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_NAVAL)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_NAVAL)
+	)
 
 
 ## The trace reading: the slots a footing holds shut, in the table's own order.
@@ -3481,12 +3537,13 @@ func test_the_trace_names_the_slots_a_footing_holds_shut() -> void:
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_WAR)),
-		"expansion.voyage,expansion.tribe_chain,expansion.crews",
-		"one front closes the voyage, the new chain and the crews that serve them"
+		"expansion.voyage,expansion.tribe_chain,expansion.crews,trade.market",
+		"one front closes the voyage, the new chain, the crews and the top-up"
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_FRONTS)),
-		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain,expansion.crews",
+		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain,"
+		+ "expansion.crews,trade.market,navy.missions",
 		"an overstretched court holds every named slot shut"
 	)
 	assert_eq(
@@ -3599,6 +3656,93 @@ func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
 	assert_true(
 		text.contains(AiCivilianPlanner.REASON_CREWS),
 		"the trace names why the yard took no crew"
+	)
+
+
+## A court at war opens no speculative top-up: the coin and the holds belong to
+## the front, so it bids only the rows this turn's commitments already claim,
+## and food, which is never a speculative buy (DR-20261117-01).
+func test_a_court_at_war_opens_no_speculative_bid() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({}, 5000)
+	var market := WorldMarket.with_default_prices()
+	var peace: Dictionary = AiMarketPlanner.plan(_ai_market_config(), economy, market, 20)
+	assert_eq((peace["bids"] as Array).size(), 3, "at peace the court stocks its reserve")
+	assert_eq(int(peace["held"]), 0, "nothing is held back at peace")
+	# The war footing: no commitment claims a row, so nothing is bid.
+	var war: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 20, {}, {}, {}, 0, 0, false, false
+	)
+	assert_true((war["bids"] as Array).is_empty(), "a war footing opens no top-up")
+	assert_eq(int(war["held"]), 6, "every unclaimed build input is held back")
+	# The row the next regiment is provisioned with is claimed, so it is bought.
+	var claimed: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 20, {}, {"fabric": 5}, {}, 0, 0, false, false
+	)
+	assert_eq((claimed["bids"] as Array).size(), 1, "the muster's cloth is a commitment")
+	assert_eq(String(claimed["bids"][0]["commodity"]), "fabric")
+	assert_eq(int(claimed["held"]), 5, "the rest of the warehouse stays empty")
+	# Food is never a speculative buy: a starving court still bids its dinner.
+	var starving: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 20, {}, {}, {}, 0, 6, false, false
+	)
+	assert_eq(String((starving["bids"] as Array)[0]["commodity"]), "grain")
+
+
+## The economy trace names the bid the footing held shut, so a court at war is
+## never silent about the stock it did not buy (REQ-P5-05; DR-20261117-01).
+func test_the_trace_names_the_bid_a_war_footing_held_shut() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: court},
+		{"factions": {2: {"trade": {
+			"bids_blocked": AiMarketPlanner.REASON_SPECULATE,
+		}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text = String(entry)
+	assert_true(
+		text.contains(AiMarketPlanner.REASON_SPECULATE),
+		"the trace names why the court bought nothing above its commitments"
+	)
+
+
+## An overstretched court opens no new commerce station: with no squadron to
+## fight it keeps its hulls on its own water, and the order names the raid it
+## withheld. A court at one front still works the enemy's trade
+## (DR-20261117-01).
+func test_an_overstretched_court_opens_no_new_raid() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 0, 0, "sloop")]
+	var one: DiplomacyState = _war_state(0, 1)
+	assert_eq(
+		AiPhasePlanner.phase_for(config, one), AiPhasePlanner.PHASE_WAR,
+		"one Great Power war is the war footing"
+	)
+	var raid: Dictionary = AiNavalPlanner.orders(
+		config, one, model, fleets, null, AiPhasePlanner.PHASE_WAR
+	)
+	assert_eq(String(raid["orders"][0]["kind"]), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(raid["orders"][0]["zone"]), 1, "the water off Coro")
+	var two: DiplomacyState = _war_state(0, 1)
+	two.ensure_relation(0, 2, 1).at_war = true
+	assert_eq(
+		AiPhasePlanner.phase_for(config, two), AiPhasePlanner.PHASE_FRONTS,
+		"two Great Power wars are the overstretched footing"
+	)
+	var home: Dictionary = AiNavalPlanner.orders(
+		config, two, model, fleets, null, AiPhasePlanner.PHASE_FRONTS
+	)
+	assert_eq((home["orders"] as Array).size(), 1, "the hull still gets one order")
+	assert_eq(
+		String(home["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME,
+		"no new station: the squadron keeps its own water"
+	)
+	assert_eq(
+		String(home["orders"][0]["reason"]), AiNavalPlanner.REASON_FRONTS,
+		"the order names the raid it withheld"
 	)
 
 

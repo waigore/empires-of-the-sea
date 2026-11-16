@@ -31,6 +31,9 @@ var works_reserved: Dictionary = {}
 
 ## The reads the plan and the application share.
 var at_war: bool = false
+## The court's war footing this turn (DR-20261113-15): the dispatch table every
+## domain planner reads its slot from (DR-20261117-01).
+var phase: String = AiPhasePlanner.PHASE_UNKNOWN
 var regiments: int = 0
 var ships: int = 0
 var warships: int = 0
@@ -69,6 +72,7 @@ static func open(
 func plan_turn() -> void:
 	cargo = MapPlayCargoAi.run(play, faction, economy, overseas)
 	at_war = MapPlayCourt.at_war(play, faction)
+	phase = AiPhasePlanner.phase_for(config, play.diplomacy)
 	regiments = MapPlayCourt.regiments(play, faction)
 	ships = MapPlayCourt.ships(play, faction)
 	warships = MapPlayCourt.warships(play, faction)
@@ -201,7 +205,7 @@ func _plan_research() -> Dictionary:
 	if door.is_empty():
 		door = AiTribeColony.door(
 			play.diplomacy, play.world, play.court_charts, faction,
-			economy.tech_unlocked, AiPhasePlanner.phase_for(config, play.diplomacy)
+			economy.tech_unlocked, phase
 		)
 	# The deed door, buyer-gated: a court that has a priced deed on its chart and
 	# no Merchant Companies studies the tech that hires the buyer. The study is
@@ -274,9 +278,13 @@ func _plan_trade() -> Dictionary:
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var saving: bool = String(income["goal"]) == AiIncome.GOAL_EARN
+	# A court at war opens no speculative top-up: the slot is the footing's
+	# (DR-20261117-01), and the published market fills the rest.
+	var speculate: bool = AiPhasePlanner.opens(phase, AiPhasePlanner.SLOT_MARKET)
 	var plan: Dictionary = AiBind.market_plan(
 		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
-		MapPlayEconomyAi._merge_rows(need, navy), floor, food_short, saving
+		MapPlayEconomyAi._merge_rows(need, navy), floor, food_short, saving,
+		speculate
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(
@@ -285,4 +293,8 @@ func _plan_trade() -> Dictionary:
 	result["plan"] = plan
 	result["free_holds"] = free_holds
 	result["claims"] = claims["lines"]
+	# The bidding the footing held shut prints with its reason rather than going
+	# quiet (REQ-P5-05; DR-20261117-01).
+	if not speculate and int(plan.get("held", 0)) > 0:
+		result["bids_blocked"] = AiMarketPlanner.REASON_SPECULATE
 	return result

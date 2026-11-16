@@ -2498,6 +2498,35 @@ func test_transport_layer_lookups_and_refusals() -> void:
 	layer.free()
 
 
+## A merge may leave an army pointing at a squadron the chart no longer holds;
+## seat_carried rewrites that seat onto the squadron that keeps the troops
+## (wiki: military-armies § The muster roll). Guards stay quiet when the layer,
+## the squadron or the embarked id is missing.
+func test_seat_carried_rewrites_a_lagging_army_pointer() -> void:
+	_setup_naval_movement()
+	var army := ArmyState.create(7, 0, 0, false, ["unit_7"], {"unit_7": "pikemen"})
+	army.embarked_fleet = 99
+	var layer: ArmyLayer = _transport_layer(army)
+	var fleet := FleetState.in_port(2, 0, 0, ["ship_a"], {"ship_a": "fluyte"})
+	fleet.embarked_army = army.id
+
+	ArmyTransport.seat_carried(null, fleet)
+	ArmyTransport.seat_carried(layer, null)
+	var empty := FleetState.in_port(3, 0, 0, ["ship_b"], {"ship_b": "fluyte"})
+	ArmyTransport.seat_carried(layer, empty)
+	assert_eq(army.embarked_fleet, 99, "an empty deck does not rewrite a seat")
+
+	empty.embarked_army = 999
+	ArmyTransport.seat_carried(layer, empty)
+	assert_eq(army.embarked_fleet, 99, "a missing army id is a no-op")
+
+	ArmyTransport.seat_carried(layer, fleet)
+	assert_eq(army.embarked_fleet, fleet.id, "the army answers the squadron that carries her")
+	ArmyTransport.seat_carried(layer, fleet)
+	assert_eq(army.embarked_fleet, fleet.id, "an already-correct seat stays put")
+	layer.free()
+
+
 func test_transport_layer_same_region_move_is_a_no_op() -> void:
 	_setup_naval_movement()
 	var pair: Array = _naval_movement_transport_pair()

@@ -25,6 +25,10 @@ static func combine(play: PlaySession, target_id: int) -> void:
 	# The roster is the layer's own live array, so the merged squadron is already
 	# stored; one rebuild retires the emptied marker and redraws the rest.
 	play.ship_layer.rebuild_markers()
+	# The troops come aboard the squadron that keeps the station: her own roster
+	# lists them, and the army's seat has to follow her hulls or the muster roll
+	# names a command no chart holds (wiki: military-armies § The muster roll).
+	ArmyTransport.seat_carried(play.army_layer, target)
 	play.ship_layer.select(play.ship_layer.ship_for(target))
 	play.hud.toast(line(play, target, result))
 

@@ -10,6 +10,12 @@ extends RefCounted
 ## its harbour roster are where the rules can use them (DR-20261110-30). Pure
 ## rules: state in, orders out; the map layer applies them through NavalMovement
 ## so the AI never invents an outcome (REQ-P2-03, REQ-P3-03).
+##
+## The footing's naval slot (`navy.missions`, DR-20261117-01) is the caller's
+## read: an **overstretched** court opens no new commerce station — a squadron
+## with no fight to pick sails home instead of working a hostile coast — while a
+## station already posted keeps its post and a court at one front raids as
+## published.
 
 const KIND_PURSUE: String = "pursue"
 const KIND_SORTIE: String = "sortie"
@@ -21,6 +27,9 @@ const KIND_RAID: String = "raid"
 ## its court keeps its imports with, and the court has none in port at its seat
 ## (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
 const REASON_TRADE: String = "trade"
+## Why a squadron opens no commerce station: the court fights two Great Powers
+## and keeps its hulls on its own water (DR-20261117-01).
+const REASON_FRONTS: String = "overstretched: no new raid"
 
 
 ## One order per sea-going squadron: the zone to enter and the strength it means
@@ -28,19 +37,25 @@ const REASON_TRADE: String = "trade"
 ## courts' charts: a rival hunts only in water its own chart holds, and a hull
 ## it has never charted is not a target (wiki: fog-and-exploration § Visibility
 ## Levels, ai-architecture § Naval policy; DR-20261110-21). A null chart keeps
-## the every-zone behaviour the fixtures use.
+## the every-zone behaviour the fixtures use. `phase` is the court's war footing
+## as the dispatch reads it: an overstretched court opens no new commerce station
+## (DR-20261117-01), and an unknown footing plays the published policy.
 static func orders(
 	config: AiConfig,
 	state: DiplomacyState,
 	model: MapModel,
 	fleets: Array,
-	charts: CourtCharts = null
+	charts: CourtCharts = null,
+	phase: String = AiPhasePlanner.PHASE_UNKNOWN
 ) -> Dictionary:
 	var planned: Array[Dictionary] = []
 	var candidates: Array[Dictionary] = []
 	if config == null or state == null or model == null:
 		return {"orders": planned, "candidates": candidates}
 	var hostile: Dictionary = Hostility.owners(state, config.faction)
+	# The footing's naval slot: an overstretched court opens no new commerce
+	# station and keeps its hulls on its own water (DR-20261117-01).
+	var raids: bool = AiPhasePlanner.opens(phase, AiPhasePlanner.SLOT_NAVAL)
 	for fleet: FleetState in _squadrons(fleets, config.faction):
 		# At war a squadron hunts what it can match, then works the enemy's
 		# trade; at peace it has no station to keep, so it sails home
@@ -56,18 +71,25 @@ static func orders(
 				order["reason"] = REASON_TRADE
 		elif not hostile.is_empty():
 			order = _best_target(config, model, fleets, fleet, hostile, charts)
-			if order.is_empty():
-				order = _raid_order(
+			var raid: Dictionary = {}
+			if order.is_empty() and raids:
+				raid = _raid_order(
 					model, fleets, fleet, config.faction, hostile, charts
 				)
-			# `_raid_order` answers `hold` for a warship already on a hostile
-			# coast: the station pass works it, and it must not sail home.
-			if bool(order.get("hold", false)):
+			if bool(raid.get("hold", false)):
+				# Already on a hostile coast: the station pass works it, and it
+				# must not sail home.
 				order = {}
+			elif not raid.is_empty():
+				order = raid
 			elif order.is_empty():
 				# Nowhere to fight and no trade to work: bring the hulls home,
 				# where holds and escorts are worth something (DR-20261110-30).
+				# An overstretched court opens no new station at all, and the
+				# trace names the raid it withheld (DR-20261117-01).
 				order = _home_order(model, fleet, config.faction, charts)
+				if not order.is_empty() and not raids:
+					order["reason"] = REASON_FRONTS
 		else:
 			order = _home_order(model, fleet, config.faction, charts)
 		if order.is_empty():

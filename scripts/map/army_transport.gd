@@ -97,6 +97,21 @@ static func drop_lost(layer: ArmyLayer, seats: Dictionary) -> Array[ArmyState]:
 	return lost
 
 
+## Re-seats the army a squadron carries on the squadron that now holds her hulls.
+## A merge strikes the old command off the roster, so an army left pointing at her
+## names a squadron no chart holds: the muster roll then loses the water she
+## stands in and its own press finds no marker (wiki: military-armies § The muster
+## roll — an embarked army stands under the squadron that carries it). The
+## squadron's own roster is the gate for landing, so this is the book, not the
+## rule.
+static func seat_carried(layer: ArmyLayer, fleet: FleetState) -> void:
+	if layer == null or fleet == null or fleet.embarked_army < 0:
+		return
+	var army: ArmyState = army_by_id(layer, fleet.embarked_army)
+	if army != null and army.embarked_fleet != fleet.id:
+		army.embarked_fleet = fleet.id
+
+
 ## Puts a surplus army ashore when two squadrons merge and only one can stay
 ## aboard (wiki: ships-and-naval § Naval transport — a squadron lands its army
 ## on its port province). The port is the crown's own, so no beachhead is

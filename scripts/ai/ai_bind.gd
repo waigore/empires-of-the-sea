@@ -89,7 +89,8 @@ static func market_plan(
 	need: Dictionary,
 	floor: int = 0,
 	food_shortfall: int = 0,
-	saving: bool = false
+	saving: bool = false,
+	speculate: bool = true
 ) -> Dictionary:
 	if _baseline(kind):
 		return _ml(
@@ -99,7 +100,7 @@ static func market_plan(
 		)
 	return AiMarketPlanner.plan(
 		config, economy, market, free_holds, tech_unlocked, reserved, need, floor,
-		food_shortfall, saving
+		food_shortfall, saving, speculate
 	)
 
 
@@ -223,7 +224,10 @@ static func naval_orders(
 		return _ml(
 			"ai_naval_planner.gd", "orders", [config, diplomacy, model, roster, charts]
 		)
-	return AiNavalPlanner.orders(config, diplomacy, model, roster, charts)
+	return AiNavalPlanner.orders(
+		config, diplomacy, model, roster, charts,
+		AiPhasePlanner.phase_for(config, diplomacy)
+	)
 
 
 static func invasion_plan(

@@ -145,13 +145,9 @@ static func fold(
 ## `ArmyTransport.drop_lost` would repair the seat a turn later; a merge must not
 ## leave a carried army pointing at a squadron no chart holds.
 static func _seat_carried(play: PlaySession, home: FleetState) -> void:
-	if play == null or play.army_layer == null or home == null:
+	if play == null or play.army_layer == null:
 		return
-	if home.embarked_army < 0:
-		return
-	var army: ArmyState = ArmyTransport.army_by_id(play.army_layer, home.embarked_army)
-	if army != null and army.embarked_fleet != home.id:
-		army.embarked_fleet = home.id
+	ArmyTransport.seat_carried(play.army_layer, home)
 
 
 ## Load repair: a save written before the merge could park a squadron at the

@@ -354,21 +354,11 @@ static func _reading_rank(reading: String) -> int:
 ## orders them by their number and not by their spelling: unit_9 reads before
 ## unit_10. An id that carries no number falls back to its text.
 static func _unit_before(a: String, b: String) -> bool:
-	var left: int = _unit_number(a)
-	var right: int = _unit_number(b)
+	var left: int = ArmyCommand.unit_number(a)
+	var right: int = ArmyCommand.unit_number(b)
 	if left >= 0 and right >= 0 and left != right:
 		return left < right
 	return a < b
-
-
-## The number in a regiment instance id, or -1 when the id is not `unit_<n>`.
-static func _unit_number(regiment_id: String) -> int:
-	if not regiment_id.begins_with("unit_"):
-		return -1
-	var tail: String = regiment_id.substr(5)
-	if not tail.is_valid_int():
-		return -1
-	return tail.to_int()
 
 
 ## The seat leads its chart, then the field armies by id, so the same muster

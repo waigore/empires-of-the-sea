@@ -596,6 +596,30 @@ func test_a_reformed_garrison_gets_a_standard_the_court_can_tap() -> void:
 	assert_true(marker.visible, "a province the court holds keeps its garrison on the map")
 
 
+## The crown's id cursors travel with the combat pass and never fall behind a
+## live instance: a standard the rules minted outside them still cannot have its
+## number handed out again, so the next split or muster never creates a second
+## army or regiment wearing it (wiki: military-armies § Split and combine,
+## § Home Army — every instance keeps its stable id).
+func test_the_id_cursors_clear_every_live_instance() -> void:
+	var capital: int = _screen.capital_province
+	var armies: Array[ArmyState] = _screen.army_layer.armies
+	ArmyGarrison.recover(armies, capital, MapScreen.PLAYER_FACTION, 5, {})
+	var reformed: ArmyState = armies[armies.size() - 1]
+
+	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+
+	assert_true(
+		_screen.army_layer.next_army > reformed.id,
+		"the next split cannot mint the reformed standard's army id"
+	)
+	for regiment_id: String in reformed.regiments:
+		assert_true(
+			_screen.army_layer.next_regiment > ArmyCommand.unit_number(regiment_id),
+			"the next muster cannot mint a man the garrison already fields"
+		)
+
+
 ## A standard whose army left the field goes with it, so a wiped garrison leaves
 ## no ghost marker behind (wiki: combat § Outcomes).
 func test_a_standard_leaves_with_the_army_it_belongs_to() -> void:

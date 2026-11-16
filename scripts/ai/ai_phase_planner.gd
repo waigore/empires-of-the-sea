@@ -44,9 +44,16 @@ const SLOT_TRIBE_CHAIN: String = "expansion.tribe_chain"
 ## signs the deed a Tribe chain points at (wiki: civilian-units § Training;
 ## DR-20261116-15).
 const SLOT_CREWS: String = "expansion.crews"
+## The market's speculative top-up: the stock a court buys above what this turn's
+## commitments already claim (wiki: world-market § Trade orders; DR-20261117-01).
+const SLOT_MARKET: String = "trade.market"
+## A new commerce station on a hostile coast: the raid a court opens when it has
+## no squadron to fight (wiki: ships-and-naval § Fleet missions; DR-20261117-01).
+const SLOT_NAVAL: String = "navy.missions"
 ## Every slot the table names, in the order the trace prints them.
 const SLOTS: Array[String] = [
-	SLOT_VOYAGE, SLOT_DECLARE_WAR, SLOT_TRIBE_CHAIN, SLOT_CREWS
+	SLOT_VOYAGE, SLOT_DECLARE_WAR, SLOT_TRIBE_CHAIN, SLOT_CREWS,
+	SLOT_MARKET, SLOT_NAVAL
 ]
 
 const LABELS: Dictionary = {
@@ -119,6 +126,17 @@ static func opens(phase: String, slot: String) -> bool:
 			# keeps the Builders, Engineers and Spies the front itself needs
 			# (DR-20261116-15).
 			return not is_war_footing(phase)
+		SLOT_MARKET:
+			# A court at war buys only what this turn's commitments already
+			# claim — the ration, the muster's row, the hull's, the works' and
+			# the production's — and opens no speculative top-up above them:
+			# the coin and the holds belong to the front (DR-20261117-01).
+			return not is_war_footing(phase)
+		SLOT_NAVAL:
+			# A court fighting two Great Powers cannot win either war by
+			# working a distant coast: it opens no new commerce station and
+			# keeps its hulls on its own water (DR-20261117-01).
+			return phase != PHASE_FRONTS
 	# A slot no footing names stays open: the dispatch matrix's default outcome
 	# keeps merges total (wiki: phase-planner-dispatch).
 	return true
