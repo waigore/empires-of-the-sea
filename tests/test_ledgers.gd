@@ -3187,6 +3187,68 @@ func test_the_line_leads_every_squadron() -> void:
 	assert_eq(String(first["region_label"]), FactionCatalog.region_label(FactionCatalog.OLD_WORLD))
 
 
+## The line leads by weight, not by spelling: the heavier class reads first and
+## hulls of one class read by their instance number (wiki: ships-and-naval
+## § The crown's navy — "the heavier class first, then the instance id").
+func test_the_line_reads_the_heavier_class_first_and_hulls_by_number() -> void:
+	var fleet := FleetState.in_port(
+		1, OWNER, 0,
+		["ship_10", "ship_9", "ship_4", "ship_3", "ship_2"],
+		{
+			"ship_10": "frigate", "ship_9": "frigate", "ship_4": "ironclad",
+			"ship_3": "sloop", "ship_2": "carrack",
+		}
+	)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [fleet])
+
+	var data: Dictionary = NavalLedger.snapshot(_world(), table, OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["hull"]))
+
+	assert_eq(
+		order, ["ship_4", "ship_9", "ship_10", "ship_3", "ship_2"],
+		"the ironclad leads the frigates, the frigates read 9 then 10, and the merchant hull trails"
+	)
+
+
+## Two classes of one weight read by their name, so the order never hangs on the
+## roster: a Fluyte and a Trader both weigh 1.75.
+func test_a_weight_tie_reads_the_class_name() -> void:
+	var fleet := FleetState.in_port(
+		1, OWNER, 0, ["ship_1", "ship_2"], {"ship_1": "trader", "ship_2": "fluyte"}
+	)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [fleet])
+
+	var data: Dictionary = NavalLedger.snapshot(_world(), table, OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["hull"]))
+
+	assert_eq(order, ["ship_2", "ship_1"], "the Fluyte reads before the Trader")
+
+
+## A hull id that carries no number reads as text: the sheet never leans on an
+## id it cannot parse.
+func test_an_unparseable_hull_id_reads_as_text() -> void:
+	var fleet := FleetState.in_port(
+		1, OWNER, 0,
+		["ship_x", "hull_b", "hull_a"],
+		{"ship_x": "carrack", "hull_b": "carrack", "hull_a": "carrack"}
+	)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [fleet])
+
+	var data: Dictionary = NavalLedger.snapshot(_world(), table, OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["hull"]))
+
+	assert_eq(order, ["hull_a", "hull_b", "ship_x"], "three equal carracks read by their ids")
+
+
 func test_the_squadron_heading_reads_where_she_sails_and_her_station() -> void:
 	var data: Dictionary = NavalLedger.snapshot(_world(), _navy_regions(), OWNER)
 	var groups: Array[Dictionary] = NavalLedger.groups(data, LedgerRows.REGION_ALL)
