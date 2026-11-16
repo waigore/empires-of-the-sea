@@ -2122,3 +2122,87 @@ func _last_toast() -> String:
 		if child is Label:
 			return (child as Label).text
 	return ""
+
+
+# --- detaching a hull into a squadron of her own (DR-20261116-12) ------------
+
+
+func test_a_hull_detaches_from_the_selected_squadron() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.add_hull("split_ship", "sloop")
+	_screen.ship_layer.select(ship)
+	var roster_before: int = _screen.ship_layer.fleets.size()
+	var hulls_before: int = fleet.ship_count()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleets.on_action(_screen.play, "split:split_ship")
+
+	assert_eq(_screen.ship_layer.fleets.size(), roster_before + 1, "a command of her own")
+	assert_eq(fleet.ship_count(), hulls_before - 1, "the squadron keeps her other hulls")
+	var split: FleetState = null
+	for other: FleetState in _screen.ship_layer.fleets:
+		if other != fleet and other.hulls.has("split_ship"):
+			split = other
+	assert_not_null(split, "the new squadron is on the roster")
+	assert_eq(split.sea_zone, fleet.sea_zone, "she keeps her station")
+	assert_not_null(_screen.ship_layer.ship_for(split), "she flies a marker of her own")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_true(
+		_toast_texts().back().contains("as a squadron of her own"),
+		"the news names the detach: '%s'" % _toast_texts().back()
+	)
+	assert_eq(
+		_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), fleet,
+		"the player keeps the squadron she split in view"
+	)
+
+
+func test_the_dossier_offers_the_split_and_the_home_fleet_says_why_not() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	fleet.add_hull("split_ship", "sloop")
+
+	_screen.ship_layer.select(ship)
+
+	assert_true(_screen.hud._fleet_panel._split._button.visible, "the drawer is offered")
+
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	home.add_hull("home_ship", "sloop")
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+
+	assert_false(
+		_screen.hud._fleet_panel._split._button.visible,
+		"the home squadron keeps the seat"
+	)
+	assert_true(_screen.hud._fleet_panel._split._note.visible, "the reason is on the sheet")
+	assert_true(_screen.hud._fleet_panel._split._note.text.contains("home squadron"))
+
+
+func test_a_refused_detach_names_the_gate_and_moves_nothing() -> void:
+	var ship: Ship = _player_ship_at_sea()
+	_screen.ship_layer.select(ship)
+	var roster_before: int = _screen.ship_layer.fleets.size()
+	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleets.on_action(_screen.play, "split:not_aboard")
+
+	assert_eq(_screen.ship_layer.fleets.size(), roster_before, "no command is founded")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_true(
+		_toast_texts().back().contains("not aboard"),
+		"the refusal names the hull: '%s'" % _toast_texts().back()
+	)
+
+
+func test_the_receipt_reads_a_hull_in_port_with_no_name() -> void:
+	var fleet := FleetState.in_port(3, 0, 0, ["a", "b"], {"a": "fluyte", "b": "carrack"})
+
+	var line: String = MapPlayFleetSplit.line(
+		_screen.play, fleet, {"name": "", "type": "fluyte"}
+	)
+
+	assert_true(line.begins_with("Fluyte detaches at "), line)
+	assert_true(line.ends_with("as a squadron of her own."), line)

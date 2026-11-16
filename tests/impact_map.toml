@@ -539,7 +539,7 @@ domain = "naval_intel"
 
 [[rules]]
 match = "scripts/map/map_play_fleets.gd*"
-domain = "naval_intel"
+domain = "fleet_split"
 
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
@@ -560,6 +560,46 @@ domain = "naval_intel"
 [[rules]]
 match = "scripts/save/save_codec.gd*"
 domain = "naval_intel"
+
+# A hull detaches into a squadron of her own (wiki: ships-and-naval § Ship
+# instances; DR-20261116-12). The rules, the layer method that files the roster,
+# the dossier intent that routes it and the drawer that offers the tap travel
+# together; declared before the fleet, map and ui globs so the slice never pulls
+# their whole fan-out. The naval rules suite carries the intel watch that also
+# lives in `map_play_fleets.gd`, so the two naval suites prove the whole slice.
+[domains.fleet_split]
+suites = [
+  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
+[[rules]]
+match = "scripts/rules/fleet_split.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_split.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/map/ship_layer.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/ui/fleet_split_block.gd*"
+domain = "fleet_split"
+
+# The dossier now mounts the split drawer, so a `fleet_panel.gd` edit reads with
+# the naval suites that mount it instead of the whole `ui` fan-out. *Declared
+# before the ui glob.*
+[[rules]]
+match = "scripts/ui/fleet_panel.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "tests/test_naval_rules.gd*"
+domain = "fleet_split"
 
 [[rules]]
 match = "scripts/rules/recruit_queue.gd*"
