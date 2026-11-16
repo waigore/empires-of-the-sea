@@ -85,7 +85,7 @@ func _run() -> void:
 	])
 	_read_busiest(busiest)
 	await _read_layout(panel)
-	await _read_phone(panel)
+	await _read_phone()
 	_finish()
 
 
@@ -182,28 +182,62 @@ func _read_layout(panel: AiObserverPanel) -> void:
 		])
 
 
-## The same plate on a phone in landscape: the feed keeps its window and the
-## crowns keep their room, so the observer reads on a handset too (REQ-P1-07).
-## A headless run keeps one window size, so this reads the short window the
-## engine hands it — the same 720-pixel height a phone in landscape has.
-func _read_phone(panel: AiObserverPanel) -> void:
-	panel._fit()
-	for _frame in 2:
+## The same plate at a phone's landscape size. A headless window cannot be
+## resized, so this mounts a second observer in a SubViewport of 720x360 (the
+## handset profile) and reads the feed's window and the crowns' room there: a
+## 128-pixel feed must not eat the cards on a short screen (REQ-P1-07).
+func _read_phone() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(720, 360)
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	root.add_child(viewport)
+	var screen: MapScreen = SCENE.instantiate()
+	screen.map_seed = SEED
+	screen.map_width = int(GameConfig.SIZES[1]["width"])
+	screen.map_height = int(GameConfig.SIZES[1]["height"])
+	screen.observer_mode = true
+	screen.infinite_mode = true
+	viewport.add_child(screen)
+	for _frame in 6:
+		await process_frame
+	var play: PlaySession = screen.play
+	if play == null:
+		_say("the handset observer built no session")
+		return
+	for _turn in 3:
+		MapPlayTurn.end_turn(play)
+	var panel := screen.get_node_or_null("AiObserver") as AiObserverPanel
+	if panel == null:
+		_say("the handset observer mounted no panel")
+		return
+	panel.refresh()
+	for _frame in 4:
 		await process_frame
 	var feed_scroll := panel._log.get_parent() as ScrollContainer
 	var frame: Control = panel._frame
 	_say("")
-	_say("--- the same plate on a short window ---")
-	_say("viewport: %s" % str(panel.get_viewport().get_visible_rect().size))
+	_say("--- the same plate on a 720x360 handset ---")
 	_say("panel frame: %s  ·  caption %s" % [
 		str(frame.size), panel._log_caption.text,
 	])
-	_say("feed scroll: %s  ·  label %s" % [
+	_say("feed scroll: %s  ·  label %s  ·  lines %d" % [
 		str(feed_scroll.size) if feed_scroll != null else "no",
-		str(panel._log.size),
+		str(panel._log.size), panel._log.text.split("\n").size(),
 	])
 	var crowns: Control = panel._crowns.get_parent() as Control
 	_say("crowns scroll: %s" % (str(crowns.size) if crowns != null else "no"))
+	if crowns != null:
+		_say("crown cards reach y %.0f of the frame's %.0f" % [
+			crowns.global_position.y + crowns.size.y,
+			frame.global_position.y + frame.size.y,
+		])
+	var bar: VScrollBar = panel._plate.get_v_scroll_bar()
+	_say("plate: %s tall in the %s screen  ·  content %s  ·  scrollable %s" % [
+		str(frame.size.y), str(panel.get_viewport().get_visible_rect().size),
+		str(bar.max_value), str(bar.max_value > bar.page),
+	])
+	screen.queue_free()
+	viewport.queue_free()
 
 
 func _crowns_box(panel: AiObserverPanel) -> Control:
