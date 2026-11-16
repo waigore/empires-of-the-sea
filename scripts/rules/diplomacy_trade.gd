@@ -29,15 +29,11 @@ static func ftps_of(state: DiplomacyState, faction: int) -> Array[int]:
 	if state == null:
 		return partners
 	for key: String in state.ftps.keys():
-		var parts: PackedStringArray = key.split(":")
-		if parts.size() != 2:
-			continue
-		var low: int = int(parts[0])
-		var high: int = int(parts[1])
-		if low == faction:
-			partners.append(high)
-		elif high == faction:
-			partners.append(low)
+		var courts: Vector2i = DiplomacyKeys.pair_courts(key)
+		if courts.x == faction:
+			partners.append(courts.y)
+		elif courts.y == faction:
+			partners.append(courts.x)
 	partners.sort()
 	return partners
 
@@ -124,7 +120,7 @@ static func revoke_ftp(state: DiplomacyState, player: int, target: int) -> Dicti
 static func is_boycotting(state: DiplomacyState, issuer: int, target: int) -> bool:
 	if state == null:
 		return false
-	return state.boycotts.has("%d>%d" % [issuer, target])
+	return state.boycotts.has(DiplomacyKeys.directed(issuer, target))
 
 
 static func boycotts_against(state: DiplomacyState, target: int) -> Array[int]:
@@ -132,9 +128,9 @@ static func boycotts_against(state: DiplomacyState, target: int) -> Array[int]:
 	if state == null:
 		return issuers
 	for key: String in state.boycotts.keys():
-		var parts: PackedStringArray = key.split(">")
-		if parts.size() == 2 and int(parts[1]) == target and int(parts[0]) != target:
-			issuers.append(int(parts[0]))
+		var courts: Vector2i = DiplomacyKeys.directed_courts(key)
+		if courts.y == target and courts.x != target:
+			issuers.append(courts.x)
 	issuers.sort()
 	return issuers
 
@@ -165,7 +161,7 @@ static func boycott(state: DiplomacyState, player: int, target: int) -> Dictiona
 	if not bool(check["ok"]):
 		return check
 	state.claim(player, target, "boycott")
-	state.boycotts["%d>%d" % [player, target]] = state.turn
+	state.boycotts[DiplomacyKeys.directed(player, target)] = state.turn
 	state.record_event("boycottSet", player, target)
 	for tribe: int in _colony_tribes(state, player):
 		state.cancel_subsidy(target, tribe)
@@ -193,7 +189,7 @@ static func revoke_boycott(state: DiplomacyState, player: int, target: int) -> D
 	if not bool(check["ok"]):
 		return check
 	state.claim(player, target, "boycott")
-	state.boycotts.erase("%d>%d" % [player, target])
+	state.boycotts.erase(DiplomacyKeys.directed(player, target))
 	state.record_event("boycottRevoked", player, target)
 	return {
 		"ok": true,
@@ -228,7 +224,7 @@ static func sever(state: DiplomacyState, a: int, b: int) -> void:
 	if state.ftps.erase(state.pair_key(a, b)):
 		state.record_event("ftpRevoked", a, b, {"cause": "war"})
 	for pair: Vector2i in [Vector2i(a, b), Vector2i(b, a)]:
-		if state.boycotts.erase("%d>%d" % [pair.x, pair.y]):
+		if state.boycotts.erase(DiplomacyKeys.directed(pair.x, pair.y)):
 			state.record_event("boycottRevoked", pair.x, pair.y, {"cause": "war"})
 
 
@@ -297,13 +293,13 @@ static func subsidy_terms(state: DiplomacyState) -> Dictionary:
 	if state == null:
 		return terms
 	for key: String in state.subsidies.keys():
-		var parts: PackedStringArray = key.split(">")
-		if parts.size() != 2:
+		var courts: Vector2i = DiplomacyKeys.directed_courts(key)
+		if courts.x < 0:
 			continue
 		var percent: int = int(state.subsidies[key])
 		if percent <= 0:
 			continue
-		terms["%d>%d" % [int(parts[0]), int(parts[1])]] = percent
+		terms[DiplomacyKeys.directed(courts.x, courts.y)] = percent
 	return terms
 
 
@@ -344,11 +340,11 @@ static func pay_trade_boosts(state: DiplomacyState) -> int:
 		return 0
 	var paid: int = 0
 	for key: String in state.trade_pairs.keys():
-		var parts: PackedStringArray = key.split(":")
-		if parts.size() != 2:
+		var courts: Vector2i = DiplomacyKeys.pair_courts(key)
+		if courts.x < 0:
 			continue
-		var a: int = int(parts[0])
-		var b: int = int(parts[1])
+		var a: int = courts.x
+		var b: int = courts.y
 		var record: DiplomacyRelation = state.relation(a, b)
 		if record == null or record.at_war:
 			continue
