@@ -213,14 +213,25 @@ static func cargo_color(cargo: Dictionary) -> Color:
 ## the turn's waiting Build/work orders are paid (wiki: world-market § Treasury
 ## budget for bids; DR-20261115-13). A promised purse is named, never hidden —
 ## the refusal a crown meets on a bid is this line's own figure (REQ-P5-05).
+## A purse in debt is named as debt: the auction may spend nothing, and printing
+## the clamped `max(0, treasury)` as "the whole purse" would name a sum the
+## crown does not hold (the college's lending floor put it there).
 static func bid_budget_line(budget: Dictionary) -> String:
-	var purse: int = int(budget.get("treasury", 0))
+	var purse: int = int(budget.get("purse", budget.get("treasury", 0)))
 	var promised: int = int(budget.get("promised", 0))
 	var left: int = int(budget.get("budget", 0))
-	if promised <= 0:
-		return "BIDS  the whole purse — %s ducats" % TextFormat.thousands(purse)
 	var orders: int = (budget.get("orders", []) as Array).size()
 	var count: String = "%d waiting order%s" % [orders, "" if orders == 1 else "s"]
+	if purse < 0:
+		if promised <= 0:
+			return "BIDS  nothing this turn — the purse is %s ducats in debt" % (
+				TextFormat.thousands(-purse)
+			)
+		return "BIDS  nothing this turn — the purse is %s ducats in debt and %s more promised to %s" % [
+			TextFormat.thousands(-purse), TextFormat.thousands(promised), count,
+		]
+	if promised <= 0:
+		return "BIDS  the whole purse — %s ducats" % TextFormat.thousands(purse)
 	if left <= 0:
 		return "BIDS  nothing this turn — %s ducats promised to %s" % [
 			TextFormat.thousands(promised), count
