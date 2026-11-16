@@ -39,11 +39,10 @@ Audited through DR-20261116-08 + #816 (REQ-P2-02).
 
 1. **Domain dispatch beyond voyage/declare-war** — `opens` ships those two;
    further slots and treasury-recovery phase reweighting stay seed (DR-13-15).
-   Soft weights live via `AiPosture`.
 2. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
    (`civilian-build-planner`); polish.
-3. **Quick Battle multi-lane / collapse** — `QuickBattle` fights one lane;
-   wider deployment and the collapse model need a design call (DR-10-24).
+3. **Quick Battle multi-lane / collapse** — one lane today; wider deployment
+   and collapse need a design call (DR-10-24).
 
 ## Next pick
 
@@ -64,13 +63,12 @@ Domain dispatch beyond voyage/declare-war (DR-13-15).
 
 ## Wiki drift
 
-- `civilian-units` calls Road L2, gathering and transport caps deferred (live:
+- `civilian-units` calls Road L2/gathering/transport deferred (live:
   `TechUnlocks`/`Extraction`).
-- `phase-planner-*` cite DR-14-11 for declare-war (true: DR-14-13) and call soft
-  weights seed (live: `AiPosture`).
-- `production-recipes` still calls rival second-stage appetite deferred (live:
-  #798).
-- DR-11-05 Deferred + DR-14-11 fleetless leg — live (`TribeContact`,
-  `AiTribeColony`, `FleetMuster`).
-- Ruleset loader and borrowing (`leader-bonuses`, `military-generals`) stay
+- `phase-planner-*` cite DR-14-11 for declare-war (true: DR-14-13); soft weights
+  still called seed (live: `AiPosture`).
+- `production-recipes` calls rival second-stage appetite deferred (live: #798).
+- DR-11-05 + DR-14-11 fleetless leg — live (`TribeContact`, `AiTribeColony`,
+  `FleetMuster`).
+- Ruleset loader and borrowing (`leader-bonuses`, `military-generals`) —
   out of scope.
