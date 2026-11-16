@@ -1925,6 +1925,19 @@ domain = "crown_road"
 match = "tests/civilian_fixture.gd*"
 domain = "prospect"
 
+# The court's war footing and its dispatch table (DR-20261113-15,
+# DR-20261116-11): the phase rules and the observer that prints them, not the
+# battle suites the generic `scripts/ai/**` rule pulls in.
+[domains.ai_phase]
+suites = [
+  "test_ai_rules.gd",
+  "test_ai_observer.gd",
+]
+
+[[rules]]
+match = "scripts/ai/ai_phase_planner.gd*"
+domain = "ai_phase"
+
 # The Tribe a court draws into its empire (DR-20261114-02): the ambition read,
 # the envoy offer it raises and the ledger aim that prices it. Kept narrow so a
 # colonial-diplomacy change runs the campaign and ledger suites, not the whole

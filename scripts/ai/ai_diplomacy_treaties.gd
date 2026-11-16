@@ -46,7 +46,8 @@ static func best(
 	# next envoy step even when the court is in no mood to improve relations for
 	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
 	var colony: Dictionary = AiTribeColony.ambition(
-		state, world, context.get("charts", null), config.faction, target, treasury, tech
+		state, world, context.get("charts", null), config.faction, target, treasury, tech,
+		AiPhasePlanner.phase_for(config, state)
 	)
 	var chain_matters: bool = bonus > 0 or bool(colony.get("wanted", false)) \
 		or bool(colony.get("held", false))

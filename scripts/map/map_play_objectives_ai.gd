@@ -109,9 +109,12 @@ static func _readings(
 	var slots: int = economy.research.slots.size() if economy.research != null else 0
 	# The Tribe this court is drawing into its empire: the envoy chain's target,
 	# next step and price (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+	# A war footing opens no **new** chain; the stake it already holds keeps its
+	# step (DR-20261116-11).
+	var posture: String = String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
 	var colony_ambition: Dictionary = AiTribeColony.best(
 		play.diplomacy, play.world, play.court_charts, faction,
-		economy.treasury, economy.tech_unlocked
+		economy.treasury, economy.tech_unlocked, posture
 	)
 	# The deed the court is saving toward: the cheapest Minor or Tribe tile it
 	# could sign, charted and at peace with the seller (issue #724 task 3).
@@ -190,11 +193,16 @@ static func _readings(
 		# one (issue #724 task 3).
 		"deed_price": int(deed.get("price", 0)),
 		# The study that opens the chain's next link, so the trace names the door
-		# the court is walking to (DR-20261114-05).
+		# the court is walking to (DR-20261114-05). A chain the footing holds
+		# shut has no door (DR-20261116-11).
 		"tribe_door": AiTribeColony.door(
 			play.diplomacy, play.world, play.court_charts, faction,
-			economy.tech_unlocked
+			economy.tech_unlocked, posture
 		),
+		# Why the footing holds a new chain shut this turn, "" when it opens one:
+		# the ledger prints the closed aim with this reason instead of dropping
+		# the row (DR-20261116-11).
+		"tribe_closed": AiTribeColony.closed_reason(posture),
 	}
 
 
