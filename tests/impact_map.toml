@@ -541,6 +541,13 @@ domain = "naval_intel"
 match = "scripts/map/map_play_fleets.gd*"
 domain = "fleet_split"
 
+# The crown's watch (fog, sighted strength, charted coast) reads in one module.
+# Declared before the fleet and map globs so a watch-only edit re-runs the naval
+# intel suites instead of their whole fan-out.
+[[rules]]
+match = "scripts/map/map_play_fleet_intel.gd*"
+domain = "naval_intel"
+
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
 domain = "naval_intel"
@@ -566,7 +573,8 @@ domain = "naval_intel"
 # the dossier intent that routes it and the drawer that offers the tap travel
 # together; declared before the fleet, map and ui globs so the slice never pulls
 # their whole fan-out. The naval rules suite carries the intel watch that also
-# lives in `map_play_fleets.gd`, so the two naval suites prove the whole slice.
+# lives in `map_play_fleet_intel.gd`, so the two naval suites prove the whole
+# slice.
 [domains.fleet_split]
 suites = [
   "test_naval_rules.gd",

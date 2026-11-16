@@ -88,7 +88,7 @@ func _war_pass() -> bool:
 		_say("  no %s squadron to seat in the water" % FactionCatalog.name_of(_rival))
 		return false
 	_foe_id = foe.id
-	MapPlayFleets.refresh_visibility(_play)
+	MapPlayFleetIntel.refresh_visibility(_play)
 	_say("  seated her in the %s (fixture): %s" % [
 		_play.model.sea_zone_name(_zone), _named_hulls(foe),
 	])
@@ -128,7 +128,7 @@ func _watch_pass() -> void:
 		foe.province = MapModel.NO_ID
 		foe.moved = true
 		_play.ship_layer.rebuild_markers()
-		MapPlayFleets.refresh_visibility(_play)
+		MapPlayFleetIntel.refresh_visibility(_play)
 		_say("  she is in the %s (fixture); watch watched %s, revealed %s" % [
 			_play.model.sea_zone_name(_watch_zone),
 			str(_play.naval_intel.watched(_play.region_index)),
@@ -235,7 +235,7 @@ func _drop_pass() -> void:
 	foe.province = MapModel.NO_ID
 	foe.moved = true
 	_play.ship_layer.rebuild_markers()
-	MapPlayFleets.refresh_visibility(_play)
+	MapPlayFleetIntel.refresh_visibility(_play)
 	_say("  she sails into the %s (unwatched water): revealed %s, watched %s, fog %d" % [
 		_play.model.sea_zone_name(away),
 		str(_play.naval_intel.is_revealed(_foe_id, _play.region_index)),
@@ -244,7 +244,7 @@ func _drop_pass() -> void:
 	_print_marker()
 	foe.sea_zone = home_zone
 	_play.ship_layer.rebuild_markers()
-	MapPlayFleets.refresh_visibility(_play)
+	MapPlayFleetIntel.refresh_visibility(_play)
 	_say("  she returns the same turn: revealed %s (the clock restarts)" % [
 		str(_play.naval_intel.is_revealed(_foe_id, _play.region_index)),
 	])

@@ -386,7 +386,7 @@ func test_player_fleet_reveals_only_for_the_player() -> void:
 	_screen.overlay.set_fog_state(index, MapOverlay.FOG_FOGGED)
 	var enemy := Ship.new()
 	enemy.faction = 1
-	MapPlayFleets.on_zone_entered(_screen.play, int(zone.id), enemy)
+	MapPlayFleetIntel.on_zone_entered(_screen.play, int(zone.id), enemy)
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
 	enemy.free()
 
@@ -441,7 +441,7 @@ func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
 	var water_index: int = _screen.model.index_of(water.x, water.y)
 	_screen.visibility.lower_to(water_index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [water_index])
-	MapPlayFleets.on_zone_entered(_screen.play, ship.zone, ship)
+	MapPlayFleetIntel.on_zone_entered(_screen.play, ship.zone, ship)
 	assert_eq(_screen.overlay.fog_state_at(water.x, water.y), MapOverlay.FOG_VISIBLE)
 	var land: Vector2i = Fixture.coastal_land_of(_screen.model, ship.zone)
 	assert_true(land.x >= 0)
@@ -2021,7 +2021,7 @@ func sea_entry(survey: Dictionary, zone_id: int) -> Dictionary:
 	return {}
 
 
-## The chart's answer for one squadron, the way `MapPlayFleets.view_filter` hands
+## The chart's answer for one squadron, the way `MapPlayFleetIntel.view_filter` hands
 ## it in: a rival either drawn and read, drawn and unread, or not drawn at all.
 func _view(drawn: bool, read: bool) -> Callable:
 	return func(_fleet_in: FleetState) -> Dictionary:

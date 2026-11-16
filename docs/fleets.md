@@ -53,7 +53,7 @@ crown's sail sees — hulls, strength, station, rival.
 | `scripts/rules/{naval_*,warp_travel}.gd` | battles, moves, stations, raids |
 | `scripts/rules/{naval_transport,civilian_voyage}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead |
 | `scripts/ai/ai_naval_planner.gd`, `scripts/map/{map_play_fleet_ai,map_play_fleet_missions,map_play_raids}.gd` | rival sorties, stations, raids |
-| `scripts/map/{map_play_fleets,map_play_fleet_yard,map_play_fleet_split}.gd` | sail orders, fog intel, shipyard, split |
+| `scripts/map/{map_play_fleets,map_play_fleet_intel,map_play_fleet_yard,map_play_fleet_split}.gd` | sail orders, the crown's watch, shipyard, split |
 | `scripts/map/{ship_layer,ship_markers,fleet_rosters,map_overlay,map_play_warp,fog_layer}.gd` | orders, markers, rosters, fog |
 | `scripts/ui/{fleet_panel,fleet_*_section,fleet_split_block,panel_dock}.gd` | dossier, strength, passengers, stations, split |
 | `scripts/rules/naval_ledger.gd`, `scripts/ui/naval_ledger_*.gd` | the navy, hull by hull |

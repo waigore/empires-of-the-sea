@@ -46,7 +46,7 @@ static func mount(play: PlaySession, backdrop: ColorRect, index: int) -> void:
 	MapPlaySetup.build_visibility(play)
 	MapPlayCourtFog.build(play)
 	play.overlay.snap_fog()
-	MapPlayFleets.refresh_visibility(play)
+	MapPlayFleetIntel.refresh_visibility(play)
 	MapPlayArmies.refresh_visibility(play)
 	MapPlaySetup.build_lens(play)
 	MapPlaySetup.refresh_region_hud(play, map_size)

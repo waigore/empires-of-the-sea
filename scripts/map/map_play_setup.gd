@@ -131,7 +131,7 @@ static func build_sea_lens(play: PlaySession) -> void:
 		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
 	lens.build(
 		play.model, play.ship_layer, play.visibility, play.player_faction,
-		war, MapPlayFleets.view_filter(play)
+		war, MapPlayFleetIntel.view_filter(play)
 	)
 	lens.watch(play.overlay)
 
