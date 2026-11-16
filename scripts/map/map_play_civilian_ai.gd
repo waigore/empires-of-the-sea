@@ -57,6 +57,9 @@ static func plan_all(
 	var spendable: int = int(purses["spendable"])
 	var works_cash: int = int(purses["works"])
 	var earn: bool = bool(purses["earn"])
+	# The court's war footing, read once for every region: a court at war hires
+	# no expansion crew (DR-20261116-15). The baseline planners ignore the key.
+	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
 	for region: int in play.civilian_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = _roster(play, region)
@@ -74,6 +77,7 @@ static func plan_all(
 			"capital_tile": capital["tile"],
 			"tech_unlocked": economy.tech_unlocked,
 			"at_war": MapPlayCourt.at_war(play, faction), "diplomacy": play.diplomacy,
+			"phase": posture,
 			"visibility": MapPlayCourtFog.view_for(play, faction, region),
 		}
 		var muster: Vector2i = _muster_port(play, faction, region, model)
@@ -192,7 +196,7 @@ static func work_rows(plans: Array[Dictionary]) -> Dictionary:
 static func apply(
 	play: PlaySession, faction: int, economy: PlayerEconomy, plans: Array[Dictionary]
 ) -> Dictionary:
-	var report: Dictionary = {"orders": [], "moves": [], "training": []}
+	var report: Dictionary = {"orders": [], "moves": [], "training": [], "training_blocked": ""}
 	for entry: Dictionary in plans:
 		var region: int = int(entry["region"])
 		var model: MapModel = entry["model"]
@@ -225,6 +229,10 @@ static func apply(
 			)
 			if not hired.is_empty():
 				report["training"].append(hired)
+		elif not String(training.get("reason", "")).is_empty():
+			# The footing held the hire shut: the reason rides the report so the
+			# trace names it instead of the yard going quiet (REQ-P5-05).
+			report["training_blocked"] = String(training["reason"])
 		play.civilian_layer.regions.set_region(region, roster)
 		if (
 			MapPlayTurn.view_live

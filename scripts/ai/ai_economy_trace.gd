@@ -44,6 +44,13 @@ static func record(merged: Dictionary, factions: Dictionary, report: Dictionary)
 		if not training.is_empty():
 			AiTurnLog.bump(bucket["actions"], "train")
 			AiTurnLog.event(merged, bucket, faction, "%s musters a civilian." % who)
+		var held: String = String(civilians.get("training_blocked", ""))
+		if not held.is_empty():
+			# The footing held the hire shut: the court's yard says why it took
+			# no crew rather than going quiet (REQ-P5-05; DR-20261116-15).
+			AiTurnLog.event(
+				merged, bucket, faction, "%s hires no new crew (%s)." % [who, held]
+			)
 		_cargo(merged, bucket, faction, details.get("cargo", {}))
 		_claims(bucket, details.get("claims", []))
 
