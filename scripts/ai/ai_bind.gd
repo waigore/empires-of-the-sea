@@ -145,10 +145,11 @@ static func reinforce_plan(
 	fed_slack: int = -1,
 	reserve: int = 0,
 	held_row: Dictionary = {},
-	own_warships: int = -1
+	own_warships: int = -1,
+	harvest_slack: int = -2
 ) -> Dictionary:
 	if _baseline(kind):
-		# Mainline reinforce has no hull reserve arg yet.
+		# Mainline reinforce has no hull reserve or harvest arg yet.
 		return _ml(
 			"ai_army_reinforce.gd",
 			"plan",
@@ -156,7 +157,7 @@ static func reinforce_plan(
 		)
 	return AiArmyReinforce.plan(
 		config, economy, regiments, at_war, pressure_extra, fed_slack, reserve,
-		held_row, own_warships
+		held_row, own_warships, harvest_slack
 	)
 
 
