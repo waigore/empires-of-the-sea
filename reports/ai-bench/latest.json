@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "2758870c2a5d9e5d9d09b7464d774b3a71ea4710",
   "commit": "5597ee26c0b357ae2779a7186c8de52c976a7dfb",
-  "submission_hash": "sha256:37ab7653f1873a27c1e547d20199cc4a45f2f42a5251adc561b3a6a749033cd8",
-  "submission_git": "feat/treasury-recovery-reweights@bd6a7bc",
+  "submission_hash": "sha256:63e06e054b8c3a431b7b89e6c1161664ed2744b12f488c8d31bd9d472b145080",
+  "submission_git": "feat/phase-tribe-chain-slot@f2e47e2",
   "passed": true,
   "config": [
     {
@@ -35,7 +35,7 @@
   "metrics": [
     {
       "name": "score",
-      "value": 1875.0553857906798,
+      "value": 1872.258547008547,
       "direction": "max"
     },
     {
@@ -50,13 +50,13 @@
     },
     {
       "name": "funded_pct",
-      "value": 87.56208791208792,
+      "value": 87.60535714285714,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:37ac13d6b0a6f2e195c2f9293d36ea371e1aabce96d9caf2aab225c81af2e2cf",
+    "ai_surface_hash": "sha256:805455ec46fb993f762c04b67079bad1b9e1290d9a316677c93e3588898f1bb3",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 17,
@@ -64,16 +64,16 @@
       "regiments": 6,
       "ships": 2,
       "workers": 6,
-      "extraction_per_turn": 1.0129870129870129,
-      "income_per_turn": 63.029411764705884,
-      "funded_pct": 87.56208791208792
+      "extraction_per_turn": 1.0138888888888888,
+      "income_per_turn": 60.23076923076923,
+      "funded_pct": 87.60535714285714
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 87.56208791208792
+    "funded_pct": 87.60535714285714
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-16T07:35:58Z",
+  "timestamp": "2026-11-16T08:39:17Z",
   "report_version": 1,
-  "signature": "hmac-sha256:8e3cdacabb4321501b1a88480c31e5fe63f56ced17f873049cc5654306546384"
+  "signature": "hmac-sha256:9bb889cad9658bf0e744b1af8092002f0d6f281f76317e82c3ec086e4db3a127"
 }
