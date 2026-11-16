@@ -193,7 +193,7 @@ static func _random_civilians(
 		if rng.randf() >= 0.5 and int(capital["province"]) >= 0:
 			var types: Array[String] = ["builder", "engineer", "explorer"]
 			var type_id: String = types[rng.randi_range(0, types.size() - 1)]
-			var hired: Dictionary = MapPlayCivilianAi._train(
+			var hired: Dictionary = CivilianMuster.train(
 				play, region, roster, faction, economy,
 				{"ok": true, "type_id": type_id}, context
 			)

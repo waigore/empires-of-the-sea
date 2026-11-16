@@ -1410,7 +1410,7 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 		],
 	}
 
-	MapPlayCivilianAi._keep_extraction(plan, model)
+	MapPlayCivilianAi.keep_extraction(plan, model)
 
 	assert_eq((plan["orders"] as Array).size(), 2, "the resource tile and the survey survive")
 	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
