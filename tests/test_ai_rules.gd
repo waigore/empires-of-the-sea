@@ -2502,10 +2502,10 @@ func test_civilian_pass_seeds_once_and_only_at_a_capital() -> void:
 ## province, no unit for a missing id, and training refuses an empty order.
 func test_civilian_pass_helpers_refuse_empty_inputs() -> void:
 	assert_eq(
-		MapPlayCivilianAi._mustering_tile(null, -1, []),
+		CivilianMuster.mustering_tile(null, -1, []),
 		CivilianState.NO_TILE
 	)
-	assert_eq(MapPlayCivilianAi._unit_by_id([], 99), null)
+	assert_eq(CivilianMuster.unit_by_id([], 99), null)
 	var play := PlaySession.new()
 	play.world = AiFixture.land_world([0], {0: true})
 	play.model = play.world.region(0)
@@ -2514,11 +2514,73 @@ func test_civilian_pass_helpers_refuse_empty_inputs() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.new()
 	economy.treasury = 100
 	assert_true(
-		MapPlayCivilianAi._train(
+		CivilianMuster.train(
 			play, play.model.region_id, [], 1, economy, {}, {"capital_province": 0}
 		).is_empty(),
 		"training with no type_id pays nothing"
 	)
+	play.civilian_layer.free()
+
+
+## The muster seam's own refusals: no world, no home region, no squadron, no
+## purse, and a province with no seat tile still musters at its first tile. An
+## off-screen region stores the new unit in its table instead of the live layer.
+func test_the_muster_seam_refuses_what_it_cannot_pay_for() -> void:
+	var bare := PlaySession.new()
+	assert_eq(
+		CivilianMuster.muster_port(bare, 1, 0, null), CivilianState.NO_TILE,
+		"no world, no harbour"
+	)
+	assert_false(CivilianMuster.has_free_squadron(bare, 0, 1), "no layer, no squadron")
+
+	var world: WorldMap = AiFixture.land_world([1], {0: true})
+	world.add_region(AiFixture.land_world([1], {0: true}).region(0))
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.spawn(play.model, 1, 0, [], false)
+	assert_eq(
+		CivilianMuster.muster_port(play, 1, WorldMap.NEW_WORLD, world.region(1)),
+		CivilianState.NO_TILE,
+		"a court musters only in its own region"
+	)
+
+	var ships := ShipLayer.new()
+	ships.regions.set_region(0, [FleetState.at_sea(1, 2, 0)])
+	play.ship_layer = ships
+	assert_false(
+		CivilianMuster.has_free_squadron(play, 0, 1), "another court's hull is no lift"
+	)
+
+	var poor: PlayerEconomy = PlayerEconomy.new()
+	assert_true(
+		CivilianMuster.train(
+			play, 0, [], 1, poor, {"ok": true, "type_id": "builder"},
+			{"capital_province": 0}
+		).is_empty(),
+		"an empty purse raises nobody"
+	)
+
+	var rich: PlayerEconomy = PlayerEconomy.new()
+	rich.treasury = 1000
+	rich.add("paper", 10)
+	var stored: Array[CivilianState] = []
+	var next_id: int = play.civilian_layer.next_id
+	var hired: Dictionary = CivilianMuster.train(
+		play, WorldMap.NEW_WORLD, stored, 1, rich, {"ok": true, "type_id": "builder"},
+		{"capital_province": 0}
+	)
+	assert_eq(String(hired.get("type_id", "")), "builder", "the off-screen muster pays")
+	assert_eq(stored.size(), 1, "and lands in the region's own table")
+	assert_eq(play.civilian_layer.next_id, next_id + 1, "through the layer's id counter")
+
+	var seatless := MapModel.new()
+	assert_eq(
+		CivilianMuster.mustering_tile(seatless, 0, []), CivilianState.NO_TILE,
+		"a province with no tiles musters nowhere"
+	)
+	ships.free()
 	play.civilian_layer.free()
 
 
@@ -6136,14 +6198,14 @@ func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
 	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
 	var orders: Array = _market_plan(model, builder, null, works)["orders"]
 	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
-	MapPlayCivilianAi._price(orders, model, works)
+	MapPlayCivilianAi.price(orders, model, works)
 	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
 	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
 	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
 
 	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
 	var survey: Array = _market_plan(model, explorer, null, works)["orders"]
-	MapPlayCivilianAi._price(survey, model, works)
+	MapPlayCivilianAi.price(survey, model, works)
 	assert_true(
 		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
 		"a survey costs no material, so it reserves none"
@@ -8252,19 +8314,19 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	play.civilian_layer.regions.set_region(0, [])
 	play.civilian_layer.regions.set_region(1, [])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
 		"a court with a free squadron musters at its seat's port"
 	)
 	var abroad: CivilianState = CivilianState.create(7, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
 	play.civilian_layer.regions.set_region(1, [abroad])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
 		"a court with a colonist already abroad sends no second expedition"
 	)
 	play.civilian_layer.regions.set_region(1, [])
 	play.ship_layer.regions.set_region(0, [])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
 		"no squadron, no muster"
 	)
 	play.ship_layer.free()
@@ -13166,7 +13228,7 @@ func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 	MapPlayObjectivesAi.run(play)
 	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
 	assert_true((claim["funded_ids"] as Array).has("expedition.hull"))
-	var open_port: Vector2i = MapPlayCivilianAi._muster_port(
+	var open_port: Vector2i = CivilianMuster.muster_port(
 		play, OBJ_OWNER, play.model.region_id, play.model
 	)
 	assert_true(open_port.x >= 0, "a funded hull opens the muster")
@@ -13176,7 +13238,7 @@ func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 		"phase": AiPhasePlanner.PHASE_PEACE, "ranked": 1, "funded": 0, "lines": [],
 		"objectives": [{"id": "expedition.hull", "status": AiObjective.STATUS_DEFERRED}],
 	}, play.turn)
-	var shut: Vector2i = MapPlayCivilianAi._muster_port(
+	var shut: Vector2i = CivilianMuster.muster_port(
 		play, OBJ_OWNER, play.model.region_id, play.model
 	)
 	assert_eq(shut, CivilianState.NO_TILE, "a deferred hull keeps the Explorer ashore")

@@ -345,7 +345,7 @@ static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
 ## landing is the voyage's own progress, not a missing Explorer): the child that
 ## musters a new one is not blocked, and the parent prices the voyage instead
 ## (#497). A court with a civilian in the other region has nothing left to
-## muster either — `MapPlayCivilianAi._muster_port` holds the gate shut until
+## muster either — `CivilianMuster.muster_port` holds the gate shut until
 ## that colonist leaves or works.
 static func _voyage_abroad(play: PlaySession, faction: int) -> bool:
 	if play.civilian_layer == null:
