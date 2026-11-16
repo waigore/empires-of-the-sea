@@ -21,6 +21,14 @@ const DOMAINS: Array[String] = [
 ]
 ## A domain is never zeroed: the floor keeps a peace-time-inverted aim alive.
 const NEUTRAL: int = 1000
+## Treasury recovery's own reading: a court on `earn` leads with the domains
+## that raise coin — its works and the voyages it sells from — and lets the
+## studies and the crews it can defer fall behind them. Defence, the army, the
+## fleet and diplomacy keep their weights: money is a priority, never a retreat
+## (wiki: phase-planner-architecture § Playable slice; DR-20261113-19/22,
+## DR-20261116-09).
+const EARN_INCOME: Array[String] = ["economy", "expansion"]
+const EARN_DEFER: Array[String] = ["research", "civilian"]
 
 
 ## The footing's own reading for one domain, in per-mille.
@@ -39,6 +47,21 @@ static func posture_mille(phase: String, domain: String, config: AiConfig) -> in
 	return NEUTRAL
 
 
+## The money goal's own reading for one domain, in per-mille. A court on `earn`
+## (its purse under the reserve it is saving for) leads with the domains that
+## pay — its works and the voyages that sell from them — and defers the studies
+## and crews it can wait on; every other reading is neutral, and a caller with
+## no goal read keeps the published weights (DR-20261113-19/22, DR-20261116-09).
+static func goal_mille(goal: String, domain: String, config: AiConfig) -> int:
+	if config == null or goal != AiIncome.GOAL_EARN:
+		return NEUTRAL
+	if EARN_INCOME.has(domain):
+		return config.parameter("posture.earn_income")
+	if EARN_DEFER.has(domain):
+		return config.parameter("posture.earn_defer")
+	return NEUTRAL
+
+
 ## The leader's weight for one domain, in per-mille: weight 2 is neutral, each
 ## step away is `posture.weight_step`.
 static func weight_mille(config: AiConfig, domain: String) -> int:
@@ -48,15 +71,19 @@ static func weight_mille(config: AiConfig, domain: String) -> int:
 	return NEUTRAL + (weight - 2) * config.parameter("posture.weight_step")
 
 
-## One domain's combined modifier: footing × weight × victory pressure, never
-## below the floor. `pressure_mille` is `AiVictoryPressure`'s boost — a court
-## that can see the bar presses its military, naval and expansion aims
-## (DR-20261114-04); every other domain reads it as neutral.
+## One domain's combined modifier: footing × weight × victory pressure × the
+## money goal, never below the floor. `pressure_mille` is `AiVictoryPressure`'s
+## boost — a court that can see the bar presses its military, naval and
+## expansion aims (DR-20261114-04); every other domain reads it as neutral.
+## `goal` is the court's money goal (`AiIncome`): on `earn` the domains that pay
+## lead and the deferrable ones fall behind (DR-20261116-09).
 static func modifier(
-	phase: String, domain: String, config: AiConfig, pressure_mille: int = NEUTRAL
+	phase: String, domain: String, config: AiConfig,
+	pressure_mille: int = NEUTRAL, goal: String = ""
 ) -> int:
 	var combined: int = posture_mille(phase, domain, config) * weight_mille(config, domain)
 	combined /= NEUTRAL
+	combined = combined * goal_mille(goal, domain, config) / NEUTRAL
 	if _presses(domain):
 		combined = combined * maxi(pressure_mille, 0) / NEUTRAL
 	return maxi(combined, config.parameter("posture.floor") if config != null else 0)
@@ -64,11 +91,12 @@ static func modifier(
 
 ## The whole vector, keyed by domain: what the rank pass multiplies utilities by.
 static func modifiers(
-	phase: String, config: AiConfig, pressure_mille: int = NEUTRAL
+	phase: String, config: AiConfig, pressure_mille: int = NEUTRAL,
+	goal: String = ""
 ) -> Dictionary:
 	var vector: Dictionary = {}
 	for domain: String in DOMAINS:
-		vector[domain] = modifier(phase, domain, config, pressure_mille)
+		vector[domain] = modifier(phase, domain, config, pressure_mille, goal)
 	return vector
 
 
