@@ -14,29 +14,20 @@ extends RefCounted
 
 
 ## A purchase order for an idle Merchant standing on a buyable tile, or {}.
-static func best_candidate(
-	config: AiConfig,
-	model: MapModel,
-	unit: CivilianState,
-	units: Array,
-	works: LandWorks,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	reserved: Dictionary
-) -> Dictionary:
-	if config == null or model == null or unit == null:
+static func best_candidate(query: AiWorkQuery) -> Dictionary:
+	if query.config == null or query.model == null or query.unit == null:
 		return {}
-	if unit.type_id != "merchant":
+	if query.unit.type_id != "merchant":
 		return {}
-	if not reserved.is_empty() and reserved.has(unit.tile):
+	if not query.reserved.is_empty() and query.reserved.has(query.unit.tile):
 		return {}
-	if not buyable_tiles(model, unit.owner, works, context).has(unit.tile):
+	if not buyable_tiles(
+		query.model, query.unit.owner, query.works, query.context
+	).has(query.unit.tile):
 		return {}
 	return AiCivilianCandidate.make(
-		model, unit, LandPurchase.ACTION, unit.tile, works, units, stockpile,
-		tech_caps, tech_unlocked, context, _score(config, model, unit.tile, stockpile)
+		query, LandPurchase.ACTION, query.unit.tile,
+		_score(query, query.unit.tile)
 	)
 
 
@@ -229,14 +220,12 @@ static func _buyable_tile(
 ## A deed is worth the base weight plus how short the court is of that commodity,
 ## so a grain estate is bought before a fourth timber one (wiki:
 ## civilian-units § Merchant; § Work Order Summary).
-static func _score(
-	config: AiConfig, model: MapModel, tile: Vector2i, stockpile: Dictionary
-) -> int:
+static func _score(query: AiWorkQuery, tile: Vector2i) -> int:
 	var commodity: String = Extraction.commodity_for_resource(
-		model.resource_at(tile.x, tile.y)
+		query.model.resource_at(tile.x, tile.y)
 	)
-	var score: int = config.parameter("civilian.merchant_weight")
+	var score: int = query.config.parameter("civilian.merchant_weight")
 	score += AiBuilderWork.need(
-		commodity, stockpile, config.parameter("civilian.need_target")
+		commodity, query.stockpile, query.config.parameter("civilian.need_target")
 	) * 5
 	return score
