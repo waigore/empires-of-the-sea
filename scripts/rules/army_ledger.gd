@@ -281,13 +281,14 @@ static func _condition_text(
 	return " · ".join(parts)
 
 
-## The food the whole standard eats a turn, summed from the catalogue's own
-## upkeep (wiki: military-generals § Regiment Economy).
+## The food the whole standard eats a turn: the rules' own bill, read from
+## [ArmyRoster] so the sheet, the dossier, the larder and the AI all name one
+## number — the regiments' upkeep plus the staff of the train it carries
+## (wiki: military-armies § The regiments behind an army, combat § Feeding;
+## DR-20261112-07).
 static func _food(army: ArmyState) -> int:
-	var total: int = 0
-	for regiment_id: String in army.regiments:
-		total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
-	return total
+	var one: Array[ArmyState] = [army]
+	return ArmyRoster.food_upkeep_of(one, army.owner)
 
 
 static func _plural(count: int, word: String) -> String:
