@@ -149,4 +149,7 @@ static func _paint_pocket(model: MapModel, chunk_ids: Array, taker: int) -> void
 		var province_id: int = int(raw)
 		var province: ProvinceState = model.province_data(province_id)
 		province.owner = taker
+		# A taken province carries no seat to its taker (wiki:
+		# capital-and-connectivity § Capital loss and reassignment).
+		CapitalLoss.clear_seat(province)
 		province.population = 180 + province.area * 9 + (province_id * 37) % 90

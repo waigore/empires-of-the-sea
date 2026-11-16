@@ -16,40 +16,25 @@ extends RefCounted
 
 
 ## A work order for an idle Explorer, or {} when none is legal.
-static func best_candidate(
-	config: AiConfig,
-	model: MapModel,
-	unit: CivilianState,
-	units: Array,
-	works: LandWorks,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	reserved: Dictionary
-) -> Dictionary:
-	var view: VisibilityModel = context.get("visibility", null)
-	if reserved.has(unit.tile):
+static func best_candidate(query: AiWorkQuery) -> Dictionary:
+	var view: VisibilityModel = query.view()
+	if query.reserved.has(query.unit.tile):
 		return {}
-	if _marching_to_port(model, unit, context):
+	if _marching_to_port(query.model, query.unit, query.context):
 		return {}
-	var explore: Dictionary = _survey_candidate(
-		config, model, unit, units, works, stockpile, tech_caps, tech_unlocked,
-		context, view
-	)
+	var explore: Dictionary = _survey_candidate(query, view)
 	if not explore.is_empty():
 		return explore
-	if model.owner_at(unit.tile.x, unit.tile.y) != unit.owner:
+	if query.model.owner_at(query.unit.tile.x, query.unit.tile.y) != query.unit.owner:
 		return {}
-	if not MineralSurvey.can_prospect(model, works, unit.owner, unit.tile, view):
+	if not MineralSurvey.can_prospect(
+		query.model, query.works, query.unit.owner, query.unit.tile, view
+	):
 		return {}
 	# The deposit is unknown until the survey lands, so the order is priced on
 	# the ground, never on a mineral the court has not seen (DR-20261111-26).
-	var score: int = config.parameter("civilian.prospect_weight")
-	return AiCivilianCandidate.make(
-		model, unit, "prospect", unit.tile, works, units, stockpile, tech_caps,
-		tech_unlocked, context, score
-	)
+	var score: int = query.config.parameter("civilian.prospect_weight")
+	return AiCivilianCandidate.make(query, "prospect", query.unit.tile, score)
 
 
 ## One legal march toward the next unexplored chart, or {} when the court has
@@ -94,33 +79,23 @@ static func _at_port(model: MapModel, unit: CivilianState, port: Vector2i) -> bo
 ## Exploring a partly charted province is the Explorer's first duty: the tiles
 ## its crown has not seen cannot be bought, worked or planned on.
 static func _survey_candidate(
-	config: AiConfig,
-	model: MapModel,
-	unit: CivilianState,
-	units: Array,
-	works: LandWorks,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	view: VisibilityModel
+	query: AiWorkQuery, view: VisibilityModel
 ) -> Dictionary:
 	if view == null:
 		return {}
-	var province: int = model.province_at(unit.tile.x, unit.tile.y)
+	var province: int = query.model.province_at(
+		query.unit.tile.x, query.unit.tile.y
+	)
 	if province == MapModel.NO_ID:
 		return {}
 	if not view.is_province_known(province):
 		return {}
 	if view.is_province_fully_visible(province):
 		return {}
-	var score: int = config.parameter("civilian.prospect_weight")
-	if model.region_id == WorldMap.NEW_WORLD:
+	var score: int = query.config.parameter("civilian.prospect_weight")
+	if query.model.region_id == WorldMap.NEW_WORLD:
 		score += 20
-	return AiCivilianCandidate.make(
-		model, unit, "explore", unit.tile, works, units, stockpile, tech_caps,
-		tech_unlocked, context, score
-	)
+	return AiCivilianCandidate.make(query, "explore", query.unit.tile, score)
 
 
 ## Nearest unsurveyed prospectable tile on the crown's own land, else the nearest

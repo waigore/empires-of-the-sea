@@ -2553,19 +2553,22 @@ func test_seeded_map_resources_are_real_commodities() -> void:
 func test_yields_sum_owned_resource_tiles_and_the_capital_bonus() -> void:
 	var model: MapModel = _fixture()
 	var totals: Dictionary = Extraction.yields(model, 0, 0)
-	assert_eq(totals, {"timber": 1, "grain": 1 + Extraction.CAPITAL_GRAIN_BONUS})
+	assert_eq(
+		totals, {"timber": 1, "grain": 2 + Extraction.CAPITAL_GRAIN_BONUS},
+		"the ration estate pays its level doubled (issue #807)"
+	)
 
 func test_yields_ignore_tiles_owned_by_others() -> void:
 	var model: MapModel = _fixture()
 	var totals: Dictionary = Extraction.yields(model, 1, 1)
-	assert_eq(totals, {"grain": 1 + Extraction.CAPITAL_GRAIN_BONUS})
+	assert_eq(totals, {"grain": 2 + Extraction.CAPITAL_GRAIN_BONUS})
 	var none: Dictionary = Extraction.yields(model, 2, -1)
 	assert_eq(none, {})
 
 func test_capital_bonus_needs_an_owned_capital() -> void:
 	var model: MapModel = _fixture()
 	var foreign: Dictionary = Extraction.yields(model, 0, 1)
-	assert_eq(int(foreign.get("grain", 0)), 1)
+	assert_eq(int(foreign.get("grain", 0)), 2)
 	assert_eq(Extraction.yields(null, 0, 0), {})
 
 func test_improved_tiles_use_the_works_level_and_connectivity() -> void:
@@ -2576,7 +2579,7 @@ func test_improved_tiles_use_the_works_level_and_connectivity() -> void:
 	assert_eq(totals, {"timber": 1, "grain": Extraction.CAPITAL_GRAIN_BONUS})
 	# The unimproved grain tile on (1, 0) no longer pays the placeholder level 1.
 	var no_works: Dictionary = Extraction.yields(model, 0, 0)
-	assert_eq(no_works, {"timber": 1, "grain": 1 + Extraction.CAPITAL_GRAIN_BONUS})
+	assert_eq(no_works, {"timber": 1, "grain": 2 + Extraction.CAPITAL_GRAIN_BONUS})
 
 func test_disconnected_improvements_are_skipped() -> void:
 	var model: MapModel = _fixture()
@@ -2648,7 +2651,7 @@ func test_the_ledger_prices_a_blockaded_coast() -> void:
 	assert_false(Blockades.of(controller.blockade_source).any(), "no stations to read yet")
 	assert_eq(
 		int(controller.readings.extraction().get("grain", 0)),
-		1 + Extraction.CAPITAL_GRAIN_BONUS,
+		2 + Extraction.CAPITAL_GRAIN_BONUS,
 		"the harbour carries the estate's grain home"
 	)
 	var seals := Blockades.new()
@@ -3222,7 +3225,7 @@ func test_region_totals_skip_the_home_region_and_need_a_port() -> void:
 	)
 
 	assert_false(by_region.has(0), "home yield never needs a hold")
-	assert_eq(by_region.get(1, {}), {"grain": 1})
+	assert_eq(by_region.get(1, {}), {"grain": 2})
 
 func test_an_unconnected_colony_yields_nothing_to_ship() -> void:
 	var world := WorldMap.new()
@@ -4972,6 +4975,66 @@ func test_a_promise_beyond_the_purse_leaves_nothing_to_bid() -> void:
 	assert_true(LedgerText.bid_budget_line(reading).contains("nothing this turn"))
 
 
+## A purse in debt is named as debt: the college's lending floor (Money Lending
+## with Banking) can leave the crown owing more than it holds, and "the whole
+## purse — 0 ducats" would print a sum it does not hold (wiki:
+## tech-tree-labour-economy § banking; world-market § Treasury budget for bids;
+## REQ-P5-05).
+func test_a_purse_in_debt_is_named_as_debt_not_an_empty_purse() -> void:
+	var economy: PlayerEconomy = _bid_economy(-925)
+	var reading: Dictionary = MarketBudget.budget(economy)
+	assert_eq(int(reading["purse"]), -925, "the crown's own balance keeps its debt")
+	assert_eq(int(reading["treasury"]), 0, "the auction still spends max(0, treasury)")
+	assert_eq(int(reading["budget"]), 0)
+	var line: String = LedgerText.bid_budget_line(reading)
+	assert_true(line.contains("925 ducats in debt"), line)
+	assert_false(line.contains("whole purse"), line)
+
+
+## The same purse with orders already promised names both debts, so the crown
+## reads where the money went (REQ-P5-05).
+func test_a_purse_in_debt_names_the_orders_it_also_owes() -> void:
+	var economy: PlayerEconomy = _bid_economy(-925)
+	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+	var line: String = LedgerText.bid_budget_line(MarketBudget.budget(economy))
+	assert_true(line.contains("925 ducats in debt"), line)
+	assert_true(line.contains("promised to 1 waiting order"), line)
+
+
+## The dead Bid press names the debt that shut it rather than the rules in the
+## abstract (wiki: world-market § Treasury budget for bids; REQ-P5-05).
+func test_the_bid_press_names_a_purse_in_debt() -> void:
+	var built: Dictionary = MarketRow.build(
+		"timber", 0, 0, {"free": 4}, _market(), 0,
+		{
+			"cargo_free": 4,
+			"treasury": -925,
+			"tech_unlocked": {},
+			"projected_non_bid_delta": 0,
+			"reserved": {},
+		},
+		false,
+		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass
+	)
+	var row: Node = built["row"] as Node
+	var bid: Button = _bid_press(row)
+	assert_not_null(bid, "the row draws a Bid press")
+	assert_true(bid.disabled, "a purse in debt buys nothing")
+	assert_true(bid.tooltip_text.contains("925 ducats in debt"), bid.tooltip_text)
+	row.free()
+
+
+## The first Bid press under `node`, so a row's own words can be read.
+func _bid_press(node: Node) -> Button:
+	for child: Node in node.get_children():
+		if child is Button and (child as Button).text.strip_edges() == "Bid":
+			return child as Button
+		var found: Button = _bid_press(child)
+		if found != null:
+			return found
+	return null
+
+
 func test_a_bid_the_promise_cannot_cover_is_refused() -> void:
 	var economy: PlayerEconomy = _bid_economy(10000)
 	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
@@ -5203,3 +5266,73 @@ func test_the_batch_is_exactly_what_the_validator_accepts() -> void:
 	)
 	assert_false(bool(over["ok"]))
 	assert_eq(String(over["code"]), "trade_order_bid_exceeds_treasury_budget")
+
+
+# --- the PRODUCTION tab's one press (DR-20261116-08) -------------------------
+
+
+## One press files one run on every ready row, in the page's order, and each row
+## is capped by the allowance the rows before it leave: the walk reads the same
+## arithmetic the row's "+" is capped by (REQ-P2-03, REQ-P5-04).
+func test_the_production_batch_sets_one_run_on_every_ready_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10, "iron": 10, "coal": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool", "steel"], economy, 0, stock, 20, []
+	)
+	var plan: Dictionary = result["plan"]
+	assert_eq(int(result["runs"]), 3, "every ready row took a step")
+	assert_eq(int(plan["lumber"]), 1)
+	assert_eq(int(plan["fabric_from_wool"]), 1)
+	assert_eq(int(plan["steel"]), 1, "the slow row takes one run, not its whole bench")
+
+
+## A row already at its ceiling has no step to file, and the press never fills a
+## row to the ceiling: one press is one step per row (REQ-P5-04).
+func test_the_production_batch_skips_a_row_at_its_ceiling() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10}
+	var assignments: Array = [{"recipe": "lumber", "units": 5}]
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool"], economy, 0, stock, 20, assignments
+	)
+	assert_eq(int(result["runs"]), 1, "only the row with room takes a step")
+	assert_false((result["plan"] as Dictionary).has("lumber"), "the full row is left alone")
+	assert_eq(int(result["skipped"]), 1)
+
+
+## The labour the earlier rows claim is gone for the rows after them, so the walk
+## can never set a run the phase would refuse (REQ-P2-03).
+func test_the_production_batch_spends_the_labour_it_claims() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool"], economy, 0, stock, 2, []
+	)
+	assert_eq(int(result["runs"]), 1, "two labour points buy one run")
+	assert_eq(int((result["plan"] as Dictionary)["lumber"]), 1)
+	assert_eq(int(result["skipped"]), 1, "the second row waits on the labour")
+
+
+## A row whose hand or town's works is missing is no step at all: the press names
+## only what the phase would start (wiki: production-recipes § Worker-tier gates).
+func test_the_production_batch_skips_a_gated_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"tobacco": 10, "fabric": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["cigars", "garments"], economy, 0, stock, 20, []
+	)
+	assert_eq(int(result["runs"]), 0, "no gated row is offered")
+	assert_eq(int(result["skipped"]), 2)
+
+
+## The receipt names what the press set, and says why a page with nothing ready
+## offered no step (REQ-P5-05).
+func test_the_production_batch_receipt_names_the_runs() -> void:
+	assert_eq(
+		ProductionBatch.receipt(3), "Set 3 runs — every ready row in this view is ordered."
+	)
+	assert_eq(
+		ProductionBatch.receipt(1), "Set 1 run — every ready row in this view is ordered."
+	)
+	assert_true(ProductionBatch.receipt(0).begins_with("No ready row to set"))

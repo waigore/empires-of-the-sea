@@ -212,6 +212,11 @@ func _offer_row(offer: Dictionary) -> Control:
 			if int(_cargo.get("free", 0)) <= 0
 			else "the rules leave no room for a bid this turn"
 		)
+		# A purse in debt is the reason, named: the college's lending floor can
+		# leave the crown owing more than it holds (REQ-P5-05).
+		var purse: int = int(_order_ctx.get("treasury", 0))
+		if int(_cargo.get("free", 0)) > 0 and purse < 0:
+			why = "the purse is %s ducats in debt" % TextFormat.thousands(-purse)
 		buy.tooltip_text = "Bid 1 %s at the ask of %d — %s" % [
 			CommodityCatalog.label(commodity), ask, why,
 		]

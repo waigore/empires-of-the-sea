@@ -60,6 +60,40 @@ static func has_harbour(model: MapModel, province_id: int) -> bool:
 	return port.x >= 0 and port.y >= 0
 
 
+## The harbour at the court's seat, or NO_ID when the seat has none. Only a
+## squadron in port here reaches the cargo ledger (wiki: ships-and-naval
+## § Cargo holds and capacity), so a court whose seat has no harbour imports
+## nothing at all.
+static func seat_harbour(model: MapModel, owner: int) -> int:
+	if model == null:
+		return MapModel.NO_ID
+	var seat: int = WorldBootstrap.capital_province(model, owner)
+	if seat >= 0 and has_harbour(model, seat):
+		return seat
+	return MapModel.NO_ID
+
+
+## The harbour a court calls home: its seat while the seat has a harbour, else
+## its lowest-id own harbour. NO_ID when the crown holds no harbour at all (an
+## inland capital with no coast), so nothing can dock and no voyage can muster
+## (wiki: ships-and-naval § Home Fleet; civilian-units § Overseas deployment).
+static func home_harbour(model: MapModel, owner: int) -> int:
+	if model == null:
+		return MapModel.NO_ID
+	var seat: int = seat_harbour(model, owner)
+	if seat >= 0:
+		return seat
+	var best: int = MapModel.NO_ID
+	for province: ProvinceState in model.provinces:
+		if province == null or province.owner != owner:
+			continue
+		if not has_harbour(model, province.id):
+			continue
+		if best < 0 or province.id < best:
+			best = province.id
+	return best
+
+
 ## The home fleet is the crown's squadron in port at its own capital. It never
 ## sails: naval move orders do not change its location (wiki: ships-and-naval
 ## § Home Fleet).

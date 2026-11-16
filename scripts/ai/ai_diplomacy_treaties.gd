@@ -39,14 +39,15 @@ static func best(
 	context: Dictionary = {}
 ) -> Dictionary:
 	var bonus: int = _land_envoy_bonus(
-		state, world, config.faction, target, treasury, tech,
+		state, world, config.faction, target, tech,
 		context.get("charts", null)
 	)
 	# The colony ambition: a charted Tribe the court can still buy is worth the
 	# next envoy step even when the court is in no mood to improve relations for
 	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
 	var colony: Dictionary = AiTribeColony.ambition(
-		state, world, context.get("charts", null), config.faction, target, treasury, tech
+		state, world, context.get("charts", null), config.faction, target, treasury, tech,
+		AiPhasePlanner.phase_for(config, state)
 	)
 	var chain_matters: bool = bonus > 0 or bool(colony.get("wanted", false)) \
 		or bool(colony.get("held", false))
@@ -110,18 +111,21 @@ static func best(
 
 ## The land-deed nudge for this target: a Minor or Tribe this court could buy
 ## from once an envoy reaches it, while no embassy stands yet and the court holds
-## the merchant tech. Only charted land counts: a province never reached offers
-## nothing it can price, while any charted region's offer counts, so a court
-## that has not yet met the seller can still want the door opened (wiki:
-## civilian-units § Merchant; fog-and-exploration § Visibility Levels). A chain
+## the merchant tech. The tech is the buyer the chain serves — a court with no
+## Merchant to walk the last rung has nothing to open a chain for, and a chain
 ## opened on credit warms the relation past the war ceiling and bars the conquest
-## for nothing (issue #724).
+## for nothing (issue #724, measured 2026-11-15). The purse is not read: the
+## chain takes turns to walk and the purse refills while it does, so a priced
+## deed opens it even on this turn's floor (issue #724 task 2). Only charted land
+## counts: a province never reached offers nothing it can price, while any
+## charted region's offer counts, so a court that has not yet met the seller can
+## still want the door opened (wiki: civilian-units § Merchant;
+## fog-and-exploration § Visibility Levels).
 static func _land_envoy_bonus(
 	state: DiplomacyState,
 	world: WorldMap,
 	faction: int,
 	target: int,
-	treasury: int,
 	tech: Dictionary,
 	charts: CourtCharts = null
 ) -> int:
@@ -139,7 +143,7 @@ static func _land_envoy_bonus(
 		if model == null:
 			continue
 		var view: VisibilityModel = charts.model_for(faction, index) if charts != null else null
-		if AiMerchantWork.cheapest_offer(model, faction, target, treasury, view) > 0:
+		if AiMerchantWork.priced_offer(model, faction, target, view) > 0:
 			return LAND_ENVOY_BONUS
 	return 0
 

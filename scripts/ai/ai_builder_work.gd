@@ -32,34 +32,17 @@ const UNLOCK_VALUE: int = 20
 ## Highest-scoring legal Builder order for this court, or {} when the land and
 ## its towns hold nothing worth doing.
 static func best_candidate(
-	config: AiConfig,
-	model: MapModel,
-	unit: CivilianState,
-	works: LandWorks,
-	units: Array,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	tech_unlocked: Dictionary,
-	context: Dictionary,
-	reserved: Dictionary,
-	town_raw: Dictionary,
-	estates: Array = []
+	query: AiWorkQuery, town_raw: Dictionary, estates: Array = []
 ) -> Dictionary:
 	var rows: Array[Dictionary] = _rows(estates)
 	if rows.is_empty():
 		rows = estate_rows(
-			model, works, units, stockpile, unit.owner, tech_caps, context
+			query.model, query.works, query.units, query.stockpile,
+			query.unit.owner, query.tech_caps, query.context
 		)
-	var best: Dictionary = _best_estate(
-		config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
-		context, reserved, rows
-	)
+	var best: Dictionary = _best_estate(query, rows)
 	return AiCivilianCandidate.better(
-		best,
-		_town_candidate(
-			config, model, unit, works, units, stockpile, tech_caps, tech_unlocked,
-			context, reserved, town_raw, rows
-		)
+		best, _town_candidate(query, town_raw, rows)
 	)
 
 
@@ -94,8 +77,12 @@ static func paid_gain(row: Dictionary) -> int:
 		return 0
 	var cap: int = mini(int(row.get("tech_cap", 0)), int(row.get("terrain_cap", 0)))
 	var now: int = int(row.get("output", 0))
+	# Ration estates pay double per level, so the next level's gain is read at
+	# the same multiplier the row's own output printed (issue #807).
 	var raised: int = Extraction.effective_yield(
 		level + 1, cap, int(row.get("transport", 0)), int(row.get("town_cap", 0))
+	) * Extraction.estate_yield_per_level(
+		int(row.get("owner", -1)), String(row.get("commodity", ""))
 	)
 	return maxi(raised - now, 0)
 
@@ -119,9 +106,15 @@ static func town_unlocks(estates: Array, province_id: int) -> int:
 		var cap: int = mini(int(row.get("tech_cap", 0)), int(row.get("terrain_cap", 0)))
 		var transport: int = int(row.get("transport", 0))
 		var town_cap: int = int(row.get("town_cap", 0))
-		var capped: int = Extraction.effective_yield(level, cap, transport, town_cap)
+		var capped: int = Extraction.effective_yield(level, cap, transport, town_cap) * (
+			Extraction.estate_yield_per_level(
+				int(row.get("owner", -1)), String(row.get("commodity", ""))
+			)
+		)
 		var lifted: int = Extraction.effective_yield(
 			level, cap, transport, LandWorks.MAX_IMPROVEMENT
+		) * Extraction.estate_yield_per_level(
+			int(row.get("owner", -1)), String(row.get("commodity", ""))
 		)
 		total += maxi(lifted - capped, 0)
 	return total
@@ -157,17 +150,12 @@ static func town_raw(
 
 ## The estate the stores are shortest of; a fresh estate scores higher than an
 ## upgrade of the same crop, and a level the crown can gather pays a premium.
-static func _best_estate(
-	config: AiConfig, model: MapModel, unit: CivilianState, works: LandWorks,
-	units: Array, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
-	estates: Array
-) -> Dictionary:
+static func _best_estate(query: AiWorkQuery, estates: Array) -> Dictionary:
 	var best: Dictionary = {}
-	var target: int = config.parameter("civilian.need_target")
+	var target: int = query.config.parameter("civilian.need_target")
 	for row: Dictionary in estates:
 		var tile: Vector2i = row.get("tile", CivilianState.NO_TILE)
-		if tile.x < 0 or reserved.has(tile):
+		if tile.x < 0 or query.reserved.has(tile):
 			continue
 		if String(row.get("status", "")) == "maxed":
 			continue
@@ -175,20 +163,19 @@ static func _best_estate(
 		var crop: String = String(row.get("commodity", ""))
 		var gain: int = paid_gain(row)
 		var connected: bool = bool(row.get("connected", false))
-		var score: int = config.parameter("civilian.improvement_weight")
+		var score: int = query.config.parameter("civilian.improvement_weight")
 		# A shortage only pulls an order that can pay it: an estate the town or
 		# transport cap holds back is an investment, not a source, and the town
 		# or the engineer's road is the order that makes it pay. A tile still
 		# off the crown network keeps its shortage weight, because the road that
 		# links it is already the Engineer's business.
 		if gain > 0 or not connected:
-			score += need(crop, stockpile, target) * 10
+			score += need(crop, query.stockpile, target) * 10
 		if level <= 0:
 			score += 10
 		score += gain * GAIN_WEIGHT
 		var candidate: Dictionary = AiCivilianCandidate.make(
-			model, unit, "build_improvement", tile, works, units, stockpile,
-			tech_caps, tech_unlocked, context, score
+			query, "build_improvement", tile, score
 		)
 		best = AiCivilianCandidate.better(best, candidate)
 	return best
@@ -201,15 +188,12 @@ static func _best_estate(
 ## capping its province's estates is also worth the yield those estates would
 ## gather once it rises, so it is raised before estates that cannot pay.
 static func _town_candidate(
-	config: AiConfig, model: MapModel, unit: CivilianState, works: LandWorks,
-	units: Array, stockpile: Dictionary, tech_caps: Dictionary,
-	tech_unlocked: Dictionary, context: Dictionary, reserved: Dictionary,
-	raw_by_province: Dictionary, estates: Array
+	query: AiWorkQuery, raw_by_province: Dictionary, estates: Array
 ) -> Dictionary:
 	var best: Dictionary = {}
-	var weight: int = config.parameter("civilian.town_upgrade_weight")
-	for province: ProvinceState in model.provinces:
-		if province.owner != unit.owner:
+	var weight: int = query.config.parameter("civilian.town_upgrade_weight")
+	for province: ProvinceState in query.model.provinces:
+		if province.owner != query.unit.owner:
 			continue
 		if province.town_level() >= CivilianWorkPlan.MAX_TOWN:
 			continue
@@ -217,19 +201,18 @@ static func _town_candidate(
 		if raw.is_empty():
 			continue
 		var town: Vector2i = ImprovementSystem.town_tile(
-			model, works, province.id, province.capital_tile
+			query.model, query.works, province.id, province.capital_tile
 		)
-		if town.x < 0 or reserved.has(town):
+		if town.x < 0 or query.reserved.has(town):
 			continue
 		var gain: int = TownIndustry.marginal_gain(
-			raw, province.town_development, tech_unlocked
+			raw, province.town_development, query.tech_unlocked
 		)
 		var unlocks: int = town_unlocks(estates, province.id)
 		if gain <= 0 and unlocks <= 0:
 			continue
 		var candidate: Dictionary = AiCivilianCandidate.make(
-			model, unit, "upgrade_town", town, works, units, stockpile, tech_caps,
-			tech_unlocked, context,
+			query, "upgrade_town", town,
 			weight + int(gain / VALUE_DIVISOR) + unlocks * UNLOCK_VALUE
 		)
 		best = AiCivilianCandidate.better(best, candidate)

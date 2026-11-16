@@ -79,6 +79,12 @@ static func _court_turn(
 		"agenda": agenda,
 		"profile": config.profile,
 		"phase": phase,
+		# The dispatch slots this footing holds shut, so a closed aim reads in
+		# the trace instead of only in the planner that skipped it
+		# (DR-20261116-11, REQ-P5-05).
+		"holds": AiPhasePlanner.closed_slots(
+			String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
+		),
 		"income": income,
 		"action": action.duplicate(true),
 		"candidates": plan["candidates"],

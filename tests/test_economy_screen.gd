@@ -1428,3 +1428,64 @@ func _row_button(body: Node, commodity: String, text: String) -> Button:
 					return child as Button
 			row = row.get_parent()
 	return null
+
+
+## The PRODUCTION tab's one press: a crown that set its runs row by row now files
+## one step on every ready row in a single confirmed press, and the press names
+## what it would set before any labour or input is claimed (REQ-P5-04;
+## DR-20261116-08).
+func test_the_production_tab_files_one_run_on_every_ready_row() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["timber"] = 10
+	economy.stockpile["wool"] = 10
+	economy.stockpile["iron"] = 6
+	economy.stockpile["coal"] = 6
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	var press: RaiseBatchPress = body.batch_press()
+	assert_not_null(press, "the tab carries the one press")
+	assert_true(press.visible, "the press stands when a row is ready")
+	var ready: int = int(body._plan()["runs"])
+	assert_gt(ready, 1, "the opening store opens more than one row: %d" % ready)
+	assert_eq(press.text, "Queue all ready (%d)" % ready, "the press names the count")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(press.text, "Confirm — queue %d runs" % ready, "the second tap is named")
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the press forgets the arm once it files")
+	var set_rows: Dictionary = {}
+	for entry: Dictionary in economy.production.assignments():
+		set_rows[String(entry["recipe"])] = int(entry["units"])
+	assert_eq(set_rows.size(), ready, "every ready row took one run")
+	for recipe_id: String in set_rows.keys():
+		assert_eq(int(set_rows[recipe_id]), 1, "%s took exactly one run" % recipe_id)
+	assert_true(
+		_toast_texts().has(ProductionBatch.receipt(ready)),
+		"the press prints one receipt: %s" % str(_toast_texts())
+	)
+
+
+## A page with nothing ready carries no press, so a crown is never offered a
+## press that would file nothing (REQ-P5-03).
+func test_the_production_press_stands_down_when_nothing_is_ready() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	# Every row set past any ceiling the store could open: no row has a step left.
+	for recipe_id: String in body.recipe_rows().keys():
+		economy.production.set_assignment(recipe_id, 99)
+	_screen.economy.open_panel()
+	body = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	assert_eq(int(body._plan()["runs"]), 0, "no row has a step left to file")
+	assert_false(body.batch_press().visible, "a view with nothing ready carries no press")
+
+
+## Every line the court's toasts currently show.
+func _toast_texts() -> Array[String]:
+	var texts: Array[String] = []
+	for panel: Node in _screen.hud._toast_box.get_children():
+		for label: Label in panel.find_children("*", "Label", true, false):
+			texts.append(label.text)
+	return texts

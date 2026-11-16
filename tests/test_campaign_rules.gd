@@ -2772,6 +2772,27 @@ func test_snapshot_records_the_capital_of_each_crown() -> void:
 	assert_eq(int(seats[1]), RIVAL)
 
 
+## A captured capital carries no seat to its conqueror: the flag belongs to the
+## court, not the land, so the hand-over clears it and the loser's reassignment
+## still fires (wiki: capital-and-connectivity § Capital loss and reassignment).
+func test_a_captured_capital_carries_no_seat_to_its_conqueror() -> void:
+	var model: MapModel = _chart()
+	var before: Dictionary = CapitalLoss.snapshot(model)
+
+	BattleSettlement.flip(model, SEAT, 1)
+
+	assert_false(
+		model.province_data(SEAT).capital, "the seat does not travel with the land"
+	)
+	assert_eq(
+		CapitalLoss.seat_of(model, 1), RIVAL, "the conqueror keeps its own seat"
+	)
+	var result: Dictionary = CapitalLoss.resolve(model, before)
+	assert_eq(result["reassigned"].size(), 1, "the loser still moves its court")
+	assert_eq(int(result["reassigned"][0]["faction"]), 0)
+	assert_eq(int(result["reassigned"][0]["province"]), HARBOUR)
+
+
 func test_a_captured_seat_moves_to_the_lowest_seaboard_province() -> void:
 	var model: MapModel = _chart()
 	var before: Dictionary = CapitalLoss.snapshot(model)

@@ -17,7 +17,7 @@ extends RefCounted
 ##   voyage_afloat, voyage_abroad, voyage_stranded, cargo_shortfall,
 ##   research_slots, research_funding,
 ##   research_cost, research_refusal, tribe_target, tribe_stage_cost,
-##   deed_price.
+##   tribe_closed, deed_price.
 ## A missing reading reads as zero/false, so a thin fixture still emits a
 ## coherent list.
 
@@ -60,7 +60,7 @@ const W_DEED: int = 40
 static func build(readings: Dictionary) -> Array[AiObjective]:
 	var objectives: Array[AiObjective] = []
 	var at_war: bool = bool(readings.get("at_war", false))
-	objectives.append(_defend(at_war))
+	objectives.append(_defend(readings, at_war))
 	var muster: AiObjective = _muster(readings, at_war)
 	if muster != null:
 		objectives.append(muster)
@@ -88,9 +88,15 @@ static func build(readings: Dictionary) -> Array[AiObjective]:
 
 
 ## The seat held: at war every court keeps a regiment home, at peace it is a
-## standing aim worth little next to growth.
-static func _defend(at_war: bool) -> AiObjective:
-	var cost: Dictionary = {"regiment": 1} if at_war else {}
+## standing aim worth little next to growth. While a line is due the guard
+## claims nothing — the muster's regiment *is* the Home Army, and a phantom
+## slot claim at 90 held the muster's own claim shut every warring turn
+## (issue #807, the #474 clause-1 un-latch; evidence/issue-766).
+static func _defend(readings: Dictionary, at_war: bool) -> AiObjective:
+	var due: bool = bool(readings.get("muster_due", false))
+	var cost: Dictionary = (
+		{"regiment": 1} if at_war and not due else {}
+	)
 	return AiObjective.create(
 		"defend.seat", "military", W_DEFEND if at_war else W_DEFEND_PEACE, cost
 	)
@@ -227,7 +233,15 @@ static func _colonise(readings: Dictionary, at_war: bool) -> AiObjective:
 static func _tribe_chain(readings: Dictionary) -> AiObjective:
 	var target: int = int(readings.get("tribe_target", -1))
 	if target < 0:
-		return null
+		# A footing that holds the slot shut still names the aim it closed, so
+		# the trace reads why the court is buying no colony this turn instead of
+		# the row simply vanishing (DR-20261116-11, REQ-P5-05).
+		var closed: String = String(readings.get("tribe_closed", ""))
+		if closed.is_empty():
+			return null
+		return AiObjective.create(
+			"colonise.tribe_chain", "expansion", W_TRIBE_COLONY
+		).block(closed)
 	var aim := AiObjective.create(
 		"colonise.tribe_chain", "expansion", W_TRIBE_COLONY,
 		{"treasury": int(readings.get("tribe_stage_cost", 0)), "orders": 1}

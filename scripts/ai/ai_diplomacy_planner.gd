@@ -227,7 +227,7 @@ static func _war_block(
 	var tech: Dictionary = (context.get("tech", {}) as Dictionary).get(config.faction, {})
 	var colony: Dictionary = AiTribeColony.ambition(
 		state, world, context.get("charts", null), config.faction, target,
-		treasury, tech
+		treasury, tech, AiTribeColony.CLAIM_POSTURE
 	)
 	if bool(colony.get("wanted", false)) or bool(colony.get("held", false)):
 		return "an envoy chain has a claim on that court"
