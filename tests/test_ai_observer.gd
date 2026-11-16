@@ -651,6 +651,90 @@ func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
 	assert_false(progress.text.ends_with("pressing"), "a court far from the bar is not")
 
 
+## A busy turn raises more rows than the plate has room for. The feed scrolls
+## through the turns it keeps whole instead of printing the newest dozen and
+## dropping the rest — the war declared and the first march are the rows a
+## watcher most needs (REQ-P5-05).
+func test_the_feed_prints_a_busy_turn_whole() -> void:
+	var play: PlaySession = _screen.play
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {"factions": {crown: {}}})
+	var bucket: Dictionary = merged["factions"][crown]
+	for index in 30:
+		AiTurnLog.event(merged, bucket, crown, "Order %d." % index)
+	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts")
+	if panel == null:
+		return
+	panel.refresh()
+	var rows: int = (merged["events"] as Array).size()
+	assert_true(rows > 12, "the turn is busier than the plate's old dozen")
+	var lines: PackedStringArray = panel._log.text.split("\n")
+	var prefix: String = "T%d  " % int(merged["turn"])
+	var printed: int = 0
+	for line: String in lines:
+		if line.begins_with(prefix):
+			printed += 1
+	assert_eq(printed, rows, "every row of the turn reaches the feed")
+	assert_eq(
+		lines[0], "%sOrder 29." % prefix,
+		"the newest order still leads the feed"
+	)
+	assert_true(
+		lines.has("%sOrder 0." % prefix),
+		"the turn's first order is kept, not cut"
+	)
+	var kept: int = 0
+	for index in range(maxi(play.ai_turns.size() - AiObserverPanel.FEED_TURNS, 0), play.ai_turns.size()):
+		kept += (play.ai_turns[index]["events"] as Array).size()
+	assert_true(
+		panel._log_caption.text.contains("%d rows over 2 turns" % kept),
+		"the caption counts every row the feed holds"
+	)
+
+
+## The dashboard on a landscape handset (360 points tall): its stack is taller
+## than the screen, so the plate scrolls and the crown cards keep their room
+## instead of being squeezed to nothing (REQ-P1-07, RUB-P1-07).
+func test_the_plate_fits_a_landscape_handset() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(720, 360)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var screen: MapScreen = SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = Fixture.world()
+	screen.observer_mode = true
+	screen.infinite_mode = true
+	viewport.add_child(screen)
+	for _frame in 4:
+		await get_tree().process_frame
+	var panel := screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts on a handset")
+	if panel == null:
+		screen.free()
+		viewport.free()
+		return
+	panel._fit()
+	for _frame in 2:
+		await get_tree().process_frame
+	assert_true(
+		panel._crowns_scroll.size.y >= AiObserverPanel.CARD_MIN_HEIGHT - 1.0,
+		"the crown cards keep their window on a 360-point-tall screen"
+	)
+	assert_true(
+		panel._plate.get_v_scroll_bar().max_value > panel._plate.size.y,
+		"the plate scrolls when its stack is taller than the screen"
+	)
+	assert_true(
+		panel._frame.size.x > 200.0 and panel._frame.size.x < 720.0,
+		"the plate keeps a readable width"
+	)
+	screen.free()
+	viewport.free()
+
+
 func test_dashboard_controls_step_pause_and_collapse() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")

@@ -7,13 +7,21 @@ extends CanvasLayer
 
 const SPEEDS: Array[float] = [1.4, 0.7, 0.3]
 const SPEED_LABELS: Array[String] = ["1×", "2×", "4×"]
-const MAX_LOG_LINES: int = 12
+## Turns the feed keeps. A merged turn is one record for every crown — T1 of a
+## standard campaign resolves 41 rows — so the feed scrolls through whole turns
+## instead of cutting a busy turn's first rows (REQ-P5-05).
+const FEED_TURNS: int = 2
+const FEED_MIN_HEIGHT: float = 128.0
+## Room the cards keep on a short screen; the plate scrolls around them (REQ-P1-07).
+const CARD_MIN_HEIGHT: float = 180.0
 
 var play: PlaySession = null
 var running: bool = true
 
 var _ui: Control = null
+var _plate: ScrollContainer = null
 var _frame: PanelContainer = null
+var _crowns_scroll: ScrollContainer = null
 var _tab: Button = null
 var _turn_label: Label = null
 var _status: Label = null
@@ -21,6 +29,7 @@ var _standing: Label = null
 var _result: Label = null
 var _crowns: VBoxContainer = null
 var _log: Label = null
+var _log_caption: Label = null
 var _pause: Button = null
 var _step: Button = null
 var _speed: Button = null
@@ -61,13 +70,22 @@ func _build() -> void:
 	_ui.theme = UiTheme.build()
 	add_child(_ui)
 
+	# The plate scrolls as a whole when the screen is shorter than its stack: a
+	# landscape handset is 360 points tall and this dashboard is taller (REQ-P1-07).
+	_plate = ScrollContainer.new()
+	_plate.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_ui.add_child(_plate)
+	var inset := MarginContainer.new()
+	inset.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	inset.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	for side: String in ["margin_left", "margin_top", "margin_bottom"]:
+		inset.add_theme_constant_override(side, 12)
+	_plate.add_child(inset)
 	_frame = MenuFrame.panel()
-	_frame.anchor_bottom = 1.0
-	_frame.offset_left = 12.0
-	_frame.offset_top = 12.0
-	_frame.offset_right = 420.0
-	_frame.offset_bottom = -12.0
-	_ui.add_child(_frame)
+	_frame.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	_frame.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	inset.add_child(_frame)
 
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 8)
@@ -110,22 +128,26 @@ func _build() -> void:
 
 	box.add_child(MenuFrame.separator())
 
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	box.add_child(scroll)
+	var crown_scroll := ScrollContainer.new()
+	crown_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	crown_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	crown_scroll.custom_minimum_size = Vector2(0.0, CARD_MIN_HEIGHT)
+	box.add_child(crown_scroll)
+	_crowns_scroll = crown_scroll
 	_crowns = VBoxContainer.new()
 	_crowns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_crowns.add_theme_constant_override("separation", 4)
-	scroll.add_child(_crowns)
+	crown_scroll.add_child(_crowns)
 	for faction: int in FactionCatalog.great_power_ids():
 		_add_card(faction)
 
 	box.add_child(MenuFrame.separator())
-	box.add_child(MenuFrame.caption("Recent orders"))
+	_log_caption = MenuFrame.caption("Recent orders")
+	_log_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	box.add_child(_log_caption)
 	var log_scroll := ScrollContainer.new()
 	log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	log_scroll.custom_minimum_size = Vector2(0.0, 96.0)
+	log_scroll.custom_minimum_size = Vector2(0.0, FEED_MIN_HEIGHT)
 	box.add_child(log_scroll)
 	_log = Label.new()
 	_log.add_theme_font_size_override("font_size", 12)
@@ -191,7 +213,7 @@ func _fit() -> void:
 		return
 	var width: float = get_viewport().get_visible_rect().size.x
 	var panel_width: float = clampf(width * 0.5, 280.0, 470.0)
-	_frame.offset_right = minf(panel_width, maxf(width - 24.0, 220.0))
+	_frame.custom_minimum_size.x = minf(panel_width, maxf(width - 24.0, 220.0))
 
 
 # --- refresh -----------------------------------------------------------------
@@ -212,6 +234,8 @@ func refresh() -> void:
 	for row: Dictionary in snap["rows"]:
 		_refresh_card(row)
 	_log.text = _recent_log()
+	if _log_caption != null:
+		_log_caption.text = _feed_caption()
 	_sync_controls()
 
 
@@ -274,23 +298,35 @@ func _short_name(name: String) -> String:
 	return "U. Provinces" if name == "United Provinces" else name
 
 
-## Two most recent resolved turns, newest order first.
+## The turns the feed keeps, newest row first, every row printed: the plate
+## scrolls rather than choosing which orders a watcher may read (REQ-P5-05).
 func _recent_log() -> String:
 	if play.ai_turns.is_empty():
 		return "No orders recorded yet."
-	var lines: PackedStringArray = []
-	var first: int = maxi(play.ai_turns.size() - 2, 0)
+	var lines: PackedStringArray = PackedStringArray()
+	var first: int = maxi(play.ai_turns.size() - FEED_TURNS, 0)
 	for index in range(play.ai_turns.size() - 1, first - 1, -1):
 		var merged: Dictionary = play.ai_turns[index]
 		var events: Array = merged.get("events", [])
 		for cursor in range(events.size() - 1, -1, -1):
 			var event: Dictionary = events[cursor]
 			lines.append("T%d  %s" % [int(merged["turn"]), String(event["text"])])
-			if lines.size() >= MAX_LOG_LINES:
-				break
-		if lines.size() >= MAX_LOG_LINES:
-			break
 	return "\n".join(lines) if not lines.is_empty() else "No orders recorded yet."
+
+
+## What the feed holds, so the rows off-screen are counted (REQ-P5-05).
+func _feed_caption() -> String:
+	var rows: int = 0
+	var turns: int = 0
+	var first: int = maxi(play.ai_turns.size() - FEED_TURNS, 0)
+	for index in range(first, play.ai_turns.size()):
+		rows += (play.ai_turns[index].get("events", []) as Array).size()
+		turns += 1
+	if turns == 0:
+		return "Recent orders"
+	return "Recent orders  ·  %d rows over %d turn%s, newest first" % [
+		rows, turns, "" if turns == 1 else "s",
+	]
 
 
 func _sync_controls() -> void:
