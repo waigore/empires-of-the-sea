@@ -270,11 +270,21 @@ func _draw_wings(w: float, h: float) -> void:
 	)
 
 
-func _wing_chips(centre: Vector2, held: Dictionary, broken: Array, color: Color) -> void:
-	var total: int = 0
+## Whether a line's chips are drawn at all. A line that holds wings keeps them
+## on the plate even when every one has emptied — that is the collapse the chips
+## exist to show — while a line with no wings (a garrison behind a wall, an older
+## record) draws none (wiki: quick-battle § Wings and collapse).
+static func wings_shown(held: Dictionary, broken: Array) -> bool:
+	if not broken.is_empty():
+		return true
 	for wing: String in QuickBattleWings.WINGS:
-		total += int(held.get(wing, 0))
-	if total <= 0:
+		if int(held.get(wing, 0)) > 0:
+			return true
+	return false
+
+
+func _wing_chips(centre: Vector2, held: Dictionary, broken: Array, color: Color) -> void:
+	if not wings_shown(held, broken):
 		return
 	var chip: float = 8.0
 	var gap: float = 4.0

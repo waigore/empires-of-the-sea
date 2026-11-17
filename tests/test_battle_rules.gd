@@ -3330,6 +3330,74 @@ func test_the_simulator_scene_fights_and_steps() -> void:
 
 	screen.free()
 
+
+## The Sandbox paints the wings its record carries: each round the plate shows
+## what that round left standing, and the aftermath shows the wings the battle
+## left — not the deal it opened with (wiki: quick-battle § Wings and collapse).
+func test_the_simulator_plate_walks_the_wings_it_records() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["guards", 6], ["culverin", 0], ["knights", 2]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 6], ["musketeers", 0], ["knights", 2]])
+	screen._setup._fort.selected = 0
+	screen._setup._attacker_plan.selected = 1
+	screen._fight()
+	var quick: Dictionary = screen._result["report"]["quick"]
+	var broke: bool = false
+	for index in (quick["rounds"] as Array).size():
+		screen._show_round(index)
+		var round: Dictionary = quick["rounds"][index]
+		assert_eq(
+			str(screen._field.attacker_wings), str(round["wings"]["attacker"]),
+			"round %d paints the wings it left" % (index + 1)
+		)
+		assert_eq(str(screen._field.defender_wings), str(round["wings"]["defender"]))
+		assert_eq(
+			str(screen._field.defender_broken), str(round["wings_broken"]["defender"]),
+			"a wing that broke this round is struck through"
+		)
+		if not (round["wings_broken"]["defender"] as Array).is_empty():
+			broke = true
+	assert_true(broke, "the sandbox fight breaks a wing, or the plate is untested")
+	screen._show_aftermath()
+	assert_eq(
+		str(screen._field.attacker_wings), str(quick["wings"]["attacker"]),
+		"the aftermath shows the wings the battle left"
+	)
+	assert_eq(str(screen._field.defender_broken), str(quick["wings_broken"]["defender"]))
+	assert_true(
+		screen._log.text.contains("Wings — "), "the despatch says the collapse in words"
+	)
+	screen.free()
+
+
+## Fills the sandbox's setup rail: one [type, count] per slot.
+func _sim_slots(setup: BattleSimSetup, side: String, rows: Array) -> void:
+	var slots: Array = setup._attacker_slots if side == "attacker" else setup._defender_slots
+	for index in mini(rows.size(), slots.size()):
+		var row: Array = rows[index]
+		(slots[index]["picker"] as OptionButton).selected = maxi(
+			setup._types.find(String(row[0])), 0
+		)
+		(slots[index]["count"] as SpinBox).value = int(row[1])
+
+
+## A line that has lost every wing keeps its chips on the plate — struck
+## through, which is the collapse they exist to show — while a line with no
+## wings at all (a garrison behind a wall) draws none (wiki: quick-battle
+## § Wings and collapse).
+func test_a_line_that_lost_every_wing_still_shows_its_chips() -> void:
+	assert_true(
+		QuickBattleField.wings_shown({"left": 0, "center": 0, "right": 0}, ["left", "center", "right"]),
+		"a broken line is still read on the plate"
+	)
+	assert_true(QuickBattleField.wings_shown({"left": 0, "center": 3, "right": 0}, []))
+	assert_false(
+		QuickBattleField.wings_shown({"left": 0, "center": 0, "right": 0}, []),
+		"a garrison holds no wings, so it draws no chips"
+	)
+
 # --- naming, order of battle and settlement ---
 
 ## One boot for naming, order-of-battle readings and battle settlement (wiki: naming;
