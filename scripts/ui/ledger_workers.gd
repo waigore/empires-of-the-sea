@@ -22,6 +22,8 @@ var _buttons: Dictionary = {}
 var _batches: Dictionary = {}
 ## Tier badges keyed by tier, so tooling reads the mark without walking rows.
 var _marks: Dictionary = {}
+## The price/ration line under each tier row, keyed by tier (REQ-P5-05).
+var _lines: Dictionary = {}
 
 
 ## Phone geometry from the panel that owns the tab; a live rotation re-fills so
@@ -40,6 +42,7 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_buttons.clear()
 	_batches.clear()
 	_marks.clear()
+	_lines.clear()
 	UiRowBuilder.clear(self)
 	add_child(
 		UiRowBuilder.label(
@@ -228,7 +231,10 @@ func _kind(row: Dictionary) -> String:
 func _tier_row(tier: int) -> Control:
 	var height: float = COMPACT_ROW_HEIGHT if _compact else ROW_HEIGHT
 	var mark: int = WorkerTierArt.MARK_COMPACT if _compact else WorkerTierArt.MARK_SIZE
+	var entry := VBoxContainer.new()
+	entry.add_theme_constant_override("separation", 2)
 	var row := UiRowBuilder.row(height)
+	entry.add_child(row)
 	var badge := WorkerTierArt.badge(tier, mark)
 	row.add_child(badge)
 	_marks[tier] = badge
@@ -267,7 +273,25 @@ func _tier_row(tier: int) -> Control:
 				height
 			)
 		)
-	return row
+	entry.add_child(_recruit_line(tier))
+	return entry
+
+
+## The one line under a tier row: the price it pays and, in that order, the study
+## a locked tier waits on, the rule that stops it or the ration it eats. On the
+## sheet itself, never only in the button's hover, so a touch crown reads what a
+## press costs before it pays (wiki: workers-and-population § Recruiting,
+## § Tech gates, § Worker Tiers; REQ-P1-05, REQ-P5-05, REQ-P5-06).
+func _recruit_line(tier: int) -> Label:
+	var reason: String = _economy.recruit_blocked_reason(tier)
+	var missing: Array[String] = WorkerPool.missing_techs(tier, _economy.tech_unlocked)
+	var line := UiRowBuilder.wrapped_line(
+		LedgerWorkersText.recruit_line(tier, reason, missing),
+		10,
+		Palette.CRIMSON if not reason.is_empty() else Palette.TEXT_DIM
+	)
+	_lines[tier] = line
+	return line
 
 
 ## One row action. A blocked row stays visible but inert so the roster keeps its
@@ -325,3 +349,8 @@ func action_buttons() -> Dictionary:
 ## Tier badges keyed by tier; the roster mark a row wears for that rank.
 func tier_marks() -> Dictionary:
 	return _marks
+
+
+## The price/ration line under each tier row, keyed by tier (REQ-P5-05).
+func tier_lines() -> Dictionary:
+	return _lines
