@@ -1,9 +1,9 @@
 class_name BattleSimScreen
 extends Control
 ## Visual Battle Simulator: a playtesting instrument over the live Quick Battle
-## rules. The setup rail hands a spec to [BattleScenario], which runs the same
-## resolver a game turn runs; this screen only paints the record it gets back
-## (REQ-P2-03, REQ-P3-03). Launch:
+## rules. Setup rail, layout chrome, despatch copy and round playback each own a
+## module; this screen only wires intents to [BattleScenario] and paints the
+## record it gets back (REQ-P2-03, REQ-P3-01, REQ-P3-03). Launch:
 ##   tools/run.sh scenes/battle_sim.tscn
 
 const NAMES: Array[String] = ["The Attack", "The Garrison"]
@@ -61,8 +61,18 @@ func _ready() -> void:
 	_centre.add_theme_constant_override("separation", 6)
 	_centre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_row.add_child(_centre)
-	_build_centre(_centre)
-	_log_panel = _build_log_panel()
+	var centre: Dictionary = BattleSimLayout.build_centre(_centre)
+	_header = centre["header"] as Label
+	_field = centre["field"] as QuickBattleField
+	_status = centre["status"] as Label
+	_round_buttons = centre["round_buttons"] as HFlowContainer
+	for index in QuickBattle.MAX_ROUNDS:
+		(_round_buttons.get_child(index) as Button).pressed.connect(_show_round.bind(index))
+	(_round_buttons.get_child(QuickBattle.MAX_ROUNDS) as Button).pressed.connect(_show_aftermath)
+	var log_bits: Dictionary = BattleSimLayout.build_log_panel()
+	_log_panel = log_bits["panel"] as PanelContainer
+	_readout = log_bits["readout"] as Label
+	_log = log_bits["log"] as Label
 	_row.add_child(_log_panel)
 	resized.connect(_relayout)
 	_relayout()
@@ -76,89 +86,12 @@ func _relayout() -> void:
 	var stacked: bool = size.x < STACK_BELOW
 	if stacked != _stacked:
 		_stacked = stacked
-		_restack()
-	_apply_stack()
-
-
-func _restack() -> void:
-	var columns: BoxContainer = VBoxContainer.new() if _stacked else HBoxContainer.new()
-	columns.add_theme_constant_override("separation", 12)
-	for child: Control in [_setup, _centre, _log_panel]:
-		child.get_parent().remove_child(child)
-		columns.add_child(child)
-	var host: Container = columns
-	if _stacked:
-		var scroll := ScrollContainer.new()
-		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-		columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		scroll.add_child(columns)
-		host = scroll
-	_margin.remove_child(_row)
-	_row.queue_free()
-	_row = host
-	_margin.add_child(host)
-
-
-## The room each panel takes: a stacked column gives the rail and the despatches
-## a bounded window of their own and lets the plate keep the rest.
-func _apply_stack() -> void:
-	_setup.custom_minimum_size = Vector2(0.0 if _stacked else 320.0, RAIL_MIN if _stacked else 0.0)
-	_setup.size_flags_vertical = Control.SIZE_FILL if _stacked else Control.SIZE_EXPAND_FILL
-	_log_panel.custom_minimum_size = Vector2(0.0 if _stacked else 380.0, LOG_MIN if _stacked else 0.0)
-	_log_panel.size_flags_vertical = Control.SIZE_FILL if _stacked else Control.SIZE_EXPAND_FILL
-	_field.custom_minimum_size = Vector2(0, FIELD_MIN if _stacked else 220.0)
-
-
-func _build_centre(column: VBoxContainer) -> void:
-	_header = UiRowBuilder.serif_wrapped("No battle yet", 15, Palette.GOLD_PALE)
-	column.add_child(_header)
-	_field = QuickBattleField.new()
-	_field.custom_minimum_size = Vector2(0, 220)
-	_field.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	column.add_child(_field)
-	_status = UiRowBuilder.serif_wrapped(
-		"Ready — set the ground, the fort and the men, then Fight.", 12, Palette.TEXT
+		_row = BattleSimLayout.restack(
+			_margin, _row, _stacked, [_setup, _centre, _log_panel]
+		)
+	BattleSimLayout.apply_stack(
+		_setup, _field, _log_panel, _stacked, RAIL_MIN, LOG_MIN, FIELD_MIN
 	)
-	column.add_child(_status)
-	_round_buttons = HFlowContainer.new()
-	_round_buttons.add_theme_constant_override("separation", 6)
-	column.add_child(_round_buttons)
-	for index in QuickBattle.MAX_ROUNDS:
-		var button := Button.new()
-		button.text = "Round %s" % QuickBattleCopy.roman(index + 1)
-		button.pressed.connect(_show_round.bind(index))
-		button.disabled = true
-		_round_buttons.add_child(button)
-	var aftermath := Button.new()
-	aftermath.text = "Aftermath"
-	aftermath.pressed.connect(_show_aftermath)
-	aftermath.disabled = true
-	_round_buttons.add_child(aftermath)
-
-
-func _build_log_panel() -> PanelContainer:
-	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(380, 0)
-	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	panel.add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(Color(0.09, 0.07, 0.05, 0.97), Palette.GOLD_DIM, 1, 4, Vector4(10, 8, 10, 8))
-	)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 4)
-	panel.add_child(column)
-	column.add_child(UiRowBuilder.serif_wrapped("DESPATCHES", 13, Palette.GOLD))
-	_readout = UiRowBuilder.serif_wrapped("", 11, Palette.TEXT_DIM)
-	column.add_child(_readout)
-	var scroll := ScrollContainer.new()
-	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
-	_log = UiRowBuilder.serif_wrapped("", 12, Palette.TEXT)
-	_log.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(_log)
-	return panel
 
 
 # --- intents -----------------------------------------------------------------
@@ -193,11 +126,8 @@ func _reset() -> void:
 	_log.text = ""
 	_status.text = "Reset — set the ground, the fort and the men, then Fight."
 	_header.text = "No battle yet"
-	_field.set_battle({})
-	_field.attacker_count = 0
-	_field.defender_count = 0
-	_field.queue_redraw()
-	_set_round_buttons(false)
+	BattleSimPlayback.reset_field(_field)
+	BattleSimPlayback.set_round_buttons(_round_buttons, false, 0)
 	_readout.text = ""
 
 
@@ -207,7 +137,7 @@ func _reset() -> void:
 ## one (REQ-P2-03).
 func _run() -> bool:
 	var spec: Dictionary = _setup.spec()
-	var empty: String = _empty_side(spec)
+	var empty: String = BattleSimDespatch.empty_side(spec, NAMES)
 	if not empty.is_empty():
 		_status.text = "%s fields no men — give a slot a count." % empty
 		return false
@@ -216,39 +146,12 @@ func _run() -> bool:
 	_cursor = 0
 	## The plate reads the record once: ground, wall and gates come from it.
 	_field.set_battle(report)
-	var quick: Dictionary = report["quick"] as Dictionary
-	_header.text = "%s vs %s — %s · %s" % [
-		NAMES[0], NAMES[1], FortRules.describe(int(report.get("fort_level", 0))),
-		String(quick.get("terrain_label", "Open field")),
-	]
-	_readout.text = _rules_text(report)
-	_log.text = _despatch(report)
-	_set_round_buttons(true)
-	_status_for_round(report, 0)
+	_header.text = BattleSimDespatch.header(report, NAMES)
+	_readout.text = BattleSimDespatch.rules_text(report)
+	_log.text = BattleSimDespatch.full(report, NAMES, SANDBOX)
+	BattleSimPlayback.set_round_buttons(_round_buttons, true, _rounds().size())
+	_status.text = BattleSimDespatch.status_for_round(report, 0)
 	return true
-
-
-## The side the rail left with no men, named; empty when both sides field one.
-func _empty_side(spec: Dictionary) -> String:
-	for index in NAMES.size():
-		var key: String = "attacker" if index == 0 else "defender"
-		if (spec.get(key, []) as Array).is_empty():
-			return NAMES[index]
-	return ""
-
-
-func _status_for_round(report: Dictionary, index: int) -> void:
-	var rounds: Array = _rounds()
-	if index < 0 or index >= rounds.size():
-		_status.text = "No rounds were fought."
-		return
-	var entry: Dictionary = rounds[index] as Dictionary
-	var guns: int = int(entry.get("guns", 0))
-	_status.text = "Round %s — %d attackers, %d defenders, %d gun%s, %d of 3 gates breached." % [
-		QuickBattleCopy.roman(index + 1),
-		int(entry.get("attacker_count", 0)), int(entry.get("defender_count", 0)),
-		guns, "" if guns == 1 else "s", int(entry.get("gates", 0)),
-	]
 
 
 # --- presentation ------------------------------------------------------------
@@ -258,132 +161,23 @@ func _show_round(index: int) -> void:
 	if _result.is_empty():
 		return
 	var report: Dictionary = _result["report"]
-	var rounds: Array = _rounds()
-	if index < 0 or index >= rounds.size():
+	var painted: Dictionary = BattleSimPlayback.show_round(_field, report, index, NAMES)
+	if not bool(painted.get("ok", false)):
 		_show_aftermath()
 		return
-	_cursor = index
-	var entry: Dictionary = rounds[index] as Dictionary
-	_field.set_round(
-		index, int(entry.get("attacker_count", 0)), int(entry.get("defender_count", 0)),
-		int(entry.get("guns", 0)), entry.get("attacker_health", []) as Array,
-		entry.get("defender_health", []) as Array, int(entry.get("gates", 0))
-	)
-	## The wings as this round left them: a wing that emptied is dimmed and one
-	## that broke is struck through, so a collapse is read at a glance (wiki:
-	## quick-battle § Wings and collapse).
-	_show_wings(entry)
-	_status_for_round(report, index)
+	_cursor = int(painted["cursor"])
+	_status.text = String(painted["status"])
 
 
 func _show_aftermath() -> void:
 	if _result.is_empty():
 		return
-	var report: Dictionary = _result["report"]
-	var quick: Dictionary = report["quick"] as Dictionary
-	_field.attacker_count = int(quick.get("attacker_left", 0))
-	_field.defender_count = int(quick.get("defender_left", 0))
-	_field.guns = int(quick.get("guns_left", 0))
-	_field.gates_broken = int(quick.get("breaches", 0))
-	_field.attacker_health = report.get("attacker_health", []) as Array
-	_field.defender_health = report.get("defender_health", []) as Array
-	## The aftermath stands where the last round left the lines, as the game's
-	## own plate does, so the sandbox reads like the battle it studies.
-	_field.round_index = maxi(_rounds().size() - 1, 0)
-	_field.set_outcome(int(report.get("outcome", 0)))
-	## The wings as the battle left them, not the deal it opened with: a line
-	## whose wings have all broken still shows them struck through (wiki:
-	## quick-battle § Wings and collapse).
-	_show_wings(quick)
-	_status.text = QuickBattleCopy.outcome_text(
-		int(report.get("outcome", 0)), report, SANDBOX, NAMES
+	var painted: Dictionary = BattleSimPlayback.show_aftermath(
+		_field, _result["report"] as Dictionary, SANDBOX, NAMES
 	)
-	_cursor = _rounds().size()
-
-
-## Paints one moment's wings — a round's record or the battle's final one — on
-## the plate. A record without wings (a siege garrison, an older plate) clears
-## them.
-func _show_wings(record: Dictionary) -> void:
-	var held: Dictionary = record.get("wings", {}) as Dictionary
-	var broken: Dictionary = record.get("wings_broken", {}) as Dictionary
-	_field.set_wings(
-		held.get("attacker", {}) as Dictionary, held.get("defender", {}) as Dictionary,
-		broken.get("attacker", []) as Array, broken.get("defender", []) as Array
-	)
-
-
-## The round doors a record can open: a round the battle never fought has no
-## door, so pressing it cannot quietly mean the aftermath.
-func _set_round_buttons(enabled: bool) -> void:
-	var fought: int = _rounds().size()
-	for index in _round_buttons.get_child_count():
-		var button: Button = _round_buttons.get_child(index) as Button
-		button.disabled = not enabled or (index < QuickBattle.MAX_ROUNDS and index >= fought)
-
-
-## Every action's despatch plus the aftermath lines the game plate prints, in
-## the same order — ground, the wings and the line, walls, the named dead, the
-## chevrons, the honours and citations won, and the siege (REQ-P5-05). A sandbox
-## that reads fewer lines than the game is an instrument that hides its subject.
-func _despatch(report: Dictionary) -> String:
-	var lines: PackedStringArray = PackedStringArray()
-	for round: Dictionary in _rounds():
-		lines.append("— ROUND %s —" % QuickBattleCopy.roman(int(round.get("round", 1))))
-		for action: Dictionary in round.get("actions", []) as Array:
-			lines.append(QuickBattleCopy.action_line(action, report, NAMES))
-	var tail: PackedStringArray = PackedStringArray()
-	for text: String in [
-		QuickBattleCopy.terrain_line(report),
-		QuickBattleCopy.wings_line(report, NAMES),
-		QuickBattleCopy.line_line(report, NAMES),
-		QuickBattleCopy.loss_line(report, NAMES),
-		QuickBattleCopy.health_line(report, NAMES),
-		QuickBattleCopy.chevron_line(report, NAMES),
-		QuickBattleCopy.honour_line(report, SANDBOX, NAMES),
-		QuickBattleCopy.citation_line(report, SANDBOX, NAMES),
-		QuickBattleCopy.siege_line(report),
-	]:
-		if not text.is_empty():
-			tail.append(text)
-	if not tail.is_empty():
-		lines.append("— AFTERMATH —")
-		lines.append_array(tail)
-	lines.append("— OUTCOME —")
-	lines.append(QuickBattleCopy.outcome_text(
-		int(report.get("outcome", 0)), report, SANDBOX, NAMES
-	))
-	return "\n".join(lines)
-
-
-## The numbers behind the plate: what the ground, the wall and the gates do.
-func _rules_text(report: Dictionary) -> String:
-	var quick: Dictionary = report["quick"] as Dictionary
-	var terrain: String = String(quick.get("terrain", "open"))
-	var limits: Dictionary = quick.get("limits", {}) as Dictionary
-	var text: String = "Deployment %d / %d a side · 3 CP a round\n" % [
-		int(limits.get("attacker", ArmyModifiers.BASE_DEPLOYMENT)),
-		int(limits.get("defender", ArmyModifiers.BASE_DEPLOYMENT)),
-	]
-	text += "Ground %s — volley ×%.2f, assault ×%.2f, entrench ×%.2f\n" % [
-		SiegeLanes.terrain_label(terrain), SiegeLanes.terrain_scale("volley", terrain),
-		SiegeLanes.terrain_scale("assault", terrain), SiegeLanes.entrench_scale(terrain),
-	]
-	var level: int = int(report.get("fort_level", 0))
-	if level > 0:
-		text += "Walls spare %d%% · %d guns\n" % [
-			roundi(FortRules.damage_reduction(level) * 100.0), int(quick.get("guns_start", 0)),
-		]
-		text += "3 gates · one breaches every %d wall casualties\n" % SiegeLanes.breach_threshold(level)
-		text += "Lanes: %d wall, %d behind\n" % [
-			int((quick.get("lanes", {}) as Dictionary).get("wall", 0)),
-			int((quick.get("lanes", {}) as Dictionary).get("behind", 0)),
-		]
-		text += "Gates breached: %d of 3" % int(quick.get("breaches", 0))
-	return text
+	_cursor = int(painted["cursor"])
+	_status.text = String(painted["status"])
 
 
 func _rounds() -> Array:
-	return ((_result.get("report", {}) as Dictionary).get("quick", {}) as Dictionary).get(
-		"rounds", []
-	) as Array
+	return BattleSimDespatch.rounds_of(_result.get("report", {}) as Dictionary)
