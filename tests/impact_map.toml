@@ -2091,9 +2091,18 @@ domain = "prospect"
 
 # The published work gate and its cost table (H8 feedstock bootstrap, #878):
 # the AI plan and the civilian turn suites prove the raise; the prospect map
-# fan-out overruns the tier-1 5 min budget once those suites grow.
+# fan-out overruns the tier-1 5 min budget once those suites grow. Gates and
+# completion effects are sibling modules of the same slice (REQ-P3-01).
 [[rules]]
 match = "scripts/rules/civilian_work.gd*"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/rules/civilian_work_gates.gd*"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/rules/civilian_work_effects.gd*"
 domain = "ai_works"
 
 [[rules]]

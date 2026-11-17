@@ -34,6 +34,10 @@ var works_reserved: Dictionary = {}
 ## DR-20261114-09).
 var muster_row: Dictionary = {}
 var navy_row: Dictionary = {}
+## The cash the market must not spend: the price of the crew the hire order would
+## take this turn, so a court that has lost a Builder can still buy one (issue
+## #894).
+var hire_margin: int = 0
 
 ## The reads the plan and the application share.
 var at_war: bool = false
@@ -158,6 +162,7 @@ func plan_turn() -> void:
 		(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor
 	)
 	works_reserved = MapPlayCivilianAi.work_rows(plans)
+	hire_margin = _hire_margin()
 	trade = _plan_trade()
 
 
@@ -168,6 +173,27 @@ func _chest_rows() -> Dictionary:
 	if navy_row.is_empty():
 		return muster_row
 	return MapPlayEconomyAi._merge_rows(muster_row, navy_row)
+
+
+## The crew the hire order would take this turn, at the catalogue's price: the
+## market keeps that cash back from its bids, so a court at its cash floor that
+## has lost a Builder can still buy one (issue #894). Read from the home region's
+## plan, which is where the court musters its crews.
+func _hire_margin() -> int:
+	# The baseline planners keep their published market: the margin is the
+	# submission surface's own reading (AiBind).
+	if kind == AiControl.KIND_BASELINE:
+		return 0
+	var home: int = FactionCatalog.region_of(faction)
+	for entry: Dictionary in plans:
+		if int(entry.get("region", -1)) != home:
+			continue
+		var plan: Dictionary = entry.get("plan", {})
+		var next: String = String(plan.get("next_crew", ""))
+		if next.is_empty():
+			return 0
+		return CivilianCatalog.treasury_cost(next)
+	return 0
 
 
 ## Resolves the shared market and books this court's next production and
@@ -318,7 +344,7 @@ func _plan_trade() -> Dictionary:
 	var plan: Dictionary = AiBind.market_plan(
 		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
 		MapPlayEconomyAi._merge_rows(need, navy), floor, food_short, saving,
-		speculate, works_floor
+		speculate, works_floor, hire_margin
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(
