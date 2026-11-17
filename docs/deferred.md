@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-11 vs code through #914 (REQ-P2-02).
+Audited: DR-20261117-15 vs code through #929 (REQ-P2-02).
 Implement default: largest clear item here, then REQ/wiki.
 
 ## Already live
@@ -34,18 +34,19 @@ Implement default: largest clear item here, then REQ/wiki.
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
-| Estate/wall/ward/transport/crew previews | ledgers + `MapPlayCivilianPick`/`MapPlayCivilianFollow` + chart mark, DR-17-03/05/06/07/09 |
-| QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
-| Rail pick's door; dossier rail block | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
-| Observatory province sheet | `ObserverProvince`; `ObserverProvinceSheet`, DR-17-11/#914 |
+| Raise/crew/yard previews | ledgers + pick/Follow/chart + `FleetYard.hull_line`, DR-17-03/05–07/09/15 |
+| QB wings + handset plate | `QuickBattleWings`; `BattlePlateFrame`, DR-17-08/14 |
+| Rail pick door; dossier rail | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
+| Observatory sheet + feed | `ObserverProvince*`; `ObserverTurnFeed`, DR-17-11/12 |
+| Capital Wood walls + fort lift | `FortCapital`, DR-17-13/#926 |
 
 ## Gaps (ranked)
 
-None open (DR-17-11/#914, DR-17-12).
+None open (through DR-17-15/#929).
 
 ## Next pick
 
-Re-audit the wiki against code (REQ-P2-02).
+Soft priority weight stays seed; else REQ/wiki.
 
 ## Blocked
 
@@ -65,10 +66,9 @@ Re-audit the wiki against code (REQ-P2-02).
 
 ## Wiki drift
 
-- `playtest-learnings`: province sheet live DR-17-11/#914; feed window
-  live DR-17-12; railroad Follow live DR-17-10/#902.
-- `civilian-build-planner`: pick family closed (DR-17-03/05/06/07/09/10).
-- `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
-- `phase-planner-*`: six slots live; soft weight seed (DR-17-01).
-- `production-recipes`: still marks rival second-stage deferred; live #798.
-- DR-11-17 prizes, fleetless leg — live (`MapPlayRaids`).
+- `playtest-learnings`: sheet/feed/plate/rail closed (DR-17-10–14).
+- `civilian-units`: Road L2/gathering prose still deferred → live.
+- `phase-planner-*` / `ai-architecture`: six slots live; soft weight seed;
+  "dispatch stays seed" stale.
+- `production-recipes`: rival second-stage still deferred → live #798.
+- Starting walls DR-17-13; yard hull line DR-17-15.
