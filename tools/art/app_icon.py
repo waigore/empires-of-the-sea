@@ -13,7 +13,10 @@ brief). Everything else is cut from it so the face of the game never drifts:
 
 The medallion is cropped a few pixels inside its outer rim before every export,
 which drops the pale anti-aliased fringe the generator leaves against the
-sheet and keeps the dark plate colour behind it.
+sheet. The desktop icon and the legacy launcher icon keep everything outside
+the medallion transparent so docks and home screens show through; only the
+Android adaptive *background* layer is a solid plate, because the platform
+composites it behind the foreground.
 
 Usage:
   python3 tools/art/app_icon.py [project-root]
@@ -67,7 +70,7 @@ def _medallion(master: Image.Image, diameter: int) -> Image.Image:
 
 
 def _plate(size: int) -> Image.Image:
-    """Opaque dark plate with a soft radial lift behind the medallion."""
+    """Opaque dark plate with a soft radial lift (adaptive background only)."""
     img = Image.new("RGBA", (size, size), PLATE)
     glow = Image.new("RGBA", (size, size), (0, 0, 0, 0))
     draw = ImageDraw.Draw(glow)
@@ -81,11 +84,12 @@ def _plate(size: int) -> Image.Image:
 
 
 def _write_icon(master: Image.Image, root: Path) -> None:
-    plate = _plate(ICON_SIZE)
+    """Desktop icon: the medallion on a transparent field, no dark plate."""
     diameter = ICON_SIZE - 2 * 12
-    plate.alpha_composite(_shadow(diameter), (12, 18))
-    plate.alpha_composite(_medallion(master, diameter), (12, 12))
-    plate.convert("RGB").save(root / "icon.png", optimize=True)
+    icon = Image.new("RGBA", (ICON_SIZE, ICON_SIZE), (0, 0, 0, 0))
+    icon.alpha_composite(_shadow(diameter), (12, 18))
+    icon.alpha_composite(_medallion(master, diameter), (12, 12))
+    icon.save(root / "icon.png", optimize=True)
 
 
 def _shadow(diameter: int) -> Image.Image:
@@ -104,11 +108,12 @@ def _write_launcher(master: Image.Image, root: Path) -> None:
     out = root / "assets/art/branding"
 
     main = _medallion(master, LAUNCHER_MAIN)
-    plate = _plate(LAUNCHER_MAIN)
-    plate.alpha_composite(_shadow(LAUNCHER_MAIN), (0, 2))
-    plate.alpha_composite(main, (0, 0))
-    plate.convert("RGB").save(out / "launcher_main_192.png", optimize=True)
+    icon = Image.new("RGBA", (LAUNCHER_MAIN, LAUNCHER_MAIN), (0, 0, 0, 0))
+    icon.alpha_composite(_shadow(LAUNCHER_MAIN), (0, 2))
+    icon.alpha_composite(main, (0, 0))
+    icon.save(out / "launcher_main_192.png", optimize=True)
 
+    ## Only the adaptive background stays opaque; the launcher masks it itself.
     _plate(LAUNCHER_LAYER).convert("RGB").save(out / "launcher_background_432.png", optimize=True)
 
     safe = int(LAUNCHER_LAYER * SAFE_FRACTION)
