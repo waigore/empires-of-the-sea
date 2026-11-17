@@ -158,7 +158,7 @@ func _draw() -> void:
 	var h: float = size.y
 	if w <= 1.0 or h <= 1.0:
 		return
-	BattlePlate.draw_ground(self, w, h, h * HORIZON, terrain)
+	BattlePlateGround.draw(self, w, h, h * HORIZON, terrain)
 	_draw_armies(w, h)
 	_draw_effects(w, h)
 	QuickBattleRail.draw(
@@ -169,13 +169,15 @@ func _draw() -> void:
 
 
 func _draw_armies(w: float, h: float) -> void:
-	var ground: float = h * 0.74
-	var soldier_h: float = BattlePlate.soldier_height(h)
+	var ground: float = h * BattlePlateAssets.GROUND
+	var soldier_h: float = BattlePlateFigures.soldier_height(h)
 	var push: float = minf(float(round_index), 3.0) * w * 0.035
 	# The garrison musters on the wall's walk; a field battle meets at the line.
-	var defended: float = BattlePlate.parapet_y(h, fort_level) if fort_level > 0 else ground
+	var defended: float = (
+		BattlePlateWall.parapet_y(h, fort_level) if fort_level > 0 else ground
+	)
 	if fort_level > 0:
-		BattlePlate.draw_wall(self, w, h, fort_level, gates_broken, defender_color, _time)
+		BattlePlateWall.draw(self, w, h, fort_level, gates_broken, defender_color, _time)
 	_draw_formation(
 		Vector2(w * 0.24 + push, ground), attacker_count, attacker_start,
 		attacker_color, 1.0, attacker_health
@@ -186,18 +188,18 @@ func _draw_armies(w: float, h: float) -> void:
 	)
 	if guns > 0:
 		for index in mini(guns, 4):
-			BattlePlate.draw_cannon(
+			BattlePlateFigures.draw_cannon(
 				self, Vector2(w * 0.86 - push + float(index) * 16.0, defended - 5.0),
 				defender_color, -1.0, 0.0, soldier_h * 0.75
 			)
 	# The merlons paint over the garrison's legs: they hold the parapet.
-	BattlePlate.draw_wall_crest(self, w, h, fort_level)
+	BattlePlateWall.draw_crest(self, w, h, fort_level)
 	_draw_wings(w, h)
-	BattlePlate.draw_cannon(
+	BattlePlateFigures.draw_cannon(
 		self, Vector2(w * 0.10 + push, ground + 4.0), attacker_color, 1.0, _flash,
 		soldier_h * 0.85
 	)
-	BattlePlate.draw_cannon(
+	BattlePlateFigures.draw_cannon(
 		self, Vector2(w * 0.90 - push, ground + 4.0), defender_color, -1.0, _flash,
 		soldier_h * 0.85
 	)
@@ -207,7 +209,7 @@ func _draw_formation(
 	centre: Vector2, count: int, start: int, color: Color, facing: float,
 	health: Array = []
 ) -> void:
-	var soldier_h: float = BattlePlate.soldier_height(size.y)
+	var soldier_h: float = BattlePlateFigures.soldier_height(size.y)
 	var shown: int = clampi(count, 0, MAX_BLOCKS)
 	## Each regiment stands as its own miniature — musketeer, pikeman, rider,
 	## gun — grouped by type so the line reads in blocks (REQ-P1-02).
@@ -221,7 +223,7 @@ func _draw_formation(
 		var jitter: float = _hash(float(index) * 3.0 + facing)
 		var tall: float = soldier_h * (0.92 + jitter * 0.16)
 		var bob: float = sin(_time * 2.6 + float(index) * 0.9) * 0.9
-		BattlePlate.draw_soldier(
+		BattlePlateFigures.draw_soldier(
 			self,
 			Vector2(origin + float(index) * spacing, centre.y + bob + (jitter - 0.5) * 3.0),
 			tall, color, facing, index,
@@ -230,7 +232,7 @@ func _draw_formation(
 		)
 	for index in shown:
 		if index % 4 == 0:
-			BattlePlate.draw_standard(
+			BattlePlateWall.draw_standard(
 				self, Vector2(origin + float(index) * spacing, centre.y - soldier_h * 0.30),
 				color, _time + float(index)
 			)
@@ -262,9 +264,11 @@ static func _hash(value: float) -> float:
 ## collapse reads at a glance while the despatch says it in words (wiki:
 ## quick-battle § Wings and collapse; REQ-P1-07).
 func _draw_wings(w: float, h: float) -> void:
-	var soldier_h: float = BattlePlate.soldier_height(h)
-	var ground: float = h * 0.74
-	var defended: float = BattlePlate.parapet_y(h, fort_level) if fort_level > 0 else ground
+	var soldier_h: float = BattlePlateFigures.soldier_height(h)
+	var ground: float = h * BattlePlateAssets.GROUND
+	var defended: float = (
+		BattlePlateWall.parapet_y(h, fort_level) if fort_level > 0 else ground
+	)
 	_wing_chips(
 		Vector2(w * 0.24, ground - soldier_h * 1.30), attacker_wings, attacker_broken,
 		attacker_color
@@ -322,7 +326,7 @@ static func chip_scale(height: float) -> float:
 
 
 func _draw_effects(w: float, h: float) -> void:
-	var ground: float = h * 0.74
+	var ground: float = h * BattlePlateAssets.GROUND
 	# Powder smoke drifting across the centre, thickest near the guns.
 	if _smoke > 0.0:
 		for index in 11:
@@ -347,9 +351,9 @@ func _draw_effects(w: float, h: float) -> void:
 		for index in 4:
 			var x: float = w * (0.12 + sweep * 0.62) + float(index) * 30.0
 			var gallop: float = sin(_time * 9.0 + float(index)) * 1.6
-			BattlePlate.draw_horse(
+			BattlePlateFigures.draw_horse(
 				self, Vector2(x, ground + 6.0 + float(index % 2) * 4.0 + gallop),
-				attacker_color, BattlePlate.soldier_height(h) * 1.15
+				attacker_color, BattlePlateFigures.soldier_height(h) * 1.15
 			)
 	# Warm light shafts and gold sparkles celebrate a decided field.
 	if outcome >= 0:
