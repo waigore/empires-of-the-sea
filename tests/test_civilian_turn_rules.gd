@@ -925,6 +925,75 @@ func test_a_road_beside_a_port_carries_the_ports_level() -> void:
 	)
 
 
+## A sealed harbour is no landfall, so the road row beside it must name the grade
+## the phase pays — the road's own step, never the harbour's 4 that the blockade
+## took away (wiki: capital-and-connectivity § Blockade, extraction-and-improvements
+## § Transport Level; REQ-P2-03, REQ-P5-06).
+func test_a_sealed_harbour_grants_no_transport_to_the_estate_beside_it() -> void:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(Vector2i(x, y))
+	var province := ProvinceState.create(
+		0, "Colonia", tiles, Vector2(1.5, 0.5), tiles.size(), PLAYER, false
+	)
+	province.town_tile = Vector2i(3, 0)
+	province.town_development = 1
+	model.provinces = [province]
+	model.resource[model.index_of(1, 1)] = 4
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 1))
+	works.set_improvement(model, Vector2i(1, 1), 4)
+	var seals: Blockades = _blockade_of(model, 0)
+	assert_eq(
+		Extraction.yields(
+			model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1),
+			{}, true, {}, seals
+		),
+		{},
+		"a sealed harbour carries nothing home"
+	)
+	assert_eq(
+		CivilianWorkPlan.transport_preview(
+			"build_road", model, Vector2i(1, 1), works, seals
+		),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"the road row names the grade a sealed harbour leaves"
+	)
+	assert_eq(
+		CivilianWorkPlan.current_transport(model, Vector2i(0, 1), works, seals),
+		0,
+		"a sealed harbour tile carries only its own road"
+	)
+	# The order row a crew reads in the panel takes the same reading, so the
+	# price line and the road line cannot disagree about the sealed coast.
+	var row: Dictionary = CivilianWorkPlan.option_row(
+		"build_road", model, Vector2i(1, 1), works,
+		{"ok": true, "cost_text": "", "duration": 1}, "Build road", seals
+	)
+	assert_eq(
+		String(row["preview_text"]),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"the work-order row prices the sealed harbour's estate honestly"
+	)
+	# The same reading when the crown's own capital harbour is the sealed one:
+	# every sea path is cut, so no port grants its level beside itself.
+	var shut := Blockades.new()
+	shut.sealed = {model.region_id: {0: true}}
+	shut.sea_cut = true
+	assert_eq(
+		CivilianWorkPlan.transport_preview(
+			"build_road", model, Vector2i(1, 1), works, shut
+		),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"a capital blockade takes the harbour's grant too"
+	)
+
+
 ## A reading counts one tile in the singular: the hover line is the only thing a
 ## player sees of the gap.
 func test_the_reading_counts_one_tile_in_the_singular() -> void:
