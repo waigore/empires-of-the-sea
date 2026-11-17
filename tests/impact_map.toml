@@ -431,12 +431,12 @@ domain = "hostility"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
-# One court's economy turn, split out of the pass above: the AI suites drive the
-# whole turn (test_ai_rules' market coverage plus its phase call), so it stays on
-# the same tier-1 slice as its orchestrator.
+# One court's economy turn, split out of the pass above: market + AI + civilian
+# turn prove the plan (manufacture around the chest rows, #878); the full AI
+# fan-out (observer + battle) overruns the tier-1 5 min budget.
 [[rules]]
 match = "scripts/map/map_play_economy_court.gd*"
-domain = "ai"
+domain = "ai_economy"
 
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
@@ -2046,20 +2046,27 @@ domain = "prospect"
 match = "scripts/rules/civilian_explorer_gates.gd*"
 domain = "prospect"
 
+# The published work gate and its cost table (H8 feedstock bootstrap, #878):
+# the AI plan and the civilian turn suites prove the raise; the prospect map
+# fan-out overruns the tier-1 5 min budget once those suites grow.
 [[rules]]
 match = "scripts/rules/civilian_work.gd*"
-domain = "prospect"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/rules/civilian_work_plan.gd*"
+domain = "ai_works"
 
 [[rules]]
 match = "scripts/rules/improvement_ledger.gd*"
 domain = "prospect"
 
-# The per-row estate reading (split out of the ledger for REQ-P3-01) and its own
-# suite: estate rows are a civilian-ledger concern, so a row change runs the
-# civilian field suite beside it instead of the broad prospect slice.
+# The per-row estate reading (split out of the ledger for REQ-P3-01): the H8
+# cost line rides the same AI/works slice as the work gate, not the broad
+# civilian map/battle fan-out (tier-1 5 min budget).
 [[rules]]
 match = "scripts/rules/estate_rows.gd*"
-domain = "civilian"
+domain = "ai_works"
 
 [[rules]]
 match = "tests/test_civilian_turn_rules.gd*"
@@ -2313,6 +2320,20 @@ domain = "ai_diplomacy"
 match = "tests/test_ai_rules.gd*"
 domain = "ai_diplomacy"
 
+# Bind + economy/builder planners: the AI and market suites prove the
+# feedstock/works-purse surface (#878); keep them off the observer/battle
+# catch-all so a planner PR stays inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/ai/ai_bind.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/ai/ai_builder_work.gd*"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/ai/ai_economy_planner.gd*"
+domain = "ai_economy"
 
 [[rules]]
 match = "scripts/ai/**"
@@ -2480,11 +2501,12 @@ match = "scripts/map/civilian_muster.gd*"
 domain = "ai_works"
 
 # The one reader every rival pass asks for a court's standing and order of
-# battle. Its suites are the observer/AI set, so keep it off the broad map
-# catch-all (tier-1 5 min budget).
+# battle. The yard-chest re-route (#878) is proved by the AI/economy suites;
+# keep it off the observer/battle fan-out and the broad map catch-all
+# (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
-domain = "ai"
+domain = "ai_economy"
 
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
 # the broad map/** catch-all so a one-line phase hook stays tier-1 sized.
