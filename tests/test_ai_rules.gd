@@ -4064,6 +4064,44 @@ func test_a_court_at_war_opens_no_speculative_bid() -> void:
 	assert_eq(String((starving["bids"] as Array)[0]["commodity"]), "grain")
 
 
+## The crew the hire order would take is not the market's to spend: a court at
+## its cash floor that has lost a Builder keeps that price back from its bids,
+## in the ordinary purse and in the starving lock-recovery purse alike, so the
+## food bid and the hire price never share one margin (issue #894).
+func test_the_hire_margin_survives_the_food_bid() -> void:
+	var market := WorldMarket.with_default_prices()
+	var poor: PlayerEconomy = _ai_market_economy({}, 1200)
+	var blind: Dictionary = AiMarketPlanner.plan(_ai_market_config(), poor, market, 20)
+	assert_true(
+		(blind["bids"] as Array).size() > 0, "the bids would otherwise spend the margin"
+	)
+	var kept: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), poor, market, 20, {}, {}, {}, 0, 0, false, true, -1, 1000
+	)
+	assert_true(
+		(kept["bids"] as Array).is_empty(), "the Builder's price is held back"
+	)
+	# Lock-recovery bids the whole purse for food; the margin still survives.
+	var hungry: PlayerEconomy = _ai_market_economy({}, 250)
+	var dinner: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), hungry, market, 20, {}, {}, {}, 0, 6, false, true
+	)
+	var dinner_kept: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), hungry, market, 20, {}, {}, {}, 0, 6, false, true, -1, 100
+	)
+	var dinner_bid: Dictionary = (dinner["bids"] as Array)[0]
+	var kept_bid: Dictionary = (dinner_kept["bids"] as Array)[0]
+	assert_true(int(dinner_bid["quantity"]) > 0, "a starving court bids its dinner")
+	assert_true(
+		int(kept_bid["quantity"]) < int(dinner_bid["quantity"]),
+		"the crew's price survives the food bid"
+	)
+	assert_true(
+		int(kept_bid["quantity"]) * int(kept_bid["unit_price"]) <= 150,
+		"the food bid spends only what the margin leaves"
+	)
+
+
 ## The economy trace names the bid the footing held shut, so a court at war is
 ## never silent about the stock it did not buy (REQ-P5-05; DR-20261117-01).
 func test_the_trace_names_the_bid_a_war_footing_held_shut() -> void:

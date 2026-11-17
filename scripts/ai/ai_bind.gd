@@ -94,7 +94,8 @@ static func market_plan(
 	food_shortfall: int = 0,
 	saving: bool = false,
 	speculate: bool = true,
-	works_floor: int = -1
+	works_floor: int = -1,
+	hire_margin: int = 0
 ) -> Dictionary:
 	if _baseline(kind):
 		return _ml(
@@ -104,7 +105,7 @@ static func market_plan(
 		)
 	return AiMarketPlanner.plan(
 		config, economy, market, free_holds, tech_unlocked, reserved, need, floor,
-		food_shortfall, saving, speculate, works_floor
+		food_shortfall, saving, speculate, works_floor, hire_margin
 	)
 
 
