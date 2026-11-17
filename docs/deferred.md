@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-11 vs code through #912 (REQ-P2-02).
+Audited: DR-20261117-11 vs code through #914 (REQ-P2-02).
 
 ## Already live
 
@@ -36,15 +36,15 @@ Audited: DR-20261117-11 vs code through #912 (REQ-P2-02).
 | Estate/wall/ward/transport/crew previews | ledgers + `MapPlayCivilianPick`/`MapPlayCivilianFollow` + chart mark, DR-17-03/05/06/07/09 |
 | QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
 | Rail pick's door; dossier rail block | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
-| Observatory province sheet | `ObserverProvince`; `ObserverProvinceSheet`, DR-17-11 |
+| Observatory province sheet | `ObserverProvince`; `ObserverProvinceSheet`, DR-17-11/#914 |
 
 ## Gaps (ranked)
 
-None open: the observatory reads a province (DR-17-11).
+None open: the observatory reads a province (DR-17-11/#914).
 
 ## Next pick
 
-P5/P1 polish (order-feed depth); re-audit wiki.
+P5 polish: observer order-feed depth (`FEED_TURNS`=2); re-audit wiki.
 
 ## Blocked
 
@@ -64,7 +64,8 @@ P5/P1 polish (order-feed depth); re-audit wiki.
 
 ## Wiki drift
 
-- `playtest-learnings`: railroad Follow "next" is stale — live DR-17-10 / #902.
+- `playtest-learnings`: "no province sheet" stale — live DR-17-11/#914;
+  feed still two turns; railroad Follow live DR-17-10/#902.
 - `civilian-build-planner`: pick family closed (DR-17-03/05/06/07/09/10).
 - `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
 - `phase-planner-*`: six slots live; soft weight seed (DR-17-01).
