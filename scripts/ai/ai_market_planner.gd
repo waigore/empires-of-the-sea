@@ -51,7 +51,7 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 ## for a muster or a yard still raises the estates its cash floor can pay for —
 ## a poorer court keeps its cash floor and grows, research and works first
 ## (ai-architecture § Land reinforcement; #878). The dispatch slot reads the
-## same: the feedstock is one of the commitments the footing keeps.
+## same: the feedstock is one of the commitments the footing keeps. `hire_margin` is the crew price the bids never spend (#894).
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -64,7 +64,7 @@ static func plan(
 	food_shortfall: int = 0,
 	saving: bool = false,
 	speculate: bool = true,
-	works_floor: int = -1
+	works_floor: int = -1, hire_margin: int = 0
 ) -> Dictionary:
 	var offers: Array[Dictionary] = []
 	var bids: Array[Dictionary] = []
@@ -95,7 +95,7 @@ static func plan(
 	if bool(tech_unlocked.get(TRADE_FAIRS, false)):
 		bid_cap = TRADE_FAIRS_BID_TYPES
 	var budget: int = maxi(
-		economy.treasury - maxi(config.parameter("market.min_treasury"), floor), 0
+		economy.treasury - maxi(config.parameter("market.min_treasury"), floor) - maxi(hire_margin, 0), 0
 	)
 	# The works purse (#878): the cash the court's own land may draw on while it
 	# saves — the war chest stands behind every import above the build inputs.
@@ -104,8 +104,8 @@ static func plan(
 	) if works_floor >= 0 else budget
 	# Food is not a discretionary spend: a starving court bids out of the whole
 	# purse, because a strike costs it every hand (treasury-planner
-	# § Lock-recovery).
-	var food_budget: int = maxi(economy.treasury, 0) if starving else budget
+	# § Lock-recovery) — less the crew its hire order still wants (issue #894).
+	var food_budget: int = maxi(economy.treasury - maxi(hire_margin, 0), 0) if starving else budget
 	var holds: int = maxi(free_holds, 0)
 	var rows: Array[Dictionary] = _deficits(economy, market, reserve, need, promised)
 	if starving:
