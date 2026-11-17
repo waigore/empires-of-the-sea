@@ -1481,6 +1481,63 @@ func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
 	panel.free()
 
 
+## The drill yard's foot names what the whole line costs before it is pressed: the
+## plan its rows carry, printed once under them and re-read on every redraw
+## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
+func test_the_muster_block_prints_the_lines_sum_once() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(23, 0, 1, ["guards"], true)
+	var plan: Dictionary = {
+		"count": 2,
+		"filed": 2,
+		"ducats": 6000,
+		"materials": {"fabric": 2},
+		"workers": 2,
+		"purse": 20000,
+		"purse_after": 14000,
+		"refusal": "",
+	}
+	var muster: Array[Dictionary] = []
+	for type_id: String in ["peasant_levies", "pikemen"]:
+		muster.append({
+			"type_id": type_id,
+			"name": type_id,
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "3,000 ducats · 1 Fabric · 1 worker",
+			"reason": "",
+			"line": "Light infantry · 3 strength",
+			"batch": plan,
+		})
+
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+
+	assert_eq(
+		_sum_line_count(panel._muster_box),
+		1,
+		"the sheet prints one sum under its rows"
+	)
+
+	# A redraw re-reads the one label instead of stacking a second copy of it.
+	panel.refresh(model, army, true, false, "", muster)
+	assert_eq(_sum_line_count(panel._muster_box), 1, "one sum line however often")
+	panel.free()
+
+
+## How many sum lines the block prints, so a redraw can be told from a stack and
+## a hidden label cannot pass for a printed one.
+func _sum_line_count(box: VBoxContainer) -> int:
+	var found: int = 0
+	for child: Node in box.get_children():
+		var label := child as Label
+		if label != null and label.visible and label.text.contains("the purse keeps"):
+			found += 1
+	return found
+
+
 ## Chevrons and a mauled bar live on the roster block; strength names the count.
 func test_army_roster_block_shows_chevrons_wounds_and_record() -> void:
 	var panel := ArmyPanel.new()

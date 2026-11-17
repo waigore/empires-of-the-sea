@@ -1486,6 +1486,103 @@ func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
 	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "no yard inland")
 
 
+## The slip names what its whole line costs before it is pressed: the walk's own
+## sum and the purse it leaves under the press, and the same sum on the confirm
+## face — the opening press used to spend 19,500 of 20,000 ducats unseen
+## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
+func test_the_slip_names_the_whole_line_before_it_is_pressed() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 20000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	var craft: Array[String] = MapPlayFleetYard.flown(play)
+	var ready: Array[String] = FleetYard.batch_types(econ, true, craft)
+	assert_gte(ready.size(), 2, "the slip offers more than one payable hull")
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var press: RaiseBatchPress = yard._batch
+	var plan: Dictionary = FleetYard.batch_plan(econ, true, craft)
+	var spent: int = int(plan["ducats"])
+	assert_eq(spent, _sum_of_prices(ready), "the sum is the ready rows' own prices")
+	assert_lt(spent, 20000, "the opening line leaves the purse something")
+
+	# The sheet prints the reading, not a second copy of the arithmetic: the
+	# opening line is the one the playtest named (19,500 of the crown's 20,000).
+	var caption: String = _sum_label(yard)
+	assert_eq(
+		caption,
+		"19,500 ducats · 4 Lumber · 3 Fabric · 3 workers — the purse keeps 500 of 20,000.",
+		"the slip names the line and the purse it leaves"
+	)
+	assert_eq(caption, RaiseBatchSum.sheet_line(plan), "the sheet prints the plan")
+
+	press.pressed.emit()
+	press.pressed.emit()
+	assert_true(
+		_last_toast().contains(MoneyText.ducats(spent)),
+		"the receipt names what it paid: %s" % _last_toast()
+	)
+	assert_true(_last_toast().contains("%d hulls are laid down" % ready.size()), _last_toast())
+
+
+## A line the purse cannot carry says so before the press: the walk stops where
+## the rules stop and the sheet names how many of the ready hulls wait, and why
+## (REQ-P5-06; DR-20261118-11).
+func test_the_slip_names_the_hulls_a_short_purse_leaves_waiting() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	var econ: PlayerEconomy = play.economy.economy
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	var craft: Array[String] = MapPlayFleetYard.flown(play)
+	var offered: Array[String] = FleetYard.batch_types(econ, true, craft)
+	assert_gte(offered.size(), 2, "the slip offers more than one payable hull")
+	# The purse pays the first hull of the yard's order and nothing after it.
+	econ.treasury = ShipEconomy.treasury_cost(offered[0])
+	assert_gte(offered.size(), 2, "the second hull is beyond the purse")
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var plan: Dictionary = FleetYard.batch_plan(econ, true, craft)
+	assert_eq(int(plan["filed"]), 1, "the walk stops where the purse does")
+	assert_false(String(plan["refusal"]).is_empty(), "the rule's own refusal is read")
+
+	var line: String = _sum_label(yard)
+	assert_true(line.contains("of %d wait" % int(plan["count"])), line)
+	assert_true(line.contains(String(plan["refusal"])), line)
+	assert_true(line.contains(MoneyText.ducats(int(plan["ducats"]))), line)
+
+
+## The sum of the ready rows' own prices, read the way the yard reads them.
+func _sum_of_prices(types: Array[String]) -> int:
+	var total: int = 0
+	for type_id: String in types:
+		total += ShipEconomy.treasury_cost(type_id)
+	return total
+
+
+## The one sum line the slip prints under its launch rows, "" when it prints none.
+## A row's own price line also names ducats, so the sum is read by the words only
+## it carries: the purse it leaves, or the hulls that wait.
+func _sum_label(yard: FleetYardBlock) -> String:
+	for child: Node in yard._box.get_children():
+		var label := child as Label
+		if label == null or not label.visible:
+			continue
+		if label.text.contains("the purse keeps") or label.text.contains(" wait"):
+			return label.text
+	return ""
+
+
 func test_breaking_up_a_hull_asks_once() -> void:
 	var capital: int = _screen.play.capital_province
 	_screen.play.selected_province = capital
