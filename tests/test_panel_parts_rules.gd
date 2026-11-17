@@ -4106,6 +4106,51 @@ func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
 	var master: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.MASTER)
 	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
 
+## The recruit row's line is the price plus one clause: the study a locked tier
+## waits on, the rule that stops it, or the ration it eats
+## (wiki: workers-and-population § Recruiting, § Tech gates, § Worker Tiers).
+func test_the_workers_row_names_its_price_and_its_clause() -> void:
+	var none: Array[String] = []
+	var two: Array[String] = ["apprentice_workers", "sugar_refining"]
+	var three: Array[String] = ["apprentice_workers", "sugar_refining", "university"]
+	assert_eq(LedgerWorkersText.recruit_price(WorkerPool.Tier.PEASANT), "Recruit Fabric ×2")
+	assert_eq(
+		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1000 ducats · Paper ×10"
+	)
+	assert_eq(
+		LedgerWorkersText.ration_line(WorkerPool.Tier.PEASANT), "eats 1 grain or meat a turn"
+	)
+	assert_eq(
+		LedgerWorkersText.ration_line(WorkerPool.Tier.MASTER),
+		"eats 1 grain + 1 meat and Fur Hats a turn"
+	)
+	assert_eq(LedgerWorkersText.gate_line(two), "needs Apprentice Workers and Sugar Refining")
+	assert_eq(LedgerWorkersText.gate_line(none), "", "no gate, no clause")
+	var one: Array[String] = ["university"]
+	assert_eq(LedgerWorkersText.gate_line(one), "needs University", "one gate reads alone")
+	assert_eq(
+		LedgerWorkersText.gate_line(three),
+		"needs Apprentice Workers, Sugar Refining and University",
+		"three gates still read as one clause"
+	)
+	assert_eq(
+		LedgerWorkersText.recruit_line(WorkerPool.Tier.APPRENTICE, "", two),
+		"Recruit 200 ducats · Paper ×2 — needs Apprentice Workers and Sugar Refining"
+	)
+	assert_eq(
+		LedgerWorkersText.recruit_line(WorkerPool.Tier.PEASANT, "Insufficient treasury", none),
+		"Recruit Fabric ×2 — insufficient treasury"
+	)
+	assert_eq(
+		LedgerWorkersText.recruit_line(WorkerPool.Tier.JOURNEYMAN, "", none),
+		"Recruit 500 ducats · Paper ×5 — eats 1 grain + 1 meat and Cigars a turn"
+	)
+	# The gate query reads the same table the order checks.
+	var unlocked: Dictionary = {"master_artisans": true}
+	var missing: Array[String] = WorkerPool.missing_techs(WorkerPool.Tier.MASTER, unlocked)
+	assert_eq(missing.size(), 1, "one study still stands")
+	assert_eq(missing[0], "hat_production")
+
 func test_fills_carry_and_lapse_are_named() -> void:
 	var report: Dictionary = {
 		"fills": {0: {"bought": 2, "spent": 60, "sold": 1}},
