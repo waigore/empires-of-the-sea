@@ -6,9 +6,16 @@ extends VBoxContainer
 
 signal action_pressed(action: String)
 
+## A gated row's clause, lifted toward white the way the stat chips lift crimson:
+## the dossier is a dark sheet, and the gate must stay legible on a phone.
+const GATE_INK := Color(0.765, 0.460, 0.460)
+
 var town_button: Button = null
 var shipyard_button: Button = null
 var training_box: VBoxContainer = null
+## type_id -> {"button", "note"}: one row per craft the roster offers, so a
+## refresh can re-read every hire's study gate (DR-20261118-09).
+var _train_rows: Dictionary = {}
 
 
 func _ready() -> void:
@@ -51,6 +58,11 @@ func _ready() -> void:
 	training_box.add_child(training)
 
 	for type_id: String in CivilianCatalog.playable_types():
+		# The button and its line stay one row: what the craft does, and the study
+		# it waits on, under the price it is asked (DR-20261118-09).
+		var row := VBoxContainer.new()
+		row.add_theme_constant_override("separation", 2)
+		training_box.add_child(row)
 		var train := _order_button(
 			"Train %s · %s" % [
 				CivilianCatalog.display_name(type_id),
@@ -59,7 +71,14 @@ func _ready() -> void:
 		)
 		train.add_theme_font_size_override("font_size", 13)
 		train.pressed.connect(func() -> void: action_pressed.emit("train_%s" % type_id))
-		training_box.add_child(train)
+		row.add_child(train)
+		var note := Label.new()
+		note.add_theme_font_size_override("font_size", 11)
+		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		row.add_child(note)
+		_train_rows[type_id] = {"button": train, "note": note}
+	# A dossier built before any study is read keeps the gated rows greyed.
+	set_training({})
 
 
 ## The town order is offered, not refused: the button greys out with the rule's
@@ -87,6 +106,32 @@ func set_shipyard_visible(visible: bool) -> void:
 
 func set_training_visible(visible: bool) -> void:
 	training_box.visible = visible
+
+
+## Every hire names what the craft does and the study it waits on, and a gated
+## row greys out with the same reading the order refuses on — a crown reads on the
+## rail what it would otherwise only hear in a refusal toast (wiki: civilian-units
+## § Training; DR-20261118-09; REQ-P2-03, REQ-P5-05).
+func set_training(tech_unlocked: Dictionary) -> void:
+	for type_id: String in _train_rows.keys():
+		var entry: Dictionary = _train_rows[type_id]
+		var tech: String = CivilianHire.locked_tech(type_id, tech_unlocked)
+		var open: bool = tech.is_empty()
+		var button: Button = entry["button"]
+		button.disabled = not open
+		button.tooltip_text = (
+			"Engaged at your capital; the crew musters when the turn closes."
+			if open
+			else "Requires %s." % TechCatalog.display_name(tech)
+		)
+		var note: Label = entry["note"]
+		note.text = CivilianHire.line(type_id, tech_unlocked)
+		note.add_theme_color_override("font_color", Palette.GOLD if open else GATE_INK)
+
+
+## One craft's row, for the sheet's own reading and the tests that prove it.
+func training_row(type_id: String) -> Dictionary:
+	return _train_rows.get(type_id, {}) as Dictionary
 
 
 func _order_button(text: String) -> Button:
