@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-06; #846–#877 live (REQ-P2-02).
+Audited: DR-20261117-08; #846–#883 live (REQ-P2-02).
 
 ## Already live
 
@@ -35,17 +35,16 @@ Audited: DR-20261117-06; #846–#877 live (REQ-P2-02).
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
-| Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`, DR-17-03/05/06; the pick's chart mark `CivicGlyphs`/`ResourceLens`, DR-17-07 |
+| Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`; chart mark `CivicGlyphs`/`ResourceLens`, DR-17-03/05/06/07 |
+| QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
 
 ## Gaps (ranked)
 
-1. **Quick Battle multi-lane/collapse** — one lane; design call
-   (DR-10-24).
-
+None left in the audited domains (DR-20261117-08).
 
 ## Next pick
 
-Quick Battle lane/collapse design call; else P5/P1 polish.
+P5/P1 polish; re-audit the wiki first.
 
 ## Blocked
 
@@ -66,11 +65,11 @@ Quick Battle lane/collapse design call; else P5/P1 polish.
 
 ## Wiki drift
 
-- `civilian-build-planner`: raise previews live (DR-17-03/05); the pick is on
-  the crew's sheet (DR-17-06) and on the chart (DR-17-07).
-- `civilian-units`: Road L2/gathering → live (`TechUnlocks`).
-- `phase-planner-*`: six slots live; soft weight vector still seed.
+- `civilian-build-planner` / `civilian-units`: raise + pick + chart mark live
+  (DR-17-03/05/06/07); Road L2/gathering live (`TechUnlocks`).
+- `quick-battle` / DR-10-24: province-to-lane terrain live
+  (`SiegeLanes.lane_terrain`); wings and collapse live (`QuickBattleWings`, DR-17-08).
+- `phase-planner-*` / `ai-architecture`: six slots live; soft weight still
+  seed (DR-17-01); goal reweight live (#821); deed partner claimed.
 - `production-recipes`: rival second-stage → live #798.
-- `ai-architecture`: goal reweight live (#821); soft weight still seed
-  (DR-17-01); deed partner claimed.
 - DR-11-17 prizes, fleetless leg — live (`MapPlayRaids`).

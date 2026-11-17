@@ -23,13 +23,22 @@ static func pick_line(context: Dictionary) -> String:
 
 ## A rival's crew answers to its own crown: the sheet says so with the same
 ## words the fleet and army dossiers use, so no control is offered that the rules
-## would refuse (REQ-P2-03, REQ-P5-06).
-static func text(model: MapModel, unit: CivilianState, viewer: int) -> String:
+## would refuse (REQ-P2-03, REQ-P5-06). `legal` is how many orders the sheet can
+## press here; when every row is refused the status must say so, rather than
+## pointing the crown at a list it cannot use (REQ-P5-06). Pass a negative value
+## when the caller has not counted yet.
+static func text(
+	model: MapModel, unit: CivilianState, viewer: int, legal: int = -1
+) -> String:
 	if viewer != unit.owner:
 		return "Enemy colours · no orders"
 	if not unit.is_working():
 		if unit.type_id == SpyNetworks.SPY_TYPE:
 			return _spy(model, unit)
+		# Every row below is refused: the sheet must not send the crown down a
+		# list it cannot press (REQ-P5-06).
+		if legal == 0:
+			return "Idle — no order can be taken here."
 		return "Idle — choose an order below."
 	if unit.work_action() == SpyRules.WORK_COUNTER:
 		return "Counter-espionage · ongoing."

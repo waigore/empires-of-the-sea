@@ -9,14 +9,14 @@ extends RefCounted
 const KIND_MOVE: String = "move"
 
 
-## The full line a sheet prints: the short form, then the payoff where one is
-## named. Empty for no short form.
-static func line(short: String, payoff: String) -> String:
+## The full line a sheet prints: the short form, an optional place when the work
+## is not underfoot, then the payoff where one is named. Empty for no short form.
+static func line(short: String, payoff: String, where: String = "") -> String:
 	if short.is_empty():
 		return ""
 	if payoff.is_empty():
-		return "the court would %s" % short
-	return "the court would %s — %s" % [short, payoff]
+		return "the court would %s%s" % [short, where]
+	return "the court would %s%s — %s" % [short, where, payoff]
 
 
 ## The work's own short form: the raise it would buy, in the words the ledgers

@@ -697,6 +697,45 @@ func test_the_opening_briefing_names_the_campaigns_own_year() -> void:
 	)
 
 
+## Issue #886: the opening parchment sits above the HUD, so a lift that never ran
+## (a fault before `intro`, a paused tree) left the whole campaign behind a blank
+## plate with only the pause menu's MENU seal above it — the solid parchment
+## screen reported as unplayable on Android. The plate has to lift itself.
+func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
+	var plate := _opening_plate(0.5)
+	plate.process_mode = Node.PROCESS_MODE_DISABLED
+	plate.lift(0.02)
+	await get_tree().create_timer(0.2).timeout
+	assert_false(plate.visible, "a plate whose node cannot process still lifts")
+	plate.queue_free()
+
+
+func test_an_opening_that_never_lifts_is_lifted_on_its_deadline() -> void:
+	var plate := _opening_plate(0.05)
+	# Nobody calls lift: this is the screen that faulted before `intro`. The
+	# deadline lifts on the plate's own fade, so wait out the deadline and the
+	# fade rather than a single frame.
+	await get_tree().create_timer(1.2).timeout
+	assert_false(plate.visible, "the deadline reveals the chart it was hiding")
+	plate.queue_free()
+
+
+func test_the_map_screen_opens_on_a_lifted_plate() -> void:
+	assert_true(_screen.fade is OpeningPlate, "the plate is the opening frame")
+	assert_false(_screen.fade.visible, "the opening frame does not outlive the mount")
+
+
+## One plate on the mounted screen, opaque as the opening leaves it, with its own
+## short deadline so a case never waits out a real opening.
+func _opening_plate(hold_max: float) -> OpeningPlate:
+	var plate := OpeningPlate.new()
+	plate.hold_max = hold_max
+	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plate.modulate.a = 1.0
+	_screen.add_child(plate)
+	return plate
+
+
 ## First advance the crown lacks and could put in a slot right now.
 func _first_studyable_tech() -> String:
 	for id: String in TechCatalog.ids():

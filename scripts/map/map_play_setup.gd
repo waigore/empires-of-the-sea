@@ -161,7 +161,12 @@ static func refresh_after_load(play: PlaySession) -> void:
 
 
 ## Opening frame: wide then settle on the capital; the parchment fades away.
-static func intro(play: PlaySession, fade: ColorRect, brief: bool = true) -> void:
+## The plate is lifted first: the framing below is the only other work the
+## opening needs, and a fault in it must never leave the parchment up for good
+## (issue #886 — that is a blank parchment with only MENU above it).
+static func intro(play: PlaySession, fade: OpeningPlate, brief: bool = true) -> void:
+	if fade != null:
+		fade.lift()
 	var camera: MapCamera = play.camera
 	var map_size: Vector2 = MapGeo.world_size(play.model, PlaySession.TILE_SIZE)
 	var start_zoom: float = camera.min_zoom()
@@ -175,11 +180,6 @@ static func intro(play: PlaySession, fade: ColorRect, brief: bool = true) -> voi
 			play.hud, play.model, play.capital_province, play.player_faction,
 			play.turn
 		)
-	if fade == null:
-		return
-	var tween: Tween = play.host.create_tween()
-	tween.tween_property(fade, "modulate:a", 0.0, 0.9).set_trans(Tween.TRANS_SINE)
-	tween.tween_callback(func() -> void: fade.visible = false)
 
 
 ## One fog model per region, kept across map switches: switching back must not

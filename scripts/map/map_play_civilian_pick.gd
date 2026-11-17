@@ -95,6 +95,17 @@ static func _order_pick(
 	if action.is_empty() or tile.x < 0:
 		return {}
 	var step: String = MapPlayCivilianPickWords.short(action, model, works, tile)
+	# The work is not always underfoot: a Builder raises an estate anywhere on
+	# crown land, an Engineer lays a road ahead of the crew. The sheet the line
+	# sits on presses the crew's own tile, so the line names the ground it means
+	# — the same words the march pick uses, and the tile the chart rings.
+	var where: String = ""
+	var crew: CivilianState = CivilianMuster.unit_by_id(roster, int(order.get("unit_id", -1)))
+	if crew != null and crew.tile != tile:
+		var province: int = model.province_at(tile.x, tile.y)
+		where = " at %s (%d, %d)" % [
+			MapPlayCivilianPickWords.place(model, province), tile.x, tile.y
+		]
 	return {
 		"action": action,
 		"tile": tile,
@@ -104,7 +115,8 @@ static func _order_pick(
 			MapPlayCivilianPickWords.payoff(
 				action, model, works, roster, faction, tech_caps, stockpile,
 				context, blockade, tile
-			)
+			),
+			where
 		),
 	}
 

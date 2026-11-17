@@ -2578,6 +2578,41 @@ func test_the_pick_words_every_order_kind() -> void:
 	)
 
 
+## The work is not always underfoot — a Builder raises an estate anywhere on
+## crown land — so a pick away from the crew names the ground. The task list the
+## line sits on presses the crew's own tile, and the chart rings the named one
+## (wiki: civilian-units § Work Order Summary; DR-20261117-06).
+func test_the_pick_names_the_ground_when_the_work_is_not_underfoot() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var works := LandWorks.new()
+	var away: Array[CivilianState] = [
+		CivilianState.create(1, 0, "builder", CivilianFixture.BARE_TILE)
+	]
+	var order: Dictionary = {"action": "build_improvement", "unit_id": 1}
+	order["tile"] = CivilianFixture.TIMBER_TILE
+	var pick: Dictionary = MapPlayCivilianPick._order_pick(
+		model, works, away, 0, {}, CivilianFixture.stockpile(),
+		{"capital_tile": CivilianFixture.BARE_TILE}, null, order
+	)
+	assert_true(
+		String(pick["line"]).contains("at Cádiz (0, 2)"),
+		"the ground the order names: " + String(pick["line"])
+	)
+	assert_eq(String(pick["short"]), "raise the lumber camp", "the short form still names the work")
+	# Standing on the estate, the line says nothing it does not need.
+	var here: Array[CivilianState] = [
+		CivilianState.create(1, 0, "builder", CivilianFixture.TIMBER_TILE)
+	]
+	var underfoot: Dictionary = MapPlayCivilianPick._order_pick(
+		model, works, here, 0, {}, CivilianFixture.stockpile(),
+		{"capital_tile": CivilianFixture.BARE_TILE}, null, order
+	)
+	assert_false(
+		String(underfoot["line"]).contains("(0, 2)"),
+		"no ground clause underfoot: " + String(underfoot["line"])
+	)
+
+
 ## The march the pass books when no work is legal: the step and the ground it
 ## walks toward, so the crown sees where its crew is being sent.
 func test_the_pick_names_the_march_the_court_would_order() -> void:

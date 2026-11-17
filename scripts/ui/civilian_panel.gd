@@ -19,6 +19,9 @@ var _status: Label = null
 var _pick: Label = null
 var _detail: GridContainer = null
 var _orders: VBoxContainer = null
+## How many of the orders the sheet prints can be taken here: an idle crew with
+## none has nothing to choose, and the status must say so (REQ-P5-06).
+var _legal: int = 0
 var _cancel: Button = null
 var _stock_line: Label = null
 var _dock: Button = null
@@ -148,11 +151,13 @@ func refresh(
 		),
 	]
 	_fill_detail(model, unit, works, context)
-	_status.text = CivilianPanelStatus.text(model, unit, _viewer)
+	# The orders are read before the status: a crew with no order it can take
+	# says so, rather than pointing the crown at a list of refusals.
+	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
+	_status.text = CivilianPanelStatus.text(model, unit, _viewer, _legal)
 	_pick.text = CivilianPanelStatus.pick_line(context)
 	_pick.visible = not _pick.text.is_empty()
 	_cancel.visible = unit.is_working() and _viewer == unit.owner
-	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
 	# The stores line prices our own orders; a rival's sheet has none to price.
 	_stock_line.visible = _viewer == unit.owner
 	_stock_line.text = "Stores: %d lumber · %d cast iron · %d steel · %d bronze · %d paper" % [
@@ -185,6 +190,7 @@ func _fill_orders(
 	context: Dictionary = {}
 ) -> void:
 	UiRowBuilder.clear(_orders)
+	_legal = 0
 	# Another crown's crew takes no orders from us — the rules refuse every one
 	# (MapPlayCivilians.assign_order), so the sheet never offers them.
 	if _viewer != unit.owner:
@@ -197,6 +203,8 @@ func _fill_orders(
 		context
 	):
 		var action: String = String(option["action"])
+		if bool(option["ok"]):
+			_legal += 1
 		var button := UiRowBuilder.button(
 			"%s · %s" % [String(option["label"]), String(option["cost_text"])],
 			38.0,
