@@ -50,6 +50,12 @@ static func open(play: PlaySession) -> void:
 
 static func refresh(play: PlaySession, fleet: FleetState) -> void:
 	if fleet == null:
+		# The capital slip with no squadron afloat has no dossier to redraw: the
+		# yard re-reads its own rows from the ledger, so a launch taken there
+		# cannot leave the slip promising hulls the orders already claim
+		# (wiki: ships-and-naval § Ship muster and the breaker's yard;
+		# DR-20261118-08).
+		open(play)
 		return
 	play.ship_layer.select(play.ship_layer.ship_for(fleet))
 	MapPlayFleets.show_dossier(play, fleet)
@@ -150,7 +156,9 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 	if not bool(can_break.get("ok", false)):
 		play.hud.toast(String(can_break.get("reason", "The hull stays afloat.")))
 		return
-	var result: Dictionary = play.ship_layer.scrap_hull(fleet, hull_id, play.economy.economy)
+	var result: Dictionary = ShipYardOps.scrap_hull(
+		play.ship_layer, fleet, hull_id, play.economy.economy
+	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The hull stays afloat.")))
 		return

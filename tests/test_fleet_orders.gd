@@ -1407,6 +1407,60 @@ func test_the_shipyard_lays_down_every_ready_hull_in_one_press() -> void:
 	assert_true(press.visible, "a paid-off slip offers the next batch")
 
 
+## The slip with no squadron afloat re-reads its own ledger after a launch: the
+## redrawn rows print the orders the press filed and the press stands down, where
+## it once kept promising hulls the recruit queue already claimed (REQ-P5-04,
+## REQ-P5-05; DR-20261118-08).
+func test_the_slip_redraws_after_its_one_press() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 60000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	# A squadron away from her port: the capital's slip stands alone.
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture moors a home fleet")
+	home.location = FleetState.Location.AT_SEA
+	play.selected_province = capital
+	var ready: Array[String] = FleetYard.batch_types(
+		econ, true, MapPlayFleetYard.flown(play)
+	)
+	assert_gte(ready.size(), 2, "the slip offers more than one payable hull")
+	var pending: int = econ.recruits.pending_kind(RecruitQueue.KIND_SHIP)
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var press: RaiseBatchPress = yard._batch
+	assert_eq(press.text, "Launch all ready (%d)" % ready.size(), "the slip names its line")
+
+	press.pressed.emit()
+	press.pressed.emit()
+
+	var claimed: int = 0
+	for row: Dictionary in yard._rows:
+		claimed += int(row["pending"])
+		assert_false(bool(row["batch_ready"]), "%s waits on her order" % row["type_id"])
+	assert_eq(claimed, econ.recruits.pending_kind(RecruitQueue.KIND_SHIP),
+		"the redrawn slip prints every order it holds")
+	assert_eq(
+		econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending + ready.size(),
+		"one order per ready hull"
+	)
+	assert_eq(press.text, "Launch all ready (0)", "the face names an empty slip")
+	assert_false(press.visible, "the press stands down once her line waits on orders")
+
+	# The press the slip no longer offers files nothing more.
+	press.pressed.emit()
+	press.pressed.emit()
+	assert_eq(
+		econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending + ready.size(),
+		"a slip with nothing ready files nothing"
+	)
+
+
 ## The batch speaks the same refusals a single launch does, before anything is
 ## filed: a lost capital and an inland one both lay down no hull (REQ-P2-03;
 ## DR-20261118-08).
@@ -1466,7 +1520,8 @@ func test_a_captured_port_sorts_the_home_squadron_out() -> void:
 	var seat: int = _owned_coastal_except(_screen.model, capital)
 	assert_gte(seat, 0, "the fixture owns another coast")
 	# A seat move first re-moors the home squadron away from the captured port.
-	var moved: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+	var moved: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer,
 		_screen.world,
 		[{
 			"faction": MapScreen.PLAYER_FACTION,
@@ -1483,8 +1538,8 @@ func test_a_captured_port_sorts_the_home_squadron_out() -> void:
 	var old_owner: int = data.owner
 	data.owner = 1
 
-	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
-		_screen.world, []
+	var reports: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer, _screen.world, []
 	)
 	data.owner = old_owner
 
@@ -1505,7 +1560,8 @@ func test_a_reassigned_seat_re_moors_the_home_squadron() -> void:
 	var seat: int = _owned_coastal_except(_screen.model, capital)
 	assert_gte(seat, 0, "the fixture owns another coast")
 
-	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+	var reports: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer,
 		_screen.world,
 		[{
 			"faction": MapScreen.PLAYER_FACTION,
@@ -1569,8 +1625,8 @@ func test_a_squadron_marker_counts_its_hulls_and_strength() -> void:
 
 	var hull_id: String = home.hulls[home.hulls.size() - 1]
 	var count_before: int = home.ship_count()
-	var result: Dictionary = _screen.ship_layer.scrap_hull(
-		home, hull_id, _screen.play.economy.economy
+	var result: Dictionary = ShipYardOps.scrap_hull(
+		_screen.ship_layer, home, hull_id, _screen.play.economy.economy
 	)
 
 	assert_true(bool(result.get("ok", false)), String(result.get("reason", "")))

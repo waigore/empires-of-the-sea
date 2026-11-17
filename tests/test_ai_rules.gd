@@ -1503,8 +1503,8 @@ func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
 	assert_eq(ai.sea_zone, 0, "the rival standard now shares the human's zone")
 	assert_true(ai.moved)
 	assert_eq(human.sea_zone, 0, "the human squadron is never planned")
-	var battles: Array[Dictionary] = layer.resolve_battles(
-		world, func(a: int, b: int) -> bool: return a != b
+	var battles: Array[Dictionary] = ShipTurnPass.resolve_battles(
+		layer, world, func(a: int, b: int) -> bool: return a != b
 	)
 	assert_eq(battles.size(), 1, "the contested zone fights this turn")
 	assert_eq(int(battles[0]["zone"]), 0)

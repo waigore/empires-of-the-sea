@@ -620,6 +620,17 @@ domain = "fleet_split"
 match = "scripts/map/ship_layer.gd*"
 domain = "fleet_split"
 
+# Yard mutations and turn resolution the layer delegates to; they share the
+# naval suites, so a yard or turn edit never pulls the whole `scripts/map/**`
+# fan-out.
+[[rules]]
+match = "scripts/map/ship_yard_ops.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/map/ship_turn_pass.gd*"
+domain = "fleet_split"
+
 # The marker bookkeeping the layer delegates to; it shares the naval suites,
 # so a marker change never pulls the whole `scripts/map/**` fan-out.
 [[rules]]

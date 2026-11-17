@@ -227,7 +227,7 @@ static func _victim_home(victims: Dictionary, raid: Dictionary) -> FleetState:
 ## marker at once (wiki: ships-and-naval § Trade and Transport Interception).
 static func _refresh_hulls(play: PlaySession, fleet: FleetState) -> void:
 	if play.ship_layer != null:
-		play.ship_layer.refresh_hulls(fleet)
+		ShipYardOps.refresh_hulls(play.ship_layer, fleet)
 
 
 static func _prize_report(model: MapModel, raid: Dictionary, seized: Dictionary) -> Dictionary:

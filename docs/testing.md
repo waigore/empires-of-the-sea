@@ -156,6 +156,13 @@ godot --headless --path . --script res://playtests/playtest_fleet_split_combine.
 # watches the site's three deaths: sailed away, left unused, and peace made.
 godot --headless --path . --script res://playtests/playtest_beachhead.gd
 
+# Shipyard batch — opens the capital slip as a player does and presses its one
+# Launch all ready (n) twice: the arm's face, the receipt, the rows it redraws,
+# the arm a redraw must forget, and the slip with no squadron afloat (breaking
+# up the last hull) where a launch once left the panel promising hulls the
+# recruit queue already held.
+godot --headless --path . --script res://playtests/playtest_fleet_yard_batch.gd
+
 # Rival overseas invasion — plays an all-AI campaign and reads every expedition
 # (boarding, Passage, beachhead, landing) beside the landing gate's own verdict,
 # so a stalled expedition names the gate that refused it.
