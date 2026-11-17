@@ -14,7 +14,6 @@ suites = [
 [domains.ai_panel]
 suites = [
   "test_ai_observer.gd",
-  "test_observer_parts.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -215,11 +214,8 @@ suites = [
 ]
 
 [domains.fort]
-# The fort table, the capital wall grant and the one-shot tech step: the suite
-# that owns the rule travels with it, so a fort change cannot ship without it.
 suites = [
   "test_battle_rules.gd",
-  "test_fort_capital.gd",
 ]
 
 # Hospitals: the province building, its rest tempo and its battle triage
@@ -1272,10 +1268,11 @@ suites = [
   "test_menu_flow.gd",
 ]
 
-# The campaign's last plate and the seal HudCampaignEnd owns. A lean unit suite
-# covers the collaborator without remounting the calendar-cap MapScreen theme
-# (that suite alone blows the tier-1 5 min budget when stacked on crown_road +
-# auto). Kept off the broad hud_* → ui domain.
+# The campaign's last plate, the seal HudCampaignEnd owns, and the app icon /
+# launcher branding cases that ride the same lean boot. Covers the collaborator
+# without remounting the calendar-cap MapScreen theme (that suite alone blows
+# the tier-1 5 min budget when stacked on crown_road + auto). Kept off the
+# broad hud_* → ui domain.
 [domains.campaign_plate]
 suites = [
   "test_hud_campaign_plate.gd",
@@ -1712,12 +1709,12 @@ match = "scenes/intro.tscn*"
 domain = "intro"
 
 # The app's face: the project icon and the Android launcher layers. An asset
-# cannot reach gameplay, so the mark runs its own wiring suite instead of the
-# whole tree (docs/testing.md tier-1 budget). project.godot's icon line is
-# checked here; autoload/scene edits keep their own rules (often full).
+# cannot reach gameplay, so the mark rides the lean chrome/plate suite instead
+# of the whole tree (docs/testing.md tier-1 budget). project.godot's icon line
+# is checked here; autoload/scene edits keep their own rules (often full).
 [domains.branding]
 suites = [
-  "test_branding_rules.gd",
+  "test_hud_campaign_plate.gd",
 ]
 
 [[rules]]
@@ -1741,7 +1738,7 @@ match = "tools/art/app_icon.py"
 domain = "branding"
 
 [[rules]]
-match = "tests/test_branding_rules.gd*"
+match = "tests/test_hud_campaign_plate.gd*"
 domain = "branding"
 
 [[rules]]
@@ -2158,9 +2155,6 @@ domain = "civilian_pick"
 match = "scripts/ui/civilian_panel_s*.gd*"
 domain = "civilian_pick"
 
-[[rules]]
-match = "tests/test_observer_parts.gd*"
-domain = "ai_panel"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
@@ -3345,10 +3339,6 @@ domain = "crown_road"
 # chrome extract runs the lean plate suite, not only panel_parts / battle.
 [[rules]]
 match = "scripts/ui/hud_campaign_end.gd*"
-domain = "campaign_plate"
-
-[[rules]]
-match = "tests/test_hud_campaign_plate.gd*"
 domain = "campaign_plate"
 
 # Cartouche markings (turn line, minimap) ride the same screen suites as chrome.
