@@ -3474,6 +3474,110 @@ func test_a_line_that_lost_every_wing_still_shows_its_chips() -> void:
 		"a garrison holds no wings, so it draws no chips"
 	)
 
+
+## The chips are the plate's smallest furniture: on a short plate (a handset's)
+## they grow so three still read, and a tall plate keeps the published size
+## (REQ-P1-07).
+func test_the_wing_chips_grow_on_a_short_plate() -> void:
+	assert_eq(QuickBattleField.chip_scale(400.0), 1.0, "a tall plate is unchanged")
+	assert_eq(QuickBattleField.chip_scale(300.0), 1.0)
+	assert_true(QuickBattleField.chip_scale(160.0) > 1.0, "a handset plate grows its chips")
+	assert_eq(
+		QuickBattleField.chip_scale(40.0), QuickBattleField.CHIP_SCALE_MAX,
+		"the growth is capped so the chips never swamp the line"
+	)
+
+
+## The plate is a soft overlay the court must be able to leave: on a landscape
+## handset the painted field gives way so the Skip and Continue doors stay on
+## the screen (REQ-P1-07, REQ-P5-06).
+func test_the_battle_plate_fits_a_landscape_handset() -> void:
+	var report: Dictionary = BattleScenario.fight({
+		"attacker": ["musketeers", "musketeers", "culverin", "knights"],
+		"defender": ["pikemen", "pikemen", "musketeers", "culverin"],
+		"fort": 2, "terrain": "open", "attacker_plan": "balanced",
+		"defender_plan": "defensive", "seed": 11,
+	})["report"]
+	for size: Vector2i in [Vector2i(800, 360), Vector2i(914, 411)]:
+		var viewport := SubViewport.new()
+		viewport.size = size
+		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		add_child(viewport)
+		var overlay := QuickBattleOverlay.new()
+		viewport.add_child(overlay)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		overlay.show_battle(report, "Cadiz", ["Spain", "England"])
+		await get_tree().process_frame
+		var panel: Control = overlay._panel
+		assert_true(
+			panel.get_global_rect().end.y <= float(size.y),
+			"the plate runs off a %s screen" % str(size)
+		)
+		var cont: Control = overlay._continue
+		assert_true(
+			cont.get_global_rect().end.y <= float(size.y),
+			"the Continue door is off a %s screen" % str(size)
+		)
+		assert_true(
+			overlay.field.custom_minimum_size.y >= BattlePlateFrame.BODY_MIN,
+			"the field keeps a readable floor"
+		)
+		overlay.free()
+		viewport.free()
+
+
+## The instrument is a phone-and-tablet tool too: below three columns it stacks
+## the rail, the plate and the despatches into one scrolling column, so nothing
+## is clipped off a handset (REQ-P1-05, REQ-P5-07).
+func test_the_simulator_stacks_on_a_handset() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(360, 640)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	viewport.add_child(screen)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(screen._stacked, "a handset stacks the instrument")
+	assert_true(screen._row is ScrollContainer, "the stacked column scrolls")
+	var width: float = 360.0
+	for panel: Control in [screen._setup, screen._field, screen._log_panel]:
+		assert_true(
+			panel.get_global_rect().end.x <= width,
+			"a panel runs off the handset: %s" % str(panel.get_global_rect())
+		)
+	assert_true(
+		screen._setup.get_global_rect().end.y <= screen._field.get_global_rect().position.y,
+		"the rail stands above the plate"
+	)
+	assert_true(
+		screen._field.get_global_rect().end.y <= screen._log_panel.get_global_rect().position.y,
+		"the despatches stand below the plate"
+	)
+	screen._fight()
+	assert_false(screen._result.is_empty(), "the stacked instrument still fights")
+	screen.free()
+	viewport.free()
+
+
+## A desktop keeps the three columns it always had.
+func test_the_simulator_keeps_three_columns_on_a_desktop() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1280, 720)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	viewport.add_child(screen)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(screen._stacked, "a desktop keeps its columns")
+	assert_true(screen._row is HBoxContainer)
+	assert_eq(screen._setup.custom_minimum_size.x, 320.0)
+	assert_eq(screen._log_panel.custom_minimum_size.x, 380.0)
+	screen.free()
+	viewport.free()
+
 # --- naming, order of battle and settlement ---
 
 ## One boot for naming, order-of-battle readings and battle settlement (wiki: naming;
