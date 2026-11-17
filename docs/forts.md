@@ -55,7 +55,7 @@ DR-20261110-27.
 | `scripts/rules/quick_battle_battery.gd` | virtual guns, downgrade |
 | `scripts/rules/auto_siege.gd` | counter-battery, downgrade |
 | `scripts/rules/civilian_work.gd` | `build_fort` target and completion |
-| `scripts/ui/battle_plate.gd`, `quick_battle_field.gd` | wall, gates, ground |
+| `scripts/ui/battle_plate*.gd`, `quick_battle_field.gd` | wall, gates, ground |
 | `scripts/rules/battle_scenario.gd` | sandbox for [battle-sim.md](battle-sim.md) |
 
 

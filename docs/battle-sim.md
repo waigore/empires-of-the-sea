@@ -71,7 +71,7 @@ rules code and is unit-tested; the screen is a thin view (`REQ-P3-01`,
 | `scripts/rules/battle_scenario.gd` | builds the sandbox and runs `QuickBattle` |
 | `scripts/ui/battle_sim_setup.gd` | setup rail; emits run/step/reset intents |
 | `scripts/ui/battle_sim_screen.gd` | plate, despatch log and rules readout |
-| `scripts/ui/battle_plate.gd` | painted ground, wall, breach and miniatures |
+| `scripts/ui/battle_plate*.gd` | facade + ground, wall, figure painters |
 | `scenes/battle_sim.tscn` | the launchable scene |
 
 The plate is generated art (`assets/art/battle/`): a painted panorama per

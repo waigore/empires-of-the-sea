@@ -1617,6 +1617,22 @@ match = "scripts/ui/battle_plate.gd*"
 domain = "quick_battle"
 
 [[rules]]
+match = "scripts/ui/battle_plate_assets.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate_ground.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate_wall.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate_figures.gd*"
+domain = "quick_battle"
+
+[[rules]]
 match = "scripts/ui/regiment_miniatures.gd*"
 domain = "quick_battle"
 
