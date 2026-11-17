@@ -1,8 +1,8 @@
 # Battle Simulator
 
-A visual playtesting instrument for Quick Battle and sieges. It builds a
-one-province sandbox and runs **the live resolver** (`QuickBattle`), so a number
-it prints is the number a game turn prints (`REQ-P2-03`).
+A visual playtesting instrument for Quick Battle and sieges: a one-province
+sandbox over **the live resolver** (`QuickBattle`), so a number it prints is the
+number a game turn prints (`REQ-P2-03`).
 
 **Pillars:** P2, P3, P5. **Wiki:**
 [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle),
@@ -16,6 +16,11 @@ tools/run.sh scenes/battle_sim.tscn
 
 The wrapper imports first; a bare `godot --path . scenes/battle_sim.tscn`
 fails on a fresh clone ([testing.md](testing.md)).
+
+## Layout
+
+Three columns on a desktop; below 900 points they stack into one scrolling
+column (`REQ-P1-05`, `REQ-P5-07`).
 
 ## Controls
 
@@ -51,7 +56,6 @@ fails on a fresh clone ([testing.md](testing.md)).
 - Guns plus muskets against a Wood fort: silence the battery, then beat the wall
   until a gate opens and the behind lane bleeds.
 - Assault into TOWN versus OPEN: compare the same men and plan.
-- A castle on a hillside: the ground stays HILL, so the approach is uphill.
 
 ## Scope
 

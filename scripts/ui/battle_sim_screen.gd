@@ -7,6 +7,13 @@ extends Control
 ##   tools/run.sh scenes/battle_sim.tscn
 
 const NAMES: Array[String] = ["The Attack", "The Garrison"]
+## The instrument stacks on a screen too narrow for three columns — the rail on
+## top, the plate, then the despatches — and scrolls rather than clipping, so a
+## phone or a tablet reads the whole sandbox (REQ-P1-05, REQ-P5-07).
+const STACK_BELOW: float = 900.0
+const RAIL_MIN: float = 240.0
+const LOG_MIN: float = 180.0
+const FIELD_MIN: float = 160.0
 
 var _setup: BattleSimSetup = null
 var _field: QuickBattleField = null
@@ -14,9 +21,18 @@ var _header: Label = null
 var _status: Label = null
 var _log: Label = null
 var _readout: Label = null
-var _round_buttons: HBoxContainer = null
+## The round doors wrap rather than widen the plate, so a handset can still
+## step the record (REQ-P1-05).
+var _round_buttons: HFlowContainer = null
 var _result: Dictionary = {}
 var _cursor: int = 0
+var _margin: MarginContainer = null
+## The column the three panels ride: an HBox on a wide screen, a scrolling VBox
+## on a handset.
+var _row: Container = null
+var _centre: VBoxContainer = null
+var _log_panel: PanelContainer = null
+var _stacked: bool = false
 
 
 func _ready() -> void:
@@ -26,25 +42,70 @@ func _ready() -> void:
 	backdrop.color = Color(0.06, 0.05, 0.04)
 	backdrop.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	add_child(backdrop)
-	var margin := MarginContainer.new()
-	margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	_margin = MarginContainer.new()
+	_margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side: String in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 12)
-	add_child(margin)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 12)
-	margin.add_child(row)
+		_margin.add_theme_constant_override("margin_" + side, 12)
+	add_child(_margin)
+	_row = HBoxContainer.new()
+	_row.add_theme_constant_override("separation", 12)
+	_margin.add_child(_row)
 	_setup = BattleSimSetup.new()
-	row.add_child(_setup)
+	_row.add_child(_setup)
 	_setup.run_requested.connect(_fight)
 	_setup.step_requested.connect(_step)
 	_setup.reset_requested.connect(_reset)
-	var centre := VBoxContainer.new()
-	centre.add_theme_constant_override("separation", 6)
-	centre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(centre)
-	_build_centre(centre)
-	row.add_child(_build_log_panel())
+	_centre = VBoxContainer.new()
+	_centre.add_theme_constant_override("separation", 6)
+	_centre.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_row.add_child(_centre)
+	_build_centre(_centre)
+	_log_panel = _build_log_panel()
+	_row.add_child(_log_panel)
+	resized.connect(_relayout)
+	_relayout()
+
+
+## One column on a handset, three on a desktop: the panels are re-seated rather
+## than rebuilt, so a resize never loses the setup or the record.
+func _relayout() -> void:
+	if size.x <= 1.0:
+		return
+	var stacked: bool = size.x < STACK_BELOW
+	if stacked != _stacked:
+		_stacked = stacked
+		_restack()
+	_apply_stack()
+
+
+func _restack() -> void:
+	var columns: BoxContainer = VBoxContainer.new() if _stacked else HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 12)
+	for child: Control in [_setup, _centre, _log_panel]:
+		child.get_parent().remove_child(child)
+		columns.add_child(child)
+	var host: Container = columns
+	if _stacked:
+		var scroll := ScrollContainer.new()
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.add_child(columns)
+		host = scroll
+	_margin.remove_child(_row)
+	_row.queue_free()
+	_row = host
+	_margin.add_child(host)
+
+
+## The room each panel takes: a stacked column gives the rail and the despatches
+## a bounded window of their own and lets the plate keep the rest.
+func _apply_stack() -> void:
+	_setup.custom_minimum_size = Vector2(0.0 if _stacked else 320.0, RAIL_MIN if _stacked else 0.0)
+	_setup.size_flags_vertical = Control.SIZE_FILL if _stacked else Control.SIZE_EXPAND_FILL
+	_log_panel.custom_minimum_size = Vector2(0.0 if _stacked else 380.0, LOG_MIN if _stacked else 0.0)
+	_log_panel.size_flags_vertical = Control.SIZE_FILL if _stacked else Control.SIZE_EXPAND_FILL
+	_field.custom_minimum_size = Vector2(0, FIELD_MIN if _stacked else 220.0)
 
 
 func _build_centre(column: VBoxContainer) -> void:
@@ -58,7 +119,7 @@ func _build_centre(column: VBoxContainer) -> void:
 		"Ready — set the ground, the fort and the men, then Fight.", 12, Palette.TEXT
 	)
 	column.add_child(_status)
-	_round_buttons = HBoxContainer.new()
+	_round_buttons = HFlowContainer.new()
 	_round_buttons.add_theme_constant_override("separation", 6)
 	column.add_child(_round_buttons)
 	for index in QuickBattle.MAX_ROUNDS:
@@ -74,7 +135,7 @@ func _build_centre(column: VBoxContainer) -> void:
 	_round_buttons.add_child(aftermath)
 
 
-func _build_log_panel() -> Control:
+func _build_log_panel() -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(380, 0)
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL

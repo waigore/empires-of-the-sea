@@ -51,6 +51,9 @@ func _build_body(column: VBoxContainer) -> void:
 	field.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	field.size_flags_stretch_ratio = 3.0
 	column.add_child(field)
+	## The frame gives the field back on a short screen, so the plate's footer
+	## stays on a landscape handset (REQ-P1-07).
+	_body = field
 
 
 ## The round pips sit under the bars; the wall a siege is fought over is kept
