@@ -3,12 +3,14 @@ extends RefCounted
 ## Rival world-market participation (wiki: world-market; economy-planner).
 ##
 ## A court sells stock above its reserve and bids its purse and free holds on
-## short build inputs. Every order goes through WorldMarket, so prices, treasury
-## and cargo obey the same rules as a player's trade (REQ-P2-03). Sells spend no
-## holds; imports spend one hold per unit, after overseas extraction has taken
-## its reservation (DR-20261109-03, DR-20261109-17).
+## short build inputs, through the same WorldMarket as a player's trade
+## (REQ-P2-03). Sells spend no holds; imports spend one hold per unit, after
+## overseas extraction has taken its reservation (DR-20261109-03, -17).
 
 const BUILD_INPUTS: Array[String] = AiEconomyPlanner.BUILD_INPUTS
+## The estate raise's own pair (CivilianWorkPlan.IMPROVEMENT_COSTS): the two
+## build inputs every level spends, so their bids lead the cap (#878).
+const ESTATE_FEEDSTOCK: Array[String] = ["lumber", "castIron"]
 const TRADE_FAIRS: String = "trade_fairs"
 ## Why a court opens no speculative bid: the war footing holds the slot shut
 ## (DR-20261117-01).
@@ -18,17 +20,14 @@ const BASELINE_BID_TYPES: int = 3
 const TRADE_FAIRS_BID_TYPES: int = 6
 
 
-## Planned orders plus the scored rows that explain them.
-## `free_holds` is what the colonies left this turn, never the raw fleet total.
-## `reserved_inputs` is what the court cannot sell at all; `need` is the material
-## its next regiment is being provisioned with, which it keeps back and buys
-## first (wiki: growth-stage-planner § Recruitment modulation). `floor` is the
-## purse the caller keeps in hand — its cash floor and, at war, the muster it is
-## saving for — so bids never spend the war chest.
+## Planned orders plus the scored rows that explain them. `free_holds` is what
+## the colonies left this turn; `reserved_inputs` is what the court cannot sell
+## at all; `need` is the material its next regiment is being provisioned with,
+## kept back and bought first (growth-stage-planner § Recruitment modulation);
+## `floor` is the purse the caller keeps in hand, so bids never spend the chest.
 ##
 ## `food_shortfall` is the ration the court's own people will eat this turn and
-## its larder cannot cover. A court that cannot feed its workers loses every hand
-## to the strike, so a shortfall opens the wiki's **lock-recovery** mode
+## its larder cannot cover. A shortfall opens the wiki's **lock-recovery** mode
 ## (treasury-planner § Modes): the comfort reserve stops holding stock back, and
 ## the missing food is bought ahead of every build input out of the whole purse
 ## rather than the surplus above the war chest. A court that can feed itself
@@ -36,18 +35,23 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 ##
 ## `saving` is true while the court is on its money goal — its purse stands under
 ## the reserve it is saving for (the muster at war, its cash floor at peace). The
-## same lock-recovery reading applies only when the comfort reserve has trapped
-## the whole hoard: every tradeable row sits at or under `market.sell_reserve`,
-## so a spending pass would offer nothing while the purse stays under its
-## commitment (issue #489). A court that already has a normal surplus keeps the
-## published reserve. Food keeps its reserve either way, and the row the next
-## regiment is provisioned with is claimed before the market ever sees the stock.
+## lock-recovery liquidation applies only when the comfort reserve has trapped
+## the whole hoard, the France shape in issue #489; a normal surplus keeps the
+## published reserve.
 ##
 ## `speculate` is the dispatch slot (`trade.market`, DR-20261117-01): a court at
 ## war opens no speculative top-up, so it bids only the rows this turn's
 ## commitments already claim — the ration, the muster's, the hull's, the works'
-## and the production's — and food, which is never a speculative buy. A court at
-## peace bids exactly as published.
+## and the production's — and food. A court at peace bids as published.
+##
+## `works_floor` is the works purse the caller keeps for the court's own land
+## (`economy.min_treasury` while the money goal is `earn`, else unset). While
+## the court saves, the build inputs are that programme's own provisioning,
+## not a deferrable import: they bid out of the works purse, so a court saving
+## for a muster or a yard still raises the estates its cash floor can pay for —
+## a poorer court keeps its cash floor and grows, research and works first
+## (ai-architecture § Land reinforcement; #878). The dispatch slot reads the
+## same: the feedstock is one of the commitments the footing keeps.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -59,7 +63,8 @@ static func plan(
 	floor: int = 0,
 	food_shortfall: int = 0,
 	saving: bool = false,
-	speculate: bool = true
+	speculate: bool = true,
+	works_floor: int = -1
 ) -> Dictionary:
 	var offers: Array[Dictionary] = []
 	var bids: Array[Dictionary] = []
@@ -84,37 +89,40 @@ static func plan(
 			continue
 		offers.append({"commodity": id, "quantity": quantity})
 		sold[id] = true
-		candidates.append({
-			"kind": "offer",
-			"commodity": id,
-			"quantity": quantity,
-			"surplus": int(entry["surplus"]),
-		})
+		candidates.append({"kind": "offer", "commodity": id,
+			"quantity": quantity, "surplus": int(entry["surplus"])})
 	var bid_cap: int = config.parameter("market.max_bid_types")
 	if bool(tech_unlocked.get(TRADE_FAIRS, false)):
 		bid_cap = TRADE_FAIRS_BID_TYPES
 	var budget: int = maxi(
 		economy.treasury - maxi(config.parameter("market.min_treasury"), floor), 0
 	)
-	# Food is not a discretionary spend: a court that cannot feed its people
-	# bids out of the whole purse, because a strike costs it every hand it has
-	# (wiki: treasury-planner § Lock-recovery).
+	# The works purse (#878): the cash the court's own land may draw on while it
+	# saves — the war chest stands behind every import above the build inputs.
+	var works_budget: int = maxi(
+		economy.treasury - maxi(config.parameter("market.min_treasury"), works_floor), 0
+	) if works_floor >= 0 else budget
+	# Food is not a discretionary spend: a starving court bids out of the whole
+	# purse, because a strike costs it every hand (treasury-planner
+	# § Lock-recovery).
 	var food_budget: int = maxi(economy.treasury, 0) if starving else budget
 	var holds: int = maxi(free_holds, 0)
-	var rows: Array[Dictionary] = _deficits(economy, market, reserve, need)
+	var rows: Array[Dictionary] = _deficits(economy, market, reserve, need, promised)
 	if starving:
 		var food: Array[Dictionary] = _food_deficits(market, food_shortfall)
 		food.append_array(rows)
 		rows = food
 	# A court at war opens no speculative top-up: only the rows this turn's
-	# commitments already claim, and food, which is never a speculative buy
-	# (DR-20261117-01).
+	# commitments already claim, and food (DR-20261117-01). A saving court's
+	# build inputs count among them — without them the estates never rise.
 	var held: int = 0
 	if not speculate:
 		var claimed: Array[Dictionary] = []
 		for entry: Dictionary in rows:
 			var id: String = String(entry["commodity"])
-			if promised.has(id) or CommodityCatalog.is_food(id):
+			if promised.has(id) or CommodityCatalog.is_food(id) or (
+				works_floor >= 0 and BUILD_INPUTS.has(id)
+			):
 				claimed.append(entry)
 			else:
 				held += 1
@@ -128,7 +136,11 @@ static func plan(
 		var price: int = int(entry["price"])
 		if price <= 0:
 			continue
-		var row_budget: int = food_budget if CommodityCatalog.is_food(id) else budget
+		# The build inputs are the works programme's own provisioning while the
+		# court saves: they draw on the works purse, not the war chest (#878).
+		var row_budget: int = food_budget if CommodityCatalog.is_food(id) else (
+			works_budget if works_floor >= 0 else budget
+		)
 		# The ration is bought in full, not in the five-unit trade lot: a court
 		# that can only import half its dinner still strikes (wiki:
 		# treasury-planner § Lock-recovery).
@@ -145,21 +157,18 @@ static func plan(
 		holds -= quantity
 		if CommodityCatalog.is_food(id):
 			food_budget -= quantity * price
+		elif works_floor >= 0:
+			works_budget -= quantity * price
 		else:
 			budget -= quantity * price
-		candidates.append({
-			"kind": "bid",
-			"commodity": id,
-			"quantity": quantity,
-			"deficit": int(entry["deficit"]),
-			"unit_price": price,
-		})
+		candidates.append({"kind": "bid", "commodity": id, "quantity": quantity,
+			"deficit": int(entry["deficit"]), "unit_price": price})
 	return {"offers": offers, "bids": bids, "candidates": candidates, "held": held}
 
 
-## Stages the plan in the world-market order book. The clearing pass fills it at
-## the turn's close, so stock and treasury move once, under the same matcher as
-## the player's orders (wiki: world-market § Trade orders).
+## Stages the plan in the world-market order book; the clearing pass fills it at
+## the turn's close under the same matcher as the player's orders (wiki:
+## world-market § Trade orders).
 static func stage(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -213,8 +222,8 @@ static func stage(
 	return {"staged": staged, "refused": refused, "plan": plan}
 
 
-## Applies the plan through the shared market at once. Retained for tools and
-## tests; live play stages orders so the matcher can order the book.
+## Applies the plan at once; live play stages orders so the matcher can order
+## the book (retained for tools and tests).
 static func apply(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -232,41 +241,29 @@ static func apply(
 		var quantity: int = int(offer.get("quantity", 0))
 		var result: Dictionary = market.sell(economy, id, quantity, faction)
 		if bool(result.get("ok", false)):
-			sold.append({
-				"commodity": id,
-				"quantity": quantity,
-				"revenue": int(result.get("revenue", 0)),
-			})
+			sold.append({"commodity": id, "quantity": quantity,
+				"revenue": int(result.get("revenue", 0))})
 		else:
-			refused.append({
-				"kind": "offer",
-				"commodity": id,
-				"reason": String(result.get("reason", "")),
-			})
+			refused.append({"kind": "offer", "commodity": id,
+				"reason": String(result.get("reason", ""))})
 	for raw: Variant in plan.get("bids", []):
 		var bid: Dictionary = raw
 		var id: String = String(bid.get("commodity", ""))
 		var quantity: int = int(bid.get("quantity", 0))
 		var result: Dictionary = market.buy(economy, id, quantity, faction)
 		if bool(result.get("ok", false)):
-			bought.append({
-				"commodity": id,
-				"quantity": quantity,
-				"cost": int(result.get("cost", 0)),
-			})
+			bought.append({"commodity": id, "quantity": quantity,
+				"cost": int(result.get("cost", 0))})
 		else:
-			refused.append({
-				"kind": "bid",
-				"commodity": id,
-				"reason": String(result.get("reason", "")),
-			})
+			refused.append({"kind": "bid", "commodity": id,
+				"reason": String(result.get("reason", ""))})
 	return {"sold": sold, "bought": bought, "refused": refused}
 
 
 ## True when a saving court would offer nothing under the comfort reserve, yet
 ## still holds stock above its claims: every tradeable row is trapped under
-## `market.sell_reserve`, the France shape in issue #489. A court with any
-## normal surplus is not trapped — it already sells under the published rule.
+## `market.sell_reserve` (the France shape, issue #489). A court with a normal
+## surplus already sells under the published rule and is not trapped.
 static func _hoard_trapped(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -332,12 +329,13 @@ static func _promised(
 	return promised
 
 
-## Build inputs below the reserve, largest shortfall first. A commodity the next
-## regiment is being provisioned with leads, so the court buys its cloth before
-## it buys the rest and the bid-type cap cannot starve the muster (wiki:
-## growth-stage-planner § Recruitment modulation).
+## Build inputs below the reserve, largest shortfall first. The next regiment's
+## commodity leads, then the works' claims, then the raise's own pair — the cap
+## can never starve the muster, the works or the land programme (wiki:
+## growth-stage-planner § Recruitment modulation; #878).
 static func _deficits(
-	economy: PlayerEconomy, market: WorldMarket, reserve: int, need: Dictionary = {}
+	economy: PlayerEconomy, market: WorldMarket, reserve: int, need: Dictionary = {},
+	promised: Dictionary = {}
 ) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = []
 	for id: String in BUILD_INPUTS:
@@ -355,6 +353,16 @@ static func _deficits(
 		var right: bool = need.has(String(b["commodity"]))
 		if left != right:
 			return left
+		left = promised.has(String(a["commodity"]))
+		right = promised.has(String(b["commodity"]))
+		if left != right:
+			return left
+		# The raise's own pair leads the rest, so the bid-type cap cannot be
+		# spent on a row the works are not waiting for (issue #878).
+		left = ESTATE_FEEDSTOCK.has(String(a["commodity"]))
+		right = ESTATE_FEEDSTOCK.has(String(b["commodity"]))
+		if left != right:
+			return left
 		if int(a["deficit"]) != int(b["deficit"]):
 			return int(a["deficit"]) > int(b["deficit"])
 		return String(a["commodity"]) < String(b["commodity"])
@@ -362,9 +370,9 @@ static func _deficits(
 	return rows
 
 
-## The ration the larder cannot cover, grain first: the one purchase a court
-## makes out of its whole purse, because a strike costs it every hand it has
-## (wiki: treasury-planner § Lock-recovery; workers-and-population § Consumption).
+## The ration the larder cannot cover, grain first: the one purchase made out
+## of the whole purse, because a strike costs every hand (wiki: treasury-planner
+## § Lock-recovery; workers-and-population § Consumption).
 static func _food_deficits(
 	market: WorldMarket, shortfall: int
 ) -> Array[Dictionary]:
