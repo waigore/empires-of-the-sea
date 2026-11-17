@@ -67,6 +67,16 @@ suites = [
   "test_battle_rules.gd",
 ]
 
+# The court's own pick: one reading over the planner's plan, proved by the AI
+# suite (the pick), the civilian suite (the wording) and the sheet suite (the
+# line). Kept apart from `civilian` so the pick never pays for the battle suite.
+[domains.civilian_pick]
+suites = [
+  "test_ai_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_panel_parts_rules.gd",
+]
+
 [domains.diplomacy]
 suites = [
   "test_diplomacy_rules.gd",
@@ -2044,6 +2054,14 @@ domain = "civilian"
 [[rules]]
 match = "tests/test_civilian_turn_rules.gd*"
 domain = "civilian"
+
+# The court's own pick (DR-20261117-06): the reading that asks the published
+# civilian pass what it would give each idle crew. Its suites are the AI plan,
+# the civilian rules and the sheet that prints the line, so it names its own
+# domain instead of pulling the whole prospect map fan-out a second time.
+[[rules]]
+match = "scripts/map/map_play_civilian_pick.gd*"
+domain = "civilian_pick"
 
 # Civilian sheet chrome — civilian suites cover orders/roster; prospect's
 # map/AI fan-out overruns tier-1 when a factory PR also touches other UI.

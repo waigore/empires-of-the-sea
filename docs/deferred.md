@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261117-05; #846–#877 live (REQ-P2-02).
+Audited: DR-20261117-06; #846–#877 live (REQ-P2-02).
 
 ## Already live
 
@@ -35,19 +35,19 @@ Audited through DR-20261117-05; #846–#877 live (REQ-P2-02).
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
-| Estate + walls/wards/transport previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`, DR-17-03/05 |
+| Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`, DR-17-03/05/06 |
 
 ## Gaps (ranked)
 
-1. **Planner on-chart per-tile preview** — ledger/order legs live
-   (DR-17-03/05); court's next pick on chart stays seed.
+1. **Planner pick's chart mark** — ledger, order, sheet legs live
+   (DR-17-03/05/06); the chart mark stays seed.
 2. **Quick Battle multi-lane/collapse** — one lane; design call
    (DR-10-24).
 
 
 ## Next pick
 
-Planner on-chart per-tile preview seed.
+Pick's chart mark; else P5/P1 polish.
 
 ## Blocked
 
