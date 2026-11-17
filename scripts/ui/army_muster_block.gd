@@ -4,21 +4,47 @@ extends VBoxContainer
 ## ArmyPanel so the sheet keeps the toggle and scroll while this block owns
 ## only the yard list (REQ-P3-01). Rows come from ArmyTraining; the block
 ## renders and emits intents (REQ-P3-02).
+##
+## The yard's foot carries one press that files every ready row in the panel's
+## order — the shared RaiseBatchPress arm, so a mis-tap never spends the
+## realm's stores (REQ-P5-04; DR-20261118-07).
 
 signal action_pressed(action: String)
+
+## The one press under the rows; it owns the arm, its timeout and its words.
+var _batch: RaiseBatchPress = null
 
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 8)
 	visible = false
+	_make_batch()
 
 
-## Rebuilds every drill-yard row from the training table.
+## The yard's one press, made once however the block is mounted: the sheet's own
+## `_ready` or a suite handing it rows straight away.
+func _make_batch() -> void:
+	if _batch != null:
+		return
+	_batch = RaiseBatchPress.new()
+	_batch.set_verb("muster")
+	_batch.confirmed.connect(func() -> void: action_pressed.emit("recruit_all"))
+	add_child(_batch)
+
+
+## Rebuilds every drill-yard row from the training table, then the one press the
+## rows earn: its count is the yard's own `batch_ready` flag, so the face names
+## what the second tap would file (REQ-P5-05).
 func fill(rows: Array[Dictionary]) -> void:
-	for child in get_children():
-		child.queue_free()
+	_make_batch()
+	for child: Node in get_children():
+		if child != _batch:
+			child.queue_free()
+	var ready: int = 0
 	for row: Dictionary in rows:
+		if bool(row.get("batch_ready", false)):
+			ready += 1
 		var entry := VBoxContainer.new()
 		entry.add_theme_constant_override("separation", 2)
 		add_child(entry)
@@ -60,3 +86,5 @@ func fill(rows: Array[Dictionary]) -> void:
 			stats.text = line
 			stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			entry.add_child(stats)
+	_batch.set_ready(ready, "regiments")
+	move_child(_batch, -1)
