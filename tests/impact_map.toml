@@ -347,6 +347,10 @@ match = "scripts/rules/land_connectivity.gd"
 domain = "blockade"
 
 [[rules]]
+match = "scripts/rules/land_town_rule.gd"
+domain = "blockade"
+
+[[rules]]
 match = "scripts/rules/extraction.gd"
 domain = "blockade"
 
@@ -3005,6 +3009,10 @@ domain = "economy"
 # Province crown link + estate gap copy; civilian owns connectivity rules.
 [[rules]]
 match = "scripts/rules/land_connectivity.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/land_town_rule.gd"
 domain = "civilian"
 
 [[rules]]

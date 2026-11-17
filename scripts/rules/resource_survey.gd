@@ -203,7 +203,7 @@ static func _row(
 		)
 		output = Extraction.effective_yield(
 			level, cap, int(connection.get("transport", 0)),
-			LandConnectivity.town_cap_for(model, resolved, province_id, index)
+			LandTownRule.town_cap_for(model, resolved, province_id, index)
 		) * Extraction.estate_yield_per_level(tile_owner, commodity)
 	var remaining: int = working.remaining_turns() if working != null else 0
 	var total_turns: int = working.total_turns() if working != null else 0

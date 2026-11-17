@@ -63,7 +63,7 @@ static func project(
 			)
 		)
 	var transport: int = int(entry.get("transport", 0))
-	var town_cap: int = LandConnectivity.town_cap_for(
+	var town_cap: int = LandTownRule.town_cap_for(
 		model, resolved, province, model.index_of(tile.x, tile.y)
 	)
 	var output: int = 0

@@ -221,7 +221,7 @@ static func _collect_provinces(
 			"gap": gap,
 			"town": town,
 			"town_level": province.town_development,
-			"town_caps": LandConnectivity.town_caps_province(model, resolved, province.id),
+			"town_caps": LandTownRule.town_caps_province(model, resolved, province.id),
 			"anchor": _anchor(model, province, town, states),
 			"cut_tiles": _cut_tiles(model, province, states),
 			"charted": charted,
