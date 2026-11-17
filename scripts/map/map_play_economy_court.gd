@@ -82,7 +82,12 @@ static func open(
 func plan_turn() -> void:
 	cargo = MapPlayCargoAi.run(play, faction, economy, overseas)
 	at_war = MapPlayCourt.at_war(play, faction)
-	phase = AiPhasePlanner.phase_for(config, play.diplomacy)
+	# Routed through AiBind: a baseline court's config is a MainlineAiConfig,
+	# which the submission planner's typed signature must never see. Since #853
+	# the direct call crashed the baseline courts' whole economy pass every
+	# turn — their rivals played no market, no production and no recruits
+	# (issue #910).
+	phase = AiBind.phase_for(kind, config, play.diplomacy)
 	regiments = MapPlayCourt.regiments(play, faction)
 	ships = MapPlayCourt.ships(play, faction)
 	warships = MapPlayCourt.warships(play, faction)

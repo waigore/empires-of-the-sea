@@ -4123,6 +4123,28 @@ func test_the_hire_margin_survives_the_food_bid() -> void:
 	)
 
 
+## A starving court whose next crew's price exceeds its whole purse bids the
+## purse on food instead: with every hand down it earns nothing, so the bank can
+## never grow — a price the purse cannot hold is a court that buys no dinner and
+## strikes forever (issue #910; wiki: treasury-planner § Lock-recovery).
+func test_the_hire_margin_yields_when_the_purse_cannot_hold_it() -> void:
+	var market := WorldMarket.with_default_prices()
+	var poor: PlayerEconomy = _ai_market_economy({}, 316)
+	var without: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), poor, market, 20, {}, {}, {}, 0, 18, false, true
+	)
+	var with_margin: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), poor, market, 20, {}, {}, {}, 0, 18, false, true, -1, 1000
+	)
+	var plain: Dictionary = (without["bids"] as Array)[0]
+	var kept: Dictionary = (with_margin["bids"] as Array)[0]
+	assert_eq(int(plain["quantity"]), 6, "the whole purse buys what grain it can")
+	assert_eq(
+		int(kept["quantity"]), int(plain["quantity"]),
+		"a crew price the purse cannot hold yields to the ration"
+	)
+
+
 ## The hire order names no crew when the court has no config or no staff
 ## targets: the market must not hold cash for a hire that will never fire
 ## (issue #894).
