@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited through DR-20261117-05; #846–#874 live (REQ-P2-02).
+Audited through DR-20261117-06; #846–#877 live (REQ-P2-02).
 
 ## Already live
 
@@ -36,37 +36,35 @@ Audited through DR-20261117-05; #846–#874 live (REQ-P2-02).
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch; #823/#834 |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
-| Estate previews | `EstateRows.preview_text`, DR-20261117-03 |
 | Walls/wards/transport previews | `WallLedger`/`HospitalLedger`; `CivilianWorkPlan`, DR-20261117-05 |
+| Estate/crew previews | `EstateRows`; `MapPlayCivilianPick`, DR-20261117-03/-06 |
 
 ## Gaps (ranked)
 
-1. **Quick Battle multi-lane/collapse** — one lane; design call first
-   (DR-10-24).
+1. **Quick Battle multi-lane/collapse** — one lane; design call (DR-10-24).
 
 ## Next pick
 
-P5/P1 polish; else the planner's on-chart per-tile preview seed.
+P5/P1 polish; the pick's chart mark stays a seed.
 
 ## Blocked
 
-- Predict-the-line declined (DR-12-02); era — no model (DR-11-08).
-- Healing at 0 health; last-known OOB (DR-12-04/09); general-grade trains await
+- Predict-the-line declined (DR-12-02); era, no model (DR-11-08).
+- Healing at 0 health; last-known OOB (DR-12-04/09); general trains await
   design (DR-12-07).
 - Alt victory, difficulty extras, ruleset loaders/borrowing,
   warehousing, loans, sea-zone names — out of scope; Join Empire cost —
   rules call.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
-- Rival split/combine, cross-station folds, passenger transfers — out of
-  scope (DR-16-12/13).
-- Further tongues out of scope (DR-13-12); 30% floor data-gated (DR-15-18).
+- Rival split/combine, cross-station folds, transfers — out of scope (DR-16-12/13).
+- Further tongues out (DR-13-12); 30% floor data-gated (DR-15-18).
 - Resource-need phase reweight — no need reading (DR-16-09).
 
 ## Wiki drift
 
-- `civilian-build-planner`: per-tile previews → estates leg live
-  (DR-20261117-03); planner leg remains.
+- `civilian-build-planner`: previews → estates and sheet legs live
+  (DR-20261117-03/-06); the chart mark remains.
 - `civilian-units`: Road L2/gathering deferred → live (`TechUnlocks`).
 - `phase-planner-*`: declare-war → DR-14-13; six slots live.
 - `production-recipes`: rival second-stage appetite → live #798.

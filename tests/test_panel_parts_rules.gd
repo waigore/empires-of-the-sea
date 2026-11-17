@@ -3212,6 +3212,41 @@ func test_the_work_order_list_names_what_the_road_lands() -> void:
 	panel.free()
 
 
+## The court's own pick rides on the crew's sheet in the crown's gold, in the
+## words the map layer reads — the panel invents no figure of its own, and a
+## crew the planner names nothing for carries no line (REQ-P5-06, REQ-P3-02;
+## DR-20261117-06).
+func test_the_dossier_names_the_work_the_court_would_give_it() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var builder: CivilianState = CivilianState.create(
+		1, PLAYER, "builder", CivilianFixture.TIMBER_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile()
+	)
+	assert_false(panel._pick.visible, "no pick, no line")
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile(),
+		null, {}, {},
+		{
+			"pick": {
+				"action": "build_improvement",
+				"tile": CivilianFixture.TIMBER_TILE,
+				"line": "the court would raise the lumber camp — L2 pays 2 timber / turn (+1)",
+				"short": "raise the lumber camp",
+			}
+		}
+	)
+	assert_true(panel._pick.visible, "the pick prints")
+	assert_eq(
+		panel._pick.text,
+		"The court would raise the lumber camp — L2 pays 2 timber / turn (+1)."
+	)
+	panel.free()
+
+
 ## The value column of one dossier row, or "" when the caption is absent.
 func _panel_row(panel: CivilianPanel, caption: String) -> String:
 	var children: Array[Node] = panel._detail.get_children()

@@ -2455,6 +2455,76 @@ func test_ai_civilian_never_plans_another_courts_units() -> void:
 	assert_true((plan["moves"] as Array).is_empty())
 
 
+## The crown's own pick (DR-20261117-06): an idle Builder of the crown is named
+## with the estate the published planner would raise, and the line prices the
+## level in the estates ledger's own words. It is a reading — the plan is not
+## applied, so the crew is still idle and the tile still unraised afterwards.
+func test_the_crowns_pick_names_the_estate_its_builder_would_raise() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var model: MapModel = play.model
+	var layer: CivilianLayer = play.civilian_layer
+	var grain := Vector2i(1, 1)
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", grain)
+	layer.units.assign([builder] as Array[CivilianState])
+	layer.regions.set_region(0, layer.units)
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.stockpile["lumber"] = 40
+	economy.stockpile["castIron"] = 40
+	layer.works.set_improvement(model, grain, 0)
+
+	var picks: Dictionary = MapPlayCivilianPick.picks(play, 1)
+
+	var pick: Dictionary = picks.get(builder.id, {}) as Dictionary
+	assert_false(pick.is_empty(), "the crown's Builder is given a pick")
+	assert_eq(String(pick["action"]), "build_improvement", "it raises the estate")
+	assert_eq(Vector2i(pick["tile"]), grain, "on the ground it stands on")
+	var line: String = String(pick["line"])
+	assert_true(line.begins_with("the court would raise the "), line)
+	assert_true(line.contains("L1"), "the level the order would buy: " + line)
+	assert_eq(String(pick["short"]), "raise the farm", "the short form names the work")
+	assert_false(builder.is_working(), "a reading, not an order")
+	assert_eq(layer.works.improvement_at(model, grain), 0, "and the estate is unraised")
+	layer.free()
+
+
+## The sheet's own wiring: a crew of the crown that waits carries the pick into
+## its dossier, a working crew carries none, and a caller that names no crew
+## reads the purse alone (DR-20261117-06).
+func test_the_crowns_sheet_carries_the_pick_only_for_a_crew_that_waits() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var model: MapModel = play.model
+	var layer: CivilianLayer = play.civilian_layer
+	var grain := Vector2i(1, 1)
+	play.player_faction = 1
+	var controller := EconomyController.new()
+	controller.economy = play.ai.economy_for(1)
+	play.economy = controller
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", grain)
+	layer.units.assign([builder] as Array[CivilianState])
+	layer.regions.set_region(0, layer.units)
+	layer.works.set_improvement(model, grain, 0)
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.stockpile["lumber"] = 40
+	economy.stockpile["castIron"] = 40
+	controller.economy = economy
+
+	var sheet: Dictionary = MapPlayCivilians._context(play, builder)
+
+	assert_true(sheet.has("pick"), "an idle crew's sheet carries its pick")
+	assert_eq(
+		String((sheet["pick"] as Dictionary).get("action", "")), "build_improvement"
+	)
+	assert_false(
+		MapPlayCivilians._context(play).has("pick"), "no crew named, no pick"
+	)
+	builder.start_work("build_improvement", grain, 1)
+	assert_false(
+		MapPlayCivilians._context(play, builder).has("pick"),
+		"a crew at work is already spoken for"
+	)
+	layer.free()
+
+
 # --- map phase wiring (MapPlayEconomyAi) ------------------------------------
 
 
