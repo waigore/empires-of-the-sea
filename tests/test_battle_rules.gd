@@ -9412,7 +9412,9 @@ func test_a_wall_above_the_unlock_is_left_alone() -> void:
 
 ## The turn close reads both books: the rivals' rows and the crown's own report
 ## name the studies that finished, and each Great Power's capital follows its
-## own ledger.
+## own ledger. A rival's row is the whole economy report, so its research phase
+## rides under `research` — the shape `EconomyTurn.resolve` files and the
+## Gazette and spy despatch read.
 func test_the_turn_close_lifts_each_courts_own_capital() -> void:
 	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power, other_power, minor])
 	FortCapital.seed(model)
@@ -9422,10 +9424,38 @@ func test_the_turn_close_lifts_each_courts_own_capital() -> void:
 	var book := MapPlayTurnFinish.TurnBook.new()
 	book.crown_report = {"research": {"researched": ["modern_forts"]}}
 	book.economy_report = {"factions": {
-		other_power: {"resolved": {"researched": ["mine_engineering"]}},
-		minor: {"resolved": {"researched": ["modern_forts"]}},
+		other_power: {"resolved": {"research": {"researched": ["mine_engineering"]}}},
+		minor: {"resolved": {"research": {"researched": ["modern_forts"]}}},
 	}}
 	MapPlayTurnFinish._fort_upgrades(play, book)
 	assert_eq(model.provinces[0].fort_level, 3, "the crown's capital reached Modern")
 	assert_eq(model.provinces[1].fort_level, 2, "the rival's capital reached Stone")
 	assert_eq(model.provinces[2].fort_level, 1, "the Minor keeps its Wood wall")
+
+
+## A rival's row is the economy report, not the research report: the step reads
+## the nested `research` slot the ledger files. A row whose top level carries no
+## research phase moves nothing, and a row that is not a report at all is
+## skipped rather than trusted.
+func test_the_turn_close_reads_the_nested_research_report() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power, other_power])
+	FortCapital.seed(model)
+	var play := PlaySession.new()
+	play.world = _fort_capital_world(model)
+	play.player_faction = great_power
+	var book := MapPlayTurnFinish.TurnBook.new()
+	book.crown_report = {}
+	book.economy_report = {"factions": {
+		other_power: {"resolved": {"consumption": {}, "researched": ["mine_engineering"]}},
+	}}
+	MapPlayTurnFinish._fort_upgrades(play, book)
+	assert_eq(
+		model.provinces[1].fort_level, 1,
+		"a study filed outside the research phase lifts no wall"
+	)
+	book.economy_report = {"factions": {other_power: {"resolved": null}}}
+	MapPlayTurnFinish._fort_upgrades(play, book)
+	assert_eq(model.provinces[1].fort_level, 1, "a row with no report is skipped")
+	book.economy_report = {"factions": {other_power: {"resolved": {"research": null}}}}
+	MapPlayTurnFinish._fort_upgrades(play, book)
+	assert_eq(model.provinces[1].fort_level, 1, "a row with no research phase is skipped")
