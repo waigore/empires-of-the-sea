@@ -388,6 +388,45 @@ func test_mustering_a_regiment_is_queued_then_joins_the_home_army() -> void:
 	assert_eq(_screen.economy.economy.quantity("fabric"), fabric - 1)
 
 
+## The drill yard's one press files every ready standard, and the Build/work pass
+## musters them all (REQ-P5-04; DR-20261118-07). The press stands down while its
+## orders wait, so a second tap cannot double the line.
+func test_the_drill_yard_files_every_ready_standard_in_one_press() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.treasury = 500000
+	for commodity: String in ["fabric", "castIron", "bronze", "lumber", "horses"]:
+		economy.stockpile[commodity] = 400
+	economy.workers.add(WorkerPool.Tier.PEASANT, 12)
+	var before: int = home.count()
+	var ready: Array[String] = ArmyTraining.batch_types(economy)
+	assert_true(ready.size() >= 2, "the yard offers more than one payable row")
+
+	MapPlayArmies.show_panel(_screen.play, home)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	panel.set_muster_open(true)
+	var press: RaiseBatchPress = panel._muster_box._batch
+	assert_eq(press.text, "Muster all ready (%d)" % ready.size())
+
+	press.pressed.emit()
+	press.pressed.emit()
+
+	assert_eq(
+		economy.recruits.pending_kind(RecruitQueue.KIND_REGIMENT),
+		ready.size(),
+		"one order per ready row"
+	)
+	assert_true(_last_toast().contains("%d regiments are under orders" % ready.size()), _last_toast())
+	assert_false(press.visible, "every row waits on its order, so the press stands down")
+
+	MapPlayRecruits.complete(_screen.play)
+
+	assert_eq(home.count(), before + ready.size(), "the whole line joins the Home Army")
+	MapPlayArmies.show_panel(_screen.play, home)
+	assert_true(press.visible, "a paid-off yard offers the next line")
+
+
 ## The province panel's Recruit order opens the drill yard door on the Home Army
 ## and musters straight from it, so both entry points share one path.
 func test_the_drill_yard_door_musters_into_the_home_army() -> void:
@@ -857,6 +896,72 @@ func test_the_drill_yard_names_the_regiment_it_raises() -> void:
 		),
 		"the levy's published line, figure for figure"
 	)
+
+
+## The drill yard's batch walks the yard's order and reserves what each order
+## spends, so one press never files a standard the Build/work pass would refuse
+## (REQ-P2-03, REQ-P5-04; DR-20261118-07).
+func test_the_drill_yard_batch_reserves_the_ledger_each_order_spends() -> void:
+	var home := ArmyFixture.army(30, 0, 0, [], true)
+	var armies: Array[ArmyState] = [home]
+	var types: Array[String] = ["peasant_levies", "pikemen", "arquebusiers"]
+
+	var economy := PlayerEconomy.starting()
+	var result: Dictionary = ArmyTraining.queue_all(economy, armies, 0, types)
+	assert_eq(int(result["filed"]), 3, "every payable row files")
+	assert_eq(String(result["refusal"]), "", "nothing is refused")
+	assert_eq(
+		economy.recruits.pending_kind(RecruitQueue.KIND_REGIMENT),
+		3,
+		"one order per row"
+	)
+	assert_eq(
+		economy.available_peasants(),
+		PlayerEconomy.START_PEASANTS - 3,
+		"each standard reserves its peasant"
+	)
+
+	# Cash: the levy's price leaves the pikemen short.
+	economy = PlayerEconomy.starting()
+	economy.treasury = RegimentCatalog.treasury_cost("peasant_levies")
+	result = ArmyTraining.queue_all(
+		economy, armies, 0, ["peasant_levies", "pikemen"]
+	)
+	assert_eq(int(result["filed"]), 1, "only what the purse covers")
+	assert_eq(String(result["refusal"]), "Insufficient treasury")
+	assert_eq(economy.recruits.pending_kind(RecruitQueue.KIND_REGIMENT), 1)
+
+	# Materials: the levy takes the last bolt of cloth.
+	economy = PlayerEconomy.starting()
+	economy.stockpile["fabric"] = 1
+	result = ArmyTraining.queue_all(
+		economy, armies, 0, ["peasant_levies", "pikemen"]
+	)
+	assert_eq(int(result["filed"]), 1, "only what the stores cover")
+	assert_eq(String(result["refusal"]), "Insufficient materials")
+
+	# Hands: the queue reserves the peasant, so the second standard finds none.
+	economy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1)
+	result = ArmyTraining.queue_all(
+		economy, armies, 0, ["peasant_levies", "pikemen"]
+	)
+	assert_eq(int(result["filed"]), 1, "only what the pool covers")
+	assert_eq(String(result["refusal"]), "Insufficient workers")
+
+
+## The yard's one press reads only rows no waiting order claims, so a second
+## press never doubles a standard already under orders (DR-20261118-07).
+func test_the_drill_yard_batch_skips_a_standard_already_under_orders() -> void:
+	var home := ArmyFixture.army(31, 0, 0, [], true)
+	var armies: Array[ArmyState] = [home]
+	var economy := PlayerEconomy.starting()
+	economy.queue_build(RecruitQueue.KIND_REGIMENT, "peasant_levies")
+
+	var ready: Array[String] = ArmyTraining.batch_types(economy)
+
+	assert_false(ready.has("peasant_levies"), "a standard under orders is not re-filed")
+	assert_true(ready.has("pikemen"), "a row nothing claims still stands ready")
 
 
 func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:

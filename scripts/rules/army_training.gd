@@ -7,6 +7,11 @@ extends RefCounted
 ## New regiments always join the Home Army at the capital (wiki: military-armies).
 
 
+## A hard stop on the drill yard's one press: a sheet that never leaves a row
+## ready cannot spin, whatever a hand-built table holds (DR-20261118-07).
+const BATCH_LIMIT: int = 64
+
+
 ## The faction's Home Army among the given armies, or null. The list is read as
 ## the layer's generic roster, so a caller holding an untyped `Array` needs no
 ## copy of this scan.
@@ -56,6 +61,54 @@ static func muster_blocked_reason(
 	)
 
 
+## The drill yard's batch: one order per type the view prints, in its order,
+## each validated against the ledger the orders before it leave — the queue
+## reserves the peasant and this walk reserves the cash and the materials, so a
+## press can never file a standard the turn's Build/work would refuse (REQ-P2-03,
+## REQ-P5-04; DR-20261118-07). The walk stops at the first refusal, because that
+## refusal is the rules' answer for the realm. Returns {filed, total, refusal}.
+static func queue_all(
+	economy: PlayerEconomy,
+	armies: Array[ArmyState],
+	owner: int,
+	types: Array[String]
+) -> Dictionary:
+	var result: Dictionary = {"filed": 0, "total": types.size(), "refusal": ""}
+	if economy == null or home_army(armies, owner) == null:
+		result["refusal"] = "Regiments muster only in the Home Army."
+		return result
+	var treasury: int = economy.treasury
+	var stock: Dictionary = economy.stockpile.duplicate()
+	for type_id: String in types:
+		if int(result["filed"]) >= BATCH_LIMIT:
+			break
+		var reason: String = RegimentEconomy.blocked_reason(
+			type_id, treasury, stock, economy.available_peasants(), economy.tech_unlocked
+		)
+		if not reason.is_empty():
+			result["refusal"] = reason
+			break
+		economy.queue_build(RecruitQueue.KIND_REGIMENT, type_id)
+		treasury -= RegimentCatalog.treasury_cost(type_id)
+		var inputs: Dictionary = RegimentEconomy.training_inputs(type_id)
+		for commodity: Variant in inputs.keys():
+			var id: String = String(commodity)
+			stock[id] = int(stock.get(id, 0)) - int(inputs[commodity])
+		result["filed"] = int(result["filed"]) + 1
+	return result
+
+
+## The types the drill yard's one press would file: every row the crown can pay
+## for now that no order already claims. The same flag the rows carry, so the
+## press's count and the orders it files can never disagree (REQ-P5-04).
+static func batch_types(economy: PlayerEconomy) -> Array[String]:
+	var types: Array[String] = []
+	for row: Dictionary in rows(economy):
+		if bool(row.get("batch_ready", false)):
+			types.append(String(row["type_id"]))
+	return types
+
+
 ## One ledger row per catalog type, tech-gated and priced for the muster panel.
 ## Buildable rows come first so the drill yard leads with what can march today.
 static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
@@ -80,6 +133,11 @@ static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
 			"reason": reason,
 			"pending": economy.recruits.pending(RecruitQueue.KIND_REGIMENT, type_id),
 		}
+		# What the yard's one press would file: a payable row no waiting order
+		# already claims. The press's count and the orders it files read this one
+		# flag, so a standard cannot be ordered twice by a single press
+		# (REQ-P5-04; DR-20261118-07).
+		row["batch_ready"] = bool(row["ok"]) and int(row["pending"]) == 0
 		if row["ok"]:
 			open_rows.append(row)
 		else:
