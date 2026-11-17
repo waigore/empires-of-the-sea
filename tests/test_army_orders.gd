@@ -818,6 +818,34 @@ func test_roster_rows_carry_regiment_detail() -> void:
 	panel.free()
 
 
+func test_the_drill_yard_names_the_regiment_it_raises() -> void:
+	var economy := PlayerEconomy.starting()
+	var rows: Array[Dictionary] = ArmyTraining.rows(economy)
+	assert_false(rows.is_empty(), "the yard offers the catalogue")
+	for row: Dictionary in rows:
+		var type_id: String = String(row["type_id"])
+		assert_eq(
+			String(row["line"]),
+			RegimentCatalog.muster_line(type_id),
+			"every row carries the catalogue's own line"
+		)
+		assert_true(
+			String(row["line"]).contains(
+				"%d strength" % RegimentCatalog.strength(type_id)
+			),
+			String(row["line"])
+		)
+	# The roster's line is unchanged; the yard adds the strength and nothing else.
+	assert_eq(
+		RegimentCatalog.detail_line("guards"),
+		"Heavy infantry · FPN 12 · FPM 10 · RNG 6 · DEF 6 · MVR 4 · 3 food"
+	)
+	assert_eq(
+		RegimentCatalog.muster_line("guards"),
+		"Heavy infantry · FPN 12 · FPM 10 · RNG 6 · DEF 6 · MVR 4 · 22 strength · 3 food"
+	)
+
+
 func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)

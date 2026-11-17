@@ -1092,6 +1092,71 @@ func test_a_rival_squadron_carries_no_yard_rows() -> void:
 	)
 
 
+## The yard names the hull a crown would buy, not only her price: her own combat
+## line and the holds her class carries, the same words THE CROWN'S NAVY prints
+## for a hull already afloat (wiki: ships-and-naval § Ship combat and cargo stats;
+## REQ-P5-06). A hull the crown cannot launch yet keeps her line too — the study
+## that opens her is planned against her numbers.
+func test_the_yard_names_the_hull_before_the_crown_pays_for_her() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	MapPlayFleetYard.open(_screen.play)
+	var rows: Array[Dictionary] = _screen.hud.panels.fleet_panel._yard._rows
+	var by_type: Dictionary = {}
+	for row: Dictionary in rows:
+		by_type[String(row["type_id"])] = row
+
+	assert_true(by_type.has("carrack"), "the carrack is on the slip")
+	assert_eq(
+		String((by_type["carrack"] as Dictionary)["line"]),
+		NavalStrength.hull_line("carrack") + " · 3 holds for the world market",
+		"a merchant names her holds beside her numbers"
+	)
+	assert_true(by_type.has("frigate"), "a study-locked hull keeps her row")
+	assert_eq(
+		String((by_type["frigate"] as Dictionary)["line"]),
+		NavalStrength.hull_line("frigate") + " · No holds — she fights in the line",
+		"a warship names the holds she does not carry"
+	)
+	assert_eq(
+		String(FleetYard.hull_line("indiaman")),
+		NavalStrength.hull_line("indiaman") + " · 8 holds for the world market",
+		"one reading for the yard and the navy sheet"
+	)
+
+
+## The line reaches the sheet on both the launch rows and the break-up rows, so
+## a phone reads the hull's numbers with no hover (REQ-P5-06, REQ-P5-07).
+func test_the_shipyard_row_prints_the_hull_numbers() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	MapPlayFleetYard.open(_screen.play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var launch_row: Control = yard._box.get_child(1)
+	var first: Dictionary = yard._rows[0]
+
+	assert_true(
+		_printed_lines(launch_row).has(String(first["line"])),
+		"the launch row prints her numbers under her price"
+	)
+	yard._fleet = FleetState.in_port(1, 0, 0, ["frigate_1"], {"frigate_1": "frigate"})
+	var hull_row: Control = yard._hull_row("frigate_1")
+	assert_true(
+		_printed_lines(hull_row).has(FleetYard.hull_line("frigate")),
+		"the break-up row prints the same line"
+	)
+
+
+## Every wrapped detail line a drawer row carries: the price, the wait and now
+## the hull's own numbers.
+func _printed_lines(entry: Control) -> Array[String]:
+	var out: Array[String] = []
+	for child: Node in entry.get_children():
+		if child is Label:
+			out.append((child as Label).text)
+	return out
+
+
 ## A lost capital says why instead of opening a slip the crown cannot use.
 func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 	var play: PlaySession = _screen.play
