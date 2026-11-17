@@ -179,7 +179,8 @@ static func resolve(
 			lost = ArmyForce.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
 		else:
 			lost = ArmyForce.apply_losses(
-				armies, enemy_side, wanted, 0, Callable(), enemy_wings[wing] as Array[String]
+				armies, enemy_side, wanted, 0, Callable(),
+				QuickBattleWings.ids(enemy_wings, wing)
 			)
 	enemy["lost"].append_array(lost)
 	# The blow that broke a regiment also mauls the men still standing: the
