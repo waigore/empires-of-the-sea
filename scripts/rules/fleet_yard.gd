@@ -6,6 +6,14 @@ extends RefCounted
 ## materials and one peasant, and leaves marker work to the layer
 ## (REQ-P3-03). One gate for the panel and the order path (REQ-P2-03).
 
+## A hard stop on the yard's one press: a slip that never leaves a row ready
+## cannot spin, whatever a hand-built table holds (DR-20261118-08).
+const BATCH_LIMIT: int = 64
+
+## The reason every row carries away from the crown's capital port; the one press
+## speaks the same words, so both read one gate (REQ-P2-03).
+const NOT_AT_HOME: String = "Launch hulls at your capital port."
+
 
 ## The hull a crown is weighing, in the words THE CROWN'S NAVY prints for a hull
 ## she already floats: her own combat line (`NavalStrength.hull_line`, the
@@ -44,7 +52,7 @@ static func rows(
 				economy.tech_unlocked, flown
 			)
 		else:
-			reason = "Launch hulls at your capital port."
+			reason = NOT_AT_HOME
 		var row: Dictionary = {
 			"type_id": type_id,
 			"name": ShipStats.display_name(type_id),
@@ -56,12 +64,71 @@ static func rows(
 			"reason": reason,
 			"pending": economy.recruits.pending(RecruitQueue.KIND_SHIP, type_id),
 		}
+		# What the yard's one press would lay down: a payable row no waiting order
+		# already claims. The press's count and the hulls it files read this one
+		# flag, so a hull cannot be ordered twice by a single press (REQ-P5-04;
+		# DR-20261118-08).
+		row["batch_ready"] = bool(row["ok"]) and int(row["pending"]) == 0
 		if row["ok"]:
 			open_rows.append(row)
 		else:
 			locked.append(row)
 	open_rows.append_array(locked)
 	return open_rows
+
+
+## The yard's batch: one hull per type the slip prints, in its order, each
+## validated against the ledger the orders before it leave — the queue reserves
+## the peasant and this walk draws the cash and the materials down, so a press
+## can never file a hull the turn's Build/work would refuse (REQ-P2-03,
+## REQ-P5-04; DR-20261118-08). The walk stops at the first refusal, because that
+## refusal is the rules' answer for the realm. Returns {filed, total, refusal}.
+static func queue_all(
+	economy: PlayerEconomy,
+	at_home: bool,
+	types: Array[String],
+	flown: Array = []
+) -> Dictionary:
+	var result: Dictionary = {"filed": 0, "total": types.size(), "refusal": ""}
+	if economy == null:
+		result["refusal"] = "There is no court to pay for her."
+		return result
+	if not at_home:
+		result["refusal"] = NOT_AT_HOME
+		return result
+	var treasury: int = economy.treasury
+	var stock: Dictionary = economy.stockpile.duplicate()
+	for type_id: String in types:
+		if int(result["filed"]) >= BATCH_LIMIT:
+			break
+		var reason: String = ShipEconomy.blocked_reason(
+			type_id, treasury, stock, economy.available_peasants(),
+			economy.tech_unlocked, flown
+		)
+		if not reason.is_empty():
+			result["refusal"] = reason
+			break
+		economy.queue_build(RecruitQueue.KIND_SHIP, type_id)
+		treasury -= ShipEconomy.treasury_cost(type_id)
+		var inputs: Dictionary = ShipEconomy.build_inputs(type_id)
+		for commodity: Variant in inputs.keys():
+			var id: String = String(commodity)
+			stock[id] = int(stock.get(id, 0)) - int(inputs[commodity])
+		result["filed"] = int(result["filed"]) + 1
+	return result
+
+
+## The types the yard's one press would lay down: every row the crown can pay
+## for now that no order already claims. The same flag the rows carry, so the
+## press's count and the hulls it files can never disagree (REQ-P5-04).
+static func batch_types(
+	economy: PlayerEconomy, at_home: bool = true, flown: Array = []
+) -> Array[String]:
+	var types: Array[String] = []
+	for row: Dictionary in rows(economy, at_home, flown):
+		if bool(row.get("batch_ready", false)):
+			types.append(String(row["type_id"]))
+	return types
 
 
 ## Pays for one hull and appends it to the fleet. `hull_id` is the caller's
