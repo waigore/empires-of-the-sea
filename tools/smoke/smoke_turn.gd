@@ -172,6 +172,12 @@ static func _college(run, screen: MapScreen) -> void:
 	await run.tree.process_frame
 	run.check(screen.hud.panels.is_research_open(), "college opens")
 	var college: ResearchPanel = screen.hud.panels.research_panel
+	# An open advance names what the study opens under its price, so a touch
+	# crown reads the payoff before the press (REQ-P1-05; DR-20261118-04).
+	run.check(
+		run.has_text(college, "Improves: extraction cap Timber 2."),
+		"an open advance names what it opens"
+	)
 	var door: Button = _door(college)
 	run.check(door != null, "the college offers the chart")
 	if door != null:
