@@ -255,7 +255,7 @@ static func order_label(
 ## transport a road, a harbour or a railroad brings to the tile (DR-20261117-05).
 static func option_row(
 	action: String, model: MapModel, tile: Vector2i, works: LandWorks,
-	check: Dictionary, plain: String
+	check: Dictionary, plain: String, blockade: Blockades = null
 ) -> Dictionary:
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
 	var price: String = cost_text(cost)
@@ -265,7 +265,7 @@ static func option_row(
 		"label": order_label(action, model, tile, plain),
 		"cost": cost,
 		"cost_text": price,
-		"preview_text": _preview(action, model, tile, works),
+		"preview_text": _preview(action, model, tile, works, blockade),
 	}
 	if action != "build_fort":
 		return row
@@ -280,9 +280,10 @@ static func option_row(
 ## price buys ([DeedTerms]). Empty for every other order: those are priced where
 ## their own ledger prints the payoff.
 static func _preview(
-	action: String, model: MapModel, tile: Vector2i, works: LandWorks
+	action: String, model: MapModel, tile: Vector2i, works: LandWorks,
+	blockade: Blockades = null
 ) -> String:
-	var transport: String = transport_preview(action, model, tile, works)
+	var transport: String = transport_preview(action, model, tile, works, blockade)
 	if not transport.is_empty():
 		return transport
 	if action == "upgrade_town":
@@ -300,11 +301,14 @@ static func _preview(
 ## the sea road. Empty for every other order: those are priced where their own
 ## ledger prints the payoff (REQ-P5-06, REQ-P2-03; DR-20261117-05).
 static func transport_preview(
-	action: String, model: MapModel, tile: Vector2i, works: LandWorks
+	action: String, model: MapModel, tile: Vector2i, works: LandWorks,
+	blockade: Blockades = null
 ) -> String:
 	if not CivilianTransport.knows(action):
 		return ""
-	var level: int = transport_after(action, current_transport(model, tile, works))
+	var level: int = transport_after(
+		action, current_transport(model, tile, works, blockade)
+	)
 	var text: String = "Transport %d — an estate here gathers up to %d a turn" % [
 		level, level
 	]
@@ -318,14 +322,18 @@ static func transport_preview(
 ## harbour — the harbour's level 4 (wiki: extraction-and-improvements
 ## § Transport Level, "Adjacent port tile grants level 4 to that tile"). The
 ## preview reads it so the road row never prices a harbour's estate as a
-## one-turn road, nor promises less than the land already gathers.
+## one-turn road, nor promises less than the land already gathers. A sealed
+## harbour is no landfall, so the blockade takes its grant with it and the tile
+## keeps only the grade its own road carries (wiki: capital-and-connectivity
+## § Blockade).
 static func current_transport(
-	model: MapModel, tile: Vector2i, works: LandWorks
+	model: MapModel, tile: Vector2i, works: LandWorks,
+	blockade: Blockades = null
 ) -> int:
 	if model == null or works == null:
 		return 0
 	var level: int = works.transport_at(model, tile)
-	if works.has_port(model, tile):
+	if works.has_port(model, tile) and not Blockades.seals_harbour(blockade, model, tile):
 		return LandWorks.TRANSPORT_RAIL
 	var owner: int = model.owner_at(tile.x, tile.y)
 	for offset: Vector2i in [
@@ -336,7 +344,7 @@ static func current_transport(
 			continue
 		if model.owner_at(next.x, next.y) != owner:
 			continue
-		if works.has_port(model, next):
+		if works.has_port(model, next) and not Blockades.seals_harbour(blockade, model, next):
 			return LandWorks.TRANSPORT_RAIL
 	return level
 

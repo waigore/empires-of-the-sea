@@ -314,7 +314,15 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 ## next (REQ-P5-06; DR-20261117-06). A rival's crew carries no pick here: its
 ## orders belong to its own crown, and the planner is asked for ours alone.
 static func _context(play: PlaySession, unit: CivilianState = null) -> Dictionary:
-	var context: Dictionary = {"treasury": play.treasury(), "diplomacy": play.diplomacy}
+	var context: Dictionary = {
+		"treasury": play.treasury(),
+		"diplomacy": play.diplomacy,
+		# The court's sealed coasts, so a work row prices the harvest the phase
+		# will pay: a blockaded harbour is no landfall and grants nothing to
+		# itself or the land beside it (wiki: capital-and-connectivity
+		# § Blockade; REQ-P2-03).
+		"blockade": MapPlayBlockades.crown(play),
+	}
 	if unit == null or unit.owner != play.player_faction or unit.is_working():
 		return context
 	var pick: Dictionary = MapPlayCivilianPick.picks(
