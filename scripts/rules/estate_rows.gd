@@ -87,7 +87,14 @@ static func project(
 		next_output = Extraction.effective_yield(
 			next_level, mini(tech_cap, terrain_cap), transport, town_cap
 		) * Extraction.estate_yield_per_level(owner, commodity)
-	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
+	# The H8 feedstock bootstrap may waive a level-1 raise's inputs (wiki:
+	# extraction-and-improvements § H8 feedstock bootstrap; #878). A maxed tile
+	# shows the full table cost for its level.
+	var cost: Dictionary = (
+		CivilianWorkPlan.bootstrap_cost(model, tile, stockpile, next_level)
+		if next_level > level
+		else CivilianWork.cost_for("build_improvement", next_level)
+	)
 	var builder: CivilianState = _nearest(idle, tile)
 	var status: String = status_for(level, is_connected, working, mineral, prospected)
 	var status_text: String = _status_text(

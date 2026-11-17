@@ -111,7 +111,7 @@ static func plan_all(
 		)
 		if earn:
 			keep_extraction(plan, model)
-		price(plan["orders"], model, works)
+		price(plan["orders"], model, works, stockpile)
 		plans.append({
 			"region": region,
 			"model": model,
@@ -167,14 +167,26 @@ static func keep_extraction(plan: Dictionary, model: MapModel) -> void:
 ## The material row a planned work will be charged when it is assigned, read from
 ## the same two rules the assignment itself reads, so the row the market keeps
 ## back is the row the crew pays (wiki: civilian-units § Work Order Summary).
-static func price(orders: Array, model: MapModel, works: LandWorks) -> void:
+## Prices the orders the pass planned: the same cost maths the assignment
+## charges, with the H8 feedstock bootstrap read against the ledger the works
+## were planned against, so a waived raise reserves no material it will not
+## spend (wiki: extraction-and-improvements § H8 feedstock bootstrap; #878).
+static func price(
+	orders: Array, model: MapModel, works: LandWorks, stockpile: Dictionary = {}
+) -> void:
 	for raw: Variant in orders:
 		var order: Dictionary = raw
 		var action: String = String(order.get("action", ""))
 		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
-		order["cost"] = CivilianWork.cost_for(
+		var cost: Dictionary = CivilianWork.cost_for(
 			action, CivilianWork.cost_level(action, model, tile, works)
 		)
+		if action == "build_improvement":
+			cost = CivilianWorkPlan.bootstrap_cost(
+				model, tile, stockpile,
+				CivilianWork.cost_level(action, model, tile, works)
+			)
+		order["cost"] = cost
 
 
 ## The material rows the planned works will be charged, read ahead of the sale
