@@ -9,6 +9,11 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var owner: int = int(action.get("side", 0))
 	var label: String = String(action.get("label", "Action"))
 	var text: String = "%s — %s" % [faction(owner, names), label]
+	# A sally leaves the parapet: the wall no longer shelters the garrison for
+	# the round, and the court is told before the price is (wiki: quick-battle
+	# § Turn structure and actions — Sortie; siege-mechanics § Gates and Sortie).
+	if bool(action.get("sortie", false)):
+		text += " · the wall stands open"
 	# A despatch reports what the action did to the other side; the acting side's
 	# own losses (an assault's price) follow so the round reads honestly.
 	var attacking: bool = owner == int(battle.get("attacker", -1))
@@ -34,20 +39,51 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var gates: int = int(action.get("gates_broken", 0))
 	if gates > 0:
 		text += " · %d gate%s breached" % [gates, "" if gates == 1 else "s"]
-	# The wing the blow fell on, and the wing it broke (wiki: quick-battle
-	# § Wings and collapse).
+	# The wing the blow fell on, why it fell heavier, and the wing it broke
+	# (wiki: quick-battle § Wings and collapse).
 	var wing: String = String(action.get("wing", ""))
 	if not wing.is_empty():
 		text += " · into the %s" % QuickBattleWings.label(wing)
-	var broke: Array = action.get("wing_broken", []) as Array
+		var flank: float = float(action.get("flank", 1.0))
+		if flank >= QuickBattleWings.ENCIRCLED_SCALE:
+			text += " · taken from three sides"
+		elif flank > 1.0:
+			text += " · its flank is turned"
+	var broke: String = _broke_clause(action.get("wing_broken", []) as Array, false)
 	if not broke.is_empty():
-		var names_broken: PackedStringArray = PackedStringArray()
-		for lane: String in broke:
-			names_broken.append(QuickBattleWings.label(lane))
-		text += " · the %s breaks" % " and ".join(names_broken)
+		text += " · %s" % broke
+	var own_broke: String = _broke_clause(action.get("own_broken", []) as Array, true)
+	if not own_broke.is_empty():
+		text += " · %s" % own_broke
 	if inflicted <= 0 and int(action.get("turned", 0)) > 0:
 		text += " · the wall turns it aside"
 	return text
+
+
+## "the left breaks" / "the left and right break": a wing is named once, on the
+## blow that emptied it, and on the line it stood in — the enemy's, or the
+## actor's own (wiki: quick-battle § Wings and collapse).
+static func _broke_clause(wings: Array, own: bool) -> String:
+	if wings.is_empty():
+		return ""
+	var names: PackedStringArray = PackedStringArray()
+	for wing: String in wings:
+		names.append(QuickBattleWings.label(wing))
+	return "%s%s %s" % [
+		"its own " if own else "the ", _joined(names),
+		"breaks" if names.size() == 1 else "break",
+	]
+
+
+## "a, b and c" — a list read as prose.
+static func _joined(words: PackedStringArray) -> String:
+	if words.is_empty():
+		return ""
+	if words.size() == 1:
+		return words[0]
+	return "%s and %s" % [
+		", ".join(words.slice(0, words.size() - 1)), words[words.size() - 1]
+	]
 
 
 ## The stance line the plate prints: the player's own plan first (it is the one
@@ -93,7 +129,7 @@ static func wings_line(battle: Dictionary, names: Array) -> String:
 			var lost: PackedStringArray = PackedStringArray()
 			for wing: String in down:
 				lost.append(QuickBattleWings.label(wing))
-			text += " · %s broken" % " and ".join(lost)
+			text += " · %s broken" % _joined(lost)
 		parts.append(text)
 	if parts.is_empty():
 		return ""

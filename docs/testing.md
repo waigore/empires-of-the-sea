@@ -80,9 +80,10 @@ godot --headless --path . --script res://tools/e2e_smoke.gd
 # charts and prospects, printing one line per step.
 godot --headless --path . --script res://playtests/playtest_new_world.gd
 
-# Quick Battle — declares war, resolves an attacking field battle, a siege and a
-# defending battle through the play helpers, printing every despatch line the
-# plate shows.
+# Quick Battle — declares war, resolves an attacking field battle, a battle of
+# horse and foot (the wings each line stands in, the flank a blow falls on and
+# the break it makes), a siege and a defending battle through the play helpers,
+# printing every despatch line the plate shows.
 godot --headless --path . --script res://playtests/playtest_quick_battle.gd
 
 # Battle Simulator — a visual sandbox over the live Quick Battle resolver:

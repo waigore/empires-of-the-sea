@@ -225,7 +225,11 @@ static func _round(
 		for action: String in QuickBattleActions.actions_for(
 			String(state[key]["plan"]), key == "defender", siege
 		):
-			if cp < int(QuickBattleActions.ACTION_CP[action]):
+			## A line that has lost its last regiment spends no point and
+			## delivers no blow (wiki: quick-battle § Outcome and integration).
+			if cp < int(QuickBattleActions.ACTION_CP[action]) \
+				or ArmyForce.side_regiments(atk_side) == 0 \
+				or ArmyForce.side_regiments(def_side) == 0:
 				break
 			cp -= int(QuickBattleActions.ACTION_CP[action])
 			var entry: Dictionary = QuickBattleActions.resolve(
@@ -233,15 +237,11 @@ static func _round(
 			)
 			log["actions"].append(entry)
 			## A wing that lost its last regiment to this blow has broken: named
-			## once, on the action that did it (wiki: quick-battle § Wings and
-			## collapse).
-			var broken_now: Array[String] = QuickBattleWings.fell(state, enemy_key)
-			broken_now.append_array(QuickBattleWings.fell(state, key))
-			if not broken_now.is_empty():
-				entry["wing_broken"] = broken_now
+			## once, on the action that did it, on the line it stood in.
+			entry.merge(QuickBattleWings.marks(state, key, enemy_key))
 		# The emplaced battery fires after the side's actions, into one wing of
-		# the besieging line like any other blow; a wing its fire empties breaks
-		# on that same blow (wiki: quick-battle § Wings and collapse).
+		# the besieging line; the guns are the fort's own units
+		# (wiki: quick-battle § Wings and collapse).
 		if key == "defender" and QuickBattleBattery.alive(guns) > 0:
 			var shot: Dictionary = QuickBattleBattery.fire(armies, state, guns)
 			var hit: int = int(shot["lost"])

@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-10 vs code through #898 (REQ-P2-02).
+Audited: DR-20261117-10 vs code through #903 (REQ-P2-02).
 
 ## Already live
 
@@ -39,11 +39,11 @@ Audited: DR-20261117-10 vs code through #898 (REQ-P2-02).
 
 ## Gaps (ranked)
 
-None open: the pick family's last door (a railroad) closed in DR-17-10.
+None open: the pick family's last door (a railroad) closed in DR-17-10 / #902.
 
 ## Next pick
 
-P5/P1 polish; re-audit wiki.
+P5/P1 polish (observer province sheet / feed depth); re-audit wiki.
 
 ## Blocked
 
@@ -63,9 +63,9 @@ P5/P1 polish; re-audit wiki.
 
 ## Wiki drift
 
-- `civilian-build-planner` / learnings: raise + pick + chart mark + Follow door
-  live (DR-17-03/05/06/07/09).
+- `playtest-learnings`: railroad Follow "next" is stale — live DR-17-10 / #902.
+- `civilian-build-planner`: pick family closed (DR-17-03/05/06/07/09/10).
 - `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
 - `phase-planner-*`: six slots live; soft weight seed (DR-17-01).
-- `production-recipes`: rival second-stage live #798.
+- `production-recipes`: still marks rival second-stage deferred; live #798.
 - DR-11-17 prizes, fleetless leg — live (`MapPlayRaids`).
