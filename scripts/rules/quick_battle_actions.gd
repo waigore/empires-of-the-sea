@@ -127,8 +127,12 @@ static func resolve(
 	ratio *= SiegeLanes.terrain_scale(acted, ground)
 	## A wing taken in flank: a blow that lands beside a wing the enemy has
 	## already lost is heavier, and heavier still from both sides (wiki:
-	## quick-battle § Wings and collapse).
-	ratio *= QuickBattleWings.turned_scale(wing, enemy.get("broken", []) as Array)
+	## quick-battle § Wings and collapse). The scale is kept on the blow so the
+	## despatch can name why it fell heavier.
+	var flank: float = QuickBattleWings.turned_scale(wing, enemy.get("broken", []) as Array)
+	ratio *= flank
+	if flank > 1.0:
+		entry["flank"] = flank
 	var enemy_count: int = ArmyForce.side_regiments(enemy_side)
 	## The action's published share of a line, spent as tactical weight: a
 	## stronger line breaks more of the enemy, and a tougher enemy line loses
@@ -156,6 +160,10 @@ static func resolve(
 		if not sortie:
 			wanted = ceili(float(wanted) * SiegeLanes.return_fire_share(me_side))
 	if enemy_count <= 0:
+		## Nothing stands to be struck: the blow names no wing, because naming
+		## one would point at men who have already fallen (wiki: quick-battle
+		## § Wings and collapse).
+		entry["wing"] = ""
 		return entry
 	var lost: Array[String] = []
 	if wanted > 0 and siege and key == "attacker":

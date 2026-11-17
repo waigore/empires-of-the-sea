@@ -1852,6 +1852,66 @@ func test_civilian_presence_holds_a_foreign_province() -> void:
 	data__visibility.end_of_turn([])
 	assert_false(data__visibility.is_province_fully_visible(1))
 
+
+## Presence holds only for the crews the wiki names: an Explorer or a Spy
+## (wiki: fog-and-exploration § Visibility Levels, § Fog Decay). A Merchant
+## crosses borders like an Explorer but is not a survey.
+func test_only_an_explorer_or_a_spy_holds_a_foreign_province() -> void:
+	_setup_visibility()
+	var merchant: Array[CivilianState] = [
+		CivilianState.create(1, PLAYER, "merchant", Vector2i(3, 1)),
+	]
+	var builder: Array[CivilianState] = [
+		CivilianState.create(2, PLAYER, "builder", Vector2i(3, 1)),
+	]
+	var explorer: Array[CivilianState] = [
+		CivilianState.create(3, PLAYER, "explorer", Vector2i(3, 1)),
+	]
+	var spy: Array[CivilianState] = [
+		CivilianState.create(4, PLAYER, "spy", Vector2i(3, 1)),
+	]
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, merchant, PLAYER), [])
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, builder, PLAYER), [])
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, explorer, PLAYER), [1])
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, spy, PLAYER), [1])
+
+
+## A Merchant standing in a rival province is not an Explorer: the province's
+## charted ground decays at the close of the turn like any other foreign ground.
+func test_a_merchant_does_not_keep_a_rival_province_visible() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	var merchant: Array[CivilianState] = [
+		CivilianState.create(1, PLAYER, "merchant", Vector2i(3, 1)),
+	]
+	var held: Array = CivilianMovement.held_provinces(_visibility_model, merchant, PLAYER)
+	data__visibility.end_of_turn([], held)
+	assert_false(
+		data__visibility.is_province_fully_visible(1),
+		"a merchant's presence charts nothing"
+	)
+
+
+## Taking a province clears its Spy clock (wiki: fog-and-exploration § Spy timer
+## expiry), so a timer booked while the ground was foreign cannot hold it again
+## after the crown loses it.
+func test_taking_a_province_clears_its_spy_clock() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	data__visibility.end_of_turn([], [1], [1])
+	assert_eq(data__visibility.spy_charter.left(1), SpyCharter.TURNS)
+	_visibility_model.provinces[1].owner = PLAYER
+	data__visibility.end_of_turn([], [], [])
+	assert_eq(data__visibility.spy_charter.left(1), 0, "ownership clears the clock")
+	assert_true(data__visibility.is_province_fully_visible(1))
+	# Lost again: no clock survives to hold the ground for the old owner.
+	_visibility_model.provinces[1].owner = 2
+	data__visibility.end_of_turn([], [], [])
+	assert_false(
+		data__visibility.is_province_fully_visible(1),
+		"the conquest cleared the grace, so the ground fogs at once"
+	)
+
 func test_a_departed_spy_leaves_five_turns_of_charter() -> void:
 	_setup_visibility()
 	# Spy timer expiry (wiki: fog-and-exploration § Spy timer expiry): the

@@ -21,7 +21,14 @@ var _left: Dictionary = {}
 ## crown stands in; `own` lists the crown's own provinces, which never take a
 ## clock. Returns the provinces the crown still holds through the grace,
 ## ascending.
+##
+## Taking a province clears its clock at once (wiki: fog-and-exploration
+## § Spy timer expiry — ownership removes the entry and the timer can no longer
+## cause decay there), so a timer booked while the province was foreign cannot
+## outlive the conquest and hold the ground again if the crown later loses it.
 func book(present: Array, own: Array = []) -> Array:
+	for raw: Variant in own:
+		_left.erase(int(raw))
 	var standing: Array = []
 	for raw: Variant in present:
 		var province: int = int(raw)

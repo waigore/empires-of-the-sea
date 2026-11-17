@@ -11,6 +11,11 @@ const NEIGHBORS: Array[Vector2i] = [
 ## Civilian types that cross into land their crown does not own (wiki:
 ## civilian-units § Spy — a Spy is at large, invisible to other players).
 const FREE_ROAMERS: Array[String] = ["explorer", "merchant", "spy"]
+## The only crews whose presence holds a province's charted tiles fully visible
+## (wiki: fog-and-exploration § Visibility Levels — "presence of an Explorer or
+## a Spy only holds a tile the owner already knows at fogged"). A Merchant or a
+## Builder standing on foreign ground charts nothing: it is not a survey.
+const HOLDERS: Array[String] = ["explorer", SpyRules.TYPE]
 
 
 ## Tiles the unit could enter this turn (empty while working or after a move).
@@ -89,16 +94,18 @@ static func begin_turn(units: Array[CivilianState]) -> void:
 
 
 ## Presence holds, presence never reveals (wiki: fog-and-exploration § Explorer
-## vs Spy; DR-20261109-04): an Explorer, Builder, Engineer or Spy in a province
-## keeps that province's charted tiles fully visible for its crown. None of them
-## promotes an `unknown` tile — only explore, a landing or a ship's coastal ring
-## does that. A Spy is the only one that may stand on a rival's land.
+## vs Spy; DR-20261109-04): an Explorer or a Spy in a province keeps that
+## province's charted tiles fully visible for its crown. No other crew holds —
+## a Merchant or a Builder standing on foreign ground is not a survey, so the
+## province decays like any other (wiki: § Fog Decay — "when no Explorer or Spy
+## of the viewer remains"). None of them promotes an `unknown` tile: only
+## explore, a landing or a ship's coastal ring does that.
 static func held_provinces(
 	model: MapModel, units: Array[CivilianState], owner: int
 ) -> Array:
 	var result: Array = []
 	for unit: CivilianState in units:
-		if unit == null or unit.owner != owner:
+		if unit == null or unit.owner != owner or not HOLDERS.has(unit.type_id):
 			continue
 		var province: int = model.province_at(unit.tile.x, unit.tile.y)
 		if province != MapModel.NO_ID and not result.has(province):
