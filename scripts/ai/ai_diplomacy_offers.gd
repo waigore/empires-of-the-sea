@@ -163,16 +163,16 @@ static func _trade_pact(
 	min_improve: int,
 	relation: float
 ) -> Dictionary:
-	if DiplomacyFtp.is_ftp(state, faction, target):
+	if DiplomacyTrade.is_ftp(state, faction, target):
 		if relation > REVOKE_MAX_RELATION:
 			return _blocked("the trade pact still matches the standing", KIND_REVOKE_FTP)
-		var revoke: Dictionary = DiplomacyFtp.can_revoke(state, faction, target)
+		var revoke: Dictionary = DiplomacyTrade.can_revoke_ftp(state, faction, target)
 		if not bool(revoke.get("ok", false)):
 			return _blocked(String(revoke.get("reason", "no trade order")), KIND_REVOKE_FTP)
 		return _offer(KIND_REVOKE_FTP, target, desire - REVOKE_UTILITY_COST)
 	if improve < min_improve or relation < DiplomacyCatalog.FTP_MIN_SCORE:
 		return _blocked("the court is not warm enough for a trade pact", KIND_FTP)
-	var check: Dictionary = DiplomacyFtp.can_establish(state, faction, target)
+	var check: Dictionary = DiplomacyTrade.can_establish_ftp(state, faction, target)
 	if not bool(check.get("ok", false)):
 		return _blocked(String(check.get("reason", "no trade pact")), KIND_FTP)
 	return _offer(KIND_FTP, target, improve - FTP_UTILITY_COST + config.trade_bias())
@@ -243,16 +243,16 @@ static func _subsidy(
 static func _boycott(
 	state: DiplomacyState, faction: int, target: int, relation: float, improve: int
 ) -> Dictionary:
-	if DiplomacyBoycott.is_boycotting(state, faction, target):
+	if DiplomacyTrade.is_boycotting(state, faction, target):
 		if relation < RECOVERED_RELATION:
 			return _blocked("the standing has not recovered", KIND_REVOKE_BOYCOTT)
-		var revoke: Dictionary = DiplomacyBoycott.can_revoke(state, faction, target)
+		var revoke: Dictionary = DiplomacyTrade.can_revoke_boycott(state, faction, target)
 		if not bool(revoke.get("ok", false)):
 			return _blocked(String(revoke.get("reason", "no boycott order")), KIND_REVOKE_BOYCOTT)
 		return _offer(KIND_REVOKE_BOYCOTT, target, improve - FTP_UTILITY_COST)
 	if relation > BOYCOTT_MAX_RELATION:
 		return _blocked("relations are not cold enough for a boycott", KIND_BOYCOTT)
-	var check: Dictionary = DiplomacyBoycott.can_boycott(state, faction, target)
+	var check: Dictionary = DiplomacyTrade.can_boycott(state, faction, target)
 	if not bool(check.get("ok", false)):
 		return _blocked(String(check.get("reason", "no boycott")), KIND_BOYCOTT)
 	return _offer(

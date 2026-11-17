@@ -1,15 +1,48 @@
 class_name DiplomacyTrade
 extends RefCounted
 ## Trade diplomacy spine: KIND aliases the court order catalogue still names,
-## and war's commercial sever that cuts FTP, boycott and subsidy together
-## (wiki: diplomacy § GP–Tribe — Boycott, R6.4; world-market § FTP — breaks on
-## war). Pact ops live in DiplomacyFtp; boycotts in DiplomacyBoycott; market
-## terms and trade-deal boosts in DiplomacyTradeTerms (REQ-P3-01).
+## thin forwards for AI/baselines that still call the pre-split names, and war's
+## commercial sever that cuts FTP, boycott and subsidy together (wiki:
+## diplomacy § GP–Tribe — Boycott, R6.4; world-market § FTP — breaks on war).
+## Pact ops live in DiplomacyFtp; boycotts in DiplomacyBoycott; market terms and
+## trade-deal boosts in DiplomacyTradeTerms (REQ-P3-01).
 
 const KIND_FTP: String = DiplomacyFtp.KIND_ESTABLISH
 const KIND_REVOKE_FTP: String = DiplomacyFtp.KIND_REVOKE
 const KIND_BOYCOTT: String = DiplomacyBoycott.KIND_SET
 const KIND_REVOKE_BOYCOTT: String = DiplomacyBoycott.KIND_REVOKE
+
+
+static func is_ftp(state: DiplomacyState, a: int, b: int) -> bool:
+	return DiplomacyFtp.is_ftp(state, a, b)
+
+
+static func can_establish_ftp(
+	state: DiplomacyState, player: int, target: int
+) -> Dictionary:
+	return DiplomacyFtp.can_establish(state, player, target)
+
+
+static func can_revoke_ftp(state: DiplomacyState, player: int, target: int) -> Dictionary:
+	return DiplomacyFtp.can_revoke(state, player, target)
+
+
+static func is_boycotting(state: DiplomacyState, issuer: int, target: int) -> bool:
+	return DiplomacyBoycott.is_boycotting(state, issuer, target)
+
+
+static func can_boycott(state: DiplomacyState, player: int, target: int) -> Dictionary:
+	return DiplomacyBoycott.can_boycott(state, player, target)
+
+
+static func can_revoke_boycott(
+	state: DiplomacyState, player: int, target: int
+) -> Dictionary:
+	return DiplomacyBoycott.can_revoke(state, player, target)
+
+
+static func blocked_by_boycott(state: DiplomacyState, a: int, b: int) -> bool:
+	return DiplomacyBoycott.blocked(state, a, b)
 
 
 ## War severs every commercial tie between the two crowns: subsidies both ways,
