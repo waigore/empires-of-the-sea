@@ -337,12 +337,12 @@ func _plan_trade() -> Dictionary:
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var saving: bool = String(income["goal"]) == AiIncome.GOAL_EARN
-	# The works purse the civilian pass reads: while the court is saving, its
-	# own land's build inputs draw on the cash floor rather than behind the war
-	# chest (wiki: ai-architecture § Land reinforcement; issue #878).
-	var works_floor: int = (
-		config.parameter("economy.min_treasury") if saving else -1
-	)
+	# Market feedstock bids sit behind the war chest while the court is saving:
+	# the civilian pass still draws extraction on the cash floor (#878), but the
+	# bid book must not auction away the muster the earn goal is holding for —
+	# otherwise a timber court spends every spare ducat on lumber/iron and the
+	# chest never closes (#910 stall on seed 1500).
+	var works_floor: int = floor if saving else -1
 	# A court at war opens no speculative top-up: the slot is the footing's
 	# (DR-20261117-01), and the published market fills the rest.
 	var speculate: bool = AiPhasePlanner.opens(phase, AiPhasePlanner.SLOT_MARKET)

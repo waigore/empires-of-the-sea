@@ -131,7 +131,7 @@ func test_registry_exposes_the_documented_defaults() -> void:
 	assert_eq(AiParameterRegistry.default_of("diplomacy.power_ship_weight"), 5)
 	assert_eq(AiParameterRegistry.default_of("military.attack_margin_pct"), 110)
 	assert_eq(AiParameterRegistry.default_of("military.defence_weight"), 500)
-	assert_eq(AiParameterRegistry.default_of("victory.pressure_start"), 500)
+	assert_eq(AiParameterRegistry.default_of("victory.pressure_start"), 250)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_regiments"), 2)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_boost"), 1250)
 	assert_eq(AiParameterRegistry.default_of("victory.pressure_war"), 30)
@@ -3357,16 +3357,16 @@ func test_research_funding_never_spends_the_reserve_the_court_must_hold() -> voi
 
 
 func test_a_court_saving_for_its_muster_pays_only_the_standing_study() -> void:
-	# The muster needs army.min_treasury (400) after the line's own price, so a
+	# The muster needs army.min_treasury (200) after the line's own price, so a
 	# court still short of that floor pays no published preset into its slots.
 	# The standing study — one slot at the cheapest preset — is the exception
 	# that keeps a war-time court learning (issue #490).
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	economy.treasury = 2300
+	economy.treasury = 2100
 	var floor: int = AiArmyReinforce.muster_floor(config, economy, 1, true)
 	var cash: int = AiResearchPlanner.research_floor(config)
-	assert_eq(floor, 2400, "400 kept + 2,000 peasant levies")
+	assert_eq(floor, 2200, "200 kept + 2,000 peasant levies")
 	var plan: Dictionary = AiResearchPlanner.plan(
 		config, economy, {"treasury_floor": floor, "cash_floor": cash}
 	)
@@ -3623,7 +3623,7 @@ func test_the_muster_floor_closes_at_target_and_without_workers() -> void:
 	)
 	assert_eq(
 		AiArmyReinforce.muster_floor(config, economy, target - 1, true),
-		2400,
+		2200,
 		"under the war target: keep the price of the cheapest line"
 	)
 	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)

@@ -22,10 +22,10 @@
   <p class="note">Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Current contract: one <strong>subject</strong> crown (submission planners) vs two <strong>baseline</strong> rivals (<code>scripts/ai_mainline/</code> from <code>origin/main</code>) and three <strong>random</strong> courts; only the subject scores. Weighted progress: Old World provinces ×100, New World ×50, regiments ×10, ships ×10, workers ×5, extraction ×2, income ×1, +500 for a win before the cap.</p>
 
   <div class="status">
-    <strong>Phase:</strong> issue #910 climb — opened from the honest floor, first run<br/>
+    <strong>Phase:</strong> issue #910 climb — cleared the CI floor on the honest bench<br/>
     <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> 2057.00 <span class="bad">(dirty-tree measurement — does not reproduce; the honest reading of main was 1017.41)</span><br/>
-    <strong>Best honest so far:</strong> 1729.62 (<code>910-02-bench-honest.json</code>) · <strong>Target:</strong> &gt; 2153.73 with the +500 win bonus
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">1970.68</span> (<code>910-15-pressure-250.json</code>)<br/>
+    <strong>Best honest so far:</strong> 1970.68 · 16 OW · 0 NW · 5 reg · 3 ships
   </div>
 
   <h2>What was wrong with the bench itself</h2>
@@ -88,6 +88,30 @@
         <td>funded 72.46</td>
         <td class="bad">set aside — recorded in [DR-20261118-02] for the next run</td>
         <td><a href="reports/ai-bench/910-04-ship-set.json">910-04-ship-set.json</a></td>
+      </tr>
+      <tr>
+        <td>010</td>
+        <td>Market feedstock bids sit behind the war chest while saving (civilian extraction still on the cash floor)</td>
+        <td>1764.84</td>
+        <td>10 OW · income 237</td>
+        <td class="good">+35 — keep</td>
+        <td><a href="reports/ai-bench/910-10-market-behind-chest.json">910-10-market-behind-chest.json</a></td>
+      </tr>
+      <tr>
+        <td>011</td>
+        <td><code>army.min_treasury</code> 400 → 200</td>
+        <td>1819.63</td>
+        <td>11 OW · 7 NW</td>
+        <td class="good">+55 — keep</td>
+        <td><a href="reports/ai-bench/910-11-lower-muster-floor.json">910-11-lower-muster-floor.json</a></td>
+      </tr>
+      <tr>
+        <td>015</td>
+        <td><code>victory.pressure_start</code> 500 → 250 (press OW wars earlier)</td>
+        <td><strong>1970.68</strong></td>
+        <td>16 OW · 0 NW · 5 reg · 3 ships · funded 90.85</td>
+        <td class="good">clears baseline 1904.52 — ship as latest.json</td>
+        <td><a href="reports/ai-bench/910-15-pressure-250.json">910-15-pressure-250.json</a></td>
       </tr>
     </tbody>
   </table>
