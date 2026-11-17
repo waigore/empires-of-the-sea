@@ -14,8 +14,8 @@ it prints is the number a game turn prints (`REQ-P2-03`).
 tools/run.sh scenes/battle_sim.tscn
 ```
 
-The wrapper imports the project first; a bare `godot --path . scenes/battle_sim.tscn`
-fails on a fresh clone (see [testing.md](testing.md)).
+The wrapper imports first; a bare `godot --path . scenes/battle_sim.tscn`
+fails on a fresh clone ([testing.md](testing.md)).
 
 ## Controls
 
@@ -32,15 +32,17 @@ fails on a fresh clone (see [testing.md](testing.md)).
 
 ## What it shows
 
-- The plate paints a generated period landscape per terrain, with the fort wall
-  and its three gatehouses standing on it. A breached gate is a jagged hole
-  with rubble spilled onto the field.
+- The plate paints a period landscape per terrain, with the fort's wall and
+  three gatehouses on it. A breached gate is a jagged hole with rubble spilled
+  onto the field.
 - The despatch lists every round's actions with the game's own copy: losses,
-  mauled men, guns silenced, gates breached, the battery taking the blow.
-- The aftermath adds the ground modifiers, the siege line (lanes, guns, breach),
-  losses by regiment type, wounds and chevrons, and the outcome stamp.
-- The readout prints what the rules read: deployment limits, terrain
-  multipliers, wall reduction, gate threshold, lanes and guns.
+  mauled men, guns silenced, gates breached, the battery taking the blow, and
+  the wing it fell on.
+- The aftermath adds the ground, the wings and the ones broken, the siege line
+  (lanes, guns, breach), losses by type, wounds and chevrons, and the outcome
+  stamp.
+- The readout prints the rules' own reads: deployment limits, terrain,
+  wall reduction, gate threshold, lanes and guns.
 
 ## Scenarios worth running
 
@@ -53,8 +55,8 @@ fails on a fresh clone (see [testing.md](testing.md)).
 
 ## Scope
 
-The simulator is a development tool, not a shipped screen. It mutates a
-throwaway model and army pair; nothing is saved. `BattleScenario` is node-free
+The simulator is a development tool, not a shipped screen: it mutates a
+throwaway model and army pair, saving nothing. `BattleScenario` is node-free
 rules code and is unit-tested; the screen is a thin view (`REQ-P3-01`,
 `REQ-P3-03`).
 

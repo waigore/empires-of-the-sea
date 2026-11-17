@@ -101,6 +101,14 @@ static func resolve(
 		me["cohesion"] = mini(3, int(me["cohesion"]) + 1)
 		return entry
 	var terrain: String = String(state.get("terrain", "open"))
+	## The wing this blow falls on: fire on the fullest part of the enemy line,
+	## a charge on the thinnest. A garrison behind a wall holds no wings and the
+	## wall's lanes take the blow instead (wiki: quick-battle § Wings and
+	## collapse).
+	var enemy_wings: Dictionary = enemy.get("wings", {}) as Dictionary
+	var enemy_held: Dictionary = QuickBattleWings.counts(enemy_wings)
+	var wing: String = QuickBattleWings.target(enemy_held, acted)
+	entry["wing"] = wing
 	if acted == "entrench" or acted == "fall_back":
 		var guard: float = float(ACTION_GUARD[acted])
 		# The prepared ground of HILL/WOODS/TOWN is the defender's advantage.
@@ -117,6 +125,10 @@ static func resolve(
 	# defender's cover. Ground never shields the side that sallies from it.
 	var ground: String = terrain if key == "attacker" else "open"
 	ratio *= SiegeLanes.terrain_scale(acted, ground)
+	## A wing taken in flank: a blow that lands beside a wing the enemy has
+	## already lost is heavier, and heavier still from both sides (wiki:
+	## quick-battle § Wings and collapse).
+	ratio *= QuickBattleWings.turned_scale(wing, enemy.get("broken", []) as Array)
 	var enemy_count: int = ArmyForce.side_regiments(enemy_side)
 	## The action's published share of a line, spent as tactical weight: a
 	## stronger line breaks more of the enemy, and a tougher enemy line loses
@@ -160,7 +172,15 @@ static func resolve(
 		entry["turned"] = int(split["turned"])
 		entry["gates_broken"] = int(split.get("gates_broken", 0))
 	elif wanted > 0:
-		lost = ArmyForce.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
+		## A wing's casualties fall on that wing alone; a line with no wings (a
+		## hand-built state, a record before wings existed) bled as one deployed
+		## slice, exactly as before (wiki: quick-battle § Wings and collapse).
+		if wing.is_empty():
+			lost = ArmyForce.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
+		else:
+			lost = ArmyForce.apply_losses(
+				armies, enemy_side, wanted, 0, Callable(), enemy_wings[wing] as Array[String]
+			)
 	enemy["lost"].append_array(lost)
 	# The blow that broke a regiment also mauls the men still standing: the
 	# plate shows every survivor's health drop (wiki: combat § Strength).

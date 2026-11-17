@@ -8546,3 +8546,191 @@ func test_the_hud_replays_sea_and_land_plates_one_at_a_time() -> void:
 	assert_false(screen.hud.is_quick_battle_shown())
 	assert_false(screen.hud.naval_plate.is_shown())
 	screen.free()
+
+# --- The line's wings (wiki: quick-battle § Wings and collapse; DR-20261117-08)
+
+
+## The deployed line is dealt into three wings: the horse alternates between the
+## flanks, strongest first, and the foot and guns hold the centre.
+func test_the_line_is_dealt_into_three_wings() -> void:
+	var side: Array[ArmyState] = _lane_side(
+		["musketeers", "musketeers", "knights", "squires", "culverin"], 2
+	)
+	var held: Dictionary = QuickBattleWings.counts(QuickBattleWings.deploy(side, 10))
+
+	assert_eq(int(held["center"]), 3, "foot and guns hold the centre")
+	assert_eq(int(held["left"]), 1, "the strongest horse takes the left")
+	assert_eq(int(held["right"]), 1, "the second horse the right")
+	assert_eq(QuickBattleWings.describe(held), "L 1 · C 3 · R 1")
+
+
+## A crown that fields no horse leaves both flanks open: there is no wing there
+## to lose, and nothing for a charge to fall on.
+func test_a_line_with_no_horse_fights_on_its_centre() -> void:
+	var side: Array[ArmyState] = _lane_side(["pikemen", "pikemen", "musketeers"], 2)
+	var held: Dictionary = QuickBattleWings.counts(QuickBattleWings.deploy(side, 10))
+
+	assert_eq(int(held["center"]), 3)
+	assert_eq(int(held["left"]) + int(held["right"]), 0, "no horse, no flanks")
+
+
+## Fire falls on the fullest part of the line, a charge on its thinnest, and an
+## action that strikes nobody names no wing at all.
+func test_fire_falls_on_the_fullest_wing_and_a_charge_on_the_thinnest() -> void:
+	var held: Dictionary = {"left": 1, "center": 5, "right": 2}
+
+	assert_eq(QuickBattleWings.target(held, "volley"), "center")
+	assert_eq(QuickBattleWings.target(held, "assault"), "left")
+	assert_eq(QuickBattleWings.target(held, "sortie"), "left")
+	assert_eq(QuickBattleWings.target(held, "entrench"), "", "no blow, no wing")
+	assert_eq(
+		QuickBattleWings.target({"left": 0, "center": 0, "right": 0}, "volley"), "",
+		"an empty line is no target"
+	)
+
+
+## The flank beside a broken wing is turned; a turn on the far side of the line
+## does not reach across it.
+func test_a_flank_beside_a_broken_wing_is_turned() -> void:
+	assert_almost_eq(QuickBattleWings.turned_scale("center", []), 1.0, 0.001)
+	assert_almost_eq(QuickBattleWings.turned_scale("center", ["left"]), 1.2, 0.001)
+	assert_almost_eq(QuickBattleWings.turned_scale("center", ["left", "right"]), 1.35, 0.001)
+	assert_almost_eq(
+		QuickBattleWings.turned_scale("left", ["right"]), 1.0, 0.001,
+		"a broken right does not turn the left"
+	)
+
+
+## A wing breaks when its last regiment falls, and the break is named once —
+## never again on a later blow.
+func test_a_wing_breaks_when_its_last_regiment_falls() -> void:
+	var side: Array[ArmyState] = _lane_side(["pikemen", "knights"], 2)
+	var state: Dictionary = {
+		"attacker": {
+			"side": side, "owner": 2, "limit": 10, "mods": {}, "cohesion": 3,
+			"guard": 0.0, "lost": [] as Array[String], "plan": "balanced",
+			"exposed": false,
+			"wings": QuickBattleWings.deploy(side, 10),
+			"broken": [] as Array[String],
+		},
+	}
+	var horse: Array = (state["attacker"]["wings"] as Dictionary)["left"]
+	assert_eq(horse.size(), 1, "the horseman holds the left alone")
+	side[0].remove_regiment(String(horse[0]))
+
+	assert_eq(QuickBattleWings.fell(state, "attacker"), ["left"] as Array[String])
+	assert_eq(
+		QuickBattleWings.fell(state, "attacker"), [] as Array[String], "named once"
+	)
+	assert_eq(
+		(state["attacker"]["broken"] as Array).size(), 1, "the line remembers the wing"
+	)
+
+
+## A blow falls on one wing: the horse standing on the other flank of the same
+## line takes nothing from it.
+func test_a_blow_falls_on_one_wing_only() -> void:
+	var target: Array[ArmyState] = _lane_side(
+		["pikemen", "pikemen", "knights", "squires"], 1
+	)
+	var attacker: Array[ArmyState] = _lane_side(_guards(6), 2)
+	var armies: Array[ArmyState] = _lane_joined(attacker, target)
+	var state: Dictionary = _lane_state(attacker, target, 0)
+	state["defender"]["wings"] = QuickBattleWings.deploy(target, 10)
+	var wings: Dictionary = state["defender"]["wings"]
+	var flanks: Array = (wings["left"] as Array) + (wings["right"] as Array)
+
+	var entry: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", [] as Array[Dictionary]
+	)
+
+	assert_eq(String(entry["wing"]), "center", "the fire falls on the foot")
+	assert_true(int(entry["defender_lost"]) > 0)
+	for regiment_id: String in flanks:
+		assert_true(
+			target[0].regiments.has(regiment_id), "the horse on the flank is untouched"
+		)
+
+
+## The same volley into a line whose left wing has broken is heavier: the flank
+## is turned.
+func test_a_turned_flank_costs_the_line_more() -> void:
+	assert_true(
+		int(_wing_volley(["left"])["defender_lost"]) > int(_wing_volley([])["defender_lost"])
+	)
+
+
+## One volley into a levy line's centre, with the defender's broken wings given.
+func _wing_volley(broken: Array) -> Dictionary:
+	var target: Array[ArmyState] = _lane_side(_levies(10), 1)
+	var attacker: Array[ArmyState] = _lane_side(_guards(8), 2)
+	var armies: Array[ArmyState] = _lane_joined(attacker, target)
+	var state: Dictionary = _lane_state(attacker, target, 0)
+	state["defender"]["wings"] = QuickBattleWings.deploy(target, 10)
+	state["defender"]["broken"] = broken
+	return QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", [] as Array[Dictionary]
+	)
+
+
+## A battle in the open writes its wings into the record: the counts it opened
+## with, and the wings each round left standing.
+func test_a_field_battle_records_the_wings_its_lines_stand_in() -> void:
+	var battle: Dictionary = _fight(
+		"balanced",
+		["guards", "guards", "knights", "squires"],
+		["pikemen", "pikemen", "musketeers", "knights"]
+	)
+	var quick: Dictionary = battle["quick"]
+	var opened: Dictionary = quick["wings_open"]["attacker"]
+
+	assert_eq(int(opened["left"]), 1, "the horse holds the flanks")
+	assert_eq(int(opened["right"]), 1)
+	assert_eq(int(opened["center"]), 2, "the foot the centre")
+	for round: Dictionary in quick["rounds"]:
+		assert_true(round.has("wings"), "every round records the wings it left")
+		assert_true(round.has("wings_broken"))
+	assert_false(
+		QuickBattleCopy.wings_line(battle, ["España", "England"]).is_empty(),
+		"the plate can name the line's wings"
+	)
+
+
+## A wall has no wings: a garrison stands on its parapet and its lanes stay the
+## wall and what waits behind it (wiki: siege-mechanics § Quick Battle lanes).
+func test_a_siege_garrison_holds_no_wings() -> void:
+	var battle: Dictionary = _fight(
+		"balanced", _guards(8), ["pikemen", "musketeers", "culverin"], 2
+	)
+	var quick: Dictionary = battle["quick"]
+
+	assert_eq(int(quick["wings_open"]["attacker"]["center"]), 8, "the siege line is deployed")
+	assert_eq(
+		int(quick["wings_open"]["defender"]["center"]), 0, "the garrison holds no wings"
+	)
+	assert_eq(int(quick["lanes"]["wall"]), 2, "the wall lanes are unchanged")
+
+
+## The wings line names a break, and skips a side that holds no wings at all.
+func test_the_wings_line_names_a_broken_wing() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"quick": {
+			"wings_open": {
+				"attacker": {"left": 1, "center": 2, "right": 1},
+				"defender": {"left": 0, "center": 0, "right": 0},
+			},
+			"wings": {
+				"attacker": {"left": 0, "center": 1, "right": 1},
+				"defender": {"left": 0, "center": 0, "right": 0},
+			},
+			"wings_broken": {"attacker": ["left"], "defender": []},
+		},
+	}
+	var text: String = QuickBattleCopy.wings_line(battle, ["España", "England"])
+
+	assert_true(text.contains("L 1 · C 2 · R 1"), text)
+	assert_true(text.contains("→ L 0 · C 1 · R 1"), text)
+	assert_true(text.contains("left broken"), text)
+	assert_false(text.contains("England"), "a side with no wings is not named")
