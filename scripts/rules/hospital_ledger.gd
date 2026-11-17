@@ -171,12 +171,12 @@ static func _row(
 	var staffed: bool = province.hospital_staffed
 	var crew: CivilianState = RaiseLedger.crew_for(units, province.owner, site, "build_hospital")
 	var hand: CivilianState = ImprovementOrders.nearest_engineer(units, province.owner, site)
-	var refusal: String = CivilianWorkPlan.hospital_refusal(level, tech_unlocked, stockpile)
+	var refusal: String = CivilianWorkRefusals.hospital(level, tech_unlocked, stockpile)
 	if refusal.is_empty():
 		# The ward shares the town tile with the town and the wall, so another
 		# crew already at work there is the order's own refusal, not a press
 		# (wiki: civilian-units § Per-player tile exclusivity).
-		refusal = CivilianWorkPlan.tile_busy_refusal(units, hand, site)
+		refusal = CivilianWorkRefusals.tile_busy(units, hand, site)
 	# What the next step waits on, worst first: a finished ward, a crew already
 	# at work, the study, the stores or the busy tile the order needs, a free
 	# Engineer, else the order is open.

@@ -100,7 +100,7 @@ static func project(
 	# order's own words: another crown crew already holds this tile — an
 	# Engineer's road or harbour, a Merchant's deed — so the press would be
 	# refused (wiki: civilian-units § Per-player tile exclusivity; REQ-P2-03).
-	var busy: String = CivilianWorkPlan.tile_busy_refusal(units, builder, tile)
+	var busy: String = CivilianWorkRefusals.tile_busy(units, builder, tile)
 	var status: String = status_for(level, is_connected, working, mineral, prospected)
 	var status_text: String = _status_text(
 		status, resource, level, output, tech_cap, terrain_cap, transport,

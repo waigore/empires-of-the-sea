@@ -545,7 +545,7 @@ func test_the_crew_sheet_names_the_deed_holder_and_its_first_refusal() -> void:
 func test_the_deed_order_row_carries_what_it_buys() -> void:
 	var model: MapModel = _Fixture.build_minor()
 	var check: Dictionary = {"ok": true, "cost_text": "6,000 ducats", "duration": 1}
-	var row: Dictionary = CivilianWorkPlan.option_row(
+	var row: Dictionary = CivilianWorkRows.option_row(
 		LandPurchase.ACTION, model, Vector2i(3, 1), LandWorks.new(), check,
 		"Purchase land"
 	)
@@ -893,7 +893,7 @@ func test_a_road_beside_a_port_carries_the_ports_level() -> void:
 		"the harbour carries the estate beside it at level 4"
 	)
 	assert_eq(
-		CivilianWorkPlan.transport_preview(
+		CivilianWorkRows.transport_preview(
 			"build_road", model, Vector2i(1, 1), works
 		),
 		"Transport 4 — an estate here gathers up to 4 a turn",
@@ -915,12 +915,12 @@ func test_a_road_beside_a_port_carries_the_ports_level() -> void:
 	)
 	assert_eq(int(away.get("transport", 0)), 1, "a plain road stays a plain road")
 	assert_eq(
-		CivilianWorkPlan.current_transport(model, Vector2i(0, 1), works),
+		CivilianWorkRows.current_transport(model, Vector2i(0, 1), works),
 		LandWorks.TRANSPORT_RAIL,
 		"the harbour tile itself carries the rail's transport"
 	)
 	assert_eq(
-		CivilianWorkPlan.current_transport(null, Vector2i(0, 1), works), 0,
+		CivilianWorkRows.current_transport(null, Vector2i(0, 1), works), 0,
 		"a reading with no chart names no transport"
 	)
 
@@ -958,20 +958,20 @@ func test_a_sealed_harbour_grants_no_transport_to_the_estate_beside_it() -> void
 		"a sealed harbour carries nothing home"
 	)
 	assert_eq(
-		CivilianWorkPlan.transport_preview(
+		CivilianWorkRows.transport_preview(
 			"build_road", model, Vector2i(1, 1), works, seals
 		),
 		"Transport 1 — an estate here gathers up to 1 a turn",
 		"the road row names the grade a sealed harbour leaves"
 	)
 	assert_eq(
-		CivilianWorkPlan.current_transport(model, Vector2i(0, 1), works, seals),
+		CivilianWorkRows.current_transport(model, Vector2i(0, 1), works, seals),
 		0,
 		"a sealed harbour tile carries only its own road"
 	)
 	# The order row a crew reads in the panel takes the same reading, so the
 	# price line and the road line cannot disagree about the sealed coast.
-	var row: Dictionary = CivilianWorkPlan.option_row(
+	var row: Dictionary = CivilianWorkRows.option_row(
 		"build_road", model, Vector2i(1, 1), works,
 		{"ok": true, "cost_text": "", "duration": 1}, "Build road", seals
 	)
@@ -986,7 +986,7 @@ func test_a_sealed_harbour_grants_no_transport_to_the_estate_beside_it() -> void
 	shut.sealed = {model.region_id: {0: true}}
 	shut.sea_cut = true
 	assert_eq(
-		CivilianWorkPlan.transport_preview(
+		CivilianWorkRows.transport_preview(
 			"build_road", model, Vector2i(1, 1), works, shut
 		),
 		"Transport 1 — an estate here gathers up to 1 a turn",

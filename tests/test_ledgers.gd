@@ -2365,7 +2365,7 @@ func test_a_town_the_stores_cannot_pay_for_is_locked_and_names_the_shortfall() -
 	assert_eq(String(home["state"]), TownLedger.STATE_LOCKED, "the order would refuse the level")
 	assert_eq(
 		String(home["note"]),
-		CivilianWorkPlan.town_upgrade_refusal(
+		CivilianWorkRefusals.town_upgrade(
 			(regions[0]["model"] as MapModel).provinces[0], tech, {}
 		),
 		"the row speaks the order's own refusal"
@@ -3224,7 +3224,7 @@ func test_a_shore_the_stores_cannot_pay_for_is_locked_and_names_the_shortfall() 
 	assert_eq(String(home["state"]), WallLedger.STATE_LOCKED, "the order would refuse the wall")
 	assert_eq(
 		String(home["note"]),
-		CivilianWorkPlan.fort_refusal(0, {"mine_engineering": true}, {}),
+		CivilianWorkRefusals.fort(0, {"mine_engineering": true}, {}),
 		"the row speaks the order's own refusal"
 	)
 	assert_true(

@@ -77,7 +77,7 @@ static func check_action(
 			var town_data: ProvinceState = model.province_data(province)
 			if town_data == null or not town_data.is_town_tile(tile):
 				return deny("Towns are upgraded on the province's town tile.")
-			var gate: String = CivilianWorkPlan.town_upgrade_refusal(town_data, tech_unlocked)
+			var gate: String = CivilianWorkRefusals.town_upgrade(town_data, tech_unlocked)
 			if not gate.is_empty():
 				return deny(gate)
 			return CivilianTransport.exclusive(units, unit, tile)
@@ -85,7 +85,7 @@ static func check_action(
 			var held: Dictionary = owned_land(model, unit, tile)
 			if not bool(held["ok"]):
 				return held
-			var wall_gate: String = CivilianWorkPlan.fort_refusal(
+			var wall_gate: String = CivilianWorkRefusals.fort(
 				FortRules.level_at(model, province), tech_unlocked
 			)
 			if not wall_gate.is_empty():

@@ -2152,6 +2152,17 @@ domain = "ai_works"
 match = "scripts/rules/civilian_work_plan.gd*"
 domain = "ai_works"
 
+# Order-row / transport preview and refusal wording (split from the work plan
+# for REQ-P3-01): same AI/works slice as the plan, not the broad civilian
+# map/battle fan-out (tier-1 5 min budget).
+[[rules]]
+match = "scripts/rules/civilian_work_rows.gd*"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/rules/civilian_work_refusals.gd*"
+domain = "ai_works"
+
 # What a Merchant's deed buys, named on the crew's order row and its sheet: the
 # rules suite proves the terms and the panel-parts boot proves the two surfaces
 # that print them. Kept off the civilian map/battle fan-out (tier-1 5 min).
