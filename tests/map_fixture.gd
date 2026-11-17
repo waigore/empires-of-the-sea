@@ -166,6 +166,10 @@ static func suite_reset(
 	var data: Dictionary = pristine.duplicate(true)
 	if not SaveCodec.restore(play, data, world):
 		return
+	# A case that borrowed the chart as another crown (attach_faction_screen)
+	# left screen.player_faction on the rival; the save restored play's seat, so
+	# mirror it here the same way MapScreen does on a load.
+	screen.player_faction = play.player_faction
 	# Economy always founds on the Old World; restore there, then return.
 	var target: int = play.region_index
 	play.region_index = 0
