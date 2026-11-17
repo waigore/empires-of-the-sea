@@ -250,7 +250,7 @@ func _read_boycott(play: PlaySession, panel: DiplomacyPanel) -> void:
 	_say("pressed \"Boycott Their Trade\" — %s" % _last_toast(play))
 	_say("boycotting %s: %s" % [
 		FactionCatalog.name_of(gp),
-		str(DiplomacyBoycott.is_boycotting(play.diplomacy, play.player_faction, gp)),
+		str(DiplomacyTrade.is_boycotting(play.diplomacy, play.player_faction, gp)),
 	])
 	_read_sheet(panel, "the boycotted court's sheet")
 	# The boycotted crown's own MARKET tab: the same page, read for that crown.

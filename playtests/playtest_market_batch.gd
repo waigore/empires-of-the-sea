@@ -260,7 +260,7 @@ func _read_minor_row(play: PlaySession) -> void:
 	# A surcharge the crown pays on this pair, and a purse that binds at the ask
 	# but not at the world price: the press must not promise more than it pays.
 	play.diplomacy.set_subsidy(play.player_faction, seller, 20)
-	DiplomacyTradeTerms.apply(play.diplomacy, play.world, play.economy.market)
+	DiplomacyTrade.apply_terms(play.diplomacy, play.world, play.economy.market)
 	var ask: int = MinorMarket.ask_for_reader(play.economy.market, offer, play.player_faction)
 	ledger.treasury = ask * 3 + ask / 2
 	play.economy.refresh_panel()
@@ -286,7 +286,7 @@ func _read_minor_row(play: PlaySession) -> void:
 		play.diplomacy.set_subsidy(play.player_faction, seller, old_subsidy)
 	else:
 		play.diplomacy.cancel_subsidy(play.player_faction, seller)
-	DiplomacyTradeTerms.apply(play.diplomacy, play.world, play.economy.market)
+	DiplomacyTrade.apply_terms(play.diplomacy, play.world, play.economy.market)
 	play.economy.refresh_panel()
 
 

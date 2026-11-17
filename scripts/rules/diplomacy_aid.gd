@@ -15,7 +15,7 @@ static func can_grant_aid(
 		return _deny("No envoy has reached that court.")
 	if state.relation(player, target).at_war:
 		return _deny("Aid cannot be sent to an enemy.")
-	if DiplomacyBoycott.blocked(state, player, target):
+	if DiplomacyTrade.blocked_by_boycott(state, player, target):
 		return _deny("A boycott bars trade with that court.")
 	if not DiplomacyRules.has_embassy(state, player, target):
 		return _deny("An embassy is required before aid can be sent.")
@@ -63,7 +63,7 @@ static func can_set_subsidy(
 		return _deny("Subsidies are only offered to Minor Nations and Tribes.")
 	if state.relation(player, target).at_war:
 		return _deny("No subsidy can be paid to an enemy.")
-	if DiplomacyBoycott.blocked(state, player, target):
+	if DiplomacyTrade.blocked_by_boycott(state, player, target):
 		return _deny("A boycott bars trade with that court.")
 	if not DiplomacyRules.has_embassy(state, player, target):
 		return _deny("An embassy is required before a subsidy can be set.")

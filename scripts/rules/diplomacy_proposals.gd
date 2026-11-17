@@ -52,7 +52,7 @@ static func queue(
 				state, world, from_id, human, stage, 0, {}
 			)
 		KIND_FTP:
-			check = DiplomacyFtp.can_establish(state, from_id, human)
+			check = DiplomacyTrade.can_establish_ftp(state, from_id, human)
 		KIND_PEACE:
 			check = DiplomacyRules.can_make_peace(state, from_id, human)
 		_:
@@ -118,7 +118,7 @@ static func resolve_human(
 		# The rival offers the pact; the human's answer is the target court's
 		# decision, and the proposing rival pays nothing (wiki: world-market
 		# § FTP).
-		result = DiplomacyFtp.establish(
+		result = DiplomacyTrade.establish_ftp(
 			state, from_id, state.human_faction, decision
 		)
 	elif kind == KIND_PEACE:

@@ -549,7 +549,7 @@ func test_a_trade_pact_reaches_the_ledger_prices() -> void:
 	_screen.play.diplomacy.relation(0, 1).score = 80.0
 	MapPlayDiplomacy.open(_screen.play)
 	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_FTP, 1, "")
-	assert_true(DiplomacyFtp.is_ftp(_screen.play.diplomacy, 0, 1))
+	assert_true(DiplomacyTrade.is_ftp(_screen.play.diplomacy, 0, 1))
 	var market: WorldMarket = _screen.economy.market
 	assert_true(market != null)
 	assert_almost_eq(market.term_multiplier(0, "timber", true), 0.95, 0.001)

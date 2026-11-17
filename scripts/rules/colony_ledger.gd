@@ -171,7 +171,7 @@ static func _standing(record: DiplomacyRelation, subsidy: int) -> String:
 
 ## What bars the colony's trade: the courts its suzerain's boycott has shut to
 ## it, or the whole book when none has. The bar is the clearing's own key, read
-## through `DiplomacyBoycott.blocked`'s record (REQ-P2-03).
+## through `DiplomacyTrade.blocked_by_boycott`'s record (REQ-P2-03).
 static func _terms(state: DiplomacyState, sealed_to: Array[int]) -> String:
 	if sealed_to.is_empty():
 		return "Open to every court"

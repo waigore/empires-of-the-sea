@@ -161,7 +161,7 @@ static func _matcher_context(
 	}
 	if diplomacy != null:
 		out["ftp_for"] = func(a: int, b: int) -> bool:
-			return DiplomacyFtp.is_ftp(diplomacy, a, b)
+			return DiplomacyTrade.is_ftp(diplomacy, a, b)
 		# A colony's suzerain trades first inside the tier (wiki: diplomacy
 		# § Favoured trading partner, R7.1; DR-20261111-11). Only the colony arm
 		# reaches the auction: for an independent court the R7.1 partner is the
@@ -180,7 +180,7 @@ static func _matcher_context(
 		# from or sell to a Tribe that is the issuer's colony, so the pair never
 		# fills and both orders carry (wiki: diplomacy § GP–Tribe — Boycott, R6).
 		out["boycott_for"] = func(a: int, b: int) -> bool:
-			return DiplomacyBoycott.blocked(diplomacy, a, b)
+			return DiplomacyTrade.blocked_by_boycott(diplomacy, a, b)
 	return out
 
 
@@ -236,7 +236,7 @@ static func _settle(
 		# § Relation Model — trade-deal boost, R10). Volume-independent; the
 		# state drops the world counterparty and Minor-to-Minor pairs.
 		if diplomacy != null:
-			DiplomacyTradeTerms.record_deal(diplomacy, buyer, seller)
+			DiplomacyTrade.record_deal(diplomacy, buyer, seller)
 		# The row carries what the clearing actually settled, not what the matcher
 		# proposed: the debt is rounded once from the whole deal, so the Deal Book
 		# must read the charged total (wiki: world-market § Subsidy price

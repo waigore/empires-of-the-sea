@@ -81,9 +81,9 @@ static func status_line(
 	var parts: PackedStringArray = [record.meter_label(), DiplomacyCatalog.state_label(record.at_war)]
 	if record.formal_alliance:
 		parts.append("Formal Alliance")
-	if DiplomacyFtp.is_ftp(state, player, faction_id):
+	if DiplomacyTrade.is_ftp(state, player, faction_id):
 		parts.append("Trade Pact")
-	if DiplomacyBoycott.is_boycotting(state, player, faction_id):
+	if DiplomacyTrade.is_boycotting(state, player, faction_id):
 		parts.append("Boycott")
 	var colony_of: int = state.colony_of(faction_id)
 	if colony_of >= 0:

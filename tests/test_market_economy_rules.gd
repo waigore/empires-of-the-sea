@@ -730,7 +730,7 @@ func test_boycott_blocks_the_deal_at_turn_end() -> void:
 	diplomacy.ensure_relation(0, tribe, 0).set_score(30.0)
 	diplomacy.set_overture(0, tribe, DiplomacyCatalog.STAGE_EMBASSY)
 	diplomacy.ensure_relation(0, 1, 0).set_score(30.0)
-	var ordered: Dictionary = DiplomacyBoycott.boycott(diplomacy, 0, 1)
+	var ordered: Dictionary = DiplomacyTrade.boycott(diplomacy, 0, 1)
 	assert_true(bool(ordered["ok"]), String(ordered.get("reason", "")))
 	MarketOrders.submit(
 			market,
@@ -772,7 +772,7 @@ func test_a_boycott_leaves_a_third_court_free_to_buy() -> void:
 	diplomacy.ensure_relation(0, tribe, 0).set_score(30.0)
 	diplomacy.set_overture(0, tribe, DiplomacyCatalog.STAGE_EMBASSY)
 	diplomacy.ensure_relation(0, 1, 0).set_score(30.0)
-	assert_true(bool(DiplomacyBoycott.boycott(diplomacy, 0, 1)["ok"]))
+	assert_true(bool(DiplomacyTrade.boycott(diplomacy, 0, 1)["ok"]))
 	MarketOrders.submit(
 			market,
 		2, "timber", MarketOrder.SIDE_BID, 1,
@@ -816,7 +816,7 @@ func test_the_subsidy_step_lands_once_with_the_terms_installed() -> void:
 	var economies: Dictionary = _economies()
 	var diplomacy := DiplomacyState.new()
 	diplomacy.set_subsidy(0, 6, 10)
-	DiplomacyTradeTerms.apply(diplomacy, world, market)
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
 	assert_eq(market.buy_price("timber", 0), 30, "the crown's own rate is the world price")
 	MarketOrders.submit(
 			market,
@@ -838,7 +838,7 @@ func test_a_subsidy_leaves_another_courts_deal_alone() -> void:
 	var economies: Dictionary = _economies()
 	var diplomacy := DiplomacyState.new()
 	diplomacy.set_subsidy(0, 6, 10)
-	DiplomacyTradeTerms.apply(diplomacy, world, market)
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
 	MarketOrders.submit(
 			market,
 		0, "timber", MarketOrder.SIDE_BID, 2,
@@ -4457,7 +4457,7 @@ func test_a_boycotted_crowns_sale_receipt_names_the_boycott_rate() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var diplomacy := DiplomacyState.new()
 	diplomacy.boycotts["1>0"] = 0
-	DiplomacyTradeTerms.apply(diplomacy, world, market)
+	DiplomacyTrade.apply_terms(diplomacy, world, market)
 	var economies: Dictionary = _economies()
 	var seller: PlayerEconomy = economies[0]
 	seller.add("timber", 10)

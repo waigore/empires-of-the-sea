@@ -862,7 +862,7 @@ func test_the_ledger_names_the_subsidy_the_crown_pays() -> void:
 	var market: WorldMarket = _screen.economy.market
 	var player: int = _screen.player_faction
 	_screen.play.diplomacy.set_subsidy(player, 7, 10)
-	DiplomacyTradeTerms.apply(_screen.play.diplomacy, _screen.world, market)
+	DiplomacyTrade.apply_terms(_screen.play.diplomacy, _screen.world, market)
 	_screen.economy.open_panel()
 	var panel: EconomyPanel = _screen.hud.panels.economy_panel
 	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
@@ -878,7 +878,7 @@ func test_the_ledger_names_the_subsidy_the_crown_pays() -> void:
 		"the row's ask names what the clearing charges"
 	)
 	_screen.play.diplomacy.cancel_subsidy(player, 7)
-	DiplomacyTradeTerms.apply(_screen.play.diplomacy, _screen.world, market)
+	DiplomacyTrade.apply_terms(_screen.play.diplomacy, _screen.world, market)
 
 
 ## The turn's clearing republishes the Minor/Tribe book for the crown that

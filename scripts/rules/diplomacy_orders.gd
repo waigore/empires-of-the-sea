@@ -123,11 +123,11 @@ static func options(
 static func _add_ftp_options(
 	result: Array[Dictionary], state: DiplomacyState, player: int, target: int
 ) -> void:
-	if DiplomacyFtp.is_ftp(state, player, target):
+	if DiplomacyTrade.is_ftp(state, player, target):
 		result.append(
 			_valued(
 				"End Favoured Trading Pact",
-				DiplomacyFtp.can_revoke(state, player, target),
+				DiplomacyTrade.can_revoke_ftp(state, player, target),
 				KIND_REVOKE_FTP, "", "", GROUP_TRADE,
 				"Trade terms return to the world price."
 			)
@@ -136,7 +136,7 @@ static func _add_ftp_options(
 	result.append(
 		_valued(
 			"Offer Favoured Trading Pact",
-			DiplomacyFtp.can_establish(state, player, target),
+			DiplomacyTrade.can_establish_ftp(state, player, target),
 			KIND_FTP, "", "", GROUP_TRADE,
 			"Our imports cost 5% less and our exports earn 5% more."
 		)
@@ -146,11 +146,11 @@ static func _add_ftp_options(
 static func _add_boycott_options(
 	result: Array[Dictionary], state: DiplomacyState, player: int, target: int
 ) -> void:
-	if DiplomacyBoycott.is_boycotting(state, player, target):
+	if DiplomacyTrade.is_boycotting(state, player, target):
 		result.append(
 			_valued(
 				"Lift the Boycott",
-				DiplomacyBoycott.can_revoke(state, player, target),
+				DiplomacyTrade.can_revoke_boycott(state, player, target),
 				KIND_REVOKE_BOYCOTT, "", "", GROUP_TRADE,
 				"Their trade with our colonies resumes."
 			)
@@ -159,7 +159,7 @@ static func _add_boycott_options(
 	result.append(
 		_valued(
 			"Boycott Their Trade",
-			DiplomacyBoycott.can_boycott(state, player, target),
+			DiplomacyTrade.can_boycott(state, player, target),
 			KIND_BOYCOTT, "", "", GROUP_TRADE,
 			"Our colonies shut to them: no deal clears between them and us, "
 			+ "and their terms worsen 10%."
@@ -236,13 +236,13 @@ static func validate(
 		KIND_CANCEL_SUBSIDY:
 			return _allow() if state.subsidy(player, target) > 0 else _deny("No subsidy is active.")
 		KIND_FTP:
-			return DiplomacyFtp.can_establish(state, player, target)
+			return DiplomacyTrade.can_establish_ftp(state, player, target)
 		KIND_REVOKE_FTP:
-			return DiplomacyFtp.can_revoke(state, player, target)
+			return DiplomacyTrade.can_revoke_ftp(state, player, target)
 		KIND_BOYCOTT:
-			return DiplomacyBoycott.can_boycott(state, player, target)
+			return DiplomacyTrade.can_boycott(state, player, target)
 		KIND_REVOKE_BOYCOTT:
-			return DiplomacyBoycott.can_revoke(state, player, target)
+			return DiplomacyTrade.can_revoke_boycott(state, player, target)
 		_:
 			return _deny("Unknown court order.")
 
@@ -296,13 +296,13 @@ static func apply(
 				"message": "The subsidy to %s is ended." % FactionCatalog.name_of(target),
 			}
 		KIND_FTP:
-			return DiplomacyFtp.establish(state, player, target)
+			return DiplomacyTrade.establish_ftp(state, player, target)
 		KIND_REVOKE_FTP:
-			return DiplomacyFtp.revoke(state, player, target)
+			return DiplomacyTrade.revoke_ftp(state, player, target)
 		KIND_BOYCOTT:
-			return DiplomacyBoycott.boycott(state, player, target)
+			return DiplomacyTrade.boycott(state, player, target)
 		KIND_REVOKE_BOYCOTT:
-			return DiplomacyBoycott.revoke(state, player, target)
+			return DiplomacyTrade.revoke_boycott(state, player, target)
 	return _deny("Unknown court order.")
 
 

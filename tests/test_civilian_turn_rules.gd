@@ -2752,7 +2752,7 @@ func test_a_boycott_bars_the_deed_to_a_colonys_land() -> void:
 	court.set_overture(0, FALSE_COLONY_TRIBE, DiplomacyCatalog.STAGE_EMBASSY)
 	court.set_colony(FALSE_COLONY_TRIBE, BOYCOTT_ISSUER)
 	court.ensure_relation(BOYCOTT_ISSUER, 0, 1)
-	assert_true(bool(DiplomacyBoycott.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_true(bool(DiplomacyTrade.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
 	var works := LandWorks.new()
 	var merchant := field_Fixture.unit("merchant", Vector2i(1, 1))
 	var units: Array[CivilianState] = [merchant]
@@ -2766,7 +2766,7 @@ func test_a_boycott_bars_the_deed_to_a_colonys_land() -> void:
 	assert_true(String(refused["reason"]).contains("boycott"))
 	# Lifting the boycott opens the deed again: the gate is the pair, not the tile.
 	court.end_turn()
-	assert_true(bool(DiplomacyBoycott.revoke(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_true(bool(DiplomacyTrade.revoke_boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
 	var allowed: Dictionary = CivilianWork.validate(
 		model, merchant, "purchase_land", works, units, field_Fixture.stockpile(), null,
 		tile, {}, {}, context
