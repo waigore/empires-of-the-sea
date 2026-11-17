@@ -960,7 +960,7 @@ func test_the_hover_names_every_type_and_the_ground_still_to_read() -> void:
 	assert_eq(ResourceSurvey.summary_text({}), "")
 	assert_eq(ResourceSurvey.summary_text({"rows": []}), "")
 
-## One resource row as `ResourceSurvey._row` hands it to the type projection.
+## One resource row as `ResourceSurveyRows.one` hands it to the type projection.
 func _type_row(
 	icon: String, level: int, connected: bool, status: String, ours: bool = true
 ) -> Dictionary:
