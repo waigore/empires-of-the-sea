@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-09 vs code through #896 + Follow door (REQ-P2-02).
+Audited: DR-20261117-09 vs code through #898 (REQ-P2-02).
 
 ## Already live
 
@@ -38,11 +38,12 @@ Audited: DR-20261117-09 vs code through #896 + Follow door (REQ-P2-02).
 
 ## Gaps (ranked)
 
-- Railroad Follow door — rail pick names ground no surface presses (DR-17-09).
+1. **Railroad Follow door** — a rail pick names ground no surface presses
+   (DR-17-09).
 
 ## Next pick
 
-Railroad Follow door; else P5/P1 polish; re-audit wiki.
+P5/P1 polish; re-audit wiki.
 
 ## Blocked
 
@@ -62,8 +63,8 @@ Railroad Follow door; else P5/P1 polish; re-audit wiki.
 
 ## Wiki drift
 
-- `civilian-build-planner` / learnings: Follow live (`MapPlayCivilianFollow`,
-  DR-17-09). Raise + pick + chart mark live (DR-17-03/05/06/07).
+- `civilian-build-planner` / learnings: raise + pick + chart mark + Follow door
+  live (DR-17-03/05/06/07/09).
 - `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
 - `phase-planner-*`: six slots live; soft weight seed (DR-17-01).
 - `production-recipes`: rival second-stage live #798.
