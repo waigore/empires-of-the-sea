@@ -20,6 +20,7 @@
 [ext_resource type="Script" path="res://scripts/map/crown_road_lens.gd" id="18_crown"]
 [ext_resource type="Script" path="res://scripts/map/defence_lens.gd" id="19_defence"]
 [ext_resource type="Script" path="res://scripts/map/sea_lens.gd" id="20_sea"]
+[ext_resource type="Script" path="res://scripts/map/opening_plate.gd" id="21_plate"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_sea"]
 shader = ExtResource("7_sea")
@@ -134,6 +135,7 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
+script = ExtResource("21_plate")
 
 [node name="GameMenu" type="CanvasLayer" parent="."]
 layer = 5
