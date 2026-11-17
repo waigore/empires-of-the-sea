@@ -75,7 +75,8 @@ static func options(
 			tech_caps, tech_unlocked, context
 		)
 		var row: Dictionary = CivilianWorkPlan.option_row(
-			action, model, unit.tile, works, check, label(action)
+			action, model, unit.tile, works, check, label(action),
+			context.get("blockade", null) as Blockades
 		)
 		row["action"] = action
 		row["ok"] = bool(check.get("ok", false))
