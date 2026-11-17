@@ -122,7 +122,7 @@ static func yields(
 			transport = int(entry.get("transport", 0))
 			if transport <= 0:
 				continue
-			town_cap = LandConnectivity.town_cap_for(model, resolved, province_id, index)
+			town_cap = LandTownRule.town_cap_for(model, resolved, province_id, index)
 		else:
 			town_cap = province.town_level() if province.town_development > 0 else MAX_YIELD
 		var cap: int = TerrainCaps.extraction_cap(
@@ -139,7 +139,7 @@ static func yields(
 		var town_index: int = int(towns.get(province_id, -1))
 		var town_set: Dictionary = town_sets.get(province_id, {}) as Dictionary
 		if town_set.is_empty() and town_index >= 0:
-			town_set = LandConnectivity.town_connected(
+			town_set = LandTownRule.town_connected(
 				model, works, province_id, town_index
 			)
 			town_sets[province_id] = town_set
