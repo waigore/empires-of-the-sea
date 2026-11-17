@@ -133,6 +133,11 @@ static func validate(
 		if not bool(free_site.get("ok", false)):
 			return free_site
 	var cost: Dictionary = cost_for(action, cost_level(action, model, tile, works))
+	if action == "build_improvement":
+		# The H8 bootstrap may waive the raise's inputs (#878).
+		cost = CivilianWorkPlan.bootstrap_cost(
+			model, tile, stockpile, cost_level(action, model, tile, works)
+		)
 	var stores_gate: String = CivilianWorkPlan.stores_refusal(cost, stockpile)
 	if not stores_gate.is_empty():
 		return _no(stores_gate)

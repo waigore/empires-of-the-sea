@@ -1693,6 +1693,30 @@ func test_ai_economy_ignores_recipes_it_cannot_feed() -> void:
 	assert_true((plan["assignments"] as Array).is_empty())
 
 
+## The raw the muster's and the hull's own material rows claim stands out of
+## manufacture's reach: the plan never promises a run whose inputs would eat
+## the regiment's cloth or the hull's timber, so a court saving for either can
+## still manufacture everything else (issue #484, #878; wiki: economy-planner
+## § Reservations).
+func test_manufacture_plans_around_the_rows_the_chests_claim() -> void:
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"timber": 4, "wool": 8}
+	economy.workers = WorkerPool.make(6)
+	var plain: Dictionary = AiEconomyPlanner.production_orders(config, economy)
+	assert_true(_units_for(plain, "lumber") > 0, "the sawmill runs on its timber")
+
+	var held: Dictionary = AiEconomyPlanner.production_orders(
+		config, economy, 0, {"timber": 4}
+	)
+	assert_eq(_units_for(held, "lumber"), 0, "the yard's timber is not sawn")
+	assert_eq(_units_for(held, "paper"), 0, "nor is any other timber row promised")
+	assert_true(
+		_units_for(held, "fabric_from_wool") > 0,
+		"the rest of the plan still runs beside the chest"
+	)
+
+
 ## A luxury row is a trained hand's work: a court with tobacco and furs but no
 ## apprentice is offered neither cigars nor fur hats, because the Production
 ## phase would refuse the run (wiki: production-recipes § Worker-tier gates;
@@ -2750,6 +2774,34 @@ func test_rival_court_runs_the_town_rows_its_works_open() -> void:
 	assert_true(
 		_units_for(town["production"], "garments") > 0,
 		"the works open the cloth for the rival"
+	)
+	play.civilian_layer.free()
+
+
+## A fleetless court on `earn` still manufactures: the old blunt skip froze
+## every sawmill and forge for the whole save, so a court saving its yard chest
+## could neither raise an estate nor fill the chest it was saving for. The rows
+## the muster and the yard claim stand out of the plan's reach instead, and the
+## court's own works keep the manufactures they pay for (issue #484, #878).
+func test_a_fleetless_earning_court_still_manufactures() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.tech_unlocked["superior_hull_design"] = true
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	economy.treasury = 1000
+	economy.stockpile = {"grain": 100, "timber": 12}
+	economy.workers = WorkerPool.make(6)
+	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.open(
+		play, 1, WorldMarket.with_default_prices()
+	)
+	court.plan_turn()
+	assert_eq(
+		String(court.income["goal"]), AiIncome.GOAL_EARN,
+		"the yard chest puts the court on its money goal"
+	)
+	assert_true(
+		_units_for(court.production, "lumber") > 0,
+		"the court still saws the timber its works and yard pay for"
 	)
 	play.civilian_layer.free()
 
@@ -4617,6 +4669,65 @@ func test_an_earning_court_bids_no_imports() -> void:
 	assert_true((plan["bids"] as Array).is_empty(), "the reserve is not the auction's to spend")
 
 
+## The build inputs are a saving court's own works provisioning, not a
+## deferrable import: they bid out of the works purse (the cash the court's
+## cash floor leaves), so a court saving for a muster or a yard still raises
+## the estates its cash floor can pay for — the wiki's own words for a poorer
+## court: it keeps its ordinary cash floor and grows, research and works first
+## (ai-architecture § Land reinforcement; #878).
+func test_a_saving_court_bids_its_works_feedstock() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _economy(
+		{"lumber": 0, "castIron": 0, "fabric": 0, "paper": 0, "steel": 0, "bronze": 0},
+		3000
+	)
+	var market := WorldMarket.with_default_prices()
+	var chest: int = 2400
+	var works_floor: int = config.parameter("economy.min_treasury")
+
+	var plan: Dictionary = AiMarketPlanner.plan(
+		config, economy, market, 20, {}, {"lumber": 4}, {}, chest, 0, true, true,
+		works_floor
+	)
+	var bought: Array = plan["bids"]
+	assert_true(bought.size() >= 1, "the works feedstock is bid for")
+	var spend: int = 0
+	var feedstock: bool = false
+	for raw: Variant in bought:
+		var bid: Dictionary = raw
+		spend += int(bid["quantity"]) * int(market.price(String(bid["commodity"])))
+		feedstock = feedstock or String(bid["commodity"]) == "castIron"
+	assert_true(feedstock, "the feedstock the estates spend is among the bids")
+	assert_true(
+		spend <= economy.treasury - works_floor,
+		"the works purse never dips past the cash floor"
+	)
+
+
+## The war footing's slot keeps the feedstock: a saving court at war bids the
+## build inputs beside the rows its commitments claim, because without them the
+## estates never rise and the chest is never filled (DR-20261117-01; #878).
+func test_a_saving_court_at_war_bids_its_feedstock() -> void:
+	var config: AiConfig = _phase_config()
+	var economy: PlayerEconomy = _purse(1200)
+	var market := WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(
+		config, economy, market, 20, {}, {}, {}, 2400, 0, true, false,
+		config.parameter("economy.min_treasury")
+	)
+	assert_true(
+		(plan["bids"] as Array).size() >= 1,
+		"the works feedstock is one of the commitments the slot keeps"
+	)
+	var rich: Dictionary = AiMarketPlanner.plan(
+		config, _purse(6000), market, 20, {}, {}, {}, 2400, 0, false, false
+	)
+	assert_true(
+		(rich["bids"] as Array).is_empty(),
+		"a spending court still buys only what its commitments claim"
+	)
+
+
 # --- the fleet claim: the hull a court saves for (issue #484) ----------------
 
 
@@ -5218,6 +5329,47 @@ func test_a_muster_due_court_provisions_the_ration_estates() -> void:
 	assert_eq(
 		Vector2i(seat["tile"]), Vector2i(3, 1),
 		"the flag off keeps the published order (the lower tile ranks first)"
+	)
+
+
+## The works' own feedstock (issue #878): every raise spends a lumber and a
+## cast iron, and the manufactures are made from the raw the land yields. While
+## the cast iron cannot pay the next raise, the iron estate that refills it
+## leads the Builder — a court that spends its last cast iron on farms and
+## never mines the iron freezes every estate it owns from then on.
+func test_the_feedstock_source_leads_while_the_manufacture_is_short() -> void:
+	var model: MapModel = _hospital_model()
+	model.resource[model.index_of(3, 1)] = 4
+	model.resource[model.index_of(OUTER_TOWN.x, OUTER_TOWN.y)] = 1
+	var works := LandWorks.new()
+	for x in 5:
+		works.set_transport(model, Vector2i(x, 1), LandWorks.TRANSPORT_ROAD)
+	works.set_prospected(0, model, OUTER_TOWN)
+	var unit: CivilianState = CivilianState.create(1, 0, "builder", CAPITAL)
+	var context: Dictionary = {"capital_tile": CAPITAL}
+	var caps: Dictionary = {"grain": 2, "wool": 2, "iron": 2, "timber": 2}
+	var fat: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 20}
+	var short: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 1}
+
+	var farm: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, fat,
+			caps, {"land_enclosure": true, "iron_mining": true}, context, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(farm["tile"]), Vector2i(3, 1),
+		"a fed cast-iron store leaves the published order"
+	)
+	var mine: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, short,
+			caps, {"land_enclosure": true, "iron_mining": true}, context, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(mine["tile"]), OUTER_TOWN,
+		"the iron estate leads while the cast iron cannot pay the next raise"
 	)
 
 
@@ -6688,14 +6840,14 @@ func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
 	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
 	var orders: Array = _market_plan(model, builder, null, works)["orders"]
 	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
-	MapPlayCivilianAi.price(orders, model, works)
+	MapPlayCivilianAi.price(orders, model, works, Fixture.stockpile())
 	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
 	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
 	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
 
 	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
 	var survey: Array = _market_plan(model, explorer, null, works)["orders"]
-	MapPlayCivilianAi.price(survey, model, works)
+	MapPlayCivilianAi.price(survey, model, works, Fixture.stockpile())
 	assert_true(
 		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
 		"a survey costs no material, so it reserves none"

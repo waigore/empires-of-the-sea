@@ -28,6 +28,12 @@ var trade: Dictionary = {}
 ## The crews' plans and the stockpile rows they claim before the market stages.
 var plans: Array[Dictionary] = []
 var works_reserved: Dictionary = {}
+## The raw the muster's and the hull's own material rows claim this turn: the
+## stock the market keeps and manufacture plans around, read once in `plan_turn`
+## (issue #484; wiki: growth-stage-planner § Recruitment modulation;
+## DR-20261114-09).
+var muster_row: Dictionary = {}
+var navy_row: Dictionary = {}
 
 ## The reads the plan and the application share.
 var at_war: bool = false
@@ -105,11 +111,28 @@ func plan_turn() -> void:
 		# A war chest the court has stalled on re-routes (#603).
 		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line")
 	)
-	# Skip production buys while earning for the navy chest (issue #484).
-	production = (
-		{"assignments": []}
-		if hull_chest > 0 and String(income["goal"]) == AiIncome.GOAL_EARN
-		else AiBind.production_orders(kind, config, economy, town_level)
+	# The blunt earn-and-chest production skip (issue #484) froze every
+	# manufacture — lumber, cast iron, cloth — for the whole save, so a
+	# fleetless court could neither raise an estate nor fill the chest it was
+	# saving for (#878). The rows the muster and the yard claim stand out of
+	# manufacture's reach instead: the plan never promises a run whose inputs
+	# would eat the regiment's cloth or the hull's lumber, and the court's own
+	# works keep the manufactures they pay for.
+	var pressure: Dictionary = AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)
+	muster_row = AiBind.muster_reserve(
+		kind, config, economy, regiments, at_war, int(pressure["extra_regiments"])
+	)
+	navy_row = (
+		AiNavy.due_row(
+			at_war, warships, MapPlayCourt.hostile_warships(play, faction),
+			economy, MapPlayCourt.hull_types(play, faction)
+		)
+		if hull_chest > 0 else {}
+	)
+	production = AiBind.production_orders(
+		kind, config, economy, town_level, _chest_rows()
 	)
 	floor = int(income["reserve"])
 	research = _plan_research()
@@ -136,6 +159,15 @@ func plan_turn() -> void:
 	)
 	works_reserved = MapPlayCivilianAi.work_rows(plans)
 	trade = _plan_trade()
+
+
+## The raw the muster's and the hull's own material rows claim, merged: the
+## stock manufacture plans around so a run never promises inputs the regiment
+## or the yard must keep (issue #484, #878).
+func _chest_rows() -> Dictionary:
+	if navy_row.is_empty():
+		return muster_row
+	return MapPlayEconomyAi._merge_rows(muster_row, navy_row)
 
 
 ## Resolves the shared market and books this court's next production and
@@ -165,10 +197,15 @@ func apply_turn() -> Dictionary:
 		AiArmyReinforce.muster_hands(config, economy, regiments, at_war)
 		if kind != AiControl.KIND_BASELINE else 0
 	)
+	# The harvest, not just the pantry, carries the mouth (DR-20261116-14 reads
+	# the harvest the muster plans with): a worker hired against a fat pantry
+	# the land cannot carry strikes the month the store runs down, so training
+	# also reads the slack the plan noted this turn (issue #878).
+	var fed: int = AiBind.fed_slack(kind, economy, army_food, ships)
+	if play.ai != null and (play.ai.food_slack as Dictionary).has(faction):
+		fed = mini(fed, int(play.ai.food_slack[faction]))
 	var recruits: Array[Dictionary] = AiBind.recruitment_orders(
-		kind, config, economy, floor,
-		AiBind.fed_slack(kind, economy, army_food, ships),
-		hands
+		kind, config, economy, floor, fed, hands
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))
@@ -244,24 +281,15 @@ func _plan_trade() -> Dictionary:
 		- TradeCargo.used(market, faction),
 		0
 	)
-	var need: Dictionary = AiBind.muster_reserve(
-		kind, config, economy, regiments, at_war,
-		int(AiVictoryPressure.read(
-			play.world, faction, play.human_faction_id(), play.difficulty, config
-		)["extra_regiments"])
-	)
+	# The muster's material row and the hull's: read once in `plan_turn`, so
+	# production, the market and the claims read one row apiece (issue #484).
+	var need: Dictionary = muster_row
 	# The hull the court is saving for holds its own material row beside the
 	# muster's: a court that sells the last cloth it needs can save the whole
 	# 5,500-ducat chest and still never lay the hull (issue #484). A chest that
 	# has stood down (the yard re-routed to the muster, issue #603) holds no row
 	# either, so the cloth it would have kept back is the regiment's.
-	var navy: Dictionary = (
-		AiNavy.due_row(
-			at_war, warships, MapPlayCourt.hostile_warships(play, faction),
-			economy, MapPlayCourt.hull_types(play, faction)
-		)
-		if hull_chest > 0 else {}
-	)
+	var navy: Dictionary = navy_row
 	# The ration the larder cannot cover: a court that cannot feed its own people
 	# is in the wiki's lock-recovery mode, so the market liquidates its hoard and
 	# buys the missing food before any build input (wiki: treasury-planner
@@ -278,13 +306,19 @@ func _plan_trade() -> Dictionary:
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var saving: bool = String(income["goal"]) == AiIncome.GOAL_EARN
+	# The works purse the civilian pass reads: while the court is saving, its
+	# own land's build inputs draw on the cash floor rather than behind the war
+	# chest (wiki: ai-architecture § Land reinforcement; issue #878).
+	var works_floor: int = (
+		config.parameter("economy.min_treasury") if saving else -1
+	)
 	# A court at war opens no speculative top-up: the slot is the footing's
 	# (DR-20261117-01), and the published market fills the rest.
 	var speculate: bool = AiPhasePlanner.opens(phase, AiPhasePlanner.SLOT_MARKET)
 	var plan: Dictionary = AiBind.market_plan(
 		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
 		MapPlayEconomyAi._merge_rows(need, navy), floor, food_short, saving,
-		speculate
+		speculate, works_floor
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(

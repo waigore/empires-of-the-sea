@@ -158,6 +158,18 @@ static func town_raw(
 ## land is short still provisions.
 const PROVISION_WEIGHT: int = 25
 
+## The works' own feedstock: every raise spends a lumber and a cast iron
+## (CivilianWorkPlan.IMPROVEMENT_COSTS), and the manufactures are made from the
+## raw the land yields — timber to lumber, iron to cast iron. While the store
+## of one of them cannot pay the next raise, the raw estate that refills it is
+## the raise that keeps the programme raising: a court that spends its last
+## cast iron on farms and never mines the iron freezes every estate it owns
+## from then on (issue #878).
+const FEEDSTOCK: Dictionary = {"iron": "castIron", "timber": "lumber"}
+const FEEDSTOCK_WEIGHT: int = 60
+## One raise in hand and one coming: below this the raw estate leads.
+const FEEDSTOCK_FLOOR: int = 2
+
 
 static func _best_estate(query: AiWorkQuery, estates: Array) -> Dictionary:
 	var best: Dictionary = {}
@@ -187,6 +199,11 @@ static func _best_estate(query: AiWorkQuery, estates: Array) -> Dictionary:
 			crop
 		):
 			score += PROVISION_WEIGHT
+		# The works' own feedstock (issue #878): while the manufacture this raw
+		# refills cannot pay the next raise, the source leads.
+		var makes: String = String(FEEDSTOCK.get(crop, ""))
+		if not makes.is_empty() and int(query.stockpile.get(makes, 0)) < FEEDSTOCK_FLOOR:
+			score += FEEDSTOCK_WEIGHT
 		if level <= 0:
 			score += 10
 		score += gain * GAIN_WEIGHT
