@@ -41,11 +41,11 @@ Implement default: largest clear item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-None open (DR-17-11/#914).
+None open (DR-17-11/#914, DR-17-12).
 
 ## Next pick
 
-P5 polish: observer order-feed depth (`FEED_TURNS`=2); re-audit wiki.
+Re-audit the wiki against code (REQ-P2-02).
 
 ## Blocked
 
@@ -65,8 +65,8 @@ P5 polish: observer order-feed depth (`FEED_TURNS`=2); re-audit wiki.
 
 ## Wiki drift
 
-- `playtest-learnings`: province sheet live DR-17-11/#914; feed still
-  two turns; railroad Follow live DR-17-10/#902.
+- `playtest-learnings`: province sheet live DR-17-11/#914; feed window
+  live DR-17-12; railroad Follow live DR-17-10/#902.
 - `civilian-build-planner`: pick family closed (DR-17-03/05/06/07/09/10).
 - `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
 - `phase-planner-*`: six slots live; soft weight seed (DR-17-01).

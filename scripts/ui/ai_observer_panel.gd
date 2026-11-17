@@ -12,9 +12,6 @@ extends CanvasLayer
 
 const SPEEDS: Array[float] = [1.4, 0.7, 0.3]
 const SPEED_LABELS: Array[String] = ["1×", "2×", "4×"]
-## Turns the feed keeps; ObserverTurnFeed prints them (REQ-P5-05).
-const FEED_TURNS: int = ObserverTurnFeed.FEED_TURNS
-const FEED_MIN_HEIGHT: float = ObserverDashboard.FEED_MIN_HEIGHT
 ## Room the cards keep on a short screen; the plate scrolls around them (REQ-P1-07).
 const CARD_MIN_HEIGHT: float = ObserverCrownCard.MIN_HEIGHT
 
@@ -62,7 +59,7 @@ func _process(delta: float) -> void:
 ## Phone widths keep the panel readable; desktops give the map more room.
 func _fit() -> void:
 	if board != null:
-		board.fit(get_viewport().get_visible_rect().size.x)
+		board.fit(get_viewport().get_visible_rect().size)
 
 
 func refresh() -> void:
