@@ -3400,7 +3400,6 @@ func _context() -> Dictionary:
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const court_Fixture = preload("res://tests/civilian_fixture.gd")
-const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 
 const VIEWER: int = 0
 const ENGLAND: int = 1
@@ -4410,31 +4409,6 @@ func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
 	assert_false(door.is_parked())
 
 
-## The map screen hands its menu to the session, so the ledgers reach the seal
-## through the narrow session surface, and the observer seals it for the run.
-## The screen is freed on every exit — the two guard returns included — so the
-## case never leaves a live chart behind (docs/testing.md § Speed rules: tear
-## down hard).
-func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
-	var screen: MapScreen = SCREEN.instantiate()
-	screen.map_width = 32
-	screen.map_height = 24
-	screen.observer_mode = true
-	add_child(screen)
-	assert_not_null(screen.play, "the session is live")
-	if screen.play == null:
-		screen.free()
-		return
-	assert_true(screen.play.pause_menu == screen.game_menu, "the session names its pause menu")
-	var seal: Button = screen.hud.top_row.find_child("MenuSeal", true, false) as Button
-	assert_not_null(seal, "the MENU seal is mounted on the bar")
-	if seal == null:
-		screen.free()
-		return
-	assert_false(seal.visible, "the observer owns no pause door")
-	assert_true(screen.game_menu.door.is_sealed(), "the door stays sealed for the run")
-	# The card is built on this screen all turn and closes on every back press:
-	# that close must never hand the observer's chrome back.
-	screen.improvements.close()
-	assert_false(seal.visible, "a stray close leaves the observer's door sealed")
-	screen.free()
+## The screen-side door case (`test_the_screen_binds_the_door_and_the_observer_
+## seals_it`) rides the observer suite's one mount (`test_ai_observer`): a
+## second observer mount here cost ~15 s under coverage for the same asserts.
