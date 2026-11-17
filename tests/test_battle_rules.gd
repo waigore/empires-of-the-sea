@@ -8884,6 +8884,24 @@ func test_a_break_names_the_line_it_broke() -> void:
 	assert_false(text.contains("right and left"), "the two lines are not merged")
 
 
+## A sally is told where it costs: the sortie leaves the parapet, so the wall no
+## longer shelters the garrison that round (wiki: quick-battle § Turn structure
+## and actions — Sortie; siege-mechanics § Gates and Sortie).
+func test_a_sortie_says_the_wall_stands_open() -> void:
+	var action: Dictionary = {
+		"side": 1, "label": "Sortie", "sortie": true,
+		"attacker_lost": 2, "defender_lost": 1,
+	}
+
+	var text: String = _line_text(action)
+
+	assert_true(text.contains("the wall stands open"), text)
+	assert_false(
+		_line_text({"side": 1, "label": "Volley fire"}).contains("wall"),
+		"firing from the wall names no opening"
+	)
+
+
 ## Two wings lost at once read as one plural clause: "the left and right break".
 func test_two_wings_breaking_read_as_a_plural() -> void:
 	var action: Dictionary = {

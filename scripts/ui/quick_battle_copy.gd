@@ -9,6 +9,11 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var owner: int = int(action.get("side", 0))
 	var label: String = String(action.get("label", "Action"))
 	var text: String = "%s — %s" % [faction(owner, names), label]
+	# A sally leaves the parapet: the wall no longer shelters the garrison for
+	# the round, and the court is told before the price is (wiki: quick-battle
+	# § Turn structure and actions — Sortie; siege-mechanics § Gates and Sortie).
+	if bool(action.get("sortie", false)):
+		text += " · the wall stands open"
 	# A despatch reports what the action did to the other side; the acting side's
 	# own losses (an assault's price) follow so the round reads honestly.
 	var attacking: bool = owner == int(battle.get("attacker", -1))
