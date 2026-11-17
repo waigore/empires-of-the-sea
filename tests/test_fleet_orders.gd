@@ -1520,7 +1520,8 @@ func test_a_captured_port_sorts_the_home_squadron_out() -> void:
 	var seat: int = _owned_coastal_except(_screen.model, capital)
 	assert_gte(seat, 0, "the fixture owns another coast")
 	# A seat move first re-moors the home squadron away from the captured port.
-	var moved: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+	var moved: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer,
 		_screen.world,
 		[{
 			"faction": MapScreen.PLAYER_FACTION,
@@ -1537,8 +1538,8 @@ func test_a_captured_port_sorts_the_home_squadron_out() -> void:
 	var old_owner: int = data.owner
 	data.owner = 1
 
-	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
-		_screen.world, []
+	var reports: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer, _screen.world, []
 	)
 	data.owner = old_owner
 
@@ -1559,7 +1560,8 @@ func test_a_reassigned_seat_re_moors_the_home_squadron() -> void:
 	var seat: int = _owned_coastal_except(_screen.model, capital)
 	assert_gte(seat, 0, "the fixture owns another coast")
 
-	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+	var reports: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer,
 		_screen.world,
 		[{
 			"faction": MapScreen.PLAYER_FACTION,
@@ -1623,8 +1625,8 @@ func test_a_squadron_marker_counts_its_hulls_and_strength() -> void:
 
 	var hull_id: String = home.hulls[home.hulls.size() - 1]
 	var count_before: int = home.ship_count()
-	var result: Dictionary = _screen.ship_layer.scrap_hull(
-		home, hull_id, _screen.play.economy.economy
+	var result: Dictionary = ShipYardOps.scrap_hull(
+		_screen.ship_layer, home, hull_id, _screen.play.economy.economy
 	)
 
 	assert_true(bool(result.get("ok", false)), String(result.get("reason", "")))
