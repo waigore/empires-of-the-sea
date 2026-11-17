@@ -55,7 +55,7 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 ## for a muster or a yard still raises the estates its cash floor can pay for —
 ## a poorer court keeps its cash floor and grows, research and works first
 ## (ai-architecture § Land reinforcement; #878). The dispatch slot reads the
-## same: the feedstock is one of the commitments the footing keeps.
+## same: the feedstock is one of the commitments the footing keeps. `hire_margin` is the crew price the bids never spend (#894).
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -68,7 +68,7 @@ static func plan(
 	food_shortfall: int = 0,
 	saving: bool = false,
 	speculate: bool = true,
-	works_floor: int = -1
+	works_floor: int = -1, hire_margin: int = 0
 ) -> Dictionary:
 	if config == null or economy == null or market == null:
 		return {"offers": [], "bids": [], "candidates": []}
@@ -93,7 +93,9 @@ static func plan(
 	var bid_cap: int = config.parameter("market.max_bid_types")
 	if bool(tech_unlocked.get(TRADE_FAIRS, false)):
 		bid_cap = TRADE_FAIRS_BID_TYPES
-	var purses: Dictionary = _purses(config, economy, floor, works_floor, starving)
+	var purses: Dictionary = _purses(
+		config, economy, floor, works_floor, starving, hire_margin
+	)
 	_bid_book(
 		config, rows, sold, purses, maxi(free_holds, 0), works_floor, bid_cap,
 		bids, candidates
@@ -282,16 +284,20 @@ static func _claim_rows(
 ## The three purses a bid may draw on (#878, treasury-planner § Lock-recovery):
 ## the general treasury above the caller's floor, the works purse the court's own
 ## land draws on while it saves, and the ration's — the whole chest, because a
-## strike costs every hand.
+## strike costs every hand. `hire_margin` is the crew price the bids never spend
+## (#894).
 static func _purses(
 	config: AiConfig,
 	economy: PlayerEconomy,
 	floor: int,
 	works_floor: int,
-	starving: bool
+	starving: bool,
+	hire_margin: int = 0
 ) -> Dictionary:
+	var margin: int = maxi(hire_margin, 0)
 	var budget: int = maxi(
-		economy.treasury - maxi(config.parameter("market.min_treasury"), floor), 0
+		economy.treasury - maxi(config.parameter("market.min_treasury"), floor) - margin,
+		0
 	)
 	return {
 		"general": budget,
@@ -299,7 +305,7 @@ static func _purses(
 			economy.treasury - maxi(config.parameter("market.min_treasury"), works_floor),
 			0
 		) if works_floor >= 0 else budget,
-		"food": maxi(economy.treasury, 0) if starving else budget,
+		"food": maxi(economy.treasury - margin, 0) if starving else budget,
 	}
 
 

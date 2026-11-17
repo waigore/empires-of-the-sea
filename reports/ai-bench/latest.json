@@ -3,7 +3,7 @@
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
   "submission_hash": "sha256:daad239b78b598fba43182a8115dd6b0ac3d91897048122aa005ee3771a2979c",
-  "submission_git": "orc/hourly-refactor-refactor-code-agent-1/20261117T130006628067Z@e922ae7b",
+  "submission_git": "orc/hourly-refactor-refactor-code-agent-1/20261117T130006628067Z@e8639aaa+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:be8b6cd817b99de785ca98eb268c13216f0f437749daf723cabe66a9575662f3",
+    "ai_surface_hash": "sha256:c07dd02a523461c5c15b2e2992e2559c39c9c1fb1275682ea24f34407ceb6135",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 14,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-17T13:26:36Z",
+  "timestamp": "2026-11-17T15:08:29Z",
   "report_version": 1,
-  "signature": "hmac-sha256:3a1cc9e905c202c21d694f0237c4a4c228c1e39be6052ebd99d13daa0933f9a1"
+  "signature": "hmac-sha256:b7a57bd1a938d38b9d730d76eaaa241a397b1afbf7df9f0c71108f98db3be86e"
 }

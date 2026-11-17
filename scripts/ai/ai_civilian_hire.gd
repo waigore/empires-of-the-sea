@@ -234,6 +234,28 @@ static func owned_units(units: Array, owner: int) -> Array[CivilianState]:
 	return roster
 
 
+## The crew the hire order would take if the purse allowed: the first name in
+## the published queue, whether or not the court can pay for it. Empty when every
+## target is already met. The market keeps its price back from this turn's bids,
+## so a court that has lost a crew can still buy another (issue #894).
+static func next_crew(config: AiConfig, units: Array, context: Dictionary) -> String:
+	if config == null:
+		return ""
+	var targets: Dictionary = context.get("staff_targets", {})
+	if targets.is_empty():
+		return ""
+	var queue: Array[String] = _hire_queue(
+		owned_units(units, config.faction),
+		targets,
+		bool(context.get("at_war", false)),
+		context.get("tech_unlocked", {}),
+		0,
+		int(context.get("paper", 0)),
+		bool(context.get("voyage_crew", false))
+	)
+	return queue[0] if not queue.is_empty() else ""
+
+
 ## The crews the court may hire this turn, in the published order: builders,
 ## engineers, the deed partner once the first two crews stand, a war spy screen
 ## before another explorer, then the peace spy, then a merchant when a deed is
