@@ -50,6 +50,7 @@ static func resolve(
 	var queue: Array[Vector2i] = []
 	_seed_ports(model, works, owned, best, queue, blockade)
 	_spread(model, works, owned, best, queue)
+	_grant_beside_ports(model, works, owned, best, queue, blockade)
 	for raw: Variant in best.keys():
 		tiles[int(raw)] = {
 			"transport": int(best[raw]), "road": true, "town": false,
@@ -218,6 +219,47 @@ static func _spread(
 			var reached: int = mini(cap, transport)
 			if reached > int(best.get(next_index, 0)):
 				_raise(model, best, queue, next, reached)
+
+
+## A tile beside a crown harbour carries the harbour's level whatever road it
+## also lays: "Adjacent port tile grants level 4 to that tile" (wiki:
+## extraction-and-improvements § Transport Level). Without the grant a primitive
+## road laid beside a port would *replace* the adjoining cap with its own 1, so
+## the Engineer's own order would cut the estate's yield.
+## Only tiles the network already reaches are raised, so a bare port still leaves
+## its ring to [method _edges] and the Town rule's own cap.
+static func _grant_beside_ports(
+	model: MapModel, works: LandWorks, owned: Dictionary, best: Dictionary,
+	queue: Array[Vector2i], blockade: Blockades = null
+) -> void:
+	var granted: bool = true
+	var guard: int = 0
+	# A raised tile can carry the grant one step further along a road, so the
+	# pass repeats until nothing moves (bounded: the raises are monotone).
+	while granted and guard < 4:
+		granted = false
+		guard += 1
+		for raw: Variant in works.ports.keys():
+			var index: int = int(raw)
+			if not owned.has(index):
+				continue
+			var port: Vector2i = _tile_of(model, index)
+			if blockade != null and blockade.cuts(
+				model.region_id, model.province_at(port.x, port.y)
+			):
+				continue
+			for offset: Vector2i in NEIGHBORS:
+				var next: Vector2i = port + offset
+				if not model.in_bounds(next.x, next.y):
+					continue
+				var next_index: int = model.index_of(next.x, next.y)
+				if not owned.has(next_index) or not best.has(next_index):
+					continue
+				if int(best[next_index]) >= CAPITAL_TRANSPORT:
+					continue
+				_raise(model, best, queue, next, CAPITAL_TRANSPORT)
+				granted = true
+		_spread(model, works, owned, best, queue)
 
 
 ## Tiles beside the network are "on or next to" a road and take its cap. The

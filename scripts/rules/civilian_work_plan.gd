@@ -304,7 +304,7 @@ static func transport_preview(
 ) -> String:
 	if not CivilianTransport.knows(action):
 		return ""
-	var level: int = transport_after(action, works.transport_at(model, tile))
+	var level: int = transport_after(action, current_transport(model, tile, works))
 	var text: String = "Transport %d — an estate here gathers up to %d a turn" % [
 		level, level
 	]
@@ -313,13 +313,42 @@ static func transport_preview(
 	return text
 
 
+## The transport the tile carries today, read the way the connectivity resolver
+## reads it: its own road, rail or harbour, and — for a tile beside a crown
+## harbour — the harbour's level 4 (wiki: extraction-and-improvements
+## § Transport Level, "Adjacent port tile grants level 4 to that tile"). The
+## preview reads it so the road row never prices a harbour's estate as a
+## one-turn road, nor promises less than the land already gathers.
+static func current_transport(
+	model: MapModel, tile: Vector2i, works: LandWorks
+) -> int:
+	if model == null or works == null:
+		return 0
+	var level: int = works.transport_at(model, tile)
+	if works.has_port(model, tile):
+		return LandWorks.TRANSPORT_RAIL
+	var owner: int = model.owner_at(tile.x, tile.y)
+	for offset: Vector2i in [
+		Vector2i.RIGHT, Vector2i.LEFT, Vector2i.DOWN, Vector2i.UP
+	]:
+		var next: Vector2i = tile + offset
+		if not model.in_bounds(next.x, next.y):
+			continue
+		if model.owner_at(next.x, next.y) != owner:
+			continue
+		if works.has_port(model, next):
+			return LandWorks.TRANSPORT_RAIL
+	return level
+
+
 ## The transport level a finished work leaves on the tile: a road raises the
-## path one step (level 2 at most), a railroad lands 4, and a harbour carries
-## the rail's transport in the network's own reading (`LandConnectivity`).
+## path one step (level 2 at most) but never lowers a tile a harbour or a
+## railroad already carries, a railroad lands 4, and a harbour carries the rail's
+## transport in the network's own reading (`LandConnectivity`).
 static func transport_after(action: String, current: int) -> int:
 	match action:
 		"build_road":
-			return mini(current + 1, LandWorks.TRANSPORT_IMPROVED_ROAD)
+			return maxi(current, mini(current + 1, LandWorks.TRANSPORT_IMPROVED_ROAD))
 		"build_port", "build_rail":
 			return LandWorks.TRANSPORT_RAIL
 	return current

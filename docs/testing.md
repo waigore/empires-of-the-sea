@@ -36,8 +36,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
   gd-tools hands each case a fresh instance, so an instance dictionary redraws
-  per case. Prefer a pocket chart over regenerating Standard; the price census
-  rides **Small** when a seed keeps the published order.
+  per case. Prefer a pocket chart over regenerating Standard; the published
+  census (rate, means, Minor book, prices) rides **one** Standard seed.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
   pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
   **one mount per tier**. A suite that swaps screens frees it. An observer
