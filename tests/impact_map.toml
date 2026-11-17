@@ -2788,6 +2788,12 @@ domain = "prospect"
 match = "scripts/map/resource_seeder.gd*"
 domain = "prospect"
 
+# The observatory's province reading: the panel's own suites prove the words it
+# prints (docs/ai-observer.md). Named above the map glob (first match wins).
+[[rules]]
+match = "scripts/map/observer_province.gd*"
+domain = "ai_panel"
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
@@ -3442,6 +3448,18 @@ domain = "menu"
 match = "scripts/ui/panel_dock.gd"
 domain = "layout"
 
+# The dossier's title block and fact grid are row kits the observatory's
+# province sheet reuses: the province sheet's own suites prove them, so an edit
+# there stays off the ui domain's battle fan-out (first match wins, so these sit
+# above the province_*.gd glob).
+[[rules]]
+match = "scripts/ui/province_facts_grid.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_sheet_head.gd*"
+domain = "province_sheet"
+
 # The province dossier and its estate block: the ui domain proves the panel's
 # geometry (test_mobile_layout) and its content (test_province_panel).
 [[rules]]
@@ -3457,6 +3475,8 @@ domain = "ui"
 match = "scripts/ui/minimap*.gd"
 domain = "map"
 
+# The observatory's province reading: the panel's own suites prove the sheet and
+# the words it prints (docs/ai-observer.md).
 [[rules]]
 match = "scripts/ui/observer_*.gd*"
 domain = "ai_panel"
@@ -3506,11 +3526,8 @@ domain = "chart_bake"
 match = "scripts/ui/ui_theme.gd.uid"
 domain = "chart_bake"
 
-# The province fact grid is a dossier row kit; keep it on ui so a new row does
-# not pull the menu/setup plates.
-[[rules]]
-match = "scripts/ui/province_facts_grid.gd*"
-domain = "ui"
+# The province fact grid is a dossier row kit; its rule sits above the
+# province_*.gd glob so it stays on the sheet's own suites.
 
 # HUD sheet chrome is not a menu screen. The estates head belongs to the ledger
 # it heads, so chrome work does not remount the setup/hub pages past the

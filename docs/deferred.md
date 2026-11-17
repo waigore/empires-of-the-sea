@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-10 vs code through #903 (REQ-P2-02).
+Audited: DR-20261117-11 vs code through #912 (REQ-P2-02).
 
 ## Already live
 
@@ -36,14 +36,15 @@ Audited: DR-20261117-10 vs code through #903 (REQ-P2-02).
 | Estate/wall/ward/transport/crew previews | ledgers + `MapPlayCivilianPick`/`MapPlayCivilianFollow` + chart mark, DR-17-03/05/06/07/09 |
 | QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
 | Rail pick's door; dossier rail block | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
+| Observatory province sheet | `ObserverProvince`; `ObserverProvinceSheet`, DR-17-11 |
 
 ## Gaps (ranked)
 
-None open: the pick family's last door (a railroad) closed in DR-17-10 / #902.
+None open: the observatory reads a province (DR-17-11).
 
 ## Next pick
 
-P5/P1 polish (observer province sheet / feed depth); re-audit wiki.
+P5/P1 polish (order-feed depth); re-audit wiki.
 
 ## Blocked
 

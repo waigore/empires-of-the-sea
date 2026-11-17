@@ -808,6 +808,17 @@ func test_the_dashboard_chrome_answers_its_handles() -> void:
 		and dashboard.frame.custom_minimum_size.x <= 470.0,
 		"a phone width keeps the plate readable"
 	)
+	# The plate owns its column, not the screen: the chart beside it must stay
+	# clickable, or the observatory could never read a province it taps
+	# (DR-20261117-11).
+	assert_true(
+		dashboard.plate.size.x < 720.0,
+		"the plate leaves the chart its own width"
+	)
+	assert_true(
+		dashboard.plate.get_global_rect().end.x <= dashboard.frame.custom_minimum_size.x + 24.0,
+		"the plate stops at its own column"
+	)
 	var shown: bool = dashboard.frame.visible
 	dashboard._toggle_frame()
 	assert_ne(dashboard.frame.visible, shown, "HIDE and the tab trade places")
@@ -1059,3 +1070,116 @@ func test_the_observed_court_charts_like_any_rival() -> void:
 				charts.model_for(faction, region) != null,
 				"%s charts region %d" % [FactionCatalog.name_of(faction), region]
 			)
+
+
+## The observatory's province sheet reads one province for the court that holds
+## it: every word is another module's own — the fact grid's wall and ward, the
+## survey's estates, the defence lens's band — so the sheet can name no number
+## the rules would not (docs/ai-observer.md; REQ-P2-03, REQ-P3-03).
+func test_the_observer_reads_one_province_in_its_owners_terms() -> void:
+	var play: PlaySession = _screen.play
+	var province_id: int = _owned_province(play)
+	assert_true(province_id >= 0, "the chart holds an owned province")
+	var reading: Dictionary = ObserverProvince.reading(play, province_id)
+	var data: ProvinceState = play.model.province_data(province_id)
+	assert_eq(String(reading["name"]), data.name, "the province's own name")
+	assert_eq(int(reading["owner"]), data.owner, "the court that holds it")
+	assert_eq(
+		String(reading["owner_caption"]), ProvinceSheetHead.owner_caption(data.owner),
+		"the honorific the dossier prints"
+	)
+	assert_eq(bool(reading["capital"]), data.capital, "the CAPITAL badge reads the record")
+	assert_eq(String(reading["fort"]), FortRules.describe(data.fort_level), "the wall")
+	assert_eq(
+		String(reading["hospital"]),
+		HospitalRules.describe(data.hospital_level, data.hospital_staffed),
+		"the ward"
+	)
+	assert_false(String(reading["terrain"]).is_empty(), "the ground the battle would fight on")
+	assert_eq(
+		String(reading["band"]),
+		DefenceSurvey.band_for(data.fort_level, int(reading["strength"])),
+		"the band is the defence lens's own"
+	)
+	for row: Dictionary in reading["estates"]:
+		assert_true(bool(row["ours"]), "an estate on the owner's ground is the owner's")
+		assert_true(row.has("tile") and row.has("level"), "an estate row is a survey row")
+	assert_eq(
+		String(reading["defence"]).is_empty(), false,
+		"the defence line always says something"
+	)
+
+
+## A province id the chart does not hold reads nothing, so the sheet closes
+## instead of printing a void (REQ-P5-05).
+func test_the_observer_reads_no_province_it_cannot_name() -> void:
+	var play: PlaySession = _screen.play
+	assert_true(ObserverProvince.reading(play, -1).is_empty(), "no id, no reading")
+	assert_true(ObserverProvince.reading(play, 99999).is_empty(), "no province, no reading")
+	assert_true(ObserverProvince.reading(null, 0).is_empty(), "no session, no reading")
+
+
+## The chart's own selection opens the reading: the observatory mounts the sheet
+## and the map's selection signal fills it, then a cleared selection closes it.
+func test_a_chart_selection_opens_and_closes_the_observers_sheet() -> void:
+	var screen: MapScreen = _screen
+	var panel: AiObserverPanel = screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory is mounted on the observer screen")
+	if panel == null:
+		return
+	var play: PlaySession = screen.play
+	var province_id: int = _owned_province(play)
+	var data: ProvinceState = play.model.province_data(province_id)
+	var tile: Vector2i = data.tiles[0]
+	MapPlayInput.select_province(
+		play, province_id, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE)
+	)
+	assert_true(panel.sheet.visible, "the reading opens on the selection")
+	assert_eq(panel.sheet.head.name_label.text, data.name, "the province on the sheet")
+	assert_eq(panel.sheet.province_id, province_id, "the sheet keeps the province it read")
+	assert_eq(panel.sheet.estates.lines().size(), (ObserverProvince.reading(play, province_id)["estates"] as Array).size())
+	MapPlayInput.deselect(play)
+	assert_false(panel.sheet.visible, "a cleared selection closes the sheet")
+	assert_eq(panel.sheet.province_id, -1, "and forgets the province")
+
+
+## The observatory has no seat to give orders from, so a tap on the chart with a
+## regiment selected moves nothing: the chart is a reading there (REQ-P2-03).
+func test_the_observatory_orders_nothing_from_the_chart() -> void:
+	var play: PlaySession = _screen.play
+	var roster: Array = play.army_layer.regions.value(play.region_index, [])
+	var army: ArmyState = null
+	for raw: Variant in roster:
+		var candidate: ArmyState = raw
+		if (
+			candidate.embarked_fleet < 0
+			and candidate.province != MapModel.NO_ID
+			and not candidate.regiments.is_empty()
+		):
+			army = candidate
+			break
+	assert_not_null(army, "the chart on screen musters a regiment")
+	if army == null:
+		return
+	play.army_layer.select(army)
+	var before: int = army.province
+	var target: int = -1
+	for province: ProvinceState in play.model.provinces:
+		if province.id != before and province.owner == army.owner:
+			target = province.id
+			break
+	assert_true(target >= 0, "the crown holds a second province to march on")
+	if target < 0:
+		return
+	var tile: Vector2i = play.model.province_data(target).tiles[0]
+	MapPlayInput.on_tapped(play, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE))
+	assert_eq(army.province, before, "the observer's tap orders no march")
+
+
+## The court that owns the province the reading names, or the first one the
+## chart holds — a fixture province is enough for the reading's own contract.
+func _owned_province(play: PlaySession) -> int:
+	for province: ProvinceState in play.model.provinces:
+		if province.owner != MapModel.NO_ID:
+			return province.id
+	return -1
