@@ -21,48 +21,49 @@ const MODAL_DOORS: Array[String] = [
 	"LEDGER", "RESEARCH", "COURT", "MUSTER", "ESTATES", "GAZETTE",
 ]
 
-var _viewport: SubViewport = null
-var _screen: MapScreen = null
 ## One mount for the whole suite (docs/testing.md § Speed rules): a case that
 ## reads the chrome at a size re-seats the shared screen from this pristine save
-## (~0.15 s) instead of mounting the chart again (~0.5 s under coverage). The
-## chart is attached lazily, so the pure geometry cases above never paint one.
+## (~0.15 s) instead of mounting the chart again (~0.5 s under coverage).
+## Non-underscore so before_all copies the node refs onto each case; underscore
+## aliases are filled in before_each (gd-tools does not copy `_screen`).
+var viewport: SubViewport = null
+var mounted: MapScreen = null
 var screen_pristine: Dictionary = {}
 var world_snapshot: Array = []
+var _viewport: SubViewport = null
+var _screen: MapScreen = null
+
+
+func before_all() -> void:
+	world_snapshot = Fixture.snapshot(Fixture.world())
+	Fixture.restore(Fixture.world(), world_snapshot)
+	viewport = SubViewport.new()
+	viewport.size = PHONE
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	mounted = Fixture.attach_screen(viewport)
+	screen_pristine = Fixture.suite_capture(mounted)
+
+
+func before_each() -> void:
+	_viewport = viewport
+	_screen = mounted
 
 
 func after_all() -> void:
-	if is_instance_valid(_screen):
-		_screen.free()
+	if is_instance_valid(mounted):
+		if mounted.hud != null and mounted.hud.stats != null:
+			mounted.hud.stats.clear_animations()
+		mounted.free()
+	mounted = null
 	_screen = null
-	if is_instance_valid(_viewport):
-		_viewport.free()
+	if is_instance_valid(viewport):
+		viewport.free()
+	viewport = null
 	_viewport = null
 	Fixture.restore(Fixture.world(), world_snapshot)
-
-
-## The suite's one chart, mounted inside the phone-sized viewport the geometry is
-## read in. The viewport is resized per case; the screen under it is not rebuilt.
-## Called from the chrome cases only, so the pure geometry cases above pay no
-## chart (docs/testing.md § Speed rules). Once mounted, `_open` owns resize and
-## re-seat — a second relayout here before the reset left the end-turn door on a
-## stale compact row.
-func _mount(size: Vector2i) -> void:
-	if is_instance_valid(_screen):
-		return
-	if is_instance_valid(_viewport):
-		_viewport.free()
-	if world_snapshot.is_empty():
-		world_snapshot = Fixture.snapshot(Fixture.world())
-	Fixture.restore(Fixture.world(), world_snapshot)
-	_viewport = SubViewport.new()
-	_viewport.size = size
-	_viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	add_child(_viewport)
-	_screen = Fixture.attach_screen(_viewport)
-	if screen_pristine.is_empty():
-		screen_pristine = Fixture.suite_capture(_screen)
-	_screen.hud._relayout()
+	screen_pristine = {}
+	world_snapshot = []
 
 
 ## Drops a door the last case left open: a full-screen modal is not a docked
@@ -193,7 +194,7 @@ func test_degenerate_cutouts_and_screens_read_as_no_insets() -> void:
 
 func test_phone_chrome_fits_the_screen() -> void:
 	for size: Vector2i in [PHONE, SMALL]:
-		_open(size)
+		await _open(size)
 		await get_tree().process_frame
 		var hud: GameHud = _screen.hud
 		assert_true(HudLayout.is_compact(hud.size), "compact at %s" % size)
@@ -255,7 +256,7 @@ func test_phone_chrome_fits_the_screen() -> void:
 ## The sea key dresses the same cartouche and stays right-docked on a phone: its
 ## five pennant rows are the tallest reading the cartouche carries.
 func test_the_sea_key_fits_a_phone() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	MapPlayInput.set_sea_lens(_screen.play, true)
@@ -273,7 +274,7 @@ func test_the_sea_key_fits_a_phone() -> void:
 ## The political key dresses the same cartouche as the survey key and stays
 ## right-docked on a phone.
 func test_diplomacy_key_fits_a_phone() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	MapPlayInput.set_diplomacy_lens(_screen.play, true)
@@ -291,7 +292,7 @@ func test_diplomacy_key_fits_a_phone() -> void:
 ## Rotating a phone back to a tablet width restores the caption words that the
 ## compact cartouche dropped (the medallions stay put).
 func test_resize_restores_the_wide_cartouche() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	assert_false(_caption_label(hud.chips[0] as Button).visible, "compact drops chip words")
@@ -304,16 +305,22 @@ func test_resize_restores_the_wide_cartouche() -> void:
 	if command != null:
 		assert_false(_caption_label(command).visible, "compact drops command words")
 	_viewport.size = DESKTOP
-	hud._relayout()
 	await get_tree().process_frame
+	hud._relayout()
 	await get_tree().process_frame
 	assert_true(_caption_label(hud.chips[0] as Button).visible, "wide restores chip words")
 	if command != null:
 		assert_true(_caption_label(command).visible, "wide restores command words")
+	# Unstack must put chips back before the gold door (not after it).
+	assert_gt(
+		hud.end_turn_wrap.get_global_rect().position.x,
+		hud.size.x - 220.0,
+		"wide keeps the end-turn door at the bar's right end"
+	)
 
 
 func test_chip_values_do_not_shift_the_bar() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var height: float = hud.top_bar.size.y
@@ -328,7 +335,7 @@ func test_chip_values_do_not_shift_the_bar() -> void:
 
 
 func test_top_bar_keeps_only_purposeful_plaques() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	assert_eq(hud.chips.size(), 4, "treasury, ships, civilians and troops remain")
@@ -342,7 +349,7 @@ func test_top_bar_keeps_only_purposeful_plaques() -> void:
 
 
 func test_treasury_income_delta_is_signed_and_compact() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.set_income(240)
@@ -358,7 +365,7 @@ func test_treasury_income_delta_is_signed_and_compact() -> void:
 ## The plaques state the standing the turn left: the count, its signed movement
 ## and the forces, each reachable from its own tooltip (REQ-P5-05).
 func test_status_plaques_state_the_standing() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.set_treasury(2_500, false)
@@ -380,7 +387,7 @@ func test_status_plaques_state_the_standing() -> void:
 
 ## A coin gain lifts off the treasury plaque rather than repainting it in silence.
 func test_a_coin_gain_lifts_off_the_treasury_plaque() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.set_treasury(1_000, false)
@@ -397,7 +404,7 @@ func test_a_coin_gain_lifts_off_the_treasury_plaque() -> void:
 
 ## The count animates to its new standing instead of jumping (REQ-P5-05).
 func test_the_treasury_count_counts_up_to_the_standing() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.set_treasury(0, false)
@@ -412,7 +419,7 @@ func test_the_treasury_count_counts_up_to_the_standing() -> void:
 
 
 func test_status_plaques_find_the_next_force() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var hits: Array[int] = [0]
@@ -436,7 +443,7 @@ func test_status_plaques_find_the_next_force() -> void:
 ## plain map, and a long press names one on the menu instead. The crest beside
 ## it opens the pause menu, which now carries the mix desk.
 func test_the_bar_seals_cycle_the_readings_and_open_the_menu() -> void:
-	_open(DESKTOP)
+	await _open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var seal: LensSeal = hud.lens_seal
@@ -486,7 +493,7 @@ func test_the_bar_seals_cycle_the_readings_and_open_the_menu() -> void:
 
 
 func test_region_seal_goes_inert_with_a_single_region() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	HudChrome.set_region_label(hud, "OLD WORLD", false)
@@ -499,7 +506,7 @@ func test_region_seal_goes_inert_with_a_single_region() -> void:
 
 func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
 	for size: Vector2i in [DESKTOP, TABLET]:
-		_open(size)
+		await _open(size)
 		await get_tree().process_frame
 		var hud: GameHud = _screen.hud
 		assert_false(HudLayout.is_compact(hud.size), "atlas layout at %s" % size)
@@ -526,7 +533,7 @@ func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
 ## Non-navigation chrome lives on the bar: the chart keeps its corner, and the
 ## ledgers open from a seal that never sits over the map (REQ-P1-07).
 func test_estates_and_gazette_doors_live_on_the_bar() -> void:
-	_open(DESKTOP)
+	await _open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var estates := hud.top_row.find_child("EstatesSeal", true, false) as Button
@@ -553,7 +560,7 @@ func test_estates_and_gazette_doors_live_on_the_bar() -> void:
 ## The turn is the bar's gold door: one reach from anywhere, no corner plate
 ## over the chart (REQ-P1-07, REQ-P5-01).
 func test_end_turn_is_the_bars_gold_door() -> void:
-	_open(DESKTOP)
+	await _open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var bar: Rect2 = hud.top_bar.get_global_rect()
@@ -575,7 +582,7 @@ func test_end_turn_is_the_bars_gold_door() -> void:
 ## can be read without closing it (REQ-P1-07). The bar's doors are not draggable:
 ## they are modals and take the screen (REQ-P1-05).
 func test_opened_dossiers_can_be_pushed_aside() -> void:
-	_open(DESKTOP)
+	await _open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 
@@ -604,7 +611,7 @@ func test_opened_dossiers_can_be_pushed_aside() -> void:
 ## the pointer, a plate that takes the screen's room, and back closing it cleanly
 ## (issue #692; REQ-P1-05, REQ-P1-07, REQ-P5-07).
 func test_every_cartouche_door_opens_a_full_screen_modal() -> void:
-	_open(DESKTOP)
+	await _open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var opened: int = 0
@@ -641,7 +648,7 @@ func test_every_cartouche_door_opens_a_full_screen_modal() -> void:
 
 
 func test_phone_dossier_keeps_its_orders_reachable() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.panels.panel.set_training_visible(true)
@@ -669,7 +676,7 @@ func test_phone_dossier_keeps_its_orders_reachable() -> void:
 
 
 func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:
-	_open(DESKTOP)
+	await _open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.panels.show_province(_screen.model, _screen.capital_province)
@@ -686,7 +693,7 @@ func test_desktop_dossier_keeps_the_table_above_the_orders() -> void:
 ## (wiki: extraction-and-improvements § Extraction formula and town development
 ## cap, capital-and-connectivity § Connectivity).
 func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
-	_open(DESKTOP)
+	await _open(DESKTOP)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var play: PlaySession = _screen.play
@@ -729,7 +736,7 @@ func test_dossier_reports_the_town_level_and_the_crown_link() -> void:
 
 
 func test_phone_fleet_dossier_fits() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	MapPlayFleets.select(_screen.play, _screen.ship_layer.ships[0])
@@ -748,7 +755,7 @@ func test_phone_fleet_dossier_fits() -> void:
 ## The strength block gains the zone's odds line when a hostile squadron shares
 ## the water: the tallest dossier still has to fit a phone sheet (REQ-P1-07).
 func test_phone_fleet_dossier_fits_with_a_contested_zone() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var ship: Ship = _screen.ship_layer.ships[0]
@@ -779,7 +786,7 @@ func test_phone_fleet_dossier_fits_with_a_contested_zone() -> void:
 
 
 func test_phone_ledgers_fit_their_sheets() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.research_pressed.emit()
@@ -801,7 +808,7 @@ func test_phone_ledgers_fit_their_sheets() -> void:
 ## The tallest ledger: every slot at study, so every row carries a spend line
 ## and a gauge instead of collapsing to an idle label.
 func test_the_ledger_fits_a_phone_with_every_slot_at_study() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var state: ResearchState = _screen.economy.economy.research
@@ -820,7 +827,7 @@ func test_the_ledger_fits_a_phone_with_every_slot_at_study() -> void:
 
 
 func test_ledger_header_fits_a_short_viewport() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_screen.economy.open_panel()
@@ -840,7 +847,7 @@ func test_ledger_header_fits_a_short_viewport() -> void:
 ## figure and two stepper buttons on one row — so on a phone it must fit the
 ## tab's width rather than scroll sideways (issue #453; REQ-P1-05, REQ-P1-07).
 func test_the_stockpile_tab_fits_a_phone_width() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	_screen.economy.open_panel()
 	await get_tree().process_frame
@@ -859,7 +866,7 @@ func test_the_stockpile_tab_fits_a_phone_width() -> void:
 ## thumb-sized and inside the sheet's edge. The tab scrolls, so a row may sit
 ## below the fold — the drag area is the body, never a button (REQ-P1-05, REQ-P1-07).
 func test_ledger_worker_actions_are_thumb_sized_on_a_phone() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_screen.economy.open_panel()
@@ -915,7 +922,7 @@ func test_ledger_worker_actions_are_thumb_sized_on_a_phone() -> void:
 
 
 func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var estates: ImprovementPanel = _screen.improvements
 	estates.open(_screen.capital_province)
@@ -948,7 +955,7 @@ func test_estates_rows_are_thumb_sized_on_a_phone() -> void:
 ## must not eat the scroll viewport, and a row folds its detail into one wide
 ## line instead of a narrow column (REQ-P1-07).
 func test_phone_estates_keeps_the_list_in_view() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var estates: ImprovementPanel = _screen.improvements
 	estates.open(_screen.capital_province)
@@ -984,7 +991,7 @@ func test_phone_estates_keeps_the_list_in_view() -> void:
 ## opening turn may still be raising its own lines, so assert the line we
 ## raised is held (and absent from the lane), not the queue's exact size.
 func test_phone_news_waits_while_the_estates_card_is_open() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_clear_news(hud)
@@ -1003,7 +1010,7 @@ func test_phone_news_waits_while_the_estates_card_is_open() -> void:
 ## The cartouche's GAZETTE door is a full-screen modal too, so the lane holds
 ## its lines while the crown reads the news it is standing on (issue #692).
 func test_phone_news_waits_while_the_gazette_is_open() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_clear_news(hud)
@@ -1020,7 +1027,7 @@ func test_phone_news_waits_while_the_gazette_is_open() -> void:
 
 
 func test_phone_news_waits_while_a_dossier_is_open() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_clear_news(hud)
@@ -1038,7 +1045,7 @@ func test_phone_news_waits_while_a_dossier_is_open() -> void:
 ## Cards the panel dock does not own (the empire roster) cover the lane just as
 ## completely; the HUD follows their open state even without a slot hook.
 func test_phone_news_waits_while_the_roster_is_open() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_clear_news(hud)
@@ -1056,7 +1063,7 @@ func test_phone_news_waits_while_the_roster_is_open() -> void:
 
 
 func test_phone_tells_one_despatch_at_a_time() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_clear_news(hud)
@@ -1071,7 +1078,7 @@ func test_phone_tells_one_despatch_at_a_time() -> void:
 ## The college's fixed chrome (three slot rows, goal strip, standing line) used
 ## to leave the tech list about one row tall; a phone keeps the list instead.
 func test_phone_college_keeps_the_tech_list_in_view() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	hud.research_pressed.emit()
@@ -1090,7 +1097,7 @@ func test_phone_college_keeps_the_tech_list_in_view() -> void:
 ## The ledger's "Next turn" projection is one clipped line on a phone, not an
 ## autowrapped paragraph over the production rows.
 func test_phone_ledger_projection_is_one_line() -> void:
-	_open(PHONE)
+	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	_screen.economy.open_panel()
@@ -1122,14 +1129,17 @@ func _clear_news(hud: GameHud) -> void:
 	hud.despatches._covered = false
 
 
+## Resize the shared SubViewport and re-seat the chart. The viewport is resized
+## per case; the screen under it is not rebuilt. Await one frame before
+## relayout so chrome does not bake a compact bar into a wide view.
 func _open(size: Vector2i) -> void:
-	_mount(size)
 	if not is_instance_valid(_screen):
 		return
 	_close_modals()
 	_viewport.size = size
 	Fixture.restore(Fixture.world(), world_snapshot)
 	Fixture.suite_reset(_screen, screen_pristine)
+	await get_tree().process_frame
 	_screen.hud._relayout()
 
 
