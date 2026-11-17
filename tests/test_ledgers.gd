@@ -23,6 +23,10 @@ const Fixture = preload("res://tests/map_fixture.gd")
 var screen: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
+## The crown holding a seat on both charts, captured once: the three cycle cases
+## re-seat from it instead of swapping both charts again (~2.5 s under coverage).
+var both_charts: Dictionary = {}
+var both_charts_map: Array = []
 
 
 func before_all() -> void:
@@ -30,6 +34,11 @@ func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
 	screen = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(screen)
+	_boot_both_charts()
+	both_charts = Fixture.suite_capture(screen)
+	both_charts_map = Fixture.snapshot(Fixture.world())
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(screen, pristine)
 
 
 func after_all() -> void:
@@ -1084,7 +1093,7 @@ class StubHud extends GameHud:
 ## The plaques read "Where are my pieces?" with no region qualifier, so a press
 ## walks every chart and comes back to the one it started on (issue #670).
 func test_the_ships_plaque_cycles_every_squadron_across_charts() -> void:
-	_boot_both_charts()
+	_seat_both_charts()
 	var play: PlaySession = screen.play
 	var total: int = _own_fleet_ids(play, FactionCatalog.OLD_WORLD).size() \
 		+ _own_fleet_ids(play, FactionCatalog.NEW_WORLD).size()
@@ -1111,7 +1120,7 @@ func test_the_ships_plaque_cycles_every_squadron_across_charts() -> void:
 
 
 func test_the_troops_plaque_cycles_every_army_across_charts() -> void:
-	_boot_both_charts()
+	_seat_both_charts()
 	var play: PlaySession = screen.play
 	_raise_army_on_the_far_chart(play)
 	var total: int = _own_army_ids(play, FactionCatalog.OLD_WORLD).size() \
@@ -1140,7 +1149,7 @@ func test_the_troops_plaque_cycles_every_army_across_charts() -> void:
 ## The bug's own signature: a chart with no pieces must not answer "none here"
 ## while the crown's pieces stand on the other chart (issue #670).
 func test_a_press_reaches_squadrons_that_stand_on_the_other_chart() -> void:
-	_boot_both_charts()
+	_seat_both_charts()
 	var play: PlaySession = screen.play
 	_strip_own_fleets(play, FactionCatalog.OLD_WORLD)
 	screen.hud.fleet_status_pressed.emit()
@@ -1233,6 +1242,16 @@ func _boot_both_charts() -> void:
 	screen.load_region(FactionCatalog.OLD_WORLD)
 	play.ship_layer.deselect()
 	play.army_layer.deselect()
+
+
+## Re-seats the crown on the both-charts capture `before_all` took: the far
+## chart's seat and its squadrons come back with the save, so the case does not
+## swap both charts again to rebuild them.
+func _seat_both_charts() -> void:
+	Fixture.restore(Fixture.world(), both_charts_map)
+	Fixture.suite_reset(screen, both_charts)
+	screen.play.ship_layer.deselect()
+	screen.play.army_layer.deselect()
 
 
 func _own_fleet_ids(play: PlaySession, region: int) -> Array[int]:

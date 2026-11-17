@@ -40,7 +40,7 @@ loads, returns to title. Deep rules live in `tests/`.
   rides **Small** when a seed keeps the published order.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
   pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
-  **one mount per tier**. A suite that swaps screens frees its own. An observer
+  **one mount per tier**. A suite that swaps screens frees it. An observer
   mount costs ~15–20 s under coverage; the door/seal case rides
   `test_ai_observer`'s.
 - **Tiny fixture first**: place names and sea zones read
@@ -52,9 +52,10 @@ loads, returns to title. Deep rules live in `tests/`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`.
 - **Heaviest suite sorts first**: name order, four wide — a long `world_…`
-  suite must not drain alone at the end.
-- One Godot boot per theme — coverage ~15 s a boot; 39 → 23 suites
-  (`save_codec` rides campaign_end). `gd-tools.toml` keeps `parallel = 4`.
+  suite must not drain alone.
+- One Godot boot per theme — coverage ~15 s a boot; 39 → 25 suites
+  (`save_codec` rides campaign_end, the dossier rides panel_parts).
+  `gd-tools.toml` keeps `parallel = 4`.
 - Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`).
 
 ## Local
