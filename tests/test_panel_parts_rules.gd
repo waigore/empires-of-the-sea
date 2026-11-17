@@ -606,6 +606,32 @@ func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	assert_true(text.contains("1 tile"), text)
 
 
+## A province whose tiles tie between two terrains reads the ground the battle
+## fights on — the reading ties to the lower terrain id, as
+## `ArmyModifiers.terrain_for` does — not whichever terrain the tiles happen to
+## name first (wiki: resource-terrain-region-rules § Player-facing terrain
+## display names; combat § Modifiers; REQ-P2-03).
+func test_a_tied_province_reads_the_ground_its_battle_uses() -> void:
+	_setup_province_panel()
+	# Six of the crown province's twelve tiles in hills, six in plains, hills
+	# first in tile order: the sheet used to read the first maximum it met.
+	var tiles: Array = _model.province_tiles(0)
+	assert_eq(tiles.size(), 12, "the fixture's crown province")
+	for index in tiles.size():
+		var tile: Vector2i = tiles[index]
+		_model.terrain[_model.index_of(tile.x, tile.y)] = (
+			MapModel.Terrain.HILLS if index < 6 else MapModel.Terrain.PLAINS
+		)
+	_show()
+	var ground: int = ArmyModifiers.terrain_for(_model, 0)
+	assert_eq(ground, MapModel.Terrain.PLAINS, "the tie falls to the lower terrain id")
+	assert_eq(
+		_province_panel_panel._grid.terrain.text,
+		String(MapModel.TERRAIN_LABELS[ground]),
+		"the sheet names the ground the battle fights on"
+	)
+
+
 ## A good the catalog has no medallion for keeps its pictogram, and that mark
 ## wears the commodity ink the survey lens uses (REQ-P1-02, REQ-P1-08).
 func test_an_estate_without_a_medallion_keeps_its_commodity_ink() -> void:
