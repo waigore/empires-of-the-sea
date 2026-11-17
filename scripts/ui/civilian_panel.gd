@@ -2,6 +2,9 @@ class_name CivilianPanel
 extends PanelContainer
 ## Dossier for a selected civilian: posting, development of its tile, and the
 ## work orders its type may take (wiki: civilian-units § Work Order Summary).
+## This sheet composes and emits intents; the ground is read by
+## [CivilianPanelDetail] and the standing lines by [CivilianPanelStatus]
+## (REQ-P3-01, REQ-P3-03).
 
 signal action_pressed(action: String)
 signal cancel_pressed
@@ -81,11 +84,7 @@ func _build() -> void:
 	_pick.visible = false
 	column.add_child(_pick)
 
-	var heading := Label.new()
-	heading.text = "WORK ORDERS"
-	heading.add_theme_font_size_override("font_size", 11)
-	heading.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(heading)
+	column.add_child(_caption("WORK ORDERS"))
 
 	_orders = VBoxContainer.new()
 	_orders.add_theme_constant_override("separation", 4)
@@ -127,10 +126,8 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 	_dock.tooltip_text = tip
 
 
-## `viewer` is the court reading the sheet, which is not always the crew's owner:
-## a rival's crew is observe-only, and the dossier must read the ground through
-## the *viewer's* survey record (wiki: fog-and-exploration § Prospecting — per
-## court; DR-20261111-26). The fleet and army dossiers already split the two.
+## `viewer` is the court reading the sheet, which is not always the crew's owner.
+## The fleet and army dossiers already split the two.
 func refresh(
 	model: MapModel,
 	unit: CivilianState,
@@ -157,8 +154,8 @@ func refresh(
 	# The orders are read before the status: a crew with no order it can take
 	# says so, rather than pointing the crown at a list of refusals.
 	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
-	_status.text = _status_text(model, unit)
-	_pick.text = _pick_line(context)
+	_status.text = CivilianPanelStatus.text(model, unit, _viewer, _legal)
+	_pick.text = CivilianPanelStatus.pick_line(context)
 	_pick.visible = not _pick.text.is_empty()
 	_cancel.visible = unit.is_working() and _viewer == unit.owner
 	# The stores line prices our own orders; a rival's sheet has none to price.
@@ -172,156 +169,13 @@ func refresh(
 	]
 
 
-## The ground under the crew, read through the viewer's own survey record: a
-## crown standing over a rival's crew learns nothing it has not prospected
-## itself (wiki: fog-and-exploration § Prospecting — per court; DR-20261111-26).
+## The ground under the crew, read through the viewer's own survey record.
 func _fill_detail(
 	model: MapModel, unit: CivilianState, works: LandWorks, context: Dictionary
 ) -> void:
 	UiRowBuilder.clear(_detail)
-	var province: int = model.province_at(unit.tile.x, unit.tile.y)
-	_add_row("Province", model.province_name(province) if province >= 0 else "—")
-	_add_row("Tile", "%d, %d" % [unit.tile.x, unit.tile.y])
-	_add_row("Held by", FactionCatalog.name_of(model.owner_at(unit.tile.x, unit.tile.y)))
-	if model.is_purchased_tile(unit.tile):
-		_add_row("Deed", "Purchased land")
-	var resource: int = MineralSurvey.known_resource(
-		model, works, _viewer, unit.tile
-	)
-	if resource >= 0:
-		_add_row("Resource", String(MapGenerator.resource_info(resource).get("name", "—")))
-	elif MineralSurvey.prospectable(model, unit.tile):
-		# A hidden mineral is never named here; the ground itself is the news
-		# (wiki: fog-and-exploration § Prospecting; DR-20261111-26).
-		_add_row("Resource", "Unsurveyed ground")
-	else:
-		_add_row("Resource", "None surveyed")
-	var development: PackedStringArray = PackedStringArray()
-	var level: int = works.improvement_at(model, unit.tile)
-	if level > 0:
-		development.append(
-			ImprovementCatalog.display_name(model.resource_at(unit.tile.x, unit.tile.y), level)
-		)
-	if works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_RAIL:
-		development.append("Railroad")
-	elif works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_IMPROVED_ROAD:
-		development.append("Improved road")
-	elif works.transport_at(model, unit.tile) >= LandWorks.TRANSPORT_ROAD:
-		development.append("Road")
-	if works.has_port(model, unit.tile):
-		development.append("Port")
-	if works.is_prospected(_viewer, model, unit.tile):
-		development.append("Prospected")
-	_add_row("Works", " · ".join(development) if not development.is_empty() else "—")
-	if unit.type_id == "explorer" and _viewer == unit.owner:
-		_add_row("Survey", _survey_text(model, works, unit, province, context))
-	var province_data: ProvinceState = model.province_data(province)
-	if province_data != null and province_data.is_town_tile(unit.tile):
-		_add_row("Town", "Level %d / 4" % province_data.town_level())
-	if unit.type_id == SpyNetworks.SPY_TYPE:
-		_add_row("Tradecraft", _tradecraft_text(model, unit))
-
-
-## What an Explorer has left to read here: the survey is the one order whose
-## target is not the ground underfoot, so the dossier says how much is left and
-## whether this province can be read at all (DR-20261111-26). A Minor or Tribe
-## province without a Consulate offers no ground to survey, so the row names the
-## gate rather than promising taps the rules would refuse (REQ-P2-03).
-func _survey_text(
-	model: MapModel,
-	works: LandWorks,
-	unit: CivilianState,
-	province: int,
-	context: Dictionary
-) -> String:
-	var gate: String = CivilianExplorerGates.consulate_refusal(
-		model, unit.owner, province, context
-	)
-	if not gate.is_empty():
-		return gate
-	var left: int = MineralSurvey.unsurveyed_in_province(
-		model, works, unit.owner, province
-	).size()
-	if left <= 0:
-		return "Every prospectable tile here is charted"
-	return "%d tile%s still to survey — tap one on the map" % [
-		left, "" if left == 1 else "s"
-	]
-
-
-## What the spy's standing actually buys where it stands: a shadowed court only
-## shares its research when it is a Great Power (wiki: civilian-units § Spy (2);
-## DR-20261110-03), and the counter-espionage screen exists only while the order
-## is up (wiki: civilian-units § Spy (3)). A dossier that promised a share from
-## a minor court, or a screen from an idle spy, would claim an outcome the rules
-## never grant (REQ-P2-03).
-func _tradecraft_text(model: MapModel, unit: CivilianState) -> String:
-	var host: int = model.owner_at(unit.tile.x, unit.tile.y)
-	if host == MapModel.NO_ID:
-		return "Unclaimed land — no court to shadow"
-	if host == unit.owner:
-		if unit.work_action() == SpyRules.WORK_COUNTER:
-			# The order costs a spy that could be shadowing a rival for +15% RP,
-			# so the dossier names what the screen buys before the court commits
-			# (wiki: civilian-units § Spy (3)).
-			return (
-				"Counter-espionage screen — empire-wide; %d%% a turn to take a"
-				+ " rival agent, %d%% to turn one."
-			) % [SpyRules.KILL_PCT, SpyRules.DEFECT_PCT]
-		return "No screen up — only the counter-espionage order covers your land"
-	var name: String = FactionCatalog.name_of(host)
-	if FactionCatalog.type_of(host) == FactionCatalog.Type.GREAT_POWER:
-		return "Shadows %s — presence reveal, +%d%% RP" % [name, SpyNetworks.BOOST_PERCENT]
-	return "Shadows %s — presence reveal only; only Great Powers share research" % name
-
-
-## The court's own pick for a crew that waits: the work the published planner
-## would give it next, worded by the ledger that sells the work, in the crown's
-## gold under the order status (REQ-P5-06; DR-20261117-06). A reading only — the
-## crown still presses the order, and nothing is assigned by this line.
-func _pick_line(context: Dictionary) -> String:
-	var pick: Dictionary = context.get("pick", {}) as Dictionary
-	var line: String = String(pick.get("line", ""))
-	if line.is_empty():
-		return ""
-	return line.substr(0, 1).to_upper() + line.substr(1) + "."
-
-
-## A rival's crew answers to its own crown: the sheet says so with the same
-## words the fleet and army dossiers use, so no control is offered that the
-## rules would refuse (REQ-P2-03, REQ-P5-06).
-func _status_text(model: MapModel, unit: CivilianState) -> String:
-	if _viewer != unit.owner:
-		return "Enemy colours · no orders"
-	if not unit.is_working():
-		if unit.type_id == SpyNetworks.SPY_TYPE:
-			return _spy_status(model, unit)
-		# Every row below is refused: the sheet must not send the crown down a
-		# list it cannot press (REQ-P5-06).
-		if _legal == 0:
-			return "Idle — no order can be taken here."
-		return "Idle — choose an order below."
-	if unit.work_action() == SpyRules.WORK_COUNTER:
-		return "Counter-espionage · ongoing."
-	return "%s · %d turn%s left." % [
-		CivilianWork.label(unit.work_action()),
-		unit.remaining_turns(),
-		"" if unit.remaining_turns() == 1 else "s",
-	]
-
-
-## An idle spy is unseen and unscreened: the line says where its trade pays, so
-## a court that shares nothing is never sent there twice.
-func _spy_status(model: MapModel, unit: CivilianState) -> String:
-	var host: int = model.owner_at(unit.tile.x, unit.tile.y)
-	if host == MapModel.NO_ID or host == unit.owner:
-		return (
-			"At large — post it on a rival Great Power's land, or keep it home as a screen."
-		)
-	var name: String = FactionCatalog.name_of(host)
-	if FactionCatalog.type_of(host) == FactionCatalog.Type.GREAT_POWER:
-		return "At large — shadowing %s: presence reveal and a research share." % name
-	return "At large — shadowing %s: presence reveal only, no research share." % name
+	for row: Array in CivilianPanelDetail.rows(model, unit, works, context, _viewer):
+		_add_row(String(row[0]), String(row[1]))
 
 
 func _fill_orders(
@@ -340,12 +194,9 @@ func _fill_orders(
 	# Another crown's crew takes no orders from us — the rules refuse every one
 	# (MapPlayCivilians.assign_order), so the sheet never offers them.
 	if _viewer != unit.owner:
-		var note := Label.new()
-		note.text = "Observe only. Orders require your own crew."
-		note.add_theme_font_size_override("font_size", 11)
-		note.add_theme_color_override("font_color", Palette.TEXT_DIM)
-		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		_orders.add_child(note)
+		_orders.add_child(
+			_note("Observe only. Orders require your own crew.", Palette.TEXT_DIM)
+		)
 		return
 	for option: Dictionary in CivilianWork.options(
 		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
@@ -367,19 +218,30 @@ func _fill_orders(
 		# no ledger prices name their payoff here (REQ-P5-06; DR-20261117-05).
 		var preview_text: String = String(option.get("preview_text", ""))
 		if not preview_text.is_empty():
-			var payoff := Label.new()
-			payoff.text = preview_text
-			payoff.add_theme_font_size_override("font_size", 11)
-			payoff.add_theme_color_override("font_color", Palette.GOLD)
-			payoff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_orders.add_child(payoff)
+			_orders.add_child(_note(preview_text, Palette.GOLD))
 		if not bool(option["ok"]):
-			var reason := Label.new()
-			reason.text = String(option["reason"])
-			reason.add_theme_font_size_override("font_size", 11)
-			reason.add_theme_color_override("font_color", Color(0.80, 0.63, 0.45, 0.9))
-			reason.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-			_orders.add_child(reason)
+			_orders.add_child(
+				_note(String(option["reason"]), Color(0.80, 0.63, 0.45, 0.9))
+			)
+
+
+func _caption(text: String) -> Label:
+	var heading := Label.new()
+	heading.text = text
+	heading.add_theme_font_size_override("font_size", 11)
+	heading.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	return heading
+
+
+## A small wrapped aside under a row or an order: the refusal, the payoff, or a
+## rival's observe-only note.
+func _note(text: String, color: Color) -> Label:
+	var label := Label.new()
+	label.text = text
+	label.add_theme_font_size_override("font_size", 11)
+	label.add_theme_color_override("font_color", color)
+	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return label
 
 
 func _add_row(caption: String, value: String) -> void:
