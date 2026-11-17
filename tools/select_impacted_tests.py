@@ -32,6 +32,7 @@ IN_SCOPE_PREFIXES = (
 )
 IN_SCOPE_FILES = {
     "project.godot",
+    "icon.png",
     "icon.svg",
     "gd-tools.toml",
     "tools/lint_arch.py",
