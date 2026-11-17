@@ -1712,9 +1712,21 @@ domain = "intro"
 match = "project.godot"
 full = true
 
+# The app's face: the project icon and the Android launcher layers. An asset
+# cannot reach gameplay, so the mark runs its own wiring suite instead of the
+# whole tree (docs/testing.md tier-1 budget).
+[domains.branding]
+suites = [
+  "test_branding_rules.gd",
+]
+
 [[rules]]
 match = "icon.svg"
-full = true
+domain = "branding"
+
+[[rules]]
+match = "tests/test_branding_rules.gd*"
+domain = "branding"
 
 [[rules]]
 match = "addons/**"
