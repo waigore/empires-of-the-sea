@@ -75,6 +75,7 @@ suites = [
   "test_ai_rules.gd",
   "test_civilian_turn_rules.gd",
   "test_panel_parts_rules.gd",
+  "test_civilian_dossier_parts.gd",
 ]
 
 [domains.diplomacy]
@@ -2060,14 +2061,28 @@ domain = "civilian"
 # the civilian rules and the sheet that prints the line, so it names its own
 # domain instead of pulling the whole prospect map fan-out a second time.
 [[rules]]
-match = "scripts/map/map_play_civilian_pick.gd*"
+match = "scripts/map/map_play_civilian_pick*.gd*"
 domain = "civilian_pick"
 
 # Civilian sheet chrome — civilian suites cover orders/roster; prospect's
 # map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
-match = "scripts/ui/civilian_panel.gd*"
+match = "scripts/ui/civilian_panel*.gd*"
 domain = "civilian"
+
+# The sheet's two halves read out of the widgets: the ground rows and the
+# standing lines, proved by the dossier suite alone.
+[[rules]]
+match = "scripts/ui/civilian_panel_d*.gd*"
+domain = "civilian_pick"
+
+[[rules]]
+match = "scripts/ui/civilian_panel_s*.gd*"
+domain = "civilian_pick"
+
+[[rules]]
+match = "tests/test_civilian_dossier_parts.gd*"
+domain = "civilian_pick"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
