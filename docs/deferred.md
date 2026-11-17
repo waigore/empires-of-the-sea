@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-15 vs code through #929 (REQ-P2-02).
+Audited: DR-20261118-05 vs code through #945 (REQ-P2-02).
 Implement default: largest clear item here, then REQ/wiki.
 
 ## Already live
@@ -30,11 +30,11 @@ Implement default: largest clear item here, then REQ/wiki.
 | War-time trade garrison + rival bench | `AiNavalPlanner.trade_garrison`; `_bench_room` |
 | Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20k |
 | Recipe gate + rival second-stage | `min_town`; `TownIndustry.best_level` |
-| Regiment dismiss; money-goal reweight | `ArmyDismiss`; `goal_mille` |
+| Regiment dismiss; money-goal reweight | `ArmyDismiss`; `AiPosture.goal_mille` |
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
-| Raise/crew/yard previews | ledgers + pick/Follow/chart + `FleetYard.hull_line`, DR-17-03/05–07/09/15 |
+| Raise/crew/yard/muster/workers/college/deed | ledgers + pick/Follow/chart; hull/regiment/payoff/recruit/deed lines; DR-17-03/05–07/09/15 + DR-18-01/03–05 |
 | QB wings + handset plate | `QuickBattleWings`; `BattlePlateFrame`, DR-17-08/14 |
 | Rail pick door; dossier rail | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
 | Observatory sheet + feed | `ObserverProvince*`; `ObserverTurnFeed`, DR-17-11/12 |
@@ -42,7 +42,7 @@ Implement default: largest clear item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-None open (through DR-17-15/#929).
+None open (through DR-18-05/#945).
 
 ## Next pick
 
@@ -71,4 +71,4 @@ Soft priority weight stays seed; else REQ/wiki.
 - `phase-planner-*` / `ai-architecture`: six slots live; soft weight seed;
   "dispatch stays seed" stale.
 - `production-recipes`: rival second-stage still deferred → live #798.
-- Starting walls DR-17-13; yard hull line DR-17-15.
+- DR-18 naming surfaces match their records.
