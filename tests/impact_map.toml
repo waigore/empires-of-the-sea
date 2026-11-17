@@ -76,7 +76,6 @@ suites = [
   "test_ai_rules.gd",
   "test_civilian_turn_rules.gd",
   "test_panel_parts_rules.gd",
-  "test_civilian_dossier_parts.gd",
 ]
 
 [domains.diplomacy]
@@ -2118,17 +2117,13 @@ match = "scripts/ui/civilian_panel*.gd*"
 domain = "civilian"
 
 # The sheet's two halves read out of the widgets: the ground rows and the
-# standing lines, proved by the dossier suite alone.
+# standing lines, proved by the panel-parts boot the sheet cases already use.
 [[rules]]
 match = "scripts/ui/civilian_panel_d*.gd*"
 domain = "civilian_pick"
 
 [[rules]]
 match = "scripts/ui/civilian_panel_s*.gd*"
-domain = "civilian_pick"
-
-[[rules]]
-match = "tests/test_civilian_dossier_parts.gd*"
 domain = "civilian_pick"
 
 [[rules]]
