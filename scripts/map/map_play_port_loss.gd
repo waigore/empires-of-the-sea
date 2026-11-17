@@ -10,8 +10,8 @@ extends RefCounted
 static func settle(play: PlaySession, reassigned: Array) -> void:
 	if play.ship_layer == null:
 		return
-	var reports: Array[Dictionary] = play.ship_layer.settle_port_losses(
-		play.world, reassigned
+	var reports: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		play.ship_layer, play.world, reassigned
 	)
 	for report: Dictionary in reports:
 		if report.has("merged"):
