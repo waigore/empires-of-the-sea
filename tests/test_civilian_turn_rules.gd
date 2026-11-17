@@ -3180,6 +3180,62 @@ func test_ledger_surfaces_an_active_build_and_cancel() -> void:
 	assert_true(builder.is_idle())
 
 
+## An Engineer's road on an estate tile holds it for the crown: the estates
+## ledger must not offer a Build press — nor count the row in Raise all ready —
+## that the order refuses (wiki: civilian-units § Per-player tile exclusivity;
+## REQ-P2-03, DR-20261116-06).
+func test_a_busy_estate_tile_is_not_ready() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var engineer := _add("engineer", Vector2i(0, 1))
+	var builder := _add("builder", field_Fixture.BARE_TILE)
+	var caps: Dictionary = {"timber": 4, "iron": 4}
+	var road: Dictionary = CivilianWork.assign(
+		field__model, engineer, "build_road", field__works, _units, _stock, _view,
+		field_Fixture.TIMBER_TILE
+	)
+	assert_true(bool(road.get("ok", false)), String(road.get("reason", "")))
+	var snap: Dictionary = ImprovementLedger.snapshot(
+		field__model, field__works, _units, _stock, 0, field_Fixture.BARE_TILE, caps
+	)
+	var row: Dictionary = _row_at(snap, field_Fixture.TIMBER_TILE)
+	assert_false(bool(row["can_build"]), "another crew holds the tile")
+	assert_eq(String(row["build_reason"]), "Another crew is already working this tile.")
+	var press: Dictionary = ImprovementOrders.build(
+		field__model, _units, field__works, _stock, _view, 0,
+		field_Fixture.TIMBER_TILE, caps
+	)
+	assert_false(bool(press.get("ok", false)))
+	assert_eq(String(press.get("message", "")), String(row["build_reason"]))
+	assert_false(
+		EstateLedger.ready_tiles(EstateLedger.grouped(snap), "ready").has(
+			field_Fixture.TIMBER_TILE
+		),
+		"the Raise all ready press must not count a tile the order refuses"
+	)
+	assert_true(builder.is_idle(), "no Builder was dispatched")
+
+
+## A Rail Builder is exempt from tile exclusivity, so the estate stays ready
+## (wiki: civilian-units § Per-player tile exclusivity).
+func test_a_rail_builder_does_not_hold_an_estate_tile() -> void:
+	field__works.set_transport(
+		field__model, field_Fixture.TIMBER_TILE, LandWorks.TRANSPORT_ROAD
+	)
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var rail := _add("rail_builder", Vector2i(0, 1))
+	_add("builder", field_Fixture.BARE_TILE)
+	var caps: Dictionary = {"timber": 4, "iron": 4}
+	var laid: Dictionary = CivilianWork.assign(
+		field__model, rail, "build_rail", field__works, _units, _stock, _view,
+		field_Fixture.TIMBER_TILE, caps, {"early_steam_engine": true}
+	)
+	assert_true(bool(laid.get("ok", false)), String(laid.get("reason", "")))
+	var snap: Dictionary = ImprovementLedger.snapshot(
+		field__model, field__works, _units, _stock, 0, field_Fixture.BARE_TILE, caps
+	)
+	assert_true(bool(_row_at(snap, field_Fixture.TIMBER_TILE)["can_build"]))
+
+
 func test_build_orders_pick_the_nearest_builder() -> void:
 	var far := field_Fixture.unit("builder", Vector2i(2, 2))
 	far.id = 9
