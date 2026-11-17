@@ -12,6 +12,14 @@ const ZOOM_STEP: float = 1.14
 const TAP_SLOP: float = 9.0
 
 var map_size: Vector2 = Vector2(2816.0, 1848.0)
+## Water painted past the tile grid (`SeaBackdrop`). The camera may compose into
+## it, so a chart can frame its land inside the screen strip its banner leaves
+## free instead of running the grid's edge to the top of the screen.
+var sea_margin: float = 0.0
+## Screen strip this camera composes inside, in pixels: the page's banner above
+## it and its action bar below. A zero rect composes for the whole viewport, as
+## the campaign map does.
+var compose_band: Rect2 = Rect2()
 var target_zoom: float = 0.6
 var pan_speed: float = 1150.0
 var inertia_damping: float = 5.0
@@ -36,19 +44,50 @@ func _ready() -> void:
 	zoom = Vector2.ONE * target_zoom
 
 
-func configure(size: Vector2) -> void:
+func configure(size: Vector2, p_sea_margin: float = 0.0) -> void:
 	map_size = size
-	position = CameraMath.clamp_center(position, zoom.x, viewport_size(), map_size)
+	sea_margin = p_sea_margin
+	position = clamp_center(position)
 
 
 func viewport_size() -> Vector2:
 	return get_viewport_rect().size
 
 
+## The painted world: the tile grid plus the water drawn around it.
+func frame() -> Rect2:
+	return Rect2(
+		Vector2.ONE * -sea_margin, map_size + Vector2.ONE * sea_margin * 2.0
+	)
+
+
+## The strip this chart composes inside; the whole viewport until a page sets one.
+func band() -> Rect2:
+	if compose_band.size.x > 0.0 and compose_band.size.y > 0.0:
+		return compose_band
+	return Rect2(Vector2.ZERO, viewport_size())
+
+
+func set_compose_band(p_band: Rect2) -> void:
+	compose_band = p_band
+
+
+## This camera's clamp: the viewport stays inside the painted world.
+func clamp_center(center: Vector2) -> Vector2:
+	return CameraMath.clamp_view(center, zoom.x, viewport_size(), frame())
+
+
 ## The map must always cover the viewport, so the floor is whichever is larger:
-## the art-directed minimum or the cover fit for this window shape.
+## the art-directed minimum or the cover fit for this window shape. A chart
+## composed inside a band instead pulls back until the whole grid fits there —
+## every province, and the water drawn around it, on one screen.
 func min_zoom() -> float:
-	return maxf(MIN_ZOOM, CameraMath.fit_cover(viewport_size(), map_size))
+	if compose_band.size.x <= 0.0 or compose_band.size.y <= 0.0:
+		return maxf(MIN_ZOOM, CameraMath.fit_cover(viewport_size(), map_size))
+	return maxf(
+		CameraMath.fit_cover(viewport_size(), frame().size),
+		CameraMath.fit_zoom(band().size, map_size)
+	)
 
 
 func is_dragging() -> bool:
@@ -64,8 +103,8 @@ func focus_on(world_position: Vector2, p_zoom: float = -1.0, instant: bool = fal
 		target_zoom = clampf(p_zoom, min_zoom(), MAX_ZOOM)
 	_anchored = false
 	_velocity = Vector2.ZERO
-	_focus_target = CameraMath.clamp_center(
-		world_position, target_zoom, viewport_size(), map_size
+	_focus_target = CameraMath.compose_center(
+		world_position, target_zoom, viewport_size(), band(), frame()
 	)
 	_has_focus_target = true
 	if instant:
@@ -134,7 +173,7 @@ func _process(delta: float) -> void:
 		if is_equal_approx(zoom.x, target_zoom):
 			_anchored = false
 
-	position = CameraMath.clamp_center(position, zoom.x, viewport, map_size)
+	position = clamp_center(position)
 
 	var moved: bool = position.distance_to(_last_emitted_position) > 0.4
 	var zoomed: bool = absf(zoom.x - _last_emitted_zoom) > 0.0005

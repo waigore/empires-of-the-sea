@@ -207,7 +207,7 @@ func _dump_observer() -> void:
 		_say("the observatory panel is not mounted")
 		return
 	_say("panel feed:")
-	var feed: String = panel._log.text
+	var feed: String = panel.board.feed.text
 	if feed.is_empty():
 		_say("  (empty)")
 	for line: String in feed.split("\n"):
@@ -221,10 +221,10 @@ func _dump_observer() -> void:
 			int(row["rank"]), String(row["name"]), int(row["provinces_old"]),
 			int(row["regiments"]), String(row["headline"]),
 		])
-	var card: Dictionary = panel._cards.get(_attacker, {})
-	if not card.is_empty():
+	var card := panel.board.crowns_by_id.get(_attacker) as ObserverCrownCard
+	if card != null:
 		_say("  %s's card reads: \"%s\"" % [
-			FactionCatalog.name_of(_attacker), String(card["last"].text),
+			FactionCatalog.name_of(_attacker), String(card.last.text),
 		])
 	_say("the trace names: %s" % _trace_events(maxi(_play.turn - 1, 1)))
 

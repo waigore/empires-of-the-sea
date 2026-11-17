@@ -3688,7 +3688,9 @@ func test_escape_and_android_back_are_one_press() -> void:
 
 
 ## Phone geometry: the banner and the action bar stay on screen, never overlap,
-## and keep a touch-sized confirm (REQ-P1-05, REQ-P1-07, RUB-P1-05).
+## and keep a touch-sized confirm (REQ-P1-05, REQ-P1-07, RUB-P1-05). The chart
+## composes in the strip they leave free, so the banner covers open sea rather
+## than the seaboards the player has to tap.
 func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 	_setup_capital_seat()
 	for size: Vector2i in [Vector2i(914, 411), Vector2i(800, 360)]:
@@ -3701,6 +3703,8 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 		phone_page.world = world
 		viewport.add_child(phone_page)
 		await get_tree().process_frame
+		await get_tree().process_frame
+		await get_tree().process_frame
 		var screen_rect := Rect2(Vector2.ZERO, Vector2(size))
 		_fits(phone_page.banner.get_global_rect(), screen_rect, "banner %s" % size)
 		_fits(phone_page.back_button.get_global_rect(), screen_rect, "back %s" % size)
@@ -3711,6 +3715,7 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 			"banner and action bar do not collide at %s" % size
 		)
 		assert_gte(phone_page.confirm_button.size.y, 44.0, "touch-sized confirm %s" % size)
+		_assert_chart_in_band(phone_page, screen_rect, size)
 		viewport.free()
 
 
@@ -3780,7 +3785,66 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	main.free()
 
 
+## A crown with no seaboard has nothing to frame: the chart falls back to the
+## camera's own floor instead of opening on an empty box.
+func test_a_chart_with_no_choices_opens_on_the_cameras_own_floor() -> void:
+	var root := Control.new()
+	root.size = Vector2(914.0, 411.0)
+	add_child(root)
+	var chrome: CapitalChoiceChrome = CapitalChoiceChrome.new().build(root, true)
+	var viewport := Vector2(914.0, 411.0)
+	var map_size := Vector2(2112.0, 1408.0)
+	var band: Rect2 = chrome.band(viewport)
+	var none: Array[int] = []
+	assert_eq(CapitalChoiceChrome.opening_zoom(band, viewport, map_size, Rect2()), 0.0)
+	assert_eq(
+		CapitalChoiceChrome.opening_target(band, map_size, Rect2(), 0.0, Vector2(5, 6)),
+		Vector2(5, 6),
+		"an empty chart centres on the seat"
+	)
+	assert_eq(CapitalChoiceChrome.choices_rect(null, none, 22.0), Rect2())
+	chrome.compose(null, null, none, Vector2.ZERO, 22.0, true)
+	root.free()
+
+
 # --- helpers ----------------------------------------------------------------
+
+
+## Every seaboard the crown may seat its court in sits between the banner and the
+## action row, with water past the chart's edges on both sides.
+func _assert_chart_in_band(page: CapitalChoiceScreen, screen: Rect2, size: Vector2i) -> void:
+	var band: Rect2 = page.camera.band()
+	assert_gt(
+		band.position.y,
+		page.banner.get_global_rect().end.y,
+		"the chart composes below the banner at %s" % size
+	)
+	assert_lt(
+		band.end.y,
+		page.back_button.get_global_rect().position.y,
+		"the chart composes above the action row at %s" % size
+	)
+	assert_lte(
+		page.camera.zoom.x,
+		CameraMath.fit_cover(Vector2(size), page.camera.map_size) + 0.001,
+		"the chart never opens closer than the whole screen at %s" % size
+	)
+	var transform: Transform2D = page.get_viewport().get_canvas_transform()
+	for province_id: int in page.marker.eligible:
+		var ids: Array[int] = [province_id]
+		var box: Rect2 = CapitalChoiceChrome.choices_rect(page.model, ids, 22.0)
+		var top_left: Vector2 = transform * box.position
+		var bottom_right: Vector2 = transform * box.end
+		assert_gte(
+			top_left.y, band.position.y - 0.5,
+			"%s stays under the banner at %s" % [page.model.province_name(province_id), size]
+		)
+		assert_lte(
+			bottom_right.y, band.end.y + 0.5,
+			"%s stays above the action row at %s" % [page.model.province_name(province_id), size]
+		)
+		assert_gte(top_left.x, -0.5, "the whole chart is on screen at %s" % size)
+		assert_lte(bottom_right.x, screen.size.x + 0.5, "the whole chart is on screen at %s" % size)
 
 
 ## A chart on a phone-sized viewport, laid out and ready for real input.

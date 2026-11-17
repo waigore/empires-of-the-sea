@@ -2229,6 +2229,32 @@ func test_clamp_center_centres_small_map() -> void:
 	assert_almost_eq(clamped.x, 200.0, 0.01)
 	assert_almost_eq(clamped.y, 100.0, 0.01)
 
+## A chart paints water past its tile grid: the camera may compose into that
+## margin, which is what lets a phone banner cover sea instead of land.
+func test_clamp_view_composes_into_the_painted_margin() -> void:
+	var frame := Rect2(Vector2(-1400.0, -1400.0), MAP + Vector2(2800.0, 2800.0))
+	var margin_point := Vector2(-300.0, -200.0)
+	assert_eq(
+		CameraMath.clamp_view(margin_point, 1.0, VIEWPORT, frame),
+		margin_point,
+		"the painted water past the grid is reachable"
+	)
+	var clamped: Vector2 = CameraMath.clamp_view(Vector2(-9999, -9999), 1.0, VIEWPORT, frame)
+	assert_almost_eq(clamped.x, frame.position.x + VIEWPORT.x * 0.5, 0.01)
+	assert_almost_eq(clamped.y, frame.position.y + VIEWPORT.y * 0.5, 0.01)
+
+## The chart is composed in the strip the page's chrome leaves free, so the point
+## the player is choosing between sits in the middle of that strip — not under
+## the banner at the top of the screen.
+func test_compose_center_puts_the_point_in_the_middle_of_the_band() -> void:
+	var band := Rect2(0.0, 90.0, VIEWPORT.x, 260.0)
+	var frame := Rect2(Vector2.ZERO, MAP)
+	var point := Vector2(1400.0, 900.0)
+	var center: Vector2 = CameraMath.compose_center(point, 1.0, VIEWPORT, band, frame)
+	var screen: Vector2 = CameraMath.world_to_screen(center, 1.0, point, VIEWPORT)
+	assert_almost_eq(screen.x, band.get_center().x, 0.01)
+	assert_almost_eq(screen.y, band.get_center().y, 0.01)
+
 func test_zoom_anchor_keeps_world_point_under_cursor() -> void:
 	var center := Vector2(1400.0, 900.0)
 	var anchor := Vector2(1000.0, 200.0)
