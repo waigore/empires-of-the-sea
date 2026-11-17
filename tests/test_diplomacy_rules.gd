@@ -998,6 +998,22 @@ func _diplomacy_proposals_event(kind: String) -> bool:
 
 # --- test_diplomacy_trade ---
 
+func test_trade_spine_forwards_to_ftp_boycott_and_terms_modules() -> void:
+	# The soft-ceiling split keeps DiplomacyTrade as the pre-split name; the
+	# modules own the ops (REQ-P3-01 / RUB-P3-04 pairing).
+	_setup_diplomacy_trade()
+	assert_eq(
+		DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1),
+		DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1)
+	)
+	assert_eq(
+		DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2),
+		DiplomacyBoycott.is_boycotting(diplomacy_trade_state, 0, 2)
+	)
+	var via_spine: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
+	var via_terms: Dictionary = DiplomacyTradeTerms.faction_terms(diplomacy_trade_state, {}, 0)
+	assert_eq(via_spine, via_terms)
+
 func test_ftp_needs_a_great_power_and_an_embassy() -> void:
 	_setup_diplomacy_trade()
 	assert_true(DiplomacyTrade.can_establish_ftp(diplomacy_trade_state, 0, 1)["ok"], "GP auto-embassy")

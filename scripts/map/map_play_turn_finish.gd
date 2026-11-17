@@ -255,13 +255,22 @@ static func _report_turn(play: PlaySession, book: TurnBook) -> void:
 ## unlocks: the rivals' ledgers and the crown's have both closed by now, and
 ## each report names the studies that finished (wiki: siege-mechanics
 ## § Fort Levels; issue #919). Minors keep only the walls they build.
+##
+## A rival's row carries the whole economy report under `resolved`, and the
+## research phase is nested under its own `research` key — the slot the Gazette
+## and the spy despatch read. Reading `resolved` as if it were the research
+## report left every rival's capital at the wall it started with.
 static func _fort_upgrades(play: PlaySession, book: TurnBook) -> void:
 	var factions: Dictionary = book.economy_report.get("factions", {})
 	for raw: Variant in factions.keys():
 		var row: Dictionary = factions[raw]
-		FortCapital.apply_research(
-			play.world, int(raw), row.get("resolved", {}) as Dictionary
-		)
+		var resolved: Variant = row.get("resolved", {})
+		if typeof(resolved) != TYPE_DICTIONARY:
+			continue
+		var research: Variant = (resolved as Dictionary).get("research", {})
+		if typeof(research) != TYPE_DICTIONARY:
+			continue
+		FortCapital.apply_research(play.world, int(raw), research as Dictionary)
 	var research: Dictionary = book.crown_report.get("research", {}) as Dictionary
 	var raised: int = FortCapital.apply_research(play.world, play.player_faction, research)
 	if raised <= 0 or play.hud == null or play.observer_mode:
