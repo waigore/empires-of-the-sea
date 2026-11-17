@@ -2455,6 +2455,172 @@ func test_ai_civilian_never_plans_another_courts_units() -> void:
 	assert_true((plan["moves"] as Array).is_empty())
 
 
+## The crown's own pick (DR-20261117-06): an idle Builder of the crown is named
+## with the estate the published planner would raise, and the line prices the
+## level in the estates ledger's own words. It is a reading — the plan is not
+## applied, so the crew is still idle and the tile still unraised afterwards.
+func test_the_crowns_pick_names_the_estate_its_builder_would_raise() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var model: MapModel = play.model
+	var layer: CivilianLayer = play.civilian_layer
+	var grain := Vector2i(1, 1)
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", grain)
+	layer.units.assign([builder] as Array[CivilianState])
+	layer.regions.set_region(0, layer.units)
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.stockpile["lumber"] = 40
+	economy.stockpile["castIron"] = 40
+	layer.works.set_improvement(model, grain, 0)
+
+	var picks: Dictionary = MapPlayCivilianPick.picks(play, 1)
+
+	var pick: Dictionary = picks.get(builder.id, {}) as Dictionary
+	assert_false(pick.is_empty(), "the crown's Builder is given a pick")
+	assert_eq(String(pick["action"]), "build_improvement", "it raises the estate")
+	assert_eq(Vector2i(pick["tile"]), grain, "on the ground it stands on")
+	var line: String = String(pick["line"])
+	assert_true(line.begins_with("the court would raise the "), line)
+	assert_true(line.contains("L1"), "the level the order would buy: " + line)
+	assert_eq(String(pick["short"]), "raise the farm", "the short form names the work")
+	assert_false(builder.is_working(), "a reading, not an order")
+	assert_eq(layer.works.improvement_at(model, grain), 0, "and the estate is unraised")
+	layer.free()
+
+
+## The sheet's own wiring: a crew of the crown that waits carries the pick into
+## its dossier, a working crew carries none, and a caller that names no crew
+## reads the purse alone (DR-20261117-06).
+func test_the_crowns_sheet_carries_the_pick_only_for_a_crew_that_waits() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var model: MapModel = play.model
+	var layer: CivilianLayer = play.civilian_layer
+	var grain := Vector2i(1, 1)
+	play.player_faction = 1
+	var controller := EconomyController.new()
+	controller.economy = play.ai.economy_for(1)
+	play.economy = controller
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", grain)
+	layer.units.assign([builder] as Array[CivilianState])
+	layer.regions.set_region(0, layer.units)
+	layer.works.set_improvement(model, grain, 0)
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.stockpile["lumber"] = 40
+	economy.stockpile["castIron"] = 40
+	controller.economy = economy
+
+	var sheet: Dictionary = MapPlayCivilians._context(play, builder)
+
+	assert_true(sheet.has("pick"), "an idle crew's sheet carries its pick")
+	assert_eq(
+		String((sheet["pick"] as Dictionary).get("action", "")), "build_improvement"
+	)
+	assert_false(
+		MapPlayCivilians._context(play).has("pick"), "no crew named, no pick"
+	)
+	builder.start_work("build_improvement", grain, 1)
+	assert_false(
+		MapPlayCivilians._context(play, builder).has("pick"),
+		"a crew at work is already spoken for"
+	)
+	layer.free()
+
+
+## The pick's own words, order kind by order kind: the label the sheet prints and
+## the payoff the ledger that sells the work already names (DR-20261117-06). The
+## words are handed to the sheet verbatim, so this is where every branch is read.
+func test_the_pick_words_every_order_kind() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var works := LandWorks.new()
+	var road: Dictionary = _pick_of("build_road", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(road["short"]), "build a road")
+	assert_true(
+		String(road["line"]).contains("an estate here gathers up to"),
+		String(road["line"])
+	)
+	assert_eq(
+		String(_pick_of("build_port", CivilianFixture.COAST_TILE, model, works)["short"]),
+		"build a harbour"
+	)
+	var rail: Dictionary = _pick_of("build_rail", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(rail["short"]), "lay a railroad")
+	assert_true(String(rail["line"]).contains("Transport 4"), String(rail["line"]))
+	var fort: Dictionary = _pick_of("build_fort", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(fort["short"]), "raise the wood fort")
+	assert_true(String(fort["line"]).contains("wall hp"), String(fort["line"]))
+	var ward: Dictionary = _pick_of(
+		"build_hospital", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(ward["short"]), "raise the L1 ward")
+	assert_true(String(ward["line"]).contains("rests"), String(ward["line"]))
+	assert_eq(
+		String(_pick_of("upgrade_town", CivilianFixture.BARE_TILE, model, works)["short"]),
+		"raise the town to L2"
+	)
+	var survey: Dictionary = _pick_of("explore", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(survey["short"]), "survey Cádiz")
+	assert_eq(String(survey["line"]), "the court would survey Cádiz", "no ledger pays it")
+	var deed: Dictionary = _pick_of(
+		"purchase_land", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_true(String(deed["short"]).begins_with("buy the deed at"))
+	var screen: Dictionary = _pick_of(
+		"counter_spy", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(screen["short"]), "keep the counter-espionage screen")
+	# An order kind with no line of its own falls back to the work's own label.
+	assert_eq(
+		String(_pick_of("sail", CivilianFixture.BARE_TILE, model, works)["short"]), "sail"
+	)
+	# Ground outside every province reads as the wilds, not a blank place.
+	assert_eq(
+		String(_pick_of("explore", Vector2i(4, 4), model, works)["short"]),
+		"survey the wilds"
+	)
+
+
+## The march the pass books when no work is legal: the step and the ground it
+## walks toward, so the crown sees where its crew is being sent.
+func test_the_pick_names_the_march_the_court_would_order() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var move: Dictionary = MapPlayCivilianPick._move_pick(
+		model, {"tile": CivilianFixture.BARE_TILE}
+	)
+	assert_eq(String(move["action"]), MapPlayCivilianPick.KIND_MOVE)
+	assert_eq(String(move["line"]), "the court would march toward Cádiz (0, 0)")
+	assert_true(MapPlayCivilianPick._move_pick(model, {}).is_empty(), "no step, no pick")
+
+
+## The reading keeps its edges quiet: no session, no roster, no ledger and a
+## court the planner may not answer for all read no pick (REQ-P2-03).
+func test_the_pick_is_quiet_where_there_is_nothing_to_read() -> void:
+	assert_true(MapPlayCivilianPick.picks(null, 0).is_empty(), "no session")
+	var bare := PlaySession.new()
+	assert_true(MapPlayCivilianPick.picks(bare, 0).is_empty(), "no civilian layer")
+	bare.civilian_layer = CivilianLayer.new()
+	assert_true(MapPlayCivilianPick.picks(bare, 0).is_empty(), "no ledger")
+	var idle: PlaySession = _rival_economy_play()
+	idle.ai_mode = AiControl.NOOP
+	assert_true(MapPlayCivilianPick.picks(idle, 1).is_empty(), "no planner for this court")
+	idle.civilian_layer.free()
+	# A region with no plan contributes no words.
+	var empty: Dictionary = {}
+	MapPlayCivilianPick._words({}, 0, {}, null, empty)
+	assert_true(empty.is_empty(), "an empty entry prints nothing")
+
+
+func _pick_of(
+	action: String, tile: Vector2i, model: MapModel, works: LandWorks
+) -> Dictionary:
+	var roster: Array[CivilianState] = [
+		CivilianState.create(1, 0, "engineer", tile)
+	]
+	return MapPlayCivilianPick._order_pick(
+		model, works, roster, 0, {}, CivilianFixture.stockpile(),
+		{"capital_tile": CivilianFixture.BARE_TILE}, null,
+		{"action": action, "tile": tile}
+	)
+
+
 # --- map phase wiring (MapPlayEconomyAi) ------------------------------------
 
 
