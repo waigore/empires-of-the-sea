@@ -1268,6 +1268,15 @@ suites = [
   "test_menu_flow.gd",
 ]
 
+# The campaign's last plate and the seal HudCampaignEnd owns. Plate suite seals
+# the door; Auto suite mirrors the seal's AUTO / END TURN caption. Kept off the
+# broad hud_* → ui domain so a chrome extract stays inside the tier-1 budget.
+[domains.campaign_plate]
+suites = [
+  "test_campaign_end.gd",
+  "test_auto_mode.gd",
+]
+
 # The age's race helper: the standing math, the sheet's foot and the turn's
 # warning. Kept off victory_bar so a standings edit stays inside tier 1.
 [domains.victory_standings]
@@ -3225,6 +3234,18 @@ domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/hud_chrome.gd"
+domain = "crown_road"
+
+# The campaign's last plate and the seal it shuts. Named before hud_* → ui so a
+# chrome extract runs the plate suite that seals the door (and Auto's mirror of
+# the seal), not only panel_parts / battle.
+[[rules]]
+match = "scripts/ui/hud_campaign_end.gd*"
+domain = "campaign_plate"
+
+# Cartouche markings (turn line, minimap) ride the same screen suites as chrome.
+[[rules]]
+match = "scripts/ui/hud_chart_cartouche.gd*"
 domain = "crown_road"
 
 [[rules]]
