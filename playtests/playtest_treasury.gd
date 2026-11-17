@@ -256,7 +256,7 @@ func _projection() -> Dictionary:
 
 
 ## The panel's summary sentence: treasury, labour, food need and strikes
-## (LedgerText.summary).
+## (LedgerReportText.summary).
 func _ledger_summary() -> String:
 	for text: String in _body_labels("PRODUCTION"):
 		if " ducats" in text and " labour " in text:
@@ -267,7 +267,7 @@ func _ledger_summary() -> String:
 	return "no summary line"
 
 
-## The "Next turn: …" promise under the header (LedgerText.preview).
+## The "Next turn: …" promise under the header (LedgerMarketText.preview).
 func _ledger_preview() -> String:
 	for text: String in _panel_labels():
 		if text.begins_with("Next turn:"):
@@ -351,7 +351,7 @@ func _clearing_text() -> String:
 
 
 func _market_line() -> String:
-	var line: String = LedgerText.market_summary(_play.market_report, _play.player_faction)
+	var line: String = LedgerMarketText.market_summary(_play.market_report, _play.player_faction)
 	return line if not line.is_empty() else "nothing cleared"
 
 

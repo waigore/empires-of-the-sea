@@ -3,38 +3,51 @@ extends GdToolsTest
 ## shared planners, paced by the driver, read-only for the court, never stalled
 ## on a consent decision, and off again after a load.
 ##
-## One mount for the whole suite: the cases share the fixture chart and re-seat
-## it from the pristine save (docs/testing.md speed rules). Cases that need the
-## AI to hold the seat arm it and close one turn, which is the boundary the seat
-## changes at.
+## One mount, one seat and one drained paced turn for the whole suite: under
+## coverage a mount + arm + end-turn is ~1.2 s and a drained Auto turn ~1 s more,
+## so cases that only need the AI holding the seat (or the log that turn wrote)
+## re-seat from those captures (~0.2 s) instead of re-planning (docs/testing.md
+## speed rules; `test_ai_observer` is the reference). Mode / arming cases still
+## start with the court in hand. Auto fields are live-seat state a save never
+## carries, so each re-seat re-applies them beside the SaveCodec snapshot.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## Non-underscore: gd-tools clones a fresh suite instance per test and does not
+## copy underscore fields out of before_all (docs/testing.md speed rules).
 var screen: MapScreen = null
 var world_snapshot: Array = []
 var pristine: Dictionary = {}
+var seated: Dictionary = {}
+var seated_auto: Dictionary = {}
+var seated_ai: Dictionary = {}
+var drained: Dictionary = {}
+var drained_auto: Dictionary = {}
+var drained_ai: Dictionary = {}
 
 
 func before_all() -> void:
 	world_snapshot = Fixture.snapshot(Fixture.world())
 	screen = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(screen)
+	# Arm once and close the turn the seat change waits for: every case that
+	# only needs the AI holding the seat re-seats from this capture.
+	MapPlayAuto.arm(screen.play)
+	_play_turn(screen.play)
+	seated = Fixture.suite_capture(screen)
+	seated_auto = _capture_auto(screen.play)
+	if screen.play.ai != null:
+		seated_ai = screen.play.ai.to_dict()
+	# Drain one paced Auto turn once: log / orders cases re-seat from here.
+	_drain(screen.play)
+	drained = Fixture.suite_capture(screen)
+	drained_auto = _capture_auto(screen.play)
+	if screen.play.ai != null:
+		drained_ai = screen.play.ai.to_dict()
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), world_snapshot)
-	Fixture.suite_reset(screen, pristine)
-	# Auto is a live-seat state a save never carries (wiki: auto-mode): a re-seat
-	# starts with the court in hand, exactly as a load does.
-	var play: PlaySession = screen.play
-	play.auto_armed = false
-	play.auto_active = false
-	play.auto_speed = 1
-	play.auto_steps.clear()
-	play.auto_book = null
-	play.auto_log.clear()
-	play.ai_stage_faction = MapModel.NO_ID
-	MapPlayTurn.view_live = true
+	_seat(0)
 
 
 func after_all() -> void:
@@ -43,15 +56,88 @@ func after_all() -> void:
 		screen.free()
 	screen = null
 	pristine = {}
+	seated = {}
+	seated_auto = {}
+	seated_ai = {}
+	drained = {}
+	drained_auto = {}
+	drained_ai = {}
 
 
-## Hands the seat to the AI the way the player does: arm, then play the turn the
-## seat change waits for.
+## Re-seats the shared chart: court in hand (`0`), AI seated after the arming
+## turn (`1`), or after that seat's first drained paced turn (`2`).
+func _seat(after: int = 0) -> PlaySession:
+	Fixture.restore(Fixture.world(), world_snapshot)
+	match after:
+		1:
+			Fixture.suite_reset(screen, seated)
+			_apply_auto(screen.play, seated_auto)
+			if not seated_ai.is_empty():
+				screen.play.ai = AiState.from_dict(seated_ai.duplicate(true))
+		2:
+			Fixture.suite_reset(screen, drained)
+			_apply_auto(screen.play, drained_auto)
+			if not drained_ai.is_empty():
+				screen.play.ai = AiState.from_dict(drained_ai.duplicate(true))
+		_:
+			Fixture.suite_reset(screen, pristine)
+			_clear_auto(screen.play)
+	MapPlayTurn.view_live = true
+	return screen.play
+
+
+## Hands the seat to the AI the way the player does — from the suite's one
+## arming-turn capture, not a fresh end-turn.
 func _seat_the_ai() -> PlaySession:
-	var play: PlaySession = screen.play
-	MapPlayAuto.arm(play)
-	_play_turn(play)
-	return play
+	return _seat(1)
+
+
+## The AI holds the seat after one drained paced turn (log filled, calendar
+## advanced): for cases that used to `_seat_the_ai(); _drain()`.
+func _seat_drained() -> PlaySession:
+	return _seat(2)
+
+
+func _capture_auto(play: PlaySession) -> Dictionary:
+	return {
+		"armed": play.auto_armed,
+		"active": play.auto_active,
+		"speed": play.auto_speed,
+		"steps": play.auto_steps.duplicate(),
+		"log": play.auto_log.duplicate(),
+		"stage": play.ai_stage_faction,
+	}
+
+
+func _apply_auto(play: PlaySession, data: Dictionary) -> void:
+	play.auto_armed = bool(data.get("armed", false))
+	play.auto_active = bool(data.get("active", false))
+	play.auto_speed = int(data.get("speed", 1))
+	play.auto_steps.assign(data.get("steps", []))
+	play.auto_book = null
+	play.auto_log.assign(data.get("log", []))
+	play.ai_stage_faction = int(data.get("stage", MapModel.NO_ID))
+	_refresh_auto_chrome()
+
+
+func _clear_auto(play: PlaySession) -> void:
+	play.auto_armed = false
+	play.auto_active = false
+	play.auto_speed = 1
+	play.auto_steps.clear()
+	play.auto_book = null
+	play.auto_log.clear()
+	play.ai_stage_faction = MapModel.NO_ID
+	_refresh_auto_chrome()
+
+
+## The plaque mirrors from a signature of the seat; clear it so a re-seat shows
+## the restored armed/active/log state instead of the previous case's chrome.
+func _refresh_auto_chrome() -> void:
+	if screen == null or screen.hud == null or screen.hud.auto_bar == null:
+		return
+	screen.hud.auto_bar._signature = ""
+	screen.hud.auto_bar._mirror()
 
 
 ## Closes one turn the way the player does, answering whatever the court left
@@ -176,8 +262,7 @@ func test_the_seat_runs_the_rivals_planner_surface() -> void:
 
 
 func test_the_crowns_orders_land_and_are_logged() -> void:
-	var play: PlaySession = _seat_the_ai()
-	_drain(play)
+	var play: PlaySession = _seat_drained()
 	assert_eq(play.ai_stage_faction, MapModel.NO_ID, "the staged pass clears its court")
 	assert_true(
 		play.auto_log.has("Crews work the crown's orders."),
@@ -187,6 +272,111 @@ func test_the_crowns_orders_land_and_are_logged() -> void:
 		play.auto_log.size() > MapPlayAuto.STEPS.size(),
 		"the log carries the seat's despatches, not only the turn's opening line"
 	)
+
+
+# --- the action log ----------------------------------------------------------
+
+
+## The plate prints the newest lines only; the rest of a busy turn is what the
+## LOG seal opens (REQ-P5-05).
+func test_the_plate_prints_the_newest_lines_and_holds_the_rest_back() -> void:
+	var play: PlaySession = _seat_drained()
+	var plate: AutoLogPlate = screen.hud.auto_bar._log
+	assert_not_null(plate, "the log plate mounts with the seat's chrome")
+	# A busy turn raises more orders than the plate has room for.
+	while play.auto_log.size() <= plate.visible_lines():
+		MapPlayAuto.note(play, "Sorties — Mar Tirreno")
+	var bar: AutoBar = screen.hud.auto_bar
+	bar._signature = ""
+	bar._mirror()
+	assert_eq(
+		_printed(plate), plate.visible_lines(), "the plate prints its own count and no more"
+	)
+	assert_eq(
+		plate.held_back(),
+		play.auto_log.size() - plate.visible_lines(),
+		"the seal's count is exactly what the plate held back"
+	)
+	var foot: Label = plate._box.get_child(plate._box.get_child_count() - 1) as Label
+	assert_eq(foot.text, String(play.auto_log.back()), "the plate's foot is the newest line")
+
+
+## The sheet is the whole kept log, oldest first, so the turn's first orders are
+## read after the plate has moved on.
+func test_the_log_sheet_prints_every_kept_line_oldest_first() -> void:
+	var play: PlaySession = _seat_drained()
+	var plate: AutoLogPlate = screen.hud.auto_bar._log
+	plate.open_sheet()
+	var sheet: AutoLogSheet = plate.sheet
+	assert_true(sheet.is_open(), "the plate's seal opens the whole log")
+	var rows: Array[String] = _sheet_rows(sheet)
+	assert_eq(rows.size(), play.auto_log.size(), "every kept line is on the sheet")
+	assert_true(
+		rows[0].ends_with(String(play.auto_log[0])), "the oldest line leads the sheet"
+	)
+	assert_true(
+		rows[rows.size() - 1].ends_with(String(play.auto_log[play.auto_log.size() - 1])),
+		"the newest line is at the foot"
+	)
+
+
+## A log that grew under the reader would move the lines they opened it to read,
+## so the sheet holds the clock the way a confirmation does (wiki: auto-mode
+## § Pacing).
+func test_the_log_sheet_holds_the_clock_while_it_is_open() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var bar: AutoBar = screen.hud.auto_bar
+	play.auto_speed = 3
+	bar._on_log_pressed()
+	assert_true(bar._log.sheet_open(), "the LOG seal opens the whole log")
+	bar._drive(10.0)
+	assert_null(play.auto_book, "a held clock spends no tick")
+	bar._log.sheet.close()
+	bar._drive(10.0)
+	assert_not_null(play.auto_book, "the seat resumes its turn when the sheet closes")
+
+
+## The seal is offered exactly when there is something behind it, and its caption
+## names how many lines the plate does not print.
+func test_the_log_seal_names_what_the_plate_holds_back() -> void:
+	var play: PlaySession = _seat_drained()
+	var bar: AutoBar = screen.hud.auto_bar
+	while play.auto_log.size() <= bar._log.visible_lines():
+		MapPlayAuto.note(play, "Sorties — Mar Tirreno")
+	bar._signature = ""
+	bar._mirror()
+	assert_true(bar._log_seal.visible, "the seat's chrome offers the log door")
+	assert_eq(
+		bar._log_caption.text,
+		"LOG +%d" % bar._log.held_back(),
+		"the caption counts the lines the plate holds back"
+	)
+
+
+func test_a_quiet_seat_offers_no_log_door() -> void:
+	var bar: AutoBar = screen.hud.auto_bar
+	bar._signature = ""
+	bar._mirror()
+	assert_false(bar._log_seal.visible, "no news, no log door")
+	assert_false(bar._log.sheet_open(), "and nothing opens")
+
+
+## Labels the plate actually prints (the box holds nothing else).
+func _printed(plate: AutoLogPlate) -> int:
+	var shown: int = 0
+	for child: Node in plate._box.get_children():
+		if child is Label:
+			shown += 1
+	return shown
+
+
+## The sheet's rows in print order, without the empty notice it keeps.
+func _sheet_rows(sheet: AutoLogSheet) -> Array[String]:
+	var rows: Array[String] = []
+	for child: Node in sheet._rows.get_children():
+		if child is Label and child != sheet._empty:
+			rows.append((child as Label).text)
+	return rows
 
 
 # --- the plaque and its prompt -----------------------------------------------

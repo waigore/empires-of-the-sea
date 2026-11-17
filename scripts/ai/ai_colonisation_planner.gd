@@ -75,19 +75,12 @@ static func plan(
 ## The harbour a rival's expedition musters at: its seat when the seat has a
 ## port, else its lowest-id port province. -1 when the crown owns no harbour,
 ## which is the one case a voyage cannot start (wiki: ships-and-naval § Home
-## Fleet; civilian-units § Overseas deployment).
+## Fleet; civilian-units § Overseas deployment). One reading serves every
+## planner (`NavalMovement.home_harbour`).
 static func harbour(model: MapModel, owner: int) -> int:
-	if model == null or owner < 0:
+	if owner < 0:
 		return MapModel.NO_ID
-	var best: int = MapModel.NO_ID
-	for province: ProvinceState in model.provinces:
-		if province.owner != owner or not NavalMovement.has_harbour(model, province.id):
-			continue
-		if province.capital:
-			return province.id
-		if best == MapModel.NO_ID or province.id < best:
-			best = province.id
-	return best
+	return NavalMovement.home_harbour(model, owner)
 
 
 ## The other region when the crown has land there, else the New World from the

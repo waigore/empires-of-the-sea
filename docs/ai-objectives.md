@@ -32,7 +32,7 @@ status; the save carries them.
 `expedition.explorer` (Explorer train slot) and a `requires` link to
 `peace.window` at war; afloat or landed it adds `expedition.voyage`. The
 colony muster gate reads the funded hull claim
-(`MapPlayCivilianAi._hull_claimed`); a starved child prints
+(`CivilianMuster.hull_claimed`); a starved child prints
 `expedition.hull hull 0/1 deferred`. Ashore, the parent prices
 `expedition.voyage`, not `no Explorer free`.
 

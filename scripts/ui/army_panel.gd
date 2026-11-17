@@ -8,10 +8,10 @@ extends PanelContainer
 signal close_pressed
 signal dock_side_pressed
 signal action_pressed(action: String)
-## The command door: the crown's whole pool, its medals and the road to the next
-## commander (DR-20261115-11). The dossier names who leads; the ledger explains
-## what a medal buys, so the sheet keeps one line instead of a paragraph.
-signal command_pressed
+## The ledger doors the dossier carries: the crown's whole pool, its medals and
+## the road to the next commander (DR-20261115-11). The press names the sheet by
+## its HudLedgerDoors key; the dossier never needs the sheet's class.
+signal door_pressed(key: String)
 ## The crown named one of its colours: the roster's edit row committed text
 ## (wiki: naming § Regiment names; DR-20261113-03).
 signal rename_pressed(regiment_id: String, wanted: String)
@@ -98,7 +98,9 @@ func _build() -> void:
 	_command_door.add_theme_font_size_override("font_size", 11)
 	_command_door.tooltip_text = "Every commander the crown holds (G)"
 	_command_door.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	_command_door.pressed.connect(func() -> void: command_pressed.emit())
+	_command_door.pressed.connect(
+		func() -> void: door_pressed.emit(HudLedgerDoors.COMMAND)
+	)
 	_command_row.add_child(_command_door)
 
 	_composition = UiRowBuilder.line(13, Palette.GOLD_PALE)
@@ -306,13 +308,16 @@ func _command_head(command: String) -> String:
 	return command.split("\n")[0]
 
 
-## Strength line: count, firepower, food, chevrons and the ward or train.
+## Strength line: count, firepower, food, chevrons and the ward or train. The
+## strength is the resolver's own aggregation, so the dossier, the muster roll
+## and the battle name one figure for a decorated standard (wiki: combat
+## § Strength, military-armies § The muster roll; REQ-P2-03).
 func _strength_line(model: MapModel, army: ArmyState) -> String:
+	var one: Array[ArmyState] = [army]
 	var text: String = "%d regiments · %d strength · %d food" % [
-		army.count(), int(army.strength()), _food(army)
+		army.count(), roundi(ArmyForce.side_strength(one)), _food(army)
 	]
-	var own_side: Array[ArmyState] = [army]
-	var chevrons: int = RegimentCondition.chevrons(own_side)
+	var chevrons: int = RegimentCondition.chevrons(one)
 	if chevrons > 0:
 		text += " · %d chevrons" % chevrons
 	if army.is_embarked():
@@ -353,11 +358,9 @@ func _apply_status(army: ArmyState, is_player: bool) -> void:
 		_hint.text = "Tap a highlighted province; your own land is open, enemy land must border you."
 
 
+## The dossier's larder line: the rules' own bill, so the dossier and the crown's
+## army sheet never name one standard two ways (wiki: military-armies § The
+## regiments behind an army, combat § Feeding; DR-20261112-07).
 func _food(army: ArmyState) -> int:
-	var total: int = 0
-	# A train's nurses eat inside the army's own upkeep line (DR-20261112-07).
-	if army.field_hospital:
-		total += HospitalTrain.food()
-	for regiment_id: String in army.regiments:
-		total += RegimentCatalog.food_upkeep(army.type_of(regiment_id))
-	return total
+	var one: Array[ArmyState] = [army]
+	return ArmyRoster.food_upkeep_of(one, army.owner)

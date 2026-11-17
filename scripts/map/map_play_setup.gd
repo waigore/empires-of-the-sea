@@ -2,6 +2,8 @@ class_name MapPlaySetup
 extends RefCounted
 ## Screen setup that is not map rules: initial HUD values, region chips, capital
 ## framing, the opening frame and the post-load refresh (REQ-P3-01, REQ-P3-02).
+## The chart's readings are MapPlayLens' to mount and raise; this boot never
+## builds a lens.
 
 
 static func find_capital(play: PlaySession) -> int:
@@ -57,8 +59,13 @@ static func build_hud(play: PlaySession) -> void:
 	# whole works table (the world already reaches it through the ship layer).
 	play.economy.works_by_region = play.civilian_layer.works_regions
 	# A blockade severs the harvest, so the ledger prices it against the court's
-	# own sealed ports (wiki: capital-and-connectivity § Blockade).
+	# own sealed ports (wiki: capital-and-connectivity § Blockade). The estates
+	# ledger and its rows read the same seals, so a sealed colony's row is the
+	# yield the Extraction phase pays, never a second sum (REQ-P2-03).
 	play.economy.blockade_source = func() -> Blockades: return MapPlayBlockades.crown(play)
+	play.improvements.blockade_source = (
+		func() -> Blockades: return MapPlayBlockades.crown(play)
+	)
 	hud.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.set_income(play.income)
@@ -94,87 +101,8 @@ static func refresh_dossier(play: PlaySession) -> void:
 	play.hud.panels.panel.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.visibility,
 		play.capital_tile, play.player_faction, play.tech_caps(),
-		play.tech_unlocked(), play.stockpile()
+		play.tech_unlocked(), play.stockpile(), MapPlayBlockades.crown(play)
 	)
-
-
-## Survey lens data follows the region on screen and the works just completed.
-## Rebuilding also refreshes the extraction caps the plaque totals use.
-static func build_lens(play: PlaySession) -> void:
-	var lens: ResourceLens = play.lens
-	if lens != null:
-		lens.build(
-			play.model, play.land_works, play.civilian_layer.units,
-			play.player_faction, play.visibility, play.capital_tile,
-			play.tech_caps()
-		)
-		lens.watch(play.civilian_layer, play.overlay)
-	build_diplomacy_lens(play)
-	build_crown_road_lens(play)
-	build_defence_lens(play)
-	build_sea_lens(play)
-
-
-## The sea reading follows the region's roster, the fog and the court's wars: it
-## reads what each zone holds and whether the turn resolves a battle there. The
-## war test is the one the naval turn resolves the zones with and the view is the
-## chart's own `drawn`/`read` answer, so a plate can never name a fight or a
-## weight the resolver would not (REQ-P2-03).
-static func build_sea_lens(play: PlaySession) -> void:
-	var lens: SeaLens = play.sea_lens
-	if lens == null and play.host != null:
-		lens = play.host.get_node_or_null("World/SeaLens") as SeaLens
-		play.sea_lens = lens
-	if lens == null:
-		return
-	var war := func(a: int, b: int) -> bool:
-		return DiplomacyRules.at_war_with(play.diplomacy, a, b)
-	lens.build(
-		play.model, play.ship_layer, play.visibility, play.player_faction,
-		war, MapPlayFleets.view_filter(play)
-	)
-	lens.watch(play.overlay)
-
-
-## The defence reading follows the region, its roster and the fog. The snapshot
-## is one walk over the province list, so it runs on events only.
-static func build_defence_lens(play: PlaySession) -> void:
-	var lens: DefenceLens = play.defence_lens
-	if lens == null and play.host != null:
-		lens = play.host.get_node_or_null("World/DefenceLens") as DefenceLens
-		play.defence_lens = lens
-	if lens == null:
-		return
-	lens.build(
-		play.model, play.army_layer, play.visibility, play.player_faction
-	)
-	lens.watch(play.overlay)
-
-
-## Crown-road reading follows the region, the works and the fog. The projection
-## is one connectivity pass, so it still runs on events only, never per frame.
-static func build_crown_road_lens(play: PlaySession) -> void:
-	var lens: CrownRoadLens = play.crown_lens
-	if lens == null and play.host != null:
-		lens = play.host.get_node_or_null("World/CrownRoadLens") as CrownRoadLens
-		play.crown_lens = lens
-	if lens == null:
-		return
-	lens.build(
-		play.model, play.land_works, play.player_faction, play.visibility,
-		play.capital_tile
-	)
-	lens.watch(play.civilian_layer, play.overlay)
-
-
-## Political wash follows the region, the fog and every court that moved. The
-## snapshot is cheap (pure projection), but it still runs on events only.
-static func build_diplomacy_lens(play: PlaySession) -> void:
-	var lens: DiplomacyLens = play.diplomacy_lens
-	if lens == null:
-		return
-	lens.build(play.model, play.diplomacy, play.player_faction, play.visibility)
-	lens.watch(play.overlay)
 
 
 ## Chips and the estates ledger follow the region on screen.
@@ -207,7 +135,7 @@ static func refresh_after_load(play: PlaySession) -> void:
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
 	hud.set_treasury(play.treasury(), false)
 	refresh_region_hud(play, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
-	build_lens(play)
+	MapPlayLens.mount_all(play)
 	MapPlayDiplomacy.refresh(play)
 	# A save written before the home-fleet merge could park two squadrons at the
 	# seat; fold them in before the court reads its squadrons.

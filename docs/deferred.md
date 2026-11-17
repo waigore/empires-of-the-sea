@@ -1,13 +1,13 @@
 # Deferred features (ranked)
 
-Audited through DR-20261116-09 + #820 (REQ-P2-02).
+Audited: DR-20261117-06; #846–#877 live (REQ-P2-02).
 
 ## Already live
 
 | Was deferred | Where it lives |
 |--------------|----------------|
 | War research/memory; ledger T1–T6 | `research_floor`; `AiWarMemory`; `AiObjective*` #496–#501 |
-| Difficulty/agendas/boycotts | `Difficulty`/`VictoryRules`, `AiAgenda`, `AiDiplomacyOffers` (DR-15-03) |
+| Difficulty/agendas/boycotts | `Difficulty`/`VictoryRules`, `AiAgenda`, `AiDiplomacyOffers` |
 | Home-fleet/forts/civilian AI | `FleetHomeMerge`, `AiCivilianPlanner` |
 | Minor/Tribe market + town growth | `MinorMarket`, `TownIndustry`, `MinorTownGrowth` |
 | Overseas cargo/colony profit/Join Empire | `EconomyOverseas`, `FirstRight`, `DiplomacyOvertures` |
@@ -15,59 +15,62 @@ Audited through DR-20261116-09 + #820 (REQ-P2-02).
 | Counter-spy/court reports/fog/Passage | espionage; `CourtCharts`, DR-11-05 |
 | Favoured partner/GP–Tribe contact | `MarketFavoured`; `TribeContact`, DR-11-11/14 |
 | Hospitals/rival builders/trains | `HospitalRules`, `AiHospitalWork`, `HospitalTrain` |
-| Research goal/fabric + works reserve | `ResearchSlots`; muster/works keep-back, DR-13-08/14 |
-| Regiment records/rename/decorations/leaders | `RegimentRecord`, `RegimentDecorations`, `LeaderCatalog`, DR-13-18 |
-| Raid hulls/rival raids/naval plate | `NavalRaid`, `NavalPlate`, DR-11-17/20/13-17 |
+| Research goal/fabric + works reserve | `ResearchSlots`; muster/works keep-back |
+| Regiment records/rename/decorations/leaders | `RegimentRecord`, `RegimentDecorations`, `LeaderCatalog` |
+| Raid hulls/rival prizes/naval plate | `NavalRaid`, `MapPlayRaids`, `NavalPlate` |
 | Road L2/gathering/path transport | `TechUnlocks`/`Extraction` |
 | Advanced chart/Passage/rival OOB/fog | `AdvancedSeas`; `OobReadings`; `CourtCharts` |
 | Yarn + consent | `DialogueYarn`, `ConsentCopy` |
-| War footing/money-first/victory/soft weights | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure`; `AiPosture` |
-| Declare-war slot | `AiPhasePlanner.SLOT_DECLARE_WAR`, DR-14-13 |
-| Tribe buy/landings/overseas conquest | `AiTribeColony`; `AiColonisationPlanner`, DR-14-02/03 |
-| Tribe chain door | `AiTribeColony.door`, research planner, DR-14-05/#554 |
+| War footing/money-first/victory/goal reweight | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure`; `AiPosture` |
+| Declare-war / Tribe-chain / crew slots | `SLOT_DECLARE_WAR`/`TRIBE_CHAIN`/`CREWS` |
+| Tribe buy/landings/overseas conquest | `AiTribeColony`; `AiColonisationPlanner` |
+| Tribe chain door | `AiTribeColony.door`, research planner, #554 |
 | Hull chest + material row | `AiNavy`/`AiClaims.HULLS`, DR-14-06/09 |
-| Worker tiers/slow luxury/bench + AI tiers | `min_tier`/`turns`, `QUEUE_CAP`, #568, DR-14-07/10/12 |
-| War-time trade garrison + rival bench | `AiNavalPlanner.trade_garrison`; `_bench_room`, DR-14-08/15-02 |
-| Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20k; DR-15-16 |
-| Recipe gate + rival second-stage | `ProductionRecipes.min_town`; `TownIndustry.best_level`, #798 |
+| Worker tiers/slow luxury/bench + AI tiers | `min_tier`/`turns`, `QUEUE_CAP`, #568 |
+| War-time trade garrison + rival bench | `AiNavalPlanner.trade_garrison`; `_bench_room` |
+| Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20k |
+| Recipe gate + rival second-stage | `min_town`; `TownIndustry.best_level`, #798 |
 | Regiment dismiss | `ArmyDismiss`, DR-16-07/#809 |
+| Money-goal reweight | `goal_mille` #821 |
+| Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
+| Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
+| Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
+| Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`, DR-17-03/05/06; the pick's chart mark `CivicGlyphs`/`ResourceLens`, DR-17-07 |
 
-## Gaps (impact order)
+## Gaps (ranked)
 
-1. **Domain dispatch beyond voyage/declare-war/Tribe-chain** — `opens` ships
-   those three; further slots stay seed (DR-13-15 / DR-16-09 / DR-16-11).
-   Treasury-recovery reweighting is live (`AiPosture.goal_mille`,
-   DR-20261116-09).
-2. **Civilian-build seeds** — exotic mixes and per-tile previews stay seed
-   (`civilian-build-planner`); polish.
-3. **Quick Battle multi-lane / collapse** — one lane today; wider deployment
-   and collapse need a design call (DR-10-24).
+1. **Quick Battle multi-lane/collapse** — one lane; design call
+   (DR-10-24).
+
 
 ## Next pick
 
-Domain dispatch beyond voyage/declare-war/Tribe-chain (DR-13-15) — the further
-slots.
+Quick Battle lane/collapse design call; else P5/P1 polish.
 
-## Blocked footnotes
+## Blocked
 
-- Predict-the-line — declined (DR-12-02); era dialogue — no era model (DR-11-08).
-- Healing at 0 health; last-known OOB — DR-12-04/09.
-- General-grade/sheltering trains — pending design (DR-12-07).
-- Alt victory, difficulty extras, ruleset loaders, loans past the research
-  floor, warehouse logistics, sea-zone names — out of scope.
-- Join Empire cost table; rival purse (#489) — rules call.
+- Predict-the-line declined (DR-12-02); era — no model (DR-11-08).
+- Healing at 0 health; last-known OOB (DR-12-04/09); general-grade trains await
+  design (DR-12-07).
+- Soft priority weight vector — still seed (DR-17-01); posture/goal/victory
+  live.
+- Alt victory, difficulty extras, ruleset loaders/borrowing,
+  warehousing, loans, sea-zone names — out of scope; Join Empire cost —
+  rules call.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
+- Rival split/combine, cross-station folds, passenger transfers — out of
+  scope (DR-16-12/13).
 - Further tongues out of scope (DR-13-12); 30% floor data-gated (DR-15-18).
-- Resource-need phase reweight — no need reading (DR-16-09).
+- Resource-need reweight — no need reading (DR-16-09).
 
 ## Wiki drift
 
-- `civilian-units` calls Road L2/gathering/transport deferred (live:
-  `TechUnlocks`/`Extraction`).
-- `phase-planner-*` cite DR-14-11 for declare-war (true: DR-14-13).
-- `production-recipes` calls rival second-stage appetite deferred (live: #798).
-- Wiki treasury-recovery prose ahead of main until #821 merges.
-- DR-11-05 + DR-14-11 fleetless leg — live (`TribeContact`, `AiTribeColony`,
-  `FleetMuster`).
-- Ruleset loader / borrowing — out of scope.
+- `civilian-build-planner`: raise previews live (DR-17-03/05); the pick is on
+  the crew's sheet (DR-17-06) and on the chart (DR-17-07).
+- `civilian-units`: Road L2/gathering → live (`TechUnlocks`).
+- `phase-planner-*`: six slots live; soft weight vector still seed.
+- `production-recipes`: rival second-stage → live #798.
+- `ai-architecture`: goal reweight live (#821); soft weight still seed
+  (DR-17-01); deed partner claimed.
+- DR-11-17 prizes, fleetless leg — live (`MapPlayRaids`).

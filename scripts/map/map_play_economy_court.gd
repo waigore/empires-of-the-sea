@@ -31,6 +31,9 @@ var works_reserved: Dictionary = {}
 
 ## The reads the plan and the application share.
 var at_war: bool = false
+## The court's war footing this turn (DR-20261113-15): the dispatch table every
+## domain planner reads its slot from (DR-20261117-01).
+var phase: String = AiPhasePlanner.PHASE_UNKNOWN
 var regiments: int = 0
 var ships: int = 0
 var warships: int = 0
@@ -69,12 +72,27 @@ static func open(
 func plan_turn() -> void:
 	cargo = MapPlayCargoAi.run(play, faction, economy, overseas)
 	at_war = MapPlayCourt.at_war(play, faction)
+	phase = AiPhasePlanner.phase_for(config, play.diplomacy)
 	regiments = MapPlayCourt.regiments(play, faction)
 	ships = MapPlayCourt.ships(play, faction)
 	warships = MapPlayCourt.warships(play, faction)
 	hull_chest = MapPlayCourt.navy_chest(play, faction)
 	army_food = MapPlayEconomyAi._army_food(play, faction)
 	leader = MapPlayEconomyAi._leader(play, faction)
+	# The harvest slack the court's land carries — the ration food the
+	# extraction just landed, less every mouth the consumption phase feeds
+	# (issue #807). The muster's growth gate and the provision premium both read
+	# it, so a court desires its larger army and provisions the food income
+	# first; the economy pass re-notes it every turn.
+	var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
+	if not harvest.is_empty() and play.ai != null:
+		# The harvest's ration food, counted the Consumption phase's way, so the
+		# growth gate plans with the same total the phase would eat (REQ-P2-03).
+		var harvest_food: int = EconomyConsumption.food_available(harvest)
+		play.ai.note_food_slack(
+			faction,
+			harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
+		)
 	# The goal the court plans with this turn: money first (DR-20261113-19).
 	# The reserve is the muster it is saving for while it stands under its
 	# regiment target, else its own cash floor; a court short of it is on
@@ -187,7 +205,16 @@ func _plan_research() -> Dictionary:
 	if door.is_empty():
 		door = AiTribeColony.door(
 			play.diplomacy, play.world, play.court_charts, faction,
-			economy.tech_unlocked, AiPhasePlanner.phase_for(config, play.diplomacy)
+			economy.tech_unlocked, phase
+		)
+	# The deed door, buyer-gated: a court that has a priced deed on its chart and
+	# no Merchant Companies studies the tech that hires the buyer. The study is
+	# the closed link — the hire, the envoy chain and the purchase all wait on it
+	# (issue #841; wiki: civilian-units § Merchant).
+	if door.is_empty():
+		door = AiMerchantWork.deed_door(
+			play.world, faction, play.court_charts, play.diplomacy,
+			economy.tech_unlocked
 		)
 	return AiBind.research_plan(
 		kind, config, economy,
@@ -242,7 +269,7 @@ func _plan_trade() -> Dictionary:
 	# must cover this turn's ration and leave the next one in hand, because a
 	# court that eats its last grain this turn strikes tomorrow.
 	var food: int = MapPlayEconomyAi._food_demand(play, faction, economy)
-	var food_short: int = maxi(food * 2 - MapPlayEconomyAi._food_held(economy), 0)
+	var food_short: int = maxi(food * 2 - EconomyConsumption.food_available(economy.stockpile), 0)
 	# One primitive for every reservation: the rations, the muster's row, the
 	# works and this turn's production are ranked claims, and the market reads
 	# what the allocator funded (issue #491 T3, #498).
@@ -251,9 +278,13 @@ func _plan_trade() -> Dictionary:
 	))
 	var reserved: Dictionary = claims["reserved"]
 	var saving: bool = String(income["goal"]) == AiIncome.GOAL_EARN
+	# A court at war opens no speculative top-up: the slot is the footing's
+	# (DR-20261117-01), and the published market fills the rest.
+	var speculate: bool = AiPhasePlanner.opens(phase, AiPhasePlanner.SLOT_MARKET)
 	var plan: Dictionary = AiBind.market_plan(
 		kind, config, economy, market, free_holds, economy.tech_unlocked, reserved,
-		MapPlayEconomyAi._merge_rows(need, navy), floor, food_short, saving
+		MapPlayEconomyAi._merge_rows(need, navy), floor, food_short, saving,
+		speculate
 	)
 	plan["free_holds"] = free_holds
 	var result: Dictionary = AiBind.market_stage(
@@ -262,4 +293,8 @@ func _plan_trade() -> Dictionary:
 	result["plan"] = plan
 	result["free_holds"] = free_holds
 	result["claims"] = claims["lines"]
+	# The bidding the footing held shut prints with its reason rather than going
+	# quiet (REQ-P5-05; DR-20261117-01).
+	if not speculate and int(plan.get("held", 0)) > 0:
+		result["bids_blocked"] = AiMarketPlanner.REASON_SPECULATE
 	return result

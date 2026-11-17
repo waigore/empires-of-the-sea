@@ -7,9 +7,9 @@ extends GdToolsTest
 ## boot.
 ##
 ## The name sorts **early** on purpose: gd-tools dispatches suites in plan
-## (name) order four workers wide, so this suite with its ~14 s Large chart draw
-## used to sort last as `test_world_setup` and run alone for ~50 s after every
-## other worker had drained (docs/testing.md § Speed rules). Rename it into the
+## (name) order four workers wide, so this suite with its published-chart draws
+## used to sort last as `test_world_setup` and run alone after every other
+## worker had drained (docs/testing.md § Speed rules). Rename it into the
 ## front half of the alphabet, never back into `w…`/`x…`/`y…`/`z…`.
 
 const Fixture = preload("res://tests/map_fixture.gd")
@@ -27,6 +27,7 @@ func before_all() -> void:
 	_bootstrap_world()
 	_advanced_before_all()
 	_generator_before_all()
+	_mount_advanced_tiers()
 
 
 func test_world_has_two_regions_with_clean_setup() -> void:
@@ -41,16 +42,12 @@ func test_world_has_two_regions_with_clean_setup() -> void:
 ## The shared fixture is generated once per suite, so it must pass its fair
 ## split on the first attempt: a seed that fails makes `generate_world` build a
 ## second world (wiki: game-setup § Tribe assignment regen-until-pass), and every
-## mounted suite pays that second build under coverage.
+## mounted suite pays that second build under coverage. Assert the cached chart
+## itself — regenerating both regions under coverage used to cost ~2 s for the
+## same reading `Fixture.world()` already proved when the suite booted.
 func test_the_fixture_world_passes_on_its_first_attempt() -> void:
-	var first: MapModel = MapGenerator.new().generate_region(
-		SEED, FactionCatalog.OLD_WORLD, WIDTH, HEIGHT
-	)
-	var second: MapModel = MapGenerator.new().generate_region(
-		SEED + 7919, FactionCatalog.NEW_WORLD,
-		maxi(48, int(round(float(WIDTH) * 0.88))),
-		maxi(36, int(round(float(HEIGHT) * 0.9))),
-	)
+	var first: MapModel = world.region(FactionCatalog.OLD_WORLD)
+	var second: MapModel = world.region(FactionCatalog.NEW_WORLD)
 	assert_true(first.setup_errors.is_empty(), "OW first attempt: %s" % str(first.setup_errors))
 	assert_true(second.setup_errors.is_empty(), "NW first attempt: %s" % str(second.setup_errors))
 
@@ -1280,14 +1277,13 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 ## every case below. `static` is what makes that true: gd-tools runs each case
 ## on a fresh instance, so an instance dictionary would start empty and redraw
 ## the chart per case (the census cases alone drew Standard four times).
-## Keyed by size because the weighting case reads Large and the density cases
+## Keyed by size because the weighting case reads Small and the density cases
 ## read Standard (docs/testing.md § Speed rules).
 ##
-## A draw is this suite's most expensive fixture: ~14 s under coverage at
-## 128×84, and the price is the **tiles** — 8× the 48×32 fixture's tiles is 8.6×
-## its draw — so the census below draws one chart, not two. A case that
-## **mutates** a chart takes `_fresh_standard_world()` instead of dirtying this
-## cache.
+## A draw is this suite's most expensive fixture: the price is the **tiles**,
+## so the census below draws one Small chart (~half Large's area), not Large,
+## and a case that only needs two owned towns builds a pocket world instead of
+## regenerating Standard.
 static var _drawn_charts: Dictionary = {}
 
 
@@ -1298,27 +1294,20 @@ func _chart(seed_value: int, width: int, height: int) -> WorldMap:
 	return _drawn_charts[key]
 
 
-## An unshared Standard draw for a case that writes to the chart (town levels,
-## owners, works): the cached chart above is read-only.
-func _fresh_standard_world() -> WorldMap:
-	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
-	return MapGenerator.new().generate_world(
-		SEED, int(preset["width"]), int(preset["height"])
-	)
-
-
 func _standard_world(seed_value: int) -> WorldMap:
 	var preset: Dictionary = GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]
 	return _chart(seed_value, int(preset["width"]), int(preset["height"]))
 
 
-## The **Large** chart, which the weighting case reads: the gold/gems pool's
-## price gap is narrow enough that a Standard draw (96×64) inverts it (measured
-## at seeds 1500–1502: gold 7, gems 9) while Large keeps the order the table
-## promises, so the census needs the wider sample rather than the smaller chart.
-func _large_world(seed_value: int) -> WorldMap:
+## The **Small** chart the weighting case reads: seed 42 keeps every pool inside
+## its three-deviation band and the gold>gems / meat>grain>horses order the
+## table promises (Large at 128×84 used to buy that sample for ~14 s under
+## coverage; Small is ~half the tiles). Standard seed 1500 still inverts
+## gold/gems, so the census stays on this seed and size rather than the
+## density cases' Standard draw.
+func _small_world(seed_value: int) -> WorldMap:
 	for preset: Dictionary in GameConfig.SIZES:
-		if String(preset["label"]) == "Large":
+		if String(preset["label"]) == "Small":
 			return _chart(seed_value, int(preset["width"]), int(preset["height"]))
 	return _standard_world(seed_value)
 
@@ -1345,16 +1334,14 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 ## guarantee still leaves timber the commonest row on the chart
 ## (wiki: resource-terrain-region-rules § Table).
 func test_the_draw_prices_the_rows_by_their_market_price() -> void:
-	# One Large chart carries every assertion below: seed 1500 draws the peaks
-	# pool with the widest ordering gap measured (gold 8, gems 2) and every
-	# pool's split sits inside its own three-deviation band (the tightest is
-	# spices 0.348 against 0.209 ± 0.147). A second chart widened only the
-	# metals sample (14 → 61 rows) for another ~14 s of coverage, so it is not
-	# drawn: seeds 1501/1502 draw gold 7 / gems 4 and no peaks row at all, so
-	# the ordering evidence was always this chart's.
+	# One Small chart carries every assertion below: seed 42 keeps gold ahead of
+	# gems and every pool inside its three-deviation band (metals n=13 is the
+	# tightest sample; spices sit at 0.228 against 0.209 ± 0.137). Large at
+	# seed 1500 used to buy a wider peaks gap for ~14 s under coverage; Small
+	# is half the tiles and still proves the published price order.
 	var counts: Dictionary = {}
 	var commodities: Dictionary = {}
-	var world_map: WorldMap = _large_world(1500)
+	var world_map: WorldMap = _small_world(42)
 	for model: MapModel in world_map.regions:
 		# Read the packed rows: a tile that carries a row is land, so the
 		# census is one pass instead of two instrumented lookups a tile.
@@ -1375,7 +1362,7 @@ func test_the_draw_prices_the_rows_by_their_market_price() -> void:
 			String(commodity), int(counts[commodity]), CommodityCatalog.base_price(String(commodity))
 		])
 	dump.sort()
-	print("per-commodity tile counts on seed 1500: ", ", ".join(dump))
+	print("per-commodity tile counts on Small seed 42: ", ", ".join(dump))
 	# Pools whose rows share one terrain list and one region scope: only the
 	# published price separates their draws (wiki § Table).
 	var pools: Array = [
@@ -3280,26 +3267,31 @@ func test_a_closed_works_gate_stops_the_row_and_its_ceiling() -> void:
 ## never a rival's town (wiki: production-recipes § Town-works gates;
 ## DR-20261116-04).
 func test_the_works_gate_reads_the_crowns_best_town() -> void:
-	# Levels every province's town, so it takes a chart of its own rather than
-	# dirtying the shared draw the census cases read.
-	var world_map: WorldMap = _fresh_standard_world()
+	# Two owned towns are enough: a pocket chart, not a regenerated Standard
+	# draw (~8 s under coverage) that only existed to avoid dirtying the census.
 	assert_eq(TownIndustry.best_level(null, FactionCatalog.PLAYER_FACTION), 0, "no world, no town")
-	var own: ProvinceState = null
-	var rival: ProvinceState = null
-	for model_index in world_map.region_count():
-		var model: MapModel = world_map.region(model_index)
-		for province_index in model.province_count():
-			var data: ProvinceState = model.province_data(province_index)
-			if data == null:
-				continue
-			data.town_development = 0
-			if own == null and data.owner == FactionCatalog.PLAYER_FACTION:
-				own = data
-			elif rival == null and data.owner != FactionCatalog.PLAYER_FACTION and data.owner != MapModel.NO_ID:
-				rival = data
-	assert_true(own != null and rival != null, "the standard world seats both a crown and a rival")
+	var model: MapModel = MapModel.new()
+	model.setup(4, 1)
+	var own_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(1, 0)]
+	var rival_tiles: Array[Vector2i] = [Vector2i(2, 0), Vector2i(3, 0)]
+	for tile: Vector2i in own_tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 0
+	for tile: Vector2i in rival_tiles:
+		model.terrain[model.index_of(tile.x, tile.y)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(tile.x, tile.y)] = 1
+	var own: ProvinceState = ProvinceState.create(
+		0, "Own", own_tiles, Vector2(0.5, 0.0), 2, FactionCatalog.PLAYER_FACTION
+	)
+	var rival: ProvinceState = ProvinceState.create(
+		1, "Rival", rival_tiles, Vector2(2.5, 0.0), 2, FactionCatalog.PLAYER_FACTION + 1
+	)
 	own.town_development = 3
 	rival.town_development = 4
+	model.provinces.append(own)
+	model.provinces.append(rival)
+	var world_map: WorldMap = WorldMap.new()
+	world_map.add_region(model)
 	assert_eq(
 		TownIndustry.best_level(world_map, FactionCatalog.PLAYER_FACTION), 3,
 		"a rival's finer town does not open the crown's works"
@@ -3545,8 +3537,57 @@ func test_rows_lead_with_what_the_crown_can_muster_today() -> void:
 ## The live setup path of an advanced start (wiki: advanced-starts;
 ## DR-20261111-01): a real map screen opening at a mid-age tier, with the
 ## treasury, the muster, the chart and the roster the tier promises (merged
-## from test_advanced_start_live). Each case mounts its own screen — a tier
-## re-seats nothing, so there is no pristine save to share.
+## from test_advanced_start_live). One mount per tier: under coverage a mount
+## costs ~0.5–2 s, so the five live cases re-seat from a pristine save
+## (`Fixture.suite_reset`, ~0.15 s) instead of remounting each time.
+
+## Non-underscore so before_all state is copied onto each test instance.
+## Live mounts use a private chart so idle screens cannot rewrite `Fixture.world`
+## under later cases (`test_same_seed_reproduces_the_world` reads that chart).
+var advanced_live_world: WorldMap = null
+var advanced_live_saved: Array = []
+var tier50_screen: MapScreen = null
+var tier50_pristine: Dictionary = {}
+var tier100_screen: MapScreen = null
+var tier100_pristine: Dictionary = {}
+
+
+func _mount_advanced_tiers() -> void:
+	advanced_live_world = MapGenerator.new().generate_world(SEED, WIDTH, HEIGHT)
+	# Full SaveWorld half: a shallow ownership snapshot cannot rewind town
+	# levels / resources the tier writes before suite_reset reseats a case.
+	advanced_live_saved = []
+	for entry: Dictionary in SaveWorld.capture(advanced_live_world):
+		advanced_live_saved.append(entry)
+	tier50_screen = _instantiate_tier(AdvancedStart.TURNS50)
+	tier50_pristine = Fixture.suite_capture(tier50_screen)
+	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+	tier100_screen = _instantiate_tier(AdvancedStart.TURNS100)
+	tier100_pristine = Fixture.suite_capture(tier100_screen)
+	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+
+
+func _instantiate_tier(tier: String) -> MapScreen:
+	var screen: MapScreen = Fixture.SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = advanced_live_world
+	screen.advanced_start = tier
+	add_child(screen)
+	return screen
+
+
+func after_all() -> void:
+	if is_instance_valid(tier50_screen):
+		tier50_screen.free()
+	if is_instance_valid(tier100_screen):
+		tier100_screen.free()
+	tier50_screen = null
+	tier100_screen = null
+	tier50_pristine = {}
+	tier100_pristine = {}
+	advanced_live_world = null
+	advanced_live_saved = []
 
 
 func test_a_new_campaign_opens_on_the_preset() -> void:
@@ -3570,7 +3611,6 @@ func test_a_new_campaign_opens_on_the_preset() -> void:
 	var roster: Array = screen.civilian_layer.regions.value(0, [])
 	assert_eq(_civilian_count(roster, play.player_faction, "explorer"), 3)
 	assert_eq(_civilian_count(roster, play.player_faction, "spy"), 1)
-	screen.free()
 
 
 func test_a_late_campaign_opens_with_the_documented_progress() -> void:
@@ -3598,7 +3638,6 @@ func test_a_late_campaign_opens_with_the_documented_progress() -> void:
 		_civilian_count(roster, play.player_faction, "rail_builder"), 1,
 		"the late tier fields a Rail Builder"
 	)
-	screen.free()
 
 
 ## Every court inherits the same New World chart (wiki § NW sea-zone visibility
@@ -3618,7 +3657,6 @@ func test_rivals_inherit_the_passage_lanes() -> void:
 		assert_eq(view.player_id, faction, "each court reads its own grid")
 		var rival_zones: Array[int] = play.court_charts.known_zones(faction, NEW_WORLD)
 		assert_eq(rival_zones, human_zones, "every court reads the same lanes")
-	screen.free()
 
 
 ## A rival reads its own colony beach (100-turn claim): owned shore, fully
@@ -3640,7 +3678,6 @@ func test_a_rival_reads_its_own_colony_coast() -> void:
 				"a crown reads its own colony"
 			)
 		assert_gte(held, 1, "the late tier seats every crown in the New World")
-	screen.free()
 
 
 ## Every hull id is minted once for the life of the save (wiki: ships-and-naval
@@ -3663,16 +3700,15 @@ func test_the_tier_musters_unique_hull_ids() -> void:
 					]
 				)
 				seen[hull_id] = fleet.id
-	screen.free()
 
 
 func _open(tier: String) -> MapScreen:
-	var screen: MapScreen = Fixture.SCENE.instantiate()
-	screen.map_width = Fixture.WORLD_WIDTH
-	screen.map_height = Fixture.WORLD_HEIGHT
-	screen.preset_world = world
-	screen.advanced_start = tier
-	add_child(screen)
+	var screen: MapScreen = tier50_screen if tier == AdvancedStart.TURNS50 else tier100_screen
+	var pristine: Dictionary = (
+		tier50_pristine if tier == AdvancedStart.TURNS50 else tier100_pristine
+	)
+	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+	Fixture.suite_reset(screen, pristine)
 	return screen
 
 

@@ -18,12 +18,17 @@ static func armies_of(
 	return result
 
 
+## The strength a battle would read for this side: every regiment's rank, the
+## one `(FPN + FPM) x chevrons x health x colours` aggregation the resolver
+## compares ([method ArmyModifiers.strength] over the whole side). A cited or
+## laurelled colours holds its place at +5% / +10% (wiki: combat § Strength;
+## DR-20261113-04), so a sheet that reads this cannot name a figure the battle
+## would not pay (wiki: military-armies § The muster roll — "Both strengths are
+## the resolver's own aggregation"). [method ArmyState.strength] stays the paper
+## sum the published power score and the docket read (wiki: diplomacy § Great
+## Power power score).
 static func side_strength(side: Array[ArmyState]) -> float:
-	var total: float = 0.0
-	for army: ArmyState in side:
-		if army != null:
-			total += army.strength()
-	return total
+	return ArmyModifiers.strength(side, 0, 1.0)
 
 
 static func side_regiments(side: Array[ArmyState]) -> int:

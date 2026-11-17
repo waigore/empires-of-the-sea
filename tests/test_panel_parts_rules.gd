@@ -618,6 +618,34 @@ func test_an_estate_without_a_medallion_keeps_its_commodity_ink() -> void:
 	block.free()
 
 
+## A sealed harbour is not a missing road: the estate line names the seal, so the
+## dossier never sends the crown to lay a road it does not need (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03).
+func test_a_sealed_estate_names_the_harbour_not_a_missing_road() -> void:
+	_setup_province_panel()
+	var block := ProvinceResources.new()
+	add_child(block)
+	block.render([{
+		"tile": Vector2i(0, 0),
+		"level": 2,
+		"resource": 0,
+		"commodity": "timber",
+		"icon": "tree",
+		"ours": true,
+		"connected": false,
+		"blockaded": true,
+		"output": 0,
+		"working": false,
+		"remaining": 0,
+		"prospected": true,
+		"needs_prospecting": false,
+	}])
+	var words: Array[String] = _row_text(block, Vector2i(0, 0))
+	assert_true(words.has(ProvinceResources.HARBOUR_CUT), str(words))
+	assert_false(words.has(ProvinceResources.UNLINKED), "the seal is not a missing road")
+	block.free()
+
+
 ## The management ledger's pictogram names the commodity; the chip and pips
 ## beside it carry the works' status.
 func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
@@ -648,6 +676,66 @@ func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
 	assert_eq(row._icon.tint, Palette.resource_ink("tree"), "timber green, not the status ink")
 	assert_eq(row._status_chip.text, "DISCONNECTED", "the chip still names the status")
 	row.free()
+
+
+## The row prices the raise beside its cost: the rules hand it the words and the
+## row prints them in the crown's gold, never inventing a figure of its own
+## (REQ-P3-02, REQ-P5-06).
+func test_an_estate_row_prints_the_payoff_of_its_next_level() -> void:
+	_setup_province_panel()
+	var row := ImprovementRow.new()
+	add_child(row)
+	row.setup({
+		"tile": Vector2i(0, 0),
+		"level": 2,
+		"status": "producing",
+		"resource": 0,
+		"name": "Lumber camp",
+		"province_name": "Test",
+		"connected": true,
+		"output": 2,
+		"commodity": "timber",
+		"status_text": "Yields 2 timber / turn",
+		"max_level": ImprovementCatalog.MAX_LEVEL,
+		"cost_text": "4 lumber + 4 cast iron",
+		"duration": 2,
+		"build_reason": "",
+		"working": false,
+		"can_build": true,
+		"builder_id": 2,
+		"next_level": 3,
+		"preview_text": "L3 pays 3 timber / turn (+1)",
+	})
+	assert_true(row._preview.visible, "a raise the ledger offers carries its payoff")
+	assert_eq(row._preview.text, "L3 pays 3 timber / turn (+1)")
+	assert_eq(row._preview.get_theme_color("font_color"), Palette.GOLD)
+	row.free()
+	# A finished estate's row has no raise to price, so no line prints.
+	var done := ImprovementRow.new()
+	add_child(done)
+	done.setup({
+		"tile": Vector2i(0, 0),
+		"level": 4,
+		"status": "maxed",
+		"resource": 0,
+		"name": "Lumber camp",
+		"province_name": "Test",
+		"connected": true,
+		"output": 4,
+		"commodity": "timber",
+		"status_text": "Fully improved · 4 timber / turn",
+		"max_level": ImprovementCatalog.MAX_LEVEL,
+		"cost_text": "",
+		"duration": 0,
+		"build_reason": "",
+		"working": false,
+		"can_build": false,
+		"builder_id": -1,
+		"next_level": 4,
+		"preview_text": "",
+	})
+	assert_false(done._preview.visible, "a finished estate prices no raise")
+	done.free()
 
 func test_an_empty_estate_block_still_names_the_ground_to_read() -> void:
 	_setup_province_panel()
@@ -2696,6 +2784,10 @@ func test_ai_recalls_a_spy_to_screen_at_war() -> void:
 
 func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	# Floors with no regional work: 2 builders, engineer_target (2), explorer_target (3).
+	# The court is neutral here so the floors are the published ones — an
+	# archetype's own crew is a target of its own (AiStaffTaste, test_ai_rules).
+	var config: AiConfig = AiConfig.build(RIVAL, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	var roster: Array[CivilianState] = [
 		CivilianState.create(1, RIVAL, "builder", CivilianFixture.BARE_TILE),
 		CivilianState.create(9, RIVAL, "builder", CivilianFixture.BARE_TILE),
@@ -2705,9 +2797,7 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 		CivilianState.create(5, RIVAL, "explorer", CivilianFixture.BARE_TILE),
 		CivilianState.create(6, RIVAL, "explorer", CivilianFixture.BARE_TILE),
 	]
-	var order: Dictionary = AiCivilianPlanner.training_order(
-		AiConfig.build(RIVAL, 1500), roster, _context()
-	)
+	var order: Dictionary = AiCivilianHire.training_order(config, roster, _context())
 	assert_true(bool(order.get("ok", false)))
 	assert_eq(String(order["type_id"]), "spy")
 	var war_roster: Array[CivilianState] = [
@@ -2718,9 +2808,7 @@ func test_ai_trains_a_spy_after_its_base_roster() -> void:
 	]
 	var war_context: Dictionary = _context()
 	war_context["at_war"] = true
-	var war_order: Dictionary = AiCivilianPlanner.training_order(
-		AiConfig.build(RIVAL, 1500), war_roster, war_context
-	)
+	var war_order: Dictionary = AiCivilianHire.training_order(config, war_roster, war_context)
 	assert_eq(String(war_order["type_id"]), "spy", "a war court wants a screen first")
 
 
@@ -3092,6 +3180,70 @@ func test_the_dossier_promises_only_what_the_standing_buys() -> void:
 	assert_true(row.contains("presence reveal only"))
 	assert_false(row.contains("%"), "a minor court never shares research")
 	assert_true(panel._status.text.contains("no research share"))
+	panel.free()
+
+
+## The work list prices the spend, so it names the prize beside it: the transport
+## a road lands on the crew's own tile, printed under the button in the crown's
+## gold, and no second line for the orders a ledger already prices (REQ-P5-06,
+## REQ-P3-02; DR-20261117-05).
+func test_the_work_order_list_names_what_the_road_lands() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var engineer: CivilianState = CivilianState.create(1, PLAYER, "engineer", Vector2i(0, 1))
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile()
+	)
+	var lines: PackedStringArray = PackedStringArray()
+	for child: Node in panel._orders.get_children():
+		var label := child as Label
+		if label != null:
+			lines.append(label.text)
+	var printed: String = " | ".join(lines)
+	assert_true(
+		printed.contains("Transport 1 — an estate here gathers up to 1 a turn"),
+		"the road's payoff prints under its price: " + printed
+	)
+	assert_false(
+		printed.contains("soaks"),
+		"the wall is priced on the walls sheet, not here: " + printed
+	)
+	panel.free()
+
+
+## The court's own pick rides on the crew's sheet in the crown's gold, in the
+## words the map layer reads — the panel invents no figure of its own, and a
+## crew the planner names nothing for carries no line (REQ-P5-06, REQ-P3-02;
+## DR-20261117-06).
+func test_the_dossier_names_the_work_the_court_would_give_it() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var builder: CivilianState = CivilianState.create(
+		1, PLAYER, "builder", CivilianFixture.TIMBER_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile()
+	)
+	assert_false(panel._pick.visible, "no pick, no line")
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile(),
+		null, {}, {},
+		{
+			"pick": {
+				"action": "build_improvement",
+				"tile": CivilianFixture.TIMBER_TILE,
+				"line": "the court would raise the lumber camp — L2 pays 2 timber / turn (+1)",
+				"short": "raise the lumber camp",
+			}
+		}
+	)
+	assert_true(panel._pick.visible, "the pick prints")
+	assert_eq(
+		panel._pick.text,
+		"The court would raise the lumber camp — L2 pays 2 timber / turn (+1)."
+	)
 	panel.free()
 
 
@@ -3564,16 +3716,16 @@ func test_a_slide_in_cancels_a_running_slide_out() -> void:
 # --- test_ledger_text ---
 
 func test_a_quiet_market_prints_nothing() -> void:
-	assert_eq(LedgerText.market_summary({}, 0), "")
+	assert_eq(LedgerMarketText.market_summary({}, 0), "")
 
 ## The disband row promises no refund and names what the tier eats
 ## (wiki: workers-and-population § Disband, § Tiers).
 func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
-	var hint: String = LedgerText.disband_hint(WorkerPool.Tier.APPRENTICE)
+	var hint: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.APPRENTICE)
 	assert_true(hint.contains("no recruit cost is refunded"), hint)
 	assert_true(hint.contains("An apprentice eats 2 food"), hint)
 	assert_true(hint.contains("a unit of Refined Sugar"), hint)
-	var master: String = LedgerText.disband_hint(WorkerPool.Tier.MASTER)
+	var master: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.MASTER)
 	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
 
 func test_fills_carry_and_lapse_are_named() -> void:
@@ -3586,7 +3738,7 @@ func test_fills_carry_and_lapse_are_named() -> void:
 			"commodity": "grain",
 		}],
 	}
-	var line: String = LedgerText.market_summary(report, 0)
+	var line: String = LedgerMarketText.market_summary(report, 0)
 	assert_true(line.contains("bought 2 for 60 ducats"))
 	assert_true(line.contains("sold 1"))
 	assert_true(line.contains("1 order carried"))
@@ -3603,16 +3755,16 @@ func test_a_sale_and_an_overseas_share_are_named() -> void:
 		"carry": [],
 		"notes": [],
 	}
-	var line: String = LedgerText.market_summary(report, 0)
+	var line: String = LedgerMarketText.market_summary(report, 0)
 	assert_true(line.contains("sold 1 for 50 ducats"), line)
 	assert_true(line.contains("89 ducats in shares"), line)
 	# A court with no fills of its own still reads its share.
 	var quiet: Dictionary = {"fills": {}, "credits": {"by_gp": {0: 12.0}}}
 	assert_true(
-		LedgerText.market_summary(quiet, 0).contains("12 ducats in shares"),
-		LedgerText.market_summary(quiet, 0),
+		LedgerMarketText.market_summary(quiet, 0).contains("12 ducats in shares"),
+		LedgerMarketText.market_summary(quiet, 0),
 	)
-	assert_eq(LedgerText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
+	assert_eq(LedgerMarketText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
 
 ## The "Next turn" promise names the orders that settle after it, so a staged
 ## order is never read as already counted (wiki: stockpiles-and-production
@@ -3623,17 +3775,17 @@ func test_the_preview_names_the_auction_it_excludes() -> void:
 		"treasury_delta": 0,
 		"staged_orders": 2,
 	}
-	var line: String = LedgerText.preview(staged)
+	var line: String = LedgerMarketText.preview(staged)
 	assert_true(line.contains("Grain +3"), line)
 	assert_true(line.contains("2 orders settle at the auction"), line)
 	var one: Dictionary = {"stockpile_delta": {}, "treasury_delta": 0, "staged_orders": 1}
 	assert_true(
-		LedgerText.preview(one).contains("1 order settles at the auction"),
-		LedgerText.preview(one),
+		LedgerMarketText.preview(one).contains("1 order settles at the auction"),
+		LedgerMarketText.preview(one),
 	)
 	# Nothing staged: the calm line stays exactly as it was.
 	assert_eq(
-		LedgerText.preview({"stockpile_delta": {}, "treasury_delta": 0}),
+		LedgerMarketText.preview({"stockpile_delta": {}, "treasury_delta": 0}),
 		"Next turn: no stock changes.",
 	)
 
@@ -3647,7 +3799,7 @@ func test_another_courts_lapse_is_not_ours() -> void:
 			"commodity": "grain",
 		}],
 	}
-	assert_eq(LedgerText.market_summary(report, 0), "")
+	assert_eq(LedgerMarketText.market_summary(report, 0), "")
 
 # --- test_ledger_helpers ---
 
@@ -3660,9 +3812,9 @@ func test_thousands_groups_and_keeps_the_sign() -> void:
 
 func test_recipe_title_names_the_single_input() -> void:
 	var recipe_id: String = ProductionRecipes.available_ids({})[0]
-	var title: String = LedgerText.recipe_title(recipe_id)
+	var title: String = LedgerProductionText.recipe_title(recipe_id)
 	assert_true(title.contains(CommodityCatalog.label(ProductionRecipes.output(recipe_id))))
-	assert_true(LedgerText.recipe_tooltip(recipe_id).contains("→"))
+	assert_true(LedgerProductionText.recipe_tooltip(recipe_id).contains("→"))
 
 func test_the_summary_reads_the_report() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.new()
@@ -3670,31 +3822,31 @@ func test_the_summary_reads_the_report() -> void:
 	var report: Dictionary = {
 		"consumption": {"idle_labour": 3, "strikers": 2, "navy_demand": 5},
 	}
-	var line: String = LedgerText.summary(economy, report)
+	var line: String = LedgerReportText.summary(economy, report)
 	assert_true(line.contains("1,234 ducats"))
 	assert_true(line.contains("labour 3 /"))
 	assert_true(line.contains("strikes 2"))
 
 func test_the_preview_reports_deltas_or_calm() -> void:
-	assert_eq(LedgerText.preview({}), "Next turn: no stock changes.")
-	var line: String = LedgerText.preview(
+	assert_eq(LedgerMarketText.preview({}), "Next turn: no stock changes.")
+	var line: String = LedgerMarketText.preview(
 		{"stockpile_delta": {"grain": 3}, "treasury_delta": -10}
 	)
 	assert_true(line.contains("+3"))
 	assert_true(line.contains("ducats -10"))
 
 func test_the_cargo_banner_covers_three_states() -> void:
-	assert_true(LedgerText.cargo_line({}).contains("unknown"))
+	assert_true(LedgerMarketText.cargo_line({}).contains("unknown"))
 	var empty: Dictionary = {"holds": 0, "free": 0}
-	assert_true(LedgerText.cargo_line(empty).contains("No cargo holds"))
-	assert_eq(LedgerText.cargo_color(empty), Palette.GOLD_PALE)
+	assert_true(LedgerMarketText.cargo_line(empty).contains("No cargo holds"))
+	assert_eq(LedgerMarketText.cargo_color(empty), Palette.GOLD_PALE)
 	var laden: Dictionary = {"holds": 4, "free": 1}
-	assert_true(LedgerText.cargo_line(laden).contains("4 holds"))
-	assert_eq(LedgerText.cargo_color(laden), Palette.TEXT)
+	assert_true(LedgerMarketText.cargo_line(laden).contains("4 holds"))
+	assert_eq(LedgerMarketText.cargo_color(laden), Palette.TEXT)
 
 func test_report_counters_default_to_zero() -> void:
-	assert_eq(LedgerText.idle_labour({}), 0)
-	assert_eq(LedgerText.navy_food({"consumption": {"navy_demand": 7}}), 7)
+	assert_eq(LedgerReportText.idle_labour({}), 0)
+	assert_eq(LedgerReportText.navy_food({"consumption": {"navy_demand": 7}}), 7)
 
 func _group(id: int, name: String, rows: Array) -> Dictionary:
 	var producing: int = 0
@@ -4230,6 +4382,9 @@ func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
 
 ## The map screen hands its menu to the session, so the ledgers reach the seal
 ## through the narrow session surface, and the observer seals it for the run.
+## The screen is freed on every exit — the two guard returns included — so the
+## case never leaves a live chart behind (docs/testing.md § Speed rules: tear
+## down hard).
 func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
 	var screen: MapScreen = SCREEN.instantiate()
 	screen.map_width = 32
@@ -4238,11 +4393,13 @@ func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
 	add_child(screen)
 	assert_not_null(screen.play, "the session is live")
 	if screen.play == null:
+		screen.free()
 		return
 	assert_true(screen.play.pause_menu == screen.game_menu, "the session names its pause menu")
 	var seal: Button = screen.hud.top_row.find_child("MenuSeal", true, false) as Button
 	assert_not_null(seal, "the MENU seal is mounted on the bar")
 	if seal == null:
+		screen.free()
 		return
 	assert_false(seal.visible, "the observer owns no pause door")
 	assert_true(screen.game_menu.door.is_sealed(), "the door stays sealed for the run")
@@ -4250,3 +4407,4 @@ func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
 	# that close must never hand the observer's chrome back.
 	screen.improvements.close()
 	assert_false(seal.visible, "a stray close leaves the observer's door sealed")
+	screen.free()

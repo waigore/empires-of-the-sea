@@ -12,6 +12,9 @@ var model: MapModel = null
 var ships: Array[Ship] = []
 var selected_ship: Ship = null
 var rng := RandomNumberGenerator.new()
+## The chart's zoom, so a marker minted by a rebuild, a merge or a launch reads
+## the chart it is drawn on (wiki: ships-and-naval § Sighted strength).
+var zoom: float = 1.0
 
 
 ## Mints a marker and places it where the fleet already stands. `crown_view`
@@ -26,6 +29,7 @@ func make(fleet: FleetState, crown_view: Callable = Callable()) -> Ship:
 	ship.bob_phase = rng.randf() * TAU
 	ship.speed = 26.0 + rng.randf() * 16.0
 	refit(ship, fleet)
+	apply_zoom(ship)
 	if crown_view.is_valid():
 		var view: Dictionary = crown_view.call(fleet)
 		ship.visible = bool(view.get("drawn", true))
@@ -55,6 +59,24 @@ func hulls(fleet: FleetState) -> void:
 func sync(fleets: Array) -> void:
 	for fleet: FleetState in fleets:
 		hulls(fleet)
+
+
+## The chart's own reading on one marker: a closer chart scales the silhouette
+## in and prints the strength to one decimal, fit zoom keeps a whole number and
+## the full silhouette (wiki: ships-and-naval § Sighted strength, REQ-P1-07).
+## Applied at mint, so a marker repainted by a split, a merge, a region mount or
+## a launch reads the chart as it stands instead of falling back to fit zoom.
+func apply_zoom(ship: Ship) -> void:
+	if ship == null:
+		return
+	ship.scale = Vector2.ONE * clampf(1.0 / zoom, 0.6, 1.0)
+	ship.detail = zoom >= Ship.DETAIL_ZOOM
+
+
+func set_zoom(value: float) -> void:
+	zoom = maxf(value, 0.001)
+	for ship: Ship in ships:
+		apply_zoom(ship)
 
 
 ## Drops the marker of every squadron the roster no longer carries (sunk this

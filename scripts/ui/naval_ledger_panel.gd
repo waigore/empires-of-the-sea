@@ -1,12 +1,12 @@
 class_name NavalLedgerPanel
-extends LedgerSheet
+extends ForceLedgerSheet
 ## The crown's navy: every hull the crown floats in both charts, read squadron by
 ## squadron — her class, her guns, the holds she carries and where she sails
 ## (wiki: ships-and-naval § Ship combat and cargo stats; DR-20261115-14). The
-## projection lives in [NavalLedger]; this sheet only renders headings and rows
-## and asks MapPlayForceLedger to jump to a hull's squadron (REQ-P3-02,
-## REQ-P3-03). The sheet chrome, fade and pause-door park come from SheetFrame;
-## the chips, rows and empty notice from LedgerSheet.
+## projection lives in [NavalLedger]; this sheet only names its words and asks
+## MapPlayForceLedger to jump to a hull's squadron (REQ-P3-02, REQ-P3-03). The
+## sheet chrome, fade and pause-door park come from SheetFrame; the chips, rows,
+## headings and empty notice from ForceLedgerSheet.
 
 
 func _init() -> void:
@@ -16,20 +16,6 @@ func _init() -> void:
 		+ "hull as she stands; it never launches, docks or orders one."
 	)
 	toggle_action = InputActions.NAVY_LEDGER
-
-
-## Re-reads both charts' fleet rosters for the player's crown and repaints.
-func refresh() -> void:
-	if play == null or play.world == null or play.ship_layer == null:
-		return
-	_snapshot = NavalLedger.snapshot(
-		play.world, play.ship_layer.regions, play.player_faction
-	)
-	_fit()
-	_apply_filter()
-
-
-# --- sheet hooks -------------------------------------------------------------
 
 
 func _build_crest() -> Control:
@@ -44,67 +30,60 @@ func _build_crest() -> Control:
 	return crest
 
 
-func _can_open() -> bool:
-	return super._can_open() and play.ship_layer != null
+# --- what the navy names -----------------------------------------------------
 
 
-func _build_body(column: VBoxContainer) -> void:
-	_build_filter_body(
-		column, "Chart", "Hull", NavalLedger.READINGS, NavalLedger.reading_label, _hull_note
-	)
+func _layer_ready() -> bool:
+	return play.ship_layer != null
 
 
-## The rule a crown buys hulls by sits on the sheet, not in a hover: a phone
-## hides the footer hint (REQ-P1-07, REQ-P5-03).
-func _hull_note() -> Control:
-	var note := UiRowBuilder.label(NavalLedger.note(), 11, Palette.TEXT_DIM)
-	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	return note
+func _read() -> Dictionary:
+	return NavalLedger.snapshot(play.world, play.ship_layer.regions, play.player_faction)
 
 
-# --- rows --------------------------------------------------------------------
+func _filters() -> Array:
+	return NavalLedger.READINGS
 
 
-func _apply_filter() -> void:
-	var groups: Array[Dictionary] = NavalLedger.groups(_snapshot, _region, _reading)
-	var shown: int = NavalLedger.count(_snapshot, _region, _reading)
-	_paint_filtered(groups, shown, _heading, _make_row)
+func _reading_word(key: String) -> String:
+	return NavalLedger.reading_label(key)
 
 
-## The count line the navy prints: the view against the chart it is read in,
-## with the fleet's own totals when every hull is shown (REQ-P5-05).
-func _subtitle_text(_shown: int) -> String:
-	return NavalLedger.summary(_snapshot, _region, _reading)
+func _row_word(count: int) -> String:
+	return "hull" if count == 1 else "hulls"
 
 
-## One squadron's heading: where she sails and the station she holds, then the
-## hulls she flies. A hull's orders are her squadron's, so they are read once.
-func _heading(group: Dictionary, count: int) -> Control:
-	var box := VBoxContainer.new()
-	box.add_theme_constant_override("separation", 1)
-	var title := Label.new()
-	title.text = "%s  ·  %d hull%s" % [
-		String(group["heading"]), count, "" if count == 1 else "s"
-	]
-	title.add_theme_font_size_override("font_size", 11)
-	title.add_theme_color_override("font_color", Palette.GOLD_DIM)
-	title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(title)
-	var standing := UiRowBuilder.label(
-		_standing_text(group), 10, Color(0.74, 0.68, 0.55, 0.85)
-	)
-	standing.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	box.add_child(standing)
-	return box
+func _groups(region_key: String, reading_key: String) -> Array[Dictionary]:
+	return NavalLedger.groups(_snapshot, region_key, reading_key)
 
 
-static func _standing_text(group: Dictionary) -> String:
+func _count(region_key: String, reading_key: String) -> int:
+	return NavalLedger.count(_snapshot, region_key, reading_key)
+
+
+## Where one squadron sails and the station she holds, above the hulls she flies:
+## place, station, holds and strength.
+func _standing_text(group: Dictionary) -> String:
 	return "%s  ·  %s  ·  %d holds  ·  %.1f strength" % [
 		String(group["place"]),
 		String(group["station"]),
 		int(group["holds"]),
 		float(group["strength"]),
 	]
+
+
+## The rule a crown buys hulls by sits on the sheet, not in a hover: a phone
+## hides the footer hint (REQ-P1-07, REQ-P5-03).
+func _note() -> Control:
+	var note := UiRowBuilder.label(NavalLedger.note(), 11, Palette.TEXT_DIM)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	return note
+
+
+## The count line the navy prints: the view against the chart it is read in,
+## with the fleet's own totals when every hull is shown (REQ-P5-05).
+func _subtitle_text(_shown: int) -> String:
+	return NavalLedger.summary(_snapshot, _region, _reading)
 
 
 func _make_row(raw: Variant, compact: bool) -> Control:

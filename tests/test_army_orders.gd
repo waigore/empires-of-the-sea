@@ -280,6 +280,33 @@ func test_combining_armies_uses_the_home_army_as_target() -> void:
 	assert_eq(_screen.army_layer.armies_in(home.province, home.owner).size(), 1)
 
 
+## Away from the seat the Home Army is not in the group, so the panel's own order
+## decides: the standard the crown sees first absorbs the one it tapped, because
+## the province's standards stack by army id (wiki: military-armies
+## § Split and combine).
+func test_a_combine_keeps_the_standard_the_panel_prints_first() -> void:
+	var play: PlaySession = _screen.play
+	var earlier: ArmyState = ArmyState.muster(
+		4, play.player_faction, 1, false, ["pikemen"], 401
+	)
+	var later: ArmyState = ArmyState.muster(
+		9, play.player_faction, 1, false, ["squires"], 901
+	)
+	_screen.army_layer.armies.clear()
+	_screen.army_layer.armies.append(later)
+	_screen.army_layer.armies.append(earlier)
+	_screen.army_layer._rebuild_markers()
+
+	_screen.army_layer.select(later)
+	MapPlayArmies.on_action(play, "merge")
+
+	assert_eq(
+		_screen.army_layer.selected_army, earlier, "the earlier standard keeps the field"
+	)
+	assert_eq(earlier.count(), 2)
+	assert_false(_screen.army_layer.armies.has(later))
+
+
 ## The train (DR-20261112-07): the dossier names the offer or its refusal, the
 ## register spends the materials, and a second pitch is refused in the rules'
 ## own words.
@@ -520,6 +547,30 @@ func test_army_rations_enter_the_consumption_projection() -> void:
 	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
+## The dossier's strength is the resolver's own aggregation, not the paper sum:
+## a standard whose colours were all cited (a laurel each, +10%) reads the
+## weight the battle pays, the figure the muster roll prints too (wiki: combat
+## § Strength, military-armies § The muster roll; DR-20261113-04).
+func test_the_dossier_strength_is_the_resolvers_own_aggregation() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	var one: Array[ArmyState] = [home]
+	var paper: float = home.strength()
+	assert_true(String(panel._strength.text).contains("%d strength" % roundi(paper)))
+	for regiment_id: String in home.regiments:
+		home.regiment_history[regiment_id] = {"cited": 3, "fields": []}
+	_screen.army_layer.select(home)
+	var paid: float = ArmyModifiers.strength(one, 0, 1.0)
+	assert_almost_eq(paid, paper * 1.10, 0.001, "a laurel on every colours")
+	assert_almost_eq(ArmyForce.side_strength(one), paid, 0.001)
+	assert_true(
+		String(panel._strength.text).contains("%d strength" % roundi(paid)),
+		panel._strength.text
+	)
+	assert_ne(roundi(paid), roundi(paper), "the citation names a higher figure")
+
+
 func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	var field: ArmyState = _detach_one()
 	var home: ArmyState = _player_home()
@@ -594,6 +645,30 @@ func test_a_reformed_garrison_gets_a_standard_the_court_can_tap() -> void:
 	var marker: ArmyMarker = _screen.army_layer.marker_for(reformed)
 	assert_not_null(marker, "the combat pass draws the reformed garrison's standard")
 	assert_true(marker.visible, "a province the court holds keeps its garrison on the map")
+
+
+## The crown's id cursors travel with the combat pass and never fall behind a
+## live instance: a standard the rules minted outside them still cannot have its
+## number handed out again, so the next split or muster never creates a second
+## army or regiment wearing it (wiki: military-armies § Split and combine,
+## § Home Army — every instance keeps its stable id).
+func test_the_id_cursors_clear_every_live_instance() -> void:
+	var capital: int = _screen.capital_province
+	var armies: Array[ArmyState] = _screen.army_layer.armies
+	ArmyGarrison.recover(armies, capital, MapScreen.PLAYER_FACTION, 5, {})
+	var reformed: ArmyState = armies[armies.size() - 1]
+
+	_screen.army_layer.resolve_battles(_screen.world, {"quick_battle": false})
+
+	assert_true(
+		_screen.army_layer.next_army > reformed.id,
+		"the next split cannot mint the reformed standard's army id"
+	)
+	for regiment_id: String in reformed.regiments:
+		assert_true(
+			_screen.army_layer.next_regiment > ArmyCommand.unit_number(regiment_id),
+			"the next muster cannot mint a man the garrison already fields"
+		)
 
 
 ## A standard whose army left the field goes with it, so a wiped garrison leaves
@@ -799,6 +874,14 @@ func test_a_fed_ward_is_named_beside_the_tents() -> void:
 	var line: String = String(panel._strength.text)
 	assert_true(line.contains("field hospital · rest 40%"), line)
 	assert_true(line.contains("ward 55%"), line)
+	assert_true(
+		line.contains(
+			"%d food" % (
+				RegimentCatalog.food_upkeep("guards") + HospitalTrain.food()
+			)
+		),
+		"the train's staff rides in the dossier's own larder line: " + line
+	)
 
 	model.province_data(1).hospital_staffed = false
 

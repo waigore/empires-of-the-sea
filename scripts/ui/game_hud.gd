@@ -22,11 +22,6 @@ signal economy_pressed
 signal research_pressed
 signal diplomacy_pressed
 signal diplomacy_order(kind: String, target: int, arg: String)
-## The civilian chip opens the whole-empire roster (REQ-P5-01).
-signal civilian_roster_pressed
-## The cartouche's muster seal opens the whole-empire force ledger
-## (REQ-P5-01, REQ-P5-03; DR-20261113-12).
-signal muster_roll_pressed
 signal region_toggle_pressed
 signal focus_capital_pressed
 ## The one lens seal: a click asks for the next reading, the menu names one.
@@ -41,33 +36,11 @@ signal victory_dismissed
 signal gazette_pressed
 ## The cartouche's estates door opens the crown's works ledger (REQ-P1-07).
 signal estates_pressed
-## The cartouche's provinces door opens the crown's holdings ledger
-## (REQ-P5-01, REQ-P5-03; DR-20261115-09).
-signal provinces_pressed
-## The court's eyes door opens the intelligence sheet — the spies the crown
-## holds, the courts they shadow and the screen (REQ-P5-01, REQ-P5-03;
-## DR-20261115-10).
-signal spy_ledger_pressed
-## The army dossier's command door opens the crown's commanders — the pool, the
-## medals each wears and the study that raises the cap (REQ-P5-01, REQ-P5-03;
-## DR-20261115-11).
-signal command_pressed
-## The realm ledger's towns door opens the crown's towns — every town it holds,
-## the level it stands at and the step the Builder would take next
-## (REQ-P5-01, REQ-P5-04; DR-20261115-12).
-signal towns_pressed
-## The muster roll's navy door opens the crown's navy — every hull it floats,
-## squadron by squadron, with her class, her guns and her holds
-## (REQ-P5-01, REQ-P5-03; DR-20261115-14).
-signal navy_pressed
-## The realm ledger's walls door opens the crown's walls — every province it
-## holds that can carry a fort and the step the Engineer would take next
-## (REQ-P5-01, REQ-P5-03; DR-20261116-01).
-signal walls_pressed
-## The realm ledger's hospitals door opens the crown's hospitals — every
-## province it holds that can carry a ward, the level it stands at and the step
-## the Engineer would take next (REQ-P5-01, REQ-P5-03; DR-20261116-02).
-signal hospitals_pressed
+## The whole-empire sheets' one door: the seal, chip, dossier line or sibling
+## sheet names the sheet it opens by a HudLedgerDoors key, so the bar, the
+## dossiers and the sheets share one press instead of one signal per sheet
+## (REQ-P3-01, REQ-P5-01).
+signal ledger_door_pressed(key: String)
 
 const PANEL_WIDTH: float = 360.0
 const PANEL_MARGIN: float = 16.0
@@ -124,6 +97,8 @@ var muster_roll: ForceLedgerPanel = null
 var province_ledger: ProvinceLedgerPanel = null
 ## The crown's eyes: every spy, the courts they shadow, the screen (DR-20261115-10).
 var spy_ledger: SpyLedgerPanel = null
+## The world's colonies: who holds them, what a boycott shuts (DR-20261117-02).
+var colonies_ledger: ColonyLedgerPanel = null
 ## The crown's commanders: the pool, its medals and the road to the next
 ## (DR-20261115-11).
 var command_ledger: CommandLedgerPanel = null
@@ -135,6 +110,8 @@ var towns_ledger: TownLedgerPanel = null
 var tech_tree: TechTreePanel = null
 ## The crown's navy: every hull it floats, squadron by squadron (DR-20261115-14).
 var navy_ledger: NavalLedgerPanel = null
+## The crown's army: every regiment it fields (DR-20261116-16).
+var army_ledger: ArmyLedgerPanel = null
 ## The crown's walls: every province it holds that can carry a fort and the step
 ## the Engineer would take next (DR-20261116-01).
 var walls_ledger: WallLedgerPanel = null

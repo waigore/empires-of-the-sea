@@ -127,8 +127,8 @@ func refresh(
 ) -> void:
 	if _tabs == null:
 		return
-	_summary.text = LedgerText.summary(economy, report)
-	_preview.text = LedgerText.preview(report)
+	_summary.text = LedgerReportText.summary(economy, report)
+	_preview.text = LedgerMarketText.preview(report)
 	# The stockpile tab reads its holdings and its steppers' ceiling from the
 	# same projection the header promises (REQ-P2-03).
 	_production.fill(economy, report)

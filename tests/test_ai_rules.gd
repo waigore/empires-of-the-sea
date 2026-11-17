@@ -2246,32 +2246,35 @@ func test_ai_engineer_raises_a_fort_when_at_war() -> void:
 func test_ai_civilian_training_needs_a_capital_and_a_purse() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
 	var rich: Dictionary = _civilian_context()
-	var order: Dictionary = AiCivilianPlanner.training_order(config, [], rich)
+	var order: Dictionary = AiCivilianHire.training_order(config, [], rich)
 	assert_true(bool(order.get("ok", false)))
 	assert_eq(String(order["type_id"]), "builder")
 	var poor: Dictionary = _civilian_context()
 	poor["treasury"] = 0
-	assert_false(bool(AiCivilianPlanner.training_order(config, [], poor).get("ok", false)))
+	assert_false(bool(AiCivilianHire.training_order(config, [], poor).get("ok", false)))
 	poor["capital_province"] = -1
 	poor["treasury"] = 2500
-	assert_false(bool(AiCivilianPlanner.training_order(config, [], poor).get("ok", false)))
+	assert_false(bool(AiCivilianHire.training_order(config, [], poor).get("ok", false)))
 
 
 ## Staff targets read the region's work: plains floor, hills digs, and the
-## voyage slot — and training stops when every target is already met.
+## voyage slot — and training stops when every target is already met. The court
+## here is neutral, so the targets are the region's own and nothing else: the
+## archetype's extra crew is the next test's reading.
 func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	var model: MapModel = CivilianFixture.build()
 	var works := LandWorks.new()
 	var context: Dictionary = _civilian_context()
-	var floors: Dictionary = AiCivilianPlanner.staff_targets(
+	var floors: Dictionary = AiCivilianHire.staff_targets(
 		config, null, null, [], {}, {}, context
 	)
 	assert_eq(int(floors["builder"]), 2)
 	assert_eq(int(floors["engineer"]), config.parameter("civilian.engineer_target"))
 	assert_eq(int(floors["explorer"]), config.parameter("civilian.explorer_target"))
 	context["muster_port"] = CivilianFixture.COAST_TILE
-	var with_voyage: Dictionary = AiCivilianPlanner.staff_targets(
+	var with_voyage: Dictionary = AiCivilianHire.staff_targets(
 		config, model, works, [], CivilianFixture.stockpile(), {}, context
 	)
 	assert_true(
@@ -2290,8 +2293,97 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	var stop: Dictionary = _civilian_context()
 	stop["staff_targets"] = floors
 	assert_true(
-		AiCivilianPlanner.training_order(config, met, stop).is_empty(),
+		AiCivilianHire.training_order(config, met, stop).is_empty(),
 		"a court at its targets trains nothing"
+	)
+
+
+## The archetype's own crew (wiki: civilian-build-planner § Architecture): a
+## court keeps one more of the type its leader leans on than the region's work
+## asks, and nothing more — a merchant still waits on a deed, the spy's second
+## stands only for the tactician, and a court with no archetype keeps the
+## published targets exactly.
+func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
+	var context: Dictionary = _civilian_context()
+	var own: Dictionary = AiCivilianHire.region_targets(
+		AiConfig.new(), null, null, [], {}, {}, context
+	)
+	var fortifier: AiConfig = AiConfig.build(2, 1500)
+	var napoleon: Dictionary = AiCivilianHire.staff_targets(
+		fortifier, null, null, [], {}, {}, context
+	)
+	assert_eq(int(napoleon["engineer"]), int(own["engineer"]) + 1)
+	assert_eq(int(napoleon["builder"]), int(own["builder"]))
+	assert_eq(AiStaffTaste.note(fortifier), "the fortifier's taste")
+	var explorer: Dictionary = AiCivilianHire.staff_targets(
+		AiConfig.build(0, 1500), null, null, [], {}, {}, context
+	)
+	assert_eq(int(explorer["explorer"]), int(own["explorer"]) + 1)
+	assert_eq(int(explorer["builder"]), int(own["builder"]))
+	var trader: Dictionary = AiCivilianHire.staff_targets(
+		AiConfig.build(1, 1500), null, null, [], {}, {}, context
+	)
+	assert_eq(int(trader["builder"]), int(own["builder"]) + 1)
+	# A merchant is only wanted when a deed door is open, so the trader's crew
+	# waits on the door rather than hiring a merchant with nowhere to walk.
+	var ruyter: AiConfig = AiConfig.build(4, 1500)
+	var no_deed: Dictionary = AiCivilianHire.staff_targets(
+		ruyter, null, null, [], {}, {}, context
+	)
+	assert_eq(int(no_deed["merchant"]), 0)
+	var deed: Dictionary = _civilian_context()
+	deed["merchant_targets"] = 1
+	assert_eq(
+		int(AiCivilianHire.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
+		2,
+	)
+	var tactician: Dictionary = AiCivilianHire.staff_targets(
+		AiConfig.build(5, 1500), null, null, [], {}, {}, context
+	)
+	assert_eq(int(tactician["spy"]), int(own["spy"]) + 1)
+	var no_archetype := AiConfig.new()
+	no_archetype.faction = 0
+	var plain: Dictionary = AiCivilianHire.staff_targets(
+		no_archetype, null, null, [], {}, {}, context
+	)
+	for type_id: String in AiStaffTaste.TYPES:
+		assert_eq(
+			int(plain.get(type_id, 0)),
+			int(own.get(type_id, 0)),
+			"a court with no archetype keeps the published %s target" % type_id,
+		)
+
+
+## A court at every target the map asks for still hires its own crew, and the
+## order says the taste asked rather than the region (REQ-P5-05): the crew is
+## paid at the catalogue's price through the published gate.
+func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
+	var context: Dictionary = _civilian_context()
+	var fortifier: AiConfig = AiConfig.build(2, 1500)
+	var own: Dictionary = AiCivilianHire.region_targets(
+		fortifier, null, null, [], {}, {}, context
+	)
+	var met: Array[CivilianState] = []
+	for type_id: String in ["builder", "engineer", "explorer", "spy"]:
+		for i in int(own.get(type_id, 0)):
+			met.append(CivilianState.create(
+				met.size() + 1, fortifier.faction, type_id, CivilianFixture.BARE_TILE
+			))
+	context["own_targets"] = own
+	context["staff_targets"] = AiCivilianHire.staff_targets(
+		fortifier, null, null, met, {}, {}, _civilian_context()
+	)
+	var order: Dictionary = AiCivilianHire.training_order(fortifier, met, context)
+	assert_true(bool(order.get("ok", false)), "the region's targets are met, the taste's is not")
+	assert_eq(String(order["type_id"]), "engineer")
+	assert_true(bool(order["taste"]), "the hire is the court's own crew")
+	fortifier.personality = AiPersonality.NEUTRAL
+	var neutral: Dictionary = _civilian_context()
+	neutral["own_targets"] = own
+	neutral["staff_targets"] = own
+	assert_true(
+		AiCivilianHire.training_order(fortifier, met, neutral).is_empty(),
+		"without a taste the same roster has nothing left to hire"
 	)
 
 
@@ -2363,6 +2455,172 @@ func test_ai_civilian_never_plans_another_courts_units() -> void:
 	assert_true((plan["moves"] as Array).is_empty())
 
 
+## The crown's own pick (DR-20261117-06): an idle Builder of the crown is named
+## with the estate the published planner would raise, and the line prices the
+## level in the estates ledger's own words. It is a reading — the plan is not
+## applied, so the crew is still idle and the tile still unraised afterwards.
+func test_the_crowns_pick_names_the_estate_its_builder_would_raise() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var model: MapModel = play.model
+	var layer: CivilianLayer = play.civilian_layer
+	var grain := Vector2i(1, 1)
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", grain)
+	layer.units.assign([builder] as Array[CivilianState])
+	layer.regions.set_region(0, layer.units)
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.stockpile["lumber"] = 40
+	economy.stockpile["castIron"] = 40
+	layer.works.set_improvement(model, grain, 0)
+
+	var picks: Dictionary = MapPlayCivilianPick.picks(play, 1)
+
+	var pick: Dictionary = picks.get(builder.id, {}) as Dictionary
+	assert_false(pick.is_empty(), "the crown's Builder is given a pick")
+	assert_eq(String(pick["action"]), "build_improvement", "it raises the estate")
+	assert_eq(Vector2i(pick["tile"]), grain, "on the ground it stands on")
+	var line: String = String(pick["line"])
+	assert_true(line.begins_with("the court would raise the "), line)
+	assert_true(line.contains("L1"), "the level the order would buy: " + line)
+	assert_eq(String(pick["short"]), "raise the farm", "the short form names the work")
+	assert_false(builder.is_working(), "a reading, not an order")
+	assert_eq(layer.works.improvement_at(model, grain), 0, "and the estate is unraised")
+	layer.free()
+
+
+## The sheet's own wiring: a crew of the crown that waits carries the pick into
+## its dossier, a working crew carries none, and a caller that names no crew
+## reads the purse alone (DR-20261117-06).
+func test_the_crowns_sheet_carries_the_pick_only_for_a_crew_that_waits() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var model: MapModel = play.model
+	var layer: CivilianLayer = play.civilian_layer
+	var grain := Vector2i(1, 1)
+	play.player_faction = 1
+	var controller := EconomyController.new()
+	controller.economy = play.ai.economy_for(1)
+	play.economy = controller
+	var builder: CivilianState = CivilianState.create(1, 1, "builder", grain)
+	layer.units.assign([builder] as Array[CivilianState])
+	layer.regions.set_region(0, layer.units)
+	layer.works.set_improvement(model, grain, 0)
+	var economy: PlayerEconomy = play.ai.economy_for(1)
+	economy.stockpile["lumber"] = 40
+	economy.stockpile["castIron"] = 40
+	controller.economy = economy
+
+	var sheet: Dictionary = MapPlayCivilians._context(play, builder)
+
+	assert_true(sheet.has("pick"), "an idle crew's sheet carries its pick")
+	assert_eq(
+		String((sheet["pick"] as Dictionary).get("action", "")), "build_improvement"
+	)
+	assert_false(
+		MapPlayCivilians._context(play).has("pick"), "no crew named, no pick"
+	)
+	builder.start_work("build_improvement", grain, 1)
+	assert_false(
+		MapPlayCivilians._context(play, builder).has("pick"),
+		"a crew at work is already spoken for"
+	)
+	layer.free()
+
+
+## The pick's own words, order kind by order kind: the label the sheet prints and
+## the payoff the ledger that sells the work already names (DR-20261117-06). The
+## words are handed to the sheet verbatim, so this is where every branch is read.
+func test_the_pick_words_every_order_kind() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var works := LandWorks.new()
+	var road: Dictionary = _pick_of("build_road", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(road["short"]), "build a road")
+	assert_true(
+		String(road["line"]).contains("an estate here gathers up to"),
+		String(road["line"])
+	)
+	assert_eq(
+		String(_pick_of("build_port", CivilianFixture.COAST_TILE, model, works)["short"]),
+		"build a harbour"
+	)
+	var rail: Dictionary = _pick_of("build_rail", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(rail["short"]), "lay a railroad")
+	assert_true(String(rail["line"]).contains("Transport 4"), String(rail["line"]))
+	var fort: Dictionary = _pick_of("build_fort", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(fort["short"]), "raise the wood fort")
+	assert_true(String(fort["line"]).contains("wall hp"), String(fort["line"]))
+	var ward: Dictionary = _pick_of(
+		"build_hospital", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(ward["short"]), "raise the L1 ward")
+	assert_true(String(ward["line"]).contains("rests"), String(ward["line"]))
+	assert_eq(
+		String(_pick_of("upgrade_town", CivilianFixture.BARE_TILE, model, works)["short"]),
+		"raise the town to L2"
+	)
+	var survey: Dictionary = _pick_of("explore", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(survey["short"]), "survey Cádiz")
+	assert_eq(String(survey["line"]), "the court would survey Cádiz", "no ledger pays it")
+	var deed: Dictionary = _pick_of(
+		"purchase_land", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_true(String(deed["short"]).begins_with("buy the deed at"))
+	var screen: Dictionary = _pick_of(
+		"counter_spy", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(screen["short"]), "keep the counter-espionage screen")
+	# An order kind with no line of its own falls back to the work's own label.
+	assert_eq(
+		String(_pick_of("sail", CivilianFixture.BARE_TILE, model, works)["short"]), "sail"
+	)
+	# Ground outside every province reads as the wilds, not a blank place.
+	assert_eq(
+		String(_pick_of("explore", Vector2i(4, 4), model, works)["short"]),
+		"survey the wilds"
+	)
+
+
+## The march the pass books when no work is legal: the step and the ground it
+## walks toward, so the crown sees where its crew is being sent.
+func test_the_pick_names_the_march_the_court_would_order() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var move: Dictionary = MapPlayCivilianPick._move_pick(
+		model, {"tile": CivilianFixture.BARE_TILE}
+	)
+	assert_eq(String(move["action"]), MapPlayCivilianPick.KIND_MOVE)
+	assert_eq(String(move["line"]), "the court would march toward Cádiz (0, 0)")
+	assert_true(MapPlayCivilianPick._move_pick(model, {}).is_empty(), "no step, no pick")
+
+
+## The reading keeps its edges quiet: no session, no roster, no ledger and a
+## court the planner may not answer for all read no pick (REQ-P2-03).
+func test_the_pick_is_quiet_where_there_is_nothing_to_read() -> void:
+	assert_true(MapPlayCivilianPick.picks(null, 0).is_empty(), "no session")
+	var bare := PlaySession.new()
+	assert_true(MapPlayCivilianPick.picks(bare, 0).is_empty(), "no civilian layer")
+	bare.civilian_layer = CivilianLayer.new()
+	assert_true(MapPlayCivilianPick.picks(bare, 0).is_empty(), "no ledger")
+	var idle: PlaySession = _rival_economy_play()
+	idle.ai_mode = AiControl.NOOP
+	assert_true(MapPlayCivilianPick.picks(idle, 1).is_empty(), "no planner for this court")
+	idle.civilian_layer.free()
+	# A region with no plan contributes no words.
+	var empty: Dictionary = {}
+	MapPlayCivilianPick._words({}, 0, {}, null, empty)
+	assert_true(empty.is_empty(), "an empty entry prints nothing")
+
+
+func _pick_of(
+	action: String, tile: Vector2i, model: MapModel, works: LandWorks
+) -> Dictionary:
+	var roster: Array[CivilianState] = [
+		CivilianState.create(1, 0, "engineer", tile)
+	]
+	return MapPlayCivilianPick._order_pick(
+		model, works, roster, 0, {}, CivilianFixture.stockpile(),
+		{"capital_tile": CivilianFixture.BARE_TILE}, null,
+		{"action": action, "tile": tile}
+	)
+
+
 # --- map phase wiring (MapPlayEconomyAi) ------------------------------------
 
 
@@ -2407,6 +2665,32 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 		"rival training keeps the opening staff and may hire for work"
 	)
 	layer.free()
+
+
+## The economy pass reads the footing's market slot: a court at war bids only
+## the rows its commitments claim, and the report names the top-up it withheld
+## (DR-20261117-01).
+func test_map_phase_a_court_at_war_opens_no_speculative_bid() -> void:
+	var peace: PlaySession = _rival_economy_play()
+	var open: Dictionary = MapPlayEconomyAi.run(peace)["factions"][1]["trade"]
+	assert_eq(int((open["plan"] as Dictionary).get("held", 0)), 0, "at peace nothing is held")
+	assert_eq(String(open.get("bids_blocked", "")), "", "and nothing is reported")
+	peace.civilian_layer.free()
+	var play: PlaySession = _rival_economy_play()
+	play.diplomacy = _war_state(1, 0)
+	var ledger: PlayerEconomy = play.ai.economy_for(1)
+	for id: String in AiEconomyPlanner.BUILD_INPUTS:
+		ledger.stockpile[id] = 0
+	var trade: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]["trade"]
+	assert_true(
+		int((trade["plan"] as Dictionary).get("held", 0)) > 0,
+		"the war footing holds the unclaimed rows back"
+	)
+	assert_eq(
+		String(trade.get("bids_blocked", "")), AiMarketPlanner.REASON_SPECULATE,
+		"the report names the top-up the footing held shut"
+	)
+	play.civilian_layer.free()
 
 
 
@@ -2502,10 +2786,10 @@ func test_civilian_pass_seeds_once_and_only_at_a_capital() -> void:
 ## province, no unit for a missing id, and training refuses an empty order.
 func test_civilian_pass_helpers_refuse_empty_inputs() -> void:
 	assert_eq(
-		MapPlayCivilianAi._mustering_tile(null, -1, []),
+		CivilianMuster.mustering_tile(null, -1, []),
 		CivilianState.NO_TILE
 	)
-	assert_eq(MapPlayCivilianAi._unit_by_id([], 99), null)
+	assert_eq(CivilianMuster.unit_by_id([], 99), null)
 	var play := PlaySession.new()
 	play.world = AiFixture.land_world([0], {0: true})
 	play.model = play.world.region(0)
@@ -2514,11 +2798,73 @@ func test_civilian_pass_helpers_refuse_empty_inputs() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.new()
 	economy.treasury = 100
 	assert_true(
-		MapPlayCivilianAi._train(
+		CivilianMuster.train(
 			play, play.model.region_id, [], 1, economy, {}, {"capital_province": 0}
 		).is_empty(),
 		"training with no type_id pays nothing"
 	)
+	play.civilian_layer.free()
+
+
+## The muster seam's own refusals: no world, no home region, no squadron, no
+## purse, and a province with no seat tile still musters at its first tile. An
+## off-screen region stores the new unit in its table instead of the live layer.
+func test_the_muster_seam_refuses_what_it_cannot_pay_for() -> void:
+	var bare := PlaySession.new()
+	assert_eq(
+		CivilianMuster.muster_port(bare, 1, 0, null), CivilianState.NO_TILE,
+		"no world, no harbour"
+	)
+	assert_false(CivilianMuster.has_free_squadron(bare, 0, 1), "no layer, no squadron")
+
+	var world: WorldMap = AiFixture.land_world([1], {0: true})
+	world.add_region(AiFixture.land_world([1], {0: true}).region(0))
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.spawn(play.model, 1, 0, [], false)
+	assert_eq(
+		CivilianMuster.muster_port(play, 1, WorldMap.NEW_WORLD, world.region(1)),
+		CivilianState.NO_TILE,
+		"a court musters only in its own region"
+	)
+
+	var ships := ShipLayer.new()
+	ships.regions.set_region(0, [FleetState.at_sea(1, 2, 0)])
+	play.ship_layer = ships
+	assert_false(
+		CivilianMuster.has_free_squadron(play, 0, 1), "another court's hull is no lift"
+	)
+
+	var poor: PlayerEconomy = PlayerEconomy.new()
+	assert_true(
+		CivilianMuster.train(
+			play, 0, [], 1, poor, {"ok": true, "type_id": "builder"},
+			{"capital_province": 0}
+		).is_empty(),
+		"an empty purse raises nobody"
+	)
+
+	var rich: PlayerEconomy = PlayerEconomy.new()
+	rich.treasury = 1000
+	rich.add("paper", 10)
+	var stored: Array[CivilianState] = []
+	var next_id: int = play.civilian_layer.next_id
+	var hired: Dictionary = CivilianMuster.train(
+		play, WorldMap.NEW_WORLD, stored, 1, rich, {"ok": true, "type_id": "builder"},
+		{"capital_province": 0}
+	)
+	assert_eq(String(hired.get("type_id", "")), "builder", "the off-screen muster pays")
+	assert_eq(stored.size(), 1, "and lands in the region's own table")
+	assert_eq(play.civilian_layer.next_id, next_id + 1, "through the layer's id counter")
+
+	var seatless := MapModel.new()
+	assert_eq(
+		CivilianMuster.mustering_tile(seatless, 0, []), CivilianState.NO_TILE,
+		"a province with no tiles musters nowhere"
+	)
+	ships.free()
 	play.civilian_layer.free()
 
 
@@ -3394,6 +3740,51 @@ func test_the_footing_opens_only_its_published_slots() -> void:
 	assert_true(
 		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_TRIBE_CHAIN)
 	)
+	# The expansion crews are the fourth live slot: the same war footing that
+	# shuts the voyage and the chain shuts the crews that serve them
+	# (DR-20261116-15).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_CREWS)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_CREWS)
+	)
+	# The market's speculative top-up is the fifth live slot: the same war
+	# footing that spends the coin on the front opens no top-up above the rows
+	# the court's commitments already claim (DR-20261117-01).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_MARKET)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_MARKET)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_MARKET)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_MARKET)
+	)
+	# The naval mission is the sixth: only the overstretched footing shuts it,
+	# because a court at one front still works the enemy's trade
+	# (DR-20261117-01).
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_PEACE, AiPhasePlanner.SLOT_NAVAL)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_WAR, AiPhasePlanner.SLOT_NAVAL)
+	)
+	assert_false(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_FRONTS, AiPhasePlanner.SLOT_NAVAL)
+	)
+	assert_true(
+		AiPhasePlanner.opens(AiPhasePlanner.PHASE_UNKNOWN, AiPhasePlanner.SLOT_NAVAL)
+	)
 
 
 ## The trace reading: the slots a footing holds shut, in the table's own order.
@@ -3404,12 +3795,13 @@ func test_the_trace_names_the_slots_a_footing_holds_shut() -> void:
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_WAR)),
-		"expansion.voyage,expansion.tribe_chain",
-		"one front closes the voyage and the new chain, never the declare slot"
+		"expansion.voyage,expansion.tribe_chain,expansion.crews,trade.market",
+		"one front closes the voyage, the new chain, the crews and the top-up"
 	)
 	assert_eq(
 		",".join(AiPhasePlanner.closed_slots(AiPhasePlanner.PHASE_FRONTS)),
-		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain",
+		"expansion.voyage,diplomacy.declare_war,expansion.tribe_chain,"
+		+ "expansion.crews,trade.market,navy.missions",
 		"an overstretched court holds every named slot shut"
 	)
 	assert_eq(
@@ -3453,6 +3845,193 @@ func test_a_court_at_war_opens_no_new_tribe_chain() -> void:
 			state, world, null, 2, tribe, 5000, {}, AiTribeColony.CLAIM_POSTURE
 		)["wanted"]),
 		"the claim on that Tribe outlives the footing"
+	)
+
+
+## A court at war hires no expansion crew: the Explorer charts the voyage the
+## footing holds shut and the Merchant signs the deed the chain it holds shut
+## points at, while the front's own staff stays open (DR-20261116-15).
+func test_a_court_at_war_hires_no_expansion_crew() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
+	crews["phase"] = AiPhasePlanner.PHASE_PEACE
+	var peace: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(bool(peace.get("ok", false)), "at peace the court hires its Explorer")
+	assert_eq(String(peace["type_id"]), "explorer")
+	crews["phase"] = AiPhasePlanner.PHASE_WAR
+	var war: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_false(bool(war.get("ok", true)), "a war footing hires no new crew")
+	assert_eq(String(war.get("reason", "")), AiCivilianHire.REASON_CREWS)
+	# The Merchant is the other expansion crew: the deed it signs is the chain's.
+	var deed: Dictionary = _civilian_context()
+	deed["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	deed["tech_unlocked"] = {"merchant_companies": true}
+	deed["phase"] = AiPhasePlanner.PHASE_PEACE
+	assert_eq(
+		String(AiCivilianHire.training_order(config, [], deed)["type_id"]),
+		"merchant"
+	)
+	deed["phase"] = AiPhasePlanner.PHASE_FRONTS
+	assert_eq(
+		String(AiCivilianHire.training_order(config, [], deed).get("reason", "")),
+		AiCivilianHire.REASON_CREWS
+	)
+	# The front's own staff stays open: the footing closes expansion, not the war.
+	var front: Dictionary = _civilian_context()
+	front["staff_targets"] = {"builder": 2, "engineer": 0, "explorer": 0, "spy": 0}
+	front["phase"] = AiPhasePlanner.PHASE_WAR
+	var builder: Dictionary = AiCivilianHire.training_order(config, [], front)
+	assert_true(bool(builder.get("ok", false)), "a court at war still raises Builders")
+	assert_eq(String(builder["type_id"]), "builder")
+	# A caller with no footing (fixtures, the mainline planners) hires as published.
+	var unaware: Dictionary = _civilian_context()
+	unaware["staff_targets"] = {"builder": 0, "engineer": 0, "explorer": 1, "spy": 0}
+	assert_eq(
+		String(AiCivilianHire.training_order(config, [], unaware)["type_id"]),
+		"explorer",
+		"no footing read means the published hire order"
+	)
+
+
+## The economy trace names the hire the footing held shut, so a court at war is
+## never silent about the crew it did not take (REQ-P5-05; DR-20261116-15).
+func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: court},
+		{"factions": {2: {"civilians": {
+			"orders": [], "training": [],
+			"training_blocked": AiCivilianHire.REASON_CREWS,
+		}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text = String(entry)
+	assert_true(
+		text.contains(AiCivilianHire.REASON_CREWS),
+		"the trace names why the yard took no crew"
+	)
+
+
+## The economy trace names the crew a rival musters, and says when the court's
+## own archetype asked for it rather than the region's work (REQ-P5-05;
+## AiStaffTaste).
+func test_the_trace_names_the_crew_a_court_musters() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: court},
+		{"factions": {2: {"civilians": {"orders": [], "training": [
+			{"type_id": "engineer", "unit": 1, "tile": Vector2i(0, 0), "taste": true},
+		]}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text = String(entry)
+	assert_true(text.contains("an Engineer"), "the trace names the crew it raised")
+	assert_true(text.contains("the court's taste"), "and the archetype that asked for it")
+	var plain: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: plain},
+		{"factions": {2: {"civilians": {"orders": [], "training": [
+			{"type_id": "builder", "unit": 2, "tile": Vector2i(0, 0), "taste": false},
+		]}}}}
+	)
+	text = ""
+	for entry: Variant in plain["events"]:
+		text = String(entry)
+	assert_true(text.contains("a Builder"), "the region's own hire is named too")
+	assert_false(text.contains("taste"), "nothing claims a taste that was not read")
+
+
+## A court at war opens no speculative top-up: the coin and the holds belong to
+## the front, so it bids only the rows this turn's commitments already claim,
+## and food, which is never a speculative buy (DR-20261117-01).
+func test_a_court_at_war_opens_no_speculative_bid() -> void:
+	var economy: PlayerEconomy = _ai_market_economy({}, 5000)
+	var market := WorldMarket.with_default_prices()
+	var peace: Dictionary = AiMarketPlanner.plan(_ai_market_config(), economy, market, 20)
+	assert_eq((peace["bids"] as Array).size(), 3, "at peace the court stocks its reserve")
+	assert_eq(int(peace["held"]), 0, "nothing is held back at peace")
+	# The war footing: no commitment claims a row, so nothing is bid.
+	var war: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 20, {}, {}, {}, 0, 0, false, false
+	)
+	assert_true((war["bids"] as Array).is_empty(), "a war footing opens no top-up")
+	assert_eq(int(war["held"]), 6, "every unclaimed build input is held back")
+	# The row the next regiment is provisioned with is claimed, so it is bought.
+	var claimed: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 20, {}, {"fabric": 5}, {}, 0, 0, false, false
+	)
+	assert_eq((claimed["bids"] as Array).size(), 1, "the muster's cloth is a commitment")
+	assert_eq(String(claimed["bids"][0]["commodity"]), "fabric")
+	assert_eq(int(claimed["held"]), 5, "the rest of the warehouse stays empty")
+	# Food is never a speculative buy: a starving court still bids its dinner.
+	var starving: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), economy, market, 20, {}, {}, {}, 0, 6, false, false
+	)
+	assert_eq(String((starving["bids"] as Array)[0]["commodity"]), "grain")
+
+
+## The economy trace names the bid the footing held shut, so a court at war is
+## never silent about the stock it did not buy (REQ-P5-05; DR-20261117-01).
+func test_the_trace_names_the_bid_a_war_footing_held_shut() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {2: court},
+		{"factions": {2: {"trade": {
+			"bids_blocked": AiMarketPlanner.REASON_SPECULATE,
+		}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text = String(entry)
+	assert_true(
+		text.contains(AiMarketPlanner.REASON_SPECULATE),
+		"the trace names why the court bought nothing above its commitments"
+	)
+
+
+## An overstretched court opens no new commerce station: with no squadron to
+## fight it keeps its hulls on its own water, and the order names the raid it
+## withheld. A court at one front still works the enemy's trade
+## (DR-20261117-01).
+func test_an_overstretched_court_opens_no_new_raid() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [_squadron(0, 0, 0, "sloop")]
+	var one: DiplomacyState = _war_state(0, 1)
+	assert_eq(
+		AiPhasePlanner.phase_for(config, one), AiPhasePlanner.PHASE_WAR,
+		"one Great Power war is the war footing"
+	)
+	var raid: Dictionary = AiNavalPlanner.orders(
+		config, one, model, fleets, null, AiPhasePlanner.PHASE_WAR
+	)
+	assert_eq(String(raid["orders"][0]["kind"]), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(raid["orders"][0]["zone"]), 1, "the water off Coro")
+	var two: DiplomacyState = _war_state(0, 1)
+	two.ensure_relation(0, 2, 1).at_war = true
+	assert_eq(
+		AiPhasePlanner.phase_for(config, two), AiPhasePlanner.PHASE_FRONTS,
+		"two Great Power wars are the overstretched footing"
+	)
+	var home: Dictionary = AiNavalPlanner.orders(
+		config, two, model, fleets, null, AiPhasePlanner.PHASE_FRONTS
+	)
+	assert_eq((home["orders"] as Array).size(), 1, "the hull still gets one order")
+	assert_eq(
+		String(home["orders"][0]["kind"]), AiNavalPlanner.KIND_HOME,
+		"no new station: the squadron keeps its own water"
+	)
+	assert_eq(
+		String(home["orders"][0]["reason"]), AiNavalPlanner.REASON_FRONTS,
+		"the order names the raid it withheld"
 	)
 
 
@@ -4562,6 +5141,51 @@ func test_a_capped_estate_earns_no_shortage_premium() -> void:
 	assert_eq(AiBuilderWork.town_unlocks([open_row], 0), 0, "a free estate unlocks nothing")
 
 
+## The provision premium (issue #807): a court whose muster is due while its
+## harvest cannot carry the mouths it has leads its Builders to the ration
+## estates — the planner-level case below pins the split.
+
+
+func test_a_muster_due_court_provisions_the_ration_estates() -> void:
+	# Two transport-capped estates that read identically (zero gain, equal
+	# shortage), one wool at the seat and one grain across the map: the tie
+	# ranks the seat first, so only the premium moves the grain estate up.
+	var model: MapModel = _hospital_model()
+	model.resource[model.index_of(3, 1)] = 5
+	model.resource[model.index_of(OUTER_TOWN.x, OUTER_TOWN.y)] = 4
+	var works := LandWorks.new()
+	for x in 5:
+		works.set_transport(model, Vector2i(x, 1), LandWorks.TRANSPORT_ROAD)
+	# Two level-1 estates the road's own transport caps: zero gain, so only the
+	# provision premium can split them.
+	works.set_improvement(model, Vector2i(3, 1), 1)
+	works.set_improvement(model, OUTER_TOWN, 1)
+	var unit: CivilianState = CivilianState.create(1, 0, "builder", CAPITAL)
+	var provision: Dictionary = {"provision_food": true, "capital_tile": CAPITAL}
+	var plain: Dictionary = {"capital_tile": CAPITAL}
+	var stock: Dictionary = {"fabric": 10, "lumber": 20, "castIron": 20}
+	var rationed: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, stock,
+			{"grain": 2, "wool": 2}, {"land_enclosure": true}, provision, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(rationed["tile"]), OUTER_TOWN,
+		"the ration estate leads the provision walk"
+	)
+	var seat: Dictionary = AiBuilderWork.best_candidate(
+		AiWorkQuery.make(
+			AiConfig.build(WORK_OWNER, 1500), model, unit, [unit], works, stock,
+			{"grain": 2, "wool": 2}, {"land_enclosure": true}, plain, {}
+		), {}, []
+	)
+	assert_eq(
+		Vector2i(seat["tile"]), Vector2i(3, 1),
+		"the flag off keeps the published order (the lower tile ranks first)"
+	)
+
+
 ## Rival Engineer policy after it left the civilian dispatcher
 ## (wiki: civilian-work-planner § Engineer; capital-and-connectivity;
 ## civilian-units § Engineer, § Rail Builder). These cases pin the split: the
@@ -5536,6 +6160,28 @@ func test_a_short_worker_ration_is_a_strike() -> void:
 	assert_true(AiArmyReinforce.starving(economy, 3, 0))
 
 
+## The muster gate is the Consumption phase's own larder reading, so the court
+## arms no man the phase would starve and the crown's ledger line, the strike
+## rule and the AI never name two totals (issue #489; REQ-P2-03).
+func test_the_muster_slack_is_the_consumption_reading() -> void:
+	var economy: PlayerEconomy = _work_economy(12000, 4)
+	economy.stockpile["grain"] = 10
+	economy.stockpile["meat"] = 0
+	var fed: Dictionary = LarderRead.reading(
+		economy.workers, economy.stockpile, {"army": 3, "ships": 1}
+	)
+	assert_eq(AiArmyReinforce.fed_slack(economy, 3, 1), 1)
+	assert_eq(int(fed["store_short"]), 0, "the phase covers every mouth the muster counts")
+	assert_true(not AiArmyReinforce.starving(economy, 3, 1))
+
+	economy.stockpile["grain"] = 2
+	var hungry: Dictionary = LarderRead.reading(
+		economy.workers, economy.stockpile, {"army": 3, "ships": 0}
+	)
+	assert_true(int(hungry["store_short"]) > 0, "the phase reads the larder short")
+	assert_true(AiArmyReinforce.starving(economy, 3, 0), "and the muster reads the same")
+
+
 func test_a_court_striking_for_food_musters_nothing() -> void:
 	var plan: Dictionary = AiArmyReinforce.plan(
 		_work_config(), _work_economy(), 1, false, 0, 0
@@ -5545,12 +6191,70 @@ func test_a_court_striking_for_food_musters_nothing() -> void:
 	assert_true((plan["reasons"] as Array).has("striking for food"))
 
 
+## The growth gate plans with the harvest, not the pantry: a court whose own
+## ration harvest cannot carry one more ration arms no further, even while the
+## store could still pay for the mouth — the army it desires is provisioned
+## before it is raised (issue #807; the fallback trim's measured lesson: a
+## store-runway overshoot arms the court past its land).
+func test_a_court_whose_harvest_cannot_carry_one_more_ration_waits() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, 0
+	)
+
+	assert_eq(String(plan["muster"]), "")
+	assert_true(
+		(plan["reasons"] as Array).has("the harvest cannot carry one more ration")
+	)
+
+
+func test_a_harvest_with_one_free_ration_raises_the_line() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, 1
+	)
+
+	assert_eq(String(plan["muster"]), "arquebusiers")
+
+
+func test_a_court_with_no_harvest_reading_keeps_the_store_gate() -> void:
+	var starved: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 0, 0, {}, -1, -2
+	)
+	assert_true((starved["reasons"] as Array).has("striking for food"))
+	var fed: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, -2
+	)
+	assert_eq(String(fed["muster"]), "arquebusiers", "no reading, no gate")
+
+
+func test_a_harvest_one_ration_short_also_waits() -> void:
+	var plan: Dictionary = AiArmyReinforce.plan(
+		_work_config(), _work_economy(), 1, false, 0, 1, 0, {}, -1, -1
+	)
+
+	assert_eq(String(plan["muster"]), "")
+	assert_true(
+		(plan["reasons"] as Array).has("the harvest cannot carry one more ration")
+	)
+
+
 func test_a_court_with_room_for_one_more_ration_musters() -> void:
 	var plan: Dictionary = AiArmyReinforce.plan(
 		_work_config(), _work_economy(), 1, false, 0, 1
 	)
 
 	assert_eq(String(plan["muster"]), "arquebusiers")
+
+
+## The economy pass notes the harvest slack each turn and the army pass reads
+## it back the next; a fresh load has no reading and the gate stands down
+## (issue #807).
+func test_the_harvest_slack_is_noted_and_read_per_court() -> void:
+	var state := AiState.new()
+	assert_false(state.food_slack.has(WORK_OWNER), "no reading, no gate")
+	state.note_food_slack(WORK_OWNER, 3)
+	state.note_food_slack(WORK_OWNER + 1, -2)
+	assert_eq(int(state.food_slack[WORK_OWNER]), 3)
+	assert_eq(int(state.food_slack[WORK_OWNER + 1]), -2)
 
 
 func test_a_court_hires_no_mouth_it_cannot_feed() -> void:
@@ -5949,14 +6653,14 @@ func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
 	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
 	var orders: Array = _market_plan(model, builder, null, works)["orders"]
 	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
-	MapPlayCivilianAi._price(orders, model, works)
+	MapPlayCivilianAi.price(orders, model, works)
 	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
 	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
 	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
 
 	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
 	var survey: Array = _market_plan(model, explorer, null, works)["orders"]
-	MapPlayCivilianAi._price(survey, model, works)
+	MapPlayCivilianAi.price(survey, model, works)
 	assert_true(
 		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
 		"a survey costs no material, so it reserves none"
@@ -6144,6 +6848,11 @@ const GRAIN: Vector2i = Vector2i(3, 1)
 const IRON: Vector2i = Vector2i(2, 1)
 const AWAY: Vector2i = Vector2i(1, 1)
 const MINOR: int = 6
+## The second Minor Nation the deed-targeting cases pair with Genoa: a dearer
+## iron deed, so the cheapest offer names one seller and not the other
+## (issue #841).
+const DEED_MINOR: int = 6
+const DEAR_MINOR: int = 7
 
 
 func test_a_merchant_on_a_genoese_grain_tile_signs_the_deed() -> void:
@@ -6494,6 +7203,9 @@ func _market_context(
 	}
 
 
+## The deed door's own reading: the court is neutral here, so the staff targets
+## are the region's own work and the archetype's extra crew cannot colour a
+## merchant test (AiStaffTaste has its own cases).
 func _market_plan(
 	model: MapModel,
 	units: Array,
@@ -6502,8 +7214,10 @@ func _market_plan(
 	context: Dictionary = {}
 ) -> Dictionary:
 	var diplomacy: DiplomacyState = court if court != null else Fixture.merchant_court()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	return AiCivilianPlanner.plan(
-		AiConfig.build(0, 1500), model, units, works if works != null else LandWorks.new(),
+		config, model, units, works if works != null else LandWorks.new(),
 		Fixture.stockpile(), {}, {"merchant_companies": true},
 		context if not context.is_empty() else _market_context(model, diplomacy)
 	)
@@ -6549,7 +7263,7 @@ func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
 
 func _overture(
 	world: WorldMap, state: DiplomacyState, config: AiConfig, tech: Dictionary,
-	treasury: int = 5000
+	treasury: int = 5000, target: int = MINOR
 ) -> Dictionary:
 	var context: Dictionary = {
 		"treasury": {config.faction: treasury},
@@ -6557,7 +7271,7 @@ func _overture(
 		"player": -1,
 	}
 	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		config, state, AiState.new(), world, 1, MINOR, 50, context
+		config, state, AiState.new(), world, 1, target, 50, context
 	)
 	for entry: Dictionary in entries:
 		if String(entry.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE:
@@ -8065,19 +8779,19 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	play.civilian_layer.regions.set_region(0, [])
 	play.civilian_layer.regions.set_region(1, [])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
 		"a court with a free squadron musters at its seat's port"
 	)
 	var abroad: CivilianState = CivilianState.create(7, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
 	play.civilian_layer.regions.set_region(1, [abroad])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
 		"a court with a colonist already abroad sends no second expedition"
 	)
 	play.civilian_layer.regions.set_region(1, [])
 	play.ship_layer.regions.set_region(0, [])
 	assert_eq(
-		MapPlayCivilianAi._muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
 		"no squadron, no muster"
 	)
 	play.ship_layer.free()
@@ -8606,6 +9320,221 @@ func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
 		"charted land lifts the overture by the deed nudge"
 	)
+
+
+## The warmth that prices a deed is the warmth that bars a declaration, so the
+## envoy nudge goes to the court's cheapest deed partner alone: warming every
+## charted Minor closed the conquest path outright (issue #724 round 3), and the
+## owner's call on #840 is one targeted seller per court (issue #841).
+func test_the_envoy_nudge_goes_to_the_deed_seller_alone() -> void:
+	var world: WorldMap = _two_minor_world()
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, DEED_MINOR, 1)
+	state.ensure_relation(0, DEAR_MINOR, 1)
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
+	config.agenda_traits = AiAgenda.NEUTRAL
+	var tech: Dictionary = {"merchant_companies": true}
+
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
+		"the cheaper deed names the court's one seller"
+	)
+	var seller: Dictionary = _overture(world, state, config, tech, 5000, DEED_MINOR)
+	var other: Dictionary = _overture(world, state, config, tech, 5000, DEAR_MINOR)
+	assert_eq(
+		int(seller["utility"]) - int(other["utility"]), AiDiplomacyTreaties.LAND_ENVOY_BONUS,
+		"the deed seller is warmed, the other Minor stays cold"
+	)
+	# No Merchant Companies, no nudge: the tech is the buyer the warmth serves.
+	var techless: Dictionary = _overture(world, state, config, {}, 5000, DEED_MINOR)
+	assert_eq(
+		int(techless["utility"]), int(other["utility"]),
+		"a court with no merchant to walk the last rung warms no seller"
+	)
+	# A war with the seller leaves no deed to price, so nothing to warm.
+	var war_court := DiplomacyState.new()
+	war_court.initialize(1)
+	war_court.ensure_relation(0, DEED_MINOR, 1)
+	war_court.ensure_relation(0, DEAR_MINOR, 1)
+	assert_true(
+		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
+	)
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
+		"the war closes the cheap seller and the next offer names the other"
+	)
+
+
+## The study door the deed opens is the buyer's own tech, and it stays shut for
+## a court that already holds it or has no priced deed on its chart (issue
+## #841; wiki: civilian-units § Merchant).
+func test_the_deed_door_studies_merchant_companies_when_a_deed_is_priced() -> void:
+	var world: WorldMap = _two_minor_world()
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, DEED_MINOR, 1)
+	state.ensure_relation(0, DEAR_MINOR, 1)
+	assert_eq(
+		AiMerchantWork.deed_door(world, 0, null, state, {}), "merchant_companies",
+		"a priced deed opens the study door"
+	)
+	assert_eq(
+		AiMerchantWork.deed_door(
+			world, 0, null, state, {"merchant_companies": true}
+		),
+		"", "the court already holds the buyer's tech"
+	)
+	var bare := DiplomacyState.new()
+	bare.initialize(1)
+	bare.ensure_relation(0, DEED_MINOR, 1)
+	# Both deeds signed: the door shuts with the last priced offer.
+	var deeded: WorldMap = _two_minor_world()
+	var region: MapModel = deeded.region(WorldMap.OLD_WORLD)
+	for tile: Vector2i in [Vector2i(2, 0), Vector2i(5, 0)]:
+		region.purchase_tile(tile, 0)
+	assert_eq(
+		AiMerchantWork.deed_door(deeded, 0, null, bare, {}), "",
+		"a court with no deed on offer studies something else"
+	)
+	# And the door is the one the research planner takes first.
+	var config: AiConfig = _research_config()
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, PlayerEconomy.starting(),
+		{"door": AiMerchantWork.deed_door(world, 0, null, state, {})}
+	)
+	assert_eq(
+		String(plan["assignments"][0]["tech"]), "merchant_companies",
+		"the deed door is taken first"
+	)
+
+
+## The turn pass names the court's one deed partner before the planner runs: the
+## trace carries the seller so a warm Minor reads as the deed partner and not as
+## a conquest (issue #841). A court with no Merchant Companies names none — it
+## has no chain to open and pays for no scan.
+func test_the_turn_pass_names_the_deed_seller_for_the_planner() -> void:
+	_setup_ai_diplomacy_offers()
+	var world: WorldMap = _two_minor_world(2)
+	ai_diplomacy_offers_state.ensure_relation(2, DEED_MINOR, 1)
+	ai_diplomacy_offers_state.ensure_relation(2, DEAR_MINOR, 1)
+	ai_diplomacy_offers_state.relation(2, DEED_MINOR).score = 50.0
+	ai_diplomacy_offers_state.relation(2, DEAR_MINOR).score = 50.0
+	var context: Dictionary = {"regiments": {}, "ships": {}}
+	var techless: Dictionary = AiTurn.run(
+		ai_diplomacy_offers_state, world, ai_diplomacy_offers_ai_state, 1, 0, 1500, context
+	)
+	assert_eq(
+		_trace_deed_seller(techless, 2), -1,
+		"no Merchant Companies, no chain to warm"
+	)
+	ai_diplomacy_offers_ai_state.economy_for(2).tech_unlocked["merchant_companies"] = true
+	var result: Dictionary = AiTurn.run(
+		ai_diplomacy_offers_state, world, ai_diplomacy_offers_ai_state, 1, 0, 1500, context
+	)
+	assert_eq(
+		_trace_deed_seller(result, 2), DEED_MINOR,
+		"the pass names the cheapest deed partner"
+	)
+
+
+## The deed partner the turn trace recorded for one court, or -1.
+func _trace_deed_seller(result: Dictionary, faction: int) -> int:
+	for record: Dictionary in result.get("trace", []):
+		if int(record.get("faction", -1)) == faction:
+			return int(record.get("deed_seller", -1))
+	return -1
+
+
+## One Minor is warmed and the other is not: the deed nudge is priced on the
+## seller the reading names, and the second offer stands at its plain worth
+## (issue #841).
+func test_the_planner_warms_the_named_deed_seller_alone() -> void:
+	_setup_ai_diplomacy_offers()
+	var world: WorldMap = _two_minor_world(2)
+	ai_diplomacy_offers_state.ensure_relation(2, DEED_MINOR, 1)
+	ai_diplomacy_offers_state.ensure_relation(2, DEAR_MINOR, 1)
+	ai_diplomacy_offers_state.relation(2, DEED_MINOR).score = 20.0
+	ai_diplomacy_offers_state.relation(2, DEAR_MINOR).score = 20.0
+	var context: Dictionary = {
+		"treasury": {2: 5000},
+		"tech": {2: {"merchant_companies": true}},
+		"player": -1,
+		"deed_seller": DEED_MINOR,
+	}
+	var seller: int = _candidate_overture(
+		world, ai_diplomacy_offers_state, context, DEED_MINOR
+	)
+	var other: int = _candidate_overture(
+		world, ai_diplomacy_offers_state, context, DEAR_MINOR
+	)
+	assert_gt(seller, 0, "the deed seller's chain opens on the nudge alone")
+	assert_eq(
+		other, -1,
+		"the other Minor stays cold: no chain, no warmth, no bar on its conquest"
+	)
+
+
+## The overture utility one candidate list priced for a target, or -1.
+func _candidate_overture(
+	world: WorldMap, state: DiplomacyState, context: Dictionary, target: int
+) -> int:
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, state, ai_diplomacy_offers_ai_state,
+		world, 1, target, 60, context
+	)
+	for entry: Dictionary in entries:
+		if String(entry.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE:
+			return int(entry.get("utility", -1))
+	return -1
+
+
+## Two Minor Nations beside one crown, each with a priced resource tile: the
+## cheap grain deed names one seller and the dear iron deed the other, so the
+## warmth a court spends on a deed can be aimed at one partner (issue #841).
+func _two_minor_world(crown: int = 0) -> WorldMap:
+	var model := MapModel.new()
+	model.setup(6, 2)
+	var crown_tiles: Array[Vector2i] = []
+	var cheap_tiles: Array[Vector2i] = []
+	var dear_tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 6:
+			var tile := Vector2i(x, y)
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			if x < 2:
+				model.province[model.index_of(x, y)] = 0
+				crown_tiles.append(tile)
+			elif x < 4:
+				model.province[model.index_of(x, y)] = 1
+				cheap_tiles.append(tile)
+			else:
+				model.province[model.index_of(x, y)] = 2
+				dear_tiles.append(tile)
+	model.resource[model.index_of(2, 0)] = 4
+	model.terrain[model.index_of(5, 0)] = MapModel.Terrain.HILLS
+	model.resource[model.index_of(5, 0)] = 1
+	var seat := ProvinceState.create(
+		0, "Cádiz", crown_tiles, Vector2(0.5, 1.0), crown_tiles.size(), crown, true
+	)
+	seat.capital_tile = Vector2i(0, 0)
+	var cheap := ProvinceState.create(
+		1, "Genoa", cheap_tiles, Vector2(2.5, 1.0), cheap_tiles.size(), DEED_MINOR, false
+	)
+	cheap.capital_tile = Vector2i(2, 0)
+	cheap.resource = 4
+	cheap.resource_tile = Vector2i(2, 0)
+	var dear := ProvinceState.create(
+		2, "Venice", dear_tiles, Vector2(4.5, 1.0), dear_tiles.size(), DEAR_MINOR, false
+	)
+	dear.capital_tile = Vector2i(4, 0)
+	dear.resource = 1
+	dear.resource_tile = Vector2i(5, 0)
+	model.provinces = [seat, cheap, dear]
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
 
 
 ## The refusal an offers candidate list recorded for one order kind ("" when the
@@ -10845,6 +11774,8 @@ func _ai_merchant_context(
 		"visibility": planner_Fixture.visibility(model),
 	}
 
+## Neutral court for the same reason as `_market_plan`: these cases prove the
+## deed door and the merchant's slot, not the archetype's extra crew.
 func _ai_merchant_plan(
 	model: MapModel,
 	units: Array,
@@ -10853,8 +11784,10 @@ func _ai_merchant_plan(
 	context: Dictionary = {}
 ) -> Dictionary:
 	var diplomacy: DiplomacyState = court if court != null else planner_Fixture.merchant_court()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	config.personality = AiPersonality.NEUTRAL
 	return AiCivilianPlanner.plan(
-		AiConfig.build(0, 1500), model, units, works if works != null else LandWorks.new(),
+		config, model, units, works if works != null else LandWorks.new(),
 		planner_Fixture.stockpile(), {}, {"merchant_companies": true},
 		context if not context.is_empty() else _ai_merchant_context(model, diplomacy)
 	)
@@ -12876,6 +13809,42 @@ func test_the_adapter_stamps_a_ledger_for_every_planning_court() -> void:
 	play.civilian_layer.free()
 
 
+## The reading pass is one module, one reading per domain: force, navy, purse,
+## study, court and voyage all stand, and the pools it hands the allocate pass
+## are those readings bounded by the store (REQ-P3-01; issue #484).
+func test_the_reading_pass_names_every_domain() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	var config: AiConfig = AiConfig.build(OBJ_OWNER, play.map_seed)
+	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
+	var readings: Dictionary = MapPlayObjectiveReadings.readings(
+		play, OBJ_OWNER, config, economy, phase
+	)
+
+	for key: String in [
+		"at_war", "war_desire", "regiments", "muster_floor", "muster_due",
+		"muster_row", "escalations", "blockings",
+		"ships", "warships", "warship_price", "warship_row", "warship_open",
+		"navy_due", "hostile_ships", "hostile_warships",
+		"treasury", "reserve", "goal",
+		"research_slots", "research_funding", "research_cost",
+		"standing_study", "research_refusal",
+		"posture", "colony_target", "harbour", "tribe_target",
+		"tribe_stage_cost", "deed_price", "tribe_door", "tribe_closed",
+		"idle_hulls", "explorer_ready", "voyage_afloat", "voyage_abroad",
+		"voyage_stranded",
+	]:
+		assert_true(readings.has(key), "the reading pass names %s" % key)
+	var pools: Dictionary = MapPlayObjectivesAi.pools(economy, readings)
+	assert_eq(
+		int(pools["hull"]), int(readings["idle_hulls"]),
+		"the hull pool is the reading, not a second count"
+	)
+	assert_eq(int(pools["treasury"]), maxi(economy.treasury, 0))
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 func test_the_turn_trace_carries_every_objective() -> void:
 	var play: PlaySession = _objective_session(_court())
 	var ledgers: Dictionary = MapPlayObjectivesAi.run(play)
@@ -12979,7 +13948,7 @@ func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 	MapPlayObjectivesAi.run(play)
 	var claim: Dictionary = play.ai.objectives_for(OBJ_OWNER)
 	assert_true((claim["funded_ids"] as Array).has("expedition.hull"))
-	var open_port: Vector2i = MapPlayCivilianAi._muster_port(
+	var open_port: Vector2i = CivilianMuster.muster_port(
 		play, OBJ_OWNER, play.model.region_id, play.model
 	)
 	assert_true(open_port.x >= 0, "a funded hull opens the muster")
@@ -12989,7 +13958,7 @@ func test_the_muster_gate_reads_the_ledger_hull_claim() -> void:
 		"phase": AiPhasePlanner.PHASE_PEACE, "ranked": 1, "funded": 0, "lines": [],
 		"objectives": [{"id": "expedition.hull", "status": AiObjective.STATUS_DEFERRED}],
 	}, play.turn)
-	var shut: Vector2i = MapPlayCivilianAi._muster_port(
+	var shut: Vector2i = CivilianMuster.muster_port(
 		play, OBJ_OWNER, play.model.region_id, play.model
 	)
 	assert_eq(shut, CivilianState.NO_TILE, "a deferred hull keeps the Explorer ashore")

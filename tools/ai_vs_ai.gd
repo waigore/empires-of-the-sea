@@ -113,7 +113,13 @@ func _run_one(run: int, seed_value: int) -> Dictionary:
 		var before: int = play.turn
 		MapPlayTurn.end_turn(play)
 		await process_frame
-		records.append(MapPlayObserver.snapshot(play))
+		var snap: Dictionary = MapPlayObserver.snapshot(play)
+		# The turn's merged trace rides the line: the standing alone cannot say
+		# a wall was stormed or a battery silenced, and the wiki's offline replay
+		# reads the trace (wiki: turn-trace-interpretation § Observer export).
+		if not play.ai_turns.is_empty():
+			snap["trace"] = play.ai_turns[play.ai_turns.size() - 1]
+		records.append(snap)
 		if play.turn == before and not play.campaign_over():
 			_fail("run %d: turn %d stalled (a decision may be suspended)" % [run, before])
 			break

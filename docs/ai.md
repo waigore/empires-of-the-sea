@@ -7,8 +7,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Registry, profiles** (`AiParameterRegistry`, `AiConfig`,
   `AiPersonality`, `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
-  (`AiNavy`: no fighting hull at peace, chest in reach at war); else
-  `economy.min_treasury`. On `earn` the auction holds it
+  (`AiNavy`), else `economy.min_treasury`; on `earn` the auction holds it
   (DR-20261113-19/22, DR-20261114-06/11).
 - **Power** (`AiPower`): provinces×10 + regiments + ships×5; bands
   +30/+5/−25.
@@ -46,7 +45,9 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   Tribe, then overtures and deeds (DR-20261111-14).
 - **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
   builders finish towns, engineers raise roads/ports/forts/hospitals
-  (DR-20261111-16), explorers prospect, merchants buy deeds (DR-20261111-10).
+  (DR-20261111-16), explorers prospect, merchants buy deeds (DR-20261111-10);
+  each keeps one crew more of its archetype's type (`AiStaffTaste`,
+  DR-20261117-04).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
   bid short inputs; merchants sail home, a hull more when tonnage

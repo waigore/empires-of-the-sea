@@ -36,24 +36,22 @@ loads, returns to title. Deep rules stay in `tests/`.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
   gd-tools hands each case a fresh instance, so an instance dictionary redraws
-  per case; a case that **mutates** a chart takes its own draw.
+  per case. Prefer a pocket chart over regenerating Standard; the price census
+  rides **Small** (not Large) when a seed keeps the published order.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
-  pristine save (~0.15 s vs ~0.5 s remount), dropping selection, sheets and
-  lenses; a suite that swaps screens frees its own. Reuse a preset only when
-  sizes match.
+  pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
+  **one mount per tier**. A suite that swaps screens frees its own.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
-  session and `ai_turns`, re-seat each case (~0.2 s vs ~1.5–2 s). Mode cases
-  start at turn 1; `test_ai_observer` is the reference.
+  session (and `ai_turns` / Auto fields), re-seat each case (~0.2 s vs
+  ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` /
+  `test_auto_mode`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`.
-- **Heaviest suite sorts first**: dispatch is name order, four wide, so a long
-  `world_…` suite drains alone.
-- One Godot boot per theme — coverage ~15 s a boot: fold leftovers into their
-  theme's boot; delete suites covered elsewhere. 39 → 25 suites cut the wall
-  230 s → 207 s. `gd-tools.toml` keeps `parallel = 4`; profile with
-  `--durations 20`.
-- Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`,
-  landed on exit).
+- **Heaviest suite sorts first**: name order, four wide — a long `world_…`
+  suite must not drain alone at the end.
+- One Godot boot per theme — coverage ~15 s a boot; 39 → 23 suites
+  (`save_codec` rides campaign_end). `gd-tools.toml` keeps `parallel = 4`.
+- Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`).
 
 ## Local
 
@@ -126,6 +124,12 @@ godot --headless --path . --script res://playtests/playtest_persistence_advanced
 # shore, resolves a sea battle (the despatch against the hulls actually lost),
 # and sorts a rival squadron out of a captured port.
 godot --headless --path . --script res://playtests/playtest_naval.gd
+
+# Split / combine — folds the opening's single-hull commands into one squadron,
+# reads the troops that hold a split back, detaches a named hull into a command
+# of her own, folds her back, and follows the army a combine carries from the
+# dossier to the muster roll (the row's place and its own Visit press).
+godot --headless --path . --script res://playtests/playtest_fleet_split_combine.gd
 
 # Beachhead — boards a field army and marks a landing site on a hostile coast,
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
@@ -206,6 +210,18 @@ godot --headless --path . --script res://playtests/playtest_market_batch.gd
 # gates and the level the fort is left at, then mans the crown's own frontier wall
 # and reads the defending plate.
 godot --headless --path . --script res://playtests/playtest_siege.gd
+
+# Observer siege — seats a wall, its garrison and a besieging train between two
+# rival crowns in the full-AI observer, then reads the panel's orders feed, the
+# cards, the merged turn record and the province the rules actually left.
+godot --headless --path . --script res://playtests/playtest_observer_siege.gd
+
+# Observer feed — plays a real all-AI campaign forward and, after every turn,
+# reads the panel's "Recent orders" feed against the merged record the same turn
+# wrote: how many rows exist, how many the feed prints, which rows a busy turn
+# loses, and the plate's geometry (the feed's window, the crowns' room, whether
+# the plate scrolls) on the engine's own and on a 720x360 handset viewport.
+godot --headless --path . --script res://playtests/playtest_observer_feed.gd
 
 # Colony chain — opens the turn-100 advanced start (the New World charted, so a
 # Tribe is in contact) and walks the four overture stages on the court sheet's own

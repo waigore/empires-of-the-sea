@@ -3265,12 +3265,12 @@ func test_the_ledger_reserves_the_colony_cargo_before_imports() -> void:
 func test_the_banner_names_the_colonial_reservation() -> void:
 	var cargo: Dictionary = {"holds": 6, "used": 0, "reserved": 4, "free": 2}
 
-	var line: String = LedgerText.cargo_line(cargo)
+	var line: String = LedgerMarketText.cargo_line(cargo)
 
 	assert_true(line.contains("6 holds"))
 	assert_true(line.contains("4 for the colonies"))
 	assert_true(line.contains("2 free"))
-	assert_true(LedgerText.cargo_line({"holds": 6, "free": 2}).contains("2 free"))
+	assert_true(LedgerMarketText.cargo_line({"holds": 6, "free": 2}).contains("2 free"))
 
 ## One rule for the player's ledger and a rival's economy: home yield lands
 ## directly and the other region's tonnage needs a hold (DR-20261109-17).
@@ -3404,12 +3404,12 @@ func test_the_turn_summary_names_colonial_manufactures() -> void:
 	var report: Dictionary = {
 		"overseas": {"used": 8, "left_total": 2, "manufactured": {"castIron": 2}},
 	}
-	var line: String = LedgerText.turn_summary(report)
+	var line: String = LedgerReportText.turn_summary(report)
 
 	assert_true(line.contains("8 colonial tons landed"))
 	assert_true(line.contains("2 cast iron made in colonial towns"))
 	assert_true(line.contains("2 left on the far shore"))
-	assert_false(LedgerText.turn_summary({}).contains("colonial towns"))
+	assert_false(LedgerReportText.turn_summary({}).contains("colonial towns"))
 
 
 # --- test_cargo_read ---------------------------------------------------------
@@ -3502,10 +3502,10 @@ func test_the_turn_summary_names_a_blockaded_coast() -> void:
 		"extraction": {"grain": 5},
 		"blockade": "Blockaded: Cádiz — nothing there reaches the crown by sea this turn",
 	}
-	var line: String = LedgerText.turn_summary(report)
+	var line: String = LedgerReportText.turn_summary(report)
 	assert_true(line.contains("Blockaded: Cádiz"), line)
 	assert_true(line.contains("gathered 5 grain"), line)
-	assert_false(LedgerText.turn_summary({"extraction": {"grain": 5}}).contains("Blockaded"))
+	assert_false(LedgerReportText.turn_summary({"extraction": {"grain": 5}}).contains("Blockaded"))
 
 
 ## A study the purse cannot pay is a rule with a floor, not a broken purse: the
@@ -3514,28 +3514,28 @@ func test_the_turn_summary_names_a_blockaded_coast() -> void:
 ## banking; REQ-P5-05).
 func test_the_turn_summary_names_the_lending_floor_behind_an_unpaid_slot() -> void:
 	var lending: Dictionary = {"research": {"unpaid": ["land_enclosure"], "floor": -500}}
-	var line: String = LedgerText.turn_summary(lending)
+	var line: String = LedgerReportText.turn_summary(lending)
 	assert_true(line.contains("1 research slot unfunded"), line)
 	assert_true(line.contains("the -500 lending floor is reached"), line)
 
 	var borrowing: Dictionary = {"research": {"unpaid": ["a", "b"], "floor": 0}}
-	var tied: String = LedgerText.turn_summary(borrowing)
+	var tied: String = LedgerReportText.turn_summary(borrowing)
 	assert_true(tied.contains("2 research slots unfunded"), tied)
 	assert_true(tied.contains("research may not borrow"), tied)
 
 
 ## The same rule spelled out for the college and the slot's own hover.
 func test_the_floor_text_follows_money_lending_and_banking() -> void:
-	assert_true(LedgerText.research_floor_line(0).contains("stops at 0 ducats"))
-	assert_true(LedgerText.research_floor_line(0).contains("Money Lending"))
-	assert_true(LedgerText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("-500"))
-	assert_true(LedgerText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("Banking"))
+	assert_true(LedgerReportText.research_floor_line(0).contains("stops at 0 ducats"))
+	assert_true(LedgerReportText.research_floor_line(0).contains("Money Lending"))
+	assert_true(LedgerReportText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("-500"))
+	assert_true(LedgerReportText.research_floor_line(ResearchFunding.DEBT_FLOOR).contains("Banking"))
 	assert_true(
-		LedgerText.research_floor_line(ResearchFunding.BANK_DEBT_FLOOR).contains("-1,000"),
+		LedgerReportText.research_floor_line(ResearchFunding.BANK_DEBT_FLOOR).contains("-1,000"),
 		"both techs, both figures read as money"
 	)
-	assert_eq(LedgerText.research_floor_note(0), "research may not borrow")
-	assert_eq(LedgerText.research_floor_note(ResearchFunding.DEBT_FLOOR), "the -500 lending floor is reached")
+	assert_eq(LedgerReportText.research_floor_note(0), "research may not borrow")
+	assert_eq(LedgerReportText.research_floor_note(ResearchFunding.DEBT_FLOOR), "the -500 lending floor is reached")
 
 # --- test_trade_cargo ---
 
@@ -3792,7 +3792,7 @@ func test_a_world_backstop_sale_pays_no_embassy_kickback() -> void:
 
 
 func test_a_quiet_market_prints_nothing() -> void:
-	assert_eq(LedgerText.market_summary({}, 0), "")
+	assert_eq(LedgerMarketText.market_summary({}, 0), "")
 
 
 ## The disband row promises no refund and names what the tier eats
@@ -3803,11 +3803,11 @@ func test_a_quiet_market_prints_nothing() -> void:
 ## The disband row promises no refund and names what the tier eats
 ## (wiki: workers-and-population § Disband, § Tiers).
 func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
-	var hint: String = LedgerText.disband_hint(WorkerPool.Tier.APPRENTICE)
+	var hint: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.APPRENTICE)
 	assert_true(hint.contains("no recruit cost is refunded"), hint)
 	assert_true(hint.contains("An apprentice eats 2 food"), hint)
 	assert_true(hint.contains("a unit of Refined Sugar"), hint)
-	var master: String = LedgerText.disband_hint(WorkerPool.Tier.MASTER)
+	var master: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.MASTER)
 	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
 
 
@@ -3822,7 +3822,7 @@ func test_fills_carry_and_lapse_are_named() -> void:
 			"commodity": "grain",
 		}],
 	}
-	var line: String = LedgerText.market_summary(report, 0)
+	var line: String = LedgerMarketText.market_summary(report, 0)
 	assert_true(line.contains("bought 2 for 60 ducats"))
 	assert_true(line.contains("sold 1"))
 	assert_true(line.contains("1 order carried"))
@@ -3847,16 +3847,16 @@ func test_a_sale_and_an_overseas_share_are_named() -> void:
 		"carry": [],
 		"notes": [],
 	}
-	var line: String = LedgerText.market_summary(report, 0)
+	var line: String = LedgerMarketText.market_summary(report, 0)
 	assert_true(line.contains("sold 1 for 50 ducats"), line)
 	assert_true(line.contains("89 ducats in shares"), line)
 	# A court with no fills of its own still reads its share.
 	var quiet: Dictionary = {"fills": {}, "credits": {"by_gp": {0: 12.0}}}
 	assert_true(
-		LedgerText.market_summary(quiet, 0).contains("12 ducats in shares"),
-		LedgerText.market_summary(quiet, 0),
+		LedgerMarketText.market_summary(quiet, 0).contains("12 ducats in shares"),
+		LedgerMarketText.market_summary(quiet, 0),
 	)
-	assert_eq(LedgerText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
+	assert_eq(LedgerMarketText.share_credit({"credits": {0: 7.6}}, 0), 8, "a bare map is read too")
 
 
 ## The "Next turn" promise names the orders that settle after it, so a staged
@@ -3874,17 +3874,17 @@ func test_the_preview_names_the_auction_it_excludes() -> void:
 		"treasury_delta": 0,
 		"staged_orders": 2,
 	}
-	var line: String = LedgerText.preview(staged)
+	var line: String = LedgerMarketText.preview(staged)
 	assert_true(line.contains("Grain +3"), line)
 	assert_true(line.contains("2 orders settle at the auction"), line)
 	var one: Dictionary = {"stockpile_delta": {}, "treasury_delta": 0, "staged_orders": 1}
 	assert_true(
-		LedgerText.preview(one).contains("1 order settles at the auction"),
-		LedgerText.preview(one),
+		LedgerMarketText.preview(one).contains("1 order settles at the auction"),
+		LedgerMarketText.preview(one),
 	)
 	# Nothing staged: the calm line stays exactly as it was.
 	assert_eq(
-		LedgerText.preview({"stockpile_delta": {}, "treasury_delta": 0}),
+		LedgerMarketText.preview({"stockpile_delta": {}, "treasury_delta": 0}),
 		"Next turn: no stock changes.",
 	)
 
@@ -3900,7 +3900,7 @@ func test_another_courts_lapse_is_not_ours() -> void:
 			"commodity": "grain",
 		}],
 	}
-	assert_eq(LedgerText.market_summary(report, 0), "")
+	assert_eq(LedgerMarketText.market_summary(report, 0), "")
 
 
 # --- from test_ledger_helpers.gd ---
@@ -3928,19 +3928,14 @@ func test_thousands_groups_and_keeps_the_sign() -> void:
 	assert_eq(TextFormat.thousands(-1234), "-1,234")
 
 
-# --- LedgerText --------------------------------------------------------------
-
-
-
-# --- LedgerText --------------------------------------------------------------
+# --- Ledger prose (production, workers, market, report) ----------------------
 
 
 func test_recipe_title_names_the_single_input() -> void:
 	var recipe_id: String = ProductionRecipes.available_ids({})[0]
-	var title: String = LedgerText.recipe_title(recipe_id)
+	var title: String = LedgerProductionText.recipe_title(recipe_id)
 	assert_true(title.contains(CommodityCatalog.label(ProductionRecipes.output(recipe_id))))
-	assert_true(LedgerText.recipe_tooltip(recipe_id).contains("→"))
-
+	assert_true(LedgerProductionText.recipe_tooltip(recipe_id).contains("→"))
 
 
 func test_the_summary_reads_the_report() -> void:
@@ -3949,18 +3944,10 @@ func test_the_summary_reads_the_report() -> void:
 	var report: Dictionary = {
 		"consumption": {"idle_labour": 3, "strikers": 2, "navy_demand": 5},
 	}
-	var line: String = LedgerText.summary(economy, report)
+	var line: String = LedgerReportText.summary(economy, report)
 	assert_true(line.contains("1,234 ducats"))
 	assert_true(line.contains("labour 3 /"))
 	assert_true(line.contains("strikes 2"))
-
-
-## The ledger's food need is every mouth Consumption feeds — the workers, the
-## army, the navy and the hospital staffs (wiki: workers-and-population
-## § Consumption: "Total food demand = workers + navy + army + hospital staffs").
-## A mid-game army is most of the larder, so a need that stopped at the workers
-## and hulls read a crown at war as twice as fed as it was.
-
 
 
 ## The ledger's food need is every mouth Consumption feeds — the workers, the
@@ -3976,16 +3963,16 @@ func test_the_food_need_counts_every_mouth_the_larder_feeds() -> void:
 			"army_demand": 41, "navy_demand": 18, "hospital_demand": 4,
 		},
 	}
-	var line: String = LedgerText.summary(economy, report)
+	var line: String = LedgerReportText.summary(economy, report)
 	assert_true(line.contains("food need 67"), line)
-	assert_eq(LedgerText.army_food(report), 41)
-	assert_eq(LedgerText.army_food({}), 0, "a report with no consumption feeds nobody")
+	assert_eq(LedgerReportText.army_food(report), 41)
+	assert_eq(LedgerReportText.army_food({}), 0, "a report with no consumption feeds nobody")
 
 
 
 func test_the_preview_reports_deltas_or_calm() -> void:
-	assert_eq(LedgerText.preview({}), "Next turn: no stock changes.")
-	var line: String = LedgerText.preview(
+	assert_eq(LedgerMarketText.preview({}), "Next turn: no stock changes.")
+	var line: String = LedgerMarketText.preview(
 		{"stockpile_delta": {"grain": 3}, "treasury_delta": -10}
 	)
 	assert_true(line.contains("+3"))
@@ -3994,19 +3981,19 @@ func test_the_preview_reports_deltas_or_calm() -> void:
 
 
 func test_the_cargo_banner_covers_three_states() -> void:
-	assert_true(LedgerText.cargo_line({}).contains("unknown"))
+	assert_true(LedgerMarketText.cargo_line({}).contains("unknown"))
 	var empty: Dictionary = {"holds": 0, "free": 0}
-	assert_true(LedgerText.cargo_line(empty).contains("No cargo holds"))
-	assert_eq(LedgerText.cargo_color(empty), Palette.GOLD_PALE)
+	assert_true(LedgerMarketText.cargo_line(empty).contains("No cargo holds"))
+	assert_eq(LedgerMarketText.cargo_color(empty), Palette.GOLD_PALE)
 	var laden: Dictionary = {"holds": 4, "free": 1}
-	assert_true(LedgerText.cargo_line(laden).contains("4 holds"))
-	assert_eq(LedgerText.cargo_color(laden), Palette.TEXT)
+	assert_true(LedgerMarketText.cargo_line(laden).contains("4 holds"))
+	assert_eq(LedgerMarketText.cargo_color(laden), Palette.TEXT)
 
 
 
 func test_report_counters_default_to_zero() -> void:
-	assert_eq(LedgerText.idle_labour({}), 0)
-	assert_eq(LedgerText.navy_food({"consumption": {"navy_demand": 7}}), 7)
+	assert_eq(LedgerReportText.idle_labour({}), 0)
+	assert_eq(LedgerReportText.navy_food({"consumption": {"navy_demand": 7}}), 7)
 
 
 # --- EstateLedger ------------------------------------------------------------
@@ -4271,7 +4258,7 @@ func test_the_clearing_receipt_names_the_price_the_pair_charged() -> void:
 		if int((raw as Dictionary).get("buyer", -2)) == 0:
 			deal = raw
 	assert_eq(before - (economies[0] as PlayerEconomy).treasury, 33, "one timber, 10% over")
-	var line: String = LedgerText.deal_line(deal)
+	var line: String = LedgerMarketText.deal_line(deal)
 	assert_true(line.contains("at 33"), line)
 	assert_true(line.contains("33 ducats"), "the receipt names the ducats paid: %s" % line)
 
@@ -4306,7 +4293,7 @@ func test_a_purchase_line_names_the_ducats_the_clearing_charged() -> void:
 	assert_eq(int(deal["cost"]), 333, "the debt rounds the whole deal")
 	assert_eq(before - buyer.treasury, 333, "and that is what the purse paid")
 	assert_eq(
-		LedgerText.deal_line(deal),
+		LedgerMarketText.deal_line(deal),
 		"Bought 5 Copper from the world market at 67 — 333 ducats (rounded from the deal)"
 	)
 
@@ -4346,8 +4333,8 @@ func test_a_truncated_deal_records_the_tons_it_settled() -> void:
 	assert_eq(buyer.quantity("timber"), 2)
 	assert_eq(buyer.treasury, 28)
 	assert_true(
-		LedgerText.deal_line(deal).begins_with("Bought 2 Timber"),
-		LedgerText.deal_line(deal)
+		LedgerMarketText.deal_line(deal).begins_with("Bought 2 Timber"),
+		LedgerMarketText.deal_line(deal)
 	)
 
 
@@ -4356,20 +4343,20 @@ func test_a_truncated_deal_records_the_tons_it_settled() -> void:
 ## (REQ-P5-05; wiki: world-market § Favored Trading Partner).
 func test_the_deal_receipt_reads_a_sale_a_favour_and_an_old_row() -> void:
 	assert_eq(
-		LedgerText.deal_line({
+		LedgerMarketText.deal_line({
 			"buyer": 1, "seller": 0, "commodity": "timber",
 			"quantity": 2, "price": 30, "earned": 60,
 		}),
 		"Sold 2 Timber to %s at 30 — 60 ducats" % FactionCatalog.name_of(1)
 	)
 	assert_true(
-		LedgerText.deal_line({
+		LedgerMarketText.deal_line({
 			"buyer": 0, "seller": 6, "commodity": "timber",
 			"quantity": 1, "price": 30, "is_favoured": true,
 		}).ends_with("as its favoured partner")
 	)
 	assert_eq(
-		LedgerText.deal_line({
+		LedgerMarketText.deal_line({
 			"buyer": 0, "seller": 6, "commodity": "timber", "quantity": 1, "price": 30,
 		}),
 		"Bought 1 Timber from %s at 30 — 30 ducats" % FactionCatalog.name_of(6),
@@ -4383,7 +4370,7 @@ func test_the_deal_receipt_reads_a_sale_a_favour_and_an_old_row() -> void:
 ## up (wiki: diplomacy § GP–Tribe — Boycott; world-market § FTP; REQ-P5-05).
 func test_a_taxed_sale_names_the_rate_that_moved_it() -> void:
 	assert_eq(
-		LedgerText.deal_line({
+		LedgerMarketText.deal_line({
 			"buyer": 1, "seller": 0, "commodity": "timber",
 			"quantity": 10, "price": 25, "earned": 225,
 		}),
@@ -4391,7 +4378,7 @@ func test_a_taxed_sale_names_the_rate_that_moved_it() -> void:
 	)
 	# An untaxed sale keeps the plain line: nothing moved the price.
 	assert_eq(
-		LedgerText.deal_line({
+		LedgerMarketText.deal_line({
 			"buyer": 1, "seller": 0, "commodity": "timber",
 			"quantity": 10, "price": 25, "earned": 250,
 		}),
@@ -4400,13 +4387,13 @@ func test_a_taxed_sale_names_the_rate_that_moved_it() -> void:
 	# A row with no stake (no tons, no price) names no rate: there is no rate to
 	# name, and dividing by it would be the only wrong answer.
 	assert_eq(
-		LedgerText.deal_line({
+		LedgerMarketText.deal_line({
 			"buyer": 1, "seller": 0, "commodity": "timber", "quantity": 0, "price": 25,
 		}),
 		"Sold 0 Timber to %s at 25 — 0 ducats" % FactionCatalog.name_of(1)
 	)
 	assert_eq(
-		LedgerText.deal_line({
+		LedgerMarketText.deal_line({
 			"buyer": 1, "seller": 0, "commodity": "timber", "quantity": 3, "price": 0,
 		}),
 		"Sold 3 Timber to %s at 0 — 0 ducats" % FactionCatalog.name_of(1)
@@ -4436,7 +4423,7 @@ func test_a_boycotted_crowns_sale_receipt_names_the_boycott_rate() -> void:
 		if int((raw as Dictionary).get("seller", -2)) == 0:
 			deal = raw
 	assert_false(deal.is_empty(), "the boycotted crown's timber sold")
-	var line: String = LedgerText.deal_line(deal, 0)
+	var line: String = LedgerMarketText.deal_line(deal, 0)
 	assert_true(line.contains("(exports 90%)"), line)
 	assert_eq(seller.treasury - before, int(deal.get("earned", 0)), "the receipt is the purse")
 	assert_eq(
@@ -4786,12 +4773,13 @@ func test_a_saving_court_never_sells_its_own_dinner() -> void:
 
 
 ## The larder reading the lock-recovery gate is built on: both ration
-## commodities, and nothing else in the stockpile (issue #489).
+## commodities, and nothing else in the stockpile — the Consumption phase's own
+## count, never a second sum (issue #489; REQ-P2-03).
 func test_the_larder_reading_counts_only_food() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.stockpile = {"grain": 7, "meat": 3, "wool": 40, "timber": 12}
-	assert_eq(MapPlayEconomyAi._food_held(economy), 10)
-	assert_eq(MapPlayEconomyAi._food_held(null), 0)
+	assert_eq(EconomyConsumption.food_available(economy.stockpile), 10)
+	assert_eq(EconomyConsumption.food_available({}), 0)
 
 
 ## The debt is rounded once from the whole deal, so the per-unit charge cannot
@@ -4920,7 +4908,7 @@ func test_no_waiting_order_leaves_the_whole_purse() -> void:
 	assert_eq(int(reading["promised"]), 0)
 	assert_eq(int(reading["budget"]), 2500)
 	assert_eq(MarketBudget.projected_non_bid_delta(economy), 0)
-	assert_true(LedgerText.bid_budget_line(reading).contains("whole purse"))
+	assert_true(LedgerMarketText.bid_budget_line(reading).contains("whole purse"))
 
 
 func test_a_waiting_hull_is_promised_before_the_auction() -> void:
@@ -4972,7 +4960,7 @@ func test_a_promise_beyond_the_purse_leaves_nothing_to_bid() -> void:
 	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
 	var reading: Dictionary = MarketBudget.budget(economy)
 	assert_eq(int(reading["budget"]), 0)
-	assert_true(LedgerText.bid_budget_line(reading).contains("nothing this turn"))
+	assert_true(LedgerMarketText.bid_budget_line(reading).contains("nothing this turn"))
 
 
 ## A purse in debt is named as debt: the college's lending floor (Money Lending
@@ -4986,7 +4974,7 @@ func test_a_purse_in_debt_is_named_as_debt_not_an_empty_purse() -> void:
 	assert_eq(int(reading["purse"]), -925, "the crown's own balance keeps its debt")
 	assert_eq(int(reading["treasury"]), 0, "the auction still spends max(0, treasury)")
 	assert_eq(int(reading["budget"]), 0)
-	var line: String = LedgerText.bid_budget_line(reading)
+	var line: String = LedgerMarketText.bid_budget_line(reading)
 	assert_true(line.contains("925 ducats in debt"), line)
 	assert_false(line.contains("whole purse"), line)
 
@@ -4996,7 +4984,7 @@ func test_a_purse_in_debt_is_named_as_debt_not_an_empty_purse() -> void:
 func test_a_purse_in_debt_names_the_orders_it_also_owes() -> void:
 	var economy: PlayerEconomy = _bid_economy(-925)
 	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
-	var line: String = LedgerText.bid_budget_line(MarketBudget.budget(economy))
+	var line: String = LedgerMarketText.bid_budget_line(MarketBudget.budget(economy))
 	assert_true(line.contains("925 ducats in debt"), line)
 	assert_true(line.contains("promised to 1 waiting order"), line)
 
@@ -5075,7 +5063,7 @@ func test_the_same_bid_clears_without_a_waiting_order() -> void:
 func test_the_line_names_the_promised_purse() -> void:
 	var economy: PlayerEconomy = _bid_economy(10000)
 	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
-	var line: String = LedgerText.bid_budget_line(MarketBudget.budget(economy))
+	var line: String = LedgerMarketText.bid_budget_line(MarketBudget.budget(economy))
 	assert_true(line.contains("2,000 of 10,000 ducats"))
 	assert_true(line.contains("8,000 promised to 1 waiting order"))
 

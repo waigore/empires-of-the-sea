@@ -1,11 +1,14 @@
 extends SceneTree
 ## Screenshot harness for Auto mode's chrome (excluded from coverage):
 ##   godot --path . -s tests/auto_shot.gd -- out=/tmp/auto.png size=1440x900
+## `sheet=1` opens the whole action log instead of the chart, so the log's own
+## sheet is shot the way the LOG seal raises it.
 ## Run WITHOUT --headless: it needs a real GL context.
 
 var _path := "/tmp/auto_shot.png"
 var _size := Vector2i(1440, 900)
 var _confirm := false
+var _sheet := false
 var _turns := 2
 var _frames := 0
 var _screen: MapScreen = null
@@ -23,6 +26,8 @@ func _initialize() -> void:
 				_size = Vector2i(int(parts[0]), int(parts[1]))
 		elif arg.begins_with("confirm="):
 			_confirm = arg.substr(8) == "1"
+		elif arg.begins_with("sheet="):
+			_sheet = arg.substr(6) == "1"
 		elif arg.begins_with("turns="):
 			_turns = int(arg.substr(6))
 	_run.call_deferred()
@@ -60,6 +65,8 @@ func _run() -> void:
 		DiplomacyHud.hide(_screen.hud.panels)
 	if _confirm:
 		_screen.hud.auto_bar._on_toggle_pressed()
+	if _sheet:
+		_screen.hud.auto_bar._on_log_pressed()
 	# The driver's own clock would keep playing while the shot is taken.
 	play.auto_speed = 0
 	await process_frame

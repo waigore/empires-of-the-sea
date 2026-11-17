@@ -192,10 +192,13 @@ static func _begin_layers(play: PlaySession) -> void:
 static func _rival_ledgers(play: PlaySession, book: TurnBook) -> void:
 	book.economy_report = MapPlayEconomyAi.run(play)
 	book.raid_report = MapPlayRaids.resolve(play)
-	AiTurnLog.record(
+	var merged: Dictionary = AiTurnLog.record(
 		play, book.army, book.fleet, book.economy_report, book.invasion,
 		book.colonisation
 	)
+	# Combat's own rows ride the record the pass just wrote: the observer has no
+	# plate or Gazette, so a siege is read here or nowhere (BattleTrace).
+	BattleTrace.record(merged, play, book.land_battles, book.naval_battles)
 
 
 ## The crown's own turn: the new turn's watch, its ledger, the shared market book
@@ -254,7 +257,7 @@ static func _report_turn(play: PlaySession, book: TurnBook) -> void:
 static func _follow_view(play: PlaySession, year: int) -> void:
 	if not MapPlayTurn.view_live:
 		return
-	var market_line: String = LedgerText.market_summary(
+	var market_line: String = LedgerMarketText.market_summary(
 		play.market_report, play.player_faction
 	)
 	if play.observer_mode or market_line.is_empty():
@@ -274,4 +277,4 @@ static func _follow_view(play: PlaySession, year: int) -> void:
 	play.improvements.refresh_if_open()
 	# An open dossier follows the works, the town and the tech the turn changed.
 	MapPlaySetup.refresh_dossier(play)
-	MapPlaySetup.build_lens(play)
+	MapPlayLens.mount_all(play)

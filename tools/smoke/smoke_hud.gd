@@ -36,6 +36,18 @@ static func _estates(run, screen: MapScreen) -> void:
 	run.check(
 		screen.improvements._batch.visible == (ready > 0), "estates press stands"
 	)
+	# Every row prices the raise it offers: the next level's harvest, or the cap
+	# that holds it flat (REQ-P5-06; DR-20261117-03).
+	var priced: bool = false
+	for row: Dictionary in screen.improvements._data.get("estates", []):
+		if (
+			int(row.get("level", 0)) < ImprovementCatalog.MAX_LEVEL
+			and not bool(row.get("working", false))
+			and not String(row.get("preview_text", "")).is_empty()
+		):
+			priced = true
+			break
+	run.check(priced, "an estate row prices its raise")
 	screen.improvements.close()
 
 

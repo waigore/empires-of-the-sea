@@ -37,7 +37,8 @@ static func project(
 	resolved: Dictionary,
 	idle: Array[CivilianState],
 	tech_caps: Dictionary,
-	gaps: Dictionary = {}
+	gaps: Dictionary = {},
+	blockaded: bool = false
 ) -> Dictionary:
 	var level: int = works.improvement_at(model, tile)
 	var commodity: String = ImprovementCatalog.commodity(resource)
@@ -72,19 +73,38 @@ static func project(
 			level, mini(tech_cap, terrain_cap), transport, town_cap
 		) * Extraction.estate_yield_per_level(owner, commodity)
 	var next_level: int = mini(level + 1, ImprovementCatalog.MAX_LEVEL)
+	# What one more level pays once the works stand: the phase's own formula read
+	# at that level, so the crown prices a raise against the harvest it will
+	# actually gather and never against a level the caps hold flat (REQ-P2-03,
+	# REQ-P5-06). `capped_now` is the same read at today's level, which is the
+	# base the next level is measured against even while a gate (no road, no
+	# survey) is keeping the estate from paying at all.
+	var capped_now: int = Extraction.effective_yield(
+		level, mini(tech_cap, terrain_cap), transport, town_cap
+	) * Extraction.estate_yield_per_level(owner, commodity)
+	var next_output: int = capped_now
+	if level < ImprovementCatalog.MAX_LEVEL:
+		next_output = Extraction.effective_yield(
+			next_level, mini(tech_cap, terrain_cap), transport, town_cap
+		) * Extraction.estate_yield_per_level(owner, commodity)
 	var cost: Dictionary = CivilianWork.cost_for("build_improvement", next_level)
 	var builder: CivilianState = _nearest(idle, tile)
+	# The per-player tile exclusivity rule the Build order enforces, in the
+	# order's own words: another crown crew already holds this tile — an
+	# Engineer's road or harbour, a Merchant's deed — so the press would be
+	# refused (wiki: civilian-units § Per-player tile exclusivity; REQ-P2-03).
+	var busy: String = CivilianWorkPlan.tile_busy_refusal(units, builder, tile)
 	var status: String = status_for(level, is_connected, working, mineral, prospected)
 	var status_text: String = _status_text(
 		status, resource, level, output, tech_cap, terrain_cap, transport,
-		town_cap, working, is_connected
+		town_cap, working, is_connected, blockaded
 	)
 	# How much road the crown still needs (wiki: capital-and-connectivity).
 	if gap > 0:
 		status_text += " · %d tile%s to the crown network" % [
 			gap, "" if gap == 1 else "s"
 		]
-	return {
+	var row: Dictionary = {
 		"tile": tile,
 		"index": model.index_of(tile.x, tile.y),
 		"province": province,
@@ -107,6 +127,7 @@ static func project(
 		"output": output,
 		"output_text": ImprovementCatalog.output_text(resource, output),
 		"connected": is_connected,
+		"blockaded": blockaded,
 		"prospected": prospected,
 		"needs_prospecting": mineral,
 		"working": working != null,
@@ -124,13 +145,77 @@ static func project(
 		"duration": next_level,
 		"can_build": _can_build(
 			level, tech_cap, terrain_cap, mineral, prospected, working, builder,
-			cost, stockpile
+			cost, stockpile, busy
 		),
 		"build_reason": _build_reason(
 			level, tech_cap, terrain_cap, mineral, prospected, working, builder,
-			cost, stockpile
+			cost, stockpile, busy
 		),
+		"next_output": next_output,
+		"gain": maxi(next_output - capped_now, 0),
 	}
+	# The preview is read off the finished row so one home answers both the
+	# per-estate figure and the words the ledger prints for it.
+	row["preview_text"] = preview_text(row)
+	return row
+
+
+## What one more level buys, in the ledger's own words. The figure is the
+## phase's arithmetic at the next level (`gain`, `next_output`), so a crown is
+## never told a raise pays when a cap holds the estate flat; the line names the
+## cap instead, and names the gate a raise still waits on (REQ-P2-03, REQ-P5-06).
+## Empty for a finished estate and while a Builder is on it: there is no raise to
+## price.
+static func preview_text(row: Dictionary) -> String:
+	if bool(row.get("working", false)):
+		return ""
+	var level: int = int(row.get("level", 0))
+	if level >= int(row.get("max_level", ImprovementCatalog.MAX_LEVEL)):
+		return ""
+	var next_level: int = int(row.get("next_level", level + 1))
+	# Ground no road reaches gathers nothing at any level, so the raise is priced
+	# by the wait rather than by a figure the harvest cannot pay. A deposit no
+	# Explorer has read is the same wait, named after the level it would buy. A
+	# sealed harbour is a wait the crown cannot road away, so it is named too.
+	if not bool(row.get("connected", false)):
+		if bool(row.get("blockaded", false)):
+			return "Harbour blockaded — L%d pays nothing until the sea path opens" % (
+				next_level
+			)
+		return "No road yet — L%d pays nothing until one reaches it" % next_level
+	if int(row.get("gain", 0)) <= 0:
+		return "L%d adds nothing — %s holds this estate" % [
+			next_level, binding_cap(row)
+		]
+	var text: String = "L%d pays %s (+%d)" % [
+		next_level,
+		ImprovementCatalog.output_text(
+			int(row.get("resource", -1)), int(row.get("next_output", 0))
+		),
+		int(row.get("gain", 0)),
+	]
+	if bool(row.get("needs_prospecting", false)) and not bool(row.get("prospected", false)):
+		return text + " once an Explorer prospects it"
+	return text
+
+
+## The cap that stops the next level from paying more, in the row's own words:
+## the tightest of the four the phase's formula reads (road transport, town,
+## terrain, study). The estate's own output names the same four.
+static func binding_cap(row: Dictionary) -> String:
+	var limits: Array[Array] = [
+		["the road's transport", int(row.get("transport", 0))],
+		["the town", int(row.get("town_cap", 0))],
+		["the terrain", int(row.get("terrain_cap", 0))],
+		["the crown's study", int(row.get("tech_cap", 0))],
+	]
+	var cap: String = "the terrain"
+	var lowest: int = 1 << 30
+	for spec: Array in limits:
+		if int(spec[1]) < lowest:
+			lowest = int(spec[1])
+			cap = String(spec[0])
+	return cap
 
 
 ## A Builder at work outranks level; a surveyed mineral is vacant, an unseen
@@ -153,7 +238,7 @@ static func status_for(
 static func _status_text(
 	status: String, resource: int, level: int, output: int, tech_cap: int,
 	terrain_cap: int, transport: int, town_cap: int, working: CivilianState,
-	is_connected: bool
+	is_connected: bool, blockaded: bool = false
 ) -> String:
 	match status:
 		"building":
@@ -163,12 +248,18 @@ static func _status_text(
 			var vacant: String = (
 				"Vacant — a Builder can raise a %s" % ImprovementCatalog.base_name(resource)
 			)
-			if not is_connected:
+			if blockaded:
+				vacant += " · harbour blockaded, no sea path to the crown"
+			elif not is_connected:
 				vacant += " · no road to the crown yet"
 			return vacant
 		UNPROSPECTED:
 			return "Prospect this tile before a %s can rise" % ImprovementCatalog.base_name(resource)
 		"disconnected":
+			# A sealed harbour is a rule, not a missing road: say which one, so
+			# the crown never lays a road it does not need (REQ-P2-03).
+			if blockaded:
+				return "Harbour blockaded — no sea path to the crown"
 			return "No road or port to the crown — no yield yet"
 		"maxed":
 			return "Fully improved · %s" % ImprovementCatalog.output_text(resource, output)
@@ -188,7 +279,7 @@ static func _status_text(
 static func _can_build(
 	level: int, tech_cap: int, terrain_cap: int, mineral: bool, prospected: bool,
 	working: CivilianState, builder: CivilianState, cost: Dictionary,
-	stockpile: Dictionary
+	stockpile: Dictionary, busy: String = ""
 ) -> bool:
 	return (
 		level < ImprovementCatalog.MAX_LEVEL
@@ -197,6 +288,7 @@ static func _can_build(
 		and (not mineral or prospected)
 		and working == null
 		and builder != null
+		and busy.is_empty()
 		and ImprovementSystem.short_inputs(cost, stockpile).is_empty()
 	)
 
@@ -204,7 +296,7 @@ static func _can_build(
 static func _build_reason(
 	level: int, tech_cap: int, terrain_cap: int, mineral: bool, prospected: bool,
 	working: CivilianState, builder: CivilianState, cost: Dictionary,
-	stockpile: Dictionary
+	stockpile: Dictionary, busy: String = ""
 ) -> String:
 	if working != null:
 		return "A Builder is already at work here."
@@ -218,6 +310,8 @@ static func _build_reason(
 		return "Requires extraction tech (cap %d) to raise this estate." % tech_cap
 	if builder == null:
 		return "No idle Builder — train one at the capital."
+	if not busy.is_empty():
+		return busy
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
 		return "Stores are short of %s." % CivilianWork.cost_text(short)

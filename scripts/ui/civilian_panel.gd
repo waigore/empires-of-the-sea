@@ -11,6 +11,9 @@ signal dock_side_pressed
 var _title: Label = null
 var _subtitle: Label = null
 var _status: Label = null
+## The court's own pick for a crew that waits: the work its planner would give
+## it next, in the crown's gold (DR-20261117-06).
+var _pick: Label = null
 var _detail: GridContainer = null
 var _orders: VBoxContainer = null
 var _cancel: Button = null
@@ -67,6 +70,13 @@ func _build() -> void:
 	_status.add_theme_color_override("font_color", Palette.TEXT)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	column.add_child(_status)
+
+	_pick = Label.new()
+	_pick.add_theme_font_size_override("font_size", 13)
+	_pick.add_theme_color_override("font_color", Palette.GOLD)
+	_pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pick.visible = false
+	column.add_child(_pick)
 
 	var heading := Label.new()
 	heading.text = "WORK ORDERS"
@@ -142,6 +152,8 @@ func refresh(
 	]
 	_fill_detail(model, unit, works, context)
 	_status.text = _status_text(model, unit)
+	_pick.text = _pick_line(context)
+	_pick.visible = not _pick.text.is_empty()
 	_cancel.visible = unit.is_working() and _viewer == unit.owner
 	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
 	# The stores line prices our own orders; a rival's sheet has none to price.
@@ -258,6 +270,18 @@ func _tradecraft_text(model: MapModel, unit: CivilianState) -> String:
 	return "Shadows %s — presence reveal only; only Great Powers share research" % name
 
 
+## The court's own pick for a crew that waits: the work the published planner
+## would give it next, worded by the ledger that sells the work, in the crown's
+## gold under the order status (REQ-P5-06; DR-20261117-06). A reading only — the
+## crown still presses the order, and nothing is assigned by this line.
+func _pick_line(context: Dictionary) -> String:
+	var pick: Dictionary = context.get("pick", {}) as Dictionary
+	var line: String = String(pick.get("line", ""))
+	if line.is_empty():
+		return ""
+	return line.substr(0, 1).to_upper() + line.substr(1) + "."
+
+
 ## A rival's crew answers to its own crown: the sheet says so with the same
 ## words the fleet and army dossiers use, so no control is offered that the
 ## rules would refuse (REQ-P2-03, REQ-P5-06).
@@ -327,6 +351,16 @@ func _fill_orders(
 		button.disabled = not bool(option["ok"]) or unit.is_working()
 		button.pressed.connect(func() -> void: action_pressed.emit(action))
 		_orders.add_child(button)
+		# What the order lands, in the crown's gold under the price: the works
+		# no ledger prices name their payoff here (REQ-P5-06; DR-20261117-05).
+		var preview_text: String = String(option.get("preview_text", ""))
+		if not preview_text.is_empty():
+			var payoff := Label.new()
+			payoff.text = preview_text
+			payoff.add_theme_font_size_override("font_size", 11)
+			payoff.add_theme_color_override("font_color", Palette.GOLD)
+			payoff.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			_orders.add_child(payoff)
 		if not bool(option["ok"]):
 			var reason := Label.new()
 			reason.text = String(option["reason"])

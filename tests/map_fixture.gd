@@ -99,7 +99,9 @@ static func settle(play: PlaySession) -> void:
 ## Ownership, seats and tile deeds of the shared world as it was generated.
 ## Suites that hand provinces to a crown or buy deeds call this once, then
 ## `restore(world, snapshot)` in `before_each`/`after_each`, so the shared map
-## stays a fresh world without paying for generation per case.
+## stays a fresh world without paying for generation per case. Advanced-start
+## live mounts that also lift town levels / resources use a private chart
+## instead of deepening this path on every suite's hot `before_each`.
 static func snapshot(world: WorldMap) -> Array:
 	var rows: Array = []
 	for region: MapModel in world.regions:

@@ -199,7 +199,43 @@ static func _row(
 	row["next_level"] = next
 	row["next_name"] = HospitalRules.level_name(next)
 	row["note"] = _note(state, level, next, cost_text, turns, refusal, crew, staffed)
+	# The raise is priced, so the prize is too: the rest, the wear and the
+	# ration the next ward brings, read off the hospital table the turn tick
+	# heals by. A finished ward and one an Engineer is already raising have no
+	# level to price (REQ-P2-03, REQ-P5-06; DR-20261117-05).
+	row["preview_text"] = (
+		preview_text(level, next)
+		if state != STATE_RAISED and state != STATE_AT_WORK
+		else ""
+	)
 	return row
+
+
+## What one more ward buys, in the sheet's own words: the rest a stationed army
+## recovers at, the wear a defeat leaves, and the food its staff eats, with the
+## step the crown pays for. The figures are `HospitalRules`' own table, the one
+## the turn's rest pass and combat read, so a row can never sell a ward the
+## rules would not staff (REQ-P2-03). Empty at the top level.
+static func preview_text(level: int, next: int) -> String:
+	if level >= HospitalRules.MAX_LEVEL:
+		return ""
+	var rest: int = roundi(HospitalRules.rest_share(next) * 100.0)
+	var wear: int = roundi(HospitalRules.triage_scale(next) * 100.0)
+	var food: int = HospitalRules.food_demand(next)
+	# The step the crown pays for, in the row's own readings: rest and ration
+	# climb, wear falls.
+	var step: String = "%s%% rest, %s%% wear, %s food" % [
+		_signed(rest - roundi(HospitalRules.rest_share(level) * 100.0)),
+		_signed(wear - roundi(HospitalRules.triage_scale(level) * 100.0)),
+		_signed(food - HospitalRules.food_demand(level)),
+	]
+	return "L%d rests %d%%, wear %d%%, staff %d food (%s)" % [
+		next, rest, wear, food, step
+	]
+
+
+static func _signed(value: int) -> String:
+	return ("+" if value > 0 else "") + str(value)
 
 
 static func _note(

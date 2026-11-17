@@ -57,7 +57,6 @@ suites = [
   "test_campaign_end.gd",
   "test_civilian_turn_rules.gd",
   "test_campaign_rules.gd",
-  "test_capital_seat_screen.gd",
 ]
 
 [domains.civilian]
@@ -66,6 +65,16 @@ suites = [
   "test_panel_parts_rules.gd",
   "test_map_screen.gd",
   "test_battle_rules.gd",
+]
+
+# The court's own pick: one reading over the planner's plan, proved by the AI
+# suite (the pick), the civilian suite (the wording) and the sheet suite (the
+# line). Kept apart from `civilian` so the pick never pays for the battle suite.
+[domains.civilian_pick]
+suites = [
+  "test_ai_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 [domains.diplomacy]
@@ -200,7 +209,7 @@ suites = [
 [domains.fog]
 suites = [
   "test_map_view_rules.gd",
-  "test_save_codec.gd",
+  "test_campaign_end.gd",
   "test_ai_rules.gd",
 ]
 
@@ -275,6 +284,24 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The crown's army (DR-20261116-16): the regiment-by-regiment projection and its
+# sheet share the ledgers boot — the projection on the muster fixture and the
+# sheet on the shared map screen — so an army reading change never pulls the army
+# rules' suites or the ui catch-all's.
+[domains.army_read]
+suites = [
+  "test_ledgers.gd",
+]
+
+# The world's colonies (DR-20261117-02): the colony projection and its sheet
+# share the ledgers boot — the projection on a two-chart fixture and the sheet on
+# the shared map screen — so a colony reading change never pulls the diplomacy
+# domain's four suites or the ui catch-all's.
+[domains.colonies]
+suites = [
+  "test_ledgers.gd",
+]
+
 # The dress the crown's sheets all print in — the chart/reading strip and the
 # grouped list — shared by the provinces, towns, muster, navy, people and
 # command sheets. A change to it runs the suites that drive those sheets,
@@ -296,7 +323,7 @@ suites = [
 suites = [
   "test_naval_rules.gd",
   "test_fleet_orders.gd",
-  "test_save_codec.gd",
+  "test_campaign_end.gd",
 ]
 
 # A blockade severs the harvest, not only the cargo (wiki:
@@ -451,10 +478,6 @@ domain = "sea_tone"
 match = "scripts/session/play_session.gd*"
 domain = "pause"
 
-[[rules]]
-match = "scripts/map/map_play_setup.gd"
-domain = "pause"
-
 # Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
 # ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
@@ -492,16 +515,15 @@ match = "scripts/ui/force_ledger_*.gd*"
 domain = "sheet"
 
 [[rules]]
-match = "scripts/map/map_play_setup.gd"
-domain = "blockade"
-
-[[rules]]
 match = "scripts/ui/dossier_copy.gd"
 domain = "blockade"
 
+# The ledger's prose, one file per domain it speaks for (production, workers,
+# market, the court's report). A wording change runs the sheets that print the
+# lines, so the text files ride the economy_ui suites with their panels.
 [[rules]]
-match = "scripts/ui/ledger_text.gd"
-domain = "blockade"
+match = "scripts/ui/ledger_*_text.gd*"
+domain = "economy_ui"
 
 [[rules]]
 match = "tests/test_civilian_turn_rules.gd*"
@@ -539,6 +561,13 @@ domain = "naval_intel"
 
 [[rules]]
 match = "scripts/map/map_play_fleets.gd*"
+domain = "fleet_split"
+
+# The crown's watch (fog, sighted strength, charted coast) reads in one module.
+# Declared before the fleet and map globs so a watch-only edit re-runs the naval
+# intel suites instead of their whole fan-out.
+[[rules]]
+match = "scripts/map/map_play_fleet_intel.gd*"
 domain = "naval_intel"
 
 [[rules]]
@@ -560,6 +589,84 @@ domain = "naval_intel"
 [[rules]]
 match = "scripts/save/save_codec.gd*"
 domain = "naval_intel"
+
+# A hull detaches into a squadron of her own (wiki: ships-and-naval § Ship
+# instances; DR-20261116-12). The rules, the layer method that files the roster,
+# the dossier intent that routes it and the drawer that offers the tap travel
+# together; declared before the fleet, map and ui globs so the slice never pulls
+# their whole fan-out. The naval rules suite carries the intel watch that also
+# lives in `map_play_fleet_intel.gd`, so the two naval suites prove the whole
+# slice.
+[domains.fleet_split]
+suites = [
+  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
+[[rules]]
+match = "scripts/rules/fleet_split.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_split.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/map/ship_layer.gd*"
+domain = "fleet_split"
+
+# The marker bookkeeping the layer delegates to; it shares the naval suites,
+# so a marker change never pulls the whole `scripts/map/**` fan-out.
+[[rules]]
+match = "scripts/map/ship_markers.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/ui/fleet_split_block.gd*"
+domain = "fleet_split"
+
+# The dossier now mounts the split drawer, so a `fleet_panel.gd` edit reads with
+# the naval suites that mount it instead of the whole `ui` fan-out. *Declared
+# before the ui glob.*
+[[rules]]
+match = "scripts/ui/fleet_panel.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "tests/test_naval_rules.gd*"
+domain = "fleet_split"
+
+# Two squadrons in one station fold into one (wiki: ships-and-naval § Ship
+# instances; DR-20261116-13). The rules, the layer method that files the roster,
+# the dossier intent that routes it and the drawer that offers the tap travel
+# together; the same three naval suites prove the slice, so the domain adds no
+# wall time to a PR that also touches the split.
+[domains.fleet_combine]
+suites = [
+  "test_naval_rules.gd",
+  "test_fleet_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
+[[rules]]
+match = "scripts/rules/fleet_combine.gd*"
+domain = "fleet_combine"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_combine.gd*"
+domain = "fleet_combine"
+
+[[rules]]
+match = "scripts/ui/fleet_combine_block.gd*"
+domain = "fleet_combine"
+
+# The seam all three dossier drawers share: the toggle, the open state, the row
+# shell and the gate's own reason. The split domain already mounts every drawer
+# through the two naval suites, so the seam adds no wall time.
+[[rules]]
+match = "scripts/ui/fleet_drawer.gd*"
+domain = "fleet_split"
 
 [[rules]]
 match = "scripts/rules/recruit_queue.gd*"
@@ -625,6 +732,22 @@ domain = "muster"
 [[rules]]
 match = "tests/test_ledgers.gd*"
 domain = "muster"
+
+# The world's colonies (DR-20261117-02): the projection, its row and panel and
+# the map hook behind Visit. They share the ledgers boot — the projection on a
+# two-chart fixture and the sheet on the shared map screen — so a colony reading
+# change never pulls the diplomacy domain's court suites.
+[[rules]]
+match = "scripts/rules/colony_ledger.gd*"
+domain = "colonies"
+
+[[rules]]
+match = "scripts/ui/colony_ledger_*.gd*"
+domain = "colonies"
+
+[[rules]]
+match = "scripts/map/map_play_colonies.gd*"
+domain = "colonies"
 
 # The crown's towns (DR-20261115-12): the projection, its row and panel, the
 # map hook behind Raise and the realm ledger's door. It rides the muster domain
@@ -709,6 +832,18 @@ domain = "navy"
 match = "scripts/ui/naval_ledger_*.gd*"
 domain = "navy"
 
+# The crown's army (DR-20261116-16): the regiment-by-regiment projection and its
+# sheet, the muster roll's second door. Both ride the ledgers boot — the
+# projection on the muster fixture and the sheet on the shared map screen — so an
+# army reading change never pulls the army rules' suites or the ui catch-all's.
+[[rules]]
+match = "scripts/rules/army_ledger.gd*"
+domain = "army_read"
+
+[[rules]]
+match = "scripts/ui/army_ledger_*.gd*"
+domain = "army_read"
+
 # The dress every crown ledger prints in: the two-row chart/reading strip and
 # the grouped list the provinces, towns, muster, navy, people and command
 # sheets all build their body from. One shared change runs the suites that
@@ -781,6 +916,16 @@ domain = "muster"
 match = "scripts/ui/hud_dossiers.gd"
 domain = "muster"
 
+# The sheet registry: every crown sheet's own layer, its bind and the back
+# walk. The ledgers boot drives all three (one bind, one back chain), so the
+# registry rides the muster domain instead of the menu catch-all.
+[[rules]]
+match = "scripts/ui/hud_ledger_doors.gd"
+domain = "muster"
+
+# The screen's boot (HUD, economy, dossier, fog, intro) and the ledger doors it
+# binds. First match wins, so this is the one rule for the file: the pause,
+# blockade and crown-road copies that also named it never matched.
 [[rules]]
 match = "scripts/map/map_play_setup.gd"
 domain = "muster"
@@ -832,7 +977,7 @@ domain = "diplomacy"
 suites = [
   "test_map_screen.gd",
   "test_menu_flow.gd",
-  "test_save_codec.gd",
+  "test_campaign_end.gd",
   "test_army_orders.gd",
   "test_mobile_layout.gd",
   "test_map_view_rules.gd",
@@ -851,6 +996,16 @@ domain = "auto"
 
 [[rules]]
 match = "scripts/ui/auto_bar.gd*"
+domain = "auto"
+
+# The seat's action log: the plate under the cartouche and the whole-log sheet
+# its seal opens. Both are Auto chrome, so they ride the seat's own domain.
+[[rules]]
+match = "scripts/ui/auto_log_plate.gd*"
+domain = "auto"
+
+[[rules]]
+match = "scripts/ui/auto_log_sheet.gd*"
 domain = "auto"
 
 [[rules]]
@@ -1078,7 +1233,6 @@ suites = [
 suites = [
   "test_generated_world_rules.gd",
   "test_map_screen.gd",
-  "test_save_codec.gd",
   "test_campaign_end.gd",
 ]
 
@@ -1098,7 +1252,7 @@ suites = [
   "test_generated_world_rules.gd",
   "test_map_screen.gd",
   "test_menu_flow.gd",
-  "test_save_codec.gd",
+  "test_campaign_end.gd",
 ]
 
 # The crown's own victory bar (wiki: victory § Military victory; DR-20261111-26):
@@ -1162,7 +1316,7 @@ suites = [
 # Full session codec (MapScreen mount). Only the codec / layer serializers.
 [domains.save_codec]
 suites = [
-  "test_save_codec.gd",
+  "test_campaign_end.gd",
   "test_map_view_rules.gd",
 ]
 
@@ -1363,10 +1517,6 @@ domain = "economy_ui"
 # suites that prove that projection instead of the menu catch-all.
 [[rules]]
 match = "scripts/ui/ledger_budget.gd*"
-domain = "economy_ui"
-
-[[rules]]
-match = "scripts/ui/ledger_text.gd"
 domain = "economy_ui"
 
 # The commodity medallions are the ledger's own art table; keep them on the
@@ -1750,6 +1900,10 @@ domain = "fold_panel"
 match = "tests/test_campaign_intro.gd*"
 domain = "fold_menu"
 
+[[rules]]
+match = "tests/test_save_codec.gd*"
+domain = "save_codec"
+
 # The province dossier's estate block and the road works it dispatches (issue
 # #671): the sheet, its rows, the route the Build road control plans and the
 # suite that proves it. The panel's own suites prove the geometry and the
@@ -1847,6 +2001,20 @@ domain = "prospect"
 match = "scripts/ai/ai_civilian_planner.gd*"
 domain = "prospect"
 
+# The staffing half of the same pass — the region's asks, the published hire
+# order and the footing gate — rides the same slice: the planner's plan call is
+# what proves the hire, so a staffing change runs the civilian suites it drives.
+[[rules]]
+match = "scripts/ai/ai_civilian_hire.gd*"
+domain = "prospect"
+
+# The archetype's own crew (the hire the planner takes beyond the region's
+# asks): the same plan pass and its suite prove it, so it rides with the
+# planner on the prospect slice rather than the broad `scripts/ai/**` fan-out.
+[[rules]]
+match = "scripts/ai/ai_staff_taste.gd*"
+domain = "prospect"
+
 # The shared civilian gate and ranker every work module calls.
 [[rules]]
 match = "scripts/ai/ai_civilian_candidate.gd*"
@@ -1886,6 +2054,14 @@ domain = "civilian"
 [[rules]]
 match = "tests/test_civilian_turn_rules.gd*"
 domain = "civilian"
+
+# The court's own pick (DR-20261117-06): the reading that asks the published
+# civilian pass what it would give each idle crew. Its suites are the AI plan,
+# the civilian rules and the sheet that prints the line, so it names its own
+# domain instead of pulling the whole prospect map fan-out a second time.
+[[rules]]
+match = "scripts/map/map_play_civilian_pick.gd*"
+domain = "civilian_pick"
 
 # Civilian sheet chrome — civilian suites cover orders/roster; prospect's
 # map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
@@ -2047,6 +2223,27 @@ domain = "ai_ledger"
 [[rules]]
 match = "scripts/rules/voyage_read.gd*"
 domain = "ai_works"
+
+# One seat/harbour reading (NavalMovement.seat_harbour / home_harbour) and the
+# capital_province delegates that call WorldBootstrap (REQ-P3-01). Naval + AI +
+# capital seat prove it; campaign/map catch-alls overrun the tier-1 5 min budget.
+[domains.seat_harbour]
+suites = [
+  "test_naval_rules.gd",
+  "test_ai_rules.gd",
+]
+
+[[rules]]
+match = "scripts/rules/world_map.gd*"
+domain = "seat_harbour"
+
+[[rules]]
+match = "scripts/rules/capital_choice.gd*"
+domain = "seat_harbour"
+
+[[rules]]
+match = "scripts/ai/ai_colonisation_planner.gd*"
+domain = "seat_harbour"
 
 [[rules]]
 match = "tests/test_ai_rules.gd*"
@@ -2251,6 +2448,13 @@ domain = "ai_economy"
 match = "scripts/map/map_play_civilian_ai.gd*"
 domain = "ai_works"
 
+# The muster seam both rival civilian passes share (roster, mustering tile,
+# harbour gate, training cost) is proved by the same two suites, so it stays on
+# the AI/works slice instead of the broader civilian globe.
+[[rules]]
+match = "scripts/map/civilian_muster.gd*"
+domain = "ai_works"
+
 # The one reader every rival pass asks for a court's standing and order of
 # battle. Its suites are the observer/AI set, so keep it off the broad map
 # catch-all (tier-1 5 min budget).
@@ -2375,15 +2579,10 @@ domain = "diplomacy"
 match = "scripts/map/map_play_input.gd"
 domain = "crown_road"
 
-# The chart's readings (raise, walk, fade) moved out of MapPlayInput to keep it
-# under the 400-line bar (REQ-P3-01). Same domain: the lens board and its suites.
+# The chart's readings: raise, walk and fade (map_play_lens) and mount (its
+# lens mounts left MapPlaySetup, REQ-P3-01). Same domain as the reading's board.
 [[rules]]
 match = "scripts/map/map_play_lens.gd*"
-domain = "crown_road"
-
-# Lens rebuild path (survey / diplomacy / crown-road); keep off the full map set.
-[[rules]]
-match = "scripts/map/map_play_setup.gd"
 domain = "crown_road"
 
 [[rules]]
@@ -2754,10 +2953,6 @@ domain = "economy_ui"
 # the page that mounts it, never the scripts/ui/** menu catch-all.
 [[rules]]
 match = "scripts/ui/market_row.gd*"
-domain = "economy_ui"
-
-[[rules]]
-match = "scripts/ui/ledger_text.gd"
 domain = "economy_ui"
 
 [[rules]]

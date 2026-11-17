@@ -146,6 +146,18 @@ static func next_unit_number(armies: Array[ArmyState]) -> int:
 		if army == null:
 			continue
 		for regiment_id: String in army.regiments:
-			if regiment_id.begins_with("unit_"):
-				best = maxi(best, int(regiment_id.trim_prefix("unit_")))
+			best = maxi(best, unit_number(regiment_id))
 	return best + 1
+
+
+## The number in a regiment instance id, or -1 when the id is not `unit_<n>`
+## (wiki: military-armies — instances are minted as `unit_<n>`). One reading, so
+## the muster's cursor, the reading order and the ledger agree on what "next"
+## means: unit_9 comes before unit_10.
+static func unit_number(regiment_id: String) -> int:
+	if not regiment_id.begins_with("unit_"):
+		return -1
+	var tail: String = regiment_id.substr(5)
+	if not tail.is_valid_int():
+		return -1
+	return tail.to_int()

@@ -923,6 +923,72 @@ func test_a_blockade_of_the_capital_cuts_every_sea_path() -> void:
 	)
 
 
+## A blockaded coast is no landfall, so the crown's estates ledger must read the
+## harvest the Extraction phase pays — never a sum of its own (wiki:
+## capital-and-connectivity § Blockade; REQ-P2-03).
+func test_a_blockaded_colony_reads_the_harvest_the_phase_pays() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	var estate := Vector2i(6, 2)
+	_works.add_port(model, TOWN_PORT)
+	_works.set_improvement(model, estate, 2)
+	_works.set_transport(model, estate, LandWorks.TRANSPORT_ROAD)
+	model.resource[model.index_of(estate.x, estate.y)] = 0
+	var caps: Dictionary = {"timber": 4}
+	var seals: Blockades = _blockade_of(model, 2)
+	var open: Dictionary = ImprovementLedger.snapshot(
+		model, _works, [], {}, PLAYER, CAPITAL, caps
+	)
+	assert_eq(open["totals"], {"timber": 1}, "the open coast ships one timber")
+	var sealed: Dictionary = ImprovementLedger.snapshot(
+		model, _works, [], {}, PLAYER, CAPITAL, caps, seals
+	)
+	assert_eq(
+		sealed["totals"], {},
+		"a sealed harbour ships nothing, the same ton the phase withholds"
+	)
+	var row: Dictionary = (sealed["estates"] as Array)[0]
+	assert_false(bool(row["connected"]), "the colony reaches the crown by road only")
+	assert_eq(int(row["output"]), 0, "and gathers nothing")
+	assert_eq(String(row["status"]), "disconnected")
+	assert_true(
+		String(row["status_text"]).contains("Harbour blockaded"),
+		String(row["status_text"])
+	)
+	assert_eq(
+		String(row["preview_text"]),
+		"Harbour blockaded — L3 pays nothing until the sea path opens",
+		"the raise is priced by the seal, not by a missing road"
+	)
+	var one: Dictionary = ImprovementLedger.estate_row(
+		model, _works, [], {}, PLAYER, estate, CAPITAL, caps, seals
+	)
+	assert_eq(int(one["output"]), 0, "the dossier's one tile reads the same")
+
+
+## The crown-road lens paints the same reading: a sealed colony is cut, and its
+## row names the seal rather than a road still to lay (REQ-P2-03).
+func test_a_blockaded_colony_reads_cut_in_the_crown_road_lens() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	_works.add_port(model, TOWN_PORT)
+	var open: Dictionary = CrownRoadSurvey.snapshot(model, _works, PLAYER, CAPITAL)
+	var seals: Blockades = _blockade_of(model, 2)
+	var sealed: Dictionary = CrownRoadSurvey.snapshot(
+		model, _works, PLAYER, CAPITAL, null, seals
+	)
+	var open_row: Dictionary = _entry(open, 2)
+	var sealed_row: Dictionary = _entry(sealed, 2)
+	assert_true(bool(open_row["linked"]), "the open coast reaches the crown")
+	assert_false(bool(sealed_row["linked"]), "the sealed coast does not")
+	assert_eq(String(sealed_row["state"]), CrownRoadSurvey.STATE_CUT)
+	assert_true(bool(sealed_row["blockaded"]), "the row names the rule that cut it")
+	assert_true(
+		CrownRoadSurvey.summary_text(sealed_row).contains("harbour blockaded"),
+		CrownRoadSurvey.summary_text(sealed_row)
+	)
+
+
 ## The province dossier names the rule that cut it: a sealed harbour is not a
 ## missing road (wiki: capital-and-connectivity § Blockade; REQ-P2-03).
 func test_a_blockaded_crown_link_says_which_rule_cut_it() -> void:
@@ -941,6 +1007,70 @@ func test_a_blockaded_crown_link_says_which_rule_cut_it() -> void:
 		model, _works, PLAYER, CAPITAL, 2
 	)
 	assert_false(bool(open["blockaded"]), "no blockade, no excuse")
+
+
+## A sealed coast is cut for the survey lens and the dossier's estate block too,
+## not only for the estates ledger: the phase pays nothing there, so no sheet may
+## price the ton or count the estate linked (wiki: capital-and-connectivity
+## § Blockade; REQ-P2-03).
+func test_a_sealed_coast_reads_cut_in_the_survey_and_dossier() -> void:
+	_setup_crown_road_survey()
+	var model: MapModel = _crown_road_survey_model
+	_works.add_port(model, TOWN_PORT)
+	model.provinces[2].town_development = 0
+	var estate := Vector2i(6, 2)
+	_works.set_improvement(model, estate, 4)
+	model.resource[model.index_of(estate.x, estate.y)] = 4
+	var caps: Dictionary = {"grain": 4}
+	var open: Dictionary = ResourceSurvey.snapshot(
+		model, _works, [], PLAYER, null, CAPITAL, caps
+	)
+	var open_row: Dictionary = _survey_row(open, estate)
+	assert_true(bool(open_row["connected"]), "the open harbour reaches the crown")
+	assert_eq(int(open_row["output"]), 8, "and prices the doubled ration estate")
+	assert_false(bool(open_row["blockaded"]), "no seal, no excuse")
+	# The phase withholds the ton; both sheets must read the same coast cut.
+	var seals: Blockades = _blockade_of(model, 2)
+	assert_eq(
+		Extraction.yields(
+			model, PLAYER, -1, caps, _works, Vector2i(-1, -1), {}, true, {}, seals
+		),
+		{},
+		"a blockaded harbour carries nothing home"
+	)
+	var sealed: Dictionary = ResourceSurvey.snapshot(
+		model, _works, [], PLAYER, null, CAPITAL, caps, seals
+	)
+	var sealed_row: Dictionary = _survey_row(sealed, estate)
+	assert_false(bool(sealed_row["connected"]), "the sealed estate reaches the crown by road only")
+	assert_eq(int(sealed_row["output"]), 0, "and gathers nothing")
+	assert_eq(String(sealed_row["status"]), "disconnected")
+	assert_true(bool(sealed_row["blockaded"]), "the row names the rule that cut it")
+	var entry: Dictionary = _entry(sealed, 2)
+	assert_eq(int(entry["counts"]["linked"]), 0, "no developed estate is linked")
+	assert_eq(int(entry["counts"]["producing"]), 0, "and none produces")
+	assert_eq(int(entry["counts"]["blocked"]), 1, "the seal is the block")
+	assert_true((entry["output"] as Dictionary).is_empty(), "the plaque prices no harvest")
+	# The dossier's own rows read the same seal.
+	var rows: Array[Dictionary] = ResourceSurvey.province_rows(
+		model, _works, [], PLAYER, 2, null, CAPITAL, caps, seals
+	)
+	var one: Dictionary = {}
+	for row: Dictionary in rows:
+		if row["tile"] == estate:
+			one = row
+	assert_eq(int(one.get("output", -1)), 0, "the dossier's estate line gathers nothing")
+	assert_true(bool(one.get("blockaded", false)), "and names the harbour")
+
+
+## The survey row for one tile, from any snapshot's province entries.
+func _survey_row(survey: Dictionary, tile: Vector2i) -> Dictionary:
+	for raw: Variant in survey.get("provinces", []):
+		for raw_row: Variant in (raw as Dictionary).get("rows", []):
+			var row: Dictionary = raw_row
+			if row.get("tile", Vector2i(-1, -1)) == tile:
+				return row
+	return {}
 
 
 ## A station seals a coast only while it is at sea, at war, and over a province
@@ -1410,7 +1540,7 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 		],
 	}
 
-	MapPlayCivilianAi._keep_extraction(plan, model)
+	MapPlayCivilianAi.keep_extraction(plan, model)
 
 	assert_eq((plan["orders"] as Array).size(), 2, "the resource tile and the survey survive")
 	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
@@ -1443,11 +1573,11 @@ func test_a_hire_reads_the_hire_purse() -> void:
 	}
 
 	assert_true(
-		AiCivilianPlanner.training_order(config, units, rich).is_empty(),
+		AiCivilianHire.training_order(config, units, rich).is_empty(),
 		"a court saving for its muster hires nobody"
 	)
 	assert_false(
-		AiCivilianPlanner.training_order(config, units, poor).is_empty(),
+		AiCivilianHire.training_order(config, units, poor).is_empty(),
 		"the hire purse is what pays a new civilian"
 	)
 
@@ -2120,6 +2250,48 @@ func test_rail_builder_lays_rail_on_a_road() -> void:
 	assert_eq(field__works.transport_at(field__model, tile), LandWorks.TRANSPORT_RAIL)
 
 
+## Every order that charges a price also says what it buys: a road, a harbour and
+## a railroad name the transport they land on the crew's own tile, which is the
+## ceiling the Extraction formula puts on the estate there (wiki:
+## extraction-and-improvements § Extraction; REQ-P5-06, REQ-P2-03;
+## DR-20261117-05). The orders a ledger already prices carry no second line.
+func test_the_transport_orders_name_the_path_they_land() -> void:
+	var tile := Vector2i(0, 1)
+	var engineer := _add("engineer", tile)
+	assert_eq(
+		String(_option(engineer, "build_road").get("preview_text", "")),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"a first road caps the tile at one"
+	)
+	assert_eq(
+		String(_option(engineer, "build_fort").get("preview_text", "")),
+		"",
+		"the wall is priced on the walls sheet, not here"
+	)
+	field__works.set_transport(field__model, tile, LandWorks.TRANSPORT_ROAD)
+	assert_eq(
+		String(_option(engineer, "build_road", {"road_construction": true}).get(
+			"preview_text", ""
+		)),
+		"Transport 2 — an estate here gathers up to 2 a turn",
+		"an improved road lifts the path a step"
+	)
+	var rail := _add("rail_builder", tile)
+	assert_eq(
+		String(_option(rail, "build_rail", {"early_steam_engine": true}).get(
+			"preview_text", ""
+		)),
+		"Transport 4 — an estate here gathers up to 4 a turn",
+		"a railroad lands the top transport"
+	)
+	var harbour := _add("engineer", field_Fixture.COAST_TILE)
+	assert_eq(
+		String(_option(harbour, "build_port").get("preview_text", "")),
+		"Landfall · Transport 4 — an estate here gathers up to 4 a turn",
+		"a harbour is a landfall carrying the rail's transport"
+	)
+
+
 func test_rail_needs_an_existing_road_and_an_unrailed_tile() -> void:
 	var tile := Vector2i(0, 1)
 	var rail := _add("rail_builder", tile)
@@ -2688,6 +2860,17 @@ func _validate(
 		CivilianState.NO_TILE, {}, tech_unlocked
 	)
 
+## One order in the crew's own list, as the dossier reads it.
+func _option(
+	unit: CivilianState, action: String, tech_unlocked: Dictionary = {}
+) -> Dictionary:
+	for option: Dictionary in CivilianWork.options(
+		field__model, unit, field__works, _units, _stock, _view, {}, tech_unlocked
+	):
+		if String(option["action"]) == action:
+			return option
+	return {}
+
 
 func _cost_text(cost: Dictionary) -> String:
 	return CivilianWork.cost_text(cost)
@@ -2997,6 +3180,62 @@ func test_ledger_surfaces_an_active_build_and_cancel() -> void:
 	assert_true(builder.is_idle())
 
 
+## An Engineer's road on an estate tile holds it for the crown: the estates
+## ledger must not offer a Build press — nor count the row in Raise all ready —
+## that the order refuses (wiki: civilian-units § Per-player tile exclusivity;
+## REQ-P2-03, DR-20261116-06).
+func test_a_busy_estate_tile_is_not_ready() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var engineer := _add("engineer", Vector2i(0, 1))
+	var builder := _add("builder", field_Fixture.BARE_TILE)
+	var caps: Dictionary = {"timber": 4, "iron": 4}
+	var road: Dictionary = CivilianWork.assign(
+		field__model, engineer, "build_road", field__works, _units, _stock, _view,
+		field_Fixture.TIMBER_TILE
+	)
+	assert_true(bool(road.get("ok", false)), String(road.get("reason", "")))
+	var snap: Dictionary = ImprovementLedger.snapshot(
+		field__model, field__works, _units, _stock, 0, field_Fixture.BARE_TILE, caps
+	)
+	var row: Dictionary = _row_at(snap, field_Fixture.TIMBER_TILE)
+	assert_false(bool(row["can_build"]), "another crew holds the tile")
+	assert_eq(String(row["build_reason"]), "Another crew is already working this tile.")
+	var press: Dictionary = ImprovementOrders.build(
+		field__model, _units, field__works, _stock, _view, 0,
+		field_Fixture.TIMBER_TILE, caps
+	)
+	assert_false(bool(press.get("ok", false)))
+	assert_eq(String(press.get("message", "")), String(row["build_reason"]))
+	assert_false(
+		EstateLedger.ready_tiles(EstateLedger.grouped(snap), "ready").has(
+			field_Fixture.TIMBER_TILE
+		),
+		"the Raise all ready press must not count a tile the order refuses"
+	)
+	assert_true(builder.is_idle(), "no Builder was dispatched")
+
+
+## A Rail Builder is exempt from tile exclusivity, so the estate stays ready
+## (wiki: civilian-units § Per-player tile exclusivity).
+func test_a_rail_builder_does_not_hold_an_estate_tile() -> void:
+	field__works.set_transport(
+		field__model, field_Fixture.TIMBER_TILE, LandWorks.TRANSPORT_ROAD
+	)
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var rail := _add("rail_builder", Vector2i(0, 1))
+	_add("builder", field_Fixture.BARE_TILE)
+	var caps: Dictionary = {"timber": 4, "iron": 4}
+	var laid: Dictionary = CivilianWork.assign(
+		field__model, rail, "build_rail", field__works, _units, _stock, _view,
+		field_Fixture.TIMBER_TILE, caps, {"early_steam_engine": true}
+	)
+	assert_true(bool(laid.get("ok", false)), String(laid.get("reason", "")))
+	var snap: Dictionary = ImprovementLedger.snapshot(
+		field__model, field__works, _units, _stock, 0, field_Fixture.BARE_TILE, caps
+	)
+	assert_true(bool(_row_at(snap, field_Fixture.TIMBER_TILE)["can_build"]))
+
+
 func test_build_orders_pick_the_nearest_builder() -> void:
 	var far := field_Fixture.unit("builder", Vector2i(2, 2))
 	far.id = 9
@@ -3245,6 +3484,71 @@ func test_roster_empty_inputs_make_an_empty_roster() -> void:
 	assert_true((snapshot["groups"] as Array).is_empty())
 	for type_id: String in CivilianCatalog.ORDER:
 		assert_eq(int(snapshot["by_type"][type_id]), 0)
+
+
+## The walk behind the roster's find press: every crew with no order, in the
+## roster's own reading order, so the press never depends on the chips the reader
+## left set (REQ-P5-04).
+func test_roster_walk_lists_the_crews_that_wait() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	var waiting: Array[Dictionary] = CivilianRoster.idle_rows(snapshot)
+	assert_eq(waiting.size(), int(snapshot["idle"]))
+	for row: Dictionary in waiting:
+		assert_false(bool(row["working"]), "a crew at work never answers the walk")
+
+	var first: Dictionary = CivilianRoster.next_idle(snapshot, -1, -1)
+	assert_eq(
+		int(first["unit_id"]), int(waiting[0]["unit_id"]),
+		"no selection starts the walk at the first crew that waits",
+	)
+	var second: Dictionary = CivilianRoster.next_idle(
+		snapshot, int(first["region"]), int(first["unit_id"])
+	)
+	assert_eq(int(second["unit_id"]), int(waiting[1]["unit_id"]))
+	var last: Dictionary = waiting[waiting.size() - 1]
+	var wrapped: Dictionary = CivilianRoster.next_idle(
+		snapshot, int(last["region"]), int(last["unit_id"])
+	)
+	assert_eq(
+		int(wrapped["unit_id"]), int(waiting[0]["unit_id"]),
+		"the walk wraps onto the first crew",
+	)
+	# The merchant is at work, so the walk starts over rather than stranding the
+	# crown on a crew it cannot reach.
+	var busy: Dictionary = _row_of_type(snapshot, "merchant")
+	assert_true(bool(busy["working"]))
+	var from_work: Dictionary = CivilianRoster.next_idle(
+		snapshot, int(busy["region"]), int(busy["unit_id"])
+	)
+	assert_eq(int(from_work["unit_id"]), int(waiting[0]["unit_id"]))
+
+
+## The press's words are the roster's own count, and a crown with every crew at
+## work is offered no press at all (REQ-P5-05).
+func test_roster_walk_words_name_the_crews_that_wait() -> void:
+	var snapshot: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	assert_eq(CivilianRoster.idle_note(snapshot), "4 crews wait for orders")
+	assert_eq(
+		CivilianRoster.find_caption(snapshot), "Find the next crew that waits (4)"
+	)
+	var row: Dictionary = CivilianRoster.idle_rows(snapshot)[0]
+	assert_true(CivilianRoster.idle_receipt(row, 3).contains("3 crews still wait"))
+	assert_true(CivilianRoster.idle_receipt(row, 1).contains("1 crew still waits"))
+	assert_true(
+		CivilianRoster.idle_receipt(row, 0).contains("the only crew that waited")
+	)
+	var busy: Dictionary = {"rows": [], "idle": 0, "working": 2}
+	assert_eq(CivilianRoster.idle_note(busy), "every crew has its order")
+	assert_eq(CivilianRoster.find_caption(busy), "", "no press when no crew waits")
+	assert_true(CivilianRoster.next_idle(busy, 0, 1).is_empty())
+	assert_eq(
+		CivilianRoster.idle_note({"rows": [], "idle": 1, "working": 0}),
+		"1 crew waits for orders",
+	)
 
 
 func _roster_regions() -> MapRegionTable:
@@ -3783,6 +4087,103 @@ func test_an_unsurveyed_mineral_reads_unprospected_until_an_explorer_reads_it() 
 	assert_false(bool(row["prospected"]))
 	assert_false(bool(row["can_build"]))
 	assert_true(String(row["build_reason"]).contains("prospect"))
+
+
+## The ledger prices the raise it offers: what one more level actually gathers
+## once the works stand, read by the phase's own formula (REQ-P2-03, REQ-P5-06).
+func test_a_producing_estate_prices_the_next_level_it_gathers() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_IMPROVED_ROAD}, {"network": {}}, [],
+		{"timber": 2}
+	)
+	assert_eq(int(row["output"]), 1)
+	assert_eq(int(row["next_output"]), 2, "the raised camp gathers two")
+	assert_eq(int(row["gain"]), 1)
+	assert_eq(
+		String(row["preview_text"]), "L2 pays 2 timber / turn (+1)",
+		"the row names the harvest the raise buys"
+	)
+
+
+## A road the crown has not widened caps the estate: the next level costs
+## lumber and iron and gathers nothing, so the line says so rather than pricing
+## a raise the harvest cannot pay.
+func test_a_transport_capped_estate_says_the_raise_adds_nothing() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [],
+		{"timber": 2}
+	)
+	assert_eq(int(row["gain"]), 0)
+	assert_eq(
+		String(row["preview_text"]),
+		"L2 adds nothing — the road's transport holds this estate"
+	)
+
+
+## Ground no road reaches gathers nothing at any level: the preview names the
+## wait, never a figure the estate cannot pay.
+func test_a_roadless_estate_is_priced_by_its_wait() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 2)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE, {}, {"network": {}}, [], {}
+	)
+	assert_false(bool(row["connected"]))
+	assert_eq(
+		String(row["preview_text"]),
+		"No road yet — L3 pays nothing until one reaches it"
+	)
+
+
+## A finished estate and one a Builder is already raising have no raise to
+## price, so the ledger prints no line at all.
+func test_no_preview_is_printed_for_a_finished_or_working_estate() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, LandWorks.MAX_IMPROVEMENT)
+	var finished: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_IMPROVED_ROAD}, {"network": {}}, [],
+		{"timber": 4}
+	)
+	assert_eq(String(finished["preview_text"]), "", "nothing left to raise")
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var builder := field_Fixture.unit("builder", field_Fixture.TIMBER_TILE)
+	builder.start_work("build_improvement", field_Fixture.TIMBER_TILE, 1)
+	var working: Dictionary = EstateRows.project(
+		field__model, field__works, [builder], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_IMPROVED_ROAD}, {"network": {}}, [builder],
+		{"timber": 2}
+	)
+	assert_true(bool(working["working"]))
+	assert_eq(String(working["preview_text"]), "", "the works in hand are the news")
+
+
+## An unsurveyed deposit pays nothing yet, so the line names the Explorer's
+## survey it waits on beside the level it would buy.
+func test_an_unsurveyed_deposit_prices_the_level_and_its_gate() -> void:
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.IRON_TILE,
+		field__model.resource_at(field_Fixture.IRON_TILE.x, field_Fixture.IRON_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [], {}
+	)
+	assert_eq(int(row["gain"]), 1)
+	assert_eq(
+		String(row["preview_text"]),
+		"L1 pays 1 iron / turn (+1) once an Explorer prospects it"
+	)
 
 
 ## Two fort projects may run in one province, and the later completion adds no

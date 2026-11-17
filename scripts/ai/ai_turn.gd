@@ -68,9 +68,18 @@ static func _court_turn(
 		int((shared.get("hull_chests", {}) as Dictionary).get(faction, 0)),
 		int((shared.get("warships", {}) as Dictionary).get(faction, -1))
 	)
+	# The one deed partner this court warms: the warmth that prices a deed is the
+	# warmth that bars a declaration, so the reading is named once per turn and
+	# the envoy nudge goes to that seller alone (issue #841). A court with no
+	# Merchant Companies has no chain to open, so it pays for no scan.
+	var read: Dictionary = AiTurnRead.reading(shared, faction, income)
+	var tech: Dictionary = (shared.get("tech", {}) as Dictionary).get(faction, {})
+	if CivilianCatalog.is_unlocked("merchant", tech):
+		read["deed_seller"] = AiMerchantWork.deed_seller(
+			world, faction, read.get("charts", null), state
+		)
 	var plan: Dictionary = AiDiplomacyPlanner.decide(
-		config, state, ai_state, world, turn,
-		AiTurnRead.reading(shared, faction, income)
+		config, state, ai_state, world, turn, read
 	)
 	var action: Dictionary = plan["action"]
 	var record: Dictionary = {
@@ -86,6 +95,10 @@ static func _court_turn(
 			String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
 		),
 		"income": income,
+		# The one Minor this court warms for a deed, so the trace can explain
+		# why a conquest reads "relations too warm" on that court alone
+		# (issue #841).
+		"deed_seller": int(read.get("deed_seller", -1)),
 		"action": action.duplicate(true),
 		"candidates": plan["candidates"],
 	}

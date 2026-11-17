@@ -39,6 +39,7 @@ func after_all() -> void:
 		screen.hud.towns_ledger.close()
 		screen.hud.walls_ledger.close()
 		screen.hud.navy_ledger.close()
+		screen.hud.army_ledger.close()
 		screen.hud.province_ledger.close()
 		screen.free()
 	screen = null
@@ -58,6 +59,7 @@ func before_each() -> void:
 	screen.hud.towns_ledger.close()
 	screen.hud.walls_ledger.close()
 	screen.hud.navy_ledger.close()
+	screen.hud.army_ledger.close()
 	screen.hud.province_ledger.close()
 	# Back's debounce is static (one press per 300 ms per process), so the two
 	# back cases in this boot must not swallow each other's press.
@@ -176,7 +178,7 @@ func test_the_realm_door_opens_the_ledger_and_its_rows_visit_a_province() -> voi
 
 func test_back_and_the_key_close_the_ledger() -> void:
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -194,7 +196,7 @@ func test_back_and_the_key_close_the_ledger() -> void:
 ## stand under it, or a crown reads a stale province beside "no province answers".
 func test_an_emptied_realm_prints_its_notice_alone() -> void:
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	assert_true(_province_row_widgets(panel) > 0, "the sheet opens on the crown's holdings")
 	panel._snapshot = {}
 	panel._apply_filter()
@@ -547,7 +549,7 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 ## and every duty has its own one-word chip.
 func test_the_phone_profile_repaints_the_reading() -> void:
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
-	screen.hud.spy_ledger_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.EYES)
 	assert_true(panel.is_open())
 	var before: int = _spy_row_widgets(panel)
 	panel._apply_profile(true, true)
@@ -567,7 +569,7 @@ func test_the_phone_profile_repaints_the_reading() -> void:
 
 func test_back_and_the_key_close_the_sheet() -> void:
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
-	screen.hud.spy_ledger_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.EYES)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the sheet aside first")
@@ -707,6 +709,48 @@ func test_army_row_reads_standing_composition_and_strength() -> void:
 	assert_true(String(home["line"]).contains("%.1f strength" % float(home["strength"])))
 
 
+## A standard whose colours have been cited (or laurelled) reads the weight the
+## battle pays for it, not the paper sum: a citation is +5% and a laurel +10% in
+## the line, so the muster roll, the crown's army and the battle must name one
+## figure (wiki: military-armies § The muster roll — "Both strengths are the
+## resolver's own aggregation"; combat § Strength; DR-20261113-04).
+func test_a_decorated_standard_reads_the_weight_the_battle_pays() -> void:
+	var army: ArmyState = ArmyState.muster(
+		6, OWNER, 0, false, ["pikemen", "pikemen", "knights"], 601
+	)
+	army.regiment_history["unit_601"] = {"cited": 3, "fields": []}
+	var one: Array[ArmyState] = [army]
+	var paper: float = army.strength()
+	var paid: float = ArmyModifiers.strength(one, 0, 1.0)
+	var laurel: float = ArmyModifiers.rank_of("pikemen", 0, 1.0) * 0.10
+	assert_almost_eq(paid, paper + laurel, 0.001, "one laurel in a three-regiment line")
+	assert_almost_eq(
+		ArmyForce.side_strength(one), paid, 0.001,
+		"the side's strength is the resolver's own aggregation"
+	)
+
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [army])
+	var muster: Dictionary = ForceLedger.snapshot(
+		_force_world(), table, MapRegionTable.new(), OWNER
+	)
+	var row: Dictionary = _force_row(muster, ForceLedger.KIND_ARMY, 6)
+	assert_almost_eq(
+		float(row["strength"]), paid, 0.001, "the muster roll reads the battle's figure"
+	)
+	assert_true(String(row["line"]).contains("%.1f strength" % paid))
+
+	var ledger: Dictionary = ArmyLedger.snapshot(
+		_force_world(), table, MapRegionTable.new(), OWNER
+	)
+	var standards: Array[Dictionary] = ArmyLedger.groups(ledger, LedgerRows.REGION_OLD)
+	assert_eq(standards.size(), 1, "one standard in the home chart")
+	assert_almost_eq(
+		float(standards[0]["strength"]), paid, 0.001,
+		"the crown's army heading reads it too"
+	)
+
+
 func test_embarked_army_reads_aboard_its_squadron() -> void:
 	var snapshot: Dictionary = ForceLedger.snapshot(_force_world(), _armies(), _fleets(), 0)
 	var embarked: Dictionary = _force_row(snapshot, ForceLedger.KIND_ARMY, 2)
@@ -764,16 +808,16 @@ func test_muster_seal_key_and_keyboard_action_open_the_ledger() -> void:
 	assert_not_null(_seal_with_caption(screen.hud, "MUSTER"), "the cartouche carries the seal")
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	assert_not_null(panel)
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	assert_true(panel.is_open())
 	assert_true(int(panel._snapshot.get("total", 0)) > 0, "the crown holds forces on the chart")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	assert_false(panel.is_open())
 
 
 func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._on_filter(ForceLedger.KIND_ARMY, false)
 	assert_eq(panel._reading, ForceLedger.KIND_ARMY)
 	var shown: int = ForceLedger.count(
@@ -794,7 +838,7 @@ func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 
 func test_region_filter_with_no_force_says_so() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._on_filter(LedgerRows.REGION_OLD, true)
 	panel._on_filter(ForceLedger.KIND_SQUADRON, false)
 	panel._apply_filter()
@@ -806,7 +850,7 @@ func test_region_filter_with_no_force_says_so() -> void:
 
 func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var rows: Array[Dictionary] = _rows_of_kind(panel._snapshot, ForceLedger.KIND_SQUADRON)
 	assert_true(rows.size() > 0, "the crown keeps a squadron afloat")
 	var fleet: Dictionary = rows[0]
@@ -824,7 +868,7 @@ func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
 
 func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var marker: Ship = null
 	for ship: Ship in screen.play.ship_layer.ships:
 		if ship.faction == screen.play.player_faction:
@@ -850,14 +894,14 @@ func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 
 func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
 	var escaped := InputEventAction.new()
 	escaped.action = InputActions.CANCEL
 	escaped.pressed = true
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._input(escaped)
 	assert_false(panel.is_open(), "Escape closes the ledger")
 
@@ -867,11 +911,11 @@ func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 ## (REQ-P3-01, REQ-P5-07).
 func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 	var sheets: Array[SheetFrame] = HudLedgerDoors.sheets(screen.hud)
-	assert_eq(sheets.size(), 9, "the registry names every whole-empire sheet")
+	assert_eq(sheets.size(), 11, "the registry names every whole-empire sheet")
 	for sheet: SheetFrame in sheets:
 		assert_eq(sheet.play, screen.play, "the sheet reads the screen's session")
-	screen.hud.muster_roll_pressed.emit()
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(HudLedgerDoors.dismiss_open(screen.hud), "back takes the first open sheet")
 	assert_false(screen.hud.muster_roll.is_open(), "the muster roll sets itself aside")
 	assert_true(screen.hud.navy_ledger.is_open(), "the navy sheet waits its turn")
@@ -880,9 +924,28 @@ func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 	assert_false(HudLedgerDoors.dismiss_open(screen.hud), "nothing open, nothing taken")
 
 
+## Every door — a bar seal, a chip, a dossier line, a sibling sheet — names its
+## sheet by one key, so the table has to answer each one and one press has to
+## open it (REQ-P3-01, REQ-P3-02).
+func test_every_door_key_opens_its_own_sheet() -> void:
+	var keys: Dictionary = {}
+	for spec: Dictionary in HudLedgerDoors.SHEETS:
+		var key: String = String(spec["key"])
+		assert_false(keys.has(key), "one row per door key: %s" % key)
+		keys[key] = true
+		var sheet: SheetFrame = HudLedgerDoors.sheet_for(screen.hud, key)
+		assert_not_null(sheet, "the registry answers %s" % key)
+		screen.hud.ledger_door_pressed.emit(key)
+		assert_true(sheet.is_open(), "the key opens %s" % key)
+		sheet.close()
+	assert_null(
+		HudLedgerDoors.sheet_for(screen.hud, "no-such-door"), "an unknown key names nothing"
+	)
+
+
 func test_the_rows_own_tap_visits_its_force() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var row: ForceLedgerRow = null
 	for child: Node in panel._rows.get_children():
 		if child is ForceLedgerRow:
@@ -1475,6 +1538,7 @@ func test_a_session_with_no_army_layer_reads_an_empty_command_pool() -> void:
 	assert_eq(int(data["cap"]), GeneralRoster.BASE_CAP, "the cap is still the rules'")
 
 
+
 ## The campaign opens with its commander on the roll. Nothing else syncs a pool
 ## before the first turn tick, so a sheet that opens on turn 0 read "0 of 1
 ## commander" with no row while the wiki says the faction always holds its cap
@@ -1488,7 +1552,7 @@ func test_a_fresh_campaign_opens_with_its_commander() -> void:
 	assert_false((data["rows"] as Array).is_empty(), "and the roll names him")
 
 	var panel: CommandLedgerPanel = screen.hud.command_ledger
-	screen.hud.command_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
 	assert_true(
 		panel._subtitle.text.contains("1 of 1 commander"),
 		"the count line reads the pool the rows print"
@@ -1515,7 +1579,7 @@ func test_the_command_door_opens_the_ledger_and_lists_the_pool() -> void:
 
 func test_back_and_the_key_close_the_command_ledger() -> void:
 	var panel: CommandLedgerPanel = screen.hud.command_ledger
-	screen.hud.command_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -1527,6 +1591,234 @@ func test_back_and_the_key_close_the_command_ledger() -> void:
 	assert_true(panel.is_open(), "the key opens it from the map")
 	panel._unhandled_input(toggle)
 	assert_false(panel.is_open(), "and closes it again")
+
+
+## --- the world's colonies ---------------------------------------------------
+## Every Tribe a Great Power bought into its empire, read as a ledger — who holds
+## it, where it stands and what its suzerain's boycott shuts (wiki: diplomacy
+## § GP–Tribe Rules — Join Empire, § Boycott; DR-20261117-02). The projection
+## reads a small record over a two-chart fixture; the drive presses the court's
+## COLONIES door on the mounted map.
+
+
+func test_a_colony_reads_its_suzerain_place_and_open_trade() -> void:
+	var state: DiplomacyState = _colony_state()
+	var data: Dictionary = ColonyLedger.snapshot(
+		_colony_regions(), state, FactionCatalog.PLAYER_FACTION
+	)
+	assert_eq(int(data["total"]), 1, "one tribe is bought")
+	var row: Dictionary = (data["rows"] as Array)[0]
+	assert_eq(
+		String(row["name"]), FactionCatalog.name_of(_colony_tribe()), "the people are named"
+	)
+	assert_eq(String(row["suzerain_name"]), "England", "the court that bought it is named")
+	assert_eq(String(row["place"]), "Veracruz", "the colony's capital is read off the chart")
+	assert_eq(int(row["provinces"]), 2, "every province the people hold is counted")
+	assert_eq(String(row["terms"]), "Open to every court", "no boycott, no bar")
+	assert_true(
+		String(row["standing"]).contains("Warm") or String(row["standing"]).length() > 0,
+		"the herald's word is printed, never the score"
+	)
+	assert_true(
+		ColonyLedger.summary(data, LedgerRows.REGION_ALL, 1).contains("1 of 1 colonies"),
+		"the count line reads the roll"
+	)
+
+
+## The rule's bigger half: a boycott applies to every colony the issuer holds,
+## so the bar is read on the colony and not only on the court pages.
+func test_a_boycott_seals_every_colony_of_the_issuer() -> void:
+	var state: DiplomacyState = _colony_state()
+	state.boycotts[DiplomacyKeys.directed(_colony_parent(), 0)] = 1
+	state.set_subsidy(_colony_parent(), _colony_tribe(), 10)
+	var data: Dictionary = ColonyLedger.snapshot(_colony_regions(), state, 0)
+	var row: Dictionary = (data["rows"] as Array)[0]
+	assert_true(bool(row["sealed"]), "the issuer's colony wears the bar")
+	assert_eq(String(row["terms"]), "Sealed to Spain", "the boycotted court is named")
+	assert_eq(int(data["sealed"]), 1)
+	assert_eq(int(row["subsidy"]), 10, "the subsidy the suzerain pays is read")
+	assert_true(String(row["standing"]).contains("subsidy 10%"))
+
+
+func test_the_colony_filters_narrow_the_roll_and_keep_their_tallies() -> void:
+	var state: DiplomacyState = _colony_state()
+	state.ensure_relation(0, _second_tribe(), 1)
+	state.set_colony(_second_tribe(), 0)
+	var data: Dictionary = ColonyLedger.snapshot(_colony_regions(), state, 0)
+	assert_eq(int(data["total"]), 2, "both colonies are read")
+	assert_eq(int(data["ours"]), 1, "one is the crown's own")
+	assert_eq(ColonyLedger.count(data, LedgerRows.REGION_ALL, ColonyLedger.FILTER_OURS), 1)
+	assert_eq(ColonyLedger.count(data, LedgerRows.REGION_ALL, ColonyLedger.FILTER_SEALED), 0)
+	assert_eq(ColonyLedger.count(data, LedgerRows.REGION_NEW, ColonyLedger.FILTER_ALL), 1)
+	var counts: Dictionary = ColonyLedger.filter_counts(data, LedgerRows.REGION_ALL)
+	assert_eq(int(counts[ColonyLedger.FILTER_ALL]), 2)
+	assert_true(
+		bool((data["rows"] as Array)[0]["ours"]), "the crown's own colony leads the reading"
+	)
+	assert_eq(ColonyLedger.filter_label(ColonyLedger.FILTER_SUBSIDY), "Subsidised")
+
+
+func test_an_unmet_people_prints_no_row() -> void:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.set_colony(_colony_tribe(), _colony_parent())
+	# The crown's own dealings are struck, so neither the people nor the court
+	# that bought them is known: a colony the crown never heard of is silent.
+	state.clear_relations_of(0)
+	var data: Dictionary = ColonyLedger.snapshot(_colony_regions(), state, 0)
+	assert_eq(int(data["total"]), 0, "an undiscovered people is nobody's news")
+	assert_true(
+		(MapPlayColonies.snapshot(null)["rows"] as Array).is_empty(),
+		"no session, no colony"
+	)
+
+
+func test_a_colony_row_reads_its_chip_place_and_bar() -> void:
+	var row := ColonyLedgerRow.new()
+	row.setup({
+		"name": "The Inca",
+		"suzerain_name": "Spain",
+		"place": "Cusco",
+		"region": 1,
+		"region_label": "New World",
+		"province": 4,
+		"provinces": 3,
+		"standing": "Warm · subsidy 10%",
+		"terms": "Sealed to England",
+		"flags": [ColonyLedger.FILTER_OURS],
+	})
+	assert_eq(row._name.text, "The Inca")
+	assert_eq(row._chip.text, "OURS", "the crown's own colony is read first")
+	assert_true(row._detail.text.contains("Cusco — colony of Spain"))
+	assert_true(row._reading.text.contains("3 provinces"))
+	assert_true(row._reading.text.contains("Sealed to England"))
+	assert_eq(row._standing.text, "Warm · subsidy 10%")
+	assert_not_null(row._visit, "a colony's capital is a place to visit")
+	row.free()
+
+
+func test_a_colony_row_with_no_seat_offers_no_visit_and_reads_its_subsidy() -> void:
+	var row := ColonyLedgerRow.new()
+	row.compact = true
+	row.setup({
+		"name": "A people",
+		"suzerain_name": "England",
+		"place": "No province",
+		"region": 1,
+		"province": ColonyLedger.NO_ID,
+		"provinces": 0,
+		"standing": "Neutral",
+		"terms": "Open to every court",
+		"flags": [ColonyLedger.FILTER_SUBSIDY],
+	})
+	assert_eq(row._chip.text, "PAYS", "a subsidy is the reading when nothing bars it")
+	assert_null(row._visit, "no seat, no Visit")
+	assert_true(row._detail.text.contains("0 provinces") or
+		row._detail.text.contains("Open to every court"), "a phone folds the terms in")
+	row.free()
+
+
+func test_the_colonies_door_opens_the_sheet_it_reads() -> void:
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	assert_not_null(panel, "the HUD mounts the colony ledger")
+	var door: Button = _colonies_door()
+	assert_not_null(door, "the court carries the colonies door")
+	door.pressed.emit()
+	assert_true(panel.is_open(), "the court's door opens it")
+	assert_true(panel._subtitle.text.contains("colonies"), "the count line names the roll")
+	assert_true(
+		panel._empty.visible and panel._empty.text.contains("Join Empire"),
+		"a world with no colony says how one is made"
+	)
+	panel.close()
+
+
+func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
+	var play: PlaySession = screen.play
+	play.diplomacy.ensure_relation(play.player_faction, _colony_tribe(), play.turn)
+	play.diplomacy.set_colony(_colony_tribe(), _colony_parent())
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	assert_true(panel.is_open())
+	assert_true(_colony_row_widgets(panel) > 0, "the colony is listed")
+	assert_true(panel._subtitle.text.contains("1 of 1"), "the count line reads the roll")
+	var row: ColonyLedgerRow = _colony_row(panel)
+	assert_not_null(row, "the colony mints its row")
+	var visited: Array = []
+	row.visit_pressed.connect(
+		func(region: int, province_id: int) -> void: visited.append([region, province_id])
+	)
+	row._visit.pressed.emit()
+	assert_eq(visited.size(), 1, "the row's Visit door asks for its capital")
+	assert_eq(int(visited[0][1]), int(row.data["province"]), "the colony's own province")
+	assert_true(BackRequest.handle(play, play.improvements), "back walks the sheets")
+	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+## The colony fixture: two charts where the first Tribe holds the New World land
+## and a second holds the Old World's, so a chart filter has something to narrow.
+func _colony_regions() -> Array[Dictionary]:
+	var old: MapModel = Naval.build()
+	var new: MapModel = Naval.build()
+	new.region_id = FactionCatalog.NEW_WORLD
+	new.provinces[0].name = "Veracruz"
+	new.provinces[0].capital = true
+	new.provinces[1].name = "Tenochtitlan"
+	new.provinces[1].capital = false
+	for province: ProvinceState in new.provinces:
+		province.owner = _colony_tribe()
+	for province: ProvinceState in old.provinces:
+		province.owner = _second_tribe()
+	return [
+		{"region": FactionCatalog.OLD_WORLD, "model": old},
+		{"region": FactionCatalog.NEW_WORLD, "model": new},
+	]
+
+
+func _colony_state() -> DiplomacyState:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, _colony_tribe(), 1)
+	state.ensure_relation(0, _colony_parent(), 1)
+	state.set_colony(_colony_tribe(), _colony_parent())
+	return state
+
+
+func _colony_tribe() -> int:
+	return int(FactionCatalog.tribe_ids()[0])
+
+
+func _second_tribe() -> int:
+	return int(FactionCatalog.tribe_ids()[1])
+
+
+func _colony_parent() -> int:
+	return 1
+
+
+## The court ledger's COLONIES door, found by its word so the suite presses the
+## button the player presses.
+func _colonies_door() -> Button:
+	for node: Node in screen.hud._diplomacy_panel.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("COLONIES"):
+			return button
+	return null
+
+
+func _colony_row_widgets(panel: ColonyLedgerPanel) -> int:
+	var total: int = 0
+	for child: Node in panel._rows.get_children():
+		if child is ColonyLedgerRow:
+			total += 1
+	return total
+
+
+func _colony_row(panel: ColonyLedgerPanel) -> ColonyLedgerRow:
+	for child: Node in panel._rows.get_children():
+		if child is ColonyLedgerRow:
+			return child
+	return null
 
 
 ## --- the shared row skeleton -------------------------------------------------
@@ -1603,17 +1895,17 @@ func test_every_sheet_reads_its_prose_across_at_desktop_and_phone_widths() -> vo
 		viewport.free()
 
 
-## The ten sheets the HUD mounts on its modal layers.
+## The eleven sheets the HUD mounts on its modal layers.
 func _hud_sheets(hud: GameHud) -> Array[SheetFrame]:
 	var sheets: Array[SheetFrame] = []
 	for sheet: SheetFrame in [
 		hud.spy_ledger, hud.province_ledger, hud.muster_roll, hud.command_ledger,
-		hud.towns_ledger, hud.walls_ledger, hud.navy_ledger, hud.civilian_roster,
-		hud.tech_tree, hud.dossier_screen,
+		hud.towns_ledger, hud.walls_ledger, hud.navy_ledger, hud.army_ledger,
+		hud.civilian_roster, hud.tech_tree, hud.dossier_screen,
 	]:
 		if sheet != null:
 			sheets.append(sheet)
-	assert_eq(sheets.size(), 10, "every sheet the HUD mounts is read")
+	assert_eq(sheets.size(), 11, "every sheet the HUD mounts is read")
 	return sheets
 
 
@@ -2394,7 +2686,7 @@ func test_the_map_hooks_guard_a_missing_session() -> void:
 
 func test_back_and_the_key_close_the_towns_ledger() -> void:
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
-	screen.hud.towns_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.TOWNS)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -2777,6 +3069,40 @@ func test_a_bare_shore_names_the_step_it_waits_on_and_its_price() -> void:
 	)
 
 
+## The sheet prices the raise, so it prices the prize too: the soak and the
+## battery the next wall brings, read off the very fort table combat resolves
+## against (REQ-P2-03, REQ-P5-06; DR-20261117-05).
+func test_a_bare_shore_prices_the_wall_it_offers() -> void:
+	var snapshot: Dictionary = WallLedger.snapshot(_wall_regions(_engineers()), 0)
+	var home: Dictionary = _wall_row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(
+		String(home["preview_text"]),
+		"L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)",
+		"an open shore reads the first wall whole"
+	)
+	var overseas: Dictionary = _wall_row(snapshot, FactionCatalog.NEW_WORLD)
+	assert_eq(
+		String(overseas["preview_text"]),
+		"L2 soaks 20 wall hp with 2 guns (+10 hp, +1 gun)",
+		"a wood wall's step names only what the level adds"
+	)
+
+
+## No line where there is no raise: a citadel has no level left, and a wall an
+## Engineer is already raising has no press to price.
+func test_a_finished_wall_and_a_crew_at_work_price_no_raise() -> void:
+	var raised: Dictionary = _raised()
+	assert_eq(String(raised["state"]), WallLedger.STATE_RAISED)
+	assert_eq(String(raised["preview_text"]), "", "a citadel owes nothing")
+	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", TOWN_TILE)
+	engineer.start_work("build_fort", TOWN_TILE, 2, TOWN_TILE, {"fort_level": 2})
+	var working: Dictionary = _wall_row(
+		WallLedger.snapshot(_wall_regions([engineer]), 0), FactionCatalog.OLD_WORLD
+	)
+	assert_eq(String(working["state"]), WallLedger.STATE_AT_WORK)
+	assert_eq(String(working["preview_text"]), "", "the works in hand are the news")
+
+
 func test_a_wall_without_the_study_is_locked_and_names_it() -> void:
 	var snapshot: Dictionary = WallLedger.snapshot(
 		_wall_regions(_engineers(), {"mine_engineering": false}), 0
@@ -2972,9 +3298,49 @@ func test_wall_the_map_hooks_guard_a_missing_session() -> void:
 	assert_eq(int(MapPlayWalls.snapshot(screen.play).get("total", 0)), _crown_walls())
 
 
+## The sheet prints the payoff under the price, in the crown's gold, and hides
+## the line where the rules price no raise — the row invents no figure of its
+## own (REQ-P3-02, REQ-P5-06; DR-20261117-05).
+func test_a_raise_row_prints_the_payoff_the_rules_hand_it() -> void:
+	var wall := WallLedgerRow.new()
+	add_child(wall)
+	wall.setup({
+		"id": 3,
+		"region": FactionCatalog.OLD_WORLD,
+		"region_label": "Old World",
+		"name": "Wessex",
+		"level": 0,
+		"level_text": "—",
+		"state": WallLedger.STATE_READY,
+		"note": "Next: wood fort · 3 lumber + 3 bronze · 1 turn",
+		"preview_text": "L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)",
+		"line": "No fort",
+	})
+	assert_true(wall._preview.visible, "a raise the sheet offers carries its payoff")
+	assert_eq(wall._preview.text, "L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)")
+	assert_eq(wall._preview.get_theme_color("font_color"), Palette.GOLD)
+	wall.free()
+	var ward := HospitalLedgerRow.new()
+	add_child(ward)
+	ward.setup({
+		"id": 4,
+		"region": FactionCatalog.OLD_WORLD,
+		"region_label": "Old World",
+		"name": "Wessex",
+		"level": 2,
+		"level_text": "II",
+		"state": HospitalLedger.STATE_RAISED,
+		"note": "Fully warded — rest 55%, wear 65%, staff 4 food a turn.",
+		"preview_text": "",
+		"line": "General hospital · rest 55% · wear 65% · staff 4 food",
+	})
+	assert_false(ward._preview.visible, "a finished ward prices no raise")
+	ward.free()
+
+
 func test_back_and_the_key_close_the_walls_ledger() -> void:
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
-	screen.hud.walls_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.WALLS)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -3187,6 +3553,68 @@ func test_the_line_leads_every_squadron() -> void:
 	assert_eq(String(first["region_label"]), FactionCatalog.region_label(FactionCatalog.OLD_WORLD))
 
 
+## The line leads by weight, not by spelling: the heavier class reads first and
+## hulls of one class read by their instance number (wiki: ships-and-naval
+## § The crown's navy — "the heavier class first, then the instance id").
+func test_the_line_reads_the_heavier_class_first_and_hulls_by_number() -> void:
+	var fleet := FleetState.in_port(
+		1, OWNER, 0,
+		["ship_10", "ship_9", "ship_4", "ship_3", "ship_2"],
+		{
+			"ship_10": "frigate", "ship_9": "frigate", "ship_4": "ironclad",
+			"ship_3": "sloop", "ship_2": "carrack",
+		}
+	)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [fleet])
+
+	var data: Dictionary = NavalLedger.snapshot(_world(), table, OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["hull"]))
+
+	assert_eq(
+		order, ["ship_4", "ship_9", "ship_10", "ship_3", "ship_2"],
+		"the ironclad leads the frigates, the frigates read 9 then 10, and the merchant hull trails"
+	)
+
+
+## Two classes of one weight read by their name, so the order never hangs on the
+## roster: a Fluyte and a Trader both weigh 1.75.
+func test_a_weight_tie_reads_the_class_name() -> void:
+	var fleet := FleetState.in_port(
+		1, OWNER, 0, ["ship_1", "ship_2"], {"ship_1": "trader", "ship_2": "fluyte"}
+	)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [fleet])
+
+	var data: Dictionary = NavalLedger.snapshot(_world(), table, OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["hull"]))
+
+	assert_eq(order, ["ship_2", "ship_1"], "the Fluyte reads before the Trader")
+
+
+## A hull id that carries no number reads as text: the sheet never leans on an
+## id it cannot parse.
+func test_an_unparseable_hull_id_reads_as_text() -> void:
+	var fleet := FleetState.in_port(
+		1, OWNER, 0,
+		["ship_x", "hull_b", "hull_a"],
+		{"ship_x": "carrack", "hull_b": "carrack", "hull_a": "carrack"}
+	)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [fleet])
+
+	var data: Dictionary = NavalLedger.snapshot(_world(), table, OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["hull"]))
+
+	assert_eq(order, ["hull_a", "hull_b", "ship_x"], "three equal carracks read by their ids")
+
+
 func test_the_squadron_heading_reads_where_she_sails_and_her_station() -> void:
 	var data: Dictionary = NavalLedger.snapshot(_world(), _navy_regions(), OWNER)
 	var groups: Array[Dictionary] = NavalLedger.groups(data, LedgerRows.REGION_ALL)
@@ -3290,7 +3718,7 @@ func test_a_visit_asks_for_her_squadrons_chart() -> void:
 func test_the_muster_rolls_door_opens_the_ledger() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	assert_not_null(panel, "the HUD mounts the navy ledger")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var door: Button = _navy_door()
 	assert_not_null(door, "the muster roll carries the navy door")
 	door.pressed.emit()
@@ -3303,7 +3731,7 @@ func test_the_muster_rolls_door_opens_the_ledger() -> void:
 
 func test_the_readings_narrow_the_sheet() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(panel.is_open())
 	panel._on_filter(NavalLedger.READING_WARSHIP, false)
 	assert_eq(panel._reading, NavalLedger.READING_WARSHIP)
@@ -3324,7 +3752,7 @@ func test_the_readings_narrow_the_sheet() -> void:
 func test_the_empty_view_names_why_no_hull_answers() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	panel.bind(screen.play)
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(_navy_row_widgets(panel) > 0, "the sheet opens on the crown's hulls")
 	# A chart the crown floats nothing in: the whole navy answers, this chart does not.
 	panel._snapshot = NavalLedger.snapshot(_world(), _old_only(), OWNER)
@@ -3361,7 +3789,7 @@ func test_every_chip_names_its_own_reading() -> void:
 
 func test_navy_back_and_the_key_close_the_ledger() -> void:
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
-	screen.hud.navy_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
@@ -3388,6 +3816,374 @@ func test_a_visit_frames_her_squadron_and_sets_the_sheet_aside() -> void:
 	row._on_visit()
 	assert_false(panel.is_open(), "the sheet sets itself aside")
 	assert_not_null(screen.play.ship_layer.selected(), "her squadron is the selection")
+
+
+# --- the crown's army, regiment by regiment ---
+
+## The crown's army, regiment by regiment (wiki: military-armies § The muster
+## roll, § The regiments behind an army; DR-20261116-16): the projection reads
+## every regiment the crown fields in both charts, standard by standard, and the
+## sheet drives it — the muster roll's door, the readings, back and the registry.
+## One Godot boot: the projection cases read the muster fixture, the sheet cases
+## mount the shared map screen (docs/testing.md).
+
+
+func test_the_army_reads_every_regiment_of_both_charts() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	assert_eq(int(data["total"]), 5, "one row per regiment the crown fields")
+	assert_eq((data["groups"] as Array).size(), 3, "one heading per standard")
+	assert_eq(ArmyLedger.count(data, LedgerRows.REGION_OLD), 3)
+	assert_eq(ArmyLedger.count(data, LedgerRows.REGION_NEW), 2)
+	assert_eq(ArmyLedger.army_count(data, LedgerRows.REGION_ALL), 3)
+	for raw: Variant in data["rows"]:
+		assert_ne(int((raw as Dictionary)["army"]), 3, "the rival's men stay out")
+
+
+func test_a_regiment_row_reads_its_class_and_its_own_line() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var pikemen: Dictionary = _army_row_for(data, 1, "unit_1")
+	assert_eq(String(pikemen["class"]), "Pikemen")
+	assert_eq(String(pikemen["reading"]), ArmyLedger.READING_FOOT)
+	assert_eq(String(pikemen["role_label"]), "FOOT")
+	assert_eq(String(pikemen["line"]), RegimentCatalog.detail_line("pikemen"), "the catalogue's own line")
+	assert_eq(String(pikemen["category"]), "Regular infantry")
+	assert_true(String(pikemen["state"]).contains("health"), "the row reads its condition")
+	assert_eq(String(pikemen["place"]), "Cádiz")
+
+
+## The reading order is the sheet's own: the foot lead, then the horse, then the
+## guns; inside a kind the heavier class, then the instance number.
+func test_the_foot_lead_then_the_horse_then_the_guns() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var order: Array[String] = []
+	for raw: Variant in data["rows"]:
+		order.append(String((raw as Dictionary)["regiment"]))
+	assert_eq(order, ["unit_501", "unit_502", "unit_503"], "the foot read before the horse and the guns")
+	var guns: Dictionary = _army_row_of(data, "unit_503")
+	assert_eq(String(guns["role_label"]), "GUNS")
+
+
+func test_a_condition_reads_health_chevrons_and_colours() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var wounded: Dictionary = _army_row_of(data, "unit_501")
+	assert_true(String(wounded["state"]).contains("20/"), "the health it holds")
+	assert_eq(int(wounded["health"]), 20)
+	assert_eq(int(wounded["max_health"]), RegimentCondition.max_health("pikemen"))
+	var decorated: Dictionary = _army_row_of(data, "unit_502")
+	assert_true(String(decorated["state"]).contains("2 chevrons"))
+	var laurelled: Dictionary = _army_row_of(data, "unit_503")
+	assert_true(String(laurelled["state"]).contains("laurelled +10%"), "the citation's own weight")
+	assert_eq(int(laurelled["cited"]), 3)
+
+
+func test_the_standard_heading_reads_where_it_stands_and_what_it_eats() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var groups: Array[Dictionary] = ArmyLedger.groups(data, LedgerRows.REGION_OLD)
+	var home: Dictionary = groups[0]
+	assert_eq(String(home["title"]), "Home Army", "the seat leads its chart")
+	assert_true(String(home["heading"]).contains("HOME ARMY"))
+	assert_eq(String(home["place"]), "Cádiz")
+	assert_true(String(home["standing"]).contains("seat"))
+	assert_eq(int(home["regiments"]), 2)
+	var army: ArmyState = _army_of(_armies(), 1)
+	var one: Array[ArmyState] = [army]
+	assert_almost_eq(float(home["strength"]), ArmyForce.side_strength(one), 0.001)
+	assert_eq(
+		int(home["food"]),
+		RegimentCatalog.food_upkeep("pikemen") + RegimentCatalog.food_upkeep("arquebusiers")
+	)
+
+
+## A standard's larder bill is the rules' own reading, the same one the dossier
+## and the Consumption phase pay: the regiments' upkeep plus the staff of the
+## field hospital train it carries (wiki: military-armies § The regiments behind
+## an army, combat § Feeding; DR-20261112-07).
+func test_a_standard_carrying_a_train_eats_its_staff_too() -> void:
+	var table: MapRegionTable = _armies()
+	var home: ArmyState = _army_of(table, 1)
+	home.field_hospital = true
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), table, _fleets(), OWNER)
+	var group: Dictionary = ArmyLedger.groups(data, LedgerRows.REGION_OLD)[0]
+	var one: Array[ArmyState] = [home]
+	assert_eq(int(group["food"]), ArmyRoster.food_upkeep_of(one, OWNER), "the larder's own bill")
+	assert_eq(
+		int(group["food"]),
+		RegimentCatalog.food_upkeep("pikemen")
+		+ RegimentCatalog.food_upkeep("arquebusiers")
+		+ HospitalTrain.food(),
+		"the train's staff eats with the men"
+	)
+	var chart: Array[ArmyState] = []
+	for raw: Variant in table.value(FactionCatalog.OLD_WORLD, []):
+		var army := raw as ArmyState
+		if army != null and army.owner == OWNER:
+			chart.append(army)
+	assert_true(
+		ArmyLedger.summary(data, LedgerRows.REGION_OLD).contains(
+			"%d food a turn" % ArmyRoster.food_upkeep_of(chart, OWNER)
+		),
+		"the count line bills the same larder as the Consumption phase"
+	)
+
+
+func test_an_embarked_standard_reads_aboard_its_squadron() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var embarked: Dictionary = _army_row_for(data, 2, "unit_1")
+	assert_true(String(embarked["place"]).contains("Aboard a squadron"))
+	assert_true(String(embarked["place"]).contains("Cádiz"), "the carrying squadron's station")
+
+
+## A standard whose carrying squadron the roster no longer holds, and one with
+## no shore at all: the reading names the gap instead of inventing a place.
+func test_a_standard_without_its_squadron_or_a_shore_reads_the_gap() -> void:
+	var table := MapRegionTable.new()
+	var adrift: ArmyState = ArmyState.muster(8, OWNER, MapModel.NO_ID, false, ["pikemen"], 801)
+	adrift.embarked_fleet = 99
+	var ashore: ArmyState = ArmyState.muster(9, OWNER, MapModel.NO_ID, false, ["pikemen"], 901)
+	table.set_region(FactionCatalog.OLD_WORLD, [adrift, ashore])
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), table, _fleets(), OWNER)
+	assert_eq(String(_army_row_for(data, 8, "unit_801")["place"]), "Aboard a squadron")
+	assert_eq(String(_army_row_for(data, 9, "unit_901")["place"]), "In the field")
+
+
+func test_the_readings_narrow_the_army_and_keep_their_tallies() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var counts: Dictionary = ArmyLedger.filter_counts(data, LedgerRows.REGION_ALL)
+	assert_eq(int(counts[ArmyLedger.READING_ALL]), 3)
+	assert_eq(int(counts[ArmyLedger.READING_FOOT]), 1)
+	assert_eq(int(counts[ArmyLedger.READING_HORSE]), 1)
+	assert_eq(int(counts[ArmyLedger.READING_GUNS]), 1)
+	assert_eq(ArmyLedger.count(data, LedgerRows.REGION_NEW, ArmyLedger.READING_FOOT), 0)
+	var horse: Array[Dictionary] = ArmyLedger.groups(
+		data, LedgerRows.REGION_ALL, ArmyLedger.READING_HORSE
+	)
+	assert_eq(horse.size(), 1, "only the standard that still has a rider")
+	for row: Dictionary in horse[0]["rows"]:
+		assert_eq(String(row["reading"]), ArmyLedger.READING_HORSE)
+
+
+func test_the_army_count_line_and_the_note_print_the_rules_own_figures() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var line: String = ArmyLedger.summary(data, LedgerRows.REGION_ALL)
+	assert_true(line.contains("3 of 3 regiments in 1 standard"), "the count line reads the standard")
+	assert_true(line.contains("1 foot, 1 horse, 1 gun"))
+	assert_true(line.contains("strength"))
+	assert_true(line.contains("food a turn"))
+	var narrowed: String = ArmyLedger.summary(
+		data, LedgerRows.REGION_OLD, ArmyLedger.READING_HORSE
+	)
+	assert_true(narrowed.contains("1 of 3 regiments in the Old World"), "the chart is the denominator")
+	assert_true(narrowed.contains("horse only"))
+	assert_true(ArmyLedger.note().contains("chevrons"), "the rule a crown fields by is printed")
+
+
+func test_a_chart_with_no_standard_reads_empty_and_a_standard_without_men_reads_no_row() -> void:
+	assert_eq(int(ArmyLedger.snapshot(null, _armies(), _fleets(), OWNER).get("total", -1)), 0)
+	assert_eq(int(ArmyLedger.snapshot(_force_world(), null, _fleets(), OWNER).get("total", -1)), 0)
+	var bare := ArmyState.muster(7, OWNER, 0, false, [], 1)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [bare])
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), table, _fleets(), OWNER)
+	assert_eq(int(data["total"]), 0, "a standard with no regiment has no row to read")
+	assert_eq(ArmyLedger.army_count(data, LedgerRows.REGION_ALL), 1, "the standard is still counted")
+	assert_eq((data["groups"] as Array).size(), 0, "an empty standard prints no heading")
+	assert_true(ArmyLedger.summary(data, LedgerRows.REGION_ALL).contains("0 of 0 regiments"))
+
+
+# --- army: the row ---
+
+
+func test_an_army_row_prints_its_name_chip_and_its_own_line() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var row := ArmyLedgerRow.new()
+	row.setup(_army_row_of(data, "unit_501"))
+	assert_ne(row._name.text, "", "every regiment flies a title")
+	assert_eq(row._chip.text, "FOOT")
+	assert_true(row._detail.text.contains("Cádiz"))
+	assert_true(row._standing.text.contains("FPN"), "the catalogue's own line")
+	assert_true(row._reading.text.contains("20/"), "the condition it holds")
+	row.free()
+
+
+func test_a_compact_army_row_folds_its_class_into_the_detail_line() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _line_standard(), _fleets(), OWNER)
+	var row := ArmyLedgerRow.new()
+	row.compact = true
+	row.setup(_army_row_of(data, "unit_502"))
+	assert_true(row._detail.text.contains("Knights"), "a phone row names the class")
+	assert_true(row._detail.text.contains("Cádiz"))
+	row.free()
+
+
+func test_an_army_visit_asks_for_its_standards_chart() -> void:
+	var data: Dictionary = ArmyLedger.snapshot(_force_world(), _armies(), _fleets(), OWNER)
+	var row := ArmyLedgerRow.new()
+	row.setup(_army_row_for(data, 2, "unit_1"))
+	var seen: Array = []
+	row.visit_pressed.connect(func(region: int, army_id: int) -> void:
+		seen.append([region, army_id])
+	)
+	row._on_visit()
+	assert_eq(seen.size(), 1)
+	assert_eq(int((seen[0] as Array)[0]), FactionCatalog.OLD_WORLD)
+	assert_eq(int((seen[0] as Array)[1]), 2, "the standard, not the regiment")
+	row.free()
+
+
+# --- army: the sheet ---
+
+
+func test_the_muster_rolls_army_door_opens_the_army_ledger() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	assert_not_null(panel, "the HUD mounts the army ledger")
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	var door: Button = _army_door()
+	assert_not_null(door, "the muster roll carries the army door")
+	door.pressed.emit()
+	assert_true(panel.is_open(), "the muster roll's army door opens it")
+	assert_true(_army_row_widgets(panel) > 0, "the crown's regiments are listed")
+	assert_true(panel._subtitle.text.contains("regiments"), "the count line names the army")
+	assert_true(_has_text(panel._rows, "strength"), "a standard heading prints its strength")
+	screen.hud.muster_roll.close()
+
+
+func test_the_army_readings_narrow_the_sheet() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
+	assert_true(panel.is_open())
+	panel._on_filter(ArmyLedger.READING_HORSE, false)
+	assert_eq(panel._reading, ArmyLedger.READING_HORSE)
+	assert_true(panel._subtitle.text.contains("horse only"))
+	for child: Node in panel._rows.get_children():
+		var row := child as ArmyLedgerRow
+		if row != null:
+			assert_eq(String(row.data["reading"]), ArmyLedger.READING_HORSE)
+	panel._on_filter(LedgerRows.REGION_OLD, true)
+	assert_eq(panel._region, LedgerRows.REGION_OLD)
+	panel._on_filter(LedgerRows.REGION_ALL, true)
+	panel._on_filter(ArmyLedger.READING_ALL, false)
+
+
+func test_an_emptied_army_names_why_no_regiment_answers() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	panel.bind(screen.play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
+	assert_true(_army_row_widgets(panel) > 0, "the sheet opens on the crown's regiments")
+	# A chart the crown fields nothing in: the whole army answers, this chart not.
+	panel._snapshot = ArmyLedger.snapshot(_world(), _old_only_armies(), _fleets(), OWNER)
+	panel._region = LedgerRows.REGION_NEW
+	panel._apply_filter()
+	assert_true(panel._empty.visible, "an empty chart prints the empty line")
+	assert_eq(_army_row_widgets(panel), 0, "and the rows the last press left are cleared")
+	assert_true(panel._empty.text.contains("No regiment answers this view"))
+	# A standard with no men: the sheet names the drill yard rather than a gap.
+	var bare := ArmyState.muster(7, OWNER, 0, false, [], 1)
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [bare])
+	panel._snapshot = ArmyLedger.snapshot(_world(), table, _fleets(), OWNER)
+	panel._region = LedgerRows.REGION_ALL
+	panel._apply_filter()
+	assert_true(panel._empty.text.contains("the drill yard raises the first"))
+	# No standard at all: clearing a filter is the way back.
+	panel._snapshot = ArmyLedger.snapshot(_world(), MapRegionTable.new(), _fleets(), OWNER)
+	panel._apply_filter()
+	assert_true(panel._empty.text.contains("Clear a filter"))
+	panel._snapshot = {}
+	panel._region = LedgerRows.REGION_ALL
+	panel._reading = ArmyLedger.READING_ALL
+
+
+func test_every_army_chip_names_its_own_reading() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	var chart_row := panel._bar.get_child(0) as HBoxContainer
+	var reading_row := panel._bar.get_child(1) as HBoxContainer
+	assert_eq(_navy_chip_captions(chart_row), ["Both charts", "Old World", "New World"])
+	assert_eq(_navy_chip_captions(reading_row), ["All regiments", "Foot", "Horse", "Guns"])
+
+
+func test_army_back_closes_the_ledger() -> void:
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
+	assert_true(panel.is_open())
+	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
+	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+## The one dress both forces print in stays inert until a force names itself: a
+## bare spine has no layer to read, no projection, no rows and no Visit, so a
+## half-wired sheet paints nothing over the chart (REQ-P3-01, REQ-P3-02).
+func test_the_force_sheet_dress_reads_nothing_until_a_force_names_it() -> void:
+	var sheet := ForceLedgerSheet.new()
+	assert_false(sheet._can_open(), "no session, no sheet")
+	sheet.refresh()
+	assert_true(sheet._snapshot.is_empty(), "a bare spine reads no roster")
+	assert_true(sheet._filters().is_empty())
+	assert_eq(sheet._reading_word("all"), "all", "an unnamed reading names itself")
+	assert_eq(sheet._row_word(1), "row")
+	assert_eq(sheet._row_caption(), "Row", "the chip row capitalises the noun")
+	assert_true(sheet._groups(LedgerRows.REGION_ALL, LedgerRows.ALL).is_empty())
+	assert_eq(sheet._count(LedgerRows.REGION_ALL, LedgerRows.ALL), 0)
+	assert_true(sheet._standing_text({}).is_empty(), "no group, no standing line")
+	assert_null(sheet._note(), "no rule to print")
+	assert_null(sheet._make_row({}, false), "no row to mint")
+	sheet.free()
+
+
+## One standard of three kinds, weakened and decorated, so the row reads the
+## condition the rules would use: a wounded foot regiment, a chevroned rider and
+## a laurelled gun.
+func _line_standard() -> MapRegionTable:
+	var table := MapRegionTable.new()
+	var army: ArmyState = ArmyState.muster(
+		5, OWNER, 0, false, ["pikemen", "knights", "culverin"], 501
+	)
+	army.regiment_health["unit_501"] = 20
+	army.regiment_medals["unit_502"] = 2
+	army.regiment_history["unit_503"] = {"cited": 3, "fields": []}
+	table.set_region(FactionCatalog.OLD_WORLD, [army])
+	return table
+
+
+## The home chart alone: the New World holds no standard, so a one-chart view has
+## an empty page and the whole army still answers.
+func _old_only_armies() -> MapRegionTable:
+	var table := MapRegionTable.new()
+	table.set_region(FactionCatalog.OLD_WORLD, [_army_of(_armies(), 1)])
+	return table
+
+
+func _army_row_of(data: Dictionary, regiment_id: String) -> Dictionary:
+	for raw: Variant in data["rows"]:
+		var row: Dictionary = raw
+		if String(row["regiment"]) == regiment_id:
+			return row
+	return {}
+
+
+func _army_row_for(data: Dictionary, army_id: int, regiment_id: String) -> Dictionary:
+	for raw: Variant in data["rows"]:
+		var row: Dictionary = raw
+		if int(row["army"]) == army_id and String(row["regiment"]) == regiment_id:
+			return row
+	return {}
+
+
+## The muster roll's army door, found by its word so the suite reads the button
+## the player presses.
+func _army_door() -> Button:
+	for node: Node in screen.hud.muster_roll.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("The crown's army"):
+			return button
+	return null
+
+
+func _army_row_widgets(panel: ArmyLedgerPanel) -> int:
+	var total: int = 0
+	for child: Node in panel._rows.get_children():
+		if child is ArmyLedgerRow:
+			total += 1
+	return total
 
 
 # --- navy: fixtures ---
@@ -3568,6 +4364,42 @@ func test_hospital_a_bare_shore_names_the_step_it_waits_on_and_its_price() -> vo
 		"Next: field hospital · 3 lumber + 2 fabric · 1 turn",
 		"the row names the ward, the price and the wait"
 	)
+
+
+## The ward's own arithmetic, priced before the crown pays: the rest, the wear
+## and the ration the next level brings, straight off the table the turn's rest
+## pass heals by (REQ-P2-03, REQ-P5-06; DR-20261117-05).
+func test_hospital_a_bare_shore_prices_the_ward_it_offers() -> void:
+	var snapshot: Dictionary = HospitalLedger.snapshot(hospital__regions(hospital__engineers()), 0)
+	var home: Dictionary = hospital__row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(
+		String(home["preview_text"]),
+		"L1 rests 40%, wear 80%, staff 2 food (+15% rest, -20% wear, +2 food)",
+		"an empty shore reads the first ward whole"
+	)
+	var overseas: Dictionary = hospital__row(snapshot, FactionCatalog.NEW_WORLD)
+	assert_eq(
+		String(overseas["preview_text"]),
+		"L2 rests 55%, wear 65%, staff 4 food (+15% rest, -15% wear, +2 food)",
+		"a field ward's step names only what the level adds"
+	)
+
+
+## No line where there is no raise: a general ward has no level left, and a ward
+## an Engineer is already raising has no press to price.
+func test_hospital_a_finished_ward_and_a_crew_at_work_price_no_raise() -> void:
+	var raised: Dictionary = hospital__raised()
+	assert_eq(String(raised["state"]), HospitalLedger.STATE_RAISED)
+	assert_eq(String(raised["preview_text"]), "", "a general ward owes nothing")
+	var engineer: CivilianState = CivilianState.create(1, 0, "engineer", hospital_TOWN_TILE)
+	engineer.start_work(
+		"build_hospital", hospital_TOWN_TILE, 2, hospital_TOWN_TILE, {"hospital_level": 1}
+	)
+	var working: Dictionary = hospital__row(
+		HospitalLedger.snapshot(hospital__regions([engineer]), 0), FactionCatalog.OLD_WORLD
+	)
+	assert_eq(String(working["state"]), HospitalLedger.STATE_AT_WORK)
+	assert_eq(String(working["preview_text"]), "", "the works in hand are the news")
 
 
 func test_a_ward_without_the_study_is_locked_and_names_it() -> void:
@@ -3852,7 +4684,7 @@ func test_hospital_the_map_hooks_guard_a_missing_session() -> void:
 
 func test_back_closes_the_hospitals_ledger() -> void:
 	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
-	hospital_screen.hud.hospitals_pressed.emit()
+	hospital_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.HOSPITALS)
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(hospital_screen.play, hospital_screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")

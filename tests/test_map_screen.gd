@@ -526,17 +526,24 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 
 
 ## The end-of-turn fog pass is a rules pass, not a view pass: knowledge in the
-## region the player is not reading must still decay (wiki: fog-and-exploration
-## § Fog Decay). Otherwise a rival coast charted once stays charted forever just
-## because the map was switched before the turn closed.
-func test_end_turn_fogs_rival_coasts_in_the_region_off_screen() -> void:
+## region the player is not reading must still decay for rival coasts and for
+## distant water (wiki: fog-and-exploration § Fog Decay, § Distant sea zone fog).
+## One turn covers both: each used to pay a full end_turn under coverage (~2 s).
+func test_end_turn_fogs_rival_coasts_and_distant_water_off_screen() -> void:
 	_screen._cycle_region()
 	var new_world: MapModel = _screen.model
-	var province: int = Fixture.foreign_province(new_world)
-	var tile: Vector2i = new_world.province_tiles(province)[0]
-	var index: int = new_world.index_of(tile.x, tile.y)
 	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
-	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
+	var province: int = Fixture.foreign_province(new_world)
+	var coast: Vector2i = new_world.province_tiles(province)[0]
+	visibility.raise_to(
+		new_world.index_of(coast.x, coast.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	var zone_id: int = _quiet_zone(new_world, visibility)
+	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
+	var water: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
+	visibility.raise_to(
+		new_world.index_of(water.x, water.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
 
@@ -544,31 +551,12 @@ func test_end_turn_fogs_rival_coasts_in_the_region_off_screen() -> void:
 	Fixture.settle(_screen.play)
 
 	assert_eq(
-		visibility.level_at(tile.x, tile.y),
+		visibility.level_at(coast.x, coast.y),
 		VisibilityModel.Level.FOGGED,
 		"the New World chart decays while the Old World is on screen"
 	)
-
-
-## Same rule for water: a distant sea zone with no owned coast and no fleet at
-## sea reverts to fogged in every region, not only the one being looked at
-## (wiki: fog-and-exploration § Distant sea zone fog).
-func test_end_turn_fogs_distant_water_in_the_region_off_screen() -> void:
-	_screen._cycle_region()
-	var new_world: MapModel = _screen.model
-	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
-	var zone_id: int = _quiet_zone(new_world, visibility)
-	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
-	var tile: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
-	var index: int = new_world.index_of(tile.x, tile.y)
-	visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	_screen._cycle_region()
-
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-
 	assert_eq(
-		visibility.level_at(tile.x, tile.y),
+		visibility.level_at(water.x, water.y),
 		VisibilityModel.Level.FOGGED,
 		"unwatched New World water refogs with the Old World on screen"
 	)
@@ -1314,7 +1302,7 @@ func test_a_declaration_of_war_repaints_the_wash() -> void:
 		_screen.player_faction, owner, _screen.play.turn
 	)
 	relation.set_score(50.0)
-	MapPlaySetup.build_diplomacy_lens(_screen.play)
+	MapPlayLens.mount_diplomacy(_screen.play)
 	assert_eq(
 		DiplomacySurvey.band_for(
 			_screen.play.diplomacy, _screen.player_faction, owner
@@ -1324,7 +1312,7 @@ func test_a_declaration_of_war_repaints_the_wash() -> void:
 
 	relation.at_war = true
 	relation.normalize()
-	MapPlaySetup.build_diplomacy_lens(_screen.play)
+	MapPlayLens.mount_diplomacy(_screen.play)
 	var entry: Dictionary = _entry(_screen.play.diplomacy_lens.survey, _province_of(owner))
 	assert_eq(String(entry["band"]), DiplomacySurvey.BAND_WAR)
 	assert_gt(int(_screen.play.diplomacy_lens.survey["tiles"]["war"]), 0)
@@ -1342,7 +1330,7 @@ func test_region_switch_rebuilds_the_political_wash() -> void:
 	# Charting one province makes it readable as neutral (no court yet).
 	var province: ProvinceState = _screen.model.provinces[0]
 	_screen.visibility.reveal_province(province.id)
-	MapPlaySetup.build_diplomacy_lens(_screen.play)
+	MapPlayLens.mount_diplomacy(_screen.play)
 	assert_false(
 		_entry(_screen.play.diplomacy_lens.survey, province.id).is_empty()
 	)
@@ -1812,7 +1800,7 @@ func test_the_sea_reading_raises_its_key_and_survey() -> void:
 	var lens: SeaLens = _screen.play.sea_lens
 	assert_not_null(lens, "the chart mounts the sea lens")
 	_sail_a_crown_squadron()
-	MapPlaySetup.build_lens(_screen.play)
+	MapPlayLens.mount_all(_screen.play)
 	assert_false(lens.active)
 
 	MapPlayInput.set_sea_lens(_screen.play, true)
@@ -1844,7 +1832,7 @@ func test_the_sea_reading_raises_its_key_and_survey() -> void:
 
 func test_a_sail_repaints_the_sea_reading() -> void:
 	var fleet: FleetState = _sail_a_crown_squadron()
-	MapPlaySetup.build_lens(_screen.play)
+	MapPlayLens.mount_all(_screen.play)
 	var lens: SeaLens = _screen.play.sea_lens
 	var before: int = fleet.sea_zone
 	var next: int = _other_zone(before)
@@ -1861,7 +1849,7 @@ func test_a_sail_repaints_the_sea_reading() -> void:
 
 func test_hover_reports_the_sea_line_while_the_lens_is_on() -> void:
 	var fleet: FleetState = _sail_a_crown_squadron()
-	MapPlaySetup.build_lens(_screen.play)
+	MapPlayLens.mount_all(_screen.play)
 	MapPlayInput.set_sea_lens(_screen.play, true)
 	var zone: SeaZoneState = _screen.model.sea_zone_data(fleet.sea_zone)
 	var point: Vector2 = _screen_point(Vector2(zone.tiles[0]))
@@ -2276,6 +2264,35 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	assert_true(builder.is_idle())
 
 
+## The chart carries the pick (DR-20261117-07): the survey lens is mounted with
+## the crown's own picks, and the ground an idle crew's planner names wears the
+## mark — the same reading its sheet prints, drawn where the crown plans work.
+func test_the_survey_lens_marks_the_ground_the_court_would_work() -> void:
+	var tile: Vector2i = _buildable_owned_resource_tile()
+	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	builder.tile = tile
+	_screen.stockpile["lumber"] = 40
+	_screen.stockpile["castIron"] = 40
+
+	MapPlayLens.mount_survey(_screen.play)
+	MapPlayInput.set_lens(_screen.play, true)
+
+	var lens: ResourceLens = _screen.play.lens
+	assert_true(lens.active, "the survey reading is up")
+	assert_true(lens.picks.has(builder.id), "the lens carries the court's pick")
+	var pick: Dictionary = lens.picks[builder.id]
+	var marked: Array[Vector2i] = []
+	for mark: Dictionary in lens.marks:
+		marked.append(Vector2i(mark["tile"]))
+	assert_true(
+		marked.has(Vector2i(pick["tile"])),
+		"the ground the court named is marked on the chart"
+	)
+	assert_false(builder.is_working(), "a reading, not an order")
+
+
 ## A wall is the one work whose completion changes how the province is fought
 ## over, so the despatch names the level raised and the battery it mounts — a
 ## crown that spent its materials and a turn learns what it bought (wiki:
@@ -2592,7 +2609,7 @@ func test_empire_counters_survive_a_region_switch() -> void:
 
 
 func test_the_civilian_chip_opens_the_whole_empire_roster() -> void:
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	assert_not_null(roster)
 	assert_true(roster.is_open())
@@ -2613,7 +2630,7 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD)
 
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	roster._head._region_buttons[LedgerRows.REGION_NEW].pressed.emit()
 	roster._head._type_buttons["merchant"].pressed.emit()
@@ -2638,7 +2655,7 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 
 
 func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	var head: CivilianRosterHead = roster._head
 	head._region_buttons[LedgerRows.REGION_OLD].pressed.emit()
@@ -2657,7 +2674,7 @@ func test_the_roster_filters_by_region_craft_and_empty_view() -> void:
 
 
 func test_the_roster_reads_who_waits_for_orders() -> void:
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
 	var head: CivilianRosterHead = roster._head
 	head._region_buttons[LedgerRows.REGION_ALL].pressed.emit()
@@ -2696,9 +2713,70 @@ func test_the_roster_reads_who_waits_for_orders() -> void:
 	)
 	head._status_buttons[CivilianRoster.STATUS_IDLE].pressed.emit()
 	roster.close()
-	_screen.hud.civilian_roster_pressed.emit()
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
 	assert_eq(roster._status, CivilianRoster.STATUS_IDLE, "the filter is the reader's")
 	assert_eq(roster._head.status, CivilianRoster.STATUS_IDLE, "the chips mirror it back")
+	roster.close()
+
+
+## The chore's own door: one press takes the crown to the next crew that waits,
+## closing the sheet and opening that crew's dossier, and the walk covers both
+## worlds (REQ-P5-03, REQ-P5-04).
+func test_the_roster_finds_the_next_crew_that_waits() -> void:
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	var head: CivilianRosterHead = roster._head
+	var idle: int = int(roster._snapshot["idle"])
+	assert_gt(idle, 0, "the opening roster holds a crew with no order")
+	var expected: Dictionary = CivilianRoster.next_idle(
+		roster._snapshot, _screen.play.region_index, -1
+	)
+	var press: Button = head.find_button()
+	assert_not_null(press)
+	assert_true(press.visible, "a crown with a crew waiting is offered the walk")
+	assert_eq(press.text, CivilianRoster.find_caption(roster._snapshot))
+	assert_eq(press.text, "Find the next crew that waits (%d)" % idle)
+
+	press.pressed.emit()
+	assert_false(roster.is_open(), "the sheet steps aside for the crew it found")
+	var first: CivilianState = _screen.civilian_layer.selected_unit
+	assert_not_null(first, "the walk selects the crew it found")
+	assert_eq(first.id, int(expected["unit_id"]), "the walk starts at the first crew that waits")
+	assert_false(first.is_working(), "the walk lands on a crew that waits")
+	assert_true(_screen.hud.panels.is_civilian_panel_open(), "its dossier is open")
+	assert_eq(
+		_toast_texts().back(),
+		CivilianRoster.idle_receipt(expected, idle - 1),
+		"the receipt is the rules' own line",
+	)
+
+	# A second walk starts after the crew now selected, so the press covers the
+	# whole column instead of landing on the same crew twice.
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	head.find_button().pressed.emit()
+	var second: CivilianState = _screen.civilian_layer.selected_unit
+	assert_not_null(second)
+	assert_false(second.is_working())
+	if idle > 1:
+		assert_ne(second.id, first.id, "the walk moves on to the next crew that waits")
+
+
+## A crown with every crew at work is offered no walk at all, and the press that
+## races the turn's close is answered rather than silent (REQ-P5-05).
+func test_the_roster_offers_no_walk_when_every_crew_has_an_order() -> void:
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	var roster: CivilianRosterPanel = _screen.hud.civilian_roster
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit != null and unit.owner == _screen.play.player_faction:
+			unit.start_work("build_improvement", unit.tile, 2, unit.tile)
+	roster.refresh()
+	assert_eq(int(roster._snapshot["idle"]), 0)
+	assert_false(roster._head.find_button().visible, "no crew waits, so no press")
+	roster._find_idle()
+	assert_true(
+		_toast_texts().back().contains("No crew waits for orders"),
+		"a press with nothing to find says so: '%s'" % _toast_texts().back(),
+	)
 	roster.close()
 
 
@@ -3418,15 +3496,21 @@ func test_the_enable_file_optin_is_read_and_consumed() -> void:
 
 
 func test_an_empty_enable_file_takes_the_default_port() -> void:
+	# Parse-only: binding DEFAULT_PORT under `--parallel` races any other
+	# worker that already holds 8765 and used to fail the suite on listen.
+	# The opt-in wire (file → start) is covered with an exclusive port above.
 	var handle := FileAccess.open("user://agent_debug.enable", FileAccess.WRITE)
 	handle.store_line("")
 	handle = null
-	var bridge := AgentDebugBridge.new()
-	bridge.name = "AgentDebugBridgeFileDefault"
-	add_child(bridge)
-	assert_eq(bridge.port, AgentDebugBridge.DEFAULT_PORT, "empty file, default port")
-	bridge.stop()
-	bridge.free()
+	assert_eq(
+		AgentDebugBridge.read_enable_file(),
+		AgentDebugBridge.DEFAULT_PORT,
+		"empty file, default port"
+	)
+	assert_false(
+		FileAccess.file_exists("user://agent_debug.enable"),
+		"a consumed enable file is removed"
+	)
 
 
 func _await_open(bridge: AgentDebugBridge, ws: WebSocketPeer) -> bool:

@@ -16,7 +16,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
-		_context(play), play.player_faction
+		_context(play, unit), play.player_faction
 	)
 	if unit.owner == play.player_faction:
 		play.overlay.show_tile_options(
@@ -134,7 +134,7 @@ static func refresh_panel(play: PlaySession) -> void:
 	play.hud.panels.show_civilian(
 		play.model, unit, play.land_works, play.civilian_layer.units,
 		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
-		_context(play), play.player_faction
+		_context(play, unit), play.player_faction
 	)
 	play.overlay.clear_tile_options()
 	play.overlay.show_tile_options(
@@ -303,8 +303,20 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 	play.hud.toast("The purchase in %s failed — the treasury could not close it." % place)
 
 
-static func _context(play: PlaySession) -> Dictionary:
-	return {"treasury": play.treasury(), "diplomacy": play.diplomacy}
+## The sheet's readings: the crown's purse and court, and — for a crew of the
+## crown that waits for orders — the work the court's own planner would give it
+## next (REQ-P5-06; DR-20261117-06). A rival's crew carries no pick here: its
+## orders belong to its own crown, and the planner is asked for ours alone.
+static func _context(play: PlaySession, unit: CivilianState = null) -> Dictionary:
+	var context: Dictionary = {"treasury": play.treasury(), "diplomacy": play.diplomacy}
+	if unit == null or unit.owner != play.player_faction or unit.is_working():
+		return context
+	var pick: Dictionary = MapPlayCivilianPick.picks(
+		play, play.player_faction
+	).get(unit.id, {}) as Dictionary
+	if not pick.is_empty():
+		context["pick"] = pick
+	return context
 
 
 static func train(play: PlaySession, type_id: String) -> void:

@@ -27,15 +27,17 @@
 - **Regiment condition** (`RegimentCondition`, DR-20261110-19): health
   (`60 + 10 × DEF`) and chevrons. A break mauls survivors; wounds never destroy
   alone; winners gain a chevron.
-- **Titles and records** (`RegimentNames`, `RegimentRecord`, DR-20261111-18): a
-  period title, unique per army, kept through split/merge, with its tally.
-  Rename from the dossier (`RegimentRename`, DR-20261113-05).
+- **Titles and records** (`RegimentNames`, `RegimentRecord`, DR-20261111-18):
+  a period title, unique per army, kept through split/merge; rename from the
+  dossier (`RegimentRename`, DR-20261113-05).
 - **Colours and citations** (`RegimentRecord`, `RegimentDecorations`,
   DR-20261112-02/-10, DR-20261113-04): winners take the province once; every
   survivor's despatch keeps its newest eight fields, one won mauled being a
   **citation** (`cited` ×1, `laurelled` ×3). A citation buys rank — +5%, or
-  +10% laurelled — so decorated colours lead and fall last. Dossier:
-  `Cited +5% — Lisboa won`; plate: `Citations — 2 cited (+5% each)`.
+  +10% laurelled — so decorated colours lead and fall last.
+- **The crown's army** (`ArmyLedger`, DR-20261116-16): the muster roll's door
+  reads every regiment, standard by standard — class, stat line, health,
+  chevrons and citations.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): a crown-pool name per
   general, saved (legacy rosters christened on load); the dossier names him and
   his medals.
@@ -47,11 +49,10 @@
   Great Power's regiments take the newest same-category type its techs unlock;
   Minors follow the leading power; Tribes stay level 1.
 - **Attack price** (`ArmyAttackCost`): 100 ducats per attacker, ×0.75 Machinery,
-  ×0.85 Military Funding; floor zero.
+  ×0.85 Military Funding.
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side, three stances.
   Strength `Σ (FPN + FPM) × chevrons × health` × cohesion. Guns soak fire and
-  cut the fort; sieges split wall/behind (`SiegeLanes`); Sortie is its own order
-  ([battle-sim](battle-sim.md)).
+  cut the fort; sieges split wall/behind (`SiegeLanes`).
 - **Unopposed:** an army ending unopposed in hostile or neutral land takes it.
 ## Deferred (REQ-P2-02)
 

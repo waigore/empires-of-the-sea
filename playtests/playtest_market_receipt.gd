@@ -141,7 +141,7 @@ func _read_purchase(play: PlaySession) -> void:
 		var deal: Dictionary = raw
 		if int(deal.get("buyer", -2)) != play.player_faction:
 			continue
-		lines.append(LedgerText.deal_line(deal, play.player_faction))
+		lines.append(LedgerMarketText.deal_line(deal, play.player_faction))
 		named += int(deal.get("cost", 0))
 	var fills: Dictionary = report.get("fills", {}) as Dictionary
 	var mine: Dictionary = fills.get(play.player_faction, {}) as Dictionary
@@ -152,7 +152,7 @@ func _read_purchase(play: PlaySession) -> void:
 	_say("the lines name %d ducats; the clearing charged %d — %s" % [
 		named, charged, "they agree" if named == charged else "THEY DISAGREE",
 	])
-	_say("the turn's toast: %s" % LedgerText.market_summary(report, play.player_faction))
+	_say("the turn's toast: %s" % LedgerMarketText.market_summary(report, play.player_faction))
 	play.economy.open_panel()
 	_read_clearing(play)
 

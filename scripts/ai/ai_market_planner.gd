@@ -10,6 +10,9 @@ extends RefCounted
 
 const BUILD_INPUTS: Array[String] = AiEconomyPlanner.BUILD_INPUTS
 const TRADE_FAIRS: String = "trade_fairs"
+## Why a court opens no speculative bid: the war footing holds the slot shut
+## (DR-20261117-01).
+const REASON_SPECULATE: String = "at war: no top-up"
 ## Published baseline; Trade Fairs raises the bid-type cap to six.
 const BASELINE_BID_TYPES: int = 3
 const TRADE_FAIRS_BID_TYPES: int = 6
@@ -39,6 +42,12 @@ const TRADE_FAIRS_BID_TYPES: int = 6
 ## commitment (issue #489). A court that already has a normal surplus keeps the
 ## published reserve. Food keeps its reserve either way, and the row the next
 ## regiment is provisioned with is claimed before the market ever sees the stock.
+##
+## `speculate` is the dispatch slot (`trade.market`, DR-20261117-01): a court at
+## war opens no speculative top-up, so it bids only the rows this turn's
+## commitments already claim — the ration, the muster's, the hull's, the works'
+## and the production's — and food, which is never a speculative buy. A court at
+## peace bids exactly as published.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -49,7 +58,8 @@ static func plan(
 	need: Dictionary = {},
 	floor: int = 0,
 	food_shortfall: int = 0,
-	saving: bool = false
+	saving: bool = false,
+	speculate: bool = true
 ) -> Dictionary:
 	var offers: Array[Dictionary] = []
 	var bids: Array[Dictionary] = []
@@ -96,6 +106,19 @@ static func plan(
 		var food: Array[Dictionary] = _food_deficits(market, food_shortfall)
 		food.append_array(rows)
 		rows = food
+	# A court at war opens no speculative top-up: only the rows this turn's
+	# commitments already claim, and food, which is never a speculative buy
+	# (DR-20261117-01).
+	var held: int = 0
+	if not speculate:
+		var claimed: Array[Dictionary] = []
+		for entry: Dictionary in rows:
+			var id: String = String(entry["commodity"])
+			if promised.has(id) or CommodityCatalog.is_food(id):
+				claimed.append(entry)
+			else:
+				held += 1
+		rows = claimed
 	for entry: Dictionary in rows:
 		if bids.size() >= bid_cap:
 			break
@@ -131,7 +154,7 @@ static func plan(
 			"deficit": int(entry["deficit"]),
 			"unit_price": price,
 		})
-	return {"offers": offers, "bids": bids, "candidates": candidates}
+	return {"offers": offers, "bids": bids, "candidates": candidates, "held": held}
 
 
 ## Stages the plan in the world-market order book. The clearing pass fills it at

@@ -43,9 +43,42 @@ static func record(merged: Dictionary, factions: Dictionary, report: Dictionary)
 			])
 		if not training.is_empty():
 			AiTurnLog.bump(bucket["actions"], "train")
-			AiTurnLog.event(merged, bucket, faction, "%s musters a civilian." % who)
+			AiTurnLog.event(merged, bucket, faction, "%s musters %s." % [
+				who, _crew(training),
+			])
+		var held: String = String(civilians.get("training_blocked", ""))
+		if not held.is_empty():
+			# The footing held the hire shut: the court's yard says why it took
+			# no crew rather than going quiet (REQ-P5-05; DR-20261116-15).
+			AiTurnLog.event(
+				merged, bucket, faction, "%s hires no new crew (%s)." % [who, held]
+			)
+		var bids: String = String((details.get("trade", {}) as Dictionary).get(
+			"bids_blocked", ""
+		))
+		if not bids.is_empty():
+			# The footing held the speculative bid shut: the market says why the
+			# court bought nothing above its commitments (REQ-P5-05;
+			# DR-20261117-01).
+			AiTurnLog.event(
+				merged, bucket, faction, "%s opens no speculative bid (%s)." % [who, bids]
+			)
 		_cargo(merged, bucket, faction, details.get("cargo", {}))
 		_claims(bucket, details.get("claims", []))
+
+
+## "an Explorer", or "an Explorer (the court's taste)" — the crew the court
+## mustered, and whether the archetype's own lean asked for it rather than the
+## region's work. More than one hire in a turn prints its count.
+static func _crew(training: Array) -> String:
+	if training.size() > 1:
+		return "%d civilians" % training.size()
+	var row: Dictionary = training[0]
+	var one: String = CivilianCatalog.display_name(String(row.get("type_id", "")))
+	var article: String = "an" if one.to_lower().begins_with("e") else "a"
+	if bool(row.get("taste", false)):
+		return "%s %s (the court's taste)" % [article, one]
+	return "%s %s" % [article, one]
 
 
 ## Every reservation the court claimed this turn — rations, the muster's row,

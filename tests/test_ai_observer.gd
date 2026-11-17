@@ -126,14 +126,16 @@ func test_observer_never_queues_a_human_decision() -> void:
 
 func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
 	# `MapPlayTurn.view_live = false` is the batch harness (docs/ai-observer.md §
-	# Performance budget): same rules, no per-turn view follow-up.
+	# Performance budget): same rules, no per-turn view follow-up. Two turns are
+	# enough to prove the calendar and the merged record keep growing without a
+	# view; five turns used to burn ~9 s under coverage for the same asserts.
 	MapPlayTurn.view_live = false
 	var play: PlaySession = _screen.play
 	assert_false(MapPlayTurn.view_live, "the turn knows no view is followed")
 	var before: int = play.turn
-	_step(5)
-	assert_eq(play.turn, before + 5, "the calendar still advances")
-	assert_eq(play.ai_turns.size(), 6, "every turn still records")
+	_step(2)
+	assert_eq(play.turn, before + 2, "the calendar still advances")
+	assert_eq(play.ai_turns.size(), 3, "every turn still records")
 	# Same rules as an on-screen observer: every crown still holds a ledger.
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_true(
@@ -206,6 +208,39 @@ func test_market_reading_names_the_book_food_against_every_courts_ration() -> vo
 		"food_gap is the book's food against the courts' demand"
 	)
 	assert_true(market.has("minor_offers"), "the offer-row count still prints")
+
+
+## The deed gate's own readings ride the trace: the purchased tiles each court
+## holds and the deals the last clearing settled through first right of refusal,
+## so a run that never signs a deed or never fills one through the privilege
+## says so on the turn line instead of needing a throwaway probe (issue #841).
+func test_the_trace_reads_deeds_and_first_right_fills() -> void:
+	var play: PlaySession = _screen.play
+	var snapshot: Dictionary = MapPlayObserver.snapshot(play)
+	var market: Dictionary = snapshot["market"] as Dictionary
+	assert_true(market.has("frr_fills"), "the clearing's first-right fills print")
+	var frr: int = 0
+	for deal: Dictionary in play.economy.market.book.last_deals:
+		if bool(deal.get("is_frr", false)):
+			frr += 1
+	assert_eq(int(market["frr_fills"]), frr, "frr_fills counts the Deal Book's own rows")
+	for raw: Dictionary in (snapshot["rows"] as Array):
+		assert_true(raw.has("deeds"), "every court row prints its deeds")
+		assert_eq(
+			int(raw["deeds"]),
+			MapPlayObserver.deeds_held(play, int(raw["faction"])),
+			"the row's deed count is the court's purchased land"
+		)
+	# A deed signed on the chart is the count the row reads.
+	var model: MapModel = play.world.region(WorldMap.OLD_WORLD)
+	var province: ProvinceState = model.provinces[0]
+	var buyer: int = int(snapshot["rows"][0]["faction"])
+	var before: int = MapPlayObserver.deeds_held(play, buyer)
+	model.purchase_tile(province.tiles[0], buyer)
+	assert_eq(
+		MapPlayObserver.deeds_held(play, buyer), before + 1,
+		"a signed deed is one more purchased tile"
+	)
 
 
 func test_observer_former_crown_plays_through_the_planners() -> void:
@@ -502,6 +537,84 @@ func test_the_trace_caps_one_crown_events_and_ignores_an_empty_key() -> void:
 	assert_false(actions.has(""), "an empty key adds no row")
 
 
+func test_the_trace_files_a_siege_after_the_economy_rows() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_trace = []
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var province: int = 0
+	var battle: Dictionary = {
+		"attacker": crown, "defender": rival, "province": province,
+		"region": play.region_index, "outcome": ArmyCombat.Outcome.STALEMATE,
+		"attacker_mauled": 5,
+		"siege": {
+			"guns_lost": 2, "guns_start": 2, "fort_downgraded": true,
+			"fort_before": 2, "fort_after": 1,
+		},
+	}
+	var report: Dictionary = {"factions": {crown: {
+		"production": {"assignments": [{"workshop": 1}]},
+	}}}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], report)
+	BattleTrace.record(merged, play, [battle], [])
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(events.size(), 2, "the economy row and the fight both print")
+	assert_eq(
+		String(events[1]),
+		BattleReport.describe_land(
+			battle, play.model.province_name(province), FactionCatalog.names()
+		),
+		"the observer reads the same sentence the live despatch prints"
+	)
+	assert_true(
+		String(events[1]).contains("emplaced guns silenced"),
+		"the siege's battery and the fort level it left are named"
+	)
+	assert_eq(
+		String(merged["events"][1]["text"]), String(events[1]),
+		"the fight is the newest row, so the panel's feed leads with it"
+	)
+
+
+func test_the_trace_files_a_sea_battle() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_trace = []
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var rival: int = FactionCatalog.great_power_ids()[1]
+	var battle: Dictionary = {
+		"attacker": crown, "defender": rival, "zone": 0,
+		"region": play.region_index, "outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"defender_lost": [1], "attacker_lost": [],
+	}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	BattleTrace.record(merged, play, [], [battle])
+	var events: Array = merged["factions"][crown]["events"]
+	assert_eq(
+		String(events[0]),
+		BattleReport.describe(
+			battle, play.model.sea_zone_name(0), FactionCatalog.names()
+		),
+		"the sea despatch is the one the court would read"
+	)
+
+
+func test_the_trace_skips_a_battle_whose_attacker_is_no_great_power() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_trace = []
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var minor: int = FactionCatalog.minor_ids()[0]
+	var battle: Dictionary = {
+		"attacker": minor, "defender": crown, "province": 0,
+		"region": play.region_index, "outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+	}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {})
+	BattleTrace.record(merged, play, [battle], [])
+	assert_true(
+		(merged["factions"][crown]["events"] as Array).is_empty(),
+		"a minor's fight files no row under the crown it beat"
+	)
+
+
 func test_dashboard_renders_the_live_snapshot() -> void:
 	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
 	assert_not_null(panel, "the observatory panel mounts")
@@ -536,6 +649,90 @@ func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
 	row["pressure_stage"] = AiVictoryPressure.STAGE_FAR
 	panel._refresh_card(row)
 	assert_false(progress.text.ends_with("pressing"), "a court far from the bar is not")
+
+
+## A busy turn raises more rows than the plate has room for. The feed scrolls
+## through the turns it keeps whole instead of printing the newest dozen and
+## dropping the rest — the war declared and the first march are the rows a
+## watcher most needs (REQ-P5-05).
+func test_the_feed_prints_a_busy_turn_whole() -> void:
+	var play: PlaySession = _screen.play
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var merged: Dictionary = AiTurnLog.record(play, [], [], {"factions": {crown: {}}})
+	var bucket: Dictionary = merged["factions"][crown]
+	for index in 30:
+		AiTurnLog.event(merged, bucket, crown, "Order %d." % index)
+	var panel := _screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts")
+	if panel == null:
+		return
+	panel.refresh()
+	var rows: int = (merged["events"] as Array).size()
+	assert_true(rows > 12, "the turn is busier than the plate's old dozen")
+	var lines: PackedStringArray = panel._log.text.split("\n")
+	var prefix: String = "T%d  " % int(merged["turn"])
+	var printed: int = 0
+	for line: String in lines:
+		if line.begins_with(prefix):
+			printed += 1
+	assert_eq(printed, rows, "every row of the turn reaches the feed")
+	assert_eq(
+		lines[0], "%sOrder 29." % prefix,
+		"the newest order still leads the feed"
+	)
+	assert_true(
+		lines.has("%sOrder 0." % prefix),
+		"the turn's first order is kept, not cut"
+	)
+	var kept: int = 0
+	for index in range(maxi(play.ai_turns.size() - AiObserverPanel.FEED_TURNS, 0), play.ai_turns.size()):
+		kept += (play.ai_turns[index]["events"] as Array).size()
+	assert_true(
+		panel._log_caption.text.contains("%d rows over 2 turns" % kept),
+		"the caption counts every row the feed holds"
+	)
+
+
+## The dashboard on a landscape handset (360 points tall): its stack is taller
+## than the screen, so the plate scrolls and the crown cards keep their room
+## instead of being squeezed to nothing (REQ-P1-07, RUB-P1-07).
+func test_the_plate_fits_a_landscape_handset() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(720, 360)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var screen: MapScreen = SCENE.instantiate()
+	screen.map_width = Fixture.WORLD_WIDTH
+	screen.map_height = Fixture.WORLD_HEIGHT
+	screen.preset_world = Fixture.world()
+	screen.observer_mode = true
+	screen.infinite_mode = true
+	viewport.add_child(screen)
+	for _frame in 4:
+		await get_tree().process_frame
+	var panel := screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory panel mounts on a handset")
+	if panel == null:
+		screen.free()
+		viewport.free()
+		return
+	panel._fit()
+	for _frame in 2:
+		await get_tree().process_frame
+	assert_true(
+		panel._crowns_scroll.size.y >= AiObserverPanel.CARD_MIN_HEIGHT - 1.0,
+		"the crown cards keep their window on a 360-point-tall screen"
+	)
+	assert_true(
+		panel._plate.get_v_scroll_bar().max_value > panel._plate.size.y,
+		"the plate scrolls when its stack is taller than the screen"
+	)
+	assert_true(
+		panel._frame.size.x > 200.0 and panel._frame.size.x < 720.0,
+		"the plate keeps a readable width"
+	)
+	screen.free()
+	viewport.free()
 
 
 func test_dashboard_controls_step_pause_and_collapse() -> void:

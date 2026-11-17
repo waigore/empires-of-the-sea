@@ -2,9 +2,9 @@ extends RefCounted
 ## Fifth step of the e2e smoke: every sheet and reading the bar can raise — the
 ## crown-road and defence lenses with their keys, the muster roll, the province
 ## ledger, the crown's towns, the crown's walls, the crown's hospitals, the
-## crown's eyes, the command pool and the crown's navy — opened from the door the
-## player uses and set aside without placing an order (DR-20261113-12,
-## DR-20261115-09/10/11/12/14, DR-20261116-01/02).
+## crown's eyes, the command pool, the crown's navy and the crown's army — opened
+## from the door the player uses and set aside without placing an order
+## (DR-20261113-12, DR-20261115-09/10/11/12/14, DR-20261116-01/02/07).
 ##
 ## No `class_name`: the driver (tools/e2e_smoke.gd) preloads this file.
 
@@ -22,6 +22,7 @@ static func step(run) -> void:
 	await _spy_ledger(run, screen)
 	await _command_ledger(run, screen)
 	await _navy_ledger(run, screen)
+	await _army_ledger(run, screen)
 	await _bid_budget(run, screen)
 
 
@@ -84,6 +85,15 @@ static func _survey_lens(run, screen: MapScreen) -> void:
 			String((types[0] as Dictionary)["badge"]).count("/") == 2,
 			"a type's badge counts built, linked and held"
 		)
+	# The court's own pick rides the reading (DR-20261117-07): the chart marks
+	# only ground the crown has charted, and a mark is a reading, not an order.
+	run.check(lens.marks.size() <= lens.picks.size(), "one mark per picked ground")
+	for mark: Dictionary in lens.marks:
+		var tile: Vector2i = mark["tile"]
+		run.check(
+			screen.play.visibility.level_at(tile.x, tile.y) != VisibilityModel.Level.UNKNOWN,
+			"the pick's ground is charted"
+		)
 	MapPlayInput.set_lens(screen.play, false)
 	await run.tree.process_frame
 	run.check(not screen.hud.lens_legend.visible, "survey key closes")
@@ -94,7 +104,7 @@ static func _survey_lens(run, screen: MapScreen) -> void:
 ## itself aside (DR-20261113-12). No order is placed, so the turn is untouched.
 static func _muster_roll(run, screen: MapScreen) -> void:
 	run.check(screen.hud.muster_roll != null, "muster roll mounted")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	await run.tree.process_frame
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	run.check(panel.is_open(), "muster roll opens from the seal")
@@ -149,7 +159,7 @@ static func _province_ledger(run, screen: MapScreen) -> void:
 ## sets itself aside (DR-20261115-12). No Builder is sent, so no order is placed.
 static func _town_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.towns_ledger != null, "towns ledger mounted")
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
@@ -199,7 +209,7 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 ## the real map and sets itself aside (DR-20261116-01). No Engineer is sent.
 static func _wall_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.walls_ledger != null, "walls ledger mounted")
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
@@ -227,7 +237,7 @@ static func _wall_ledger(run, screen: MapScreen) -> void:
 ## (DR-20261116-02). No Engineer is sent, so no order is placed.
 static func _hospital_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.hospitals_ledger != null, "hospitals ledger mounted")
-	screen.hud.provinces_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
@@ -313,7 +323,7 @@ static func _command_ledger(run, screen: MapScreen) -> void:
 ## aside (DR-20261115-14). No hull is launched, docked or ordered.
 static func _navy_ledger(run, screen: MapScreen) -> void:
 	run.check(screen.hud.navy_ledger != null, "navy ledger mounted")
-	screen.hud.muster_roll_pressed.emit()
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	await run.tree.process_frame
 	var door: Button = null
 	for node: Node in screen.hud.muster_roll.find_children("*", "Button", true, false):
@@ -336,6 +346,39 @@ static func _navy_ledger(run, screen: MapScreen) -> void:
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the navy ledger sets itself aside")
+	screen.hud.muster_roll.close()
+	await run.tree.process_frame
+	run.check(not screen.hud.muster_roll.is_open(), "the muster roll sets itself aside again")
+
+
+## The crown's army: the muster roll's army door raises the regiment-by-regiment
+## reading on the real map, prints a standard heading with its men and sets
+## itself aside (DR-20261116-16). No regiment is mustered, detached or dismissed.
+static func _army_ledger(run, screen: MapScreen) -> void:
+	run.check(screen.hud.army_ledger != null, "army ledger mounted")
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	await run.tree.process_frame
+	var door: Button = null
+	for node: Node in screen.hud.muster_roll.find_children("*", "Button", true, false):
+		var button := node as Button
+		if button != null and button.text.begins_with("The crown's army"):
+			door = button
+			break
+	run.check(door != null, "the muster roll carries the army door")
+	if door == null:
+		return
+	door.pressed.emit()
+	await run.tree.process_frame
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	run.check(panel.is_open(), "the army ledger opens from the roll's door")
+	if int(panel._snapshot.get("total", 0)) > 0:
+		run.check(run.has_text(panel._rows, "HOME ARMY"), "a heading names the standard")
+		run.check(run.has_text(panel._rows, "strength"), "a heading prints its strength")
+	else:
+		run.check(run.has_text(panel._rows, "regiment"), "an empty army names the drill yard")
+	panel.close()
+	await run.tree.process_frame
+	run.check(not panel.is_open(), "the army ledger sets itself aside")
 	screen.hud.muster_roll.close()
 	await run.tree.process_frame
 	run.check(not screen.hud.muster_roll.is_open(), "the muster roll sets itself aside again")

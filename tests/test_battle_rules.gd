@@ -306,6 +306,23 @@ func test_combine_keeps_the_first_army_when_no_home_army_is_present() -> void:
 	assert_false(armies.has(second))
 
 
+## The panel stacks a province's standards by army id, so the standard the crown
+## sees first absorbs the rest whatever it tapped (wiki: military-armies
+## § Split and combine — "the first selected army in panel display order").
+func test_combine_keeps_the_panel_first_army_whatever_the_tap() -> void:
+	var earlier := Fixture.army(3, 0, 0, ["pikemen"])
+	var later := Fixture.army(9, 0, 0, ["squires"])
+	var armies: Array[ArmyState] = [later, earlier]
+	var selected: Array[ArmyState] = [later, earlier]
+
+	var result: Dictionary = ArmyRoster.combine(armies, selected)
+
+	assert_true(bool(result["ok"]), String(result["reason"]))
+	assert_eq(result["army"], earlier, "the standard the panel prints first")
+	assert_eq(earlier.count(), 2)
+	assert_false(armies.has(later))
+
+
 func test_combine_rejects_armies_in_different_provinces() -> void:
 	var here := Fixture.army(1, 0, 0, ["pikemen"])
 	var there := Fixture.army(2, 0, 1, ["pikemen"])
@@ -668,6 +685,52 @@ func test_an_unopposed_capture_and_a_stalemate_read_plainly() -> void:
 		BattleReport.describe_land(standoff, "Picardy", FACTIONS),
 		"España and France stand off at Picardy"
 	)
+
+## combat § Garrison recovery: the reformed garrison is a new standard and new
+## men, so it takes the crown's own id cursors when the pass carries them. A
+## roster scan alone reuses an id the other chart still wears, and the next
+## split or muster then hands the same number out twice
+## (wiki: military-armies § Split and combine).
+func test_a_recovered_garrison_mints_from_the_crowns_id_cursors() -> void:
+	var roster: Array[ArmyState] = [
+		ArmyState.muster(1, 0, 0, true, ["pikemen", "pikemen"], 1),
+		ArmyState.muster(2, 0, 2, false, ["pikemen", "pikemen"], 3),
+	]
+	var cursors: Dictionary = {"army": 7, "regiment": 9}
+	var recovery: Dictionary = ArmyGarrison.recover(roster, 2, 0, 4, {"ids": cursors})
+
+	assert_eq(int(recovery["count"]), 1)
+	assert_eq(roster.size(), 3)
+	assert_eq(roster[2].id, 7, "the new standard takes the crown's next army id")
+	assert_eq(roster[2].regiments, ["unit_9"], "and the crown's next regiment id")
+	assert_eq(int(cursors["army"]), 8, "the cursor moves past what it minted")
+	assert_eq(int(cursors["regiment"]), 10)
+
+
+func test_a_recovered_garrison_without_cursors_mints_above_the_roster() -> void:
+	var roster: Array[ArmyState] = [
+		ArmyState.muster(1, 0, 0, true, ["pikemen", "pikemen"], 1),
+		ArmyState.muster(2, 0, 2, false, ["pikemen", "pikemen"], 3),
+	]
+	ArmyGarrison.recover(roster, 2, 0, 4, {})
+
+	assert_eq(roster[2].id, 3, "a hand-built roster still mints above its own armies")
+	assert_eq(roster[2].regiments, ["unit_5"], "and above its own men")
+
+
+func test_a_stale_cursor_never_reuses_a_live_id() -> void:
+	var roster: Array[ArmyState] = [
+		ArmyState.muster(1, 0, 0, true, ["pikemen", "pikemen"], 1),
+		ArmyState.muster(2, 0, 2, false, ["pikemen", "pikemen"], 3),
+	]
+	var cursors: Dictionary = {"army": 1, "regiment": 1}
+	ArmyGarrison.recover(roster, 2, 0, 4, {"ids": cursors})
+
+	assert_eq(roster[2].id, 3, "the roster's live ids win over a stale cursor")
+	assert_eq(roster[2].regiments, ["unit_5"])
+	assert_eq(int(cursors["army"]), 4)
+	assert_eq(int(cursors["regiment"]), 6)
+
 
 # --- from test_naval_combat.gd ---
 ## Sea-zone combat (wiki: ships-and-naval § Naval Combat).
