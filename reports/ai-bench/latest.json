@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:d694793756268427887c5d00d919c14857a8880165321c3a42409bf002120bd9",
-  "submission_git": "fix/894-hire-margin@a2d1b161+dirty",
+  "submission_hash": "sha256:32d0afe1f01cfeb2e16f11baaf1e0f028e836616925bf38bcb88e1d9f68320bf",
+  "submission_git": "fix/894-hire-margin@09e16d50+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:ea7e3ec864f4a85096334dae56b157987859120fb64d6bd2d2b6dc752f113c46",
+    "ai_surface_hash": "sha256:a2b44dd6f42ddba3d3e2811c53930193133909e5006613473ff9b20eb157b706",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 14,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-17T14:31:14Z",
+  "timestamp": "2026-11-17T14:47:18Z",
   "report_version": 1,
-  "signature": "hmac-sha256:b9f1f15b4ad97ede3c3126b37c9f7094929d595487cfa7409d33cd55f8f286d4"
+  "signature": "hmac-sha256:321a0d91b0445cfa2a6f299ac0f8c9e8b68ebb1fbeba376b2371c11fb421e473"
 }
