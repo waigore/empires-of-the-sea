@@ -166,6 +166,10 @@ static func suite_reset(
 	var data: Dictionary = pristine.duplicate(true)
 	if not SaveCodec.restore(play, data, world):
 		return
+	# A case that borrowed the chart as another crown (attach_faction_screen)
+	# left screen.player_faction on the rival; the save restored play's seat, so
+	# mirror it here the same way MapScreen does on a load.
+	screen.player_faction = play.player_faction
 	# Economy always founds on the Old World; restore there, then return.
 	var target: int = play.region_index
 	play.region_index = 0
@@ -380,4 +384,20 @@ static func open_save(host: Node, data: Dictionary, save_dir: String = "") -> Ma
 	screen.preset_world = world()
 	screen.pending_save = data
 	host.add_child(screen)
+	return screen
+
+
+## Reads a suite's one mounted chart as another crown, then hands it back: the
+## screen's `player_faction` swaps, the human seat follows (diplomacy, first
+## contact and the HUD's own reads), and the next `before_each` re-seats the
+## chart from the suite's pristine save, so the borrowed crown never survives the
+## case. A case that wants a rival's view pays a bookkeep instead of a fresh
+## mount (~0.5 s under coverage), which is what docs/testing.md's one-mount rule
+## asks for.
+static func attach_faction_screen(screen: MapScreen, faction: int) -> MapScreen:
+	screen.player_faction = faction
+	screen.play.player_faction = faction
+	screen.play.diplomacy.human_faction = faction
+	MapPlayDiplomacy.sync_first_contact(screen.play)
+	MapPlaySetup.refresh_after_load(screen.play)
 	return screen

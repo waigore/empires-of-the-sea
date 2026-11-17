@@ -230,9 +230,15 @@ func fit(viewport_width: float) -> void:
 	if frame == null:
 		return
 	var panel_width: float = clampf(viewport_width * 0.5, 280.0, 470.0)
-	frame.custom_minimum_size.x = minf(
-		panel_width, maxf(viewport_width - 24.0, 220.0)
-	)
+	var width: float = minf(panel_width, maxf(viewport_width - 24.0, 220.0))
+	frame.custom_minimum_size.x = width
+	# The plate owns its own column, not the screen: the chart beside it must
+	# stay clickable, because a tap there is how the observatory reads a
+	# province (DR-20261117-11). A full-rect scroll container would swallow
+	# every click before the map's own input saw it.
+	if plate != null:
+		plate.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		plate.size = Vector2(width + 12.0, get_viewport_rect().size.y)
 
 
 ## Two deliberate rows keep every crown's progress visible without an awkward

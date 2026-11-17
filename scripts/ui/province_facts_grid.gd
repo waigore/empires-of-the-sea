@@ -42,6 +42,22 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
 
 
+## Fill the same six rows from a caller's own reading instead of the province
+## record: the observatory's province sheet hands over the words its reading
+## module wrote, so one grid paints every province sheet (REQ-P3-01). A filled
+## grid keeps no province, so a crown-link repaint has nothing to repaint.
+func fill(values: Dictionary) -> void:
+	_data = null
+	terrain.text = String(values.get("terrain", ""))
+	port.text = String(values.get("port", ""))
+	town.text = String(values.get("town", ""))
+	town.tooltip_text = String(values.get("town_tip", ""))
+	road.text = String(values.get("roads", ""))
+	road.tooltip_text = ""
+	fort.text = String(values.get("fort", ""))
+	hospital.text = String(values.get("hospital", ""))
+
+
 ## `crown` is `LandConnectivity.province_link` for this province: whether its
 ## town reaches the capital. When omitted, the roads row falls back to the
 ## estate survey (DossierCopy).
@@ -65,18 +81,14 @@ func refresh_crown(crown: Dictionary) -> void:
 	town.tooltip_text = DossierCopy.town_tip(_data)
 
 
+## The ground this province is fought on, in the published display name. The
+## reading is [ArmyModifiers.terrain_for]'s own — the same call the Combat phase
+## makes — so the sheet cannot name ground the battle would not use on a tie
+## (wiki: resource-terrain-region-rules § Player-facing terrain display names;
+## combat § Modifiers; REQ-P2-03).
 func _dominant_terrain(model: MapModel, province_id: int) -> String:
-	var counts: Dictionary = {}
-	for tile: Vector2i in model.province_tiles(province_id):
-		var terrain_id: int = model.terrain_at(tile.x, tile.y)
-		counts[terrain_id] = int(counts.get(terrain_id, 0)) + 1
-	var best: int = MapModel.Terrain.PLAINS
-	var best_count: int = -1
-	for terrain_id: int in counts.keys():
-		if int(counts[terrain_id]) > best_count:
-			best_count = int(counts[terrain_id])
-			best = terrain_id
-	return String(MapModel.TERRAIN_LABELS.get(best, "Unknown"))
+	var ground: int = ArmyModifiers.terrain_for(model, province_id)
+	return String(MapModel.TERRAIN_LABELS.get(ground, "Unknown"))
 
 
 func _add_row(caption: String) -> Label:

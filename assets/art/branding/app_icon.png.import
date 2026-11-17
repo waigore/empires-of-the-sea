@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bhbi15m7y5x0x"
-path="res://.godot/imported/launcher_foreground.svg-d3af1c344112a80869e27940bb885ec5.ctex"
+uid="uid://c8rlp86l1od44"
+path="res://.godot/imported/app_icon.png-d1434cdf39fae0f863c5ccd538bfb2fd.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/art/branding/launcher_foreground.svg"
-dest_files=["res://.godot/imported/launcher_foreground.svg-d3af1c344112a80869e27940bb885ec5.ctex"]
+source_file="res://assets/art/branding/app_icon.png"
+dest_files=["res://.godot/imported/app_icon.png-d1434cdf39fae0f863c5ccd538bfb2fd.ctex"]
 
 [params]
 
@@ -38,6 +38,3 @@ process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
 process/size_limit=0
 detect_3d/compress_to=1
-svg/scale=1.0
-editor/scale_with_editor_scale=false
-editor/convert_colors_with_editor_theme=false

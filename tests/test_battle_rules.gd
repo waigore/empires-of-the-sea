@@ -2852,6 +2852,79 @@ func test_an_unknown_plan_is_balanced() -> void:
 	)
 
 
+## Every blow a round records — a scripted order and the fort's own volley —
+## wears the one action shape the plate and the despatch read, so neither needs
+## a special case for the battery (REQ-P3-01).
+func test_every_blow_writes_the_one_action_shape() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(6), _guards(8), 3)
+	var skeleton: Dictionary = QuickBattleActions.action_entry(1, "battery", "Emplaced battery")
+	var saw_battery: bool = false
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			for key: String in skeleton.keys():
+				assert_true(action.has(key), "a blow carries %s" % key)
+			if String(action["action"]) == "battery":
+				saw_battery = true
+				assert_eq(String(action["label"]), "Emplaced battery")
+	assert_true(saw_battery, "the emplaced battery answers the siege")
+
+
+## A battery that hits nobody writes no action at all: the plate must not print
+## a silent volley (wiki: quick-battle § Wings and collapse).
+func test_a_silent_battery_writes_no_action() -> void:
+	var side: Array[ArmyState] = _rival(["guards", "guards", "guards", "guards"])
+	var state: Dictionary = {
+		"attacker": {"side": side, "limit": 10, "wings": {}, "broken": [],
+			"lost": [] as Array[String]},
+		"defender": {},
+	}
+	var silent: Array[Dictionary] = []
+	assert_true(
+		QuickBattleBattery.volley_entry(side, state, silent, 1).is_empty(),
+		"no gun, no volley"
+	)
+
+
+## The report slice is written from the facts read when the battle opened, so
+## the plate, the despatch and the rail read one shape (REQ-P2-03, REQ-P3-01).
+func test_the_report_slice_reads_the_opening_it_is_handed() -> void:
+	var state: Dictionary = {
+		"attacker": {"plan": "balanced", "side": [] as Array[ArmyState], "cohesion": 2,
+			"broken": []},
+		"defender": {"plan": "defensive", "side": [] as Array[ArmyState], "cohesion": 3,
+			"broken": []},
+	}
+	var opening: Dictionary = {
+		"attacker_start": 6,
+		"defender_start": 4,
+		"level": 2,
+		"downgraded": true,
+		"after": 1,
+		"wall": 2,
+		"behind": 1,
+		"terrain": "hill",
+		"gates": {"broken": 1},
+	}
+	var slice: Dictionary = QuickBattleReport.build(
+		state, [] as Array[Dictionary], [] as Array[Dictionary], {}, 1, opening,
+		{"attacker": {"limit": 10}, "defender": {"limit": 5}}, {}
+	)
+
+	assert_eq(int(slice["attacker_start"]), 6)
+	assert_eq(int(slice["defender_start"]), 4)
+	assert_eq(String(slice["terrain"]), "hill")
+	assert_eq(String(slice["terrain_label"]), SiegeLanes.terrain_label("hill"))
+	assert_eq(int(slice["lanes"]["wall"]), 2)
+	assert_eq(int(slice["lanes"]["behind"]), 1)
+	assert_eq(int(slice["breaches"]), 1)
+	assert_eq(int(slice["limits"]["defender"]), 5)
+	assert_eq(int(slice["attacker_cohesion"]), 2)
+	assert_eq(int(slice["sorties"]), 0)
+	assert_true(bool(slice["fort_downgraded"]))
+	assert_eq(int(slice["fort_after"]), 1)
+	assert_true(slice.has("wings_broken"), "the wings record rides the slice")
+
+
 func _rival(types: Array[String]) -> Array[ArmyState]:
 	var side: Array[ArmyState] = []
 	side.append(Fixture.army(7, 1, 2, types, true))
