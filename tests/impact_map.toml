@@ -3227,7 +3227,7 @@ match = "scripts/rules/intel_*.gd*"
 domain = "intel"
 
 [[rules]]
-match = "scripts/rules/resource_survey.gd*"
+match = "scripts/rules/resource_survey*.gd*"
 domain = "prospect"
 
 # The survey's road projection: same lens, same suites (the chart draws no roads).
