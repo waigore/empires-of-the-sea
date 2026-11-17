@@ -7,6 +7,22 @@ extends RefCounted
 ## (REQ-P3-03). One gate for the panel and the order path (REQ-P2-03).
 
 
+## The hull a crown is weighing, in the words THE CROWN'S NAVY prints for a hull
+## she already floats: her own combat line (`NavalStrength.hull_line`, the
+## aggregation formula's own figures) and the holds her class carries
+## (wiki: ships-and-naval § Ship combat and cargo stats, § Ship build economy).
+## A yard that named only the price made the biggest purchase in the game blind —
+## a sloop and an indiaman read alike until the first battle (REQ-P5-06).
+static func hull_line(type_id: String) -> String:
+	var cargo: int = int(ShipStats.entry(type_id).get("cargo", 0))
+	var holds: String = (
+		"No holds — she fights in the line"
+		if cargo <= 0
+		else "%d hold%s for the world market" % [cargo, "" if cargo == 1 else "s"]
+	)
+	return "%s · %s" % [NavalStrength.hull_line(type_id), holds]
+
+
 ## One ledger row per catalog type, payable rows first so the yard leads with
 ## what can launch today. `at_home` is false when the crown has no capital port
 ## to launch from; every row then carries that reason.
@@ -33,6 +49,9 @@ static func rows(
 			"type_id": type_id,
 			"name": ShipStats.display_name(type_id),
 			"cost_text": ShipEconomy.cost_text(type_id),
+			# What she is, not only what she costs: the same line the navy sheet
+			# prints for a hull already afloat (REQ-P5-06).
+			"line": hull_line(type_id),
 			"ok": reason.is_empty(),
 			"reason": reason,
 			"pending": economy.recruits.pending(RecruitQueue.KIND_SHIP, type_id),
