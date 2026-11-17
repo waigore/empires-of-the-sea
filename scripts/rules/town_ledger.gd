@@ -153,6 +153,15 @@ static func _row(
 	row["next_level"] = next_level
 	row["next_text"] = level_text(next_level)
 	row["note"] = _note(state, next_level, cost_text, turns, refusal, crew)
+	# What the level buys, priced beside the step: the manufacture bonus the
+	# Extraction phase pays it and the works its level opens. A finished town and
+	# one already being raised have no level to price (REQ-P2-03, REQ-P5-06;
+	# DR-20261118-06).
+	row["preview_text"] = (
+		TownTerms.level_line(next_level)
+		if state != STATE_DEVELOPED and state != STATE_AT_WORK
+		else ""
+	)
 	return row
 
 
