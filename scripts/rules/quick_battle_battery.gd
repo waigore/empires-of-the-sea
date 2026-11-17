@@ -63,20 +63,35 @@ static func total_hp(guns: Array[Dictionary]) -> float:
 	return total
 
 
+## One round of the garrison's emplaced guns. A gun's fire is a blow like any
+## other: it falls into **one wing** of the besieging line — the fullest, the
+## mass the guns are laid on — takes the flank heavier when that wing's
+## neighbour has broken, and never bleeds past the wing it strikes (wiki:
+## quick-battle § Wings and collapse). A line with no wings (a hand-built state
+## or a record made before wings existed) is bled as one deployed slice, as it
+## was before. Returns the wing it fired into and how many it broke.
 static func fire(
 	armies: Array[ArmyState], state: Dictionary, guns: Array[Dictionary]
-) -> int:
+) -> Dictionary:
 	var atk: Dictionary = state["attacker"]
 	var atk_side: Array[ArmyState] = atk["side"]
 	var count: int = ArmyForce.side_regiments(atk_side)
 	if count <= 0:
-		return 0
-	var wanted: int = ceili(float(alive(guns)) * GUN_FIRE * float(count))
-	var lost: Array[String] = ArmyForce.apply_losses(
-		armies, atk_side, wanted, int(atk["limit"])
-	)
+		return {"lost": 0, "wing": ""}
+	var wings: Dictionary = atk.get("wings", {}) as Dictionary
+	var wing: String = QuickBattleWings.target(QuickBattleWings.counts(wings), "volley")
+	var blow: float = float(alive(guns)) * GUN_FIRE * float(count)
+	blow *= QuickBattleWings.turned_scale(wing, atk.get("broken", []) as Array)
+	var lost: Array[String] = []
+	if wing.is_empty():
+		lost = ArmyForce.apply_losses(armies, atk_side, ceili(blow), int(atk["limit"]))
+	else:
+		lost = ArmyForce.apply_losses(
+			armies, atk_side, ceili(blow), 0, Callable(),
+			QuickBattleWings.ids(wings, wing)
+		)
 	atk["lost"].append_array(lost)
-	return lost.size()
+	return {"lost": lost.size(), "wing": wing}
 
 
 ## Battle weight of the virtual battery: each living piece's type stats scaled by
