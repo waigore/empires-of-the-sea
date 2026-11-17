@@ -779,6 +779,12 @@ domain = "muster"
 match = "scripts/rules/town_ledger.gd*"
 domain = "muster"
 
+# What a town level buys, named on the row that sells it (DR-20261118-06): the
+# term module travels with the suites that print its words.
+[[rules]]
+match = "scripts/rules/town_terms.gd*"
+domain = "town_terms"
+
 [[rules]]
 match = "scripts/ui/town_ledger_*.gd*"
 domain = "muster"
@@ -2269,6 +2275,16 @@ suites = [
 suites = [
   "test_civilian_turn_rules.gd",
   "test_panel_parts_rules.gd",
+]
+
+# A town level's terms ([TownTerms]): the crew's order row, the crown's towns
+# sheet and the pick line all read one module, so its own domain runs exactly
+# the suites that print it (DR-20261118-06).
+[domains.town_terms]
+suites = [
+  "test_ai_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_ledgers.gd",
 ]
 
 [domains.ai_economy]

@@ -2423,6 +2423,72 @@ func test_the_transport_orders_name_the_path_they_land() -> void:
 	)
 
 
+## The town's own step names what the level pays before the crown pays for it:
+## the manufacture bonus the Extraction phase grants that level, then the works
+## its level opens. Level III is the one step that pays nothing of its own, and
+## the row says so rather than leaving the crown to infer it (wiki:
+## extraction-and-improvements § Town manufacturing bonus;
+## production-recipes § Town-works gates; DR-20261118-06).
+func test_the_town_step_names_what_the_level_pays() -> void:
+	var builder := _add("builder", field_Fixture.BARE_TILE)
+	assert_eq(
+		String(_option(builder, "upgrade_town").get("preview_text", "")),
+		"L2 pays 1 manufacture per 4 raw its own estates deliver"
+		+ " · the Garments works need a level-2 town",
+		"a level-II town names its bonus and the works the level opens"
+	)
+	var province: ProvinceState = field__model.province_data(field_Fixture.PLAYER_PROVINCE)
+	province.town_development = 2
+	assert_eq(
+		TownTerms.order_line(field__model, field_Fixture.BARE_TILE),
+		"L3 pays no manufacture — it is the road to L4",
+		"the third level pays nothing of its own, and the row says so"
+	)
+	province.town_development = 3
+	assert_eq(
+		TownTerms.order_line(field__model, field_Fixture.BARE_TILE),
+		"L4 pays 2 manufactures per 4 raw its own estates deliver"
+		+ " · the Rum works need a level-4 town",
+		"the top level names the doubled bonus and the finer works"
+	)
+	province.town_development = 4
+	assert_eq(
+		TownTerms.order_line(field__model, field_Fixture.BARE_TILE),
+		"",
+		"a developed town files no step, so there is nothing to price"
+	)
+	assert_eq(
+		TownTerms.order_line(field__model, Vector2i(4, 4)),
+		"",
+		"ground outside every province carries no town"
+	)
+
+
+## The works clause is the catalogue's own, so a row a study also gates is never
+## promised by the town alone (REQ-P2-03).
+func test_the_town_works_clause_reads_the_recipe_catalogue() -> void:
+	assert_eq(
+		TownTerms.works_text(2), "the Garments works need a level-2 town"
+	)
+	assert_eq(TownTerms.works_text(4), "the Rum works need a level-4 town")
+	assert_eq(TownTerms.works_text(3), "", "no row's works stop at the third level")
+	assert_eq(TownTerms.works_text(1), "", "no row's works stop at the first level")
+	assert_eq(TownTerms.level_line(1), "", "no order lands a town on level I")
+	assert_eq(TownTerms.level_line(5), "", "the ladder ends at level IV")
+	assert_eq(
+		TownTerms.bonus_text(1), "1 manufacture per 4 raw its own estates deliver"
+	)
+	assert_eq(
+		TownTerms.bonus_text(2), "2 manufactures per 4 raw its own estates deliver"
+	)
+	assert_eq(TownTerms.join_and(PackedStringArray(["Rum"])), "Rum")
+	assert_eq(TownTerms.join_and(PackedStringArray(["Rum", "Garments"])), "Rum and Garments")
+	assert_eq(
+		TownTerms.join_and(PackedStringArray(["Rum", "Garments", "Paper"])),
+		"Rum, Garments and Paper"
+	)
+
+
 func test_rail_needs_an_existing_road_and_an_unrailed_tile() -> void:
 	var tile := Vector2i(0, 1)
 	var rail := _add("rail_builder", tile)

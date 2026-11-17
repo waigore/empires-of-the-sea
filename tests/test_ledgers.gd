@@ -2297,6 +2297,47 @@ func test_a_ready_town_names_the_step_it_waits_on_and_its_price() -> void:
 	)
 
 
+## The sheet names what the level pays, not only what the step costs: the
+## manufacture bonus the Extraction phase grants that level and the works its
+## level opens, read off the same terms the crew's order row prints (wiki:
+## extraction-and-improvements § Town manufacturing bonus; DR-20261118-06).
+func test_a_ready_town_names_what_the_level_pays() -> void:
+	var snapshot: Dictionary = TownLedger.snapshot(_town_regions(_builders()), 0)
+	var home: Dictionary = _row(snapshot, FactionCatalog.OLD_WORLD)
+	assert_eq(
+		String(home["preview_text"]),
+		"L2 pays 1 manufacture per 4 raw its own estates deliver"
+		+ " · the Garments works need a level-2 town",
+		"the row prices the level, not only the step"
+	)
+	assert_eq(
+		TownTerms.level_line(int(home["next_level"])),
+		String(home["preview_text"]),
+		"one wording for the sheet and the crew's order row"
+	)
+
+
+## A finished town and one a Builder is already raising have no level to price,
+## so the sheet prints no payoff line for them — the walls sheet's own rule
+## (REQ-P2-03; DR-20261118-06).
+func test_a_town_with_no_step_to_price_prints_no_payoff() -> void:
+	var snapshot: Dictionary = TownLedger.snapshot(_town_regions(_builders()), 0)
+	var overseas: Dictionary = _row(snapshot, FactionCatalog.NEW_WORLD)
+	assert_eq(String(overseas["state"]), TownLedger.STATE_DEVELOPED)
+	assert_eq(
+		String(overseas.get("preview_text", "")), "", "a finished town owes nothing"
+	)
+	var builder: CivilianState = CivilianState.create(1, 0, "builder", TOWN_TILE)
+	builder.start_work("upgrade_town", TOWN_TILE, 2, TOWN_TILE, {"town_level": 2})
+	var at_work: Dictionary = _row(
+		TownLedger.snapshot(_town_regions([builder]), 0), FactionCatalog.OLD_WORLD
+	)
+	assert_eq(String(at_work["state"]), TownLedger.STATE_AT_WORK)
+	assert_eq(
+		String(at_work.get("preview_text", "")), "", "the works in hand are the news"
+	)
+
+
 func test_a_town_without_the_study_is_locked_and_names_it() -> void:
 	var snapshot: Dictionary = TownLedger.snapshot(_town_regions(_builders(), {}), 0)
 	var home: Dictionary = _row(snapshot, FactionCatalog.OLD_WORLD)
