@@ -3247,6 +3247,36 @@ func test_the_dossier_names_the_work_the_court_would_give_it() -> void:
 	panel.free()
 
 
+## An idle crew with no order it can take says so: a status that says "choose an
+## order below" over a list where every row is refused sends the crown hunting
+## for a press that does not exist (REQ-P5-06).
+func test_the_sheet_says_when_no_order_can_be_taken() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var view: VisibilityModel = CivilianFixture.visibility(model)
+	var explorer: CivilianState = CivilianState.create(
+		1, PLAYER, "explorer", CivilianFixture.BARE_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, explorer, LandWorks.new(), [explorer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_eq(panel._legal, 0, "charted plains offer an Explorer nothing")
+	assert_eq(panel._status.text, "Idle — no order can be taken here.")
+	# A crew that does have a press keeps the standing invitation.
+	var engineer: CivilianState = CivilianState.create(
+		1, PLAYER, "engineer", CivilianFixture.COAST_TILE
+	)
+	panel.refresh(
+		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_true(panel._legal > 0, "a harbour can be raised here")
+	assert_eq(panel._status.text, "Idle — choose an order below.")
+	panel.free()
+
+
 ## The value column of one dossier row, or "" when the caption is absent.
 func _panel_row(panel: CivilianPanel, caption: String) -> String:
 	var children: Array[Node] = panel._detail.get_children()

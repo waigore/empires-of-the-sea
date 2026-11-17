@@ -100,10 +100,18 @@ static func _order_pick(
 		action, model, works, roster, faction, tech_caps, stockpile, context,
 		blockade, tile, province
 	)
+	# The work is not always underfoot: a Builder raises an estate anywhere on
+	# crown land, an Engineer lays a road ahead of the crew. The sheet the line
+	# sits on presses the crew's own tile, so the line names the ground it means
+	# — the same words the march pick uses, and the tile the chart rings.
+	var where: String = ""
+	var crew: CivilianState = CivilianMuster.unit_by_id(roster, int(order.get("unit_id", -1)))
+	if crew != null and crew.tile != tile:
+		where = " at %s (%d, %d)" % [_place(model, province), tile.x, tile.y]
 	words["line"] = (
-		"the court would %s" % String(words["short"])
+		"the court would %s%s" % [String(words["short"]), where]
 		if payoff.is_empty()
-		else "the court would %s — %s" % [String(words["short"]), payoff]
+		else "the court would %s%s — %s" % [String(words["short"]), where, payoff]
 	)
 	words["action"] = action
 	words["tile"] = tile
