@@ -126,6 +126,19 @@ func test_open_advances_are_listed_and_startable() -> void:
 	assert_true(TechCatalog.known(picked[0]))
 	assert_true(_state.researchable().has(picked[0]))
 
+## A purchase row names what the study opens, under its price: the payoff is
+## printed, never a hover a touch crown cannot reach (REQ-P1-05, REQ-P5-03).
+func test_an_open_advance_names_what_it_opens() -> void:
+	_setup_research_panel()
+	_panel.refresh(_state, 2500)
+	var cap: Label = _label_containing("Improves: extraction cap Timber 2.")
+	assert_not_null(cap, "Saw Mill's row names the cap it lifts")
+	assert_eq(cap.get_theme_font_size("font_size"), 10, "the payoff is a detail line")
+	assert_not_null(
+		_label_containing("Unlocks: research paths to Animal Husbandry"),
+		"an advance that only opens the road names the road"
+	)
+
 func test_a_full_roster_disables_new_studies() -> void:
 	_setup_research_panel()
 	for tech_id: String in ["crop_rotation", "saw_mill", "land_enclosure"]:

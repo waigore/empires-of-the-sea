@@ -22,27 +22,28 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
   spies +15% per shadowed court (`SpyNetworks`).
 - **Discovery:** New World techs need a revealed tile with the resource; gold,
   silver, gems, diamonds also prospected.
-- **Extraction caps:** `min(improvement, tech cap, terrain, path transport, town
-  cap)`; horses 1, wool 3.
+- **Extraction caps:** `min(improvement, tech cap, terrain, path transport,
+  town cap)`; horses 1, wool 3.
 - **Unlocks (`TechUnlocks`):** every build order from the canonical gates, each
   military tech's upgrade path and attack price.
-- **Re-equipping (`RegimentUpgrades`):** regiments take the newest same-category
-  type its techs unlock; minors follow the leader.
-- **Attack price (`ArmyAttackCost`):** 100 ducats per Great Power attacker per
-  land battle; ×0.75 Industrial Machinery, ×0.85 Modern Military Funding.
+- **Re-equipping (`RegimentUpgrades`):** regiments take the newest
+  same-category type its techs unlock; minors follow.
+- **Attack price (`ArmyAttackCost`):** 100 ducats per Great Power land battle;
+  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding.
 - **Transport:** road 2 needs Road Construction; rail needs Early Steam Engine
   (flat), Later Steam Engine (hills, swamps), Dynamite (mountains).
 - **Privateering Companies:** a charter holder's interception and raids rise 25%.
-- **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its cash
-  floor keeps one study at Low (DR-20261113-24).
+- **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its floor
+  keeps one study at Low (DR-20261113-24).
 - **Goal slot:** orders the queue (goal, prerequisites nearest-first, catalog);
   funds nothing, rides the save (`ResearchState.goal`, DR-20261111-21).
 - **UI:** `RESEARCH` opens the college ledger: goal strip, slot rows,
-  AVAILABLE/KNOWN tabs and a door to the full-screen tech tree. Slots show
-  ducats and a gauge (`ResearchBar`). The tree lays all 113 advances left to
-  right by prerequisite depth (`TechTreeLayout`), draws the edges, lights the
-  selected advance's ancestor road, and prints its effect on hover or tap; its
-  goal door aims the queue (`REQ-P5-03`, `REQ-P1-05`).
+  AVAILABLE/KNOWN tabs and a tech-tree door. Slots show ducats and a gauge
+  (`ResearchBar`). Every open advance prints what it opens under its price
+  (`TechCatalog.payoff_text`); touch never hovers. The tree lays the 113
+  advances by depth (`TechTreeLayout`), draws the edges, lights the selected
+  advance's road, and prints its effect on hover or tap; its goal door aims
+  the queue (`REQ-P5-03`, `REQ-P1-05`).
 
 ## Deferred (REQ-P2-02)
 
