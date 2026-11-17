@@ -59,11 +59,13 @@ static func _words(
 		return
 	var roster: Array[CivilianState] = []
 	roster.assign(entry.get("roster", []))
+	var tech_caps: Dictionary = entry.get("tech_caps", {})
 	var context: Dictionary = entry.get("context", {})
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
 		var pick: Dictionary = _order_pick(
-			model, works, roster, faction, stockpile, context, blockade, order
+			model, works, roster, faction, tech_caps, stockpile, context, blockade,
+			order
 		)
 		if not pick.is_empty():
 			result[int(order.get("unit_id", -1))] = pick
@@ -82,6 +84,7 @@ static func _order_pick(
 	works: LandWorks,
 	roster: Array[CivilianState],
 	faction: int,
+	tech_caps: Dictionary,
 	stockpile: Dictionary,
 	context: Dictionary,
 	blockade: Blockades,
@@ -94,8 +97,8 @@ static func _order_pick(
 	var province: int = model.province_at(tile.x, tile.y)
 	var words: Dictionary = _wording(action, model, works, tile, province)
 	var payoff: String = _payoff(
-		action, model, works, roster, faction, stockpile, context, blockade, tile,
-		province
+		action, model, works, roster, faction, tech_caps, stockpile, context,
+		blockade, tile, province
 	)
 	words["line"] = (
 		"the court would %s" % String(words["short"])
@@ -174,6 +177,7 @@ static func _payoff(
 	works: LandWorks,
 	roster: Array[CivilianState],
 	faction: int,
+	tech_caps: Dictionary,
 	stockpile: Dictionary,
 	context: Dictionary,
 	blockade: Blockades,
@@ -184,8 +188,8 @@ static func _payoff(
 		"build_improvement":
 			var row: Dictionary = ImprovementLedger.estate_row(
 				model, works, roster, stockpile, faction, tile,
-				context.get("capital_tile", CivilianState.NO_TILE),
-				context.get("tech_caps", {}), blockade
+				context.get("capital_tile", CivilianState.NO_TILE), tech_caps,
+				blockade
 			)
 			return String(row.get("preview_text", ""))
 		"build_road", "build_port", "build_rail":
