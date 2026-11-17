@@ -1125,6 +1125,45 @@ func test_the_yard_names_the_hull_before_the_crown_pays_for_her() -> void:
 	)
 
 
+## A hull the crown already flies may be replaced without her study: the yard
+## reads the court's own craft, the same list a rival court's yard reads, so the
+## opening muster's Fluyte is never locked behind a tech the crown never needed
+## to sail her (issue #484; REQ-P2-03).
+func test_the_yard_rebuilds_a_hull_the_crown_already_flies() -> void:
+	var play: PlaySession = _screen.play
+	var econ: PlayerEconomy = play.economy.economy
+	econ.tech_unlocked.clear()
+	econ.treasury = 60000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 20
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 20)
+	var home: FleetState = _screen.ship_layer.home_fleet(play.capital_province)
+	assert_not_null(home, "the fixture moors a home fleet")
+	var flown: Array[String] = MapPlayFleetYard.flown(play)
+	var gated: String = ""
+	for type_id: String in flown:
+		if not ShipEconomy.tech_for(type_id).is_empty():
+			gated = type_id
+			break
+	assert_false(gated.is_empty(), "the crown flies a hull her studies have not opened")
+	var by_type: Dictionary = {}
+	for row: Dictionary in MapPlayFleetYard.rows(play, home):
+		by_type[String(row["type_id"])] = row
+	assert_true(
+		bool((by_type[gated] as Dictionary)["ok"]),
+		"%s is the crown's own craft and stays on the slip" % gated
+	)
+
+	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
+	MapPlayFleetYard.launch(play, gated)
+	assert_eq(econ.recruits.pending(RecruitQueue.KIND_SHIP, gated), 1, "the order is filed")
+	MapPlayRecruits.complete(play)
+	assert_eq(
+		_screen.ship_layer.hull_count_all(play.player_faction), hulls + 1,
+		"she lands at Build/work without her study"
+	)
+
+
 ## The line reaches the sheet on both the launch rows and the break-up rows, so
 ## a phone reads the hull's numbers with no hover (REQ-P5-06, REQ-P5-07).
 func test_the_shipyard_row_prints_the_hull_numbers() -> void:

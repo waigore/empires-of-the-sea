@@ -188,6 +188,18 @@ func test_rows_lead_with_payable_hulls_and_reason_the_locked_ones() -> void:
 			assert_false(String(row["reason"]).is_empty())
 	assert_gt(locked, 0, "era hulls stay locked without research")
 
+## A court flies a hull her studies never opened — the opening muster's Fluyte —
+## so the yard offers her without the tech, the same gate the rival courts read
+## (issue #484; REQ-P2-03).
+func test_a_flown_hull_stays_on_the_slip_without_her_tech() -> void:
+	_setup_fleet_yard()
+	var by_type: Dictionary = {}
+	for row: Dictionary in FleetYard.rows(_econ, true, ["fluyte"]):
+		by_type[String(row["type_id"])] = row
+
+	assert_true(bool((by_type["fluyte"] as Dictionary)["ok"]), "her own craft is on the slip")
+	assert_false(bool((by_type["frigate"] as Dictionary)["ok"]), "a hull never flown waits")
+
 func test_an_absent_home_port_blocks_every_row() -> void:
 	_setup_fleet_yard()
 	var rows: Array[Dictionary] = FleetYard.rows(_econ, false)
