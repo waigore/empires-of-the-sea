@@ -66,14 +66,18 @@ static func muster_blocked_reason(
 ## reserves the peasant and this walk reserves the cash and the materials, so a
 ## press can never file a standard the turn's Build/work would refuse (REQ-P2-03,
 ## REQ-P5-04; DR-20261118-07). The walk stops at the first refusal, because that
-## refusal is the rules' answer for the realm. Returns {filed, total, refusal}.
+## refusal is the rules' answer for the realm. Returns {filed, total, ducats,
+## materials, workers, refusal}, the spend included so the receipt names it.
 static func queue_all(
 	economy: PlayerEconomy,
 	armies: Array[ArmyState],
 	owner: int,
 	types: Array[String]
 ) -> Dictionary:
-	var result: Dictionary = {"filed": 0, "total": types.size(), "refusal": ""}
+	var result: Dictionary = {
+		"filed": 0, "total": types.size(), "refusal": "",
+		"ducats": 0, "materials": {}, "workers": 0,
+	}
 	if economy == null or home_army(armies, owner) == null:
 		result["refusal"] = "Regiments muster only in the Home Army."
 		return result
@@ -89,13 +93,42 @@ static func queue_all(
 			result["refusal"] = reason
 			break
 		economy.queue_build(RecruitQueue.KIND_REGIMENT, type_id)
-		treasury -= RegimentCatalog.treasury_cost(type_id)
+		var cost: int = RegimentCatalog.treasury_cost(type_id)
+		treasury -= cost
+		result["ducats"] = int(result["ducats"]) + cost
+		result["workers"] = int(result["workers"]) + 1
 		var inputs: Dictionary = RegimentEconomy.training_inputs(type_id)
+		var spent: Dictionary = result["materials"]
 		for commodity: Variant in inputs.keys():
 			var id: String = String(commodity)
 			stock[id] = int(stock.get(id, 0)) - int(inputs[commodity])
+			spent[id] = int(spent.get(id, 0)) + int(inputs[commodity])
 		result["filed"] = int(result["filed"]) + 1
 	return result
+
+
+## The drill yard's one press, read before it is pressed: every ready standard in
+## the yard's order, each priced against the ledger the orders before it leave,
+## stopping at the first refusal — the walk `queue_all` files, with nothing
+## written (DR-20261118-11).
+static func batch_plan(economy: PlayerEconomy) -> Dictionary:
+	if economy == null:
+		return RaiseBatchSum.blank()
+	return RaiseBatchSum.plan(
+		_rows(economy),
+		economy.treasury,
+		economy.stockpile,
+		func(type_id: String) -> int: return RegimentCatalog.treasury_cost(type_id),
+		func(type_id: String) -> Dictionary: return RegimentEconomy.training_inputs(type_id),
+		func(type_id: String, treasury: int, stock: Dictionary, filed: int) -> String:
+			return RegimentEconomy.blocked_reason(
+				type_id,
+				treasury,
+				stock,
+				maxi(economy.available_peasants() - filed, 0),
+				economy.tech_unlocked
+			)
+	)
 
 
 ## The types the drill yard's one press would file: every row the crown can pay
@@ -111,7 +144,18 @@ static func batch_types(economy: PlayerEconomy) -> Array[String]:
 
 ## One ledger row per catalog type, tech-gated and priced for the muster panel.
 ## Buildable rows come first so the drill yard leads with what can march today.
+## Every row carries the one press's plan (`batch`), so the sheet prints the sum
+## it would file without holding an economy (DR-20261118-11).
 static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
+	var out: Array[Dictionary] = _rows(economy)
+	var plan: Dictionary = batch_plan(economy)
+	for row: Dictionary in out:
+		row["batch"] = plan
+	return out
+
+
+## The yard's own rows, before the one press's sum is laid over them.
+static func _rows(economy: PlayerEconomy) -> Array[Dictionary]:
 	var open_rows: Array[Dictionary] = []
 	var locked: Array[Dictionary] = []
 	if economy == null:

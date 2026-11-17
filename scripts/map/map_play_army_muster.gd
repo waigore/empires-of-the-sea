@@ -51,23 +51,24 @@ static func muster_all(play: PlaySession) -> void:
 	MapPlayArmies.show_panel(play, play.army_layer.selected_army)
 
 
-## The one line the yard's batch leaves on the court's lane: what it ordered, and
-## what the next standard waits on (REQ-P5-05).
+## The one line the yard's batch leaves on the court's lane: what it ordered,
+## what it paid and what the next standard waits on (REQ-P5-05; DR-20261118-11).
 static func _batch_receipt(result: Dictionary) -> String:
 	var filed: int = int(result.get("filed", 0))
 	var total: int = int(result.get("total", 0))
 	var refusal: String = String(result.get("refusal", ""))
 	if filed == 0 and not refusal.is_empty():
 		return refusal
+	var spent: String = RaiseBatchSum.paid(result)
 	var ordered: String = (
-		"%d regiments are under orders — they muster next turn" % filed
+		"%d regiments are under orders for %s — they muster next turn" % [filed, spent]
 		if filed != 1
-		else "One regiment is under orders — it musters next turn"
+		else "One regiment is under orders for %s — it musters next turn" % spent
 	)
 	if refusal.is_empty():
 		return ordered
-	return "%d of %d regiments are under orders — the next waits: %s" % [
-		filed, total, refusal
+	return "%d of %d regiments are under orders for %s — the next waits: %s" % [
+		filed, total, spent, refusal
 	]
 
 

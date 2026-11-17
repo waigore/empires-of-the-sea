@@ -13,6 +13,10 @@ signal action_pressed(action: String)
 
 ## The one press under the rows; it owns the arm, its timeout and its words.
 var _batch: RaiseBatchPress = null
+## The line above the press: what the whole line costs and the purse it leaves,
+## read from the rows' own plan. One label, re-read on every fill, so a redraw
+## never stacks a second copy of the sum on the sheet (DR-20261118-11).
+var _sum_line: Label = null
 
 
 func _ready() -> void:
@@ -31,6 +35,8 @@ func _make_batch() -> void:
 	_batch.set_verb("muster")
 	_batch.confirmed.connect(func() -> void: action_pressed.emit("recruit_all"))
 	add_child(_batch)
+	_sum_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
+	add_child(_sum_line)
 
 
 ## Rebuilds every drill-yard row from the training table, then the one press the
@@ -39,7 +45,7 @@ func _make_batch() -> void:
 func fill(rows: Array[Dictionary]) -> void:
 	_make_batch()
 	for child: Node in get_children():
-		if child != _batch:
+		if child != _batch and child != _sum_line:
 			child.queue_free()
 	var ready: int = 0
 	for row: Dictionary in rows:
@@ -86,5 +92,36 @@ func fill(rows: Array[Dictionary]) -> void:
 			stats.text = line
 			stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 			entry.add_child(stats)
+	# What the whole line costs, before it is pressed: the walk's own sum and the
+	# purse it leaves, printed from the plan the press files, so a crown never
+	# learns the drill yard's price after it signs (REQ-P5-06; DR-20261118-11).
+	var plan: Dictionary = _batch_plan(rows)
+	_fill_sum(RaiseBatchSum.sheet_line(plan))
 	_batch.set_ready(ready, "regiments")
 	move_child(_batch, -1)
+	if _sum_line.get_parent() != null:
+		move_child(_sum_line, _batch.get_index())
+
+
+## The sum line stands on the sheet only while there is a sum to print: a caller
+## that hands the block rows with no plan of their own (a suite's fixture) keeps
+## the sheet's published shape, and a redraw re-reads the one label rather than
+## stacking a second copy of the price (DR-20261118-11).
+func _fill_sum(text: String) -> void:
+	_sum_line.text = text
+	if text.is_empty():
+		if _sum_line.get_parent() != null:
+			remove_child(_sum_line)
+		return
+	if _sum_line.get_parent() == null:
+		add_child(_sum_line)
+
+
+## The plan the yard's rows carry, or an empty one when a caller handed the block
+## rows of its own with no ledger behind them (a suite's fixture): the sum line
+## then prints nothing and the press keeps its published face (DR-20261118-11).
+func _batch_plan(rows: Array[Dictionary]) -> Dictionary:
+	for row: Dictionary in rows:
+		if row.has("batch"):
+			return row["batch"]
+	return RaiseBatchSum.blank()

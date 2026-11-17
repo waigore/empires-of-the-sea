@@ -123,22 +123,23 @@ static func launch_all(play: PlaySession) -> void:
 
 
 ## The one line the yard's batch leaves on the court's lane: what it laid down,
-## and what the next hull waits on (REQ-P5-05).
+## what it paid and what the next hull waits on (REQ-P5-05; DR-20261118-11).
 static func _batch_receipt(result: Dictionary) -> String:
 	var filed: int = int(result.get("filed", 0))
 	var total: int = int(result.get("total", 0))
 	var refusal: String = String(result.get("refusal", ""))
 	if filed == 0 and not refusal.is_empty():
 		return refusal
+	var spent: String = RaiseBatchSum.paid(result)
 	var laid: String = (
-		"%d hulls are laid down — they launch next turn" % filed
+		"%d hulls are laid down for %s — they launch next turn" % [filed, spent]
 		if filed != 1
-		else "One hull is laid down — she launches next turn"
+		else "One hull is laid down for %s — she launches next turn" % spent
 	)
 	if refusal.is_empty():
 		return laid
-	return "%d of %d hulls are laid down — the next waits: %s" % [
-		filed, total, refusal
+	return "%d of %d hulls are laid down for %s — the next waits: %s" % [
+		filed, total, spent, refusal
 	]
 
 
