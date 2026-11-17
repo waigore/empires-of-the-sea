@@ -48,7 +48,7 @@ Land units: explore, improve, colonize, spy.
 
 ## Deferred (REQ-P2-02)
 
-None. Rival hospitals are live (`AiHospitalWork`); gaps in
+None. Raise previews live (estates/walls/wards/transport); gaps in
 [`deferred.md`](deferred.md).
 
 ## Architecture
