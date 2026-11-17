@@ -49,13 +49,13 @@ a landing (DR-20261114-12).
 
 Town development 2 or 4 turns connected raw into ×1/×2 manufactures:
 `floor(input / 4) × multiplier`, no inputs or labour. A colony pays on
-landed tons; rivals upgrade towns; a Minor/Tribe town auto-offers; estates sell
-whole; a deed lifts it (`min(4, 1+deeds)`).
+landed tons; rivals upgrade towns; a Minor/Tribe town offers; a deed lifts
+it (`min(4, 1+deeds)`).
 
 ## World-market auction
 
-One book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches orders plus
-Minor/Tribe auto-offers.
+One book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches orders and
+Minor/Tribe offers.
 Tiebreaks: priority, pact, colony favour, Consulate, relation; a suzerain
 clears its colony (`MarketFavoured`). A boycott bars the pair. First right pays
 a tile's owner, relation share and embassy cut.
@@ -64,19 +64,21 @@ spend `treasury − waiting build orders` (`MarketBudget`).
 
 ## Trade terms
 
-Prices publish once; pact, boycott, subsidy apply at settlement
+Prices publish once; pact, boycott, subsidy settle
 ([`diplomacy.md`](diplomacy.md)).
 
 ## UI
 
 `PRODUCTION`: stockpile by group, holdings; steppers capped by labour/inputs
-(`allowance`), a worked row naming its output (`made 3`), and one **batch press**:
-one run on every ready row (`ProductionBatch`, DR-20261116-08).
+(`allowance`), a worked row naming its output (`made 3`), one **batch press**
+(`ProductionBatch`, DR-20261116-08).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
 line (`CargoRead`), and a **batch press** per row (`MarketBatch`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.
+Every tier row prints its deal (`LedgerWorkersText.recruit_line`): price, gate
+or ration — never a hover (DR-20261118-03).
 
 ## Deferred (REQ-P2-02)
 
