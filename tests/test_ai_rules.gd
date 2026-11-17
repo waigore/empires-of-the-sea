@@ -2726,6 +2726,27 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 	layer.free()
 
 
+## Each rival row files the whole economy report under `resolved`, and the
+## research phase rides under its own `research` key — the slot the turn close's
+## fort step, the Gazette's research report and the spy despatch read. A reader
+## that takes `resolved` for the research report sees no finished study at all
+## (wiki: siege-mechanics § Fort Levels; issue #919).
+func test_map_phase_files_the_research_report_the_turn_close_reads() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var report: Dictionary = MapPlayEconomyAi.run(play)
+	var resolved: Dictionary = report["factions"][1]["resolved"]
+	assert_true(resolved.has("research"), "the research phase is a key of the report")
+	assert_true(
+		(resolved["research"] as Dictionary).has("researched"),
+		"the finished studies are filed inside the research phase"
+	)
+	assert_false(
+		resolved.has("researched"),
+		"and never at the economy report's top level, where the fort step looked"
+	)
+	play.civilian_layer.free()
+
+
 ## The economy pass reads the footing's market slot: a court at war bids only
 ## the rows its commitments claim, and the report names the top-up it withheld
 ## (DR-20261117-01).

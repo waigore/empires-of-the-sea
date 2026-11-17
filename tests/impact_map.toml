@@ -215,8 +215,11 @@ suites = [
 ]
 
 [domains.fort]
+# The fort table, the capital wall grant and the one-shot tech step: the suite
+# that owns the rule travels with it, so a fort change cannot ship without it.
 suites = [
   "test_battle_rules.gd",
+  "test_fort_capital.gd",
 ]
 
 # Hospitals: the province building, its rest tempo and its battle triage
