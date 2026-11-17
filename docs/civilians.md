@@ -28,13 +28,15 @@ Land units: explore, improve, colonize, spy.
   Bureaucracy), road, port (one per seaboard), rail, fort 1–3
   ([forts.md](forts.md)), hospital 1–2.
 - **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
-  a mineral is hidden until that crown's Explorer prospects it; selecting one
-  marks the ground and a tap reads it.
-- **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06)):
+  a mineral is hidden until the crown's Explorer prospects it; selecting one
+  marks it and a tap reads it.
+- **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
+  [DR-20261117-07](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-07)):
   an idle crew's dossier names the work the planner would give it next, priced by
-  its ledger, or the march — a reading only.
+  its ledger, or the march — a reading only; the survey reading rings it on the
+  chart.
 - **Town development:** Builders raise towns to 4; connected port towns cap
-  extraction; levels 2 and 4 add manufacturing ([economy.md](economy.md)).
+  extraction; levels 2 and 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
   per hull, never with troops); lands at a port or coastal tile beside its zone;
   Explorers/Merchants any coast, others need crown land.
@@ -45,12 +47,11 @@ Land units: explore, improve, colonize, spy.
   and saves; the province stays the seller's.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when
   connected; above-cap upgrades refused; `ESTATES` lists them.
-- **Stranding:** crews caught by conquest withdraw or are lost.
+- **Stranding:** crews caught by conquest withdraw or die.
 
 ## Deferred (REQ-P2-02)
 
-None. Raise previews live (estates/walls/wards/transport); gaps in
-[`deferred.md`](deferred.md).
+None; gaps in [`deferred.md`](deferred.md).
 
 ## Architecture
 

@@ -35,19 +35,17 @@ Audited: DR-20261117-06; #846–#877 live (REQ-P2-02).
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
-| Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`, DR-17-03/05/06 |
+| Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`, DR-17-03/05/06; the pick's chart mark `CivicGlyphs`/`ResourceLens`, DR-17-07 |
 
 ## Gaps (ranked)
 
-1. **Planner pick's chart mark** — ledger, order, sheet legs live
-   (DR-17-03/05/06); the chart mark stays seed.
-2. **Quick Battle multi-lane/collapse** — one lane; design call
+1. **Quick Battle multi-lane/collapse** — one lane; design call
    (DR-10-24).
 
 
 ## Next pick
 
-Pick's chart mark; else P5/P1 polish.
+Quick Battle lane/collapse design call; else P5/P1 polish.
 
 ## Blocked
 
@@ -68,8 +66,8 @@ Pick's chart mark; else P5/P1 polish.
 
 ## Wiki drift
 
-- `civilian-build-planner`: raise previews live (DR-17-03/05); planner
-  on-chart pick remains.
+- `civilian-build-planner`: raise previews live (DR-17-03/05); the pick is on
+  the crew's sheet (DR-17-06) and on the chart (DR-17-07).
 - `civilian-units`: Road L2/gathering → live (`TechUnlocks`).
 - `phase-planner-*`: six slots live; soft weight vector still seed.
 - `production-recipes`: rival second-stage → live #798.

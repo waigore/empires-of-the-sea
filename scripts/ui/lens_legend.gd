@@ -6,7 +6,9 @@ extends Control
 ## the political key while the diplomatic lens is on.
 
 const WIDTH: float = 244.0
-const HEIGHT: float = 210.0
+## Tall enough for the six estate rows, the three road strokes and the three
+## footer lines (badge, compass, the court's pick ring).
+const HEIGHT: float = 226.0
 
 const SURVEY_ROWS: Array[Dictionary] = [
 	{"status": "producing", "text": "Yielding estate"},
@@ -136,11 +138,15 @@ func _draw_survey() -> void:
 		)
 		y += 16.0
 	draw_string(
-		_font, Vector2(14, HEIGHT - 22), "Badge: built / linked / held, per resource type",
+		_font, Vector2(14, HEIGHT - 38), "Badge: built / linked / held, per resource type",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
 	)
 	draw_string(
-		_font, Vector2(14, HEIGHT - 8), "Compass: tiles an Explorer can still read",
+		_font, Vector2(14, HEIGHT - 22), "Compass: tiles an Explorer can still read",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
+	draw_string(
+		_font, Vector2(14, HEIGHT - 8), "Ring: the court's pick for an idle crew",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
 	)
 

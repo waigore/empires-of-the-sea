@@ -2264,6 +2264,35 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	assert_true(builder.is_idle())
 
 
+## The chart carries the pick (DR-20261117-07): the survey lens is mounted with
+## the crown's own picks, and the ground an idle crew's planner names wears the
+## mark — the same reading its sheet prints, drawn where the crown plans work.
+func test_the_survey_lens_marks_the_ground_the_court_would_work() -> void:
+	var tile: Vector2i = _buildable_owned_resource_tile()
+	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	builder.tile = tile
+	_screen.stockpile["lumber"] = 40
+	_screen.stockpile["castIron"] = 40
+
+	MapPlayLens.mount_survey(_screen.play)
+	MapPlayInput.set_lens(_screen.play, true)
+
+	var lens: ResourceLens = _screen.play.lens
+	assert_true(lens.active, "the survey reading is up")
+	assert_true(lens.picks.has(builder.id), "the lens carries the court's pick")
+	var pick: Dictionary = lens.picks[builder.id]
+	var marked: Array[Vector2i] = []
+	for mark: Dictionary in lens.marks:
+		marked.append(Vector2i(mark["tile"]))
+	assert_true(
+		marked.has(Vector2i(pick["tile"])),
+		"the ground the court named is marked on the chart"
+	)
+	assert_false(builder.is_working(), "a reading, not an order")
+
+
 ## A wall is the one work whose completion changes how the province is fought
 ## over, so the despatch names the level raised and the battery it mounts — a
 ## crown that spent its materials and a turn learns what it bought (wiki:
