@@ -22,15 +22,22 @@ python3 tools/art/app_icon.py
 ```
 
 The tool cuts the medallion a few pixels inside its rim (dropping the pale
-generator fringe), lays it on the dark plate with a soft shadow, and writes:
+generator fringe) and writes it on a **transparent** field with a soft shadow,
+so docks and home screens show through around the round emblem. Only the
+Android adaptive *background* layer is a solid plate, because the platform
+composites it behind the foreground:
 
 | File | Use |
 |------|-----|
-| `icon.png` | `project.godot` `config/icon` (desktop window, exported exe) |
-| `assets/art/branding/launcher_main_192.png` | legacy Android launcher icon |
-| `.../launcher_background_432.png` | adaptive background (dark plate) |
+| `icon.png` | `project.godot` `config/icon` (desktop window, exported exe) — transparent corners |
+| `assets/art/branding/launcher_main_192.png` | legacy Android launcher icon — transparent corners |
+| `.../launcher_background_432.png` | adaptive background (dark plate, platform requirement) |
 | `.../launcher_foreground_432.png` | adaptive foreground, medallion in the 66% safe zone |
 | `.../launcher_monochrome_432.png` | themed-icon glyph (white ring + carrack) |
+
+Never paint an opaque plate behind the medallion on `icon.png` or
+`launcher_main_192.png`; `tests/test_branding_rules.gd` fails if the corners
+are not clear.
 
 Replace the master, rerun the tool, and commit the regenerated files together.
 Never hand-edit a derived layer.
