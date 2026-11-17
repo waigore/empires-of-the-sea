@@ -13,6 +13,7 @@ var _head: ProvinceSheetHead = null
 var _grid: ProvinceFactsGrid = null
 var _orders: ProvinceOrdersSection = null
 var _resources: ProvinceResources = null
+var _rail: ProvinceRailBlock = null
 var _dock: Button = null
 var _column: VBoxContainer = null
 var _orders_index: int = -1
@@ -79,6 +80,14 @@ func _build() -> void:
 	_resources = ProvinceResources.new()
 	_resources.road_pressed.connect(_on_road_pressed)
 	column.add_child(_resources)
+
+	column.add_child(_divider())
+
+	# The rail block sits under the estates: a railroad upgrades a road, so the
+	# press that lays one belongs beside the ground it serves (DR-20261117-10).
+	_rail = ProvinceRailBlock.new()
+	_rail.rail_pressed.connect(_on_rail_pressed)
+	column.add_child(_rail)
 
 	column.add_child(_divider())
 
@@ -200,6 +209,9 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 		model, _works, _faction, province_id, _visibility
 	).size()
 	_resources.render(rows, unsurveyed, _road_plans(model, rows))
+	_rail.render(RailWorks.province_plans(
+		model, _works, _units, _faction, province_id, _tech_unlocked
+	))
 	_grid.set_estate_roads(data, rows, crown)
 	_orders.set_town_order(data, _faction, _tech_unlocked, _stockpile)
 	_orders.set_shipyard_visible(
@@ -230,6 +242,12 @@ func _road_plans(model: MapModel, rows: Array[Dictionary]) -> Dictionary:
 ## same way the order rail's own actions do (REQ-P3-02).
 func _on_road_pressed(tile: Vector2i) -> void:
 	action_pressed.emit("road:%d,%d" % [tile.x, tile.y])
+
+
+## The rail block's Lay railroad: the same one intent string, so the crew the
+## map dispatches and the tile the block names can never drift apart.
+func _on_rail_pressed(tile: Vector2i) -> void:
+	action_pressed.emit("rail:%d,%d" % [tile.x, tile.y])
 
 
 func _divider() -> Control:

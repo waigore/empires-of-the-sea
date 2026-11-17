@@ -14,6 +14,7 @@ suites = [
 [domains.ai_panel]
 suites = [
   "test_ai_observer.gd",
+  "test_observer_parts.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -430,12 +431,12 @@ domain = "hostility"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
-# One court's economy turn, split out of the pass above: the AI suites drive the
-# whole turn (test_ai_rules' market coverage plus its phase call), so it stays on
-# the same tier-1 slice as its orchestrator.
+# One court's economy turn, split out of the pass above: market + AI + civilian
+# turn prove the plan (manufacture around the chest rows, #878); the full AI
+# fan-out (observer + battle) overruns the tier-1 5 min budget.
 [[rules]]
 match = "scripts/map/map_play_economy_court.gd*"
-domain = "ai"
+domain = "ai_economy"
 
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
@@ -1268,6 +1269,15 @@ suites = [
   "test_menu_flow.gd",
 ]
 
+# The campaign's last plate and the seal HudCampaignEnd owns. A lean unit suite
+# covers the collaborator without remounting the calendar-cap MapScreen theme
+# (that suite alone blows the tier-1 5 min budget when stacked on crown_road +
+# auto). Kept off the broad hud_* → ui domain.
+[domains.campaign_plate]
+suites = [
+  "test_hud_campaign_plate.gd",
+]
+
 # The age's race helper: the standing math, the sheet's foot and the turn's
 # warning. Kept off victory_bar so a standings edit stays inside tier 1.
 [domains.victory_standings]
@@ -1702,9 +1712,21 @@ domain = "intro"
 match = "project.godot"
 full = true
 
+# The app's face: the project icon and the Android launcher layers. An asset
+# cannot reach gameplay, so the mark runs its own wiring suite instead of the
+# whole tree (docs/testing.md tier-1 budget).
+[domains.branding]
+suites = [
+  "test_branding_rules.gd",
+]
+
 [[rules]]
 match = "icon.svg"
-full = true
+domain = "branding"
+
+[[rules]]
+match = "tests/test_branding_rules.gd*"
+domain = "branding"
 
 [[rules]]
 match = "addons/**"
@@ -1928,6 +1950,17 @@ domain = "province_sheet"
 match = "scripts/rules/road_works.gd*"
 domain = "province_sheet"
 
+# The rail block and the works it dispatches (DR-20261117-10): the same sheet,
+# the same suites — a railroad is the road control's sibling, so it rides the
+# province sheet's slice instead of the prospect fan-out.
+[[rules]]
+match = "scripts/rules/rail_works.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_rail_block.gd*"
+domain = "province_sheet"
+
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
 # the lens and the panel parts suites instead of the whole reading fan-out.
@@ -2036,20 +2069,27 @@ domain = "prospect"
 match = "scripts/rules/civilian_explorer_gates.gd*"
 domain = "prospect"
 
+# The published work gate and its cost table (H8 feedstock bootstrap, #878):
+# the AI plan and the civilian turn suites prove the raise; the prospect map
+# fan-out overruns the tier-1 5 min budget once those suites grow.
 [[rules]]
 match = "scripts/rules/civilian_work.gd*"
-domain = "prospect"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/rules/civilian_work_plan.gd*"
+domain = "ai_works"
 
 [[rules]]
 match = "scripts/rules/improvement_ledger.gd*"
 domain = "prospect"
 
-# The per-row estate reading (split out of the ledger for REQ-P3-01) and its own
-# suite: estate rows are a civilian-ledger concern, so a row change runs the
-# civilian field suite beside it instead of the broad prospect slice.
+# The per-row estate reading (split out of the ledger for REQ-P3-01): the H8
+# cost line rides the same AI/works slice as the work gate, not the broad
+# civilian map/battle fan-out (tier-1 5 min budget).
 [[rules]]
 match = "scripts/rules/estate_rows.gd*"
-domain = "civilian"
+domain = "ai_works"
 
 [[rules]]
 match = "tests/test_civilian_turn_rules.gd*"
@@ -2060,14 +2100,35 @@ domain = "civilian"
 # the civilian rules and the sheet that prints the line, so it names its own
 # domain instead of pulling the whole prospect map fan-out a second time.
 [[rules]]
-match = "scripts/map/map_play_civilian_pick.gd*"
+match = "scripts/map/map_play_civilian_pick*.gd*"
+domain = "civilian_pick"
+
+# The pick's door (wiki: playtest-learnings § next targets): the press that
+# frames the ground a pick names and opens the sheet that can press it. It
+# reads the pick and the map's own province door, so it rides the pick's slice.
+[[rules]]
+match = "scripts/map/map_play_civilian_follow.gd*"
 domain = "civilian_pick"
 
 # Civilian sheet chrome — civilian suites cover orders/roster; prospect's
 # map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
-match = "scripts/ui/civilian_panel.gd*"
+match = "scripts/ui/civilian_panel*.gd*"
 domain = "civilian"
+
+# The sheet's two halves read out of the widgets: the ground rows and the
+# standing lines, proved by the panel-parts boot the sheet cases already use.
+[[rules]]
+match = "scripts/ui/civilian_panel_d*.gd*"
+domain = "civilian_pick"
+
+[[rules]]
+match = "scripts/ui/civilian_panel_s*.gd*"
+domain = "civilian_pick"
+
+[[rules]]
+match = "tests/test_observer_parts.gd*"
+domain = "ai_panel"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
@@ -2289,6 +2350,20 @@ domain = "ai_diplomacy"
 match = "tests/test_ai_rules.gd*"
 domain = "ai_diplomacy"
 
+# Bind + economy/builder planners: the AI and market suites prove the
+# feedstock/works-purse surface (#878); keep them off the observer/battle
+# catch-all so a planner PR stays inside the tier-1 5 min budget.
+[[rules]]
+match = "scripts/ai/ai_bind.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/ai/ai_builder_work.gd*"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/ai/ai_economy_planner.gd*"
+domain = "ai_economy"
 
 [[rules]]
 match = "scripts/ai/**"
@@ -2456,11 +2531,12 @@ match = "scripts/map/civilian_muster.gd*"
 domain = "ai_works"
 
 # The one reader every rival pass asks for a court's standing and order of
-# battle. Its suites are the observer/AI set, so keep it off the broad map
-# catch-all (tier-1 5 min budget).
+# battle. The yard-chest re-route (#878) is proved by the AI/economy suites;
+# keep it off the observer/battle fan-out and the broad map catch-all
+# (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
-domain = "ai"
+domain = "ai_economy"
 
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
 # the broad map/** catch-all so a one-line phase hook stays tier-1 sized.
@@ -3227,6 +3303,21 @@ domain = "crown_road"
 match = "scripts/ui/hud_chrome.gd"
 domain = "crown_road"
 
+# The campaign's last plate and the seal it shuts. Named before hud_* → ui so a
+# chrome extract runs the lean plate suite, not only panel_parts / battle.
+[[rules]]
+match = "scripts/ui/hud_campaign_end.gd*"
+domain = "campaign_plate"
+
+[[rules]]
+match = "tests/test_hud_campaign_plate.gd*"
+domain = "campaign_plate"
+
+# Cartouche markings (turn line, minimap) ride the same screen suites as chrome.
+[[rules]]
+match = "scripts/ui/hud_chart_cartouche.gd*"
+domain = "crown_road"
+
 [[rules]]
 match = "scripts/ui/hud_layout.gd"
 domain = "layout"
@@ -3345,6 +3436,10 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+[[rules]]
+match = "scripts/ui/observer_*.gd*"
+domain = "ai_panel"
 
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"

@@ -1657,6 +1657,317 @@ func test_a_multi_tile_gap_reads_as_the_first_of_many() -> void:
 		String(result["message"])
 	)
 
+# --- rail works (DR-20261117-10) ---
+# The crown's rail works (wiki: civilian-units § Rail Builder work): the road
+# tiles that can still go rail and the Rail Builder dispatch the province
+# dossier's Lay railroad control makes. The pick names a road ahead of the crew,
+# so the dossier carries the press that follows it (REQ-P5-06).
+
+const RAIL_TILE: Vector2i = Vector2i(1, 0)
+const STEAM: Dictionary = {"early_steam_engine": true}
+
+
+## The road-works chart with one roaded estate and the steam study read: the
+## ground a railroad can still take.
+func _setup_rail_works() -> void:
+	_setup_road_works()
+	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_ROAD)
+
+
+func _rail_builder(tile: Vector2i = Vector2i(0, 2)) -> CivilianState:
+	var unit: CivilianState = Fixture.unit("rail_builder", tile)
+	_roads_units.append(unit)
+	return unit
+
+
+## A road tile the crown has studied for is the one ground a railroad can take.
+func test_a_road_tile_can_go_rail() -> void:
+	_setup_rail_works()
+	var plan: Dictionary = RailWorks.plan(
+		_model, _works, _roads_units, 0, RAIL_TILE, STEAM
+	)
+	assert_true(bool(plan["needed"]), "a road tile can still go rail")
+	assert_false(bool(plan["rail_builder"]), "no crew musters yet")
+	assert_true(
+		String(plan["reason"]).contains("Rail Builder"),
+		"the reason names the missing crew: %s" % plan["reason"]
+	)
+
+
+## Railroads upgrade an existing road: bare ground, a finished railroad and a
+## tile the crown does not hold are none of the block's business.
+func test_only_a_crown_road_without_a_railroad_can_go_rail() -> void:
+	_setup_rail_works()
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, 0, Fixture.BARE_TILE, STEAM)["needed"]),
+		"bare ground carries no road to upgrade"
+	)
+	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_RAIL)
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, 0, RAIL_TILE, STEAM)["needed"]),
+		"a finished railroad is not offered again"
+	)
+	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_ROAD)
+	_works.set_transport(_model, Fixture.RIVAL_GRAIN_TILE, LandWorks.TRANSPORT_ROAD)
+	assert_false(
+		bool(RailWorks.plan(
+			_model, _works, _roads_units, 0, Fixture.RIVAL_GRAIN_TILE, STEAM
+		)["needed"]),
+		"another crown's road is not ours to rail"
+	)
+
+
+## The study is the gate the crew's own order reads: no steam, no press.
+func test_rail_waits_for_the_steam_study() -> void:
+	_setup_rail_works()
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, 0, RAIL_TILE, {})["needed"]),
+		"without Early Steam Engine the tile is not offered"
+	)
+
+
+## A crew already on the tile has the order in hand: a second press would only
+## spend a second Rail Builder's materials on the same ground.
+func test_a_crew_already_on_the_tile_takes_no_second_press() -> void:
+	_setup_rail_works()
+	var crew: CivilianState = _rail_builder()
+	crew.start_work("build_rail", RAIL_TILE, 2)
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, 0, RAIL_TILE, STEAM)["needed"]),
+		"the work is already in hand"
+	)
+
+
+## The block's reading: one row per rail-ready road tile of the province, with
+## the estate it serves in the catalog's own words.
+func test_the_province_lists_its_rail_ready_roads() -> void:
+	_setup_rail_works()
+	var rows: Array[Dictionary] = RailWorks.province_plans(
+		_model, _works, _roads_units, 0, Fixture.PLAYER_PROVINCE, STEAM
+	)
+	assert_eq(rows.size(), 1, "one road tile can go rail")
+	assert_eq(rows[0]["tile"], RAIL_TILE)
+	assert_eq(int(rows[0]["transport"]), LandWorks.TRANSPORT_ROAD)
+	assert_eq(
+		String(rows[0]["estate"]), "Lumber camp (L2)",
+		"the row names the estate the rail would serve"
+	)
+	assert_true(
+		RailWorks.province_plans(
+			_model, _works, _roads_units, 0, Fixture.PLAYER_PROVINCE, {}
+		).is_empty(),
+		"no study, no rows"
+	)
+
+
+## The dispatch the Lay railroad control issues: the nearest idle Rail Builder
+## takes the tile and the order is charged at the rules' own price.
+func test_dispatch_puts_the_rail_builder_on_the_tile() -> void:
+	_setup_rail_works()
+	var crew: CivilianState = _rail_builder()
+	var lumber_before: int = int(_roads_stock["lumber"])
+	var steel_before: int = int(_roads_stock["steel"])
+	var result: Dictionary = RailWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, RAIL_TILE, STEAM
+	)
+	assert_true(bool(result["ok"]), String(result["message"]))
+	assert_true(crew.is_working(), "the Rail Builder takes the order")
+	assert_eq(crew.work_action(), "build_rail")
+	assert_eq(crew.work_tile(), RAIL_TILE, "on the tile the block named")
+	assert_eq(int(_roads_stock["lumber"]), lumber_before - 2, "2 lumber")
+	assert_eq(int(_roads_stock["steel"]), steel_before - 2, "2 steel")
+	assert_true(
+		String(result["message"]).contains("railroad"),
+		String(result["message"])
+	)
+
+
+func test_dispatch_refuses_without_a_rail_builder() -> void:
+	_setup_rail_works()
+	var result: Dictionary = RailWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, RAIL_TILE, STEAM
+	)
+	assert_false(bool(result["ok"]), "no crew, no order")
+	assert_true(
+		String(result["message"]).contains("Rail Builder"),
+		String(result["message"])
+	)
+
+
+## The order is the rules' own: the railroad lands on completion and the tile
+## stops being offered (wiki: extraction-and-improvements § Road / Railroad
+## Costs).
+func test_the_railroad_lands_when_the_work_completes() -> void:
+	_setup_rail_works()
+	_rail_builder()
+	RailWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0, RAIL_TILE, STEAM
+	)
+	# A railroad takes two turns (wiki: extraction-and-improvements § Railroad
+	# Costs), so the tile changes on the second Build/Work pass.
+	CivilianWork.resolve_turn(_model, _roads_units, _works, _roads_view)
+	CivilianWork.resolve_turn(_model, _roads_units, _works, _roads_view)
+	assert_eq(
+		_works.transport_at(_model, RAIL_TILE), LandWorks.TRANSPORT_RAIL,
+		"the tile carries a railroad now"
+	)
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, 0, RAIL_TILE, STEAM)["needed"]),
+		"and the block stops offering it"
+	)
+
+
+## The dossier's rail block prints the row and its press travels as one intent
+## string, the same way the Build road control's does (REQ-P3-02).
+func test_the_rail_block_emits_the_tile_it_names() -> void:
+	_setup_province_panel()
+	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_ROAD)
+	_units = [] as Array[CivilianState]
+	_units.append(_rail_builder())
+	_show(STEAM)
+	var block: ProvinceRailBlock = _province_panel_panel._rail
+	assert_true(block.visible, "a rail-ready road shows the block")
+	assert_eq(block.rows().size(), 1, "one row")
+	var actions: Array[String] = []
+	_province_panel_panel.action_pressed.connect(
+		func(action: String) -> void: actions.append(action)
+	)
+	var button: Button = _rail_button(block, RAIL_TILE)
+	assert_not_null(button, "the row carries the press")
+	assert_false(button.disabled, "an idle Rail Builder can take the order")
+	button.pressed.emit()
+	assert_eq(actions, ["rail:1,0"] as Array[String], "one press, one intent")
+
+
+## No crew, no order: the control stays legible with the reason a tap would
+## return (REQ-P2-03).
+func test_the_rail_block_waits_for_a_rail_builder() -> void:
+	_setup_province_panel()
+	_works.set_transport(_model, RAIL_TILE, LandWorks.TRANSPORT_ROAD)
+	_show(STEAM)
+	var block: ProvinceRailBlock = _province_panel_panel._rail
+	var button: Button = _rail_button(block, RAIL_TILE)
+	assert_not_null(button, "the row still names the ground")
+	assert_true(button.disabled, "no idle Rail Builder, so the press is disabled")
+	assert_true(button.tooltip_text.contains("Rail Builder"), button.tooltip_text)
+
+
+## A province with nothing to rail says nothing: no heading over no ground.
+func test_the_rail_block_hides_when_nothing_can_go_rail() -> void:
+	_setup_province_panel()
+	_show(STEAM)
+	assert_false(_province_panel_panel._rail.visible, "no road, no block")
+
+
+## The Lay railroad control printed on one row, or null when the tile is not
+## offered.
+func _rail_button(block: ProvinceRailBlock, tile: Vector2i) -> Button:
+	var rows: Array[Dictionary] = block.rows()
+	for i in rows.size():
+		if rows[i]["tile"] != tile:
+			continue
+		var line: Node = block._body.get_child(i)
+		for node: Node in line.find_children("*", "Button", true, false):
+			var button := node as Button
+			if button != null and button.text == ProvinceRailBlock.RAIL:
+				return button
+	return null
+
+
+## A reading with nothing to read: no chart, no crown, no province.
+func test_a_missing_chart_reads_no_rail_plan() -> void:
+	_setup_rail_works()
+	assert_false(
+		bool(RailWorks.plan(null, _works, _roads_units, 0, RAIL_TILE, STEAM)["needed"]),
+		"nothing to read without a chart"
+	)
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, -1, RAIL_TILE, STEAM)["needed"]),
+		"no crown, no road of ours"
+	)
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, 0, Vector2i(-1, -1), STEAM)["needed"]),
+		"no tile, no plan"
+	)
+	assert_true(
+		RailWorks.province_plans(null, _works, _roads_units, 0, 0, STEAM).is_empty(),
+		"no chart, no rows"
+	)
+	assert_true(
+		RailWorks.province_plans(_model, _works, _roads_units, 0, 99, STEAM).is_empty(),
+		"no such province, no rows"
+	)
+
+
+## The nearest idle Rail Builder takes the order; ties break on unit id, as the
+## estates ledger's Builder dispatch does.
+func test_the_nearest_rail_builder_takes_the_order() -> void:
+	_setup_rail_works()
+	var far: CivilianState = _rail_builder(Vector2i(0, 3))
+	var near: CivilianState = _rail_builder(Vector2i(2, 0))
+	assert_eq(
+		RailWorks.nearest_rail_builder(_roads_units, 0, RAIL_TILE), near,
+		"the closer crew is sent"
+	)
+	far.tile = near.tile
+	assert_eq(
+		RailWorks.nearest_rail_builder(_roads_units, 0, RAIL_TILE), far,
+		"a tie breaks on the lower unit id"
+	)
+	assert_null(
+		RailWorks.nearest_rail_builder(_roads_units, 9, RAIL_TILE),
+		"another crown's crews are not ours to send"
+	)
+
+
+## A press the rules refuse says so: ground that cannot take a railroad, and a
+## crew the stores cannot pay.
+func test_dispatch_refuses_ground_and_stores_it_cannot_take() -> void:
+	_setup_rail_works()
+	_rail_builder()
+	var bare: Dictionary = RailWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0,
+		Fixture.BARE_TILE, STEAM
+	)
+	assert_false(bool(bare["ok"]), "bare ground takes no railroad")
+	assert_true(
+		String(bare["message"]).contains("railroad"), String(bare["message"])
+	)
+	var empty: Dictionary = {}
+	var broke: Dictionary = RailWorks.dispatch(
+		_model, _roads_units, _works, empty, _roads_view, 0, RAIL_TILE, STEAM
+	)
+	assert_false(bool(broke["ok"]), "no stores, no order")
+	assert_false(String(broke["message"]).is_empty(), "the refusal is spoken")
+
+
+## A bare road tile is plain ground on the block: no estate to name, and the
+## line still carries its press.
+func test_a_bare_road_tile_reads_as_plain_ground() -> void:
+	_setup_rail_works()
+	var bare: Vector2i = Vector2i(2, 1)
+	_works.set_transport(_model, bare, LandWorks.TRANSPORT_IMPROVED_ROAD)
+	var rows: Array[Dictionary] = RailWorks.province_plans(
+		_model, _works, _roads_units, 0, Fixture.PLAYER_PROVINCE, STEAM
+	)
+	var found: Dictionary = {}
+	for row: Dictionary in rows:
+		if row["tile"] == bare:
+			found = row
+	assert_false(found.is_empty(), "the bare road is offered")
+	assert_eq(String(found["estate"]), "", "no estate to name")
+	assert_eq(int(found["transport"]), LandWorks.TRANSPORT_IMPROVED_ROAD)
+	_setup_province_panel()
+	_works.set_transport(_model, bare, LandWorks.TRANSPORT_IMPROVED_ROAD)
+	_show(STEAM)
+	var block: ProvinceRailBlock = _province_panel_panel._rail
+	var button: Button = _rail_button(block, bare)
+	assert_not_null(button, "the bare road still carries its press")
+	assert_true(button.disabled, "no crew, so the press waits")
+	assert_true(button.tooltip_text.contains("Rail Builder"), button.tooltip_text)
+	var title: Label = block._body.get_child(0).get_child(0) as Label
+	assert_eq(title.text, "Road (2, 1)", "plain ground is named by its tile")
+
 # --- yarn dialogue, plates and espionage ---
 
 ## One boot for yarn dialogue, symbol plates and espionage rules. Merged from
@@ -3247,6 +3558,36 @@ func test_the_dossier_names_the_work_the_court_would_give_it() -> void:
 	panel.free()
 
 
+## An idle crew with no order it can take says so: a status that says "choose an
+## order below" over a list where every row is refused sends the crown hunting
+## for a press that does not exist (REQ-P5-06).
+func test_the_sheet_says_when_no_order_can_be_taken() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var view: VisibilityModel = CivilianFixture.visibility(model)
+	var explorer: CivilianState = CivilianState.create(
+		1, PLAYER, "explorer", CivilianFixture.BARE_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, explorer, LandWorks.new(), [explorer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_eq(panel._legal, 0, "charted plains offer an Explorer nothing")
+	assert_eq(panel._status.text, "Idle — no order can be taken here.")
+	# A crew that does have a press keeps the standing invitation.
+	var engineer: CivilianState = CivilianState.create(
+		1, PLAYER, "engineer", CivilianFixture.COAST_TILE
+	)
+	panel.refresh(
+		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_true(panel._legal > 0, "a harbour can be raised here")
+	assert_eq(panel._status.text, "Idle — choose an order below.")
+	panel.free()
+
+
 ## The value column of one dossier row, or "" when the caption is absent.
 func _panel_row(panel: CivilianPanel, caption: String) -> String:
 	var children: Array[Node] = panel._detail.get_children()
@@ -3370,7 +3711,6 @@ func _context() -> Dictionary:
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const court_Fixture = preload("res://tests/civilian_fixture.gd")
-const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 
 const VIEWER: int = 0
 const ENGLAND: int = 1
@@ -4380,31 +4720,141 @@ func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
 	assert_false(door.is_parked())
 
 
-## The map screen hands its menu to the session, so the ledgers reach the seal
-## through the narrow session surface, and the observer seals it for the run.
-## The screen is freed on every exit — the two guard returns included — so the
-## case never leaves a live chart behind (docs/testing.md § Speed rules: tear
-## down hard).
-func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
-	var screen: MapScreen = SCREEN.instantiate()
-	screen.map_width = 32
-	screen.map_height = 24
-	screen.observer_mode = true
-	add_child(screen)
-	assert_not_null(screen.play, "the session is live")
-	if screen.play == null:
-		screen.free()
-		return
-	assert_true(screen.play.pause_menu == screen.game_menu, "the session names its pause menu")
-	var seal: Button = screen.hud.top_row.find_child("MenuSeal", true, false) as Button
-	assert_not_null(seal, "the MENU seal is mounted on the bar")
-	if seal == null:
-		screen.free()
-		return
-	assert_false(seal.visible, "the observer owns no pause door")
-	assert_true(screen.game_menu.door.is_sealed(), "the door stays sealed for the run")
-	# The card is built on this screen all turn and closes on every back press:
-	# that close must never hand the observer's chrome back.
-	screen.improvements.close()
-	assert_false(seal.visible, "a stray close leaves the observer's door sealed")
-	screen.free()
+## The screen-side door case (`test_the_screen_binds_the_door_and_the_observer_
+## seals_it`) rides the observer suite's one mount (`test_ai_observer`): a
+## second observer mount here cost ~15 s under coverage for the same asserts.
+
+
+# --- the civilian dossier's two halves (from test_civilian_dossier_parts) ----
+## The dossier's ground rows and standing lines are pure reads out of the sheet:
+## [CivilianPanelDetail] words the ground rows and [CivilianPanelStatus] the
+## standing lines, so the panel only composes them (REQ-P3-01, REQ-P3-03). They
+## ride this boot instead of paying a Godot boot of their own.
+
+## The ground rows the sheet prints are a pure read, so the module answers with
+## words alone and the panel only composes them (REQ-P3-01, REQ-P3-03).
+func test_the_dossier_ground_rows_read_the_tile() -> void:
+	var model: MapModel = Fixture.build()
+	var builder: CivilianState = CivilianState.create(
+		1, PLAYER, "builder", Fixture.TIMBER_TILE
+	)
+	var rows: Array[Array] = CivilianPanelDetail.rows(
+		model, builder, LandWorks.new(), {}
+	)
+	var by_caption: Dictionary = {}
+	for row: Array in rows:
+		by_caption[String(row[0])] = String(row[1])
+	assert_eq(
+		String(by_caption.get("Tile", "")),
+		"%d, %d" % [Fixture.TIMBER_TILE.x, Fixture.TIMBER_TILE.y]
+	)
+	assert_eq(
+		String(by_caption.get("Held by", "")),
+		FactionCatalog.name_of(PLAYER)
+	)
+	assert_true(by_caption.has("Province") and by_caption.has("Works"), "the ground reads")
+	assert_false(by_caption.has("Tradecraft"), "a builder keeps no tradecraft row")
+	assert_false(by_caption.has("Survey"), "and no survey row")
+	var spy: CivilianState = CivilianState.create(
+		2, PLAYER, "spy", Fixture.BARE_TILE
+	)
+	var tradecraft: String = _dossier_detail_of(spy, model, "Tradecraft")
+	assert_eq(
+		tradecraft,
+		"No screen up — only the counter-espionage order covers your land"
+	)
+	# A rival reading the sheet reads the ground through its own survey record,
+	# so a Prospected mark the crew's owner holds never shows on the rival's
+	# sheet (wiki: fog-and-exploration § Prospecting; DR-20261111-26).
+	var works := LandWorks.new()
+	var owner_ground: Array[Array] = CivilianPanelDetail.rows(model, builder, works, {})
+	assert_false(_dossier_row_of(owner_ground, "Works").contains("Prospected"), "unprospected")
+	works.set_prospected(PLAYER, model, Fixture.TIMBER_TILE)
+	owner_ground = CivilianPanelDetail.rows(model, builder, works, {})
+	assert_true(
+		_dossier_row_of(owner_ground, "Works").contains("Prospected"), "the owner sees it"
+	)
+	var rival_ground: Array[Array] = CivilianPanelDetail.rows(
+		model, builder, works, {}, 5
+	)
+	assert_false(
+		_dossier_row_of(rival_ground, "Works").contains("Prospected"), "the rival does not"
+	)
+
+
+## The standing line and the pick's wording are one module's job: the panel adds
+## the capitals, the module answers the words (REQ-P5-06, DR-20261117-06).
+func test_the_dossier_standing_lines_are_plain_words() -> void:
+	var model: MapModel = Fixture.build()
+	var builder: CivilianState = CivilianState.create(
+		1, PLAYER, "builder", Fixture.TIMBER_TILE
+	)
+	assert_eq(
+		CivilianPanelStatus.text(model, builder, PLAYER), "Idle — choose an order below."
+	)
+	assert_eq(
+		CivilianPanelStatus.text(model, builder, 9), "Enemy colours · no orders"
+	)
+	builder.start_work("build_improvement", builder.tile, 2)
+	assert_eq(
+		CivilianPanelStatus.text(model, builder, PLAYER),
+		"Build improvement · 2 turns left."
+	)
+	assert_eq(CivilianPanelStatus.pick_line({}), "", "no pick, no line")
+	assert_eq(
+		CivilianPanelStatus.pick_line({"pick": {"line": "the court would raise a road"}}),
+		"The court would raise a road."
+	)
+
+
+## The pick's door: an estate is raised from the estates ledger, a road or a
+## railroad from the province dossier, and every order the crew's own sheet can
+## press names none (REQ-P5-06; wiki: playtest-learnings § next targets;
+## DR-20261117-10).
+func test_the_pick_names_the_door_that_can_press_it() -> void:
+	assert_eq(
+		MapPlayCivilianPick.door_for("build_improvement"),
+		MapPlayCivilianPick.DOOR_ESTATES,
+		"an estate is raised from the estates ledger"
+	)
+	assert_eq(
+		MapPlayCivilianPick.door_for("build_road"),
+		MapPlayCivilianPick.DOOR_PROVINCE,
+		"a road is pressed from the province dossier"
+	)
+	assert_eq(
+		MapPlayCivilianPick.door_for("build_rail"),
+		MapPlayCivilianPick.DOOR_PROVINCE,
+		"a railroad is pressed from the province dossier's rail block"
+	)
+	for action: String in [
+		"explore", "prospect", "build_port", "build_fort", "build_hospital",
+		"upgrade_town", "purchase_land", "counter_spy",
+		MapPlayCivilianPick.KIND_MOVE, "",
+	]:
+		assert_eq(
+			MapPlayCivilianPick.door_for(action), "",
+			"%s is pressed from the crew's own sheet" % action
+		)
+	var press: String = MapPlayCivilianFollow.press(
+		1, Vector2i(4, 7), "build_improvement"
+	)
+	assert_eq(press, "follow_pick:1:4,7:build_improvement", "the press names its ground")
+	assert_true(MapPlayCivilianFollow.is_follow(press), "the press is a follow")
+	assert_false(
+		MapPlayCivilianFollow.is_follow("build_improvement"), "an order is not a follow"
+	)
+
+
+func _dossier_detail_of(unit: CivilianState, model: MapModel, caption: String) -> String:
+	for row: Array in CivilianPanelDetail.rows(model, unit, LandWorks.new(), {}):
+		if String(row[0]) == caption:
+			return String(row[1])
+	return ""
+
+
+func _dossier_row_of(rows: Array[Array], caption: String) -> String:
+	for row: Array in rows:
+		if String(row[0]) == caption:
+			return String(row[1])
+	return ""

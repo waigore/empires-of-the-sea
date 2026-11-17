@@ -357,10 +357,12 @@ func _mirror() -> void:
 		# bar and the lane are laid out again on the seat's two boundaries.
 		if hud != null:
 			hud._relayout()
-	if hud != null and hud._end_turn_button != null:
-		hud._end_turn_button.disabled = play.auto_active or hud.campaign_over
-		if not hud.campaign_over:
-			hud._end_turn_button.text = "AUTO" if play.auto_active else "END TURN"
+	# The seat also owns the end-turn seal's caption: AUTO while it holds the
+	# turn, END TURN when it lets go. The campaign's own seal belongs to
+	# HudCampaignEnd and an endless cap only plates, so `sealed` is the latch.
+	if hud == null or hud.campaign_end == null:
+		return
+	hud.campaign_end.mirror_seat(play.auto_active, hud.campaign_over)
 
 
 ## The plaque's second line names the seat in one phrase.

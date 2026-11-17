@@ -88,6 +88,12 @@ static func on_moved(play: PlaySession, unit: CivilianState, _result: Dictionary
 
 
 static func on_action(play: PlaySession, action: String) -> void:
+	# The pick's door is a reading, not an order: it frames the ground and opens
+	# the sheet that can press it (REQ-P2-03, REQ-P5-06).
+	if MapPlayCivilianFollow.is_follow(action):
+		if not MapPlayCivilianFollow.follow(play, action):
+			play.hud.toast("The chart cannot reach the ground the court names.")
+		return
 	assign_order(play, action, CivilianState.NO_TILE)
 
 

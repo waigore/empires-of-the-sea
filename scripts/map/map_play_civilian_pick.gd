@@ -1,11 +1,12 @@
 class_name MapPlayCivilianPick
 extends RefCounted
 ## What the court's own civilian planner would have each idle crew do next: the
-## pick the published work modules score, worded by the ledgers that price the
-## work it would take (wiki: civilian-build-planner § Deferred seed;
-## DR-20261117-06). A reading, never an order — nothing is assigned, reserved or
-## spent, and the pass runs on this crown's own purse, chart and studies, so the
-## crown reads the decision its own AI seat would take (REQ-P2-03, REQ-P3-03).
+## pick the published work modules score, worded by [MapPlayCivilianPickWords]
+## from the ledgers that price the work it would take (wiki:
+## civilian-build-planner § Deferred seed; DR-20261117-06). A reading, never an
+## order — nothing is assigned, reserved or spent, and the pass runs on this
+## crown's own purse, chart and studies, so the crown reads the decision its own
+## AI seat would take (REQ-P2-03, REQ-P3-03).
 ##
 ## The pass itself is `MapPlayCivilianAi.plan_all`, the call the economy turn
 ## already makes for a court, read here one crew at a time. Every pick carries
@@ -13,12 +14,33 @@ extends RefCounted
 ## that name it print one wording (REQ-P3-02, REQ-P5-06).
 
 ## The action a march pick carries: the crew moves before it works.
-const KIND_MOVE: String = "move"
+const KIND_MOVE: String = MapPlayCivilianPickWords.KIND_MOVE
+
+## The surface that can press a pick the crew's own sheet cannot: the estates
+## ledger raises an estate anywhere on crown land, the province dossier carries
+## the road control for a tile ahead of the crew and the rail block that lays a
+## railroad on a road the crew does not stand on (wiki: civilian-build-planner
+## § Deferred seed; playtest-learnings § next targets; DR-20261117-10).
+const DOOR_ESTATES: String = "estates"
+const DOOR_PROVINCE: String = "province"
 
 
-## unit id -> {"action", "tile", "line", "short"} for every idle crew the pass
-## would put to work. Empty when the session has no ledger, no planner, or the
-## roster already has its orders.
+## The door a work order's ground needs when the crew does not stand on it: an
+## estate is raised from the estates ledger, a road or a railroad from the
+## province dossier. Every other order is pressed from the crew's own sheet at
+## its own tile, and a march is pressed on the chart, so neither names a door
+## (REQ-P5-06).
+static func door_for(action: String) -> String:
+	if action == "build_improvement":
+		return DOOR_ESTATES
+	if action == "build_road" or action == "build_rail":
+		return DOOR_PROVINCE
+	return ""
+
+
+## unit id -> {"action", "tile", "region", "door", "line", "short"} for every
+## idle crew the pass would put to work. Empty when the session has no ledger,
+## no planner, or the roster already has its orders.
 static func picks(play: PlaySession, faction: int) -> Dictionary:
 	var result: Dictionary = {}
 	if play == null or play.civilian_layer == null:
@@ -61,6 +83,7 @@ static func _words(
 	roster.assign(entry.get("roster", []))
 	var tech_caps: Dictionary = entry.get("tech_caps", {})
 	var context: Dictionary = entry.get("context", {})
+	var region: int = int(entry.get("region", -1))
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
 		var pick: Dictionary = _order_pick(
@@ -68,17 +91,18 @@ static func _words(
 			order
 		)
 		if not pick.is_empty():
+			pick["region"] = region
 			result[int(order.get("unit_id", -1))] = pick
 	for raw: Variant in plan.get("moves", []):
 		var move: Dictionary = raw
-		var pick: Dictionary = _move_pick(model, move)
+		var pick: Dictionary = MapPlayCivilianPickWords.move_pick(model, move)
 		if not pick.is_empty():
+			pick["region"] = region
 			result[int(move.get("unit_id", -1))] = pick
 
 
 ## The work the pass books for one crew, in the order's own words: the raise it
-## would buy, priced off the ledger that sells it, so the line can never promise
-## a level the phase would not pay (REQ-P2-03).
+## would buy, priced off the ledger that sells it (REQ-P2-03).
 static func _order_pick(
 	model: MapModel,
 	works: LandWorks,
@@ -94,126 +118,37 @@ static func _order_pick(
 	var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
 	if action.is_empty() or tile.x < 0:
 		return {}
-	var province: int = model.province_at(tile.x, tile.y)
-	var words: Dictionary = _wording(action, model, works, tile, province)
-	var payoff: String = _payoff(
-		action, model, works, roster, faction, tech_caps, stockpile, context,
-		blockade, tile, province
-	)
-	words["line"] = (
-		"the court would %s" % String(words["short"])
-		if payoff.is_empty()
-		else "the court would %s — %s" % [String(words["short"]), payoff]
-	)
-	words["action"] = action
-	words["tile"] = tile
-	return words
-
-
-## A march the pass books when no work is legal where the crew stands: the step
-## it takes, so the crown sees the ground the court is walking its crew toward.
-static func _move_pick(model: MapModel, move: Dictionary) -> Dictionary:
-	var tile: Vector2i = move.get("tile", CivilianState.NO_TILE)
-	if tile.x < 0:
-		return {}
-	var place: String = _place(model, model.province_at(tile.x, tile.y))
+	var step: String = MapPlayCivilianPickWords.short(action, model, works, tile)
+	# The work is not always underfoot: a Builder raises an estate anywhere on
+	# crown land, an Engineer lays a road ahead of the crew. The sheet the line
+	# sits on presses the crew's own tile, so the line names the ground it means
+	# — the same words the march pick uses, and the tile the chart rings.
+	var where: String = ""
+	var crew: CivilianState = CivilianMuster.unit_by_id(roster, int(order.get("unit_id", -1)))
+	if crew != null and crew.tile != tile:
+		var province: int = model.province_at(tile.x, tile.y)
+		where = " at %s (%d, %d)" % [
+			MapPlayCivilianPickWords.place(model, province), tile.x, tile.y
+		]
+	# The sheet presses the crew's own tile, so a pick on other ground carries
+	# the door that can press it; a pick underfoot needs none (REQ-P5-06).
+	var door: String = "" if crew == null or crew.tile == tile else door_for(action)
 	return {
-		"action": KIND_MOVE,
+		"action": action,
 		"tile": tile,
-		"short": "march toward %s" % place,
-		"line": "the court would march toward %s (%d, %d)" % [place, tile.x, tile.y],
+		"door": door,
+		"short": step,
+		"line": MapPlayCivilianPickWords.line(
+			step,
+			MapPlayCivilianPickWords.payoff(
+				action, model, works, roster, faction, tech_caps, stockpile,
+				context, blockade, tile
+			),
+			where
+		),
 	}
 
 
-## The step's own short form, one branch per work kind the pass books.
-static func _wording(
-	action: String, model: MapModel, works: LandWorks, tile: Vector2i, province: int
-) -> Dictionary:
-	match action:
-		"build_improvement":
-			var name: String = ImprovementCatalog.base_name(
-				model.resource_at(tile.x, tile.y)
-			)
-			return {"short": "raise the %s" % _lower_first(name)}
-		"upgrade_town":
-			return {
-				"short": "raise the town to L%d" % CivilianWorkPlan.town_upgrade_level(
-					model, tile
-				)
-			}
-		"build_fort":
-			return {
-				"short": "raise the %s fort" % FortRules.level_name(
-					CivilianWorkPlan.fort_target(model, tile)
-				).to_lower()
-			}
-		"build_hospital":
-			return {
-				"short": "raise the L%d ward" % CivilianWorkPlan.hospital_target(model, tile)
-			}
-		"build_road":
-			return {"short": "build a road"}
-		"build_port":
-			return {"short": "build a harbour"}
-		"build_rail":
-			return {"short": "lay a railroad"}
-		"explore":
-			return {"short": "survey %s" % _place(model, province)}
-		"purchase_land":
-			return {"short": "buy the deed at %s" % _place(model, province)}
-		"counter_spy":
-			return {"short": "keep the counter-espionage screen"}
-		_:
-			return {"short": _lower_first(CivilianWork.label(action))}
-
-
-## What the order buys, off the table that charges it: the estate's next level
-## (the estates ledger's own line), the transport a road or harbour lands, the
-## wall the fort stands up, the rest a ward brings. Empty where the sheet that
-## sells the order already prints the payoff and no level is named here.
-static func _payoff(
-	action: String,
-	model: MapModel,
-	works: LandWorks,
-	roster: Array[CivilianState],
-	faction: int,
-	tech_caps: Dictionary,
-	stockpile: Dictionary,
-	context: Dictionary,
-	blockade: Blockades,
-	tile: Vector2i,
-	province: int
-) -> String:
-	match action:
-		"build_improvement":
-			var row: Dictionary = ImprovementLedger.estate_row(
-				model, works, roster, stockpile, faction, tile,
-				context.get("capital_tile", CivilianState.NO_TILE), tech_caps,
-				blockade
-			)
-			return String(row.get("preview_text", ""))
-		"build_road", "build_port", "build_rail":
-			return CivilianWorkPlan.transport_preview(action, model, tile, works)
-		"build_fort":
-			return WallLedger.preview_text(
-				FortRules.level_at(model, province), CivilianWorkPlan.fort_target(model, tile)
-			)
-		"build_hospital":
-			return HospitalLedger.preview_text(
-				HospitalRules.level_at(model, province),
-				CivilianWorkPlan.hospital_target(model, tile)
-			)
-	return ""
-
-
-## The work's first word set in running prose: `Lumber camp` -> `lumber camp`.
-static func _lower_first(text: String) -> String:
-	if text.is_empty():
-		return text
-	return text.substr(0, 1).to_lower() + text.substr(1)
-
-
-static func _place(model: MapModel, province: int) -> String:
-	if province < 0:
-		return "the wilds"
-	return model.province_name(province)
+## A march, worded where the words live: kept as the sheet's own entry point.
+static func _move_pick(model: MapModel, move: Dictionary) -> Dictionary:
+	return MapPlayCivilianPickWords.move_pick(model, move)

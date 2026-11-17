@@ -261,7 +261,10 @@ func test_clicking_a_fleet_selects_it() -> void:
 	assert_true(ship.selected)
 
 
-func test_end_turn_advances_calendar_and_treasury() -> void:
+## One turn covers the calendar, the purse and every court's rations: each
+## reading is written by the same end-of-turn pass, so a second turn would only
+## re-prove the pass (docs/testing.md § Speed rules).
+func test_end_turn_advances_the_calendar_and_files_every_courts_rations() -> void:
 	var turn_before: int = _screen.turn
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
@@ -269,14 +272,9 @@ func test_end_turn_advances_calendar_and_treasury() -> void:
 	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
 	assert_eq(_screen.income, _screen.economy.readings.projected_income())
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
-
-
-## Every court's rations are recorded, not just the human's: a rival's hungry
-## army or squadron must fight at the published morale band next turn
-## (wiki: combat § Feeding modifiers; workers-and-population § Consumption).
-func test_end_turn_records_every_courts_rations() -> void:
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Every court's rations are recorded, not just the human's: a rival's hungry
+	# army or squadron must fight at the published morale band next turn
+	# (wiki: combat § Feeding modifiers; workers-and-population § Consumption).
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_true(
 			_screen.play.feeding.has(faction),
@@ -423,15 +421,58 @@ func test_visibility_starts_from_the_world_rules() -> void:
 	)
 
 
-func test_end_turn_applies_fog_decay_to_foreign_coasts() -> void:
+## One end-of-turn fog pass decays what the crown has charted: the foreign coast
+## it can see on this chart, and the rival coast and unwatched water it charted
+## on the other chart while the Old World stayed on screen (wiki:
+## fog-and-exploration § Fog Decay, § Distant sea zone fog). One turn proves
+## both readings; a second used to pay a full `end_turn` under coverage.
+func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 	var tile: Vector2i = _screen.model.province_tiles(Fixture.foreign_province(_screen.model))[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
+	# Chart a rival coast and quiet water in the region the player is not reading.
+	_screen._cycle_region()
+	var new_world: MapModel = _screen.model
+	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
+	var province: int = Fixture.foreign_province(new_world)
+	var coast: Vector2i = new_world.province_tiles(province)[0]
+	visibility.raise_to(
+		new_world.index_of(coast.x, coast.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	var zone_id: int = _quiet_zone(new_world, visibility)
+	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
+	var water: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
+	visibility.raise_to(
+		new_world.index_of(water.x, water.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
+	assert_eq(
+		_screen.overlay.fog_state_at(tile.x, tile.y),
+		MapOverlay.FOG_VISIBLE,
+		"the charted coast is still in sight before the turn"
+	)
+
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
-	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
+
+	assert_eq(
+		_screen.overlay.fog_state_at(tile.x, tile.y),
+		MapOverlay.FOG_FOGGED,
+		"the foreign coast on this chart decays"
+	)
+	assert_eq(
+		visibility.level_at(coast.x, coast.y),
+		VisibilityModel.Level.FOGGED,
+		"the New World chart decays while the Old World is on screen"
+	)
+	assert_eq(
+		visibility.level_at(water.x, water.y),
+		VisibilityModel.Level.FOGGED,
+		"unwatched New World water refogs with the Old World on screen"
+	)
 
 
 func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
@@ -523,43 +564,6 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 
 	assert_false(_screen.play.diplomacy.relation(0, 2).at_war)
 	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)
-
-
-## The end-of-turn fog pass is a rules pass, not a view pass: knowledge in the
-## region the player is not reading must still decay for rival coasts and for
-## distant water (wiki: fog-and-exploration § Fog Decay, § Distant sea zone fog).
-## One turn covers both: each used to pay a full end_turn under coverage (~2 s).
-func test_end_turn_fogs_rival_coasts_and_distant_water_off_screen() -> void:
-	_screen._cycle_region()
-	var new_world: MapModel = _screen.model
-	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
-	var province: int = Fixture.foreign_province(new_world)
-	var coast: Vector2i = new_world.province_tiles(province)[0]
-	visibility.raise_to(
-		new_world.index_of(coast.x, coast.y), VisibilityModel.Level.FULLY_VISIBLE
-	)
-	var zone_id: int = _quiet_zone(new_world, visibility)
-	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
-	var water: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
-	visibility.raise_to(
-		new_world.index_of(water.x, water.y), VisibilityModel.Level.FULLY_VISIBLE
-	)
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
-
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-
-	assert_eq(
-		visibility.level_at(coast.x, coast.y),
-		VisibilityModel.Level.FOGGED,
-		"the New World chart decays while the Old World is on screen"
-	)
-	assert_eq(
-		visibility.level_at(water.x, water.y),
-		VisibilityModel.Level.FOGGED,
-		"unwatched New World water refogs with the Old World on screen"
-	)
 
 
 ## A tap on uncharted land has to say why nothing opened: the hover tooltip is
@@ -695,6 +699,45 @@ func test_the_opening_briefing_names_the_campaigns_own_year() -> void:
 		_toast_texts().has("The Indies await — Turn 1, 1500"),
 		"a turn-0 campaign still opens in 1500"
 	)
+
+
+## Issue #886: the opening parchment sits above the HUD, so a lift that never ran
+## (a fault before `intro`, a paused tree) left the whole campaign behind a blank
+## plate with only the pause menu's MENU seal above it — the solid parchment
+## screen reported as unplayable on Android. The plate has to lift itself.
+func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
+	var plate := _opening_plate(0.5)
+	plate.process_mode = Node.PROCESS_MODE_DISABLED
+	plate.lift(0.02)
+	await get_tree().create_timer(0.2).timeout
+	assert_false(plate.visible, "a plate whose node cannot process still lifts")
+	plate.queue_free()
+
+
+func test_an_opening_that_never_lifts_is_lifted_on_its_deadline() -> void:
+	var plate := _opening_plate(0.05)
+	# Nobody calls lift: this is the screen that faulted before `intro`. The
+	# deadline lifts on the plate's own fade, so wait out the deadline and the
+	# fade rather than a single frame.
+	await get_tree().create_timer(1.2).timeout
+	assert_false(plate.visible, "the deadline reveals the chart it was hiding")
+	plate.queue_free()
+
+
+func test_the_map_screen_opens_on_a_lifted_plate() -> void:
+	assert_true(_screen.fade is OpeningPlate, "the plate is the opening frame")
+	assert_false(_screen.fade.visible, "the opening frame does not outlive the mount")
+
+
+## One plate on the mounted screen, opaque as the opening leaves it, with its own
+## short deadline so a case never waits out a real opening.
+func _opening_plate(hold_max: float) -> OpeningPlate:
+	var plate := OpeningPlate.new()
+	plate.hold_max = hold_max
+	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plate.modulate.a = 1.0
+	_screen.add_child(plate)
+	return plate
 
 
 ## First advance the crown lacks and could put in a slot right now.
@@ -2245,6 +2288,81 @@ func test_tapping_a_civilian_opens_its_dossier() -> void:
 	assert_eq(_screen.civilian_layer.selected_unit, unit)
 	assert_true(_screen.hud.panels.is_civilian_panel_open())
 	assert_false(_screen.hud.panels.is_panel_open())
+
+
+## The pick's door (DR-20261117-09): a pick naming ground away from the crew
+## carries one press to the surface that can press it — the estates ledger for
+## an estate, the province dossier for a road — and the press orders nothing.
+func test_the_pick_door_opens_the_surface_that_can_press_it() -> void:
+	var unit: CivilianState = _screen.civilian_layer.units[1]
+	var tile: Vector2i = _buildable_owned_resource_tile()
+	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
+	var province: int = _screen.model.province_at(tile.x, tile.y)
+	MapPlayCivilians.select(_screen.play, unit)
+	var panel: CivilianPanel = _screen.hud.panels.civilian_panel
+	panel.refresh(
+		_screen.model, unit, _screen.land_works, _screen.civilian_layer.units,
+		_screen.stockpile, _screen.visibility, _screen.play.tech_caps(),
+		_screen.play.tech_unlocked(),
+		{
+			"pick": {
+				"action": "build_improvement",
+				"tile": tile,
+				"region": _screen.region_index,
+				"door": MapPlayCivilianPick.DOOR_ESTATES,
+				"line": "the court would raise a lumber camp",
+			},
+		},
+		MapScreen.PLAYER_FACTION
+	)
+	assert_true(panel._follow.visible, "an estate pick carries its door")
+	assert_eq(panel._follow.tooltip_text, "Open the estates ledger at this ground")
+	panel._follow.pressed.emit()
+	assert_eq(_screen.selected_province, province, "the door frames the ground it names")
+	assert_true(_screen.play.improvements.is_open(), "the estates ledger opens at the pick")
+	assert_true(unit.is_idle(), "the door orders nothing")
+	_screen.play.improvements.close()
+	# A road is pressed from the province dossier, which the door leaves open.
+	MapPlayCivilians.on_action(
+		_screen.play,
+		MapPlayCivilianFollow.press(_screen.region_index, tile, "build_road")
+	)
+	assert_eq(_screen.selected_province, province)
+	assert_true(_screen.hud.panels.is_panel_open(), "the province dossier opens at the pick")
+	assert_true(unit.is_idle(), "the road door orders nothing either")
+	# A press the chart cannot reach says so instead of doing nothing.
+	var before: int = _screen.selected_province
+	MapPlayCivilians.on_action(_screen.play, "follow_pick:0:-1,-1:build_road")
+	assert_eq(_screen.selected_province, before, "a malformed press moves nothing")
+
+
+## The rail block's press travels the province dossier's router like the Build
+## road control's: the order is dispatched on the tile the block names, and a
+## ground the rules refuse answers on the despatch lane rather than doing
+## nothing (REQ-P5-05; DR-20261117-10).
+func test_a_rail_press_is_answered_on_the_despatch_lane() -> void:
+	var tile: Vector2i = _owned_plains_tile(_screen.capital_province)
+	assert_true(tile.x >= 0, "the capital's province has a crown plain")
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	# Bare ground carries no road to upgrade, so the rules refuse the press.
+	_screen.land_works.set_transport(_screen.model, tile, 0)
+	MapPlayInput.on_panel_action(_screen.play, "rail:%d,%d" % [tile.x, tile.y])
+	assert_true(
+		_toast_text().contains("railroad"),
+		"the refusal is spoken: %s" % _toast_text()
+	)
+
+
+## Prefer a crown plain of one province: railroad terrain techs differ per
+## ground, and flat land is the one Early Steam Engine covers.
+func _owned_plains_tile(province_id: int) -> Vector2i:
+	for tile: Vector2i in _screen.model.province_tiles(province_id):
+		if _screen.model.terrain_at(tile.x, tile.y) != MapModel.Terrain.PLAINS:
+			continue
+		if _screen.model.owner_at(tile.x, tile.y) != MapScreen.PLAYER_FACTION:
+			continue
+		return tile
+	return Vector2i(-1, -1)
 
 
 func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:

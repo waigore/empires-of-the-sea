@@ -519,15 +519,13 @@ func _drop_flow_shell() -> void:
 	main = null
 
 
+## The shell `before_each` mounted is the title screen: read it in place instead
+## of paying a second `Main` boot for the same assertion.
 func test_main_shell_boots_the_title_screen() -> void:
-	_drop_flow_shell()
-	var shell: Node = MAIN.instantiate()
-	add_child(shell)
-	assert_true(shell.current_page is MainMenu, "title screen is the entry point")
-	assert_null(shell.current_screen)
-	assert_not_null(shell.audio, "the shell mounts one audio director")
-	assert_not_null(shell.soundtrack, "the shell mounts the launch score")
-	shell.free()
+	assert_true(main.current_page is MainMenu, "title screen is the entry point")
+	assert_null(main.current_screen)
+	assert_not_null(main.audio, "the shell mounts one audio director")
+	assert_not_null(main.soundtrack, "the shell mounts the launch score")
 
 
 func test_auto_start_boots_the_map_screen() -> void:

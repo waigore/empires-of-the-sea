@@ -11,9 +11,9 @@ Land units: explore, improve, colonize, spy.
 ## Implemented
 
 - **Roster** (`CivilianCatalog`): six wiki types, all playable.
-- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew by world,
-  craft or **orders** (idle / at work); Visit jumps to it. **Find the next crew
-  that waits** walks the idle crews across charts; none idle → no press.
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew (world,
+  craft, orders); Visit jumps to it; **Find the next crew that waits** walks the
+  idle crews; none idle → no press.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers and Rail
   Builders stay on crown land, Explorer, Merchant and Spy cross any border; one
   crew per tile per crown (those three exempt); presence keeps a province
@@ -32,9 +32,9 @@ Land units: explore, improve, colonize, spy.
   marks it and a tap reads it.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
   [DR-20261117-07](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-07)):
-  an idle crew's dossier names the work the planner would give it next, priced by
-  its ledger, or the march — a reading only; the survey reading rings it on the
-  chart.
+  an idle crew's dossier names the planner's next work, priced by its ledger, and
+  the ground when it is not underfoot; or the march — a reading only, ringed on
+  the chart. A crew with no order says so.
 - **Town development:** Builders raise towns to 4; connected port towns cap
   extraction; levels 2 and 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
@@ -51,7 +51,7 @@ Land units: explore, improve, colonize, spy.
 
 ## Deferred (REQ-P2-02)
 
-None; gaps in [`deferred.md`](deferred.md).
+None open — see [`deferred.md`](deferred.md).
 
 ## Architecture
 

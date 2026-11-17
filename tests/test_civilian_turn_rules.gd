@@ -2073,6 +2073,66 @@ func test_improvements_stop_at_level_four() -> void:
 	assert_true(String(check["reason"]).contains("fully improved"))
 
 
+## The H8 feedstock bootstrap (wiki: extraction-and-improvements
+## § H8 feedstock bootstrap): a level-0 raise on a timber or iron estate omits
+## the manufacture inputs the court holds none of, so a court whose cast iron
+## and lumber are gone can still raise the estate that refills them (#878).
+func test_the_feedstock_bootstrap_waives_the_first_cast_iron() -> void:
+	_stock = {"lumber": 1, "castIron": 0}
+	var builder := _add("builder", field_Fixture.TIMBER_TILE)
+	var check: Dictionary = _validate(builder, "build_improvement")
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(check["cost"], {"lumber": 1}, "the cast iron the court lacks is waived")
+
+
+func test_the_first_feedstock_estate_is_free() -> void:
+	_stock = {"lumber": 0, "castIron": 0}
+	var builder := _add("builder", field_Fixture.TIMBER_TILE)
+	var check: Dictionary = _validate(builder, "build_improvement")
+	assert_true(bool(check["ok"]), String(check.get("reason", "")))
+	assert_eq(check["cost"], {}, "both waivers: the first feedstock estate is free")
+	CivilianWork.assign(
+		field__model, builder, "build_improvement", field__works, _units, _stock, _view
+	)
+	CivilianWork.resolve_turn(field__model, _units, field__works, _view)
+	assert_eq(
+		int(field__works.improvement_at(field__model, field_Fixture.TIMBER_TILE)), 1,
+		"the free raise still lands"
+	)
+
+
+func test_the_bootstrap_clears_once_both_inputs_are_affordable() -> void:
+	_stock = {"lumber": 1, "castIron": 1}
+	var builder := _add("builder", field_Fixture.TIMBER_TILE)
+	var check: Dictionary = _validate(builder, "build_improvement")
+	assert_eq(
+		check["cost"], {"lumber": 1, "castIron": 1},
+		"the waivers clear once both inputs are affordable"
+	)
+
+
+func test_the_bootstrap_covers_iron_and_stops_at_level_two() -> void:
+	_stock = {"lumber": 0, "castIron": 0}
+	field__works.set_prospected(0, field__model, field_Fixture.IRON_TILE)
+	var builder := _add("builder", field_Fixture.IRON_TILE)
+	var first: Dictionary = _validate(builder, "build_improvement")
+	assert_true(bool(first["ok"]), String(first.get("reason", "")))
+	assert_eq(first["cost"], {}, "the iron estate bootstraps too")
+	field__works.set_improvement(field__model, field_Fixture.IRON_TILE, 1)
+	var second: Dictionary = _validate(builder, "build_improvement")
+	assert_false(bool(second["ok"]), "level 2 needs the full stores")
+
+
+func test_the_bootstrap_never_waives_another_estate() -> void:
+	_stock = {"lumber": 0, "castIron": 0}
+	var wool := Vector2i(1, 0)
+	field__model.resource[field__model.index_of(wool.x, wool.y)] = 5
+	var builder := _add("builder", wool)
+	var check: Dictionary = _validate(builder, "build_improvement")
+	assert_false(bool(check["ok"]))
+	assert_true(String(check["reason"]).contains("Stores are short"))
+
+
 func test_builder_upgrades_the_town_with_national_bureaucracy() -> void:
 	var builder := _add("builder", field_Fixture.BARE_TILE)
 	var blocked: Dictionary = _validate(builder, "upgrade_town")
@@ -2181,8 +2241,12 @@ func test_one_crew_per_tile() -> void:
 
 
 func test_work_needs_materials_in_the_stockpile() -> void:
-	var builder := _add("builder", field_Fixture.IRON_TILE)
-	field__works.set_prospected(0, field__model, field_Fixture.IRON_TILE)
+	# The stores gate holds for a raise the bootstrap does not cover: a grain
+	# estate is no feedstock source, so it pays the full 1 + 1 (wiki:
+	# extraction-and-improvements § H8 feedstock bootstrap; #878).
+	var grain := Vector2i(2, 1)
+	field__model.resource[field__model.index_of(grain.x, grain.y)] = 4
+	var builder := _add("builder", grain)
 	_stock = {"lumber": 0, "castIron": 0}
 	var check: Dictionary = _validate(builder, "build_improvement")
 	assert_false(bool(check["ok"]))

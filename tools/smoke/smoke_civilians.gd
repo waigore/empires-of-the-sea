@@ -120,3 +120,9 @@ static func step(run) -> void:
 		"the hire waits for the turn to close"
 	)
 	works["hire"] = units_before
+	# The dossier's rail block is a reading of the crown's roads: with no road to
+	# upgrade it offers no press (DR-20261117-10).
+	run.check(
+		screen.hud.panels.panel._rail.rows().is_empty(),
+		"no rail block without a road to upgrade"
+	)
