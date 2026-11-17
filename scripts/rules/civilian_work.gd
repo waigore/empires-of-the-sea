@@ -74,7 +74,7 @@ static func options(
 			model, unit, action, works, units, stockpile, visibility, CivilianState.NO_TILE,
 			tech_caps, tech_unlocked, context
 		)
-		var row: Dictionary = CivilianWorkPlan.option_row(
+		var row: Dictionary = CivilianWorkRows.option_row(
 			action, model, unit.tile, works, check, label(action),
 			context.get("blockade", null) as Blockades
 		)
@@ -139,7 +139,7 @@ static func validate(
 		cost = CivilianWorkPlan.bootstrap_cost(
 			model, tile, stockpile, cost_level(action, model, tile, works)
 		)
-	var stores_gate: String = CivilianWorkPlan.stores_refusal(cost, stockpile)
+	var stores_gate: String = CivilianWorkRefusals.stores(cost, stockpile)
 	if not stores_gate.is_empty():
 		return _no(stores_gate)
 	check["cost"] = cost
@@ -183,7 +183,7 @@ static func assign(
 	elif action == LandPurchase.ACTION:
 		details["treasury_cost"] = int(check.get("treasury_cost", 0))
 	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]), unit.tile, details)
-	check["label"] = CivilianWorkPlan.order_label(action, model, Vector2i(check["tile"]), label(action))
+	check["label"] = CivilianWorkRows.order_label(action, model, Vector2i(check["tile"]), label(action))
 	return check
 
 
