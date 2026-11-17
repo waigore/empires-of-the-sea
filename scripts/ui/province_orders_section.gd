@@ -93,7 +93,7 @@ func set_town_order(
 	if faction >= 0 and data.owner != faction:
 		refusal = "This land is not held by your crown."
 	if refusal.is_empty():
-		refusal = CivilianWorkPlan.town_upgrade_refusal(data, tech_unlocked, stockpile)
+		refusal = CivilianWorkRefusals.town_upgrade(data, tech_unlocked, stockpile)
 	town_button.disabled = not refusal.is_empty()
 	town_button.tooltip_text = DossierCopy.TOWN_TIP if refusal.is_empty() else refusal
 
