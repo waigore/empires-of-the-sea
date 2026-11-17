@@ -208,6 +208,70 @@ func test_an_absent_home_port_blocks_every_row() -> void:
 		assert_false(bool(row["ok"]))
 		assert_eq(String(row["reason"]), "Launch hulls at your capital port.")
 
+## The yard's one press walks the slip's order and reserves what each hull order
+## spends, so a press never files a launch the Build/work pass would refuse
+## (REQ-P2-03, REQ-P5-04; DR-20261118-08).
+func test_the_yard_batch_reserves_the_ledger_each_hull_spends() -> void:
+	_setup_fleet_yard()
+	_econ.tech_unlocked["superior_hull_design"] = true
+	var types: Array[String] = ["carrack", "fluyte"]
+
+	var result: Dictionary = FleetYard.queue_all(_econ, true, types)
+
+	assert_eq(int(result["filed"]), 2, "every payable hull files")
+	assert_eq(String(result["refusal"]), "", "nothing is refused")
+	assert_eq(
+		_econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), 2, "one order per hull"
+	)
+	assert_eq(
+		_econ.available_peasants(),
+		PlayerEconomy.START_PEASANTS - 2,
+		"each hull reserves her peasant"
+	)
+
+	# Cash: the carrack's price leaves the fluyte short.
+	_econ = PlayerEconomy.starting()
+	_econ.tech_unlocked["superior_hull_design"] = true
+	_econ.treasury = ShipEconomy.treasury_cost("carrack")
+	result = FleetYard.queue_all(_econ, true, types)
+	assert_eq(int(result["filed"]), 1, "only what the purse covers")
+	assert_eq(String(result["refusal"]), "Insufficient treasury")
+
+	# Materials: the carrack takes the last bolt of cloth.
+	_econ = PlayerEconomy.starting()
+	_econ.tech_unlocked["superior_hull_design"] = true
+	_econ.treasury = 60000
+	_econ.stockpile["fabric"] = 1
+	result = FleetYard.queue_all(_econ, true, types)
+	assert_eq(int(result["filed"]), 1, "only what the stores cover")
+	assert_eq(String(result["refusal"]), "Insufficient materials")
+
+	# Hands: the queue reserves the peasant, so the second hull finds none.
+	_econ = PlayerEconomy.starting()
+	_econ.tech_unlocked["superior_hull_design"] = true
+	_econ.treasury = 60000
+	_econ.workers = WorkerPool.make(1)
+	result = FleetYard.queue_all(_econ, true, types)
+	assert_eq(int(result["filed"]), 1, "only what the pool covers")
+	assert_eq(String(result["refusal"]), "Insufficient workers")
+
+## The slip's one press reads only rows no waiting order claims, and only at the
+## crown's own capital port, so a second press never doubles a hull already under
+## orders (DR-20261118-08).
+func test_the_yard_batch_skips_a_hull_already_under_orders() -> void:
+	_setup_fleet_yard()
+	_econ.tech_unlocked["superior_hull_design"] = true
+	_econ.queue_build(RecruitQueue.KIND_SHIP, "carrack")
+
+	var ready: Array[String] = FleetYard.batch_types(_econ, true)
+
+	assert_false(ready.has("carrack"), "a hull under orders is not re-filed")
+	assert_true(ready.has("fluyte"), "a row nothing claims still stands ready")
+	assert_true(FleetYard.batch_types(_econ, false).is_empty(), "no slip away from home")
+	var away: Dictionary = FleetYard.queue_all(_econ, false, ["fluyte"])
+	assert_eq(int(away["filed"]), 0, "nothing is laid down away from home")
+	assert_eq(String(away["refusal"]), FleetYard.NOT_AT_HOME, "the gate speaks its row's words")
+
 func test_every_hull_names_a_real_tech_or_none() -> void:
 	_setup_fleet_yard()
 	for type_id: String in ShipEconomy.ENTRIES.keys():
@@ -259,11 +323,14 @@ func _rows() -> Array[Dictionary]:
 		},
 	]
 
-func _buttons(block: FleetYardBlock, prefix: String) -> Array[String]:
+## Every button whose face starts with `prefix`; `exact` keeps only a button
+## whose face is the prefix itself, so the slip's own row presses can be read
+## apart from the one batch press under them (DR-20261118-08).
+func _buttons(block: FleetYardBlock, prefix: String, exact: bool = false) -> Array[String]:
 	var out: Array[String] = []
 	for node: Node in block.find_children("*", "Button", true, false):
 		var text: String = (node as Button).text
-		if text.begins_with(prefix):
+		if text.begins_with(prefix) and (not exact or text == prefix):
 			out.append(text)
 	return out
 
@@ -276,7 +343,10 @@ func test_the_slip_lists_launches_and_opens_at_once() -> void:
 	assert_true(block._button.visible, "a player with rows gets the yard")
 	assert_true(block._open, "the capital slip opens the drawer")
 	assert_eq(block._button.text, "Close shipyard")
-	assert_eq(_buttons(block, "Launch"), ["Launch", "Launch"])
+	assert_eq(_buttons(block, "Launch", true), ["Launch", "Launch"], "one press per hull")
+	# The slip's own one press stands hidden while nothing on it is ready.
+	assert_eq(_buttons(block, "Launch all ready"), ["Launch all ready (0)"])
+	assert_false((block._batch as Control).visible, "nothing ready, no batch press")
 	block.free()
 
 func test_a_foreign_yard_shows_nothing() -> void:

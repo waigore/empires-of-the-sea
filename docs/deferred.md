@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261118-05 vs code through #945 (REQ-P2-02).
+Audited: DR-20261118-08 vs code through #952 (REQ-P2-02).
 Implement default: largest clear item here, then REQ/wiki.
 
 ## Already live
@@ -39,11 +39,11 @@ Implement default: largest clear item here, then REQ/wiki.
 | Rail pick door; dossier rail | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
 | Observatory sheet + feed | `ObserverProvince*`; `ObserverTurnFeed`, DR-17-11/12 |
 | Capital Wood walls + fort lift | `FortCapital`, DR-17-13/#926 |
+| Shipyard one-press launch | `FleetYard.queue_all`/`MapPlayFleetYard.launch_all`, DR-18-08 |
 
 ## Gaps (ranked)
 
-- Fleet shipyard launches stay one press per hull (drill yard's batch,
-  DR-18-07).
+- None open (through DR-18-08/#952).
 
 ## Next pick
 

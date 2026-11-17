@@ -1359,6 +1359,79 @@ func test_launching_queues_the_hull_and_pays_it_in_build_work() -> void:
 	assert_eq(econ.available_peasants(), peasants - 1, "the reservation became the muster")
 
 
+## The slip's one press lays down a hull for every ready type, Build/work musters
+## them all and the press stands down while they wait, so a second press cannot
+## double the line (REQ-P5-04, REQ-P5-05; DR-20261118-08).
+func test_the_shipyard_lays_down_every_ready_hull_in_one_press() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 60000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
+	var ready: Array[String] = FleetYard.batch_types(econ, true, MapPlayFleetYard.flown(play))
+	assert_gte(ready.size(), 2, "the slip offers more than one payable hull")
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var press: RaiseBatchPress = yard._batch
+	assert_not_null(press, "the slip carries the one press")
+	assert_eq(press.text, "Launch all ready (%d)" % ready.size(), "the face names the line")
+
+	press.pressed.emit()
+	press.pressed.emit()
+
+	assert_eq(
+		econ.recruits.pending_kind(RecruitQueue.KIND_SHIP),
+		ready.size(),
+		"one order per ready hull"
+	)
+	assert_true(
+		_last_toast().contains("%d hulls are laid down" % ready.size()),
+		_last_toast()
+	)
+	assert_false(press.visible, "every hull waits on her order, so the press stands down")
+
+	MapPlayRecruits.complete(play)
+
+	assert_eq(
+		_screen.ship_layer.hull_count_all(play.player_faction),
+		hulls + ready.size(),
+		"the whole slip launches at Build/work"
+	)
+	MapPlayFleetYard.open(play)
+	assert_true(press.visible, "a paid-off slip offers the next batch")
+
+
+## The batch speaks the same refusals a single launch does, before anything is
+## filed: a lost capital and an inland one both lay down no hull (REQ-P2-03;
+## DR-20261118-08).
+func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
+	var play: PlaySession = _screen.play
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 60000
+	econ.tech_unlocked["superior_hull_design"] = true
+	var pending: int = econ.recruits.pending_kind(RecruitQueue.KIND_SHIP)
+	play.capital_province = _unowned_province()
+	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleetYard.on_action(play, "yard:launch_all")
+
+	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "nothing is filed")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+
+	play.capital_province = _inland_owned_province()
+	assert_gte(play.capital_province, 0, "the fixture has an inland province")
+	MapPlayFleetYard.launch_all(play)
+
+	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "no yard inland")
+
+
 func test_breaking_up_a_hull_asks_once() -> void:
 	var capital: int = _screen.play.capital_province
 	_screen.play.selected_province = capital
