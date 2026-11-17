@@ -865,6 +865,66 @@ func test_a_town_beside_a_port_is_not_capped() -> void:
 	)
 
 
+## A road laid beside a crown harbour carries the harbour's level, never its own
+## 1: "Adjacent port tile grants level 4 to that tile" (wiki:
+## extraction-and-improvements § Transport Level).
+func test_a_road_beside_a_port_carries_the_ports_level() -> void:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(Vector2i(x, y))
+	var province := ProvinceState.create(
+		0, "Colonia", tiles, Vector2(1.5, 0.5), tiles.size(), PLAYER, false
+	)
+	province.town_tile = Vector2i(3, 0)
+	province.town_development = 1
+	model.provinces = [province]
+	model.resource[model.index_of(1, 1)] = 4
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 1))
+	works.set_improvement(model, Vector2i(1, 1), 4)
+	assert_eq(
+		Extraction.yields(model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1)),
+		{"grain": 8},
+		"the harbour carries the estate beside it at level 4"
+	)
+	assert_eq(
+		CivilianWorkPlan.transport_preview(
+			"build_road", model, Vector2i(1, 1), works
+		),
+		"Transport 4 — an estate here gathers up to 4 a turn",
+		"the road row names the harbour's level, not its own step"
+	)
+	CivilianTransport.apply(model, "build_road", Vector2i(1, 1), works)
+	assert_eq(
+		Extraction.yields(model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1)),
+		{"grain": 8},
+		"a road beside the harbour never lowers the estate it carries"
+	)
+	# Negative control: away from the harbour a plain road keeps its own grade.
+	works.set_transport(model, Vector2i(3, 1), LandWorks.TRANSPORT_ROAD)
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, PLAYER, Vector2i(3, 0)
+	)
+	var away: Dictionary = (resolved["tiles"] as Dictionary).get(
+		model.index_of(3, 1), {}
+	)
+	assert_eq(int(away.get("transport", 0)), 1, "a plain road stays a plain road")
+	assert_eq(
+		CivilianWorkPlan.current_transport(model, Vector2i(0, 1), works),
+		LandWorks.TRANSPORT_RAIL,
+		"the harbour tile itself carries the rail's transport"
+	)
+	assert_eq(
+		CivilianWorkPlan.current_transport(null, Vector2i(0, 1), works), 0,
+		"a reading with no chart names no transport"
+	)
+
+
 ## A reading counts one tile in the singular: the hover line is the only thing a
 ## player sees of the gap.
 func test_the_reading_counts_one_tile_in_the_singular() -> void:
@@ -1006,7 +1066,10 @@ func test_a_blockaded_colony_reads_the_harvest_the_phase_pays() -> void:
 	var open: Dictionary = ImprovementLedger.snapshot(
 		model, _works, [], {}, PLAYER, CAPITAL, caps
 	)
-	assert_eq(open["totals"], {"timber": 1}, "the open coast ships one timber")
+	# The estate stands beside the open harbour, so it carries level 4 and pays
+	# its whole improvement — the road on it does not replace the harbour's grade
+	# (wiki: extraction-and-improvements § Transport Level).
+	assert_eq(open["totals"], {"timber": 2}, "the open coast ships its whole level")
 	var sealed: Dictionary = ImprovementLedger.snapshot(
 		model, _works, [], {}, PLAYER, CAPITAL, caps, seals
 	)
