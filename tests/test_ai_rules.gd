@@ -8984,6 +8984,96 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
+
+## A crown whose own land still holds unsurveyed ground takes the second Explorer
+## before the estate queue, so the colony sails with a prospector left behind
+## (issue #894; wiki: fog-and-exploration § Prospecting).
+func test_a_court_takes_the_voyage_crew_before_the_estate_queue() -> void:
+	var play: PlaySession = _muster_play()
+	var model: MapModel = play.world.region(0)
+	var one: Array[CivilianState] = [
+		CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
+	]
+	play.civilian_layer.regions.set_region(0, one)
+	assert_true(
+		CivilianMuster.needs_voyage_crew(play, 0, 0, model),
+		"the last Explorer would sail with the voyage"
+	)
+	var two: Array[CivilianState] = one.duplicate()
+	two.append(CivilianState.create(2, 0, "explorer", CivilianFixture.HILLS_TILE))
+	play.civilian_layer.regions.set_region(0, two)
+	assert_false(
+		CivilianMuster.needs_voyage_crew(play, 0, 0, model),
+		"a second Explorer already stays behind"
+	)
+	# The hire order takes the Explorer ahead of the Builder the estate queue
+	# wants, so the voyage is not held up for want of a prospector.
+	var context: Dictionary = _civilian_context()
+	context["voyage_crew"] = true
+	var order: Dictionary = AiCivilianHire.training_order(
+		AiConfig.build(0, 1500), one, context
+	)
+	assert_eq(String(order.get("type_id", "")), "explorer")
+	context.erase("voyage_crew")
+	var published: Dictionary = AiCivilianHire.training_order(
+		AiConfig.build(0, 1500), one, context
+	)
+	assert_eq(
+		String(published.get("type_id", "")), "builder",
+		"without the voyage reading the published order stands"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Only the crew the voyage will board waits at the harbour: a crown's other
+## Explorers keep prospecting the home ground while a colony sails (issue #894).
+func test_only_the_mustering_explorer_waits_at_the_harbour() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var pick: CivilianState = CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
+	var other: CivilianState = CivilianState.create(2, 0, "explorer", CivilianFixture.HILLS_TILE)
+	var context: Dictionary = {
+		"muster_port": CivilianFixture.COAST_TILE, "muster_unit": pick.id,
+	}
+	assert_true(
+		AiExplorerWork.best_candidate(_work_query(
+			AiConfig.build(0, 1500), model, pick, [pick, other], LandWorks.new(),
+			CivilianFixture.stockpile(), {}, {}, context, {}
+		)).is_empty(),
+		"the crew the voyage boards takes no work"
+	)
+	var work: Dictionary = AiExplorerWork.best_candidate(_work_query(
+		AiConfig.build(0, 1500), model, other, [pick, other], LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, context, {}
+	))
+	assert_eq(
+		String(work.get("action", "")), "prospect",
+		"the crown's other Explorer keeps working the home ground"
+	)
+
+
+## The muster fixture: a two-region world whose home province is the civilian
+## fixture's own (hills to prospect, a seat with a port) and a free squadron.
+func _muster_play() -> PlaySession:
+	var world := WorldMap.new()
+	world.add_region(CivilianFixture.build())
+	world.add_region(_ai_colonisation_new_world())
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.world = world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = world.region(0)
+	play.ship_layer.regions.set_region(0, [FleetState.in_port(1, 0, 0)])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = world.region(0)
+	play.civilian_layer.units = []
+	play.civilian_layer.regions.set_region(0, [])
+	play.civilian_layer.regions.set_region(1, [])
+	play.civilian_layer.works_regions.set_region(0, LandWorks.new())
+	return play
+
 func test_region_helpers_pick_the_opposite_map() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	assert_eq(AiColonisationPlanner._target_region(world, WorldMap.OLD_WORLD, ai_colonisation_OWNER), WorldMap.NEW_WORLD)

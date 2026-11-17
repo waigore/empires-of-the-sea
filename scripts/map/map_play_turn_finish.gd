@@ -160,6 +160,7 @@ static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 	_rival_ledgers(play, book)
 	play.turn += 1
 	_crown_ledger(play, book)
+	_fort_upgrades(play, book)
 	_report_turn(play, book)
 	# The boundary Auto waits for: an armed court takes the seat at the close of
 	# the turn the player played; a discharged one gives it back (wiki: auto-mode
@@ -248,6 +249,24 @@ static func _report_turn(play: PlaySession, book: TurnBook) -> void:
 		book.crown_report, book.raid_report
 	)
 	play.emit_turn_ended(play.turn)
+
+
+## A Great Power's capital wall steps up once, the turn its own fort tech
+## unlocks: the rivals' ledgers and the crown's have both closed by now, and
+## each report names the studies that finished (wiki: siege-mechanics
+## § Fort Levels; issue #919). Minors keep only the walls they build.
+static func _fort_upgrades(play: PlaySession, book: TurnBook) -> void:
+	var factions: Dictionary = book.economy_report.get("factions", {})
+	for raw: Variant in factions.keys():
+		var row: Dictionary = factions[raw]
+		FortCapital.apply_research(
+			play.world, int(raw), row.get("resolved", {}) as Dictionary
+		)
+	var research: Dictionary = book.crown_report.get("research", {}) as Dictionary
+	var raised: int = FortCapital.apply_research(play.world, play.player_faction, research)
+	if raised <= 0 or play.hud == null or play.observer_mode:
+		return
+	play.hud.toast("The capital's walls rise to %s" % FortRules.level_name(raised))
 
 
 ## The turn's view follow-up: the toast, the open dossiers, the survey lens and
