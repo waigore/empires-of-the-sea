@@ -393,10 +393,16 @@ static func open_save(host: Node, data: Dictionary, save_dir: String = "") -> Ma
 ## chart from the suite's pristine save, so the borrowed crown never survives the
 ## case. A case that wants a rival's view pays a bookkeep instead of a fresh
 ## mount (~0.5 s under coverage), which is what docs/testing.md's one-mount rule
-## asks for.
-static func attach_faction_screen(screen: MapScreen, faction: int) -> MapScreen:
+## asks for. An optional `leader` rewrites that crown's key the way setup would
+## have (empty keeps the roster the mount already carries).
+static func attach_faction_screen(
+	screen: MapScreen, faction: int, leader: String = ""
+) -> MapScreen:
 	screen.player_faction = faction
 	screen.play.player_faction = faction
+	if not leader.is_empty():
+		screen.player_leader = LeaderCatalog.resolve_key(faction, leader)
+		screen.play.leaders[faction] = screen.player_leader
 	screen.play.diplomacy.human_faction = faction
 	MapPlayDiplomacy.sync_first_contact(screen.play)
 	MapPlaySetup.refresh_after_load(screen.play)
