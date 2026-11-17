@@ -57,6 +57,16 @@ static func resolve_exchange(
 	}
 	state["attacker"]["plan"] = plan_for(atk_side, attacker, context, false)
 	state["defender"]["plan"] = plan_for(def_side, defender, context, true, fort_level > 0)
+	## The line's wings, dealt when the battle opens: the horse holds the flanks
+	## and the foot and guns the centre. A garrison behind a wall holds no wings
+	## — its lanes are the parapet and what waits behind it (wiki: quick-battle
+	## § Wings and collapse; siege-mechanics § Quick Battle lanes).
+	state["attacker"]["wings"] = QuickBattleWings.deploy(atk_side, int(atk_mods["limit"]))
+	if fort_level <= 0:
+		state["defender"]["wings"] = QuickBattleWings.deploy(
+			def_side, int(def_mods["limit"])
+		)
+	var wings_open: Dictionary = QuickBattleWings.counts_of(state)
 	## A hospital in the province triages the defender's survivors: the same
 	## wear scale auto-resolve applies (DR-20261111-12).
 	state["defender"]["triage"] = HospitalRules.triage_scale_at(model, province)
@@ -122,6 +132,9 @@ static func resolve_exchange(
 		"attacker_cohesion": int(state["attacker"]["cohesion"]),
 		"defender_cohesion": int(state["defender"]["cohesion"]),
 	}
+	## The line's three wings as the battle opened, as it was left, and the wings
+	## the enemy broke (wiki: quick-battle § Wings and collapse).
+	report["quick"].merge(QuickBattleWings.record(state, wings_open))
 	report["attacker_detail"] = _losses(atk_types, _type_counts(atk_side))
 	report["defender_detail"] = _losses(def_types, _type_counts(def_side))
 	report.merge(ArmyModifiers.line_fields(
@@ -176,6 +189,9 @@ static func _side_state(
 		"plan": "balanced",
 		## A sortieing defender stands outside the wall for the round.
 		"exposed": false,
+		## The three wings of a line in the open; empty behind a wall.
+		"wings": {},
+		"broken": [] as Array[String],
 	}
 
 
@@ -216,6 +232,13 @@ static func _round(
 				armies, state, key, enemy_key, action, guns
 			)
 			log["actions"].append(entry)
+			## A wing that lost its last regiment to this blow has broken: named
+			## once, on the action that did it (wiki: quick-battle § Wings and
+			## collapse).
+			var broken_now: Array[String] = QuickBattleWings.fell(state, enemy_key)
+			broken_now.append_array(QuickBattleWings.fell(state, key))
+			if not broken_now.is_empty():
+				entry["wing_broken"] = broken_now
 		# The emplaced battery fires after the side's actions.
 		if key == "defender" and QuickBattleBattery.alive(guns) > 0:
 			var hit: int = QuickBattleBattery.fire(armies, state, guns)
@@ -244,6 +267,8 @@ static func _round(
 	log["defender_count"] = ArmyForce.side_regiments(def_side)
 	log["guns"] = QuickBattleBattery.alive(guns)
 	log["gates"] = int((state.get("gates", {}) as Dictionary).get("broken", 0))
+	## The wings as they stand after the round, and the ones the line has lost.
+	log.merge(QuickBattleWings.record(state))
 	## Condition after this round: the rail reads these, never a recomputation.
 	log["attacker_health"] = RegimentCondition.entries(atk_side)
 	log["defender_health"] = RegimentCondition.entries(def_side)

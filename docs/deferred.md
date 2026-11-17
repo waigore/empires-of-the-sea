@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-07; #846–#883 live (REQ-P2-02).
+Audited: DR-20261117-08; #846–#883 live (REQ-P2-02).
 
 ## Already live
 
@@ -36,16 +36,15 @@ Audited: DR-20261117-07; #846–#883 live (REQ-P2-02).
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
 | Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`; chart mark `CivicGlyphs`/`ResourceLens`, DR-17-03/05/06/07 |
+| QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
 
 ## Gaps (ranked)
 
-1. **Quick Battle multi-lane/collapse** — one contested lane with
-   province terrain; multi-lane/collapse design call (DR-10-24).
-
+None left in the audited domains (DR-20261117-08).
 
 ## Next pick
 
-Quick Battle lane/collapse design call; else P5/P1 polish.
+P5/P1 polish; re-audit the wiki first.
 
 ## Blocked
 
@@ -69,7 +68,7 @@ Quick Battle lane/collapse design call; else P5/P1 polish.
 - `civilian-build-planner` / `civilian-units`: raise + pick + chart mark live
   (DR-17-03/05/06/07); Road L2/gathering live (`TechUnlocks`).
 - `quick-battle` / DR-10-24: province-to-lane terrain live
-  (`SiegeLanes.lane_terrain`); multi-lane/collapse still gap.
+  (`SiegeLanes.lane_terrain`); wings and collapse live (`QuickBattleWings`, DR-17-08).
 - `phase-planner-*` / `ai-architecture`: six slots live; soft weight still
   seed (DR-17-01); goal reweight live (#821); deed partner claimed.
 - `production-recipes`: rival second-stage → live #798.

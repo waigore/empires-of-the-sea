@@ -27,6 +27,13 @@ var gates_broken: int = 0
 ## fraction and chevrons. Empty means "full, unblooded" (a plate fixture).
 var attacker_health: Array = []
 var defender_health: Array = []
+## The three wings each line stands in, and the ones the enemy has broken
+## (wiki: quick-battle § Wings and collapse). Presentation only: the plate
+## paints the counts the battle record carries.
+var attacker_wings: Dictionary = {}
+var defender_wings: Dictionary = {}
+var attacker_broken: Array = []
+var defender_broken: Array = []
 
 var _time: float = 0.0
 var _flash: float = 0.0
@@ -75,6 +82,25 @@ func set_battle(battle: Dictionary) -> void:
 	_smoke = 0.0
 	_charge = 0.0
 	_floaters.clear()
+	## The wings the battle opened with; a siege record has none on the wall.
+	var opened: Dictionary = quick.get("wings_open", {}) as Dictionary
+	var broken: Dictionary = quick.get("wings_broken", {}) as Dictionary
+	set_wings(
+		opened.get("attacker", {}) as Dictionary, opened.get("defender", {}) as Dictionary,
+		broken.get("attacker", []) as Array, broken.get("defender", []) as Array
+	)
+	queue_redraw()
+
+
+## The wings as one moment of the battle records them: the counts standing on
+## left, centre and right, and the ones the enemy has broken since.
+func set_wings(
+	atk: Dictionary, def: Dictionary, atk_broken: Array = [], def_broken: Array = []
+) -> void:
+	attacker_wings = atk
+	defender_wings = def
+	attacker_broken = atk_broken
+	defender_broken = def_broken
 	queue_redraw()
 
 
@@ -161,6 +187,7 @@ func _draw_armies(w: float, h: float) -> void:
 			)
 	# The merlons paint over the garrison's legs: they hold the parapet.
 	BattlePlate.draw_wall_crest(self, w, h, fort_level)
+	_draw_wings(w, h)
 	BattlePlate.draw_cannon(
 		self, Vector2(w * 0.10 + push, ground + 4.0), attacker_color, 1.0, _flash,
 		soldier_h * 0.85
@@ -223,6 +250,51 @@ func _draw_formation(
 ## Deterministic 0..1 from an index, so a replay of the same record looks alike.
 static func _hash(value: float) -> float:
 	return fposmod(sin(value * 12.9898) * 43758.5453, 1.0)
+
+
+## Three chips over each line — left, centre and right. A manned wing is inked
+## in its side's colour, an empty one dimmed, a broken one struck through, so a
+## collapse reads at a glance while the despatch says it in words (wiki:
+## quick-battle § Wings and collapse; REQ-P1-07).
+func _draw_wings(w: float, h: float) -> void:
+	var soldier_h: float = BattlePlate.soldier_height(h)
+	var ground: float = h * 0.74
+	var defended: float = BattlePlate.parapet_y(h, fort_level) if fort_level > 0 else ground
+	_wing_chips(
+		Vector2(w * 0.24, ground - soldier_h * 1.30), attacker_wings, attacker_broken,
+		attacker_color
+	)
+	_wing_chips(
+		Vector2(w * 0.80, defended - soldier_h * 1.30), defender_wings, defender_broken,
+		defender_color
+	)
+
+
+func _wing_chips(centre: Vector2, held: Dictionary, broken: Array, color: Color) -> void:
+	var total: int = 0
+	for wing: String in QuickBattleWings.WINGS:
+		total += int(held.get(wing, 0))
+	if total <= 0:
+		return
+	var chip: float = 8.0
+	var gap: float = 4.0
+	var span: float = float(QuickBattleWings.WINGS.size()) * (chip + gap) - gap
+	var origin: float = centre.x - span * 0.5
+	for index in QuickBattleWings.WINGS.size():
+		var wing: String = QuickBattleWings.WINGS[index]
+		var held_now: int = int(held.get(wing, 0))
+		var x: float = origin + float(index) * (chip + gap)
+		var down: bool = broken.has(wing)
+		var ink: Color = color if held_now > 0 else color.darkened(0.6)
+		ink.a = 0.85
+		if down:
+			ink = Color(0.86, 0.24, 0.18, 0.95)
+		draw_rect(Rect2(x, centre.y, chip, 4.0), ink, held_now > 0 and not down)
+		if down:
+			draw_line(
+				Vector2(x - 1.0, centre.y + 5.0), Vector2(x + chip + 1.0, centre.y - 1.0),
+				Color(0.98, 0.86, 0.70, 0.9), 1.4
+			)
 
 
 func _draw_effects(w: float, h: float) -> void:
