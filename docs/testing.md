@@ -6,7 +6,7 @@ Unit/integration tests and the headless e2e smoke; two CI tiers, hard budgets.
 
 | Tier | When | Command / gate | Budget |
 |------|------|----------------|--------|
-| **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
+| **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke + auto | tests **≤ 5 min**; e2e **≤ 5 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
 Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for the **fix-tests** agent.
@@ -19,10 +19,10 @@ Strict map: unmapped in-scope paths fail; `full = true` runs every suite
 
 Patch coverage uses gd-tools’ plan (test dirs uninstrumented); empty patches pass.
 
-## E2E smoke (tier 1)
+## E2E (tier 1)
 
-Smoke boots the title, starts a game, opens the menu, saves, plays **one turn**,
-loads, returns to title. Deep rules live in `tests/`.
+Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
+**auto** (Small, five Auto turns, dump asserts). Deep rules in `tests/`.
 
 ## Speed rules
 
@@ -56,7 +56,7 @@ loads, returns to title. Deep rules live in `tests/`.
 - One Godot boot per theme — coverage ~15 s a boot; 39 → 25 suites
   (`save_codec` rides campaign_end, the dossier rides panel_parts).
   `gd-tools.toml` keeps `parallel = 4`.
-- Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`).
+- Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
 
@@ -70,6 +70,7 @@ gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 # Tier 2-shaped (one shard; CI runs all four, then merges coverage and gates 80%)
 gd-tools test --coverage --shard 1/4 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
+godot --headless --path . --script res://tools/e2e_auto.gd
 
 # Free-playtest drives live under playtests/ (opt-in, not a CI gate). Every one
 # launches the real flow through playtests/playtest_launch.gd (title -> setup ->

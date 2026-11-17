@@ -2426,6 +2426,11 @@ func test_a_finished_fort_names_the_wall_it_raised() -> void:
 	_screen.stockpile["lumber"] = 40
 	_screen.stockpile["bronze"] = 12
 	_screen.civilian_layer.select(engineer)
+	# The seat opens behind the Wood wall every Old World capital starts with
+	# (issue #919), and a build there would order Stone (gated by Mine
+	# Engineering). This case is about the completion line, so it orders the
+	# first level from open ground.
+	_screen.model.province_data(province).fort_level = 0
 
 	MapPlayCivilians.on_action(_screen.play, "build_fort")
 	assert_true(engineer.is_working(), "the order is taken from the dossier")

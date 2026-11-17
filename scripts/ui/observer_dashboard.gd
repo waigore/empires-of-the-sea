@@ -12,8 +12,15 @@ signal step_pressed
 signal speed_pressed
 signal menu_pressed
 
-## Room the order feed keeps; the plate scrolls around it on a short screen.
+## Room the order feed keeps at its smallest: a landscape handset's window. A
+## taller screen gives the feed more of itself, because the rows it holds are
+## the reading (REQ-P1-07, REQ-P5-05).
 const FEED_MIN_HEIGHT: float = 128.0
+## Share of the screen the feed's window may take; past this the crown cards
+## keep the rest of the plate.
+const FEED_SHARE: float = 0.3
+## Highest the feed's window grows, so a tall desktop still shows the cards.
+const FEED_MAX_HEIGHT: float = 320.0
 ## Crowns whose catalogue name would wrap its third of the standing line read
 ## their short name instead (name, short name).
 const SHORT_NAMES: Array[Array] = [["United Provinces", "U. Provinces"]]
@@ -31,6 +38,9 @@ var standing: Label = null
 var result: Label = null
 var feed: Label = null
 var feed_caption: Label = null
+## The feed's own window: it grows with the screen so the rows it holds are
+## readable, and scrolls when the window is full (REQ-P1-07).
+var feed_scroll: ScrollContainer = null
 var pause_button: Button = null
 var step_button: Button = null
 var speed_button: Button = null
@@ -166,17 +176,17 @@ func _build_feed(box: VBoxContainer) -> void:
 	feed_caption = MenuFrame.caption("Recent orders")
 	feed_caption.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	box.add_child(feed_caption)
-	var log_scroll := ScrollContainer.new()
-	log_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	log_scroll.custom_minimum_size = Vector2(0.0, FEED_MIN_HEIGHT)
-	box.add_child(log_scroll)
+	feed_scroll = ScrollContainer.new()
+	feed_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	feed_scroll.custom_minimum_size = Vector2(0.0, FEED_MIN_HEIGHT)
+	box.add_child(feed_scroll)
 	feed = Label.new()
 	feed.name = "Feed"
 	feed.add_theme_font_size_override("font_size", 12)
 	feed.add_theme_color_override("font_color", Palette.TEXT)
 	feed.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	feed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	log_scroll.add_child(feed)
+	feed_scroll.add_child(feed)
 
 
 # --- paint -------------------------------------------------------------------
@@ -225,14 +235,27 @@ func sync_controls(running: bool, over: bool, speed: String) -> void:
 # --- geometry ----------------------------------------------------------------
 
 
-## Phone widths keep the panel readable; desktops give the map more room.
-func fit(viewport_width: float) -> void:
+## Phone widths keep the panel readable; desktops give the map more room. The
+## feed's window takes a share of a tall screen and holds its handset minimum on
+## a short one, so the rows the plate keeps are rows a watcher can read
+## (REQ-P1-07, REQ-P5-05).
+func fit(viewport: Vector2) -> void:
 	if frame == null:
 		return
-	var panel_width: float = clampf(viewport_width * 0.5, 280.0, 470.0)
-	frame.custom_minimum_size.x = minf(
-		panel_width, maxf(viewport_width - 24.0, 220.0)
-	)
+	var panel_width: float = clampf(viewport.x * 0.5, 280.0, 470.0)
+	var width: float = minf(panel_width, maxf(viewport.x - 24.0, 220.0))
+	frame.custom_minimum_size.x = width
+	# The plate owns its own column, not the screen: the chart beside it must
+	# stay clickable, because a tap there is how the observatory reads a
+	# province (DR-20261117-11). A full-rect scroll container would swallow
+	# every click before the map's own input saw it.
+	if plate != null:
+		plate.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+		plate.size = Vector2(width + 12.0, viewport.y)
+	if feed_scroll != null:
+		feed_scroll.custom_minimum_size.y = clampf(
+			viewport.y * FEED_SHARE, FEED_MIN_HEIGHT, FEED_MAX_HEIGHT
+		)
 
 
 ## Two deliberate rows keep every crown's progress visible without an awkward

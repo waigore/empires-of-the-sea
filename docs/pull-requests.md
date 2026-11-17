@@ -20,17 +20,17 @@ Base rules for opening and landing PRs (humans and agents).
 |-------|----------|---------|
 | `tests` | [CI](../.github/workflows/ci.yml) | **Tier 1:** impacted suites + **80% patch** on PRs; no-op if no code paths; `main` push skips |
 | `build` | [CI](../.github/workflows/ci.yml) | Headless import/compile; else no-op |
-| `e2e-smoke` | [CI](../.github/workflows/ci.yml) | Needs `build`; mini-flow (`tools/e2e_smoke.gd`); else no-op |
+| `e2e-smoke` | [CI](../.github/workflows/ci.yml) | Needs `build`; smoke then auto (`e2e_smoke.gd`, `e2e_auto.gd`); else no-op |
 | `docs-lint` | [CI](../.github/workflows/ci.yml) | Docs ≤ 500 words — always |
 | `arch-lint` | [CI](../.github/workflows/ci.yml) | P3 bars (`tools/lint_arch.py`) — always |
 | `skills-isolation` | [CI](../.github/workflows/ci.yml) | PR-only: fail if code **and** skills both change |
 | `ai-bench-report` | [CI](../.github/workflows/ci.yml) | PR AI paths: hills report ≥ baseline |
 
-Code paths (`tests`/`build`/`e2e-smoke`/`skills-isolation`): `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.png` (+ `tools/e2e_smoke.gd`, `tools/smoke/**` for build/smoke). Skills: `.agents/skills/`, `.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`. Docs-only and skills-only OK. `workflow_dispatch` runs tests/build/smoke. `docs-lint` / `arch-lint` always.
+Code paths (`tests`/`build`/`e2e-smoke`/`skills-isolation`): `scenes/`, `scripts/`, `ui/`, `autoload/`, `tests/`, `addons/`, `project.godot`, `icon.png` (+ `tools/e2e_smoke.gd`, `tools/e2e_auto.gd`, `tools/smoke/**` for build/smoke). Skills: `.agents/skills/`, `.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`. Docs-only and skills-only OK. `workflow_dispatch` runs tests/build/smoke. `docs-lint` / `arch-lint` always.
 
 **Tier 2** ([ci-tier2](../.github/workflows/tier2.yml)): every **8h** on `main` — 4 suite shards + merged overall 80%. Not a PR check. Sticky `ci-tier2` → fix-tests agent.
 
-Budgets ([testing.md](testing.md)): PR `tests` **≤5 min**; smoke **≤2 min**. Merge: **squash only**; delete branches; auto-merge on.
+Budgets ([testing.md](testing.md)): PR `tests` **≤5 min**; e2e smoke+auto **≤5 min**. Merge: **squash only**; delete branches; auto-merge on.
 
 ### Respecting checks
 

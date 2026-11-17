@@ -23,7 +23,8 @@ One **deferred backlog refresh** per run. Deliverable: an open **docs-only** PR
 or implement gameplay features.
 
 Owns `REQ-P2-02` bookkeeping: what wiki/docs still call deferred vs what code
-already ships, ranked so a human (or implement-feature) can pick next work.
+already ships. Rank for [`implement-feature-agent`](../implement-feature-agent/SKILL.md)
+(no target → largest clear item here, then REQ/wiki).
 
 ## Sources of truth
 

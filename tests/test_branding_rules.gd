@@ -49,6 +49,52 @@ func test_launcher_layers_exist_at_their_sizes() -> void:
 		assert_eq(img.get_width(), LAUNCHER_SIZES[name], "%s width" % name)
 		assert_eq(img.get_height(), LAUNCHER_SIZES[name], "%s height" % name)
 
+func test_project_icon_corners_are_transparent() -> void:
+	var img := _load(ICON_PATH)
+	if img == null:
+		assert_true(false, "the project icon must exist and load")
+		return
+	var edge := img.get_width() - 1
+	for point: Vector2i in [
+		Vector2i(0, 0), Vector2i(edge, 0), Vector2i(0, edge), Vector2i(edge, edge),
+	]:
+		assert_lt(
+			img.get_pixel(point.x, point.y).a,
+			0.5,
+			"the icon must be transparent outside the medallion (issue #920)"
+		)
+	assert_gt(
+		img.get_pixel(img.get_width() / 2, img.get_height() / 2).a,
+		0.5,
+		"the medallion must stay opaque in the middle of the icon"
+	)
+
+func test_launcher_main_corners_are_transparent() -> void:
+	var img := _load(BRANDING_DIR + "launcher_main_192.png")
+	if img == null:
+		assert_true(false, "the legacy launcher icon must exist and load")
+		return
+	var edge := img.get_width() - 1
+	for point: Vector2i in [
+		Vector2i(0, 0), Vector2i(edge, 0), Vector2i(0, edge), Vector2i(edge, edge),
+	]:
+		assert_lt(
+			img.get_pixel(point.x, point.y).a,
+			0.5,
+			"the launcher icon must be transparent outside the medallion (issue #920)"
+		)
+
+func test_adaptive_background_stays_a_plate() -> void:
+	var img := _load(BRANDING_DIR + "launcher_background_432.png")
+	if img == null:
+		assert_true(false, "the adaptive background must exist and load")
+		return
+	assert_gt(
+		img.get_pixel(0, 0).a,
+		0.5,
+		"the adaptive background is the one layer the platform needs opaque"
+	)
+
 func test_adaptive_foreground_keeps_art_off_the_crop_edge() -> void:
 	var img := _load(BRANDING_DIR + "launcher_foreground_432.png")
 	if img == null:

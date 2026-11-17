@@ -42,6 +42,22 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
 
 
+## Fill the same six rows from a caller's own reading instead of the province
+## record: the observatory's province sheet hands over the words its reading
+## module wrote, so one grid paints every province sheet (REQ-P3-01). A filled
+## grid keeps no province, so a crown-link repaint has nothing to repaint.
+func fill(values: Dictionary) -> void:
+	_data = null
+	terrain.text = String(values.get("terrain", ""))
+	port.text = String(values.get("port", ""))
+	town.text = String(values.get("town", ""))
+	town.tooltip_text = String(values.get("town_tip", ""))
+	road.text = String(values.get("roads", ""))
+	road.tooltip_text = ""
+	fort.text = String(values.get("fort", ""))
+	hospital.text = String(values.get("hospital", ""))
+
+
 ## `crown` is `LandConnectivity.province_link` for this province: whether its
 ## town reaches the capital. When omitted, the roads row falls back to the
 ## estate survey (DossierCopy).
