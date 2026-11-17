@@ -854,7 +854,7 @@ func test_a_town_beside_a_port_is_not_capped() -> void:
 		"Crown road: town only — town development does not cap it"
 	)
 	assert_eq(
-		LandConnectivity.town_cap_for(model, resolved, 0, model.index_of(2, 1)),
+		LandTownRule.town_cap_for(model, resolved, 0, model.index_of(2, 1)),
 		LandWorks.MAX_IMPROVEMENT,
 		"the yield is not capped either"
 	)
@@ -3193,7 +3193,7 @@ func test_an_inland_town_does_not_cap_the_yield() -> void:
 	var works: LandWorks = offshoot[1]
 	var resolved: Dictionary = LandConnectivity.resolve(model, works, 0, Vector2i(-1, -1))
 	assert_eq(
-		LandConnectivity.town_cap_for(model, resolved, 0, model.index_of(0, 1)),
+		LandTownRule.town_cap_for(model, resolved, 0, model.index_of(0, 1)),
 		LandWorks.MAX_IMPROVEMENT
 	)
 
