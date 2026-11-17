@@ -14,6 +14,7 @@ suites = [
 [domains.ai_panel]
 suites = [
   "test_ai_observer.gd",
+  "test_observer_parts.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -1949,6 +1950,17 @@ domain = "province_sheet"
 match = "scripts/rules/road_works.gd*"
 domain = "province_sheet"
 
+# The rail block and the works it dispatches (DR-20261117-10): the same sheet,
+# the same suites — a railroad is the road control's sibling, so it rides the
+# province sheet's slice instead of the prospect fan-out.
+[[rules]]
+match = "scripts/rules/rail_works.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_rail_block.gd*"
+domain = "province_sheet"
+
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
 # the lens and the panel parts suites instead of the whole reading fan-out.
@@ -2091,6 +2103,13 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian_pick*.gd*"
 domain = "civilian_pick"
 
+# The pick's door (wiki: playtest-learnings § next targets): the press that
+# frames the ground a pick names and opens the sheet that can press it. It
+# reads the pick and the map's own province door, so it rides the pick's slice.
+[[rules]]
+match = "scripts/map/map_play_civilian_follow.gd*"
+domain = "civilian_pick"
+
 # Civilian sheet chrome — civilian suites cover orders/roster; prospect's
 # map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
@@ -2106,6 +2125,10 @@ domain = "civilian_pick"
 [[rules]]
 match = "scripts/ui/civilian_panel_s*.gd*"
 domain = "civilian_pick"
+
+[[rules]]
+match = "tests/test_observer_parts.gd*"
+domain = "ai_panel"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
@@ -3413,6 +3436,10 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+[[rules]]
+match = "scripts/ui/observer_*.gd*"
+domain = "ai_panel"
 
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"

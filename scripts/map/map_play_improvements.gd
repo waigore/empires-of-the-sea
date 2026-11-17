@@ -98,6 +98,26 @@ static func build_road(play: PlaySession, tile: Vector2i) -> void:
 		)
 
 
+## Province dossier intent: dispatch the nearest idle Rail Builder onto the road
+## tile the rail block names. RailWorks owns the gate and CivilianWork the price;
+## the panel only prints them (REQ-P2-03; DR-20261117-10).
+static func build_rail(play: PlaySession, tile: Vector2i) -> void:
+	if tile.x < 0:
+		return
+	var result: Dictionary = RailWorks.dispatch(
+		play.model, play.civilian_layer.units, play.land_works, play.stockpile(),
+		play.visibility, play.player_faction, tile, play.tech_unlocked()
+	)
+	play.hud.toast(String(result.get("message", "")))
+	play.civilian_layer.sync()
+	# The dossier is the sheet the order came from, so it repaints in place.
+	if play.selected_province >= 0 and play.hud.panels.is_panel_open():
+		play.hud.panels.panel.refresh(
+			play.model, play.selected_province,
+			crown_link(play, play.selected_province)
+		)
+
+
 ## Files one raise sheet's order on the chart the province lies on: the chart is
 ## swapped first when the province is on the other one — the same step Visit
 ## takes — so the order reads the mounted chart's works and crews. `order` names

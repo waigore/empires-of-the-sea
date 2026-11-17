@@ -640,9 +640,13 @@ func test_dashboard_renders_the_live_snapshot() -> void:
 	if panel == null:
 		return
 	panel.refresh()
-	assert_true(panel._turn_label.text.begins_with("TURN"), "the panel names the turn")
-	assert_eq(panel._cards.size(), FactionCatalog.great_power_ids().size())
-	assert_ne(panel._result.text, "", "the panel reports the standing")
+	assert_true(
+		panel.board.turn_label.text.begins_with("TURN"), "the panel names the turn"
+	)
+	assert_eq(
+		panel.board.crowns_by_id.size(), FactionCatalog.great_power_ids().size()
+	)
+	assert_ne(panel.board.result.text, "", "the panel reports the standing")
 
 
 ## A court that can see the bar is marked on its card (DR-20261114-04): the
@@ -655,9 +659,10 @@ func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
 		return
 	panel.refresh()
 	var row: Dictionary = MapPlayObserver.snapshot(_screen.play)["rows"][0].duplicate(true)
-	var progress: Label = panel._cards[int(row["faction"])]["progress"]
+	var card: ObserverCrownCard = panel.board.crowns_by_id[int(row["faction"])]
+	var progress: Label = card.progress
 	row["pressure_stage"] = AiVictoryPressure.STAGE_NEAR
-	panel._refresh_card(row)
+	panel.board.fill_crown(row)
 	assert_true(progress.text.ends_with("pressing"), "the endgame court is marked")
 	assert_true(
 		progress.text.begins_with("%d/%d" % [
@@ -666,7 +671,7 @@ func test_the_card_marks_a_court_that_presses_for_the_bar() -> void:
 		"the standing still leads the line"
 	)
 	row["pressure_stage"] = AiVictoryPressure.STAGE_FAR
-	panel._refresh_card(row)
+	panel.board.fill_crown(row)
 	assert_false(progress.text.ends_with("pressing"), "a court far from the bar is not")
 
 
@@ -688,7 +693,7 @@ func test_the_feed_prints_a_busy_turn_whole() -> void:
 	panel.refresh()
 	var rows: int = (merged["events"] as Array).size()
 	assert_true(rows > 12, "the turn is busier than the plate's old dozen")
-	var lines: PackedStringArray = panel._log.text.split("\n")
+	var lines: PackedStringArray = panel.board.feed.text.split("\n")
 	var prefix: String = "T%d  " % int(merged["turn"])
 	var printed: int = 0
 	for line: String in lines:
@@ -707,7 +712,7 @@ func test_the_feed_prints_a_busy_turn_whole() -> void:
 	for index in range(maxi(play.ai_turns.size() - AiObserverPanel.FEED_TURNS, 0), play.ai_turns.size()):
 		kept += (play.ai_turns[index]["events"] as Array).size()
 	assert_true(
-		panel._log_caption.text.contains("%d rows over 2 turns" % kept),
+		panel.board.feed_caption.text.contains("%d rows over 2 turns" % kept),
 		"the caption counts every row the feed holds"
 	)
 
@@ -739,15 +744,15 @@ func test_the_plate_fits_a_landscape_handset() -> void:
 	for _frame in 2:
 		await get_tree().process_frame
 	assert_true(
-		panel._crowns_scroll.size.y >= AiObserverPanel.CARD_MIN_HEIGHT - 1.0,
+		panel.board.crowns_scroll.size.y >= AiObserverPanel.CARD_MIN_HEIGHT - 1.0,
 		"the crown cards keep their window on a 360-point-tall screen"
 	)
 	assert_true(
-		panel._plate.get_v_scroll_bar().max_value > panel._plate.size.y,
+		panel.board.plate.get_v_scroll_bar().max_value > panel.board.plate.size.y,
 		"the plate scrolls when its stack is taller than the screen"
 	)
 	assert_true(
-		panel._frame.size.x > 200.0 and panel._frame.size.x < 720.0,
+		panel.board.frame.size.x > 200.0 and panel.board.frame.size.x < 720.0,
 		"the plate keeps a readable width"
 	)
 	screen.free()
@@ -762,19 +767,102 @@ func test_dashboard_controls_step_pause_and_collapse() -> void:
 	var play: PlaySession = _screen.play
 	panel.running = false
 	var before: int = play.turn
-	panel._step_once()
+	panel.board.step_button.pressed.emit()
 	assert_eq(play.turn, before + 1, "Step resolves exactly one turn")
-	panel._toggle_running()
+	panel.board.pause_button.pressed.emit()
 	assert_true(panel.running, "Resume restarts the loop")
-	panel._toggle_running()
+	assert_eq(panel.board.status.text.split("  ·  ")[0], "RUNNING", "the caption follows")
+	panel.board.pause_button.pressed.emit()
 	assert_false(panel.running, "Pause stops the loop")
-	panel._cycle_speed()
+	assert_eq(panel.board.status.text.split("  ·  ")[0], "PAUSED", "the caption follows")
+	panel.board.speed_button.pressed.emit()
 	assert_eq(panel._speed_index, 1, "speed cycles")
-	panel._toggle_panel()
-	assert_false(panel._frame.visible, "the panel collapses")
-	assert_true(panel._tab.visible, "a tab keeps it reachable")
-	panel._toggle_panel()
-	assert_true(panel._frame.visible, "the panel returns")
+	assert_eq(panel.board.speed_button.text, AiObserverPanel.SPEED_LABELS[1], "the seal names it")
+	panel.board.tab.pressed.emit()
+	assert_false(panel.board.frame.visible, "the panel collapses")
+	assert_true(panel.board.tab.visible, "a tab keeps it reachable")
+	panel.board.tab.pressed.emit()
+	assert_true(panel.board.frame.visible, "the panel returns")
+	# The MENU seal pauses the calendar and hands the screen's pause door on.
+	panel.board.menu_button.pressed.emit()
+	assert_false(panel.running, "the pause menu pauses the run")
+	_screen.game_menu.close()
+
+
+## The plate answers its own handles: an unmounted one guards, a mounted one
+## fits a phone width and trades the frame for its tab.
+func test_the_dashboard_chrome_answers_its_handles() -> void:
+	var dashboard := ObserverDashboard.new()
+	assert_null(dashboard.get_parent(), "a new plate stands alone until mounted")
+	dashboard.frame = null
+	dashboard.fit(1280.0)
+	dashboard._tab_view()
+	dashboard = ObserverDashboard.new()
+	var canvas := CanvasLayer.new()
+	add_child(canvas)
+	canvas.add_child(dashboard)
+	assert_not_null(dashboard.frame, "the plate builds its frame")
+	dashboard.fit(720.0)
+	assert_true(
+		dashboard.frame.custom_minimum_size.x >= 280.0
+		and dashboard.frame.custom_minimum_size.x <= 470.0,
+		"a phone width keeps the plate readable"
+	)
+	var shown: bool = dashboard.frame.visible
+	dashboard._toggle_frame()
+	assert_ne(dashboard.frame.visible, shown, "HIDE and the tab trade places")
+	var kept: Button = dashboard.tab
+	dashboard.tab = null
+	dashboard._tab_view()
+	dashboard.tab = kept
+	dashboard.free()
+	canvas.free()
+
+
+## The dashboard takes its whole reading from one snapshot, so a decided
+## campaign, a fallen court and an idle run all paint through the same door.
+func test_the_dashboard_paints_one_snapshot() -> void:
+	var dashboard := ObserverDashboard.new()
+	add_child(dashboard)
+	var rows: Array = [
+		{
+			"faction": 1, "rank": 1, "name": "Britain", "alive": true,
+			"leader": "Anne", "agenda": "trade", "profile": "merchant",
+			"posture": "bold", "intent": "press", "headline": "Took Cadiz.",
+			"provinces_old": 9, "provinces_new": 1, "power": 30, "regiments": 5,
+			"ships": 3, "civilians": 2, "treasury": 700, "stock": 8, "workers": 4,
+			"wars": [], "pressure_stage": AiVictoryPressure.STAGE_FAR,
+		},
+		{
+			"faction": 2, "rank": 2, "name": "United Provinces", "alive": false,
+			"leader": "Willem", "agenda": "flood", "profile": "banker",
+			"posture": "wary", "intent": "hold", "headline": "Fell at Amsterdam.",
+			"provinces_old": 2, "provinces_new": 0, "power": 4, "regiments": 1,
+			"ships": 0, "civilians": 0, "treasury": 60, "stock": 0, "workers": 0,
+			"wars": ["Britain"], "pressure_stage": AiVictoryPressure.STAGE_FAR,
+		},
+	]
+	var snap: Dictionary = {
+		"turn": 12, "year": 1705, "seed": 4242, "rows": rows,
+		"result": "Britain leads with 9 of 20", "campaign_over": false,
+	}
+	dashboard.paint(snap, [])
+	assert_eq(dashboard.turn_label.text, "TURN 12  ·  1705  ·  SEED 4242")
+	assert_true(dashboard.standing.text.begins_with("STANDING"), "the line leads")
+	assert_true(
+		dashboard.standing.text.contains("2 U. Provinces 2"),
+		"a long crown reads its short name"
+	)
+	assert_eq(dashboard.feed.text, ObserverTurnFeed.EMPTY_TEXT, "no orders yet")
+	assert_eq(dashboard.result.text, "Britain leads with 9 of 20")
+	dashboard.fill_crown({"faction": 99, "rank": 1})
+	dashboard.sync_controls(false, false, "2×")
+	assert_eq(dashboard.pause_button.text, "RESUME", "a paused run offers Resume")
+	assert_false(dashboard.step_button.disabled, "Step stays open while playing")
+	dashboard.sync_controls(true, true, "1×")
+	assert_eq(dashboard.status.text, "DECIDED  ·  the calendar has stopped")
+	assert_true(dashboard.step_button.disabled, "a decided campaign seals Step")
+	dashboard.free()
 
 
 # --- one court reader --------------------------------------------------------

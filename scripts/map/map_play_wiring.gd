@@ -78,7 +78,9 @@ static func _connect_bar(play: PlaySession, hud: GameHud) -> void:
 	hud.fleet_closed.connect(MapPlayInput.deselect.bind(play))
 	hud.civilian_action.connect(
 		func(action: String) -> void:
-			if MapPlayAuto.blocks_orders(play):
+			# Auto holds the seat's orders, not its readings: the pick's door
+			# still frames the ground it names (REQ-P5-06).
+			if MapPlayAuto.blocks_orders(play) and not MapPlayCivilianFollow.is_follow(action):
 				return
 			MapPlayCivilians.on_action(play, action)
 	)

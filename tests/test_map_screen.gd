@@ -2290,6 +2290,81 @@ func test_tapping_a_civilian_opens_its_dossier() -> void:
 	assert_false(_screen.hud.panels.is_panel_open())
 
 
+## The pick's door (DR-20261117-09): a pick naming ground away from the crew
+## carries one press to the surface that can press it — the estates ledger for
+## an estate, the province dossier for a road — and the press orders nothing.
+func test_the_pick_door_opens_the_surface_that_can_press_it() -> void:
+	var unit: CivilianState = _screen.civilian_layer.units[1]
+	var tile: Vector2i = _buildable_owned_resource_tile()
+	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
+	var province: int = _screen.model.province_at(tile.x, tile.y)
+	MapPlayCivilians.select(_screen.play, unit)
+	var panel: CivilianPanel = _screen.hud.panels.civilian_panel
+	panel.refresh(
+		_screen.model, unit, _screen.land_works, _screen.civilian_layer.units,
+		_screen.stockpile, _screen.visibility, _screen.play.tech_caps(),
+		_screen.play.tech_unlocked(),
+		{
+			"pick": {
+				"action": "build_improvement",
+				"tile": tile,
+				"region": _screen.region_index,
+				"door": MapPlayCivilianPick.DOOR_ESTATES,
+				"line": "the court would raise a lumber camp",
+			},
+		},
+		MapScreen.PLAYER_FACTION
+	)
+	assert_true(panel._follow.visible, "an estate pick carries its door")
+	assert_eq(panel._follow.tooltip_text, "Open the estates ledger at this ground")
+	panel._follow.pressed.emit()
+	assert_eq(_screen.selected_province, province, "the door frames the ground it names")
+	assert_true(_screen.play.improvements.is_open(), "the estates ledger opens at the pick")
+	assert_true(unit.is_idle(), "the door orders nothing")
+	_screen.play.improvements.close()
+	# A road is pressed from the province dossier, which the door leaves open.
+	MapPlayCivilians.on_action(
+		_screen.play,
+		MapPlayCivilianFollow.press(_screen.region_index, tile, "build_road")
+	)
+	assert_eq(_screen.selected_province, province)
+	assert_true(_screen.hud.panels.is_panel_open(), "the province dossier opens at the pick")
+	assert_true(unit.is_idle(), "the road door orders nothing either")
+	# A press the chart cannot reach says so instead of doing nothing.
+	var before: int = _screen.selected_province
+	MapPlayCivilians.on_action(_screen.play, "follow_pick:0:-1,-1:build_road")
+	assert_eq(_screen.selected_province, before, "a malformed press moves nothing")
+
+
+## The rail block's press travels the province dossier's router like the Build
+## road control's: the order is dispatched on the tile the block names, and a
+## ground the rules refuse answers on the despatch lane rather than doing
+## nothing (REQ-P5-05; DR-20261117-10).
+func test_a_rail_press_is_answered_on_the_despatch_lane() -> void:
+	var tile: Vector2i = _owned_plains_tile(_screen.capital_province)
+	assert_true(tile.x >= 0, "the capital's province has a crown plain")
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	# Bare ground carries no road to upgrade, so the rules refuse the press.
+	_screen.land_works.set_transport(_screen.model, tile, 0)
+	MapPlayInput.on_panel_action(_screen.play, "rail:%d,%d" % [tile.x, tile.y])
+	assert_true(
+		_toast_text().contains("railroad"),
+		"the refusal is spoken: %s" % _toast_text()
+	)
+
+
+## Prefer a crown plain of one province: railroad terrain techs differ per
+## ground, and flat land is the one Early Steam Engine covers.
+func _owned_plains_tile(province_id: int) -> Vector2i:
+	for tile: Vector2i in _screen.model.province_tiles(province_id):
+		if _screen.model.terrain_at(tile.x, tile.y) != MapModel.Terrain.PLAINS:
+			continue
+		if _screen.model.owner_at(tile.x, tile.y) != MapScreen.PLAYER_FACTION:
+			continue
+		return tile
+	return Vector2i(-1, -1)
+
+
 func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	var tile: Vector2i = _buildable_owned_resource_tile()
 	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")

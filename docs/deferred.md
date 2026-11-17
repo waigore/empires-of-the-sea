@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-09 vs code through #896 (REQ-P2-02).
+Audited: DR-20261117-10 vs code through #898 (REQ-P2-02).
 
 ## Already live
 
@@ -33,20 +33,17 @@ Audited: DR-20261117-09 vs code through #896 (REQ-P2-02).
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
-| Estate/wall/ward/transport/crew previews | ledgers + `MapPlayCivilianPick` + chart mark, DR-17-03/05/06/07 |
+| Estate/wall/ward/transport/crew previews | ledgers + `MapPlayCivilianPick`/`MapPlayCivilianFollow` + chart mark, DR-17-03/05/06/07/09 |
 | QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
+| Rail pick's door; dossier rail block | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
 
 ## Gaps (ranked)
 
-1. **Pick Follow door** — DR-17-09 wiki-closed; no `MapPlayCivilianFollow` /
-   `door_for` / sheet `Follow` press. Off-tile estate/road picks leave the crown
-   hunting the ledger.
-2. **Railroad Follow door** — next after #1; rail pick names ground no surface
-   presses.
+None open: the pick family's last door (a railroad) closed in DR-17-10.
 
 ## Next pick
 
-Pick Follow door (DR-20261117-09).
+P5/P1 polish; re-audit wiki.
 
 ## Blocked
 
@@ -66,8 +63,8 @@ Pick Follow door (DR-20261117-09).
 
 ## Wiki drift
 
-- `civilian-build-planner` / learnings: Follow claimed live (DR-17-09); code
-  gap #1. Raise + pick + chart mark live (DR-17-03/05/06/07).
+- `civilian-build-planner` / learnings: raise + pick + chart mark + Follow door
+  live (DR-17-03/05/06/07/09).
 - `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
 - `phase-planner-*`: six slots live; soft weight seed (DR-17-01).
 - `production-recipes`: rival second-stage live #798.
