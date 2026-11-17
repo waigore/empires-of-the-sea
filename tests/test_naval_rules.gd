@@ -11,8 +11,8 @@ extends GdToolsTest
 ## test_fleet_rules was a re-pointed copy of these 36 cases and is folded in.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
-const fleet_names_Fixture = preload("res://tests/map_fixture.gd")
-const fleet_rosters_Fixture = preload("res://tests/map_fixture.gd")
+const fleet_names_NavalFixture = preload("res://tests/naval_fixture.gd")
+const fleet_rosters_NavalFixture = preload("res://tests/naval_fixture.gd")
 const fleet_sortie_NavalFixture = preload("res://tests/naval_fixture.gd")
 const fleet_missions_NavalFixture = preload("res://tests/naval_fixture.gd")
 const naval_retreat_NavalFixture = preload("res://tests/naval_fixture.gd")
@@ -52,7 +52,7 @@ func _setup_fleet_names() -> void:
 func _setup_fleet_rosters() -> void:
 	_suite_setup = "fleet_rosters"
 	_markers = ShipMarkers.new()
-	_markers.model = fleet_rosters_Fixture.region()
+	_markers.model = fleet_rosters_NavalFixture.build()
 
 func _setup_fleet_sortie() -> void:
 	_suite_setup = "fleet_sortie"
@@ -434,9 +434,9 @@ func test_the_dossier_counts_one_hull_in_the_singular() -> void:
 	_setup_fleet_names()
 	var panel := FleetPanel.new()
 	add_child(panel)
-	var fleet := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+	var fleet := FleetState.in_port(3, 1, 0, ["ship_1"], {})
 
-	panel.refresh(fleet_names_Fixture.region(), fleet, true)
+	panel.refresh(fleet_names_NavalFixture.build(), fleet, true)
 
 	var line: String = ""
 	for node: Node in panel.find_children("*", "Label", true, false):
@@ -445,7 +445,7 @@ func test_the_dossier_counts_one_hull_in_the_singular() -> void:
 			line = text
 	assert_true(line.begins_with("1 ship · "), "the dossier reads '%s'" % line)
 
-	panel.refresh(fleet_names_Fixture.region(), fleet, true, "", [], [], 1, [], "", {"count": 1})
+	panel.refresh(fleet_names_NavalFixture.build(), fleet, true, "", [], [], 1, [], "", {"count": 1})
 	for node: Node in panel.find_children("*", "Label", true, false):
 		var text: String = (node as Label).text
 		if text.contains("carrying"):
@@ -459,7 +459,7 @@ func test_the_dossier_and_the_break_up_name_the_hull() -> void:
 	_setup_fleet_names()
 	var panel := FleetPanel.new()
 	add_child(panel)
-	var fleet := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+	var fleet := FleetState.in_port(3, 1, 0, ["ship_1"], {})
 	var hull_name: String = ShipNames.of(fleet, "ship_1")
 	var rows: Array[Dictionary] = [
 		{
@@ -471,7 +471,7 @@ func test_the_dossier_and_the_break_up_name_the_hull() -> void:
 		},
 	]
 
-	panel.refresh(fleet_names_Fixture.region(), fleet, true, "", rows)
+	panel.refresh(fleet_names_NavalFixture.build(), fleet, true, "", rows)
 	panel.set_yard_open(true)
 
 	var printed: bool = false

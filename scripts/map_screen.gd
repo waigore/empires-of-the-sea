@@ -64,7 +64,7 @@ var preset_world: WorldMap = null
 @onready var hud: GameHud = $HUD/HudRoot
 @onready var improvements: ImprovementPanel = $EstatesLayer/Improvements
 @onready var game_menu: GameMenu = $GameMenu
-@onready var fade: ColorRect = $FadeLayer/Fade
+@onready var fade: OpeningPlate = $FadeLayer/Fade
 
 # Compat accessors for tests / e2e (session is source of truth).
 var model: MapModel:

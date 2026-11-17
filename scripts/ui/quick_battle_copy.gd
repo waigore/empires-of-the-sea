@@ -34,6 +34,17 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	var gates: int = int(action.get("gates_broken", 0))
 	if gates > 0:
 		text += " · %d gate%s breached" % [gates, "" if gates == 1 else "s"]
+	# The wing the blow fell on, and the wing it broke (wiki: quick-battle
+	# § Wings and collapse).
+	var wing: String = String(action.get("wing", ""))
+	if not wing.is_empty():
+		text += " · into the %s" % QuickBattleWings.label(wing)
+	var broke: Array = action.get("wing_broken", []) as Array
+	if not broke.is_empty():
+		var names_broken: PackedStringArray = PackedStringArray()
+		for lane: String in broke:
+			names_broken.append(QuickBattleWings.label(lane))
+		text += " · the %s breaks" % " and ".join(names_broken)
 	if inflicted <= 0 and int(action.get("turned", 0)) > 0:
 		text += " · the wall turns it aside"
 	return text
@@ -54,6 +65,39 @@ static func plan_text(battle: Dictionary) -> String:
 	if guns > 0:
 		text += " · %d gun%s" % [guns, "" if guns == 1 else "s"]
 	return text
+
+
+## The line's wings: how the horse and the foot were dealt across left, centre
+## and right when the battle opened, what stands on them now, and the wings the
+## enemy has broken (wiki: quick-battle § Wings and collapse). Empty when the
+## record carries no wings — a garrison behind a wall, or an older plate.
+static func wings_line(battle: Dictionary, names: Array) -> String:
+	var quick: Dictionary = battle.get("quick", {}) as Dictionary
+	var opened: Dictionary = quick.get("wings_open", {}) as Dictionary
+	var now: Dictionary = quick.get("wings", {}) as Dictionary
+	var broken: Dictionary = quick.get("wings_broken", {}) as Dictionary
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var held: Dictionary = opened.get(key, {}) as Dictionary
+		if int(held.get("left", 0)) + int(held.get("center", 0)) \
+			+ int(held.get("right", 0)) <= 0:
+			continue
+		var text: String = "%s: %s" % [
+			faction(int(battle.get(key, -1)), names), QuickBattleWings.describe(held)
+		]
+		var standing: String = QuickBattleWings.describe(now.get(key, held) as Dictionary)
+		if standing != QuickBattleWings.describe(held):
+			text += " → %s" % standing
+		var down: Array = broken.get(key, []) as Array
+		if not down.is_empty():
+			var lost: PackedStringArray = PackedStringArray()
+			for wing: String in down:
+				lost.append(QuickBattleWings.label(wing))
+			text += " · %s broken" % " and ".join(lost)
+		parts.append(text)
+	if parts.is_empty():
+		return ""
+	return "Wings — " + " · ".join(parts)
 
 
 ## The wall the plate is fought over, as it stands when the plate opens: the

@@ -2,8 +2,10 @@ class_name GameHud
 extends Control
 ## Screen furniture: cartouche bar, minimap, zoom controls, end-turn seal, plates
 ## and lenses. Side dossiers live on HudPanels, the status plaques on
-## HudStatChips, the transient news on HudDespatches, and the widgets themselves
-## are HudChrome's build (REQ-P3-01).
+## HudStatChips, the transient news on HudDespatches, the campaign's last plate
+## and the seal it shuts on HudCampaignEnd, the turn line and minimap markings on
+## HudChartCartouche, and the widgets themselves are HudChrome's build
+## (REQ-P3-01).
 
 signal end_turn_pressed
 signal zoom_in_pressed
@@ -82,6 +84,12 @@ var zoom_box: Control = null
 var end_turn_wrap: Control = null
 ## Campaign-end plate (wiki: victory); null until the chrome builds it.
 var victory_overlay: VictoryOverlay = null
+
+## The campaign's last plate and the end-turn seal it shuts (REQ-P3-01).
+var campaign_end: HudCampaignEnd = null
+
+## The cartouche's turn line and the minimap the chart repaints (REQ-P3-01).
+var cartouche: HudChartCartouche = null
 ## Quick Battle plate (wiki: quick-battle); null until the chrome builds it.
 var quick_battle_overlay: QuickBattleOverlay = null
 ## The sea's despatch plate (wiki: ships-and-naval § Naval Combat Resolution);
@@ -230,7 +238,8 @@ func _process(_delta: float) -> void:
 
 
 func set_turn(turn: int, year: int) -> void:
-	_turn_label.text = "Turn %d  ·  %d" % [turn, year]
+	if cartouche != null:
+		cartouche.set_turn(turn, year)
 
 
 ## A despatch toast. `icon_name` raises the plate with a medallion (an
@@ -302,47 +311,37 @@ func flash_income(amount: int) -> void:
 ## (wiki: victory § Victory Screen).
 func show_victory(state: VictoryState, player_faction: int, holdings: int) -> void:
 	set_campaign_over(true)
-	if victory_overlay != null:
-		victory_overlay.show_victory(state, player_faction, holdings)
+	if campaign_end != null:
+		campaign_end.show_victory(state, player_faction, holdings)
 
 
 ## Calendar cap closed the age undecided: same sealed plate, campaign-complete
 ## copy instead of a victory (wiki: victory § Calendar campaign end).
 func show_campaign_complete(leader: int, turn: int, player_faction: int) -> void:
 	set_campaign_over(true)
-	if victory_overlay != null:
-		victory_overlay.show_campaign_complete(leader, turn, player_faction)
+	if campaign_end != null:
+		campaign_end.show_campaign_complete(leader, turn, player_faction)
 
 
 ## The human Great Power fell: same sealed plate family, defeat copy
 ## (wiki: victory § Great Power defeat; DR-20261109-05).
 func show_defeat(defeat: DefeatState, player_faction: int) -> void:
 	set_campaign_over(true)
-	if victory_overlay != null:
-		victory_overlay.show_defeat(defeat, player_faction)
+	if campaign_end != null:
+		campaign_end.show_defeat(defeat, player_faction)
 
 
 ## Turns never reopen; only the plate may step aside to keep viewing the map.
+## The seal, its caption, the glow and the dossier shutter are HudCampaignEnd's;
+## this records the session's flag the screen and AutoBar read.
 func set_campaign_over(over: bool) -> void:
 	campaign_over = over
-	_end_turn_button.disabled = over
-	_end_turn_button.text = "CAMPAIGN ENDED" if over else "END TURN"
-	# Longer caption + seal: drop the pictogram so the plate keeps one line.
-	_end_turn_button.icon = null if over else ChromeIcons.texture("hourglass")
-	_glow.visible = not over
-	if not over:
-		return
-	panels.hide_province()
-	panels.hide_fleet()
-	panels.hide_civilian()
-	panels.hide_army()
-	panels.hide_economy()
-	panels.hide_research()
-	DiplomacyHud.hide(panels)
+	if campaign_end != null:
+		campaign_end.set_over(over)
 
 
 func is_victory_shown() -> bool:
-	return victory_overlay != null and victory_overlay.is_shown()
+	return campaign_end != null and campaign_end.is_plate_shown()
 
 
 ## Mirrors a lens state onto the bar's one seal and the shared key cartouche,
@@ -360,13 +359,16 @@ func set_lens(active: bool, kind: String = LensLegend.KIND_SURVEY) -> void:
 func set_minimap(
 	model: MapModel, map_size: Vector2, visibility: VisibilityModel = null
 ) -> void:
-	_minimap.build(model, map_size, visibility)
+	if cartouche != null:
+		cartouche.set_minimap(model, map_size, visibility)
 
 
 ## Ownership moved without the chart changing (a conquest, a treaty swap).
 func refresh_minimap() -> void:
-	_minimap.refresh_ownership()
+	if cartouche != null:
+		cartouche.refresh_minimap()
 
 
 func update_view_rect(rect: Rect2) -> void:
-	_minimap.set_view_rect(rect)
+	if cartouche != null:
+		cartouche.update_view_rect(rect)

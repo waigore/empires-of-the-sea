@@ -9,20 +9,20 @@ Unit/integration tests and the headless e2e smoke; two CI tiers, hard budgets.
 | **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
-Tier 1 is the merge gate (`tests` / `e2e-smoke`); tier 2 failures open a sticky `ci-tier2` issue the **fix-tests** agent closes.
+Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for the **fix-tests** agent.
 
 Tier 2 shards because `gd-tools` boots one process **per suite**; `coverage-gate`
 merges them for the 80% gate.
 
-Strict map: unmapped in-scope paths fail; `full = true` runs every suite. Keep it
-complete (`python tools/select_impacted_tests.py --check-complete`).
+Strict map: unmapped in-scope paths fail; `full = true` runs every suite
+(`select_impacted_tests.py --check-complete`).
 
-Patch coverage uses gd-tools’ plan (test dirs are not instrumented). Empty patches pass.
+Patch coverage uses gd-tools’ plan (test dirs uninstrumented); empty patches pass.
 
 ## E2E smoke (tier 1)
 
 Smoke boots the title, starts a game, opens the menu, saves, plays **one turn**,
-loads, returns to title. Deep rules stay in `tests/`.
+loads, returns to title. Deep rules live in `tests/`.
 
 ## Speed rules
 
@@ -37,10 +37,14 @@ loads, returns to title. Deep rules stay in `tests/`.
   (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
   gd-tools hands each case a fresh instance, so an instance dictionary redraws
   per case. Prefer a pocket chart over regenerating Standard; the price census
-  rides **Small** (not Large) when a seed keeps the published order.
+  rides **Small** when a seed keeps the published order.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
   pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
-  **one mount per tier**. A suite that swaps screens frees its own.
+  **one mount per tier**. A suite that swaps screens frees its own. An observer
+  mount costs ~15–20 s under coverage; the door/seal case rides
+  `test_ai_observer`'s.
+- **Tiny fixture first**: place names and sea zones read
+  `naval_fixture.build()` (7×3), not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
   session (and `ai_turns` / Auto fields), re-seat each case (~0.2 s vs
   ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` /
@@ -103,6 +107,12 @@ godot --headless --path . --script res://playtests/playtest_ai_spycraft.gd
 # Engineer tile by tile to the capital, prospects and mines a mineral, upgrades
 # a town, and asserts each linked estate's commodity reaches the stockpile.
 godot --headless --path . --script res://playtests/playtest_province_dev.gd
+
+# Civilian pick — opens the turn-100 advanced start as England and reads the
+# court's pick on every waiting crew's sheet against the rules, the chart ring
+# and the sheet's own presses; raises the picked estate from the estates ledger
+# and checks a crew with no order it can take says so.
+godot --headless --path . --script res://playtests/playtest_civilian_pick.gd
 
 # Allied defence — signs a formal alliance at court, lets a rival declare on the
 # ally, reads the call-to-arms banner, joins, and fights the battle the court did

@@ -95,6 +95,25 @@ func test_observer_gives_every_great_power_an_ai_ledger() -> void:
 		)
 
 
+## The map screen hands its menu to the session, so the ledgers reach the seal
+## through the narrow session surface, and the observer seals it for the run
+## (the door case rides this suite's observer mount; a second observer mount in
+## `test_panel_parts_rules` cost ~15 s under coverage for the same asserts).
+func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
+	var screen: MapScreen = _screen
+	assert_true(screen.play.pause_menu == screen.game_menu, "the session names its pause menu")
+	var seal: Button = screen.hud.top_row.find_child("MenuSeal", true, false) as Button
+	assert_not_null(seal, "the MENU seal is mounted on the bar")
+	if seal == null:
+		return
+	assert_false(seal.visible, "the observer owns no pause door")
+	assert_true(screen.game_menu.door.is_sealed(), "the door stays sealed for the run")
+	# The card is built on this screen all turn and closes on every back press:
+	# that close must never hand the observer's chrome back.
+	screen.improvements.close()
+	assert_false(seal.visible, "a stray close leaves the observer's door sealed")
+
+
 func test_observer_resolves_a_turn_for_every_crown() -> void:
 	var play: PlaySession = _screen.play
 	var before: int = play.turn

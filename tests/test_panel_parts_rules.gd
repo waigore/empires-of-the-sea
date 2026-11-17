@@ -3212,6 +3212,71 @@ func test_the_work_order_list_names_what_the_road_lands() -> void:
 	panel.free()
 
 
+## The court's own pick rides on the crew's sheet in the crown's gold, in the
+## words the map layer reads — the panel invents no figure of its own, and a
+## crew the planner names nothing for carries no line (REQ-P5-06, REQ-P3-02;
+## DR-20261117-06).
+func test_the_dossier_names_the_work_the_court_would_give_it() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var builder: CivilianState = CivilianState.create(
+		1, PLAYER, "builder", CivilianFixture.TIMBER_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile()
+	)
+	assert_false(panel._pick.visible, "no pick, no line")
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile(),
+		null, {}, {},
+		{
+			"pick": {
+				"action": "build_improvement",
+				"tile": CivilianFixture.TIMBER_TILE,
+				"line": "the court would raise the lumber camp — L2 pays 2 timber / turn (+1)",
+				"short": "raise the lumber camp",
+			}
+		}
+	)
+	assert_true(panel._pick.visible, "the pick prints")
+	assert_eq(
+		panel._pick.text,
+		"The court would raise the lumber camp — L2 pays 2 timber / turn (+1)."
+	)
+	panel.free()
+
+
+## An idle crew with no order it can take says so: a status that says "choose an
+## order below" over a list where every row is refused sends the crown hunting
+## for a press that does not exist (REQ-P5-06).
+func test_the_sheet_says_when_no_order_can_be_taken() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var view: VisibilityModel = CivilianFixture.visibility(model)
+	var explorer: CivilianState = CivilianState.create(
+		1, PLAYER, "explorer", CivilianFixture.BARE_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, explorer, LandWorks.new(), [explorer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_eq(panel._legal, 0, "charted plains offer an Explorer nothing")
+	assert_eq(panel._status.text, "Idle — no order can be taken here.")
+	# A crew that does have a press keeps the standing invitation.
+	var engineer: CivilianState = CivilianState.create(
+		1, PLAYER, "engineer", CivilianFixture.COAST_TILE
+	)
+	panel.refresh(
+		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_true(panel._legal > 0, "a harbour can be raised here")
+	assert_eq(panel._status.text, "Idle — choose an order below.")
+	panel.free()
+
+
 ## The value column of one dossier row, or "" when the caption is absent.
 func _panel_row(panel: CivilianPanel, caption: String) -> String:
 	var children: Array[Node] = panel._detail.get_children()
@@ -3335,7 +3400,6 @@ func _context() -> Dictionary:
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const court_Fixture = preload("res://tests/civilian_fixture.gd")
-const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 
 const VIEWER: int = 0
 const ENGLAND: int = 1
@@ -4345,31 +4409,6 @@ func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
 	assert_false(door.is_parked())
 
 
-## The map screen hands its menu to the session, so the ledgers reach the seal
-## through the narrow session surface, and the observer seals it for the run.
-## The screen is freed on every exit — the two guard returns included — so the
-## case never leaves a live chart behind (docs/testing.md § Speed rules: tear
-## down hard).
-func test_the_screen_binds_the_door_and_the_observer_seals_it() -> void:
-	var screen: MapScreen = SCREEN.instantiate()
-	screen.map_width = 32
-	screen.map_height = 24
-	screen.observer_mode = true
-	add_child(screen)
-	assert_not_null(screen.play, "the session is live")
-	if screen.play == null:
-		screen.free()
-		return
-	assert_true(screen.play.pause_menu == screen.game_menu, "the session names its pause menu")
-	var seal: Button = screen.hud.top_row.find_child("MenuSeal", true, false) as Button
-	assert_not_null(seal, "the MENU seal is mounted on the bar")
-	if seal == null:
-		screen.free()
-		return
-	assert_false(seal.visible, "the observer owns no pause door")
-	assert_true(screen.game_menu.door.is_sealed(), "the door stays sealed for the run")
-	# The card is built on this screen all turn and closes on every back press:
-	# that close must never hand the observer's chrome back.
-	screen.improvements.close()
-	assert_false(seal.visible, "a stray close leaves the observer's door sealed")
-	screen.free()
+## The screen-side door case (`test_the_screen_binds_the_door_and_the_observer_
+## seals_it`) rides the observer suite's one mount (`test_ai_observer`): a
+## second observer mount here cost ~15 s under coverage for the same asserts.

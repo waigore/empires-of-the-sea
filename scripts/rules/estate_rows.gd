@@ -96,6 +96,11 @@ static func project(
 		else CivilianWork.cost_for("build_improvement", next_level)
 	)
 	var builder: CivilianState = _nearest(idle, tile)
+	# The per-player tile exclusivity rule the Build order enforces, in the
+	# order's own words: another crown crew already holds this tile — an
+	# Engineer's road or harbour, a Merchant's deed — so the press would be
+	# refused (wiki: civilian-units § Per-player tile exclusivity; REQ-P2-03).
+	var busy: String = CivilianWorkPlan.tile_busy_refusal(units, builder, tile)
 	var status: String = status_for(level, is_connected, working, mineral, prospected)
 	var status_text: String = _status_text(
 		status, resource, level, output, tech_cap, terrain_cap, transport,
@@ -147,11 +152,11 @@ static func project(
 		"duration": next_level,
 		"can_build": _can_build(
 			level, tech_cap, terrain_cap, mineral, prospected, working, builder,
-			cost, stockpile
+			cost, stockpile, busy
 		),
 		"build_reason": _build_reason(
 			level, tech_cap, terrain_cap, mineral, prospected, working, builder,
-			cost, stockpile
+			cost, stockpile, busy
 		),
 		"next_output": next_output,
 		"gain": maxi(next_output - capped_now, 0),
@@ -281,7 +286,7 @@ static func _status_text(
 static func _can_build(
 	level: int, tech_cap: int, terrain_cap: int, mineral: bool, prospected: bool,
 	working: CivilianState, builder: CivilianState, cost: Dictionary,
-	stockpile: Dictionary
+	stockpile: Dictionary, busy: String = ""
 ) -> bool:
 	return (
 		level < ImprovementCatalog.MAX_LEVEL
@@ -290,6 +295,7 @@ static func _can_build(
 		and (not mineral or prospected)
 		and working == null
 		and builder != null
+		and busy.is_empty()
 		and ImprovementSystem.short_inputs(cost, stockpile).is_empty()
 	)
 
@@ -297,7 +303,7 @@ static func _can_build(
 static func _build_reason(
 	level: int, tech_cap: int, terrain_cap: int, mineral: bool, prospected: bool,
 	working: CivilianState, builder: CivilianState, cost: Dictionary,
-	stockpile: Dictionary
+	stockpile: Dictionary, busy: String = ""
 ) -> String:
 	if working != null:
 		return "A Builder is already at work here."
@@ -311,6 +317,8 @@ static func _build_reason(
 		return "Requires extraction tech (cap %d) to raise this estate." % tech_cap
 	if builder == null:
 		return "No idle Builder — train one at the capital."
+	if not busy.is_empty():
+		return busy
 	var short: Dictionary = ImprovementSystem.short_inputs(cost, stockpile)
 	if not short.is_empty():
 		return "Stores are short of %s." % CivilianWork.cost_text(short)

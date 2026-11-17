@@ -90,9 +90,13 @@ func _populate() -> void:
 	_plan_label.text = QuickBattleCopy.plan_text(battle)
 	# A siege plate names the wall before the first round — the fort, its
 	# protection, its lanes and its gates — not only in the aftermath
-	# (wiki: siege-mechanics § Quick Battle lanes, § Gates and Sortie). The round
-	# log holds three lines, so it cannot carry it.
+	# (wiki: siege-mechanics § Quick Battle lanes, § Gates and Sortie). A field
+	# battle names the wings its line stands in instead (wiki: quick-battle
+	# § Wings and collapse). The round log holds three lines, so it cannot
+	# carry either.
 	var wall: String = QuickBattleCopy.siege_opening(battle)
+	if wall.is_empty():
+		wall = QuickBattleCopy.wings_line(battle, faction_names)
 	_wall_label.text = wall
 	_wall_label.visible = not wall.is_empty()
 	_set_bars(
@@ -143,11 +147,22 @@ func _finish() -> void:
 	field.guns = int(quick.get("guns_left", 0))
 	field.attacker_health = battle.get("attacker_health", []) as Array
 	field.defender_health = battle.get("defender_health", []) as Array
+	## The wings as the battle left them: the wings that stand, and the ones
+	## the enemy broke (wiki: quick-battle § Wings and collapse).
+	var final_wings: Dictionary = quick.get("wings", {}) as Dictionary
+	var final_broken: Dictionary = quick.get("wings_broken", {}) as Dictionary
+	field.set_wings(
+		final_wings.get("attacker", {}) as Dictionary,
+		final_wings.get("defender", {}) as Dictionary,
+		final_broken.get("attacker", []) as Array,
+		final_broken.get("defender", []) as Array
+	)
 	field.queue_redraw()
 	# Ground, the line, walls and named dead: told, never silently written back
 	# (REQ-P5-05).
 	var lines: Array[String] = [
 		QuickBattleCopy.terrain_line(battle),
+		QuickBattleCopy.wings_line(battle, faction_names),
 		QuickBattleCopy.line_line(battle, faction_names),
 		QuickBattleCopy.loss_line(battle, faction_names),
 		QuickBattleCopy.health_line(battle, faction_names),
@@ -178,6 +193,16 @@ func _enter_round(index: int) -> void:
 		round.get("attacker_health", []) as Array,
 		round.get("defender_health", []) as Array,
 		int(round.get("gates", 0))
+	)
+	## The wings as this round left them: a broken wing is struck through on
+	## the field the moment it falls (wiki: quick-battle § Wings and collapse).
+	var round_wings: Dictionary = round.get("wings", {}) as Dictionary
+	var round_broken: Dictionary = round.get("wings_broken", {}) as Dictionary
+	field.set_wings(
+		round_wings.get("attacker", {}) as Dictionary,
+		round_wings.get("defender", {}) as Dictionary,
+		round_broken.get("attacker", []) as Array,
+		round_broken.get("defender", []) as Array
 	)
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
 	_set_bars(

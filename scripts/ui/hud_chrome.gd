@@ -14,9 +14,12 @@ static func build(hud: GameHud) -> void:
 	_auto_bar(hud)
 	HudDossiers.build(hud)
 	_tooltip(hud)
+	_chart_cartouche(hud)
 	_victory_plate(hud)
 	_quick_battle_plate(hud)
 	_naval_plate(hud)
+	# The campaign's plate, seal and dossier shutter read each other (REQ-P3-01).
+	_campaign_end(hud)
 	# Owns both battle plates, their queues and the court's held news.
 	hud.plates = BattlePlates.new()
 	hud.plates.attach(hud.quick_battle_overlay, hud.naval_plate, hud.despatches)
@@ -110,6 +113,22 @@ static func _victory_plate(hud: GameHud) -> void:
 	hud.victory_overlay.z_index = 40
 	hud.victory_overlay.dismissed.connect(func() -> void: hud.victory_dismissed.emit())
 	hud.add_child(hud.victory_overlay)
+
+
+## The cartouche's markings the screen reads back: its turn line and minimap
+## are TopBar's and `_minimap`'s; the coordinator only holds their state.
+static func _chart_cartouche(hud: GameHud) -> void:
+	hud.cartouche = HudChartCartouche.new()
+	hud.cartouche.bind(hud._turn_label, hud._minimap)
+
+
+## The campaign-end plate and the end-turn seal it shuts are one concern: the
+## coordinator reads the seal TopBar mounted (REQ-P3-01).
+static func _campaign_end(hud: GameHud) -> void:
+	hud.campaign_end = HudCampaignEnd.new()
+	hud.campaign_end.bind(
+		hud, hud.victory_overlay, hud._end_turn_button, hud._glow, hud.panels
+	)
 
 
 ## Quick Battle plate: above the dossiers, below the campaign-end plate. Its

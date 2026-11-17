@@ -41,11 +41,14 @@ static func mount_all(play: PlaySession) -> void:
 
 ## Survey lens data follows the region on screen, the works just completed and
 ## the court's sealed coasts. Rebuilding also refreshes the extraction caps the
-## plaque totals use.
+## plaque totals use. The court's own picks ride the reading, so the chart marks
+## the ground its planner would send each idle crew to (DR-20261117-07).
 static func mount_survey(play: PlaySession) -> void:
 	var lens: ResourceLens = play.lens
 	if lens == null:
 		return
+	lens.pick_source = func() -> Dictionary:
+		return MapPlayCivilianPick.picks(play, play.player_faction)
 	lens.build(
 		play.model, play.land_works, play.civilian_layer.units,
 		play.player_faction, play.visibility, play.capital_tile,

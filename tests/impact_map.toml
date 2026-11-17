@@ -67,6 +67,17 @@ suites = [
   "test_battle_rules.gd",
 ]
 
+# The court's own pick: one reading over the planner's plan, proved by the AI
+# suite (the pick), the civilian suite (the wording) and the sheet suite (the
+# line). Kept apart from `civilian` so the pick never pays for the battle suite.
+[domains.civilian_pick]
+suites = [
+  "test_ai_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_panel_parts_rules.gd",
+  "test_civilian_dossier_parts.gd",
+]
+
 [domains.diplomacy]
 suites = [
   "test_diplomacy_rules.gd",
@@ -1258,6 +1269,15 @@ suites = [
   "test_menu_flow.gd",
 ]
 
+# The campaign's last plate and the seal HudCampaignEnd owns. A lean unit suite
+# covers the collaborator without remounting the calendar-cap MapScreen theme
+# (that suite alone blows the tier-1 5 min budget when stacked on crown_road +
+# auto). Kept off the broad hud_* → ui domain.
+[domains.campaign_plate]
+suites = [
+  "test_hud_campaign_plate.gd",
+]
+
 # The age's race helper: the standing math, the sheet's foot and the turn's
 # warning. Kept off victory_bar so a standings edit stays inside tier 1.
 [domains.victory_standings]
@@ -2045,11 +2065,33 @@ domain = "civilian"
 match = "tests/test_civilian_turn_rules.gd*"
 domain = "civilian"
 
+# The court's own pick (DR-20261117-06): the reading that asks the published
+# civilian pass what it would give each idle crew. Its suites are the AI plan,
+# the civilian rules and the sheet that prints the line, so it names its own
+# domain instead of pulling the whole prospect map fan-out a second time.
+[[rules]]
+match = "scripts/map/map_play_civilian_pick*.gd*"
+domain = "civilian_pick"
+
 # Civilian sheet chrome — civilian suites cover orders/roster; prospect's
 # map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
-match = "scripts/ui/civilian_panel.gd*"
+match = "scripts/ui/civilian_panel*.gd*"
 domain = "civilian"
+
+# The sheet's two halves read out of the widgets: the ground rows and the
+# standing lines, proved by the dossier suite alone.
+[[rules]]
+match = "scripts/ui/civilian_panel_d*.gd*"
+domain = "civilian_pick"
+
+[[rules]]
+match = "scripts/ui/civilian_panel_s*.gd*"
+domain = "civilian_pick"
+
+[[rules]]
+match = "tests/test_civilian_dossier_parts.gd*"
+domain = "civilian_pick"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
@@ -3207,6 +3249,21 @@ domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/hud_chrome.gd"
+domain = "crown_road"
+
+# The campaign's last plate and the seal it shuts. Named before hud_* → ui so a
+# chrome extract runs the lean plate suite, not only panel_parts / battle.
+[[rules]]
+match = "scripts/ui/hud_campaign_end.gd*"
+domain = "campaign_plate"
+
+[[rules]]
+match = "tests/test_hud_campaign_plate.gd*"
+domain = "campaign_plate"
+
+# Cartouche markings (turn line, minimap) ride the same screen suites as chrome.
+[[rules]]
+match = "scripts/ui/hud_chart_cartouche.gd*"
 domain = "crown_road"
 
 [[rules]]
