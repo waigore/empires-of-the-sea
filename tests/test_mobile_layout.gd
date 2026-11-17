@@ -25,13 +25,10 @@ var _viewport: SubViewport = null
 var _screen: MapScreen = null
 ## One mount for the whole suite (docs/testing.md § Speed rules): a case that
 ## reads the chrome at a size re-seats the shared screen from this pristine save
-## (~0.15 s) instead of mounting the chart again (~0.5 s under coverage).
+## (~0.15 s) instead of mounting the chart again (~0.5 s under coverage). The
+## chart is attached lazily, so the pure geometry cases above never paint one.
 var screen_pristine: Dictionary = {}
 var world_snapshot: Array = []
-
-
-func before_all() -> void:
-	_mount(PHONE)
 
 
 func after_all() -> void:
@@ -46,9 +43,15 @@ func after_all() -> void:
 
 ## The suite's one chart, mounted inside the phone-sized viewport the geometry is
 ## read in. The viewport is resized per case; the screen under it is not rebuilt.
+## Called from the chrome cases only, so the pure geometry cases above pay no
+## chart (docs/testing.md § Speed rules). Once mounted, `_open` owns resize and
+## re-seat — a second relayout here before the reset left the end-turn door on a
+## stale compact row.
 func _mount(size: Vector2i) -> void:
-	if is_instance_valid(_screen) or is_instance_valid(_viewport):
+	if is_instance_valid(_screen):
 		return
+	if is_instance_valid(_viewport):
+		_viewport.free()
 	if world_snapshot.is_empty():
 		world_snapshot = Fixture.snapshot(Fixture.world())
 	Fixture.restore(Fixture.world(), world_snapshot)
