@@ -82,9 +82,10 @@ func test_the_dossier_standing_lines_are_plain_words() -> void:
 	)
 
 
-## The pick's door: an estate is raised from the estates ledger, a road from the
-## province dossier, and every order the crew's own sheet can press names none
-## (REQ-P5-06; wiki: playtest-learnings § next targets).
+## The pick's door: an estate is raised from the estates ledger, a road or a
+## railroad from the province dossier, and every order the crew's own sheet can
+## press names none (REQ-P5-06; wiki: playtest-learnings § next targets;
+## DR-20261117-10).
 func test_the_pick_names_the_door_that_can_press_it() -> void:
 	assert_eq(
 		MapPlayCivilianPick.door_for("build_improvement"),
@@ -96,9 +97,14 @@ func test_the_pick_names_the_door_that_can_press_it() -> void:
 		MapPlayCivilianPick.DOOR_PROVINCE,
 		"a road is pressed from the province dossier"
 	)
+	assert_eq(
+		MapPlayCivilianPick.door_for("build_rail"),
+		MapPlayCivilianPick.DOOR_PROVINCE,
+		"a railroad is pressed from the province dossier's rail block"
+	)
 	for action: String in [
 		"explore", "prospect", "build_port", "build_fort", "build_hospital",
-		"build_rail", "upgrade_town", "purchase_land", "counter_spy",
+		"upgrade_town", "purchase_land", "counter_spy",
 		MapPlayCivilianPick.KIND_MOVE, "",
 	]:
 		assert_eq(
