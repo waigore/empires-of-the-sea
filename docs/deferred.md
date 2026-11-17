@@ -40,11 +40,11 @@ Audited: DR-20261117-11 vs code through #914 (REQ-P2-02).
 
 ## Gaps (ranked)
 
-None open: the observatory reads a province (DR-17-11/#914).
+None open (DR-17-11/#914, DR-17-12).
 
 ## Next pick
 
-P5 polish: observer order-feed depth (`FEED_TURNS`=2); re-audit wiki.
+Re-audit the wiki against code (REQ-P2-02).
 
 ## Blocked
 
@@ -65,7 +65,7 @@ P5 polish: observer order-feed depth (`FEED_TURNS`=2); re-audit wiki.
 ## Wiki drift
 
 - `playtest-learnings`: "no province sheet" stale — live DR-17-11/#914;
-  feed still two turns; railroad Follow live DR-17-10/#902.
+  feed window live DR-17-12; railroad Follow live DR-17-10/#902.
 - `civilian-build-planner`: pick family closed (DR-17-03/05/06/07/09/10).
 - `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
 - `phase-planner-*`: six slots live; soft weight seed (DR-17-01).

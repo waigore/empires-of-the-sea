@@ -709,10 +709,10 @@ func test_the_feed_prints_a_busy_turn_whole() -> void:
 		"the turn's first order is kept, not cut"
 	)
 	var kept: int = 0
-	for index in range(maxi(play.ai_turns.size() - AiObserverPanel.FEED_TURNS, 0), play.ai_turns.size()):
+	for index in range(ObserverTurnFeed.first_kept(play.ai_turns), play.ai_turns.size()):
 		kept += (play.ai_turns[index]["events"] as Array).size()
 	assert_true(
-		panel.board.feed_caption.text.contains("%d rows over 2 turns" % kept),
+		panel.board.feed_caption.text.contains("%d rows over" % kept),
 		"the caption counts every row the feed holds"
 	)
 
@@ -795,14 +795,14 @@ func test_the_dashboard_chrome_answers_its_handles() -> void:
 	var dashboard := ObserverDashboard.new()
 	assert_null(dashboard.get_parent(), "a new plate stands alone until mounted")
 	dashboard.frame = null
-	dashboard.fit(1280.0)
+	dashboard.fit(Vector2(1280.0, 800.0))
 	dashboard._tab_view()
 	dashboard = ObserverDashboard.new()
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
 	canvas.add_child(dashboard)
 	assert_not_null(dashboard.frame, "the plate builds its frame")
-	dashboard.fit(720.0)
+	dashboard.fit(Vector2(720.0, 360.0))
 	assert_true(
 		dashboard.frame.custom_minimum_size.x >= 280.0
 		and dashboard.frame.custom_minimum_size.x <= 470.0,
@@ -828,6 +828,30 @@ func test_the_dashboard_chrome_answers_its_handles() -> void:
 	dashboard.tab = kept
 	dashboard.free()
 	canvas.free()
+
+
+## The feed's window follows the screen: a handset keeps its 128-point window, a
+## desktop gives the rows more of the plate, and a very tall screen stops at the
+## cap so the crown cards keep their room (REQ-P1-07, REQ-P5-05).
+func test_the_feed_window_follows_the_screen() -> void:
+	var dashboard := ObserverDashboard.new()
+	add_child(dashboard)
+	dashboard.fit(Vector2(720.0, 360.0))
+	assert_eq(
+		dashboard.feed_scroll.custom_minimum_size.y, ObserverDashboard.FEED_MIN_HEIGHT,
+		"a landscape handset keeps the feed's smallest window"
+	)
+	dashboard.fit(Vector2(1280.0, 800.0))
+	assert_eq(
+		dashboard.feed_scroll.custom_minimum_size.y, 240.0,
+		"a desktop gives the feed a share of its height"
+	)
+	dashboard.fit(Vector2(1280.0, 2000.0))
+	assert_eq(
+		dashboard.feed_scroll.custom_minimum_size.y, ObserverDashboard.FEED_MAX_HEIGHT,
+		"a very tall screen stops at the cap"
+	)
+	dashboard.free()
 
 
 ## The dashboard takes its whole reading from one snapshot, so a decided
