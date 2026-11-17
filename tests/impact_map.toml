@@ -3204,8 +3204,9 @@ match = "scripts/rules/victory_*.gd"
 domain = "campaign"
 
 
+# Fog grid, coast tables and end-of-turn decay: one domain (REQ-P3-01).
 [[rules]]
-match = "scripts/rules/visibility.gd"
+match = "scripts/rules/visibility*.gd*"
 domain = "fog"
 
 # The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
