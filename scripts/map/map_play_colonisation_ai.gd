@@ -28,6 +28,15 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var kind: String = AiControl.court_kind(play, faction)
 			if kind == AiControl.KIND_RANDOM:
 				continue
+			# A crown whose own land still holds unsurveyed ground keeps its last
+			# Explorer for it: no voyage sails until a second crew stands at home,
+			# so the deposits its estates ledger prices stay discoverable
+			# (issue #894). A voyage already afloat keeps sailing.
+			if (
+				CivilianMuster.keeps_explorer_home(play, faction, region, model)
+				and VoyageRead.carrying(fleets, faction) == null
+			):
+				continue
 			var config: Variant = AiBind.config(kind, faction, play.map_seed)
 			# A court on a war footing keeps its hulls for the fleet: the posture
 			# closes the voyage before the planner picks a step (DR-20261113-15) —

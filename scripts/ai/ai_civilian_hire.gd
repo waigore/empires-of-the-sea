@@ -201,8 +201,12 @@ static func region_targets(
 		config.parameter("civilian.explorer_target"),
 		1 + (prospect_work + uncharted * 3) / per
 	)
+	# One Explorer kept free while a colonisation voyage is mustering — and while
+	# the home-prospect gate stands the voyage down for want of that second crew
+	# (issue #894). A court with only one Explorer and unprospected hills hires
+	# the crew that frees the voyage before it sails.
 	var muster: Vector2i = context.get("muster_port", Vector2i(-1, -1))
-	if muster.x >= 0:
+	if muster.x >= 0 or bool(context.get("voyage_wanted", false)):
 		explorers += 1
 	var merchants: int = 0
 	if int(context.get("merchant_targets", 0)) > 0:

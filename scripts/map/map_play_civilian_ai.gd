@@ -87,6 +87,13 @@ static func plan_all(
 		var muster: Vector2i = CivilianMuster.muster_port(play, faction, region, model)
 		if muster.x >= 0:
 			context["muster_port"] = muster
+			# Only the crew the voyage will board waits at the harbour; the
+			# crown's other Explorers keep working the home ground (issue #894).
+			context["muster_unit"] = CivilianMuster.muster_colonist(roster, faction)
+		# A voyage the home-prospect gate stands down still wants its crew: the
+		# hire order keeps one Explorer free so the next turn can sail (#894).
+		if CivilianMuster.wants_voyage(play, faction, region, model):
+			context["voyage_wanted"] = true
 		if region != int(overseas.get("home_region", region)):
 			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
 		# The larder slack the ward gate reads and the provision premium

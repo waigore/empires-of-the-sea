@@ -13,21 +13,22 @@ extends RefCounted
 
 ## Where this court musters a colonist: its own harbour, while it has no
 ## civilian in the other region and a squadron free to carry one. The Explorer
-## policy holds an idle Explorer there instead of marching it off to survey
-## (AiExplorerWork), so the expedition the colonisation pass plans can board it
-## (wiki: civilian-units § Overseas deployment; DR-20261111-05). (-1, -1) when
-## nothing is mustering.
+## policy holds the crew the voyage will board there instead of marching it off
+## to survey (AiExplorerWork), so the expedition the colonisation pass plans can
+## board it (wiki: civilian-units § Overseas deployment; DR-20261111-05).
+## (-1, -1) when nothing is mustering.
+##
+## A crown whose own land still holds unsurveyed ground keeps an Explorer for
+## it: a voyage that would take the court's last Explorer stays at anchor while
+## the hills its estates ledger prices are still undiscovered (issue #894). The
+## court keeps hiring the crew that frees the voyage — `wants_voyage` stays true
+## for that hire — and sails once a second Explorer stands at home.
 static func muster_port(
 	play: PlaySession, faction: int, region: int, model: MapModel
 ) -> Vector2i:
-	if play.world == null or model == null:
+	if not wants_voyage(play, faction, region, model):
 		return CivilianState.NO_TILE
-	if region != FactionCatalog.region_of(faction):
-		return CivilianState.NO_TILE
-	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
-	if has_owner(roster(play, other), faction):
-		return CivilianState.NO_TILE
-	if not hull_claimed(play, faction, region):
+	if keeps_explorer_home(play, faction, region, model):
 		return CivilianState.NO_TILE
 	var port: int = AiBind.harbour(AiControl.court_kind(play, faction), model, faction)
 	if port < 0:
@@ -36,6 +37,81 @@ static func muster_port(
 	if data == null or data.port_tile.x < 0:
 		return CivilianState.NO_TILE
 	return data.port_tile
+
+
+## True when the court has everything a voyage needs except the crew: its own
+## region, no civilian already abroad, a funded hull claim and a harbour. The
+## hire order reads this so a court whose voyage stands down for want of a
+## second Explorer still hires one — the muster gate and the staff target stay
+## one reading (issue #894).
+static func wants_voyage(
+	play: PlaySession, faction: int, region: int, model: MapModel
+) -> bool:
+	if play.world == null or model == null:
+		return false
+	if region != FactionCatalog.region_of(faction):
+		return false
+	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+	if has_owner(roster(play, other), faction):
+		return false
+	if not hull_claimed(play, faction, region):
+		return false
+	return AiBind.harbour(AiControl.court_kind(play, faction), model, faction) >= 0
+
+
+## True when the voyage would take an Explorer (the court owns no land across
+## the water) and that Explorer is the last one standing on the home region while
+## its own land still holds unsurveyed ground. A court that owns land overseas
+## sends a Builder instead, so the reading never holds its crews back.
+static func keeps_explorer_home(
+	play: PlaySession, faction: int, region: int, model: MapModel
+) -> bool:
+	if play.world == null:
+		return false
+	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+	if VoyageRead.owns_land_in(play.world, other, faction):
+		return false
+	if explorers(roster(play, region), faction) > 1:
+		return false
+	return home_unsurveyed(play, faction, region, model)
+
+
+## True when the crown's own land still holds ground no Explorer has surveyed:
+## the mineral deposits the estates ledger prices cannot be planned until it is
+## dug (wiki: fog-and-exploration § Prospecting; issue #894).
+static func home_unsurveyed(
+	play: PlaySession, faction: int, region: int, model: MapModel
+) -> bool:
+	var works: LandWorks = play.civilian_layer.works_regions.value(region, null)
+	if works == null or model == null:
+		return false
+	var view: VisibilityModel = MapPlayCourtFog.view_for(play, faction, region)
+	for province: ProvinceState in model.provinces:
+		if model.province_owner(province.id) != faction:
+			continue
+		if not MineralSurvey.unsurveyed_in_province(
+			model, works, faction, province.id, view
+		).is_empty():
+			return true
+	return false
+
+
+## Explorers this crown fields in a roster.
+static func explorers(roster: Array, faction: int) -> int:
+	var found: int = 0
+	for unit: CivilianState in roster:
+		if unit != null and unit.owner == faction and unit.type_id == "explorer":
+			found += 1
+	return found
+
+
+## The Explorer the pending voyage will board: the court's first idle one
+## (VoyageRead.idle_colonist), or -1 when none is free. Only that crew waits at
+## the muster port; the crown's other Explorers keep surveying and prospecting
+## the home ground while a colony sails (issue #894).
+static func muster_colonist(roster: Array, faction: int) -> int:
+	var unit: CivilianState = VoyageRead.idle_colonist(roster, faction, "explorer")
+	return unit.id if unit != null else -1
 
 
 ## True when the court's last ledger funded the expedition's hull claim — the
