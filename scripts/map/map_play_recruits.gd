@@ -116,7 +116,8 @@ static func _ship(play: PlaySession, type_id: String) -> Dictionary:
 	if not NavalMovement.has_harbour(play.model, province):
 		return _refuse(play, ShipStats.display_name(type_id), "your capital has no harbour")
 	var result: Dictionary = play.ship_layer.launch_hull(
-		province, type_id, play.economy.economy
+		province, type_id, play.economy.economy,
+		MapPlayFleetYard.flown(play)
 	)
 	if not bool(result.get("ok", false)):
 		return _refuse(play, ShipStats.display_name(type_id), String(result.get("reason", "")))

@@ -199,7 +199,9 @@ func home_fleet(province_id: int) -> FleetState:
 ## Launches one paid-for hull into the home fleet, founding it at the slip when
 ## the crown keeps no squadron in that port (wiki: ships-and-naval § Ship build
 ## economy). The view only mirrors what FleetYard already allowed.
-func launch_hull(province_id: int, type_id: String, economy: PlayerEconomy) -> Dictionary:
+func launch_hull(
+	province_id: int, type_id: String, economy: PlayerEconomy, flown: Array = []
+) -> Dictionary:
 	var fleet: FleetState = home_fleet(province_id)
 	var founded: bool = fleet == null
 	if founded:
@@ -207,7 +209,7 @@ func launch_hull(province_id: int, type_id: String, economy: PlayerEconomy) -> D
 			FleetRosters.next_id(fleets), player_faction, province_id
 		)
 	var hull_id: String = "ship_%d" % next_hull
-	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id)
+	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id, flown)
 	if not bool(result.get("ok", false)):
 		return result
 	next_hull += 1

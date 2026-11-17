@@ -15,7 +15,15 @@ extends RefCounted
 static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 	if fleet == null or fleet.owner != play.player_faction or play.economy == null:
 		return []
-	return FleetYard.rows(play.economy.economy, _is_home(play, fleet))
+	return FleetYard.rows(play.economy.economy, _is_home(play, fleet), flown(play))
+
+
+## The craft this court flies or has flown: the opening muster's hulls and every
+## launch kept in its ledger, the same list a rival court's yard reads, so a hull
+## already in the crown's own water may be replaced without her study
+## (issue #484; REQ-P2-03).
+static func flown(play: PlaySession) -> Array[String]:
+	return MapPlayCourt.hull_types(play, play.player_faction)
 
 
 ## Opens the capital yard from the province dossier; with no home fleet afloat the
@@ -35,7 +43,8 @@ static func open(play: PlaySession) -> void:
 	if play.economy == null:
 		return
 	play.hud.panels.show_fleet(
-		play.model, null, true, "", FleetYard.rows(play.economy.economy, true), province
+		play.model, null, true, "", FleetYard.rows(play.economy.economy, true, flown(play)),
+		province
 	)
 
 
@@ -67,7 +76,8 @@ static func launch(play: PlaySession, type_id: String) -> void:
 		economy.treasury,
 		economy.stockpile,
 		economy.available_peasants(),
-		economy.tech_unlocked
+		economy.tech_unlocked,
+		flown(play)
 	)
 	if not reason.is_empty():
 		play.hud.toast(reason)
