@@ -6,6 +6,10 @@ extends FleetDrawer
 ## open state and row shell are FleetDrawer's; this block owns only the yard's
 ## rows and the arm (REQ-P3-01). It reads plain data and emits intents;
 ## FleetYard owns every rule (REQ-P3-02).
+##
+## The slip carries one press under its launch rows that lays down a hull for
+## every ready type in the yard's order — the shared RaiseBatchPress arm, so a
+## mis-tap never spends the realm's stores (REQ-P5-04; DR-20261118-08).
 
 ## Breaking up a paid-for hull asks once: a second tap inside this window
 ## confirms and an expired arm does nothing (DR-20261109-01).
@@ -15,6 +19,8 @@ var _timer: Timer = null
 var _armed_hull: String = ""
 var _fleet: FleetState = null
 var _is_player: bool = false
+## The one press under the slip; it owns the arm, its timeout and its words.
+var _batch: RaiseBatchPress = null
 
 
 func _init() -> void:
@@ -32,6 +38,17 @@ func _ready() -> void:
 	_timer.wait_time = ARM_SECONDS
 	_timer.timeout.connect(_clear_arm)
 	add_child(_timer)
+	_make_batch()
+
+
+## The slip's one press, made once however the block is mounted: the drawer's own
+## `_ready` or a suite handing it rows straight away.
+func _make_batch() -> void:
+	if _batch != null:
+		return
+	_batch = RaiseBatchPress.new()
+	_batch.set_verb("launch")
+	_batch.confirmed.connect(func() -> void: action_pressed.emit("yard:launch_all"))
 
 
 ## A fresh fleet: the yard closes unless it may stay, and the rows are redrawn.
@@ -68,12 +85,31 @@ func on_scrap_pressed(hull_id: String) -> void:
 
 
 ## The yard prints its two seams: what can be launched and, once the crown has a
-## squadron, which hulls may be broken up.
+## squadron, which hulls may be broken up. The one press stands at the slip's own
+## foot, under the launch rows it files, so a phone reads it with the prices
+## (REQ-P5-04; DR-20261118-08).
 func _fill() -> void:
-	UiRowBuilder.clear(_box)
+	_make_batch()
+	for child: Node in _box.get_children():
+		if child == _batch:
+			continue
+		_box.remove_child(child)
+		child.queue_free()
 	_box.add_child(UiRowBuilder.caption("LAUNCH A HULL", 11, Palette.TEXT_DIM))
+	var ready: int = 0
 	for row: Dictionary in _rows:
+		if bool(row.get("batch_ready", false)):
+			ready += 1
 		_box.add_child(_build_row(row))
+	# The count is the yard's own `batch_ready` flag, so the face names what the
+	# second tap would lay down before the stores are spent (REQ-P5-05).
+	_batch.set_ready(ready, "hulls")
+	# Already a child of the list from the last fill; it only moves to the foot of
+	# the launch rows.
+	if _batch.get_parent() == null:
+		_box.add_child(_batch)
+	else:
+		_box.move_child(_batch, _box.get_child_count() - 1)
 	if _fleet == null or not _is_player:
 		return
 	_box.add_child(UiRowBuilder.caption("BREAK UP A HULL", 11, Palette.TEXT_DIM))

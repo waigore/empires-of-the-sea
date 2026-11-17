@@ -90,6 +90,52 @@ static func launch(play: PlaySession, type_id: String) -> void:
 	refresh(play, play.ship_layer.home_fleet(province))
 
 
+## The yard's one press: every ready hull on the slip, one each, in the yard's
+## order — the same `BuildUnitOrder` a row's Launch press files, so the price,
+## the study gate, the peasant and the phase stay in ShipEconomy/FleetYard
+## (REQ-P2-03, REQ-P5-04; DR-20261118-08). The walk stops at the first refusal,
+## because that refusal is the rules' answer for the realm, and the court reads
+## one receipt instead of a lane of toasts (REQ-P5-05).
+static func launch_all(play: PlaySession) -> void:
+	if play.economy == null or play.economy.economy == null:
+		return
+	var province: int = play.capital_province
+	if province < 0 or play.model.province_owner(province) != play.player_faction:
+		play.hud.toast("Your capital must be in hand to launch hulls.")
+		return
+	if not NavalMovement.has_harbour(play.model, province):
+		play.hud.toast("Your capital has no harbour for a yard.")
+		return
+	var economy: PlayerEconomy = play.economy.economy
+	var craft: Array[String] = flown(play)
+	var types: Array[String] = FleetYard.batch_types(economy, true, craft)
+	if types.is_empty():
+		return
+	var result: Dictionary = FleetYard.queue_all(economy, true, types, craft)
+	play.hud.toast(_batch_receipt(result))
+	refresh(play, play.ship_layer.home_fleet(province))
+
+
+## The one line the yard's batch leaves on the court's lane: what it laid down,
+## and what the next hull waits on (REQ-P5-05).
+static func _batch_receipt(result: Dictionary) -> String:
+	var filed: int = int(result.get("filed", 0))
+	var total: int = int(result.get("total", 0))
+	var refusal: String = String(result.get("refusal", ""))
+	if filed == 0 and not refusal.is_empty():
+		return refusal
+	var laid: String = (
+		"%d hulls are laid down — they launch next turn" % filed
+		if filed != 1
+		else "One hull is laid down — she launches next turn"
+	)
+	if refusal.is_empty():
+		return laid
+	return "%d of %d hulls are laid down — the next waits: %s" % [
+		filed, total, refusal
+	]
+
+
 ## Breaks up one hull and returns its peasant to the pool.
 static func scrap(play: PlaySession, hull_id: String) -> void:
 	if play.economy == null or play.economy.economy == null:
@@ -123,6 +169,9 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 ## `yard:build:<type>` launches a hull, `yard:scrap:<hull>` breaks one up.
 ## False when the order belongs to another panel (REQ-P3-02).
 static func on_action(play: PlaySession, action: String) -> bool:
+	if action == "yard:launch_all":
+		launch_all(play)
+		return true
 	if action.begins_with("yard:build:"):
 		launch(play, action.trim_prefix("yard:build:"))
 		return true
