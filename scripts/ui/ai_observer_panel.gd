@@ -22,6 +22,9 @@ var play: PlaySession = null
 var running: bool = true
 ## The plate, the crown cards and the feed the snapshot paints.
 var board: ObserverDashboard = null
+## The province reading a tap on the chart opens (ObserverProvinceSheet). It is
+## a reading, never an order: the observatory has no seat to give them.
+var sheet: ObserverProvinceSheet = null
 
 var _speed_index: int = 0
 var _elapsed: float = 0.0
@@ -35,6 +38,9 @@ func _ready() -> void:
 	board.pause_pressed.connect(_toggle_running)
 	board.step_pressed.connect(_step_once)
 	board.speed_pressed.connect(_cycle_speed)
+	sheet = ObserverProvinceSheet.new()
+	add_child(sheet)
+	_connect_chart()
 	_fit()
 	get_viewport().size_changed.connect(_fit)
 	refresh()
@@ -64,7 +70,28 @@ func refresh() -> void:
 		return
 	var snap: Dictionary = MapPlayObserver.snapshot(play)
 	board.paint(snap, play.ai_turns)
+	# A turn moves owners, works and hosts, so the open province is re-read with
+	# the plate; a closed sheet costs nothing (REQ-P4-01).
+	if sheet != null:
+		sheet.refresh()
 	_sync_controls()
+
+
+## The chart's own selection signals: a tap on a province opens its reading, and
+## a tap on open water or a cleared selection closes it. The observatory reads
+## the chart the map already draws — it never asks for a second projection.
+func _connect_chart() -> void:
+	var host := get_parent() as MapScreen
+	if host == null or sheet == null:
+		return
+	host.province_selected.connect(_on_province_selected)
+	host.selection_cleared.connect(sheet.clear)
+
+
+func _on_province_selected(province_id: int) -> void:
+	if sheet == null or play == null:
+		return
+	sheet.show_province(play, province_id)
 
 
 func _sync_controls() -> void:

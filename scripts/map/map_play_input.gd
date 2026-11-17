@@ -17,7 +17,10 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 		return
 	# Auto holds the crown's seat: the chart stays pannable and every marker
 	# selectable, but a tap raises no order (wiki: auto-mode § Read-only).
-	var ordering: bool = not MapPlayAuto.blocks_orders(play)
+	# The full-AI observer has no seat at all, so its taps are readings too —
+	# a province opens its sheet and no march, muster or work is ever ordered
+	# from the observatory (docs/ai-observer.md; REQ-P2-03).
+	var ordering: bool = not MapPlayAuto.blocks_orders(play) and not play.observer_mode
 	var civilian: CivilianState = play.civilian_layer.unit_at(world_position)
 	var army: ArmyState = play.army_layer.army_at(world_position)
 	# Overlapping medallions (a capital muster beside its civilians) go to the
