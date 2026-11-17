@@ -46,6 +46,7 @@ func _run() -> void:
 	var picks: Dictionary = MapPlayCivilianPick.picks(_play, _play.player_faction)
 	_say("the court's own pass names work for %d crews" % picks.size())
 	_read_every_sheet(picks)
+	_press_the_pick_doors(picks)
 	_press_the_estate_pick(picks)
 	await _turn_pass()
 	_finish()
@@ -127,6 +128,37 @@ func _read_every_sheet(picks: Dictionary) -> void:
 		idle, named, work, marches, off_tile, no_advice,
 	])
 	_check("the crown's own crews carry picks", named > 0)
+
+
+## The pick's door: a pick naming ground the crew's own sheet cannot press
+## carries one press to the surface that can — the estates ledger for an estate,
+## the province dossier for a road (wiki: playtest-learnings § next targets).
+func _press_the_pick_doors(picks: Dictionary) -> void:
+	var pressed: int = 0
+	for unit: CivilianState in _play.civilian_layer.units:
+		var pick: Dictionary = picks.get(unit.id, {})
+		var door: String = String(pick.get("door", ""))
+		if door.is_empty() or int(pick.get("region", -1)) != _play.region_index:
+			continue
+		var tile: Vector2i = pick["tile"]
+		var province: int = _play.model.province_at(tile.x, tile.y)
+		MapPlayCivilians.select(_play, unit)
+		var panel: CivilianPanel = _play.hud.panels.civilian_panel
+		_say("crew %d %s: the pick at %s carries the %s door" % [
+			unit.id, unit.type_id, str(tile), door,
+		])
+		_check("a pick on other ground carries its door", panel._follow.visible)
+		panel._follow.pressed.emit()
+		_check("the door frames the ground it names", _play.selected_province == province)
+		if door == MapPlayCivilianPick.DOOR_ESTATES:
+			_check("the estates ledger opens at the pick", _play.improvements.is_open())
+			_play.improvements.close()
+		else:
+			_check("the province dossier opens at the pick", _play.hud.panels.is_panel_open())
+		pressed += 1
+		if pressed >= 2:
+			break
+	_say("%d pick door(s) pressed" % pressed)
 
 
 ## The one press the pick's advice has off the crew's own tile: the estates

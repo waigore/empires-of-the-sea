@@ -16,10 +16,29 @@ extends RefCounted
 ## The action a march pick carries: the crew moves before it works.
 const KIND_MOVE: String = MapPlayCivilianPickWords.KIND_MOVE
 
+## The surface that can press a pick the crew's own sheet cannot: the estates
+## ledger raises an estate anywhere on crown land, the province dossier carries
+## the road control for a tile ahead of the crew (wiki: civilian-build-planner
+## § Deferred seed; playtest-learnings § next targets).
+const DOOR_ESTATES: String = "estates"
+const DOOR_PROVINCE: String = "province"
 
-## unit id -> {"action", "tile", "line", "short"} for every idle crew the pass
-## would put to work. Empty when the session has no ledger, no planner, or the
-## roster already has its orders.
+
+## The door a work order's ground needs when the crew does not stand on it: an
+## estate is raised from the estates ledger, a road from the province dossier.
+## Every other order is pressed from the crew's own sheet at its own tile, and a
+## march is pressed on the chart, so neither names a door (REQ-P5-06).
+static func door_for(action: String) -> String:
+	if action == "build_improvement":
+		return DOOR_ESTATES
+	if action == "build_road":
+		return DOOR_PROVINCE
+	return ""
+
+
+## unit id -> {"action", "tile", "region", "door", "line", "short"} for every
+## idle crew the pass would put to work. Empty when the session has no ledger,
+## no planner, or the roster already has its orders.
 static func picks(play: PlaySession, faction: int) -> Dictionary:
 	var result: Dictionary = {}
 	if play == null or play.civilian_layer == null:
@@ -62,6 +81,7 @@ static func _words(
 	roster.assign(entry.get("roster", []))
 	var tech_caps: Dictionary = entry.get("tech_caps", {})
 	var context: Dictionary = entry.get("context", {})
+	var region: int = int(entry.get("region", -1))
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
 		var pick: Dictionary = _order_pick(
@@ -69,11 +89,13 @@ static func _words(
 			order
 		)
 		if not pick.is_empty():
+			pick["region"] = region
 			result[int(order.get("unit_id", -1))] = pick
 	for raw: Variant in plan.get("moves", []):
 		var move: Dictionary = raw
 		var pick: Dictionary = MapPlayCivilianPickWords.move_pick(model, move)
 		if not pick.is_empty():
+			pick["region"] = region
 			result[int(move.get("unit_id", -1))] = pick
 
 
@@ -106,9 +128,13 @@ static func _order_pick(
 		where = " at %s (%d, %d)" % [
 			MapPlayCivilianPickWords.place(model, province), tile.x, tile.y
 		]
+	# The sheet presses the crew's own tile, so a pick on other ground carries
+	# the door that can press it; a pick underfoot needs none (REQ-P5-06).
+	var door: String = "" if crew == null or crew.tile == tile else door_for(action)
 	return {
 		"action": action,
 		"tile": tile,
+		"door": door,
 		"short": step,
 		"line": MapPlayCivilianPickWords.line(
 			step,
