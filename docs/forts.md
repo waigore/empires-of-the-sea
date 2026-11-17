@@ -61,4 +61,4 @@ DR-20261110-27.
 
 ## Tests
 
-`test_fort_capital`, `test_battle_rules`.
+`test_battle_rules`.

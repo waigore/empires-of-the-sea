@@ -53,8 +53,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   never `generate_world`.
 - **Heaviest suite sorts first**: name order, four wide — a long `world_…`
   suite must not drain alone.
-- One Godot boot per theme — coverage ~15 s a boot; 39 → 25 suites
-  (`save_codec` rides campaign_end, the dossier rides panel_parts).
+- One Godot boot per theme — coverage ~15 s a boot; 27 → 24 suites
+  (fort capital→battle, observer parts→ai_observer, branding→plate).
   `gd-tools.toml` keeps `parallel = 4`.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
