@@ -1873,6 +1873,101 @@ func _rail_button(block: ProvinceRailBlock, tile: Vector2i) -> Button:
 				return button
 	return null
 
+
+## A reading with nothing to read: no chart, no crown, no province.
+func test_a_missing_chart_reads_no_rail_plan() -> void:
+	_setup_rail_works()
+	assert_false(
+		bool(RailWorks.plan(null, _works, _roads_units, 0, RAIL_TILE, STEAM)["needed"]),
+		"nothing to read without a chart"
+	)
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, -1, RAIL_TILE, STEAM)["needed"]),
+		"no crown, no road of ours"
+	)
+	assert_false(
+		bool(RailWorks.plan(_model, _works, _roads_units, 0, Vector2i(-1, -1), STEAM)["needed"]),
+		"no tile, no plan"
+	)
+	assert_true(
+		RailWorks.province_plans(null, _works, _roads_units, 0, 0, STEAM).is_empty(),
+		"no chart, no rows"
+	)
+	assert_true(
+		RailWorks.province_plans(_model, _works, _roads_units, 0, 99, STEAM).is_empty(),
+		"no such province, no rows"
+	)
+
+
+## The nearest idle Rail Builder takes the order; ties break on unit id, as the
+## estates ledger's Builder dispatch does.
+func test_the_nearest_rail_builder_takes_the_order() -> void:
+	_setup_rail_works()
+	var far: CivilianState = _rail_builder(Vector2i(0, 3))
+	var near: CivilianState = _rail_builder(Vector2i(2, 0))
+	assert_eq(
+		RailWorks.nearest_rail_builder(_roads_units, 0, RAIL_TILE), near,
+		"the closer crew is sent"
+	)
+	far.tile = near.tile
+	assert_eq(
+		RailWorks.nearest_rail_builder(_roads_units, 0, RAIL_TILE), far,
+		"a tie breaks on the lower unit id"
+	)
+	assert_null(
+		RailWorks.nearest_rail_builder(_roads_units, 9, RAIL_TILE),
+		"another crown's crews are not ours to send"
+	)
+
+
+## A press the rules refuse says so: ground that cannot take a railroad, and a
+## crew the stores cannot pay.
+func test_dispatch_refuses_ground_and_stores_it_cannot_take() -> void:
+	_setup_rail_works()
+	_rail_builder()
+	var bare: Dictionary = RailWorks.dispatch(
+		_model, _roads_units, _works, _roads_stock, _roads_view, 0,
+		Fixture.BARE_TILE, STEAM
+	)
+	assert_false(bool(bare["ok"]), "bare ground takes no railroad")
+	assert_true(
+		String(bare["message"]).contains("railroad"), String(bare["message"])
+	)
+	var empty: Dictionary = {}
+	var broke: Dictionary = RailWorks.dispatch(
+		_model, _roads_units, _works, empty, _roads_view, 0, RAIL_TILE, STEAM
+	)
+	assert_false(bool(broke["ok"]), "no stores, no order")
+	assert_false(String(broke["message"]).is_empty(), "the refusal is spoken")
+
+
+## A bare road tile is plain ground on the block: no estate to name, and the
+## line still carries its press.
+func test_a_bare_road_tile_reads_as_plain_ground() -> void:
+	_setup_rail_works()
+	var bare: Vector2i = Vector2i(2, 1)
+	_works.set_transport(_model, bare, LandWorks.TRANSPORT_IMPROVED_ROAD)
+	var rows: Array[Dictionary] = RailWorks.province_plans(
+		_model, _works, _roads_units, 0, Fixture.PLAYER_PROVINCE, STEAM
+	)
+	var found: Dictionary = {}
+	for row: Dictionary in rows:
+		if row["tile"] == bare:
+			found = row
+	assert_false(found.is_empty(), "the bare road is offered")
+	assert_eq(String(found["estate"]), "", "no estate to name")
+	assert_eq(int(found["transport"]), LandWorks.TRANSPORT_IMPROVED_ROAD)
+	_setup_province_panel()
+	_works.set_transport(_model, bare, LandWorks.TRANSPORT_IMPROVED_ROAD)
+	_show(STEAM)
+	var block: ProvinceRailBlock = _province_panel_panel._rail
+	var button: Button = _rail_button(block, bare)
+	assert_not_null(button, "the bare road still carries its press")
+	assert_true(button.disabled, "no crew, so the press waits")
+	assert_true(button.tooltip_text.contains("Rail Builder"), button.tooltip_text)
+	var title: Label = block._body.get_child(0).get_child(0) as Label
+	assert_eq(title.text, "Road (2, 1)", "plain ground is named by its tile")
+
 # --- yarn dialogue, plates and espionage ---
 
 ## One boot for yarn dialogue, symbol plates and espionage rules. Merged from
