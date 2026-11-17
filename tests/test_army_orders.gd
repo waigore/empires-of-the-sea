@@ -427,6 +427,52 @@ func test_the_drill_yard_files_every_ready_standard_in_one_press() -> void:
 	assert_true(press.visible, "a paid-off yard offers the next line")
 
 
+## The drill yard names what its whole line costs before it is pressed: the walk's
+## own sum and the purse it leaves, and the same sum on the confirm face and the
+## receipt — a crown used to read the price of a whole line after it signed
+## (REQ-P5-06, REQ-P1-07; DR-20261118-10).
+func test_the_drill_yard_names_the_whole_line_before_it_is_pressed() -> void:
+	var home: ArmyState = _player_home()
+	_screen.army_layer.select(home)
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.treasury = 100000
+	for commodity: String in ["fabric", "castIron", "bronze", "lumber", "horses"]:
+		economy.stockpile[commodity] = 400
+	economy.workers.add(WorkerPool.Tier.PEASANT, 12)
+	var ready: Array[String] = ArmyTraining.batch_types(economy)
+	assert_true(ready.size() >= 2, "the yard offers more than one payable row")
+
+	MapPlayArmies.show_panel(_screen.play, home)
+	var panel: ArmyPanel = _screen.hud.panels.army_panel
+	panel.set_muster_open(true)
+	var press: RaiseBatchPress = panel._muster_box._batch
+	var plan: Dictionary = ArmyTraining.batch_plan(economy)
+	assert_eq(int(plan["count"]), ready.size(), "the plan reads every ready row")
+
+	var line: String = _sum_label(panel._muster_box)
+	assert_eq(line, RaiseBatchSum.sheet_line(plan), "the sheet prints the plan")
+	assert_true(line.contains(MoneyText.ducats(int(plan["ducats"]))), line)
+	assert_true(line.contains("the purse keeps"), line)
+
+	press.pressed.emit()
+	press.pressed.emit()
+	assert_true(
+		_last_toast().contains(MoneyText.ducats(int(plan["ducats"]))),
+		"the receipt names what it paid: %s" % _last_toast()
+	)
+
+
+## The one sum line the yard prints under its rows, "" when it prints none.
+func _sum_label(box: VBoxContainer) -> String:
+	for child: Node in box.get_children():
+		var label := child as Label
+		if label == null or not label.visible:
+			continue
+		if label.text.contains("the purse keeps") or label.text.contains(" wait"):
+			return label.text
+	return ""
+
+
 ## The province panel's Recruit order opens the drill yard door on the Home Army
 ## and musters straight from it, so both entry points share one path.
 func test_the_drill_yard_door_musters_into_the_home_army() -> void:

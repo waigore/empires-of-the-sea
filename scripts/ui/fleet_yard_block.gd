@@ -101,6 +101,13 @@ func _fill() -> void:
 		if bool(row.get("batch_ready", false)):
 			ready += 1
 		_box.add_child(_build_row(row))
+	# What the whole line costs, before it is pressed: the walk's own sum and the
+	# purse it leaves, printed from the plan the press files, so a crown never
+	# learns the price of 19,500 ducats after it signs (REQ-P5-06; DR-20261118-10).
+	var plan: Dictionary = _batch_plan()
+	var sum_line: String = RaiseBatchSum.sheet_line(plan)
+	if not sum_line.is_empty():
+		_box.add_child(UiRowBuilder.wrapped_line(sum_line, 10, Palette.TEXT_DIM))
 	# The count is the yard's own `batch_ready` flag, so the face names what the
 	# second tap would lay down before the stores are spent (REQ-P5-05).
 	_batch.set_ready(ready, "hulls")
@@ -176,6 +183,16 @@ func _hull_row(hull_id: String) -> Control:
 	# and the navy sheet print, so a breaking up is a reasoned choice.
 	_row_detail(entry, FleetYard.hull_line(_fleet.type_of(hull_id)))
 	return entry
+
+
+## The plan the slip's rows carry, or an empty one when a caller handed the block
+## rows of its own with no ledger behind them (a suite's fixture): the sum line
+## then prints nothing and the press keeps its published face (DR-20261118-10).
+func _batch_plan() -> Dictionary:
+	for row: Dictionary in _rows:
+		if row.has("batch"):
+			return row["batch"]
+	return RaiseBatchSum.blank()
 
 
 func _clear_arm() -> void:

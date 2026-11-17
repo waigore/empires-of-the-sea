@@ -37,6 +37,20 @@ static func hull_line(type_id: String) -> String:
 static func rows(
 	economy: PlayerEconomy, at_home: bool = true, flown: Array = []
 ) -> Array[Dictionary]:
+	var out: Array[Dictionary] = _rows(economy, at_home, flown)
+	# What the slip's one press would file, carried on the reading itself: the
+	# drawer prints the sum under its rows without holding an economy, and the
+	# sum is the same walk the press files (DR-20261118-10).
+	var plan: Dictionary = batch_plan(economy, at_home, flown)
+	for row: Dictionary in out:
+		row["batch"] = plan
+	return out
+
+
+## The slip's own rows, before the one press's sum is laid over them.
+static func _rows(
+	economy: PlayerEconomy, at_home: bool, flown: Array
+) -> Array[Dictionary]:
 	var open_rows: Array[Dictionary] = []
 	var locked: Array[Dictionary] = []
 	if economy == null:
@@ -77,19 +91,52 @@ static func rows(
 	return open_rows
 
 
+## The slip's one press, read before it is pressed: every ready hull in the yard's
+## order, each priced against the ledger the orders before it leave, stopping at
+## the first refusal — the walk `queue_all` files, with nothing written
+## (DR-20261118-10). Returns `RaiseBatchSum.plan`'s record: count, filed, ducats,
+## materials, workers, the purse and the reason the next hull waits.
+static func batch_plan(
+	economy: PlayerEconomy, at_home: bool = true, flown: Array = []
+) -> Dictionary:
+	if economy == null:
+		return RaiseBatchSum.blank()
+	var craft: Array = flown
+	return RaiseBatchSum.plan(
+		_rows(economy, at_home, craft),
+		economy.treasury,
+		economy.stockpile,
+		func(type_id: String) -> int: return ShipEconomy.treasury_cost(type_id),
+		func(type_id: String) -> Dictionary: return ShipEconomy.build_inputs(type_id),
+		func(type_id: String, treasury: int, stock: Dictionary, filed: int) -> String:
+			return ShipEconomy.blocked_reason(
+				type_id,
+				treasury,
+				stock,
+				maxi(economy.available_peasants() - filed, 0),
+				economy.tech_unlocked,
+				craft
+			)
+	)
+
+
 ## The yard's batch: one hull per type the slip prints, in its order, each
 ## validated against the ledger the orders before it leave — the queue reserves
 ## the peasant and this walk draws the cash and the materials down, so a press
 ## can never file a hull the turn's Build/work would refuse (REQ-P2-03,
 ## REQ-P5-04; DR-20261118-08). The walk stops at the first refusal, because that
-## refusal is the rules' answer for the realm. Returns {filed, total, refusal}.
+## refusal is the rules' answer for the realm. Returns {filed, total, ducats,
+## materials, workers, refusal}, the spend included so the receipt names it.
 static func queue_all(
 	economy: PlayerEconomy,
 	at_home: bool,
 	types: Array[String],
 	flown: Array = []
 ) -> Dictionary:
-	var result: Dictionary = {"filed": 0, "total": types.size(), "refusal": ""}
+	var result: Dictionary = {
+		"filed": 0, "total": types.size(), "refusal": "",
+		"ducats": 0, "materials": {}, "workers": 0,
+	}
 	if economy == null:
 		result["refusal"] = "There is no court to pay for her."
 		return result
@@ -109,11 +156,16 @@ static func queue_all(
 			result["refusal"] = reason
 			break
 		economy.queue_build(RecruitQueue.KIND_SHIP, type_id)
-		treasury -= ShipEconomy.treasury_cost(type_id)
+		var cost: int = ShipEconomy.treasury_cost(type_id)
+		treasury -= cost
+		result["ducats"] = int(result["ducats"]) + cost
+		result["workers"] = int(result["workers"]) + 1
 		var inputs: Dictionary = ShipEconomy.build_inputs(type_id)
+		var spent: Dictionary = result["materials"]
 		for commodity: Variant in inputs.keys():
 			var id: String = String(commodity)
 			stock[id] = int(stock.get(id, 0)) - int(inputs[commodity])
+			spent[id] = int(spent.get(id, 0)) + int(inputs[commodity])
 		result["filed"] = int(result["filed"]) + 1
 	return result
 
