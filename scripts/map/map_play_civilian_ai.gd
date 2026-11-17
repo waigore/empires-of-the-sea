@@ -44,11 +44,13 @@ static func seed(play: PlaySession, faction: int) -> void:
 ## stages its sale, so the feedstock a crew will spend is known in advance and
 ## can be kept back (wiki: economy-planner § Reservations — one stockpile serves
 ## build, work and trade); the same plans are applied once the ledger closes. An
-## overseas region is priced on the raw its holds actually landed.
+## overseas region is priced on the raw its holds actually landed. `only_region`
+## narrows the walk to the one chart a reader asked about — a crew's own sheet
+## reads its pick without planning the other world (DR-20261117-06).
 static func plan_all(
 	play: PlaySession, faction: int, economy: PlayerEconomy, config: Variant,
 	overseas: Dictionary = {}, stockpile: Dictionary = {}, floor: int = 0,
-	works_floor: int = -1
+	works_floor: int = -1, only_region: int = -1
 ) -> Array[Dictionary]:
 	var plans: Array[Dictionary] = []
 	var kind: String = AiControl.court_kind(play, faction)
@@ -65,6 +67,8 @@ static func plan_all(
 	# no expansion crew (DR-20261116-15). The baseline planners ignore the key.
 	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
 	for region: int in play.civilian_layer.regions.region_ids():
+		if only_region >= 0 and region != only_region:
+			continue
 		var model: MapModel = play.world.region(region)
 		var roster: Array[CivilianState] = CivilianMuster.roster(play, region)
 		var works: LandWorks = play.civilian_layer.works_regions.value(region, null)

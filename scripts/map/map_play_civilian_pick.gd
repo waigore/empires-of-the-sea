@@ -19,7 +19,7 @@ const KIND_MOVE: String = "move"
 ## unit id -> {"action", "tile", "line", "short"} for every idle crew the pass
 ## would put to work. Empty when the session has no ledger, no planner, or the
 ## roster already has its orders.
-static func picks(play: PlaySession, faction: int) -> Dictionary:
+static func picks(play: PlaySession, faction: int, region: int = -1) -> Dictionary:
 	var result: Dictionary = {}
 	if play == null or play.civilian_layer == null:
 		return result
@@ -37,7 +37,7 @@ static func picks(play: PlaySession, faction: int) -> Dictionary:
 	var stockpile: Dictionary = economy.stockpile
 	var blockade: Blockades = MapPlayBlockades.crown(play)
 	for entry: Dictionary in MapPlayCivilianAi.plan_all(
-		play, faction, economy, config, overseas, stockpile, 0, -1
+		play, faction, economy, config, overseas, stockpile, 0, -1, region
 	):
 		_words(entry, faction, stockpile, blockade, result)
 	return result
