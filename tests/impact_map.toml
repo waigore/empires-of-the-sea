@@ -14,6 +14,7 @@ suites = [
 [domains.ai_panel]
 suites = [
   "test_ai_observer.gd",
+  "test_observer_parts.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -2106,6 +2107,10 @@ match = "tests/test_civilian_dossier_parts.gd*"
 domain = "civilian_pick"
 
 [[rules]]
+match = "tests/test_observer_parts.gd*"
+domain = "ai_panel"
+
+[[rules]]
 match = "scripts/ui/province_panel.gd*"
 domain = "prospect"
 
@@ -3396,6 +3401,10 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+[[rules]]
+match = "scripts/ui/observer_*.gd*"
+domain = "ai_panel"
 
 [[rules]]
 match = "scripts/ui/ai_observer_panel.gd"

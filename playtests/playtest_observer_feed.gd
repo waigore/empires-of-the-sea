@@ -61,7 +61,7 @@ func _run() -> void:
 		panel.refresh()
 		var merged: Dictionary = _play.ai_turns[_play.ai_turns.size() - 1]
 		var events: Array = merged.get("events", [])
-		var feed: PackedStringArray = panel._log.text.split("\n")
+		var feed: PackedStringArray = panel.board.feed.text.split("\n")
 		var printed: Array[String] = _printed_rows(feed, int(merged["turn"]))
 		var lost: int = events.size() - printed.size()
 		lost_total += maxi(lost, 0)
@@ -69,7 +69,7 @@ func _run() -> void:
 			turns_with_loss += 1
 		_say("T%d  %2d rows resolved  ·  %2d printed  ·  %2d unread  ·  feed holds %d lines  ·  caption %s" % [
 			int(merged["turn"]), events.size(), printed.size(), maxi(lost, 0),
-			feed.size(), panel._log_caption.text,
+			feed.size(), panel.board.feed_caption.text,
 		])
 		if busiest.is_empty() or events.size() > int(busiest["rows"]):
 			busiest = {
@@ -94,7 +94,7 @@ func _run() -> void:
 
 ## The feed's own text, exactly as the panel paints it.
 func _feed_text(panel: AiObserverPanel) -> String:
-	var text: String = panel._log.text
+	var text: String = panel.board.feed.text
 	return "(empty)" if text.is_empty() else text.replace("\n", " ⏎ ")
 
 
@@ -158,14 +158,14 @@ func _read_busiest(busiest: Dictionary) -> void:
 func _read_layout(panel: AiObserverPanel) -> void:
 	for _frame in 4:
 		await process_frame
-	var feed_scroll := panel._log.get_parent() as ScrollContainer
-	var frame: Control = panel._frame
+	var feed_scroll := panel.board.feed.get_parent() as ScrollContainer
+	var frame: Control = panel.board.frame
 	_say("")
 	_say("--- the plate's own geometry ---")
 	_say("panel frame: %s" % str(frame.size))
 	_say("feed label: %s, minimum %s (%d lines)" % [
-		str(panel._log.size), str(panel._log.get_minimum_size()),
-		panel._log.text.split("\n").size(),
+		str(panel.board.feed.size), str(panel.board.feed.get_minimum_size()),
+		panel.board.feed.text.split("\n").size(),
 	])
 	if feed_scroll != null:
 		var bar: VScrollBar = feed_scroll.get_v_scroll_bar()
@@ -173,7 +173,7 @@ func _read_layout(panel: AiObserverPanel) -> void:
 			str(feed_scroll.size), str(bar.max_value), str(bar.page),
 			str(bar.max_value > bar.page),
 		])
-	var crowns: Control = panel._crowns.get_parent() as Control
+	var crowns: Control = panel.board.crowns.get_parent() as Control
 	_say("crowns scroll: %s" % (str(crowns.size) if crowns != null else "no"))
 	var box := _crowns_box(panel)
 	if box != null:
@@ -213,25 +213,25 @@ func _read_phone() -> void:
 	panel.refresh()
 	for _frame in 4:
 		await process_frame
-	var feed_scroll := panel._log.get_parent() as ScrollContainer
-	var frame: Control = panel._frame
+	var feed_scroll := panel.board.feed.get_parent() as ScrollContainer
+	var frame: Control = panel.board.frame
 	_say("")
 	_say("--- the same plate on a 720x360 handset ---")
 	_say("panel frame: %s  ·  caption %s" % [
-		str(frame.size), panel._log_caption.text,
+		str(frame.size), panel.board.feed_caption.text,
 	])
 	_say("feed scroll: %s  ·  label %s  ·  lines %d" % [
 		str(feed_scroll.size) if feed_scroll != null else "no",
-		str(panel._log.size), panel._log.text.split("\n").size(),
+		str(panel.board.feed.size), panel.board.feed.text.split("\n").size(),
 	])
-	var crowns: Control = panel._crowns.get_parent() as Control
+	var crowns: Control = panel.board.crowns.get_parent() as Control
 	_say("crowns scroll: %s" % (str(crowns.size) if crowns != null else "no"))
 	if crowns != null:
 		_say("crown cards reach y %.0f of the frame's %.0f" % [
 			crowns.global_position.y + crowns.size.y,
 			frame.global_position.y + frame.size.y,
 		])
-	var bar: VScrollBar = panel._plate.get_v_scroll_bar()
+	var bar: VScrollBar = panel.board.plate.get_v_scroll_bar()
 	_say("plate: %s tall in the %s screen  ·  content %s  ·  scrollable %s" % [
 		str(frame.size.y), str(panel.get_viewport().get_visible_rect().size),
 		str(bar.max_value), str(bar.max_value > bar.page),
@@ -241,9 +241,9 @@ func _read_phone() -> void:
 
 
 func _crowns_box(panel: AiObserverPanel) -> Control:
-	var node: Node = panel._log
+	var node: Node = panel.board.feed
 	while node != null:
-		if node is VBoxContainer and node != panel._crowns:
+		if node is VBoxContainer and node != panel.board.crowns:
 			return node as Control
 		node = node.get_parent()
 	return null
