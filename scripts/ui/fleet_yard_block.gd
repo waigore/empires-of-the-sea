@@ -81,8 +81,10 @@ func _fill() -> void:
 		_box.add_child(_hull_row(hull_id))
 
 
-## One hull the yard offers to build: what she costs, what she waits on and the
-## one tap that orders her.
+## One hull the yard offers to build: what she is, what she costs, what she waits
+## on and the one tap that orders her. Her own numbers print under the price on
+## every row — a hull the crown cannot launch yet included, because the study
+## that opens her is a plan the numbers decide (REQ-P5-06).
 func _build_row(row: Dictionary) -> Control:
 	var ok: bool = bool(row["ok"])
 	var reason: String = String(row["reason"])
@@ -92,7 +94,7 @@ func _build_row(row: Dictionary) -> Control:
 	var pending: int = int(row.get("pending", 0))
 	if pending > 0:
 		detail += "  ·  %d under orders" % pending
-	return super({
+	var entry: VBoxContainer = super({
 		"type": type_id,
 		"name": String(row["name"]),
 		"ok": ok,
@@ -102,6 +104,10 @@ func _build_row(row: Dictionary) -> Control:
 		"action": "yard:build:%s" % type_id,
 		"detail": detail,
 	})
+	var line: String = String(row.get("line", ""))
+	if not line.is_empty():
+		_row_detail(entry, line)
+	return entry
 
 
 ## One hull afloat the yard may break up: her name, her own combat numbers and
@@ -130,8 +136,9 @@ func _hull_row(hull_id: String) -> Control:
 	)
 	# The arm owns the press: one tap arms, the next confirms (DR-20261109-01).
 	scrap.pressed.connect(func() -> void: on_scrap_pressed(hull_id))
-	# The hull's own combat numbers, so a breaking up is a reasoned choice.
-	_row_detail(entry, NavalStrength.hull_line(_fleet.type_of(hull_id)))
+	# The hull's own combat numbers and her holds, the same line the launch row
+	# and the navy sheet print, so a breaking up is a reasoned choice.
+	_row_detail(entry, FleetYard.hull_line(_fleet.type_of(hull_id)))
 	return entry
 
 

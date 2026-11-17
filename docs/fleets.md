@@ -17,7 +17,9 @@ Fog, cargo, battles, raids:
   kept through save and merge); `ShipStats` FRP/RNG/ARM/HULL/MV; `ShipEconomy`
   builds with tech gates, **2 food upkeep** (DR-20261111-07).
 - **Yard:** launch for its row + **one peasant**; lands next turn; break-up
-  returns a peasant, no refund (DR-20261109-01).
+  returns a peasant, no refund (DR-20261109-01). Each row names the hull, not
+  only her price: her combat line and holds, the words the navy sheet prints
+  (DR-20261117-15).
 - **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
   one (DR-20261109-03).
 - **Home merge:** seat dock or dossier **Join the home fleet**; ids, names,
