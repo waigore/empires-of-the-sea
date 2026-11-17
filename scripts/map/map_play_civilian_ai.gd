@@ -90,10 +90,10 @@ static func plan_all(
 			# Only the crew the voyage will board waits at the harbour; the
 			# crown's other Explorers keep working the home ground (issue #894).
 			context["muster_unit"] = CivilianMuster.muster_colonist(roster, faction)
-		# A voyage the home-prospect gate stands down still wants its crew: the
-		# hire order keeps one Explorer free so the next turn can sail (#894).
-		if CivilianMuster.wants_voyage(play, faction, region, model):
-			context["voyage_wanted"] = true
+		# A court whose last Explorer would sail with the voyage takes the second
+		# crew first, so the colony leaves a prospector behind (#894).
+		if CivilianMuster.needs_voyage_crew(play, faction, region, model):
+			context["voyage_crew"] = true
 		if region != int(overseas.get("home_region", region)):
 			context["delivered_raw"] = (overseas.get("by_province", {}) as Dictionary).get(region, {})
 		# The larder slack the ward gate reads and the provision premium

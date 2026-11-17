@@ -8985,40 +8985,42 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	play.civilian_layer.free()
 
 
-## A crown whose own land still holds unsurveyed ground keeps its last Explorer
-## for it: the voyage stands down until a second crew stands at home, while the
-## hire order keeps asking for that crew so the voyage is not stranded forever
+## A crown whose own land still holds unsurveyed ground takes the second Explorer
+## before the estate queue, so the colony sails with a prospector left behind
 ## (issue #894; wiki: fog-and-exploration § Prospecting).
-func test_a_court_keeps_its_last_explorer_home_while_its_hills_are_unsurveyed() -> void:
+func test_a_court_takes_the_voyage_crew_before_the_estate_queue() -> void:
 	var play: PlaySession = _muster_play()
 	var model: MapModel = play.world.region(0)
 	var one: Array[CivilianState] = [
 		CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
 	]
 	play.civilian_layer.regions.set_region(0, one)
-	assert_eq(
-		CivilianMuster.muster_port(play, 0, 0, model), CivilianState.NO_TILE,
-		"the last Explorer stays home while the hills are unsurveyed"
-	)
 	assert_true(
-		CivilianMuster.wants_voyage(play, 0, 0, model),
-		"the court still wants the voyage, so the hire keeps a crew free for it"
+		CivilianMuster.needs_voyage_crew(play, 0, 0, model),
+		"the last Explorer would sail with the voyage"
 	)
 	var two: Array[CivilianState] = one.duplicate()
 	two.append(CivilianState.create(2, 0, "explorer", CivilianFixture.HILLS_TILE))
 	play.civilian_layer.regions.set_region(0, two)
-	assert_eq(
-		CivilianMuster.muster_port(play, 0, 0, model), CivilianFixture.COAST_TILE,
-		"a second Explorer frees the voyage"
+	assert_false(
+		CivilianMuster.needs_voyage_crew(play, 0, 0, model),
+		"a second Explorer already stays behind"
 	)
-	# Once the home ground is surveyed the last Explorer may sail again.
-	var works: LandWorks = play.civilian_layer.works_regions.value(0, null)
-	works.set_prospected(0, model, CivilianFixture.IRON_TILE)
-	works.set_prospected(0, model, CivilianFixture.HILLS_TILE)
-	play.civilian_layer.regions.set_region(0, one)
+	# The hire order takes the Explorer ahead of the Builder the estate queue
+	# wants, so the voyage is not held up for want of a prospector.
+	var context: Dictionary = _civilian_context()
+	context["voyage_crew"] = true
+	var order: Dictionary = AiCivilianHire.training_order(
+		AiConfig.build(0, 1500), one, context
+	)
+	assert_eq(String(order.get("type_id", "")), "explorer")
+	context.erase("voyage_crew")
+	var published: Dictionary = AiCivilianHire.training_order(
+		AiConfig.build(0, 1500), one, context
+	)
 	assert_eq(
-		CivilianMuster.muster_port(play, 0, 0, model), CivilianFixture.COAST_TILE,
-		"nothing left to prospect, so the voyage may take the only Explorer"
+		String(published.get("type_id", "")), "builder",
+		"without the voyage reading the published order stands"
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()

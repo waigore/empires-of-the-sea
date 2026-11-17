@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:68e4bfe31543f4d9a72c198a83d4a9b2bc93b43591aaf557be000a2a97defa67",
-  "submission_git": "fix/878-estate-reinvest@0e42bc1e",
+  "submission_hash": "sha256:98e43bbd7b5daf6491ef03cc5b1734c066c9fc526e4224a07169593455d5d39b",
+  "submission_git": "fix/894-home-prospecting@17d6f9d2+dirty",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:9ea7c9c041d6cd0d03608445914d612b11e5fa6f8bc5fcec88b8a05570cd8339",
+    "ai_surface_hash": "sha256:6b252fe5518cf305495b3072ffcacff732a78fc0b3adb61257d45c919164a543",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 14,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-17T06:53:56Z",
+  "timestamp": "2026-11-17T13:50:45Z",
   "report_version": 1,
-  "signature": "hmac-sha256:8550d7cff64ec847d019ccc683524d200d9ff58825575d71730241be15613faa"
+  "signature": "hmac-sha256:57473e230eebd55615c16d441091c4275a56551adaf975794b72c273c58891d9"
 }

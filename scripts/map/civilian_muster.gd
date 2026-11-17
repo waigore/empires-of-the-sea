@@ -17,18 +17,10 @@ extends RefCounted
 ## to survey (AiExplorerWork), so the expedition the colonisation pass plans can
 ## board it (wiki: civilian-units § Overseas deployment; DR-20261111-05).
 ## (-1, -1) when nothing is mustering.
-##
-## A crown whose own land still holds unsurveyed ground keeps an Explorer for
-## it: a voyage that would take the court's last Explorer stays at anchor while
-## the hills its estates ledger prices are still undiscovered (issue #894). The
-## court keeps hiring the crew that frees the voyage — `wants_voyage` stays true
-## for that hire — and sails once a second Explorer stands at home.
 static func muster_port(
 	play: PlaySession, faction: int, region: int, model: MapModel
 ) -> Vector2i:
 	if not wants_voyage(play, faction, region, model):
-		return CivilianState.NO_TILE
-	if keeps_explorer_home(play, faction, region, model):
 		return CivilianState.NO_TILE
 	var port: int = AiBind.harbour(AiControl.court_kind(play, faction), model, faction)
 	if port < 0:
@@ -39,11 +31,8 @@ static func muster_port(
 	return data.port_tile
 
 
-## True when the court has everything a voyage needs except the crew: its own
-## region, no civilian already abroad, a funded hull claim and a harbour. The
-## hire order reads this so a court whose voyage stands down for want of a
-## second Explorer still hires one — the muster gate and the staff target stay
-## one reading (issue #894).
+## True when the court has everything a voyage needs: its own region, no
+## civilian already abroad, a funded hull claim and a harbour.
 static func wants_voyage(
 	play: PlaySession, faction: int, region: int, model: MapModel
 ) -> bool:
@@ -61,9 +50,11 @@ static func wants_voyage(
 
 ## True when the voyage would take an Explorer (the court owns no land across
 ## the water) and that Explorer is the last one standing on the home region while
-## its own land still holds unsurveyed ground. A court that owns land overseas
-## sends a Builder instead, so the reading never holds its crews back.
-static func keeps_explorer_home(
+## its own land still holds unsurveyed ground. The hire order reads this to take
+## the second crew first, so the colony sails with a prospector left behind
+## (issue #894). A court that owns land overseas sends a Builder instead, so the
+## reading never holds its crews back.
+static func needs_voyage_crew(
 	play: PlaySession, faction: int, region: int, model: MapModel
 ) -> bool:
 	if play.world == null:
