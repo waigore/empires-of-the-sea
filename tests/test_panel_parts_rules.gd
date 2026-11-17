@@ -1298,7 +1298,11 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 	panel.refresh(model, army, true, false, "", muster)
 	panel.set_muster_open(true)
 
-	assert_eq(panel._muster_box.get_child_count(), 2)
+	assert_eq(
+		panel._muster_box.get_child_count(),
+		3,
+		"two rows and the one press under them"
+	)
 	var ok_top: HBoxContainer = panel._muster_box.get_child(0).get_child(0)
 	assert_true(ok_top.get_child(0) is UnitMedallion)
 	assert_eq((ok_top.get_child(1) as Label).text, "Peasant Levies")
@@ -1330,6 +1334,68 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 		(panel._muster_box.get_child(1).get_child(2) as Label).text,
 		String(muster[1]["line"])
 	)
+	panel.free()
+
+
+## The yard's foot files every ready row in one confirmed press, and its face
+## names the count before the stores are spent (REQ-P5-04, REQ-P5-05;
+## DR-20261118-07).
+func test_the_army_muster_block_files_every_ready_row_in_one_press() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(22, 0, 1, ["guards"], true)
+	var muster: Array[Dictionary] = [
+		{
+			"type_id": "peasant_levies",
+			"name": "Peasant Levies",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "2,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Light infantry · 3 strength",
+		},
+		{
+			"type_id": "pikemen",
+			"name": "Pikemen",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "4,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Regular infantry · 5 strength",
+		},
+		{
+			"type_id": "grenadiers",
+			"name": "Grenadiers",
+			"ok": false,
+			"batch_ready": false,
+			"cost_text": "",
+			"reason": "Need Organised Regiments",
+			"line": "Heavy infantry · 18 strength",
+		},
+	]
+	var heard: Array[String] = []
+	panel._muster_box.action_pressed.connect(func(action: String) -> void: heard.append(action))
+
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+
+	var press: RaiseBatchPress = panel._muster_box._batch
+	assert_not_null(press, "the drill yard carries the one press")
+	assert_true(press.visible, "the press stands when the yard holds a ready row")
+	assert_eq(press.text, "Muster all ready (2)", "the press names the count it would file")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(press.text, "Confirm — muster 2 regiments", "the second tap is named")
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the press forgets the arm once it files")
+	assert_eq(heard, ["recruit_all"], "one intent for the whole line")
+
+	# No row is ready now (every order waits), so the press stands down.
+	for row: Dictionary in muster:
+		row["batch_ready"] = false
+	panel.refresh(model, army, true, false, "", muster)
+	assert_false(press.visible, "a yard with nothing ready carries no press")
 	panel.free()
 
 

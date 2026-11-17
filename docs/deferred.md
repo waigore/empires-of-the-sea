@@ -42,11 +42,12 @@ Implement default: largest clear item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-None open (through DR-18-05/#945).
+- Fleet shipyard launches stay one press per hull (drill yard's batch,
+  DR-18-07).
 
 ## Next pick
 
-Soft priority weight stays seed; else REQ/wiki.
+REQ/wiki.
 
 ## Blocked
 
@@ -67,7 +68,7 @@ Soft priority weight stays seed; else REQ/wiki.
 ## Wiki drift
 
 - `playtest-learnings`: sheet/feed/plate/rail closed (DR-17-10–14).
-- `civilian-units`: Road L2/gathering prose still deferred → live.
+- `civilian-units`: Road L2/gathering live.
 - `phase-planner-*` / `ai-architecture`: six slots live; soft weight seed;
   "dispatch stays seed" stale.
 - `production-recipes`: rival second-stage still deferred → live #798.
