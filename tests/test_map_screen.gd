@@ -261,7 +261,10 @@ func test_clicking_a_fleet_selects_it() -> void:
 	assert_true(ship.selected)
 
 
-func test_end_turn_advances_calendar_and_treasury() -> void:
+## One turn covers the calendar, the purse and every court's rations: each
+## reading is written by the same end-of-turn pass, so a second turn would only
+## re-prove the pass (docs/testing.md § Speed rules).
+func test_end_turn_advances_the_calendar_and_files_every_courts_rations() -> void:
 	var turn_before: int = _screen.turn
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
@@ -269,14 +272,9 @@ func test_end_turn_advances_calendar_and_treasury() -> void:
 	assert_eq(_screen.treasury, _screen.economy.economy.treasury)
 	assert_eq(_screen.income, _screen.economy.readings.projected_income())
 	assert_eq(TurnTime.year_for_turn(_screen.turn), TurnTime.START_YEAR + 2)
-
-
-## Every court's rations are recorded, not just the human's: a rival's hungry
-## army or squadron must fight at the published morale band next turn
-## (wiki: combat § Feeding modifiers; workers-and-population § Consumption).
-func test_end_turn_records_every_courts_rations() -> void:
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Every court's rations are recorded, not just the human's: a rival's hungry
+	# army or squadron must fight at the published morale band next turn
+	# (wiki: combat § Feeding modifiers; workers-and-population § Consumption).
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_true(
 			_screen.play.feeding.has(faction),
@@ -423,15 +421,58 @@ func test_visibility_starts_from_the_world_rules() -> void:
 	)
 
 
-func test_end_turn_applies_fog_decay_to_foreign_coasts() -> void:
+## One end-of-turn fog pass decays what the crown has charted: the foreign coast
+## it can see on this chart, and the rival coast and unwatched water it charted
+## on the other chart while the Old World stayed on screen (wiki:
+## fog-and-exploration § Fog Decay, § Distant sea zone fog). One turn proves
+## both readings; a second used to pay a full `end_turn` under coverage.
+func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 	var tile: Vector2i = _screen.model.province_tiles(Fixture.foreign_province(_screen.model))[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
+	# Chart a rival coast and quiet water in the region the player is not reading.
+	_screen._cycle_region()
+	var new_world: MapModel = _screen.model
+	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
+	var province: int = Fixture.foreign_province(new_world)
+	var coast: Vector2i = new_world.province_tiles(province)[0]
+	visibility.raise_to(
+		new_world.index_of(coast.x, coast.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	var zone_id: int = _quiet_zone(new_world, visibility)
+	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
+	var water: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
+	visibility.raise_to(
+		new_world.index_of(water.x, water.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	_screen._cycle_region()
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
+	assert_eq(
+		_screen.overlay.fog_state_at(tile.x, tile.y),
+		MapOverlay.FOG_VISIBLE,
+		"the charted coast is still in sight before the turn"
+	)
+
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
-	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
+
+	assert_eq(
+		_screen.overlay.fog_state_at(tile.x, tile.y),
+		MapOverlay.FOG_FOGGED,
+		"the foreign coast on this chart decays"
+	)
+	assert_eq(
+		visibility.level_at(coast.x, coast.y),
+		VisibilityModel.Level.FOGGED,
+		"the New World chart decays while the Old World is on screen"
+	)
+	assert_eq(
+		visibility.level_at(water.x, water.y),
+		VisibilityModel.Level.FOGGED,
+		"unwatched New World water refogs with the Old World on screen"
+	)
 
 
 func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
@@ -523,43 +564,6 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 
 	assert_false(_screen.play.diplomacy.relation(0, 2).at_war)
 	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)
-
-
-## The end-of-turn fog pass is a rules pass, not a view pass: knowledge in the
-## region the player is not reading must still decay for rival coasts and for
-## distant water (wiki: fog-and-exploration § Fog Decay, § Distant sea zone fog).
-## One turn covers both: each used to pay a full end_turn under coverage (~2 s).
-func test_end_turn_fogs_rival_coasts_and_distant_water_off_screen() -> void:
-	_screen._cycle_region()
-	var new_world: MapModel = _screen.model
-	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
-	var province: int = Fixture.foreign_province(new_world)
-	var coast: Vector2i = new_world.province_tiles(province)[0]
-	visibility.raise_to(
-		new_world.index_of(coast.x, coast.y), VisibilityModel.Level.FULLY_VISIBLE
-	)
-	var zone_id: int = _quiet_zone(new_world, visibility)
-	assert_gt(zone_id, -1, "the New World holds water nobody is watching")
-	var water: Vector2i = new_world.sea_zone_data(zone_id).tiles[0]
-	visibility.raise_to(
-		new_world.index_of(water.x, water.y), VisibilityModel.Level.FULLY_VISIBLE
-	)
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
-
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-
-	assert_eq(
-		visibility.level_at(coast.x, coast.y),
-		VisibilityModel.Level.FOGGED,
-		"the New World chart decays while the Old World is on screen"
-	)
-	assert_eq(
-		visibility.level_at(water.x, water.y),
-		VisibilityModel.Level.FOGGED,
-		"unwatched New World water refogs with the Old World on screen"
-	)
 
 
 ## A tap on uncharted land has to say why nothing opened: the hover tooltip is
