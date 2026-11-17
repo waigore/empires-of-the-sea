@@ -1268,6 +1268,15 @@ suites = [
   "test_menu_flow.gd",
 ]
 
+# The campaign's last plate and the seal HudCampaignEnd owns. A lean unit suite
+# covers the collaborator without remounting the calendar-cap MapScreen theme
+# (that suite alone blows the tier-1 5 min budget when stacked on crown_road +
+# auto). Kept off the broad hud_* → ui domain.
+[domains.campaign_plate]
+suites = [
+  "test_hud_campaign_plate.gd",
+]
+
 # The age's race helper: the standing math, the sheet's foot and the turn's
 # warning. Kept off victory_bar so a standings edit stays inside tier 1.
 [domains.victory_standings]
@@ -3225,6 +3234,21 @@ domain = "crown_road"
 
 [[rules]]
 match = "scripts/ui/hud_chrome.gd"
+domain = "crown_road"
+
+# The campaign's last plate and the seal it shuts. Named before hud_* → ui so a
+# chrome extract runs the lean plate suite, not only panel_parts / battle.
+[[rules]]
+match = "scripts/ui/hud_campaign_end.gd*"
+domain = "campaign_plate"
+
+[[rules]]
+match = "tests/test_hud_campaign_plate.gd*"
+domain = "campaign_plate"
+
+# Cartouche markings (turn line, minimap) ride the same screen suites as chrome.
+[[rules]]
+match = "scripts/ui/hud_chart_cartouche.gd*"
 domain = "crown_road"
 
 [[rules]]
