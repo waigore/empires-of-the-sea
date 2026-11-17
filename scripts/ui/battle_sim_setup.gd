@@ -40,8 +40,8 @@ func _ready() -> void:
 
 func spec() -> Dictionary:
 	return {
-		"attacker": _types_of(_attacker_slots, ["musketeers", "musketeers", "musketeers", "musketeers"]),
-		"defender": _types_of(_defender_slots, ["pikemen", "pikemen", "pikemen"]),
+		"attacker": _types_of(_attacker_slots),
+		"defender": _types_of(_defender_slots),
 		"fort": _fort.selected,
 		"terrain": String(TERRAIN_ROWS[maxi(_terrain.selected, 0)][0]),
 		"attacker_plan": PLAN_KEYS[maxi(_attacker_plan.selected, 0)],
@@ -134,16 +134,16 @@ func _apply_defaults(slots: Array[Dictionary], side: String) -> void:
 		slots[index]["count"].value = int((rows[index] as Array)[1])
 
 
-func _types_of(slots: Array[Dictionary], fallback: Array) -> Array[String]:
+## The men the rail holds, in slot order. A slot at zero adds none: the sandbox
+## fights the army the rail shows, never a default one the playtester never set
+## (REQ-P2-03).
+func _types_of(slots: Array[Dictionary]) -> Array[String]:
 	var types: Array[String] = []
 	for slot: Dictionary in slots:
 		var picker: OptionButton = slot["picker"]
 		var type_id: String = _types[clampi(picker.selected, 0, _types.size() - 1)]
 		for _index in int((slot["count"] as SpinBox).value):
 			types.append(type_id)
-	if types.is_empty():
-		for entry: Variant in fallback:
-			types.append(String(entry))
 	return types
 
 

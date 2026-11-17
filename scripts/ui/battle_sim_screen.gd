@@ -7,6 +7,8 @@ extends Control
 ##   tools/run.sh scenes/battle_sim.tscn
 
 const NAMES: Array[String] = ["The Attack", "The Garrison"]
+## The province the sandbox fights over, named wherever a plate names one.
+const SANDBOX: String = "the sandbox"
 ## The instrument stacks on a screen too narrow for three columns — the rail on
 ## top, the plate, then the despatches — and scrolls rather than clipping, so a
 ## phone or a tablet reads the whole sandbox (REQ-P1-05, REQ-P5-07).
@@ -109,7 +111,7 @@ func _apply_stack() -> void:
 
 
 func _build_centre(column: VBoxContainer) -> void:
-	_header = UiRowBuilder.serif_wrapped("", 15, Palette.GOLD_PALE)
+	_header = UiRowBuilder.serif_wrapped("No battle yet", 15, Palette.GOLD_PALE)
 	column.add_child(_header)
 	_field = QuickBattleField.new()
 	_field.custom_minimum_size = Vector2(0, 220)
@@ -163,22 +165,26 @@ func _build_log_panel() -> PanelContainer:
 
 
 func _fight() -> void:
-	_run()
-	_show_aftermath()
+	if _run():
+		_show_aftermath()
 
 
 func _step() -> void:
 	if _result.is_empty():
-		_run()
-		_show_round(0)
+		if _run():
+			_show_round(0)
 		return
-	_cursor += 1
-	if _cursor >= _rounds().size():
-		## Stepping past the aftermath starts the plate over, so a playtester can
-		## walk the same record again without re-resolving it.
-		_show_round(0)
+	if _cursor + 1 < _rounds().size():
+		_show_round(_cursor + 1)
 		return
-	_show_round(_cursor)
+	if _cursor < _rounds().size():
+		## Stepping on from the last round shows the aftermath, so the outcome is
+		## the walk's own end and not a second button's secret (REQ-P2-03).
+		_show_aftermath()
+		return
+	## Stepping past the aftermath starts the plate over, so a playtester can
+	## walk the same record again without re-resolving it.
+	_show_round(0)
 
 
 func _reset() -> void:
@@ -196,9 +202,16 @@ func _reset() -> void:
 
 
 ## Resolves the current setup through BattleScenario and writes the full
-## despatch. Returns false when the setup produced no usable battle.
+## despatch. Returns false when the rail fields no men on a side: the sandbox
+## fights the army it shows, and says which side is empty rather than inventing
+## one (REQ-P2-03).
 func _run() -> bool:
-	_result = BattleScenario.fight(_setup.spec())
+	var spec: Dictionary = _setup.spec()
+	var empty: String = _empty_side(spec)
+	if not empty.is_empty():
+		_status.text = "%s fields no men — give a slot a count." % empty
+		return false
+	_result = BattleScenario.fight(spec)
 	var report: Dictionary = _result["report"]
 	_cursor = 0
 	## The plate reads the record once: ground, wall and gates come from it.
@@ -215,16 +228,26 @@ func _run() -> bool:
 	return true
 
 
+## The side the rail left with no men, named; empty when both sides field one.
+func _empty_side(spec: Dictionary) -> String:
+	for index in NAMES.size():
+		var key: String = "attacker" if index == 0 else "defender"
+		if (spec.get(key, []) as Array).is_empty():
+			return NAMES[index]
+	return ""
+
+
 func _status_for_round(report: Dictionary, index: int) -> void:
 	var rounds: Array = _rounds()
 	if index < 0 or index >= rounds.size():
 		_status.text = "No rounds were fought."
 		return
 	var entry: Dictionary = rounds[index] as Dictionary
-	_status.text = "Round %s — %d attackers, %d defenders, %d guns, %d of 3 gates breached." % [
+	var guns: int = int(entry.get("guns", 0))
+	_status.text = "Round %s — %d attackers, %d defenders, %d gun%s, %d of 3 gates breached." % [
 		QuickBattleCopy.roman(index + 1),
 		int(entry.get("attacker_count", 0)), int(entry.get("defender_count", 0)),
-		int(entry.get("guns", 0)), int(entry.get("gates", 0)),
+		guns, "" if guns == 1 else "s", int(entry.get("gates", 0)),
 	]
 
 
@@ -233,7 +256,7 @@ func _status_for_round(report: Dictionary, index: int) -> void:
 
 func _show_round(index: int) -> void:
 	if _result.is_empty():
-		_run()
+		return
 	var report: Dictionary = _result["report"]
 	var rounds: Array = _rounds()
 	if index < 0 or index >= rounds.size():
@@ -264,14 +287,16 @@ func _show_aftermath() -> void:
 	_field.gates_broken = int(quick.get("breaches", 0))
 	_field.attacker_health = report.get("attacker_health", []) as Array
 	_field.defender_health = report.get("defender_health", []) as Array
-	_field.round_index = 3
+	## The aftermath stands where the last round left the lines, as the game's
+	## own plate does, so the sandbox reads like the battle it studies.
+	_field.round_index = maxi(_rounds().size() - 1, 0)
 	_field.set_outcome(int(report.get("outcome", 0)))
 	## The wings as the battle left them, not the deal it opened with: a line
 	## whose wings have all broken still shows them struck through (wiki:
 	## quick-battle § Wings and collapse).
 	_show_wings(quick)
 	_status.text = QuickBattleCopy.outcome_text(
-		int(report.get("outcome", 0)), report, "the sandbox", NAMES
+		int(report.get("outcome", 0)), report, SANDBOX, NAMES
 	)
 	_cursor = _rounds().size()
 
@@ -288,12 +313,19 @@ func _show_wings(record: Dictionary) -> void:
 	)
 
 
+## The round doors a record can open: a round the battle never fought has no
+## door, so pressing it cannot quietly mean the aftermath.
 func _set_round_buttons(enabled: bool) -> void:
-	for child: Node in _round_buttons.get_children():
-		(child as Button).disabled = not enabled
+	var fought: int = _rounds().size()
+	for index in _round_buttons.get_child_count():
+		var button: Button = _round_buttons.get_child(index) as Button
+		button.disabled = not enabled or (index < QuickBattle.MAX_ROUNDS and index >= fought)
 
 
-## Every action's despatch plus the aftermath lines the game plate prints.
+## Every action's despatch plus the aftermath lines the game plate prints, in
+## the same order — ground, the wings and the line, walls, the named dead, the
+## chevrons, the honours and citations won, and the siege (REQ-P5-05). A sandbox
+## that reads fewer lines than the game is an instrument that hides its subject.
 func _despatch(report: Dictionary) -> String:
 	var lines: PackedStringArray = PackedStringArray()
 	for round: Dictionary in _rounds():
@@ -304,10 +336,13 @@ func _despatch(report: Dictionary) -> String:
 	for text: String in [
 		QuickBattleCopy.terrain_line(report),
 		QuickBattleCopy.wings_line(report, NAMES),
-		QuickBattleCopy.siege_line(report),
+		QuickBattleCopy.line_line(report, NAMES),
 		QuickBattleCopy.loss_line(report, NAMES),
 		QuickBattleCopy.health_line(report, NAMES),
 		QuickBattleCopy.chevron_line(report, NAMES),
+		QuickBattleCopy.honour_line(report, SANDBOX, NAMES),
+		QuickBattleCopy.citation_line(report, SANDBOX, NAMES),
+		QuickBattleCopy.siege_line(report),
 	]:
 		if not text.is_empty():
 			tail.append(text)
@@ -316,7 +351,7 @@ func _despatch(report: Dictionary) -> String:
 		lines.append_array(tail)
 	lines.append("— OUTCOME —")
 	lines.append(QuickBattleCopy.outcome_text(
-		int(report.get("outcome", 0)), report, "the sandbox", NAMES
+		int(report.get("outcome", 0)), report, SANDBOX, NAMES
 	))
 	return "\n".join(lines)
 
