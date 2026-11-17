@@ -4942,6 +4942,21 @@ func test_the_pick_names_the_door_that_can_press_it() -> void:
 	)
 
 
+## The crew's sheet on bought ground names the deed, not a bare label: who signed
+## it and what it keeps for them (REQ-P5-03, REQ-P5-05; DR-20261118-05).
+func test_the_dossier_names_the_deed_that_holds_the_ground() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var merchant: CivilianState = CivilianState.create(
+		1, PLAYER, "merchant", Vector2i(3, 1)
+	)
+	assert_eq(_dossier_detail_of(merchant, model, "Deed"), "", "unsold ground")
+	assert_true(model.purchase_tile(Vector2i(3, 1), PLAYER))
+	assert_eq(
+		_dossier_detail_of(merchant, model, "Deed"),
+		"%s · first refusal on 1 grain / turn" % FactionCatalog.name_of(PLAYER)
+	)
+
+
 func _dossier_detail_of(unit: CivilianState, model: MapModel, caption: String) -> String:
 	for row: Array in CivilianPanelDetail.rows(model, unit, LandWorks.new(), {}):
 		if String(row[0]) == caption:

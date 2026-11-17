@@ -265,13 +265,28 @@ static func option_row(
 		"label": order_label(action, model, tile, plain),
 		"cost": cost,
 		"cost_text": price,
-		"preview_text": transport_preview(action, model, tile, works),
+		"preview_text": _preview(action, model, tile, works),
 	}
 	if action != "build_fort":
 		return row
 	var turns: int = duration_for(model, action, tile, works)
 	row["cost_text"] = "%s · %d turn%s" % [price, turns, "" if turns == 1 else "s"]
 	return row
+
+
+## What the order lands, in the words of whichever rule prices it: the transport a
+## road, a harbour or a railroad brings, or — for a Merchant's deed — the first
+## refusal and town level the price buys ([DeedTerms]). Empty for every other
+## order: those are priced where their own ledger prints the payoff.
+static func _preview(
+	action: String, model: MapModel, tile: Vector2i, works: LandWorks
+) -> String:
+	var transport: String = transport_preview(action, model, tile, works)
+	if not transport.is_empty():
+		return transport
+	if action != LandPurchase.ACTION:
+		return ""
+	return DeedTerms.order_line(model, tile)
 
 
 ## What a transport work lands on this tile, in the order's own words: the

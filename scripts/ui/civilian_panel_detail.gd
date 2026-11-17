@@ -27,7 +27,7 @@ static func rows(
 	result.append(["Tile", "%d, %d" % [unit.tile.x, unit.tile.y]])
 	result.append(["Held by", FactionCatalog.name_of(model.owner_at(unit.tile.x, unit.tile.y))])
 	if model.is_purchased_tile(unit.tile):
-		result.append(["Deed", "Purchased land"])
+		result.append(["Deed", DeedTerms.held_line(model, unit.tile)])
 	result.append(["Resource", _resource_text(model, works, unit.tile, viewer)])
 	result.append(["Works", _works_text(model, works, unit.tile, viewer)])
 	if unit.type_id == "explorer" and viewer == unit.owner:

@@ -489,6 +489,73 @@ func test_an_unprotected_minor_names_no_warden() -> void:
 	world.region(0).ownership.clear()
 	assert_eq(InterventionCopy.warden_hint(state, world, 0, MINOR), "")
 
+## What a Merchant's deed buys, named before the crown pays (wiki: civilian-units
+## § Merchant; world-market § First right of refusal; DR-20261118-05). The
+## province stays the seller's, so the deed's return is the first right of
+## refusal on the tile's unit and the share a rival's purchase pays — beside the
+## one town level the deed develops.
+func test_a_deed_names_the_unit_its_bid_fills_first_on() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(
+		DeedTerms.order_line(model, Vector2i(3, 1)),
+		(
+			"Deed: your bid fills first on 1 grain / turn, and a rival's buy pays "
+			+ "you a share · Genoa's town rises to L2"
+		)
+	)
+
+func test_a_deed_names_the_town_level_it_develops() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "Genoa's town rises to L2")
+	# The second deed in the province buys the next level, and the fourth the cap.
+	assert_true(model.purchase_tile(Vector2i(3, 0), BUYER))
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "Genoa's town rises to L3")
+	assert_true(model.purchase_tile(Vector2i(3, 2), BUYER))
+	assert_true(model.purchase_tile(Vector2i(2, 2), BUYER))
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "Genoa's town rises to L4")
+	# A town already at the level its deeds support takes no step, so no line.
+	model.provinces[1].town_development = 4
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "")
+
+func test_a_deed_on_ground_the_seller_never_works_names_only_the_town() -> void:
+	# A mineral no Minor prospects never reaches the book, so the deed buys no
+	# unit there and the line promises none (wiki: world-market § Minor and tribe
+	# auto-sell).
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(DeedTerms.commodity(model, Vector2i(2, 1)), "")
+	assert_eq(DeedTerms.order_line(model, Vector2i(2, 1)), "Deed: Genoa's town rises to L2")
+
+func test_a_deed_that_buys_nothing_prints_no_line() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	model.provinces[1].town_development = 4
+	assert_eq(DeedTerms.order_line(model, Vector2i(2, 1)), "")
+
+func test_the_crew_sheet_names_the_deed_holder_and_its_first_refusal() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(DeedTerms.held_line(model, Vector2i(3, 1)), "", "unsold ground")
+	assert_true(model.purchase_tile(Vector2i(3, 1), BUYER))
+	assert_eq(DeedTerms.holder(model, Vector2i(3, 1)), BUYER)
+	assert_eq(
+		DeedTerms.held_line(model, Vector2i(3, 1)),
+		"England · first refusal on 1 grain / turn"
+	)
+
+## The Merchant's order row carries the terms under the price the court is asked,
+## and the price itself is untouched (REQ-P5-06, REQ-P2-03).
+func test_the_deed_order_row_carries_what_it_buys() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	var check: Dictionary = {"ok": true, "cost_text": "6,000 ducats", "duration": 1}
+	var row: Dictionary = CivilianWorkPlan.option_row(
+		LandPurchase.ACTION, model, Vector2i(3, 1), LandWorks.new(), check,
+		"Purchase land"
+	)
+	assert_eq(String(row["cost_text"]), "6,000 ducats", "the price the court is asked")
+	assert_eq(String(row["preview_text"]), DeedTerms.order_line(model, Vector2i(3, 1)))
+	assert_true(String(row["preview_text"]).begins_with("Deed: "))
+	# A road still prices the transport it brings; the deed limb is the only one
+	# that answers when no transport is involved.
+	assert_false(String(row["label"]).contains("Transport"))
+
 ## Small map where Minor Nation 6 owns province 1 and `BUYER` holds one deed in
 ## it (the fixture's grain tile).
 func _minor_world() -> WorldMap:
