@@ -2014,6 +2014,13 @@ domain = "crown_road"
 match = "playtests/playtest_invariants.gd*"
 domain = "fleet"
 
+# The ground a province shows: the sheet's Terrain row is read against the
+# ground Combat uses, so the two suites that mount the dossier and the chart
+# carry it.
+[[rules]]
+match = "playtests/playtest_terrain_ground.gd*"
+domain = "map_mount"
+
 [[rules]]
 match = "playtests/**"
 domain = "misc"
