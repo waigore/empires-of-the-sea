@@ -50,6 +50,12 @@ static func open(play: PlaySession) -> void:
 
 static func refresh(play: PlaySession, fleet: FleetState) -> void:
 	if fleet == null:
+		# The capital slip with no squadron afloat has no dossier to redraw: the
+		# yard re-reads its own rows from the ledger, so a launch taken there
+		# cannot leave the slip promising hulls the orders already claim
+		# (wiki: ships-and-naval § Ship muster and the breaker's yard;
+		# DR-20261118-08).
+		open(play)
 		return
 	play.ship_layer.select(play.ship_layer.ship_for(fleet))
 	MapPlayFleets.show_dossier(play, fleet)
