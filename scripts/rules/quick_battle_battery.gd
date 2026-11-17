@@ -94,6 +94,34 @@ static func fire(
 	return {"lost": lost.size(), "wing": wing}
 
 
+## The battery's volley as one action entry, or `{}` when it hit nobody: the
+## guns fire after the garrison's orders, into one wing of the besieging line,
+## and the plate reads the blow like any other (wiki: quick-battle § Wings and
+## collapse). The entry is [QuickBattleActions]' shape, so the despatch needs no
+## special case for the fort's own fire.
+static func volley_entry(
+	armies: Array[ArmyState], state: Dictionary, guns: Array[Dictionary], owner: int
+) -> Dictionary:
+	var shot: Dictionary = fire(armies, state, guns)
+	var hit: int = int(shot["lost"])
+	if hit <= 0:
+		return {}
+	var atk_side: Array[ArmyState] = state["attacker"]["side"]
+	var hits: Array[Dictionary] = RegimentCondition.damage_side(
+		atk_side, float(hit) * RegimentCondition.HP_PER_SLOT,
+		int(state["attacker"]["limit"])
+	)
+	var entry: Dictionary = QuickBattleActions.action_entry(owner, "battery", "Emplaced battery")
+	entry["attacker_lost"] = hit
+	entry["wing"] = String(shot["wing"])
+	entry["hits"] = hits
+	entry["mauled"] = hits.size()
+	var broken_now: Array[String] = QuickBattleWings.fell(state, "attacker")
+	if not broken_now.is_empty():
+		entry["wing_broken"] = broken_now
+	return entry
+
+
 ## Battle weight of the virtual battery: each living piece's type stats scaled by
 ## the share of its HP still standing (wiki: combat § Strength). The guns' own
 ## weight replaces the aggregate emplaced bonus on the Quick Battle path, so the
