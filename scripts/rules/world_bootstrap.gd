@@ -6,8 +6,10 @@ extends RefCounted
 ##
 ## The generator records capital ports and harbour roads on the province data;
 ## this pass turns that plan into real LandWorks state, gives every Great Power
-## its four guaranteed grain farms, and makes sure those farms reach the crown.
-## Pure rules: no nodes, deterministic, safe to re-run once per region.
+## its four guaranteed grain farms, walls every Old World capital at Wood
+## (wiki: siege-mechanics § Fort Levels; issue #919) and makes sure those farms
+## reach the crown. Pure rules: no nodes, deterministic, safe to re-run once per
+## region.
 
 const GRAIN_RESOURCE: int = 4
 const GRAIN_FARMS: int = 4
@@ -26,12 +28,17 @@ static func apply(model: MapModel, works: LandWorks) -> Dictionary:
 		"farms_levelled": 0,
 		"town_roads": 0,
 		"town_development": 0,
+		"capital_forts": 0,
 	}
 	if model == null or works == null:
 		return report
 	_seed_ports(model, works, report)
 	_seed_roads(model, works, report)
 	_seed_town_development(model, report)
+	# Every Old World capital — Great Power or Minor — opens behind a Wood wall
+	# (wiki: siege-mechanics § Fort Levels; issue #919). New World charts keep
+	# their tribe seats unfortified.
+	report["capital_forts"] = FortCapital.seed(model)
 	if model.region_id == FactionCatalog.OLD_WORLD:
 		_seed_grain_farms(model, works, report)
 	_seed_town_roads(model, works, report)
