@@ -2576,9 +2576,13 @@ func test_the_pick_words_every_order_kind() -> void:
 	)
 	assert_eq(String(ward["short"]), "raise the L1 ward")
 	assert_true(String(ward["line"]).contains("rests"), String(ward["line"]))
-	assert_eq(
-		String(_pick_of("upgrade_town", CivilianFixture.BARE_TILE, model, works)["short"]),
-		"raise the town to L2"
+	var town_pick: Dictionary = _pick_of(
+		"upgrade_town", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(town_pick["short"]), "raise the town to L2")
+	assert_true(
+		String(town_pick["line"]).contains("L2 pays 1 manufacture per 4 raw"),
+		"the pick names what the level pays, not only the step: %s" % town_pick["line"]
 	)
 	var survey: Dictionary = _pick_of("explore", CivilianFixture.BARE_TILE, model, works)
 	assert_eq(String(survey["short"]), "survey Cádiz")

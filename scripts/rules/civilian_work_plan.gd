@@ -275,15 +275,18 @@ static func option_row(
 
 
 ## What the order lands, in the words of whichever rule prices it: the transport a
-## road, a harbour or a railroad brings, or — for a Merchant's deed — the first
-## refusal and town level the price buys ([DeedTerms]). Empty for every other
-## order: those are priced where their own ledger prints the payoff.
+## road, a harbour or a railroad brings, the manufacture bonus and works a town
+## level opens, or — for a Merchant's deed — the first refusal and town level the
+## price buys ([DeedTerms]). Empty for every other order: those are priced where
+## their own ledger prints the payoff.
 static func _preview(
 	action: String, model: MapModel, tile: Vector2i, works: LandWorks
 ) -> String:
 	var transport: String = transport_preview(action, model, tile, works)
 	if not transport.is_empty():
 		return transport
+	if action == "upgrade_town":
+		return TownTerms.order_line(model, tile)
 	if action != LandPurchase.ACTION:
 		return ""
 	return DeedTerms.order_line(model, tile)
