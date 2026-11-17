@@ -24,6 +24,16 @@ var tech_caps: Dictionary = {}
 ## The crown's sealed coasts this turn, so a blockaded colony's estates read cut
 ## until the war lifts (wiki: capital-and-connectivity § Blockade).
 var blockade: Blockades = null
+## The court's own picks, one per idle crew (`MapPlayCivilianPick`): the chart
+## marks the ground the pass would send each crew to. Read on a refresh only
+## while the reading is up, so a closed lens never runs a plan pass
+## (DR-20261117-07, `REQ-P4-01`).
+var pick_source: Callable = Callable()
+## The baked picks, one per idle crew: the ground the chart marks.
+var picks: Dictionary = {}
+## The baked marks, in world space: one per tile a pick names, with the step a
+## march takes. Rebuilt on `refresh`, never per frame (`REQ-P4-01`).
+var marks: Array[Dictionary] = []
 
 var _pulse: float = 0.0
 var _clock: float = 0.0
@@ -73,14 +83,20 @@ func refresh() -> void:
 	if model == null or works == null:
 		survey = {}
 		_runs = []
+		marks = []
 		_baked = false
 		_animating = false
 		queue_redraw()
 		return
+	# The pick is read only while the reading is up: a closed lens costs no plan
+	# pass, and a raised one always marks the court's current reading.
+	if pick_source.is_valid():
+		picks = pick_source.call() if active else {}
 	var key: int = hash([
 		source_key(works, capital_tile, units),
 		hash(tech_caps),
 		_seal_key(),
+		hash(picks),
 	])
 	if _baked and key == _baked_key:
 		return
@@ -94,6 +110,9 @@ func refresh() -> void:
 		model, works, faction, capital_tile, visibility, blockade
 	)["segments"]
 	_runs = RoadInk.ink_paths(survey["routes"])
+	# The court's own picks, marked on the ground they name; a crew at work or an
+	# uncharted tile drops out here, so the mark can never outlive its reading.
+	marks = CivicGlyphs.marks(picks, units, model, visibility)
 	_animating = false
 	for raw: Variant in survey.get("provinces", []):
 		for raw_row: Variant in (raw as Dictionary)["rows"]:
@@ -141,9 +160,20 @@ func _draw() -> void:
 		return
 	_ensure_font()
 	RoadInk.draw_runs(self, _runs, _reveal)
+	CivicGlyphs.draw_marks(
+		self, marks, _reveal, Palette.ink(0.62), Palette.GOLD
+	)
 	var provinces: Array = survey.get("provinces", [])
 	for raw: Variant in provinces:
 		_draw_plate(raw)
+
+
+## The reading paints while there is a plate or a pick to ink: a theatre whose
+## provinces hold no charted estate still carries the crown's own picks.
+func _visible() -> bool:
+	if not active or _reveal <= 0.001:
+		return false
+	return not survey.is_empty() or not marks.is_empty()
 
 
 func _draw_plate(entry: Dictionary) -> void:

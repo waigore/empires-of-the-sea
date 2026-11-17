@@ -85,6 +85,15 @@ static func _survey_lens(run, screen: MapScreen) -> void:
 			String((types[0] as Dictionary)["badge"]).count("/") == 2,
 			"a type's badge counts built, linked and held"
 		)
+	# The court's own pick rides the reading (DR-20261117-07): the chart marks
+	# only ground the crown has charted, and a mark is a reading, not an order.
+	run.check(lens.marks.size() <= lens.picks.size(), "one mark per picked ground")
+	for mark: Dictionary in lens.marks:
+		var tile: Vector2i = mark["tile"]
+		run.check(
+			screen.play.visibility.level_at(tile.x, tile.y) != VisibilityModel.Level.UNKNOWN,
+			"the pick's ground is charted"
+		)
 	MapPlayInput.set_lens(screen.play, false)
 	await run.tree.process_frame
 	run.check(not screen.hud.lens_legend.visible, "survey key closes")

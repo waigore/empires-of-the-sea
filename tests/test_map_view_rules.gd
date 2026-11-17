@@ -722,6 +722,87 @@ func test_the_survey_lens_reads_the_seals_and_rebakes_when_they_lift() -> void:
 	assert_eq(int(lens.survey["counts"]["linked"]), 1)
 	lens.free()
 
+## The court's pick on the chart (DR-20261117-07): the ground a pick names wears
+## one ring, a pick off the crew's own tile carries the step from the crew, and a
+## pick whose crew is at work, off this chart's roster or on ground the crown has
+## not charted is never marked (`REQ-P2-03`, `REQ-P5-06`).
+func test_the_chart_marks_the_ground_the_court_would_send_a_crew_to() -> void:
+	var model: MapModel = resource_survey_Fixture.region()
+	var tiles: Array = (model.provinces[0].tiles as Array)
+	assert_gte(tiles.size(), 3, "the fixture needs three tiles of one province")
+	var own: Vector2i = tiles[0]
+	var stand: Vector2i = tiles[1]
+	var walk_to: Vector2i = tiles[2]
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var here: CivilianState = CivilianState.create(3, owner, "builder", own)
+	var far: CivilianState = CivilianState.create(4, owner, "builder", stand)
+	var crews: Array[CivilianState] = [here, far]
+	var picks: Dictionary = {
+		3: {"action": "build_improvement", "tile": own},
+		4: {"action": MapPlayCivilianPick.KIND_MOVE, "tile": walk_to},
+		# A second crew on the same ground adds no second ring.
+		9: {"action": "explore", "tile": own},
+	}
+
+	var marks: Array[Dictionary] = CivicGlyphs.marks(picks, crews, model, null)
+
+	assert_eq(marks.size(), 2, "one mark per ground named, the repeat folded")
+	assert_eq(Vector2i(marks[0]["tile"]), own)
+	assert_false(bool(marks[0]["march"]), "a work on the crew's own tile takes no step")
+	assert_eq(
+		Vector2(marks[0]["center"]), MapGeo.tile_center(own.x, own.y, CivicGlyphs.TILE_SIZE)
+	)
+	assert_eq(Vector2i(marks[1]["tile"]), walk_to)
+	assert_true(bool(marks[1]["march"]), "a pick off the crew's tile is a march")
+	assert_eq(
+		Vector2(marks[1]["from"]),
+		MapGeo.tile_center(stand.x, stand.y, CivicGlyphs.TILE_SIZE)
+	)
+	# A crew at work is already spoken for: its ground loses the ring.
+	here.start_work("build_improvement", own, 1)
+	assert_eq(CivicGlyphs.marks(picks, crews, model, null).size(), 1)
+	# A crew this chart does not hold, and ground the crown has not charted.
+	assert_true(
+		CivicGlyphs.marks({99: {"tile": own}}, crews, model, null).is_empty(),
+		"no crew on this chart, no mark"
+	)
+	var visibility := VisibilityModel.new()
+	visibility.setup(model, owner)
+	visibility.lower_to(model.index_of(own.x, own.y), VisibilityModel.Level.UNKNOWN)
+	var fogged: Array[Dictionary] = CivicGlyphs.marks(
+		{3: {"tile": own}}, [CivilianState.create(3, owner, "builder", own)], model, visibility
+	)
+	assert_true(fogged.is_empty(), "the crown marks no ground it has not charted")
+
+
+## The lens carries the marks with the rest of the reading: a pick is baked on
+## build, a build with no pick clears it, and the baked mark inks without a
+## crash so the chart never prints a reading it cannot draw (DR-20261117-07).
+func test_the_survey_lens_bakes_the_courts_picks() -> void:
+	var model: MapModel = resource_survey_Fixture.region()
+	var works := LandWorks.new()
+	var owner: int = FactionCatalog.PLAYER_FACTION
+	var tile: Vector2i = (model.provinces[0].tiles as Array)[0]
+	var crew: CivilianState = CivilianState.create(7, owner, "builder", tile)
+	var units: Array[CivilianState] = [crew]
+	var lens := ResourceLens.new()
+	add_child(lens)
+	lens.picks = {7: {"action": "build_improvement", "tile": tile}}
+	lens.build(model, works, units, owner, null, Vector2i(-1, -1), {})
+
+	assert_eq(lens.marks.size(), 1, "the pick is baked with the reading")
+	assert_eq(Vector2i(lens.marks[0]["tile"]), tile)
+	# The draw path: the ring and the reading's ink run against a real canvas.
+	lens.active = true
+	lens._reveal = 1.0
+	lens.queue_redraw()
+	await get_tree().process_frame
+	lens.picks = {}
+	lens.refresh()
+	assert_true(lens.marks.is_empty(), "no pick, no mark")
+	lens.free()
+
+
 func test_severed_estate_reports_disconnected() -> void:
 	var model: MapModel = resource_survey_Fixture.region()
 	var works := LandWorks.new()
