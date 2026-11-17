@@ -311,9 +311,8 @@ static func _context(play: PlaySession, unit: CivilianState = null) -> Dictionar
 	var context: Dictionary = {"treasury": play.treasury(), "diplomacy": play.diplomacy}
 	if unit == null or unit.owner != play.player_faction or unit.is_working():
 		return context
-	var region: int = play.model.region_id if play.model != null else -1
 	var pick: Dictionary = MapPlayCivilianPick.picks(
-		play, play.player_faction, region
+		play, play.player_faction
 	).get(unit.id, {}) as Dictionary
 	if not pick.is_empty():
 		context["pick"] = pick
