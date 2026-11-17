@@ -1201,7 +1201,7 @@ func test_an_active_subsidy_is_ticked_and_can_be_ended() -> void:
 func test_a_boycott_is_stated_in_the_trade_block() -> void:
 	_setup_diplomacy_panel()
 	state.set_colony(9, 0)
-	DiplomacyTrade.boycott(state, 0, 2)
+	DiplomacyBoycott.boycott(state, 0, 2)
 	state.boycotts["1>0"] = state.turn
 	panel.refresh(state, null, 0, 2500)
 	panel.select_faction(2)

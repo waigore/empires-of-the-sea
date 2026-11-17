@@ -240,7 +240,7 @@ func end_turn() -> Dictionary:
 	# The trade-deal lift lands before the drift, so a pair that just traded is
 	# event-modified and skips this turn's decay (wiki: diplomacy § Relation
 	# Model — trade-deal boost, R10).
-	DiplomacyTrade.pay_trade_boosts(self)
+	DiplomacyTradeTerms.pay_trade_boosts(self)
 	var decayed: int = apply_decay()
 	# The mutual-defence snapshot is the state at the close of this turn: a
 	# treaty signed next turn cannot be pulled into today's war (wiki: diplomacy).

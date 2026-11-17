@@ -109,7 +109,7 @@ func _read_purchase(play: PlaySession) -> void:
 	if target < 0:
 		_say("no court will sign a pact — the receipt cannot be read")
 		return
-	var signed: Dictionary = DiplomacyTrade.establish_ftp(
+	var signed: Dictionary = DiplomacyFtp.establish(
 		play.diplomacy, play.player_faction, target, DiplomacyRules.DECISION_ACCEPT
 	)
 	_say("--- the pact with %s: %s ---" % [

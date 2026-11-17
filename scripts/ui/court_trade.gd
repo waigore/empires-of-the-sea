@@ -38,7 +38,7 @@ func fill(
 func _add_summary(
 	state: DiplomacyState, world: WorldMap, player: int, target: int
 ) -> void:
-	var terms: Dictionary = DiplomacyTrade.terms_for_court(state, world, player)
+	var terms: Dictionary = DiplomacyTradeTerms.for_court(state, world, player)
 	var buy: Dictionary = terms.get("buy", {})
 	var sell: Dictionary = terms.get("sell", {})
 	add_child(
@@ -57,14 +57,14 @@ func _add_summary(
 				12, Palette.GOLD_PALE
 			)
 		)
-	if DiplomacyTrade.is_ftp(state, player, target):
+	if DiplomacyFtp.is_ftp(state, player, target):
 		add_child(
 			_label(
 				"Favoured trading pact: our lots clear first in their ports.",
 				12, Palette.GOLD_PALE
 			)
 		)
-	if DiplomacyTrade.is_boycotting(state, player, target):
+	if DiplomacyBoycott.is_boycotting(state, player, target):
 		add_child(
 			_label(
 				(
@@ -74,7 +74,7 @@ func _add_summary(
 				12, Color(0.85, 0.62, 0.42)
 			)
 		)
-	var boycotts: Array[int] = DiplomacyTrade.boycotts_against(state, player)
+	var boycotts: Array[int] = DiplomacyBoycott.boycotts_against(state, player)
 	if not boycotts.is_empty():
 		var names: PackedStringArray = []
 		for issuer: int in boycotts:

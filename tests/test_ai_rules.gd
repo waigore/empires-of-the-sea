@@ -7411,7 +7411,7 @@ func test_a_boycott_leaves_the_rival_merchant_no_deed_to_walk_to() -> void:
 	court.set_overture(0, BOYCOTTED_COLONY_TRIBE, DiplomacyCatalog.STAGE_EMBASSY)
 	court.set_colony(BOYCOTTED_COLONY_TRIBE, BOYCOTT_ISSUER)
 	court.ensure_relation(BOYCOTT_ISSUER, 0, 1)
-	assert_true(bool(DiplomacyTrade.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_true(bool(DiplomacyBoycott.boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
 	var context: Dictionary = _market_context(model, court)
 	assert_true(
 		AiMerchantWork.buyable_tiles(model, 0, LandWorks.new(), context).is_empty(),
@@ -7422,7 +7422,7 @@ func test_a_boycott_leaves_the_rival_merchant_no_deed_to_walk_to() -> void:
 		"and the merchant has nowhere to march"
 	)
 	court.end_turn()
-	assert_true(bool(DiplomacyTrade.revoke_boycott(court, BOYCOTT_ISSUER, 0)["ok"]))
+	assert_true(bool(DiplomacyBoycott.revoke(court, BOYCOTT_ISSUER, 0)["ok"]))
 	assert_false(
 		AiMerchantWork.buyable_tiles(model, 0, LandWorks.new(), context).is_empty(),
 		"lifting the boycott puts the deed back on offer"
@@ -9384,7 +9384,7 @@ func test_a_warm_rival_signs_a_trade_pact_with_a_fellow_court() -> void:
 	# The warmer court, acting later in the same pass, spends its one order on
 	# the trade pact the treaty just unlocked.
 	assert_eq(String(_action(first, 3)["kind"]), AiDiplomacyOffers.KIND_FTP)
-	assert_true(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 2, 3), "the pact is signed at once")
+	assert_true(DiplomacyFtp.is_ftp(ai_diplomacy_offers_state, 2, 3), "the pact is signed at once")
 	assert_true(String(campaign__record(first, 3)["message"]).contains("favoured trading pact"))
 
 func test_a_warm_rival_sends_aid_and_pays_from_its_own_purse() -> void:
@@ -9530,7 +9530,7 @@ func test_a_rival_too_weak_to_fight_boycotts_a_rival_it_has_fallen_out_with() ->
 	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
 	var result: Dictionary = campaign__run([0, 2, 3, 3, 3, 3], [], 1)
 	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_BOYCOTT)
-	assert_true(DiplomacyTrade.is_boycotting(ai_diplomacy_offers_state, 2, 3), "the colonies close at once")
+	assert_true(DiplomacyBoycott.is_boycotting(ai_diplomacy_offers_state, 2, 3), "the colonies close at once")
 	assert_true(String(campaign__record(result, 2)["message"]).contains("closes its colonies"))
 
 func test_a_recovered_standing_lifts_the_boycott() -> void:
@@ -9545,7 +9545,7 @@ func test_a_recovered_standing_lifts_the_boycott() -> void:
 	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
 	var result: Dictionary = campaign__run([0, 2, 3, 3, 3, 3], [], 1)
 	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_REVOKE_BOYCOTT)
-	assert_false(DiplomacyTrade.is_boycotting(ai_diplomacy_offers_state, 2, 3))
+	assert_false(DiplomacyBoycott.is_boycotting(ai_diplomacy_offers_state, 2, 3))
 
 func test_a_pact_that_no_longer_matches_the_standing_is_revoked() -> void:
 	_setup_ai_diplomacy_offers()
@@ -9557,7 +9557,7 @@ func test_a_pact_that_no_longer_matches_the_standing_is_revoked() -> void:
 	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
 	var result: Dictionary = campaign__run([0, 2, 3, 3, 3, 3], [], 2)
 	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_REVOKE_FTP)
-	assert_false(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 2, 3))
+	assert_false(DiplomacyFtp.is_ftp(ai_diplomacy_offers_state, 2, 3))
 
 func test_an_alliance_the_court_no_longer_means_is_broken() -> void:
 	_setup_ai_diplomacy_offers()
@@ -9578,13 +9578,13 @@ func test_a_trade_pact_offer_to_the_human_court_waits_for_the_answer() -> void:
 	var result: Dictionary = campaign__run([0, 0, 0, 0, 2, 3], [], 1)
 	assert_eq(String(_action(result, 2)["kind"]), AiDiplomacyOffers.KIND_FTP)
 	assert_true(bool(_action(result, 2)["propose"]), "the human keeps consent")
-	assert_false(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 0, 2), "nothing is signed yet")
+	assert_false(DiplomacyFtp.is_ftp(ai_diplomacy_offers_state, 0, 2), "nothing is signed yet")
 	assert_eq(ai_diplomacy_offers_state.pending_offers.size(), 1)
 	assert_eq(String(ai_diplomacy_offers_state.pending_offers[0]["kind"]), DiplomacyProposals.KIND_FTP)
 	assert_true(String(campaign__record(result, 2)["message"]).contains("favoured trading pact"))
 	var answer: Dictionary = DiplomacyProposals.resolve_human(ai_diplomacy_offers_state, null, true)
 	assert_true(bool(answer.get("accepted", false)), answer.get("reason", ""))
-	assert_true(DiplomacyTrade.is_ftp(ai_diplomacy_offers_state, 0, 2), "the court's answer signs the pact")
+	assert_true(DiplomacyFtp.is_ftp(ai_diplomacy_offers_state, 0, 2), "the court's answer signs the pact")
 
 func test_one_sided_acts_and_consent_offers_are_told_apart() -> void:
 	_setup_ai_diplomacy_offers()

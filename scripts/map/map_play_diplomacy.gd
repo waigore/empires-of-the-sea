@@ -188,4 +188,4 @@ static func _tech(play: PlaySession) -> Dictionary:
 ## or subsidy reaches the ledger's prices (wiki: world-market § FTP).
 static func _install_terms(play: PlaySession) -> void:
 	var market: WorldMarket = play.economy.market if play.economy != null else null
-	DiplomacyTrade.apply_terms(play.diplomacy, play.world, market)
+	DiplomacyTradeTerms.apply(play.diplomacy, play.world, market)

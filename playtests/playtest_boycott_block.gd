@@ -58,14 +58,14 @@ func _run() -> void:
 	# session reaches this through the whole overture chain plus the rival's own
 	# diplomacy, so the drive puts the two records in place and reads onward.
 	play.diplomacy.set_colony(tribe, rival)
-	var seated: Dictionary = DiplomacyTrade.boycott(play.diplomacy, rival, player)
+	var seated: Dictionary = DiplomacyBoycott.boycott(play.diplomacy, rival, player)
 	_say("seated: colony_of(%s) = %s; boycott %s>%s %s — %s" % [
 		FactionCatalog.name_of(tribe), FactionCatalog.name_of(play.diplomacy.colony_of(tribe)),
 		FactionCatalog.name_of(rival), FactionCatalog.name_of(player),
 		str(bool(seated.get("ok", false))), String(seated.get("message", seated.get("reason", ""))),
 	])
 	_say("blocked_by_boycott(us, colony) = %s" % str(
-		DiplomacyTrade.blocked_by_boycott(play.diplomacy, player, tribe)
+		DiplomacyBoycott.blocked(play.diplomacy, player, tribe)
 	))
 	if not bool(seated.get("ok", false)):
 		_finish()
@@ -160,7 +160,7 @@ func _read_after_close(play: PlaySession, tribe: int, when: String) -> void:
 				carried.commodity, carried.id,
 			])
 	_say("blocked_by_boycott(us, colony) = %s" % str(
-		DiplomacyTrade.blocked_by_boycott(play.diplomacy, play.player_faction, tribe)
+		DiplomacyBoycott.blocked(play.diplomacy, play.player_faction, tribe)
 	))
 
 

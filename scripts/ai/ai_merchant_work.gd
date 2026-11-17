@@ -76,7 +76,7 @@ static func buyable_tiles(
 			continue
 		# A boycotted court has no deed to sign here, so the planner must not
 		# name one or march toward it (wiki: diplomacy § GP–Tribe — Boycott, R6).
-		if DiplomacyTrade.blocked_by_boycott(diplomacy, faction, seller):
+		if DiplomacyBoycott.blocked(diplomacy, faction, seller):
 			continue
 		for tile: Vector2i in province.tiles:
 			if not _buyable_tile(model, faction, works, tile, treasury):
@@ -226,7 +226,7 @@ static func openable_deed(
 			continue
 		if DiplomacyRules.at_war_with(diplomacy, faction, seller):
 			continue
-		if DiplomacyTrade.blocked_by_boycott(diplomacy, faction, seller):
+		if DiplomacyBoycott.blocked(diplomacy, faction, seller):
 			continue
 		if view != null and not view.is_province_known(province.id):
 			continue

@@ -148,12 +148,12 @@ func _ftp_pass(rival: int) -> void:
 	_check("the pact's prompt carries the envoy's word", terms_line.contains("“"))
 	_press("Accept")
 	_say("after Accept: pact %s, turn %d -> %d" % [
-		str(DiplomacyTrade.is_ftp(_play.diplomacy, _play.player_faction, rival)),
+		str(DiplomacyFtp.is_ftp(_play.diplomacy, _play.player_faction, rival)),
 		turn_before, _play.turn,
 	])
 	_check(
 		"accepting signs the pact",
-		DiplomacyTrade.is_ftp(_play.diplomacy, _play.player_faction, rival)
+		DiplomacyFtp.is_ftp(_play.diplomacy, _play.player_faction, rival)
 	)
 	_check("the answer closes the waiting turn", _play.turn > turn_before)
 	_say("despatch: %s" % _toast())
@@ -291,7 +291,7 @@ func _read_banner() -> void:
 
 ## The trade terms the ledger publishes for the court, as the market reads them.
 func _terms() -> String:
-	var terms: Dictionary = DiplomacyTrade.terms_for_court(
+	var terms: Dictionary = DiplomacyTradeTerms.for_court(
 		_play.diplomacy, _play.world, _play.player_faction
 	)
 	var buy: Dictionary = terms.get("buy", {})
@@ -415,7 +415,7 @@ func _stand(other: int) -> String:
 	return "%s %.1f%s%s" % [
 		"war" if record.at_war else "peace", record.score,
 		", allied" if record.formal_alliance else "",
-		", pact" if DiplomacyTrade.is_ftp(
+		", pact" if DiplomacyFtp.is_ftp(
 			_play.diplomacy, _play.player_faction, other
 		) else "",
 	]

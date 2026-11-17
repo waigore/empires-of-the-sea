@@ -284,7 +284,7 @@ func test_a_traded_pair_is_lifted_before_decay() -> void:
 	_setup_diplomacy_state()
 	state.relation(0, 6).score = 50.0
 	state.relation(0, 7).score = 50.0
-	DiplomacyTrade.record_deal(state, 0, 6)
+	DiplomacyTradeTerms.record_deal(state, 0, 6)
 	state.end_turn()
 	assert_eq(state.relation(0, 6).score, 52.0, "+2.0 base, no embassy")
 	assert_eq(state.relation(0, 7).score, 50.0, "a pair that did not trade is unchanged")
@@ -293,7 +293,7 @@ func test_the_trade_lift_adds_the_embassy_bonus() -> void:
 	_setup_diplomacy_state()
 	# GP–GP pairs are seeded at embassy, so the lift carries the +0.4 bonus.
 	state.relation(0, 1).score = 50.0
-	DiplomacyTrade.record_deal(state, 0, 1)
+	DiplomacyTradeTerms.record_deal(state, 0, 1)
 	state.end_turn()
 	assert_eq(state.relation(0, 1).score, 52.4, "+2.0 base +0.4 embassy")
 
@@ -302,15 +302,15 @@ func test_the_trade_lift_scales_with_the_subsidy() -> void:
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	state.set_subsidy(0, 6, 10)
 	state.relation(0, 6).score = 50.0
-	DiplomacyTrade.record_deal(state, 0, 6)
+	DiplomacyTradeTerms.record_deal(state, 0, 6)
 	state.end_turn()
 	assert_eq(state.relation(0, 6).score, 54.4, "+2.0 +0.4 embassy +2.0 for 10%")
 
 func test_the_trade_lift_is_paid_once_per_pair() -> void:
 	_setup_diplomacy_state()
 	state.relation(0, 6).score = 50.0
-	DiplomacyTrade.record_deal(state, 0, 6)
-	DiplomacyTrade.record_deal(state, 6, 0)
+	DiplomacyTradeTerms.record_deal(state, 0, 6)
+	DiplomacyTradeTerms.record_deal(state, 6, 0)
 	state.end_turn()
 	assert_eq(state.relation(0, 6).score, 52.0, "volume-independent, once per pair")
 	assert_true(state.trade_pairs.is_empty(), "the phase consumes the record")
@@ -319,24 +319,24 @@ func test_a_war_pair_keeps_its_frozen_score() -> void:
 	_setup_diplomacy_state()
 	state.relation(0, 6).score = 30.0
 	state.relation(0, 6).at_war = true
-	DiplomacyTrade.record_deal(state, 0, 6)
+	DiplomacyTradeTerms.record_deal(state, 0, 6)
 	state.end_turn()
 	assert_eq(state.relation(0, 6).score, 30.0, "war scores are frozen")
 
 func test_the_trade_lift_clamps_at_one_hundred() -> void:
 	_setup_diplomacy_state()
 	state.relation(0, 6).score = 99.0
-	DiplomacyTrade.record_deal(state, 0, 6)
+	DiplomacyTradeTerms.record_deal(state, 0, 6)
 	state.end_turn()
 	assert_eq(state.relation(0, 6).score, 100.0)
 
 func test_only_a_court_deal_with_a_great_power_is_recorded() -> void:
 	_setup_diplomacy_state()
-	DiplomacyTrade.record_deal(state, -1, 0)
-	DiplomacyTrade.record_deal(state, 6, 7)
-	DiplomacyTrade.record_deal(state, 0, 0)
+	DiplomacyTradeTerms.record_deal(state, -1, 0)
+	DiplomacyTradeTerms.record_deal(state, 6, 7)
+	DiplomacyTradeTerms.record_deal(state, 0, 0)
 	assert_true(state.trade_pairs.is_empty(), "no court pair, no lift")
-	DiplomacyTrade.record_deal(state, 0, 6)
+	DiplomacyTradeTerms.record_deal(state, 0, 6)
 	assert_true(state.trade_pairs.has(DiplomacyKeys.pair(0, 6)))
 
 func test_subsidies_survive_while_the_embassy_stands() -> void:
@@ -1000,46 +1000,46 @@ func _diplomacy_proposals_event(kind: String) -> bool:
 
 func test_ftp_needs_a_great_power_and_an_embassy() -> void:
 	_setup_diplomacy_trade()
-	assert_true(DiplomacyTrade.can_establish_ftp(diplomacy_trade_state, 0, 1)["ok"], "GP auto-embassy")
-	var minor: Dictionary = DiplomacyTrade.can_establish_ftp(diplomacy_trade_state, 0, 6)
+	assert_true(DiplomacyFtp.can_establish(diplomacy_trade_state, 0, 1)["ok"], "GP auto-embassy")
+	var minor: Dictionary = DiplomacyFtp.can_establish(diplomacy_trade_state, 0, 6)
 	assert_false(minor["ok"])
 	assert_true(String(minor["reason"]).contains("Great Powers"))
 
 func test_ftp_needs_friendly_standing_and_is_bilateral() -> void:
 	_setup_diplomacy_trade()
-	var refused: Dictionary = DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
+	var refused: Dictionary = DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
 	assert_true(refused["ok"], refused.get("reason", ""))
 	assert_false(bool(refused["accepted"]), "score 50 is below the pact threshold")
-	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1))
-	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 1, 0))
+	assert_false(DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1))
+	assert_false(DiplomacyFtp.is_ftp(diplomacy_trade_state, 1, 0))
 
 	diplomacy_trade_state.end_turn()
 	diplomacy_trade_state.relation(0, 1).score = DiplomacyCatalog.FTP_MIN_SCORE
-	var signed: Dictionary = DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
+	var signed: Dictionary = DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
 	assert_true(signed["ok"], signed.get("reason", ""))
 	assert_true(bool(signed["accepted"]))
-	assert_true(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1), "one record serves both directions")
-	assert_true(DiplomacyTrade.is_ftp(diplomacy_trade_state, 1, 0))
-	assert_true(DiplomacyTrade.ftps_of(diplomacy_trade_state, 0).has(1))
+	assert_true(DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1), "one record serves both directions")
+	assert_true(DiplomacyFtp.is_ftp(diplomacy_trade_state, 1, 0))
+	assert_true(DiplomacyFtp.ftps_of(diplomacy_trade_state, 0).has(1))
 
 func test_ftp_improves_both_crowns_terms_and_war_ends_it() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.relation(0, 1).score = 80.0
-	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
-	var mine: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
-	var theirs: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 1)
+	DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
+	var mine: Dictionary = DiplomacyTradeTerms.faction_terms(diplomacy_trade_state, {}, 0)
+	var theirs: Dictionary = DiplomacyTradeTerms.faction_terms(diplomacy_trade_state, {}, 1)
 	assert_almost_eq(float(mine["buy"]["*"]), 0.95, 0.001, "pact shaves imports")
 	assert_almost_eq(float(mine["sell"]["*"]), 1.05, 0.001, "and lifts exports")
 	assert_almost_eq(float(theirs["buy"]["*"]), 0.95, 0.001, "both sides gain")
 
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 1)
-	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1), "war severs the pact")
-	var after: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
+	assert_false(DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1), "war severs the pact")
+	var after: Dictionary = DiplomacyTradeTerms.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(float(after["buy"]["*"]), 1.0, 0.001, "terms return to the world price")
 
 func test_boycott_needs_a_colony_and_cancels_the_targets_subsidies() -> void:
 	_setup_diplomacy_trade()
-	var refused: Dictionary = DiplomacyTrade.can_boycott(diplomacy_trade_state, 0, 2)
+	var refused: Dictionary = DiplomacyBoycott.can_boycott(diplomacy_trade_state, 0, 2)
 	assert_false(refused["ok"])
 	assert_true(String(refused["reason"]).contains("colony"))
 
@@ -1047,29 +1047,29 @@ func test_boycott_needs_a_colony_and_cancels_the_targets_subsidies() -> void:
 	diplomacy_trade_state.ensure_relation(2, 9, diplomacy_trade_state.turn)
 	diplomacy_trade_state.set_overture(2, 9, DiplomacyCatalog.STAGE_EMBASSY)
 	diplomacy_trade_state.set_subsidy(2, 9, 10)
-	var applied: Dictionary = DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
+	var applied: Dictionary = DiplomacyBoycott.boycott(diplomacy_trade_state, 0, 2)
 	assert_true(applied["ok"], applied.get("reason", ""))
-	assert_true(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2))
+	assert_true(DiplomacyBoycott.is_boycotting(diplomacy_trade_state, 0, 2))
 	assert_eq(diplomacy_trade_state.subsidy(2, 9), 0, "the boycotted crown loses its subsidy to our colony")
-	assert_false(DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)["ok"], "one boycott order per turn")
+	assert_false(DiplomacyBoycott.boycott(diplomacy_trade_state, 0, 2)["ok"], "one boycott order per turn")
 	diplomacy_trade_state.end_turn()
 
-	var lifted: Dictionary = DiplomacyTrade.revoke_boycott(diplomacy_trade_state, 0, 2)
+	var lifted: Dictionary = DiplomacyBoycott.revoke(diplomacy_trade_state, 0, 2)
 	assert_true(lifted["ok"], lifted.get("reason", ""))
-	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2))
+	assert_false(DiplomacyBoycott.is_boycotting(diplomacy_trade_state, 0, 2))
 
 func test_boycott_worsens_the_targets_terms_and_war_revokes_it() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.set_colony(9, 0)
-	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
-	var target: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 2)
+	DiplomacyBoycott.boycott(diplomacy_trade_state, 0, 2)
+	var target: Dictionary = DiplomacyTradeTerms.faction_terms(diplomacy_trade_state, {}, 2)
 	assert_almost_eq(float(target["buy"]["*"]), 1.10, 0.001, "boycotted imports cost more")
 	assert_almost_eq(float(target["sell"]["*"]), 0.90, 0.001, "and exports earn less")
-	var issuer: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
+	var issuer: Dictionary = DiplomacyTradeTerms.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(float(issuer["buy"]["*"]), 1.0, 0.001, "the issuer keeps the world price")
 
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
-	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "war auto-revokes")
+	assert_false(DiplomacyBoycott.is_boycotting(diplomacy_trade_state, 0, 2), "war auto-revokes")
 
 ## The subsidy is a step on the pair's deals, never a crown-wide rate: the crown
 ## bids at the published price and pays `p%` more only to the court it subsidises
@@ -1081,11 +1081,11 @@ func test_a_subsidy_steps_only_the_subsidised_pairs_deals() -> void:
 	diplomacy_trade_state.ensure_relation(0, 9, diplomacy_trade_state.turn)
 	diplomacy_trade_state.set_overture(0, 9, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyAid.set_subsidy(diplomacy_trade_state, 0, 9, 10)
-	var terms: Dictionary = DiplomacyTrade.terms_for_court(diplomacy_trade_state, world, 0)
+	var terms: Dictionary = DiplomacyTradeTerms.for_court(diplomacy_trade_state, world, 0)
 	assert_almost_eq(float(terms["buy"]["*"]), 1.0, 0.001, "the crown's own rate never moves")
 	assert_false(terms["buy"].has("timber"), "no commodity rate: the step lands on the deal")
 	var market := WorldMarket.with_default_prices()
-	DiplomacyTrade.apply_terms(diplomacy_trade_state, world, market)
+	DiplomacyTradeTerms.apply(diplomacy_trade_state, world, market)
 	assert_eq(MarketRules.subsidy_percent(market, 0, 9), 10, "the pair's step is published")
 	assert_eq(MarketRules.subsidy_percent(market, 0, 7), 0, "no other court carries it")
 	assert_eq(
@@ -1109,13 +1109,13 @@ func test_a_subsidy_steps_only_the_subsidised_pairs_deals() -> void:
 ## name no deal, and no court means no terms at all (wiki: world-market
 ## § Subsidy price adjustment).
 func test_subsidy_terms_publish_only_real_pairs() -> void:
-	assert_true(DiplomacyTrade.subsidy_terms(null).is_empty())
-	assert_true(DiplomacyTrade.market_terms(null).is_empty())
+	assert_true(DiplomacyTradeTerms.subsidy_terms(null).is_empty())
+	assert_true(DiplomacyTradeTerms.market_terms(null).is_empty())
 	var state := DiplomacyState.new()
 	state.subsidies["0>9"] = 10
 	state.subsidies["lonely"] = 10
 	state.subsidies["0>7"] = 0
-	var terms: Dictionary = DiplomacyTrade.subsidy_terms(state)
+	var terms: Dictionary = DiplomacyTradeTerms.subsidy_terms(state)
 	assert_eq(terms.size(), 1)
 	assert_eq(int(terms["0>9"]), 10)
 
@@ -1153,15 +1153,15 @@ func test_the_market_charges_a_crowns_buy_and_sell_terms() -> void:
 func test_terms_survive_a_save_round_trip() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.relation(0, 1).score = 80.0
-	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
+	DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
 	diplomacy_trade_state.set_colony(9, 0)
-	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
+	DiplomacyBoycott.boycott(diplomacy_trade_state, 0, 2)
 	var play := PlaySession.new()
 	SaveCourt.restore_diplomacy(
 		play, {"diplomacy": SaveCourt.capture_diplomacy(diplomacy_trade_state)}
 	)
-	assert_true(DiplomacyTrade.is_ftp(play.diplomacy, 0, 1))
-	assert_true(DiplomacyTrade.is_boycotting(play.diplomacy, 0, 2))
+	assert_true(DiplomacyFtp.is_ftp(play.diplomacy, 0, 1))
+	assert_true(DiplomacyBoycott.is_boycotting(play.diplomacy, 0, 2))
 
 func test_court_orders_offer_trade_actions_and_the_way_back() -> void:
 	_setup_diplomacy_trade()
@@ -1175,7 +1175,7 @@ func test_court_orders_offer_trade_actions_and_the_way_back() -> void:
 	)
 
 	diplomacy_trade_state.relation(0, 1).score = 80.0
-	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
+	DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
 	var after: Array[Dictionary] = DiplomacyOrders.options(diplomacy_trade_state, null, 2500, 0, 1)
 	assert_true(_diplomacy_trade_first(after, DiplomacyOrders.KIND_FTP).is_empty())
 	assert_false(_diplomacy_trade_first(after, DiplomacyOrders.KIND_REVOKE_FTP).is_empty())
@@ -1188,13 +1188,13 @@ func test_court_orders_sign_and_end_the_pact() -> void:
 	)
 	assert_true(signed["ok"], signed.get("reason", ""))
 	assert_true(bool(signed.get("accepted", false)))
-	assert_true(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1))
+	assert_true(DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1))
 	diplomacy_trade_state.end_turn()
 	var ended: Dictionary = DiplomacyOrders.apply(
 		diplomacy_trade_state, null, diplomacy_trade_economy, {"kind": DiplomacyOrders.KIND_REVOKE_FTP, "from": 0, "target": 1}
 	)
 	assert_true(ended["ok"], ended.get("reason", ""))
-	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1))
+	assert_false(DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1))
 
 func test_court_orders_impose_and_lift_the_boycott() -> void:
 	_setup_diplomacy_trade()
@@ -1203,7 +1203,7 @@ func test_court_orders_impose_and_lift_the_boycott() -> void:
 		diplomacy_trade_state, null, diplomacy_trade_economy, {"kind": DiplomacyOrders.KIND_BOYCOTT, "from": 0, "target": 2}
 	)
 	assert_true(applied["ok"], applied.get("reason", ""))
-	assert_true(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2))
+	assert_true(DiplomacyBoycott.is_boycotting(diplomacy_trade_state, 0, 2))
 	diplomacy_trade_state.end_turn()
 	var lifted: Dictionary = DiplomacyOrders.apply(
 		diplomacy_trade_state,
@@ -1212,7 +1212,7 @@ func test_court_orders_impose_and_lift_the_boycott() -> void:
 		{"kind": DiplomacyOrders.KIND_REVOKE_BOYCOTT, "from": 0, "target": 2}
 	)
 	assert_true(lifted["ok"], lifted.get("reason", ""))
-	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2))
+	assert_false(DiplomacyBoycott.is_boycotting(diplomacy_trade_state, 0, 2))
 
 func test_validation_mirrors_the_trade_gates() -> void:
 	_setup_diplomacy_trade()
@@ -1250,7 +1250,7 @@ func test_terms_stay_inside_the_rails() -> void:
 	_setup_diplomacy_trade()
 	for other: int in [10, 11, 12, 13, 14, 15]:
 		diplomacy_trade_state.ftps[DiplomacyKeys.pair(0, other)] = diplomacy_trade_state.turn
-	var terms: Dictionary = DiplomacyTrade.faction_terms(diplomacy_trade_state, {}, 0)
+	var terms: Dictionary = DiplomacyTradeTerms.faction_terms(diplomacy_trade_state, {}, 0)
 	assert_almost_eq(
 		float(terms["buy"]["*"]), DiplomacyCatalog.TERMS_BUY_MIN, 0.001, "buy floor"
 	)
@@ -1258,7 +1258,7 @@ func test_terms_stay_inside_the_rails() -> void:
 		float(terms["sell"]["*"]), DiplomacyCatalog.TERMS_SELL_MAX, 0.001, "sell cap"
 	)
 	diplomacy_trade_state.boycotts["2>2"] = diplomacy_trade_state.turn
-	assert_true(DiplomacyTrade.boycotts_against(diplomacy_trade_state, 2).is_empty(), "self-boycott ignored")
+	assert_true(DiplomacyBoycott.boycotts_against(diplomacy_trade_state, 2).is_empty(), "self-boycott ignored")
 
 func test_clearing_terms_returns_the_world_price() -> void:
 	_setup_diplomacy_trade()
@@ -1273,78 +1273,78 @@ func test_clearing_terms_returns_the_world_price() -> void:
 func test_absorbing_a_crown_clears_its_trade_ties() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.relation(0, 1).score = 80.0
-	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
+	DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
 	diplomacy_trade_state.set_colony(9, 0)
-	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
+	DiplomacyBoycott.boycott(diplomacy_trade_state, 0, 2)
 	DiplomacyLifetime.absorb(diplomacy_trade_state, 1)
-	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1), "the pact dies with the court")
+	assert_false(DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1), "the pact dies with the court")
 	DiplomacyLifetime.absorb(diplomacy_trade_state, 2)
-	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "so does its boycott")
+	assert_false(DiplomacyBoycott.is_boycotting(diplomacy_trade_state, 0, 2), "so does its boycott")
 
 func test_every_trade_gate_says_why_it_refuses() -> void:
 	_setup_diplomacy_trade()
 	assert_true(
-		String(DiplomacyTrade.can_revoke_ftp(diplomacy_trade_state, 0, 1)["reason"]).contains("No favoured")
+		String(DiplomacyFtp.can_revoke(diplomacy_trade_state, 0, 1)["reason"]).contains("No favoured")
 	)
-	assert_false(DiplomacyTrade.revoke_ftp(diplomacy_trade_state, 0, 1)["ok"])
+	assert_false(DiplomacyFtp.revoke(diplomacy_trade_state, 0, 1)["ok"])
 	assert_true(
-		String(DiplomacyTrade.can_boycott(diplomacy_trade_state, 0, 0)["reason"]).contains("itself")
-	)
-	assert_true(
-		String(DiplomacyTrade.can_boycott(diplomacy_trade_state, 0, 6)["reason"]).contains("Great Power")
+		String(DiplomacyBoycott.can_boycott(diplomacy_trade_state, 0, 0)["reason"]).contains("itself")
 	)
 	assert_true(
-		String(DiplomacyTrade.can_revoke_boycott(diplomacy_trade_state, 0, 2)["reason"]).contains("No boycott")
+		String(DiplomacyBoycott.can_boycott(diplomacy_trade_state, 0, 6)["reason"]).contains("Great Power")
+	)
+	assert_true(
+		String(DiplomacyBoycott.can_revoke(diplomacy_trade_state, 0, 2)["reason"]).contains("No boycott")
 	)
 	diplomacy_trade_state.set_colony(9, 0)
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
 	assert_true(
-		String(DiplomacyTrade.can_boycott(diplomacy_trade_state, 0, 2)["reason"]).contains("at war")
+		String(DiplomacyBoycott.can_boycott(diplomacy_trade_state, 0, 2)["reason"]).contains("at war")
 	)
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 1)
 	assert_true(
-		String(DiplomacyTrade.can_establish_ftp(diplomacy_trade_state, 0, 1)["reason"]).contains("enemy")
+		String(DiplomacyFtp.can_establish(diplomacy_trade_state, 0, 1)["reason"]).contains("enemy")
 	)
 
 func test_a_court_can_refuse_the_pact() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.relation(0, 1).score = 80.0
-	var refused: Dictionary = DiplomacyTrade.establish_ftp(
+	var refused: Dictionary = DiplomacyFtp.establish(
 		diplomacy_trade_state, 0, 1, DiplomacyRules.DECISION_REFUSE
 	)
 	assert_true(refused["ok"], refused.get("reason", ""))
 	assert_false(bool(refused["accepted"]))
-	assert_false(DiplomacyTrade.is_ftp(diplomacy_trade_state, 0, 1))
+	assert_false(DiplomacyFtp.is_ftp(diplomacy_trade_state, 0, 1))
 
 func test_terms_are_published_to_the_market_and_cleared_again() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.relation(0, 1).score = 80.0
-	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
+	DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
 	var market := WorldMarket.with_default_prices()
-	DiplomacyTrade.apply_terms(diplomacy_trade_state, null, market)
+	DiplomacyTradeTerms.apply(diplomacy_trade_state, null, market)
 	assert_almost_eq(market.term_multiplier(0, "timber", true), 0.95, 0.001)
 	assert_almost_eq(market.term_multiplier(1, "timber", false), 1.05, 0.001)
-	assert_eq(DiplomacyTrade.market_terms(diplomacy_trade_state, null).size(), 6, "every crown is priced")
-	DiplomacyTrade.apply_terms(null, null, market)
+	assert_eq(DiplomacyTradeTerms.market_terms(diplomacy_trade_state, null).size(), 6, "every crown is priced")
+	DiplomacyTradeTerms.apply(null, null, market)
 	assert_true(market.terms_for(0).is_empty(), "no court means the world price")
 
 func test_a_court_that_grows_nothing_keeps_the_world_price() -> void:
 	_setup_diplomacy_trade()
 	var world: WorldMap = _tribe_world(9, _resource_for("timber"))
 	assert_almost_eq(
-		float(DiplomacyTrade.terms_for_court(diplomacy_trade_state, null, 0)["buy"]["*"]), 1.0, 0.001
+		float(DiplomacyTradeTerms.for_court(diplomacy_trade_state, null, 0)["buy"]["*"]), 1.0, 0.001
 	)
 	assert_almost_eq(
-		float(DiplomacyTrade.terms_for_court(diplomacy_trade_state, world, 3)["buy"]["*"]), 1.0, 0.001,
+		float(DiplomacyTradeTerms.for_court(diplomacy_trade_state, world, 3)["buy"]["*"]), 1.0, 0.001,
 		"no produced goods, no extra rate"
 	)
 
 func test_war_narrates_the_broken_pact_and_boycott() -> void:
 	_setup_diplomacy_trade()
 	diplomacy_trade_state.relation(0, 1).score = 80.0
-	DiplomacyTrade.establish_ftp(diplomacy_trade_state, 0, 1)
+	DiplomacyFtp.establish(diplomacy_trade_state, 0, 1)
 	diplomacy_trade_state.set_colony(9, 0)
-	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
+	DiplomacyBoycott.boycott(diplomacy_trade_state, 0, 2)
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 1)
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
 	var pact: String = _diplomacy_trade_joined(DiplomacyHistory.entries(diplomacy_trade_state, 0, 1))
@@ -1366,7 +1366,7 @@ func test_a_boycott_bars_aid_and_subsidies_to_the_colony() -> void:
 	for gp: int in [2, 3]:
 		diplomacy_trade_state.ensure_relation(gp, 9, diplomacy_trade_state.turn)
 		diplomacy_trade_state.set_overture(gp, 9, DiplomacyCatalog.STAGE_EMBASSY)
-	DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)
+	DiplomacyBoycott.boycott(diplomacy_trade_state, 0, 2)
 	var aid: Dictionary = DiplomacyAid.can_grant_aid(diplomacy_trade_state, 2, 9, 1000, 10000)
 	assert_false(aid["ok"], "the boycotted crown may not aid our colony")
 	assert_true(String(aid["reason"]).contains("boycott"))
