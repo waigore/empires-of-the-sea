@@ -1437,6 +1437,50 @@ func test_the_army_muster_block_files_every_ready_row_in_one_press() -> void:
 	panel.free()
 
 
+## A redraw re-reads the yard's own ledger, so the arm the player gave the sheet
+## is spent with it: a count that falls under an armed press must not leave a
+## one-tap confirm loaded against a line the face no longer names (REQ-P5-04).
+func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(22, 0, 1, ["guards"], true)
+	var muster: Array[Dictionary] = [
+		{
+			"type_id": "peasant_levies",
+			"name": "Peasant Levies",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "2,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Light infantry · 3 strength",
+		},
+		{
+			"type_id": "pikemen",
+			"name": "Pikemen",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "4,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Regular infantry · 5 strength",
+		},
+	]
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+	var press: RaiseBatchPress = panel._muster_box._batch
+	assert_eq(press.text, "Muster all ready (2)", "the sheet names its line")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap arms")
+
+	# One row's own Muster goes in, and the sheet is redrawn one step shorter.
+	muster[0]["batch_ready"] = false
+	panel.refresh(model, army, true, false, "", muster)
+
+	assert_false(press.is_armed(), "the redraw spends the arm the player gave")
+	assert_eq(press.text, "Muster all ready (1)", "the face names the line it now stands for")
+	panel.free()
+
+
 ## Chevrons and a mauled bar live on the roster block; strength names the count.
 func test_army_roster_block_shows_chevrons_wounds_and_record() -> void:
 	var panel := ArmyPanel.new()

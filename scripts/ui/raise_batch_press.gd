@@ -35,14 +35,16 @@ func _init() -> void:
 
 
 ## How many steps the press would file, and the noun they are counted in. A view
-## with nothing ready hides the press and forgets any arm (REQ-P5-03).
+## with nothing ready hides the press; any redraw spends whatever arm the player
+## gave the sheet, because the face he confirmed has been re-read from the ledger
+## and may no longer be the line he armed — a stale confirm one tap from spending
+## is the mis-tap the arm exists to stop (REQ-P5-03, REQ-P5-04).
 func set_ready(count: int, word: String) -> void:
 	_count = maxi(count, 0)
 	_word = word
-	if _count == 0:
-		_armed = false
-		if _timer != null:
-			_timer.stop()
+	_armed = false
+	if _timer != null:
+		_timer.stop()
 	visible = _count > 0
 	_retitle()
 

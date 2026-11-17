@@ -80,7 +80,7 @@ static func payoff(
 			)
 			return String(row.get("preview_text", ""))
 		"build_road", "build_port", "build_rail":
-			return CivilianWorkPlan.transport_preview(action, model, tile, works)
+			return CivilianWorkPlan.transport_preview(action, model, tile, works, blockade)
 		"build_fort":
 			return WallLedger.preview_text(
 				FortRules.level_at(model, province), CivilianWorkPlan.fort_target(model, tile)

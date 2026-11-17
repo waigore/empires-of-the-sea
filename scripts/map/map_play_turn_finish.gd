@@ -174,8 +174,8 @@ static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 ## ledgers read the harbour: a rival that docked at its own capital through any
 ## planner folds into the home fleet (wiki: ships-and-naval § Home Fleet).
 static func _begin_layers(play: PlaySession) -> void:
-	play.ship_layer.expire_beachheads(play.turn)
-	play.ship_layer.begin_turn()
+	ShipTurnPass.expire_beachheads(play.ship_layer, play.turn)
+	ShipTurnPass.begin_turn(play.ship_layer)
 	play.army_layer.begin_turn(play.world)
 	MapPlayHomeMerge.settle_seats(play)
 	play.last_falls.clear()
