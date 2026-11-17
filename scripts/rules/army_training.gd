@@ -73,6 +73,9 @@ static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
 			"name": RegimentCatalog.display_name(type_id),
 			"era": RegimentCatalog.era(type_id),
 			"cost_text": RegimentEconomy.cost_text(type_id),
+			# What it is, not only what it costs: the same line the roster prints
+			# for a regiment already at the colours (REQ-P5-06).
+			"line": RegimentCatalog.muster_line(type_id),
 			"ok": reason.is_empty(),
 			"reason": reason,
 			"pending": economy.recruits.pending(RecruitQueue.KIND_REGIMENT, type_id),
