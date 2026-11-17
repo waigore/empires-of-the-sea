@@ -150,7 +150,9 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 	if not bool(can_break.get("ok", false)):
 		play.hud.toast(String(can_break.get("reason", "The hull stays afloat.")))
 		return
-	var result: Dictionary = play.ship_layer.scrap_hull(fleet, hull_id, play.economy.economy)
+	var result: Dictionary = ShipYardOps.scrap_hull(
+		play.ship_layer, fleet, hull_id, play.economy.economy
+	)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The hull stays afloat.")))
 		return
