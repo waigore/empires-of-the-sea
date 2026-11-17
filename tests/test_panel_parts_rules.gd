@@ -610,6 +610,44 @@ func _show(tech: Dictionary = {}) -> void:
 	_province_panel_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, tech)
 	_province_panel_panel.refresh(_model, 0)
 
+
+## The muster rail names what each craft does and the one study a hire waits on,
+## and a gated craft greys out instead of offering an order the rules refuse — the
+## gate used to arrive only in the refusal toast (wiki: civilian-units § Training;
+## DR-20261118-09; REQ-P2-03, REQ-P5-05).
+func test_the_muster_rail_names_what_each_craft_does() -> void:
+	_setup_province_panel()
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var explorer: Dictionary = rail.training_row("explorer")
+	assert_eq(
+		(explorer["note"] as Label).text, "Charts a province and prospects its ground"
+	)
+	assert_false(
+		(explorer["button"] as Button).disabled, "a starting craft hires at once"
+	)
+	# A Merchant waits on Merchant Companies: the row says so and the press is
+	# dead until the study lands.
+	var merchant: Dictionary = rail.training_row("merchant")
+	assert_true((merchant["button"] as Button).disabled)
+	assert_eq(
+		(merchant["note"] as Label).text,
+		"Buys land in a Minor's or Tribe's province · needs Merchant Companies",
+	)
+	assert_true(
+		(merchant["button"] as Button).tooltip_text.contains("Merchant Companies"),
+		"the tooltip is the order's own refusal",
+	)
+	_show({"merchant_companies": true})
+	assert_false(
+		(merchant["button"] as Button).disabled, "the study opens the hire"
+	)
+	assert_eq(
+		(merchant["note"] as Label).text,
+		"Buys land in a Minor's or Tribe's province",
+		"an open hire carries no gate",
+	)
+
 func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	_setup_province_panel()
 	_show()

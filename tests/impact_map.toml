@@ -1981,6 +1981,12 @@ suites = [
 match = "scripts/ui/province_panel.gd*"
 domain = "province_sheet"
 
+# The dossier's order rail rides the sheet it hangs on: the panel suite reads the
+# muster rows and the layout suite the compact re-order (DR-20261118-09).
+[[rules]]
+match = "scripts/ui/province_orders_section.gd*"
+domain = "province_sheet"
+
 [[rules]]
 match = "scripts/ui/province_resources.gd*"
 domain = "province_sheet"
@@ -2285,6 +2291,14 @@ suites = [
   "test_ai_rules.gd",
   "test_civilian_turn_rules.gd",
   "test_ledgers.gd",
+]
+
+# A civilian hire's words ([CivilianHire]): the rules suite proves the work and
+# gate lines, the panel suite the muster rail that prints them (DR-20261118-09).
+[domains.civilian_hire]
+suites = [
+  "test_civilian_turn_rules.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 [domains.ai_economy]
@@ -2908,6 +2922,13 @@ domain = "misc"
 [[rules]]
 match = "scripts/rules/diplomacy_catalog.gd*"
 domain = "misc"
+
+# What a civilian hire buys and the one study it waits on, printed on the muster
+# rail (DR-20261118-09): its own small slice proves the words and the rail that
+# prints them, instead of the whole civilian fan-out.
+[[rules]]
+match = "scripts/rules/civilian_hire.gd*"
+domain = "civilian_hire"
 
 [[rules]]
 match = "scripts/rules/civilian_*.gd*"
