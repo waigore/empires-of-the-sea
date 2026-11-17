@@ -3045,6 +3045,56 @@ func test_offers_expire_with_the_turn_but_survive_a_save() -> void:
 	market.advance_prices()
 	assert_eq(market.minor_offers, [])
 
+## The advanced start rewrites the world the book was published from — colonies
+## claimed, estates raised, towns developed — so the rows must be republished:
+## a crown opening on turn 100 read the turn-0 harvest (62 timber on the table
+## where the auction held 9) and none of the developed towns' manufactures
+## (wiki: world-market § Minor and tribe auto-sell; REQ-P2-03, REQ-P5-05).
+func test_the_book_is_republished_when_the_world_moves_under_it() -> void:
+	var world: WorldMap = _town_world(9, 0, 4, 1)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	MinorMarket.publish(market, world, 0)
+	assert_eq(MinorMarket.remaining(market.minor_offers, "9:timber"), 4)
+	assert_eq(MinorMarket.index_of(market.minor_offers, "9:lumber"), -1)
+	# The preset's own move: the town is developed, so its manufactures appear.
+	world.region(0).provinces[1].town_development = 2
+	assert_eq(
+		MinorMarket.index_of(market.minor_offers, "9:lumber"), -1,
+		"the stale book hides the town's output"
+	)
+	var play := PlaySession.new()
+	var controller := EconomyController.new()
+	controller.market = market
+	play.economy = controller
+	play.world = world
+	MapPlayMarket.republish(play)
+	assert_eq(
+		market.minor_offers, MinorMarket.emit(world, market, 0),
+		"the book names the world it sells"
+	)
+	assert_eq(
+		MinorMarket.remaining(market.minor_offers, "9:lumber"), 1,
+		"the developed town is on the book"
+	)
+	# A session with no ledger, or a ledger with no market, has no book to write.
+	MapPlayMarket.republish(null)
+	var bare := PlaySession.new()
+	MapPlayMarket.republish(bare)
+	bare.economy = EconomyController.new()
+	MapPlayMarket.republish(bare)
+
+## The advanced start republishes the book once the preset has rewritten the
+## world; a session that has no world yet writes no rows and does not crash
+## (wiki: world-market § Minor and tribe auto-sell; REQ-P2-03).
+func test_an_advanced_start_with_no_world_writes_no_book() -> void:
+	var play := PlaySession.new()
+	play.advanced_start = AdvancedStart.TURNS100
+	var controller := EconomyController.new()
+	controller.market = WorldMarket.with_default_prices()
+	play.economy = controller
+	MapPlayAdvanced.begin(play)
+	assert_eq(controller.market.minor_offers, [], "no world, no rows")
+
 ## A two-province map: a Great Power holds the west, Minor Nation 6 (or a Tribe)
 ## holds four estates in the east with one province town.
 func _town_world(owner: int, resource: int, estates: int, town_level: int) -> WorldMap:

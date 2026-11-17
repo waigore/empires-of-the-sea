@@ -19,6 +19,13 @@ static func begin(play: PlaySession) -> void:
 		return
 	apply(play)
 	play.switch_region(play.region_index)
+	# The preset rewrites the world the book was published from — colonies
+	# claimed, estates prospected and raised, minor land bought, towns developed
+	# — so the Minor/Tribe rows must be republished: a crown opening on turn 100
+	# otherwise read the turn-0 harvest (62 timber on the table where the auction
+	# held 9) and none of the developed towns' manufactures (wiki: world-market
+	# § Minor and tribe auto-sell; REQ-P2-03, REQ-P5-05).
+	MapPlayMarket.republish(play)
 	# The preset rewrites every purse after the HUD was built from the turn-0
 	# ledger, so the top bar must be repainted here: a court that opens on 40,000
 	# ducats read 2,500 until some later order happened to refresh it.
