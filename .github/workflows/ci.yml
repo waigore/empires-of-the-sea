@@ -280,6 +280,7 @@ jobs:
               - 'icon.png'
               - 'icon.svg'
               - 'tools/e2e_smoke.gd'
+              - 'tools/e2e_auto.gd'
               - 'tools/smoke/**'
 
       - name: Skip suite (no code/test changes)
@@ -348,8 +349,8 @@ jobs:
     name: e2e-smoke
     needs: build
     runs-on: ubuntu-latest
-    # Hard budget: smoke wall time ≤2 minutes (see docs/testing.md).
-    timeout-minutes: 2
+    # Hard budget: smoke + auto wall ≤5 minutes (see docs/testing.md).
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -371,6 +372,7 @@ jobs:
               - 'icon.png'
               - 'icon.svg'
               - 'tools/e2e_smoke.gd'
+              - 'tools/e2e_auto.gd'
               - 'tools/smoke/**'
 
       - name: Skip suite (no code/test changes)
@@ -396,3 +398,7 @@ jobs:
       - name: Run headless e2e smoke
         if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
         run: godot --headless --path . --script res://tools/e2e_smoke.gd
+
+      - name: Run headless e2e auto
+        if: github.event_name == 'workflow_dispatch' || steps.filter.outputs.code == 'true'
+        run: godot --headless --path . --script res://tools/e2e_auto.gd

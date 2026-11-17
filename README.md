@@ -51,10 +51,11 @@ pip install gd-tools-cli
 gd-tools doctor
 gd-tools test --coverage --min 80 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
+godot --headless --path . --script res://tools/e2e_auto.gd
 python tools/lint_docs_words.py
 ```
 
-- Tests under `tests/` extend `GdToolsTest`. PR tier 1: impacted suites + patch 80% (**≤5 min**); tier 2: full suite overall 80% every 8h; e2e **≤2 min** ([`docs/testing.md`](docs/testing.md)).
+- Tests under `tests/` extend `GdToolsTest`. PR tier 1: impacted suites + patch 80% (**≤5 min**); tier 2: full suite overall 80% every 8h; e2e smoke+auto **≤5 min** ([`docs/testing.md`](docs/testing.md)).
 - CI: tier-1 `tests` + e2e smoke on PRs; **docs ≤ 500 words** (`docs-lint`).
 - Docs-only PRs auto-merge (squash) when checks pass.
 

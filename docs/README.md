@@ -51,7 +51,7 @@ Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Li
 | Doc | Purpose |
 |-----|---------|
 | [pull-requests.md](pull-requests.md) | PR rules: `gh`, required checks, merge |
-| [testing.md](testing.md) | Test + e2e budgets (≤5 min / ≤2 min) |
+| [testing.md](testing.md) | Test + e2e budgets (≤5 min / ≤5 min) |
 | [android-build.md](android-build.md) | Android export presets, local build, signing |
 | [android-debug.md](android-debug.md) | Debug APK via PR into `android-debug` |
 | [agent-debug.md](agent-debug.md) | Localhost agent debug bridge: enable flag, ops, adb forward |
