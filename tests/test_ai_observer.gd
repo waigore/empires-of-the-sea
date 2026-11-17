@@ -808,6 +808,17 @@ func test_the_dashboard_chrome_answers_its_handles() -> void:
 		and dashboard.frame.custom_minimum_size.x <= 470.0,
 		"a phone width keeps the plate readable"
 	)
+	# The plate owns its column, not the screen: the chart beside it must stay
+	# clickable, or the observatory could never read a province it taps
+	# (DR-20261117-11).
+	assert_true(
+		dashboard.plate.size.x < 720.0,
+		"the plate leaves the chart its own width"
+	)
+	assert_true(
+		dashboard.plate.get_global_rect().end.x <= dashboard.frame.custom_minimum_size.x + 24.0,
+		"the plate stops at its own column"
+	)
 	var shown: bool = dashboard.frame.visible
 	dashboard._toggle_frame()
 	assert_ne(dashboard.frame.visible, shown, "HIDE and the tab trade places")
