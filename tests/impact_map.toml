@@ -1721,7 +1721,15 @@ suites = [
 ]
 
 [[rules]]
-match = "icon.svg"
+match = "icon.png"
+domain = "branding"
+
+[[rules]]
+match = "assets/art/branding/**"
+domain = "branding"
+
+[[rules]]
+match = "tools/art/app_icon.py"
 domain = "branding"
 
 [[rules]]
