@@ -8,18 +8,43 @@ extends RefCounted
 static func clamp_center(
 	center: Vector2, zoom: float, viewport: Vector2, map_size: Vector2
 ) -> Vector2:
+	return clamp_view(center, zoom, viewport, Rect2(Vector2.ZERO, map_size))
+
+
+## `clamp_center` for a chart larger than its tile grid: `frame` is the painted
+## world (the grid's sea margin included), so pulling the view back or centring
+## land in a screen band never shows past the artwork.
+static func clamp_view(
+	center: Vector2, zoom: float, viewport: Vector2, frame: Rect2
+) -> Vector2:
 	var safe_zoom: float = maxf(zoom, 0.001)
 	var half: Vector2 = viewport / (2.0 * safe_zoom)
 	var result: Vector2 = center
-	if map_size.x <= half.x * 2.0:
-		result.x = map_size.x * 0.5
+	if frame.size.x <= half.x * 2.0:
+		result.x = frame.get_center().x
 	else:
-		result.x = clampf(center.x, half.x, map_size.x - half.x)
-	if map_size.y <= half.y * 2.0:
-		result.y = map_size.y * 0.5
+		result.x = clampf(center.x, frame.position.x + half.x, frame.end.x - half.x)
+	if frame.size.y <= half.y * 2.0:
+		result.y = frame.get_center().y
 	else:
-		result.y = clampf(center.y, half.y, map_size.y - half.y)
+		result.y = clampf(center.y, frame.position.y + half.y, frame.end.y - half.y)
 	return result
+
+
+## Camera centre that puts `world_point` in the middle of the screen `band` — the
+## strip the page's chrome leaves free — then clamps to `frame`. A chart composed
+## this way spends the screen it does not own on water instead of on the top of
+## its land, which is what a phone banner would otherwise cover.
+static func compose_center(
+	world_point: Vector2,
+	zoom: float,
+	viewport: Vector2,
+	band: Rect2,
+	frame: Rect2
+) -> Vector2:
+	var safe_zoom: float = maxf(zoom, 0.001)
+	var wanted: Vector2 = world_point - (band.get_center() - viewport * 0.5) / safe_zoom
+	return clamp_view(wanted, safe_zoom, viewport, frame)
 
 
 ## Returns the camera centre that keeps the world point under `anchor_screen`

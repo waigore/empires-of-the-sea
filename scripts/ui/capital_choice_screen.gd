@@ -15,7 +15,6 @@ signal back_pressed
 const TILE_SIZE: float = PlaySession.TILE_SIZE
 const SEA_MARGIN: float = 1400.0
 const OLD_WORLD_INDEX: int = 0
-const BANNER_MARGIN: float = 12.0
 ## A finger (or cursor) that travels farther than this between press and release
 ## is a pan, not a tap.
 const TAP_SLOP: float = 12.0
@@ -42,6 +41,8 @@ var back_button: Button = null
 var confirm_button: Button = null
 ## The instruction plaque across the top of the chart.
 var banner: PanelContainer = null
+## The plaque, the action row and the strip of screen they leave the chart.
+var _chrome: CapitalChoiceChrome = CapitalChoiceChrome.new()
 
 @onready var sea_backdrop: ColorRect = $World/SeaBackdrop
 @onready var canvas: MapCanvas = $World/MapCanvas
@@ -131,55 +132,30 @@ func _build_tap_catcher() -> void:
 
 
 func _build_hud() -> void:
-	var short: bool = MenuFrame.is_short(self)
-	banner = PanelContainer.new()
-	banner.add_theme_stylebox_override(
-		"panel",
-		UiTheme.box(
-			Color(0.10, 0.08, 0.06, 0.96), Palette.GOLD_DIM, 1, 4, Vector4(14, 8, 14, 8)
-		)
-	)
-	banner.set_anchors_preset(Control.PRESET_TOP_WIDE)
-	banner.offset_left = BANNER_MARGIN
-	banner.offset_right = -BANNER_MARGIN
-	banner.offset_top = BANNER_MARGIN
-	banner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud_root.add_child(banner)
-
-	var column := VBoxContainer.new()
-	column.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_theme_constant_override("separation", 2)
-	banner.add_child(column)
-	column.add_child(MenuFrame.title("SEAT YOUR COURT", 20 if short else 26))
-	_hint = MenuFrame.subtitle("Tap one of your crown's provinces glowing gold.")
-	_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_hint.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(_hint)
-	_pick = Label.new()
-	_pick.add_theme_font_size_override("font_size", 14 if short else 16)
-	_pick.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_pick.add_theme_color_override("font_outline_color", Color(0.04, 0.04, 0.06, 0.8))
-	_pick.add_theme_constant_override("outline_size", 3)
-	_pick.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(_pick)
-
-	var bar := HBoxContainer.new()
-	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	bar.offset_left = BANNER_MARGIN
-	bar.offset_right = -BANNER_MARGIN
-	bar.offset_top = -62.0
-	bar.offset_bottom = -10.0
-	bar.alignment = BoxContainer.ALIGNMENT_END
-	bar.add_theme_constant_override("separation", 10)
-	hud_root.add_child(bar)
-	back_button = MenuFrame.small_button("BACK", 108.0)
+	_chrome.build(hud_root, MenuFrame.is_short(self))
+	banner = _chrome.banner
+	_hint = _chrome.hint
+	_pick = _chrome.pick
+	back_button = _chrome.back_button
 	back_button.pressed.connect(func() -> void: back_pressed.emit())
-	bar.add_child(back_button)
-	confirm_button = MenuFrame.action_button("SEAT THE COURT", 52.0)
-	confirm_button.custom_minimum_size = Vector2(196.0, 52.0)
-	confirm_button.add_theme_font_size_override("font_size", 16)
+	confirm_button = _chrome.confirm_button
 	confirm_button.pressed.connect(confirm)
-	bar.add_child(confirm_button)
+	# The chart is composed in the strip this chrome leaves free: its plaque's
+	# height is a design constant, so the frame is set on the opening frame and
+	# only the band moves when a longer hint wraps the text.
+	banner.resized.connect(_compose_chart.bind(false))
+	resized.connect(_compose_chart.bind(true))
+
+
+## Frames the chart in the strip the plaque and the action row leave free: the
+## crown's provinces sit in the middle of it with water around them, so the
+## banner covers open sea instead of the seaboards a touch player must tap.
+func _compose_chart(reframe: bool) -> void:
+	if model == null or banner == null:
+		return
+	_chrome.compose(
+		camera, model, marker.eligible, _seat_world_position(), TILE_SIZE, reframe
+	)
 
 
 func _say(text: String, bad: bool = false) -> void:
@@ -231,8 +207,8 @@ func bind_world(p_world: WorldMap) -> void:
 		)
 	if seat >= 0:
 		pick_province(seat)
-	camera.focus_on(_seat_world_position(), camera.min_zoom(), true)
 	_refresh()
+	_compose_chart(true)
 
 
 ## Sea, ink and camera sized to the Old World chart.
@@ -245,7 +221,7 @@ func _mount_chart() -> void:
 			"world_size", sea_backdrop.size
 		)
 	canvas.build(model, world)
-	camera.configure(map_size)
+	camera.configure(map_size, SEA_MARGIN)
 	camera.position = map_size * 0.5
 
 
