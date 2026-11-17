@@ -108,6 +108,12 @@ godot --headless --path . --script res://playtests/playtest_ai_spycraft.gd
 # a town, and asserts each linked estate's commodity reaches the stockpile.
 godot --headless --path . --script res://playtests/playtest_province_dev.gd
 
+# Civilian pick — opens the turn-100 advanced start as England and reads the
+# court's pick on every waiting crew's sheet against the rules, the chart ring
+# and the sheet's own presses; raises the picked estate from the estates ledger
+# and checks a crew with no order it can take says so.
+godot --headless --path . --script res://playtests/playtest_civilian_pick.gd
+
 # Allied defence — signs a formal alliance at court, lets a rival declare on the
 # ally, reads the call-to-arms banner, joins, and fights the battle the court did
 # not start; then two declarations in one turn (one call at a time, a refusal's

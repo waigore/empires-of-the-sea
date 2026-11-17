@@ -3212,6 +3212,71 @@ func test_the_work_order_list_names_what_the_road_lands() -> void:
 	panel.free()
 
 
+## The court's own pick rides on the crew's sheet in the crown's gold, in the
+## words the map layer reads — the panel invents no figure of its own, and a
+## crew the planner names nothing for carries no line (REQ-P5-06, REQ-P3-02;
+## DR-20261117-06).
+func test_the_dossier_names_the_work_the_court_would_give_it() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var builder: CivilianState = CivilianState.create(
+		1, PLAYER, "builder", CivilianFixture.TIMBER_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile()
+	)
+	assert_false(panel._pick.visible, "no pick, no line")
+	panel.refresh(
+		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile(),
+		null, {}, {},
+		{
+			"pick": {
+				"action": "build_improvement",
+				"tile": CivilianFixture.TIMBER_TILE,
+				"line": "the court would raise the lumber camp — L2 pays 2 timber / turn (+1)",
+				"short": "raise the lumber camp",
+			}
+		}
+	)
+	assert_true(panel._pick.visible, "the pick prints")
+	assert_eq(
+		panel._pick.text,
+		"The court would raise the lumber camp — L2 pays 2 timber / turn (+1)."
+	)
+	panel.free()
+
+
+## An idle crew with no order it can take says so: a status that says "choose an
+## order below" over a list where every row is refused sends the crown hunting
+## for a press that does not exist (REQ-P5-06).
+func test_the_sheet_says_when_no_order_can_be_taken() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var view: VisibilityModel = CivilianFixture.visibility(model)
+	var explorer: CivilianState = CivilianState.create(
+		1, PLAYER, "explorer", CivilianFixture.BARE_TILE
+	)
+	var panel := CivilianPanel.new()
+	add_child(panel)
+	panel.refresh(
+		model, explorer, LandWorks.new(), [explorer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_eq(panel._legal, 0, "charted plains offer an Explorer nothing")
+	assert_eq(panel._status.text, "Idle — no order can be taken here.")
+	# A crew that does have a press keeps the standing invitation.
+	var engineer: CivilianState = CivilianState.create(
+		1, PLAYER, "engineer", CivilianFixture.COAST_TILE
+	)
+	panel.refresh(
+		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile(),
+		view
+	)
+	assert_true(panel._legal > 0, "a harbour can be raised here")
+	assert_eq(panel._status.text, "Idle — choose an order below.")
+	panel.free()
+
+
 ## The value column of one dossier row, or "" when the caption is absent.
 func _panel_row(panel: CivilianPanel, caption: String) -> String:
 	var children: Array[Node] = panel._detail.get_children()

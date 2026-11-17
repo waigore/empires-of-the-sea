@@ -697,6 +697,45 @@ func test_the_opening_briefing_names_the_campaigns_own_year() -> void:
 	)
 
 
+## Issue #886: the opening parchment sits above the HUD, so a lift that never ran
+## (a fault before `intro`, a paused tree) left the whole campaign behind a blank
+## plate with only the pause menu's MENU seal above it — the solid parchment
+## screen reported as unplayable on Android. The plate has to lift itself.
+func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
+	var plate := _opening_plate(0.5)
+	plate.process_mode = Node.PROCESS_MODE_DISABLED
+	plate.lift(0.02)
+	await get_tree().create_timer(0.2).timeout
+	assert_false(plate.visible, "a plate whose node cannot process still lifts")
+	plate.queue_free()
+
+
+func test_an_opening_that_never_lifts_is_lifted_on_its_deadline() -> void:
+	var plate := _opening_plate(0.05)
+	# Nobody calls lift: this is the screen that faulted before `intro`. The
+	# deadline lifts on the plate's own fade, so wait out the deadline and the
+	# fade rather than a single frame.
+	await get_tree().create_timer(1.2).timeout
+	assert_false(plate.visible, "the deadline reveals the chart it was hiding")
+	plate.queue_free()
+
+
+func test_the_map_screen_opens_on_a_lifted_plate() -> void:
+	assert_true(_screen.fade is OpeningPlate, "the plate is the opening frame")
+	assert_false(_screen.fade.visible, "the opening frame does not outlive the mount")
+
+
+## One plate on the mounted screen, opaque as the opening leaves it, with its own
+## short deadline so a case never waits out a real opening.
+func _opening_plate(hold_max: float) -> OpeningPlate:
+	var plate := OpeningPlate.new()
+	plate.hold_max = hold_max
+	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	plate.modulate.a = 1.0
+	_screen.add_child(plate)
+	return plate
+
+
 ## First advance the crown lacks and could put in a slot right now.
 func _first_studyable_tech() -> String:
 	for id: String in TechCatalog.ids():
@@ -2262,6 +2301,35 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	Fixture.settle(_screen.play)
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
+
+
+## The chart carries the pick (DR-20261117-07): the survey lens is mounted with
+## the crown's own picks, and the ground an idle crew's planner names wears the
+## mark — the same reading its sheet prints, drawn where the crown plans work.
+func test_the_survey_lens_marks_the_ground_the_court_would_work() -> void:
+	var tile: Vector2i = _buildable_owned_resource_tile()
+	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
+	var builder: CivilianState = _screen.civilian_layer.units[1]
+	assert_eq(builder.type_id, "builder")
+	builder.tile = tile
+	_screen.stockpile["lumber"] = 40
+	_screen.stockpile["castIron"] = 40
+
+	MapPlayLens.mount_survey(_screen.play)
+	MapPlayInput.set_lens(_screen.play, true)
+
+	var lens: ResourceLens = _screen.play.lens
+	assert_true(lens.active, "the survey reading is up")
+	assert_true(lens.picks.has(builder.id), "the lens carries the court's pick")
+	var pick: Dictionary = lens.picks[builder.id]
+	var marked: Array[Vector2i] = []
+	for mark: Dictionary in lens.marks:
+		marked.append(Vector2i(mark["tile"]))
+	assert_true(
+		marked.has(Vector2i(pick["tile"])),
+		"the ground the court named is marked on the chart"
+	)
+	assert_false(builder.is_working(), "a reading, not an order")
 
 
 ## A wall is the one work whose completion changes how the province is fought
