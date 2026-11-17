@@ -1560,6 +1560,22 @@ func test_terrain_labels_cover_every_type() -> void:
 	_setup_map_model()
 	for terrain in MapModel.Terrain.values():
 		assert_true(MapModel.TERRAIN_LABELS.has(terrain))
+	# The published display names (wiki: resource-terrain-region-rules
+	# § Player-facing terrain display names; REQ-P2-01).
+	var published: Dictionary = {
+		MapModel.Terrain.PLAINS: "Plains",
+		MapModel.Terrain.HARDWOOD_FOREST: "Hardwood Forest",
+		MapModel.Terrain.SCRUB_FOREST: "Scrub Forest",
+		MapModel.Terrain.HILLS: "Hills",
+		MapModel.Terrain.MOUNTAINS: "Mountain",
+		MapModel.Terrain.SWAMP: "Swamp",
+		MapModel.Terrain.DESERT: "Desert",
+	}
+	for terrain: int in published.keys():
+		assert_eq(
+			String(MapModel.TERRAIN_LABELS[terrain]), String(published[terrain]),
+			"the terrain reads its published name"
+		)
 
 func test_palette_covers_every_terrain() -> void:
 	_setup_map_model()
