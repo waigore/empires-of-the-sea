@@ -2525,6 +2525,102 @@ func test_the_crowns_sheet_carries_the_pick_only_for_a_crew_that_waits() -> void
 	layer.free()
 
 
+## The pick's own words, order kind by order kind: the label the sheet prints and
+## the payoff the ledger that sells the work already names (DR-20261117-06). The
+## words are handed to the sheet verbatim, so this is where every branch is read.
+func test_the_pick_words_every_order_kind() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var works := LandWorks.new()
+	var road: Dictionary = _pick_of("build_road", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(road["short"]), "build a road")
+	assert_true(
+		String(road["line"]).contains("an estate here gathers up to"),
+		String(road["line"])
+	)
+	assert_eq(
+		String(_pick_of("build_port", CivilianFixture.COAST_TILE, model, works)["short"]),
+		"build a harbour"
+	)
+	var rail: Dictionary = _pick_of("build_rail", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(rail["short"]), "lay a railroad")
+	assert_true(String(rail["line"]).contains("Transport 4"), String(rail["line"]))
+	var fort: Dictionary = _pick_of("build_fort", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(fort["short"]), "raise the wood fort")
+	assert_true(String(fort["line"]).contains("wall hp"), String(fort["line"]))
+	var ward: Dictionary = _pick_of(
+		"build_hospital", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(ward["short"]), "raise the L1 ward")
+	assert_true(String(ward["line"]).contains("rests"), String(ward["line"]))
+	assert_eq(
+		String(_pick_of("upgrade_town", CivilianFixture.BARE_TILE, model, works)["short"]),
+		"raise the town to L2"
+	)
+	var survey: Dictionary = _pick_of("explore", CivilianFixture.BARE_TILE, model, works)
+	assert_eq(String(survey["short"]), "survey Cádiz")
+	assert_eq(String(survey["line"]), "the court would survey Cádiz", "no ledger pays it")
+	var deed: Dictionary = _pick_of(
+		"purchase_land", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_true(String(deed["short"]).begins_with("buy the deed at"))
+	var screen: Dictionary = _pick_of(
+		"counter_spy", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(screen["short"]), "keep the counter-espionage screen")
+	# An order kind with no line of its own falls back to the work's own label.
+	assert_eq(
+		String(_pick_of("sail", CivilianFixture.BARE_TILE, model, works)["short"]), "sail"
+	)
+	# Ground outside every province reads as the wilds, not a blank place.
+	assert_eq(
+		String(_pick_of("explore", Vector2i(4, 4), model, works)["short"]),
+		"survey the wilds"
+	)
+
+
+## The march the pass books when no work is legal: the step and the ground it
+## walks toward, so the crown sees where its crew is being sent.
+func test_the_pick_names_the_march_the_court_would_order() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var move: Dictionary = MapPlayCivilianPick._move_pick(
+		model, {"tile": CivilianFixture.BARE_TILE}
+	)
+	assert_eq(String(move["action"]), MapPlayCivilianPick.KIND_MOVE)
+	assert_eq(String(move["line"]), "the court would march toward Cádiz (0, 0)")
+	assert_true(MapPlayCivilianPick._move_pick(model, {}).is_empty(), "no step, no pick")
+
+
+## The reading keeps its edges quiet: no session, no roster, no ledger and a
+## court the planner may not answer for all read no pick (REQ-P2-03).
+func test_the_pick_is_quiet_where_there_is_nothing_to_read() -> void:
+	assert_true(MapPlayCivilianPick.picks(null, 0).is_empty(), "no session")
+	var bare := PlaySession.new()
+	assert_true(MapPlayCivilianPick.picks(bare, 0).is_empty(), "no civilian layer")
+	bare.civilian_layer = CivilianLayer.new()
+	assert_true(MapPlayCivilianPick.picks(bare, 0).is_empty(), "no ledger")
+	var idle: PlaySession = _rival_economy_play()
+	idle.ai_mode = AiControl.NOOP
+	assert_true(MapPlayCivilianPick.picks(idle, 1).is_empty(), "no planner for this court")
+	idle.civilian_layer.free()
+	# A region with no plan contributes no words.
+	var empty: Dictionary = {}
+	MapPlayCivilianPick._words({}, 0, {}, null, empty)
+	assert_true(empty.is_empty(), "an empty entry prints nothing")
+
+
+func _pick_of(
+	action: String, tile: Vector2i, model: MapModel, works: LandWorks
+) -> Dictionary:
+	var roster: Array[CivilianState] = [
+		CivilianState.create(1, 0, "engineer", tile)
+	]
+	return MapPlayCivilianPick._order_pick(
+		model, works, roster, 0, {}, CivilianFixture.stockpile(),
+		{"capital_tile": CivilianFixture.BARE_TILE}, null,
+		{"action": action, "tile": tile}
+	)
+
+
 # --- map phase wiring (MapPlayEconomyAi) ------------------------------------
 
 
