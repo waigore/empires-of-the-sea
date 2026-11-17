@@ -1721,6 +1721,10 @@ suites = [
 ]
 
 [[rules]]
+match = "icon.svg"
+domain = "branding"
+
+[[rules]]
 match = "icon.png"
 domain = "branding"
 
