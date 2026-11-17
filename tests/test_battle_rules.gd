@@ -2830,7 +2830,10 @@ func test_the_opposing_script_follows_the_published_order() -> void:
 ## A sally is a real sortie, not a label: the firearmless garrison leaves the
 ## wall (wiki: siege-mechanics § Gates and Sortie).
 func test_a_firearmless_garrison_sallies_when_no_one_commands_it() -> void:
-	var battle: Dictionary = _fight("balanced", _guards(8), _pikes(4), 1)
+	## The garrison must still stand when its turn comes: a line that has lost
+	## its last regiment spends no point, so a sally is read on a wall that
+	## holds men (wiki: quick-battle § Outcome and integration).
+	var battle: Dictionary = _fight("balanced", _guards(4), _pikes(10), 1)
 	assert_eq(String(battle["quick"]["defender_plan"]), "aggressive")
 	assert_true(int(battle["quick"]["sorties"]) > 0, "the garrison left the wall")
 
@@ -7570,7 +7573,7 @@ func test_land_the_opposing_script_follows_the_published_order() -> void:
 ## A sally is a real sortie, not a label: the firearmless garrison leaves the
 ## wall (wiki: siege-mechanics § Gates and Sortie).
 func test_land_a_firearmless_garrison_sallies_when_no_one_commands_it() -> void:
-	var battle: Dictionary = _quick_battle_rules_fight("balanced", land__guards(8), land__pikes(4), 1)
+	var battle: Dictionary = _quick_battle_rules_fight("balanced", land__guards(4), land__pikes(10), 1)
 	assert_eq(String(battle["quick"]["defender_plan"]), "aggressive")
 	assert_true(int(battle["quick"]["sorties"]) > 0, "the garrison left the wall")
 
@@ -8807,6 +8810,156 @@ func test_the_wings_line_names_a_broken_wing() -> void:
 	assert_true(text.contains("→ L 0 · C 1 · R 1"), text)
 	assert_true(text.contains("left broken"), text)
 	assert_false(text.contains("England"), "a side with no wings is not named")
+
+
+## The wings line lists several breaks as prose, not as a chain of "and": a line
+## that has lost all three wings reads "right, left and centre broken".
+func test_the_wings_line_lists_three_breaks_as_prose() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"quick": {
+			"wings_open": {"attacker": {"left": 1, "center": 2, "right": 1}},
+			"wings": {"attacker": {"left": 0, "center": 0, "right": 0}},
+			"wings_broken": {"attacker": ["left", "center", "right"]},
+		},
+	}
+	var text: String = QuickBattleCopy.wings_line(battle, ["España", "England"])
+
+	assert_true(text.contains("left, centre and right broken"), text)
+	assert_false(text.contains(" and centre and "), text)
+
+
+## A blow lands on a wing that still holds men: when the enemy line has lost its
+## last regiment the blow names no wing at all, because a name would point at
+## the fallen (wiki: quick-battle § Wings and collapse).
+func test_a_blow_into_an_empty_line_names_no_wing() -> void:
+	var attacker: Array[ArmyState] = _lane_side(_guards(6), 2)
+	var spent: Array[ArmyState] = _lane_side([] as Array[String], 1)
+	var armies: Array[ArmyState] = _lane_joined(attacker, spent)
+	var state: Dictionary = _lane_state(attacker, spent, 0)
+	state["defender"]["wings"] = QuickBattleWings.deploy(spent, 10)
+
+	var entry: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", [] as Array[Dictionary]
+	)
+
+	assert_eq(String(entry["wing"]), "", "a name would point at the fallen")
+	assert_eq(int(entry["defender_lost"]), 0)
+
+
+## A wing beside one that has broken is taken in flank, and the blow keeps the
+## scale so the despatch can say why the same fire cost more: one neighbour
+## turned, both encircled (wiki: quick-battle § Wings and collapse).
+func test_a_turned_flank_is_named_on_the_blow() -> void:
+	var turned: Dictionary = _wing_volley(["left"])
+	var encircled: Dictionary = _wing_volley(["left", "right"])
+
+	assert_eq(float(turned["flank"]), QuickBattleWings.TURNED_SCALE, "one neighbour")
+	assert_eq(float(encircled["flank"]), QuickBattleWings.ENCIRCLED_SCALE, "both")
+	assert_true(_line_text(turned).contains("its flank is turned"), _line_text(turned))
+	assert_true(
+		_line_text(encircled).contains("taken from three sides"), _line_text(encircled)
+	)
+	assert_false(
+		_line_text(_wing_volley([])).contains("flank"),
+		"an intact wing reads plainly"
+	)
+
+
+## A break is named on the line whose wing it was: the enemy's as "the …", the
+## actor's own as "its own …", and never merged into one clause (wiki:
+## quick-battle § Wings and collapse).
+func test_a_break_names_the_line_it_broke() -> void:
+	var action: Dictionary = {
+		"side": 2, "label": "Assault", "attacker_lost": 1, "defender_lost": 2,
+		"wing": "right", "wing_broken": ["right"], "own_broken": ["left"],
+	}
+
+	var text: String = _line_text(action)
+
+	assert_true(text.contains("into the right"), text)
+	assert_true(text.contains("the right breaks"), text)
+	assert_true(text.contains("its own left breaks"), text)
+	assert_false(text.contains("right and left"), "the two lines are not merged")
+
+
+## A sally is told where it costs: the sortie leaves the parapet, so the wall no
+## longer shelters the garrison that round (wiki: quick-battle § Turn structure
+## and actions — Sortie; siege-mechanics § Gates and Sortie).
+func test_a_sortie_says_the_wall_stands_open() -> void:
+	var action: Dictionary = {
+		"side": 1, "label": "Sortie", "sortie": true,
+		"attacker_lost": 2, "defender_lost": 1,
+	}
+
+	var text: String = _line_text(action)
+
+	assert_true(text.contains("the wall stands open"), text)
+	assert_false(
+		_line_text({"side": 1, "label": "Volley fire"}).contains("wall"),
+		"firing from the wall names no opening"
+	)
+
+
+## Two wings lost at once read as one plural clause: "the left and right break".
+func test_two_wings_breaking_read_as_a_plural() -> void:
+	var action: Dictionary = {
+		"side": 2, "label": "Assault", "attacker_lost": 1, "defender_lost": 2,
+		"wing": "right", "wing_broken": ["left", "right"],
+	}
+
+	var text: String = _line_text(action)
+
+	assert_true(text.contains("the left and right break"), text)
+
+
+## A line that has lost its last regiment spends no point and delivers no blow:
+## the fight ends on the blow that emptied it, mid-round as between rounds
+## (wiki: quick-battle § Outcome and integration).
+func test_a_spent_line_takes_no_more_actions() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(12), _levies(1))
+	var quick: Dictionary = battle["quick"]
+	var emptied: bool = false
+	for round: Dictionary in quick["rounds"] as Array:
+		if int(round["defender_count"]) == 0:
+			emptied = true
+		for action: Dictionary in round["actions"] as Array:
+			if int(action["side"]) != int(battle["defender"]):
+				continue
+			assert_false(
+				emptied,
+				"the emptied line still acted in round %s" % round["round"]
+			)
+	assert_true(emptied, "the fight emptied the defender's line")
+
+
+## A battle whose own assault empties one of its wings writes that break on the
+## actor's own line, never among the enemy's (wiki: quick-battle § Wings and
+## collapse).
+func test_the_record_keeps_the_actors_own_break_apart() -> void:
+	var battle: Dictionary = _fight(
+		"aggressive",
+		["guards", "guards", "guards", "guards", "knights", "squires"],
+		["pikemen", "pikemen", "musketeers", "lancers", "cossacks"]
+	)
+	var named: int = 0
+	for round: Dictionary in battle["quick"]["rounds"] as Array:
+		for action: Dictionary in round["actions"] as Array:
+			if (action.get("own_broken", []) as Array).is_empty():
+				continue
+			named += 1
+			assert_true(
+				_line_text(action).contains("its own"), _line_text(action)
+			)
+	assert_true(named > 0, "an assault that breaks its own wing names it apart")
+
+
+## The despatch of one blow, as the plate prints it.
+func _line_text(action: Dictionary) -> String:
+	return QuickBattleCopy.action_line(
+		action, {"attacker": 2, "defender": 1}, ["España", "England"]
+	)
 
 
 ## The garrison's emplaced guns are a blow like any other: they fire into one
