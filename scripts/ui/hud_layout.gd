@@ -65,6 +65,15 @@ func _bar(hud: GameHud, view: Vector2) -> void:
 		var target: Control = hud.chip_row if stack else hud.top_row
 		if chip.get_parent() != target:
 			chip.reparent(target, false)
+		# reparent appends; restore build order so chips sit before the gold door
+		# (a phone→wide resize must not leave END TURN mid-bar).
+		if (
+			not stack
+			and hud.end_turn_wrap != null
+			and chip.get_parent() == hud.top_row
+			and chip.get_index() > hud.end_turn_wrap.get_index()
+		):
+			hud.top_row.move_child(chip, hud.end_turn_wrap.get_index())
 	hud.chip_row.visible = stack
 	var height: float = GameHud.BAR_HEIGHT
 	if stack:

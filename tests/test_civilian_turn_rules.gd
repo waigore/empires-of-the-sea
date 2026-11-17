@@ -3807,6 +3807,56 @@ func test_roster_status_and_craft_tallies_agree_with_the_other_filters() -> void
 	assert_eq(CivilianRoster.status_label(CivilianRoster.STATUS_IDLE), "Idle")
 
 
+## Every craft the muster rail offers names its own work and the one study its
+## hire waits on, before the crown pays a thousand ducats for a name (wiki:
+## civilian-units § Civilian Types and Roles, § Training; DR-20261118-09). The
+## gate is the roster's own reading, so a row can never name a study the order
+## would not ask for (REQ-P2-03).
+func test_every_hire_names_its_work_and_its_study() -> void:
+	for type_id: String in CivilianCatalog.ORDER:
+		assert_false(
+			CivilianHire.does(type_id).is_empty(),
+			"a craft with no work line: " + type_id,
+		)
+		assert_false(
+			CivilianHire.line(type_id, {}).is_empty(),
+			"a hire with no line: " + type_id,
+		)
+	assert_eq(CivilianHire.does("no_such_craft"), "", "an unknown type names no work")
+	assert_eq(
+		CivilianHire.does("merchant"), "Buys land in a Minor's or Tribe's province"
+	)
+	# A starting craft waits on no study, so its row is the work alone.
+	assert_eq(CivilianHire.locked_tech("builder", {}), "")
+	assert_eq(
+		CivilianHire.line("builder", {}), "Raises estates and develops the town"
+	)
+	# A tech-gated craft names the roster's own study on the row.
+	assert_eq(
+		CivilianHire.locked_tech("merchant", {}),
+		CivilianCatalog.unlock_tech("merchant"),
+	)
+	assert_eq(
+		CivilianHire.line("merchant", {}),
+		"Buys land in a Minor's or Tribe's province · needs Merchant Companies",
+	)
+	assert_eq(
+		CivilianHire.line("merchant", {"merchant_companies": true}),
+		CivilianHire.does("merchant"),
+		"once the study lands the row carries no gate",
+	)
+	# Each craft waits on its own study, never on another's.
+	assert_eq(
+		CivilianHire.line("rail_builder", {}),
+		"Upgrades roads to railroads · needs Early Steam Engine",
+	)
+	assert_eq(
+		CivilianHire.locked_tech("rail_builder", {"merchant_companies": true}),
+		CivilianCatalog.unlock_tech("rail_builder"),
+		"a Merchant's study opens no railroad",
+	)
+
+
 func test_roster_empty_inputs_make_an_empty_roster() -> void:
 	var snapshot: Dictionary = CivilianRoster.snapshot(null, null, 0)
 	assert_eq(int(snapshot["total"]), 0)
