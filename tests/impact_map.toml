@@ -2092,6 +2092,13 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian_pick*.gd*"
 domain = "civilian_pick"
 
+# The pick's door (wiki: playtest-learnings § next targets): the press that
+# frames the ground a pick names and opens the sheet that can press it. It
+# reads the pick and the map's own province door, so it rides the pick's slice.
+[[rules]]
+match = "scripts/map/map_play_civilian_follow.gd*"
+domain = "civilian_pick"
+
 # Civilian sheet chrome — civilian suites cover orders/roster; prospect's
 # map/AI fan-out overruns tier-1 when a factory PR also touches other UI.
 [[rules]]
