@@ -239,15 +239,18 @@ static func _round(
 			broken_now.append_array(QuickBattleWings.fell(state, key))
 			if not broken_now.is_empty():
 				entry["wing_broken"] = broken_now
-		# The emplaced battery fires after the side's actions.
+		# The emplaced battery fires after the side's actions, into one wing of
+		# the besieging line like any other blow; a wing its fire empties breaks
+		# on that same blow (wiki: quick-battle § Wings and collapse).
 		if key == "defender" and QuickBattleBattery.alive(guns) > 0:
-			var hit: int = QuickBattleBattery.fire(armies, state, guns)
+			var shot: Dictionary = QuickBattleBattery.fire(armies, state, guns)
+			var hit: int = int(shot["lost"])
 			if hit > 0:
 				var hits: Array[Dictionary] = RegimentCondition.damage_side(
 					atk_side, float(hit) * RegimentCondition.HP_PER_SLOT,
 					int(state["attacker"]["limit"])
 				)
-				log["actions"].append({
+				var entry: Dictionary = {
 					"side": owner,
 					"action": "battery",
 					"label": "Emplaced battery",
@@ -260,9 +263,14 @@ static func _round(
 					"turned": 0,
 					"gates_broken": 0,
 					"sortie": false,
+					"wing": String(shot["wing"]),
 					"hits": hits,
 					"mauled": hits.size(),
-				})
+				}
+				var broken_now: Array[String] = QuickBattleWings.fell(state, "attacker")
+				if not broken_now.is_empty():
+					entry["wing_broken"] = broken_now
+				log["actions"].append(entry)
 	log["attacker_count"] = ArmyForce.side_regiments(atk_side)
 	log["defender_count"] = ArmyForce.side_regiments(def_side)
 	log["guns"] = QuickBattleBattery.alive(guns)

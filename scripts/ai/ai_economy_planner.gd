@@ -32,8 +32,16 @@ const BUILD_INPUTS: Array[String] = [
 ## is the crown's best town in any province: the presence test the second-stage
 ## rows' works gate reads, so the plan never offers a run the phase refuses
 ## (wiki: production-recipes § Town-works gates; DR-20261116-04).
+##
+## `held` is the raw the muster's and the hull's own material rows claim — the
+## stock the market must keep for the regiment and the yard (issue #484). The
+## plan never promises a run whose inputs would eat that raw, so a court
+## saving for a muster or a hull can still manufacture without costing the
+## launch its timber or cloth; the rows themselves stay the claims' to rank
+## (wiki: economy-planner § Reservations; issue #878).
 static func production_orders(
-	config: AiConfig, economy: PlayerEconomy, town_level: int = 0
+	config: AiConfig, economy: PlayerEconomy, town_level: int = 0,
+	held: Dictionary = {}
 ) -> Dictionary:
 	var candidates: Array[Dictionary] = []
 	var assignments: Array[Dictionary] = []
@@ -42,6 +50,9 @@ static func production_orders(
 	var target: int = config.parameter("economy.reserve_target")
 	var weight: int = maxi(config.parameter("economy.recipe_weight"), 1)
 	var stock: Dictionary = economy.stockpile.duplicate()
+	for commodity: Variant in held.keys():
+		var id: String = String(commodity)
+		stock[id] = maxi(int(stock.get(id, 0)) - maxi(int(held[commodity]), 0), 0)
 	var labour: int = economy.workers.labour()
 	# A batch already in the workshop counts toward the target: the court must
 	# not keep assigning alloy runs that are still serving their turns
@@ -189,7 +200,10 @@ static func recruitment_orders(
 	# next regiment buys no workers with that purse (issue #474). The court's own
 	# cash floor keeps its soft throttle, so peace-time growth still takes the
 	# one training a thin purse can pay. The published last-peasant throttle
-	# stands whenever no muster reservation is read (issue #807).
+	# stands whenever no muster reservation is read (issue #807). A slack the
+	# caller did read blocks below the tier's own ration — a court already
+	# striking for food trains no mouth it cannot feed (#489); the −1 sentinel
+	# keeps the no-reading behaviour.
 	var muster_floor: int = maxi(floor, 0)
 	var hand_floor: int = maxi(hands, 1)
 	var sim: PlayerEconomy = economy.copy()
@@ -199,7 +213,7 @@ static func recruitment_orders(
 		var tier: int = _best_tier(sim)
 		if tier < 0:
 			break
-		if fed_slack >= 0 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
+		if fed_slack != -1 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
 			break
 		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
 				and sim.workers.count(WorkerPool.Tier.PEASANT) <= hand_floor:

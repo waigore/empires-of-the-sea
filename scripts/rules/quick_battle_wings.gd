@@ -96,6 +96,18 @@ static func neighbours(wing: String) -> Array[String]:
 	return beside
 
 
+## The regiments standing on one wing: the ids a blow into it may break, and the
+## only ones it may. Empty for a line with no wings (behind a wall, or a record
+## made before wings existed).
+static func ids(wings: Dictionary, wing: String) -> Array[String]:
+	var held: Array[String] = []
+	if wing.is_empty() or wings.is_empty():
+		return held
+	for regiment_id: String in wings.get(wing, []) as Array:
+		held.append(regiment_id)
+	return held
+
+
 ## How much heavier a blow is for a turned flank: one broken neighbour 1.2, or
 ## both 1.35. An unturned wing fights at 1.0.
 static func turned_scale(wing: String, broken: Array) -> float:

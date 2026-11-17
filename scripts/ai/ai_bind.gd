@@ -23,13 +23,16 @@ static func config(kind: String, faction: int, game_seed: int) -> Variant:
 ## `town_level` is the court's best town: the second-stage rows' works gate. The
 ## origin/main planners have no town reading, so the baseline call stays as it
 ## was and its rivals keep the old behaviour (wiki: production-recipes
-## § Town-works gates; DR-20261116-04).
+## § Town-works gates; DR-20261116-04). `held` is the raw the muster's and the
+## hull's own rows claim — the submission surface plans manufacture around it
+## (issue #484, #878); the baseline has no reading.
 static func production_orders(
-	kind: String, config: Variant, economy: PlayerEconomy, town_level: int = 0
+	kind: String, config: Variant, economy: PlayerEconomy, town_level: int = 0,
+	held: Dictionary = {}
 ) -> Dictionary:
 	if _baseline(kind):
 		return _ml("ai_economy_planner.gd", "production_orders", [config, economy])
-	return AiEconomyPlanner.production_orders(config, economy, town_level)
+	return AiEconomyPlanner.production_orders(config, economy, town_level, held)
 
 
 static func recruitment_orders(
@@ -90,7 +93,8 @@ static func market_plan(
 	floor: int = 0,
 	food_shortfall: int = 0,
 	saving: bool = false,
-	speculate: bool = true
+	speculate: bool = true,
+	works_floor: int = -1
 ) -> Dictionary:
 	if _baseline(kind):
 		return _ml(
@@ -100,7 +104,7 @@ static func market_plan(
 		)
 	return AiMarketPlanner.plan(
 		config, economy, market, free_holds, tech_unlocked, reserved, need, floor,
-		food_shortfall, saving, speculate
+		food_shortfall, saving, speculate, works_floor
 	)
 
 

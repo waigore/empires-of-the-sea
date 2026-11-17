@@ -17,6 +17,11 @@ var _status: Label = null
 ## The court's own pick for a crew that waits: the work its planner would give
 ## it next, in the crown's gold (DR-20261117-06).
 var _pick: Label = null
+## The one press that follows a pick naming ground the sheet cannot press: the
+## estates ledger for an estate, the province dossier for a road (REQ-P5-06).
+var _follow: Button = null
+## The pick the sheet is printing, so the follow press files its own ground.
+var _pick_data: Dictionary = {}
 var _detail: GridContainer = null
 var _orders: VBoxContainer = null
 ## How many of the orders the sheet prints can be taken here: an idle crew with
@@ -81,8 +86,19 @@ func _build() -> void:
 	_pick.add_theme_font_size_override("font_size", 13)
 	_pick.add_theme_color_override("font_color", Palette.GOLD)
 	_pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_pick.visible = false
-	column.add_child(_pick)
+	# The line and its door share one row: the words take the width, the press
+	# keeps a thumb's height (REQ-P1-05, REQ-P1-07).
+	var pick_row := HBoxContainer.new()
+	pick_row.add_theme_constant_override("separation", 8)
+	pick_row.add_child(_pick)
+	column.add_child(pick_row)
+
+	_follow = UiRowBuilder.button("Follow", 38.0, 0.0, 13)
+	_follow.visible = false
+	_follow.pressed.connect(_on_follow)
+	pick_row.add_child(_follow)
 
 	column.add_child(_caption("WORK ORDERS"))
 
@@ -126,6 +142,28 @@ func set_dock_affordance(glyph: String, tip: String) -> void:
 	_dock.tooltip_text = tip
 
 
+## The follow press: the pick's own ground and door, filed as the sheet's action
+## so the map keeps one path for every civilian intent (REQ-P3-02).
+func _on_follow() -> void:
+	if _pick_data.is_empty():
+		return
+	action_pressed.emit(
+		MapPlayCivilianFollow.press(
+			int(_pick_data.get("region", -1)),
+			_pick_data.get("tile", CivilianState.NO_TILE),
+			String(_pick_data.get("action", ""))
+		)
+	)
+
+
+## What the door opens, in the sheet's own words: the estates ledger raises an
+## estate, the province dossier carries the road control (REQ-P5-06).
+func _follow_tip() -> String:
+	if String(_pick_data.get("door", "")) == MapPlayCivilianPick.DOOR_ESTATES:
+		return "Open the estates ledger at this ground"
+	return "Open the province at this ground"
+
+
 ## `viewer` is the court reading the sheet, which is not always the crew's owner.
 ## The fleet and army dossiers already split the two.
 func refresh(
@@ -155,8 +193,11 @@ func refresh(
 	# says so, rather than pointing the crown at a list of refusals.
 	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
 	_status.text = CivilianPanelStatus.text(model, unit, _viewer, _legal)
+	_pick_data = context.get("pick", {}) as Dictionary
 	_pick.text = CivilianPanelStatus.pick_line(context)
 	_pick.visible = not _pick.text.is_empty()
+	_follow.visible = not String(_pick_data.get("door", "")).is_empty()
+	_follow.tooltip_text = _follow_tip()
 	_cancel.visible = unit.is_working() and _viewer == unit.owner
 	# The stores line prices our own orders; a rival's sheet has none to price.
 	_stock_line.visible = _viewer == unit.owner

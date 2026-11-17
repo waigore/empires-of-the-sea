@@ -3330,6 +3330,74 @@ func test_the_simulator_scene_fights_and_steps() -> void:
 
 	screen.free()
 
+
+## The Sandbox paints the wings its record carries: each round the plate shows
+## what that round left standing, and the aftermath shows the wings the battle
+## left — not the deal it opened with (wiki: quick-battle § Wings and collapse).
+func test_the_simulator_plate_walks_the_wings_it_records() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["guards", 6], ["culverin", 0], ["knights", 2]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 6], ["musketeers", 0], ["knights", 2]])
+	screen._setup._fort.selected = 0
+	screen._setup._attacker_plan.selected = 1
+	screen._fight()
+	var quick: Dictionary = screen._result["report"]["quick"]
+	var broke: bool = false
+	for index in (quick["rounds"] as Array).size():
+		screen._show_round(index)
+		var round: Dictionary = quick["rounds"][index]
+		assert_eq(
+			str(screen._field.attacker_wings), str(round["wings"]["attacker"]),
+			"round %d paints the wings it left" % (index + 1)
+		)
+		assert_eq(str(screen._field.defender_wings), str(round["wings"]["defender"]))
+		assert_eq(
+			str(screen._field.defender_broken), str(round["wings_broken"]["defender"]),
+			"a wing that broke this round is struck through"
+		)
+		if not (round["wings_broken"]["defender"] as Array).is_empty():
+			broke = true
+	assert_true(broke, "the sandbox fight breaks a wing, or the plate is untested")
+	screen._show_aftermath()
+	assert_eq(
+		str(screen._field.attacker_wings), str(quick["wings"]["attacker"]),
+		"the aftermath shows the wings the battle left"
+	)
+	assert_eq(str(screen._field.defender_broken), str(quick["wings_broken"]["defender"]))
+	assert_true(
+		screen._log.text.contains("Wings — "), "the despatch says the collapse in words"
+	)
+	screen.free()
+
+
+## Fills the sandbox's setup rail: one [type, count] per slot.
+func _sim_slots(setup: BattleSimSetup, side: String, rows: Array) -> void:
+	var slots: Array = setup._attacker_slots if side == "attacker" else setup._defender_slots
+	for index in mini(rows.size(), slots.size()):
+		var row: Array = rows[index]
+		(slots[index]["picker"] as OptionButton).selected = maxi(
+			setup._types.find(String(row[0])), 0
+		)
+		(slots[index]["count"] as SpinBox).value = int(row[1])
+
+
+## A line that has lost every wing keeps its chips on the plate — struck
+## through, which is the collapse they exist to show — while a line with no
+## wings at all (a garrison behind a wall) draws none (wiki: quick-battle
+## § Wings and collapse).
+func test_a_line_that_lost_every_wing_still_shows_its_chips() -> void:
+	assert_true(
+		QuickBattleField.wings_shown({"left": 0, "center": 0, "right": 0}, ["left", "center", "right"]),
+		"a broken line is still read on the plate"
+	)
+	assert_true(QuickBattleField.wings_shown({"left": 0, "center": 3, "right": 0}, []))
+	assert_false(
+		QuickBattleField.wings_shown({"left": 0, "center": 0, "right": 0}, []),
+		"a garrison holds no wings, so it draws no chips"
+	)
+
 # --- naming, order of battle and settlement ---
 
 ## One boot for naming, order-of-battle readings and battle settlement (wiki: naming;
@@ -8562,6 +8630,11 @@ func test_the_line_is_dealt_into_three_wings() -> void:
 	assert_eq(int(held["left"]), 1, "the strongest horse takes the left")
 	assert_eq(int(held["right"]), 1, "the second horse the right")
 	assert_eq(QuickBattleWings.describe(held), "L 1 · C 3 · R 1")
+	assert_eq(
+		QuickBattleWings.ids(QuickBattleWings.deploy(side, 10), "left").size(), 1,
+		"a wing hands out the men who stand on it"
+	)
+	assert_eq(QuickBattleWings.ids({}, "left").size(), 0, "no wings, nobody to break")
 
 
 ## A crown that fields no horse leaves both flanks open: there is no wing there
@@ -8734,3 +8807,116 @@ func test_the_wings_line_names_a_broken_wing() -> void:
 	assert_true(text.contains("→ L 0 · C 1 · R 1"), text)
 	assert_true(text.contains("left broken"), text)
 	assert_false(text.contains("England"), "a side with no wings is not named")
+
+
+## The garrison's emplaced guns are a blow like any other: they fire into one
+## wing of the besieging line — the fullest — and the men on the other wings are
+## untouched (wiki: quick-battle § Wings and collapse).
+func test_the_battery_fires_into_one_wing() -> void:
+	var line: Array[ArmyState] = _lane_side(
+		["squires", "pikemen", "pikemen", "pikemen"], 0
+	)
+	var wings: Dictionary = QuickBattleWings.deploy(line, 10)
+	var flank: Array = wings["left"] as Array
+	assert_eq(flank.size(), 1, "the horseman holds the left alone")
+	var state: Dictionary = _battery_state(line, wings)
+
+	var shot: Dictionary = QuickBattleBattery.fire(
+		line, state, QuickBattleBattery.make(2, {}, 1)
+	)
+
+	assert_eq(String(shot["wing"]), "center", "the guns are laid on the mass")
+	assert_eq(int(shot["lost"]), 1)
+	assert_true(line[0].regiments.has(String(flank[0])), "the flank takes nothing")
+
+
+## A wing beside one the line has lost is taken in flank, and the garrison's
+## guns are no exception: the same fire into a turned wing costs the line more.
+func test_the_battery_takes_a_turned_flank() -> void:
+	assert_eq(
+		int(_battery_shot(["left"])["lost"]), 2, "the turned centre takes two"
+	)
+	assert_eq(
+		int(_battery_shot([])["lost"]), 1, "the same fire into an intact wing takes one"
+	)
+
+
+## One round of the battery into a 14-regiment centre, with the wings already
+## broken given. Two guns break `ceil(0.06 × 14 × turn)` men.
+func _battery_shot(broken: Array) -> Dictionary:
+	var line: Array[ArmyState] = _lane_side(_repeat("pikemen", 14), 0)
+	var wings: Dictionary = QuickBattleWings.deploy(line, 20)
+	var state: Dictionary = _battery_state(line, wings, broken)
+	return QuickBattleBattery.fire(line, state, QuickBattleBattery.make(2, {}, 1))
+
+
+## A battle state for one round of the garrison's guns, shaped the way
+## [QuickBattle] builds it.
+func _battery_state(
+	line: Array[ArmyState], wings: Dictionary, broken: Array = []
+) -> Dictionary:
+	return {
+		"attacker": {
+			"side": line, "owner": 0, "limit": 20, "cohesion": 3, "guard": 0.0,
+			"lost": [] as Array[String], "plan": "balanced", "exposed": false,
+			"wings": wings, "broken": broken,
+		},
+	}
+
+
+## A line with no wings at all (a hand-built state, a record made before wings
+## existed) is still bled as one deployed slice, and names no wing.
+func test_the_battery_bleeds_a_line_with_no_wings() -> void:
+	var line: Array[ArmyState] = _lane_side(_repeat("pikemen", 20), 0)
+	var state: Dictionary = _battery_state(line, {})
+
+	var shot: Dictionary = QuickBattleBattery.fire(
+		line, state, QuickBattleBattery.make(3, {}, 1)
+	)
+
+	assert_eq(String(shot["wing"]), "", "no wings, no wing named")
+	assert_eq(int(shot["lost"]), 2, "three guns on twenty men: ceil(0.09 × 20)")
+
+
+## The record the battery writes agrees with the line that stands: its rounds
+## count the same men the wings do, it names the wing it fires into, and a wing
+## its fire empties breaks on that blow, not on someone else's later action
+## (wiki: quick-battle § Wings and collapse, § Outcome and integration).
+func test_a_battery_blow_names_its_wing_and_the_break_it_makes() -> void:
+	var battle: Dictionary = _fight(
+		"balanced",
+		["squires", "pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+			"pikemen", "knights"],
+		["musketeers", "musketeers", "musketeers", "culverin", "culverin"],
+		2
+	)
+	var quick: Dictionary = battle["quick"]
+	assert_eq(int(quick["guns_start"]), 2, "a level-2 fort's battery stands")
+	var fired: int = 0
+	var broke_on_the_guns: bool = false
+	for round: Dictionary in quick["rounds"]:
+		var held: Dictionary = (round["wings"] as Dictionary)["attacker"]
+		var standing: int = 0
+		for wing: String in QuickBattleWings.WINGS:
+			standing += int(held[wing])
+		assert_eq(
+			standing, int(round["attacker_count"]),
+			"round %s's wings count the line that stands" % round["round"]
+		)
+		for action: Dictionary in round["actions"]:
+			if String(action["action"]) != "battery":
+				continue
+			fired += 1
+			assert_false(
+				String(action.get("wing", "")).is_empty(),
+				"the guns name the wing they fire into"
+			)
+			if not (action.get("wing_broken", []) as Array).is_empty():
+				broke_on_the_guns = true
+	assert_true(fired > 0, "the battery answers the siege")
+	assert_true(broke_on_the_guns, "a wing the guns empty is named broken on their blow")
+	var final: Dictionary = (quick["wings"] as Dictionary)["attacker"]
+	assert_eq(
+		int(final["left"]) + int(final["center"]) + int(final["right"]),
+		int(quick["attacker_left"]), "the record's wings agree with the line left"
+	)

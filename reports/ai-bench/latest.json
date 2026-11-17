@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:723e841d4cd78841236d7883b8fc94cf46b43bab55efceff7493f9c4d1e53e2d",
-  "submission_git": "refactor/civilian-hire-policy@04cb64a9",
+  "submission_hash": "sha256:68e4bfe31543f4d9a72c198a83d4a9b2bc93b43591aaf557be000a2a97defa67",
+  "submission_git": "fix/878-estate-reinvest@0e42bc1e",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 2124.5963908750427,
+      "value": 2068.0014548099653,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 21.0,
+      "value": 20.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 9.0,
+      "value": 4.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 75.15652958152958,
+      "value": 70.56699134199134,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:347b1fea760b18fff68453e326051bc326fff504670d550a5c34d94aea24819e",
+    "ai_surface_hash": "sha256:9ea7c9c041d6cd0d03608445914d612b11e5fa6f8bc5fcec88b8a05570cd8339",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
-      "provinces_old": 15,
+      "provinces_old": 14,
       "provinces_new": 6,
-      "regiments": 9,
+      "regiments": 4,
       "ships": 0,
-      "workers": 3,
-      "extraction_per_turn": 1.2921348314606742,
-      "income_per_turn": 217.0121212121212,
-      "funded_pct": 75.15652958152958
+      "workers": 10,
+      "extraction_per_turn": 43.829787234042556,
+      "income_per_turn": 190.34188034188034,
+      "funded_pct": 70.56699134199134
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 75.15652958152958
+    "funded_pct": 70.56699134199134
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-16T23:08:54Z",
+  "timestamp": "2026-11-17T06:53:56Z",
   "report_version": 1,
-  "signature": "hmac-sha256:9eebdea2b505b23a059f807c5492d53aed4aefc94e25a38577a038d235bca057"
+  "signature": "hmac-sha256:8550d7cff64ec847d019ccc683524d200d9ff58825575d71730241be15613faa"
 }

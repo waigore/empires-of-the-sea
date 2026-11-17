@@ -40,22 +40,24 @@ the documented setup default.
 
 ## Presentation
 
-`scripts/ui/capital_choice_screen.gd` + `scenes/capital_choice.tscn`:
+`scripts/ui/capital_choice_screen.gd` + `scripts/ui/capital_choice_chrome.gd` +
+`scenes/capital_choice.tscn`:
 
 - Tap a province, then a tile. Only the crown's sea-bound provinces glow gold;
-  the rest is shadowed, and a tap there is refused in the banner with a pointer
-  at the glow.
-- Taps are caught in screen space by a catcher under the chart's own chrome and
-  mapped with the camera's canvas transform, so a phone tap lands on the tile
-  the player sees even where the page's world rectangle would stop the event.
-- `CapitalSeatMarker` lights every eligible province, inks the chosen one and
-  pulses a ring on the seat tile.
-- Mouse, trackpad and touch all pan/zoom the chart; `BACK` (or Escape) returns
-  to setup; `SEAT THE COURT` confirms.
-- Touches and Android's emulated mouse click keep separate press slots, so a
-  tap is never dropped. One back press leaves the chart once, though the
-  platform delivers it twice.
-- Banner and action bar are anchored, compact on short (phone-landscape) screens.
+  a tap elsewhere is refused in the banner.
+- Taps are caught in screen space and mapped with the camera's canvas transform,
+  so a phone tap lands on the tile the player sees.
+- `CapitalSeatMarker` inks the chosen province and pulses a ring on the seat
+  tile.
+- Mouse, trackpad and touch pan/zoom; `BACK` (or Escape) returns to setup;
+  `SEAT THE COURT` confirms.
+- Touch and Android's emulated click keep separate press slots, so a tap is
+  never dropped; one back press leaves the chart once.
+- Banner and action bar are anchored and compact on phone-landscape screens.
+- The chart composes in the strip the plaque and action bar leave free: the
+  banner covers sea, never the seaboards a touch player must tap. A phone frames
+  the crown's provinces with water around them; wider screens keep the whole
+  chart.
 
 ## Persistence
 

@@ -185,6 +185,10 @@ func _show_round(index: int) -> void:
 		int(entry.get("guns", 0)), entry.get("attacker_health", []) as Array,
 		entry.get("defender_health", []) as Array, int(entry.get("gates", 0))
 	)
+	## The wings as this round left them: a wing that emptied is dimmed and one
+	## that broke is struck through, so a collapse is read at a glance (wiki:
+	## quick-battle § Wings and collapse).
+	_show_wings(entry)
 	_status_for_round(report, index)
 
 
@@ -201,10 +205,26 @@ func _show_aftermath() -> void:
 	_field.defender_health = report.get("defender_health", []) as Array
 	_field.round_index = 3
 	_field.set_outcome(int(report.get("outcome", 0)))
+	## The wings as the battle left them, not the deal it opened with: a line
+	## whose wings have all broken still shows them struck through (wiki:
+	## quick-battle § Wings and collapse).
+	_show_wings(quick)
 	_status.text = QuickBattleCopy.outcome_text(
 		int(report.get("outcome", 0)), report, "the sandbox", NAMES
 	)
 	_cursor = _rounds().size()
+
+
+## Paints one moment's wings — a round's record or the battle's final one — on
+## the plate. A record without wings (a siege garrison, an older plate) clears
+## them.
+func _show_wings(record: Dictionary) -> void:
+	var held: Dictionary = record.get("wings", {}) as Dictionary
+	var broken: Dictionary = record.get("wings_broken", {}) as Dictionary
+	_field.set_wings(
+		held.get("attacker", {}) as Dictionary, held.get("defender", {}) as Dictionary,
+		broken.get("attacker", []) as Array, broken.get("defender", []) as Array
+	)
 
 
 func _set_round_buttons(enabled: bool) -> void:
@@ -222,6 +242,7 @@ func _despatch(report: Dictionary) -> String:
 	var tail: PackedStringArray = PackedStringArray()
 	for text: String in [
 		QuickBattleCopy.terrain_line(report),
+		QuickBattleCopy.wings_line(report, NAMES),
 		QuickBattleCopy.siege_line(report),
 		QuickBattleCopy.loss_line(report, NAMES),
 		QuickBattleCopy.health_line(report, NAMES),

@@ -82,6 +82,39 @@ func test_the_dossier_standing_lines_are_plain_words() -> void:
 	)
 
 
+## The pick's door: an estate is raised from the estates ledger, a road from the
+## province dossier, and every order the crew's own sheet can press names none
+## (REQ-P5-06; wiki: playtest-learnings § next targets).
+func test_the_pick_names_the_door_that_can_press_it() -> void:
+	assert_eq(
+		MapPlayCivilianPick.door_for("build_improvement"),
+		MapPlayCivilianPick.DOOR_ESTATES,
+		"an estate is raised from the estates ledger"
+	)
+	assert_eq(
+		MapPlayCivilianPick.door_for("build_road"),
+		MapPlayCivilianPick.DOOR_PROVINCE,
+		"a road is pressed from the province dossier"
+	)
+	for action: String in [
+		"explore", "prospect", "build_port", "build_fort", "build_hospital",
+		"build_rail", "upgrade_town", "purchase_land", "counter_spy",
+		MapPlayCivilianPick.KIND_MOVE, "",
+	]:
+		assert_eq(
+			MapPlayCivilianPick.door_for(action), "",
+			"%s is pressed from the crew's own sheet" % action
+		)
+	var press: String = MapPlayCivilianFollow.press(
+		1, Vector2i(4, 7), "build_improvement"
+	)
+	assert_eq(press, "follow_pick:1:4,7:build_improvement", "the press names its ground")
+	assert_true(MapPlayCivilianFollow.is_follow(press), "the press is a follow")
+	assert_false(
+		MapPlayCivilianFollow.is_follow("build_improvement"), "an order is not a follow"
+	)
+
+
 func _detail_of(unit: CivilianState, model: MapModel, caption: String) -> String:
 	for row: Array in CivilianPanelDetail.rows(model, unit, LandWorks.new(), {}):
 		if String(row[0]) == caption:
