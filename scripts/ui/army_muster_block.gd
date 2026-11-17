@@ -15,7 +15,7 @@ signal action_pressed(action: String)
 var _batch: RaiseBatchPress = null
 ## The line above the press: what the whole line costs and the purse it leaves,
 ## read from the rows' own plan. One label, re-read on every fill, so a redraw
-## never stacks a second copy of the sum on the sheet (DR-20261118-10).
+## never stacks a second copy of the sum on the sheet (DR-20261118-11).
 var _sum_line: Label = null
 
 
@@ -94,7 +94,7 @@ func fill(rows: Array[Dictionary]) -> void:
 			entry.add_child(stats)
 	# What the whole line costs, before it is pressed: the walk's own sum and the
 	# purse it leaves, printed from the plan the press files, so a crown never
-	# learns the drill yard's price after it signs (REQ-P5-06; DR-20261118-10).
+	# learns the drill yard's price after it signs (REQ-P5-06; DR-20261118-11).
 	var plan: Dictionary = _batch_plan(rows)
 	_fill_sum(RaiseBatchSum.sheet_line(plan))
 	_batch.set_ready(ready, "regiments")
@@ -106,7 +106,7 @@ func fill(rows: Array[Dictionary]) -> void:
 ## The sum line stands on the sheet only while there is a sum to print: a caller
 ## that hands the block rows with no plan of their own (a suite's fixture) keeps
 ## the sheet's published shape, and a redraw re-reads the one label rather than
-## stacking a second copy of the price (DR-20261118-10).
+## stacking a second copy of the price (DR-20261118-11).
 func _fill_sum(text: String) -> void:
 	_sum_line.text = text
 	if text.is_empty():
@@ -119,7 +119,7 @@ func _fill_sum(text: String) -> void:
 
 ## The plan the yard's rows carry, or an empty one when a caller handed the block
 ## rows of its own with no ledger behind them (a suite's fixture): the sum line
-## then prints nothing and the press keeps its published face (DR-20261118-10).
+## then prints nothing and the press keeps its published face (DR-20261118-11).
 func _batch_plan(rows: Array[Dictionary]) -> Dictionary:
 	for row: Dictionary in rows:
 		if row.has("batch"):

@@ -103,7 +103,7 @@ func _fill() -> void:
 		_box.add_child(_build_row(row))
 	# What the whole line costs, before it is pressed: the walk's own sum and the
 	# purse it leaves, printed from the plan the press files, so a crown never
-	# learns the price of 19,500 ducats after it signs (REQ-P5-06; DR-20261118-10).
+	# learns the price of 19,500 ducats after it signs (REQ-P5-06; DR-20261118-11).
 	var plan: Dictionary = _batch_plan()
 	var sum_line: String = RaiseBatchSum.sheet_line(plan)
 	if not sum_line.is_empty():
@@ -187,7 +187,7 @@ func _hull_row(hull_id: String) -> Control:
 
 ## The plan the slip's rows carry, or an empty one when a caller handed the block
 ## rows of its own with no ledger behind them (a suite's fixture): the sum line
-## then prints nothing and the press keeps its published face (DR-20261118-10).
+## then prints nothing and the press keeps its published face (DR-20261118-11).
 func _batch_plan() -> Dictionary:
 	for row: Dictionary in _rows:
 		if row.has("batch"):

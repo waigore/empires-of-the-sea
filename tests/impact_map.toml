@@ -266,7 +266,7 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
-# What a raise yard's one press costs before it is pressed (DR-20261118-10): one
+# What a raise yard's one press costs before it is pressed (DR-20261118-11): one
 # pure walk both yards read and both sheets print. Its own small slice proves the
 # sum, the two yards that file it and the sheets that print it, instead of the
 # rules' misc catch-all or the whole muster/fleet/army fan-out.
@@ -793,7 +793,7 @@ domain = "muster"
 match = "scripts/ui/raise_batch_press.gd*"
 domain = "muster"
 
-# The sum a raise yard's one press costs, before it is pressed (DR-20261118-10):
+# The sum a raise yard's one press costs, before it is pressed (DR-20261118-11):
 # one pure walk the shipyard and the drill yard read and their sheets print.
 [[rules]]
 match = "scripts/rules/raise_batch_sum.gd*"

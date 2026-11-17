@@ -123,7 +123,7 @@ static func launch_all(play: PlaySession) -> void:
 
 
 ## The one line the yard's batch leaves on the court's lane: what it laid down,
-## what it paid and what the next hull waits on (REQ-P5-05; DR-20261118-10).
+## what it paid and what the next hull waits on (REQ-P5-05; DR-20261118-11).
 static func _batch_receipt(result: Dictionary) -> String:
 	var filed: int = int(result.get("filed", 0))
 	var total: int = int(result.get("total", 0))

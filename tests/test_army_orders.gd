@@ -430,7 +430,7 @@ func test_the_drill_yard_files_every_ready_standard_in_one_press() -> void:
 ## The drill yard names what its whole line costs before it is pressed: the walk's
 ## own sum and the purse it leaves, and the same sum on the confirm face and the
 ## receipt — a crown used to read the price of a whole line after it signed
-## (REQ-P5-06, REQ-P1-07; DR-20261118-10).
+## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
 func test_the_drill_yard_names_the_whole_line_before_it_is_pressed() -> void:
 	var home: ArmyState = _player_home()
 	_screen.army_layer.select(home)

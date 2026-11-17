@@ -3,7 +3,7 @@ extends RefCounted
 ## What a raise sheet's one press costs, in one hand: how many rows the walk
 ## would file, the purse and the materials they take, and the reason the next
 ## one waits (wiki: ships-and-naval § Ship muster, military-armies § Recruitment;
-## DR-20261118-10). The yards filed a whole line on a count alone, so a crown
+## DR-20261118-11). The yards filed a whole line on a count alone, so a crown
 ## learned the purse's answer after it signed — the opening slip spends 19,500
 ## of 20,000 ducats.
 ##

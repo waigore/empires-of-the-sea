@@ -40,7 +40,7 @@ static func rows(
 	var out: Array[Dictionary] = _rows(economy, at_home, flown)
 	# What the slip's one press would file, carried on the reading itself: the
 	# drawer prints the sum under its rows without holding an economy, and the
-	# sum is the same walk the press files (DR-20261118-10).
+	# sum is the same walk the press files (DR-20261118-11).
 	var plan: Dictionary = batch_plan(economy, at_home, flown)
 	for row: Dictionary in out:
 		row["batch"] = plan
@@ -94,7 +94,7 @@ static func _rows(
 ## The slip's one press, read before it is pressed: every ready hull in the yard's
 ## order, each priced against the ledger the orders before it leave, stopping at
 ## the first refusal — the walk `queue_all` files, with nothing written
-## (DR-20261118-10). Returns `RaiseBatchSum.plan`'s record: count, filed, ducats,
+## (DR-20261118-11). Returns `RaiseBatchSum.plan`'s record: count, filed, ducats,
 ## materials, workers, the purse and the reason the next hull waits.
 static func batch_plan(
 	economy: PlayerEconomy, at_home: bool = true, flown: Array = []

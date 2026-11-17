@@ -1489,7 +1489,7 @@ func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
 ## The slip names what its whole line costs before it is pressed: the walk's own
 ## sum and the purse it leaves under the press, and the same sum on the confirm
 ## face — the opening press used to spend 19,500 of 20,000 ducats unseen
-## (REQ-P5-06, REQ-P1-07; DR-20261118-10).
+## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
 func test_the_slip_names_the_whole_line_before_it_is_pressed() -> void:
 	var play: PlaySession = _screen.play
 	var capital: int = play.capital_province
@@ -1533,7 +1533,7 @@ func test_the_slip_names_the_whole_line_before_it_is_pressed() -> void:
 
 ## A line the purse cannot carry says so before the press: the walk stops where
 ## the rules stop and the sheet names how many of the ready hulls wait, and why
-## (REQ-P5-06; DR-20261118-10).
+## (REQ-P5-06; DR-20261118-11).
 func test_the_slip_names_the_hulls_a_short_purse_leaves_waiting() -> void:
 	var play: PlaySession = _screen.play
 	var capital: int = play.capital_province

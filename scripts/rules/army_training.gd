@@ -110,7 +110,7 @@ static func queue_all(
 ## The drill yard's one press, read before it is pressed: every ready standard in
 ## the yard's order, each priced against the ledger the orders before it leave,
 ## stopping at the first refusal — the walk `queue_all` files, with nothing
-## written (DR-20261118-10).
+## written (DR-20261118-11).
 static func batch_plan(economy: PlayerEconomy) -> Dictionary:
 	if economy == null:
 		return RaiseBatchSum.blank()
@@ -145,7 +145,7 @@ static func batch_types(economy: PlayerEconomy) -> Array[String]:
 ## One ledger row per catalog type, tech-gated and priced for the muster panel.
 ## Buildable rows come first so the drill yard leads with what can march today.
 ## Every row carries the one press's plan (`batch`), so the sheet prints the sum
-## it would file without holding an economy (DR-20261118-10).
+## it would file without holding an economy (DR-20261118-11).
 static func rows(economy: PlayerEconomy) -> Array[Dictionary]:
 	var out: Array[Dictionary] = _rows(economy)
 	var plan: Dictionary = batch_plan(economy)

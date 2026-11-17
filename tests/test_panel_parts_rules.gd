@@ -1483,7 +1483,7 @@ func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
 
 ## The drill yard's foot names what the whole line costs before it is pressed: the
 ## plan its rows carry, printed once under them and re-read on every redraw
-## (REQ-P5-06, REQ-P1-07; DR-20261118-10).
+## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
 func test_the_muster_block_prints_the_lines_sum_once() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
