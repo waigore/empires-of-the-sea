@@ -1268,6 +1268,7 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 			"ok": true,
 			"cost_text": "2,000 cash · 1 fabric",
 			"reason": "",
+			"line": "Light infantry · FPN 0 · FPM 3 · RNG 1 · DEF 3 · MVR 3 · 3 strength · 3 food",
 		},
 		{
 			"type_id": "grenadiers",
@@ -1275,6 +1276,7 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 			"ok": false,
 			"cost_text": "",
 			"reason": "Need Organised Regiments",
+			"line": "Heavy infantry · FPN 10 · FPM 8 · RNG 5 · DEF 5 · MVR 4 · 18 strength · 3 food",
 		},
 	]
 	var heard: Array[String] = []
@@ -1294,6 +1296,11 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 		(panel._muster_box.get_child(0).get_child(1) as Label).text,
 		"2,000 cash · 1 fabric"
 	)
+	# The regiment's own numbers print under the price, on the sheet (DR-20261118-01).
+	assert_eq(
+		(panel._muster_box.get_child(0).get_child(2) as Label).text,
+		String(muster[0]["line"])
+	)
 	ok_btn.pressed.emit()
 	assert_eq(heard, ["recruit:peasant_levies"])
 
@@ -1304,6 +1311,11 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 	assert_eq(
 		(panel._muster_box.get_child(1).get_child(1) as Label).text,
 		"Need Organised Regiments"
+	)
+	# A type the crown cannot raise yet keeps its line: the study is planned on it.
+	assert_eq(
+		(panel._muster_box.get_child(1).get_child(2) as Label).text,
+		String(muster[1]["line"])
 	)
 	panel.free()
 

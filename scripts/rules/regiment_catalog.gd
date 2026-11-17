@@ -117,15 +117,30 @@ static func category_name(type_id: String) -> String:
 ## Dossier line for one regiment: its stats and the food it eats (wiki:
 ## military-units § Regiment Table, military-generals § Regiment Economy).
 static func detail_line(type_id: String) -> String:
-	return "%s · FPN %d · FPM %d · RNG %d · DEF %d · MVR %d · %d food" % [
+	return _line(type_id, false)
+
+
+## The drill yard's line: the same reading a regiment already at the colours
+## prints, plus the strength its FPN + FPM make — the sum the battle's ratio and
+## the army's own strength line read (wiki: military-units § Tactical Stats,
+## combat § Strength). A yard that named only the price raised the levy blind.
+static func muster_line(type_id: String) -> String:
+	return _line(type_id, true)
+
+
+static func _line(type_id: String, with_strength: bool) -> String:
+	var parts: PackedStringArray = [
 		category_name(type_id),
-		stat(type_id, "fpn"),
-		stat(type_id, "fpm"),
-		stat(type_id, "rng"),
-		stat(type_id, "def"),
-		stat(type_id, "mvr"),
-		food_upkeep(type_id),
+		"FPN %d" % stat(type_id, "fpn"),
+		"FPM %d" % stat(type_id, "fpm"),
+		"RNG %d" % stat(type_id, "rng"),
+		"DEF %d" % stat(type_id, "def"),
+		"MVR %d" % stat(type_id, "mvr"),
 	]
+	if with_strength:
+		parts.append("%d strength" % strength(type_id))
+	parts.append("%d food" % food_upkeep(type_id))
+	return " · ".join(parts)
 
 
 ## "3 Guards · 2 Pikemen" — deterministic by display name, empty when nothing.
