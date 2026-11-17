@@ -952,6 +952,41 @@ func test_every_door_key_opens_its_own_sheet() -> void:
 	)
 
 
+## The registry owns the mounted sheets; the HUD only views them. A row names
+## its key and its layer, never a HUD field, so a renamed handle cannot leave a
+## door answering null (REQ-P3-01, REQ-P3-02).
+func test_the_registry_owns_the_sheets_and_the_hud_only_views_them() -> void:
+	assert_not_null(screen.hud.ledger_doors, "the HUD holds the registry")
+	for spec: Dictionary in HudLedgerDoors.SHEETS:
+		var key: String = String(spec["key"])
+		assert_eq(spec.keys().size(), 2, "a row names its key and its layer only: %s" % key)
+		var owned: SheetFrame = screen.hud.ledger_doors.sheet(key)
+		assert_not_null(owned, "the registry holds %s" % key)
+		assert_eq(
+			HudLedgerDoors.sheet_for(screen.hud, key), owned,
+			"the door answers the registry's own handle: %s" % key
+		)
+	var views: Dictionary = {
+		HudLedgerDoors.CIVILIANS: screen.hud.civilian_roster,
+		HudLedgerDoors.MUSTER: screen.hud.muster_roll,
+		HudLedgerDoors.ARMY: screen.hud.army_ledger,
+		HudLedgerDoors.TOWNS: screen.hud.towns_ledger,
+		HudLedgerDoors.WALLS: screen.hud.walls_ledger,
+		HudLedgerDoors.HOSPITALS: screen.hud.hospitals_ledger,
+		HudLedgerDoors.PROVINCES: screen.hud.province_ledger,
+		HudLedgerDoors.EYES: screen.hud.spy_ledger,
+		HudLedgerDoors.COLONIES: screen.hud.colonies_ledger,
+		HudLedgerDoors.COMMAND: screen.hud.command_ledger,
+		HudLedgerDoors.NAVY: screen.hud.navy_ledger,
+	}
+	for key: String in views:
+		assert_eq(
+			views[key], screen.hud.ledger_doors.sheet(key),
+			"the HUD's view is the registry's sheet: %s" % key
+		)
+	assert_null(screen.hud.ledger_doors.sheet("no-such-door"), "an unknown key holds nothing")
+
+
 func test_the_rows_own_tap_visits_its_force() -> void:
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)

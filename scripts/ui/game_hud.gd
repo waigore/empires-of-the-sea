@@ -97,35 +97,48 @@ var quick_battle_overlay: QuickBattleOverlay = null
 var naval_plate: NavalPlate = null
 ## The crown's news sheet and its archive (wiki: the-gazette); a soft plate.
 var gazette_plate: GazettePlate = null
-## Whole-empire civilian ledger, built by HudChrome over the map (REQ-P5-01).
-var civilian_roster: CivilianRosterPanel = null
-## Whole-empire force ledger: every army and squadron (DR-20261113-12).
-var muster_roll: ForceLedgerPanel = null
-## Whole-empire province ledger: every province the crown holds (DR-20261115-09).
-var province_ledger: ProvinceLedgerPanel = null
-## The crown's eyes: every spy, the courts they shadow, the screen (DR-20261115-10).
-var spy_ledger: SpyLedgerPanel = null
-## The world's colonies: who holds them, what a boycott shuts (DR-20261117-02).
-var colonies_ledger: ColonyLedgerPanel = null
-## The crown's commanders: the pool, its medals and the road to the next
-## (DR-20261115-11).
-var command_ledger: CommandLedgerPanel = null
-## The crown's towns: every town it holds and the step the Builder would take
-## next (DR-20261115-12).
-var towns_ledger: TownLedgerPanel = null
+## The whole-empire sheets are mounted and held by HudLedgerDoors; the HUD keeps
+## read-only views of them, so a bar, a dossier line or a suite still asks for a
+## sheet by name while the registry stays its one owner (REQ-P3-01, REQ-P3-02).
+var ledger_doors: HudLedgerDoors = HudLedgerDoors.new()
+## The crown's people, its muster roll, its army, the realm's provinces, its
+## eyes, its commanders, its towns, walls, hospitals and navy (DR-20261115-09…).
+var civilian_roster: CivilianRosterPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.CIVILIANS) as CivilianRosterPanel
+var muster_roll: ForceLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.MUSTER) as ForceLedgerPanel
+var army_ledger: ArmyLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.ARMY) as ArmyLedgerPanel
+var towns_ledger: TownLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.TOWNS) as TownLedgerPanel
+var walls_ledger: WallLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.WALLS) as WallLedgerPanel
+var hospitals_ledger: HospitalLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.HOSPITALS) as HospitalLedgerPanel
+var province_ledger: ProvinceLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.PROVINCES) as ProvinceLedgerPanel
+var spy_ledger: SpyLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.EYES) as SpyLedgerPanel
+var colonies_ledger: ColonyLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.COLONIES) as ColonyLedgerPanel
+var command_ledger: CommandLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.COMMAND) as CommandLedgerPanel
+var navy_ledger: NavalLedgerPanel:
+	get:
+		return ledger_doors.sheet(HudLedgerDoors.NAVY) as NavalLedgerPanel
 ## The college's whole tree, full screen: every advance on a pannable chart with
 ## its prerequisite edges and the aimed advance's road lit (DR-20261115-15).
 var tech_tree: TechTreePanel = null
-## The crown's navy: every hull it floats, squadron by squadron (DR-20261115-14).
-var navy_ledger: NavalLedgerPanel = null
-## The crown's army: every regiment it fields (DR-20261116-16).
-var army_ledger: ArmyLedgerPanel = null
-## The crown's walls: every province it holds that can carry a fort and the step
-## the Engineer would take next (DR-20261116-01).
-var walls_ledger: WallLedgerPanel = null
-## The crown's hospitals: every province it holds that can carry a ward and the
-## step the Engineer would take next (DR-20261116-02).
-var hospitals_ledger: HospitalLedgerPanel = null
 ## The court's full dossier, opened from its summary block (DR-20261110-25).
 var dossier_screen: CourtDossierScreen = null
 ## Turns stay shut once the rules decide the campaign (wiki: victory).
