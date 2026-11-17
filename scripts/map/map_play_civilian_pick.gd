@@ -18,20 +18,22 @@ const KIND_MOVE: String = MapPlayCivilianPickWords.KIND_MOVE
 
 ## The surface that can press a pick the crew's own sheet cannot: the estates
 ## ledger raises an estate anywhere on crown land, the province dossier carries
-## the road control for a tile ahead of the crew (wiki: civilian-build-planner
-## § Deferred seed; playtest-learnings § next targets).
+## the road control for a tile ahead of the crew and the rail block that lays a
+## railroad on a road the crew does not stand on (wiki: civilian-build-planner
+## § Deferred seed; playtest-learnings § next targets; DR-20261117-10).
 const DOOR_ESTATES: String = "estates"
 const DOOR_PROVINCE: String = "province"
 
 
 ## The door a work order's ground needs when the crew does not stand on it: an
-## estate is raised from the estates ledger, a road from the province dossier.
-## Every other order is pressed from the crew's own sheet at its own tile, and a
-## march is pressed on the chart, so neither names a door (REQ-P5-06).
+## estate is raised from the estates ledger, a road or a railroad from the
+## province dossier. Every other order is pressed from the crew's own sheet at
+## its own tile, and a march is pressed on the chart, so neither names a door
+## (REQ-P5-06).
 static func door_for(action: String) -> String:
 	if action == "build_improvement":
 		return DOOR_ESTATES
-	if action == "build_road":
+	if action == "build_road" or action == "build_rail":
 		return DOOR_PROVINCE
 	return ""
 

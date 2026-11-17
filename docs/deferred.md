@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-09 vs code through #898 (REQ-P2-02).
+Audited: DR-20261117-10 vs code through #898 (REQ-P2-02).
 
 ## Already live
 
@@ -35,11 +35,11 @@ Audited: DR-20261117-09 vs code through #898 (REQ-P2-02).
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
 | Estate/wall/ward/transport/crew previews | ledgers + `MapPlayCivilianPick`/`MapPlayCivilianFollow` + chart mark, DR-17-03/05/06/07/09 |
 | QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
+| Rail pick's door; dossier rail block | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
 
 ## Gaps (ranked)
 
-1. **Railroad Follow door** — a rail pick names ground no surface presses
-   (DR-17-09).
+None open: the pick family's last door (a railroad) closed in DR-17-10.
 
 ## Next pick
 

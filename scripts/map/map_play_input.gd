@@ -314,7 +314,10 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 		MapPlayTraining.train(play, action.trim_prefix("train_"))
 		return
 	if action.begins_with("road:"):
-		MapPlayImprovements.build_road(play, _road_tile(action))
+		MapPlayImprovements.build_road(play, _tile_of(action, "road:"))
+		return
+	if action.begins_with("rail:"):
+		MapPlayImprovements.build_rail(play, _tile_of(action, "rail:"))
 		return
 	match action:
 		"recruit":
@@ -329,10 +332,11 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 			play.hud.toast("Order noted in %s" % name)
 
 
-## "road:<x>,<y>": the estate the province dossier's Build road control names.
-## (-1,-1) when the intent is malformed, so the rules refuse it plainly.
-static func _road_tile(action: String) -> Vector2i:
-	var parts: PackedStringArray = action.trim_prefix("road:").split(",")
+## "<prefix><x>,<y>": the tile a dossier control names — the estate the Build
+## road control roads, the road tile the rail block rails. (-1,-1) when the
+## intent is malformed, so the rules refuse it plainly.
+static func _tile_of(action: String, prefix: String) -> Vector2i:
+	var parts: PackedStringArray = action.trim_prefix(prefix).split(",")
 	if parts.size() != 2:
 		return Vector2i(-1, -1)
 	return Vector2i(int(parts[0]), int(parts[1]))

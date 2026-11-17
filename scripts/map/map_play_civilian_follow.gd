@@ -2,11 +2,11 @@ class_name MapPlayCivilianFollow
 extends RefCounted
 ## The one press that follows the court's pick: the sheet's gold line can name
 ## ground the crew's own orders cannot press (an estate away from the crew, a
-## road ahead of it), so the line carries a door to the surface that can
-## (wiki: civilian-build-planner § Deferred seed; playtest-learnings § next
-## targets; DR-20261117-06). Presentation only: the door frames the ground and
-## opens the sheet; it orders nothing, reserves nothing and spends nothing
-## (REQ-P2-03, REQ-P5-06).
+## road or a railroad ahead of it), so the line carries a door to the surface
+## that can (wiki: civilian-build-planner § Deferred seed; playtest-learnings
+## § next targets; DR-20261117-06, DR-20261117-10). Presentation only: the door
+## frames the ground and opens the sheet; it orders nothing, reserves nothing and
+## spends nothing (REQ-P2-03, REQ-P5-06).
 ##
 ## The press travels as the panel's own action string — `follow_pick:<region>:
 ## <x>,<y>:<action>` — so the sheet needs no second signal and the map keeps one
@@ -52,7 +52,8 @@ static func follow(play: PlaySession, press_text: String) -> bool:
 	if not MapPlayProvinces.focus(play, region, province):
 		return false
 	# An estate is raised from the estates ledger, read for the province the
-	# pick names; a road is pressed from the province dossier already open.
+	# pick names; a road or a railroad is pressed from the province dossier
+	# already open, whose rail block names the tile the pick names.
 	if action == "build_improvement" and play.improvements != null:
 		play.improvements.open(province)
 	return true

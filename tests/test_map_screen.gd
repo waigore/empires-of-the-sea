@@ -2332,6 +2332,35 @@ func test_the_pick_door_opens_the_surface_that_can_press_it() -> void:
 	assert_eq(_screen.selected_province, before, "a malformed press moves nothing")
 
 
+## The rail block's press travels the province dossier's router like the Build
+## road control's: the order is dispatched on the tile the block names, and a
+## ground the rules refuse answers on the despatch lane rather than doing
+## nothing (REQ-P5-05; DR-20261117-10).
+func test_a_rail_press_is_answered_on_the_despatch_lane() -> void:
+	var tile: Vector2i = _owned_plains_tile(_screen.capital_province)
+	assert_true(tile.x >= 0, "the capital's province has a crown plain")
+	MapPlayInput.select_province(_screen.play, _screen.capital_province, _capital_point())
+	# Bare ground carries no road to upgrade, so the rules refuse the press.
+	_screen.land_works.set_transport(_screen.model, tile, 0)
+	MapPlayInput.on_panel_action(_screen.play, "rail:%d,%d" % [tile.x, tile.y])
+	assert_true(
+		_toast_text().contains("railroad"),
+		"the refusal is spoken: %s" % _toast_text()
+	)
+
+
+## Prefer a crown plain of one province: railroad terrain techs differ per
+## ground, and flat land is the one Early Steam Engine covers.
+func _owned_plains_tile(province_id: int) -> Vector2i:
+	for tile: Vector2i in _screen.model.province_tiles(province_id):
+		if _screen.model.terrain_at(tile.x, tile.y) != MapModel.Terrain.PLAINS:
+			continue
+		if _screen.model.owner_at(tile.x, tile.y) != MapScreen.PLAYER_FACTION:
+			continue
+		return tile
+	return Vector2i(-1, -1)
+
+
 func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	var tile: Vector2i = _buildable_owned_resource_tile()
 	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
