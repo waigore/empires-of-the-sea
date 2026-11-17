@@ -3450,6 +3450,105 @@ func test_the_simulator_plate_walks_the_wings_it_records() -> void:
 	screen.free()
 
 
+## The sandbox fights the army the rail shows: an emptied side is refused by
+## name, never replaced by a default army the playtester never set (REQ-P2-03).
+func test_the_sandbox_fights_the_army_the_rail_shows() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 0], ["culverin", 0], ["knights", 0]])
+	assert_true(
+		(screen._setup.spec()["attacker"] as Array).is_empty(),
+		"an emptied rail fields no men"
+	)
+	screen._fight()
+	assert_true(screen._result.is_empty(), "a refused Fight resolves no battle")
+	assert_true(
+		screen._status.text.begins_with("The Attack fields no men"),
+		"the refusal names the empty side: %s" % screen._status.text
+	)
+	assert_true(screen._log.text.is_empty(), "a refused Fight writes no despatch")
+	screen._step()
+	assert_true(screen._result.is_empty(), "Next round cannot resolve a refused setup")
+	_sim_slots(screen._setup, "attacker", [["musketeers", 4], ["culverin", 0], ["knights", 0]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 0], ["musketeers", 0], ["culverin", 0]])
+	screen._fight()
+	assert_true(
+		screen._status.text.begins_with("The Garrison fields no men"),
+		"the garrison's emptiness is named too"
+	)
+	screen.free()
+
+
+## The step walk ends where the battle ends: Next round reaches every round the
+## record holds, then the aftermath, and only then starts the plate over. A
+## round the battle never fought has no door.
+func test_the_sandbox_walks_into_its_aftermath() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 6], ["culverin", 1], ["knights", 0]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 4], ["musketeers", 2], ["culverin", 0]])
+	screen._setup._fort.selected = 2
+	screen._fight()
+	var rounds: Array = screen._rounds()
+	assert_true(rounds.size() > 0, "Fight resolves a round")
+	for index in rounds.size():
+		screen._step()
+		assert_eq(screen._field.round_index, index, "step %d shows round %d" % [index, index + 1])
+	screen._step()
+	assert_eq(
+		screen._field.round_index, rounds.size() - 1,
+		"the step after the last round is the aftermath"
+	)
+	assert_false(screen._status.text.begins_with("Round "), "the aftermath is not a round")
+	screen._step()
+	assert_eq(screen._field.round_index, 0, "stepping past the aftermath starts the plate over")
+	for index in QuickBattle.MAX_ROUNDS:
+		var door: Button = screen._round_buttons.get_child(index) as Button
+		assert_eq(
+			door.disabled, index >= rounds.size(),
+			"round %d's door follows the rounds fought" % (index + 1)
+		)
+	screen.free()
+
+
+## The sandbox prints the sheet the game's plate prints: the line and the men
+## who waited behind it, and the honours and citations the colours won — a
+## sandbox that reads fewer lines than the game hides its subject (REQ-P5-05).
+func test_the_sandbox_prints_the_games_aftermath() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 20], ["culverin", 20], ["knights", 20]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 4], ["musketeers", 3], ["culverin", 1]])
+	screen._setup._attacker_plan.selected = 1
+	screen._setup._terrain.selected = 1
+	screen._fight()
+	var report: Dictionary = screen._result["report"]
+	var deployed: int = int(report.get("attacker_deployed", 0))
+	var reserve: int = int(report.get("attacker_reserve", 0))
+	assert_true(reserve > 0, "the rail seats an army larger than the line")
+	assert_true(
+		screen._log.text.contains("Line — The Attack: %d of %d in the line" % [deployed, deployed + reserve]),
+		"the despatch names the men who waited behind the line"
+	)
+	assert_true(screen._log.text.contains("Ground — "), "broken ground is named")
+	if int(report.get("attacker_honours", 0)) > 0:
+		assert_true(screen._log.text.contains("Honours — "), "the colours' honours are printed")
+	if int(report.get("attacker_citations", 0)) > 0:
+		assert_true(screen._log.text.contains("Citations — "), "the colours' citations are printed")
+	for round: Dictionary in screen._rounds():
+		for action: Dictionary in round.get("actions", []) as Array:
+			assert_true(
+				screen._log.text.contains(
+					QuickBattleCopy.action_line(action, report, BattleSimScreen.NAMES)
+				),
+				"every resolved action reaches the despatch"
+			)
+	screen.free()
+
+
 ## Fills the sandbox's setup rail: one [type, count] per slot.
 func _sim_slots(setup: BattleSimSetup, side: String, rows: Array) -> void:
 	var slots: Array = setup._attacker_slots if side == "attacker" else setup._defender_slots
