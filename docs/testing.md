@@ -87,6 +87,13 @@ godot --headless --path . --script res://playtests/playtest_new_world.gd
 # printing every despatch line the plate shows.
 godot --headless --path . --script res://playtests/playtest_quick_battle.gd
 
+# Battle Simulator — mounts the sandbox scene, presses its own rail (ground,
+# fort, men, plans, Fight, Next round, Reset) and reads the header, the
+# despatch and the plate against the record the live resolver returned; it
+# fails loudly when the rail's army, the step walk or the aftermath sheet stops
+# matching the game's plate.
+godot --headless --path . --script res://playtests/playtest_battle_sim.gd
+
 # Battle Simulator — a visual sandbox over the live Quick Battle resolver:
 # ground, fort, gates, regiments and a step-by-step plate (battle-sim.md).
 tools/run.sh scenes/battle_sim.tscn

@@ -50,3 +50,13 @@ func fill(rows: Array[Dictionary]) -> void:
 			detail.text += "  ·  %d under orders" % pending
 		detail.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		entry.add_child(detail)
+		# The regiment's own numbers under the price, on every row — a type the
+		# crown cannot raise yet included, because the study that opens it is
+		# planned against those numbers (wiki: military-units § Tactical Stats;
+		# DR-20261118-01). On the sheet, never in a hover (REQ-P1-07).
+		var line: String = String(row.get("line", ""))
+		if not line.is_empty():
+			var stats := UiRowBuilder.line(10, Palette.TEXT_DIM)
+			stats.text = line
+			stats.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			entry.add_child(stats)
