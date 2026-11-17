@@ -26,12 +26,6 @@ func before_each() -> void:
 	_tribe_before_each()
 
 
-## The tribe-contact cases build their own pure state; their one live case
-## mounts a screen of its own, so it is freed here rather than in `after_all`.
-func after_each() -> void:
-	_tribe_after_each()
-
-
 func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
@@ -629,7 +623,6 @@ var _rival: int = 0
 var _tribe: int = 0
 var _other_tribe: int = 0
 var _state: DiplomacyState = null
-var _tribe_screen: MapScreen = null
 
 
 func _tribe_before_each() -> void:
@@ -638,12 +631,6 @@ func _tribe_before_each() -> void:
 	_other_tribe = FactionCatalog.tribe_ids()[1]
 	_state = DiplomacyState.new()
 	_state.initialize(TURN)
-
-
-func _tribe_after_each() -> void:
-	if is_instance_valid(_tribe_screen):
-		_tribe_screen.free()
-	_tribe_screen = null
 
 
 ## One New World region, one province per entry. Its baseline is unknown, so a
@@ -862,24 +849,24 @@ func test_an_observer_contacts_every_crown() -> void:
 
 
 ## Closing a turn lets a rival that charted a tribe province open contact, and a
-## rival that has not stays a stranger (wiki: end-of-turn pass).
+## rival that has not stays a stranger (wiki: end-of-turn pass). Rides the suite
+## mount — a second chart used to pay ~2 s under coverage for the same reading.
 func test_a_turn_close_opens_contact_from_the_rivals_own_chart() -> void:
-	_tribe_screen = Fixture.attach_screen(self)
-	assert_not_null(_tribe_screen.play.court_charts, "the screen charts its world")
+	assert_not_null(_screen.play.court_charts, "the screen charts its world")
 	# The crown's region 1 is the New World; the load charts every rival too.
-	_tribe_screen._cycle_region()
-	var province: ProvinceState = _tribe_contact_province(_tribe_screen.play.world)
+	_screen._cycle_region()
+	var province: ProvinceState = _tribe_contact_province(_screen.play.world)
 	assert_not_null(province, "the New World holds a Tribe province")
 	var rival: int = FactionCatalog.great_power_ids()[1]
-	assert_false(_tribe_screen.play.diplomacy.has_relation(rival, province.owner))
-	var charts: CourtCharts = _tribe_screen.play.court_charts
+	assert_false(_screen.play.diplomacy.has_relation(rival, province.owner))
+	var charts: CourtCharts = _screen.play.court_charts
 	charts.reveal_province(rival, NEW_WORLD, province.id)
-	_close_turn(_tribe_screen.play)
+	_close_turn(_screen.play)
 	assert_true(
-		_tribe_screen.play.diplomacy.has_relation(rival, province.owner),
+		_screen.play.diplomacy.has_relation(rival, province.owner),
 		"the rival charted the province before the turn closed"
 	)
-	assert_eq(_tribe_screen.play.diplomacy.relation(rival, province.owner).score, 50.0)
+	assert_eq(_screen.play.diplomacy.relation(rival, province.owner).score, 50.0)
 
 
 func _tribe_contact_province(world: WorldMap) -> ProvinceState:
