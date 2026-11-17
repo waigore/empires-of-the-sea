@@ -35,16 +35,16 @@ Audited: DR-20261117-08; #846–#883 live (REQ-P2-02).
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-20261117-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-20261117-04 |
-| Estate/wall/ward/transport/crew previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`; chart mark `CivicGlyphs`/`ResourceLens`, DR-17-03/05/06/07 |
+| Estate/wall/ward previews | `EstateRows`/`WallLedger`/`HospitalLedger`; `CivilianWorkPlan`; `MapPlayCivilianPick`/`MapPlayCivilianFollow`; chart mark `CivicGlyphs`/`ResourceLens`, DR-17-03/05/06/07/09 |
 | QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
 
 ## Gaps (ranked)
 
-None left in the audited domains (DR-20261117-08).
+- Railroad pick's door — no surface presses it (DR-17-09).
 
 ## Next pick
 
-P5/P1 polish; re-audit the wiki first.
+P5/P1 polish; re-audit wiki.
 
 ## Blocked
 
@@ -65,7 +65,7 @@ P5/P1 polish; re-audit the wiki first.
 
 ## Wiki drift
 
-- `civilian-build-planner` / `civilian-units`: raise + pick + chart mark live
+- `civilian-build-planner` / `civilian-units`: raise + pick + mark live
   (DR-17-03/05/06/07); Road L2/gathering live (`TechUnlocks`).
 - `quick-battle` / DR-10-24: province-to-lane terrain live
   (`SiegeLanes.lane_terrain`); wings and collapse live (`QuickBattleWings`, DR-17-08).
