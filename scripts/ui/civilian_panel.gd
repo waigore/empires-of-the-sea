@@ -157,7 +157,7 @@ func _on_follow() -> void:
 
 
 ## What the door opens, in the sheet's own words: the estates ledger raises an
-## estate, the province dossier carries the road and rail controls (REQ-P5-06).
+## estate, the province dossier carries the road control (REQ-P5-06).
 func _follow_tip() -> String:
 	if String(_pick_data.get("door", "")) == MapPlayCivilianPick.DOOR_ESTATES:
 		return "Open the estates ledger at this ground"
