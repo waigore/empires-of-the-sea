@@ -1708,20 +1708,33 @@ domain = "intro"
 match = "scenes/intro.tscn*"
 domain = "intro"
 
-[[rules]]
-match = "project.godot"
-full = true
-
 # The app's face: the project icon and the Android launcher layers. An asset
 # cannot reach gameplay, so the mark runs its own wiring suite instead of the
-# whole tree (docs/testing.md tier-1 budget).
+# whole tree (docs/testing.md tier-1 budget). project.godot's icon line is
+# checked here; autoload/scene edits keep their own rules (often full).
 [domains.branding]
 suites = [
   "test_branding_rules.gd",
 ]
 
 [[rules]]
+match = "project.godot"
+domain = "branding"
+
+[[rules]]
 match = "icon.svg"
+domain = "branding"
+
+[[rules]]
+match = "icon.png"
+domain = "branding"
+
+[[rules]]
+match = "assets/art/branding/**"
+domain = "branding"
+
+[[rules]]
+match = "tools/art/app_icon.py"
 domain = "branding"
 
 [[rules]]
@@ -2001,6 +2014,13 @@ domain = "crown_road"
 [[rules]]
 match = "playtests/playtest_invariants.gd*"
 domain = "fleet"
+
+# The ground a province shows: the sheet's Terrain row is read against the
+# ground Combat uses, so the two suites that mount the dossier and the chart
+# carry it.
+[[rules]]
+match = "playtests/playtest_terrain_ground.gd*"
+domain = "map_mount"
 
 [[rules]]
 match = "playtests/**"

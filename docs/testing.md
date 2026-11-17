@@ -235,6 +235,12 @@ godot --headless --path . --script res://playtests/playtest_observer_siege.gd
 # the plate scrolls) on the engine's own and on a 720x360 handset viewport.
 godot --headless --path . --script res://playtests/playtest_observer_feed.gd
 
+# The ground a province shows — opens every province on the real chart, reads
+# the dossier's Terrain row against the ground the Combat phase fights on
+# (`ArmyModifiers.terrain_for`), and pins every terrain to the published display
+# name; the charts whose tiles tie are generated and read too.
+godot --headless --path . --script res://playtests/playtest_terrain_ground.gd
+
 # Colony chain — opens the turn-100 advanced start (the New World charted, so a
 # Tribe is in contact) and walks the four overture stages on the court sheet's own
 # buttons, reading the sheet, the despatch and the chronicle at each step; then

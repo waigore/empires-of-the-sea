@@ -65,18 +65,14 @@ func refresh_crown(crown: Dictionary) -> void:
 	town.tooltip_text = DossierCopy.town_tip(_data)
 
 
+## The ground this province is fought on, in the published display name. The
+## reading is [ArmyModifiers.terrain_for]'s own — the same call the Combat phase
+## makes — so the sheet cannot name ground the battle would not use on a tie
+## (wiki: resource-terrain-region-rules § Player-facing terrain display names;
+## combat § Modifiers; REQ-P2-03).
 func _dominant_terrain(model: MapModel, province_id: int) -> String:
-	var counts: Dictionary = {}
-	for tile: Vector2i in model.province_tiles(province_id):
-		var terrain_id: int = model.terrain_at(tile.x, tile.y)
-		counts[terrain_id] = int(counts.get(terrain_id, 0)) + 1
-	var best: int = MapModel.Terrain.PLAINS
-	var best_count: int = -1
-	for terrain_id: int in counts.keys():
-		if int(counts[terrain_id]) > best_count:
-			best_count = int(counts[terrain_id])
-			best = terrain_id
-	return String(MapModel.TERRAIN_LABELS.get(best, "Unknown"))
+	var ground: int = ArmyModifiers.terrain_for(model, province_id)
+	return String(MapModel.TERRAIN_LABELS.get(ground, "Unknown"))
 
 
 func _add_row(caption: String) -> Label:

@@ -8,7 +8,7 @@ config/name="Empires of the Sea"
 config/description="Naval strategy game"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.7", "Forward Plus")
-config/icon="res://icon.svg"
+config/icon="res://icon.png"
 ; Back gesture is handled by MapScreen._notification: close the top layer first.
 config/quit_on_go_back=false
 
