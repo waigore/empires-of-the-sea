@@ -38,6 +38,18 @@ static func run(play: PlaySession, economy_report: Dictionary = {}) -> Dictionar
 	return report
 
 
+## Publishes the Minor/Tribe book from the world it names. The turn close does
+## this after the clearing; a caller that rewrites the world without a close
+## (the advanced start's colonies, estates and towns) must do it too, or the
+## page advertises a harvest the auction does not hold and hides the towns'
+## manufactures it does (wiki: world-market § Minor and tribe auto-sell;
+## REQ-P2-03, REQ-P5-05).
+static func republish(play: PlaySession) -> void:
+	if play == null or play.economy == null or play.economy.market == null:
+		return
+	MinorMarket.publish(play.economy.market, play.world, play.player_faction)
+
+
 static func _faction_report(economy_report: Dictionary, faction: int) -> Dictionary:
 	var rows: Dictionary = economy_report.get("factions", {}) as Dictionary
 	var found: Variant = rows.get(faction, null)
