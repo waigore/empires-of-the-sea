@@ -1123,6 +1123,18 @@ func test_the_yard_names_the_hull_before_the_crown_pays_for_her() -> void:
 		NavalStrength.hull_line("indiaman") + " · 8 holds for the world market",
 		"one reading for the yard and the navy sheet"
 	)
+	## The published example is pinned as a literal, not composed from the live
+	## formula: ships-and-naval § Ship muster and the break-up yard prints the
+	## carrack's line in full, so a changed weight, stat or hold count has to
+	## surface here — and in the page — rather than drift apart silently.
+	assert_eq(
+		String(FleetYard.hull_line("carrack")),
+		(
+			"FRP 2 · RNG 1 · ARM 1 · HULL 2 · MV 2 · 2.8 strength"
+			+ " · 3 holds for the world market"
+		),
+		"the carrack's published line, figure for figure"
+	)
 
 
 ## A hull the crown already flies may be replaced without her study: the yard

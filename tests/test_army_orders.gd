@@ -844,6 +844,19 @@ func test_the_drill_yard_names_the_regiment_it_raises() -> void:
 		RegimentCatalog.muster_line("guards"),
 		"Heavy infantry · FPN 12 · FPM 10 · RNG 6 · DEF 6 · MVR 4 · 22 strength · 3 food"
 	)
+	## The two published examples are pinned as literals, not composed from the
+	## live catalogue: military-units § Paying the muster prints the levy's line
+	## in full beside the guard's, so a changed ration ladder (`1 food` for a
+	## levy, `3` for a guard) or stat has to surface here — and in the page —
+	## rather than drift apart silently.
+	assert_eq(
+		RegimentCatalog.muster_line("peasant_levies"),
+		(
+			"Light infantry · FPN 0 · FPM 3 · RNG 1 · DEF 3 · MVR 3"
+			+ " · 3 strength · 1 food"
+		),
+		"the levy's published line, figure for figure"
+	)
 
 
 func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
