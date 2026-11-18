@@ -8,7 +8,8 @@ extends RefCounted
 ## planner this session, what each already holds (regiments, hulls, hulls that
 ## can fight, the enemy's hulls), and where a named army or squadron stands.
 ## Those reads lived six times over in the `MapPlay*Ai` passes; they live here
-## once. Pure state reads: nothing here issues an order or changes a roster.
+## once. Pure state reads and the one trace row an army order records: nothing
+## here issues an order or changes a roster.
 
 ## `-1` reads as "any owner" for the roster lookups.
 const NO_OWNER: int = -1
@@ -260,6 +261,23 @@ static func army_by_id(armies: Array, army_id: int, owner: int = NO_OWNER) -> Ar
 			continue
 		return army
 	return null
+
+
+## The one row every rival land order records: the court, the kind, the standard
+## and the ground it stands on, named for the trace's readers. The army pass, its
+## muster and the invasion pass all spell it here, so a new key lands once
+## (wiki: turn-trace-interpretation).
+static func army_trace(
+	model: MapModel, faction: int, kind: String, army: int, province: int
+) -> Dictionary:
+	return {
+		"faction": faction,
+		"kind": kind,
+		"army": army,
+		"province": province,
+		"province_name": model.province_name(province),
+		"region": model.region_id,
+	}
 
 
 ## The squadron with this id stored in `region`, at any owner: a voyage or a
