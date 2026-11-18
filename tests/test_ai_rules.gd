@@ -11488,6 +11488,24 @@ func test_a_stronger_court_that_prosecutes_nothing_tires_like_any_other() -> voi
 	)
 
 
+func test_a_pointless_war_turns_to_peace_a_few_turns_after_the_read() -> void:
+	var config: AiConfig = _war_config()
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var window: int = config.parameter("diplomacy.pointless_window")
+	# Inside the grace the warmonger keeps the war it declared.
+	var fresh: Dictionary = _decide(true, grace)
+	assert_true(
+		String(fresh["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a war inside the grace stands"
+	)
+	# A handful of quiet turns after the read fires, the peace is composed.
+	var ending: Dictionary = _decide(true, grace + window + 4)
+	assert_eq(
+		String(ending["action"].get("kind", "")), AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"the pointless war ends within a few turns of the read firing"
+	)
+
+
 func test_a_war_that_takes_nothing_erodes_past_the_window() -> void:
 	var config: AiConfig = _war_config()
 	var ai_state := AiState.new()
