@@ -2220,6 +2220,53 @@ func test_melee_only_besiegers_are_turned_away() -> void:
 	assert_true(turned, "the despatch says the wall turned the blow aside")
 
 
+## Only firearms, bows and guns strike a wall: eight pikes marching beside two
+## musketeers break no more of a levied wall than the two muskets alone, and a
+## line of pikes on its own opens no gate (wiki: siege-mechanics § Damage
+## Reduction — "melee-only units cannot attack walls"; § Quick Battle lanes —
+## "only regiments with RNG >= 2 can strike it").
+func test_a_besiegers_pikes_do_not_break_the_wall() -> void:
+	## Two firearms and eight pikes against the same line of ten firearms: both
+	## sides field ten, and only the two muskets may weigh on the wall.
+	var piked: Array[String] = _muskets(2)
+	for _index in 8:
+		piked.append("halberdiers")
+	var mixed: Dictionary = _fight("aggressive", piked, _levies(12), 1)
+	var ten: Dictionary = _fight("aggressive", _muskets(10), _levies(12), 1)
+
+	assert_true(_wall_losses(mixed) > 0, "the two muskets still reach the wall")
+	assert_true(
+		_wall_losses(mixed) < _wall_losses(ten),
+		"the eight pikes add nothing to the wall the two muskets break"
+	)
+	assert_true(
+		_breaches(mixed) < _breaches(ten),
+		"nor do they beat a gate down beside them"
+	)
+
+
+## The blow a besieger can land on a wall is the deployed regiments' rank that
+## carry a firearm, a bow or a gun — a pike's rank is left out of the weight.
+func test_only_firearms_weigh_against_a_wall() -> void:
+	var pikes: Array[ArmyState] = _lane_side(["pikemen", "pikemen"], 2)
+	var mixed: Array[ArmyState] = _lane_side(["musketeers", "pikemen"], 2)
+	var muskets: Array[ArmyState] = _lane_side(["musketeers", "musketeers"], 2)
+
+	assert_almost_eq(SiegeLanes.striking_weight(pikes, 10, 1.0), 0.0, 0.001, "pikes reach nothing")
+	assert_almost_eq(
+		SiegeLanes.striking_weight(mixed, 10, 1.0),
+		float(RegimentCatalog.strength("musketeers")),
+		0.01,
+		"one musket weighs, the pike beside it does not"
+	)
+	assert_almost_eq(
+		SiegeLanes.striking_weight(muskets, 10, 1.0),
+		ArmyModifiers.strength(muskets, 10, 1.0),
+		0.01,
+		"a line of firearms weighs its whole rank"
+	)
+
+
 ## A garrison that leaves the wall to sortie can hit back with every regiment,
 ## which is how a pike garrison hurts a siege at all.
 func test_a_sortie_lets_a_pike_garrison_fight() -> void:
@@ -2495,6 +2542,29 @@ func _levies(count: int) -> Array[String]:
 	for _index in count:
 		types.append("peasant_levies")
 	return types
+
+
+func _muskets(count: int) -> Array[String]:
+	var types: Array[String] = []
+	for _index in count:
+		types.append("musketeers")
+	return types
+
+
+## Gates a siege beat down, as the plate reads them.
+func _breaches(battle: Dictionary) -> int:
+	return int((battle["quick"]["gates"] as Dictionary).get("broken", 0))
+
+
+## Wall regiments a besieger broke over the whole battle, read off the round log
+## the plate prints.
+func _wall_losses(battle: Dictionary) -> int:
+	var total: int = 0
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			if int(action["side"]) == int(battle["attacker"]):
+				total += int(action["wall_lost"])
+	return total
 
 # --- Siege lanes (wiki: siege-mechanics § Quick Battle lanes) ---
 

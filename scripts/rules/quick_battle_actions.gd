@@ -147,10 +147,23 @@ static func resolve(
 	## stronger line breaks more of the enemy, and a tougher enemy line loses
 	## fewer regiments to the same blow (wiki: quick-battle § Cohesion and
 	## effective strength).
-	var blow: float = ratio * ArmyModifiers.strength(
-		me_side, int(me["limit"]), _multiplier(me)
-	) / ArmyModifiers.average_rank(enemy_side, int(enemy["limit"]))
-	var wanted: int = ceili(blow)
+	var average: float = ArmyModifiers.average_rank(enemy_side, int(enemy["limit"]))
+	var weight: float = ArmyModifiers.strength(me_side, int(me["limit"]), _multiplier(me))
+	## Only firearms, bows and guns can strike a parapet: a besieger's blow is the
+	## weight of the regiments that reach it, so a pike's share breaks no wall,
+	## silences no gun and opens no gate (wiki: siege-mechanics § Damage Reduction
+	## — "melee-only units cannot attack walls"; § Quick Battle lanes — "only
+	## regiments with RNG >= 2 can strike it").
+	var striking: float = weight
+	if siege and key == "attacker":
+		striking = SiegeLanes.striking_weight(me_side, int(me["limit"]), _multiplier(me))
+	var wanted: int = ceili(ratio * striking / average)
+	# A line with no firearm or gun among it delivers nothing to the wall, and
+	# the despatch says the wall turned the blow aside (the whole line's blow is
+	# what it turned).
+	if siege and key == "attacker" and striking <= 0.0:
+		entry["turned"] = ceili(ratio * weight / average)
+		wanted = 0
 	# The battery is shot at before the men behind it; melee cannot reach it. A
 	# standing gun spends the blow before the lanes, so the garrison is sheltered
 	# until the battery is quiet (wiki: siege-mechanics § Quick Battle lanes).
@@ -187,7 +200,7 @@ static func resolve(
 		lost.append_array(behind_lost)
 		entry["wall_lost"] = wall_lost.size()
 		entry["behind_lost"] = behind_lost.size()
-		entry["turned"] = int(split["turned"])
+		entry["turned"] = int(entry["turned"]) + int(split["turned"])
 		entry["gates_broken"] = int(split.get("gates_broken", 0))
 	elif wanted > 0:
 		## A wing's casualties fall on that wing alone; a line with no wings (a
