@@ -29,7 +29,7 @@ War, peace, treaties, aid, intervention, chronicle — wiki
   Diplomatic Expertise.
 - **Join Empire:** absorbs a Minor, colonizes a Tribe; near-defeated GP
   (≤3 provinces) needs Empire Building.
-- **Aid & land:** Grant Aid £1,000 multiples at embassy (+5); Subsidy 5–20% in
+- **Aid & land:** Grant Aid stepped in £1,000s at embassy (+5 each); Subsidy 5–20% in
   fives, Minor/Tribe only; Merchant land 15× base, one deed/tile.
 - **Trade terms** (`DiplomacyTrade`): pacts and boycotts publish price terms.
   **Favoured pact** (GP–GP, embassy, accepts 65+): imports 95%, exports
@@ -42,9 +42,8 @@ War, peace, treaties, aid, intervention, chronicle — wiki
   sea-reach; rivals open theirs at turn close.
 - **Colonies:** the `COLONIES ›` reading ([`colonies.md`](colonies.md)).
 - **Chronicle** (`DiplomacyHistory`): `Year Y (Turn N)`; unmet crowns `Unknown faction`.
-- **Power line:** each GP reads its score against yours: red stronger, green
-  matched.
-- **Dossier** (`IntelDossier`, `CourtDossier`): evidence, suspicion, behaviour
+- **Power line:** each GP's score against yours: red stronger, green matched.
+- **Dossier** (`CourtDossier`): evidence, suspicion, behaviour
   ([`intel-dossier.md`](intel-dossier.md)).
 - **Diplomatic lens** (`DIPLOMACY_LENS`, **P**): blue (yours), green (friendly),
   grey (neutral), red (war).
@@ -58,7 +57,7 @@ None — see [`deferred.md`](deferred.md).
 ## Architecture
 
 Rules: `diplomacy_catalog`, `diplomacy_state`, `diplomacy_rules` (treaties),
-`diplomacy_overtures` (rung taken), `diplomacy_aid`, `diplomacy_orders`,
+`diplomacy_overtures` (rung taken), `diplomacy_aid`, `diplomacy_gift`, `diplomacy_orders`,
 `diplomacy_trade` (pacts, boycotts, price terms), `diplomacy_proposals`,
 `diplomacy_history`, `diplomacy_survey`, `call_to_arms`, `intervention`,
 `deed_protection`, `consent_ladder`, `tribe_contact`. Map:

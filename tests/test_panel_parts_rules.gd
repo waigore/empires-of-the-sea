@@ -973,6 +973,60 @@ func test_disabled_orders_explain_the_refusal() -> void:
 	assert_not_null(button)
 	assert_true(button.disabled)
 
+## The gift's sum is the crown's to choose: the published £1,000 steps, the
+## purse's own ceiling, and one press that files the sum it shows (wiki:
+## diplomacy § Amount parameters; DR-20261118-16; REQ-P2-02, REQ-P5-02).
+func test_the_court_steps_the_gift_before_it_sends() -> void:
+	_setup_diplomacy_panel()
+	panel.select_faction(1)
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	var press: Button = _find_button(panel._detail, "Grant Aid")
+	assert_not_null(press)
+	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_false(press.disabled, "an auto-embassy and a purse that covers the floor")
+	assert_true(
+		_has_text(panel._detail, "The regard a gift earns is fixed"),
+		"the sheet says what the sum does and does not buy"
+	)
+	var up: Button = _find_button(panel._detail, "+")
+	assert_not_null(up)
+	assert_false(up.disabled)
+	up.pressed.emit()
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £2,000")
+	assert_true(_find_button(panel._detail, "+").disabled, "the 2,500 purse covers no step further")
+	_find_button(panel._detail, "Grant Aid").pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], "grant_aid")
+	assert_eq(seen[0][1], 1)
+	assert_eq(seen[0][2], "2000", "one order carries the sum the press shows")
+
+## A stepped sum is the pair's, not the panel's: opening another court starts
+## that court's gift at the floor again.
+func test_the_stepped_gift_belongs_to_the_court_it_was_stepped_for() -> void:
+	_setup_diplomacy_panel()
+	panel.select_faction(1)
+	_find_button(panel._detail, "+").pressed.emit()
+	assert_eq(panel._detail.gift_amount, 2000)
+	panel.select_faction(6)
+	assert_eq(panel._detail.gift_amount, DiplomacyCatalog.GRANT_AID_STEP)
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £1,000")
+
+## A purse that no longer covers the sum the crown had stepped to reads the
+## validator's reason under the dead press, and the step falls back to the floor.
+func test_a_gift_the_purse_cannot_cover_reads_its_reason() -> void:
+	_setup_diplomacy_panel()
+	panel.select_faction(1)
+	_find_button(panel._detail, "+").pressed.emit()
+	panel.refresh(state, null, 0, 500)
+	var press: Button = _find_button(panel._detail, "Grant Aid")
+	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_true(press.disabled)
+	assert_true(_has_text(panel._detail, "The treasury cannot cover that aid."))
+
 func test_at_war_updates_the_stand_and_offers_peace() -> void:
 	_setup_diplomacy_panel()
 	DiplomacyRules.declare_war(state, 0, 6)
