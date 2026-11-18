@@ -56,6 +56,14 @@ static func decide(
 		var factors: Dictionary = desire["factors"]
 		if memory > 0:
 			factors["memory"] = -memory
+		# The pointless-war read names itself in the trace: a war that has taken
+		# no attack on the enemy for the window is yielding nothing (issue #999).
+		if record.at_war:
+			var idle: int = AiWarMemory.pointless(
+				config, ai_state, turn, config.faction, target
+			)
+			if idle > 0:
+				factors["pointless"] = -idle
 		var entry: Dictionary = {
 			"target": target,
 			"desire": score,

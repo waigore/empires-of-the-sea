@@ -13,6 +13,12 @@ var last_overture_turn: Dictionary = {}
 ## "low:high" pair key -> turn the AI last made peace on that pair. The truce it
 ## carries afterwards reads this (docs/ai.md; issue #475).
 var last_truce_turn: Dictionary = {}
+## "attacker>target" pair key -> turn that court last attacked the other's
+## ground. The war-benefit read asks whether a war is being prosecuted: a war
+## with no attack on the enemy for `diplomacy.pointless_window` turns is
+## yielding nothing, so its desire erodes fast (issue #999). Directional — the
+## enemy's attacks are not this court's benefit.
+var last_attack_turn: Dictionary = {}
 ## "low:high" pair key -> turn the human court answered a peace offer.
 var last_peace_turn: Dictionary = {}
 ## "low:high" pair key -> refused white-peace offers since the pair last made
@@ -79,8 +85,11 @@ func stockpiles(exclude: int = -1) -> Dictionary:
 
 func note_war(a: int, b: int, turn: int) -> void:
 	last_war_turn[pair_key(a, b)] = turn
-	# A new war is a new question: the refusals of the last one are spent.
+	# A new war is a new question: the refusals of the last one are spent, and
+	# neither court's prosecution clock carries over (issue #999).
 	peace_refusals.erase(pair_key(a, b))
+	last_attack_turn.erase(AiWarMemory.attack_key(a, b))
+	last_attack_turn.erase(AiWarMemory.attack_key(b, a))
 
 
 func war_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
@@ -205,6 +214,7 @@ func to_dict() -> Dictionary:
 		"last_war_turn": last_war_turn.duplicate(),
 		"last_overture_turn": last_overture_turn.duplicate(),
 		"last_truce_turn": last_truce_turn.duplicate(),
+		"last_attack_turn": last_attack_turn.duplicate(),
 		"last_peace_turn": last_peace_turn.duplicate(),
 		"peace_refusals": peace_refusals.duplicate(),
 		"economies": _economy_snapshots(),
@@ -224,6 +234,7 @@ static func from_dict(data: Dictionary) -> AiState:
 	state.last_war_turn = _turn_dictionary(data.get("last_war_turn", {}))
 	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
 	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
+	state.last_attack_turn = _turn_dictionary(data.get("last_attack_turn", {}))
 	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
 	state.peace_refusals = _turn_dictionary(data.get("peace_refusals", {}))
 	state.economies = _economies_from(data.get("economies", {}))

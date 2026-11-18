@@ -54,4 +54,23 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 120,
 		"default": 24,
 	},
+	# The pointless-war read (issue #999): a war past its grace with no attack on
+	# the enemy inside the window is yielding nothing, and its desire erodes by
+	# the step a turn from the first quiet turn.
+	{
+		"key": "diplomacy.pointless_window",
+		"category": "diplomacy",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 30,
+		"default": 4,
+	},
+	{
+		"key": "diplomacy.pointless_step",
+		"category": "diplomacy",
+		"type": TYPE_INT,
+		"min": 0,
+		"max": 60,
+		"default": 10,
+	},
 ]
