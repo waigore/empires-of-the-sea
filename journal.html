@@ -4,68 +4,188 @@
 <meta charset="utf-8"/>
 <title>ai-bench journal</title>
 <style>
-  body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 52rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; color: #1a1a1a; }
+  body { font-family: ui-sans-serif, system-ui, sans-serif; max-width: 56rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.45; color: #1a1a1a; }
   h1 { font-size: 1.4rem; margin-bottom: 0.25rem; }
-  .status { font-size: 1.1rem; margin: 1rem 0; padding: 0.75rem 1rem; background: #f3f4f6; border-left: 4px solid #2563eb; }
+  h2 { font-size: 1.05rem; margin-top: 1.6rem; }
+  .status { font-size: 1.05rem; margin: 1rem 0; padding: 0.75rem 1rem; background: #f3f4f6; border-left: 4px solid #2563eb; }
   table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.9rem; }
   th, td { border-bottom: 1px solid #ddd; text-align: left; padding: 0.4rem 0.5rem; }
   th { font-weight: 600; }
   .note { color: #444; font-size: 0.9rem; }
   code { font-size: 0.85em; }
+  .bad { color: #b91c1c; }
+  .good { color: #15803d; }
 </style>
 </head>
 <body>
   <h1>ai-bench climb journal</h1>
-  <p class="note">Open anytime while climbing. Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Verify locally with <code>hills verify &lt;file&gt;</code>.</p>
+  <p class="note">Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Current contract: one <strong>subject</strong> crown (submission planners) vs two <strong>baseline</strong> rivals (<code>scripts/ai_mainline/</code> from <code>origin/main</code>) and three <strong>random</strong> courts; only the subject scores. Weighted progress: Old World provinces ×100, New World ×50, regiments ×10, ships ×10, workers ×5, extraction ×2, income ×1, +500 for a win before the cap.</p>
 
   <div class="status">
-    <strong>Phase:</strong> build verified (no full 2h climb yet)<br/>
-    <strong>Hill:</strong> ai-bench @ <code>e2f3c3d9774c</code><br/>
-    <strong>Machine:</strong> local Mac · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline:</strong> 3135.05 · <strong>Best so far:</strong> 3787.78 · <strong>Loop:</strong> stopped after proof climb
+    <strong>Phase:</strong> issue #910 climb — the honest floor cleared; the crown gates open<br/>
+    <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">1970.68</span> (<code>910-15-pressure-250.json</code>)<br/>
+    <strong>Best honest so far:</strong> 1970.68 · 16 OW · 0 NW · 5 reg · 3 ships<br/>
+    <strong>Open gates:</strong> bench &gt; 2153.73 · <code>provinces_new</code> &gt; 0 · the +500 win bonus — the stall's next levers are listed at the foot of this page
   </div>
 
-  <h2>What is measured</h2>
-  <p>Weighted progress of the live crown in a headless <strong>bench</strong> campaign (one planning AI vs idle rivals). Higher is better. Provinces dominate the score, then army/navy size, workforce, extraction and income rates. Stands in for a competitive, win-seeking rival-court AI.</p>
+  <h2>What was wrong with the bench itself</h2>
+  <ul>
+    <li><strong>The baselines played no economy since #853</strong> — the economy pass called the submission planner's typed footing with a <code>MainlineAiConfig</code>; 400 script errors a run; the two baseline rivals ran no market, production or recruits. Every report since (2068.00 / 2057.00) was scored against inert rivals.</li>
+    <li><strong>The #925 hire margin starved the courts it staffed</strong> — a starving court whose purse stood under the crew price bid <em>nothing</em> for food; whole workforces struck and their income died with the bank frozen (UP 181 strike turns, Sweden 179, Portugal 95, Spain 68 on the full-AI campaign).</li>
+    <li><strong>A concluded peace never restarted the war cooldown</strong> — Spain and Austria traded war and white peace every second turn for a hundred turns.</li>
+    <li><strong>The mainline materializer renamed from a stale list (2026-11-18)</strong> — #959/#960 split the civilian hire helpers into new <code>Ai*</code> classes and the hard-coded rename list never heard of them: the generated mainline called the submission's typed <code>AiCivilianHire</code> with a <code>MainlineAiConfig</code>, a parse error that killed the baselines' civilian pass one day after #937 cleared the #853 class. The rename list is now every class the copy declares, so no reference inside it can resolve onto the submission surface; the control below re-measures the floor on the honest <code>73eef988</code> mainline.</li>
+  </ul>
 
   <h2>Attempts</h2>
   <table>
     <thead>
-      <tr><th>#</th><th>Idea</th><th>Score</th><th>Provinces</th><th>Notes</th><th>Report</th></tr>
+      <tr><th>#</th><th>Idea</th><th>Score</th><th>Subject parts</th><th>Verdict</th><th>Report</th></tr>
     </thead>
     <tbody>
       <tr>
+        <td>000</td>
+        <td>Control: main as committed (also re-run at #925's merge commit — identical)</td>
+        <td>1017.41</td>
+        <td>5 OW · 7 NW · 6 workers · extraction 4.7</td>
+        <td>the honest floor</td>
+        <td><a href="reports/ai-bench/910-00-base.json">910-00-base.json</a></td>
+      </tr>
+      <tr>
         <td>001</td>
-        <td>Baseline (unchanged AI)</td>
-        <td>3135.05</td>
-        <td>30</td>
-        <td>200 turns, no early win</td>
-        <td><a href="reports/ai-bench/001-baseline.json">001-baseline.json</a></td>
+        <td>Hire margin yields to the ration when the purse cannot hold the crew price</td>
+        <td>975.75</td>
+        <td>same provinces; the purse now buys dinner (income rate down)</td>
+        <td class="good">full-campaign famine fix (Sweden/Spain to 0 strike turns); keep</td>
+        <td><a href="reports/ai-bench/910-01-margin-yields.json">910-01-margin-yields.json</a></td>
       </tr>
       <tr>
         <td>002</td>
-        <td>Lower <code>army.min_treasury</code> 1000→400</td>
-        <td>3787.78</td>
-        <td>31</td>
-        <td>Early win turn 123; +652.7</td>
-        <td><a href="reports/ai-bench/002-lower-army-min-treasury.json">002-lower-army-min-treasury.json</a></td>
+        <td>Honest bench: route the footing through AiBind so baseline courts run their own economy (0 script errors)</td>
+        <td><strong>1729.62</strong></td>
+        <td>10 OW · 7 NW · 10 workers · extraction 44.3 · income 201</td>
+        <td class="good">+712: the market has buyers again; keep</td>
+        <td><a href="reports/ai-bench/910-02-bench-honest.json">910-02-bench-honest.json</a></td>
+      </tr>
+      <tr>
+        <td>003</td>
+        <td>Growth-gate unblocks: works behind the war chest, levy hands ahead of the chest, first training through the chest</td>
+        <td>1720.99</td>
+        <td>same profile; income/funded lower</td>
+        <td class="bad">−8.6, no gain — set aside (kept in the DR for the next run)</td>
+        <td><a href="reports/ai-bench/910-03-final-set.json">910-03-final-set.json</a></td>
+      </tr>
+      <tr>
+        <td>004</td>
+        <td>Shipped set: margin yields + honest bench (draft PR; re-measured after the #931/#933/#935 rebase — identical)</td>
+        <td><strong>1729.62</strong></td>
+        <td>10 OW · 7 NW · 10 workers · extraction 44.3 · income 201 · funded 82.77</td>
+        <td>the PR carries this report as latest.json</td>
+        <td><a href="reports/ai-bench/910-06-rebased.json">910-06-rebased.json</a></td>
+      </tr>
+      <tr>
+        <td>005</td>
+        <td>Truce cooldown at peace (the carousel fix): dampened the war/peace churn but cost 8.6 (the baselines make peace too, the market shifts)</td>
+        <td>1720.99</td>
+        <td>funded 72.46</td>
+        <td class="bad">set aside — recorded in [DR-20261118-02] for the next run</td>
+        <td><a href="reports/ai-bench/910-04-ship-set.json">910-04-ship-set.json</a></td>
+      </tr>
+      <tr>
+        <td>010</td>
+        <td>Market feedstock bids sit behind the war chest while saving (civilian extraction still on the cash floor)</td>
+        <td>1764.84</td>
+        <td>10 OW · income 237</td>
+        <td class="good">+35 — keep</td>
+        <td><a href="reports/ai-bench/910-10-market-behind-chest.json">910-10-market-behind-chest.json</a></td>
+      </tr>
+      <tr>
+        <td>011</td>
+        <td><code>army.min_treasury</code> 400 → 200</td>
+        <td>1819.63</td>
+        <td>11 OW · 7 NW</td>
+        <td class="good">+55 — keep</td>
+        <td><a href="reports/ai-bench/910-11-lower-muster-floor.json">910-11-lower-muster-floor.json</a></td>
+      </tr>
+      <tr>
+        <td>015</td>
+        <td><code>victory.pressure_start</code> 500 → 250 (press OW wars earlier)</td>
+        <td><strong>1970.68</strong></td>
+        <td>16 OW · 0 NW · 5 reg · 3 ships · funded 90.85</td>
+        <td class="good">clears baseline 1904.52 — ship as latest.json</td>
+        <td><a href="reports/ai-bench/910-15-pressure-250.json">910-15-pressure-250.json</a></td>
+      </tr>
+      <tr>
+        <td>019</td>
+        <td>The press stays off fellow crowns until the colony stands (minors first)</td>
+        <td>1647.36</td>
+        <td>11 OW · 3 NW · 6 reg · 2 ships · income 216</td>
+        <td class="bad">−323: the colony lands but the delayed crown front finds warm relations — the minor-only peace courts England and France past the declaration ceiling; reverted</td>
+        <td><a href="reports/ai-bench/910-19-colony-first.json">910-19-colony-first.json</a></td>
+      </tr>
+      <tr>
+        <td>020</td>
+        <td>A court keeps no crown war it has no field army to wage (peace + no new front)</td>
+        <td>1970.68</td>
+        <td>16 OW · 0 NW · 5 reg · 3 ships · funded 90.85</td>
+        <td class="bad">byte-identical — the hypothesis is falsified: the field army never dies, it stands 5 regiments and cannot storm; the brake is the purse (top-up shut by seven wars, ~580 under the 2,200 muster price) and a field army that can never grow (musters feed the Home Army, splits only fire with no field army); reverted</td>
+        <td><a href="reports/ai-bench/910-20-fields-the-wars-it-can-wage.json">910-20-fields-the-wars-it-can-wage.json</a></td>
       </tr>
     </tbody>
   </table>
 
-  <h2>Chart</h2>
-  <svg viewBox="0 0 400 120" width="100%" height="120" role="img" aria-label="score over attempts">
-    <polyline fill="none" stroke="#2563eb" stroke-width="2"
-      points="40,90 200,90 360,20"/>
-    <circle cx="40" cy="90" r="4" fill="#2563eb"/>
-    <circle cx="360" cy="20" r="4" fill="#2563eb"/>
-    <text x="40" y="110" font-size="10" text-anchor="middle">001</text>
-    <text x="360" y="110" font-size="10" text-anchor="middle">002</text>
-    <text x="48" y="88" font-size="10">3135</text>
-    <text x="300" y="18" font-size="10">3787</text>
-  </svg>
+  <h2>Measured and rejected this run</h2>
+  <table>
+    <thead>
+      <tr><th>Idea</th><th>Reading</th><th>Why rejected</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Keep the field army home against a border war (revert the DR-20261113-19 earn lift)</td>
+        <td>subject fell 10 → 5 OW by t40</td>
+        <td>a small host cannot hold five fronts against a working baseline France; the colony voyage is worth more than the home defence it would replace</td>
+      </tr>
+      <tr>
+        <td>Cap the crossing force at half the parent army / keep a two-regiment garrison</td>
+        <td>same collapse, and the colony never lands (NW 0)</td>
+        <td>the voyage is an army vacuum but strangling it strangles the colony too</td>
+      </tr>
+      <tr>
+        <td><code>army.war_extra</code> 4 → 2 (reachable war target)</td>
+        <td>byte-identical trajectory</td>
+        <td>the court stands under either target; the knob never bites</td>
+      </tr>
+      <tr>
+        <td>Raise the market offer cap</td>
+        <td>not scored</td>
+        <td>timber sits at the 9-ducat price floor with no buyers — the cap is not the bottleneck, demand is</td>
+      </tr>
+    </tbody>
+  </table>
 
-  <h2>Queued / next</h2>
-  <p>Full ~2h optimize-ai climb not started (build-only). Working tree still has the 002 parameter change; <code>latest.json</code> points at 002.</p>
+  <h2>The stall, read on the trace (seed 1500)</h2>
+  <ul>
+    <li>The subject's land is a <strong>timber monoculture</strong>: 6,400 units by t200 at the 9-ducat floor price; grain trades at 15, <strong>fabric at 110</strong>, cast iron at 146.</li>
+    <li><strong>Worker recruits cost 2 fabric each</strong> — the subject's fabric hovers at 1-3 (its wool is scarce), so the pool grows 3 → 10 over 140 turns and its labour cannot arbitrage wool 12 → fabric 110.</li>
+    <li>The muster chest (2,400) never fills on ~150 net a turn, so the home front never arms; the opening army conquers the New World (7 provinces × 50) and the Old World front the victory bar counts sits still.</li>
+    <li>The frozen baseline France (Nov-14 planners, no estate programme) reaches 29 of 31 provinces with 1-2-regiment armies — the conquest pattern is real on this map; the current surface's courts bank for estates and regiments instead of fighting.</li>
+  </ul>
+
+  <h2>The stall, read again on the frozen bench (2026-11-18)</h2>
+  <ul>
+    <li><strong>The whole game happens by t21.</strong> The opening army blitzes nine wars (Venice, Genoa, Denmark, United Provinces, Sweden, Portugal, Scotland, Austria, Poland, France) and storms ten provinces by t13; the army and its pursuit fleet are gone by t21, and the subject holds 16 OW for the next 180 turns.</li>
+    <li><strong>Four crown wars never end.</strong> United Provinces, Sweden, Portugal and France are declared in the first thirteen turns and stay: the press (+30) holds the continuing desire above the peace bar, and a court with <em>no field army</em> cannot storm anything — the wars are pure footing, closing the market top-up (~180 "opens no speculative bid" turns), the crew hires and the colony voyages for the rest of the campaign.</li>
+    <li><strong>The re-arm never fires.</strong> The purse sits at ~580 with the market top-up shut; the muster needs ~2,200 + the pattern price; the Home Army stays at 3-5 regiments, so the split that would re-form a field army never has the men, and the minor carousel (Poland, Genoa, Scotland, Austria re-declared every few dozen turns) finds no army to march.</li>
+  </ul>
+
+  <h2>Where the next run starts</h2>
+  <ul>
+    <li><strong>The instrument is settled (owner decision, [DR-20261118-10])</strong>: the bench score is the only gate an AI change answers to — <strong>bench-only measurement from here</strong>, no climb budget on the full-AI campaign (it is observation: courts compete, some lose, that is the game working; the #910 strike/winner gates are retired, and no published-number lever is taken for a losing court).</li>
+    <li>The <strong>CI floor dispute</strong>: the committed <code>latest.json</code> (2068.00, again after #933) does not reproduce; the honest floor before this climb was 1017.41. Any AI-surface PR needs a fresh report ≥ 1904.52 to merge — the climb must recover the #878 estate/conquest trade first.</li>
+    <li>The <strong>#878 trade measured</strong>: the estate programme buys extraction 1 → 44 and income 92 → 201 but costs the subject seven Old World provinces (the pre-#878 surface held 17 OW and scored 1904.52 on the honest bench). The climb needs both: the estates <em>and</em> the opening conquest.</li>
+    <li><strong>The frozen-bench stall, read precisely (2026-11-18)</strong>: the opening blitz wins nine wars and ten provinces by t13 — then the surface locks. Seven wars stay lit (three of them on random courts that never negotiate), the footing stays <code>fronts</code>, the market top-up stays shut (~180 "no speculative bid" turns), and the purse hovers ~580 against a ~2,200 muster price, so the Home Army never grows and the standing 5-regiment field army — which <strong>cannot be reinforced</strong> (musters join the Home Army; a split needs no field army to exist) — is priced out of every walled province on the map. Two probes died on this read: 019 (the colony-first press gate, −323) and 020 (no-field-army peace, byte-identical).</li>
+    <li><strong>The next levers, in order</strong>: (1) buy out of the fronts — a pressing, overstretched court with a purse under the muster floor puts the white peace to its crown enemies itself (the random courts never offer), so the market re-opens and the purse builds; (2) let the Home Army's mustered mass reach the field — a court at target strength cuts a fresh field force even while one stands, so the storm margin recovers; (3) with the purse open and the host grown, the colony voyage's crew slots re-open and the New World lands. The +500 win bonus (31 OW) needs all three.</li>
+    <li><strong>Bench plumbing note</strong>: the CLI stages the submission without <code>.git</code>, so official evals always fall back to the hill's frozen <code>baseline_planners/</code> (<code>2c382bb2</code>) — local <code>--ai=bench</code> runs must sync to that ref to match. The materializer's rename list is now derived, so a new <code>Ai*</code> helper on main can no longer kill the baselines' parse (the #853 class, found again 2026-11-18).</li>
+  </ul>
 </body>
 </html>

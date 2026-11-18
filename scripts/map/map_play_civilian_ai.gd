@@ -104,8 +104,13 @@ static func plan_all(
 		# the court desires is provisioned before that army is raised (#807).
 		if play.ai != null and play.ai.food_slack.has(faction):
 			context["larder_slack"] = int(play.ai.food_slack[faction])
+			# The provision premium is the submission surface's own reading: a
+			# baseline court's MainlineAiConfig must never reach the typed
+			# signature, and its planners keep their published market (the same
+			# guard `AiBind.fed_slack` uses for the muster's own reading).
 			if (
-				int(context["larder_slack"]) <= 0
+				kind != AiControl.KIND_BASELINE
+				and int(context["larder_slack"]) <= 0
 				and AiArmyReinforce.muster_floor(
 					config, economy, MapPlayCourt.regiments(play, faction),
 					MapPlayCourt.at_war(play, faction)
