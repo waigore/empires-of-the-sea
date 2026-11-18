@@ -6586,7 +6586,7 @@ func test_a_rival_musters_the_strongest_line_it_can_pay_for() -> void:
 	for entry: Dictionary in candidates:
 		assert_true(
 			RegimentCatalog.category(String(entry["type_id"]))
-			in AiArmyReinforce.LINE_CATEGORIES,
+			in AiArmyReinforceLine.LINE_CATEGORIES,
 			"a mustered regiment is a line regiment"
 		)
 
@@ -12826,7 +12826,7 @@ func test_planner_a_rival_musters_the_strongest_line_it_can_pay_for() -> void:
 	for entry: Dictionary in candidates:
 		assert_true(
 			RegimentCatalog.category(String(entry["type_id"]))
-			in AiArmyReinforce.LINE_CATEGORIES,
+			in AiArmyReinforceLine.LINE_CATEGORIES,
 			"a mustered regiment is a line regiment"
 		)
 
