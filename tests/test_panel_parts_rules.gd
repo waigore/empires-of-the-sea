@@ -4566,6 +4566,62 @@ func test_recipe_title_names_the_single_input() -> void:
 	assert_true(title.contains(CommodityCatalog.label(ProductionRecipes.output(recipe_id))))
 	assert_true(LedgerProductionText.recipe_tooltip(recipe_id).contains("→"))
 
+func test_production_gate_copy_names_town_then_hand() -> void:
+	assert_true(
+		LedgerProductionText.gate_note("garments", 0).contains("level-2 town"),
+		"a garments row waits on the town's works first"
+	)
+	assert_true(
+		LedgerProductionText.gate_tooltip("garments", 0).contains("TOWNS sheet"),
+		"the long form points at the TOWNS sheet"
+	)
+	assert_true(
+		LedgerProductionText.gate_note("cigars", 0).contains("Apprentice"),
+		"a cigar row names the hand it needs when the town is open"
+	)
+	assert_true(
+		LedgerProductionText.gate_tooltip("cigars", 0).contains("WORKERS tab"),
+		"the long form points at the WORKERS tab"
+	)
+
+
+func test_manufacture_hint_remembers_last_phase() -> void:
+	assert_false(
+		LedgerProductionText.manufacture_hint(0).contains("Last phase"),
+		"an idle workshop adds no memory"
+	)
+	assert_true(
+		LedgerProductionText.manufacture_hint(1).contains("made 1 good."),
+		"one good stays singular"
+	)
+	assert_true(
+		LedgerProductionText.manufacture_hint(3).contains("made 3 goods."),
+		"several goods take the plural"
+	)
+
+
+func test_recipes_for_output_put_ungated_first() -> void:
+	var rows: Array[String] = LedgerProductionText.recipes_for_output("fabric", {})
+	assert_false(rows.is_empty(), "wool weave is always known")
+	assert_true(
+		ProductionRecipes.required_tech(rows[0]).is_empty(),
+		"the always-available weave sits at the top"
+	)
+
+
+func test_workshop_row_note_names_last_output() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.new()
+	assert_eq(LedgerWorkshop.row_note(economy, "lumber"), "", "idle one-turn rows stay blank")
+	economy.production.set_made({"lumber": 2})
+	assert_eq(
+		LedgerWorkshop.row_note(economy, "lumber"), "made 2",
+		"an idle row that worked last phase says so"
+	)
+	assert_true(
+		LedgerWorkshop.row_tooltip(economy, "lumber").contains("Last phase it made 2"),
+		"the long form names the good"
+	)
+
 func test_the_summary_reads_the_report() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.new()
 	economy.treasury = 1234
