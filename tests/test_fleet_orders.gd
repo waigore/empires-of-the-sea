@@ -1797,6 +1797,52 @@ func test_the_crew_lands_on_the_ground_the_crown_names() -> void:
 	assert_true(_screen.civilian_layer.marker_for(unit).visible)
 
 
+## The crown's own seat reads as one press: the port province holds a whole
+## province of legal ground, and a crown that only wants the crew ashore at home
+## should not open the list to find it (wiki: civilian-units § Landing;
+## DR-20261118-28).
+func test_the_home_coast_offers_the_seat_in_one_press() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var unit: CivilianState = null
+	for candidate: CivilianState in _screen.civilian_layer.units:
+		if candidate.owner == _screen.play.player_faction \
+			and candidate.type_id == "explorer":
+			unit = candidate
+			break
+	assert_not_null(unit, "the fixture holds an Explorer")
+	unit.tile = _screen.model.province_tiles(capital)[0]
+	unit.moved = false
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % unit.id)
+	assert_true(unit.is_embarked())
+
+	var coast: Dictionary = {}
+	for raw: Variant in MapPlayCivilianVoyage.crew(_screen.play, home)["land"]:
+		var row: Dictionary = raw as Dictionary
+		if int(row.get("province", -1)) == capital:
+			coast = row
+			break
+	assert_false(coast.is_empty(), "the capital coast is offered")
+	assert_gte((coast.get("tiles", []) as Array).size(), 2, "the coast holds several grounds")
+	var seat: Dictionary = coast.get("seat", {})
+	assert_false(seat.is_empty(), "the docked coast names the crown's own seat")
+	var site: Vector2i = _screen.model.province_data(capital).town_site()
+	assert_gte(site.x, 0, "the fixture's capital has a town site")
+	assert_eq(
+		Vector2i(int(seat["x"]), int(seat["y"])), site,
+		"the seat is the province's own town"
+	)
+	assert_true(seat.has("ground"), "the seat prints what the chart reads of it")
+
+	MapPlayCivilianVoyage.on_action(
+		_screen.play, "crew:land:%d:%d:%s" % [site.x, site.y, unit.type_id]
+	)
+	assert_false(unit.is_embarked(), "one press puts the crew ashore")
+	assert_eq(unit.tile, site, "on the crown's own seat")
+
+
 ## The press names the crew as well as the ground: two kinds aboard one squadron
 ## read one line each, and the press lands the kind the crown read — a Builder
 ## first aboard does not step off a press that names the Explorer (wiki:
