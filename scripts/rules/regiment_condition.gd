@@ -47,13 +47,21 @@ static func wound(army: ArmyState, regiment_id: String, damage: float) -> int:
 ## Spreads one blow's health pool over a side's deployed regiments, softened by
 ## each regiment's DEF. Returns the hits the plate can show (id, type, damage,
 ## hp, max, medals). Answer is deterministic: strongest first, ties by id.
+##
+## `line` names the men the battle dealt into the line when it opened
+## ([method ArmyForce.line_ids]): the pool is spent over **those** survivors, so
+## a regiment held in reserve takes no battle wear even after the line has
+## shrunk past the deployment limit (wiki: combat § The line and the reserve —
+## "a reserve adds no strength, takes no casualties, and takes no battle wear";
+## quick-battle § Wings and collapse). Empty keeps the older read for a caller
+## that has no line (a single probe, a hand-built state).
 static func damage_side(
-	side: Array[ArmyState], pool: float, limit: int = 0
+	side: Array[ArmyState], pool: float, limit: int = 0, line: Array[String] = []
 ) -> Array[Dictionary]:
 	var hits: Array[Dictionary] = []
 	if pool <= 0.0:
 		return hits
-	var slice: Array[Dictionary] = ArmyModifiers.deployed(side, limit)
+	var slice: Array[Dictionary] = _slice(side, limit, line)
 	if slice.is_empty():
 		return hits
 	var share: float = pool / float(slice.size())
@@ -77,6 +85,22 @@ static func damage_side(
 			"medals": int(data["medals"]),
 		})
 	return hits
+
+
+## The men one blow's health pool is spread over: the battle's line survivors
+## when a line was dealt, else the strongest `limit` of the side as it stands.
+## Both read in the one order [method ArmyModifiers.deployed] names, so the
+## plate's hit list and its line never disagree.
+static func _slice(
+	side: Array[ArmyState], limit: int, line: Array[String]
+) -> Array[Dictionary]:
+	if line.is_empty():
+		return ArmyModifiers.deployed(side, limit)
+	var slice: Array[Dictionary] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, 0):
+		if line.has(String(entry["id"])):
+			slice.append(entry)
+	return slice
 
 
 ## Whole-side wear for auto-resolve: each regiment in the deployed slice loses
