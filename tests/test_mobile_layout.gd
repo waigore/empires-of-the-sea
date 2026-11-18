@@ -785,6 +785,51 @@ func test_phone_fleet_dossier_fits_with_a_contested_zone() -> void:
 	_screen.ship_layer.fleets.erase(enemy)
 
 
+## A port coast lists a whole province of ground — 32 rows at Madrid. The open
+## list rides a window of whole rows inside the passengers block, so the dossier
+## stays a short sheet and the way back never scrolls away from the crown
+## (DR-20261119-03, REQ-P1-07, REQ-P5-07).
+func test_phone_passengers_window_a_port_s_whole_land() -> void:
+	for size: Vector2i in [PHONE, SMALL, TABLET]:
+		await _open(size)
+		var block := FleetCrewSection.new()
+		_viewport.add_child(block)
+		block.size = Vector2(320.0, 400.0)
+		var tiles: Array = []
+		for i in 32:
+			tiles.append({"x": i % 8, "y": int(i / 8), "ground": "Plains · grain"})
+		block.set_data({
+			"count": 1, "note": "1 aboard: Builder", "embark": [], "sortie": [],
+			"land": [{
+				"province": 4, "name": "Madrid", "crew": "builder",
+				"crew_name": "Builder", "tiles": tiles,
+			}],
+		})
+		var coasts: Array[Node] = block.find_children("", "Button", true, false)
+		(coasts[0] as Button).pressed.emit()
+		await get_tree().process_frame
+		var window: ScrollContainer = block._ground_scroll
+		var compact: bool = HudLayout.is_compact(size)
+		assert_eq(
+			window.custom_minimum_size.y, GroundsWindow.height(32, compact),
+			"%s: the window takes whole rows" % size
+		)
+		assert_eq(window.get_child(0).get_child_count(), 32, "%s: every ground rides it" % size)
+		assert_true(
+			block.get_combined_minimum_size().y < 32.0 * GroundsWindow.ROW_HEIGHT,
+			"%s: 32 grounds do not grow the sheet (%s)"
+			% [size, block.get_combined_minimum_size().y]
+		)
+		# The way back stands above the window, on the sheet, at every size.
+		var back: Array[Node] = block.find_children("", "Button", true, false)
+		assert_true(
+			(back[0] as Button).get_global_rect().end.y
+				<= window.get_global_rect().position.y + 0.5,
+			"%s: the way back stays above the list" % size
+		)
+		block.free()
+
+
 func test_phone_ledgers_fit_their_sheets() -> void:
 	await _open(PHONE)
 	await get_tree().process_frame
