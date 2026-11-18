@@ -4274,25 +4274,32 @@ func test_next_crew_is_empty_without_a_hire_order() -> void:
 
 ## The court's hire margin is the home crew's catalogue price: a baseline court
 ## keeps its published market, a foreign region's plan is skipped, and an empty
-## next_crew holds nothing back (issue #894).
+## next_crew holds nothing back (issue #894). Lives on MapPlayEconomyCourtBook
+## with the rest of the trade book.
 func test_the_hire_margin_reads_the_home_crews_price() -> void:
 	var court := MapPlayEconomyCourt.new()
 	court.faction = 1
 	var home: int = FactionCatalog.region_of(1)
 	court.kind = AiControl.KIND_BASELINE
-	assert_eq(court._hire_margin(), 0, "baseline courts keep their published market")
+	assert_eq(
+		MapPlayEconomyCourtBook.hire_margin(court), 0,
+		"baseline courts keep their published market"
+	)
 	court.kind = AiControl.KIND_SUBJECT
 	court.plans = [
 		{"region": home + 1, "plan": {"next_crew": "explorer"}},
 		{"region": home, "plan": {"next_crew": ""}},
 	]
-	assert_eq(court._hire_margin(), 0, "an empty hire order holds nothing back")
+	assert_eq(
+		MapPlayEconomyCourtBook.hire_margin(court), 0,
+		"an empty hire order holds nothing back"
+	)
 	court.plans = [
 		{"region": home + 1, "plan": {"next_crew": "explorer"}},
 		{"region": home, "plan": {"next_crew": "builder"}},
 	]
 	assert_eq(
-		court._hire_margin(),
+		MapPlayEconomyCourtBook.hire_margin(court),
 		CivilianCatalog.treasury_cost("builder"),
 		"the home crew's price is the margin"
 	)

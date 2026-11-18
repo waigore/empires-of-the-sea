@@ -480,11 +480,12 @@ domain = "hostility"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
-# One court's economy turn, split out of the pass above: market + AI + civilian
-# turn prove the plan (manufacture around the chest rows, #878); the full AI
-# fan-out (observer + battle) overruns the tier-1 5 min budget.
+# One court's economy turn (and its research/trade book), split out of the pass
+# above: market + AI + civilian turn prove the plan (manufacture around the
+# chest rows, #878); the full AI fan-out (observer + battle) overruns the
+# tier-1 5 min budget.
 [[rules]]
-match = "scripts/map/map_play_economy_court.gd*"
+match = "scripts/map/map_play_economy_court*.gd*"
 domain = "ai_economy"
 
 [[rules]]
