@@ -3051,6 +3051,38 @@ func test_ship_uses_a_painted_hull() -> void:
 	assert_not_null(tex, "the fleet has no painted hull")
 	assert_eq(tex.get_width(), 256)
 
+
+## The estate marks a developed tile leaves on the chart are painted too, so a
+## timber camp or a mine reads at map scale (issue #1007).
+func test_every_estate_mark_has_a_painted_stamp() -> void:
+	for kind: String in ["work_wood", "work_mine", "work_riches", "work_grain"]:
+		var tex: Texture2D = MapSymbols.texture(kind)
+		assert_not_null(tex, "%s has no painted stamp" % kind)
+		assert_gt(tex.get_width(), 63, "%s is drawn from a downscaled source" % kind)
+
+
+## A developed tile takes its family's mark: timber, ore, coin or grain.
+func test_estate_marks_follow_the_resource_family() -> void:
+	var seen: Dictionary = {}
+	for resource in 20:
+		seen[LandWorksPaint._kind(resource)] = true
+	assert_true(seen.has("work_wood"), "timber has its own mark")
+	assert_true(seen.has("work_mine"), "ore has its own mark")
+	assert_true(seen.has("work_riches"), "coin has its own mark")
+	assert_true(seen.has("work_grain"), "grain and unknown ground share the sheaf")
+
+
+## The ink fallback still draws every family where no art is imported, which is
+## the build a headless run gets (issue #1007).
+func test_estate_ink_fallback_draws_each_family() -> void:
+	var probe := _EstateProbe.new()
+	probe.name = "EstateProbe"
+	add_child(probe)
+	probe.queue_redraw()
+	await get_tree().process_frame
+	assert_true(probe.drawn, "the ink fallback drew every family")
+	probe.queue_free()
+
 func _probe() -> _StampProbe:
 	return _StampProbe.new()
 
@@ -3075,6 +3107,17 @@ class _StampProbe:
 
 	func _draw() -> void:
 		result = MapSymbols.stamp(self, glyph)
+
+
+class _EstateProbe:
+	extends Node2D
+
+	var drawn: bool = false
+
+	func _draw() -> void:
+		for resource in [0, 1, 3, 4]:
+			LandWorksPaint.ink_mark(self, Vector2(20, 20), resource)
+		drawn = true
 # --- test_espionage ---
 
 ## Espionage rules (wiki: civilian-units § Spy, research-state § Spy RP boost,

@@ -3157,6 +3157,70 @@ func test_surf_points_always_face_open_water() -> void:
 		assert_true(canvas.model.is_sea(tile.x, tile.y))
 
 
+## Breakwater spacing and crest shape vary along the shore, so the surf reads as
+## water rather than a printed scalloped border (issue #1007).
+func test_surf_crests_vary_along_the_shore() -> void:
+	var surf: MapSurf = _mounted().get_node("Surf")
+	var spans: Dictionary = {}
+	var widths: Dictionary = {}
+	for dash: Dictionary in surf._dashes:
+		spans[snappedf(float(dash["arc"]), 0.05)] = true
+		widths[snappedf(float(dash["width"]), 1.0)] = true
+	assert_gt(spans.size(), 3, "every crest bends the same way")
+	assert_gt(widths.size(), 4, "every crest is the same size")
+
+
+## Every scenery stamp stands on the terrain it belongs to: a tree never grows
+## on plains, a reed never leaves the marsh, a peak never floats on grass. A
+## grove or a ridge may cross a tile edge, never onto another terrain
+## (issue #1007).
+func test_every_terrain_stamp_stands_on_its_own_terrain() -> void:
+	var model: MapModel = _mixed_terrain()
+	var plan := MapCanvasPlan.new()
+	plan.build(model, null, MapCanvas.TILE_SIZE)
+	var wanted: Dictionary = {
+		"tree": [MapModel.Terrain.HARDWOOD_FOREST],
+		"scrub": [MapModel.Terrain.SCRUB_FOREST],
+		"mountain": [MapModel.Terrain.MOUNTAINS],
+		"hill": [MapModel.Terrain.HILLS, MapModel.Terrain.MOUNTAINS],
+		"dune": [MapModel.Terrain.DESERT],
+		"reed": [MapModel.Terrain.SWAMP],
+		"field": [MapModel.Terrain.PLAINS],
+		"grass": [MapModel.Terrain.PLAINS, MapModel.Terrain.HILLS, MapModel.Terrain.DESERT],
+	}
+	var checked: int = 0
+	for glyph: Dictionary in plan.glyphs:
+		var kind: String = String(glyph["kind"])
+		if not wanted.has(kind):
+			continue
+		var at: Vector2 = glyph["position"]
+		var tile: Vector2i = MapGeo.tile_at_world(at, MapCanvas.TILE_SIZE)
+		var terrain: int = model.terrain_at(tile.x, tile.y)
+		assert_in(terrain, wanted[kind], "%s stamp off its terrain" % kind)
+		checked += 1
+	assert_gt(checked, 20, "the mixed chart carries terrain stamps")
+
+
+## Woods are drawn in groves, not one mark per tile: most trees on a forested
+## chart have a neighbour inside a tile (issue #1007).
+func test_forest_trees_gather_in_groves() -> void:
+	var model: MapModel = _mixed_terrain()
+	var plan := MapCanvasPlan.new()
+	plan.build(model, null, MapCanvas.TILE_SIZE)
+	var trees: Array[Vector2] = []
+	for glyph: Dictionary in plan.glyphs:
+		if String(glyph["kind"]) == "tree":
+			trees.append(glyph["position"])
+	assert_gt(trees.size(), 6, "the chart carries woods")
+	var near: int = 0
+	for point: Vector2 in trees:
+		for other: Vector2 in trees:
+			if other != point and point.distance_to(other) < MapCanvas.TILE_SIZE:
+				near += 1
+				break
+	assert_gt(float(near) / float(trees.size()), 0.6, "a forest is not one tree per tile")
+
+
 ## Scenery never sits in a province name's clearing. Places do carry the same
 ## exemption the capital star and the port anchor always had: a town mark stands
 ## on its tile whether or not a neighbouring province's name runs across it.
@@ -3490,6 +3554,29 @@ func _open_coast() -> MapModel:
 			model.terrain[model.index_of(x, y)] = (
 				MapModel.Terrain.PLAINS if y < 2 else MapModel.Terrain.OCEAN
 			)
+	return model
+
+
+## One patch of every land terrain, so a placement case can read which stamp
+## landed on which ground.
+func _mixed_terrain() -> MapModel:
+	var model := MapModel.new()
+	model.setup(24, 18)
+	for y in model.height:
+		for x in model.width:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+	var patches: Array = [
+		[MapModel.Terrain.HARDWOOD_FOREST, 2, 8, 2, 8],
+		[MapModel.Terrain.SCRUB_FOREST, 9, 15, 2, 7],
+		[MapModel.Terrain.MOUNTAINS, 16, 22, 2, 7],
+		[MapModel.Terrain.HILLS, 2, 9, 9, 14],
+		[MapModel.Terrain.SWAMP, 10, 15, 9, 14],
+		[MapModel.Terrain.DESERT, 16, 22, 9, 14],
+	]
+	for patch: Array in patches:
+		for y in range(int(patch[3]), int(patch[4])):
+			for x in range(int(patch[1]), int(patch[2])):
+				model.terrain[model.index_of(x, y)] = int(patch[0])
 	return model
 
 

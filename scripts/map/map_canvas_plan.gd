@@ -202,31 +202,25 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 	var terrain: int = p_model.terrain_at(x, y)
 	if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
 		return
+	if terrain == MapModel.Terrain.HARDWOOD_FOREST:
+		_place_cluster(p_model, x, y, tile_size, "tree", 0.75, 3, 4, 0.46, 0.78)
+		return
+	if terrain == MapModel.Terrain.SCRUB_FOREST:
+		_place_cluster(p_model, x, y, tile_size, "scrub", 0.60, 2, 3, 0.42, 0.72)
+		return
+	if terrain == MapModel.Terrain.MOUNTAINS:
+		_place_cluster(p_model, x, y, tile_size, "mountain", 0.70, 2, 3, 0.62, 0.88)
+		_place_symbol(p_model, x, y, tile_size, "hill", 0.26, 47, 0.58)
+		return
+	if terrain == MapModel.Terrain.HILLS:
+		_place_cluster(p_model, x, y, tile_size, "hill", 0.62, 2, 3, 0.50, 0.78)
+		_place_symbol(p_model, x, y, tile_size, "grass", 0.30, 47, 0.58)
+		return
 	var kind: String = "grass"
 	var chance: float = 0.12
 	var second: String = ""
 	var second_chance: float = 0.0
 	match terrain:
-		MapModel.Terrain.MOUNTAINS:
-			kind = "mountain"
-			chance = 0.86
-			second = "hill"
-			second_chance = 0.56
-		MapModel.Terrain.HILLS:
-			kind = "hill"
-			chance = 0.62
-			second = "grass"
-			second_chance = 0.36
-		MapModel.Terrain.HARDWOOD_FOREST:
-			kind = "tree"
-			chance = 0.72
-			second = "tree"
-			second_chance = 0.56
-		MapModel.Terrain.SCRUB_FOREST:
-			kind = "scrub"
-			chance = 0.58
-			second = "scrub"
-			second_chance = 0.34
 		MapModel.Terrain.DESERT:
 			kind = "dune"
 			chance = 0.30
@@ -246,6 +240,40 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 	if second.is_empty():
 		return
 	_place_symbol(p_model, x, y, tile_size, second, second_chance, 47, 0.62)
+
+
+## Woods and high ground grow in clusters, not one stamp per tile: a tile that
+## clears its chance seeds a few marks around one centre, so a forest reads as a
+## grove and a mountain tile as a ridge. Every mark is checked against the
+## terrain under it, so a cluster stops at the coast or where its terrain ends.
+func _place_cluster(
+	p_model: MapModel, x: int, y: int, tile_size: float,
+	kind: String, chance: float, least: int, most: int,
+	size_lo: float, size_hi: float
+) -> void:
+	if MapGlyphs.hash01(x * 3 + 11, y * 7 + 5) > chance:
+		return
+	var centre: Vector2 = MapGeo.tile_center(x, y, tile_size) + Vector2(
+		(MapGlyphs.hash01(x + 31, y + 17) - 0.5) * tile_size * 0.5,
+		(MapGlyphs.hash01(x + 71, y + 43) - 0.5) * tile_size * 0.5
+	)
+	var count: int = clampi(least + int(MapGlyphs.hash01(x + 5, y + 9) * float(most - least + 1)), least, most)
+	for i in count:
+		var angle: float = MapGlyphs.hash01(x * 7 + i * 13, y * 5 + i * 29) * TAU
+		var reach: float = tile_size * (0.10 + MapGlyphs.hash01(x + i * 3, y + i * 7) * 0.32)
+		var at: Vector2 = centre + Vector2(cos(angle), sin(angle) * 0.72) * reach
+		var tile: Vector2i = MapGeo.tile_at_world(at, tile_size)
+		if p_model.terrain_at(tile.x, tile.y) != p_model.terrain_at(x, y):
+			continue
+		if under_label(at):
+			continue
+		var scale: float = size_lo + MapGlyphs.hash01(x + i * 11, y + i * 5) * (size_hi - size_lo)
+		glyphs.append({
+			"kind": kind,
+			"position": at,
+			"size": tile_size * scale,
+			"flip": MapGlyphs.hash01(x + i, y + i * 3) > 0.5,
+		})
 
 
 ## One scattered mark for this tile, if its hash clears the chance and the spot
