@@ -146,9 +146,16 @@ static func resolve(
 	## The action's published share of a line, spent as tactical weight: a
 	## stronger line breaks more of the enemy, and a tougher enemy line loses
 	## fewer regiments to the same blow (wiki: quick-battle § Cohesion and
-	## effective strength).
-	var average: float = ArmyModifiers.average_rank(enemy_side, int(enemy["limit"]))
-	var weight: float = ArmyModifiers.strength(me_side, int(me["limit"]), _multiplier(me))
+	## effective strength). Both terms are read over the men each side's line was
+	## dealt when the battle opened: a reserve waiting behind the limit adds no
+	## strength to a blow and never makes the enemy's line read tougher than the
+	## survivors of its own line (wiki: combat § The line and the reserve — "a
+	## reserve adds no strength"; quick-battle § Battlefield layout — "the reserve
+	## is dealt nowhere ... add no strength").
+	var average: float = ArmyModifiers.average_rank(
+		enemy_side, int(enemy["limit"]), line_of(enemy)
+	)
+	var weight: float = _blow_weight(me_side, me)
 	## Only firearms, bows and guns can strike a parapet: a besieger's blow is the
 	## weight of the regiments that reach it, so a pike's share breaks no wall,
 	## silences no gun and opens no gate (wiki: siege-mechanics § Damage Reduction
@@ -156,7 +163,9 @@ static func resolve(
 	## regiments with RNG >= 2 can strike it").
 	var striking: float = weight
 	if siege and key == "attacker":
-		striking = SiegeLanes.striking_weight(me_side, int(me["limit"]), _multiplier(me))
+		striking = SiegeLanes.striking_weight(
+			me_side, int(me["limit"]), _multiplier(me), line_of(me)
+		)
 	var wanted: int = ceili(ratio * striking / average)
 	# A line with no firearm or gun among it delivers nothing to the wall, and
 	# the despatch says the wall turned the blow aside (the whole line's blow is
@@ -277,6 +286,19 @@ static func line_losses(
 		armies, side, wanted, 0 if not line.is_empty() else int(state["limit"]),
 		Callable(), line
 	)
+
+
+## The weight one side lands with a blow: the men its line was dealt when the
+## battle opened ([method ArmyForce.line_strength]), so a reserve never steps up
+## into the slice after casualties and adds strength it never carried (wiki:
+## combat § The line and the reserve; quick-battle § Battlefield layout). A state
+## dealt no line (a hand-built one, a record made before the line was dealt)
+## keeps the older read, the strongest `limit` of the side as it stands.
+static func _blow_weight(side: Array[ArmyState], state: Dictionary) -> float:
+	var line: Array[String] = line_of(state)
+	if line.is_empty():
+		return ArmyModifiers.strength(side, int(state["limit"]), _multiplier(state))
+	return ArmyForce.line_strength(side, line, _multiplier(state))
 
 
 ## A side's combat multiplier from its modifier bundle; an unmodified side

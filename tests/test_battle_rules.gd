@@ -214,6 +214,105 @@ func test_an_auto_resolved_exchange_never_wears_a_reserve() -> void:
 		)
 
 
+## A reserve adds no strength to a blow either (wiki: combat § The line and the
+## reserve — "a reserve adds no strength"; quick-battle § Battlefield layout —
+## "the reserve is dealt nowhere ... take no casualties and add no strength").
+## Playtest: a line of six musketeers broke two men a volley; the same six with
+## eight pikemen waiting behind them broke two, two, then three — the blow was
+## weighed over the strongest ten of the side, so the men the battle never dealt
+## lent it their weight once the line had thinned.
+func test_a_reserve_adds_no_weight_to_a_blow() -> void:
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(_lane_side(_muskets(6), 2)):
+		line.append(String(entry["id"]))
+	var bare: Array[ArmyState] = _lane_side(_muskets(6), 2)
+	var stuffed_types: Array[String] = _muskets(6)
+	stuffed_types.append_array(_pikes(8))
+	var stuffed: Array[ArmyState] = _lane_side(stuffed_types, 2)
+	assert_eq(line.size(), 6)
+	assert_true(
+		ArmyModifiers.strength(stuffed, 10, 1.0) > ArmyForce.line_strength(stuffed, line, 1.0),
+		"the limit slice weighs more than the dealt line: that is the weight the old read paid"
+	)
+
+	var with_line: Array[int] = _volley_losses(bare, line)
+	var with_reserve: Array[int] = _volley_losses(stuffed, line)
+
+	assert_eq(with_line, [2, 2, 2], "six muskets break two a volley")
+	assert_eq(
+		with_reserve, with_line,
+		"eight pikemen behind the line change no volley's weight"
+	)
+
+
+## The mean enemy weight is read over the men its line was dealt too, so a fresh
+## reserve never props up a mauled line: a wounded muzzle line is as soft as its
+## own survivors, not as tough as the men behind it (wiki: quick-battle § Cohesion
+## and effective strength — "reserves behind the deployment limit never count").
+func test_a_mauled_line_reads_its_own_mean_weight() -> void:
+	var side_types: Array[String] = _muskets(3)
+	side_types.append_array(_pikes(6))
+	var side: Array[ArmyState] = _lane_side(side_types, 1)
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		if line.size() < 3:
+			line.append(String(entry["id"]))
+	var thin: Array[ArmyState] = _lane_side(_muskets(3), 1)
+	for regiment_id: String in line:
+		RegimentCondition.wound(side[0], regiment_id, 80.0)
+		RegimentCondition.wound(thin[0], regiment_id, 80.0)
+
+	assert_almost_eq(
+		ArmyModifiers.average_rank(side, 10, line),
+		ArmyModifiers.average_rank(thin, 10), 0.001
+	)
+	assert_true(
+		ArmyModifiers.average_rank(side, 10) > ArmyModifiers.average_rank(side, 10, line),
+		"the limit slice would let six fresh pikes prop up the mauled line"
+	)
+	assert_true(
+		ArmyModifiers.average_rank(side, 10, line) < RegimentCatalog.strength("pikemen"),
+		"the line reads as its own wounded men, not as the pikes behind it"
+	)
+
+
+## A besieger's shot is weighed over its dealt line as well: a musket held in
+## reserve carries nothing to the wall (wiki: siege-mechanics § Quick Battle
+## lanes; combat § The line and the reserve).
+func test_a_besiegers_reserve_carries_no_shot_to_the_wall() -> void:
+	var side: Array[ArmyState] = _lane_side(_muskets(12), 2)
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		if line.size() < 6:
+			line.append(String(entry["id"]))
+
+	var dealt: float = SiegeLanes.striking_weight(side, 10, 1.0, line)
+	var whole: float = SiegeLanes.striking_weight(side, 10, 1.0)
+
+	assert_almost_eq(whole, 10.0 * RegimentCatalog.strength("musketeers"), 0.001)
+	assert_almost_eq(dealt, 6.0 * RegimentCatalog.strength("musketeers"), 0.001)
+	assert_true(dealt < whole, "the six muskets in reserve strike nothing")
+
+
+## Three volleys of one attacking side against a fresh line of ten pikes, read
+## off a hand-built state shaped as [QuickBattle] builds it: the losses it breaks
+## per volley.
+func _volley_losses(side: Array[ArmyState], line: Array[String]) -> Array[int]:
+	var defender: Array[ArmyState] = _lane_side(_pikes(10), 1)
+	var armies: Array[ArmyState] = []
+	armies.append_array(side)
+	armies.append_array(defender)
+	var state: Dictionary = _lane_state(side, defender, 0)
+	state["attacker"]["line"] = line
+	var broken: Array[int] = []
+	for _index in 3:
+		var entry: Dictionary = QuickBattleActions.resolve(
+			armies, state, "attacker", "defender", "volley", [] as Array[Dictionary]
+		)
+		broken.append(int(entry["defender_lost"]))
+	return broken
+
+
 ## The report carries the line and the reserve so the plate and the despatch can
 ## name them (wiki: combat § The line and the reserve; DR-20261111-15). The line
 ## is read before any exchange, while every regiment is still standing.

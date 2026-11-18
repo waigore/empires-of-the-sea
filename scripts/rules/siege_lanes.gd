@@ -109,11 +109,24 @@ static func return_fire_share(side: Array[ArmyState]) -> float:
 ## gates (wiki: siege-mechanics § Damage Reduction — "melee-only units cannot
 ## attack walls"; § Quick Battle lanes — "only regiments with RNG >= 2 can strike
 ## it").
-static func striking_weight(side: Array[ArmyState], limit: int, multiplier: float) -> float:
+##
+## `line` names the men the battle dealt when it opened: the blow is weighed over
+## **those** survivors, so a reserve that steps into the slice after casualties
+## carries no shot to the wall (wiki: combat § The line and the reserve — "a
+## reserve adds no strength"; quick-battle § Battlefield layout — "the reserve is
+## dealt nowhere"). Empty keeps the older read for a caller with no line.
+static func striking_weight(
+	side: Array[ArmyState], limit: int, multiplier: float, line: Array[String] = []
+) -> float:
 	var total: float = 0.0
-	for entry: Dictionary in ArmyModifiers.deployed(side, limit):
+	## A line names its men by id, so the walk is the whole side filtered to them
+	## — never the strongest `limit`, which a mauled line would drop out of.
+	for entry: Dictionary in ArmyModifiers.deployed(side, 0 if not line.is_empty() else limit):
+		var regiment_id: String = String(entry["id"])
+		if not line.is_empty() and not line.has(regiment_id):
+			continue
 		var army: ArmyState = entry["army"]
-		if RegimentCatalog.stat(army.type_of(String(entry["id"])), "rng") >= FIREARM_RNG:
+		if RegimentCatalog.stat(army.type_of(regiment_id), "rng") >= FIREARM_RNG:
 			total += float(entry["rank"])
 	return total * multiplier
 
