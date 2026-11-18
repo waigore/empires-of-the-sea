@@ -2446,6 +2446,12 @@ domain = "ai_army"
 match = "scripts/map/map_play_army_ai.gd*"
 domain = "ai_army"
 
+# The rival muster split out of that pass: same narrow army-AI slice, so a
+# muster fix runs test_ai_rules rather than the wider army_* fan-out.
+[[rules]]
+match = "scripts/map/map_play_army_muster_ai.gd*"
+domain = "ai_army"
+
 [domains.ai_army]
 suites = [
   "test_ai_rules.gd",
