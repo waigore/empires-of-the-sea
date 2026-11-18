@@ -40,9 +40,8 @@ Land units: explore, improve, colonize, spy.
 - **Town development:** Builders raise towns to 4; connected port towns cap
   extraction; levels 2 and 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
-  per hull, never with troops); lands on a coastal tile beside its zone, the
-  grounds offered per coast; Explorers/Merchants any coast, others need crown
-  land.
+  per hull, never with troops); lands on a coastal tile beside its zone, grounds
+  offered per crew kind; Explorers/Merchants any coast, others need crown land.
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
   prospected mineral); 15× base at assign, debit on complete; each deed lifts the
   province town. Both surfaces name the deed's return

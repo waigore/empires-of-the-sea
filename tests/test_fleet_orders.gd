@@ -1797,6 +1797,103 @@ func test_the_crew_lands_on_the_ground_the_crown_names() -> void:
 	assert_true(_screen.civilian_layer.marker_for(unit).visible)
 
 
+## The press names the crew as well as the ground: two kinds aboard one squadron
+## read one line each, and the press lands the kind the crown read — a Builder
+## first aboard does not step off a press that names the Explorer (wiki:
+## civilian-units § Landing; DR-20261118-19).
+func test_the_press_lands_the_crew_kind_it_named() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	if home.ship_count() < 2:
+		home.add_hull("ship_two")
+	assert_eq(home.ship_count(), 2, "two hulls carry two crews")
+	var builder: CivilianState = null
+	var explorer: CivilianState = null
+	var tile: Vector2i = _screen.model.province_tiles(capital)[0]
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.owner != _screen.play.player_faction:
+			continue
+		if unit.type_id == "builder" and builder == null:
+			builder = unit
+		elif unit.type_id == "explorer" and explorer == null:
+			explorer = unit
+	assert_not_null(builder, "the fixture holds a Builder")
+	assert_not_null(explorer, "the fixture holds an Explorer")
+	for unit: CivilianState in [builder, explorer]:
+		unit.tile = tile
+		unit.moved = false
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % builder.id)
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % explorer.id)
+	assert_true(builder.is_embarked() and explorer.is_embarked(), "both crews board")
+
+	var rows: Array = MapPlayCivilianVoyage.crew(_screen.play, home)["land"]
+	var kinds: Array[String] = [] as Array[String]
+	for raw: Variant in rows:
+		var row: Dictionary = raw as Dictionary
+		if int(row.get("province", -1)) == capital:
+			kinds.append(String(row.get("crew", "")))
+	assert_true(kinds.has("builder"), "the Builder reads his own line")
+	assert_true(kinds.has("explorer"), "the Explorer reads her own line")
+
+	var legal: Array[Vector2i] = CivilianVoyage.landing_tiles_in(
+		_screen.model, explorer, home, capital
+	)
+	var chosen: Vector2i = legal[0]
+	MapPlayCivilianVoyage.on_action(
+		_screen.play, "crew:land:%d:%d:explorer" % [chosen.x, chosen.y]
+	)
+
+	assert_false(explorer.is_embarked(), "the Explorer takes the press")
+	assert_eq(explorer.tile, chosen, "on the ground the row named")
+	assert_true(builder.is_embarked(), "the Builder stays aboard his own press")
+	assert_eq(home.civilian_count(), 1, "one crew left aboard")
+
+
+## A press that names a crew the ground refuses says so by name, instead of
+## landing a different crew the crown did not read (wiki: civilian-units
+## § Landing; DR-20261118-19).
+func test_a_crew_the_ground_refuses_is_named_in_the_refusal() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var builder: CivilianState = null
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.owner == _screen.play.player_faction and unit.type_id == "builder":
+			builder = unit
+			break
+	assert_not_null(builder, "the fixture holds a Builder")
+	builder.tile = _screen.model.province_tiles(capital)[0]
+	builder.moved = false
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % builder.id)
+	assert_true(builder.is_embarked())
+
+	# A ground another crown holds: the Builder's own rule bars it, so the press
+	# reports the crew it named instead of landing someone else.
+	var foreign: Vector2i = Vector2i(-1, -1)
+	for y in _screen.model.height:
+		for x in _screen.model.width:
+			if not _screen.model.is_land(x, y):
+				continue
+			var province: int = _screen.model.province_at(x, y)
+			if province == MapModel.NO_ID or province == capital:
+				continue
+			if _screen.model.owner_at(x, y) != _screen.play.player_faction:
+				foreign = Vector2i(x, y)
+				break
+		if foreign.x >= 0:
+			break
+	assert_gte(foreign.x, 0, "the fixture holds ground another crown owns")
+	MapPlayCivilianVoyage.land(_screen.play, home, foreign, "builder")
+	assert_true(builder.is_embarked(), "a refused ground lands no crew")
+	assert_true(
+		_last_toast().contains("Builder"),
+		"the refusal names the crew the press did: %s" % _last_toast()
+	)
+
+
 ## A squadron of several hulls flies them: the marker's escorts, hull badge and
 ## strength gauge follow every launch and breaking up (wiki: ships-and-naval
 ## § Naval Strength Aggregation Formula).
