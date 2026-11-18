@@ -16,10 +16,10 @@ const Civilians = preload("res://tests/civilian_fixture.gd")
 const Fixture = preload("res://tests/map_fixture.gd")
 
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s, so a case starts on a bare
-## chart instead of remounting (`Fixture.suite_reset`). A case that visits a
-## province leaves its dossier open, and that would answer the next case's back
-## when the order is shuffled.
+## and a re-seat from the pristine save ~0.15 s. Snapshot-only cases never call
+## `_attach()`, so they skip the re-seat; sheet/drive cases re-seat lazily
+## (`Fixture.suite_reset`) instead of remounting. The hospitals sheet rides this
+## same chart — a second mount used to cost another ~0.5 s under coverage.
 var screen: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
@@ -30,7 +30,6 @@ var both_charts_map: Array = []
 
 
 func before_all() -> void:
-	_hospital_before_all()
 	pristine_map = Fixture.snapshot(Fixture.world())
 	screen = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(screen)
@@ -42,11 +41,11 @@ func before_all() -> void:
 
 
 func after_all() -> void:
-	_hospital_after_all()
 	if is_instance_valid(screen):
 		screen.hud.command_ledger.close()
 		screen.hud.towns_ledger.close()
 		screen.hud.walls_ledger.close()
+		screen.hud.hospitals_ledger.close()
 		screen.hud.navy_ledger.close()
 		screen.hud.army_ledger.close()
 		screen.hud.province_ledger.close()
@@ -55,24 +54,28 @@ func after_all() -> void:
 	pristine = {}
 
 
-func before_each() -> void:
-	_hospital_before_each()
+## A sheet/drive case starts on a pristine chart. Projection cases that never
+## read the chart never pay the re-seat (docs/testing.md § Speed rules).
+func _attach() -> MapScreen:
 	if screen == null or not is_instance_valid(screen):
 		screen = Fixture.attach_screen(self)
-		return
+		pristine = Fixture.suite_capture(screen)
+		return screen
 	Fixture.restore(Fixture.world(), pristine_map)
 	Fixture.suite_reset(screen, pristine)
-	# The command ledger and the three realm sheets are not dock panels: a case
-	# that leaves one open would answer the next case's back press.
+	# Realm sheets are not dock panels: a case that leaves one open would answer
+	# the next case's back press.
 	screen.hud.command_ledger.close()
 	screen.hud.towns_ledger.close()
 	screen.hud.walls_ledger.close()
+	screen.hud.hospitals_ledger.close()
 	screen.hud.navy_ledger.close()
 	screen.hud.army_ledger.close()
 	screen.hud.province_ledger.close()
 	# Back's debounce is static (one press per 300 ms per process), so the two
 	# back cases in this boot must not swallow each other's press.
 	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
+	return screen
 
 
 ## --- the province ledger -----------------------------------------------------
@@ -168,6 +171,7 @@ func test_filters_narrow_the_ledger_and_keep_their_tallies() -> void:
 
 
 func test_the_realm_door_opens_the_ledger_and_its_rows_visit_a_province() -> void:
+	_attach()
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
 	assert_not_null(panel, "the HUD mounts the province ledger")
 	var door: Button = _realm_door()
@@ -186,6 +190,7 @@ func test_the_realm_door_opens_the_ledger_and_its_rows_visit_a_province() -> voi
 
 
 func test_back_and_the_key_close_the_ledger() -> void:
+	_attach()
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	assert_true(panel.is_open())
@@ -204,6 +209,7 @@ func test_back_and_the_key_close_the_ledger() -> void:
 ## An emptied view prints its notice alone: the rows the last press left must not
 ## stand under it, or a crown reads a stale province beside "no province answers".
 func test_an_emptied_realm_prints_its_notice_alone() -> void:
+	_attach()
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	assert_true(_province_row_widgets(panel) > 0, "the sheet opens on the crown's holdings")
@@ -474,6 +480,7 @@ func test_a_spy_row_wears_its_chip_and_visits_on_a_tap() -> void:
 func test_the_reading_orders_shadows_screens_watches_idle_and_passengers() -> void:
 	# Two charts: the Old World holds a rival Great Power (Coro, England) and the
 	# New World a Minor (Genoa), so one reading carries every duty but the screen.
+	_attach()
 	var old: MapModel = Naval.build()
 	var new: MapModel = Civilians.build_minor()
 	new.region_id = FactionCatalog.NEW_WORLD
@@ -510,6 +517,7 @@ func test_the_reading_orders_shadows_screens_watches_idle_and_passengers() -> vo
 
 
 func test_the_courts_eyes_door_opens_the_sheet_it_reads() -> void:
+	_attach()
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
 	assert_not_null(panel, "the HUD mounts the crown's eyes")
 	var door: Button = _eyes_door()
@@ -521,6 +529,7 @@ func test_the_courts_eyes_door_opens_the_sheet_it_reads() -> void:
 
 
 func test_the_sheet_paints_a_network_and_a_visit() -> void:
+	_attach()
 	var play: PlaySession = screen.play
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
 	_clear_spies(play)
@@ -557,6 +566,7 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 ## The compact and narrow profiles repaint the sheet without losing its rows,
 ## and every duty has its own one-word chip.
 func test_the_phone_profile_repaints_the_reading() -> void:
+	_attach()
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.EYES)
 	assert_true(panel.is_open())
@@ -577,6 +587,7 @@ func test_the_phone_profile_repaints_the_reading() -> void:
 
 
 func test_back_and_the_key_close_the_sheet() -> void:
+	_attach()
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.EYES)
 	assert_true(panel.is_open())
@@ -811,6 +822,7 @@ func test_empty_or_missing_rosters_project_an_empty_ledger() -> void:
 
 
 func test_muster_seal_key_and_keyboard_action_open_the_ledger() -> void:
+	_attach()
 	InputActions.ensure_actions()
 	assert_true(InputMap.has_action(InputActions.MUSTER_ROLL))
 	assert_ne(InputActions.MUSTER_ROLL, InputActions.CIVILIAN_ROSTER)
@@ -825,6 +837,7 @@ func test_muster_seal_key_and_keyboard_action_open_the_ledger() -> void:
 
 
 func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
+	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._on_filter(ForceLedger.KIND_ARMY, false)
@@ -846,6 +859,7 @@ func test_ledger_kind_filter_and_visit_open_the_chosen_force() -> void:
 
 
 func test_region_filter_with_no_force_says_so() -> void:
+	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	panel._on_filter(LedgerRows.REGION_OLD, true)
@@ -858,6 +872,7 @@ func test_region_filter_with_no_force_says_so() -> void:
 
 
 func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
+	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var rows: Array[Dictionary] = _rows_of_kind(panel._snapshot, ForceLedger.KIND_SQUADRON)
@@ -876,6 +891,7 @@ func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
 
 
 func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
+	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var marker: Ship = null
@@ -902,6 +918,7 @@ func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 
 
 func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
+	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	assert_true(panel.is_open())
@@ -919,6 +936,7 @@ func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 ## gesture walks that same registry instead of a second copy of the list
 ## (REQ-P3-01, REQ-P5-07).
 func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
+	_attach()
 	var sheets: Array[SheetFrame] = HudLedgerDoors.sheets(screen.hud)
 	assert_eq(sheets.size(), 11, "the registry names every whole-empire sheet")
 	for sheet: SheetFrame in sheets:
@@ -937,6 +955,7 @@ func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 ## sheet by one key, so the table has to answer each one and one press has to
 ## open it (REQ-P3-01, REQ-P3-02).
 func test_every_door_key_opens_its_own_sheet() -> void:
+	_attach()
 	var keys: Dictionary = {}
 	for spec: Dictionary in HudLedgerDoors.SHEETS:
 		var key: String = String(spec["key"])
@@ -956,6 +975,7 @@ func test_every_door_key_opens_its_own_sheet() -> void:
 ## its key and its layer, never a HUD field, so a renamed handle cannot leave a
 ## door answering null (REQ-P3-01, REQ-P3-02).
 func test_the_registry_owns_the_sheets_and_the_hud_only_views_them() -> void:
+	_attach()
 	assert_not_null(screen.hud.ledger_doors, "the HUD holds the registry")
 	for spec: Dictionary in HudLedgerDoors.SHEETS:
 		var key: String = String(spec["key"])
@@ -988,6 +1008,7 @@ func test_the_registry_owns_the_sheets_and_the_hud_only_views_them() -> void:
 
 
 func test_the_rows_own_tap_visits_its_force() -> void:
+	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var row: ForceLedgerRow = null
@@ -1004,6 +1025,7 @@ func test_the_rows_own_tap_visits_its_force() -> void:
 
 
 func test_the_keyboard_action_toggles_from_the_map() -> void:
+	_attach()
 	InputActions.ensure_actions()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	var toggle := InputEventAction.new()
@@ -1285,8 +1307,10 @@ func _boot_both_charts() -> void:
 func _seat_both_charts() -> void:
 	Fixture.restore(Fixture.world(), both_charts_map)
 	Fixture.suite_reset(screen, both_charts)
+	screen.hud.hospitals_ledger.close()
 	screen.play.ship_layer.deselect()
 	screen.play.army_layer.deselect()
+	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
 
 
 func _own_fleet_ids(play: PlaySession, region: int) -> Array[int]:
@@ -1598,6 +1622,7 @@ func test_a_session_with_no_army_layer_reads_an_empty_command_pool() -> void:
 ## commander" with no row while the wiki says the faction always holds its cap
 ## (wiki: military-generals § Count and tech-gated cap).
 func test_a_fresh_campaign_opens_with_its_commander() -> void:
+	_attach()
 	var play: PlaySession = screen.play
 	var data: Dictionary = MapPlayCommand.snapshot(play)
 
@@ -1615,6 +1640,7 @@ func test_a_fresh_campaign_opens_with_its_commander() -> void:
 
 
 func test_the_command_door_opens_the_ledger_and_lists_the_pool() -> void:
+	_attach()
 	var panel: CommandLedgerPanel = screen.hud.command_ledger
 	assert_not_null(panel, "the HUD mounts the command ledger")
 	var play: PlaySession = screen.play
@@ -1632,6 +1658,7 @@ func test_the_command_door_opens_the_ledger_and_lists_the_pool() -> void:
 
 
 func test_back_and_the_key_close_the_command_ledger() -> void:
+	_attach()
 	var panel: CommandLedgerPanel = screen.hud.command_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
 	assert_true(panel.is_open())
@@ -1773,6 +1800,7 @@ func test_a_colony_row_with_no_seat_offers_no_visit_and_reads_its_subsidy() -> v
 
 
 func test_the_colonies_door_opens_the_sheet_it_reads() -> void:
+	_attach()
 	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
 	assert_not_null(panel, "the HUD mounts the colony ledger")
 	var door: Button = _colonies_door()
@@ -1788,6 +1816,7 @@ func test_the_colonies_door_opens_the_sheet_it_reads() -> void:
 
 
 func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
+	_attach()
 	var play: PlaySession = screen.play
 	play.diplomacy.ensure_relation(play.player_faction, _colony_tribe(), play.turn)
 	play.diplomacy.set_colony(_colony_tribe(), _colony_parent())
@@ -2862,6 +2891,7 @@ func test_the_snapshot_reads_its_free_crews_chart_by_chart() -> void:
 
 
 func test_the_realm_door_opens_the_towns_ledger() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	assert_not_null(panel, "the HUD mounts the towns ledger")
 	var door: Button = _towns_door()
@@ -2872,6 +2902,7 @@ func test_the_realm_door_opens_the_towns_ledger() -> void:
 
 
 func test_raise_files_the_builders_order_on_the_provinces_chart() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	var province: ProvinceState = _crown_town()
 	assert_not_null(province, "the campaign seats the crown in a town")
@@ -2899,6 +2930,7 @@ func test_raise_files_the_builders_order_on_the_provinces_chart() -> void:
 ## instead of being refused for a town the chart never assigned
 ## (REQ-P2-03, REQ-P5-05).
 func test_the_town_press_files_on_the_seat_a_hand_built_chart_never_assigned() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	var province: ProvinceState = _crown_town()
 	assert_not_null(province, "the campaign seats the crown in a town")
@@ -2931,6 +2963,7 @@ func test_the_town_press_files_on_the_seat_a_hand_built_chart_never_assigned() -
 ## no press the order would refuse (wiki: civilian-units § Builder;
 ## DR-20261115-12, REQ-P2-03, REQ-P5-05).
 func test_a_short_purse_leaves_the_town_raise_press_off_the_sheet() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	screen.play.tech_unlocked()["national_bureaucracy"] = true
 	_cancel_works()
@@ -2963,6 +2996,7 @@ func test_a_short_purse_leaves_the_town_raise_press_off_the_sheet() -> void:
 ## The map hooks answer a missing session and an unreadable province without
 ## folding: a sheet that opens before the campaign seats reads an empty roll.
 func test_the_map_hooks_guard_a_missing_session() -> void:
+	_attach()
 	assert_eq(int(MapPlayTowns.snapshot(null).get("total", -1)), 0, "no session, no towns")
 	MapPlayTowns.raise(null, FactionCatalog.OLD_WORLD, 0)
 	MapPlayTowns.raise(screen.play, FactionCatalog.OLD_WORLD, -1)
@@ -2971,6 +3005,7 @@ func test_the_map_hooks_guard_a_missing_session() -> void:
 
 
 func test_back_and_the_key_close_the_towns_ledger() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.TOWNS)
 	assert_true(panel.is_open())
@@ -2990,6 +3025,7 @@ func test_back_and_the_key_close_the_towns_ledger() -> void:
 ## the receipt is the one line the court reads (REQ-P5-04, REQ-P5-05;
 ## DR-20261116-03).
 func test_the_batch_press_files_every_ready_town_in_one_confirmed_press() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	screen.play.tech_unlocked()["national_bureaucracy"] = true
 	var stock: Dictionary = screen.play.stockpile()
@@ -3027,6 +3063,7 @@ func test_the_batch_press_files_every_ready_town_in_one_confirmed_press() -> voi
 
 
 func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	panel.open()
 	panel._on_filter(TownLedger.FILTER_DEVELOPED, false)
@@ -3038,6 +3075,7 @@ func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> voi
 ## whatever the view above the press prints — and the tap files exactly the line
 ## the face named (REQ-P5-05, REQ-P2-03; DR-20261118-21).
 func test_the_towns_confirm_names_the_line_it_would_file() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	_cancel_works()
 	screen.play.tech_unlocked()["national_bureaucracy"] = true
@@ -3073,6 +3111,7 @@ func test_the_towns_confirm_names_the_line_it_would_file() -> void:
 ## the Builders they tie up and the stores it leaves, printed before the second
 ## tap (REQ-P1-07, REQ-P5-06; DR-20261118-12).
 func test_the_towns_sheet_prints_the_line_its_press_would_spend() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	_cancel_works()
 	screen.play.tech_unlocked()["national_bureaucracy"] = true
@@ -3095,6 +3134,7 @@ func test_the_towns_sheet_prints_the_line_its_press_would_spend() -> void:
 ## A view with nothing ready prints neither the press nor a line about it: the
 ## price of an empty line is no line at all (REQ-P5-05; DR-20261118-12).
 func test_the_towns_sheet_prints_no_line_for_a_view_with_nothing_ready() -> void:
+	_attach()
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	panel.open()
 	panel._on_filter(TownLedger.FILTER_DEVELOPED, false)
@@ -3149,6 +3189,7 @@ func test_the_estates_ready_walk_reads_only_the_rows_the_view_prints() -> void:
 ## the receipt is the one line the court reads (REQ-P5-04, REQ-P5-05;
 ## DR-20261116-06).
 func test_the_estates_press_files_every_ready_estate_in_one_confirmed_press() -> void:
+	_attach()
 	var panel: ImprovementPanel = screen.improvements
 	var stock: Dictionary = screen.play.stockpile()
 	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
@@ -3191,6 +3232,7 @@ func test_the_estates_press_files_every_ready_estate_in_one_confirmed_press() ->
 ## take and the Builders they tie up, printed before the second tap
 ## (REQ-P2-03, REQ-P5-06; DR-20261118-12).
 func test_the_estates_sheet_prints_the_line_its_press_would_spend() -> void:
+	_attach()
 	var panel: ImprovementPanel = screen.improvements
 	_cancel_works()
 	var stock: Dictionary = screen.play.stockpile()
@@ -3214,6 +3256,7 @@ func test_the_estates_sheet_prints_the_line_its_press_would_spend() -> void:
 ## A card that opens fresh never carries an arm from the last visit, so one tap
 ## on a reopened sheet can never spend the stores (REQ-P5-04).
 func test_the_estates_press_forgets_its_arm_when_the_card_reopens() -> void:
+	_attach()
 	var panel: ImprovementPanel = screen.improvements
 	panel.open()
 	var press: RaiseBatchPress = panel._batch
@@ -3603,6 +3646,7 @@ func test_the_rule_note_states_what_a_wall_buys() -> void:
 
 
 func test_the_realm_door_opens_the_walls_ledger() -> void:
+	_attach()
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
 	assert_not_null(panel, "the HUD mounts the walls ledger")
 	var door: Button = _walls_door()
@@ -3613,6 +3657,7 @@ func test_the_realm_door_opens_the_walls_ledger() -> void:
 
 
 func test_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
+	_attach()
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
 	var province: ProvinceState = _crown_wall()
 	assert_not_null(province, "the campaign seats the crown on ground that can carry a wall")
@@ -3646,6 +3691,7 @@ func test_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
 ## no press the order would refuse (wiki: siege-mechanics § Fort Levels;
 ## DR-20261116-01, REQ-P2-03, REQ-P5-05).
 func test_a_short_purse_leaves_the_wall_raise_press_off_the_sheet() -> void:
+	_attach()
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
 	screen.play.tech_unlocked()["mine_engineering"] = true
 	screen.play.tech_unlocked()["modern_forts"] = true
@@ -3674,6 +3720,7 @@ func test_a_short_purse_leaves_the_wall_raise_press_off_the_sheet() -> void:
 ## The map hooks answer a missing session and an unreadable province without
 ## folding: a sheet that opens before the campaign seats reads an empty roll.
 func test_wall_the_map_hooks_guard_a_missing_session() -> void:
+	_attach()
 	assert_eq(int(MapPlayWalls.snapshot(null).get("total", -1)), 0, "no session, no walls")
 	MapPlayWalls.raise(null, FactionCatalog.OLD_WORLD, 0)
 	MapPlayWalls.raise(screen.play, FactionCatalog.OLD_WORLD, -1)
@@ -3722,6 +3769,7 @@ func test_a_raise_row_prints_the_payoff_the_rules_hand_it() -> void:
 
 
 func test_back_and_the_key_close_the_walls_ledger() -> void:
+	_attach()
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.WALLS)
 	assert_true(panel.is_open())
@@ -3740,6 +3788,7 @@ func test_back_and_the_key_close_the_walls_ledger() -> void:
 ## The walls sheet is the towns sheet's sibling, so it carries the same one-press
 ## batch under its chips (DR-20261116-03).
 func test_the_walls_sheet_carries_the_batch_press() -> void:
+	_attach()
 	var panel: WallLedgerPanel = screen.hud.walls_ledger
 	panel.open()
 	assert_not_null(panel._batch, "the sheet carries the batch press")
@@ -4099,6 +4148,7 @@ func test_a_visit_asks_for_her_squadrons_chart() -> void:
 
 
 func test_the_muster_rolls_door_opens_the_ledger() -> void:
+	_attach()
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	assert_not_null(panel, "the HUD mounts the navy ledger")
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
@@ -4113,6 +4163,7 @@ func test_the_muster_rolls_door_opens_the_ledger() -> void:
 
 
 func test_the_readings_narrow_the_sheet() -> void:
+	_attach()
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(panel.is_open())
@@ -4133,6 +4184,7 @@ func test_the_readings_narrow_the_sheet() -> void:
 ## hull yet, the filter may be hiding them, or the chart may hold none at all
 ## (REQ-P5-05).
 func test_the_empty_view_names_why_no_hull_answers() -> void:
+	_attach()
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	panel.bind(screen.play)
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
@@ -4163,6 +4215,7 @@ func test_the_empty_view_names_why_no_hull_answers() -> void:
 
 
 func test_every_chip_names_its_own_reading() -> void:
+	_attach()
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	var chart_row := panel._bar.get_child(0) as HBoxContainer
 	var reading_row := panel._bar.get_child(1) as HBoxContainer
@@ -4171,6 +4224,7 @@ func test_every_chip_names_its_own_reading() -> void:
 
 
 func test_navy_back_and_the_key_close_the_ledger() -> void:
+	_attach()
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
 	assert_true(panel.is_open())
@@ -4189,6 +4243,7 @@ func test_navy_back_and_the_key_close_the_ledger() -> void:
 ## A hull has no marker of her own: Visit frames the squadron that flies her and
 ## leaves the sheet, so the map a tap would have shown is the one under it.
 func test_a_visit_frames_her_squadron_and_sets_the_sheet_aside() -> void:
+	_attach()
 	var panel: NavalLedgerPanel = screen.hud.navy_ledger
 	panel.open()
 	assert_true(panel.is_open())
@@ -4417,6 +4472,7 @@ func test_an_army_visit_asks_for_its_standards_chart() -> void:
 
 
 func test_the_muster_rolls_army_door_opens_the_army_ledger() -> void:
+	_attach()
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
 	assert_not_null(panel, "the HUD mounts the army ledger")
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
@@ -4431,6 +4487,7 @@ func test_the_muster_rolls_army_door_opens_the_army_ledger() -> void:
 
 
 func test_the_army_readings_narrow_the_sheet() -> void:
+	_attach()
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
 	assert_true(panel.is_open())
@@ -4448,6 +4505,7 @@ func test_the_army_readings_narrow_the_sheet() -> void:
 
 
 func test_an_emptied_army_names_why_no_regiment_answers() -> void:
+	_attach()
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
 	panel.bind(screen.play)
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
@@ -4477,6 +4535,7 @@ func test_an_emptied_army_names_why_no_regiment_answers() -> void:
 
 
 func test_every_army_chip_names_its_own_reading() -> void:
+	_attach()
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
 	var chart_row := panel._bar.get_child(0) as HBoxContainer
 	var reading_row := panel._bar.get_child(1) as HBoxContainer
@@ -4485,6 +4544,7 @@ func test_every_army_chip_names_its_own_reading() -> void:
 
 
 func test_army_back_closes_the_ledger() -> void:
+	_attach()
 	var panel: ArmyLedgerPanel = screen.hud.army_ledger
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
 	assert_true(panel.is_open())
@@ -4671,34 +4731,11 @@ func _has_text(root: Node, needle: String) -> bool:
 ## crown holds that can carry a ward, the level it stands at, whether its staff
 ## ate and the step the Engineer would take next (wiki: combat § Regiment
 ## condition; DR-20261116-02) and the sheet drives it — the realm's door, the
-## Raise press and back. One Godot boot: the projection suite reads small
-## fixtures, the drive mounts the shared map hospital_screen (docs/testing.md).
+## Raise press and back. Projection cases read small fixtures; drive cases call
+## `_attach()` on the suite's one chart (no second mount under coverage).
 
 const hospital_Naval = preload("res://tests/naval_fixture.gd")
-const hospital_Fixture = preload("res://tests/map_fixture.gd")
 const hospital_TOWN_TILE: Vector2i = Vector2i(1, 0)
-
-var hospital_screen: MapScreen = null
-
-
-func _hospital_before_all() -> void:
-	hospital_screen = hospital_Fixture.attach_screen(self)
-
-
-func _hospital_after_all() -> void:
-	if is_instance_valid(hospital_screen):
-		hospital_screen.hud.hospitals_ledger.close()
-		hospital_screen.hud.province_ledger.close()
-		hospital_screen.free()
-	hospital_screen = null
-
-
-func _hospital_before_each() -> void:
-	if hospital_screen == null or not is_instance_valid(hospital_screen):
-		hospital_screen = hospital_Fixture.attach_screen(self)
-		return
-	hospital_screen.hud.hospitals_ledger.close()
-	hospital_screen.hud.province_ledger.close()
 
 
 # --- projection -------------------------------------------------------------
@@ -5007,7 +5044,8 @@ func test_the_rule_note_states_what_a_ward_buys() -> void:
 
 
 func test_the_realm_door_opens_the_hospitals_ledger() -> void:
-	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	_attach()
+	var panel: HospitalLedgerPanel = screen.hud.hospitals_ledger
 	assert_not_null(panel, "the HUD mounts the hospitals ledger")
 	var door: Button = _hospitals_door()
 	assert_not_null(door, "the realm ledger carries the hospitals door")
@@ -5019,7 +5057,8 @@ func test_the_realm_door_opens_the_hospitals_ledger() -> void:
 ## The wards sheet joined the raise spine with the towns and the walls, so it
 ## carries the same one-press batch under its chips (DR-20261116-03).
 func test_the_wards_sheet_carries_the_batch_press() -> void:
-	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	_attach()
+	var panel: HospitalLedgerPanel = screen.hud.hospitals_ledger
 	panel.open()
 	assert_not_null(panel._batch, "the sheet carries the batch press")
 	assert_true(panel._batch is RaiseBatchPress, "and it is the shared press")
@@ -5027,16 +5066,17 @@ func test_the_wards_sheet_carries_the_batch_press() -> void:
 
 
 func test_hospital_raise_files_the_engineers_order_on_the_provinces_chart() -> void:
-	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	_attach()
+	var panel: HospitalLedgerPanel = screen.hud.hospitals_ledger
 	var province: ProvinceState = _crown_ward()
 	assert_not_null(province, "the campaign seats the crown on ground that can carry a ward")
-	hospital_screen.play.tech_unlocked()["organised_regiments"] = true
-	hospital_screen.play.tech_unlocked()["modern_military_funding"] = true
-	var stock: Dictionary = hospital_screen.play.stockpile()
+	screen.play.tech_unlocked()["organised_regiments"] = true
+	screen.play.tech_unlocked()["modern_military_funding"] = true
+	var stock: Dictionary = screen.play.stockpile()
 	stock["lumber"] = 40
 	stock["fabric"] = 40
 	stock["steel"] = 40
-	var site: Vector2i = HospitalRules.site_tile(hospital_screen.play.model, province.id)
+	var site: Vector2i = HospitalRules.site_tile(screen.play.model, province.id)
 	var price: Dictionary = HospitalRules.cost(HospitalRules.next_level(province.hospital_level))
 	var lumber: int = int(stock["lumber"])
 	panel.open()
@@ -5058,18 +5098,20 @@ func test_hospital_raise_files_the_engineers_order_on_the_provinces_chart() -> v
 ## The map hooks answer a missing session and an unreadable province without
 ## folding: a sheet that opens before the campaign seats reads an empty roll.
 func test_hospital_the_map_hooks_guard_a_missing_session() -> void:
+	_attach()
 	assert_eq(int(MapPlayHospitals.snapshot(null).get("total", -1)), 0, "no session, no wards")
 	MapPlayHospitals.raise(null, FactionCatalog.OLD_WORLD, 0)
-	MapPlayHospitals.raise(hospital_screen.play, FactionCatalog.OLD_WORLD, -1)
-	MapPlayHospitals.raise(hospital_screen.play, 99, 0)
-	assert_eq(int(MapPlayHospitals.snapshot(hospital_screen.play).get("total", 0)), _crown_wards())
+	MapPlayHospitals.raise(screen.play, FactionCatalog.OLD_WORLD, -1)
+	MapPlayHospitals.raise(screen.play, 99, 0)
+	assert_eq(int(MapPlayHospitals.snapshot(screen.play).get("total", 0)), _crown_wards())
 
 
 func test_back_closes_the_hospitals_ledger() -> void:
-	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
-	hospital_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.HOSPITALS)
+	_attach()
+	var panel: HospitalLedgerPanel = screen.hud.hospitals_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.HOSPITALS)
 	assert_true(panel.is_open())
-	assert_true(BackRequest.handle(hospital_screen.play, hospital_screen.play.improvements))
+	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
 
 
@@ -5077,11 +5119,12 @@ func test_the_ration_the_sheet_prints_is_the_larder_demand_the_turn_pays() -> vo
 	## The count line's "staffs eat N food a turn" must be the same number the
 	## Consumption phase takes from the larder (`HospitalRules.demand_list`), or
 	## the sheet prices a bill the turn never charges.
+	_attach()
 	var paid: int = 0
-	for demand: int in HospitalRules.demand_list(hospital_screen.play.world, hospital_screen.play.player_faction):
+	for demand: int in HospitalRules.demand_list(screen.play.world, screen.play.player_faction):
 		paid += demand
 	var reading: Dictionary = HospitalLedger.summary(
-		MapPlayHospitals.snapshot(hospital_screen.play), LedgerRows.REGION_ALL
+		MapPlayHospitals.snapshot(screen.play), LedgerRows.REGION_ALL
 	)
 	assert_eq(int(reading["ration"]), paid, "the sheet's bill is the larder's own")
 
@@ -5090,11 +5133,12 @@ func test_the_sheet_offers_no_press_the_stores_refuse() -> void:
 	## The walls/towns sheets shipped this defect once: a `READY` row whose
 	## Raise the order refuses for want of materials. The ward sheet reads the
 	## same purse the order charges, so a broke crown sees `LOCKED` and no press.
-	var panel: HospitalLedgerPanel = hospital_screen.hud.hospitals_ledger
+	_attach()
+	var panel: HospitalLedgerPanel = screen.hud.hospitals_ledger
 	var province: ProvinceState = _crown_ward()
 	assert_not_null(province, "the campaign seats the crown on ground that can carry a ward")
-	hospital_screen.play.tech_unlocked()["organised_regiments"] = true
-	var stock: Dictionary = hospital_screen.play.stockpile()
+	screen.play.tech_unlocked()["organised_regiments"] = true
+	var stock: Dictionary = screen.play.stockpile()
 	stock["lumber"] = 0
 	stock["fabric"] = 0
 	stock["steel"] = 0
@@ -5112,9 +5156,9 @@ func test_the_sheet_offers_no_press_the_stores_refuse() -> void:
 	)
 	assert_false(_raise_visible(row), "and carries no press")
 	var order: Dictionary = ImprovementOrders.build_hospital(
-		hospital_screen.play.model, hospital_screen.play.civilian_layer.units, hospital_screen.play.land_works,
-		stock, hospital_screen.play.visibility, hospital_screen.play.player_faction, province.id,
-		hospital_screen.play.tech_caps(), hospital_screen.play.tech_unlocked()
+		screen.play.model, screen.play.civilian_layer.units, screen.play.land_works,
+		stock, screen.play.visibility, screen.play.player_faction, province.id,
+		screen.play.tech_caps(), screen.play.tech_unlocked()
 	)
 	assert_false(bool(order.get("ok", true)), "the order refuses too, so the two agree")
 
@@ -5191,12 +5235,12 @@ func hospital__row(snapshot: Dictionary, region: int) -> Dictionary:
 ## not been finished yet and has no crew already at work on its site — so a case
 ## that raises a ward never leaves the next one reading `AT WORK`.
 func _crown_ward() -> ProvinceState:
-	for province: ProvinceState in hospital_screen.play.model.provinces:
-		if province.owner != hospital_screen.play.player_faction:
+	for province: ProvinceState in screen.play.model.provinces:
+		if province.owner != screen.play.player_faction:
 			continue
 		if province.hospital_level >= HospitalRules.MAX_LEVEL:
 			continue
-		var site: Vector2i = HospitalRules.site_tile(hospital_screen.play.model, province.id)
+		var site: Vector2i = HospitalRules.site_tile(screen.play.model, province.id)
 		if site.x < 0:
 			continue
 		if _ward_crew(site) != null:
@@ -5208,7 +5252,7 @@ func _crown_ward() -> ProvinceState:
 ## The realm ledger's hospitals door, found by its word so the suite reads the
 ## button the player presses.
 func _hospitals_door() -> Button:
-	for node: Node in hospital_screen.hud.province_ledger.find_children("*", "Button", true, false):
+	for node: Node in screen.hud.province_ledger.find_children("*", "Button", true, false):
 		var button := node as Button
 		if button != null and button.text == "Hospitals ›":
 			return button
@@ -5217,8 +5261,8 @@ func _hospitals_door() -> Button:
 
 ## The Engineer the sheet sent: the crown's crew with a ward order on this site.
 func _ward_crew(site: Vector2i) -> CivilianState:
-	for unit: CivilianState in hospital_screen.play.civilian_layer.units:
-		if unit.owner != hospital_screen.play.player_faction or not unit.is_working():
+	for unit: CivilianState in screen.play.civilian_layer.units:
+		if unit.owner != screen.play.player_faction or not unit.is_working():
 			continue
 		if unit.work_action() == "build_hospital" and unit.work_tile() == site:
 			return unit
@@ -5250,12 +5294,12 @@ func _raise_visible(row: HospitalLedgerRow) -> bool:
 ## count.
 func _crown_wards() -> int:
 	var total: int = 0
-	for region: int in hospital_screen.play.world.region_count():
-		var model: MapModel = hospital_screen.play.world.region(region)
+	for region: int in screen.play.world.region_count():
+		var model: MapModel = screen.play.world.region(region)
 		if model == null:
 			continue
 		for province: ProvinceState in model.provinces:
-			if province == null or province.owner != hospital_screen.play.player_faction:
+			if province == null or province.owner != screen.play.player_faction:
 				continue
 			if HospitalRules.site_tile(model, province.id).x >= 0:
 				total += 1
