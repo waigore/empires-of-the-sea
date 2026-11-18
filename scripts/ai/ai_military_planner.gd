@@ -3,20 +3,30 @@ extends RefCounted
 ## Full-AI land policy (docs/ai.md). At war on its own border a rival court
 ## detaches the Home Army into a field army, then marches field armies to save an
 ## occupied province, storm the best adjacent hostile one, or advance to the
-## nearest frontier. Pure rules: state in, orders out; the map layer applies them
-## through ArmyMovement so the AI never invents an outcome (REQ-P2-03,
-## REQ-P3-03).
+## nearest frontier. A court that has reached its muster target cuts a fresh
+## field force even while another stands, and an under-strength field army may
+## rotate home to merge with the Home Army's mustered mass so the next cut
+## re-fields a full-strength replacement (issue #974). Pure rules: state in,
+## orders out; the map layer applies them through ArmyMovement so the AI never
+## invents an outcome (REQ-P2-03, REQ-P3-03).
 
 const KIND_SPLIT: String = "split_home"
 const KIND_MARCH: String = "march"
+## An under-strength field army's interior-lines march home to merge with the
+## Home Army's mustered mass (issue #974).
+const KIND_ROTATE: String = "rotate_home"
 
 ## Score weights and the storm margin live in AiParameterRegistry
 ## ("military.*"), so a profile tunes the land policy without code edits.
 
 
-## Detach the Home Army when a hostile province touches the court's own land and
-## no field army exists yet. One regiment guards the capital (the Home Army never
-## marches); the rest form a field army at the seat.
+## Detach the Home Army when a hostile province touches the court's own land.
+## With no field army standing this is the published first cut: one regiment
+## guards the capital (the Home Army never marches); the rest form a field army
+## at the seat. While another stands, the guard is a **condition, not a
+## lifetime lock** (issue #974): a Home Army that has reached the court's
+## muster target holds nothing but the mass a fresh field force can take, so a
+## second cut fields it and the musters refill the seat.
 static func split_orders(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -29,10 +39,12 @@ static func split_orders(
 	var owner: int = config.faction
 	if frontier_hostile(model, owner, state).is_empty():
 		return actions
-	if not ArmyRoster.field_armies(armies, owner).is_empty():
-		return actions
 	var home: ArmyState = ArmyTraining.home_army(armies, owner)
 	if home == null or home.count() < 2:
+		return actions
+	if not ArmyRoster.field_armies(armies, owner).is_empty() and home.count() < AiArmyReinforce.desired_regiments(
+		config, AiIncome.at_war(state, owner)
+	):
 		return actions
 	var ordered: Array[String] = home.regiments.duplicate()
 	ordered.sort_custom(func(a: String, b: String) -> bool:
@@ -50,7 +62,10 @@ static func split_orders(
 
 
 ## One march per field army: defence of an occupied own province, then storming
-## an adjacent hostile province, then staging on the nearest frontier.
+## an adjacent hostile province, then staging on the nearest frontier. One
+## under-strength field army a turn may instead march home on interior lines
+## (issue #974): it merges with the Home Army's mustered mass, and the next
+## split re-fields a full-strength replacement.
 static func march_orders(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -66,21 +81,57 @@ static func march_orders(
 	if hostile.is_empty():
 		return {"orders": orders, "candidates": candidates}
 	var frontier: Array[int] = _staging_provinces(model, owner, state)
+	var rotating: int = _rotation_army_id(config, model, armies)
 	for army: ArmyState in ArmyRoster.field_armies(armies, owner):
 		if army.moved or army.is_empty():
 			continue
-		var best: Dictionary = _best_order(config, model, armies, army, hostile, frontier)
-		if best.is_empty():
-			continue
-		var entry: Dictionary = {
-			"army_id": army.id,
-			"province": int(best["province"]),
-			"kind": String(best["kind"]),
-			"score": int(best["score"]),
-		}
+		var entry: Dictionary = {}
+		if army.id == rotating:
+			var home: ArmyState = ArmyTraining.home_army(armies, owner)
+			entry = {
+				"army_id": army.id,
+				"province": home.province,
+				"kind": KIND_ROTATE,
+				"score": 0,
+			}
+		else:
+			var best: Dictionary = _best_order(config, model, armies, army, hostile, frontier)
+			if best.is_empty():
+				continue
+			entry = {
+				"army_id": army.id,
+				"province": int(best["province"]),
+				"kind": String(best["kind"]),
+				"score": int(best["score"]),
+			}
 		candidates.append(entry)
 		orders.append(entry.duplicate())
 	return {"orders": orders, "candidates": candidates}
+
+
+## The one field army this turn's rotation takes home (issue #974): the
+## smallest standing force — the most under-strength — while the Home Army
+## holds mustered mass above the seat's guard, so merging and re-cutting fields
+## a strictly stronger replacement. -1 when no rotation pays: no mass beyond
+## the guard, no field army away from the seat, or the court reads no seat.
+static func _rotation_army_id(
+	config: AiConfig,
+	model: MapModel,
+	armies: Array[ArmyState]
+) -> int:
+	var owner: int = config.faction
+	var home: ArmyState = ArmyTraining.home_army(armies, owner)
+	if home == null or home.province != WorldBootstrap.capital_province(model, owner):
+		return -1
+	if home.count() <= 1:
+		return -1
+	var chosen: ArmyState = null
+	for army: ArmyState in ArmyRoster.field_armies(armies, owner):
+		if army.moved or army.is_empty() or army.province == home.province:
+			continue
+		if chosen == null or army.count() < chosen.count():
+			chosen = army
+	return chosen.id if chosen != null else -1
 
 
 ## Highest-scoring legal destination for one field army. Attack scores come from
