@@ -1915,6 +1915,44 @@ func test_the_alliance_refusal_is_not_the_heralds_word() -> void:
 	assert_false(_names_a_herald_word(String(check["reason"])), String(check["reason"]))
 
 
+## An alliance rides on the pact: the order is refused with the published reason
+## while no non-aggression pact stands, however warm the court — and admitted
+## once the pact is in either direction (wiki: diplomacy § Alliances;
+## DR-20261115-19).
+func test_an_alliance_needs_the_pact_first() -> void:
+	_setup_diplomacy_orders()
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	record.score = DiplomacyCatalog.ALLIANCE_CLAMP
+	var no_pact: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
+	assert_false(bool(no_pact["ok"]))
+	assert_eq(
+		String(no_pact["reason"]), "An alliance needs a non-aggression pact first."
+	)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	var with_pact: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
+	assert_true(bool(with_pact["ok"]), String(with_pact.get("reason", "")))
+
+
+## The rival answers the published test: below the Allied band it declines, at
+## the band it signs and the pair's score is clamped into it (wiki: diplomacy
+## § GP AI policy — `alliance >= 76`).
+func test_the_alliance_is_answered_at_the_allied_band() -> void:
+	_setup_diplomacy_orders()
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	record.score = DiplomacyCatalog.ALLIANCE_CLAMP - 1.0
+	var cold: Dictionary = DiplomacyRules.form_alliance(diplomacy_orders_state, 0, 2)
+	assert_true(bool(cold["ok"]), String(cold.get("reason", "")))
+	assert_false(bool(cold.get("accepted", true)))
+	assert_false(record.formal_alliance)
+	record.score = DiplomacyCatalog.ALLIANCE_CLAMP
+	var warm: Dictionary = DiplomacyRules.form_alliance(diplomacy_orders_state, 0, 2)
+	assert_true(bool(warm["ok"]), String(warm.get("reason", "")))
+	assert_true(bool(warm.get("accepted", false)))
+	assert_true(record.formal_alliance)
+	assert_true(record.score >= DiplomacyCatalog.ALLIANCE_CLAMP)
+
+
 ## A rule refusal speaks the gate, never one of the ten words the court sheet
 ## shows for the same hidden score (wiki: diplomacy § 10-step relation meter).
 func _names_a_herald_word(text: String) -> bool:
