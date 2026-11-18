@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:5ed76b2e439e6709f934bd9b4040fc945cf00034fc0abff536d85d7b57b67b5b",
-  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261118T124138801207Z@e711ea9b",
+  "submission_hash": "sha256:9424f7d453d0f231b2bad28adf4a3a297e211a6a55c2715ab80753235abbba74",
+  "submission_git": "refactor/army-muster-trace-row@c9a44cc4+merge-main-rebind",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:195ce5b5546fd7060ade326dcba14b1e3e0ab5b9ed00e4125373d281cba9f87a",
+    "ai_surface_hash": "sha256:60210e842527026d80114ad5a5d4710f54eb1834d5fe78c312abd8a3f04a9a5c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 15,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-18T13:02:43Z",
+  "timestamp": "2026-11-18T14:47:04Z",
   "report_version": 1,
-  "signature": "hmac-sha256:3c40d54c779fa4b38eeb135f3ed18b5c42a9b6e5f84a45458d2211252b7b6428"
+  "signature": "hmac-sha256:813c19c2a1890a807dbed43d24e3d0834fb6109548356a33e44efed84583c3ed"
 }
