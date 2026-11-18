@@ -143,6 +143,35 @@ func test_the_port_province_is_the_landing_ground() -> void:
 		Vector2i(0, 0)
 	)
 
+func test_a_coast_offers_every_ground_it_holds() -> void:
+	_setup_civilian_voyage()
+	var fleet: FleetState = _fleet()
+	var unit: CivilianState = _unit()
+	CivilianVoyage.embark(_model, unit, fleet)
+
+	var grounds: Array[Vector2i] = CivilianVoyage.landing_tiles_in(
+		_model, unit, fleet, 0
+	)
+
+	assert_eq(grounds.size(), 3, "every tile of the port province is a ground")
+	assert_eq(grounds[0], Vector2i(0, 0), "the first ground reads as the first landing tile")
+	assert_true(grounds.has(Vector2i(1, 0)))
+	assert_true(grounds.has(Vector2i(0, 1)))
+	assert_eq(
+		CivilianVoyage.landing_tile_in(_model, unit, fleet, 0),
+		grounds[0],
+		"a caller that names only the coast lands on the first ground"
+	)
+	assert_eq(
+		CivilianVoyage.landing_tiles_in(_model, unit, fleet, 5), [],
+		"another coast holds no ground for this squadron"
+	)
+	assert_eq(
+		CivilianVoyage.landing_tiles_in(_model, unit, fleet, CivilianVoyage.NO_ID),
+		[],
+		"an unnamed coast is no coast"
+	)
+
 func test_a_squadron_at_sea_lands_on_the_bordering_coast() -> void:
 	_setup_civilian_voyage()
 	var fleet: FleetState = FleetState.at_sea(2, 0, 0, ["c"], {"c": "fluyte"})
