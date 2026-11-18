@@ -33,20 +33,21 @@ Land units: explore, improve, colonize, spy.
   a mineral stays hidden until an Explorer prospects it.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
   [DR-20261117-07](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-07)):
-  an idle crew's dossier names the planner's next work, priced by its ledger,
-  and the ground when it is not underfoot; or the march.
+  an idle crew's dossier names the planner's next work, priced by its ledger;
+  or the march.
 - **Town development:** Builders raise towns to 4; connected port towns cap
   extraction; levels 2, 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
-  per hull, never with troops); lands on a coastal tile beside its zone, grounds
-  offered per crew kind in a window of whole rows, the port's own seat in
-  one press
+  per hull, never with troops); lands on a coastal tile beside its zone, one
+  press for the port's own seat
   ([DR-20261119-03](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-03));
-  Explorers/Merchants any coast, others need crown land.
+  Explorers/Merchants any coast, others need crown land. **A rival reads the
+  ground:** its colonist takes the charted coast its workshop can turn (sugar
+  cane, tobacco, furs) before the compass order
+  ([DR-20261119-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-05)).
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
   prospected mineral); 15× base at assign, debit on complete; each deed lifts the
-  province town. Both surfaces name the deed's return
-  ([DR-20261118-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-05)).
+  province town ([DR-20261118-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-05)).
 - **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog
   and saves; the province stays the seller's.
 - **Improvements** yield `min(level, tech, terrain, transport, town)` when

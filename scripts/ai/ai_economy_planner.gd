@@ -309,6 +309,34 @@ static func _reserve(recipe_id: String, runs: int, stock: Dictionary) -> void:
 	stock[output] = int(stock.get(output, 0)) + runs
 
 
+## The raws the court's own workshop can turn and does not hold in number:
+## commodity → weight, read by the colonisation planner to choose the ground a
+## colonist lands on (wiki: production-recipes; DR-20261119-05). A row's input is
+## worth the voyage only while the store stands short of `reserve_target`; a
+## mineral is never read, because a chart shows no unprospected ground
+## (DR-20261111-26), so a court crosses the water for sugar cane and tobacco, not
+## for a hill that may or may not hold tin.
+static func ground_appetite(
+	config: AiConfig, economy: PlayerEconomy, town_level: int = 0
+) -> Dictionary:
+	var appetite: Dictionary = {}
+	if config == null or economy == null:
+		return appetite
+	var target: int = maxi(config.parameter("economy.reserve_target"), 0)
+	for recipe_id: String in ProductionRecipes.available_ids_for(
+		economy.tech_unlocked, economy.workers, town_level
+	):
+		for raw: Variant in ProductionRecipes.inputs(recipe_id).keys():
+			var id: String = String(raw)
+			if ImprovementCatalog.MINERAL_COMMODITIES.has(id):
+				continue
+			var deficit: int = maxi(target - economy.quantity(id), 0)
+			if deficit <= 0:
+				continue
+			appetite[id] = int(appetite.get(id, 0)) + deficit
+	return appetite
+
+
 ## Highest score first; recipe id breaks a tie so the plan is deterministic.
 static func _better_candidate(a: Dictionary, b: Dictionary) -> bool:
 	if int(a["score"]) != int(b["score"]):
