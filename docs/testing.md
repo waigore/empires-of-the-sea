@@ -49,7 +49,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` /
   `test_auto_mode`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
-  never `generate_world`.
+  never `generate_world`. College rules keep state/purse in `before_each`; bind
+  the pocket chart and `ResearchPanel` only when a case reads them.
 - **Heaviest suite sorts first**: name order, four wide — a long `world_…`
   suite must not drain alone.
 - One Godot boot per theme — coverage ~15 s a boot; 27 → 24 suites
