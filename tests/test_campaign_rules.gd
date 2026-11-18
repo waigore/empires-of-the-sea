@@ -1753,7 +1753,107 @@ func test_a_standoff_prints_the_crowns_own_dead() -> void:
 	var items: Array = _items(_state(3), [], [battle])
 	assert_eq(items.size(), 1)
 	var text: String = String(items[0]["text"])
-	assert_true(text.contains("2 of our regiments lost"), text)
+	assert_true(text.contains("2 of our regiments are lost"), text)
+
+
+## A won line names the crown's own dead: the field it holds, the province it
+## takes and the water it keeps all print what they cost, beside the beaten
+## court's loss (wiki: the-gazette § What the crown can know; DR-20261119-07).
+func test_a_won_field_prints_the_crowns_own_dead() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"captured": true,
+		"attacker_lost": [1],
+		"defender_lost": [1, 2],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 regiments"), text)
+	assert_true(text.contains("1 of our regiments is lost"), text)
+
+
+## A bloodless win prints the beaten side's loss alone: the clause is the
+## record's, so a court that lost nobody reads no zero (DR-20261119-07).
+func test_a_bloodless_win_prints_no_zero() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": [1, 2],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 of their regiments are broken"), text)
+	assert_false(text.contains("of our"), text)
+
+
+## A defence another court holds against the crown names the crown's dead as
+## ours, never as an anonymous count (wiki: the-gazette § What the crown can
+## know; DR-20261119-07).
+func test_a_held_defence_against_the_crown_names_our_dead() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": [1, 2],
+		"defender_lost": [],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 of our regiments are broken"), text)
+
+
+## A defence the crown itself holds prints the beaten side's loss and then the
+## crown's own: a win on its own walls costs men too (wiki: the-gazette § What
+## the crown can know; DR-20261119-07).
+func test_a_defence_the_crown_holds_names_both_sides() -> void:
+	var battle: Dictionary = {
+		"attacker": GAZ_FRANCE,
+		"defender": VIEWER,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": [1, 2],
+		"defender_lost": [1],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 of their regiments are broken"), text)
+	assert_true(text.contains("1 of our regiments is lost"), text)
+
+
+## A sea victory keeps the water and still spends hulls doing it, so the line
+## names the crown's own hulls as well as the beaten squadron's
+## (wiki: the-gazette § What the crown can know; ships-and-naval § Naval Combat
+## Resolution; DR-20261119-07).
+func test_a_sea_victory_prints_the_crowns_own_hulls() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"zone": 0,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"attacker_lost": ["h1"],
+		"defender_lost": ["h2", "h3"],
+	}
+	var items: Array = _items(_state(3), [], [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 hulls"), text)
+	assert_true(text.contains("1 of our hulls is lost"), text)
 
 
 ## A beaten squadron that slips away still costs the crown that held the water
@@ -1773,7 +1873,7 @@ func test_a_withdrawal_that_costs_the_crown_hulls_prints_them() -> void:
 	var items: Array = _items(_state(3), [], [], [battle])
 	assert_eq(items.size(), 1)
 	var text: String = String(items[0]["text"])
-	assert_true(text.contains("1 of our hulls lost"), text)
+	assert_true(text.contains("1 of our hulls is lost"), text)
 
 
 ## Another court's standoff and withdrawal still print no numbers

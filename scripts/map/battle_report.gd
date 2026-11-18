@@ -254,15 +254,13 @@ static func _land_core(
 	var outcome: int = int(battle.get("outcome", ArmyCombat.Outcome.STALEMATE))
 	match outcome:
 		ArmyCombat.Outcome.ATTACKER_VICTORY:
-			var broken: int = (battle.get("defender_lost", []) as Array).size()
-			return "%s takes %s — %s loses %s" % [
-				attacker, province_name, defender, _regiments(broken)
-			]
+			return "%s takes %s" % [attacker, province_name] \
+				+ _spent("defender", defender, battle, " — ") \
+				+ _spent("attacker", attacker, battle, "; ")
 		ArmyCombat.Outcome.DEFENDER_VICTORY:
-			var spent: int = (battle.get("attacker_lost", []) as Array).size()
-			return "%s holds %s — %s loses %s" % [
-				defender, province_name, attacker, _regiments(spent)
-			]
+			return "%s holds %s" % [defender, province_name] \
+				+ _spent("attacker", attacker, battle, " — ") \
+				+ _spent("defender", defender, battle, "; ")
 		ArmyCombat.Outcome.MUTUAL_ANNIHILATION:
 			var garrison: int = int(battle.get("garrison", 0))
 			if garrison > 0:
@@ -278,11 +276,24 @@ static func _land_core(
 		ArmyCombat.Outcome.CAPTURE:
 			return "%s occupies %s unopposed" % [attacker, province_name]
 		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
-			var spent: int = (battle.get("attacker_lost", []) as Array).size()
-			return "%s holds the field at %s — %s lost" % [
-				attacker, province_name, _regiments(spent)
-			]
+			return "%s holds the field at %s" % [attacker, province_name] \
+				+ _spent("defender", defender, battle, " — ") \
+				+ _spent("attacker", attacker, battle, "; ")
 	return "%s and %s stand off at %s" % [attacker, defender, province_name]
+
+
+## What a side left on the field, as one clause of the line: ` — England loses 2
+## regiments` for the side the sentence leads with, `; España loses 1 regiment`
+## for the second. Empty when the record carries no loss for that side, so a
+## bloodless side stays unspoken rather than printing a zero — and a won field
+## names the winner's own dead as well as the beaten side's, exactly as the sea
+## despatch does (wiki: combat § Land battle resolution; ships-and-naval
+## § Naval Combat Resolution; DR-20261119-07).
+static func _spent(side: String, faction: String, battle: Dictionary, lead: String) -> String:
+	var count: int = (battle.get(side + "_lost", []) as Array).size()
+	if count <= 0:
+		return ""
+	return "%s%s loses %s" % [lead, faction, _regiments(count)]
 
 
 ## "1 regiment" / "2 regiments": a despatch never says "1 regiments".
