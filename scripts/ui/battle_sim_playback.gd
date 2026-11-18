@@ -74,7 +74,7 @@ static func apply_wings(field: QuickBattleField, record: Dictionary) -> void:
 static func set_round_buttons(buttons: HFlowContainer, enabled: bool, fought: int) -> void:
 	for index in buttons.get_child_count():
 		var button: Button = buttons.get_child(index) as Button
-		button.disabled = not enabled or (index < QuickBattle.MAX_ROUNDS and index >= fought)
+		button.disabled = not enabled or (index < QuickBattleTerms.MAX_ROUNDS and index >= fought)
 
 
 ## Clears the plate back to an empty sandbox.
