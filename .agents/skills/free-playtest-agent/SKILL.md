@@ -33,7 +33,7 @@ Hill-climb **player-visible expression** of an implemented area: rules fidelity,
 | [Wiki Game rules](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics SoT |
 | [`docs/requirements.md`](../../../docs/requirements.md) | Pillars as touched |
 | [`docs/rubric.md`](../../../docs/rubric.md) | Self-score |
-| [`AGENTS.md`](../../../AGENTS.md) | Stack; run via `tools/run.sh` |
+| [`AGENTS.md`](../../../AGENTS.md) | Stack; `tools/run.sh`; Talk to the user (PR text) |
 | [`docs/testing.md`](../../../docs/testing.md) | Coverage / smoke budgets |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
 | Hermes GameForge **playtesting** skill | `forge_playtest` policies / reports |

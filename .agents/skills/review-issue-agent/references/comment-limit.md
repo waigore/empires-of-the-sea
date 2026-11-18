@@ -1,6 +1,7 @@
 # Review comments (≤150 words)
 
-Every review comment (fail **or** close note) must be **≤150 plain-English words**. No stacks of checklists, no pasted logs, no code fences unless a single short path is essential.
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+Every review comment (fail **or** close note) must be **≤150 words**. No stacks of checklists, no pasted logs, no code fences unless a single short path is essential.
 
 Count words before posting. If over: cut; link the evidence page and PR instead.
 

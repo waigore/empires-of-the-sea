@@ -1,5 +1,7 @@
 # PR body + rubric self-score
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 Use with `gh pr create`. Keep the title why-focused.
 
 ```markdown

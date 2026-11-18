@@ -25,7 +25,7 @@ Aggressive is intentional: prefer decisive structural cleanup over tiny cosmetic
 
 | Source | Role |
 |--------|------|
-| [`AGENTS.md`](../../../AGENTS.md) | Layout, conventions, reuse-first |
+| [`AGENTS.md`](../../../AGENTS.md) | Layout, conventions; Talk to the user (PR text) |
 | [`docs/requirements.md`](../../../docs/requirements.md) | Especially `REQ-P3-*` |
 | [`docs/rubric.md`](../../../docs/rubric.md) | Especially `RUB-P3-*` |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |

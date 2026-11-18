@@ -1,5 +1,6 @@
 # Issue comments (resolve)
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
 Keep comments short. Prefer links over pasting logs.
 
 ## When opening / updating a fix PR (still `todo`)

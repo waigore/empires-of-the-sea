@@ -17,7 +17,7 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 
 ## Talk to the user
 
-Reply in plain, simple English. Short sentences. Everyday words. Keep code/API names. No jargon or filler.
+Reply in plain, simple English — chat, and issue/PR titles, bodies, and comments. Short sentences. Everyday words. Keep code/API names. No jargon or filler.
 
 ## Docs policy
 

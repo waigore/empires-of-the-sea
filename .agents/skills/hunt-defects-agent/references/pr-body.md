@@ -1,5 +1,7 @@
 # PR body — hunt defects
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 Use with `gh pr create`. Title: why-focused (rules fidelity), not a file list.
 
 ```markdown

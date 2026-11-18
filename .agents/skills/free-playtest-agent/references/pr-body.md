@@ -1,5 +1,7 @@
 # PR body — free playtest
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 Use with `gh pr create`. Title: why-focused (area expression), not a file list.
 
 ```markdown
