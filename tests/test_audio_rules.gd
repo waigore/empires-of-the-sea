@@ -299,12 +299,18 @@ const map_soundtrack_TEMP_PATH := "user://test_map_soundtrack.cfg"
 ## re-seat from the pristine save ~0.15 s, so the score cases share the chart
 ## and reset the session instead of remounting (`Fixture.suite_reset`). Static
 ## because gd-tools hands each case a fresh instance: a shell case frees the
-## chart, and the next case must find the one the suite mounted.
+## chart, and the next case must find the one the suite mounted. The shell's
+## cases share one shell the same way; the first frees the chart so the two
+## never share one WorldMap instance.
 static var _screen: MapScreen = null
 static var _audio: AudioDirector = null
 static var _score: MapSoundtrack = null
 static var _pristine: Dictionary = {}
 static var _world_snapshot: Array = []
+## The shell the last shell case left standing (the shell is the suite's other
+## expensive mount, so all its cases share one). The first shell case frees the
+## map chart so the shell and the suite never share one WorldMap instance.
+static var _app: Node = null
 ## The before_all instance owns the mount, so a remount after a shell case
 ## outlives the case that asked for it.
 static var _host: Node = null
@@ -317,6 +323,12 @@ func before_all() -> void:
 
 
 func after_all() -> void:
+	# The shell and the chart are freed on the spot, not queued: a case ends on
+	# the frame it reports, and a teardown that waits one more frame can strand
+	# the suite's last case (docs/testing.md § Speed rules: tear down hard).
+	if is_instance_valid(_app):
+		_app.free()
+	_app = null
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
@@ -420,10 +432,14 @@ func test_civilian_selection_and_moves_sound() -> void:
 
 
 func test_ending_a_turn_rings_the_bell_and_coins() -> void:
+	# The score reads the chart's own `turn_ended`. A live close rings exactly
+	# this signal and is proven once, on the suite that already ends a turn
+	# (`test_map_screen`); a rival pass here would only re-prove it under
+	# coverage (docs/testing.md § Speed rules).
 	_setup_map_soundtrack()
 	var before: int = _audio.sfx_played
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	var closed: int = _screen.play.turn
+	_screen.turn_ended.emit(closed + 1)
 	assert_eq(_audio.last_event, AudioEvents.COIN)
 	assert_gte(_audio.sfx_played, before + 2)
 
@@ -456,6 +472,9 @@ func test_a_battle_brings_the_battle_bed_and_a_salute() -> void:
 
 
 func test_a_battle_bed_survives_the_turn_end() -> void:
+	# As above: the bed's rule is the score's read of the close, not the rival
+	# pass that raises it. The bed holds while the battle timer runs and its
+	# expiry hands the era back.
 	_setup_map_soundtrack()
 	var battle: Dictionary = {
 		"zone": 0,
@@ -467,9 +486,14 @@ func test_a_battle_bed_survives_the_turn_end() -> void:
 	}
 	_score._on_battle_resolved([battle] as Array[Dictionary])
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	_screen.turn_ended.emit(_screen.play.turn)
 	assert_eq(_audio.current_track_id(), MusicPlaylist.BROADSIDES)
+	_score._battle_timer.timeout.emit()
+	assert_eq(
+		_audio.current_track_id(),
+		MusicPlaylist.bed_id_for_year(TurnTime.START_YEAR),
+		"the era bed returns once the battle music is spent"
+	)
 
 
 ## A siege answers with its battery, and a silenced battery lets the stone fall:
@@ -557,9 +581,16 @@ func test_the_mute_key_is_bound() -> void:
 # --- app shell ---------------------------------------------------------------
 
 
+## The shell cases share one mount: the first asks for it, each case returns to
+## the title and drops the director state the last case left, and `after_all`
+## frees it (docs/testing.md § Speed rules: one mount per suite). The shell
+## rides the shared world with the suite's own mix file, so the player's
+## settings are never touched.
 func _boot_shell() -> Node:
-	# Drop the map-screen mount from `_setup_map_soundtrack` so the shell and the screen
-	# never share one WorldMap instance under the same suite.
+	if is_instance_valid(_app):
+		return _app
+	# Drop the map-screen mount from `_setup_map_soundtrack` so the shell and the
+	# screen never share one WorldMap instance under the same suite.
 	if is_instance_valid(_screen):
 		_screen.free()
 	_screen = null
@@ -577,7 +608,22 @@ func _boot_shell() -> Node:
 	app.audio.set_music_volume(AudioMix.MUSIC_DEFAULT)
 	app.audio.set_sfx_volume(AudioMix.SFX_DEFAULT)
 	app.audio.set_muted(false)
+	_app = app
 	return app
+
+
+## Back to a fresh title with the mix where the mount left it. The bed and its
+## swell are the launch page's own doing, so this silences them and rebuilds the
+## page: a case must hear `play_menu_bed` start them, not inherit the last
+## case's. The page swap also frees whatever screen the last case left.
+func _reseat_shell(app: Node) -> void:
+	app.audio.set_muted(false)
+	app.audio.set_music_volume(AudioMix.MUSIC_DEFAULT)
+	app.audio.set_sfx_volume(AudioMix.SFX_DEFAULT)
+	app.audio.stop_music(0.0)
+	app.audio._ambience.stop()
+	app.audio.land_fades()
+	app._show_main_menu()
 
 
 ## M is the shell's shortcut now, so it answers before any page claims the key.
@@ -596,16 +642,17 @@ func _press_mute_key() -> void:
 func test_the_title_screen_opens_on_the_sea_bed() -> void:
 	_setup_map_soundtrack()
 	var app: Node = _boot_shell()
+	_reseat_shell(app)
 	assert_true(app.current_page is MainMenu, "the title screen is the entry point")
 	assert_eq(MusicPlaylist.menu_bed_id(), MusicPlaylist.AGE_OF_DISCOVERY)
 	assert_eq(app.audio.current_track_id(), MusicPlaylist.menu_bed_id())
 	assert_true(app.audio._ambience.playing, "the swell joins the launch bed")
-	app.free()
 
 
 func test_the_title_page_carries_the_sound_seal() -> void:
 	_setup_map_soundtrack()
 	var app: Node = _boot_shell()
+	_reseat_shell(app)
 	var seal: AudioControls = (app.current_page as MainMenu).audio_controls
 	assert_not_null(seal, "the launch page offers the mix desk")
 	seal.music_slider().value = 0.25
@@ -619,17 +666,16 @@ func test_the_title_page_carries_the_sound_seal() -> void:
 	seal.mute_button().button_pressed = false
 	seal.mute_button().pressed.emit()
 	assert_false(app.audio.is_muted())
-	app.free()
 
 
 func test_a_campaign_takes_the_launch_director_over() -> void:
 	_setup_map_soundtrack()
 	var app: Node = _boot_shell()
+	_reseat_shell(app)
 	(app.current_page as MainMenu).observer_pressed.emit()
 	var screen: MapScreen = app.current_screen
 	assert_not_null(screen, "the debug door installs a campaign")
 	if screen == null:
-		app.free()
 		return
 	var score: MapSoundtrack = screen.get_node("Soundtrack") as MapSoundtrack
 	assert_eq(score.audio, app.audio, "the campaign shares the shell director")
@@ -640,7 +686,6 @@ func test_a_campaign_takes_the_launch_director_over() -> void:
 	assert_true(app.audio._active_player().playing, "the bed never stopped")
 	await get_tree().process_frame
 	assert_null(screen.get_node_or_null("Audio"), "the scene's own director retires")
-	app.free()
 
 
 func test_the_title_bed_is_the_bed_the_campaign_opens_on() -> void:
@@ -654,25 +699,24 @@ func test_the_title_bed_is_the_bed_the_campaign_opens_on() -> void:
 func test_returning_to_the_title_brings_the_sea_bed_back() -> void:
 	_setup_map_soundtrack()
 	var app: Node = _boot_shell()
+	_reseat_shell(app)
 	(app.current_page as MainMenu).observer_pressed.emit()
 	assert_not_null(app.current_screen)
 	if app.current_screen == null:
-		app.free()
 		return
 	app.audio.play_music(MusicPlaylist.BROADSIDES)
 	assert_eq(app.audio.current_track_id(), MusicPlaylist.BROADSIDES)
 	app.current_screen.main_menu_requested.emit()
 	assert_true(app.current_page is MainMenu, "the title comes back")
 	assert_eq(app.audio.current_track_id(), MusicPlaylist.menu_bed_id())
-	app.free()
 
 
 func test_the_mute_shortcut_answers_on_the_title_screen() -> void:
 	_setup_map_soundtrack()
 	var app: Node = _boot_shell()
+	_reseat_shell(app)
 	var before: bool = app.audio.is_muted()
 	_press_mute_key()
 	assert_eq(app.audio.is_muted(), not before, "M silences the launch bed")
 	_press_mute_key()
 	assert_eq(app.audio.is_muted(), before, "M restores the mix")
-	app.free()
