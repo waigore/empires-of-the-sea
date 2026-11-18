@@ -1,5 +1,6 @@
 # Wiki playtest diary
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
 Mechanics SoT stays on Game rules pages. This agent owns two wiki pages only:
 
 | Page | Slug | Role |

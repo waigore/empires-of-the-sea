@@ -29,7 +29,7 @@ Hill-climb **P5 usability & agency** when choosing among valid readings. **P5 wi
 | [Design Changelog](https://github.com/waigore/empires-of-the-sea/wiki/design-changelog) | Newest-first ID index |
 | [`docs/requirements.md`](../../../docs/requirements.md) | Especially `REQ-P5-*`; others as touched |
 | [`docs/rubric.md`](../../../docs/rubric.md) | Especially `RUB-P5-*` |
-| [`AGENTS.md`](../../../AGENTS.md) | Stack, conventions; Talk to the user (PR text) |
+| [`AGENTS.md`](../../../AGENTS.md) | Stack, conventions; Talk to the user (PR + wiki) |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
 | [`references/wiki-update.md`](references/wiki-update.md) | How to edit the GitHub wiki |
 | [`references/design-record.md`](references/design-record.md) | ID + record + changelog shapes |

@@ -36,6 +36,8 @@ Auth: same credentials as `gh` / `HTTPS` git for the repo. Do not force-push the
 
 ## Conventions
 
+- Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English on every page you add or edit.
+- Rewriting older pages for voice alone is a **later pass**; do not expand a normal run into a full wiki rewrite.
 - Filenames kebab-case; record pages `dr-YYYYMMDD-NN.md`.
 - Link with `[Title](page-slug)`.
 - Prefer editing **Design intent** on AI pages for product decisions; keep architecture sections for structure/determinism.

@@ -28,7 +28,7 @@ Hill-climb **P2 rules fidelity**. Re-runs sustain the climb; each run still stop
 | [Wiki Game rules](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics SoT (P2) |
 | [`docs/requirements.md`](../../../docs/requirements.md) | Especially `REQ-P2-*` |
 | [`docs/rubric.md`](../../../docs/rubric.md) | Especially `RUB-P2-*` |
-| [`AGENTS.md`](../../../AGENTS.md) | Stack; `tools/run.sh`; Talk to the user (PR text) |
+| [`AGENTS.md`](../../../AGENTS.md) | Stack; `tools/run.sh`; Talk to the user (PR + wiki) |
 | [`docs/testing.md`](../../../docs/testing.md) | Coverage / smoke budgets |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
 | [`references/playbook.md`](references/playbook.md) | Playtest tactics |
