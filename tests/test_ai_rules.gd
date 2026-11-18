@@ -537,6 +537,110 @@ func test_ai_military_does_not_split_twice() -> void:
 	assert_eq(AiMilitaryPlanner.split_orders(config, state, model, armies).size(), 0)
 
 
+## The guard is a condition, not a lifetime lock (issue #974): a Home Army that
+## has reached the court's muster target cuts a fresh field force even while
+## another stands — the musters refill the seat.
+func test_ai_military_cuts_a_second_field_force_at_target() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var home_types: Array[String] = []
+	home_types.assign(HOME_TYPES)
+	home_types.append_array(
+		["pikemen", "arquebusiers", "squires", "pikemen"] as Array[String]
+	)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 1, true, home_types, 101),
+		ArmyState.muster(3, 2, 1, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var splits: Array[Dictionary] = AiMilitaryPlanner.split_orders(config, state, model, armies)
+
+	assert_eq(splits.size(), 1, "a court at its target fields the surplus")
+	assert_eq(
+		(splits[0]["regiments"] as Array).size(), 8,
+		"the second cut keeps one guard and fields the rest"
+	)
+
+
+## The rotation (issue #974): an under-strength field army marches home on
+## interior lines while the Home Army holds mustered mass above the guard, so
+## the merge and the next cut field a full-strength replacement.
+func test_ai_military_rotates_an_under_strength_army_home() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2, 2], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 1, true, HOME_TYPES, 101),
+		ArmyState.muster(3, 2, 2, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var rotated: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			rotated.append(order)
+
+	assert_eq(rotated.size(), 1)
+	assert_eq(String(rotated[0]["kind"]), AiMilitaryPlanner.KIND_ROTATE)
+	assert_eq(int(rotated[0]["province"]), 1, "the march home merges with the Home Army")
+
+
+## No mass beyond the guard, no rotation (issue #974): a court whose Home Army
+## holds only the seat's guard leaves its field army in the field.
+func test_ai_military_rotates_only_from_mustered_mass() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2, 2], {1: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 1, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 2, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			assert_ne(
+				String(order["kind"]), AiMilitaryPlanner.KIND_ROTATE,
+				"the lone guard's field army is left in the field"
+			)
+
+
+## The rotation's merge leg (issue #974): a field army the court marched home
+## folds into the Home Army through the published combine, and the trace names
+## it; an army that did not reach the seat stays in the field.
+func test_a_rotated_army_folds_into_the_home_army() -> void:
+	var world: WorldMap = army_AiFixture.land_world([campaign_OWNER, campaign_OWNER], {0: true})
+	var model: MapModel = world.region(0)
+	var play := PlaySession.new()
+	play.world = world
+	var home: ArmyState = ArmyState.muster(1, campaign_OWNER, 0, true, ["peasant_levies"], 1)
+	var field: ArmyState = ArmyState.muster(2, campaign_OWNER, 0, false, ["pikemen", "squires"], 10)
+	var roster: Array[ArmyState] = [home, field]
+	var plan: Dictionary = {
+		"orders": [{"army_id": 2, "province": 0, "kind": AiMilitaryPlanner.KIND_ROTATE}],
+		"candidates": [],
+	}
+	var trace: Array[Dictionary] = []
+
+	assert_true(MapPlayArmyAi._apply_rotation_combine(play, model, roster, campaign_OWNER, plan, trace))
+	assert_eq(home.count(), 3, "the Home Army is always the merge target")
+	assert_eq(roster.size(), 1, "the folded standard leaves the roster")
+	assert_eq(trace.size(), 1)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_COMBINE)
+	assert_false(
+		MapPlayArmyAi._apply_rotation_combine(play, model, roster, campaign_OWNER, plan, trace),
+		"nothing left to fold"
+	)
+
+
 func test_ai_military_leaves_a_marched_army_in_place() -> void:
 	var world: WorldMap = AiFixture.land_world([1, 2])
 	var model: MapModel = world.region(0)
