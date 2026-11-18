@@ -5271,9 +5271,11 @@ func test_the_dossier_names_the_deed_that_holds_the_ground() -> void:
 	)
 
 
-## The passengers block reads a landing as a tile: a coast with one legal ground
-## lands in one press, a coast with several opens its grounds, and the ground's
-## press carries that tile (wiki: civilian-units § Landing; DR-20261118-19).
+## The passengers block reads a landing as a tile and a crew: a coast with one
+## legal ground lands in one press, a coast with several opens its grounds, the
+## ground's press carries that tile and the crew kind the row named, and the row
+## prints what the crown can read of the ground (wiki: civilian-units § Landing;
+## DR-20261118-19).
 func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
 	var block := FleetCrewSection.new()
 	add_child(block)
@@ -5285,33 +5287,47 @@ func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
 		"embark": [],
 		"sortie": [],
 		"land": [
-			{"province": 4, "name": "Cadiz", "tiles": [{"x": 2, "y": 3}]},
 			{
-				"province": 5,
-				"name": "Vera Cruz",
-				"tiles": [{"x": 7, "y": 8}, {"x": 9, "y": 10}],
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer", "tiles": [{"x": 2, "y": 3}],
+			},
+			{
+				"province": 5, "name": "Vera Cruz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"tiles": [
+					{"x": 7, "y": 8, "ground": "Hills · iron"},
+					{"x": 9, "y": 10},
+				],
 			},
 		],
 	})
 	var coasts: Array[Node] = block.find_children("", "Button", true, false)
 	assert_eq(coasts.size(), 2, "one press per coast")
 	var single: Button = coasts[0] as Button
-	assert_eq(single.text, "Put ashore at Cadiz")
+	assert_eq(single.text, "Put the Explorer ashore at Cadiz")
 	single.pressed.emit()
-	assert_eq(fired, ["crew:land:2:3"], "one ground lands in one press")
+	assert_eq(fired, ["crew:land:2:3:explorer"], "one ground lands in one press")
 	assert_eq(block.open_coast, -1, "a single-ground coast opens nothing")
 
 	var many: Button = coasts[1] as Button
-	assert_true(many.text.begins_with("Put ashore at Vera Cruz · 2 grounds"))
+	assert_true(many.text.begins_with("Put the Explorer ashore at Vera Cruz · 2 grounds"))
 	many.pressed.emit()
 	assert_eq(block.open_coast, 5, "the coast opens")
+	assert_eq(block.open_crew, "explorer", "the open grounds belong to the crew read")
 	assert_eq(fired.size(), 1, "opening a coast orders nothing")
 	var rows: Array[Node] = block.find_children("", "Button", true, false)
 	assert_eq(rows.size(), 3, "the way back and the coast's two grounds")
-	assert_eq((rows[1] as Button).text, "Vera Cruz (7, 8)")
+	assert_eq(
+		(rows[1] as Button).text, "Vera Cruz (7, 8) — Hills · iron",
+		"the ground row names what the crown can read of the tile"
+	)
+	assert_eq((rows[2] as Button).text, "Vera Cruz (9, 10)", "an uncharted ground reads bare")
 	(rows[1] as Button).pressed.emit()
 	assert_eq(fired.size(), 2)
-	assert_eq(fired[1], "crew:land:7:8", "the ground's press carries its own tile")
+	assert_eq(
+		fired[1], "crew:land:7:8:explorer",
+		"the ground's press carries its own tile and the crew"
+	)
 	assert_eq(block.open_coast, -1, "the press closes the coast")
 
 	# The coasts are back, and the way back out of a coast orders nothing.
@@ -5321,10 +5337,48 @@ func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
 	var grounds: Array[Node] = block.find_children("", "Button", true, false)
 	(grounds[0] as Button).pressed.emit()
 	assert_eq(block.open_coast, -1, "the way back closes the coast")
+	assert_eq(block.open_crew, "", "the way back forgets the crew")
 	assert_eq(fired.size(), 2, "no order leaves the way back")
 
 	block.set_data({"count": 0, "land": [], "embark": [], "sortie": []})
 	assert_false(block.visible, "no passengers, no block")
+	block.free()
+
+
+## Two crew kinds aboard one squadron read one line each per coast, so the crown
+## picks the crew as well as the ground: a Builder and an Explorer on the same
+## coast are two presses, and each carries its own kind (wiki: civilian-units
+## § Landing; DR-20261118-19).
+func test_the_passengers_block_names_the_crew_it_lands() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	block.set_data({
+		"count": 2,
+		"note": "2 aboard: Builder · Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "builder",
+				"crew_name": "Builder", "tiles": [{"x": 2, "y": 3}],
+			},
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer", "tiles": [{"x": 2, "y": 3}],
+			},
+		],
+	})
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(rows.size(), 2, "one press per crew kind on the coast")
+	assert_eq((rows[0] as Button).text, "Put the Builder ashore at Cadiz")
+	assert_eq((rows[1] as Button).text, "Put the Explorer ashore at Cadiz")
+	(rows[1] as Button).pressed.emit()
+	assert_eq(
+		fired, ["crew:land:2:3:explorer"],
+		"the Explorer's press lands the Explorer, not the first crew aboard"
+	)
 	block.free()
 
 
