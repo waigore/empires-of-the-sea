@@ -131,6 +131,38 @@
         <td class="bad">byte-identical — the hypothesis is falsified: the field army never dies, it stands 5 regiments and cannot storm; the brake is the purse (top-up shut by seven wars, ~580 under the 2,200 muster price) and a field army that can never grow (musters feed the Home Army, splits only fire with no field army); reverted</td>
         <td><a href="reports/ai-bench/910-20-fields-the-wars-it-can-wage.json">910-20-fields-the-wars-it-can-wage.json</a></td>
       </tr>
+      <tr>
+        <td>021</td>
+        <td>A court that cannot re-arm buys out of its crown wars — the gated-floor purse leg + a purse declaration hold (#975 first shape)</td>
+        <td>1957.07</td>
+        <td>16 OW · 0 NW · 5 reg · 3 ships · income 153.23 · funded 80.70</td>
+        <td class="bad">−13.6 under main: the offer signs at once, but the hold never bites — the gated muster floor reads 0 on this bench (its labour gate fails while every worker stands on a war-footing estate), so the press carousel runs (declare t18, sign t19, re-declare t22, every 4-turn cooldown); the whole drop is the income term. Reworked into 022: the purse reads the muster <em>price</em>, the hold honors the pair's truce</td>
+        <td><a href="reports/ai-bench/910-21-buys-out-the-fronts.json">910-21-buys-out-the-fronts.json</a></td>
+      </tr>
+      <tr>
+        <td>022</td>
+        <td>The purse leg reads the muster price (<code>army.min_treasury</code> + cheapest line); the re-declaration brake honors the pair's truce (#975 shipped shape)</td>
+        <td><strong>2066.89</strong></td>
+        <td>17 OW · 0 NW · 5 reg · 3 ships · income 163.08 · funded 93.38</td>
+        <td class="good">+96.2 over main (1970.68): the crown wars are bought out and the truce holds them shut; 17 OW and the funded share both climb — ship as latest.json; seed-1501 spot-check reads byte-identical on both trees (the doctrine is inert there); the colony (NW 0) waits on #974 and the crew slots</td>
+        <td><a href="reports/ai-bench/910-22-price-and-truce.json">910-22-price-and-truce.json</a></td>
+      </tr>
+      <tr>
+        <td>974-01</td>
+        <td>The guard becomes a condition, not a lifetime lock — a Home Army at its muster target cuts a fresh force while another stands; the smallest field army rotates home and folds into the Home Army, so the next cut re-fields a full-strength replacement (#974)</td>
+        <td><strong>2373.61</strong></td>
+        <td>15 OW · <strong>6 NW</strong> · 4 reg · 3 ships · workers 5 · income 378.5 · funded 83.47</td>
+        <td class="good">+306.7 over the #975 keeper — <strong>clears the 2153.73 crown gate</strong> and lands the New World (6 provinces × 50); the income flow more than doubles as the colonies feed it. Ship as latest.json; the +500 win bonus (a resolved campaign) stays open on the container</td>
+        <td><a href="reports/ai-bench/974-01-re-field-the-host.json">974-01-re-field-the-host.json</a></td>
+      </tr>
+      <tr>
+        <td>910-23</td>
+        <td>Arms before builds, first shape — the ledger's rank shift (military leads, works wait while the muster is due on earn)</td>
+        <td>2373.61</td>
+        <td>byte-identical to 974-01</td>
+        <td class="bad">inert: the objective ledger is the explainability layer — the production and work-order planners spend on their own gates and never read the rank, so the shift moved a report row and not a ducat. Reworked into 910-24: the arms-first veto lands in the economy pass itself</td>
+        <td><a href="reports/ai-bench/910-23-arms-before-builds.json">910-23-arms-before-builds.json</a></td>
+      </tr>
     </tbody>
   </table>
 

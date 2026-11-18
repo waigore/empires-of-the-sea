@@ -83,6 +83,16 @@ static func plan(
 	return plan
 
 
+## How many of the yard's ready rows the line carries — the count the press's
+## armed face names — or `-1` when the plan was never read (a suite's fixture, or
+## a yard with no court behind it), so the press keeps its published face
+## (DR-20261118-21).
+static func carries(plan: Dictionary) -> int:
+	if int(plan.get("count", 0)) <= 0:
+		return -1
+	return int(plan.get("filed", 0))
+
+
 ## "19,500 ducats · 4 Lumber · 3 Fabric · 3 workers": what a line of orders
 ## costs, in the rows' own catalog labels and the purse's own grouping.
 static func paid(reading: Dictionary) -> String:
@@ -95,11 +105,20 @@ static func paid(reading: Dictionary) -> String:
 
 ## The line under the press, before it is pressed: what the line costs and the
 ## purse it leaves — or, when the walk stops short, how many of the ready rows
-## wait and why. `""` when the press has nothing to file.
+## wait and why. `""` when the press has nothing to file. A yard whose walk
+## carries nothing prints only the gate's own refusal, which is the sentence the
+## disabled press above it sends the reader to (DR-20261118-21).
 static func sheet_line(reading: Dictionary) -> String:
 	var filed: int = int(reading.get("filed", 0))
 	if filed <= 0:
-		return ""
+		var total: int = int(reading.get("count", 0))
+		var stop: String = String(reading.get("refusal", ""))
+		if total <= 0 or stop.is_empty():
+			return ""
+		var why: String = stop if stop.ends_with(".") else stop + "."
+		return "Nothing in this yard can be ordered — %d wait%s: %s" % [
+			total, "" if total != 1 else "s", why,
+		]
 	var costs: String = paid(reading)
 	var refusal: String = String(reading.get("refusal", ""))
 	if refusal.is_empty():

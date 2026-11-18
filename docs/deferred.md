@@ -1,7 +1,7 @@
 # Deferred features (ranked)
 
-Audited: DR-20261118-16 vs code through #971 (REQ-P2-02).
-Implement default: largest clear item here, then REQ/wiki.
+Audited: DR-20261118-23 vs code through #989 (REQ-P2-02).
+Implement default: largest item here, then REQ/wiki.
 
 ## Already live
 
@@ -11,7 +11,7 @@ Implement default: largest clear item here, then REQ/wiki.
 | Difficulty/agendas/boycotts | `Difficulty`/`VictoryRules`, `AiAgenda`, `AiDiplomacyOffers` |
 | Home-fleet/forts/civilian AI | `FleetHomeMerge`, `AiCivilianPlanner` |
 | Minor/Tribe market + town growth | `MinorMarket`, `TownIndustry`, `MinorTownGrowth` |
-| Overseas cargo/colony/Join Empire | `EconomyOverseas`, `FirstRight`, `DiplomacyOvertures` |
+| Overseas cargo/colony/Join/voyage | `EconomyOverseas`, `FirstRight`; land DR-18-19/23 |
 | Fleetless first-hull import | `TradeCargo.PORT_ALLOWANCE` |
 | Counter-spy/court reports/fog/Passage | espionage; `CourtCharts` |
 | Favoured partner/GP–Tribe contact | `MarketFavoured`; `TribeContact` |
@@ -34,17 +34,18 @@ Implement default: largest clear item here, then REQ/wiki.
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
-| Raise/crew/yard/muster/workers/college/deed/town | ledgers + pick/Follow; hire/batch/line |
+| Raise/crew/yard/muster/workers/college/deed/town | ledgers + Follow; hire/batch/`carries`, DR-18-21 |
 | QB wings + handset plate | `QuickBattleWings`; `BattlePlateFrame`, DR-17-08/14 |
 | Rail pick door; dossier rail | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
 | Observatory sheet + feed | `ObserverProvince*`; `ObserverTurnFeed`, DR-17-11/12 |
 | Capital Wood walls + fort lift | `FortCapital`, DR-17-13/#926 |
 | Yard/shipyard one-press batch | `queue_all`; `RaiseBatchSum`, DR-18-07/08/11 |
 | Dead Bid; gift stepper; pending larder | `bid_block`; `DiplomacyGift`; `LarderRead` |
+| Buy-out peace; AI re-field host | `_buys_out`; `rotate_home` DR-18-20/22 |
 
 ## Gaps (ranked)
 
-- None open (through #971).
+- None (through #989).
 
 ## Next pick
 
@@ -55,20 +56,18 @@ REQ/wiki.
 - Predict-the-line (DR-12-02); era — no model (DR-11-08).
 - Healing at 0 health; last-known OOB (DR-12-04/09); general-grade trains
   (DR-12-07).
-- Soft priority weight — seed (DR-17-01).
+- Soft priority weight — seed (DR-17-01); resource-need reweight — no need
+  reading (DR-16-09).
 - Alt victory, difficulty extras, ruleset loaders/borrowing, warehousing,
   loans, sea-zone names — out of scope; Join Empire cost — rules call.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
-- Rival AI split/combine, cross-station folds, passenger transfers — out of
-  scope (player split/combine live).
-- Further tongues (DR-13-12); 30% floor data-gated (DR-15-18).
-- Resource-need reweight — no need reading (DR-16-09).
-- QB placed figures / per-wing orders — out of scope (DR-17-08).
+- Cross-station folds / passenger transfers — out of scope (AI split/combine
+  live, DR-18-22). Further tongues (DR-13-12); 30% floor data-gated
+  (DR-15-18). QB placed figures / per-wing orders — out of scope (DR-17-08).
 
 ## Wiki drift
 
-- `civilian-units`: Road L2/gathering live.
+- `civilian-units` Road L2/gathering live; `production-recipes` second-stage live.
 - `phase-planner-*` / `ai-architecture`: six slots live; soft weight seed.
-- `production-recipes`: rival second-stage “deferred” → live (`town_level`).
-- DR-18-01–16 hire/batch/line, Bid, gift stepper match records.
+- DR-18-01–23 match records; confirm-face intentional (DR-18-11/12).

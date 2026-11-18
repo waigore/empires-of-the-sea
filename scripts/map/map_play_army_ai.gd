@@ -10,6 +10,9 @@ const KIND_REINFORCE: String = "reinforce"
 const KIND_HOSPITAL: String = "hospital_train"
 ## The Home Army marching back to a seat that moved (issue #474).
 const KIND_RECALL: String = "recall"
+## Turn-trace kind for a rotated field army folding into the Home Army
+## (issue #974).
+const KIND_COMBINE: String = "combine"
 
 
 static func run(play: PlaySession) -> Array[Dictionary]:
@@ -69,6 +72,14 @@ static func _run_region(
 		changed = _apply_marches(
 			play, model, roster, faction, plan, AiMilitaryPlanner.KIND_MARCH, trace
 		) or changed
+		# The rotation's merge leg (issue #974): a field army the court just
+		# marched home folds into the Home Army, so the next split re-fields a
+		# full-strength replacement. Baselines keep the frozen shape — their
+		# planners issue no rotation orders.
+		if kind != AiControl.KIND_BASELINE:
+			changed = _apply_rotation_combine(
+				play, model, roster, faction, plan, trace
+			) or changed
 	# Minor Nations and Tribes take no offensive orders: they only send a relief
 	# column onto home soil an invader already holds (docs/ai.md).
 	var defenders: Array[int] = FactionCatalog.minor_ids()
@@ -271,6 +282,45 @@ static func _reinforce(
 		"region": model.region_id,
 	})
 	return true
+
+
+## The rotation's merge leg (issue #974): a field army the court just marched
+## home folds into the Home Army — always the merge target — so the next split
+## re-fields a full-strength replacement. An army the rules did not bring home
+## stays in the field.
+static func _apply_rotation_combine(
+	play: PlaySession,
+	model: MapModel,
+	roster: Array[ArmyState],
+	faction: int,
+	plan: Dictionary,
+	trace: Array[Dictionary]
+) -> bool:
+	var home: ArmyState = ArmyTraining.home_army(roster, faction)
+	if home == null:
+		return false
+	var changed: bool = false
+	for order: Dictionary in plan["orders"]:
+		if String(order.get("kind", "")) != AiMilitaryPlanner.KIND_ROTATE:
+			continue
+		var army: ArmyState = MapPlayCourt.army_by_id(
+			roster, int(order["army_id"]), faction
+		)
+		if army == null or army == home or army.province != home.province:
+			continue
+		var merged: Dictionary = ArmyRoster.combine(roster, [home, army])
+		if not bool(merged.get("ok", false)):
+			continue
+		changed = true
+		trace.append({
+			"faction": faction,
+			"kind": KIND_COMBINE,
+			"army": home.id,
+			"province": home.province,
+			"province_name": model.province_name(home.province),
+			"region": model.region_id,
+		})
+	return changed
 
 
 ## Re-forms a stranded Home Army at the new seat. The Home Army is the seat's

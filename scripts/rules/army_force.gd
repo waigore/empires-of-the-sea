@@ -69,6 +69,39 @@ static func side_types(side: Array[ArmyState]) -> Array[String]:
 	return types
 
 
+## The engagement's line as it is read when the battle opens: the ids of the
+## strongest `limit` regiments of a side, ties broken by ascending id (wiki:
+## combat § The line and the reserve; DR-20261111-15). A battle reads the line
+## **once** — the wings are dealt from it, the siege lanes split it and the
+## plate names it — so a reserve never steps up as the line falls
+## (quick-battle § Wings and collapse — "a wing never refills from the
+## reserve"; quick-battle § Battlefield layout — "the reserve is dealt
+## nowhere").
+static func line_ids(side: Array[ArmyState], limit: int) -> Array[String]:
+	var ids: Array[String] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, limit):
+		ids.append(String(entry["id"]))
+	return ids
+
+
+## Σ of one battle line's standing men, rank for rank, scaled by the side's
+## multiplier — the same aggregation [method ArmyModifiers.strength] makes over
+## a slice, read over the men the line was dealt at the battle's open. A
+## reserve behind the line adds no strength (wiki: combat § The line and the
+## reserve; quick-battle § Cohesion and effective strength — "reserves behind
+## the deployment limit never count").
+static func line_strength(
+	side: Array[ArmyState], line: Array[String], multiplier: float
+) -> float:
+	if line.is_empty():
+		return 0.0
+	var total: float = 0.0
+	for entry: Dictionary in ArmyModifiers.deployed(side, 0):
+		if line.has(String(entry["id"])):
+			total += float(entry["rank"])
+	return total * multiplier
+
+
 ## Weakest-first casualties among the deployed slice; reserves take no losses.
 ## A colours' citations count in its rank, so a decorated regiment falls later
 ## (DR-20261113-04). `accept` filters the pool by type, so one siege lane can

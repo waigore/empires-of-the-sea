@@ -118,6 +118,74 @@ func test_a_queued_recruit_labours_next_turn() -> void:
 	)
 
 
+## The end-of-turn figure the PRODUCTION tab prints is the turn the phase will
+## run: Build/work lands the waiting orders before Consumption opens, so the two
+## hires eat at this turn's close (and labour nobody until the next Production
+## phase) and the muster already paid for eats its ration too. The WORKERS tab's
+## larder names the same mouths, so one ledger cannot print two larders for one
+## turn (wiki: workers-and-population § Phase placement; § Consumption — every
+## appetite the phase pays, the recruits already under orders included;
+## stockpiles-and-production § Acceptance Criteria — the preview runs the same
+## rules as live turn resolution).
+func test_the_projection_feeds_the_mouths_build_work_lands() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.workers = WorkerPool.make(4)
+	economy.stockpile = {"grain": 400, "meat": 400, "fabric": 20, "castIron": 20}
+	economy.treasury = 9000
+	var armies: Array = _screen.army_layer.armies
+	var owner: int = _screen.player_faction
+	assert_true(
+		ArmyTraining.muster_blocked_reason(economy, armies, owner, "pikemen").is_empty(),
+		"the court can muster a pike regiment"
+	)
+	var army_before: int = _screen.economy.readings.army_food()
+	economy.queue_recruit(WorkerPool.Tier.PEASANT, 2)
+	economy.queue_build(RecruitQueue.KIND_REGIMENT, "pikemen")
+
+	var preview: Dictionary = _screen.economy.readings.projected()
+	var promised: Dictionary = preview["consumption"] as Dictionary
+	# Four hands, two hires, less the one head the muster takes from the fields.
+	assert_eq(int(promised["fed_workers"]), 5, "every hand Build/work lands eats")
+	assert_eq(int(promised["idle_labour"]), 3, "the two hires turn no wheel this phase")
+	assert_eq(int(promised["labour_next_turn"]), 2, "their labour is the next phase's")
+	assert_eq(
+		int(promised["army_demand"]),
+		army_before + RegimentCatalog.food_upkeep("pikemen"),
+		"the muster under orders eats too"
+	)
+	var promised_grain: int = int((preview["stockpile_delta"] as Dictionary).get("grain", 0))
+	var grain_before: int = economy.quantity("grain")
+
+	var report: Dictionary = _screen.economy.resolve_turn()
+	var served: Dictionary = report["consumption"] as Dictionary
+	assert_eq(int(served["fed_workers"]), int(promised["fed_workers"]), "the phase feeds the promise")
+	assert_eq(int(served["idle_labour"]), int(promised["idle_labour"]))
+	assert_eq(int((served["arriving"] as Array)[WorkerPool.Tier.PEASANT]), 2, "both hires landed")
+	assert_eq(int(served["army_demand"]), int(promised["army_demand"]), "the muster eats as promised")
+	assert_eq(
+		economy.quantity("grain") - grain_before, promised_grain,
+		"the NEXT figure is the store the phase leaves"
+	)
+
+
+## A handed-in report that already names the turn the phase will run is not fed
+## a second time: the ledger's own projection counts the waiting orders itself
+## (wiki: workers-and-population § Consumption).
+func test_a_larder_read_never_counts_a_waiter_twice() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.queue_build(RecruitQueue.KIND_REGIMENT, "pikemen")
+	var once: Dictionary = LarderRead.forecast(
+		economy, {"army": 0, "ships": 0, "hospital": 0}, false
+	)
+	assert_eq(int(once["appetites"]["army"]), 0, "the caller's appetite stands alone")
+	var twice: Dictionary = LarderRead.forecast(economy, {"army": 0, "ships": 0, "hospital": 0})
+	assert_eq(
+		int(twice["appetites"]["army"]), RegimentCatalog.food_upkeep("pikemen"),
+		"a caller reading a past phase still owns the waiting muster"
+	)
+
+
 ## A recruit pressed on the ledger files one order and costs nothing yet
 ## (wiki: workers-and-population § Phase placement).
 func test_recruiting_a_peasant_through_the_ledger() -> void:
@@ -298,7 +366,7 @@ func test_the_workers_tab_reads_the_larder() -> void:
 	assert_true(printed.contains("Store 1 food"), "the larder as it stands: %s" % printed)
 	assert_true(printed.contains("Fur Hats ×1"), "the luxury the pool wants: %s" % printed)
 	var read: Dictionary = LarderRead.forecast(
-		economy, LarderRead.mouths(_screen.economy.readings.projected())
+		economy, LarderRead.mouths(_screen.economy.readings.projected()), false
 	)
 	assert_true(
 		printed.contains(

@@ -131,11 +131,13 @@ static func paid(reading: Dictionary) -> String:
 
 ## The line under the press, before it is pressed: what the line spends and the
 ## stores it leaves — or, when the walk stops short, how many of the ready rows
-## wait and why. `""` when the view holds nothing the press would file.
+## wait and why. `""` when the view holds nothing ready. A view whose walk carries
+## nothing prints only the refusal, in the rules' own words: the press above it
+## stands disabled with that sentence as its reason (DR-20261118-21).
 static func sheet_line(reading: Dictionary) -> String:
 	var filed: int = int(reading.get("filed", 0))
 	if filed <= 0:
-		return ""
+		return _nothing_line(reading)
 	var costs: String = paid(reading)
 	var refusal: String = String(reading.get("refusal", ""))
 	if refusal.is_empty():
@@ -165,3 +167,17 @@ static func _kept_text(reading: Dictionary) -> String:
 			int(kept[commodity]), CommodityCatalog.label(String(commodity))
 		])
 	return ", ".join(parts)
+
+
+## The line a view prints when its press carries nothing: how many ready steps
+## wait and the reason the walk stopped, in the rules' own words. `""` when the
+## view holds nothing ready, or the walk refused without a word to print.
+static func _nothing_line(reading: Dictionary) -> String:
+	var total: int = int(reading.get("count", 0))
+	var refusal: String = String(reading.get("refusal", ""))
+	if total <= 0 or refusal.is_empty():
+		return ""
+	var why: String = refusal if refusal.ends_with(".") else refusal + "."
+	return "Nothing in this view can be ordered — %d wait%s: %s" % [
+		total, "" if total != 1 else "s", why,
+	]

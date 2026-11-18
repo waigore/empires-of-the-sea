@@ -131,14 +131,33 @@ func extraction() -> Dictionary:
 	)["extraction"] as Dictionary
 
 
+## The turn the phase will run, as the ledger promises it: Build/work lands the
+## waiting orders before Consumption opens, so a hand hired this turn eats with
+## the court at its close (and labours the phase after), and a muster or launch
+## already paid for eats its ration too
+## (wiki: workers-and-population § Phase placement; § Consumption — every
+## appetite the phase pays, "the recruits already under orders";
+## stockpiles-and-production § Acceptance Criteria — the preview runs the same
+## rules as live turn resolution). The WORKERS tab's larder names the same
+## mouths, so one ledger cannot print two larders for one turn.
 func projected() -> Dictionary:
 	if host == null or host.economy == null:
 		return {}
 	var world: WorldMap = host.ship_layer.world if host.ship_layer != null else null
+	var landing: Array[int] = host.economy.recruits.arriving_by_tier()
+	var waiting: Dictionary = LarderRead.pending_rations(host.economy)
+	# The pool the phase feeds is the roster plus the hands Build/work lands,
+	# less the peasants those orders spend: the arrival eats here but turns no
+	# wheel until the next Production phase (§ Phase placement).
+	var next: PlayerEconomy = host.economy.copy()
+	next.workers = LarderRead.pool_next(host.economy)
 	var report: Dictionary = EconomyTurn.project(
-		host.economy, host.market, extraction(), fleet_ships(), army_food(),
+		next, host.market, extraction(),
+		fleet_ships() + int(waiting["ships"]),
+		army_food() + int(waiting["army"]),
 		host.research_boost, HospitalRules.demand_list(world, host.player_faction),
-		host.leader_key, TownIndustry.best_level(world, host.player_faction)
+		host.leader_key, TownIndustry.best_level(world, host.player_faction),
+		landing
 	)
 	# The auction clears after these phases, so the ledger names what is staged
 	# and what the last clearing paid: the per-turn figure alone is not the

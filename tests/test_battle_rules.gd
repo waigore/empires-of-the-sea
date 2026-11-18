@@ -9573,6 +9573,95 @@ func test_a_battery_blow_names_its_wing_and_the_break_it_makes() -> void:
 		int(quick["attacker_left"]), "the record's wings agree with the line left"
 	)
 
+# --- the line and the reserve in Quick Battle (wiki: combat § The line and the
+# reserve; DR-20261111-15; quick-battle § Wings and collapse) ------------------
+
+
+## A battle deals its line once, when it opens. A side that keeps a reserve
+## keeps it whole: no blow breaks a man held behind the line, and no blow mauls
+## him (wiki: combat § The line and the reserve — "a reserve adds no strength,
+## takes no casualties, and takes no battle wear").
+func test_a_reserve_is_never_broken_nor_mauled() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(60), _guards(14))
+	var quick: Dictionary = battle["quick"]
+
+	assert_eq(int(quick["defender_left"]), 4, "the four reserves stand")
+	var survivors: Array = battle["defender_health"] as Array
+	assert_eq(survivors.size(), 4, "every survivor was held in reserve")
+	for entry: Dictionary in survivors:
+		assert_almost_eq(
+			float(entry["fraction"]), 1.0, 0.001,
+			"a reserve takes no wear: %s" % String(entry["id"])
+		)
+
+
+## The plate names the line a side kept even when every man in it has fallen:
+## the count is read when the battle opens, not from the survivors' strongest
+## slice (wiki: combat § The line and the reserve — "the battle plate prints
+## `Line — <crown> N of M in the line` for each side that kept a reserve").
+func test_the_line_a_side_kept_is_named_after_its_line_falls() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(60), _guards(14))
+
+	assert_eq(int(battle["defender_deployed"]), 10, "ten stood in the line")
+	assert_eq(int(battle["defender_reserve"]), 4, "four were spared")
+	var text: String = QuickBattleCopy.line_line(battle, FactionCatalog.names())
+	assert_true(
+		text.contains("10 of 14 in the line"),
+		"the plate still names the line and the reserve: %s" % text
+	)
+
+
+## A reserve adds no strength: the outcome reads the line's survivors, so a side
+## whose line is gone cannot out-weigh the enemy with men who never fought
+## (wiki: combat § The line and the reserve; quick-battle § Outcome and
+## integration).
+func test_a_reserve_adds_no_strength_to_the_outcome() -> void:
+	var side: Array[ArmyState] = [Fixture.army(2, 1, 2, _guards(14))]
+	var line: Array[String] = ArmyForce.line_ids(side, 10)
+	assert_eq(line.size(), 10, "ten of the fourteen are dealt into the line")
+	for regiment_id: String in line:
+		side[0].remove_regiment(regiment_id)
+
+	assert_almost_eq(
+		QuickBattle.effective_strength(side, 10, 3, 1.0, 0.0, line), 0.0, 0.001,
+		"four reserves weigh nothing"
+	)
+	assert_true(
+		QuickBattle.effective_strength(side, 10, 3, 1.0) > 0.0,
+		"a state with no dealt line keeps the older read"
+	)
+	assert_eq(
+		QuickBattleActions.line_standing({"defender": {"side": side, "limit": 10}}, "defender"),
+		4
+	)
+	assert_eq(
+		QuickBattleActions.line_standing(
+			{"defender": {"side": side, "limit": 10, "line": line}}, "defender"
+		),
+		0, "the line is gone, so the side has no fight left"
+	)
+
+
+## ...and the auto-resolve report names the line it opened with, not the
+## survivors' strongest slice (wiki: combat § The line and the reserve).
+func test_an_auto_resolve_report_names_the_line_it_opened_with() -> void:
+	var model := Fixture.build()
+	var defender := Fixture.army(1, 1, 2, _guards(14), true)
+	var attacker := Fixture.army(2, 0, 2, _guards(14))
+	attacker.moved = true
+	var armies: Array[ArmyState] = [defender, attacker]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+	var settled: Dictionary = reports[0] as Dictionary
+
+	assert_eq(int(settled["attacker_deployed"]), 10)
+	assert_eq(int(settled["attacker_reserve"]), 4, "the reserve is still named")
+	assert_eq(
+		int(settled["attacker_deployed"]) + int(settled["attacker_reserve"]), 14,
+		"the line and the reserve still add up to the side it opened with"
+	)
+
+
 # --- fort capital grant (from test_fort_capital) --------------------------------
 ## An Old World capital opens behind a Wood wall, and a Great Power's fort tech
 ## lifts its own capital one level once (wiki: siege-mechanics § Fort Levels;
