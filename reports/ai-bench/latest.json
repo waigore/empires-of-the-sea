@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:da45b7aac73901a3955eeb7fa6b4aca0397f781d5604858b28e07a880ce097fa",
-  "submission_git": "feat/995-bank-keeps-the-town-road@f668b619",
+  "submission_hash": "sha256:faa81824072af783e2870270aff82ef08bdfd0a43b210c6d316357bc3647f22f",
+  "submission_git": "refactor/army-reinforce-line-home@5e10cc59",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:edf886e837fd1eeb1d0b4768bd219c1aeffc81e502d2ac8aa6a683f6068fcf84",
+    "ai_surface_hash": "sha256:e95e9f595577ac434523a048dd2375cab14058385feded6d83746e78f89ed095",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 16,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-18T19:43:09Z",
+  "timestamp": "2026-11-18T21:09:35Z",
   "report_version": 1,
-  "signature": "hmac-sha256:79c778f556eec9a51449122552d01d3a88711bc6771910aec838b771cb4bf9b3"
+  "signature": "hmac-sha256:0973ecfebb3184b4330e7e6e7bf33086f4869d4caf0bfa603f7a1de41f4cc182"
 }
