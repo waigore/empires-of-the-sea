@@ -1535,6 +1535,61 @@ func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
 	panel.free()
 
 
+## The press's armed face names the line it will file, not the view it stands in:
+## five ready towns over one idle Builder read `Confirm — raise 1 of 5 towns`, so
+## one tap carries one pair of numbers (REQ-P5-05; DR-20261118-21). A line that
+## carries nothing arms nothing, and a sheet that read no plan keeps its view.
+func test_the_armed_press_names_the_line_it_will_file() -> void:
+	var press := RaiseBatchPress.new()
+	add_child(press)
+	press.set_ready(5, "towns", 1)
+	assert_true(press.visible, "a view with ready steps carries the press")
+	assert_false(press.disabled, "and a line a crown can pay for enables it")
+	assert_eq(press.text, "Raise all ready (5)", "the unarmed face names the view")
+	assert_eq(press.carries(), 1, "the line carries one of the five")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(press.text, "Confirm — raise 1 of 5 towns", "the confirm names the line")
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the second tap files")
+
+	press.set_ready(5, "towns", 0)
+	assert_true(press.disabled, "a line that carries nothing stands the press down")
+	press.arm()
+	assert_false(press.is_armed(), "and a press with nothing to file cannot arm")
+
+	press.set_ready(5, "towns")
+	assert_false(press.disabled, "a sheet that read no plan keeps its published face")
+	press.pressed.emit()
+	assert_eq(press.text, "Confirm — raise 5 towns", "and files the view it names")
+	press.free()
+
+
+## A walk that carries nothing prints the rules' own refusal, in the sheet's own
+## words: the disabled press above it sends the reader to that sentence rather
+## than leaving a dead tap with no reason (REQ-P5-05; DR-20261118-21).
+func test_a_line_that_carries_nothing_names_the_wait() -> void:
+	var towns: Array[Dictionary] = [{"cost": {"lumber": 4}, "region": 0}]
+	var reading: Dictionary = RaiseLine.plan(towns, {"lumber": 0}, 1, "Builder")
+	assert_eq(int(reading["filed"]), 0, "the stores carry none of it")
+	var line: String = RaiseLine.sheet_line(reading)
+	assert_true(line.begins_with("Nothing in this view can be ordered — 1 waits: "), line)
+	assert_true(line.ends_with("."), "the rules' sentence keeps its stop: %s" % line)
+
+	var yard: Dictionary = RaiseBatchSum.blank()
+	yard["count"] = 3
+	yard["filed"] = 0
+	yard["refusal"] = "The yard needs a free peasant"
+	assert_eq(
+		RaiseBatchSum.sheet_line(yard),
+		"Nothing in this yard can be ordered — 3 wait: The yard needs a free peasant."
+	)
+	assert_eq(RaiseBatchSum.carries(yard), 0, "and the press would carry nothing")
+	assert_eq(
+		RaiseBatchSum.carries(RaiseBatchSum.blank()), -1, "an unread plan keeps the view"
+	)
+
+
 ## The drill yard's foot names what the whole line costs before it is pressed: the
 ## plan its rows carry, printed once under them and re-read on every redraw
 ## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
