@@ -5549,6 +5549,50 @@ func test_the_production_batch_receipt_names_the_runs() -> void:
 	assert_true(ProductionBatch.receipt(0).begins_with("No ready row to set"))
 
 
+## The walk prices itself before the crown signs: the labour and the materials
+## the runs would claim, what the phase keeps of its idle labour, and the rows it
+## leaves out (REQ-P5-06; DR-20261118-24).
+func test_the_production_batch_prices_the_line_it_would_file() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var stock: Dictionary = {"timber": 10, "wool": 10, "iron": 10, "coal": 10}
+	var result: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool", "steel"], economy, 0, stock, 20, []
+	)
+	assert_eq(int(result["runs"]), 3)
+	assert_eq(int(result["labour"]), 6, "three runs at two labour each")
+	assert_eq(int(result["labour_budget"]), 20)
+	var inputs: Dictionary = result["inputs"]
+	assert_eq(int(inputs.get("timber", 0)), 2)
+	assert_eq(int(inputs.get("wool", 0)), 2)
+	assert_eq(int(inputs.get("iron", 0)), 1)
+	assert_eq(int(inputs.get("coal", 0)), 1)
+	assert_eq(
+		ProductionBatch.sheet_line(result),
+		"3 runs · 6 labour · 2 Wool · 2 Timber · 1 Iron · 1 Coal"
+		+ " — the phase keeps 14 of its 20 idle labour."
+	)
+
+
+## A row the walk leaves out is counted on the line, and a page with nothing to
+## file prints no line at all (REQ-P5-05, REQ-P5-06).
+func test_the_production_batch_line_names_the_rows_it_leaves_out() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var tight: Dictionary = ProductionBatch.plan(
+		["lumber", "fabric_from_wool"], economy, 0, {"timber": 10, "wool": 10}, 2, []
+	)
+	assert_eq(int(tight["runs"]), 1, "two labour points buy one run")
+	assert_eq(
+		ProductionBatch.sheet_line(tight),
+		"1 run · 2 labour · 2 Timber — the phase keeps 0 of its 2 idle labour."
+		+ " 1 row waits on a ceiling, a hand, a town's works or the labour and store left."
+	)
+	var gated: Dictionary = ProductionBatch.plan(
+		["cigars", "garments"], economy, 0, {"tobacco": 10, "fabric": 10}, 20, []
+	)
+	assert_eq(int(gated["runs"]), 0)
+	assert_eq(ProductionBatch.sheet_line(gated), "", "nothing to file prints no line")
+
+
 # --- MarketPressure: the row book a court reads (REQ-P3-03) -----------------
 
 ## Every claim consumes the store, so the regiment's material adds to what the

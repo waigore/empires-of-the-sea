@@ -40,6 +40,8 @@ var _holdings: Dictionary = {}
 ## The one press under the MANUFACTURED heading: one run on every ready row the
 ## page prints, armed on the first tap and filed on the second (DR-20261116-08).
 var _batch: RaiseBatchPress = null
+## The line under that press, priced before the crown signs (DR-20261118-24).
+var _line: Label = null
 
 
 ## `report` is the end-of-turn projection the panel already holds; without one
@@ -50,6 +52,7 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_rows = {}
 	_holdings = {}
 	_batch = null
+	_line = null
 	UiRowBuilder.clear(self)
 	if economy == null:
 		return
@@ -76,6 +79,9 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_batch.set_verb("queue")
 	_batch.confirmed.connect(_queue_all)
 	add_child(_batch)
+	# The press's own line, under it and above the rows it walks.
+	_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
+	add_child(_line)
 	for output_id: String in CommodityCatalog.MANUFACTURED:
 		for recipe_id: String in _recipes_of(output_id):
 			add_child(_recipe_row(recipe_id))
@@ -268,7 +274,7 @@ func batch_press() -> RaiseBatchPress:
 ## the allowance the rows before it leave (REQ-P5-04; DR-20261116-08).
 func _plan() -> Dictionary:
 	if _economy == null:
-		return {"plan": {}, "runs": 0, "rows": 0, "skipped": 0}
+		return ProductionBatch.blank()
 	var seen: Dictionary = ProductionBatch.budget(_economy, _report)
 	return ProductionBatch.plan(
 		_rows.keys(),
@@ -281,12 +287,15 @@ func _plan() -> Dictionary:
 
 
 ## The press names how many runs it would set, so the count is read before the
-## labour and inputs are claimed (REQ-P5-03, REQ-P5-05).
+## labour and inputs are claimed (REQ-P5-03, REQ-P5-05), and the line under it
+## prices that walk (DR-20261118-24).
 func _sync_batch() -> void:
-	if _batch == null:
+	if _batch == null or _line == null:
 		return
-	var runs: int = int(_plan()["runs"])
-	_batch.set_ready(runs, "runs")
+	var reading: Dictionary = _plan()
+	_batch.set_ready(int(reading["runs"]), "runs")
+	_line.text = ProductionBatch.sheet_line(reading)
+	_line.visible = not _line.text.is_empty()
 
 
 ## Files the plan as one intent: the controller applies every set through the
