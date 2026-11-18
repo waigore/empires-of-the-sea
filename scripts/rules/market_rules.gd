@@ -48,18 +48,95 @@ static func validate(
 	return _validate_offer(market, order, context)
 
 
-static func _validate_bid(
-	market: WorldMarket, order: MarketOrder, context: Dictionary
+## The gates a bid meets before its quantity is priced: a closed market, a
+## riches id, the other side already staged, the bid-type cap and the holds.
+## `{ok, code, reason}`. The validator, the batch press and the market row read
+## this one walk, so a dead Bid press can never name a rule the order path does
+## not enforce (wiki: world-market § Trade orders — validation rules;
+## REQ-P2-03, REQ-P3-03).
+static func bid_gates(
+	market: WorldMarket, faction: int, commodity: String, context: Dictionary = {}
 ) -> Dictionary:
+	if market == null:
+		return _no("No market is open.", "market_closed")
+	if commodity.is_empty() or not market.can_trade(commodity):
+		return _no("Not traded on the world market", "trade_order_riches_excluded")
 	var book: MarketBook = market.book
-	var tech: Dictionary = context.get("tech_unlocked", {})
-	var cap: int = bid_type_cap(tech)
-	var ids: Array[String] = book.bid_commodities(order.faction)
-	if not ids.has(order.commodity) and ids.size() >= cap:
+	if book.has_opposite(faction, commodity, MarketOrder.SIDE_BID):
+		return _no(
+			"A court may bid or offer a commodity, never both in one turn.",
+			"trade_order_mutual_exclusion"
+		)
+	var cap: int = bid_type_cap(context.get("tech_unlocked", {}))
+	var ids: Array[String] = book.bid_commodities(faction)
+	if not ids.has(commodity) and ids.size() >= cap:
 		return _no(
 			"A crown may bid on %d commodities a turn." % cap,
 			"trade_order_bid_type_cap_exceeded"
 		)
+	var free: int = maxi(int(context.get("cargo_free", 0)), 0)
+	if free - book.pending_buy_units(faction) <= 0:
+		return _no("No cargo holds free this turn", "trade_order_cargo_insufficient")
+	return _yes()
+
+
+## Why a bid on `commodity` cannot be filed at all, in the validator's own words
+## and code: the gates above, then the purse the turn's waiting orders leave.
+## The market row prints this under a dead Bid press, so a phone player reads the
+## rule instead of a hover (wiki: world-market § Trade orders — validation
+## rules, § Treasury budget for bids; REQ-P1-05, REQ-P5-05).
+static func bid_block(
+	market: WorldMarket, faction: int, commodity: String, context: Dictionary = {}
+) -> Dictionary:
+	var gates: Dictionary = bid_gates(market, faction, commodity, context)
+	if not bool(gates.get("ok", false)):
+		return gates
+	var price: int = maxi(
+		int(context.get("buy_price", market.buy_price(commodity, faction))), 0
+	)
+	var budget: int = treasury_budget(
+		int(context.get("treasury", 0)),
+		int(context.get("projected_non_bid_delta", 0))
+	)
+	var left: int = budget - _committed(market, faction)
+	if left <= 0:
+		return _no(_purse_reason(context), "trade_order_bid_exceeds_treasury_budget")
+	if price > 0 and left < price:
+		return _no(
+			"The purse leaves no whole ton at %d ducats." % price,
+			"trade_order_bid_exceeds_treasury_budget"
+		)
+	return _yes()
+
+
+## The purse's own words: a debt is named as debt, and a purse promised to the
+## turn's waiting orders says so (wiki: world-market § Treasury budget for bids;
+## REQ-P5-05).
+static func _purse_reason(context: Dictionary) -> String:
+	var purse: int = int(context.get("treasury", 0))
+	if purse < 0:
+		return "The purse is %s ducats in debt." % MoneyText.thousands(-purse)
+	if int(context.get("projected_non_bid_delta", 0)) < 0:
+		return "The treasury cannot cover that bid — this turn's waiting orders are paid first."
+	return "The treasury cannot cover that bid."
+
+
+## Ducats the court's already-staged bids will take from the auction, priced at
+## their own commodity's live buy price.
+static func _committed(market: WorldMarket, faction: int) -> int:
+	var total: int = 0
+	for staged: MarketOrder in market.book.orders_for(faction, MarketOrder.SIDE_BID):
+		total += staged.remaining() * maxi(market.buy_price(staged.commodity, faction), 0)
+	return total
+
+
+static func _validate_bid(
+	market: WorldMarket, order: MarketOrder, context: Dictionary
+) -> Dictionary:
+	var gates: Dictionary = bid_gates(market, order.faction, order.commodity, context)
+	if not bool(gates.get("ok", false)):
+		return gates
+	var book: MarketBook = market.book
 	var free: int = maxi(int(context.get("cargo_free", 0)), 0)
 	var promised: int = book.pending_buy_units(order.faction)
 	var hold_cap: int = maxi(free - promised, 0)
@@ -70,11 +147,7 @@ static func _validate_bid(
 		int(context.get("treasury", 0)),
 		int(context.get("projected_non_bid_delta", 0))
 	)
-	var committed: int = 0
-	for staged: MarketOrder in book.orders_for(order.faction, MarketOrder.SIDE_BID):
-		committed += staged.remaining() * maxi(
-			market.buy_price(staged.commodity, order.faction), 0
-		)
+	var committed: int = _committed(market, order.faction)
 	if price > 0 and committed + order.quantity * price > budget:
 		var reason: String = "The treasury cannot cover that bid."
 		if int(context.get("projected_non_bid_delta", 0)) < 0:

@@ -191,6 +191,15 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 	var press: RaiseBatchPress = panel._batch
 	run.check(press != null, "the towns sheet carries the batch press")
 	if press != null and press.visible:
+		# The line under it prices the walk before the second tap
+		# (DR-20261118-12): the stores the ready rows take and the Builders they
+		# tie up, or the rows that wait. It orders nothing.
+		run.check(
+			panel._line != null and panel._line.visible,
+			"the sheet prices the line it would file"
+		)
+		if panel._line != null:
+			run.check(panel._line.text.contains("Builder"), panel._line.text)
 		press.pressed.emit()
 		run.check(press.is_armed(), "the batch press arms on the first tap")
 		run.check(press.text.begins_with("Confirm"), "and names the confirm")
@@ -199,6 +208,10 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 	elif press != null:
 		run.check(
 			panel._ready_targets().is_empty(), "a view with no ready step carries no press"
+		)
+		run.check(
+			panel._line == null or not panel._line.visible,
+			"and prints no line about a line it would not file"
 		)
 	panel.close()
 	await run.tree.process_frame

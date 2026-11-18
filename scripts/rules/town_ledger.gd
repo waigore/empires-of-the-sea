@@ -120,9 +120,8 @@ static func _row(
 	var level: int = province.town_level()
 	var town: Vector2i = province.town_site()
 	var next_level: int = clampi(level + 1, 2, CivilianWorkPlan.MAX_TOWN)
-	var cost_text: String = CivilianWork.cost_text(
-		CivilianWork.cost_for("upgrade_town", next_level)
-	)
+	var cost: Dictionary = CivilianWork.cost_for("upgrade_town", next_level)
+	var cost_text: String = CivilianWork.cost_text(cost)
 	var turns: int = CivilianWorkPlan.duration_for(model, "upgrade_town", town, null)
 	var refusal: String = CivilianWorkRefusals.town_upgrade(
 		province, tech_unlocked, stockpile
@@ -150,6 +149,7 @@ static func _row(
 	)
 	var row: Dictionary = RaiseLedger.row_head(province, region, level, level_text(level))
 	row.merge(RaiseLedger.row_step(state, crew, cost_text, turns))
+	row["cost"] = cost
 	row["next_level"] = next_level
 	row["next_text"] = level_text(next_level)
 	row["note"] = _note(state, next_level, cost_text, turns, refusal, crew)

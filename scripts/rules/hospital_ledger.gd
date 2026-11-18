@@ -189,10 +189,12 @@ static func _row(
 		STATE_RAISED,
 		STATE_NO_ENGINEER
 	)
-	var cost_text: String = CivilianWorkPlan.cost_text(HospitalRules.cost(next))
+	var cost: Dictionary = HospitalRules.cost(next)
+	var cost_text: String = CivilianWorkPlan.cost_text(cost)
 	var turns: int = HospitalRules.turns(next)
 	var row: Dictionary = RaiseLedger.row_head(province, region, level, level_text(level))
 	row.merge(RaiseLedger.row_step(state, crew, cost_text, turns))
+	row["cost"] = cost
 	row["line"] = HospitalRules.describe(level, staffed)
 	row["staffed"] = level > 0 and staffed
 	row["demand"] = HospitalRules.food_demand(level)

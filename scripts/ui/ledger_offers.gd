@@ -205,20 +205,19 @@ func _offer_row(offer: Dictionary) -> Control:
 	]
 	# Imports need a free hold in the home fleet (DR-20261109-03), and the purse
 	# the waiting orders leave (wiki: world-market § Treasury budget for bids).
+	# The reason is the rules' own, read forward at the ask the clearing will
+	# charge, and it is printed under the row below — never only in the hover
+	# (REQ-P2-03, REQ-P1-05, REQ-P5-05).
+	var shut: String = ""
 	if units <= 0:
 		buy.disabled = true
-		var why: String = (
-			"no cargo holds free this turn"
-			if int(_cargo.get("free", 0)) <= 0
-			else "the rules leave no room for a bid this turn"
-		)
-		# A purse in debt is the reason, named: the college's lending floor can
-		# leave the crown owing more than it holds (REQ-P5-05).
-		var purse: int = int(_order_ctx.get("treasury", 0))
-		if int(_cargo.get("free", 0)) > 0 and purse < 0:
-			why = "the purse is %s ducats in debt" % TextFormat.thousands(-purse)
+		var shut_ctx: Dictionary = _order_ctx.duplicate()
+		shut_ctx["buy_price"] = ask
+		shut = String(MarketRules.bid_block(_market, _viewer, commodity, shut_ctx).get("reason", ""))
+		if shut.is_empty():
+			shut = "The seller has no more of this good."
 		buy.tooltip_text = "Bid 1 %s at the ask of %d — %s" % [
-			CommodityCatalog.label(commodity), ask, why,
+			CommodityCatalog.label(commodity), ask, shut,
 		]
 	var row_id: String = String(offer.get("id", ""))
 	buy.pressed.connect(func() -> void: offer_requested.emit(row_id, 1))
@@ -227,6 +226,8 @@ func _offer_row(offer: Dictionary) -> Control:
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 2)
 	block.add_child(row)
+	if not shut.is_empty():
+		block.add_child(UiRowBuilder.wrapped_line(shut, 10, Palette.CRIMSON, 0.0))
 	# The press names the whole deal's ducats as the clearing charges them: the
 	# ask with the pair's subsidy step, rounded once for the order (wiki:
 	# world-market § Subsidy price adjustment; REQ-P5-05).
@@ -241,6 +242,10 @@ func _offer_row(offer: Dictionary) -> Control:
 		func() -> void: offer_requested.emit(row_id, units)
 	)
 	if press == null:
+		# A row with nothing but a refusal keeps its wrapper: the reason is
+		# printed under the press it shuts (REQ-P1-05).
+		if block.get_child_count() > 1:
+			return block
 		block.remove_child(row)
 		block.free()
 		return row

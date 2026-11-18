@@ -24,8 +24,13 @@ const SEED_TEXT: String = "1500"
 const NATION: int = 1
 const DIR: String = "user://playtest_court_proposal"
 const SLOT: int = 1
-## Goodwill a court needs before a rival puts an alliance or a pact to it.
+## Goodwill a court needs before a rival puts a pact to it (wiki: diplomacy
+## § GP AI policy — a favoured trading pact needs relation >= 65).
 const FRIENDLY_SCORE: float = 70.0
+## Goodwill an alliance needs: the target answers the published test at 76 or
+## better, and the order itself needs an active non-aggression pact first
+## (wiki: diplomacy § Alliances; DR-20261115-19).
+const ALLIED_SCORE: float = 80.0
 
 var _steps: PackedStringArray = PackedStringArray()
 var _failures: int = 0
@@ -107,10 +112,24 @@ func _peace_pass(rival: int) -> void:
 
 ## A formal alliance the rival puts to the court: accepting binds both crowns,
 ## so the prompt must say what it is and the treaty must land on this crown.
+## The pact is the alliance's prerequisite (wiki: diplomacy § Alliances;
+## DR-20261115-19), so the drive first proves the gate refuses an offer without
+## one, then seats the pact the overture chain would have taken three turns to
+## reach — the same harness seat the siege drive uses for a rival's wall.
 func _alliance_pass(rival: int) -> void:
 	_say("")
 	_say("--- %s proposes a formal alliance ---" % FactionCatalog.name_of(rival))
-	_relation(rival).score = FRIENDLY_SCORE
+	_relation(rival).score = ALLIED_SCORE
+	var early: Dictionary = DiplomacyProposals.queue(
+		_play.diplomacy, _play.world, rival, DiplomacyProposals.KIND_ALLIANCE
+	)
+	_check("an alliance without a pact is refused", not bool(early.get("ok", false)))
+	_say("refusal: %s" % String(early.get("reason", "")))
+	_play.diplomacy.set_overture(rival, _play.player_faction, DiplomacyCatalog.STAGE_NAP)
+	_check(
+		"the pact stands",
+		DiplomacyRules.has_pact(_play.diplomacy, rival, _play.player_faction)
+	)
 	var queued: Dictionary = DiplomacyProposals.queue(
 		_play.diplomacy, _play.world, rival, DiplomacyProposals.KIND_ALLIANCE
 	)

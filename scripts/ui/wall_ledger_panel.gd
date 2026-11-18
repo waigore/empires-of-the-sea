@@ -47,6 +47,11 @@ func _row_word(count: int) -> String:
 	return "wall" if count == 1 else "walls"
 
 
+## A wall is the Engineer's order, so the press's line counts its Engineers.
+func _crew_type() -> String:
+	return "engineer"
+
+
 ## The rule a crown needs before it pays for a wall sits on the sheet, not in a
 ## hover: a phone hides the footer hint (REQ-P1-07, REQ-P5-03).
 func _note() -> Control:
