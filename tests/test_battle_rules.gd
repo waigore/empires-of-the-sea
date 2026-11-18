@@ -176,6 +176,44 @@ func test_casualties_are_drawn_from_the_line_and_spare_the_reserve() -> void:
 		assert_true(army.regiments.has(regiment_id), "a reserve is never a casualty")
 
 
+## A reserve takes no battle wear either: an auto-resolved exchange spends its
+## wounds over the line it dealt when it opened, never over the reserves that
+## would fill the slice once casualties have thinned it (wiki: combat § The line
+## and the reserve — "a reserve adds no strength, takes no casualties, and takes
+## no battle wear"). The prober read 99/110 on two of the four reserves before
+## the fix, because the wear pass re-read the strongest `limit` survivors.
+func test_an_auto_resolved_exchange_never_wears_a_reserve() -> void:
+	var model := Fixture.build()
+	_set_province_terrain(model, 2, MapModel.Terrain.PLAINS)
+	var defender: ArmyState = Fixture.army(1, 1, 2, ["pikemen"], true)
+	var marching: ArmyState = Fixture.army(2, 0, 2, _regiment_types("pikemen", 14))
+	marching.moved = true
+	var side: Array[ArmyState] = [marching]
+	var line_ids: Array[String] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, 10):
+		line_ids.append(String(entry["id"]))
+	assert_eq(line_ids.size(), 10, "ten stand in the line")
+	var reserve: Array[String] = []
+	for regiment_id: String in marching.regiments:
+		if not line_ids.has(regiment_id):
+			reserve.append(regiment_id)
+	assert_eq(reserve.size(), 4, "four stand in reserve")
+
+	var armies: Array[ArmyState] = [defender, marching]
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+
+	assert_eq(reports.size(), 1)
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_false((reports[0]["attacker_lost"] as Array).is_empty(), "the line bleeds")
+	assert_true(RegimentCondition.mauled(side) > 0, "the line carries the wear")
+	for regiment_id: String in reserve:
+		var data: Dictionary = marching.condition_of(regiment_id)
+		assert_eq(
+			int(data["hp"]), int(data["max"]),
+			"a reserve takes no battle wear: %s" % regiment_id
+		)
+
+
 ## The report carries the line and the reserve so the plate and the despatch can
 ## name them (wiki: combat § The line and the reserve; DR-20261111-15). The line
 ## is read before any exchange, while every regiment is still standing.

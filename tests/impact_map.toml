@@ -200,8 +200,6 @@ suites = [
 suites = [
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
-  # The open coast's ground list is a window of whole rows, so a landing-sheet
-  # edit runs the phone fits too (DR-20261119-03).
   "test_mobile_layout.gd",
 ]
 
@@ -1112,7 +1110,7 @@ domain = "auto"
 [domains.map_mount]
 suites = [
   "test_map_screen.gd",
-  "test_map_view_rules.gd"
+  "test_map_view_rules.gd",
 ]
 
 # Pause door + MENU seal: the door helper, the menu that mounts it, the three
@@ -1219,7 +1217,7 @@ domain = "lens_kit"
 # view suite instead of the whole map fan-out.
 [domains.map_ink]
 suites = [
-  "test_tile_edges.gd",
+  "test_hud_campaign_plate.gd",
   "test_map_view_rules.gd",
 ]
 
@@ -1229,7 +1227,7 @@ domain = "map_ink"
 
 [[rules]]
 match = "tests/test_tile_edges.gd*"
-domain = "map_ink"
+domain = "fold_chrome"
 
 # The plate's per-type projection: one node-free module read by the survey and
 # its two suites, never a reason to run the prospect fan-out on its own.
@@ -1412,9 +1410,6 @@ suites = [
 suites = [
   "test_panel_parts_rules.gd",
   "test_research_rules.gd",
-  # The college's sheet is measured against a phone's height (the press, the
-  # slots and the tabs share one column), so a panel edit runs the phone fits
-  # (DR-20261118-26).
   "test_mobile_layout.gd",
 ]
 
@@ -1891,6 +1886,11 @@ suites = [
 # One-suite themes for folded leftovers — named before test_ai_*, test_map_*,
 # test_civilian_*, test_hospital_* and the test_* catch-alls so a deletion
 # re-runs only the boot that absorbed it (docs/testing.md tier-1 5 min budget).
+[domains.fold_chrome]
+suites = [
+  "test_hud_campaign_plate.gd",
+]
+
 [domains.fold_court]
 suites = [
   "test_diplomacy_rules.gd",
@@ -2454,7 +2454,7 @@ domain = "ai_ledger"
 # The muster pass and the recall it owes a moved seat (issue #474): the army
 # suites only, never the whole AI fan-out.
 [[rules]]
-match = "scripts/ai/ai_army_reinforce.gd*"
+match = "scripts/ai/ai_army_reinforce*.gd*"
 domain = "ai_army"
 
 [[rules]]
@@ -3789,12 +3789,12 @@ domain = "muster"
 # Every court's own arms (wiki: diplomacy § The court sheet; DR-20261118-30):
 # one pure blazon over the faction catalog and the vector shield that paints it.
 # The court sheet, the open court's page and the dossier head all wear the arms,
-# so the new suite drives all three and the phone suite proves the court sheet
-# still fits. Declared before the `scripts/ui/**` catch-all so a shield change
-# never remounts the setup and hub pages.
+# so the chrome plate drives those cases and the phone suite proves the court
+# sheet still fits. Declared before the `scripts/ui/**` catch-all so a shield
+# change never remounts the setup and hub pages.
 [domains.heraldry]
 suites = [
-  "test_heraldry.gd",
+  "test_hud_campaign_plate.gd",
   "test_mobile_layout.gd",
 ]
 
@@ -3812,7 +3812,7 @@ domain = "heraldry"
 
 [[rules]]
 match = "tests/test_heraldry.gd*"
-domain = "heraldry"
+domain = "fold_chrome"
 
 [[rules]]
 match = "scripts/ui/**"
