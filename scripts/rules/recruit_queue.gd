@@ -96,6 +96,83 @@ func reserved_peasants() -> int:
 	return total
 
 
+## Ducats one waiting order costs when Build/work pays it: a worker's cost row,
+## a civilian's hire, a regiment's muster or a hull's launch. The same figure
+## the market's bid budget subtracts, so a recruit row and the auction cannot
+## promise one purse twice (wiki: workers-and-population § Recruiting — "a batch
+## is never a discount and never a promise the crown cannot keep";
+## world-market § Treasury budget for bids).
+static func order_treasury(kind: String, key: String) -> int:
+	match kind:
+		KIND_WORKER:
+			var tier: int = _tier(key)
+			if tier < 0:
+				return 0
+			return maxi(int(WorkerPool.recruit_cost(tier).get("treasury", 0)), 0)
+		KIND_CIVILIAN:
+			return maxi(CivilianCatalog.treasury_cost(key), 0)
+		KIND_REGIMENT:
+			return maxi(RegimentCatalog.treasury_cost(key), 0)
+		KIND_SHIP:
+			return maxi(ShipEconomy.treasury_cost(key), 0)
+	return 0
+
+
+## Stockpile goods one waiting order spends when Build/work pays it, commodity
+## to units: a worker's cost row, a civilian's paper, a regiment's training
+## inputs or a hull's build inputs. An unknown kind or key spends nothing, so a
+## stale save never narrows a store (wiki: workers-and-population § Recruiting;
+## § Peasant reservation — the reserve a second order must respect).
+static func order_materials(kind: String, key: String) -> Dictionary:
+	match kind:
+		KIND_WORKER:
+			var tier: int = _tier(key)
+			if tier < 0:
+				return {}
+			return (WorkerPool.recruit_cost(tier).get("materials", {}) as Dictionary).duplicate()
+		KIND_CIVILIAN:
+			var paper: int = maxi(CivilianCatalog.paper_cost(key), 0)
+			return {"paper": paper} if paper > 0 else {}
+		KIND_REGIMENT:
+			return RegimentEconomy.training_inputs(key)
+		KIND_SHIP:
+			return ShipEconomy.build_inputs(key)
+	return {}
+
+
+## Ducats the waiting orders have already promised to Build/work. A second press
+## reads the purse net of this, so it can never file an order the queue has
+## already spent (wiki: workers-and-population § Peasant reservation — the same
+## reserve the peasant count keeps).
+func promised_treasury() -> int:
+	var total: int = 0
+	for row: Dictionary in orders:
+		total += order_treasury(String(row.get("kind", "")), String(row.get("key", "")))
+	return total
+
+
+## Stockpile goods the waiting orders have already promised to Build/work,
+## commodity to units, for the same reason as [method promised_treasury].
+func promised_materials() -> Dictionary:
+	var total: Dictionary = {}
+	for row: Dictionary in orders:
+		var cost: Dictionary = order_materials(
+			String(row.get("kind", "")), String(row.get("key", ""))
+		)
+		for commodity: Variant in cost.keys():
+			var id: String = String(commodity)
+			total[id] = int(total.get(id, 0)) + int(cost[commodity])
+	return total
+
+
+## A worker order's tier, or -1 for a key that names no tier (a stale save).
+static func _tier(key: String) -> int:
+	var tier: int = int(key)
+	if tier < 0 or tier >= WorkerPool.TIER_COUNT:
+		return -1
+	return tier
+
+
 ## Hands the whole queue to Build/work and clears it, so an order resolves
 ## exactly once (wiki: workers-and-population § Phase placement).
 func take_all() -> Array[Dictionary]:

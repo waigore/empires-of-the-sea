@@ -259,6 +259,15 @@ godot --headless --path . --script res://playtests/playtest_market_batch.gd
 # and reads the defending plate.
 godot --headless --path . --script res://playtests/playtest_siege.gd
 
+# Workers — reads the WORKERS tab as a player does (a row's price and ration, the
+# larder's store, appetites and shortfall, the batch press and the queue), presses
+# its own peasant press and the batch under it, then closes real turns so the
+# phase pays the fabric and feeds the hands; then the trained tiers on the turn-100
+# advanced start (disband, a train, a muster and the peasant reservation); then a
+# starved larder, holding the tab's forecast to the phase's own report; then a
+# second press after the queue has promised the store.
+godot --headless --path . --script res://playtests/playtest_workers.gd
+
 # Observer siege — seats a wall, its garrison and a besieging train between two
 # rival crowns in the full-AI observer, then reads the panel's orders feed, the
 # cards, the merged turn record and the province the rules actually left.
