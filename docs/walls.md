@@ -25,8 +25,7 @@ question ([`provinces.md`](provinces.md), [`towns.md`](towns.md)).
 | Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, the study the order waits on, or the finished wall |
 
 The chip names the wait; the note is the step. The sheet states the rule:
-10 / 20 / 30 wall hp by level, 1–3 emplaced guns, and the last gun falls even
-when an assault is repelled.
+10 / 20 / 30 wall hp by level and 1–3 emplaced guns.
 
 ## Filters
 
@@ -43,9 +42,10 @@ the civilian panel files (`ImprovementOrders.build_fort` → `CivilianWork`),
 swapping the chart first when the province lies on the other one; its message is
 the toast and the row repaints as `AT WORK`. A row that cannot be raised carries
 no press: the note names the wait — the study, the crew, or the stores a
-`LOCKED` shore is short of. **Raise all ready (n)** files every ready row the
+`LOCKED` shore lacks. **Raise all ready (n)** files every ready row the
 view prints, arm then confirm, stopping at the first refusal; the line under it
-prices the walk and names the rows that wait (DR-20261116-03, DR-20261118-12).
+prices the walk in each chart's own Engineers and names the rows that wait
+(DR-20261116-03, DR-20261118-12, DR-20261118-13).
 
 ## Architecture
 

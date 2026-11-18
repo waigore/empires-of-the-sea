@@ -163,6 +163,13 @@ godot --headless --path . --script res://playtests/playtest_beachhead.gd
 # recruit queue already held.
 godot --headless --path . --script res://playtests/playtest_fleet_yard_batch.gd
 
+# The line under the raise sheets' one press — the towns, the walls and the
+# estates sheets read as a player reads them: the face, the printed price, the
+# two taps, then the line's promise held against the raised count, the stores
+# that left and the crews that went to work; seats a Builder on each chart,
+# where a realm-wide pool once promised a town the press could not raise.
+godot --headless --path . --script res://playtests/playtest_raise_line.gd
+
 # Rival overseas invasion — plays an all-AI campaign and reads every expedition
 # (boarding, Passage, beachhead, landing) beside the landing gate's own verdict,
 # so a stalled expedition names the gate that refused it.

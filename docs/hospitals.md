@@ -33,8 +33,7 @@ Two chip rows — **chart** (both / Old World / New World) and **reading** (all 
 ready / at work / warded) — each with its own tally. The count line names
 the shores with **no ward**, what the staff eats a turn, and how many wards went
 **unfed**. The reading leads with what can be raised now, then what
-is in hand, then what waits, the finished wards last; the weakest ward leads,
-and one heading per chart stands.
+is in hand, then what waits, the finished wards last; the weakest ward leads.
 
 ## Raise
 
@@ -43,12 +42,13 @@ order the civilian panel files (`ImprovementOrders.build_hospital` →
 `CivilianWork`), swapping the chart first when the province lies on the other
 one. The order's message is the toast, and the row repaints as
 `AT WORK`. A row that cannot be raised carries no press: the note names the wait
-— the study, the stores, or another crew already working the town tile — in the
-order's own words.
+— the study, the stores, or another crew on the town tile — in the order's own
+words.
 
 **Raise all ready (n)** files every ready row the view prints, arm then
-confirm, stopping at the first refusal; the line under it prices the walk and
-names the rows that wait (DR-20261116-03, DR-20261118-12).
+confirm, stopping at the first refusal; the line under it prices the walk in each
+chart's own Engineers and names the rows that wait (DR-20261116-03,
+DR-20261118-12, DR-20261118-13).
 
 ## Architecture
 

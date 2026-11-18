@@ -182,15 +182,25 @@ func _sync_batch() -> void:
 	if _line == null:
 		return
 	# The stores the line is priced from and the free crews of the sheet's own
-	# trade, as the snapshot read them over both charts: one order ties one crew
-	# up, so five ready towns with one Builder carry one and the rest wait.
+	# trade, read per chart as the snapshot read them over both charts: one
+	# order ties one crew up, so five ready towns with one Builder carry one and
+	# the rest wait — and a Builder on the other chart carries none of them,
+	# because a crew works only the chart it stands on (DR-20261118-13).
 	var stores: Variant = _snapshot.get("stores", {})
-	var crews: Variant = _snapshot.get("crews", {})
+	var by_region: Variant = _snapshot.get("crews_by_region", {})
+	var free_by_region: Dictionary = (
+		RaiseLedger.free_crews(by_region, _crew_type()) if by_region is Dictionary else {}
+	)
+	var crews: int = 0
+	for raw: Variant in free_by_region.keys():
+		crews += int(free_by_region[raw])
 	var reading: Dictionary = RaiseLine.plan(
 		targets,
 		stores if stores is Dictionary else {},
-		int((crews as Dictionary).get(_crew_type(), 0)) if crews is Dictionary else 0,
-		CivilianCatalog.display_name(_crew_type())
+		crews,
+		CivilianCatalog.display_name(_crew_type()),
+		Callable(),
+		free_by_region
 	)
 	_line.text = RaiseLine.sheet_line(reading)
 	_line.visible = not _line.text.is_empty()

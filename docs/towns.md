@@ -45,11 +45,11 @@ order (`ImprovementOrders.upgrade_town`), swapping the chart first when the
 province lies on the other one. The order's message reaches the court as the
 toast, and the row repaints as `AT WORK`. A row that cannot be raised carries no
 press: the note names the wait — stores short, or another crew on the town tile
-(a wall or a ward rising there) — in the order's own words.
+— in the order's own words.
 
 **Raise all ready (n)** files every ready row — arm, confirm — in the sheet's
-order, stopping at the first refusal; the line under it prices the walk and
-names the rows that wait (DR-20261116-03, DR-20261118-12).
+order, stopping at the first refusal; the line under it prices the walk in each
+chart's own Builders and names the rows that wait (DR-20261116-03, DR-20261118-12, DR-20261118-13).
 
 ## Architecture
 
