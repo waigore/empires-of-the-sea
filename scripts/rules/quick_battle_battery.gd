@@ -67,15 +67,18 @@ static func total_hp(guns: Array[Dictionary]) -> float:
 ## other: it falls into **one wing** of the besieging line — the fullest, the
 ## mass the guns are laid on — takes the flank heavier when that wing's
 ## neighbour has broken, and never bleeds past the wing it strikes (wiki:
-## quick-battle § Wings and collapse). A line with no wings (a hand-built state
-## or a record made before wings existed) is bled as one deployed slice, as it
-## was before. Returns the wing it fired into and how many it broke.
+## quick-battle § Wings and collapse). The blow is scaled by the men the
+## besieging line was dealt, never by the whole side, so a reserve behind the
+## line draws no fire and adds no target (wiki: combat § The line and the
+## reserve — "a reserve adds no strength"). A line with no wings (a hand-built
+## state or a record made before wings existed) is bled as one deployed slice, as
+## it was before. Returns the wing it fired into and how many it broke.
 static func fire(
 	armies: Array[ArmyState], state: Dictionary, guns: Array[Dictionary]
 ) -> Dictionary:
 	var atk: Dictionary = state["attacker"]
 	var atk_side: Array[ArmyState] = atk["side"]
-	var count: int = ArmyForce.side_regiments(atk_side)
+	var count: int = QuickBattleActions.standing_of(atk)
 	if count <= 0:
 		return {"lost": 0, "wing": ""}
 	var wings: Dictionary = atk.get("wings", {}) as Dictionary
