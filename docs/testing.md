@@ -319,6 +319,18 @@ godot --headless --path . --script res://playtests/playtest_boycott_block.gd
 # seats a rival on the bar in the same turn to read that the fall, not a
 # military victory, decides it.
 godot --headless --path . --script res://playtests/playtest_defeat.gd
+
+# The Gazette — the crown's news sheet at the turn's open, its watchlist, its
+# archive and the tiers of knowledge it may print. Opens the sheet at turn 1
+# (no press has run), plays five turns of a campaign and audits each filed
+# sheet (class order, another court's line never counts losses, no item
+# without a line, the map agreeing with every capture), queues a worker, a
+# crew, a regiment and a hull and reads their delivery lines, fights a real
+# battle for the crown and for a watched court (charted, then a chart that
+# reaches nothing), strikes a court off against a new war of its own, walks the
+# archive's chips and its `<n> of <m>` pages, and saves and reloads the
+# campaign to read the watchlist and the sheets back.
+godot --headless --path . --script res://playtests/playtest_gazette.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

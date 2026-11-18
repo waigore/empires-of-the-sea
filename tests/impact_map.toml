@@ -745,6 +745,32 @@ domain = "economy"
 match = "scripts/rules/gazette_muster.gd*"
 domain = "gazette"
 
+# The sheet's own rules, its copy desks and its memory (wiki: the-gazette): one
+# suite drives the news, so a line, a class or a watchlist change never pays for
+# the map, menu or ui catch-alls (docs/testing.md).
+[[rules]]
+match = "scripts/rules/gazette*.gd*"
+domain = "gazette"
+
+# The sheet's pages: the watchlist editor, the archive room and the printed kit
+# the live sheet and the archive share.
+[[rules]]
+match = "scripts/ui/gazette_watchlist.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette_archive_room.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette_parts.gd*"
+domain = "gazette"
+
+# The turn-close adapter that collects, files and raises the sheet.
+[[rules]]
+match = "scripts/map/map_play_gazette.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/rules/gazette_copy_muster.gd*"
 domain = "gazette"
