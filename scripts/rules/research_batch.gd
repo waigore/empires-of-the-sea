@@ -91,7 +91,9 @@ static func plan(
 ## The line under the press: what it files, what the college then spends a turn,
 ## and — when the purse cannot reach — how many studies wait on it. A plan that
 ## files nothing reads every study already at the preset, so a press that would
-## spend no tap says so instead of asking for one (DR-20261118-26; REQ-P5-05).
+## spend no tap says so instead of asking for one; the wait is named there too,
+## because a college standing at Maximum with a thin purse is exactly the state a
+## crown reads the disabled press in (DR-20261118-26; REQ-P5-05).
 static func sheet_line(plan: Dictionary) -> String:
 	var count: int = int(plan.get("count", 0))
 	if count <= 0:
@@ -99,9 +101,13 @@ static func sheet_line(plan: Dictionary) -> String:
 	var label: String = ResearchFunding.label(String(plan.get("preset", "")))
 	var filed: int = int(plan.get("filed", 0))
 	if filed <= 0:
-		if count == 1:
-			return "The study already stands at %s." % label
-		return "Every study already stands at %s." % label
+		var standing: String = "The study already stands at %s" % label
+		if count > 1:
+			standing = "Every study already stands at %s" % label
+		var waiting: String = wait_line(plan)
+		if waiting.is_empty():
+			return standing + "."
+		return "%s — %s." % [standing, waiting]
 	var text: String = ""
 	if count == 1:
 		text = "Fund the study at %s" % label
@@ -117,16 +123,34 @@ static func sheet_line(plan: Dictionary) -> String:
 		text += " — the college then spends %s ducats & %s RP a turn" % [
 			TextFormat.thousands(gold), TextFormat.thousands(rp),
 		]
-	var unpaid: int = int(plan.get("unpaid", 0))
-	if unpaid > 0:
-		text += "; %d of %d %s on the purse" % [
-			unpaid, count, "waits" if unpaid == 1 else "wait",
-		]
+	var wait: String = wait_line(plan)
+	if not wait.is_empty():
+		text += "; %s" % wait
 	return text + "."
 
 
+## The studies the coming phase's purse cannot reach, as one clause a line can
+## hang after its price. A college of one names its own study, and a college
+## where every study waits says so, so no line ever reads "1 of 1 waits on the
+## purse" (DR-20261119-01; REQ-P5-05).
+static func wait_line(plan: Dictionary) -> String:
+	var count: int = int(plan.get("count", 0))
+	var unpaid: int = int(plan.get("unpaid", 0))
+	if count <= 0 or unpaid <= 0:
+		return ""
+	if count == 1:
+		return "it waits on the purse"
+	if unpaid >= count:
+		return "all %d wait on the purse" % count
+	return "%d of %d %s on the purse" % [unpaid, count, "waits" if unpaid == 1 else "wait"]
+
+
 ## The receipt a press files: what now stands at the preset and what the college
-## pays a turn, so a batch of taps is never silent (REQ-P5-05).
+## pays a turn, so a batch of taps is never silent (REQ-P5-05). A short purse is
+## named here too: the price is the studies the phase will pay for, so a receipt
+## that printed only "3 studies now stand at Maximum — the college pays 1,000
+## ducats a turn" promised a spend three studies at Maximum never cost
+## (DR-20261119-01).
 static func receipt(plan: Dictionary) -> String:
 	var count: int = int(plan.get("count", 0))
 	if count <= 0:
@@ -136,9 +160,13 @@ static func receipt(plan: Dictionary) -> String:
 	var price: String = "nothing a turn" if gold <= 0 else "%s ducats a turn" % (
 		TextFormat.thousands(gold)
 	)
-	if count == 1:
-		return "The study now stands at %s — the college pays %s." % [label, price]
-	return "%d studies now stand at %s — the college pays %s." % [count, label, price]
+	var text: String = "The study now stands at %s — the college pays %s" % [label, price]
+	if count > 1:
+		text = "%d studies now stand at %s — the college pays %s" % [count, label, price]
+	var wait: String = wait_line(plan)
+	if wait.is_empty():
+		return text + "."
+	return "%s; %s." % [text, wait]
 
 
 ## Moves every occupied slot to `preset` and returns the rows that changed
