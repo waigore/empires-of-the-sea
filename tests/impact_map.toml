@@ -200,6 +200,9 @@ suites = [
 suites = [
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
+  # The open coast's ground list is a window of whole rows, so a landing-sheet
+  # edit runs the phone fits too (DR-20261119-03).
+  "test_mobile_layout.gd",
 ]
 
 # Naval battle pass: the resolver, difficulty sea strength, ration morale and
@@ -2763,6 +2766,12 @@ domain = "naval_voyage"
 
 [[rules]]
 match = "scripts/ui/fleet_crew_section.gd*"
+domain = "naval_voyage"
+
+# The passengers block's ground window: the row budget and its height, read by
+# the block and proved by the same two suites plus the phone fits.
+[[rules]]
+match = "scripts/ui/grounds_window.gd*"
 domain = "naval_voyage"
 
 [[rules]]
