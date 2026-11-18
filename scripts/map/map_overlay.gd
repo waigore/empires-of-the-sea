@@ -309,66 +309,28 @@ func _draw_port_marker(province_id: int, pulse: float) -> void:
 	draw_circle(point, 3.0, Color(0.99, 0.93, 0.72, 0.90))
 
 
+## A sea zone's edge is TileEdges' seam walk, smoothed into the chart's hand.
 func _sea_zone_outline(id: int) -> Array:
 	if _zone_outlines.has(id):
 		return _zone_outlines[id]
-	var segments: Array[PackedVector2Array] = []
-	var data: SeaZoneState = model.sea_zone_data(id)
-	for tile: Vector2i in data.tiles:
-		var x: int = tile.x
-		var y: int = tile.y
-		if model.sea_zone_at(x, y - 1) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x), float(y)) * TILE_SIZE,
-				Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
-			]))
-		if model.sea_zone_at(x, y + 1) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
-				Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
-			]))
-		if model.sea_zone_at(x - 1, y) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x), float(y)) * TILE_SIZE,
-				Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
-			]))
-		if model.sea_zone_at(x + 1, y) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
-				Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
-			]))
+	var zones := func(x: int, y: int) -> bool:
+		return model.sea_zone_at(x, y) == id
+	var segments: Array[PackedVector2Array] = TileEdges.sea_seams(model, zones, TILE_SIZE)
 	var paths: Array[PackedVector2Array] = InkPaths.smooth_segments(segments, 2)
 	_zone_outlines[id] = paths
 	return paths
 
 
+## A province's edge is the same seam walk, scoped to that province's tiles.
 func _province_outline(id: int) -> Array:
 	if _outlines.has(id):
 		return _outlines[id]
-	var segments: Array[PackedVector2Array] = []
+	var owned: Dictionary = {}
 	for tile: Vector2i in model.province_tiles(id):
-		var x: int = tile.x
-		var y: int = tile.y
-		if model.province_at(x, y - 1) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x), float(y)) * TILE_SIZE,
-				Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
-			]))
-		if model.province_at(x, y + 1) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
-				Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
-			]))
-		if model.province_at(x - 1, y) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x), float(y)) * TILE_SIZE,
-				Vector2(float(x), float(y) + 1.0) * TILE_SIZE,
-			]))
-		if model.province_at(x + 1, y) != id:
-			segments.append(PackedVector2Array([
-				Vector2(float(x) + 1.0, float(y)) * TILE_SIZE,
-				Vector2(float(x) + 1.0, float(y) + 1.0) * TILE_SIZE,
-			]))
+		owned[tile] = true
+	var mine := func(x: int, y: int) -> bool:
+		return owned.has(Vector2i(x, y))
+	var segments: Array[PackedVector2Array] = TileEdges.province_seams(model, mine, TILE_SIZE)
 	var paths: Array[PackedVector2Array] = InkPaths.smooth_segments(segments, 2)
 	_outlines[id] = paths
 	return paths

@@ -384,7 +384,6 @@ func test_uncharted_ground_stays_parchment_without_ink() -> void:
 	assert_almost_eq(pixel.g, Palette.PAPER.g, 0.01)
 	assert_almost_eq(pixel.b, Palette.PAPER.b, 0.01)
 	assert_true(_minimap._coast.is_empty(), "no coastline ink off the chart")
-	assert_true(_minimap._province_ink.is_empty(), "no province ink off the chart")
 	assert_true(_minimap._country_borders.is_empty(), "no crown ink off the chart")
 
 ## A paint that never ran (a mount whose inset build was missed, or one made
@@ -408,12 +407,11 @@ func test_an_inset_with_no_chart_bakes_nothing() -> void:
 	assert_null(_minimap._texture, "no chart, no bake")
 
 
-func test_charted_region_draws_coast_province_and_crown_ink() -> void:
+func test_charted_region_draws_coast_and_crown_ink() -> void:
 	_setup_minimap()
 	_visibility.apply_initial()
 	_minimap.build(_model, MapGeo.world_size(_model, TILE_SIZE), _visibility)
 	assert_gt(_minimap._coast.size(), 0, "the charted coast is inked")
-	assert_gt(_minimap._province_ink.size(), 0, "province hairlines subdivide it")
 	assert_gt(_minimap._country_borders.size(), 0, "owners' borders are inked")
 	for owner: int in _minimap._country_borders.keys():
 		assert_true(FactionCatalog.has_faction(owner))
@@ -430,9 +428,10 @@ func test_projected_ink_lands_inside_the_inset() -> void:
 		assert_gt(path.size(), 1)
 		for point: Vector2 in path:
 			assert_true(bounds.has_point(point), "ink stays inside the inset")
-	for path: PackedVector2Array in _minimap._ink_provinces:
-		for point: Vector2 in path:
-			assert_true(bounds.has_point(point), "hairlines stay inside the inset")
+	for owner: int in _minimap._ink_borders.keys():
+		for path: PackedVector2Array in _minimap._ink_borders[owner]:
+			for point: Vector2 in path:
+				assert_true(bounds.has_point(point), "crown ribbons stay inside the inset")
 
 ## Ownership must read by fill, not only by border: the wash is bolder than the
 ## main map's and reaches the heraldic colour.
