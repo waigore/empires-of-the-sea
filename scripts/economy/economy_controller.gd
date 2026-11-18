@@ -152,6 +152,7 @@ func _connect() -> void:
 	research.assign_requested.connect(orders.assign_research)
 	research.cancel_requested.connect(orders.cancel_research)
 	research.funding_requested.connect(orders.cycle_research_funding)
+	research.funding_all_requested.connect(orders.fund_research_all)
 
 
 ## Runs Build/work's recruits, then Extraction -> Riches -> Consumption ->

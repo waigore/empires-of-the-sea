@@ -996,6 +996,124 @@ func test_the_heading_totals_what_the_college_spends() -> void:
 	assert_not_null(_label_containing("200 ducats & 400 RP a turn"))
 
 
+# --- the college's one press -------------------------------------------------
+## One press takes every study under way to a preset and prices the line it
+## files before the crown signs (wiki: tech-tree § Research Model;
+## DR-20261118-25; REQ-P5-04, REQ-P5-05).
+func test_the_one_press_files_every_study_at_its_preset() -> void:
+	_panel_state.assign("crop_rotation", "low")
+	_panel_state.assign("saw_mill", "medium")
+	_panel_state.assign("land_enclosure", "none")
+	_panel.refresh(_panel_state, 2500)
+	var press: ResearchFundPress = _panel.fund_press()
+	assert_not_null(press)
+	assert_true(press.visible, "a college with studies under way draws its press")
+	assert_eq(press.press_button().text, "FUND ALL · Medium")
+	assert_not_null(
+		_label_containing("Fund 2 of 3 studies at Medium"),
+		"the line names the rows the press would move",
+	)
+	assert_not_null(_label_containing("450 ducats & 900 RP a turn"), "the whole college's spend")
+
+
+func test_a_press_that_files_nothing_stands_down_and_says_so() -> void:
+	_panel_state.assign("crop_rotation", "high")
+	_panel_state.assign("saw_mill", "high")
+	_panel.refresh(_panel_state, 2500)
+	var press: ResearchFundPress = _panel.fund_press()
+	press.step(1)
+	assert_eq(press.preset(), "high", "the stepper reached the preset both studies wear")
+	assert_true(press.press_button().disabled, "a press that would move no row is dead")
+	assert_not_null(_label_containing("Every study already stands at High."))
+
+
+func test_the_press_steps_the_preset_and_files_it() -> void:
+	_panel_state.assign("crop_rotation", "low")
+	_panel.refresh(_panel_state, 2500)
+	var asked: Array[String] = []
+	_panel.funding_all_requested.connect(func(preset: String) -> void: asked.append(preset))
+	var press: ResearchFundPress = _panel.fund_press()
+	press.step(-1)
+	assert_eq(press.preset(), "low", "one step down the published order")
+	assert_eq(press.press_button().text, "FUND ALL · Low")
+	assert_eq(asked, [], "stepping files nothing")
+	press.press_button().pressed.emit()
+	assert_eq(asked, ["low"], "the press files the preset on its face")
+	press.step(-1)
+	assert_eq(press.preset(), "none", "the college can be stood down entirely")
+	press.step(-1)
+	assert_eq(press.preset(), "none", "the stepper holds at None")
+	for _step in 6:
+		press.step(1)
+	assert_eq(press.preset(), "maximum", "and holds at Maximum")
+	assert_eq(int(press.plan()["filed"]), 1, "one study waits at the press")
+
+
+func test_a_study_the_purse_cannot_reach_is_named_on_the_line() -> void:
+	_panel_state.assign("crop_rotation", "none")
+	_panel_state.assign("saw_mill", "none")
+	_panel_state.assign("land_enclosure", "none")
+	_panel.refresh(_panel_state, 1000)
+	_panel.fund_press().step(1)
+	assert_not_null(_label_containing("800 ducats & 1,600 RP a turn"), "two of three paid")
+	assert_not_null(_label_containing("1 of 3 waits on the purse"))
+
+
+func test_the_press_is_not_drawn_before_a_study_is_taken() -> void:
+	_panel.refresh(_panel_state, 2500)
+	assert_false(_panel.fund_press().visible, "nothing under way, nothing to fund")
+	assert_eq(_panel.fund_press().line().text, "")
+
+
+## The plan is the phase's own walk, so the gold a sheet prints is the gold the
+## Research phase pays in slot order (REQ-P2-03).
+func test_the_line_prices_the_phase_that_follows() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 5000
+	economy.research.assign("crop_rotation", "none")
+	economy.research.assign("saw_mill", "none")
+	ResearchBatch.apply(economy.research, "medium")
+	var plan: Dictionary = ResearchBatch.plan(economy.research, "medium", economy.treasury)
+	var report: Dictionary = ResearchTurn.resolve(economy.research, economy)
+	assert_eq(int(report["spent"]), int(plan["gold"]), "the phase spends the line")
+	assert_eq(economy.treasury, 5000 - int(plan["gold"]))
+
+
+func test_the_batch_plan_reads_every_slot_once() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	state.assign("saw_mill", "high")
+	var plan: Dictionary = ResearchBatch.plan(state, "high", 5000)
+	assert_eq(int(plan["count"]), 2)
+	assert_eq(int(plan["filed"]), 1, "saw_mill already stands at High")
+	assert_eq(int(plan["kept"]), 1)
+	assert_eq(int(plan["gold"]), 800)
+	assert_eq(int(plan["rp"]), 1600)
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Fund 1 of 2 studies at High — the college then spends 800 ducats & 1,600 RP a turn.",
+	)
+
+
+func test_the_batch_moves_every_slot_through_the_published_setter() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	state.assign("saw_mill", "medium")
+	var rows: Array[Dictionary] = ResearchBatch.apply(state, "maximum")
+	assert_eq(rows.size(), 2)
+	assert_eq(String(rows[0]["was"]), "low")
+	assert_eq(state.funding_at(0), "maximum")
+	assert_eq(state.funding_at(1), "maximum")
+	assert_eq(ResearchBatch.apply(state, "maximum").size(), 0, "nothing left to file")
+	assert_eq(
+		ResearchBatch.apply(state, "extravagant").size(), 0, "the rules know no such preset"
+	)
+	assert_eq(
+		ResearchBatch.sheet_line(ResearchBatch.plan(state, "maximum", 9000)),
+		"Every study already stands at Maximum.",
+	)
+
+
 ## The treasury cannot cover a Maximum slot here, so the row must say so rather
 ## than promise points the phase will not pay for (wiki: tech-tree § Research
 ## Model — no partial funding).

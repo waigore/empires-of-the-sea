@@ -1397,6 +1397,10 @@ suites = [
 suites = [
   "test_panel_parts_rules.gd",
   "test_research_rules.gd",
+  # The college's sheet is measured against a phone's height (the press, the
+  # slots and the tabs share one column), so a panel edit runs the phone fits
+  # (DR-20261118-26).
+  "test_mobile_layout.gd",
 ]
 
 # Slot / SaveWorld capture (in map_data_rules). World-field edits skip the
@@ -3278,7 +3282,7 @@ match = "scripts/rules/market_cargo.gd*"
 domain = "economy"
 
 [[rules]]
-match = "scripts/rules/research_*.gd"
+match = "scripts/rules/research_*.gd*"
 domain = "research"
 
 [[rules]]

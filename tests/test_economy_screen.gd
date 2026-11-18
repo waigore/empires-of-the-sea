@@ -651,6 +651,7 @@ func test_a_bare_controller_reports_an_empty_ledger() -> void:
 	controller.orders.assign_research("land_enclosure")
 	controller.orders.cancel_research(0)
 	controller.orders.cycle_research_funding(0)
+	controller.orders.fund_research_all("high")
 	var bare := EconomyController.new()
 	assert_eq(bare.readings.tech_caps(), {})
 	assert_eq(bare.readings.projected_income(), 0)
@@ -677,6 +678,27 @@ func test_the_sheet_stages_its_own_trade_press() -> void:
 	assert_eq(
 		orders.orders_for(_screen.player_faction).size(), before + 1,
 		"the sheet's bid reached the book through the order owner",
+	)
+
+
+## The college's one press reaches the rules through the order owner: the sheet
+## emits the preset, the owner files it, and every study under way takes it
+## (wiki: tech-tree § Research Model; DR-20261118-25; REQ-P2-03).
+func test_the_college_press_funds_every_study_at_once() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.research.assign("crop_rotation", "low")
+	economy.research.assign("saw_mill", "none")
+	var panel: ResearchPanel = _screen.hud.panels.research_panel
+	panel.refresh(economy.research, economy.treasury)
+	var press: ResearchFundPress = panel.fund_press()
+	press.step(1)
+	assert_eq(press.preset(), "high", "the stepper names the preset it would file")
+	press.press_button().pressed.emit()
+	assert_eq(economy.research.funding_at(0), "high", "the sheet's press reached the rules")
+	assert_eq(economy.research.funding_at(1), "high")
+	assert_eq(
+		economy.research.funding_at(2), ResearchFunding.DEFAULT,
+		"an empty slot keeps its idle preset",
 	)
 
 

@@ -16,6 +16,9 @@ signal assign_requested(tech_id: String)
 signal cancel_requested(slot: int)
 signal funding_requested(slot: int)
 signal goal_changed(tech_id: String)
+## The college's one press: every study under way takes `preset` in one act
+## (DR-20261118-25).
+signal funding_all_requested(preset: String)
 ## The college's door into the full-screen chart: the sheet hands the HUD the
 ## state it already reads, and the chart opens over the ledger (DR-20261115-15).
 signal tree_requested
@@ -41,6 +44,9 @@ var _slots_heading: Label = null
 ## The college's one door into the full-screen chart (DR-20261115-15).
 var _tree_door: Button = null
 var _slots_body: VBoxContainer = null
+## The one press that takes every study to a preset, priced before it signs
+## (DR-20261118-25).
+var _fund: ResearchFundPress = null
 var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
@@ -91,6 +97,8 @@ func _apply_profile(compact: bool) -> void:
 	for row: Variant in _slot_rows.values():
 		if row is ResearchSlotRow:
 			(row as ResearchSlotRow).set_compact(compact)
+	if _fund != null:
+		_fund.set_compact(compact)
 
 
 func _build_body(column: VBoxContainer) -> void:
@@ -126,6 +134,14 @@ func _build_body(column: VBoxContainer) -> void:
 	_slots_body.add_theme_constant_override("separation", 4)
 	column.add_child(_slots_body)
 
+	# The college's one press sits under the slots it funds, the way the yards'
+	# batch press sits under their rows (DR-20261118-25).
+	_fund = ResearchFundPress.new()
+	_fund.funding_all_requested.connect(
+		func(preset: String) -> void: funding_all_requested.emit(preset)
+	)
+	column.add_child(_fund)
+
 	_tabs = _make_tabs(300.0)
 	_available_body = _add_tab(_tabs, "AVAILABLE", VBoxContainer.new())
 	_known_body = _add_tab(_tabs, "KNOWN", VBoxContainer.new())
@@ -147,6 +163,12 @@ func goal_tech() -> String:
 ## the same college the ledger shows (DR-20261115-15).
 func research_state() -> ResearchState:
 	return _state
+
+
+## The college's one press, so a test reads the preset it would file instead of
+## walking the sheet's children (REQ-P3-02).
+func fund_press() -> ResearchFundPress:
+	return _fund
 
 
 ## Steers the queue toward `tech_id`; "" (or an unknown id) clears the goal.
@@ -235,6 +257,8 @@ func _fill_slots() -> void:
 			unpaid += 1
 	_slots_heading.text = _slots_spend_text(gold, points)
 	_set_notice(unpaid)
+	if _fund != null:
+		_fund.render(_state, _treasury, _boost, _leader)
 
 
 ## The court's studies, and the rule that stops the ones the purse cannot pay:
