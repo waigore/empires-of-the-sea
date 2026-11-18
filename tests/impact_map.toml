@@ -277,6 +277,17 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# What a crown raise sheet's one press spends before it is pressed
+# (DR-20261118-12): one pure walk the towns, the walls, the hospitals and the
+# estates read. The ledger suite proves the walk and the sheets that print it
+# (it mounts all four), so the muster and pause domains' wider sets never ride a
+# pricing change.
+[domains.raise_line]
+suites = [
+  "test_ledgers.gd",
+  "test_panel_parts_rules.gd",
+]
+
 # The crown's eyes (DR-20261115-10): the intelligence projection and its sheet.
 # One suite — it mounts the map screen, presses the court's EYES door and reads
 # the network — so the espionage domain's seven suites (test_map_screen among
@@ -798,6 +809,13 @@ domain = "muster"
 [[rules]]
 match = "scripts/rules/raise_batch_sum.gd*"
 domain = "batch_sum"
+
+# The line a crown raise sheet's one press spends, before it is pressed
+# (DR-20261118-12): one pure walk the towns, the walls, the hospitals and the
+# estates read, and the sheets that print it.
+[[rules]]
+match = "scripts/rules/raise_line.gd*"
+domain = "raise_line"
 
 [[rules]]
 match = "scripts/map/map_play_charts.gd*"

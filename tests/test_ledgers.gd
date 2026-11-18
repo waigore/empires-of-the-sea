@@ -2667,6 +2667,111 @@ func test_the_receipt_names_what_the_press_left() -> void:
 	)
 
 
+# --- the line under the press -------------------------------------------------
+
+
+## Two crown towns a Builder could raise, one level apart, on known stores: the
+## fixture the line is walked over.
+func _two_ready_towns(stock: Dictionary, second_level: int = 2) -> Dictionary:
+	var regions: Array[Dictionary] = _town_regions(
+		_builders(), {"national_bureaucracy": true}, stock
+	)
+	var home: MapModel = regions[0]["model"] as MapModel
+	home.provinces[1].owner = 0
+	home.provinces[1].town_development = second_level
+	return TownLedger.snapshot(regions, 0)
+
+
+## The line the towns sheet prints before the press: the walk's own sum, the
+## stores it leaves and the crews it ties up (REQ-P2-03, REQ-P5-06;
+## DR-20261118-12).
+func test_the_raise_line_prices_every_ready_town_the_press_would_file() -> void:
+	var snapshot: Dictionary = _two_ready_towns({"lumber": 40, "castIron": 40})
+	var targets: Array[Dictionary] = RaiseLedger.ready_targets(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(targets.size(), 2, "two towns the study and the stores open")
+	assert_eq(
+		int((targets[0]["cost"] as Dictionary).get("lumber", 0)),
+		4,
+		"the target carries the row's own price"
+	)
+	var plan: Dictionary = RaiseLine.plan(targets, snapshot["stores"], 2, "Builder")
+	assert_eq(int(plan["count"]), 2, "the walk reads the whole view")
+	assert_eq(int(plan["filed"]), 2, "two free Builders carry both")
+	assert_eq(int(plan["materials"].get("lumber", 0)), 12, "4 for the level-2 step, 8 for the next")
+	assert_eq(int(plan["kept"].get("castIron", 0)), 28, "the stores the line leaves")
+	assert_eq(String(plan["refusal"]), "", "nothing waits")
+	assert_eq(
+		RaiseLine.sheet_line(plan),
+		"12 Lumber · 12 Cast Iron · 2 Builders — the stores keep 28 Lumber, 28 Cast Iron.",
+		"one line, in the catalogues' own words"
+	)
+
+
+## The crews are the second gate on the line: one order ties one up, so five
+## ready towns with one Builder carry one and the sheet says the rest wait
+## (REQ-P2-03, REQ-P5-05; DR-20261118-12).
+func test_the_raise_line_stops_where_the_free_crews_run_out() -> void:
+	var snapshot: Dictionary = _two_ready_towns({"lumber": 40, "castIron": 40})
+	var targets: Array[Dictionary] = RaiseLedger.ready_targets(snapshot, LedgerRows.REGION_ALL)
+	var plan: Dictionary = RaiseLine.plan(targets, snapshot["stores"], 1, "Builder")
+	assert_eq(int(plan["filed"]), 1, "the one free Builder carries one step")
+	assert_eq(int(plan["crews"]), 1, "and is named as tied up")
+	assert_eq(
+		String(plan["refusal"]),
+		RaiseLedger.no_crew_note("Builder"),
+		"the rules' own no-crew sentence is the refusal"
+	)
+	assert_eq(
+		RaiseLine.sheet_line(plan),
+		"4 Lumber · 4 Cast Iron · 1 Builder — 1 of 2 waits: "
+		+ "No idle Builder musters — train one at the capital.",
+		"the sheet names the row that waits and why"
+	)
+
+
+## The stores are the first gate: the walk prices each step against what the
+## orders before it leave, so a line the stores cannot carry says so before the
+## press (REQ-P2-03, REQ-P5-06; DR-20261118-12). Both towns stand at level 1, so
+## each row passes the sheet's own store gate on five lumber and the line's
+## second step is what the walk refuses.
+func test_the_raise_line_stops_where_the_stores_run_short() -> void:
+	var snapshot: Dictionary = _two_ready_towns({"lumber": 5, "castIron": 40}, 1)
+	var targets: Array[Dictionary] = RaiseLedger.ready_targets(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(targets.size(), 2, "both steps are open on the sheet's own reading")
+	var plan: Dictionary = RaiseLine.plan(targets, snapshot["stores"], 2, "Builder")
+	assert_eq(int(plan["filed"]), 1, "the first step is paid, the second is not")
+	assert_eq(
+		String(plan["refusal"]),
+		"Stores are short of 4 lumber.",
+		"the work order's own shortfall sentence"
+	)
+	assert_eq(
+		RaiseLine.sheet_line(plan),
+		"4 Lumber · 4 Cast Iron · 1 Builder — 1 of 2 waits: Stores are short of 4 lumber.",
+		"the line names the wait, not only the sum"
+	)
+
+
+## A sheet whose price moves with the stores — the estates' H8 bootstrap — is
+## still walked by the plan: every ready row is priced against what the orders
+## before it leave (REQ-P2-03; DR-20261118-12).
+func test_the_raise_line_reads_a_price_that_moves_with_the_stores() -> void:
+	var targets: Array[Dictionary] = [
+		{"tile": Vector2i(1, 1), "cost": {"lumber": 1, "castIron": 1}},
+		{"tile": Vector2i(2, 1), "cost": {"lumber": 1, "castIron": 1}},
+	]
+	var left_seen: Array[int] = []
+	var plan: Dictionary = RaiseLine.plan(
+		targets, {"lumber": 40, "castIron": 40}, 2, "Builder",
+		func(_row: Dictionary, left: Dictionary) -> Dictionary:
+			left_seen.append(int(left.get("lumber", 0)))
+			return {"lumber": 1, "castIron": 1}
+	)
+	assert_eq(left_seen.size(), 2, "every ready row is priced")
+	assert_eq(left_seen[1], 39, "the second reads the stores the first left")
+	assert_eq(int(plan["filed"]), 2, "the line is carried")
+
+
 # --- towns: the sheet ---
 
 
@@ -2842,6 +2947,39 @@ func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> voi
 	assert_false(panel._batch.visible, "a reading with nothing ready carries no press")
 
 
+## The sheet prices the line under its press: the stores the ready towns take,
+## the Builders they tie up and the stores it leaves, printed before the second
+## tap (REQ-P1-07, REQ-P5-06; DR-20261118-12).
+func test_the_towns_sheet_prints_the_line_its_press_would_spend() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	_cancel_works()
+	screen.play.tech_unlocked()["national_bureaucracy"] = true
+	var stock: Dictionary = screen.play.stockpile()
+	stock["lumber"] = 400
+	stock["castIron"] = 400
+	panel.open()
+	panel._on_filter(LedgerRows.REGION_ALL, true)
+	panel._on_filter(TownLedger.FILTER_ALL, false)
+	var targets: Array[Dictionary] = panel._ready_targets()
+	assert_gte(targets.size(), 1, "the campaign seats a town the crown can raise")
+	assert_true(panel._line.visible, "the sheet prices the line under its press")
+	assert_true(panel._line.text.contains("Lumber"), panel._line.text)
+	assert_true(
+		panel._line.text.contains("stores keep") or panel._line.text.contains(" wait"),
+		panel._line.text
+	)
+
+
+## A view with nothing ready prints neither the press nor a line about it: the
+## price of an empty line is no line at all (REQ-P5-05; DR-20261118-12).
+func test_the_towns_sheet_prints_no_line_for_a_view_with_nothing_ready() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	panel.open()
+	panel._on_filter(TownLedger.FILTER_DEVELOPED, false)
+	assert_false(panel._line.visible, "an empty press carries no price")
+	assert_eq(panel._line.text, "", "and no words")
+
+
 # --- the crown's estates: the one press --------------------------------------
 
 
@@ -2925,6 +3063,30 @@ func test_the_estates_press_files_every_ready_estate_in_one_confirmed_press() ->
 	)
 	assert_eq(panel._ready_tiles().size(), 0, "the view holds no ready estate after the press")
 	assert_false(press.visible, "and the press stands down")
+
+
+## The estates card prices the line under its press: the stores the ready estates
+## take and the Builders they tie up, printed before the second tap
+## (REQ-P2-03, REQ-P5-06; DR-20261118-12).
+func test_the_estates_sheet_prints_the_line_its_press_would_spend() -> void:
+	var panel: ImprovementPanel = screen.improvements
+	_cancel_works()
+	var stock: Dictionary = screen.play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	panel.open()
+	var ready: Array[Vector2i] = panel._ready_tiles()
+	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
+	screen.play.civilian_layer.units.append(
+		CivilianState.create(700, screen.play.player_faction, "builder", ready[0])
+	)
+	panel.refresh()
+	assert_true(panel._line.visible, "the card prices the line under its press")
+	assert_true(panel._line.text.contains("Builder"), panel._line.text)
+	assert_true(
+		panel._line.text.contains("stores keep") or panel._line.text.contains(" wait"),
+		panel._line.text
+	)
 
 
 ## A card that opens fresh never carries an arm from the last visit, so one tap

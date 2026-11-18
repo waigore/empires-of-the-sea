@@ -12,10 +12,9 @@ P3 (pure projection), P5 (one press, not thirty).
 
 ## Opening it
 
-The realm ledger carries **Walls ›** (`V`) beside **Towns ›**. The realm prints
-each province's fort level; this sheet prints the step that raises it, so the
-door sits on the reading that raises the question
-([`provinces.md`](provinces.md), [`towns.md`](towns.md)).
+The realm ledger carries **Walls ›** (`V`) beside **Towns ›**; the realm prints
+each province's fort level, so the door sits on the reading that raises the
+question ([`provinces.md`](provinces.md), [`towns.md`](towns.md)).
 
 ## What a row reads
 
@@ -25,9 +24,9 @@ door sits on the reading that raises the question
 | Chip | `READY`, `AT WORK`, `NO ENGINEER`, `LOCKED`, `WALLED` |
 | Note | `Next: stone fort · 4 lumber + 4 bronze · 2 turns`, the crew's own record, the study the order waits on, or the finished wall |
 
-The chip names what the step waits on; the note is the step. The sheet states
-the rule: 10 / 20 / 30 wall hp by level and 1–3 emplaced guns, and the last gun
-falls even when an assault is repelled.
+The chip names the wait; the note is the step. The sheet states the rule:
+10 / 20 / 30 wall hp by level, 1–3 emplaced guns, and the last gun falls even
+when an assault is repelled.
 
 ## Filters
 
@@ -45,8 +44,8 @@ swapping the chart first when the province lies on the other one; its message is
 the toast and the row repaints as `AT WORK`. A row that cannot be raised carries
 no press: the note names the wait — the study, the crew, or the stores a
 `LOCKED` shore is short of. **Raise all ready (n)** files every ready row the
-view prints, arm then confirm, and stops at the first refusal
-(DR-20261116-03).
+view prints, arm then confirm, stopping at the first refusal; the line under it
+prices the walk and names the rows that wait (DR-20261116-03, DR-20261118-12).
 
 ## Architecture
 

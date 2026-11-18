@@ -72,15 +72,26 @@ static func _matches(row: Dictionary, filter_key: String) -> bool:
 ## prints them: the row's own Build gate (`can_build` — the level, the tech and
 ## terrain caps, the survey, the free Builder and the stores), so the one press
 ## files exactly what the crown can see and never a step the order would refuse
-## (REQ-P2-03, REQ-P5-04; DR-20261116-06).
+## (REQ-P2-03, REQ-P5-04; DR-20261116-06). The rows are handed back whole so the
+## sheet can price the line the press would file (DR-20261118-12).
+static func ready_rows(
+	groups: Array[Dictionary], filter_key: String
+) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	for group: Dictionary in groups:
+		for row: Dictionary in matching(group["rows"], filter_key):
+			if bool(row.get("can_build", false)):
+				rows.append(row)
+	return rows
+
+
+## The tiles those ready rows stand on, in the same order.
 static func ready_tiles(
 	groups: Array[Dictionary], filter_key: String
 ) -> Array[Vector2i]:
 	var tiles: Array[Vector2i] = []
-	for group: Dictionary in groups:
-		for row: Dictionary in matching(group["rows"], filter_key):
-			if bool(row.get("can_build", false)):
-				tiles.append(row["tile"])
+	for row: Dictionary in ready_rows(groups, filter_key):
+		tiles.append(row["tile"])
 	return tiles
 
 
