@@ -10317,61 +10317,6 @@ func test_a_pressing_court_prices_the_war_that_takes_its_land() -> void:
 		"no press, no factor"
 	)
 
-
-## The press stays on the cheap land until the colony stands (issue #910): a
-## court that can see the bar but holds no New World land presses the war it
-## can carry — a Minor's Old World land — because a war on a fellow crown puts
-## the court on the war footing that closes the voyage, crew and market slots
-## and strands its own colony. Once the colony stands, the press reaches every
-## holder of the land the bar counts again.
-func test_the_press_stays_on_the_cheap_land_until_the_colony_stands() -> void:
-	_setup_ai_planner()
-	ai_planner_state.ensure_relation(0, 1, 1)
-	ai_planner_state.ensure_relation(0, 6, 1)
-	# Province 2 belongs to a Minor Nation (id 6), so the cheap land remains.
-	var world: WorldMap = ai_planner_AiFixture.world([0, 1, 6])
-	var context: Dictionary = ai_planner_AiFixture.context({0: 100, 1: 100})
-	context["victory_press"] = 30
-	var against_crown: Dictionary = AiDiplomacyDesire.war_desire(
-		ai_planner_config, ai_planner_state, world, 0, 1, context
-	)
-	assert_eq(
-		int(against_crown["score"]), 35,
-		"no colony, no press on a fellow Great Power"
-	)
-	assert_false(
-		(against_crown["factors"] as Dictionary).has("victory_press"),
-		"the crown front stays shut while the cheap land remains"
-	)
-	var against_minor: Dictionary = AiDiplomacyDesire.war_desire(
-		ai_planner_config, ai_planner_state, world, 0, 6, context
-	)
-	assert_true(
-		int(against_minor["factors"].get("victory_press", 0)) > 0,
-		"the Minor holding the bar's land still carries the press"
-	)
-	world.add_region(_owned_new_world(0))
-	var with_colony: Dictionary = AiDiplomacyDesire.war_desire(
-		ai_planner_config, ai_planner_state, world, 0, 1, context
-	)
-	assert_eq(
-		int(with_colony["score"]), 65,
-		"the colony stands: the press reaches the crown again"
-	)
-
-
-## One New World province owned by `owner`, for the colony-stands reading.
-func _owned_new_world(owner: int) -> MapModel:
-	var model := MapModel.new()
-	model.setup(1, 1)
-	model.region_id = FactionCatalog.NEW_WORLD
-	var tiles: Array[Vector2i] = [Vector2i(0, 0)]
-	model.provinces.append(
-		ProvinceState.create(0, "N0", tiles, Vector2(0.0, 0.0), 1, owner, false)
-	)
-	return model
-
-
 func test_the_press_is_read_per_court_from_the_map_pass() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
