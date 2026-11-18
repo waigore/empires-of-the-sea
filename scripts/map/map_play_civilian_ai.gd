@@ -119,7 +119,7 @@ static func plan_all(
 			# The provision premium is the submission surface's own reading: a
 			# baseline court's MainlineAiConfig must never reach the typed
 			# signature, and its planners keep their published market (the same
-			# guard `AiBind.fed_slack` uses for the muster's own reading).
+			# guard `AiBindEconomy.fed_slack` uses for the muster's own reading).
 			if (
 				kind != AiControl.KIND_BASELINE
 				and int(context["larder_slack"]) <= 0
@@ -132,7 +132,7 @@ static func plan_all(
 				)
 			):
 				context["provision_food"] = true
-		var plan: Dictionary = AiBind.civilian_plan(
+		var plan: Dictionary = AiBindCampaign.civilian_plan(
 			kind, config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context
 		)

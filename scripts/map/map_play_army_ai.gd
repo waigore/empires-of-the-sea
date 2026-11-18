@@ -64,11 +64,11 @@ static func _run_region(
 		changed = MapPlayArmyMusterAi.muster(
 			play, model, roster, faction, config, kind, trace
 		) or changed
-		for action: Dictionary in AiBind.military_split(
+		for action: Dictionary in AiBindCampaign.military_split(
 			kind, config, play.diplomacy, model, roster
 		):
 			changed = _apply_split(play, model, roster, faction, action, trace) or changed
-		var plan: Dictionary = AiBind.military_march(
+		var plan: Dictionary = AiBindCampaign.military_march(
 			kind, config, play.diplomacy, model, roster
 		)
 		changed = _apply_marches(
