@@ -1,7 +1,7 @@
 # The crown's hospitals
 
-Every province the crown holds that can carry a ward, in one ledger — the level,
-whether its staff ate, the next step and the press.
+Every province that can carry a ward, in one ledger — the level, whether its
+staff ate, the next step and the press.
 
 **Pillars:** P1 (numerals), P2 (the ward table's own price, wait and gate),
 P3 (pure projection), P5 (one press, not thirty).
@@ -24,16 +24,15 @@ the reading that raises the question ([`provinces.md`](provinces.md)).
 | Note | `Next: field hospital · 3 lumber + 2 fabric · 1 turn`, the crew's own record, the study or the stores the order waits on, or the finished ward |
 
 The rule a crown pays by: rest 40% / 55%, the wear a defeat
-leaves cut to 80% / 65%, and a staff that eats 2 food a turn per level — a ward
-the larder cannot cover goes unfed: its walls still shelter the wounded, but the
-province rests at the field's 25%.
+leaves cut to 80% / 65%, and a staff that eats 2 food a turn per level — an
+unfed ward still shelters the wounded, but the province rests at the field's 25%.
 
 ## Filters
 
 Two chip rows — **chart** (both / Old World / New World) and **reading** (all /
 ready / at work / warded) — each with its own tally. The count line names
-how many shores keep **no ward**, what the whole staff eats a turn, and how many
-wards went **unfed**. The reading leads with what can be raised now, then what
+the shores with **no ward**, what the staff eats a turn, and how many wards went
+**unfed**. The reading leads with what can be raised now, then what
 is in hand, then what waits, the finished wards last; the weakest ward leads,
 and one heading per chart stands.
 
@@ -48,7 +47,8 @@ one. The order's message is the toast, and the row repaints as
 order's own words.
 
 **Raise all ready (n)** files every ready row the view prints, arm then
-confirm, and stops at the first refusal (DR-20261116-03).
+confirm, stopping at the first refusal; the line under it prices the walk and
+names the rows that wait (DR-20261116-03, DR-20261118-12).
 
 ## Architecture
 

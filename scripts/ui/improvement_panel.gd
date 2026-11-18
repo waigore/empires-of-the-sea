@@ -32,6 +32,9 @@ var blockade_source: Callable = Callable()
 var _rows: VBoxContainer = null
 var _head: EstatesHead = null
 var _batch: RaiseBatchPress = null
+## What the press would spend, under it: the stores the ready estates take, or the
+## rows the stores and the free Builders leave waiting (DR-20261118-12).
+var _line: Label = null
 var _title: Label = null
 var _subtitle: Label = null
 var _footer_box: Control = null
@@ -120,6 +123,11 @@ func _build_plate(host: VBoxContainer) -> void:
 	_batch = RaiseBatchPress.new()
 	_batch.confirmed.connect(_raise_all)
 	host.add_child(_batch)
+	# What the second tap spends, under the press: a phone reads the price with
+	# the press, never in a hover (REQ-P1-07, REQ-P5-06; DR-20261118-12).
+	_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
+	_line.visible = false
+	host.add_child(_line)
 
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -255,10 +263,46 @@ func _ready_tiles() -> Array[Vector2i]:
 	)
 
 
+## The ready rows the same view prints, priced: one estate's price is the
+## bootstrap's, which reads the stores the estates before it leave, so the line
+## is walked rather than summed (DR-20261118-12).
+func _ready_rows() -> Array[Dictionary]:
+	return EstateLedger.ready_rows(
+		EstateLedger.in_province(EstateLedger.grouped(_data), _province_filter),
+		_head.filter
+	)
+
+
 ## The press names how many estates it would order, so the count is read before
 ## the stores are spent; a view with nothing ready carries no press (REQ-P5-03).
+## The line under it names what the walk would take, or what waits and why.
 func _sync_batch() -> void:
 	_batch.set_ready(_ready_tiles().size(), "estates")
+	if _line == null:
+		return
+	var reading: Dictionary = RaiseLine.plan(
+		_ready_rows(),
+		stockpile,
+		ImprovementOrders.idle_builders(units, faction).size(),
+		CivilianCatalog.display_name("builder"),
+		_price_row
+	)
+	_line.text = RaiseLine.sheet_line(reading)
+	_line.visible = not _line.text.is_empty()
+
+
+## One estate's price inside the line, read against the stores the orders before
+## it leave: the H8 bootstrap waives a level-1 raise's feedstock while the court
+## holds none, so the fifth estate is not the first's price (wiki:
+## extraction-and-improvements § H8 feedstock bootstrap; #878, REQ-P2-03).
+func _price_row(row: Dictionary, left: Dictionary) -> Dictionary:
+	var tile: Variant = row.get("tile", CivilianState.NO_TILE)
+	if model == null or not (tile is Vector2i):
+		var raw: Variant = row.get("cost", {})
+		return raw as Dictionary if raw is Dictionary else {}
+	return CivilianWorkPlan.bootstrap_cost(
+		model, tile as Vector2i, left, int(row.get("next_level", 1))
+	)
 
 
 ## The second tap: the screen files the walk and prints its one receipt, so the

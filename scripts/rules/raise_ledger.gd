@@ -42,6 +42,11 @@ static func snapshot(
 ) -> Dictionary:
 	var rows: Array[Dictionary] = []
 	var counts: Dictionary = empty_counts(states)
+	## The crown's own stores and the free crews of each trade, read once over
+	## the same charts the rows come from: a press's bill is the stores it
+	## leaves and the hands it ties up (DR-20261118-12).
+	var stores: Variant = null
+	var idle: Dictionary = {}
 	for entry: Dictionary in regions:
 		var model := entry.get("model") as MapModel
 		if model == null:
@@ -53,6 +58,13 @@ static func snapshot(
 		## The crown's own stores, when the caller knows them: the row reads the
 		## same money gate the order charges (REQ-P2-03).
 		var stockpile: Variant = entry.get("stockpile", null)
+		if typeof(stockpile) == TYPE_DICTIONARY:
+			stores = stockpile
+		for raw: Variant in units:
+			var crew := raw as CivilianState
+			if crew == null or crew.owner != owner or not crew.is_idle():
+				continue
+			idle[crew.type_id] = int(idle.get(crew.type_id, 0)) + 1
 		for province: ProvinceState in model.provinces:
 			if province == null or province.owner != owner:
 				continue
@@ -75,6 +87,8 @@ static func snapshot(
 		"groups": LedgerRows.group(rows),
 		"counts": counts,
 		"total": rows.size(),
+		"stores": stores if stores != null else {},
+		"crews": idle,
 	}
 
 
@@ -118,7 +132,9 @@ static func matches(row: Dictionary, filter_key: String) -> bool:
 ## walk follows the snapshot's order — the ready steps first, the weakest level
 ## first, then the chart and the province — rather than the chart headings the
 ## sheet prints those rows under, so the weakest step leads whichever chart it
-## stands on.
+## stands on. Each target carries the row's own `cost` map, so the price the
+## sheet prints before the press is read off the same walk the press files
+## (REQ-P2-03; DR-20261118-12).
 static func ready_targets(
 	data: Dictionary, region_key: String, filter_key: String = LedgerRows.ALL
 ) -> Array[Dictionary]:
@@ -131,10 +147,12 @@ static func ready_targets(
 			continue
 		if String(row.get("state", "")) != STATE_READY:
 			continue
+		var cost: Variant = row.get("cost", {})
 		targets.append({
 			"region": int(row.get("region", 0)),
 			"id": int(row.get("id", -1)),
 			"name": String(row.get("name", "")),
+			"cost": cost if cost is Dictionary else {},
 		})
 	return targets
 

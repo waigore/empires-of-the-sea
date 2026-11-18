@@ -14,40 +14,40 @@ level-4 Great Power towns, four grain farms.
 
 ## Implemented
 
-- **Named improvements** by resource: Timber → Lumber camp, minerals →
+- **Named improvements**: Timber → Lumber camp, minerals →
   Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch, crops → Plantation,
   Furs → Fur post.
 - **Levels 1–4.** A Builder raises one level for 1/4/8/16 lumber + cast iron
   over target-level turns; minerals need Prospect first (DR-20261111-26),
   above-cap orders refused.
 - **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile a
-  turn; until surveyed no icon, estate, lens row or AI plan names it. A Builder
+  turn; until surveyed no icon, estate, lens row or plan names it; a Builder
   may mine it at once.
 - **Terrain caps:** scrub timber 1, hardwood follows tech.
-- **Path transport:** the best road/rail/port route's bottleneck;
-  beside-network tiles take it, several routes the highest.
+- **Path transport:** the best road/rail/port bottleneck; beside-network
+  tiles take it, several routes the highest.
 - **Init town roads:** every owned Old World town to its crown; New World towns
   wait.
 - **Town rule:** estates 4-adjacent to a province town extract; capital
   provinces cap at town development; a non-capital port town caps tiles
-  reaching the crown through it; a crown-road estate ignores the cap.
+  reaching the crown; a crown-road estate ignores the cap.
 - **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy);
   level 2 or 4 adds manufactures ([economy.md](economy.md)).
 - **Cross-map assign.** Builder may target another owned tile; materials paid
   at assign, lost on cancel.
 - **Extraction** after Build/Work:
-  `min(improvement, tech cap, terrain cap, path transport, town cap)`; only
+  `min(improvement, tech cap, terrain cap, transport, town cap)`; only
   connected, prospected estates yield; purchased enclaves pay their buyer.
 - **Lenses.** Survey (lens seal): a column per resource, emblem and
   `built/linked/held` badge, the Explorer's mark, prospectable tiles; roads
   solid when linked, dashed cut (#698). Crown road (`R`): gold / amber /
-  crimson for crown, town-only, or cut; cut provinces show the tiles to lay
-  and their count.
-- **Estates ledger** (`ESTATES`): totals, filters, blockers, Build / Cancel /
-  Map, caps, nearest idle Builder; cut-off estates name the gap.
+  crimson for crown, town-only, or cut; cut provinces show the tiles to lay.
+- **Estates ledger**: totals, filters, blockers, Build / Cancel /
+  Map, caps, a free Builder; cut estates name the gap.
 - **One press** (DR-20261116-06): `Raise all ready (n)` files every `READY`
   estate the view prints, in its order, arming then filing; the walk stops at
-  the first refusal and leaves one receipt. The `Ready` chip is that view.
+  the first refusal and leaves one receipt; the line under it prices the walk
+  and the wait (DR-20261118-12). The `Ready` chip is that view.
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
   a cut-off estate carries **Build road**.
 
