@@ -195,6 +195,24 @@ func cycle_research_funding(slot: int) -> void:
 	host.report_funding()
 
 
+## The college's one press: every study under way takes `preset` in one act, and
+## the receipt names what moved and what the college pays a turn (wiki: tech-tree
+## § Research Model; DR-20261118-25; REQ-P5-04, REQ-P5-05). The rows are filed
+## through the published `set_funding`, so no rule, preset, floor or save key
+## moves — only the taps a crown would have made one row at a time.
+func fund_research_all(preset: String) -> void:
+	if host == null or host.economy == null:
+		return
+	if seat_held_elsewhere():
+		return
+	var rows: Array[Dictionary] = ResearchBatch.apply(host.economy.research, preset)
+	if not rows.is_empty():
+		_toast(ResearchBatch.receipt(
+			ResearchBatch.plan(host.economy.research, preset, host.economy.treasury)
+		))
+	host.report_funding()
+
+
 ## Auto holds the crown's seat: the ledger and the college stay readable, but
 ## no press on them raises an order (wiki: auto-mode § Read-only while it runs).
 func seat_held_elsewhere() -> bool:
