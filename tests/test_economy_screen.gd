@@ -1473,7 +1473,14 @@ func test_a_spent_purse_disables_the_bid_chip() -> void:
 	assert_gt(chips.size(), 0, "the page draws Bid chips")
 	for chip: Button in chips:
 		assert_true(chip.disabled, "an empty purse files no bid")
-		assert_true(chip.tooltip_text.contains("no room"), chip.tooltip_text)
+		assert_true(chip.tooltip_text.contains("cannot cover"), chip.tooltip_text)
+	# Printed, never only a hover: a phone player reads why the Bid is shut
+	# (wiki: world-market § Treasury budget for bids; REQ-P1-05, REQ-P5-05).
+	var printed: bool = false
+	for node: Node in body.find_children("*", "Label", true, false):
+		if (node as Label).text == "The treasury cannot cover that bid.":
+			printed = true
+	assert_true(printed, "the row prints the reason the Bid is shut")
 
 
 ## The single press on a commodity row, found by the row's own good name.

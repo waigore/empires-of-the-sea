@@ -13,7 +13,9 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 1000,
-		"default": 500,
+		# Climb probe (#910): press Old World wars earlier so the subject
+		# remusters into the bar instead of parking at 11 OW.
+		"default": 250,
 	},
 	{
 		"key": "victory.pressure_regiments",

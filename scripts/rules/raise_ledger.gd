@@ -44,9 +44,12 @@ static func snapshot(
 	var counts: Dictionary = empty_counts(states)
 	## The crown's own stores and the free crews of each trade, read once over
 	## the same charts the rows come from: a press's bill is the stores it
-	## leaves and the hands it ties up (DR-20261118-12).
+	## leaves and the hands it ties up (DR-20261118-12). The hands are read per
+	## chart, because a crew works the chart it stands on: a Builder in the New
+	## World cannot raise a town in the Old, so the line must not spend her there
+	## (DR-20261118-17).
 	var stores: Variant = null
-	var idle: Dictionary = {}
+	var idle_by_region: Dictionary = {}
 	for entry: Dictionary in regions:
 		var model := entry.get("model") as MapModel
 		if model == null:
@@ -60,11 +63,13 @@ static func snapshot(
 		var stockpile: Variant = entry.get("stockpile", null)
 		if typeof(stockpile) == TYPE_DICTIONARY:
 			stores = stockpile
+		var idle: Dictionary = {}
 		for raw: Variant in units:
 			var crew := raw as CivilianState
 			if crew == null or crew.owner != owner or not crew.is_idle():
 				continue
 			idle[crew.type_id] = int(idle.get(crew.type_id, 0)) + 1
+		idle_by_region[region] = idle
 		for province: ProvinceState in model.provinces:
 			if province == null or province.owner != owner:
 				continue
@@ -88,8 +93,21 @@ static func snapshot(
 		"counts": counts,
 		"total": rows.size(),
 		"stores": stores if stores != null else {},
-		"crews": idle,
+		"crews_by_region": idle_by_region,
 	}
+
+
+## The free crews of one trade, chart by chart: {region: how many stand idle}.
+## A sheet hands this to [RaiseLine] so its line spends each chart's own hands,
+## which is the only pool the filing walk can draw on (DR-20261118-17).
+static func free_crews(by_region: Dictionary, type_id: String) -> Dictionary:
+	var free: Dictionary = {}
+	for raw: Variant in by_region.keys():
+		var crews: Variant = by_region[raw]
+		if not crews is Dictionary:
+			continue
+		free[int(raw)] = int((crews as Dictionary).get(type_id, 0))
+	return free
 
 
 ## Zero per state, so a chip carries its own tally and a zero stays legible.

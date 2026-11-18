@@ -48,20 +48,13 @@ static func reservations(economy: PlayerEconomy) -> Dictionary:
 static func bid_units(
 	market: WorldMarket, faction: int, commodity: String, context: Dictionary
 ) -> int:
-	if market == null or not market.can_trade(commodity):
+	var gates: Dictionary = MarketRules.bid_gates(market, faction, commodity, context)
+	if not bool(gates.get("ok", false)):
 		return 0
 	var book: MarketBook = market.book
-	if book.has_opposite(faction, commodity, MarketOrder.SIDE_BID):
-		return 0
-	var cap: int = MarketRules.bid_type_cap(context.get("tech_unlocked", {}))
-	var ids: Array[String] = book.bid_commodities(faction)
-	if not ids.has(commodity) and ids.size() >= cap:
-		return 0
 	var hold_cap: int = maxi(
 		maxi(int(context.get("cargo_free", 0)), 0) - book.pending_buy_units(faction), 0
 	)
-	if hold_cap <= 0:
-		return 0
 	var price: int = market.buy_price(commodity, faction)
 	# The caller's own reading wins when it passes one, so the batch and the
 	# validator price one figure (REQ-P2-03).

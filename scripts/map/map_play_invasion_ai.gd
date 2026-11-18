@@ -32,18 +32,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# its border: the gold that ends its impasse is overseas
 			# (DR-20261113-19). Defence still comes first on its own soil, which
 			# the planner guards.
-			var earning: bool = (
-				str(
-					AiBind.income_plan(
-						kind, config, play.ledger_for(faction),
-						MapPlayCourt.at_war(play, faction),
-						MapPlayCourt.regiments(play, faction),
-						MapPlayCourt.navy_chest(play, faction),
-						MapPlayCourt.warships(play, faction)
-					).get("goal", "")
-				)
-				== "earn"
-			)
+			var earning: bool = MapPlaySeaStep.earning(play, faction, kind, config)
 			touched = _split(
 				play, model, fleets, armies, faction, config, kind, trace, earning
 			) or touched
@@ -128,10 +117,7 @@ static func _apply(
 			entry["army"] = army.id
 		AiInvasionPlanner.KIND_DOCK:
 			var dock: int = int(order.get("province", -1))
-			var docked: Dictionary = NavalMovement.apply_move(
-				model, fleet, FleetState.Location.IN_PORT, dock
-			)
-			if not bool(docked.get("ok", false)):
+			if not MapPlaySeaStep.dock(model, fleet, dock):
 				return {}
 			# Docking at the court's own seat resolves by merging into the home
 			# fleet (wiki: ships-and-naval § Home Fleet).
@@ -140,14 +126,8 @@ static func _apply(
 			entry["province_name"] = model.province_name(dock)
 		AiInvasionPlanner.KIND_SAIL:
 			var zone: int = int(order.get("zone", -1))
-			var sailed: Dictionary = NavalMovement.apply_move(
-				model, fleet, FleetState.Location.AT_SEA, zone
-			)
-			if not bool(sailed.get("ok", false)):
-				sailed = FleetSortie.apply(model, fleet, zone)
-			if not bool(sailed.get("ok", false)):
+			if not MapPlaySeaStep.sail(play, model, region, fleet, zone):
 				return {}
-			MapPlayCourtFog.note_fleet_entry(play, region, fleet, zone)
 			entry["zone"] = zone
 			entry["zone_name"] = model.sea_zone_name(zone)
 		AiInvasionPlanner.KIND_CROSS:
@@ -209,26 +189,19 @@ static func _land(
 static func _cross(
 	play: PlaySession, region: int, fleets: Array, armies: Array, fleet: FleetState
 ) -> Dictionary:
-	var result: Dictionary = WarpTravel.apply_crossing(play.world, region, fleet)
-	if not bool(result.get("ok", false)):
-		return result
-	var to_region: int = int(result["to_region"])
-	fleets.erase(fleet)
-	var source: Array = MapPlayCourt.region_fleets(play, region)
-	source.erase(fleet)
-	play.ship_layer.regions.set_region(region, source)
+	# The carried army is found by the seat it holds now; the crossing renumbers
+	# the squadron, so collect it before the roster move.
 	var carried: Array[ArmyState] = []
 	for raw: Variant in armies.duplicate():
 		var army: ArmyState = raw
 		if army != null and army.embarked_fleet == fleet.id:
 			carried.append(army)
-	# The seat is renumbered in the new region, so the troops follow it after.
-	fleet.id = FleetRosters.next_id_all(play.ship_layer.regions)
-	var destination: Array = MapPlayCourt.region_fleets(play, to_region)
-	destination.append(fleet)
-	play.ship_layer.regions.set_region(to_region, destination)
+	var result: Dictionary = MapPlaySeaStep.cross(play, region, fleet)
+	if not bool(result.get("ok", false)):
+		return result
+	fleets.erase(fleet)
 	for army: ArmyState in carried:
-		ArmyTransport.move_to_region(play.army_layer, army.id, to_region)
+		ArmyTransport.move_to_region(play.army_layer, army.id, int(result["to_region"]))
 		army.embarked_fleet = fleet.id
 		armies.erase(army)
 	return result
@@ -263,17 +236,10 @@ static func _refresh_visible(play: PlaySession) -> void:
 
 
 static func _store(play: PlaySession, region: int, fleets: Array, armies: Array) -> void:
-	_merge_stored(MapPlayCourt.region_fleets(play, region), fleets)
-	_merge_stored(MapPlayCourt.visible_armies(play, region), armies)
+	MapPlaySeaStep.merge_stored(MapPlayCourt.region_fleets(play, region), fleets)
+	MapPlaySeaStep.merge_stored(MapPlayCourt.visible_armies(play, region), armies)
 	play.ship_layer.regions.set_region(region, fleets)
 	play.army_layer.regions.set_region(region, armies)
-
-
-## Keeps anything a crossing from a later-iterated region already landed here.
-static func _merge_stored(stored: Array, local: Array) -> void:
-	for entity: Variant in stored:
-		if entity != null and not local.has(entity):
-			local.append(entity)
 
 
 ## The invadable test the planner weighs, in the form it expects.

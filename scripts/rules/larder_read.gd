@@ -69,17 +69,47 @@ static func _wards(mouths: Dictionary) -> Array[int]:
 	return out
 
 
+## The ration the crown's waiting musters and launches will eat at this turn's
+## close: a regiment or a hull under orders lands at Build/work, before
+## Consumption runs, so the phase pays its upkeep even though the muster roll
+## does not show it yet (wiki: workers-and-population § Consumption — "every
+## appetite the phase pays … the recruits already under orders"). A regiment's
+## ration is its catalogue row's (`RegimentCatalog.food_upkeep`), a hull's the
+## published two units (`ShipEconomy.FOOD_UPKEEP_PER_SHIP`), and a civilian hire
+## eats nothing. `ships` is a hull count, the unit `mouths` carries.
+static func pending_rations(economy: PlayerEconomy) -> Dictionary:
+	var rations: Dictionary = {"army": 0, "ships": 0}
+	if economy == null:
+		return rations
+	for row: Dictionary in economy.recruits.orders:
+		match String(row.get("kind", "")):
+			RecruitQueue.KIND_REGIMENT:
+				rations["army"] = int(rations["army"]) \
+					+ RegimentCatalog.food_upkeep(String(row.get("key", "")))
+			RecruitQueue.KIND_SHIP:
+				rations["ships"] = int(rations["ships"]) + 1
+	return rations
+
+
 ## The next Consumption phase, dry-run: what the store holds, what every mouth
 ## wants, how many strike and which tier strikes first. `striking_tier` is -1 when
 ## the larder covers every mouth; otherwise it is the highest tier with a striker,
 ## because the phase feeds Masters before Peasants and a shortfall always bites
 ## from the top down (wiki: workers-and-population § Consumption).
+## The appetites the caller hands in are the last phase's; the musters and
+## launches already under orders are added here, because they land at this turn's
+## Build/work and eat at its close (wiki: workers-and-population § Phase
+## placement; § Consumption).
 static func forecast(economy: PlayerEconomy, mouths: Dictionary = {}) -> Dictionary:
 	var pool: WorkerPool = pool_next(economy)
+	var fed: Dictionary = mouths.duplicate()
+	var waiting: Dictionary = pending_rations(economy)
+	fed["army"] = int(fed.get("army", 0)) + int(waiting["army"])
+	fed["ships"] = int(fed.get("ships", 0)) + int(waiting["ships"])
 	return reading(
 		pool,
 		economy.stockpile,
-		mouths,
+		fed,
 		economy.recruits.pending_kind(RecruitQueue.KIND_WORKER),
 		economy.recruits.arriving_by_tier(),
 	)

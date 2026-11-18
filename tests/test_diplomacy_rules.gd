@@ -1915,6 +1915,44 @@ func test_the_alliance_refusal_is_not_the_heralds_word() -> void:
 	assert_false(_names_a_herald_word(String(check["reason"])), String(check["reason"]))
 
 
+## An alliance rides on the pact: the order is refused with the published reason
+## while no non-aggression pact stands, however warm the court — and admitted
+## once the pact is in either direction (wiki: diplomacy § Alliances;
+## DR-20261115-19).
+func test_an_alliance_needs_the_pact_first() -> void:
+	_setup_diplomacy_orders()
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	record.score = DiplomacyCatalog.ALLIANCE_CLAMP
+	var no_pact: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
+	assert_false(bool(no_pact["ok"]))
+	assert_eq(
+		String(no_pact["reason"]), "An alliance needs a non-aggression pact first."
+	)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	var with_pact: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
+	assert_true(bool(with_pact["ok"]), String(with_pact.get("reason", "")))
+
+
+## The rival answers the published test: below the Allied band it declines, at
+## the band it signs and the pair's score is clamped into it (wiki: diplomacy
+## § GP AI policy — `alliance >= 76`).
+func test_the_alliance_is_answered_at_the_allied_band() -> void:
+	_setup_diplomacy_orders()
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	record.score = DiplomacyCatalog.ALLIANCE_CLAMP - 1.0
+	var cold: Dictionary = DiplomacyRules.form_alliance(diplomacy_orders_state, 0, 2)
+	assert_true(bool(cold["ok"]), String(cold.get("reason", "")))
+	assert_false(bool(cold.get("accepted", true)))
+	assert_false(record.formal_alliance)
+	record.score = DiplomacyCatalog.ALLIANCE_CLAMP
+	var warm: Dictionary = DiplomacyRules.form_alliance(diplomacy_orders_state, 0, 2)
+	assert_true(bool(warm["ok"]), String(warm.get("reason", "")))
+	assert_true(bool(warm.get("accepted", false)))
+	assert_true(record.formal_alliance)
+	assert_true(record.score >= DiplomacyCatalog.ALLIANCE_CLAMP)
+
+
 ## A rule refusal speaks the gate, never one of the ten words the court sheet
 ## shows for the same hidden score (wiki: diplomacy § 10-step relation meter).
 func _names_a_herald_word(text: String) -> bool:
@@ -1935,6 +1973,28 @@ func test_grant_aid_needs_embassy_step_and_fixed_relation_gain() -> void:
 	assert_eq(diplomacy_orders_state.relation(0, 6).score, 55.0)
 	var odd: Dictionary = _apply("grant_aid", 6, "", null, 1500)
 	assert_false(odd["ok"])
+
+## The gift the court's sheet steps: the published £1,000 floor and step, the
+## purse's own ceiling, and a redraw that clamps a sum the turn has made
+## unaffordable (wiki: diplomacy § Amount parameters; DR-20261118-16).
+func test_the_gift_steps_inside_its_floor_and_the_purse() -> void:
+	assert_eq(DiplomacyGift.step(), 1000)
+	assert_eq(DiplomacyGift.ceiling(2500), 2000)
+	assert_eq(DiplomacyGift.ceiling(999), 0, "a purse short of the floor covers no gift")
+	assert_eq(DiplomacyGift.stepped(1000, 1, 2500), 2000)
+	assert_eq(DiplomacyGift.stepped(2000, 1, 2500), 2000, "the purse's ceiling holds the step")
+	assert_eq(DiplomacyGift.stepped(1000, -1, 2500), 1000, "the published floor holds the step")
+	assert_eq(DiplomacyGift.stepped(5000, 0, 2500), 2000, "a redraw clamps to the purse")
+	assert_eq(DiplomacyGift.stepped(1000, 0, 400), 1000, "a short purse keeps the floor")
+	assert_eq(DiplomacyGift.face(2000), "Grant Aid · £2,000")
+	assert_true(
+		DiplomacyGift.pledge().contains("fixed, whatever the sum"),
+		"the sheet names that the regard does not grow with the sum"
+	)
+	assert_false(
+		DiplomacyGift.pledge().contains("+5"),
+		"the hidden modifier is never printed (wiki: diplomacy § Foreign aid)"
+	)
 
 func test_aid_is_refused_to_an_enemy() -> void:
 	_setup_diplomacy_orders()
