@@ -73,6 +73,13 @@ static func resolve_exchange(
 	state["defender"]["triage"] = HospitalRules.triage_scale_at(model, province)
 	var atk_start: int = ArmyForce.side_regiments(atk_side)
 	var def_start: int = ArmyForce.side_regiments(def_side)
+	## The line and the reserve as the battle deals them, read before a blow
+	## lands: a side that kept a reserve is named as such on the plate and in
+	## the despatch whatever its line loses (wiki: combat § The line and the
+	## reserve — "the battle plate prints `Line — <crown> N of M in the line`").
+	var lines_open: Dictionary = ArmyModifiers.line_fields(
+		atk_side, int(atk_mods["limit"]), def_side, int(def_mods["limit"])
+	)
 	## Lane split when the battle opened: the line's foot on the wall and its horse
 	## and guns behind it — a reserve mans neither lane — then the lanes shrink as
 	## casualties are drawn from them (wiki: quick-battle § Wings and collapse;
@@ -85,9 +92,13 @@ static func resolve_exchange(
 	var def_types: Dictionary = _type_counts(def_side)
 	var rounds: Array[Dictionary] = []
 	for round_index in MAX_ROUNDS:
-		if ArmyForce.side_regiments(atk_side) == 0:
-			break
-		if ArmyForce.side_regiments(def_side) == 0:
+		## A battle is fought by the two lines. A side that has lost its line
+		## has lost the field — the reserve behind it was never committed, so
+		## there is nothing left to strike and no blow left to deliver (wiki:
+		## combat § The line and the reserve; quick-battle § Wings and collapse
+		## — "a side whose wings have all broken has already lost its line").
+		if QuickBattleActions.line_standing(state, "attacker") == 0 \
+			or QuickBattleActions.line_standing(state, "defender") == 0:
 			break
 		rounds.append(_round(armies, state, guns, round_index, context))
 	var atk_left: int = ArmyForce.side_regiments(atk_side)
@@ -123,9 +134,7 @@ static func resolve_exchange(
 	)
 	report["attacker_detail"] = _losses(atk_types, _type_counts(atk_side))
 	report["defender_detail"] = _losses(def_types, _type_counts(def_side))
-	report.merge(ArmyModifiers.line_fields(
-		atk_side, int(atk_mods["limit"]), def_side, int(def_mods["limit"])
-	))
+	report.merge(lines_open)
 	BattleSettlement.settle(
 		model, armies, report, atk_side, def_side, atk_lead, def_lead, context,
 		further, def_start
@@ -177,6 +186,11 @@ static func _side_state(
 		"exposed": false,
 		## The three wings of a line in the open; empty behind a wall.
 		"wings": {},
+		## The men the battle deals into the line when it opens: the wings, the
+		## bled lanes, the mauled survivors and the outcome all read this one
+		## slice, so a reserve never steps up as the line falls (wiki: combat
+		## § The line and the reserve).
+		"line": ArmyForce.line_ids(side, limit),
 		"broken": [] as Array[String],
 	}
 
@@ -232,11 +246,12 @@ static func _orders(
 	for action: String in QuickBattleActions.actions_for(
 		String(state[key]["plan"]), key == "defender", siege
 	):
-		## A line that has lost its last regiment spends no point and
-		## delivers no blow (wiki: quick-battle § Outcome and integration).
+		## A line that has lost its last regiment spends no point and delivers no
+		## blow, and nothing is left to strike when the enemy's line is gone
+		## (wiki: quick-battle § Outcome and integration; § Wings and collapse).
 		if cp < int(QuickBattleActions.ACTION_CP[action]) \
-			or ArmyForce.side_regiments(atk_side) == 0 \
-			or ArmyForce.side_regiments(def_side) == 0:
+			or QuickBattleActions.line_standing(state, key) == 0 \
+			or QuickBattleActions.line_standing(state, enemy_key) == 0:
 			break
 		cp -= int(QuickBattleActions.ACTION_CP[action])
 		var entry: Dictionary = QuickBattleActions.resolve(
@@ -249,7 +264,8 @@ static func _orders(
 	# The emplaced battery fires after the side's actions, into one wing of
 	# the besieging line; the guns are the fort's own units
 	# (wiki: quick-battle § Wings and collapse).
-	if key == "defender" and QuickBattleBattery.alive(guns) > 0:
+	if key == "defender" and QuickBattleBattery.alive(guns) > 0 \
+		and QuickBattleActions.line_standing(state, "attacker") > 0:
 		var volley: Dictionary = QuickBattleBattery.volley_entry(armies, state, guns, owner)
 		if not volley.is_empty():
 			log["actions"].append(volley)
@@ -314,15 +330,28 @@ static func _order(state: Dictionary, context: Dictionary) -> Array[int]:
 ## health, scaled by cohesion and the side's combat modifiers. Emplaced guns
 ## add their own type's weight, already scaled by their remaining HP (wiki:
 ## quick-battle § Cohesion and effective strength).
+##
+## `line` is the slice the battle dealt when it opened: the weight is read over
+## **those** survivors, so a reserve behind the line adds no strength even after
+## the line has fallen below the deployment limit (wiki: combat § The line and
+## the reserve — "a reserve adds no strength"; quick-battle § Cohesion and
+## effective strength — "reserves behind the deployment limit never count").
+## Empty keeps the older read for a hand-built state.
 static func effective_strength(
 	side: Array[ArmyState],
 	limit: int,
 	cohesion: int,
 	multiplier: float,
-	gun_weight: float = 0.0
+	gun_weight: float = 0.0,
+	line: Array[String] = []
 ) -> float:
+	var weight: float = 0.0
+	if line.is_empty():
+		weight = ArmyModifiers.strength(side, limit, multiplier)
+	else:
+		weight = ArmyForce.line_strength(side, line, multiplier)
 	return (
-		ArmyModifiers.strength(side, limit, multiplier)
+		weight
 		* (float(clampi(cohesion, 0, CP_PER_ROUND)) / float(CP_PER_ROUND))
 		+ gun_weight
 	)
@@ -348,14 +377,24 @@ static func _outcome(
 		atk_side,
 		int(state["attacker"]["limit"]),
 		int(state["attacker"]["cohesion"]),
-		float(atk_mods["multiplier"])
+		float(atk_mods["multiplier"]),
+		0.0,
+		QuickBattleActions.line_of(state["attacker"])
 	)
 	var def: float = effective_strength(
 		def_side,
 		int(state["defender"]["limit"]),
 		int(state["defender"]["cohesion"]),
 		float(def_mods["multiplier"]),
-		QuickBattleBattery.strength(guns)
+		QuickBattleBattery.strength(guns),
+		QuickBattleActions.line_of(state["defender"])
 	)
-	return ArmyCombat.Outcome.ATTACKER_ADVANTAGE if def <= 0.0 or atk / def >= 1.0 \
+	## Both lines spent but each side still keeps reserves: the field is nobody's
+	## (quick-battle § Outcome and integration — "mutual exhaustion"). A defender
+	## whose line is gone has lost the field though it keeps its province (an
+	## advantage, never a flip) when the attacker's line still stands.
+	if def <= 0.0:
+		return ArmyCombat.Outcome.ATTACKER_ADVANTAGE if atk > 0.0 \
+			else ArmyCombat.Outcome.STALEMATE
+	return ArmyCombat.Outcome.ATTACKER_ADVANTAGE if atk / def >= 1.0 \
 		else ArmyCombat.Outcome.DEFENDER_VICTORY
