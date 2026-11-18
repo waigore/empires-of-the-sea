@@ -172,14 +172,16 @@ func _ready_targets() -> Array[Dictionary]:
 ## The press names how many steps it would file, so the count is read before the
 ## stores are spent (REQ-P5-03, REQ-P5-05), and the line under it names what the
 ## walk would take — the materials and the crews the stores and the free hands
-## carry, or how many ready rows wait and why (DR-20261118-12).
+## carry, or how many ready rows wait and why (DR-20261118-12). The armed face
+## takes the line's own count from that walk, so the confirm and the line describe
+## one tap and not two (DR-20261118-20).
 func _sync_batch() -> void:
 	if _batch == null:
 		return
 	var targets: Array[Dictionary] = _ready_targets()
 	var ready: int = targets.size()
-	_batch.set_ready(ready, _row_word(ready))
 	if _line == null:
+		_batch.set_ready(ready, _row_word(ready))
 		return
 	# The stores the line is priced from and the free crews of the sheet's own
 	# trade, read per chart as the snapshot read them over both charts: one
@@ -204,6 +206,7 @@ func _sync_batch() -> void:
 	)
 	_line.text = RaiseLine.sheet_line(reading)
 	_line.visible = not _line.text.is_empty()
+	_batch.set_ready(ready, _row_word(ready), int(reading["filed"]))
 
 
 ## The trade this sheet's orders dispatch: a Builder for the towns, an Engineer

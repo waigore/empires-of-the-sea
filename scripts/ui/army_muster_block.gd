@@ -97,7 +97,9 @@ func fill(rows: Array[Dictionary]) -> void:
 	# learns the drill yard's price after it signs (REQ-P5-06; DR-20261118-11).
 	var plan: Dictionary = _batch_plan(rows)
 	_fill_sum(RaiseBatchSum.sheet_line(plan))
-	_batch.set_ready(ready, "regiments")
+	# The armed face names the line's own count, so the confirm under the sum
+	# describes the tap the line prices and not the view above it (DR-20261118-20).
+	_batch.set_ready(ready, "regiments", RaiseBatchSum.carries(plan))
 	move_child(_batch, -1)
 	if _sum_line.get_parent() != null:
 		move_child(_sum_line, _batch.get_index())

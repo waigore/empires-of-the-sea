@@ -109,8 +109,10 @@ func _fill() -> void:
 	if not sum_line.is_empty():
 		_box.add_child(UiRowBuilder.wrapped_line(sum_line, 10, Palette.TEXT_DIM))
 	# The count is the yard's own `batch_ready` flag, so the face names what the
-	# second tap would lay down before the stores are spent (REQ-P5-05).
-	_batch.set_ready(ready, "hulls")
+	# second tap would lay down before the stores are spent (REQ-P5-05) — and the
+	# armed face takes the line's own count from the plan, so the confirm names
+	# what will be filed and not what the view prints (DR-20261118-20).
+	_batch.set_ready(ready, "hulls", RaiseBatchSum.carries(plan))
 	# Already a child of the list from the last fill; it only moves to the foot of
 	# the launch rows.
 	if _batch.get_parent() == null:

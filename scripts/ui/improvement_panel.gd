@@ -275,10 +275,12 @@ func _ready_rows() -> Array[Dictionary]:
 
 ## The press names how many estates it would order, so the count is read before
 ## the stores are spent; a view with nothing ready carries no press (REQ-P5-03).
-## The line under it names what the walk would take, or what waits and why.
+## The line under it names what the walk would take, or what waits and why — and
+## the armed face takes the line's own count from that walk, so the confirm names
+## what will be filed rather than what the view prints (DR-20261118-20).
 func _sync_batch() -> void:
-	_batch.set_ready(_ready_tiles().size(), "estates")
 	if _line == null:
+		_batch.set_ready(_ready_tiles().size(), "estates")
 		return
 	var reading: Dictionary = RaiseLine.plan(
 		_ready_rows(),
@@ -289,6 +291,7 @@ func _sync_batch() -> void:
 	)
 	_line.text = RaiseLine.sheet_line(reading)
 	_line.visible = not _line.text.is_empty()
+	_batch.set_ready(_ready_tiles().size(), "estates", int(reading["filed"]))
 
 
 ## One estate's price inside the line, read against the stores the orders before
