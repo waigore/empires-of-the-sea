@@ -76,7 +76,7 @@ static func plan(
 ## The line under the press: what it files, what the college then spends a turn,
 ## and — when the purse cannot reach — how many studies wait on it. A plan that
 ## files nothing reads every study already at the preset, so a press that would
-## spend no tap says so instead of asking for one (DR-20261118-25; REQ-P5-05).
+## spend no tap says so instead of asking for one (DR-20261118-26; REQ-P5-05).
 static func sheet_line(plan: Dictionary) -> String:
 	var count: int = int(plan.get("count", 0))
 	if count <= 0:
