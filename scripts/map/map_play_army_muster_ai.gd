@@ -89,14 +89,14 @@ static func _reinforce(
 			MapPlayCourt.hostile_warships(play, faction),
 			economy, MapPlayCourt.hull_types(play, faction)
 		)
-	var plan: Dictionary = AiBind.reinforce_plan(
+	var plan: Dictionary = AiBindEconomy.reinforce_plan(
 		kind,
 		config,
 		economy,
 		play.army_layer.regiment_count_all(faction),
 		MapPlayCourt.at_war(play, faction),
 		_extra_regiments(play, faction, config),
-		AiBind.fed_slack(
+		AiBindEconomy.fed_slack(
 			kind, economy, play.army_layer.food_upkeep_all(faction),
 			MapPlayCourt.ships(play, faction)
 		),
@@ -173,7 +173,7 @@ static func _pitch_train(
 	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
 	if economy == null:
 		return false
-	var army: ArmyState = AiBind.hospital_best_army(
+	var army: ArmyState = AiBindCampaign.hospital_best_army(
 		kind, model, roster, faction, economy, MapPlayCourt.at_war(play, faction)
 	) as ArmyState
 	if army == null:

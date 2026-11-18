@@ -5,12 +5,15 @@ const Fixture = preload("res://tests/map_fixture.gd")
 const CourtFixture = preload("res://tests/civilian_fixture.gd")
 
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
-## and reset the session instead of remounting (`Fixture.suite_reset`).
+## and a re-seat from the pristine save ~0.15 s, so court cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`). Folded
+## tribe-contact pocket cases never touch `_screen`, so they skip the re-seat
+## (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
-var _screen: MapScreen = null
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
@@ -20,9 +23,7 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
-	_screen = mounted
+	_chart_bound = false
 	_tribe_before_each()
 
 
@@ -30,8 +31,23 @@ func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	_screen = null
 	pristine = {}
+
+
+## Court cases reach the chart through `_screen`; pocket tribe-contact cases
+## that never ask never pay `suite_reset`.
+func _attach() -> MapScreen:
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = true
+	return mounted
+
+
+var _screen: MapScreen:
+	get:
+		return _attach()
 
 
 func test_map_screen_starts_with_a_relation_web() -> void:

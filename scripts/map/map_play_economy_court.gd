@@ -123,7 +123,7 @@ func plan_turn() -> void:
 	var pressure: Dictionary = AiVictoryPressure.read(
 		play.world, faction, play.human_faction_id(), play.difficulty, config
 	)
-	income = AiBind.income_plan(
+	income = AiBindEconomy.income_plan(
 		kind, config, economy, at_war, regiments, hull_chest, warships,
 		# A war chest the court has stalled on re-routes (#603).
 		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line"),
@@ -137,7 +137,7 @@ func plan_turn() -> void:
 	# manufacture's reach instead: the plan never promises a run whose inputs
 	# would eat the regiment's cloth or the hull's lumber, and the court's own
 	# works keep the manufactures they pay for.
-	muster_row = AiBind.muster_reserve(
+	muster_row = AiBindEconomy.muster_reserve(
 		kind, config, economy, regiments, at_war, int(pressure["extra_regiments"])
 	)
 	navy_row = (
@@ -147,7 +147,7 @@ func plan_turn() -> void:
 		)
 		if hull_chest > 0 else {}
 	)
-	production = AiBind.production_orders(
+	production = AiBindEconomy.production_orders(
 		kind, config, economy, town_level, _chest_rows()
 	)
 	floor = int(income["reserve"])
@@ -233,11 +233,11 @@ func apply_turn() -> Dictionary:
 	# the harvest the muster plans with): a worker hired against a fat pantry
 	# the land cannot carry strikes the month the store runs down, so training
 	# also reads the slack the plan noted this turn (issue #878).
-	var fed: int = AiBind.fed_slack(kind, economy, army_food, ships)
+	var fed: int = AiBindEconomy.fed_slack(kind, economy, army_food, ships)
 	if play.ai != null and (play.ai.food_slack as Dictionary).has(faction):
 		fed = mini(fed, int(play.ai.food_slack[faction]))
 	# The conquest bank rides the worker buys (issue #995).
-	var recruits: Array[Dictionary] = AiBind.recruitment_orders(
+	var recruits: Array[Dictionary] = AiBindEconomy.recruitment_orders(
 		kind, config, economy, floor, fed, hands, conquest_bank
 	)
 	for order: Dictionary in recruits:

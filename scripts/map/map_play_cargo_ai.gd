@@ -36,7 +36,7 @@ static func run(
 		+ maxi(int(config.parameter("cargo.trade_holds")), 0)
 	)
 	var blocked: Dictionary = _hostile_zones(play, faction, roster)
-	var plan: Dictionary = AiBind.cargo_plan(
+	var plan: Dictionary = AiBindCampaign.cargo_plan(
 		kind, config, economy, model, roster, seat, want, blocked
 	)
 	report["want"] = int(plan["want"])
@@ -49,7 +49,7 @@ static func run(
 		)
 		if fleet == null:
 			continue
-		var moved: Dictionary = AiBind.cargo_apply_route(kind, model, fleet, route)
+		var moved: Dictionary = AiBindCampaign.cargo_apply_route(kind, model, fleet, route)
 		if not bool(moved.get("ok", false)):
 			continue
 		# A route that ends at the crown's own seat folds into the home fleet as

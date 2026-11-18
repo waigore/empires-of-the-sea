@@ -2592,8 +2592,9 @@ domain = "ai_diplomacy"
 # Bind + economy/builder planners: the AI and market suites prove the
 # feedstock/works-purse surface (#878); keep them off the observer/battle
 # catch-all so a planner PR stays inside the tier-1 5 min budget.
+# `ai_bind*.gd*` covers AiBind, AiBindEconomy, and AiBindCampaign.
 [[rules]]
-match = "scripts/ai/ai_bind.gd*"
+match = "scripts/ai/ai_bind*.gd*"
 domain = "ai_economy"
 
 [[rules]]
@@ -2775,6 +2776,13 @@ domain = "ai_works"
 # (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
+domain = "ai_economy"
+
+# Sea earning asks only the income plan; keep a bind retarget off the broad
+# map/** catch-all (map screen / diplomacy / panel boots blow the tier-1
+# 5 min budget when stacked on the AI fan-out).
+[[rules]]
+match = "scripts/map/map_play_sea_step.gd*"
 domain = "ai_economy"
 
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
