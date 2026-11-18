@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261118-08 vs code through #956 (REQ-P2-02).
+Audited: DR-20261118-12 vs code through #963 (REQ-P2-02).
 Implement default: largest clear item here, then REQ/wiki.
 
 ## Already live
@@ -34,16 +34,16 @@ Implement default: largest clear item here, then REQ/wiki.
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
-| Raise/crew/yard/muster/workers/college/deed/town | ledgers + pick/Follow; payoff and line prices; DR-17-03/05–07/09/15 + DR-18-01/03–06/12 |
+| Raise/crew/yard/muster/workers/college/deed/town | ledgers + pick/Follow; hire/batch/line prices; DR-17-03/05–07/09/15 + DR-18-01/03–06/09/11–12 |
 | QB wings + handset plate | `QuickBattleWings`; `BattlePlateFrame`, DR-17-08/14 |
 | Rail pick door; dossier rail | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
 | Observatory sheet + feed | `ObserverProvince*`; `ObserverTurnFeed`, DR-17-11/12 |
 | Capital Wood walls + fort lift | `FortCapital`, DR-17-13/#926 |
-| Yard/shipyard one-press batch | `ArmyTraining`/`FleetYard.queue_all`, DR-18-07/08 |
+| Yard/shipyard one-press batch | `queue_all`; `RaiseBatchSum`, DR-18-07/08/11 |
 
 ## Gaps (ranked)
 
-- None open (through #956).
+- None open (through #963).
 
 ## Next pick
 
@@ -72,4 +72,4 @@ REQ/wiki.
 - `phase-planner-*` / `ai-architecture`: six slots live; soft weight seed;
   "dispatch stays seed" stale.
 - `production-recipes`: rival second-stage still deferred → live #798.
-- DR-18 naming surfaces match their records.
+- DR-18-01–12 hire/batch/line naming surfaces match their records.
