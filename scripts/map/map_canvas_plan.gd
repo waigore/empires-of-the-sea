@@ -202,32 +202,37 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 	var terrain: int = p_model.terrain_at(x, y)
 	if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
 		return
-	if terrain == MapModel.Terrain.HARDWOOD_FOREST:
-		_scatter_grove(p_model, x, y, tile_size, "tree")
-		return
-	if terrain == MapModel.Terrain.SCRUB_FOREST:
-		_scatter_grove(p_model, x, y, tile_size, "scrub")
-		return
-	if terrain == MapModel.Terrain.MOUNTAINS:
-		_place_cluster(p_model, x, y, tile_size, "mountain", 0.70, 2, 3, 0.62, 0.88)
-		_place_symbol(p_model, x, y, tile_size, "hill", 0.26, 47, 0.58)
-		return
-	if terrain == MapModel.Terrain.HILLS:
-		_place_cluster(p_model, x, y, tile_size, "hill", 0.62, 2, 3, 0.50, 0.78)
-		_place_symbol(p_model, x, y, tile_size, "grass", 0.30, 47, 0.58)
-		return
 	var kind: String = "grass"
 	var chance: float = 0.12
 	var second: String = ""
 	var second_chance: float = 0.0
 	match terrain:
+		MapModel.Terrain.MOUNTAINS:
+			# Peaks of one tile stand as a small ridge, not one peak per tile.
+			if MapGlyphs.hash01(x * 3 + 11, y * 7 + 5) <= 0.70:
+				_scatter_marks(x, y, tile_size, MapGrove.cluster("mountain", x, y, 2, 3, 0.62, 0.88))
+			_place_symbol(p_model, x, y, tile_size, "hill", 0.26, 47, 0.58)
+			return
+		MapModel.Terrain.HILLS:
+			if MapGlyphs.hash01(x * 3 + 11, y * 7 + 5) <= 0.62:
+				_scatter_marks(x, y, tile_size, MapGrove.cluster("hill", x, y, 2, 3, 0.50, 0.78))
+			_place_symbol(p_model, x, y, tile_size, "grass", 0.30, 47, 0.58)
+			return
+		MapModel.Terrain.HARDWOOD_FOREST:
+			# A wood is a stand, not a speck: one grove per tile, its crown tree
+			# ringed by smaller companions (MapGrove).
+			_scatter_marks(x, y, tile_size, MapGrove.stamps("tree", x, y, MapGrove.walled(p_model, x, y)))
+			return
+		MapModel.Terrain.SCRUB_FOREST:
+			_scatter_marks(x, y, tile_size, MapGrove.stamps("scrub", x, y, MapGrove.walled(p_model, x, y)))
+			return
 		MapModel.Terrain.DESERT:
 			kind = "dune"
 			chance = 0.30
 			second = "grass"
 			second_chance = 0.18
 		MapModel.Terrain.SWAMP:
-			_scatter_grove(p_model, x, y, tile_size, "reed")
+			_scatter_marks(x, y, tile_size, MapGrove.stamps("reed", x, y, MapGrove.walled(p_model, x, y)))
 			return
 		_:
 			kind = "field" if MapGlyphs.hash01(x + 3, y + 8) > 0.62 else "grass"
@@ -240,54 +245,34 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 	_place_symbol(p_model, x, y, tile_size, second, second_chance, 47, 0.62)
 
 
-## Hills and peaks: a few marks around one centre, each on matching terrain.
-func _place_cluster(
-	p_model: MapModel, x: int, y: int, tile_size: float,
-	kind: String, chance: float, least: int, most: int,
-	size_lo: float, size_hi: float
-) -> void:
-	if MapGlyphs.hash01(x * 3 + 11, y * 7 + 5) > chance:
-		return
-	var centre: Vector2 = MapGeo.tile_center(x, y, tile_size) + Vector2(
-		(MapGlyphs.hash01(x + 31, y + 17) - 0.5) * tile_size * 0.5,
-		(MapGlyphs.hash01(x + 71, y + 43) - 0.5) * tile_size * 0.5
-	)
-	var count: int = clampi(least + int(MapGlyphs.hash01(x + 5, y + 9) * float(most - least + 1)), least, most)
-	for i in count:
-		var angle: float = MapGlyphs.hash01(x * 7 + i * 13, y * 5 + i * 29) * TAU
-		var reach: float = tile_size * (0.10 + MapGlyphs.hash01(x + i * 3, y + i * 7) * 0.32)
-		var at: Vector2 = centre + Vector2(cos(angle), sin(angle) * 0.72) * reach
-		var tile: Vector2i = MapGeo.tile_at_world(at, tile_size)
-		if p_model.terrain_at(tile.x, tile.y) != p_model.terrain_at(x, y):
-			continue
-		if under_label(at):
-			continue
-		var scale: float = size_lo + MapGlyphs.hash01(x + i * 11, y + i * 5) * (size_hi - size_lo)
-		glyphs.append({
-			"kind": kind, "position": at, "size": tile_size * scale,
-			"flip": MapGlyphs.hash01(x + i, y + i * 3) > 0.5,
-		})
-
-
-## One wooded tile's stand from `MapGrove`, clear of a province name.
-func _scatter_grove(p_model: MapModel, x: int, y: int, tile_size: float, kind: String) -> void:
-	var dense: bool = MapGrove.walled(p_model, x, y)
+## One tile's marks: the spots `MapGrove` lays (a wood's stand, a ridge's peaks),
+## each offset from the tile's centre and clear of a province name.
+func _scatter_marks(x: int, y: int, tile_size: float, spots: Array[Dictionary]) -> void:
 	var centre: Vector2 = MapGeo.tile_center(x, y, tile_size)
-	for spot: Dictionary in MapGrove.stamps(kind, x, y, dense):
+	for spot: Dictionary in spots:
 		var at: Vector2 = centre + Vector2(spot["dx"], spot["dy"]) * tile_size
 		if under_label(at):
 			continue
 		glyphs.append({
-			"kind": kind, "position": at, "size": tile_size * float(spot["scale"]),
+			"kind": String(spot["kind"]),
+			"position": at,
+			"size": tile_size * float(spot["scale"]),
 			"flip": bool(spot["flip"]),
 		})
 
 
-## One scattered mark if its hash clears chance and the spot is clear of a name.
-## `push` keeps the primary and secondary stamps off the same spot.
+## One scattered mark for this tile, if its hash clears the chance and the spot
+## is not inside a province name. `push` moves the hash stream so the primary
+## and the secondary stamp never fall on the same spot.
 func _place_symbol(
-	p_model: MapModel, x: int, y: int, tile_size: float,
-	kind: String, chance: float, push: int, heft: float
+	p_model: MapModel,
+	x: int,
+	y: int,
+	tile_size: float,
+	kind: String,
+	chance: float,
+	push: int,
+	heft: float
 ) -> void:
 	if MapGlyphs.hash01(x * 3 + 11 + push, y * 7 + 5 + push) > chance:
 		return
