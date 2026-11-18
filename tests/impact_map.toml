@@ -2114,6 +2114,12 @@ domain = "misc"
 match = "tools/lint_arch.py"
 domain = "misc"
 
+# The ai-bench mainline materializer: harness plumbing, not game surface; the
+# bench pairing is proved by test_ai_observer locally (CI has no mainline dir).
+[[rules]]
+match = "tools/sync_ai_mainline.py"
+domain = "misc"
+
 # AiState stamps the difficulty layer onto rival ledgers and keeps the
 # objective ledger's claims; the ledger slice owns it now, and the difficulty
 # domain names the ledger suite so a layer change still proves the claims row.

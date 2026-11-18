@@ -295,6 +295,13 @@ static func _purses(
 	hire_margin: int = 0
 ) -> Dictionary:
 	var margin: int = maxi(hire_margin, 0)
+	# A crew whose price the whole purse cannot hold is not banked by a starving
+	# court: with its hands down the court earns nothing, so the bank can never
+	# grow — the ration takes everything until the purse can hold the crew's
+	# price beside the dinner. Otherwise a poor court holds back a price it never
+	# reaches, buys no food at all and strikes forever (issue #910).
+	if starving and economy.treasury <= margin:
+		margin = 0
 	var budget: int = maxi(
 		economy.treasury - maxi(config.parameter("market.min_treasury"), floor) - margin,
 		0

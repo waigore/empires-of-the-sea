@@ -28,65 +28,6 @@ SKIP_FILES = frozenset({
     "ai_bind.gd",
     "ai_random_court.gd",
 })
-# Longest Ai* class names first so AiParameterRegistry beats AiParameter.
-AI_CLASS_NAMES: tuple[str, ...] = tuple(
-    sorted(
-        (
-            "AiParameterRegistry",
-            "AiColonisationPlanner",
-            "AiHospitalTrainWork",
-            "AiCivilianCandidate",
-            "AiDiplomacyPlanner",
-            "AiDiplomacyOffers",
-            "AiMilitaryPlanner",
-            "AiResearchPlanner",
-            "AiInvasionPlanner",
-            "AiCivilianPlanner",
-            "AiEconomyPlanner",
-            "AiDefensePlanner",
-            "AiParameterPhase",
-            "AiParameterArmy",
-            "AiParameterCargo",
-            "AiParameterMarket",
-            "AiParameterCivilian",
-            "AiParameterLedger",
-            "AiParameterDiplomacy",
-            "AiParameterVictory",
-            "AiParameterPosture",
-            "AiDeferral",
-            "AiMarketPlanner",
-            "AiPhasePlanner",
-            "AiNavalPlanner",
-            "AiCargoPlanner",
-            "AiPeaceStance",
-            "AiArmyReinforce",
-            "AiExplorerWork",
-            "AiEngineerWork",
-            "AiHospitalWork",
-            "AiMerchantWork",
-            "AiBuilderWork",
-            "AiTownRoads",
-            "AiTurnLog",
-            "AiSeaRoute",
-            "AiSpyPlanner",
-            "AiPersonality",
-            "AiProfile",
-            "AiControl",
-            "AiAgenda",
-            "AiIncome",
-            "AiPower",
-            # The turn pass and its two seams (read model, order application).
-            "AiTurnApply",
-            "AiTurnRead",
-            # AiState stays unrenamed: the session owns one shared ledger object
-            # that mainline planners must accept from map_play callv.
-            "AiTurn",
-            "AiConfig",
-        ),
-        key=len,
-        reverse=True,
-    )
-)
 
 
 def _git(*args: str) -> str:
@@ -112,7 +53,7 @@ def show_file(ref: str, path: str) -> str:
     return _git("show", f"{ref}:{path}")
 
 
-def rewrite(source: str) -> str:
+def rewrite(source: str, names: tuple[str, ...] = ()) -> str:
     def _class_name(match: re.Match[str]) -> str:
         name = match.group(1)
         if name in SKIP_CLASS_RENAMES:
@@ -120,13 +61,29 @@ def rewrite(source: str) -> str:
         return f"class_name Mainline{name}"
 
     text = CLASS_NAME_RE.sub(_class_name, source)
-    for name in AI_CLASS_NAMES:
+    # Longest names first so AiParameterRegistry beats AiParameter. The list is
+    # every class the mainline copy declares, so a reference inside it can
+    # never resolve onto the submission surface: the day a new Ai* helper lands
+    # on main, the hard-coded list went stale and the baselines' whole pass
+    # died at parse (issue #910, the #853 class again).
+    for name in names:
         text = re.sub(rf"\b{name}\b", f"Mainline{name}", text)
     # Avoid double-prefix if a file was already rewritten.
     text = text.replace("MainlineMainline", "Mainline")
     # Sibling preloads must load the mainline copy, not the submission surface.
     text = text.replace("res://scripts/ai/", "res://scripts/ai_mainline/")
     return text
+
+
+def _declared_class_names(sources: dict[str, str]) -> tuple[str, ...]:
+    """Every Ai* class the mainline copy declares, longest name first."""
+    names: set[str] = set()
+    for body in sources.values():
+        for match in CLASS_NAME_RE.finditer(body):
+            name = match.group(1)
+            if name not in SKIP_CLASS_RENAMES:
+                names.add(name)
+    return tuple(sorted(names, key=len, reverse=True))
 
 
 def sync(dest: Path, ref: str, repo: Path | None = None) -> str:
@@ -136,18 +93,20 @@ def sync(dest: Path, ref: str, repo: Path | None = None) -> str:
     paths = list_ai_gd(ref)
     if not paths:
         raise SystemExit(f"sync_ai_mainline: no scripts/ai/*.gd under {ref}")
+    sources: dict[str, str] = {}
+    for rel in paths:
+        if Path(rel).name in SKIP_FILES:
+            continue
+        sources[rel] = show_file(ref, rel)
+    names = _declared_class_names(sources)
     if dest.exists():
         for stale in dest.rglob("*"):
             if stale.is_file():
                 stale.unlink()
     dest.mkdir(parents=True, exist_ok=True)
-    for rel in paths:
-        name = Path(rel).name
-        if name in SKIP_FILES:
-            continue
-        body = rewrite(show_file(ref, rel))
-        out = dest / name
-        out.write_text(body)
+    for rel, body in sources.items():
+        out = dest / Path(rel).name
+        out.write_text(rewrite(body, names))
     (dest / ".mainline_sha").write_text(sha + "\n")
     return sha
 

@@ -34,8 +34,9 @@ const PARAMETERS: Array[Dictionary] = [
 		"min": 0,
 		"max": 50000,
 		# Climb probe (ai-bench): lower floor so the live crown can muster more
-		# often under bench pressure (was 1000).
-		"default": 400,
+		# often under bench pressure (was 1000; 400 still left the chest
+		# unreachable beside estate feedstock — #910).
+		"default": 200,
 	},
 	{
 		"key": "army.min_peasants",
