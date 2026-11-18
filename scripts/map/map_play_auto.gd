@@ -31,9 +31,9 @@ const NO_ID: int = MapModel.NO_ID
 const SEAT_LABELS: Dictionary = {
 	AiMilitaryPlanner.KIND_MARCH: "Marches",
 	AiMilitaryPlanner.KIND_SPLIT: "Detaches a column",
-	MapPlayArmyAi.KIND_REINFORCE: "Raises a regiment",
-	MapPlayArmyAi.KIND_HOSPITAL: "Pitches a field hospital",
-	MapPlayArmyAi.KIND_RECALL: "Re-forms the Home Army",
+	MapPlayArmyMusterAi.KIND_REINFORCE: "Raises a regiment",
+	MapPlayArmyMusterAi.KIND_HOSPITAL: "Pitches a field hospital",
+	MapPlayArmyMusterAi.KIND_RECALL: "Re-forms the Home Army",
 	AiNavalPlanner.KIND_SORTIE: "Sorties",
 	AiNavalPlanner.KIND_PURSUE: "Pursues",
 	AiNavalPlanner.KIND_HOME: "Sails home",
