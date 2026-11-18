@@ -62,34 +62,6 @@ static func goal_mille(goal: String, domain: String, config: AiConfig) -> int:
 	return NEUTRAL
 
 
-## Arms before builds: the rank shift a court on `earn` owes its army applies
-## while its muster is due (a line it can name, a chest it cannot fill) — the
-## military leads and the discretionary works wait behind it, so the purse the
-## works would spend banks into the chest the muster waits on (issue #910's
-## win path: the bank-then-blitz the frozen France plays on the same bench).
-## A pure rank shift over `modifiers`: no aim is deleted, the ration estates
-## keep their own provision gates, and the studies and crews keep their
-## published `earn_defer`. Applied only while the muster is due — a court at
-## target strength builds as published.
-static func arms_before_builds(modifiers: Dictionary, config: AiConfig) -> Dictionary:
-	if config == null:
-		return modifiers
-	var shifted: Dictionary = modifiers.duplicate()
-	# The shift composes with the footing already read: the military never
-	# falls below its war boost, and a domain a colder reading already deferred
-	# stays there.
-	shifted["military"] = maxi(
-		int(modifiers.get("military", NEUTRAL)), config.parameter("posture.arms_lead")
-	)
-	shifted["economy"] = mini(
-		int(modifiers.get("economy", NEUTRAL)), config.parameter("posture.builds_wait")
-	)
-	shifted["expansion"] = mini(
-		int(modifiers.get("expansion", NEUTRAL)), config.parameter("posture.builds_wait")
-	)
-	return shifted
-
-
 ## The leader's weight for one domain, in per-mille: weight 2 is neutral, each
 ## step away is `posture.weight_step`.
 static func weight_mille(config: AiConfig, domain: String) -> int:

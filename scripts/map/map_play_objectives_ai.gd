@@ -50,7 +50,10 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	var report: Dictionary = AiObjectiveLedger.run(
 		AiObjectivesPlan.build(readings),
 		pools(economy, readings),
-		_rank_modifiers(readings, phase, config, pressure)
+		AiPosture.modifiers(
+			String(phase.get("phase", "")), config, int(pressure["boost_mille"]),
+			String(readings["goal"])
+		)
 	)
 	report["phase"] = String(phase.get("phase", AiPhasePlanner.PHASE_UNKNOWN))
 	report["goal"] = String(readings["goal"])
@@ -62,25 +65,6 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	report["pressure"] = pressure
 	play.ai.note_objectives(faction, report, play.turn)
 	return report
-
-
-## The rank modifiers, with the arms-before-builds shift a court on `earn`
-## owes its army applies while its muster is due: the military leads and the
-## works wait, so the purse banks into the chest the muster waits on (issue
-## #910's win path). A court at target strength keeps the published rank.
-static func _rank_modifiers(
-	readings: Dictionary, phase: Dictionary, config: AiConfig, pressure: Dictionary
-) -> Dictionary:
-	var modifiers: Dictionary = AiPosture.modifiers(
-		String(phase.get("phase", "")), config, int(pressure["boost_mille"]),
-		String(readings["goal"])
-	)
-	if (
-		String(readings["goal"]) == AiIncome.GOAL_EARN
-		and bool(readings.get("muster_due", false))
-	):
-		return AiPosture.arms_before_builds(modifiers, config)
-	return modifiers
 
 
 ## The pools the allocate pass draws on. A pool is a per-turn grant: one order,
