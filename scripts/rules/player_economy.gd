@@ -192,6 +192,11 @@ func recruit_affordable(tier: int) -> int:
 ## The tightest limit on a batch of this tier and the wiki reason it binds, so
 ## the ledger can name why a batch stopped short (REQ-P5-05). The order of the
 ## checks is `recruit_blocked_reason`'s own: tech, peasants, treasury, materials.
+## Every term is net of what the waiting orders have already promised — the
+## peasant count through [method available_peasants], the purse and the store
+## through the queue itself — because a batch is never a promise the crown
+## cannot keep (wiki: workers-and-population § Recruiting, § Peasant
+## reservation).
 func _recruit_limit(tier: int) -> Dictionary:
 	if tier < 0 or tier >= WorkerPool.TIER_COUNT:
 		return {"limit": 0, "reason": "Unknown worker tier"}
@@ -207,16 +212,21 @@ func _recruit_limit(tier: int) -> Dictionary:
 	var cost: Dictionary = WorkerPool.recruit_cost(tier)
 	var gold: int = int(cost.get("treasury", 0))
 	if gold > 0:
-		var by_gold: int = treasury / gold
+		var promised: int = recruits.promised_treasury()
+		var by_gold: int = maxi(treasury - promised, 0) / gold
 		if by_gold < limit:
 			limit = by_gold
 			reason = "Insufficient treasury"
+	var promised_stock: Dictionary = recruits.promised_materials()
 	var materials: Dictionary = cost.get("materials", {})
 	for commodity: Variant in materials.keys():
 		var per: int = int(materials[commodity])
 		if per <= 0:
 			continue
-		var by_stock: int = quantity(String(commodity)) / per
+		var free_units: int = maxi(
+			quantity(String(commodity)) - int(promised_stock.get(String(commodity), 0)), 0
+		)
+		var by_stock: int = free_units / per
 		if by_stock < limit:
 			limit = by_stock
 			reason = "Insufficient materials"

@@ -248,6 +248,61 @@ func test_a_batch_press_files_every_head() -> void:
 	assert_true(printed.contains("Apprentice ×4 · joins the pool in Build/work"), printed)
 
 
+## A press promises what it files, so the next press reads the store net of it:
+## with 12 fabric and one peasant already engaged, the batch is five heads for
+## ten fabric, and once it is pressed the row says the store is promised
+## (wiki: workers-and-population § Recruiting — "a batch is never a discount and
+## never a promise the crown cannot keep"; § Peasant reservation).
+func test_the_peasant_batch_nets_what_the_queue_already_promised() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["fabric"] = 12
+	_screen.economy.open_panel()
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit", 1)
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var batch: Button = workers.batch_buttons().get(WorkerPool.Tier.PEASANT, null) as Button
+	assert_not_null(batch, "five heads are still payable")
+	assert_eq(batch.text, "Recruit ×5  ·  Fabric ×10", "the batch prices the store left")
+	batch.pressed.emit()
+	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_eq(
+		economy.recruits.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT)), 6,
+		"one head and its batch"
+	)
+	assert_eq(economy.recruits.promised_materials().get("fabric", 0), 12)
+	assert_false(
+		workers.batch_buttons().has(WorkerPool.Tier.PEASANT), "the whole store is promised"
+	)
+	var line: Label = workers.tier_lines().get(WorkerPool.Tier.PEASANT) as Label
+	assert_eq(line.text, "Recruit Fabric ×2 — insufficient materials")
+
+
+## The purse is reserved the same way: two apprentices at 200 ducats each leave
+## nothing for a third, and the row says so instead of promising a head the
+## queue has already paid for (wiki: workers-and-population § Recruiting;
+## world-market § Treasury budget for bids — pending costs narrow the purse).
+func test_the_recruit_row_reads_the_purse_net_of_the_queue() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 400
+	economy.stockpile["paper"] = 10
+	_screen.economy.open_panel()
+	_screen.economy.orders.worker_action(WorkerPool.Tier.APPRENTICE, "recruit", 1)
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_false(
+		workers.batch_buttons().has(WorkerPool.Tier.APPRENTICE),
+		"one head is all the purse has left"
+	)
+	_screen.economy.orders.worker_action(WorkerPool.Tier.APPRENTICE, "recruit", 1)
+	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var line: Label = workers.tier_lines().get(WorkerPool.Tier.APPRENTICE) as Label
+	assert_eq(line.text, "Recruit 200 ducats · Paper ×2 — insufficient treasury")
+	var press: Button = workers.action_buttons().get("recruit:1", null) as Button
+	assert_true(press.disabled, "the row is inert once the purse is promised")
+
+
 ## A tier the crown can pay for once keeps its single press and no batch row.
 func test_a_single_head_offers_no_batch_press() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
