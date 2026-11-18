@@ -1,0 +1,94 @@
+{
+  "hill": "ai-bench",
+  "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
+  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
+  "submission_hash": "sha256:935568a8783219017588dde59ad1c8c7b86777d1244f7eac1664ee7b331d3275",
+  "submission_git": "fix/975-buys-out-of-its-crown-wars@241e10cf+dirty",
+  "passed": true,
+  "config": [
+    {
+      "name": "mode",
+      "value": "validation",
+      "primary": true
+    },
+    {
+      "name": "turns",
+      "value": 200,
+      "primary": true
+    },
+    {
+      "name": "seed",
+      "value": 1500,
+      "primary": true
+    },
+    {
+      "name": "size",
+      "value": 1,
+      "primary": true
+    },
+    {
+      "name": "ai",
+      "value": "bench",
+      "primary": true
+    }
+  ],
+  "metrics": [
+    {
+      "name": "score",
+      "value": 2066.8907897647664,
+      "direction": "max"
+    },
+    {
+      "name": "provinces",
+      "value": 17.0,
+      "direction": "max"
+    },
+    {
+      "name": "forces",
+      "value": 8.0,
+      "direction": "max"
+    },
+    {
+      "name": "funded_pct",
+      "value": 93.38262987012988,
+      "direction": "max"
+    }
+  ],
+  "details": {
+    "fixture": false,
+    "ai_surface_hash": "sha256:beeb6e1bcdee9dc71be3ce58b599c5e385e0b6ddf009340ee7b507f2625516f5",
+    "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
+    "parts": {
+      "provinces_old": 17,
+      "provinces_new": 0,
+      "regiments": 5,
+      "ships": 3,
+      "workers": 3,
+      "extraction_per_turn": 54.403141361256544,
+      "income_per_turn": 163.08450704225353,
+      "funded_pct": 93.38262987012988
+    },
+    "early_win": false,
+    "live_faction": 0,
+    "live_name": "Spain",
+    "turn": 201,
+    "resolved_turns": 200,
+    "funded_pct": 93.38262987012988
+  },
+  "params": {
+    "turns": 200,
+    "seed": 1500,
+    "size": 1
+  },
+  "final": false,
+  "official": true,
+  "official_reason": null,
+  "hill_spec_version": 2,
+  "tool": {
+    "version": "0.12.1",
+    "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
+  },
+  "timestamp": "2026-11-18T06:52:28Z",
+  "report_version": 1,
+  "signature": "hmac-sha256:9394d2ce95d2d79d2549855aae3303b5205e6218cbfb17d031b350b6240c172d"
+}
