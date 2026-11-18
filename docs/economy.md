@@ -83,7 +83,7 @@ ration, never a hover (DR-20261118-03).
 
 ## Deferred (REQ-P2-02)
 
-Live: rival second-stage appetite (`AiEconomyPlanner`/`town_level`); gaps:
+Live: workshop landing (`ground_appetite`, DR-19-05); see
 [`deferred.md`](deferred.md).
 
 ## Architecture

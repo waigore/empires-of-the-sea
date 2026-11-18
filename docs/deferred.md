@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261119-04 vs code through #1026 (REQ-P2-02).
+Audited: DR-20261119-05 vs code through #1036 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -30,6 +30,7 @@ Default: largest item here, then REQ/wiki.
 | War-time trade garrison + rival bench | `AiNavalPlanner.trade_garrison`; `_bench_room` |
 | Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20k |
 | Recipe gate + rival second-stage | `min_town`; `AiEconomyPlanner`/`town_level` |
+| Workshop-coast landing | `ground_appetite`; colonisation planner |
 | Regiment dismiss; money-goal reweight | `ArmyDismiss`; `AiPosture.goal_mille` |
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
@@ -45,7 +46,7 @@ Default: largest item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-- None (through #1026).
+- None.
 
 ## Next pick
 
@@ -68,6 +69,5 @@ REQ/wiki.
 
 ## Wiki drift
 
-- `civilian-units` Road L2/gathering live; `production-recipes` second-stage live.
-- `phase-planner-*`: six slots live; soft weight seed. Through DR-19-04;
-  confirm-face intentional (DR-18-11/12).
+- `civilian-units` Road L2/gathering live; `production-recipes` appetite
+  closed (DR-19-05). Soft weight seed; confirm-face (DR-18-11/12).
