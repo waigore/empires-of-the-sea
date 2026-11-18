@@ -1,6 +1,6 @@
 # Economy: stockpile, production and riches
 
-One stockpile per Great Power, the turn pipeline, raw → manufactures.
+One stockpile per Great Power; pipeline, raw → manufactures.
 **Pillars:** P2, P3, P5.
 
 **Wiki:** [stockpiles-and-production](https://github.com/waigore/empires-of-the-sea/wiki/stockpiles-and-production),
@@ -15,7 +15,7 @@ One stockpile per Great Power, the turn pipeline, raw → manufactures.
 2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base price.
 3. **Consumption** — army, navy, workers, hospitals eat; unfed men strike, wards idle.
 4. **Production** — recipes spend inputs and idle labour; a hire labours **next**
-   turn (`workers-and-population` § Phase placement).
+   turn (`workers-and-population` § Phase).
 
 Projections never mutate.
 
@@ -38,7 +38,7 @@ Projections never mutate.
 `fabric_from_cotton` needs Cotton Weaving; a Labour-column hand is a
 `min_tier` gate. Runs are whole; short rows skip.
 
-Steel, bronze, cigars and fur hats take **two turns** (`turns`); the alloys
+Steel, bronze, cigars and fur hats take **two turns** (`turns`); alloys
 combine two inputs (DR-20261114-10). Inputs and labour pay up front; the batch
 lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
 
@@ -57,7 +57,7 @@ it (`min(4, 1+deeds)`).
 One book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches orders and
 Minor/Tribe offers.
 Tiebreaks: priority, pact, colony favour, Consulate, relation; a suzerain
-clears its colony (`MarketFavoured`). A boycott bars the pair. First right pays
+clears its colony (`MarketFavoured`). A boycott bars the pair; first right pays
 a tile's owner, relation share and embassy cut.
 Unfilled orders carry while holds cover; offers cap post-production. Bids
 spend `treasury − waiting build orders` (`MarketBudget`).
@@ -70,15 +70,16 @@ Prices publish once; pact, boycott, subsidy settle
 ## UI
 
 `PRODUCTION`: stockpile by group, holdings; steppers capped by labour/inputs
-(`allowance`), a worked row naming its output (`made 3`), one **batch press**
+(`allowance`), a worked row naming its output (`made 3`), **batch press**
 (`ProductionBatch`, DR-20261116-08).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
-line (`CargoRead`), and a **batch press** per row (`MarketBatch`).
+line (`CargoRead`), a **batch press** (`MarketBatch`), and a dead
+`Bid` naming its rule (`MarketRules.bid_block`, DR-20261118-15).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.
-Every tier row prints its deal (`LedgerWorkersText.recruit_line`): price, gate
-or ration — never a hover (DR-20261118-03).
+Tier rows print their deal (`LedgerWorkersText.recruit_line`): price, gate or
+ration, never a hover (DR-20261118-03).
 
 ## Deferred (REQ-P2-02)
 

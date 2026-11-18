@@ -21,15 +21,15 @@ static func _claim_phrase(id: String, claimed: int, promised: int) -> String:
 	return ", ".join(parts)
 
 
-## Builds the row — wrapped when it carries a batch press — and returns
-## `{row, batches}`. `batches` is keyed "bid"/"offer" for the presses the rules
-## allow; a row whose whole order is one unit carries none. `on_trade` takes
-## `(commodity, quantity, is_buy)`.
+## Builds the row — wrapped when it carries a batch press or a refusal — and
+## returns `{row, batches}`. `batches` is keyed "bid"/"offer" for the presses the
+## rules allow; a row whose whole order is one unit carries none. `on_trade`
+## takes `(commodity, quantity, is_buy)`.
 static func build(
 	id: String,
 	held: int,
 	claimed: int,
-	cargo: Dictionary,
+	_cargo: Dictionary,
 	market: WorldMarket,
 	viewer: int,
 	ctx: Dictionary,
@@ -78,21 +78,18 @@ static func build(
 	buy.tooltip_text = "Bid 1 %s at %d ducats — it clears when the turn closes" % [
 		CommodityCatalog.label(id), buy_unit
 	]
+	# Why a dead Bid is dead, in the rules' own words: the gates the validator
+	# walks, read forward (wiki: world-market § Trade orders — validation rules,
+	# § Treasury budget for bids; REQ-P2-03, REQ-P5-05). Printed under the row
+	# below, never only in the hover.
+	var shut: String = ""
 	if bid_units <= 0:
 		buy.disabled = true
-		var why: String = (
-			"no cargo holds free this turn"
-			if int(cargo.get("free", 0)) <= 0
-			else "the rules leave no room for a bid this turn"
-		)
-		# A purse in debt is the reason, named: the college's lending floor can
-		# leave the crown owing more than it holds, and "the rules leave no room"
-		# would hide the debt the banner above already prints (REQ-P5-05).
-		var purse: int = int(ctx.get("treasury", 0))
-		if int(cargo.get("free", 0)) > 0 and purse < 0:
-			why = "the purse is %s ducats in debt" % TextFormat.thousands(-purse)
+		shut = String(MarketRules.bid_block(market, viewer, id, ctx).get("reason", ""))
+		if shut.is_empty():
+			shut = "The rules leave no room for a bid this turn."
 		buy.tooltip_text = "Bid 1 %s at %d ducats — %s" % [
-			CommodityCatalog.label(id), buy_unit, why,
+			CommodityCatalog.label(id), buy_unit, shut,
 		]
 	buy.pressed.connect(func() -> void: on_trade.call(id, 1, true))
 	row.add_child(buy)
@@ -105,6 +102,10 @@ static func build(
 			"%s — %d sellable" % [_claim_phrase(id, claimed, promised), sellable],
 			10, Palette.TEXT_DIM, 0.0
 		))
+	# A phone player has no hover: the reason the Bid is shut is printed under
+	# the row it shuts (REQ-P1-05, REQ-P5-05).
+	if not shut.is_empty():
+		block.add_child(UiRowBuilder.wrapped_line(shut, 10, Palette.CRIMSON, 0.0))
 	# One press files the whole order the rules accept, so a court buying a
 	# turn's ration never taps Bid ten times (REQ-P5-04). The single presses
 	# above stay, so a batch is never forced.
