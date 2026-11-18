@@ -13,6 +13,9 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		or play.civilian_layer == null
 	):
 		return trace
+	# The workshop's appetite, read once per court per turn: the ground each
+	# colonist lands on is the ground its own recipes feed (DR-20261119-05).
+	var appetites: Dictionary = {}
 	var visible_touched: bool = false
 	for region: int in play.ship_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
@@ -39,7 +42,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var order: Dictionary = AiBind.colonisation_plan(
 				kind, config, play.world, region, model, fleets, civilians,
 				_abroad(play, target, faction), play.court_charts,
-				_voyage_posture(play, faction, posture), earning
+				_voyage_posture(play, faction, posture), earning,
+				_appetite(play, faction, kind, appetites)
 			)
 			if order.is_empty():
 				continue
@@ -215,3 +219,25 @@ static func _erase_unit(units: Array, unit_id: int) -> void:
 			break
 	if index >= 0:
 		units.remove_at(index)
+
+
+## The raws this court's workshop can turn and does not hold in number, read
+## once per court per turn and remembered for the region loop: a landing is the
+## one ground a court takes overseas, so it names the ground its own recipes
+## feed (DR-20261119-05). A frozen baseline keeps its published walk, so it reads
+## none — its planner is origin/main's and takes the compass order.
+static func _appetite(
+	play: PlaySession, faction: int, kind: String, cache: Dictionary
+) -> Dictionary:
+	if cache.has(faction):
+		return cache[faction] as Dictionary
+	var appetite: Dictionary = {}
+	if kind != AiControl.KIND_BASELINE and play.ai != null:
+		var economy: PlayerEconomy = play.ai.economy_for(faction)
+		var config: Variant = AiBind.config(kind, faction, play.map_seed)
+		if economy != null and config is AiConfig:
+			appetite = AiEconomyPlanner.ground_appetite(
+				config as AiConfig, economy, TownIndustry.best_level(play.world, faction)
+			)
+	cache[faction] = appetite
+	return appetite

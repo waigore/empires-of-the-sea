@@ -9204,6 +9204,66 @@ func test_a_passenger_sails_crosses_and_lands() -> void:
 	assert_eq(String(land.get("kind", "")), "land")
 	assert_eq(Vector2i(land.get("tile", Vector2i(-1, -1))), Vector2i(0, 1))
 
+
+## The landing is the one ground a court takes overseas, so it is the ground its
+## own workshop feeds: with sugar cane in the new world's plain and the refinery
+## hungry for it, the colonist marches to that coast instead of the compass's
+## north-easternmost tile (wiki: civilian-units § Overseas deployment;
+## DR-20261119-05). A caller with no appetite keeps the published order.
+func test_a_colonist_lands_on_the_ground_its_workshop_feeds() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var new_world: MapModel = world.region(1)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var unit: CivilianState = CivilianState.create(
+		1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0)
+	)
+	assert_true(bool(CivilianVoyage.embark(world.region(0), unit, fleet)["ok"]))
+	assert_eq(
+		String(AiColonisationPlanner.plan(
+			_ai_colonisation_config(), world, 0, world.region(0), [fleet], [unit], {}
+		).get("kind", "")),
+		"sail"
+	)
+	assert_true(bool(FleetSortie.apply(world.region(0), fleet, 0)["ok"]))
+	fleet.moved = false
+	assert_true(bool(WarpTravel.apply_crossing(world, 0, fleet)["ok"]))
+	fleet.moved = false
+	# Sugar cane on the far end of the plain: the published walk would take the
+	# near tile, the workshop's appetite takes the crop.
+	new_world.resource[new_world.index_of(3, 1)] = 13
+	var plain: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {}
+	)
+	assert_eq(
+		Vector2i(plain.get("tile", Vector2i(-1, -1))), Vector2i(0, 1),
+		"an empty appetite keeps the published compass order"
+	)
+	var fed: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 1, new_world, [fleet], [unit], {},
+		null, AiPhasePlanner.PHASE_PEACE, false, {"sugarCane": 4}
+	)
+	assert_eq(
+		Vector2i(fed.get("tile", Vector2i(-1, -1))), Vector2i(3, 1),
+		"the crop the workshop turns is worth the landing"
+	)
+	# A raw the chart cannot show unprospected is no ground the court can read:
+	# the appetite names only raws its open recipes turn (DR-20261111-26).
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var minerals: Dictionary = AiEconomyPlanner.ground_appetite(
+		_ai_colonisation_config(), economy, 4
+	)
+	assert_true(
+		int(minerals.get("sugarCane", 0)) > 0,
+		"a court with no sugar cane wants a plantation"
+	)
+	assert_false(minerals.has("iron"), "a mineral is no appetite: the chart hides it")
+	economy.stockpile["sugarCane"] = 40
+	assert_false(
+		AiEconomyPlanner.ground_appetite(_ai_colonisation_config(), economy, 4).has("sugarCane"),
+		"a raw already in store is no reason to cross"
+	)
+
+
 func test_no_second_expedition_when_a_colonist_is_already_abroad() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	var old_world: MapModel = world.region(0)

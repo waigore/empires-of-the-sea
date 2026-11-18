@@ -12,6 +12,15 @@ extends RefCounted
 ## Rivals with overseas provinces send a Builder to work them; a crown with no
 ## New World land sends an Explorer to chart it. The existing civilian planner
 ## takes over once the colonist is ashore.
+##
+## **The ground is read, not picked by the compass** (DR-20261119-05): a landing
+## is the one tile a court takes overseas, and the published walk landed on the
+## north-easternmost charted coast whatever it grew — so no rival court ever held
+## sugar cane, tobacco or furs, and the catalogue's luxury rows waited on a raw no
+## crown brought home. `appetite` (commodity → weight) names the raws this court's
+## own workshop can turn and does not hold in number: the best such ground wins,
+## the compass order breaks ties, and a caller that reads no appetite keeps the
+## published order tile for tile.
 
 
 ## One order for this court in this region, or an empty dictionary.
@@ -36,7 +45,8 @@ static func plan(
 	abroad: Dictionary = {},
 	charts: CourtCharts = null,
 	posture: String = AiPhasePlanner.PHASE_UNKNOWN,
-	wants_income: bool = false
+	wants_income: bool = false,
+	appetite: Dictionary = {}
 ) -> Dictionary:
 	if config == null or world == null or model == null:
 		return {}
@@ -52,7 +62,7 @@ static func plan(
 		var carried: CivilianState = _by_id(civilians, _carried_id(fleet))
 		if carried == null:
 			return {}
-		return _voyage(world, region, model, fleet, carried, target, charts)
+		return _voyage(world, region, model, fleet, carried, target, charts, appetite)
 	if region != home:
 		# No colonist aboard: a squadron left across the water sails home, so the
 		# court's hulls are not stranded there for the rest of the campaign (they
@@ -151,7 +161,8 @@ static func _voyage(
 	fleet: FleetState,
 	unit: CivilianState,
 	target: int,
-	charts: CourtCharts
+	charts: CourtCharts,
+	appetite: Dictionary = {}
 ) -> Dictionary:
 	if region != target:
 		if fleet.is_at_sea() and world.is_warp_zone(region, fleet.sea_zone):
@@ -167,6 +178,12 @@ static func _voyage(
 		tiles = charts.charted_tiles(unit.owner, model.region_id, tiles)
 	if not tiles.is_empty():
 		tiles.sort_custom(func(a: Vector2i, b: Vector2i) -> bool:
+			var left: int = _ground_weight(model, a, appetite)
+			var right: int = _ground_weight(model, b, appetite)
+			if left != right:
+				return left > right
+			# The published compass order breaks every tie, so a court that reads
+			# no appetite lands exactly where it did before (DR-20261119-05).
 			if a.y != b.y:
 				return a.y < b.y
 			return a.x < b.x
@@ -175,7 +192,7 @@ static func _voyage(
 			"kind": "land", "fleet": fleet.id, "unit": unit.id, "tile": tiles[0],
 		}
 	var coast: int = _sail(
-		model, fleet, _landing_zones(model, unit.type_id, unit.owner, charts),
+		model, fleet, _landing_zones(model, unit.type_id, unit.owner, charts, appetite),
 		charts, unit.owner
 	)
 	if coast < 0:
@@ -222,11 +239,15 @@ static func _sail(
 
 
 ## Sea zones with at least one land tile this type may land on, and whose water
-## the court has charted.
+## the court has charted. A zone that fronts a ground the court's workshop turns
+## comes first, so the expedition sails for the coast that grows what it needs
+## (DR-20261119-05); the zone id breaks every tie, so a caller with no appetite
+## keeps the published order.
 static func _landing_zones(
-	model: MapModel, type_id: String, owner: int, charts: CourtCharts = null
+	model: MapModel, type_id: String, owner: int, charts: CourtCharts = null,
+	appetite: Dictionary = {}
 ) -> Array[int]:
-	var zones: Array[int] = []
+	var weights: Dictionary = {}
 	for zone: SeaZoneState in model.sea_zones:
 		if charts != null and not charts.knows_zone(owner, model.region_id, zone.id):
 			continue
@@ -241,17 +262,38 @@ static func _landing_zones(
 					var view: VisibilityModel = charts.model_for(owner, model.region_id)
 					if view != null and view.level_at(land.x, land.y) < VisibilityModel.Level.FOGGED:
 						continue
-				if not zones.has(zone.id):
-					zones.append(zone.id)
-				break
-			if zones.has(zone.id):
-				break
-	zones.sort()
+				var weight: int = _ground_weight(model, land, appetite)
+				if not weights.has(zone.id) or weight > int(weights[zone.id]):
+					weights[zone.id] = weight
+	var zones: Array[int] = []
+	for id: Variant in weights.keys():
+		zones.append(int(id))
+	zones.sort_custom(func(a: int, b: int) -> bool:
+		if int(weights[a]) != int(weights[b]):
+			return int(weights[a]) > int(weights[b])
+		return a < b
+	)
 	return zones
 
 
 static func _zone_borders_province(model: MapModel, zone: int, province: int) -> bool:
 	return NavalMovement.province_sea_zones(model, province).has(zone)
+
+
+## How much this ground is worth to the court's workshop: the appetite weight of
+## the commodity the tile carries, else zero. A ground nobody can read (no raw,
+## or a mineral the chart never shows unprospected) weighs nothing, so the
+## compass order decides it (DR-20261119-05).
+static func _ground_weight(model: MapModel, tile: Vector2i, appetite: Dictionary) -> int:
+	if appetite.is_empty():
+		return 0
+	var resource: int = model.resource_at(tile.x, tile.y)
+	if resource < 0:
+		return 0
+	var commodity: String = ImprovementCatalog.commodity(resource)
+	if commodity.is_empty():
+		return 0
+	return maxi(int(appetite.get(commodity, 0)), 0)
 
 
 static func _carried_id(fleet: FleetState) -> int:

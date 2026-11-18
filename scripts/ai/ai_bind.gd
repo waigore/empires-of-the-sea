@@ -300,7 +300,8 @@ static func colonisation_plan(
 	abroad: Dictionary,
 	charts: Variant,
 	posture: String,
-	earning: bool
+	earning: bool,
+	appetite: Dictionary = {}
 ) -> Dictionary:
 	if _baseline(kind):
 		return _ml(
@@ -309,7 +310,8 @@ static func colonisation_plan(
 			[config, world, region, model, fleets, civilians, abroad, charts, posture, earning]
 		)
 	return AiColonisationPlanner.plan(
-		config, world, region, model, fleets, civilians, abroad, charts, posture, earning
+		config, world, region, model, fleets, civilians, abroad, charts, posture,
+		earning, appetite
 	)
 
 
