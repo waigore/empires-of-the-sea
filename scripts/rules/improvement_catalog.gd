@@ -14,31 +14,38 @@ const DEFAULT_TECH_CAP: int = 1
 ## carries has a published base name, so a copper, silver, gem or diamond estate
 ## reads `Mine` and a crop reads its own work (wiki: extraction-and-improvements
 ## § Improvement Naming).
+##
+## `icon` is the survey lens's own column key and stays the four published
+## kinds (timber, ore, riches, farm: `ResourceTypes.ORDER`). `pictogram` is the
+## estate's own pictogram — the thing the works is, not the group it belongs to
+## — so a Farm, a Pasture, a Ranch, a Plantation and a Fur post never read as
+## one sheaf (REQ-P1-08; DR-20261119-06).
 const RESOURCES: Dictionary = {
-	0: {"name": "Lumber camp", "category": "wood", "icon": "tree"},
-	1: {"name": "Mine", "category": "mine", "icon": "ore"},
-	2: {"name": "Mine", "category": "mine", "icon": "ore"},
-	3: {"name": "Mine", "category": "riches", "icon": "coin"},
-	4: {"name": "Farm", "category": "farm", "icon": "wheat"},
-	5: {"name": "Pasture", "category": "farm", "icon": "wheat"},
-	6: {"name": "Ranch", "category": "farm", "icon": "wheat"},
-	7: {"name": "Ranch", "category": "farm", "icon": "wheat"},
-	8: {"name": "Mine", "category": "mine", "icon": "ore"},
-	9: {"name": "Mine", "category": "mine", "icon": "ore"},
-	10: {"name": "Mine", "category": "riches", "icon": "coin"},
-	11: {"name": "Mine", "category": "riches", "icon": "coin"},
-	12: {"name": "Mine", "category": "riches", "icon": "coin"},
-	13: {"name": "Plantation", "category": "farm", "icon": "wheat"},
-	14: {"name": "Plantation", "category": "farm", "icon": "wheat"},
-	15: {"name": "Plantation", "category": "farm", "icon": "wheat"},
-	16: {"name": "Fur post", "category": "farm", "icon": "wheat"},
-	17: {"name": "Plantation", "category": "farm", "icon": "wheat"},
+	0: {"name": "Lumber camp", "category": "wood", "icon": "tree", "pictogram": "log"},
+	1: {"name": "Mine", "category": "mine", "icon": "ore", "pictogram": "pick"},
+	2: {"name": "Mine", "category": "mine", "icon": "ore", "pictogram": "pick"},
+	3: {"name": "Mine", "category": "riches", "icon": "coin", "pictogram": "coin"},
+	4: {"name": "Farm", "category": "farm", "icon": "wheat", "pictogram": "wheat"},
+	5: {"name": "Pasture", "category": "farm", "icon": "wheat", "pictogram": "sheep"},
+	6: {"name": "Ranch", "category": "farm", "icon": "wheat", "pictogram": "horse"},
+	7: {"name": "Ranch", "category": "farm", "icon": "wheat", "pictogram": "cattle"},
+	8: {"name": "Mine", "category": "mine", "icon": "ore", "pictogram": "pick"},
+	9: {"name": "Mine", "category": "mine", "icon": "ore", "pictogram": "pick"},
+	10: {"name": "Mine", "category": "riches", "icon": "coin", "pictogram": "coin"},
+	11: {"name": "Mine", "category": "riches", "icon": "coin", "pictogram": "coin"},
+	12: {"name": "Mine", "category": "riches", "icon": "coin", "pictogram": "coin"},
+	13: {"name": "Plantation", "category": "farm", "icon": "wheat", "pictogram": "leaf"},
+	14: {"name": "Plantation", "category": "farm", "icon": "wheat", "pictogram": "leaf"},
+	15: {"name": "Plantation", "category": "farm", "icon": "wheat", "pictogram": "leaf"},
+	16: {"name": "Fur post", "category": "farm", "icon": "wheat", "pictogram": "pelt"},
+	17: {"name": "Plantation", "category": "farm", "icon": "wheat", "pictogram": "leaf"},
 }
 
 const DEFAULT_ENTRY: Dictionary = {
 	"name": "Improvement",
 	"category": "works",
 	"icon": "ore",
+	"pictogram": "pick",
 }
 
 const COMMODITY_LABELS: Dictionary = {
@@ -105,6 +112,15 @@ static func category(resource: int) -> String:
 
 static func icon_kind(resource: int) -> String:
 	return String(entry(resource).get("icon", "ore"))
+
+
+## The estate's own pictogram: what the works is (a sheaf, a shepherd's sheep, a
+## horse, a leaf, a pelt, a felled log, a pick) rather than the four survey
+## groups the lens counts in. A resource the table has not published keeps the
+## survey kind, so a row always draws something (REQ-P1-08; DR-20261119-06).
+static func pictogram_kind(resource: int) -> String:
+	var row: Dictionary = entry(resource)
+	return String(row.get("pictogram", row.get("icon", "ore")))
 
 
 static func production(level: int) -> int:

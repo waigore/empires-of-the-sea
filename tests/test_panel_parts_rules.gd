@@ -445,6 +445,52 @@ func test_an_estate_shows_its_goods_medallion() -> void:
 	assert_true(plain is Icon, "an unknown good falls back to the category pictogram")
 	plain.free()
 
+## Every estate type reads as its own pictogram (wiki: extraction-and-improvements
+## § Improvement Naming; REQ-P1-08, DR-20261119-06): the nine works the catalogue
+## publishes, nine kinds, each one a kind the control draws.
+func test_each_estate_type_carries_its_own_pictogram() -> void:
+	var seen: Dictionary = {}
+	for resource: Variant in ImprovementCatalog.RESOURCES.keys():
+		var kind: String = ImprovementCatalog.pictogram_kind(int(resource))
+		seen[kind] = true
+		assert_true(Icon.knows(kind), "%s has no painter" % [kind])
+	var expected: Array[String] = [
+		"cattle", "coin", "horse", "leaf", "log", "pelt", "pick", "sheep", "wheat",
+	]
+	var kinds: Array = seen.keys()
+	kinds.sort()
+	assert_eq(kinds, expected, "the catalogue publishes nine estate pictograms")
+
+## Two estates of different work never read as one glyph: a farm, a pasture, a
+## ranch's remounts, a ranch's beeves, a plantation, a fur post, a lumber camp
+## and a mine each carry their own.
+func test_two_works_on_one_chart_read_apart() -> void:
+	var kinds: Array[String] = []
+	for resource: int in [0, 1, 3, 4, 5, 6, 7, 13, 16]:
+		kinds.append(ImprovementCatalog.pictogram_kind(resource))
+	var unique: Dictionary = {}
+	for kind: String in kinds:
+		unique[kind] = true
+	assert_eq(unique.size(), kinds.size(), "two works share a pictogram: %s" % [kinds])
+	assert_eq(ImprovementCatalog.pictogram_kind(4), "wheat", "a farm keeps its sheaf")
+	assert_eq(ImprovementCatalog.pictogram_kind(5), "sheep", "a pasture is a fleece")
+	assert_eq(ImprovementCatalog.pictogram_kind(6), "horse", "remounts read as a shoe")
+	assert_eq(ImprovementCatalog.pictogram_kind(7), "cattle", "beeves read as a head")
+	assert_eq(ImprovementCatalog.pictogram_kind(0), "log", "a lumber camp is a felled log")
+	assert_eq(ImprovementCatalog.pictogram_kind(1), "pick", "a mine is a pick")
+
+## The survey lens still counts in its four published groups, whatever the
+## estates' own pictograms say (issue #698): the lens's column key is `icon`.
+func test_the_survey_lens_keeps_its_four_columns() -> void:
+	assert_eq(",".join(ResourceTypes.ORDER), "tree,ore,coin,wheat")
+	for resource: Variant in ImprovementCatalog.RESOURCES.keys():
+		var column: String = ImprovementCatalog.icon_kind(int(resource))
+		assert_true(
+			ResourceTypes.ORDER.has(column),
+			"resource %s reads outside the lens's columns: %s" % [resource, column]
+		)
+	assert_eq(ImprovementCatalog.icon_kind(5), "wheat", "a pasture stays a farm column")
+
 func test_the_roads_row_names_the_estates_that_reach_the_crown() -> void:
 	_setup_province_panel()
 	_show()
@@ -749,8 +795,11 @@ func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
 		"builder_id": -1,
 		"next_level": 3,
 	})
-	assert_eq(row._icon.kind, "tree")
-	assert_eq(row._icon.tint, Palette.resource_ink("tree"), "timber green, not the status ink")
+	assert_eq(row._icon.kind, "log", "the lumber camp is its own pictogram, not the survey group's")
+	assert_eq(
+		row._icon.tint, Palette.resource_ink("tree"),
+		"timber green, not the status ink (DR-20261119-06)"
+	)
 	assert_eq(row._status_chip.text, "DISCONNECTED", "the chip still names the status")
 	row.free()
 

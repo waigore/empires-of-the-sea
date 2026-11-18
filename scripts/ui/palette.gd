@@ -160,6 +160,29 @@ static func resource_ink(kind: String) -> Color:
 	return RESOURCE_INK.get(kind, GOLD)
 
 
+## Ink for one **estate** pictogram (wiki: extraction-and-improvements
+## § Improvement Naming; DR-20261119-06). An estate keeps the colour of its good
+## — green timber, blue-grey ore, gold riches, straw grain — and the works it is
+## takes its own: a shepherd's cream, a chestnut remount, russet beeves, an olive
+## plantation leaf and an umber hide. Shape and colour therefore separate two
+## estates that stand on the same chart (REQ-P1-08).
+const ESTATE_INK: Dictionary = {
+	"log": Color(0.235, 0.404, 0.247),
+	"pick": Color(0.376, 0.427, 0.502),
+	"coin": Color(0.847, 0.612, 0.129),
+	"wheat": Color(0.898, 0.796, 0.365),
+	"sheep": Color(0.886, 0.859, 0.769),
+	"horse": Color(0.584, 0.373, 0.196),
+	"cattle": Color(0.706, 0.310, 0.235),
+	"leaf": Color(0.431, 0.541, 0.290),
+	"pelt": Color(0.478, 0.396, 0.325),
+}
+
+
+static func estate_ink(pictogram: String) -> Color:
+	return ESTATE_INK.get(pictogram, GOLD)
+
+
 ## Emblem ink for a surveyed estate: the commodity ink, pulled toward survey
 ## grey while the holding is foreign, so ownership reads without erasing which
 ## good the tile yields (REQ-P1-08).

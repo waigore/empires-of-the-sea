@@ -3595,6 +3595,11 @@ domain = "layout"
 match = "scripts/ui/icon.gd*"
 domain = "ui"
 
+# The estates' own pictograms ride with the icon control they serve (DR-20261119-06).
+[[rules]]
+match = "scripts/ui/estate_pictograms.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/back_request.gd"
 domain = "ui"

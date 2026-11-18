@@ -16,13 +16,12 @@ level-4 Great Power towns, four grain farms.
 
 - **Named improvements**: Timber → Lumber camp, minerals →
   Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch, crops → Plantation,
-  Furs → Fur post.
+  Furs → Fur post. Each works has its own pictogram (DR-20261119-06).
 - **Levels 1–4.** A Builder raises one level for 1/4/8/16 lumber + cast iron
   over target-level turns; minerals need Prospect first (DR-20261111-26),
   above-cap orders refused.
 - **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile a
-  turn; until surveyed no icon, estate, lens row or plan names it; a Builder
-  may mine it at once.
+  turn; until surveyed nothing names it; a Builder may mine it.
 - **Terrain caps:** scrub timber 1, hardwood follows tech.
 - **Path transport:** the best road/rail/port bottleneck; beside-network
   tiles take it, several routes the highest.
@@ -41,20 +40,20 @@ level-4 Great Power towns, four grain farms.
 - **Lenses.** Survey (lens seal): a column per resource, emblem and
   `built/linked/held` badge, the Explorer's mark, prospectable tiles; roads
   solid when linked, dashed cut (#698). Crown road (`R`): gold / amber /
-  crimson for crown, town-only, or cut; cut provinces show the tiles to lay.
-- **Estates ledger**: totals, filters, blockers, Build / Cancel /
-  Map, caps, a free Builder; cut estates name the gap.
+  crimson for crown, town-only or cut; cut provinces show the tiles to lay.
+- **Estates ledger**: totals, filters, blockers, Build / Cancel / Map, caps,
+  a free Builder; cut estates name the gap.
 - **One press** (DR-20261116-06): `Raise all ready (n)` files every `READY`
-  estate the view prints, in its order, arming then filing; the walk stops at
-  the first refusal and leaves one receipt; the line under it prices the walk
-  and the wait (DR-20261118-12). The `Ready` chip is that view.
+  estate the view prints, in order; the walk stops at the first refusal and
+  leaves one receipt, and the line under it prices the walk and its wait
+  (DR-20261118-12). The `Ready` chip is that view.
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
   a cut-off estate carries **Build road**.
 
 ## Deferred (REQ-P2-02)
 
-None. A deed raises a Minor/Tribe town (`MinorTownGrowth`, DR-20261112-01);
-gaps: [`deferred.md`](deferred.md).
+None. A deed raises a Minor/Tribe town (`MinorTownGrowth`, DR-20261112-01).
+Gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 
