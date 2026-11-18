@@ -273,12 +273,8 @@ static func _close_round(
 ## Regiments held by type, so a battle can report what it cost by type.
 static func _type_counts(side: Array[ArmyState]) -> Dictionary:
 	var counts: Dictionary = {}
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			var type_id: String = army.type_of(regiment_id)
-			counts[type_id] = int(counts.get(type_id, 0)) + 1
+	for type_id: String in ArmyForce.side_types(side):
+		counts[type_id] = int(counts.get(type_id, 0)) + 1
 	return counts
 
 
