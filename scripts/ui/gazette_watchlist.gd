@@ -41,7 +41,14 @@ func fill(state: GazetteState, diplomacy: DiplomacyState, viewer: int) -> void:
 		row.toggled.connect(_on_toggled.bind(state, faction))
 		add_child(row)
 	if followed == 0:
-		add_child(GazetteParts.label("No court is followed — the sheet will be quiet.", 13, INK_SOFT))
+		# World news prints whatever the crown follows, so the sheet is never
+		# silent: only the courts' own doings wait on this list
+		# (wiki: the-gazette § Classes, § Courts of interest).
+		add_child(
+			GazetteParts.label(
+				"No court is followed — only the world's news will print.", 13, INK_SOFT
+			)
+		)
 
 
 func _on_toggled(on: bool, state: GazetteState, faction: int) -> void:

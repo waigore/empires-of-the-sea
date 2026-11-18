@@ -97,6 +97,7 @@ static func _table() -> Dictionary:
 			"battleHeld": GazetteCopyBattle.battle_held,
 			"battleAnnihilated": GazetteCopyBattle.battle_annihilated,
 			"battleStandoff": GazetteCopyBattle.battle_standoff,
+			"provinceOccupied": GazetteCopyBattle.province_occupied,
 			"seaHeld": GazetteCopyBattle.sea_held,
 			"seaWithdrew": GazetteCopyBattle.sea_withdrew,
 			"seaDraw": GazetteCopyBattle.sea_draw,
