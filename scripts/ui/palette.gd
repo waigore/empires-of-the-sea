@@ -94,16 +94,26 @@ const SEA_BLIND := Color(0.310, 0.408, 0.463)
 
 ## Terrain wash colours, indexed by MapModel.Terrain.
 ## Ocean is transparent so the animated sea shader shows through.
+##
+## An owned tile is washed half way to its crown's heraldic colour
+## (`MapWash.OWNER_TINT`), so whatever distance two grounds keep here they keep
+## only half of on the chart. The grounds are set deep enough that this survives
+## the crown's wash: every pair stays at least `TERRAIN_GAP` apart once tinted,
+## and every ground stands at least `PLAINS_GAP` clear of the paper it lies on
+## (REQ-P1-03, REQ-P1-07; the reading is pinned in `tests/test_map_view_rules`).
+## Plains is the atlas paper itself and never moves; the rest step away from it.
+const TERRAIN_GAP: float = 0.065
+const PLAINS_GAP: float = 0.075
 const TERRAIN_COLORS: Array[Color] = [
 	Color(0.0, 0.0, 0.0, 0.0),
 	Color(0.78, 0.87, 0.84, 0.55),
-	Color(0.878, 0.804, 0.62),
-	Color(0.702, 0.741, 0.541),
-	Color(0.804, 0.694, 0.514),
-	Color(0.69, 0.604, 0.49),
-	Color(0.91, 0.839, 0.651),
-	Color(0.663, 0.71, 0.549),
-	Color(0.72, 0.78, 0.52),
+	Color(0.878, 0.804, 0.620),
+	Color(0.610, 0.690, 0.430),
+	Color(0.835, 0.700, 0.435),
+	Color(0.665, 0.560, 0.450),
+	Color(0.960, 0.905, 0.715),
+	Color(0.655, 0.680, 0.585),
+	Color(0.755, 0.815, 0.435),
 ]
 
 static func terrain_color(terrain: int) -> Color:

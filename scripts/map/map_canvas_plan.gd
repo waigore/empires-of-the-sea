@@ -218,25 +218,21 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 			second = "grass"
 			second_chance = 0.36
 		MapModel.Terrain.HARDWOOD_FOREST:
-			kind = "tree"
-			chance = 0.72
-			second = "tree"
-			second_chance = 0.56
+			# A wood is a stand, not a speck: one grove per tile, its crown tree
+			# ringed by smaller companions (MapGrove).
+			_scatter_grove(p_model, x, y, tile_size, "tree")
+			return
 		MapModel.Terrain.SCRUB_FOREST:
-			kind = "scrub"
-			chance = 0.58
-			second = "scrub"
-			second_chance = 0.34
+			_scatter_grove(p_model, x, y, tile_size, "scrub")
+			return
 		MapModel.Terrain.DESERT:
 			kind = "dune"
 			chance = 0.30
 			second = "grass"
 			second_chance = 0.18
 		MapModel.Terrain.SWAMP:
-			kind = "reed"
-			chance = 0.46
-			second = "reed"
-			second_chance = 0.30
+			_scatter_grove(p_model, x, y, tile_size, "reed")
+			return
 		_:
 			kind = "field" if MapGlyphs.hash01(x + 3, y + 8) > 0.62 else "grass"
 			chance = 0.22
@@ -246,6 +242,23 @@ func _scatter_terrain(p_model: MapModel, x: int, y: int, tile_size: float) -> vo
 	if second.is_empty():
 		return
 	_place_symbol(p_model, x, y, tile_size, second, second_chance, 47, 0.62)
+
+
+## One wooded tile's stand: the crown tree and the companions `MapGrove` rings
+## around it, every spot on this tile's own ground and clear of a province name.
+func _scatter_grove(p_model: MapModel, x: int, y: int, tile_size: float, kind: String) -> void:
+	var dense: bool = MapGrove.walled(p_model, x, y)
+	var centre: Vector2 = MapGeo.tile_center(x, y, tile_size)
+	for spot: Dictionary in MapGrove.stamps(kind, x, y, dense):
+		var at: Vector2 = centre + Vector2(spot["dx"], spot["dy"]) * tile_size
+		if under_label(at):
+			continue
+		glyphs.append({
+			"kind": kind,
+			"position": at,
+			"size": tile_size * float(spot["scale"]),
+			"flip": bool(spot["flip"]),
+		})
 
 
 ## One scattered mark for this tile, if its hash clears the chance and the spot
