@@ -6,7 +6,9 @@ extends RefCounted
 ##
 ## Materials are paid when the work is assigned and are not refunded on cancel
 ## (wiki: § Relations). Terrain, visibility and tile effects are only applied
-## when a work order completes during the Build/Work pass.
+## when a work order completes during the Build/Work pass. Per-action start
+## gates live in CivilianWorkGates; completion writes in CivilianWorkEffects;
+## cost and duration maths in CivilianWorkPlan (REQ-P3-01).
 
 const MAX_IMPROVEMENT: int = LandWorks.MAX_IMPROVEMENT
 ## The Builder's town order needs National Bureaucracy (wiki:
@@ -32,7 +34,6 @@ static func label(action: String) -> String:
 	return String(LABELS.get(action, action.capitalize()))
 
 
-
 static func cost_for(action: String, level: int = 1) -> Dictionary:
 	return CivilianWorkPlan.cost_for(action, level)
 
@@ -51,7 +52,6 @@ static func cost_level(action: String, model: MapModel, tile: Vector2i, works: L
 
 static func duration_for(model: MapModel, action: String, tile: Vector2i, works: LandWorks) -> int:
 	return CivilianWorkPlan.duration_for(model, action, tile, works)
-
 
 
 ## Every action the unit could consider, with the reason it cannot start now.
@@ -74,8 +74,9 @@ static func options(
 			model, unit, action, works, units, stockpile, visibility, CivilianState.NO_TILE,
 			tech_caps, tech_unlocked, context
 		)
-		var row: Dictionary = CivilianWorkPlan.option_row(
-			action, model, unit.tile, works, check, label(action)
+		var row: Dictionary = CivilianWorkRows.option_row(
+			action, model, unit.tile, works, check, label(action),
+			context.get("blockade", null) as Blockades
 		)
 		row["action"] = action
 		row["ok"] = bool(check.get("ok", false))
@@ -110,7 +111,7 @@ static func validate(
 	var province: int = model.province_at(tile.x, tile.y)
 	if province == MapModel.NO_ID:
 		return _no("This tile belongs to no province.")
-	var check: Dictionary = _check_action(
+	var check: Dictionary = CivilianWorkGates.check_action(
 		model, unit, action, tile, province, works, units, visibility, tech_caps,
 		tech_unlocked, context
 	)
@@ -138,7 +139,7 @@ static func validate(
 		cost = CivilianWorkPlan.bootstrap_cost(
 			model, tile, stockpile, cost_level(action, model, tile, works)
 		)
-	var stores_gate: String = CivilianWorkPlan.stores_refusal(cost, stockpile)
+	var stores_gate: String = CivilianWorkRefusals.stores(cost, stockpile)
 	if not stores_gate.is_empty():
 		return _no(stores_gate)
 	check["cost"] = cost
@@ -182,7 +183,7 @@ static func assign(
 	elif action == LandPurchase.ACTION:
 		details["treasury_cost"] = int(check.get("treasury_cost", 0))
 	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]), unit.tile, details)
-	check["label"] = CivilianWorkPlan.order_label(action, model, Vector2i(check["tile"]), label(action))
+	check["label"] = CivilianWorkRows.order_label(action, model, Vector2i(check["tile"]), label(action))
 	return check
 
 
@@ -216,175 +217,15 @@ static func resolve_turn(
 			"changed": [],
 		}
 		if finished:
-			report["changed"] = _apply(model, unit, action, tile, works, visibility, economy, report)
+			report["changed"] = CivilianWorkEffects.apply(
+				model, unit, action, tile, works, visibility, economy, report
+			)
 			if action == "prospect":
 				# The despatch names what the survey found (DR-20261111-26).
 				report["find"] = MineralSurvey.find_of(model, tile)
 			unit.clear_work()
 		reports.append(report)
 	return reports
-
-
-# --- action checks ----------------------------------------------------------
-
-
-static func _check_action(
-	model: MapModel,
-	unit: CivilianState,
-	action: String,
-	tile: Vector2i,
-	province: int,
-	works: LandWorks,
-	units: Array[CivilianState],
-	visibility: VisibilityModel,
-	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {},
-	context: Dictionary = {}
-) -> Dictionary:
-	match action:
-		"explore":
-			var explore_gate: String = CivilianExplorerGates.explore_refusal(
-				model, unit.owner, province, context
-			)
-			if not explore_gate.is_empty():
-				return _no(explore_gate)
-			if visibility != null and visibility.is_province_fully_visible(province):
-				return _no("%s is already charted." % model.province_name(province))
-			return {"ok": true}
-		"prospect":
-			var prospect_gate: String = CivilianExplorerGates.prospect_refusal(
-				model, unit.owner, unit.tile, tile, works, visibility, context
-			)
-			if not prospect_gate.is_empty():
-				return _no(prospect_gate)
-			return {"ok": true}
-		"build_improvement":
-			var owned: Dictionary = _owned_land(model, unit, tile)
-			if not bool(owned["ok"]):
-				return owned
-			var resource: int = model.resource_at(tile.x, tile.y)
-			if resource == MapModel.NO_ID:
-				return _no("Improvements need a tile with a resource.")
-			if works.improvement_at(model, tile) >= MAX_IMPROVEMENT:
-				return _no("This tile is already fully improved.")
-			if (
-				ImprovementCatalog.needs_prospecting(resource)
-				and not works.is_prospected(unit.owner, model, tile)
-			):
-				return _no("An Explorer must prospect this tile before a mine can rise.")
-			var commodity: String = ImprovementCatalog.commodity(resource)
-			var tech_cap: int = ImprovementCatalog.tech_cap_for(commodity, tech_caps)
-			if works.improvement_at(model, tile) + 1 > tech_cap:
-				return _no(
-					"Requires %s extraction tech (cap %d) to raise this estate."
-					% [ImprovementCatalog.commodity_label(commodity), tech_cap]
-				)
-			var terrain_cap: int = TerrainCaps.hard_cap(
-				model.terrain_at(tile.x, tile.y), commodity
-			)
-			if works.improvement_at(model, tile) + 1 > terrain_cap:
-				return _no("Terrain caps %s extraction at level %d here."
-					% [ImprovementCatalog.commodity_label(commodity), terrain_cap])
-			return CivilianTransport.exclusive(units, unit, tile)
-		"upgrade_town":
-			var held_town: Dictionary = _owned_land(model, unit, tile)
-			if not bool(held_town["ok"]):
-				return held_town
-			var town_data: ProvinceState = model.province_data(province)
-			if town_data == null or not town_data.is_town_tile(tile):
-				return _no("Towns are upgraded on the province's town tile.")
-			var gate: String = CivilianWorkPlan.town_upgrade_refusal(town_data, tech_unlocked)
-			if not gate.is_empty():
-				return _no(gate)
-			return CivilianTransport.exclusive(units, unit, tile)
-		"build_fort":
-			var held: Dictionary = _owned_land(model, unit, tile)
-			if not bool(held["ok"]):
-				return held
-			var wall_gate: String = CivilianWorkPlan.fort_refusal(
-				FortRules.level_at(model, province), tech_unlocked
-			)
-			if not wall_gate.is_empty():
-				return _no(wall_gate)
-			# Two projects in one province may run; the later completion cannot
-			# leap a level (wiki: siege-mechanics § Fort Levels), so the town
-			# tile is not exclusive the way an estate tile is.
-			return {"ok": true}
-		"build_hospital":
-			return HospitalRules.work_check(model, unit, tile, province, tech_unlocked)
-		"build_road", "build_port", "build_rail":
-			return CivilianTransport.check(
-				model, unit, action, tile, works, units, tech_unlocked
-			)
-		"purchase_land":
-			return LandPurchase.check(model, unit, tile, works, units, context)
-		"counter_spy":
-			# Empire-wide screen: the target is any owned province, and one spy
-			# anywhere covers every province (wiki: civilian-units § Spy).
-			if model.province_owner(province) != unit.owner:
-				return _no("Counter-espionage is kept in your own provinces.")
-			return {"ok": true}
-	return _no("The %s has no such work order." % unit.display_name())
-
-
-static func _owned_land(model: MapModel, unit: CivilianState, tile: Vector2i) -> Dictionary:
-	if model.owner_at(tile.x, tile.y) != unit.owner:
-		return _no("This land is not held by your crown.")
-	return {"ok": true}
-
-
-# --- completion effects -----------------------------------------------------
-
-
-static func _apply(
-	model: MapModel,
-	unit: CivilianState,
-	action: String,
-	tile: Vector2i,
-	works: LandWorks,
-	visibility: VisibilityModel,
-	economy: PlayerEconomy = null,
-	report: Dictionary = {}
-) -> Array:
-	var province: int = model.province_at(tile.x, tile.y)
-	match action:
-		"explore":
-			if visibility != null:
-				return visibility.reveal_province(province)
-			return []
-		"prospect":
-			works.set_prospected(unit.owner, model, tile)
-			return [model.index_of(tile.x, tile.y)]
-		"build_improvement":
-			works.set_improvement(model, tile, works.improvement_at(model, tile) + 1)
-			return [model.index_of(tile.x, tile.y)]
-		"upgrade_town":
-			var town_data: ProvinceState = model.province_data(province)
-			if town_data != null:
-				town_data.town_development = CivilianWorkPlan.town_after_upgrade(
-					town_data.town_development, int(unit.work_detail("town_level"))
-				)
-			return [model.index_of(tile.x, tile.y)]
-		"build_fort":
-			# The level it found and the level it raised: a duplicate project
-			# finishing after the wall stands reports no raise (wiki § Fort Levels).
-			var fort_before: int = FortRules.level_at(model, province)
-			FortRules.apply_build(
-				model.province_data(province), unit.work_detail("fort_level")
-			)
-			report["fort_before"] = fort_before
-			report["fort_level"] = FortRules.level_at(model, province)
-			return [model.index_of(tile.x, tile.y)]
-		"build_hospital":
-			return HospitalRules.work_complete(model, province, unit, tile)
-		"purchase_land":
-			# `complete` records the town level it actually set (DR-20261112-01).
-			if LandPurchase.complete(model, tile, unit.owner, economy, report):
-				return [model.index_of(tile.x, tile.y)]
-			return []
-	if CivilianTransport.knows(action):
-		return CivilianTransport.apply(model, action, tile, works)
-	return []
 
 
 # --- stockpile helpers ------------------------------------------------------
@@ -397,4 +238,4 @@ static func _pay(stockpile: Dictionary, cost: Dictionary) -> void:
 
 
 static func _no(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "cost": {}, "duration": 0}
+	return CivilianWorkGates.deny(reason)

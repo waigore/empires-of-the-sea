@@ -59,7 +59,7 @@ view prints, arm then confirm, and stops at the first refusal
 | `scripts/ui/province_ledger_panel.gd` | the `Walls ›` door |
 
 No figure is recomputed: the level and its guns are `FortRules`, as are the
-price and the wait; the gate is `CivilianWorkPlan.fort_refusal`, the wording the
+price and the wait; the gate is `CivilianWorkRefusals.fort`, the wording the
 order itself refuses with (`REQ-P2-03`).
 
 ## Tests

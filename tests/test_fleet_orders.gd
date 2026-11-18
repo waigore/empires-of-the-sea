@@ -1092,6 +1092,122 @@ func test_a_rival_squadron_carries_no_yard_rows() -> void:
 	)
 
 
+## The yard names the hull a crown would buy, not only her price: her own combat
+## line and the holds her class carries, the same words THE CROWN'S NAVY prints
+## for a hull already afloat (wiki: ships-and-naval § Ship combat and cargo stats;
+## REQ-P5-06). A hull the crown cannot launch yet keeps her line too — the study
+## that opens her is planned against her numbers.
+func test_the_yard_names_the_hull_before_the_crown_pays_for_her() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	MapPlayFleetYard.open(_screen.play)
+	var rows: Array[Dictionary] = _screen.hud.panels.fleet_panel._yard._rows
+	var by_type: Dictionary = {}
+	for row: Dictionary in rows:
+		by_type[String(row["type_id"])] = row
+
+	assert_true(by_type.has("carrack"), "the carrack is on the slip")
+	assert_eq(
+		String((by_type["carrack"] as Dictionary)["line"]),
+		NavalStrength.hull_line("carrack") + " · 3 holds for the world market",
+		"a merchant names her holds beside her numbers"
+	)
+	assert_true(by_type.has("frigate"), "a study-locked hull keeps her row")
+	assert_eq(
+		String((by_type["frigate"] as Dictionary)["line"]),
+		NavalStrength.hull_line("frigate") + " · No holds — she fights in the line",
+		"a warship names the holds she does not carry"
+	)
+	assert_eq(
+		String(FleetYard.hull_line("indiaman")),
+		NavalStrength.hull_line("indiaman") + " · 8 holds for the world market",
+		"one reading for the yard and the navy sheet"
+	)
+	## The published example is pinned as a literal, not composed from the live
+	## formula: ships-and-naval § Ship muster and the break-up yard prints the
+	## carrack's line in full, so a changed weight, stat or hold count has to
+	## surface here — and in the page — rather than drift apart silently.
+	assert_eq(
+		String(FleetYard.hull_line("carrack")),
+		(
+			"FRP 2 · RNG 1 · ARM 1 · HULL 2 · MV 2 · 2.8 strength"
+			+ " · 3 holds for the world market"
+		),
+		"the carrack's published line, figure for figure"
+	)
+
+
+## A hull the crown already flies may be replaced without her study: the yard
+## reads the court's own craft, the same list a rival court's yard reads, so the
+## opening muster's Fluyte is never locked behind a tech the crown never needed
+## to sail her (issue #484; REQ-P2-03).
+func test_the_yard_rebuilds_a_hull_the_crown_already_flies() -> void:
+	var play: PlaySession = _screen.play
+	var econ: PlayerEconomy = play.economy.economy
+	econ.tech_unlocked.clear()
+	econ.treasury = 60000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 20
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 20)
+	var home: FleetState = _screen.ship_layer.home_fleet(play.capital_province)
+	assert_not_null(home, "the fixture moors a home fleet")
+	var flown: Array[String] = MapPlayFleetYard.flown(play)
+	var gated: String = ""
+	for type_id: String in flown:
+		if not ShipEconomy.tech_for(type_id).is_empty():
+			gated = type_id
+			break
+	assert_false(gated.is_empty(), "the crown flies a hull her studies have not opened")
+	var by_type: Dictionary = {}
+	for row: Dictionary in MapPlayFleetYard.rows(play, home):
+		by_type[String(row["type_id"])] = row
+	assert_true(
+		bool((by_type[gated] as Dictionary)["ok"]),
+		"%s is the crown's own craft and stays on the slip" % gated
+	)
+
+	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
+	MapPlayFleetYard.launch(play, gated)
+	assert_eq(econ.recruits.pending(RecruitQueue.KIND_SHIP, gated), 1, "the order is filed")
+	MapPlayRecruits.complete(play)
+	assert_eq(
+		_screen.ship_layer.hull_count_all(play.player_faction), hulls + 1,
+		"she lands at Build/work without her study"
+	)
+
+
+## The line reaches the sheet on both the launch rows and the break-up rows, so
+## a phone reads the hull's numbers with no hover (REQ-P5-06, REQ-P5-07).
+func test_the_shipyard_row_prints_the_hull_numbers() -> void:
+	var capital: int = _screen.play.capital_province
+	_screen.play.selected_province = capital
+	MapPlayFleetYard.open(_screen.play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var launch_row: Control = yard._box.get_child(1)
+	var first: Dictionary = yard._rows[0]
+
+	assert_true(
+		_printed_lines(launch_row).has(String(first["line"])),
+		"the launch row prints her numbers under her price"
+	)
+	yard._fleet = FleetState.in_port(1, 0, 0, ["frigate_1"], {"frigate_1": "frigate"})
+	var hull_row: Control = yard._hull_row("frigate_1")
+	assert_true(
+		_printed_lines(hull_row).has(FleetYard.hull_line("frigate")),
+		"the break-up row prints the same line"
+	)
+
+
+## Every wrapped detail line a drawer row carries: the price, the wait and now
+## the hull's own numbers.
+func _printed_lines(entry: Control) -> Array[String]:
+	var out: Array[String] = []
+	for child: Node in entry.get_children():
+		if child is Label:
+			out.append((child as Label).text)
+	return out
+
+
 ## A lost capital says why instead of opening a slip the crown cannot use.
 func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 	var play: PlaySession = _screen.play
@@ -1243,6 +1359,230 @@ func test_launching_queues_the_hull_and_pays_it_in_build_work() -> void:
 	assert_eq(econ.available_peasants(), peasants - 1, "the reservation became the muster")
 
 
+## The slip's one press lays down a hull for every ready type, Build/work musters
+## them all and the press stands down while they wait, so a second press cannot
+## double the line (REQ-P5-04, REQ-P5-05; DR-20261118-08).
+func test_the_shipyard_lays_down_every_ready_hull_in_one_press() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 60000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
+	var ready: Array[String] = FleetYard.batch_types(econ, true, MapPlayFleetYard.flown(play))
+	assert_gte(ready.size(), 2, "the slip offers more than one payable hull")
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var press: RaiseBatchPress = yard._batch
+	assert_not_null(press, "the slip carries the one press")
+	assert_eq(press.text, "Launch all ready (%d)" % ready.size(), "the face names the line")
+
+	press.pressed.emit()
+	press.pressed.emit()
+
+	assert_eq(
+		econ.recruits.pending_kind(RecruitQueue.KIND_SHIP),
+		ready.size(),
+		"one order per ready hull"
+	)
+	assert_true(
+		_last_toast().contains("%d hulls are laid down" % ready.size()),
+		_last_toast()
+	)
+	assert_false(press.visible, "every hull waits on her order, so the press stands down")
+
+	MapPlayRecruits.complete(play)
+
+	assert_eq(
+		_screen.ship_layer.hull_count_all(play.player_faction),
+		hulls + ready.size(),
+		"the whole slip launches at Build/work"
+	)
+	MapPlayFleetYard.open(play)
+	assert_true(press.visible, "a paid-off slip offers the next batch")
+
+
+## The slip with no squadron afloat re-reads its own ledger after a launch: the
+## redrawn rows print the orders the press filed and the press stands down, where
+## it once kept promising hulls the recruit queue already claimed (REQ-P5-04,
+## REQ-P5-05; DR-20261118-08).
+func test_the_slip_redraws_after_its_one_press() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 60000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	# A squadron away from her port: the capital's slip stands alone.
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture moors a home fleet")
+	home.location = FleetState.Location.AT_SEA
+	play.selected_province = capital
+	var ready: Array[String] = FleetYard.batch_types(
+		econ, true, MapPlayFleetYard.flown(play)
+	)
+	assert_gte(ready.size(), 2, "the slip offers more than one payable hull")
+	var pending: int = econ.recruits.pending_kind(RecruitQueue.KIND_SHIP)
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var press: RaiseBatchPress = yard._batch
+	assert_eq(press.text, "Launch all ready (%d)" % ready.size(), "the slip names its line")
+
+	press.pressed.emit()
+	press.pressed.emit()
+
+	var claimed: int = 0
+	for row: Dictionary in yard._rows:
+		claimed += int(row["pending"])
+		assert_false(bool(row["batch_ready"]), "%s waits on her order" % row["type_id"])
+	assert_eq(claimed, econ.recruits.pending_kind(RecruitQueue.KIND_SHIP),
+		"the redrawn slip prints every order it holds")
+	assert_eq(
+		econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending + ready.size(),
+		"one order per ready hull"
+	)
+	assert_eq(press.text, "Launch all ready (0)", "the face names an empty slip")
+	assert_false(press.visible, "the press stands down once her line waits on orders")
+
+	# The press the slip no longer offers files nothing more.
+	press.pressed.emit()
+	press.pressed.emit()
+	assert_eq(
+		econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending + ready.size(),
+		"a slip with nothing ready files nothing"
+	)
+
+
+## The batch speaks the same refusals a single launch does, before anything is
+## filed: a lost capital and an inland one both lay down no hull (REQ-P2-03;
+## DR-20261118-08).
+func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
+	var play: PlaySession = _screen.play
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 60000
+	econ.tech_unlocked["superior_hull_design"] = true
+	var pending: int = econ.recruits.pending_kind(RecruitQueue.KIND_SHIP)
+	play.capital_province = _unowned_province()
+	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
+	var toasts: int = _screen.hud._toast_box.get_child_count()
+
+	MapPlayFleetYard.on_action(play, "yard:launch_all")
+
+	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "nothing is filed")
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+
+	play.capital_province = _inland_owned_province()
+	assert_gte(play.capital_province, 0, "the fixture has an inland province")
+	MapPlayFleetYard.launch_all(play)
+
+	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "no yard inland")
+
+
+## The slip names what its whole line costs before it is pressed: the walk's own
+## sum and the purse it leaves under the press, and the same sum on the confirm
+## face — the opening press used to spend 19,500 of 20,000 ducats unseen
+## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
+func test_the_slip_names_the_whole_line_before_it_is_pressed() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	var econ: PlayerEconomy = play.economy.economy
+	econ.treasury = 20000
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	var craft: Array[String] = MapPlayFleetYard.flown(play)
+	var ready: Array[String] = FleetYard.batch_types(econ, true, craft)
+	assert_gte(ready.size(), 2, "the slip offers more than one payable hull")
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var press: RaiseBatchPress = yard._batch
+	var plan: Dictionary = FleetYard.batch_plan(econ, true, craft)
+	var spent: int = int(plan["ducats"])
+	assert_eq(spent, _sum_of_prices(ready), "the sum is the ready rows' own prices")
+	assert_lt(spent, 20000, "the opening line leaves the purse something")
+
+	# The sheet prints the reading, not a second copy of the arithmetic: the
+	# opening line is the one the playtest named (19,500 of the crown's 20,000).
+	var caption: String = _sum_label(yard)
+	assert_eq(
+		caption,
+		"19,500 ducats · 4 Lumber · 3 Fabric · 3 workers — the purse keeps 500 of 20,000.",
+		"the slip names the line and the purse it leaves"
+	)
+	assert_eq(caption, RaiseBatchSum.sheet_line(plan), "the sheet prints the plan")
+
+	press.pressed.emit()
+	press.pressed.emit()
+	assert_true(
+		_last_toast().contains(MoneyText.ducats(spent)),
+		"the receipt names what it paid: %s" % _last_toast()
+	)
+	assert_true(_last_toast().contains("%d hulls are laid down" % ready.size()), _last_toast())
+
+
+## A line the purse cannot carry says so before the press: the walk stops where
+## the rules stop and the sheet names how many of the ready hulls wait, and why
+## (REQ-P5-06; DR-20261118-11).
+func test_the_slip_names_the_hulls_a_short_purse_leaves_waiting() -> void:
+	var play: PlaySession = _screen.play
+	var capital: int = play.capital_province
+	play.selected_province = capital
+	var econ: PlayerEconomy = play.economy.economy
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	var craft: Array[String] = MapPlayFleetYard.flown(play)
+	var offered: Array[String] = FleetYard.batch_types(econ, true, craft)
+	assert_gte(offered.size(), 2, "the slip offers more than one payable hull")
+	# The purse pays the first hull of the yard's order and nothing after it.
+	econ.treasury = ShipEconomy.treasury_cost(offered[0])
+	assert_gte(offered.size(), 2, "the second hull is beyond the purse")
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var plan: Dictionary = FleetYard.batch_plan(econ, true, craft)
+	assert_eq(int(plan["filed"]), 1, "the walk stops where the purse does")
+	assert_false(String(plan["refusal"]).is_empty(), "the rule's own refusal is read")
+
+	var line: String = _sum_label(yard)
+	assert_true(line.contains("of %d wait" % int(plan["count"])), line)
+	assert_true(line.contains(String(plan["refusal"])), line)
+	assert_true(line.contains(MoneyText.ducats(int(plan["ducats"]))), line)
+
+
+## The sum of the ready rows' own prices, read the way the yard reads them.
+func _sum_of_prices(types: Array[String]) -> int:
+	var total: int = 0
+	for type_id: String in types:
+		total += ShipEconomy.treasury_cost(type_id)
+	return total
+
+
+## The one sum line the slip prints under its launch rows, "" when it prints none.
+## A row's own price line also names ducats, so the sum is read by the words only
+## it carries: the purse it leaves, or the hulls that wait.
+func _sum_label(yard: FleetYardBlock) -> String:
+	for child: Node in yard._box.get_children():
+		var label := child as Label
+		if label == null or not label.visible:
+			continue
+		if label.text.contains("the purse keeps") or label.text.contains(" wait"):
+			return label.text
+	return ""
+
+
 func test_breaking_up_a_hull_asks_once() -> void:
 	var capital: int = _screen.play.capital_province
 	_screen.play.selected_province = capital
@@ -1277,7 +1617,8 @@ func test_a_captured_port_sorts_the_home_squadron_out() -> void:
 	var seat: int = _owned_coastal_except(_screen.model, capital)
 	assert_gte(seat, 0, "the fixture owns another coast")
 	# A seat move first re-moors the home squadron away from the captured port.
-	var moved: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+	var moved: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer,
 		_screen.world,
 		[{
 			"faction": MapScreen.PLAYER_FACTION,
@@ -1294,8 +1635,8 @@ func test_a_captured_port_sorts_the_home_squadron_out() -> void:
 	var old_owner: int = data.owner
 	data.owner = 1
 
-	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
-		_screen.world, []
+	var reports: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer, _screen.world, []
 	)
 	data.owner = old_owner
 
@@ -1316,7 +1657,8 @@ func test_a_reassigned_seat_re_moors_the_home_squadron() -> void:
 	var seat: int = _owned_coastal_except(_screen.model, capital)
 	assert_gte(seat, 0, "the fixture owns another coast")
 
-	var reports: Array[Dictionary] = _screen.ship_layer.settle_port_losses(
+	var reports: Array[Dictionary] = ShipTurnPass.settle_port_losses(
+		_screen.ship_layer,
 		_screen.world,
 		[{
 			"faction": MapScreen.PLAYER_FACTION,
@@ -1380,8 +1722,8 @@ func test_a_squadron_marker_counts_its_hulls_and_strength() -> void:
 
 	var hull_id: String = home.hulls[home.hulls.size() - 1]
 	var count_before: int = home.ship_count()
-	var result: Dictionary = _screen.ship_layer.scrap_hull(
-		home, hull_id, _screen.play.economy.economy
+	var result: Dictionary = ShipYardOps.scrap_hull(
+		_screen.ship_layer, home, hull_id, _screen.play.economy.economy
 	)
 
 	assert_true(bool(result.get("ok", false)), String(result.get("reason", "")))

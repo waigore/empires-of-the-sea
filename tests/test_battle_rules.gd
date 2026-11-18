@@ -5,8 +5,10 @@ extends GdToolsTest
 ## Merged into one suite so coverage pays a single Godot boot per theme
 ## (docs/testing.md speed rules).
 ## Consolidated rulebook: quick battle, siege depth, battle sim, forts and
-## sieges, the hospital, army field rules, parity and the battle overlay
-## (one Godot boot per domain).
+## sieges, the capital fort grant, the hospital, army field rules, parity and
+## the battle overlay (one Godot boot per domain). Merged from
+## test_fort_capital so coverage does not pay a second boot for pure fort
+## grant cases (docs/testing.md § Speed rules).
 
 const Fixture = preload("res://tests/army_fixture.gd")
 const FACTIONS: Array[String] = ["España", "England", "France", "Portugal"]
@@ -2830,7 +2832,10 @@ func test_the_opposing_script_follows_the_published_order() -> void:
 ## A sally is a real sortie, not a label: the firearmless garrison leaves the
 ## wall (wiki: siege-mechanics § Gates and Sortie).
 func test_a_firearmless_garrison_sallies_when_no_one_commands_it() -> void:
-	var battle: Dictionary = _fight("balanced", _guards(8), _pikes(4), 1)
+	## The garrison must still stand when its turn comes: a line that has lost
+	## its last regiment spends no point, so a sally is read on a wall that
+	## holds men (wiki: quick-battle § Outcome and integration).
+	var battle: Dictionary = _fight("balanced", _guards(4), _pikes(10), 1)
 	assert_eq(String(battle["quick"]["defender_plan"]), "aggressive")
 	assert_true(int(battle["quick"]["sorties"]) > 0, "the garrison left the wall")
 
@@ -2847,6 +2852,79 @@ func test_an_unknown_plan_is_balanced() -> void:
 		),
 		"balanced", "a crown's unknown stance fights balanced"
 	)
+
+
+## Every blow a round records — a scripted order and the fort's own volley —
+## wears the one action shape the plate and the despatch read, so neither needs
+## a special case for the battery (REQ-P3-01).
+func test_every_blow_writes_the_one_action_shape() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(6), _guards(8), 3)
+	var skeleton: Dictionary = QuickBattleActions.action_entry(1, "battery", "Emplaced battery")
+	var saw_battery: bool = false
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			for key: String in skeleton.keys():
+				assert_true(action.has(key), "a blow carries %s" % key)
+			if String(action["action"]) == "battery":
+				saw_battery = true
+				assert_eq(String(action["label"]), "Emplaced battery")
+	assert_true(saw_battery, "the emplaced battery answers the siege")
+
+
+## A battery that hits nobody writes no action at all: the plate must not print
+## a silent volley (wiki: quick-battle § Wings and collapse).
+func test_a_silent_battery_writes_no_action() -> void:
+	var side: Array[ArmyState] = _rival(["guards", "guards", "guards", "guards"])
+	var state: Dictionary = {
+		"attacker": {"side": side, "limit": 10, "wings": {}, "broken": [],
+			"lost": [] as Array[String]},
+		"defender": {},
+	}
+	var silent: Array[Dictionary] = []
+	assert_true(
+		QuickBattleBattery.volley_entry(side, state, silent, 1).is_empty(),
+		"no gun, no volley"
+	)
+
+
+## The report slice is written from the facts read when the battle opened, so
+## the plate, the despatch and the rail read one shape (REQ-P2-03, REQ-P3-01).
+func test_the_report_slice_reads_the_opening_it_is_handed() -> void:
+	var state: Dictionary = {
+		"attacker": {"plan": "balanced", "side": [] as Array[ArmyState], "cohesion": 2,
+			"broken": []},
+		"defender": {"plan": "defensive", "side": [] as Array[ArmyState], "cohesion": 3,
+			"broken": []},
+	}
+	var opening: Dictionary = {
+		"attacker_start": 6,
+		"defender_start": 4,
+		"level": 2,
+		"downgraded": true,
+		"after": 1,
+		"wall": 2,
+		"behind": 1,
+		"terrain": "hill",
+		"gates": {"broken": 1},
+	}
+	var slice: Dictionary = QuickBattleReport.build(
+		state, [] as Array[Dictionary], [] as Array[Dictionary], {}, 1, opening,
+		{"attacker": {"limit": 10}, "defender": {"limit": 5}}, {}
+	)
+
+	assert_eq(int(slice["attacker_start"]), 6)
+	assert_eq(int(slice["defender_start"]), 4)
+	assert_eq(String(slice["terrain"]), "hill")
+	assert_eq(String(slice["terrain_label"]), SiegeLanes.terrain_label("hill"))
+	assert_eq(int(slice["lanes"]["wall"]), 2)
+	assert_eq(int(slice["lanes"]["behind"]), 1)
+	assert_eq(int(slice["breaches"]), 1)
+	assert_eq(int(slice["limits"]["defender"]), 5)
+	assert_eq(int(slice["attacker_cohesion"]), 2)
+	assert_eq(int(slice["sorties"]), 0)
+	assert_true(bool(slice["fort_downgraded"]))
+	assert_eq(int(slice["fort_after"]), 1)
+	assert_true(slice.has("wings_broken"), "the wings record rides the slice")
 
 
 func _rival(types: Array[String]) -> Array[ArmyState]:
@@ -3372,6 +3450,105 @@ func test_the_simulator_plate_walks_the_wings_it_records() -> void:
 	screen.free()
 
 
+## The sandbox fights the army the rail shows: an emptied side is refused by
+## name, never replaced by a default army the playtester never set (REQ-P2-03).
+func test_the_sandbox_fights_the_army_the_rail_shows() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 0], ["culverin", 0], ["knights", 0]])
+	assert_true(
+		(screen._setup.spec()["attacker"] as Array).is_empty(),
+		"an emptied rail fields no men"
+	)
+	screen._fight()
+	assert_true(screen._result.is_empty(), "a refused Fight resolves no battle")
+	assert_true(
+		screen._status.text.begins_with("The Attack fields no men"),
+		"the refusal names the empty side: %s" % screen._status.text
+	)
+	assert_true(screen._log.text.is_empty(), "a refused Fight writes no despatch")
+	screen._step()
+	assert_true(screen._result.is_empty(), "Next round cannot resolve a refused setup")
+	_sim_slots(screen._setup, "attacker", [["musketeers", 4], ["culverin", 0], ["knights", 0]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 0], ["musketeers", 0], ["culverin", 0]])
+	screen._fight()
+	assert_true(
+		screen._status.text.begins_with("The Garrison fields no men"),
+		"the garrison's emptiness is named too"
+	)
+	screen.free()
+
+
+## The step walk ends where the battle ends: Next round reaches every round the
+## record holds, then the aftermath, and only then starts the plate over. A
+## round the battle never fought has no door.
+func test_the_sandbox_walks_into_its_aftermath() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 6], ["culverin", 1], ["knights", 0]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 4], ["musketeers", 2], ["culverin", 0]])
+	screen._setup._fort.selected = 2
+	screen._fight()
+	var rounds: Array = screen._rounds()
+	assert_true(rounds.size() > 0, "Fight resolves a round")
+	for index in rounds.size():
+		screen._step()
+		assert_eq(screen._field.round_index, index, "step %d shows round %d" % [index, index + 1])
+	screen._step()
+	assert_eq(
+		screen._field.round_index, rounds.size() - 1,
+		"the step after the last round is the aftermath"
+	)
+	assert_false(screen._status.text.begins_with("Round "), "the aftermath is not a round")
+	screen._step()
+	assert_eq(screen._field.round_index, 0, "stepping past the aftermath starts the plate over")
+	for index in QuickBattle.MAX_ROUNDS:
+		var door: Button = screen._round_buttons.get_child(index) as Button
+		assert_eq(
+			door.disabled, index >= rounds.size(),
+			"round %d's door follows the rounds fought" % (index + 1)
+		)
+	screen.free()
+
+
+## The sandbox prints the sheet the game's plate prints: the line and the men
+## who waited behind it, and the honours and citations the colours won — a
+## sandbox that reads fewer lines than the game hides its subject (REQ-P5-05).
+func test_the_sandbox_prints_the_games_aftermath() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 20], ["culverin", 20], ["knights", 20]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 4], ["musketeers", 3], ["culverin", 1]])
+	screen._setup._attacker_plan.selected = 1
+	screen._setup._terrain.selected = 1
+	screen._fight()
+	var report: Dictionary = screen._result["report"]
+	var deployed: int = int(report.get("attacker_deployed", 0))
+	var reserve: int = int(report.get("attacker_reserve", 0))
+	assert_true(reserve > 0, "the rail seats an army larger than the line")
+	assert_true(
+		screen._log.text.contains("Line — The Attack: %d of %d in the line" % [deployed, deployed + reserve]),
+		"the despatch names the men who waited behind the line"
+	)
+	assert_true(screen._log.text.contains("Ground — "), "broken ground is named")
+	if int(report.get("attacker_honours", 0)) > 0:
+		assert_true(screen._log.text.contains("Honours — "), "the colours' honours are printed")
+	if int(report.get("attacker_citations", 0)) > 0:
+		assert_true(screen._log.text.contains("Citations — "), "the colours' citations are printed")
+	for round: Dictionary in screen._rounds():
+		for action: Dictionary in round.get("actions", []) as Array:
+			assert_true(
+				screen._log.text.contains(
+					QuickBattleCopy.action_line(action, report, BattleSimScreen.NAMES)
+				),
+				"every resolved action reaches the despatch"
+			)
+	screen.free()
+
+
 ## Fills the sandbox's setup rail: one [type, count] per slot.
 func _sim_slots(setup: BattleSimSetup, side: String, rows: Array) -> void:
 	var slots: Array = setup._attacker_slots if side == "attacker" else setup._defender_slots
@@ -3397,6 +3574,110 @@ func test_a_line_that_lost_every_wing_still_shows_its_chips() -> void:
 		QuickBattleField.wings_shown({"left": 0, "center": 0, "right": 0}, []),
 		"a garrison holds no wings, so it draws no chips"
 	)
+
+
+## The chips are the plate's smallest furniture: on a short plate (a handset's)
+## they grow so three still read, and a tall plate keeps the published size
+## (REQ-P1-07).
+func test_the_wing_chips_grow_on_a_short_plate() -> void:
+	assert_eq(QuickBattleField.chip_scale(400.0), 1.0, "a tall plate is unchanged")
+	assert_eq(QuickBattleField.chip_scale(300.0), 1.0)
+	assert_true(QuickBattleField.chip_scale(160.0) > 1.0, "a handset plate grows its chips")
+	assert_eq(
+		QuickBattleField.chip_scale(40.0), QuickBattleField.CHIP_SCALE_MAX,
+		"the growth is capped so the chips never swamp the line"
+	)
+
+
+## The plate is a soft overlay the court must be able to leave: on a landscape
+## handset the painted field gives way so the Skip and Continue doors stay on
+## the screen (REQ-P1-07, REQ-P5-06).
+func test_the_battle_plate_fits_a_landscape_handset() -> void:
+	var report: Dictionary = BattleScenario.fight({
+		"attacker": ["musketeers", "musketeers", "culverin", "knights"],
+		"defender": ["pikemen", "pikemen", "musketeers", "culverin"],
+		"fort": 2, "terrain": "open", "attacker_plan": "balanced",
+		"defender_plan": "defensive", "seed": 11,
+	})["report"]
+	for size: Vector2i in [Vector2i(800, 360), Vector2i(914, 411)]:
+		var viewport := SubViewport.new()
+		viewport.size = size
+		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+		add_child(viewport)
+		var overlay := QuickBattleOverlay.new()
+		viewport.add_child(overlay)
+		await get_tree().process_frame
+		await get_tree().process_frame
+		overlay.show_battle(report, "Cadiz", ["Spain", "England"])
+		await get_tree().process_frame
+		var panel: Control = overlay._panel
+		assert_true(
+			panel.get_global_rect().end.y <= float(size.y),
+			"the plate runs off a %s screen" % str(size)
+		)
+		var cont: Control = overlay._continue
+		assert_true(
+			cont.get_global_rect().end.y <= float(size.y),
+			"the Continue door is off a %s screen" % str(size)
+		)
+		assert_true(
+			overlay.field.custom_minimum_size.y >= BattlePlateFrame.BODY_MIN,
+			"the field keeps a readable floor"
+		)
+		overlay.free()
+		viewport.free()
+
+
+## The instrument is a phone-and-tablet tool too: below three columns it stacks
+## the rail, the plate and the despatches into one scrolling column, so nothing
+## is clipped off a handset (REQ-P1-05, REQ-P5-07).
+func test_the_simulator_stacks_on_a_handset() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(360, 640)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	viewport.add_child(screen)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_true(screen._stacked, "a handset stacks the instrument")
+	assert_true(screen._row is ScrollContainer, "the stacked column scrolls")
+	var width: float = 360.0
+	for panel: Control in [screen._setup, screen._field, screen._log_panel]:
+		assert_true(
+			panel.get_global_rect().end.x <= width,
+			"a panel runs off the handset: %s" % str(panel.get_global_rect())
+		)
+	assert_true(
+		screen._setup.get_global_rect().end.y <= screen._field.get_global_rect().position.y,
+		"the rail stands above the plate"
+	)
+	assert_true(
+		screen._field.get_global_rect().end.y <= screen._log_panel.get_global_rect().position.y,
+		"the despatches stand below the plate"
+	)
+	screen._fight()
+	assert_false(screen._result.is_empty(), "the stacked instrument still fights")
+	screen.free()
+	viewport.free()
+
+
+## A desktop keeps the three columns it always had.
+func test_the_simulator_keeps_three_columns_on_a_desktop() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1280, 720)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	viewport.add_child(screen)
+	await get_tree().process_frame
+	await get_tree().process_frame
+	assert_false(screen._stacked, "a desktop keeps its columns")
+	assert_true(screen._row is HBoxContainer)
+	assert_eq(screen._setup.custom_minimum_size.x, 320.0)
+	assert_eq(screen._log_panel.custom_minimum_size.x, 380.0)
+	screen.free()
+	viewport.free()
 
 # --- naming, order of battle and settlement ---
 
@@ -7570,7 +7851,7 @@ func test_land_the_opposing_script_follows_the_published_order() -> void:
 ## A sally is a real sortie, not a label: the firearmless garrison leaves the
 ## wall (wiki: siege-mechanics § Gates and Sortie).
 func test_land_a_firearmless_garrison_sallies_when_no_one_commands_it() -> void:
-	var battle: Dictionary = _quick_battle_rules_fight("balanced", land__guards(8), land__pikes(4), 1)
+	var battle: Dictionary = _quick_battle_rules_fight("balanced", land__guards(4), land__pikes(10), 1)
 	assert_eq(String(battle["quick"]["defender_plan"]), "aggressive")
 	assert_true(int(battle["quick"]["sorties"]) > 0, "the garrison left the wall")
 
@@ -8809,6 +9090,156 @@ func test_the_wings_line_names_a_broken_wing() -> void:
 	assert_false(text.contains("England"), "a side with no wings is not named")
 
 
+## The wings line lists several breaks as prose, not as a chain of "and": a line
+## that has lost all three wings reads "right, left and centre broken".
+func test_the_wings_line_lists_three_breaks_as_prose() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"quick": {
+			"wings_open": {"attacker": {"left": 1, "center": 2, "right": 1}},
+			"wings": {"attacker": {"left": 0, "center": 0, "right": 0}},
+			"wings_broken": {"attacker": ["left", "center", "right"]},
+		},
+	}
+	var text: String = QuickBattleCopy.wings_line(battle, ["España", "England"])
+
+	assert_true(text.contains("left, centre and right broken"), text)
+	assert_false(text.contains(" and centre and "), text)
+
+
+## A blow lands on a wing that still holds men: when the enemy line has lost its
+## last regiment the blow names no wing at all, because a name would point at
+## the fallen (wiki: quick-battle § Wings and collapse).
+func test_a_blow_into_an_empty_line_names_no_wing() -> void:
+	var attacker: Array[ArmyState] = _lane_side(_guards(6), 2)
+	var spent: Array[ArmyState] = _lane_side([] as Array[String], 1)
+	var armies: Array[ArmyState] = _lane_joined(attacker, spent)
+	var state: Dictionary = _lane_state(attacker, spent, 0)
+	state["defender"]["wings"] = QuickBattleWings.deploy(spent, 10)
+
+	var entry: Dictionary = QuickBattleActions.resolve(
+		armies, state, "attacker", "defender", "volley", [] as Array[Dictionary]
+	)
+
+	assert_eq(String(entry["wing"]), "", "a name would point at the fallen")
+	assert_eq(int(entry["defender_lost"]), 0)
+
+
+## A wing beside one that has broken is taken in flank, and the blow keeps the
+## scale so the despatch can say why the same fire cost more: one neighbour
+## turned, both encircled (wiki: quick-battle § Wings and collapse).
+func test_a_turned_flank_is_named_on_the_blow() -> void:
+	var turned: Dictionary = _wing_volley(["left"])
+	var encircled: Dictionary = _wing_volley(["left", "right"])
+
+	assert_eq(float(turned["flank"]), QuickBattleWings.TURNED_SCALE, "one neighbour")
+	assert_eq(float(encircled["flank"]), QuickBattleWings.ENCIRCLED_SCALE, "both")
+	assert_true(_line_text(turned).contains("its flank is turned"), _line_text(turned))
+	assert_true(
+		_line_text(encircled).contains("taken from three sides"), _line_text(encircled)
+	)
+	assert_false(
+		_line_text(_wing_volley([])).contains("flank"),
+		"an intact wing reads plainly"
+	)
+
+
+## A break is named on the line whose wing it was: the enemy's as "the …", the
+## actor's own as "its own …", and never merged into one clause (wiki:
+## quick-battle § Wings and collapse).
+func test_a_break_names_the_line_it_broke() -> void:
+	var action: Dictionary = {
+		"side": 2, "label": "Assault", "attacker_lost": 1, "defender_lost": 2,
+		"wing": "right", "wing_broken": ["right"], "own_broken": ["left"],
+	}
+
+	var text: String = _line_text(action)
+
+	assert_true(text.contains("into the right"), text)
+	assert_true(text.contains("the right breaks"), text)
+	assert_true(text.contains("its own left breaks"), text)
+	assert_false(text.contains("right and left"), "the two lines are not merged")
+
+
+## A sally is told where it costs: the sortie leaves the parapet, so the wall no
+## longer shelters the garrison that round (wiki: quick-battle § Turn structure
+## and actions — Sortie; siege-mechanics § Gates and Sortie).
+func test_a_sortie_says_the_wall_stands_open() -> void:
+	var action: Dictionary = {
+		"side": 1, "label": "Sortie", "sortie": true,
+		"attacker_lost": 2, "defender_lost": 1,
+	}
+
+	var text: String = _line_text(action)
+
+	assert_true(text.contains("the wall stands open"), text)
+	assert_false(
+		_line_text({"side": 1, "label": "Volley fire"}).contains("wall"),
+		"firing from the wall names no opening"
+	)
+
+
+## Two wings lost at once read as one plural clause: "the left and right break".
+func test_two_wings_breaking_read_as_a_plural() -> void:
+	var action: Dictionary = {
+		"side": 2, "label": "Assault", "attacker_lost": 1, "defender_lost": 2,
+		"wing": "right", "wing_broken": ["left", "right"],
+	}
+
+	var text: String = _line_text(action)
+
+	assert_true(text.contains("the left and right break"), text)
+
+
+## A line that has lost its last regiment spends no point and delivers no blow:
+## the fight ends on the blow that emptied it, mid-round as between rounds
+## (wiki: quick-battle § Outcome and integration).
+func test_a_spent_line_takes_no_more_actions() -> void:
+	var battle: Dictionary = _fight("balanced", _guards(12), _levies(1))
+	var quick: Dictionary = battle["quick"]
+	var emptied: bool = false
+	for round: Dictionary in quick["rounds"] as Array:
+		if int(round["defender_count"]) == 0:
+			emptied = true
+		for action: Dictionary in round["actions"] as Array:
+			if int(action["side"]) != int(battle["defender"]):
+				continue
+			assert_false(
+				emptied,
+				"the emptied line still acted in round %s" % round["round"]
+			)
+	assert_true(emptied, "the fight emptied the defender's line")
+
+
+## A battle whose own assault empties one of its wings writes that break on the
+## actor's own line, never among the enemy's (wiki: quick-battle § Wings and
+## collapse).
+func test_the_record_keeps_the_actors_own_break_apart() -> void:
+	var battle: Dictionary = _fight(
+		"aggressive",
+		["guards", "guards", "guards", "guards", "knights", "squires"],
+		["pikemen", "pikemen", "musketeers", "lancers", "cossacks"]
+	)
+	var named: int = 0
+	for round: Dictionary in battle["quick"]["rounds"] as Array:
+		for action: Dictionary in round["actions"] as Array:
+			if (action.get("own_broken", []) as Array).is_empty():
+				continue
+			named += 1
+			assert_true(
+				_line_text(action).contains("its own"), _line_text(action)
+			)
+	assert_true(named > 0, "an assault that breaks its own wing names it apart")
+
+
+## The despatch of one blow, as the plate prints it.
+func _line_text(action: Dictionary) -> String:
+	return QuickBattleCopy.action_line(
+		action, {"attacker": 2, "defender": 1}, ["España", "England"]
+	)
+
+
 ## The garrison's emplaced guns are a blow like any other: they fire into one
 ## wing of the besieging line — the fullest — and the men on the other wings are
 ## untouched (wiki: quick-battle § Wings and collapse).
@@ -8920,3 +9351,210 @@ func test_a_battery_blow_names_its_wing_and_the_break_it_makes() -> void:
 		int(final["left"]) + int(final["center"]) + int(final["right"]),
 		int(quick["attacker_left"]), "the record's wings agree with the line left"
 	)
+
+# --- fort capital grant (from test_fort_capital) --------------------------------
+## An Old World capital opens behind a Wood wall, and a Great Power's fort tech
+## lifts its own capital one level once (wiki: siege-mechanics § Fort Levels;
+## issue #919). Hand-built charts: a province id is its index in `provinces`.
+
+const OLD_WORLD: int = FactionCatalog.OLD_WORLD
+const NEW_WORLD: int = FactionCatalog.NEW_WORLD
+
+var great_power: int = FactionCatalog.PLAYER_FACTION
+var other_power: int = FactionCatalog.great_power_ids()[1]
+var minor: int = FactionCatalog.minor_ids()[0]
+
+
+## One chart with one capital province per entry of `owners`, in order.
+func _fort_capital_chart(region_id: int, owners: Array) -> MapModel:
+	var model := MapModel.new()
+	model.region_id = region_id
+	model.setup(owners.size() * 2, 2)
+	for index in owners.size():
+		var tiles: Array[Vector2i] = []
+		model.provinces.append(ProvinceState.create(
+			index, "Province %d" % index, tiles, Vector2.ZERO, 1,
+			int(owners[index]), true
+		))
+	return model
+
+
+func _fort_capital_world(model: MapModel) -> WorldMap:
+	var world := WorldMap.new()
+	world.add_region(model)
+	return world
+
+
+# --- start grant -------------------------------------------------------------
+
+
+## Both kinds of Old World seat — Great Power and Minor — open behind a Wood
+## wall, and the bootstrap reports what it raised.
+func test_every_old_world_capital_opens_behind_a_wood_wall() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power, other_power, minor])
+	var report: Dictionary = WorldBootstrap.apply(model, LandWorks.new())
+	assert_eq(int(report["capital_forts"]), 3, "every capital was walled")
+	for province: ProvinceState in model.provinces:
+		assert_eq(
+			province.fort_level, FortCapital.START_LEVEL,
+			"capital of %d is Wood" % province.owner
+		)
+		assert_eq(
+			FortRules.level_name(province.fort_level), "Wood",
+			"the start level is the Wood tier"
+		)
+
+
+## A New World chart keeps its tribe seats open: the grant is an Old World rule.
+func test_a_new_world_seat_is_left_open() -> void:
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	var model: MapModel = _fort_capital_chart(NEW_WORLD, [tribe])
+	var report: Dictionary = WorldBootstrap.apply(model, LandWorks.new())
+	assert_eq(int(report["capital_forts"]), 0)
+	assert_eq(model.provinces[0].fort_level, 0, "a tribe's seat carries no wall")
+
+
+## The grant only raises: a hand-built chart that already walls its seat keeps
+## the wall it drew.
+func test_the_grant_never_lowers_a_wall() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
+	model.provinces[0].fort_level = FortRules.MAX_LEVEL
+	assert_eq(FortCapital.seed(model), 0)
+	assert_eq(model.provinces[0].fort_level, FortRules.MAX_LEVEL)
+
+
+# --- the free bump -----------------------------------------------------------
+
+
+## Mine Engineering lifts the crown's own capital to Stone and Modern Forts to
+## Modern, each at its own unlock; a repeat read of the same study moves nothing.
+func test_a_great_power_fort_tech_lifts_its_capital_once() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
+	var world: WorldMap = _fort_capital_world(model)
+	FortCapital.seed(model)
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["mine_engineering"]}),
+		FortCapital.LEVELS["mine_engineering"],
+		"the crown's capital reaches Stone"
+	)
+	assert_eq(model.provinces[0].fort_level, 2)
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["mine_engineering"]}),
+		0, "the same study never bumps twice"
+	)
+	assert_eq(model.provinces[0].fort_level, 2)
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["modern_forts"]}),
+		FortCapital.LEVELS["modern_forts"],
+		"Modern Forts carries the capital to the top tier"
+	)
+	assert_eq(model.provinces[0].fort_level, 3)
+
+
+## A court that finishes a study without a wall in it keeps its wall as it was.
+func test_a_study_with_no_fort_in_it_moves_nothing() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
+	var world: WorldMap = _fort_capital_world(model)
+	FortCapital.seed(model)
+	assert_eq(FortCapital.apply_research(world, great_power, {"researched": ["navigation"]}), 0)
+	assert_eq(FortCapital.apply_research(world, great_power, {}), 0)
+	assert_eq(model.provinces[0].fort_level, 1)
+
+
+## Minors never take the free bump: their walls are what an Engineer builds
+## (wiki: siege-mechanics § Fort Levels — the grant is a Great Power rule).
+func test_a_minor_keeps_only_the_wall_it_built() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [minor])
+	var world: WorldMap = _fort_capital_world(model)
+	FortCapital.seed(model)
+	assert_eq(model.provinces[0].owner, minor)
+	assert_eq(FortCapital.apply_research(world, minor, {"researched": ["modern_forts"]}), 0)
+	assert_eq(model.provinces[0].fort_level, 1, "a Minor stays at its Wood wall")
+
+
+## The bump is a moment, not a floor: a capital taken down by a siege is not
+## raised again by the rule that once lifted it. Only a later fort study of its
+## own lifts it (Modern Forts below).
+func test_a_siege_downgrade_is_not_restored() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
+	var world: WorldMap = _fort_capital_world(model)
+	FortCapital.seed(model)
+	FortCapital.apply_research(world, great_power, {"researched": ["mine_engineering"]})
+	assert_eq(model.provinces[0].fort_level, 2)
+	model.provinces[0].fort_level = 0  # the besieging train took the last gun
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["navigation"]}),
+		0, "a later turn's study restores nothing"
+	)
+	assert_eq(model.provinces[0].fort_level, 0, "the wall stays down until rebuilt")
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["modern_forts"]}),
+		FortCapital.LEVELS["modern_forts"], "only its own fort study lifts it again"
+	)
+	assert_eq(model.provinces[0].fort_level, 3)
+
+
+## A capital already above the unlock's level is left where it stands.
+func test_a_wall_above_the_unlock_is_left_alone() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power])
+	var world: WorldMap = _fort_capital_world(model)
+	model.provinces[0].fort_level = FortRules.MAX_LEVEL
+	assert_eq(
+		FortCapital.apply_research(world, great_power, {"researched": ["mine_engineering"]}),
+		0
+	)
+	assert_eq(model.provinces[0].fort_level, FortRules.MAX_LEVEL)
+
+
+# --- the turn close ----------------------------------------------------------
+
+
+## The turn close reads both books: the rivals' rows and the crown's own report
+## name the studies that finished, and each Great Power's capital follows its
+## own ledger. A rival's row is the whole economy report, so its research phase
+## rides under `research` — the shape `EconomyTurn.resolve` files and the
+## Gazette and spy despatch read.
+func test_the_turn_close_lifts_each_courts_own_capital() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power, other_power, minor])
+	FortCapital.seed(model)
+	var play := PlaySession.new()
+	play.world = _fort_capital_world(model)
+	play.player_faction = great_power
+	var book := MapPlayTurnFinish.TurnBook.new()
+	book.crown_report = {"research": {"researched": ["modern_forts"]}}
+	book.economy_report = {"factions": {
+		other_power: {"resolved": {"research": {"researched": ["mine_engineering"]}}},
+		minor: {"resolved": {"research": {"researched": ["modern_forts"]}}},
+	}}
+	MapPlayTurnFinish._fort_upgrades(play, book)
+	assert_eq(model.provinces[0].fort_level, 3, "the crown's capital reached Modern")
+	assert_eq(model.provinces[1].fort_level, 2, "the rival's capital reached Stone")
+	assert_eq(model.provinces[2].fort_level, 1, "the Minor keeps its Wood wall")
+
+
+## A rival's row is the economy report, not the research report: the step reads
+## the nested `research` slot the ledger files. A row whose top level carries no
+## research phase moves nothing, and a row that is not a report at all is
+## skipped rather than trusted.
+func test_the_turn_close_reads_the_nested_research_report() -> void:
+	var model: MapModel = _fort_capital_chart(OLD_WORLD, [great_power, other_power])
+	FortCapital.seed(model)
+	var play := PlaySession.new()
+	play.world = _fort_capital_world(model)
+	play.player_faction = great_power
+	var book := MapPlayTurnFinish.TurnBook.new()
+	book.crown_report = {}
+	book.economy_report = {"factions": {
+		other_power: {"resolved": {"consumption": {}, "researched": ["mine_engineering"]}},
+	}}
+	MapPlayTurnFinish._fort_upgrades(play, book)
+	assert_eq(
+		model.provinces[1].fort_level, 1,
+		"a study filed outside the research phase lifts no wall"
+	)
+	book.economy_report = {"factions": {other_power: {"resolved": null}}}
+	MapPlayTurnFinish._fort_upgrades(play, book)
+	assert_eq(model.provinces[1].fort_level, 1, "a row with no report is skipped")
+	book.economy_report = {"factions": {other_power: {"resolved": {"research": null}}}}
+	MapPlayTurnFinish._fort_upgrades(play, book)
+	assert_eq(model.provinces[1].fort_level, 1, "a row with no research phase is skipped")

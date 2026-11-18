@@ -124,7 +124,7 @@ static func _row(
 		CivilianWork.cost_for("upgrade_town", next_level)
 	)
 	var turns: int = CivilianWorkPlan.duration_for(model, "upgrade_town", town, null)
-	var refusal: String = CivilianWorkPlan.town_upgrade_refusal(
+	var refusal: String = CivilianWorkRefusals.town_upgrade(
 		province, tech_unlocked, stockpile
 	)
 	var crew: CivilianState = RaiseLedger.crew_for(
@@ -135,7 +135,7 @@ static func _row(
 		# The town tile is shared with the wall and the ward, so another crew
 		# already at work there is the order's own refusal, not a press (wiki:
 		# civilian-units § Per-player tile exclusivity).
-		refusal = CivilianWorkPlan.tile_busy_refusal(units, hand, town)
+		refusal = CivilianWorkRefusals.tile_busy(units, hand, town)
 	# What the next step waits on, worst first: a finished town, a crew already
 	# at work, the study, the stores or the busy tile the order needs, a free
 	# Builder, else the order is open.
@@ -153,6 +153,15 @@ static func _row(
 	row["next_level"] = next_level
 	row["next_text"] = level_text(next_level)
 	row["note"] = _note(state, next_level, cost_text, turns, refusal, crew)
+	# What the level buys, priced beside the step: the manufacture bonus the
+	# Extraction phase pays it and the works its level opens. A finished town and
+	# one already being raised have no level to price (REQ-P2-03, REQ-P5-06;
+	# DR-20261118-06).
+	row["preview_text"] = (
+		TownTerms.level_line(next_level)
+		if state != STATE_DEVELOPED and state != STATE_AT_WORK
+		else ""
+	)
 	return row
 
 

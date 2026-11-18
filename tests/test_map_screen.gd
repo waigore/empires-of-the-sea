@@ -292,8 +292,9 @@ func test_end_turn_advances_the_calendar_and_files_every_courts_rations() -> voi
 ## legacy default: a court that sails as England must still fight at the
 ## published feeding band, and her record must not land on Spain
 ## (wiki: combat § Feeding modifiers; game-setup § Human/AI slot assignment).
+## Books the suite's one mount as England — no second chart under coverage.
 func test_the_chosen_crowns_rations_are_filed_under_its_own_colour() -> void:
-	var english: MapScreen = Fixture.attach_screen(self, 1)
+	var english: MapScreen = Fixture.attach_faction_screen(_screen, 1)
 	assert_eq(english.play.player_faction, 1)
 	MapPlayTurn.end_turn(english.play)
 	Fixture.settle(english.play)
@@ -307,7 +308,6 @@ func test_the_chosen_crowns_rations_are_filed_under_its_own_colour() -> void:
 		coverage, 0.001,
 		"the chosen crown's record is her own consumption"
 	)
-	english.free()
 
 
 func test_the_recruit_order_opens_the_home_army_drill_yard() -> void:
@@ -2365,7 +2365,12 @@ func _owned_plains_tile(province_id: int) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
-func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
+## One turn completes a Builder's estate and an Engineer's wood fort: materials
+## leave at the press, the improvement lands, the fort despatch names the wall
+## and its gun, and both crews idle again (wiki: civilian-units; siege-mechanics
+## § Fort Levels, § Emplaced Artillery; REQ-P5-05). Two end_turns used to pay
+## the same Build/work pass twice under coverage.
+func test_a_work_order_and_a_fort_complete_on_the_same_turn() -> void:
 	var tile: Vector2i = _buildable_owned_resource_tile()
 	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
 	var builder: CivilianState = _screen.civilian_layer.units[1]
@@ -2376,10 +2381,35 @@ func test_a_work_order_costs_materials_and_completes_on_end_turn() -> void:
 	MapPlayCivilians.on_action(_screen.play, "build_improvement")
 	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
 	assert_true(builder.is_working())
+
+	var engineer: CivilianState = null
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.type_id == "engineer":
+			engineer = unit
+			break
+	assert_true(engineer != null, "the crown keeps an Engineer")
+	var province: int = _screen.model.province_at(engineer.tile.x, engineer.tile.y)
+	_screen.stockpile["lumber"] = 40
+	_screen.stockpile["bronze"] = 12
+	_screen.civilian_layer.select(engineer)
+	# The seat opens behind the Wood wall every Old World capital starts with
+	# (issue #919), and a build there would order Stone (gated by Mine
+	# Engineering). This case is about the completion line, so it orders the
+	# first level from open ground.
+	_screen.model.province_data(province).fort_level = 0
+	MapPlayCivilians.on_action(_screen.play, "build_fort")
+	assert_true(engineer.is_working(), "the order is taken from the dossier")
+
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
+
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
+	assert_eq(FortRules.level_at(_screen.model, province), 1)
+	var said: String = _toast_text()
+	assert_true(said.contains("wood fort raised"), said)
+	assert_true(said.contains("1 emplaced gun"), said)
+	assert_true(engineer.is_idle())
 
 
 ## The chart carries the pick (DR-20261117-07): the survey lens is mounted with
@@ -2409,33 +2439,6 @@ func test_the_survey_lens_marks_the_ground_the_court_would_work() -> void:
 		"the ground the court named is marked on the chart"
 	)
 	assert_false(builder.is_working(), "a reading, not an order")
-
-
-## A wall is the one work whose completion changes how the province is fought
-## over, so the despatch names the level raised and the battery it mounts — a
-## crown that spent its materials and a turn learns what it bought (wiki:
-## siege-mechanics § Fort Levels, § Emplaced Artillery; REQ-P5-05).
-func test_a_finished_fort_names_the_wall_it_raised() -> void:
-	var engineer: CivilianState = null
-	for unit: CivilianState in _screen.civilian_layer.units:
-		if unit.type_id == "engineer":
-			engineer = unit
-			break
-	assert_true(engineer != null, "the crown keeps an Engineer")
-	var province: int = _screen.model.province_at(engineer.tile.x, engineer.tile.y)
-	_screen.stockpile["lumber"] = 40
-	_screen.stockpile["bronze"] = 12
-	_screen.civilian_layer.select(engineer)
-
-	MapPlayCivilians.on_action(_screen.play, "build_fort")
-	assert_true(engineer.is_working(), "the order is taken from the dossier")
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-
-	assert_eq(FortRules.level_at(_screen.model, province), 1)
-	var said: String = _toast_text()
-	assert_true(said.contains("wood fort raised"), said)
-	assert_true(said.contains("1 emplaced gun"), said)
 
 
 ## The hire is a BuildUnitOrder: the press queues it, and Build/work pays the
@@ -2663,16 +2666,14 @@ func test_each_region_keeps_its_own_fleets() -> void:
 	assert_eq(old_fleet.sea_zone, old_zone)
 
 
-func test_end_turn_restores_orders_in_the_region_off_screen() -> void:
-	var fleet: FleetState = _screen.ship_layer.fleets[0]
-	fleet.moved = true
-	_screen._cycle_region()
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-	assert_false(fleet.moved, "a fleet must be ready when its map reopens")
+## One off-screen turn restores orders on the chart left behind and resolves a
+## sea fight staged there: a moved home squadron is ready when its map reopens,
+## and a contested New World zone still settles while the Old World is up
+## (wiki: ships-and-naval). Two end_turns used to pay the same pass twice.
+func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
+	var home_fleet: FleetState = _screen.ship_layer.fleets[0]
+	home_fleet.moved = true
 
-
-func test_battles_resolve_in_the_region_off_screen() -> void:
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 1)
 	var zone: int = _screen.model.sea_zones[0].id
@@ -2702,6 +2703,7 @@ func test_battles_resolve_in_the_region_off_screen() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
 
+	assert_false(home_fleet.moved, "a fleet must be ready when its map reopens")
 	var hulls_after: int = first.ship_count() + second.ship_count()
 	if hulls_after == hulls_before:
 		assert_ne(
@@ -3092,9 +3094,10 @@ func test_new_game_assigns_a_leader_to_every_great_power() -> void:
 
 
 func test_setup_leader_choice_reaches_land_combat() -> void:
-	# A second crown's opening, on its own screen: the suite's shared chart keeps
-	# the fixture's seat for every other case.
-	var chosen: MapScreen = Fixture.attach_screen(self, 2, "napoleon")
+	# A second crown's opening on the suite mount: book France + Napoleon the way
+	# setup would, then prove combat and the turn still read that key. before_each
+	# re-seats the shared save so the borrowed crown never outlives the case.
+	var chosen: MapScreen = Fixture.attach_faction_screen(_screen, 2, "napoleon")
 	var play: PlaySession = chosen.play
 	assert_eq(play.player_faction, 2)
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "the human crown keeps its choice")
@@ -3104,7 +3107,6 @@ func test_setup_leader_choice_reaches_land_combat() -> void:
 	MapPlayTurn.end_turn(play)
 	Fixture.settle(play)
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
-	chosen.free()
 
 
 func test_the_home_fleet_carries_a_field_army_across_its_port() -> void:

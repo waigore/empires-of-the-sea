@@ -1503,8 +1503,8 @@ func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
 	assert_eq(ai.sea_zone, 0, "the rival standard now shares the human's zone")
 	assert_true(ai.moved)
 	assert_eq(human.sea_zone, 0, "the human squadron is never planned")
-	var battles: Array[Dictionary] = layer.resolve_battles(
-		world, func(a: int, b: int) -> bool: return a != b
+	var battles: Array[Dictionary] = ShipTurnPass.resolve_battles(
+		layer, world, func(a: int, b: int) -> bool: return a != b
 	)
 	assert_eq(battles.size(), 1, "the contested zone fights this turn")
 	assert_eq(int(battles[0]["zone"]), 0)
@@ -2576,9 +2576,13 @@ func test_the_pick_words_every_order_kind() -> void:
 	)
 	assert_eq(String(ward["short"]), "raise the L1 ward")
 	assert_true(String(ward["line"]).contains("rests"), String(ward["line"]))
-	assert_eq(
-		String(_pick_of("upgrade_town", CivilianFixture.BARE_TILE, model, works)["short"]),
-		"raise the town to L2"
+	var town_pick: Dictionary = _pick_of(
+		"upgrade_town", CivilianFixture.BARE_TILE, model, works
+	)
+	assert_eq(String(town_pick["short"]), "raise the town to L2")
+	assert_true(
+		String(town_pick["line"]).contains("L2 pays 1 manufacture per 4 raw"),
+		"the pick names what the level pays, not only the step: %s" % town_pick["line"]
 	)
 	var survey: Dictionary = _pick_of("explore", CivilianFixture.BARE_TILE, model, works)
 	assert_eq(String(survey["short"]), "survey Cádiz")
@@ -2724,6 +2728,27 @@ func test_map_phase_resolves_rival_economies_and_civilian_work() -> void:
 		"rival training keeps the opening staff and may hire for work"
 	)
 	layer.free()
+
+
+## Each rival row files the whole economy report under `resolved`, and the
+## research phase rides under its own `research` key — the slot the turn close's
+## fort step, the Gazette's research report and the spy despatch read. A reader
+## that takes `resolved` for the research report sees no finished study at all
+## (wiki: siege-mechanics § Fort Levels; issue #919).
+func test_map_phase_files_the_research_report_the_turn_close_reads() -> void:
+	var play: PlaySession = _rival_economy_play()
+	var report: Dictionary = MapPlayEconomyAi.run(play)
+	var resolved: Dictionary = report["factions"][1]["resolved"]
+	assert_true(resolved.has("research"), "the research phase is a key of the report")
+	assert_true(
+		(resolved["research"] as Dictionary).has("researched"),
+		"the finished studies are filed inside the research phase"
+	)
+	assert_false(
+		resolved.has("researched"),
+		"and never at the economy report's top level, where the fort step looked"
+	)
+	play.civilian_layer.free()
 
 
 ## The economy pass reads the footing's market slot: a court at war bids only
@@ -4062,6 +4087,89 @@ func test_a_court_at_war_opens_no_speculative_bid() -> void:
 		_ai_market_config(), economy, market, 20, {}, {}, {}, 0, 6, false, false
 	)
 	assert_eq(String((starving["bids"] as Array)[0]["commodity"]), "grain")
+
+
+## The crew the hire order would take is not the market's to spend: a court at
+## its cash floor that has lost a Builder keeps that price back from its bids,
+## in the ordinary purse and in the starving lock-recovery purse alike, so the
+## food bid and the hire price never share one margin (issue #894).
+func test_the_hire_margin_survives_the_food_bid() -> void:
+	var market := WorldMarket.with_default_prices()
+	var poor: PlayerEconomy = _ai_market_economy({}, 1200)
+	var blind: Dictionary = AiMarketPlanner.plan(_ai_market_config(), poor, market, 20)
+	assert_true(
+		(blind["bids"] as Array).size() > 0, "the bids would otherwise spend the margin"
+	)
+	var kept: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), poor, market, 20, {}, {}, {}, 0, 0, false, true, -1, 1000
+	)
+	assert_true(
+		(kept["bids"] as Array).is_empty(), "the Builder's price is held back"
+	)
+	# Lock-recovery bids the whole purse for food; the margin still survives.
+	var hungry: PlayerEconomy = _ai_market_economy({}, 250)
+	var dinner: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), hungry, market, 20, {}, {}, {}, 0, 6, false, true
+	)
+	var dinner_kept: Dictionary = AiMarketPlanner.plan(
+		_ai_market_config(), hungry, market, 20, {}, {}, {}, 0, 6, false, true, -1, 100
+	)
+	var dinner_bid: Dictionary = (dinner["bids"] as Array)[0]
+	var kept_bid: Dictionary = (dinner_kept["bids"] as Array)[0]
+	assert_true(int(dinner_bid["quantity"]) > 0, "a starving court bids its dinner")
+	assert_true(
+		int(kept_bid["quantity"]) < int(dinner_bid["quantity"]),
+		"the crew's price survives the food bid"
+	)
+	assert_true(
+		int(kept_bid["quantity"]) * int(kept_bid["unit_price"]) <= 150,
+		"the food bid spends only what the margin leaves"
+	)
+
+
+## The hire order names no crew when the court has no config or no staff
+## targets: the market must not hold cash for a hire that will never fire
+## (issue #894).
+func test_next_crew_is_empty_without_a_hire_order() -> void:
+	assert_eq(AiCivilianHire.next_crew(null, [], {}), "")
+	var config: AiConfig = _ai_market_config()
+	assert_eq(AiCivilianHire.next_crew(config, [], {}), "")
+	assert_eq(
+		AiCivilianHire.next_crew(config, [], {"staff_targets": {}}),
+		""
+	)
+	assert_eq(
+		AiCivilianHire.next_crew(
+			config, [], {"staff_targets": {"builder": 1, "engineer": 0, "explorer": 0, "spy": 0}}
+		),
+		"builder"
+	)
+
+
+## The court's hire margin is the home crew's catalogue price: a baseline court
+## keeps its published market, a foreign region's plan is skipped, and an empty
+## next_crew holds nothing back (issue #894).
+func test_the_hire_margin_reads_the_home_crews_price() -> void:
+	var court := MapPlayEconomyCourt.new()
+	court.faction = 1
+	var home: int = FactionCatalog.region_of(1)
+	court.kind = AiControl.KIND_BASELINE
+	assert_eq(court._hire_margin(), 0, "baseline courts keep their published market")
+	court.kind = AiControl.KIND_SUBJECT
+	court.plans = [
+		{"region": home + 1, "plan": {"next_crew": "explorer"}},
+		{"region": home, "plan": {"next_crew": ""}},
+	]
+	assert_eq(court._hire_margin(), 0, "an empty hire order holds nothing back")
+	court.plans = [
+		{"region": home + 1, "plan": {"next_crew": "explorer"}},
+		{"region": home, "plan": {"next_crew": "builder"}},
+	]
+	assert_eq(
+		court._hire_margin(),
+		CivilianCatalog.treasury_cost("builder"),
+		"the home crew's price is the margin"
+	)
 
 
 ## The economy trace names the bid the footing held shut, so a court at war is
@@ -8983,6 +9091,96 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+## A crown whose own land still holds unsurveyed ground takes the second Explorer
+## before the estate queue, so the colony sails with a prospector left behind
+## (issue #894; wiki: fog-and-exploration § Prospecting).
+func test_a_court_takes_the_voyage_crew_before_the_estate_queue() -> void:
+	var play: PlaySession = _muster_play()
+	var model: MapModel = play.world.region(0)
+	var one: Array[CivilianState] = [
+		CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
+	]
+	play.civilian_layer.regions.set_region(0, one)
+	assert_true(
+		CivilianMuster.needs_voyage_crew(play, 0, 0, model),
+		"the last Explorer would sail with the voyage"
+	)
+	var two: Array[CivilianState] = one.duplicate()
+	two.append(CivilianState.create(2, 0, "explorer", CivilianFixture.HILLS_TILE))
+	play.civilian_layer.regions.set_region(0, two)
+	assert_false(
+		CivilianMuster.needs_voyage_crew(play, 0, 0, model),
+		"a second Explorer already stays behind"
+	)
+	# The hire order takes the Explorer ahead of the Builder the estate queue
+	# wants, so the voyage is not held up for want of a prospector.
+	var context: Dictionary = _civilian_context()
+	context["voyage_crew"] = true
+	var order: Dictionary = AiCivilianHire.training_order(
+		AiConfig.build(0, 1500), one, context
+	)
+	assert_eq(String(order.get("type_id", "")), "explorer")
+	context.erase("voyage_crew")
+	var published: Dictionary = AiCivilianHire.training_order(
+		AiConfig.build(0, 1500), one, context
+	)
+	assert_eq(
+		String(published.get("type_id", "")), "builder",
+		"without the voyage reading the published order stands"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Only the crew the voyage will board waits at the harbour: a crown's other
+## Explorers keep prospecting the home ground while a colony sails (issue #894).
+func test_only_the_mustering_explorer_waits_at_the_harbour() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var pick: CivilianState = CivilianState.create(1, 0, "explorer", CivilianFixture.BARE_TILE)
+	var other: CivilianState = CivilianState.create(2, 0, "explorer", CivilianFixture.HILLS_TILE)
+	var context: Dictionary = {
+		"muster_port": CivilianFixture.COAST_TILE, "muster_unit": pick.id,
+	}
+	assert_true(
+		AiExplorerWork.best_candidate(_work_query(
+			AiConfig.build(0, 1500), model, pick, [pick, other], LandWorks.new(),
+			CivilianFixture.stockpile(), {}, {}, context, {}
+		)).is_empty(),
+		"the crew the voyage boards takes no work"
+	)
+	var work: Dictionary = AiExplorerWork.best_candidate(_work_query(
+		AiConfig.build(0, 1500), model, other, [pick, other], LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, context, {}
+	))
+	assert_eq(
+		String(work.get("action", "")), "prospect",
+		"the crown's other Explorer keeps working the home ground"
+	)
+
+
+## The muster fixture: a two-region world whose home province is the civilian
+## fixture's own (hills to prospect, a seat with a port) and a free squadron.
+func _muster_play() -> PlaySession:
+	var world := WorldMap.new()
+	world.add_region(CivilianFixture.build())
+	world.add_region(_ai_colonisation_new_world())
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.region_index = 0
+	play.world = world
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = world.region(0)
+	play.ship_layer.regions.set_region(0, [FleetState.in_port(1, 0, 0)])
+	play.ship_layer.regions.set_region(1, [])
+	play.civilian_layer = CivilianLayer.new()
+	play.civilian_layer.model = world.region(0)
+	play.civilian_layer.units = []
+	play.civilian_layer.regions.set_region(0, [])
+	play.civilian_layer.regions.set_region(1, [])
+	play.civilian_layer.works_regions.set_region(0, LandWorks.new())
+	return play
 
 func test_region_helpers_pick_the_opposite_map() -> void:
 	var world: WorldMap = _ai_colonisation_world()

@@ -61,6 +61,31 @@ static func normalize_plan(plan: String) -> String:
 	return plan if PLANS.has(plan) else "balanced"
 
 
+## The one action-entry shape every blow writes: a scripted order and the
+## battery's volley are read by the same plate, so they share one skeleton
+## (REQ-P3-01). Fields a blow does not touch stay at their quiet value.
+static func action_entry(side: int, action: String, label: String) -> Dictionary:
+	return {
+		"side": side,
+		"action": action,
+		"label": label,
+		"attacker_lost": 0,
+		"defender_lost": 0,
+		"guns_destroyed": 0,
+		"battery_hit": 0,
+		"wall_lost": 0,
+		"behind_lost": 0,
+		"turned": 0,
+		"gates_broken": 0,
+		"sortie": false,
+		"guard": 0.0,
+		"hits": [] as Array[Dictionary],
+		"mauled": 0,
+		"own_hits": [] as Array[Dictionary],
+		"own_mauled": 0,
+	}
+
+
 ## Resolve one scripted action against the enemy side (and guns, when assaulting).
 static func resolve(
 	armies: Array[ArmyState],
@@ -78,25 +103,9 @@ static func resolve(
 	var acted: String = "volley" if action == "sortie" and not siege else action
 	if acted == "sortie" and key != "defender":
 		acted = "volley"
-	var entry: Dictionary = {
-		"side": int(me["owner"]),
-		"action": acted,
-		"label": String(ACTION_LABEL[acted]),
-		"attacker_lost": 0,
-		"defender_lost": 0,
-		"guns_destroyed": 0,
-		"battery_hit": 0,
-		"wall_lost": 0,
-		"behind_lost": 0,
-		"turned": 0,
-		"gates_broken": 0,
-		"sortie": false,
-		"guard": 0.0,
-		"hits": [] as Array[Dictionary],
-		"mauled": 0,
-		"own_hits": [] as Array[Dictionary],
-		"own_mauled": 0,
-	}
+	var entry: Dictionary = action_entry(
+		int(me["owner"]), acted, String(ACTION_LABEL[acted])
+	)
 	if acted == "maneuver":
 		me["cohesion"] = mini(3, int(me["cohesion"]) + 1)
 		return entry
@@ -127,8 +136,12 @@ static func resolve(
 	ratio *= SiegeLanes.terrain_scale(acted, ground)
 	## A wing taken in flank: a blow that lands beside a wing the enemy has
 	## already lost is heavier, and heavier still from both sides (wiki:
-	## quick-battle § Wings and collapse).
-	ratio *= QuickBattleWings.turned_scale(wing, enemy.get("broken", []) as Array)
+	## quick-battle § Wings and collapse). The scale is kept on the blow so the
+	## despatch can name why it fell heavier.
+	var flank: float = QuickBattleWings.turned_scale(wing, enemy.get("broken", []) as Array)
+	ratio *= flank
+	if flank > 1.0:
+		entry["flank"] = flank
 	var enemy_count: int = ArmyForce.side_regiments(enemy_side)
 	## The action's published share of a line, spent as tactical weight: a
 	## stronger line breaks more of the enemy, and a tougher enemy line loses
@@ -156,6 +169,10 @@ static func resolve(
 		if not sortie:
 			wanted = ceili(float(wanted) * SiegeLanes.return_fire_share(me_side))
 	if enemy_count <= 0:
+		## Nothing stands to be struck: the blow names no wing, because naming
+		## one would point at men who have already fallen (wiki: quick-battle
+		## § Wings and collapse).
+		entry["wing"] = ""
 		return entry
 	var lost: Array[String] = []
 	if wanted > 0 and siege and key == "attacker":

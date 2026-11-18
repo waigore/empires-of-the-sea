@@ -23,6 +23,11 @@ const BACKDROP: Color = Color(0.05, 0.04, 0.03, 0.74)
 const MARGIN: int = 14
 ## A beaten report stamps in a warmer red than the gold of a won one.
 const STAMP_LOSS: Color = Color(0.86, 0.60, 0.52)
+## The painted middle gives way on a short screen before the Continue door runs
+## off the bottom: a landscape handset keeps the whole plate, a desktop keeps
+## the body's published floor (REQ-P1-07, REQ-P5-06).
+const BODY_MIN: float = 96.0
+const BODY_SHARE: float = 0.30
 
 ## The engagement both sides read: the resolver's report, never rewritten here.
 var battle: Dictionary = {}
@@ -49,6 +54,10 @@ var _tween: Tween = null
 var _shown: bool = false
 var _finished: bool = false
 var _look_data: Dictionary = {}
+## The plate's painted middle and the floor it publishes; the frame gives the
+## body back on a short screen so the footer stays on it (REQ-P1-07).
+var _body: Control = null
+var _body_floor: float = 0.0
 
 
 func _ready() -> void:
@@ -56,6 +65,8 @@ func _ready() -> void:
 	theme = UiTheme.build()
 	_look_data = _look()
 	_build()
+	resized.connect(_fit_body)
+	_fit_body()
 	visible = false
 
 
@@ -77,7 +88,8 @@ func _build_header_tail(_header: HBoxContainer) -> void:
 
 
 ## The plate's own middle, between the header and the strength strip: the
-## painted field or the painted water.
+## painted field or the painted water. A subclass hands that control to the
+## frame as `_body`, so the frame can give it back on a short screen.
 func _build_body(_column: VBoxContainer) -> void:
 	pass
 
@@ -149,6 +161,18 @@ func _build() -> void:
 	_build_bars(column)
 	_build_log(column)
 	_build_footer(column)
+
+
+## Keeps the plate on the screen it is given: the painted middle takes the share
+## a short window can spare (never under [constant BODY_MIN]), and a tall plate
+## keeps the floor the subclass published, so the Skip and Continue doors are
+## never pushed off the bottom (REQ-P1-07, REQ-P5-06).
+func _fit_body() -> void:
+	if _body == null:
+		return
+	if _body_floor <= 0.0:
+		_body_floor = maxf(_body.custom_minimum_size.y, BODY_MIN)
+	_body.custom_minimum_size.y = clampf(size.y * BODY_SHARE, BODY_MIN, _body_floor)
 
 
 func _build_header(column: VBoxContainer) -> void:

@@ -31,6 +31,47 @@ static func recruit(play: PlaySession, type_id: String) -> void:
 	MapPlayArmies.show_panel(play, play.army_layer.selected_army)
 
 
+## The drill yard's one press: every ready row the yard prints, one standard
+## each, in the yard's order — the same `BuildUnitOrder` a row's Muster press
+## files, so the published price, the peasant and every gate stay in
+## ArmyTraining (REQ-P2-03, REQ-P5-04; DR-20261118-07). The walk stops at the
+## first refusal, because that refusal is the rules' answer for the realm, and
+## the court reads one receipt instead of a lane of toasts (REQ-P5-05).
+static func muster_all(play: PlaySession) -> void:
+	if play.economy == null or play.economy.economy == null:
+		return
+	var economy: PlayerEconomy = play.economy.economy
+	var types: Array[String] = ArmyTraining.batch_types(economy)
+	if types.is_empty():
+		return
+	var result: Dictionary = ArmyTraining.queue_all(
+		economy, play.army_layer.armies, play.player_faction, types
+	)
+	play.hud.toast(_batch_receipt(result))
+	MapPlayArmies.show_panel(play, play.army_layer.selected_army)
+
+
+## The one line the yard's batch leaves on the court's lane: what it ordered,
+## what it paid and what the next standard waits on (REQ-P5-05; DR-20261118-11).
+static func _batch_receipt(result: Dictionary) -> String:
+	var filed: int = int(result.get("filed", 0))
+	var total: int = int(result.get("total", 0))
+	var refusal: String = String(result.get("refusal", ""))
+	if filed == 0 and not refusal.is_empty():
+		return refusal
+	var spent: String = RaiseBatchSum.paid(result)
+	var ordered: String = (
+		"%d regiments are under orders for %s — they muster next turn" % [filed, spent]
+		if filed != 1
+		else "One regiment is under orders for %s — it musters next turn" % spent
+	)
+	if refusal.is_empty():
+		return ordered
+	return "%d of %d regiments are under orders for %s — the next waits: %s" % [
+		filed, total, spent, refusal
+	]
+
+
 ## Detaches a batch of regiments in one order (single detach and Detach all
 ## share this path, so repeated chores stay batched — REQ-P5-04).
 static func detach(play: PlaySession, army: ArmyState, ids: Array[String]) -> void:

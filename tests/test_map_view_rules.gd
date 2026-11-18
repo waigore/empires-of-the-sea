@@ -960,7 +960,7 @@ func test_the_hover_names_every_type_and_the_ground_still_to_read() -> void:
 	assert_eq(ResourceSurvey.summary_text({}), "")
 	assert_eq(ResourceSurvey.summary_text({"rows": []}), "")
 
-## One resource row as `ResourceSurvey._row` hands it to the type projection.
+## One resource row as `ResourceSurveyRows.one` hands it to the type projection.
 func _type_row(
 	icon: String, level: int, connected: bool, status: String, ours: bool = true
 ) -> Dictionary:
@@ -1560,6 +1560,22 @@ func test_terrain_labels_cover_every_type() -> void:
 	_setup_map_model()
 	for terrain in MapModel.Terrain.values():
 		assert_true(MapModel.TERRAIN_LABELS.has(terrain))
+	# The published display names (wiki: resource-terrain-region-rules
+	# § Player-facing terrain display names; REQ-P2-01).
+	var published: Dictionary = {
+		MapModel.Terrain.PLAINS: "Plains",
+		MapModel.Terrain.HARDWOOD_FOREST: "Hardwood Forest",
+		MapModel.Terrain.SCRUB_FOREST: "Scrub Forest",
+		MapModel.Terrain.HILLS: "Hills",
+		MapModel.Terrain.MOUNTAINS: "Mountain",
+		MapModel.Terrain.SWAMP: "Swamp",
+		MapModel.Terrain.DESERT: "Desert",
+	}
+	for terrain: int in published.keys():
+		assert_eq(
+			String(MapModel.TERRAIN_LABELS[terrain]), String(published[terrain]),
+			"the terrain reads its published name"
+		)
 
 func test_palette_covers_every_terrain() -> void:
 	_setup_map_model()
@@ -1851,6 +1867,66 @@ func test_civilian_presence_holds_a_foreign_province() -> void:
 	assert_true(data__visibility.is_province_fully_visible(1))
 	data__visibility.end_of_turn([])
 	assert_false(data__visibility.is_province_fully_visible(1))
+
+
+## Presence holds only for the crews the wiki names: an Explorer or a Spy
+## (wiki: fog-and-exploration § Visibility Levels, § Fog Decay). A Merchant
+## crosses borders like an Explorer but is not a survey.
+func test_only_an_explorer_or_a_spy_holds_a_foreign_province() -> void:
+	_setup_visibility()
+	var merchant: Array[CivilianState] = [
+		CivilianState.create(1, PLAYER, "merchant", Vector2i(3, 1)),
+	]
+	var builder: Array[CivilianState] = [
+		CivilianState.create(2, PLAYER, "builder", Vector2i(3, 1)),
+	]
+	var explorer: Array[CivilianState] = [
+		CivilianState.create(3, PLAYER, "explorer", Vector2i(3, 1)),
+	]
+	var spy: Array[CivilianState] = [
+		CivilianState.create(4, PLAYER, "spy", Vector2i(3, 1)),
+	]
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, merchant, PLAYER), [])
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, builder, PLAYER), [])
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, explorer, PLAYER), [1])
+	assert_eq(CivilianMovement.held_provinces(_visibility_model, spy, PLAYER), [1])
+
+
+## A Merchant standing in a rival province is not an Explorer: the province's
+## charted ground decays at the close of the turn like any other foreign ground.
+func test_a_merchant_does_not_keep_a_rival_province_visible() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	var merchant: Array[CivilianState] = [
+		CivilianState.create(1, PLAYER, "merchant", Vector2i(3, 1)),
+	]
+	var held: Array = CivilianMovement.held_provinces(_visibility_model, merchant, PLAYER)
+	data__visibility.end_of_turn([], held)
+	assert_false(
+		data__visibility.is_province_fully_visible(1),
+		"a merchant's presence charts nothing"
+	)
+
+
+## Taking a province clears its Spy clock (wiki: fog-and-exploration § Spy timer
+## expiry), so a timer booked while the ground was foreign cannot hold it again
+## after the crown loses it.
+func test_taking_a_province_clears_its_spy_clock() -> void:
+	_setup_visibility()
+	data__visibility.reveal_province(1)
+	data__visibility.end_of_turn([], [1], [1])
+	assert_eq(data__visibility.spy_charter.left(1), SpyCharter.TURNS)
+	_visibility_model.provinces[1].owner = PLAYER
+	data__visibility.end_of_turn([], [], [])
+	assert_eq(data__visibility.spy_charter.left(1), 0, "ownership clears the clock")
+	assert_true(data__visibility.is_province_fully_visible(1))
+	# Lost again: no clock survives to hold the ground for the old owner.
+	_visibility_model.provinces[1].owner = 2
+	data__visibility.end_of_turn([], [], [])
+	assert_false(
+		data__visibility.is_province_fully_visible(1),
+		"the conquest cleared the grace, so the ground fogs at once"
+	)
 
 func test_a_departed_spy_leaves_five_turns_of_charter() -> void:
 	_setup_visibility()
@@ -2232,10 +2308,10 @@ func test_the_coast_table_is_built_once_per_grid() -> void:
 	var grid := _build_region()
 	var first := VisibilityModel.new()
 	first.setup(grid, PLAYER)
-	assert_eq(VisibilityModel._coast_cache.size(), 1, "one table for one grid")
+	assert_eq(VisibilityCoast._cache.size(), 1, "one table for one grid")
 	var second := VisibilityModel.new()
 	second.setup(grid, 1)
-	assert_eq(VisibilityModel._coast_cache.size(), 1, "a second court reuses it")
+	assert_eq(VisibilityCoast._cache.size(), 1, "a second court reuses it")
 	assert_eq(second.province_sea_zones, first.province_sea_zones, "the copy answers alike")
 	second.province_sea_zones[99] = [9]
 	assert_false(first.province_sea_zones.has(99), "each chart keeps its own table")
@@ -2256,7 +2332,7 @@ func test_an_edited_grid_builds_its_own_table() -> void:
 	_claim(edited, 4, 0, 2, 4, 4, PLAYER)
 	var second := VisibilityModel.new()
 	second.setup(edited, PLAYER)
-	assert_eq(VisibilityModel._coast_cache.size(), 2, "an edited grid gets its own table")
+	assert_eq(VisibilityCoast._cache.size(), 2, "an edited grid gets its own table")
 	assert_ne(second.province_sea_zones, first.province_sea_zones, "and it reads differently")
 	VisibilityModel.clear_cache()
 
@@ -2264,15 +2340,15 @@ func test_an_edited_grid_builds_its_own_table() -> void:
 func test_the_coast_cache_stays_bounded() -> void:
 	VisibilityModel.clear_cache()
 	var model: MapModel = _build_region()
-	for step in VisibilityModel.CACHE_LIMIT + 2:
+	for step in VisibilityCoast.CACHE_LIMIT + 2:
 		model.terrain[model.index_of(step % 6, 5)] = (
 			MapModel.Terrain.HILLS if step % 2 == 0 else MapModel.Terrain.OCEAN
 		)
 		var view := VisibilityModel.new()
 		view.setup(model, PLAYER)
-	assert_lte(VisibilityModel._coast_cache.size(), VisibilityModel.CACHE_LIMIT, "bounded")
+	assert_lte(VisibilityCoast._cache.size(), VisibilityCoast.CACHE_LIMIT, "bounded")
 	VisibilityModel.clear_cache()
-	assert_eq(VisibilityModel._coast_cache.size(), 0, "clearing drops every table")
+	assert_eq(VisibilityCoast._cache.size(), 0, "clearing drops every table")
 
 
 func _build_region() -> MapModel:

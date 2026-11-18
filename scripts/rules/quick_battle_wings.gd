@@ -148,6 +148,21 @@ static func fell(state: Dictionary, key: String) -> Array[String]:
 	return broken_now
 
 
+## The wings one blow broke, each on the line it belonged to: the enemy's under
+## `wing_broken`, the actor's own under `own_broken`, since a sallying charge can
+## empty a wing of either (wiki: quick-battle § Wings and collapse). A field is
+## left out while nothing on that line broke.
+static func marks(state: Dictionary, key: String, enemy_key: String) -> Dictionary:
+	var marks: Dictionary = {}
+	var broke: Array[String] = fell(state, enemy_key)
+	if not broke.is_empty():
+		marks["wing_broken"] = broke
+	var own: Array[String] = fell(state, key)
+	if not own.is_empty():
+		marks["own_broken"] = own
+	return marks
+
+
 ## Every regiment id still standing on one side, for the prune above.
 static func standing_ids(side: Dictionary) -> Dictionary:
 	var ids: Dictionary = {}

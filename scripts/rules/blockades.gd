@@ -71,6 +71,19 @@ func seals(region: int, province_id: int) -> bool:
 	return bool(in_region.get(province_id, false))
 
 
+## True when a harbour standing on this tile is held by a hostile squadron. A
+## sealed port is no landfall, so it grants nothing to itself or to the land
+## beside it — the reading `LandConnectivity` takes, and the capital's own
+## blockade cuts every harbour at once (wiki: capital-and-connectivity
+## § Blockade). `seals` may be null: a court with no reading has no sealed coast.
+static func seals_harbour(
+	seals: Blockades, model: MapModel, tile: Vector2i
+) -> bool:
+	if seals == null or model == null:
+		return false
+	return seals.cuts(model.region_id, model.province_at(tile.x, tile.y))
+
+
 ## True when nothing in this province may reach the crown by sea: its own port
 ## is sealed, or the capital's is, which cuts every sea path at once.
 func cuts(region: int, province_id: int) -> bool:

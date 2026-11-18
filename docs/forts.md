@@ -13,30 +13,29 @@ DR-20261110-27.
   tile** wherever the engineer stands (`FortRules.site_tile`; legacy maps keep
   the ordered tile). Materials paid at assign; one turn per level; duplicates
   cannot leap a level or gate. L2 Mine Engineering, L3 Modern Forts.
-- **Battle mode:** `fort_level == 0` is field, `≥ 1` is siege; reports carry
-  both.
+- **Capitals:** every Old World capital opens at Wood, advanced starts included
+  (Great Power and Minor). A Great Power's Mine Engineering / Modern Forts lifts
+  its own capital to L2 / L3 once; a siege downgrade is not restored.
+- **Battle mode:** 0 field, `≥ 1` siege; reports carry both.
 - **Auto-resolve:** wall HP (10/20/30) soaks attack before the ratio band; the
   defender's share is scaled by 1 − damage reduction (0.75/0.55/0.40) and adds
-  `guns × strength` of its emplaced type. The besieging train silences a piece
-  per gun's weight of deployed field artillery (whole pieces only); the last
-  gun drops the fort a level even when repelled (DR-20261110-22).
+  `guns × strength` of its emplaced type. The train silences a piece per gun's
+  weight of artillery (whole pieces; DR-20261110-22).
 - **Quick Battle lanes** (`SiegeLanes`): infantry man the wall, horse and guns
   wait behind. RNG ≥ 2 hits the wall, only artillery reaches behind, RNG 1
   touches neither. The wall scales the blow unless the garrison sorties; a
   sortie exposes it but lets every regiment strike. A pike garrison gives no
-  return fire; one blow bleeds no more than the deployed slice.
+  return fire; a blow bleeds no more than the deployed slice.
 - **Ground:** HILL on hills/mountains, WOODS in forest, MARSH in swamp, TOWN
   where a fort rings open ground. Volleys and assaults are weaker into broken
-  ground; entrenching is surer in HILL/WOODS/TOWN.
-- **Gates:** three; each falls after `ceil(wall HP / 3)` wall casualties. A
-  breach ends the wall's reduction and opens the behind lane in the share of
-  gates lost.
-- **Sortie:** the defender's own order, not an Assault on its own wall. Every
-  regiment strikes, the garrison is exposed; a firearmless garrison sallies.
+  ground; entrenching is surer there.
+- **Gates:** three; each falls after `ceil(wall HP / 3)` casualties. A breach
+  ends the reduction and opens the behind lane in the share lost.
+- **Sortie:** the defender's own order, not an Assault. Every
+  regiment strikes, the garrison exposed; a firearmless garrison sallies.
 - **Gun-loss:** a gun spends the blow before the lanes; an empty blow buys
-  nothing, and the last gun drops the fort one level anyway. The plate names
+  nothing, and the last gun still drops the fort one level. The plate names
   guns, lanes and gates.
-- **Dossier:** the province panel prints the fort.
 
 ## Costs and numbers
 
@@ -51,15 +50,15 @@ DR-20261110-27.
 | File | Role |
 |------|------|
 | `scripts/rules/fort_rules.gd` | tables, wall soak, battery, town site, gates |
+| `scripts/rules/fort_capital.gd` | capital grant, one-shot tech step |
 | `scripts/rules/siege_lanes.gd` | wall/behind lanes, terrain, gates, sortie |
-| `scripts/rules/quick_battle_battery.gd` | virtual guns and fort downgrade |
-| `scripts/rules/auto_siege.gd` | auto-resolve counter-battery and downgrade |
+| `scripts/rules/quick_battle_battery.gd` | virtual guns, downgrade |
+| `scripts/rules/auto_siege.gd` | counter-battery, downgrade |
 | `scripts/rules/civilian_work.gd` | `build_fort` target and completion |
-| `scripts/ui/battle_plate.gd`, `quick_battle_field.gd` | wall, gates, ground |
-| `scripts/rules/battle_scenario.gd` | sandbox battle for [battle-sim.md](battle-sim.md) |
+| `scripts/ui/battle_plate*.gd`, `quick_battle_field.gd` | wall, gates, ground |
+| `scripts/rules/battle_scenario.gd` | sandbox for [battle-sim.md](battle-sim.md) |
 
-Node-free: dossier reads `fort_level` (`REQ-P3-03`).
 
 ## Tests
 
-`test_fort_rules`, `test_battle_rules`.
+`test_battle_rules`.

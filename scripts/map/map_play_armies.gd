@@ -171,6 +171,8 @@ static func on_action(play: PlaySession, action: String) -> void:
 		embark(play, army)
 	elif action.begins_with("recruit:"):
 		MapPlayArmyMuster.recruit(play, action.trim_prefix("recruit:"))
+	elif action == "recruit_all":
+		MapPlayArmyMuster.muster_all(play)
 	elif action == "plan:next":
 		cycle_plan(play, army)
 	elif action == "hospital":

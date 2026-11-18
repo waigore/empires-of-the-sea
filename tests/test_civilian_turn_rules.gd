@@ -489,6 +489,73 @@ func test_an_unprotected_minor_names_no_warden() -> void:
 	world.region(0).ownership.clear()
 	assert_eq(InterventionCopy.warden_hint(state, world, 0, MINOR), "")
 
+## What a Merchant's deed buys, named before the crown pays (wiki: civilian-units
+## § Merchant; world-market § First right of refusal; DR-20261118-05). The
+## province stays the seller's, so the deed's return is the first right of
+## refusal on the tile's unit and the share a rival's purchase pays — beside the
+## one town level the deed develops.
+func test_a_deed_names_the_unit_its_bid_fills_first_on() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(
+		DeedTerms.order_line(model, Vector2i(3, 1)),
+		(
+			"Deed: your bid fills first on 1 grain / turn, and a rival's buy pays "
+			+ "you a share · Genoa's town rises to L2"
+		)
+	)
+
+func test_a_deed_names_the_town_level_it_develops() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "Genoa's town rises to L2")
+	# The second deed in the province buys the next level, and the fourth the cap.
+	assert_true(model.purchase_tile(Vector2i(3, 0), BUYER))
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "Genoa's town rises to L3")
+	assert_true(model.purchase_tile(Vector2i(3, 2), BUYER))
+	assert_true(model.purchase_tile(Vector2i(2, 2), BUYER))
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "Genoa's town rises to L4")
+	# A town already at the level its deeds support takes no step, so no line.
+	model.provinces[1].town_development = 4
+	assert_eq(DeedTerms.town_clause(model, Vector2i(3, 1)), "")
+
+func test_a_deed_on_ground_the_seller_never_works_names_only_the_town() -> void:
+	# A mineral no Minor prospects never reaches the book, so the deed buys no
+	# unit there and the line promises none (wiki: world-market § Minor and tribe
+	# auto-sell).
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(DeedTerms.commodity(model, Vector2i(2, 1)), "")
+	assert_eq(DeedTerms.order_line(model, Vector2i(2, 1)), "Deed: Genoa's town rises to L2")
+
+func test_a_deed_that_buys_nothing_prints_no_line() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	model.provinces[1].town_development = 4
+	assert_eq(DeedTerms.order_line(model, Vector2i(2, 1)), "")
+
+func test_the_crew_sheet_names_the_deed_holder_and_its_first_refusal() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	assert_eq(DeedTerms.held_line(model, Vector2i(3, 1)), "", "unsold ground")
+	assert_true(model.purchase_tile(Vector2i(3, 1), BUYER))
+	assert_eq(DeedTerms.holder(model, Vector2i(3, 1)), BUYER)
+	assert_eq(
+		DeedTerms.held_line(model, Vector2i(3, 1)),
+		"England · first refusal on 1 grain / turn"
+	)
+
+## The Merchant's order row carries the terms under the price the court is asked,
+## and the price itself is untouched (REQ-P5-06, REQ-P2-03).
+func test_the_deed_order_row_carries_what_it_buys() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	var check: Dictionary = {"ok": true, "cost_text": "6,000 ducats", "duration": 1}
+	var row: Dictionary = CivilianWorkRows.option_row(
+		LandPurchase.ACTION, model, Vector2i(3, 1), LandWorks.new(), check,
+		"Purchase land"
+	)
+	assert_eq(String(row["cost_text"]), "6,000 ducats", "the price the court is asked")
+	assert_eq(String(row["preview_text"]), DeedTerms.order_line(model, Vector2i(3, 1)))
+	assert_true(String(row["preview_text"]).begins_with("Deed: "))
+	# A road still prices the transport it brings; the deed limb is the only one
+	# that answers when no transport is involved.
+	assert_false(String(row["label"]).contains("Transport"))
+
 ## Small map where Minor Nation 6 owns province 1 and `BUYER` holds one deed in
 ## it (the fixture's grain tile).
 func _minor_world() -> WorldMap:
@@ -787,7 +854,7 @@ func test_a_town_beside_a_port_is_not_capped() -> void:
 		"Crown road: town only — town development does not cap it"
 	)
 	assert_eq(
-		LandConnectivity.town_cap_for(model, resolved, 0, model.index_of(2, 1)),
+		LandTownRule.town_cap_for(model, resolved, 0, model.index_of(2, 1)),
 		LandWorks.MAX_IMPROVEMENT,
 		"the yield is not capped either"
 	)
@@ -795,6 +862,135 @@ func test_a_town_beside_a_port_is_not_capped() -> void:
 		Extraction.yields(model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1)),
 		{"grain": 8},
 		"the estate beside the town pays its whole level, doubled for a ration estate"
+	)
+
+
+## A road laid beside a crown harbour carries the harbour's level, never its own
+## 1: "Adjacent port tile grants level 4 to that tile" (wiki:
+## extraction-and-improvements § Transport Level).
+func test_a_road_beside_a_port_carries_the_ports_level() -> void:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(Vector2i(x, y))
+	var province := ProvinceState.create(
+		0, "Colonia", tiles, Vector2(1.5, 0.5), tiles.size(), PLAYER, false
+	)
+	province.town_tile = Vector2i(3, 0)
+	province.town_development = 1
+	model.provinces = [province]
+	model.resource[model.index_of(1, 1)] = 4
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 1))
+	works.set_improvement(model, Vector2i(1, 1), 4)
+	assert_eq(
+		Extraction.yields(model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1)),
+		{"grain": 8},
+		"the harbour carries the estate beside it at level 4"
+	)
+	assert_eq(
+		CivilianWorkRows.transport_preview(
+			"build_road", model, Vector2i(1, 1), works
+		),
+		"Transport 4 — an estate here gathers up to 4 a turn",
+		"the road row names the harbour's level, not its own step"
+	)
+	CivilianTransport.apply(model, "build_road", Vector2i(1, 1), works)
+	assert_eq(
+		Extraction.yields(model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1)),
+		{"grain": 8},
+		"a road beside the harbour never lowers the estate it carries"
+	)
+	# Negative control: away from the harbour a plain road keeps its own grade.
+	works.set_transport(model, Vector2i(3, 1), LandWorks.TRANSPORT_ROAD)
+	var resolved: Dictionary = LandConnectivity.resolve(
+		model, works, PLAYER, Vector2i(3, 0)
+	)
+	var away: Dictionary = (resolved["tiles"] as Dictionary).get(
+		model.index_of(3, 1), {}
+	)
+	assert_eq(int(away.get("transport", 0)), 1, "a plain road stays a plain road")
+	assert_eq(
+		CivilianWorkRows.current_transport(model, Vector2i(0, 1), works),
+		LandWorks.TRANSPORT_RAIL,
+		"the harbour tile itself carries the rail's transport"
+	)
+	assert_eq(
+		CivilianWorkRows.current_transport(null, Vector2i(0, 1), works), 0,
+		"a reading with no chart names no transport"
+	)
+
+
+## A sealed harbour is no landfall, so the road row beside it must name the grade
+## the phase pays — the road's own step, never the harbour's 4 that the blockade
+## took away (wiki: capital-and-connectivity § Blockade, extraction-and-improvements
+## § Transport Level; REQ-P2-03, REQ-P5-06).
+func test_a_sealed_harbour_grants_no_transport_to_the_estate_beside_it() -> void:
+	var model := MapModel.new()
+	model.setup(4, 2)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			model.terrain[model.index_of(x, y)] = MapModel.Terrain.PLAINS
+			model.province[model.index_of(x, y)] = 0
+			tiles.append(Vector2i(x, y))
+	var province := ProvinceState.create(
+		0, "Colonia", tiles, Vector2(1.5, 0.5), tiles.size(), PLAYER, false
+	)
+	province.town_tile = Vector2i(3, 0)
+	province.town_development = 1
+	model.provinces = [province]
+	model.resource[model.index_of(1, 1)] = 4
+	var works := LandWorks.new()
+	works.add_port(model, Vector2i(0, 1))
+	works.set_improvement(model, Vector2i(1, 1), 4)
+	var seals: Blockades = _blockade_of(model, 0)
+	assert_eq(
+		Extraction.yields(
+			model, PLAYER, -1, {"grain": 4}, works, Vector2i(-1, -1),
+			{}, true, {}, seals
+		),
+		{},
+		"a sealed harbour carries nothing home"
+	)
+	assert_eq(
+		CivilianWorkRows.transport_preview(
+			"build_road", model, Vector2i(1, 1), works, seals
+		),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"the road row names the grade a sealed harbour leaves"
+	)
+	assert_eq(
+		CivilianWorkRows.current_transport(model, Vector2i(0, 1), works, seals),
+		0,
+		"a sealed harbour tile carries only its own road"
+	)
+	# The order row a crew reads in the panel takes the same reading, so the
+	# price line and the road line cannot disagree about the sealed coast.
+	var row: Dictionary = CivilianWorkRows.option_row(
+		"build_road", model, Vector2i(1, 1), works,
+		{"ok": true, "cost_text": "", "duration": 1}, "Build road", seals
+	)
+	assert_eq(
+		String(row["preview_text"]),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"the work-order row prices the sealed harbour's estate honestly"
+	)
+	# The same reading when the crown's own capital harbour is the sealed one:
+	# every sea path is cut, so no port grants its level beside itself.
+	var shut := Blockades.new()
+	shut.sealed = {model.region_id: {0: true}}
+	shut.sea_cut = true
+	assert_eq(
+		CivilianWorkRows.transport_preview(
+			"build_road", model, Vector2i(1, 1), works, shut
+		),
+		"Transport 1 — an estate here gathers up to 1 a turn",
+		"a capital blockade takes the harbour's grant too"
 	)
 
 
@@ -939,7 +1135,10 @@ func test_a_blockaded_colony_reads_the_harvest_the_phase_pays() -> void:
 	var open: Dictionary = ImprovementLedger.snapshot(
 		model, _works, [], {}, PLAYER, CAPITAL, caps
 	)
-	assert_eq(open["totals"], {"timber": 1}, "the open coast ships one timber")
+	# The estate stands beside the open harbour, so it carries level 4 and pays
+	# its whole improvement — the road on it does not replace the harbour's grade
+	# (wiki: extraction-and-improvements § Transport Level).
+	assert_eq(open["totals"], {"timber": 2}, "the open coast ships its whole level")
 	var sealed: Dictionary = ImprovementLedger.snapshot(
 		model, _works, [], {}, PLAYER, CAPITAL, caps, seals
 	)
@@ -2356,6 +2555,72 @@ func test_the_transport_orders_name_the_path_they_land() -> void:
 	)
 
 
+## The town's own step names what the level pays before the crown pays for it:
+## the manufacture bonus the Extraction phase grants that level, then the works
+## its level opens. Level III is the one step that pays nothing of its own, and
+## the row says so rather than leaving the crown to infer it (wiki:
+## extraction-and-improvements § Town manufacturing bonus;
+## production-recipes § Town-works gates; DR-20261118-06).
+func test_the_town_step_names_what_the_level_pays() -> void:
+	var builder := _add("builder", field_Fixture.BARE_TILE)
+	assert_eq(
+		String(_option(builder, "upgrade_town").get("preview_text", "")),
+		"L2 pays 1 manufacture per 4 raw its own estates deliver"
+		+ " · the Garments works need a level-2 town",
+		"a level-II town names its bonus and the works the level opens"
+	)
+	var province: ProvinceState = field__model.province_data(field_Fixture.PLAYER_PROVINCE)
+	province.town_development = 2
+	assert_eq(
+		TownTerms.order_line(field__model, field_Fixture.BARE_TILE),
+		"L3 pays no manufacture — it is the road to L4",
+		"the third level pays nothing of its own, and the row says so"
+	)
+	province.town_development = 3
+	assert_eq(
+		TownTerms.order_line(field__model, field_Fixture.BARE_TILE),
+		"L4 pays 2 manufactures per 4 raw its own estates deliver"
+		+ " · the Rum works need a level-4 town",
+		"the top level names the doubled bonus and the finer works"
+	)
+	province.town_development = 4
+	assert_eq(
+		TownTerms.order_line(field__model, field_Fixture.BARE_TILE),
+		"",
+		"a developed town files no step, so there is nothing to price"
+	)
+	assert_eq(
+		TownTerms.order_line(field__model, Vector2i(4, 4)),
+		"",
+		"ground outside every province carries no town"
+	)
+
+
+## The works clause is the catalogue's own, so a row a study also gates is never
+## promised by the town alone (REQ-P2-03).
+func test_the_town_works_clause_reads_the_recipe_catalogue() -> void:
+	assert_eq(
+		TownTerms.works_text(2), "the Garments works need a level-2 town"
+	)
+	assert_eq(TownTerms.works_text(4), "the Rum works need a level-4 town")
+	assert_eq(TownTerms.works_text(3), "", "no row's works stop at the third level")
+	assert_eq(TownTerms.works_text(1), "", "no row's works stop at the first level")
+	assert_eq(TownTerms.level_line(1), "", "no order lands a town on level I")
+	assert_eq(TownTerms.level_line(5), "", "the ladder ends at level IV")
+	assert_eq(
+		TownTerms.bonus_text(1), "1 manufacture per 4 raw its own estates deliver"
+	)
+	assert_eq(
+		TownTerms.bonus_text(2), "2 manufactures per 4 raw its own estates deliver"
+	)
+	assert_eq(TownTerms.join_and(PackedStringArray(["Rum"])), "Rum")
+	assert_eq(TownTerms.join_and(PackedStringArray(["Rum", "Garments"])), "Rum and Garments")
+	assert_eq(
+		TownTerms.join_and(PackedStringArray(["Rum", "Garments", "Paper"])),
+		"Rum, Garments and Paper"
+	)
+
+
 func test_rail_needs_an_existing_road_and_an_unrailed_tile() -> void:
 	var tile := Vector2i(0, 1)
 	var rail := _add("rail_builder", tile)
@@ -3126,7 +3391,7 @@ func test_an_inland_town_does_not_cap_the_yield() -> void:
 	var works: LandWorks = offshoot[1]
 	var resolved: Dictionary = LandConnectivity.resolve(model, works, 0, Vector2i(-1, -1))
 	assert_eq(
-		LandConnectivity.town_cap_for(model, resolved, 0, model.index_of(0, 1)),
+		LandTownRule.town_cap_for(model, resolved, 0, model.index_of(0, 1)),
 		LandWorks.MAX_IMPROVEMENT
 	)
 
@@ -3540,6 +3805,56 @@ func test_roster_status_and_craft_tallies_agree_with_the_other_filters() -> void
 	assert_eq(int(types["spy"]), 0, "a craft tally follows the order filter too")
 	assert_eq(CivilianRoster.status_label(CivilianRoster.STATUS_WORKING), "At work")
 	assert_eq(CivilianRoster.status_label(CivilianRoster.STATUS_IDLE), "Idle")
+
+
+## Every craft the muster rail offers names its own work and the one study its
+## hire waits on, before the crown pays a thousand ducats for a name (wiki:
+## civilian-units § Civilian Types and Roles, § Training; DR-20261118-09). The
+## gate is the roster's own reading, so a row can never name a study the order
+## would not ask for (REQ-P2-03).
+func test_every_hire_names_its_work_and_its_study() -> void:
+	for type_id: String in CivilianCatalog.ORDER:
+		assert_false(
+			CivilianHire.does(type_id).is_empty(),
+			"a craft with no work line: " + type_id,
+		)
+		assert_false(
+			CivilianHire.line(type_id, {}).is_empty(),
+			"a hire with no line: " + type_id,
+		)
+	assert_eq(CivilianHire.does("no_such_craft"), "", "an unknown type names no work")
+	assert_eq(
+		CivilianHire.does("merchant"), "Buys land in a Minor's or Tribe's province"
+	)
+	# A starting craft waits on no study, so its row is the work alone.
+	assert_eq(CivilianHire.locked_tech("builder", {}), "")
+	assert_eq(
+		CivilianHire.line("builder", {}), "Raises estates and develops the town"
+	)
+	# A tech-gated craft names the roster's own study on the row.
+	assert_eq(
+		CivilianHire.locked_tech("merchant", {}),
+		CivilianCatalog.unlock_tech("merchant"),
+	)
+	assert_eq(
+		CivilianHire.line("merchant", {}),
+		"Buys land in a Minor's or Tribe's province · needs Merchant Companies",
+	)
+	assert_eq(
+		CivilianHire.line("merchant", {"merchant_companies": true}),
+		CivilianHire.does("merchant"),
+		"once the study lands the row carries no gate",
+	)
+	# Each craft waits on its own study, never on another's.
+	assert_eq(
+		CivilianHire.line("rail_builder", {}),
+		"Upgrades roads to railroads · needs Early Steam Engine",
+	)
+	assert_eq(
+		CivilianHire.locked_tech("rail_builder", {"merchant_companies": true}),
+		CivilianCatalog.unlock_tech("rail_builder"),
+		"a Merchant's study opens no railroad",
+	)
 
 
 func test_roster_empty_inputs_make_an_empty_roster() -> void:

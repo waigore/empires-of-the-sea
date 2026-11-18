@@ -260,6 +260,7 @@ func _raise(text: String, icon_name: String = "") -> void:
 	_live += 1
 
 	var tween := create_tween()
+	panel.set_meta("toast_tween", tween)
 	tween.tween_property(panel, "modulate:a", 1.0, 0.25)
 	tween.tween_interval(2.8 if icon_name.is_empty() else 4.4)
 	tween.tween_property(panel, "modulate:a", 0.0, 0.5)

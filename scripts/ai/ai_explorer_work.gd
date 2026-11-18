@@ -20,7 +20,7 @@ static func best_candidate(query: AiWorkQuery) -> Dictionary:
 	var view: VisibilityModel = query.view()
 	if query.reserved.has(query.unit.tile):
 		return {}
-	if _marching_to_port(query.model, query.unit, query.context):
+	if _held_for_voyage(query.unit, query.context):
 		return {}
 	var explore: Dictionary = _survey_candidate(query, view)
 	if not explore.is_empty():
@@ -45,7 +45,7 @@ static func best_move(
 ) -> Dictionary:
 	var view: VisibilityModel = context.get("visibility", null)
 	var mustering: Vector2i = _port_tile(context)
-	if mustering.x >= 0:
+	if _held_for_voyage(unit, context):
 		if _at_port(model, unit, mustering):
 			return {}
 		return AiLandRoute.step_toward(model, unit, mustering, view)
@@ -60,15 +60,17 @@ static func _port_tile(context: Dictionary) -> Vector2i:
 	return context.get("muster_port", Vector2i(-1, -1))
 
 
-## True when the Explorer is mustering and still away from its harbour: it takes
-## no work and marches home rather than surveying the ground it stands on.
-static func _marching_to_port(
-	model: MapModel, unit: CivilianState, context: Dictionary
-) -> bool:
-	var port: Vector2i = _port_tile(context)
-	if port.x < 0 or _at_port(model, unit, port):
+## True when this Explorer is the crew the pending voyage will board, so it
+## takes no work and waits at the harbour. Only that one waits: a crown's other
+## Explorers keep surveying and prospecting the home ground while a colony
+## sails (issue #894; wiki: civilian-units § Overseas deployment). A caller that
+## hands in no pick keeps the published reading — the harbour holds the crew.
+static func _held_for_voyage(unit: CivilianState, context: Dictionary) -> bool:
+	if _port_tile(context).x < 0:
 		return false
-	return true
+	if not context.has("muster_unit"):
+		return true
+	return int(context["muster_unit"]) == unit.id
 
 
 static func _at_port(model: MapModel, unit: CivilianState, port: Vector2i) -> bool:

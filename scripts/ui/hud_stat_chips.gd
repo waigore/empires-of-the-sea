@@ -17,6 +17,9 @@ var army_label: Label = null
 
 var _treasury_value: int = 0
 var _income_value: int = 0
+var _treasury_tween: Tween = null
+var _flash_tween: Tween = null
+var _flash_label: Label = null
 
 
 ## TopBar hands over one chip per plaque: {"root", "value", "delta"}.
@@ -51,13 +54,15 @@ func set_treasury(value: int, animate: bool = true) -> void:
 	treasury_label.add_theme_color_override(
 		"font_color", Palette.CRIMSON if value < 0 else Palette.TEXT
 	)
+	_kill_treasury_tween()
 	if not animate or host == null:
 		treasury_label.text = TextFormat.thousands(value)
 		return
-	var tween := host.create_tween()
-	tween.tween_method(
+	_treasury_tween = host.create_tween()
+	_treasury_tween.tween_method(
 		func(step: float) -> void:
-			treasury_label.text = TextFormat.thousands(int(round(step))),
+			if is_instance_valid(treasury_label):
+				treasury_label.text = TextFormat.thousands(int(round(step))),
 		float(from), float(value), 0.6
 	).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
 
@@ -109,17 +114,42 @@ func set_armies(value: int) -> void:
 func flash_income(amount: int) -> void:
 	if host == null or treasury_chip == null:
 		return
-	var label := Label.new()
-	label.text = "+%s" % TextFormat.thousands(amount)
-	label.add_theme_font_size_override("font_size", 18)
-	label.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	host.add_child(label)
-	label.position = treasury_chip.get_global_rect().position + Vector2(0, 4)
-	var tween := host.create_tween().set_parallel(true)
-	tween.tween_property(label, "position:y", label.position.y - 46.0, 1.1)
-	tween.tween_property(label, "modulate:a", 0.0, 1.1).set_delay(0.25)
-	tween.chain().tween_callback(label.queue_free)
+	_kill_flash_tween()
+	_flash_label = Label.new()
+	_flash_label.text = "+%s" % TextFormat.thousands(amount)
+	_flash_label.add_theme_font_size_override("font_size", 18)
+	_flash_label.add_theme_color_override("font_color", Palette.GOLD_PALE)
+	_flash_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.add_child(_flash_label)
+	_flash_label.position = treasury_chip.get_global_rect().position + Vector2(0, 4)
+	_flash_tween = host.create_tween().set_parallel(true)
+	_flash_tween.tween_property(_flash_label, "position:y", _flash_label.position.y - 46.0, 1.1)
+	_flash_tween.tween_property(_flash_label, "modulate:a", 0.0, 1.1).set_delay(0.25)
+	_flash_tween.chain().tween_callback(_flash_label.queue_free)
+
+
+## Suite re-seat and a fresh count-up must not leave a prior plaque tween
+## writing into a label mid-reset (gd-tools reports freed lambda captures).
+func clear_animations() -> void:
+	_kill_treasury_tween()
+	_kill_flash_tween()
+	if treasury_label != null:
+		treasury_label.text = TextFormat.thousands(_treasury_value)
+
+
+func _kill_treasury_tween() -> void:
+	if _treasury_tween != null:
+		_treasury_tween.kill()
+		_treasury_tween = null
+
+
+func _kill_flash_tween() -> void:
+	if _flash_tween != null:
+		_flash_tween.kill()
+		_flash_tween = null
+	if is_instance_valid(_flash_label):
+		_flash_label.queue_free()
+	_flash_label = null
 
 
 ## Estates and college only — the world market clears after them (world-market).

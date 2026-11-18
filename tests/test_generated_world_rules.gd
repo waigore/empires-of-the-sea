@@ -439,14 +439,15 @@ var new_world_report: Dictionary = {}
 
 
 func _bootstrap_world() -> void:
+	# One generate_region pays for the Old World and its determinism twin: the
+	# twin is a deep copy applied separately, so the post-pass still proves it
+	# is stable without regenerating terrain under coverage.
 	model = MapGenerator.new().generate_region(
 		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
 	)
+	model_twin = _clone_model(model)
 	works = LandWorks.new()
 	report = WorldBootstrap.apply(model, works)
-	model_twin = MapGenerator.new().generate_region(
-		Fixture.SEED, FactionCatalog.OLD_WORLD, BOOT_WIDTH, BOOT_HEIGHT
-	)
 	works_twin = LandWorks.new()
 	WorldBootstrap.apply(model_twin, works_twin)
 	new_world = MapGenerator.new().generate_region(
@@ -1182,32 +1183,35 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 ## forest cell carrying one whatever the share says, and the open ground filled
 ## after the guarantee rather than by a fixed one to three tiles a province
 ## (wiki: resource-terrain-region-rules § Placement rate, § Forest terrain split;
-## DR-20261115-16, #676). Measured on the game's own seed and Standard chart.
+## DR-20261115-16, #676). Measured on the shared Standard census chart.
 func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
-	var world_map: WorldMap = _standard_world(1500)
+	var world_map: WorldMap = _census_world()
 	for model: MapModel in world_map.regions:
 		var land: int = 0
 		var carrying: int = 0
 		var forests: int = 0
 		var bare_forests: int = 0
 		var open_carrying: int = 0
-		for y in model.height:
-			for x in model.width:
-				if not model.is_land(x, y):
-					continue
-				land += 1
-				var terrain: int = model.terrain_at(x, y)
-				var forest: bool = terrain == MapModel.Terrain.HARDWOOD_FOREST \
-					or terrain == MapModel.Terrain.SCRUB_FOREST
-				var carries: bool = model.resource_at(x, y) != MapModel.NO_ID
-				if carries:
-					carrying += 1
-					if not forest:
-						open_carrying += 1
-				if forest:
-					forests += 1
-					if not carries:
-						bare_forests += 1
+		# Packed rows under coverage: one pass instead of is_land/terrain_at/
+		# resource_at per tile (the price census already reads this way).
+		var rows: PackedInt32Array = model.resource
+		var terrain_rows: PackedByteArray = model.terrain
+		for index in rows.size():
+			var terrain: int = terrain_rows[index]
+			if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
+				continue
+			land += 1
+			var forest: bool = terrain == MapModel.Terrain.HARDWOOD_FOREST \
+				or terrain == MapModel.Terrain.SCRUB_FOREST
+			var carries: bool = rows[index] != MapModel.NO_ID
+			if carries:
+				carrying += 1
+				if not forest:
+					open_carrying += 1
+			if forest:
+				forests += 1
+				if not carries:
+					bare_forests += 1
 		var share: float = float(carrying) / float(maxi(land, 1))
 		assert_true(share >= 0.28 and share <= 0.33,
 			"region %d carries %.3f of its %d land tiles" % [model.region_id, share, land])
@@ -1223,11 +1227,11 @@ func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
 
 
 ## Standard chart keeps mean tiles/province in the published band while holding
-## 60/30 province counts (wiki: tile-map-and-generation; #700). Measured on seed
-## 1500: OW 37.7 (the wiki's ~30–40), NW 41.3 — 30 provinces share a smaller
-## New World grid, so its band is the documented 30–45 in docs/world.md.
+## 60/30 province counts (wiki: tile-map-and-generation; #700). Measured on the
+## shared census seed: OW stays in the wiki's ~30–40, NW in the documented 30–45
+## in docs/world.md (30 provinces share a smaller New World grid).
 func test_standard_provinces_sit_in_the_published_size_band() -> void:
-	var world_map: WorldMap = _standard_world(1500)
+	var world_map: WorldMap = _census_world()
 	var old_world: MapModel = world_map.region(FactionCatalog.OLD_WORLD)
 	var new_world: MapModel = world_map.region(FactionCatalog.NEW_WORLD)
 	assert_eq(old_world.provinces.size(), MapGenerator.OLD_WORLD_PROVINCES)
@@ -1255,10 +1259,9 @@ func test_the_chart_presets_cascade_from_a_standard_default() -> void:
 
 ## #676's supply clause survives the smaller Standard chart: the Minor/Tribe
 ## book still fills a larder (grain offered) and carries an absolute volume
-## (485 offers from 16 sellers measured on seed 1500, down from 603 on the old
-## 128×84 chart but far from empty).
+## (the shared census seed keeps ≥400 units from ≥12 sellers with grain on offer).
 func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
-	var orders: Array[MarketOrder] = MinorMarket.emit_orders(_standard_world(1500))
+	var orders: Array[MarketOrder] = MinorMarket.emit_orders(_census_world())
 	var sellers: Dictionary = {}
 	var units: int = 0
 	var grain: int = 0
@@ -1273,18 +1276,21 @@ func test_the_smaller_standard_chart_still_feeds_the_minor_book() -> void:
 	assert_true(grain > 0, "no Minor/Tribe court offers grain on Standard")
 
 
-## The published charts are drawn **once per seed and size** and re-read by
-## every case below. `static` is what makes that true: gd-tools runs each case
-## on a fresh instance, so an instance dictionary would start empty and redraw
-## the chart per case (the census cases alone drew Standard four times).
-## Keyed by size because the weighting case reads Small and the density cases
-## read Standard (docs/testing.md § Speed rules).
+## One Standard chart carries every published census below (placement rate, mean
+## tiles/province, Minor book volume, and the price-weighted draw). `static` is
+## what makes that true: gd-tools runs each case on a fresh instance, so an
+## instance dictionary would redraw the chart per case. Seed 160 passes the
+## fair-split gate on its first attempt, keeps the means in the wiki bands,
+## gold ahead of gems, and every pool inside its three-deviation band — so the
+## suite pays one Standard draw under coverage instead of Standard plus a
+## second Small chart (docs/testing.md § Speed rules).
 ##
-## A draw is this suite's most expensive fixture: the price is the **tiles**,
-## so the census below draws one Small chart (~half Large's area), not Large,
-## and a case that only needs two owned towns builds a pocket world instead of
+## A case that only needs two owned towns still builds a pocket world instead of
 ## regenerating Standard.
 static var _drawn_charts: Dictionary = {}
+
+## Seed whose Standard draw satisfies every census assert on the first attempt.
+const CENSUS_SEED: int = 160
 
 
 func _chart(seed_value: int, width: int, height: int) -> WorldMap:
@@ -1299,17 +1305,73 @@ func _standard_world(seed_value: int) -> WorldMap:
 	return _chart(seed_value, int(preset["width"]), int(preset["height"]))
 
 
-## The **Small** chart the weighting case reads: seed 42 keeps every pool inside
-## its three-deviation band and the gold>gems / meat>grain>horses order the
-## table promises (Large at 128×84 used to buy that sample for ~14 s under
-## coverage; Small is ~half the tiles). Standard seed 1500 still inverts
-## gold/gems, so the census stays on this seed and size rather than the
-## density cases' Standard draw.
-func _small_world(seed_value: int) -> WorldMap:
-	for preset: Dictionary in GameConfig.SIZES:
-		if String(preset["label"]) == "Small":
-			return _chart(seed_value, int(preset["width"]), int(preset["height"]))
-	return _standard_world(seed_value)
+func _census_world() -> WorldMap:
+	return _standard_world(CENSUS_SEED)
+
+
+## Deep-copies a region so a twin can be bootstrapped or mounted without another
+## `generate_region` / `generate_world` under coverage.
+func _clone_model(source: MapModel) -> MapModel:
+	var copy := MapModel.new()
+	copy.setup(source.width, source.height)
+	copy.region_id = source.region_id
+	copy.region_key = source.region_key
+	copy.faction_ids = source.faction_ids.duplicate()
+	copy.setup_errors = source.setup_errors.duplicate()
+	copy.terrain = source.terrain.duplicate()
+	copy.province = source.province.duplicate()
+	copy.sea_zone = source.sea_zone.duplicate()
+	copy.resource = source.resource.duplicate()
+	copy.ownership.apply_dict(source.ownership.to_dict())
+	for province: ProvinceState in source.provinces:
+		copy.provinces.append(_clone_province(province))
+	for zone: SeaZoneState in source.sea_zones:
+		copy.sea_zones.append(_clone_sea_zone(zone))
+	return copy
+
+
+func _clone_province(source: ProvinceState) -> ProvinceState:
+	var copy := ProvinceState.new()
+	copy.id = source.id
+	copy.name = source.name
+	copy.tiles = source.tiles.duplicate()
+	copy.center = source.center
+	copy.area = source.area
+	copy.coastal = source.coastal
+	copy.port_tile = source.port_tile
+	copy.owner = source.owner
+	copy.capital = source.capital
+	copy.capital_tile = source.capital_tile
+	copy.ports = source.ports.duplicate(true)
+	copy.road_paths = source.road_paths.duplicate(true)
+	copy.town_development = source.town_development
+	copy.town_tile = source.town_tile
+	copy.fort_level = source.fort_level
+	copy.hospital_level = source.hospital_level
+	copy.hospital_staffed = source.hospital_staffed
+	copy.resource = source.resource
+	copy.resource_tile = source.resource_tile
+	copy.population = source.population
+	return copy
+
+
+func _clone_sea_zone(source: SeaZoneState) -> SeaZoneState:
+	var copy := SeaZoneState.new()
+	copy.id = source.id
+	copy.name = source.name
+	copy.tiles = source.tiles.duplicate()
+	copy.center = source.center
+	copy.area = source.area
+	return copy
+
+
+func _clone_world(source: WorldMap) -> WorldMap:
+	var copy := WorldMap.new()
+	for model: MapModel in source.regions:
+		copy.add_region(_clone_model(model))
+	for link: Dictionary in source.warp_links:
+		copy.warp_links.append(link.duplicate(true))
+	return copy
 
 
 func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
@@ -1334,14 +1396,13 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 ## guarantee still leaves timber the commonest row on the chart
 ## (wiki: resource-terrain-region-rules § Table).
 func test_the_draw_prices_the_rows_by_their_market_price() -> void:
-	# One Small chart carries every assertion below: seed 42 keeps gold ahead of
-	# gems and every pool inside its three-deviation band (metals n=13 is the
-	# tightest sample; spices sit at 0.228 against 0.209 ± 0.137). Large at
-	# seed 1500 used to buy a wider peaks gap for ~14 s under coverage; Small
-	# is half the tiles and still proves the published price order.
+	# The shared Standard census chart carries every assertion below: seed 160
+	# keeps gold ahead of gems and every pool inside its three-deviation band,
+	# so this case rides the same draw the placement and size cases already
+	# paid (a second Small chart used to cost ~6 s under coverage alone).
 	var counts: Dictionary = {}
 	var commodities: Dictionary = {}
-	var world_map: WorldMap = _small_world(42)
+	var world_map: WorldMap = _census_world()
 	for model: MapModel in world_map.regions:
 		# Read the packed rows: a tile that carries a row is land, so the
 		# census is one pass instead of two instrumented lookups a tile.
@@ -1362,7 +1423,7 @@ func test_the_draw_prices_the_rows_by_their_market_price() -> void:
 			String(commodity), int(counts[commodity]), CommodityCatalog.base_price(String(commodity))
 		])
 	dump.sort()
-	print("per-commodity tile counts on Small seed 42: ", ", ".join(dump))
+	print("per-commodity tile counts on Standard seed %d: " % CENSUS_SEED, ", ".join(dump))
 	# Pools whose rows share one terrain list and one region scope: only the
 	# published price separates their draws (wiki § Table).
 	var pools: Array = [
@@ -3579,7 +3640,10 @@ var tier100_pristine: Dictionary = {}
 
 
 func _mount_advanced_tiers() -> void:
-	advanced_live_world = MapGenerator.new().generate_world(SEED, WIDTH, HEIGHT)
+	# Private chart so idle screens cannot rewrite `Fixture.world` under later
+	# cases — clone the suite's already-generated world instead of paying a
+	# second `generate_world` under coverage.
+	advanced_live_world = _clone_world(world)
 	# Full SaveWorld half: a shallow ownership snapshot cannot rewind town
 	# levels / resources the tier writes before suite_reset reseats a case.
 	advanced_live_saved = []
@@ -3637,6 +3701,27 @@ func test_a_new_campaign_opens_on_the_preset() -> void:
 	var roster: Array = screen.civilian_layer.regions.value(0, [])
 	assert_eq(_civilian_count(roster, play.player_faction, "explorer"), 3)
 	assert_eq(_civilian_count(roster, play.player_faction, "spy"), 1)
+
+
+## Old World capitals open behind a Wood wall on an advanced start too, and the
+## tier's granted fort studies do not pre-bump it: the free upgrade is a research
+## unlock's moment, not an inherited tech (wiki: siege-mechanics § Fort Levels;
+## issue #919).
+func test_capitals_open_walled_and_a_tier_does_not_pre_bump_them() -> void:
+	var screen: MapScreen = _open(AdvancedStart.TURNS50)
+	var play: PlaySession = screen.play
+	var model: MapModel = play.world.region(FactionCatalog.OLD_WORLD)
+	assert_true(
+		play.economy.economy.research.is_unlocked("mine_engineering"),
+		"the tier already holds the fort study",
+	)
+	for province: ProvinceState in model.provinces:
+		if not province.capital:
+			continue
+		assert_eq(
+			province.fort_level, FortCapital.START_LEVEL,
+			"capital of %d opens at Wood" % province.owner,
+		)
 
 
 func test_a_late_campaign_opens_with_the_documented_progress() -> void:

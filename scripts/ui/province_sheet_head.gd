@@ -67,10 +67,26 @@ func _ready() -> void:
 
 
 func show_province(data: ProvinceState) -> void:
-	name_label.text = data.name
-	capital_badge.visible = data.capital
-	owner_swatch.color = Palette.faction_color(data.owner)
-	owner_label.text = owner_caption(data.owner)
+	_fill(data.name, data.capital, data.owner, owner_caption(data.owner))
+
+
+## Fill the title block from a caller's own reading instead of the province
+## record: the observatory's province sheet hands over the words its reading
+## module wrote, so one head paints every province sheet (REQ-P3-01).
+func fill(reading: Dictionary) -> void:
+	_fill(
+		String(reading.get("name", "")),
+		bool(reading.get("capital", false)),
+		int(reading.get("owner", MapModel.NO_ID)),
+		String(reading.get("owner_caption", ""))
+	)
+
+
+func _fill(title: String, is_capital: bool, owner: int, caption: String) -> void:
+	name_label.text = title
+	capital_badge.visible = is_capital
+	owner_swatch.color = Palette.faction_color(owner)
+	owner_label.text = caption
 
 
 ## Faction type drives the honorific (wiki: factions — three governing types).
