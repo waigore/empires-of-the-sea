@@ -569,6 +569,53 @@ func test_the_crew_sheet_names_the_deed_holder_and_its_first_refusal() -> void:
 		"England · first refusal on 1 grain / turn"
 	)
 
+## A conquest takes the tile out of the purchased-tile index and the seller stops
+## offering its unit, so the deed keeps no first refusal there and the crew's
+## sheet must not name one (wiki: world-market-first-right-of-refusal
+## § Purchased-tile index — the post-conquest filter; DR-20261119-02).
+func test_a_deed_names_no_unit_once_a_crown_takes_the_province() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	var tile := Vector2i(3, 1)
+	assert_true(model.purchase_tile(tile, BUYER))
+	# France takes Genoa: the tile answers to a Great Power and leaves the book.
+	model.provinces[1].owner = 2
+	var world := WorldMap.new()
+	world.add_region(model)
+	assert_eq(MinorMarket.emit_orders(world).size(), 0, "no unit reaches the auction")
+	assert_eq(DeedTerms.commodity(model, tile), "")
+	assert_eq(DeedTerms.town_clause(model, tile), "", "the town takes no step there")
+	assert_eq(
+		DeedTerms.held_line(model, tile), "England",
+		"the holder is still read, the dead right is not"
+	)
+	assert_eq(DeedTerms.holder(model, tile), BUYER, "the deed record stands")
+
+## A tile that already carries a deed has no purchase left to sign, so the
+## refused row prices nothing. The preview used to count the tile's own deed a
+## second time and name a town level one step too high (DR-20261119-02).
+func test_a_bought_tile_prices_no_second_deed() -> void:
+	var model: MapModel = _Fixture.build_minor()
+	var tile := Vector2i(3, 1)
+	assert_eq(
+		DeedTerms.order_line(model, tile),
+		(
+			"Deed: your bid fills first on 1 grain / turn, and a rival's buy pays "
+			+ "you a share · Genoa's town rises to L2"
+		)
+	)
+	assert_true(model.purchase_tile(tile, BUYER))
+	assert_eq(DeedTerms.order_line(model, tile), "", "no deed is left to sign")
+
+## The lines read ground, not a court: a hand-built read with no chart, or a tile
+## that belongs to no province, names nothing rather than inventing a deed.
+func test_a_deed_reads_no_ground_it_cannot_price() -> void:
+	assert_eq(DeedTerms.commodity(null, Vector2i(3, 1)), "")
+	assert_eq(DeedTerms.held_line(null, Vector2i(3, 1)), "")
+	assert_eq(DeedTerms.order_line(null, Vector2i(3, 1)), "")
+	var bare := MapModel.new()
+	bare.setup(2, 2)
+	assert_eq(DeedTerms.commodity(bare, Vector2i(0, 0)), "", "a tile in no province")
+
 ## The Merchant's order row carries the terms under the price the court is asked,
 ## and the price itself is untouched (REQ-P5-06, REQ-P2-03).
 func test_the_deed_order_row_carries_what_it_buys() -> void:
