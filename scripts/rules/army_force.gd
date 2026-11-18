@@ -44,6 +44,13 @@ static func side_regiments(side: Array[ArmyState]) -> int:
 ## (DR-20261113-04). `accept` filters the pool by type, so one siege lane can
 ## bleed alone; `only` names the regiments a wing holds, so one wing can
 ## (wiki: quick-battle § Wings and collapse).
+##
+## The deployment slice is read over the whole side **before** either filter
+## tells: the `limit` strongest regiments are the line, and `accept` / `only`
+## choose among them. Filtering first would hand a lane the strongest men of its
+## own type and let a regiment held in reserve fall while a weaker one in the
+## line stands (wiki: combat § The line and the reserve — reserves take no
+## casualties, and casualties are drawn weakest-first from the line).
 static func apply_losses(
 	armies: Array[ArmyState], side: Array[ArmyState], wanted: int,
 	limit: int = 0, accept: Callable = Callable(), only: Array[String] = []
@@ -54,13 +61,10 @@ static func apply_losses(
 			continue
 		for regiment_id: String in army.regiments:
 			var data: Dictionary = army.condition_of(regiment_id)
-			if accept.is_valid() and not bool(accept.call(String(data["type"]))):
-				continue
-			if not only.is_empty() and not only.has(regiment_id):
-				continue
 			candidates.append({
 				"army": army,
 				"id": regiment_id,
+				"type": String(data["type"]),
 				"rank": ArmyModifiers.rank_of(
 					String(data["type"]), int(data["medals"]), float(data["fraction"]),
 					RegimentDecorations.strength_multiplier(army, regiment_id)
@@ -71,14 +75,26 @@ static func apply_losses(
 			return float(a["rank"]) < float(b["rank"])
 		return String(a["id"]) < String(b["id"])
 	)
-	var pool_start: int = 0
-	if limit > 0 and candidates.size() > limit:
-		pool_start = candidates.size() - limit
+	## The line is the one [ArmyModifiers.deployed] names — the strongest `limit`
+	## with its ascending-id tie-break — so a casualty list and the plate's line
+	## can never disagree about which men stand in it.
+	var line: Dictionary = {}
+	if limit > 0:
+		for entry: Dictionary in ArmyModifiers.deployed(side, limit):
+			line[String(entry["id"])] = true
 	var lost: Array[String] = []
-	for offset in mini(maxi(wanted, 0), candidates.size() - pool_start):
-		var entry: Dictionary = candidates[pool_start + offset]
-		var army: ArmyState = entry["army"]
+	var draws: int = maxi(wanted, 0)
+	for entry: Dictionary in candidates:
+		if lost.size() >= draws:
+			break
 		var regiment_id: String = String(entry["id"])
+		if limit > 0 and not line.has(regiment_id):
+			continue
+		if accept.is_valid() and not bool(accept.call(String(entry["type"]))):
+			continue
+		if not only.is_empty() and not only.has(regiment_id):
+			continue
+		var army: ArmyState = entry["army"]
 		if army.remove_regiment(regiment_id):
 			lost.append(regiment_id)
 	return lost

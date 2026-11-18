@@ -54,6 +54,24 @@ static func behind_ids(side: Array[ArmyState]) -> Array[String]:
 	return _ids_where(side, false)
 
 
+## The garrison as it is deployed on the two lanes: the strongest `limit`
+## regiments of the side, split into the infantry that man the wall and the horse
+## and guns that wait behind it. A regiment past the deployment limit is the
+## reserve, and a reserve stands in neither lane (wiki: combat § The line and the
+## reserve; quick-battle § Wings and collapse — "the reserve is dealt nowhere").
+static func line_ids(side: Array[ArmyState], limit: int) -> Dictionary:
+	var lanes: Dictionary = {
+		"wall": [] as Array[String],
+		"behind": [] as Array[String],
+	}
+	for entry: Dictionary in ArmyModifiers.deployed(side, limit):
+		var army: ArmyState = entry["army"]
+		var regiment_id: String = String(entry["id"])
+		var lane: String = "wall" if is_wall_type(army.type_of(regiment_id)) else "behind"
+		(lanes[lane] as Array[String]).append(regiment_id)
+	return lanes
+
+
 ## At least one regiment can shoot at the wall (firearms or artillery).
 static func can_reach_wall(side: Array[ArmyState]) -> bool:
 	for army: ArmyState in side:
@@ -186,6 +204,8 @@ static func breach_share(gates: Dictionary) -> float:
 ## (reduced by the fort's damage reduction unless the defender has sortied, and
 ## not at all once a gate is down); the artillery share of the besieging force
 ## can reach behind the wall, and a breach lets the rest pour through it.
+## `lanes` is the split the battle read when it opened ([method line_ids]); a
+## caller that has none (a single probe blow) has the deployed line read here.
 ## Returns {"wall": lost ids, "behind": lost ids, "turned": uncounted blow,
 ## "gates_broken": gates opened by this blow}.
 static func strike(
@@ -196,7 +216,8 @@ static func strike(
 	def_limit: int,
 	fort: int,
 	exposed: bool,
-	gates: Dictionary = {}
+	gates: Dictionary = {},
+	lanes: Dictionary = {}
 ) -> Dictionary:
 	var result: Dictionary = {
 		"wall": [] as Array[String],
@@ -222,10 +243,20 @@ static func strike(
 	behind_share = maxf(behind_share, breach_share(gates))
 	var behind_blow: int = mini(blow, roundi(float(blow) * behind_share))
 	var wall_blow: int = maxi(0, blow - behind_blow)
-	var wall_lost: Array[String] = ArmyForce.apply_losses(
-		armies, defending, wall_blow, def_limit,
-		func(type_id: String) -> bool: return is_wall_type(type_id)
-	)
+	## Only the deployed line stands in a lane: the wall holds the line's foot and
+	## the behind lane its horse and guns, so a reserve is never a casualty
+	## (wiki: combat § The line and the reserve; quick-battle § Wings and collapse).
+	if lanes.is_empty():
+		lanes = line_ids(defending, def_limit)
+	var wall_line: Array[String] = []
+	var behind_line: Array[String] = []
+	wall_line.assign(lanes.get("wall", []) as Array)
+	behind_line.assign(lanes.get("behind", []) as Array)
+	var wall_lost: Array[String] = []
+	if wall_blow > 0 and not wall_line.is_empty():
+		wall_lost = ArmyForce.apply_losses(
+			armies, defending, wall_blow, 0, Callable(), wall_line
+		)
 	# One blow bleeds no more than the deployed slice: the wall draws first and
 	# the behind lane gets whatever is left of the limit, never a second helping
 	# (wiki: combat § Auto-resolve casualty selection — reserves take no losses).
@@ -233,11 +264,12 @@ static func strike(
 	if def_limit > 0:
 		behind_left = maxi(def_limit - wall_lost.size(), 0)
 	var behind_lost: Array[String] = []
-	if behind_blow > 0 and behind_left != 0:
-		behind_lost = ArmyForce.apply_losses(
-			armies, defending, behind_blow, 0 if behind_left < 0 else behind_left,
-			func(type_id: String) -> bool: return not is_wall_type(type_id)
-		)
+	if behind_blow > 0 and behind_left != 0 and not behind_line.is_empty():
+		var cap: int = behind_blow if behind_left < 0 else mini(behind_blow, behind_left)
+		if cap > 0:
+			behind_lost = ArmyForce.apply_losses(
+				armies, defending, cap, 0, Callable(), behind_line
+			)
 	result["gates_broken"] = batter(gates, wall_lost.size())
 	result["wall"] = wall_lost
 	result["behind"] = behind_lost
