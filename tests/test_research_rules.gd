@@ -1158,6 +1158,60 @@ func test_the_batch_moves_every_slot_through_the_published_setter() -> void:
 	)
 
 
+## A short purse is named on both lines the press writes. The sheet's own line
+## keeps the wait when the press stands down — a college standing at Maximum with
+## no gold is exactly the state a crown reads the disabled press in — and the
+## receipt carries it, so a toast never prices three studies at one study's spend
+## (DR-20261119-01; REQ-P5-05).
+func test_the_receipt_names_the_studies_the_purse_will_not_pay() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	state.assign("saw_mill", "low")
+	state.assign("land_enclosure", "low")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 1000)
+
+	assert_eq(int(plan["gold"]), 1000, "one study at Maximum is paid")
+	assert_eq(int(plan["unpaid"]), 2)
+	assert_eq(
+		ResearchBatch.receipt(plan),
+		"3 studies now stand at Maximum — the college pays 1,000 ducats a turn"
+		+ "; 2 of 3 wait on the purse.",
+		"the receipt names the studies the phase will not pay for",
+	)
+
+
+func test_a_college_where_every_study_waits_says_so_on_the_line() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "maximum")
+	state.assign("saw_mill", "maximum")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 0)
+
+	assert_eq(int(plan["filed"]), 0, "every study already stands at the preset")
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Every study already stands at Maximum — all 2 wait on the purse.",
+		"a press that files nothing still names the studies the purse cannot pay",
+	)
+
+
+func test_one_study_waiting_names_itself_and_never_one_of_one() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	var plan: Dictionary = ResearchBatch.plan(state, "high", 0)
+
+	assert_eq(int(plan["filed"]), 1)
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Fund the study at High — the college then spends nothing a turn"
+		+ "; it waits on the purse.",
+	)
+	assert_eq(
+		ResearchBatch.receipt(plan),
+		"The study now stands at High — the college pays nothing a turn"
+		+ "; it waits on the purse.",
+	)
+
+
 ## Aiming the goal repaints the college. The repaint must carry every reading the
 ## sheet was drawn with — the crown's leader above all: Victoria's ×1.15 lifts the
 ## base funding RP, so a goal tap that dropped it would price 300 RP a turn the

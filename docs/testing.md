@@ -228,6 +228,15 @@ godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 # budget and dead Bid presses with the purse in debt.
 godot --headless --path . --script res://playtests/playtest_college_debt.gd
 
+# College batch — the college's one press (DR-20261118-26): books two studies from
+# the college's own buttons, steps the press to High, presses it and reads the
+# receipt, then closes a real turn so the phase pays what the line promised; then
+# a thin purse (three studies at Maximum, 1,000 ducats) so the line and the
+# receipt must name the studies that wait; then the whole college stood down to
+# None; then the same sheet on a 720x360 handset, reading the press, its line and
+# the room the two lists keep under it.
+godot --headless --path . --script res://playtests/playtest_college_batch.gd
+
 # Trade terms — walks the colony chain, bids the colony's own good (the Deal Book
 # must name the favoured fill), boycotts a rival and reads that crown's taxed
 # sale receipt against the rate its page prints.
