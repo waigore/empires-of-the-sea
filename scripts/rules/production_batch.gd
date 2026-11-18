@@ -30,7 +30,7 @@ static func allowance(
 ) -> int:
 	if economy == null:
 		return 0
-	return ProductionRecipes.allowance(
+	return ProductionPhase.allowance(
 		recipe_id,
 		stock,
 		labour,

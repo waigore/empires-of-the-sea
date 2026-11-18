@@ -1381,7 +1381,7 @@ func test_an_offer_the_seller_spent_does_not_mint_goods() -> void:
 ## runs will eat (wiki: world-market § Trade orders — validation rule 7).
 func test_an_offer_is_capped_by_the_production_that_will_eat_it() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
-	var reserved: Dictionary = ProductionRecipes.reserved_inputs(
+	var reserved: Dictionary = ProductionPhase.reserved_inputs(
 		[{"recipe": "lumber", "units": 3}]
 	)
 	assert_eq(int(reserved.get("timber", 0)), 6, "3 runs x 2 timber")
@@ -2430,7 +2430,7 @@ func test_alloy_rows_take_two_turns() -> void:
 
 func test_a_two_turn_run_pays_now_and_lands_a_unit_a_phase() -> void:
 	var stock: Dictionary = {"iron": 2, "coal": 2}
-	var first: Dictionary = ProductionRecipes.plan(
+	var first: Dictionary = ProductionPhase.plan(
 		[{"recipe": "steel", "units": 2}], stock, 4, {}
 	)
 	assert_eq(first["runs"], {"steel": 2})
@@ -2440,14 +2440,14 @@ func test_a_two_turn_run_pays_now_and_lands_a_unit_a_phase() -> void:
 	assert_eq(first["labour_used"], 4)
 	assert_eq(int(stock.get("steel", 0)), 0, "the steel is still on the anvil")
 	assert_eq(ProductionWorkshop.units(first["wip"], "steel"), 2)
-	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"])
+	var second: Dictionary = ProductionPhase.plan([], stock, 0, {}, first["wip"])
 	assert_eq(second["runs"], {})
 	assert_eq(second["completed"], {"steel": 1}, "one unit leaves the workshop a phase")
 	assert_eq(second["produced"], {"steel": 1})
 	assert_eq(second["labour_used"], 0, "the batch paid its labour when it started")
 	assert_eq(int(stock["steel"]), 1)
 	assert_eq(ProductionWorkshop.units(second["wip"], "steel"), 1, "the rest still serves")
-	var third: Dictionary = ProductionRecipes.plan([], stock, 0, {}, second["wip"])
+	var third: Dictionary = ProductionPhase.plan([], stock, 0, {}, second["wip"])
 	assert_eq(third["completed"], {"steel": 1})
 	assert_eq(int(stock["steel"]), 2)
 	assert_eq(third["wip"], {}, "the batch is spent")
@@ -2459,12 +2459,12 @@ func test_a_two_turn_run_pays_now_and_lands_a_unit_a_phase() -> void:
 func test_a_batch_lands_one_unit_a_phase_until_it_is_spent() -> void:
 	var stock: Dictionary = {"iron": 3, "coal": 3}
 	var landed_at: Array[int] = []
-	var wip: Dictionary = ProductionRecipes.plan(
+	var wip: Dictionary = ProductionPhase.plan(
 		[{"recipe": "steel", "units": 3}], stock, 6, {}
 	)["wip"]
 	assert_eq(ProductionWorkshop.units(wip, "steel"), 3)
 	for _phase in 4:
-		var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip)
+		var report: Dictionary = ProductionPhase.plan([], stock, 0, {}, wip)
 		wip = report["wip"]
 		landed_at.append(int(report["completed"].get("steel", 0)))
 		assert_eq(report["consumed"], {}, "a carried batch costs the phase nothing")
@@ -2526,16 +2526,16 @@ func test_the_workshop_wait_reads_the_soonest_batch() -> void:
 func test_a_batch_matches_drip_feeding() -> void:
 	var batch_stock: Dictionary = {"iron": 3, "coal": 3}
 	var drip_stock: Dictionary = {"iron": 3, "coal": 3}
-	var batch_wip: Dictionary = ProductionRecipes.plan(
+	var batch_wip: Dictionary = ProductionPhase.plan(
 		[{"recipe": "steel", "units": 3}], batch_stock, 6, {}
 	)["wip"]
 	var drip_wip: Dictionary = {}
 	for phase in 4:
-		batch_wip = ProductionRecipes.plan([], batch_stock, 0, {}, batch_wip)["wip"]
+		batch_wip = ProductionPhase.plan([], batch_stock, 0, {}, batch_wip)["wip"]
 		var drip: Array[Dictionary] = []
 		if phase < 3:
 			drip.append({"recipe": "steel", "units": 1})
-		drip_wip = ProductionRecipes.plan(drip, drip_stock, 2, {}, drip_wip)["wip"]
+		drip_wip = ProductionPhase.plan(drip, drip_stock, 2, {}, drip_wip)["wip"]
 	assert_eq(int(batch_stock["steel"]), int(drip_stock["steel"]), "same steel by turn four")
 	assert_eq(int(batch_stock.get("iron", 0)), int(drip_stock.get("iron", 0)))
 	assert_eq(int(batch_stock.get("coal", 0)), int(drip_stock.get("coal", 0)))
@@ -2603,7 +2603,7 @@ func test_a_damaged_workshop_is_dropped_not_trusted() -> void:
 	assert_eq(economy.production.wip_units("lumber"), 2)
 	assert_eq(economy.production.wip_units("steel"), 0, "a row that is not a list holds nothing")
 	assert_eq(economy.production.wip_turns("steel"), 0)
-	var planned: Dictionary = ProductionRecipes.plan(
+	var planned: Dictionary = ProductionPhase.plan(
 		[], {}, 0, {}, {"steel": {"units": 2, "turns_left": 1}}
 	)
 	assert_eq(planned["produced"], {}, "the phase reads a damaged row as an empty workshop")

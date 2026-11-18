@@ -3105,12 +3105,12 @@ func test_cotton_fabric_needs_its_technology() -> void:
 	assert_true(ProductionRecipes.available("steel", {}))
 
 func test_max_runs_is_limited_by_inputs_and_labour() -> void:
-	assert_eq(ProductionRecipes.max_runs("lumber", {"timber": 10}, 6), 3)
-	assert_eq(ProductionRecipes.max_runs("lumber", {"timber": 3}, 20), 1)
-	assert_eq(ProductionRecipes.max_runs("lumber", {"timber": 0}, 20), 0)
-	assert_eq(ProductionRecipes.max_runs("bronze", {"copper": 5, "tin": 2}, 9), 2)
-	assert_eq(ProductionRecipes.max_runs("bronze", {"copper": 5, "tin": 2}, 2), 0)
-	assert_eq(ProductionRecipes.max_runs("unknown", {"timber": 10}, 10), 0)
+	assert_eq(ProductionPhase.max_runs("lumber", {"timber": 10}, 6), 3)
+	assert_eq(ProductionPhase.max_runs("lumber", {"timber": 3}, 20), 1)
+	assert_eq(ProductionPhase.max_runs("lumber", {"timber": 0}, 20), 0)
+	assert_eq(ProductionPhase.max_runs("bronze", {"copper": 5, "tin": 2}, 9), 2)
+	assert_eq(ProductionPhase.max_runs("bronze", {"copper": 5, "tin": 2}, 2), 0)
+	assert_eq(ProductionPhase.max_runs("unknown", {"timber": 10}, 10), 0)
 
 ## The ledger's per-row ceiling: the whole runs the coming phase could start from
 ## the post-Consumption store once the other rows hold their claims. The row's
@@ -3118,33 +3118,33 @@ func test_max_runs_is_limited_by_inputs_and_labour() -> void:
 ## true ceiling for each row (wiki: stockpiles-and-production § Production flow;
 ## issue #453).
 func test_allowance_holds_back_the_other_rows_claims() -> void:
-	assert_eq(ProductionRecipes.allowance("lumber", {"timber": 4}, 20, []), 2)
+	assert_eq(ProductionPhase.allowance("lumber", {"timber": 4}, 20, []), 2)
 	# Paper and lumber share timber: two paper runs eat the whole tonnage.
 	assert_eq(
-		ProductionRecipes.allowance("lumber", {"timber": 4}, 20, [{"recipe": "paper", "units": 2}]),
+		ProductionPhase.allowance("lumber", {"timber": 4}, 20, [{"recipe": "paper", "units": 2}]),
 		0
 	)
 	assert_eq(
-		ProductionRecipes.allowance("lumber", {"timber": 4}, 20, [{"recipe": "lumber", "units": 1}]),
+		ProductionPhase.allowance("lumber", {"timber": 4}, 20, [{"recipe": "lumber", "units": 1}]),
 		2
 	)
 	# Labour is shared too: two paper runs spend four of six points.
 	assert_eq(
-		ProductionRecipes.allowance("lumber", {"timber": 8}, 6, [{"recipe": "paper", "units": 2}]),
+		ProductionPhase.allowance("lumber", {"timber": 8}, 6, [{"recipe": "paper", "units": 2}]),
 		1
 	)
-	assert_eq(ProductionRecipes.allowance("unknown", {"timber": 4}, 20, []), 0)
-	assert_eq(ProductionRecipes.claimed_labour([{"recipe": "steel", "units": 3}]), 6)
+	assert_eq(ProductionPhase.allowance("unknown", {"timber": 4}, 20, []), 0)
+	assert_eq(ProductionPhase.claimed_labour([{"recipe": "steel", "units": 3}]), 6)
 	# A row with no recipe, and a row that is not a dictionary, claim nothing.
 	assert_eq(
-		ProductionRecipes.claimed_labour([{"recipe": "bronze", "units": 2}, {"units": 5}, 7]),
+		ProductionPhase.claimed_labour([{"recipe": "bronze", "units": 2}, {"units": 5}, 7]),
 		6
 	)
 
 
 func test_plan_runs_whole_recipes_and_scales_io() -> void:
 	var stock: Dictionary = {"timber": 5}
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[{"recipe": "lumber", "units": 3}], stock, 6, {}
 	)
 	assert_eq(report["runs"], {"lumber": 2})
@@ -3156,7 +3156,7 @@ func test_plan_runs_whole_recipes_and_scales_io() -> void:
 
 func test_plan_skips_recipes_it_cannot_run_once() -> void:
 	var stock: Dictionary = {"timber": 1}
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[{"recipe": "lumber", "units": 4}], stock, 10, {}
 	)
 	assert_eq(report["runs"], {})
@@ -3166,7 +3166,7 @@ func test_plan_skips_recipes_it_cannot_run_once() -> void:
 
 func test_plan_respects_assignment_order_and_labour_budget() -> void:
 	var stock: Dictionary = {"iron": 4, "coal": 2}
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[
 			{"recipe": "steel", "units": 2},
 			{"recipe": "castIron", "units": 2},
@@ -3187,7 +3187,7 @@ func test_plan_respects_assignment_order_and_labour_budget() -> void:
 
 func test_plan_ignores_unavailable_and_zero_unit_rows() -> void:
 	var stock: Dictionary = {"cotton": 4, "timber": 4}
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[
 			{"recipe": "fabric_from_cotton", "units": 2},
 			{"recipe": "lumber", "units": 0},
@@ -3200,7 +3200,7 @@ func test_plan_ignores_unavailable_and_zero_unit_rows() -> void:
 	assert_eq(report["runs"], {})
 	assert_eq(stock["cotton"], 4)
 	assert_eq(stock["timber"], 4)
-	var allowed: Dictionary = ProductionRecipes.plan(
+	var allowed: Dictionary = ProductionPhase.plan(
 		[{"recipe": "fabric_from_cotton", "units": 2}], stock, 10, {"cotton_weaving": true}
 	)
 	assert_eq(allowed["runs"], {"fabric_from_cotton": 2})
@@ -3235,7 +3235,7 @@ func test_workshop_cleans_batches_and_serves_landings() -> void:
 
 func test_plan_cannot_drive_quantities_negative() -> void:
 	var stock: Dictionary = {"iron": 1, "coal": 1, "timber": 0}
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[{"recipe": "steel", "units": 5}], stock, 3, {}
 	)
 	assert_eq(report["runs"], {"steel": 1})
@@ -3275,26 +3275,26 @@ func test_luxury_rows_need_a_trained_hand() -> void:
 func test_a_gated_row_does_not_run_and_its_ceiling_is_zero() -> void:
 	var stock: Dictionary = {"tobacco": 4, "furs": 4}
 	var peasants: WorkerPool = WorkerPool.make(4)
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[{"recipe": "cigars", "units": 2}, {"recipe": "furHats", "units": 2}],
 		stock, 20, {}, {}, peasants
 	)
 	assert_eq(report["runs"], {})
 	assert_eq(stock["tobacco"], 4)
 	assert_eq(stock["furs"], 4)
-	assert_eq(ProductionRecipes.allowance("cigars", stock, 20, [], peasants), 0)
+	assert_eq(ProductionPhase.allowance("cigars", stock, 20, [], peasants), 0)
 	# A gated row set by the court claims no labour from the rows that do run.
 	assert_eq(
-		ProductionRecipes.allowance(
+		ProductionPhase.allowance(
 			"lumber", {"timber": 8}, 6, [{"recipe": "cigars", "units": 2}], peasants
 		),
 		3,
 		"a gated row claims nothing from the rows that run"
 	)
 	var apprentices: WorkerPool = WorkerPool.make(3, 1)
-	assert_eq(ProductionRecipes.allowance("cigars", stock, 20, [], apprentices), 2)
-	assert_eq(ProductionRecipes.allowance("furHats", stock, 20, [], apprentices), 0)
-	var allowed: Dictionary = ProductionRecipes.plan(
+	assert_eq(ProductionPhase.allowance("cigars", stock, 20, [], apprentices), 2)
+	assert_eq(ProductionPhase.allowance("furHats", stock, 20, [], apprentices), 0)
+	var allowed: Dictionary = ProductionPhase.plan(
 		[{"recipe": "cigars", "units": 2}], stock, 20, {}, {}, apprentices
 	)
 	assert_eq(allowed["runs"], {"cigars": 2})
@@ -3327,27 +3327,27 @@ func test_town_rows_need_the_town_works() -> void:
 ## do run (REQ-P2-03).
 func test_a_closed_works_gate_stops_the_row_and_its_ceiling() -> void:
 	var stock: Dictionary = {"fabric": 4, "refinedSugar": 4}
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[{"recipe": "garments", "units": 2}, {"recipe": "rum", "units": 2}],
 		stock, 20, {}, {}, null, 1
 	)
 	assert_eq(report["runs"], {})
 	assert_eq(stock["fabric"], 4)
 	assert_eq(stock["refinedSugar"], 4)
-	assert_eq(ProductionRecipes.allowance("garments", stock, 20, [], null, {}, 1), 0)
+	assert_eq(ProductionPhase.allowance("garments", stock, 20, [], null, {}, 1), 0)
 	assert_eq(
-		ProductionRecipes.allowance(
+		ProductionPhase.allowance(
 			"lumber", {"timber": 8}, 6, [{"recipe": "garments", "units": 2}], null, {}, 1
 		),
 		3,
 		"a row behind a closed works gate claims nothing from the rows that run"
 	)
-	var open_town: Dictionary = ProductionRecipes.plan(
+	var open_town: Dictionary = ProductionPhase.plan(
 		[{"recipe": "garments", "units": 2}], stock, 20, {}, {}, null, 2
 	)
 	assert_eq(open_town["runs"], {"garments": 2})
 	assert_eq(stock["fabric"], 0)
-	assert_eq(ProductionRecipes.allowance("garments", {"fabric": 4}, 20, [], null, {}, 2), 2)
+	assert_eq(ProductionPhase.allowance("garments", {"fabric": 4}, 20, [], null, {}, 2), 2)
 
 
 ## The presence test reads the crown's best town in any province on any chart,
@@ -3390,7 +3390,7 @@ func test_the_works_gate_reads_the_crowns_best_town() -> void:
 func test_a_carried_batch_lands_even_when_the_hand_is_gone() -> void:
 	var stock: Dictionary = {}
 	var wip: Dictionary = {"cigars": [{"units": 2, "turns_left": 1}]}
-	var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip, WorkerPool.make(4))
+	var report: Dictionary = ProductionPhase.plan([], stock, 0, {}, wip, WorkerPool.make(4))
 	assert_eq(report["produced"], {"cigars": 1}, "a slow row gives up one unit a phase")
 	assert_eq(stock["cigars"], 1)
 	assert_eq(ProductionWorkshop.units(report["wip"], "cigars"), 1, "the rest waits")
@@ -3401,7 +3401,7 @@ func test_a_carried_batch_lands_even_when_the_hand_is_gone() -> void:
 func test_a_carried_one_turn_batch_lands_whole() -> void:
 	var stock: Dictionary = {}
 	var wip: Dictionary = {"lumber": [{"units": 2, "turns_left": 1}]}
-	var report: Dictionary = ProductionRecipes.plan([], stock, 0, {}, wip, null)
+	var report: Dictionary = ProductionPhase.plan([], stock, 0, {}, wip, null)
 	assert_eq(report["produced"], {"lumber": 2})
 	assert_eq(stock["lumber"], 2)
 
@@ -3422,17 +3422,17 @@ func test_the_luxury_rows_take_two_turns() -> void:
 func test_a_cigar_batch_lands_one_unit_a_phase() -> void:
 	var stock: Dictionary = {"tobacco": 4}
 	var apprentices: WorkerPool = WorkerPool.make(3, 1)
-	var first: Dictionary = ProductionRecipes.plan(
+	var first: Dictionary = ProductionPhase.plan(
 		[{"recipe": "cigars", "units": 2}], stock, 20, {}, {}, apprentices
 	)
 	assert_eq(first["runs"], {"cigars": 2})
 	assert_eq(first["produced"], {}, "a two-turn row lands nothing in the phase it starts")
 	assert_eq(stock["tobacco"], 0, "the batch pays its inputs up front")
 	assert_eq(ProductionWorkshop.units(first["wip"], "cigars"), 2)
-	var second: Dictionary = ProductionRecipes.plan([], stock, 0, {}, first["wip"], apprentices)
+	var second: Dictionary = ProductionPhase.plan([], stock, 0, {}, first["wip"], apprentices)
 	assert_eq(second["produced"], {"cigars": 1}, "one unit a phase")
 	assert_eq(ProductionWorkshop.units(second["wip"], "cigars"), 1)
-	var third: Dictionary = ProductionRecipes.plan([], stock, 0, {}, second["wip"], apprentices)
+	var third: Dictionary = ProductionPhase.plan([], stock, 0, {}, second["wip"], apprentices)
 	assert_eq(third["produced"], {"cigars": 1})
 	assert_eq(stock["cigars"], 2)
 	assert_true(third["wip"].is_empty(), "the batch is spent")
@@ -3445,7 +3445,7 @@ func test_the_workshop_holds_three_pieces_of_a_slow_row() -> void:
 	assert_eq(ProductionWorkshop.QUEUE_CAP, 3)
 	var stock: Dictionary = {"tobacco": 20}
 	var apprentices: WorkerPool = WorkerPool.make(3, 1)
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		[{"recipe": "cigars", "units": 5}], stock, 20, {}, {}, apprentices
 	)
 	assert_eq(report["runs"], {"cigars": 3}, "the bench takes three pieces")
@@ -3454,34 +3454,34 @@ func test_the_workshop_holds_three_pieces_of_a_slow_row() -> void:
 	# A batch still serving its first turn leaves the bench full: no new run,
 	# even with inputs and labour to spare.
 	var held: Dictionary = {"cigars": [{"units": 3, "turns_left": 2}]}
-	var again: Dictionary = ProductionRecipes.plan(
+	var again: Dictionary = ProductionPhase.plan(
 		[{"recipe": "cigars", "units": 2}], stock, 20, {}, held, apprentices
 	)
 	assert_eq(again["runs"], {})
 	assert_eq(stock["tobacco"], 14)
 	# Two assignments of one row share the same bench.
-	var split: Dictionary = ProductionRecipes.plan(
+	var split: Dictionary = ProductionPhase.plan(
 		[{"recipe": "cigars", "units": 2}, {"recipe": "cigars", "units": 2}],
 		{"tobacco": 20}, 20, {}, {}, apprentices
 	)
 	assert_eq(split["runs"], {"cigars": 3}, "two assignments share one bench")
 	# The ceiling the ledger offers stops at the room the coming phase leaves.
 	assert_eq(
-		ProductionRecipes.allowance("cigars", stock, 20, [], apprentices, held), 0
+		ProductionPhase.allowance("cigars", stock, 20, [], apprentices, held), 0
 	)
 	assert_eq(
-		ProductionRecipes.allowance(
+		ProductionPhase.allowance(
 			"cigars", stock, 20, [], apprentices, {"cigars": [{"units": 2, "turns_left": 1}]}
 		),
 		2,
 		"a landing frees its place for the run set now"
 	)
 	# A one-turn row never waits, so the cap never binds it.
-	assert_eq(ProductionRecipes.allowance("lumber", {"timber": 20}, 20, [], null, {}), 10)
+	assert_eq(ProductionPhase.allowance("lumber", {"timber": 20}, 20, [], null, {}), 10)
 	# A batch already on the anvil keeps its place: a save over the cap still
 	# lands, and only new runs wait.
 	var legacy: Dictionary = {"cigars": [{"units": 5, "turns_left": 1}]}
-	var served: Dictionary = ProductionRecipes.plan([], {}, 0, {}, legacy, apprentices)
+	var served: Dictionary = ProductionPhase.plan([], {}, 0, {}, legacy, apprentices)
 	assert_eq(served["produced"], {"cigars": 1}, "a paid batch still lands")
 	assert_eq(ProductionWorkshop.units(served["wip"], "cigars"), 4)
 	assert_eq(ProductionWorkshop.room(legacy, "cigars", 2), 0, "an over-full bench has no room")

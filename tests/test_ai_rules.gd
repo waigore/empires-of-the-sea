@@ -1886,7 +1886,7 @@ func test_ai_economy_plan_runs_the_town_row_it_offers() -> void:
 	var plan: Dictionary = AiEconomyPlanner.production_orders(
 		AiConfig.build(1, 1500), economy, 2
 	)
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		plan["assignments"] as Array[Dictionary],
 		economy.stockpile.duplicate(),
 		6,
@@ -1919,7 +1919,7 @@ func test_ai_economy_plan_spends_the_labour_the_phase_will_use() -> void:
 	var plan: Dictionary = AiEconomyPlanner.production_orders(
 		AiConfig.build(1, 1500), economy
 	)
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		plan["assignments"] as Array[Dictionary],
 		economy.stockpile.duplicate(),
 		6,
@@ -1998,7 +1998,7 @@ func test_ai_economy_asks_no_run_the_full_bench_will_refuse() -> void:
 			steel = int(assignment["units"])
 	assert_eq(steel, 0, "a full bench takes no fourth run")
 	# The labour the phantom run would have eaten goes to the rows that start.
-	var report: Dictionary = ProductionRecipes.plan(
+	var report: Dictionary = ProductionPhase.plan(
 		plan["assignments"] as Array[Dictionary],
 		economy.stockpile.duplicate(),
 		6,
