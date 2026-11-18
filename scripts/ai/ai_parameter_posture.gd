@@ -62,4 +62,20 @@ const PARAMETERS: Array[Dictionary] = [
 		"max": 1000,
 		"default": 800,
 	},
+	{
+		"key": "posture.arms_lead",
+		"category": "posture",
+		"type": TYPE_INT,
+		"min": 1000,
+		"max": 2000,
+		"default": 1250,
+	},
+	{
+		"key": "posture.builds_wait",
+		"category": "posture",
+		"type": TYPE_INT,
+		"min": 100,
+		"max": 1000,
+		"default": 750,
+	},
 ]

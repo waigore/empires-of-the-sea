@@ -14896,6 +14896,99 @@ func test_the_money_goal_leads_with_the_domains_that_pay() -> void:
 	assert_eq(String(earn_order[1].id), "research.study", "and the study waits behind it")
 
 
+## Arms before builds (issue #910's win path): a court on `earn` that owes its
+## army a muster leads with the military and lets the works wait, so the purse
+## banks into the chest the muster waits on. The shift composes with the
+## footing: a war boost never falls, and a domain a colder reading already
+## deferred stays there.
+func test_a_court_that_owes_its_army_arms_before_it_builds() -> void:
+	var config: AiConfig = _objective_config()
+	var earn: Dictionary = AiPosture.modifiers(
+		AiPhasePlanner.PHASE_PEACE, config, AiPosture.NEUTRAL, AiIncome.GOAL_EARN
+	)
+	var shifted: Dictionary = AiPosture.arms_before_builds(earn, config)
+
+	assert_true(
+		int(shifted["military"]) >= config.parameter("posture.arms_lead"),
+		"the muster leads the rank"
+	)
+	assert_true(
+		int(shifted["economy"]) <= config.parameter("posture.builds_wait"),
+		"the works wait behind it"
+	)
+	assert_true(
+		int(shifted["expansion"]) <= config.parameter("posture.builds_wait"),
+		"and so do the voyages"
+	)
+	assert_eq(
+		int(shifted["research"]), int(earn["research"]),
+		"the study keeps its published earn read"
+	)
+	assert_eq(
+		int(shifted["diplomacy"]), int(earn["diplomacy"]),
+		"and so does the court"
+	)
+	# The shift composes with the footing: the war boost stands.
+	var war_earn: Dictionary = AiPosture.modifiers(
+		AiPhasePlanner.PHASE_WAR, config, AiPosture.NEUTRAL, AiIncome.GOAL_EARN
+	)
+	var war_shift: Dictionary = AiPosture.arms_before_builds(war_earn, config)
+	assert_eq(
+		int(war_shift["military"]), int(war_earn["military"]),
+		"the war footing's own boost is never lowered"
+	)
+	# The rank pass reads the vector: the muster overtakes the work.
+	var muster: AiObjective = AiObjective.create("muster.line", "military", 45)
+	var work: AiObjective = AiObjective.create("economy.work", "economy", 50)
+	var plain: Array[AiObjective] = AiObjectiveLedger.rank([muster, work], earn)
+	var armed: Array[AiObjective] = AiObjectiveLedger.rank([muster, work], shifted)
+
+	assert_eq(String(plain[0].id), "economy.work", "a court that owes nothing builds first")
+	assert_eq(String(armed[0].id), "muster.line", "a court that owes its army arms first")
+
+
+## A court that owes no muster keeps the published rank: the ledger applies the
+## shift only on `earn` while the court's own `muster_due` flag stands.
+func test_a_court_at_target_builds_as_published() -> void:
+	var config: AiConfig = _objective_config()
+	var phase: Dictionary = {"phase": AiPhasePlanner.PHASE_PEACE}
+	var pressure: Dictionary = {"boost_mille": AiPosture.NEUTRAL}
+	var readings: Dictionary = {"goal": AiIncome.GOAL_EARN, "muster_due": false}
+	var plain: Dictionary = MapPlayObjectivesAi._rank_modifiers(
+		readings, phase, config, pressure
+	)
+
+	assert_eq(
+		int(plain["economy"]),
+		int(AiPosture.modifiers(
+			AiPhasePlanner.PHASE_PEACE, config, AiPosture.NEUTRAL, AiIncome.GOAL_EARN
+		)["economy"]),
+		"a court at target strength builds as published"
+	)
+	readings["muster_due"] = true
+	var armed: Dictionary = MapPlayObjectivesAi._rank_modifiers(
+		readings, phase, config, pressure
+	)
+	assert_true(
+		int(armed["economy"]) < int(plain["economy"]),
+		"a court that owes its army arms before it builds"
+	)
+	assert_true(
+		int(armed["military"]) > int(plain["military"]),
+		"and the muster leads the rank"
+	)
+	readings["goal"] = AiIncome.GOAL_SPEND
+	assert_eq(
+		int(MapPlayObjectivesAi._rank_modifiers(
+			readings, phase, config, pressure
+		)["economy"]),
+		int(AiPosture.modifiers(
+			AiPhasePlanner.PHASE_PEACE, config, AiPosture.NEUTRAL, AiIncome.GOAL_SPEND
+		)["economy"]),
+		"a court that can pay builds as published, muster or no muster"
+	)
+
+
 func test_the_leader_s_weights_reorder_the_rank() -> void:
 	var napoleon: AiConfig = AiConfig.build(OBJ_OWNER, OBJ_SEED, AiProfile.NORMAL, AiAgenda.WARMONGER)
 	napoleon.personality = AiPersonality.resolve("napoleon")
