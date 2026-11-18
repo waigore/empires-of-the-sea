@@ -288,6 +288,16 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The words one estate row prints (split out of [EstateRows] for REQ-P3-01): the
+# civilian suite proves the figures behind the line and the panel-parts boot the
+# ESTATES ledger that renders it, so a wording change never pays for the whole
+# prospect fan-out (tier-1 5 min budget).
+[domains.estate_row_words]
+suites = [
+  "test_civilian_turn_rules.gd",
+  "test_panel_parts_rules.gd",
+]
+
 # The crown's eyes (DR-20261115-10): the intelligence projection and its sheet.
 # One suite — it mounts the map screen, presses the court's EYES door and reads
 # the network — so the espionage domain's seven suites (test_map_screen among
@@ -2222,6 +2232,12 @@ domain = "prospect"
 match = "scripts/rules/estate_rows.gd*"
 domain = "ai_works"
 
+# The row's printed line, cap note and raise price, now their own module: the
+# sheet suite proves the copy the ESTATES ledger renders.
+[[rules]]
+match = "scripts/rules/estate_row_words.gd*"
+domain = "estate_row_words"
+
 [[rules]]
 match = "tests/test_civilian_turn_rules.gd*"
 domain = "civilian"
@@ -3033,6 +3049,13 @@ domain = "fleet"
 [[rules]]
 match = "scripts/rules/trade_*.gd"
 domain = "fleet"
+
+# The court's gift: the £1,000 steps a Grant Aid press carries (wiki: diplomacy
+# § Amount parameters; DR-20261118-16). Named above the diplomacy_* glob so the
+# new reading's own domain is explicit.
+[[rules]]
+match = "scripts/rules/diplomacy_gift.gd*"
+domain = "diplomacy"
 
 [[rules]]
 match = "scripts/rules/diplomacy_*.gd"
