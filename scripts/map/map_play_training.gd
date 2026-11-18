@@ -57,11 +57,9 @@ static func _blocked_reason(play: PlaySession, type_id: String) -> String:
 		return "Unknown civilian."
 	if not CivilianCatalog.is_implemented(type_id):
 		return CivilianCatalog.deferred_reason(type_id)
-	if not CivilianCatalog.is_unlocked(type_id, play.tech_unlocked()):
-		return (
-			"Requires %s."
-			% TechCatalog.display_name(CivilianCatalog.unlock_tech(type_id))
-		)
+	var tech: String = CivilianHire.locked_tech(type_id, play.tech_unlocked())
+	if not tech.is_empty():
+		return "Requires %s." % TechCatalog.display_name(tech)
 	if play.economy == null or play.economy.economy == null:
 		return "The crown keeps no ledger."
 	var state: PlayerEconomy = play.economy.economy

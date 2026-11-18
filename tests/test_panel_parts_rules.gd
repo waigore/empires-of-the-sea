@@ -126,6 +126,19 @@ func test_open_advances_are_listed_and_startable() -> void:
 	assert_true(TechCatalog.known(picked[0]))
 	assert_true(_state.researchable().has(picked[0]))
 
+## A purchase row names what the study opens, under its price: the payoff is
+## printed, never a hover a touch crown cannot reach (REQ-P1-05, REQ-P5-03).
+func test_an_open_advance_names_what_it_opens() -> void:
+	_setup_research_panel()
+	_panel.refresh(_state, 2500)
+	var cap: Label = _label_containing("Improves: extraction cap Timber 2.")
+	assert_not_null(cap, "Saw Mill's row names the cap it lifts")
+	assert_eq(cap.get_theme_font_size("font_size"), 10, "the payoff is a detail line")
+	assert_not_null(
+		_label_containing("Unlocks: research paths to Animal Husbandry"),
+		"an advance that only opens the road names the road"
+	)
+
 func test_a_full_roster_disables_new_studies() -> void:
 	_setup_research_panel()
 	for tech_id: String in ["crop_rotation", "saw_mill", "land_enclosure"]:
@@ -597,6 +610,44 @@ func _show(tech: Dictionary = {}) -> void:
 	_province_panel_panel.set_data(_model, _works, _units, null, Vector2i(0, 0), 0, {}, tech)
 	_province_panel_panel.refresh(_model, 0)
 
+
+## The muster rail names what each craft does and the one study a hire waits on,
+## and a gated craft greys out instead of offering an order the rules refuse — the
+## gate used to arrive only in the refusal toast (wiki: civilian-units § Training;
+## DR-20261118-09; REQ-P2-03, REQ-P5-05).
+func test_the_muster_rail_names_what_each_craft_does() -> void:
+	_setup_province_panel()
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var explorer: Dictionary = rail.training_row("explorer")
+	assert_eq(
+		(explorer["note"] as Label).text, "Charts a province and prospects its ground"
+	)
+	assert_false(
+		(explorer["button"] as Button).disabled, "a starting craft hires at once"
+	)
+	# A Merchant waits on Merchant Companies: the row says so and the press is
+	# dead until the study lands.
+	var merchant: Dictionary = rail.training_row("merchant")
+	assert_true((merchant["button"] as Button).disabled)
+	assert_eq(
+		(merchant["note"] as Label).text,
+		"Buys land in a Minor's or Tribe's province · needs Merchant Companies",
+	)
+	assert_true(
+		(merchant["button"] as Button).tooltip_text.contains("Merchant Companies"),
+		"the tooltip is the order's own refusal",
+	)
+	_show({"merchant_companies": true})
+	assert_false(
+		(merchant["button"] as Button).disabled, "the study opens the hire"
+	)
+	assert_eq(
+		(merchant["note"] as Label).text,
+		"Buys land in a Minor's or Tribe's province",
+		"an open hire carries no gate",
+	)
+
 func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	_setup_province_panel()
 	_show()
@@ -604,6 +655,32 @@ func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	var text: String = _province_panel_panel._resources.survey_text()
 	assert_true(text.contains("Unsurveyed ground"), text)
 	assert_true(text.contains("1 tile"), text)
+
+
+## A province whose tiles tie between two terrains reads the ground the battle
+## fights on — the reading ties to the lower terrain id, as
+## `ArmyModifiers.terrain_for` does — not whichever terrain the tiles happen to
+## name first (wiki: resource-terrain-region-rules § Player-facing terrain
+## display names; combat § Modifiers; REQ-P2-03).
+func test_a_tied_province_reads_the_ground_its_battle_uses() -> void:
+	_setup_province_panel()
+	# Six of the crown province's twelve tiles in hills, six in plains, hills
+	# first in tile order: the sheet used to read the first maximum it met.
+	var tiles: Array = _model.province_tiles(0)
+	assert_eq(tiles.size(), 12, "the fixture's crown province")
+	for index in tiles.size():
+		var tile: Vector2i = tiles[index]
+		_model.terrain[_model.index_of(tile.x, tile.y)] = (
+			MapModel.Terrain.HILLS if index < 6 else MapModel.Terrain.PLAINS
+		)
+	_show()
+	var ground: int = ArmyModifiers.terrain_for(_model, 0)
+	assert_eq(ground, MapModel.Terrain.PLAINS, "the tie falls to the lower terrain id")
+	assert_eq(
+		_province_panel_panel._grid.terrain.text,
+		String(MapModel.TERRAIN_LABELS[ground]),
+		"the sheet names the ground the battle fights on"
+	)
 
 
 ## A good the catalog has no medallion for keeps its pictogram, and that mark
@@ -1242,6 +1319,7 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 			"ok": true,
 			"cost_text": "2,000 cash · 1 fabric",
 			"reason": "",
+			"line": "Light infantry · FPN 0 · FPM 3 · RNG 1 · DEF 3 · MVR 3 · 3 strength · 3 food",
 		},
 		{
 			"type_id": "grenadiers",
@@ -1249,6 +1327,7 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 			"ok": false,
 			"cost_text": "",
 			"reason": "Need Organised Regiments",
+			"line": "Heavy infantry · FPN 10 · FPM 8 · RNG 5 · DEF 5 · MVR 4 · 18 strength · 3 food",
 		},
 	]
 	var heard: Array[String] = []
@@ -1257,7 +1336,11 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 	panel.refresh(model, army, true, false, "", muster)
 	panel.set_muster_open(true)
 
-	assert_eq(panel._muster_box.get_child_count(), 2)
+	assert_eq(
+		panel._muster_box.get_child_count(),
+		3,
+		"two rows and the one press under them"
+	)
 	var ok_top: HBoxContainer = panel._muster_box.get_child(0).get_child(0)
 	assert_true(ok_top.get_child(0) is UnitMedallion)
 	assert_eq((ok_top.get_child(1) as Label).text, "Peasant Levies")
@@ -1267,6 +1350,11 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 	assert_eq(
 		(panel._muster_box.get_child(0).get_child(1) as Label).text,
 		"2,000 cash · 1 fabric"
+	)
+	# The regiment's own numbers print under the price, on the sheet (DR-20261118-01).
+	assert_eq(
+		(panel._muster_box.get_child(0).get_child(2) as Label).text,
+		String(muster[0]["line"])
 	)
 	ok_btn.pressed.emit()
 	assert_eq(heard, ["recruit:peasant_levies"])
@@ -1279,7 +1367,175 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 		(panel._muster_box.get_child(1).get_child(1) as Label).text,
 		"Need Organised Regiments"
 	)
+	# A type the crown cannot raise yet keeps its line: the study is planned on it.
+	assert_eq(
+		(panel._muster_box.get_child(1).get_child(2) as Label).text,
+		String(muster[1]["line"])
+	)
 	panel.free()
+
+
+## The yard's foot files every ready row in one confirmed press, and its face
+## names the count before the stores are spent (REQ-P5-04, REQ-P5-05;
+## DR-20261118-07).
+func test_the_army_muster_block_files_every_ready_row_in_one_press() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(22, 0, 1, ["guards"], true)
+	var muster: Array[Dictionary] = [
+		{
+			"type_id": "peasant_levies",
+			"name": "Peasant Levies",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "2,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Light infantry · 3 strength",
+		},
+		{
+			"type_id": "pikemen",
+			"name": "Pikemen",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "4,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Regular infantry · 5 strength",
+		},
+		{
+			"type_id": "grenadiers",
+			"name": "Grenadiers",
+			"ok": false,
+			"batch_ready": false,
+			"cost_text": "",
+			"reason": "Need Organised Regiments",
+			"line": "Heavy infantry · 18 strength",
+		},
+	]
+	var heard: Array[String] = []
+	panel._muster_box.action_pressed.connect(func(action: String) -> void: heard.append(action))
+
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+
+	var press: RaiseBatchPress = panel._muster_box._batch
+	assert_not_null(press, "the drill yard carries the one press")
+	assert_true(press.visible, "the press stands when the yard holds a ready row")
+	assert_eq(press.text, "Muster all ready (2)", "the press names the count it would file")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(press.text, "Confirm — muster 2 regiments", "the second tap is named")
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the press forgets the arm once it files")
+	assert_eq(heard, ["recruit_all"], "one intent for the whole line")
+
+	# No row is ready now (every order waits), so the press stands down.
+	for row: Dictionary in muster:
+		row["batch_ready"] = false
+	panel.refresh(model, army, true, false, "", muster)
+	assert_false(press.visible, "a yard with nothing ready carries no press")
+	panel.free()
+
+
+## A redraw re-reads the yard's own ledger, so the arm the player gave the sheet
+## is spent with it: a count that falls under an armed press must not leave a
+## one-tap confirm loaded against a line the face no longer names (REQ-P5-04).
+func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(22, 0, 1, ["guards"], true)
+	var muster: Array[Dictionary] = [
+		{
+			"type_id": "peasant_levies",
+			"name": "Peasant Levies",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "2,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Light infantry · 3 strength",
+		},
+		{
+			"type_id": "pikemen",
+			"name": "Pikemen",
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "4,000 cash · 1 fabric",
+			"reason": "",
+			"line": "Regular infantry · 5 strength",
+		},
+	]
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+	var press: RaiseBatchPress = panel._muster_box._batch
+	assert_eq(press.text, "Muster all ready (2)", "the sheet names its line")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap arms")
+
+	# One row's own Muster goes in, and the sheet is redrawn one step shorter.
+	muster[0]["batch_ready"] = false
+	panel.refresh(model, army, true, false, "", muster)
+
+	assert_false(press.is_armed(), "the redraw spends the arm the player gave")
+	assert_eq(press.text, "Muster all ready (1)", "the face names the line it now stands for")
+	panel.free()
+
+
+## The drill yard's foot names what the whole line costs before it is pressed: the
+## plan its rows carry, printed once under them and re-read on every redraw
+## (REQ-P5-06, REQ-P1-07; DR-20261118-11).
+func test_the_muster_block_prints_the_lines_sum_once() -> void:
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(23, 0, 1, ["guards"], true)
+	var plan: Dictionary = {
+		"count": 2,
+		"filed": 2,
+		"ducats": 6000,
+		"materials": {"fabric": 2},
+		"workers": 2,
+		"purse": 20000,
+		"purse_after": 14000,
+		"refusal": "",
+	}
+	var muster: Array[Dictionary] = []
+	for type_id: String in ["peasant_levies", "pikemen"]:
+		muster.append({
+			"type_id": type_id,
+			"name": type_id,
+			"ok": true,
+			"batch_ready": true,
+			"cost_text": "3,000 ducats · 1 Fabric · 1 worker",
+			"reason": "",
+			"line": "Light infantry · 3 strength",
+			"batch": plan,
+		})
+
+	panel.refresh(model, army, true, false, "", muster)
+	panel.set_muster_open(true)
+
+	assert_eq(
+		_sum_line_count(panel._muster_box),
+		1,
+		"the sheet prints one sum under its rows"
+	)
+
+	# A redraw re-reads the one label instead of stacking a second copy of it.
+	panel.refresh(model, army, true, false, "", muster)
+	assert_eq(_sum_line_count(panel._muster_box), 1, "one sum line however often")
+	panel.free()
+
+
+## How many sum lines the block prints, so a redraw can be told from a stack and
+## a hidden label cannot pass for a printed one.
+func _sum_line_count(box: VBoxContainer) -> int:
+	var found: int = 0
+	for child: Node in box.get_children():
+		var label := child as Label
+		if label != null and label.visible and label.text.contains("the purse keeps"):
+			found += 1
+	return found
 
 
 ## Chevrons and a mauled bar live on the roster block; strength names the count.
@@ -4068,6 +4324,51 @@ func test_the_disband_hint_names_the_promise_and_the_saving() -> void:
 	var master: String = LedgerWorkersText.disband_hint(WorkerPool.Tier.MASTER)
 	assert_true(master.contains("A master eats 2 food and a unit of Fur Hats"), master)
 
+## The recruit row's line is the price plus one clause: the study a locked tier
+## waits on, the rule that stops it, or the ration it eats
+## (wiki: workers-and-population § Recruiting, § Tech gates, § Worker Tiers).
+func test_the_workers_row_names_its_price_and_its_clause() -> void:
+	var none: Array[String] = []
+	var two: Array[String] = ["apprentice_workers", "sugar_refining"]
+	var three: Array[String] = ["apprentice_workers", "sugar_refining", "university"]
+	assert_eq(LedgerWorkersText.recruit_price(WorkerPool.Tier.PEASANT), "Recruit Fabric ×2")
+	assert_eq(
+		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1000 ducats · Paper ×10"
+	)
+	assert_eq(
+		LedgerWorkersText.ration_line(WorkerPool.Tier.PEASANT), "eats 1 grain or meat a turn"
+	)
+	assert_eq(
+		LedgerWorkersText.ration_line(WorkerPool.Tier.MASTER),
+		"eats 1 grain + 1 meat and Fur Hats a turn"
+	)
+	assert_eq(LedgerWorkersText.gate_line(two), "needs Apprentice Workers and Sugar Refining")
+	assert_eq(LedgerWorkersText.gate_line(none), "", "no gate, no clause")
+	var one: Array[String] = ["university"]
+	assert_eq(LedgerWorkersText.gate_line(one), "needs University", "one gate reads alone")
+	assert_eq(
+		LedgerWorkersText.gate_line(three),
+		"needs Apprentice Workers, Sugar Refining and University",
+		"three gates still read as one clause"
+	)
+	assert_eq(
+		LedgerWorkersText.recruit_line(WorkerPool.Tier.APPRENTICE, "", two),
+		"Recruit 200 ducats · Paper ×2 — needs Apprentice Workers and Sugar Refining"
+	)
+	assert_eq(
+		LedgerWorkersText.recruit_line(WorkerPool.Tier.PEASANT, "Insufficient treasury", none),
+		"Recruit Fabric ×2 — insufficient treasury"
+	)
+	assert_eq(
+		LedgerWorkersText.recruit_line(WorkerPool.Tier.JOURNEYMAN, "", none),
+		"Recruit 500 ducats · Paper ×5 — eats 1 grain + 1 meat and Cigars a turn"
+	)
+	# The gate query reads the same table the order checks.
+	var unlocked: Dictionary = {"master_artisans": true}
+	var missing: Array[String] = WorkerPool.missing_techs(WorkerPool.Tier.MASTER, unlocked)
+	assert_eq(missing.size(), 1, "one study still stands")
+	assert_eq(missing[0], "hat_production")
+
 func test_fills_carry_and_lapse_are_named() -> void:
 	var report: Dictionary = {
 		"fills": {0: {"bought": 2, "spent": 60, "sold": 1}},
@@ -4843,6 +5144,21 @@ func test_the_pick_names_the_door_that_can_press_it() -> void:
 	assert_true(MapPlayCivilianFollow.is_follow(press), "the press is a follow")
 	assert_false(
 		MapPlayCivilianFollow.is_follow("build_improvement"), "an order is not a follow"
+	)
+
+
+## The crew's sheet on bought ground names the deed, not a bare label: who signed
+## it and what it keeps for them (REQ-P5-03, REQ-P5-05; DR-20261118-05).
+func test_the_dossier_names_the_deed_that_holds_the_ground() -> void:
+	var model: MapModel = Fixture.build_minor()
+	var merchant: CivilianState = CivilianState.create(
+		1, PLAYER, "merchant", Vector2i(3, 1)
+	)
+	assert_eq(_dossier_detail_of(merchant, model, "Deed"), "", "unsold ground")
+	assert_true(model.purchase_tile(Vector2i(3, 1), PLAYER))
+	assert_eq(
+		_dossier_detail_of(merchant, model, "Deed"),
+		"%s · first refusal on 1 grain / turn" % FactionCatalog.name_of(PLAYER)
 	)
 
 

@@ -139,7 +139,7 @@ static func _row(
 		return {}
 	var level: int = FortRules.clamp_level(province.fort_level)
 	var next: int = FortRules.next_level(level)
-	var refusal: String = CivilianWorkPlan.fort_refusal(level, tech_unlocked, stockpile)
+	var refusal: String = CivilianWorkRefusals.fort(level, tech_unlocked, stockpile)
 	var crew: CivilianState = RaiseLedger.crew_for(units, province.owner, site, "build_fort")
 	# What the next step waits on, worst first: a finished wall, a crew already
 	# at work, the study the order needs, a free Engineer, else the order is

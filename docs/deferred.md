@@ -1,6 +1,7 @@
 # Deferred features (ranked)
 
-Audited: DR-20261117-10 vs code through #898 (REQ-P2-02).
+Audited: DR-20261118-08 vs code through #956 (REQ-P2-02).
+Implement default: largest clear item here, then REQ/wiki.
 
 ## Already live
 
@@ -29,21 +30,24 @@ Audited: DR-20261117-10 vs code through #898 (REQ-P2-02).
 | War-time trade garrison + rival bench | `AiNavalPlanner.trade_garrison`; `_bench_room` |
 | Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20k |
 | Recipe gate + rival second-stage | `min_town`; `TownIndustry.best_level` |
-| Regiment dismiss; money-goal reweight | `ArmyDismiss`; `goal_mille` |
+| Regiment dismiss; money-goal reweight | `ArmyDismiss`; `AiPosture.goal_mille` |
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
-| Estate/wall/ward/transport/crew previews | ledgers + `MapPlayCivilianPick`/`MapPlayCivilianFollow` + chart mark, DR-17-03/05/06/07/09 |
-| QB wings, lane targeting, collapse | `QuickBattleWings`, DR-17-08 |
-| Rail pick's door; dossier rail block | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
+| Raise/crew/yard/muster/workers/college/deed/town | ledgers + pick/Follow; payoff lines; DR-17-03/05–07/09/15 + DR-18-01/03–06 |
+| QB wings + handset plate | `QuickBattleWings`; `BattlePlateFrame`, DR-17-08/14 |
+| Rail pick door; dossier rail | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
+| Observatory sheet + feed | `ObserverProvince*`; `ObserverTurnFeed`, DR-17-11/12 |
+| Capital Wood walls + fort lift | `FortCapital`, DR-17-13/#926 |
+| Yard/shipyard one-press batch | `ArmyTraining`/`FleetYard.queue_all`, DR-18-07/08 |
 
 ## Gaps (ranked)
 
-None open: the pick family's last door (a railroad) closed in DR-17-10.
+- None open (through #956).
 
 ## Next pick
 
-P5/P1 polish; re-audit wiki.
+REQ/wiki.
 
 ## Blocked
 
@@ -63,9 +67,9 @@ P5/P1 polish; re-audit wiki.
 
 ## Wiki drift
 
-- `civilian-build-planner` / learnings: raise + pick + chart mark + Follow door
-  live (DR-17-03/05/06/07/09).
-- `quick-battle`: terrain + wings live (`SiegeLanes`, `QuickBattleWings`).
-- `phase-planner-*`: six slots live; soft weight seed (DR-17-01).
-- `production-recipes`: rival second-stage live #798.
-- DR-11-17 prizes, fleetless leg — live (`MapPlayRaids`).
+- `playtest-learnings`: sheet/feed/plate/rail closed (DR-17-10–14).
+- `civilian-units`: Road L2/gathering live.
+- `phase-planner-*` / `ai-architecture`: six slots live; soft weight seed;
+  "dispatch stays seed" stale.
+- `production-recipes`: rival second-stage still deferred → live #798.
+- DR-18 naming surfaces match their records.

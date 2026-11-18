@@ -14,9 +14,9 @@ const TERRAIN_LABELS: Dictionary = {
 	Terrain.PLAINS: "Plains",
 	Terrain.HARDWOOD_FOREST: "Hardwood Forest",
 	Terrain.HILLS: "Hills",
-	Terrain.MOUNTAINS: "Mountains",
+	Terrain.MOUNTAINS: "Mountain",
 	Terrain.DESERT: "Desert",
-	Terrain.SWAMP: "Marsh",
+	Terrain.SWAMP: "Swamp",
 	Terrain.SCRUB_FOREST: "Scrub Forest",
 }
 

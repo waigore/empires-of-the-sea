@@ -6,7 +6,7 @@ Unit/integration tests and the headless e2e smoke; two CI tiers, hard budgets.
 
 | Tier | When | Command / gate | Budget |
 |------|------|----------------|--------|
-| **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke | tests **≤ 5 min**; smoke **≤ 2 min** |
+| **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke + auto | tests **≤ 5 min**; e2e **≤ 5 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
 Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for the **fix-tests** agent.
@@ -19,10 +19,10 @@ Strict map: unmapped in-scope paths fail; `full = true` runs every suite
 
 Patch coverage uses gd-tools’ plan (test dirs uninstrumented); empty patches pass.
 
-## E2E smoke (tier 1)
+## E2E (tier 1)
 
-Smoke boots the title, starts a game, opens the menu, saves, plays **one turn**,
-loads, returns to title. Deep rules live in `tests/`.
+Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
+**auto** (Small, five Auto turns, dump asserts). Deep rules in `tests/`.
 
 ## Speed rules
 
@@ -36,8 +36,8 @@ loads, returns to title. Deep rules live in `tests/`.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
   gd-tools hands each case a fresh instance, so an instance dictionary redraws
-  per case. Prefer a pocket chart over regenerating Standard; the price census
-  rides **Small** when a seed keeps the published order.
+  per case. Prefer a pocket chart over regenerating Standard; the published
+  census (rate, means, Minor book, prices) rides **one** Standard seed.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
   pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
   **one mount per tier**. A suite that swaps screens frees it. An observer
@@ -53,10 +53,10 @@ loads, returns to title. Deep rules live in `tests/`.
   never `generate_world`.
 - **Heaviest suite sorts first**: name order, four wide — a long `world_…`
   suite must not drain alone.
-- One Godot boot per theme — coverage ~15 s a boot; 39 → 25 suites
-  (`save_codec` rides campaign_end, the dossier rides panel_parts).
+- One Godot boot per theme — coverage ~15 s a boot; 27 → 24 suites
+  (fort capital→battle, observer parts→ai_observer, branding→plate).
   `gd-tools.toml` keeps `parallel = 4`.
-- Smoke: short boot, no sleeps, no fades (`AudioDirector.fade_scale = 0`).
+- Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
 
@@ -70,6 +70,7 @@ gd-tools coverage diff --patch --base origin/main --patch-fail-under 80
 # Tier 2-shaped (one shard; CI runs all four, then merges coverage and gates 80%)
 gd-tools test --coverage --shard 1/4 --parallel 4
 godot --headless --path . --script res://tools/e2e_smoke.gd
+godot --headless --path . --script res://tools/e2e_auto.gd
 
 # Free-playtest drives live under playtests/ (opt-in, not a CI gate). Every one
 # launches the real flow through playtests/playtest_launch.gd (title -> setup ->
@@ -80,10 +81,18 @@ godot --headless --path . --script res://tools/e2e_smoke.gd
 # charts and prospects, printing one line per step.
 godot --headless --path . --script res://playtests/playtest_new_world.gd
 
-# Quick Battle — declares war, resolves an attacking field battle, a siege and a
-# defending battle through the play helpers, printing every despatch line the
-# plate shows.
+# Quick Battle — declares war, resolves an attacking field battle, a battle of
+# horse and foot (the wings each line stands in, the flank a blow falls on and
+# the break it makes), a siege and a defending battle through the play helpers,
+# printing every despatch line the plate shows.
 godot --headless --path . --script res://playtests/playtest_quick_battle.gd
+
+# Battle Simulator — mounts the sandbox scene, presses its own rail (ground,
+# fort, men, plans, Fight, Next round, Reset) and reads the header, the
+# despatch and the plate against the record the live resolver returned; it
+# fails loudly when the rail's army, the step walk or the aftermath sheet stops
+# matching the game's plate.
+godot --headless --path . --script res://playtests/playtest_battle_sim.gd
 
 # Battle Simulator — a visual sandbox over the live Quick Battle resolver:
 # ground, fort, gates, regiments and a step-by-step plate (battle-sim.md).
@@ -146,6 +155,13 @@ godot --headless --path . --script res://playtests/playtest_fleet_split_combine.
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
 # watches the site's three deaths: sailed away, left unused, and peace made.
 godot --headless --path . --script res://playtests/playtest_beachhead.gd
+
+# Shipyard batch — opens the capital slip as a player does and presses its one
+# Launch all ready (n) twice: the arm's face, the receipt, the rows it redraws,
+# the arm a redraw must forget, and the slip with no squadron afloat (breaking
+# up the last hull) where a launch once left the panel promising hulls the
+# recruit queue already held.
+godot --headless --path . --script res://playtests/playtest_fleet_yard_batch.gd
 
 # Rival overseas invasion — plays an all-AI campaign and reads every expedition
 # (boarding, Passage, beachhead, landing) beside the landing gate's own verdict,
@@ -233,6 +249,12 @@ godot --headless --path . --script res://playtests/playtest_observer_siege.gd
 # loses, and the plate's geometry (the feed's window, the crowns' room, whether
 # the plate scrolls) on the engine's own and on a 720x360 handset viewport.
 godot --headless --path . --script res://playtests/playtest_observer_feed.gd
+
+# The ground a province shows — opens every province on the real chart, reads
+# the dossier's Terrain row against the ground the Combat phase fights on
+# (`ArmyModifiers.terrain_for`), and pins every terrain to the published display
+# name; the charts whose tiles tie are generated and read too.
+godot --headless --path . --script res://playtests/playtest_terrain_ground.gd
 
 # Colony chain — opens the turn-100 advanced start (the New World charted, so a
 # Tribe is in contact) and walks the four overture stages on the court sheet's own

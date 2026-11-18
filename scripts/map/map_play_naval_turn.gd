@@ -24,8 +24,8 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		"difficulty": strength_multipliers(play),
 		"leaders": play.leaders,
 	}
-	var battles: Array[Dictionary] = play.ship_layer.resolve_battles(
-		play.world, hostile, context
+	var battles: Array[Dictionary] = ShipTurnPass.resolve_battles(
+		play.ship_layer, play.world, hostile, context
 	)
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
 		play.army_layer, FleetRosters.carried_armies(play.ship_layer.regions)

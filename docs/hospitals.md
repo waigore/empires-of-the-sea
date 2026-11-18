@@ -62,7 +62,7 @@ confirm, and stops at the first refusal (DR-20261116-03).
 
 No figure is recomputed: the level, rest share, triage and ration are
 `HospitalRules`, the price `HospitalRules.cost`, the wait `HospitalRules.turns`,
-and the gate `CivilianWorkPlan.hospital_refusal` — the order's own wording
+and the gate `CivilianWorkRefusals.hospital` — the order's own wording
 (`REQ-P2-03`).
 
 ## Tests

@@ -2,7 +2,8 @@ class_name QuickBattle
 extends RefCounted
 ## One-province tactical combat (wiki: quick-battle): deterministic for a seed,
 ## three rounds, 3 CP a side. Action tables live in [QuickBattleActions]; fort
-## guns in [QuickBattleBattery]. A side's strength aggregates its deployed
+## guns in [QuickBattleBattery]; the report the plate reads in
+## [QuickBattleReport]. A side's strength aggregates its deployed
 ## slice's tactical stats (FPN + FPM, chevrons and health), never a bare unit
 ## count. Casualties feed the same ArmyCombat pipeline as auto-resolve
 ## (REQ-P2-03, REQ-P3-01, REQ-P3-03).
@@ -86,7 +87,6 @@ static func resolve_exchange(
 		rounds.append(_round(armies, state, guns, round_index, context))
 	var atk_left: int = ArmyForce.side_regiments(atk_side)
 	var def_left: int = ArmyForce.side_regiments(def_side)
-	var guns_left: int = QuickBattleBattery.alive(guns)
 	var fort_downgraded: bool = QuickBattleBattery.downgrade_fort(
 		model, province, fort_level, guns
 	)
@@ -100,41 +100,22 @@ static func resolve_exchange(
 		model, province, attacker, defender, outcome, atk_lost, def_lost,
 		atk_mods, def_mods
 	)
-	report["quick"] = {
-		"plan": String(state["attacker"]["plan"]),
-		"defender_plan": String(state["defender"]["plan"]),
-		"rounds": rounds,
-		"attacker_start": atk_start,
-		"defender_start": def_start,
-		"attacker_left": atk_left,
-		"defender_left": def_left,
-		"guns_start": guns.size(),
-		"guns_left": guns_left,
-		"guns_lost": guns.size() - guns_left,
-		"gun_type": _gun_type(context, defender),
-		"fort_downgraded": fort_downgraded,
-		"fort_after": fort_after,
-		## The wall lanes the defender held when the battle opened, and how often
-		## the garrison left them to sortie (wiki: siege-mechanics).
-		"lanes": {
+	report["quick"] = QuickBattleReport.build(
+		state, rounds, guns, context, defender,
+		{
+			"attacker_start": atk_start,
+			"defender_start": def_start,
+			"level": fort_level,
+			"downgraded": fort_downgraded,
+			"after": fort_after,
 			"wall": wall_start,
 			"behind": behind_start,
+			"terrain": terrain,
+			"gates": gates,
 		},
-		"sorties": _sortie_count(rounds),
-		"terrain": terrain,
-		"terrain_label": SiegeLanes.terrain_label(terrain),
-		"gates": gates.duplicate(),
-		"breaches": int(gates.get("broken", 0)),
-		"limits": {
-			"attacker": int(atk_mods["limit"]),
-			"defender": int(def_mods["limit"]),
-		},
-		"attacker_cohesion": int(state["attacker"]["cohesion"]),
-		"defender_cohesion": int(state["defender"]["cohesion"]),
-	}
-	## The line's three wings as the battle opened, as it was left, and the wings
-	## the enemy broke (wiki: quick-battle § Wings and collapse).
-	report["quick"].merge(QuickBattleWings.record(state, wings_open))
+		{"attacker": atk_mods, "defender": def_mods},
+		wings_open
+	)
 	report["attacker_detail"] = _losses(atk_types, _type_counts(atk_side))
 	report["defender_detail"] = _losses(def_types, _type_counts(def_side))
 	report.merge(ArmyModifiers.line_fields(
@@ -219,72 +200,69 @@ static func _round(
 		"terrain": String(state.get("terrain", "open")),
 	}
 	for owner: int in order:
-		var key: String = "attacker" if owner == int(state["attacker"]["owner"]) else "defender"
-		var enemy_key: String = "defender" if key == "attacker" else "attacker"
-		var cp: int = CP_PER_ROUND
-		for action: String in QuickBattleActions.actions_for(
-			String(state[key]["plan"]), key == "defender", siege
-		):
-			if cp < int(QuickBattleActions.ACTION_CP[action]):
-				break
-			cp -= int(QuickBattleActions.ACTION_CP[action])
-			var entry: Dictionary = QuickBattleActions.resolve(
-				armies, state, key, enemy_key, action, guns
-			)
-			log["actions"].append(entry)
-			## A wing that lost its last regiment to this blow has broken: named
-			## once, on the action that did it (wiki: quick-battle § Wings and
-			## collapse).
-			var broken_now: Array[String] = QuickBattleWings.fell(state, enemy_key)
-			broken_now.append_array(QuickBattleWings.fell(state, key))
-			if not broken_now.is_empty():
-				entry["wing_broken"] = broken_now
-		# The emplaced battery fires after the side's actions, into one wing of
-		# the besieging line like any other blow; a wing its fire empties breaks
-		# on that same blow (wiki: quick-battle § Wings and collapse).
-		if key == "defender" and QuickBattleBattery.alive(guns) > 0:
-			var shot: Dictionary = QuickBattleBattery.fire(armies, state, guns)
-			var hit: int = int(shot["lost"])
-			if hit > 0:
-				var hits: Array[Dictionary] = RegimentCondition.damage_side(
-					atk_side, float(hit) * RegimentCondition.HP_PER_SLOT,
-					int(state["attacker"]["limit"])
-				)
-				var entry: Dictionary = {
-					"side": owner,
-					"action": "battery",
-					"label": "Emplaced battery",
-					"attacker_lost": hit,
-					"defender_lost": 0,
-					"guns_destroyed": 0,
-					"battery_hit": 0,
-					"wall_lost": 0,
-					"behind_lost": 0,
-					"turned": 0,
-					"gates_broken": 0,
-					"sortie": false,
-					"wing": String(shot["wing"]),
-					"hits": hits,
-					"mauled": hits.size(),
-				}
-				var broken_now: Array[String] = QuickBattleWings.fell(state, "attacker")
-				if not broken_now.is_empty():
-					entry["wing_broken"] = broken_now
-				log["actions"].append(entry)
+		_orders(armies, state, guns, owner, siege, log)
 	log["attacker_count"] = ArmyForce.side_regiments(atk_side)
 	log["defender_count"] = ArmyForce.side_regiments(def_side)
 	log["guns"] = QuickBattleBattery.alive(guns)
 	log["gates"] = int((state.get("gates", {}) as Dictionary).get("broken", 0))
-	## The wings as they stand after the round, and the ones the line has lost.
+	_close_round(log, state, atk_side, def_side)
+	return log
+
+
+## One side's turn within a round: its scripted orders, then the garrison's
+## emplaced battery, which answers after the orders it shelters.
+static func _orders(
+	armies: Array[ArmyState],
+	state: Dictionary,
+	guns: Array[Dictionary],
+	owner: int,
+	siege: bool,
+	log: Dictionary
+) -> void:
+	var key: String = "attacker" if owner == int(state["attacker"]["owner"]) else "defender"
+	var enemy_key: String = "defender" if key == "attacker" else "attacker"
+	var atk_side: Array[ArmyState] = state["attacker"]["side"]
+	var def_side: Array[ArmyState] = state["defender"]["side"]
+	var cp: int = CP_PER_ROUND
+	for action: String in QuickBattleActions.actions_for(
+		String(state[key]["plan"]), key == "defender", siege
+	):
+		## A line that has lost its last regiment spends no point and
+		## delivers no blow (wiki: quick-battle § Outcome and integration).
+		if cp < int(QuickBattleActions.ACTION_CP[action]) \
+			or ArmyForce.side_regiments(atk_side) == 0 \
+			or ArmyForce.side_regiments(def_side) == 0:
+			break
+		cp -= int(QuickBattleActions.ACTION_CP[action])
+		var entry: Dictionary = QuickBattleActions.resolve(
+			armies, state, key, enemy_key, action, guns
+		)
+		log["actions"].append(entry)
+		## A wing that lost its last regiment to this blow has broken: named
+		## once, on the action that did it, on the line it stood in.
+		entry.merge(QuickBattleWings.marks(state, key, enemy_key))
+	# The emplaced battery fires after the side's actions, into one wing of
+	# the besieging line; the guns are the fort's own units
+	# (wiki: quick-battle § Wings and collapse).
+	if key == "defender" and QuickBattleBattery.alive(guns) > 0:
+		var volley: Dictionary = QuickBattleBattery.volley_entry(armies, state, guns, owner)
+		if not volley.is_empty():
+			log["actions"].append(volley)
+
+
+## What a round leaves behind, read by the plate: the wings as they stand and
+## the ones the line has lost, then the condition the rail prints — never a
+## recomputation.
+static func _close_round(
+	log: Dictionary, state: Dictionary, atk_side: Array[ArmyState], def_side: Array[ArmyState]
+) -> void:
 	log.merge(QuickBattleWings.record(state))
-	## Condition after this round: the rail reads these, never a recomputation.
 	log["attacker_health"] = RegimentCondition.entries(atk_side)
 	log["defender_health"] = RegimentCondition.entries(def_side)
 	log["attacker_strength"] = RegimentCondition.average(atk_side)
 	log["defender_strength"] = RegimentCondition.average(def_side)
 	log["attacker_cohesion"] = int(state["attacker"]["cohesion"])
 	log["defender_cohesion"] = int(state["defender"]["cohesion"])
-	return log
 
 
 ## Regiments held by type, so a battle can report what it cost by type.
@@ -307,23 +285,6 @@ static func _losses(before: Dictionary, after: Dictionary) -> Dictionary:
 		if gone > 0:
 			lost[String(type_id)] = gone
 	return lost
-
-
-## Emplaced gun quality the defending court's techs unlock (wiki: siege-mechanics).
-static func _gun_type(context: Dictionary, defender: int) -> String:
-	var tech: Dictionary = context.get("tech", {}) as Dictionary
-	var unlocked: Dictionary = tech.get(defender, {}) as Dictionary
-	return FortRules.emplaced_type(unlocked)
-
-
-## Rounds in which the garrison left the wall to sortie.
-static func _sortie_count(rounds: Array[Dictionary]) -> int:
-	var count: int = 0
-	for round: Dictionary in rounds:
-		for entry: Dictionary in round.get("actions", []) as Array:
-			if bool(entry.get("sortie", false)):
-				count += 1
-	return count
 
 
 static func _order(state: Dictionary, context: Dictionary) -> Array[int]:

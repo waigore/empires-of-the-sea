@@ -17,7 +17,9 @@ Fog, cargo, battles, raids:
   kept through save and merge); `ShipStats` FRP/RNG/ARM/HULL/MV; `ShipEconomy`
   builds with tech gates, **2 food upkeep** (DR-20261111-07).
 - **Yard:** launch for its row + **one peasant**; lands next turn; break-up
-  returns a peasant, no refund (DR-20261109-01).
+  returns a peasant, no refund (DR-20261109-01); **each row names her line and
+  holds** (DR-20261117-15); a hull the court **flies or has flown** launches
+  without her tech (#484).
 - **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
   one (DR-20261109-03).
 - **Home merge:** seat dock or dossier **Join the home fleet**; ids, names,
@@ -67,11 +69,8 @@ No node deps (`REQ-P3-03`).
 |--------|---------|-------|
 | Select fleet | click | tap |
 | Sail, dock, passages | highlight | same |
-| Join home, combine | dossier button | same |
-| Station | dossier button | same |
-| Land troops | dossier button | same |
+| Join home, combine, station, land, beachhead | dossier button | same |
 | Colonists | dossier **PASSENGERS** | same |
-| Beachhead | dossier coast button | same |
 | Shipyard | capital | same |
 | Navy | roll's **Navy ›**, `N` | same |
 

@@ -195,6 +195,65 @@ func test_a_single_head_offers_no_batch_press() -> void:
 	)
 
 
+## Every tier row names the price it pays and, under it, what the tier eats —
+## on the sheet, not only in the button's hover, so a touch crown reads the deal
+## before it presses (wiki: workers-and-population § Recruiting, § Worker Tiers;
+## REQ-P1-05, REQ-P5-05, REQ-P5-06).
+func test_every_worker_row_names_its_price_and_ration() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 2000
+	economy.stockpile["paper"] = 10
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_not_null(workers)
+	var lines: Dictionary = workers.tier_lines()
+	assert_eq(lines.size(), WorkerPool.TIER_COUNT, "one line under every tier row")
+	var peasant: Label = lines.get(WorkerPool.Tier.PEASANT) as Label
+	assert_not_null(peasant)
+	assert_eq(peasant.text, "Recruit Fabric ×2 — eats 1 grain or meat a turn")
+	var apprentice: Label = lines.get(WorkerPool.Tier.APPRENTICE) as Label
+	assert_eq(
+		apprentice.text,
+		"Recruit 200 ducats · Paper ×2 — eats 1 grain + 1 meat and Refined Sugar a turn",
+		"a payable row names its own price and ration"
+	)
+	assert_eq(
+		apprentice.get_theme_color("font_color"), Palette.TEXT_DIM, "a payable line stays quiet"
+	)
+	# A study-locked tier names the two studies it waits on, not a bare reason.
+	var master: Label = lines.get(WorkerPool.Tier.MASTER) as Label
+	assert_eq(
+		master.text,
+		"Recruit 1000 ducats · Paper ×10 — needs Master Artisans and Hat Production",
+		"a locked row names the research"
+	)
+	assert_eq(master.get_theme_color("font_color"), Palette.CRIMSON, "a blocked line reads aloud")
+
+
+## A tier the purse cannot pay says so on its row: the price stays visible and
+## the stopping rule is named, so no touch crown presses a silent refusal
+## (wiki: workers-and-population § Order rejection reasons; REQ-P5-05).
+func test_a_blocked_worker_row_names_the_rule_that_stops_it() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.treasury = 0
+	economy.stockpile["paper"] = 10
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var lines: Dictionary = workers.tier_lines()
+	var apprentice: Label = lines.get(WorkerPool.Tier.APPRENTICE) as Label
+	assert_eq(
+		apprentice.text,
+		"Recruit 200 ducats · Paper ×2 — insufficient treasury",
+		"the price and the bar are both on the row"
+	)
+	assert_eq(apprentice.get_theme_color("font_color"), Palette.CRIMSON)
+
+
 ## The WORKERS tab names every order waiting for Build/work, and how many of a
 ## tier are on the way (wiki: workers-and-population § Phase placement).
 func test_the_workers_tab_shows_what_is_under_orders() -> void:
@@ -884,9 +943,11 @@ func test_the_ledger_names_the_subsidy_the_crown_pays() -> void:
 ## The turn's clearing republishes the Minor/Tribe book for the crown that
 ## played it: a court sailing as England reads her own terms and subsidy step,
 ## never Spain's (wiki: world-market § Subsidy price adjustment; REQ-P2-03,
-## REQ-P5-05). Mounts England beside the shared Spain suite screen.
+## REQ-P5-05). England's reading books this suite's one mounted chart as her own
+## crown: the shared save is re-seated in `before_each`, so the swap never
+## outlives the case and the suite pays no second mount.
 func test_the_turn_clearing_prices_the_minor_book_for_the_crown() -> void:
-	var english: MapScreen = Fixture.attach_screen(self, 1)
+	var english: MapScreen = Fixture.attach_faction_screen(_screen, 1)
 	var market: WorldMarket = english.economy.market
 	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.0}})
 	MapPlayMarket.run(english.play, {})
@@ -903,7 +964,6 @@ func test_the_turn_clearing_prices_the_minor_book_for_the_crown() -> void:
 		if int(offer["unit_price"]) != MinorMarket.unit_price(market, commodity, 0, seller):
 			differs = true
 	assert_true(differs, "England's terms move the ask off Spain's")
-	english.free()
 
 
 func _clear_market() -> Dictionary:

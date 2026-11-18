@@ -94,7 +94,8 @@ static func training_order(
 		bool(context.get("at_war", false)),
 		context.get("tech_unlocked", {}),
 		hire_purse,
-		int(context.get("paper", 0))
+		int(context.get("paper", 0)),
+		bool(context.get("voyage_crew", false))
 	)
 	# The court's own crew leads once the region can spare it — a taste, never a
 	# legality. A shut footing is not its to walk through: an expansion crew it
@@ -201,8 +202,11 @@ static func region_targets(
 		config.parameter("civilian.explorer_target"),
 		1 + (prospect_work + uncharted * 3) / per
 	)
+	# One Explorer kept free while a colonisation voyage is mustering — and one
+	# taken first when the court's last Explorer would sail with it, so the
+	# colony leaves a prospector on the home hills (issue #894).
 	var muster: Vector2i = context.get("muster_port", Vector2i(-1, -1))
-	if muster.x >= 0:
+	if muster.x >= 0 or bool(context.get("voyage_crew", false)):
 		explorers += 1
 	var merchants: int = 0
 	if int(context.get("merchant_targets", 0)) > 0:
@@ -230,18 +234,45 @@ static func owned_units(units: Array, owner: int) -> Array[CivilianState]:
 	return roster
 
 
+## The crew the hire order would take if the purse allowed: the first name in
+## the published queue, whether or not the court can pay for it. Empty when every
+## target is already met. The market keeps its price back from this turn's bids,
+## so a court that has lost a crew can still buy another (issue #894).
+static func next_crew(config: AiConfig, units: Array, context: Dictionary) -> String:
+	if config == null:
+		return ""
+	var targets: Dictionary = context.get("staff_targets", {})
+	if targets.is_empty():
+		return ""
+	var queue: Array[String] = _hire_queue(
+		owned_units(units, config.faction),
+		targets,
+		bool(context.get("at_war", false)),
+		context.get("tech_unlocked", {}),
+		0,
+		int(context.get("paper", 0)),
+		bool(context.get("voyage_crew", false))
+	)
+	return queue[0] if not queue.is_empty() else ""
+
+
 ## The crews the court may hire this turn, in the published order: builders,
 ## engineers, the deed partner once the first two crews stand, a war spy screen
 ## before another explorer, then the peace spy, then a merchant when a deed is
 ## on offer or an envoy chain toward one is openable. Empty when every target is
 ## already met; which of them is taken is the caller's (AiStaffTaste.lead).
+##
+## `voyage_crew` puts the Explorer first: a court whose last Explorer would sail
+## with the colony takes the second crew before the estate queue, so the voyage
+## leaves a prospector on the home hills (issue #894).
 static func _hire_queue(
 	roster: Array[CivilianState],
 	targets: Dictionary,
 	at_war: bool = false,
 	tech_unlocked: Dictionary = {},
 	treasury: int = 0,
-	paper: int = 0
+	paper: int = 0,
+	voyage_crew: bool = false
 ) -> Array[String]:
 	var builders: int = 0
 	var engineers: int = 0
@@ -260,6 +291,8 @@ static func _hire_queue(
 		elif unit.type_id == "merchant":
 			merchants += 1
 	var queue: Array[String] = []
+	if voyage_crew and explorers < int(targets.get("explorer", 0)):
+		queue.append("explorer")
 	if builders < int(targets.get("builder", 0)):
 		queue.append("builder")
 	if engineers < int(targets.get("engineer", 0)):

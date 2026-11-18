@@ -166,6 +166,10 @@ static func suite_reset(
 	var data: Dictionary = pristine.duplicate(true)
 	if not SaveCodec.restore(play, data, world):
 		return
+	# A case that borrowed the chart as another crown (attach_faction_screen)
+	# left screen.player_faction on the rival; the save restored play's seat, so
+	# mirror it here the same way MapScreen does on a load.
+	screen.player_faction = play.player_faction
 	# Economy always founds on the Old World; restore there, then return.
 	var target: int = play.region_index
 	play.region_index = 0
@@ -215,8 +219,23 @@ static func _reset_view(screen: MapScreen) -> void:
 	if screen.overlay != null:
 		screen.overlay.move_zones = []
 		screen.overlay.move_provinces = []
+	# Plaque count-up / coin-flash tweens outlive a fast case; kill them before
+	# re-seat so their lambdas do not fire into a mid-reset HUD.
+	if screen.hud != null and screen.hud.stats != null:
+		screen.hud.stats.clear_animations()
 	if screen.hud != null and screen.hud.panels != null:
-		screen.hud.panels.close_sheets()
+		# Instant close: slide-out lambdas must not outlive a shared-mount re-seat.
+		for slot: HudPanelSlot in screen.hud.panels.selections():
+			slot.conceal_now()
+			PanelDock.stop_slide(slot.wrap)
+		for slot: HudPanelSlot in [
+			screen.hud.panels.economy,
+			screen.hud.panels.research,
+			screen.hud.panels.diplomacy,
+		]:
+			if slot != null:
+				slot.conceal_now()
+				PanelDock.stop_slide(slot.wrap)
 		DiplomacyHud.hide(screen.hud.panels)
 	if screen.hud != null:
 		# The ledger sheets and the court dossier are not dock panels; one left
@@ -301,9 +320,8 @@ static func _reset_ledger_filters(hud: GameHud) -> void:
 
 
 ## Drops any plate covering the lane and the news queued behind it, so a case
-## reads only the news its own turn raised. The panels already up finish their
-## own fade and free themselves — freeing them here would pull the tween out
-## from under its own callback — so their lines are blanked instead.
+## reads only the news its own turn raised. Kill toast tweens before free so
+## `_plate_done` lambdas do not fire into a shared-mount re-seat.
 static func _clear_news(hud: GameHud) -> void:
 	if hud == null or hud.despatches == null:
 		return
@@ -314,8 +332,12 @@ static func _clear_news(hud: GameHud) -> void:
 	news._queue = PackedStringArray()
 	news._queue_narrated.clear()
 	for panel: Node in news.box.get_children():
-		for label: Label in panel.find_children("*", "Label", true, false):
-			label.text = ""
+		panel.set_meta("toast_cancelled", true)
+		if panel.has_meta("toast_tween"):
+			var toast: Tween = panel.get_meta("toast_tween") as Tween
+			if toast != null and toast.is_valid():
+				toast.kill()
+		panel.queue_free()
 
 
 ## Restore parks units in region tables and clears the live arrays; spawn rebinds
@@ -380,4 +402,26 @@ static func open_save(host: Node, data: Dictionary, save_dir: String = "") -> Ma
 	screen.preset_world = world()
 	screen.pending_save = data
 	host.add_child(screen)
+	return screen
+
+
+## Reads a suite's one mounted chart as another crown, then hands it back: the
+## screen's `player_faction` swaps, the human seat follows (diplomacy, first
+## contact and the HUD's own reads), and the next `before_each` re-seats the
+## chart from the suite's pristine save, so the borrowed crown never survives the
+## case. A case that wants a rival's view pays a bookkeep instead of a fresh
+## mount (~0.5 s under coverage), which is what docs/testing.md's one-mount rule
+## asks for. An optional `leader` rewrites that crown's key the way setup would
+## have (empty keeps the roster the mount already carries).
+static func attach_faction_screen(
+	screen: MapScreen, faction: int, leader: String = ""
+) -> MapScreen:
+	screen.player_faction = faction
+	screen.play.player_faction = faction
+	if not leader.is_empty():
+		screen.player_leader = LeaderCatalog.resolve_key(faction, leader)
+		screen.play.leaders[faction] = screen.player_leader
+	screen.play.diplomacy.human_faction = faction
+	MapPlayDiplomacy.sync_first_contact(screen.play)
+	MapPlaySetup.refresh_after_load(screen.play)
 	return screen

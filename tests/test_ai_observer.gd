@@ -2,7 +2,8 @@ extends GdToolsTest
 ## Full-AI observer (wiki: game-setup § Human/AI slot assignment, an empty human
 ## slot set is the full-AI observer; turn-trace-interpretation): every crown on
 ## the shared AI planners, the one court reader they all ask, the merged
-## per-turn record, and the dashboard's snapshot contract.
+## per-turn record, the dashboard's snapshot contract, and the feed/card
+## collaborators (merged from test_observer_parts — one Godot boot).
 
 const Fixture = preload("res://tests/map_fixture.gd")
 const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
@@ -709,10 +710,10 @@ func test_the_feed_prints_a_busy_turn_whole() -> void:
 		"the turn's first order is kept, not cut"
 	)
 	var kept: int = 0
-	for index in range(maxi(play.ai_turns.size() - AiObserverPanel.FEED_TURNS, 0), play.ai_turns.size()):
+	for index in range(ObserverTurnFeed.first_kept(play.ai_turns), play.ai_turns.size()):
 		kept += (play.ai_turns[index]["events"] as Array).size()
 	assert_true(
-		panel.board.feed_caption.text.contains("%d rows over 2 turns" % kept),
+		panel.board.feed_caption.text.contains("%d rows over" % kept),
 		"the caption counts every row the feed holds"
 	)
 
@@ -795,18 +796,29 @@ func test_the_dashboard_chrome_answers_its_handles() -> void:
 	var dashboard := ObserverDashboard.new()
 	assert_null(dashboard.get_parent(), "a new plate stands alone until mounted")
 	dashboard.frame = null
-	dashboard.fit(1280.0)
+	dashboard.fit(Vector2(1280.0, 800.0))
 	dashboard._tab_view()
 	dashboard = ObserverDashboard.new()
 	var canvas := CanvasLayer.new()
 	add_child(canvas)
 	canvas.add_child(dashboard)
 	assert_not_null(dashboard.frame, "the plate builds its frame")
-	dashboard.fit(720.0)
+	dashboard.fit(Vector2(720.0, 360.0))
 	assert_true(
 		dashboard.frame.custom_minimum_size.x >= 280.0
 		and dashboard.frame.custom_minimum_size.x <= 470.0,
 		"a phone width keeps the plate readable"
+	)
+	# The plate owns its column, not the screen: the chart beside it must stay
+	# clickable, or the observatory could never read a province it taps
+	# (DR-20261117-11).
+	assert_true(
+		dashboard.plate.size.x < 720.0,
+		"the plate leaves the chart its own width"
+	)
+	assert_true(
+		dashboard.plate.get_global_rect().end.x <= dashboard.frame.custom_minimum_size.x + 24.0,
+		"the plate stops at its own column"
 	)
 	var shown: bool = dashboard.frame.visible
 	dashboard._toggle_frame()
@@ -817,6 +829,30 @@ func test_the_dashboard_chrome_answers_its_handles() -> void:
 	dashboard.tab = kept
 	dashboard.free()
 	canvas.free()
+
+
+## The feed's window follows the screen: a handset keeps its 128-point window, a
+## desktop gives the rows more of the plate, and a very tall screen stops at the
+## cap so the crown cards keep their room (REQ-P1-07, REQ-P5-05).
+func test_the_feed_window_follows_the_screen() -> void:
+	var dashboard := ObserverDashboard.new()
+	add_child(dashboard)
+	dashboard.fit(Vector2(720.0, 360.0))
+	assert_eq(
+		dashboard.feed_scroll.custom_minimum_size.y, ObserverDashboard.FEED_MIN_HEIGHT,
+		"a landscape handset keeps the feed's smallest window"
+	)
+	dashboard.fit(Vector2(1280.0, 800.0))
+	assert_eq(
+		dashboard.feed_scroll.custom_minimum_size.y, 240.0,
+		"a desktop gives the feed a share of its height"
+	)
+	dashboard.fit(Vector2(1280.0, 2000.0))
+	assert_eq(
+		dashboard.feed_scroll.custom_minimum_size.y, ObserverDashboard.FEED_MAX_HEIGHT,
+		"a very tall screen stops at the cap"
+	)
+	dashboard.free()
 
 
 ## The dashboard takes its whole reading from one snapshot, so a decided
@@ -1059,3 +1095,238 @@ func test_the_observed_court_charts_like_any_rival() -> void:
 				charts.model_for(faction, region) != null,
 				"%s charts region %d" % [FactionCatalog.name_of(faction), region]
 			)
+
+
+## The observatory's province sheet reads one province for the court that holds
+## it: every word is another module's own — the fact grid's wall and ward, the
+## survey's estates, the defence lens's band — so the sheet can name no number
+## the rules would not (docs/ai-observer.md; REQ-P2-03, REQ-P3-03).
+func test_the_observer_reads_one_province_in_its_owners_terms() -> void:
+	var play: PlaySession = _screen.play
+	var province_id: int = _owned_province(play)
+	assert_true(province_id >= 0, "the chart holds an owned province")
+	var reading: Dictionary = ObserverProvince.reading(play, province_id)
+	var data: ProvinceState = play.model.province_data(province_id)
+	assert_eq(String(reading["name"]), data.name, "the province's own name")
+	assert_eq(int(reading["owner"]), data.owner, "the court that holds it")
+	assert_eq(
+		String(reading["owner_caption"]), ProvinceSheetHead.owner_caption(data.owner),
+		"the honorific the dossier prints"
+	)
+	assert_eq(bool(reading["capital"]), data.capital, "the CAPITAL badge reads the record")
+	assert_eq(String(reading["fort"]), FortRules.describe(data.fort_level), "the wall")
+	assert_eq(
+		String(reading["hospital"]),
+		HospitalRules.describe(data.hospital_level, data.hospital_staffed),
+		"the ward"
+	)
+	assert_false(String(reading["terrain"]).is_empty(), "the ground the battle would fight on")
+	assert_eq(
+		String(reading["band"]),
+		DefenceSurvey.band_for(data.fort_level, int(reading["strength"])),
+		"the band is the defence lens's own"
+	)
+	for row: Dictionary in reading["estates"]:
+		assert_true(bool(row["ours"]), "an estate on the owner's ground is the owner's")
+		assert_true(row.has("tile") and row.has("level"), "an estate row is a survey row")
+	assert_eq(
+		String(reading["defence"]).is_empty(), false,
+		"the defence line always says something"
+	)
+
+
+## A province id the chart does not hold reads nothing, so the sheet closes
+## instead of printing a void (REQ-P5-05).
+func test_the_observer_reads_no_province_it_cannot_name() -> void:
+	var play: PlaySession = _screen.play
+	assert_true(ObserverProvince.reading(play, -1).is_empty(), "no id, no reading")
+	assert_true(ObserverProvince.reading(play, 99999).is_empty(), "no province, no reading")
+	assert_true(ObserverProvince.reading(null, 0).is_empty(), "no session, no reading")
+
+
+## The chart's own selection opens the reading: the observatory mounts the sheet
+## and the map's selection signal fills it, then a cleared selection closes it.
+func test_a_chart_selection_opens_and_closes_the_observers_sheet() -> void:
+	var screen: MapScreen = _screen
+	var panel: AiObserverPanel = screen.get_node_or_null("AiObserver") as AiObserverPanel
+	assert_not_null(panel, "the observatory is mounted on the observer screen")
+	if panel == null:
+		return
+	var play: PlaySession = screen.play
+	var province_id: int = _owned_province(play)
+	var data: ProvinceState = play.model.province_data(province_id)
+	var tile: Vector2i = data.tiles[0]
+	MapPlayInput.select_province(
+		play, province_id, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE)
+	)
+	assert_true(panel.sheet.visible, "the reading opens on the selection")
+	assert_eq(panel.sheet.head.name_label.text, data.name, "the province on the sheet")
+	assert_eq(panel.sheet.province_id, province_id, "the sheet keeps the province it read")
+	assert_eq(panel.sheet.estates.lines().size(), (ObserverProvince.reading(play, province_id)["estates"] as Array).size())
+	MapPlayInput.deselect(play)
+	assert_false(panel.sheet.visible, "a cleared selection closes the sheet")
+	assert_eq(panel.sheet.province_id, -1, "and forgets the province")
+
+
+## The observatory has no seat to give orders from, so a tap on the chart with a
+## regiment selected moves nothing: the chart is a reading there (REQ-P2-03).
+func test_the_observatory_orders_nothing_from_the_chart() -> void:
+	var play: PlaySession = _screen.play
+	var roster: Array = play.army_layer.regions.value(play.region_index, [])
+	var army: ArmyState = null
+	for raw: Variant in roster:
+		var candidate: ArmyState = raw
+		if (
+			candidate.embarked_fleet < 0
+			and candidate.province != MapModel.NO_ID
+			and not candidate.regiments.is_empty()
+		):
+			army = candidate
+			break
+	assert_not_null(army, "the chart on screen musters a regiment")
+	if army == null:
+		return
+	play.army_layer.select(army)
+	var before: int = army.province
+	var target: int = -1
+	for province: ProvinceState in play.model.provinces:
+		if province.id != before and province.owner == army.owner:
+			target = province.id
+			break
+	assert_true(target >= 0, "the crown holds a second province to march on")
+	if target < 0:
+		return
+	var tile: Vector2i = play.model.province_data(target).tiles[0]
+	MapPlayInput.on_tapped(play, MapGeo.tile_center(tile.x, tile.y, PlaySession.TILE_SIZE))
+	assert_eq(army.province, before, "the observer's tap orders no march")
+
+
+## The court that owns the province the reading names, or the first one the
+## chart holds — a fixture province is enough for the reading's own contract.
+func _owned_province(play: PlaySession) -> int:
+	for province: ProvinceState in play.model.provinces:
+		if province.owner != MapModel.NO_ID:
+			return province.id
+	return -1
+
+# --- observer feed / crown card (from test_observer_parts) ----------------------
+## The observatory's read-only halves: [ObserverTurnFeed] and [ObserverCrownCard]
+## (REQ-P3-01, REQ-P3-03). Pure cases ride this suite's boot so they do not pay
+## a second coverage process (docs/testing.md § Speed rules).
+
+func _feed_turn(number: int, rows: int) -> Dictionary:
+	var events: Array = []
+	for index in rows:
+		events.append({"text": "T%d order %d." % [number, index]})
+	return {"turn": number, "events": events}
+
+
+## The feed prints every row of the turns it keeps, newest row first, and counts
+## what it holds (REQ-P5-05).
+func test_the_feed_prints_every_row_of_the_turns_it_keeps() -> void:
+	assert_eq(ObserverTurnFeed.text([]), ObserverTurnFeed.EMPTY_TEXT)
+	assert_eq(ObserverTurnFeed.caption([]), "Recent orders", "an empty feed counts none")
+	assert_eq(
+		ObserverTurnFeed.caption([{"turn": 1, "events": [{"text": "Marched."}]}]),
+		"Recent orders  ·  T1  ·  1 row over 1 turn, newest first",
+		"one turn's one row prints as written"
+	)
+	assert_eq(
+		ObserverTurnFeed.text([{"turn": 7, "events": []}]),
+		ObserverTurnFeed.EMPTY_TEXT,
+		"a turn that filed nothing prints no line"
+	)
+
+
+## The window is a row budget, not a turn count: a crowded campaign keeps the
+## newest turns whole up to the budget and never cuts a busy turn's first row
+## (REQ-P5-05, REQ-P4-01).
+func test_the_window_stops_at_its_row_budget() -> void:
+	var ai_turns: Array = []
+	for turn in range(1, 21):
+		ai_turns.append(_feed_turn(turn, 10))
+	var text: String = ObserverTurnFeed.text(ai_turns)
+	var lines: PackedStringArray = text.split("\n")
+	var turns_kept: int = ObserverTurnFeed.ROW_BUDGET / 10
+	assert_eq(lines.size(), ObserverTurnFeed.ROW_BUDGET, "the budget is the row count held")
+	assert_eq(
+		ObserverTurnFeed.first_kept(ai_turns), 20 - turns_kept,
+		"the window reaches back exactly the turns the budget buys"
+	)
+	assert_eq(
+		String(lines[0]), "T20  T20 order 9.", "the newest order leads the feed"
+	)
+	assert_eq(
+		String(lines[lines.size() - 1]), "T%d  T%d order 0." % [
+			21 - turns_kept, 21 - turns_kept,
+		],
+		"the oldest kept turn keeps its first order, not a cut one"
+	)
+	assert_false(text.contains("T%d  " % (20 - turns_kept)), "the turn before the window drops")
+	assert_eq(
+		ObserverTurnFeed.caption(ai_turns),
+		"Recent orders  ·  T%d–T20  ·  %d rows over %d turns, newest first" % [
+			21 - turns_kept, ObserverTurnFeed.ROW_BUDGET, turns_kept,
+		],
+		"the caption names the turns the window reaches back to"
+	)
+
+
+## A quiet campaign buys more history than a crowded one: the same budget holds
+## every turn of a lean run, so a late watcher reads the whole story (REQ-P5-05).
+func test_a_quiet_run_keeps_more_turns_than_a_busy_one() -> void:
+	var quiet: Array = []
+	for turn in range(1, 41):
+		quiet.append(_feed_turn(turn, 2))
+	assert_eq(ObserverTurnFeed.first_kept(quiet), 0, "every lean turn fits the budget")
+	assert_eq(
+		ObserverTurnFeed.caption(quiet),
+		"Recent orders  ·  T1–T40  ·  80 rows over 40 turns, newest first"
+	)
+
+
+## The floor: however busy the newest turns are, the feed keeps a pair of them,
+## so the order that caused the latest one is never the row that drops
+## (REQ-P5-05).
+func test_a_turn_busier_than_the_budget_still_prints_whole() -> void:
+	var busy: Array = [_feed_turn(1, ObserverTurnFeed.ROW_BUDGET * 2), _feed_turn(2, 3)]
+	assert_eq(ObserverTurnFeed.first_kept(busy), 0, "the floor keeps both turns")
+	var lines: PackedStringArray = ObserverTurnFeed.text(busy).split("\n")
+	assert_eq(
+		lines.size(), ObserverTurnFeed.ROW_BUDGET * 2 + 3,
+		"every row of both turns reaches the feed"
+	)
+
+
+## One crown's card reads rank, standing toward the bar, profile, ledger and last
+## order from a single snapshot row (DR-20261114-04).
+func test_a_crowns_card_reads_one_snapshot_row() -> void:
+	var card := ObserverCrownCard.new()
+	add_child(card)
+	var row: Dictionary = {
+		"faction": 3, "rank": 2, "name": "Spain", "alive": true,
+		"leader": "Felipe", "agenda": "Bourbon", "profile": "trader",
+		"posture": "patient", "intent": "hold", "headline": "Marched on Lisbon.",
+		"provinces_old": 11, "provinces_new": 2, "power": 40, "regiments": 6,
+		"ships": 4, "civilians": 3, "treasury": 900, "stock": 12, "workers": 5,
+		"wars": ["Portugal"], "pressure_stage": AiVictoryPressure.STAGE_NEAR,
+	}
+	card.fill(row)
+	assert_eq(card.rank.text, "#2")
+	assert_eq(card.name_label.text, "Spain")
+	assert_true(card.progress.text.ends_with("pressing"), "the endgame court is marked")
+	assert_true(
+		card.progress.text.begins_with(
+			"%d/%d" % [11, VictoryRules.MILITARY_THRESHOLD]
+		),
+		"the standing leads the line"
+	)
+	assert_true(card.meta.text.contains("Felipe"), "the profile line names the court")
+	assert_true(card.stats.text.contains("wars: Portugal"), "the ledger names the war")
+	assert_eq(card.last.text, "Last turn: Marched on Lisbon.")
+	row["alive"] = false
+	row["pressure_stage"] = AiVictoryPressure.STAGE_FAR
+	card.fill(row)
+	assert_true(card.name_label.text.ends_with("(fallen)"), "a fallen crown says so")
+	assert_false(card.progress.text.ends_with("pressing"), "a far court is not")
+	card.free()

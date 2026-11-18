@@ -2,9 +2,9 @@ class_name ShipMarkers
 extends RefCounted
 ## Marker bookkeeping for one region's fleet roster: mint one [Ship] per fleet,
 ## refit it after an order and drop it when the squadron leaves the map.
-## ShipLayer keeps orders, battles and signals; this helper owns the node
-## lifecycle so the layer stays under the soft size bar (REQ-P3-01, REQ-P3-03).
-## The layer adds every minted node to itself.
+## ShipLayer keeps orders and signals; ShipTurnPass owns battles; this helper
+## owns the node lifecycle so the layer stays under the soft size bar
+## (REQ-P3-01, REQ-P3-03). The layer adds every minted node to itself.
 
 const TILE_SIZE: float = 22.0
 

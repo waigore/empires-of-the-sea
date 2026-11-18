@@ -55,8 +55,9 @@ static func short(action: String, model: MapModel, works: LandWorks, tile: Vecto
 
 ## What the order buys, off the table that charges it: the estate's next level
 ## (the estates ledger's own line), the transport a road or harbour lands, the
-## wall the fort stands up, the rest a ward brings. Empty where the sheet that
-## sells the order already prints the payoff and no level is named here.
+## wall the fort stands up, the rest a ward brings, the bonus and works a town
+## level opens. Empty where the sheet that sells the order already prints the
+## payoff and no level is named here.
 static func payoff(
 	action: String,
 	model: MapModel,
@@ -79,7 +80,7 @@ static func payoff(
 			)
 			return String(row.get("preview_text", ""))
 		"build_road", "build_port", "build_rail":
-			return CivilianWorkPlan.transport_preview(action, model, tile, works)
+			return CivilianWorkRows.transport_preview(action, model, tile, works, blockade)
 		"build_fort":
 			return WallLedger.preview_text(
 				FortRules.level_at(model, province), CivilianWorkPlan.fort_target(model, tile)
@@ -89,6 +90,8 @@ static func payoff(
 				HospitalRules.level_at(model, province),
 				CivilianWorkPlan.hospital_target(model, tile)
 			)
+		"upgrade_town":
+			return TownTerms.order_line(model, tile)
 	return ""
 
 

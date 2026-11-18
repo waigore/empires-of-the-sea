@@ -126,6 +126,16 @@ static func techs_unlocked(tier: int, tech_unlocked: Dictionary) -> bool:
 	return true
 
 
+## The studies a tier still waits on, in the gate table's own order, so a sheet
+## can name the research instead of the bare validation reason (REQ-P5-05).
+static func missing_techs(tier: int, tech_unlocked: Dictionary) -> Array[String]:
+	var out: Array[String] = []
+	for tech: String in required_techs(tier):
+		if not bool(tech_unlocked.get(tech, false)):
+			out.append(tech)
+	return out
+
+
 ## Treasury and material cost of one recruit/train action for a target tier.
 static func recruit_cost(tier: int) -> Dictionary:
 	var material: String = RECRUIT_MATERIAL[tier]

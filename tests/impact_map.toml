@@ -14,7 +14,6 @@ suites = [
 [domains.ai_panel]
 suites = [
   "test_ai_observer.gd",
-  "test_observer_parts.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -267,6 +266,17 @@ suites = [
   "test_mobile_layout.gd",
 ]
 
+# What a raise yard's one press costs before it is pressed (DR-20261118-11): one
+# pure walk both yards read and both sheets print. Its own small slice proves the
+# sum, the two yards that file it and the sheets that print it, instead of the
+# rules' misc catch-all or the whole muster/fleet/army fan-out.
+[domains.batch_sum]
+suites = [
+  "test_fleet_orders.gd",
+  "test_army_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
 # The crown's eyes (DR-20261115-10): the intelligence projection and its sheet.
 # One suite — it mounts the map screen, presses the court's EYES door and reads
 # the network — so the espionage domain's seven suites (test_map_screen among
@@ -345,6 +355,10 @@ domain = "blockade"
 
 [[rules]]
 match = "scripts/rules/land_connectivity.gd"
+domain = "blockade"
+
+[[rules]]
+match = "scripts/rules/land_town_rule.gd"
 domain = "blockade"
 
 [[rules]]
@@ -617,6 +631,17 @@ domain = "fleet_split"
 match = "scripts/map/ship_layer.gd*"
 domain = "fleet_split"
 
+# Yard mutations and turn resolution the layer delegates to; they share the
+# naval suites, so a yard or turn edit never pulls the whole `scripts/map/**`
+# fan-out.
+[[rules]]
+match = "scripts/map/ship_yard_ops.gd*"
+domain = "fleet_split"
+
+[[rules]]
+match = "scripts/map/ship_turn_pass.gd*"
+domain = "fleet_split"
+
 # The marker bookkeeping the layer delegates to; it shares the naval suites,
 # so a marker change never pulls the whole `scripts/map/**` fan-out.
 [[rules]]
@@ -768,6 +793,12 @@ domain = "muster"
 match = "scripts/ui/raise_batch_press.gd*"
 domain = "muster"
 
+# The sum a raise yard's one press costs, before it is pressed (DR-20261118-11):
+# one pure walk the shipyard and the drill yard read and their sheets print.
+[[rules]]
+match = "scripts/rules/raise_batch_sum.gd*"
+domain = "batch_sum"
+
 [[rules]]
 match = "scripts/map/map_play_charts.gd*"
 domain = "muster"
@@ -775,6 +806,12 @@ domain = "muster"
 [[rules]]
 match = "scripts/rules/town_ledger.gd*"
 domain = "muster"
+
+# What a town level buys, named on the row that sells it (DR-20261118-06): the
+# term module travels with the suites that print its words.
+[[rules]]
+match = "scripts/rules/town_terms.gd*"
+domain = "town_terms"
 
 [[rules]]
 match = "scripts/ui/town_ledger_*.gd*"
@@ -1269,10 +1306,11 @@ suites = [
   "test_menu_flow.gd",
 ]
 
-# The campaign's last plate and the seal HudCampaignEnd owns. A lean unit suite
-# covers the collaborator without remounting the calendar-cap MapScreen theme
-# (that suite alone blows the tier-1 5 min budget when stacked on crown_road +
-# auto). Kept off the broad hud_* → ui domain.
+# The campaign's last plate, the seal HudCampaignEnd owns, and the app icon /
+# launcher branding cases that ride the same lean boot. Covers the collaborator
+# without remounting the calendar-cap MapScreen theme (that suite alone blows
+# the tier-1 5 min budget when stacked on crown_road + auto). Kept off the
+# broad hud_* → ui domain.
 [domains.campaign_plate]
 suites = [
   "test_hud_campaign_plate.gd",
@@ -1617,6 +1655,22 @@ match = "scripts/ui/battle_plate.gd*"
 domain = "quick_battle"
 
 [[rules]]
+match = "scripts/ui/battle_plate_assets.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate_ground.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate_wall.gd*"
+domain = "quick_battle"
+
+[[rules]]
+match = "scripts/ui/battle_plate_figures.gd*"
+domain = "quick_battle"
+
+[[rules]]
 match = "scripts/ui/regiment_miniatures.gd*"
 domain = "quick_battle"
 
@@ -1708,24 +1762,37 @@ domain = "intro"
 match = "scenes/intro.tscn*"
 domain = "intro"
 
-[[rules]]
-match = "project.godot"
-full = true
-
 # The app's face: the project icon and the Android launcher layers. An asset
-# cannot reach gameplay, so the mark runs its own wiring suite instead of the
-# whole tree (docs/testing.md tier-1 budget).
+# cannot reach gameplay, so the mark rides the lean chrome/plate suite instead
+# of the whole tree (docs/testing.md tier-1 budget). project.godot's icon line
+# is checked here; autoload/scene edits keep their own rules (often full).
 [domains.branding]
 suites = [
-  "test_branding_rules.gd",
+  "test_hud_campaign_plate.gd",
 ]
+
+[[rules]]
+match = "project.godot"
+domain = "branding"
 
 [[rules]]
 match = "icon.svg"
 domain = "branding"
 
 [[rules]]
-match = "tests/test_branding_rules.gd*"
+match = "icon.png"
+domain = "branding"
+
+[[rules]]
+match = "assets/art/branding/**"
+domain = "branding"
+
+[[rules]]
+match = "tools/art/app_icon.py"
+domain = "branding"
+
+[[rules]]
+match = "tests/test_hud_campaign_plate.gd*"
 domain = "branding"
 
 [[rules]]
@@ -1942,6 +2009,12 @@ suites = [
 match = "scripts/ui/province_panel.gd*"
 domain = "province_sheet"
 
+# The dossier's order rail rides the sheet it hangs on: the panel suite reads the
+# muster rows and the layout suite the compact re-order (DR-20261118-09).
+[[rules]]
+match = "scripts/ui/province_orders_section.gd*"
+domain = "province_sheet"
+
 [[rules]]
 match = "scripts/ui/province_resources.gd*"
 domain = "province_sheet"
@@ -2001,6 +2074,13 @@ domain = "crown_road"
 [[rules]]
 match = "playtests/playtest_invariants.gd*"
 domain = "fleet"
+
+# The ground a province shows: the sheet's Terrain row is read against the
+# ground Combat uses, so the two suites that mount the dossier and the chart
+# carry it.
+[[rules]]
+match = "playtests/playtest_terrain_ground.gd*"
+domain = "map_mount"
 
 [[rules]]
 match = "playtests/**"
@@ -2071,14 +2151,41 @@ domain = "prospect"
 
 # The published work gate and its cost table (H8 feedstock bootstrap, #878):
 # the AI plan and the civilian turn suites prove the raise; the prospect map
-# fan-out overruns the tier-1 5 min budget once those suites grow.
+# fan-out overruns the tier-1 5 min budget once those suites grow. Gates and
+# completion effects are sibling modules of the same slice (REQ-P3-01).
 [[rules]]
 match = "scripts/rules/civilian_work.gd*"
 domain = "ai_works"
 
 [[rules]]
+match = "scripts/rules/civilian_work_gates.gd*"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/rules/civilian_work_effects.gd*"
+domain = "ai_works"
+
+[[rules]]
 match = "scripts/rules/civilian_work_plan.gd*"
 domain = "ai_works"
+
+# Order-row / transport preview and refusal wording (split from the work plan
+# for REQ-P3-01): same AI/works slice as the plan, not the broad civilian
+# map/battle fan-out (tier-1 5 min budget).
+[[rules]]
+match = "scripts/rules/civilian_work_rows.gd*"
+domain = "ai_works"
+
+[[rules]]
+match = "scripts/rules/civilian_work_refusals.gd*"
+domain = "ai_works"
+
+# What a Merchant's deed buys, named on the crew's order row and its sheet: the
+# rules suite proves the terms and the panel-parts boot proves the two surfaces
+# that print them. Kept off the civilian map/battle fan-out (tier-1 5 min).
+[[rules]]
+match = "scripts/rules/deed_terms.gd*"
+domain = "deed"
 
 [[rules]]
 match = "scripts/rules/improvement_ledger.gd*"
@@ -2126,9 +2233,6 @@ domain = "civilian_pick"
 match = "scripts/ui/civilian_panel_s*.gd*"
 domain = "civilian_pick"
 
-[[rules]]
-match = "tests/test_observer_parts.gd*"
-domain = "ai_panel"
 
 [[rules]]
 match = "scripts/ui/province_panel.gd*"
@@ -2208,6 +2312,32 @@ domain = "ai_colony"
 suites = [
   "test_ai_rules.gd",
   "test_civilian_turn_rules.gd",
+]
+
+# A Merchant's deed terms ([DeedTerms]): the rules suite proves the words and the
+# panel-parts boot the order row and the sheet that print them.
+[domains.deed]
+suites = [
+  "test_civilian_turn_rules.gd",
+  "test_panel_parts_rules.gd",
+]
+
+# A town level's terms ([TownTerms]): the crew's order row, the crown's towns
+# sheet and the pick line all read one module, so its own domain runs exactly
+# the suites that print it (DR-20261118-06).
+[domains.town_terms]
+suites = [
+  "test_ai_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_ledgers.gd",
+]
+
+# A civilian hire's words ([CivilianHire]): the rules suite proves the work and
+# gate lines, the panel suite the muster rail that prints them (DR-20261118-09).
+[domains.civilian_hire]
+suites = [
+  "test_civilian_turn_rules.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 [domains.ai_economy]
@@ -2768,6 +2898,12 @@ domain = "prospect"
 match = "scripts/map/resource_seeder.gd*"
 domain = "prospect"
 
+# The observatory's province reading: the panel's own suites prove the words it
+# prints (docs/ai-observer.md). Named above the map glob (first match wins).
+[[rules]]
+match = "scripts/map/observer_province.gd*"
+domain = "ai_panel"
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
@@ -2825,6 +2961,13 @@ domain = "misc"
 [[rules]]
 match = "scripts/rules/diplomacy_catalog.gd*"
 domain = "misc"
+
+# What a civilian hire buys and the one study it waits on, printed on the muster
+# rail (DR-20261118-09): its own small slice proves the words and the rail that
+# prints them, instead of the whole civilian fan-out.
+[[rules]]
+match = "scripts/rules/civilian_hire.gd*"
+domain = "civilian_hire"
 
 [[rules]]
 match = "scripts/rules/civilian_*.gd*"
@@ -2942,6 +3085,10 @@ domain = "economy"
 # Province crown link + estate gap copy; civilian owns connectivity rules.
 [[rules]]
 match = "scripts/rules/land_connectivity.gd"
+domain = "civilian"
+
+[[rules]]
+match = "scripts/rules/land_town_rule.gd"
 domain = "civilian"
 
 [[rules]]
@@ -3117,8 +3264,9 @@ match = "scripts/rules/victory_*.gd"
 domain = "campaign"
 
 
+# Fog grid, coast tables and end-of-turn decay: one domain (REQ-P3-01).
 [[rules]]
-match = "scripts/rules/visibility.gd"
+match = "scripts/rules/visibility*.gd*"
 domain = "fog"
 
 # The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
@@ -3139,7 +3287,7 @@ match = "scripts/rules/intel_*.gd*"
 domain = "intel"
 
 [[rules]]
-match = "scripts/rules/resource_survey.gd*"
+match = "scripts/rules/resource_survey*.gd*"
 domain = "prospect"
 
 # The survey's road projection: same lens, same suites (the chart draws no roads).
@@ -3309,10 +3457,6 @@ domain = "crown_road"
 match = "scripts/ui/hud_campaign_end.gd*"
 domain = "campaign_plate"
 
-[[rules]]
-match = "tests/test_hud_campaign_plate.gd*"
-domain = "campaign_plate"
-
 # Cartouche markings (turn line, minimap) ride the same screen suites as chrome.
 [[rules]]
 match = "scripts/ui/hud_chart_cartouche.gd*"
@@ -3422,6 +3566,18 @@ domain = "menu"
 match = "scripts/ui/panel_dock.gd"
 domain = "layout"
 
+# The dossier's title block and fact grid are row kits the observatory's
+# province sheet reuses: the province sheet's own suites prove them, so an edit
+# there stays off the ui domain's battle fan-out (first match wins, so these sit
+# above the province_*.gd glob).
+[[rules]]
+match = "scripts/ui/province_facts_grid.gd*"
+domain = "province_sheet"
+
+[[rules]]
+match = "scripts/ui/province_sheet_head.gd*"
+domain = "province_sheet"
+
 # The province dossier and its estate block: the ui domain proves the panel's
 # geometry (test_mobile_layout) and its content (test_province_panel).
 [[rules]]
@@ -3437,6 +3593,8 @@ domain = "ui"
 match = "scripts/ui/minimap*.gd"
 domain = "map"
 
+# The observatory's province reading: the panel's own suites prove the sheet and
+# the words it prints (docs/ai-observer.md).
 [[rules]]
 match = "scripts/ui/observer_*.gd*"
 domain = "ai_panel"
@@ -3486,11 +3644,8 @@ domain = "chart_bake"
 match = "scripts/ui/ui_theme.gd.uid"
 domain = "chart_bake"
 
-# The province fact grid is a dossier row kit; keep it on ui so a new row does
-# not pull the menu/setup plates.
-[[rules]]
-match = "scripts/ui/province_facts_grid.gd*"
-domain = "ui"
+# The province fact grid is a dossier row kit; its rule sits above the
+# province_*.gd glob so it stays on the sheet's own suites.
 
 # HUD sheet chrome is not a menu screen. The estates head belongs to the ledger
 # it heads, so chrome work does not remount the setup/hub pages past the

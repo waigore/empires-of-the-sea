@@ -160,6 +160,7 @@ static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 	_rival_ledgers(play, book)
 	play.turn += 1
 	_crown_ledger(play, book)
+	_fort_upgrades(play, book)
 	_report_turn(play, book)
 	# The boundary Auto waits for: an armed court takes the seat at the close of
 	# the turn the player played; a discharged one gives it back (wiki: auto-mode
@@ -173,8 +174,8 @@ static func _open_new_turn(play: PlaySession, book: TurnBook) -> void:
 ## ledgers read the harbour: a rival that docked at its own capital through any
 ## planner folds into the home fleet (wiki: ships-and-naval § Home Fleet).
 static func _begin_layers(play: PlaySession) -> void:
-	play.ship_layer.expire_beachheads(play.turn)
-	play.ship_layer.begin_turn()
+	ShipTurnPass.expire_beachheads(play.ship_layer, play.turn)
+	ShipTurnPass.begin_turn(play.ship_layer)
 	play.army_layer.begin_turn(play.world)
 	MapPlayHomeMerge.settle_seats(play)
 	play.last_falls.clear()
@@ -248,6 +249,33 @@ static func _report_turn(play: PlaySession, book: TurnBook) -> void:
 		book.crown_report, book.raid_report
 	)
 	play.emit_turn_ended(play.turn)
+
+
+## A Great Power's capital wall steps up once, the turn its own fort tech
+## unlocks: the rivals' ledgers and the crown's have both closed by now, and
+## each report names the studies that finished (wiki: siege-mechanics
+## § Fort Levels; issue #919). Minors keep only the walls they build.
+##
+## A rival's row carries the whole economy report under `resolved`, and the
+## research phase is nested under its own `research` key — the slot the Gazette
+## and the spy despatch read. Reading `resolved` as if it were the research
+## report left every rival's capital at the wall it started with.
+static func _fort_upgrades(play: PlaySession, book: TurnBook) -> void:
+	var factions: Dictionary = book.economy_report.get("factions", {})
+	for raw: Variant in factions.keys():
+		var row: Dictionary = factions[raw]
+		var resolved: Variant = row.get("resolved", {})
+		if typeof(resolved) != TYPE_DICTIONARY:
+			continue
+		var research: Variant = (resolved as Dictionary).get("research", {})
+		if typeof(research) != TYPE_DICTIONARY:
+			continue
+		FortCapital.apply_research(play.world, int(raw), research as Dictionary)
+	var research: Dictionary = book.crown_report.get("research", {}) as Dictionary
+	var raised: int = FortCapital.apply_research(play.world, play.player_faction, research)
+	if raised <= 0 or play.hud == null or play.observer_mode:
+		return
+	play.hud.toast("The capital's walls rise to %s" % FortRules.level_name(raised))
 
 
 ## The turn's view follow-up: the toast, the open dossiers, the survey lens and

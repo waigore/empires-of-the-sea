@@ -3045,6 +3045,56 @@ func test_offers_expire_with_the_turn_but_survive_a_save() -> void:
 	market.advance_prices()
 	assert_eq(market.minor_offers, [])
 
+## The advanced start rewrites the world the book was published from — colonies
+## claimed, estates raised, towns developed — so the rows must be republished:
+## a crown opening on turn 100 read the turn-0 harvest (62 timber on the table
+## where the auction held 9) and none of the developed towns' manufactures
+## (wiki: world-market § Minor and tribe auto-sell; REQ-P2-03, REQ-P5-05).
+func test_the_book_is_republished_when_the_world_moves_under_it() -> void:
+	var world: WorldMap = _town_world(9, 0, 4, 1)
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	MinorMarket.publish(market, world, 0)
+	assert_eq(MinorMarket.remaining(market.minor_offers, "9:timber"), 4)
+	assert_eq(MinorMarket.index_of(market.minor_offers, "9:lumber"), -1)
+	# The preset's own move: the town is developed, so its manufactures appear.
+	world.region(0).provinces[1].town_development = 2
+	assert_eq(
+		MinorMarket.index_of(market.minor_offers, "9:lumber"), -1,
+		"the stale book hides the town's output"
+	)
+	var play := PlaySession.new()
+	var controller := EconomyController.new()
+	controller.market = market
+	play.economy = controller
+	play.world = world
+	MapPlayMarket.republish(play)
+	assert_eq(
+		market.minor_offers, MinorMarket.emit(world, market, 0),
+		"the book names the world it sells"
+	)
+	assert_eq(
+		MinorMarket.remaining(market.minor_offers, "9:lumber"), 1,
+		"the developed town is on the book"
+	)
+	# A session with no ledger, or a ledger with no market, has no book to write.
+	MapPlayMarket.republish(null)
+	var bare := PlaySession.new()
+	MapPlayMarket.republish(bare)
+	bare.economy = EconomyController.new()
+	MapPlayMarket.republish(bare)
+
+## The advanced start republishes the book once the preset has rewritten the
+## world; a session that has no world yet writes no rows and does not crash
+## (wiki: world-market § Minor and tribe auto-sell; REQ-P2-03).
+func test_an_advanced_start_with_no_world_writes_no_book() -> void:
+	var play := PlaySession.new()
+	play.advanced_start = AdvancedStart.TURNS100
+	var controller := EconomyController.new()
+	controller.market = WorldMarket.with_default_prices()
+	play.economy = controller
+	MapPlayAdvanced.begin(play)
+	assert_eq(controller.market.minor_offers, [], "no world, no rows")
+
 ## A two-province map: a Great Power holds the west, Minor Nation 6 (or a Tribe)
 ## holds four estates in the east with one province town.
 func _town_world(owner: int, resource: int, estates: int, town_level: int) -> WorldMap:
@@ -5324,3 +5374,86 @@ func test_the_production_batch_receipt_names_the_runs() -> void:
 		ProductionBatch.receipt(1), "Set 1 run — every ready row in this view is ordered."
 	)
 	assert_true(ProductionBatch.receipt(0).begins_with("No ready row to set"))
+
+
+# --- MarketPressure: the row book a court reads (REQ-P3-03) -----------------
+
+## Every claim consumes the store, so the regiment's material adds to what the
+## works already reserved instead of replacing it (wiki: economy-planner
+## § Reservations; growth-stage-planner § Recruitment modulation).
+func test_promised_adds_the_regiments_claim_to_the_reserved_store() -> void:
+	var reserved: Dictionary = {"lumber": 2}
+	var claims: Dictionary = MarketPressure.promised(reserved, {"lumber": 1, "fabric": 3})
+	assert_eq(int(claims["lumber"]), 3)
+	assert_eq(int(claims["fabric"]), 3)
+	assert_eq(int(reserved["lumber"]), 2, "the caller's own book is not written")
+	assert_eq(MarketPressure.promised(reserved, {}), reserved, "no need, no copy")
+
+
+## The France shape: a saving court holds tradeable stock, yet every row sits
+## under the comfort reserve, so it offers nothing and is trapped (issue #489).
+func test_a_trapped_hoard_is_the_france_shape() -> void:
+	var market: WorldMarket = _market()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile = {"wool": 20, "grain": 25}
+	assert_true(MarketPressure.hoard_trapped(economy, market, 20))
+	economy.stockpile = {"wool": 30, "grain": 25}
+	assert_false(MarketPressure.hoard_trapped(economy, market, 20), "a surplus is not trapped")
+	economy.stockpile = {"grain": 25}
+	assert_false(MarketPressure.hoard_trapped(economy, market, 20), "dinner is not a hoard")
+	assert_false(MarketPressure.hoard_trapped(null, market, 20))
+
+
+## Rows rank the richest surplus first, and liquidation lifts the reserve on
+## everything but the dinner (wiki: treasury-planner § Lock-recovery).
+func test_surpluses_rank_the_richest_first_and_keep_the_dinner() -> void:
+	var market: WorldMarket = _market()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile = {"wool": 25, "grain": 25, "timber": 40}
+	var rows: Array[Dictionary] = MarketPressure.surpluses(economy, market, 20)
+	assert_eq(int(rows[0]["surplus"]), 20, "the richest row leads")
+	assert_eq(String(rows[0]["commodity"]), "timber")
+	var liquid: Array[Dictionary] = MarketPressure.surpluses(economy, market, 20, {}, true)
+	assert_eq(int(liquid[0]["surplus"]), 40)
+	var grain: Dictionary = {}
+	for row: Dictionary in liquid:
+		if String(row["commodity"]) == "grain":
+			grain = row
+	assert_eq(int(grain["surplus"]), 5, "the ration keeps its reserve")
+
+
+## The next regiment's material leads the deficit rows even when a works input is
+## shorter; the estate feedstock leads the rest (issue #878).
+func test_deficits_lead_with_the_regiments_claim_then_the_feedstock() -> void:
+	var market: WorldMarket = _market()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile = {}
+	var inputs: Array[String] = ["lumber", "castIron", "fabric", "paper"]
+	var rows: Array[Dictionary] = MarketPressure.deficits(
+		economy, market, inputs, 3, {"paper": 1}, {}, ["lumber", "castIron"]
+	)
+	assert_eq(String(rows[0]["commodity"]), "paper", "the muster's row leads")
+	assert_eq(String(rows[1]["commodity"]), "castIron", "feedstock before the rest")
+	assert_eq(int(rows[0]["deficit"]), 3)
+	assert_eq(MarketPressure.deficits(null, market, inputs, 3).size(), 0)
+
+
+## The ration is one row bought in full — a court that can only import half its
+## dinner still strikes (wiki: treasury-planner § Lock-recovery).
+func test_food_deficits_buy_the_ration_in_one_row() -> void:
+	var rows: Array[Dictionary] = MarketPressure.food_deficits(_market(), 6)
+	assert_eq(rows.size(), 1)
+	assert_eq(String(rows[0]["commodity"]), "grain")
+	assert_eq(int(rows[0]["deficit"]), 6)
+	assert_eq(MarketPressure.food_deficits(_market(), 0).size(), 0)
+	assert_eq(MarketPressure.food_deficits(null, 6).size(), 0)
+
+
+## Every pass reads the book's tradeable goods in one order (REQ-P2-03).
+func test_tradeable_ids_are_sorted() -> void:
+	var ids: Array[String] = MarketPressure.tradeable_ids(_market())
+	var sorted_ids: Array[String] = ids.duplicate()
+	sorted_ids.sort()
+	assert_eq(ids, sorted_ids)
+	assert_true(ids.has("grain"))
+	assert_eq(MarketPressure.tradeable_ids(null).size(), 0)

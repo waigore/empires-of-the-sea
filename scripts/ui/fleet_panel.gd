@@ -212,19 +212,6 @@ func _muster_line(fleet: FleetState, is_player: bool, strength: Dictionary) -> S
 	]
 
 
-## The composition line under the title: count, hull types and the upkeep they
-## eat. A rival the crown has sighted but not read keeps her muster to herself —
-## no count, no types, no bill — while the map's hull badge stays off her marker
-## (wiki: ships-and-naval § Sighted strength).
-func _muster_line(fleet: FleetState, is_player: bool, strength: Dictionary) -> String:
-	if not is_player and not bool(strength.get("known", true)):
-		return "??? hulls — the fog has not yet given up her muster."
-	return "%d %s · %s · upkeep %d food" % [
-		fleet.ship_count(), "ship" if fleet.ship_count() == 1 else "ships",
-		fleet.hull_summary(), ShipEconomy.food_upkeep_for_fleet(fleet)
-	]
-
-
 ## The status and hint lines: what the squadron may still do this turn. One
 ## branch per reason the player cannot give a plain order (REQ-P1-07).
 func _set_standing(

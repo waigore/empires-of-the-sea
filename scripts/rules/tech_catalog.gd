@@ -280,7 +280,34 @@ static func roots() -> Array[String]:
 
 ## Player-facing effect line, built from the data the slice actually applies
 ## (wiki: tech-tree-gathering § Acceptance criteria — fixed effect phrases).
+## The chart's reading and every tooltip print it whole: the payoff, then the
+## road it opens.
 static func effect_text(tech_id: String) -> String:
+	var parts: PackedStringArray = _payoff_parts(tech_id)
+	_merge_lead(parts, _road_lead(tech_id))
+	if parts.is_empty():
+		parts.append("Prerequisite-only in this slice.")
+	return " ".join(parts)
+
+
+## What a study pays a crown for, in the catalog's own phrases: the wiki note,
+## the extraction caps it lifts, the resources it makes researchable and every
+## build order it opens. An advance that buys nothing but the road names the
+## advances it leads to, because that is all it opens (wiki: tech-tree § Goal
+## slot — the catalog's effect text). The research ledger prints it under a
+## row's price, so what a study opens is never a hover a touch crown cannot
+## reach (REQ-P1-05, REQ-P5-03).
+static func payoff_text(tech_id: String) -> String:
+	var parts: PackedStringArray = _payoff_parts(tech_id)
+	if parts.is_empty():
+		_merge_lead(parts, _road_lead(tech_id))
+	if parts.is_empty():
+		parts.append("Prerequisite-only in this slice.")
+	return " ".join(parts)
+
+
+## The effect clauses a study pays for, in the order the catalog declares them.
+static func _payoff_parts(tech_id: String) -> PackedStringArray:
 	var parts: PackedStringArray = []
 	var note: String = String(entry(tech_id).get("note", ""))
 	if not note.is_empty():
@@ -303,22 +330,28 @@ static func effect_text(tech_id: String) -> String:
 		parts.append("Enables: research once an explorer finds %s." % " or ".join(found))
 	for line: String in TechUnlocks.lines(tech_id):
 		parts.append(line)
+	return parts
+
+
+## The advances a tech unlocks in turn, as the clause `_merge_lead` folds into a
+## row's Unlocks line: "" when nothing depends on it.
+static func _road_lead(tech_id: String) -> String:
 	var children: Array[String] = dependents(tech_id)
-	if not children.is_empty():
-		var names: PackedStringArray = []
-		for child: String in children.slice(0, 3):
-			names.append(display_name(child))
-		if children.size() > 3:
-			names.append("and %d more" % (children.size() - 3))
-		_merge_lead(parts, "research paths to %s" % ", ".join(names))
-	if parts.is_empty():
-		parts.append("Prerequisite-only in this slice.")
-	return " ".join(parts)
+	if children.is_empty():
+		return ""
+	var names: PackedStringArray = []
+	for child: String in children.slice(0, 3):
+		names.append(display_name(child))
+	if children.size() > 3:
+		names.append("and %d more" % (children.size() - 3))
+	return "research paths to %s" % ", ".join(names)
 
 
 ## Joins a "leads to" clause onto the row's Unlocks line so a tech with both a
 ## unit unlock and dependents reads as one sentence, not two "Unlocks:".
 static func _merge_lead(parts: PackedStringArray, lead: String) -> void:
+	if lead.is_empty():
+		return
 	for index in parts.size():
 		if not parts[index].begins_with("Unlocks: "):
 			continue

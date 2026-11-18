@@ -97,6 +97,9 @@ static func plan(
 		"moves": moves,
 		"candidates": candidates,
 		"training": AiCivilianHire.training_order(config, units, train_context),
+		# The crew the hire order would take if the purse allowed: the market
+		# keeps its price back from this turn's bids (issue #894).
+		"next_crew": AiCivilianHire.next_crew(config, units, train_context),
 	}
 
 

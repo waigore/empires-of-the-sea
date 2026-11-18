@@ -53,6 +53,9 @@ func _build_body(column: VBoxContainer) -> void:
 	sea.size_flags_stretch_ratio = 3.0
 	sea.clip_contents = true
 	column.add_child(sea)
+	## The frame gives the water back on a short screen, so the plate's footer
+	## stays on a landscape handset (REQ-P1-07).
+	_body = sea
 	var art := TextureRect.new()
 	if ResourceLoader.exists(SEA_ART):
 		art.texture = load(SEA_ART)

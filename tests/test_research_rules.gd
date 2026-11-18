@@ -255,6 +255,29 @@ func test_every_tech_has_a_fixed_field_phrase() -> void:
 		assert_true(found, tech_id)
 
 
+## The ledger's row names what a study opens, not the road it leads to: the
+## payoff is the catalog's own phrases, and an advance that buys nothing but the
+## road names the advances it opens (REQ-P1-05, REQ-P5-03).
+func test_payoff_text_names_the_payoff_and_leaves_the_road_to_the_chart() -> void:
+	assert_eq(TechCatalog.payoff_text("saw_mill"), "Improves: extraction cap Timber 2.")
+	assert_eq(TechCatalog.payoff_text("clipper_ships"), "Unlocks: Clipper hull.")
+	assert_false(
+		TechCatalog.payoff_text("saw_mill").contains("research paths to"),
+		"the road is the chart's reading, not the row's payoff"
+	)
+	assert_true(
+		TechCatalog.effect_text("saw_mill").contains("research paths to"),
+		"the chart still prints the road"
+	)
+	assert_eq(
+		TechCatalog.payoff_text("crop_rotation"),
+		"Unlocks: research paths to Animal Husbandry, Recruit Steppe Horsemen, Sheep Ranching.",
+		"an advance that only opens the road names the road"
+	)
+	for tech_id: String in TechCatalog.ids():
+		assert_false(TechCatalog.payoff_text(tech_id).is_empty(), tech_id)
+
+
 func test_gate_tables_only_name_catalog_techs() -> void:
 	var errors: Array[String] = TechAudit.validate()
 	assert_true(errors.is_empty(), ", ".join(errors))
