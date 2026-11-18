@@ -50,6 +50,15 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 ## peaceful court is one payment short of is banked, not auctioned away
 ## (#603). 0 when the caller has no ledger to read.
 ##
+## `conquest_gap` is the win-bar reading (issue #995): a court that is short of
+## the Old World bar with an army still under target banks for the regiment
+## that takes the provinces it needs — at peace as at war. The conquest
+## shortfall is the trigger, not the war: the buy-out (#975) and the prompt end
+## of pointless wars (#999) often leave a court at peace precisely because it
+## has no army, and a peace that never banks never arms. The bank also holds
+## through the escalation stall: the gap is the standing reason to bank, so a
+## wobble in the fill is not a stall.
+##
 ## `muster_stall` is the deferred-aim escalation reading (#603): the turns the
 ## muster aim has been deferred without its shortfall shrinking. A war chest
 ## the court has stalled on re-routes — the reserve falls back to the cash
@@ -57,7 +66,8 @@ static func at_war(state: DiplomacyState, faction: int) -> bool:
 ## again — and the shortfall shrinking resumes the chest as published.
 static func reserve(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0, own_warships: int = -1, muster_stall: int = 0
+	hull_chest: int = 0, own_warships: int = -1, muster_stall: int = 0,
+	conquest_gap: bool = false
 ) -> int:
 	if config == null or economy == null:
 		return 0
@@ -65,18 +75,26 @@ static func reserve(
 	var muster: int = AiArmyReinforce.muster_floor(config, economy, regiments, true)
 	if muster_stall >= maxi(config.parameter("ledger.escalate_turns"), 1):
 		# The re-route: the reserve the court cannot reach stands down so the
-		# court's own income planners lead again (issue #603).
+		# court's own income planners lead again (issue #603). The bar reads
+		# two turns, not one (issue #995): a bank that is progressing
+		# restarts the stall at one on every new-low turn, and the bar at one
+		# answered the fill's own progress — no chest ever closed, at war or
+		# at peace. Two turns means a genuine standing-still re-routes and a
+		# filling bank never does; the valve itself is untouched.
 		muster = 0
-	elif not at_war:
+	elif not at_war and not conquest_gap:
 		# At peace the war chest is kept only once the purse already holds the
 		# cheapest line's own price (wiki: ai-architecture § Land
 		# reinforcement): a poorer court keeps its cash floor and grows — no
 		# peace-time save phase (DR-20261113-22) — and a court in reach banks
 		# the last of the chest instead of auctioning it away the turn peace
-		# opens (issue #603).
+		# opens (issue #603). A court short of the bar keeps the whole chest
+		# (issue #995): the gap is the trigger, not the war.
 		if economy.treasury < AiArmyReinforce.cheapest_line_price(economy):
 			muster = 0
-	var held: int = hull_held(config, economy, at_war, regiments, hull_chest, own_warships)
+	var held: int = hull_held(
+		config, economy, at_war, regiments, hull_chest, own_warships, conquest_gap
+	)
 	return maxi(floor, maxi(muster, held))
 
 
@@ -84,17 +102,20 @@ static func reserve(
 ## already fill is the fleet's — the purse waits for the hull and the yard leads.
 ## A chest it cannot afford yet stands behind the army, unless the court has no
 ## fighting hull left — then the rebuild chest is held even while the muster is
-## due (#484, #591). 0 when there is no hull to save for.
+## due (#484, #591) — and never while the court banks for the army its conquest
+## still needs (issue #995): a fleetless court at war that is short of the bar
+## with a host under strength buys its line before its hull, because the army
+## holds the land the yard stands on. 0 when there is no hull to save for.
 static func hull_held(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int, own_warships: int = -1
+	hull_chest: int, own_warships: int = -1, conquest_gap: bool = false
 ) -> int:
 	var chest: int = maxi(hull_chest, 0)
 	if config == null or economy == null or chest <= 0:
 		return chest
 	if economy.treasury >= chest:
 		return chest
-	if own_warships == 0:
+	if own_warships == 0 and not conquest_gap:
 		return chest
 	if AiArmyReinforce.muster_floor(config, economy, regiments, at_war) > 0:
 		return 0
@@ -104,13 +125,16 @@ static func hull_held(
 ## One turn's goal plus the readings behind it, for the turn trace and the
 ## observer row. `hull_chest` is the yard price the court is saving for, 0 when
 ## it is not rebuilding its fleet. `muster_stall` is the deferred-aim
-## escalation reading (issue #603; see `reserve`).
+## escalation reading (issue #603; see `reserve`). `conquest_gap` is the
+## win-bar reading (issue #995; see `reserve`).
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0, own_warships: int = -1, muster_stall: int = 0
+	hull_chest: int = 0, own_warships: int = -1, muster_stall: int = 0,
+	conquest_gap: bool = false
 ) -> Dictionary:
 	var need: int = reserve(
-		config, economy, at_war, regiments, hull_chest, own_warships, muster_stall
+		config, economy, at_war, regiments, hull_chest, own_warships, muster_stall,
+		conquest_gap
 	)
 	var held: int = economy.treasury if economy != null else 0
 	return {
@@ -119,23 +143,31 @@ static func plan(
 		"treasury": held,
 		"regiments": regiments,
 		"hull_chest": maxi(hull_chest, 0),
+		# The win-bar reading the bank rides on (issue #995): the trace and
+		# the treaty rungs read it beside the goal it moved.
+		"conquest_gap": conquest_gap,
 	}
 
 
 ## Goal name only, for callers that do not keep the readings.
 static func goal_for(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0, own_warships: int = -1
+	hull_chest: int = 0, own_warships: int = -1, conquest_gap: bool = false
 ) -> String:
-	return String(plan(config, economy, at_war, regiments, hull_chest, own_warships)["goal"])
+	return String(
+		plan(config, economy, at_war, regiments, hull_chest, own_warships, 0, conquest_gap)["goal"]
+	)
 
 
 ## True while the court's money comes before anything it can defer.
 static func wants_income(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, regiments: int,
-	hull_chest: int = 0, own_warships: int = -1
+	hull_chest: int = 0, own_warships: int = -1, conquest_gap: bool = false
 ) -> bool:
-	return goal_for(config, economy, at_war, regiments, hull_chest, own_warships) == GOAL_EARN
+	return (
+		goal_for(config, economy, at_war, regiments, hull_chest, own_warships, conquest_gap)
+		== GOAL_EARN
+	)
 
 
 ## The refusal a deferrable spender records while the court is still filling its
@@ -152,6 +184,33 @@ static func saving_reason(income: Dictionary, amount: int = 0) -> String:
 	if String(income.get("goal", GOAL_SPEND)) != GOAL_EARN and held - amount >= reserve:
 		return ""
 	return "the court is saving for its reserve (%d)" % reserve
+
+
+## True while this court is banking for the army its conquest still needs
+## (issue #995): the win-bar gap holds, the host stands under the war-time
+## target, and the purse is one line-cycle short of the chest — so every
+## deferrable purchase (a war, a pact break, an envoy rung) waits, and a purse
+## that peaks inside a turn still belongs to the army that marches before
+## anything else spends it. The read is the purse, the host and the bar, never
+## the money goal: the goal wobbles on the re-route cycle, and a wobble must
+## not open a front. A caller with no ledger or no income row keeps the
+## published behaviour.
+static func banking(
+	config: AiConfig, ai_state: AiState, income: Dictionary
+) -> bool:
+	if config == null or not bool(income.get("conquest_gap", false)):
+		return false
+	if int(income.get("regiments", 0)) >= AiArmyReinforce.desired_regiments(config, true):
+		return false
+	var economy: PlayerEconomy = (
+		ai_state.economy_for(config.faction) if ai_state != null else null
+	)
+	if economy == null:
+		return false
+	var shortfall: int = maxi(int(income.get("reserve", 0)), 0) + maxi(
+		AiArmyReinforce.cheapest_line_price(economy), 0
+	)
+	return int(income.get("treasury", 0)) < shortfall
 
 
 ## Reader-facing goal for the observer panel and the turn trace.

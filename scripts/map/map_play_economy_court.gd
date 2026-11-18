@@ -38,12 +38,19 @@ var navy_row: Dictionary = {}
 ## take this turn, so a court that has lost a Builder can still buy one (issue
 ## #894).
 var hire_margin: int = 0
+## The pre-market treasury delta the last plan projected (issue #995's probe):
+## what the phase itself moves before the shared book clears.
+var projected_treasury: int = 0
 
 ## The reads the plan and the application share.
 var at_war: bool = false
 ## The court's war footing this turn (DR-20261113-15): the dispatch table every
 ## domain planner reads its slot from (DR-20261117-01).
 var phase: String = AiPhasePlanner.PHASE_UNKNOWN
+## True while this court banks for the army its conquest still needs (issue
+## #995): on `earn` and short of the bar, the works purse and the college's
+## doors draw on the bank, not the cash floor.
+var conquest_bank: bool = false
 var regiments: int = 0
 var ships: int = 0
 var warships: int = 0
@@ -109,16 +116,19 @@ func plan_turn() -> void:
 			harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
 		)
 	# The goal the court plans with this turn: money first (DR-20261113-19).
-	# The reserve is the muster it is saving for while it stands under its
-	# regiment target, else its own cash floor; a court short of it is on
-	# `earn` and every deferrable spend stands down while its income planners
-	# lead. Every discretionary spend reads the same reserve, so the war chest
-	# is never auctioned away for imports (wiki: growth-stage-planner
-	# § Recruitment modulation; treasury-planner § Priority).
+	# Every discretionary spend reads the same reserve, so the war chest is
+	# never auctioned away for imports (wiki: treasury-planner § Priority).
+	# A court short of the bar banks at peace too (issue #995): the conquest
+	# shortfall is the trigger, not the war.
+	var pressure: Dictionary = AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)
 	income = AiBind.income_plan(
 		kind, config, economy, at_war, regiments, hull_chest, warships,
 		# A war chest the court has stalled on re-routes (#603).
-		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line")
+		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line"),
+		# The win-bar reading the bank rides on (issue #995).
+		int(pressure["need"]) > 0
 	)
 	# The blunt earn-and-chest production skip (issue #484) froze every
 	# manufacture — lumber, cast iron, cloth — for the whole save, so a
@@ -127,9 +137,6 @@ func plan_turn() -> void:
 	# manufacture's reach instead: the plan never promises a run whose inputs
 	# would eat the regiment's cloth or the hull's lumber, and the court's own
 	# works keep the manufactures they pay for.
-	var pressure: Dictionary = AiVictoryPressure.read(
-		play.world, faction, play.human_faction_id(), play.difficulty, config
-	)
 	muster_row = AiBind.muster_reserve(
 		kind, config, economy, regiments, at_war, int(pressure["extra_regiments"])
 	)
@@ -144,6 +151,13 @@ func plan_turn() -> void:
 		kind, config, economy, town_level, _chest_rows()
 	)
 	floor = int(income["reserve"])
+	# The conquest bank (issue #995): the canonical read — the gap, the host
+	# and the purse, never the money goal (which wobbles on the re-route
+	# cycle). Baselines keep their published doctrine.
+	conquest_bank = (
+		kind != AiControl.KIND_BASELINE
+		and AiIncome.banking(config, play.ai, income)
+	)
 	research = _plan_research()
 	boost = MapPlaySpyAi.research_bonus(play, faction, economy)
 	hospitals = HospitalRules.demand_list(play.world, faction)
@@ -156,15 +170,23 @@ func plan_turn() -> void:
 		economy, market, overseas["extraction"] as Dictionary, ships,
 		army_food, boost, hospitals, leader, town_level
 	)
+	# The pre-market treasury delta the trace's flow row reports (issue #995's
+	# probe), read before the shared book clears the staged offers and bids.
+	projected_treasury = int(projected.get("treasury_delta", 0))
 	# A court on `earn` still works its own land: extraction draws on the
-	# cash floor, everything else waits for the muster (issue #489).
+	# cash floor, everything else waits for the muster (issue #489). The
+	# conquest bank keeps that purse open for its farms (issue #995) — a
+	# court that cannot buy the lumber its farms spend stops carrying the
+	# mouth the levy needs. The deeds and chains that could eat the same
+	# purse wait behind the bank's own gates instead.
 	var works_floor: int = (
 		config.parameter("economy.min_treasury")
 		if String(income["goal"]) == AiIncome.GOAL_EARN else -1
 	)
 	plans = MapPlayCivilianAi.plan_all(
 		play, faction, economy, config, overseas,
-		(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor
+		(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor,
+		conquest_bank
 	)
 	works_reserved = MapPlayCivilianAi.work_rows(plans)
 	hire_margin = _hire_margin()
@@ -235,8 +257,9 @@ func apply_turn() -> Dictionary:
 	var fed: int = AiBind.fed_slack(kind, economy, army_food, ships)
 	if play.ai != null and (play.ai.food_slack as Dictionary).has(faction):
 		fed = mini(fed, int(play.ai.food_slack[faction]))
+	# The conquest bank rides the worker buys (issue #995).
 	var recruits: Array[Dictionary] = AiBind.recruitment_orders(
-		kind, config, economy, floor, fed, hands
+		kind, config, economy, floor, fed, hands, conquest_bank
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))
@@ -253,6 +276,15 @@ func apply_turn() -> Dictionary:
 		"claims": trade.get("claims", []),
 		"research": research,
 		"income": income,
+		# The pre-market delta and the labour pool the levy reads (issue
+		# #995's probe rows).
+		"projected": projected_treasury,
+		"pool": {
+			"workers": economy.workers.total(),
+			"peasants": economy.workers.count(WorkerPool.Tier.PEASANT),
+			"available": economy.available_peasants(),
+			"harvest": int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2,
+		},
 	}
 
 
@@ -293,6 +325,8 @@ func _plan_research() -> Dictionary:
 			"cash_floor": research_floor,
 			"door": door,
 			"defer_standing": hull_chest > 0,  # yard fills before standing (#484)
+			# The bank the doors honor while the court arms (issue #995).
+			"conquest_reserve": floor if conquest_bank else 0,
 		}
 	)
 

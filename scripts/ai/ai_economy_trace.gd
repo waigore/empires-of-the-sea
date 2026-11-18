@@ -63,6 +63,11 @@ static func record(merged: Dictionary, factions: Dictionary, report: Dictionary)
 			AiTurnLog.event(
 				merged, bucket, faction, "%s opens no speculative bid (%s)." % [who, bids]
 			)
+		# The money-flow row the court's own report carries (issue #995's
+		# probe): every ducat the phase moved, named by its payer, so the
+		# trace decomposes a stall instead of guessing at one.
+		if details.has("resolved"):
+			bucket["flow"] = _flow(details)
 		_cargo(merged, bucket, faction, details.get("cargo", {}))
 		_claims(bucket, details.get("claims", []))
 
@@ -122,3 +127,52 @@ static func _cargo(
 			who, ShipStats.display_name(String(warship.get("type_id", ""))),
 			int(warship.get("price", 0)), int(warship.get("chest", 0)),
 		])
+
+
+## The money-flow row (issue #995's probe): every ducat the phase itself
+## moved, named by its payer — the riches it auto-sold, the gold the college
+## spent with each slot's preset, the workers it hired, the market it staged
+## and the pre-market delta the plan projected — so a stalled bank reads from
+## the trace instead of being guessed at (wiki:
+## turn-trace-interpretation). Pure projection (REQ-P4-03).
+static func _flow(details: Dictionary) -> Dictionary:
+	var resolved: Dictionary = details.get("resolved", {}) as Dictionary
+	var research: Dictionary = resolved.get("research", {}) as Dictionary
+	var slots: Array[Dictionary] = []
+	for raw: Variant in research.get("slots", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var slot: Dictionary = raw
+		slots.append({
+			"tech": String(slot.get("tech", "")),
+			"funding": String(slot.get("funding", "")),
+			"gold": int(slot.get("gold", 0)),
+			"paid": bool(slot.get("paid", false)),
+		})
+	var staged: Array[Dictionary] = []
+	for raw: Variant in (details.get("trade", {}) as Dictionary).get("staged", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var order: Dictionary = raw
+		staged.append({
+			"kind": String(order.get("kind", "")),
+			"commodity": String(order.get("commodity", "")),
+			"quantity": int(order.get("quantity", 0)),
+		})
+	return {
+		"riches": int(resolved.get("riches_treasury", 0)),
+		"research": int(research.get("spent", 0)),
+		"research_slots": slots,
+		"recruits": int((details.get("recruits", []) as Array).size()),
+		"staged": staged,
+		"projected": int(details.get("projected", 0)),
+		# The money goal the economy pass itself planned with, beside the
+		# goal row the ledger stamps a pass later — the two can only be
+		# debugged against each other (issue #995's probe).
+		"goal": String((details.get("income", {}) as Dictionary).get("goal", "")),
+		"reserve": int((details.get("income", {}) as Dictionary).get("reserve", 0)),
+		# The labour pool the levy reads (issue #995's probe): the war chest
+		# vanishes the day the fields cannot spare the levy's own hand, so a
+		# stalled bank reads its pool beside its purse.
+		"pool": details.get("pool", {}).duplicate(),
+	}

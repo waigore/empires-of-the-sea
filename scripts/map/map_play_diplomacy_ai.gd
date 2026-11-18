@@ -138,12 +138,25 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 			play.world, faction, play.human_faction_id(), play.difficulty, config
 		).get("stage", AiVictoryPressure.STAGE_FAR))
 		press[faction] = AiVictoryPressure.war_press(stage, config)
+	# The courts whose money doctrine banks for the conquest (issue #995):
+	# the submission surface reads the bar and banks; a frozen baseline keeps
+	# its published reserve, so the shared pass must not stamp a bank its own
+	# planners do not hold.
+	var conquest_gaps: Dictionary = {}
+	for faction: int in FactionCatalog.great_power_ids():
+		conquest_gaps[faction] = (
+			AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE
+			and AiVictoryPressure.below_bar(
+				play.world, faction, play.human_faction_id(), play.difficulty
+			)
+		)
 	var context: Dictionary = {
 		"regiments": regiments,
 		"ships": ships,
 		"warships": warships,
 		"hull_chests": hull_chests,
 		"victory_press": press,
+		"conquest_gaps": conquest_gaps,
 		"strengths": MapPlayCourt.public_strength(play),
 		"planning": planning,
 	}

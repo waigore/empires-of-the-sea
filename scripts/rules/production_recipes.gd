@@ -110,7 +110,17 @@ static func output(recipe_id: String) -> String:
 static func inputs(recipe_id: String) -> Dictionary:
 	return (entry(recipe_id).get("inputs", {}) as Dictionary).duplicate()
 
-
+## The raw commodities one refinement hop from `commodity` (issue #995's bank).
+static func raw_sources(commodity_id: String) -> Array[String]:
+	var sources: Array[String] = []
+	for recipe_id: String in ids():
+		if output(recipe_id) != commodity_id:
+			continue
+		for raw: Variant in inputs(recipe_id).keys():
+			var id: String = String(raw)
+			if not sources.has(id):
+				sources.append(id)
+	return sources
 static func labour(recipe_id: String) -> int:
 	return int(entry(recipe_id).get("labour", 0))
 

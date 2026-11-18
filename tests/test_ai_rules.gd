@@ -5071,6 +5071,117 @@ func test_a_peaceful_court_in_reach_banks_its_war_chest() -> void:
 	)
 
 
+func test_a_court_short_of_the_bar_banks_at_peace() -> void:
+	# The bank-then-blitz lever (issue #995): while a court stands short of
+	# the bar with an army still under target, the conquest shortfall — not
+	# the war — keeps the muster chest in the reserve, so a court the buy-out
+	# (#975) has left at peace still banks for the army that takes the
+	# provinces it needs. The estates and the mines it raises on `earn` keep
+	# the food and the income engine running while the purse fills.
+	var config: AiConfig = _phase_config()
+	var floor: int = config.parameter("economy.min_treasury")
+	var chest: int = AiArmyReinforce.muster_floor(config, _purse(300), 1, true)
+	var price: int = AiArmyReinforce.cheapest_line_price(_purse(0))
+	assert_true(chest > floor and chest > price, "the chest is the war-target line")
+
+	assert_eq(
+		AiIncome.reserve(config, _purse(300), false, 1, 0, -1, 0, true), chest,
+		"short of the bar the chest stands at peace, war or no war"
+	)
+	assert_eq(
+		String(AiIncome.plan(config, _purse(300), false, 1, 0, -1, 0, true)["goal"]),
+		AiIncome.GOAL_EARN,
+		"the peaceful court banks instead of building behind a purse that never arms"
+	)
+	assert_eq(
+		AiIncome.reserve(config, _purse(300), false, 1, 0, -1, 0, false), floor,
+		"a court that has cleared the bar keeps the published peace"
+	)
+	assert_eq(
+		AiIncome.reserve(
+			config, _purse(300), false, config.parameter("army.regiment_target"),
+			0, -1, 0, true
+		), chest,
+		"the bank holds past the peace target: the reserve prices the war chest"
+	)
+	assert_eq(
+		AiIncome.reserve(
+			config, _purse(300), false,
+			config.parameter("army.regiment_target") + config.parameter("army.war_extra"),
+			0, -1, 0, true
+		), floor,
+		"the bank ends at the war target: no muster due, no chest"
+	)
+
+
+func test_the_escalation_valve_still_re_routes_the_bank() -> void:
+	# The #603 safety valve survives the bank untouched (issue #995's own
+	# acceptance line): a stalled war chest still re-routes to the cash floor
+	# so the court's income planners lead again — and the bar reads two turns
+	# so a fill that reaches new lows every turn never counts as a stall.
+	var config: AiConfig = _phase_config()
+	var floor: int = config.parameter("economy.min_treasury")
+	var bar: int = config.parameter("ledger.escalate_turns")
+	var chest: int = AiArmyReinforce.muster_floor(config, _purse(300), 1, true)
+
+	assert_eq(
+		AiIncome.reserve(config, _purse(300), false, 1, 0, -1, bar - 1, true), chest,
+		"a bank that is still moving keeps its chest"
+	)
+	assert_eq(
+		AiIncome.reserve(config, _purse(300), true, 1, 0, -1, bar, false), floor,
+		"a stalled chest at no gap still re-routes to the cash floor"
+	)
+
+
+func test_below_bar_reads_the_win_bar() -> void:
+	# The gap the bank rides on (issue #995) is `VictoryRules`' own bar: the
+	# published 31 Old World provinces, whatever the court's footing is.
+	assert_true(
+		AiVictoryPressure.below_bar(
+			AiFixture.world(_owners(PHASE_OWNER, 15)), PHASE_OWNER, MapModel.NO_ID
+		),
+		"a court short of the bar carries the gap"
+	)
+	assert_false(
+		AiVictoryPressure.below_bar(
+			AiFixture.world(_owners(PHASE_OWNER, VictoryRules.MILITARY_THRESHOLD)),
+			PHASE_OWNER, MapModel.NO_ID
+		),
+		"a court at the bar carries none"
+	)
+	assert_false(
+		AiVictoryPressure.below_bar(null, PHASE_OWNER, MapModel.NO_ID),
+		"a session with no world reads no gap"
+	)
+
+
+func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
+	# The conquest bank's canonical read (issue #995): the win-bar gap, the
+	# host under the war-time target, and the purse one line-cycle short of
+	# the chest — never the money goal, which wobbles on the re-route cycle.
+	var config: AiConfig = _phase_config()
+	var state := AiState.new()
+	var row: Dictionary = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	assert_true(
+		AiIncome.banking(config, state, row),
+		"short of the bar, under host, one cycle short of the chest"
+	)
+	row["treasury"] = 5000
+	assert_false(AiIncome.banking(config, state, row), "a purse past the cycle spends as published")
+	row["treasury"] = 600
+	row["conquest_gap"] = false
+	assert_false(AiIncome.banking(config, state, row), "a court at the bar banks no bank")
+	row["conquest_gap"] = true
+	row["regiments"] = (
+		config.parameter("army.regiment_target") + config.parameter("army.war_extra")
+	)
+	assert_false(AiIncome.banking(config, state, row), "a court at host strength banks no bank")
+
+
 func test_a_court_with_no_ledger_keeps_the_published_behaviour() -> void:
 	assert_eq(AiIncome.reserve(_phase_config(), null, true, 0), 0)
 	assert_eq(AiIncome.goal_for(_phase_config(), null, true, 0), AiIncome.GOAL_SPEND)
@@ -9743,9 +9854,16 @@ func test_a_warm_rival_sends_aid_and_pays_from_its_own_purse() -> void:
 	ai_diplomacy_offers_state.relation(2, 3).score = 60.0
 	_stage(2, 3, DiplomacyCatalog.STAGE_NAP)
 	ai_diplomacy_offers_ai_state.note_war(2, 3, 1)
-	# A healthy purse below the war chest's reach: the court is not saving for
-	# a regiment it is one payment short of, so the gift goes out (#603).
-	ai_diplomacy_offers_ai_state.economy_for(2).treasury = 1500
+	# A purse that stands above the chest it would bank: a court short of the
+	# bar banks at peace now (issue #995), so the gift is the spending court's
+	# — the purse above the war chest it is not saving for (#603).
+	var chest: int = (
+		ai_diplomacy_offers_config.parameter("army.min_treasury")
+		+ AiArmyReinforce.cheapest_line_price(
+			ai_diplomacy_offers_ai_state.economy_for(2)
+		)
+	)
+	ai_diplomacy_offers_ai_state.economy_for(2).treasury = chest + 1000
 	# The pairing keeps neither crown stronger than the other, so the binding
 	# pact still serves both ends and the gift goes out (issue #752).
 	var result: Dictionary = campaign__run([0, 2, 2, 3, 3], [], 1)
@@ -9991,6 +10109,48 @@ func test_an_isolationist_values_a_trade_pact_less() -> void:
 ## overture stays closed while the court is in no mood to improve relations
 ## (wiki: civilian-units § Merchant, fog-and-exploration § Visibility Levels;
 ## DR-20261113-03).
+func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
+	# The conquest bank (issue #995): a paid envoy rung is a deferrable
+	# purchase, and a court one line-cycle short of its chest buys the line
+	# first — the measured bench had a −883 embassy rung eat the fill the turn
+	# the purse peaked. The chain the deed serves walks again the turn the
+	# host stands.
+	_setup_ai_diplomacy_offers()
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	ai_diplomacy_offers_state.relation(2, 3).score = 75.0
+	_stage(2, 3, DiplomacyCatalog.STAGE_EMBASSY)
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, 3, 3, 3, 3])
+	var context: Dictionary = campaign__context({2: 100, 3: 100})
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	context["regiments"] = {2: 1}
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
+	)
+	assert_eq(
+		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE),
+		"the court is banking for its army",
+		"a banking court signs no paid rung this turn"
+	)
+	# The published rung stands for a court that is not banking.
+	context["income"] = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": true,
+	}
+	var published: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
+	)
+	assert_ne(
+		_offer_blocked_kind(published, AiDiplomacyOffers.KIND_OVERTURE),
+		"the court is banking for its army",
+		"a court with its host standing walks its chain"
+	)
+
+
 func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
 	_setup_ai_diplomacy_offers()
 	# A Minor Nation, so the read is the deed nudge alone: a Tribe also answers

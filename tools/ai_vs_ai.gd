@@ -114,6 +114,14 @@ func _run_one(run: int, seed_value: int) -> Dictionary:
 		MapPlayTurn.end_turn(play)
 		await process_frame
 		var snap: Dictionary = MapPlayObserver.snapshot(play)
+		# The turn's cleared market, per crown (issue #995's probe): what each
+		# court's staged book earned and spent at the close, so the money-flow
+		# rows decompose a stall from the same JSONL the scorer reads.
+		snap["market"] = _market_receipts(play.market_report)
+		# The turn's diplomacy rows with every candidate's refusal (issue
+		# #995's probe): the standing cannot say why a court never opens the
+		# war its conquest needs, the candidates' blocked reasons can.
+		snap["diplomacy"] = play.ai_trace.duplicate(true)
 		# The turn's merged trace rides the line: the standing alone cannot say
 		# a wall was stormed or a battery silenced, and the wiki's offline replay
 		# reads the trace (wiki: turn-trace-interpretation § Observer export).
@@ -160,6 +168,31 @@ func _aggregate(result: Dictionary) -> void:
 
 
 # --- output ------------------------------------------------------------------
+
+
+## What each crown's staged book earned and spent at this turn's close: one
+## {sold, bought} row per faction from the cleared deal book (issue #995's
+## probe; the clearing report is the ledger's own receipt, REQ-P5-05).
+func _market_receipts(report: Dictionary) -> Dictionary:
+	var receipts: Dictionary = {}
+	if report.is_empty():
+		return receipts
+	for raw: Variant in report.get("deals", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var deal: Dictionary = raw
+		var value: int = int(deal.get("price", 0)) * int(deal.get("quantity", 0))
+		var buyer: int = int(deal.get("buyer", -1))
+		var seller: int = int(deal.get("seller", -1))
+		if buyer >= 0:
+			var spent: Dictionary = receipts.get(buyer, {"sold": 0, "bought": 0})
+			spent["bought"] = int(spent["bought"]) + value
+			receipts[buyer] = spent
+		if seller >= 0:
+			var earned: Dictionary = receipts.get(seller, {"sold": 0, "bought": 0})
+			earned["sold"] = int(earned["sold"]) + value
+			receipts[seller] = earned
+	return receipts
 
 
 func _write_run(

@@ -47,7 +47,10 @@ const LINE_CATEGORIES: Array[int] = [
 ## court can already fill that chest: a yard price it is still short of is not
 ## held back at all while a regiment is due, so unlocking a warship can never
 ## starve the line (issue #591, `AiIncome.hull_held`). `own_warships` is that
-## same gate: a fleetless court keeps the chest even while short (issue #484).
+## same gate: a fleetless court keeps the chest even while short (issue #484) —
+## and never while it banks for the army its conquest still needs (issue #995):
+## `conquest_gap` drops the rebuild chest behind the line, because the army
+## holds the land the yard stands on.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -58,7 +61,8 @@ static func plan(
 	reserve: int = 0,
 	held_row: Dictionary = {},
 	own_warships: int = -1,
-	harvest_slack: int = -2
+	harvest_slack: int = -2,
+	conquest_gap: bool = false
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
@@ -80,7 +84,7 @@ static func plan(
 		result["reasons"].append("the harvest cannot carry one more ration")
 		return result
 	var chest: int = AiIncome.hull_held(
-		config, economy, at_war, own_regiments, reserve, own_warships
+		config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
 	)
 	# The hull's row is the fleet's once the chest is full: the muster spends
 	# only what stands above it, exactly as it spends only the purse above the

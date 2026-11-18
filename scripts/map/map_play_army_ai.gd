@@ -259,10 +259,8 @@ static func _reinforce(
 		chest,
 		held,
 		own_warships,
-		# The harvest the court's land carries, noted by the economy pass: the
-		# desired army is provisioned before it is raised (issue #807). No
-		# reading keeps the store gate.
-		int(play.ai.food_slack[faction]) if play.ai.food_slack.has(faction) else -2
+		int(play.ai.food_slack[faction]) if play.ai.food_slack.has(faction) else -2,
+		AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE and AiVictoryPressure.below_bar(play.world, faction, play.human_faction_id(), play.difficulty)
 	)
 	var type_id: String = String(plan["muster"])
 	if type_id.is_empty():

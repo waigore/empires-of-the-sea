@@ -174,11 +174,22 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	# overstretched court with two fronts, or the published peace. The money goal
 	# rides beside it (DR-20261113-19).
 	var phase: String = AiPhasePlanner.phase_for(config, play.diplomacy)
+	# How close the court stands to the bar it must clear, and whether it is
+	# pressing for it (DR-20261114-04). A submission court short of the bar
+	# banks for the army that takes the provinces it still needs (issue #995),
+	# so the goal the panel reads is the goal the economy pass plans with; a
+	# baseline court keeps its published read.
+	var pressure: Dictionary = AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)
 	var income: Dictionary = AiIncome.plan(
 		config, economy, MapPlayCourt.at_war(play, faction),
 		play.army_layer.regiment_count_all(faction),
 		MapPlayCourt.navy_chest(play, faction),
-		MapPlayCourt.warships(play, faction)
+		MapPlayCourt.warships(play, faction),
+		0,
+		AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE
+		and int(pressure["need"]) > 0
 	)
 	var strength: float = float(
 		MapPlayCourt.public_strength(play).get(faction, 0.0)
@@ -189,11 +200,6 @@ static func row(play: PlaySession, faction: int) -> Dictionary:
 	var warships: int = MapPlayCourt.warships(play, faction)
 	var old_world: int = play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
 	var new_world: int = play.world.owned_provinces(WorldMap.NEW_WORLD, faction)
-	# How close the court stands to the bar it must clear, and whether it is
-	# pressing for it (DR-20261114-04).
-	var pressure: Dictionary = AiVictoryPressure.read(
-		play.world, faction, play.human_faction_id(), play.difficulty, config
-	)
 	var last: Dictionary = _last_turn(play, faction)
 	return {
 		"faction": faction,

@@ -39,7 +39,7 @@ static func context(world: WorldMap, supplied: Dictionary, player: int) -> Dicti
 		shared["charts"] = supplied["charts"]
 	if supplied.has("stockpiles"):
 		shared["stockpiles"] = supplied["stockpiles"]
-	for key: String in ["hull_chests", "warships", "victory_press"]:
+	for key: String in ["hull_chests", "warships", "victory_press", "conquest_gaps"]:
 		if supplied.has(key):
 			shared[key] = supplied[key]
 	return shared
