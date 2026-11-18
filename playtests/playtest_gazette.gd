@@ -39,9 +39,6 @@ var _main: Node = null
 var _battles: Array[Dictionary] = []
 ## How many of those the capture audit has already read.
 var _audited: int = 0
-## The charted and uncharted provinces the mask probe seats its fights on.
-var _charted_spot: Dictionary = {}
-var _uncharted_spot: Dictionary = {}
 
 
 func _initialize() -> void:
@@ -875,34 +872,18 @@ func _second_rival(skip: int) -> int:
 	return -1
 
 
-## The first province of the crown's own chart (`charted`) and the first its
-## chart does not hold (`uncharted`): `{region, province, charted}` each.
+## The first province the crown's own chart holds: `{region, province}`.
 func _charted_province() -> Dictionary:
-	_find_spots()
-	return _charted_spot
-
-
-func _uncharted_province() -> Dictionary:
-	_find_spots()
-	return _uncharted_spot
-func _find_spots() -> void:
-	if not _charted_spot.is_empty() or _play == null or _play.court_charts == null:
-		return
+	if _play == null or _play.court_charts == null:
+		return {}
 	for region: int in _play.world.region_count():
 		var model: MapModel = _play.world.region(region)
 		if model == null:
 			continue
 		for province: ProvinceState in model.provinces:
-			var known: bool = _play.court_charts.knows_province(
-				_play.player_faction, region, province.id
-			)
-			var spot: Dictionary = {"region": region, "province": province.id, "charted": known}
-			if known and _charted_spot.is_empty():
-				_charted_spot = spot
-			elif not known and _uncharted_spot.is_empty():
-				_uncharted_spot = spot
-		if not _charted_spot.is_empty() and not _uncharted_spot.is_empty():
-			return
+			if _play.court_charts.knows_province(_play.player_faction, region, province.id):
+				return {"region": region, "province": province.id}
+	return {}
 
 
 func _place_text(spot: Dictionary) -> String:
