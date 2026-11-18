@@ -35,6 +35,15 @@ static func blank() -> Dictionary:
 ## the purse the next Research phase will spend; `boost` maps tech id -> spy
 ## percent and `leader_key` carries the crown's published funding multiplier, so
 ## the price the sheet prints is the price the phase pays (REQ-P2-03).
+##
+## The walk runs over a copy of the state and completes every study it pays for,
+## exactly as the phase unlocks one before it prices the slot after it: a study
+## that lands this turn opens its own (Money Lending's −500 debt floor, Banking's
+## −1000, Industrial Funding's +20%), so a line priced against the crown's
+## standing knowledge named a spend the phase never paid — one slot waiting on
+## the purse that the phase then funded from the floor the first slot opened
+## (wiki: tech-tree § Research Model — "the line and the phase never disagree";
+## tech-tree-labour-economy § Money Lending; DR-20261118-26).
 static func plan(
 	state: ResearchState, preset: String, treasury: int,
 	boost: Dictionary = {}, leader_key: String = ""
@@ -44,6 +53,7 @@ static func plan(
 		return plan
 	plan["preset"] = preset
 	state.ensure_slots()
+	var sim: ResearchState = state.copy()
 	var left: int = treasury
 	for index in state.slots.size():
 		var tech_id: String = state.tech_at(index)
@@ -62,7 +72,7 @@ static func plan(
 			})
 			plan["filed"] = int(plan["filed"]) + 1
 		var preview: Dictionary = ResearchTurn.preview(
-			state, tech_id, preset, left, SpyNetworks.boost_for(boost, tech_id), leader_key
+			sim, tech_id, preset, left, SpyNetworks.boost_for(boost, tech_id), leader_key
 		)
 		if not bool(preview["paid"]):
 			plan["unpaid"] = int(plan["unpaid"]) + 1
@@ -70,6 +80,11 @@ static func plan(
 		plan["gold"] = int(plan["gold"]) + int(preview["gold"])
 		plan["rp"] = int(plan["rp"]) + int(preview["rp"])
 		left -= int(preview["gold"])
+		# The phase's own completion: the study this slot pays for lands before
+		# the next slot is priced, so the copy carries the unlock with it.
+		var cost: int = int(preview["cost"])
+		if cost > 0 and sim.add_progress(tech_id, int(preview["rp"])) >= cost:
+			sim.unlock(tech_id)
 	return plan
 
 
