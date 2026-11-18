@@ -138,6 +138,13 @@ static func _exchange(
 	var lines_open: Dictionary = ArmyModifiers.line_fields(
 		attacking, atk_limit, defending, def_limit
 	)
+	## The line each side dealt when the exchange opened, read before a blow
+	## lands: casualties are drawn from it, and the battle wear is spent over
+	## these men alone, so a reserve never steps up into the slice after
+	## casualties and takes wear it never earned (wiki: combat § The line and the
+	## reserve; quick-battle § Wings and collapse).
+	var atk_line: Array[String] = ArmyForce.line_ids(attacking, atk_limit)
+	var def_line: Array[String] = ArmyForce.line_ids(defending, def_limit)
 	## The besieging train's opening fire: silenced guns fall before the clash
 	## (wiki: siege-mechanics § Emplaced Artillery; DR-20261110-22).
 	var siege: Dictionary = AutoSiege.resolve(
@@ -169,14 +176,14 @@ static func _exchange(
 		attacking,
 		RegimentCondition.WOUND_SHARE
 		* float(attacker_lost.size()) / float(maxi(atk_deployed, 1)),
-		atk_limit
+		atk_limit, atk_line
 	)
 	RegimentCondition.wear(
 		defending,
 		RegimentCondition.WOUND_SHARE
 		* float(defender_lost.size()) / float(maxi(initial_defenders, 1))
 		* HospitalRules.triage_scale_at(model, province),
-		def_limit
+		def_limit, def_line
 	)
 	var atk_left: int = ArmyForce.side_regiments(ArmyForce.armies_of(armies, province, attacker))
 	var def_left: int = ArmyForce.side_regiments(ArmyForce.armies_of(armies, province, defender))
