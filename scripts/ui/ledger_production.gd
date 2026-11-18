@@ -8,7 +8,8 @@ extends VBoxContainer
 ##
 ## Presentation only: a press is an assignment intent the controller hands to the
 ## rules, and a "+" stops at the ceiling the projection reports, so the row never
-## offers runs labour or inputs would refuse (REQ-P2-03).
+## offers runs labour or inputs would refuse (REQ-P2-03). Gate and workshop copy
+## live on LedgerProductionText and LedgerWorkshop (REQ-P3-01).
 
 signal production_changed(recipe_id: String, units: int)
 ## The PRODUCTION tab's one press: one run on every ready row it prints, applied
@@ -72,7 +73,9 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 		add_child(_holding_row(id))
 	_section(
 		"MANUFACTURED",
-		_manufacture_hint(),
+		LedgerProductionText.manufacture_hint(
+			0 if _economy == null else _economy.production.made_total()
+		),
 		MANUFACTURE_COLUMNS
 	)
 	_batch = RaiseBatchPress.new()
@@ -83,7 +86,9 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
 	add_child(_line)
 	for output_id: String in CommodityCatalog.MANUFACTURED:
-		for recipe_id: String in _recipes_of(output_id):
+		for recipe_id: String in LedgerProductionText.recipes_for_output(
+			output_id, _economy.tech_unlocked
+		):
 			add_child(_recipe_row(recipe_id))
 	_sync_batch()
 	_section(
@@ -169,16 +174,20 @@ func _recipe_row(recipe_id: String) -> Control:
 	# here, on the row itself, because a touch player never sees a hover hint
 	# (wiki: production-recipes § Worker-tier gates, § Town-works gates;
 	# DR-20261114-07, DR-20261116-04).
-	var gated: bool = not _open(recipe_id)
+	var town: int = _town_level()
+	var gated: bool = not (
+		ProductionRecipes.tier_met(recipe_id, _economy.workers)
+		and ProductionRecipes.town_met(recipe_id, town)
+	)
 	var note_text: String = (
-		_gate_note(recipe_id) if gated
-		else _workshop_note(recipe_id)
+		LedgerProductionText.gate_note(recipe_id, town) if gated
+		else LedgerWorkshop.row_note(_economy, recipe_id)
 	)
 	var note := UiRowBuilder.label(note_text, 12, Palette.TEXT_DIM)
 	if gated:
-		note.tooltip_text = _gate_tooltip(recipe_id)
+		note.tooltip_text = LedgerProductionText.gate_tooltip(recipe_id, town)
 	elif not note_text.is_empty():
-		note.tooltip_text = _workshop_tooltip(recipe_id)
+		note.tooltip_text = LedgerWorkshop.row_tooltip(_economy, recipe_id)
 	row.add_child(note)
 
 	var held := _figure(str(_economy.quantity(output_id)), 14, Palette.GOLD_PALE, QTY_WIDTH)
@@ -200,7 +209,7 @@ func _recipe_row(recipe_id: String) -> Control:
 	var plus := UiRowBuilder.button("+", ROW_HEIGHT, BUTTON_WIDTH)
 	plus.disabled = units >= limit
 	plus.tooltip_text = (
-		_gate_tooltip(recipe_id) if gated
+		LedgerProductionText.gate_tooltip(recipe_id, town) if gated
 		else LedgerWorkshop.allowance_note(recipe_id, limit, full)
 	)
 	plus.pressed.connect(func() -> void: production_changed.emit(recipe_id, units + 1))
@@ -225,22 +234,6 @@ func _figure(text: String, size: int, color: Color, width: float) -> Label:
 	var out := UiRowBuilder.label(text, size, color)
 	out.custom_minimum_size = Vector2(width, 0)
 	out.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	return out
-
-
-## The court's available recipes for one good: fabric is woven from wool or —
-## once Cotton Weaving is known — from cotton, and each weave is its own row. An
-## ungated row reads first, so the always-available path sits at the top
-## (wiki: production-recipes § Technology-gated recipes).
-func _recipes_of(output_id: String) -> Array[String]:
-	var out: Array[String] = []
-	for recipe_id: String in ProductionRecipes.available_ids(_economy.tech_unlocked):
-		if ProductionRecipes.output(recipe_id) != output_id:
-			continue
-		if ProductionRecipes.required_tech(recipe_id).is_empty():
-			out.insert(0, recipe_id)
-			continue
-		out.append(recipe_id)
 	return out
 
 
@@ -308,91 +301,8 @@ func _queue_all() -> void:
 	production_batch_requested.emit(plan)
 
 
-## The hand a row waits for, said on the row itself: a touch player never sees a
-## hover hint, so the gate is text, not a tooltip (wiki: production-recipes
-## § Worker-tier gates; DR-20261114-07). A row that waits on the town's works
-## names that first: the town is the outer gate (DR-20261116-04).
-func _gate_note(recipe_id: String) -> String:
-	var town: int = ProductionRecipes.min_town(recipe_id)
-	if town > 0 and not ProductionRecipes.town_met(recipe_id, _town_level()):
-		return "needs a level-%d town" % town
-	var tier: int = ProductionRecipes.min_tier(recipe_id)
-	if tier <= 0:
-		return ""
-	var hand: String = WorkerPool.TIER_ONE[tier]
-	var article: String = "an" if hand.begins_with("A") else "a"
-	return "needs %s %s" % [article, hand]
-
-
-## What the gate asks and where the court trains it.
-func _gate_tooltip(recipe_id: String) -> String:
-	var town: int = ProductionRecipes.min_town(recipe_id)
-	if town > 0 and not ProductionRecipes.town_met(recipe_id, _town_level()):
-		return (
-			"This row is the town's own work: it needs a town at level %d. "
-			+ "Raise one in the TOWNS sheet and the workshop will take it."
-		) % town
-	var tier: int = ProductionRecipes.min_tier(recipe_id)
-	if tier <= 0:
-		return ""
-	var hand: String = WorkerPool.TIER_ONE[tier]
-	var article: String = "an" if hand.begins_with("A") else "a"
-	return (
-		"This row is a trained hand's work: it needs %s %s. Train one in the "
-		+ "WORKERS tab and the workshop will take it."
-	) % [article, hand]
-
-
-## True when both gates a row declares are open for this court: the hand it
-## needs and the town's works it needs (REQ-P2-03).
-func _open(recipe_id: String) -> bool:
-	return (
-		ProductionRecipes.tier_met(recipe_id, _economy.workers)
-		and ProductionRecipes.town_met(recipe_id, _town_level())
-	)
-
-
 ## The crown's best town the projection was read against. Without a projection
 ## the page reads no town, so a gated row fails closed exactly as the phase
 ## would (DR-20261116-04).
 func _town_level() -> int:
 	return int(_report.get("town_level", 0))
-
-
-## The MANUFACTURED heading's hint, plus what the workshop turned out in the last
-## Production phase: the phase's own record, so the page remembers the work the
-## court just paid for (wiki: production-recipes § Acceptance Criteria,
-## `productionByRecipe`).
-func _manufacture_hint() -> String:
-	var hint: String = "Set this turn's output on each row: labour and raw inputs cap the rest."
-	var made: int = 0 if _economy == null else _economy.production.made_total()
-	if made <= 0:
-		return hint
-	var plural: String = "" if made == 1 else "s"
-	return "%s Last phase the workshop made %d good%s." % [hint, made, plural]
-
-
-## The row's workshop tag, or — for an idle one-turn row that worked last phase —
-## what it turned out. A row still serving keeps its tag: the present is what the
-## next phase pays (DR-20261113-02).
-func _workshop_note(recipe_id: String) -> String:
-	var tag: String = LedgerWorkshop.note(_economy, recipe_id)
-	if not tag.is_empty():
-		return tag
-	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
-	if made <= 0:
-		return ""
-	return "made %d" % made
-
-
-## The tag's long form, with the last phase's output for this row when it made
-## any: the detail a hover or a long press reads (REQ-P5-07 keeps the row's own
-## note the visible reading).
-func _workshop_tooltip(recipe_id: String) -> String:
-	var text: String = LedgerWorkshop.tooltip(_economy, recipe_id)
-	var made: int = 0 if _economy == null else _economy.production.made_units(recipe_id)
-	if made <= 0:
-		return text
-	var good: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
-	var line: String = "Last phase it made %d %s." % [made, good]
-	return line if text.is_empty() else "%s %s" % [text, line]

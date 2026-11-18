@@ -152,7 +152,7 @@ static func _record_armies(
 		if kind == AiMilitaryPlanner.KIND_SPLIT:
 			bump(factions[faction]["actions"], "split")
 			continue
-		if kind == MapPlayArmyAi.KIND_REINFORCE:
+		if kind == MapPlayArmyMusterAi.KIND_REINFORCE:
 			bump(factions[faction]["actions"], "reinforce")
 			var raised: String = RegimentCatalog.display_name(String(raw.get("type", "")))
 			if not raised.is_empty():
@@ -163,7 +163,7 @@ static func _record_armies(
 					"%s musters %s." % [FactionCatalog.name_of(faction), raised]
 				)
 			continue
-		if kind == MapPlayArmyAi.KIND_HOSPITAL:
+		if kind == MapPlayArmyMusterAi.KIND_HOSPITAL:
 			bump(factions[faction]["actions"], "hospital")
 			var face: String = String(raw.get("province_name", ""))
 			if not face.is_empty():

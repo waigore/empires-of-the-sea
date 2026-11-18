@@ -2457,6 +2457,12 @@ domain = "ai_army"
 match = "scripts/map/map_play_army_ai.gd*"
 domain = "ai_army"
 
+# The rival muster split out of that pass: same narrow army-AI slice, so a
+# muster fix runs test_ai_rules rather than the wider army_* fan-out.
+[[rules]]
+match = "scripts/map/map_play_army_muster_ai.gd*"
+domain = "ai_army"
+
 [domains.ai_army]
 suites = [
   "test_ai_rules.gd",
@@ -2937,6 +2943,13 @@ domain = "chart_art"
 
 [[rules]]
 match = "scripts/map/map_canvas_plan.gd"
+domain = "chart_art"
+
+# A wooded tile's grove layout (the crown tree and its ring of companions):
+# chart art like the plan that calls it, so only the suites that mount the
+# chart run.
+[[rules]]
+match = "scripts/map/map_grove.gd*"
 domain = "chart_art"
 
 # Terrain wash shelf + shared theme: canvas + stamps cover the patch; the

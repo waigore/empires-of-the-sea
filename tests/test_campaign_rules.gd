@@ -2992,7 +2992,7 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 ## The Home Army always stands on its court's seat: a reassignment takes the
 ## guard to the new capital, so a court that lost its seat can muster again
 ## (wiki: military-armies § Home Army; issue #474). Without the recall the
-## capital guard in `MapPlayArmyAi._reinforce` blocks every muster for the rest
+## capital guard in `MapPlayArmyMusterAi._reinforce` blocks every muster for the rest
 ## of the campaign.
 func test_a_reassignment_takes_the_home_army_to_the_new_seat() -> void:
 	var screen: MapScreen = _loss_screen()

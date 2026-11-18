@@ -337,7 +337,7 @@ func _rival_pass() -> void:
 		_play.ai_trace.clear()
 		_take_turn()
 		for record: Dictionary in _play.ai_trace:
-			if String(record.get("kind", "")) != MapPlayArmyAi.KIND_HOSPITAL:
+			if String(record.get("kind", "")) != MapPlayArmyMusterAi.KIND_HOSPITAL:
 				continue
 			pitches += 1
 			_say("  turn %d: %s pitches at %s (army %d)" % [
