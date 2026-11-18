@@ -35,10 +35,8 @@ var _baked: bool = false
 ## Cached ink, first in world coordinates then projected into the inset's own
 ## pixels so strokes are drawn at device scale with true antialiasing.
 var _coast: Array[PackedVector2Array] = []
-var _province_ink: Array[PackedVector2Array] = []
 var _country_borders: Dictionary = {}
 var _ink_coast: Array[PackedVector2Array] = []
-var _ink_provinces: Array[PackedVector2Array] = []
 var _ink_borders: Dictionary = {}
 
 
@@ -145,12 +143,10 @@ func _rebuild_texture() -> void:
 
 func _rebuild_ink() -> void:
 	_coast.clear()
-	_province_ink.clear()
 	_country_borders.clear()
 	if model == null:
 		return
-	_coast = InkPaths.smooth_segments(_coast_segments(), 2)
-	_province_ink = InkPaths.smooth_segments(_province_segments(), 1)
+	_coast = _coast_segments()
 	# CountryBorders already hides edges touching unknown ground, so an
 	# uncharted crown never draws its outline on the inset.
 	var raw: Dictionary = CountryBorders.build(model, _tile_world, visibility)
@@ -165,7 +161,6 @@ func _rebuild_ink() -> void:
 ## stretches the antialiasing feather and muddies thin strokes).
 func _project_ink() -> void:
 	_ink_coast.clear()
-	_ink_provinces.clear()
 	_ink_borders.clear()
 	if model == null or _map_size.x <= 0.0:
 		return
@@ -173,8 +168,6 @@ func _project_ink() -> void:
 	var unit: float = fit.size.x / _map_size.x
 	for path: PackedVector2Array in _coast:
 		_ink_coast.append(_project_path(path, fit.position, unit))
-	for path: PackedVector2Array in _province_ink:
-		_ink_provinces.append(_project_path(path, fit.position, unit))
 	var owners: Array = _country_borders.keys()
 	owners.sort()
 	for owner: int in owners:
@@ -192,64 +185,20 @@ func _project_path(path: PackedVector2Array, origin: Vector2, unit: float) -> Pa
 	return projected
 
 
-## Land/sea edges of charted ground. Uncharted coast stays un-inked.
+## Land/sea edges of charted ground, smoothed into the chart's hand. Uncharted
+## coast stays un-inked; the seam walk itself is `TileEdges`, shared with the
+## play overlay.
 func _coast_segments() -> Array[PackedVector2Array]:
-	var segments: Array[PackedVector2Array] = []
-	for y in model.height:
-		for x in model.width:
-			if not model.is_land(x, y) or not _known(x, y):
-				continue
-			if not model.is_land(x, y - 1):
-				_edge(segments, x, y, 0)
-			if not model.is_land(x + 1, y):
-				_edge(segments, x, y, 1)
-			if not model.is_land(x, y + 1):
-				_edge(segments, x, y, 2)
-			if not model.is_land(x - 1, y):
-				_edge(segments, x, y, 3)
-	return segments
+	var seams: Array[PackedVector2Array] = TileEdges.province_seams(
+		model, _charted_land, _tile_world, TileEdges.Look.COAST
+	)
+	return InkPaths.smooth_segments(seams, 2)
 
 
-## Land-to-land edges between two charted provinces; the coast owns the rest.
-func _province_segments() -> Array[PackedVector2Array]:
-	var segments: Array[PackedVector2Array] = []
-	for y in model.height:
-		for x in model.width:
-			if not model.is_land(x, y) or not _known(x, y):
-				continue
-			var province_id: int = model.province_at(x, y)
-			if (
-				model.is_land(x + 1, y)
-				and _known(x + 1, y)
-				and model.province_at(x + 1, y) != province_id
-			):
-				_edge(segments, x, y, 1)
-			if (
-				model.is_land(x, y + 1)
-				and _known(x, y + 1)
-				and model.province_at(x, y + 1) != province_id
-			):
-				_edge(segments, x, y, 2)
-	return segments
-
-
-## Tile edge in world units: 0 = top, 1 = right, 2 = bottom, 3 = left.
-func _edge(segments: Array[PackedVector2Array], x: int, y: int, edge: int) -> void:
-	var top_left := Vector2(float(x), float(y)) * _tile_world
-	var size: float = _tile_world
-	match edge:
-		1:
-			segments.append(PackedVector2Array([
-				top_left + Vector2(size, 0.0), top_left + Vector2(size, size)
-			]))
-		2:
-			segments.append(PackedVector2Array([
-				top_left + Vector2(0.0, size), top_left + Vector2(size, size)
-			]))
-		3:
-			segments.append(PackedVector2Array([top_left, top_left + Vector2(0.0, size)]))
-		_:
-			segments.append(PackedVector2Array([top_left, top_left + Vector2(size, 0.0)]))
+## Charted land, as the seam walk's reading: unknown tiles never ink a coast, so
+## the fog keeps its own edge instead of drawing one into the unknown.
+func _charted_land(x: int, y: int) -> bool:
+	return model.is_land(x, y) and _known(x, y)
 
 
 func _known(x: int, y: int) -> bool:
@@ -279,14 +228,9 @@ func _draw() -> void:
 	_draw_frame(fit)
 
 
-## Province hairlines, the coast, then each owner's ribbon: ink shadow under a
-## brightened heraldic core, bolder than the terrain so borders read first.
+## The coast, then each owner's ribbon: ink shadow under a brightened heraldic
+## core, bolder than the terrain so borders read first.
 func _draw_ink() -> void:
-	# Province hairlines stay barely-there: at inset scale they are texture,
-	# not information — the owners' ribbons carry the political read.
-	var hairline := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.18)
-	for path: PackedVector2Array in _ink_provinces:
-		draw_polyline(path, hairline, 1.0, true)
 	var coast := Color(Palette.INK.r, Palette.INK.g, Palette.INK.b, 0.72)
 	for path: PackedVector2Array in _ink_coast:
 		draw_polyline(path, coast, 1.4, true)

@@ -1198,6 +1198,24 @@ domain = "lens_kit"
 match = "scripts/map/civic_glyphs.gd*"
 domain = "lens_kit"
 
+# The chart's one tile-edge walk: the overlay's province and sea outlines and the
+# inset's coast all ink from it, and its own suite proves the seam arithmetic.
+# Named before the broad `scripts/map/**` catch-all so a seam edit rides the map
+# view suite instead of the whole map fan-out.
+[domains.map_ink]
+suites = [
+  "test_tile_edges.gd",
+  "test_map_view_rules.gd",
+]
+
+[[rules]]
+match = "scripts/map/tile_edges.gd*"
+domain = "map_ink"
+
+[[rules]]
+match = "tests/test_tile_edges.gd*"
+domain = "map_ink"
+
 # The plate's per-type projection: one node-free module read by the survey and
 # its two suites, never a reason to run the prospect fan-out on its own.
 [[rules]]
