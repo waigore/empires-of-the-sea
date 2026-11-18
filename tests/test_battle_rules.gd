@@ -746,7 +746,31 @@ func test_a_land_victory_reads_as_a_capture() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Flanders", FACTIONS),
+		"España takes Flanders — England loses 2 regiments; España loses 1 regiment"
+	)
+
+
+## A won field names the winner's own dead as well as the beaten side's, and a
+## side that left nobody stays unspoken rather than printing a zero
+## (wiki: combat § Land battle resolution; DR-20261119-07).
+func test_a_land_victory_without_losses_names_only_the_beaten_side() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": ["b", "c"],
+	}
+	assert_eq(
+		BattleReport.describe_land(battle, "Flanders", FACTIONS),
 		"España takes Flanders — England loses 2 regiments"
+	)
+	var bloodless: Dictionary = battle.duplicate()
+	bloodless["defender_lost"] = []
+	assert_eq(
+		BattleReport.describe_land(bloodless, "Flanders", FACTIONS),
+		"España takes Flanders",
+		"a bloodless beaten side prints no zero"
 	)
 
 
@@ -760,7 +784,7 @@ func test_a_land_advantage_reads_as_a_held_field() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Flanders", FACTIONS),
-		"España holds the field at Flanders — 1 regiment lost"
+		"España holds the field at Flanders — England loses 2 regiments; España loses 1 regiment"
 	)
 
 
@@ -770,10 +794,16 @@ func test_a_land_repulse_reads_as_a_hold() -> void:
 		"defender": 2,
 		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
 		"attacker_lost": ["a"],
-		"defender_lost": [],
+		"defender_lost": ["b"],
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Burgundy", FACTIONS),
+		"France holds Burgundy — England loses 1 regiment; France loses 1 regiment"
+	)
+	var unscathed: Dictionary = battle.duplicate()
+	unscathed["defender_lost"] = []
+	assert_eq(
+		BattleReport.describe_land(unscathed, "Burgundy", FACTIONS),
 		"France holds Burgundy — England loses 1 regiment"
 	)
 

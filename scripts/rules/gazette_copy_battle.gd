@@ -6,6 +6,20 @@ extends RefCounted
 ## own page may know (wiki: the-gazette § What the crown can know; REQ-P2-03).
 
 
+## The crown's own dead close the sentence they belong to: a won field, a taken
+## province and a held sea all name what the crown spent to hold them, beside
+## the beaten side's loss ([DR-20261119-07]) — "…; 1 of our regiments is lost."
+## A record with no loss left for the crown reads as it was, so a bloodless
+## fight prints nothing extra (REQ-P2-03: the record's shape is the rule).
+static func _with_own(line: String, rec: Dictionary, noun: String) -> String:
+	var dead: int = GazetteCopyVoice.own(rec)
+	if dead <= 0:
+		return line
+	return "%s; %d of our %s %s lost." % [
+		line.trim_suffix("."), dead, noun, "is" if dead == 1 else "are"
+	]
+
+
 static func battle_capture(rec: Dictionary) -> String:
 	var who: String = String(rec.get("who", ""))
 	var whom: String = String(rec.get("whom", ""))
@@ -13,11 +27,17 @@ static func battle_capture(rec: Dictionary) -> String:
 	var count: int = GazetteCopyVoice.count(rec)
 	if bool(rec.get("self_act", false)):
 		if count <= 0:
-			return "Our crown has taken %s; %s's flag is struck." % [place, whom]
-		return (
-			"Our crown takes %s at the point of the bayonet; %s yields the province and "
-			+ "%s."
-		) % [place, whom, GazetteCopyVoice.regiments(count)]
+			return _with_own(
+				"Our crown has taken %s; %s's flag is struck." % [place, whom], rec, "regiments"
+			)
+		return _with_own(
+			(
+				"Our crown takes %s at the point of the bayonet; %s yields the province and "
+				+ "%s."
+			) % [place, whom, GazetteCopyVoice.regiments(count)],
+			rec,
+			"regiments"
+		)
 	if whom == GazetteCopyVoice.CROWN:
 		if count <= 0:
 			return "%s has carried %s from our crown; the province changes hands." % [who, place]
@@ -35,21 +55,32 @@ static func battle_held(rec: Dictionary) -> String:
 	if bool(rec.get("self_act", false)):
 		if defended:
 			var broken: int = GazetteCopyVoice.count(rec)
-			return (
-				"Our crown holds %s against %s; %d of their regiments %s broken."
-			) % [place, whom, broken, GazetteCopyVoice.verb(broken)]
+			return _with_own(
+				(
+					"Our crown holds %s against %s; %d of their regiments %s broken."
+				) % [place, whom, broken, GazetteCopyVoice.verb(broken)],
+				rec,
+				"regiments"
+			)
 		var mauled: int = GazetteCopyVoice.count(rec)
-		return "Our crown holds the field at %s; %d of their regiments %s broken." % [
-			place, mauled, GazetteCopyVoice.verb(mauled)
-		]
+		return _with_own(
+			"Our crown holds the field at %s; %d of their regiments %s broken." % [
+				place, mauled, GazetteCopyVoice.verb(mauled)
+			],
+			rec,
+			"regiments"
+		)
 	if not rec.has("count"):
 		if defended:
 			return "%s holds %s against %s." % [who, place, whom]
 		return "%s holds the field at %s against %s." % [who, place, whom]
 	if defended:
 		var broken: int = GazetteCopyVoice.count(rec)
-		return "%s holds %s against %s; %d regiments %s broken." % [
-			who, place, whom, broken, GazetteCopyVoice.verb(broken)
+		# The crown is the beaten side here (another court's `count` is never
+		# recorded), so its dead are its own and are named as ours
+		# (wiki: the-gazette § What the crown can know; DR-20261119-07).
+		return "%s holds %s against our crown; %d of our regiments %s broken." % [
+			who, place, broken, GazetteCopyVoice.verb(broken)
 		]
 	# The crown's own losses always print their numbers, even in a field
 	# battle it lost (wiki: the-gazette § What the crown can know).
@@ -97,16 +128,20 @@ static func battle_standoff(rec: Dictionary) -> String:
 	var who: String = String(rec.get("who", ""))
 	var whom: String = String(rec.get("whom", ""))
 	var place: String = String(rec.get("place", ""))
-	var own: int = GazetteCopyVoice.own(rec)
-	var tail: String = "" if own <= 0 else " %d of our regiments lost." % own
 	if bool(rec.get("self_act", false)):
-		return (
-			"Our crown and %s stand off at %s; the guns fall silent with nothing "
-			+ "settled."
-		) % [whom, place] + tail
-	return "%s and %s stand off at %s; the guns fall silent unsettled." % [
-		who, whom, place
-	] + tail
+		return _with_own(
+			(
+				"Our crown and %s stand off at %s; the guns fall silent with nothing "
+				+ "settled."
+			) % [whom, place],
+			rec,
+			"regiments"
+		)
+	return _with_own(
+		"%s and %s stand off at %s; the guns fall silent unsettled." % [who, whom, place],
+		rec,
+		"regiments"
+	)
 
 
 static func sea_held(rec: Dictionary) -> String:
@@ -115,9 +150,13 @@ static func sea_held(rec: Dictionary) -> String:
 	var place: String = String(rec.get("place", ""))
 	if bool(rec.get("self_act", false)):
 		var sunk: int = GazetteCopyVoice.count(rec)
-		return (
-			"Our squadrons hold the %s, and %s loses %s to the bottom."
-		) % [place, whom, GazetteCopyVoice.hulls(sunk)]
+		return _with_own(
+			(
+				"Our squadrons hold the %s, and %s loses %s to the bottom."
+			) % [place, whom, GazetteCopyVoice.hulls(sunk)],
+			rec,
+			"hulls"
+		)
 	if not rec.has("count"):
 		return "%s holds the %s against %s." % [who, place, whom]
 	var lost: int = GazetteCopyVoice.count(rec)
@@ -133,11 +172,15 @@ static func sea_withdrew(rec: Dictionary) -> String:
 	var whom: String = String(rec.get("whom", ""))
 	var place: String = String(rec.get("place", ""))
 	if bool(rec.get("self_act", false)):
-		return "Our squadron quits the %s; %s holds the water." % [place, whom]
-	if whom == GazetteCopyVoice.CROWN and GazetteCopyVoice.own(rec) > 0:
-		return (
-			"%s withdraws from the %s, and our crown holds the zone; %d of our hulls lost."
-		) % [who, place, GazetteCopyVoice.own(rec)]
+		return _with_own(
+			"Our squadron quits the %s; %s holds the water." % [place, whom], rec, "hulls"
+		)
+	if whom == GazetteCopyVoice.CROWN:
+		return _with_own(
+			"%s withdraws from the %s, and our crown holds the zone." % [who, place],
+			rec,
+			"hulls"
+		)
 	return "%s withdraws from the %s, and %s holds the zone." % [who, place, whom]
 
 
