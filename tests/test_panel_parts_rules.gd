@@ -5537,6 +5537,65 @@ func test_the_passengers_block_lands_a_crew_at_the_seat_in_one_press() -> void:
 	block.free()
 
 
+## A port coast offers its whole province of ground — 32 rows at Madrid — so the
+## open list reads in a window of whole rows: the way back stays pinned above it,
+## a short list keeps its own height, and every ground is still one press on its
+## own tile (wiki: civilian-units § Landing; DR-20261119-03).
+func test_the_passengers_block_windows_a_coast_s_whole_land() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	var tiles: Array = []
+	for i in 32:
+		tiles.append({"x": i % 8, "y": int(i / 8), "ground": "Plains · grain"})
+	block.set_data({
+		"count": 1, "note": "1 aboard: Builder", "embark": [], "sortie": [],
+		"land": [{
+			"province": 4, "name": "Madrid", "crew": "builder",
+			"crew_name": "Builder", "tiles": tiles,
+		}],
+	})
+	var coasts: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq((coasts[0] as Button).text, "Put the Builder ashore at Madrid · 32 grounds ›")
+	(coasts[0] as Button).pressed.emit()
+	assert_eq(block.open_coast, 4, "the coast opens")
+
+	# The way back is the block's own row, above the window, and names the count.
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq((rows[0] as Button).text, "‹ Back to the coasts · 32 grounds")
+	var window: ScrollContainer = block._ground_scroll
+	assert_true(window.visible, "the open grounds ride a window")
+	var grounds: Node = window.get_child(0)
+	assert_eq(grounds.get_child_count(), 32, "every legal ground is listed")
+	assert_eq((rows[0] as Button).get_parent(), block._rows_box, "the way back is pinned")
+	assert_eq((grounds.get_child(0) as Button).get_parent(), grounds, "the grounds scroll")
+
+	# The window is whole rows: the sheet's own budget, never the whole coast.
+	var compact: bool = HudLayout.is_compact(block.get_viewport_rect().size)
+	assert_eq(window.custom_minimum_size.y, GroundsWindow.height(32, compact))
+	assert_eq(GroundsWindow.rows(32, true), 4, "a handset reads four rows")
+	assert_eq(GroundsWindow.rows(32, false), 8, "the atlas reads eight")
+	assert_eq(GroundsWindow.rows(3, true), 3, "a short list asks for its own height")
+	assert_eq(
+		GroundsWindow.height(3, false),
+		3.0 * GroundsWindow.ROW_HEIGHT + 2.0 * float(GroundsWindow.ROW_GAP),
+		"whole rows and the gaps between them"
+	)
+	assert_true(
+		window.custom_minimum_size.y
+			< float(tiles.size()) * GroundsWindow.ROW_HEIGHT,
+		"the long coast is a window, not the sheet"
+	)
+
+	# A ground still lands its own tile and closes the window after it.
+	(grounds.get_child(5) as Button).pressed.emit()
+	assert_eq(fired, ["crew:land:5:0:builder"], "the row's own tile and crew")
+	assert_false(window.visible, "the window closes with the landing")
+	assert_eq(block.open_coast, -1)
+	block.free()
+
+
 func _dossier_detail_of(unit: CivilianState, model: MapModel, caption: String) -> String:
 	for row: Array in CivilianPanelDetail.rows(model, unit, LandWorks.new(), {}):
 		if String(row[0]) == caption:

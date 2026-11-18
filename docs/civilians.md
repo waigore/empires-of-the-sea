@@ -15,8 +15,7 @@ Land units: explore, improve, colonize, spy.
   hire waits on, greying a gated row
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09)).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; Visit
-  jumps to it; **Find the next crew that waits** walks the
-  idle crews.
+  jumps to it; **Find the next crew that waits** walks idle crews.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers and Rail
   Builders stay on crown land, Explorer, Merchant, Spy cross any border; one
   crew per tile per crown (those exempt); presence keeps a province
@@ -34,15 +33,15 @@ Land units: explore, improve, colonize, spy.
   a mineral stays hidden until an Explorer prospects it.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
   [DR-20261117-07](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-07)):
-  an idle crew's dossier names the planner's next work, priced by its ledger, and
-  the ground when it is not underfoot; or the march. A crew with no order says
-  so.
+  an idle crew's dossier names the planner's next work, priced by its ledger,
+  and the ground when it is not underfoot; or the march.
 - **Town development:** Builders raise towns to 4; connected port towns cap
   extraction; levels 2, 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
   per hull, never with troops); lands on a coastal tile beside its zone, grounds
-  offered per crew kind, the port's own seat in one press
-  ([DR-20261118-28](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-28));
+  offered per crew kind in a window of whole rows, the port's own seat in
+  one press
+  ([DR-20261119-03](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-03));
   Explorers/Merchants any coast, others need crown land.
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
   prospected mineral); 15× base at assign, debit on complete; each deed lifts the
