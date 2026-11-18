@@ -73,9 +73,14 @@ static func resolve_exchange(
 	state["defender"]["triage"] = HospitalRules.triage_scale_at(model, province)
 	var atk_start: int = ArmyForce.side_regiments(atk_side)
 	var def_start: int = ArmyForce.side_regiments(def_side)
-	## Lane split when the battle opened: casualties shrink the lanes as it runs.
-	var wall_start: int = SiegeLanes.wall_ids(def_side).size()
-	var behind_start: int = SiegeLanes.behind_ids(def_side).size()
+	## Lane split when the battle opened: the line's foot on the wall and its horse
+	## and guns behind it — a reserve mans neither lane — then the lanes shrink as
+	## casualties are drawn from them (wiki: quick-battle § Wings and collapse;
+	## combat § The line and the reserve).
+	var lanes_start: Dictionary = SiegeLanes.line_ids(def_side, int(def_mods["limit"]))
+	state["defender"]["lanes"] = lanes_start
+	var wall_start: int = (lanes_start["wall"] as Array).size()
+	var behind_start: int = (lanes_start["behind"] as Array).size()
 	var atk_types: Dictionary = _type_counts(atk_side)
 	var def_types: Dictionary = _type_counts(def_side)
 	var rounds: Array[Dictionary] = []
@@ -268,12 +273,8 @@ static func _close_round(
 ## Regiments held by type, so a battle can report what it cost by type.
 static func _type_counts(side: Array[ArmyState]) -> Dictionary:
 	var counts: Dictionary = {}
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			var type_id: String = army.type_of(regiment_id)
-			counts[type_id] = int(counts.get(type_id, 0)) + 1
+	for type_id: String in ArmyForce.side_types(side):
+		counts[type_id] = int(counts.get(type_id, 0)) + 1
 	return counts
 
 

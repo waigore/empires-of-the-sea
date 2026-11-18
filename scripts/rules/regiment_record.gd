@@ -102,18 +102,17 @@ static func of(army: ArmyState, regiment_id: String) -> Dictionary:
 ## and Quick Battle tally alike. Returns how many records were written.
 static func note_battle(side: Array[ArmyState], won: bool) -> int:
 	var noted: int = 0
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			army.regiment_engagements[regiment_id] = (
-				int(army.regiment_engagements.get(regiment_id, 0)) + 1
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		var army: ArmyState = entry["army"]
+		var regiment_id: String = String(entry["id"])
+		army.regiment_engagements[regiment_id] = (
+			int(army.regiment_engagements.get(regiment_id, 0)) + 1
+		)
+		if won:
+			army.regiment_wins[regiment_id] = (
+				int(army.regiment_wins.get(regiment_id, 0)) + 1
 			)
-			if won:
-				army.regiment_wins[regiment_id] = (
-					int(army.regiment_wins.get(regiment_id, 0)) + 1
-				)
-			noted += 1
+		noted += 1
 	return noted
 
 
@@ -125,16 +124,15 @@ static func award_honours(side: Array[ArmyState], province: int) -> int:
 	var gained: int = 0
 	if province < 0:
 		return gained
-	for army: ArmyState in side:
-		if army == null:
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		var army: ArmyState = entry["army"]
+		var regiment_id: String = String(entry["id"])
+		var worn: Array = colours(army, regiment_id)
+		if worn.has(province):
 			continue
-		for regiment_id: String in army.regiments:
-			var worn: Array = colours(army, regiment_id)
-			if worn.has(province):
-				continue
-			worn.push_front(province)
-			army.regiment_honours[regiment_id] = worn
-			gained += 1
+		worn.push_front(province)
+		army.regiment_honours[regiment_id] = worn
+		gained += 1
 	return gained
 
 

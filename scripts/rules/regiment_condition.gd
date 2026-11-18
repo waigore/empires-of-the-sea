@@ -118,29 +118,27 @@ static func rest(army: ArmyState, share: float = REST_SHARE) -> int:
 ## how many promotions the despatch should announce.
 static func award_side(side: Array[ArmyState]) -> int:
 	var gained: int = 0
-	for army: ArmyState in side:
-		if army == null:
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		var army: ArmyState = entry["army"]
+		var regiment_id: String = String(entry["id"])
+		var medals: int = int(army.condition_of(regiment_id)["medals"])
+		if medals >= RegimentCatalog.MAX_MEDALS:
 			continue
-		for regiment_id: String in army.regiments:
-			var medals: int = int(army.condition_of(regiment_id)["medals"])
-			if medals >= RegimentCatalog.MAX_MEDALS:
-				continue
-			army.regiment_medals[regiment_id] = medals + 1
-			gained += 1
+		army.regiment_medals[regiment_id] = medals + 1
+		gained += 1
 	return gained
 
 
 static func entries(side: Array[ArmyState]) -> Array[Dictionary]:
 	var result: Array[Dictionary] = []
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			var data: Dictionary = army.condition_of(regiment_id)
-			## The title an aftermath names a mauled survivor by
-			## (DR-20261111-18). Additive: every existing reader is unchanged.
-			data["name"] = RegimentNames.of(army, regiment_id)
-			result.append(data)
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		var army: ArmyState = entry["army"]
+		var regiment_id: String = String(entry["id"])
+		var data: Dictionary = army.condition_of(regiment_id)
+		## The title an aftermath names a mauled survivor by
+		## (DR-20261111-18). Additive: every existing reader is unchanged.
+		data["name"] = RegimentNames.of(army, regiment_id)
+		result.append(data)
 	return result
 
 

@@ -76,18 +76,14 @@ static func award(context: Dictionary, lead: ArmyState, owner: int) -> String:
 ## Initiative for one attacking side: cavalry share plus general medals
 ## (wiki: combat § Initiative).
 static func initiative(side: Array[ArmyState], medals: int = 0) -> float:
-	var riders: int = 0
-	var total: int = 0
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		total += army.count()
-		for regiment_id: String in army.regiments:
-			if RegimentCatalog.is_cavalry(army.type_of(regiment_id)):
-				riders += 1
-	if total == 0:
+	var types: Array[String] = ArmyForce.side_types(side)
+	if types.is_empty():
 		return 0.0
-	var share: float = float(riders) / float(total)
+	var riders: int = 0
+	for type_id: String in types:
+		if RegimentCatalog.is_cavalry(type_id):
+			riders += 1
+	var share: float = float(riders) / float(types.size())
 	return share * ArmyModifiers.W_CAV + float(clampi(medals, 0, 4)) * ArmyModifiers.W_MEDAL
 
 
@@ -142,11 +138,8 @@ static func next_army_id(armies: Array[ArmyState]) -> int:
 
 static func next_unit_number(armies: Array[ArmyState]) -> int:
 	var best: int = 0
-	for army: ArmyState in armies:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			best = maxi(best, unit_number(regiment_id))
+	for entry: Dictionary in ArmyForce.side_entries(armies):
+		best = maxi(best, unit_number(String(entry["id"])))
 	return best + 1
 
 

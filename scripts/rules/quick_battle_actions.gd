@@ -178,7 +178,8 @@ static func resolve(
 	if wanted > 0 and siege and key == "attacker":
 		var split: Dictionary = SiegeLanes.strike(
 			armies, me_side, enemy_side, wanted, int(enemy["limit"]), fort,
-			bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary
+			bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary,
+			enemy.get("lanes", {}) as Dictionary
 		)
 		var wall_lost: Array[String] = split["wall"]
 		var behind_lost: Array[String] = split["behind"]

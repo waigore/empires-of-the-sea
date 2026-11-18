@@ -129,21 +129,20 @@ static func fallback_medals(leader_key: String, defending: bool = false) -> int:
 ## place to a fresh one and a decorated colours holds the line over a bare twin.
 static func deployed(side: Array[ArmyState], limit: int) -> Array[Dictionary]:
 	var candidates: Array[Dictionary] = []
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			var data: Dictionary = army.condition_of(regiment_id)
-			candidates.append({
-				"army": army,
-				"id": regiment_id,
-				"rank": rank_of(
-					String(data["type"]), int(data["medals"]), float(data["fraction"]),
-					RegimentDecorations.strength_multiplier(army, regiment_id)
-				),
-				"medals": int(data["medals"]),
-				"fraction": float(data["fraction"]),
-			})
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		var army: ArmyState = entry["army"]
+		var regiment_id: String = String(entry["id"])
+		var data: Dictionary = army.condition_of(regiment_id)
+		candidates.append({
+			"army": army,
+			"id": regiment_id,
+			"rank": rank_of(
+				String(data["type"]), int(data["medals"]), float(data["fraction"]),
+				RegimentDecorations.strength_multiplier(army, regiment_id)
+			),
+			"medals": int(data["medals"]),
+			"fraction": float(data["fraction"]),
+		})
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if not is_equal_approx(float(a["rank"]), float(b["rank"])):
 			return float(a["rank"]) > float(b["rank"])
