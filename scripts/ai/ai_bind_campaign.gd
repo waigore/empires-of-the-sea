@@ -7,6 +7,14 @@ extends RefCounted
 ## clear (REQ-P3-01, REQ-P3-02).
 
 
+static func _call(
+	kind: String, file: String, method: String, args: Array, submit: Callable
+) -> Variant:
+	if AiBind._baseline(kind):
+		return AiBind._ml(file, method, args)
+	return submit.call()
+
+
 static func civilian_plan(
 	kind: String,
 	config: Variant,
@@ -18,35 +26,37 @@ static func civilian_plan(
 	tech_unlocked: Dictionary,
 	context: Dictionary
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_civilian_planner.gd",
-			"plan",
-			[config, model, roster, works, stockpile, tech_caps, tech_unlocked, context]
+	return _call(
+		kind, "ai_civilian_planner.gd", "plan",
+		[config, model, roster, works, stockpile, tech_caps, tech_unlocked, context],
+		func() -> Dictionary: return AiCivilianPlanner.plan(
+			config, model, roster, works, stockpile, tech_caps, tech_unlocked, context
 		)
-	return AiCivilianPlanner.plan(
-		config, model, roster, works, stockpile, tech_caps, tech_unlocked, context
 	)
 
 
 static func military_split(
 	kind: String, config: Variant, diplomacy: DiplomacyState, model: MapModel, roster: Array
 ) -> Array:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_military_planner.gd", "split_orders", [config, diplomacy, model, roster]
+	return _call(
+		kind, "ai_military_planner.gd", "split_orders",
+		[config, diplomacy, model, roster],
+		func() -> Array: return AiMilitaryPlanner.split_orders(
+			config, diplomacy, model, roster
 		)
-	return AiMilitaryPlanner.split_orders(config, diplomacy, model, roster)
+	)
 
 
 static func military_march(
 	kind: String, config: Variant, diplomacy: DiplomacyState, model: MapModel, roster: Array
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_military_planner.gd", "march_orders", [config, diplomacy, model, roster]
+	return _call(
+		kind, "ai_military_planner.gd", "march_orders",
+		[config, diplomacy, model, roster],
+		func() -> Dictionary: return AiMilitaryPlanner.march_orders(
+			config, diplomacy, model, roster
 		)
-	return AiMilitaryPlanner.march_orders(config, diplomacy, model, roster)
+	)
 
 
 static func naval_orders(
@@ -57,13 +67,13 @@ static func naval_orders(
 	roster: Array,
 	charts: Variant
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_naval_planner.gd", "orders", [config, diplomacy, model, roster, charts]
+	return _call(
+		kind, "ai_naval_planner.gd", "orders",
+		[config, diplomacy, model, roster, charts],
+		func() -> Dictionary: return AiNavalPlanner.orders(
+			config, diplomacy, model, roster, charts,
+			AiPhasePlanner.phase_for(config, diplomacy)
 		)
-	return AiNavalPlanner.orders(
-		config, diplomacy, model, roster, charts,
-		AiPhasePlanner.phase_for(config, diplomacy)
 	)
 
 
@@ -80,14 +90,12 @@ static func invasion_plan(
 	charts: Variant,
 	earning: bool
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_invasion_planner.gd",
-			"plan",
-			[config, diplomacy, world, region, model, fleets, armies, turn, charts, earning]
+	return _call(
+		kind, "ai_invasion_planner.gd", "plan",
+		[config, diplomacy, world, region, model, fleets, armies, turn, charts, earning],
+		func() -> Dictionary: return AiInvasionPlanner.plan(
+			config, diplomacy, world, region, model, fleets, armies, turn, charts, earning
 		)
-	return AiInvasionPlanner.plan(
-		config, diplomacy, world, region, model, fleets, armies, turn, charts, earning
 	)
 
 
@@ -102,14 +110,12 @@ static func invasion_split(
 	charts: Variant,
 	wants_income: bool
 ) -> Array:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_invasion_planner.gd",
-			"split_orders",
-			[config, diplomacy, world, model, fleets, armies, charts, wants_income]
+	return _call(
+		kind, "ai_invasion_planner.gd", "split_orders",
+		[config, diplomacy, world, model, fleets, armies, charts, wants_income],
+		func() -> Array: return AiInvasionPlanner.split_orders(
+			config, diplomacy, world, model, fleets, armies, charts, wants_income
 		)
-	return AiInvasionPlanner.split_orders(
-		config, diplomacy, world, model, fleets, armies, charts, wants_income
 	)
 
 
@@ -127,22 +133,23 @@ static func colonisation_plan(
 	earning: bool,
 	appetite: Dictionary = {}
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_colonisation_planner.gd",
-			"plan",
-			[config, world, region, model, fleets, civilians, abroad, charts, posture, earning]
+	return _call(
+		kind, "ai_colonisation_planner.gd", "plan",
+		[config, world, region, model, fleets, civilians, abroad, charts, posture, earning],
+		func() -> Dictionary: return AiColonisationPlanner.plan(
+			config, world, region, model, fleets, civilians, abroad, charts, posture,
+			earning, appetite
 		)
-	return AiColonisationPlanner.plan(
-		config, world, region, model, fleets, civilians, abroad, charts, posture,
-		earning, appetite
 	)
 
 
 static func harbour(kind: String, model: MapModel, faction: int) -> int:
-	if AiBind._baseline(kind):
-		return int(AiBind._ml("ai_colonisation_planner.gd", "harbour", [model, faction]))
-	return AiColonisationPlanner.harbour(model, faction)
+	return int(
+		_call(
+			kind, "ai_colonisation_planner.gd", "harbour", [model, faction],
+			func() -> int: return AiColonisationPlanner.harbour(model, faction)
+		)
+	)
 
 
 static func cargo_plan(
@@ -155,21 +162,22 @@ static func cargo_plan(
 	want: int,
 	blocked: Dictionary
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_cargo_planner.gd",
-			"plan",
-			[config, economy, model, roster, seat, want, blocked]
+	return _call(
+		kind, "ai_cargo_planner.gd", "plan",
+		[config, economy, model, roster, seat, want, blocked],
+		func() -> Dictionary: return AiCargoPlanner.plan(
+			config, economy, model, roster, seat, want, blocked
 		)
-	return AiCargoPlanner.plan(config, economy, model, roster, seat, want, blocked)
+	)
 
 
 static func cargo_apply_route(
 	kind: String, model: MapModel, fleet: FleetState, route: Dictionary
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml("ai_cargo_planner.gd", "apply_route", [model, fleet, route])
-	return AiCargoPlanner.apply_route(model, fleet, route)
+	return _call(
+		kind, "ai_cargo_planner.gd", "apply_route", [model, fleet, route],
+		func() -> Dictionary: return AiCargoPlanner.apply_route(model, fleet, route)
+	)
 
 
 static func hospital_best_army(
@@ -180,10 +188,10 @@ static func hospital_best_army(
 	economy: PlayerEconomy,
 	at_war: bool
 ) -> Variant:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_hospital_train_work.gd",
-			"best_army",
-			[model, roster, faction, economy, at_war]
+	return _call(
+		kind, "ai_hospital_train_work.gd", "best_army",
+		[model, roster, faction, economy, at_war],
+		func() -> Variant: return AiHospitalTrainWork.best_army(
+			model, roster, faction, economy, at_war
 		)
-	return AiHospitalTrainWork.best_army(model, roster, faction, economy, at_war)
+	)

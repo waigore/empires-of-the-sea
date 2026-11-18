@@ -7,6 +7,14 @@ extends RefCounted
 ## (REQ-P3-01, REQ-P3-02).
 
 
+static func _call(
+	kind: String, file: String, method: String, args: Array, submit: Callable
+) -> Variant:
+	if AiBind._baseline(kind):
+		return AiBind._ml(file, method, args)
+	return submit.call()
+
+
 ## `town_level` is the court's best town: the second-stage rows' works gate. The
 ## origin/main planners have no town reading, so the baseline call stays as it
 ## was and its rivals keep the old behaviour (wiki: production-recipes
@@ -17,22 +25,22 @@ static func production_orders(
 	kind: String, config: Variant, economy: PlayerEconomy, town_level: int = 0,
 	held: Dictionary = {}
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml("ai_economy_planner.gd", "production_orders", [config, economy])
-	return AiEconomyPlanner.production_orders(config, economy, town_level, held)
+	return _call(
+		kind, "ai_economy_planner.gd", "production_orders", [config, economy],
+		func() -> Dictionary: return AiEconomyPlanner.production_orders(
+			config, economy, town_level, held
+		)
+	)
 
 
 static func recruitment_orders(
 	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0,
 	fed_slack: int = -1, hands: int = 0, conquest_bank: bool = false
 ) -> Array[Dictionary]:
-	var raw: Variant = (
-		AiBind._ml(
-			"ai_economy_planner.gd", "recruitment_orders",
-			[config, economy, floor, fed_slack]
-		)
-		if AiBind._baseline(kind)
-		else AiEconomyPlanner.recruitment_orders(
+	var raw: Variant = _call(
+		kind, "ai_economy_planner.gd", "recruitment_orders",
+		[config, economy, floor, fed_slack],
+		func() -> Array[Dictionary]: return AiEconomyPlanner.recruitment_orders(
 			config, economy, floor, fed_slack, hands, conquest_bank
 		)
 	)
@@ -52,27 +60,32 @@ static func income_plan(
 	muster_stall: int = 0,
 	conquest_gap: bool = false
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		# Mainline income has no hull_chest or escalation arg yet.
-		return AiBind._ml("ai_income.gd", "plan", [config, economy, at_war, regiments])
-	return AiIncome.plan(
-		config, economy, at_war, regiments, hull_chest, own_warships, muster_stall,
-		conquest_gap
+	# Mainline income has no hull_chest or escalation arg yet.
+	return _call(
+		kind, "ai_income.gd", "plan", [config, economy, at_war, regiments],
+		func() -> Dictionary: return AiIncome.plan(
+			config, economy, at_war, regiments, hull_chest, own_warships,
+			muster_stall, conquest_gap
+		)
 	)
 
 
 static func research_plan(
 	kind: String, config: Variant, economy: PlayerEconomy, context: Dictionary
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml("ai_research_planner.gd", "plan", [config, economy, context])
-	return AiResearchPlanner.plan(config, economy, context)
+	return _call(
+		kind, "ai_research_planner.gd", "plan", [config, economy, context],
+		func() -> Dictionary: return AiResearchPlanner.plan(config, economy, context)
+	)
 
 
 static func research_floor(kind: String, config: Variant) -> int:
-	if AiBind._baseline(kind):
-		return int(AiBind._ml("ai_research_planner.gd", "research_floor", [config]))
-	return AiResearchPlanner.research_floor(config)
+	return int(
+		_call(
+			kind, "ai_research_planner.gd", "research_floor", [config],
+			func() -> int: return AiResearchPlanner.research_floor(config)
+		)
+	)
 
 
 static func market_plan(
@@ -91,15 +104,16 @@ static func market_plan(
 	works_floor: int = -1,
 	hire_margin: int = 0
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_market_planner.gd",
-			"plan",
-			[config, economy, market, free_holds, tech_unlocked, reserved, need, floor, food_shortfall]
+	return _call(
+		kind, "ai_market_planner.gd", "plan",
+		[
+			config, economy, market, free_holds, tech_unlocked, reserved, need,
+			floor, food_shortfall
+		],
+		func() -> Dictionary: return AiMarketPlanner.plan(
+			config, economy, market, free_holds, tech_unlocked, reserved, need,
+			floor, food_shortfall, saving, speculate, works_floor, hire_margin
 		)
-	return AiMarketPlanner.plan(
-		config, economy, market, free_holds, tech_unlocked, reserved, need, floor,
-		food_shortfall, saving, speculate, works_floor, hire_margin
 	)
 
 
@@ -111,11 +125,13 @@ static func market_stage(
 	faction: int,
 	tech_unlocked: Dictionary
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_market_planner.gd", "stage", [economy, market, plan, faction, tech_unlocked]
+	return _call(
+		kind, "ai_market_planner.gd", "stage",
+		[economy, market, plan, faction, tech_unlocked],
+		func() -> Dictionary: return AiMarketPlanner.stage(
+			economy, market, plan, faction, tech_unlocked
 		)
-	return AiMarketPlanner.stage(economy, market, plan, faction, tech_unlocked)
+	)
 
 
 static func muster_reserve(
@@ -126,13 +142,13 @@ static func muster_reserve(
 	at_war: bool,
 	pressure_extra: int = 0
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		return AiBind._ml(
-			"ai_army_reinforce.gd",
-			"muster_reserve",
-			[config, economy, regiments, at_war, pressure_extra]
+	return _call(
+		kind, "ai_army_reinforce.gd", "muster_reserve",
+		[config, economy, regiments, at_war, pressure_extra],
+		func() -> Dictionary: return AiArmyReinforce.muster_reserve(
+			config, economy, regiments, at_war, pressure_extra
 		)
-	return AiArmyReinforce.muster_reserve(config, economy, regiments, at_war, pressure_extra)
+	)
 
 
 static func reinforce_plan(
@@ -149,22 +165,23 @@ static func reinforce_plan(
 	harvest_slack: int = -2,
 	conquest_gap: bool = false
 ) -> Dictionary:
-	if AiBind._baseline(kind):
-		# Mainline reinforce has no hull reserve or harvest arg yet.
-		return AiBind._ml(
-			"ai_army_reinforce.gd",
-			"plan",
-			[config, economy, regiments, at_war, pressure_extra, fed_slack]
+	# Mainline reinforce has no hull reserve or harvest arg yet.
+	return _call(
+		kind, "ai_army_reinforce.gd", "plan",
+		[config, economy, regiments, at_war, pressure_extra, fed_slack],
+		func() -> Dictionary: return AiArmyReinforce.plan(
+			config, economy, regiments, at_war, pressure_extra, fed_slack, reserve,
+			held_row, own_warships, harvest_slack, conquest_gap
 		)
-	return AiArmyReinforce.plan(
-		config, economy, regiments, at_war, pressure_extra, fed_slack, reserve,
-		held_row, own_warships, harvest_slack, conquest_gap
 	)
 
 
 static func fed_slack(
 	kind: String, economy: PlayerEconomy, army_food: int, ships: int
 ) -> int:
-	if AiBind._baseline(kind):
-		return int(AiBind._ml("ai_army_reinforce.gd", "fed_slack", [economy, army_food, ships]))
-	return AiArmyReinforce.fed_slack(economy, army_food, ships)
+	return int(
+		_call(
+			kind, "ai_army_reinforce.gd", "fed_slack", [economy, army_food, ships],
+			func() -> int: return AiArmyReinforce.fed_slack(economy, army_food, ships)
+		)
+	)
