@@ -209,6 +209,10 @@ static func _town_ledger(run, screen: MapScreen) -> void:
 		run.check(
 			panel._ready_targets().is_empty(), "a view with no ready step carries no press"
 		)
+		run.check(
+			panel._line == null or not panel._line.visible,
+			"and prints no line about a line it would not file"
+		)
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the towns ledger sets itself aside")
