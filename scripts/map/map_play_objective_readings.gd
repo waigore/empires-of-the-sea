@@ -22,9 +22,17 @@ static func readings(
 	phase: Dictionary, pressure: Dictionary = {}
 ) -> Dictionary:
 	var host: Dictionary = _host(play, faction, economy)
+	# The win-bar reading the bank rides on (issue #995): the submission
+	# surface banks for the army its conquest needs; a baseline court keeps
+	# its published reserve, so the ledger must not stamp a bank it does not
+	# hold.
+	host["conquest_gap"] = (
+		AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE
+		and not pressure.is_empty() and int(pressure.get("need", 0)) > 0
+	)
 	var readings: Dictionary = _force(play, config, faction, economy, pressure, host)
 	readings.merge(_navy(economy, host))
-	var purse: Dictionary = _purse(config, economy, host)
+	var purse: Dictionary = _purse(config, economy, host, pressure)
 	readings.merge(purse)
 	readings.merge(_study(config, economy, purse))
 	readings.merge(_court(play, faction, economy, phase))
@@ -111,22 +119,28 @@ static func _navy(economy: PlayerEconomy, host: Dictionary) -> Dictionary:
 
 
 ## The chest and the aim it is banked for: the reserve the other claims leave,
-## the money goal the court is walking toward (issue #484, #603).
+## the money goal the court is walking toward (issue #484, #603). A court short
+## of the bar banks at peace too (issue #995) — on the submission surface,
+## which stamps the gap on the host — so the ledger reads the same chest the
+## economy pass plans with; a caller that hands no pressure keeps the
+## published behaviour.
 static func _purse(
-	config: AiConfig, economy: PlayerEconomy, host: Dictionary
+	config: AiConfig, economy: PlayerEconomy, host: Dictionary,
+	pressure: Dictionary = {}
 ) -> Dictionary:
 	var at_war: bool = bool(host["at_war"])
 	var regiments: int = int(host["regiments"])
 	var hull_chest: int = int(host["hull_chest"])
 	var warships: int = int(host["warships"])
+	var conquest_gap: bool = bool(host.get("conquest_gap", false))
 	return {
 		"treasury": int(host["treasury"]),
 		"reserve": AiIncome.reserve(
 			config, economy, at_war, regiments, hull_chest, warships,
-			AiDeferral.stall(host["records"], "muster.line")
+			AiDeferral.stall(host["records"], "muster.line"), conquest_gap
 		),
 		"goal": AiIncome.goal_for(
-			config, economy, at_war, regiments, hull_chest, warships
+			config, economy, at_war, regiments, hull_chest, warships, conquest_gap
 		),
 	}
 

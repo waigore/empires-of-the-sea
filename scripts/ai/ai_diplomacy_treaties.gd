@@ -42,6 +42,17 @@ static func best(
 		state, world, config.faction, target, tech,
 		context.get("charts", null), _deed_seller(state, world, config.faction, context)
 	)
+	# The conquest bank (issue #995): a court short of the bar whose host is
+	# still under strength, with its purse one line-cycle short of the
+	# chest, is saving for its next line — and a paid envoy rung is a
+	# deferrable purchase. The chain the deed serves walks again the turn
+	# the host stands. The purse is still read for every court that is not
+	# banking.
+	var income: Dictionary = context.get("income", {}) as Dictionary
+	if AiIncome.banking(config, ai_state, income):
+		return _blocked(
+			"the court is banking for its army", AiDiplomacyOffers.KIND_OVERTURE
+		)
 	# The colony ambition: a charted Tribe the court can still buy is worth the
 	# next envoy step even when the court is in no mood to improve relations for
 	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).

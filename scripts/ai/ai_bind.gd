@@ -37,12 +37,17 @@ static func production_orders(
 
 static func recruitment_orders(
 	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0,
-	fed_slack: int = -1, hands: int = 0
+	fed_slack: int = -1, hands: int = 0, conquest_bank: bool = false
 ) -> Array[Dictionary]:
 	var raw: Variant = (
-		_ml("ai_economy_planner.gd", "recruitment_orders", [config, economy, floor, fed_slack])
+		_ml(
+			"ai_economy_planner.gd", "recruitment_orders",
+			[config, economy, floor, fed_slack]
+		)
 		if _baseline(kind)
-		else AiEconomyPlanner.recruitment_orders(config, economy, floor, fed_slack, hands)
+		else AiEconomyPlanner.recruitment_orders(
+			config, economy, floor, fed_slack, hands, conquest_bank
+		)
 	)
 	var out: Array[Dictionary] = []
 	out.assign(raw)
@@ -57,13 +62,15 @@ static func income_plan(
 	regiments: int,
 	hull_chest: int = 0,
 	own_warships: int = -1,
-	muster_stall: int = 0
+	muster_stall: int = 0,
+	conquest_gap: bool = false
 ) -> Dictionary:
 	if _baseline(kind):
 		# Mainline income has no hull_chest or escalation arg yet.
 		return _ml("ai_income.gd", "plan", [config, economy, at_war, regiments])
 	return AiIncome.plan(
-		config, economy, at_war, regiments, hull_chest, own_warships, muster_stall
+		config, economy, at_war, regiments, hull_chest, own_warships, muster_stall,
+		conquest_gap
 	)
 
 
@@ -152,7 +159,8 @@ static func reinforce_plan(
 	reserve: int = 0,
 	held_row: Dictionary = {},
 	own_warships: int = -1,
-	harvest_slack: int = -2
+	harvest_slack: int = -2,
+	conquest_gap: bool = false
 ) -> Dictionary:
 	if _baseline(kind):
 		# Mainline reinforce has no hull reserve or harvest arg yet.
@@ -163,7 +171,7 @@ static func reinforce_plan(
 		)
 	return AiArmyReinforce.plan(
 		config, economy, regiments, at_war, pressure_extra, fed_slack, reserve,
-		held_row, own_warships, harvest_slack
+		held_row, own_warships, harvest_slack, conquest_gap
 	)
 
 

@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:9424f7d453d0f231b2bad28adf4a3a297e211a6a55c2715ab80753235abbba74",
-  "submission_git": "refactor/army-muster-trace-row@c9a44cc4+merge-main-rebind",
+  "submission_hash": "sha256:526136565c6ca099ca32d698982d6a749b0ac6867c2c401eefd173ae3da0ed6b",
+  "submission_git": "feat/995-banks-before-builds@4dbbb995",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 2357.7738705170004,
+      "value": 2439.1026240115025,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 21.0,
+      "value": 24.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 7.0,
+      "value": 5.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 83.40039881378463,
+      "value": 85.46241099519789,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:60210e842527026d80114ad5a5d4710f54eb1834d5fe78c312abd8a3f04a9a5c",
+    "ai_surface_hash": "sha256:fa1f044c14ed9a1dec42dc8367a35676460e12b393383dc03956d0d69f668e1d",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 15,
-      "provinces_new": 6,
+      "provinces_new": 9,
       "regiments": 4,
-      "ships": 3,
-      "workers": 5,
-      "extraction_per_turn": 50.610619469026545,
-      "income_per_turn": 361.55263157894734,
-      "funded_pct": 83.40039881378463
+      "ships": 1,
+      "workers": 9,
+      "extraction_per_turn": 45.88785046728972,
+      "income_per_turn": 302.3269230769231,
+      "funded_pct": 85.46241099519789
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
-    "turn": 127,
-    "resolved_turns": 127,
-    "funded_pct": 83.40039881378463
+    "turn": 122,
+    "resolved_turns": 122,
+    "funded_pct": 85.46241099519789
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-18T14:47:04Z",
+  "timestamp": "2026-11-18T18:24:21Z",
   "report_version": 1,
-  "signature": "hmac-sha256:813c19c2a1890a807dbed43d24e3d0834fb6109548356a33e44efed84583c3ed"
+  "signature": "hmac-sha256:64b6f57773cc65882b50c31b502d413f4eaa00fda4b3ef381b8334342781e429"
 }

@@ -61,12 +61,17 @@ static func _court_turn(
 	# The court's war footing rides the trace; the planners read it through
 	# AiPhasePlanner (DR-20261113-15). Its money goal rides beside it: a court
 	# short of the muster it is saving for opens no new war (DR-20261113-19).
+	# A submission court short of the bar banks at peace too (issue #995), so
+	# the trace shows the goal the economy pass plans with — the caller's
+	# conquest-gap stamp names the courts whose doctrine banks.
 	var phase: Dictionary = AiPhasePlanner.plan(config, state)
 	var income: Dictionary = AiIncome.plan(
 		config, AiTurnRead.ledger(ai_state, faction), AiIncome.at_war(state, faction),
 		int((shared.get("regiments", {}) as Dictionary).get(faction, 0)),
 		int((shared.get("hull_chests", {}) as Dictionary).get(faction, 0)),
-		int((shared.get("warships", {}) as Dictionary).get(faction, -1))
+		int((shared.get("warships", {}) as Dictionary).get(faction, -1)),
+		0,
+		bool((shared.get("conquest_gaps", {}) as Dictionary).get(faction, false))
 	)
 	# The one deed partner this court warms: the warmth that prices a deed is the
 	# warmth that bars a declaration, so the reading is named once per turn and

@@ -16,8 +16,13 @@ const PARAMETERS: Array[Dictionary] = [
 		"min": 1,
 		"max": 60,
 		# A war chest that has not closed for one more turn re-routes so income
-		# can lead before provinces fall (issue #603; ai-bench seed 1500). Was 10.
-		"default": 1,
+		# can lead before provinces fall (issue #603; ai-bench seed 1500). Was
+		# 10, then 1 — and 1 never let a fill run: a bank that is progressing
+		# restarts the stall at one on every new-low turn, so the bar answered
+		# the fill's own progress and no chest ever closed. Two turns: a
+		# genuine standing-still still answers fast, a filling bank never
+		# does (issue #995).
+		"default": 2,
 	},
 	{
 		"key": "ledger.blocked_turns",
