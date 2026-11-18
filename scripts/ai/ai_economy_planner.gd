@@ -60,7 +60,7 @@ static func production_orders(
 	var committed: Dictionary = _committed(economy)
 	# The room each slow row's bench has left once this phase's landings are
 	# served: the plan takes effect after the phase resolves, so this is the
-	# same reading `ProductionRecipes.plan` will cap the runs with.
+	# same reading `ProductionPhase.plan` will cap the runs with.
 	var bench: Dictionary = _bench_room(economy)
 	for recipe_id: String in ProductionRecipes.available_ids_for(
 		economy.tech_unlocked, economy.workers, town_level
@@ -91,7 +91,7 @@ static func production_orders(
 			if int(entry["deficit"]) <= 0 or labour <= 0:
 				continue
 			var recipe_id: String = String(entry["recipe"])
-			var runs: int = mini(1, ProductionRecipes.max_runs(recipe_id, stock, labour))
+			var runs: int = mini(1, ProductionPhase.max_runs(recipe_id, stock, labour))
 			# A slow row's bench holds three pieces: a fourth run waits for a
 			# landing, so the phase would refuse it and the plan would have
 			# spent its labour and inputs on nothing (DR-20261114-12).
@@ -142,7 +142,7 @@ static func _committed(economy: PlayerEconomy) -> Dictionary:
 		if queued.has(recipe_id):
 			units += mini(
 				int(queued[recipe_id]),
-				ProductionRecipes.max_runs(recipe_id, economy.stockpile, labour)
+				ProductionPhase.max_runs(recipe_id, economy.stockpile, labour)
 			)
 		var made: String = ProductionRecipes.output(recipe_id)
 		committed[made] = int(committed.get(made, 0)) + units

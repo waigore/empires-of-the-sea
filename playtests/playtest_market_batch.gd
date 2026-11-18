@@ -321,7 +321,7 @@ func _market_page(play: PlaySession) -> LedgerMarket:
 
 
 func _reserved(play: PlaySession) -> Dictionary:
-	return ProductionRecipes.reserved_inputs(play.economy.economy.production.assignments())
+	return ProductionPhase.reserved_inputs(play.economy.economy.production.assignments())
 
 
 func _sorted_keys(book: Dictionary) -> Array[String]:

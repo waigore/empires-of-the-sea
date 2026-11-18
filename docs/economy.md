@@ -21,7 +21,7 @@ Projections never mutate.
 
 ## Production recipes
 
-`ProductionRecipes` holds the recipes:
+Catalogue `ProductionRecipes`; phase `ProductionPhase`:
 
 | Output | Inputs | Labour |
 |--------|--------|--------|
@@ -89,7 +89,7 @@ Live: rival second-stage appetite (`AiEconomyPlanner`/`town_level`); gaps:
 ## Architecture
 
 `player_economy`, `economy_turn`, `economy_consumption`, `larder_read`,
-`cargo_read`, `production_recipes`,
+`cargo_read`, `production_recipes`/`production_phase`,
 `commodity_catalog`, `world_market`, `market_*`, `first_right`,
 `market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,
 `economy/economy_controller`, `economy/ledger_readings`,
