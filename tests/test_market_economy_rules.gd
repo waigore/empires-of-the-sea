@@ -1984,6 +1984,47 @@ func test_larder_forecast_counts_arriving_recruits() -> void:
 	var thin: Dictionary = LarderRead.forecast(economy)
 	assert_eq(int(thin["strikers"]), 1, "one ration, two mouths")
 
+## A regiment and a hull under orders land at Build/work, before Consumption, so
+## the larder the WORKERS tab forecasts pays their rations too — the muster roll
+## does not show them yet (wiki: workers-and-population § Consumption;
+## § Phase placement).
+func test_larder_forecast_counts_a_waiting_muster_and_launch() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(4)
+	economy.stockpile = {"grain": 40, "meat": 0}
+	var read: Dictionary = LarderRead.forecast(economy, {"army": 6, "ships": 1})
+	var appetites: Dictionary = read["appetites"]
+	assert_eq(int(appetites["army"]), 6)
+	assert_eq(int(appetites["navy"]), 2)
+	assert_eq(int(appetites["pool"]), 4)
+	economy.recruits.add(RecruitQueue.KIND_REGIMENT, "pikemen")
+	economy.recruits.add(RecruitQueue.KIND_SHIP, "sloop")
+	var waiting: Dictionary = LarderRead.forecast(economy, {"army": 6, "ships": 1})
+	var fed: Dictionary = waiting["appetites"]
+	assert_eq(
+		int(fed["army"]), 6 + RegimentCatalog.food_upkeep("pikemen"),
+		"the waiting muster eats its own ration"
+	)
+	assert_eq(int(fed["navy"]), 4, "one more hull eats two food")
+	assert_eq(int(fed["pool"]), 2, "the muster and the launch each reserve a peasant")
+	assert_eq(LarderRead.pending_rations(economy), {"army": 2, "ships": 1})
+
+## The waiting muster's ration is enough to turn a calm larder into a striking
+## one, so the sheet must name the strike the phase will pay for
+## (wiki: workers-and-population § Consumption).
+func test_larder_forecast_strikes_for_a_waiting_muster() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(3)
+	economy.stockpile = {"grain": 12, "meat": 0}
+	var calm: Dictionary = LarderRead.forecast(economy, {"army": 6, "ships": 1})
+	assert_eq(int(calm["strikers"]), 0, "6 army + 2 navy + 3 pool = 11 of 12")
+	economy.recruits.add(RecruitQueue.KIND_REGIMENT, "pikemen")
+	economy.recruits.add(RecruitQueue.KIND_SHIP, "sloop")
+	var thin: Dictionary = LarderRead.forecast(economy, {"army": 6, "ships": 1})
+	assert_eq(int(thin["strikers"]), 1, "the waiting muster and hull eat four more")
+	assert_eq(int(thin["striking_tier"]), WorkerPool.Tier.PEASANT)
+	assert_eq(int(thin["store_short"]), 1)
+
 ## A waiting train trades a peasant for its tier in Build/work, so the next
 ## Consumption feeds one mouth, not two: the forecast must spend the peasant the
 ## order takes or it reads a shortfall the phase will never strike
