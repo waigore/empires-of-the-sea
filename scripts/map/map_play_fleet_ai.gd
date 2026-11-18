@@ -39,7 +39,7 @@ static func _run_region(
 		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		# The court's own chart: it hunts only what it has charted
 		# (wiki: fog-and-exploration; DR-20261110-21).
-		var plan: Dictionary = AiBind.naval_orders(
+		var plan: Dictionary = AiBindCampaign.naval_orders(
 			kind, config, play.diplomacy, model, roster, play.court_charts
 		)
 		for order: Dictionary in plan["orders"]:
