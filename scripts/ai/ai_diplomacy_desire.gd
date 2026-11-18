@@ -240,7 +240,13 @@ static func _holds_old_world(world: WorldMap, target: int) -> bool:
 ## The points the attacker's war aim carries against this target: the context
 ## carries either one court's press (the ledger's own reading) or the per-court
 ## map the map pass hands every rival, so each court prices its own finish and
-## never a neighbour's (DR-20261115-04).
+## never a neighbour's (DR-20261115-04). While the attacker holds no New World
+## land and a Minor Nation still holds Old World land, the press stays off a
+## fellow Great Power: a crown's war puts the court on the war footing that
+## closes the voyage, crew and market slots, so a pressing court that opens
+## its front on a crown strands its own colony, and the bar's land on a Minor
+## is the conquest that footing can carry (issue #910; wiki: ai-architecture
+## § Notable strategic policies).
 static func _press_for(
 	world: WorldMap, attacker: int, target: int, context: Dictionary
 ) -> int:
@@ -252,4 +258,23 @@ static func _press_for(
 		press = int(raw)
 	if press <= 0 or not _holds_old_world(world, target):
 		return 0
+	if (
+		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+		and _colony_still_due(world, attacker)
+	):
+		return 0
 	return press
+
+
+## True while the court's colony is still the cheaper half of the bar: it holds
+## no New World land and a Minor Nation still holds Old World land the press
+## can take without a war footing.
+static func _colony_still_due(world: WorldMap, attacker: int) -> bool:
+	if world == null:
+		return false
+	if world.owned_provinces(WorldMap.NEW_WORLD, attacker) > 0:
+		return false
+	for faction: int in FactionCatalog.minor_ids():
+		if world.owned_provinces(WorldMap.OLD_WORLD, faction) > 0:
+			return true
+	return false
