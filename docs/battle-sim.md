@@ -1,10 +1,10 @@
 # Battle Simulator
 
-A visual playtesting instrument for Quick Battle and sieges: a one-province
+A playtesting instrument for Quick Battle and sieges: a one-province
 sandbox over **the live resolver** (`QuickBattle`), so a number it prints is the
 number a game turn prints (`REQ-P2-03`).
 
-**Pillars:** P2, P3, P5. **Wiki:**
+**Pillars:** P2/P3/P5. **Wiki:**
 [quick-battle](https://github.com/waigore/empires-of-the-sea/wiki/quick-battle),
 [siege-mechanics](https://github.com/waigore/empires-of-the-sea/wiki/siege-mechanics).
 
@@ -14,13 +14,9 @@ number a game turn prints (`REQ-P2-03`).
 tools/run.sh scenes/battle_sim.tscn
 ```
 
-The wrapper imports first; a bare `godot --path . scenes/battle_sim.tscn`
-fails on a fresh clone ([testing.md](testing.md)).
-
-## Layout
-
-Three columns on a desktop; below 900 points they stack into one scrolling
-column (`REQ-P1-05`, `REQ-P5-07`).
+The wrapper imports first; a bare `godot --path . scenes/battle_sim.tscn` fails
+on a fresh clone ([testing.md](testing.md)). Three columns on a desktop; below
+900 points they stack into one scrolling column (`REQ-P1-05`, `REQ-P5-07`).
 
 ## Controls
 
@@ -28,41 +24,43 @@ column (`REQ-P1-05`, `REQ-P5-07`).
 |---------|-----------------|
 | Ground | OPEN / HILL / WOODS / TOWN / MARSH lane terrain |
 | Fort | none / Wood / Stone / Modern (`fort_level` 0–3) |
-| Attacker, Defender | three regiment slots a side, 0–20 each |
-| Attacker plan / Defender plan | aggressive / balanced / defensive action script |
-| Seed | deterministic quick-battle seed |
+| Battery | the garrison's line — Royal / Heavy / Siege (`FortRules.EMPLACED_TECHS`) |
+| Attacker, Defender | three slots a side, 0–20 each |
+| Attacker plan / Defender plan | aggressive / balanced / defensive script |
+| Attacker medals / Defender medals | the commander's chevrons, 0–4 (strength ×1.0–×1.4) |
 | Fight | resolve and show the aftermath |
-| Next round | step the recorded rounds on the plate |
-| Reset | clear the record and start over |
+| Next round | step the recorded rounds |
+| Reset | clear the record |
+
+Every lever is one the resolver reads: a later gun line carries the studies it
+builds on, and medals ride in as the commander's rank. A lone attacker's battle
+is deterministic for its plan, so there is no seed dial — the seed breaks
+initiative ties between rival attackers only
+([combat](https://github.com/waigore/empires-of-the-sea/wiki/combat) § Initiative).
 
 ## What it shows
 
-- The plate paints a period landscape per terrain, with the fort's wall and
-  three gatehouses on it. A breached gate is a jagged hole with rubble spilled
-  onto the field.
-- The despatch lists every round's actions with the game's own copy: losses,
-  mauled men, guns silenced, gates breached, the battery taking the blow, and
-  the wing it fell on.
-- The aftermath adds the ground, the wings and the ones broken, the siege line
-  (lanes, guns, breach), losses by type, wounds and chevrons, and the outcome
-  stamp.
-- The readout prints the rules' own reads: deployment limits, terrain,
-  wall reduction, gate threshold, lanes and guns.
+- The plate paints a landscape per terrain with the fort's wall and three
+  gatehouses; a breached gate is a jagged hole with rubble on the field.
+- The despatch lists every round's actions in the game's copy — losses, mauled
+  men, guns silenced, gates breached, the battery taking the blow — then the
+  aftermath: ground, the wings broken, the siege line, losses by type, wounds,
+  chevrons and the outcome.
+- The readout prints limits, terrain, wall reduction, gate threshold, lanes,
+  guns and the levers set.
 
 ## Scenarios worth running
 
 - A pike-only garrison behind a Stone fort: it cannot shoot, so it sorties.
 - Muskets without guns: the wall turns the blow aside, no gate falls.
-- Guns plus muskets against a Wood fort: silence the battery, then beat the wall
-  until a gate opens and the behind lane bleeds.
-- Assault into TOWN versus OPEN: compare the same men and plan.
+- Guns against a Wood fort: silence the battery, then beat the wall until a gate
+  opens — and run the same wall under Royal, Heavy and Siege guns.
 
 ## Scope
 
-The simulator is a development tool, not a shipped screen: it mutates a
-throwaway model and army pair, saving nothing. `BattleScenario` is node-free
-rules code and is unit-tested; the screen is a thin view (`REQ-P3-01`,
-`REQ-P3-03`).
+A development tool, not a shipped screen: it mutates a throwaway model and army
+pair, saving nothing. `BattleScenario` is node-free rules code and is unit-tested;
+the screen is a thin view (`REQ-P3-01`, `REQ-P3-03`).
 
 ## Architecture
 
@@ -74,12 +72,5 @@ rules code and is unit-tested; the screen is a thin view (`REQ-P3-01`,
 | `scripts/ui/battle_plate*.gd` | facade + ground, wall, figure painters |
 | `scenes/battle_sim.tscn` | the launchable scene |
 
-The plate is generated art (`assets/art/battle/`): a painted panorama per
-terrain, plus cut-out walls, miniatures and rubble. Prompts and build script:
-[`tools/art/battle-plate.md`](../tools/art/battle-plate.md).
-
-## Tests
-
 `test_battle_rules` proves the sandbox resolves the same battle as a direct
 `QuickBattle.resolve_exchange` call and that the scene fights, steps and resets.
-Run it with `gd-tools test tests/test_battle_rules.gd`.

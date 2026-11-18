@@ -3549,6 +3549,85 @@ func test_the_sandbox_prints_the_games_aftermath() -> void:
 	screen.free()
 
 
+## The rail offers only levers the resolver reads (wiki: combat § Strength;
+## siege-mechanics § Emplaced Artillery): a side's chevrons reach the exchange as
+## its commander's rank — the deployment limit counts them — and the picked gun
+## line is the battery `QuickBattleBattery` spawns. A rail that offered a number
+## the fight never read would teach a playtester a rule the game does not have.
+func test_the_sandbox_rail_carries_medals_and_the_battery_line() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 6], ["culverin", 1], ["knights", 0]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 4], ["musketeers", 2], ["culverin", 0]])
+	screen._setup._fort.selected = 2
+	screen._setup._guns.selected = 2
+	screen._setup._attacker_medals.value = 3
+	screen._setup._defender_medals.value = 2
+	var spec: Dictionary = screen._setup.spec()
+
+	assert_eq(int(spec["attacker_medals"]), 3)
+	assert_eq(int(spec["defender_medals"]), 2)
+	assert_true(
+		bool((spec["tech"] as Dictionary).get("emplaced_siege_guns", false)),
+		"the siege line carries its own study"
+	)
+	assert_true(
+		bool((spec["tech"] as Dictionary).get("heavy_emplaced_artillery", false)),
+		"a siege battery is built on the heavy line the table names"
+	)
+	screen._fight()
+	var quick: Dictionary = screen._result["report"]["quick"]
+	assert_eq(
+		String(quick["gun_type"]), "siege_guns",
+		"the rail's line is the battery the resolver spawns"
+	)
+	assert_eq(
+		int(quick["limits"]["attacker"]), ArmyModifiers.BASE_DEPLOYMENT + 3,
+		"the attacker's chevrons move its deployment limit"
+	)
+	assert_eq(
+		int(quick["limits"]["defender"]), ArmyModifiers.BASE_DEPLOYMENT + 2,
+		"the defender's chevrons move its own"
+	)
+	assert_true(
+		screen._readout.text.contains("defender medals 2"),
+		"the readout reads the levers back: %s" % screen._readout.text
+	)
+	screen.free()
+
+
+## A quick battle with one attacker is deterministic for a fixed plan: the seed
+## only breaks an initiative tie between rival attackers (wiki: combat
+## § Initiative), so this sandbox carries no seed on its rail and two seeds fight
+## the same record. A dial that never moved a fight taught a playtester otherwise.
+func test_the_sandbox_has_no_seed_that_cannot_move_a_fight() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	assert_false(
+		screen._setup.spec().has("seed"), "the rail offers no seed a lone attacker cannot feel"
+	)
+	screen.free()
+	var spec: Dictionary = {
+		"attacker": ["musketeers", "musketeers", "musketeers", "culverin"],
+		"defender": ["pikemen", "pikemen", "musketeers", "culverin"],
+		"fort": 2, "terrain": "woods",
+	}
+	var first: Dictionary = BattleScenario.fight(spec)
+	spec["seed"] = 4242
+	var second: Dictionary = BattleScenario.fight(spec)
+	assert_eq(
+		str(first["report"]["attacker_lost"]), str(second["report"]["attacker_lost"]),
+		"a second seed breaks the same men"
+	)
+	assert_eq(
+		int(first["report"]["quick"]["guns_left"]),
+		int(second["report"]["quick"]["guns_left"]),
+		"and leaves the same battery"
+	)
+
+
 ## Fills the sandbox's setup rail: one [type, count] per slot.
 func _sim_slots(setup: BattleSimSetup, side: String, rows: Array) -> void:
 	var slots: Array = setup._attacker_slots if side == "attacker" else setup._defender_slots
