@@ -1,8 +1,7 @@
 class_name MapPlayArmyAi
 extends RefCounted
 ## Rival land turn: every region's stored roster is planned and applied through
-## ArmyMovement, so a march this turn fights this turn (docs/ai.md). Splits run
-## first so a court that has just declared war can field an army at once.
+## ArmyMovement, so a march this turn fights this turn (docs/ai.md).
 
 ## Turn-trace kind for a rival court's own muster (DR-20261111-04).
 const KIND_REINFORCE: String = "reinforce"
@@ -53,10 +52,8 @@ static func _run_region(
 			continue
 		var config: Variant = AiBind.config(kind, faction, play.map_seed)
 		# The court raises its men before it plans this turn's march, so a fresh
-		# regiment can hold the seat or join the field army it detaches
-		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04). A court
-		# striking for food raises none: its own men would go hungry instead
-		# (issue #489).
+		# regiment can hold the seat or join the field army it detaches; a court
+		# striking for food raises none (DR-20261111-04, issue #489).
 		changed = _reinforce(play, model, roster, faction, config, kind, trace) or changed
 		# The court brings its surgeons along before it gives the march: a worn
 		# field army on its own ground pitches a train (DR-20261112-07,
@@ -74,8 +71,7 @@ static func _run_region(
 		) or changed
 		# The rotation's merge leg (issue #974): a field army the court just
 		# marched home folds into the Home Army, so the next split re-fields a
-		# full-strength replacement. Baselines keep the frozen shape — their
-		# planners issue no rotation orders.
+		# full-strength replacement. Baselines issue no rotation orders.
 		if kind != AiControl.KIND_BASELINE:
 			changed = _apply_rotation_combine(
 				play, model, roster, faction, plan, trace
@@ -153,8 +149,7 @@ static func _apply_marches(
 			continue
 		var province: int = int(order["province"])
 		# The rival marches through the same gate the crown does: a Tribe needs
-		# no declaration, but a Tribe province another crown has bought land in
-		# does (wiki: factions § Tribe; REQ-P2-03).
+		# no declaration, but a Tribe province a crown has bought land in does.
 		var owner: int = model.province_owner(province)
 		var may_enter: bool = (
 			owner == MapModel.NO_ID or owner == faction
@@ -164,6 +159,11 @@ static func _apply_marches(
 		if not bool(march.get("ok", false)):
 			continue
 		changed = true
+		var attacked: bool = bool(march.get("attacked", false))
+		# The prosecution note (issue #999): an attack on another court's ground
+		# is what makes a war pay, and the diplomacy pass reads it.
+		if attacked and play.ai != null and owner != MapModel.NO_ID and owner != faction:
+			AiWarMemory.note_attack(play.ai, faction, owner, play.turn)
 		trace.append({
 			"faction": faction,
 			"kind": kind,
@@ -171,7 +171,7 @@ static func _apply_marches(
 			"province": province,
 			"province_name": model.province_name(province),
 			"region": model.region_id,
-			"attacked": bool(march.get("attacked", false)),
+			"attacked": attacked,
 		})
 		_report_march(play, model, faction, province)
 	return changed
@@ -355,8 +355,8 @@ static func _recall(
 
 ## A court at war pitches its surgeons: the wornest field army on the court's own
 ## ground takes a train, paid from the same table the crown's dossier prints
-## (DR-20261112-07, DR-20261112-08). One train a turn per court, and nothing is
-## invented when a court lacks the tech, the material or a wound to tend.
+## (DR-20261112-07/08). One train a turn per court, and nothing is invented when
+## a court lacks the tech, the material or a wound to tend.
 static func _pitch_train(
 	play: PlaySession,
 	model: MapModel,
