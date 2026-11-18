@@ -34,18 +34,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			# unless the court is on **earn**, whose gold is overseas
 			# (DR-20261113-19).
 			var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
-			var earning: bool = (
-				str(
-					AiBind.income_plan(
-						kind, config, play.ledger_for(faction),
-						MapPlayCourt.at_war(play, faction),
-						MapPlayCourt.regiments(play, faction),
-						MapPlayCourt.navy_chest(play, faction),
-						MapPlayCourt.warships(play, faction)
-					).get("goal", "")
-				)
-				== "earn"
-			)
+			var earning: bool = MapPlaySeaStep.earning(play, faction, kind, config)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 			var order: Dictionary = AiBind.colonisation_plan(
 				kind, config, play.world, region, model, fleets, civilians,
@@ -87,15 +76,11 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		# from a later-iterated region lands here before this pass writes back).
 		var stored_fleets: Array = []
 		stored_fleets.assign(play.ship_layer.regions.value(region, []))
-		for fleet: FleetState in stored_fleets:
-			if fleet != null and not fleets.has(fleet):
-				fleets.append(fleet)
+		MapPlaySeaStep.merge_stored(stored_fleets, fleets)
 		play.ship_layer.regions.set_region(region, fleets)
 		var stored_civilians: Array = []
 		stored_civilians.assign(play.civilian_layer.regions.value(region, []))
-		for unit: CivilianState in stored_civilians:
-			if unit != null and not civilians.has(unit):
-				civilians.append(unit)
+		MapPlaySeaStep.merge_stored(stored_civilians, civilians)
 		play.civilian_layer.regions.set_region(region, civilians)
 	if visible_touched:
 		MapPlayCourt.refresh_hulls(play)
@@ -145,21 +130,12 @@ static func _apply(
 			entry["province_name"] = model.province_name(fleet.province)
 		"sail":
 			var zone: int = int(order.get("zone", -1))
-			var sailed: Dictionary = NavalMovement.apply_move(
-				model, fleet, FleetState.Location.AT_SEA, zone
-			)
-			if not bool(sailed.get("ok", false)):
-				sailed = FleetSortie.apply(model, fleet, zone)
-			if not bool(sailed.get("ok", false)):
+			if not MapPlaySeaStep.sail(play, model, region, fleet, zone):
 				return {}
-			MapPlayCourtFog.note_fleet_entry(play, region, fleet, zone)
 			entry["zone"] = zone
 		"dock":
 			var province: int = int(order.get("province", -1))
-			var docked: Dictionary = NavalMovement.apply_move(
-				model, fleet, FleetState.Location.IN_PORT, province
-			)
-			if not bool(docked.get("ok", false)):
+			if not MapPlaySeaStep.dock(model, fleet, province):
 				return {}
 			entry["province"] = province
 		"cross":
@@ -197,19 +173,10 @@ static func _apply(
 ## Crosses a passage and carries the fleet and its passengers into the other
 ## region's rosters. The view never follows a rival's squadron.
 static func _cross(play: PlaySession, region: int, fleet: FleetState) -> Dictionary:
-	var result: Dictionary = WarpTravel.apply_crossing(play.world, region, fleet)
+	var result: Dictionary = MapPlaySeaStep.cross(play, region, fleet)
 	if not bool(result.get("ok", false)):
 		return result
 	var to_region: int = int(result["to_region"])
-	var source: Array = []
-	source.assign(play.ship_layer.regions.value(region, []))
-	source.erase(fleet)
-	play.ship_layer.regions.set_region(region, source)
-	fleet.id = FleetRosters.next_id_all(play.ship_layer.regions)
-	var destination: Array = []
-	destination.assign(play.ship_layer.regions.value(to_region, []))
-	destination.append(fleet)
-	play.ship_layer.regions.set_region(to_region, destination)
 	for unit_id: int in fleet.embarked_civilians.duplicate():
 		CivilianVoyageMap.move_to_region(play.civilian_layer, unit_id, to_region)
 	_ensure_works(play, to_region)
