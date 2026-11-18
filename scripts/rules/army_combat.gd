@@ -131,6 +131,13 @@ static func _exchange(
 	var atk_limit: int = int(atk_mods["limit"])
 	var initial_defenders: int = mini(ArmyForce.side_regiments(defending), def_limit)
 	var atk_deployed: int = mini(ArmyForce.side_regiments(attacking), atk_limit)
+	## The line and the reserve as the exchange deals them, read before a blow
+	## lands: a side that kept a reserve is named as such on the plate and in
+	## the despatch whatever its line loses (wiki: combat § The line and the
+	## reserve).
+	var lines_open: Dictionary = ArmyModifiers.line_fields(
+		attacking, atk_limit, defending, def_limit
+	)
 	## The besieging train's opening fire: silenced guns fall before the clash
 	## (wiki: siege-mechanics § Emplaced Artillery; DR-20261110-22).
 	var siege: Dictionary = AutoSiege.resolve(
@@ -188,7 +195,7 @@ static func _exchange(
 	)
 	report["attack_cost"] = int(fee["due"])
 	report["attack_paid"] = int(fee["paid"])
-	report.merge(ArmyModifiers.line_fields(attacking, atk_limit, defending, def_limit))
+	report.merge(lines_open)
 	if not siege.is_empty(): report["siege"] = siege
 	if outcome == Outcome.STALEMATE:
 		report["blunted"] = blunted

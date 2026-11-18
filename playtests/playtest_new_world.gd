@@ -140,9 +140,17 @@ func _land(play: PlaySession, fleet: FleetState, unit: CivilianState) -> int:
 		_say("no coast is within the squadron's reach")
 		return -1
 	var province: int = coasts[0]
-	var tile: Vector2i = CivilianVoyage.landing_tile_in(play.model, unit, fleet, province)
+	var grounds: Array[Vector2i] = CivilianVoyage.landing_tiles_in(
+		play.model, unit, fleet, province
+	)
+	if grounds.is_empty():
+		_say("no ground on %s takes this crew" % play.model.province_name(province))
+		return -1
+	# The crown names the ground it means, not the first the coast reads
+	# (wiki: civilian-units § Landing; DR-20261118-19).
+	var tile: Vector2i = grounds[grounds.size() - 1]
 	var before: int = _charted(play)
-	MapPlayCivilianVoyage.land(play, fleet, province)
+	MapPlayCivilianVoyage.land(play, fleet, tile)
 	if unit.tile != tile:
 		_say("the Explorer could not go ashore at %s" % play.model.province_name(province))
 		return -1

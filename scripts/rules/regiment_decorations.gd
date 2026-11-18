@@ -35,23 +35,20 @@ static func blank() -> Dictionary:
 ## colours this engagement cited, so the plate can say what the field added.
 static func note(side: Array[ArmyState], province: int, won: bool) -> int:
 	var cited: int = 0
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			var held: bool = won and float(
-				army.condition_of(regiment_id)["fraction"]
-			) < 1.0
-			var store: Dictionary = _store(army, regiment_id)
-			var fields: Array = store["fields"]
-			fields.push_front({"p": province, "w": won, "c": held})
-			while fields.size() > KEPT:
-				fields.pop_back()
-			store["fields"] = fields
-			if held:
-				store["cited"] = int(store["cited"]) + 1
-				cited += 1
-			army.regiment_history[regiment_id] = store
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		var army: ArmyState = entry["army"]
+		var regiment_id: String = String(entry["id"])
+		var held: bool = won and float(army.condition_of(regiment_id)["fraction"]) < 1.0
+		var store: Dictionary = _store(army, regiment_id)
+		var fields: Array = store["fields"]
+		fields.push_front({"p": province, "w": won, "c": held})
+		while fields.size() > KEPT:
+			fields.pop_back()
+		store["fields"] = fields
+		if held:
+			store["cited"] = int(store["cited"]) + 1
+			cited += 1
+		army.regiment_history[regiment_id] = store
 	return cited
 
 

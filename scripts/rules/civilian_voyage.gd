@@ -112,14 +112,28 @@ static func landing_provinces(
 	return provinces
 
 
-## First landing tile in a province, so a coast button needs no tile picking.
+## Every tile of one coast this passenger could take this turn, in the order
+## `landing_tiles` reads them. The landing rule names a **tile**, not a province
+## (wiki: civilian-units § Landing, § Acceptance Criteria — "lands a colonist
+## there"), so a crown that means a particular ground picks from this list.
+static func landing_tiles_in(
+	model: MapModel, unit: CivilianState, fleet: FleetState, province_id: int
+) -> Array[Vector2i]:
+	var tiles: Array[Vector2i] = [] as Array[Vector2i]
+	if model == null or province_id == NO_ID:
+		return tiles
+	for tile: Vector2i in landing_tiles(model, unit, fleet):
+		if model.province_at(tile.x, tile.y) == province_id:
+			tiles.append(tile)
+	return tiles
+
+
+## First landing tile in a province, for a caller that names only the coast.
 static func landing_tile_in(
 	model: MapModel, unit: CivilianState, fleet: FleetState, province_id: int
 ) -> Vector2i:
-	for tile: Vector2i in landing_tiles(model, unit, fleet):
-		if model.province_at(tile.x, tile.y) == province_id:
-			return tile
-	return CivilianState.NO_TILE
+	var tiles: Array[Vector2i] = landing_tiles_in(model, unit, fleet, province_id)
+	return tiles[0] if not tiles.is_empty() else CivilianState.NO_TILE
 
 
 ## The civilian may go ashore here: the fleet can reach the tile and the type's

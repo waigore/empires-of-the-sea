@@ -334,7 +334,10 @@ func _path_to_network(from: Vector2i, network: Dictionary) -> Array[Vector2i]:
 # --- the mineral gate -------------------------------------------------------
 
 
-## Marches the Explorer onto the mineral tile and prospects it before a mine.
+## Marches the Explorer onto the mineral tile and prospects it before a mine. A
+## start that already surveyed the crown's mines (advanced-starts § turn-100
+## seeding: ≥75% of owned prospect-required tiles) leaves the gate's refusal
+## unproven, so the pass says so instead of reading as if it had tested it.
 func _prospect(estate: Dictionary) -> void:
 	var tile: Vector2i = estate["tile"]
 	var explorer: CivilianState = _unit("explorer")
@@ -342,6 +345,7 @@ func _prospect(estate: Dictionary) -> void:
 		_check("an Explorer musters", false, "no explorer")
 		return
 	if play.land_works.is_prospected(play.player_faction, play.model, tile):
+		_say("  already surveyed — the crown's start has read this mine")
 		return
 	var refused: Dictionary = ImprovementOrders.build(
 		play.model, play.civilian_layer.units, play.land_works,
@@ -427,12 +431,19 @@ func _owned_non_capital() -> ProvinceState:
 
 ## Developable resource tile in an owned province that still earns nothing,
 ## nearest the crown network first so the drive links it in a few turns
-## (`mineral` picks the prospecting gate).
+## (`mineral` picks the prospecting gate). The fields pass wants ground off the
+## crown's road so it has one to lay, so it skips the capital province; the
+## mineral pass takes whatever mine the crown holds, because a start may hold
+## every one of them inside the capital province (seed 1500 turn 100: Spain's
+## only two mines stand in Madrid) and the gate would otherwise never be played.
+## A non-capital mine still wins whenever the crown holds one.
 func _pick_estate(mineral: bool) -> Dictionary:
 	var best: Dictionary = {}
 	var best_score: int = 1 << 30
 	for province: ProvinceState in play.model.provinces:
-		if province.owner != play.player_faction or province.capital:
+		if province.owner != play.player_faction:
+			continue
+		if province.capital and not mineral:
 			continue
 		for tile: Vector2i in province.tiles:
 			var resource: int = play.model.resource_at(tile.x, tile.y)
@@ -456,6 +467,9 @@ func _pick_estate(mineral: bool) -> Dictionary:
 			# An unlinked estate is the one with road work to prove; a linked one
 			# only serves when the start already paved every province.
 			var score: int = (gap if gap > 0 else 1000) * 1000 + path.size()
+			if province.capital:
+				# The capital province is the fallback: any other mine outranks it.
+				score += 100_000_000
 			if best.is_empty() or score < best_score:
 				best_score = score
 				best = {

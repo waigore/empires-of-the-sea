@@ -147,7 +147,9 @@ func _run() -> bool:
 	## The plate reads the record once: ground, wall and gates come from it.
 	_field.set_battle(report)
 	_header.text = BattleSimDespatch.header(report, NAMES)
-	_readout.text = BattleSimDespatch.rules_text(report)
+	_readout.text = "%s\n%s" % [
+		BattleSimDespatch.rules_text(report), BattleSimDespatch.lever_text(spec),
+	]
 	_log.text = BattleSimDespatch.full(report, NAMES, SANDBOX)
 	BattleSimPlayback.set_round_buttons(_round_buttons, true, _rounds().size())
 	_status.text = BattleSimDespatch.status_for_round(report, 0)

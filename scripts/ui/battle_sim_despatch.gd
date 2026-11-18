@@ -39,6 +39,18 @@ static func full(report: Dictionary, names: Array, sandbox: String) -> String:
 	return "\n".join(lines)
 
 
+## The levers the rail set, in the rules' own words — each side's chevrons and
+## the battery's emplaced line (wiki: combat § Strength; siege-mechanics
+## § Emplaced Artillery) — so a playtester reads back what the fight was given.
+static func lever_text(spec: Dictionary) -> String:
+	var guns: String = RegimentCatalog.display_name(
+		FortRules.emplaced_type(spec.get("tech", {}) as Dictionary)
+	)
+	return "Setup — attacker medals %d · defender medals %d · %s in the battery" % [
+		int(spec.get("attacker_medals", 0)), int(spec.get("defender_medals", 0)), guns,
+	]
+
+
 ## The numbers behind the plate: what the ground, the wall and the gates do.
 static func rules_text(report: Dictionary) -> String:
 	var quick: Dictionary = report["quick"] as Dictionary

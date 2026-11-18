@@ -1,8 +1,9 @@
 class_name BattleSimSetup
 extends PanelContainer
-## The Battle Simulator's setup rail: ground, fort, three regiment slots a side,
-## plans and seed. It emits intents and hands a plain spec dictionary to
-## [BattleScenario] — it never resolves a rule itself (REQ-P2-03, REQ-P3-01).
+## The Battle Simulator's setup rail: ground, fort, the garrison's battery line,
+## three regiment slots a side, plans and medals. It emits intents and hands a
+## plain spec dictionary to [BattleScenario] — it never resolves a rule itself
+## (REQ-P2-03, REQ-P3-01).
 
 signal run_requested
 signal step_requested
@@ -10,6 +11,17 @@ signal reset_requested
 
 const SLOTS: int = 3
 const MAX_COUNT: int = 20
+## The garrison's emplaced line, as the studies the battery reads (wiki:
+## siege-mechanics § Emplaced Artillery): Royal by default, Heavy once mined,
+## Siege once the heavy line is mastered. Each row is the tech key the table
+## names, so the rail cannot offer a gun line `FortRules` does not know.
+const GUN_ROWS: Array[Array] = [
+	["", "Royal guns"], ["heavy_emplaced_artillery", "Heavy guns"],
+	["emplaced_siege_guns", "Siege guns"],
+]
+## Chevrons a commander's colours have won (wiki: combat § Strength): the
+## resolver reads 0–4 as a 1.0–1.4 multiplier, so the rail offers the same span.
+const MEDAL_MAX: int = 4
 
 const TERRAIN_ROWS: Array[Array] = [
 	["open", "Open field"], ["hill", "Hillside"], ["woods", "Woods"],
@@ -21,9 +33,11 @@ const PLAN_KEYS: Array[String] = ["aggressive", "balanced", "defensive"]
 
 var _terrain: OptionButton = null
 var _fort: OptionButton = null
+var _guns: OptionButton = null
 var _attacker_plan: OptionButton = null
 var _defender_plan: OptionButton = null
-var _seed: SpinBox = null
+var _attacker_medals: SpinBox = null
+var _defender_medals: SpinBox = null
 var _types: Array[String] = []
 var _attacker_slots: Array[Dictionary] = []
 var _defender_slots: Array[Dictionary] = []
@@ -46,12 +60,29 @@ func spec() -> Dictionary:
 		"terrain": String(TERRAIN_ROWS[maxi(_terrain.selected, 0)][0]),
 		"attacker_plan": PLAN_KEYS[maxi(_attacker_plan.selected, 0)],
 		"defender_plan": PLAN_KEYS[maxi(_defender_plan.selected, 0)],
-		"seed": int(_seed.value),
+		"attacker_medals": int(_attacker_medals.value),
+		"defender_medals": int(_defender_medals.value),
+		"tech": _gun_line(),
 	}
 
 
+## The studies the picked gun line implies, as the defending court's unlocked
+## techs — the shape `FortRules.emplaced_type` reads. A later line carries the
+## studies the table builds on, so Siege guns imply the heavy battery: the rail
+## offers the published chain, never a gun no court could hold.
+func _gun_line() -> Dictionary:
+	var studies: Dictionary = {}
+	if _guns == null:
+		return studies
+	for index in range(maxi(_guns.selected, 0) + 1):
+		var tech: String = String(GUN_ROWS[index][0])
+		if not tech.is_empty():
+			studies[tech] = true
+	return studies
+
+
 func _build() -> void:
-	## The rail scrolls on a short window so the seed and buttons never clip.
+	## The rail scrolls on a short window so the levers and buttons never clip.
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	add_child(scroll)
@@ -69,6 +100,10 @@ func _build() -> void:
 	_fort = _option_labeled(FORT_LABELS)
 	_fort.selected = 2
 	column.add_child(_fort)
+	## The wall's battery follows the defending court's line (wiki: siege-mechanics
+	## § Emplaced Artillery), so the rail names it where the fort is chosen.
+	_guns = _option(GUN_ROWS)
+	column.add_child(_guns)
 	column.add_child(_section("Attacker"))
 	_attacker_slots = _slot_block(column, "attacker")
 	column.add_child(_section("Defender"))
@@ -80,20 +115,13 @@ func _build() -> void:
 	_attacker_plan = _plan_picker(plans, "Attacker plan")
 	_defender_plan = _plan_picker(plans, "Defender plan")
 	_defender_plan.selected = 2
-	var seed_row := HBoxContainer.new()
-	seed_row.add_theme_constant_override("separation", 6)
-	column.add_child(seed_row)
-	var seed_label := _hint("Seed")
-	seed_label.autowrap_mode = TextServer.AUTOWRAP_OFF
-	seed_label.custom_minimum_size = Vector2(48, 0)
-	seed_row.add_child(seed_label)
-	_seed = SpinBox.new()
-	_seed.min_value = 0
-	_seed.max_value = 99999
-	_seed.value = 11
-	_seed.custom_minimum_size = Vector2(96, 0)
-	_seed.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	seed_row.add_child(_seed)
+	## Chevrons are the commander's own rank (wiki: combat § Strength), so each
+	## side gets its span beside its plan.
+	var medals := HBoxContainer.new()
+	medals.add_theme_constant_override("separation", 6)
+	column.add_child(medals)
+	_attacker_medals = _medal_picker(medals, "Attacker medals", 0)
+	_defender_medals = _medal_picker(medals, "Defender medals", 0)
 	var buttons := HBoxContainer.new()
 	buttons.add_theme_constant_override("separation", 6)
 	column.add_child(buttons)
@@ -179,6 +207,23 @@ func _plan_picker(row: HBoxContainer, label: String) -> OptionButton:
 	var picker := _option_labeled(PLAN_LABELS)
 	box.add_child(picker)
 	return picker
+
+
+## The commander's chevrons: the 0–4 span the resolver multiplies strength by
+## (wiki: combat § Strength), on the rail so a playtester can fight the same men
+## with and without their honours.
+func _medal_picker(row: HBoxContainer, label: String, start: int) -> SpinBox:
+	var box := VBoxContainer.new()
+	box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(box)
+	box.add_child(_hint(label))
+	var medals := SpinBox.new()
+	medals.min_value = 0
+	medals.max_value = MEDAL_MAX
+	medals.value = start
+	medals.custom_minimum_size = Vector2(58, 0)
+	box.add_child(medals)
+	return medals
 
 
 func _button(text: String, output: Signal) -> Button:

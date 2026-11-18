@@ -178,7 +178,8 @@ static func resolve(
 	if wanted > 0 and siege and key == "attacker":
 		var split: Dictionary = SiegeLanes.strike(
 			armies, me_side, enemy_side, wanted, int(enemy["limit"]), fort,
-			bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary
+			bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary,
+			enemy.get("lanes", {}) as Dictionary
 		)
 		var wall_lost: Array[String] = split["wall"]
 		var behind_lost: Array[String] = split["behind"]
@@ -193,7 +194,7 @@ static func resolve(
 		## hand-built state, a record before wings existed) bled as one deployed
 		## slice, exactly as before (wiki: quick-battle § Wings and collapse).
 		if wing.is_empty():
-			lost = ArmyForce.apply_losses(armies, enemy_side, wanted, int(enemy["limit"]))
+			lost = line_losses(armies, enemy_side, wanted, enemy)
 		else:
 			lost = ArmyForce.apply_losses(
 				armies, enemy_side, wanted, 0, Callable(),
@@ -206,7 +207,9 @@ static func resolve(
 	# The province's hospital triages the defender's survivors (DR-20261111-12).
 	if key == "attacker":
 		pool *= float(enemy.get("triage", 1.0))
-	entry["hits"] = RegimentCondition.damage_side(enemy_side, pool, int(enemy["limit"]))
+	entry["hits"] = RegimentCondition.damage_side(
+		enemy_side, pool, int(enemy["limit"]), line_of(enemy)
+	)
 	entry["mauled"] = (entry["hits"] as Array).size()
 	if key == "attacker":
 		entry["defender_lost"] = lost.size()
@@ -215,6 +218,52 @@ static func resolve(
 	if lost.size() >= ceili(float(enemy_count) * 0.25):
 		enemy["cohesion"] = maxi(0, int(enemy["cohesion"]) - 1)
 	return _pay_own(armies, me, key, entry, acted)
+
+
+## Regiments of one side's line still standing. The line is the battle's whole
+## fighting strength: it is dealt when the battle opens, and a reserve behind it
+## is never committed, so a side whose line is gone has nothing left to fight
+## with (wiki: combat § The line and the reserve; quick-battle § Wings and
+## collapse). A state dealt no line (a hand-built one, a record before the line
+## was dealt) reads its whole side, exactly as before.
+static func line_standing(state: Dictionary, key: String) -> int:
+	var side: Dictionary = state.get(key, {}) as Dictionary
+	var line: Array[String] = line_of(side)
+	if line.is_empty():
+		var whole: Array[ArmyState] = []
+		whole.assign(side.get("side", []) as Array)
+		return ArmyForce.side_regiments(whole)
+	var standing: Dictionary = QuickBattleWings.standing_ids(side)
+	var count: int = 0
+	for regiment_id: String in line:
+		if standing.has(regiment_id):
+			count += 1
+	return count
+
+
+## The line a side was dealt when the battle opened, as the typed id list the
+## army rules read. Empty for a state dealt no line (a hand-built one, a record
+## made before the line was dealt).
+static func line_of(side_state: Dictionary) -> Array[String]:
+	var line: Array[String] = []
+	line.assign(side_state.get("line", []) as Array)
+	return line
+
+
+## The men a blow may break: the line the battle dealt when it opened, so a
+## reserve stands through it whatever the line loses (wiki: combat § The line
+## and the reserve — "a reserve takes no casualties"; quick-battle § Wings and
+## collapse — "the reserve is dealt nowhere"). A state with no line (a
+## hand-built one, a record made before the line was dealt) keeps the older
+## read, the strongest `limit` of the side as it stands.
+static func line_losses(
+	armies: Array[ArmyState], side: Array[ArmyState], wanted: int, state: Dictionary
+) -> Array[String]:
+	var line: Array[String] = line_of(state)
+	return ArmyForce.apply_losses(
+		armies, side, wanted, 0 if not line.is_empty() else int(state["limit"]),
+		Callable(), line
+	)
 
 
 ## A side's combat multiplier from its modifier bundle; an unmodified side
@@ -233,15 +282,15 @@ static func _pay_own(
 		return entry
 	var own_side: Array[ArmyState] = me["side"]
 	var wanted_own: int = ceili(self_ratio * float(ArmyForce.side_regiments(own_side)))
-	var own: Array[String] = ArmyForce.apply_losses(
-		armies, own_side, wanted_own, int(me["limit"])
-	)
+	var own: Array[String] = line_losses(armies, own_side, wanted_own, me)
 	me["lost"].append_array(own)
 	var pool: float = float(own.size()) * RegimentCondition.HP_PER_SLOT
 	# A defender's own sally is triaged by its hospital too.
 	if key == "defender":
 		pool *= float(me.get("triage", 1.0))
-	entry["own_hits"] = RegimentCondition.damage_side(own_side, pool, int(me["limit"]))
+	entry["own_hits"] = RegimentCondition.damage_side(
+		own_side, pool, int(me["limit"]), line_of(me)
+	)
 	entry["own_mauled"] = (entry["own_hits"] as Array).size()
 	if key == "attacker":
 		entry["attacker_lost"] = int(entry["attacker_lost"]) + own.size()
