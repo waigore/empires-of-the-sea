@@ -4565,6 +4565,67 @@ func test_an_unsurveyed_deposit_prices_the_level_and_its_gate() -> void:
 	)
 
 
+## One gate answers the Build press and the words that refuse it: a row can
+## never offer a raise while naming a reason, nor hold a reason while offering
+## the press (REQ-P2-03, RUB-P2-03).
+func test_an_estate_rows_build_press_and_its_refusal_never_disagree() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var rows: Array[Dictionary] = [
+		EstateRows.project(
+			field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+			field__model.resource_at(
+				field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y
+			),
+			field_Fixture.PLAYER_PROVINCE,
+			{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [], {}
+		),
+		EstateRows.project(
+			field__model, field__works, [], {}, 0, field_Fixture.IRON_TILE,
+			field__model.resource_at(field_Fixture.IRON_TILE.x, field_Fixture.IRON_TILE.y),
+			field_Fixture.PLAYER_PROVINCE, {}, {"network": {}}, [], {}
+		),
+	]
+	var builder := field_Fixture.unit("builder", field_Fixture.TIMBER_TILE)
+	builder.start_work("build_improvement", field_Fixture.TIMBER_TILE, 1)
+	rows.append(EstateRows.project(
+		field__model, field__works, [builder], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [builder], {}
+	))
+	for row: Dictionary in rows:
+		assert_eq(
+			bool(row["can_build"]), String(row["build_reason"]).is_empty(),
+			"the press and its refusal read one gate: %s" % String(row["build_reason"])
+		)
+
+
+## The row's words live in one home: what the sheet prints is what
+## [EstateRowWords] reads off the priced row, cap line included (REQ-P3-01).
+func test_an_estate_row_prints_the_words_its_words_module_reads() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [],
+		{"timber": 2}
+	)
+	assert_eq(String(row["preview_text"]), EstateRowWords.preview_text(row))
+	assert_eq(
+		EstateRowWords.binding_cap(row), "the road's transport",
+		"the cap line names the tightest of the four the yield reads"
+	)
+	assert_true(
+		EstateRowWords.status_text(
+			String(row["status"]), int(row["resource"]), int(row["level"]),
+			int(row["output"]), int(row["tech_cap"]), int(row["terrain_cap"]),
+			int(row["transport"]), int(row["town_cap"]), null, true
+		).begins_with("Yields"),
+		"the status line is the words module's own read of the row"
+	)
+
+
 ## Two fort projects may run in one province, and the later completion adds no
 ## level (wiki: siege-mechanics § Fort Levels). The receipt must not claim a wall
 ## the turn did not raise: the crown paid twice and bought one wall.
