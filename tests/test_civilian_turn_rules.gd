@@ -1863,6 +1863,82 @@ func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
 	assert_true(kept_tiles.has(Vector2i(2, 0)), "the meat ranch keeps")
 
 
+## The bank keeps the road to a town that still stands off the crown network
+## (issue #995): a province's estates — the farms the bank itself raises among
+## them — pay nothing until the town reaches the capital under the Town rule, so
+## that one road is the bank's own provisioning, not an optional work. The roads
+## that serve no town, and the towns themselves, still wait for the purse.
+func test_a_banking_court_keeps_the_road_to_an_off_network_town() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var crops: Array = MapPlayCivilianAi.bank_crops(config, economy)
+	var model := MapModel.new()
+	model.setup(6, 1)
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	for x in 6:
+		model.resource[model.index_of(x, 0)] = MapModel.NO_ID
+	var plan: Dictionary = {
+		"orders": [
+			{"action": "build_road", "tile": Vector2i(1, 0)},
+			{"action": "build_road", "tile": Vector2i(3, 0)},
+			{"action": "build_town", "tile": Vector2i(4, 0)},
+			{"action": "build_port", "tile": Vector2i(5, 0)},
+		],
+	}
+
+	MapPlayCivilianAi.keep_bank_works(
+		plan, model, crops, {Vector2i(1, 0): true}
+	)
+
+	var kept: Array = plan["orders"]
+	assert_eq(kept.size(), 1, "the town link alone survives the trim")
+	assert_eq(String((kept[0] as Dictionary)["action"]), "build_road")
+	assert_eq((kept[0] as Dictionary)["tile"], Vector2i(1, 0), "the town link keeps")
+
+
+## `AiTownRoads.steps` names the first unroaded tile on the walk from each
+## off-network town toward the capital network — the road the bank keeps — and
+## the walk moves on as the road is laid, so the link is built a turn at a time.
+func test_town_road_steps_name_the_first_unroaded_tile_to_the_network() -> void:
+	var model := MapModel.new()
+	model.setup(6, 1)
+	var tiles: Array[Vector2i] = []
+	for x in 6:
+		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(x, 0)] = 0
+		tiles.append(Vector2i(x, 0))
+	var province := ProvinceState.create(
+		0, "Colonia", tiles, Vector2(2.5, 0.0), tiles.size(), PLAYER, false
+	)
+	province.town_tile = Vector2i(5, 0)
+	model.provinces = [province]
+	var works := LandWorks.new()
+	var connected: Dictionary = {model.index_of(0, 0): true}
+
+	var steps: Dictionary = AiTownRoads.steps(model, works, PLAYER, connected)
+	assert_eq(steps.size(), 1, "one off-network town, one step")
+	assert_true(steps.has(Vector2i(5, 0)), "the town's own tile is the first step")
+
+	# The road lands on the town: the walk moves on toward the crown network.
+	works.set_transport(model, Vector2i(5, 0), LandWorks.TRANSPORT_ROAD)
+	steps = AiTownRoads.steps(model, works, PLAYER, connected)
+	assert_true(steps.has(Vector2i(4, 0)), "the next step follows the road inland")
+	assert_false(steps.has(Vector2i(5, 0)), "the roaded tile is no step")
+
+	# A town the network already reaches asks for no road at all.
+	steps = AiTownRoads.steps(
+		model, works, PLAYER, {model.index_of(0, 0): true, model.index_of(5, 0): true}
+	)
+	assert_true(steps.is_empty(), "a connected town offers no step")
+
+	# A caller with no map, no network or no owner names no step: the read fails
+	# closed, so the bank's trim never keeps a road for a court it cannot price.
+	assert_true(AiTownRoads.steps(null, works, PLAYER, connected).is_empty())
+	assert_true(AiTownRoads.steps(model, null, PLAYER, connected).is_empty())
+	assert_true(AiTownRoads.steps(model, works, -1, connected).is_empty())
+	assert_true(AiTownRoads.steps(model, works, PLAYER, {}).is_empty())
+
+
 ## The two purses: a court on `earn` keeps the works open down to its cash floor
 ## while hires still wait for the muster (issue #489).
 func test_the_works_purse_opens_when_the_court_is_earning() -> void:

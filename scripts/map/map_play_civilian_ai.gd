@@ -77,6 +77,7 @@ static func plan_all(
 		if model == null or roster.is_empty() or works == null:
 			continue
 		var capital: Dictionary = WorldBootstrap.capital_seat(model, faction)
+		var capital_tile: Vector2i = capital["tile"]
 		var tech_caps: Dictionary = TechCatalog.extraction_caps(economy.tech_unlocked)
 		var context: Dictionary = {
 			"treasury": works_cash,
@@ -84,7 +85,7 @@ static func plan_all(
 			"earn": earn,
 			"paper": economy.quantity("paper"),
 			"capital_province": int(capital["province"]),
-			"capital_tile": capital["tile"],
+			"capital_tile": capital_tile,
 			"tech_unlocked": economy.tech_unlocked,
 			"at_war": MapPlayCourt.at_war(play, faction), "diplomacy": play.diplomacy,
 			"phase": posture,
@@ -137,7 +138,15 @@ static func plan_all(
 		)
 		if earn:
 			if conquest_bank:
-				keep_bank_works(plan, model, bank_crops(config, economy))
+				keep_bank_works(
+					plan, model, bank_crops(config, economy),
+					AiTownRoads.steps(
+						model, works, faction,
+						ImprovementSystem.connected_tiles(
+							model, works, faction, capital_tile
+						)
+					)
+				)
 			else:
 				keep_extraction(plan, model)
 		price(plan["orders"], model, works, stockpile)
@@ -197,13 +206,25 @@ static func keep_extraction(plan: Dictionary, model: MapModel) -> void:
 ## for its next line, the farms and the line's own feedstock keep — the ration
 ## estates that feed the mouths the army has, the wool and the iron the
 ## pattern it saves for are woven and cast into, and the prospecting that
-## opens a paying tile. The other estates wait with the towns, roads and
-## ports: their lumber and cast iron are the stock the sale needs, and the
-## estate engine they feed is the engine that never armed the court (issue
-## #995; the France reading on the same bench — the court that sold its raw
-## won; the estate court parked). The food claims and the lock-recovery
-## purchases still keep the larder fed, so a fed court stays fed (#807).
-static func keep_bank_works(plan: Dictionary, model: MapModel, crops: Array) -> void:
+## opens a paying tile. The other estates wait with the towns and ports: their
+## lumber and cast iron are the stock the sale needs, and the estate engine
+## they feed is the engine that never armed the court (issue #995; the France
+## reading on the same bench — the court that sold its raw won; the estate
+## court parked). The food claims and the lock-recovery purchases still keep
+## the larder fed, so a fed court stays fed (#807).
+##
+## `town_roads` is the town-link step set (`AiTownRoads.steps`): those roads
+## keep too. A province's estates pay only once its town reaches the capital
+## under the Town rule, and a Builder prices an off-network raise on the
+## promise that the engineer's road follows — a promise this trim used to break
+## by waiting the roads with the towns, so a farm the bank raised on a province
+## whose town stood off the network gathered nothing. One road pays a whole
+## province, which is the bank's own provisioning, exactly like the farmhand
+## hire. An order on the tile of a crop the bank already keeps keeps as it is:
+## that estate's own link is its provisioning too.
+static func keep_bank_works(
+	plan: Dictionary, model: MapModel, crops: Array, town_roads: Dictionary = {}
+) -> void:
 	var kept: Array[Dictionary] = []
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
@@ -212,6 +233,9 @@ static func keep_bank_works(plan: Dictionary, model: MapModel, crops: Array) -> 
 			continue
 		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
 		if tile.x < 0:
+			continue
+		if town_roads.has(tile):
+			kept.append(order)
 			continue
 		var resource: int = model.resource_at(tile.x, tile.y)
 		if resource != MapModel.NO_ID and crops.has(
