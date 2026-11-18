@@ -53,9 +53,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   the pocket chart and `ResearchPanel` only when a case reads them.
 - **Heaviest suite sorts first**: name order, four wide — a long `world_…`
   suite must not drain alone.
-- One Godot boot per theme — coverage ~15 s a boot; 27 → 24 suites
-  (fort capital→battle, observer parts→ai_observer, branding→plate).
-  `gd-tools.toml` keeps `parallel = 4`.
+- One Godot boot per theme — coverage ~15 s a boot; 26 → 24 suites
+  (heraldry + tile edges → chrome plate). `gd-tools.toml`: `parallel = 4`.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
