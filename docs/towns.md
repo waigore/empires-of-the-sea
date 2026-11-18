@@ -47,9 +47,9 @@ toast, and the row repaints as `AT WORK`. A row that cannot be raised carries no
 press: the note names the wait — stores short, or another crew on the town tile
 (a wall or a ward rising there) — in the order's own words.
 
-**Raise all ready (n)** files every ready row — arm once, confirm once — in the
-sheet's order, stopping at the first refusal. One receipt names what it raised
-and what waits (DR-20261116-03).
+**Raise all ready (n)** files every ready row — arm, confirm — in the sheet's
+order, stopping at the first refusal; the line under it prices the walk and
+names the rows that wait (DR-20261116-03, DR-20261118-12).
 
 ## Architecture
 

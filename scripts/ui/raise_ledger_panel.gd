@@ -14,6 +14,9 @@ extends LedgerSheet
 ## this spine's own.
 
 var _batch: RaiseBatchPress = null
+## What the press would spend, under it: the stores the line takes, or the ready
+## rows the stores and the free crews leave waiting (DR-20261118-12).
+var _line: Label = null
 
 
 ## Re-reads both charts for the player's crown and repaints the view.
@@ -103,6 +106,12 @@ func _extra() -> Control:
 	_batch = RaiseBatchPress.new()
 	_batch.confirmed.connect(_raise_all)
 	box.add_child(_batch)
+	# What the second tap spends, under the press and above the rows: a phone
+	# reads the price with the press, never in a hover (REQ-P1-07, REQ-P5-06;
+	# DR-20261118-12).
+	_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
+	_line.visible = false
+	box.add_child(_line)
 	return box
 
 
@@ -161,12 +170,36 @@ func _ready_targets() -> Array[Dictionary]:
 
 
 ## The press names how many steps it would file, so the count is read before the
-## stores are spent (REQ-P5-03, REQ-P5-05).
+## stores are spent (REQ-P5-03, REQ-P5-05), and the line under it names what the
+## walk would take — the materials and the crews the stores and the free hands
+## carry, or how many ready rows wait and why (DR-20261118-12).
 func _sync_batch() -> void:
 	if _batch == null:
 		return
-	var ready: int = _ready_targets().size()
+	var targets: Array[Dictionary] = _ready_targets()
+	var ready: int = targets.size()
 	_batch.set_ready(ready, _row_word(ready))
+	if _line == null:
+		return
+	# The stores the line is priced from and the free crews of the sheet's own
+	# trade, as the snapshot read them over both charts: one order ties one crew
+	# up, so five ready towns with one Builder carry one and the rest wait.
+	var stores: Variant = _snapshot.get("stores", {})
+	var crews: Variant = _snapshot.get("crews", {})
+	var reading: Dictionary = RaiseLine.plan(
+		targets,
+		stores if stores is Dictionary else {},
+		int((crews as Dictionary).get(_crew_type(), 0)) if crews is Dictionary else 0,
+		CivilianCatalog.display_name(_crew_type())
+	)
+	_line.text = RaiseLine.sheet_line(reading)
+	_line.visible = not _line.text.is_empty()
+
+
+## The trade this sheet's orders dispatch: a Builder for the towns, an Engineer
+## for the walls and the wards. A sheet names its own.
+func _crew_type() -> String:
+	return "builder"
 
 
 ## Files every ready step the view prints, in its order, and prints one receipt:

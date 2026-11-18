@@ -34,7 +34,7 @@ Implement default: largest clear item here, then REQ/wiki.
 | Destitute-economy bundle | ration ×2; ward gate; muster un-latch |
 | Market + naval dispatch | `trade.market`/`navy.missions`, DR-17-01 |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
-| Raise/crew/yard/muster/workers/college/deed/town | ledgers + pick/Follow; payoff lines; DR-17-03/05–07/09/15 + DR-18-01/03–06 |
+| Raise/crew/yard/muster/workers/college/deed/town | ledgers + pick/Follow; payoff and line prices; DR-17-03/05–07/09/15 + DR-18-01/03–06/12 |
 | QB wings + handset plate | `QuickBattleWings`; `BattlePlateFrame`, DR-17-08/14 |
 | Rail pick door; dossier rail | `RailWorks`; `ProvinceRailBlock`, DR-17-10 |
 | Observatory sheet + feed | `ObserverProvince*`; `ObserverTurnFeed`, DR-17-11/12 |
@@ -54,7 +54,7 @@ REQ/wiki.
 - Predict-the-line (DR-12-02); era — no model (DR-11-08).
 - Healing at 0 health; last-known OOB (DR-12-04/09); general-grade trains
   (DR-12-07).
-- Soft priority weight — still seed (DR-17-01); posture/goal/victory live.
+- Soft priority weight — seed (DR-17-01); posture/goal/victory live.
 - Alt victory, difficulty extras, ruleset loaders/borrowing, warehousing,
   loans, sea-zone names — out of scope; Join Empire cost — rules call.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.

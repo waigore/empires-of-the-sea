@@ -153,10 +153,12 @@ static func _row(
 		STATE_RAISED,
 		STATE_NO_ENGINEER
 	)
-	var cost_text: String = CivilianWorkPlan.cost_text(FortRules.cost(next))
+	var cost: Dictionary = FortRules.cost(next)
+	var cost_text: String = CivilianWorkPlan.cost_text(cost)
 	var turns: int = FortRules.turns(next)
 	var row: Dictionary = RaiseLedger.row_head(province, region, level, level_text(level))
 	row.merge(RaiseLedger.row_step(state, crew, cost_text, turns))
+	row["cost"] = cost
 	row["line"] = FortRules.describe(level)
 	row["guns"] = FortRules.guns(level)
 	row["wall_hp"] = int(round(FortRules.wall_hp(level)))
