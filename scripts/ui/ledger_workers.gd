@@ -68,7 +68,12 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 ## § Consumption; REQ-P5-06). Touch parity: every line is on the tab, not in a
 ## hover hint (REQ-P1-05, REQ-P5-07).
 func _larder(economy: PlayerEconomy, report: Dictionary) -> Control:
-	var read: Dictionary = LarderRead.forecast(economy, LarderRead.mouths(report))
+	# The panel's projection is the turn the phase will run, so it already feeds
+	# the hands and the musters Build/work lands: the larder must not count them
+	# a second time (wiki: workers-and-population § Phase placement).
+	var read: Dictionary = LarderRead.forecast(
+		economy, LarderRead.mouths(report), false
+	)
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 2)
 	box.add_child(UiRowBuilder.wrapped_line("LARDER · NEXT TURN", 11, Palette.TEXT_DIM))
