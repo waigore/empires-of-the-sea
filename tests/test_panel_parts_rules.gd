@@ -5216,6 +5216,63 @@ func test_the_dossier_names_the_deed_that_holds_the_ground() -> void:
 	)
 
 
+## The passengers block reads a landing as a tile: a coast with one legal ground
+## lands in one press, a coast with several opens its grounds, and the ground's
+## press carries that tile (wiki: civilian-units § Landing; DR-20261118-19).
+func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	block.set_data({
+		"count": 1,
+		"note": "1 aboard: Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{"province": 4, "name": "Cadiz", "tiles": [{"x": 2, "y": 3}]},
+			{
+				"province": 5,
+				"name": "Vera Cruz",
+				"tiles": [{"x": 7, "y": 8}, {"x": 9, "y": 10}],
+			},
+		],
+	})
+	var coasts: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(coasts.size(), 2, "one press per coast")
+	var single: Button = coasts[0] as Button
+	assert_eq(single.text, "Put ashore at Cadiz")
+	single.pressed.emit()
+	assert_eq(fired, ["crew:land:2:3"], "one ground lands in one press")
+	assert_eq(block.open_coast, -1, "a single-ground coast opens nothing")
+
+	var many: Button = coasts[1] as Button
+	assert_true(many.text.begins_with("Put ashore at Vera Cruz · 2 grounds"))
+	many.pressed.emit()
+	assert_eq(block.open_coast, 5, "the coast opens")
+	assert_eq(fired.size(), 1, "opening a coast orders nothing")
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(rows.size(), 3, "the way back and the coast's two grounds")
+	assert_eq((rows[1] as Button).text, "Vera Cruz (7, 8)")
+	(rows[1] as Button).pressed.emit()
+	assert_eq(fired.size(), 2)
+	assert_eq(fired[1], "crew:land:7:8", "the ground's press carries its own tile")
+	assert_eq(block.open_coast, -1, "the press closes the coast")
+
+	# The coasts are back, and the way back out of a coast orders nothing.
+	var reopened: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(reopened.size(), 2, "the coasts are back")
+	(reopened[1] as Button).pressed.emit()
+	var grounds: Array[Node] = block.find_children("", "Button", true, false)
+	(grounds[0] as Button).pressed.emit()
+	assert_eq(block.open_coast, -1, "the way back closes the coast")
+	assert_eq(fired.size(), 2, "no order leaves the way back")
+
+	block.set_data({"count": 0, "land": [], "embark": [], "sortie": []})
+	assert_false(block.visible, "no passengers, no block")
+	block.free()
+
+
 func _dossier_detail_of(unit: CivilianState, model: MapModel, caption: String) -> String:
 	for row: Array in CivilianPanelDetail.rows(model, unit, LandWorks.new(), {}):
 		if String(row[0]) == caption:

@@ -1703,6 +1703,50 @@ func test_the_home_dossier_ships_a_colonist_and_can_sortie() -> void:
 	assert_false(NavalMovement.is_home_fleet(_screen.model, home))
 
 
+## A landing is a tile: the dossier groups the legal grounds by coast and the
+## crown's press puts the crew on the one it named, not the first the rules read
+## (wiki: civilian-units § Landing, § Acceptance Criteria; DR-20261118-19).
+func test_the_crew_lands_on_the_ground_the_crown_names() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var unit: CivilianState = _screen.civilian_layer.units[0]
+	unit.tile = _screen.model.province_tiles(capital)[0]
+	unit.moved = false
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % unit.id)
+	assert_true(unit.is_embarked())
+
+	var coast: Dictionary = {}
+	for raw: Variant in MapPlayCivilianVoyage.crew(_screen.play, home)["land"]:
+		var row: Dictionary = raw as Dictionary
+		if int(row.get("province", -1)) == capital:
+			coast = row
+			break
+	assert_false(coast.is_empty(), "the capital coast is offered")
+	var legal: Array[Vector2i] = CivilianVoyage.landing_tiles_in(
+		_screen.model, unit, home, capital
+	)
+	var grounds: Array = coast.get("tiles", [])
+	assert_eq(grounds.size(), legal.size(), "every legal ground is on the row")
+	assert_gte(legal.size(), 2, "the capital coast holds more than one ground")
+	assert_eq(
+		Vector2i(int(grounds[0]["x"]), int(grounds[0]["y"])),
+		legal[0],
+		"the row reads the rules' own order"
+	)
+
+	var chosen: Vector2i = legal[legal.size() - 1]
+	assert_ne(chosen, legal[0], "a ground other than the first one read")
+	MapPlayCivilianVoyage.on_action(
+		_screen.play, "crew:land:%d:%d" % [chosen.x, chosen.y]
+	)
+
+	assert_false(unit.is_embarked())
+	assert_eq(unit.tile, chosen, "the crown's ground, not the first on the coast")
+	assert_true(_screen.civilian_layer.marker_for(unit).visible)
+
+
 ## A squadron of several hulls flies them: the marker's escorts, hull badge and
 ## strength gauge follow every launch and breaking up (wiki: ships-and-naval
 ## § Naval Strength Aggregation Formula).

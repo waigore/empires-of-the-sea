@@ -29,20 +29,23 @@ static func crew(play: PlaySession, fleet: FleetState) -> Dictionary:
 			var row: Dictionary = {"id": unit.id, "name": unit.display_name()}
 			data["embark"].append(row)
 	if not aboard.is_empty():
-		var provinces: Array[int] = []
-		for unit: CivilianState in aboard:
-			for province: int in CivilianVoyage.landing_provinces(
-				play.model, unit, fleet
-			):
-				if not provinces.has(province):
-					provinces.append(province)
-		provinces.sort()
-		for province: int in provinces:
-			var row: Dictionary = {
+		# The landing rule names a tile; the dossier groups the legal grounds by
+		# the coast they stand on, so the crown reads one line per coast and the
+		# grounds behind it (wiki: civilian-units § Landing).
+		var by_coast: Dictionary = _grounds(play, fleet, aboard)
+		var coasts: Array[int] = [] as Array[int]
+		for province: int in by_coast.keys():
+			coasts.append(province)
+		coasts.sort()
+		for province: int in coasts:
+			var grounds: Array[Dictionary] = [] as Array[Dictionary]
+			for tile: Vector2i in by_coast[province]:
+				grounds.append({"x": tile.x, "y": tile.y})
+			data["land"].append({
 				"province": province,
 				"name": play.model.province_name(province),
-			}
-			data["land"].append(row)
+				"tiles": grounds,
+			})
 	for zone: int in FleetSortie.zones(play.model, fleet):
 		if not bool(FleetSortie.can_sortie(play.model, fleet, zone)["ok"]):
 			continue
@@ -62,7 +65,11 @@ static func on_action(play: PlaySession, action: String) -> bool:
 		embark(play, fleet, int(action.trim_prefix("crew:embark:")))
 		return true
 	if action.begins_with("crew:land:"):
-		land(play, fleet, int(action.trim_prefix("crew:land:")))
+		var pick: PackedStringArray = action.trim_prefix("crew:land:").split(":")
+		if pick.size() >= 2:
+			land(play, fleet, Vector2i(int(pick[0]), int(pick[1])))
+		else:
+			land(play, fleet, int(pick[0]))
 		return true
 	if action.begins_with("sortie:"):
 		sortie(play, fleet, int(action.trim_prefix("sortie:")))
@@ -85,16 +92,26 @@ static func embark(play: PlaySession, fleet: FleetState, unit_id: int) -> void:
 	_refresh(play, fleet)
 
 
-## Puts the first passenger able to take the chosen coast ashore. A landing
+## Puts a passenger ashore on the ground the crown named. `tile` is the tile the
+## sheet pressed; a caller that names only the coast (a script, the smoke flow)
+## passes the province and lands on the first legal ground it reads. A landing
 ## reveals the tile and its orthogonal neighbours (fog-and-exploration § New
 ## World arrival).
-static func land(play: PlaySession, fleet: FleetState, province_id: int) -> void:
-	var unit: CivilianState = null
+static func land(play: PlaySession, fleet: FleetState, ground: Variant) -> void:
+	var province_id: int = CivilianVoyage.NO_ID
 	var tile: Vector2i = CivilianState.NO_TILE
+	if ground is Vector2i:
+		tile = ground as Vector2i
+	else:
+		province_id = int(ground)
+	var unit: CivilianState = null
 	for candidate: CivilianState in _aboard(play, fleet):
-		tile = CivilianVoyage.landing_tile_in(
-			play.model, candidate, fleet, province_id
-		)
+		if tile.x >= 0:
+			if bool(CivilianVoyage.can_disembark(play.model, candidate, fleet, tile)["ok"]):
+				unit = candidate
+				break
+			continue
+		tile = CivilianVoyage.landing_tile_in(play.model, candidate, fleet, province_id)
 		if tile.x >= 0:
 			unit = candidate
 			break
@@ -107,8 +124,11 @@ static func land(play: PlaySession, fleet: FleetState, province_id: int) -> void
 		return
 	CivilianVoyageMap.show_ashore(play.civilian_layer, unit)
 	_reveal(play, tile)
-	var place: String = play.model.province_name(province_id)
-	play.hud.toast("The %s goes ashore at %s" % [unit.display_name(), place])
+	var place: String = play.model.province_name(play.model.province_at(tile.x, tile.y))
+	play.hud.toast(
+		"The %s goes ashore at %s (%d, %d)"
+		% [unit.display_name(), place, tile.x, tile.y]
+	)
 	_refresh(play, fleet)
 
 
@@ -118,6 +138,26 @@ static func sortie(play: PlaySession, fleet: FleetState, zone: int) -> void:
 	var result: Dictionary = play.ship_layer.sortie(fleet, zone)
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The squadron cannot sail.")))
+
+
+## Legal landing grounds of this squadron, grouped by the coast they stand on and
+## deduplicated across passengers: two colonists aboard read one row per ground,
+## not one per passenger.
+static func _grounds(
+	play: PlaySession, fleet: FleetState, aboard: Array[CivilianState]
+) -> Dictionary:
+	var by_coast: Dictionary = {}
+	for unit: CivilianState in aboard:
+		for tile: Vector2i in CivilianVoyage.landing_tiles(play.model, unit, fleet):
+			var province: int = play.model.province_at(tile.x, tile.y)
+			if province == CivilianVoyage.NO_ID:
+				continue
+			if not by_coast.has(province):
+				by_coast[province] = []
+			var grounds: Array = by_coast[province]
+			if not grounds.has(tile):
+				grounds.append(tile)
+	return by_coast
 
 
 ## Passengers carried by this squadron, in instance-id order.
