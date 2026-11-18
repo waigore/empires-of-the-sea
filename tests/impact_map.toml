@@ -191,6 +191,17 @@ suites = [
   "test_fleet_orders.gd",
 ]
 
+# The fleet's passenger block: the landing data the block reads and the block
+# itself (wiki: civilian-units § Overseas deployment). The orders suite mounts
+# the dossier and presses the intents; the panel suite mounts the rows. Declared
+# ahead of the civilian and fleet globs so a voyage edit never pays for the map
+# screen or the battle suite.
+[domains.naval_voyage]
+suites = [
+  "test_fleet_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
 # Naval battle pass: the resolver, difficulty sea strength, ration morale and
 # dossier odds. MapScreen and save-codec round-trips (~2 min each) stay off
 # this domain so a naval-turn PR stays inside the tier-1 5 min budget.
@@ -2741,6 +2752,18 @@ domain = "ai_economy"
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
 domain = "civilian"
+
+# The passenger block's slice: the voyage data (`MapPlayCivilianVoyage`) and the
+# block that reads it (`FleetCrewSection`) travel together, so a landing-sheet
+# edit rides the two suites that mount both instead of the civilian and fleet
+# domains' whole fan-out (tier-1 5 min budget).
+[[rules]]
+match = "scripts/map/map_play_civilian_voyage.gd*"
+domain = "naval_voyage"
+
+[[rules]]
+match = "scripts/ui/fleet_crew_section.gd*"
+domain = "naval_voyage"
 
 [[rules]]
 match = "scripts/map/civilian_*.gd*"

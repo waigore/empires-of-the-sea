@@ -76,8 +76,7 @@ static func _run_region(
 		) or changed
 		# The rotation's merge leg (issue #974): a field army the court just
 		# marched home folds into the Home Army, so the next split re-fields a
-		# full-strength replacement. Baselines keep the frozen shape — their
-		# planners issue no rotation orders.
+		# full-strength replacement. Baselines issue no rotation orders.
 		if kind != AiControl.KIND_BASELINE:
 			changed = _apply_rotation_combine(
 				play, model, roster, faction, plan, trace
@@ -152,8 +151,7 @@ static func _apply_marches(
 			continue
 		var province: int = int(order["province"])
 		# The rival marches through the same gate the crown does: a Tribe needs
-		# no declaration, but a Tribe province another crown has bought land in
-		# does (wiki: factions § Tribe; REQ-P2-03).
+		# no declaration, but a Tribe province a crown has bought land in does.
 		var owner: int = model.province_owner(province)
 		var may_enter: bool = (
 			owner == MapModel.NO_ID or owner == faction
@@ -163,10 +161,15 @@ static func _apply_marches(
 		if not bool(march.get("ok", false)):
 			continue
 		changed = true
+		var attacked: bool = bool(march.get("attacked", false))
+		# The prosecution note (issue #999): an attack on another court's ground
+		# is what makes a war pay, and the diplomacy pass reads it.
+		if attacked and play.ai != null and owner != MapModel.NO_ID and owner != faction:
+			AiWarMemory.note_attack(play.ai, faction, owner, play.turn)
 		var line: Dictionary = MapPlayCourt.army_trace(
 			model, faction, kind, army.id, province
 		)
-		line["attacked"] = bool(march.get("attacked", false))
+		line["attacked"] = attacked
 		trace.append(line)
 		_report_march(play, model, faction, province)
 	return changed
@@ -219,3 +222,4 @@ static func _apply_rotation_combine(
 			)
 		)
 	return changed
+

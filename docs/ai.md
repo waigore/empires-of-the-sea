@@ -12,8 +12,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Power** (`AiPower`): provinces×10 + regiments + ships×5; bands
   +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda; goals
-  `round(desire/25)`. Envy +20; a deed resists; weariness and truces lower it
-  (DR-20261113-25/14-01).
+  `round(desire/25)`. Envy +20; a deed resists; weariness, pointless-war
+  erosion and truces lower it (DR-20261113-25/14-01/18-27).
 - **Diplomacy planner** (`AiDiplomacyPlanner`): one order from that tally.
   Declarations need relation ≤ ceiling (50; warmonger 70, peacemaker 30) and
   desire ≥ 51; at war, below `50 + peace_bias` peace is offered, each refusal

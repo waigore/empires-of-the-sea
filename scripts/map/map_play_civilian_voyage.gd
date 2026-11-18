@@ -42,19 +42,24 @@ static func crew(play: PlaySession, fleet: FleetState) -> Dictionary:
 		for type_id: String in _aboard_types(aboard):
 			for province: int in _provinces_of(by_coast, type_id):
 				var row: Dictionary = by_coast["%d|%s" % [province, type_id]]
+				var tiles: Array[Vector2i] = row["tiles"]
 				var grounds: Array[Dictionary] = [] as Array[Dictionary]
-				for tile: Vector2i in row["tiles"]:
+				for tile: Vector2i in tiles:
 					grounds.append({
 						"x": tile.x, "y": tile.y,
 						"ground": _ground_label(play, tile),
 					})
-				data["land"].append({
+				var entry: Dictionary = {
 					"province": province,
 					"name": play.model.province_name(province),
 					"crew": type_id,
 					"crew_name": CivilianCatalog.display_name(type_id),
 					"tiles": grounds,
-				})
+				}
+				var seat: Dictionary = _seat(play, fleet, province, tiles)
+				if not seat.is_empty():
+					entry["seat"] = seat
+				data["land"].append(entry)
 	for zone: int in FleetSortie.zones(play.model, fleet):
 		if not bool(FleetSortie.can_sortie(play.model, fleet, zone)["ok"]):
 			continue
@@ -242,6 +247,25 @@ static func _ground_label(play: PlaySession, tile: Vector2i) -> String:
 	if terrain.is_empty():
 		return ImprovementCatalog.commodity_label(commodity)
 	return "%s · %s" % [terrain, ImprovementCatalog.commodity_label(commodity)]
+
+
+## The crown's own seat on this coast: the province's town site (its seat on a
+## chart that predates town assignment), when the squadron is docked there and
+## that ground is one this crew kind may take. A crown that only wants the crew
+## ashore at home reads one press instead of the coast's whole list (wiki:
+## civilian-units § Landing).
+static func _seat(
+	play: PlaySession, fleet: FleetState, province: int, tiles: Array[Vector2i]
+) -> Dictionary:
+	if not fleet.is_in_port() or province != fleet.province:
+		return {}
+	var data: ProvinceState = play.model.province_data(province)
+	if data == null:
+		return {}
+	var seat: Vector2i = data.town_site()
+	if seat.x < 0 or not tiles.has(seat):
+		return {}
+	return {"x": seat.x, "y": seat.y, "ground": _ground_label(play, seat)}
 
 
 ## Passengers carried by this squadron, in instance-id order.

@@ -165,11 +165,15 @@ static func _land(
 ) -> Dictionary:
 	var army: ArmyState = _carried_army(armies, fleet)
 	var province: int = int(order.get("province", -1))
+	var owner: int = model.province_owner(province)
 	var result: Dictionary = NavalTransport.disembark(
 		model, army, fleet, province, play.turn, _hostile(play), play.diplomacy
 	)
 	if not bool(result.get("ok", false)):
 		return {}
+	# A landing on another court's coast is prosecution too (issue #999).
+	if play.ai != null and owner != MapModel.NO_ID and owner != fleet.owner:
+		AiWarMemory.note_attack(play.ai, fleet.owner, owner, play.turn)
 	_report_landing(play, model, fleet.owner, province)
 	return {
 		"army": army.id,

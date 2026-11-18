@@ -24,8 +24,8 @@
   <div class="status">
     <strong>Phase:</strong> issue #910 climb — the honest floor cleared; the crown gates open<br/>
     <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">1970.68</span> (<code>910-15-pressure-250.json</code>)<br/>
-    <strong>Best honest so far:</strong> 1970.68 · 16 OW · 0 NW · 5 reg · 3 ships<br/>
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2357.77</span> (<code>999-01-war-that-takes-nothing.json</code>)<br/>
+    <strong>Best honest so far:</strong> 2373.61 · 15 OW · 6 NW · 4 reg · 3 ships (<code>974-01-re-field-the-host.json</code>)<br/>
     <strong>Open gates:</strong> bench &gt; 2153.73 · <code>provinces_new</code> &gt; 0 · the +500 win bonus — the stall's next levers are listed at the foot of this page
   </div>
 
@@ -162,6 +162,14 @@
         <td>byte-identical to 974-01</td>
         <td class="bad">inert: the objective ledger is the explainability layer — the production and work-order planners spend on their own gates and never read the rank, so the shift moved a report row and not a ducat. Reworked into 910-24: the arms-first veto lands in the economy pass itself</td>
         <td><a href="reports/ai-bench/910-23-arms-before-builds.json">910-23-arms-before-builds.json</a></td>
+      </tr>
+      <tr>
+        <td>999-01</td>
+        <td>The war-benefit read — the army pass notes each court's last attack on another court's ground (directional: marches and landings); past the grace a war with no attack for 4 turns erodes 10 desire a turn from the first quiet turn, and the outmatch exemption covers a prosecution, not a static power score (#999)</td>
+        <td>2357.77</td>
+        <td>15 OW · 6 NW · 4 reg · 3 ships · workers 5 · income 361.55 · funded 83.40</td>
+        <td class="bad">−15.8 against the #974 keeper and well above the 1904.52 floor: same provinces, forces and workers; the campaign resolves at t127 instead of t121 and the income rate gives back 17, the price of the wars the court now leaves (the colonies and the host are untouched). Read as the cost of a behaviour the issue asked for; the arms-before-builds line stays the open lever for the income term</td>
+        <td><a href="reports/ai-bench/999-01-war-that-takes-nothing.json">999-01-war-that-takes-nothing.json</a></td>
       </tr>
     </tbody>
   </table>

@@ -999,7 +999,7 @@ func test_the_heading_totals_what_the_college_spends() -> void:
 # --- the college's one press -------------------------------------------------
 ## One press takes every study under way to a preset and prices the line it
 ## files before the crown signs (wiki: tech-tree § Research Model;
-## DR-20261118-25; REQ-P5-04, REQ-P5-05).
+## DR-20261118-26; REQ-P5-04, REQ-P5-05).
 func test_the_one_press_files_every_study_at_its_preset() -> void:
 	_panel_state.assign("crop_rotation", "low")
 	_panel_state.assign("saw_mill", "medium")
@@ -1112,6 +1112,22 @@ func test_the_batch_moves_every_slot_through_the_published_setter() -> void:
 		ResearchBatch.sheet_line(ResearchBatch.plan(state, "maximum", 9000)),
 		"Every study already stands at Maximum.",
 	)
+
+
+## Aiming the goal repaints the college. The repaint must carry every reading the
+## sheet was drawn with — the crown's leader above all: Victoria's ×1.15 lifts the
+## base funding RP, so a goal tap that dropped it would price 300 RP a turn the
+## phase still pays at 345 (wiki: leader-bonuses § Bonus Table; REQ-P2-03).
+func test_aiming_the_goal_keeps_the_crown_leader_on_the_sheet() -> void:
+	_panel_state.assign("crop_rotation", "low")
+	_panel.refresh(_panel_state, 5000, {}, "victoria")
+	assert_not_null(_label_containing("& 345 RP"), "the press prices 300 × 1.15")
+	_panel.set_goal("printing_press")
+	assert_not_null(
+		_label_containing("& 345 RP"),
+		"aiming the goal repaints the press with the same leader",
+	)
+	assert_eq(_slot_row(0).rp_next(), 115, "and the slot row keeps 100 × 1.15")
 
 
 ## The treasury cannot cover a Maximum slot here, so the row must say so rather

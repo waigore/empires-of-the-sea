@@ -11425,14 +11425,17 @@ func test_the_penalty_reads_the_right_memory_for_the_footing() -> void:
 
 
 ## One decision by the warmonger against a relation at war. The declaration is
-## recorded so the weariness clock has a start.
-func _decide(at_war: bool, turn: int, truce: int = -1, power: int = 10) -> Dictionary:
+## recorded so the weariness clock has a start; `attack` notes the turn the
+## court last attacked the enemy's ground (issue #999).
+func _decide(at_war: bool, turn: int, truce: int = -1, power: int = 10, attack: int = -1) -> Dictionary:
 	var state: DiplomacyState = _war_court()
 	var ai_state := AiState.new()
 	ai_state.agendas[WAR_RIVAL] = AiAgenda.WARMONGER
 	if at_war:
 		assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
 		ai_state.note_war(WAR_RIVAL, WAR_OWNER, 1)
+	if attack >= 0:
+		AiWarMemory.note_attack(ai_state, WAR_RIVAL, WAR_OWNER, attack)
 	if truce >= 0:
 		ai_state.note_truce(WAR_RIVAL, WAR_OWNER, truce)
 	return AiDiplomacyPlanner.decide(
@@ -11460,11 +11463,123 @@ func test_a_worn_attacker_puts_peace_to_an_even_enemy() -> void:
 
 
 func test_a_court_that_clearly_outmatches_its_enemy_does_not_tire() -> void:
-	# The war it is winning is the war it wants: no weariness, no white peace.
-	var plan: Dictionary = _decide(true, 200, -1, 90)
+	# The war it is winning is the war it wants: no weariness, no white peace —
+	# while it is prosecuting that war (issue #999).
+	var plan: Dictionary = _decide(true, 200, -1, 90, 199)
 	assert_true(
 		String(plan["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
 		"a stronger court prosecutes its war"
+	)
+
+
+func test_a_stronger_court_that_prosecutes_nothing_tires_like_any_other() -> void:
+	# Outmatching a victim is not itself a benefit: a stronger court stuck in a
+	# war that takes nothing reads the pointless erosion and puts peace to it
+	# (issue #999).
+	var plan: Dictionary = _decide(true, 200, -1, 90)
+	assert_eq(
+		String(plan["action"].get("kind", "")), AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a yieldless war ends even for the stronger court"
+	)
+	var candidate: Dictionary = (plan["candidates"] as Array)[0]
+	assert_true(
+		int(candidate["factors"].get("pointless", 0)) < 0,
+		"the trace names the pointless war"
+	)
+
+
+func test_a_pointless_war_turns_to_peace_a_few_turns_after_the_read() -> void:
+	var config: AiConfig = _war_config()
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var window: int = config.parameter("diplomacy.pointless_window")
+	# Inside the grace the warmonger keeps the war it declared.
+	var fresh: Dictionary = _decide(true, grace)
+	assert_true(
+		String(fresh["action"].get("kind", "")) != AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"a war inside the grace stands"
+	)
+	# A handful of quiet turns after the read fires, the peace is composed.
+	var ending: Dictionary = _decide(true, grace + window + 4)
+	assert_eq(
+		String(ending["action"].get("kind", "")), AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"the pointless war ends within a few turns of the read firing"
+	)
+
+
+func test_a_war_that_takes_nothing_erodes_past_the_window() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var window: int = config.parameter("diplomacy.pointless_window")
+	var step: int = config.parameter("diplomacy.pointless_step")
+
+	assert_eq(
+		AiWarMemory.pointless(config, ai_state, grace + window, WAR_RIVAL, WAR_OWNER), 0,
+		"the window is quiet before the read fires"
+	)
+	assert_eq(
+		AiWarMemory.pointless(config, ai_state, grace + window + 1, WAR_RIVAL, WAR_OWNER),
+		step,
+		"the first quiet turn past the window costs one step"
+	)
+	assert_eq(
+		AiWarMemory.pointless(config, ai_state, grace + window + 3, WAR_RIVAL, WAR_OWNER),
+		step * 3
+	)
+	assert_eq(
+		AiWarMemory.pointless(config, ai_state, 400, WAR_RIVAL, WAR_OWNER), 100,
+		"capped at the scale"
+	)
+	assert_eq(
+		AiWarMemory.pointless(config, ai_state, grace, WAR_RIVAL, WAR_OWNER), 0,
+		"the grace is the march's, not the window's"
+	)
+
+
+func test_a_prosecuted_war_carries_no_pointless_erosion() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var window: int = config.parameter("diplomacy.pointless_window")
+	var step: int = config.parameter("diplomacy.pointless_step")
+	var attack: int = grace + window + 4
+	AiWarMemory.note_attack(ai_state, WAR_RIVAL, WAR_OWNER, attack)
+
+	assert_true(
+		AiWarMemory.prosecuted(config, ai_state, attack, WAR_RIVAL, WAR_OWNER),
+		"an attack inside the window is prosecution"
+	)
+	assert_eq(
+		AiWarMemory.pointless(config, ai_state, attack + 1, WAR_RIVAL, WAR_OWNER), 0,
+		"a prosecuted war yields something"
+	)
+	assert_eq(
+		AiWarMemory.pointless(config, ai_state, attack + window + 1, WAR_RIVAL, WAR_OWNER),
+		step,
+		"the clock restarts at the attack"
+	)
+	assert_false(
+		AiWarMemory.prosecuted(config, ai_state, attack, WAR_OWNER, WAR_RIVAL),
+		"the enemy's attacks are not this court's benefit"
+	)
+
+
+func test_the_attack_note_resets_with_a_new_war_and_rides_a_save() -> void:
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 10)
+	AiWarMemory.note_attack(ai_state, WAR_RIVAL, WAR_OWNER, 14)
+	assert_eq(AiWarMemory.attack_turn(ai_state, WAR_RIVAL, WAR_OWNER), 14)
+	var kept: AiState = AiState.from_dict(ai_state.to_dict())
+	assert_eq(
+		AiWarMemory.attack_turn(kept, WAR_RIVAL, WAR_OWNER), 14,
+		"the prosecution clock rides the save"
+	)
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 40)
+	assert_eq(
+		AiWarMemory.attack_turn(ai_state, WAR_RIVAL, WAR_OWNER), -1,
+		"a fresh war starts the prosecution clock again"
 	)
 
 

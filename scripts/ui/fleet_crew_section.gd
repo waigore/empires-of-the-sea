@@ -78,6 +78,15 @@ func _add_coast(row: Dictionary) -> void:
 			"crew:land:%d:%d:%s" % [int(only.get("x", -1)), int(only.get("y", -1)), crew]
 		)
 		return
+	# The crown's own seat reads first, one press: a port province may hold a
+	# whole province of legal ground, and a crown that only wants the crew ashore
+	# at home should not open the list to find it (wiki: civilian-units § Landing).
+	var seat: Dictionary = row.get("seat", {})
+	if not seat.is_empty():
+		_add_row(
+			_seat_text(crew_name, name, seat),
+			"crew:land:%d:%d:%s" % [int(seat.get("x", -1)), int(seat.get("y", -1)), crew]
+		)
 	_add_press(
 		"Put the %s ashore at %s · %d grounds ›" % [crew_name, name, tiles.size()],
 		func() -> void:
@@ -120,6 +129,18 @@ func _add_grounds(row: Dictionary) -> void:
 				_render()
 				action_pressed.emit("crew:land:%d:%d:%s" % [x, y, crew])
 		)
+
+
+## The seat press's words: the province, the tile and what the chart reads of
+## the ground, the same reading a ground row in the list prints.
+func _seat_text(crew_name: String, name: String, seat: Dictionary) -> String:
+	var text: String = "Put the %s ashore at %s (%d, %d)" % [
+		crew_name, name, int(seat.get("x", -1)), int(seat.get("y", -1))
+	]
+	var ground: String = String(seat.get("ground", ""))
+	if not ground.is_empty():
+		text += " — %s" % ground
+	return text
 
 
 ## A row that runs a local press instead of emitting an intent (opening a

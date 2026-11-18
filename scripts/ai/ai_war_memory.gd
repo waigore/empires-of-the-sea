@@ -10,7 +10,11 @@ extends RefCounted
 ## - **weariness** — beyond `diplomacy.war_weariness_grace` turns a war costs
 ##   `diplomacy.war_weariness` desire each turn, so a war that takes nothing
 ##   ends instead of running for the whole campaign. A court that clearly
-##   outmatches its enemy carries none: it is winning the war it wants.
+##   outmatches its enemy carries none: it is winning the war it wants. On top
+##   of it, a war that has taken **no attack on the enemy** for
+##   `diplomacy.pointless_window` turns erodes `diplomacy.pointless_step` a turn
+##   from the first quiet one — the exemption covers a war being prosecuted, not
+##   a stronger court standing still (issue #999).
 ## - **truce** — a peace that ends an **unfought** war (one that ran under
 ##   `diplomacy.truce_fought_turns`) holds the pair `diplomacy.truce_penalty`
 ##   below the declaration bar for `diplomacy.truce_turns`, so the attacker
@@ -47,7 +51,10 @@ static func penalty(
 
 
 ## 0 inside the grace, then `diplomacy.war_weariness` per turn beyond it. A
-## clearly stronger court carries none: its war is still worth waging.
+## clearly stronger court carries none: its war is still worth waging. The
+## pointless-war erosion rides on top and never spares a stronger court — an
+## exemption covers a war being prosecuted, not a stronger court standing still
+## (issue #999).
 static func weariness(
 	config: AiConfig,
 	ai_state: AiState,
@@ -56,17 +63,86 @@ static func weariness(
 	target: int,
 	stronger: bool = false
 ) -> int:
-	if config == null or ai_state == null or stronger:
+	if config == null or ai_state == null:
 		return 0
 	var started: int = _turn_of(ai_state.last_war_turn, faction, target)
 	if started < 0:
 		return 0
 	var age: int = maxi(turn - started, 0)
 	var grace: int = maxi(config.parameter("diplomacy.war_weariness_grace"), 0)
-	if age <= grace:
+	var total: int = 0
+	if age > grace and not stronger:
+		var step: int = maxi(config.parameter("diplomacy.war_weariness"), 0)
+		total = (age - grace) * step
+	return mini(total + pointless(config, ai_state, turn, faction, target, started), MAX_PENALTY)
+
+
+## The pointless-war erosion: a war past its grace that has taken no attack on
+## the enemy for `diplomacy.pointless_window` turns is yielding nothing, so its
+## desire falls `diplomacy.pointless_step` a turn from the first quiet turn —
+## fast enough to beat the victory press (+30) and cross the peace bar in a few
+## turns (issue #999). A war being prosecuted carries none, and an attack
+## restarts the window. Nothing here touches legality.
+static func pointless(
+	config: AiConfig,
+	ai_state: AiState,
+	turn: int,
+	faction: int,
+	target: int,
+	started: int = -1
+) -> int:
+	if config == null or ai_state == null:
 		return 0
-	var step: int = maxi(config.parameter("diplomacy.war_weariness"), 0)
-	return mini((age - grace) * step, MAX_PENALTY)
+	var began: int = started
+	if began < 0:
+		began = _turn_of(ai_state.last_war_turn, faction, target)
+	if began < 0:
+		return 0
+	var grace: int = maxi(config.parameter("diplomacy.war_weariness_grace"), 0)
+	if turn - began <= grace:
+		return 0
+	var window: int = maxi(config.parameter("diplomacy.pointless_window"), 0)
+	var quiet_from: int = maxi(began + grace, attack_turn(ai_state, faction, target))
+	var quiet: int = turn - quiet_from
+	if quiet <= window:
+		return 0
+	var step: int = maxi(config.parameter("diplomacy.pointless_step"), 0)
+	return mini((quiet - window) * step, MAX_PENALTY)
+
+
+## True when this court has attacked `target`'s ground inside
+## `diplomacy.pointless_window` turns: the war's benefit engine is running.
+static func prosecuted(
+	config: AiConfig, ai_state: AiState, turn: int, faction: int, target: int
+) -> bool:
+	if config == null or ai_state == null:
+		return false
+	var last: int = attack_turn(ai_state, faction, target)
+	if last < 0:
+		return false
+	return turn - last <= maxi(config.parameter("diplomacy.pointless_window"), 0)
+
+
+## An attack on another court's ground is the war's benefit engine running: the
+## diplomacy pass reads it to tell a prosecuted war from a pointless one
+## (issue #999). The table lives on `AiState` so a save carries the clock.
+static func note_attack(ai_state: AiState, a: int, b: int, turn: int) -> void:
+	if ai_state == null:
+		return
+	ai_state.last_attack_turn[attack_key(a, b)] = turn
+
+
+## The turn this court last attacked `b`'s ground, or -1 when it never has.
+static func attack_turn(ai_state: AiState, a: int, b: int) -> int:
+	if ai_state == null:
+		return -1
+	return int(ai_state.last_attack_turn.get(attack_key(a, b), -1))
+
+
+## Directional pair key: `a` attacked `b`. A truce binds both courts, so the
+## cooldown keys are unordered; a war's benefit is one court's own (issue #999).
+static func attack_key(a: int, b: int) -> String:
+	return "%d>%d" % [a, b]
 
 
 ## `diplomacy.truce_penalty` while the pair is inside the truce a short war

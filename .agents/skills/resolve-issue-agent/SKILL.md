@@ -31,7 +31,7 @@ Fully autonomous: announce selection briefly; continue. Ask the user only on tru
 | [Wiki Game rules](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics SoT when fixing rules bugs / features |
 | [`docs/requirements.md`](../../../docs/requirements.md) / [`docs/rubric.md`](../../../docs/rubric.md) | REQ/RUB when scoring a feature-sized fix |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR + squash auto-merge |
-| [`AGENTS.md`](../../../AGENTS.md) | Stack / conventions; Talk to the user (issue/PR text) |
+| [`AGENTS.md`](../../../AGENTS.md) | Stack / conventions; Talk to the user (issue/PR + wiki) |
 | [`references/evidence.md`](references/evidence.md) | Wiki Evidence home + `evidence/issue-N` |
 | [`references/issue-comment.md`](references/issue-comment.md) | Short issue comments |
 

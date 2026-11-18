@@ -2,7 +2,7 @@ class_name ResearchFundPress
 extends VBoxContainer
 ## The college's one press: a preset stepper, the press that takes every study
 ## the crown has under way to it in one act, and the line that prices the act
-## before the crown signs (wiki: tech-tree § Research Model; DR-20261118-25).
+## before the crown signs (wiki: tech-tree § Research Model; DR-20261118-26).
 ##
 ## The price comes from `ResearchBatch.plan`, the same walk the sheet's heading
 ## totals and the Research phase spends in slot order, so the press can never
