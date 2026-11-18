@@ -10,7 +10,8 @@ extends RefCounted
 ## REQ-P2-03).
 ##
 ## Pure data: no nodes, no drawing, no rules (REQ-P3-03). The shield is drawn by
-## [FactionCrest]; the catalog owns the colours and the names.
+## [FactionCrest] from [FactionCrestMarks]; the catalog owns the colours and the
+## names.
 
 ## The charges a shield may bear, in the order the catalog deals them out. Kept
 ## heavy and simple so a 22-point shield still reads at a glance (REQ-P1-07).

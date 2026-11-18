@@ -42,8 +42,8 @@ War, peace, treaties, aid, intervention, chronicle — wiki
 - **Colonies:** the `COLONIES ›` reading ([`colonies.md`](colonies.md)).
 - **Chronicle** (`DiplomacyHistory`): `Year Y (Turn N)`; unmet crowns unknown.
 - **Power line:** each GP's score against yours: red stronger, green matched.
-- **Arms** (`FactionHeraldry`, `FactionCrest`): every court's own shield, its
-  field the chart colour, on its row, page and dossier head.
+- **Arms** (`FactionHeraldry`, `FactionCrestMarks`, `FactionCrest`): every
+  court's shield, field = chart colour, on row, page and dossier head.
 - **Dossier** (`CourtDossier`): evidence, suspicion, behaviour —
   [`intel-dossier.md`](intel-dossier.md).
 - **Diplomatic lens** (**P**): blue yours, green friendly, grey neutral, red war.
@@ -63,8 +63,8 @@ Rules: `diplomacy_catalog`, `diplomacy_state`, `diplomacy_rules` (treaties),
 `deed_protection`, `consent_ladder`, `tribe_contact`. Map:
 `map/diplomacy_lens`, `map/map_play_diplomacy`, `map/map_play_tribe_contact`.
 UI: `ui/diplomacy_panel`, `court_trade`, `court_dossier`, `court_prompts`,
-`faction_crest`, `diplomacy_history_panel`. No nodes (`REQ-P3-03`); panel →
-`DiplomacyOrders.apply`, phase → `end_turn`.
+`faction_crest`, `faction_crest_marks`, `diplomacy_history_panel`. No nodes
+(`REQ-P3-03`); panel → `DiplomacyOrders.apply`, phase → `end_turn`.
 
 ## Tests
 
