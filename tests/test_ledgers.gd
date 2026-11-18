@@ -3033,6 +3033,42 @@ func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> voi
 	assert_false(panel._batch.visible, "a reading with nothing ready carries no press")
 
 
+## The confirm and the line under it describe one tap: the sheet's press carries
+## the walk's own count, so a crown that confirms one town fixes one order
+## whatever the view above the press prints — and the tap files exactly the line
+## the face named (REQ-P5-05, REQ-P2-03; DR-20261118-21).
+func test_the_towns_confirm_names_the_line_it_would_file() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	_cancel_works()
+	screen.play.tech_unlocked()["national_bureaucracy"] = true
+	var stock: Dictionary = screen.play.stockpile()
+	stock["lumber"] = 400
+	stock["castIron"] = 400
+	panel.open()
+	panel._on_filter(LedgerRows.REGION_OLD, true)
+	panel._on_filter(TownLedger.FILTER_ALL, false)
+	var targets: Array[Dictionary] = panel._ready_targets()
+	assert_gte(targets.size(), 1, "the campaign seats a town the crown can raise")
+	var press: RaiseBatchPress = panel._batch
+	var filed: int = press.carries()
+	if panel._line.text.contains(" of "):
+		press.pressed.emit()
+		assert_eq(
+			press.text,
+			"Confirm — raise %d of %d towns" % [filed, targets.size()],
+			"the confirm names the share the line under it names"
+		)
+	else:
+		assert_eq(filed, targets.size(), "a line that carries the view files the view")
+	var working: int = _working_town_builders()
+	press.pressed.emit()
+	press.pressed.emit()
+	assert_eq(
+		_working_town_builders(), working + filed,
+		"the tap files exactly the line its face named"
+	)
+
+
 ## The sheet prices the line under its press: the stores the ready towns take,
 ## the Builders they tie up and the stores it leaves, printed before the second
 ## tap (REQ-P1-07, REQ-P5-06; DR-20261118-12).
