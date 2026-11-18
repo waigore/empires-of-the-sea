@@ -683,7 +683,7 @@ func test_the_sheet_stages_its_own_trade_press() -> void:
 
 ## The college's one press reaches the rules through the order owner: the sheet
 ## emits the preset, the owner files it, and every study under way takes it
-## (wiki: tech-tree § Research Model; DR-20261118-25; REQ-P2-03).
+## (wiki: tech-tree § Research Model; DR-20261118-26; REQ-P2-03).
 func test_the_college_press_funds_every_study_at_once() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	economy.research.assign("crop_rotation", "low")

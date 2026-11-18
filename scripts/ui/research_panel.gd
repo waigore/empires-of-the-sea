@@ -17,7 +17,7 @@ signal cancel_requested(slot: int)
 signal funding_requested(slot: int)
 signal goal_changed(tech_id: String)
 ## The college's one press: every study under way takes `preset` in one act
-## (DR-20261118-25).
+## (DR-20261118-26).
 signal funding_all_requested(preset: String)
 ## The college's door into the full-screen chart: the sheet hands the HUD the
 ## state it already reads, and the chart opens over the ledger (DR-20261115-15).
@@ -45,7 +45,7 @@ var _slots_heading: Label = null
 var _tree_door: Button = null
 var _slots_body: VBoxContainer = null
 ## The one press that takes every study to a preset, priced before it signs
-## (DR-20261118-25).
+## (DR-20261118-26).
 var _fund: ResearchFundPress = null
 var _tabs: TabContainer = null
 var _available_body: VBoxContainer = null
@@ -135,7 +135,7 @@ func _build_body(column: VBoxContainer) -> void:
 	column.add_child(_slots_body)
 
 	# The college's one press sits under the slots it funds, the way the yards'
-	# batch press sits under their rows (DR-20261118-25).
+	# batch press sits under their rows (DR-20261118-26).
 	_fund = ResearchFundPress.new()
 	_fund.funding_all_requested.connect(
 		func(preset: String) -> void: funding_all_requested.emit(preset)
@@ -175,6 +175,11 @@ func fund_press() -> ResearchFundPress:
 ## The goal spends nothing and rides no research order, but it is kept with the
 ## campaign, so the ledger reopens where the player left it (wiki: tech-tree
 ## § Goal slot; DR-20261111-21).
+##
+## The repaint re-reads every reading the sheet was drawn with, the crown's leader
+## included: a goal tap must not quietly drop Victoria's ×1.15 from the slots and
+## the press line, or the sheet would price a turn the phase does not pay
+## (wiki: leader-bonuses; REQ-P2-03).
 func set_goal(tech_id: String) -> void:
 	var next: String = TechOrder.normalize(tech_id)
 	if next == _goal:
@@ -183,7 +188,7 @@ func set_goal(tech_id: String) -> void:
 	if _state != null:
 		_state.goal = next
 	goal_changed.emit(_goal)
-	refresh(_state, _treasury, _boost)
+	refresh(_state, _treasury, _boost, _leader)
 
 
 ## Rebuilds the goal strip, slots, open advances and known techs from live
