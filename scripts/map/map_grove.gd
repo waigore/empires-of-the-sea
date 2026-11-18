@@ -62,6 +62,32 @@ static func _companion(kind: String, x: int, y: int, index: int, count: int) -> 
 	}
 
 
+## The marks a high-ground tile lays: `least`..`most` peaks or humps spun around
+## the tile's own centre, each inside `REACH`, so a ridge reads as one landform
+## and never spills onto the ground of the tile beside it (issue #1007). Hill and
+## mountain stamps take their own hash salts, so a ridge never mirrors the grove
+## standing next to it.
+static func cluster(
+	kind: String, x: int, y: int, least: int, most: int, size_lo: float, size_hi: float
+) -> Array[Dictionary]:
+	var out: Array[Dictionary] = []
+	var spin: float = MapGlyphs.hash01(x + 71, y + 53) * TAU
+	var count: int = clampi(
+		least + int(MapGlyphs.hash01(x + 5, y + 9) * float(most - least + 1)), least, most
+	)
+	for i in count:
+		var angle: float = spin + TAU * float(i) / float(count)
+		var reach: float = REACH * (0.55 + MapGlyphs.hash01(x + i * 7, y + i * 13) * 0.45)
+		out.append({
+			"kind": kind,
+			"dx": cos(angle) * reach,
+			"dy": sin(angle) * reach * RING_SQUASH,
+			"scale": size_lo + MapGlyphs.hash01(x + i * 11, y + i * 5) * (size_hi - size_lo),
+			"flip": MapGlyphs.hash01(x + i, y + i * 3) > 0.5,
+		})
+	return out
+
+
 ## Whether a tile is walled by its own woodland: the same terrain on all four
 ## sides. A wood's edge thins because its last trees stand in the open.
 static func walled(p_model: MapModel, x: int, y: int) -> bool:
