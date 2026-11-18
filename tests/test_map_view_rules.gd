@@ -3272,6 +3272,110 @@ func test_terrain_is_dense_with_two_stamp_kinds_per_tile() -> void:
 	assert_gt(clustered, 4, "some tiles carry a second, smaller stamp")
 
 
+## The crown's wash is half the tile (`MapWash.OWNER_TINT`), so whatever
+## distance two grounds keep in the palette they keep only half of on the chart.
+## The grounds are set deep enough to survive it: every land pair stays at least
+## `TERRAIN_GAP` apart once washed, every ground stands `PLAINS_GAP` clear of
+## the paper it lies on, and an owned tile still reads as its crown's
+## (issue #1007: woods and hills read as one parchment).
+func test_the_ground_keeps_its_terrain_under_the_crowns_wash() -> void:
+	var land: Array[int] = []
+	for terrain in Palette.TERRAIN_COLORS.size():
+		if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
+			continue
+		land.append(terrain)
+	var paper: int = MapModel.Terrain.PLAINS
+	for owner in FactionCatalog.count():
+		var crown: Color = FactionCatalog.color_of(owner)
+		var washed: Array[Color] = []
+		for terrain: int in land:
+			washed.append(Palette.terrain_color(terrain).lerp(crown, MapWash.OWNER_TINT))
+		for i in land.size():
+			var base: Color = Palette.terrain_color(land[i])
+			assert_gt(
+				_tone_distance(washed[i], base),
+				0.04,
+				"%s still reads as %s's under the wash" % [
+					String(MapModel.TERRAIN_LABELS[land[i]]), FactionCatalog.name_of(owner)
+				]
+			)
+			if land[i] == paper:
+				continue
+			assert_gt(
+				_tone_distance(washed[i], washed[land.find(paper)]),
+				Palette.PLAINS_GAP,
+				"%s keeps away from the paper under %s" % [
+					String(MapModel.TERRAIN_LABELS[land[i]]), FactionCatalog.name_of(owner)
+				]
+			)
+			for j in range(i + 1, land.size()):
+				assert_gt(
+					_tone_distance(washed[i], washed[j]),
+					Palette.TERRAIN_GAP,
+					"%s and %s keep their distance under %s" % [
+						String(MapModel.TERRAIN_LABELS[land[i]]),
+						String(MapModel.TERRAIN_LABELS[land[j]]),
+						FactionCatalog.name_of(owner),
+					]
+				)
+
+
+## A wood stands in groves, not specks: one crown tree per tile with a ring of
+## smaller companions around it, the ring spun by the tile's own hash so no two
+## groves repeat, and every spot kept on its own ground. A tile walled by the
+## wood on all four sides carries one companion more than a tree at its edge.
+func test_a_wooded_tile_stands_its_grove_on_its_own_ground() -> void:
+	var dense: Array[Dictionary] = MapGrove.stamps("tree", 12, 9, true)
+	var lone: Array[Dictionary] = MapGrove.stamps("tree", 12, 9, false)
+	assert_eq(dense.size(), 3, "a walled tile carries a crown and two companions")
+	assert_eq(lone.size(), 2, "a tree at the wood's edge keeps one companion")
+	var crown: float = 0.0
+	var fringe: float = 1.0
+	for spot: Dictionary in dense:
+		assert_eq(String(spot["kind"]), "tree", "the whole stand is woodland")
+		assert_lte(absf(spot["dx"]), MapGrove.REACH, "a spot never leaves its own tile")
+		assert_lte(absf(spot["dy"]), MapGrove.REACH, "a spot never leaves its own tile")
+		crown = maxf(crown, float(spot["scale"]))
+		fringe = minf(fringe, float(spot["scale"]))
+	assert_gt(crown, fringe + 0.20, "the crown tree stands over its companions")
+	assert_gt(fringe, 0.0, "every companion has a size")
+	assert_eq(MapGrove.stamps("tree", 12, 9, true), dense, "the same tile lays one stand")
+	assert_ne(MapGrove.stamps("tree", 12, 9, true)[1]["dx"], MapGrove.stamps("tree", 13, 9, true)[1]["dx"])
+
+
+## The plan lays those stands: every tree on the chart stands on woodland, and a
+## wooded tile clear of a province name carries its whole grove.
+func test_the_chart_lays_a_grove_on_every_wooded_tile() -> void:
+	var model: MapModel = Fixture.region()
+	var plan := MapCanvasPlan.new()
+	plan.build(model, null, MapCanvas.TILE_SIZE)
+	var per_tile: Dictionary = {}
+	var woods: int = 0
+	for glyph: Dictionary in plan.glyphs:
+		if String(glyph["kind"]) != "tree":
+			continue
+		var tile: Vector2i = MapGeo.tile_at_world(glyph["position"], MapCanvas.TILE_SIZE)
+		assert_eq(
+			model.terrain_at(tile.x, tile.y),
+			MapModel.Terrain.HARDWOOD_FOREST,
+			"a tree stands on woodland, never on open ground"
+		)
+		per_tile[tile] = int(per_tile.get(tile, 0)) + 1
+	for y in model.height:
+		for x in model.width:
+			if model.terrain_at(x, y) != MapModel.Terrain.HARDWOOD_FOREST:
+				continue
+			woods += 1
+			if plan.under_label(MapGeo.tile_center(x, y, MapCanvas.TILE_SIZE)):
+				continue
+			assert_gte(
+				int(per_tile.get(Vector2i(x, y), 0)),
+				2,
+				"the woodland at (%d, %d) lays a stand" % [x, y]
+			)
+	assert_gt(woods, 0, "the fixture chart carries woodland")
+
+
 func test_capital_star_has_ten_points() -> void:
 	var star: PackedVector2Array = MapGlyphs.star_points(Vector2.ZERO, 10.0, 5, 0.45)
 	assert_eq(star.size(), 10)
