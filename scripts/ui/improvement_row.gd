@@ -234,10 +234,12 @@ func _fill() -> void:
 		"connected" if bool(data["connected"]) else "not connected",
 	]
 	var status_text: String = String(data["status_text"])
-	_icon.kind = ImprovementCatalog.icon_kind(int(data["resource"]))
-	# The pictogram is the commodity (timber green, iron blue-grey, gold, straw);
-	# the status chip and pips beside it carry how far the works have come.
-	_icon.tint = Palette.resource_ink(_icon.kind)
+	_icon.kind = ImprovementCatalog.pictogram_kind(int(data["resource"]))
+	# The pictogram is the estate's own work (a log, a pick, a sheep, a shoe, a
+	# leaf, a pelt) and carries that work's ink — the good's colour while the
+	# works is a good's (timber green, ore blue-grey, gold, straw), the beast's
+	# or the crop's own beyond it (REQ-P1-08; DR-20261119-06).
+	_icon.tint = Palette.estate_ink(_icon.kind)
 	_icon.queue_redraw()
 	_name.text = String(data["name"])
 	_status_chip.text = status.to_upper()
