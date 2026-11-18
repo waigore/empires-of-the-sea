@@ -58,17 +58,9 @@ static func _run_region(
 			# A home squadron puts to sea through FleetSortie: the same
 			# one-zone sortie the player's dossier offers, which turns it
 			# into an ordinary sea-going squadron (DR-20261109-17).
-			var move: Dictionary = NavalMovement.apply_move(
-				model, fleet, FleetState.Location.AT_SEA, zone
-			)
-			if not bool(move.get("ok", false)):
-				move = FleetSortie.apply(model, fleet, zone)
-			if not bool(move.get("ok", false)):
+			if not MapPlaySeaStep.sail(play, model, model.region_id, fleet, zone):
 				continue
 			changed = true
-			# The squadron charts the water it enters, for its own court alone
-			# (wiki: ships-and-naval § Ship Reveal Mechanic).
-			MapPlayCourtFog.note_fleet_entry(play, model.region_id, fleet, zone)
 			trace.append({
 				"faction": faction,
 				"kind": String(order["kind"]),
@@ -100,10 +92,7 @@ static func _dock_home(
 ) -> bool:
 	if province < 0:
 		return false
-	var move: Dictionary = NavalMovement.apply_move(
-		model, fleet, FleetState.Location.IN_PORT, province
-	)
-	if not bool(move.get("ok", false)):
+	if not MapPlaySeaStep.dock(model, fleet, province):
 		return false
 	var entry: Dictionary = {
 		"faction": faction,
