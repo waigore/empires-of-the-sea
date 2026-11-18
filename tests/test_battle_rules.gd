@@ -2580,6 +2580,98 @@ func test_a_siege_battery_fires_while_guns_stand() -> void:
 	assert_true(fired, "the emplaced battery answers the assault")
 
 
+## A reserve behind the line never pays for a charge: the same ten men in the
+## line pay the same price for their assault whether ten more wait behind them
+## or not (wiki: combat § The line and the reserve — "a reserve adds no strength,
+## takes no casualties"; quick-battle § Battlefield layout — "the reserve is
+## dealt nowhere").
+func test_a_reserve_never_pays_for_the_charge() -> void:
+	var alone: Dictionary = _fight("aggressive", _guards(10), _pikes(6), 0)
+	var backed: Dictionary = _fight("aggressive", _guards(10) + _pikes(10), _pikes(6), 0)
+
+	assert_eq(
+		_assault_cost(backed), _assault_cost(alone),
+		"the reserve adds no weight to the charge the line pays for"
+	)
+	assert_eq(
+		int(backed["quick"]["attacker_start"]) - int(backed["quick"]["attacker_left"]),
+		int(alone["quick"]["attacker_start"]) - int(alone["quick"]["attacker_left"]),
+		"nor any loss of its own"
+	)
+
+
+## The fort's emplaced battery lays its fire on the men the besieging line was
+## dealt: a reserve behind the line draws no shot and adds no target (wiki:
+## combat § The line and the reserve — "a reserve adds no strength").
+func test_the_battery_weighs_the_besieging_line_not_the_reserve() -> void:
+	assert_eq(
+		_battery_volley(_guards(10) + _pikes(30)), _battery_volley(_guards(10)),
+		"a reserve behind the line makes the fort's fire no heavier"
+	)
+
+
+## A gun held in reserve never drops shot behind a parapet it never approached:
+## the share that crosses the wall is the line's own guns over the line's own
+## men (wiki: siege-mechanics § Quick Battle lanes — "artillery / besieging
+## regiments"; combat § The line and the reserve — "a reserve adds no strength").
+func test_a_reserve_gun_drops_no_shot_behind_the_wall() -> void:
+	var on_line: Array[ArmyState] = _lane_side(["musketeers", "musketeers", "culverin"], 2)
+	var held: Array[ArmyState] = _lane_side(
+		["musketeers", "musketeers", "musketeers", "culverin"], 2
+	)
+	var line: Array[String] = _line_without_guns(held)
+
+	assert_true(
+		_behind_losses(on_line, ArmyForce.line_ids(on_line, 10)) > 0,
+		"a gun in the line reaches behind the parapet"
+	)
+	assert_eq(
+		_behind_losses(held, line), 0,
+		"a gun in the reserve drops no shot behind the wall"
+	)
+
+
+## The own price of an assault or a sortie, as the attacker's actions name it.
+func _assault_cost(battle: Dictionary) -> int:
+	var total: int = 0
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			if String(action["action"]) == "assault":
+				total += int(action["attacker_lost"])
+	return total
+
+
+## One emplaced battery's volley against a besieging side, read off the blow.
+func _battery_volley(types: Array[String]) -> int:
+	var side: Array[ArmyState] = _lane_side(types, 2)
+	var state: Dictionary = _lane_state(side, [] as Array[ArmyState], 3)
+	state["attacker"]["wings"] = QuickBattleWings.deploy(side, 10)
+	state["attacker"]["line"] = ArmyForce.line_ids(side, 10)
+	var guns: Array[Dictionary] = QuickBattleBattery.make(3, {}, 1)
+	return int(QuickBattleBattery.fire(_lane_joined(side, [] as Array[ArmyState]), state, guns)["lost"])
+
+
+## The men of a besieging side left in the line once its guns are held back.
+func _line_without_guns(side: Array[ArmyState]) -> Array[String]:
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		if not RegimentCatalog.is_artillery(String(entry["type"])):
+			line.append(String(entry["id"]))
+	return line
+
+
+## Behind-lane casualties one siege blow draws from a levied garrison.
+func _behind_losses(attacker: Array[ArmyState], line: Array[String]) -> int:
+	var defender: Array[ArmyState] = _lane_side(
+		["peasant_levies", "peasant_levies", "peasant_levies", "squires", "squires"], 1
+	)
+	var armies: Array[ArmyState] = _lane_joined(attacker, defender)
+	var split: Dictionary = SiegeLanes.strike(
+		armies, attacker, defender, 12, 10, 2, false, {}, {}, line
+	)
+	return (split["behind"] as Array).size()
+
+
 ## The despatch copy reads `defender_lost` on an attacker's action as losses it
 ## inflicted and `attacker_lost` as its own cost, so the report must add up that
 ## way round: every loss a side suffered is either inflicted by the enemy or paid
