@@ -745,6 +745,32 @@ domain = "economy"
 match = "scripts/rules/gazette_muster.gd*"
 domain = "gazette"
 
+# The sheet's own rules, its copy desks and its memory (wiki: the-gazette): one
+# suite drives the news, so a line, a class or a watchlist change never pays for
+# the map, menu or ui catch-alls (docs/testing.md).
+[[rules]]
+match = "scripts/rules/gazette*.gd*"
+domain = "gazette"
+
+# The sheet's pages: the watchlist editor, the archive room and the printed kit
+# the live sheet and the archive share.
+[[rules]]
+match = "scripts/ui/gazette_watchlist.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette_archive_room.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette_parts.gd*"
+domain = "gazette"
+
+# The turn-close adapter that collects, files and raises the sheet.
+[[rules]]
+match = "scripts/map/map_play_gazette.gd*"
+domain = "gazette"
+
 [[rules]]
 match = "scripts/rules/gazette_copy_muster.gd*"
 domain = "gazette"
@@ -2566,8 +2592,9 @@ domain = "ai_diplomacy"
 # Bind + economy/builder planners: the AI and market suites prove the
 # feedstock/works-purse surface (#878); keep them off the observer/battle
 # catch-all so a planner PR stays inside the tier-1 5 min budget.
+# `ai_bind*.gd*` covers AiBind, AiBindEconomy, and AiBindCampaign.
 [[rules]]
-match = "scripts/ai/ai_bind.gd*"
+match = "scripts/ai/ai_bind*.gd*"
 domain = "ai_economy"
 
 [[rules]]
@@ -2749,6 +2776,13 @@ domain = "ai_works"
 # (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
+domain = "ai_economy"
+
+# Sea earning asks only the income plan; keep a bind retarget off the broad
+# map/** catch-all (map screen / diplomacy / panel boots blow the tier-1
+# 5 min budget when stacked on the AI fan-out).
+[[rules]]
+match = "scripts/map/map_play_sea_step.gd*"
 domain = "ai_economy"
 
 # Turn close: combat stranding and spy resolve hang off this file; keep it off

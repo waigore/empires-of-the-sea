@@ -56,7 +56,7 @@ Land units: explore, improve, colonize, spy.
 
 ## Deferred (REQ-P2-02)
 
-None open — see [`deferred.md`](deferred.md).
+Workshop-coast landing live (DR-19-05); gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 

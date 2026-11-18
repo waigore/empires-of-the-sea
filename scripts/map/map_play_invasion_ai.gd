@@ -36,7 +36,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			touched = _split(
 				play, model, fleets, armies, faction, config, kind, trace, earning
 			) or touched
-			var order: Dictionary = AiBind.invasion_plan(
+			var order: Dictionary = AiBindCampaign.invasion_plan(
 				kind, config, play.diplomacy, play.world, region, model, fleets, armies,
 				play.turn, play.court_charts, earning
 			)
@@ -66,7 +66,7 @@ static func _split(
 	wants_income: bool = false
 ) -> bool:
 	var split_any: bool = false
-	for action: Dictionary in AiBind.invasion_split(
+	for action: Dictionary in AiBindCampaign.invasion_split(
 		kind, config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
 		wants_income
 	):

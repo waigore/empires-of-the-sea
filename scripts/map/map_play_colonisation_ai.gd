@@ -39,7 +39,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
 			var earning: bool = MapPlaySeaStep.earning(play, faction, kind, config)
 			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
-			var order: Dictionary = AiBind.colonisation_plan(
+			var order: Dictionary = AiBindCampaign.colonisation_plan(
 				kind, config, play.world, region, model, fleets, civilians,
 				_abroad(play, target, faction), play.court_charts,
 				_voyage_posture(play, faction, posture), earning,

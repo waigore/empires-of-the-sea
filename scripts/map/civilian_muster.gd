@@ -22,7 +22,7 @@ static func muster_port(
 ) -> Vector2i:
 	if not wants_voyage(play, faction, region, model):
 		return CivilianState.NO_TILE
-	var port: int = AiBind.harbour(AiControl.court_kind(play, faction), model, faction)
+	var port: int = AiBindCampaign.harbour(AiControl.court_kind(play, faction), model, faction)
 	if port < 0:
 		return CivilianState.NO_TILE
 	var data: ProvinceState = model.province_data(port)
@@ -45,7 +45,7 @@ static func wants_voyage(
 		return false
 	if not hull_claimed(play, faction, region):
 		return false
-	return AiBind.harbour(AiControl.court_kind(play, faction), model, faction) >= 0
+	return AiBindCampaign.harbour(AiControl.court_kind(play, faction), model, faction) >= 0
 
 
 ## True when the voyage would take an Explorer (the court owns no land across

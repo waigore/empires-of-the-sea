@@ -38,9 +38,9 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   (gd-tools clones each case). Prefer a pocket chart over regenerating
   Standard; the published census rides **one** Standard seed.
 - **One mount per suite**: `suite_capture` / `suite_reset` re-seat (~0.15 s vs
-  ~0.5 s remount); advanced-start live cases share **one mount per tier**.
-  Ledger projections skip the re-seat; hospitals ride that chart. Free a swapped
-  screen. An observer mount is ~15–20 s under coverage; the door/seal case rides
+  ~0.5 s remount); advanced-start live cases share **one mount per tier**. Pure
+  cases skip the re-seat / shell (lazy `_screen` / `main`); hospitals ride that
+  chart. Free a swapped screen. Observer mount ~15–20 s covered; door/seal rides
   `test_ai_observer`'s.
 - **Tiny fixture first**: place names and sea zones read
   `naval_fixture.build()` (7×3), not the 48×32 chart (~9 s covered).
@@ -53,7 +53,7 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   the pocket chart and `ResearchPanel` only when a case reads them.
 - **Heaviest suite sorts first**: name order, four wide — a long `world_…`
   suite must not drain alone.
-- One Godot boot per theme — coverage ~15 s a boot; 26 → 24 suites
+- One Godot boot per theme — coverage ~15 s a boot; 24 suites
   (heraldry + tile edges → chrome plate). `gd-tools.toml`: `parallel = 4`.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
@@ -319,6 +319,18 @@ godot --headless --path . --script res://playtests/playtest_boycott_block.gd
 # seats a rival on the bar in the same turn to read that the fall, not a
 # military victory, decides it.
 godot --headless --path . --script res://playtests/playtest_defeat.gd
+
+# The Gazette — the crown's news sheet at the turn's open, its watchlist, its
+# archive and the tiers of knowledge it may print. Opens the sheet at turn 1
+# (no press has run), plays five turns of a campaign and audits each filed
+# sheet (class order, another court's line never counts losses, no item
+# without a line, the map agreeing with every capture), queues a worker, a
+# crew, a regiment and a hull and reads their delivery lines, fights a real
+# battle for the crown and for a watched court (charted, then a chart that
+# reaches nothing), strikes a court off against a new war of its own, walks the
+# archive's chips and its `<n> of <m>` pages, and saves and reloads the
+# campaign to read the watchlist and the sheets back.
+godot --headless --path . --script res://playtests/playtest_gazette.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
