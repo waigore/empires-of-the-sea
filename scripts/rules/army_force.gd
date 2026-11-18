@@ -39,6 +39,36 @@ static func side_regiments(side: Array[ArmyState]) -> int:
 	return total
 
 
+## Every regiment of a side, army by army, as {army, id, type}. One walk that
+## skips an empty roster slot, so a reader never re-writes the null guard and
+## every scan of a side sees the same regiments in the same order (REQ-P3-01).
+## A reader that only needs the types takes [method side_types].
+static func side_entries(side: Array[ArmyState]) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = []
+	for army: ArmyState in side:
+		if army == null:
+			continue
+		for regiment_id: String in army.regiments:
+			entries.append({
+				"army": army,
+				"id": regiment_id,
+				"type": army.type_of(regiment_id),
+			})
+	return entries
+
+
+## The catalog types a side fields, army by army: the read-only half of the
+## same walk, for reach and tally questions that never name the army.
+static func side_types(side: Array[ArmyState]) -> Array[String]:
+	var types: Array[String] = []
+	for army: ArmyState in side:
+		if army == null:
+			continue
+		for regiment_id: String in army.regiments:
+			types.append(army.type_of(regiment_id))
+	return types
+
+
 ## Weakest-first casualties among the deployed slice; reserves take no losses.
 ## A colours' citations count in its rank, so a decorated regiment falls later
 ## (DR-20261113-04). `accept` filters the pool by type, so one siege lane can
@@ -49,23 +79,24 @@ static func apply_losses(
 	limit: int = 0, accept: Callable = Callable(), only: Array[String] = []
 ) -> Array[String]:
 	var candidates: Array[Dictionary] = []
-	for army: ArmyState in side:
-		if army == null or not armies.has(army):
+	for entry: Dictionary in side_entries(side):
+		var army: ArmyState = entry["army"]
+		if not armies.has(army):
 			continue
-		for regiment_id: String in army.regiments:
-			var data: Dictionary = army.condition_of(regiment_id)
-			if accept.is_valid() and not bool(accept.call(String(data["type"]))):
-				continue
-			if not only.is_empty() and not only.has(regiment_id):
-				continue
-			candidates.append({
-				"army": army,
-				"id": regiment_id,
-				"rank": ArmyModifiers.rank_of(
-					String(data["type"]), int(data["medals"]), float(data["fraction"]),
-					RegimentDecorations.strength_multiplier(army, regiment_id)
-				),
-			})
+		var regiment_id: String = String(entry["id"])
+		var data: Dictionary = army.condition_of(regiment_id)
+		if accept.is_valid() and not bool(accept.call(String(data["type"]))):
+			continue
+		if not only.is_empty() and not only.has(regiment_id):
+			continue
+		candidates.append({
+			"army": army,
+			"id": regiment_id,
+			"rank": ArmyModifiers.rank_of(
+				String(data["type"]), int(data["medals"]), float(data["fraction"]),
+				RegimentDecorations.strength_multiplier(army, regiment_id)
+			),
+		})
 	candidates.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		if not is_equal_approx(float(a["rank"]), float(b["rank"])):
 			return float(a["rank"]) < float(b["rank"])

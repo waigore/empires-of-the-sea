@@ -5943,6 +5943,29 @@ func test_side_strength_aggregates_fpn_and_fpm() -> void:
 	assert_eq(ArmyForce.side_regiments(side), 3)
 	assert_almost_eq(ArmyCommand.initiative(side), 50.0 / 3.0, 0.001)
 
+## One walk over a side: army by army, roster order, an empty slot skipped, so
+## every reader that scans a battle side names the same regiments in one order
+## (REQ-P3-01).
+func test_a_side_walks_its_regiments_army_by_army() -> void:
+	_setup_army_field_rules()
+	var first := army_field_rules_Fixture.army(1, 0, 0, ["pikemen", "pikemen"])
+	var second := army_field_rules_Fixture.army(2, 0, 0, ["squires"])
+	var side: Array[ArmyState] = [first, null, second]
+	var entries: Array[Dictionary] = ArmyForce.side_entries(side)
+	assert_eq(entries.size(), 3)
+	assert_true(entries[0]["army"] == first)
+	assert_eq(String(entries[0]["id"]), first.regiments[0])
+	assert_eq(String(entries[0]["type"]), "pikemen")
+	assert_eq(String(entries[1]["type"]), "pikemen")
+	assert_true(entries[2]["army"] == second)
+	assert_eq(String(entries[2]["type"]), "squires")
+	var types: Array[String] = ArmyForce.side_types(side)
+	assert_eq(types.size(), 3)
+	assert_eq(types[0], "pikemen")
+	assert_eq(types[2], "squires")
+	var none: Array[ArmyState] = []
+	assert_true(ArmyForce.side_entries(none).is_empty())
+
 func test_contested_provinces_need_a_great_power_mover() -> void:
 	_setup_army_field_rules()
 	var attacker := army_field_rules_Fixture.army(1, 0, 2, ["pikemen"])

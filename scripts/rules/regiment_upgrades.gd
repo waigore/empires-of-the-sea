@@ -84,30 +84,28 @@ static func apply(regions: MapRegionTable, tech_by_faction: Dictionary) -> Dicti
 	if regions == null:
 		return report
 	for region: int in regions.region_ids():
-		var roster: Array = []
+		var roster: Array[ArmyState] = []
 		roster.assign(regions.value(region, []))
-		for raw: Variant in roster:
-			var army: ArmyState = raw
-			if army == null:
-				continue
+		for entry: Dictionary in ArmyForce.side_entries(roster):
+			var army: ArmyState = entry["army"]
 			if FactionCatalog.type_of(army.owner) != FactionCatalog.Type.GREAT_POWER:
 				continue
 			var tech: Dictionary = tech_by_faction.get(army.owner, {}) as Dictionary
-			for regiment_id: String in army.regiments:
-				var current: String = army.type_of(regiment_id)
-				var upgraded: String = target_type(current, tech)
-				if upgraded == current:
-					continue
-				army.set_type(regiment_id, upgraded)
-				report["count"] = int(report["count"]) + 1
-				var by_faction: Dictionary = report["by_faction"]
-				by_faction[army.owner] = int(by_faction.get(army.owner, 0)) + 1
-				(report["upgraded"] as Array).append({
-					"region": region,
-					"army": army.id,
-					"faction": army.owner,
-					"regiment": regiment_id,
-					"from": current,
-					"to": upgraded,
-				})
+			var regiment_id: String = String(entry["id"])
+			var current: String = String(entry["type"])
+			var upgraded: String = target_type(current, tech)
+			if upgraded == current:
+				continue
+			army.set_type(regiment_id, upgraded)
+			report["count"] = int(report["count"]) + 1
+			var by_faction: Dictionary = report["by_faction"]
+			by_faction[army.owner] = int(by_faction.get(army.owner, 0)) + 1
+			(report["upgraded"] as Array).append({
+				"region": region,
+				"army": army.id,
+				"faction": army.owner,
+				"regiment": regiment_id,
+				"from": current,
+				"to": upgraded,
+			})
 	return report

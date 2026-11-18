@@ -56,41 +56,31 @@ static func behind_ids(side: Array[ArmyState]) -> Array[String]:
 
 ## At least one regiment can shoot at the wall (firearms or artillery).
 static func can_reach_wall(side: Array[ArmyState]) -> bool:
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			if RegimentCatalog.stat(army.type_of(regiment_id), "rng") >= FIREARM_RNG:
-				return true
+	for type_id: String in ArmyForce.side_types(side):
+		if RegimentCatalog.stat(type_id, "rng") >= FIREARM_RNG:
+			return true
 	return false
 
 
 ## Only artillery can drop shot behind the parapet.
 static func can_reach_behind(side: Array[ArmyState]) -> bool:
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			if RegimentCatalog.is_artillery(army.type_of(regiment_id)):
-				return true
+	for type_id: String in ArmyForce.side_types(side):
+		if RegimentCatalog.is_artillery(type_id):
+			return true
 	return false
 
 
 ## Share of a garrison that can return fire from the wall. Melee-only
 ## regiments cannot; they must sortie to engage (wiki: siege-mechanics).
 static func return_fire_share(side: Array[ArmyState]) -> float:
-	var total: int = 0
-	var firing: int = 0
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			total += 1
-			if RegimentCatalog.stat(army.type_of(regiment_id), "rng") >= FIREARM_RNG:
-				firing += 1
-	if total <= 0:
+	var types: Array[String] = ArmyForce.side_types(side)
+	if types.is_empty():
 		return 0.0
-	return float(firing) / float(total)
+	var firing: int = 0
+	for type_id: String in types:
+		if RegimentCatalog.stat(type_id, "rng") >= FIREARM_RNG:
+			firing += 1
+	return float(firing) / float(types.size())
 
 
 # --- lane terrain ------------------------------------------------------------
@@ -254,21 +244,15 @@ static func describe(side: Array[ArmyState]) -> String:
 
 static func _ids_where(side: Array[ArmyState], on_wall: bool) -> Array[String]:
 	var ids: Array[String] = []
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			if is_wall_type(army.type_of(regiment_id)) == on_wall:
-				ids.append(regiment_id)
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		if is_wall_type(String(entry["type"])) == on_wall:
+			ids.append(String(entry["id"]))
 	return ids
 
 
 static func _artillery_count(side: Array[ArmyState]) -> int:
 	var count: int = 0
-	for army: ArmyState in side:
-		if army == null:
-			continue
-		for regiment_id: String in army.regiments:
-			if RegimentCatalog.is_artillery(army.type_of(regiment_id)):
-				count += 1
+	for type_id: String in ArmyForce.side_types(side):
+		if RegimentCatalog.is_artillery(type_id):
+			count += 1
 	return count
