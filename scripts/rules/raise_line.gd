@@ -17,12 +17,21 @@ extends RefCounted
 ## Pure reads over stores, catalogues and the sheets' own cost tables: no nodes,
 ## no order of its own (REQ-P2-03, REQ-P3-03).
 
+## The chart key a single-pool walk draws from, so one walk serves a one-chart
+## view and a two-chart sheet alike (DR-20261118-17).
+const POOLED: int = -1
+
 
 ## The plan a raise sheet's press would file. `targets` are the ready rows the
 ## sheet's view prints, in its order, each carrying its `cost` (a materials
-## map); `stores` is the crown's own stockpile, read and never written;
-## `crews` is how many idle crews of the sheet's trade the realm holds, because
-## one order ties one up. `price` is the sheet's own reading when the price is
+## map) and, when the line is walked chart by chart, its `region`; `stores` is
+## the crown's own stockpile, read and never written; `crews` is how many idle
+## crews of the sheet's trade the realm holds, because one order ties one up.
+## `free_by_region` is the same reading chart by chart ({region: how many stand
+## idle}), and a crew works the chart it stands on — the filing walk sends a
+## Builder aboard nothing, so a New World Builder can never raise an Old World
+## town (DR-20261118-17). A sheet whose view is one chart may hand the one pool
+## instead. `price` is the sheet's own reading when the price is
 ## not the row's (`(target, stores_left) -> cost`), so a sheet whose cost moves
 ## with the stores — the H8 bootstrap — is still priced by the walk that files
 ## it (REQ-P2-03). `crew_word` is the trade the sheets name in their own words
@@ -32,7 +41,8 @@ static func plan(
 	stores: Dictionary,
 	crews: int,
 	crew_word: String,
-	price: Callable = Callable()
+	price: Callable = Callable(),
+	free_by_region: Dictionary = {}
 ) -> Dictionary:
 	var reading: Dictionary = {
 		"count": targets.size(),
@@ -44,12 +54,16 @@ static func plan(
 		"refusal": "",
 	}
 	var left: Dictionary = stores.duplicate()
-	var free: int = maxi(crews, 0)
+	# One pool for a single-chart view, one pool per chart when the sheet reads
+	# both: either way a filed order spends the hand it will send.
+	var pooled: bool = free_by_region.is_empty()
+	var hands: Dictionary = {POOLED: maxi(crews, 0)} if pooled else free_by_region.duplicate()
 	for raw: Variant in targets:
-		if free <= 0:
+		var target: Dictionary = raw
+		var chart: int = POOLED if pooled else int(target.get("region", POOLED))
+		if int(hands.get(chart, 0)) <= 0:
 			reading["refusal"] = RaiseLedger.no_crew_note(crew_word)
 			break
-		var target: Dictionary = raw
 		var cost: Dictionary = _cost_of(target, price, left)
 		var short: String = CivilianWorkRefusals.stores(cost, left)
 		if not short.is_empty():
@@ -62,7 +76,7 @@ static func plan(
 			materials[id] = int(materials.get(id, 0)) + int(cost[commodity])
 		reading["crews"] = int(reading["crews"]) + 1
 		reading["filed"] = int(reading["filed"]) + 1
-		free -= 1
+		hands[chart] = int(hands.get(chart, 0)) - 1
 	# The stores the line leaves, for the resources it spends: the row's own
 	# labels and the sheet's own reading, never the whole stockpile.
 	var kept: Dictionary = reading["kept"]
