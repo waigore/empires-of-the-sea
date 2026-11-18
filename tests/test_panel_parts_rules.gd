@@ -973,6 +973,60 @@ func test_disabled_orders_explain_the_refusal() -> void:
 	assert_not_null(button)
 	assert_true(button.disabled)
 
+## The gift's sum is the crown's to choose: the published £1,000 steps, the
+## purse's own ceiling, and one press that files the sum it shows (wiki:
+## diplomacy § Amount parameters; DR-20261118-16; REQ-P2-02, REQ-P5-02).
+func test_the_court_steps_the_gift_before_it_sends() -> void:
+	_setup_diplomacy_panel()
+	panel.select_faction(1)
+	var seen: Array[Array] = []
+	panel.order_pressed.connect(
+		func(kind: String, target: int, arg: String) -> void:
+			seen.append([kind, target, arg])
+	)
+	var press: Button = _find_button(panel._detail, "Grant Aid")
+	assert_not_null(press)
+	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_false(press.disabled, "an auto-embassy and a purse that covers the floor")
+	assert_true(
+		_has_text(panel._detail, "The regard a gift earns is fixed"),
+		"the sheet says what the sum does and does not buy"
+	)
+	var up: Button = _find_button(panel._detail, "+")
+	assert_not_null(up)
+	assert_false(up.disabled)
+	up.pressed.emit()
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £2,000")
+	assert_true(_find_button(panel._detail, "+").disabled, "the 2,500 purse covers no step further")
+	_find_button(panel._detail, "Grant Aid").pressed.emit()
+	assert_eq(seen.size(), 1)
+	assert_eq(seen[0][0], "grant_aid")
+	assert_eq(seen[0][1], 1)
+	assert_eq(seen[0][2], "2000", "one order carries the sum the press shows")
+
+## A stepped sum is the pair's, not the panel's: opening another court starts
+## that court's gift at the floor again.
+func test_the_stepped_gift_belongs_to_the_court_it_was_stepped_for() -> void:
+	_setup_diplomacy_panel()
+	panel.select_faction(1)
+	_find_button(panel._detail, "+").pressed.emit()
+	assert_eq(panel._detail.gift_amount, 2000)
+	panel.select_faction(6)
+	assert_eq(panel._detail.gift_amount, DiplomacyCatalog.GRANT_AID_STEP)
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £1,000")
+
+## A purse that no longer covers the sum the crown had stepped to reads the
+## validator's reason under the dead press, and the step falls back to the floor.
+func test_a_gift_the_purse_cannot_cover_reads_its_reason() -> void:
+	_setup_diplomacy_panel()
+	panel.select_faction(1)
+	_find_button(panel._detail, "+").pressed.emit()
+	panel.refresh(state, null, 0, 500)
+	var press: Button = _find_button(panel._detail, "Grant Aid")
+	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_true(press.disabled)
+	assert_true(_has_text(panel._detail, "The treasury cannot cover that aid."))
+
 func test_at_war_updates_the_stand_and_offers_peace() -> void:
 	_setup_diplomacy_panel()
 	DiplomacyRules.declare_war(state, 0, 6)
@@ -1479,6 +1533,61 @@ func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
 	assert_false(press.is_armed(), "the redraw spends the arm the player gave")
 	assert_eq(press.text, "Muster all ready (1)", "the face names the line it now stands for")
 	panel.free()
+
+
+## The press's armed face names the line it will file, not the view it stands in:
+## five ready towns over one idle Builder read `Confirm — raise 1 of 5 towns`, so
+## one tap carries one pair of numbers (REQ-P5-05; DR-20261118-21). A line that
+## carries nothing arms nothing, and a sheet that read no plan keeps its view.
+func test_the_armed_press_names_the_line_it_will_file() -> void:
+	var press := RaiseBatchPress.new()
+	add_child(press)
+	press.set_ready(5, "towns", 1)
+	assert_true(press.visible, "a view with ready steps carries the press")
+	assert_false(press.disabled, "and a line a crown can pay for enables it")
+	assert_eq(press.text, "Raise all ready (5)", "the unarmed face names the view")
+	assert_eq(press.carries(), 1, "the line carries one of the five")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(press.text, "Confirm — raise 1 of 5 towns", "the confirm names the line")
+	press.pressed.emit()
+	assert_false(press.is_armed(), "the second tap files")
+
+	press.set_ready(5, "towns", 0)
+	assert_true(press.disabled, "a line that carries nothing stands the press down")
+	press.arm()
+	assert_false(press.is_armed(), "and a press with nothing to file cannot arm")
+
+	press.set_ready(5, "towns")
+	assert_false(press.disabled, "a sheet that read no plan keeps its published face")
+	press.pressed.emit()
+	assert_eq(press.text, "Confirm — raise 5 towns", "and files the view it names")
+	press.free()
+
+
+## A walk that carries nothing prints the rules' own refusal, in the sheet's own
+## words: the disabled press above it sends the reader to that sentence rather
+## than leaving a dead tap with no reason (REQ-P5-05; DR-20261118-21).
+func test_a_line_that_carries_nothing_names_the_wait() -> void:
+	var towns: Array[Dictionary] = [{"cost": {"lumber": 4}, "region": 0}]
+	var reading: Dictionary = RaiseLine.plan(towns, {"lumber": 0}, 1, "Builder")
+	assert_eq(int(reading["filed"]), 0, "the stores carry none of it")
+	var line: String = RaiseLine.sheet_line(reading)
+	assert_true(line.begins_with("Nothing in this view can be ordered — 1 waits: "), line)
+	assert_true(line.ends_with("."), "the rules' sentence keeps its stop: %s" % line)
+
+	var yard: Dictionary = RaiseBatchSum.blank()
+	yard["count"] = 3
+	yard["filed"] = 0
+	yard["refusal"] = "The yard needs a free peasant"
+	assert_eq(
+		RaiseBatchSum.sheet_line(yard),
+		"Nothing in this yard can be ordered — 3 wait: The yard needs a free peasant."
+	)
+	assert_eq(RaiseBatchSum.carries(yard), 0, "and the press would carry nothing")
+	assert_eq(
+		RaiseBatchSum.carries(RaiseBatchSum.blank()), -1, "an unread plan keeps the view"
+	)
 
 
 ## The drill yard's foot names what the whole line costs before it is pressed: the
@@ -5160,6 +5269,63 @@ func test_the_dossier_names_the_deed_that_holds_the_ground() -> void:
 		_dossier_detail_of(merchant, model, "Deed"),
 		"%s · first refusal on 1 grain / turn" % FactionCatalog.name_of(PLAYER)
 	)
+
+
+## The passengers block reads a landing as a tile: a coast with one legal ground
+## lands in one press, a coast with several opens its grounds, and the ground's
+## press carries that tile (wiki: civilian-units § Landing; DR-20261118-19).
+func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	block.set_data({
+		"count": 1,
+		"note": "1 aboard: Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{"province": 4, "name": "Cadiz", "tiles": [{"x": 2, "y": 3}]},
+			{
+				"province": 5,
+				"name": "Vera Cruz",
+				"tiles": [{"x": 7, "y": 8}, {"x": 9, "y": 10}],
+			},
+		],
+	})
+	var coasts: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(coasts.size(), 2, "one press per coast")
+	var single: Button = coasts[0] as Button
+	assert_eq(single.text, "Put ashore at Cadiz")
+	single.pressed.emit()
+	assert_eq(fired, ["crew:land:2:3"], "one ground lands in one press")
+	assert_eq(block.open_coast, -1, "a single-ground coast opens nothing")
+
+	var many: Button = coasts[1] as Button
+	assert_true(many.text.begins_with("Put ashore at Vera Cruz · 2 grounds"))
+	many.pressed.emit()
+	assert_eq(block.open_coast, 5, "the coast opens")
+	assert_eq(fired.size(), 1, "opening a coast orders nothing")
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(rows.size(), 3, "the way back and the coast's two grounds")
+	assert_eq((rows[1] as Button).text, "Vera Cruz (7, 8)")
+	(rows[1] as Button).pressed.emit()
+	assert_eq(fired.size(), 2)
+	assert_eq(fired[1], "crew:land:7:8", "the ground's press carries its own tile")
+	assert_eq(block.open_coast, -1, "the press closes the coast")
+
+	# The coasts are back, and the way back out of a coast orders nothing.
+	var reopened: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(reopened.size(), 2, "the coasts are back")
+	(reopened[1] as Button).pressed.emit()
+	var grounds: Array[Node] = block.find_children("", "Button", true, false)
+	(grounds[0] as Button).pressed.emit()
+	assert_eq(block.open_coast, -1, "the way back closes the coast")
+	assert_eq(fired.size(), 2, "no order leaves the way back")
+
+	block.set_data({"count": 0, "land": [], "embark": [], "sortie": []})
+	assert_false(block.visible, "no passengers, no block")
+	block.free()
 
 
 func _dossier_detail_of(unit: CivilianState, model: MapModel, caption: String) -> String:

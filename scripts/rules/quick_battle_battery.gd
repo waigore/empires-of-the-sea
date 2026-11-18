@@ -84,7 +84,7 @@ static func fire(
 	blow *= QuickBattleWings.turned_scale(wing, atk.get("broken", []) as Array)
 	var lost: Array[String] = []
 	if wing.is_empty():
-		lost = ArmyForce.apply_losses(armies, atk_side, ceili(blow), int(atk["limit"]))
+		lost = QuickBattleActions.line_losses(armies, atk_side, ceili(blow), atk)
 	else:
 		lost = ArmyForce.apply_losses(
 			armies, atk_side, ceili(blow), 0, Callable(),
@@ -109,7 +109,8 @@ static func volley_entry(
 	var atk_side: Array[ArmyState] = state["attacker"]["side"]
 	var hits: Array[Dictionary] = RegimentCondition.damage_side(
 		atk_side, float(hit) * RegimentCondition.HP_PER_SLOT,
-		int(state["attacker"]["limit"])
+		int(state["attacker"]["limit"]),
+		QuickBattleActions.line_of(state["attacker"])
 	)
 	var entry: Dictionary = QuickBattleActions.action_entry(owner, "battery", "Emplaced battery")
 	entry["attacker_lost"] = hit

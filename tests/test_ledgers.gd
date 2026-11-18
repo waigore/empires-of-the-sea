@@ -2772,6 +2772,92 @@ func test_the_raise_line_reads_a_price_that_moves_with_the_stores() -> void:
 	assert_eq(int(plan["filed"]), 2, "the line is carried")
 
 
+## A crown that holds a Builder on each chart: the hands the press can send are
+## the chart's own, so a New World Builder raises no Old World town
+## (DR-20261118-17).
+func test_the_raise_line_spends_only_the_hands_of_a_row_s_own_chart() -> void:
+	var old_home: Array = [CivilianState.create(1, 0, "builder", TOWN_TILE)]
+	var new_home: Array = [CivilianState.create(2, 0, "builder", TOWN_TILE)]
+	var regions: Array[Dictionary] = _town_regions(
+		old_home, {"national_bureaucracy": true}, {"lumber": 40, "castIron": 40}, new_home
+	)
+	# Both Old World towns stand at level 1 and the colony's at level 3, so the
+	# walk meets the old chart's two steps before the new chart's one — the state
+	# the towns sheet is really read in.
+	var old_model: MapModel = regions[0]["model"] as MapModel
+	old_model.provinces[1].owner = 0
+	old_model.provinces[1].town_development = 1
+	(regions[1]["model"] as MapModel).provinces[0].town_development = 3
+	var snapshot: Dictionary = TownLedger.snapshot(regions, 0)
+	var targets: Array[Dictionary] = RaiseLedger.ready_targets(snapshot, LedgerRows.REGION_ALL)
+	assert_eq(targets.size(), 3, "two Old World towns and one New World town are ready")
+	var hands: Dictionary = RaiseLedger.free_crews(snapshot["crews_by_region"], "builder")
+	assert_eq(int(hands.get(FactionCatalog.OLD_WORLD, 0)), 1, "one Builder stands on the old chart")
+	assert_eq(int(hands.get(FactionCatalog.NEW_WORLD, 0)), 1, "and one on the new")
+	# One purse for the whole realm spends both hands on the old chart's towns and
+	# promises a second order the old chart's single Builder cannot take.
+	var pooled: Dictionary = RaiseLine.plan(targets, snapshot["stores"], 2, "Builder")
+	assert_eq(int(pooled["filed"]), 2, "a pooled walk reads both hands as the old chart's")
+	# The hands a crew can be sent with are the chart's own, and that is the walk
+	# the press files (DR-20261118-17).
+	var plan: Dictionary = RaiseLine.plan(
+		targets, snapshot["stores"], 2, "Builder", Callable(), hands
+	)
+	assert_eq(int(plan["filed"]), 1, "one Old World Builder carries one Old World town")
+	assert_eq(int(plan["crews"]), 1, "and is the one hand the line names")
+	assert_eq(
+		String(plan["refusal"]),
+		RaiseLedger.no_crew_note("Builder"),
+		"the second Old World town waits on a hand of its own chart"
+	)
+	assert_eq(
+		RaiseLine.sheet_line(plan),
+		"4 Lumber · 4 Cast Iron · 1 Builder — 2 of 3 wait: "
+		+ "No idle Builder musters — train one at the capital.",
+		"the line says what the press can file, not what the realm holds"
+	)
+
+
+## One step on each chart, with a hand on each: the line carries both, because
+## neither chart's Builder is spent on the other's town (DR-20261118-17).
+func test_the_raise_line_carries_a_step_on_each_chart_that_holds_a_hand() -> void:
+	var targets: Array[Dictionary] = [
+		{"region": FactionCatalog.OLD_WORLD, "cost": {"lumber": 4}},
+		{"region": FactionCatalog.NEW_WORLD, "cost": {"lumber": 4}},
+	]
+	var hands: Dictionary = {
+		FactionCatalog.OLD_WORLD: 1,
+		FactionCatalog.NEW_WORLD: 1,
+	}
+	var plan: Dictionary = RaiseLine.plan(
+		targets, {"lumber": 40}, 2, "Builder", Callable(), hands
+	)
+	assert_eq(int(plan["filed"]), 2, "each chart's own Builder carries its own town")
+	assert_eq(int(plan["crews"]), 2, "both hands are tied up")
+	assert_eq(String(plan["refusal"]), "", "nothing waits")
+
+
+## The snapshot reads the hands chart by chart, so a sheet can never spend a crew
+## where it does not stand (DR-20261118-17).
+func test_the_snapshot_reads_its_free_crews_chart_by_chart() -> void:
+	var regions: Array[Dictionary] = _town_regions(
+		_builders(), {"national_bureaucracy": true}, {"lumber": 40, "castIron": 40}
+	)
+	regions[1]["units"] = [] as Array[CivilianState]
+	var snapshot: Dictionary = TownLedger.snapshot(regions, 0)
+	var by_region: Dictionary = snapshot["crews_by_region"]
+	assert_eq(
+		int(((by_region[FactionCatalog.OLD_WORLD] as Dictionary).get("builder", 0))),
+		1,
+		"the old chart's roster holds the Builder"
+	)
+	assert_eq(
+		int(((by_region[FactionCatalog.NEW_WORLD] as Dictionary).get("builder", 0))),
+		0,
+		"the new chart holds none, and the sheet says so"
+	)
+
+
 # --- towns: the sheet ---
 
 
@@ -2945,6 +3031,42 @@ func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> voi
 	panel.open()
 	panel._on_filter(TownLedger.FILTER_DEVELOPED, false)
 	assert_false(panel._batch.visible, "a reading with nothing ready carries no press")
+
+
+## The confirm and the line under it describe one tap: the sheet's press carries
+## the walk's own count, so a crown that confirms one town fixes one order
+## whatever the view above the press prints — and the tap files exactly the line
+## the face named (REQ-P5-05, REQ-P2-03; DR-20261118-21).
+func test_the_towns_confirm_names_the_line_it_would_file() -> void:
+	var panel: TownLedgerPanel = screen.hud.towns_ledger
+	_cancel_works()
+	screen.play.tech_unlocked()["national_bureaucracy"] = true
+	var stock: Dictionary = screen.play.stockpile()
+	stock["lumber"] = 400
+	stock["castIron"] = 400
+	panel.open()
+	panel._on_filter(LedgerRows.REGION_OLD, true)
+	panel._on_filter(TownLedger.FILTER_ALL, false)
+	var targets: Array[Dictionary] = panel._ready_targets()
+	assert_gte(targets.size(), 1, "the campaign seats a town the crown can raise")
+	var press: RaiseBatchPress = panel._batch
+	var filed: int = press.carries()
+	if panel._line.text.contains(" of "):
+		press.pressed.emit()
+		assert_eq(
+			press.text,
+			"Confirm — raise %d of %d towns" % [filed, targets.size()],
+			"the confirm names the share the line under it names"
+		)
+	else:
+		assert_eq(filed, targets.size(), "a line that carries the view files the view")
+	var working: int = _working_town_builders()
+	press.pressed.emit()
+	press.pressed.emit()
+	assert_eq(
+		_working_town_builders(), working + filed,
+		"the tap files exactly the line its face named"
+	)
 
 
 ## The sheet prices the line under its press: the stores the ready towns take,
@@ -3126,9 +3248,13 @@ func _working_estate_builders() -> int:
 
 ## Two charts of the naval fixture: the crown holds Cádiz at home (a level-1
 ## town) and Veracruz abroad (a finished town), and the rival's Coro carries a
-## town of its own that must never reach the reading.
+## town of its own that must never reach the reading. `new_units` seats a roster
+## of its own on the New World chart, so a case can hold a crew on each chart.
 func _town_regions(
-	units: Array, tech: Dictionary = {"national_bureaucracy": true}, stockpile: Variant = null
+	units: Array,
+	tech: Dictionary = {"national_bureaucracy": true},
+	stockpile: Variant = null,
+	new_units: Variant = null
 ) -> Array[Dictionary]:
 	var old: MapModel = Naval.build()
 	var new: MapModel = Naval.build()
@@ -3152,7 +3278,7 @@ func _town_regions(
 		{
 			"region": FactionCatalog.NEW_WORLD,
 			"model": new,
-			"units": units,
+			"units": units if new_units == null else new_units,
 			"tech_unlocked": tech,
 			"stockpile": stockpile,
 		},

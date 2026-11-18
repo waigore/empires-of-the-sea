@@ -1461,6 +1461,56 @@ func test_the_slip_redraws_after_its_one_press() -> void:
 	)
 
 
+## The slip's one press names the line it will file, not the view it stands in: a
+## purse that pays the slip's first hull and not its second reads
+## `Confirm — launch 1 of N hulls` under a sum line that says which hulls wait
+## (REQ-P5-05, REQ-P2-03; DR-20261118-21).
+func test_the_shipyard_confirm_names_the_line_the_purse_carries() -> void:
+	var play: PlaySession = _screen.play
+	play.selected_province = play.capital_province
+	var econ: PlayerEconomy = play.economy.economy
+	for commodity: String in ["lumber", "fabric", "castIron", "coal"]:
+		econ.stockpile[commodity] = 40
+	econ.workers.set_count(WorkerPool.Tier.PEASANT, 12)
+	econ.tech_unlocked["superior_hull_design"] = true
+	econ.treasury = 100000
+	var ready: Array[String] = FleetYard.batch_types(
+		econ, true, MapPlayFleetYard.flown(play)
+	)
+	assert_gte(ready.size(), 2, "the slip offers more than one payable hull")
+
+	MapPlayFleetYard.open(play)
+	var yard: FleetYardBlock = _screen.hud.panels.fleet_panel._yard
+	var press: RaiseBatchPress = yard._batch
+	# The slip's own first ready row, read at a purse that pays for anything: the
+	# walk then pays that one and stops at the next, because every hull costs
+	# something. Each row stays ready on its own at that purse — each is legal —
+	# so the view's count and the line's count part company on the sum alone.
+	var first: String = ""
+	for row: Dictionary in yard._rows:
+		if bool(row.get("batch_ready", false)):
+			first = String(row["type_id"])
+			break
+	assert_false(first.is_empty(), "the slip prints a ready row")
+	econ.treasury = ShipEconomy.treasury_cost(first)
+	MapPlayFleetYard.open(play)
+
+	assert_eq(press.text, "Launch all ready (%d)" % ready.size(), "the face names the view")
+	assert_eq(press.carries(), 1, "the line carries the slip's first hull and no more")
+	press.pressed.emit()
+	assert_true(press.is_armed(), "the first tap only arms")
+	assert_eq(
+		press.text,
+		"Confirm — launch 1 of %d hulls" % ready.size(),
+		"the confirm names what the purse carries"
+	)
+	press.pressed.emit()
+	assert_eq(
+		econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), 1,
+		"and the tap files exactly the one the face named"
+	)
+
+
 ## The batch speaks the same refusals a single launch does, before anything is
 ## filed: a lost capital and an inland one both lay down no hull (REQ-P2-03;
 ## DR-20261118-08).
@@ -1701,6 +1751,50 @@ func test_the_home_dossier_ships_a_colonist_and_can_sortie() -> void:
 	MapPlayCivilianVoyage.on_action(_screen.play, "sortie:%d" % zone)
 	assert_true(home.is_at_sea())
 	assert_false(NavalMovement.is_home_fleet(_screen.model, home))
+
+
+## A landing is a tile: the dossier groups the legal grounds by coast and the
+## crown's press puts the crew on the one it named, not the first the rules read
+## (wiki: civilian-units § Landing, § Acceptance Criteria; DR-20261118-19).
+func test_the_crew_lands_on_the_ground_the_crown_names() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var unit: CivilianState = _screen.civilian_layer.units[0]
+	unit.tile = _screen.model.province_tiles(capital)[0]
+	unit.moved = false
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:%d" % unit.id)
+	assert_true(unit.is_embarked())
+
+	var coast: Dictionary = {}
+	for raw: Variant in MapPlayCivilianVoyage.crew(_screen.play, home)["land"]:
+		var row: Dictionary = raw as Dictionary
+		if int(row.get("province", -1)) == capital:
+			coast = row
+			break
+	assert_false(coast.is_empty(), "the capital coast is offered")
+	var legal: Array[Vector2i] = CivilianVoyage.landing_tiles_in(
+		_screen.model, unit, home, capital
+	)
+	var grounds: Array = coast.get("tiles", [])
+	assert_eq(grounds.size(), legal.size(), "every legal ground is on the row")
+	assert_gte(legal.size(), 2, "the capital coast holds more than one ground")
+	assert_eq(
+		Vector2i(int(grounds[0]["x"]), int(grounds[0]["y"])),
+		legal[0],
+		"the row reads the rules' own order"
+	)
+
+	var chosen: Vector2i = legal[legal.size() - 1]
+	assert_ne(chosen, legal[0], "a ground other than the first one read")
+	MapPlayCivilianVoyage.on_action(
+		_screen.play, "crew:land:%d:%d" % [chosen.x, chosen.y]
+	)
+
+	assert_false(unit.is_embarked())
+	assert_eq(unit.tile, chosen, "the crown's ground, not the first on the coast")
+	assert_true(_screen.civilian_layer.marker_for(unit).visible)
 
 
 ## A squadron of several hulls flies them: the marker's escorts, hull badge and

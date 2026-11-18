@@ -143,6 +143,35 @@ func test_the_port_province_is_the_landing_ground() -> void:
 		Vector2i(0, 0)
 	)
 
+func test_a_coast_offers_every_ground_it_holds() -> void:
+	_setup_civilian_voyage()
+	var fleet: FleetState = _fleet()
+	var unit: CivilianState = _unit()
+	CivilianVoyage.embark(_model, unit, fleet)
+
+	var grounds: Array[Vector2i] = CivilianVoyage.landing_tiles_in(
+		_model, unit, fleet, 0
+	)
+
+	assert_eq(grounds.size(), 3, "every tile of the port province is a ground")
+	assert_eq(grounds[0], Vector2i(0, 0), "the first ground reads as the first landing tile")
+	assert_true(grounds.has(Vector2i(1, 0)))
+	assert_true(grounds.has(Vector2i(0, 1)))
+	assert_eq(
+		CivilianVoyage.landing_tile_in(_model, unit, fleet, 0),
+		grounds[0],
+		"a caller that names only the coast lands on the first ground"
+	)
+	assert_eq(
+		CivilianVoyage.landing_tiles_in(_model, unit, fleet, 5), [],
+		"another coast holds no ground for this squadron"
+	)
+	assert_eq(
+		CivilianVoyage.landing_tiles_in(_model, unit, fleet, CivilianVoyage.NO_ID),
+		[],
+		"an unnamed coast is no coast"
+	)
+
 func test_a_squadron_at_sea_lands_on_the_bordering_coast() -> void:
 	_setup_civilian_voyage()
 	var fleet: FleetState = FleetState.at_sea(2, 0, 0, ["c"], {"c": "fluyte"})
@@ -4562,6 +4591,67 @@ func test_an_unsurveyed_deposit_prices_the_level_and_its_gate() -> void:
 	assert_eq(
 		String(row["preview_text"]),
 		"L1 pays 1 iron / turn (+1) once an Explorer prospects it"
+	)
+
+
+## One gate answers the Build press and the words that refuse it: a row can
+## never offer a raise while naming a reason, nor hold a reason while offering
+## the press (REQ-P2-03, RUB-P2-03).
+func test_an_estate_rows_build_press_and_its_refusal_never_disagree() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var rows: Array[Dictionary] = [
+		EstateRows.project(
+			field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+			field__model.resource_at(
+				field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y
+			),
+			field_Fixture.PLAYER_PROVINCE,
+			{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [], {}
+		),
+		EstateRows.project(
+			field__model, field__works, [], {}, 0, field_Fixture.IRON_TILE,
+			field__model.resource_at(field_Fixture.IRON_TILE.x, field_Fixture.IRON_TILE.y),
+			field_Fixture.PLAYER_PROVINCE, {}, {"network": {}}, [], {}
+		),
+	]
+	var builder := field_Fixture.unit("builder", field_Fixture.TIMBER_TILE)
+	builder.start_work("build_improvement", field_Fixture.TIMBER_TILE, 1)
+	rows.append(EstateRows.project(
+		field__model, field__works, [builder], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [builder], {}
+	))
+	for row: Dictionary in rows:
+		assert_eq(
+			bool(row["can_build"]), String(row["build_reason"]).is_empty(),
+			"the press and its refusal read one gate: %s" % String(row["build_reason"])
+		)
+
+
+## The row's words live in one home: what the sheet prints is what
+## [EstateRowWords] reads off the priced row, cap line included (REQ-P3-01).
+func test_an_estate_row_prints_the_words_its_words_module_reads() -> void:
+	field__works.set_improvement(field__model, field_Fixture.TIMBER_TILE, 1)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, field_Fixture.TIMBER_TILE,
+		field__model.resource_at(field_Fixture.TIMBER_TILE.x, field_Fixture.TIMBER_TILE.y),
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [],
+		{"timber": 2}
+	)
+	assert_eq(String(row["preview_text"]), EstateRowWords.preview_text(row))
+	assert_eq(
+		EstateRowWords.binding_cap(row), "the road's transport",
+		"the cap line names the tightest of the four the yield reads"
+	)
+	assert_true(
+		EstateRowWords.status_text(
+			String(row["status"]), int(row["resource"]), int(row["level"]),
+			int(row["output"]), int(row["tech_cap"]), int(row["terrain_cap"]),
+			int(row["transport"]), int(row["town_cap"]), null, true
+		).begins_with("Yields"),
+		"the status line is the words module's own read of the row"
 	)
 
 

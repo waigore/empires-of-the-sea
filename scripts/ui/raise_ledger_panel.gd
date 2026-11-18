@@ -172,28 +172,41 @@ func _ready_targets() -> Array[Dictionary]:
 ## The press names how many steps it would file, so the count is read before the
 ## stores are spent (REQ-P5-03, REQ-P5-05), and the line under it names what the
 ## walk would take — the materials and the crews the stores and the free hands
-## carry, or how many ready rows wait and why (DR-20261118-12).
+## carry, or how many ready rows wait and why (DR-20261118-12). The armed face
+## takes the line's own count from that walk, so the confirm and the line describe
+## one tap and not two (DR-20261118-21).
 func _sync_batch() -> void:
 	if _batch == null:
 		return
 	var targets: Array[Dictionary] = _ready_targets()
 	var ready: int = targets.size()
-	_batch.set_ready(ready, _row_word(ready))
 	if _line == null:
+		_batch.set_ready(ready, _row_word(ready))
 		return
 	# The stores the line is priced from and the free crews of the sheet's own
-	# trade, as the snapshot read them over both charts: one order ties one crew
-	# up, so five ready towns with one Builder carry one and the rest wait.
+	# trade, read per chart as the snapshot read them over both charts: one
+	# order ties one crew up, so five ready towns with one Builder carry one and
+	# the rest wait — and a Builder on the other chart carries none of them,
+	# because a crew works only the chart it stands on (DR-20261118-17).
 	var stores: Variant = _snapshot.get("stores", {})
-	var crews: Variant = _snapshot.get("crews", {})
+	var by_region: Variant = _snapshot.get("crews_by_region", {})
+	var free_by_region: Dictionary = (
+		RaiseLedger.free_crews(by_region, _crew_type()) if by_region is Dictionary else {}
+	)
+	var crews: int = 0
+	for raw: Variant in free_by_region.keys():
+		crews += int(free_by_region[raw])
 	var reading: Dictionary = RaiseLine.plan(
 		targets,
 		stores if stores is Dictionary else {},
-		int((crews as Dictionary).get(_crew_type(), 0)) if crews is Dictionary else 0,
-		CivilianCatalog.display_name(_crew_type())
+		crews,
+		CivilianCatalog.display_name(_crew_type()),
+		Callable(),
+		free_by_region
 	)
 	_line.text = RaiseLine.sheet_line(reading)
 	_line.visible = not _line.text.is_empty()
+	_batch.set_ready(ready, _row_word(ready), int(reading["filed"]))
 
 
 ## The trade this sheet's orders dispatch: a Builder for the towns, an Engineer
