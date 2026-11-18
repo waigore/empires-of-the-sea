@@ -1,5 +1,7 @@
 # PR body — optimize AI (competitiveness fix)
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 Use with `gh pr create`. Title: why-focused (win-seeking / competitiveness).
 
 ```markdown

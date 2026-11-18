@@ -1,5 +1,7 @@
 # AI planner gap — issue template
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 **Title:** `[AI] <short planner gap>`
 
 **Labels:** `todo` + `bug` (wrong/suboptimal live behavior) or `enhancement`

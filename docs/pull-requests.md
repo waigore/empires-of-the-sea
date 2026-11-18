@@ -59,7 +59,7 @@ EOF
 )"
 ```
 
-Prefer draft until reviewable. Title/body say **why**; cite `REQ-*` / `RUB-*` when relevant.
+Prefer draft until reviewable. Title/body/comments: plain English per [`AGENTS.md`](../AGENTS.md) Talk to the user; say **why**; cite `REQ-*` / `RUB-*` when relevant.
 
 **While open:** `gh pr checks` · `gh pr view` · `gh pr comment`. Push fixes; avoid force-push unless rewriting a private draft.
 

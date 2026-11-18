@@ -37,7 +37,7 @@ already ships. Rank for [`implement-feature-agent`](../implement-feature-agent/S
 | Code under `scripts/`, `tests/` | Ground truth for “already live” |
 | [`docs/requirements.md`](../../../docs/requirements.md) | `REQ-P2-02` |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
-| [`AGENTS.md`](../../../AGENTS.md) | Docs ≤500 words; skills isolation |
+| [`AGENTS.md`](../../../AGENTS.md) | Docs ≤500; skills isolation; Talk to the user (PR text) |
 | [`references/pr-body.md`](references/pr-body.md) | PR body template |
 
 **Not this agent:** shipping a gap → [`implement-feature-agent`](../implement-feature-agent/SKILL.md).

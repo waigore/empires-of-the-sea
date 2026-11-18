@@ -39,6 +39,7 @@ Not missing features → [`implement-feature-agent`](../implement-feature-agent/
 | [Wiki AI](https://github.com/waigore/empires-of-the-sea/wiki/ai-architecture) | Intended planner behavior |
 | [`docs/ai.md`](../../../docs/ai.md) · [`docs/ai-observer.md`](../../../docs/ai-observer.md) | Implemented map + harness |
 | [`references/playbook.md`](references/playbook.md) | Commands, report paths, cleanup |
+| [`AGENTS.md`](../../../AGENTS.md) Talk to the user | Plain English on issue/PR text |
 | [`references/pr-body.md`](references/pr-body.md) | Competitiveness / climb PR |
 
 ## Metric (do not re-implement)
@@ -103,9 +104,9 @@ opening a PR with AI code changes, that latest report must satisfy
 ### 5. Issues / PR (optional)
 
 Non-score gaps → file issues ([`references/issue-template.md`](references/issue-template.md)).
-Shipping AI improvements → one themed PR; do **not** mix skill-tree edits
+Shipping AI improvements → one themed PR ([`references/pr-body.md`](references/pr-body.md)); do **not** mix skill-tree edits
 (`skills-isolation`). Prove with tests when touching planners; cite score
-delta vs baseline in the PR body.
+delta vs baseline. Issue/PR text: plain English per [`AGENTS.md`](../../../AGENTS.md) Talk to the user.
 
 ### 6. Cleanup
 
