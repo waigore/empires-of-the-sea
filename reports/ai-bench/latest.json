@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:20612754d27a8da77531b10ed1ba6f039bcf45c3009fdc4f5c37b095783ef3d1",
-  "submission_git": "feat/974-re-field-the-host@139dc77c+dirty",
+  "submission_hash": "sha256:ee703bc8f2d964a20b0777acb0d452e4ea3783941cdb64a65508d85688efb596",
+  "submission_git": "refactor/army-muster-trace-row@b74bc819",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:a5d375ec8b5e8407e17c995eca95509347403f37a0b37f2e4c37baec6a117b4c",
+    "ai_surface_hash": "sha256:c3034c42cec33df6a27aa6c35e47c72844cbacf4ccca958391a4d97db3bf387a",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 15,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-18T08:53:54Z",
+  "timestamp": "2026-11-18T13:40:43Z",
   "report_version": 1,
-  "signature": "hmac-sha256:742885ed2b6188934d9fcedcf6f7bb66e080ed5dd6f5950249eb39ab965350f0"
+  "signature": "hmac-sha256:85786bad734ef036d81b37821bcbda1c4de5e7ff9290fbc9eee01ed2fc0c3e45"
 }
