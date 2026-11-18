@@ -2945,6 +2945,16 @@ domain = "chart_art"
 match = "scripts/map/map_canvas_plan.gd"
 domain = "chart_art"
 
+# Terrain / settlement mark scatter and Passage wash: chart art like the plan
+# that calls them, so only the suites that mount the chart run.
+[[rules]]
+match = "scripts/map/map_canvas_marks.gd*"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_canvas_passages.gd*"
+domain = "chart_art"
+
 # A wooded tile's grove layout (the crown tree and its ring of companions):
 # chart art like the plan that calls it, so only the suites that mount the
 # chart run.

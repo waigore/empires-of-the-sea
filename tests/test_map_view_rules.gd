@@ -3517,7 +3517,7 @@ func test_passage_mark_keeps_the_sea_name_clear() -> void:
 	plan.labels.append({
 		"text": "Mar", "position": Vector2(100, 100), "size": 13, "kind": "sea"
 	})
-	plan._lift_sea_name(Vector2(100, 100))
+	MapCanvasPassages._lift_sea_name(plan, Vector2(100, 100))
 	var at: Vector2 = plan.labels[0]["position"]
 	assert_lt(at.y, 100.0, "the sea name sits above the mark")
 	assert_almost_eq(at.x, 100.0, 0.001, "the name keeps its column")
