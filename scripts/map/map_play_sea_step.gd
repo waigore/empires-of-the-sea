@@ -70,7 +70,7 @@ static func earning(
 		)
 	)
 	return str(
-		AiBind.income_plan(
+		AiBindEconomy.income_plan(
 			kind, config, play.ledger_for(faction),
 			MapPlayCourt.at_war(play, faction),
 			MapPlayCourt.regiments(play, faction),

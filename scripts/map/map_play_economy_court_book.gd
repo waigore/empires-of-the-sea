@@ -14,7 +14,7 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 	# Surplus research still leaves the money-first reserve alone; the standing
 	# study alone may dip to the cash floor so a war-time court parked at 500
 	# while saving 2,400 still learns (issue #490).
-	var research_floor: int = AiBind.research_floor(court.kind, court.config)
+	var research_floor: int = AiBindEconomy.research_floor(court.kind, court.config)
 	# Navy unlock door first, else Tribe chain (issue #484; DR-20261114-05).
 	var door: String = ""
 	if AiNavy.due(
@@ -38,7 +38,7 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 			court.play.world, court.faction, court.play.court_charts,
 			court.play.diplomacy, court.economy.tech_unlocked
 		)
-	return AiBind.research_plan(
+	return AiBindEconomy.research_plan(
 		court.kind, court.config, court.economy,
 		{
 			"at_war": court.at_war,
@@ -131,14 +131,14 @@ static func trade(court: MapPlayEconomyCourt) -> Dictionary:
 	var speculate: bool = AiPhasePlanner.opens(
 		court.phase, AiPhasePlanner.SLOT_MARKET
 	)
-	var plan: Dictionary = AiBind.market_plan(
+	var plan: Dictionary = AiBindEconomy.market_plan(
 		court.kind, court.config, court.economy, court.market, free_holds,
 		court.economy.tech_unlocked, reserved,
 		MapPlayEconomyAi._merge_rows(need, navy), court.floor, food_short, saving,
 		speculate, works_floor, court.hire_margin
 	)
 	plan["free_holds"] = free_holds
-	var result: Dictionary = AiBind.market_stage(
+	var result: Dictionary = AiBindEconomy.market_stage(
 		court.kind, court.economy, court.market, plan, court.faction,
 		court.economy.tech_unlocked
 	)

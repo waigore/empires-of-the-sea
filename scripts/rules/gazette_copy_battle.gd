@@ -12,11 +12,15 @@ static func battle_capture(rec: Dictionary) -> String:
 	var place: String = String(rec.get("place", ""))
 	var count: int = GazetteCopyVoice.count(rec)
 	if bool(rec.get("self_act", false)):
+		if count <= 0:
+			return "Our crown has taken %s; %s's flag is struck." % [place, whom]
 		return (
 			"Our crown takes %s at the point of the bayonet; %s yields the province and "
 			+ "%s."
 		) % [place, whom, GazetteCopyVoice.regiments(count)]
 	if whom == GazetteCopyVoice.CROWN:
+		if count <= 0:
+			return "%s has carried %s from our crown; the province changes hands." % [who, place]
 		return (
 			"%s has carried %s from our crown; %d of our regiments %s lost with it."
 		) % [who, place, count, GazetteCopyVoice.verb(count)]
@@ -64,6 +68,27 @@ static func battle_annihilated(rec: Dictionary) -> String:
 	if not bonus.is_empty():
 		ruin += " A %s garrison re-forms in the ruin." % bonus
 	return ruin
+
+
+## A province taken without a fight: no shot was fired and no regiment fell, so
+## the line prints the flag coming down and never a battle's casualty count
+## (wiki: the-gazette § Item catalog — "Provinces the crown took or lost";
+## § Prose — a line never invents an outcome).
+static func province_occupied(rec: Dictionary) -> String:
+	var who: String = String(rec.get("who", ""))
+	var whom: String = String(rec.get("whom", ""))
+	var place: String = String(rec.get("place", ""))
+	if bool(rec.get("self_act", false)):
+		return (
+			"Not a shot was fired at %s: the province passes to our crown and %s's flag is "
+			+ "struck."
+		) % [place, whom]
+	if whom == GazetteCopyVoice.CROWN:
+		return (
+			"Not a shot was fired at %s: the province passes to %s and our crown's flag is "
+			+ "struck."
+		) % [place, who]
+	return "Not a shot was fired at %s: the province passes from %s to %s." % [place, whom, who]
 
 
 ## A standoff still buries men: the crown's own dead are counted

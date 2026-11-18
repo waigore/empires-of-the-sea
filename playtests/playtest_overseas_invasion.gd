@@ -116,14 +116,14 @@ func _order(
 	if kind == AiControl.KIND_RANDOM:
 		return {}
 	var config: Variant = AiBind.config(kind, fleet.owner, play.map_seed)
-	var earning: bool = str(AiBind.income_plan(
+	var earning: bool = str(AiBindEconomy.income_plan(
 		kind, config, play.ledger_for(fleet.owner),
 		MapPlayCourt.at_war(play, fleet.owner),
 		MapPlayCourt.regiments(play, fleet.owner),
 		MapPlayCourt.navy_chest(play, fleet.owner),
 		MapPlayCourt.warships(play, fleet.owner)
 	).get("goal", "")) == "earn"
-	return AiBind.invasion_plan(
+	return AiBindCampaign.invasion_plan(
 		kind, config, play.diplomacy, play.world, region, model, fleets, armies,
 		play.turn, play.court_charts, earning
 	)
