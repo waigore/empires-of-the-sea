@@ -22,14 +22,17 @@ const SAVE_DIR: String = "user://test_campaign_end"
 const DEFEAT_SAVE_DIR: String = "user://test_campaign_defeat"
 const CODEC_DIR: String = "user://test_save_codec"
 
-var screen: MapScreen = null
 ## One mount for the suite: under coverage a mount costs ~0.5 s and a re-seat
-## ~0.15 s, so the cases share the chart and reset the session instead.
+## ~0.15 s, so live cases share the chart and reset the session instead. Pure
+## calendar / defeat-classify cases never touch `screen`, so they skip the
+## re-seat (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 ## Ownership and seats as the shared world was generated: `_seat_crowns` and the
 ## fall cases rewrite owners, so each case starts from the same pristine world.
 var saved: Array = []
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 ## Snapshotted before any case touches the fixture, so the base is a clean world.
@@ -41,10 +44,7 @@ func before_all() -> void:
 
 func before_each() -> void:
 	_clean_codec_dir()
-	Fixture.restore(Fixture.world(), saved)
-	Fixture.suite_reset(mounted, pristine)
-	screen = mounted
-	screen.save_dir = CODEC_DIR
+	_chart_bound = false
 
 
 func after_each() -> void:
@@ -57,14 +57,24 @@ func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	screen = null
 	pristine = {}
 
 
-## The chart is mounted once for the boot; a case that never reads it never pays
-## the re-seat (the fixture is re-seated in `before_each` regardless).
+## Live cases reach the chart through `screen` / `_attach()`; pure rule cases
+## that never ask never pay `suite_reset`.
 func _attach() -> MapScreen:
-	return screen
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), saved)
+	Fixture.suite_reset(mounted, pristine)
+	mounted.save_dir = CODEC_DIR
+	_chart_bound = true
+	return mounted
+
+
+var screen: MapScreen:
+	get:
+		return _attach()
 
 
 # --- calendar rules ----------------------------------------------------------
@@ -600,6 +610,9 @@ func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 
 
 func _grant_old_world(faction_id: int) -> void:
+	# Re-seat first: mutating the shared world before `_attach()` would be wiped
+	# when the live case finally pays for its pristine chart.
+	_attach()
 	for province: ProvinceState in _old_world().provinces:
 		province.owner = faction_id
 
