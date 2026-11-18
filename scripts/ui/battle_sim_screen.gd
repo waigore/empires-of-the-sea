@@ -66,9 +66,9 @@ func _ready() -> void:
 	_field = centre["field"] as QuickBattleField
 	_status = centre["status"] as Label
 	_round_buttons = centre["round_buttons"] as HFlowContainer
-	for index in QuickBattle.MAX_ROUNDS:
+	for index in QuickBattleTerms.MAX_ROUNDS:
 		(_round_buttons.get_child(index) as Button).pressed.connect(_show_round.bind(index))
-	(_round_buttons.get_child(QuickBattle.MAX_ROUNDS) as Button).pressed.connect(_show_aftermath)
+	(_round_buttons.get_child(QuickBattleTerms.MAX_ROUNDS) as Button).pressed.connect(_show_aftermath)
 	var log_bits: Dictionary = BattleSimLayout.build_log_panel()
 	_log_panel = log_bits["panel"] as PanelContainer
 	_readout = log_bits["readout"] as Label

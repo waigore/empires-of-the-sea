@@ -1571,6 +1571,21 @@ func test_quick_battle_action_scripts_come_from_the_plan_catalog() -> void:
 	assert_eq(QuickBattleActions.actions_for("unknown"), ["volley", "entrench", "volley"])
 
 
+## The battle's law lives on [QuickBattleTerms], and the resolver still answers
+## to it: one answer for the plate, the simulator and the rounds (REQ-P3-01).
+func test_quick_battle_terms_are_the_ones_the_battle_fights_under() -> void:
+	assert_eq(QuickBattle.MAX_ROUNDS, QuickBattleTerms.MAX_ROUNDS)
+	assert_eq(QuickBattle.CP_PER_ROUND, QuickBattleTerms.CP_PER_ROUND)
+	assert_eq(QuickBattle.MAX_ROUNDS, 3)
+	assert_eq(QuickBattle.CP_PER_ROUND, 3)
+	var foot: Array[ArmyState] = _side(["pikemen", "pikemen"], 0)
+	assert_almost_eq(
+		QuickBattle.effective_strength(foot, 10, 3, 1.0),
+		QuickBattleTerms.effective_strength(foot, 10, 3, 1.0),
+		0.001,
+	)
+
+
 func test_quick_battle_battery_silences_guns_and_downgrades() -> void:
 	var model := Fixture.build()
 	model.province_data(2).fort_level = 1
@@ -2104,7 +2119,7 @@ func test_quick_battle_runs_at_most_three_rounds() -> void:
 	var battle: Dictionary = _fight("balanced", _guards(6), _pikes(6))
 	var rounds: int = _round_count(battle)
 	assert_true(rounds >= 1)
-	assert_true(rounds <= QuickBattle.MAX_ROUNDS)
+	assert_true(rounds <= QuickBattleTerms.MAX_ROUNDS)
 
 
 func test_the_players_plan_drives_the_action_script() -> void:
@@ -2267,19 +2282,19 @@ func test_effective_strength_aggregates_fpn_and_fpm() -> void:
 	var pikes: Array[ArmyState] = _lane_side(_pikes(4), 1)
 	var levies: Array[ArmyState] = _lane_side(_levies(4), 1)
 
-	var guard_weight: float = QuickBattle.effective_strength(guards, 10, 3, 1.0)
-	var pike_weight: float = QuickBattle.effective_strength(pikes, 10, 3, 1.0)
-	var levy_weight: float = QuickBattle.effective_strength(levies, 10, 3, 1.0)
+	var guard_weight: float = QuickBattleTerms.effective_strength(guards, 10, 3, 1.0)
+	var pike_weight: float = QuickBattleTerms.effective_strength(pikes, 10, 3, 1.0)
+	var levy_weight: float = QuickBattleTerms.effective_strength(levies, 10, 3, 1.0)
 
 	assert_almost_eq(guard_weight, 4.0 * 22.0, 0.01, "Σ (FPN + FPM) for the slice")
 	assert_true(guard_weight > pike_weight)
 	assert_true(pike_weight > levy_weight)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
+		QuickBattleTerms.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
 		"a broken line has no strength"
 	)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
+		QuickBattleTerms.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
 		0.01, "the side multiplier scales the whole slice"
 	)
 
@@ -2290,7 +2305,7 @@ func test_only_the_deployed_slice_counts_toward_strength() -> void:
 	var twelve: Array[ArmyState] = _lane_side(_guards(12), 2)
 
 	assert_almost_eq(
-		QuickBattle.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
+		QuickBattleTerms.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
 	)
 
 
@@ -2302,14 +2317,14 @@ func test_chevrons_and_health_raise_a_regiments_weight() -> void:
 	var army: ArmyState = veteran[0]
 	for regiment_id: String in army.regiments:
 		army.regiment_medals[regiment_id] = RegimentCatalog.MAX_MEDALS
-	var fresh_weight: float = QuickBattle.effective_strength(fresh, 10, 3, 1.0)
-	var veteran_weight: float = QuickBattle.effective_strength(veteran, 10, 3, 1.0)
+	var fresh_weight: float = QuickBattleTerms.effective_strength(fresh, 10, 3, 1.0)
+	var veteran_weight: float = QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0)
 
 	assert_almost_eq(veteran_weight, fresh_weight * 1.4, 0.01)
 	var first: String = army.regiments[0]
 	army.regiment_health[first] = RegimentCatalog.max_health("guards") / 2
 	assert_true(
-		QuickBattle.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
+		QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
 		"a mauled regiment shoulders less"
 	)
 
@@ -2798,7 +2813,7 @@ func test_a_side_spends_at_most_three_cp_a_round() -> void:
 		for round: Dictionary in rounds:
 			for side: int in [int(battle["attacker"]), int(battle["defender"])]:
 				var spent: int = _cp_spent(round, side)
-				assert_true(spent <= QuickBattle.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
+				assert_true(spent <= QuickBattleTerms.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
 
 
 ## The side the human does not command is chosen in the published order
@@ -2807,24 +2822,24 @@ func test_a_side_spends_at_most_three_cp_a_round() -> void:
 func test_the_opposing_script_follows_the_published_order() -> void:
 	var pikes: Array[ArmyState] = _rival(["pikemen", "pikemen"])
 	var muskets: Array[ArmyState] = _rival(["pikemen", "musketeers"])
-	assert_eq(QuickBattle.plan_for(pikes, 1, {}, true, true), "aggressive",
+	assert_eq(QuickBattleTerms.plan_for(pikes, 1, {}, true, true), "aggressive",
 		"a wall with no firearm sallies")
-	assert_eq(QuickBattle.plan_for(muskets, 1, {}, true, true), "defensive",
+	assert_eq(QuickBattleTerms.plan_for(muskets, 1, {}, true, true), "defensive",
 		"a wall that can shoot holds")
-	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
+	assert_eq(QuickBattleTerms.plan_for(_rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
 		"aggressive", "cavalry share ≥ 0.3")
-	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
+	assert_eq(QuickBattleTerms.plan_for(_rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
 		"defensive", "cavalry share below 0.3")
-	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
-	assert_eq(QuickBattle.plan_for(_rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
+	assert_eq(QuickBattleTerms.plan_for(_rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
+	assert_eq(QuickBattleTerms.plan_for(_rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
 	## An explicit scenario plan outranks the ranking, and the crown's plan
 	## outranks the automatic sally.
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
 		"balanced"
 	)
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
 		"defensive", "the crown's plan holds its own wall"
 	)
 
@@ -2847,7 +2862,7 @@ func test_an_unknown_plan_is_balanced() -> void:
 	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
 	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
 	assert_eq(
-		QuickBattle.plan_for(
+		QuickBattleTerms.plan_for(
 			_rival(["pikemen"]), 0, {"player_faction": 0, "battle_plan": "hammer"}, false
 		),
 		"balanced", "a crown's unknown stance fights balanced"
@@ -3504,7 +3519,7 @@ func test_the_sandbox_walks_into_its_aftermath() -> void:
 	assert_false(screen._status.text.begins_with("Round "), "the aftermath is not a round")
 	screen._step()
 	assert_eq(screen._field.round_index, 0, "stepping past the aftermath starts the plate over")
-	for index in QuickBattle.MAX_ROUNDS:
+	for index in QuickBattleTerms.MAX_ROUNDS:
 		var door: Button = screen._round_buttons.get_child(index) as Button
 		assert_eq(
 			door.disabled, index >= rounds.size(),
@@ -7304,7 +7319,7 @@ func test_land_quick_battle_runs_at_most_three_rounds() -> void:
 	var battle: Dictionary = _quick_battle_rules_fight("balanced", land__guards(6), land__pikes(6))
 	var rounds: int = land__round_count(battle)
 	assert_true(rounds >= 1)
-	assert_true(rounds <= QuickBattle.MAX_ROUNDS)
+	assert_true(rounds <= QuickBattleTerms.MAX_ROUNDS)
 
 func test_land_the_players_plan_drives_the_action_script() -> void:
 	var aggressive: Dictionary = _quick_battle_rules_fight("aggressive", land__guards(6), land__pikes(4))
@@ -7456,19 +7471,19 @@ func test_land_effective_strength_aggregates_fpn_and_fpm() -> void:
 	var pikes: Array[ArmyState] = land__lane_side(land__pikes(4), 1)
 	var levies: Array[ArmyState] = land__lane_side(land__levies(4), 1)
 
-	var guard_weight: float = QuickBattle.effective_strength(guards, 10, 3, 1.0)
-	var pike_weight: float = QuickBattle.effective_strength(pikes, 10, 3, 1.0)
-	var levy_weight: float = QuickBattle.effective_strength(levies, 10, 3, 1.0)
+	var guard_weight: float = QuickBattleTerms.effective_strength(guards, 10, 3, 1.0)
+	var pike_weight: float = QuickBattleTerms.effective_strength(pikes, 10, 3, 1.0)
+	var levy_weight: float = QuickBattleTerms.effective_strength(levies, 10, 3, 1.0)
 
 	assert_almost_eq(guard_weight, 4.0 * 22.0, 0.01, "Σ (FPN + FPM) for the slice")
 	assert_true(guard_weight > pike_weight)
 	assert_true(pike_weight > levy_weight)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
+		QuickBattleTerms.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
 		"a broken line has no strength"
 	)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
+		QuickBattleTerms.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
 		0.01, "the side multiplier scales the whole slice"
 	)
 
@@ -7478,7 +7493,7 @@ func test_land_only_the_deployed_slice_counts_toward_strength() -> void:
 	var twelve: Array[ArmyState] = land__lane_side(land__guards(12), 2)
 
 	assert_almost_eq(
-		QuickBattle.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
+		QuickBattleTerms.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
 	)
 
 ## A chevroned regiment weighs more than a fresh one, and health scales it the
@@ -7489,14 +7504,14 @@ func test_land_chevrons_and_health_raise_a_regiments_weight() -> void:
 	var army: ArmyState = veteran[0]
 	for regiment_id: String in army.regiments:
 		army.regiment_medals[regiment_id] = RegimentCatalog.MAX_MEDALS
-	var fresh_weight: float = QuickBattle.effective_strength(fresh, 10, 3, 1.0)
-	var veteran_weight: float = QuickBattle.effective_strength(veteran, 10, 3, 1.0)
+	var fresh_weight: float = QuickBattleTerms.effective_strength(fresh, 10, 3, 1.0)
+	var veteran_weight: float = QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0)
 
 	assert_almost_eq(veteran_weight, fresh_weight * 1.4, 0.01)
 	var first: String = army.regiments[0]
 	army.regiment_health[first] = RegimentCatalog.max_health("guards") / 2
 	assert_true(
-		QuickBattle.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
+		QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
 		"a mauled regiment shoulders less"
 	)
 
@@ -8040,7 +8055,7 @@ func test_land_a_side_spends_at_most_three_cp_a_round() -> void:
 		for round: Dictionary in rounds:
 			for side: int in [int(battle["attacker"]), int(battle["defender"])]:
 				var spent: int = land__cp_spent(round, side)
-				assert_true(spent <= QuickBattle.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
+				assert_true(spent <= QuickBattleTerms.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
 
 ## The side the human does not command is chosen in the published order
 ## (wiki: quick-battle § The opposing script): a scenario plan, the crown's own,
@@ -8048,24 +8063,24 @@ func test_land_a_side_spends_at_most_three_cp_a_round() -> void:
 func test_land_the_opposing_script_follows_the_published_order() -> void:
 	var pikes: Array[ArmyState] = land__rival(["pikemen", "pikemen"])
 	var muskets: Array[ArmyState] = land__rival(["pikemen", "musketeers"])
-	assert_eq(QuickBattle.plan_for(pikes, 1, {}, true, true), "aggressive",
+	assert_eq(QuickBattleTerms.plan_for(pikes, 1, {}, true, true), "aggressive",
 		"a wall with no firearm sallies")
-	assert_eq(QuickBattle.plan_for(muskets, 1, {}, true, true), "defensive",
+	assert_eq(QuickBattleTerms.plan_for(muskets, 1, {}, true, true), "defensive",
 		"a wall that can shoot holds")
-	assert_eq(QuickBattle.plan_for(land__rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
 		"aggressive", "cavalry share ≥ 0.3")
-	assert_eq(QuickBattle.plan_for(land__rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
 		"defensive", "cavalry share below 0.3")
-	assert_eq(QuickBattle.plan_for(land__rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
-	assert_eq(QuickBattle.plan_for(land__rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
 	## An explicit scenario plan outranks the ranking, and the crown's plan
 	## outranks the automatic sally.
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
 		"balanced"
 	)
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
 		"defensive", "the crown's plan holds its own wall"
 	)
 
@@ -8083,7 +8098,7 @@ func test_land_an_unknown_plan_is_balanced() -> void:
 	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
 	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
 	assert_eq(
-		QuickBattle.plan_for(
+		QuickBattleTerms.plan_for(
 			land__rival(["pikemen"]), 0, {"player_faction": 0, "battle_plan": "hammer"}, false
 		),
 		"balanced", "a crown's unknown stance fights balanced"
@@ -9623,11 +9638,11 @@ func test_a_reserve_adds_no_strength_to_the_outcome() -> void:
 		side[0].remove_regiment(regiment_id)
 
 	assert_almost_eq(
-		QuickBattle.effective_strength(side, 10, 3, 1.0, 0.0, line), 0.0, 0.001,
+		QuickBattleTerms.effective_strength(side, 10, 3, 1.0, 0.0, line), 0.0, 0.001,
 		"four reserves weigh nothing"
 	)
 	assert_true(
-		QuickBattle.effective_strength(side, 10, 3, 1.0) > 0.0,
+		QuickBattleTerms.effective_strength(side, 10, 3, 1.0) > 0.0,
 		"a state with no dealt line keeps the older read"
 	)
 	assert_eq(
