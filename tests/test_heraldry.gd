@@ -114,7 +114,7 @@ func test_a_crest_keeps_its_size_and_lets_the_press_through() -> void:
 	row.free()
 
 
-# --- the shield's data -------------------------------------------------------
+# --- the shield's data (FactionCrestMarks) ------------------------------------
 
 
 ## The shield is a closed heater outline inside the box it was given, so it can
@@ -122,8 +122,8 @@ func test_a_crest_keeps_its_size_and_lets_the_press_through() -> void:
 func test_the_shield_stays_inside_its_box() -> void:
 	var centre := Vector2(20, 20)
 	var half: float = 16.0
-	var outline: PackedVector2Array = FactionCrest.shield_points(centre, half)
-	assert_eq(outline.size(), FactionCrest.SHIELD.size())
+	var outline: PackedVector2Array = FactionCrestMarks.shield_points(centre, half)
+	assert_eq(outline.size(), FactionCrestMarks.SHIELD.size())
 	for point: Vector2 in outline:
 		assert_true(absf(point.x - centre.x) <= half + 0.01, "%s is off the box" % point)
 		assert_true(absf(point.y - centre.y) <= half + 0.01, "%s is off the box" % point)
@@ -136,7 +136,7 @@ func test_every_charge_paints_at_least_one_mark() -> void:
 	var ink: Color = Palette.GOLD_PALE
 	var field: Color = Palette.NAVY
 	for charge: String in FactionHeraldry.CHARGES:
-		var marks: Array[Dictionary] = FactionCrest.charge_marks(
+		var marks: Array[Dictionary] = FactionCrestMarks.charge_marks(
 			charge, Vector2(24, 24), 12.0, ink, field
 		)
 		assert_true(marks.size() > 0, "%s paints nothing" % charge)
@@ -157,7 +157,7 @@ func test_every_charge_paints_at_least_one_mark() -> void:
 
 ## A charge the table does not know still draws a roundel rather than nothing.
 func test_an_unknown_charge_still_paints() -> void:
-	var marks: Array[Dictionary] = FactionCrest.charge_marks(
+	var marks: Array[Dictionary] = FactionCrestMarks.charge_marks(
 		"not_a_charge", Vector2(10, 10), 6.0, Palette.INK, Palette.PAPER
 	)
 	assert_eq(marks.size(), 1)
@@ -167,11 +167,13 @@ func test_an_unknown_charge_still_paints() -> void:
 ## The division parts a field with the party colour, and a plain field takes no
 ## line at all.
 func test_the_division_parts_the_field() -> void:
-	assert_eq(FactionCrest.division_marks(Vector2(10, 10), 8.0, Palette.GOLD, "plain").size(), 0)
 	assert_eq(
-		FactionCrest.division_marks(Vector2(10, 10), 8.0, Palette.GOLD, "quarterly").size(), 2
+		FactionCrestMarks.division_marks(Vector2(10, 10), 8.0, Palette.GOLD, "plain").size(), 0
 	)
-	var bend: Array[Dictionary] = FactionCrest.division_marks(
+	assert_eq(
+		FactionCrestMarks.division_marks(Vector2(10, 10), 8.0, Palette.GOLD, "quarterly").size(), 2
+	)
+	var bend: Array[Dictionary] = FactionCrestMarks.division_marks(
 		Vector2(10, 10), 8.0, Palette.GOLD, "per_bend"
 	)
 	assert_eq(bend.size(), 1)
