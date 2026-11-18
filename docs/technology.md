@@ -64,7 +64,7 @@ No research rule is deferred; gaps: [`deferred.md`](deferred.md).
 | `scripts/rules/research_turn.gd` | Research phase, preview |
 | `scripts/rules/tech_discovery.gd` | revealed commodities |
 | `scripts/rules/regiment_upgrades.gd`, `army_attack_cost.gd` | re-equipping, attack treasury |
-| `scripts/ui/research_panel.gd`, `research_fund_press.gd` | ledger shell, tabs, chart door, the one press |
+| `scripts/ui/research_panel.gd`, `research_sheet_fit.gd`, `research_fund_press.gd` | shell, tabs, chart door, press, phone fit |
 | `scripts/ui/tech_tree_*.gd` | full-screen chart |
 | `scripts/ui/research_row.gd`, `research_slot_row.gd`, `research_bar.gd` | rows, slot spend, gauge |
 | `scripts/ui/tech_icons.gd` | tech → medallion |

@@ -11,6 +11,10 @@ extends LedgerFrame
 ## rebuilt only when its list actually changes. A funding change therefore
 ## rewrites the slot's own line — nothing reloads, and the gauge animates from
 ## where it stood (REQ-P1-05).
+##
+## Height is the sheet's own rule (DR-20261119-02): a handset cannot carry the
+## slots, the one press and the two lists at their natural heights, so the slots
+## take a window of whole rows and the lists keep a floor (REQ-P1-07, REQ-P5-07).
 
 signal assign_requested(tech_id: String)
 signal cancel_requested(slot: int)
@@ -43,6 +47,9 @@ var _goal_row: ResearchGoalStrip = null
 var _slots_heading: Label = null
 ## The college's one door into the full-screen chart (DR-20261115-15).
 var _tree_door: Button = null
+## The queue's own window: every slot row, scrolled when a handset cannot hold
+## them all beside the lists (DR-20261119-02).
+var _slots_scroll: ScrollContainer = null
 var _slots_body: VBoxContainer = null
 ## The one press that takes every study to a preset, priced before it signs
 ## (DR-20261118-26).
@@ -64,19 +71,22 @@ func _init() -> void:
 
 ## The tab body gives way so the header, slots and Close stay put: the pages
 ## take the room the sheet leaves, and a phone drops the standing hint instead
-## of pushing content past the panel's edge. The masthead, standing line and
-## empty goal prompt also yield, so the queue and the lists keep the height
-## (REQ-P1-07).
+## of pushing content past the panel's edge. The fit itself is
+## `ResearchSheetFit`'s, so the panel only measures and applies (REQ-P1-07).
 func _fit_to_viewport() -> void:
-	if _tabs == null or not is_inside_tree():
+	if _tabs == null or _slots_scroll == null or not is_inside_tree():
 		return
 	super._fit_to_viewport()
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
 	var top: float = 64.0 if compact else PanelDock.TOP
 	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
 	var room: float = maxf(get_viewport_rect().size.y - top - bottom, 0.0)
-	var chrome: float = get_combined_minimum_size().y - _tabs.custom_minimum_size.y
-	_tabs.custom_minimum_size = Vector2(0.0, clampf(room - chrome, 0.0, 300.0))
+	var fit: Dictionary = ResearchSheetFit.split(
+		_column, _slots_scroll, _tabs, _slots_body, room, compact,
+		get_theme_stylebox("panel").get_minimum_size().y
+	)
+	_slots_scroll.custom_minimum_size = Vector2(0.0, float(fit["slots"]))
+	_tabs.custom_minimum_size = Vector2(0.0, float(fit["tabs"]))
 
 
 ## Phone chrome: a 411-point sheet cannot carry a 24 pt masthead, a standing
@@ -130,9 +140,18 @@ func _build_body(column: VBoxContainer) -> void:
 	head_row.add_child(_tree_door)
 	column.add_child(head_row)
 
+	# The queue keeps a window of its own so a handset can give the lists their
+	# floor without clipping a slot row: the window scrolls and the rows are
+	# never redrawn (DR-20261119-02, REQ-P5-07).
+	_slots_scroll = ScrollContainer.new()
+	_slots_scroll.name = "Slots"
+	_slots_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_slots_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	column.add_child(_slots_scroll)
 	_slots_body = VBoxContainer.new()
+	_slots_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_slots_body.add_theme_constant_override("separation", 4)
-	column.add_child(_slots_body)
+	_slots_scroll.add_child(_slots_body)
 
 	# The college's one press sits under the slots it funds, the way the yards'
 	# batch press sits under their rows (DR-20261118-26).
