@@ -4,7 +4,8 @@ extends RefCounted
 ## diplomacy-planner). Reads the war-desire tally AiDiplomacyDesire scores for
 ## every candidate court, turns the complement into improve-relations desire,
 ## and emits at most one legal order per Great Power per turn — war, peace, or
-## any peaceful order the court menu offers through AiDiplomacyOffers. Pure
+## any peaceful order the court menu offers through AiDiplomacyOffers. A court
+## that cannot re-arm for its crown wars buys out of them (issue #975). Pure
 ## rules: state in, orders out (REQ-P2-03, REQ-P3-03).
 
 ## War-goal objective: one province per 25 desire (wiki: diplomacy § War goals).
@@ -15,7 +16,8 @@ const KIND_OFFER_PEACE: String = "offer_peace"
 
 
 ## One action for one court: the highest-desire legal war, else a white peace
-## when continuing the war scores below the base desire — applied at once to a
+## when continuing the war scores below the base desire — or when the court
+## cannot re-arm for the war it is fighting (issue #975) — applied at once to a
 ## fellow AI court, queued for the human court's answer to the player.
 static func decide(
 	config: AiConfig,
@@ -63,7 +65,13 @@ static func decide(
 			"blocked": "",
 		}
 		if record.at_war:
-			if score >= bar:
+			# A court that cannot pay for the army its wars need buys out of its
+			# crown wars (issue #975): the press may hold the continuing desire
+			# above the bar, but a war the court cannot re-arm for is a peace it
+			# puts to that crown itself while it saves for the army that can.
+			# Minor and Tribe wars stay open — colonial business, the frontier
+			# the court re-splits from once the purse recovers.
+			if score >= bar and not _buys_out(config, ai_state, target, context, posture):
 				entry["blocked"] = "war still worth waging"
 			elif target == player:
 				# The human keeps consent: a rival queues the offer and waits
@@ -189,6 +197,46 @@ static func desired_territory(war_desire_score: int, province_count: int) -> int
 	return clampi(target, 1, maxi(1, province_count))
 
 
+## The buy-out doctrine (issue #975): true when the standing war on `target` is
+## a crown war — a fellow Great Power, one of the fronts the footing counts —
+## and the court cannot re-arm for it, on an overstretched footing (`fronts`)
+## or with a purse under the war chest its next muster reads. A war on a Minor
+## Nation or a Tribe is colonial business and is never bought out; a court with
+## no ledger to read keeps the published planner.
+static func _buys_out(
+	config: AiConfig,
+	ai_state: AiState,
+	target: int,
+	context: Dictionary,
+	posture: String
+) -> bool:
+	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
+		return false
+	if AiPhasePlanner.takes_any_peace(posture):
+		return true
+	return purse_under_muster(config, ai_state, context)
+
+
+## True while the court's purse stands under the war chest its next muster
+## reads (`AiArmyReinforce.muster_floor`, at war): the purse that cannot re-arm
+## the court is the purse that buys out of its crown wars and opens no new one
+## (issue #975). A court at its regiment target, with no hand to spare for the
+## levy, or with no ledger to read keeps the published behaviour.
+static func purse_under_muster(
+	config: AiConfig, ai_state: AiState, context: Dictionary
+) -> bool:
+	if config == null or ai_state == null:
+		return false
+	var economy: PlayerEconomy = ai_state.economy_for(config.faction)
+	if economy == null:
+		return false
+	var regiments: int = int(
+		(context.get("regiments", {}) as Dictionary).get(config.faction, 0)
+	)
+	var floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, true)
+	return floor > 0 and economy.treasury < floor
+
+
 ## Why this court cannot put a white peace to the human court right now ("" when
 ## it may). A queued proposal waits for the answer, so a second one would only
 ## be refused by the court queue (DR-20261109-07).
@@ -260,6 +308,15 @@ static func _war_block(
 		and not _outmatches(config.faction, target, context)
 	):
 		return "overstretched: no third front"
+	# A purse under the muster floor opens no new crown war (issue #975): the
+	# peace the court is buying out with must last long enough to matter, and a
+	# war it cannot re-arm for is the one it is buying out of. Minor and Tribe
+	# wars are colonial business and stay legal.
+	if (
+		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
+		and purse_under_muster(config, ai_state, context)
+	):
+		return "saving for the army: no new crown war"
 	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
 	if ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
 		return "war cooldown"
