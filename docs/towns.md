@@ -49,7 +49,7 @@ press: the note names the wait — stores short, or another crew on the town til
 
 **Raise all ready (n)** files every ready row — arm, confirm — in the sheet's
 order, stopping at the first refusal; the line under it prices the walk in each
-chart's own Builders and names the rows that wait (DR-20261116-03, DR-20261118-12, DR-20261118-13).
+chart's own Builders and names the rows that wait (DR-20261116-03, DR-20261118-12, DR-20261118-17).
 
 ## Architecture
 

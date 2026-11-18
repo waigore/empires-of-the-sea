@@ -18,7 +18,7 @@ extends RefCounted
 ## no order of its own (REQ-P2-03, REQ-P3-03).
 
 ## The chart key a single-pool walk draws from, so one walk serves a one-chart
-## view and a two-chart sheet alike (DR-20261118-13).
+## view and a two-chart sheet alike (DR-20261118-17).
 const POOLED: int = -1
 
 
@@ -30,7 +30,7 @@ const POOLED: int = -1
 ## `free_by_region` is the same reading chart by chart ({region: how many stand
 ## idle}), and a crew works the chart it stands on — the filing walk sends a
 ## Builder aboard nothing, so a New World Builder can never raise an Old World
-## town (DR-20261118-13). A sheet whose view is one chart may hand the one pool
+## town (DR-20261118-17). A sheet whose view is one chart may hand the one pool
 ## instead. `price` is the sheet's own reading when the price is
 ## not the row's (`(target, stores_left) -> cost`), so a sheet whose cost moves
 ## with the stores — the H8 bootstrap — is still priced by the walk that files

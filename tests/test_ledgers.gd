@@ -2774,7 +2774,7 @@ func test_the_raise_line_reads_a_price_that_moves_with_the_stores() -> void:
 
 ## A crown that holds a Builder on each chart: the hands the press can send are
 ## the chart's own, so a New World Builder raises no Old World town
-## (DR-20261118-13).
+## (DR-20261118-17).
 func test_the_raise_line_spends_only_the_hands_of_a_row_s_own_chart() -> void:
 	var old_home: Array = [CivilianState.create(1, 0, "builder", TOWN_TILE)]
 	var new_home: Array = [CivilianState.create(2, 0, "builder", TOWN_TILE)]
@@ -2799,7 +2799,7 @@ func test_the_raise_line_spends_only_the_hands_of_a_row_s_own_chart() -> void:
 	var pooled: Dictionary = RaiseLine.plan(targets, snapshot["stores"], 2, "Builder")
 	assert_eq(int(pooled["filed"]), 2, "a pooled walk reads both hands as the old chart's")
 	# The hands a crew can be sent with are the chart's own, and that is the walk
-	# the press files (DR-20261118-13).
+	# the press files (DR-20261118-17).
 	var plan: Dictionary = RaiseLine.plan(
 		targets, snapshot["stores"], 2, "Builder", Callable(), hands
 	)
@@ -2819,7 +2819,7 @@ func test_the_raise_line_spends_only_the_hands_of_a_row_s_own_chart() -> void:
 
 
 ## One step on each chart, with a hand on each: the line carries both, because
-## neither chart's Builder is spent on the other's town (DR-20261118-13).
+## neither chart's Builder is spent on the other's town (DR-20261118-17).
 func test_the_raise_line_carries_a_step_on_each_chart_that_holds_a_hand() -> void:
 	var targets: Array[Dictionary] = [
 		{"region": FactionCatalog.OLD_WORLD, "cost": {"lumber": 4}},
@@ -2838,7 +2838,7 @@ func test_the_raise_line_carries_a_step_on_each_chart_that_holds_a_hand() -> voi
 
 
 ## The snapshot reads the hands chart by chart, so a sheet can never spend a crew
-## where it does not stand (DR-20261118-13).
+## where it does not stand (DR-20261118-17).
 func test_the_snapshot_reads_its_free_crews_chart_by_chart() -> void:
 	var regions: Array[Dictionary] = _town_regions(
 		_builders(), {"national_bureaucracy": true}, {"lumber": 40, "castIron": 40}

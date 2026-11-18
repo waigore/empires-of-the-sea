@@ -185,7 +185,7 @@ func _sync_batch() -> void:
 	# trade, read per chart as the snapshot read them over both charts: one
 	# order ties one crew up, so five ready towns with one Builder carry one and
 	# the rest wait — and a Builder on the other chart carries none of them,
-	# because a crew works only the chart it stands on (DR-20261118-13).
+	# because a crew works only the chart it stands on (DR-20261118-17).
 	var stores: Variant = _snapshot.get("stores", {})
 	var by_region: Variant = _snapshot.get("crews_by_region", {})
 	var free_by_region: Dictionary = (

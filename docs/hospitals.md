@@ -48,7 +48,7 @@ words.
 **Raise all ready (n)** files every ready row the view prints, arm then
 confirm, stopping at the first refusal; the line under it prices the walk in each
 chart's own Engineers and names the rows that wait (DR-20261116-03,
-DR-20261118-12, DR-20261118-13).
+DR-20261118-12, DR-20261118-17).
 
 ## Architecture
 

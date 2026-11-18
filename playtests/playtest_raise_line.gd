@@ -1,7 +1,7 @@
 extends SceneTree
 ## Headless free-playtest drive for the line the crown's raise sheets print under
 ## their one press (wiki: civilian-units § One press files what the realm can
-## raise; DR-20261118-12, DR-20261118-13).
+## raise; DR-20261118-12, DR-20261118-17).
 ##
 ##   godot --headless --path . --script res://playtests/playtest_raise_line.gd
 ##
@@ -15,7 +15,7 @@ extends SceneTree
 ##
 ## The state no rule test covers is the crown that holds a crew on each chart: the
 ## three crown sheets read both charts at once, and a Builder in the New World
-## must never be spent on an Old World town (DR-20261118-13). The drive seats it
+## must never be spent on an Old World town (DR-20261118-17). The drive seats it
 ## the way a colonial crown reaches it — a charter town and one Builder across
 ## the water beside the home crews.
 ##
@@ -117,7 +117,7 @@ func _short_stores_pass() -> void:
 
 
 ## A crown with crews on both charts: the towns sheet reads both at once, and the
-## walk may only send each chart's own Builder to its own towns (DR-20261118-13).
+## walk may only send each chart's own Builder to its own towns (DR-20261118-17).
 func _two_charts_pass() -> void:
 	_say("")
 	_say("--- the town ledger with a Builder on each chart ---")

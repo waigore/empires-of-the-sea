@@ -47,7 +47,7 @@ static func snapshot(
 	## leaves and the hands it ties up (DR-20261118-12). The hands are read per
 	## chart, because a crew works the chart it stands on: a Builder in the New
 	## World cannot raise a town in the Old, so the line must not spend her there
-	## (DR-20261118-13).
+	## (DR-20261118-17).
 	var stores: Variant = null
 	var idle_by_region: Dictionary = {}
 	for entry: Dictionary in regions:
@@ -99,7 +99,7 @@ static func snapshot(
 
 ## The free crews of one trade, chart by chart: {region: how many stand idle}.
 ## A sheet hands this to [RaiseLine] so its line spends each chart's own hands,
-## which is the only pool the filing walk can draw on (DR-20261118-13).
+## which is the only pool the filing walk can draw on (DR-20261118-17).
 static func free_crews(by_region: Dictionary, type_id: String) -> Dictionary:
 	var free: Dictionary = {}
 	for raw: Variant in by_region.keys():
