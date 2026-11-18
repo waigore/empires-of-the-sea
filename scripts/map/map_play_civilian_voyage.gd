@@ -3,6 +3,12 @@ extends RefCounted
 ## The fleet dossier's passenger block and its intents (DR-20261109-17):
 ## colonists aboard, idle civilians to take on, coasts to put them ashore, and
 ## the home squadron's sortie. Rules live in CivilianVoyage and FleetSortie.
+##
+## A landing is a **tile** and a **crew** (wiki: civilian-units § Landing;
+## DR-20261118-19): the block groups the legal grounds by the crew kind that can
+## take them and by the coast they stand on, so the press names both what it
+## lands and where. Two crews of one kind read one line, because which of them
+## steps off is no choice the crown can tell apart.
 
 
 ## Dossier data: {"count", "note", "embark", "land", "sortie"}.
@@ -29,23 +35,26 @@ static func crew(play: PlaySession, fleet: FleetState) -> Dictionary:
 			var row: Dictionary = {"id": unit.id, "name": unit.display_name()}
 			data["embark"].append(row)
 	if not aboard.is_empty():
-		# The landing rule names a tile; the dossier groups the legal grounds by
-		# the coast they stand on, so the crown reads one line per coast and the
+		# The landing rule names a tile; the crew's kind is what the crown picks
+		# between, so the block reads one line per crew kind per coast and the
 		# grounds behind it (wiki: civilian-units § Landing).
 		var by_coast: Dictionary = _grounds(play, fleet, aboard)
-		var coasts: Array[int] = [] as Array[int]
-		for province: int in by_coast.keys():
-			coasts.append(province)
-		coasts.sort()
-		for province: int in coasts:
-			var grounds: Array[Dictionary] = [] as Array[Dictionary]
-			for tile: Vector2i in by_coast[province]:
-				grounds.append({"x": tile.x, "y": tile.y})
-			data["land"].append({
-				"province": province,
-				"name": play.model.province_name(province),
-				"tiles": grounds,
-			})
+		for type_id: String in _aboard_types(aboard):
+			for province: int in _provinces_of(by_coast, type_id):
+				var row: Dictionary = by_coast["%d|%s" % [province, type_id]]
+				var grounds: Array[Dictionary] = [] as Array[Dictionary]
+				for tile: Vector2i in row["tiles"]:
+					grounds.append({
+						"x": tile.x, "y": tile.y,
+						"ground": _ground_label(play, tile),
+					})
+				data["land"].append({
+					"province": province,
+					"name": play.model.province_name(province),
+					"crew": type_id,
+					"crew_name": CivilianCatalog.display_name(type_id),
+					"tiles": grounds,
+				})
 	for zone: int in FleetSortie.zones(play.model, fleet):
 		if not bool(FleetSortie.can_sortie(play.model, fleet, zone)["ok"]):
 			continue
@@ -67,7 +76,10 @@ static func on_action(play: PlaySession, action: String) -> bool:
 	if action.begins_with("crew:land:"):
 		var pick: PackedStringArray = action.trim_prefix("crew:land:").split(":")
 		if pick.size() >= 2:
-			land(play, fleet, Vector2i(int(pick[0]), int(pick[1])))
+			land(
+				play, fleet, Vector2i(int(pick[0]), int(pick[1])),
+				String(pick[2]) if pick.size() >= 3 else ""
+			)
 		else:
 			land(play, fleet, int(pick[0]))
 		return true
@@ -93,11 +105,14 @@ static func embark(play: PlaySession, fleet: FleetState, unit_id: int) -> void:
 
 
 ## Puts a passenger ashore on the ground the crown named. `tile` is the tile the
-## sheet pressed; a caller that names only the coast (a script, the smoke flow)
-## passes the province and lands on the first legal ground it reads. A landing
-## reveals the tile and its orthogonal neighbours (fog-and-exploration § New
-## World arrival).
-static func land(play: PlaySession, fleet: FleetState, ground: Variant) -> void:
+## sheet pressed; `crew_type` is the kind of crew the press named, so the crown's
+## choice between a Builder and an Explorer is the one it read. A caller that
+## names only the ground or only the coast (a script, the smoke flow) lands the
+## first able crew, which is the published convenience. A landing reveals the
+## tile and its orthogonal neighbours (fog-and-exploration § New World arrival).
+static func land(
+	play: PlaySession, fleet: FleetState, ground: Variant, crew_type: String = ""
+) -> void:
 	var province_id: int = CivilianVoyage.NO_ID
 	var tile: Vector2i = CivilianState.NO_TILE
 	if ground is Vector2i:
@@ -106,6 +121,8 @@ static func land(play: PlaySession, fleet: FleetState, ground: Variant) -> void:
 		province_id = int(ground)
 	var unit: CivilianState = null
 	for candidate: CivilianState in _aboard(play, fleet):
+		if not crew_type.is_empty() and candidate.type_id != crew_type:
+			continue
 		if tile.x >= 0:
 			if bool(CivilianVoyage.can_disembark(play.model, candidate, fleet, tile)["ok"]):
 				unit = candidate
@@ -116,7 +133,14 @@ static func land(play: PlaySession, fleet: FleetState, ground: Variant) -> void:
 			unit = candidate
 			break
 	if unit == null:
-		play.hud.toast("No colonist aboard can land on that coast.")
+		var where: String = "that ground" if ground is Vector2i else "that coast"
+		if crew_type.is_empty():
+			play.hud.toast("No colonist aboard can land on %s." % where)
+		else:
+			play.hud.toast(
+				"The %s aboard cannot land on %s."
+				% [CivilianCatalog.display_name(crew_type), where]
+			)
 		return
 	var result: Dictionary = CivilianVoyage.disembark(play.model, unit, fleet, tile)
 	if not bool(result.get("ok", false)):
@@ -140,9 +164,9 @@ static func sortie(play: PlaySession, fleet: FleetState, zone: int) -> void:
 		play.hud.toast(String(result.get("reason", "The squadron cannot sail.")))
 
 
-## Legal landing grounds of this squadron, grouped by the coast they stand on and
-## deduplicated across passengers: two colonists aboard read one row per ground,
-## not one per passenger.
+## Legal landing grounds of this squadron, grouped by the crew kind that can take
+## them and by the coast they stand on. Two crews of one kind read one line: the
+## crown cannot tell those two apart, and one ground is listed once.
 static func _grounds(
 	play: PlaySession, fleet: FleetState, aboard: Array[CivilianState]
 ) -> Dictionary:
@@ -152,12 +176,72 @@ static func _grounds(
 			var province: int = play.model.province_at(tile.x, tile.y)
 			if province == CivilianVoyage.NO_ID:
 				continue
-			if not by_coast.has(province):
-				by_coast[province] = []
-			var grounds: Array = by_coast[province]
+			var key: String = "%d|%s" % [province, unit.type_id]
+			if not by_coast.has(key):
+				by_coast[key] = {
+					"province": province, "crew": unit.type_id,
+					"tiles": [] as Array[Vector2i],
+				}
+			var grounds: Array = by_coast[key]["tiles"]
 			if not grounds.has(tile):
 				grounds.append(tile)
 	return by_coast
+
+
+## Crew kinds aboard, in the order they are read (two Builders read once).
+static func _aboard_types(aboard: Array[CivilianState]) -> Array[String]:
+	var types: Array[String] = [] as Array[String]
+	for unit: CivilianState in aboard:
+		if not types.has(unit.type_id):
+			types.append(unit.type_id)
+	return types
+
+
+## Coasts this crew kind can land on, lowest id first.
+static func _provinces_of(by_coast: Dictionary, type_id: String) -> Array[int]:
+	var provinces: Array[int] = [] as Array[int]
+	for key: String in by_coast.keys():
+		if String(by_coast[key]["crew"]) != type_id:
+			continue
+		provinces.append(int(by_coast[key]["province"]))
+	provinces.sort()
+	return provinces
+
+
+## What the crown can read of a ground: the terrain once the chart has reached
+## it, and the commodity an estate there would work — never a mineral no Explorer
+## has prospected, and nothing at all of an uncharted tile (wiki:
+## fog-and-exploration § Prospect-Required Resources, § What a landing reveals).
+static func _ground_label(play: PlaySession, tile: Vector2i) -> String:
+	if play.model == null or not play.model.is_land(tile.x, tile.y):
+		return ""
+	var level: int = VisibilityModel.Level.FULLY_VISIBLE
+	if play.visibility != null:
+		level = play.visibility.level_at(tile.x, tile.y)
+	if level < VisibilityModel.Level.FOGGED:
+		return ""
+	var terrain: String = String(MapModel.TERRAIN_LABELS.get(
+		play.model.terrain_at(tile.x, tile.y), ""
+	))
+	var resource: int = play.model.resource_at(tile.x, tile.y)
+	if resource < 0 or not ImprovementCatalog.known(resource):
+		return terrain
+	if level < VisibilityModel.Level.FULLY_VISIBLE:
+		return terrain
+	if (
+		ImprovementCatalog.needs_prospecting(resource)
+		and (
+			play.land_works == null
+			or not play.land_works.is_prospected(play.player_faction, play.model, tile)
+		)
+	):
+		return terrain
+	var commodity: String = ImprovementCatalog.commodity(resource)
+	if commodity.is_empty():
+		return terrain
+	if terrain.is_empty():
+		return ImprovementCatalog.commodity_label(commodity)
+	return "%s · %s" % [terrain, ImprovementCatalog.commodity_label(commodity)]
 
 
 ## Passengers carried by this squadron, in instance-id order.

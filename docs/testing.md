@@ -81,6 +81,12 @@ godot --headless --path . --script res://tools/e2e_auto.gd
 # charts and prospects, printing one line per step.
 godot --headless --path . --script res://playtests/playtest_new_world.gd
 
+# The voyage's landing lines — opens a turn-100 squadron's passenger block and
+# presses its own rows: one line per crew kind per coast, the grounds each line
+# opens (with what the chart reads of the tile), the crew and the tile the press
+# carries, the coast-only caller, and the chart a landing makes.
+godot --headless --path . --script res://playtests/playtest_voyage_grounds.gd
+
 # Quick Battle — declares war, resolves an attacking field battle, a battle of
 # horse and foot (the wings each line stands in, the flank a blow falls on and
 # the break it makes), a siege and a defending battle through the play helpers,
