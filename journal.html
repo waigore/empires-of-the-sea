@@ -33,6 +33,7 @@
     <li><strong>The baselines played no economy since #853</strong> — the economy pass called the submission planner's typed footing with a <code>MainlineAiConfig</code>; 400 script errors a run; the two baseline rivals ran no market, production or recruits. Every report since (2068.00 / 2057.00) was scored against inert rivals.</li>
     <li><strong>The #925 hire margin starved the courts it staffed</strong> — a starving court whose purse stood under the crew price bid <em>nothing</em> for food; whole workforces struck and their income died with the bank frozen (UP 181 strike turns, Sweden 179, Portugal 95, Spain 68 on the full-AI campaign).</li>
     <li><strong>A concluded peace never restarted the war cooldown</strong> — Spain and Austria traded war and white peace every second turn for a hundred turns.</li>
+    <li><strong>The mainline materializer renamed from a stale list (2026-11-18)</strong> — #959/#960 split the civilian hire helpers into new <code>Ai*</code> classes and the hard-coded rename list never heard of them: the generated mainline called the submission's typed <code>AiCivilianHire</code> with a <code>MainlineAiConfig</code>, a parse error that killed the baselines' civilian pass one day after #937 cleared the #853 class. The rename list is now every class the copy declares, so no reference inside it can resolve onto the submission surface; the control below re-measures the floor on the honest <code>73eef988</code> mainline.</li>
   </ul>
 
   <h2>Attempts</h2>
@@ -112,6 +113,14 @@
         <td>16 OW · 0 NW · 5 reg · 3 ships · funded 90.85</td>
         <td class="good">clears baseline 1904.52 — ship as latest.json</td>
         <td><a href="reports/ai-bench/910-15-pressure-250.json">910-15-pressure-250.json</a></td>
+      </tr>
+      <tr>
+        <td>019</td>
+        <td>The press stays off fellow crowns until the colony stands (minors first)</td>
+        <td>1647.36</td>
+        <td>11 OW · 3 NW · 6 reg · 2 ships · income 216</td>
+        <td class="bad">−323: the colony lands but the delayed crown front finds warm relations — the minor-only peace courts England and France past the declaration ceiling; reverted</td>
+        <td><a href="reports/ai-bench/910-19-colony-first.json">910-19-colony-first.json</a></td>
       </tr>
     </tbody>
   </table>
