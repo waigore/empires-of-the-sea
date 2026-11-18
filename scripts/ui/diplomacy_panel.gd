@@ -186,8 +186,16 @@ func _fill_list(ids: Array[int]) -> void:
 	UiRowBuilder.clear(_list)
 	for faction_id: int in ids:
 		var record: DiplomacyRelation = _state.relation(_player, faction_id)
-		var row := VBoxContainer.new()
-		row.add_theme_constant_override("separation", 0)
+		# The court's own arms, then its name and stand: a list of twenty courts
+		# is a list of shields first, so a crown finds a court by sight and not by
+		# reading every name (REQ-P1-07, REQ-P1-08; DR-20261118-30).
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 6)
+		row.add_child(FactionCrest.of(faction_id))
+		var column := VBoxContainer.new()
+		column.add_theme_constant_override("separation", 0)
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_child(column)
 		var button := Button.new()
 		var stand: String = CourtDetailBlock.status_line(_state, _player, faction_id, record)
 		button.text = "%s\n%s" % [FactionCatalog.name_of(faction_id), stand]
@@ -200,8 +208,8 @@ func _fill_list(ids: Array[int]) -> void:
 			)
 			button.add_theme_color_override("font_color", Palette.GOLD_PALE)
 		button.pressed.connect(func() -> void: select_faction(faction_id))
-		row.add_child(button)
-		CourtRows.decorate(row, faction_id, _power, _player)
+		column.add_child(button)
+		CourtRows.decorate(column, faction_id, _power, _player)
 		_list.add_child(row)
 
 

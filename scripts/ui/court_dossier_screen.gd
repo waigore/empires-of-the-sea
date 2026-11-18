@@ -12,6 +12,12 @@ extends SheetFrame
 
 ## The page, kept public for tests and for a caller that wants the body alone.
 var _body: CourtDossierBody = null
+## The court's arms in the sheet's head, re-dressed on every open.
+var _arms: FactionCrest = null
+
+## The head's crest size: the sheet's own, so the arms sit where the generic
+## crest sat before them.
+const CREST_PIXELS: float = 40.0
 
 
 func _init() -> void:
@@ -33,6 +39,8 @@ func show_for(
 		return
 	var report: Dictionary = IntelDossier.report(state, world, viewer, faction_id)
 	_subtitle.text = _court_line(faction_id)
+	if _arms != null:
+		_arms.set_faction(faction_id)
 	_body.show_report(report, state, world, viewer, faction_id)
 	_fit()
 	_reveal()
@@ -42,7 +50,10 @@ func show_for(
 
 
 func _build_crest() -> Control:
-	return Icon.new("crest", 40, Palette.GOLD)
+	# The head wears the arms of the court the sheet is open on; a sheet with no
+	# court yet draws a bare gap of the same size (DR-20261118-30).
+	_arms = FactionCrest.new(-1, CREST_PIXELS)
+	return _arms
 
 
 func _build_body(column: VBoxContainer) -> void:

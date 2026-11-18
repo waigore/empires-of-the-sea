@@ -3776,6 +3776,30 @@ domain = "economy_ui"
 match = "scripts/ui/estate_ledger.gd*"
 domain = "muster"
 
+# Every court's own arms (wiki: diplomacy § The court sheet; DR-20261118-30):
+# one pure blazon over the faction catalog and the vector shield that paints it.
+# The court sheet, the open court's page and the dossier head all wear the arms,
+# so the new suite drives all three and the phone suite proves the court sheet
+# still fits. Declared before the `scripts/ui/**` catch-all so a shield change
+# never remounts the setup and hub pages.
+[domains.heraldry]
+suites = [
+  "test_heraldry.gd",
+  "test_mobile_layout.gd",
+]
+
+[[rules]]
+match = "scripts/ui/faction_heraldry.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "scripts/ui/faction_crest.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "tests/test_heraldry.gd*"
+domain = "heraldry"
+
 [[rules]]
 match = "scripts/ui/**"
 domain = "menu"
