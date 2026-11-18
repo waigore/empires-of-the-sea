@@ -1,6 +1,6 @@
 # Agent guide — Empires of the Sea
 
-Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iOS). Prefer reuse and existing project patterns over new abstractions.
+Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iOS). Prefer reuse over new abstractions.
 
 ## Always refer to
 
@@ -15,15 +15,19 @@ Godot 4 game for **desktop** (Windows, macOS, Linux) and **mobile** (Android, iO
 | [`.agents/skills/map-lens`](.agents/skills/map-lens/SKILL.md) | Map lens / overlay recipe |
 | [`docs/README.md`](docs/README.md) | Docs index |
 
+## Talk to the user
+
+Reply in plain, simple English. Short sentences. Everyday words. Keep code/API names. No jargon or filler.
+
 ## Docs policy
 
-Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). CI `docs-lint` fails over-limit files (`python tools/lint_docs_words.py`). Prefer tables and short bullets; long mechanics go in the wiki.
+Root and `docs/` Markdown ≤ **500 words** (fenced code excluded). CI `docs-lint` fails over-limit files (`python tools/lint_docs_words.py`). Prefer tables and short bullets; long mechanics go in the wiki.
 
 ## Stack
 
 - Engine: Godot 4.7.x · GDScript (typed where practical)
 - Scenes: `.tscn` + scripts; logic in scripts, composition in scenes
-- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); PR **tier 1** impacted suites + **80% patch** coverage (**≤5 min**); **tier 2** every 8h full suite + overall 80%; e2e smoke+auto **≤5 min** — see [`docs/testing.md`](docs/testing.md)
+- Tests: [`gd-tools`](https://github.com/mansyar/gd-tools) (`GdToolsTest`); tier 1 impacted + **80%** patch (**≤5 min**); tier 2 every 8h full + overall 80%; e2e ≤5 min — [`docs/testing.md`](docs/testing.md)
 
 ## Layout
 
@@ -51,15 +55,15 @@ Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). CI
 ## Do / don’t
 
 - Do keep scenes focused; guard early; shallow nesting.
-- Do run with `tools/run.sh` (imports first); bare `godot --path .` on a fresh clone fails — `class_name` globals come from the editor-generated `.godot/` cache.
-- Do open/merge PRs with `gh`; wait for required checks — see [`docs/pull-requests.md`](docs/pull-requests.md).
+- Do run with `tools/run.sh` (imports first); bare `godot --path .` fails without `.godot/` (`class_name` cache).
+- Do open/merge PRs with `gh`; wait for required checks — [`docs/pull-requests.md`](docs/pull-requests.md).
 - Don’t commit `.godot/`, export caches, or local overrides.
 - Don’t add plugins/addons without need; don’t hard-code resolutions or OS names in gameplay.
 - Don’t bypass, force-merge, or skip required PR checks.
 
 ## Project skills
 
-Do **not** create, edit, rename, or delete project skills unless the user **explicitly** asks for a skills change. Scope: `.agents/skills/` (incl. README), facades (`.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`), and `docs/skills.md`. Side edits during other work are banned; CI `skills-isolation` fails code∩skills PRs.
+Do **not** create, edit, rename, or delete project skills unless the user **explicitly** asks. Scope: `.agents/skills/` (incl. README), facades (`.cursor/skills/`, `.opencode/skill/`, `.grok/skills/`), and `docs/skills.md`. Side edits banned; CI `skills-isolation` fails code∩skills PRs.
 
 ## When unsure
 
