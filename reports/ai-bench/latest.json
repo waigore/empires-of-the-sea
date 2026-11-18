@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:a99cd048ef42a5135227876b412bb2a8d61d37dc32b6f9dadbd3557a25391d5d",
-  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261118T185854446582Z@3ee31742+dirty",
+  "submission_hash": "sha256:da45b7aac73901a3955eeb7fa6b4aca0397f781d5604858b28e07a880ce097fa",
+  "submission_git": "feat/995-bank-keeps-the-town-road@f668b619",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 2439.1026240115025,
+      "value": 2306.9309967141294,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 24.0,
+      "value": 22.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 5.0,
+      "value": 8.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 85.46241099519789,
+      "value": 92.9350468975469,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:9ee88c04466cdab57294462f8c48b0a7008dd9c8eecbd0014ac47adfb9dbfa74",
+    "ai_surface_hash": "sha256:edf886e837fd1eeb1d0b4768bd219c1aeffc81e502d2ac8aa6a683f6068fcf84",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
-      "provinces_old": 15,
-      "provinces_new": 9,
-      "regiments": 4,
-      "ships": 1,
-      "workers": 9,
-      "extraction_per_turn": 45.88785046728972,
-      "income_per_turn": 302.3269230769231,
-      "funded_pct": 85.46241099519789
+      "provinces_old": 16,
+      "provinces_new": 6,
+      "regiments": 5,
+      "ships": 3,
+      "workers": 3,
+      "extraction_per_turn": 49.27272727272727,
+      "income_per_turn": 213.3855421686747,
+      "funded_pct": 92.9350468975469
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
-    "turn": 122,
-    "resolved_turns": 122,
-    "funded_pct": 85.46241099519789
+    "turn": 201,
+    "resolved_turns": 200,
+    "funded_pct": 92.9350468975469
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-18T19:24:37Z",
+  "timestamp": "2026-11-18T19:43:09Z",
   "report_version": 1,
-  "signature": "hmac-sha256:c91ec119d5a0c25a1685108a4a279b317c7fecc629dbb0f778a2d8a95d95279d"
+  "signature": "hmac-sha256:79c778f556eec9a51449122552d01d3a88711bc6771910aec838b771cb4bf9b3"
 }

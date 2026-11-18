@@ -24,8 +24,8 @@
   <div class="status">
     <strong>Phase:</strong> issue #995 — the win chase: the bank lands, its connected-farm clause is a guard, the +500 stays open<br/>
     <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2439.10</span> (<code>995-03-bank-keeps-the-town-road.json</code>)<br/>
-    <strong>Best honest so far:</strong> 2439.10 · 15 OW · 9 NW · 4 reg · workers 6 (<code>995-03-bank-keeps-the-town-road.json</code>)<br/>
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2306.93</span> (<code>995-03-bank-keeps-the-town-road.json</code>)<br/>
+    <strong>Best honest so far:</strong> 2439.10 · 15 OW · 9 NW · 4 reg · workers 6 (before #1026's production refactor; the committed surface reads 2306.93 · 16 OW · 6 NW · forces 8 — <code>1026-production-phase-rebind.json</code>)<br/>
     <strong>Open gates:</strong> the +500 win bonus — the climb's next lever is the pact wall / the phoney war (the connected farm measured inert)
   </div>
 
@@ -174,9 +174,9 @@
       <tr>
         <td>995-03</td>
         <td>The connected-farm clause of the bank (DR-20261119-04 decision 4): the trim keeps the town-link step while it banks — <code>AiTownRoads.steps</code> names the first unroaded tile of the walk from every owned town still off the crown network, and an order on a kept crop's own tile keeps — so the Builder's promise (a road follows an off-network raise) is no longer broken by the bank's blanket road hold</td>
-        <td><strong>2439.10</strong></td>
-        <td>15 OW · 9 NW · 4 reg · forces 5 · workers 9 · income 302.33 · funded 85.46 · France wins t122 — bit-identical to 995-01</td>
-        <td class="good">The floor and the committed reading both hold, and the bench is <em>unchanged</em> because the subject's own towns all reach the capital on seed 1500: a probe over the first 60 turns counts 20 banking turns with 0 owned towns off the network (one engineer road on two of them). Read as a guard — the trim's road hold contradicted the Builder's own pricing and the Town rule, so the promise is restored and covered by tests; it is not to be counted as a win-chase lever. The remaining layer is a war on the big holders, which the pact wall and the phoney war's market hold shut</td>
+        <td><strong>2306.93</strong></td>
+        <td>16 OW · 6 NW · 5 reg · 3 ships · workers 3 · income 213.39 · funded 92.94 · resolves at t201 — bit-identical to the committed 1026 keeper it was rebased onto</td>
+        <td class="good">A guard, not a lever, and measured as one on both bases: on the pre-#1026 tree it read 2439.10 (identical to 995-01), and after the rebase onto the production-phase refactor it reads 2306.93 — <em>exactly</em> the committed 1026 keeper, to the last digit of every part. The subject's own towns all reach the capital on seed 1500 (probe over the first 60 turns: 20 banking turns, 0 owned towns off the network, one engineer road on two of them), so the trim's road hold contradicted the Builder's own pricing and the Town rule without ever biting. The promise is restored and covered by tests; the win-chase layer is still the war on the big holders</td>
         <td><a href="reports/ai-bench/995-03-bank-keeps-the-town-road.json">995-03-bank-keeps-the-town-road.json</a></td>
       </tr>
       <tr>
