@@ -331,13 +331,16 @@ static func _clear_news(hud: GameHud) -> void:
 	news._compact_queue.clear()
 	news._queue = PackedStringArray()
 	news._queue_narrated.clear()
+	# Free on the spot, not queued: a lazy `_attach()` re-seat runs inside the
+	# next case's body, and `queue_free` would leave the old plates as children
+	# until the frame ends — so `_news_about` would count them with the new ones.
 	for panel: Node in news.box.get_children():
 		panel.set_meta("toast_cancelled", true)
 		if panel.has_meta("toast_tween"):
 			var toast: Tween = panel.get_meta("toast_tween") as Tween
 			if toast != null and toast.is_valid():
 				toast.kill()
-		panel.queue_free()
+		panel.free()
 
 
 ## Restore parks units in region tables and clears the live arrays; spawn rebinds
