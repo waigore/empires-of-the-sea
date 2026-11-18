@@ -4676,11 +4676,11 @@ func _buyout_turn(wars: int, pursed: int = -1, extra: Array[int] = []) -> Dictio
 
 
 ## A standing crown war the press keeps above the bar, on a court whose purse
-## is under its muster floor: the court puts the white peace to that crown
+## is under its muster price: the court puts the white peace to that crown
 ## itself (issue #975), which the published planner never does.
 func test_a_poor_court_buys_out_of_the_crown_war_it_is_fighting() -> void:
 	var config: AiConfig = _phase_config(PHASE_OWNER)
-	var floor: int = AiArmyReinforce.muster_floor(config, _purse(0), 4, true)
+	var floor: int = _muster_price(config)
 	var run: Dictionary = _buyout_turn(1, floor - 100)
 	var action: Dictionary = run["plan"]["action"]
 	var rival: Dictionary = _candidate(run["plan"], PHASE_RIVAL)
@@ -4694,21 +4694,48 @@ func test_a_poor_court_buys_out_of_the_crown_war_it_is_fighting() -> void:
 	assert_eq(int(action.get("target", -1)), PHASE_RIVAL)
 	assert_eq(
 		String(rival.get("blocked", "")), "",
-		"the purse under the muster floor composes the peace the desire bars"
+		"the purse under the muster price composes the peace the desire bars"
 	)
 
 
-## The same purse with no Great Power war to buy out of: the declaration gate
-## holds while the purse cannot pay for the army.
-func test_a_poor_court_opens_no_new_crown_war() -> void:
-	var floor: int = AiArmyReinforce.muster_floor(_phase_config(PHASE_OWNER), _purse(0), 4, true)
-	var run: Dictionary = _buyout_turn(0, floor - 100, [PHASE_OTHER])
-	var candidate: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+## The re-declaration brake: a court honors the truce its own bought peace
+## left, so the peace lasts long enough to matter (issue #975).
+func test_a_court_honors_the_truce_its_peace_left() -> void:
+	var run: Dictionary = _buyout_turn(0, -1, [PHASE_OTHER])
+	var state: DiplomacyState = run["state"]
+	var ai_state: AiState = run["ai_state"]
+	ai_state.note_war(PHASE_OWNER, PHASE_OTHER, 20)
+	ai_state.note_peace(PHASE_OWNER, PHASE_OTHER, 24, true)
+	ai_state.note_truce(PHASE_OWNER, PHASE_OTHER, 24)
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_OTHER: 1},
+		"regiments": {PHASE_OWNER: 4, PHASE_OTHER: 1},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+		"posture": AiPhasePlanner.phase_for(config, state),
+	}
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, ai_state,
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR]), 30, context
+	)
 
-	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_PEACE)
 	assert_eq(
-		String(candidate.get("blocked", "")), "saving for the army: no new crown war",
-		"a purse under the muster floor declares no new crown war"
+		String(_candidate(plan, PHASE_OTHER).get("blocked", "")),
+		"the pair's truce holds: no new crown war yet",
+		"an unfought peace's truce bars the re-declaration for its whole window"
+	)
+
+
+## The same truce on a Minor pair: colonial business, never held by the brake.
+func test_a_truce_never_holds_a_minor_war() -> void:
+	var floor: int = _muster_price(_phase_config(PHASE_OWNER))
+	var run: Dictionary = _buyout_turn(0, floor - 100, [PHASE_MINOR])
+	var candidate: Dictionary = _candidate(run["plan"], PHASE_MINOR)
+
+	assert_eq(
+		String(candidate.get("blocked", "")), "",
+		"a Minor Nation is colonial business, not a crown war the truce holds"
 	)
 
 
@@ -4735,7 +4762,7 @@ func test_a_rich_court_keeps_its_crown_wars() -> void:
 ## The doctrine is crown-war business only: a Minor war at the same poor purse
 ## is never bought out, while the crown war beside it is.
 func test_a_minor_war_is_never_bought_out() -> void:
-	var floor: int = AiArmyReinforce.muster_floor(_phase_config(PHASE_OWNER), _purse(0), 4, true)
+	var floor: int = _muster_price(_phase_config(PHASE_OWNER))
 	var state := DiplomacyState.new()
 	state.reset(1)
 	for other: int in [PHASE_RIVAL, PHASE_MINOR]:
@@ -4775,7 +4802,7 @@ func test_a_minor_war_is_never_bought_out() -> void:
 ## The pair's peace-offer cooldown still gates the buy-out: a refused offer is
 ## not repeated every turn (wiki: diplomacy § Planner selection).
 func test_the_buy_out_waits_out_the_peace_cooldown() -> void:
-	var floor: int = AiArmyReinforce.muster_floor(_phase_config(PHASE_OWNER), _purse(0), 4, true)
+	var floor: int = _muster_price(_phase_config(PHASE_OWNER))
 	var run: Dictionary = _buyout_turn(1, floor - 100)
 	var state: DiplomacyState = run["state"]
 	var ai_state: AiState = run["ai_state"]
@@ -4797,6 +4824,12 @@ func test_the_buy_out_waits_out_the_peace_cooldown() -> void:
 		String(_candidate(plan, PHASE_RIVAL).get("blocked", "")).contains("peace cooldown"),
 		"the refused buy-out waits out the pair's cooldown"
 	)
+
+
+## The price of the line a court saving under its war target would buy — the
+## purse leg the buy-out reads (issue #975).
+func _muster_price(config: AiConfig) -> int:
+	return maxi(config.parameter("army.min_treasury"), 0) + AiArmyReinforce.cheapest_line_price(_purse(0))
 
 
 # --- money first: the goal a court reads before its planners ------------------
@@ -11338,7 +11371,10 @@ func test_a_truce_keeps_the_pair_below_the_declaration_bar() -> void:
 		"the 4-turn cooldown alone no longer re-opens the war"
 	)
 	var candidate: Dictionary = (barred["candidates"] as Array)[0]
-	assert_eq(String(candidate["blocked"]), "war desire too low")
+	assert_eq(
+		String(candidate["blocked"]), "the pair's truce holds: no new crown war yet",
+		"the truce bars the re-declaration outright (issue #975) before desire is read"
+	)
 	assert_eq(
 		int(candidate["factors"].get("memory", 0)),
 		-_war_config().parameter("diplomacy.truce_penalty"),

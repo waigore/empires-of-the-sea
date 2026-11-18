@@ -200,9 +200,9 @@ static func desired_territory(war_desire_score: int, province_count: int) -> int
 ## The buy-out doctrine (issue #975): true when the standing war on `target` is
 ## a crown war — a fellow Great Power, one of the fronts the footing counts —
 ## and the court cannot re-arm for it, on an overstretched footing (`fronts`)
-## or with a purse under the war chest its next muster reads. A war on a Minor
-## Nation or a Tribe is colonial business and is never bought out; a court with
-## no ledger to read keeps the published planner.
+## or with a purse under the price of the line it is saving for. A war on a
+## Minor Nation or a Tribe is colonial business and is never bought out; a court
+## with no ledger to read keeps the published planner.
 static func _buys_out(
 	config: AiConfig,
 	ai_state: AiState,
@@ -217,11 +217,13 @@ static func _buys_out(
 	return purse_under_muster(config, ai_state, context)
 
 
-## True while the court's purse stands under the war chest its next muster
-## reads (`AiArmyReinforce.muster_floor`, at war): the purse that cannot re-arm
-## the court is the purse that buys out of its crown wars and opens no new one
-## (issue #975). A court at its regiment target, with no hand to spare for the
-## levy, or with no ledger to read keeps the published behaviour.
+## True while the court's purse stands under the price of the line its next
+## muster would buy — `army.min_treasury` plus the cheapest line its techs open
+## (`AiArmyReinforce.cheapest_line_price`, the published "what it has to save
+## for") — while the court stands under its war-target regiments: the purse
+## that cannot re-arm the court is the purse that buys out of its crown wars
+## (issue #975). A court at target strength, with no line to save for, or with
+## no ledger to read keeps the published behaviour.
 static func purse_under_muster(
 	config: AiConfig, ai_state: AiState, context: Dictionary
 ) -> bool:
@@ -233,8 +235,12 @@ static func purse_under_muster(
 	var regiments: int = int(
 		(context.get("regiments", {}) as Dictionary).get(config.faction, 0)
 	)
-	var floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, true)
-	return floor > 0 and economy.treasury < floor
+	if regiments >= AiArmyReinforce.desired_regiments(config, true):
+		return false
+	var price: int = AiArmyReinforce.cheapest_line_price(economy)
+	if price <= 0:
+		return false
+	return economy.treasury < maxi(config.parameter("army.min_treasury"), 0) + price
 
 
 ## Why this court cannot put a white peace to the human court right now ("" when
@@ -308,15 +314,16 @@ static func _war_block(
 		and not _outmatches(config.faction, target, context)
 	):
 		return "overstretched: no third front"
-	# A purse under the muster floor opens no new crown war (issue #975): the
-	# peace the court is buying out with must last long enough to matter, and a
-	# war it cannot re-arm for is the one it is buying out of. Minor and Tribe
+	# The re-declaration brake (issue #975): a court honors the truce its own
+	# bought peace left — no new crown war on a pair still inside it, so the
+	# peace lasts long enough to matter and the press cannot spend the 4-turn
+	# war cooldown re-fighting the war it just signed away. Minor and Tribe
 	# wars are colonial business and stay legal.
 	if (
 		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
-		and purse_under_muster(config, ai_state, context)
+		and AiWarMemory.truce(config, ai_state, turn, config.faction, target) > 0
 	):
-		return "saving for the army: no new crown war"
+		return "the pair's truce holds: no new crown war yet"
 	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
 	if ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
 		return "war cooldown"
