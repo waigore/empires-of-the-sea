@@ -1894,6 +1894,56 @@ func test_a_crew_the_ground_refuses_is_named_in_the_refusal() -> void:
 	)
 
 
+## The ground prints only what the crown's own chart and the prospecting rule
+## allow: no terrain of an uncharted tile and no mineral no Explorer has
+## prospected (wiki: fog-and-exploration § Prospect-Required Resources,
+## § What a landing reveals; DR-20261118-23).
+func test_a_ground_names_only_what_the_chart_has_reached() -> void:
+	var model: MapModel = _screen.model
+	var visibility: VisibilityModel = _screen.play.visibility
+	var plain: Vector2i = Vector2i(-1, -1)
+	var mineral: Vector2i = Vector2i(-1, -1)
+	for y in model.height:
+		for x in model.width:
+			if not model.is_land(x, y):
+				continue
+			var resource: int = model.resource_at(x, y)
+			if resource < 0 or not ImprovementCatalog.known(resource):
+				continue
+			if ImprovementCatalog.needs_prospecting(resource):
+				if mineral.x < 0:
+					mineral = Vector2i(x, y)
+			elif plain.x < 0:
+				plain = Vector2i(x, y)
+	assert_gte(plain.x, 0, "the fixture holds a tile with a workable resource")
+	var index: int = model.index_of(plain.x, plain.y)
+	visibility.raise_to(index, VisibilityModel.Level.FOGGED)
+	assert_eq(
+		MapPlayCivilianVoyage._ground_label(_screen.play, plain),
+		String(MapModel.TERRAIN_LABELS.get(model.terrain_at(plain.x, plain.y), "")),
+		"a fogged ground names its terrain alone"
+	)
+	visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
+	assert_eq(
+		MapPlayCivilianVoyage._ground_label(_screen.play, plain), "",
+		"an uncharted ground names nothing"
+	)
+	assert_eq(
+		MapPlayCivilianVoyage._ground_label(_screen.play, Vector2i(-1, -1)), "",
+		"no tile, no line"
+	)
+	if mineral.x < 0:
+		return
+	visibility.raise_to(
+		model.index_of(mineral.x, mineral.y), VisibilityModel.Level.FULLY_VISIBLE
+	)
+	var label: String = MapPlayCivilianVoyage._ground_label(_screen.play, mineral)
+	assert_false(
+		label.contains("·"),
+		"an unprospected mineral keeps its terrain alone: %s" % label
+	)
+
+
 ## A squadron of several hulls flies them: the marker's escorts, hull badge and
 ## strength gauge follow every launch and breaking up (wiki: ships-and-naval
 ## § Naval Strength Aggregation Formula).
