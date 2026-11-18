@@ -29,6 +29,7 @@ Repo: `waigore/empires-of-the-sea` (or current `gh` remote). Use `gh`.
 |--------|------|
 | [Wiki Game rules](https://github.com/waigore/empires-of-the-sea/wiki) | Rules SoT — alignment check |
 | [`docs/requirements.md`](../../../docs/requirements.md) | Pillars / REQ-* for feature impact |
+| [`AGENTS.md`](../../../AGENTS.md) Talk to the user | Plain English on titles/bodies |
 | [`references/bug-template.md`](references/bug-template.md) | Bug issue body |
 | [`references/feature-template.md`](references/feature-template.md) | Feature issue body |
 
@@ -138,6 +139,7 @@ Reply with the issue URL. Stop.
 
 ## Rules
 
+- Titles and bodies: plain English per [`AGENTS.md`](../../../AGENTS.md) Talk to the user.
 - Platform only when stated or clearly relevant; otherwise omit and assume all platforms.
 - Map seed only when it would help reproduce (layout / generation / seed-driven rolls); otherwise omit.
 - No final “approve this draft?” step after analysis (duplicate + wiki confirms only).

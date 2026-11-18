@@ -1,5 +1,7 @@
 # PR body — audit deferred
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 Use with `gh pr create`. Docs-only; no game code.
 
 ```markdown

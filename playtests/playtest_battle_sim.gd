@@ -128,7 +128,7 @@ func _walk_pass() -> void:
 		if not button.disabled:
 			doors.append(button.text)
 	_say("doors a %d-round record opens: %s" % [rounds.size(), str(doors)])
-	for index in QuickBattle.MAX_ROUNDS:
+	for index in QuickBattleTerms.MAX_ROUNDS:
 		var button: Button = _screen._round_buttons.get_child(index) as Button
 		_check(
 			button.disabled == (index >= rounds.size()),
