@@ -83,14 +83,9 @@ static func _split(
 		play.army_layer.next_army += 1
 		split_any = true
 		var field: ArmyState = split["army"] as ArmyState
-		trace.append({
-			"faction": faction,
-			"kind": KIND_SPLIT,
-			"army": field.id,
-			"province": field.province,
-			"province_name": model.province_name(field.province),
-			"region": model.region_id,
-		})
+		trace.append(
+			MapPlayCourt.army_trace(model, faction, KIND_SPLIT, field.id, field.province)
+		)
 	return split_any
 
 
