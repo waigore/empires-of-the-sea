@@ -58,9 +58,16 @@ func fill(
 		_gift_court = selected
 		gift_amount = DiplomacyCatalog.GRANT_AID_STEP
 	var record: DiplomacyRelation = state.relation(player, selected)
+	# The court's arms over its name: the sheet names the crown it reads, and the
+	# shield is the same one its row carries (REQ-P1-08; DR-20261118-30).
+	var head := HBoxContainer.new()
+	head.add_theme_constant_override("separation", 8)
+	head.add_child(FactionCrest.of(selected, FactionCrest.HEAD_SIZE))
 	var name_label := UiRowBuilder.label(FactionCatalog.name_of(selected), 24, Palette.GOLD_PALE)
 	name_label.add_theme_font_override("font", UiTheme.serif())
-	add_child(name_label)
+	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.add_child(name_label)
+	add_child(head)
 	var kind: String = FactionCatalog.type_label(FactionCatalog.type_of(selected))
 	var land: String = FactionCatalog.region_label(FactionCatalog.region_of(selected))
 	add_child(UiRowBuilder.label("%s  ·  %s" % [kind, land], 12, Palette.TEXT_DIM))

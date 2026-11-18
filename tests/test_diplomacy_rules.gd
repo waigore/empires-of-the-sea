@@ -667,13 +667,16 @@ func test_the_detail_names_the_figures_behind_the_band() -> void:
 func _refresh() -> void:
 	panel.refresh(diplomacy_power_state, null, 0, 2500, {}, {}, power)
 
+## The column a court's row carries: the row itself holds the court's arms beside
+## this column, so a case reads the name and the lines under it here.
 func _row_for(name: String) -> VBoxContainer:
 	for child: Node in panel._list.get_children():
-		if not child is VBoxContainer:
+		if not child is HBoxContainer:
 			continue
-		var row := child as VBoxContainer
-		if row.get_child_count() > 0 and _has_text(row.get_child(0), name):
-			return row
+		for node: Node in child.get_children():
+			var column := node as VBoxContainer
+			if column != null and _has_text(column, name):
+				return column
 	return null
 
 func _find_label(node: Node, needle: String) -> Label:
