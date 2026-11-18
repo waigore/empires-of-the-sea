@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:fd80bfaf30badbeb0cfe21a917268ec0adf5310066594f53f8ae4f6ff55e5fdb",
-  "submission_git": "babysit-1033@36c5d5cc",
+  "submission_hash": "sha256:ec023b31fb0def6745eb6fce3085570181d083494c7818f55169684e264dc2b9",
+  "submission_git": "refactor/ai-bind-economy-and-campaign@60697225",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:d11a8cde33c73fb8e0390592781e4f0ff3a196be382accca1e008b43f03a3301",
+    "ai_surface_hash": "sha256:7a62797bce5c8397383fa759b52d55b9f1939af9ca77ebe078b89ec45ab4e88c",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 16,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-18T21:21:13Z",
+  "timestamp": "2026-11-18T22:10:26Z",
   "report_version": 1,
-  "signature": "hmac-sha256:a4a2514ef2b551b8ca3b0650cade462f9d89caa4316460364547481fa901c1a9"
+  "signature": "hmac-sha256:b92b4682f8d4a45b6539ac649e98b9e86061c118953fa6130a81b69e46739d99"
 }
