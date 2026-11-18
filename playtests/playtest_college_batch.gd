@@ -200,6 +200,10 @@ func _phone(size: Vector2i) -> void:
 		press.line().text, press.line().size.y, line_bottom,
 	])
 	_say("the lists take %s under the press" % (str(tabs.size) if tabs != null else "?"))
+	_say("the queue's window is %s of the %s its rows need (DR-20261119-02)" % [
+		str(panel._slots_scroll.size),
+		str(panel._slots_body.get_combined_minimum_size()),
+	])
 	_say("the press %s the sheet's edge; its line %s" % [
 		"fits inside" if press_bottom <= sheet_bottom else "runs past",
 		"fits inside" if line_bottom <= sheet_bottom else "runs past",
