@@ -2,10 +2,10 @@ extends SceneTree
 ## Headless free-playtest drive for the Battle Simulator (wiki: quick-battle;
 ## docs/testing.md § Local). The sandbox is the instrument a playtester reasons
 ## about Quick Battle with, and it has no drive of its own: this one mounts the
-## real scene, presses its own rail (ground, fort, men, plans, seed, Fight, Next
-## round, Reset) and reads what it prints back — the header, the number line,
-## the despatch and the plate — against the record the live resolver returned,
-## and against the aftermath the game's own plate shows.
+## real scene, presses its own rail (ground, fort, battery line, men, plans,
+## medals, Fight, Next round, Reset) and reads what it prints back — the header,
+## the number line, the despatch and the plate — against the record the live
+## resolver returned, and against the aftermath the game's own plate shows.
 ##
 ##   godot --headless --path . --script res://playtests/playtest_battle_sim.gd
 ##
@@ -39,6 +39,7 @@ func _run() -> void:
 	await _empty_side_pass()
 	await _walk_pass()
 	await _despatch_pass()
+	await _levers_pass()
 	await _ground_matrix()
 	await _handset_pass()
 	_finish()
@@ -174,6 +175,46 @@ func _despatch_pass() -> void:
 			if not text.contains(QuickBattleCopy.action_line(action, report, BattleSimScreen.NAMES)):
 				missing += 1
 	_check(missing == 0, "every resolved action reaches the despatch (%d missing)" % missing)
+
+
+## The rail's own levers: the garrison's battery line and each side's chevrons
+## are the rules' numbers, so the record must read them back — and a rail with no
+## seed, because a lone attacker's quick battle is deterministic for its plan
+## (wiki: siege-mechanics § Emplaced Artillery; combat § Initiative).
+func _levers_pass() -> void:
+	_say("")
+	_say("--- the rail's levers ---")
+	_seat(_screen._setup, "attacker", [["musketeers", 6], ["culverin", 1]])
+	_seat(_screen._setup, "defender", [["pikemen", 4], ["musketeers", 2]])
+	_screen._setup._fort.selected = 2
+	_check(not _screen._setup.spec().has("seed"), "the rail carries no seed a lone attacker cannot feel")
+	for line in BattleSimSetup.GUN_ROWS.size():
+		_screen._setup._guns.selected = line
+		_screen._setup._attacker_medals.value = 2
+		_screen._setup._defender_medals.value = 1
+		_screen._fight()
+		await _idle(1)
+		var spec: Dictionary = _screen._setup.spec()
+		var quick: Dictionary = _screen._result["report"]["quick"]
+		var want: String = FortRules.emplaced_type(spec["tech"] as Dictionary)
+		_say("  %s -> %s, limits %d/%d, guns %d" % [
+			String(BattleSimSetup.GUN_ROWS[line][1]), String(quick["gun_type"]),
+			int(quick["limits"]["attacker"]), int(quick["limits"]["defender"]),
+			int(quick["guns_start"]),
+		])
+		_check(
+			String(quick["gun_type"]) == want,
+			"the %s line is the battery the resolver spawns" % String(BattleSimSetup.GUN_ROWS[line][1])
+		)
+		_check(
+			int(quick["limits"]["attacker"]) == ArmyModifiers.BASE_DEPLOYMENT + 2
+			and int(quick["limits"]["defender"]) == ArmyModifiers.BASE_DEPLOYMENT + 1,
+			"each side's chevrons move its own deployment limit"
+		)
+		_check(
+			_screen._readout.text.contains("defender medals 1"),
+			"the readout reads the levers back"
+		)
 
 
 ## Every ground and every fort a playtester can set: each must resolve, name the

@@ -3549,6 +3549,85 @@ func test_the_sandbox_prints_the_games_aftermath() -> void:
 	screen.free()
 
 
+## The rail offers only levers the resolver reads (wiki: combat § Strength;
+## siege-mechanics § Emplaced Artillery): a side's chevrons reach the exchange as
+## its commander's rank — the deployment limit counts them — and the picked gun
+## line is the battery `QuickBattleBattery` spawns. A rail that offered a number
+## the fight never read would teach a playtester a rule the game does not have.
+func test_the_sandbox_rail_carries_medals_and_the_battery_line() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	_sim_slots(screen._setup, "attacker", [["musketeers", 6], ["culverin", 1], ["knights", 0]])
+	_sim_slots(screen._setup, "defender", [["pikemen", 4], ["musketeers", 2], ["culverin", 0]])
+	screen._setup._fort.selected = 2
+	screen._setup._guns.selected = 2
+	screen._setup._attacker_medals.value = 3
+	screen._setup._defender_medals.value = 2
+	var spec: Dictionary = screen._setup.spec()
+
+	assert_eq(int(spec["attacker_medals"]), 3)
+	assert_eq(int(spec["defender_medals"]), 2)
+	assert_true(
+		bool((spec["tech"] as Dictionary).get("emplaced_siege_guns", false)),
+		"the siege line carries its own study"
+	)
+	assert_true(
+		bool((spec["tech"] as Dictionary).get("heavy_emplaced_artillery", false)),
+		"a siege battery is built on the heavy line the table names"
+	)
+	screen._fight()
+	var quick: Dictionary = screen._result["report"]["quick"]
+	assert_eq(
+		String(quick["gun_type"]), "siege_guns",
+		"the rail's line is the battery the resolver spawns"
+	)
+	assert_eq(
+		int(quick["limits"]["attacker"]), ArmyModifiers.BASE_DEPLOYMENT + 3,
+		"the attacker's chevrons move its deployment limit"
+	)
+	assert_eq(
+		int(quick["limits"]["defender"]), ArmyModifiers.BASE_DEPLOYMENT + 2,
+		"the defender's chevrons move its own"
+	)
+	assert_true(
+		screen._readout.text.contains("defender medals 2"),
+		"the readout reads the levers back: %s" % screen._readout.text
+	)
+	screen.free()
+
+
+## A quick battle with one attacker is deterministic for a fixed plan: the seed
+## only breaks an initiative tie between rival attackers (wiki: combat
+## § Initiative), so this sandbox carries no seed on its rail and two seeds fight
+## the same record. A dial that never moved a fight taught a playtester otherwise.
+func test_the_sandbox_has_no_seed_that_cannot_move_a_fight() -> void:
+	var screen: BattleSimScreen = SIM_SCENE.instantiate()
+	add_child(screen)
+	await get_tree().process_frame
+	assert_false(
+		screen._setup.spec().has("seed"), "the rail offers no seed a lone attacker cannot feel"
+	)
+	screen.free()
+	var spec: Dictionary = {
+		"attacker": ["musketeers", "musketeers", "musketeers", "culverin"],
+		"defender": ["pikemen", "pikemen", "musketeers", "culverin"],
+		"fort": 2, "terrain": "woods",
+	}
+	var first: Dictionary = BattleScenario.fight(spec)
+	spec["seed"] = 4242
+	var second: Dictionary = BattleScenario.fight(spec)
+	assert_eq(
+		str(first["report"]["attacker_lost"]), str(second["report"]["attacker_lost"]),
+		"a second seed breaks the same men"
+	)
+	assert_eq(
+		int(first["report"]["quick"]["guns_left"]),
+		int(second["report"]["quick"]["guns_left"]),
+		"and leaves the same battery"
+	)
+
+
 ## Fills the sandbox's setup rail: one [type, count] per slot.
 func _sim_slots(setup: BattleSimSetup, side: String, rows: Array) -> void:
 	var slots: Array = setup._attacker_slots if side == "attacker" else setup._defender_slots
@@ -7640,6 +7719,125 @@ func test_land_a_siege_blow_bleeds_no_more_than_the_deployed_slice() -> void:
 		(split["behind"] as Array).size(), limit,
 		"the behind lane takes the deployed slice and no more"
 	)
+
+
+## A siege lane holds the side's **line**, never its reserve: a garrison that
+## keeps foot behind the deployment limit cannot lose them to a blow it never
+## meets (wiki: combat § The line and the reserve — "a reserve adds no strength,
+## takes no casualties"; quick-battle § Wings and collapse — "the reserve is
+## dealt nowhere").
+func test_a_siege_blow_never_bleeds_the_reserves_foot() -> void:
+	var limit: int = ArmyModifiers.deployment_limit(0, false)
+	var types: Array[String] = []
+	for _index in 20:
+		types.append("pikemen")
+	for _index in 4:
+		types.append("hussars")
+	var defended: Array[ArmyState] = land__lane_side(types, 1)
+	var attacker: Array[ArmyState] = land__lane_side(["musketeers", "musketeers"], 2)
+	var armies: Array[ArmyState] = land__lane_joined(attacker, defended)
+	var line: Dictionary = SiegeLanes.line_ids(defended, limit)
+	assert_eq((line["wall"] as Array).size(), limit - 4, "the line's foot man the wall")
+	assert_eq((line["behind"] as Array).size(), 4, "the line's horse wait behind it")
+	var reserve: Array[String] = []
+	for regiment_id: String in defended[0].regiments:
+		if not (line["wall"] as Array).has(regiment_id) \
+			and not (line["behind"] as Array).has(regiment_id):
+			reserve.append(regiment_id)
+	assert_eq(reserve.size(), 14, "twenty-four regiments keep fourteen in reserve")
+
+	var split: Dictionary = SiegeLanes.strike(
+		armies, attacker, defended, 5, limit, 1, false, SiegeLanes.gates_for(1)
+	)
+
+	assert_eq((split["wall"] as Array).size(), 4, "a wood wall spares a share of the blow")
+	for raw: Variant in split["wall"]:
+		assert_true((line["wall"] as Array).has(String(raw)), "only the line's foot falls")
+	for regiment_id: String in reserve:
+		assert_true(defended[0].regiments.has(regiment_id), "a reserve never falls")
+	assert_eq(defended[0].count(), 20, "the garrison keeps every reserve")
+
+
+## The behind lane is the line's horse and guns too: an artillery blow cannot
+## reach the squadrons sheltering past the deployment limit.
+func test_the_behind_lane_bleeds_the_lines_horse_not_the_reserve() -> void:
+	var limit: int = ArmyModifiers.deployment_limit(0, false)
+	var types: Array[String] = ["pikemen", "pikemen"]
+	for _index in 20:
+		types.append("squires")
+	var defended: Array[ArmyState] = land__lane_side(types, 1)
+	var guns: Array[String] = []
+	for _index in 18:
+		guns.append("culverin")
+	var attacker: Array[ArmyState] = land__lane_side(guns, 2)
+	var armies: Array[ArmyState] = land__lane_joined(attacker, defended)
+	var line: Dictionary = SiegeLanes.line_ids(defended, limit)
+	assert_eq(
+		(line["behind"] as Array).size(), limit - 2, "the line's horse are behind the wall"
+	)
+
+	var split: Dictionary = SiegeLanes.strike(
+		armies, attacker, defended, 12, limit, 2, false, SiegeLanes.gates_for(2)
+	)
+
+	assert_true((split["behind"] as Array).size() > 0, "guns drop shot over the parapet")
+	for raw: Variant in split["behind"]:
+		assert_true(
+			(line["behind"] as Array).has(String(raw)), "only the line's horse is struck"
+		)
+	assert_eq(defended[0].count(), 15, "the twelve reserve squadrons stand")
+
+
+## The deployment slice is read before a lane's type filter tells: the strongest
+## `limit` regiments of the side are the line whatever a filter asks for, so a
+## filtered draw never promotes a reserve into it (wiki: combat § The line and
+## the reserve).
+func test_a_filtered_draw_comes_from_the_deployed_slice() -> void:
+	var army := Fixture.army(
+		1, 1, 2, ["pikemen", "pikemen", "pikemen", "guards", "guards"], true
+	)
+	var side: Array[ArmyState] = [army]
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, 3):
+		line.append(String(entry["id"]))
+
+	var lost: Array[String] = ArmyForce.apply_losses(
+		side, side, 3, 3, func(type_id: String) -> bool: return type_id == "pikemen"
+	)
+
+	assert_eq(lost.size(), 1, "only the line's one pikeman can fall")
+	assert_true(line.has(lost[0]), "the casualty is a regiment of the line")
+	assert_eq(army.count(), 4, "the two pikemen in reserve stand")
+
+
+## The line's ascending-id tie-break is the casualty slice's too: an army of
+## fourteen identical regiments keeps its ten lowest ids in the line, so the four
+## highest are reserves that never fall (wiki: combat § The line and the reserve
+## — "the strongest `limit` regiments stand in the line, ties broken by ascending
+## regiment id").
+func test_identical_regiments_keep_their_highest_ids_in_reserve() -> void:
+	var types: Array[String] = []
+	for _index in 14:
+		types.append("pikemen")
+	var army := Fixture.army(1, 1, 2, types, true)
+	var side: Array[ArmyState] = [army]
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, 10):
+		line.append(String(entry["id"]))
+	var reserve: Array[String] = []
+	for regiment_id: String in army.regiments:
+		if not line.has(regiment_id):
+			reserve.append(regiment_id)
+	assert_eq(reserve.size(), 4, "four of the fourteen stand in reserve")
+
+	var lost: Array[String] = ArmyForce.apply_losses(side, side, 4, 10)
+
+	assert_eq(lost.size(), 4)
+	for regiment_id: String in lost:
+		assert_true(line.has(regiment_id), "the line bears the loss")
+	for regiment_id: String in reserve:
+		assert_true(army.regiments.has(regiment_id), "a reserve never falls")
+
 
 func test_land_melee_only_besiegers_cannot_touch_a_wall() -> void:
 	var attacker: Array[ArmyState] = land__lane_side(["pikemen", "knights"], 2)
