@@ -26,11 +26,16 @@ const STAMPS: Dictionary = {
 	"capital": ["capital.png"],
 	"port": ["port.png"],
 	"ship": ["ship.png"],
+	"work_wood": ["work_wood.png"],
+	"work_mine": ["work_mine.png"],
+	"work_riches": ["work_riches.png"],
+	"work_grain": ["work_grain.png"],
 }
 ## Marks that are scenery rather than a place: they take a small jitter in turn
 ## and a soft shadow, so a scattered province never reads as one stamp repeated.
 const SCENERY: Array[String] = [
 	"tree", "scrub", "conifer", "mountain", "hill", "dune", "field", "reed", "grass",
+	"work_wood", "work_mine", "work_riches", "work_grain",
 ]
 ## Ink of the pennant a capital flies, so ownership reads on the chart.
 const BANNER_INK: Color = Color(0.149, 0.118, 0.082, 0.78)

@@ -6778,7 +6778,7 @@ func test_the_map_pass_musters_a_rival_from_its_own_ledger() -> void:
 	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 
 	assert_eq(trace.size(), 1, "a muster and nothing else in peace")
-	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_REINFORCE)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyMusterAi.KIND_REINFORCE)
 	assert_eq(String(trace[0]["type"]), "arquebusiers")
 	assert_eq(play.army_layer.regiment_count_all(WORK_OWNER), before + 1)
 	assert_eq(economy.available_peasants(), peasants - 1, "one peasant joins the colours")
@@ -6830,7 +6830,7 @@ func test_a_moved_seat_still_musters_at_the_new_capital() -> void:
 	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 
 	assert_eq(trace.size(), 1, "the court raises its regiment again")
-	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_REINFORCE)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyMusterAi.KIND_REINFORCE)
 	assert_eq(int(trace[0]["province"]), 2, "the regiment musters at the new seat")
 	play.army_layer.free()
 
@@ -8588,12 +8588,12 @@ func test_the_recall_marches_the_home_army_to_the_new_seat() -> void:
 	var home: ArmyState = ArmyState.muster(1, campaign_OWNER, 1, true, ["peasant_levies"], 1)
 	var trace: Array[Dictionary] = []
 
-	assert_true(MapPlayArmyAi._recall(play, model, home, campaign_OWNER, 0, trace))
+	assert_true(MapPlayArmyMusterAi._recall(play, model, home, campaign_OWNER, 0, trace))
 	assert_eq(home.province, 0, "the garrison re-forms at the seat")
 	assert_eq(trace.size(), 1)
-	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_RECALL)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyMusterAi.KIND_RECALL)
 	assert_false(
-		MapPlayArmyAi._recall(play, model, home, campaign_OWNER, 0, trace),
+		MapPlayArmyMusterAi._recall(play, model, home, campaign_OWNER, 0, trace),
 		"an army already home is not marched again"
 	)
 
@@ -13003,7 +13003,7 @@ func test_planner_the_map_pass_musters_a_rival_from_its_own_ledger() -> void:
 	var trace: Array[Dictionary] = MapPlayArmies.run_ai(play)
 
 	assert_eq(trace.size(), 1, "a muster and nothing else in peace")
-	assert_eq(String(trace[0]["kind"]), MapPlayArmyAi.KIND_REINFORCE)
+	assert_eq(String(trace[0]["kind"]), MapPlayArmyMusterAi.KIND_REINFORCE)
 	assert_eq(String(trace[0]["type"]), "arquebusiers")
 	assert_eq(play.army_layer.regiment_count_all(ai_army_reinforce_OWNER), before + 1)
 	assert_eq(economy.available_peasants(), peasants - 1, "one peasant joins the colours")
@@ -13166,7 +13166,7 @@ func test_the_map_pass_pitches_the_rivals_train() -> void:
 
 	var hops: Array[Dictionary] = []
 	for record: Dictionary in trace:
-		if String(record["kind"]) == MapPlayArmyAi.KIND_HOSPITAL:
+		if String(record["kind"]) == MapPlayArmyMusterAi.KIND_HOSPITAL:
 			hops.append(record)
 	assert_eq(hops.size(), 1, "one train in the turn")
 	assert_eq(int(hops[0]["faction"]), ai_army_reinforce_OWNER)
@@ -13213,7 +13213,7 @@ func test_the_court_brings_one_train_a_turn() -> void:
 
 	var trained: int = 0
 	for record: Dictionary in trace:
-		if String(record["kind"]) == MapPlayArmyAi.KIND_HOSPITAL:
+		if String(record["kind"]) == MapPlayArmyMusterAi.KIND_HOSPITAL:
 			trained += 1
 	assert_eq(trained, 1, "a court equips one train a turn")
 	var carrying: int = 0

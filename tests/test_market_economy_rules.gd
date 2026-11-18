@@ -953,6 +953,66 @@ func test_unfilled_bid_carries_when_cargo_can_still_cover_it() -> void:
 	assert_eq((report["carry"] as Array).size(), 0)
 	assert_eq((economies[0] as PlayerEconomy).quantity("grain"), before + 5)
 
+
+## MarketSettlement owns settle, first-right credits and carry after the
+## matcher (refactor home of the clearing's post-match pass). These drive the
+## pure helpers without a full clear so the module's contract stays named.
+func test_settlement_carry_keeps_a_covered_bid_and_drops_a_short_one() -> void:
+	var covered := MarketOrder.create(0, "grain", MarketOrder.SIDE_BID, 3, 1)
+	covered.id = "covered"
+	var short := MarketOrder.create(0, "timber", MarketOrder.SIDE_BID, 4, 1)
+	short.id = "short"
+	var matched: Dictionary = {
+		"residuals": [
+			{"order_id": "covered", "quantity": 3},
+			{"order_id": "short", "quantity": 4},
+		],
+	}
+	var notes: Array[Dictionary] = []
+	var carry: Array[MarketOrder] = MarketSettlement.carry(
+		[covered, short], matched, _economies(), {0: 3}, notes
+	)
+	assert_eq(carry.size(), 1)
+	assert_eq(carry[0].id, "covered")
+	assert_eq(carry[0].quantity, 3)
+	assert_eq(carry[0].filled, 0)
+	assert_eq(notes.size(), 1)
+	assert_eq(String(notes[0].get("code", "")), "carry_forward_dropped_cargo_insufficient")
+
+
+func test_settlement_buy_unit_and_subsidy_read_the_pair() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	assert_eq(
+		MarketSettlement.buy_unit(market, "timber", MarketOrder.WORLD, 6, 0),
+		market.price("timber")
+	)
+	assert_eq(MarketSettlement.subsidy_percent({}, 0, 6), 0)
+	var diplomacy := DiplomacyState.new()
+	diplomacy.set_subsidy(0, 6, 15)
+	assert_eq(
+		MarketSettlement.subsidy_percent({"diplomacy": diplomacy}, 0, 6), 15
+	)
+	assert_eq(
+		MarketSettlement.subsidy_percent({"diplomacy": diplomacy}, 1, 6), 0,
+		"another court does not inherit the step"
+	)
+
+
+func test_settlement_economy_and_purchased_owner_guard() -> void:
+	var economies: Dictionary = _economies()
+	assert_eq(MarketSettlement.economy(economies, 0), economies[0])
+	assert_eq(MarketSettlement.economy({"0": economies[0]}, 0), economies[0])
+	assert_eq(MarketSettlement.economy(economies, 9), null)
+	assert_eq(MarketSettlement.purchased_owner(null, 0, 0), -1)
+	var world: WorldMap = _market_engine_world()
+	assert_eq(MarketSettlement.purchased_owner(world, 0, 0), -1)
+	var model: MapModel = world.region(0)
+	assert_true(model.purchase_tile(Vector2i(0, 0), 0))
+	assert_eq(
+		MarketSettlement.purchased_owner(world, 0, model.index_of(0, 0)), 0
+	)
+
+
 func test_price_discovery_reads_filled_bids_and_submitted_offers() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	var world: WorldMap = _market_engine_world()

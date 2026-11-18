@@ -1079,6 +1079,50 @@ func test_the_line_prices_the_phase_that_follows() -> void:
 	assert_eq(economy.treasury, 5000 - int(plan["gold"]))
 
 
+## A study that lands inside the Research phase opens its own to the slots after
+## it: Money Lending's −500 debt floor lets a later slot the crown's standing
+## floor could not pay. The line and the slots must price that walk, or the sheet
+## names a study waiting on the purse that the phase then funds
+## (wiki: tech-tree § Research Model — "the line and the phase never disagree";
+## tech-tree-labour-economy § Money Lending; DR-20261118-26).
+func test_the_line_prices_the_floor_a_study_opens_inside_the_phase() -> void:
+	var state: ResearchState = _money_lending_floor_state("high")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 1800)
+
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Fund all 2 studies at Maximum — the college then spends 2,000 ducats"
+		+ " & 5,000 RP a turn.",
+		"the study the floor opens is priced, not left waiting on the purse",
+	)
+	# The slots read the same turn: both stand at Maximum and the floor the
+	# first study opens pays the second.
+	_panel.refresh(_money_lending_floor_state("maximum"), 1800)
+	assert_false(
+		_slot_row(1).unpaid_next(),
+		"the second study is paid from the floor the first opens",
+	)
+	assert_eq(_slot_row(1).rp_next(), 2500, "and earns at Maximum")
+
+	var acted: ResearchState = state.copy()
+	ResearchBatch.apply(acted, "maximum")
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 1800
+	var report: Dictionary = ResearchTurn.resolve(acted, economy)
+	assert_eq(int(report["spent"]), int(plan["gold"]), "the phase spends the line")
+	assert_eq(economy.treasury, -200, "the crown borrows to the floor Money Lending opens")
+
+
+## Two studies with 1,800 ducats: Money Lending lands in slot 0 and opens the
+## −500 floor that pays slot 1 at Maximum, which 800 ducats alone cannot.
+func _money_lending_floor_state(funding: String) -> ResearchState:
+	var state: ResearchState = ResearchState.make()
+	state.unlock("land_enclosure")
+	state.assign("money_lending", funding)
+	state.assign("crop_rotation", funding)
+	return state
+
+
 func test_the_batch_plan_reads_every_slot_once() -> void:
 	var state: ResearchState = ResearchState.make()
 	state.assign("crop_rotation", "low")
@@ -1111,6 +1155,60 @@ func test_the_batch_moves_every_slot_through_the_published_setter() -> void:
 	assert_eq(
 		ResearchBatch.sheet_line(ResearchBatch.plan(state, "maximum", 9000)),
 		"Every study already stands at Maximum.",
+	)
+
+
+## A short purse is named on both lines the press writes. The sheet's own line
+## keeps the wait when the press stands down — a college standing at Maximum with
+## no gold is exactly the state a crown reads the disabled press in — and the
+## receipt carries it, so a toast never prices three studies at one study's spend
+## (DR-20261119-01; REQ-P5-05).
+func test_the_receipt_names_the_studies_the_purse_will_not_pay() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	state.assign("saw_mill", "low")
+	state.assign("land_enclosure", "low")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 1000)
+
+	assert_eq(int(plan["gold"]), 1000, "one study at Maximum is paid")
+	assert_eq(int(plan["unpaid"]), 2)
+	assert_eq(
+		ResearchBatch.receipt(plan),
+		"3 studies now stand at Maximum — the college pays 1,000 ducats a turn"
+		+ "; 2 of 3 wait on the purse.",
+		"the receipt names the studies the phase will not pay for",
+	)
+
+
+func test_a_college_where_every_study_waits_says_so_on_the_line() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "maximum")
+	state.assign("saw_mill", "maximum")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 0)
+
+	assert_eq(int(plan["filed"]), 0, "every study already stands at the preset")
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Every study already stands at Maximum — all 2 wait on the purse.",
+		"a press that files nothing still names the studies the purse cannot pay",
+	)
+
+
+func test_one_study_waiting_names_itself_and_never_one_of_one() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	var plan: Dictionary = ResearchBatch.plan(state, "high", 0)
+
+	assert_eq(int(plan["filed"]), 1)
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Fund the study at High — the college then spends nothing a turn"
+		+ "; it waits on the purse.",
+	)
+	assert_eq(
+		ResearchBatch.receipt(plan),
+		"The study now stands at High — the college pays nothing a turn"
+		+ "; it waits on the purse.",
 	)
 
 

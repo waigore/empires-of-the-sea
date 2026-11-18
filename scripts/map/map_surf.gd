@@ -43,7 +43,10 @@ func _collect(
 		var a: Vector2 = path[i]
 		var b: Vector2 = path[i + 1]
 		carry += a.distance_to(b)
-		if carry < SPACING:
+		# Spacing breathes with the shore: an even cadence reads as a printed
+		# border, not as water (issue #1007).
+		var beat: float = SPACING * (0.62 + MapGlyphs.hash01(int(b.x) + 7, int(b.y) + 3) * 0.76)
+		if carry < beat:
 			continue
 		carry = 0.0
 		# A narrow bank keeps no surf: two rows of breakers would meet in the
@@ -53,12 +56,20 @@ func _collect(
 		var normal: Vector2 = _sea_normal(model, a, b, tile_size)
 		if normal == Vector2.ZERO:
 			continue
+		var seed: float = MapGlyphs.hash01(int(b.y), int(b.x))
+		var tangent: Vector2 = (b - a).normalized()
+		# Slide each crest along the shore by up to a third of a beat, so two
+		# breakers never line up into one scalloped arc.
+		var slide: float = (MapGlyphs.hash01(int(b.x) + 19, int(b.y) + 41) - 0.5) * SPACING * 0.6
 		_dashes.append({
-			"position": b,
+			"position": b + tangent * slide,
 			"normal": normal,
-			"tangent": (b - a).normalized(),
-			"phase": MapGlyphs.hash01(int(b.x), int(b.y)) * TAU,
-			"width": 9.0 + MapGlyphs.hash01(int(b.y), int(b.x)) * 10.0,
+			"tangent": tangent,
+			"phase": seed * TAU,
+			"width": 7.0 + seed * 13.0,
+			"arc": 0.85 + MapGlyphs.hash01(int(b.x) + 3, int(b.y) + 11) * 0.75,
+			"lean": (MapGlyphs.hash01(int(b.x) + 23, int(b.y) + 5) - 0.5) * 0.5,
+			"foam": 0.55 + seed * 0.45,
 		})
 		if _dashes.size() >= MAX_DASHES:
 			return
@@ -98,10 +109,29 @@ func _draw() -> void:
 		var reach: float = 2.5 + wave * 7.5
 		var half: float = float(dash["width"]) * (0.42 + wave * 0.58)
 		var origin: Vector2 = dash["position"] + normal * reach
+		var colour := Color(0.992, 0.973, 0.914, (0.06 + wave * 0.42) * float(dash["foam"]))
+		# A breaker is a crescent crest, not a dash: the foam bows out toward
+		# open water and thins at both tips, with a second fainter crest
+		# beneath it, so the shore reads as waves rolling in.
+		var across: float = atan2(normal.y, normal.x) + float(dash["lean"])
+		var span: float = float(dash["arc"])
+		var centre: Vector2 = origin - normal * half * 0.55
+		draw_arc(centre, half, across - span, across + span, 10, colour, 1.0 + wave * 1.6, true)
+		draw_arc(
+			centre + normal * half * 0.30,
+			half * 0.72,
+			across - span * 0.72,
+			across + span * 0.72,
+			8,
+			Color(0.992, 0.973, 0.914, (0.03 + wave * 0.20) * float(dash["foam"])),
+			0.8 + wave * 0.9,
+			true
+		)
+		# A short foam tail trails behind the crest, along the shore.
 		draw_line(
-			origin - tangent * half,
-			origin + tangent * half,
-			Color(0.992, 0.973, 0.914, 0.06 + wave * 0.42),
-			1.0 + wave * 1.6,
+			origin - tangent * half * 0.30,
+			origin - tangent * half * 0.05,
+			Color(0.992, 0.973, 0.914, 0.04 + wave * 0.16),
+			0.8,
 			true
 		)

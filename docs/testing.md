@@ -34,14 +34,13 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - Terrain wash, fog tables and chart layers build once per map state: a re-seat
   redraws nothing, `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
-  (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
-  gd-tools hands each case a fresh instance, so an instance dictionary redraws
-  per case. Prefer a pocket chart over regenerating Standard; the published
-  census (rate, means, Minor book, prices) rides **one** Standard seed.
-- **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
-  pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
-  **one mount per tier**. A suite that swaps screens frees it. An observer
-  mount costs ~15–20 s under coverage; the door/seal case rides
+  (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
+  (gd-tools clones each case). Prefer a pocket chart over regenerating
+  Standard; the published census rides **one** Standard seed.
+- **One mount per suite**: `suite_capture` / `suite_reset` re-seat (~0.15 s vs
+  ~0.5 s remount); advanced-start live cases share **one mount per tier**.
+  Ledger projections skip the re-seat; hospitals ride that chart. Free a swapped
+  screen. An observer mount is ~15–20 s under coverage; the door/seal case rides
   `test_ai_observer`'s.
 - **Tiny fixture first**: place names and sea zones read
   `naval_fixture.build()` (7×3), not the 48×32 chart (~9 s covered).
@@ -228,6 +227,15 @@ godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 # budget and dead Bid presses with the purse in debt.
 godot --headless --path . --script res://playtests/playtest_college_debt.gd
 
+# College batch — the college's one press (DR-20261118-26): books two studies from
+# the college's own buttons, steps the press to High, presses it and reads the
+# receipt, then closes a real turn so the phase pays what the line promised; then
+# a thin purse (three studies at Maximum, 1,000 ducats) so the line and the
+# receipt must name the studies that wait; then the whole college stood down to
+# None; then the same sheet on a 720x360 handset, reading the press, its line and
+# the room the two lists keep under it.
+godot --headless --path . --script res://playtests/playtest_college_batch.gd
+
 # Trade terms — walks the colony chain, bids the colony's own good (the Deal Book
 # must name the favoured fill), boycotts a rival and reads that crown's taxed
 # sale receipt against the rate its page prints.
@@ -250,6 +258,15 @@ godot --headless --path . --script res://playtests/playtest_market_batch.gd
 # gates and the level the fort is left at, then mans the crown's own frontier wall
 # and reads the defending plate.
 godot --headless --path . --script res://playtests/playtest_siege.gd
+
+# Workers — reads the WORKERS tab as a player does (a row's price and ration, the
+# larder's store, appetites and shortfall, the batch press and the queue), presses
+# its own peasant press and the batch under it, then closes real turns so the
+# phase pays the fabric and feeds the hands; then the trained tiers on the turn-100
+# advanced start (disband, a train, a muster and the peasant reservation); then a
+# starved larder, holding the tab's forecast to the phase's own report; then a
+# second press after the queue has promised the store.
+godot --headless --path . --script res://playtests/playtest_workers.gd
 
 # Observer siege — seats a wall, its garrison and a besieging train between two
 # rival crowns in the full-AI observer, then reads the panel's orders feed, the

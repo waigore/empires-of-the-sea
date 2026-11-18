@@ -11,6 +11,10 @@ extends LedgerFrame
 ## rebuilt only when its list actually changes. A funding change therefore
 ## rewrites the slot's own line — nothing reloads, and the gauge animates from
 ## where it stood (REQ-P1-05).
+##
+## Height is the sheet's own rule (DR-20261119-02): a handset cannot carry the
+## slots, the one press and the two lists at their natural heights, so the slots
+## take a window of whole rows and the lists keep a floor (REQ-P1-07, REQ-P5-07).
 
 signal assign_requested(tech_id: String)
 signal cancel_requested(slot: int)
@@ -43,6 +47,9 @@ var _goal_row: ResearchGoalStrip = null
 var _slots_heading: Label = null
 ## The college's one door into the full-screen chart (DR-20261115-15).
 var _tree_door: Button = null
+## The queue's own window: every slot row, scrolled when a handset cannot hold
+## them all beside the lists (DR-20261119-02).
+var _slots_scroll: ScrollContainer = null
 var _slots_body: VBoxContainer = null
 ## The one press that takes every study to a preset, priced before it signs
 ## (DR-20261118-26).
@@ -64,19 +71,22 @@ func _init() -> void:
 
 ## The tab body gives way so the header, slots and Close stay put: the pages
 ## take the room the sheet leaves, and a phone drops the standing hint instead
-## of pushing content past the panel's edge. The masthead, standing line and
-## empty goal prompt also yield, so the queue and the lists keep the height
-## (REQ-P1-07).
+## of pushing content past the panel's edge. The fit itself is
+## `ResearchSheetFit`'s, so the panel only measures and applies (REQ-P1-07).
 func _fit_to_viewport() -> void:
-	if _tabs == null or not is_inside_tree():
+	if _tabs == null or _slots_scroll == null or not is_inside_tree():
 		return
 	super._fit_to_viewport()
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
 	var top: float = 64.0 if compact else PanelDock.TOP
 	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
 	var room: float = maxf(get_viewport_rect().size.y - top - bottom, 0.0)
-	var chrome: float = get_combined_minimum_size().y - _tabs.custom_minimum_size.y
-	_tabs.custom_minimum_size = Vector2(0.0, clampf(room - chrome, 0.0, 300.0))
+	var fit: Dictionary = ResearchSheetFit.split(
+		_column, _slots_scroll, _tabs, _slots_body, room, compact,
+		get_theme_stylebox("panel").get_minimum_size().y
+	)
+	_slots_scroll.custom_minimum_size = Vector2(0.0, float(fit["slots"]))
+	_tabs.custom_minimum_size = Vector2(0.0, float(fit["tabs"]))
 
 
 ## Phone chrome: a 411-point sheet cannot carry a 24 pt masthead, a standing
@@ -130,9 +140,18 @@ func _build_body(column: VBoxContainer) -> void:
 	head_row.add_child(_tree_door)
 	column.add_child(head_row)
 
+	# The queue keeps a window of its own so a handset can give the lists their
+	# floor without clipping a slot row: the window scrolls and the rows are
+	# never redrawn (DR-20261119-02, REQ-P5-07).
+	_slots_scroll = ScrollContainer.new()
+	_slots_scroll.name = "Slots"
+	_slots_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_slots_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+	column.add_child(_slots_scroll)
 	_slots_body = VBoxContainer.new()
+	_slots_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_slots_body.add_theme_constant_override("separation", 4)
-	column.add_child(_slots_body)
+	_slots_scroll.add_child(_slots_body)
 
 	# The college's one press sits under the slots it funds, the way the yards'
 	# batch press sits under their rows (DR-20261118-26).
@@ -240,12 +259,17 @@ func _fit_deferred() -> void:
 ## Each slot is previewed against the treasury the ones before it leave behind,
 ## exactly as the Research phase spends in slot order — so a slot the treasury
 ## cannot reach shows as unpaid here rather than promising points it will not
-## earn.
+## earn. The walk also carries the studies that land as it goes: a slot that
+## completes this turn opens its own to the slots after it (Money Lending's debt
+## floor, Industrial Funding's +20%), and the phase prices them that way, so the
+## rows and the press's line read the same turn the phase will run
+## (wiki: tech-tree § Research Model; DR-20261118-26).
 func _fill_slots() -> void:
 	var gold: int = 0
 	var points: int = 0
 	var unpaid: int = 0
 	var left: int = _treasury
+	var walk: ResearchState = _state.copy()
 	for index in _state.slots.size():
 		var row: ResearchSlotRow = _slot_rows.get(index)
 		if row == null:
@@ -254,16 +278,29 @@ func _fill_slots() -> void:
 			row.funding_pressed.connect(func(slot: int) -> void: funding_requested.emit(slot))
 			_slots_body.add_child(row)
 			_slot_rows[index] = row
-		row.update(_state, _boost, left, _leader)
+		row.update(walk, _boost, left, _leader)
 		gold += row.gold_next()
 		points += row.rp_next()
 		left -= row.gold_next()
 		if row.unpaid_next():
 			unpaid += 1
+			continue
+		_settle_study(walk, _state.tech_at(index), row.rp_next())
 	_slots_heading.text = _slots_spend_text(gold, points)
 	_set_notice(unpaid)
 	if _fund != null:
 		_fund.render(_state, _treasury, _boost, _leader)
+
+
+## Lands one study in the walk when the slot it holds earns its cost this turn,
+## so the slots after it are priced against what it opened (the phase unlocks in
+## slot order, and the rows must read the same turn).
+func _settle_study(walk: ResearchState, tech_id: String, rp: int) -> void:
+	if tech_id.is_empty():
+		return
+	var cost: int = TechCatalog.cost(tech_id)
+	if cost > 0 and walk.add_progress(tech_id, rp) >= cost:
+		walk.unlock(tech_id)
 
 
 ## The court's studies, and the rule that stops the ones the purse cannot pay:

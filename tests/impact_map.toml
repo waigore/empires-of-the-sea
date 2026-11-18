@@ -200,6 +200,9 @@ suites = [
 suites = [
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
+  # The open coast's ground list is a window of whole rows, so a landing-sheet
+  # edit runs the phone fits too (DR-20261119-03).
+  "test_mobile_layout.gd",
 ]
 
 # Naval battle pass: the resolver, difficulty sea strength, ration morale and
@@ -2457,6 +2460,12 @@ domain = "ai_army"
 match = "scripts/map/map_play_army_ai.gd*"
 domain = "ai_army"
 
+# The rival muster split out of that pass: same narrow army-AI slice, so a
+# muster fix runs test_ai_rules rather than the wider army_* fan-out.
+[[rules]]
+match = "scripts/map/map_play_army_muster_ai.gd*"
+domain = "ai_army"
+
 [domains.ai_army]
 suites = [
   "test_ai_rules.gd",
@@ -2759,6 +2768,12 @@ domain = "naval_voyage"
 match = "scripts/ui/fleet_crew_section.gd*"
 domain = "naval_voyage"
 
+# The passengers block's ground window: the row budget and its height, read by
+# the block and proved by the same two suites plus the phone fits.
+[[rules]]
+match = "scripts/ui/grounds_window.gd*"
+domain = "naval_voyage"
+
 [[rules]]
 match = "scripts/map/civilian_*.gd*"
 domain = "civilian"
@@ -2937,6 +2952,23 @@ domain = "chart_art"
 
 [[rules]]
 match = "scripts/map/map_canvas_plan.gd"
+domain = "chart_art"
+
+# Terrain / settlement mark scatter and Passage wash: chart art like the plan
+# that calls them, so only the suites that mount the chart run.
+[[rules]]
+match = "scripts/map/map_canvas_marks.gd*"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_canvas_passages.gd*"
+domain = "chart_art"
+
+# A wooded tile's grove layout (the crown tree and its ring of companions):
+# chart art like the plan that calls it, so only the suites that mount the
+# chart run.
+[[rules]]
+match = "scripts/map/map_grove.gd*"
 domain = "chart_art"
 
 # Terrain wash shelf + shared theme: canvas + stamps cover the patch; the
@@ -3752,6 +3784,34 @@ domain = "economy_ui"
 [[rules]]
 match = "scripts/ui/estate_ledger.gd*"
 domain = "muster"
+
+# Every court's own arms (wiki: diplomacy § The court sheet; DR-20261118-30):
+# one pure blazon over the faction catalog and the vector shield that paints it.
+# The court sheet, the open court's page and the dossier head all wear the arms,
+# so the new suite drives all three and the phone suite proves the court sheet
+# still fits. Declared before the `scripts/ui/**` catch-all so a shield change
+# never remounts the setup and hub pages.
+[domains.heraldry]
+suites = [
+  "test_heraldry.gd",
+  "test_mobile_layout.gd",
+]
+
+[[rules]]
+match = "scripts/ui/faction_heraldry.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "scripts/ui/faction_crest.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "scripts/ui/faction_crest_marks.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "tests/test_heraldry.gd*"
+domain = "heraldry"
 
 [[rules]]
 match = "scripts/ui/**"

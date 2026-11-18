@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261118-27 vs code through #1002 (REQ-P2-02).
+Audited: DR-20261119-01 vs code through #1015 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -45,7 +45,7 @@ Default: largest item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-- None (through #1002).
+- None (through #1015).
 
 ## Next pick
 
@@ -69,5 +69,5 @@ REQ/wiki.
 ## Wiki drift
 
 - `civilian-units` Road L2/gathering live; `production-recipes` second-stage live.
-- `phase-planner-*`: six slots live; soft weight seed. DR-18-01–27 match
-  records; confirm-face intentional (DR-18-11/12).
+- `phase-planner-*`: six slots live; soft weight seed. Through DR-19-01;
+  confirm-face intentional (DR-18-11/12).
