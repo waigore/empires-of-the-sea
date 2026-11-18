@@ -2512,8 +2512,9 @@ domain = "ai_diplomacy"
 match = "scripts/ai/ai_economy_trace.gd*"
 domain = "ai_economy"
 
+# The objective ledger and the voyage/war readings it owns (REQ-P3-01).
 [[rules]]
-match = "scripts/map/map_play_objectives_ai.gd*"
+match = "scripts/map/map_play_objective*.gd*"
 domain = "ai_ledger"
 
 # One voyage eligibility read by the colonisation planner, the crossing force,

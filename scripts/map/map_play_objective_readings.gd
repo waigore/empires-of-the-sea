@@ -11,7 +11,8 @@ extends RefCounted
 ##
 ## Reads state only: no order is issued here, so the same seed plays the same
 ## campaign and the ledger stays a reading of the court, not a second planner
-## (REQ-P4-03).
+## (REQ-P4-03). Voyage answers live on [MapPlayObjectiveVoyage]; war desire on
+## [MapPlayObjectiveWar].
 
 
 ## Every reading `AiObjectivesPlan` prices, gathered domain by domain. The host
@@ -36,7 +37,7 @@ static func readings(
 	readings.merge(purse)
 	readings.merge(_study(config, economy, purse))
 	readings.merge(_court(play, faction, economy, phase))
-	readings.merge(_voyage(play, faction))
+	readings.merge(MapPlayObjectiveVoyage.reading(play, faction))
 	return readings
 
 
@@ -80,7 +81,7 @@ static func _force(
 	var muster_floor: int = AiArmyReinforce.muster_floor(config, economy, regiments, at_war)
 	return {
 		"at_war": at_war,
-		"war_desire": _war_desire(play, config, faction, pressure),
+		"war_desire": MapPlayObjectiveWar.desire(play, config, faction, pressure),
 		"regiments": regiments,
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
@@ -220,177 +221,3 @@ static func _court(
 		# the row (DR-20261116-11).
 		"tribe_closed": AiTribeColony.closed_reason(posture),
 	}
-
-
-## The expedition: the hulls and the Explorer that could still sail, and the
-## voyage already under way or stranded (issue #491 T2, #497, #602).
-static func _voyage(play: PlaySession, faction: int) -> Dictionary:
-	return {
-		"idle_hulls": _idle_hulls(play, faction),
-		"explorer_ready": _explorer_ready(play, faction),
-		"voyage_afloat": _voyage_afloat(play, faction),
-		"voyage_abroad": _voyage_abroad(play, faction),
-		"voyage_stranded": _voyage_stranded(play, faction),
-	}
-
-
-# --- war ---------------------------------------------------------------------
-
-
-## War desire against the court's enemy, else against the weakest Great Power —
-## the same score the diplomacy planner weighs, read once per turn for the trace.
-## The victory press rides the same reading, so the ledger's war aim and the
-## planner's declaration price the same war (DR-20261115-04).
-static func _war_desire(
-	play: PlaySession, config: AiConfig, faction: int, pressure: Dictionary = {}
-) -> int:
-	var target: int = _war_target(play, faction)
-	if target < 0:
-		target = _weakest_rival(play, faction)
-	if target < 0 or play.diplomacy.relation(faction, target) == null:
-		return 0
-	var powers: Dictionary = {
-		faction: _power(play, faction), target: _power(play, target),
-	}
-	var context: Dictionary = {
-		"power": powers,
-		"victory_press": int(pressure.get("war_press", 0)),
-		"regiments": {
-			faction: MapPlayCourt.regiments(play, faction),
-			target: MapPlayCourt.regiments(play, target),
-		},
-		"ships": {
-			faction: MapPlayCourt.ships(play, faction),
-			target: MapPlayCourt.ships(play, target),
-		},
-	}
-	return int(
-		AiDiplomacyDesire.war_desire(
-			config, play.diplomacy, play.world, faction, target, context
-		).get("score", 0)
-	)
-
-
-## The first Great Power this court is at war with, or -1.
-static func _war_target(play: PlaySession, faction: int) -> int:
-	for record: DiplomacyRelation in play.diplomacy.relations_of(faction):
-		if record == null or not record.at_war:
-			continue
-		var other: int = record.other(faction)
-		if FactionCatalog.type_of(other) == FactionCatalog.Type.GREAT_POWER:
-			return other
-	return -1
-
-
-## Weakest rival by the published power score; the id breaks a tie, so the same
-## chart always reads the same target.
-static func _weakest_rival(play: PlaySession, faction: int) -> int:
-	var best: int = -1
-	var best_score: int = 0
-	for rival: int in FactionCatalog.great_power_ids():
-		if rival == faction:
-			continue
-		var score: int = _power(play, rival)
-		if best < 0 or score < best_score:
-			best = rival
-			best_score = score
-	return best
-
-
-static func _power(play: PlaySession, faction: int) -> int:
-	return AiPower.score(
-		play.world, faction, MapPlayCourt.regiments(play, faction),
-		MapPlayCourt.ships(play, faction)
-	)
-
-
-# --- voyage state ------------------------------------------------------------
-
-
-## Squadrons that could take an expedition: afloat, un-moved, no troops and no
-## colonists aboard. The same hull reading the colonisation planner sails.
-static func _idle_hulls(play: PlaySession, faction: int) -> int:
-	if play.ship_layer == null:
-		return 0
-	var total: int = 0
-	for region: int in play.ship_layer.regions.region_ids():
-		total += VoyageRead.free_count(
-			MapPlayCourt.region_fleets(play, region), faction
-		)
-	return total
-
-
-## An idle Explorer of this court at home: the colonist the next train slot
-## musters (issue #491 T2).
-static func _explorer_ready(play: PlaySession, faction: int) -> bool:
-	if play.civilian_layer == null:
-		return false
-	var home: int = FactionCatalog.region_of(faction)
-	if home < 0:
-		return false
-	return VoyageRead.idle_colonist(
-		play.civilian_layer.regions.value(home, []), faction, "explorer"
-	) != null
-
-
-## True while an expedition of this court is already at sea (a protected claim
-## in T2, #497).
-static func _voyage_afloat(play: PlaySession, faction: int) -> bool:
-	if play.ship_layer == null:
-		return false
-	for region: int in play.ship_layer.regions.region_ids():
-		if VoyageRead.carrying(
-			MapPlayCourt.region_fleets(play, region), faction
-		) != null:
-			return true
-	return false
-
-
-## True while a colonist of this court already stands on the far shore (its
-## landing is the voyage's own progress, not a missing Explorer): the child that
-## musters a new one is not blocked, and the parent prices the voyage instead
-## (#497). A court with a civilian in the other region has nothing left to
-## muster either — `CivilianMuster.muster_port` holds the gate shut until
-## that colonist leaves or works.
-static func _voyage_abroad(play: PlaySession, faction: int) -> bool:
-	if play.civilian_layer == null:
-		return false
-	var home: int = FactionCatalog.region_of(faction)
-	if home < 0:
-		return false
-	for region: int in play.civilian_layer.regions.region_ids():
-		if region == home:
-			continue
-		for raw: Variant in play.civilian_layer.regions.value(region, []):
-			var unit: CivilianState = raw
-			if unit != null and unit.owner == faction:
-				return true
-	return false
-
-
-## True while an Explorer of this court stands ashore in a region its crown does
-## not own. It founds nothing (a Builder needs crown land) and cannot board again
-## — boarding needs a squadron in port and docking needs a crown port — so the
-## expedition can never sail on: the ledger reads the aim blocked with that
-## reason instead of funding a voyage the planner will not order (issue #602).
-## A Merchant ashore is left to #497's reading: it buys the deeds that found the
-## colony, so its voyage is still progress.
-static func _voyage_stranded(play: PlaySession, faction: int) -> bool:
-	if play.civilian_layer == null or play.world == null:
-		return false
-	var home: int = FactionCatalog.region_of(faction)
-	if home < 0:
-		return false
-	for region: int in play.civilian_layer.regions.region_ids():
-		if region == home:
-			continue
-		var model: MapModel = play.world.region(region)
-		if model == null or VoyageRead.owns_land(model, faction):
-			continue
-		for raw: Variant in play.civilian_layer.regions.value(region, []):
-			var unit: CivilianState = raw
-			if unit == null or unit.owner != faction:
-				continue
-			if unit.type_id == "explorer" and not unit.is_embarked():
-				return true
-	return false
