@@ -3034,6 +3034,13 @@ domain = "fleet"
 match = "scripts/rules/trade_*.gd"
 domain = "fleet"
 
+# The court's gift: the £1,000 steps a Grant Aid press carries (wiki: diplomacy
+# § Amount parameters; DR-20261118-16). Named above the diplomacy_* glob so the
+# new reading's own domain is explicit.
+[[rules]]
+match = "scripts/rules/diplomacy_gift.gd*"
+domain = "diplomacy"
+
 [[rules]]
 match = "scripts/rules/diplomacy_*.gd"
 domain = "diplomacy"
