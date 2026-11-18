@@ -2,16 +2,17 @@ class_name MapGrove
 extends RefCounted
 ## A stand of woods stands as a grove, not as one speck per tile.
 ##
-## `MapCanvasPlan` used to lay two independent hash-scattered stamps on every
-## wooded tile, so a forest read as loose trees dropped at random on the chart
-## with nothing tying one tile's canopy to the next (issue #1007: woods look
-## random). This module lays a tile's stamps as one small stand: a crown tree at
-## the tile's middle with smaller companions set around it, the ring spun and
-## sized by the tile's own hash so no two groves repeat, and every spot kept
-## inside `REACH` of the tile centre so a grove never spills onto the ground of
-## the tile beside it. A tile walled by the same woodland on all four sides
-## carries one companion more than a tree standing alone, so a block thickens
-## inland and thins at its edge — the shape a wood has on the ground.
+## `MapCanvasMarks` (via the plan) used to lay two independent hash-scattered
+## stamps on every wooded tile, so a forest read as loose trees dropped at
+## random on the chart with nothing tying one tile's canopy to the next (issue
+## #1007: woods look random). This module lays a tile's stamps as one small
+## stand: a crown tree at the tile's middle with smaller companions set around
+## it, the ring spun and sized by the tile's own hash so no two groves repeat,
+## and every spot kept inside `REACH` of the tile centre so a grove never spills
+## onto the ground of the tile beside it. A tile walled by the same woodland on
+## all four sides carries one companion more than a tree standing alone, so a
+## block thickens inland and thins at its edge — the shape a wood has on the
+## ground.
 ##
 ## Pure and deterministic (`REQ-P3-03`): the plan can be built headless, and the
 ## same chart always lays the same groves.
