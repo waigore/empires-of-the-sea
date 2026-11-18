@@ -99,13 +99,18 @@ static func pending_rations(economy: PlayerEconomy) -> Dictionary:
 ## The appetites the caller hands in are the last phase's; the musters and
 ## launches already under orders are added here, because they land at this turn's
 ## Build/work and eat at its close (wiki: workers-and-population § Phase
-## placement; § Consumption).
-static func forecast(economy: PlayerEconomy, mouths: Dictionary = {}) -> Dictionary:
+## placement; § Consumption). `waiting` is false for a caller whose `mouths`
+## already name the turn the phase will run — the ledger's own projection counts
+## the waiting orders itself, so adding them again would feed one mouth twice.
+static func forecast(
+	economy: PlayerEconomy, mouths: Dictionary = {}, waiting: bool = true
+) -> Dictionary:
 	var pool: WorkerPool = pool_next(economy)
 	var fed: Dictionary = mouths.duplicate()
-	var waiting: Dictionary = pending_rations(economy)
-	fed["army"] = int(fed.get("army", 0)) + int(waiting["army"])
-	fed["ships"] = int(fed.get("ships", 0)) + int(waiting["ships"])
+	if waiting:
+		var queued: Dictionary = pending_rations(economy)
+		fed["army"] = int(fed.get("army", 0)) + int(queued["army"])
+		fed["ships"] = int(fed.get("ships", 0)) + int(queued["ships"])
 	return reading(
 		pool,
 		economy.stockpile,
