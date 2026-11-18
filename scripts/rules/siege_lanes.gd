@@ -88,8 +88,9 @@ static func can_reach_behind(side: Array[ArmyState]) -> bool:
 	return false
 
 
-## Share of a garrison that can return fire from the wall. Melee-only
-## regiments cannot; they must sortie to engage (wiki: siege-mechanics).
+## Share of a garrison that can shoot over or at a parapet. Melee-only
+## regiments cannot; they must sortie to engage (wiki: siege-mechanics
+## § Quick Battle lanes).
 static func return_fire_share(side: Array[ArmyState]) -> float:
 	var types: Array[String] = ArmyForce.side_types(side)
 	if types.is_empty():
@@ -99,6 +100,22 @@ static func return_fire_share(side: Array[ArmyState]) -> float:
 		if RegimentCatalog.stat(type_id, "rng") >= FIREARM_RNG:
 			firing += 1
 	return float(firing) / float(types.size())
+
+
+## The weight of a blow that can reach a wall: the deployed regiments that carry
+## firearms, bows or guns (`RNG >= 2`), ranked exactly as
+## [method ArmyModifiers.strength] ranks a side. A pike's weight is left out, so
+## a line of melee alone weighs nothing against a parapet, its battery or its
+## gates (wiki: siege-mechanics § Damage Reduction — "melee-only units cannot
+## attack walls"; § Quick Battle lanes — "only regiments with RNG >= 2 can strike
+## it").
+static func striking_weight(side: Array[ArmyState], limit: int, multiplier: float) -> float:
+	var total: float = 0.0
+	for entry: Dictionary in ArmyModifiers.deployed(side, limit):
+		var army: ArmyState = entry["army"]
+		if RegimentCatalog.stat(army.type_of(String(entry["id"])), "rng") >= FIREARM_RNG:
+			total += float(entry["rank"])
+	return total * multiplier
 
 
 # --- lane terrain ------------------------------------------------------------
