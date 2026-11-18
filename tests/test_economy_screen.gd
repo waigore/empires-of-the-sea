@@ -1584,6 +1584,15 @@ func test_the_production_tab_files_one_run_on_every_ready_row() -> void:
 	var ready: int = int(body._plan()["runs"])
 	assert_gt(ready, 1, "the opening store opens more than one row: %d" % ready)
 	assert_eq(press.text, "Queue all ready (%d)" % ready, "the press names the count")
+	# The line under the press prices the walk before the crown signs: the labour
+	# and the materials it would claim, and what the phase keeps (REQ-P5-06;
+	# DR-20261118-24).
+	var line: Label = body._line
+	assert_not_null(line, "the press carries its own line")
+	assert_true(line.visible, "the line stands with the press")
+	assert_eq(line.text, ProductionBatch.sheet_line(body._plan()), "the line prices the walk")
+	assert_true(line.text.contains("labour"), line.text)
+	assert_true(line.text.contains("the phase keeps"), line.text)
 	press.pressed.emit()
 	assert_true(press.is_armed(), "the first tap only arms")
 	assert_eq(press.text, "Confirm — queue %d runs" % ready, "the second tap is named")
@@ -1615,6 +1624,7 @@ func test_the_production_press_stands_down_when_nothing_is_ready() -> void:
 	body = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
 	assert_eq(int(body._plan()["runs"]), 0, "no row has a step left to file")
 	assert_false(body.batch_press().visible, "a view with nothing ready carries no press")
+	assert_false(body._line.visible, "and prints no line under it")
 
 
 ## Every line the court's toasts currently show.
