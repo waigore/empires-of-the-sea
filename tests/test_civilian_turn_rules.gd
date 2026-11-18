@@ -1822,6 +1822,47 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 	assert_eq(String((plan["orders"] as Array)[1]["action"]), "prospect")
 
 
+## The conquest bank's trim (issue #995): a court short of the bar banking
+## for its next line keeps its farms, the raw estates the line's own row
+## consumes, and its surveys — the timber estates and the towns, roads and
+## ports wait for the purse that can pay for them.
+func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var crops: Array = MapPlayCivilianAi.bank_crops(config, economy)
+	assert_true(crops.has("grain") and crops.has("meat"), "the farms are always kept")
+	assert_false(crops.has("timber"), "timber is no raw a line's row consumes")
+
+	var model := MapModel.new()
+	model.setup(6, 1)
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	model.resource[model.index_of(0, 0)] = 0
+	model.resource[model.index_of(1, 0)] = 4
+	model.resource[model.index_of(2, 0)] = 7
+	for x in range(3, 6):
+		model.resource[model.index_of(x, 0)] = MapModel.NO_ID
+	var plan: Dictionary = {
+		"orders": [
+			{"action": "build_improvement", "tile": Vector2i(0, 0)},
+			{"action": "build_improvement", "tile": Vector2i(1, 0)},
+			{"action": "build_improvement", "tile": Vector2i(2, 0)},
+			{"action": "build_town", "tile": Vector2i(4, 0)},
+			{"action": "prospect", "tile": Vector2i(5, 0)},
+		],
+	}
+
+	MapPlayCivilianAi.keep_bank_works(plan, model, crops)
+
+	var kept_tiles: Array = []
+	for raw: Variant in plan["orders"]:
+		kept_tiles.append((raw as Dictionary).get("tile"))
+	assert_eq((plan["orders"] as Array).size(), 3, "the farms and the survey survive")
+	assert_false(kept_tiles.has(Vector2i(0, 0)), "the timber estate waits for the purse")
+	assert_false(kept_tiles.has(Vector2i(4, 0)), "the town waits for the purse")
+	assert_true(kept_tiles.has(Vector2i(1, 0)), "the grain farm keeps")
+	assert_true(kept_tiles.has(Vector2i(2, 0)), "the meat ranch keeps")
+
+
 ## The two purses: a court on `earn` keeps the works open down to its cash floor
 ## while hires still wait for the muster (issue #489).
 func test_the_works_purse_opens_when_the_court_is_earning() -> void:
