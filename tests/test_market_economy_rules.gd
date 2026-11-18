@@ -5114,6 +5114,138 @@ func _bid_press(node: Node) -> Button:
 	return null
 
 
+## True when the row prints `text` on a line of its own, so a test reads what a
+## phone player sees instead of a hover (REQ-P1-05).
+func _prints(node: Node, text: String) -> bool:
+	var label := node as Label
+	if label != null and label.text == text:
+		return true
+	for child: Node in node.get_children():
+		if _prints(child, text):
+			return true
+	return false
+
+
+## The reading every market row of one repaint shares, as the page hands it in.
+func _row_ctx(overrides: Dictionary = {}) -> Dictionary:
+	var out: Dictionary = {
+		"cargo_free": 4,
+		"treasury": 1000,
+		"tech_unlocked": {},
+		"projected_non_bid_delta": 0,
+		"reserved": {},
+	}
+	for key: Variant in overrides.keys():
+		out[key] = overrides[key]
+	return out
+
+
+func _row(id: String, ctx: Dictionary) -> Dictionary:
+	return MarketRow.build(
+		id, 0, 0, {"free": int(ctx.get("cargo_free", 0))}, _market(), 0, ctx, false,
+		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass
+	)
+
+
+## A phone player has no hover: the reason the Bid is shut is printed under the
+## row it shuts, in the rules' own words (wiki: world-market § Trade orders —
+## validation rules; REQ-P1-05, REQ-P5-05).
+func test_the_bid_press_prints_the_holds_that_shut_it() -> void:
+	var built: Dictionary = _row("timber", _row_ctx({"cargo_free": 0}))
+	var row: Node = built["row"] as Node
+	assert_true(_bid_press(row).disabled, "no holds, no bid")
+	assert_true(_prints(row, "No cargo holds free this turn"), "the row says why")
+	row.free()
+
+
+## The bid-type cap is a rule the row can name: a court already bidding on three
+## commodities reads why the fourth is shut (wiki: world-market § Trade orders —
+## bid type cap; REQ-P5-05).
+func test_the_bid_press_prints_the_bid_type_cap() -> void:
+	var market: WorldMarket = _market()
+	for id: String in ["timber", "iron", "wool"]:
+		var staged: Dictionary = MarketOrders.submit(
+			market, 0, id, MarketOrder.SIDE_BID, 1, {"cargo_free": 8, "treasury": 9000}
+		)
+		assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var built: Dictionary = MarketRow.build(
+		"grain", 0, 0, {"free": 4}, market, 0, _row_ctx({"treasury": 9000}), false,
+		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass
+	)
+	var row: Node = built["row"] as Node
+	assert_true(_bid_press(row).disabled, "the fourth commodity waits")
+	assert_true(_prints(row, "A crown may bid on 3 commodities a turn."), "the cap is named")
+	row.free()
+
+
+## One side per commodity: a court that already offered the good reads why its
+## Bid is shut rather than a rule in the abstract (wiki: world-market § Trade
+## orders — mutual exclusion; REQ-P5-05).
+func test_the_bid_press_prints_the_other_side_already_staged() -> void:
+	var market: WorldMarket = _market()
+	var offer: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_OFFER, 1, {"stock": 4}
+	)
+	assert_true(bool(offer["ok"]), String(offer.get("reason", "")))
+	var built: Dictionary = MarketRow.build(
+		"timber", 4, 0, {"free": 4}, market, 0, _row_ctx(), false,
+		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass
+	)
+	var row: Node = built["row"] as Node
+	assert_true(_bid_press(row).disabled, "one side per commodity")
+	assert_true(
+		_prints(row, "A court may bid or offer a commodity, never both in one turn."),
+		"the exclusion is named"
+	)
+	row.free()
+
+
+## A purse that cannot pay one whole ton says so, with the price it cannot meet
+## (wiki: world-market § Treasury budget for bids; REQ-P5-05).
+func test_the_bid_press_prints_a_purse_that_pays_no_whole_ton() -> void:
+	var built: Dictionary = _row("timber", _row_ctx({"treasury": 10}))
+	var row: Node = built["row"] as Node
+	assert_true(_bid_press(row).disabled, "ten ducats buy no thirty-ducat ton")
+	assert_true(_prints(row, "The purse leaves no whole ton at 30 ducats."), "the price is named")
+	row.free()
+
+
+## The debt the banner names is printed on the row too, not only in the hover
+## (wiki: world-market § Treasury budget for bids; REQ-P5-05).
+func test_the_bid_press_prints_a_purse_in_debt() -> void:
+	var built: Dictionary = _row("timber", _row_ctx({"treasury": -925}))
+	var row: Node = built["row"] as Node
+	assert_true(_prints(row, "The purse is 925 ducats in debt."), "the debt is printed")
+	row.free()
+
+
+## One walk: the gates the row prints are the gates the order path enforces, so
+## a dead press can never name a rule the validator does not (REQ-P2-03).
+func test_the_bid_gates_are_the_validators_own() -> void:
+	var market: WorldMarket = _market()
+	var holds: Dictionary = MarketRules.bid_gates(
+		market, 0, "timber", {"cargo_free": 0, "treasury": 500}
+	)
+	var refused: Dictionary = MarketOrders.submit(
+		market, 0, "timber", MarketOrder.SIDE_BID, 1, {"cargo_free": 0, "treasury": 500}
+	)
+	assert_eq(String(holds["code"]), String(refused["code"]))
+	assert_eq(String(holds["reason"]), String(refused["reason"]))
+	var rich: Dictionary = MarketRules.bid_gates(market, 0, "gold", {"cargo_free": 4})
+	assert_eq(String(rich["code"]), "trade_order_riches_excluded")
+	assert_true(MarketRules.bid_gates(market, 0, "timber", {"cargo_free": 4})["ok"])
+
+
+## A row the rules leave room for prints no refusal, so the sheet stays quiet
+## where the Bid works (REQ-P1-07).
+func test_a_bid_the_rules_allow_prints_no_refusal() -> void:
+	var built: Dictionary = _row("timber", _row_ctx())
+	var row: Node = built["row"] as Node
+	assert_false(_bid_press(row).disabled, "four holds and a purse buy a ton")
+	assert_false(_prints(row, "No cargo holds free this turn"))
+	row.free()
+
+
 func test_a_bid_the_promise_cannot_cover_is_refused() -> void:
 	var economy: PlayerEconomy = _bid_economy(10000)
 	economy.queue_build(RecruitQueue.KIND_SHIP, "carrack")
