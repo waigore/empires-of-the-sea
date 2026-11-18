@@ -9,7 +9,7 @@ extends Button
 ##
 ## The armed face names the line the press will file, not the view it stands in
 ## (wiki: civilian-units § One press files what the realm can raise;
-## DR-20261118-20). A crown with five ready towns and one idle Builder reads
+## DR-20261118-21). A crown with five ready towns and one idle Builder reads
 ## `Raise all ready (5)` above a line that carries one, so the second tap says
 ## `Confirm — raise 1 of 5 towns`: the count a crown confirms is the count the
 ## walk pays for. A view in which nothing is payable arms nothing, and its
@@ -111,7 +111,7 @@ func _on_pressed() -> void:
 ## The count is on the face of the press, before the stores are spent: the first
 ## tap says what the second will do (REQ-P5-05). The armed face names the line the
 ## walk pays for, and says so as a share of the view when the two differ
-## (DR-20261118-20).
+## (DR-20261118-21).
 func _retitle() -> void:
 	if _armed:
 		text = (

@@ -174,7 +174,7 @@ func _ready_targets() -> Array[Dictionary]:
 ## walk would take — the materials and the crews the stores and the free hands
 ## carry, or how many ready rows wait and why (DR-20261118-12). The armed face
 ## takes the line's own count from that walk, so the confirm and the line describe
-## one tap and not two (DR-20261118-20).
+## one tap and not two (DR-20261118-21).
 func _sync_batch() -> void:
 	if _batch == null:
 		return

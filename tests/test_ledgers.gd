@@ -3036,7 +3036,7 @@ func test_the_batch_press_stands_down_when_the_view_holds_nothing_ready() -> voi
 ## The confirm and the line under it describe one tap: the sheet's press carries
 ## the walk's own count, so a crown that confirms one town fixes one order
 ## whatever the view above the press prints — and the tap files exactly the line
-## the face named (REQ-P5-05, REQ-P2-03; DR-20261118-20).
+## the face named (REQ-P5-05, REQ-P2-03; DR-20261118-21).
 func test_the_towns_confirm_names_the_line_it_would_file() -> void:
 	var panel: TownLedgerPanel = screen.hud.towns_ledger
 	_cancel_works()

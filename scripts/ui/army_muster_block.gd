@@ -98,7 +98,7 @@ func fill(rows: Array[Dictionary]) -> void:
 	var plan: Dictionary = _batch_plan(rows)
 	_fill_sum(RaiseBatchSum.sheet_line(plan))
 	# The armed face names the line's own count, so the confirm under the sum
-	# describes the tap the line prices and not the view above it (DR-20261118-20).
+	# describes the tap the line prices and not the view above it (DR-20261118-21).
 	_batch.set_ready(ready, "regiments", RaiseBatchSum.carries(plan))
 	move_child(_batch, -1)
 	if _sum_line.get_parent() != null:

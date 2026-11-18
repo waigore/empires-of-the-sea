@@ -277,7 +277,7 @@ func _ready_rows() -> Array[Dictionary]:
 ## the stores are spent; a view with nothing ready carries no press (REQ-P5-03).
 ## The line under it names what the walk would take, or what waits and why — and
 ## the armed face takes the line's own count from that walk, so the confirm names
-## what will be filed rather than what the view prints (DR-20261118-20).
+## what will be filed rather than what the view prints (DR-20261118-21).
 func _sync_batch() -> void:
 	if _line == null:
 		_batch.set_ready(_ready_tiles().size(), "estates")

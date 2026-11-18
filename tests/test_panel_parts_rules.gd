@@ -1537,7 +1537,7 @@ func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
 
 ## The press's armed face names the line it will file, not the view it stands in:
 ## five ready towns over one idle Builder read `Confirm — raise 1 of 5 towns`, so
-## one tap carries one pair of numbers (REQ-P5-05; DR-20261118-20). A line that
+## one tap carries one pair of numbers (REQ-P5-05; DR-20261118-21). A line that
 ## carries nothing arms nothing, and a sheet that read no plan keeps its view.
 func test_the_armed_press_names_the_line_it_will_file() -> void:
 	var press := RaiseBatchPress.new()
@@ -1567,7 +1567,7 @@ func test_the_armed_press_names_the_line_it_will_file() -> void:
 
 ## A walk that carries nothing prints the rules' own refusal, in the sheet's own
 ## words: the disabled press above it sends the reader to that sentence rather
-## than leaving a dead tap with no reason (REQ-P5-05; DR-20261118-20).
+## than leaving a dead tap with no reason (REQ-P5-05; DR-20261118-21).
 func test_a_line_that_carries_nothing_names_the_wait() -> void:
 	var towns: Array[Dictionary] = [{"cost": {"lumber": 4}, "region": 0}]
 	var reading: Dictionary = RaiseLine.plan(towns, {"lumber": 0}, 1, "Builder")

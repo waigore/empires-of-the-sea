@@ -1464,7 +1464,7 @@ func test_the_slip_redraws_after_its_one_press() -> void:
 ## The slip's one press names the line it will file, not the view it stands in: a
 ## purse that pays the slip's first hull and not its second reads
 ## `Confirm — launch 1 of N hulls` under a sum line that says which hulls wait
-## (REQ-P5-05, REQ-P2-03; DR-20261118-20).
+## (REQ-P5-05, REQ-P2-03; DR-20261118-21).
 func test_the_shipyard_confirm_names_the_line_the_purse_carries() -> void:
 	var play: PlaySession = _screen.play
 	play.selected_province = play.capital_province

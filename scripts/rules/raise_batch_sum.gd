@@ -86,7 +86,7 @@ static func plan(
 ## How many of the yard's ready rows the line carries — the count the press's
 ## armed face names — or `-1` when the plan was never read (a suite's fixture, or
 ## a yard with no court behind it), so the press keeps its published face
-## (DR-20261118-20).
+## (DR-20261118-21).
 static func carries(plan: Dictionary) -> int:
 	if int(plan.get("count", 0)) <= 0:
 		return -1
@@ -107,7 +107,7 @@ static func paid(reading: Dictionary) -> String:
 ## purse it leaves — or, when the walk stops short, how many of the ready rows
 ## wait and why. `""` when the press has nothing to file. A yard whose walk
 ## carries nothing prints only the gate's own refusal, which is the sentence the
-## disabled press above it sends the reader to (DR-20261118-20).
+## disabled press above it sends the reader to (DR-20261118-21).
 static func sheet_line(reading: Dictionary) -> String:
 	var filed: int = int(reading.get("filed", 0))
 	if filed <= 0:

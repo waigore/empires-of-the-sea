@@ -111,7 +111,7 @@ func _fill() -> void:
 	# The count is the yard's own `batch_ready` flag, so the face names what the
 	# second tap would lay down before the stores are spent (REQ-P5-05) — and the
 	# armed face takes the line's own count from the plan, so the confirm names
-	# what will be filed and not what the view prints (DR-20261118-20).
+	# what will be filed and not what the view prints (DR-20261118-21).
 	_batch.set_ready(ready, "hulls", RaiseBatchSum.carries(plan))
 	# Already a child of the list from the last fill; it only moves to the foot of
 	# the launch rows.

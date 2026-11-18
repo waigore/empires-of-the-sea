@@ -133,7 +133,7 @@ static func paid(reading: Dictionary) -> String:
 ## stores it leaves — or, when the walk stops short, how many of the ready rows
 ## wait and why. `""` when the view holds nothing ready. A view whose walk carries
 ## nothing prints only the refusal, in the rules' own words: the press above it
-## stands disabled with that sentence as its reason (DR-20261118-20).
+## stands disabled with that sentence as its reason (DR-20261118-21).
 static func sheet_line(reading: Dictionary) -> String:
 	var filed: int = int(reading.get("filed", 0))
 	if filed <= 0:
