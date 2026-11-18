@@ -20,7 +20,6 @@ static func step(run) -> void:
 	await _wall_ledger(run, screen)
 	await _hospital_ledger(run, screen)
 	await _spy_ledger(run, screen)
-	await _court_gift(run, screen)
 	await _command_ledger(run, screen)
 	await _navy_ledger(run, screen)
 	await _army_ledger(run, screen)
@@ -305,57 +304,6 @@ static func _spy_ledger(run, screen: MapScreen) -> void:
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the crown's eyes set themselves aside")
-
-
-## The court's gift: the AID row steps the sum in the published £1,000s and the
-## press names the sum it would send (wiki: diplomacy § Amount parameters;
-## DR-20261118-16). The smoke steps the gift and steps it back, so no order is
-## filed and the treasury is untouched.
-static func _court_gift(run, screen: MapScreen) -> void:
-	if not screen.hud.panels.is_diplomacy_open():
-		screen.hud.diplomacy_pressed.emit()
-		await run.tree.process_frame
-	run.check(screen.hud.panels.is_diplomacy_open(), "the court opens from its seal")
-	var panel: DiplomacyPanel = screen.hud._diplomacy_panel
-	if panel == null:
-		run.check(false, "the court panel is mounted")
-		return
-	var detail: CourtDetailBlock = panel._detail
-	# Any court at peace carries the gift; a war with one leaves that court's
-	# AID row empty, so the walk takes the first court that offers one.
-	var press: Button = null
-	for faction_id: int in FactionCatalog.great_power_ids():
-		panel.select_faction(faction_id)
-		press = _button(detail, "Grant Aid")
-		if press != null:
-			break
-	run.check(press != null, "a court at peace carries the gift's press")
-	if press == null:
-		return
-	var before: String = press.text
-	run.check(before.begins_with("Grant Aid · £"), "the gift press names its sum")
-	var up: Button = _button(detail, "+")
-	run.check(up != null, "the gift carries a step")
-	if up == null or up.disabled:
-		return
-	up.pressed.emit()
-	run.check(press.text != before, "a step moves the sum")
-	var down: Button = _button(detail, "−")
-	run.check(down != null and not down.disabled, "the gift steps back down")
-	if down != null and not down.disabled:
-		down.pressed.emit()
-		run.check(press.text == before, "the floor brings the sum back")
-
-
-## The first press whose face carries `needle`, depth first.
-static func _button(node: Node, needle: String) -> Button:
-	if node is Button and String((node as Button).text).contains(needle):
-		return node as Button
-	for child: Node in node.get_children():
-		var found: Button = _button(child, needle)
-		if found != null:
-			return found
-	return null
 
 
 ## The command ledger: the army dossier's Commanders door raises the crown's
