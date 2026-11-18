@@ -5382,6 +5382,62 @@ func test_the_passengers_block_names_the_crew_it_lands() -> void:
 	block.free()
 
 
+## The crown's own seat reads above the list as one press, so a port province
+## whose coast holds a whole province of ground never makes a crown open the
+## list to land at home (wiki: civilian-units § Landing; DR-20261118-28).
+func test_the_passengers_block_lands_a_crew_at_the_seat_in_one_press() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	block.set_data({
+		"count": 1,
+		"note": "1 aboard: Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"seat": {"x": 5, "y": 6, "ground": "Plains · grain"},
+				"tiles": [
+					{"x": 5, "y": 6, "ground": "Plains · grain"},
+					{"x": 7, "y": 8, "ground": "Hills · iron"},
+				],
+			},
+		],
+	})
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(rows.size(), 2, "the seat and the list")
+	assert_eq(
+		(rows[0] as Button).text,
+		"Put the Explorer ashore at Cadiz (5, 6) — Plains · grain",
+		"the seat reads first, with the ground the chart knows"
+	)
+	assert_true(
+		(rows[1] as Button).text.begins_with("Put the Explorer ashore at Cadiz · 2 grounds")
+	)
+	(rows[0] as Button).pressed.emit()
+	assert_eq(fired, ["crew:land:5:6:explorer"], "the seat lands in one press")
+
+	# A coast with one legal ground keeps its published single press, seat or not.
+	block.set_data({
+		"count": 1, "note": "1 aboard: Explorer", "embark": [], "sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"seat": {"x": 5, "y": 6, "ground": "Plains · grain"},
+				"tiles": [{"x": 5, "y": 6, "ground": "Plains · grain"}],
+			},
+		],
+	})
+	var single: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(single.size(), 1, "one ground, one press")
+	assert_eq((single[0] as Button).text, "Put the Explorer ashore at Cadiz")
+	block.free()
+
+
 func _dossier_detail_of(unit: CivilianState, model: MapModel, caption: String) -> String:
 	for row: Array in CivilianPanelDetail.rows(model, unit, LandWorks.new(), {}):
 		if String(row[0]) == caption:

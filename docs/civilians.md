@@ -41,7 +41,9 @@ Land units: explore, improve, colonize, spy.
   extraction; levels 2 and 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
   per hull, never with troops); lands on a coastal tile beside its zone, grounds
-  offered per crew kind; Explorers/Merchants any coast, others need crown land.
+  offered per crew kind, and the port's own seat in one press
+  ([DR-20261118-28](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-28));
+  Explorers/Merchants any coast, others need crown land.
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
   prospected mineral); 15× base at assign, debit on complete; each deed lifts the
   province town. Both surfaces name the deed's return
