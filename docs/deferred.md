@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: DR-20261118-16 vs code through #971 (REQ-P2-02).
+Audited: DR-20261118-19 vs code through #981 (REQ-P2-02).
 Implement default: largest clear item here, then REQ/wiki.
 
 ## Already live
@@ -44,7 +44,7 @@ Implement default: largest clear item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-- None open (through #971).
+- None open (through #981).
 
 ## Next pick
 
@@ -68,7 +68,6 @@ REQ/wiki.
 
 ## Wiki drift
 
-- `civilian-units`: Road L2/gathering live.
+- `civilian-units` Road L2/gathering live; `production-recipes` second-stage live.
 - `phase-planner-*` / `ai-architecture`: six slots live; soft weight seed.
-- `production-recipes`: rival second-stage “deferred” → live (`town_level`).
-- DR-18-01–16 hire/batch/line, Bid, gift stepper match records.
+- DR-18-01–19 match records; playtest confirm-face intentional (DR-18-11/12).
