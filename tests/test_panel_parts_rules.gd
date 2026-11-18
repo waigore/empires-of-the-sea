@@ -491,6 +491,23 @@ func test_the_survey_lens_keeps_its_four_columns() -> void:
 		)
 	assert_eq(ImprovementCatalog.icon_kind(5), "wheat", "a pasture stays a farm column")
 
+
+## Each mark actually paints: the control raises one Icon per estate kind and
+## the frame draws it, so no published pictogram is ever a silent blank
+## (REQ-P1-08; DR-20261119-06).
+func test_every_estate_pictogram_paints() -> void:
+	var painted: Array[String] = []
+	for kind: String in EstatePictograms.KINDS:
+		var icon := Icon.new(kind, 24.0, Palette.estate_ink(kind))
+		add_child(icon)
+		icon.queue_redraw()
+		painted.append(kind)
+	await get_tree().process_frame
+	assert_eq(painted.size(), 7, "the estates publish seven marks of their own")
+	for kind: String in painted:
+		assert_true(EstatePictograms.knows(kind), "%s has a painter" % [kind])
+		assert_true(Icon.knows(kind), "the control draws %s too" % [kind])
+
 func test_the_roads_row_names_the_estates_that_reach_the_crown() -> void:
 	_setup_province_panel()
 	_show()
