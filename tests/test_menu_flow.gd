@@ -2,7 +2,9 @@ extends GdToolsTest
 ## App flow: title -> setup -> map, in-game menu, save slot, load rebuilds the
 ## screen (clearing the old game), and back to the title (REQ-P5-01, P5-07).
 ## One chart is rolled in `before_all` and handed through `Main.preset_world` so
-## coverage does not pay `generate_world` on every new-game / load path.
+## coverage does not pay `generate_world` on every new-game / load path. Pure
+## charge / key-catalogue cases never touch the shell, so they skip a Main boot
+## under coverage (docs/testing.md § Speed rules).
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -12,7 +14,8 @@ const DIR: String = "user://test_menu_flow"
 const FLOW_SEED: int = 777
 const FLOW_SIZE: Vector2i = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 
-var main: Node = null
+## Backing store for the lazy shell; cases reach it through `main`.
+var _main: Node = null
 ## Non-underscore: gd-tools copies these from `before_all` onto each test instance.
 var flow_world: WorldMap = null
 var flow_snapshot: Array = []
@@ -26,19 +29,32 @@ func before_all() -> void:
 func before_each() -> void:
 	_clean_dir()
 	Fixture.restore(flow_world, flow_snapshot)
-	main = MAIN.instantiate()
-	main.auto_start = false
-	main.size_override = FLOW_SIZE
-	main.preset_world = flow_world
-	add_child(main)
+
+
+## Flow cases ask for the shell; charge / key-catalogue cases that never ask
+## never pay a `Main` instantiate under coverage.
+func _ensure_shell() -> Node:
+	if is_instance_valid(_main):
+		return _main
+	_main = MAIN.instantiate()
+	_main.auto_start = false
+	_main.size_override = FLOW_SIZE
+	_main.preset_world = flow_world
+	add_child(_main)
+	return _main
+
+
+var main: Node:
+	get:
+		return _ensure_shell()
 
 
 func after_each() -> void:
 	get_tree().paused = false
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	if is_instance_valid(main):
-		main.free()
-	main = null
+	if is_instance_valid(_main):
+		_main.free()
+	_main = null
 	# The intro cases mount their own charge page; the flow cases do not.
 	if is_instance_valid(page):
 		page.free()
@@ -514,9 +530,9 @@ func _row_for(rows: Array[Control], label: String) -> Control:
 
 
 func _drop_flow_shell() -> void:
-	if is_instance_valid(main):
-		main.free()
-	main = null
+	if is_instance_valid(_main):
+		_main.free()
+	_main = null
 
 
 ## The shell `before_each` mounted is the title screen: read it in place instead

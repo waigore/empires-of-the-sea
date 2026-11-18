@@ -12,12 +12,15 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
-## and reset the session instead of remounting (`Fixture.suite_reset`).
+## and a re-seat from the pristine save ~0.15 s, so live cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`). Pure
+## projection cases (road ink, defence/sea surveys, agent-debug parsers) never
+## touch `_screen`, so they skip the re-seat (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
-var _screen: MapScreen = null
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
@@ -27,17 +30,30 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
-	_screen = mounted
+	_chart_bound = false
 
 
 func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	_screen = null
 	pristine = {}
+
+
+## Live cases reach the chart through `_screen` / `_attach()`; projection cases
+## that never ask never pay `suite_reset` (~0.15 s under coverage each).
+func _attach() -> MapScreen:
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = true
+	return mounted
+
+
+var _screen: MapScreen:
+	get:
+		return _attach()
 
 
 func test_world_holds_old_and_new_world() -> void:
@@ -3383,7 +3399,7 @@ const LIVE_KEYS: Array[String] = [
 
 
 func test_dump_carries_the_save_bag_plus_live_overlays() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var dump: Dictionary = AgentDebugDump.capture(play)
 	for key: String in DUMP_KEYS:
 		assert_true(dump.has(key), "the dump carries the save bag's %s" % key)
@@ -3408,14 +3424,14 @@ func test_a_session_without_a_world_still_dumps_its_overlays() -> void:
 
 
 func test_ping_answers_and_keeps_the_id() -> void:
-	var answer: Dictionary = AgentDebugDump.frame({"id": 1, "op": "ping"}, mounted.play)
+	var answer: Dictionary = AgentDebugDump.frame({"id": 1, "op": "ping"}, _screen.play)
 	assert_true(bool(answer["ok"]), "ping answers ok")
 	assert_eq(int(answer["id"]), 1, "the answer carries the request id")
 	assert_true(bool(answer["data"]["pong"]), "ping pongs")
 
 
 func test_session_reports_the_live_card() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var answer: Dictionary = AgentDebugDump.frame({"id": 2, "op": "session"}, play)
 	assert_true(bool(answer["ok"]), "session answers ok")
 	var data: Dictionary = answer["data"]
@@ -3426,7 +3442,7 @@ func test_session_reports_the_live_card() -> void:
 
 
 func test_dump_observer_and_get_answer_ok() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var dump: Dictionary = AgentDebugDump.frame({"id": 3, "op": "dump"}, play)
 	assert_true(bool(dump["ok"]), "dump answers ok")
 	assert_true((dump["data"] as Dictionary).has("live"), "dump carries the overlays")
@@ -3446,7 +3462,7 @@ func test_dump_observer_and_get_answer_ok() -> void:
 
 
 func test_get_reports_unknown_and_missing_paths() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var unknown: Dictionary = AgentDebugDump.frame({"id": 7, "op": "get", "path": "mystery"}, play)
 	assert_false(bool(unknown["ok"]), "an unknown top-level key answers error")
 	assert_true(String(unknown["error"]).contains("mystery"), "the error names the path")
@@ -3459,7 +3475,7 @@ func test_get_reports_unknown_and_missing_paths() -> void:
 
 
 func test_bad_frames_answer_errors_not_dangles() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var unparseable: Dictionary = AgentDebugDump.frame(17, play)
 	assert_false(bool(unparseable["ok"]), "a non-object frame answers an error")
 	assert_eq(int(unparseable["id"]), -1, "no id can be kept")
@@ -3568,18 +3584,18 @@ func test_resolve_launch_prefers_user_args_then_cmdline() -> void:
 
 
 func test_the_screen_hosts_an_inert_bridge() -> void:
-	var bridge: AgentDebugBridge = mounted.get_node_or_null("AgentDebugBridge") as AgentDebugBridge
+	var bridge: AgentDebugBridge = _screen.get_node_or_null("AgentDebugBridge") as AgentDebugBridge
 	assert_not_null(bridge, "the map screen hosts the bridge")
 	if bridge == null:
 		return
 	assert_false(bridge.is_listening(), "the bridge is off without the flag")
-	assert_eq(bridge.play, mounted.play, "the bridge holds the live session")
+	assert_eq(bridge.play, _screen.play, "the bridge holds the live session")
 
 
 func test_start_stop_and_a_live_loopback_round_trip() -> void:
 	var bridge := AgentDebugBridge.new()
 	bridge.name = "AgentDebugBridgeProbe"
-	bridge.play = mounted.play
+	bridge.play = _screen.play
 	add_child(bridge)
 	bridge.start(0)
 	assert_false(bridge.is_listening(), "an out-of-range port never listens")
