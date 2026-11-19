@@ -20,9 +20,8 @@ Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02.
 A station spends the move and persists until the squadron sails, docks or
 retakes one; the home fleet holds none; a target no longer hostile lapses it.
 
-A sealed harbour is no landfall: a blockade severs the coast, and the capital
-harbour cuts every sea path (wiki: capital-and-connectivity § Blockade). The
-dossier names it (`REQ-P5-05`).
+A sealed harbour severs the coast, and the capital harbour cuts every sea path
+(wiki: capital-and-connectivity § Blockade). The dossier names it (`REQ-P5-05`).
 
 ## Interception
 
@@ -80,8 +79,8 @@ raider loses none.
 declared enemy by the same formulas: **prize cargo** leaves the victim's
 stockpile for the raider's, never booked as an import (DR-20261111-20). Cargo and
 hull roll on separate salts. The crown's raids reach its despatch. The dossier
-prices that group over its at-war coasts, naming the zone, any hull and the ring
-(DR-20261120-01).
+prices that group over its at-war coasts, naming the coast a patrol works and the
+hull a hit sinks (DR-20261120-01).
 
 ## Deferred (REQ-P2-02)
 
