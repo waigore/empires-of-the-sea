@@ -3541,3 +3541,265 @@ func test_the_opening_muster_moors_one_home_fleet_per_power() -> void:
 			home.ship_count(), FleetMuster.PLAYER_HULLS.size(),
 			"every crown hull rides the one home fleet"
 		)
+
+
+# --- the court's own pick (DR-20261120-04) ----------------------------------
+
+
+## A pure session on the two-coast chart: the crown's court, at war or at peace,
+## with the squadron roster handed in. No screen is mounted, so the pick's cases
+## never pay a re-seat.
+func _pick_play(at_war: bool) -> PlaySession:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(0, 1, 1)
+	if at_war:
+		state.relation(0, 1).at_war = true
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.map_seed = 1500
+	play.turn = 1
+	play.model = _model
+	play.diplomacy = state
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = _model
+	return play
+
+
+## Puts one roster on the chart the session shows, the way the layer stores it.
+func _pick_roster(play: PlaySession, fleets: Array[FleetState]) -> void:
+	play.ship_layer.fleets.assign(fleets)
+	play.ship_layer.regions.set_region(_model.region_id, play.ship_layer.fleets)
+
+
+## At war, the crown's home squadron is given the sortie the published policy
+## takes out of the seat's port — the water and the strength the planner counted
+## pass through the words unchanged.
+func test_the_courts_pick_sails_the_home_squadron_at_a_hostile_beside_the_seat() -> void:
+	var play: PlaySession = _pick_play(true)
+	var own: FleetState = FleetState.in_port(0, 0, 0, ["h0"], {"h0": "frigate"})
+	var foe: FleetState = FleetState.at_sea(1, 1, 0, ["h1"], {"h1": "sloop"})
+	_pick_roster(play, [own, foe] as Array[FleetState])
+
+	var pick: Dictionary = MapPlayFleetPick.pick(play, own)
+
+	assert_eq(String(pick.get("kind", "")), AiNavalPlanner.KIND_SORTIE, "the sortie")
+	assert_eq(int(pick.get("zone", -1)), 0, "into the water beside the seat")
+	var line: String = String(pick.get("line", ""))
+	assert_eq(
+		line,
+		"the court would sortie into the Mar Caribe — a hostile squadron there, counted at %d strength"
+			% int(pick.get("threat", 0)),
+		"the words name the water and the planner's own count"
+	)
+	assert_true(MapPlayFleetPick.line(play, own).begins_with("The court would sortie"), "one sentence")
+	assert_eq(own.location, FleetState.Location.IN_PORT, "a reading: she is still in port")
+	assert_false(own.moved, "and she has not sailed")
+	play.ship_layer.free()
+
+
+## At peace there is no station to keep: the pick is the road home, and a harbour
+## that borders her water means the dock itself.
+func test_the_courts_pick_brings_a_peaceful_squadron_home() -> void:
+	var play: PlaySession = _pick_play(false)
+	var own: FleetState = FleetState.at_sea(0, 0, 0, ["h0"], {"h0": "galleon"})
+	_pick_roster(play, [own] as Array[FleetState])
+
+	var pick: Dictionary = MapPlayFleetPick.pick(play, own)
+
+	assert_eq(String(pick.get("kind", "")), AiNavalPlanner.KIND_HOME)
+	assert_true(bool(pick.get("dock", false)), "Cádiz borders her water")
+	assert_eq(int(pick.get("province", -1)), 0)
+	assert_eq(String(pick.get("line", "")), "the court would dock her at %s" % _model.province_name(0))
+	assert_eq(own.sea_zone, 0, "a reading: she is still at sea")
+	play.ship_layer.free()
+
+
+## A warship with no squadron to fight works the enemy's trade, so the pick names
+## the coast's water and the leg that begins the station.
+func test_the_courts_pick_works_the_enemys_trade_with_nothing_to_fight() -> void:
+	var play: PlaySession = _pick_play(true)
+	var own: FleetState = FleetState.at_sea(0, 0, 0, ["h0"], {"h0": "sloop"})
+	_pick_roster(play, [own] as Array[FleetState])
+
+	var pick: Dictionary = MapPlayFleetPick.pick(play, own)
+
+	assert_eq(String(pick.get("kind", "")), AiNavalPlanner.KIND_RAID)
+	assert_eq(int(pick.get("zone", -1)), 1, "Coro's water, one step on")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would sail for the %s — the first leg toward a hostile coast, to work its trade"
+			% _model.sea_zone_name(1),
+		"the words name the leg, not a station it has not reached"
+	)
+	assert_eq(own.sea_zone, 0, "nothing sails")
+	play.ship_layer.free()
+
+
+## The holds come before any hunt: a squadron carrying the tonnage its court has
+## nowhere else is sent home, and the line says why (issue #530).
+func test_the_courts_pick_brings_the_holds_home_first() -> void:
+	var play: PlaySession = _pick_play(true)
+	var own: FleetState = FleetState.at_sea(0, 0, 1, ["h0"], {"h0": "carrack"})
+	_pick_roster(play, [own] as Array[FleetState])
+
+	var pick: Dictionary = MapPlayFleetPick.pick(play, own)
+
+	assert_eq(String(pick.get("kind", "")), AiNavalPlanner.KIND_HOME)
+	assert_eq(String(pick.get("reason", "")), AiNavalPlanner.REASON_TRADE)
+	var line: String = String(pick.get("line", ""))
+	assert_true(line.begins_with("the court would sail for the "), line)
+	assert_true(line.ends_with("— the holds come first, and the crown keeps none ashore"), line)
+	assert_eq(own.sea_zone, 1, "nothing sails")
+	play.ship_layer.free()
+
+
+## The pick is only for a squadron the court would still order: a rival's hull, a
+## squadron that has sailed, one carrying an expedition, and a session whose court
+## runs no planner all carry none.
+func test_the_courts_pick_names_no_squadron_the_court_would_leave_alone() -> void:
+	var play: PlaySession = _pick_play(true)
+	var own: FleetState = FleetState.in_port(0, 0, 0, ["h0"], {"h0": "frigate"})
+	var rival: FleetState = FleetState.at_sea(1, 1, 0, ["h1"], {"h1": "sloop"})
+	var expedition: FleetState = FleetState.at_sea(2, 0, 1, ["h2"], {"h2": "frigate"})
+	expedition.embarked_army = 4
+	_pick_roster(play, [own, rival, expedition] as Array[FleetState])
+
+	assert_false(MapPlayFleetPick.pick(play, own).is_empty(), "the crown's own squadron takes one")
+	assert_true(MapPlayFleetPick.pick(play, rival).is_empty(), "a rival answers to her own court")
+	own.moved = true
+	assert_true(MapPlayFleetPick.pick(play, own).is_empty(), "a hull that has sailed is not re-ordered")
+	own.moved = false
+	assert_true(
+		MapPlayFleetPick.pick(play, expedition).is_empty(),
+		"the invasion planner steers an expedition"
+	)
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayFleetPick.pick(play, own).is_empty(), "no planner, no advice")
+	play.ship_layer.free()
+
+
+## The pick reads nothing it cannot: no session, no squadron, no charts of
+## diplomacy, a campaign already decided, and a squadron the region table stores
+## but the chart does not draw all answer empty rather than guessing a water.
+func test_the_courts_pick_reads_nothing_without_a_session_to_read() -> void:
+	var play: PlaySession = _pick_play(false)
+	var own: FleetState = FleetState.at_sea(0, 0, 0, ["h0"], {"h0": "galleon"})
+	_pick_roster(play, [own] as Array[FleetState])
+	assert_true(MapPlayFleetPick.pick(null, own).is_empty(), "no session, no pick")
+	assert_true(MapPlayFleetPick.pick(play, null).is_empty(), "no squadron, no pick")
+	var bare := PlaySession.new()
+	bare.player_faction = 0
+	bare.model = _model
+	assert_true(MapPlayFleetPick.pick(bare, own).is_empty(), "no fleet layer, no pick")
+	bare.ship_layer = ShipLayer.new()
+	bare.ship_layer.model = _model
+	bare.ship_layer.fleets.assign([own])
+	assert_true(MapPlayFleetPick.pick(bare, own).is_empty(), "no diplomacy, no pick")
+	play.campaign_halted = true
+	assert_true(MapPlayFleetPick.pick(play, own).is_empty(), "a decided campaign orders nothing")
+	play.campaign_halted = false
+	# The region table stores her while the chart draws nothing: the loop finds
+	# her chart, and a session with no world for it answers empty.
+	play.ship_layer.fleets.clear()
+	var stored: Dictionary = {0: [own]}
+	var lonely := PlaySession.new()
+	lonely.player_faction = 0
+	lonely.model = null
+	lonely.diplomacy = play.diplomacy
+	lonely.ship_layer = ShipLayer.new()
+	lonely.ship_layer.fleets.assign([])
+	lonely.ship_layer.regions.set_region(0, stored[0])
+	assert_true(
+		MapPlayFleetPick.pick(lonely, own).is_empty(),
+		"a chart the session does not hold answers nothing"
+	)
+	var world := WorldMap.new()
+	world.add_region(_model)
+	lonely.world = world
+	lonely.ship_layer.regions.set_region(0, [FleetState.at_sea(0, 0, 0, ["h0"], {"h0": "galleon"})])
+	var found: Dictionary = MapPlayFleetPick.pick(lonely, lonely.ship_layer.regions.value(0)[0])
+	assert_false(found.is_empty(), "the world's own chart answers for a region off screen")
+	play.ship_layer.free()
+	bare.ship_layer.free()
+	lonely.ship_layer.free()
+
+
+## Two squadrons of the crown plan together, and each picks her own order: the
+## plan's other rows are skipped, never handed to the wrong hull.
+func test_the_courts_pick_hands_each_squadron_its_own_order() -> void:
+	var play: PlaySession = _pick_play(false)
+	var first: FleetState = FleetState.at_sea(0, 0, 0, ["h0"], {"h0": "galleon"})
+	var second: FleetState = FleetState.at_sea(1, 0, 1, ["h1"], {"h1": "fluyte"})
+	_pick_roster(play, [first, second] as Array[FleetState])
+
+	var one: Dictionary = MapPlayFleetPick.pick(play, first)
+	var two: Dictionary = MapPlayFleetPick.pick(play, second)
+
+	assert_false(one.is_empty(), "the first squadron is ordered home")
+	assert_false(two.is_empty(), "and so is the second")
+	assert_true(
+		String(one.get("line", "")).contains(_model.province_name(0)),
+		"each line names her own harbour: " + String(one.get("line", ""))
+	)
+	assert_eq(String(two.get("kind", "")), AiNavalPlanner.KIND_HOME, "the second is sent home")
+	assert_eq(int(two.get("zone", -1)), 0, "her own leg, one water back toward the seat")
+	assert_true(
+		String(two.get("line", "")).ends_with("the first leg home"),
+		"the second reads her own leg: " + String(two.get("line", ""))
+	)
+	assert_eq(first.sea_zone, 0, "nothing sailed")
+	assert_eq(second.sea_zone, 1, "nothing sailed")
+	play.ship_layer.free()
+
+
+## Every wording the pick can print: one sentence per kind and per reason the
+## policy carries, and nothing at all for an order or a chart that names no place
+## (wiki: ships-and-naval § Missions and Movement; DR-20261120-04).
+func test_the_picks_words_name_each_sail_and_its_reason() -> void:
+	var model: MapModel = _model
+	var water: String = model.sea_zone_name(0)
+	var port: String = model.province_name(0)
+	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "sortie", "zone": 0, "threat": 3}),
+		"the court would sortie into the %s — a hostile squadron there, counted at 3 strength"
+			% water
+	)
+	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "pursue", "zone": 0}),
+		"the court would pursue into the %s" % water,
+		"an order that counted no strength names no figure"
+	)
+	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "home", "dock": true, "province": 0}),
+		"the court would dock her at %s" % port
+	)
+	assert_eq(
+		MapPlayFleetPickWords.line(
+			model, {"kind": "home", "dock": false, "zone": 0, "reason": "overstretched: no new raid"}
+		),
+		"the court would sail for the %s — the first leg home — two fronts, so the court opens"
+			% water + " no new raid",
+		"the footing's own reason"
+	)
+	assert_eq(
+		MapPlayFleetPickWords.sentence("the court would dock her at %s" % port),
+		"The court would dock her at %s." % port
+	)
+	assert_eq(MapPlayFleetPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayFleetPickWords.line(model, {}), "", "no order, no line")
+	assert_eq(MapPlayFleetPickWords.line(model, {"kind": "unknown"}), "", "no kind, no line")
+	assert_eq(MapPlayFleetPickWords.line(null, {"kind": "home"}), "", "no chart, no line")
+	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "sortie", "zone": -1, "threat": 2}), "",
+		"a fight in no water is not worded"
+	)
+	assert_eq(MapPlayFleetPickWords.line(model, {"kind": "raid", "zone": -1}), "", "nor a raid")
+	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "home", "dock": true, "province": -1}), "",
+		"a dock with no harbour is not worded"
+	)
+	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "home", "dock": false, "zone": -1}), "",
+		"nor a homeward leg in no water"
+	)

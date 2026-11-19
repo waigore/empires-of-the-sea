@@ -85,7 +85,8 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		strength,
 		MapPlayHomeMerge.row(play, fleet),
 		MapPlayFleetMissions.hint(play, fleet),
-		play.ship_layer.fleets
+		play.ship_layer.fleets,
+		MapPlayFleetPick.line(play, fleet)
 	)
 
 

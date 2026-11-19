@@ -161,6 +161,13 @@ godot --headless --path . --script res://playtests/playtest_station_prices.gd
 # dossier to the muster roll (the row's place and its own Visit press).
 godot --headless --path . --script res://playtests/playtest_fleet_split_combine.gd
 
+# The court's pick — reads the gold line the fleet dossier prints under its
+# station in the states a player reaches (in port, at sea at peace, at war, a
+# rival in the next water, the holds ashore again) and holds every word to the
+# planner's own record: the kind, the water and the harbour, the sheet's print,
+# and a roster that did not move.
+godot --headless --path . --script res://playtests/playtest_fleet_pick.gd
+
 # Beachhead — boards a field army and marks a landing site on a hostile coast,
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
 # watches the site's three deaths: sailed away, left unused, and peace made.
