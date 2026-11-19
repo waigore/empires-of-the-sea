@@ -102,7 +102,7 @@ static func drop_lost(layer: ArmyLayer, seats: Dictionary) -> Array[ArmyState]:
 ## § Civilian passengers), so a hull sunk in a battle or by a raid takes her
 ## passenger with her: the men a shorter deck cannot hold go down rather than
 ## ride it. An army the sea empties loses its place on the roster with the men
-## ([method NavalTransport.trim_aboard]). Returns one row per squadron that lost
+## ([method NavalDeck.trim_aboard]). Returns one row per squadron that lost
 ## someone — {fleet, owner, army, regiments[], civilians[]} — for the crown's news
 ## and the observer's trace.
 static func reconcile_aboard(layer: ArmyLayer, fleets: Array) -> Array[Dictionary]:
@@ -117,7 +117,7 @@ static func reconcile_aboard(layer: ArmyLayer, fleets: Array) -> Array[Dictionar
 		if fleet.embarked_army < 0 and not fleet.carries_civilians():
 			continue
 		var army: ArmyState = army_by_id(layer, fleet.embarked_army)
-		var drowned: Dictionary = NavalTransport.trim_aboard(fleet, army)
+		var drowned: Dictionary = NavalDeck.trim_aboard(fleet, army)
 		var men: Array = drowned["regiments"]
 		var colonists: Array = drowned["civilians"]
 		if men.is_empty() and colonists.is_empty():

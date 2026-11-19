@@ -50,10 +50,10 @@ Fog, cargo, battles, raids:
 
 | File | Role |
 |------|------|
-| `scripts/rules/{fleet_state,fleet_missions,ship_stats,ship_economy}.gd` | location, stations, combat, build |
+| `scripts/rules/{fleet_state,fleet_missions,ship_stats,ship_economy}.gd` | location, stations, build |
 | `scripts/rules/{naval_strength,fleet_yard,trade_cargo,fleet_sortie,fleet_home_merge,fleet_combine}.gd` | strength, yard, cargo, sortie, home merge, combine |
 | `scripts/rules/{naval_*,warp_travel}.gd` | battles, moves, stations, raids |
-| `scripts/rules/{naval_transport,civilian_voyage}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead |
+| `scripts/rules/{naval_transport,naval_deck,civilian_voyage}.gd`, `scripts/map/{army_transport,map_play_beachhead,civilian_voyage_map}.gd` | board, land, beachhead, deck |
 | `scripts/ai/ai_naval_planner.gd`, `scripts/map/{map_play_fleet_ai,map_play_fleet_missions,map_play_raids}.gd` | rival sorties, stations, raids |
 | `scripts/map/{map_play_fleets,map_play_fleet_intel,map_play_fleet_yard,map_play_fleet_split,map_play_fleet_combine}.gd` | sail orders, the crown's watch, shipyard, split, combine |
 | `scripts/map/{ship_layer,ship_markers,fleet_lanes,fleet_rosters,map_overlay,map_play_warp,fog_layer}.gd` | orders, markers, rows, rosters, fog |

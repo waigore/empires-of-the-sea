@@ -453,6 +453,10 @@ match = "scripts/rules/naval_transport.gd*"
 domain = "hostility"
 
 [[rules]]
+match = "scripts/rules/naval_deck.gd*"
+domain = "hostility"
+
+[[rules]]
 match = "scripts/rules/fleet_missions.gd*"
 domain = "hostility"
 
