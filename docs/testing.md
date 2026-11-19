@@ -149,6 +149,13 @@ godot --headless --path . --script res://playtests/playtest_persistence_advanced
 # and sorts a rival squadron out of a captured port.
 godot --headless --path . --script res://playtests/playtest_naval.gd
 
+# Station prices — sorties the home squadron, takes a patrol and declares war,
+# then reads the dossier's two prices (the catch and the prize) against the pass
+# that rolls them: the printed chance and hulls, the fog clause, a Defend
+# station, a second station in the group, a blockade's own coast, and the turn's
+# battle record.
+godot --headless --path . --script res://playtests/playtest_station_prices.gd
+
 # Split / combine — folds the opening's single-hull commands into one squadron,
 # reads the troops that hold a split back, detaches a named hull into a command
 # of her own, folds her back, and follows the army a combine carries from the
