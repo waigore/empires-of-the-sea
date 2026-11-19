@@ -199,6 +199,9 @@ func remove_hull(hull_id: String) -> bool:
 ## ships-and-naval § Ship instances — combine appends, never duplicates).
 ## One army per squadron, so when both already carry one the source army is
 ## returned for the caller to land at the port rather than lost in the merge.
+## The joined hulls keep the names they flew, except where the receiving
+## squadron already flies one: a squadron's names stay pairwise distinct
+## (wiki: naming § Ship names; DR-20261111-07).
 func merge_from(source: FleetState) -> int:
 	if source == null:
 		return -1
@@ -208,6 +211,7 @@ func merge_from(source: FleetState) -> int:
 		hulls.append(hull_id)
 		hull_types[hull_id] = source.type_of(hull_id)
 		hull_names[hull_id] = ShipNames.of(source, hull_id)
+	ShipNames.settle(self)
 	for unit_id: int in source.embarked_civilians:
 		add_civilian(unit_id)
 	source.embarked_civilians.clear()

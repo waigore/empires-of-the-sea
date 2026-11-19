@@ -489,6 +489,57 @@ func test_a_merge_keeps_every_hull_name() -> void:
 	assert_eq(ShipNames.of(home, "ship_4"), expected)
 	assert_eq(ShipNames.of(home, "ship_1"), home_name)
 
+## Two squadrons christen apart, so a merge can put one name on two hulls: the
+## hull that already flew it keeps it and the joined hull gives way, because a
+## squadron's names are pairwise distinct (wiki: naming § Ship names;
+## DR-20261111-07). Playtest: a hull launched at the seat while the home squadron
+## was at sea founded a new home fleet, and the returning squadron merged into
+## her — the squadron then flew two hulls named "San Mateo".
+func test_a_merge_never_puts_one_name_on_two_hulls() -> void:
+	_setup_fleet_names()
+	var home := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+	var returning := FleetState.at_sea(5, 1, 2, ["ship_4"], {})
+	home.hull_names["ship_1"] = "San Mateo"
+	returning.hull_names["ship_4"] = "San Mateo"
+
+	home.merge_from(returning)
+
+	assert_eq(ShipNames.of(home, "ship_1"), "San Mateo", "the receiving hull keeps her name")
+	var settled: String = ShipNames.of(home, "ship_4")
+	assert_ne(settled, "San Mateo", "the joined hull gives way to the name she joined")
+	assert_true(
+		ShipNames.pool_for(home.owner).has(settled), "she takes a name from her crown's pool"
+	)
+	assert_eq(
+		String(home.hull_names.get("ship_4", "")), settled,
+		"the settled name is written to the squadron, so a reload speaks it"
+	)
+	var restored: FleetState = FleetState.from_dict(home.to_dict())
+	assert_eq(ShipNames.of(restored, "ship_4"), settled, "the save carries the settled name")
+	# The same merge settles alike: the joined hull does not draw a new name on
+	# every load or every fight (wiki: naming § Ship names — deterministic).
+	var again_home := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+	var again_returning := FleetState.at_sea(5, 1, 2, ["ship_4"], {})
+	again_home.hull_names["ship_1"] = "San Mateo"
+	again_returning.hull_names["ship_4"] = "San Mateo"
+	again_home.merge_from(again_returning)
+	assert_eq(ShipNames.of(again_home, "ship_4"), settled, "the same merge settles alike")
+
+## A save written while two hulls of one squadron shared a name is repaired on
+## load, the way it repairs a hull that carries no name at all (wiki: naming
+## § Ship names — the N hulls a squadron flies have N pairwise distinct names).
+func test_a_save_with_two_hulls_of_one_name_is_settled_on_load() -> void:
+	_setup_fleet_names()
+	var fleet := FleetState.in_port(3, 1, 4, ["ship_2", "ship_5"], {})
+	var saved: Dictionary = fleet.to_dict()
+	saved["hull_names"] = {"ship_2": "Trinidad", "ship_5": "Trinidad"}
+
+	var restored: FleetState = FleetState.from_dict(saved)
+
+	assert_eq(ShipNames.of(restored, "ship_2"), "Trinidad", "the first hull keeps the name")
+	assert_ne(ShipNames.of(restored, "ship_5"), "Trinidad", "the second hull is christened again")
+	assert_true(ShipNames.pool_for(restored.owner).has(ShipNames.of(restored, "ship_5")))
+
 func test_scrapping_names_the_hull_it_breaks() -> void:
 	_setup_fleet_names()
 	var fleet := FleetState.in_port(3, 0, 1, ["ship_1", "ship_2"], {})
