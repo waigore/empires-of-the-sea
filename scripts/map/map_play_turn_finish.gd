@@ -80,17 +80,12 @@ static func _march(play: PlaySession, book: TurnBook) -> void:
 ## Regiment upgrade runs after movement and before combat: a crown's men take up
 ## the newest pattern its own techs allow, and Minors follow the leading power
 ## (wiki: tech-tree-military § Infantry/Cavalry/Artillery; factions § Minor
-## military parity).
+## military parity). The new pattern reads on the army dossier; the dispatch lane
+## stays for what needs a reaction (wiki: hud-toasts).
 static func _rearm(play: PlaySession) -> void:
 	var tech_by_faction: Dictionary = MapPlayCampaign.tech_by_faction(play)
-	var upgrades: Dictionary = RegimentUpgrades.apply(play.army_layer.regions, tech_by_faction)
+	RegimentUpgrades.apply(play.army_layer.regions, tech_by_faction)
 	MilitaryParity.apply(play.army_layer.regions, tech_by_faction)
-	if play.hud == null:
-		return
-	var rearmed: int = int((upgrades["by_faction"] as Dictionary).get(play.player_faction, 0))
-	if rearmed > 0:
-		play.hud.toast("%d regiment%s re-equipped with the new pattern" % [
-			rearmed, "" if rearmed == 1 else "s"])
 
 
 ## Combat, then the passes that read the finished charts: spies, the crews left
@@ -272,10 +267,9 @@ static func _fort_upgrades(play: PlaySession, book: TurnBook) -> void:
 			continue
 		FortCapital.apply_research(play.world, int(raw), research as Dictionary)
 	var research: Dictionary = book.crown_report.get("research", {}) as Dictionary
-	var raised: int = FortCapital.apply_research(play.world, play.player_faction, research)
-	if raised <= 0 or play.hud == null or play.observer_mode:
-		return
-	play.hud.toast("The capital's walls rise to %s" % FortRules.level_name(raised))
+	# The new level reads on the province sheet and the walls ledger; the lane
+	# does not narrate the rise (wiki: hud-toasts).
+	FortCapital.apply_research(play.world, play.player_faction, research)
 
 
 ## The turn's view follow-up: the toast, the open dossiers, the survey lens and

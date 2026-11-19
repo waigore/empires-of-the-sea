@@ -30,13 +30,19 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
 		play.army_layer, FleetRosters.carried_armies(play.ship_layer.regions)
 	)
+	# A drowned regiment is news only when it was the crown's: a rival's loss at
+	# sea is its own court's business (wiki: hud-toasts).
 	for army: ArmyState in lost:
+		if army.owner != play.human_faction_id():
+			continue
 		play.hud.toast(
 			"%d regiments went down with a sunken squadron" % army.count()
 		)
-	for _unit: CivilianState in CivilianVoyageMap.drop_lost(
+	for unit: CivilianState in CivilianVoyageMap.drop_lost(
 		play.civilian_layer, FleetRosters.carried_civilians(play.ship_layer.regions)
 	):
+		if unit.owner != play.human_faction_id():
+			continue
 		play.hud.toast(
 			"A civilian went down with a sunken squadron — lost at sea"
 		)
@@ -64,13 +70,16 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		# Auto fights the crown's sea battles with no plate: AFK play is never
 		# interrupted (wiki: auto-mode § No interruptions).
 		var player: int = play.human_faction_id()
-		var on_plate: bool = play.hud != null and not play.auto_active and (
+		var ours: bool = (
 			int(battle.get("attacker", -1)) == player or int(battle.get("defender", -1)) == player
 		)
+		var on_plate: bool = play.hud != null and not play.auto_active and ours
 		if on_plate:
 			play.hud.show_naval_dispatch(battle, place)
 			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))
-		else:
+		elif ours:
+			# A rival's squadron action is the Gazette's news, never the crown's
+			# despatch (wiki: hud-toasts).
 			play.hud.toast(line, BattleReport.icon_of(battle))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)

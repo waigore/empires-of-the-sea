@@ -2948,6 +2948,31 @@ func test_the_map_raid_pass_takes_the_cargo_the_clearing_bought() -> void:
 	economy.free()
 
 
+## The lane carries the raid the crown suffers, the one that takes the crown's
+## own cargo; a prize the crown's stations took reads on the Gazette's sheet
+## (wiki: hud-toasts). Rings are drawn for every report either way.
+func test_only_the_raid_on_the_crown_reaches_the_lane() -> void:
+	var hud := DespatchHud.new()
+	add_child(hud)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.hud = hud
+	var incoming: Dictionary = {
+		"kind": "incoming", "raider": 1, "zone_name": "Mar Caribe",
+		"taken": 3, "losses": {"grain": 3}, "hulls_lost": [],
+	}
+	var prize: Dictionary = {
+		"kind": "prize", "raider": 0, "victim": 2, "zone_name": "Mar Caribe",
+		"taken": 2, "losses": {"timber": 2}, "hulls_lost": [],
+	}
+
+	MapPlayRaids._report(play, [incoming, prize])
+
+	assert_eq(hud.toasts.size(), 1, "one raid is the crown's news")
+	assert_true(hud.toasts[0].contains("seize"), hud.toasts[0])
+	hud.free()
+
+
 # --- a raid takes cargo and may sink a merchant hull (DR-20261111-17) --------
 
 
@@ -4034,7 +4059,36 @@ func test_a_rivals_sea_fight_stays_the_courts_news_alone() -> void:
 
 	assert_eq(battles.size(), 1, "the rivals fight")
 	assert_true(hud.dispatched.is_empty(), "the crown's plate is not raised for them")
-	assert_eq(hud.toasts.size(), 1, "the outcome still reaches the court")
+	assert_true(hud.toasts.is_empty(), "a rival's fight is the Gazette's news")
+	hud.free()
+	play.ship_layer.free()
+
+
+## A drowned regiment reaches the lane only when it was the crown's own: a
+## rival's loss at sea is its own court's news (wiki: hud-toasts).
+func test_a_drowned_rival_regiment_stays_off_the_lane() -> void:
+	var hud := DespatchHud.new()
+	add_child(hud)
+	var play: PlaySession = _despatch_play(hud, [] as Array[FleetState])
+	var rival: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, false, ["peasant_levies"] as Array[String], 9),
+	]
+	rival[0].embarked_fleet = 99
+	play.army_layer.regions.set_region(play.model.region_id, rival)
+
+	MapPlayNavalTurn.resolve(play)
+
+	assert_true(hud.toasts.is_empty(), "a rival's drowned men are its own news")
+	var mine: Array[ArmyState] = [
+		ArmyState.muster(2, 0, 0, false, ["peasant_levies"] as Array[String], 8),
+	]
+	mine[0].embarked_fleet = 99
+	play.army_layer.regions.set_region(play.model.region_id, mine)
+
+	MapPlayNavalTurn.resolve(play)
+
+	assert_eq(hud.toasts.size(), 1, "the crown's own loss is told")
+	assert_true(hud.toasts[0].contains("went down"), hud.toasts[0])
 	hud.free()
 	play.ship_layer.free()
 
