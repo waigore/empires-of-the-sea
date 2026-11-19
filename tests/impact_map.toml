@@ -630,6 +630,13 @@ domain = "fleet_split"
 match = "scripts/map/map_play_fleet_intel.gd*"
 domain = "naval_intel"
 
+# The dossier's station words (patrol, blockade, the catch it prices, the prize
+# it takes) are read by the naval rules suite, so the file rides that slice
+# instead of the eleven-suite `scripts/map/**` set (DR-20261120-02).
+[[rules]]
+match = "scripts/map/map_play_fleet_missions.gd*"
+domain = "hostility"
+
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
 domain = "naval_intel"

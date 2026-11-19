@@ -31,7 +31,9 @@ static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 
 
 ## The dossier's station line: a landing site outranks an ordinary station. A
-## crown that has chartered privateers also reads what the bonus is worth.
+## station at sea also reads what it would catch (`Interception:`) and what it
+## would take (`Prize:`), in the rule book's own order, and a crown that has
+## chartered privateers reads what the bonus is worth.
 static func note(play: PlaySession, fleet: FleetState) -> String:
 	if fleet == null or fleet.owner != play.player_faction:
 		return ""
@@ -43,6 +45,9 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 	if not fleet.is_at_sea():
 		return line
 	var extras: Array[String] = []
+	var catch_line: String = interception_note(play, fleet)
+	if not catch_line.is_empty():
+		extras.append(catch_line)
 	var prize: String = prize_note(play, fleet)
 	if not prize.is_empty():
 		extras.append(prize)
@@ -120,6 +125,63 @@ static func prize_note(play: PlaySession, fleet: FleetState) -> String:
 	var hull_chance: int = int(round(float(best.get("hull_chance", 0.0)) * 100.0))
 	return "%s; a hit sinks a %s on %d%%." % [
 		take, ShipStats.display_name(at_risk), hull_chance
+	]
+
+
+## What the station catches: the chance a patrol, or a blockade that still
+## stands, intercepts a hostile squadron that is still in this water when the
+## turn closes — the published formula read through the rules' own
+## `NavalInterception.chance`, over the squadrons that hold the station (the same
+## list the combat pass rolls). A rival the crown has not read is left out and
+## named, so the sheet never promises a number the fog withholds, and a water
+## with nothing to catch prints no line (wiki: ships-and-naval § Naval
+## Interception Probability, § Sighted strength; REQ-P2-03, REQ-P5-03).
+static func interception_note(play: PlaySession, fleet: FleetState) -> String:
+	if fleet == null or fleet.owner != play.player_faction:
+		return ""
+	if play.model == null or not fleet.is_at_sea():
+		return ""
+	var hostile: Callable = MapPlayRaids.hostile(play)
+	if not NavalRaid.raids(play.model, fleet, hostile):
+		return ""
+	var roster: Array = _roster(play)
+	var group: Array = NavalRaid.station_group(
+		play.model, roster, fleet.sea_zone, fleet.owner, hostile
+	)
+	if group.is_empty():
+		group = [fleet]
+	var mission: int = FleetMissions.station_mission(play.model, group, hostile)
+	var holders: Array = NavalInterception.station_holders(play.model, group, hostile)
+	if holders.is_empty():
+		holders = group
+	var targets: Array = []
+	var unread: bool = false
+	for other: FleetState in roster:
+		if other == null or other.owner == fleet.owner:
+			continue
+		if not other.is_at_sea() or other.sea_zone != fleet.sea_zone:
+			continue
+		if not other.is_afloat():
+			continue
+		if not Hostility.between(hostile, fleet.owner, other.owner):
+			continue
+		if not MapPlayFleetIntel.strength_read(play, other):
+			unread = true
+			continue
+		targets.append(other)
+	var read: Dictionary = NavalInterception.preview(
+		holders, targets, mission, play.has_tech, unread
+	)
+	if read.is_empty():
+		return ""
+	if bool(read.get("unread", false)):
+		return "Interception: the odds wait on a squadron the fog has not read."
+	var hulls: int = int(read.get("hulls", 0))
+	if hulls <= 0:
+		return ""
+	var chance: int = int(round(float(read.get("chance", 0.0)) * 100.0))
+	return "Interception: %d%% to catch %d hull%s if they stay." % [
+		chance, hulls, "" if hulls == 1 else "s",
 	]
 
 
