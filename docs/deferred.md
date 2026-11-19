@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1077 (REQ-P2-02).
+Audited: wiki / DRs / code through #1089 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -40,13 +40,12 @@ Default: largest item here, then REQ/wiki.
 ## Gaps (ranked)
 
 1. **The AI's win (issue #995)** — the subject reaches 19 Old World of the 31
-   the bar needs (bench 3075.84). The named levers are the pact wall and the
-   host's growth; the press's earn lift shipped as a reading (DR-20261119-14,
-   bit-identical).
+   the bar needs (bench 3075.84). Named next lever: border war (#1082); press
+   earn lift is a reading (DR-20261119-14, bit-identical).
 
 ## Next pick
 
-The AI's win on issue #995.
+The AI's win on issue #995 (#1082 border front).
 
 ## Blocked
 
@@ -66,5 +65,5 @@ The AI's win on issue #995.
 
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact` / `AiTribeColony`, `FleetMuster`). Soft
-weight seed stays blocked (`DR-20261117-01`). Learnings still lists fan/stack;
-live (`FleetLanes` #1047).
+weight seed stays blocked (`DR-20261117-01`). Learnings treat fan/stack as a
+live lesson (`FleetLanes` #1047; DR-20261119-08).
