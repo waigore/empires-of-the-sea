@@ -188,6 +188,10 @@ static func _begin_layers(play: PlaySession) -> void:
 static func _rival_ledgers(play: PlaySession, book: TurnBook) -> void:
 	book.economy_report = MapPlayEconomyAi.run(play)
 	book.raid_report = MapPlayRaids.resolve(play)
+	# A raid's prize sinks a merchant hull under any colonists she carried, so the
+	# deck is read once more after the raids (wiki: ships-and-naval § Trade and
+	# Transport Interception, § Naval transport).
+	MapPlayNavalTurn.reconcile_decks(play)
 	var merged: Dictionary = AiTurnLog.record(
 		play, book.army, book.fleet, book.economy_report, book.invasion,
 		book.colonisation

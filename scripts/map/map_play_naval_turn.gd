@@ -30,6 +30,10 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
 		play.army_layer, FleetRosters.carried_armies(play.ship_layer.regions)
 	)
+	# A squadron that kept afloat on fewer hulls keeps only the men her deck still
+	# holds: one hull carries one regiment or one colonist (wiki: ships-and-naval
+	# § Naval transport), so the surplus goes down with the sunk hulls.
+	reconcile_decks(play)
 	# A drowned regiment is news only when it was the crown's: a rival's loss at
 	# sea is its own court's business (wiki: hud-toasts).
 	for army: ArmyState in lost:
@@ -94,6 +98,32 @@ static func strength_multipliers(play: PlaySession) -> Dictionary:
 	return Difficulty.combat_multipliers(
 		play.human_faction_id(), play.difficulty, FactionCatalog.great_power_ids()
 	)
+
+
+## The deck every squadron keeps once the turn's hulls are gone. A battle sinks
+## a victor's hulls and a raid sinks a prize, and either can leave a squadron
+## carrying more men than she has hulls; one hull carries one regiment or one
+## colonist (wiki: ships-and-naval § Naval transport, § Civilian passengers), so
+## the men a shorter deck cannot hold go down with the hulls. Read after the
+## battles and again after the raids, so each loss meets the deck it left.
+## Returns [method ArmyTransport.reconcile_aboard]'s rows for the trace.
+static func reconcile_decks(play: PlaySession) -> Array[Dictionary]:
+	var fleets: Array = []
+	if play != null and play.ship_layer != null and play.world != null:
+		for index in play.world.region_count():
+			var stored: Array = []
+			stored.assign(play.ship_layer.regions.value(index, []))
+			fleets.append_array(stored)
+	var rows: Array[Dictionary] = ArmyTransport.reconcile_aboard(play.army_layer, fleets)
+	## A drowned regiment is news only when it was the crown's: a rival's loss at
+	## sea is its own court's business (wiki: hud-toasts).
+	if play != null and play.hud != null:
+		for row: Dictionary in rows:
+			if int(row.get("owner", -1)) != play.human_faction_id():
+				continue
+			for line: String in NavalTransport.drown_news(row):
+				play.hud.toast(line)
+	return rows
 
 
 ## Each crown's last resolved navy coverage, read from its own ledger so the
