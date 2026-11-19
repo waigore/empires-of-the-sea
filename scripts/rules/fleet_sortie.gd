@@ -23,16 +23,16 @@ static func can_sortie(
 	model: MapModel, fleet: FleetState, zone: int
 ) -> Dictionary:
 	if model == null or fleet == null:
-		return _deny("No squadron can put to sea.")
+		return OrderVerdict.deny("No squadron can put to sea.")
 	if not NavalMovement.is_home_fleet(model, fleet):
-		return _deny("Only the home squadron sorties from the capital.")
+		return OrderVerdict.deny("Only the home squadron sorties from the capital.")
 	if fleet.moved:
-		return _deny("This squadron has already sailed or taken a mission this turn.")
+		return OrderVerdict.deny("This squadron has already sailed or taken a mission this turn.")
 	if not fleet.is_afloat():
-		return _deny("A squadron with no hulls cannot put to sea.")
+		return OrderVerdict.deny("A squadron with no hulls cannot put to sea.")
 	if not zones(model, fleet).has(zone):
-		return _deny("That sea zone does not border the capital port.")
-	return _allow()
+		return OrderVerdict.deny("That sea zone does not border the capital port.")
+	return OrderVerdict.allow()
 
 
 ## Spends the move and turns the home squadron into a sea-going fleet.
@@ -48,11 +48,3 @@ static func apply(
 	fleet.clear_beachhead()
 	fleet.moved = true
 	return {"ok": true, "reason": "", "zone": zone, "entered_zone": zone}
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

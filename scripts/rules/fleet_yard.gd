@@ -230,11 +230,9 @@ static func scrap(economy: PlayerEconomy, fleet: FleetState, hull_id: String) ->
 
 
 static func _deny(reason: String) -> Dictionary:
-	return {
-		"ok": false,
-		"reason": reason,
+	return OrderVerdict.deny(reason, {
 		"type": "",
 		"hull": "",
 		"name": "",
 		"retired": false,
-	}
+	})

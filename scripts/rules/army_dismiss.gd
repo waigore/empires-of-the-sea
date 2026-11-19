@@ -67,11 +67,9 @@ static func dismiss(
 
 static func _deny(reason: String) -> Dictionary:
 	var none: Array[String] = []
-	return {
-		"ok": false,
-		"reason": reason,
+	return OrderVerdict.deny(reason, {
 		"count": 0,
 		"peasants": 0,
 		"names": none,
 		"retired": false,
-	}
+	})

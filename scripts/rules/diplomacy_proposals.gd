@@ -34,23 +34,23 @@ static func queue(
 	stage: String = "", treasury: int = 0, tech: Dictionary = {}
 ) -> Dictionary:
 	if state == null:
-		return _deny("No court is open.")
+		return OrderVerdict.deny("No court is open.")
 	var human: int = state.human_faction
 	if from_id == human:
-		return _deny("A court cannot propose to itself.")
+		return OrderVerdict.deny("A court cannot propose to itself.")
 	if FactionCatalog.type_of(from_id) != FactionCatalog.Type.GREAT_POWER:
-		return _deny("Only a Great Power keeps a court to treat with.")
+		return OrderVerdict.deny("Only a Great Power keeps a court to treat with.")
 	if has_pending(state, human):
-		return _deny("The court already has a proposal to answer.")
+		return OrderVerdict.deny("The court already has a proposal to answer.")
 	if not state.has_relation(from_id, human):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	var check: Dictionary
 	match kind:
 		KIND_ALLIANCE:
 			check = DiplomacyRules.can_form_alliance(state, from_id, human)
 		KIND_OVERTURE:
 			if stage.is_empty():
-				return _deny("An overture needs a stage.")
+				return OrderVerdict.deny("An overture needs a stage.")
 			check = DiplomacyRules.can_establish_overture(
 				state, world, from_id, human, stage, treasury, tech
 			)
@@ -59,7 +59,7 @@ static func queue(
 		KIND_PEACE:
 			check = DiplomacyRules.can_make_peace(state, from_id, human)
 		_:
-			return _deny("Unknown proposal.")
+			return OrderVerdict.deny("Unknown proposal.")
 	if not bool(check.get("ok", false)):
 		return check
 	state.pending_offers.append(
@@ -104,10 +104,10 @@ static func resolve_human(
 	proposer: PlayerEconomy = null
 ) -> Dictionary:
 	if state == null:
-		return _deny("No court to answer for.")
+		return OrderVerdict.deny("No court to answer for.")
 	var offer: Dictionary = take_pending(state, state.human_faction)
 	if offer.is_empty():
-		return _deny("No proposal awaits an answer.")
+		return OrderVerdict.deny("No proposal awaits an answer.")
 	var from_id: int = int(offer["from"])
 	var kind: String = String(offer["kind"])
 	var stage: String = String(offer.get("stage", ""))
@@ -148,7 +148,7 @@ static func resolve_human(
 				"The white peace with %s is refused." % FactionCatalog.name_of(from_id)
 			)
 	else:
-		return _deny("Unknown proposal.")
+		return OrderVerdict.deny("Unknown proposal.")
 	if bool(result.get("ok", false)):
 		state.record_event(
 			"proposalAccepted" if accept else "proposalRefused",
@@ -172,7 +172,3 @@ static func describe(kind: String, stage: String) -> String:
 	if kind == KIND_PEACE:
 		return "a white peace"
 	return "the %s" % DiplomacyCatalog.stage_label(stage)
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

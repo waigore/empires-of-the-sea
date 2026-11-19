@@ -112,4 +112,4 @@ static func complete(
 
 
 static func _no(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "cost": {}, "duration": 0}
+	return OrderVerdict.deny(reason, {"cost": {}, "duration": 0})

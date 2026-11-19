@@ -29,20 +29,20 @@ static func boycotts_against(state: DiplomacyState, target: int) -> Array[int]:
 
 static func can_boycott(state: DiplomacyState, player: int, target: int) -> Dictionary:
 	if player == target:
-		return _deny("A crown cannot boycott itself.")
+		return OrderVerdict.deny("A crown cannot boycott itself.")
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
-		return _deny("Only a Great Power can be boycotted.")
+		return OrderVerdict.deny("Only a Great Power can be boycotted.")
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	if state.relation(player, target).at_war:
-		return _deny("We are already at war with that crown; no boycott is needed.")
+		return OrderVerdict.deny("We are already at war with that crown; no boycott is needed.")
 	if _colony_tribes(state, player).is_empty():
-		return _deny("A colony is required before a boycott can be declared.")
+		return OrderVerdict.deny("A colony is required before a boycott can be declared.")
 	if is_boycotting(state, player, target):
-		return _deny("A boycott of that crown is already in force.")
+		return OrderVerdict.deny("A boycott of that crown is already in force.")
 	if state.claimed(player, target, "boycott"):
-		return _deny("A boycott order was already given this turn.")
-	return _allow()
+		return OrderVerdict.deny("A boycott order was already given this turn.")
+	return OrderVerdict.allow()
 
 
 ## Applying a boycott also voids the target's subsidies to every colony of the
@@ -70,10 +70,10 @@ static func can_revoke(
 	state: DiplomacyState, player: int, target: int
 ) -> Dictionary:
 	if not is_boycotting(state, player, target):
-		return _deny("No boycott of that crown is in force.")
+		return OrderVerdict.deny("No boycott of that crown is in force.")
 	if state.claimed(player, target, "boycott"):
-		return _deny("A boycott order was already given this turn.")
-	return _allow()
+		return OrderVerdict.deny("A boycott order was already given this turn.")
+	return OrderVerdict.allow()
 
 
 static func revoke(state: DiplomacyState, player: int, target: int) -> Dictionary:
@@ -114,11 +114,3 @@ static func _colony_tribes(state: DiplomacyState, gp: int) -> Array[int]:
 			tribes.append(tribe)
 	tribes.sort()
 	return tribes
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

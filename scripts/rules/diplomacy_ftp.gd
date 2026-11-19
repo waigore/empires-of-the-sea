@@ -33,20 +33,20 @@ static func can_establish(
 	state: DiplomacyState, player: int, target: int
 ) -> Dictionary:
 	if player == target:
-		return _deny("A crown cannot trade with itself.")
+		return OrderVerdict.deny("A crown cannot trade with itself.")
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
-		return _deny("Only Great Powers exchange favoured trading pacts.")
+		return OrderVerdict.deny("Only Great Powers exchange favoured trading pacts.")
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	if state.relation(player, target).at_war:
-		return _deny("No trade pact can be signed with an enemy.")
+		return OrderVerdict.deny("No trade pact can be signed with an enemy.")
 	if not DiplomacyRules.has_embassy(state, player, target):
-		return _deny("An embassy is required before a trade pact.")
+		return OrderVerdict.deny("An embassy is required before a trade pact.")
 	if is_ftp(state, player, target):
-		return _deny("A favoured trading pact already binds us.")
+		return OrderVerdict.deny("A favoured trading pact already binds us.")
 	if state.claimed(player, target, "ftp"):
-		return _deny("A trade pact was already offered to this court this turn.")
-	return _allow()
+		return OrderVerdict.deny("A trade pact was already offered to this court this turn.")
+	return OrderVerdict.allow()
 
 
 ## The target answers: an AI court accepts at Friendly standing or better
@@ -86,10 +86,10 @@ static func establish(
 
 static func can_revoke(state: DiplomacyState, player: int, target: int) -> Dictionary:
 	if not is_ftp(state, player, target):
-		return _deny("No favoured trading pact is in force.")
+		return OrderVerdict.deny("No favoured trading pact is in force.")
 	if state.claimed(player, target, "ftp"):
-		return _deny("A trade pact was already offered to this court this turn.")
-	return _allow()
+		return OrderVerdict.deny("A trade pact was already offered to this court this turn.")
+	return OrderVerdict.allow()
 
 
 static func revoke(state: DiplomacyState, player: int, target: int) -> Dictionary:
@@ -112,11 +112,3 @@ static func _accepts(record: DiplomacyRelation) -> bool:
 	if record == null:
 		return false
 	return record.score >= DiplomacyCatalog.FTP_MIN_SCORE
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

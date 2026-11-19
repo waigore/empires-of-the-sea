@@ -206,4 +206,4 @@ static func recruit(
 
 
 static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "type": "", "regiment": ""}
+	return OrderVerdict.deny(reason, {"type": "", "regiment": ""})

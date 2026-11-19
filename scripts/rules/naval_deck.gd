@@ -85,25 +85,17 @@ static func drown_news(row: Dictionary) -> Array[String]:
 ## hulls afloat.
 static func can_scrap(fleet: FleetState, army: ArmyState) -> Dictionary:
 	if fleet == null:
-		return _allow()
+		return OrderVerdict.allow()
 	var aboard: int = fleet.civilian_count()
 	if fleet.embarked_army >= 0 and army != null:
 		aboard += army.count()
 	if fleet.ship_count() - 1 < aboard:
-		return _deny(
+		return OrderVerdict.deny(
 			"The squadron cannot break up a hull while it carries %d passengers."
 			% aboard
 		)
 	if fleet.embarked_army < 0:
-		return _allow()
+		return OrderVerdict.allow()
 	if army == null:
-		return _deny("The troops aboard cannot be accounted for.")
-	return _allow()
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
+		return OrderVerdict.deny("The troops aboard cannot be accounted for.")
+	return OrderVerdict.allow()

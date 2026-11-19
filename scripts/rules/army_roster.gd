@@ -171,7 +171,7 @@ static func food_upkeep_all(regions: MapRegionTable, owner: int) -> int:
 
 
 static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "army": null}
+	return OrderVerdict.deny(reason, {"army": null})
 
 
 ## The merge target after one more army joins the group: the Home Army always

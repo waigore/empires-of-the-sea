@@ -239,5 +239,5 @@ func copy() -> ResearchState:
 
 
 static func _no(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "message": reason}
+	return OrderVerdict.deny(reason, {"message": reason})
 
