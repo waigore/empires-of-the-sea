@@ -1,8 +1,8 @@
 # Top bar (cartouche)
 
-The bar is the campaign's standing instrument panel. A control earns its place
-only if it answers a question the player asks every turn or acts on the map
-(`REQ-P1-02`, `REQ-P1-05`).
+The bar is the campaign's standing instrument panel. A control earns its slot
+only if it answers a turn-by-turn question or acts on the map (`REQ-P1-02`,
+`REQ-P1-05`).
 
 ## Purpose rule
 
@@ -25,17 +25,14 @@ only if it answers a question the player asks every turn or acts on the map
 
 ## Map surface
 
-Idle, the chart carries only navigation and readability: zoom, minimap, lens
-key. Every bar door — ledger, college, court, muster, estates, the Gazette and
-the crew roster — opens a **full-screen modal**: its own layer above the pause
-menu, a wash that takes the pointer, safe-area margins, and back or Close
-setting it aside. Nothing behind it answers a press, so the pause seal is parked
-too.
+Idle, the chart carries only navigation: zoom, minimap, lens key. Every bar
+door opens a **full-screen modal**: its own layer above the pause menu, a wash
+that takes the pointer, safe-area margins, back or Close. Nothing behind it
+answers a press, so the pause seal is parked too.
 
 Selection dossiers (province, fleet, army) stay docked side sheets: they
-describe a thing on the chart, so the chart stays beside them; they slide in and
-drag by their own chrome. A new button or overlay over the chart must earn that
-cost (`REQ-P1-07`).
+describe a thing on the chart, and slide in and drag by their own chrome. A new
+overlay over the chart must earn that cost (`REQ-P1-07`).
 
 ## Geometry
 
@@ -48,6 +45,12 @@ cost (`REQ-P1-07`).
 - The turn's gold door is **140×44** (**104×44** compact) at the row's end.
 - Status plaques are **40 px** tall; compact keeps the medallion and value and
   drops the caption, so the bar stays legible on an 800-point phone.
+
+## Despatch lane
+
+Toasts raise only the turn clock, the answer to the crown's own press, and
+danger to the crown (`ToastPolicy`, wiki `hud-toasts`; `REQ-P5-02`,
+`REQ-P5-05`). Other news is the Gazette's.
 
 ## Visual language
 

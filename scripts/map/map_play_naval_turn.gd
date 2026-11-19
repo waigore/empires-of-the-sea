@@ -13,6 +13,7 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var hostile := func(a: int, b: int) -> bool:
 		return _at_war(play, a, b)
 	var tech_gate: Callable = play.has_tech
+	var player: int = play.human_faction_id()
 	var context: Dictionary = {
 		"seed": play.map_seed, "turn": play.turn, "has_tech": tech_gate,
 		# Last turn's rations decide how hard each squadron can fight
@@ -30,16 +31,20 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	var lost: Array[ArmyState] = ArmyTransport.drop_lost(
 		play.army_layer, FleetRosters.carried_armies(play.ship_layer.regions)
 	)
+	# Only the crown's own drowned are its danger: a rival's loss at sea is the
+	# Gazette's or her own court's news (wiki: hud-toasts).
 	for army: ArmyState in lost:
-		play.hud.toast(
-			"%d regiments went down with a sunken squadron" % army.count()
-		)
-	for _unit: CivilianState in CivilianVoyageMap.drop_lost(
+		if ToastPolicy.of_crown(player, army.owner):
+			play.hud.toast(
+				"%d regiments went down with a sunken squadron" % army.count()
+			)
+	for unit: CivilianState in CivilianVoyageMap.drop_lost(
 		play.civilian_layer, FleetRosters.carried_civilians(play.ship_layer.regions)
 	):
-		play.hud.toast(
-			"A civilian went down with a sunken squadron — lost at sea"
-		)
+		if ToastPolicy.of_crown(player, unit.owner):
+			play.hud.toast(
+				"A civilian went down with a sunken squadron — lost at sea"
+			)
 	if battles.is_empty():
 		return battles
 	for battle: Dictionary in battles:
@@ -60,17 +65,16 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 		)
 		# The human's own engagement reads on the sea's despatch plate, so the
 		# despatch that repeats its outcome is the first line the held-news cap
-		# may drop (REQ-P5-06). A rival's fight stays the court's news alone.
+		# may drop (REQ-P5-06). A rival's fight stays the court's news alone —
+		# the Gazette's or her spy's, never the lane's (wiki: hud-toasts).
 		# Auto fights the crown's sea battles with no plate: AFK play is never
 		# interrupted (wiki: auto-mode § No interruptions).
-		var player: int = play.human_faction_id()
-		var on_plate: bool = play.hud != null and not play.auto_active and (
-			int(battle.get("attacker", -1)) == player or int(battle.get("defender", -1)) == player
-		)
+		var on_plate: bool = play.hud != null and not play.auto_active \
+			and ToastPolicy.battle_touches_crown(player, battle)
 		if on_plate:
 			play.hud.show_naval_dispatch(battle, place)
 			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))
-		else:
+		elif ToastPolicy.battle_touches_crown(player, battle):
 			play.hud.toast(line, BattleReport.icon_of(battle))
 	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)

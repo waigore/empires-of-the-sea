@@ -173,38 +173,31 @@ static func resolve_work(play: PlaySession) -> void:
 		var changed: Array = report.get("changed", [])
 		if not changed.is_empty():
 			play.overlay.sync_visibility(play.visibility, changed)
-		var type_name: String = CivilianCatalog.display_name(String(report["type_id"]))
+		# A survey's find is the receipt of the crown's own paid order — the one
+		# Build/Work line the lane keeps; a rival's survey is its own news, and
+		# its find stays hidden from every other court (wiki: hud-toasts;
+		# fog-and-exploration § Prospecting). Every other finished work — an
+		# estate, a road, a town, a port, a wall — is read where it stands: the
+		# chart paints it, the estate row and the province sheet name its level,
+		# and the Gazette carries the crown's own deliveries. The lane stays
+		# quiet (wiki: hud-toasts § Suppressed).
+		if String(report["action"]) != "prospect":
+			continue
 		var province: int = int(report["province"])
 		var place: String = (
 			play.model.province_name(province) if province >= 0 else "the wilds"
 		)
-		if String(report["action"]) == "prospect":
-			play.hud.toast(_survey_line(play, report, type_name, place))
-			# The province sheet now names the deposit (or its absence).
-			if play.selected_province >= 0 and play.hud.panels.is_panel_open():
-				play.hud.panels.panel.refresh(
-					play.model, play.selected_province,
-					MapPlayImprovements.crown_link(play, play.selected_province)
-				)
-			continue
-		if String(report["action"]) == "build_fort":
-			# A wall is the one work that changes how the province is fought
-			# over, so the despatch names the level it raised, not just the order
-			# — and says so plainly when a second project in the same province
-			# finished after the wall already stood (wiki: siege-mechanics
-			# § Fort Levels, § Emplaced Artillery).
-			play.hud.toast("%s%s in %s: %s" % [
-				_owner_label(play, int(report.get("owner", -1))), type_name, place,
-				FortRules.raise_line(
-					int(report.get("fort_before", 0)),
-					int(report.get("fort_level", 0))
-				),
-			])
-			continue
-		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
-		play.hud.toast("%s%s in %s: %s" % [
-			_owner_label(play, int(report.get("owner", -1))), type_name, place, work_name
-		])
+		if ToastPolicy.of_crown(play.player_faction, int(report.get("owner", -1))):
+			play.hud.toast(_survey_line(
+				play, report,
+				CivilianCatalog.display_name(String(report["type_id"])), place
+			))
+		# The province sheet now names the deposit (or its absence).
+		if play.selected_province >= 0 and play.hud.panels.is_panel_open():
+			play.hud.panels.panel.refresh(
+				play.model, play.selected_province,
+				MapPlayImprovements.crown_link(play, play.selected_province)
+			)
 	if not MapPlayTurn.view_live:
 		return
 	play.civilian_layer.sync()

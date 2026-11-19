@@ -3253,7 +3253,9 @@ func test_a_fallen_crown_leaves_the_roster_and_the_court() -> void:
 	assert_true(changed)
 	assert_eq(_army_count(screen, minor), 0)
 	assert_null(screen.play.diplomacy.relation(minor, 0))
-	assert_eq(screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	# A terminal fall is the Gazette's World page, not the despatch lane
+	# (wiki: hud-toasts; the-gazette § Item catalog — World).
+	assert_eq(screen.hud._toast_box.get_child_count(), toasts_before)
 	# The fall record keeps the knowledge the crown held when the court left
 	# play: the relations are gone by the time the Gazette reads the turn
 	# (wiki: the-gazette § Item catalog — World, "Great Power terminal fall").

@@ -155,11 +155,9 @@ static func sync_first_contact(play: PlaySession) -> Array[int]:
 			))
 		play.diplomacy.touch(play.player_faction, tribe, "firstContact")
 		contacted.append(tribe)
-	if not contacted.is_empty():
-		var names: PackedStringArray = []
-		for tribe: int in contacted:
-			names.append(FactionCatalog.name_of(tribe))
-		play.hud.toast("First contact: %s" % ", ".join(names))
+	# The Gazette's World page narrates the contact; the lane raises no line for
+	# a people the crown's chart simply reached (wiki: hud-toasts; the-gazette
+	# § Item catalog — World).
 	return contacted
 
 

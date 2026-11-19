@@ -4034,7 +4034,10 @@ func test_a_rivals_sea_fight_stays_the_courts_news_alone() -> void:
 
 	assert_eq(battles.size(), 1, "the rivals fight")
 	assert_true(hud.dispatched.is_empty(), "the crown's plate is not raised for them")
-	assert_eq(hud.toasts.size(), 1, "the outcome still reaches the court")
+	assert_true(
+		hud.toasts.is_empty(),
+		"a rival's battle is the Gazette's news, never the lane's"
+	)
 	hud.free()
 	play.ship_layer.free()
 

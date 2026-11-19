@@ -62,13 +62,15 @@ static func chart_sorties(play: PlaySession, reports: Array) -> void:
 
 ## The re-mooring is administrative, so the squadron keeps its passengers. One
 ## squadron carries one army: a surplus army goes ashore at the new seat rather
-## than drowning in the merge (wiki: ships-and-naval § Naval transport).
+## than drowning in the merge (wiki: ships-and-naval § Naval transport). Only the
+## crown's own re-mooring is spoken; a rival's is her own affair (wiki:
+## hud-toasts).
 static func _report_merge(play: PlaySession, report: Dictionary) -> void:
 	var seat: int = int(report.get("to", MapModel.NO_ID))
 	var owner: int = int(report.get("owner", MapModel.NO_ID))
 	var owner_name: String = FactionCatalog.name_of(owner)
 	var place: String = _place(play, report, seat)
-	if play.hud != null:
+	if play.hud != null and ToastPolicy.of_crown(play.human_faction_id(), owner):
 		play.hud.toast("%s's home squadron re-moors at %s" % [owner_name, place])
 	for raw: Variant in report.get("ashore", []):
 		put_ashore(play, int(raw), seat, place)
@@ -87,17 +89,24 @@ static func put_ashore(
 		return
 	if play.hud == null:
 		return
+	var army: ArmyState = landed.get("army", null) as ArmyState
+	if army == null or not ToastPolicy.of_crown(play.human_faction_id(), army.owner):
+		return
 	var where: String = place
 	if where.is_empty():
 		where = _place(play, {}, province_id)
 	play.hud.toast("The troops go ashore at %s" % where)
 
 
-## A re-moored squadron or a squadron that sorted out of a lost port.
+## A re-moored squadron or a squadron that sorted out of a lost port. The crown's
+## own is its loss; a rival's sortie is not the crown's reading (wiki:
+## hud-toasts).
 static func _report_move(play: PlaySession, report: Dictionary) -> void:
 	if play.hud == null:
 		return
 	var owner: int = int(report.get("owner", MapModel.NO_ID))
+	if not ToastPolicy.of_crown(play.human_faction_id(), owner):
+		return
 	var owner_name: String = FactionCatalog.name_of(owner)
 	if report.has("from"):
 		var seat: int = int(report.get("to", MapModel.NO_ID))

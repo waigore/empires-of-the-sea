@@ -1516,6 +1516,15 @@ suites = [
   "test_campaign_rules.gd",
 ]
 
+# What the lane may raise at all (wiki: hud-toasts; issue #1056): the turn
+# clock, the answer to the crown's press, and danger to the crown. One pure
+# reading on two ints, so its own suite keeps a policy edit off the turn-path
+# domains — the suites that hold a line's wording already ride the adapters.
+[domains.toast_policy]
+suites = [
+  "test_toast_policy.gd",
+]
+
 # The crown's charge at the opening of a campaign (wiki: dialogue-management
 # § Kinds, `game_start_intro`): the rules that compose it, the page that prints
 # it and the shell that raises it are one concern, so an intro change runs these
@@ -3064,6 +3073,13 @@ domain = "prospect"
 [[rules]]
 match = "scripts/map/observer_province.gd*"
 domain = "ai_panel"
+
+# What the lane may raise (wiki: hud-toasts; issue #1056): two pure readings on
+# the crown's id, proved by its own suite. Named above the map glob so a policy
+# edit never pays for the chart mounts the turn-path adapters already pull.
+[[rules]]
+match = "scripts/map/toast_policy.gd*"
+domain = "toast_policy"
 
 [[rules]]
 match = "scripts/map/**"

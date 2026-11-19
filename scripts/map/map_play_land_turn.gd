@@ -89,7 +89,10 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 				]
 		if on_plate:
 			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))
-		else:
+		elif ToastPolicy.battle_touches_crown(play.human_faction_id(), battle):
+			# A clash between other courts is the Gazette's World page or the
+			# spy's despatch; the lane carries only danger to the crown (wiki:
+			# hud-toasts).
 			play.hud.toast(line, BattleReport.icon_of(battle))
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true
@@ -129,7 +132,6 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 			and play.diplomacy.has_relation(play.player_faction, faction)
 		)
 		play.last_falls.append(entry)
-		var conqueror: int = int(entry["conqueror"])
 		if play.army_layer != null:
 			# A fall removes the crown's armies: hand them to nobody.
 			play.army_layer.transfer_owner(faction, MapModel.NO_ID)
@@ -139,10 +141,9 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		CivilianStrandingPass.remove_owner(play.civilian_layer, faction)
 		if play.diplomacy != null and not _keeps_record(play, faction):
 			play.diplomacy.clear_relations_of(faction)
-		play.hud.toast(
-			"%s falls to %s — its provinces change hands"
-			% [FactionCatalog.name_of(faction), FactionCatalog.name_of(conqueror)]
-		)
+		# A terminal fall is the Gazette's World page, and the crown's own fall
+		# is the defeat plate: the lane is neither (wiki: hud-toasts; the-gazette
+		# § Item catalog — World).
 		changed = true
 	_record_defeat(play, fallen)
 	var reassigned: Array = losses.get("reassigned", [])
@@ -152,9 +153,12 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		var model: MapModel = play.world.region(region)
 		var province: int = int(entry["province"])
 		var seat: String = model.province_name(province) if model != null else "—"
-		play.hud.toast(
-			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
-		)
+		# The crown's own court moving is danger; a rival's is its own affair,
+		# read on the chart's seat glyphs (wiki: hud-toasts).
+		if ToastPolicy.of_crown(play.human_faction_id(), faction):
+			play.hud.toast(
+				"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
+			)
 		if _recall_home(play, faction, province, region) and play.model != null:
 			play.refresh_map_views()
 		changed = true

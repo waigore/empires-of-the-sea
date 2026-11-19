@@ -1,7 +1,8 @@
 extends SceneTree
-## Headless repro for bogus / duplicated war-declaration toasts on turn close
-## (GitHub #426). Ends several real turns, then compares HUD war lines to the
-## diplomacy chronicle and live At War flags. Not a CI gate:
+## Headless proof for war-declaration toasts on turn close (GitHub #426, #1056).
+## Ends several real turns, then compares HUD war lines to the diplomacy
+## chronicle and live At War flags: the lane speaks a declaration once, and the
+## spy despatch no longer echoes it. Not a CI gate:
 ##   godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 ##   # or: tools/run.sh --script res://playtests/playtest_war_toasts.gd
 
@@ -17,6 +18,8 @@ var _screen: MapScreen = null
 var _dup_turns: int = 0
 var _toast_only_turns: int = 0
 var _war_toast_total: int = 0
+## Turns where the spy's despatch echoed a declaration the lane already spoke.
+var _spy_dupes: int = 0
 
 
 func _initialize() -> void:
@@ -40,8 +43,9 @@ func _run() -> void:
 	_say("--- summary ---")
 	_say("war-related toast lines across drive: %d" % _war_toast_total)
 	_say("turns with duplicate war wording (AI toast + spy/other): %d" % _dup_turns)
+	_say("turns where the spy despatch echoed a declaration: %d" % _spy_dupes)
 	_say("turns with war toast but no new warDeclared that turn: %d" % _toast_only_turns)
-	_finish(0 if _dup_turns > 0 or _toast_only_turns > 0 or _war_toast_total > 0 else 1)
+	_finish(0 if _dup_turns == 0 and _spy_dupes == 0 and _toast_only_turns == 0 else 1)
 
 
 ## Put a crown spy on every rival Great Power that has land, so spy despatches
@@ -76,8 +80,9 @@ func _seat_spies(play: PlaySession) -> void:
 		])
 
 
-## Controlled micro-repro: one real declare_war toast path + spy report from the
-## same ai_trace action, without waiting for the planner.
+## Controlled micro-proof: one real declare_war toast path plus a spy report from
+## the same ai_trace action. The spy despatch is a page for the court panel, so
+## the lane must hold the declaration once, never twice (issue #1056).
 func _forced_double_channel(play: PlaySession) -> void:
 	_say("")
 	_say("--- forced double-channel (AI toast + spy rewrite) ---")
@@ -115,12 +120,16 @@ func _forced_double_channel(play: PlaySession) -> void:
 		str(play.diplomacy.relation(rival, target).at_war),
 	])
 	_say("message from rules: %s" % String(war.get("message", "")))
+	var spy_lines: int = _spy_lines(toasts)
 	for line: String in toasts:
 		_say("  toast: %s" % line)
 	_war_toast_total += toasts.size()
-	if toasts.size() >= 2:
-		_dup_turns += 1
-		_say("EVIDENCE: same declaration surfaced %d times (diplomacy toast + spy report)" % toasts.size())
+	_say("lane lines for the declaration: %d · spy despatch lines: %d" % [
+		toasts.size() - spy_lines, spy_lines,
+	])
+	if spy_lines > 0:
+		_spy_dupes += 1
+		_say("EVIDENCE: the spy despatch echoed a declaration already spoken")
 	# Restore peace so the multi-turn pass starts clean for this pair.
 	if bool(war.get("ok", false)):
 		play.diplomacy.relation(rival, target).at_war = false
@@ -228,6 +237,17 @@ func _war_toasts() -> Array[String]:
 	return out
 
 
+## War lines the spy's despatch raised. The despatch is a page for the court
+## panel now, so any count above zero is the double announcement this drive
+## proves gone (issue #1056).
+func _spy_lines(lines: Array[String]) -> int:
+	var found: int = 0
+	for line: String in lines:
+		if line.begins_with("Spy report"):
+			found += 1
+	return found
+
+
 func _toasts_only_consent(toasts: Array[String]) -> bool:
 	for line: String in toasts:
 		var lower: String = line.to_lower()
@@ -244,8 +264,8 @@ func _toasts_only_consent(toasts: Array[String]) -> bool:
 func _has_duplicate_wording(toasts: Array[String]) -> bool:
 	var seen: Dictionary = {}
 	for line: String in toasts:
-		var key: String = line.to_lower().replace("spy report — ", "")
-		# Collapse "England declares war on France." vs spy-prefixed same claim.
+		var key: String = line.to_lower()
+		# Collapse "England declares war on France." — one wording, one claim.
 		var needle: String = key
 		var idx: int = key.find("declares war")
 		if idx >= 0:
