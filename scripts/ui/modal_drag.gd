@@ -6,8 +6,8 @@ extends RefCounted
 ##
 ## Godot routes a touch press to the GUI as a mouse press (the project keeps the
 ## engine's touch→mouse emulation), so one pointer path serves desktop and
-## mobile. Offsets are absolute from the press point, so a doubled event can
-## never double the move.
+## mobile. The press point is read in a fixed frame, so a doubled event can
+## never double the move and a moving plate can never shrink its own delta.
 ##
 ## Two ways to carry the move:
 ##  - the mover's `position` (a Control's position setter shifts its offsets, so
@@ -107,14 +107,22 @@ func _on_gui_input(event: InputEvent, grab: Control) -> void:
 		if button.button_index != MOUSE_BUTTON_LEFT:
 			return
 		if button.pressed:
-			_begin(button.position)
+			_begin(_pointer(button.position, grab))
 		else:
 			_dragging = false
 		grab.accept_event()
 		return
 	if event is InputEventMouseMotion and _dragging:
-		_move((event as InputEventMouseMotion).position)
+		_move(_pointer((event as InputEventMouseMotion).position, grab))
 		grab.accept_event()
+
+
+## The pointer in a frame the plate does not drag along with it. `gui_input`
+## reports the event in the grab's own frame, and the grab rides the mover, so
+## reading those points raw makes every move shorten its own delta — the plate
+## lags by half and springs back under a fast pointer (issue #1081).
+func _pointer(at: Vector2, grab: Control) -> Vector2:
+	return grab.get_global_transform_with_canvas() * at
 
 
 func _begin(at: Vector2) -> void:

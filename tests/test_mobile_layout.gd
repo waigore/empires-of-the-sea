@@ -607,6 +607,57 @@ func test_opened_dossiers_can_be_pushed_aside() -> void:
 		assert_eq(engine.offset(), Vector2.ZERO, "a reopened dossier starts from the dock")
 
 
+## The plate keeps up with a fast pointer instead of fighting it (issue #1081).
+## `gui_input` hands the pointer in the grab's own frame, and the grab rides the
+## plate, so a drag that reads those points raw shortens its own delta every
+## move: the plate trails by half the travel and springs back. This walks a
+## pointer in equal steps and re-reads its local point against the plate as it
+## now stands — exactly what the engine reports — so a local-frame drag stalls
+## and a fixed-frame one never leaves the pointer.
+func test_a_plate_follows_a_fast_pointer_without_springing_back() -> void:
+	var stage := Control.new()
+	stage.size = Vector2(800.0, 600.0)
+	add_child(stage)
+	var plate := Control.new()
+	plate.position = Vector2(200.0, 150.0)
+	plate.size = Vector2(240.0, 180.0)
+	stage.add_child(plate)
+	var grab := Control.new()
+	grab.size = Vector2(240.0, 32.0)
+	plate.add_child(grab)
+	ModalDrag.attach(stage, plate, [grab] as Array[Control], plate)
+
+	var grip := Vector2(12.0, 12.0)
+	var start: Vector2 = plate.position
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = grip
+	grab.gui_input.emit(press)
+
+	var step := Vector2(37.0, -21.0)
+	var travel := Vector2.ZERO
+	for i: int in 6:
+		travel += step
+		# The engine reports the pointer relative to where the grab stands now.
+		var move := InputEventMouseMotion.new()
+		move.position = grip + travel - (plate.position - start)
+		grab.gui_input.emit(move)
+		assert_true(
+			plate.position.is_equal_approx(start + travel),
+			"step %d: the plate stands under the pointer (%s, wanted %s)"
+			% [i + 1, plate.position, start + travel]
+		)
+
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = grip + travel - (plate.position - start)
+	grab.gui_input.emit(release)
+	stage.queue_free()
+	await get_tree().process_frame
+
+
 ## Every door on the cartouche opens the one full-screen modal: a wash that takes
 ## the pointer, a plate that takes the screen's room, and back closing it cleanly
 ## (issue #692; REQ-P1-05, REQ-P1-07, REQ-P5-07).
