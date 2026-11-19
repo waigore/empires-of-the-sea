@@ -194,3 +194,56 @@ static func reading(
 		"luxury_short": luxury_short,
 		"report": report,
 	}
+
+
+## The crown's larder standing for the turn about to open: the store's food, the
+## slack the next Consumption phase leaves (negative when it comes up short) and
+## the strikers it would leave. A caller that carries the ledger's own projection
+## passes its mouths with `waiting = false`, because that projection already
+## counts the musters and launches under orders — the turn's warning and the
+## WORKERS tab then print one larder for one turn (wiki:
+## workers-and-population § Consumption; REQ-P2-03, REQ-P5-05). Nothing is spent:
+## the figure is the tab's own dry run.
+static func standing(
+	economy: PlayerEconomy, mouths: Dictionary = {}, waiting: bool = true
+) -> Dictionary:
+	var read: Dictionary = forecast(economy, mouths, waiting)
+	var appetites: Dictionary = read["appetites"] as Dictionary
+	var wanted: int = (
+		int(appetites.get("army", 0)) + int(appetites.get("navy", 0))
+		+ int(appetites.get("pool", 0)) + int(appetites.get("wards", 0))
+	)
+	return {
+		"food": int(read["store_food"]),
+		"wanted": wanted,
+		"slack": int(read["store_food"]) - wanted,
+		"strikers": int(read["strikers"]),
+		"striking_tier": int(read["striking_tier"]),
+		"luxury_short": read["luxury_short"],
+	}
+
+
+## The warning a court hears a turn before the larder bites: what runs short and
+## how many hands strike if nothing is done, in the phase's own order — food
+## first, then the tier the shortfall takes from the top down (wiki:
+## workers-and-population § Consumption; REQ-P5-05, REQ-P5-06). Empty when the
+## store covers every mouth, so a calm larder says nothing at all.
+static func warning(standing: Dictionary) -> String:
+	var strikers: int = int(standing.get("strikers", 0))
+	if strikers <= 0:
+		return ""
+	var short: int = int(standing.get("slack", 0))
+	var head: String = "The larder runs short"
+	if short < 0:
+		head += " — %d food" % -short
+	else:
+		var luxuries: Dictionary = standing.get("luxury_short", {}) as Dictionary
+		for id: Variant in luxuries.keys():
+			head += " of %s ×%d" % [CommodityCatalog.label(String(id)), int(luxuries[id])]
+			break
+	var who: String = "%d %s will strike at the next close, %s first" % [
+		strikers,
+		"worker" if strikers == 1 else "workers",
+		WorkerPool.tier_name(maxi(int(standing.get("striking_tier", 0)), 0)).to_lower(),
+	]
+	return "%s — %s." % [head, who]

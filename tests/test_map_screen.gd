@@ -90,6 +90,25 @@ func test_a_political_refresh_repaints_chart_and_lens() -> void:
 	assert_eq(int(_screen.play.diplomacy_lens.survey["tiles"]["self"]), before)
 
 
+## The same redraw runs inside the rival diplomacy pass, which mutes the HUD for
+## its own turn so no rival despatch takes the lane (`MapPlayDiplomacy
+## .resolve_turn`). The chart still repaints — a rival that absorbs a Minor moves
+## provinces — and the HUD chips, which have nowhere to paint, wait for the
+## unmuted turn instead of reaching into a HUD that is not there
+## (wiki: hud-toasts § Off the lane).
+func test_a_political_refresh_under_a_muted_hud_repaints_the_chart() -> void:
+	var play: PlaySession = _screen.play
+	var hud: GameHud = play.hud
+	assert_not_null(hud)
+	play.hud = null
+	_screen.refresh_political_map()
+	var painted: bool = _screen.canvas.model == _screen.model
+	play.hud = hud
+	assert_true(painted, "the chart redraws while the lane is muted")
+	assert_eq(_screen.overlay.model, _screen.model)
+	assert_eq(play.hud, hud, "the mute puts the HUD back")
+
+
 func test_the_new_world_stays_uncharted_at_game_start() -> void:
 	_screen._cycle_region()
 	var model: MapModel = _screen.model
