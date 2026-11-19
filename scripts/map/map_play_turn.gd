@@ -96,9 +96,18 @@ static func answer_intervention(play: PlaySession, kind: String) -> void:
 static func answer_offer(play: PlaySession, accept: bool) -> void:
 	if play.diplomacy == null:
 		return
-	if not DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
+	var offer: Dictionary = DiplomacyProposals.pending_for(
+		play.diplomacy, play.player_faction
+	)
+	if offer.is_empty():
 		return
-	var result: Dictionary = DiplomacyProposals.resolve_human(play.diplomacy, play.world, accept)
+	# The asking court pays for its own overture — a paid rung is priced against
+	# that crown's ledger, never ours (wiki: diplomacy § Overtures — "Only when
+	# the target accepts are cost deducted and overture stage advanced").
+	var proposer: PlayerEconomy = play.ledger_for(int(offer.get("from", -1)))
+	var result: Dictionary = DiplomacyProposals.resolve_human(
+		play.diplomacy, play.world, accept, proposer
+	)
 	if bool(result.get("ok", false)):
 		_book_overture(play, result, accept)
 	_resume(play, result, "No proposal awaits an answer.")

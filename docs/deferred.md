@@ -35,16 +35,16 @@ Default: largest item here, then REQ/wiki.
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face; opening muster; fan/stack | `RaiseBatchPress`; `FleetMuster`; `FleetLanes` |
+| Rival priced overtures | `DiplomacyProposals` queue + the asking court's ledger |
 
 ## Gaps (ranked)
 
-1. **Rival priced overtures to the human** — `DiplomacyProposals.queue` passes
-   treasury `0` and empty tech, so Consulate / Embassy / Join Empire never
-   queue (diary 2026-11-19; NAP free).
+None — the rival priced overtures ship: `DiplomacyProposals.queue` prices the
+offer from the asking court's own purse and studies, and the answer charges it.
 
 ## Next pick
 
-Rival priced overtures (`DiplomacyProposals.queue`).
+REQ/wiki.
 
 ## Blocked
 
