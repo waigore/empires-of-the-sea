@@ -53,4 +53,4 @@ static func _clean(wanted: String) -> String:
 
 
 static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "name": ""}
+	return OrderVerdict.deny(reason, {"name": ""})

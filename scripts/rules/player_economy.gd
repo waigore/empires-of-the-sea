@@ -169,7 +169,7 @@ func recruit_blocked_reason(tier: int) -> String:
 func recruit(tier: int) -> Dictionary:
 	var reason: String = recruit_blocked_reason(tier)
 	if not reason.is_empty():
-		return {"ok": false, "reason": reason}
+		return OrderVerdict.deny(reason)
 	var cost: Dictionary = WorkerPool.recruit_cost(tier)
 	treasury -= int(cost.get("treasury", 0))
 	var materials: Dictionary = cost.get("materials", {})
@@ -178,7 +178,7 @@ func recruit(tier: int) -> Dictionary:
 	if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier]:
 		workers.remove(WorkerPool.Tier.PEASANT)
 	workers.add(tier, 1)
-	return {"ok": true, "reason": ""}
+	return OrderVerdict.allow()
 
 
 ## How many workers of this tier the crown could queue right now: the tightest
