@@ -728,32 +728,17 @@ func test_a_spy_on_the_crowns_own_land_quickens_nothing() -> void:
 	)
 
 
-func test_end_turn_holds_the_province_a_spy_shadows() -> void:
+## One end_turn holds the shadowed province in view and marks the slot the spy
+## quickened: both readings are written by the same pass, so a second turn used
+## to pay another rival plan under coverage (docs/testing.md § Speed rules;
+## REQ-P5-05; DR-20261110-03).
+func test_end_turn_holds_a_spy_shadow_and_marks_the_quickened_slot() -> void:
 	var rival: int = _rival_great_power()
-	assert_true(rival >= 0)
+	assert_true(rival >= 0, "the world has a rival Great Power province")
 	var province: int = _foreign_province_of(rival)
 	var tile: Vector2i = _screen.model.province_tiles(province)[0]
 	_screen.civilian_layer.add_unit(_screen.play.player_faction, "spy", tile)
 	assert_false(_screen.visibility.is_province_fully_visible(province))
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-	assert_true(
-		_screen.visibility.is_province_fully_visible(province),
-		"the shadowed province is held in view"
-	)
-
-
-## The share a spy network wins must be visible where it is spent: the ledger
-## reports "1 study quickened", and the slot it lifted carries the "+15%" marker
-## (REQ-P5-05; DR-20261110-03). The share used to be wiped before the panel
-## repainted, so the marker never appeared at all.
-func test_the_quickened_slot_shows_its_share_after_the_turn() -> void:
-	var rival: int = _rival_great_power()
-	assert_true(rival >= 0, "the world has a rival Great Power province")
-	var province: int = _foreign_province_of(rival)
-	_screen.civilian_layer.add_unit(
-		_screen.play.player_faction, "spy", _screen.model.province_tiles(province)[0]
-	)
 	if _screen.play.ai == null:
 		_screen.play.ai = AiState.new()
 	var tech: String = _first_studyable_tech()
@@ -761,6 +746,10 @@ func test_the_quickened_slot_shows_its_share_after_the_turn() -> void:
 	_screen.play.ai.economy_for(rival).tech_unlocked[tech] = true
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
+	assert_true(
+		_screen.visibility.is_province_fully_visible(province),
+		"the shadowed province is held in view"
+	)
 	assert_eq(
 		SpyNetworks.boost_for(MapPlayEspionage.research_boost(_screen.play), tech),
 		15,
@@ -794,11 +783,13 @@ func test_the_opening_briefing_names_the_campaigns_own_year() -> void:
 ## (a fault before `intro`, a paused tree) left the whole campaign behind a blank
 ## plate with only the pause menu's MENU seal above it — the solid parchment
 ## screen reported as unplayable on Android. The plate has to lift itself.
+## Hosted on the suite, not the chart: these cases never read the map, so they
+## skip `suite_reset` under coverage (docs/testing.md § Speed rules).
 func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
-	var plate := _opening_plate(0.5)
+	var plate := _opening_plate(0.05)
 	plate.process_mode = Node.PROCESS_MODE_DISABLED
 	plate.lift(0.02)
-	await get_tree().create_timer(0.2).timeout
+	await get_tree().create_timer(0.05).timeout
 	assert_false(plate.visible, "a plate whose node cannot process still lifts")
 	plate.queue_free()
 
@@ -806,9 +797,9 @@ func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
 func test_an_opening_that_never_lifts_is_lifted_on_its_deadline() -> void:
 	var plate := _opening_plate(0.05)
 	# Nobody calls lift: this is the screen that faulted before `intro`. The
-	# deadline lifts on the plate's own fade, so wait out the deadline and the
-	# fade rather than a single frame.
-	await get_tree().create_timer(1.2).timeout
+	# deadline lifts on the plate's own short fade (hold + fade, not a real
+	# opening's 0.9 s parchment).
+	await get_tree().create_timer(0.15).timeout
 	assert_false(plate.visible, "the deadline reveals the chart it was hiding")
 	plate.queue_free()
 
@@ -818,14 +809,16 @@ func test_the_map_screen_opens_on_a_lifted_plate() -> void:
 	assert_false(_screen.fade.visible, "the opening frame does not outlive the mount")
 
 
-## One plate on the mounted screen, opaque as the opening leaves it, with its own
-## short deadline so a case never waits out a real opening.
+## One plate on the suite tree, opaque as the opening leaves it, with a short
+## deadline and fade so a case never waits out a real opening or remounts the
+## chart (docs/testing.md § Speed rules).
 func _opening_plate(hold_max: float) -> OpeningPlate:
 	var plate := OpeningPlate.new()
 	plate.hold_max = hold_max
+	plate.fade_seconds = 0.05
 	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	plate.modulate.a = 1.0
-	_screen.add_child(plate)
+	add_child(plate)
 	return plate
 
 
