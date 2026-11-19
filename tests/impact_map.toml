@@ -2080,6 +2080,12 @@ domain = "world"
 match = "tests/test_market_budget.gd*"
 domain = "fold_market"
 
+# The matcher's rank arms folded into the market rules boot (one boot per theme);
+# a diff that still names the old file follows the market suites.
+[[rules]]
+match = "tests/test_market_matcher_rank_rules.gd*"
+domain = "fold_market"
+
 [[rules]]
 match = "tests/test_yarn_plates_rules.gd*"
 domain = "fold_panel"
