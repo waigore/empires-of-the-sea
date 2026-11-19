@@ -12,6 +12,7 @@ extends GdToolsTest
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const fleet_names_NavalFixture = preload("res://tests/naval_fixture.gd")
+const naval_transport_AiFixture = preload("res://tests/ai_fixture.gd")
 const fleet_rosters_NavalFixture = preload("res://tests/naval_fixture.gd")
 const fleet_sortie_NavalFixture = preload("res://tests/naval_fixture.gd")
 const fleet_missions_NavalFixture = preload("res://tests/naval_fixture.gd")
@@ -2323,6 +2324,35 @@ func test_the_deck_is_reconciled_after_the_hulls_are_lost() -> void:
 	var left: Array = layer.regions.value(0, [])
 	assert_true(left.is_empty(), "the emptied standard retires")
 	layer.free()
+
+
+## The turn's close reads every deck on both charts: a squadron afloat on fewer
+## hulls than men drowns the surplus, whichever loss took the hull (wiki:
+## ships-and-naval § Naval transport — "each hull carries one regiment").
+func test_the_turn_close_reads_every_deck() -> void:
+	var world: WorldMap = naval_transport_AiFixture.land_world([0])
+	var layer := ArmyLayer.new()
+	var army := ArmyState.muster(14, 0, 0, false, ["pikemen", "knights", "musketeers"], 1400)
+	var fleet := FleetState.at_sea(9, 0, 0, ["ship_13", "ship_14"])
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	var roster: Array[ArmyState] = [army]
+	layer.regions.set_region(0, roster)
+	var ships := ShipLayer.new()
+	ships.regions.set_region(0, [fleet] as Array[FleetState])
+	var play := PlaySession.new()
+	play.world = world
+	play.player_faction = 0
+	play.army_layer = layer
+	play.ship_layer = ships
+	var rows: Array[Dictionary] = MapPlayNavalTurn.reconcile_decks(play)
+	assert_eq(rows.size(), 1, "two hulls could not hold three regiments")
+	assert_eq(army.count(), 2)
+	assert_eq(fleet.embarked_army, army.id)
+	assert_true(MapPlayNavalTurn.reconcile_decks(play).is_empty(), "a full deck is silent")
+	layer.free()
+	ships.free()
 
 
 ## A marked beachhead opens the hostile coast on the following turn only, and
