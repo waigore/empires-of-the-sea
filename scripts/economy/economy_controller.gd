@@ -204,7 +204,8 @@ func resolve_turn() -> Dictionary:
 	if hud != null:
 		hud.set_treasury(economy.treasury)
 		hud.flash_income(economy.treasury - before)
-		hud.set_income(readings.projected_income())
+		var projection: Dictionary = readings.projected()
+		hud.set_income(int(projection.get("treasury_delta", 0)))
 		hud.set_fleets(readings.fleet_ships())
 		if army_layer != null:
 			hud.set_armies(army_layer.regiment_count_all(player_faction))
@@ -214,6 +215,12 @@ func resolve_turn() -> Dictionary:
 		var trouble: String = LedgerReportText.turn_summary(report, true)
 		if not trouble.is_empty():
 			hud.toast(trouble)
+		# The larder speaks a turn early: a store the next Consumption would
+		# strike is named now, while the crown can still hire, feed or sell
+		# (wiki: workers-and-population § Consumption; REQ-P5-05, REQ-P5-06).
+		var warning: String = larder_warning(report, projection)
+		if not warning.is_empty():
+			hud.toast(warning)
 	refresh_research_panel()
 	treasury_changed.emit(economy.treasury)
 	return report
@@ -234,16 +241,34 @@ func open_research() -> void:
 	hud.panels.show_research(economy.research, economy.treasury, research_boost, leader_key)
 
 
+## The larder's warning for the turn about to open: the slack the next
+## Consumption phase leaves, read through the ledger's own projection so the
+## WORKERS tab and this line can never print two larders for one turn
+## (wiki: workers-and-population § Consumption; REQ-P2-03, REQ-P5-05).
+## `report` is the phase that just closed: when it already struck, the court has
+## heard the news on its own summary line and the forecast stays silent, so the
+## warning arrives one turn before the strike, never on every struck turn.
+func larder_warning(report: Dictionary, projection: Dictionary = {}) -> String:
+	if hud == null or economy == null:
+		return ""
+	var last: Dictionary = report.get("consumption", {}) as Dictionary
+	if int(last.get("strikers", 0)) > 0:
+		return ""
+	var read: Dictionary = projection if not projection.is_empty() else readings.projected()
+	return LarderRead.warning(LarderRead.standing(economy, LarderRead.mouths(read), false))
+
+
 func refresh_panel() -> void:
 	if hud == null:
 		return
+	var projection: Dictionary = readings.projected()
 	if hud.panels.is_economy_open():
 		hud.panels.show_economy(
-			economy, market, readings.projected(), readings.trade_cargo(),
+			economy, market, projection, readings.trade_cargo(),
 			market.minor_offers, player_faction
 		)
 	hud.set_treasury(economy.treasury)
-	hud.set_income(readings.projected_income())
+	hud.set_income(int(projection.get("treasury_delta", 0)))
 	treasury_changed.emit(economy.treasury)
 
 
