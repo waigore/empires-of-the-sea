@@ -1,18 +1,22 @@
 class_name FleetMuster
 extends RefCounted
-## Builds one region's opening squadrons: who owns each fleet, where it starts
-## and which hulls it carries. ShipLayer keeps markers, orders and battles;
-## this pure mustering step stays free of nodes (REQ-P3-03) and small enough to
-## test on its own (REQ-P3-01).
+## Builds one region's opening squadrons: one command per Great Power, moored in
+## its home port at its capital when the power holds a seat on this chart and
+## carrying every hull that power starts with (wiki: ships-and-naval
+## § Home Fleet; issue #1043). ShipLayer keeps markers, orders and battles; this
+## pure mustering step stays free of nodes (REQ-P3-03) and small enough to test
+## on its own (REQ-P3-01).
 
-const PLAYER_FLEETS: int = 3
-## Starting squadrons, cycling by fleet index (wiki: ships-and-naval roster).
-## The player's three squadrons start small so naval food upkeep
-## (2 per ship per turn) fits the opening stockpile.
-const HULL_SETS: Array[Array] = [
-	["carrack"],
-	["sloop"],
-	["fluyte"],
+## One home fleet per Great Power: every opening hull rides in it, so the
+## opening musters no sea-going squadron (issue #1043).
+const PLAYER_FLEETS: int = 1
+## The crown's opening hulls in one home fleet: one warship, one sloop, and the
+## merchant hull whose holds open the first trade (wiki: ships-and-naval
+## § Home Fleet).
+const PLAYER_HULLS: Array[String] = ["carrack", "sloop", "fluyte"]
+## A rival's opening hulls, cycling by power order (wiki: ships-and-naval
+## roster). They ride that rival's one home fleet, never separate squadrons.
+const RIVAL_HULLS: Array[Array] = [
 	["galleon", "carrack", "fluyte"],
 	["sloop", "carrack"],
 	["carrack", "carrack"],
@@ -34,15 +38,47 @@ func build(
 	player: int
 ) -> Array[FleetState]:
 	var fleets: Array[FleetState] = []
-	for index in count:
-		var owner: int = _owner_for_index(index, count, player_present, player)
-		var fleet: FleetState = _make_fleet(model, index, owner, player_capital, player)
-		_assign_hulls(fleet, index)
+	var powers: Array[int] = FactionCatalog.great_power_ids()
+	var rival_index: int = 0
+	for index in mini(count, powers.size()):
+		var owner: int = powers[index]
+		if owner == player and not player_present:
+			continue
+		var capital: int = _capital(model, owner, player_capital, player)
+		# A home fleet needs a seat: a chart where the power holds no capital
+		# musters no squadron for her (issue #1043).
+		if capital == MapModel.NO_ID:
+			continue
+		var fleet: FleetState = _make_fleet(model, index, owner, capital)
+		_assign_hulls(fleet, _hulls_for(owner, player, rival_index))
+		if owner != player:
+			rival_index += 1
 		fleets.append(fleet)
 	# Every Great Power that seats a squadron keeps at least one fighting hull
 	# so a lost warship can be rebuilt from craft already flown (issue #484).
 	_ensure_warship(fleets, model, player_present, player)
 	return fleets
+
+
+## The power's seat on this chart, or [constant MapModel.NO_ID] when it holds
+## none (the New World at game start): a home fleet needs a capital to moor in.
+func _capital(model: MapModel, owner: int, player_capital: int, player: int) -> int:
+	var capital: int = WorldBootstrap.capital_province(model, owner)
+	if owner == player and capital == MapModel.NO_ID:
+		capital = player_capital
+	if capital < 0 or not NavalMovement.has_harbour(model, capital):
+		return MapModel.NO_ID
+	return capital
+
+
+## The opening hull types of one power: the crown's fixed set, rivals cycling
+## their own (issue #1043).
+func _hulls_for(owner: int, player: int, rival_index: int) -> Array[String]:
+	if owner == player:
+		return PLAYER_HULLS.duplicate()
+	var types: Array[String] = []
+	types.assign(RIVAL_HULLS[rival_index % RIVAL_HULLS.size()])
+	return types
 
 
 ## Adds a sloop to the first squadron of any owner that still has only merchants,
@@ -53,12 +89,10 @@ func _ensure_warship(
 	fleets: Array[FleetState], model: MapModel, player_present: bool, player: int
 ) -> void:
 	var has_warship: Dictionary = {}
-	var has_fleet: Dictionary = {}
 	var next_id: int = 0
 	for fleet: FleetState in fleets:
 		if fleet == null:
 			continue
-		has_fleet[fleet.owner] = true
 		next_id = maxi(next_id, fleet.id + 1)
 		if bool(has_warship.get(fleet.owner, false)):
 			continue
@@ -78,7 +112,12 @@ func _ensure_warship(
 			continue
 		if not player_present and power == player:
 			continue
-		var fleet: FleetState = _make_fleet(model, next_id, power, -1, -1)
+		# Only a power with a seat on this chart gets a home fleet; a chart
+		# without one musters none of its squadrons (issue #1043).
+		var seat: int = WorldBootstrap.capital_province(model, power)
+		if seat < 0:
+			continue
+		var fleet: FleetState = _make_fleet(model, next_id, power, seat)
 		next_id += 1
 		fleet.set_hulls([], {})
 		var hull_id: String = "ship_%d" % next_hull
@@ -86,34 +125,13 @@ func _ensure_warship(
 		fleet.add_hull(hull_id, "sloop")
 		fleets.append(fleet)
 		has_warship[power] = true
-		has_fleet[power] = true
 
 
-## Fleets belong to Great Powers only; the player owns squadrons where it holds land.
-static func _owner_for_index(
-	index: int, count: int, player_present: bool, player: int
-) -> int:
-	var powers: Array[int] = FactionCatalog.great_power_ids()
-	var player_count: int = mini(PLAYER_FLEETS, count) if player_present else 0
-	if index < player_count:
-		return player
-	var rivals: Array[int] = []
-	for power: int in powers:
-		if power != player:
-			rivals.append(power)
-	if rivals.is_empty():
-		return player
-	return rivals[(index - player_count) % rivals.size()]
-
-
-func _make_fleet(
-	model: MapModel, id: int, owner: int, player_capital: int, player: int
-) -> FleetState:
-	if owner == player and player_capital >= 0 and id == 2:
-		# The home fleet: moored at the crown's seat, its merchant hulls carry
+func _make_fleet(model: MapModel, id: int, owner: int, capital: int) -> FleetState:
+	if capital >= 0:
+		# The home fleet: moored at the power's seat, its merchant hulls carry
 		# the opening trade cargo (wiki: ships-and-naval § Home Fleet).
-		if NavalMovement.has_harbour(model, player_capital):
-			return FleetState.in_port(id, owner, player_capital)
+		return FleetState.in_port(id, owner, capital)
 	var zones: Array[int] = _coastal_zones(model, owner)
 	if zones.is_empty():
 		for zone: SeaZoneState in model.sea_zones:
@@ -125,8 +143,7 @@ func _make_fleet(
 
 
 ## Gives the fleet a deterministic starting squadron of typed hull instances.
-func _assign_hulls(fleet: FleetState, index: int) -> void:
-	var types: Array = HULL_SETS[index % HULL_SETS.size()]
+func _assign_hulls(fleet: FleetState, types: Array[String]) -> void:
 	var hull_ids: Array[String] = []
 	var hull_types: Dictionary = {}
 	for type_id: String in types:
@@ -148,4 +165,3 @@ func _coastal_zones(model: MapModel, owner: int) -> Array[int]:
 				zones.append(zone)
 	zones.sort()
 	return zones
-

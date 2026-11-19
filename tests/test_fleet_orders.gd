@@ -57,6 +57,11 @@ func _crown_squadrons_in_one_water(count: int) -> Array[FleetState]:
 			squadrons.append(fleet)
 		if squadrons.size() == count:
 			break
+	while squadrons.size() < count:
+		var extra: FleetState = _detach_sea_squadron()
+		if extra == null:
+			break
+		squadrons.append(extra)
 	assert_eq(squadrons.size(), count, "the fixture floats the squadrons this case needs")
 	for fleet: FleetState in squadrons:
 		fleet.sea_zone = squadrons[0].sea_zone
@@ -92,9 +97,12 @@ func test_a_second_tap_cycles_the_stack() -> void:
 		if rivals.size() == 2:
 			break
 	assert_eq(rivals.size(), 2, "the fixture floats two rival squadrons")
-	rivals[0].location = FleetState.Location.AT_SEA
-	rivals[1].location = FleetState.Location.AT_SEA
-	rivals[1].sea_zone = rivals[0].sea_zone
+	var seat: int = rivals[0].province
+	var zone: int = NavalMovement.province_sea_zones(_screen.model, seat)[0]
+	for fleet: FleetState in rivals:
+		fleet.location = FleetState.Location.AT_SEA
+		fleet.province = MapModel.NO_ID
+		fleet.sea_zone = zone
 	_screen.ship_layer.rebuild_markers()
 	for fleet: FleetState in rivals:
 		_screen.ship_layer.ship_for(fleet).visible = true
@@ -211,11 +219,7 @@ func test_docking_at_the_capital_joins_the_home_fleet() -> void:
 	var capital: int = _screen.play.capital_province
 	var home: FleetState = _screen.ship_layer.home_fleet(capital)
 	assert_not_null(home, "the fixture founds a home fleet")
-	var sea: FleetState = null
-	for fleet: FleetState in _screen.ship_layer.fleets:
-		if fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
-			sea = fleet
-			break
+	var sea: FleetState = _sea_squadron()
 	assert_not_null(sea, "a player squadron is at sea")
 	var sea_hulls: Array[String] = sea.hulls.duplicate()
 	var home_before: int = home.ship_count()
@@ -694,16 +698,16 @@ func test_a_re_mooring_lands_the_surplus_army() -> void:
 	assert_not_null(home, "the opening muster moors a home squadron")
 	var seat: int = _owned_coastal_except(_screen.model, capital)
 	assert_gte(seat, 0, "the fixture owns another coast")
-	var moored: FleetState = null
-	for fleet: FleetState in _screen.ship_layer.fleets:
-		if fleet != home and fleet.owner == MapScreen.PLAYER_FACTION:
-			moored = fleet
-			break
+	var moored: FleetState = _sea_squadron()
 	assert_not_null(moored, "the muster has a second player squadron")
+	assert_ne(moored, home, "the sea command is not the home fleet")
 	moored.location = FleetState.Location.IN_PORT
 	moored.province = seat
 	moored.sea_zone = MapModel.NO_ID
 	moored.moved = false
+	# The command already moored at the new seat is the older one there, so it
+	# keeps the home role and the old home fleet folds into her.
+	home.id = FleetRosters.next_id(_screen.ship_layer.fleets)
 	var kept := ArmyState.muster(92, play.player_faction, capital, false, ["pikemen"], 920)
 	var surplus := ArmyState.muster(93, play.player_faction, seat, false, ["pikemen"], 930)
 	play.army_layer.armies.append(kept)
@@ -821,11 +825,50 @@ func _unique_fleet_ids() -> bool:
 
 
 func _player_ship_at_sea() -> Ship:
-	for ship: Ship in _screen.ship_layer.ships:
-		var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
+	var fleet: FleetState = _sea_squadron()
+	if fleet == null:
+		return _screen.ship_layer.ships[0] if not _screen.ship_layer.ships.is_empty() else null
+	return _screen.ship_layer.ship_for(fleet)
+
+
+## A sea-going player squadron, mustered out of the home fleet when the opening
+## muster left every hull at home (issue #1043). Cases that need a second player
+## command call this, so each still gets one without restaging the whole chart.
+func _sea_squadron() -> FleetState:
+	for fleet: FleetState in _screen.ship_layer.fleets:
 		if fleet != null and fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
-			return ship
-	return _screen.ship_layer.ships[0]
+			return fleet
+	var detached: FleetState = _detach_sea_squadron()
+	if detached != null:
+		return detached
+	return _screen.ship_layer.home_fleet(_screen.play.capital_province)
+
+
+## Detaches one of the home squadron's hulls into a sea-going command of her own
+## in the water off the seat, or null when the home fleet has no hull to spare.
+func _detach_sea_squadron() -> FleetState:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	var zones: Array[int] = NavalMovement.province_sea_zones(_screen.model, capital)
+	if home == null or home.ship_count() < 2 or zones.is_empty():
+		return null
+	var hull_id: String = home.hulls[0]
+	var type_id: String = home.type_of(hull_id)
+	var hull_name: String = String(home.hull_names.get(hull_id, ""))
+	home.remove_hull(hull_id)
+	var squadron: FleetState = FleetState.at_sea(
+		FleetRosters.next_id(_screen.ship_layer.fleets),
+		MapScreen.PLAYER_FACTION,
+		zones[0],
+		[hull_id],
+		{hull_id: type_id}
+	)
+	if not hull_name.is_empty():
+		squadron.hull_names[hull_id] = hull_name
+	_screen.ship_layer.fleets.append(squadron)
+	_screen.ship_layer.regions.set_region(_screen.region_index, _screen.ship_layer.fleets)
+	_screen.ship_layer.rebuild_markers()
+	return squadron
 
 
 # --- the beachhead mission ----------------------------------------------------
@@ -1348,6 +1391,9 @@ func test_a_loaded_squadron_cannot_be_broken_up() -> void:
 	play.army_layer.armies.append(army)
 	army.embarked_fleet = fleet.id
 	fleet.embarked_army = army.id
+	# Two regiments aboard need both hulls: give the squadron exactly two so the
+	# break-up would leave nobody to carry them.
+	fleet.set_hulls(["loaded_a", "loaded_b"], {"loaded_a": "carrack", "loaded_b": "carrack"})
 	var hulls: Array[String] = fleet.hulls.duplicate()
 	var toasts: int = _screen.hud._toast_box.get_child_count()
 
@@ -1405,6 +1451,10 @@ func test_launching_queues_the_hull_and_pays_it_in_build_work() -> void:
 	econ.treasury = 60000
 	var treasury: int = econ.treasury
 	var peasants: int = econ.available_peasants()
+	var home_carracks: int = 0
+	var seat_home: FleetState = _screen.ship_layer.home_fleet(capital)
+	if seat_home != null:
+		home_carracks = seat_home.count_of_type("carrack")
 	var hulls: int = _screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION)
 
 	MapPlayFleets.on_action(_screen.play, "yard:build:carrack")
@@ -1418,7 +1468,7 @@ func test_launching_queues_the_hull_and_pays_it_in_build_work() -> void:
 
 	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
 	assert_not_null(fleet, "the launch founds or joins the home fleet")
-	assert_eq(fleet.count_of_type("carrack"), 1)
+	assert_eq(fleet.count_of_type("carrack"), home_carracks + 1)
 	assert_eq(_screen.ship_layer.hull_count_all(MapScreen.PLAYER_FACTION), hulls + 1)
 	assert_eq(econ.treasury, treasury - ShipEconomy.treasury_cost("carrack"))
 	assert_eq(econ.available_peasants(), peasants - 1, "the reservation became the muster")
@@ -1918,7 +1968,7 @@ func test_the_press_lands_the_crew_kind_it_named() -> void:
 	assert_not_null(home, "the fixture founds a home fleet")
 	if home.ship_count() < 2:
 		home.add_hull("ship_two")
-	assert_eq(home.ship_count(), 2, "two hulls carry two crews")
+	assert_gte(home.ship_count(), 2, "two hulls can carry two crews")
 	var builder: CivilianState = null
 	var explorer: CivilianState = null
 	var tile: Vector2i = _screen.model.province_tiles(capital)[0]
@@ -2267,8 +2317,22 @@ func _owned_coastal_except(model: MapModel, skip: int) -> int:
 func _enemy_ship() -> Ship:
 	for ship: Ship in _screen.ship_layer.ships:
 		var fleet: FleetState = _screen.ship_layer.fleet_of(ship)
-		if fleet != null and fleet.owner != MapScreen.PLAYER_FACTION:
+		if fleet != null and fleet.owner != MapScreen.PLAYER_FACTION and fleet.is_at_sea():
 			return ship
+	# The opening muster moors every rival at home (issue #1043): put one
+	# squadron in the water so the watch and order cases have a subject.
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet == null or fleet.owner == MapScreen.PLAYER_FACTION:
+			continue
+		var home: int = fleet.province
+		var zones: Array[int] = NavalMovement.province_sea_zones(_screen.model, home)
+		if zones.is_empty():
+			continue
+		fleet.location = FleetState.Location.AT_SEA
+		fleet.sea_zone = zones[0]
+		fleet.province = MapModel.NO_ID
+		_screen.ship_layer.rebuild_markers()
+		return _screen.ship_layer.ship_for(fleet)
 	return _screen.ship_layer.ships[0]
 
 
@@ -2546,13 +2610,10 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 			break
 	assert_gte(seat, 0, "the rival seats a capital on the chart")
 	var roster: Array[FleetState] = MapPlayCourt.region_fleets(_screen.play, region)
-	var home := FleetState.in_port(
-		FleetRosters.next_id(roster), rival, seat, ["ship_90"], {"ship_90": "fluyte"}
-	)
+	var home: FleetState = _rival_home(roster, rival, seat)
 	var stray := FleetState.in_port(
-		FleetRosters.next_id(roster) + 1, rival, seat, ["ship_91"], {"ship_91": "fluyte"}
+		FleetRosters.next_id(roster), rival, seat, ["ship_91"], {"ship_91": "fluyte"}
 	)
-	roster.append(home)
 	roster.append(stray)
 	_screen.play.ship_layer.regions.set_region(region, roster)
 	assert_eq(_squadrons_at(roster, rival, seat), 2)
@@ -2720,11 +2781,9 @@ func test_settle_seats_lands_a_displaced_army() -> void:
 			break
 	assert_gte(seat, 0, "the rival seats a capital on the chart")
 	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
-	var home := FleetState.in_port(
-		FleetRosters.next_id(roster), rival, seat, ["ship_92"], {"ship_92": "fluyte"}
-	)
+	var home: FleetState = _rival_home(roster, rival, seat)
 	var stray := FleetState.in_port(
-		FleetRosters.next_id(roster) + 1, rival, seat, ["ship_93"], {"ship_93": "fluyte"}
+		FleetRosters.next_id(roster), rival, seat, ["ship_93"], {"ship_93": "fluyte"}
 	)
 	var kept := ArmyState.muster(190, rival, seat, false, ["pikemen"], 1900)
 	var surplus := ArmyState.muster(191, rival, seat, false, ["pikemen"], 1910)
@@ -2810,14 +2869,26 @@ func _stray_at_the_seat() -> FleetState:
 ## A sea-going player squadron moved into the sea zone off the capital.
 func _moored_squadron_at_the_seat() -> FleetState:
 	var capital: int = _screen.play.capital_province
-	var fleet: FleetState = Fixture.fleet_at_sea(
-		_screen.ship_layer.fleets, MapScreen.PLAYER_FACTION
-	)
+	var fleet: FleetState = _sea_squadron()
 	assert_not_null(fleet, "the fixture sails a player squadron")
+	assert_ne(fleet, _screen.ship_layer.home_fleet(capital), "a sea command, not home")
 	fleet.sea_zone = NavalMovement.province_sea_zones(_screen.model, capital)[0]
 	fleet.province = MapModel.NO_ID
 	fleet.location = FleetState.Location.AT_SEA
 	return fleet
+
+
+## The rival's own home fleet at its seat: the opening muster already moors one
+## (issue #1043), so the merge cases join it rather than founding a second.
+func _rival_home(roster: Array[FleetState], rival: int, seat: int) -> FleetState:
+	for fleet: FleetState in roster:
+		if fleet != null and fleet.owner == rival and fleet.is_in_port() and fleet.province == seat:
+			return fleet
+	var made: FleetState = FleetState.in_port(
+		FleetRosters.next_id(roster), rival, seat, ["ship_90"], {"ship_90": "fluyte"}
+	)
+	roster.append(made)
+	return made
 
 
 func _last_toast() -> String:
@@ -3238,3 +3309,31 @@ func _combine_press(block: FleetCombineBlock, fleet_id: int) -> Button:
 			if int(press.get_meta("combine_id", -1)) == fleet_id:
 				return press
 	return null
+
+
+# --- the opening muster and shared-water markers (issue #1043) ---------------
+
+
+## Every Great Power opens with one command, moored in port at its own capital,
+## carrying all of its opening hulls: no opening squadron starts at sea.
+func test_the_opening_muster_moors_one_home_fleet_per_power() -> void:
+	var by_owner: Dictionary = {}
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		assert_false(by_owner.has(fleet.owner), "one squadron per Great Power")
+		by_owner[fleet.owner] = fleet
+	assert_eq(by_owner.size(), FactionCatalog.great_power_ids().size())
+	for power: int in FactionCatalog.great_power_ids():
+		var fleet: FleetState = by_owner[power]
+		assert_true(fleet.is_in_port(), "every opening squadron moors at home")
+		assert_eq(
+			fleet.province,
+			WorldBootstrap.capital_province(_screen.model, power),
+			"each home fleet holds its own capital"
+		)
+	var home: FleetState = _screen.ship_layer.home_fleet(_screen.play.capital_province)
+	assert_not_null(home, "the crown's home fleet holds the seat")
+	if home != null:
+		assert_eq(
+			home.ship_count(), FleetMuster.PLAYER_HULLS.size(),
+			"every crown hull rides the one home fleet"
+		)

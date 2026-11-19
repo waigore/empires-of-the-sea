@@ -72,10 +72,14 @@ static func line_ids(side: Array[ArmyState], limit: int) -> Dictionary:
 	return lanes
 
 
-## At least one regiment can shoot at the wall (firearms or artillery).
-static func can_reach_wall(side: Array[ArmyState]) -> bool:
-	for type_id: String in ArmyForce.side_types(side):
-		if RegimentCatalog.stat(type_id, "rng") >= FIREARM_RNG:
+## At least one regiment of the line can shoot at the wall (firearms or
+## artillery). `line` names the men the battle dealt when it opened: a musket
+## held in reserve never took the field, so it opens no wall (wiki: combat
+## § The line and the reserve — "a reserve adds no strength"). Empty keeps the
+## older read for a caller with no line.
+static func can_reach_wall(side: Array[ArmyState], line: Array[String] = []) -> bool:
+	for entry: Dictionary in _deployed(side, line):
+		if RegimentCatalog.stat(String(entry["type"]), "rng") >= FIREARM_RNG:
 			return true
 	return false
 
@@ -93,16 +97,21 @@ static func can_reach_behind(side: Array[ArmyState], line: Array[String] = []) -
 
 ## Share of a garrison that can shoot over or at a parapet. Melee-only
 ## regiments cannot; they must sortie to engage (wiki: siege-mechanics
-## § Quick Battle lanes).
-static func return_fire_share(side: Array[ArmyState]) -> float:
-	var types: Array[String] = ArmyForce.side_types(side)
-	if types.is_empty():
+## § Quick Battle lanes). `line` names the men the battle dealt when it opened:
+## the share is read over the garrison's own line, so a musket held in reserve
+## neither shoots from the wall nor thins the fire of the men who stand on it
+## (wiki: combat § The line and the reserve — "a reserve adds no strength";
+## quick-battle § Battlefield layout — "the reserve is dealt nowhere"). Empty
+## keeps the older read for a caller with no line.
+static func return_fire_share(side: Array[ArmyState], line: Array[String] = []) -> float:
+	var deployed: Array[Dictionary] = _deployed(side, line)
+	if deployed.is_empty():
 		return 0.0
 	var firing: int = 0
-	for type_id: String in types:
-		if RegimentCatalog.stat(type_id, "rng") >= FIREARM_RNG:
+	for entry: Dictionary in deployed:
+		if RegimentCatalog.stat(String(entry["type"]), "rng") >= FIREARM_RNG:
 			firing += 1
-	return float(firing) / float(types.size())
+	return float(firing) / float(deployed.size())
 
 
 ## The weight of a blow that can reach a wall: the deployed regiments that carry
@@ -258,7 +267,7 @@ static func strike(
 	if wanted <= 0 or defending.is_empty():
 		return result
 	# Melee-only besiegers cannot attack a wall or anything inside it.
-	if not can_reach_wall(attacking):
+	if not can_reach_wall(attacking, attacker_line):
 		result["turned"] = wanted
 		return result
 	var blow: int = wanted

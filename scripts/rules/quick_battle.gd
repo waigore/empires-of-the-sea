@@ -60,7 +60,10 @@ static func resolve_exchange(
 		"gates": gates,
 	}
 	state["attacker"]["plan"] = plan_for(atk_side, attacker, context, false)
-	state["defender"]["plan"] = plan_for(def_side, defender, context, true, fort_level > 0)
+	state["defender"]["plan"] = plan_for(
+		def_side, defender, context, true, fort_level > 0,
+		QuickBattleActions.line_of(state["defender"])
+	)
 	## The line's wings, dealt when the battle opens: the horse holds the flanks
 	## and the foot and guns the centre. A garrison behind a wall holds no wings
 	## — its lanes are the parapet and what waits behind it (wiki: quick-battle
@@ -148,9 +151,9 @@ static func resolve_exchange(
 ## The plan one side is handed when the battle opens (see [QuickBattleTerms]).
 static func plan_for(
 	side: Array[ArmyState], owner: int, context: Dictionary, is_defender: bool,
-	siege: bool = false
+	siege: bool = false, line: Array[String] = []
 ) -> String:
-	return QuickBattleTerms.plan_for(side, owner, context, is_defender, siege)
+	return QuickBattleTerms.plan_for(side, owner, context, is_defender, siege, line)
 
 
 static func actions_for(
