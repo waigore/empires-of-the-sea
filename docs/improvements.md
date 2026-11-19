@@ -16,7 +16,7 @@ level-4 Great Power towns, four grain farms.
 
 - **Named improvements**: Timber → Lumber camp, minerals →
   Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch, crops → Plantation,
-  Furs → Fur post. Each works has its own pictogram (DR-20261119-06).
+  Furs → Fur post, each with its own pictogram (DR-20261119-06).
 - **Levels 1–4.** A Builder raises one level for 1/4/8/16 lumber + cast iron
   over target-level turns; minerals need Prospect first (DR-20261111-26),
   above-cap orders refused.
@@ -37,6 +37,8 @@ level-4 Great Power towns, four grain farms.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, transport, town cap)`; only
   connected, prospected estates yield; purchased enclaves pay their buyer.
+  Grain and meat pay double per level; the cap line reads the per-level yield
+  (DR-20261116-10).
 - **Lenses.** Survey (lens seal): a column per resource, emblem and
   `built/linked/held` badge, the Explorer's mark, prospectable tiles; roads
   solid when linked, dashed cut (#698). Crown road (`R`): gold / amber /
@@ -44,9 +46,8 @@ level-4 Great Power towns, four grain farms.
 - **Estates ledger**: totals, filters, blockers, Build / Cancel / Map, caps,
   a free Builder; cut estates name the gap.
 - **One press** (DR-20261116-06): `Raise all ready (n)` files every `READY`
-  estate the view prints, in order; the walk stops at the first refusal and
-  leaves one receipt, and the line under it prices the walk and its wait
-  (DR-20261118-12). The `Ready` chip is that view.
+  estate the view prints, in order, stopping at the first refusal with one
+  receipt; the line under it prices the walk and its wait (DR-20261118-12).
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
   a cut-off estate carries **Build road**.
 

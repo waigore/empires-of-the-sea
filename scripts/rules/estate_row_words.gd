@@ -19,10 +19,18 @@ const UNPROSPECTED: String = "unprospected"
 ## nothing — a Builder at work, a raise still gated, a sealed harbour. Every
 ## figure is the phase's own, so the row never promises a yield the harvest
 ## refuses (REQ-P2-03).
+##
+## `level_yield` is the estate's **per-level** yield, before a Great Power ration
+## estate's doubling; `output` prints the doubled figure the phase pays. The cap
+## note reads the per-level figure, because the multiplier would otherwise name
+## the wrong cap or hide it: a level-3 grain estate on a primitive road pays 2
+## while the road holds each level at 1, and a town-capped one would print no cap
+## at all (wiki: extraction-and-improvements § Ration estates, § Extraction
+## formula and town development cap; DR-20261116-10).
 static func status_text(
 	status: String, resource: int, level: int, output: int, tech_cap: int,
 	terrain_cap: int, transport: int, town_cap: int, working: CivilianState,
-	is_connected: bool, blockaded: bool = false
+	is_connected: bool, blockaded: bool = false, level_yield: int = -1
 ) -> String:
 	match status:
 		"building":
@@ -48,12 +56,13 @@ static func status_text(
 		"maxed":
 			return "Fully improved · %s" % ImprovementCatalog.output_text(resource, output)
 	var text: String = "Yields %s" % ImprovementCatalog.output_text(resource, output)
-	if level > output and output > 0:
-		if output == transport:
+	var per_level: int = level_yield if level_yield >= 0 else output
+	if level > per_level and per_level > 0:
+		if per_level == transport:
 			text += " · transport cap %d" % transport
 		elif terrain_cap < tech_cap:
 			text += " · terrain cap %d" % terrain_cap
-		elif output == tech_cap:
+		elif per_level == tech_cap:
 			text += " · tech cap %d" % tech_cap
 		else:
 			text += " · town cap %d" % town_cap
