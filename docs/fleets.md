@@ -31,7 +31,8 @@ Fog, cargo, battles, raids:
 - **Markers:** escorts, hull badge, strength on the selected fleet; a rival `*`
   until watched (DR-20261113-20).
 - **One station:** the crown's ≤3 fan out; the rest and every rival stack, a
-  tap cycles them; the words count the hulls drawn (DR-20261119-08).
+  tap cycles them; words count hulls; a merge re-reads
+  (DR-20261119-08/17).
 - **Opening muster:** every Great Power's hulls ride one home fleet at its
   capital (#1043).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn

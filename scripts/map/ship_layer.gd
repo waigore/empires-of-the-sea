@@ -86,6 +86,22 @@ func relayout() -> void:
 	markers.layout(fleets, player_faction)
 
 
+## Re-reads the chart after the roster changed with no marker of its own: a
+## squadron folded into her home fleet leaves the station, and the squadron she
+## joined flies the hulls she brought (wiki: ships-and-naval § Home Fleet,
+## § Fleets in one station; DR-20261119-17). The region on screen answers from
+## the fleet table, so a pass that folded into its own copy is still read here:
+## a marker whose command has left is dropped rather than left to draw, and the
+## row closes up behind her.
+func roster_changed() -> void:
+	if model == null:
+		return
+	fleets.assign(regions.value(model.region_id, []))
+	markers.prune(fleets)
+	markers.sync(fleets)
+	relayout()
+
+
 func set_zoom(value: float) -> void:
 	markers.set_zoom(value)
 
