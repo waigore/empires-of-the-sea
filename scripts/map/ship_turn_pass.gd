@@ -63,6 +63,10 @@ static func resolve_battles(
 			continue
 		for marker: Ship in layer.markers.retreat(battle, layer.fleets):
 			layer.zone_entered.emit(marker.zone, marker)
+	# The station's row is re-laid after the fight: a sunk squadron leaves a gap
+	# and a beaten one takes her haven's step (wiki: ships-and-naval
+	# § Fleets in one station).
+	layer.relayout()
 	return battles
 
 

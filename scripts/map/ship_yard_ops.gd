@@ -45,6 +45,10 @@ static func launch_hull(
 		layer.fleets.append(fleet)
 		layer.regions.set_region(layer.model.region_id, layer.fleets)
 		layer.attach_marker(fleet)
+		# The station takes a squadron more: the row and the stack are re-laid so
+		# the newcomer never draws over a marker already there
+		# (wiki: ships-and-naval § Fleets in one station).
+		layer.relayout()
 	layer.markers.hulls(fleet)
 	result["created"] = founded
 	result["fleet"] = fleet
@@ -71,6 +75,9 @@ static func scrap_hull(
 	layer.markers.remove(layer.ship_for(fleet))
 	layer.fleets.erase(fleet)
 	layer.regions.set_region(layer.model.region_id, layer.fleets)
+	# A squadron leaves the station: the row closes up behind her
+	# (wiki: ships-and-naval § Fleets in one station).
+	layer.relayout()
 	return result
 
 
