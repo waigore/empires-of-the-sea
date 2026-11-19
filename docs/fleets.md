@@ -19,19 +19,19 @@ Fog, cargo, battles, raids:
   returns a peasant (DR-20261109-01); each row names her line (DR-20261117-15);
   a flown hull launches without her tech (#484).
 - **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
-  one **trade** hold, never a crossing (DR-20261109-03, #484).
+  one **trade** hold (DR-20261109-03, #484).
 - **Home merge:** seat dock or dossier **Join the home fleet**; ids, names,
   passengers keep.
 - **Home sortie** (DR-20261109-17): the home squadron may sail (spends
-  move/holds); colonists ride one per hull.
+  move/holds); one colonist per hull.
 - **Split / combine** (DR-20261116-12/13): the dossier detaches one hull, or
   folds it into another of yours in the same station.
 - Contested zones fight at the close: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
 - **Markers:** escorts, hull badge, strength on the selected fleet; a rival `*`
   until watched (DR-20261113-20).
-- **One station:** the crown's ≤3 fan out; the rest and every rival stack, and
-  a tap cycles them (DR-20261119-08).
+- **One station:** the crown's ≤3 fan out; the rest and every rival stack, a
+  tap cycles them; the words count the hulls drawn (DR-20261119-08).
 - **Opening muster:** every Great Power's hulls ride one home fleet at its
   capital (#1043).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
@@ -41,7 +41,7 @@ Fog, cargo, battles, raids:
 - **Beachhead:** mark a hostile coast (spends the move); lands next; markers lapse.
 
 **Navy** (`N`, DR-20261115-14): the muster door lists each hull;
-**Visit** frames her.
+**Visit** frames.
 
 (`H`, DR-20261115-17): zones the crown's sail sees.
 
