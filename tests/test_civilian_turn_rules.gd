@@ -3774,6 +3774,57 @@ func test_build_orders_pick_the_nearest_builder() -> void:
 	assert_eq(int(_stock["lumber"]), 39)
 
 
+## The works orders share one roster read: the same idle scan and the same
+## nearest hand, whatever the trade (REQ-P3-01, REQ-P3-02).
+func test_the_works_orders_share_one_crew_roster() -> void:
+	var builder := field_Fixture.unit("builder", Vector2i(0, 1))
+	builder.id = 5
+	var other := field_Fixture.unit("builder", Vector2i(0, 0))
+	other.id = 7
+	var engineer := field_Fixture.unit("engineer", Vector2i(2, 1))
+	engineer.id = 6
+	var rival := field_Fixture.unit("builder", Vector2i(1, 1), 9)
+	rival.id = 1
+	var working := field_Fixture.unit("builder", Vector2i(1, 2))
+	working.id = 2
+	working.start_work("build_improvement", Vector2i(1, 2), 2)
+	var units: Array[CivilianState] = [builder, other, engineer, rival, working]
+
+	assert_eq(
+		CivilianWork.idle_crews(units, 0, "builder").size(), 2,
+		"only the crown's own idle builders answer"
+	)
+	assert_eq(
+		CivilianWork.idle_crews(units, 0, "").size(), 3,
+		"an empty trade asks for every free hand"
+	)
+	assert_eq(
+		CivilianWork.nearest_crew(units, 0, Vector2i(1, 2), "builder"), builder,
+		"the working crew is not idle, so the nearest free builder is sent"
+	)
+	assert_null(
+		CivilianWork.nearest_crew(units, 1, Vector2i(1, 2), "builder"),
+		"another crown's crews are not ours to send"
+	)
+	assert_eq(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "builder"), working,
+		"a crew already at the tile answers"
+	)
+	assert_eq(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "builder", "build_improvement"),
+		working,
+		"a narrowed action still finds its crew"
+	)
+	assert_null(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "builder", "build_road"),
+		"a crew on another order is not at this work"
+	)
+	assert_null(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "engineer"),
+		"the tile waits for a different trade"
+	)
+
+
 func test_build_orders_report_when_no_builder_is_free() -> void:
 	var result: Dictionary = ImprovementOrders.build(
 		field__model, _units, field__works, _stock, null, 0, field_Fixture.TIMBER_TILE

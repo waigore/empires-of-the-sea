@@ -1,8 +1,9 @@
 class_name MapPlayFleetMissions
 extends RefCounted
 ## Fleet dossier station orders and the end-of-turn raid report. Rules stay in
-## FleetMissions/NavalRaid; this only builds rows, routes intents and refreshes
-## the dossier (wiki: ships-and-naval § Missions and Movement; DR-20261109-16).
+## FleetMissions/NavalRaid; the two station prices in MapPlayStationNotes; this
+## only builds rows, routes intents and refreshes the dossier (wiki:
+## ships-and-naval § Missions and Movement; DR-20261109-16).
 
 
 ## One button per station (Patrol, Defend, a Blockade target) plus the
@@ -67,185 +68,26 @@ static func hint(play: PlaySession, fleet: FleetState) -> String:
 	return MapPlayBeachhead.hint(play, fleet)
 
 
-## What a standing station is worth this turn: the chance its raid rolls, the
-## cargo it would skim and the merchant hull it could send down — read before the
-## player commits the move (DR-20261111-17, DR-20261120-01). **A patrol raids as
-## a blockade does**, at the patrol factor, and the pass rolls the squadron with
-## every other station the crown holds in that water: the price is the group's,
-## against a coast the crown is at war with, so the sheet promises no roll the
-## rules would not make (wiki: ships-and-naval § Trade and Transport
-## Interception; REQ-P2-03).
+## What a standing station takes this turn — see [MapPlayStationNotes.prize].
 static func prize_note(play: PlaySession, fleet: FleetState) -> String:
-	if fleet == null or fleet.owner != play.player_faction:
-		return ""
-	if play.model == null or not fleet.is_at_sea():
-		return ""
-	if play.economy == null or play.economy.market == null:
-		return ""
-	var hostile: Callable = MapPlayRaids.hostile(play)
-	if not NavalRaid.raids(play.model, fleet, hostile):
-		return ""
-	var group: Array = NavalRaid.station_group(
-		play.model, _roster(play), fleet.sea_zone, fleet.owner, hostile
-	)
-	if group.is_empty():
-		group = [fleet]
-	var mission: int = FleetMissions.station_mission(play.model, group, hostile)
-	var best: Dictionary = {}
-	var coasts: Array[int] = _prize_coasts(play, fleet, hostile)
-	var afloat: bool = false
-	for province_id: int in coasts:
-		var owner: int = play.model.province_owner(province_id)
-		var imports: Dictionary = play.economy.market.imports_for(owner)
-		if imports.is_empty():
-			continue
-		afloat = true
-		var home: FleetState = MapPlayRaids.home_fleet(play, owner)
-		if home == null:
-			continue
-		var odds: Dictionary = NavalRaid.preview(
-			group, home, imports, mission, play.has_tech
-		)
-		if best.is_empty() or float(odds.get("chance", 0.0)) > float(best.get("chance", 0.0)):
-			best = odds
-			best["coast"] = play.model.province_name(province_id)
-	if not afloat:
-		return _no_prize_words(fleet)
-	if best.is_empty():
-		return _no_prize_words(fleet, true)
-	var chance: int = int(round(float(best.get("chance", 0.0)) * 100.0))
-	var take: String = "Prize: %d%% to take ~%d cargo" % [chance, int(best.get("expected", 0))]
-	# A patrol's station note names no coast, so its price names the one it works;
-	# a blockade's note already reads "Blockading Coro".
-	if fleet.mission == FleetState.Mission.PATROL:
-		take += " off %s" % String(best.get("coast", "the coast"))
-	var at_risk: String = String(best.get("hull_at_risk", ""))
-	if at_risk.is_empty():
-		return take + " — no merchant hull at risk."
-	var hull_chance: int = int(round(float(best.get("hull_chance", 0.0)) * 100.0))
-	return "%s; a hit sinks %s on %d%%." % [
-		take, with_article(ShipStats.display_name(at_risk)), hull_chance
-	]
+	return MapPlayStationNotes.prize(play, fleet)
 
 
-## One hull's name with its indefinite article: `an Indiaman`, `a Galleon`. The
-## catalogue's only vowel-initial hull is the Indiaman, but the reading is the
-## word's own so a later hull cannot inherit the wrong one.
-static func with_article(name: String) -> String:
-	var first: String = name.substr(0, 1).to_lower()
-	var vowel: bool = (
-		first == "a" or first == "e" or first == "i" or first == "o" or first == "u"
-	)
-	return "%s %s" % ["an" if vowel else "a", name]
-
-
-## What the station catches: the chance a patrol, or a blockade that still
-## stands, intercepts a hostile squadron that is still in this water when the
-## turn closes — the published formula read through the rules' own
-## `NavalInterception.chance`, over the squadrons that hold the station (the same
-## list the combat pass rolls). A rival the crown has not read is left out and
-## named, so the sheet never promises a number the fog withholds, and a water
-## with nothing to catch prints no line (wiki: ships-and-naval § Naval
-## Interception Probability, § Sighted strength; REQ-P2-03, REQ-P5-03).
+## What the station catches this turn — see [MapPlayStationNotes.catch].
 static func interception_note(play: PlaySession, fleet: FleetState) -> String:
-	if fleet == null or fleet.owner != play.player_faction:
-		return ""
-	if play.model == null or not fleet.is_at_sea():
-		return ""
-	var hostile: Callable = MapPlayRaids.hostile(play)
-	if not NavalRaid.raids(play.model, fleet, hostile):
-		return ""
-	var roster: Array = _roster(play)
-	var group: Array = NavalRaid.station_group(
-		play.model, roster, fleet.sea_zone, fleet.owner, hostile
-	)
-	if group.is_empty():
-		group = [fleet]
-	var mission: int = FleetMissions.station_mission(play.model, group, hostile)
-	var holders: Array = NavalInterception.station_holders(play.model, group, hostile)
-	if holders.is_empty():
-		holders = group
-	var targets: Array = []
-	var unread: bool = false
-	for other: FleetState in roster:
-		if other == null or other.owner == fleet.owner:
-			continue
-		if not other.is_at_sea() or other.sea_zone != fleet.sea_zone:
-			continue
-		if not other.is_afloat():
-			continue
-		if not Hostility.between(hostile, fleet.owner, other.owner):
-			continue
-		if not MapPlayFleetIntel.strength_read(play, other):
-			unread = true
-			continue
-		targets.append(other)
-	var read: Dictionary = NavalInterception.preview(
-		holders, targets, mission, play.has_tech, unread
-	)
-	if read.is_empty():
-		return ""
-	if bool(read.get("unread", false)):
-		return "Interception: the odds wait on a squadron the fog has not read."
-	var hulls: int = int(read.get("hulls", 0))
-	if hulls <= 0:
-		return ""
-	var chance: int = int(round(float(read.get("chance", 0.0)) * 100.0))
-	return "Interception: %d%% to catch %d hull%s if they stay." % [
-		chance, hulls, "" if hulls == 1 else "s",
-	]
+	return MapPlayStationNotes.catch(play, fleet)
 
 
-## The empty reading: a coast with no cargo afloat this turn, or a coast whose
-## merchant hulls are at sea. A patrol works the whole water, so it says so.
-static func _no_prize_words(fleet: FleetState, hulls_away: bool = false) -> String:
-	if fleet.mission != FleetState.Mission.PATROL:
-		if hulls_away:
-			return "Prize: the coast's merchant hulls are at sea — nothing to take."
-		return "Prize: no cargo afloat off this coast this turn."
-	if hulls_away:
-		return "Prize: the merchant hulls off these coasts are at sea — nothing to take."
-	return "Prize: no cargo afloat off these coasts this turn."
+## One hull's name with its indefinite article — see
+## [MapPlayStationNotes.with_article].
+static func with_article(name: String) -> String:
+	return MapPlayStationNotes.with_article(name)
 
 
-## The at-war coasts this station's water reaches: the blockaded coast first, so
-## a blockade reads its own shore as it always did, then the rest by province id.
-static func _prize_coasts(
-	play: PlaySession, fleet: FleetState, hostile: Callable
-) -> Array[int]:
-	var coasts: Array[int] = []
-	if fleet.mission == FleetState.Mission.BLOCKADE and fleet.blockade_province >= 0:
-		coasts.append(fleet.blockade_province)
-	var found: Array[int] = []
-	for province_id: int in NavalMovement.provinces_by_zone(play.model, fleet.sea_zone):
-		if coasts.has(province_id):
-			continue
-		var owner: int = play.model.province_owner(province_id)
-		if owner < 0 or owner == fleet.owner:
-			continue
-		if not Hostility.between(hostile, fleet.owner, owner):
-			continue
-		found.append(province_id)
-	found.sort()
-	coasts.append_array(found)
-	return coasts
-
-
-## The chart's roster, which is the group the pass reads: the dossier is open on
-## a region and every station the crown holds in the water stands on that chart.
-static func _roster(play: PlaySession) -> Array:
-	if play.ship_layer == null:
-		return []
-	return play.ship_layer.fleets
-
-
-## The Privateering Companies bonus, phrased for the dossier (wiki:
-## ships-and-naval § Trade and Transport Interception).
+## The Privateering Companies bonus, phrased for the dossier — see
+## [MapPlayStationNotes.privateers].
 static func privateer_note(play: PlaySession) -> String:
-	if not play.has_tech(play.player_faction, NavalInterception.PRIVATEERING_TECH):
-		return ""
-	var percent: int = int(round((NavalInterception.PRIVATEERING_BONUS - 1.0) * 100.0))
-	return "Privateers: interception and raids +%d%%." % percent
+	return MapPlayStationNotes.privateers(play)
 
 
 ## Routes a "mission:<kind>[:<province>]" order through the rules and refreshes
