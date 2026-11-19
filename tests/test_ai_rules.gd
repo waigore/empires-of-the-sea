@@ -3481,27 +3481,27 @@ func test_a_commodity_shortfall_raises_the_tech_that_caps_it() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var config: AiConfig = _research_config()
 	economy.stockpile["timber"] = 0
-	var saw: int = AiResearchPlanner.score_for(config, economy, "saw_mill", false)
-	var crop: int = AiResearchPlanner.score_for(config, economy, "crop_rotation", false)
+	var saw: int = AiResearchScores.score_for(config, economy, "saw_mill", false)
+	var crop: int = AiResearchScores.score_for(config, economy, "crop_rotation", false)
 	assert_true(saw > crop, "timber cap beats a tech with no cap")
 
 
 func test_war_adds_the_registry_bonus_to_military_and_naval_tech() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var config: AiConfig = _research_config()
-	var peace: int = AiResearchPlanner.score_for(
+	var peace: int = AiResearchScores.score_for(
 		config, economy, "organised_regiments", false
 	)
-	var war: int = AiResearchPlanner.score_for(
+	var war: int = AiResearchScores.score_for(
 		config, economy, "organised_regiments", true
 	)
 	assert_eq(war - peace, config.parameter("research.war_bonus"))
-	var gathering: int = AiResearchPlanner.score_for(
+	var gathering: int = AiResearchScores.score_for(
 		config, economy, "crop_rotation", true
 	)
 	assert_eq(
 		gathering,
-		AiResearchPlanner.score_for(config, economy, "crop_rotation", false),
+		AiResearchScores.score_for(config, economy, "crop_rotation", false),
 		"war never speeds the counting house"
 	)
 
@@ -3577,22 +3577,52 @@ func test_research_personality_weights_steer_the_branch() -> void:
 	var soldier: AiConfig = _research_config({"military": 3, "economy": 1})
 	var trader: AiConfig = _research_config({"military": 1, "economy": 3})
 	assert_true(
-		AiResearchPlanner.score_for(soldier, economy, "organised_regiments", false)
-		> AiResearchPlanner.score_for(soldier, economy, "crop_rotation", false)
+		AiResearchScores.score_for(soldier, economy, "organised_regiments", false)
+		> AiResearchScores.score_for(soldier, economy, "crop_rotation", false)
 	)
 	assert_true(
-		AiResearchPlanner.score_for(trader, economy, "crop_rotation", false)
-		> AiResearchPlanner.score_for(trader, economy, "organised_regiments", false)
+		AiResearchScores.score_for(trader, economy, "crop_rotation", false)
+		> AiResearchScores.score_for(trader, economy, "organised_regiments", false)
 	)
 
 
 func test_techs_already_at_their_cap_are_not_candidates() -> void:
 	assert_false(
-		AiResearchPlanner._can_teach("saw_mill", {"saw_mill": true}),
+		AiResearchScores.can_teach("saw_mill", {"saw_mill": true}),
 		"a cap already granted teaches nothing"
 	)
-	assert_true(AiResearchPlanner._can_teach("saw_mill", {}))
-	assert_true(AiResearchPlanner._can_teach("printing_press", {}))
+	assert_true(AiResearchScores.can_teach("saw_mill", {}))
+	assert_true(AiResearchScores.can_teach("printing_press", {}))
+
+
+## The scoring home ranks the college and lifts the door's study; the pick
+## loop asks it for one row and walks past what it has already taken.
+func test_the_scoring_home_ranks_the_college_and_picks_one_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var ranked: Array[Dictionary] = AiResearchScores.candidates(config, economy, false)
+	assert_gt(ranked.size(), 1, "a fresh court can open several studies")
+	for index in range(1, ranked.size()):
+		assert_true(
+			int(ranked[index - 1]["score"]) >= int(ranked[index]["score"]),
+			"the ranking never puts a weaker study ahead"
+		)
+	var door: String = String(ranked[ranked.size() - 1]["tech"])
+	var lifted: Array[Dictionary] = AiResearchScores.candidates(
+		config, economy, false, door
+	)
+	assert_eq(String(lifted[0]["tech"]), door, "the door's study takes the head")
+	var best: Dictionary = AiResearchScores.pick(config, economy, false)
+	assert_eq(
+		String(best["tech"]), String(ranked[0]["tech"]),
+		"the best-ranked study is the first pick"
+	)
+	var taken: Dictionary = {door: true}
+	var next: Dictionary = AiResearchScores.pick(config, economy, true, door, taken)
+	assert_eq(
+		String(next["tech"]), String(ranked[0]["tech"]),
+		"a taken door falls back to the ranked head"
+	)
 
 
 func test_discovery_techs_wait_for_an_explorer() -> void:
