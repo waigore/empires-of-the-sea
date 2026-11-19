@@ -178,6 +178,10 @@ static func _tooltip(hud: GameHud) -> void:
 static func show_tooltip(hud: GameHud, text: String) -> void:
 	if hud.touch_ui:
 		return
+	# A line already on screen is not raised again: the map asks on every motion,
+	# and a reset_size per frame is layout churn the player never sees (REQ-P4-02).
+	if hud._tooltip.visible and hud._tooltip_label.text == text:
+		return
 	hud._tooltip_label.text = text
 	hud._tooltip.visible = true
 	hud._tooltip.reset_size()

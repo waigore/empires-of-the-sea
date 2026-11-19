@@ -46,6 +46,10 @@ var covered: bool = false
 ## Every squadron a tap cycles through in her station, herself included, in the
 ## order the cycle walks them.
 var stack: Array[int] = []
+## Every squadron of her station the chart draws, in the station's reading order
+## — the crown's row first, then the stack — so the court hears where she stands
+## among them all, not only among the ones behind the hull.
+var station: Array[int] = []
 ## The courts standing behind her in the stack, one pennant pip each.
 var pips: Array[int] = []
 
@@ -76,12 +80,14 @@ func drawn_position() -> Vector2:
 
 
 ## Places her in her station's row: the step she draws at, the courts whose
-## pennants ride behind her, and whether another squadron draws the hull
+## pennants ride behind her, whether another squadron draws the hull, and the
+## station's whole reading order so the court can hear her place in it
 ## (wiki: ships-and-naval § Fleets in one station).
-func set_lane(offset: Vector2, behind: Array[int], hide_hull: bool) -> void:
+func set_lane(offset: Vector2, behind: Array[int], hide_hull: bool, here: Array[int] = []) -> void:
 	lane = offset
 	pips = behind
 	covered = hide_hull
+	station = here
 	queue_redraw()
 
 

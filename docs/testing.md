@@ -348,6 +348,16 @@ godot --headless --path . --script res://playtests/playtest_gazette.gd
 # to read the slip founded there and the merge that follows her home. PT_ADVANCED
 # opens a preset start, so the turn-100 galleons read the same way.
 godot --headless --path . --script res://playtests/playtest_home_fleet.gd
+
+# Fleets in one station (DR-20261119-08) — the chart's row only appears when
+# several of the crown's squadrons hold one water, so the drive reaches it the
+# way a player does: a turn-100 home squadron sorties, then detaches hulls until
+# four commands stand in the sea zone. It reads the plan (who takes a row step,
+# who is covered, where each hull is drawn), taps every drawn point and a covered
+# one, hears the words of all of them, seats a rival in the same water (the stack,
+# the pennant and `observe only`), and hides her to read the fog: no hull, no
+# pennant, no place in the count.
+godot --headless --path . --script res://playtests/playtest_station_fan.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

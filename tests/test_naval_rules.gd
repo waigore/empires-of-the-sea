@@ -4577,6 +4577,54 @@ func test_the_selection_leads_the_stack_and_the_fog_keeps_her_hidden() -> void:
 	assert_eq(markers.next_in_stack(markers.find(2)).fleet_id, 3, "the cycle skips her")
 
 
+## A shared station's reading order names every squadron the chart draws there —
+## the crown's row first, then the stack behind it — and never one the fog
+## withholds, so a tap on the row still says which command of the water is in
+## hand (wiki: ships-and-naval § Fleets in one station).
+func test_a_shared_station_names_every_hull_the_chart_draws() -> void:
+	var fleets: Array[FleetState] = _station_fleets()
+	var plan: Dictionary = FleetLanes.plan(fleets, OWNER)
+	var stations: Dictionary = plan["stations"]
+
+	assert_eq((stations[1] as Array).size(), 5, "four of the crown's and the rival")
+	assert_eq(int((stations[1] as Array)[0]), 1, "the row leads the reading")
+	assert_eq(int((stations[1] as Array)[3]), 4, "the stack stands after the row")
+
+	# The fog's rival is not counted, and her colour rides no pennant.
+	var fogged: Array[int] = [5]
+	var hidden_plan: Dictionary = FleetLanes.plan(fleets, OWNER, -1, fogged)
+	var hidden_stations: Dictionary = hidden_plan["stations"] as Dictionary
+	assert_eq((hidden_stations[1] as Array).size(), 4, "the unseen rival is not counted")
+	assert_false((hidden_stations[1] as Array).has(5), "and holds no place in the order")
+
+	var markers := ShipMarkers.new()
+	markers.model = passes_NavalFixture.build()
+	for fleet: FleetState in fleets:
+		markers.make(fleet)
+	markers.find(5).visible = false
+	markers.layout(fleets, OWNER)
+	assert_eq(markers.find(4).station.size(), 4, "the head reads what the chart draws")
+	assert_true(markers.find(4).pips.is_empty(), "an unseen court wears no pennant")
+
+
+## The crown's row keeps its own reading when the stack is empty: a fanned
+## squadron is told her place among the water's commands, not her place in a
+## cycle she never joined (wiki: ships-and-naval § Fleets in one station).
+func test_a_fanned_squadron_still_reads_her_station() -> void:
+	var fleets: Array[FleetState] = []
+	for index in 2:
+		fleets.append(FleetState.at_sea(index + 1, OWNER, CARIBBEAN, ["ship_%d" % index]))
+	var markers := ShipMarkers.new()
+	markers.model = passes_NavalFixture.build()
+	for fleet: FleetState in fleets:
+		markers.make(fleet)
+	markers.layout(fleets, OWNER)
+	var first: Ship = markers.find(1)
+	assert_true(first.stack.is_empty(), "a row of two rides no stack")
+	assert_eq(first.station.size(), 2, "the station's reading still holds both hulls")
+	assert_eq(int(first.station[0]), 1)
+
+
 ## --- fixtures ---------------------------------------------------------------
 
 

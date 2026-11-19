@@ -741,9 +741,43 @@ func test_a_tied_province_reads_the_ground_its_battle_uses() -> void:
 	assert_eq(ground, MapModel.Terrain.PLAINS, "the tie falls to the lower terrain id")
 	assert_eq(
 		_province_panel_panel._grid.terrain.text,
-		String(MapModel.TERRAIN_LABELS[ground]),
-		"the sheet names the ground the battle fights on"
+		"Plains (main) · also Hills",
+		"the sheet names the ground the battle fights on, then the runner-up"
 	)
+
+
+## One province holds several grounds: the Terrain row says which one a battle
+## here fights on and names the second-most common one, so a mixed province no
+## longer reads as a single type (wiki: resource-terrain-region-rules
+## § Player-facing terrain display names; issue #1084; REQ-P2-03).
+func test_the_terrain_row_names_the_main_ground_and_the_second() -> void:
+	_setup_province_panel()
+	# Seven plains, three scrub and two hills: plains lead, scrub runs second.
+	var tiles: Array = _model.province_tiles(0)
+	for index in tiles.size():
+		var tile: Vector2i = tiles[index]
+		var terrain: int = MapModel.Terrain.PLAINS
+		if index >= 10:
+			terrain = MapModel.Terrain.HILLS
+		elif index >= 7:
+			terrain = MapModel.Terrain.SCRUB_FOREST
+		_model.terrain[_model.index_of(tile.x, tile.y)] = terrain
+	_show()
+	assert_eq(
+		_province_panel_panel._grid.terrain.text,
+		"Plains (main) · also Scrub Forest",
+		"the row names the main ground and the runner-up in published names"
+	)
+
+
+## A province that is one ground throughout says so once, without inventing a
+## second type.
+func test_a_single_ground_province_reads_as_one_type() -> void:
+	_setup_province_panel()
+	for tile: Vector2i in _model.province_tiles(0):
+		_model.terrain[_model.index_of(tile.x, tile.y)] = MapModel.Terrain.SWAMP
+	_show()
+	assert_eq(_province_panel_panel._grid.terrain.text, "All Swamp")
 
 
 ## A good the catalog has no medallion for keeps its pictogram, and that mark
