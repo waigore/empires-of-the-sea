@@ -29,12 +29,13 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at
   peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
-- **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court's fog,
-  read by voyages, invasions, diplomacy (DR-20261113-03).
-- **Colonisation** (`AiColonisationPlanner`): the squadron docks, boards,
-  crosses, lands, returns empty (DR-20261111-05, DR-20261114-03).
+- **Court charts**: each court's fog, read by voyages, invasions, diplomacy
+  (DR-20261113-03).
+- **Colonisation** (`AiColonisationPlanner`): docks, boards, crosses, lands,
+  returns empty (DR-20261111-05, DR-20261114-03).
 - **Overseas invasions** (`AiInvasionPlanner`): detach hulls, dock, board,
-  cross, storm the coast (DR-20261114-03).
+  cross, storm the coast (DR-20261114-03); the earn lift stands down while
+  pressing (DR-20261119-14).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; the highest
   affordable tier keeping a peasant and cash floor.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots
@@ -50,8 +51,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above
   reserve, bid short inputs; merchants sail home, a hull more when tonnage
   outruns (DR-20261110-26).
-- **Regiment parity** (`MilitaryParity`): Minors match the leading era; Tribes
-  stay 1; rivals re-equip, pay to attack.
+- **Regiment parity** (`MilitaryParity`): Minors match the era; Tribes stay
+  1; rivals re-equip, pay to attack.
 - **Rival muster** (`AiArmyReinforce`, `MapPlayArmyMusterAi`): a line regiment a
   turn under `army.regiment_target` (+`army.war_extra`), keeping `army.min_*`
   (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest trains (DR-20261112-08).
@@ -61,12 +62,11 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   takes peace, no peer war (DR-20261113-15/11); at war no new voyage or Tribe
   chain (DR-20261116-11). **Victory pressure** (`AiVictoryPressure`): bigger
   aims near the bar (DR-20261114-04).
-- **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
+- **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank, then
   allocate a 0–100 utility.
 - **Persistence:** agendas, cooldowns, ledgers, claims
-  (`AiState.to_dict`), dossier. Bank (#995/#1059): the chest kept at peace
-  too; provision crews keep their purse, the rest waits behind it, hires
-  pace to the harvest.
+  (`AiState.to_dict`), dossier. Bank (#995/#1059): the chest kept at peace;
+  provision crews keep their purse, the rest waits, hires pace to the harvest.
 
 ## Deferred (REQ-P2-02)
 None; ranked gaps: [`deferred.md`](deferred.md).
@@ -74,7 +74,7 @@ None; ranked gaps: [`deferred.md`](deferred.md).
 ## Architecture & tests
 
 Planners live in `scripts/ai/` (`REQ-P3-03`), wired by `scripts/map/map_play_*`;
-suites `test_ai_*`, `test_military_parity`.
+suites `test_ai_*`.
 
 ```bash
 gd-tools test --coverage --min 80

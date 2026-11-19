@@ -39,12 +39,14 @@ Default: largest item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-None — the rival priced overtures ship: `DiplomacyProposals.queue` prices the
-offer from the asking court's own purse and studies, and the answer charges it.
+1. **The AI's win (issue #995)** — the subject reaches 19 Old World of the 31
+   the bar needs (bench 3075.84). The named levers are the pact wall and the
+   host's growth; the press's earn lift shipped as a reading (DR-20261119-14,
+   bit-identical).
 
 ## Next pick
 
-REQ/wiki.
+The AI's win on issue #995.
 
 ## Blocked
 
