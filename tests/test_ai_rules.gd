@@ -4213,6 +4213,32 @@ func test_the_diplomacy_gates_know_a_pact_break_from_a_blocked_war() -> void:
 	assert_false(bool(pact.get("ok", false)))
 
 
+## The gates answer for a court with nothing to read: no config, no ledger, no
+## line to save for. A caller that cannot read the purse keeps the published
+## planner instead of inventing a buy-out (issue #975).
+func test_the_gates_keep_the_published_planner_with_nothing_to_read() -> void:
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+
+	assert_false(AiDiplomacyGates.purse_under_muster(null, ai_state, {}))
+	assert_false(AiDiplomacyGates.purse_under_muster(config, null, {}))
+	assert_false(
+		AiDiplomacyGates.purse_under_muster(config, ai_state, {}),
+		"a court at target strength saves for no line"
+	)
+	assert_false(
+		AiDiplomacyGates.buys_out(config, ai_state, PHASE_MINOR, {}, AiPhasePlanner.PHASE_WAR),
+		"a Minor war is colonial business, never bought out"
+	)
+	assert_true(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL, {}, AiPhasePlanner.PHASE_FRONTS
+		),
+		"an overstretched court takes any white peace it is offered"
+	)
+	assert_eq(AiDiplomacyGates.faction_of(null), MapModel.NO_ID)
+
+
 ## The court's candidate row for one target in a decide() result.
 func _candidate(plan: Dictionary, target: int) -> Dictionary:
 	for raw: Variant in plan.get("candidates", []):
