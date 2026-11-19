@@ -123,6 +123,12 @@ const METER_BANDS: Array[Vector2] = [
 	Vector2(90, 100),
 ]
 
+## A warmth gate's distance is printed in words ("two steps up the meter"), the
+## way the sheet writes every other count it shows a touch player.
+const GATE_STEP_WORDS: Array[String] = [
+	"", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+]
+
 
 static func stage_label(stage: String) -> String:
 	return String(STAGE_LABELS.get(stage, "No overture"))
@@ -199,6 +205,30 @@ static func meter_step(score: float) -> int:
 
 static func meter_label(score: float) -> String:
 	return METER_LABELS[meter_step(score) - 1]
+
+
+## How far up the herald's meter a warmth gate stands from the court's own
+## reading, in whole steps: 0 when the gate sits inside the court's own step
+## (the hidden score may be a single point below it), 1 or more when the court
+## must climb. The gate is the rule's own number and the step is the sheet's
+## own geometry, so a refusal can name the distance without quoting a band word
+## the sheet has not reached (wiki: diplomacy § Player-facing relation display).
+static func gate_steps(score: float, gate: float) -> int:
+	return maxi(meter_step(gate) - meter_step(score), 0)
+
+
+## The distance as the tail of a sentence — "one step up the meter", "two steps
+## up the meter", or "inside this court's own step of the meter" when the gate
+## is already in the step the court stands in. Callers print it after
+## "the gate stands ".
+static func gate_line(score: float, gate: float) -> String:
+	var steps: int = gate_steps(score, gate)
+	if steps <= 0:
+		return "inside this court's own step of the meter"
+	var word: String = String(GATE_STEP_WORDS[steps]) if steps < GATE_STEP_WORDS.size() else str(steps)
+	if steps == 1:
+		return "one step up the meter"
+	return "%s steps up the meter" % word
 
 
 static func is_valid_aid(amount: int) -> bool:

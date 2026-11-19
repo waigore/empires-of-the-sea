@@ -14,6 +14,11 @@ static func run(play: PlaySession, economy_report: Dictionary = {}) -> Dictionar
 	var market: WorldMarket = play.economy.market
 	var economies: Dictionary = {}
 	var free_holds: Dictionary = {}
+	## The trade cargo capacity each crown carries — its holds less the tonnage
+	## the overseas estates ship — so a bid that could not fill this turn is
+	## carried against the capacity the wiki's § Order persistence names, not
+	## against the holds this turn's imports happened to use.
+	var capacity: Dictionary = {}
 	var factions: Array[int] = FactionCatalog.great_power_ids()
 	for faction: int in factions:
 		var ledger: PlayerEconomy = play.ledger_for(faction)
@@ -22,13 +27,23 @@ static func run(play: PlaySession, economy_report: Dictionary = {}) -> Dictionar
 		if faction == play.player_faction and not play.observer_mode:
 			var cargo: Dictionary = play.economy.trade_cargo()
 			free_holds[faction] = int(cargo.get("clear_free", cargo.get("free", 0)))
+			capacity[faction] = maxi(
+				int(cargo.get("holds", 0)) - int(cargo.get("reserved", 0)), 0
+			)
 		else:
 			var entry: Dictionary = _faction_report(economy_report, faction)
 			var trade: Dictionary = entry.get("trade", {}) as Dictionary
 			free_holds[faction] = int(trade.get("free_holds", 0))
+			capacity[faction] = maxi(
+				int(trade.get("holds", free_holds[faction]))
+				- int(trade.get("reserved", 0)), 0
+			)
 	var report: Dictionary = MarketClearing.clear(
 		market, play.world, economies, free_holds,
-		{"diplomacy": play.diplomacy, "viewer": play.player_faction}
+		{
+			"diplomacy": play.diplomacy, "viewer": play.player_faction,
+			"capacity": capacity,
+		}
 	)
 	play.market_report = report
 	# The ledger reads this receipt: a sale's ducats and the overseas share are

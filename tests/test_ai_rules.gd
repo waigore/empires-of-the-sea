@@ -2238,6 +2238,81 @@ func test_a_court_not_arming_keeps_no_hand() -> void:
 		AiArmyReinforce.muster_hands(config, broke, 0, true), 0,
 		"the chest is not in hand, so no hand is kept"
 	)
+
+
+## The standing study's own row move (issue #1059): through the state's public
+## row API, so no study's progress is cancelled — the swap restores what it
+## moved. A placeholder for the shape the probe caught; the real lift is the
+## planner's `_swap_slots`.
+func _swap_slots(state: ResearchState, from_slot: int, to_slot: int) -> void:
+	if state == null or from_slot == to_slot:
+		return
+	var from_tech: String = state.tech_at(from_slot)
+	var to_tech: String = state.tech_at(to_slot)
+	if from_tech.is_empty() or to_tech.is_empty():
+		return
+	var from_funding: String = state.funding_at(from_slot)
+	var from_progress: int = state.progress_of(from_tech)
+	var to_funding: String = state.funding_at(to_slot)
+	var to_progress: int = state.progress_of(to_tech)
+	state.cancel(from_slot)
+	state.cancel(to_slot)
+	if not bool(state.assign(from_tech, from_funding, to_slot).get("ok", false)):
+		return
+	if not bool(state.assign(to_tech, to_funding, from_slot).get("ok", false)):
+		return
+	if from_progress > 0:
+		state.add_progress(from_tech, from_progress)
+	if to_progress > 0:
+		state.add_progress(to_tech, to_progress)
+
+
+## The bar the harvest carries (issue #1059): a court banking for its army
+## hires to the levy's own pool — `army.min_peasants` plus the levy's hand —
+## and stops there, because every mouth past it eats one of the rations the
+## muster's own gate plans with. The measured probe watched the farms' growth
+## (+7 rations a turn by t80) fall whole into six new mouths; the slack sat at
+## 0 for a hundred turns and the muster's gate with it.
+func test_a_banking_court_paces_the_hires_to_the_harvest() -> void:
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers = WorkerPool.make(4)
+	economy.treasury = 8000
+	economy.add("paper", 10)
+	# The bank holds and the land carries one more ration: the levy's hand is
+	# the pool target (min_peasants 3 + the levy's hand 1 = 4, already met) —
+	# the trained tiers and the worker target wait for the muster to stand.
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, 1
+	)
+	assert_true(orders.is_empty(), "the levy's pool is met; the ladder waits")
+	# One peasant short of the levy floor: the farmhand comes first (the
+	# #1023 provision), paid against the harvest it eats.
+	economy.workers = WorkerPool.make(3)
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, 1
+	)
+	assert_eq(orders.size(), 1, "the farmhand the levy needs")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.PEASANT)
+	# The land cannot carry one more ration: the hire stands down, and the
+	# slack the muster plans with is not spent on a mouth.
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, 0
+	)
+	assert_true(orders.is_empty(), "no ration spare, no hire")
+	# An unbanked court keeps the published pool target (10): the same purse
+	# and the same slack still grow the pool.
+	economy.workers = WorkerPool.make(4)
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, false, 1
+	)
+	assert_eq(orders.size(), 1, "no bank, the published ladder leads")
+	# A caller with no harvest reading (-2) keeps the published target too.
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, -2
+	)
+	assert_eq(orders.size(), 1, "no reading, the published behaviour")
 	var short_row: PlayerEconomy = economy.copy()
 	short_row.stockpile = {"fabric": 0}
 	assert_eq(
@@ -2383,6 +2458,58 @@ func test_ai_civilian_training_needs_a_capital_and_a_purse() -> void:
 	poor["capital_province"] = -1
 	poor["treasury"] = 2500
 	assert_false(bool(AiCivilianHire.training_order(config, [], poor).get("ok", false)))
+
+
+## The bank holds the purse (issue #1059): a court short of the bar banking for
+## its next line hires its provision crews — the Builder and the Engineer the
+## farms and their roads need — against the works purse it always had, but the
+## rest of the college's ladder (Explorer, Merchant, Spy) stands behind the
+## chest, so the chart the empire grows does not burn the fill the muster
+## waits for. The measured bench banked 193 turns while the college re-hired
+## an Explorer roughly every tenth turn.
+func test_a_banking_court_hires_only_its_provision_crews() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var banked: Dictionary = _civilian_context()
+	banked["conquest_bank"] = true
+	# A Builder rides the works purse the farm trim keeps: the hire stands.
+	var builder: Dictionary = AiCivilianHire.training_order(config, [], banked)
+	assert_true(bool(builder.get("ok", false)), "the provision Builder keeps its purse")
+	assert_eq(String(builder["type_id"]), "builder")
+	# An Engineer serves the same farms (their roads): the hire stands too.
+	banked["staff_targets"] = {"engineer": 1, "builder": 0}
+	var engineer: Dictionary = AiCivilianHire.training_order(
+		config, [CivilianState.create(1, 0, "builder", CivilianFixture.BARE_TILE)], banked
+	)
+	assert_true(bool(engineer.get("ok", false)), "the road crew serves the farms")
+	assert_eq(String(engineer["type_id"]), "engineer")
+	# The Explorer's ladder reads the standing purse: a banked court with a
+	# purse under its chest hires no new chart, and the closed hire says why.
+	banked["staff_targets"] = {"explorer": 3}
+	var chart: Dictionary = AiCivilianHire.training_order(
+		config,
+		[
+			CivilianState.create(1, 0, "builder", CivilianFixture.BARE_TILE),
+			CivilianState.create(2, 0, "engineer", CivilianFixture.BARE_TILE),
+		],
+		banked
+	)
+	assert_eq(String(chart.get("reason", "")), AiCivilianHire.REASON_BANK)
+	assert_false(bool(chart.get("ok", false)), "the chart stands behind the chest")
+
+
+## A court not banking keeps the published purses: the Explorer still rides
+## the works purse on `earn` (the #489/#603 income lever), and a baseline
+## court's config never reaches the banked read at all.
+func test_an_unbanked_court_keeps_the_published_hire_purses() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var plain: Dictionary = _civilian_context()
+	plain["hire_treasury"] = 100
+	plain["staff_targets"] = {"explorer": 3}
+	# `earn` lifts the works purse to the treasury itself (published read).
+	plain["earn"] = true
+	var chart: Dictionary = AiCivilianHire.training_order(config, [], plain)
+	assert_true(bool(chart.get("ok", false)), "the published purse hires the chart")
+	assert_eq(String(chart["type_id"]), "explorer")
 
 
 ## Staff targets read the region's work: plains floor, hills digs, and the
@@ -3622,6 +3749,80 @@ func test_a_court_parked_at_its_floor_keeps_one_standing_study() -> void:
 	)
 	for slot in range(1, economy.research.slots.size()):
 		assert_eq(economy.research.funding_at(slot), "none", "the rest wait")
+
+
+## The standing slot carries the ration ladder (issue #1059): a court banking
+## for its army moves the cheapest unfinished grain/meat cap study it already
+## holds onto the standing slot, so the farms outgrow the mouths while the
+## purse sits behind the chest — the food the host eats rides the one preset
+## that may dip into the chest (the same provision clause the farm trim and
+## the farmhand hire ride).
+func test_a_banking_court_studies_the_ration_estates_on_the_standing_slot() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 500
+	economy.research.assign("land_enclosure")
+	economy.research.assign("saw_mill")
+	economy.research.add_progress("land_enclosure", 1100)
+	assert_eq(economy.research.tech_at(0), "land_enclosure")
+	# The published pick puts a non-ration study first; the planner re-picks
+	# each turn, so simulate the shape the probe caught: the ration study
+	# parked at `none` on a later slot while a military pick rides the purse.
+	_swap_slots(economy.research, 1, 0)
+	assert_eq(economy.research.tech_at(0), "saw_mill")
+	economy.research.set_funding(0, "low")
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": AiArmyReinforce.muster_floor(config, economy, 1, true),
+			"cash_floor": AiResearchPlanner.research_floor(config),
+			"conquest_bank": true,
+		}
+	)
+	assert_eq(
+		economy.research.tech_at(0), "land_enclosure",
+		"the ration study rides the standing slot"
+	)
+	assert_eq(economy.research.funding_at(0), "low", "the standing preset pays it")
+	assert_eq(
+		economy.research.tech_at(1), "saw_mill",
+		"the displaced study keeps its slot and its progress"
+	)
+	# A cap the techs already lift reads no lift: the study the court holds
+	# stays put (the ladder seeds the standing slot; it never evicts).
+	economy.tech_unlocked["land_enclosure"] = true
+	AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": AiArmyReinforce.muster_floor(config, economy, 1, true),
+			"cash_floor": AiResearchPlanner.research_floor(config),
+			"conquest_bank": true,
+		}
+	)
+	assert_eq(
+		economy.research.tech_at(0), "land_enclosure",
+		"the granted cap stops the lift; no study is evicted"
+	)
+
+
+## A court not banking keeps the published pick: the standing study stays
+## whatever the planner seeded, and the ration ladder waits for the bank.
+func test_an_unbanked_court_keeps_the_published_standing_pick() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 500
+	economy.research.assign("land_enclosure")
+	economy.research.assign("saw_mill")
+	_swap_slots(economy.research, 1, 0)
+	economy.research.set_funding(0, "low")
+	AiResearchPlanner.plan(
+		config, economy,
+		{"treasury_floor": AiArmyReinforce.muster_floor(config, economy, 1, true)}
+	)
+	assert_eq(
+		economy.research.tech_at(0), "saw_mill",
+		"no bank, no ration ladder on the standing slot"
+	)
 
 
 func test_a_broke_court_keeps_no_standing_study() -> void:
@@ -7499,16 +7700,16 @@ func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
 	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
 	var orders: Array = _market_plan(model, builder, null, works)["orders"]
 	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
-	MapPlayCivilianAi.price(orders, model, works, Fixture.stockpile())
-	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
+	MapPlayCivilianPlan.price(orders, model, works, Fixture.stockpile())
+	var rows: Dictionary = MapPlayCivilianPlan.work_rows([{"plan": {"orders": orders}}])
 	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
 	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
 
 	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
 	var survey: Array = _market_plan(model, explorer, null, works)["orders"]
-	MapPlayCivilianAi.price(survey, model, works, Fixture.stockpile())
+	MapPlayCivilianPlan.price(survey, model, works, Fixture.stockpile())
 	assert_true(
-		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
+		MapPlayCivilianPlan.work_rows([{"plan": {"orders": survey}}]).is_empty(),
 		"a survey costs no material, so it reserves none"
 	)
 

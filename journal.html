@@ -22,11 +22,11 @@
   <p class="note">Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Current contract: one <strong>subject</strong> crown (submission planners) vs two <strong>baseline</strong> rivals (<code>scripts/ai_mainline/</code> from <code>origin/main</code>) and three <strong>random</strong> courts; only the subject scores. Weighted progress: Old World provinces ×100, New World ×50, regiments ×10, ships ×10, workers ×5, extraction ×2, income ×1, +500 for a win before the cap.</p>
 
   <div class="status">
-    <strong>Phase:</strong> issue #995 — the win chase: the bank's doors are opened and measured (guards on the official world, levers on the probe world); the +500 stays open<br/>
+    <strong>Phase:</strong> issue #1059 — the food chain: the bank holds the college (the hire ladder and the ration ladder are the bank's own provision); the host stands at 27 OW and the win claim stays on #995<br/>
     <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2306.93</span> (<code>995-04-the-war-the-conquest-needs.json</code>)<br/>
-    <strong>Best honest so far:</strong> 2439.10 · 15 OW · 9 NW · 4 reg · workers 6 (before #1026's production refactor; the committed surface reads 2306.93 · 16 OW · 6 NW · forces 8)<br/>
-    <strong>Open gates:</strong> the +500 win bonus — the probe names the #807 food-rate gate next (the muster's own ration bar opens ~1 turn in 6, so the banked purse buys ~one line per 40-60 turns and the pact break waits behind the host)
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">3075.84</span> (<code>1059-03-final.json</code>; the 1059-01 college-only read was 3288.54)<br/>
+    <strong>Best honest so far:</strong> 3288.54 · 27 OW · 3 NW · 4 reg · workers 10 · funded 74.97 (the bank holds the college)<br/>
+    <strong>Open gates:</strong> the +500 win bonus on #995 — the host stands, the pact break's one order on the probe world is the next lever
   </div>
 
   <h2>What was wrong with the bench itself</h2>
@@ -178,6 +178,22 @@
         <td>16 OW · 6 NW · 5 reg · 3 ships · workers 3 · income 213.39 · funded 92.94 · resolves at t201 — <strong>bit-identical</strong> to the committed 995-03 keeper, to the last digit of every part</td>
         <td class="good">A guard set measured honest on two worlds: the frozen-baseline world the hill scores never runs the doors (the purse idles at the committed ~585, the pact wall stands unbuilt behind a host that never grew), and on the origin/main-baseline probe world every door bites — the college burn ends, the phoney slot re-opens (41 shut turns against ~180), the fill rides the chest (~2,300 at the peak), one late muster lands with a late conquest and workers 3→10. One lever was measured and dropped: a banking court blocking all new wars killed the opening blitz the committed score rides on. The +500 stays open and the probe names the next layer: the #807 food-rate gate — the muster's own ration bar opens ~1 turn in 6, so the banked purse buys ~one line per 40-60 turns and the break waits behind a host that never stands inside the cap</td>
         <td><a href="reports/ai-bench/995-04-the-war-the-conquest-needs.json">995-04-the-war-the-conquest-needs.json</a></td>
+      </tr>
+      <tr>
+        <td>1059-01</td>
+        <td>The bank holds the college — the #1059 probe read the bank turns again on the current tree and named two eaters the muster's own ration gate was not: (1) <strong>the hire ladder burned the fill</strong> — the bench banked 193 of 200 turns while the college re-hired an Explorer roughly every tenth turn (~21,000 ducats, more than the market's whole 152/turn income), because the Explorer rides the works purse on <code>earn</code> (the #489/#603 lever) and the works purse is the treasury itself — so a chest fill of ~16 ducats a turn left the muster pocket closed for 190 turns (2 pocket turns, one muster, t199, Peasant Levies); (2) <strong>the farm raises were capped by an unfunded tech</strong> — implied food extraction sat at exactly 17/turn the whole run (capital 5 + 12) and the slack only opened from t78 because the army attrition cut its own appetite 5→1; the ration-estate cap tech <code>land_enclosure</code> (grain 2, 1800 RP) sat in slot 1 at <code>none</code> for 179 turns — funded Low 8 turns total — so the farms never outgrew the mouths. Levers, both scoped to the bank: the hire ladder on a banked court hires its provision crews (Builder, Engineer — the farms and their roads) against the works purse it always had and every other crew against the standing purse (<code>AiCivilianHire</code> <code>conquest_bank</code>, reason <code>the bank holds the purse: no spare crew</code>), and the standing slot carries the cheapest unfinished grain/meat cap study the court already holds (<code>AiResearchPlanner._ration_study</code>, <code>ResearchState.set_slot</code>) — the food the host eats rides the one preset that may dip into the chest (issue #1059)</td>
+        <td><strong>3288.54</strong></td>
+        <td>27 OW · 3 NW · 4 reg · 0 ships · workers 10 · income 259.46 · funded 74.97 · resolves at t201</td>
+        <td class="good">+981.6 over the committed 2306.93 and the 1904.52 floor stands: the fill no longer burns in the college, the purse reaches the chest mid-campaign (27 Old World provinces — the conquest that never opened inside the cap on this surface), workers 3→10 (the farmhand pool the bank provisions), funded 74.97 ≥ 58. The probe world's own read rides below; the +500 win bonus stays open on #995 (this run resolved at the cap's edge without the win — the host stands, the next lever is the pact break's one order on the probe world)</td>
+        <td><a href="reports/ai-bench/1059-01-the-bank-holds-the-college.json">1059-01-the-bank-holds-the-college.json</a></td>
+      </tr>
+      <tr>
+        <td>1059-03</td>
+        <td>The hire pace reads the harvest — the worker-recruit ladder on a banked court hires to the levy's own pool (<code>army.min_peasants</code> + the levy's hand), not <code>economy.worker_target</code>, and every hire pays the ration the muster's own gate plans with (<code>harvest_slack</code>); the trained tiers wait while the pool carries the levy (#1059; the row move through the public row API replaces the earlier <code>ResearchState.set_slot</code> so the rules file keeps its method budget)</td>
+        <td><strong>3075.84</strong></td>
+        <td>19 OW · <strong>12 NW</strong> · <strong>11 reg</strong> · workers 8 · income 344.59 · funded 74.82 · resolves at t201</td>
+        <td class="good">The host reaches its war-time target strength (11 ≥ 9) inside the cap with 12 New World provinces and funded 74.82 ≥ 58 — signed on the final tree (<code>1059-03-final.json</code>, now <code>latest.json</code>); nobody starves (no subject strike turn after t20); the 1904.52 floor stands. The win claim stays on #995</td>
+        <td><a href="reports/ai-bench/1059-03-final.json">1059-03-final.json</a></td>
       </tr>
       <tr>
         <td>995-03</td>

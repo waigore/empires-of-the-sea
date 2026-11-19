@@ -1656,6 +1656,61 @@ func test_a_line_that_carries_nothing_names_the_wait() -> void:
 	)
 
 
+## The press and the sheet read one walk: whatever `plan` prices, `file` lays
+## down in the same order, for the same spend, so a receipt can never name a price
+## the crown did not read (REQ-P2-03, REQ-P5-04; DR-20261118-11).
+func test_the_press_files_exactly_what_the_sheet_priced() -> void:
+	var rows: Array[Dictionary] = [
+		{"type_id": "sloop", "batch_ready": true},
+		{"type_id": "fluyte", "batch_ready": true},
+	]
+	var purse: int = 100
+	var stock: Dictionary = {"lumber": 5}
+	var price := func(_type_id: String) -> int: return 40
+	var inputs := func(_type_id: String) -> Dictionary: return {"lumber": 2}
+	var gate := func(
+		_type_id: String, gold: int, left: Dictionary, _filed: int
+	) -> String:
+		if gold < 40:
+			return "Insufficient treasury"
+		if int(left.get("lumber", 0)) < 2:
+			return "Insufficient materials"
+		return ""
+
+	var plan: Dictionary = RaiseBatchSum.plan(rows, purse, stock, price, inputs, gate)
+	var written: Array[String] = []
+	var receipt: Dictionary = RaiseBatchSum.file(
+		["sloop", "fluyte"],
+		purse,
+		stock,
+		price,
+		inputs,
+		gate,
+		func(type_id: String) -> void: written.append(type_id)
+	)
+
+	assert_eq(written.size(), 2, "the press lays down the whole line")
+	assert_eq(written[0], "sloop", "in the yard's own order")
+	assert_eq(written[1], "fluyte", "and never out of it")
+	for key: String in ["filed", "ducats", "materials", "workers", "refusal"]:
+		assert_eq(receipt[key], plan[key], "%s: the press and the line read one walk" % key)
+	assert_eq(int(receipt["purse_after"]), int(plan["purse_after"]), "one purse")
+	assert_eq(int(stock.get("lumber", 0)), 5, "a read walk leaves the stores untouched")
+
+
+## A yard whose own gate forbids any order still answers in the press's shape, so
+## the sheet never guards a receipt key of its own (REQ-P3-01).
+func test_a_blocked_yard_answers_in_the_press_shape() -> void:
+	var receipt: Dictionary = RaiseBatchSum.blocked(3, "Launch hulls at your capital port.")
+	assert_eq(int(receipt["total"]), 3, "the view the press stood in")
+	assert_eq(int(receipt["filed"]), 0, "nothing filed")
+	assert_eq(RaiseBatchSum.carries(receipt), 0, "and the press carries nothing")
+	assert_eq(
+		RaiseBatchSum.sheet_line(receipt),
+		"Nothing in this yard can be ordered — 3 wait: Launch hulls at your capital port."
+	)
+
+
 ## The drill yard's foot names what the whole line costs before it is pressed: the
 ## plan its rows carry, printed once under them and re-read on every redraw
 ## (REQ-P5-06, REQ-P1-07; DR-20261118-11).

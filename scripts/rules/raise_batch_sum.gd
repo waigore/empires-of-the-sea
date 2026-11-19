@@ -9,9 +9,18 @@ extends RefCounted
 ##
 ## The walk is the batch's own: every row the yard flags `batch_ready`, in the
 ## yard's order, each priced against the ledger the orders before it leave, and
-## it stops at the first refusal the rules give. It writes nothing: the filing
-## walk in FleetYard/ArmyTraining still owns every rule (REQ-P2-03). Pure reads
-## over integers and catalogs, no nodes (REQ-P3-03).
+## it stops at the first refusal the rules give. The sheet reads it with `plan`
+## and the press signs it with `file` — one loop, so the price a crown reads and
+## the orders it receives can never drift (REQ-P2-03, REQ-P5-04). The yard still
+## owns its own gate, its own price and its own order (REQ-P3-03).
+##
+## Pure projection over integers and catalogs, no nodes: the walk itself writes
+## nothing — the yard's own `queue` lays down the order it keeps (REQ-P3-03).
+
+
+## A hard stop on the press: a yard that never leaves a row unready cannot spin,
+## whatever a hand-built table holds (DR-20261118-08).
+const BATCH_LIMIT: int = 64
 
 
 ## A plan with nothing in it: what a yard with no court to pay reads, so a sheet
@@ -43,6 +52,53 @@ static func plan(
 	inputs: Callable,
 	gate: Callable
 ) -> Dictionary:
+	return _walk(rows, purse, stock, price, inputs, gate)
+
+
+## The orders a yard's one press files: the same walk `plan` reads, with `queue`
+## laid down for every step it keeps (the type id is the argument). The receipt
+## carries the spend the sheet priced, so a press that files the line a crown
+## read pays exactly that line (REQ-P2-03, REQ-P5-04; DR-20261118-08).
+static func file(
+	types: Array[String],
+	purse: int,
+	stock: Dictionary,
+	price: Callable,
+	inputs: Callable,
+	gate: Callable,
+	queue: Callable
+) -> Dictionary:
+	var rows: Array[Dictionary] = []
+	for type_id: String in types:
+		rows.append({"type_id": type_id, "batch_ready": true})
+	return _walk(rows, purse, stock, price, inputs, gate, queue)
+
+
+## A receipt with nothing filed, for a yard whose own guard says it may not
+## order at all (no court, no Home Army, no capital port). The yard names the
+## words; this keeps the shape a press reads.
+static func blocked(total: int, reason: String) -> Dictionary:
+	var receipt: Dictionary = blank()
+	receipt["count"] = total
+	receipt["total"] = total
+	receipt["refusal"] = reason
+	return receipt
+
+
+## The one walk behind both readings: every row the yard flags `batch_ready`, in
+## the yard's order, each priced against the ledger the orders before it leave,
+## stopping at the first refusal the rules give. A `queue` callable turns the
+## read into the press that writes what it priced; without one the walk only
+## reads, and the caller's stores are left untouched.
+static func _walk(
+	rows: Array[Dictionary],
+	purse: int,
+	stock: Dictionary,
+	price: Callable,
+	inputs: Callable,
+	gate: Callable,
+	queue: Callable = Callable()
+) -> Dictionary:
 	var plan: Dictionary = {
 		"count": 0,
 		"filed": 0,
@@ -58,6 +114,8 @@ static func plan(
 	for row: Dictionary in rows:
 		if not bool(row.get("batch_ready", false)):
 			continue
+		if queue.is_valid() and int(plan["filed"]) >= BATCH_LIMIT:
+			break
 		plan["count"] = int(plan["count"]) + 1
 		if not String(plan["refusal"]).is_empty():
 			continue
@@ -70,6 +128,11 @@ static func plan(
 			continue
 		var cost: int = int(price.call(type_id))
 		var needs: Dictionary = inputs.call(type_id)
+		# The order is laid down before the next gate reads the pool: a recruit
+		# reserves her peasant, so the press can never file one hand twice
+		# (DR-20261118-07).
+		if queue.is_valid():
+			queue.call(type_id)
 		gold -= cost
 		plan["ducats"] = int(plan["ducats"]) + cost
 		plan["workers"] = int(plan["workers"]) + 1
