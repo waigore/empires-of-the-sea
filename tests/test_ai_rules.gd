@@ -2881,6 +2881,90 @@ func test_map_phase_a_court_at_war_opens_no_speculative_bid() -> void:
 	play.civilian_layer.free()
 
 
+## The phoney war holds no front (issue #995): a crown war past its grace with
+## no attack on the enemy is the war the diplomacy pass is already eroding to
+## its peace (#999), so the market's speculative top-up opens again while the
+## peace leg ends it — the coin a silent front kept shut belongs to the bank's
+## chest. A war being fought keeps the slot shut as published.
+func test_a_phoney_war_opens_the_market_top_up_again() -> void:
+	var window: int = AiConfig.build(1, 1500).parameter("diplomacy.pointless_window")
+	# A war the court has fought and then abandoned: declared long ago, its last
+	# attack even older, so the pointless read has fired many times over.
+	var play: PlaySession = _rival_economy_play()
+	play.diplomacy = _war_state(1, 0)
+	play.turn = 100
+	play.ai.note_war(1, 0, 1)
+	var ledger: PlayerEconomy = play.ai.economy_for(1)
+	for id: String in AiEconomyPlanner.BUILD_INPUTS:
+		ledger.stockpile[id] = 0
+	var trade: Dictionary = MapPlayEconomyAi.run(play)["factions"][1]["trade"]
+	assert_eq(
+		int((trade["plan"] as Dictionary).get("held", 0)), 0,
+		"a phoney war holds no rows back"
+	)
+	assert_eq(
+		String(trade.get("bids_blocked", "")), "",
+		"the report claims no shut top-up for a war that takes nothing"
+	)
+	play.civilian_layer.free()
+	# The same footing with a live front keeps the published hold: an attack
+	# inside the window is a war being fought, and its coin is the front's.
+	var fought: PlaySession = _rival_economy_play()
+	fought.diplomacy = _war_state(1, 0)
+	fought.turn = 100
+	fought.ai.note_war(1, 0, 1)
+	AiWarMemory.note_attack(fought.ai, 1, 0, 100 - window)
+	var war_ledger: PlayerEconomy = fought.ai.economy_for(1)
+	for id: String in AiEconomyPlanner.BUILD_INPUTS:
+		war_ledger.stockpile[id] = 0
+	var shut: Dictionary = MapPlayEconomyAi.run(fought)["factions"][1]["trade"]
+	assert_true(
+		int((shut["plan"] as Dictionary).get("held", 0)) > 0,
+		"a war the court is still fighting holds the unclaimed rows back"
+	)
+	assert_eq(
+		String(shut.get("bids_blocked", "")), AiMarketPlanner.REASON_SPECULATE,
+		"the report names the top-up the live front held shut"
+	)
+	fought.civilian_layer.free()
+
+
+## The bank's college ladder reads the chest, never the wobbling money goal
+## (issue #995): the #603 valve re-routes the goal's own reserve to the cash
+## floor while the fill stands still, and a ladder that falls with it burns
+## the very fill the bank is holding for — measured 450 ducats on the one turn
+## a big sale landed. The bank's floors read the canonical chest, so the
+## ladder waits with the bank; the standing study keeps its #490 cash-floor
+## gate either way, so a court parked at the floor still learns.
+func test_a_banking_courts_college_reads_the_chest_not_the_wobble() -> void:
+	var stalled: PlaySession = _rival_economy_play()
+	var ledger: PlayerEconomy = stalled.ai.economy_for(1)
+	ledger.treasury = 900
+	# The #603 wobble: the muster aim has stood still two turns, so the goal's
+	# own reserve re-routes to the cash floor — a ladder that reads it would
+	# treat the 900-ducat purse as spendable above 500 (issue #995's probe
+	# caught exactly this burn).
+	stalled.ai.deferrals[1] = {
+		"muster.line": {"turns": 2, "low": 0, "shortfall": {"ducats": 1}},
+	}
+	var report: Dictionary = MapPlayEconomyAi.run(stalled)["factions"][1]
+	assert_eq(
+		String((report["income"] as Dictionary).get("goal", "")),
+		AiIncome.GOAL_SPEND,
+		"the valve re-routed the wobbling goal to its floor"
+	)
+	var spent: int = int(
+		((report["resolved"] as Dictionary).get("research", {}) as Dictionary).get(
+			"spent", 0
+		)
+	)
+	assert_true(
+		spent <= 50,
+		"the college waits with the bank — only the standing study may pay (%d ducats)" % spent
+	)
+	stalled.civilian_layer.free()
+
+
 
 ## The rival's court reads the crown's best town from the world and hands it to
 ## the planner and the phase alike: a village court is offered no second-stage
@@ -5187,6 +5271,37 @@ func test_the_bank_read_is_the_gap_the_host_and_the_purse() -> void:
 		config.parameter("army.regiment_target") + config.parameter("army.war_extra")
 	)
 	assert_false(AiIncome.banking(config, state, row), "a court at host strength banks no bank")
+	# The bank reads the chest the income row stamps, never the wobbling goal
+	# reserve (issue #995): the #603 valve re-routes the goal's own reserve to
+	# the cash floor while the fill stands still, and a bank that released at
+	# the peak of its own fill unpinned the college and burned the margin it
+	# was holding for — the row's canonical chest keeps the bank through the
+	# wobble, exactly as the DR's own "never the wobbling money goal" promises.
+	var price: int = AiArmyReinforce.cheapest_line_price(state.economy_for(0))
+	var wobbled: Dictionary = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "bank_chest": 2200,
+		"treasury": 500 + price - 1, "regiments": 1, "conquest_gap": true,
+	}
+	assert_true(
+		AiIncome.banking(config, state, wobbled),
+		"a purse the wobbling goal calls spare still banks against the chest"
+	)
+	wobbled["treasury"] = 2200 + price
+	assert_false(
+		AiIncome.banking(config, state, wobbled),
+		"a purse past the chest and the line spends as published"
+	)
+	assert_eq(
+		int(
+			AiIncome.plan(
+				config, _purse(300), false, 1, 0, -1, config.parameter(
+					"ledger.escalate_turns"
+				), true
+			)["bank_chest"]
+		),
+		AiIncome.reserve(config, _purse(300), false, 1, 0, -1, 0, true),
+		"the row stamps the canonical chest beside the re-routed goal"
+	)
 
 
 func test_a_court_with_no_ledger_keeps_the_published_behaviour() -> void:
@@ -11113,6 +11228,144 @@ func test_after_the_break_the_next_turn_declares_the_war() -> void:
 	assert_eq(String(second["action"]["kind"]), AiDiplomacyPlanner.KIND_DECLARE_WAR)
 	assert_eq(int(second["action"]["target"]), 1)
 
+
+## The pact break waits behind the bank and then leads the order (issue #995):
+## the pact the court signed as a peace lock is the wall its conquest must
+## outgrow. While the court still banks, the break is not spent — the war could
+## not follow it — and the trace names the gate. Once the host stands, the break
+## takes the one order before any petty war beside it: the war ban lifts the next
+## turn, and the banked host marches on the big holder behind it. A Great Power
+## war that needs no break still leads, and a court with no gap to clear keeps
+## the published order.
+func test_the_pact_break_waits_for_the_bank_then_leads_the_order() -> void:
+	_setup_ai_planner()
+	var minor: int = FactionCatalog.minor_ids()[0]
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.ensure_relation(0, minor, 1)
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1, minor])
+	var context: Dictionary = ai_planner_AiFixture.context(
+		{0: 200, 1: 100, minor: 50}, {0: 9}
+	)
+	# The published order: the petty war is legal and pre-empts the break
+	# (the stall the issue measured — the pact wall).
+	context["income"] = {}
+	var published: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context
+	)
+	assert_eq(
+		String(published["action"].get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the published planner takes the legal petty war"
+	)
+	assert_eq(int(published["action"]["target"]), minor)
+	# While the court banks, the break waits — the war could not follow it —
+	# while the published petty declaration stands (the opening army storms the
+	# minors it can already beat; the bank gates its own deferrable purchases,
+	# not the war the score rides on).
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	var banking: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context
+	)
+	assert_ne(
+		String(banking["action"].get("kind", "")), AiDiplomacyOffers.KIND_BREAK_NAP,
+		"a banking court breaks no pact it cannot yet march on"
+	)
+	var blocked_break: String = ""
+	for candidate: Dictionary in banking["candidates"]:
+		if int(candidate["target"]) == 1:
+			blocked_break = _offer_blocked_kind(
+				candidate["offer"]["candidates"], AiDiplomacyOffers.KIND_BREAK_NAP
+			)
+	assert_eq(
+		blocked_break, "the court is banking for its army",
+		"the trace names the gate that holds the break"
+	)
+	# The host stands: the break leads, and the petty war waits a turn.
+	context["income"] = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": true,
+	}
+	var led: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context
+	)
+	assert_eq(
+		String(led["action"].get("kind", "")), AiDiplomacyOffers.KIND_BREAK_NAP,
+		"the pact the court means to march on breaks before the petty war"
+	)
+	assert_eq(int(led["action"]["target"]), 1)
+	# A court that has cleared the bar keeps the published order: the gap the
+	# lever rides on is gone, and the petty war wins again.
+	context["income"] = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": false,
+	}
+	var at_bar: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context
+	)
+	assert_eq(
+		String(at_bar["action"].get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"a court at the bar keeps the published planner"
+	)
+
+
+## Only the big holder's pact leads the order (issue #995): a Great Power war
+## that needs no break still outranks it, and a Minor's pact is not the wall
+## the conquest waits on — the petty war beside it wins as published. The lead
+## is for the pact-bound Great Powers whose Old World land the bar counts.
+func test_only_the_big_holders_pact_leads_the_order() -> void:
+	_setup_ai_planner()
+	var first_minor: int = FactionCatalog.minor_ids()[0]
+	var second_minor: int = FactionCatalog.minor_ids()[1]
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.set_overture(0, 1, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(1, 0, DiplomacyCatalog.STAGE_NAP)
+	var host: Dictionary = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": true,
+	}
+	# A legal Great Power war on an unpacted peer outranks the break: the
+	# declaration needs no pact cleared first.
+	ai_planner_state.ensure_relation(0, 3, 1)
+	var world: WorldMap = ai_planner_AiFixture.world([0, 1, 3])
+	var context: Dictionary = ai_planner_AiFixture.context(
+		{0: 200, 1: 100, 3: 100}, {0: 9}
+	)
+	context["income"] = host
+	var great: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, world, 1, context
+	)
+	assert_eq(
+		String(great["action"].get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"a Great Power war that needs no break still leads"
+	)
+	assert_eq(int(great["action"]["target"]), 3)
+	# A Minor's pact is not the wall the conquest waits on: the break on it
+	# stays an ordinary offer, so the petty war beside it wins as published.
+	var minor: int = first_minor
+	var petty: int = second_minor
+	ai_planner_state.ensure_relation(0, minor, 1)
+	ai_planner_state.ensure_relation(0, petty, 1)
+	ai_planner_state.set_overture(0, minor, DiplomacyCatalog.STAGE_NAP)
+	ai_planner_state.set_overture(minor, 0, DiplomacyCatalog.STAGE_NAP)
+	var minor_world: WorldMap = ai_planner_AiFixture.world([0, minor, petty])
+	var minor_context: Dictionary = ai_planner_AiFixture.context(
+		{0: 200, minor: 50, petty: 50}, {0: 9}
+	)
+	minor_context["income"] = host
+	var colonial: Dictionary = AiDiplomacyPlanner.decide(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state, minor_world, 1,
+		minor_context
+	)
+	assert_eq(
+		String(colonial["action"].get("kind", "")), AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"a Minor's pact break never leads over the petty war"
+	)
+	assert_eq(int(colonial["action"]["target"]), petty)
+
 func test_a_pacted_rival_with_an_alliance_breaks_the_pact_once() -> void:
 	_setup_ai_planner()
 	ai_planner_state.ensure_relation(0, 1, 1)
@@ -11786,6 +12039,50 @@ func test_a_prosecuted_war_carries_no_pointless_erosion() -> void:
 		AiWarMemory.pointless(config, ai_state, attack + window + 1, WAR_RIVAL, WAR_OWNER),
 		step,
 		"the clock restarts at the attack"
+	)
+
+
+## The front read the market's speculative top-up honors (issue #995): a war
+## inside its grace or under attack is a front, a war past both with no attack
+## holds none, and a caller with no state to read keeps the published footing.
+## Colonial wars never held the footing, so they hold none here either.
+func test_a_phoney_war_holds_no_front_the_market_honors() -> void:
+	var config: AiConfig = _war_config()
+	var ai_state := AiState.new()
+	ai_state.note_war(WAR_RIVAL, WAR_OWNER, 0)
+	var state: DiplomacyState = _war_court()
+	assert_true(bool(DiplomacyRules.declare_war(state, WAR_RIVAL, WAR_OWNER)["ok"]))
+	var grace: int = config.parameter("diplomacy.war_weariness_grace")
+	var window: int = config.parameter("diplomacy.pointless_window")
+
+	assert_true(
+		AiWarMemory.holds_front(config, ai_state, state, grace, WAR_RIVAL),
+		"a war inside its grace is a front the court may still march"
+	)
+	var attack: int = grace + window
+	AiWarMemory.note_attack(ai_state, WAR_RIVAL, WAR_OWNER, attack)
+	assert_true(
+		AiWarMemory.holds_front(config, ai_state, state, attack, WAR_RIVAL),
+		"a war attacked inside the window is a front"
+	)
+	assert_false(
+		AiWarMemory.holds_front(
+			config, ai_state, state, attack + window + 1, WAR_RIVAL
+		),
+		"a war past its window with no attack holds no coin back"
+	)
+	assert_true(
+		AiWarMemory.holds_front(config, ai_state, null, 400, WAR_RIVAL),
+		"a caller with no state keeps the published footing"
+	)
+	# A colonial war never held the footing, so it holds no market either.
+	var colonial: DiplomacyState = DiplomacyState.new()
+	colonial.reset(1)
+	colonial.ensure_relation(WAR_RIVAL, WAR_TRIBE, 1)
+	colonial.relation(WAR_RIVAL, WAR_TRIBE).at_war = true
+	assert_false(
+		AiWarMemory.holds_front(config, ai_state, colonial, 400, WAR_RIVAL),
+		"a war on a Tribe is colonial business, never a front"
 	)
 	assert_false(
 		AiWarMemory.prosecuted(config, ai_state, attack, WAR_OWNER, WAR_RIVAL),

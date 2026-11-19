@@ -2954,6 +2954,107 @@ func test_return_fire_follows_the_garrisons_range() -> void:
 	assert_almost_eq(SiegeLanes.return_fire_share(mixed), 0.5, 0.001)
 
 
+## A reserve behind the wall neither shoots from it nor thins the fire of the men
+## who stand on it: the wall's ranged share is read over the line the battle
+## dealt, not over every regiment the garrison has (wiki: combat § The line and
+## the reserve — "a reserve adds no strength"; siege-mechanics § Quick Battle
+## lanes — "ranged share of its own count"). Bowmen rank below pikemen, so the
+## ten pikes are the line and the four bows wait behind it.
+func test_a_reserve_never_returns_fire_from_the_wall() -> void:
+	var pike_wall: Array[ArmyState] = _lane_side(
+		["bowmen", "bowmen", "bowmen", "bowmen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"], 1
+	)
+	var pike_line: Array[String] = ArmyForce.line_ids(pike_wall, 10)
+	assert_eq(pike_line.size(), 10, "ten pikes stand in the line")
+	assert_almost_eq(
+		SiegeLanes.return_fire_share(pike_wall, pike_line), 0.0, 0.001,
+		"a pike wall gives no return fire, whatever waits behind it"
+	)
+	## The other way round: a musket wall keeps its whole fire though four levies
+	## wait behind it.
+	var musket_wall: Array[ArmyState] = _lane_side(
+		["peasant_levies", "peasant_levies", "peasant_levies", "peasant_levies",
+		"musketeers", "musketeers", "musketeers", "musketeers", "musketeers",
+		"musketeers", "musketeers", "musketeers", "musketeers", "musketeers"], 1
+	)
+	var musket_line: Array[String] = ArmyForce.line_ids(musket_wall, 10)
+	assert_almost_eq(
+		SiegeLanes.return_fire_share(musket_wall, musket_line), 1.0, 0.001,
+		"the levies behind the wall thin no fire"
+	)
+
+
+## The wall's volley breaks no besieger when the only bows in the garrison wait
+## in reserve: a regiment that never took the field adds no strength to the
+## parapet (wiki: combat § The line and the reserve; siege-mechanics
+## § Quick Battle lanes).
+func test_a_reserve_never_shoots_at_a_besieger() -> void:
+	var bare: int = _wall_volley_losses(
+		["pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"]
+	)
+	var stuffed: int = _wall_volley_losses(
+		["bowmen", "bowmen", "bowmen", "bowmen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"]
+	)
+
+	assert_eq(bare, 0, "a pike wall breaks nobody")
+	assert_eq(stuffed, bare, "the four bows behind the wall fire nothing")
+
+
+## A pike wall still sallies when the only bows in the garrison wait in reserve:
+## the automatic sally reads the wall's own line, and a bow held back opens no
+## wall either (wiki: siege-mechanics § Quick Battle lanes — "a garrison with no
+## firearm behind a wall sallies on its own"; combat § The line and the reserve).
+func test_a_pike_wall_with_a_reserve_still_sallies() -> void:
+	var side: Array[ArmyState] = _rival(
+		["bowmen", "bowmen", "bowmen", "bowmen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"]
+	)
+	var line: Array[String] = ArmyForce.line_ids(side, 10)
+
+	assert_eq(
+		QuickBattleTerms.plan_for(side, 1, {}, true, true, line), "aggressive",
+		"a wall with no firearm on it sallies"
+	)
+	assert_false(SiegeLanes.can_reach_wall(side, line), "a bow in reserve opens no wall")
+
+
+## The besieger's losses from one wall volley, with the garrison's line and lanes
+## dealt the way [QuickBattle] deals them.
+func _wall_volley_losses(types: Array[String]) -> int:
+	var defender: Array[ArmyState] = _lane_side(types, 1)
+	var attacker: Array[ArmyState] = _lane_side(
+		["musketeers", "musketeers", "musketeers", "musketeers", "musketeers", "musketeers"], 2
+	)
+	var armies: Array[ArmyState] = _lane_joined(attacker, defender)
+	var state: Dictionary = {
+		"attacker": {
+			"side": attacker, "owner": 2, "limit": 10, "mods": {},
+			"cohesion": 3, "guard": 0.0, "lost": [] as Array[String],
+			"plan": "balanced", "exposed": false,
+			"line": ArmyForce.line_ids(attacker, 10),
+		},
+		"defender": {
+			"side": defender, "owner": 1, "limit": 10, "mods": {"fort": 1},
+			"cohesion": 3, "guard": 0.0, "lost": [] as Array[String],
+			"plan": "defensive", "exposed": false,
+			"line": ArmyForce.line_ids(defender, 10),
+			"lanes": SiegeLanes.line_ids(defender, 10),
+		},
+		"terrain": "open",
+		"gates": SiegeLanes.gates_for(1),
+	}
+	var entry: Dictionary = QuickBattleActions.resolve(
+		armies, state, "defender", "attacker", "volley", []
+	)
+	return int(entry["attacker_lost"])
+
+
 func test_an_empty_garrison_absorbs_nothing() -> void:
 	var attacker: Array[ArmyState] = _lane_side(["musketeers"], 2)
 	var defender: Array[ArmyState] = []

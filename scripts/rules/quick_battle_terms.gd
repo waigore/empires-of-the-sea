@@ -22,16 +22,22 @@ const RIDERS_AGGRESSIVE: float = 0.3
 ## The plan one side is handed. An explicit defender script wins (the simulator
 ## and a scripted defence); otherwise the player's chosen plan follows the side
 ## they command (wiki: quick-battle § The crown's plan).
+##
+## `line` names the men the battle dealt when it opened. A garrison's own sally
+## reads it: the wall answers with its line's RNG ≥ 2 regiments alone, so a
+## musket held in reserve gives the parapet no fire and the pike wall still
+## sallies (wiki: siege-mechanics § Quick Battle lanes; combat § The line and
+## the reserve). Empty keeps the older read for a caller with no line.
 static func plan_for(
 	side: Array[ArmyState], owner: int, context: Dictionary, is_defender: bool,
-	siege: bool = false
+	siege: bool = false, line: Array[String] = []
 ) -> String:
 	if is_defender and QuickBattleActions.PLANS.has(String(context.get("defender_battle_plan", ""))):
 		return String(context["defender_battle_plan"])
 	if owner == int(context.get("player_faction", -1)):
 		return QuickBattleActions.normalize_plan(String(context.get("battle_plan", "balanced")))
 	## A garrison with no firearm on the wall can only hurt a siege by sallying.
-	if is_defender and siege and SiegeLanes.return_fire_share(side) <= 0.0:
+	if is_defender and siege and SiegeLanes.return_fire_share(side, line) <= 0.0:
 		return "aggressive"
 	return "aggressive" if _horse_share(side) >= RIDERS_AGGRESSIVE \
 		else ("defensive" if is_defender else "balanced")

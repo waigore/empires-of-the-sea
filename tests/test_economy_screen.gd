@@ -612,15 +612,21 @@ func test_the_crowns_wards_eat_from_the_larder() -> void:
 # --- merchant cargo ----------------------------------------------------------
 
 
-func test_the_opening_home_fleet_carries_four_holds() -> void:
+func test_the_opening_home_fleet_carries_her_merchants_holds() -> void:
 	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
-	assert_eq(int(cargo["holds"]), 4)
+	# One carrack (3 holds) and one Fluyte (4) ride the opening home fleet
+	# (issue #1043): every opening merchant hull is in port at the seat.
+	assert_eq(int(cargo["holds"]), 7)
 	assert_eq(int(cargo["used"]), 0)
-	assert_eq(int(cargo["free"]), 4)
+	assert_eq(int(cargo["free"]), 7)
 	var seat: int = _screen.play.capital_province
 	var home: FleetState = _screen.ship_layer.home_fleet(seat)
 	assert_not_null(home, "the opening muster moors a squadron at the seat")
-	assert_eq(home.type_of(home.hulls[0]), "fluyte")
+	var merchants: int = 0
+	for hull_id: String in home.hulls:
+		if home.type_of(hull_id) == "fluyte":
+			merchants += 1
+	assert_eq(merchants, 1, "the home fleet carries the merchant hull whose holds feed trade")
 
 
 func test_imports_stop_when_the_holds_are_full() -> void:
@@ -660,7 +666,7 @@ func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 	var market_body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
 	var line: Label = _find_label(market_body, "CARGO")
 	assert_not_null(line)
-	assert_true(line.text.contains("4 holds"))
+	assert_true(line.text.contains("7 holds"))
 
 	var free: int = int(_screen.economy.readings.trade_cargo()["clear_free"])
 	for index in free:
