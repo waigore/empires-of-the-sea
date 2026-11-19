@@ -32,7 +32,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Court charts**: each court's fog, read by voyages, invasions, diplomacy
   (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`): docks, boards, crosses, lands,
-  returns empty (DR-20261111-05, DR-20261114-03).
+  returns empty (DR-20261111-05/14-03).
 - **Overseas invasions** (`AiInvasionPlanner`): detach hulls, dock, board,
   cross, storm the coast (DR-20261114-03); the earn lift stands down while
   pressing (DR-20261119-14).
@@ -59,14 +59,15 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch
-  takes peace, no peer war (DR-20261113-15/11); at war no new voyage or Tribe
+  takes peace except its border front (`AiBorderFronts`), no peer war
+  (DR-20261113-15/11/19-16); at war no new voyage or Tribe
   chain (DR-20261116-11). **Victory pressure** (`AiVictoryPressure`): bigger
   aims near the bar (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank, then
   allocate a 0–100 utility.
 - **Persistence:** agendas, cooldowns, ledgers, claims
   (`AiState.to_dict`), dossier. Bank (#995/#1059): the chest kept at peace;
-  provision crews keep their purse, the rest waits, hires pace to the harvest.
+  provision crews keep their purse, hires pace to the harvest.
 
 ## Deferred (REQ-P2-02)
 None; ranked gaps: [`deferred.md`](deferred.md).

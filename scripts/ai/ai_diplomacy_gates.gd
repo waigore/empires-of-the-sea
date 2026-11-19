@@ -54,19 +54,28 @@ static func purse_under_muster(
 
 
 ## The buy-out doctrine (issue #975): true when the standing war on `target` is
-## a crown war — a fellow Great Power, one of the fronts the footing counts —
-## and the court cannot re-arm for it, on an overstretched footing (`fronts`)
+## a crown war — a fellow Great Power, one of the fronts the footing counts — and
+## the court cannot re-arm for it, on an overstretched footing (`fronts`)
 ## or with a purse under the price of the line it is saving for. A war on a
 ## Minor Nation or a Tribe is colonial business and is never bought out; a court
 ## with no ledger to read keeps the published planner.
+##
+## The border front is the exception (issue #995): while the court is
+## overstretched it settles the wars it cannot reach and keeps the one war its
+## field army can march on, so `marches` — `AiBorderFronts.marches_on` for the
+## pair — stands the buy-out down on both legs. A caller with no border read
+## (a fixture) buys out as published.
 static func buys_out(
 	config: AiConfig,
 	ai_state: AiState,
 	target: int,
 	context: Dictionary,
-	posture: String
+	posture: String,
+	marches: bool = false
 ) -> bool:
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
+		return false
+	if AiPhasePlanner.keeps_the_border_front(posture, marches):
 		return false
 	if AiPhasePlanner.takes_any_peace(posture):
 		return true

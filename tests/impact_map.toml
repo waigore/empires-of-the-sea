@@ -2611,6 +2611,13 @@ domain = "ai_diplomacy"
 match = "scripts/ai/ai_diplomacy_desire.gd*"
 domain = "ai_diplomacy"
 
+# The front the field army can march on (issue #995): priced by the war aim and
+# answered by the peace leg, so it travels with the planner and the desire
+# rather than the ai catch-all.
+[[rules]]
+match = "scripts/ai/ai_border_fronts.gd*"
+domain = "ai_diplomacy"
+
 [[rules]]
 match = "scripts/ai/ai_state.gd*"
 domain = "ai_diplomacy"

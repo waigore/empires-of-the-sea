@@ -72,13 +72,22 @@ static func decide(
 			"blocked": "",
 		}
 		if record.at_war:
+			# The front the army can march on (issue #995): the war on a crown
+			# whose land this court borders is the one war its field army can
+			# prosecute, so an overstretched court keeps it instead of taking
+			# any peace it is offered or buying out of it. Stamped on the row
+			# so the trace names the front the footing keeps.
+			var marches: bool = AiBorderFronts.marches_on(world, config.faction, target)
+			entry["border_front"] = marches
 			# A court that cannot pay for the army its wars need buys out of its
 			# crown wars (issue #975): the press may hold the continuing desire
 			# above the bar, but a war the court cannot re-arm for is a peace it
 			# puts to that crown itself while it saves for the army that can.
 			# Minor and Tribe wars stay open — colonial business, the frontier
 			# the court re-splits from once the purse recovers.
-			if score >= bar and not AiDiplomacyGates.buys_out(config, ai_state, target, context, posture):
+			if score >= bar and not AiDiplomacyGates.buys_out(
+				config, ai_state, target, context, posture, marches
+			):
 				entry["blocked"] = "war still worth waging"
 			elif target == player:
 				# The human keeps consent: a rival queues the offer and waits

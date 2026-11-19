@@ -5292,6 +5292,199 @@ func _muster_price(config: AiConfig) -> int:
 	return maxi(config.parameter("army.min_treasury"), 0) + AiArmyReinforce.cheapest_line_price(_purse(0))
 
 
+# --- the front the army can march on (issue #995) -----------------------------
+
+
+## The border read itself: a crown's land touches the court's own frontier on
+## the map, and nothing else counts — not the court with itself, not a crown
+## held off behind another's land, not a caller with no world to read.
+func test_the_border_read_names_the_front_the_army_can_walk() -> void:
+	var side: WorldMap = AiFixture.land_world(
+		[PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_MINOR]
+	)
+	var apart: WorldMap = AiFixture.land_world(
+		[PHASE_OWNER, PHASE_MINOR, PHASE_MINOR, PHASE_RIVAL]
+	)
+
+	assert_true(
+		AiBorderFronts.marches_on(side, PHASE_OWNER, PHASE_RIVAL),
+		"a crown next door is a front the field army can storm"
+	)
+	assert_false(
+		AiBorderFronts.marches_on(apart, PHASE_OWNER, PHASE_RIVAL),
+		"a crown behind another's land is a war the army cannot reach"
+	)
+	assert_false(
+		AiBorderFronts.marches_on(side, PHASE_OWNER, PHASE_OWNER),
+		"a court does not border itself"
+	)
+	assert_false(AiBorderFronts.marches_on(null, PHASE_OWNER, PHASE_RIVAL))
+	assert_false(AiBorderFronts.marches_on(side, -1, PHASE_RIVAL))
+	assert_false(AiBorderFronts.marches_on(side, PHASE_OWNER, -1))
+	# A world the map pass handed a region that never loaded: the read skips it
+	# and still names the border the loaded ground holds.
+	var partial := WorldMap.new()
+	partial.add_region(null)
+	partial.add_region(side.region(0))
+	assert_true(
+		AiBorderFronts.marches_on(partial, PHASE_OWNER, PHASE_RIVAL),
+		"a region that never loaded is skipped, never read"
+	)
+
+
+## The footing's word on the pair: an overstretched court keeps the border front
+## and takes any other peace, and no lighter footing changes at all (issue #995).
+func test_the_overstretched_court_keeps_the_border_front() -> void:
+	assert_true(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_FRONTS, true)
+	)
+	assert_false(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_FRONTS, false)
+	)
+	assert_false(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_WAR, true),
+		"one front is not overstretch: the published stance already refuses"
+	)
+	assert_false(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_PEACE, true)
+	)
+	assert_true(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_FRONTS, false))
+	assert_false(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_FRONTS, true))
+	assert_false(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_WAR, true))
+	assert_false(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_PEACE, false))
+
+
+## The buy-out stands down on the border front and nowhere else (issue #995):
+## both legs of the doctrine — the footing and the purse under the muster price.
+func test_the_gates_do_not_buy_out_of_the_border_front() -> void:
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+
+	assert_false(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL, {}, AiPhasePlanner.PHASE_FRONTS, true
+		),
+		"the border front is the one war an overstretched court keeps"
+	)
+	assert_true(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL, {}, AiPhasePlanner.PHASE_FRONTS, false
+		),
+		"a front the army cannot reach is still sold"
+	)
+	ai_state.economy_for(PHASE_OWNER).treasury = _muster_price(config) - 100
+	assert_false(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL,
+			{"regiments": {PHASE_OWNER: 1}}, AiPhasePlanner.PHASE_FRONTS, true
+		),
+		"the purse leg stands down too: the army it banks for storms next door"
+	)
+
+
+## A poor court at two crown wars: `borders` puts the crown it means to fight
+## (`PHASE_RIVAL`) on its own frontier, and without it that crown sits behind
+## another's land. The purse is under the muster price either way.
+func _border_front_turn(borders: bool) -> Dictionary:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	for other: int in [PHASE_RIVAL, PHASE_THIRD]:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+		_phase_war(state, other)
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+	ai_state.economy_for(PHASE_OWNER).treasury = _muster_price(config) - 100
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1},
+		"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+		"posture": posture,
+	}
+	var owners: Array[int] = [PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_MINOR]
+	if not borders:
+		owners = [PHASE_OWNER, PHASE_MINOR, PHASE_MINOR, PHASE_RIVAL]
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, ai_state, AiFixture.land_world(owners), 30, context
+	)
+	return {"plan": plan, "posture": posture, "state": state, "config": config}
+
+
+## The planner's own reading: an overstretched court short of its muster keeps
+## the crown on its frontier — the war its field army can prosecute — and puts
+## the white peace to the front it cannot reach instead (issue #995).
+func test_an_overstretched_court_keeps_the_front_it_can_march_on() -> void:
+	var near: Dictionary = _border_front_turn(true)
+	var far: Dictionary = _border_front_turn(false)
+	var kept: Dictionary = _candidate(near["plan"], PHASE_RIVAL)
+	var sold: Dictionary = _candidate(far["plan"], PHASE_RIVAL)
+
+	assert_eq(String(near["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_true(bool(kept.get("border_front", false)))
+	assert_eq(
+		String(kept.get("blocked", "")), "war still worth waging",
+		"the border front is not bought out: the army storms next door"
+	)
+	assert_false(
+		String(far["posture"]) != AiPhasePlanner.PHASE_FRONTS
+		or bool(sold.get("border_front", false)),
+		"the far world keeps the same footing with no border to keep"
+	)
+	assert_eq(
+		String(sold.get("blocked", "")), "",
+		"a crown behind another's land is still sold"
+	)
+	assert_eq(
+		int((far["plan"]["action"] as Dictionary).get("target", -1)), PHASE_RIVAL,
+		"the peace goes to the front the court cannot reach"
+	)
+	assert_false(
+		int((near["plan"]["action"] as Dictionary).get("target", -1)) == PHASE_RIVAL,
+		"the kept front is never the pair the court sues"
+	)
+
+
+## The answering half: the same overstretched court signs a white peace from a
+## crown it cannot reach, and answers the crown on its own frontier with its
+## stance instead (issue #995). A refusal is the court's own word, never a rule.
+func test_the_overstretched_answer_keeps_the_border_front() -> void:
+	var near: Dictionary = _border_front_turn(true)
+	var far: Dictionary = _border_front_turn(false)
+	var ai_state := AiState.new()
+	# The answering court is the war it declared: one agenda for both worlds, so
+	# only the border read can tell the two answers apart.
+	ai_state.agendas[PHASE_OWNER] = AiAgenda.WARMONGER
+
+	assert_eq(
+		AiTurnApply.peace_answer(
+			near["state"], _border_front_world(true), ai_state,
+			PHASE_RIVAL, PHASE_OWNER, 30, PHASE_SEED, {}
+		),
+		DiplomacyRules.DECISION_REFUSE,
+		"the crown next door is answered by the stance, never signed away"
+	)
+	assert_eq(
+		AiTurnApply.peace_answer(
+			far["state"], _border_front_world(false), ai_state,
+			PHASE_RIVAL, PHASE_OWNER, 30, PHASE_SEED, {}
+		),
+		DiplomacyRules.DECISION_AUTO,
+		"the front the army cannot reach is taken as published"
+	)
+
+
+## The two worlds `_border_front_turn` reads, kept in one place so the planner
+## and the answering pass cannot test different maps.
+func _border_front_world(borders: bool) -> WorldMap:
+	if borders:
+		return AiFixture.land_world(
+			[PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_MINOR]
+		)
+	return AiFixture.land_world([PHASE_OWNER, PHASE_MINOR, PHASE_MINOR, PHASE_RIVAL])
+
+
 # --- money first: the goal a court reads before its planners ------------------
 
 
