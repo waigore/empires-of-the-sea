@@ -2417,6 +2417,13 @@ suites = [
 match = "scripts/ai/ai_tribe_colony.gd*"
 domain = "ai_colony"
 
+# The one copy of the rival's war/peace/pact-break gates (split from the
+# planner and the offers): the same narrow court slice, so a gate change runs
+# the campaign suite instead of the whole AI fan-out.
+[[rules]]
+match = "scripts/ai/ai_diplomacy_gates.gd*"
+domain = "ai_colony"
+
 [[rules]]
 match = "scripts/ai/ai_diplomacy_offers.gd*"
 domain = "ai_colony"

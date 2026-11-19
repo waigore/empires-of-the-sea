@@ -4190,7 +4190,27 @@ func _front_turn(
 	var plan: Dictionary = AiDiplomacyPlanner.decide(
 		config, state, AiState.new(), world, 1, context
 	)
-	return {"plan": plan, "posture": posture}
+	return {"plan": plan, "posture": posture, "state": state}
+
+
+## The rival's gates have one home (AiDiplomacyGates): the planner's war and
+## peace reads and the offers' pact break all ask it, so a footing, a cooldown
+## or a claimed chain can never be read two ways.
+func test_the_diplomacy_gates_know_a_pact_break_from_a_blocked_war() -> void:
+	var run: Dictionary = _front_turn(2, true)
+	var entry: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(
+		String(entry.get("blocked", "")), "overstretched: no third front",
+		"a peer under an overstretched footing is the war gate's refusal"
+	)
+	var ranking: Dictionary = entry.get("offer", {})
+	var pact: Dictionary = {}
+	for candidate: Dictionary in ranking.get("candidates", []):
+		if String(candidate.get("kind", "")) == AiDiplomacyOffers.KIND_BREAK_NAP:
+			pact = candidate
+	assert_false(pact.is_empty(), "the pact break is weighed for the peer")
+	assert_false(bool(pact.get("ok", false)))
 
 
 ## The court's candidate row for one target in a decide() result.
@@ -11916,10 +11936,10 @@ func test_a_recent_war_declaration_does_not_silence_a_peace_offer() -> void:
 
 func test_war_goal_clamps_to_the_target_province_count() -> void:
 	_setup_ai_planner()
-	assert_eq(AiDiplomacyPlanner.desired_territory(75, 5), 3)
-	assert_eq(AiDiplomacyPlanner.desired_territory(75, 2), 2)
-	assert_eq(AiDiplomacyPlanner.desired_territory(12, 3), 1)
-	assert_eq(AiDiplomacyPlanner.desired_territory(100, 0), 1)
+	assert_eq(AiDiplomacyGates.desired_territory(75, 5), 3)
+	assert_eq(AiDiplomacyGates.desired_territory(75, 2), 2)
+	assert_eq(AiDiplomacyGates.desired_territory(12, 3), 1)
+	assert_eq(AiDiplomacyGates.desired_territory(100, 0), 1)
 
 func test_a_peacemaker_offers_peace_where_a_plain_court_fights_on() -> void:
 	_setup_ai_planner()

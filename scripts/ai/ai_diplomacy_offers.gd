@@ -71,7 +71,9 @@ const BREAK_NAP_UTILITY_COST: int = 10
 
 ## Highest-utility peaceful candidate for one court, or a blocked explanation
 ## the turn trace can print. `context` carries the planner read model:
-## "treasury" and "tech" maps by faction plus the human court id.
+## "treasury" and "tech" maps by faction plus the human court id. A court that
+## already has a proposal waiting for the human answers at the court queue, so
+## it offers nothing new this turn (DR-20261109-07).
 static func best(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -82,9 +84,23 @@ static func best(
 	desire: int,
 	context: Dictionary
 ) -> Dictionary:
-	var entries: Array[Dictionary] = candidates(
+	if target == int(context.get("player", -1)) and DiplomacyProposals.has_pending(
+		state, target
+	):
+		return {
+			"ok": false,
+			"blocked": "the court is already considering a proposal",
+			"candidates": [_blocked("the court is already considering a proposal")],
+		}
+	return rank(candidates(
 		config, state, ai_state, world, turn, target, desire, context
-	)
+	))
+
+
+## The highest-utility legal entry, with every entry and its refusal travelling
+## with the winner so a turn trace can explain what the court passed over
+## (wiki: turn-trace-interpretation).
+static func rank(entries: Array[Dictionary]) -> Dictionary:
 	var winner: Dictionary = {}
 	for entry: Dictionary in entries:
 		if not bool(entry.get("ok", false)):
@@ -98,10 +114,22 @@ static func best(
 			"candidates": entries,
 		}
 	winner = winner.duplicate()
-	# Every candidate and its refusal travel with the winner, so a turn trace
-	# can explain what the court passed over (wiki: turn-trace-interpretation).
 	winner["candidates"] = entries
 	return winner
+
+
+## True when a legal peaceful order of `kind` to `target` stands among the
+## candidates a `best`/`rank` read carries (or the winner itself, with
+## `[winner]`).
+static func offers_kind(
+	entries: Array, target: int, kind: String
+) -> bool:
+	for entry: Dictionary in entries:
+		if int(entry.get("target", -1)) != target:
+			continue
+		if bool(entry.get("ok", false)) and String(entry.get("kind", "")) == kind:
+			return true
+	return false
 
 
 ## One candidate per order type this court could put to `target`, legal ones
@@ -120,11 +148,6 @@ static func candidates(
 	var record: DiplomacyRelation = state.relation(faction, target)
 	if record == null:
 		return []
-	# A rival never opens a second front while the court has a proposal waiting.
-	if target == int(context.get("player", -1)) and DiplomacyProposals.has_pending(
-		state, target
-	):
-		return [_blocked("the court is already considering a proposal")]
 	var improve: int = 100 - desire
 	var min_improve: int = config.parameter("diplomacy.improve_min_desire")
 	var treasury: int = int((context.get("treasury", {}) as Dictionary).get(faction, 0))
@@ -285,7 +308,8 @@ static func _break_alliance(
 ## price it pays when the war could actually follow: the pair off its war
 ## cooldown, no envoy chain with a claim on the target (a declaration would
 ## clear what the court has paid for), and a footing that opens the front
-## (issues #724, #752).
+## (issues #724, #752) — the planner's own war gate, read from
+## AiDiplomacyGates.
 static func _break_nap(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -312,43 +336,15 @@ static func _break_nap(
 		config, ai_state, (context.get("income", {}) as Dictionary)
 	):
 		return _blocked("the court is banking for its army", KIND_BREAK_NAP)
-	if ai_state.war_on_cooldown(
-		faction, target, turn, config.parameter("diplomacy.war_cooldown_turns")
-	):
-		return _blocked("the pair is on its war cooldown", KIND_BREAK_NAP)
-	# A pact break to open a new front while the court is already fighting is
-	# how crowns drown: the ban stands until this court is at peace elsewhere
-	# (wiki: diplomacy § Breaking a pact; issue #752).
-	for other: DiplomacyRelation in state.relations_of(faction):
-		if other.at_war:
-			return _blocked("the court is at war on another front", KIND_BREAK_NAP)
-	var posture: String = AiPhasePlanner.phase_for(config, state)
-	var colony: Dictionary = AiTribeColony.ambition(
-		state, world, context.get("charts", null), faction, target,
-		int((context.get("treasury", {}) as Dictionary).get(faction, 0)),
-		(context.get("tech", {}) as Dictionary).get(faction, {}),
-		# The claim, not this turn's slot: a footing never frees the court to
-		# clear a chain it means to buy (DR-20261116-11).
-		AiTribeColony.CLAIM_POSTURE
+	# The war the break opens: one shared gate with the planner, so a break the
+	# court would not follow with a declaration is never offered (see
+	# `AiDiplomacyGates.pact_break_block`).
+	var blocked_war: String = AiDiplomacyGates.pact_break_block(
+		config, state, world, ai_state, turn, target, context
 	)
-	if bool(colony.get("wanted", false)) or bool(colony.get("held", false)):
-		return _blocked("an envoy chain has a claim on that court", KIND_BREAK_NAP)
-	if (
-		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
-		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)
-		and not _outmatches(faction, target, context)
-	):
-		return _blocked("overstretched: no third front", KIND_BREAK_NAP)
+	if not blocked_war.is_empty():
+		return _blocked(blocked_war, KIND_BREAK_NAP)
 	return _offer(KIND_BREAK_NAP, target, desire - BREAK_NAP_UTILITY_COST)
-
-
-## Whether this court is the stronger of the pair on the published power score —
-## the same read the planner's war gate applies (DR-20261114-11).
-static func _outmatches(faction: int, target: int, context: Dictionary) -> bool:
-	var powers: Dictionary = context.get("power", {})
-	if not powers.has(faction) or not powers.has(target):
-		return true
-	return int(powers[faction]) > int(powers[target])
 
 
 static func _offer(kind: String, target: int, utility: int) -> Dictionary:

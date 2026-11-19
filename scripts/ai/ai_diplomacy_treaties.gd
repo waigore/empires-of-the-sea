@@ -211,7 +211,8 @@ static func _absorption(
 ## True when the pact break on the table is the order this court's conquest
 ## waits behind (issue #995): the court stands short of the bar with its host
 ## already built — not banking, for the break's own gate has already held it
-## out of the offers while the bank filled (`AiDiplomacyOffers._break_nap`) —
+## out of the offers while the bank filled (`AiDiplomacyOffers._break_nap`) and
+## the war it opens has already passed `AiDiplomacyGates.pact_break_block` —
 ## the best offer is the pact break on a Great Power, and the best war, if one
 ## stands, is not itself the front the bar counts (a war on a Minor Nation or a
 ## Tribe is colonial business, never the big holder's land). A Great Power war
