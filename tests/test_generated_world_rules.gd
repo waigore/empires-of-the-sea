@@ -28,6 +28,10 @@ func before_all() -> void:
 	_advanced_before_all()
 	_generator_before_all()
 	_mount_advanced_tiers()
+	# Warm the published Standard census chart in suite setup so the first
+	# census case is not charged the cold `generate_world` under coverage.
+	_census_world()
+	_census_tile_scan()
 
 
 func test_world_has_two_regions_with_clean_setup() -> void:
@@ -1185,45 +1189,30 @@ func test_coastal_provinces_have_a_waterfront_port() -> void:
 ## (wiki: resource-terrain-region-rules § Placement rate, § Forest terrain split;
 ## DR-20261115-16, #676). Measured on the shared Standard census chart.
 func test_the_plot_carries_a_resource_on_three_land_tiles_in_ten() -> void:
-	var world_map: WorldMap = _census_world()
-	for model: MapModel in world_map.regions:
-		var land: int = 0
-		var carrying: int = 0
-		var forests: int = 0
-		var bare_forests: int = 0
-		var open_carrying: int = 0
-		# Packed rows under coverage: one pass instead of is_land/terrain_at/
-		# resource_at per tile (the price census already reads this way).
-		var rows: PackedInt32Array = model.resource
-		var terrain_rows: PackedByteArray = model.terrain
-		for index in rows.size():
-			var terrain: int = terrain_rows[index]
-			if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
-				continue
-			land += 1
-			var forest: bool = terrain == MapModel.Terrain.HARDWOOD_FOREST \
-				or terrain == MapModel.Terrain.SCRUB_FOREST
-			var carries: bool = rows[index] != MapModel.NO_ID
-			if carries:
-				carrying += 1
-				if not forest:
-					open_carrying += 1
-			if forest:
-				forests += 1
-				if not carries:
-					bare_forests += 1
+	# Placement and price cases share one packed-row scan of the published
+	# Standard chart (docs/testing.md § Speed rules).
+	for region: Dictionary in _census_tile_scan()["regions"]:
+		var land: int = int(region["land"])
+		var carrying: int = int(region["carrying"])
 		var share: float = float(carrying) / float(maxi(land, 1))
+		var region_id: int = int(region["region_id"])
 		assert_true(share >= 0.28 and share <= 0.33,
-			"region %d carries %.3f of its %d land tiles" % [model.region_id, share, land])
-		assert_true(forests > 0)
+			"region %d carries %.3f of its %d land tiles" % [region_id, share, land])
+		assert_true(int(region["forests"]) > 0)
 		# A town tile is levelled to plains before this reading, so every cell
 		# still forest must carry its guaranteed row.
-		assert_eq(bare_forests, 0, "region %d has %d bare forest cells" % [model.region_id, bare_forests])
-		assert_true(open_carrying > 0, "region %d left its open ground bare" % model.region_id)
+		assert_eq(
+			int(region["bare_forests"]), 0,
+			"region %d has %d bare forest cells" % [region_id, int(region["bare_forests"])]
+		)
+		assert_true(
+			int(region["open_carrying"]) > 0,
+			"region %d left its open ground bare" % region_id
+		)
 		# Absolute supply for #676: Standard still funds a market book (not the
 		# old ~3% sparse plot). OW land on Standard is ~2.3k tiles → ~670 rows.
 		assert_true(carrying >= 300,
-			"region %d only places %d resources on Standard" % [model.region_id, carrying])
+			"region %d only places %d resources on Standard" % [region_id, carrying])
 
 
 ## Standard chart keeps mean tiles/province in the published band while holding
@@ -1307,6 +1296,61 @@ func _standard_world(seed_value: int) -> WorldMap:
 
 func _census_world() -> WorldMap:
 	return _standard_world(CENSUS_SEED)
+
+
+## One packed-row pass over the published Standard census chart. Placement rate
+## and price-weighted draw cases both read these tallies; `static` keeps the
+## scan across gd-tools' per-case clones (docs/testing.md § Speed rules).
+static var _census_scan: Dictionary = {}
+
+
+func _census_tile_scan() -> Dictionary:
+	if not _census_scan.is_empty():
+		return _census_scan
+	var regions: Array = []
+	var counts: Dictionary = {}
+	var commodities: Dictionary = {}
+	for model: MapModel in _census_world().regions:
+		var land: int = 0
+		var carrying: int = 0
+		var forests: int = 0
+		var bare_forests: int = 0
+		var open_carrying: int = 0
+		var rows: PackedInt32Array = model.resource
+		var terrain_rows: PackedByteArray = model.terrain
+		for index in rows.size():
+			var terrain: int = terrain_rows[index]
+			if terrain == MapModel.Terrain.OCEAN or terrain == MapModel.Terrain.SHALLOW:
+				continue
+			land += 1
+			var forest: bool = terrain == MapModel.Terrain.HARDWOOD_FOREST \
+				or terrain == MapModel.Terrain.SCRUB_FOREST
+			var resource: int = rows[index]
+			var carries: bool = resource != MapModel.NO_ID
+			if carries:
+				carrying += 1
+				if not forest:
+					open_carrying += 1
+				if not commodities.has(resource):
+					commodities[resource] = String(
+						MapGenerator.resource_info(resource)["commodity"]
+					)
+				var commodity: String = String(commodities[resource])
+				counts[commodity] = int(counts.get(commodity, 0)) + 1
+			if forest:
+				forests += 1
+				if not carries:
+					bare_forests += 1
+		regions.append({
+			"region_id": model.region_id,
+			"land": land,
+			"carrying": carrying,
+			"forests": forests,
+			"bare_forests": bare_forests,
+			"open_carrying": open_carrying,
+		})
+	_census_scan = {"regions": regions, "commodity_counts": counts}
+	return _census_scan
 
 
 ## Deep-copies a region so a twin can be bootstrapped or mounted without another
@@ -1398,25 +1442,9 @@ func _assert_mean_tiles(model: MapModel, lo: float, hi: float) -> void:
 func test_the_draw_prices_the_rows_by_their_market_price() -> void:
 	# The shared Standard census chart carries every assertion below: seed 160
 	# keeps gold ahead of gems and every pool inside its three-deviation band,
-	# so this case rides the same draw the placement and size cases already
-	# paid (a second Small chart used to cost ~6 s under coverage alone).
-	var counts: Dictionary = {}
-	var commodities: Dictionary = {}
-	var world_map: WorldMap = _census_world()
-	for model: MapModel in world_map.regions:
-		# Read the packed rows: a tile that carries a row is land, so the
-		# census is one pass instead of two instrumented lookups a tile.
-		var rows: PackedInt32Array = model.resource
-		for index in rows.size():
-			var resource: int = rows[index]
-			if resource == MapModel.NO_ID:
-				continue
-			if not commodities.has(resource):
-				commodities[resource] = String(
-					MapGenerator.resource_info(resource)["commodity"]
-				)
-			var commodity: String = String(commodities[resource])
-			counts[commodity] = int(counts.get(commodity, 0)) + 1
+	# so this case rides the same draw and packed-row scan the placement case
+	# already paid (a second Small chart used to cost ~6 s under coverage alone).
+	var counts: Dictionary = _census_tile_scan()["commodity_counts"]
 	var dump: Array[String] = []
 	for commodity: Variant in counts:
 		dump.append("%s=%d@%d" % [

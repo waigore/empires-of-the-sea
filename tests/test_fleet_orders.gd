@@ -7,13 +7,18 @@ const Fixture = preload("res://tests/map_fixture.gd")
 const NavalFixture = preload("res://tests/naval_fixture.gd")
 
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
-## and reset the session instead of remounting (`Fixture.suite_reset`).
+## and a re-seat from the pristine save ~0.15 s, so live cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`). Pure
+## home-merge / combine-gate cases never touch `_screen`, so they skip the
+## re-seat (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
-var _screen: MapScreen = null
-var _model: MapModel = null
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
+## Hand-built two-coast chart for home-merge rules; built lazily so live cases
+## never pay `NavalFixture.build()`.
+var _naval: MapModel = null
 
 
 func before_all() -> void:
@@ -23,20 +28,38 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
-	_screen = mounted
-	# The home-fleet merge cases read a hand-built two-coast chart; the others
-	# never touch it (the fixture is a few dozen tiles).
-	_model = NavalFixture.build()
+	_chart_bound = false
+	_naval = null
 
 
 func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	_screen = null
 	pristine = {}
+
+
+## Live cases reach the chart through `_screen` / `_attach()`; pure FleetHomeMerge
+## / combine-gate cases that never ask never pay `suite_reset`.
+func _attach() -> MapScreen:
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = true
+	return mounted
+
+
+var _screen: MapScreen:
+	get:
+		return _attach()
+
+
+var _model: MapModel:
+	get:
+		if _naval == null:
+			_naval = NavalFixture.build()
+		return _naval
 
 
 func test_selecting_a_player_fleet_opens_orders() -> void:
@@ -275,55 +298,47 @@ func test_end_turn_restores_fleet_moves() -> void:
 	assert_gt(_screen.overlay.move_zones.size(), 0)
 
 
-func test_end_turn_leaves_unknown_tiles_unknown() -> void:
-	var zone_id: int = _remote_zone()
-	assert_gt(zone_id, -1)
-	var tile: Vector2i = _screen.model.sea_zones[zone_id].tiles[0]
-	var index: int = _screen.model.index_of(tile.x, tile.y)
-	_screen.visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
-	_screen.overlay.sync_visibility(_screen.visibility, [index])
-
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-
-	assert_eq(_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.UNKNOWN)
-	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_UNKNOWN)
-
-
-func test_end_turn_refogs_distant_known_waters() -> void:
-	var zone_id: int = _remote_zone()
-	assert_gt(zone_id, -1)
-	var tile: Vector2i = _screen.model.sea_zones[zone_id].tiles[0]
-	var index: int = _screen.model.index_of(tile.x, tile.y)
-	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
-	_screen.overlay.sync_visibility(_screen.visibility, [index])
-
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-
-	assert_eq(_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FOGGED)
-	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_FOGGED)
-
-
-func test_end_turn_reveals_owned_coastal_waters() -> void:
-	var zones: Array[int] = []
+## Unknown remotes stay blank, a distant sighting fogging, and owned coasts
+## clearing — three fog outcomes, one `end_turn` under coverage (docs/testing.md
+## § Speed rules: one resolved turn per suite when cases share the pass).
+func test_end_turn_fog_keeps_unknown_refogs_distant_and_opens_owned_coasts() -> void:
+	var occupied: Array[int] = _screen.ship_layer.at_sea_zones(MapScreen.PLAYER_FACTION)
+	var remotes: Array[int] = []
+	var coasts: Array[int] = []
 	for zone: SeaZoneState in _screen.model.sea_zones:
 		var zone_id: int = int(zone.id)
 		if _screen.visibility.owns_coast(zone_id):
-			zones.append(zone_id)
-	assert_gt(zones.size(), 0)
-	var tile: Vector2i = _screen.model.sea_zones[zones[0]].tiles[0]
-	var index: int = _screen.model.index_of(tile.x, tile.y)
-	_screen.visibility.lower_to(index, VisibilityModel.Level.FOGGED)
-	_screen.overlay.sync_visibility(_screen.visibility, [index])
+			coasts.append(zone_id)
+			continue
+		if occupied.has(zone_id):
+			continue
+		remotes.append(zone_id)
+	assert_true(remotes.size() >= 2, "need two remotes for unknown vs known")
+	assert_gt(coasts.size(), 0)
+
+	var unknown: Vector2i = _screen.model.sea_zones[remotes[0]].tiles[0]
+	var known: Vector2i = _screen.model.sea_zones[remotes[1]].tiles[0]
+	var coast: Vector2i = _screen.model.sea_zones[coasts[0]].tiles[0]
+	var unknown_i: int = _screen.model.index_of(unknown.x, unknown.y)
+	var known_i: int = _screen.model.index_of(known.x, known.y)
+	var coast_i: int = _screen.model.index_of(coast.x, coast.y)
+
+	_screen.visibility.lower_to(unknown_i, VisibilityModel.Level.UNKNOWN)
+	_screen.visibility.raise_to(known_i, VisibilityModel.Level.FULLY_VISIBLE)
+	_screen.visibility.lower_to(coast_i, VisibilityModel.Level.FOGGED)
+	_screen.overlay.sync_visibility(_screen.visibility, [unknown_i, known_i, coast_i])
 
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
 
+	assert_eq(_screen.visibility.level_at(unknown.x, unknown.y), VisibilityModel.Level.UNKNOWN)
+	assert_eq(_screen.overlay.fog_state_at(unknown.x, unknown.y), MapOverlay.FOG_UNKNOWN)
+	assert_eq(_screen.visibility.level_at(known.x, known.y), VisibilityModel.Level.FOGGED)
+	assert_eq(_screen.overlay.fog_state_at(known.x, known.y), MapOverlay.FOG_FOGGED)
 	assert_eq(
-		_screen.visibility.level_at(tile.x, tile.y), VisibilityModel.Level.FULLY_VISIBLE
+		_screen.visibility.level_at(coast.x, coast.y), VisibilityModel.Level.FULLY_VISIBLE
 	)
-	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
+	assert_eq(_screen.overlay.fog_state_at(coast.x, coast.y), MapOverlay.FOG_VISIBLE)
 
 
 func test_enemy_markers_follow_fog_intel() -> void:
@@ -2343,16 +2358,6 @@ func _toast_texts() -> Array[String]:
 		for label: Label in panel.find_children("*", "Label", true, false):
 			texts.append(label.text)
 	return texts
-
-
-func _remote_zone() -> int:
-	var occupied: Array[int] = _screen.ship_layer.at_sea_zones(MapScreen.PLAYER_FACTION)
-	for zone: SeaZoneState in _screen.model.sea_zones:
-		var zone_id: int = int(zone.id)
-		if _screen.visibility.owns_coast(zone_id) or occupied.has(zone_id):
-			continue
-		return zone_id
-	return -1
 
 
 ## A province another crown holds, for the yard's "capital must be in hand" row.
