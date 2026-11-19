@@ -4153,6 +4153,40 @@ func _fits(inner: Rect2, outer: Rect2, what: String) -> void:
 	)
 
 
+## End Turn's lane is the turn clock and the news that asks for a reaction, not
+## a log of the work the turn did (wiki: hud-toasts; issue #1056). A quiet turn
+## still reads its herald, and neither the rearm, the wall, the spy despatch nor
+## the harvest takes a plate.
+func test_end_turn_keeps_the_herald_and_drops_the_quiet_news() -> void:
+	var screen: MapScreen = _loss_screen()
+
+	MapPlayTurn.end_turn(screen.play)
+	Fixture.settle(screen.play)
+
+	var said: Array[String] = _turn_toasts(screen)
+	var herald: bool = false
+	for line: String in said:
+		if line.begins_with("Turn "):
+			herald = true
+		assert_false(line.contains("re-equipped"), "no rearm log: %s" % line)
+		assert_false(line.contains("walls rise"), "no wall log: %s" % line)
+		assert_false(line.contains("Spy report"), "no spy despatch: %s" % line)
+		assert_false(line.contains("gathered "), "no harvest log: %s" % line)
+	assert_true(herald, "the turn clock still reads: %s" % str(said))
+
+
+## Everything the lane held this turn: the plates on the board and the lines the
+## queue kept under them.
+func _turn_toasts(screen: MapScreen) -> Array[String]:
+	var texts: Array[String] = []
+	for panel: Node in screen.hud._toast_box.get_children():
+		for label: Label in panel.find_children("*", "Label", true, false):
+			texts.append(label.text)
+	for held: String in screen.hud.despatches.held():
+		texts.append(held)
+	return texts
+
+
 ## Province records and tile arrays the seating phase can change.
 func _capture(model: MapModel) -> Dictionary:
 	var provinces: Array = []

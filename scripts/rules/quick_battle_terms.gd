@@ -5,10 +5,10 @@ extends RefCounted
 ## (wiki: quick-battle § Core actions; § The crown's plan; § Cohesion and
 ## effective strength).
 ##
-## [QuickBattle] conducts the rounds and reads every one of these from here, so
-## a rule change lands in one file and the plate, the simulator and the
-## resolver keep one answer. Wrappers keep the long-standing names on
-## [QuickBattle] (a playtest and the simulator still ask that class the terms).
+## [QuickBattle] and [QuickBattleRounds] conduct the battle and read every one
+## of these from here, so a rule change lands in one file and the plate, the
+## simulator and the resolver keep one answer. Ask this class directly; the
+## orchestrators keep no pass-through copies of its law.
 ## Pure data and maths: no nodes, no state (REQ-P3-01, REQ-P3-03).
 
 ## A battle is fought over this many rounds at most.

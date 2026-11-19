@@ -22,9 +22,9 @@ var _offers: Array = []
 ## Home-fleet holds and this turn's laden imports, from the controller.
 var _cargo: Dictionary = {}
 ## The seller and good chips (and the row order) narrow the published book.
-var _seller_filter: int = MarketOffersHead.ALL_SELLERS
-var _good_filter: String = MarketOffersHead.ALL_GOODS
-var _offer_sort: String = MarketOffersHead.SORT_SELLER
+var _seller_filter: int = MarketBookFilter.ALL_SELLERS
+var _good_filter: String = MarketBookFilter.ALL_GOODS
+var _offer_sort: String = MarketBookFilter.SORT_SELLER
 var _offers_head: MarketOffersHead = null
 var _offers_box: VBoxContainer = null
 ## The single Bid press of every drawn row, in display order: a batch press
@@ -137,7 +137,7 @@ func _on_offers_filtered(seller: int, good: String, sort_key: String) -> void:
 ## Rows the strip is drawing right now, in display order (tests and tooling use
 ## this instead of reaching into the offer box; REQ-P3-02).
 func visible_offers() -> Array[Dictionary]:
-	return MarketOffersHead.apply(_offers, _seller_filter, _good_filter, _offer_sort)
+	return MarketBookFilter.apply(_offers, _seller_filter, _good_filter, _offer_sort)
 
 
 ## The seller/good/sort chips, for tests and the mobile layout audit.
@@ -166,8 +166,8 @@ func reset_filters() -> void:
 	# The head re-presses the chips and says so through `filters_changed`, so the
 	# reading here never disagrees with what the strip shows.
 	_offers_head.render(
-		_offers, MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_SELLER
+		_offers, MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
 	)
 
 

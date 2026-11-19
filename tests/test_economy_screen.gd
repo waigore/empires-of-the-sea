@@ -629,6 +629,26 @@ func test_the_opening_home_fleet_carries_her_merchants_holds() -> void:
 	assert_eq(merchants, 1, "the home fleet carries the merchant hull whose holds feed trade")
 
 
+## A crown whose home squadron carries no merchant hull keeps the seat's one
+## **trade** hold — it can still buy the cloth for a first launch — but crosses
+## nothing: the allowance never lands a colony's harvest (wiki: ships-and-naval
+## § Cargo holds and capacity — "the home squadron's merchant hulls are the only
+## holds"; "a crown with no seat or no squadron there has 0 holds").
+func test_a_fleetless_crown_crosses_nothing_on_the_seat_allowance() -> void:
+	var seat: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(seat)
+	assert_not_null(home)
+	home.set_hulls(["w"], {"w": "sloop"})
+
+	assert_eq(
+		int(_screen.economy.readings.trade_cargo()["holds"]),
+		TradeCargo.PORT_ALLOWANCE,
+		"the seat harbour still lets the crown buy its first cloth"
+	)
+	assert_eq(_screen.economy.readings.cargo_holds(), 0, "no merchant hull, no crossing hold")
+	assert_eq(int(_screen.economy.readings.overseas_plan()["holds"]), 0, "nothing lands abroad")
+
+
 func test_imports_stop_when_the_holds_are_full() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	var grain_before: int = economy.quantity("grain")
@@ -1012,7 +1032,7 @@ func test_the_reading_drops_back_to_the_whole_book() -> void:
 	market.reset_offer_filters()
 	assert_eq(market.visible_offers().size(), 3, "the whole book is back")
 	var all_chip: Button = market.offer_filters()[
-		"seller:%d" % MarketOffersHead.ALL_SELLERS
+		"seller:%d" % MarketBookFilter.ALL_SELLERS
 	] as Button
 	assert_true(all_chip.button_pressed, "the strip shows All courts again")
 

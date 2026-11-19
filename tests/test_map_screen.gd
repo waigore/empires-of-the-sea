@@ -90,6 +90,25 @@ func test_a_political_refresh_repaints_chart_and_lens() -> void:
 	assert_eq(int(_screen.play.diplomacy_lens.survey["tiles"]["self"]), before)
 
 
+## The same redraw runs inside the rival diplomacy pass, which mutes the HUD for
+## its own turn so no rival despatch takes the lane (`MapPlayDiplomacy
+## .resolve_turn`). The chart still repaints — a rival that absorbs a Minor moves
+## provinces — and the HUD chips, which have nowhere to paint, wait for the
+## unmuted turn instead of reaching into a HUD that is not there
+## (wiki: hud-toasts § Off the lane).
+func test_a_political_refresh_under_a_muted_hud_repaints_the_chart() -> void:
+	var play: PlaySession = _screen.play
+	var hud: GameHud = play.hud
+	assert_not_null(hud)
+	play.hud = null
+	_screen.refresh_political_map()
+	var painted: bool = _screen.canvas.model == _screen.model
+	play.hud = hud
+	assert_true(painted, "the chart redraws while the lane is muted")
+	assert_eq(_screen.overlay.model, _screen.model)
+	assert_eq(play.hud, hud, "the mute puts the HUD back")
+
+
 func test_the_new_world_stays_uncharted_at_game_start() -> void:
 	_screen._cycle_region()
 	var model: MapModel = _screen.model
@@ -2397,10 +2416,10 @@ func _owned_plains_tile(province_id: int) -> Vector2i:
 
 
 ## One turn completes a Builder's estate and an Engineer's wood fort: materials
-## leave at the press, the improvement lands, the fort despatch names the wall
-## and its gun, and both crews idle again (wiki: civilian-units; siege-mechanics
-## § Fort Levels, § Emplaced Artillery; REQ-P5-05). Two end_turns used to pay
-## the same Build/work pass twice under coverage.
+## leave at the press, the improvement lands, both crews idle again, and the new
+## wall reads on the province sheet — never on the despatch lane (wiki:
+## civilian-units; siege-mechanics § Fort Levels; hud-toasts). Two end_turns used
+## to pay the same Build/work pass twice under coverage.
 func test_a_work_order_and_a_fort_complete_on_the_same_turn() -> void:
 	var tile: Vector2i = _buildable_owned_resource_tile()
 	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
@@ -2438,8 +2457,10 @@ func test_a_work_order_and_a_fort_complete_on_the_same_turn() -> void:
 	assert_true(builder.is_idle())
 	assert_eq(FortRules.level_at(_screen.model, province), 1)
 	var said: String = _toast_text()
-	assert_true(said.contains("wood fort raised"), said)
-	assert_true(said.contains("1 emplaced gun"), said)
+	assert_false(
+		said.contains("wood fort raised"),
+		"the wall reads on the province sheet, not the lane: %s" % said
+	)
 	assert_true(engineer.is_idle())
 
 
@@ -3082,29 +3103,11 @@ func test_tapping_a_survey_mark_starts_the_survey() -> void:
 		_screen.land_works.is_prospected(play.player_faction, _screen.model, target),
 		"the survey lands on end turn"
 	)
-
-
-func test_a_rivals_survey_never_names_its_find() -> void:
-	var play: PlaySession = _screen.play
-	var rival: int = -1
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction != play.player_faction:
-			rival = faction
-			break
-	assert_true(rival >= 0, "the chart seats more than one Great Power")
-	var report: Dictionary = {"owner": rival, "find": "iron"}
-	var line: String = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
-	assert_false(line.contains("iron"), "a rival's uncover is never ours to read")
-	assert_true(line.contains("Explorer"))
-	# The court that paid for the survey does hear what it found.
-	report = {"owner": play.player_faction, "find": "iron"}
-	line = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
-	assert_true(line.contains("iron"))
-	assert_true(line.contains("Cádiz"))
-	# An empty find is a real answer, not silence (DR-20261111-26).
-	report = {"owner": play.player_faction, "find": ""}
-	line = MapPlayCivilians._survey_line(play, report, "Explorer", "Cádiz")
-	assert_true(line.contains("no mineral"))
+	for line: String in _toast_texts():
+		assert_false(
+			line.contains("finds "),
+			"the find reads on the province sheet, not the lane: %s" % line
+		)
 
 
 func test_new_game_assigns_a_leader_to_every_great_power() -> void:

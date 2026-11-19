@@ -8,9 +8,6 @@ extends RefCounted
 ## NavalRaid/NavalHullLoss (including the sink); this applies the cargo to the
 ## ledgers, marks the map and reports the crown's raids (REQ-P3-02, REQ-P3-03).
 
-## Despatch lines per turn; the rest collapse into one summary.
-const MAX_REPORTS: int = 4
-
 
 static func resolve(play: PlaySession) -> Dictionary:
 	if play.ship_layer == null or play.economy == null:
@@ -263,24 +260,20 @@ static func _sunk_total(reports: Array[Dictionary]) -> int:
 
 
 ## Toasts and map rings for the turn's raids: the moment the ledger moves
-## (REQ-P5-06). Sound is bound to the screen's `raid_resolved` signal.
+## (REQ-P5-06). Only the raid the crown suffers is despatch news — it takes the
+## crown's own cargo — while prizes the crown's squadrons took and every rival's
+## work read on the Gazette's sheet (wiki: hud-toasts, the-gazette). Sound is
+## bound to the screen's `raid_resolved` signal.
 static func _report(play: PlaySession, reports: Array[Dictionary]) -> void:
-	var shown: int = 0
 	for report: Dictionary in reports:
-		if shown >= MAX_REPORTS:
-			break
-		shown += 1
 		_mark(play, report)
-		if play.hud != null:
-			play.hud.toast(
-				BattleReport.describe_raid(
-					report, String(report.get("zone_name", "")),
-					FactionCatalog.names(), play.player_faction
-				)
-			)
-	if reports.size() > shown and play.hud != null:
+		if play.hud == null or String(report.get("kind", "")) != "incoming":
+			continue
 		play.hud.toast(
-			"%d more raids went unreported" % (reports.size() - shown)
+			BattleReport.describe_raid(
+				report, String(report.get("zone_name", "")),
+				FactionCatalog.names(), play.player_faction
+			)
 		)
 	play.emit_raid_resolved(reports)
 

@@ -19,7 +19,7 @@ Fog, cargo, battles, raids:
   returns a peasant (DR-20261109-01); each row names her line (DR-20261117-15);
   a flown hull launches without her tech (#484).
 - **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
-  one (DR-20261109-03).
+  one **trade** hold, never a crossing (DR-20261109-03, #484).
 - **Home merge:** seat dock or dossier **Join the home fleet**; ids, names,
   passengers keep.
 - **Home sortie** (DR-20261109-17): the home squadron may sail (spends
@@ -43,8 +43,7 @@ Fog, cargo, battles, raids:
 **Navy** (`N`, DR-20261115-14): the muster door lists each hull;
 **Visit** frames her.
 
-(`H`, DR-20261115-17; `SeaSurvey`/`SeaLens`): zones the crown's sail sees —
-hulls, strength, station, rival.
+(`H`, DR-20261115-17): zones the crown's sail sees.
 
 ## Architecture
 

@@ -78,11 +78,16 @@ func trade_cargo() -> Dictionary:
 	return status
 
 
-## Holds the crown's home squadron carries this turn (0 while it is away).
+## Holds the crown's home squadron carries for a crossing this turn: its merchant
+## hulls in port at the seat, and nothing else (0 while it is away, and 0 for a
+## court that owns no merchant hull). The seat harbour's one-hold allowance is a
+## **trade** hold — it buys the yard's first cloth — and never carries a colony's
+## harvest (wiki: ships-and-naval § Cargo holds and capacity — "the home
+## squadron's merchant hulls are the only holds").
 func cargo_holds() -> int:
 	if host == null or host.ship_layer == null or host.ship_layer.world == null:
 		return 0
-	return TradeCargo.capacity(
+	return TradeCargo.home_holds(
 		host.ship_layer.world, host.ship_layer.regions.snapshot(), host.player_faction
 	)
 

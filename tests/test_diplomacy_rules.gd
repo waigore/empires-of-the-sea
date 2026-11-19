@@ -4392,14 +4392,19 @@ func _joined(entries: Array[Dictionary]) -> String:
 	return " | ".join(parts)
 
 ## The widest gap in holdings between two courts other than the viewer, read
-## from the shared generated world (never mutated).
+## from the shared generated world (never mutated). One chart scan per court,
+## not per pair: the pair walk is 21×21 and a recount in it read the whole chart
+## hundreds of times under coverage.
 func _asym_pair() -> Array[int]:
 	var world: WorldMap = intel_dossier_Fixture.world()
 	var ids: Array[int] = []
+	var held: Dictionary = {}
 	for faction: Dictionary in FactionCatalog.all():
 		var id: int = int(faction["id"])
-		if id != intel_dossier_VIEWER:
-			ids.append(id)
+		if id == intel_dossier_VIEWER:
+			continue
+		ids.append(id)
+		held[id] = DiplomacyRules.provinces_owned(world, id)
 	ids.sort()
 	var big: int = ids[0]
 	var small: int = ids[ids.size() - 1]
@@ -4408,9 +4413,7 @@ func _asym_pair() -> Array[int]:
 		for b: int in ids:
 			if a == b:
 				continue
-			var gap: int = (
-				DiplomacyRules.provinces_owned(world, a) - DiplomacyRules.provinces_owned(world, b)
-			)
+			var gap: int = int(held[a]) - int(held[b])
 			if gap > best:
 				best = gap
 				big = a
