@@ -4479,9 +4479,20 @@ func test_the_markers_lay_the_row_out_and_cover_the_stack() -> void:
 	assert_false(first.covered)
 	assert_false(head.covered, "the head of the stack draws the hull")
 	assert_true(behind.covered, "the squadron behind her draws none")
+	assert_true(head.shows_hull())
+	assert_false(behind.shows_hull())
 	assert_eq(head.pips.size(), 1, "one pennant for the court behind her")
 	assert_eq(int(head.pips[0]), RIVAL, "and it flies that court's colour")
 	assert_true(behind.pips.is_empty() or behind.pips.size() == 1)
+
+	# The plate prints on the squadron in the crown's hand, and always on a rival
+	# the fog has not read (wiki: ships-and-naval § Fleets in one station,
+	# § Sighted strength).
+	assert_false(first.shows_plate(), "a read squadron out of hand keeps her figure back")
+	first.set_selected(true)
+	assert_true(first.shows_plate(), "the squadron in hand prints it")
+	behind.set_intel(false)
+	assert_true(behind.shows_plate(), "an unread rival's plate still says the fog withholds it")
 
 
 ## The crown's selection comes to the head of her stack, so the squadron she is

@@ -85,6 +85,13 @@ func set_lane(offset: Vector2, behind: Array[int], hide_hull: bool) -> void:
 	queue_redraw()
 
 
+## Whether her hull is drawn: a squadron behind the head of her stack leaves the
+## hull to the head and rides it as a pennant, so a crowded station still reads
+## as its courts (wiki: ships-and-naval § Fleets in one station).
+func shows_hull() -> bool:
+	return not covered
+
+
 ## Whether her strength prints: the squadron in the crown's hand always, and an
 ## unread rival always — her plate must still say the fog withholds her weight
 ## (wiki: ships-and-naval § Fleets in one station, § Sighted strength).
@@ -112,7 +119,7 @@ func _draw() -> void:
 	# A squadron behind the head of her stack draws no hull: the head carries her
 	# pennant instead, so a crowded station still reads as its courts
 	# (wiki: ships-and-naval § Fleets in one station).
-	if covered:
+	if not shows_hull():
 		return
 	var bob: float = sin(_time * 1.7 + bob_phase) * 1.5
 	var tilt: float = sin(_time * 1.25 + bob_phase) * 0.05
