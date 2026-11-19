@@ -97,6 +97,23 @@ static func takes_any_peace(phase: String) -> bool:
 	return phase == PHASE_FRONTS
 
 
+## True when this pair is the front the court keeps while it is overstretched
+## (issue #995): an overstretched court settles the wars it cannot reach, but the
+## war on a crown its own frontier touches is the one war its field army can
+## prosecute — a province stormed next door every turn — so that war is not a
+## front it is overstretched by. `marches` is `AiBorderFronts.marches_on` for the
+## pair; a caller with no border read keeps the published footing.
+static func keeps_the_border_front(phase: String, marches: bool) -> bool:
+	return marches and phase == PHASE_FRONTS
+
+
+## The footing's own word on a white peace offered over one pair: the published
+## "any peace" on `fronts`, less the border front the court keeps (issue #995).
+## Every other footing keeps `takes_any_peace` exactly.
+static func takes_peace(phase: String, marches: bool) -> bool:
+	return takes_any_peace(phase) and not keeps_the_border_front(phase, marches)
+
+
 ## Whether the footing leaves a dispatch slot open. A closed slot is the planner's
 ## own default outcome — the aim is not offered — never a legality gate: an order
 ## the court does issue still passes the same published rules (DR-20261113-15,
