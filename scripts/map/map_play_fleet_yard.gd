@@ -153,7 +153,7 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 	var carried_army: ArmyState = ArmyTransport.army_by_id(
 		play.army_layer, fleet.embarked_army
 	)
-	var can_break: Dictionary = NavalTransport.can_scrap(fleet, carried_army)
+	var can_break: Dictionary = NavalDeck.can_scrap(fleet, carried_army)
 	if not bool(can_break.get("ok", false)):
 		play.hud.toast(String(can_break.get("reason", "The hull stays afloat.")))
 		return

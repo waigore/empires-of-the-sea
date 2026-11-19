@@ -732,9 +732,9 @@ func test_a_squadron_never_breaks_a_hull_out_from_under_its_colonists() -> void:
 	_setup_fleet_sortie()
 	var home: FleetState = FleetState.in_port(1, 0, 0, ["a"], {"a": "fluyte"})
 	home.add_civilian(11)
-	assert_false(bool(NavalTransport.can_scrap(home, null)["ok"]))
+	assert_false(bool(NavalDeck.can_scrap(home, null)["ok"]))
 	home.add_hull("b", "carrack")
-	assert_true(bool(NavalTransport.can_scrap(home, null)["ok"]))
+	assert_true(bool(NavalDeck.can_scrap(home, null)["ok"]))
 
 func test_troops_cannot_board_a_squadron_carrying_colonists() -> void:
 	_setup_fleet_sortie()
@@ -2175,7 +2175,7 @@ func test_one_hull_carries_one_regiment() -> void:
 	var pair: Array = _naval_movement_transport_pair()
 	var army: ArmyState = pair[0]
 	var fleet: FleetState = pair[1]
-	assert_eq(NavalTransport.capacity(fleet), 1)
+	assert_eq(NavalDeck.capacity(fleet), 1)
 	assert_true(bool(NavalTransport.can_embark(_naval_movement_model, army, fleet)["ok"]))
 	assert_true(bool(NavalTransport.embark(_naval_movement_model, army, fleet)["ok"]))
 	assert_eq(army.province, MapModel.NO_ID)
@@ -2259,16 +2259,16 @@ func test_a_sunk_hull_takes_her_regiment_with_her() -> void:
 	army.embarked_fleet = fleet.id
 	army.province = MapModel.NO_ID
 	fleet.remove_hull("ship_7")
-	var drowned: Dictionary = NavalTransport.trim_aboard(fleet, army)
+	var drowned: Dictionary = NavalDeck.trim_aboard(fleet, army)
 	var men: Array = drowned["regiments"]
 	assert_eq(men.size(), 1, "one hull lost, one regiment drowned")
 	assert_eq(army.count(), 2)
 	assert_eq(String(men[0]), "unit_1100", "the weakest colours drowns first")
 	assert_false(army.regiments.has("unit_1100"))
 	assert_eq(fleet.embarked_army, army.id, "the men left aboard still ride her")
-	assert_eq(NavalTransport.aboard(fleet, army), 2, "one hull, one man")
+	assert_eq(NavalDeck.aboard(fleet, army), 2, "one hull, one man")
 	assert_eq(
-		NavalTransport.drown_news(drowned),
+		NavalDeck.drown_news(drowned),
 		["1 regiment went down with the sunk hulls — the deck could not hold them"],
 		"the bar names the one regiment it lost"
 	)
@@ -2284,7 +2284,7 @@ func test_a_deck_that_empties_puts_the_standard_aside() -> void:
 	army.embarked_fleet = fleet.id
 	army.province = MapModel.NO_ID
 	fleet.remove_hull("ship_8")
-	NavalTransport.trim_aboard(fleet, army)
+	NavalDeck.trim_aboard(fleet, army)
 	assert_true(army.is_empty())
 	assert_eq(fleet.embarked_army, -1, "an empty deck carries no army")
 	assert_eq(army.embarked_fleet, -1, "and no man is still aboard")
@@ -2298,13 +2298,13 @@ func test_a_sunk_hull_takes_her_colonist_with_her() -> void:
 	fleet.add_civilian(22)
 	fleet.add_civilian(23)
 	fleet.remove_hull("ship_11")
-	var drowned: Dictionary = NavalTransport.trim_aboard(fleet, null)
+	var drowned: Dictionary = NavalDeck.trim_aboard(fleet, null)
 	var colonists: Array = drowned["civilians"]
 	assert_eq(colonists.size(), 1, "one hull lost, one colonist drowned")
 	assert_eq(int(colonists[0]), 23, "the last hand aboard drowns first")
 	assert_eq(fleet.civilian_count(), 2)
-	assert_eq(NavalTransport.aboard(fleet, null), 2)
-	assert_eq(NavalTransport.drown_news(drowned), ["A colonist went down with a sunk hull"])
+	assert_eq(NavalDeck.aboard(fleet, null), 2)
+	assert_eq(NavalDeck.drown_news(drowned), ["A colonist went down with a sunk hull"])
 
 
 ## The turn's close reads every deck: whichever loss took the hull — a battle's
@@ -2535,9 +2535,9 @@ func test_breaking_up_a_hull_cannot_strand_the_troops() -> void:
 	var army: ArmyState = pair[0]
 	var fleet: FleetState = pair[1]
 	NavalTransport.embark(_naval_movement_model, army, fleet)
-	assert_false(bool(NavalTransport.can_scrap(fleet, army)["ok"]))
+	assert_false(bool(NavalDeck.can_scrap(fleet, army)["ok"]))
 	fleet.add_hull("ship_5")
-	assert_true(bool(NavalTransport.can_scrap(fleet, army)["ok"]))
+	assert_true(bool(NavalDeck.can_scrap(fleet, army)["ok"]))
 
 
 func test_transport_state_survives_a_save_round_trip() -> void:
@@ -2671,8 +2671,8 @@ func test_port_landing_and_scrap_gates() -> void:
 	assert_eq(NavalTransport.landing_provinces(_naval_movement_model, fleet), [0])
 	assert_eq(NavalTransport.landing_provinces(_naval_movement_model, null), [])
 	assert_eq(NavalTransport.landing_provinces(_naval_movement_model, FleetState.at_sea(4, 0, 0)), [0])
-	assert_true(bool(NavalTransport.can_scrap(null, army)["ok"]))
-	assert_false(bool(NavalTransport.can_scrap(fleet, null)["ok"]))
+	assert_true(bool(NavalDeck.can_scrap(null, army)["ok"]))
+	assert_false(bool(NavalDeck.can_scrap(fleet, null)["ok"]))
 
 
 func test_transport_layer_lookups_and_refusals() -> void:

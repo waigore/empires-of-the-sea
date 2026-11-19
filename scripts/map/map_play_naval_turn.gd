@@ -121,7 +121,7 @@ static func reconcile_decks(play: PlaySession) -> Array[Dictionary]:
 		for row: Dictionary in rows:
 			if int(row.get("owner", -1)) != play.human_faction_id():
 				continue
-			for line: String in NavalTransport.drown_news(row):
+			for line: String in NavalDeck.drown_news(row):
 				play.hud.toast(line)
 	return rows
 
