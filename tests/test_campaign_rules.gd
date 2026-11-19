@@ -3880,18 +3880,24 @@ func test_escape_and_android_back_are_one_press() -> void:
 ## and keep a touch-sized confirm (REQ-P1-05, REQ-P1-07, RUB-P1-05). The chart
 ## composes in the strip they leave free, so the banner covers open sea rather
 ## than the seaboards the player has to tap.
+##
+## One page, two handsets: the page is anchored and container-composed, so the
+## second size resizes the viewport it already mounted instead of paying a
+## second chart boot under coverage (docs/testing.md § Speed rules).
 func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 	_setup_capital_seat()
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(914, 411)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var phone_page: CapitalChoiceScreen = SCENE.instantiate()
+	phone_page.config = GameConfig.make(SEED, 0, FactionCatalog.PLAYER_FACTION)
+	phone_page.world = world
+	viewport.add_child(phone_page)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	for size: Vector2i in [Vector2i(914, 411), Vector2i(800, 360)]:
-		var viewport := SubViewport.new()
 		viewport.size = size
-		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		add_child(viewport)
-		var phone_page: CapitalChoiceScreen = SCENE.instantiate()
-		phone_page.config = GameConfig.make(SEED, 0, FactionCatalog.PLAYER_FACTION)
-		phone_page.world = world
-		viewport.add_child(phone_page)
-		await get_tree().process_frame
 		await get_tree().process_frame
 		await get_tree().process_frame
 		var screen_rect := Rect2(Vector2.ZERO, Vector2(size))
@@ -3905,13 +3911,17 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 		)
 		assert_gte(phone_page.confirm_button.size.y, 44.0, "touch-sized confirm %s" % size)
 		_assert_chart_in_band(phone_page, screen_rect, size)
-		viewport.free()
+	phone_page.free()
+	viewport.free()
 
 
 ## Back out of the chart and start a new game: the second chart must roll a new
 ## world and the campaign must start on it, never on the abandoned roll.
 ## The first chart reuses the suite's cached world; only the second roll pays
 ## `generate_world` so the case still proves the abandoned chart is discarded.
+## That roll is asked for at the **smallest** preset: a fresh chart of any size
+## proves the abandoned one is thrown away, and Small keeps the one generation
+## the case needs off Standard's 96x64 (docs/testing.md § Speed rules).
 func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	_setup_capital_seat()
 	var main: Node = MAIN.instantiate()
@@ -3944,6 +3954,8 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	# Clear the preset so the second start must roll a fresh chart.
 	main.preset_world = null
 	setup2.seed_field.text = "424242"
+	# Small is the cheapest fresh roll that still seats every crown.
+	setup2.size_option.select(0)
 	setup2.start_button.emit_signal("pressed")
 	var second: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
 	assert_not_null(second, "the second chart opens")

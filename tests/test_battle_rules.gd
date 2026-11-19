@@ -9537,8 +9537,11 @@ func test_the_sea_plate_stands_one_medallion_per_hull_type() -> void:
 	plate.free()
 
 
+## The plates are the HUD's, not the chart's: this case rides the suite's one
+## mount like its neighbours (`_hud()`), so a second `MapScreen` boot under
+## coverage is not paid to read two queues (docs/testing.md § Speed rules).
 func test_the_hud_replays_sea_and_land_plates_one_at_a_time() -> void:
-	var screen: MapScreen = overlay_Fixture.attach_screen(self)
+	var screen: MapScreen = _hud()
 	screen.hud.show_naval_dispatch(_sea_battle(), "Mar Caribe")
 	assert_true(screen.hud.naval_plate.is_shown(), "the sea's despatch takes the court")
 	screen.hud.show_naval_dispatch(_sea_battle(), "Golfo de México")
@@ -9555,7 +9558,6 @@ func test_the_hud_replays_sea_and_land_plates_one_at_a_time() -> void:
 	screen.hud.naval_plate._on_continue()
 	assert_false(screen.hud.is_quick_battle_shown())
 	assert_false(screen.hud.naval_plate.is_shown())
-	screen.free()
 
 # --- The line's wings (wiki: quick-battle § Wings and collapse; DR-20261117-08)
 
