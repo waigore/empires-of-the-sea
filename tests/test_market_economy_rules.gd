@@ -2111,15 +2111,17 @@ func test_the_larder_standing_reads_the_store_and_its_slack() -> void:
 
 
 ## The warning a court hears a turn before the larder bites names what runs
-## short and who strikes first, and stays silent on a covered larder
-## (wiki: workers-and-population § Consumption; REQ-P5-05, REQ-P5-06).
+## short and who strikes first, and stays silent on a covered larder. Both forms
+## are the wiki's own lines — the food clause is separated from the strike by a
+## semicolon, the luxury form keeps the dash (wiki: workers-and-population
+## § Consumption; DR-20261119-11; REQ-P5-05, REQ-P5-06).
 func test_the_larder_warning_names_what_runs_short() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	economy.workers = WorkerPool.make(1, 0, 0, 1)
 	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
 	assert_eq(
 		LarderRead.warning(LarderRead.standing(economy)),
-		"The larder runs short — 2 food — 1 worker will strike at the next close, "
+		"The larder runs short — 2 food; 1 worker will strike at the next close, "
 		+ "masters first."
 	)
 	# A luxury the tier wants with the food covered names the good, not a
@@ -2133,6 +2135,22 @@ func test_the_larder_warning_names_what_runs_short() -> void:
 	)
 	economy.stockpile = {"grain": 4, "meat": 4, "refinedSugar": 2}
 	assert_eq(LarderRead.warning(LarderRead.standing(economy)), "", "a calm larder is silent")
+
+
+## A larder that runs short of food and of the luxury on top of it names the
+## food first — the phase feeds it before any luxury — and still separates the
+## shortfall from the strike with the published semicolon (wiki:
+## workers-and-population § Consumption; DR-20261119-11).
+func test_the_larder_warning_names_food_before_the_luxury() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(0, 2)
+	economy.stockpile = {"grain": 1, "meat": 0, "refinedSugar": 0}
+	var read: Dictionary = LarderRead.standing(economy)
+	assert_true(int(read["slack"]) < 0, "the store cannot feed the pool")
+	var line: String = LarderRead.warning(read)
+	assert_true(line.begins_with("The larder runs short — "), line)
+	assert_true(line.contains(" food; "), "the food clause takes the published semicolon")
+	assert_false(line.contains("Refined Sugar"), "food is named before any luxury")
 
 
 ## The standing's `waiting` flag: the ledger's own projection already counts the
