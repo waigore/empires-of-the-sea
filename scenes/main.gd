@@ -10,9 +10,16 @@ const CAPITAL_CHOICE: PackedScene = preload("res://scenes/capital_choice.tscn")
 const INTRO: PackedScene = preload("res://scenes/intro.tscn")
 const SAVE_BROWSER: PackedScene = preload("res://scenes/save_browser.tscn")
 
+## The observer launch switch, read from user args after `--`.
+const OBSERVER_FLAG: String = "--ai-observer"
+
 ## Overridable for tests / e2e smoke (set before add_child). Defaults follow
 ## GameConfig Standard (#700) so shell auto-start matches the setup presets.
 var auto_start: bool = false
+## Desktop CLI door: `godot --path . -- --ai-observer` boots the live full-AI
+## observer and skips the title screen (docs/ai-observer.md). Tests may pin it
+## before add_child, like `auto_start`.
+var observer_start: bool = false
 var map_width: int = int(GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]["width"])
 var map_height: int = int(GameConfig.SIZES[GameConfig.DEFAULT_SIZE_INDEX]["height"])
 var map_seed: int = GameConfig.DEFAULT_SEED
@@ -35,10 +42,32 @@ func _ready() -> void:
 	InputActions.ensure_actions()
 	# One HUD unit == one point on handhelds; a no-op on desktop.
 	PlatformDisplay.apply(get_window())
-	if auto_start:
+	if _wants_observer():
+		_start_observer()
+	elif auto_start:
 		_start_new_game(_default_config())
 	else:
 		_show_main_menu()
+
+
+## True when the launch asked for the observer: the desktop CLI switch, or a
+## test that pinned `observer_start`. Handhelds have no command line, so they
+## always open the title screen.
+func _wants_observer() -> bool:
+	if observer_start:
+		return true
+	if PlatformDisplay.is_handheld():
+		return false
+	return has_observer_flag(OS.get_cmdline_user_args())
+
+
+## The switch is its own arg (`-- --ai-observer`); a stray value after `=` or a
+## neighbouring switch never turns it on.
+static func has_observer_flag(args: PackedStringArray) -> bool:
+	for raw: String in args:
+		if raw.strip_edges() == OBSERVER_FLAG:
+			return true
+	return false
 
 
 func _default_config() -> GameConfig:
@@ -58,7 +87,6 @@ func _show_main_menu(notice: String = "") -> void:
 	var menu: MainMenu = MAIN_MENU.instantiate()
 	menu.new_game_pressed.connect(_show_setup)
 	menu.load_game_pressed.connect(_show_main_load)
-	menu.observer_pressed.connect(_start_observer)
 	menu.quit_pressed.connect(func() -> void: get_tree().quit())
 	add_child(menu)
 	menu.set_notice(notice)
@@ -177,8 +205,9 @@ func _begin_game(config: GameConfig, world: WorldMap = null) -> void:
 	_install_screen(screen)
 
 
-## Debug entry: an all-AI campaign on the new-game defaults (wiki: game-setup
-## § Human/AI slot assignment — an empty human slot set is the full-AI observer).
+## Debug entry: an all-AI campaign on the new-game defaults, opened by the
+## desktop `--ai-observer` switch (wiki: game-setup § Human/AI slot assignment —
+## an empty human slot set is the full-AI observer; docs/ai-observer.md).
 func _start_observer() -> void:
 	var config: GameConfig = _default_config()
 	if size_override.x > 0 and size_override.y > 0:
