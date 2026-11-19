@@ -146,6 +146,22 @@ static func plan(
 		# The win-bar reading the bank rides on (issue #995): the trace and
 		# the treaty rungs read it beside the goal it moved.
 		"conquest_gap": conquest_gap,
+		# The chest the bank is holding the purse for (issue #995): the
+		# canonical reserve with the escalation valve stood down. `reserve`
+		# above is the money goal's own — the #603 valve may re-route it to
+		# the cash floor while the fill stands still — and a bank that reads
+		# the wobbled row releases at the peak of its own fill: the college
+		# unpins, the ladder burns the margin, and the chest never closes
+		# (measured: the purse parked at ~2,250 against a ~2,600 muster,
+		# flickering spend every other turn). A caller with no chest keeps
+		# the row it was given (the wobbled reserve stands in).
+		"bank_chest": maxi(
+			reserve(
+				config, economy, at_war, regiments, hull_chest, own_warships, 0,
+				conquest_gap
+			),
+			0
+		) if conquest_gap else need,
 	}
 
 
@@ -191,10 +207,12 @@ static func saving_reason(income: Dictionary, amount: int = 0) -> String:
 ## target, and the purse is one line-cycle short of the chest — so every
 ## deferrable purchase (a war, a pact break, an envoy rung) waits, and a purse
 ## that peaks inside a turn still belongs to the army that marches before
-## anything else spends it. The read is the purse, the host and the bar, never
-## the money goal: the goal wobbles on the re-route cycle, and a wobble must
-## not open a front. A caller with no ledger or no income row keeps the
-## published behaviour.
+## anything else spends it. The read is the purse, the host and the bar — and
+## the chest the income row stamps (`bank_chest`), never the wobbling money
+## goal: the goal's own reserve re-routes on the #603 cycle, and a bank that
+## released at the peak of its own fill unpinned the college and burned the
+## margin it was holding for. A caller with no ledger or no income row keeps
+## the published behaviour.
 static func banking(
 	config: AiConfig, ai_state: AiState, income: Dictionary
 ) -> bool:
@@ -207,9 +225,9 @@ static func banking(
 	)
 	if economy == null:
 		return false
-	var shortfall: int = maxi(int(income.get("reserve", 0)), 0) + maxi(
-		AiArmyReinforce.cheapest_line_price(economy), 0
-	)
+	var shortfall: int = maxi(
+		int(income.get("bank_chest", income.get("reserve", 0))), 0
+	) + maxi(AiArmyReinforce.cheapest_line_price(economy), 0)
 	return int(income.get("treasury", 0)) < shortfall
 
 

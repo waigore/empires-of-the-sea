@@ -38,17 +38,29 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 			court.play.world, court.faction, court.play.court_charts,
 			court.play.diplomacy, court.economy.tech_unlocked
 		)
+	# The chest the conquest bank is holding the purse for (issue #995): the
+	# canonical reserve the income row stamps beside the wobbling goal. The
+	# money goal's own reserve wobbles when the #603 valve re-routes it to the
+	# cash floor, and a floor that falls with the wobble lets the college's
+	# ladder burn the very fill the bank is holding for — measured 450 ducats
+	# on the one turn a big sale landed. The door studies already read this
+	# chest; with it the ordinary ladder reads it too. A court not banking
+	# keeps its published goal reserve; the standing study keeps the #490
+	# cash-floor gate either way, so a court parked at the floor still learns.
+	var bank_chest: int = (
+		int(court.income.get("bank_chest", 0)) if court.conquest_bank else 0
+	)
 	return AiBindEconomy.research_plan(
 		court.kind, court.config, court.economy,
 		{
 			"at_war": court.at_war,
 			"revealed": revealed,
-			"treasury_floor": court.floor,
+			"treasury_floor": bank_chest if court.conquest_bank else court.floor,
 			"cash_floor": research_floor,
 			"door": door,
 			"defer_standing": court.hull_chest > 0,  # yard fills before standing (#484)
 			# The bank the doors honor while the court arms (issue #995).
-			"conquest_reserve": court.floor if court.conquest_bank else 0,
+			"conquest_reserve": bank_chest if court.conquest_bank else 0,
 		}
 	)
 
@@ -127,10 +139,21 @@ static func trade(court: MapPlayEconomyCourt) -> Dictionary:
 	# chest never closes (#910 stall on seed 1500).
 	var works_floor: int = court.floor if saving else -1
 	# A court at war opens no speculative top-up: the slot is the footing's
-	# (DR-20261117-01), and the published market fills the rest.
+	# (DR-20261117-01), and the published market fills the rest. A phoney war
+	# holds no front (issue #995): the #999 read already erodes a war that has
+	# taken no attack to its peace, and the coin a silent front kept shut
+	# belongs to the bank's chest — so a submission court whose every crown war
+	# is phoney opens the top-up while the peace leg ends them. A frozen
+	# baseline keeps the published footing: its planners hold no bank (issue
+	# #995's subject-scoped surface).
 	var speculate: bool = AiPhasePlanner.opens(
 		court.phase, AiPhasePlanner.SLOT_MARKET
 	)
+	if not speculate and court.kind != AiControl.KIND_BASELINE and not AiWarMemory.holds_front(
+		court.config, court.play.ai, court.play.diplomacy, court.play.turn,
+		court.faction
+	):
+		speculate = true
 	var plan: Dictionary = AiBindEconomy.market_plan(
 		court.kind, court.config, court.economy, court.market, free_holds,
 		court.economy.tech_unlocked, reserved,
