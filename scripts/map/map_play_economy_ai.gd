@@ -75,7 +75,7 @@ static func _overseas(
 			capital["tile"], economy.tech_unlocked, true, {}, seals
 		)
 	var holds: int = (
-		TradeCargo.home_holds(play.world, play.ship_layer.regions.snapshot(), faction)
+		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
 		if play.ship_layer != null else 0
 	)
 	var plan: Dictionary = EconomyOverseas.delivered(
