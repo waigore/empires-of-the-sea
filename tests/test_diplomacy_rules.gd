@@ -10,6 +10,9 @@ extends GdToolsTest
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const diplomacy_power_AiFixture = preload("res://tests/ai_fixture.gd")
 const diplomacy_proposals_AiFixture = preload("res://tests/ai_fixture.gd")
+## A throwaway chart for the proposal suite's absorption case: the answer moves
+## a province, so the shared map fixture would carry the change into other cases.
+const diplomacy_proposals_NavalFixture = preload("res://tests/naval_fixture.gd")
 const diplomacy_survey_Fixture = preload("res://tests/map_fixture.gd")
 const _Fixture = preload("res://tests/civilian_fixture.gd")
 const dialogue_beats_Fixture = preload("res://tests/army_fixture.gd")
@@ -747,6 +750,101 @@ func test_accepting_an_overture_advances_both_directions_for_free() -> void:
 	assert_eq(diplomacy_proposals_state.overture(0, 2), DiplomacyCatalog.STAGE_NAP)
 	assert_true(_diplomacy_proposals_event("overtureEstablished"))
 	assert_true(_diplomacy_proposals_event("proposalAccepted"))
+
+## The last rung is the one **paid** overture a court may raise toward another
+## Great Power: the asking crown's own purse must cover it, and the answer
+## charges that crown, never the human (wiki: diplomacy § Join Empire — the
+## offer's treasury gate; § Overtures — "Only when the target accepts are cost
+## deducted and overture stage advanced").
+func test_a_rival_offers_the_last_rung_only_with_its_own_purse() -> void:
+	_setup_diplomacy_proposals()
+	var world := WorldMap.new()
+	world.add_region(diplomacy_proposals_NavalFixture.build())
+	diplomacy_proposals_state.relation(0, 2).score = 60.0
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	# The rung is paid: with the studies in hand but no purse behind the ask it
+	# still waits, exactly as the human's own row does (wiki: diplomacy § Join
+	# Empire — the offer's treasury gate).
+	var broke: Dictionary = DiplomacyProposals.queue(
+		diplomacy_proposals_state, world, 2, DiplomacyProposals.KIND_OVERTURE,
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, 0, {"empire_building": true}
+	)
+	assert_false(bool(broke["ok"]), "the paid rung reads the asking court's purse")
+	assert_true(
+		String(broke.get("reason", "")).contains("treasury"),
+		broke.get("reason", "")
+	)
+	# The rival's own purse and studies clear it: the offer the human is promised
+	# a consent prompt for is raised, and answering yes charges the asking court.
+	var queued: Dictionary = DiplomacyProposals.queue(
+		diplomacy_proposals_state, world, 2, DiplomacyProposals.KIND_OVERTURE,
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, 40000, {"empire_building": true}
+	)
+	assert_true(bool(queued["ok"]), queued.get("reason", ""))
+	assert_true(DiplomacyProposals.has_pending(diplomacy_proposals_state, 0))
+	var proposer := PlayerEconomy.starting()
+	proposer.treasury = 40000
+	proposer.tech_unlocked = {"empire_building": true}
+	var answer: Dictionary = DiplomacyProposals.resolve_human(
+		diplomacy_proposals_state, world, true, proposer
+	)
+	assert_true(bool(answer.get("ok", false)), answer.get("reason", ""))
+	assert_true(bool(answer.get("accepted", true)))
+	assert_eq(
+		proposer.treasury, 40000 - int(answer.get("cost", 0)),
+		"the asking court pays its own overture"
+	)
+	assert_eq(
+		int(world.region(0).province_data(0).owner), 2,
+		"the accepted absorption hands the crown's land to the asking court"
+	)
+
+## The AI's own path prices the offer from the asking court's ledger, so the
+## planner's queued Join Empire reaches the crown only when that court can pay it
+## (wiki: diplomacy § Join Empire; REQ-P2-03).
+func test_the_rival_offer_reads_its_ledger_on_the_ai_path() -> void:
+	_setup_diplomacy_proposals()
+	var world := WorldMap.new()
+	world.add_region(diplomacy_proposals_NavalFixture.build())
+	diplomacy_proposals_state.relation(0, 2).score = 60.0
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	var ai := AiState.new()
+	var ledger: PlayerEconomy = ai.economy_for(2)
+	ledger.treasury = 0
+	ledger.tech_unlocked = {"empire_building": true}
+	var broke: Dictionary = AiTurnApply.propose(
+		diplomacy_proposals_state, world, ai, 2,
+		{
+			"kind": DiplomacyProposals.KIND_OVERTURE,
+			"stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE,
+		}
+	)
+	assert_false(bool(broke["result"]["ok"]), "a rival with no purse raises nothing")
+	ledger.treasury = 40000
+	var offer: Dictionary = AiTurnApply.propose(
+		diplomacy_proposals_state, world, ai, 2,
+		{
+			"kind": DiplomacyProposals.KIND_OVERTURE,
+			"stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE,
+		}
+	)
+	assert_true(bool(offer["result"]["ok"]), offer["result"].get("reason", ""))
+	assert_true(DiplomacyProposals.has_pending(diplomacy_proposals_state, 0))
+	# A caller with no AI state — a fixture — keeps the free rungs: the court
+	# with no ledger offers the pact and nothing that costs.
+	DiplomacyProposals.take_pending(diplomacy_proposals_state, 0)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_EMBASSY)
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_EMBASSY)
+	var free: Dictionary = AiTurnApply.propose(
+		diplomacy_proposals_state, world, null, 2,
+		{
+			"kind": DiplomacyProposals.KIND_OVERTURE,
+			"stage": DiplomacyCatalog.STAGE_NAP,
+		}
+	)
+	assert_true(bool(free["result"]["ok"]), free["result"].get("reason", ""))
 
 func test_refusing_an_overture_keeps_the_previous_stage() -> void:
 	_setup_diplomacy_proposals()
