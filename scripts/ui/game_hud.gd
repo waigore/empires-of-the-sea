@@ -95,7 +95,8 @@ var quick_battle_overlay: QuickBattleOverlay = null
 ## The sea's despatch plate (wiki: ships-and-naval § Naval Combat Resolution);
 ## null until the chrome builds it.
 var naval_plate: NavalPlate = null
-## The crown's news sheet and its archive (wiki: the-gazette); a soft plate.
+## The crown's news sheet and its archive (wiki: the-gazette); the one full-screen
+## sheet every bar door uses (DR-20261119-10).
 var gazette_plate: GazettePlate = null
 ## The whole-empire sheets are mounted and held by HudLedgerDoors; the HUD keeps
 ## read-only views of them, so a bar, a dossier line or a suite still asks for a

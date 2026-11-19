@@ -7,12 +7,11 @@ extends RefCounted
 ## decision, the last whole-realm chore the crown ledger serves a row at a time
 ## (REQ-P5-04).
 ##
-## The walk is the Research phase's own: each slot is priced by
-## `ResearchTurn.preview` against the treasury the slots before it leave, exactly
-## as the phase spends in slot order, so the line a sheet prints and the gold
-## the phase pays can never disagree (REQ-P2-03). It writes nothing; `apply`
-## moves the slots through the published `ResearchState.set_funding`, so no rule,
-## preset, floor or save key moves (REQ-P3-03).
+## The walk is `ResearchWalk`'s — the same one the college's slot rows read — so
+## the line a sheet prints and the gold the phase pays can never disagree
+## (REQ-P2-03). It writes nothing; `apply` moves the slots through the published
+## `ResearchState.set_funding`, so no rule, preset, floor or save key moves
+## (REQ-P3-03).
 ##
 ## Pure reads over integers and catalogs, no nodes.
 
@@ -52,39 +51,27 @@ static func plan(
 	if state == null or not ResearchFunding.known(preset):
 		return plan
 	plan["preset"] = preset
-	state.ensure_slots()
-	var sim: ResearchState = state.copy()
-	var left: int = treasury
-	for index in state.slots.size():
-		var tech_id: String = state.tech_at(index)
+	var walk: Dictionary = ResearchWalk.run(state, treasury, preset, boost, leader_key)
+	plan["count"] = int(walk["occupied"])
+	plan["gold"] = int(walk["gold"])
+	plan["rp"] = int(walk["rp"])
+	plan["unpaid"] = int(walk["unpaid"])
+	for row: Dictionary in walk["slots"]:
+		var tech_id: String = String(row["tech"])
 		if tech_id.is_empty():
 			continue
-		plan["count"] = int(plan["count"]) + 1
-		if state.funding_at(index) == preset:
+		var held: String = state.funding_at(int(row["slot"]))
+		if held == preset:
 			plan["kept"] = int(plan["kept"]) + 1
-		else:
-			var rows: Array[Dictionary] = plan["rows"]
-			rows.append({
-				"slot": index,
-				"tech": tech_id,
-				"name": TechCatalog.display_name(tech_id),
-				"was": state.funding_at(index),
-			})
-			plan["filed"] = int(plan["filed"]) + 1
-		var preview: Dictionary = ResearchTurn.preview(
-			sim, tech_id, preset, left, SpyNetworks.boost_for(boost, tech_id), leader_key
-		)
-		if not bool(preview["paid"]):
-			plan["unpaid"] = int(plan["unpaid"]) + 1
 			continue
-		plan["gold"] = int(plan["gold"]) + int(preview["gold"])
-		plan["rp"] = int(plan["rp"]) + int(preview["rp"])
-		left -= int(preview["gold"])
-		# The phase's own completion: the study this slot pays for lands before
-		# the next slot is priced, so the copy carries the unlock with it.
-		var cost: int = int(preview["cost"])
-		if cost > 0 and sim.add_progress(tech_id, int(preview["rp"])) >= cost:
-			sim.unlock(tech_id)
+		var rows: Array[Dictionary] = plan["rows"]
+		rows.append({
+			"slot": int(row["slot"]),
+			"tech": tech_id,
+			"name": TechCatalog.display_name(tech_id),
+			"was": held,
+		})
+		plan["filed"] = int(plan["filed"]) + 1
 	return plan
 
 

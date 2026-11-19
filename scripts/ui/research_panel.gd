@@ -252,9 +252,10 @@ func _fit_deferred() -> void:
 		call_deferred("_fit_to_viewport")
 
 
-## One persistent row per slot, rewritten in place. The heading carries what the
-## whole college spends and buys each turn, so the cost of research is never
-## silent (REQ-P1-05).
+## One persistent row per slot, rewritten in place from `ResearchWalk` — the same
+## priced walk the one press reads, so a row, the heading and the phase price one
+## turn (REQ-P2-03). The heading carries what the whole college spends and buys
+## each turn, so the cost of research is never silent (REQ-P1-05).
 ##
 ## Each slot is previewed against the treasury the ones before it leave behind,
 ## exactly as the Research phase spends in slot order — so a slot the treasury
@@ -265,12 +266,10 @@ func _fit_deferred() -> void:
 ## rows and the press's line read the same turn the phase will run
 ## (wiki: tech-tree § Research Model; DR-20261118-26).
 func _fill_slots() -> void:
-	var gold: int = 0
-	var points: int = 0
-	var unpaid: int = 0
-	var left: int = _treasury
-	var walk: ResearchState = _state.copy()
-	for index in _state.slots.size():
+	var walk: Dictionary = ResearchWalk.run(_state, _treasury, "", _boost, _leader)
+	var priced: Array[Dictionary] = walk["slots"]
+	var floor: int = int(walk["floor"])
+	for index in priced.size():
 		var row: ResearchSlotRow = _slot_rows.get(index)
 		if row == null:
 			row = ResearchSlotRow.new(index)
@@ -278,29 +277,11 @@ func _fill_slots() -> void:
 			row.funding_pressed.connect(func(slot: int) -> void: funding_requested.emit(slot))
 			_slots_body.add_child(row)
 			_slot_rows[index] = row
-		row.update(walk, _boost, left, _leader)
-		gold += row.gold_next()
-		points += row.rp_next()
-		left -= row.gold_next()
-		if row.unpaid_next():
-			unpaid += 1
-			continue
-		_settle_study(walk, _state.tech_at(index), row.rp_next())
-	_slots_heading.text = _slots_spend_text(gold, points)
-	_set_notice(unpaid)
+		row.update(priced[index], floor)
+	_slots_heading.text = _slots_spend_text(int(walk["gold"]), int(walk["rp"]))
+	_set_notice(int(walk["unpaid"]))
 	if _fund != null:
 		_fund.render(_state, _treasury, _boost, _leader)
-
-
-## Lands one study in the walk when the slot it holds earns its cost this turn,
-## so the slots after it are priced against what it opened (the phase unlocks in
-## slot order, and the rows must read the same turn).
-func _settle_study(walk: ResearchState, tech_id: String, rp: int) -> void:
-	if tech_id.is_empty():
-		return
-	var cost: int = TechCatalog.cost(tech_id)
-	if cost > 0 and walk.add_progress(tech_id, rp) >= cost:
-		walk.unlock(tech_id)
 
 
 ## The court's studies, and the rule that stops the ones the purse cannot pay:

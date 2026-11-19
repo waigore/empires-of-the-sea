@@ -8,7 +8,12 @@ extends RefCounted
 
 ## One hold a seat harbour grants a crown that owns no merchant hull: enough to
 ## buy the cloth for a first launch, so a fleetless court is not locked out of
-## the yard by the holds the yard itself would create (issue #484).
+## the yard by the holds the yard itself would create (issue #484). A **trade**
+## hold only — [method home_holds] is what a crossing reads. The wiki does not
+## publish this allowance yet (`ships-and-naval` § Cargo holds still reads "a
+## crown with no seat or no squadron there has 0 holds"; DR-20261114-11 leaves the
+## fleetless import a rules question), so publishing or dropping it is a design
+## call; nothing here is hidden from the ledger, which prints the hold it grants.
 const PORT_ALLOWANCE: int = 1
 
 
@@ -22,11 +27,13 @@ static func fleet_holds(fleet: FleetState) -> int:
 	return total
 
 
-## Holds across every region: only the crown's squadrons in port at its seat
-## count, because the home fleet never leaves the capital (wiki: § Home Fleet).
-## A seat harbour still grants [constant PORT_ALLOWANCE] when the crown owns no
-## merchant hull anywhere — merchants away from the seat keep capacity at 0.
-static func capacity(
+## Holds the crown's merchant hulls carry in port at its seat: the squadron the
+## wiki calls the home fleet (wiki: ships-and-naval § Cargo holds and capacity —
+## "a crown with no seat or no squadron there has 0 holds"). This is the figure a
+## crossing spends: "the home squadron's merchant hulls are the only holds", so a
+## court with no merchant hull lands nothing abroad. No harbour allowance here;
+## the allowance is [method capacity]'s, and it only buys trade.
+static func home_holds(
 	world: WorldMap, fleets_by_region: Dictionary, owner: int
 ) -> int:
 	if world == null:
@@ -43,6 +50,20 @@ static func capacity(
 			if fleet.province != seat:
 				continue
 			total += fleet_holds(fleet)
+	return total
+
+
+## Trade holds: the home squadron's merchant holds, and — for a crown that owns
+## no merchant hull anywhere — the seat harbour's [constant PORT_ALLOWANCE], so a
+## fleetless court can still buy the cloth its first launch needs (issue #484).
+## Merchants away from the seat keep trade at 0: the home fleet never leaves the
+## capital, so hulls that sailed carry nothing for the crown's ports.
+static func capacity(
+	world: WorldMap, fleets_by_region: Dictionary, owner: int
+) -> int:
+	if world == null:
+		return 0
+	var total: int = home_holds(world, fleets_by_region, owner)
 	if total > 0:
 		return total
 	if _owns_merchant_hull(fleets_by_region, owner):

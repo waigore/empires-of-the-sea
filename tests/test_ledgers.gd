@@ -4080,7 +4080,7 @@ func test_the_count_line_and_the_note_print_the_rules_own_figures() -> void:
 	var data: Dictionary = NavalLedger.snapshot(_world(), _navy_regions(), OWNER)
 	var line: String = NavalLedger.summary(data, LedgerRows.REGION_ALL)
 	assert_true(line.contains("3 of 3 hulls in 2 squadrons"))
-	assert_true(line.contains("1 warships, 2 merchant hulls"))
+	assert_true(line.contains("1 warship, 2 merchant hulls"), line)
 	assert_true(line.contains("8 holds"), "the merchant hulls' own cargo")
 	assert_true(line.contains("strength"))
 	var narrowed: String = NavalLedger.summary(
@@ -4089,6 +4089,26 @@ func test_the_count_line_and_the_note_print_the_rules_own_figures() -> void:
 	assert_true(narrowed.contains("1 of 2 hulls in the Old World"), "the chart is the denominator")
 	assert_true(narrowed.contains("merchant hulls only"))
 	assert_true(NavalLedger.note().contains("holds cap"), "the rule a crown buys by is printed")
+
+
+## The count line names one hull the way a crown says it: the opening home fleet
+## flies a single warship, so "1 warships" was the first line a new court read
+## (wiki: ships-and-naval § Ship combat and cargo stats; REQ-P5-05).
+func test_the_count_line_says_one_warship_and_one_merchant_hull() -> void:
+	var table := MapRegionTable.new()
+	var trader := FleetState.at_sea(3, OWNER, 0, ["ship_3"], {"ship_3": "trader"})
+	table.set_region(FactionCatalog.OLD_WORLD, [trader])
+	var line: String = NavalLedger.summary(
+		NavalLedger.snapshot(_world(), table, OWNER), LedgerRows.REGION_OLD
+	)
+	assert_true(line.contains("0 warships, 1 merchant hull · 5 holds"), line)
+	var solo := MapRegionTable.new()
+	var sloop := FleetState.at_sea(4, OWNER, 0, ["ship_4"], {"ship_4": "sloop"})
+	solo.set_region(FactionCatalog.OLD_WORLD, [sloop])
+	var one: String = NavalLedger.summary(
+		NavalLedger.snapshot(_world(), solo, OWNER), LedgerRows.REGION_OLD
+	)
+	assert_true(one.contains("1 warship, 0 merchant hulls · 0 holds"), one)
 
 
 func test_a_chart_with_no_squadron_reads_empty_and_a_slip_reads_no_hull() -> void:

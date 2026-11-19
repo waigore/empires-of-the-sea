@@ -3647,12 +3647,12 @@ func test_court_report_names_battles_and_techs() -> void:
 		},
 	}
 	MapPlaySpies.report(play, [land], [sea], report)
-	assert_eq(play.hud.toasts.size(), 1)
-	var line: String = play.hud.toasts[0]
-	assert_true(line.begins_with("Spy report — England"))
-	assert_true(line.contains("took Coro from Spain"))
-	assert_true(line.contains("squadron action in Mar Caribe"))
-	assert_true(line.contains("Crop Rotation"))
+	assert_true(play.hud.toasts.is_empty(), "the despatch is not a toast")
+	var lines: Array = (play.court_reports["lines"] as Dictionary)[RIVAL]
+	var joined: String = " · ".join(lines)
+	assert_true(joined.contains("took Coro from Spain"), joined)
+	assert_true(joined.contains("squadron action in Mar Caribe"), joined)
+	assert_true(joined.contains("Crop Rotation"), joined)
 	play.hud.free()
 	play.economy.free()
 
@@ -3667,8 +3667,9 @@ func test_court_report_names_a_lost_province() -> void:
 		"captured": true,
 	}
 	MapPlaySpies.report(play, [land], [], {})
-	assert_eq(play.hud.toasts.size(), 1)
-	assert_true(play.hud.toasts[0].contains("lost Coro to Spain"))
+	assert_true(play.hud.toasts.is_empty(), "the despatch is not a toast")
+	var lines: Array = (play.court_reports["lines"] as Dictionary)[RIVAL]
+	assert_true((" · ".join(lines)).contains("lost Coro to Spain"))
 	play.hud.free()
 	play.economy.free()
 
@@ -3677,8 +3678,9 @@ func test_court_report_names_a_diplomatic_act() -> void:
 	var play: PlaySession = _play_with_spy()
 	play.ai_trace = [{"faction": RIVAL, "message": "England declares war on France."}]
 	MapPlaySpies.report(play, [], [], {})
-	assert_eq(play.hud.toasts.size(), 1)
-	assert_true(play.hud.toasts[0].contains("declares war"))
+	assert_true(play.hud.toasts.is_empty(), "the despatch is not a toast")
+	var lines: Array = (play.court_reports["lines"] as Dictionary)[RIVAL]
+	assert_true((" · ".join(lines)).contains("declares war"))
 	play.hud.free()
 	play.economy.free()
 

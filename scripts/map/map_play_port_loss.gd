@@ -68,13 +68,17 @@ static func _report_merge(play: PlaySession, report: Dictionary) -> void:
 	var owner: int = int(report.get("owner", MapModel.NO_ID))
 	var owner_name: String = FactionCatalog.name_of(owner)
 	var place: String = _place(play, report, seat)
-	if play.hud != null:
+	# A rival's re-mooring is its own court's bookkeeping: only the crown's own
+	# squadron takes the lane (wiki: hud-toasts).
+	if play.hud != null and owner == play.human_faction_id():
 		play.hud.toast("%s's home squadron re-moors at %s" % [owner_name, place])
 	for raw: Variant in report.get("ashore", []):
 		put_ashore(play, int(raw), seat, place)
 
 
-## Lands an army a merge could not keep aboard and tells the player where.
+## Lands an army a merge could not keep aboard and tells the crown where. A
+## rival's displaced troops land just the same, but its crown reads that on its
+## own chart — the lane is the human court's (wiki: hud-toasts).
 static func put_ashore(
 	play: PlaySession, army_id: int, province_id: int, place: String = ""
 ) -> void:
@@ -87,6 +91,9 @@ static func put_ashore(
 		return
 	if play.hud == null:
 		return
+	var army: ArmyState = ArmyTransport.army_by_id(play.army_layer, army_id)
+	if army == null or army.owner != play.human_faction_id():
+		return
 	var where: String = place
 	if where.is_empty():
 		where = _place(play, {}, province_id)
@@ -95,9 +102,10 @@ static func put_ashore(
 
 ## A re-moored squadron or a squadron that sorted out of a lost port.
 static func _report_move(play: PlaySession, report: Dictionary) -> void:
-	if play.hud == null:
-		return
 	var owner: int = int(report.get("owner", MapModel.NO_ID))
+	# A rival's squadron sorting out of a lost port is its own court's news.
+	if play.hud == null or owner != play.human_faction_id():
+		return
 	var owner_name: String = FactionCatalog.name_of(owner)
 	if report.has("from"):
 		var seat: int = int(report.get("to", MapModel.NO_ID))

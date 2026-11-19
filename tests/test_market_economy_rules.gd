@@ -59,47 +59,47 @@ func test_every_crown_opens_on_the_published_purse() -> void:
 
 
 func test_the_seller_filter_narrows_the_book_to_one_court() -> void:
-	var rows: Array[Dictionary] = MarketOffersHead.apply(
-		_book(), 7, MarketOffersHead.ALL_GOODS, MarketOffersHead.SORT_SELLER
+	var rows: Array[Dictionary] = MarketBookFilter.apply(
+		_book(), 7, MarketBookFilter.ALL_GOODS, MarketBookFilter.SORT_SELLER
 	)
 	assert_eq(_ids(rows), ["7:grain", "7:timber"])
 
 func test_the_good_filter_narrows_the_book_to_one_commodity() -> void:
-	var rows: Array[Dictionary] = MarketOffersHead.apply(
-		_book(), MarketOffersHead.ALL_SELLERS, "grain", MarketOffersHead.SORT_SELLER
+	var rows: Array[Dictionary] = MarketBookFilter.apply(
+		_book(), MarketBookFilter.ALL_SELLERS, "grain", MarketBookFilter.SORT_SELLER
 	)
 	assert_eq(rows.size(), 2)
 	for row: Dictionary in rows:
 		assert_eq(String(row["commodity"]), "grain")
 
 func test_both_filters_narrow_together_and_can_empty_the_book() -> void:
-	var narrowed: Array[Dictionary] = MarketOffersHead.apply(
-		_book(), 9, "timber", MarketOffersHead.SORT_SELLER
+	var narrowed: Array[Dictionary] = MarketBookFilter.apply(
+		_book(), 9, "timber", MarketBookFilter.SORT_SELLER
 	)
 	assert_eq(_ids(narrowed), ["9:timber"])
 	assert_eq(
-		MarketOffersHead.apply(_book(), 9, "grain", MarketOffersHead.SORT_SELLER).size(), 0
+		MarketBookFilter.apply(_book(), 9, "grain", MarketBookFilter.SORT_SELLER).size(), 0
 	)
 
 ## Court A–Z by name (not by id), and the richer book first inside a court.
 func test_the_default_order_is_court_name_then_the_richest_book() -> void:
-	var rows: Array[Dictionary] = MarketOffersHead.apply(
-		_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_SELLER
+	var rows: Array[Dictionary] = MarketBookFilter.apply(
+		_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
 	)
 	assert_eq(_ids(rows), ["9:timber", "11:grain", "7:grain", "7:timber"])
 
 func test_sorting_by_good_groups_the_commodities() -> void:
-	var rows: Array[Dictionary] = MarketOffersHead.apply(
-		_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_GOOD
+	var rows: Array[Dictionary] = MarketBookFilter.apply(
+		_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_GOOD
 	)
 	assert_eq(_ids(rows), ["11:grain", "7:grain", "7:timber", "9:timber"])
 
 func test_cheapest_first_pays_less_per_ton() -> void:
-	var rows: Array[Dictionary] = MarketOffersHead.apply(
-		_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_PRICE
+	var rows: Array[Dictionary] = MarketBookFilter.apply(
+		_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_PRICE
 	)
 	var prices: Array[int] = []
 	for row: Dictionary in rows:
@@ -107,9 +107,9 @@ func test_cheapest_first_pays_less_per_ton() -> void:
 	assert_eq(prices, [12, 12, 28, 30], "the cheapest ask leads: %s" % [_ids(rows)])
 
 func test_most_stock_first_fills_a_bid_sooner() -> void:
-	var rows: Array[Dictionary] = MarketOffersHead.apply(
-		_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_STOCK
+	var rows: Array[Dictionary] = MarketBookFilter.apply(
+		_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_STOCK
 	)
 	assert_eq(_ids(rows), ["7:grain", "9:timber", "11:grain", "7:timber"])
 
@@ -117,18 +117,29 @@ func test_junk_rows_are_skipped_and_the_published_book_is_never_reordered() -> v
 	var book: Array = _book()
 	var published: Array = book.duplicate(true)
 	book.append("not an offer")
-	var rows: Array[Dictionary] = MarketOffersHead.apply(
-		book, MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_GOOD
+	var rows: Array[Dictionary] = MarketBookFilter.apply(
+		book, MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_GOOD
 	)
 	assert_eq(rows.size(), 4)
 	assert_eq(book.slice(0, 4), published, "a filter never edits the auction's own rows")
 
+## The chip captions read the tallies: tons and offer count per court and good.
+func test_the_tallies_count_tons_and_offers_per_court_and_good() -> void:
+	var by_court: Dictionary = MarketBookFilter.tally(_book(), "faction")
+	assert_eq(MarketBookFilter.tons(by_court), 11, "every ton on the table")
+	assert_eq(MarketBookFilter.tons_of(by_court[7]), 6)
+	assert_eq(int(by_court[7]["rows"]), 2)
+	var by_good: Dictionary = MarketBookFilter.tally(_book(), "commodity")
+	assert_eq(MarketBookFilter.tons_of(by_good["grain"]), 7)
+	assert_eq(int(by_good["grain"]["rows"]), 2)
+	assert_eq(MarketBookFilter.tons_of({}), 0, "an empty entry holds no tons")
+
 func test_the_head_offers_one_chip_per_court_and_good_on_the_table() -> void:
 	var head := MarketOffersHead.new()
 	head.render(
-		_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_SELLER
+		_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
 	)
 	var chips: Dictionary = head.filter_buttons()
 	assert_eq((chips["seller:-1"] as Button).text, "All courts 11", "all tons on the table")
@@ -138,7 +149,7 @@ func test_the_head_offers_one_chip_per_court_and_good_on_the_table() -> void:
 	assert_eq((chips["good:grain"] as Button).text, "Grain 7")
 	assert_eq((chips["good:timber"] as Button).text, "Timber 4")
 	assert_false(chips.has("good:meat"), "a good nobody sells has no chip")
-	for key: String in MarketOffersHead.SORT_KEYS:
+	for key: String in MarketBookFilter.SORT_KEYS:
 		assert_true(chips.has("sort:%s" % key), "the order chip %s exists" % key)
 	assert_true((chips["seller:-1"] as Button).button_pressed, "All is the opening filter")
 	assert_true((chips["sort:seller"] as Button).button_pressed)
@@ -147,8 +158,8 @@ func test_the_head_offers_one_chip_per_court_and_good_on_the_table() -> void:
 func test_a_chip_press_is_the_whole_filter_intent() -> void:
 	var head := MarketOffersHead.new()
 	head.render(
-		_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_SELLER
+		_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
 	)
 	var seen: Array = []
 	head.filters_changed.connect(
@@ -157,7 +168,7 @@ func test_a_chip_press_is_the_whole_filter_intent() -> void:
 	)
 	(head.filter_buttons()["seller:11"] as Button).pressed.emit()
 	assert_eq(head.seller, 11)
-	assert_eq(seen, [[11, MarketOffersHead.ALL_GOODS, MarketOffersHead.SORT_SELLER]])
+	assert_eq(seen, [[11, MarketBookFilter.ALL_GOODS, MarketBookFilter.SORT_SELLER]])
 	var chips: Dictionary = head.filter_buttons()
 	assert_true((chips["seller:11"] as Button).button_pressed, "the chosen chip lights")
 	assert_false((chips["seller:-1"] as Button).button_pressed, "All steps aside")
@@ -165,19 +176,19 @@ func test_a_chip_press_is_the_whole_filter_intent() -> void:
 	(head.filter_buttons()["good:timber"] as Button).pressed.emit()
 	assert_eq(head.commodity, "timber")
 	assert_eq(seen.size(), 2)
-	assert_eq(seen[1], [11, "timber", MarketOffersHead.SORT_SELLER])
+	assert_eq(seen[1], [11, "timber", MarketBookFilter.SORT_SELLER])
 
 	(head.filter_buttons()["sort:quantity"] as Button).pressed.emit()
-	assert_eq(head.sort_key, MarketOffersHead.SORT_STOCK)
+	assert_eq(head.sort_key, MarketBookFilter.SORT_STOCK)
 	assert_eq(seen.size(), 3)
-	assert_eq(seen[2], [11, "timber", MarketOffersHead.SORT_STOCK])
+	assert_eq(seen[2], [11, "timber", MarketBookFilter.SORT_STOCK])
 	head.free()
 
 ## A court that sold out this turn takes its chip with it; the filter falls back
 ## to All and tells the page, so the strip never hides the whole book silently.
 func test_a_selection_the_new_book_lost_falls_back_to_all() -> void:
 	var head := MarketOffersHead.new()
-	head.render(_book(), 11, "grain", MarketOffersHead.SORT_PRICE)
+	head.render(_book(), 11, "grain", MarketBookFilter.SORT_PRICE)
 	assert_eq(head.seller, 11)
 
 	var seen: Array = []
@@ -186,26 +197,26 @@ func test_a_selection_the_new_book_lost_falls_back_to_all() -> void:
 			seen.append([seller, good, sort_key])
 	)
 	var next_book: Array = [_book()[0]]
-	head.render(next_book, 11, "grain", MarketOffersHead.SORT_PRICE)
-	assert_eq(head.seller, MarketOffersHead.ALL_SELLERS)
-	assert_eq(head.commodity, MarketOffersHead.ALL_GOODS)
-	assert_eq(head.sort_key, MarketOffersHead.SORT_PRICE, "a live order survives the turn")
-	assert_eq(seen, [[MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_PRICE]])
+	head.render(next_book, 11, "grain", MarketBookFilter.SORT_PRICE)
+	assert_eq(head.seller, MarketBookFilter.ALL_SELLERS)
+	assert_eq(head.commodity, MarketBookFilter.ALL_GOODS)
+	assert_eq(head.sort_key, MarketBookFilter.SORT_PRICE, "a live order survives the turn")
+	assert_eq(seen, [[MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_PRICE]])
 	head.free()
 
 func test_an_unknown_order_key_falls_back_to_the_court_order() -> void:
 	var head := MarketOffersHead.new()
-	head.render(_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS, "sideways")
-	assert_eq(head.sort_key, MarketOffersHead.SORT_SELLER)
+	head.render(_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS, "sideways")
+	assert_eq(head.sort_key, MarketBookFilter.SORT_SELLER)
 	head.free()
 
 ## Chips are thumb targets on a phone viewport (REQ-P5-07).
 func test_chips_grow_for_a_thumb_on_a_phone() -> void:
 	var head := MarketOffersHead.new()
 	head.render(
-		_book(), MarketOffersHead.ALL_SELLERS, MarketOffersHead.ALL_GOODS,
-		MarketOffersHead.SORT_SELLER
+		_book(), MarketBookFilter.ALL_SELLERS, MarketBookFilter.ALL_GOODS,
+		MarketBookFilter.SORT_SELLER
 	)
 	head.set_compact(true)
 	for key: Variant in head.filter_buttons().keys():
@@ -3675,6 +3686,24 @@ func test_the_turn_summary_names_the_lending_floor_behind_an_unpaid_slot() -> vo
 	assert_true(tied.contains("research may not borrow"), tied)
 
 
+## The lane raises the trouble cut only: the harvest, the deliveries and the
+## finished study stay on the ledger sheet and the Gazette (wiki: hud-toasts).
+func test_the_turn_summary_trouble_cut_keeps_only_what_asks_for_action() -> void:
+	var quiet: Dictionary = {
+		"extraction": {"grain": 5},
+		"overseas": {"used": 2, "manufactured": {"castIron": 1}},
+	}
+	assert_eq(LedgerReportText.turn_summary(quiet, true), "", "nothing asks for action")
+
+	var trouble: Dictionary = {
+		"extraction": {"grain": 5},
+		"consumption": {"strikers": 3},
+		"hospital": {"hungry": ["Cádiz"]},
+	}
+	var line: String = LedgerReportText.turn_summary(trouble, true)
+	assert_eq(line, "3 on strike  ·  1 hospital unstaffed", line)
+
+
 ## The same rule spelled out for the college and the slot's own hover.
 func test_the_floor_text_follows_money_lending_and_banking() -> void:
 	assert_true(LedgerReportText.research_floor_line(0).contains("stops at 0 ducats"))
@@ -3724,6 +3753,21 @@ func test_a_fleetless_seat_harbour_grants_one_hold() -> void:
 	var warships := FleetState.in_port(1, 0, 0, ["w"], {"w": "sloop"})
 	assert_eq(TradeCargo.capacity(world, {0: [warships]}, 0), TradeCargo.PORT_ALLOWANCE)
 	assert_eq(TradeCargo.fleet_holds(warships), 0)
+
+## The harbour's one hold buys the yard its first cloth; it never carries a
+## colony's harvest. A crown with no merchant hull in port at its seat has 0
+## crossing holds (wiki: ships-and-naval § Cargo holds and capacity — "the home
+## squadron's merchant hulls are the only holds"; "a crown with no seat or no
+## squadron there has 0 holds").
+func test_the_seat_allowance_is_a_trade_hold_and_never_a_crossing_hold() -> void:
+	var world: WorldMap = _trade_cargo_world()
+	assert_eq(TradeCargo.capacity(world, {}, 0), TradeCargo.PORT_ALLOWANCE)
+	assert_eq(TradeCargo.home_holds(world, {}, 0), 0, "no merchant hull, no crossing")
+	var warships := FleetState.in_port(1, 0, 0, ["w"], {"w": "sloop"})
+	assert_eq(TradeCargo.capacity(world, {0: [warships]}, 0), TradeCargo.PORT_ALLOWANCE)
+	assert_eq(TradeCargo.home_holds(world, {0: [warships]}, 0), 0, "warships carry nothing")
+	var merchants := FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	assert_eq(TradeCargo.home_holds(world, {0: [merchants]}, 0), 4, "her holds are the crossing")
 
 func test_merchants_away_from_the_seat_do_not_get_the_port_allowance() -> void:
 	# Holds that exist but have sortied stay at 0 — the allowance is for a
@@ -5734,3 +5778,82 @@ func test_tradeable_ids_are_sorted() -> void:
 	assert_eq(ids, sorted_ids)
 	assert_true(ids.has("grain"))
 	assert_eq(MarketPressure.tradeable_ids(null).size(), 0)
+
+
+# --- the deal matcher's ordering arms ----------------------------------------
+## Who takes the goods: the matcher's ordering arms own their home
+## (wiki: world-market § Trade orders, § Priority override; REQ-P3-01). The
+## caller keeps the deals, the state and the price; these read one rank arm
+## each, in the order the matcher walks them.
+##
+## Folded from test_market_matcher_rank_rules: eight pure cases paid a whole
+## Godot boot (coverage instrumentation) of their own for arms the market boot
+## already opens (docs/testing.md § Speed rules — one boot per theme).
+
+
+func test_the_lower_tier_bid_is_the_best_bid() -> void:
+	var late: MarketOrder = _order(1, "timber", MarketOrder.SIDE_BID, 10, 2)
+	var early: MarketOrder = _order(2, "timber", MarketOrder.SIDE_BID, 10, 1)
+	var offer: MarketOrder = _order(0, "timber", MarketOrder.SIDE_OFFER, 10)
+	var best: MarketOrder = MarketMatcherRank.best_bid([late, early], offer, {}, {})
+	assert_eq(best.priority, 1)
+
+
+func test_a_spent_bid_and_a_blocked_bid_are_no_bid_at_all() -> void:
+	var spent: MarketOrder = _order(1, "timber", MarketOrder.SIDE_BID, 10)
+	spent.filled = spent.quantity
+	var blocked: MarketOrder = _order(2, "timber", MarketOrder.SIDE_BID, 10)
+	var standing: MarketOrder = _order(3, "timber", MarketOrder.SIDE_BID, 10)
+	var best: MarketOrder = MarketMatcherRank.best_bid(
+		[spent, blocked, standing], _order(0, "timber", MarketOrder.SIDE_OFFER, 10),
+		{blocked.id: true}, {}
+	)
+	assert_eq(best, standing)
+
+
+func test_no_bid_left_answers_null() -> void:
+	var spent: MarketOrder = _order(1, "timber", MarketOrder.SIDE_BID, 10)
+	spent.filled = spent.quantity
+	var best: MarketOrder = MarketMatcherRank.best_bid(
+		[spent], _order(0, "timber", MarketOrder.SIDE_OFFER, 10), {}, {}
+	)
+	assert_eq(best, null)
+
+
+func test_a_boycott_bars_the_pair_for_the_matcher() -> void:
+	var context: Dictionary = {"boycott_for": func(a: int, b: int) -> bool:
+		return a == 1 and b == 0
+	}
+	assert_true(MarketMatcherRank.boycott_for(context, 1, 0))
+	assert_false(MarketMatcherRank.boycott_for(context, 2, 0))
+
+
+func test_no_boycott_reading_bars_nothing() -> void:
+	assert_false(MarketMatcherRank.boycott_for({}, 1, 0))
+
+
+func test_within_a_tier_the_smaller_court_id_is_next() -> void:
+	var offer: MarketOrder = _order(3, "timber", MarketOrder.SIDE_OFFER, 10)
+	var first: MarketOrder = _order(1, "timber", MarketOrder.SIDE_BID, 10)
+	var second: MarketOrder = _order(2, "timber", MarketOrder.SIDE_BID, 10)
+	assert_true(MarketMatcherRank.bid_less(first, second, offer, {}))
+	assert_false(MarketMatcherRank.bid_less(second, first, offer, {}))
+
+
+func test_one_courts_two_orders_walk_by_order_id() -> void:
+	var offer: MarketOrder = _order(3, "timber", MarketOrder.SIDE_OFFER, 10)
+	var first: MarketOrder = _order(1, "timber", MarketOrder.SIDE_BID, 10)
+	var second: MarketOrder = _order(1, "timber", MarketOrder.SIDE_BID, 10)
+	assert_true(MarketMatcherRank.bid_less(first, second, offer, {}))
+	assert_false(MarketMatcherRank.bid_less(second, first, offer, {}))
+
+
+func test_offers_walk_tier_then_auto_then_court_then_tile() -> void:
+	var late: MarketOrder = _order(1, "timber", MarketOrder.SIDE_OFFER, 10, 2)
+	var court: MarketOrder = _order(4, "timber", MarketOrder.SIDE_OFFER, 10)
+	var far_tile: MarketOrder = _order(1, "timber", MarketOrder.SIDE_OFFER, 10, 1, 1, 7)
+	var near_tile: MarketOrder = _order(1, "timber", MarketOrder.SIDE_OFFER, 10, 1, 1, 2)
+	var auto_offer: MarketOrder = _order(9, "timber", MarketOrder.SIDE_OFFER, 10, 1, 0, 0, true)
+	var offers: Array = [late, court, far_tile, near_tile, auto_offer]
+	MarketMatcherRank.sort_offers(offers)
+	assert_eq(offers, [auto_offer, near_tile, far_tile, court, late])
