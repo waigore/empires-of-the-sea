@@ -50,6 +50,11 @@ exclude = [
     ".autolab",
     "tests",
     "playtests",
+    # The e2e smoke drives run in the e2e-smoke job, not the unit suites, so
+    # their lines never appear in unit coverage. Counting them in the patch
+    # gate would fail every smoke rewrite regardless of the tests that cover
+    # the behaviour it drives (docs/testing.md § E2E).
+    "tools/smoke",
 ]
 test_dirs = [
     "tests",
