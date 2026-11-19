@@ -144,6 +144,22 @@ func test_a_second_tap_cycles_the_stack() -> void:
 	assert_true(_screen.ship_layer.ship_for(rivals[0]).covered)
 
 
+## A squadron the row draws hears where she stands in the water, not where she
+## stands in a stack she never joined: a crowded station's words count every
+## hull the chart draws there (wiki: ships-and-naval § Fleets in one station;
+## REQ-P5-05).
+func test_a_fanned_squadron_hears_her_place_in_the_station() -> void:
+	var pair: Array[FleetState] = _crown_squadrons_in_one_water(2)
+	var first: Ship = _screen.ship_layer.ship_for(pair[0])
+	assert_true(first.stack.is_empty(), "the row rides no stack")
+	_screen.ship_layer.select(first)
+	var line: String = MapPlayFleets.selection_line(_screen.play, first, pair[0])
+	assert_eq(line, "%d of %d squadrons here — %s" % [
+		first.station.find(pair[0].id) + 1, first.station.size(),
+		FleetCombine.flagship(pair[0]),
+	], "the row's own place is read")
+
+
 func test_fleet_dossier_can_dock_left_or_right() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	_screen.ship_layer.select(ship)
@@ -2360,6 +2376,14 @@ func _toast_texts() -> Array[String]:
 	return texts
 
 
+## Whether any plate the court reads carries this phrase.
+func _heard(phrase: String) -> bool:
+	for text: String in _toast_texts():
+		if text.contains(phrase):
+			return true
+	return false
+
+
 ## A province another crown holds, for the yard's "capital must be in hand" row.
 func _unowned_province() -> int:
 	for province: ProvinceState in _screen.model.provinces:
@@ -2929,10 +2953,16 @@ func test_a_hull_detaches_from_the_selected_squadron() -> void:
 	assert_not_null(split, "the new squadron is on the roster")
 	assert_eq(split.sea_zone, fleet.sea_zone, "she keeps her station")
 	assert_not_null(_screen.ship_layer.ship_for(split), "she flies a marker of her own")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	# Two lines reach the court: the detach, and the place the squadron she keeps
+	# now holds in the water (wiki: ships-and-naval § Fleets in one station).
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 2)
 	assert_true(
-		_toast_texts().back().contains("as a squadron of her own"),
-		"the news names the detach: '%s'" % _toast_texts().back()
+		_last_toast().contains("as a squadron of her own"),
+		"the news names the detach: '%s'" % _last_toast()
+	)
+	assert_true(
+		_heard("squadrons here"),
+		"the court hears where the squadron she keeps now stands"
 	)
 	assert_eq(
 		_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), fleet,
@@ -3055,10 +3085,14 @@ func test_two_squadrons_in_one_zone_combine_into_the_one_that_keeps_the_station(
 	assert_null(_screen.ship_layer.ship_for(partner), "her marker is retired")
 	assert_eq(fleet.mission, FleetState.Mission.PATROL, "the station stays with the squadron")
 	assert_true(fleet.moved, "a hull that has sailed does not sail again")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 2)
 	assert_true(
-		_toast_texts().back().contains("joins"),
-		"the news names the combine: '%s'" % _toast_texts().back()
+		_last_toast().contains("joins"),
+		"the news names the combine: '%s'" % _last_toast()
+	)
+	assert_true(
+		_heard("squadrons here"),
+		"the court hears where the joined command now stands"
 	)
 	assert_eq(
 		_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), fleet,
