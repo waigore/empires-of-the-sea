@@ -52,7 +52,8 @@ Wars, treaties, aid, intervention, chronicle — wiki
 
 ## Deferred (REQ-P2-02)
 
-Rival priced overtures to the human — [`deferred.md`](deferred.md).
+None; rival priced overtures live (`DiplomacyProposals` + asking ledger).
+Ranked gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 
