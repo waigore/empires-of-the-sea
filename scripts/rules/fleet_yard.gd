@@ -6,10 +6,6 @@ extends RefCounted
 ## materials and one peasant, and leaves marker work to the layer
 ## (REQ-P3-03). One gate for the panel and the order path (REQ-P2-03).
 
-## A hard stop on the yard's one press: a slip that never leaves a row ready
-## cannot spin, whatever a hand-built table holds (DR-20261118-08).
-const BATCH_LIMIT: int = 64
-
 ## The reason every row carries away from the crown's capital port; the one press
 ## speaks the same words, so both read one gate (REQ-P2-03).
 const NOT_AT_HOME: String = "Launch hulls at your capital port."
@@ -127,47 +123,36 @@ static func batch_plan(
 ## REQ-P5-04; DR-20261118-08). The walk stops at the first refusal, because that
 ## refusal is the rules' answer for the realm. Returns {filed, total, ducats,
 ## materials, workers, refusal}, the spend included so the receipt names it.
+##
+## The walk itself is [RaiseBatchSum]'s, the one `batch_plan` reads, so the sum a
+## sheet prints and the hulls a press lays down cannot drift (DR-20261118-11).
 static func queue_all(
 	economy: PlayerEconomy,
 	at_home: bool,
 	types: Array[String],
 	flown: Array = []
 ) -> Dictionary:
-	var result: Dictionary = {
-		"filed": 0, "total": types.size(), "refusal": "",
-		"ducats": 0, "materials": {}, "workers": 0,
-	}
 	if economy == null:
-		result["refusal"] = "There is no court to pay for her."
-		return result
+		return RaiseBatchSum.blocked(types.size(), "There is no court to pay for her.")
 	if not at_home:
-		result["refusal"] = NOT_AT_HOME
-		return result
-	var treasury: int = economy.treasury
-	var stock: Dictionary = economy.stockpile.duplicate()
-	for type_id: String in types:
-		if int(result["filed"]) >= BATCH_LIMIT:
-			break
-		var reason: String = ShipEconomy.blocked_reason(
-			type_id, treasury, stock, economy.available_peasants(),
-			economy.tech_unlocked, flown
-		)
-		if not reason.is_empty():
-			result["refusal"] = reason
-			break
-		economy.queue_build(RecruitQueue.KIND_SHIP, type_id)
-		var cost: int = ShipEconomy.treasury_cost(type_id)
-		treasury -= cost
-		result["ducats"] = int(result["ducats"]) + cost
-		result["workers"] = int(result["workers"]) + 1
-		var inputs: Dictionary = ShipEconomy.build_inputs(type_id)
-		var spent: Dictionary = result["materials"]
-		for commodity: Variant in inputs.keys():
-			var id: String = String(commodity)
-			stock[id] = int(stock.get(id, 0)) - int(inputs[commodity])
-			spent[id] = int(spent.get(id, 0)) + int(inputs[commodity])
-		result["filed"] = int(result["filed"]) + 1
-	return result
+		return RaiseBatchSum.blocked(types.size(), NOT_AT_HOME)
+	var craft: Array = flown
+	var receipt: Dictionary = RaiseBatchSum.file(
+		types,
+		economy.treasury,
+		economy.stockpile,
+		func(type_id: String) -> int: return ShipEconomy.treasury_cost(type_id),
+		func(type_id: String) -> Dictionary: return ShipEconomy.build_inputs(type_id),
+		func(type_id: String, treasury: int, stock: Dictionary, _filed: int) -> String:
+			return ShipEconomy.blocked_reason(
+				type_id, treasury, stock, economy.available_peasants(),
+				economy.tech_unlocked, craft
+			),
+		func(type_id: String) -> void:
+			economy.queue_build(RecruitQueue.KIND_SHIP, type_id)
+	)
+	receipt["total"] = types.size()
+	return receipt
 
 
 ## The types the yard's one press would lay down: every row the crown can pay
