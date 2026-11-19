@@ -2,19 +2,17 @@ class_name ResearchPanel
 extends LedgerFrame
 ## The college ledger: a goal strip, the research slots with their funding and
 ## progress, plus the advances open now and the techs already known (wiki:
-## research-state, tech-tree § Research Model — the goal slot sorts the display
-## and spends nothing). Presentation only — every button emits an intent and the
-## economy controller asks the rules layer (REQ-P2-03). The sheet, masthead and
-## phone profile are LedgerFrame's (REQ-P3-01).
+## research-state, tech-tree § Research Model). Presentation only — every button
+## emits an intent and the economy controller asks the rules layer (REQ-P2-03);
+## the sheet, masthead and phone profile are LedgerFrame's (REQ-P3-01).
 ##
-## Repaints are in place: one ResearchSlotRow lives per slot, and each page is
-## rebuilt only when its list actually changes. A funding change therefore
-## rewrites the slot's own line — nothing reloads, and the gauge animates from
-## where it stood (REQ-P1-05).
+## Repaints are in place: a funding change rewrites the slot's own line, so the
+## gauge animates from where it stood.
 ##
-## Height is the sheet's own rule (DR-20261119-02): a handset cannot carry the
-## slots, the one press and the two lists at their natural heights, so the slots
-## take a window of whole rows and the lists keep a floor (REQ-P1-07, REQ-P5-07).
+## Height is the sheet's own rule (DR-20261119-02, DR-20261120-03): the college
+## budgets the plate it stands in, never the dock the dossiers ride; a handset
+## trades the goal strip's own row for catalogue room; and the plate is never
+## asked to be taller than its box (REQ-P1-07, REQ-P5-07).
 
 signal assign_requested(tech_id: String)
 signal cancel_requested(slot: int)
@@ -45,6 +43,10 @@ var _summary: Label = null
 var _notice: Label = null
 var _goal_row: ResearchGoalStrip = null
 var _slots_heading: Label = null
+## The row the slots heading shares with the tree door — and, on a phone, with
+## the goal strip, so the college spends one row on chrome instead of two
+## (DR-20261120-03).
+var _head_row: HBoxContainer = null
 ## The college's one door into the full-screen chart (DR-20261115-15).
 var _tree_door: Button = null
 ## The queue's own window: every slot row, scrolled when a handset cannot hold
@@ -63,40 +65,88 @@ var _slot_rows: Dictionary = {}
 ## none of them touches no widget.
 var _available_key: String = ""
 var _known_key: String = ""
+## The room the last fit budgeted against, so a plate that changes size is
+## re-read once and not every frame (DR-20261120-03).
+var _last_room: float = -1.0
+## What the queue spends a turn, as the walk priced it, so a profile change
+## re-reads the heading without running the walk again (DR-20261120-03).
+var _spend_gold: int = 0
+var _spend_rp: int = 0
+## A second fit is already waiting on the frame.
+var _settling: bool = false
+## The compact profile the sheet last laid out in, so a heading re-read names its
+## figure the way that sheet prints it (DR-20261120-03).
+var _compact: bool = false
 
 
 func _init() -> void:
 	title_text = "THE COLLEGE"
 
 
-## The tab body gives way so the header, slots and Close stay put: the pages
-## take the room the sheet leaves, and a phone drops the standing hint instead
-## of pushing content past the panel's edge. The fit itself is
-## `ResearchSheetFit`'s, so the panel only measures and applies (REQ-P1-07).
+## The box the college is laid in can change without the viewport changing (a
+## safe-area inset, a drag, a plate that re-lays), so the sheet's own size is the
+## reading that re-budgets — the viewport's is not (REQ-P1-07).
+func _ready() -> void:
+	super()
+	var box: Control = get_parent() as Control
+	if box != null:
+		box.resized.connect(_on_box_resized)
+
+
+## The pages take the room the sheet leaves; the fit is `ResearchSheetFit`'s, so
+## the panel only measures and applies it (REQ-P1-07).
 func _fit_to_viewport() -> void:
 	if _tabs == null or _slots_scroll == null or not is_inside_tree():
 		return
 	super._fit_to_viewport()
 	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
-	var top: float = 64.0 if compact else PanelDock.TOP
-	var bottom: float = 10.0 if compact else absf(PanelDock.BOTTOM)
-	var room: float = maxf(get_viewport_rect().size.y - top - bottom, 0.0)
+	var room: float = ResearchSheetFit.room(self, compact)
+	_last_room = room
 	var fit: Dictionary = ResearchSheetFit.split(
-		_column, _slots_scroll, _tabs, _slots_body, room, compact,
+		_column, _slots_scroll, _tabs, _slots_body, room,
 		get_theme_stylebox("panel").get_minimum_size().y
 	)
+	# A fit taken before the frame lays the sheet out reads one-line wrapped lines;
+	# one more pass, after the layout, reads the sheet as it stands (DR-20261120-03).
+	if _settling:
+		_settling = false
+	else:
+		var after: Callable = Callable(self, "_fit_to_viewport")
+		if not get_tree().process_frame.is_connected(after):
+			_settling = true
+			get_tree().process_frame.connect(after, CONNECT_ONE_SHOT)
 	_slots_scroll.custom_minimum_size = Vector2(0.0, float(fit["slots"]))
 	_tabs.custom_minimum_size = Vector2(0.0, float(fit["tabs"]))
+	# A page or a wrapped line can stand taller than the fit measured it: the window
+	# gives the excess up, because it scrolls and the plate does not (DR-20261120-03).
+	var over: float = get_combined_minimum_size().y - room
+	if over > 0.5:
+		_slots_scroll.custom_minimum_size.y = maxf(float(fit["slots"]) - over, 0.0)
 
 
-## Phone chrome: a 411-point sheet cannot carry a 24 pt masthead, a standing
-## line, a goal prompt and three full-height slot rows above the list. The
-## masthead and standing line are LedgerFrame's; the college's own rows follow.
+## A plate that re-lays re-budgets once: the sheet's own size moved, so the room
+## the fit was made for is not the room the crown is reading it in.
+func _on_box_resized() -> void:
+	if not is_inside_tree():
+		return
+	var compact: bool = HudLayout.is_compact(get_viewport_rect().size)
+	if absf(ResearchSheetFit.room(self, compact) - _last_room) > 0.5:
+		_fit_deferred()
+
+
+## Phone chrome: a 411-point sheet cannot carry a standing line, a goal prompt and
+## three full-height slot rows above the list. The goal strip gives up its own row
+## — it rides the slots heading, whose figure loses the caption the rows under it
+## already give — so the sheet spends one row on chrome where it spent two
+## (DR-20261120-03).
 func _apply_profile(compact: bool) -> void:
+	_compact = compact
 	if _summary != null:
 		_summary.visible = not compact
 	if _goal_row != null:
 		_goal_row.visible = not compact or not _goal.is_empty()
+		_goal_row.set_compact(compact)
+		_goal_row.ride(_column, _head_row, compact)
 	if _slots_heading != null:
 		_slots_heading.add_theme_font_size_override("font_size", 10 if compact else 11)
 	if _tree_door != null:
@@ -109,6 +159,7 @@ func _apply_profile(compact: bool) -> void:
 			(row as ResearchSlotRow).set_compact(compact)
 	if _fund != null:
 		_fund.set_compact(compact)
+	_slots_heading.text = ResearchBatch.heading_line(_spend_gold, _spend_rp, _compact)
 
 
 func _build_body(column: VBoxContainer) -> void:
@@ -129,16 +180,16 @@ func _build_body(column: VBoxContainer) -> void:
 	# The whole tree is a full-screen chart of its own, so the college keeps one
 	# clear door beside the slots heading: it costs the lists no height, and the
 	# sheet's room stays for the slots and the two lists (DR-20261115-15).
-	var head_row := HBoxContainer.new()
-	head_row.add_theme_constant_override("separation", 8)
+	_head_row = HBoxContainer.new()
+	_head_row.add_theme_constant_override("separation", 8)
 	_slots_heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_slots_heading.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	head_row.add_child(_slots_heading)
+	_head_row.add_child(_slots_heading)
 	_tree_door = UiRowBuilder.button("TECH TREE ›", 28.0, 118.0, 11)
 	_tree_door.tooltip_text = "Open the whole tree, every advance and its road"
 	_tree_door.pressed.connect(func() -> void: tree_requested.emit())
-	head_row.add_child(_tree_door)
-	column.add_child(head_row)
+	_head_row.add_child(_tree_door)
+	column.add_child(_head_row)
 
 	# The queue keeps a window of its own so a handset can give the lists their
 	# floor without clipping a slot row: the window scrolls and the rows are
@@ -241,7 +292,7 @@ func refresh(
 	_fill_known()
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
-	_hint.text = _hint_text(open.size(), _notice.visible)
+	_hint.text = ResearchBatch.hint_line(open.size(), _state.free_slot(), _notice.visible)
 	_fit_deferred()
 
 
@@ -253,18 +304,10 @@ func _fit_deferred() -> void:
 
 
 ## One persistent row per slot, rewritten in place from `ResearchWalk` — the same
-## priced walk the one press reads, so a row, the heading and the phase price one
-## turn (REQ-P2-03). The heading carries what the whole college spends and buys
-## each turn, so the cost of research is never silent (REQ-P1-05).
-##
-## Each slot is previewed against the treasury the ones before it leave behind,
-## exactly as the Research phase spends in slot order — so a slot the treasury
-## cannot reach shows as unpaid here rather than promising points it will not
-## earn. The walk also carries the studies that land as it goes: a slot that
-## completes this turn opens its own to the slots after it (Money Lending's debt
-## floor, Industrial Funding's +20%), and the phase prices them that way, so the
-## rows and the press's line read the same turn the phase will run
-## (wiki: tech-tree § Research Model; DR-20261118-26).
+## priced walk the one press reads (REQ-P2-03). A slot is previewed against the
+## treasury the ones before it leave, as the phase spends in slot order, and the
+## walk carries the studies that land as it goes (wiki: tech-tree § Research
+## Model; DR-20261118-26).
 func _fill_slots() -> void:
 	var walk: Dictionary = ResearchWalk.run(_state, _treasury, "", _boost, _leader)
 	var priced: Array[Dictionary] = walk["slots"]
@@ -278,33 +321,22 @@ func _fill_slots() -> void:
 			_slots_body.add_child(row)
 			_slot_rows[index] = row
 		row.update(priced[index], floor)
-	_slots_heading.text = _slots_spend_text(int(walk["gold"]), int(walk["rp"]))
+	_spend_gold = int(walk["gold"])
+	_spend_rp = int(walk["rp"])
+	_slots_heading.text = ResearchBatch.heading_line(_spend_gold, _spend_rp, _compact)
 	_set_notice(int(walk["unpaid"]))
 	if _fund != null:
 		_fund.render(_state, _treasury, _boost, _leader)
 
 
-## The court's studies, and the rule that stops the ones the purse cannot pay:
-## the treasury stops at the floor the techs set, so a starved row reads as rule
-## and not as a broken purse (wiki: tech-tree-labour-economy § money_lending,
-## banking; REQ-P5-05).
+## The rule that stops the studies a purse cannot pay (wiki:
+## tech-tree-labour-economy § money_lending, banking; REQ-P5-05). The words are
+## `ResearchBatch`'s, the floor line the ledger's.
 func _set_notice(unpaid: int) -> void:
-	_notice.visible = unpaid > 0
-	if unpaid <= 0:
-		_notice.text = ""
-		return
-	var subject: String = "1 study goes" if unpaid == 1 else "%d studies go" % unpaid
-	_notice.text = "%s unpaid — %s." % [
-		subject, LedgerReportText.research_floor_line(_state.treasury_floor()),
-	]
-
-
-func _slots_spend_text(gold: int, points: int) -> String:
-	if gold <= 0 and points <= 0:
-		return "RESEARCH SLOTS · nothing is funded"
-	return "RESEARCH SLOTS · %s ducats & %s RP a turn" % [
-		TextFormat.thousands(gold), TextFormat.thousands(points),
-	]
+	_notice.text = ResearchBatch.notice_line(
+		unpaid, LedgerReportText.research_floor_line(_state.treasury_floor())
+	)
+	_notice.visible = not _notice.text.is_empty()
 
 
 ## Rebuilt only when the open list, the goal or the free slot changes; a
@@ -355,14 +387,6 @@ func _open_advances() -> Array[String]:
 		if not _state.is_active(tech_id):
 			out.append(tech_id)
 	return TechOrder.sorted(out, _goal)
-
-
-func _hint_text(open_count: int, starved: bool) -> String:
-	if starved:
-		return "A study the treasury cannot cover keeps its slot and its points; it only waits."
-	if _state.free_slot() < 0 and open_count > 0:
-		return "Every slot is at study — cancel one to take another path."
-	return "Funding is paid every turn; cancelling a slot forfeits its progress."
 
 
 ## Replaces a page's rows but keeps the player's place in the list: a rebuild
