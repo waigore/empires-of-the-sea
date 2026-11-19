@@ -5,34 +5,51 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
-## and reset the session instead of remounting (`Fixture.suite_reset`).
+## and a re-seat from the pristine save ~0.15 s, so live cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`). Pure
+## ArmyFixture dossier / drill-yard cases never touch `_screen`, so they skip
+## the re-seat (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
-## The shared world as generated: combat tests shift ownership, so every case
-## starts from the same map instead of the previous case's aftermath.
-var _saved: Array = []
-var _screen: MapScreen = null
+## The shared world as generated: combat tests shift ownership, so every live
+## case starts from the same map instead of the previous case's aftermath.
+## Non-underscore so before_all copies it onto each test instance.
+var pristine_map: Array = []
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
-	_saved = Fixture.snapshot(Fixture.world())
+	pristine_map = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), _saved)
-	Fixture.suite_reset(mounted, pristine)
-	_screen = mounted
+	_chart_bound = false
 
 
 func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	_screen = null
 	pristine = {}
+
+
+## Live cases reach the chart through `_screen` / `_attach()`; pure ArmyFixture
+## dossier cases that never ask never pay `suite_reset`.
+func _attach() -> MapScreen:
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = true
+	return mounted
+
+
+var _screen: MapScreen:
+	get:
+		return _attach()
 
 
 func test_home_armies_muster_at_each_capital() -> void:

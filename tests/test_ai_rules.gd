@@ -4190,7 +4190,78 @@ func _front_turn(
 	var plan: Dictionary = AiDiplomacyPlanner.decide(
 		config, state, AiState.new(), world, 1, context
 	)
-	return {"plan": plan, "posture": posture}
+	return {"plan": plan, "posture": posture, "state": state}
+
+
+## The rival's gates have one home (AiDiplomacyGates): the planner's war and
+## peace reads and the offers' pact break all ask it, so a footing, a cooldown
+## or a claimed chain can never be read two ways.
+func test_the_diplomacy_gates_know_a_pact_break_from_a_blocked_war() -> void:
+	var run: Dictionary = _front_turn(2, true)
+	var entry: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(
+		String(entry.get("blocked", "")), "overstretched: no third front",
+		"a peer under an overstretched footing is the war gate's refusal"
+	)
+	var ranking: Dictionary = entry.get("offer", {})
+	var pact: Dictionary = {}
+	for candidate: Dictionary in ranking.get("candidates", []):
+		if String(candidate.get("kind", "")) == AiDiplomacyOffers.KIND_BREAK_NAP:
+			pact = candidate
+	assert_false(pact.is_empty(), "the pact break is weighed for the peer")
+	assert_false(bool(pact.get("ok", false)))
+
+
+## The gates answer for a court with nothing to read: no config, no ledger, no
+## line to save for. A caller that cannot read the purse keeps the published
+## planner instead of inventing a buy-out (issue #975).
+func test_the_gates_keep_the_published_planner_with_nothing_to_read() -> void:
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+
+	assert_false(AiDiplomacyGates.purse_under_muster(null, ai_state, {}))
+	assert_false(AiDiplomacyGates.purse_under_muster(config, null, {}))
+	assert_false(
+		AiDiplomacyGates.purse_under_muster(config, ai_state, {}),
+		"a court at target strength saves for no line"
+	)
+	assert_false(
+		AiDiplomacyGates.buys_out(config, ai_state, PHASE_MINOR, {}, AiPhasePlanner.PHASE_WAR),
+		"a Minor war is colonial business, never bought out"
+	)
+	assert_true(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL, {}, AiPhasePlanner.PHASE_FRONTS
+		),
+		"an overstretched court takes any white peace it is offered"
+	)
+	assert_eq(AiDiplomacyGates.faction_of(null), MapModel.NO_ID)
+
+
+## A court with a proposal already waiting for the human answers at the court
+## queue, so it opens no second front this turn (DR-20261109-07). The refusal
+## travels with the ranking, so the turn trace can print it.
+func test_a_court_with_a_waiting_proposal_offers_nothing_new() -> void:
+	_setup_ai_planner()
+	ai_planner_state.human_faction = 1
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 70.0
+	ai_planner_state.pending_offers.append(
+		{"from": 0, "kind": DiplomacyProposals.KIND_FTP, "stage": "", "turn": 1}
+	)
+	assert_true(DiplomacyProposals.has_pending(ai_planner_state, 1))
+	var ranking: Dictionary = AiDiplomacyOffers.best(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state,
+		ai_planner_AiFixture.world([0, 1, 1]), 1, 1, 20,
+		{"player": 1, "treasury": {0: 500}, "tech": {0: {}}}
+	)
+	assert_false(bool(ranking.get("ok", false)))
+	assert_eq(
+		String(ranking.get("blocked", "")),
+		"the court is already considering a proposal"
+	)
+	assert_eq((ranking.get("candidates", []) as Array).size(), 1)
 
 
 ## The court's candidate row for one target in a decide() result.
@@ -11916,10 +11987,10 @@ func test_a_recent_war_declaration_does_not_silence_a_peace_offer() -> void:
 
 func test_war_goal_clamps_to_the_target_province_count() -> void:
 	_setup_ai_planner()
-	assert_eq(AiDiplomacyPlanner.desired_territory(75, 5), 3)
-	assert_eq(AiDiplomacyPlanner.desired_territory(75, 2), 2)
-	assert_eq(AiDiplomacyPlanner.desired_territory(12, 3), 1)
-	assert_eq(AiDiplomacyPlanner.desired_territory(100, 0), 1)
+	assert_eq(AiDiplomacyGates.desired_territory(75, 5), 3)
+	assert_eq(AiDiplomacyGates.desired_territory(75, 2), 2)
+	assert_eq(AiDiplomacyGates.desired_territory(12, 3), 1)
+	assert_eq(AiDiplomacyGates.desired_territory(100, 0), 1)
 
 func test_a_peacemaker_offers_peace_where_a_plain_court_fights_on() -> void:
 	_setup_ai_planner()
