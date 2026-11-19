@@ -1,8 +1,8 @@
 class_name SiegeLanes
 extends RefCounted
-## Wall lanes and the ground they stand on for a siege Quick Battle (wiki:
+## Wall lanes and the blow that falls on them for a siege Quick Battle (wiki:
 ## siege-mechanics § Damage Reduction, § Quick Battle lanes, § Gates and
-## Sortie; quick-battle § Terrain).
+## Sortie).
 ##
 ## A garrison stands in two lanes. WALL is the infantry manning the parapet;
 ## BEHIND is the emplaced battery and the horse held under cover. Firearms
@@ -11,34 +11,11 @@ extends RefCounted
 ## A sortie leaves the wall, so every defender may strike that round but none
 ## keeps the wall's protection.
 ##
-## Depth on top of the two lanes:
-## - **Lane terrain** (OPEN / HILL / WOODS / TOWN / MARSH) comes from the
-##   province's dominant ground, or from the town a fort rings. Assaults and
-##   volleys are weaker into broken ground; entrenching is surer there and
-##   weaker in a marsh.
-## - **Gates:** a fort has three. A besieger may not pass a gate; it must beat
-##   the wall down until one is breached. Each gate falls after
-##   `ceil(wall HP / 3)` casualties are drawn from the wall lane, after which
-##   the wall's reduction no longer shelters the garrison and the attackers
-##   pour through in the share of gates lost.
-## Pure data and maths: no nodes (REQ-P3-01, REQ-P3-03).
+## The ground the lanes stand on is [SiegeGround]'s and the wall's gates are
+## [SiegeGates]'. Pure data and maths: no nodes (REQ-P3-01, REQ-P3-03).
 
 ## RNG at which a regiment can shoot over or at a parapet.
 const FIREARM_RNG: int = 2
-## A fort has three gates; the wall is stormed through one at a time.
-const GATES: int = 3
-
-## Lane terrain: how weak a blow is into that ground, and how much surer an
-## entrenchment is there (wiki: quick-battle § Core actions — entrench
-## especially in HILL, WOODS, TOWN; assault weaker into WOODS, TOWN, uphill HILL).
-## The ids are the published ones: a swamp province fights on `marsh` ground.
-const TERRAIN: Dictionary = {
-	"open": {"label": "Open field", "volley": 1.0, "assault": 1.0, "entrench": 1.0},
-	"hill": {"label": "Hillside", "volley": 0.9, "assault": 0.75, "entrench": 1.2},
-	"woods": {"label": "Woods", "volley": 0.75, "assault": 0.6, "entrench": 1.3},
-	"town": {"label": "Town streets", "volley": 0.7, "assault": 0.55, "entrench": 1.4},
-	"marsh": {"label": "Marsh", "volley": 0.9, "assault": 0.7, "entrench": 0.8},
-}
 
 
 ## Infantry man the wall; cavalry and artillery shelter behind it.
@@ -143,92 +120,6 @@ static func striking_weight(
 	return total * multiplier
 
 
-# --- lane terrain ------------------------------------------------------------
-
-
-## The ground the battle is fought over. `override` is the playtest/simulator
-## hook; a real battle passes "" and reads the province.
-## A fort rings its town on open ground; broken ground keeps its own character
-## (the fight is for the approaches), so HILL and WOODS sieges are possible.
-static func lane_terrain(
-	model: MapModel, province: int, fort: int, override: String = ""
-) -> String:
-	if TERRAIN.has(override):
-		return override
-	var dominant: int = ArmyModifiers.terrain_for(model, province)
-	match dominant:
-		MapModel.Terrain.HILLS, MapModel.Terrain.MOUNTAINS:
-			return "hill"
-		MapModel.Terrain.HARDWOOD_FOREST, MapModel.Terrain.SCRUB_FOREST:
-			return "woods"
-		MapModel.Terrain.SWAMP:
-			return "marsh"
-	if fort > 0:
-		return "town"
-	return "open"
-
-
-static func terrain_label(terrain: String) -> String:
-	return String((TERRAIN.get(terrain, TERRAIN["open"]) as Dictionary)["label"])
-
-
-## How much of a volley or an assault survives the ground it is delivered into.
-static func terrain_scale(action: String, terrain: String) -> float:
-	if action != "volley" and action != "assault":
-		return 1.0
-	return float((TERRAIN.get(terrain, TERRAIN["open"]) as Dictionary)[action])
-
-
-## An entrenchment is surer in cover and weaker in a marsh.
-static func entrench_scale(terrain: String) -> float:
-	return float((TERRAIN.get(terrain, TERRAIN["open"]) as Dictionary)["entrench"])
-
-
-# --- gates and breach --------------------------------------------------------
-
-
-## Fresh gate state for a siege; empty in a field battle.
-static func gates_for(fort: int) -> Dictionary:
-	if fort <= 0:
-		return {}
-	return {
-		"max": GATES, "broken": 0, "damage": 0,
-		"threshold": breach_threshold(fort),
-	}
-
-
-## Wall casualties needed to open one gate. Three gates share the wall's HP.
-static func breach_threshold(fort: int) -> int:
-	if fort <= 0:
-		return 0
-	return ceili(FortRules.wall_hp(fort) / float(GATES))
-
-
-## Books wall casualties against the gates; returns how many opened this blow.
-static func batter(gates: Dictionary, wall_hits: int) -> int:
-	if gates.is_empty() or int(gates.get("max", 0)) <= 0 or wall_hits <= 0:
-		return 0
-	gates["damage"] = int(gates.get("damage", 0)) + wall_hits
-	var threshold: int = int(gates.get("threshold", 0))
-	var reached: int = 0 if threshold <= 0 else int(gates["damage"]) / threshold
-	var before: int = int(gates.get("broken", 0))
-	# A gate already down stays down; new wall damage only opens more.
-	gates["broken"] = maxi(before, mini(int(gates["max"]), reached))
-	return int(gates["broken"]) - before
-
-
-static func breached(gates: Dictionary) -> bool:
-	return int(gates.get("broken", 0)) > 0
-
-
-## Share of a fort's gates standing open, 0.0 while the wall holds.
-static func breach_share(gates: Dictionary) -> float:
-	var maximum: int = int(gates.get("max", 0))
-	if maximum <= 0:
-		return 0.0
-	return float(int(gates.get("broken", 0))) / float(maximum)
-
-
 # --- one blow ----------------------------------------------------------------
 
 
@@ -271,7 +162,7 @@ static func strike(
 		result["turned"] = wanted
 		return result
 	var blow: int = wanted
-	if fort > 0 and not exposed and not breached(gates):
+	if fort > 0 and not exposed and not SiegeGates.breached(gates):
 		blow = ceili(float(wanted) * FortRules.loss_scale(fort))
 	var behind_share: float = 0.0
 	# The artillery share of the besieging line: the guns are counted over the men
@@ -283,7 +174,7 @@ static func strike(
 		var besiegers: int = maxi(_deployed_count(attacking, attacker_line), 1)
 		behind_share = float(artillery) / float(besiegers)
 	# A gate already beaten down is a way in for every arm, not just guns.
-	behind_share = maxf(behind_share, breach_share(gates))
+	behind_share = maxf(behind_share, SiegeGates.breach_share(gates))
 	var behind_blow: int = mini(blow, roundi(float(blow) * behind_share))
 	var wall_blow: int = maxi(0, blow - behind_blow)
 	## Only the deployed line stands in a lane: the wall holds the line's foot and
@@ -313,7 +204,7 @@ static func strike(
 			behind_lost = ArmyForce.apply_losses(
 				armies, defending, cap, 0, Callable(), behind_line
 			)
-	result["gates_broken"] = batter(gates, wall_lost.size())
+	result["gates_broken"] = SiegeGates.batter(gates, wall_lost.size())
 	result["wall"] = wall_lost
 	result["behind"] = behind_lost
 	result["turned"] = maxi(0, blow - wall_lost.size() - behind_lost.size())

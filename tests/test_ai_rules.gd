@@ -7499,16 +7499,16 @@ func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
 	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
 	var orders: Array = _market_plan(model, builder, null, works)["orders"]
 	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
-	MapPlayCivilianAi.price(orders, model, works, Fixture.stockpile())
-	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
+	MapPlayCivilianPlan.price(orders, model, works, Fixture.stockpile())
+	var rows: Dictionary = MapPlayCivilianPlan.work_rows([{"plan": {"orders": orders}}])
 	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
 	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
 
 	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
 	var survey: Array = _market_plan(model, explorer, null, works)["orders"]
-	MapPlayCivilianAi.price(survey, model, works, Fixture.stockpile())
+	MapPlayCivilianPlan.price(survey, model, works, Fixture.stockpile())
 	assert_true(
-		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
+		MapPlayCivilianPlan.work_rows([{"plan": {"orders": survey}}]).is_empty(),
 		"a survey costs no material, so it reserves none"
 	)
 

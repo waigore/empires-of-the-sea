@@ -195,10 +195,10 @@ static func terrain_line(battle: Dictionary) -> String:
 	var terrain: String = String(quick.get("terrain", ""))
 	if terrain.is_empty() or terrain == "open":
 		return ""
-	var assault: int = round((1.0 - SiegeLanes.terrain_scale("assault", terrain)) * 100.0)
-	var volley: int = round((1.0 - SiegeLanes.terrain_scale("volley", terrain)) * 100.0)
+	var assault: int = round((1.0 - SiegeGround.terrain_scale("assault", terrain)) * 100.0)
+	var volley: int = round((1.0 - SiegeGround.terrain_scale("volley", terrain)) * 100.0)
 	return "Ground — %s: assaults −%d%%, volleys −%d%%" % [
-		SiegeLanes.terrain_label(terrain), assault, volley
+		SiegeGround.terrain_label(terrain), assault, volley
 	]
 
 
