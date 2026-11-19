@@ -48,7 +48,7 @@ static func build(
 		},
 		"sorties": sortie_count(rounds),
 		"terrain": String(opening["terrain"]),
-		"terrain_label": SiegeLanes.terrain_label(String(opening["terrain"])),
+		"terrain_label": SiegeGround.terrain_label(String(opening["terrain"])),
 		"gates": gates.duplicate(),
 		"breaches": int(gates.get("broken", 0)),
 		"limits": {

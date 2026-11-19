@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1064 (REQ-P2-02).
+Audited: wiki / DRs / code through #1070 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live

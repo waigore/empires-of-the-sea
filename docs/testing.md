@@ -215,6 +215,13 @@ godot --headless --path . --script res://playtests/playtest_field_train.gd
 # ally.
 godot --headless --path . --script res://playtests/playtest_court_proposal.gd
 
+# Join Empire — seats the last rung's chain with a Great Power, a Minor and a
+# Tribe, then holds the row's words to the rule's two roads (nearly defeated, or
+# our power twice its own), the warmth gate at 50 and 51 against the herald's
+# word, the press a standing crown answers, and the provinces, regiments and
+# hulls that change flags on an absorption.
+godot --headless --path . --script res://playtests/playtest_join_empire.gd
+
 # War toasts (#426) — ends turns with spies abroad and diffs HUD war lines against
 # warDeclared / At War (duplicate AI + spy + intervention announce).
 godot --headless --path . --script res://playtests/playtest_war_toasts.gd

@@ -1794,9 +1794,10 @@ domain = "quick_battle"
 match = "scripts/rules/quick_battle_*.gd"
 domain = "quick_battle"
 
-# Siege lanes are resolved inside Quick Battle.
+# The siege's lanes, the ground they stand on and the gates that shelter them
+# are all resolved inside Quick Battle.
 [[rules]]
-match = "scripts/rules/siege_lanes.gd"
+match = "scripts/rules/siege_*.gd*"
 domain = "quick_battle"
 
 [[rules]]
@@ -2776,6 +2777,13 @@ domain = "ai_economy"
 # civilian-turn suites, not the whole AI fan-out.
 [[rules]]
 match = "scripts/map/map_play_civilian_ai.gd*"
+domain = "ai_works"
+
+# The pass's own reading (purses, region context, the earn trim, the planned
+# row): the same two suites prove it, so it rides the AI/works slice instead of
+# the civilian glob below.
+[[rules]]
+match = "scripts/map/map_play_civilian_plan.gd*"
 domain = "ai_works"
 
 # The muster seam both rival civilian passes share (roster, mustering tile,
