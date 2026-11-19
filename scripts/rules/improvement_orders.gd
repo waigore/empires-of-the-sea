@@ -1,8 +1,9 @@
 class_name ImprovementOrders
 extends RefCounted
 ## Estates-ledger intents: dispatch the nearest Builder to an estate and cancel
-## an active improvement order. All gates and costs stay in CivilianWork
-## (REQ-P2-03); this module only chooses the civilian and words the report.
+## an active improvement order. All gates, costs and the crew pick stay in
+## CivilianWork (REQ-P2-03); this module only chooses the action and words the
+## report.
 
 const BUILD: String = "build_improvement"
 
@@ -73,7 +74,7 @@ static func build(
 			model.province_name(model.province_at(tile.x, tile.y)),
 			ImprovementCatalog.display_name(resource, level + 1),
 			int(result.get("duration", 1)),
-			"" if int(result.get("duration", 1)) == 1 else "s",
+			MoneyText.plural(int(result.get("duration", 1))),
 		],
 	}
 
@@ -167,7 +168,7 @@ static func build_fort(
 			model.province_name(province_id),
 			FortRules.describe(ordered),
 			turns,
-			"" if turns == 1 else "s",
+			MoneyText.plural(turns),
 		],
 	}
 
@@ -219,7 +220,7 @@ static func build_hospital(
 			model.province_name(province_id),
 			HospitalRules.level_name(ordered).to_lower(),
 			turns,
-			"" if turns == 1 else "s",
+			MoneyText.plural(turns),
 		],
 	}
 
@@ -242,52 +243,22 @@ static func cancel(
 static func working_builder(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:
-	for unit: CivilianState in units:
-		if unit == null or unit.owner != owner or not unit.is_working():
-			continue
-		if unit.work_action() == BUILD and unit.work_tile() == tile:
-			return unit
-	return null
+	return CivilianWork.working_crew(units, owner, tile, "builder", BUILD)
 
 
 static func idle_builders(units: Array[CivilianState], owner: int) -> Array[CivilianState]:
-	return idle_crews(units, owner, "builder")
-
-
-## Every idle crew of one trade, so a sheet can ask who is free without owning
-## the roster's type ids (the towns read a Builder, the walls an Engineer).
-static func idle_crews(
-	units: Array[CivilianState], owner: int, type_id: String
-) -> Array[CivilianState]:
-	var result: Array[CivilianState] = []
-	for unit: CivilianState in units:
-		if unit != null and unit.owner == owner and unit.type_id == type_id and unit.is_idle():
-			result.append(unit)
-	return result
+	return CivilianWork.idle_crews(units, owner, "builder")
 
 
 ## Closest idle Builder by Manhattan distance; ties break on unit id.
 static func nearest_builder(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:
-	return nearest_crew(units, owner, tile, "builder")
+	return CivilianWork.nearest_crew(units, owner, tile, "builder")
 
 
 ## Closest idle Engineer by Manhattan distance; ties break on unit id.
 static func nearest_engineer(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:
-	return nearest_crew(units, owner, tile, "engineer")
-
-
-static func nearest_crew(
-	units: Array[CivilianState], owner: int, tile: Vector2i, type_id: String
-) -> CivilianState:
-	var best: CivilianState = null
-	var best_distance: int = 1 << 30
-	for unit: CivilianState in idle_crews(units, owner, type_id):
-		var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
-		if distance < best_distance or (distance == best_distance and unit.id < best.id):
-			best = unit
-			best_distance = distance
-	return best
+	return CivilianWork.nearest_crew(units, owner, tile, "engineer")
