@@ -106,9 +106,9 @@ func _words_pass(target: int, player: int) -> void:
 	var hint: String = String(row.get("hint", ""))
 	var power: Dictionary = MapPlayDiplomacy.public_power(_play)
 	var near: bool = DiplomacyRules.nearly_defeated(_play.world, target)
-	var live: bool = DiplomacyRules.accepts_join_empire(_play.world, player, target, power)
+	var live: bool = DiplomacyRules.answer_join_empire(_play.world, player, target, power)
 	var theirs: int = maxi(int(power.get(target, 1)), 1)
-	var doubled: bool = DiplomacyRules.accepts_join_empire(
+	var doubled: bool = DiplomacyRules.answer_join_empire(
 		_play.world, player, target, {player: theirs * 2, target: theirs}
 	)
 	_say("  rule: nearly defeated %s · accepts at our published power %s · accepts at twice its power %s" % [

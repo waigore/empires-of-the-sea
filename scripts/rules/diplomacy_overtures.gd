@@ -134,7 +134,7 @@ static func _accepts_overture(
 		# defeated crown, or one the offerer so far outpowers that standing
 		# alone is hopeless (wiki: diplomacy § Join Empire; issue #750).
 		return record.score >= DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE \
-			and DiplomacyRules.accepts_join_empire(world, player, target, power)
+			and DiplomacyRules.answer_join_empire(world, player, target, power)
 	return true
 
 

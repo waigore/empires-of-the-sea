@@ -54,6 +54,14 @@ static func _diplomacy_from(data: Dictionary) -> DiplomacyState:
 			state.relations[String(key)] = DiplomacyRelation.from_dict(entry)
 	state.overtures = data.get("overtures", {}).duplicate()
 	state.subsidies = data.get("subsidies", {}).duplicate()
+	# A save can carry rows no court could set — a Great Power-to-Great Power
+	# subsidy, a legacy £/turn row, a percent off the published ladder — and the
+	# wiki has the load drop them (wiki: diplomacy § Acceptance Criteria; R3).
+	# The legacy shape holds an object where a percent belongs, so a single
+	# un-migrated row throws in the pass that prices every subsidy and takes the
+	# legal rows down with it: the migration belongs to the load, never to a
+	# reader's guess.
+	DiplomacyLifetime.prune_subsidies(state)
 	state.ftps = data.get("ftps", {}).duplicate()
 	state.boycotts = data.get("boycotts", {}).duplicate()
 	state.colonies = data.get("colonies", {}).duplicate()
