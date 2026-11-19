@@ -287,6 +287,13 @@ godot --headless --path . --script res://playtests/playtest_siege.gd
 # second press after the queue has promised the store.
 godot --headless --path . --script res://playtests/playtest_workers.gd
 
+# The crown's command — reads the opening pool and the ledger's own lines (count,
+# cap road, each commander, the medal note and the fallback), then the turn-100
+# advanced start where the cap-raising studies have landed, then fights a real
+# land battle and holds the despatch's medal credit to the roster and to the
+# ledger's row afterwards.
+godot --headless --path . --script res://playtests/playtest_command.gd
+
 # Observer siege — seats a wall, its garrison and a besieging train between two
 # rival crowns in the full-AI observer, then reads the panel's orders feed, the
 # cards, the merged turn record and the province the rules actually left.

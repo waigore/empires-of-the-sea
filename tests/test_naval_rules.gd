@@ -1779,6 +1779,45 @@ func test_a_defending_squadron_does_not_intercept() -> void:
 	assert_false(bool(battles[0]["intercepted"]))
 	assert_eq(int(battles[0]["attacker"]), 1)
 
+## One station reading for the whole water: the combat pass rolls the holders,
+## the trade pass raids with the squadrons whose orders work the station, and a
+## water of bystanders holds no station at all. The dossier, the catch and the
+## prize all read this module (DR-20261120-01, DR-20261120-02).
+func test_one_station_reading_serves_the_catch_and_the_prize() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var sailing := _naval_raid_fleet(2, 0, 1, ["sloop"])
+	sailing.mission = FleetState.Mission.DEFEND
+	var water: Array = [patrol, sailing]
+	var kept: Array = NavalStation.group_from(_naval_raid_model, water)
+	assert_eq(kept.size(), 1, "a Defend squadron holds nothing")
+	assert_eq(kept[0], patrol)
+	assert_true(NavalStation.works(_naval_raid_model, patrol))
+	assert_false(
+		NavalStation.works(_naval_raid_model, sailing),
+		"a squadron holding no station works no price"
+	)
+	assert_eq(
+		NavalStation.group(_naval_raid_model, water, 1, 0).size(), 1,
+		"the station of the water is the same reading"
+	)
+	assert_eq(
+		NavalStation.group(_naval_raid_model, water, 0, 0).size(), 0,
+		"a squadron in another water is no part of this station"
+	)
+	# A fleet at sea stands on her own when the roster holds no consort.
+	assert_eq(NavalStation.group_of(_naval_raid_model, water, patrol).size(), 1)
+	assert_eq(NavalStation.group_of(_naval_raid_model, water, null).size(), 0)
+	# A doomed blockade (its coast taken back) works nothing.
+	patrol.mission = FleetState.Mission.BLOCKADE
+	patrol.blockade_province = 1
+	assert_true(NavalStation.works(_naval_raid_model, patrol))
+	var taken: int = _naval_raid_model.province_data(1).owner
+	_naval_raid_model.province_data(1).owner = 0
+	assert_false(NavalStation.works(_naval_raid_model, patrol), "her own shore blocks nothing")
+	_naval_raid_model.province_data(1).owner = taken
+
 func test_only_the_station_holders_join_the_roll() -> void:
 	_setup_naval_interception()
 	var patrol := _naval_interception_squadron(1, 0, 0, "sloop", 1)

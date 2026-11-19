@@ -234,8 +234,15 @@ static func warning(standing: Dictionary) -> String:
 		return ""
 	var short: int = int(standing.get("slack", 0))
 	var head: String = "The larder runs short"
+	## The shortfall and the strike are two clauses of one line. The published
+	## line separates them with a semicolon when the food figure leads it
+	## (`The larder runs short — 2 food; 1 worker will strike …`) and keeps the
+	## dash for the luxury form (`The larder runs short of Refined Sugar ×1 — …`)
+	## (wiki: workers-and-population § Consumption; DR-20261119-11).
+	var gap: String = " — "
 	if short < 0:
 		head += " — %d food" % -short
+		gap = "; "
 	else:
 		var luxuries: Dictionary = standing.get("luxury_short", {}) as Dictionary
 		for id: Variant in luxuries.keys():
@@ -246,4 +253,4 @@ static func warning(standing: Dictionary) -> String:
 		"worker" if strikers == 1 else "workers",
 		WorkerPool.tier_name(maxi(int(standing.get("striking_tier", 0)), 0)).to_lower(),
 	]
-	return "%s — %s." % [head, who]
+	return "%s%s%s." % [head, gap, who]
