@@ -3220,9 +3220,9 @@ func _tons(totals: Dictionary) -> int:
 	return total
 
 
-## A rival's finished work is announced with its crown: with rivals building every
-## turn, an unlabelled line reads as the player's own crew.
-func test_rival_civilian_completion_names_its_crown() -> void:
+## A finished work, a rival's or the crown's own, stays off the despatch lane:
+## the chart, the crew panel and the province sheet carry it (wiki: hud-toasts).
+func test_rival_civilian_completion_stays_off_the_lane() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var layer := CivilianLayer.new()
 	layer.spawn(model, 0, 0, [])
@@ -3241,23 +3241,16 @@ func test_rival_civilian_completion_names_its_crown() -> void:
 	explorer.start_work("explore", CivilianFixture.RIVAL_GRAIN_TILE, 1)
 	layer.units.append(explorer)
 	MapPlayCivilians.resolve_work(play)
-	assert_eq(play.hud.toasts.size(), 1)
-	assert_true(
-		play.hud.toasts[0].begins_with("%s's " % FactionCatalog.name_of(1)),
-		"the crown is named, never left to look like the player's work"
-	)
-	play.hud.toasts.clear()
+	assert_false(explorer.is_working(), "the work still resolves")
+	assert_true(play.hud.toasts.is_empty(), "Build/Work does not use the lane")
 	var own: CivilianState = CivilianState.create(
 		8, 0, "explorer", CivilianFixture.BARE_TILE
 	)
 	own.start_work("explore", CivilianFixture.BARE_TILE, 1)
 	layer.units.append(own)
 	MapPlayCivilians.resolve_work(play)
-	assert_eq(play.hud.toasts.size(), 1)
-	assert_true(
-		play.hud.toasts[0].begins_with("Explorer "),
-		"the player's own completion keeps its plain wording"
-	)
+	assert_false(own.is_working(), "the crown's own work resolves too")
+	assert_true(play.hud.toasts.is_empty(), "and still says nothing on the lane")
 	layer.free()
 
 

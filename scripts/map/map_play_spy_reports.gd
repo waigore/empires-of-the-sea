@@ -11,9 +11,10 @@ const MAX_LINES: int = 8
 
 
 ## Last-turn court reports for each observed rival: diplomatic acts, battles,
-## provinces taken or lost and technologies completed. One toast per court, and
-## the same lines stay in `play.court_reports` so the court panel can show the
-## despatch again after the toast has gone (wiki: civilian-units § Spy).
+## provinces taken or lost and technologies completed. The despatch stays in
+## `play.court_reports` and reads under that crown's chronicle in the court
+## panel; the dispatch lane is not a second copy of it (wiki: civilian-units
+## § Spy, hud-toasts).
 static func report(
 	play: PlaySession,
 	land_battles: Array,
@@ -40,10 +41,6 @@ static func report(
 		if lines.is_empty():
 			continue
 		kept[rival] = lines
-		play.hud.toast(
-			"Spy report — %s: %s"
-			% [FactionCatalog.name_of(rival), " · ".join(lines)]
-		)
 	# The despatch reports the turn that just resolved; the calendar has already
 	# advanced by the time this runs.
 	play.court_reports = {

@@ -173,13 +173,11 @@ static func resolve_work(play: PlaySession) -> void:
 		var changed: Array = report.get("changed", [])
 		if not changed.is_empty():
 			play.overlay.sync_visibility(play.visibility, changed)
-		var type_name: String = CivilianCatalog.display_name(String(report["type_id"]))
-		var province: int = int(report["province"])
-		var place: String = (
-			play.model.province_name(province) if province >= 0 else "the wilds"
-		)
+		# A finished work reads on the chart, the crew's panel and the province
+		# sheet — the survey's find on the province sheet's deposits. The
+		# dispatch lane keeps its room for what needs a reaction (wiki:
+		# hud-toasts), so Build/Work reports nothing here.
 		if String(report["action"]) == "prospect":
-			play.hud.toast(_survey_line(play, report, type_name, place))
 			# The province sheet now names the deposit (or its absence).
 			if play.selected_province >= 0 and play.hud.panels.is_panel_open():
 				play.hud.panels.panel.refresh(
@@ -187,24 +185,6 @@ static func resolve_work(play: PlaySession) -> void:
 					MapPlayImprovements.crown_link(play, play.selected_province)
 				)
 			continue
-		if String(report["action"]) == "build_fort":
-			# A wall is the one work that changes how the province is fought
-			# over, so the despatch names the level it raised, not just the order
-			# — and says so plainly when a second project in the same province
-			# finished after the wall already stood (wiki: siege-mechanics
-			# § Fort Levels, § Emplaced Artillery).
-			play.hud.toast("%s%s in %s: %s" % [
-				_owner_label(play, int(report.get("owner", -1))), type_name, place,
-				FortRules.raise_line(
-					int(report.get("fort_before", 0)),
-					int(report.get("fort_level", 0))
-				),
-			])
-			continue
-		var work_name: String = CivilianWork.label(String(report["action"])).to_lower()
-		play.hud.toast("%s%s in %s: %s" % [
-			_owner_label(play, int(report.get("owner", -1))), type_name, place, work_name
-		])
 	if not MapPlayTurn.view_live:
 		return
 	play.civilian_layer.sync()
@@ -241,33 +221,6 @@ static func settle_stranding(play: PlaySession) -> void:
 			play.hud.toast("%s withdraws from %s" % [type_name, place])
 	if had_selection and play.civilian_layer.selected_unit == null:
 		play.hud.panels.hide_civilian()
-
-
-## A finished survey names the find for the court that paid for it, or says the
-## ground held nothing: a hidden deposit never changes hands silently (wiki:
-## fog-and-exploration § Prospecting; RUB-P5-06). A rival's survey is news that
-## ground was read — never what was in it (DR-20261111-26, per court).
-static func _survey_line(
-	play: PlaySession, report: Dictionary, type_name: String, place: String
-) -> String:
-	var owner_id: int = int(report.get("owner", -1))
-	var owner: String = _owner_label(play, owner_id)
-	if owner_id != play.player_faction:
-		return "%s%s surveys %s." % [owner, type_name, place]
-	var found: String = String(report.get("find", ""))
-	if found.is_empty():
-		return "%s%s surveys %s — no mineral in the ground." % [owner, type_name, place]
-	return "%s%s finds %s in %s — a mine can rise." % [
-		owner, type_name, ImprovementCatalog.commodity_label(found), place
-	]
-
-
-## A rival's finished work is announced with its crown, so the player never
-## mistakes it for their own crew (wiki: civilian-units; DR-20261109-14).
-static func _owner_label(play: PlaySession, owner: int) -> String:
-	if owner < 0 or owner == play.player_faction:
-		return ""
-	return "%s's " % FactionCatalog.name_of(owner)
 
 
 ## One purse per crown: the human ledger, or each rival's own (the observer runs

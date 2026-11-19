@@ -43,12 +43,19 @@ static func run(play: PlaySession) -> void:
 
 
 ## What the crown hears the moment the pass resolves, in the court's own voice.
-## A declaration between two rivals is World news: the Gazette narrates it from
-## the recorded `warDeclared` event and a spy's court report carries it, so the
-## toast lane is no third announcement of the same war (wiki: the-gazette
-## § Not the Gazette; civilian-units § Spy). A declaration on the crown is told
-## at once — it governs this turn's movement and combat.
+## Only an act that names the crown is despatch news: a declaration on the crown
+## governs this turn's movement and combat, and a treaty or offer aimed at it
+## asks for an answer. Every act between other courts is World news the Gazette
+## narrates and a spy's court report carries, so the toast lane never announces
+## it a third time (wiki: hud-toasts, the-gazette § Not the Gazette).
 static func _announcements(play: PlaySession, record: Dictionary) -> Array[String]:
+	var action: Dictionary = record.get("action", {}) as Dictionary
+	# A record that names no action is a trace from before the pass kept them:
+	# its lines were already filtered when it was written, so it still speaks.
+	if not action.is_empty():
+		var target: int = int(action.get("target", MapModel.NO_ID))
+		if target != play.human_faction_id():
+			return []
 	var lines: Array[String] = []
 	lines.assign(record.get("messages", []))
 	if lines.is_empty():
@@ -58,17 +65,7 @@ static func _announcements(play: PlaySession, record: Dictionary) -> Array[Strin
 			lines.append(message)
 	# A refused or unapplied order says nothing: the record only carries the
 	# lines the rules actually resolved.
-	if _rival_declaration(play, record):
-		return []
 	return lines
-
-
-## True for a declaration the crown neither made nor suffered.
-static func _rival_declaration(play: PlaySession, record: Dictionary) -> bool:
-	var action: Dictionary = record.get("action", {}) as Dictionary
-	if String(action.get("kind", "")) != AiDiplomacyPlanner.KIND_DECLARE_WAR:
-		return false
-	return int(action.get("target", MapModel.NO_ID)) != play.human_faction_id()
 
 
 ## A rival that absorbs a Minor moves provinces: its units change colour and the
