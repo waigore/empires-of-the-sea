@@ -46,7 +46,7 @@ static func split_orders(
 	var owner: int = config.faction
 	if model.region_id != FactionCatalog.region_of(owner):
 		return actions
-	if not _has_overseas_war(state, world, owner, charts, armies, wants_income):
+	if not _has_overseas_war(config, state, world, owner, charts, armies, wants_income):
 		return actions
 	var fleet: FleetState = AiCrossingForce.fleet(fleets, owner)
 	if fleet == null:
@@ -114,7 +114,7 @@ static func plan(
 		return _voyage(config, world, region, model, armies, fleet, hostile, turn, charts)
 	if region != FactionCatalog.region_of(owner):
 		return {}
-	if not _has_overseas_war(state, world, owner, charts, armies, wants_income):
+	if not _has_overseas_war(config, state, world, owner, charts, armies, wants_income):
 		return {}
 	return _board_step(model, fleets, armies, owner)
 
@@ -304,11 +304,18 @@ static func _other_region(world: WorldMap, home: int) -> int:
 ## unless a hostile host already stands on its own soil, in which case the
 ## defence comes first (DR-20261113-19).
 static func _has_overseas_war(
-	state: DiplomacyState, world: WorldMap, owner: int,
+	config: AiConfig, state: DiplomacyState, world: WorldMap, owner: int,
 	charts: CourtCharts = null, armies: Array = [], wants_income: bool = false
 ) -> bool:
 	var home: int = FactionCatalog.region_of(owner)
 	if home < 0 or world.warp_zones(home).is_empty():
+		return false
+	# The bar's land comes before the far gold: once the court presses for the
+	# bar it must clear, the earn posture no longer sails its host away from the
+	# land the bar counts (issue #995). The published 31 is every rival's bar,
+	# so the read needs no human and no difficulty, and a caller with no world
+	# or no config keeps the published lift.
+	if wants_income and _presses_bar(world, owner, config):
 		return false
 	var hostile: Dictionary = Hostility.owners(state, owner)
 	var here: MapModel = world.region(home)
@@ -328,6 +335,19 @@ static func _has_overseas_war(
 				continue
 			return true
 	return false
+
+
+## True while this court presses for the victory bar it must clear: within
+## `victory.pressure_start` of the published 31 every rival keeps (wiki:
+## ai-architecture § victory pressure; DR-20261114-04). A caller with no world
+## or no config reads no press, so a thin fixture keeps the published lift.
+static func _presses_bar(world: WorldMap, faction: int, config: AiConfig) -> bool:
+	if world == null or config == null:
+		return false
+	var stage: String = String(AiVictoryPressure.read(
+		world, faction, -1, Difficulty.DEFAULT, config
+	).get("stage", AiVictoryPressure.STAGE_FAR))
+	return AiVictoryPressure.presses(stage)
 
 
 ## The squadron carrying this court's expedition, lowest id first.

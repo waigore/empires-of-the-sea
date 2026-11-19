@@ -8958,6 +8958,26 @@ func test_an_earning_court_sails_into_a_border_war() -> void:
 		"one regiment always keeps the seat"
 	)
 
+## The bar's land comes before the far gold: once the court presses for the bar
+## it must clear, the earn lift no longer sails its host away from the land the
+## bar counts, so the field army stays where the victory is (issue #995). A court
+## far from the bar keeps the published lift (the case above).
+func test_a_court_pressing_for_the_bar_keeps_its_host_at_home() -> void:
+	var world: WorldMap = _border_world()
+	# Grow the court's Old World land into the press band (`victory.pressure_start`
+	# of the 31 every rival's bar holds).
+	var old: MapModel = world.region(0)
+	for index in 8:
+		old.provinces.append(ProvinceState.create(
+			100 + index, "Extra %d" % index, [] as Array[Vector2i], Vector2.ZERO,
+			0, campaign_OWNER, false
+		))
+	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, old, [campaign__squadron()],
+		[_home_army()], null, true
+	)
+	assert_true(actions.is_empty(), "the pressing court's host stays on the bar's land")
+
 ## The defence guard survives the goal: a hostile host already standing on the
 ## court's own soil is never left behind (DR-20261113-19).
 func test_a_hostile_host_on_the_court_s_soil_keeps_the_army_home() -> void:
