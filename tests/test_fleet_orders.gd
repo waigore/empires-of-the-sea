@@ -48,6 +48,71 @@ func test_selecting_a_player_fleet_opens_orders() -> void:
 	assert_eq(_screen.overlay.move_zones, NavalMovement.destination_zones(_screen.model, fleet))
 
 
+## `count` of the crown's sea-going squadrons, all in the first one's water, in
+## id order (wiki: ships-and-naval § Fleets in one station).
+func _crown_squadrons_in_one_water(count: int) -> Array[FleetState]:
+	var squadrons: Array[FleetState] = []
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet.owner == MapScreen.PLAYER_FACTION and fleet.is_at_sea():
+			squadrons.append(fleet)
+		if squadrons.size() == count:
+			break
+	assert_eq(squadrons.size(), count, "the fixture floats the squadrons this case needs")
+	for fleet: FleetState in squadrons:
+		fleet.sea_zone = squadrons[0].sea_zone
+	_screen.ship_layer.rebuild_markers()
+	return squadrons
+
+
+## The crown's squadrons in one water fan out, and a tap picks the one under the
+## finger instead of whichever marker happened to be drawn last
+## (wiki: ships-and-naval § Fleets in one station; DR-20261119-08).
+func test_a_tap_picks_the_fanned_squadron_under_the_finger() -> void:
+	var pair: Array[FleetState] = _crown_squadrons_in_one_water(2)
+	var first: Ship = _screen.ship_layer.ship_for(pair[0])
+	var second: Ship = _screen.ship_layer.ship_for(pair[1])
+	assert_ne(first.drawn_position(), second.drawn_position(), "each stands at her own step")
+
+	MapPlayInput.on_tapped(_screen.play, first.drawn_position())
+	assert_eq(_screen.ship_layer.selected(), first)
+	MapPlayInput.on_tapped(_screen.play, second.drawn_position())
+	assert_eq(_screen.ship_layer.selected(), second, "the other step picks the other squadron")
+	assert_true(second.selected)
+	assert_false(first.selected)
+
+
+## A stacked station hands the crown one command at a time: a second tap on the
+## head cycles the stack, and the squadron in hand draws the hull
+## (wiki: ships-and-naval § Fleets in one station).
+func test_a_second_tap_cycles_the_stack() -> void:
+	var rivals: Array[FleetState] = []
+	for fleet: FleetState in _screen.ship_layer.fleets:
+		if fleet.owner != MapScreen.PLAYER_FACTION:
+			rivals.append(fleet)
+		if rivals.size() == 2:
+			break
+	assert_eq(rivals.size(), 2, "the fixture floats two rival squadrons")
+	rivals[0].location = FleetState.Location.AT_SEA
+	rivals[1].location = FleetState.Location.AT_SEA
+	rivals[1].sea_zone = rivals[0].sea_zone
+	_screen.ship_layer.rebuild_markers()
+	for fleet: FleetState in rivals:
+		_screen.ship_layer.ship_for(fleet).visible = true
+	_screen.ship_layer.relayout()
+	var head: Ship = _screen.ship_layer.ship_for(rivals[0])
+	var behind: Ship = _screen.ship_layer.ship_for(rivals[1])
+	assert_false(head.covered, "the first rival draws the stack")
+	assert_true(behind.covered, "the second rides behind her")
+
+	MapPlayInput.on_tapped(_screen.play, head.drawn_position())
+	assert_eq(_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), rivals[0])
+	MapPlayInput.on_tapped(_screen.play, head.drawn_position())
+	assert_eq(_screen.ship_layer.fleet_of(_screen.ship_layer.selected()), rivals[1],
+		"the second tap reads the next squadron in the stack")
+	assert_false(_screen.ship_layer.ship_for(rivals[1]).covered, "the squadron in hand draws")
+	assert_true(_screen.ship_layer.ship_for(rivals[0]).covered)
+
+
 func test_fleet_dossier_can_dock_left_or_right() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	_screen.ship_layer.select(ship)

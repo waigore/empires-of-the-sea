@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:24e127e14e46b86853399f6026d32412eebfe3dcbee4554e69d0c87a69143a45",
-  "submission_git": "refactor/ai-bind-economy-and-campaign@770666e1+dirty",
+  "submission_hash": "sha256:9b0cea221fdf53d0d176477e6ef2f50955bd40211a7a71330d66a23964ec1f32",
+  "submission_git": "feat/995-the-war-the-conquest-needs@89c1a264",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:4bbf3d0e1d04a73d8ec90b26ce643eaef4ae85cd3dede03d371d99c9c3168cce",
+    "ai_surface_hash": "sha256:e070a46c5fe3ac8f05d86c38858c314ec5c09c40ce914c6a39aeca7dc215fe49",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 16,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-18T22:28:29Z",
+  "timestamp": "2026-11-19T02:24:40Z",
   "report_version": 1,
-  "signature": "hmac-sha256:3c380d5558c3629854eb4bf25f8aa674ca8164a2c6457ede99fbc7b0c5f94de2"
+  "signature": "hmac-sha256:78ce773ee5891151f10b6f1c27a44253aa888268623b0abb8d5e1bf6e0a20e95"
 }
