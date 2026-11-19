@@ -67,15 +67,13 @@ func _init(index: int) -> void:
 	column.add_child(_foot())
 
 
-## Rewrites the row from live research state. `boost` maps tech id -> spy-network
-## percent, so the row can name the share a shadowed court hands over
-## (DR-20261110-03). `leader` is the crown's leaderKey, whose published funding
-## multiplier the next-turn RP already includes (leader-bonuses — Victoria).
-func update(
-	state: ResearchState, boost: Dictionary, treasury: int, leader: String = "",
-	animate: bool = true
-) -> void:
-	var tech_id: String = state.tech_at(slot)
+## Rewrites the row from one priced row of `ResearchWalk` — `tech`, `funding`,
+## `gold`, `rp`, `boost`, `paid`, `cost` and `progress` — so the row, the heading
+## and the Research phase price one turn (REQ-P2-03). `floor` is the borrowing
+## floor the purse pays against, named in the unpaid tooltip so the crown never
+## reads a rule as a broken purse (REQ-P5-05).
+func update(priced: Dictionary, floor: int = 0, animate: bool = true) -> void:
+	var tech_id: String = String(priced.get("tech", ""))
 	var idle: bool = tech_id.is_empty()
 	_idle_now = idle
 	_idle.visible = idle
@@ -92,15 +90,12 @@ func update(
 	if tech_id != _icon_tech:
 		_icon_tech = tech_id
 		_fill_icon(tech_id)
-	var funding: String = state.funding_at(slot)
-	var plan: Dictionary = ResearchTurn.preview(
-		state, tech_id, funding, treasury, SpyNetworks.boost_for(boost, tech_id), leader
-	)
-	_gold_next = int(plan["gold"])
-	_rp_next = int(plan["rp"])
-	_unpaid = not bool(plan["paid"])
-	var cost: int = int(plan["cost"])
-	var banked: int = int(plan["progress"])
+	var funding: String = String(priced.get("funding", ResearchFunding.DEFAULT))
+	_gold_next = int(priced.get("gold", 0))
+	_rp_next = int(priced.get("rp", 0))
+	_unpaid = not bool(priced.get("paid", true))
+	var cost: int = int(priced.get("cost", 0))
+	var banked: int = int(priced.get("progress", 0))
 	_name.text = TechCatalog.display_name(tech_id)
 	_name.tooltip_text = TechCatalog.effect_text(tech_id)
 	_spend.text = "%s ducats" % TextFormat.thousands(_gold_next)
@@ -111,18 +106,18 @@ func update(
 	_coin.modulate.a = 1.0 if _gold_next > 0 else 0.35
 	_funding.text = ResearchFunding.label(funding)
 	_funding.tooltip_text = _spend_tip()
-	var spies: int = int(plan["boost"])
+	var spies: int = int(priced.get("boost", 0))
 	_spies.visible = spies > 0
 	_spies.text = "+%d%%" % spies
 	_spies.tooltip_text = (
 		"Spy network: +%d%% research points from the rival courts it shadows"
 		% spies
 	)
-	_bar.set_progress(banked, cost, _rp_next, bool(plan["paid"]), animate)
+	_bar.set_progress(banked, cost, _rp_next, not _unpaid, animate)
 	_progress.text = "%s / %s RP" % [
 		TextFormat.thousands(banked), TextFormat.thousands(cost),
 	]
-	_fill_next(banked, cost, bool(plan["paid"]), state.treasury_floor())
+	_fill_next(banked, cost, not _unpaid, floor)
 
 
 ## Ducats the slot spends next turn, and points it buys (0 for an idle slot).
