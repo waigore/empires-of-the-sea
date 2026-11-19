@@ -1730,6 +1730,25 @@ func test_the_production_press_stands_down_when_nothing_is_ready() -> void:
 	assert_false(body._line.visible, "and prints no line under it")
 
 
+## The larder speaks a turn early: with the store empty and mouths to feed, the
+## turn's close names the strikers before the crown seals another — and a phase
+## that already struck keeps the line to itself, so the warning never repeats the
+## summary the court just read (wiki: workers-and-population § Consumption;
+## REQ-P5-05, REQ-P5-06).
+func test_the_larder_warns_a_turn_before_the_strike() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["grain"] = 0
+	economy.stockpile["meat"] = 0
+	economy.workers = WorkerPool.make(3)
+	var line: String = _screen.economy.larder_warning({})
+	assert_true(line.begins_with("The larder runs short"), line)
+	assert_true(line.contains("will strike at the next close"), line)
+	assert_eq(
+		_screen.economy.larder_warning({"consumption": {"strikers": 3}}), "",
+		"the phase that struck has already said it"
+	)
+
+
 ## Every line the court's toasts currently show.
 func _toast_texts() -> Array[String]:
 	var texts: Array[String] = []

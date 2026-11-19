@@ -2038,6 +2038,69 @@ func test_larder_forecast_names_a_luxury_shortfall() -> void:
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.APPRENTICE)
 	assert_eq(read["luxury_short"], {"refinedSugar": 1})
 
+
+## The turn's larder standing is the same dry run the WORKERS tab prints: the
+## store's food, the whole larder's slack as a signed figure, and the strikers
+## the phase would leave — the reading a crown acts on before it seals the turn
+## (wiki: workers-and-population § Consumption; REQ-P5-05, REQ-P5-06).
+func test_the_larder_standing_reads_the_store_and_its_slack() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	var read: Dictionary = LarderRead.standing(economy)
+	assert_eq(int(read["food"]), 1, "the store's food, grain and meat together")
+	assert_eq(int(read["wanted"]), 3, "a master eats two, a peasant one")
+	assert_eq(int(read["slack"]), -2, "the shortfall reads signed")
+	assert_eq(int(read["strikers"]), 1)
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.MASTER)
+	economy.stockpile = {"grain": 5, "meat": 5, "furHats": 1}
+	var calm: Dictionary = LarderRead.standing(economy)
+	assert_eq(int(calm["food"]), 10)
+	assert_eq(int(calm["slack"]), 7, "a covered larder reads a surplus")
+	assert_eq(int(calm["strikers"]), 0)
+	assert_eq(int(calm["striking_tier"]), -1)
+
+
+## The warning a court hears a turn before the larder bites names what runs
+## short and who strikes first, and stays silent on a covered larder
+## (wiki: workers-and-population § Consumption; REQ-P5-05, REQ-P5-06).
+func test_the_larder_warning_names_what_runs_short() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	assert_eq(
+		LarderRead.warning(LarderRead.standing(economy)),
+		"The larder runs short — 2 food — 1 worker will strike at the next close, "
+		+ "masters first."
+	)
+	# A luxury the tier wants with the food covered names the good, not a
+	# shortfall in food the store does not have.
+	economy.workers = WorkerPool.make(0, 1)
+	economy.stockpile = {"grain": 2, "meat": 2, "refinedSugar": 0}
+	assert_eq(
+		LarderRead.warning(LarderRead.standing(economy)),
+		"The larder runs short of Refined Sugar ×1 — 1 worker will strike at the "
+		+ "next close, apprentices first."
+	)
+	economy.stockpile = {"grain": 4, "meat": 4, "refinedSugar": 2}
+	assert_eq(LarderRead.warning(LarderRead.standing(economy)), "", "a calm larder is silent")
+
+
+## The standing's `waiting` flag: the ledger's own projection already counts the
+## musters and launches under orders, so the warning reads it with `waiting = false`
+## or one mouth would be fed twice (wiki: workers-and-population § Consumption).
+func test_the_larder_standing_does_not_feed_a_waiting_muster_twice() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 10, "meat": 0}
+	economy.recruits.add(RecruitQueue.KIND_REGIMENT, "pikemen")
+	var once: Dictionary = LarderRead.standing(economy, {"army": 2}, false)
+	var twice: Dictionary = LarderRead.standing(economy, {"army": 0}, true)
+	assert_eq(int(once["wanted"]), int(twice["wanted"]), "one muster, one ration")
+	# The muster also takes a peasant: the phase feeds one hand and the regiment.
+	assert_eq(int(once["wanted"]), 3, "one peasant, the muster's head and its ration")
+
+
 ## Recruits already under orders eat at the next Consumption, so the forecast
 ## counts them before the crown presses another row
 ## (wiki: workers-and-population § Phase placement).

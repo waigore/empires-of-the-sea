@@ -123,6 +123,29 @@ func test_a_field_army_marches_once_and_resets_next_turn() -> void:
 	assert_false(field.moved)
 
 
+## The rival diplomacy pass mutes the HUD for its own turn, so no rival despatch
+## takes the lane (`MapPlayDiplomacy.resolve_turn` sets `hud` to null and puts it
+## back). The army layer re-emits its own selection when a rival absorbs a Minor,
+## and that lands here — so a muted HUD must be a no-op: the crown's own pick
+## stays where it was instead of being cleared by a pass it never made
+## (wiki: hud-toasts § Off the lane — "a rival-only event never takes the lane").
+func test_a_muted_hud_leaves_the_crown_view_alone() -> void:
+	var play: PlaySession = _screen.play
+	var home: ArmyState = _player_home()
+	assert_not_null(home)
+	var hud: GameHud = play.hud
+	assert_not_null(hud)
+	play.hud = null
+	play.selected_province = 42
+	MapPlayArmies.select(play, home)
+	MapPlayArmies.show_panel(play, home)
+	MapPlayArmies.hide_dossier(play)
+	var picked: int = play.selected_province
+	play.hud = hud
+	assert_eq(picked, 42, "a muted HUD does not clear the crown's province pick")
+	assert_false(hud.panels.is_army_panel_open(), "the muted pass painted no dossier")
+
+
 func test_detach_all_moves_the_whole_army_in_one_order() -> void:
 	var home: ArmyState = _player_home()
 	var total: int = home.count()

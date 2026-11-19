@@ -105,9 +105,14 @@ static func refresh_dossier(play: PlaySession) -> void:
 	)
 
 
-## Chips and the estates ledger follow the region on screen.
+## Chips and the estates ledger follow the region on screen. A muted HUD — the
+## rival diplomacy pass keeps it null so no rival despatch takes the lane
+## (`MapPlayDiplomacy.resolve_turn`) — has no chips to paint, so the reading is a
+## no-op, exactly as `refresh_dossier` above (wiki: hud-toasts § Off the lane).
 static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 	var hud: GameHud = play.hud
+	if hud == null or play.model == null:
+		return
 	hud.set_minimap(play.model, map_size, play.visibility)
 	HudChrome.set_region_label(
 		hud, FactionCatalog.region_label(play.region_index), play.world.region_count() > 1
