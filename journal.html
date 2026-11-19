@@ -22,11 +22,11 @@
   <p class="note">Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Current contract: one <strong>subject</strong> crown (submission planners) vs two <strong>baseline</strong> rivals (<code>scripts/ai_mainline/</code> from <code>origin/main</code>) and three <strong>random</strong> courts; only the subject scores. Weighted progress: Old World provinces ×100, New World ×50, regiments ×10, ships ×10, workers ×5, extraction ×2, income ×1, +500 for a win before the cap.</p>
 
   <div class="status">
-    <strong>Phase:</strong> issue #995 — the win chase: the bank lands, its connected-farm clause is a guard, the +500 stays open<br/>
+    <strong>Phase:</strong> issue #995 — the win chase: the bank's doors are opened and measured (guards on the official world, levers on the probe world); the +500 stays open<br/>
     <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2306.93</span> (<code>995-03-bank-keeps-the-town-road.json</code>)<br/>
-    <strong>Best honest so far:</strong> 2439.10 · 15 OW · 9 NW · 4 reg · workers 6 (before #1026's production refactor; the committed surface reads 2306.93 · 16 OW · 6 NW · forces 8 — <code>1026-production-phase-rebind.json</code>)<br/>
-    <strong>Open gates:</strong> the +500 win bonus — the climb's next lever is the pact wall / the phoney war (the connected farm measured inert)
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2306.93</span> (<code>995-04-the-war-the-conquest-needs.json</code>)<br/>
+    <strong>Best honest so far:</strong> 2439.10 · 15 OW · 9 NW · 4 reg · workers 6 (before #1026's production refactor; the committed surface reads 2306.93 · 16 OW · 6 NW · forces 8)<br/>
+    <strong>Open gates:</strong> the +500 win bonus — the probe names the #807 food-rate gate next (the muster's own ration bar opens ~1 turn in 6, so the banked purse buys ~one line per 40-60 turns and the pact break waits behind the host)
   </div>
 
   <h2>What was wrong with the bench itself</h2>
@@ -170,6 +170,14 @@
         <td>15 OW · 6 NW · 4 reg · 3 ships · workers 5 · income 361.55 · funded 83.40</td>
         <td class="bad">−15.8 against the #974 keeper and well above the 1904.52 floor: same provinces, forces and workers; the campaign resolves at t127 instead of t121 and the income rate gives back 17, the price of the wars the court now leaves (the colonies and the host are untouched). Read as the cost of a behaviour the issue asked for; the arms-before-builds line stays the open lever for the income term</td>
         <td><a href="reports/ai-bench/999-01-war-that-takes-nothing.json">999-01-war-that-takes-nothing.json</a></td>
+      </tr>
+      <tr>
+        <td>995-04</td>
+        <td>The war the conquest needs — three doors the bank left shut (DR-20261119-09): a phoney front holds no coin (<code>AiWarMemory.holds_front</code>, the #999 read the market now honors), the college's ordinary ladder reads the row's <code>bank_chest</code> (the canonical reserve the #603 valve cannot wobble — the probe caught a 450-ducat ladder burn on the one turn a big sale landed), the bank prices its own shortfall from that chest instead of the wobbling goal reserve, and the pact break waits behind the bank then leads the one order once the host stands (<code>AiDiplomacyTreaties.pact_break_leads</code>; a GP war still leads, a Minor's pact never does, baselines read no gap)</td>
+        <td><strong>2306.93</strong></td>
+        <td>16 OW · 6 NW · 5 reg · 3 ships · workers 3 · income 213.39 · funded 92.94 · resolves at t201 — <strong>bit-identical</strong> to the committed 995-03 keeper, to the last digit of every part</td>
+        <td class="good">A guard set measured honest on two worlds: the frozen-baseline world the hill scores never runs the doors (the purse idles at the committed ~585, the pact wall stands unbuilt behind a host that never grew), and on the origin/main-baseline probe world every door bites — the college burn ends, the phoney slot re-opens (41 shut turns against ~180), the fill rides the chest (~2,300 at the peak), one late muster lands with a late conquest and workers 3→10. One lever was measured and dropped: a banking court blocking all new wars killed the opening blitz the committed score rides on. The +500 stays open and the probe names the next layer: the #807 food-rate gate — the muster's own ration bar opens ~1 turn in 6, so the banked purse buys ~one line per 40-60 turns and the break waits behind a host that never stands inside the cap</td>
+        <td><a href="reports/ai-bench/995-04-the-war-the-conquest-needs.json">995-04-the-war-the-conquest-needs.json</a></td>
       </tr>
       <tr>
         <td>995-03</td>

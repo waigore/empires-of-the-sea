@@ -302,6 +302,16 @@ static func _break_nap(
 		return _blocked("no non-aggression pact stands", KIND_BREAK_NAP)
 	if desire < BREAK_MIN_DESIRE:
 		return _blocked("the pact still serves", KIND_BREAK_NAP)
+	# The conquest bank (issue #995): a pact break that cannot yet be followed
+	# by its war waits behind the bank — the relation cascade is spent the
+	# turn the host it arms can march, and a court still banking has built no
+	# host (the war gate holds the declaration until the bank releases). The
+	# break leads again the turn the host stands, where the planner ranks it
+	# first (issue #995's pact wall).
+	if AiIncome.banking(
+		config, ai_state, (context.get("income", {}) as Dictionary)
+	):
+		return _blocked("the court is banking for its army", KIND_BREAK_NAP)
 	if ai_state.war_on_cooldown(
 		faction, target, turn, config.parameter("diplomacy.war_cooldown_turns")
 	):

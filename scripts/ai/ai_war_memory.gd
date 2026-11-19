@@ -123,6 +123,32 @@ static func prosecuted(
 	return turn - last <= maxi(config.parameter("diplomacy.pointless_window"), 0)
 
 
+## True while this court's war footing holds a front the war's own benefit
+## engine is still running on: a Great Power war inside its grace, or one the
+## court attacked inside the pointless window. A war past its grace with no
+## attack is a phoney front — the same read the diplomacy pass erodes to its
+## peace (issue #999) — so it holds no coin back: the market's speculative
+## top-up may open while the war waits for the peace that ends it (issue #995).
+## A caller with no state to read keeps the published footing: an unread war
+## is a front. A war on a Minor Nation or a Tribe is colonial business and
+## never held the footing, so it holds none here either.
+static func holds_front(
+	config: AiConfig, ai_state: AiState, state: DiplomacyState,
+	turn: int, faction: int
+) -> bool:
+	if config == null or state == null:
+		return true
+	for record: DiplomacyRelation in state.relations_of(faction):
+		if record == null or not record.at_war:
+			continue
+		var target: int = record.other(faction)
+		if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
+			continue
+		if pointless(config, ai_state, turn, faction, target) == 0:
+			return true
+	return false
+
+
 ## An attack on another court's ground is the war's benefit engine running: the
 ## diplomacy pass reads it to tell a prosecuted war from a pointless one
 ## (issue #999). The table lives on `AiState` so a save carries the clock.
