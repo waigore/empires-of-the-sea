@@ -29,7 +29,7 @@ func _ready() -> void:
 
 func show_province(model: MapModel, province_id: int, data: ProvinceState) -> void:
 	_data = data
-	terrain.text = _dominant_terrain(model, province_id)
+	terrain.text = _terrain_row(model, province_id)
 	var port_tile: Vector2i = data.port_tile
 	if port_tile.x >= 0:
 		var zone: int = model.sea_zone_at(port_tile.x, port_tile.y)
@@ -81,14 +81,14 @@ func refresh_crown(crown: Dictionary) -> void:
 	town.tooltip_text = DossierCopy.town_tip(_data)
 
 
-## The ground this province is fought on, in the published display name. The
+## The ground this province is fought on, in the published display name, and the
+## second-most common ground beside it when the province mixes terrain. The main
 ## reading is [ArmyModifiers.terrain_for]'s own — the same call the Combat phase
 ## makes — so the sheet cannot name ground the battle would not use on a tie
 ## (wiki: resource-terrain-region-rules § Player-facing terrain display names;
 ## combat § Modifiers; REQ-P2-03).
-func _dominant_terrain(model: MapModel, province_id: int) -> String:
-	var ground: int = ArmyModifiers.terrain_for(model, province_id)
-	return String(MapModel.TERRAIN_LABELS.get(ground, "Unknown"))
+func _terrain_row(model: MapModel, province_id: int) -> String:
+	return DossierCopy.terrain(model, province_id)
 
 
 func _add_row(caption: String) -> Label:

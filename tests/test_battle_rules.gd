@@ -49,6 +49,35 @@ func test_terrain_uses_the_dominant_type_and_favours_the_defender() -> void:
 	assert_almost_eq(ArmyModifiers.terrain_multiplier(MapModel.Terrain.PLAINS), 1.0, 0.001)
 
 
+## A province that names no tiles grounds the battle on plains, and its ranking
+## is empty — the sheet then has no runner-up to print (issue #1084).
+func test_a_province_with_no_tiles_falls_back_to_plains() -> void:
+	var model := Fixture.build()
+	assert_eq(ArmyModifiers.terrain_ranking(model, MapModel.NO_ID), [] as Array[int])
+	assert_eq(ArmyModifiers.terrain_for(model, MapModel.NO_ID), MapModel.Terrain.PLAINS)
+
+
+## The ranking lists every terrain the province holds, most common first, so the
+## sheet can name the runner-up without a second walk of the tiles (issue #1084).
+func test_terrain_ranking_reads_most_common_first() -> void:
+	var model := Fixture.build()
+	var tiles: Array = model.province_tiles(0)
+	for index in tiles.size():
+		var tile: Vector2i = tiles[index]
+		var terrain: int = MapModel.Terrain.PLAINS
+		if index == 0:
+			terrain = MapModel.Terrain.SWAMP
+		elif index == 1:
+			terrain = MapModel.Terrain.HILLS
+		model.terrain[model.index_of(tile.x, tile.y)] = terrain
+	var ranked: Array[int] = ArmyModifiers.terrain_ranking(model, 0)
+	assert_eq(ranked.size(), 3)
+	assert_eq(ranked[0], MapModel.Terrain.PLAINS, "the commonest ground leads")
+	# Hills and swamp tie at one tile each: the lower terrain id runs second.
+	assert_eq(ranked[1], MapModel.Terrain.HILLS)
+	assert_eq(ranked[2], MapModel.Terrain.SWAMP)
+
+
 ## The forest split prints both sides of the terrain: 0.9 for the attacker and
 ## 1.5 / 1.1 for the defender (wiki: resource-terrain-region-rules
 ## § Acceptance Criteria).
