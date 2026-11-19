@@ -4,9 +4,9 @@ extends RefCounted
 ## so [QuickBattle] only orchestrates rounds (REQ-P3-01, REQ-P3-03).
 ## A siege routes casualties through [SiegeLanes]: the wall shelters the
 ## garrison, only artillery reaches behind it, and a sortie trades that shelter
-## for every regiment's fire. The ground a blow lands on scales it: assaults and
-## volleys are weaker into HILL/WOODS/TOWN, entrenching is surer there (wiki:
-## quick-battle § Core actions).
+## for every regiment's fire. [SiegeGround] scales the ground a blow lands on:
+## assaults and volleys are weaker into HILL/WOODS/TOWN, entrenching is surer
+## there (wiki: quick-battle § Core actions).
 
 ## Attacker scripts. The defender has its own: a sally is a **Sortie** order,
 ## not an assault on a wall it is standing on (wiki: siege-mechanics § Gates).
@@ -122,7 +122,7 @@ static func resolve(
 		var guard: float = float(ACTION_GUARD[acted])
 		# The prepared ground of HILL/WOODS/TOWN is the defender's advantage.
 		if key == "defender":
-			guard *= SiegeLanes.entrench_scale(terrain)
+			guard *= SiegeGround.entrench_scale(terrain)
 		me["guard"] = maxf(float(me["guard"]), clampf(guard, 0.0, 0.8))
 		entry["guard"] = float(me["guard"])
 		return entry
@@ -133,7 +133,7 @@ static func resolve(
 	# The defender shoots out into the approaches; the attacker shoots into the
 	# defender's cover. Ground never shields the side that sallies from it.
 	var ground: String = terrain if key == "attacker" else "open"
-	ratio *= SiegeLanes.terrain_scale(acted, ground)
+	ratio *= SiegeGround.terrain_scale(acted, ground)
 	## A wing taken in flank: a blow that lands beside a wing the enemy has
 	## already lost is heavier, and heavier still from both sides (wiki:
 	## quick-battle § Wings and collapse). The scale is kept on the blow so the
