@@ -89,7 +89,9 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 				]
 		if on_plate:
 			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))
-		else:
+		elif _crown_fought(play, battle):
+			# A rival's clash is the Gazette's news, not the crown's despatch: the
+			# lane keeps only the fight the crown is in (wiki: hud-toasts).
 			play.hud.toast(line, BattleReport.icon_of(battle))
 		if region == play.region_index and bool(battle.get("captured", false)):
 			repaint = true
@@ -139,10 +141,13 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		CivilianStrandingPass.remove_owner(play.civilian_layer, faction)
 		if play.diplomacy != null and not _keeps_record(play, faction):
 			play.diplomacy.clear_relations_of(faction)
-		play.hud.toast(
-			"%s falls to %s — its provinces change hands"
-			% [FactionCatalog.name_of(faction), FactionCatalog.name_of(conqueror)]
-		)
+		# A rival's fall is World news on the Gazette; only a fall that touches
+		# the crown speaks on the lane (wiki: hud-toasts, the-gazette).
+		if _crown_touched(play, faction, conqueror):
+			play.hud.toast(
+				"%s falls to %s — its provinces change hands"
+				% [FactionCatalog.name_of(faction), FactionCatalog.name_of(conqueror)]
+			)
 		changed = true
 	_record_defeat(play, fallen)
 	var reassigned: Array = losses.get("reassigned", [])
@@ -152,9 +157,12 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 		var model: MapModel = play.world.region(region)
 		var province: int = int(entry["province"])
 		var seat: String = model.province_name(province) if model != null else "—"
-		play.hud.toast(
-			"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
-		)
+		# The court's own move is the crown's news; a rival's is read on the
+		# chart and the Gazette (wiki: hud-toasts).
+		if faction == play.human_faction_id():
+			play.hud.toast(
+				"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
+			)
 		if _recall_home(play, faction, province, region) and play.model != null:
 			play.refresh_map_views()
 		changed = true
@@ -188,6 +196,25 @@ static func _recall_home(
 		play.army_layer.next_army += 1
 	play.army_layer.regions.set_region(region, roster)
 	return true
+
+
+## True when the crown's own colours stood in the clash, either side. The
+## dispatch lane keeps that fight; a rival's battle is the Gazette's news
+## (wiki: hud-toasts).
+static func _crown_fought(play: PlaySession, battle: Dictionary) -> bool:
+	var crown: int = play.human_faction_id()
+	return (
+		int(battle.get("attacker", -1)) == crown
+		or int(battle.get("defender", -1)) == crown
+	)
+
+
+## True when a fall or a court move is the crown's own doing or its own loss:
+## the fallen court, its conqueror, or (for a move) the moving court is the
+## human crown. Every other crown's fall is World news on the Gazette.
+static func _crown_touched(play: PlaySession, fallen: int, conqueror: int) -> bool:
+	var crown: int = play.human_faction_id()
+	return fallen == crown or conqueror == crown
 
 
 ## The human crown's own fall keeps its dealings until the turn's close has filed

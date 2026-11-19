@@ -151,8 +151,9 @@ static func _seat_carried(play: PlaySession, home: FleetState) -> void:
 
 
 ## Load repair: a save written before the merge could park a squadron at the
-## seat. Fold it in on load and say so, so holds, the yard and the dossier all
-## read one home fleet (wiki: ships-and-naval § Home Fleet).
+## seat. Fold it in on load and say so once, so holds, the yard and the dossier
+## all read one home fleet (wiki: ships-and-naval § Home Fleet). This is a load
+## receipt, not a turn despatch: it fires only on a legacy save.
 static func repair(play: PlaySession) -> void:
 	if play == null or play.hud == null:
 		return

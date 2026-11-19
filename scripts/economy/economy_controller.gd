@@ -208,7 +208,12 @@ func resolve_turn() -> Dictionary:
 		hud.set_fleets(readings.fleet_ships())
 		if army_layer != null:
 			hud.set_armies(army_layer.regiment_count_all(player_faction))
-		hud.toast(LedgerReportText.turn_summary(report))
+		# The lane raises only what asks the crown to act; a quiet turn's
+		# harvest, deliveries and studies read on the ledger sheet and the
+		# Gazette (wiki: hud-toasts).
+		var trouble: String = LedgerReportText.turn_summary(report, true)
+		if not trouble.is_empty():
+			hud.toast(trouble)
 	refresh_research_panel()
 	treasury_changed.emit(economy.treasury)
 	return report

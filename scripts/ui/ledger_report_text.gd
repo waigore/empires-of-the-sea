@@ -72,8 +72,13 @@ static func research_floor_note(floor: int) -> String:
 
 
 ## One-line turn summary for the toast channel: what the resolved turn did.
-static func turn_summary(report: Dictionary) -> String:
+## `trouble_only` keeps just the lines that ask the crown to act — a sealed
+## coast, a strike, an unfed ward, a study the purse could not pay. The dispatch
+## lane raises that cut and leaves the harvest, the overseas deliveries and the
+## finished study to the ledger sheet and the Gazette (wiki: hud-toasts).
+static func turn_summary(report: Dictionary, trouble_only: bool = false) -> String:
 	var parts: PackedStringArray = []
+	var trouble: PackedStringArray = []
 	var extracted: Dictionary = report.get("extraction", {})
 	if not extracted.is_empty():
 		parts.append("gathered %s" % ImprovementSystem.output_text(extracted))
@@ -93,7 +98,7 @@ static func turn_summary(report: Dictionary) -> String:
 	# (wiki: capital-and-connectivity § Blockade; REQ-P5-05).
 	var shut: String = String(report.get("blockade", ""))
 	if not shut.is_empty():
-		parts.append(shut)
+		trouble.append(shut)
 	var treasury: int = int(report.get("riches_treasury", 0))
 	if treasury > 0:
 		parts.append("+%d from riches" % treasury)
@@ -107,12 +112,12 @@ static func turn_summary(report: Dictionary) -> String:
 		parts.append("%d food eaten" % eaters)
 	var strikes: int = int(consumption.get("strikers", 0))
 	if strikes > 0:
-		parts.append("%d on strike" % strikes)
+		trouble.append("%d on strike" % strikes)
 	# A ward whose staff went unfed keeps its walls but loses its nurses: say it,
 	# never silently (wiki: combat § Regiment condition; DR-20261112-04).
 	var hungry: Array = (report.get("hospital", {}) as Dictionary).get("hungry", [])
 	if not hungry.is_empty():
-		parts.append(
+		trouble.append(
 			"%d hospital%s unstaffed" % [hungry.size(), "" if hungry.size() == 1 else "s"]
 		)
 	var research: Dictionary = report.get("research", {})
@@ -122,7 +127,7 @@ static func turn_summary(report: Dictionary) -> String:
 	var unpaid: Array = research.get("unpaid", [])
 	if not unpaid.is_empty():
 		var plural: String = "" if unpaid.size() == 1 else "s"
-		parts.append("%d research slot%s unfunded — %s" % [
+		trouble.append("%d research slot%s unfunded — %s" % [
 			unpaid.size(), plural,
 			research_floor_note(int(research.get("floor", 0))),
 		])
@@ -133,6 +138,10 @@ static func turn_summary(report: Dictionary) -> String:
 				lifted.size(), "y" if lifted.size() == 1 else "ies"
 			]
 		)
-	if parts.is_empty():
+	if trouble_only:
+		if trouble.is_empty():
+			return ""
+		return "  ·  ".join(trouble)
+	if parts.is_empty() and trouble.is_empty():
 		return "The ledgers balance — nothing moved this turn."
-	return "  ·  ".join(parts)
+	return "  ·  ".join(parts + trouble)
