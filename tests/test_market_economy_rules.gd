@@ -3725,6 +3725,21 @@ func test_a_fleetless_seat_harbour_grants_one_hold() -> void:
 	assert_eq(TradeCargo.capacity(world, {0: [warships]}, 0), TradeCargo.PORT_ALLOWANCE)
 	assert_eq(TradeCargo.fleet_holds(warships), 0)
 
+## The harbour's one hold buys the yard its first cloth; it never carries a
+## colony's harvest. A crown with no merchant hull in port at its seat has 0
+## crossing holds (wiki: ships-and-naval § Cargo holds and capacity — "the home
+## squadron's merchant hulls are the only holds"; "a crown with no seat or no
+## squadron there has 0 holds").
+func test_the_seat_allowance_is_a_trade_hold_and_never_a_crossing_hold() -> void:
+	var world: WorldMap = _trade_cargo_world()
+	assert_eq(TradeCargo.capacity(world, {}, 0), TradeCargo.PORT_ALLOWANCE)
+	assert_eq(TradeCargo.home_holds(world, {}, 0), 0, "no merchant hull, no crossing")
+	var warships := FleetState.in_port(1, 0, 0, ["w"], {"w": "sloop"})
+	assert_eq(TradeCargo.capacity(world, {0: [warships]}, 0), TradeCargo.PORT_ALLOWANCE)
+	assert_eq(TradeCargo.home_holds(world, {0: [warships]}, 0), 0, "warships carry nothing")
+	var merchants := FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	assert_eq(TradeCargo.home_holds(world, {0: [merchants]}, 0), 4, "her holds are the crossing")
+
 func test_merchants_away_from_the_seat_do_not_get_the_port_allowance() -> void:
 	# Holds that exist but have sortied stay at 0 — the allowance is for a
 	# fleetless court, not a home squadron that left the harbour.
