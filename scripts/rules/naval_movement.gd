@@ -160,11 +160,11 @@ static func can_move(
 	model: MapModel, fleet: FleetState, destination: int, destination_id: int
 ) -> Dictionary:
 	if fleet == null:
-		return _deny("There is no fleet to order.")
+		return OrderVerdict.deny("There is no fleet to order.")
 	if is_home_fleet(model, fleet):
-		return _deny("The home fleet cannot leave its capital port; launch a squadron instead.")
+		return OrderVerdict.deny("The home fleet cannot leave its capital port; launch a squadron instead.")
 	if fleet.moved:
-		return _deny("This fleet has already moved this turn.")
+		return OrderVerdict.deny("This fleet has already moved this turn.")
 	if destination == FleetState.Location.AT_SEA:
 		return _can_enter_zone(model, fleet, destination_id)
 	return _can_dock(model, fleet, destination_id)
@@ -174,32 +174,32 @@ static func _can_enter_zone(
 	model: MapModel, fleet: FleetState, zone_id: int
 ) -> Dictionary:
 	if zone_id < 0 or model.sea_zone_data(zone_id) == null:
-		return _deny("That is not a sea zone.")
+		return OrderVerdict.deny("That is not a sea zone.")
 	if fleet.is_at_sea():
 		if zone_id == fleet.sea_zone:
-			return _deny("The fleet is already in that sea zone.")
+			return OrderVerdict.deny("The fleet is already in that sea zone.")
 		if not MapGeo.sea_zone_neighbors(model, fleet.sea_zone).has(zone_id):
-			return _deny("A fleet sails one adjacent sea zone per turn.")
-		return _allow()
+			return OrderVerdict.deny("A fleet sails one adjacent sea zone per turn.")
+		return OrderVerdict.allow()
 	if not province_sea_zones(model, fleet.province).has(zone_id):
-		return _deny("That sea zone does not border the fleet's port.")
-	return _allow()
+		return OrderVerdict.deny("That sea zone does not border the fleet's port.")
+	return OrderVerdict.allow()
 
 
 static func _can_dock(
 	model: MapModel, fleet: FleetState, province_id: int
 ) -> Dictionary:
 	if province_id < 0 or model.province_data(province_id) == null:
-		return _deny("That is not a province.")
+		return OrderVerdict.deny("That is not a province.")
 	if fleet.is_in_port():
-		return _deny("The fleet is already in port.")
+		return OrderVerdict.deny("The fleet is already in port.")
 	if model.province_owner(province_id) != fleet.owner:
-		return _deny("A fleet may only dock in a province it owns.")
+		return OrderVerdict.deny("A fleet may only dock in a province it owns.")
 	if not owned_provinces_by_zone(model, fleet.sea_zone, fleet.owner).has(province_id):
-		return _deny("That province does not border the fleet's sea zone.")
+		return OrderVerdict.deny("That province does not border the fleet's sea zone.")
 	if not has_harbour(model, province_id):
-		return _deny("That province has no harbour.")
-	return _allow()
+		return OrderVerdict.deny("That province has no harbour.")
+	return OrderVerdict.allow()
 
 
 ## Validates, mutates the fleet, and reports whether a zone was entered.
@@ -230,11 +230,3 @@ static func apply_move(
 static func begin_turn(fleets: Array[FleetState]) -> void:
 	for fleet: FleetState in fleets:
 		fleet.moved = false
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

@@ -12,18 +12,18 @@ static func can_grant_aid(
 	treasury: int
 ) -> Dictionary:
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	if state.relation(player, target).at_war:
-		return _deny("Aid cannot be sent to an enemy.")
+		return OrderVerdict.deny("Aid cannot be sent to an enemy.")
 	if DiplomacyTrade.blocked_by_boycott(state, player, target):
-		return _deny("A boycott bars trade with that court.")
+		return OrderVerdict.deny("A boycott bars trade with that court.")
 	if not DiplomacyRules.has_embassy(state, player, target):
-		return _deny("An embassy is required before aid can be sent.")
+		return OrderVerdict.deny("An embassy is required before aid can be sent.")
 	if not DiplomacyCatalog.is_valid_aid(amount):
-		return _deny("Aid must be a multiple of £1,000.")
+		return OrderVerdict.deny("Aid must be a multiple of £1,000.")
 	if treasury < amount:
-		return _deny("The treasury cannot cover that aid.")
-	return _allow()
+		return OrderVerdict.deny("The treasury cannot cover that aid.")
+	return OrderVerdict.allow()
 
 
 static func grant_aid(
@@ -38,7 +38,7 @@ static func grant_aid(
 	if not bool(check["ok"]):
 		return check
 	if not economy.spend_treasury(amount):
-		return _deny("The treasury cannot cover that aid.")
+		return OrderVerdict.deny("The treasury cannot cover that aid.")
 	state.apply_delta(
 		player, target, DiplomacyCatalog.GRANT_AID_RELATION, "grantAid", {"amount": amount}
 	)
@@ -57,19 +57,19 @@ static func can_set_subsidy(
 	state: DiplomacyState, player: int, target: int, percent: int
 ) -> Dictionary:
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	var type: int = FactionCatalog.type_of(target)
 	if type != FactionCatalog.Type.MINOR_NATION and type != FactionCatalog.Type.TRIBE:
-		return _deny("Subsidies are only offered to Minor Nations and Tribes.")
+		return OrderVerdict.deny("Subsidies are only offered to Minor Nations and Tribes.")
 	if state.relation(player, target).at_war:
-		return _deny("No subsidy can be paid to an enemy.")
+		return OrderVerdict.deny("No subsidy can be paid to an enemy.")
 	if DiplomacyTrade.blocked_by_boycott(state, player, target):
-		return _deny("A boycott bars trade with that court.")
+		return OrderVerdict.deny("A boycott bars trade with that court.")
 	if not DiplomacyRules.has_embassy(state, player, target):
-		return _deny("An embassy is required before a subsidy can be set.")
+		return OrderVerdict.deny("An embassy is required before a subsidy can be set.")
 	if not DiplomacyCatalog.is_valid_subsidy(percent):
-		return _deny("A subsidy must be 5–20% in steps of 5.")
-	return _allow()
+		return OrderVerdict.deny("A subsidy must be 5–20% in steps of 5.")
+	return OrderVerdict.allow()
 
 
 static func set_subsidy(
@@ -86,11 +86,3 @@ static func set_subsidy(
 			percent, FactionCatalog.name_of(target)
 		],
 	}
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

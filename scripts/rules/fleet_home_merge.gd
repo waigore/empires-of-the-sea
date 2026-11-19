@@ -51,16 +51,16 @@ static func can_join(
 	model: MapModel, roster: Array[FleetState], fleet: FleetState
 ) -> Dictionary:
 	if model == null or fleet == null:
-		return _deny("There is no squadron to join.")
+		return OrderVerdict.deny("There is no squadron to join.")
 	if not fleet.is_in_port():
-		return _deny("Sail the squadron into your capital port first.")
+		return OrderVerdict.deny("Sail the squadron into your capital port first.")
 	if not NavalMovement.is_home_fleet(model, fleet):
-		return _deny("Only a squadron moored at your own capital can join the home fleet.")
+		return OrderVerdict.deny("Only a squadron moored at your own capital can join the home fleet.")
 	if not fleet.is_afloat():
-		return _deny("A slip with no hulls has nothing to join.")
+		return OrderVerdict.deny("A slip with no hulls has nothing to join.")
 	if merge_target(model, roster, fleet) == null:
-		return _deny("She is the only squadron at your capital — launch or dock another first.")
-	return {"ok": true, "reason": ""}
+		return OrderVerdict.deny("She is the only squadron at your capital — launch or dock another first.")
+	return OrderVerdict.allow()
 
 
 ## Folds a moored squadron into the home fleet: every hull, name and passenger
@@ -126,8 +126,6 @@ static func settle(
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {"ok": false, "fleet": null, "hulls": 0, "displaced": -1, "reason": reason}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
+	return OrderVerdict.deny(reason, {
+		"fleet": null, "hulls": 0, "displaced": -1,
+	})

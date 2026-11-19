@@ -76,7 +76,7 @@ static func check(
 				"A field hospital needs %d %s."
 				% [int(COST[commodity]), CommodityCatalog.label(commodity)]
 			)
-	return {"ok": true, "reason": ""}
+	return OrderVerdict.allow()
 
 
 ## Pitching the train: the army carries it from now on. The caller spends the
@@ -109,4 +109,4 @@ static func describe() -> String:
 
 
 static func _refuse(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
+	return OrderVerdict.deny(reason)

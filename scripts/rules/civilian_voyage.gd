@@ -27,30 +27,30 @@ static func can_embark(
 	model: MapModel, unit: CivilianState, fleet: FleetState
 ) -> Dictionary:
 	if unit == null:
-		return _deny("There is no civilian to embark.")
+		return OrderVerdict.deny("There is no civilian to embark.")
 	if fleet == null:
-		return _deny("No squadron waits in this port.")
+		return OrderVerdict.deny("No squadron waits in this port.")
 	if model == null:
-		return _deny("The map is not ready.")
+		return OrderVerdict.deny("The map is not ready.")
 	if unit.owner != fleet.owner:
-		return _deny("Own colours only.")
+		return OrderVerdict.deny("Own colours only.")
 	if unit.is_embarked():
-		return _deny("The civilian is already aboard a squadron.")
+		return OrderVerdict.deny("The civilian is already aboard a squadron.")
 	if unit.is_working():
-		return _deny("The civilian is busy working.")
+		return OrderVerdict.deny("The civilian is busy working.")
 	if unit.moved:
-		return _deny("This civilian has already moved this turn.")
+		return OrderVerdict.deny("This civilian has already moved this turn.")
 	if not fleet.is_in_port() or not fleet.is_afloat():
-		return _deny("A civilian boards a squadron in port.")
+		return OrderVerdict.deny("A civilian boards a squadron in port.")
 	if fleet.moved:
-		return _deny("This fleet has already sailed or taken a mission this turn.")
+		return OrderVerdict.deny("This fleet has already sailed or taken a mission this turn.")
 	if fleet.embarked_army >= 0:
-		return _deny("The squadron carries troops; land them before taking colonists.")
+		return OrderVerdict.deny("The squadron carries troops; land them before taking colonists.")
 	if model.province_at(unit.tile.x, unit.tile.y) != fleet.province:
-		return _deny("The fleet is not in this port.")
+		return OrderVerdict.deny("The fleet is not in this port.")
 	if fleet.civilian_count() >= capacity(fleet):
-		return _deny(capacity_refusal(fleet))
-	return _allow()
+		return OrderVerdict.deny(capacity_refusal(fleet))
+	return OrderVerdict.allow()
 
 
 ## The words every path that finds the berths full prints — the single press and
@@ -73,7 +73,7 @@ static func embark(
 		return check
 	unit.embark_on(fleet.id)
 	fleet.add_civilian(unit.id)
-	return _allow()
+	return OrderVerdict.allow()
 
 
 ## Land tiles this passenger could take this turn: the port province when the
@@ -149,12 +149,12 @@ static func can_disembark(
 	model: MapModel, unit: CivilianState, fleet: FleetState, tile: Vector2i
 ) -> Dictionary:
 	if unit == null or fleet == null:
-		return _deny("No civilian is aboard this fleet.")
+		return OrderVerdict.deny("No civilian is aboard this fleet.")
 	if not fleet.has_civilian(unit.id):
-		return _deny("No civilian is aboard this fleet.")
+		return OrderVerdict.deny("No civilian is aboard this fleet.")
 	if not landing_tiles(model, unit, fleet).has(tile):
-		return _deny("That coast is out of the squadron's reach.")
-	return _allow()
+		return OrderVerdict.deny("That coast is out of the squadron's reach.")
+	return OrderVerdict.allow()
 
 
 ## Puts the civilian ashore; it has spent this turn's move.
@@ -182,11 +182,3 @@ static func _can_go_ashore(
 	if ANY_COAST.has(unit.type_id):
 		return CivilianMovement.may_enter(model, unit.type_id, unit.owner, tile)
 	return model.owner_at(tile.x, tile.y) == unit.owner
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

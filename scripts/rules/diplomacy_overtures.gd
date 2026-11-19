@@ -42,7 +42,7 @@ static func establish_overture(
 		}
 	var cost: int = int(check["cost"])
 	if cost > 0 and (economy == null or not economy.spend_treasury(cost)):
-		return _deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
+		return OrderVerdict.deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
 	if stage == DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:
 			return DiplomacyColony.found(state, player, target, stage, cost)
@@ -136,7 +136,3 @@ static func _accepts_overture(
 		return record.score >= DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE \
 			and DiplomacyRules.answer_join_empire(world, player, target, power)
 	return true
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
