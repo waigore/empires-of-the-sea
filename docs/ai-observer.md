@@ -11,11 +11,10 @@ and the campaign may run past the 1800 cap (DR-20261108-05).
 
 | Path | Use |
 |------|-----|
-| `-- --ai-observer` (desktop) | Live dashboard over the real map |
-| `tools/ai_vs_ai.gd` | Headless batch runs + JSON export |
+| Title **Observe** / `--ai-observer` | Live desk (desktop) |
+| `tools/ai_vs_ai.gd` | Headless batch + JSON |
 
-Desktop only: a handset always opens the title screen, and no menu carries this
-door.
+Handset always opens the title screen.
 
 ```bash
 godot --path . -- --ai-observer
