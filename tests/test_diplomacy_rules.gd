@@ -4646,3 +4646,33 @@ func _asym_pair() -> Array[int]:
 				big = a
 				small = b
 	return [big, small]
+
+
+## The AI prices a Join Empire rung with the same answer the court gives it:
+## one rule call answers both, so the planner cannot price a crown the court
+## would refuse (wiki: diplomacy § Join Empire; issue #750).
+func test_the_ai_and_the_court_share_one_join_empire_answer() -> void:
+	# Four provinces, one of them the held capital: the crown is not nearly
+	# defeated, so the power row is the whole answer.
+	var world: WorldMap = diplomacy_power_AiFixture.world([0, 0, 1, 1, 1, 1])
+	world.region(0).provinces[0].capital = true
+	assert_false(DiplomacyRules.nearly_defeated(world, 0), "the capital is held")
+	assert_true(
+		DiplomacyRules.answer_join_empire(world, 0, 1, {0: 100, 1: 20}),
+		"a crown that so far outpowers the target is answered yes"
+	)
+	assert_false(
+		DiplomacyRules.answer_join_empire(world, 0, 1, {0: 20, 1: 60}),
+		"a crown the target outpowers is answered no"
+	)
+	assert_false(
+		DiplomacyRules.answer_join_empire(world, 0, 1),
+		"without a published power only the near-defeat test answers"
+	)
+	# A nearly defeated crown says yes whatever the power row says.
+	var broken: WorldMap = diplomacy_power_AiFixture.world([0, 0, 1])
+	assert_true(DiplomacyRules.nearly_defeated(broken, 0), "two provinces, no seat")
+	assert_true(
+		DiplomacyRules.answer_join_empire(broken, 1, 0, {1: 1, 0: 999}),
+		"a nearly defeated crown stands alone no longer"
+	)

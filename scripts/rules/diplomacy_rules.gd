@@ -337,7 +337,12 @@ static func _accepts_peace(record: DiplomacyRelation, target: int) -> bool:
 ## (wiki: diplomacy § Join Empire; issue #750). A human target answers the
 ## consent prompt itself; this predicate is the rule- and AI-driven accept.
 ## Without a power map only the near-defeat criterion answers.
-static func accepts_join_empire(
+##
+## Shared answer (REQ-P3-01): `DiplomacyOvertures.establish_overture` —
+## the walk every court, human or rival, takes an absorption through — and
+## `AiDiplomacyTreaties.best` — the rival's own pricing of the rung — both
+## read this one call, so the AI never prices a yes the rule would refuse.
+static func answer_join_empire(
 	world: WorldMap, offerer: int, target: int, power: Dictionary = {}
 ) -> bool:
 	if nearly_defeated(world, target):

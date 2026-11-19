@@ -8132,36 +8132,6 @@ func test_a_deed_without_a_ledger_is_not_signed() -> void:
 	assert_false(LandPurchase.complete(model, GRAIN, 0, null))
 
 
-## A court that could sign a deed wants the envoy chain: the Consulate outranks
-## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
-## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
-## the gate: a chain opened without a buyer at the end of it warms the relation
-## past the war ceiling and bars the conquest for nothing (issue #724, measured
-## 2026-11-15).
-func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
-	var model: MapModel = Fixture.build_minor()
-	var world := WorldMap.new()
-	world.add_region(model)
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	var config: AiConfig = AiConfig.build(0, 1500)
-	config.personality = AiPersonality.NEUTRAL
-	config.agenda_traits = AiAgenda.NEUTRAL
-
-	var plain: Dictionary = _overture(world, state, config, {})
-	var merchant_tech: Dictionary = _overture(world, state, config, {
-		"merchant_companies": true,
-	})
-	assert_true(bool(plain.get("ok", false)), "the Consulate is legal either way")
-	assert_true(bool(merchant_tech.get("ok", false)))
-	assert_eq(
-		int(merchant_tech["utility"]) - int(plain["utility"]),
-		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		"a deed worth buying lifts the envoy"
-	)
-	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
-
-
 ## The whole rival pass: the economy adapter musters the order for a court that
 ## already holds the embassy and the tech, and the next Build/Work signs it from
 ## that court's own purse (wiki: civilian-units § Merchant; docs/ai.md).
@@ -8343,11 +8313,8 @@ func _market_plan(
 
 ## The purse does not price the chain: the Merchant tech is the buyer the chain
 ## serves, and the envoy takes turns to walk while the purse refills, so a charted
-## deed opens it even on this turn's floor (issue #724 task 2). The buyer stays
-## the bar: a court without Merchant Companies opens nothing, however cheaply a
-## Minor would sell — a chain opened on credit warms the relation past the war
-## ceiling and bars the conquest for nothing (#762, measured 2026-11-15).
-func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
+## deed opens it even on this turn's floor (issue #724 task 2).
+func test_the_envoy_chain_stays_legal_on_a_thin_purse() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var world := WorldMap.new()
 	world.add_region(model)
@@ -8363,7 +8330,6 @@ func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
 	var paid: Dictionary = _overture(world, state, config, {
 		"merchant_companies": true,
 	})
-	var no_buyer: Dictionary = _overture(world, state, config, {})
 	assert_true(
 		bool(broke.get("ok", false)),
 		"the chain is legal on a purse that covers the Consulate alone"
@@ -8371,11 +8337,6 @@ func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
 	assert_eq(
 		int(broke["utility"]), int(paid["utility"]),
 		"a priced deed opens the chain at any purse the stage fits"
-	)
-	assert_eq(
-		int(no_buyer["utility"]) + AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		int(paid["utility"]),
-		"no Merchant tech, no chain"
 	)
 
 
@@ -10618,92 +10579,6 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 	)
 
 
-func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
-	_setup_ai_diplomacy_offers()
-	# A Minor Nation, so the read is the deed nudge alone: a Tribe also answers
-	# to the colony ambition (DR-20261114-02), priced in its own test.
-	var minor: int = FactionCatalog.minor_ids()[0]
-	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
-	ai_diplomacy_offers_state.relation(2, minor).score = 50.0
-	var world: WorldMap = _uncharted_tribe_world(minor)
-	var context: Dictionary = campaign__context({2: 100, minor: 100})
-	context["treasury"] = {2: 2000}
-	context["tech"] = {2: {"merchant_companies": true}}
-	var published: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
-	)
-	assert_eq(
-		_utility_of(published, AiDiplomacyOffers.KIND_OVERTURE), 52,
-		"no chart at all still prices the published map"
-	)
-	var charts: CourtCharts = _charts(world)
-	context["charts"] = charts
-	var blind: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
-	)
-	assert_eq(
-		_offer_blocked_kind(blind, AiDiplomacyOffers.KIND_OVERTURE),
-		"improve-relations desire too low",
-		"a chart that never reached the province buys no nudge"
-	)
-	charts.reveal_province(2, 0, 0)
-	var seen: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
-	)
-	assert_eq(
-		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
-		"charted land lifts the overture by the deed nudge"
-	)
-
-
-## The warmth that prices a deed is the warmth that bars a declaration, so the
-## envoy nudge goes to the court's cheapest deed partner alone: warming every
-## charted Minor closed the conquest path outright (issue #724 round 3), and the
-## owner's call on #840 is one targeted seller per court (issue #841).
-func test_the_envoy_nudge_goes_to_the_deed_seller_alone() -> void:
-	var world: WorldMap = _two_minor_world()
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	state.ensure_relation(0, DEED_MINOR, 1)
-	state.ensure_relation(0, DEAR_MINOR, 1)
-	var config: AiConfig = AiConfig.build(0, 1500)
-	config.personality = AiPersonality.NEUTRAL
-	config.agenda_traits = AiAgenda.NEUTRAL
-	var tech: Dictionary = {"merchant_companies": true}
-
-	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
-		"the cheaper deed names the court's one seller"
-	)
-	var seller: Dictionary = _overture(world, state, config, tech, 5000, DEED_MINOR)
-	var other: Dictionary = _overture(world, state, config, tech, 5000, DEAR_MINOR)
-	assert_eq(
-		int(seller["utility"]) - int(other["utility"]), AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		"the deed seller is warmed, the other Minor stays cold"
-	)
-	# No Merchant Companies, no nudge: the tech is the buyer the warmth serves.
-	var techless: Dictionary = _overture(world, state, config, {}, 5000, DEED_MINOR)
-	assert_eq(
-		int(techless["utility"]), int(other["utility"]),
-		"a court with no merchant to walk the last rung warms no seller"
-	)
-	# A war with the seller leaves no deed to price, so nothing to warm.
-	var war_court := DiplomacyState.new()
-	war_court.initialize(1)
-	war_court.ensure_relation(0, DEED_MINOR, 1)
-	war_court.ensure_relation(0, DEAR_MINOR, 1)
-	assert_true(
-		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
-	)
-	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
-		"the war closes the cheap seller and the next offer names the other"
-	)
-
-
 ## The study door the deed opens is the buyer's own tech, and it stays shut for
 ## a court that already holds it or has no priced deed on its chart (issue
 ## #841; wiki: civilian-units § Merchant).
@@ -10747,6 +10622,35 @@ func test_the_deed_door_studies_merchant_companies_when_a_deed_is_priced() -> vo
 	)
 
 
+## The warmth that prices a deed is the warmth that bars a declaration, so the
+## seller scan names one deed partner per court: warming every charted Minor
+## closed the conquest path outright (issue #724 round 3), and the owner's call
+## on #840 is one targeted seller per court (issue #841). The planner's own
+## warming read is retired; the merchant module keeps the scan the courts share.
+func test_the_deed_seller_scan_names_one_seller() -> void:
+	var world: WorldMap = _two_minor_world()
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, DEED_MINOR, 1)
+	state.ensure_relation(0, DEAR_MINOR, 1)
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
+		"the cheaper deed names the court's one seller"
+	)
+	# A war with the seller leaves no deed to price, so nothing to warm.
+	var war_court := DiplomacyState.new()
+	war_court.initialize(1)
+	war_court.ensure_relation(0, DEED_MINOR, 1)
+	war_court.ensure_relation(0, DEAR_MINOR, 1)
+	assert_true(
+		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
+	)
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
+		"the war closes the cheap seller and the next offer names the other"
+	)
+
+
 ## The turn pass names the court's one deed partner before the planner runs: the
 ## trace carries the seller so a warm Minor reads as the deed partner and not as
 ## a conquest (issue #841). A court with no Merchant Companies names none — it
@@ -10781,49 +10685,6 @@ func _trace_deed_seller(result: Dictionary, faction: int) -> int:
 	for record: Dictionary in result.get("trace", []):
 		if int(record.get("faction", -1)) == faction:
 			return int(record.get("deed_seller", -1))
-	return -1
-
-
-## One Minor is warmed and the other is not: the deed nudge is priced on the
-## seller the reading names, and the second offer stands at its plain worth
-## (issue #841).
-func test_the_planner_warms_the_named_deed_seller_alone() -> void:
-	_setup_ai_diplomacy_offers()
-	var world: WorldMap = _two_minor_world(2)
-	ai_diplomacy_offers_state.ensure_relation(2, DEED_MINOR, 1)
-	ai_diplomacy_offers_state.ensure_relation(2, DEAR_MINOR, 1)
-	ai_diplomacy_offers_state.relation(2, DEED_MINOR).score = 20.0
-	ai_diplomacy_offers_state.relation(2, DEAR_MINOR).score = 20.0
-	var context: Dictionary = {
-		"treasury": {2: 5000},
-		"tech": {2: {"merchant_companies": true}},
-		"player": -1,
-		"deed_seller": DEED_MINOR,
-	}
-	var seller: int = _candidate_overture(
-		world, ai_diplomacy_offers_state, context, DEED_MINOR
-	)
-	var other: int = _candidate_overture(
-		world, ai_diplomacy_offers_state, context, DEAR_MINOR
-	)
-	assert_gt(seller, 0, "the deed seller's chain opens on the nudge alone")
-	assert_eq(
-		other, -1,
-		"the other Minor stays cold: no chain, no warmth, no bar on its conquest"
-	)
-
-
-## The overture utility one candidate list priced for a target, or -1.
-func _candidate_overture(
-	world: WorldMap, state: DiplomacyState, context: Dictionary, target: int
-) -> int:
-	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, state, ai_diplomacy_offers_ai_state,
-		world, 1, target, 60, context
-	)
-	for entry: Dictionary in entries:
-		if String(entry.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE:
-			return int(entry.get("utility", -1))
 	return -1
 
 
@@ -13256,35 +13117,6 @@ func test_planner_a_deed_without_a_ledger_is_not_signed() -> void:
 	assert_true(bool(reports[0]["completed"]))
 	assert_false(model.is_purchased_tile(planner_GRAIN), "no ledger, no deed")
 	assert_false(LandPurchase.complete(model, planner_GRAIN, 0, null))
-
-## A court that could sign a deed wants the envoy chain: the Consulate outranks
-## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
-## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
-## the gate: a chain opened without a buyer at the end of it warms the relation
-## past the war ceiling and bars the conquest for nothing (issue #724, measured
-## 2026-11-15).
-func test_planner_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
-	var model: MapModel = planner_Fixture.build_minor()
-	var world := WorldMap.new()
-	world.add_region(model)
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	var config: AiConfig = AiConfig.build(0, 1500)
-	config.personality = AiPersonality.NEUTRAL
-	config.agenda_traits = AiAgenda.NEUTRAL
-
-	var plain: Dictionary = planner__overture(world, state, config, {})
-	var merchant_tech: Dictionary = planner__overture(world, state, config, {
-		"merchant_companies": true,
-	})
-	assert_true(bool(plain.get("ok", false)), "the Consulate is legal either way")
-	assert_true(bool(merchant_tech.get("ok", false)))
-	assert_eq(
-		int(merchant_tech["utility"]) - int(plain["utility"]),
-		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		"a deed worth buying lifts the envoy"
-	)
-	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
 
 ## The whole rival pass: the economy adapter musters the order for a court that
 ## already holds the embassy and the tech, and the next Build/Work signs it from
@@ -16018,3 +15850,34 @@ func test_an_old_save_reads_an_empty_ledger() -> void:
 		AiDeferral.records_for(restored.deferrals, OBJ_OWNER).is_empty(),
 		"and no stall records"
 	)
+
+
+## The absorption answer a rival prices its Join Empire rung with is the rule's
+## own call — the same one the court answers with — so the AI never prices a
+## yes the rule refuses, and a no with no power map is still a no (REQ-P3-01).
+func test_a_treaty_rung_reads_the_rules_own_absorption_answer() -> void:
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 1, 1, 1, 1, 1])
+	var state := DiplomacyState.new()
+	state.initialize(2)
+	state.ensure_relation(2, 1, 1)
+	# Warm, but short of the alliance clamp: the next rung is the one priced.
+	state.relation(2, 1).score = 55.0
+	state.set_overture(2, 1, DiplomacyCatalog.STAGE_NAP)
+	var charts: CourtCharts = _charts(world)
+	var config: AiConfig = AiConfig.build(2, 30000)
+	var ai_state := AiState.new()
+	ai_state.economy_for(2).treasury = 30000
+	var told_yes: Dictionary = AiDiplomacyTreaties.best(
+		config, state, ai_state, world, 1, 1, 45, 0, 30000,
+		{"empire_building": true}, {"charts": charts, "power": {2: 100, 1: 20}}
+	)
+	assert_true(bool(told_yes.get("ok", false)), String(told_yes.get("blocked", "")))
+	assert_eq(String(told_yes.get("kind", "")), AiDiplomacyOffers.KIND_OVERTURE)
+	assert_eq(String(told_yes.get("stage", "")), DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	var told_no: Dictionary = AiDiplomacyTreaties.best(
+		config, state, ai_state, world, 1, 1, 45, 0, 30000,
+		{"empire_building": true}, {"charts": charts, "power": {2: 20, 1: 60}}
+	)
+	assert_false(bool(told_no.get("ok", true)), "a refused crown is not worth the order")
+	assert_eq(String(told_no.get("blocked", "")), "the crown would refuse absorption")
+	assert_eq(String(told_no.get("kind", "")), AiDiplomacyOffers.KIND_OVERTURE)
