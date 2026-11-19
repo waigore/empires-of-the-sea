@@ -141,14 +141,24 @@ static func summary(
 	for group: Dictionary in groups(data, region_key, READING_ALL):
 		holds += int(group["holds"])
 		strength += float(group["strength"])
-	return "Showing %d of %d hulls in %s %s — %d warships, %d merchant hulls · %d holds · %.1f strength." % [
+	# One hull is named as one: the opening home fleet flies a single warship, so
+	# "1 warships" was the first line a new crown read (REQ-P5-05).
+	var warships: int = int(counts.get(READING_WARSHIP, 0))
+	var merchants: int = int(counts.get(READING_MERCHANT, 0))
+	return (
+		"Showing %d of %d hulls in %s %s — %d warship%s, %d merchant hull%s · "
+		+ "%d hold%s · %.1f strength."
+	) % [
 		shown,
 		in_scope,
 		fleet,
 		scope,
-		int(counts.get(READING_WARSHIP, 0)),
-		int(counts.get(READING_MERCHANT, 0)),
+		warships,
+		"" if warships == 1 else "s",
+		merchants,
+		"" if merchants == 1 else "s",
 		holds,
+		"" if holds == 1 else "s",
 		strength,
 	]
 

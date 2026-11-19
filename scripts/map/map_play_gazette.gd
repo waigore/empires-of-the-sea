@@ -1,10 +1,10 @@
 class_name MapPlayGazette
 extends RefCounted
 ## Turn-close collection for the crown's news sheet, and the plate's commands
-## (wiki: the-gazette; DR-20261110-14). The rules live in [Gazette] and
-## [GazetteState]; this adapter reads the resolved turn from the session, files
-## the sheet and raises or lowers the soft plate. It decides no outcome
-## (REQ-P3-02, REQ-P5-06).
+## (wiki: the-gazette; DR-20261110-14, DR-20261119-10). The rules live in
+## [Gazette] and [GazetteState]; this adapter reads the resolved turn from the
+## session, files the sheet and raises or lowers the sheet. It decides no
+## outcome (REQ-P3-02, REQ-P5-06).
 
 
 ## Founds the watchlist on the bonds the campaign opens with. Safe to call on
