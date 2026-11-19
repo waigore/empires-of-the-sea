@@ -1032,7 +1032,7 @@ func test_the_reading_drops_back_to_the_whole_book() -> void:
 	market.reset_offer_filters()
 	assert_eq(market.visible_offers().size(), 3, "the whole book is back")
 	var all_chip: Button = market.offer_filters()[
-		"seller:%d" % MarketOffersHead.ALL_SELLERS
+		"seller:%d" % MarketBookFilter.ALL_SELLERS
 	] as Button
 	assert_true(all_chip.button_pressed, "the strip shows All courts again")
 
