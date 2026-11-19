@@ -38,11 +38,11 @@ Default: largest item here, then REQ/wiki.
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face matches the line | `RaiseBatchPress` carries, DR-18-21 |
-| Opening muster; station fan/stack | `FleetMuster`; `FleetLanes`, DR-19-08 |
+| Opening muster; shared-station fan/stack + cycle | `FleetMuster`; `FleetLanes`, DR-20261119-08 / #1047 |
 
 ## Gaps (ranked)
 
-None — the two #1043 halves shipped (#1047 the row and stack, this PR the
+None — both #1043 halves shipped (#1047 the row and stack, this PR the
 opening muster).
 
 ## Next pick
