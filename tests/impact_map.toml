@@ -1794,9 +1794,10 @@ domain = "quick_battle"
 match = "scripts/rules/quick_battle_*.gd"
 domain = "quick_battle"
 
-# Siege lanes are resolved inside Quick Battle.
+# The siege's lanes, the ground they stand on and the gates that shelter them
+# are all resolved inside Quick Battle.
 [[rules]]
-match = "scripts/rules/siege_lanes.gd"
+match = "scripts/rules/siege_*.gd*"
 domain = "quick_battle"
 
 [[rules]]

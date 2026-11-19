@@ -43,10 +43,10 @@ static func resolve_exchange(
 	## The ground and the gates are read once, when the battle opens: the wall
 	## lanes and the terrain do not change under the fighting (wiki: quick-battle
 	## § Terrain; siege-mechanics § Gates and Sortie).
-	var terrain: String = SiegeLanes.lane_terrain(
+	var terrain: String = SiegeGround.lane_terrain(
 		model, province, fort_level, String(context.get("terrain_override", ""))
 	)
-	var gates: Dictionary = SiegeLanes.gates_for(fort_level)
+	var gates: Dictionary = SiegeGates.gates_for(fort_level)
 	var state: Dictionary = {
 		"attacker": _side_state(atk_side, attacker, int(atk_mods["limit"]), atk_mods),
 		"defender": _side_state(def_side, defender, int(def_mods["limit"]), def_mods),
