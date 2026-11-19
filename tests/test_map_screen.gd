@@ -446,6 +446,45 @@ func test_hover_reports_the_province_under_the_cursor() -> void:
 	assert_true(_screen.hud._tooltip.visible)
 
 
+## The hover names the ground under the cursor, not the ground of the tile the
+## pointer entered the province by: one province paints several terrains, so a
+## move inside it that crosses ground must repaint the line (wiki:
+## tile-map-and-generation § Reading the chart; issue #1084; REQ-P2-03).
+func test_hover_reads_the_ground_under_the_cursor() -> void:
+	var province_id: int = _screen.play.capital_province
+	var tiles: Array = _screen.model.province_tiles(province_id)
+	assert_gt(tiles.size(), 1, "the crown province holds more than one tile")
+	var plains_tile: Vector2i = tiles[0]
+	var scrub_tile: Vector2i = tiles[1]
+	_screen.model.terrain[_screen.model.index_of(plains_tile.x, plains_tile.y)] = (
+		MapModel.Terrain.PLAINS
+	)
+	_screen.model.terrain[_screen.model.index_of(scrub_tile.x, scrub_tile.y)] = (
+		MapModel.Terrain.SCRUB_FOREST
+	)
+	var middle: Vector2 = (
+		MapGeo.tile_center(plains_tile.x, plains_tile.y, MapScreen.TILE_SIZE)
+		+ MapGeo.tile_center(scrub_tile.x, scrub_tile.y, MapScreen.TILE_SIZE)
+	) * 0.5
+	_screen.camera.focus_on(middle, 0.8, true)
+	_screen.camera._process(0.016)
+	var first: String = _hover_text(plains_tile)
+	var second: String = _hover_text(scrub_tile)
+	assert_true(first.contains("Plains"), first)
+	assert_true(second.contains("Scrub Forest"), second)
+	assert_ne(first, second, "the line follows the tile, not the entry tile")
+
+
+## The tooltip line a hover at one tile prints.
+func _hover_text(tile: Vector2i) -> String:
+	var world: Vector2 = MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
+	var point: Vector2 = CameraMath.world_to_screen(
+		_screen.camera.position, _screen.camera.zoom.x, world, _screen.camera.viewport_size()
+	)
+	MapPlayInput.update_hover(_screen.play, point)
+	return String(_screen.hud._tooltip_label.text)
+
+
 func test_visibility_starts_from_the_world_rules() -> void:
 	assert_not_null(_screen.visibility)
 	var own_tile: Vector2i = _screen.model.province_tiles(_screen.capital_province)[0]

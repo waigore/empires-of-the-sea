@@ -81,24 +81,35 @@ static func terrain_attack_multiplier(terrain: int) -> float:
 	return float(TERRAIN_ATTACK.get(terrain, 1.0))
 
 
-## Dominant terrain of the province; ties fall to the lower terrain id.
-static func terrain_for(model: MapModel, province: int) -> int:
+## The province's terrains, most common first; ties fall to the lower terrain id,
+## so the first entry is the ground the Combat phase fights on and the second is
+## the runner-up the province sheet names (wiki: resource-terrain-region-rules
+## § Player-facing terrain display names).
+static func terrain_ranking(model: MapModel, province: int) -> Array[int]:
+	var ranked: Array[int] = [] as Array[int]
 	var data: ProvinceState = model.province_data(province) if model != null else null
 	if data == null or data.tiles.is_empty():
-		return MapModel.Terrain.PLAINS
+		return ranked
 	var counts: Dictionary = {}
 	for tile: Vector2i in data.tiles:
 		var terrain: int = model.terrain_at(tile.x, tile.y)
 		counts[terrain] = int(counts.get(terrain, 0)) + 1
-	var best: int = MapModel.Terrain.PLAINS
-	var best_count: int = -1
 	for terrain: Variant in counts.keys():
-		var id: int = int(terrain)
-		var count: int = int(counts[terrain])
-		if count > best_count or (count == best_count and id < best):
-			best = id
-			best_count = count
-	return best
+		ranked.append(int(terrain))
+	ranked.sort_custom(func(a: int, b: int) -> bool:
+		var count_a: int = int(counts[a])
+		var count_b: int = int(counts[b])
+		if count_a != count_b:
+			return count_a > count_b
+		return a < b
+	)
+	return ranked
+
+
+## Dominant terrain of the province; ties fall to the lower terrain id.
+static func terrain_for(model: MapModel, province: int) -> int:
+	var ranked: Array[int] = terrain_ranking(model, province)
+	return ranked[0] if not ranked.is_empty() else MapModel.Terrain.PLAINS
 
 
 ## Land-strength multiplier for one side of a battle: Napoleon both sides,

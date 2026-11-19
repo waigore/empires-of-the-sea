@@ -74,13 +74,12 @@ static func reading(play: PlaySession, province_id: int) -> Dictionary:
 	}
 
 
-## The ground a battle in this province would be fought on, in the published
-## display name — `ArmyModifiers.terrain_for`'s own call, so the sheet cannot
-## name ground the Combat phase would not use (wiki:
-## resource-terrain-region-rules § Player-facing terrain display names).
+## The ground a battle in this province would be fought on, named as the main
+## type, then the second-most common ground — `ArmyModifiers.terrain_for`'s own
+## reading, so the sheet cannot name ground the Combat phase would not use
+## (wiki: resource-terrain-region-rules § Player-facing terrain display names).
 static func _terrain(model: MapModel, province_id: int) -> String:
-	var ground: int = ArmyModifiers.terrain_for(model, province_id)
-	return String(MapModel.TERRAIN_LABELS.get(ground, "Unknown"))
+	return DossierCopy.terrain(model, province_id)
 
 
 ## A harbour names the sea zone it opens on; landlocked ground says so.
