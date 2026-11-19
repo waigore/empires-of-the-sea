@@ -42,6 +42,17 @@ static func best(
 		state, world, config.faction, target, tech,
 		context.get("charts", null), _deed_seller(state, world, config.faction, context)
 	)
+	# The conquest bank (issue #995): a court short of the bar whose host is
+	# still under strength, with its purse one line-cycle short of the
+	# chest, is saving for its next line — and a paid envoy rung is a
+	# deferrable purchase. The chain the deed serves walks again the turn
+	# the host stands. The purse is still read for every court that is not
+	# banking.
+	var income: Dictionary = context.get("income", {}) as Dictionary
+	if AiIncome.banking(config, ai_state, income):
+		return _blocked(
+			"the court is banking for its army", AiDiplomacyOffers.KIND_OVERTURE
+		)
 	# The colony ambition: a charted Tribe the court can still buy is worth the
 	# next envoy step even when the court is in no mood to improve relations for
 	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
@@ -195,6 +206,38 @@ static func _absorption(
 		"accept": DiplomacyRules.accepts_join_empire(world, config.faction, target, power),
 	}
 
+
+
+## True when the pact break on the table is the order this court's conquest
+## waits behind (issue #995): the court stands short of the bar with its host
+## already built — not banking, for the break's own gate has already held it
+## out of the offers while the bank filled (`AiDiplomacyOffers._break_nap`) —
+## the best offer is the pact break on a Great Power, and the best war, if one
+## stands, is not itself the front the bar counts (a war on a Minor Nation or a
+## Tribe is colonial business, never the big holder's land). A Great Power war
+## still leads — it needs no break — and a minor's pact is not the wall the
+## conquest waits on: only the big holder's pact leads. A frozen baseline's
+## income row carries no gap, so the shared planner never leads it to a break
+## (issue #995's subject-scoped surface).
+static func pact_break_leads(
+	best_offer: Dictionary, best_war: Dictionary, context: Dictionary
+) -> bool:
+	if best_offer.is_empty():
+		return false
+	if String(best_offer.get("kind", "")) != AiDiplomacyOffers.KIND_BREAK_NAP:
+		return false
+	var income: Dictionary = context.get("income", {}) as Dictionary
+	if not bool(income.get("conquest_gap", false)):
+		return false
+	if FactionCatalog.type_of(int(best_offer.get("target", -1))) != (
+		FactionCatalog.Type.GREAT_POWER
+	):
+		return false
+	if not best_war.is_empty() and FactionCatalog.type_of(
+		int(best_war["target"])
+	) == FactionCatalog.Type.GREAT_POWER:
+		return false
+	return true
 
 
 ## The pact rung's worth as a peace lock against a peer the court does not mean

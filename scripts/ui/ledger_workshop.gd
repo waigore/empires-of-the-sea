@@ -97,3 +97,29 @@ static func allowance_note(recipe_id: String, units: int, full: bool = false) ->
 	if units == 1:
 		return "Labour and inputs allow 1 %s this turn." % good
 	return "Labour and inputs allow %d %s this turn." % [units, good]
+
+
+## The row's workshop tag, or — for an idle one-turn row that worked last phase —
+## what it turned out. A row still serving keeps its tag: the present is what the
+## next phase pays (DR-20261113-02).
+static func row_note(economy: PlayerEconomy, recipe_id: String) -> String:
+	var tag: String = note(economy, recipe_id)
+	if not tag.is_empty():
+		return tag
+	var made: int = 0 if economy == null else economy.production.made_units(recipe_id)
+	if made <= 0:
+		return ""
+	return "made %d" % made
+
+
+## The tag's long form, with the last phase's output for this row when it made
+## any: the detail a hover or a long press reads (REQ-P5-07 keeps the row's own
+## note the visible reading).
+static func row_tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
+	var text: String = tooltip(economy, recipe_id)
+	var made: int = 0 if economy == null else economy.production.made_units(recipe_id)
+	if made <= 0:
+		return text
+	var good: String = CommodityCatalog.label(ProductionRecipes.output(recipe_id))
+	var line: String = "Last phase it made %d %s." % [made, good]
+	return line if text.is_empty() else "%s %s" % [text, line]

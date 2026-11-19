@@ -170,14 +170,29 @@ static func rank_of(
 ## health, and the citation's weight. An action spends its share of a line as
 ## weight, so a veteran line absorbs more fire than a levy one (wiki:
 ## quick-battle § Cohesion and effective strength).
-static func average_rank(side: Array[ArmyState], limit: int = 0) -> float:
-	var slice: Array[Dictionary] = deployed(side, limit)
-	if slice.is_empty():
-		return 1.0
+##
+## `line` names the men the battle dealt into the line when it opened
+## ([method ArmyForce.line_ids]): the mean is read over **those** survivors, so a
+## reserve that steps into the slice after casualties never makes the enemy's
+## line read tougher than it stands (wiki: combat § The line and the reserve —
+## "a reserve adds no strength"; quick-battle § Battlefield layout — "the
+## reserve is dealt nowhere"). Empty keeps the older read for a caller with no
+## line.
+static func average_rank(
+	side: Array[ArmyState], limit: int = 0, line: Array[String] = []
+) -> float:
 	var total: float = 0.0
-	for entry: Dictionary in slice:
+	var counted: int = 0
+	## A line names its men by id, so the walk is the whole side filtered to them
+	## — never the strongest `limit`, which a mauled line would drop out of.
+	for entry: Dictionary in deployed(side, 0 if not line.is_empty() else limit):
+		if not line.is_empty() and not line.has(String(entry["id"])):
+			continue
 		total += float(entry["rank"])
-	return total / float(slice.size())
+		counted += 1
+	if counted <= 0:
+		return 1.0
+	return total / float(counted)
 
 
 ## Σ of the deployed slice, scaled by the side multiplier.

@@ -60,7 +60,7 @@ static func production_orders(
 	var committed: Dictionary = _committed(economy)
 	# The room each slow row's bench has left once this phase's landings are
 	# served: the plan takes effect after the phase resolves, so this is the
-	# same reading `ProductionRecipes.plan` will cap the runs with.
+	# same reading `ProductionPhase.plan` will cap the runs with.
 	var bench: Dictionary = _bench_room(economy)
 	for recipe_id: String in ProductionRecipes.available_ids_for(
 		economy.tech_unlocked, economy.workers, town_level
@@ -91,7 +91,7 @@ static func production_orders(
 			if int(entry["deficit"]) <= 0 or labour <= 0:
 				continue
 			var recipe_id: String = String(entry["recipe"])
-			var runs: int = mini(1, ProductionRecipes.max_runs(recipe_id, stock, labour))
+			var runs: int = mini(1, ProductionPhase.max_runs(recipe_id, stock, labour))
 			# A slow row's bench holds three pieces: a fourth run waits for a
 			# landing, so the phase would refuse it and the plan would have
 			# spent its labour and inputs on nothing (DR-20261114-12).
@@ -142,7 +142,7 @@ static func _committed(economy: PlayerEconomy) -> Dictionary:
 		if queued.has(recipe_id):
 			units += mini(
 				int(queued[recipe_id]),
-				ProductionRecipes.max_runs(recipe_id, economy.stockpile, labour)
+				ProductionPhase.max_runs(recipe_id, economy.stockpile, labour)
 			)
 		var made: String = ProductionRecipes.output(recipe_id)
 		committed[made] = int(committed.get(made, 0)) + units
@@ -184,10 +184,15 @@ static func _bench_room(economy: PlayerEconomy) -> Dictionary:
 ## `hands` is the peasant count the muster reservation keeps
 ## (`AiArmyReinforce.muster_hands`): a court whose muster is legal-and-funded
 ## this turn trains no hand the levy itself would consume (issue #807). 0 keeps
-## the published last-peasant throttle.
+## the published last-peasant throttle. `conquest_bank` is the win-bar reading
+## (issue #995): a court short of the bar banking for its next line hires its
+## farmhands against the cash floor, because the pool they grow is the levy's
+## own provision — a chest that cannot exist for want of hands never arms a
+## court, and the measured bench froze one at three peasants for a hundred and
+## ninety turns (issue #995's frozen-court reading).
 static func recruitment_orders(
 	config: AiConfig, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1,
-	hands: int = 0
+	hands: int = 0, conquest_bank: bool = false
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	if config == null or economy == null:
@@ -206,11 +211,25 @@ static func recruitment_orders(
 	# keeps the no-reading behaviour.
 	var muster_floor: int = maxi(floor, 0)
 	var hand_floor: int = maxi(hands, 1)
+	# The levy's own floor (issue #995): the pool the conquest bank needs to
+	# even have a chest — `army.min_peasants` plus the levy's own hand spare.
+	var levy_floor: int = maxi(config.parameter("army.min_peasants"), 0) \
+		+ RegimentEconomy.WORKER_COST
 	var sim: PlayerEconomy = economy.copy()
 	for _turn in maxi(config.parameter("economy.max_recruits"), 0):
 		if sim.workers.total() >= target:
 			break
-		var tier: int = _best_tier(sim)
+		var tier: int = -1
+		if conquest_bank and sim.available_peasants() < levy_floor:
+			# The conquest bank's own provision (issue #995): when the pool
+			# cannot carry the levy's hand, the farmhand comes first — the
+			# chest the restored pool re-opens is the army's, not an optional
+			# build. The measured bench froze a short-of-bar court at three
+			# peasants for a hundred and ninety turns: no hands, no chest, no
+			# line, and every worker it could afford consumed one.
+			tier = WorkerPool.Tier.PEASANT
+		else:
+			tier = _best_tier(sim)
 		if tier < 0:
 			break
 		if fed_slack != -1 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
@@ -219,7 +238,10 @@ static func recruitment_orders(
 				and sim.workers.count(WorkerPool.Tier.PEASANT) <= hand_floor:
 			break
 		if muster_floor > min_treasury and sim.treasury - _trains(sim, tier) < muster_floor:
-			break
+			# A farmhand the bank hires for its levy is the army's provision
+			# (issue #995): it reads the cash floor like the food it eats.
+			if not (conquest_bank and tier == WorkerPool.Tier.PEASANT):
+				break
 		if sim.treasury - _trains(sim, tier) < min_treasury \
 				and _next_training_affordable(sim, min_treasury):
 			break
@@ -285,6 +307,34 @@ static func _reserve(recipe_id: String, runs: int, stock: Dictionary) -> void:
 		stock[id] = int(stock.get(id, 0)) - int(needed[commodity]) * runs
 	var output: String = ProductionRecipes.output(recipe_id)
 	stock[output] = int(stock.get(output, 0)) + runs
+
+
+## The raws the court's own workshop can turn and does not hold in number:
+## commodity → weight, read by the colonisation planner to choose the ground a
+## colonist lands on (wiki: production-recipes; DR-20261119-05). A row's input is
+## worth the voyage only while the store stands short of `reserve_target`; a
+## mineral is never read, because a chart shows no unprospected ground
+## (DR-20261111-26), so a court crosses the water for sugar cane and tobacco, not
+## for a hill that may or may not hold tin.
+static func ground_appetite(
+	config: AiConfig, economy: PlayerEconomy, town_level: int = 0
+) -> Dictionary:
+	var appetite: Dictionary = {}
+	if config == null or economy == null:
+		return appetite
+	var target: int = maxi(config.parameter("economy.reserve_target"), 0)
+	for recipe_id: String in ProductionRecipes.available_ids_for(
+		economy.tech_unlocked, economy.workers, town_level
+	):
+		for raw: Variant in ProductionRecipes.inputs(recipe_id).keys():
+			var id: String = String(raw)
+			if ImprovementCatalog.MINERAL_COMMODITIES.has(id):
+				continue
+			var deficit: int = maxi(target - economy.quantity(id), 0)
+			if deficit <= 0:
+				continue
+			appetite[id] = int(appetite.get(id, 0)) + deficit
+	return appetite
 
 
 ## Highest score first; recipe id breaks a tie so the plan is deterministic.

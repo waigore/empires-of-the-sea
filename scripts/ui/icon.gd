@@ -6,6 +6,19 @@ extends Control
 var kind: String = "coin"
 var tint: Color = Palette.GOLD
 
+## Every kind this control draws — the match in `_draw` mirrors this list, and
+## the estate catalog's own test reads it, so a pictogram can never be published
+## without a painter (REQ-P1-08; DR-20261119-06).
+const KINDS: Array[String] = [
+	"coin", "star", "ship", "anchor", "tree", "ore", "wheat", "fish", "crest",
+	"crown", "compass", "wall", "hospital", "bell", "play", "pause", "auto",
+	"scroll",
+]
+
+
+static func knows(p_kind: String) -> bool:
+	return KINDS.has(p_kind) or EstatePictograms.knows(p_kind)
+
 
 func _init(p_kind: String = "coin", p_size: float = 18.0, p_tint: Color = Palette.GOLD) -> void:
 	kind = p_kind
@@ -54,6 +67,10 @@ func _draw() -> void:
 			_draw_helm(center, radius)
 		"scroll":
 			_draw_scroll(center, radius)
+		"log", "pick", "sheep", "horse", "cattle", "leaf", "pelt":
+			# The estates' own marks live in their own home (DR-20261119-06):
+			# this control keeps the kinds the whole shell shares (REQ-P3-01).
+			EstatePictograms.draw(self, kind, center, radius, tint)
 		_:
 			draw_circle(center, radius * 0.6, tint)
 

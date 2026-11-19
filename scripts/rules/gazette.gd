@@ -144,7 +144,16 @@ static func _land_record(
 				rec["own_lost"] = _own_losses(battle, viewer)
 			return rec
 		ArmyCombat.Outcome.CAPTURE:
-			return _victor(rec, "battleCapture", battle, state, viewer, attacker, defender, ours, false)
+			# An unopposed occupation is a province changing hands, not a
+			# battle: no shot was fired and no regiment fell, so the sheet
+			# prints the flag coming down and no casualty count
+			# (wiki: the-gazette § Item catalog — "Provinces the crown took or
+			# lost"; § Prose — a line never invents an outcome).
+			rec["kind"] = "provinceOccupied"
+			rec["who"] = _side_name(state, viewer, attacker, ours)
+			rec["whom"] = _side_name(state, viewer, defender, ours)
+			rec["self_act"] = attacker == viewer
+			return rec
 		ArmyCombat.Outcome.ATTACKER_VICTORY:
 			# A fought win that takes the province is a capture: the crown's page
 			# must print the province lost or taken, not only the field held

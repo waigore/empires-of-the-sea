@@ -34,14 +34,13 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - Terrain wash, fog tables and chart layers build once per map state: a re-seat
   redraws nothing, `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
-  (`_attach()`) so rule-only cases never paint. Such a chart must be `static`:
-  gd-tools hands each case a fresh instance, so an instance dictionary redraws
-  per case. Prefer a pocket chart over regenerating Standard; the published
-  census (rate, means, Minor book, prices) rides **one** Standard seed.
-- **One mount per suite**: `suite_capture` / `suite_reset` re-seat a case on a
-  pristine save (~0.15 s vs ~0.5 s remount); advanced-start live cases share
-  **one mount per tier**. A suite that swaps screens frees it. An observer
-  mount costs ~15–20 s under coverage; the door/seal case rides
+  (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
+  (gd-tools clones each case). Prefer a pocket chart over regenerating
+  Standard; the published census rides **one** Standard seed.
+- **One mount per suite**: `suite_capture` / `suite_reset` re-seat (~0.15 s vs
+  ~0.5 s remount); advanced-start live cases share **one mount per tier**. Pure
+  cases skip the re-seat / shell (lazy `_screen` / `main`); hospitals ride that
+  chart. Free a swapped screen. Observer mount ~15–20 s covered; door/seal rides
   `test_ai_observer`'s.
 - **Tiny fixture first**: place names and sea zones read
   `naval_fixture.build()` (7×3), not the 48×32 chart (~9 s covered).
@@ -50,12 +49,12 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` /
   `test_auto_mode`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
-  never `generate_world`.
+  never `generate_world`. College rules keep state/purse in `before_each`; bind
+  the pocket chart and `ResearchPanel` only when a case reads them.
 - **Heaviest suite sorts first**: name order, four wide — a long `world_…`
   suite must not drain alone.
-- One Godot boot per theme — coverage ~15 s a boot; 27 → 24 suites
-  (fort capital→battle, observer parts→ai_observer, branding→plate).
-  `gd-tools.toml` keeps `parallel = 4`.
+- One Godot boot per theme — coverage ~15 s a boot; 24 suites
+  (heraldry + tile edges → chrome plate). `gd-tools.toml`: `parallel = 4`.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
@@ -80,6 +79,12 @@ godot --headless --path . --script res://tools/e2e_auto.gd
 # New World exploration loop — boards an Explorer, takes the Passage, lands,
 # charts and prospects, printing one line per step.
 godot --headless --path . --script res://playtests/playtest_new_world.gd
+
+# The voyage's landing lines — opens a turn-100 squadron's passenger block and
+# presses its own rows: one line per crew kind per coast, the grounds each line
+# opens (with what the chart reads of the tile), the crew and the tile the press
+# carries, the coast-only caller, and the chart a landing makes.
+godot --headless --path . --script res://playtests/playtest_voyage_grounds.gd
 
 # Quick Battle — declares war, resolves an attacking field battle, a battle of
 # horse and foot (the wings each line stands in, the flank a blow falls on and
@@ -222,6 +227,15 @@ godot --headless --path . --script res://playtests/playtest_war_toasts.gd
 # budget and dead Bid presses with the purse in debt.
 godot --headless --path . --script res://playtests/playtest_college_debt.gd
 
+# College batch — the college's one press (DR-20261118-26): books two studies from
+# the college's own buttons, steps the press to High, presses it and reads the
+# receipt, then closes a real turn so the phase pays what the line promised; then
+# a thin purse (three studies at Maximum, 1,000 ducats) so the line and the
+# receipt must name the studies that wait; then the whole college stood down to
+# None; then the same sheet on a 720x360 handset, reading the press, its line and
+# the room the two lists keep under it.
+godot --headless --path . --script res://playtests/playtest_college_batch.gd
+
 # Trade terms — walks the colony chain, bids the colony's own good (the Deal Book
 # must name the favoured fill), boycotts a rival and reads that crown's taxed
 # sale receipt against the rate its page prints.
@@ -244,6 +258,15 @@ godot --headless --path . --script res://playtests/playtest_market_batch.gd
 # gates and the level the fort is left at, then mans the crown's own frontier wall
 # and reads the defending plate.
 godot --headless --path . --script res://playtests/playtest_siege.gd
+
+# Workers — reads the WORKERS tab as a player does (a row's price and ration, the
+# larder's store, appetites and shortfall, the batch press and the queue), presses
+# its own peasant press and the batch under it, then closes real turns so the
+# phase pays the fabric and feeds the hands; then the trained tiers on the turn-100
+# advanced start (disband, a train, a muster and the peasant reservation); then a
+# starved larder, holding the tab's forecast to the phase's own report; then a
+# second press after the queue has promised the store.
+godot --headless --path . --script res://playtests/playtest_workers.gd
 
 # Observer siege — seats a wall, its garrison and a besieging train between two
 # rival crowns in the full-AI observer, then reads the panel's orders feed, the
@@ -296,6 +319,18 @@ godot --headless --path . --script res://playtests/playtest_boycott_block.gd
 # seats a rival on the bar in the same turn to read that the fall, not a
 # military victory, decides it.
 godot --headless --path . --script res://playtests/playtest_defeat.gd
+
+# The Gazette — the crown's news sheet at the turn's open, its watchlist, its
+# archive and the tiers of knowledge it may print. Opens the sheet at turn 1
+# (no press has run), plays five turns of a campaign and audits each filed
+# sheet (class order, another court's line never counts losses, no item
+# without a line, the map agreeing with every capture), queues a worker, a
+# crew, a regiment and a hull and reads their delivery lines, fights a real
+# battle for the crown and for a watched court (charted, then a chart that
+# reaches nothing), strikes a court off against a new war of its own, walks the
+# archive's chips and its `<n> of <m>` pages, and saves and reloads the
+# campaign to read the watchlist and the sheets back.
+godot --headless --path . --script res://playtests/playtest_gazette.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

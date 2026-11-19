@@ -785,6 +785,51 @@ func test_phone_fleet_dossier_fits_with_a_contested_zone() -> void:
 	_screen.ship_layer.fleets.erase(enemy)
 
 
+## A port coast lists a whole province of ground — 32 rows at Madrid. The open
+## list rides a window of whole rows inside the passengers block, so the dossier
+## stays a short sheet and the way back never scrolls away from the crown
+## (DR-20261119-03, REQ-P1-07, REQ-P5-07).
+func test_phone_passengers_window_a_port_s_whole_land() -> void:
+	for size: Vector2i in [PHONE, SMALL, TABLET]:
+		await _open(size)
+		var block := FleetCrewSection.new()
+		_viewport.add_child(block)
+		block.size = Vector2(320.0, 400.0)
+		var tiles: Array = []
+		for i in 32:
+			tiles.append({"x": i % 8, "y": int(i / 8), "ground": "Plains · grain"})
+		block.set_data({
+			"count": 1, "note": "1 aboard: Builder", "embark": [], "sortie": [],
+			"land": [{
+				"province": 4, "name": "Madrid", "crew": "builder",
+				"crew_name": "Builder", "tiles": tiles,
+			}],
+		})
+		var coasts: Array[Node] = block.find_children("", "Button", true, false)
+		(coasts[0] as Button).pressed.emit()
+		await get_tree().process_frame
+		var window: ScrollContainer = block._ground_scroll
+		var compact: bool = HudLayout.is_compact(size)
+		assert_eq(
+			window.custom_minimum_size.y, GroundsWindow.height(32, compact),
+			"%s: the window takes whole rows" % size
+		)
+		assert_eq(window.get_child(0).get_child_count(), 32, "%s: every ground rides it" % size)
+		assert_true(
+			block.get_combined_minimum_size().y < 32.0 * GroundsWindow.ROW_HEIGHT,
+			"%s: 32 grounds do not grow the sheet (%s)"
+			% [size, block.get_combined_minimum_size().y]
+		)
+		# The way back stands above the window, on the sheet, at every size.
+		var back: Array[Node] = block.find_children("", "Button", true, false)
+		assert_true(
+			(back[0] as Button).get_global_rect().end.y
+				<= window.get_global_rect().position.y + 0.5,
+			"%s: the way back stays above the list" % size
+		)
+		block.free()
+
+
 func test_phone_ledgers_fit_their_sheets() -> void:
 	await _open(PHONE)
 	await get_tree().process_frame
@@ -823,6 +868,54 @@ func test_the_ledger_fits_a_phone_with_every_slot_at_study() -> void:
 		panel_size.y <= hud._research_wrap.size.y + 0.5,
 		"research content must fit its sheet with every slot at study (%s > %s)"
 		% [panel_size.y, hud._research_wrap.size.y]
+	)
+
+
+## The modern floor (800x360): three studies at once cannot stand above the
+## press and the two lists at their own heights. The queue takes a window of
+## whole rows and the lists keep their floor, so the sheet stays on the screen
+## with nothing clipped (DR-20261119-02, REQ-P1-07, REQ-P5-07).
+func test_phone_college_fits_the_small_screen() -> void:
+	await _open(SMALL)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var state: ResearchState = _screen.economy.economy.research
+	for tech_id: String in ["land_enclosure", "crop_rotation", "saw_mill"]:
+		assert_true(bool(state.assign(tech_id, "medium")["ok"]), tech_id)
+	hud.research_pressed.emit()
+	for _frame in 3:
+		await get_tree().process_frame
+	var panel: ResearchPanel = hud.panels.research_panel
+	var wrap: Control = hud._research_wrap
+	_fits(wrap.get_global_rect(), _screen_rect(), "college sheet")
+	assert_true(
+		panel.get_combined_minimum_size().y <= wrap.size.y + 0.5,
+		"the college must fit its sheet with every slot at study (%s > %s)"
+		% [panel.get_combined_minimum_size().y, wrap.size.y]
+	)
+	# The lists keep a floor of their own: the queue never eats the catalogue.
+	assert_true(
+		panel._tabs.size.y >= ResearchSheetFit.LISTS_FLOOR - 0.5,
+		"the lists keep their floor (%s)" % panel._tabs.size.y
+	)
+	# The queue's window holds a whole row and the rest is still reachable.
+	var first: ResearchSlotRow = panel._slot_rows.get(0)
+	assert_true(first != null, "the college keeps a row per slot")
+	assert_true(
+		panel._slots_scroll.size.y >= first.get_combined_minimum_size().y - 0.5,
+		"one slot row stands whole in the window"
+	)
+	assert_true(
+		panel._slots_scroll.size.y < panel._slots_body.get_combined_minimum_size().y + 0.5
+		or panel._slots_scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO,
+		"the queue's window can scroll to the rows below"
+	)
+	# The one press stays on the sheet, under the window.
+	var press: ResearchFundPress = panel.fund_press()
+	assert_true(press != null and press.visible, "the press stays on the sheet")
+	assert_true(
+		press.get_global_rect().end.y <= panel.get_global_rect().end.y + 0.5,
+		"the press sits inside the sheet"
 	)
 
 

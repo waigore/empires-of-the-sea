@@ -22,11 +22,11 @@
   <p class="note">Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Current contract: one <strong>subject</strong> crown (submission planners) vs two <strong>baseline</strong> rivals (<code>scripts/ai_mainline/</code> from <code>origin/main</code>) and three <strong>random</strong> courts; only the subject scores. Weighted progress: Old World provinces ×100, New World ×50, regiments ×10, ships ×10, workers ×5, extraction ×2, income ×1, +500 for a win before the cap.</p>
 
   <div class="status">
-    <strong>Phase:</strong> issue #910 climb — the honest floor cleared; the crown gates open<br/>
+    <strong>Phase:</strong> issue #995 — the win chase: the bank's doors are opened and measured (guards on the official world, levers on the probe world); the +500 stays open<br/>
     <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">1970.68</span> (<code>910-15-pressure-250.json</code>)<br/>
-    <strong>Best honest so far:</strong> 1970.68 · 16 OW · 0 NW · 5 reg · 3 ships<br/>
-    <strong>Open gates:</strong> bench &gt; 2153.73 · <code>provinces_new</code> &gt; 0 · the +500 win bonus — the stall's next levers are listed at the foot of this page
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2306.93</span> (<code>995-04-the-war-the-conquest-needs.json</code>)<br/>
+    <strong>Best honest so far:</strong> 2439.10 · 15 OW · 9 NW · 4 reg · workers 6 (before #1026's production refactor; the committed surface reads 2306.93 · 16 OW · 6 NW · forces 8)<br/>
+    <strong>Open gates:</strong> the +500 win bonus — the probe names the #807 food-rate gate next (the muster's own ration bar opens ~1 turn in 6, so the banked purse buys ~one line per 40-60 turns and the pact break waits behind the host)
   </div>
 
   <h2>What was wrong with the bench itself</h2>
@@ -155,6 +155,46 @@
         <td class="good">+306.7 over the #975 keeper — <strong>clears the 2153.73 crown gate</strong> and lands the New World (6 provinces × 50); the income flow more than doubles as the colonies feed it. Ship as latest.json; the +500 win bonus (a resolved campaign) stays open on the container</td>
         <td><a href="reports/ai-bench/974-01-re-field-the-host.json">974-01-re-field-the-host.json</a></td>
       </tr>
+      <tr>
+        <td>910-23</td>
+        <td>Arms before builds, first shape — the ledger's rank shift (military leads, works wait while the muster is due on earn)</td>
+        <td>2373.61</td>
+        <td>byte-identical to 974-01</td>
+        <td class="bad">inert: the objective ledger is the explainability layer — the production and work-order planners spend on their own gates and never read the rank, so the shift moved a report row and not a ducat. Reworked into 910-24: the arms-first veto lands in the economy pass itself</td>
+        <td><a href="reports/ai-bench/910-23-arms-before-builds.json">910-23-arms-before-builds.json</a></td>
+      </tr>
+      <tr>
+        <td>999-01</td>
+        <td>The war-benefit read — the army pass notes each court's last attack on another court's ground (directional: marches and landings); past the grace a war with no attack for 4 turns erodes 10 desire a turn from the first quiet turn, and the outmatch exemption covers a prosecution, not a static power score (#999)</td>
+        <td>2357.77</td>
+        <td>15 OW · 6 NW · 4 reg · 3 ships · workers 5 · income 361.55 · funded 83.40</td>
+        <td class="bad">−15.8 against the #974 keeper and well above the 1904.52 floor: same provinces, forces and workers; the campaign resolves at t127 instead of t121 and the income rate gives back 17, the price of the wars the court now leaves (the colonies and the host are untouched). Read as the cost of a behaviour the issue asked for; the arms-before-builds line stays the open lever for the income term</td>
+        <td><a href="reports/ai-bench/999-01-war-that-takes-nothing.json">999-01-war-that-takes-nothing.json</a></td>
+      </tr>
+      <tr>
+        <td>995-04</td>
+        <td>The war the conquest needs — three doors the bank left shut (DR-20261119-09): a phoney front holds no coin (<code>AiWarMemory.holds_front</code>, the #999 read the market now honors), the college's ordinary ladder reads the row's <code>bank_chest</code> (the canonical reserve the #603 valve cannot wobble — the probe caught a 450-ducat ladder burn on the one turn a big sale landed), the bank prices its own shortfall from that chest instead of the wobbling goal reserve, and the pact break waits behind the bank then leads the one order once the host stands (<code>AiDiplomacyTreaties.pact_break_leads</code>; a GP war still leads, a Minor's pact never does, baselines read no gap)</td>
+        <td><strong>2306.93</strong></td>
+        <td>16 OW · 6 NW · 5 reg · 3 ships · workers 3 · income 213.39 · funded 92.94 · resolves at t201 — <strong>bit-identical</strong> to the committed 995-03 keeper, to the last digit of every part</td>
+        <td class="good">A guard set measured honest on two worlds: the frozen-baseline world the hill scores never runs the doors (the purse idles at the committed ~585, the pact wall stands unbuilt behind a host that never grew), and on the origin/main-baseline probe world every door bites — the college burn ends, the phoney slot re-opens (41 shut turns against ~180), the fill rides the chest (~2,300 at the peak), one late muster lands with a late conquest and workers 3→10. One lever was measured and dropped: a banking court blocking all new wars killed the opening blitz the committed score rides on. The +500 stays open and the probe names the next layer: the #807 food-rate gate — the muster's own ration bar opens ~1 turn in 6, so the banked purse buys ~one line per 40-60 turns and the break waits behind a host that never stands inside the cap</td>
+        <td><a href="reports/ai-bench/995-04-the-war-the-conquest-needs.json">995-04-the-war-the-conquest-needs.json</a></td>
+      </tr>
+      <tr>
+        <td>995-03</td>
+        <td>The connected-farm clause of the bank (DR-20261119-04 decision 4): the trim keeps the town-link step while it banks — <code>AiTownRoads.steps</code> names the first unroaded tile of the walk from every owned town still off the crown network, and an order on a kept crop's own tile keeps — so the Builder's promise (a road follows an off-network raise) is no longer broken by the bank's blanket road hold</td>
+        <td><strong>2306.93</strong></td>
+        <td>16 OW · 6 NW · 5 reg · 3 ships · workers 3 · income 213.39 · funded 92.94 · resolves at t201 — bit-identical to the committed 1026 keeper it was rebased onto</td>
+        <td class="good">A guard, not a lever, and measured as one on both bases: on the pre-#1026 tree it read 2439.10 (identical to 995-01), and after the rebase onto the production-phase refactor it reads 2306.93 — <em>exactly</em> the committed 1026 keeper, to the last digit of every part. The subject's own towns all reach the capital on seed 1500 (probe over the first 60 turns: 20 banking turns, 0 owned towns off the network, one engineer road on two of them), so the trim's road hold contradicted the Builder's own pricing and the Town rule without ever biting. The promise is restored and covered by tests; the win-chase layer is still the war on the big holders</td>
+        <td><a href="reports/ai-bench/995-03-bank-keeps-the-town-road.json">995-03-bank-keeps-the-town-road.json</a></td>
+      </tr>
+      <tr>
+        <td>995-01</td>
+        <td>The bank — a court short of the bar with a host under strength and its purse one line-cycle short of the chest banks, war or peace: the gap keeps the muster chest in the reserve (scoped to the submission surface), the escalation bar reads two turns so a filling bank never answers its own progress, the works trim keeps the farms and the line's own feedstock, the college's doors and the envoy rungs honor the bank, the fleetless rebuild chest waits behind the line, the farmhand hires read the cash floor, and the bank latches the #807 provision premium the frozen court's pool could not (#995 money leg)</td>
+        <td><strong>2439.10</strong></td>
+        <td>15 OW · <strong>9 NW</strong> · 4 reg · workers 6 · income 361.35 · funded 85.46</td>
+        <td class="good">+81.3 over the committed 2357.77 and the 1904.52 floor holds: the colony lands <strong>9 New World provinces</strong> (3 more × 50) and the funded share climbs to 85.46; the turn trace gains the money-flow row (riches, the college's gold per slot, the hires, the staged book, the labour pool) so the next climb decomposes a stall from the JSONL. The +500 win bonus stays open: the frozen-baseline France takes seed 1500 at t122, and the subject's own break-NAP timing (its opening pacts with the big holders) is the named next lever — seed 1501 reads the subject at 24 Old World provinces, so the lever bites beyond the primary seed</td>
+        <td><a href="reports/ai-bench/995-01-banks-before-builds.json">995-01-banks-before-builds.json</a></td>
+      </tr>
     </tbody>
   </table>
 
@@ -164,6 +204,26 @@
       <tr><th>Idea</th><th>Reading</th><th>Why rejected</th></tr>
     </thead>
     <tbody>
+      <tr>
+        <td>Hold the bank through the escalation stall (the gap bypasses the #603 re-route)</td>
+        <td>the fill closed and the host stood (4 → 9 regiments)</td>
+        <td>keeper of the fill but the valve itself is the safety the issue names: raising the bar to two turns answers a genuine standing-still inside two turns while a progressing bank never counts as one — the bypass was reverted for the bar change and the fill survived (2439.10 measured with the valve intact)</td>
+      </tr>
+      <tr>
+        <td>No new war while the court banks; the pact the court means to march on breaks first once the host stands</td>
+        <td>the subject froze at 10 OW and one breaking-pact turn at t8 handed France the war it ate the court with</td>
+        <td>the subject's own opening blitz (the petty wars that took Delft, Brest, Varsovia and Cracovia) was worth more than the quiet bank — and the shared diplomacy pass means every gate arms the frozen baselines too: France used the break-first on Spain before Spain's host stood. Reverted; the bank keeps the envoy and deed gates only</td>
+      </tr>
+      <tr>
+        <td>Scale the victory press by the target's share of the need (petty one-province holders lose the +30)</td>
+        <td>the whole map went quiet: France farmed the weak slower, England and France parked at 6–7 OW</td>
+        <td>the press on every Old World holder is what keeps the monster baselines farming the weak; the scaled press focused them on the big holders instead and the subject became the juiciest one. Reverted to the published rule</td>
+      </tr>
+      <tr>
+        <td>The works purse draws on the bank itself during the fill (deeds cannot buy)</td>
+        <td>the frozen court at three peasants: the farms could not buy the lumber their raise spends</td>
+        <td>killed the food engine — the bank's own provision. The #489 cash-floor works purse stands; the deeds and chains that could eat it wait behind their own bank gates instead</td>
+      </tr>
       <tr>
         <td>Keep the field army home against a border war (revert the DR-20261113-19 earn lift)</td>
         <td>subject fell 10 → 5 OW by t40</td>
@@ -183,6 +243,11 @@
         <td>Raise the market offer cap</td>
         <td>not scored</td>
         <td>timber sits at the 9-ducat price floor with no buyers — the cap is not the bottleneck, demand is</td>
+      </tr>
+      <tr>
+        <td>The connected farm — the bank keeps the road to an off-network town (<code>AiTownRoads.steps</code>; DR-20261119-04 decision 4)</td>
+        <td>signed bench <strong>bit-identical</strong> (2439.10 · 15 OW · 9 NW · forces 5 · funded 85.46 · France wins t122, <a href="reports/ai-bench/995-03-bank-keeps-the-town-road.json">995-03</a>); probe over the first 60 turns: 20 banking turns, <strong>0</strong> owned towns off the crown network, one engineer road on two of them</td>
+        <td>kept as a <em>guard</em>, not a lever: the trim had waited the roads with the towns while the Builder prices an off-network raise on the engineer's road following, so the promise is restored and the rule is covered by tests — but the subject's towns all reach the capital on seed 1500, so nothing moved. The connected-farm layer as first written is not where the win sits; the next lever is a war on the big holders (the pact wall / the phoney war)</td>
       </tr>
     </tbody>
   </table>
@@ -210,6 +275,15 @@
     <li><strong>The frozen-bench stall, read precisely (2026-11-18)</strong>: the opening blitz wins nine wars and ten provinces by t13 — then the surface locks. Seven wars stay lit (three of them on random courts that never negotiate), the footing stays <code>fronts</code>, the market top-up stays shut (~180 "no speculative bid" turns), and the purse hovers ~580 against a ~2,200 muster price, so the Home Army never grows and the standing 5-regiment field army — which <strong>cannot be reinforced</strong> (musters join the Home Army; a split needs no field army to exist) — is priced out of every walled province on the map. Two probes died on this read: 019 (the colony-first press gate, −323) and 020 (no-field-army peace, byte-identical).</li>
     <li><strong>The next levers, in order</strong>: (1) buy out of the fronts — a pressing, overstretched court with a purse under the muster floor puts the white peace to its crown enemies itself (the random courts never offer), so the market re-opens and the purse builds; (2) let the Home Army's mustered mass reach the field — a court at target strength cuts a fresh field force even while one stands, so the storm margin recovers; (3) with the purse open and the host grown, the colony voyage's crew slots re-open and the New World lands. The +500 win bonus (31 OW) needs all three.</li>
     <li><strong>Bench plumbing note</strong>: the CLI stages the submission without <code>.git</code>, so official evals always fall back to the hill's frozen <code>baseline_planners/</code> (<code>2c382bb2</code>) — local <code>--ai=bench</code> runs must sync to that ref to match. The materializer's rename list is now derived, so a new <code>Ai*</code> helper on main can no longer kill the baselines' parse (the #853 class, found again 2026-11-18).</li>
+  </ul>
+
+  <h2>The bank lands — the win chase's next layers (995-01, 2026-11-19)</h2>
+  <ul>
+    <li><strong>The money leg is measured</strong>: with the bank on (gap + host under target + one line-cycle short of the chest), the subject's works trim to farms, feedstock and surveys, the college's doors and the envoy rungs honor the chest, and the fill closes — the flow row the run added to the turn trace reads the purse climbing ~250 a turn against the ~2,200 chest. Official: <strong>2439.10</strong> (funded 85.46), the colony lands 9 NW, seed 1501 reads the subject at 24 OW.</li>
+    <li><strong>The frozen court</strong>: the flow row caught a three-way deadlock the old traces could not — pool ↔ harvest ↔ chest. Each levy permanently consumes a peasant (<code>ArmyTraining.recruit</code>), the pool only grows by hiring farmhands, the hire needs a harvest that can carry one more mouth, the harvest needs the farms, and the farms' raises need a market the phoney war keeps shut. The shipped fix latches the #807 provision premium to the bank and reads the farmhand hires against the cash floor. <strong>The road leg shipped too, and measured inert</strong> (995-03, DR-20261119-04 decision 4): the trim now keeps the town-link step (<code>AiTownRoads.steps</code>) and every order on a kept crop's own tile, so the Builder's promise that the engineer's road follows an off-network raise holds again — but the subject's towns all reach the capital on seed 1500 (20 banking turns, 0 off-network towns in the first 60), so the signed bench is bit-identical. The deadlock's remaining leg is the market, not the road.</li>
+    <li><strong>The pact wall</strong>: the subject NAPs its big holders in the opening (the free non-aggression pact), and the war it needs behind that pact never opens — the break candidate competes as one offer among many and loses to any legal petty declaration. The measured attempt to rank the break first armed the frozen baselines with the same doctrine and France ate the subject with it at t9; the honest next shape is a <em>subject-scoped</em> opening (the pact the subject signs in turn one is the pact its own planners must outgrow, and the shared-diplomacy pass cannot be the lever).</li>
+    <li><strong>The phoney war's market</strong>: a war with no attacks for a hundred turns still holds the footing at <code>fronts</code>, and the top-up stays shut — the subject's economy idles at ~150 net a turn while its chest needs 2,200. The #999 erosion lowers the desire but the press (+30 on any Old World holder) keeps it above the peace bar; the war never ends and the market never opens. A reachability read (a war the field army cannot walk to) or a phoney-war footing is the named lever.</li>
+    <li><strong>The +500 win bonus needs</strong>: the host (the bank fills it), the connected farms (the pool), and a war on the big holders' land (the pact wall) — the same three layers, in that order, on a subject-scoped surface the baselines never read.</li>
   </ul>
 </body>
 </html>

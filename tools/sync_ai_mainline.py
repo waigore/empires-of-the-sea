@@ -26,6 +26,8 @@ SKIP_FILES = frozenset({
     "ai_state.gd",  # shared session ledger
     "ai_control.gd",  # gate lives only on the submission surface
     "ai_bind.gd",
+    "ai_bind_economy.gd",
+    "ai_bind_campaign.gd",
     "ai_random_court.gd",
 })
 

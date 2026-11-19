@@ -47,7 +47,10 @@ static func on_tapped(play: PlaySession, world_position: Vector2) -> void:
 		world_position, 30.0 / maxf(play.camera.zoom.x, 0.001)
 	)
 	if ship != null:
-		play.ship_layer.select(ship)
+		# A station the crown's squadrons share fans out; a stack cycles, so the
+		# second tap on crowded water reads the next squadron rather than the
+		# one already in hand (wiki: ships-and-naval § Fleets in one station).
+		play.ship_layer.select(play.ship_layer.tap(ship))
 		return
 	if ordering:
 		if play.ship_layer.selected() != null and MapPlayFleets.try_order(play, tile):

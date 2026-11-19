@@ -107,9 +107,17 @@ static func plan(
 			# above the cash floor, so the unlock lands before the court burns
 			# its opening chest on musters (issue #484). When even Low is too
 			# dear, fall back to the standing preset if the #490 gate allows —
-			# never skip the door for a lower-ranked candidate.
+			# never skip the door for a lower-ranked candidate. A court banking
+			# for the army its conquest still needs holds the door to the bank
+			# (issue #995): the door may burn the purse above the cash floor,
+			# and the bank is exactly that purse, so its floor rises to the
+			# reserve the muster is saving for — the army outranks the yard it
+			# unlocks (#591's own order).
 			if tech == door and not door.is_empty():
-				slot_funding = _door_funding(economy, cash_floor)
+				var door_floor: int = maxi(
+					cash_floor, int(context.get("conquest_reserve", 0))
+				)
+				slot_funding = _door_funding(economy, door_floor)
 				if slot_funding == ResearchFunding.ORDER[0]:
 					if can_stand or wants_standing:
 						slot_funding = STANDING_FUNDING

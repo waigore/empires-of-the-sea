@@ -104,7 +104,7 @@ static func _random_production(
 	var recipe_id: String = ids[rng.randi_range(0, ids.size() - 1)]
 	var labour: int = economy.workers.labour()
 	var stock: Dictionary = economy.stockpile.duplicate()
-	var runs: int = ProductionRecipes.max_runs(recipe_id, stock, labour)
+	var runs: int = ProductionPhase.max_runs(recipe_id, stock, labour)
 	if runs <= 0:
 		return {"assignments": assignments, "candidates": candidates}
 	var units: int = rng.randi_range(1, mini(runs, 3))

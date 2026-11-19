@@ -176,6 +176,143 @@ func test_casualties_are_drawn_from_the_line_and_spare_the_reserve() -> void:
 		assert_true(army.regiments.has(regiment_id), "a reserve is never a casualty")
 
 
+## A reserve takes no battle wear either: an auto-resolved exchange spends its
+## wounds over the line it dealt when it opened, never over the reserves that
+## would fill the slice once casualties have thinned it (wiki: combat § The line
+## and the reserve — "a reserve adds no strength, takes no casualties, and takes
+## no battle wear"). The prober read 99/110 on two of the four reserves before
+## the fix, because the wear pass re-read the strongest `limit` survivors.
+func test_an_auto_resolved_exchange_never_wears_a_reserve() -> void:
+	var model := Fixture.build()
+	_set_province_terrain(model, 2, MapModel.Terrain.PLAINS)
+	var defender: ArmyState = Fixture.army(1, 1, 2, ["pikemen"], true)
+	var marching: ArmyState = Fixture.army(2, 0, 2, _regiment_types("pikemen", 14))
+	marching.moved = true
+	var side: Array[ArmyState] = [marching]
+	var line_ids: Array[String] = []
+	for entry: Dictionary in ArmyModifiers.deployed(side, 10):
+		line_ids.append(String(entry["id"]))
+	assert_eq(line_ids.size(), 10, "ten stand in the line")
+	var reserve: Array[String] = []
+	for regiment_id: String in marching.regiments:
+		if not line_ids.has(regiment_id):
+			reserve.append(regiment_id)
+	assert_eq(reserve.size(), 4, "four stand in reserve")
+
+	var armies: Array[ArmyState] = [defender, marching]
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+
+	assert_eq(reports.size(), 1)
+	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
+	assert_false((reports[0]["attacker_lost"] as Array).is_empty(), "the line bleeds")
+	assert_true(RegimentCondition.mauled(side) > 0, "the line carries the wear")
+	for regiment_id: String in reserve:
+		var data: Dictionary = marching.condition_of(regiment_id)
+		assert_eq(
+			int(data["hp"]), int(data["max"]),
+			"a reserve takes no battle wear: %s" % regiment_id
+		)
+
+
+## A reserve adds no strength to a blow either (wiki: combat § The line and the
+## reserve — "a reserve adds no strength"; quick-battle § Battlefield layout —
+## "the reserve is dealt nowhere ... take no casualties and add no strength").
+## Playtest: a line of six musketeers broke two men a volley; the same six with
+## eight pikemen waiting behind them broke two, two, then three — the blow was
+## weighed over the strongest ten of the side, so the men the battle never dealt
+## lent it their weight once the line had thinned.
+func test_a_reserve_adds_no_weight_to_a_blow() -> void:
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(_lane_side(_muskets(6), 2)):
+		line.append(String(entry["id"]))
+	var bare: Array[ArmyState] = _lane_side(_muskets(6), 2)
+	var stuffed_types: Array[String] = _muskets(6)
+	stuffed_types.append_array(_pikes(8))
+	var stuffed: Array[ArmyState] = _lane_side(stuffed_types, 2)
+	assert_eq(line.size(), 6)
+	assert_true(
+		ArmyModifiers.strength(stuffed, 10, 1.0) > ArmyForce.line_strength(stuffed, line, 1.0),
+		"the limit slice weighs more than the dealt line: that is the weight the old read paid"
+	)
+
+	var with_line: Array[int] = _volley_losses(bare, line)
+	var with_reserve: Array[int] = _volley_losses(stuffed, line)
+
+	assert_eq(with_line, [2, 2, 2], "six muskets break two a volley")
+	assert_eq(
+		with_reserve, with_line,
+		"eight pikemen behind the line change no volley's weight"
+	)
+
+
+## The mean enemy weight is read over the men its line was dealt too, so a fresh
+## reserve never props up a mauled line: a wounded muzzle line is as soft as its
+## own survivors, not as tough as the men behind it (wiki: quick-battle § Cohesion
+## and effective strength — "reserves behind the deployment limit never count").
+func test_a_mauled_line_reads_its_own_mean_weight() -> void:
+	var side_types: Array[String] = _muskets(3)
+	side_types.append_array(_pikes(6))
+	var side: Array[ArmyState] = _lane_side(side_types, 1)
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		if line.size() < 3:
+			line.append(String(entry["id"]))
+	var thin: Array[ArmyState] = _lane_side(_muskets(3), 1)
+	for regiment_id: String in line:
+		RegimentCondition.wound(side[0], regiment_id, 80.0)
+		RegimentCondition.wound(thin[0], regiment_id, 80.0)
+
+	assert_almost_eq(
+		ArmyModifiers.average_rank(side, 10, line),
+		ArmyModifiers.average_rank(thin, 10), 0.001
+	)
+	assert_true(
+		ArmyModifiers.average_rank(side, 10) > ArmyModifiers.average_rank(side, 10, line),
+		"the limit slice would let six fresh pikes prop up the mauled line"
+	)
+	assert_true(
+		ArmyModifiers.average_rank(side, 10, line) < RegimentCatalog.strength("pikemen"),
+		"the line reads as its own wounded men, not as the pikes behind it"
+	)
+
+
+## A besieger's shot is weighed over its dealt line as well: a musket held in
+## reserve carries nothing to the wall (wiki: siege-mechanics § Quick Battle
+## lanes; combat § The line and the reserve).
+func test_a_besiegers_reserve_carries_no_shot_to_the_wall() -> void:
+	var side: Array[ArmyState] = _lane_side(_muskets(12), 2)
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		if line.size() < 6:
+			line.append(String(entry["id"]))
+
+	var dealt: float = SiegeLanes.striking_weight(side, 10, 1.0, line)
+	var whole: float = SiegeLanes.striking_weight(side, 10, 1.0)
+
+	assert_almost_eq(whole, 10.0 * RegimentCatalog.strength("musketeers"), 0.001)
+	assert_almost_eq(dealt, 6.0 * RegimentCatalog.strength("musketeers"), 0.001)
+	assert_true(dealt < whole, "the six muskets in reserve strike nothing")
+
+
+## Three volleys of one attacking side against a fresh line of ten pikes, read
+## off a hand-built state shaped as [QuickBattle] builds it: the losses it breaks
+## per volley.
+func _volley_losses(side: Array[ArmyState], line: Array[String]) -> Array[int]:
+	var defender: Array[ArmyState] = _lane_side(_pikes(10), 1)
+	var armies: Array[ArmyState] = []
+	armies.append_array(side)
+	armies.append_array(defender)
+	var state: Dictionary = _lane_state(side, defender, 0)
+	state["attacker"]["line"] = line
+	var broken: Array[int] = []
+	for _index in 3:
+		var entry: Dictionary = QuickBattleActions.resolve(
+			armies, state, "attacker", "defender", "volley", [] as Array[Dictionary]
+		)
+		broken.append(int(entry["defender_lost"]))
+	return broken
+
+
 ## The report carries the line and the reserve so the plate and the despatch can
 ## name them (wiki: combat § The line and the reserve; DR-20261111-15). The line
 ## is read before any exchange, while every regiment is still standing.
@@ -609,7 +746,31 @@ func test_a_land_victory_reads_as_a_capture() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Flanders", FACTIONS),
+		"España takes Flanders — England loses 2 regiments; España loses 1 regiment"
+	)
+
+
+## A won field names the winner's own dead as well as the beaten side's, and a
+## side that left nobody stays unspoken rather than printing a zero
+## (wiki: combat § Land battle resolution; DR-20261119-07).
+func test_a_land_victory_without_losses_names_only_the_beaten_side() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": ["b", "c"],
+	}
+	assert_eq(
+		BattleReport.describe_land(battle, "Flanders", FACTIONS),
 		"España takes Flanders — England loses 2 regiments"
+	)
+	var bloodless: Dictionary = battle.duplicate()
+	bloodless["defender_lost"] = []
+	assert_eq(
+		BattleReport.describe_land(bloodless, "Flanders", FACTIONS),
+		"España takes Flanders",
+		"a bloodless beaten side prints no zero"
 	)
 
 
@@ -623,7 +784,7 @@ func test_a_land_advantage_reads_as_a_held_field() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Flanders", FACTIONS),
-		"España holds the field at Flanders — 1 regiment lost"
+		"España holds the field at Flanders — England loses 2 regiments; España loses 1 regiment"
 	)
 
 
@@ -633,10 +794,16 @@ func test_a_land_repulse_reads_as_a_hold() -> void:
 		"defender": 2,
 		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
 		"attacker_lost": ["a"],
-		"defender_lost": [],
+		"defender_lost": ["b"],
 	}
 	assert_eq(
 		BattleReport.describe_land(battle, "Burgundy", FACTIONS),
+		"France holds Burgundy — England loses 1 regiment; France loses 1 regiment"
+	)
+	var unscathed: Dictionary = battle.duplicate()
+	unscathed["defender_lost"] = []
+	assert_eq(
+		BattleReport.describe_land(unscathed, "Burgundy", FACTIONS),
 		"France holds Burgundy — England loses 1 regiment"
 	)
 
@@ -1571,6 +1738,21 @@ func test_quick_battle_action_scripts_come_from_the_plan_catalog() -> void:
 	assert_eq(QuickBattleActions.actions_for("unknown"), ["volley", "entrench", "volley"])
 
 
+## The battle's law lives on [QuickBattleTerms], and the resolver still answers
+## to it: one answer for the plate, the simulator and the rounds (REQ-P3-01).
+func test_quick_battle_terms_are_the_ones_the_battle_fights_under() -> void:
+	assert_eq(QuickBattle.MAX_ROUNDS, QuickBattleTerms.MAX_ROUNDS)
+	assert_eq(QuickBattle.CP_PER_ROUND, QuickBattleTerms.CP_PER_ROUND)
+	assert_eq(QuickBattle.MAX_ROUNDS, 3)
+	assert_eq(QuickBattle.CP_PER_ROUND, 3)
+	var foot: Array[ArmyState] = _side(["pikemen", "pikemen"], 0)
+	assert_almost_eq(
+		QuickBattle.effective_strength(foot, 10, 3, 1.0),
+		QuickBattleTerms.effective_strength(foot, 10, 3, 1.0),
+		0.001,
+	)
+
+
 func test_quick_battle_battery_silences_guns_and_downgrades() -> void:
 	var model := Fixture.build()
 	model.province_data(2).fort_level = 1
@@ -2104,7 +2286,7 @@ func test_quick_battle_runs_at_most_three_rounds() -> void:
 	var battle: Dictionary = _fight("balanced", _guards(6), _pikes(6))
 	var rounds: int = _round_count(battle)
 	assert_true(rounds >= 1)
-	assert_true(rounds <= QuickBattle.MAX_ROUNDS)
+	assert_true(rounds <= QuickBattleTerms.MAX_ROUNDS)
 
 
 func test_the_players_plan_drives_the_action_script() -> void:
@@ -2205,6 +2387,53 @@ func test_melee_only_besiegers_are_turned_away() -> void:
 	assert_true(turned, "the despatch says the wall turned the blow aside")
 
 
+## Only firearms, bows and guns strike a wall: eight pikes marching beside two
+## musketeers break no more of a levied wall than the two muskets alone, and a
+## line of pikes on its own opens no gate (wiki: siege-mechanics § Damage
+## Reduction — "melee-only units cannot attack walls"; § Quick Battle lanes —
+## "only regiments with RNG >= 2 can strike it").
+func test_a_besiegers_pikes_do_not_break_the_wall() -> void:
+	## Two firearms and eight pikes against the same line of ten firearms: both
+	## sides field ten, and only the two muskets may weigh on the wall.
+	var piked: Array[String] = _muskets(2)
+	for _index in 8:
+		piked.append("halberdiers")
+	var mixed: Dictionary = _fight("aggressive", piked, _levies(12), 1)
+	var ten: Dictionary = _fight("aggressive", _muskets(10), _levies(12), 1)
+
+	assert_true(_wall_losses(mixed) > 0, "the two muskets still reach the wall")
+	assert_true(
+		_wall_losses(mixed) < _wall_losses(ten),
+		"the eight pikes add nothing to the wall the two muskets break"
+	)
+	assert_true(
+		_breaches(mixed) < _breaches(ten),
+		"nor do they beat a gate down beside them"
+	)
+
+
+## The blow a besieger can land on a wall is the deployed regiments' rank that
+## carry a firearm, a bow or a gun — a pike's rank is left out of the weight.
+func test_only_firearms_weigh_against_a_wall() -> void:
+	var pikes: Array[ArmyState] = _lane_side(["pikemen", "pikemen"], 2)
+	var mixed: Array[ArmyState] = _lane_side(["musketeers", "pikemen"], 2)
+	var muskets: Array[ArmyState] = _lane_side(["musketeers", "musketeers"], 2)
+
+	assert_almost_eq(SiegeLanes.striking_weight(pikes, 10, 1.0), 0.0, 0.001, "pikes reach nothing")
+	assert_almost_eq(
+		SiegeLanes.striking_weight(mixed, 10, 1.0),
+		float(RegimentCatalog.strength("musketeers")),
+		0.01,
+		"one musket weighs, the pike beside it does not"
+	)
+	assert_almost_eq(
+		SiegeLanes.striking_weight(muskets, 10, 1.0),
+		ArmyModifiers.strength(muskets, 10, 1.0),
+		0.01,
+		"a line of firearms weighs its whole rank"
+	)
+
+
 ## A garrison that leaves the wall to sortie can hit back with every regiment,
 ## which is how a pike garrison hurts a siege at all.
 func test_a_sortie_lets_a_pike_garrison_fight() -> void:
@@ -2267,19 +2496,19 @@ func test_effective_strength_aggregates_fpn_and_fpm() -> void:
 	var pikes: Array[ArmyState] = _lane_side(_pikes(4), 1)
 	var levies: Array[ArmyState] = _lane_side(_levies(4), 1)
 
-	var guard_weight: float = QuickBattle.effective_strength(guards, 10, 3, 1.0)
-	var pike_weight: float = QuickBattle.effective_strength(pikes, 10, 3, 1.0)
-	var levy_weight: float = QuickBattle.effective_strength(levies, 10, 3, 1.0)
+	var guard_weight: float = QuickBattleTerms.effective_strength(guards, 10, 3, 1.0)
+	var pike_weight: float = QuickBattleTerms.effective_strength(pikes, 10, 3, 1.0)
+	var levy_weight: float = QuickBattleTerms.effective_strength(levies, 10, 3, 1.0)
 
 	assert_almost_eq(guard_weight, 4.0 * 22.0, 0.01, "Σ (FPN + FPM) for the slice")
 	assert_true(guard_weight > pike_weight)
 	assert_true(pike_weight > levy_weight)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
+		QuickBattleTerms.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
 		"a broken line has no strength"
 	)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
+		QuickBattleTerms.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
 		0.01, "the side multiplier scales the whole slice"
 	)
 
@@ -2290,7 +2519,7 @@ func test_only_the_deployed_slice_counts_toward_strength() -> void:
 	var twelve: Array[ArmyState] = _lane_side(_guards(12), 2)
 
 	assert_almost_eq(
-		QuickBattle.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
+		QuickBattleTerms.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
 	)
 
 
@@ -2302,14 +2531,14 @@ func test_chevrons_and_health_raise_a_regiments_weight() -> void:
 	var army: ArmyState = veteran[0]
 	for regiment_id: String in army.regiments:
 		army.regiment_medals[regiment_id] = RegimentCatalog.MAX_MEDALS
-	var fresh_weight: float = QuickBattle.effective_strength(fresh, 10, 3, 1.0)
-	var veteran_weight: float = QuickBattle.effective_strength(veteran, 10, 3, 1.0)
+	var fresh_weight: float = QuickBattleTerms.effective_strength(fresh, 10, 3, 1.0)
+	var veteran_weight: float = QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0)
 
 	assert_almost_eq(veteran_weight, fresh_weight * 1.4, 0.01)
 	var first: String = army.regiments[0]
 	army.regiment_health[first] = RegimentCatalog.max_health("guards") / 2
 	assert_true(
-		QuickBattle.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
+		QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
 		"a mauled regiment shoulders less"
 	)
 
@@ -2379,6 +2608,98 @@ func test_a_siege_battery_fires_while_guns_stand() -> void:
 			if String(action["action"]) == "battery":
 				fired = true
 	assert_true(fired, "the emplaced battery answers the assault")
+
+
+## A reserve behind the line never pays for a charge: the same ten men in the
+## line pay the same price for their assault whether ten more wait behind them
+## or not (wiki: combat § The line and the reserve — "a reserve adds no strength,
+## takes no casualties"; quick-battle § Battlefield layout — "the reserve is
+## dealt nowhere").
+func test_a_reserve_never_pays_for_the_charge() -> void:
+	var alone: Dictionary = _fight("aggressive", _guards(10), _pikes(6), 0)
+	var backed: Dictionary = _fight("aggressive", _guards(10) + _pikes(10), _pikes(6), 0)
+
+	assert_eq(
+		_assault_cost(backed), _assault_cost(alone),
+		"the reserve adds no weight to the charge the line pays for"
+	)
+	assert_eq(
+		int(backed["quick"]["attacker_start"]) - int(backed["quick"]["attacker_left"]),
+		int(alone["quick"]["attacker_start"]) - int(alone["quick"]["attacker_left"]),
+		"nor any loss of its own"
+	)
+
+
+## The fort's emplaced battery lays its fire on the men the besieging line was
+## dealt: a reserve behind the line draws no shot and adds no target (wiki:
+## combat § The line and the reserve — "a reserve adds no strength").
+func test_the_battery_weighs_the_besieging_line_not_the_reserve() -> void:
+	assert_eq(
+		_battery_volley(_guards(10) + _pikes(30)), _battery_volley(_guards(10)),
+		"a reserve behind the line makes the fort's fire no heavier"
+	)
+
+
+## A gun held in reserve never drops shot behind a parapet it never approached:
+## the share that crosses the wall is the line's own guns over the line's own
+## men (wiki: siege-mechanics § Quick Battle lanes — "artillery / besieging
+## regiments"; combat § The line and the reserve — "a reserve adds no strength").
+func test_a_reserve_gun_drops_no_shot_behind_the_wall() -> void:
+	var on_line: Array[ArmyState] = _lane_side(["musketeers", "musketeers", "culverin"], 2)
+	var held: Array[ArmyState] = _lane_side(
+		["musketeers", "musketeers", "musketeers", "culverin"], 2
+	)
+	var line: Array[String] = _line_without_guns(held)
+
+	assert_true(
+		_behind_losses(on_line, ArmyForce.line_ids(on_line, 10)) > 0,
+		"a gun in the line reaches behind the parapet"
+	)
+	assert_eq(
+		_behind_losses(held, line), 0,
+		"a gun in the reserve drops no shot behind the wall"
+	)
+
+
+## The own price of an assault or a sortie, as the attacker's actions name it.
+func _assault_cost(battle: Dictionary) -> int:
+	var total: int = 0
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			if String(action["action"]) == "assault":
+				total += int(action["attacker_lost"])
+	return total
+
+
+## One emplaced battery's volley against a besieging side, read off the blow.
+func _battery_volley(types: Array[String]) -> int:
+	var side: Array[ArmyState] = _lane_side(types, 2)
+	var state: Dictionary = _lane_state(side, [] as Array[ArmyState], 3)
+	state["attacker"]["wings"] = QuickBattleWings.deploy(side, 10)
+	state["attacker"]["line"] = ArmyForce.line_ids(side, 10)
+	var guns: Array[Dictionary] = QuickBattleBattery.make(3, {}, 1)
+	return int(QuickBattleBattery.fire(_lane_joined(side, [] as Array[ArmyState]), state, guns)["lost"])
+
+
+## The men of a besieging side left in the line once its guns are held back.
+func _line_without_guns(side: Array[ArmyState]) -> Array[String]:
+	var line: Array[String] = []
+	for entry: Dictionary in ArmyForce.side_entries(side):
+		if not RegimentCatalog.is_artillery(String(entry["type"])):
+			line.append(String(entry["id"]))
+	return line
+
+
+## Behind-lane casualties one siege blow draws from a levied garrison.
+func _behind_losses(attacker: Array[ArmyState], line: Array[String]) -> int:
+	var defender: Array[ArmyState] = _lane_side(
+		["peasant_levies", "peasant_levies", "peasant_levies", "squires", "squires"], 1
+	)
+	var armies: Array[ArmyState] = _lane_joined(attacker, defender)
+	var split: Dictionary = SiegeLanes.strike(
+		armies, attacker, defender, 12, 10, 2, false, {}, {}, line
+	)
+	return (split["behind"] as Array).size()
 
 
 ## The despatch copy reads `defender_lost` on an attacker's action as losses it
@@ -2480,6 +2801,29 @@ func _levies(count: int) -> Array[String]:
 	for _index in count:
 		types.append("peasant_levies")
 	return types
+
+
+func _muskets(count: int) -> Array[String]:
+	var types: Array[String] = []
+	for _index in count:
+		types.append("musketeers")
+	return types
+
+
+## Gates a siege beat down, as the plate reads them.
+func _breaches(battle: Dictionary) -> int:
+	return int((battle["quick"]["gates"] as Dictionary).get("broken", 0))
+
+
+## Wall regiments a besieger broke over the whole battle, read off the round log
+## the plate prints.
+func _wall_losses(battle: Dictionary) -> int:
+	var total: int = 0
+	for round: Dictionary in battle["quick"]["rounds"]:
+		for action: Dictionary in round["actions"]:
+			if int(action["side"]) == int(battle["attacker"]):
+				total += int(action["wall_lost"])
+	return total
 
 # --- Siege lanes (wiki: siege-mechanics § Quick Battle lanes) ---
 
@@ -2608,6 +2952,107 @@ func test_return_fire_follows_the_garrisons_range() -> void:
 	assert_almost_eq(SiegeLanes.return_fire_share(pikes), 0.0, 0.001, "pikes cannot shoot")
 	assert_almost_eq(SiegeLanes.return_fire_share(muskets), 1.0, 0.001)
 	assert_almost_eq(SiegeLanes.return_fire_share(mixed), 0.5, 0.001)
+
+
+## A reserve behind the wall neither shoots from it nor thins the fire of the men
+## who stand on it: the wall's ranged share is read over the line the battle
+## dealt, not over every regiment the garrison has (wiki: combat § The line and
+## the reserve — "a reserve adds no strength"; siege-mechanics § Quick Battle
+## lanes — "ranged share of its own count"). Bowmen rank below pikemen, so the
+## ten pikes are the line and the four bows wait behind it.
+func test_a_reserve_never_returns_fire_from_the_wall() -> void:
+	var pike_wall: Array[ArmyState] = _lane_side(
+		["bowmen", "bowmen", "bowmen", "bowmen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"], 1
+	)
+	var pike_line: Array[String] = ArmyForce.line_ids(pike_wall, 10)
+	assert_eq(pike_line.size(), 10, "ten pikes stand in the line")
+	assert_almost_eq(
+		SiegeLanes.return_fire_share(pike_wall, pike_line), 0.0, 0.001,
+		"a pike wall gives no return fire, whatever waits behind it"
+	)
+	## The other way round: a musket wall keeps its whole fire though four levies
+	## wait behind it.
+	var musket_wall: Array[ArmyState] = _lane_side(
+		["peasant_levies", "peasant_levies", "peasant_levies", "peasant_levies",
+		"musketeers", "musketeers", "musketeers", "musketeers", "musketeers",
+		"musketeers", "musketeers", "musketeers", "musketeers", "musketeers"], 1
+	)
+	var musket_line: Array[String] = ArmyForce.line_ids(musket_wall, 10)
+	assert_almost_eq(
+		SiegeLanes.return_fire_share(musket_wall, musket_line), 1.0, 0.001,
+		"the levies behind the wall thin no fire"
+	)
+
+
+## The wall's volley breaks no besieger when the only bows in the garrison wait
+## in reserve: a regiment that never took the field adds no strength to the
+## parapet (wiki: combat § The line and the reserve; siege-mechanics
+## § Quick Battle lanes).
+func test_a_reserve_never_shoots_at_a_besieger() -> void:
+	var bare: int = _wall_volley_losses(
+		["pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"]
+	)
+	var stuffed: int = _wall_volley_losses(
+		["bowmen", "bowmen", "bowmen", "bowmen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"]
+	)
+
+	assert_eq(bare, 0, "a pike wall breaks nobody")
+	assert_eq(stuffed, bare, "the four bows behind the wall fire nothing")
+
+
+## A pike wall still sallies when the only bows in the garrison wait in reserve:
+## the automatic sally reads the wall's own line, and a bow held back opens no
+## wall either (wiki: siege-mechanics § Quick Battle lanes — "a garrison with no
+## firearm behind a wall sallies on its own"; combat § The line and the reserve).
+func test_a_pike_wall_with_a_reserve_still_sallies() -> void:
+	var side: Array[ArmyState] = _rival(
+		["bowmen", "bowmen", "bowmen", "bowmen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
+		"pikemen", "pikemen", "pikemen", "pikemen", "pikemen"]
+	)
+	var line: Array[String] = ArmyForce.line_ids(side, 10)
+
+	assert_eq(
+		QuickBattleTerms.plan_for(side, 1, {}, true, true, line), "aggressive",
+		"a wall with no firearm on it sallies"
+	)
+	assert_false(SiegeLanes.can_reach_wall(side, line), "a bow in reserve opens no wall")
+
+
+## The besieger's losses from one wall volley, with the garrison's line and lanes
+## dealt the way [QuickBattle] deals them.
+func _wall_volley_losses(types: Array[String]) -> int:
+	var defender: Array[ArmyState] = _lane_side(types, 1)
+	var attacker: Array[ArmyState] = _lane_side(
+		["musketeers", "musketeers", "musketeers", "musketeers", "musketeers", "musketeers"], 2
+	)
+	var armies: Array[ArmyState] = _lane_joined(attacker, defender)
+	var state: Dictionary = {
+		"attacker": {
+			"side": attacker, "owner": 2, "limit": 10, "mods": {},
+			"cohesion": 3, "guard": 0.0, "lost": [] as Array[String],
+			"plan": "balanced", "exposed": false,
+			"line": ArmyForce.line_ids(attacker, 10),
+		},
+		"defender": {
+			"side": defender, "owner": 1, "limit": 10, "mods": {"fort": 1},
+			"cohesion": 3, "guard": 0.0, "lost": [] as Array[String],
+			"plan": "defensive", "exposed": false,
+			"line": ArmyForce.line_ids(defender, 10),
+			"lanes": SiegeLanes.line_ids(defender, 10),
+		},
+		"terrain": "open",
+		"gates": SiegeLanes.gates_for(1),
+	}
+	var entry: Dictionary = QuickBattleActions.resolve(
+		armies, state, "defender", "attacker", "volley", []
+	)
+	return int(entry["attacker_lost"])
 
 
 func test_an_empty_garrison_absorbs_nothing() -> void:
@@ -2798,7 +3243,7 @@ func test_a_side_spends_at_most_three_cp_a_round() -> void:
 		for round: Dictionary in rounds:
 			for side: int in [int(battle["attacker"]), int(battle["defender"])]:
 				var spent: int = _cp_spent(round, side)
-				assert_true(spent <= QuickBattle.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
+				assert_true(spent <= QuickBattleTerms.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
 
 
 ## The side the human does not command is chosen in the published order
@@ -2807,24 +3252,24 @@ func test_a_side_spends_at_most_three_cp_a_round() -> void:
 func test_the_opposing_script_follows_the_published_order() -> void:
 	var pikes: Array[ArmyState] = _rival(["pikemen", "pikemen"])
 	var muskets: Array[ArmyState] = _rival(["pikemen", "musketeers"])
-	assert_eq(QuickBattle.plan_for(pikes, 1, {}, true, true), "aggressive",
+	assert_eq(QuickBattleTerms.plan_for(pikes, 1, {}, true, true), "aggressive",
 		"a wall with no firearm sallies")
-	assert_eq(QuickBattle.plan_for(muskets, 1, {}, true, true), "defensive",
+	assert_eq(QuickBattleTerms.plan_for(muskets, 1, {}, true, true), "defensive",
 		"a wall that can shoot holds")
-	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
+	assert_eq(QuickBattleTerms.plan_for(_rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
 		"aggressive", "cavalry share ≥ 0.3")
-	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
+	assert_eq(QuickBattleTerms.plan_for(_rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
 		"defensive", "cavalry share below 0.3")
-	assert_eq(QuickBattle.plan_for(_rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
-	assert_eq(QuickBattle.plan_for(_rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
+	assert_eq(QuickBattleTerms.plan_for(_rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
+	assert_eq(QuickBattleTerms.plan_for(_rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
 	## An explicit scenario plan outranks the ranking, and the crown's plan
 	## outranks the automatic sally.
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
 		"balanced"
 	)
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
 		"defensive", "the crown's plan holds its own wall"
 	)
 
@@ -2847,7 +3292,7 @@ func test_an_unknown_plan_is_balanced() -> void:
 	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
 	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
 	assert_eq(
-		QuickBattle.plan_for(
+		QuickBattleTerms.plan_for(
 			_rival(["pikemen"]), 0, {"player_faction": 0, "battle_plan": "hammer"}, false
 		),
 		"balanced", "a crown's unknown stance fights balanced"
@@ -3504,7 +3949,7 @@ func test_the_sandbox_walks_into_its_aftermath() -> void:
 	assert_false(screen._status.text.begins_with("Round "), "the aftermath is not a round")
 	screen._step()
 	assert_eq(screen._field.round_index, 0, "stepping past the aftermath starts the plate over")
-	for index in QuickBattle.MAX_ROUNDS:
+	for index in QuickBattleTerms.MAX_ROUNDS:
 		var door: Button = screen._round_buttons.get_child(index) as Button
 		assert_eq(
 			door.disabled, index >= rounds.size(),
@@ -7304,7 +7749,7 @@ func test_land_quick_battle_runs_at_most_three_rounds() -> void:
 	var battle: Dictionary = _quick_battle_rules_fight("balanced", land__guards(6), land__pikes(6))
 	var rounds: int = land__round_count(battle)
 	assert_true(rounds >= 1)
-	assert_true(rounds <= QuickBattle.MAX_ROUNDS)
+	assert_true(rounds <= QuickBattleTerms.MAX_ROUNDS)
 
 func test_land_the_players_plan_drives_the_action_script() -> void:
 	var aggressive: Dictionary = _quick_battle_rules_fight("aggressive", land__guards(6), land__pikes(4))
@@ -7456,19 +7901,19 @@ func test_land_effective_strength_aggregates_fpn_and_fpm() -> void:
 	var pikes: Array[ArmyState] = land__lane_side(land__pikes(4), 1)
 	var levies: Array[ArmyState] = land__lane_side(land__levies(4), 1)
 
-	var guard_weight: float = QuickBattle.effective_strength(guards, 10, 3, 1.0)
-	var pike_weight: float = QuickBattle.effective_strength(pikes, 10, 3, 1.0)
-	var levy_weight: float = QuickBattle.effective_strength(levies, 10, 3, 1.0)
+	var guard_weight: float = QuickBattleTerms.effective_strength(guards, 10, 3, 1.0)
+	var pike_weight: float = QuickBattleTerms.effective_strength(pikes, 10, 3, 1.0)
+	var levy_weight: float = QuickBattleTerms.effective_strength(levies, 10, 3, 1.0)
 
 	assert_almost_eq(guard_weight, 4.0 * 22.0, 0.01, "Σ (FPN + FPM) for the slice")
 	assert_true(guard_weight > pike_weight)
 	assert_true(pike_weight > levy_weight)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
+		QuickBattleTerms.effective_strength(guards, 10, 0, 1.0), 0.0, 0.001,
 		"a broken line has no strength"
 	)
 	assert_almost_eq(
-		QuickBattle.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
+		QuickBattleTerms.effective_strength(guards, 10, 3, 2.0), guard_weight * 2.0,
 		0.01, "the side multiplier scales the whole slice"
 	)
 
@@ -7478,7 +7923,7 @@ func test_land_only_the_deployed_slice_counts_toward_strength() -> void:
 	var twelve: Array[ArmyState] = land__lane_side(land__guards(12), 2)
 
 	assert_almost_eq(
-		QuickBattle.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
+		QuickBattleTerms.effective_strength(twelve, 10, 3, 1.0), 10.0 * 22.0, 0.01
 	)
 
 ## A chevroned regiment weighs more than a fresh one, and health scales it the
@@ -7489,14 +7934,14 @@ func test_land_chevrons_and_health_raise_a_regiments_weight() -> void:
 	var army: ArmyState = veteran[0]
 	for regiment_id: String in army.regiments:
 		army.regiment_medals[regiment_id] = RegimentCatalog.MAX_MEDALS
-	var fresh_weight: float = QuickBattle.effective_strength(fresh, 10, 3, 1.0)
-	var veteran_weight: float = QuickBattle.effective_strength(veteran, 10, 3, 1.0)
+	var fresh_weight: float = QuickBattleTerms.effective_strength(fresh, 10, 3, 1.0)
+	var veteran_weight: float = QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0)
 
 	assert_almost_eq(veteran_weight, fresh_weight * 1.4, 0.01)
 	var first: String = army.regiments[0]
 	army.regiment_health[first] = RegimentCatalog.max_health("guards") / 2
 	assert_true(
-		QuickBattle.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
+		QuickBattleTerms.effective_strength(veteran, 10, 3, 1.0) < veteran_weight,
 		"a mauled regiment shoulders less"
 	)
 
@@ -8040,7 +8485,7 @@ func test_land_a_side_spends_at_most_three_cp_a_round() -> void:
 		for round: Dictionary in rounds:
 			for side: int in [int(battle["attacker"]), int(battle["defender"])]:
 				var spent: int = land__cp_spent(round, side)
-				assert_true(spent <= QuickBattle.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
+				assert_true(spent <= QuickBattleTerms.CP_PER_ROUND, "%s spends %d CP" % [plan, spent])
 
 ## The side the human does not command is chosen in the published order
 ## (wiki: quick-battle § The opposing script): a scenario plan, the crown's own,
@@ -8048,24 +8493,24 @@ func test_land_a_side_spends_at_most_three_cp_a_round() -> void:
 func test_land_the_opposing_script_follows_the_published_order() -> void:
 	var pikes: Array[ArmyState] = land__rival(["pikemen", "pikemen"])
 	var muskets: Array[ArmyState] = land__rival(["pikemen", "musketeers"])
-	assert_eq(QuickBattle.plan_for(pikes, 1, {}, true, true), "aggressive",
+	assert_eq(QuickBattleTerms.plan_for(pikes, 1, {}, true, true), "aggressive",
 		"a wall with no firearm sallies")
-	assert_eq(QuickBattle.plan_for(muskets, 1, {}, true, true), "defensive",
+	assert_eq(QuickBattleTerms.plan_for(muskets, 1, {}, true, true), "defensive",
 		"a wall that can shoot holds")
-	assert_eq(QuickBattle.plan_for(land__rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["squires", "pikemen", "pikemen"]), 1, {}, false),
 		"aggressive", "cavalry share ≥ 0.3")
-	assert_eq(QuickBattle.plan_for(land__rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["squires", "pikemen", "pikemen", "pikemen"]), 1, {}, true, false),
 		"defensive", "cavalry share below 0.3")
-	assert_eq(QuickBattle.plan_for(land__rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
-	assert_eq(QuickBattle.plan_for(land__rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["squires", "pikemen"]), 0, {}, false), "aggressive")
+	assert_eq(QuickBattleTerms.plan_for(land__rival(["pikemen", "pikemen"]), 0, {}, false), "balanced")
 	## An explicit scenario plan outranks the ranking, and the crown's plan
 	## outranks the automatic sally.
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"defender_battle_plan": "balanced"}, true, true),
 		"balanced"
 	)
 	assert_eq(
-		QuickBattle.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
+		QuickBattleTerms.plan_for(pikes, 1, {"player_faction": 1, "battle_plan": "defensive"}, true, true),
 		"defensive", "the crown's plan holds its own wall"
 	)
 
@@ -8083,7 +8528,7 @@ func test_land_an_unknown_plan_is_balanced() -> void:
 	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
 	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
 	assert_eq(
-		QuickBattle.plan_for(
+		QuickBattleTerms.plan_for(
 			land__rival(["pikemen"]), 0, {"player_faction": 0, "battle_plan": "hammer"}, false
 		),
 		"balanced", "a crown's unknown stance fights balanced"
@@ -9623,11 +10068,11 @@ func test_a_reserve_adds_no_strength_to_the_outcome() -> void:
 		side[0].remove_regiment(regiment_id)
 
 	assert_almost_eq(
-		QuickBattle.effective_strength(side, 10, 3, 1.0, 0.0, line), 0.0, 0.001,
+		QuickBattleTerms.effective_strength(side, 10, 3, 1.0, 0.0, line), 0.0, 0.001,
 		"four reserves weigh nothing"
 	)
 	assert_true(
-		QuickBattle.effective_strength(side, 10, 3, 1.0) > 0.0,
+		QuickBattleTerms.effective_strength(side, 10, 3, 1.0) > 0.0,
 		"a state with no dealt line keeps the older read"
 	)
 	assert_eq(

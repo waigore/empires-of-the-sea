@@ -1,5 +1,6 @@
 # Evidence wiki hierarchy
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
 Screenshots and logs for issue resolution live in the **GitHub wiki**, not the game repo.
 
 ## Hierarchy

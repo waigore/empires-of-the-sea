@@ -1,5 +1,7 @@
 # Bug issue template
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 **Title:** `[Bug] <short symptom>`
 
 **Labels:** `todo`, `bug`

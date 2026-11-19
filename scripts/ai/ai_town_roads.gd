@@ -54,6 +54,35 @@ static func best_candidate(
 	return best
 
 
+## Every town-link step this court would offer this turn, as a set of tiles:
+## the first unroaded tile on the shortest owned-land path from each owned town
+## that still stands off the capital network. One read for the conquest bank's
+## trim (issue #995), which keeps these roads while it holds the purse: a
+## province's estates — the farms the bank itself raises among them — only pay
+## once its town reaches the capital under the Town rule, and a Builder prices
+## an off-network raise on the promise that this road follows (wiki:
+## capital-and-connectivity § Connectivity (Game Rule), § Town per province).
+## Deterministic: the same map and network always name the same tiles.
+static func steps(
+	model: MapModel, works: LandWorks, owner: int, connected: Dictionary
+) -> Dictionary:
+	var out: Dictionary = {}
+	if model == null or works == null or owner < 0 or connected.is_empty():
+		return out
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner:
+			continue
+		var town: Vector2i = ImprovementSystem.town_tile(
+			model, works, province.id, CivilianState.NO_TILE
+		)
+		if town.x < 0 or connected.has(model.index_of(town.x, town.y)):
+			continue
+		var step: Vector2i = _first_unroaded(model, works, owner, town, connected)
+		if step.x >= 0:
+			out[step] = true
+	return out
+
+
 ## First tile without a road on the shortest owned-land path from the town to
 ## the capital network. Empty when no such path exists.
 static func _first_unroaded(

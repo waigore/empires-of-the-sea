@@ -3,16 +3,19 @@ extends RefCounted
 ## Rival land turn: every region's stored roster is planned and applied through
 ## ArmyMovement, so a march this turn fights this turn (docs/ai.md). Splits run
 ## first so a court that has just declared war can field an army at once.
+##
+## The muster that precedes the march — the regiment a court raises, its
+## surgeons' train and the Home Army's recall — is MapPlayArmyMusterAi's; this
+## pass calls it before it gives the day's orders.
 
-## Turn-trace kind for a rival court's own muster (DR-20261111-04).
-const KIND_REINFORCE: String = "reinforce"
-## Turn-trace kind for a rival army's field hospital train (DR-20261112-08).
-const KIND_HOSPITAL: String = "hospital_train"
-## The Home Army marching back to a seat that moved (issue #474).
-const KIND_RECALL: String = "recall"
 ## Turn-trace kind for a rotated field army folding into the Home Army
 ## (issue #974).
 const KIND_COMBINE: String = "combine"
+## The muster's trace kinds, republished: the frozen ai-bench mainline planners
+## read them from this pass (P4), while MapPlayArmyMusterAi writes them.
+const KIND_REINFORCE: String = MapPlayArmyMusterAi.KIND_REINFORCE
+const KIND_HOSPITAL: String = MapPlayArmyMusterAi.KIND_HOSPITAL
+const KIND_RECALL: String = MapPlayArmyMusterAi.KIND_RECALL
 
 
 static func run(play: PlaySession) -> Array[Dictionary]:
@@ -52,21 +55,20 @@ static func _run_region(
 		if kind == AiControl.KIND_RANDOM:
 			continue
 		var config: Variant = AiBind.config(kind, faction, play.map_seed)
-		# The court raises its men before it plans this turn's march, so a fresh
-		# regiment can hold the seat or join the field army it detaches
-		# (wiki: ai-architecture § Land reinforcement; DR-20261111-04). A court
-		# striking for food raises none: its own men would go hungry instead
-		# (issue #489).
-		changed = _reinforce(play, model, roster, faction, config, kind, trace) or changed
-		# The court brings its surgeons along before it gives the march: a worn
-		# field army on its own ground pitches a train (DR-20261112-07,
-		# DR-20261112-08).
-		changed = _pitch_train(play, model, roster, faction, kind, trace) or changed
-		for action: Dictionary in AiBind.military_split(
+		# The court raises its men and brings its surgeons before it plans this
+		# turn's march, so a fresh regiment can hold the seat or join the field
+		# army it detaches, and a worn field army on its own ground pitches a
+		# train (wiki: ai-architecture § Land reinforcement; DR-20261111-04,
+		# DR-20261112-07, DR-20261112-08). A court striking for food raises none:
+		# its own men would go hungry instead (issue #489).
+		changed = MapPlayArmyMusterAi.muster(
+			play, model, roster, faction, config, kind, trace
+		) or changed
+		for action: Dictionary in AiBindCampaign.military_split(
 			kind, config, play.diplomacy, model, roster
 		):
 			changed = _apply_split(play, model, roster, faction, action, trace) or changed
-		var plan: Dictionary = AiBind.military_march(
+		var plan: Dictionary = AiBindCampaign.military_march(
 			kind, config, play.diplomacy, model, roster
 		)
 		changed = _apply_marches(
@@ -74,8 +76,7 @@ static func _run_region(
 		) or changed
 		# The rotation's merge leg (issue #974): a field army the court just
 		# marched home folds into the Home Army, so the next split re-fields a
-		# full-strength replacement. Baselines keep the frozen shape — their
-		# planners issue no rotation orders.
+		# full-strength replacement. Baselines issue no rotation orders.
 		if kind != AiControl.KIND_BASELINE:
 			changed = _apply_rotation_combine(
 				play, model, roster, faction, plan, trace
@@ -123,14 +124,11 @@ static func _apply_split(
 		return false
 	var field: ArmyState = split["army"] as ArmyState
 	play.army_layer.next_army += 1
-	trace.append({
-		"faction": faction,
-		"kind": AiMilitaryPlanner.KIND_SPLIT,
-		"army": field.id,
-		"province": field.province,
-		"province_name": model.province_name(field.province),
-		"region": model.region_id,
-	})
+	trace.append(
+		MapPlayCourt.army_trace(
+			model, faction, AiMilitaryPlanner.KIND_SPLIT, field.id, field.province
+		)
+	)
 	return true
 
 
@@ -153,8 +151,7 @@ static func _apply_marches(
 			continue
 		var province: int = int(order["province"])
 		# The rival marches through the same gate the crown does: a Tribe needs
-		# no declaration, but a Tribe province another crown has bought land in
-		# does (wiki: factions § Tribe; REQ-P2-03).
+		# no declaration, but a Tribe province a crown has bought land in does.
 		var owner: int = model.province_owner(province)
 		var may_enter: bool = (
 			owner == MapModel.NO_ID or owner == faction
@@ -164,15 +161,16 @@ static func _apply_marches(
 		if not bool(march.get("ok", false)):
 			continue
 		changed = true
-		trace.append({
-			"faction": faction,
-			"kind": kind,
-			"army": army.id,
-			"province": province,
-			"province_name": model.province_name(province),
-			"region": model.region_id,
-			"attacked": bool(march.get("attacked", false)),
-		})
+		var attacked: bool = bool(march.get("attacked", false))
+		# The prosecution note (issue #999): an attack on another court's ground
+		# is what makes a war pay, and the diplomacy pass reads it.
+		if attacked and play.ai != null and owner != MapModel.NO_ID and owner != faction:
+			AiWarMemory.note_attack(play.ai, faction, owner, play.turn)
+		var line: Dictionary = MapPlayCourt.army_trace(
+			model, faction, kind, army.id, province
+		)
+		line["attacked"] = attacked
+		trace.append(line)
 		_report_march(play, model, faction, province)
 	return changed
 
@@ -188,100 +186,6 @@ static func _report_march(
 		"%s's army marches into %s"
 		% [FactionCatalog.name_of(faction), model.province_name(province)]
 	)
-
-
-## The extra regiments this court arms up for while it can see the victory bar
-## (wiki: ai-architecture § Notable strategic policies; DR-20261114-04). A
-## session with no world reads none, so the published target stands.
-static func _extra_regiments(play: PlaySession, faction: int, config: Variant) -> int:
-	return int(AiVictoryPressure.read(
-		play.world, faction, play.human_faction_id(), play.difficulty, config
-	)["extra_regiments"])
-
-
-## A rival court raises one line regiment a turn from its own ledger while it
-## stands under its target strength and its economy can carry the muster — the
-## growth-stage throttle (wiki: ai-architecture § Land reinforcement;
-## DR-20261111-04). The regiment joins the Home Army at the capital through
-## `ArmyTraining`, so the AI pays the same treasury, materials and peasant the
-## human drill yard does (REQ-P2-03).
-static func _reinforce(
-	play: PlaySession,
-	model: MapModel,
-	roster: Array[ArmyState],
-	faction: int,
-	config: Variant,
-	kind: String,
-	trace: Array[Dictionary]
-) -> bool:
-	if play.ai == null or play.army_layer == null or play.diplomacy == null:
-		return false
-	var capital: int = WorldBootstrap.capital_province(model, faction)
-	if capital < 0:
-		return false
-	var home: ArmyState = ArmyTraining.home_army(roster, faction)
-	if home == null:
-		return false
-	if home.province != capital:
-		# A court whose seat moved musters nowhere: the garrison re-forms at the
-		# new capital, then the muster below prices its regiment (issue #474).
-		_recall(play, model, home, faction, capital, trace)
-	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
-	if economy == null:
-		return false
-	# The hull the court is saving for outranks the next regiment: the muster
-	# spends only what stands above that chest, and — once the chest is full —
-	# only the cloth above the hull's own row, so the launch the purse was saved
-	# for can actually be laid (issue #484).
-	var own_warships: int = MapPlayCourt.warships(play, faction)
-	var chest: int = MapPlayCourt.navy_chest(play, faction)
-	var held: Dictionary = {}
-	if chest > 0 and (
-		economy.treasury >= chest or own_warships == 0
-	):
-		held = AiNavy.due_row(
-			MapPlayCourt.at_war(play, faction),
-			own_warships,
-			MapPlayCourt.hostile_warships(play, faction),
-			economy, MapPlayCourt.hull_types(play, faction)
-		)
-	var plan: Dictionary = AiBind.reinforce_plan(
-		kind,
-		config,
-		economy,
-		play.army_layer.regiment_count_all(faction),
-		MapPlayCourt.at_war(play, faction),
-		_extra_regiments(play, faction, config),
-		AiBind.fed_slack(
-			kind, economy, play.army_layer.food_upkeep_all(faction),
-			MapPlayCourt.ships(play, faction)
-		),
-		chest,
-		held,
-		own_warships,
-		# The harvest the court's land carries, noted by the economy pass: the
-		# desired army is provisioned before it is raised (issue #807). No
-		# reading keeps the store gate.
-		int(play.ai.food_slack[faction]) if play.ai.food_slack.has(faction) else -2
-	)
-	var type_id: String = String(plan["muster"])
-	if type_id.is_empty():
-		return false
-	var unit_id: String = "unit_%d" % play.army_layer.next_regiment
-	if not bool(ArmyTraining.recruit(economy, home, type_id, unit_id).get("ok", false)):
-		return false
-	play.army_layer.next_regiment += 1
-	trace.append({
-		"faction": faction,
-		"kind": KIND_REINFORCE,
-		"army": home.id,
-		"type": type_id,
-		"regiment": unit_id,
-		"province": home.province,
-		"province_name": model.province_name(home.province),
-		"region": model.region_id,
-	})
-	return true
 
 
 ## The rotation's merge leg (issue #974): a field army the court just marched
@@ -312,89 +216,10 @@ static func _apply_rotation_combine(
 		if not bool(merged.get("ok", false)):
 			continue
 		changed = true
-		trace.append({
-			"faction": faction,
-			"kind": KIND_COMBINE,
-			"army": home.id,
-			"province": home.province,
-			"province_name": model.province_name(home.province),
-			"region": model.region_id,
-		})
+		trace.append(
+			MapPlayCourt.army_trace(
+				model, faction, KIND_COMBINE, home.id, home.province
+			)
+		)
 	return changed
 
-
-## Re-forms a stranded Home Army at the new seat. The Home Army is the seat's
-## garrison, not a field column — the rules never let it march (`can_move`
-## refuses it) — so when the capital moves the garrison re-forms there instead
-## of standing at the old seat for the rest of the campaign, which is what
-## blocked every muster after a capital fell (issue #474).
-static func _recall(
-	play: PlaySession,
-	model: MapModel,
-	home: ArmyState,
-	faction: int,
-	capital: int,
-	trace: Array[Dictionary]
-) -> bool:
-	if AiArmyReinforce.recall_target(home.province, capital) < 0:
-		return false
-	var from: int = home.province
-	home.province = capital
-	home.moved = false
-	trace.append({
-		"faction": faction,
-		"kind": KIND_RECALL,
-		"army": home.id,
-		"province": capital,
-		"province_name": model.province_name(capital),
-		"from": from,
-		"region": model.region_id,
-	})
-	return true
-
-
-## A court at war pitches its surgeons: the wornest field army on the court's own
-## ground takes a train, paid from the same table the crown's dossier prints
-## (DR-20261112-07, DR-20261112-08). One train a turn per court, and nothing is
-## invented when a court lacks the tech, the material or a wound to tend.
-static func _pitch_train(
-	play: PlaySession,
-	model: MapModel,
-	roster: Array[ArmyState],
-	faction: int,
-	kind: String,
-	trace: Array[Dictionary]
-) -> bool:
-	if play.ai == null or play.army_layer == null or _trained_this_turn(trace, faction):
-		return false
-	var economy: PlayerEconomy = play.ai.economies.get(faction, null) as PlayerEconomy
-	if economy == null:
-		return false
-	var army: ArmyState = AiBind.hospital_best_army(
-		kind, model, roster, faction, economy, MapPlayCourt.at_war(play, faction)
-	) as ArmyState
-	if army == null:
-		return false
-	var cost: Dictionary = HospitalTrain.cost()
-	for commodity: String in cost.keys():
-		economy.take(commodity, int(cost[commodity]))
-	HospitalTrain.apply(army)
-	trace.append({
-		"faction": faction,
-		"kind": KIND_HOSPITAL,
-		"army": army.id,
-		"province": army.province,
-		"province_name": model.province_name(army.province),
-		"region": model.region_id,
-	})
-	return true
-
-
-## A court brings one train a turn, however many regions its armies stand in.
-static func _trained_this_turn(trace: Array[Dictionary], faction: int) -> bool:
-	for record: Dictionary in trace:
-		if String(record.get("kind", "")) != KIND_HOSPITAL:
-			continue
-		if int(record.get("faction", MapModel.NO_ID)) == faction:
-			return true
-	return false

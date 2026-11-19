@@ -45,10 +45,16 @@ static func seed(play: PlaySession, faction: int) -> void:
 ## can be kept back (wiki: economy-planner § Reservations — one stockpile serves
 ## build, work and trade); the same plans are applied once the ledger closes. An
 ## overseas region is priced on the raw its holds actually landed.
+##
+## `conquest_bank` is the win-bar reading (issue #995): a court short of the
+## bar with an army still under target banks for its next line on `earn`, and
+## its optional works wait — the farms and the prospecting keep, and the raw
+## the land lands sells, so the purse fills at the sale rate instead of
+## feeding the estate engine that never arms it.
 static func plan_all(
 	play: PlaySession, faction: int, economy: PlayerEconomy, config: Variant,
 	overseas: Dictionary = {}, stockpile: Dictionary = {}, floor: int = 0,
-	works_floor: int = -1
+	works_floor: int = -1, conquest_bank: bool = false
 ) -> Array[Dictionary]:
 	var plans: Array[Dictionary] = []
 	var kind: String = AiControl.court_kind(play, faction)
@@ -71,6 +77,7 @@ static func plan_all(
 		if model == null or roster.is_empty() or works == null:
 			continue
 		var capital: Dictionary = WorldBootstrap.capital_seat(model, faction)
+		var capital_tile: Vector2i = capital["tile"]
 		var tech_caps: Dictionary = TechCatalog.extraction_caps(economy.tech_unlocked)
 		var context: Dictionary = {
 			"treasury": works_cash,
@@ -78,7 +85,7 @@ static func plan_all(
 			"earn": earn,
 			"paper": economy.quantity("paper"),
 			"capital_province": int(capital["province"]),
-			"capital_tile": capital["tile"],
+			"capital_tile": capital_tile,
 			"tech_unlocked": economy.tech_unlocked,
 			"at_war": MapPlayCourt.at_war(play, faction), "diplomacy": play.diplomacy,
 			"phase": posture,
@@ -102,27 +109,46 @@ static func plan_all(
 		# the old reading. A muster due with the slack at or under zero leads
 		# the Builders to the ration estates, so the food income for the army
 		# the court desires is provisioned before that army is raised (#807).
+		# The conquest bank latches the same premium (issue #995): a court
+		# short of the bar banking for its host desires that army already, and
+		# the measured bench froze one at three peasants — no hands, no chest,
+		# no provision — because the latch read a muster floor the pool could
+		# not carry. The bank provisions the army it means to buy.
 		if play.ai != null and play.ai.food_slack.has(faction):
 			context["larder_slack"] = int(play.ai.food_slack[faction])
 			# The provision premium is the submission surface's own reading: a
 			# baseline court's MainlineAiConfig must never reach the typed
 			# signature, and its planners keep their published market (the same
-			# guard `AiBind.fed_slack` uses for the muster's own reading).
+			# guard `AiBindEconomy.fed_slack` uses for the muster's own reading).
 			if (
 				kind != AiControl.KIND_BASELINE
 				and int(context["larder_slack"]) <= 0
-				and AiArmyReinforce.muster_floor(
-					config, economy, MapPlayCourt.regiments(play, faction),
-					MapPlayCourt.at_war(play, faction)
-				) > 0
+				and (
+					AiArmyReinforce.muster_floor(
+						config, economy, MapPlayCourt.regiments(play, faction),
+						MapPlayCourt.at_war(play, faction)
+					) > 0
+					or conquest_bank
+				)
 			):
 				context["provision_food"] = true
-		var plan: Dictionary = AiBind.civilian_plan(
+		var plan: Dictionary = AiBindCampaign.civilian_plan(
 			kind, config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context
 		)
 		if earn:
-			keep_extraction(plan, model)
+			if conquest_bank:
+				keep_bank_works(
+					plan, model, bank_crops(config, economy),
+					AiTownRoads.steps(
+						model, works, faction,
+						ImprovementSystem.connected_tiles(
+							model, works, faction, capital_tile
+						)
+					)
+				)
+			else:
+				keep_extraction(plan, model)
 		price(plan["orders"], model, works, stockpile)
 		plans.append({
 			"region": region,
@@ -174,6 +200,85 @@ static func keep_extraction(plan: Dictionary, model: MapModel) -> void:
 			continue
 		kept.append(order)
 	plan["orders"] = kept
+
+
+## The conquest bank's trim (issue #995): while a court short of the bar banks
+## for its next line, the farms and the line's own feedstock keep — the ration
+## estates that feed the mouths the army has, the wool and the iron the
+## pattern it saves for are woven and cast into, and the prospecting that
+## opens a paying tile. The other estates wait with the towns and ports: their
+## lumber and cast iron are the stock the sale needs, and the estate engine
+## they feed is the engine that never armed the court (issue #995; the France
+## reading on the same bench — the court that sold its raw won; the estate
+## court parked). The food claims and the lock-recovery purchases still keep
+## the larder fed, so a fed court stays fed (#807).
+##
+## `town_roads` is the town-link step set (`AiTownRoads.steps`): those roads
+## keep too. A province's estates pay only once its town reaches the capital
+## under the Town rule, and a Builder prices an off-network raise on the
+## promise that the engineer's road follows — a promise this trim used to break
+## by waiting the roads with the towns, so a farm the bank raised on a province
+## whose town stood off the network gathered nothing. One road pays a whole
+## province, which is the bank's own provisioning, exactly like the farmhand
+## hire. An order on the tile of a crop the bank already keeps keeps as it is:
+## that estate's own link is its provisioning too.
+static func keep_bank_works(
+	plan: Dictionary, model: MapModel, crops: Array, town_roads: Dictionary = {}
+) -> void:
+	var kept: Array[Dictionary] = []
+	for raw: Variant in plan.get("orders", []):
+		var order: Dictionary = raw
+		if String(order.get("action", "")) == "prospect":
+			kept.append(order)
+			continue
+		var tile: Vector2i = order.get("tile", CivilianState.NO_TILE)
+		if tile.x < 0:
+			continue
+		if town_roads.has(tile):
+			kept.append(order)
+			continue
+		var resource: int = model.resource_at(tile.x, tile.y)
+		if resource != MapModel.NO_ID and crops.has(
+			ImprovementCatalog.commodity(resource)
+		):
+			kept.append(order)
+	plan["orders"] = kept
+
+
+## The estate crops the conquest bank keeps working (issue #995): the food the
+## court's own mouths eat, plus the raw sources — transitively, through every
+## refinement hop — of the row of the line the court is saving for: the levy's
+## cloth is wool woven, the regular's cast iron is ore smelted, the musket's
+## steel is that ore smelted twice. A court with no line to save for, or a
+## caller with no registry to read, keeps the food alone.
+static func bank_crops(config: Variant, economy: PlayerEconomy) -> Array:
+	var crops: Array = []
+	crops.assign(CommodityCatalog.FOOD)
+	if config == null or economy == null:
+		return crops
+	var type_id: String = AiArmyReinforce.saving_type(config, economy)
+	if type_id.is_empty():
+		return crops
+	var wanted: Array = []
+	for commodity: Variant in RegimentEconomy.training_inputs(type_id).keys():
+		var id: String = String(commodity)
+		wanted.append(id)
+		if not crops.has(id):
+			crops.append(id)
+	# Walk every refinement hop: each row commodity is kept, and so is every
+	# raw one of its recipes, until no new source opens.
+	for _hop in 3:
+		var opened: Array = []
+		for commodity: String in wanted:
+			for raw: String in ProductionRecipes.raw_sources(commodity):
+				if not crops.has(raw) and not opened.has(raw):
+					opened.append(raw)
+		if opened.is_empty():
+			break
+		for raw: String in opened:
+			crops.append(raw)
+			wanted.append(raw)
+	return crops
 
 
 ## The material row a planned work will be charged when it is assigned, read from

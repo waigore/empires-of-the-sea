@@ -191,6 +191,18 @@ suites = [
   "test_fleet_orders.gd",
 ]
 
+# The fleet's passenger block: the landing data the block reads and the block
+# itself (wiki: civilian-units § Overseas deployment). The orders suite mounts
+# the dossier and presses the intents; the panel suite mounts the rows. Declared
+# ahead of the civilian and fleet globs so a voyage edit never pays for the map
+# screen or the battle suite.
+[domains.naval_voyage]
+suites = [
+  "test_fleet_orders.gd",
+  "test_panel_parts_rules.gd",
+  "test_mobile_layout.gd",
+]
+
 # Naval battle pass: the resolver, difficulty sea strength, ration morale and
 # dossier odds. MapScreen and save-codec round-trips (~2 min each) stay off
 # this domain so a naval-turn PR stays inside the tier-1 5 min budget.
@@ -466,11 +478,12 @@ domain = "hostility"
 match = "scripts/map/map_play_economy_ai.gd"
 domain = "ai"
 
-# One court's economy turn, split out of the pass above: market + AI + civilian
-# turn prove the plan (manufacture around the chest rows, #878); the full AI
-# fan-out (observer + battle) overruns the tier-1 5 min budget.
+# One court's economy turn (and its research/trade book), split out of the pass
+# above: market + AI + civilian turn prove the plan (manufacture around the
+# chest rows, #878); the full AI fan-out (observer + battle) overruns the
+# tier-1 5 min budget.
 [[rules]]
-match = "scripts/map/map_play_economy_court.gd*"
+match = "scripts/map/map_play_economy_court*.gd*"
 domain = "ai_economy"
 
 [[rules]]
@@ -669,6 +682,14 @@ domain = "fleet_split"
 match = "scripts/map/ship_markers.gd*"
 domain = "fleet_split"
 
+# Where a station's markers stand when several squadrons share it (wiki:
+# ships-and-naval § Fleets in one station; DR-20261119-08). The plan rides the
+# marker bookkeeping it lays out, so a row edit re-runs those naval suites
+# instead of the broad `fleet` fan-out its name would otherwise match.
+[[rules]]
+match = "scripts/map/fleet_lanes.gd*"
+domain = "fleet_split"
+
 [[rules]]
 match = "scripts/ui/fleet_split_block.gd*"
 domain = "fleet_split"
@@ -730,6 +751,32 @@ domain = "economy"
 # The gazette lines a completed recruit prints are a sheet concern.
 [[rules]]
 match = "scripts/rules/gazette_muster.gd*"
+domain = "gazette"
+
+# The sheet's own rules, its copy desks and its memory (wiki: the-gazette): one
+# suite drives the news, so a line, a class or a watchlist change never pays for
+# the map, menu or ui catch-alls (docs/testing.md).
+[[rules]]
+match = "scripts/rules/gazette*.gd*"
+domain = "gazette"
+
+# The sheet's pages: the watchlist editor, the archive room and the printed kit
+# the live sheet and the archive share.
+[[rules]]
+match = "scripts/ui/gazette_watchlist.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette_archive_room.gd*"
+domain = "gazette"
+
+[[rules]]
+match = "scripts/ui/gazette_parts.gd*"
+domain = "gazette"
+
+# The turn-close adapter that collects, files and raises the sheet.
+[[rules]]
+match = "scripts/map/map_play_gazette.gd*"
 domain = "gazette"
 
 [[rules]]
@@ -1097,7 +1144,7 @@ domain = "auto"
 [domains.map_mount]
 suites = [
   "test_map_screen.gd",
-  "test_map_view_rules.gd"
+  "test_map_view_rules.gd",
 ]
 
 # Pause door + MENU seal: the door helper, the menu that mounts it, the three
@@ -1197,6 +1244,24 @@ domain = "lens_kit"
 [[rules]]
 match = "scripts/map/civic_glyphs.gd*"
 domain = "lens_kit"
+
+# The chart's one tile-edge walk: the overlay's province and sea outlines and the
+# inset's coast all ink from it, and its own suite proves the seam arithmetic.
+# Named before the broad `scripts/map/**` catch-all so a seam edit rides the map
+# view suite instead of the whole map fan-out.
+[domains.map_ink]
+suites = [
+  "test_hud_campaign_plate.gd",
+  "test_map_view_rules.gd",
+]
+
+[[rules]]
+match = "scripts/map/tile_edges.gd*"
+domain = "map_ink"
+
+[[rules]]
+match = "tests/test_tile_edges.gd*"
+domain = "fold_chrome"
 
 # The plate's per-type projection: one node-free module read by the survey and
 # its two suites, never a reason to run the prospect fan-out on its own.
@@ -1379,6 +1444,7 @@ suites = [
 suites = [
   "test_panel_parts_rules.gd",
   "test_research_rules.gd",
+  "test_mobile_layout.gd",
 ]
 
 # Slot / SaveWorld capture (in map_data_rules). World-field edits skip the
@@ -1854,6 +1920,11 @@ suites = [
 # One-suite themes for folded leftovers — named before test_ai_*, test_map_*,
 # test_civilian_*, test_hospital_* and the test_* catch-alls so a deletion
 # re-runs only the boot that absorbed it (docs/testing.md tier-1 5 min budget).
+[domains.fold_chrome]
+suites = [
+  "test_hud_campaign_plate.gd",
+]
+
 [domains.fold_court]
 suites = [
   "test_diplomacy_rules.gd",
@@ -2417,11 +2488,17 @@ domain = "ai_ledger"
 # The muster pass and the recall it owes a moved seat (issue #474): the army
 # suites only, never the whole AI fan-out.
 [[rules]]
-match = "scripts/ai/ai_army_reinforce.gd*"
+match = "scripts/ai/ai_army_reinforce*.gd*"
 domain = "ai_army"
 
 [[rules]]
 match = "scripts/map/map_play_army_ai.gd*"
+domain = "ai_army"
+
+# The rival muster split out of that pass: same narrow army-AI slice, so a
+# muster fix runs test_ai_rules rather than the wider army_* fan-out.
+[[rules]]
+match = "scripts/map/map_play_army_muster_ai.gd*"
 domain = "ai_army"
 
 [domains.ai_army]
@@ -2443,8 +2520,9 @@ domain = "ai_diplomacy"
 match = "scripts/ai/ai_economy_trace.gd*"
 domain = "ai_economy"
 
+# The objective ledger and the voyage/war readings it owns (REQ-P3-01).
 [[rules]]
-match = "scripts/map/map_play_objectives_ai.gd*"
+match = "scripts/map/map_play_objective*.gd*"
 domain = "ai_ledger"
 
 # One voyage eligibility read by the colonisation planner, the crossing force,
@@ -2523,8 +2601,9 @@ domain = "ai_diplomacy"
 # Bind + economy/builder planners: the AI and market suites prove the
 # feedstock/works-purse surface (#878); keep them off the observer/battle
 # catch-all so a planner PR stays inside the tier-1 5 min budget.
+# `ai_bind*.gd*` covers AiBind, AiBindEconomy, and AiBindCampaign.
 [[rules]]
-match = "scripts/ai/ai_bind.gd*"
+match = "scripts/ai/ai_bind*.gd*"
 domain = "ai_economy"
 
 [[rules]]
@@ -2708,11 +2787,36 @@ domain = "ai_works"
 match = "scripts/map/map_play_court.gd*"
 domain = "ai_economy"
 
+# Sea earning asks only the income plan; keep a bind retarget off the broad
+# map/** catch-all (map screen / diplomacy / panel boots blow the tier-1
+# 5 min budget when stacked on the AI fan-out).
+[[rules]]
+match = "scripts/map/map_play_sea_step.gd*"
+domain = "ai_economy"
+
 # Turn close: combat stranding and spy resolve hang off this file; keep it off
 # the broad map/** catch-all so a one-line phase hook stays tier-1 sized.
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
 domain = "civilian"
+
+# The passenger block's slice: the voyage data (`MapPlayCivilianVoyage`) and the
+# block that reads it (`FleetCrewSection`) travel together, so a landing-sheet
+# edit rides the two suites that mount both instead of the civilian and fleet
+# domains' whole fan-out (tier-1 5 min budget).
+[[rules]]
+match = "scripts/map/map_play_civilian_voyage.gd*"
+domain = "naval_voyage"
+
+[[rules]]
+match = "scripts/ui/fleet_crew_section.gd*"
+domain = "naval_voyage"
+
+# The passengers block's ground window: the row budget and its height, read by
+# the block and proved by the same two suites plus the phone fits.
+[[rules]]
+match = "scripts/ui/grounds_window.gd*"
+domain = "naval_voyage"
 
 [[rules]]
 match = "scripts/map/civilian_*.gd*"
@@ -2892,6 +2996,23 @@ domain = "chart_art"
 
 [[rules]]
 match = "scripts/map/map_canvas_plan.gd"
+domain = "chart_art"
+
+# Terrain / settlement mark scatter and Passage wash: chart art like the plan
+# that calls them, so only the suites that mount the chart run.
+[[rules]]
+match = "scripts/map/map_canvas_marks.gd*"
+domain = "chart_art"
+
+[[rules]]
+match = "scripts/map/map_canvas_passages.gd*"
+domain = "chart_art"
+
+# A wooded tile's grove layout (the crown tree and its ring of companions):
+# chart art like the plan that calls it, so only the suites that mount the
+# chart run.
+[[rules]]
+match = "scripts/map/map_grove.gd*"
 domain = "chart_art"
 
 # Terrain wash shelf + shared theme: canvas + stamps cover the patch; the
@@ -3260,7 +3381,7 @@ match = "scripts/rules/market_cargo.gd*"
 domain = "economy"
 
 [[rules]]
-match = "scripts/rules/research_*.gd"
+match = "scripts/rules/research_*.gd*"
 domain = "research"
 
 [[rules]]
@@ -3517,6 +3638,11 @@ domain = "layout"
 match = "scripts/ui/icon.gd*"
 domain = "ui"
 
+# The estates' own pictograms ride with the icon control they serve (DR-20261119-06).
+[[rules]]
+match = "scripts/ui/estate_pictograms.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/back_request.gd"
 domain = "ui"
@@ -3707,6 +3833,34 @@ domain = "economy_ui"
 [[rules]]
 match = "scripts/ui/estate_ledger.gd*"
 domain = "muster"
+
+# Every court's own arms (wiki: diplomacy § The court sheet; DR-20261118-30):
+# one pure blazon over the faction catalog and the vector shield that paints it.
+# The court sheet, the open court's page and the dossier head all wear the arms,
+# so the chrome plate drives those cases and the phone suite proves the court
+# sheet still fits. Declared before the `scripts/ui/**` catch-all so a shield
+# change never remounts the setup and hub pages.
+[domains.heraldry]
+suites = [
+  "test_hud_campaign_plate.gd",
+  "test_mobile_layout.gd",
+]
+
+[[rules]]
+match = "scripts/ui/faction_heraldry.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "scripts/ui/faction_crest.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "scripts/ui/faction_crest_marks.gd*"
+domain = "heraldry"
+
+[[rules]]
+match = "tests/test_heraldry.gd*"
+domain = "fold_chrome"
 
 [[rules]]
 match = "scripts/ui/**"

@@ -17,17 +17,43 @@ static func holder(model: MapModel, tile: Vector2i) -> int:
 
 
 ## The commodity the tile publishes on the book, "" when the seller can never
-## work it — a mineral no Minor prospects, or rich ground. A deed there buys no
-## unit, so only the town level is left to name.
+## work it — a mineral no Minor prospects, or rich ground — and "" as well once
+## the province is no longer a Minor Nation's or Tribe's. A conquest takes the
+## tile out of the purchased-tile index and the seller stops offering its unit,
+## so the deed keeps no first refusal there (wiki:
+## world-market-first-right-of-refusal § Purchased-tile index — the
+## post-conquest filter; DR-20261119-02).
 static func commodity(model: MapModel, tile: Vector2i) -> String:
+	if not sold_by_a_minor(model, tile):
+		return ""
 	return MinorMarket.estate_commodity(model, tile)
+
+
+## True while the province's owner still publishes the tile's harvest: only a
+## Minor Nation or a Tribe offers the book a unit, so a province a Great Power
+## has taken sends nothing to the auction. One reading, shared by the unit
+## clause and the town clause (wiki: world-market § Minor and tribe auto-sell;
+## DR-20261119-02).
+static func sold_by_a_minor(model: MapModel, tile: Vector2i) -> bool:
+	if model == null:
+		return false
+	var province: ProvinceState = model.province_data(model.province_at(tile.x, tile.y))
+	if province == null:
+		return false
+	var kind: int = FactionCatalog.type_of(province.owner)
+	return kind == FactionCatalog.Type.MINOR_NATION or kind == FactionCatalog.Type.TRIBE
 
 
 ## The crew's order row, under the Merchant's price: the unit on the book whose
 ## bid fills first and the share a rival's purchase pays the crown, then the town
 ## level this deed develops. "" when this deed buys neither — a mineral tile in a
-## province whose town already stands at the level its deeds support.
+## province whose town already stands at the level its deeds support — and "" on
+## ground that already carries a deed, because no purchase is left to sign there
+## and the row is refused: the holder's own reading is [method held_line]
+## (DR-20261119-02).
 static func order_line(model: MapModel, tile: Vector2i) -> String:
+	if model == null or model.is_purchased_tile(tile):
+		return ""
 	var parts: PackedStringArray = []
 	var unit: String = commodity(model, tile)
 	if not unit.is_empty():
@@ -51,13 +77,10 @@ static func order_line(model: MapModel, tile: Vector2i) -> String:
 ## stands below it. A province no Minor or Tribe owns never takes the step
 ## ([MinorTownGrowth.apply]), so it is named for no other owner.
 static func town_clause(model: MapModel, tile: Vector2i) -> String:
-	if model == null:
+	if model == null or not sold_by_a_minor(model, tile):
 		return ""
 	var province: ProvinceState = model.province_data(model.province_at(tile.x, tile.y))
 	if province == null:
-		return ""
-	var kind: int = FactionCatalog.type_of(province.owner)
-	if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
 		return ""
 	var deeds: int = MinorTownGrowth.deeds_in(model, province) + 1
 	var level: int = MinorTownGrowth.level_for(deeds)

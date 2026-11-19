@@ -94,16 +94,26 @@ const SEA_BLIND := Color(0.310, 0.408, 0.463)
 
 ## Terrain wash colours, indexed by MapModel.Terrain.
 ## Ocean is transparent so the animated sea shader shows through.
+##
+## An owned tile is washed half way to its crown's heraldic colour
+## (`MapWash.OWNER_TINT`), so whatever distance two grounds keep here they keep
+## only half of on the chart. The grounds are set deep enough that this survives
+## the crown's wash: every pair stays at least `TERRAIN_GAP` apart once tinted,
+## and every ground stands at least `PLAINS_GAP` clear of the paper it lies on
+## (REQ-P1-03, REQ-P1-07; the reading is pinned in `tests/test_map_view_rules`).
+## Plains is the atlas paper itself and never moves; the rest step away from it.
+const TERRAIN_GAP: float = 0.065
+const PLAINS_GAP: float = 0.075
 const TERRAIN_COLORS: Array[Color] = [
 	Color(0.0, 0.0, 0.0, 0.0),
 	Color(0.78, 0.87, 0.84, 0.55),
-	Color(0.878, 0.804, 0.62),
-	Color(0.702, 0.741, 0.541),
-	Color(0.804, 0.694, 0.514),
-	Color(0.69, 0.604, 0.49),
-	Color(0.91, 0.839, 0.651),
-	Color(0.663, 0.71, 0.549),
-	Color(0.72, 0.78, 0.52),
+	Color(0.878, 0.804, 0.620),
+	Color(0.610, 0.690, 0.430),
+	Color(0.835, 0.700, 0.435),
+	Color(0.665, 0.560, 0.450),
+	Color(0.960, 0.905, 0.715),
+	Color(0.655, 0.680, 0.585),
+	Color(0.755, 0.815, 0.435),
 ]
 
 static func terrain_color(terrain: int) -> Color:
@@ -148,6 +158,29 @@ static func survey_color(status: String) -> Color:
 ## so a new catalog row never loses its mark (REQ-P3-02).
 static func resource_ink(kind: String) -> Color:
 	return RESOURCE_INK.get(kind, GOLD)
+
+
+## Ink for one **estate** pictogram (wiki: extraction-and-improvements
+## § Improvement Naming; DR-20261119-06). An estate keeps the colour of its good
+## — green timber, blue-grey ore, gold riches, straw grain — and the works it is
+## takes its own: a shepherd's cream, a chestnut remount, russet beeves, an olive
+## plantation leaf and an umber hide. Shape and colour therefore separate two
+## estates that stand on the same chart (REQ-P1-08).
+const ESTATE_INK: Dictionary = {
+	"log": Color(0.235, 0.404, 0.247),
+	"pick": Color(0.376, 0.427, 0.502),
+	"coin": Color(0.847, 0.612, 0.129),
+	"wheat": Color(0.898, 0.796, 0.365),
+	"sheep": Color(0.886, 0.859, 0.769),
+	"horse": Color(0.584, 0.373, 0.196),
+	"cattle": Color(0.706, 0.310, 0.235),
+	"leaf": Color(0.431, 0.541, 0.290),
+	"pelt": Color(0.478, 0.396, 0.325),
+}
+
+
+static func estate_ink(pictogram: String) -> Color:
+	return ESTATE_INK.get(pictogram, GOLD)
 
 
 ## Emblem ink for a surveyed estate: the commodity ink, pulled toward survey

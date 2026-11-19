@@ -21,7 +21,7 @@ Projections never mutate.
 
 ## Production recipes
 
-`ProductionRecipes` holds the recipes:
+Catalogue `ProductionRecipes`; phase `ProductionPhase`:
 
 | Output | Inputs | Labour |
 |--------|--------|--------|
@@ -69,9 +69,9 @@ Prices publish once; pact, boycott, subsidy settle
 
 ## UI
 
-`PRODUCTION`: stockpile by group, holdings; steppers capped by labour/inputs
-(`allowance`), a worked row naming its output (`made 3`), **batch press**
-(`ProductionBatch`, DR-20261116-08).
+`PRODUCTION`: stockpile by group; steppers capped by labour/inputs
+(`allowance`), a worked row names its output (`made 3`), **batch press**
+(`ProductionBatch`; its line priced, DR-20261118-24).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
 line (`CargoRead`), a **batch press** (`MarketBatch`), and a dead
 `Bid` naming its rule (`MarketRules.bid_block`, DR-20261118-15).
@@ -83,13 +83,13 @@ ration, never a hover (DR-20261118-03).
 
 ## Deferred (REQ-P2-02)
 
-Live: rival second-stage appetite (`AiEconomyPlanner`/`town_level`); gaps:
+Live: workshop landing (`ground_appetite`, DR-19-05); see
 [`deferred.md`](deferred.md).
 
 ## Architecture
 
 `player_economy`, `economy_turn`, `economy_consumption`, `larder_read`,
-`cargo_read`, `production_recipes`,
+`cargo_read`, `production_recipes`/`production_phase`,
 `commodity_catalog`, `world_market`, `market_*`, `first_right`,
 `market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,
 `economy/economy_controller`, `economy/ledger_readings`,

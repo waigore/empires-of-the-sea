@@ -66,7 +66,7 @@ static func build_centre(column: VBoxContainer) -> Dictionary:
 	var round_buttons := HFlowContainer.new()
 	round_buttons.add_theme_constant_override("separation", 6)
 	column.add_child(round_buttons)
-	for index in QuickBattle.MAX_ROUNDS:
+	for index in QuickBattleTerms.MAX_ROUNDS:
 		var button := Button.new()
 		button.text = "Round %s" % QuickBattleCopy.roman(index + 1)
 		button.disabled = true

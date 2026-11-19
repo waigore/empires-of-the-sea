@@ -1,5 +1,6 @@
 # Design record + changelog shapes
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
 Wiki SoT: [Design Records](https://github.com/waigore/empires-of-the-sea/wiki/design-records), [Design Changelog](https://github.com/waigore/empires-of-the-sea/wiki/design-changelog).
 
 ## Allocate an ID

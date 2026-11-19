@@ -103,13 +103,20 @@ static func _slice(
 	return slice
 
 
-## Whole-side wear for auto-resolve: each regiment in the deployed slice loses
-## `share` of its pool (reserves behind the line take none).
-static func wear(side: Array[ArmyState], share: float, limit: int = 0) -> int:
+## Whole-side wear for auto-resolve: each regiment in the dealt line loses
+## `share` of its pool. `line` names the men the exchange dealt into the line
+## when it opened ([method ArmyForce.line_ids]): the wear is spent over **those**
+## survivors, so a reserve never steps up into the slice after casualties and
+## takes wear it should not take (wiki: combat § The line and the reserve — "a
+## reserve adds no strength, takes no casualties, and takes no battle wear").
+## Empty keeps the older read for a caller that has no line.
+static func wear(
+	side: Array[ArmyState], share: float, limit: int = 0, line: Array[String] = []
+) -> int:
 	var worn: int = 0
 	if share <= 0.0:
 		return worn
-	for entry: Dictionary in ArmyModifiers.deployed(side, limit):
+	for entry: Dictionary in _slice(side, limit, line):
 		var army: ArmyState = entry["army"]
 		var regiment_id: String = String(entry["id"])
 		var scale: float = float(army.condition_of(regiment_id)["max"]) * share

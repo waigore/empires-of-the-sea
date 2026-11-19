@@ -108,7 +108,7 @@ static func _run(
 	# a row may only be set to what these inputs and this idle labour can start
 	# (wiki: stockpiles-and-production § Production flow).
 	var after_consumption: Dictionary = economy.stockpile.duplicate()
-	var planned: Dictionary = ProductionRecipes.plan(
+	var planned: Dictionary = ProductionPhase.plan(
 		economy.production.assignments(),
 		economy.stockpile,
 		int(consumption["idle_labour"]),

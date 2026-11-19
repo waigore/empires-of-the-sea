@@ -80,11 +80,19 @@ static func coastal_land_of(model: MapModel, zone_id: int) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## A sea-going squadron of `owner`, else her first squadron at all: since the
+## opening muster moors every hull at home (issue #1043), a case that needs
+## water moves the returned squadron there itself.
 static func fleet_at_sea(fleets: Array, owner: int) -> FleetState:
+	var fallback: FleetState = null
 	for fleet: FleetState in fleets:
-		if fleet.owner == owner and fleet.is_at_sea():
+		if fleet == null or fleet.owner != owner:
+			continue
+		if fleet.is_at_sea():
 			return fleet
-	return null
+		if fallback == null:
+			fallback = fleet
+	return fallback
 
 
 ## Answers any rival proposal so a suite that only asserts the turn's outcome
@@ -331,13 +339,16 @@ static func _clear_news(hud: GameHud) -> void:
 	news._compact_queue.clear()
 	news._queue = PackedStringArray()
 	news._queue_narrated.clear()
+	# Free on the spot, not queued: a lazy `_attach()` re-seat runs inside the
+	# next case's body, and `queue_free` would leave the old plates as children
+	# until the frame ends — so `_news_about` would count them with the new ones.
 	for panel: Node in news.box.get_children():
 		panel.set_meta("toast_cancelled", true)
 		if panel.has_meta("toast_tween"):
 			var toast: Tween = panel.get_meta("toast_tween") as Tween
 			if toast != null and toast.is_valid():
 				toast.kill()
-		panel.queue_free()
+		panel.free()
 
 
 ## Restore parks units in region tables and clears the live arrays; spawn rebinds

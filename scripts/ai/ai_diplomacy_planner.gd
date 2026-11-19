@@ -56,6 +56,14 @@ static func decide(
 		var factors: Dictionary = desire["factors"]
 		if memory > 0:
 			factors["memory"] = -memory
+		# The pointless-war read names itself in the trace: a war that has taken
+		# no attack on the enemy for the window is yielding nothing (issue #999).
+		if record.at_war:
+			var idle: int = AiWarMemory.pointless(
+				config, ai_state, turn, config.faction, target
+			)
+			if idle > 0:
+				factors["pointless"] = -idle
 		var entry: Dictionary = {
 			"target": target,
 			"desire": score,
@@ -123,6 +131,19 @@ static func decide(
 	if not best_war.is_empty() and _opens_deed_chain(
 		config, state, candidates, best_war, context
 	):
+		best_war = {}
+	# The pact the court means to march on breaks first (issue #995): a court
+	# short of the bar whose host stands spends its one order on the pact
+	# break that opens the front its conquest needs — the war ban lifts the
+	# next turn, and the host the bank built marches on the big holder behind
+	# it. A petty war cannot pre-empt the break, and neither can a quieter
+	# offer: a court that has banked an army it can only spend on a Minor is
+	# the stall this read ends. A Great Power war still leads — it needs no
+	# break — and the banking court's own gate keeps the break off the table
+	# until the host stands (`AiDiplomacyOffers._break_nap`). The income row's
+	# gap carries the scoping: a frozen baseline breaks no pact for a
+	# conquest (issue #995's subject-scoped surface).
+	if AiDiplomacyTreaties.pact_break_leads(best_offer, best_war, context):
 		best_war = {}
 	if not best_war.is_empty():
 		var provinces: int = DiplomacyRules.provinces_owned(world, int(best_war["target"]))

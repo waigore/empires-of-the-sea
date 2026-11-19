@@ -12,12 +12,15 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
-## and reset the session instead of remounting (`Fixture.suite_reset`).
+## and a re-seat from the pristine save ~0.15 s, so live cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`). Pure
+## projection cases (road ink, defence/sea surveys, agent-debug parsers) never
+## touch `_screen`, so they skip the re-seat (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
-var _screen: MapScreen = null
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
@@ -27,17 +30,30 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
-	_screen = mounted
+	_chart_bound = false
 
 
 func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	_screen = null
 	pristine = {}
+
+
+## Live cases reach the chart through `_screen` / `_attach()`; projection cases
+## that never ask never pay `suite_reset` (~0.15 s under coverage each).
+func _attach() -> MapScreen:
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = true
+	return mounted
+
+
+var _screen: MapScreen:
+	get:
+		return _attach()
 
 
 func test_world_holds_old_and_new_world() -> void:
@@ -256,7 +272,9 @@ func test_clicking_open_water_clears_the_selection() -> void:
 
 func test_clicking_a_fleet_selects_it() -> void:
 	var ship: Ship = _screen.ship_layer.ships[0]
-	MapPlayInput.on_tapped(_screen.play, ship.position)
+	# The marker draws at her own step of the station's row, so the tap lands on
+	# the hull it looks like it hits (wiki: ships-and-naval § Fleets in one station).
+	MapPlayInput.on_tapped(_screen.play, ship.drawn_position())
 	assert_eq(_screen.ship_layer.selected(), ship)
 	assert_true(ship.selected)
 
@@ -483,15 +501,21 @@ func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 
 
 func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
-	var ship: Ship = _screen.ship_layer.ships[0]
-	var zone_tiles: Array = _screen.model.sea_zone_data(ship.zone).tiles
+	# The opening muster moors the crown's squadron at home (issue #1043), so
+	# the chart's reveal is asked of the seat's own sea zone.
+	var capital: int = _screen.play.capital_province
+	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(fleet)
+	var zone: int = NavalMovement.province_sea_zones(_screen.model, capital)[0]
+	var ship: Ship = _screen.ship_layer.ship_for(fleet)
+	var zone_tiles: Array = _screen.model.sea_zone_data(zone).tiles
 	var water: Vector2i = zone_tiles[0]
 	var water_index: int = _screen.model.index_of(water.x, water.y)
 	_screen.visibility.lower_to(water_index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [water_index])
-	MapPlayFleets.on_zone_entered(_screen.play, ship.zone, ship)
+	MapPlayFleets.on_zone_entered(_screen.play, zone, ship)
 	assert_eq(_screen.overlay.fog_state_at(water.x, water.y), MapOverlay.FOG_VISIBLE)
-	var land: Vector2i = Fixture.coastal_land_of(_screen.model, ship.zone)
+	var land: Vector2i = Fixture.coastal_land_of(_screen.model, zone)
 	assert_true(land.x >= 0)
 	assert_eq(_screen.overlay.fog_state_at(land.x, land.y), MapOverlay.FOG_VISIBLE)
 
@@ -2683,25 +2707,19 @@ func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 1)
-	var zone: int = _screen.model.sea_zones[0].id
-	var first: FleetState = null
-	var second: FleetState = null
-	for fleet: FleetState in _screen.ship_layer.fleets:
-		if first == null:
-			first = fleet
-		elif second == null and fleet.owner != first.owner:
-			second = fleet
-		else:
-			fleet.location = FleetState.Location.IN_PORT
-			fleet.province = _screen.model.provinces[0].id
-	assert_not_null(first)
-	assert_not_null(second)
-	for fleet: FleetState in [first, second]:
-		fleet.location = FleetState.Location.AT_SEA
-		fleet.sea_zone = zone
-	first.set_hulls(["a"], {"a": "carrack"})
-	second.set_hulls(["b"], {"b": "fluyte"})
-	DiplomacyRules.declare_war(_screen.play.diplomacy, first.owner, second.owner)
+	# No power holds a capital in the New World, so the opening muster sends no
+	# squadron there (issue #1043): stage the pair this case fights.
+	var zone: int = int(_screen.model.sea_zones[0].id)
+	var first: FleetState = FleetState.at_sea(
+		901, MapScreen.PLAYER_FACTION, zone, ["a"], {"a": "carrack"}
+	)
+	var second: FleetState = FleetState.at_sea(902, 2, zone, ["b"], {"b": "fluyte"})
+	_screen.ship_layer.fleets.clear()
+	_screen.ship_layer.fleets.append(first)
+	_screen.ship_layer.fleets.append(second)
+	_screen.ship_layer.regions.set_region(1, _screen.ship_layer.fleets)
+	_screen.ship_layer.rebuild_markers()
+	DiplomacyRules.enter_war(_screen.play.diplomacy, first.owner, second.owner)
 	var hulls_before: int = first.ship_count() + second.ship_count()
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 
@@ -3383,7 +3401,7 @@ const LIVE_KEYS: Array[String] = [
 
 
 func test_dump_carries_the_save_bag_plus_live_overlays() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var dump: Dictionary = AgentDebugDump.capture(play)
 	for key: String in DUMP_KEYS:
 		assert_true(dump.has(key), "the dump carries the save bag's %s" % key)
@@ -3408,14 +3426,14 @@ func test_a_session_without_a_world_still_dumps_its_overlays() -> void:
 
 
 func test_ping_answers_and_keeps_the_id() -> void:
-	var answer: Dictionary = AgentDebugDump.frame({"id": 1, "op": "ping"}, mounted.play)
+	var answer: Dictionary = AgentDebugDump.frame({"id": 1, "op": "ping"}, _screen.play)
 	assert_true(bool(answer["ok"]), "ping answers ok")
 	assert_eq(int(answer["id"]), 1, "the answer carries the request id")
 	assert_true(bool(answer["data"]["pong"]), "ping pongs")
 
 
 func test_session_reports_the_live_card() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var answer: Dictionary = AgentDebugDump.frame({"id": 2, "op": "session"}, play)
 	assert_true(bool(answer["ok"]), "session answers ok")
 	var data: Dictionary = answer["data"]
@@ -3426,7 +3444,7 @@ func test_session_reports_the_live_card() -> void:
 
 
 func test_dump_observer_and_get_answer_ok() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var dump: Dictionary = AgentDebugDump.frame({"id": 3, "op": "dump"}, play)
 	assert_true(bool(dump["ok"]), "dump answers ok")
 	assert_true((dump["data"] as Dictionary).has("live"), "dump carries the overlays")
@@ -3446,7 +3464,7 @@ func test_dump_observer_and_get_answer_ok() -> void:
 
 
 func test_get_reports_unknown_and_missing_paths() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var unknown: Dictionary = AgentDebugDump.frame({"id": 7, "op": "get", "path": "mystery"}, play)
 	assert_false(bool(unknown["ok"]), "an unknown top-level key answers error")
 	assert_true(String(unknown["error"]).contains("mystery"), "the error names the path")
@@ -3459,7 +3477,7 @@ func test_get_reports_unknown_and_missing_paths() -> void:
 
 
 func test_bad_frames_answer_errors_not_dangles() -> void:
-	var play: PlaySession = mounted.play
+	var play: PlaySession = _screen.play
 	var unparseable: Dictionary = AgentDebugDump.frame(17, play)
 	assert_false(bool(unparseable["ok"]), "a non-object frame answers an error")
 	assert_eq(int(unparseable["id"]), -1, "no id can be kept")
@@ -3568,18 +3586,18 @@ func test_resolve_launch_prefers_user_args_then_cmdline() -> void:
 
 
 func test_the_screen_hosts_an_inert_bridge() -> void:
-	var bridge: AgentDebugBridge = mounted.get_node_or_null("AgentDebugBridge") as AgentDebugBridge
+	var bridge: AgentDebugBridge = _screen.get_node_or_null("AgentDebugBridge") as AgentDebugBridge
 	assert_not_null(bridge, "the map screen hosts the bridge")
 	if bridge == null:
 		return
 	assert_false(bridge.is_listening(), "the bridge is off without the flag")
-	assert_eq(bridge.play, mounted.play, "the bridge holds the live session")
+	assert_eq(bridge.play, _screen.play, "the bridge holds the live session")
 
 
 func test_start_stop_and_a_live_loopback_round_trip() -> void:
 	var bridge := AgentDebugBridge.new()
 	bridge.name = "AgentDebugBridgeProbe"
-	bridge.play = mounted.play
+	bridge.play = _screen.play
 	add_child(bridge)
 	bridge.start(0)
 	assert_false(bridge.is_listening(), "an out-of-range port never listens")

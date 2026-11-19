@@ -28,7 +28,7 @@ Largest change that stays **desktop + mobile** playable; reuse existing patterns
 | [Wiki Game rules](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics (P2) |
 | [`docs/requirements.md`](../../../docs/requirements.md) | `REQ-*` |
 | [`docs/rubric.md`](../../../docs/rubric.md) | `RUB-*` |
-| [`AGENTS.md`](../../../AGENTS.md) | Conventions |
+| [`AGENTS.md`](../../../AGENTS.md) | Conventions; Talk to the user (PR + wiki) |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | PR / checks |
 | [`references/impact-map.md`](references/impact-map.md) | Domain map + ≤5 min gate |
 | [`references/e2e-smoke.md`](references/e2e-smoke.md) | Smoke ≤2 min |

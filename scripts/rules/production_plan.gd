@@ -149,7 +149,7 @@ func made_total() -> int:
 	return total
 
 
-## Records one Production phase's landings (`ProductionRecipes.plan`'s
+## Records one Production phase's landings (`ProductionPhase.plan`'s
 ## `completed`). Unknown recipes and non-positive counts are dropped, so the
 ## record is always something the ledger can name.
 func set_made(completed: Variant) -> void:

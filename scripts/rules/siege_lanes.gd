@@ -72,33 +72,75 @@ static func line_ids(side: Array[ArmyState], limit: int) -> Dictionary:
 	return lanes
 
 
-## At least one regiment can shoot at the wall (firearms or artillery).
-static func can_reach_wall(side: Array[ArmyState]) -> bool:
-	for type_id: String in ArmyForce.side_types(side):
-		if RegimentCatalog.stat(type_id, "rng") >= FIREARM_RNG:
+## At least one regiment of the line can shoot at the wall (firearms or
+## artillery). `line` names the men the battle dealt when it opened: a musket
+## held in reserve never took the field, so it opens no wall (wiki: combat
+## § The line and the reserve — "a reserve adds no strength"). Empty keeps the
+## older read for a caller with no line.
+static func can_reach_wall(side: Array[ArmyState], line: Array[String] = []) -> bool:
+	for entry: Dictionary in _deployed(side, line):
+		if RegimentCatalog.stat(String(entry["type"]), "rng") >= FIREARM_RNG:
 			return true
 	return false
 
 
-## Only artillery can drop shot behind the parapet.
-static func can_reach_behind(side: Array[ArmyState]) -> bool:
-	for type_id: String in ArmyForce.side_types(side):
-		if RegimentCatalog.is_artillery(type_id):
+## Only artillery can drop shot behind the parapet. `line` names the men the
+## battle dealt when it opened: a piece held in reserve never took the field, so
+## it opens no parapet (wiki: combat § The line and the reserve — "a reserve adds
+## no strength"). Empty keeps the older read for a caller with no line.
+static func can_reach_behind(side: Array[ArmyState], line: Array[String] = []) -> bool:
+	for entry: Dictionary in _deployed(side, line):
+		if RegimentCatalog.is_artillery(String(entry["type"])):
 			return true
 	return false
 
 
-## Share of a garrison that can return fire from the wall. Melee-only
-## regiments cannot; they must sortie to engage (wiki: siege-mechanics).
-static func return_fire_share(side: Array[ArmyState]) -> float:
-	var types: Array[String] = ArmyForce.side_types(side)
-	if types.is_empty():
+## Share of a garrison that can shoot over or at a parapet. Melee-only
+## regiments cannot; they must sortie to engage (wiki: siege-mechanics
+## § Quick Battle lanes). `line` names the men the battle dealt when it opened:
+## the share is read over the garrison's own line, so a musket held in reserve
+## neither shoots from the wall nor thins the fire of the men who stand on it
+## (wiki: combat § The line and the reserve — "a reserve adds no strength";
+## quick-battle § Battlefield layout — "the reserve is dealt nowhere"). Empty
+## keeps the older read for a caller with no line.
+static func return_fire_share(side: Array[ArmyState], line: Array[String] = []) -> float:
+	var deployed: Array[Dictionary] = _deployed(side, line)
+	if deployed.is_empty():
 		return 0.0
 	var firing: int = 0
-	for type_id: String in types:
-		if RegimentCatalog.stat(type_id, "rng") >= FIREARM_RNG:
+	for entry: Dictionary in deployed:
+		if RegimentCatalog.stat(String(entry["type"]), "rng") >= FIREARM_RNG:
 			firing += 1
-	return float(firing) / float(types.size())
+	return float(firing) / float(deployed.size())
+
+
+## The weight of a blow that can reach a wall: the deployed regiments that carry
+## firearms, bows or guns (`RNG >= 2`), ranked exactly as
+## [method ArmyModifiers.strength] ranks a side. A pike's weight is left out, so
+## a line of melee alone weighs nothing against a parapet, its battery or its
+## gates (wiki: siege-mechanics § Damage Reduction — "melee-only units cannot
+## attack walls"; § Quick Battle lanes — "only regiments with RNG >= 2 can strike
+## it").
+##
+## `line` names the men the battle dealt when it opened: the blow is weighed over
+## **those** survivors, so a reserve that steps into the slice after casualties
+## carries no shot to the wall (wiki: combat § The line and the reserve — "a
+## reserve adds no strength"; quick-battle § Battlefield layout — "the reserve is
+## dealt nowhere"). Empty keeps the older read for a caller with no line.
+static func striking_weight(
+	side: Array[ArmyState], limit: int, multiplier: float, line: Array[String] = []
+) -> float:
+	var total: float = 0.0
+	## A line names its men by id, so the walk is the whole side filtered to them
+	## — never the strongest `limit`, which a mauled line would drop out of.
+	for entry: Dictionary in ArmyModifiers.deployed(side, 0 if not line.is_empty() else limit):
+		var regiment_id: String = String(entry["id"])
+		if not line.is_empty() and not line.has(regiment_id):
+			continue
+		var army: ArmyState = entry["army"]
+		if RegimentCatalog.stat(army.type_of(regiment_id), "rng") >= FIREARM_RNG:
+			total += float(entry["rank"])
+	return total * multiplier
 
 
 # --- lane terrain ------------------------------------------------------------
@@ -196,6 +238,12 @@ static func breach_share(gates: Dictionary) -> float:
 ## can reach behind the wall, and a breach lets the rest pour through it.
 ## `lanes` is the split the battle read when it opened ([method line_ids]); a
 ## caller that has none (a single probe blow) has the deployed line read here.
+## `attacker_line` is the line the besieging side was dealt when the battle
+## opened: the share that crosses the parapet is that line's own guns over the
+## line's own men, so a gun held in reserve never drops shot behind a wall it
+## never approached (wiki: siege-mechanics § Quick Battle lanes — "artillery /
+## besieging regiments"; combat § The line and the reserve — "a reserve adds no
+## strength"). Empty keeps the older read for a caller with no line.
 ## Returns {"wall": lost ids, "behind": lost ids, "turned": uncounted blow,
 ## "gates_broken": gates opened by this blow}.
 static func strike(
@@ -207,7 +255,8 @@ static func strike(
 	fort: int,
 	exposed: bool,
 	gates: Dictionary = {},
-	lanes: Dictionary = {}
+	lanes: Dictionary = {},
+	attacker_line: Array[String] = []
 ) -> Dictionary:
 	var result: Dictionary = {
 		"wall": [] as Array[String],
@@ -218,16 +267,20 @@ static func strike(
 	if wanted <= 0 or defending.is_empty():
 		return result
 	# Melee-only besiegers cannot attack a wall or anything inside it.
-	if not can_reach_wall(attacking):
+	if not can_reach_wall(attacking, attacker_line):
 		result["turned"] = wanted
 		return result
 	var blow: int = wanted
 	if fort > 0 and not exposed and not breached(gates):
 		blow = ceili(float(wanted) * FortRules.loss_scale(fort))
 	var behind_share: float = 0.0
-	var artillery: int = _artillery_count(attacking)
-	if artillery > 0 and can_reach_behind(attacking):
-		var besiegers: int = maxi(ArmyForce.side_regiments(attacking), 1)
+	# The artillery share of the besieging line: the guns are counted over the men
+	# the line was dealt, so a piece held in reserve neither opens the parapet nor
+	# thins the share of the guns that did take the field (wiki: siege-mechanics
+	# § Quick Battle lanes; combat § The line and the reserve).
+	var artillery: int = _artillery_count(attacking, attacker_line)
+	if artillery > 0 and can_reach_behind(attacking, attacker_line):
+		var besiegers: int = maxi(_deployed_count(attacking, attacker_line), 1)
 		behind_share = float(artillery) / float(besiegers)
 	# A gate already beaten down is a way in for every arm, not just guns.
 	behind_share = maxf(behind_share, breach_share(gates))
@@ -282,9 +335,29 @@ static func _ids_where(side: Array[ArmyState], on_wall: bool) -> Array[String]:
 	return ids
 
 
-static func _artillery_count(side: Array[ArmyState]) -> int:
+static func _artillery_count(side: Array[ArmyState], line: Array[String] = []) -> int:
 	var count: int = 0
-	for type_id: String in ArmyForce.side_types(side):
-		if RegimentCatalog.is_artillery(type_id):
+	for entry: Dictionary in _deployed(side, line):
+		if RegimentCatalog.is_artillery(String(entry["type"])):
 			count += 1
 	return count
+
+
+## How many men of a besieging side took the field: the line the battle dealt
+## when it opened, or the whole side for a caller that dealt none.
+static func _deployed_count(side: Array[ArmyState], line: Array[String]) -> int:
+	return _deployed(side, line).size()
+
+
+## The regiments of a side that took the field, as [method ArmyForce.side_entries]
+## lists them: the ones the battle dealt into the line when `line` names it, and
+## every man of the side otherwise.
+static func _deployed(side: Array[ArmyState], line: Array[String]) -> Array[Dictionary]:
+	var entries: Array[Dictionary] = ArmyForce.side_entries(side)
+	if line.is_empty():
+		return entries
+	var deployed: Array[Dictionary] = []
+	for entry: Dictionary in entries:
+		if line.has(String(entry["id"])):
+			deployed.append(entry)
+	return deployed

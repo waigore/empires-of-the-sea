@@ -60,13 +60,24 @@ static func cross(play: PlaySession, region: int, fleet: FleetState) -> Dictiona
 static func earning(
 	play: PlaySession, faction: int, kind: String, config: Variant
 ) -> bool:
+	# The win-bar reading the bank rides on (issue #995), so the expedition
+	# pass reads the same goal the economy pass plans with — on the
+	# submission surface; a baseline court keeps its published read.
+	var conquest_gap: bool = (
+		kind != AiControl.KIND_BASELINE
+		and AiVictoryPressure.below_bar(
+			play.world, faction, play.human_faction_id(), play.difficulty
+		)
+	)
 	return str(
-		AiBind.income_plan(
+		AiBindEconomy.income_plan(
 			kind, config, play.ledger_for(faction),
 			MapPlayCourt.at_war(play, faction),
 			MapPlayCourt.regiments(play, faction),
 			MapPlayCourt.navy_chest(play, faction),
-			MapPlayCourt.warships(play, faction)
+			MapPlayCourt.warships(play, faction),
+			0,
+			conquest_gap
 		).get("goal", "")
 	) == "earn"
 

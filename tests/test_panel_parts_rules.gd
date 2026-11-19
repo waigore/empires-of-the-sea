@@ -445,6 +445,69 @@ func test_an_estate_shows_its_goods_medallion() -> void:
 	assert_true(plain is Icon, "an unknown good falls back to the category pictogram")
 	plain.free()
 
+## Every estate type reads as its own pictogram (wiki: extraction-and-improvements
+## § Improvement Naming; REQ-P1-08, DR-20261119-06): the nine works the catalogue
+## publishes, nine kinds, each one a kind the control draws.
+func test_each_estate_type_carries_its_own_pictogram() -> void:
+	var seen: Dictionary = {}
+	for resource: Variant in ImprovementCatalog.RESOURCES.keys():
+		var kind: String = ImprovementCatalog.pictogram_kind(int(resource))
+		seen[kind] = true
+		assert_true(Icon.knows(kind), "%s has no painter" % [kind])
+	var expected: Array[String] = [
+		"cattle", "coin", "horse", "leaf", "log", "pelt", "pick", "sheep", "wheat",
+	]
+	var kinds: Array = seen.keys()
+	kinds.sort()
+	assert_eq(kinds, expected, "the catalogue publishes nine estate pictograms")
+
+## Two estates of different work never read as one glyph: a farm, a pasture, a
+## ranch's remounts, a ranch's beeves, a plantation, a fur post, a lumber camp
+## and a mine each carry their own.
+func test_two_works_on_one_chart_read_apart() -> void:
+	var kinds: Array[String] = []
+	for resource: int in [0, 1, 3, 4, 5, 6, 7, 13, 16]:
+		kinds.append(ImprovementCatalog.pictogram_kind(resource))
+	var unique: Dictionary = {}
+	for kind: String in kinds:
+		unique[kind] = true
+	assert_eq(unique.size(), kinds.size(), "two works share a pictogram: %s" % [kinds])
+	assert_eq(ImprovementCatalog.pictogram_kind(4), "wheat", "a farm keeps its sheaf")
+	assert_eq(ImprovementCatalog.pictogram_kind(5), "sheep", "a pasture is a fleece")
+	assert_eq(ImprovementCatalog.pictogram_kind(6), "horse", "remounts read as a shoe")
+	assert_eq(ImprovementCatalog.pictogram_kind(7), "cattle", "beeves read as a head")
+	assert_eq(ImprovementCatalog.pictogram_kind(0), "log", "a lumber camp is a felled log")
+	assert_eq(ImprovementCatalog.pictogram_kind(1), "pick", "a mine is a pick")
+
+## The survey lens still counts in its four published groups, whatever the
+## estates' own pictograms say (issue #698): the lens's column key is `icon`.
+func test_the_survey_lens_keeps_its_four_columns() -> void:
+	assert_eq(",".join(ResourceTypes.ORDER), "tree,ore,coin,wheat")
+	for resource: Variant in ImprovementCatalog.RESOURCES.keys():
+		var column: String = ImprovementCatalog.icon_kind(int(resource))
+		assert_true(
+			ResourceTypes.ORDER.has(column),
+			"resource %s reads outside the lens's columns: %s" % [resource, column]
+		)
+	assert_eq(ImprovementCatalog.icon_kind(5), "wheat", "a pasture stays a farm column")
+
+
+## Each mark actually paints: the control raises one Icon per estate kind and
+## the frame draws it, so no published pictogram is ever a silent blank
+## (REQ-P1-08; DR-20261119-06).
+func test_every_estate_pictogram_paints() -> void:
+	var painted: Array[String] = []
+	for kind: String in EstatePictograms.KINDS:
+		var icon := Icon.new(kind, 24.0, Palette.estate_ink(kind))
+		add_child(icon)
+		icon.queue_redraw()
+		painted.append(kind)
+	await get_tree().process_frame
+	assert_eq(painted.size(), 7, "the estates publish seven marks of their own")
+	for kind: String in painted:
+		assert_true(EstatePictograms.knows(kind), "%s has a painter" % [kind])
+		assert_true(Icon.knows(kind), "the control draws %s too" % [kind])
+
 func test_the_roads_row_names_the_estates_that_reach_the_crown() -> void:
 	_setup_province_panel()
 	_show()
@@ -749,8 +812,11 @@ func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
 		"builder_id": -1,
 		"next_level": 3,
 	})
-	assert_eq(row._icon.kind, "tree")
-	assert_eq(row._icon.tint, Palette.resource_ink("tree"), "timber green, not the status ink")
+	assert_eq(row._icon.kind, "log", "the lumber camp is its own pictogram, not the survey group's")
+	assert_eq(
+		row._icon.tint, Palette.resource_ink("tree"),
+		"timber green, not the status ink (DR-20261119-06)"
+	)
 	assert_eq(row._status_chip.text, "DISCONNECTED", "the chip still names the status")
 	row.free()
 
@@ -3051,6 +3117,38 @@ func test_ship_uses_a_painted_hull() -> void:
 	assert_not_null(tex, "the fleet has no painted hull")
 	assert_eq(tex.get_width(), 256)
 
+
+## The estate marks a developed tile leaves on the chart are painted too, so a
+## timber camp or a mine reads at map scale (issue #1007).
+func test_every_estate_mark_has_a_painted_stamp() -> void:
+	for kind: String in ["work_wood", "work_mine", "work_riches", "work_grain"]:
+		var tex: Texture2D = MapSymbols.texture(kind)
+		assert_not_null(tex, "%s has no painted stamp" % kind)
+		assert_gt(tex.get_width(), 63, "%s is drawn from a downscaled source" % kind)
+
+
+## A developed tile takes its family's mark: timber, ore, coin or grain.
+func test_estate_marks_follow_the_resource_family() -> void:
+	var seen: Dictionary = {}
+	for resource in 20:
+		seen[LandWorksPaint._kind(resource)] = true
+	assert_true(seen.has("work_wood"), "timber has its own mark")
+	assert_true(seen.has("work_mine"), "ore has its own mark")
+	assert_true(seen.has("work_riches"), "coin has its own mark")
+	assert_true(seen.has("work_grain"), "grain and unknown ground share the sheaf")
+
+
+## The ink fallback still draws every family where no art is imported, which is
+## the build a headless run gets (issue #1007).
+func test_estate_ink_fallback_draws_each_family() -> void:
+	var probe := _EstateProbe.new()
+	probe.name = "EstateProbe"
+	add_child(probe)
+	probe.queue_redraw()
+	await get_tree().process_frame
+	assert_true(probe.drawn, "the ink fallback drew every family")
+	probe.queue_free()
+
 func _probe() -> _StampProbe:
 	return _StampProbe.new()
 
@@ -3075,6 +3173,17 @@ class _StampProbe:
 
 	func _draw() -> void:
 		result = MapSymbols.stamp(self, glyph)
+
+
+class _EstateProbe:
+	extends Node2D
+
+	var drawn: bool = false
+
+	func _draw() -> void:
+		for resource in [0, 1, 3, 4]:
+			LandWorksPaint.ink_mark(self, Vector2(20, 20), resource)
+		drawn = true
 # --- test_espionage ---
 
 ## Espionage rules (wiki: civilian-units § Spy, research-state § Spy RP boost,
@@ -4566,6 +4675,62 @@ func test_recipe_title_names_the_single_input() -> void:
 	assert_true(title.contains(CommodityCatalog.label(ProductionRecipes.output(recipe_id))))
 	assert_true(LedgerProductionText.recipe_tooltip(recipe_id).contains("→"))
 
+func test_production_gate_copy_names_town_then_hand() -> void:
+	assert_true(
+		LedgerProductionText.gate_note("garments", 0).contains("level-2 town"),
+		"a garments row waits on the town's works first"
+	)
+	assert_true(
+		LedgerProductionText.gate_tooltip("garments", 0).contains("TOWNS sheet"),
+		"the long form points at the TOWNS sheet"
+	)
+	assert_true(
+		LedgerProductionText.gate_note("cigars", 0).contains("Apprentice"),
+		"a cigar row names the hand it needs when the town is open"
+	)
+	assert_true(
+		LedgerProductionText.gate_tooltip("cigars", 0).contains("WORKERS tab"),
+		"the long form points at the WORKERS tab"
+	)
+
+
+func test_manufacture_hint_remembers_last_phase() -> void:
+	assert_false(
+		LedgerProductionText.manufacture_hint(0).contains("Last phase"),
+		"an idle workshop adds no memory"
+	)
+	assert_true(
+		LedgerProductionText.manufacture_hint(1).contains("made 1 good."),
+		"one good stays singular"
+	)
+	assert_true(
+		LedgerProductionText.manufacture_hint(3).contains("made 3 goods."),
+		"several goods take the plural"
+	)
+
+
+func test_recipes_for_output_put_ungated_first() -> void:
+	var rows: Array[String] = LedgerProductionText.recipes_for_output("fabric", {})
+	assert_false(rows.is_empty(), "wool weave is always known")
+	assert_true(
+		ProductionRecipes.required_tech(rows[0]).is_empty(),
+		"the always-available weave sits at the top"
+	)
+
+
+func test_workshop_row_note_names_last_output() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.new()
+	assert_eq(LedgerWorkshop.row_note(economy, "lumber"), "", "idle one-turn rows stay blank")
+	economy.production.set_made({"lumber": 2})
+	assert_eq(
+		LedgerWorkshop.row_note(economy, "lumber"), "made 2",
+		"an idle row that worked last phase says so"
+	)
+	assert_true(
+		LedgerWorkshop.row_tooltip(economy, "lumber").contains("Last phase it made 2"),
+		"the long form names the good"
+	)
+
 func test_the_summary_reads_the_report() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.new()
 	economy.treasury = 1234
@@ -5271,9 +5436,11 @@ func test_the_dossier_names_the_deed_that_holds_the_ground() -> void:
 	)
 
 
-## The passengers block reads a landing as a tile: a coast with one legal ground
-## lands in one press, a coast with several opens its grounds, and the ground's
-## press carries that tile (wiki: civilian-units § Landing; DR-20261118-19).
+## The passengers block reads a landing as a tile and a crew: a coast with one
+## legal ground lands in one press, a coast with several opens its grounds, the
+## ground's press carries that tile and the crew kind the row named, and the row
+## prints what the crown can read of the ground (wiki: civilian-units § Landing;
+## DR-20261118-19).
 func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
 	var block := FleetCrewSection.new()
 	add_child(block)
@@ -5285,33 +5452,47 @@ func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
 		"embark": [],
 		"sortie": [],
 		"land": [
-			{"province": 4, "name": "Cadiz", "tiles": [{"x": 2, "y": 3}]},
 			{
-				"province": 5,
-				"name": "Vera Cruz",
-				"tiles": [{"x": 7, "y": 8}, {"x": 9, "y": 10}],
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer", "tiles": [{"x": 2, "y": 3}],
+			},
+			{
+				"province": 5, "name": "Vera Cruz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"tiles": [
+					{"x": 7, "y": 8, "ground": "Hills · iron"},
+					{"x": 9, "y": 10},
+				],
 			},
 		],
 	})
 	var coasts: Array[Node] = block.find_children("", "Button", true, false)
 	assert_eq(coasts.size(), 2, "one press per coast")
 	var single: Button = coasts[0] as Button
-	assert_eq(single.text, "Put ashore at Cadiz")
+	assert_eq(single.text, "Put the Explorer ashore at Cadiz")
 	single.pressed.emit()
-	assert_eq(fired, ["crew:land:2:3"], "one ground lands in one press")
+	assert_eq(fired, ["crew:land:2:3:explorer"], "one ground lands in one press")
 	assert_eq(block.open_coast, -1, "a single-ground coast opens nothing")
 
 	var many: Button = coasts[1] as Button
-	assert_true(many.text.begins_with("Put ashore at Vera Cruz · 2 grounds"))
+	assert_true(many.text.begins_with("Put the Explorer ashore at Vera Cruz · 2 grounds"))
 	many.pressed.emit()
 	assert_eq(block.open_coast, 5, "the coast opens")
+	assert_eq(block.open_crew, "explorer", "the open grounds belong to the crew read")
 	assert_eq(fired.size(), 1, "opening a coast orders nothing")
 	var rows: Array[Node] = block.find_children("", "Button", true, false)
 	assert_eq(rows.size(), 3, "the way back and the coast's two grounds")
-	assert_eq((rows[1] as Button).text, "Vera Cruz (7, 8)")
+	assert_eq(
+		(rows[1] as Button).text, "Vera Cruz (7, 8) — Hills · iron",
+		"the ground row names what the crown can read of the tile"
+	)
+	assert_eq((rows[2] as Button).text, "Vera Cruz (9, 10)", "an uncharted ground reads bare")
 	(rows[1] as Button).pressed.emit()
 	assert_eq(fired.size(), 2)
-	assert_eq(fired[1], "crew:land:7:8", "the ground's press carries its own tile")
+	assert_eq(
+		fired[1], "crew:land:7:8:explorer",
+		"the ground's press carries its own tile and the crew"
+	)
 	assert_eq(block.open_coast, -1, "the press closes the coast")
 
 	# The coasts are back, and the way back out of a coast orders nothing.
@@ -5321,10 +5502,163 @@ func test_the_passengers_block_opens_a_coast_s_grounds() -> void:
 	var grounds: Array[Node] = block.find_children("", "Button", true, false)
 	(grounds[0] as Button).pressed.emit()
 	assert_eq(block.open_coast, -1, "the way back closes the coast")
+	assert_eq(block.open_crew, "", "the way back forgets the crew")
 	assert_eq(fired.size(), 2, "no order leaves the way back")
 
 	block.set_data({"count": 0, "land": [], "embark": [], "sortie": []})
 	assert_false(block.visible, "no passengers, no block")
+	block.free()
+
+
+## Two crew kinds aboard one squadron read one line each per coast, so the crown
+## picks the crew as well as the ground: a Builder and an Explorer on the same
+## coast are two presses, and each carries its own kind (wiki: civilian-units
+## § Landing; DR-20261118-19).
+func test_the_passengers_block_names_the_crew_it_lands() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	block.set_data({
+		"count": 2,
+		"note": "2 aboard: Builder · Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "builder",
+				"crew_name": "Builder", "tiles": [{"x": 2, "y": 3}],
+			},
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer", "tiles": [{"x": 2, "y": 3}],
+			},
+		],
+	})
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(rows.size(), 2, "one press per crew kind on the coast")
+	assert_eq((rows[0] as Button).text, "Put the Builder ashore at Cadiz")
+	assert_eq((rows[1] as Button).text, "Put the Explorer ashore at Cadiz")
+	(rows[1] as Button).pressed.emit()
+	assert_eq(
+		fired, ["crew:land:2:3:explorer"],
+		"the Explorer's press lands the Explorer, not the first crew aboard"
+	)
+	block.free()
+
+
+## The crown's own seat reads above the list as one press, so a port province
+## whose coast holds a whole province of ground never makes a crown open the
+## list to land at home (wiki: civilian-units § Landing; DR-20261118-28).
+func test_the_passengers_block_lands_a_crew_at_the_seat_in_one_press() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	block.set_data({
+		"count": 1,
+		"note": "1 aboard: Explorer",
+		"embark": [],
+		"sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"seat": {"x": 5, "y": 6, "ground": "Plains · grain"},
+				"tiles": [
+					{"x": 5, "y": 6, "ground": "Plains · grain"},
+					{"x": 7, "y": 8, "ground": "Hills · iron"},
+				],
+			},
+		],
+	})
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(rows.size(), 2, "the seat and the list")
+	assert_eq(
+		(rows[0] as Button).text,
+		"Put the Explorer ashore at Cadiz (5, 6) — Plains · grain",
+		"the seat reads first, with the ground the chart knows"
+	)
+	assert_true(
+		(rows[1] as Button).text.begins_with("Put the Explorer ashore at Cadiz · 2 grounds")
+	)
+	(rows[0] as Button).pressed.emit()
+	assert_eq(fired, ["crew:land:5:6:explorer"], "the seat lands in one press")
+
+	# A coast with one legal ground keeps its published single press, seat or not.
+	block.set_data({
+		"count": 1, "note": "1 aboard: Explorer", "embark": [], "sortie": [],
+		"land": [
+			{
+				"province": 4, "name": "Cadiz", "crew": "explorer",
+				"crew_name": "Explorer",
+				"seat": {"x": 5, "y": 6, "ground": "Plains · grain"},
+				"tiles": [{"x": 5, "y": 6, "ground": "Plains · grain"}],
+			},
+		],
+	})
+	var single: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq(single.size(), 1, "one ground, one press")
+	assert_eq((single[0] as Button).text, "Put the Explorer ashore at Cadiz")
+	block.free()
+
+
+## A port coast offers its whole province of ground — 32 rows at Madrid — so the
+## open list reads in a window of whole rows: the way back stays pinned above it,
+## a short list keeps its own height, and every ground is still one press on its
+## own tile (wiki: civilian-units § Landing; DR-20261119-03).
+func test_the_passengers_block_windows_a_coast_s_whole_land() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	var fired: Array[String] = []
+	block.action_pressed.connect(func(action: String) -> void: fired.append(action))
+	var tiles: Array = []
+	for i in 32:
+		tiles.append({"x": i % 8, "y": int(i / 8), "ground": "Plains · grain"})
+	block.set_data({
+		"count": 1, "note": "1 aboard: Builder", "embark": [], "sortie": [],
+		"land": [{
+			"province": 4, "name": "Madrid", "crew": "builder",
+			"crew_name": "Builder", "tiles": tiles,
+		}],
+	})
+	var coasts: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq((coasts[0] as Button).text, "Put the Builder ashore at Madrid · 32 grounds ›")
+	(coasts[0] as Button).pressed.emit()
+	assert_eq(block.open_coast, 4, "the coast opens")
+
+	# The way back is the block's own row, above the window, and names the count.
+	var rows: Array[Node] = block.find_children("", "Button", true, false)
+	assert_eq((rows[0] as Button).text, "‹ Back to the coasts · 32 grounds")
+	var window: ScrollContainer = block._ground_scroll
+	assert_true(window.visible, "the open grounds ride a window")
+	var grounds: Node = window.get_child(0)
+	assert_eq(grounds.get_child_count(), 32, "every legal ground is listed")
+	assert_eq((rows[0] as Button).get_parent(), block._rows_box, "the way back is pinned")
+	assert_eq((grounds.get_child(0) as Button).get_parent(), grounds, "the grounds scroll")
+
+	# The window is whole rows: the sheet's own budget, never the whole coast.
+	var compact: bool = HudLayout.is_compact(block.get_viewport_rect().size)
+	assert_eq(window.custom_minimum_size.y, GroundsWindow.height(32, compact))
+	assert_eq(GroundsWindow.rows(32, true), 4, "a handset reads four rows")
+	assert_eq(GroundsWindow.rows(32, false), 8, "the atlas reads eight")
+	assert_eq(GroundsWindow.rows(3, true), 3, "a short list asks for its own height")
+	assert_eq(
+		GroundsWindow.height(3, false),
+		3.0 * GroundsWindow.ROW_HEIGHT + 2.0 * float(GroundsWindow.ROW_GAP),
+		"whole rows and the gaps between them"
+	)
+	assert_true(
+		window.custom_minimum_size.y
+			< float(tiles.size()) * GroundsWindow.ROW_HEIGHT,
+		"the long coast is a window, not the sheet"
+	)
+
+	# A ground still lands its own tile and closes the window after it.
+	(grounds.get_child(5) as Button).pressed.emit()
+	assert_eq(fired, ["crew:land:5:0:builder"], "the row's own tile and crew")
+	assert_false(window.visible, "the window closes with the landing")
+	assert_eq(block.open_coast, -1)
 	block.free()
 
 

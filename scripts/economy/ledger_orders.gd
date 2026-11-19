@@ -54,7 +54,7 @@ func trade(commodity: String, quantity: int, is_buy: bool) -> Dictionary:
 				# The assigned runs eat their inputs before the auction clears
 				# (wiki: world-market § Trade orders — offer cap; the AI planners
 				# reserve the same tons).
-				"reserved": ProductionRecipes.reserved_inputs(
+				"reserved": ProductionPhase.reserved_inputs(
 					host.economy.production.assignments()
 				),
 			},
@@ -192,6 +192,24 @@ func cycle_research_funding(slot: int) -> void:
 	if seat_held_elsewhere():
 		return
 	host.economy.research.cycle_funding(slot)
+	host.report_funding()
+
+
+## The college's one press: every study under way takes `preset` in one act, and
+## the receipt names what moved and what the college pays a turn (wiki: tech-tree
+## § Research Model; DR-20261118-26; REQ-P5-04, REQ-P5-05). The rows are filed
+## through the published `set_funding`, so no rule, preset, floor or save key
+## moves — only the taps a crown would have made one row at a time.
+func fund_research_all(preset: String) -> void:
+	if host == null or host.economy == null:
+		return
+	if seat_held_elsewhere():
+		return
+	var rows: Array[Dictionary] = ResearchBatch.apply(host.economy.research, preset)
+	if not rows.is_empty():
+		_toast(ResearchBatch.receipt(
+			ResearchBatch.plan(host.economy.research, preset, host.economy.treasury)
+		))
 	host.report_funding()
 
 

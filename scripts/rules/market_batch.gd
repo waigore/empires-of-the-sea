@@ -14,7 +14,7 @@ extends RefCounted
 
 ## The reading every row of one repaint shares: the same keys
 ## `MarketRules.validate` takes, so the sheet and the order path price one
-## context. `reserved` is `ProductionRecipes.reserved_inputs` for the court.
+## context. `reserved` is `ProductionPhase.reserved_inputs` for the court.
 static func context(
 	economy: PlayerEconomy, cargo: Dictionary, reserved: Dictionary = {}
 ) -> Dictionary:
@@ -30,14 +30,14 @@ static func context(
 
 
 ## The tons the court's assigned runs eat before the auction clears:
-## `ProductionRecipes.reserved_inputs` for its current plan, empty for a court
+## `ProductionPhase.reserved_inputs` for its current plan, empty for a court
 ## with no plan (or none at all). One owner for the read the sheet, the row's
 ## caption and the validator all price (wiki: world-market § Trade orders — the
 ## offer cap is the post-production stockpile minus industry reservations).
 static func reservations(economy: PlayerEconomy) -> Dictionary:
 	if economy == null:
 		return {}
-	return ProductionRecipes.reserved_inputs(economy.production.assignments())
+	return ProductionPhase.reserved_inputs(economy.production.assignments())
 
 
 ## Units a bid on `commodity` may carry in one order: the free holds after the

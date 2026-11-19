@@ -111,6 +111,24 @@ static func war_press(stage: String, config: Variant) -> int:
 	return maxi(int(config.parameter("victory.pressure_war")), 0)
 
 
+## True while the court stands short of the bar it must clear — the conquest
+## shortfall the money goal banks on (issue #995): below the bar with an army
+## under target, a court banks for the regiment that takes the provinces it
+## still needs instead of building behind a purse that never arms. The bar is
+## `VictoryRules`' own — the published 31 for every rival, the level's own bar
+## for the crown — and a session with no world reads no gap, so a thin fixture
+## keeps the published behaviour (REQ-P2-03).
+static func below_bar(
+	world: WorldMap, faction: int, human: int, difficulty: String = Difficulty.DEFAULT
+) -> bool:
+	if world == null:
+		return false
+	var bar: int = VictoryRules.threshold_for(faction, human, difficulty)
+	if bar <= 0:
+		return false
+	return VictoryRules.old_world_holdings(world, faction) < bar
+
+
 ## Reader-facing label for the observer panel and the turn trace.
 static func label(stage: String) -> String:
 	return String(LABELS.get(stage, LABELS[STAGE_FAR]))

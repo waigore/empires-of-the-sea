@@ -3,6 +3,10 @@ extends RefCounted
 ## Estate glyphs the civilian layer leaves on the chart: resource marks and
 ## ports. Roads live on the survey lens (RoadInk), not the marker layer
 ## (REQ-P3-01; wiki: extraction-and-improvements).
+##
+## Resource marks are painted stamps (assets/art/map/work_*.png) drawn by
+## `MapSymbols`; the ink vectors here are the fallback for a build whose art is
+## missing, so an estate still reads on a headless or art-less chart.
 
 
 static func paint(
@@ -14,17 +18,33 @@ static func paint(
 		var point: Vector2 = MapGeo.tile_center(tile.x, tile.y, tile_size)
 		var level: int = works.improvement_at(model, tile)
 		if level > 0:
-			improvement(item, point, model.resource_at(tile.x, tile.y), level)
+			improvement(item, point, model.resource_at(tile.x, tile.y), level, tile_size)
 		if works.has_port(model, tile):
 			port(item, point)
 
 
+## One estate's resource mark. A painted stamp carries the mark at map scale;
+## where no art is imported the ink glyph is drawn instead, and the gold level
+## pips sit under either.
 static func improvement(
-	item: CanvasItem, point: Vector2, resource: int, level: int
+	item: CanvasItem, point: Vector2, resource: int, level: int, tile_size: float = 22.0
 ) -> void:
+	var mark: Vector2 = point + Vector2(0, -3.0)
+	var painted: bool = MapSymbols.stamp(item, {
+		"kind": _kind(resource),
+		"position": mark,
+		"size": tile_size * 0.52,
+	})
+	if not painted:
+		ink_mark(item, mark, resource)
+	_pips(item, point, level)
+
+
+## The ink fallback: a small chart mark per resource family, drawn where no
+## painted stamp is imported (a headless run, or a build without the art).
+static func ink_mark(item: CanvasItem, mark: Vector2, resource: int) -> void:
 	var ink := Palette.INK
 	var tint: Color = _color(resource)
-	var mark: Vector2 = point + Vector2(0, -3.0)
 	match ImprovementCatalog.category(resource):
 		"wood":
 			item.draw_colored_polygon(
@@ -59,16 +79,32 @@ static func improvement(
 				item.draw_line(
 					mark + Vector2(0, y), mark + Vector2(3.4, y - 1.4), tint, 1.5, true
 				)
+
+
+static func _pips(item: CanvasItem, point: Vector2, level: int) -> void:
 	for i in level:
 		var origin: Vector2 = point + Vector2(-7.5 + float(i) * 5.0, 8.0)
 		item.draw_rect(Rect2(origin, Vector2(3.4, 3.4)), Palette.GOLD)
-		item.draw_rect(Rect2(origin, Vector2(3.4, 3.4)), ink, false, 0.8)
+		item.draw_rect(Rect2(origin, Vector2(3.4, 3.4)), Palette.INK, false, 0.8)
 
 
 static func port(item: CanvasItem, point: Vector2) -> void:
 	var ink := Color(0.18, 0.24, 0.32, 0.85)
 	item.draw_arc(point + Vector2(0, 5.0), 4.6, PI, TAU, 12, ink, 1.6, true)
 	item.draw_line(point + Vector2(0, 0.6), point + Vector2(0, 5.0), ink, 1.4, true)
+
+
+## The painted stamp that carries this estate's trade on the chart.
+static func _kind(resource: int) -> String:
+	match ImprovementCatalog.category(resource):
+		"wood":
+			return "work_wood"
+		"mine":
+			return "work_mine"
+		"riches":
+			return "work_riches"
+		_:
+			return "work_grain"
 
 
 static func _color(resource: int) -> Color:

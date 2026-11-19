@@ -11,16 +11,9 @@ extends RefCounted
 ##
 ## Pure rules: config, ledger and counts in, a type id out (REQ-P2-03,
 ## REQ-P3-03). The map adapter spends through ArmyTraining, so the AI can never
-## buy a regiment the human rules would refuse.
-
-## Categories that field a line: a mustered regiment is infantry, never the
-## army's whole battery or horse (the opening roster keeps its own mix).
-const LINE_CATEGORIES: Array[int] = [
-	RegimentCatalog.Category.LIGHT_INFANTRY,
-	RegimentCatalog.Category.REGULAR_INFANTRY,
-	RegimentCatalog.Category.HEAVY_INFANTRY,
-]
-
+## buy a regiment the human rules would refuse. Line-pattern answers live on
+## [AiArmyReinforceLine]; this owner keeps the turn plan and the food/purse
+## gates that decide whether a muster fires.
 
 ## One turn's muster decision.
 ## Returns {muster: type id or "", target, reasons: [], candidates: []}.
@@ -47,7 +40,10 @@ const LINE_CATEGORIES: Array[int] = [
 ## court can already fill that chest: a yard price it is still short of is not
 ## held back at all while a regiment is due, so unlocking a warship can never
 ## starve the line (issue #591, `AiIncome.hull_held`). `own_warships` is that
-## same gate: a fleetless court keeps the chest even while short (issue #484).
+## same gate: a fleetless court keeps the chest even while short (issue #484)
+## — and never while it banks for the army its conquest still needs (issue
+## #995): `conquest_gap` drops the rebuild chest behind the line, because the
+## army holds the land the yard stands on.
 static func plan(
 	config: AiConfig,
 	economy: PlayerEconomy,
@@ -58,7 +54,8 @@ static func plan(
 	reserve: int = 0,
 	held_row: Dictionary = {},
 	own_warships: int = -1,
-	harvest_slack: int = -2
+	harvest_slack: int = -2,
+	conquest_gap: bool = false
 ) -> Dictionary:
 	var result: Dictionary = {
 		"muster": "", "target": 0, "reasons": [], "candidates": [],
@@ -70,7 +67,7 @@ static func plan(
 	if own_regiments >= target:
 		result["reasons"].append("at target strength")
 		return result
-	if not _labour_floor_ok(config, economy):
+	if not AiArmyReinforceLine.labour_floor_ok(config, economy):
 		result["reasons"].append("labour floor")
 		return result
 	if fed_slack >= 0 and fed_slack < 1:
@@ -80,7 +77,7 @@ static func plan(
 		result["reasons"].append("the harvest cannot carry one more ration")
 		return result
 	var chest: int = AiIncome.hull_held(
-		config, economy, at_war, own_regiments, reserve, own_warships
+		config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
 	)
 	# The hull's row is the fleet's once the chest is full: the muster spends
 	# only what stands above it, exactly as it spends only the purse above the
@@ -92,7 +89,7 @@ static func plan(
 	)
 
 	var candidates: Array[Dictionary] = []
-	for entry: Dictionary in _legal_candidates(config, economy, chest):
+	for entry: Dictionary in AiArmyReinforceLine.candidates(config, economy, chest):
 		if not RegimentEconomy.missing_inputs(String(entry["type_id"]), stores).is_empty():
 			continue
 		candidates.append(entry)
@@ -210,16 +207,6 @@ static func muster_hands(
 	return config.parameter("army.min_peasants") + RegimentEconomy.WORKER_COST
 
 
-## True while the fields can spare the levy's own hand above `army.min_peasants`,
-## so the muster, the pattern it saves for and the war chest it holds all gate on
-## one labour reading (wiki: ai-architecture § Land reinforcement).
-static func _labour_floor_ok(config: AiConfig, economy: PlayerEconomy) -> bool:
-	if config == null or economy == null:
-		return false
-	var spare: int = economy.available_peasants() - RegimentEconomy.WORKER_COST
-	return spare >= int(config.parameter("army.min_peasants"))
-
-
 ## Regiments the court aims at: the peace target, raised by `army.war_extra` at
 ## war (wiki: ai-architecture § Land reinforcement).
 static func _target(config: AiConfig, at_war: bool) -> int:
@@ -238,16 +225,10 @@ static func desired_regiments(config: AiConfig, at_war: bool) -> int:
 	return _target(config, at_war)
 
 
-## The line regiment this court would raise if its stores could pay for it:
-## strongest `FPN + FPM`, then the newer era, then the lowest id. Materials are
-## deliberately not read — this is the pattern the court is provisioning for, and
-## the muster itself checks what it can already pay (wiki: growth-stage-planner
-## § Recruitment modulation).
+## The line regiment this court would raise if its stores could pay for it.
+## Owned by [AiArmyReinforceLine]; kept here so planners keep one call site.
 static func next_type(config: AiConfig, economy: PlayerEconomy) -> String:
-	var legal: Array[Dictionary] = _legal_candidates(config, economy)
-	if legal.is_empty():
-		return ""
-	return String(legal[0]["type_id"])
+	return AiArmyReinforceLine.next_type(config, economy)
 
 
 ## Commodities this court keeps back so the regiment it means to raise can be
@@ -276,20 +257,9 @@ static func muster_reserve(
 	return RegimentEconomy.training_inputs(type_id)
 
 
-## The line this court is saving for: the pattern it could raise today if its
-## stores allowed, else the cheapest line its techs and fields open — the one a
-## war chest it cannot yet spend will actually buy. Never empty unless its techs
-## open no line at all or its fields cannot spare a hand (wiki:
-## growth-stage-planner § Recruitment modulation; issue #474).
+## The line this court is saving for. Owned by [AiArmyReinforceLine].
 static func saving_type(config: AiConfig, economy: PlayerEconomy) -> String:
-	if config == null or economy == null:
-		return ""
-	if not _labour_floor_ok(config, economy):
-		return ""
-	var type_id: String = next_type(config, economy)
-	if not type_id.is_empty():
-		return type_id
-	return _cheapest_line_type(economy)
+	return AiArmyReinforceLine.saving_type(config, economy)
 
 
 ## Treasury a court must hold before any muster is legal: `army.min_treasury`
@@ -309,84 +279,16 @@ static func muster_floor(
 		return 0
 	if own_regiments >= _target(config, at_war):
 		return 0
-	if not _labour_floor_ok(config, economy):
+	if not AiArmyReinforceLine.labour_floor_ok(config, economy):
 		return 0
 	var floor_treasury: int = maxi(config.parameter("army.min_treasury"), 0)
-	var cheapest: int = _cheapest_line(economy)
+	var cheapest: int = AiArmyReinforceLine.cheapest_line(economy)
 	if cheapest < 0:
 		return floor_treasury
 	return floor_treasury + cheapest
 
 
-## Price of the cheapest line pattern this court's techs open today, ignoring the
-## purse: what it has to save for, not what it can pay right now. 0 when its
-## techs open no line at all. The reach test the money goal reads for a
-## peace-time war chest (wiki: ai-architecture § Land reinforcement).
+## Price of the cheapest line pattern this court's techs open today. Owned by
+## [AiArmyReinforceLine].
 static func cheapest_line_price(economy: PlayerEconomy) -> int:
-	return maxi(_cheapest_line(economy), 0)
-
-
-## Price of the cheapest line pattern this court's techs open today, ignoring the
-## purse: what it has to save for, not what it can pay right now. -1 when its
-## techs open no line at all.
-static func _cheapest_line(economy: PlayerEconomy) -> int:
-	var type_id: String = _cheapest_line_type(economy)
-	if type_id.is_empty():
-		return -1
-	return RegimentCatalog.treasury_cost(type_id)
-
-
-## The cheapest line pattern this court's techs open today, ignoring the purse.
-## The lowest id breaks a tie, so the answer is stable across turns.
-static func _cheapest_line_type(economy: PlayerEconomy) -> String:
-	var cheapest: String = ""
-	var cost: int = -1
-	for type_id: String in RegimentCatalog.ids():
-		if not LINE_CATEGORIES.has(RegimentCatalog.category(type_id)):
-			continue
-		if not RegimentEconomy.buildable(type_id, economy.tech_unlocked):
-			continue
-		var price: int = RegimentCatalog.treasury_cost(type_id)
-		if cost < 0 or price < cost or (price == cost and type_id < cheapest):
-			cheapest = type_id
-			cost = price
-	return cheapest
-
-
-## Line patterns this court's treasury, labour pool and techs open today,
-## strongest first. Materials are not read here; `plan` and `next_type` each
-## decide what to do with a pattern the stores cannot yet pay for. `reserve` is
-## the purse a higher-ranked claim holds back (issue #484).
-static func _legal_candidates(
-	config: AiConfig, economy: PlayerEconomy, reserve: int = 0
-) -> Array[Dictionary]:
-	var candidates: Array[Dictionary] = []
-	if config == null or economy == null:
-		return candidates
-	if not _labour_floor_ok(config, economy):
-		return candidates
-	var floor_treasury: int = maxi(config.parameter("army.min_treasury"), maxi(reserve, 0))
-	for type_id: String in RegimentCatalog.ids():
-		if not LINE_CATEGORIES.has(RegimentCatalog.category(type_id)):
-			continue
-		if not RegimentEconomy.buildable(type_id, economy.tech_unlocked):
-			continue
-		if economy.treasury - RegimentCatalog.treasury_cost(type_id) < floor_treasury:
-			continue
-		candidates.append({
-			"type_id": type_id,
-			"strength": RegimentCatalog.strength(type_id),
-			"era": RegimentCatalog.era(type_id),
-		})
-	candidates.sort_custom(_better)
-	return candidates
-
-
-## Strongest first, then the newer pattern, then the lowest id — one stable
-## answer for a given ledger and tech set.
-static func _better(a: Dictionary, b: Dictionary) -> bool:
-	if int(a["strength"]) != int(b["strength"]):
-		return int(a["strength"]) > int(b["strength"])
-	if int(a["era"]) != int(b["era"]):
-		return int(a["era"]) > int(b["era"])
-	return String(a["type_id"]) < String(b["type_id"])
+	return AiArmyReinforceLine.cheapest_line_price(economy)

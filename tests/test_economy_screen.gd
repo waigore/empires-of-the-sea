@@ -248,6 +248,61 @@ func test_a_batch_press_files_every_head() -> void:
 	assert_true(printed.contains("Apprentice ×4 · joins the pool in Build/work"), printed)
 
 
+## A press promises what it files, so the next press reads the store net of it:
+## with 12 fabric and one peasant already engaged, the batch is five heads for
+## ten fabric, and once it is pressed the row says the store is promised
+## (wiki: workers-and-population § Recruiting — "a batch is never a discount and
+## never a promise the crown cannot keep"; § Peasant reservation).
+func test_the_peasant_batch_nets_what_the_queue_already_promised() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["fabric"] = 12
+	_screen.economy.open_panel()
+	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit", 1)
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var batch: Button = workers.batch_buttons().get(WorkerPool.Tier.PEASANT, null) as Button
+	assert_not_null(batch, "five heads are still payable")
+	assert_eq(batch.text, "Recruit ×5  ·  Fabric ×10", "the batch prices the store left")
+	batch.pressed.emit()
+	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_eq(
+		economy.recruits.pending(RecruitQueue.KIND_WORKER, str(WorkerPool.Tier.PEASANT)), 6,
+		"one head and its batch"
+	)
+	assert_eq(economy.recruits.promised_materials().get("fabric", 0), 12)
+	assert_false(
+		workers.batch_buttons().has(WorkerPool.Tier.PEASANT), "the whole store is promised"
+	)
+	var line: Label = workers.tier_lines().get(WorkerPool.Tier.PEASANT) as Label
+	assert_eq(line.text, "Recruit Fabric ×2 — insufficient materials")
+
+
+## The purse is reserved the same way: two apprentices at 200 ducats each leave
+## nothing for a third, and the row says so instead of promising a head the
+## queue has already paid for (wiki: workers-and-population § Recruiting;
+## world-market § Treasury budget for bids — pending costs narrow the purse).
+func test_the_recruit_row_reads_the_purse_net_of_the_queue() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.treasury = 400
+	economy.stockpile["paper"] = 10
+	_screen.economy.open_panel()
+	_screen.economy.orders.worker_action(WorkerPool.Tier.APPRENTICE, "recruit", 1)
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var workers: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_false(
+		workers.batch_buttons().has(WorkerPool.Tier.APPRENTICE),
+		"one head is all the purse has left"
+	)
+	_screen.economy.orders.worker_action(WorkerPool.Tier.APPRENTICE, "recruit", 1)
+	workers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var line: Label = workers.tier_lines().get(WorkerPool.Tier.APPRENTICE) as Label
+	assert_eq(line.text, "Recruit 200 ducats · Paper ×2 — insufficient treasury")
+	var press: Button = workers.action_buttons().get("recruit:1", null) as Button
+	assert_true(press.disabled, "the row is inert once the purse is promised")
+
+
 ## A tier the crown can pay for once keeps its single press and no batch row.
 func test_a_single_head_offers_no_batch_press() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
@@ -557,15 +612,21 @@ func test_the_crowns_wards_eat_from_the_larder() -> void:
 # --- merchant cargo ----------------------------------------------------------
 
 
-func test_the_opening_home_fleet_carries_four_holds() -> void:
+func test_the_opening_home_fleet_carries_her_merchants_holds() -> void:
 	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
-	assert_eq(int(cargo["holds"]), 4)
+	# One carrack (3 holds) and one Fluyte (4) ride the opening home fleet
+	# (issue #1043): every opening merchant hull is in port at the seat.
+	assert_eq(int(cargo["holds"]), 7)
 	assert_eq(int(cargo["used"]), 0)
-	assert_eq(int(cargo["free"]), 4)
+	assert_eq(int(cargo["free"]), 7)
 	var seat: int = _screen.play.capital_province
 	var home: FleetState = _screen.ship_layer.home_fleet(seat)
 	assert_not_null(home, "the opening muster moors a squadron at the seat")
-	assert_eq(home.type_of(home.hulls[0]), "fluyte")
+	var merchants: int = 0
+	for hull_id: String in home.hulls:
+		if home.type_of(hull_id) == "fluyte":
+			merchants += 1
+	assert_eq(merchants, 1, "the home fleet carries the merchant hull whose holds feed trade")
 
 
 func test_imports_stop_when_the_holds_are_full() -> void:
@@ -605,7 +666,7 @@ func test_the_ledger_names_the_cargo_and_disables_full_imports() -> void:
 	var market_body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
 	var line: Label = _find_label(market_body, "CARGO")
 	assert_not_null(line)
-	assert_true(line.text.contains("4 holds"))
+	assert_true(line.text.contains("7 holds"))
 
 	var free: int = int(_screen.economy.readings.trade_cargo()["clear_free"])
 	for index in free:
@@ -651,6 +712,7 @@ func test_a_bare_controller_reports_an_empty_ledger() -> void:
 	controller.orders.assign_research("land_enclosure")
 	controller.orders.cancel_research(0)
 	controller.orders.cycle_research_funding(0)
+	controller.orders.fund_research_all("high")
 	var bare := EconomyController.new()
 	assert_eq(bare.readings.tech_caps(), {})
 	assert_eq(bare.readings.projected_income(), 0)
@@ -677,6 +739,27 @@ func test_the_sheet_stages_its_own_trade_press() -> void:
 	assert_eq(
 		orders.orders_for(_screen.player_faction).size(), before + 1,
 		"the sheet's bid reached the book through the order owner",
+	)
+
+
+## The college's one press reaches the rules through the order owner: the sheet
+## emits the preset, the owner files it, and every study under way takes it
+## (wiki: tech-tree § Research Model; DR-20261118-26; REQ-P2-03).
+func test_the_college_press_funds_every_study_at_once() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.research.assign("crop_rotation", "low")
+	economy.research.assign("saw_mill", "none")
+	var panel: ResearchPanel = _screen.hud.panels.research_panel
+	panel.refresh(economy.research, economy.treasury)
+	var press: ResearchFundPress = panel.fund_press()
+	press.step(1)
+	assert_eq(press.preset(), "high", "the stepper names the preset it would file")
+	press.press_button().pressed.emit()
+	assert_eq(economy.research.funding_at(0), "high", "the sheet's press reached the rules")
+	assert_eq(economy.research.funding_at(1), "high")
+	assert_eq(
+		economy.research.funding_at(2), ResearchFunding.DEFAULT,
+		"an empty slot keeps its idle preset",
 	)
 
 
@@ -1584,6 +1667,15 @@ func test_the_production_tab_files_one_run_on_every_ready_row() -> void:
 	var ready: int = int(body._plan()["runs"])
 	assert_gt(ready, 1, "the opening store opens more than one row: %d" % ready)
 	assert_eq(press.text, "Queue all ready (%d)" % ready, "the press names the count")
+	# The line under the press prices the walk before the crown signs: the labour
+	# and the materials it would claim, and what the phase keeps (REQ-P5-06;
+	# DR-20261118-24).
+	var line: Label = body._line
+	assert_not_null(line, "the press carries its own line")
+	assert_true(line.visible, "the line stands with the press")
+	assert_eq(line.text, ProductionBatch.sheet_line(body._plan()), "the line prices the walk")
+	assert_true(line.text.contains("labour"), line.text)
+	assert_true(line.text.contains("the phase keeps"), line.text)
 	press.pressed.emit()
 	assert_true(press.is_armed(), "the first tap only arms")
 	assert_eq(press.text, "Confirm — queue %d runs" % ready, "the second tap is named")
@@ -1615,6 +1707,7 @@ func test_the_production_press_stands_down_when_nothing_is_ready() -> void:
 	body = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
 	assert_eq(int(body._plan()["runs"]), 0, "no row has a step left to file")
 	assert_false(body.batch_press().visible, "a view with nothing ready carries no press")
+	assert_false(body._line.visible, "and prints no line under it")
 
 
 ## Every line the court's toasts currently show.

@@ -3,7 +3,8 @@ extends GdToolsTest
 ## tech-tree § Research Model, tech-and-extraction-cap).
 ## Consolidated rulebook: test_research_slots, test_research_turn,
 ## test_tech_discovery, test_tech_icons, test_tech_order,
-## test_research_panel (one Godot boot per domain).
+## test_research_panel (one Godot boot per domain). Pure cases skip the
+## pocket chart and ResearchPanel; those bind only when a case reads them.
 
 
 const Fixture = preload("res://tests/civilian_fixture.gd")
@@ -20,11 +21,26 @@ var _panel: ResearchPanel = null
 var _panel_state: ResearchState = null
 
 
+## Pure college cases only need state and purse. The pocket chart and the
+## ResearchPanel are bound on demand so 100+ rule cases never pay Fixture.build
+## or a panel mount under coverage (docs/testing.md § Speed rules).
 func before_each() -> void:
 	_state = ResearchState.make()
 	_economy = PlayerEconomy.starting()
 	_turn_economy = PlayerEconomy.starting()
 	_turn_state = _turn_economy.research
+
+
+func after_each() -> void:
+	if is_instance_valid(_panel):
+		_panel.free()
+	_panel = null
+
+
+## Discovery cases read a 5×5 pocket chart; bind it only when a case asks.
+func _bind_map() -> void:
+	if _model != null:
+		return
 	_model = Fixture.build()
 	_world = WorldMap.new()
 	_world.add_region(_model)
@@ -32,15 +48,15 @@ func before_each() -> void:
 	_view = VisibilityModel.new()
 	_view.setup(_model, 0)
 	_view.apply_initial()
+
+
+## Panel cases mount one ResearchPanel; bind it only when a case asks.
+func _bind_panel() -> void:
+	if is_instance_valid(_panel):
+		return
 	_panel_state = ResearchState.make()
 	_panel = ResearchPanel.new()
 	add_child(_panel)
-
-
-func after_each() -> void:
-	if is_instance_valid(_panel):
-		_panel.free()
-	_panel = null
 
 
 func test_a_fresh_crown_has_three_empty_slots() -> void:
@@ -753,6 +769,7 @@ func test_a_researched_gathering_tech_lifts_the_extraction_cap() -> void:
 ## Which resources count as discovered for a player (wiki: tech-tree
 ## § Discovery prerequisites; fog-and-exploration).
 func test_revealed_tiles_discover_their_resource() -> void:
+	_bind_map()
 	var found: Dictionary = TechDiscovery.revealed(_world, {0: _view}, _works, 0)
 	assert_true(found.has("timber"))
 	# The region opens charted (every tile starts fogged), so foreign grain is
@@ -762,6 +779,7 @@ func test_revealed_tiles_discover_their_resource() -> void:
 
 
 func test_prospect_minerals_need_prospecting() -> void:
+	_bind_map()
 	var found: Dictionary = TechDiscovery.revealed(_world, {0: _view}, _works, 0)
 	assert_false(found.has("iron"))
 	_works.set_prospected(0, _model, Fixture.IRON_TILE)
@@ -770,6 +788,7 @@ func test_prospect_minerals_need_prospecting() -> void:
 
 
 func test_an_unseen_tile_reveals_nothing() -> void:
+	_bind_map()
 	var view := VisibilityModel.new()
 	view.setup(_model, 0)
 	view.levels.fill(VisibilityModel.Level.UNKNOWN)
@@ -778,6 +797,7 @@ func test_an_unseen_tile_reveals_nothing() -> void:
 
 
 func test_missing_world_or_region_is_harmless() -> void:
+	_bind_map()
 	assert_eq(TechDiscovery.revealed(null, {}, _works, 0), {})
 	assert_eq(TechDiscovery.revealed(_world, {}, _works, 0), {})
 
@@ -899,6 +919,7 @@ func test_catalog_order_runs_category_then_era_then_name() -> void:
 ## The research ledger renders live research state and emits intents
 ## (wiki: research-state; REQ-P2-03, REQ-P3-03).
 func test_the_panel_lists_every_slot() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	var idle: Array[Label] = _labels("Slot")
 	assert_eq(idle.size(), ResearchState.DEFAULT_SLOTS)
@@ -906,6 +927,7 @@ func test_the_panel_lists_every_slot() -> void:
 
 
 func test_open_advances_are_listed_and_startable() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	var picked: Array[String] = []
 	_panel.assign_requested.connect(func(tech_id: String) -> void: picked.append(tech_id))
@@ -918,6 +940,7 @@ func test_open_advances_are_listed_and_startable() -> void:
 
 
 func test_a_full_roster_disables_new_studies() -> void:
+	_bind_panel()
 	for tech_id: String in ["crop_rotation", "saw_mill", "land_enclosure"]:
 		_panel_state.assign(tech_id)
 	_panel.refresh(_panel_state, 2500)
@@ -927,6 +950,7 @@ func test_a_full_roster_disables_new_studies() -> void:
 
 
 func test_slots_show_progress_funding_and_cancel() -> void:
+	_bind_panel()
 	_panel_state.assign("land_enclosure", "high")
 	_panel_state.add_progress("land_enclosure", 800)
 	_panel.refresh(_panel_state, 2500)
@@ -950,6 +974,7 @@ func test_slots_show_progress_funding_and_cancel() -> void:
 ## The slot line must say what the study costs and what the next phase buys
 ## (REQ-P1-05 — gold a study spends is never silent).
 func test_a_slot_names_its_spend_and_its_next_gain() -> void:
+	_bind_panel()
 	_panel_state.assign("land_enclosure", "medium")
 	_panel_state.add_progress("land_enclosure", 800)
 	_panel.refresh(_panel_state, 2500)
@@ -959,6 +984,7 @@ func test_a_slot_names_its_spend_and_its_next_gain() -> void:
 
 
 func test_the_gauge_previews_the_next_phase() -> void:
+	_bind_panel()
 	_panel_state.assign("land_enclosure", "high")
 	_panel_state.add_progress("land_enclosure", 800)
 	_panel.refresh(_panel_state, 2500)
@@ -972,6 +998,7 @@ func test_the_gauge_previews_the_next_phase() -> void:
 ## A funding change repaints the slot the player is looking at; rebuilding it
 ## would lose the button and restart the gauge (REQ-P1-05).
 func test_changing_the_priority_repaints_the_same_row() -> void:
+	_bind_panel()
 	_panel_state.assign("land_enclosure", "medium")
 	_panel.refresh(_panel_state, 2500)
 	var row: ResearchSlotRow = _slot_row(0)
@@ -990,16 +1017,257 @@ func test_changing_the_priority_repaints_the_same_row() -> void:
 
 
 func test_the_heading_totals_what_the_college_spends() -> void:
+	_bind_panel()
 	_panel_state.assign("crop_rotation", "low")
 	_panel_state.assign("saw_mill", "medium")
 	_panel.refresh(_panel_state, 2500)
 	assert_not_null(_label_containing("200 ducats & 400 RP a turn"))
 
 
+# --- the college's one press -------------------------------------------------
+## One press takes every study under way to a preset and prices the line it
+## files before the crown signs (wiki: tech-tree § Research Model;
+## DR-20261118-26; REQ-P5-04, REQ-P5-05).
+func test_the_one_press_files_every_study_at_its_preset() -> void:
+	_bind_panel()
+	_panel_state.assign("crop_rotation", "low")
+	_panel_state.assign("saw_mill", "medium")
+	_panel_state.assign("land_enclosure", "none")
+	_panel.refresh(_panel_state, 2500)
+	var press: ResearchFundPress = _panel.fund_press()
+	assert_not_null(press)
+	assert_true(press.visible, "a college with studies under way draws its press")
+	assert_eq(press.press_button().text, "FUND ALL · Medium")
+	assert_not_null(
+		_label_containing("Fund 2 of 3 studies at Medium"),
+		"the line names the rows the press would move",
+	)
+	assert_not_null(_label_containing("450 ducats & 900 RP a turn"), "the whole college's spend")
+
+
+func test_a_press_that_files_nothing_stands_down_and_says_so() -> void:
+	_bind_panel()
+	_panel_state.assign("crop_rotation", "high")
+	_panel_state.assign("saw_mill", "high")
+	_panel.refresh(_panel_state, 2500)
+	var press: ResearchFundPress = _panel.fund_press()
+	press.step(1)
+	assert_eq(press.preset(), "high", "the stepper reached the preset both studies wear")
+	assert_true(press.press_button().disabled, "a press that would move no row is dead")
+	assert_not_null(_label_containing("Every study already stands at High."))
+
+
+func test_the_press_steps_the_preset_and_files_it() -> void:
+	_bind_panel()
+	_panel_state.assign("crop_rotation", "low")
+	_panel.refresh(_panel_state, 2500)
+	var asked: Array[String] = []
+	_panel.funding_all_requested.connect(func(preset: String) -> void: asked.append(preset))
+	var press: ResearchFundPress = _panel.fund_press()
+	press.step(-1)
+	assert_eq(press.preset(), "low", "one step down the published order")
+	assert_eq(press.press_button().text, "FUND ALL · Low")
+	assert_eq(asked, [], "stepping files nothing")
+	press.press_button().pressed.emit()
+	assert_eq(asked, ["low"], "the press files the preset on its face")
+	press.step(-1)
+	assert_eq(press.preset(), "none", "the college can be stood down entirely")
+	press.step(-1)
+	assert_eq(press.preset(), "none", "the stepper holds at None")
+	for _step in 6:
+		press.step(1)
+	assert_eq(press.preset(), "maximum", "and holds at Maximum")
+	assert_eq(int(press.plan()["filed"]), 1, "one study waits at the press")
+
+
+func test_a_study_the_purse_cannot_reach_is_named_on_the_line() -> void:
+	_bind_panel()
+	_panel_state.assign("crop_rotation", "none")
+	_panel_state.assign("saw_mill", "none")
+	_panel_state.assign("land_enclosure", "none")
+	_panel.refresh(_panel_state, 1000)
+	_panel.fund_press().step(1)
+	assert_not_null(_label_containing("800 ducats & 1,600 RP a turn"), "two of three paid")
+	assert_not_null(_label_containing("1 of 3 waits on the purse"))
+
+
+func test_the_press_is_not_drawn_before_a_study_is_taken() -> void:
+	_bind_panel()
+	_panel.refresh(_panel_state, 2500)
+	assert_false(_panel.fund_press().visible, "nothing under way, nothing to fund")
+	assert_eq(_panel.fund_press().line().text, "")
+
+
+## The plan is the phase's own walk, so the gold a sheet prints is the gold the
+## Research phase pays in slot order (REQ-P2-03).
+func test_the_line_prices_the_phase_that_follows() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 5000
+	economy.research.assign("crop_rotation", "none")
+	economy.research.assign("saw_mill", "none")
+	ResearchBatch.apply(economy.research, "medium")
+	var plan: Dictionary = ResearchBatch.plan(economy.research, "medium", economy.treasury)
+	var report: Dictionary = ResearchTurn.resolve(economy.research, economy)
+	assert_eq(int(report["spent"]), int(plan["gold"]), "the phase spends the line")
+	assert_eq(economy.treasury, 5000 - int(plan["gold"]))
+
+
+## A study that lands inside the Research phase opens its own to the slots after
+## it: Money Lending's −500 debt floor lets a later slot the crown's standing
+## floor could not pay. The line and the slots must price that walk, or the sheet
+## names a study waiting on the purse that the phase then funds
+## (wiki: tech-tree § Research Model — "the line and the phase never disagree";
+## tech-tree-labour-economy § Money Lending; DR-20261118-26).
+func test_the_line_prices_the_floor_a_study_opens_inside_the_phase() -> void:
+	_bind_panel()
+	var state: ResearchState = _money_lending_floor_state("high")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 1800)
+
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Fund all 2 studies at Maximum — the college then spends 2,000 ducats"
+		+ " & 5,000 RP a turn.",
+		"the study the floor opens is priced, not left waiting on the purse",
+	)
+	# The slots read the same turn: both stand at Maximum and the floor the
+	# first study opens pays the second.
+	_panel.refresh(_money_lending_floor_state("maximum"), 1800)
+	assert_false(
+		_slot_row(1).unpaid_next(),
+		"the second study is paid from the floor the first opens",
+	)
+	assert_eq(_slot_row(1).rp_next(), 2500, "and earns at Maximum")
+
+	var acted: ResearchState = state.copy()
+	ResearchBatch.apply(acted, "maximum")
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 1800
+	var report: Dictionary = ResearchTurn.resolve(acted, economy)
+	assert_eq(int(report["spent"]), int(plan["gold"]), "the phase spends the line")
+	assert_eq(economy.treasury, -200, "the crown borrows to the floor Money Lending opens")
+
+
+## Two studies with 1,800 ducats: Money Lending lands in slot 0 and opens the
+## −500 floor that pays slot 1 at Maximum, which 800 ducats alone cannot.
+func _money_lending_floor_state(funding: String) -> ResearchState:
+	var state: ResearchState = ResearchState.make()
+	state.unlock("land_enclosure")
+	state.assign("money_lending", funding)
+	state.assign("crop_rotation", funding)
+	return state
+
+
+func test_the_batch_plan_reads_every_slot_once() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	state.assign("saw_mill", "high")
+	var plan: Dictionary = ResearchBatch.plan(state, "high", 5000)
+	assert_eq(int(plan["count"]), 2)
+	assert_eq(int(plan["filed"]), 1, "saw_mill already stands at High")
+	assert_eq(int(plan["kept"]), 1)
+	assert_eq(int(plan["gold"]), 800)
+	assert_eq(int(plan["rp"]), 1600)
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Fund 1 of 2 studies at High — the college then spends 800 ducats & 1,600 RP a turn.",
+	)
+
+
+func test_the_batch_moves_every_slot_through_the_published_setter() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	state.assign("saw_mill", "medium")
+	var rows: Array[Dictionary] = ResearchBatch.apply(state, "maximum")
+	assert_eq(rows.size(), 2)
+	assert_eq(String(rows[0]["was"]), "low")
+	assert_eq(state.funding_at(0), "maximum")
+	assert_eq(state.funding_at(1), "maximum")
+	assert_eq(ResearchBatch.apply(state, "maximum").size(), 0, "nothing left to file")
+	assert_eq(
+		ResearchBatch.apply(state, "extravagant").size(), 0, "the rules know no such preset"
+	)
+	assert_eq(
+		ResearchBatch.sheet_line(ResearchBatch.plan(state, "maximum", 9000)),
+		"Every study already stands at Maximum.",
+	)
+
+
+## A short purse is named on both lines the press writes. The sheet's own line
+## keeps the wait when the press stands down — a college standing at Maximum with
+## no gold is exactly the state a crown reads the disabled press in — and the
+## receipt carries it, so a toast never prices three studies at one study's spend
+## (DR-20261119-01; REQ-P5-05).
+func test_the_receipt_names_the_studies_the_purse_will_not_pay() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	state.assign("saw_mill", "low")
+	state.assign("land_enclosure", "low")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 1000)
+
+	assert_eq(int(plan["gold"]), 1000, "one study at Maximum is paid")
+	assert_eq(int(plan["unpaid"]), 2)
+	assert_eq(
+		ResearchBatch.receipt(plan),
+		"3 studies now stand at Maximum — the college pays 1,000 ducats a turn"
+		+ "; 2 of 3 wait on the purse.",
+		"the receipt names the studies the phase will not pay for",
+	)
+
+
+func test_a_college_where_every_study_waits_says_so_on_the_line() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "maximum")
+	state.assign("saw_mill", "maximum")
+	var plan: Dictionary = ResearchBatch.plan(state, "maximum", 0)
+
+	assert_eq(int(plan["filed"]), 0, "every study already stands at the preset")
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Every study already stands at Maximum — all 2 wait on the purse.",
+		"a press that files nothing still names the studies the purse cannot pay",
+	)
+
+
+func test_one_study_waiting_names_itself_and_never_one_of_one() -> void:
+	var state: ResearchState = ResearchState.make()
+	state.assign("crop_rotation", "low")
+	var plan: Dictionary = ResearchBatch.plan(state, "high", 0)
+
+	assert_eq(int(plan["filed"]), 1)
+	assert_eq(
+		ResearchBatch.sheet_line(plan),
+		"Fund the study at High — the college then spends nothing a turn"
+		+ "; it waits on the purse.",
+	)
+	assert_eq(
+		ResearchBatch.receipt(plan),
+		"The study now stands at High — the college pays nothing a turn"
+		+ "; it waits on the purse.",
+	)
+
+
+## Aiming the goal repaints the college. The repaint must carry every reading the
+## sheet was drawn with — the crown's leader above all: Victoria's ×1.15 lifts the
+## base funding RP, so a goal tap that dropped it would price 300 RP a turn the
+## phase still pays at 345 (wiki: leader-bonuses § Bonus Table; REQ-P2-03).
+func test_aiming_the_goal_keeps_the_crown_leader_on_the_sheet() -> void:
+	_bind_panel()
+	_panel_state.assign("crop_rotation", "low")
+	_panel.refresh(_panel_state, 5000, {}, "victoria")
+	assert_not_null(_label_containing("& 345 RP"), "the press prices 300 × 1.15")
+	_panel.set_goal("printing_press")
+	assert_not_null(
+		_label_containing("& 345 RP"),
+		"aiming the goal repaints the press with the same leader",
+	)
+	assert_eq(_slot_row(0).rp_next(), 115, "and the slot row keeps 100 × 1.15")
+
+
 ## The treasury cannot cover a Maximum slot here, so the row must say so rather
 ## than promise points the phase will not pay for (wiki: tech-tree § Research
 ## Model — no partial funding).
 func test_a_slot_the_treasury_cannot_cover_reads_unpaid() -> void:
+	_bind_panel()
 	_panel_state.assign("land_enclosure", "maximum")
 	_panel.refresh(_panel_state, 100)
 	assert_not_null(_label_containing("unpaid next turn"))
@@ -1012,6 +1280,7 @@ func test_a_slot_the_treasury_cannot_cover_reads_unpaid() -> void:
 ## says the same thing on a long press (wiki: tech-tree-labour-economy
 ## § money_lending, banking; REQ-P5-05).
 func test_the_college_names_the_floor_that_leaves_a_study_unpaid() -> void:
+	_bind_panel()
 	_panel_state.assign("land_enclosure", "maximum")
 	_panel.refresh(_panel_state, 0)
 	var notice: Label = _label_containing("unpaid —")
@@ -1024,6 +1293,7 @@ func test_the_college_names_the_floor_that_leaves_a_study_unpaid() -> void:
 ## Money Lending moves the floor, so the same college names −500 and the tech
 ## that would push it to −1,000 (wiki: tech-tree-labour-economy § banking).
 func test_the_college_names_the_lending_floor_a_purse_may_reach() -> void:
+	_bind_panel()
 	_panel_state.unlock("money_lending")
 	_panel_state.assign("land_enclosure", "maximum")
 	_panel.refresh(_panel_state, ResearchFunding.DEBT_FLOOR)
@@ -1036,6 +1306,7 @@ func test_the_college_names_the_lending_floor_a_purse_may_reach() -> void:
 ## A funded college says nothing about the floor: the notice belongs to the turn
 ## the purse cannot pay, not to every visit.
 func test_a_paid_college_carries_no_floor_notice() -> void:
+	_bind_panel()
 	_panel_state.assign("land_enclosure", "low")
 	_panel.refresh(_panel_state, 2500)
 	assert_null(_label_containing("unpaid —"))
@@ -1043,6 +1314,7 @@ func test_a_paid_college_carries_no_floor_notice() -> void:
 
 
 func test_known_techs_move_to_the_known_tab() -> void:
+	_bind_panel()
 	_panel_state.unlock("crop_rotation")
 	_panel.refresh(_panel_state, 2500)
 	_panel.select_tab(1)
@@ -1051,6 +1323,7 @@ func test_known_techs_move_to_the_known_tab() -> void:
 
 
 func test_closing_emits_the_close_signal() -> void:
+	_bind_panel()
 	var closed: Array[bool] = []
 	_panel.close_pressed.connect(func() -> void: closed.append(true))
 	var close: Button = _button("Close")
@@ -1061,12 +1334,14 @@ func test_closing_emits_the_close_signal() -> void:
 
 # --- goal slot ---------------------------------------------------------------
 func test_the_goal_strip_starts_empty() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	assert_eq(_panel.goal_tech(), "")
 	assert_not_null(_label_containing("No goal"))
 
 
 func test_setting_a_goal_names_it_and_sorts_the_queue() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	_panel.set_goal("national_bureaucracy")
 	await get_tree().process_frame
@@ -1076,6 +1351,7 @@ func test_setting_a_goal_names_it_and_sorts_the_queue() -> void:
 
 
 func test_the_goal_marks_its_path() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	_panel.set_goal("national_bureaucracy")
 	await get_tree().process_frame
@@ -1087,6 +1363,7 @@ func test_the_goal_marks_its_path() -> void:
 
 
 func test_clearing_the_goal_restores_catalog_order() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	_panel.set_goal("national_bureaucracy")
 	var clear: Button = _button("Clear")
@@ -1098,6 +1375,7 @@ func test_clearing_the_goal_restores_catalog_order() -> void:
 
 
 func test_the_goal_button_steers_the_queue() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	var goal: Button = _button("Goal")
 	assert_not_null(goal)
@@ -1109,6 +1387,7 @@ func test_the_goal_button_steers_the_queue() -> void:
 
 
 func test_a_reached_goal_says_so() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	_panel.set_goal("crop_rotation")
 	_panel_state.unlock("crop_rotation")
@@ -1118,6 +1397,7 @@ func test_a_reached_goal_says_so() -> void:
 
 
 func test_an_unknown_goal_clears_it() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	_panel.set_goal("crop_rotation")
 	_panel.set_goal("no_such_tech")
@@ -1127,6 +1407,7 @@ func test_an_unknown_goal_clears_it() -> void:
 ## The goal is kept with the campaign (DR-20261111-21): steering writes it into
 ## the research state, and the ledger reopens on it instead of catalog order.
 func test_steering_writes_the_goal_into_the_campaign_state() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	_panel.set_goal("national_bureaucracy")
 	assert_eq(_panel_state.goal, "national_bureaucracy", "the goal is state the save carries")
@@ -1135,6 +1416,7 @@ func test_steering_writes_the_goal_into_the_campaign_state() -> void:
 
 
 func test_a_ledger_reopens_on_the_goal_the_campaign_carries() -> void:
+	_bind_panel()
 	_panel_state.goal = "national_bureaucracy"
 	_panel.refresh(_panel_state, 2500)
 	await get_tree().process_frame
@@ -1219,6 +1501,7 @@ func test_an_unknown_advance_has_no_road() -> void:
 ## The TREE list is gone: the college keeps one clear door into a sheet of its
 ## own (issue #668, DR-20261115-15).
 func test_the_college_keeps_one_door_to_the_chart() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	assert_eq(_panel._tabs.get_tab_count(), 2, "AVAILABLE and KNOWN are the lists")
 	assert_true(
@@ -1232,6 +1515,7 @@ func test_the_college_keeps_one_door_to_the_chart() -> void:
 
 
 func test_the_college_door_asks_for_the_chart() -> void:
+	_bind_panel()
 	_panel.refresh(_panel_state, 2500)
 	var heard: Array[int] = [0]
 	_panel.tree_requested.connect(func() -> void: heard[0] += 1)

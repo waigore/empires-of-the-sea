@@ -2,7 +2,9 @@ extends GdToolsTest
 ## App flow: title -> setup -> map, in-game menu, save slot, load rebuilds the
 ## screen (clearing the old game), and back to the title (REQ-P5-01, P5-07).
 ## One chart is rolled in `before_all` and handed through `Main.preset_world` so
-## coverage does not pay `generate_world` on every new-game / load path.
+## coverage does not pay `generate_world` on every new-game / load path. Pure
+## charge / key-catalogue cases never touch the shell, so they skip a Main boot
+## under coverage (docs/testing.md § Speed rules).
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -12,7 +14,8 @@ const DIR: String = "user://test_menu_flow"
 const FLOW_SEED: int = 777
 const FLOW_SIZE: Vector2i = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 
-var main: Node = null
+## Backing store for the lazy shell; cases reach it through `main`.
+var _main: Node = null
 ## Non-underscore: gd-tools copies these from `before_all` onto each test instance.
 var flow_world: WorldMap = null
 var flow_snapshot: Array = []
@@ -26,19 +29,32 @@ func before_all() -> void:
 func before_each() -> void:
 	_clean_dir()
 	Fixture.restore(flow_world, flow_snapshot)
-	main = MAIN.instantiate()
-	main.auto_start = false
-	main.size_override = FLOW_SIZE
-	main.preset_world = flow_world
-	add_child(main)
+
+
+## Flow cases ask for the shell; charge / key-catalogue cases that never ask
+## never pay a `Main` instantiate under coverage.
+func _ensure_shell() -> Node:
+	if is_instance_valid(_main):
+		return _main
+	_main = MAIN.instantiate()
+	_main.auto_start = false
+	_main.size_override = FLOW_SIZE
+	_main.preset_world = flow_world
+	add_child(_main)
+	return _main
+
+
+var main: Node:
+	get:
+		return _ensure_shell()
 
 
 func after_each() -> void:
 	get_tree().paused = false
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	if is_instance_valid(main):
-		main.free()
-	main = null
+	if is_instance_valid(_main):
+		_main.free()
+	_main = null
 	# The intro cases mount their own charge page; the flow cases do not.
 	if is_instance_valid(page):
 		page.free()
@@ -74,6 +90,7 @@ func test_title_screen_offers_new_and_load() -> void:
 	assert_true(menu.new_game_button != null)
 	assert_true(menu.load_game_button != null)
 	assert_true(menu.quit_button != null)
+	assert_false(menu.has_signal("observer_pressed"), "no debug door on the title menu")
 	assert_eq(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE, "English only")
 
 
@@ -514,9 +531,9 @@ func _row_for(rows: Array[Control], label: String) -> Control:
 
 
 func _drop_flow_shell() -> void:
-	if is_instance_valid(main):
-		main.free()
-	main = null
+	if is_instance_valid(_main):
+		_main.free()
+	_main = null
 
 
 ## The shell `before_each` mounted is the title screen: read it in place instead
@@ -544,22 +561,18 @@ func test_auto_start_boots_the_map_screen() -> void:
 	Fixture.restore(chart, snap)
 
 
-## Debug door: the title screen starts a fully-AI campaign with no human court.
-func test_observer_entry_starts_an_all_ai_campaign() -> void:
+## Debug door: the desktop `--ai-observer` switch boots a fully-AI campaign with
+## no human court, and the title screen never appears (docs/ai-observer.md).
+func test_observer_launch_starts_an_all_ai_campaign() -> void:
 	_drop_flow_shell()
 	var chart: WorldMap = Fixture.world()
 	var snap: Array = Fixture.snapshot(chart)
 	var shell: Node = MAIN.instantiate()
+	shell.observer_start = true
 	shell.size_override = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 	shell.preset_world = chart
 	add_child(shell)
-	var menu: MainMenu = shell.current_page as MainMenu
-	assert_not_null(menu, "the title screen offers the door")
-	if menu == null:
-		shell.free()
-		Fixture.restore(chart, snap)
-		return
-	menu.observer_pressed.emit()
+	assert_false(shell.current_page is MainMenu, "the switch skips the title screen")
 	var screen: MapScreen = shell.current_screen
 	assert_not_null(screen, "the observer builds a map screen")
 	if screen == null:
@@ -576,6 +589,19 @@ func test_observer_entry_starts_an_all_ai_campaign() -> void:
 	assert_not_null(screen.get_node_or_null("AiObserver"), "the dashboard mounts")
 	shell.free()
 	Fixture.restore(chart, snap)
+
+
+## The switch is read from the user args after `--`, and only as its own arg: a
+## value after `=` or a neighbouring switch never opens the observer.
+func test_the_observer_switch_is_read_from_the_user_args() -> void:
+	var script: Script = load("res://scenes/main.gd")
+	assert_true(script.has_observer_flag(PackedStringArray(["--ai-observer"])))
+	assert_true(script.has_observer_flag(PackedStringArray(
+		["--agent-debug=8765", " --ai-observer "]
+	)))
+	assert_false(script.has_observer_flag(PackedStringArray(["--ai-observer=1"])))
+	assert_false(script.has_observer_flag(PackedStringArray(["--ai-observe"])))
+	assert_false(script.has_observer_flag(PackedStringArray([])))
 
 # --- the crown's charge (campaign intro) ---
 

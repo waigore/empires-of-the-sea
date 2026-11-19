@@ -1,5 +1,7 @@
 # PR body — elucidate design
 
+Voice: [`AGENTS.md`](../../../../AGENTS.md) Talk to the user — plain English.
+
 Use with `gh pr create` when code shipped. Title: why-focused (P5 / clarity), not a file list.
 
 ```markdown

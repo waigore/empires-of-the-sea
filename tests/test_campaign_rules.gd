@@ -1455,15 +1455,19 @@ func test_an_empty_turn_is_still_archived_so_the_history_has_no_gaps() -> void:
 # --- battles, studies, treasury, raids ---------------------------------------
 
 
-func test_a_capture_prints_the_province_and_the_regiments_lost() -> void:
+## A province stormed and taken prints the place and the regiments the beaten
+## side lost (wiki: the-gazette § Item catalog — "Provinces the crown took or
+## lost").
+func test_a_stormed_capture_prints_the_province_and_the_regiments_lost() -> void:
 	var province: int = _province()
 	var battle: Dictionary = {
 		"attacker": VIEWER,
 		"defender": GAZ_FRANCE,
 		"region": 0,
 		"province": province,
-		"outcome": ArmyCombat.Outcome.CAPTURE,
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
 		"captured": true,
+		"attacker_lost": [1],
 		"defender_lost": [1, 2],
 	}
 	var items: Array = _items(_state(3), [], [battle])
@@ -1472,6 +1476,79 @@ func test_a_capture_prints_the_province_and_the_regiments_lost() -> void:
 	var text: String = String(items[0]["text"])
 	assert_true(text.contains(_province_name(province)))
 	assert_true(text.contains("2 regiments"))
+
+
+## A province that changes hands with nobody on its walls is no battle: the
+## rules record an unopposed occupation with no losses, and the sheet prints the
+## flag coming down rather than a storm that never happened (wiki: the-gazette
+## § Item catalog — "Provinces the crown took or lost"; § Prose).
+func test_an_unopposed_capture_is_no_battle() -> void:
+	var province: int = _province()
+	var battle: Dictionary = _battle(ArmyCombat.Outcome.CAPTURE)
+	battle["attacker_lost"] = []
+	battle["defender_lost"] = []
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains(_province_name(province)), "the province is named")
+	assert_true(text.contains("Not a shot was fired"), text)
+	assert_false(text.contains("bayonet"), "nothing was stormed: %s" % text)
+	assert_false(text.contains("0 "), "no casualty count: %s" % text)
+
+
+## A fought capture that cost the beaten side nothing names no regiments: the
+## desk never prints "and 0 regiments" nor a count it does not have.
+func test_a_capture_with_no_losses_names_no_regiments() -> void:
+	var ours: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"captured": true,
+		"attacker_lost": [],
+		"defender_lost": [],
+	}
+	var items: Array = _items(_state(3), [], [ours])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains(_province_name(_province())), text)
+	assert_false(text.contains("0 regiments"), text)
+	assert_false(text.contains("regiments"), text)
+	var theirs: Dictionary = {
+		"attacker": GAZ_FRANCE,
+		"defender": VIEWER,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"captured": true,
+		"attacker_lost": [],
+		"defender_lost": [],
+	}
+	var lost: Array = _items(_state(3), [], [theirs])
+	assert_eq(lost.size(), 1)
+	var lost_text: String = String(lost[0]["text"])
+	assert_true(lost_text.contains("the province changes hands"), lost_text)
+	assert_false(lost_text.contains("0 of our regiments"), lost_text)
+
+
+## The same walk-in printed for a watched court names both crowns and no number.
+func test_an_unopposed_capture_by_a_watched_court_is_no_battle() -> void:
+	var battle: Dictionary = {
+		"attacker": GAZ_ENGLAND,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.CAPTURE,
+		"captured": true,
+		"defender_lost": [],
+	}
+	var items: Array = _items(_state(3), [GAZ_ENGLAND], [battle])
+	assert_eq(items.size(), 1)
+	assert_eq(int(items[0]["class"]), Gazette.Class.INTEREST)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("England"), text)
+	assert_false(text.contains("bayonet"), "nothing was stormed: %s" % text)
 
 
 func test_a_battle_between_unwatched_courts_is_never_reported() -> void:
@@ -1597,8 +1674,9 @@ func test_the_crowns_own_battle_ignores_the_chart() -> void:
 		"defender": GAZ_FRANCE,
 		"region": 1,
 		"province": _new_world_province(),
-		"outcome": ArmyCombat.Outcome.CAPTURE,
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
 		"captured": true,
+		"attacker_lost": [1],
 		"defender_lost": [1, 2],
 	}
 	var items: Array = _items(_state(3), [], [battle], [], {}, 0, [], [], _charts())
@@ -1675,7 +1753,107 @@ func test_a_standoff_prints_the_crowns_own_dead() -> void:
 	var items: Array = _items(_state(3), [], [battle])
 	assert_eq(items.size(), 1)
 	var text: String = String(items[0]["text"])
-	assert_true(text.contains("2 of our regiments lost"), text)
+	assert_true(text.contains("2 of our regiments are lost"), text)
+
+
+## A won line names the crown's own dead: the field it holds, the province it
+## takes and the water it keeps all print what they cost, beside the beaten
+## court's loss (wiki: the-gazette § What the crown can know; DR-20261119-07).
+func test_a_won_field_prints_the_crowns_own_dead() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"captured": true,
+		"attacker_lost": [1],
+		"defender_lost": [1, 2],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 regiments"), text)
+	assert_true(text.contains("1 of our regiments is lost"), text)
+
+
+## A bloodless win prints the beaten side's loss alone: the clause is the
+## record's, so a court that lost nobody reads no zero (DR-20261119-07).
+func test_a_bloodless_win_prints_no_zero() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+		"attacker_lost": [],
+		"defender_lost": [1, 2],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 of their regiments are broken"), text)
+	assert_false(text.contains("of our"), text)
+
+
+## A defence another court holds against the crown names the crown's dead as
+## ours, never as an anonymous count (wiki: the-gazette § What the crown can
+## know; DR-20261119-07).
+func test_a_held_defence_against_the_crown_names_our_dead() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": [1, 2],
+		"defender_lost": [],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 of our regiments are broken"), text)
+
+
+## A defence the crown itself holds prints the beaten side's loss and then the
+## crown's own: a win on its own walls costs men too (wiki: the-gazette § What
+## the crown can know; DR-20261119-07).
+func test_a_defence_the_crown_holds_names_both_sides() -> void:
+	var battle: Dictionary = {
+		"attacker": GAZ_FRANCE,
+		"defender": VIEWER,
+		"region": 0,
+		"province": _province(),
+		"outcome": ArmyCombat.Outcome.DEFENDER_VICTORY,
+		"attacker_lost": [1, 2],
+		"defender_lost": [1],
+	}
+	var items: Array = _items(_state(3), [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 of their regiments are broken"), text)
+	assert_true(text.contains("1 of our regiments is lost"), text)
+
+
+## A sea victory keeps the water and still spends hulls doing it, so the line
+## names the crown's own hulls as well as the beaten squadron's
+## (wiki: the-gazette § What the crown can know; ships-and-naval § Naval Combat
+## Resolution; DR-20261119-07).
+func test_a_sea_victory_prints_the_crowns_own_hulls() -> void:
+	var battle: Dictionary = {
+		"attacker": VIEWER,
+		"defender": GAZ_FRANCE,
+		"region": 0,
+		"zone": 0,
+		"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+		"attacker_lost": ["h1"],
+		"defender_lost": ["h2", "h3"],
+	}
+	var items: Array = _items(_state(3), [], [], [battle])
+	assert_eq(items.size(), 1)
+	var text: String = String(items[0]["text"])
+	assert_true(text.contains("2 hulls"), text)
+	assert_true(text.contains("1 of our hulls is lost"), text)
 
 
 ## A beaten squadron that slips away still costs the crown that held the water
@@ -1695,7 +1873,7 @@ func test_a_withdrawal_that_costs_the_crown_hulls_prints_them() -> void:
 	var items: Array = _items(_state(3), [], [], [battle])
 	assert_eq(items.size(), 1)
 	var text: String = String(items[0]["text"])
-	assert_true(text.contains("1 of our hulls lost"), text)
+	assert_true(text.contains("1 of our hulls is lost"), text)
 
 
 ## Another court's standoff and withdrawal still print no numbers
@@ -1917,6 +2095,7 @@ func test_every_catalogue_kind_prints_a_filled_line() -> void:
 		"battleHeld",
 		"battleAnnihilated",
 		"battleStandoff",
+		"provinceOccupied",
 		"seaHeld",
 		"seaWithdrew",
 		"seaDraw",
@@ -2317,6 +2496,16 @@ func test_an_archive_without_sheets_says_the_presses_have_not_run() -> void:
 	_setup_gazette_plate()
 	plate.open_archive(GazetteState.new(), null, gazette_plate_VIEWER)
 	assert_true(_has_text(plate, GazettePlate.NO_HISTORY))
+
+
+## A crown that follows no court still reads the world's page, so the editor
+## promises that and never a silent sheet (wiki: the-gazette § Classes,
+## § Courts of interest).
+func test_the_watchlist_with_nothing_followed_promises_the_world_page() -> void:
+	_setup_gazette_plate()
+	plate.open_watchlist(GazetteState.new(), null, gazette_plate_VIEWER)
+	assert_true(_has_text(plate, "only the world's news will print"))
+	assert_false(_has_text(plate, "the sheet will be quiet"))
 
 
 # --- the archive's reading filter (DR-20261115-06) ---------------------------
@@ -2992,7 +3181,7 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 ## The Home Army always stands on its court's seat: a reassignment takes the
 ## guard to the new capital, so a court that lost its seat can muster again
 ## (wiki: military-armies § Home Army; issue #474). Without the recall the
-## capital guard in `MapPlayArmyAi._reinforce` blocks every muster for the rest
+## capital guard in `MapPlayArmyMusterAi._reinforce` blocks every muster for the rest
 ## of the campaign.
 func test_a_reassignment_takes_the_home_army_to_the_new_seat() -> void:
 	var screen: MapScreen = _loss_screen()

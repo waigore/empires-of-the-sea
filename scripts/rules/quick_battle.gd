@@ -1,15 +1,18 @@
 class_name QuickBattle
 extends RefCounted
 ## One-province tactical combat (wiki: quick-battle): deterministic for a seed,
-## three rounds, 3 CP a side. Action tables live in [QuickBattleActions]; fort
-## guns in [QuickBattleBattery]; the report the plate reads in
-## [QuickBattleReport]. A side's strength aggregates its deployed
-## slice's tactical stats (FPN + FPM, chevrons and health), never a bare unit
-## count. Casualties feed the same ArmyCombat pipeline as auto-resolve
-## (REQ-P2-03, REQ-P3-01, REQ-P3-03).
+## three rounds, 3 CP a side. This class conducts the battle; the law it is
+## fought under — its length, command points, automatic plans and line weight —
+## lives in [QuickBattleTerms], its action tables in [QuickBattleActions], fort
+## guns in [QuickBattleBattery] and the report the plate reads in
+## [QuickBattleReport]. Casualties feed the same ArmyCombat pipeline as
+## auto-resolve (REQ-P2-03, REQ-P3-01, REQ-P3-03).
 
-const MAX_ROUNDS: int = 3
-const CP_PER_ROUND: int = 3
+## A battle is fought over this many rounds at most, each side spending this
+## many command points a round; the plate, the simulator and the resolver read
+## one answer (wiki: quick-battle § Core actions).
+const MAX_ROUNDS: int = QuickBattleTerms.MAX_ROUNDS
+const CP_PER_ROUND: int = QuickBattleTerms.CP_PER_ROUND
 
 
 static func enabled(context: Dictionary, attacker: int, defender: int) -> bool:
@@ -57,7 +60,10 @@ static func resolve_exchange(
 		"gates": gates,
 	}
 	state["attacker"]["plan"] = plan_for(atk_side, attacker, context, false)
-	state["defender"]["plan"] = plan_for(def_side, defender, context, true, fort_level > 0)
+	state["defender"]["plan"] = plan_for(
+		def_side, defender, context, true, fort_level > 0,
+		QuickBattleActions.line_of(state["defender"])
+	)
 	## The line's wings, dealt when the battle opens: the horse holds the flanks
 	## and the foot and guns the centre. A garrison behind a wall holds no wings
 	## — its lanes are the parapet and what waits behind it (wiki: quick-battle
@@ -142,26 +148,12 @@ static func resolve_exchange(
 	return report
 
 
+## The plan one side is handed when the battle opens (see [QuickBattleTerms]).
 static func plan_for(
 	side: Array[ArmyState], owner: int, context: Dictionary, is_defender: bool,
-	siege: bool = false
+	siege: bool = false, line: Array[String] = []
 ) -> String:
-	## An explicit defender script wins (the simulator and a scripted defence);
-	## otherwise the player's chosen plan follows the side they command.
-	if is_defender and QuickBattleActions.PLANS.has(String(context.get("defender_battle_plan", ""))):
-		return String(context["defender_battle_plan"])
-	if owner == int(context.get("player_faction", -1)):
-		return QuickBattleActions.normalize_plan(String(context.get("battle_plan", "balanced")))
-	## A garrison with no firearm on the wall can only hurt a siege by sallying.
-	if is_defender and siege and SiegeLanes.return_fire_share(side) <= 0.0:
-		return "aggressive"
-	var riders: float = 0.0
-	for army: ArmyState in side:
-		if army != null:
-			riders = maxf(riders, army.cavalry_share())
-	if riders >= 0.3:
-		return "aggressive"
-	return "defensive" if is_defender else "balanced"
+	return QuickBattleTerms.plan_for(side, owner, context, is_defender, siege, line)
 
 
 static func actions_for(
@@ -326,17 +318,7 @@ static func _order(state: Dictionary, context: Dictionary) -> Array[int]:
 	return [def_owner, atk_owner]
 
 
-## One side's battle weight: the deployed slice's Σ (FPN + FPM) × chevrons ×
-## health, scaled by cohesion and the side's combat modifiers. Emplaced guns
-## add their own type's weight, already scaled by their remaining HP (wiki:
-## quick-battle § Cohesion and effective strength).
-##
-## `line` is the slice the battle dealt when it opened: the weight is read over
-## **those** survivors, so a reserve behind the line adds no strength even after
-## the line has fallen below the deployment limit (wiki: combat § The line and
-## the reserve — "a reserve adds no strength"; quick-battle § Cohesion and
-## effective strength — "reserves behind the deployment limit never count").
-## Empty keeps the older read for a hand-built state.
+## One side's battle weight (see [QuickBattleTerms]).
 static func effective_strength(
 	side: Array[ArmyState],
 	limit: int,
@@ -345,15 +327,8 @@ static func effective_strength(
 	gun_weight: float = 0.0,
 	line: Array[String] = []
 ) -> float:
-	var weight: float = 0.0
-	if line.is_empty():
-		weight = ArmyModifiers.strength(side, limit, multiplier)
-	else:
-		weight = ArmyForce.line_strength(side, line, multiplier)
-	return (
-		weight
-		* (float(clampi(cohesion, 0, CP_PER_ROUND)) / float(CP_PER_ROUND))
-		+ gun_weight
+	return QuickBattleTerms.effective_strength(
+		side, limit, cohesion, multiplier, gun_weight, line
 	)
 
 

@@ -36,7 +36,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			touched = _split(
 				play, model, fleets, armies, faction, config, kind, trace, earning
 			) or touched
-			var order: Dictionary = AiBind.invasion_plan(
+			var order: Dictionary = AiBindCampaign.invasion_plan(
 				kind, config, play.diplomacy, play.world, region, model, fleets, armies,
 				play.turn, play.court_charts, earning
 			)
@@ -66,7 +66,7 @@ static func _split(
 	wants_income: bool = false
 ) -> bool:
 	var split_any: bool = false
-	for action: Dictionary in AiBind.invasion_split(
+	for action: Dictionary in AiBindCampaign.invasion_split(
 		kind, config, play.diplomacy, play.world, model, fleets, armies, play.court_charts,
 		wants_income
 	):
@@ -83,14 +83,9 @@ static func _split(
 		play.army_layer.next_army += 1
 		split_any = true
 		var field: ArmyState = split["army"] as ArmyState
-		trace.append({
-			"faction": faction,
-			"kind": KIND_SPLIT,
-			"army": field.id,
-			"province": field.province,
-			"province_name": model.province_name(field.province),
-			"region": model.region_id,
-		})
+		trace.append(
+			MapPlayCourt.army_trace(model, faction, KIND_SPLIT, field.id, field.province)
+		)
 	return split_any
 
 
@@ -170,11 +165,15 @@ static func _land(
 ) -> Dictionary:
 	var army: ArmyState = _carried_army(armies, fleet)
 	var province: int = int(order.get("province", -1))
+	var owner: int = model.province_owner(province)
 	var result: Dictionary = NavalTransport.disembark(
 		model, army, fleet, province, play.turn, _hostile(play), play.diplomacy
 	)
 	if not bool(result.get("ok", false)):
 		return {}
+	# A landing on another court's coast is prosecution too (issue #999).
+	if play.ai != null and owner != MapModel.NO_ID and owner != fleet.owner:
+		AiWarMemory.note_attack(play.ai, fleet.owner, owner, play.turn)
 	_report_landing(play, model, fleet.owner, province)
 	return {
 		"army": army.id,

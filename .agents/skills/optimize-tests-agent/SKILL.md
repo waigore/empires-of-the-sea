@@ -38,6 +38,7 @@ so shards and PR runs stay fast.
 |--------|------|
 | [`docs/testing.md`](../../../docs/testing.md) | Budgets + speed rules |
 | [`docs/pull-requests.md`](../../../docs/pull-requests.md) | Required checks |
+| [`AGENTS.md`](../../../AGENTS.md) Talk to the user | Plain English on PR text |
 | [`gd-tools.toml`](../../../gd-tools.toml) | Per-test timeout |
 | [`.github/workflows/ci.yml`](../../../.github/workflows/ci.yml) | Tier 1 job timeouts / parallel |
 | [`.github/workflows/tier2.yml`](../../../.github/workflows/tier2.yml) | Sharded trunk suite + coverage-gate |

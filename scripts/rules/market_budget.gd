@@ -11,19 +11,13 @@ extends RefCounted
 ## (the wiki's conservative rule). A waiting order the turn later refuses still
 ## counts here — the projection is a promise, not a receipt.
 
-## One waiting order's treasury cost, priced by the catalog that owns the row.
-## An unknown kind or key costs nothing, so a stale save never narrows a purse.
+## One waiting order's treasury cost, priced by the queue that owns the row:
+## [method RecruitQueue.order_treasury] reads the same catalog the order pays at
+## Build/work, so the market's budget and the recruit row cannot promise one
+## purse twice. An unknown kind or key costs nothing, so a stale save never
+## narrows a purse.
 static func order_cost(kind: String, key: String) -> int:
-	match kind:
-		RecruitQueue.KIND_WORKER:
-			return maxi(int(WorkerPool.recruit_cost(int(key)).get("treasury", 0)), 0)
-		RecruitQueue.KIND_CIVILIAN:
-			return maxi(CivilianCatalog.treasury_cost(key), 0)
-		RecruitQueue.KIND_REGIMENT:
-			return maxi(RegimentCatalog.treasury_cost(key), 0)
-		RecruitQueue.KIND_SHIP:
-			return maxi(ShipEconomy.treasury_cost(key), 0)
-	return 0
+	return RecruitQueue.order_treasury(kind, key)
 
 
 ## The name the order will land under, so the ledger can say what the purse is
