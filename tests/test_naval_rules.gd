@@ -3862,6 +3862,28 @@ func test_the_dossier_prices_the_patrol_that_raids_too() -> void:
 	play.economy.free()
 
 
+## The hull the raid would sink is named with the article its name asks for: the
+## catalogue's Indiaman opens on a vowel, so the price reads "sinks an Indiaman"
+## and never "a Indiaman" (wiki: ships-and-naval § Trade and Transport
+## Interception).
+func test_the_prize_names_its_hull_with_the_article_it_asks_for() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var laden := FleetState.in_port(
+		20, 1, 1, ["rival_1", "rival_2"],
+		{"rival_1": "indiaman", "rival_2": "frigate"}
+	)
+	var play := _prize_session([patrol], laden)
+	play.economy.market.record_import("grain", 6, 1)
+	var note: String = MapPlayFleetMissions.prize_note(play, patrol)
+	assert_true(note.contains("sinks an Indiaman"), note)
+	assert_false(note.contains("a Indiaman"), "the article follows the hull's own name")
+	assert_eq(MapPlayFleetMissions.with_article("Indiaman"), "an Indiaman")
+	assert_eq(MapPlayFleetMissions.with_article("Galleon"), "a Galleon")
+	play.economy.free()
+
+
 ## The pass rolls every station the crown holds in the water as one group, so the
 ## price is the group's, never one hull's.
 func test_the_dossier_prices_the_whole_group_in_the_zone() -> void:

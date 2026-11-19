@@ -123,9 +123,20 @@ static func prize_note(play: PlaySession, fleet: FleetState) -> String:
 	if at_risk.is_empty():
 		return take + " — no merchant hull at risk."
 	var hull_chance: int = int(round(float(best.get("hull_chance", 0.0)) * 100.0))
-	return "%s; a hit sinks a %s on %d%%." % [
-		take, ShipStats.display_name(at_risk), hull_chance
+	return "%s; a hit sinks %s on %d%%." % [
+		take, with_article(ShipStats.display_name(at_risk)), hull_chance
 	]
+
+
+## One hull's name with its indefinite article: `an Indiaman`, `a Galleon`. The
+## catalogue's only vowel-initial hull is the Indiaman, but the reading is the
+## word's own so a later hull cannot inherit the wrong one.
+static func with_article(name: String) -> String:
+	var first: String = name.substr(0, 1).to_lower()
+	var vowel: bool = (
+		first == "a" or first == "e" or first == "i" or first == "o" or first == "u"
+	)
+	return "%s %s" % ["an" if vowel else "a", name]
 
 
 ## What the station catches: the chance a patrol, or a blockade that still
