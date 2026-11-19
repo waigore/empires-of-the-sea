@@ -1932,6 +1932,92 @@ func test_the_alliance_refusal_is_not_the_heralds_word() -> void:
 	assert_false(_names_a_herald_word(String(check["reason"])), String(check["reason"]))
 
 
+## The warmth gates stand on the herald's meter, so the refusal names the climb
+## in whole steps: the tenth-step meter cannot tell a court one point below the
+## gate from one nine points below it, and the distance is what the sheet can
+## show (wiki: diplomacy § Player-facing relation display; playtest diary
+## 2026-11-13, item 3).
+func test_a_warmth_gate_names_its_climb_up_the_meter() -> void:
+	# The gate sits inside the court's own step at 50 — one point short is the
+	# reading's own case, never a band word.
+	assert_eq(DiplomacyCatalog.gate_steps(50.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 0)
+	assert_eq(
+		DiplomacyCatalog.gate_line(50.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE),
+		"inside this court's own step of the meter"
+	)
+	assert_eq(DiplomacyCatalog.gate_steps(41.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 1)
+	assert_eq(
+		DiplomacyCatalog.gate_line(41.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE),
+		"one step up the meter"
+	)
+	assert_eq(DiplomacyCatalog.gate_steps(31.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 2)
+	assert_eq(
+		DiplomacyCatalog.gate_line(31.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE),
+		"two steps up the meter"
+	)
+	# The distance is spelled, the way every count the sheet prints is.
+	assert_eq(
+		DiplomacyCatalog.gate_line(31.0, DiplomacyCatalog.ALLIANCE_CLAMP),
+		"four steps up the meter"
+	)
+	# A court at or past the gate never reads a climb, and the clamp keeps a
+	# warm court from a negative one.
+	assert_eq(DiplomacyCatalog.gate_steps(DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE, 51.0), 0)
+	assert_eq(DiplomacyCatalog.gate_steps(90.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 0)
+
+
+## Both warmth refusals print the climb, so a crown reads how far the gate is
+## instead of a vague "not warm enough" — and still never a band word.
+func test_every_warmth_refusal_names_the_climb() -> void:
+	_setup_diplomacy_orders()
+	var world: WorldMap = _world([0, 2, 2, 2])
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	diplomacy_orders_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	record.score = 41.0
+	var rung: Dictionary = DiplomacyRules.can_establish_overture(
+		diplomacy_orders_state, world, 0, 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, 30000,
+		diplomacy_orders_economy.tech_unlocked
+	)
+	assert_false(bool(rung["ok"]))
+	assert_eq(
+		String(rung["reason"]),
+		"Join Empire needs a warmer court than this one — the gate stands one step up the meter."
+	)
+	assert_false(_names_a_herald_word(String(rung["reason"])), String(rung["reason"]))
+	var alliance: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
+	assert_false(bool(alliance["ok"]))
+	# The offer gate is 51 (acceptance is the Allied band at 76), so a court at
+	# 41 reads one step up either way.
+	assert_eq(
+		String(alliance["reason"]),
+		"The court is not warm enough for an alliance — the gate stands one step up the meter."
+	)
+	assert_false(_names_a_herald_word(String(alliance["reason"])), String(alliance["reason"]))
+
+
+## The last rung's row names the gate it waits on before the press: a court short
+## of the warmth reads the distance under the row's own line, and a warm court
+## (or a row built with no score) keeps the published line alone.
+func test_the_join_empire_row_names_the_gate_it_waits_on() -> void:
+	var short: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER, 50.0
+	)
+	assert_true(short.contains("hulls join yours"), short)
+	assert_true(
+		short.contains("The gate stands inside this court's own step of the meter"), short
+	)
+	var warm: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER,
+		DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+	)
+	assert_false(warm.contains("gate stands"), warm)
+	var blind: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER
+	)
+	assert_false(blind.contains("gate stands"), blind)
+
+
 ## An alliance rides on the pact: the order is refused with the published reason
 ## while no non-aggression pact stands, however warm the court — and admitted
 ## once the pact is in either direction (wiki: diplomacy § Alliances;

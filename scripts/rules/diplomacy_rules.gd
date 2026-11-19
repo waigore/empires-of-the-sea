@@ -161,10 +161,14 @@ static func can_form_alliance(
 	if not has_pact(state, player, target):
 		return _deny("An alliance needs a non-aggression pact first.")
 	if record.score < DiplomacyCatalog.ALLIANCE_MIN_SCORE:
-		# Same rule as the Join Empire gate: the sheet's word at this score is
-		# not the rule's level name, so the refusal names warmth, not a band
-		# (wiki: diplomacy § Player-facing relation display).
-		return _deny("The court is not warm enough for an alliance.")
+		# The gate is the hidden score and the sheet shows a tenth-step meter,
+		# so the refusal names the gate's distance up that meter rather than a
+		# band word the court has not reached (wiki: diplomacy
+		# § Player-facing relation display).
+		return _deny(
+			"The court is not warm enough for an alliance — the gate stands %s."
+			% DiplomacyCatalog.gate_line(record.score, DiplomacyCatalog.ALLIANCE_MIN_SCORE)
+		)
 	return _allow()
 
 
@@ -294,11 +298,18 @@ static func can_establish_overture(
 	var provinces: int = provinces_owned(world, target)
 	if stage == DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		# The gate is the hidden score, not one of the sheet's words: the herald
-		# reads Neutral from 50 to 60, so the refusal may not quote a ladder word
-		# the court has not reached (wiki: diplomacy § Player-facing relation
-		# display; playtest diary 2026-11-13, item 3).
+		# reads Neutral from 50 to 60, so the refusal names the gate's distance
+		# up the herald's meter instead of a band word the court has not
+		# reached (wiki: diplomacy § Player-facing relation display; playtest
+		# diary 2026-11-13, item 3).
 		if state.relation(player, target).score < DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE:
-			return _deny("Join Empire needs a warmer court than this one.")
+			return _deny(
+				"Join Empire needs a warmer court than this one — the gate stands %s."
+				% DiplomacyCatalog.gate_line(
+					state.relation(player, target).score,
+					DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+				)
+			)
 		if provinces < 1:
 			return _deny("That faction holds no provinces to join.")
 		# A colony is bought once: the Tribe keeps its land, so a second Join
