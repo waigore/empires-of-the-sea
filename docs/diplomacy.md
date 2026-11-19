@@ -16,9 +16,8 @@ Wars, treaties, aid, intervention, chronicle — wiki
   crown bought. Minors/Tribes accept peace; GP 26+.
 - **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs −50 with
   ally, −10 with others; never in war.
-- **Warmth gates:** an alliance or Join Empire refusal names the gate's distance
-  up the herald's meter in steps (`gate_line`), never a band word; the last
-  rung's row carries it too.
+- **Warmth gates:** alliance / Join Empire refusals name the gate's distance up
+  the herald meter (`gate_line`); the last rung's row carries it too.
 - **Call to arms:** a GP war calls each ally once. AI allies join 50+;
   human calls wait; refusal breaks treaty.
 - **Intervention:** embassy and deed holders answer a Minor/Tribe war:
@@ -53,7 +52,7 @@ Wars, treaties, aid, intervention, chronicle — wiki
 
 ## Deferred (REQ-P2-02)
 
-None — see [`deferred.md`](deferred.md).
+Rival priced overtures to the human — [`deferred.md`](deferred.md).
 
 ## Architecture
 
