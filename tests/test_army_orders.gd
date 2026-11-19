@@ -138,6 +138,7 @@ func test_a_muted_hud_leaves_the_crown_view_alone() -> void:
 	play.hud = null
 	play.selected_province = 42
 	MapPlayArmies.select(play, home)
+	MapPlayArmies.show_panel(play, home)
 	MapPlayArmies.hide_dossier(play)
 	var picked: int = play.selected_province
 	play.hud = hud
