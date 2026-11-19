@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1102 (REQ-P2-02).
+Audited: wiki / DRs / code through #1111 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -37,6 +37,8 @@ Default: largest item here, then REQ/wiki.
 | Confirm-face; opening muster; fan/stack | `RaiseBatchPress`; `FleetMuster`; `FleetLanes` |
 | Rival priced overtures | `DiplomacyProposals` queue + the asking court's ledger |
 | AI win / border front (#995) | `AiBorderFronts`; bench win t101 (DR-19-16, #1095) |
+| Passengers whole-berth press | `EmbarkBatch` (DR-19-18, #1104) |
+| Station raid/catch dossier prices | `NavalRaid`/`NavalInterception` preview (DR-20-01/02) |
 
 ## Gaps (ranked)
 
@@ -65,4 +67,4 @@ None ranked; audit `docs/rubric.md` / wiki for the next gap.
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft weight
 seed blocked (`DR-20261117-01`). Learnings coverage gaps none
-(`FleetLanes` #1047; DR-20261119-08/17).
+(DR-20261120-01/02 station prices; embark berth #1104).
