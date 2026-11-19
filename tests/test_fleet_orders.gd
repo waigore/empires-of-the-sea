@@ -1943,6 +1943,114 @@ func test_the_crew_lands_on_the_ground_the_crown_names() -> void:
 	assert_true(_screen.civilian_layer.marker_for(unit).visible)
 
 
+## The block's one press takes every idle crew the hulls hold in one signed line,
+## and a berth that fills stops the walk where the rules refuse — naming the crew
+## that waits and why (wiki: civilian-units § Boarding; DR-20261119-18).
+func test_the_one_press_takes_every_crew_the_hulls_hold() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var tile: Vector2i = _screen.model.province_tiles(capital)[0]
+	var idle: Array[CivilianState] = []
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.owner != _screen.play.player_faction:
+			continue
+		if unit.is_embarked() or unit.is_working():
+			continue
+		unit.tile = tile
+		unit.moved = false
+		idle.append(unit)
+	assert_gte(idle.size(), 2, "the fixture holds two idle crews")
+	for index in idle.size() - home.ship_count():
+		home.add_hull("press_hull_%d" % index)
+	assert_gte(
+		CivilianVoyage.capacity(home) - home.civilian_count(), idle.size(),
+		"the squadron has a berth for every crew"
+	)
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+
+	var plan: Dictionary = MapPlayCivilianVoyage.crew(_screen.play, home)["embark_batch"]
+	assert_eq(int(plan["count"]), idle.size(), "the press counts every row it prints")
+	assert_eq(int(plan["filed"]), idle.size(), "every berth is free, so the walk carries all")
+	assert_eq(String(plan["refusal"]), "", "nothing waits")
+	assert_eq(int(plan["workers"]), 0, "a boarding spends no peasant")
+	assert_eq(int(plan["ducats"]), 0, "a boarding spends no purse")
+
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:all")
+	for unit: CivilianState in idle:
+		assert_true(unit.is_embarked(), "one press boards every crew it printed")
+		assert_false(_screen.civilian_layer.marker_for(unit).visible, "aboard leaves the map")
+	assert_eq(
+		MapPlayCivilianVoyage.crew(_screen.play, home)["embark"].size(), 0,
+		"the rows are spent"
+	)
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:all")
+	assert_eq(
+		MapPlayCivilianVoyage.crew(_screen.play, home)["embark_batch"].get("count", 0), 0,
+		"a second press has nothing to file"
+	)
+
+
+## A berth short of the crews the block prints stops the walk at the hulls: the
+## kingdom confirms the count the rules accept, the rest wait beside the sentence
+## the single press would have answered with, and the receipt names it
+## (wiki: civilian-units § Boarding; DR-20261119-18).
+func test_the_one_press_stops_at_the_berths_the_hulls_hold() -> void:
+	var capital: int = _screen.play.capital_province
+	var home: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(home, "the fixture founds a home fleet")
+	var tile: Vector2i = _screen.model.province_tiles(capital)[0]
+	var idle: Array[CivilianState] = []
+	for unit: CivilianState in _screen.civilian_layer.units:
+		if unit.owner != _screen.play.player_faction or unit.is_embarked() or unit.is_working():
+			continue
+		unit.tile = tile
+		unit.moved = false
+		idle.append(unit)
+	assert_gte(idle.size(), 2, "the fixture holds two idle crews")
+	while home.ship_count() > 1:
+		home.remove_hull(String(home.hulls[home.hulls.size() - 1]))
+	home.embarked_civilians.clear()
+	assert_eq(CivilianVoyage.capacity(home), 1, "one hull, one berth")
+
+	var plan: Dictionary = EmbarkBatch.plan(_screen.model, idle, home)
+	assert_eq(int(plan["count"]), idle.size(), "the press counts every row it prints")
+	assert_eq(int(plan["filed"]), 1, "the berth carries one crew")
+	assert_eq(
+		String(plan["refusal"]), "The squadron has 1 hull and cannot carry another civilian.",
+		"the walk stops on the berth in the rules' own words"
+	)
+	assert_eq(
+		EmbarkBatch.wait_line(plan),
+		"%d of %d wait: The squadron has 1 hull and cannot carry another civilian."
+		% [idle.size() - 1, idle.size()],
+		"the line under the press names the wait"
+	)
+	assert_eq(
+		EmbarkBatch.receipt(plan, "Madrid"),
+		"1 crew is taken aboard at Madrid — the next waits: "
+		+ "The squadron has 1 hull and cannot carry another civilian.",
+		"the receipt names the crew that waits"
+	)
+	# A press with no squadron and nothing to read keeps the shape a sheet guards
+	# on: no count, no wait, and one sentence for a tap that files nothing.
+	var blank: Dictionary = EmbarkBatch.plan(_screen.model, [], null)
+	assert_eq(int(blank["count"]), 0, "no squadron, no line")
+	assert_eq(EmbarkBatch.receipt(blank, "Madrid"), "No crew could be taken aboard.")
+	assert_eq(EmbarkBatch.wait_line(blank), "", "nothing waits where nothing can board")
+	assert_eq(
+		int(EmbarkBatch.file(_screen.model, [], null, func(_id: String) -> void: pass)["filed"]),
+		0,
+		"a press with no squadron files nothing"
+	)
+
+	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
+	MapPlayCivilianVoyage.on_action(_screen.play, "crew:embark:all")
+	assert_eq(home.civilian_count(), 1, "the press boards the one berth")
+	assert_true(idle[0].is_embarked(), "the first crew the block prints")
+	assert_false(idle[1].is_embarked(), "the crew the berth refuses stays ashore")
+
+
 ## The crown's own seat reads as one press: the port province holds a whole
 ## province of legal ground, and a crown that only wants the crew ashore at home
 ## should not open the list to find it (wiki: civilian-units § Landing;
