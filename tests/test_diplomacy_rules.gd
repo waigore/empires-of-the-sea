@@ -1826,6 +1826,20 @@ func test_the_join_empire_row_names_what_it_buys() -> void:
 		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.MINOR_NATION
 	)
 	assert_true(minor.contains("join your empire"), minor)
+	# The absorption hands the loser's squadrons over with its provinces
+	# (`MapPlayDiplomacy.on_order`), so the row may not promise land and
+	# regiments alone (wiki: diplomacy § GP–Minor Rules — Join Empire).
+	assert_true(minor.contains("hulls"), minor)
+	# A Great Power target answers on either road the rule publishes: nearly
+	# defeated, or the offerer's power twice its own (wiki: diplomacy § Join
+	# Empire; DR-20261115-19). The row named only the first, so a crown that
+	# outpowered a standing rival never learned it could absorb it.
+	var power: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER
+	)
+	assert_true(power.contains("nearly defeated"), power)
+	assert_true(power.contains("twice"), power)
+	assert_true(power.contains("hulls"), power)
 	assert_eq(
 		DiplomacyOvertures.stage_hint(DiplomacyCatalog.STAGE_NAP, FactionCatalog.Type.TRIBE),
 		""
