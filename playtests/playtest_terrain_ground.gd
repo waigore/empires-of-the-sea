@@ -110,7 +110,19 @@ func _ground_pass(model: MapModel, label: String) -> void:
 		mismatch == 0,
 		"%s: every Terrain row names the ground its battle uses, then the runner-up" % label
 	)
+	_say(_sample(model))
 	_play.hud.panels.hide_province()
+
+
+## One mixed province's row, so the drive prints the wording a player reads.
+func _sample(model: MapModel) -> String:
+	for province: ProvinceState in model.provinces:
+		if _counts(model, province.id).size() < 2:
+			continue
+		_play.hud.panels.show_province(model, province.id)
+		var row: String = String(_play.hud.panels.panel._grid.terrain.text)
+		return "e.g. %s reads [%s]" % [province.name, row]
+	return "no province on this chart mixes ground"
 
 
 ## Every terrain the province holds, with how many tiles carry it.
