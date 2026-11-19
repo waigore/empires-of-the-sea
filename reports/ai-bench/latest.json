@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:6470660d4f318510a025644b1e567b0f3e45deac52cf80bb58f5a0e6676b1ca7",
-  "submission_git": "feat/handset-gap@ec5a33c8+dirty",
+  "submission_hash": "sha256:730753ec728e7e4c2b5dbd07a602d20ce7db91f87e5496057b647e6b5f1c9cd2",
+  "submission_git": "refactor/one-diplomacy-gates@348a2be6",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:3f484a217dbde95f68f8e8d464f2262f9b43b67be07d44b109ca6a9564b7554b",
+    "ai_surface_hash": "sha256:9f20db76d2c5f542fc8dcc438181a265e1ed404d7680823a8b3376663b60db07",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 19,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-19T15:29:06Z",
+  "timestamp": "2026-11-19T16:14:57Z",
   "report_version": 1,
-  "signature": "hmac-sha256:80b35b936b7b241a5685dc6c52f90a56e90464dde0b2b8803c0fb08f2002c3fa"
+  "signature": "hmac-sha256:0a9dd84d45376070b164168b43260a4cc7b415c61b30d6d912565c4d32015774"
 }
