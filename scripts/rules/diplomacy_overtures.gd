@@ -79,23 +79,33 @@ static func establish_overture(
 ## Great Power target answers the offer on either of the rule's roads — nearly
 ## defeated, or the offerer's published power twice its own
 ## (wiki: diplomacy § Join Empire; DR-20261115-19) — so the line names both.
-static func stage_hint(stage: String, target_type: int) -> String:
+##
+## A court short of the warmth gate reads where that gate stands on its own
+## herald's meter, so the row names the wait before the press (wiki: diplomacy
+## § Join Empire, § Player-facing relation display).
+static func stage_hint(stage: String, target_type: int, score: float = -1.0) -> String:
 	if stage != DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		return ""
+	var line: String
 	match target_type:
 		FactionCatalog.Type.TRIBE:
-			return (
+			line = (
 				"A colony: the tribe keeps its land, so its provinces never count "
 				+ "toward victory — its trade favours your court."
 			)
 		FactionCatalog.Type.MINOR_NATION:
-			return "Its provinces, regiments and hulls join your empire."
+			line = "Its provinces, regiments and hulls join your empire."
 		_:
-			return (
+			line = (
 				"A crown answers yes when it is nearly defeated, or when your "
 				+ "power is twice its own — then its provinces, regiments and "
 				+ "hulls join yours."
 			)
+	if score >= 0.0 and score < DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE:
+		line += " The gate stands %s." % DiplomacyCatalog.gate_line(
+			score, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+		)
+	return line
 
 
 static func _absorb(world: WorldMap, state: DiplomacyState, winner: int, loser: int) -> void:

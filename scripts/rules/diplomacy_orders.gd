@@ -94,7 +94,7 @@ static func options(
 				DiplomacyCatalog.money(cost) if cost > 0 else "free",
 				next,
 				GROUP_TREATIES,
-				DiplomacyOvertures.stage_hint(next, type)
+				DiplomacyOvertures.stage_hint(next, type, record.score)
 			)
 		)
 	if not record.at_war:
