@@ -8937,11 +8937,11 @@ func test_the_wall_line_differs_only_by_the_outcome() -> void:
 	battle["quick"]["fort_downgraded"] = true
 	battle["quick"]["fort_after"] = 2
 
-	var opened: String = QuickBattleCopy.siege_opening(battle)
-	var closed: String = QuickBattleCopy.siege_line(battle)
+	var opened: String = QuickBattleSiegeCopy.siege_opening(battle)
+	var closed: String = QuickBattleSiegeCopy.siege_line(battle)
 
 	assert_eq(closed, opened + " — battery silenced, the fort falls to Stone", closed)
-	assert_eq(QuickBattleCopy.siege_opening(_battle()), "", "no wall, no line")
+	assert_eq(QuickBattleSiegeCopy.siege_opening(_battle()), "", "no wall, no line")
 
 
 ## The siege despatch tells the lanes, the wall's protection and the level a
@@ -8954,14 +8954,14 @@ func test_the_siege_despatch_names_the_lanes_and_the_breach() -> void:
 	battle["quick"]["fort_downgraded"] = true
 	battle["quick"]["fort_after"] = 1
 
-	var line: String = QuickBattleCopy.siege_line(battle)
+	var line: String = QuickBattleSiegeCopy.siege_line(battle)
 
 	assert_true(line.contains("Stone fort"), line)
 	assert_true(line.contains("45%"), "the wall's damage reduction is told")
 	assert_true(line.contains("4 on the wall, 2 behind"), line)
 	assert_true(line.contains("1 sortie"), line)
 	assert_true(line.contains("falls to Wood"), line)
-	assert_eq(QuickBattleCopy.siege_line(_battle()), "", "a field battle has no siege line")
+	assert_eq(QuickBattleSiegeCopy.siege_line(_battle()), "", "a field battle has no siege line")
 
 
 ## Gates and ground: the siege despatch names the three gates and a breach, and
@@ -8970,12 +8970,12 @@ func test_gates_and_ground_are_told() -> void:
 	var battle: Dictionary = _battle()
 	battle["fort_level"] = 2
 	battle["quick"]["gates"] = {"max": 3, "broken": 0, "damage": 5, "threshold": 7}
-	assert_true(QuickBattleCopy.siege_line(battle).contains("3 gates hold"))
+	assert_true(QuickBattleSiegeCopy.siege_line(battle).contains("3 gates hold"))
 	(battle["quick"] as Dictionary)["gates"] = {
 		"max": 3, "broken": 1, "damage": 7, "threshold": 7,
 	}
-	assert_true(QuickBattleCopy.siege_line(battle).contains("1 of 3 gates breached"))
-	assert_eq(QuickBattleCopy.gates_text(_battle()["quick"]), "", "no fort, no gates")
+	assert_true(QuickBattleSiegeCopy.siege_line(battle).contains("1 of 3 gates breached"))
+	assert_eq(QuickBattleSiegeCopy.gates_text(_battle()["quick"]), "", "no fort, no gates")
 
 	var ground: Dictionary = _battle()
 	ground["quick"]["terrain"] = "town"
@@ -8993,6 +8993,72 @@ func test_gates_and_ground_are_told() -> void:
 	assert_true(
 		QuickBattleCopy.action_line(action, battle, NAMES).contains("1 gate breached")
 	)
+
+
+## The plate is drawn before the first round plays, so its wall line reads the
+## wall as the siege found it: three gates standing, no sally made. The breach
+## and the sally are the aftermath's news (REQ-P5-05, REQ-P5-06; wiki:
+## siege-mechanics § Gates and Sortie).
+func test_the_plate_opens_before_a_gate_is_breached() -> void:
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 2
+	battle["quick"]["lanes"] = {"wall": 5, "behind": 0}
+	battle["quick"]["gates_open"] = {"max": 3, "broken": 0, "damage": 0, "threshold": 7}
+	battle["quick"]["gates"] = {"max": 3, "broken": 2, "damage": 14, "threshold": 7}
+	battle["quick"]["sorties"] = 1
+
+	var opened: String = QuickBattleSiegeCopy.siege_opening(battle)
+	assert_true(opened.contains("3 gates hold"), opened)
+	assert_false(opened.contains("breached"), "the opening must not name a breach")
+	assert_false(opened.contains("sortie"), "nor a sally the garrison has yet to make")
+
+	var closed: String = QuickBattleSiegeCopy.siege_line(battle)
+	assert_true(closed.contains("2 of 3 gates breached"), closed)
+	assert_true(closed.contains("1 sortie"), closed)
+
+
+## The plate a player meets is populated before the replay starts, so the wall
+## it prints carries no breach and no sally (REQ-P5-06).
+func test_the_plate_shows_no_breach_before_the_replay() -> void:
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 1
+	battle["quick"]["gates_open"] = {"max": 3, "broken": 0, "damage": 0, "threshold": 4}
+	battle["quick"]["gates"] = {"max": 3, "broken": 1, "damage": 5, "threshold": 4}
+	battle["quick"]["sorties"] = 2
+
+	overlay.show_battle(battle, "Flanders", NAMES)
+
+	var wall: String = overlay._wall_label.text
+	assert_true(wall.contains("Wood fort"), wall)
+	assert_true(wall.contains("3 gates hold"), wall)
+	assert_false(wall.contains("breached"), "the replay has not been watched yet")
+	assert_false(wall.contains("sortie"), "the garrison has not sallied yet")
+	overlay.free()
+
+
+## The painted field opens on the wall's three gates and the deal's wings: the
+## breach and the break arrive with the rounds that make them (REQ-P5-06).
+func test_the_field_opens_with_no_breach_and_no_broken_wing() -> void:
+	var field := QuickBattleField.new()
+	add_child(field)
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 1
+	battle["quick"]["gates"] = {"max": 3, "broken": 2, "damage": 9, "threshold": 4}
+	battle["quick"]["wings_open"] = {
+		"attacker": {"left": 1, "center": 2, "right": 1},
+		"defender": {"left": 0, "center": 3, "right": 0},
+	}
+	battle["quick"]["wings_broken"] = {"attacker": [], "defender": ["center"]}
+
+	field.set_battle(battle)
+
+	assert_eq(field.gates_broken, 0, "the plate opens on three gates")
+	assert_true((field.defender_broken as Array).is_empty(), "no wing has broken yet")
+	field.set_round(0, 6, 2, 0, [], [], 1)
+	assert_eq(field.gates_broken, 1, "the round that breached a gate shows it")
+	field.free()
 
 
 ## Regiment detail in the aftermath: the named types each side lost.
@@ -9798,6 +9864,37 @@ func test_the_wings_line_lists_three_breaks_as_prose() -> void:
 
 	assert_true(text.contains("left, centre and right broken"), text)
 	assert_false(text.contains(" and centre and "), text)
+
+
+## A field battle's plate opens on the deal it was fought over, never on the
+## breaks the fight has yet to make: the stand-through and the "→" tail are the
+## aftermath's (REQ-P5-05, REQ-P5-06; wiki: quick-battle § Wings and collapse).
+func test_the_plate_opens_on_the_deal_not_the_breaks() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"quick": {
+			"wings_open": {
+				"attacker": {"left": 1, "center": 2, "right": 1},
+				"defender": {"left": 0, "center": 3, "right": 0},
+			},
+			"wings": {
+				"attacker": {"left": 1, "center": 1, "right": 1},
+				"defender": {"left": 0, "center": 0, "right": 0},
+			},
+			"wings_broken": {"attacker": [], "defender": ["center"]},
+		},
+	}
+
+	var opened: String = QuickBattleCopy.wings_opening(battle, NAMES)
+
+	assert_eq(opened, "Wings — España: L 1 · C 2 · R 1 · England: L 0 · C 3 · R 0", opened)
+	assert_false(opened.contains("→"), "the opening must not read the aftermath")
+	assert_false(opened.contains("broken"), "no wing has broken when the plate opens")
+
+	var closed: String = QuickBattleCopy.wings_line(battle, NAMES)
+	assert_true(closed.contains("→ L 0 · C 0 · R 0"), closed)
+	assert_true(closed.contains("centre broken"), closed)
 
 
 ## A blow lands on a wing that still holds men: when the enemy line has lost its

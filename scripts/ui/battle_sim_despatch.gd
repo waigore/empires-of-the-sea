@@ -25,7 +25,7 @@ static func full(report: Dictionary, names: Array, sandbox: String) -> String:
 		QuickBattleCopy.chevron_line(report, names),
 		QuickBattleCopy.honour_line(report, sandbox, names),
 		QuickBattleCopy.citation_line(report, sandbox, names),
-		QuickBattleCopy.siege_line(report),
+		QuickBattleSiegeCopy.siege_line(report),
 	]:
 		if not text.is_empty():
 			tail.append(text)

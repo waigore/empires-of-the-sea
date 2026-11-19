@@ -97,9 +97,9 @@ func _populate() -> void:
 	# battle names the wings its line stands in instead (wiki: quick-battle
 	# § Wings and collapse). The round log holds three lines, so it cannot
 	# carry either.
-	var wall: String = QuickBattleCopy.siege_opening(battle)
+	var wall: String = QuickBattleSiegeCopy.siege_opening(battle)
 	if wall.is_empty():
-		wall = QuickBattleCopy.wings_line(battle, faction_names)
+		wall = QuickBattleCopy.wings_opening(battle, faction_names)
 	_wall_label.text = wall
 	_wall_label.visible = not wall.is_empty()
 	_set_bars(
@@ -172,7 +172,7 @@ func _finish() -> void:
 		QuickBattleCopy.chevron_line(battle, faction_names),
 		QuickBattleCopy.honour_line(battle, province_name, faction_names),
 		QuickBattleCopy.citation_line(battle, province_name, faction_names),
-		QuickBattleCopy.siege_line(battle),
+		QuickBattleSiegeCopy.siege_line(battle),
 	]
 	for text: String in lines:
 		if not text.is_empty():

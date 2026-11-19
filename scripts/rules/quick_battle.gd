@@ -47,6 +47,11 @@ static func resolve_exchange(
 		model, province, fort_level, String(context.get("terrain_override", ""))
 	)
 	var gates: Dictionary = SiegeGates.gates_for(fort_level)
+	## The gate state the battle opened on, kept before a breach moves it: the
+	## plate is drawn before the first round plays, so its opening line must read
+	## the three gates standing, never the ones the siege went on to beat down
+	## (REQ-P5-06; wiki: siege-mechanics § Gates and Sortie).
+	var gates_open: Dictionary = gates.duplicate(true)
 	var state: Dictionary = {
 		"attacker": _side_state(atk_side, attacker, int(atk_mods["limit"]), atk_mods),
 		"defender": _side_state(def_side, defender, int(def_mods["limit"]), def_mods),
@@ -118,6 +123,7 @@ static func resolve_exchange(
 			"behind": behind_start,
 			"terrain": terrain,
 			"gates": gates,
+			"gates_open": gates_open,
 		},
 		{"attacker": atk_mods, "defender": def_mods},
 		wings_open
