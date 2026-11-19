@@ -10,7 +10,10 @@ extends RefCounted
 const WORLD_DEPTH: int = 8
 
 
-## Returns {deals, notes, credits, prices, sink, fills, carry}.
+## Returns {deals, notes, credits, prices, sink, fills, carry}. `context` may
+## carry `capacity` — each crown's trade cargo capacity (holds less the tonnage
+## its colonies ship) — so a carried bid is judged against the capacity the wiki
+## names instead of the holds this turn's imports used.
 static func clear(
 	market: WorldMarket,
 	world: WorldMap,
@@ -57,8 +60,9 @@ static func clear(
 		world, economies, deals, context
 	)
 	var changed: Dictionary = market.advance_prices(auto_offers)
+	var capacity: Dictionary = context.get("capacity", {}) as Dictionary
 	var carry: Array[MarketOrder] = MarketSettlement.carry(
-		orders, matched, economies, free_holds, notes
+		orders, matched, economies, free_holds, notes, capacity
 	)
 	market.book.close_turn()
 	market.book.set_carry(carry)

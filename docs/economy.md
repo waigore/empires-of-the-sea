@@ -54,13 +54,13 @@ it (`min(4, 1+deeds)`).
 
 ## World-market auction
 
-One book: `Bid`/`Offer` stages; turn-end `MarketClearing` matches orders and
-Minor/Tribe offers.
-Tiebreaks: priority, pact, colony favour, Consulate, relation; a suzerain
-clears its colony (`MarketFavoured`). A boycott bars the pair; first right pays
-a tile's owner, relation share and embassy cut.
-Unfilled orders carry while holds cover; offers cap post-production. Bids
-spend `treasury − waiting build orders` (`MarketBudget`).
+One book: `MarketClearing` matches staged orders and Minor/Tribe offers.
+Tiebreaks: priority, pact, colony favour, Consulate, relation
+(`MarketFavoured`). A boycott bars the pair; first right pays a tile's owner a
+relation share and embassy cut.
+Unfilled orders carry while trade capacity (holds − colonial tons) covers
+them; offers cap post-production. Bids spend `treasury − waiting build orders`
+(`MarketBudget`).
 
 ## Trade terms
 
@@ -79,7 +79,7 @@ line (`CargoRead`), a **batch press** (`MarketBatch`), and a dead
 (`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.
 Tier rows print their deal (`LedgerWorkersText.recruit_line`): price, gate or
-ration, never a hover (DR-20261118-03).
+ration (DR-20261118-03).
 
 ## Deferred (REQ-P2-02)
 
