@@ -167,6 +167,12 @@ static func trade(court: MapPlayEconomyCourt) -> Dictionary:
 	)
 	result["plan"] = plan
 	result["free_holds"] = free_holds
+	# The crown's holds and the tonnage its colonies ship, so the clearing can
+	# judge a carried bid against the trade cargo capacity the wiki names rather
+	# than the holds this turn's imports used (wiki: world-market § Order
+	# persistence, § Cargo).
+	result["holds"] = holds
+	result["reserved"] = EconomyOverseas.shipped_total(court.overseas)
 	result["claims"] = claims["lines"]
 	# The bidding the footing held shut prints with its reason rather than going
 	# quiet (REQ-P5-05; DR-20261117-01).
