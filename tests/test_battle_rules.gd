@@ -1733,24 +1733,19 @@ func test_the_combat_phase_binds_only_the_army_that_fights() -> void:
 
 
 func test_quick_battle_action_scripts_come_from_the_plan_catalog() -> void:
-	assert_eq(QuickBattle.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActions.actions_for("aggressive"), ["maneuver", "assault"])
 	assert_eq(QuickBattleActions.actions_for("defensive"), ["fall_back", "volley"])
 	assert_eq(QuickBattleActions.actions_for("unknown"), ["volley", "entrench", "volley"])
 
 
-## The battle's law lives on [QuickBattleTerms], and the resolver still answers
-## to it: one answer for the plate, the simulator and the rounds (REQ-P3-01).
+## The battle's law lives on [QuickBattleTerms] and its rounds on
+## [QuickBattleRounds]: one answer for the plate, the simulator and the rounds,
+## with no pass-through copy on the orchestrator (REQ-P3-01).
 func test_quick_battle_terms_are_the_ones_the_battle_fights_under() -> void:
-	assert_eq(QuickBattle.MAX_ROUNDS, QuickBattleTerms.MAX_ROUNDS)
-	assert_eq(QuickBattle.CP_PER_ROUND, QuickBattleTerms.CP_PER_ROUND)
-	assert_eq(QuickBattle.MAX_ROUNDS, 3)
-	assert_eq(QuickBattle.CP_PER_ROUND, 3)
-	var foot: Array[ArmyState] = _side(["pikemen", "pikemen"], 0)
-	assert_almost_eq(
-		QuickBattle.effective_strength(foot, 10, 3, 1.0),
-		QuickBattleTerms.effective_strength(foot, 10, 3, 1.0),
-		0.001,
-	)
+	assert_eq(QuickBattleTerms.MAX_ROUNDS, 3)
+	assert_eq(QuickBattleTerms.CP_PER_ROUND, 3)
+	assert_eq(QuickBattleRounds.MAX_ROUNDS, QuickBattleTerms.MAX_ROUNDS)
+	assert_eq(QuickBattleRounds.CP_PER_ROUND, QuickBattleTerms.CP_PER_ROUND)
 
 
 func test_quick_battle_battery_silences_guns_and_downgrades() -> void:
