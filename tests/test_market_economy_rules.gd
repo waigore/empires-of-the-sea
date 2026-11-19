@@ -991,6 +991,55 @@ func test_settlement_carry_keeps_a_covered_bid_and_drops_a_short_one() -> void:
 	assert_eq(String(notes[0].get("code", "")), "carry_forward_dropped_cargo_insufficient")
 
 
+## A bid is carried against the crown's trade cargo capacity — its holds less the
+## tonnage the colonies ship — not against the holds a previous turn's imports
+## used: those tons are spent, so the wiki's carry-forward gate still covers the
+## bid (wiki: world-market § Order persistence, § Cargo).
+func test_a_carried_bid_keeps_the_holds_the_last_imports_used() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "iron", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 3, "treasury": 5000, "buy_price": 80}
+	)
+	# One hold is free at the close (two went on this turn's imports), and the
+	# crown's trade cargo capacity is three: the residual two carry.
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 1, 1: 4}, {"capacity": {0: 3, 1: 4}}
+	)
+	var carry: Array = report["carry"]
+	assert_eq(carry.size(), 1, "the bid the capacity covers carries")
+	var carried: int = 0 if carry.is_empty() else (carry[0] as MarketOrder).quantity
+	assert_eq(carried, 2, "the unfilled two carry")
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_false(codes.has("carry_forward_dropped_cargo_insufficient"))
+
+
+## The same gate still drops a bid the trade cargo capacity cannot cover
+## (wiki: world-market § Order persistence — the capacity is insufficient).
+func test_a_carried_bid_drops_when_the_trade_capacity_is_short() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "iron", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 3, "treasury": 5000, "buy_price": 80}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 1, 1: 4}, {"capacity": {0: 1, 1: 4}}
+	)
+	assert_eq((report["carry"] as Array).size(), 0, "a bid past the capacity drops")
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_true(codes.has("carry_forward_dropped_cargo_insufficient"))
+
+
 func test_settlement_buy_unit_and_subsidy_read_the_pair() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	assert_eq(

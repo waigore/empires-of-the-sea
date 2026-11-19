@@ -16,8 +16,16 @@ extends RefCounted
 ## Why a court at war hires no expansion crew, printed by the economy trace so
 ## the closed hire is never silent (REQ-P5-05; DR-20261116-15).
 const REASON_CREWS: String = "at war: no new crew"
+## Why a court banking for its army hires no crew its purse cannot spare, printed
+## so the closed hire is never silent (issue #1059; the same plain-English shape).
+const REASON_BANK: String = "the bank holds the purse: no spare crew"
 ## The two crews that serve the expansion doors the footing can shut.
 const EXPANSION_CREWS: Array[String] = ["explorer", "merchant"]
+## The crews the muster's own provision keeps: a Builder raises the ration
+## estates and an Engineer links them to the crown network, so the food the
+## army eats rides the works purse even while the court banks (issue #1059;
+## the same provision clause the bank's farm trim and the farmhand hire ride).
+const PROVISION_CREWS: Array[String] = ["builder", "engineer"]
 
 
 ## The per-region reading the hire order prices: the region's own asks, the
@@ -88,6 +96,15 @@ static func training_order(
 	var works_purse: int = hire_purse
 	if bool(context.get("earn", false)):
 		works_purse = maxi(hire_purse, int(context.get("treasury", 0)))
+	# The bank holds the purse (issue #1059): a court short of the bar banking
+	# for its next line hires its provision crews — the Builder and the
+	# Engineer the farms and their roads need — against the works purse, but
+	# every other crew reads the standing purse, so the ladder the chart
+	# grows does not burn the chest the muster waits for. The measured bench
+	# banked 193 turns while the college re-hired an Explorer roughly every
+	# tenth turn — a chest fill of ~16 ducats a turn against a 2,200 muster
+	# chest. A caller with no bank reading keeps the published purses.
+	var banked: bool = bool(context.get("conquest_bank", false))
 	var queue: Array[String] = _hire_queue(
 		own,
 		targets,
@@ -115,6 +132,12 @@ static func training_order(
 	var tech: Dictionary = context.get("tech_unlocked", {})
 	if not CivilianCatalog.is_unlocked(type_id, tech):
 		return {}
+	# The bank's own provision (issue #1059): the crews the farms and their
+	# roads need keep the works purse — a chest that cannot exist for want
+	# of fed hands and roads never arms a court — while the rest of the
+	# ladder stands behind the chest with every other deferrable spend.
+	if banked and not PROVISION_CREWS.has(type_id):
+		return {"ok": false, "reason": REASON_BANK}
 	var purse: int = hire_purse
 	if type_id == "builder" or type_id == "engineer" or type_id == "explorer":
 		purse = works_purse

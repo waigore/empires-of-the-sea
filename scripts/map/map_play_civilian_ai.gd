@@ -85,6 +85,13 @@ static func plan_all(
 		var context: Dictionary = MapPlayCivilianPlan.region_context(
 			play, faction, economy, region, model, roster, court, overseas
 		)
+		# The bank the hire ladder honors (issue #1059): the crews the farms
+		# and their roads need keep the works purse, the rest of the college
+		# stands behind the chest. Scoped to the submission surface: a
+		# baseline court's config never reaches the typed reads, and its
+		# published hire order keeps its published purses.
+		if conquest_bank and kind != AiControl.KIND_BASELINE:
+			context["conquest_bank"] = true
 		var plan: Dictionary = AiBindCampaign.civilian_plan(
 			kind, config, model, roster, works, stockpile, tech_caps,
 			economy.tech_unlocked, context

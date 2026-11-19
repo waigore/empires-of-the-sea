@@ -1137,6 +1137,39 @@ func test_the_turn_clearing_prices_the_minor_book_for_the_crown() -> void:
 	assert_true(differs, "England's terms move the ask off Spain's")
 
 
+## A bid filed before this turn's imports still carries when the crown's trade
+## cargo capacity covers it: the holds the imports used are spent, so the
+## published gate reads the capacity and not the holds left at the close (wiki:
+## world-market § Order persistence, § Cargo; REQ-P2-01).
+func test_a_carried_bid_reads_the_trade_capacity_not_the_leftover_holds() -> void:
+	var play: PlaySession = _screen.play
+	var market: WorldMarket = _screen.economy.market
+	var player: int = play.player_faction
+	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
+	var capacity: int = int(cargo.get("holds", 0)) - int(cargo.get("reserved", 0))
+	assert_true(capacity >= 3, "the fixture crown trades with holds")
+	# Iron: no Minor or Tribe prospects a mineral, so only the standing world
+	# counterparty answers the bid.
+	market.book.submit(
+		MarketOrder.create(player, "iron", MarketOrder.SIDE_BID, capacity - 1, 1)
+	)
+	# The crown then spends every free hold on this turn's imports.
+	var bought: Dictionary = market.buy(_screen.economy.economy, "grain", capacity, player)
+	assert_true(bool(bought.get("ok", false)), String(bought.get("reason", "")))
+	var report: Dictionary = MapPlayMarket.run(play, {})
+	var carried: int = 0
+	for order: MarketOrder in report["carry"]:
+		if order.commodity == "iron":
+			carried = order.quantity
+	assert_eq(carried, capacity - 1, "the bid the capacity covers carries whole")
+	var dropped: bool = false
+	for note: Dictionary in report["notes"]:
+		if String(note.get("code", "")) == "carry_forward_dropped_cargo_insufficient" \
+				and String(note.get("commodity", "")) == "iron":
+			dropped = true
+	assert_false(dropped, "the capacity covers the carried bid")
+
+
 func _clear_market() -> Dictionary:
 	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
 	return MarketClearing.clear(

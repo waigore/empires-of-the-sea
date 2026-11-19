@@ -28,6 +28,8 @@ const SCORE_PER_WEIGHT: int = 10
 ## The cheapest preset a court can pay; a court parked at its cash floor keeps
 ## one study alive at this rate rather than standing still (issue #490).
 const STANDING_FUNDING: String = "low"
+## The army's mouths' commodities: the ration-estate caps (issue #1059).
+const RATION_COMMODITIES: Array[String] = ["grain", "meat"]
 
 
 ## Assignments for the court's empty slots plus every scored candidate, for the
@@ -35,11 +37,9 @@ const STANDING_FUNDING: String = "low"
 ##
 ## `context["treasury_floor"]` is the money-goal reserve the surplus ladder must
 ## leave behind (muster at war, cash floor at peace). `context["cash_floor"]` is
-## the court's own `economy.min_treasury` for the standing study: when the ladder
-## would fund `none` against the reserve, one slot still pays the cheapest
-## preset if the purse clears half that cash floor — otherwise war-time courts
-## parked at 500 while saving 2,400 never learn (issue #490). Defaults:
-## `cash_floor` falls back to `treasury_floor`, then to `research_floor(config)`.
+## the court's own `economy.min_treasury` for the standing study: one slot still
+## pays the cheapest preset if the purse clears half that floor, so a war-time
+## court parked at 500 while saving 2,400 never stops learning (issue #490).
 static func plan(
 	config: AiConfig, economy: PlayerEconomy, context: Dictionary = {}
 ) -> Dictionary:
@@ -79,6 +79,10 @@ static func plan(
 		and _can_pay_standing(economy, cash_floor, save_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
+	# The standing slot carries the ration ladder (issue #1059): a banked
+	# court keeps the ration-estate cap study at the standing preset.
+	if standing >= 0 and bool(context.get("conquest_bank", false)):
+		_ration_study(state, economy, standing)
 	# A study already underway follows the same purse: a court that cannot fund
 	# its slots at the published preset pays a cheaper one rather than draining
 	# the war chest or stalling with unpaid rows.
@@ -109,10 +113,8 @@ static func plan(
 			# dear, fall back to the standing preset if the #490 gate allows —
 			# never skip the door for a lower-ranked candidate. A court banking
 			# for the army its conquest still needs holds the door to the bank
-			# (issue #995): the door may burn the purse above the cash floor,
-			# and the bank is exactly that purse, so its floor rises to the
-			# reserve the muster is saving for — the army outranks the yard it
-			# unlocks (#591's own order).
+			# (issue #995): its floor rises to the reserve the muster saves
+			# for — the army outranks the yard it unlocks (#591's own order).
 			if tech == door and not door.is_empty():
 				var door_floor: int = maxi(
 					cash_floor, int(context.get("conquest_reserve", 0))
@@ -250,16 +252,56 @@ static func _standing_slot(state: ResearchState) -> int:
 	return -1
 
 
+## The standing slot carries the ration ladder (issue #1059): a banked court
+## moves the cheapest unfinished grain/meat cap study it already holds onto
+## the standing slot, so the farms outgrow the mouths behind the chest.
+static func _ration_study(
+	state: ResearchState, economy: PlayerEconomy, standing: int
+) -> void:
+	if state == null or economy == null:
+		return
+	for row: Dictionary in state.researching():
+		var tech_id: String = String(row.get("tech", ""))
+		var caps: Dictionary = TechCatalog.caps_of(tech_id)
+		for raw: Variant in caps.keys():
+			var ration: bool = RATION_COMMODITIES.has(String(raw)) and (
+				TechCatalog.cap_for(String(raw), economy.tech_unlocked) < int(caps[raw])
+			)
+			if ration and int(row.get("slot", -1)) != standing:
+				_swap_slots(state, int(row.get("slot", -1)), standing)
+				return
+
+
+## The row move through the state's public row API: the progress is read,
+## then restored, so the swap cancels nothing.
+static func _swap_slots(state: ResearchState, from_slot: int, to_slot: int) -> void:
+	if state == null or from_slot == to_slot:
+		return
+	var from_tech: String = state.tech_at(from_slot)
+	var to_tech: String = state.tech_at(to_slot)
+	if from_tech.is_empty() or to_tech.is_empty():
+		return
+	var from_funding: String = state.funding_at(from_slot)
+	var to_funding: String = state.funding_at(to_slot)
+	var from_progress: int = state.progress_of(from_tech)
+	var to_progress: int = state.progress_of(to_tech)
+	state.cancel(from_slot)
+	state.cancel(to_slot)
+	state.assign(from_tech, from_funding, to_slot)
+	state.assign(to_tech, to_funding, from_slot)
+	if from_progress > 0:
+		state.add_progress(from_tech, from_progress)
+	if to_progress > 0:
+		state.add_progress(to_tech, to_progress)
+
 ## True when the purse can pay the cheapest preset while still keeping half the
 ## court's cash floor: the standing study may dip below that floor (the research
 ## phase's own floor is 0; the cash floor is a saving policy, not a legality
-## gate) but never below half of it, so a broke court keeps a reserve.
-##
-## It also never spends the last payment of a reserve the court is saving for: a
-## court within one study of its muster keeps that payment, because the study
-## would otherwise hold the war chest one regiment short of the muster forever
-## (wiki: ai-architecture § Land reinforcement — "a court saving for a muster
-## cannot spend itself one ducat short of it"; issue #474).
+## gate) but never below half of it, so a broke court keeps a reserve. It also
+## never spends the last payment of a reserve the court is saving for: a court
+## within one study of its muster keeps that payment, because the study would
+## otherwise hold the war chest one regiment short of the muster forever
+## (wiki: ai-architecture § Land reinforcement; issue #474).
 static func _can_pay_standing(
 	economy: PlayerEconomy, floor: int, save_floor: int = -1
 ) -> bool:

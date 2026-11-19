@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:3413d751bd5475c7c573ca2219814f3e3e5fab9ebacd402901ca53419b03bb24",
-  "submission_git": "refactor/civilian-plan-reading@a5975acb",
+  "submission_hash": "sha256:4309b6dab1d8f00a7af982667783990401ed92af05526f7570ff9f7fd9f85055",
+  "submission_git": "fix/1059-food-chain-outgrows-the-mouths@be97f254",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 3609.167059367059,
+      "value": 3075.843984962406,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 29.0,
+      "value": 31.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 6.0,
+      "value": 11.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 79.20357142857144,
+      "value": 74.82261904761904,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:ca8ab9ba9b946ab90e2a9c823764908c75d6403f026167e1e03bed10890a18e8",
+    "ai_surface_hash": "sha256:8c163b85c26175469e9f21f30548f2d17e57d4c5acb2600ccf58736eea51c0da",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
-      "provinces_old": 29,
-      "provinces_new": 0,
-      "regiments": 2,
-      "ships": 4,
-      "workers": 3,
-      "extraction_per_turn": 46.56216216216216,
-      "income_per_turn": 541.042735042735,
-      "funded_pct": 79.20357142857144
+      "provinces_old": 19,
+      "provinces_new": 12,
+      "regiments": 11,
+      "ships": 0,
+      "workers": 8,
+      "extraction_per_turn": 40.625,
+      "income_per_turn": 344.593984962406,
+      "funded_pct": 74.82261904761904
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 79.20357142857144
+    "funded_pct": 74.82261904761904
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-19T09:59:48Z",
+  "timestamp": "2026-11-19T12:13:13Z",
   "report_version": 1,
-  "signature": "hmac-sha256:7e3a61338fff143ef79f6c07cf36f0feebd92b89b9fc9a1489eb46dcc42ddfc2"
+  "signature": "hmac-sha256:b6d00a3558cd2fe8541a4b49a0822aebd947f3c042271cd54ef3ac8a625c4069"
 }
