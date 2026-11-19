@@ -25,6 +25,38 @@ const PRIZE_TAG_BASE: int = 977
 const HULL_PRIZE_TAG_BASE: int = 2777
 
 
+## True when this squadron's station raids trade this turn: a patrol always, a
+## blockade while it still stands on an enemy shore (wiki: ships-and-naval
+## § Trade and Transport Interception). One reading, so the dossier prices the
+## same stations the pass rolls (DR-20261120-01).
+static func raids(model: MapModel, fleet: FleetState, hostile: Callable = Callable()) -> bool:
+	if fleet == null:
+		return false
+	if fleet.mission == FleetState.Mission.PATROL:
+		return true
+	return fleet.mission == FleetState.Mission.BLOCKADE \
+		and FleetMissions.is_blockading(model, fleet, hostile)
+
+
+## The crown's squadrons that raid `zone` as **one group**: every sea-going
+## station of `owner` in that water, in roster order. The rules sum the group's
+## intercept rating and weigh the group's hulls, so a reading that prices one
+## hull alone promises a roll the pass never makes (DR-20261120-01).
+static func station_group(
+	model: MapModel, fleets: Array, zone: int, owner: int, hostile: Callable = Callable()
+) -> Array:
+	var group: Array = []
+	for fleet: FleetState in fleets:
+		if fleet == null or fleet.owner != owner or not fleet.is_at_sea():
+			continue
+		if fleet.sea_zone != zone or not fleet.is_afloat():
+			continue
+		if not raids(model, fleet, hostile):
+			continue
+		group.append(fleet)
+	return group
+
+
 ## One raider group tries the home fleet's cargo. `roll_value` is for tests; a
 ## negative value uses the deterministic campaign roll. `has_tech` is the
 ## crown-tech query: a raider holding Privateering Companies raids better
@@ -317,11 +349,7 @@ static func _raider_groups(
 			continue
 		if not Hostility.between(hostile, fleet.owner, victim):
 			continue
-		if fleet.mission != FleetState.Mission.PATROL \
-				and fleet.mission != FleetState.Mission.BLOCKADE:
-			continue
-		if fleet.mission == FleetState.Mission.BLOCKADE \
-				and not FleetMissions.is_blockading(model, fleet, hostile):
+		if not raids(model, fleet, hostile):
 			continue
 		if not groups.has(Vector2i(fleet.sea_zone, fleet.owner)):
 			groups[Vector2i(fleet.sea_zone, fleet.owner)] = []
