@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1089 (REQ-P2-02).
+Audited: wiki / DRs / code through #1092 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -39,13 +39,13 @@ Default: largest item here, then REQ/wiki.
 
 ## Gaps (ranked)
 
-1. **The AI's win (issue #995)** — the subject reaches 19 Old World of the 31
-   the bar needs (bench 3075.84). Named next lever: border war (#1082); press
-   earn lift is a reading (DR-20261119-14, bit-identical).
+1. **The AI's win (issue #995)** — **closed**: the subject takes the bar's 31
+   Old World provinces and wins the bench campaign at t101 (4297.83, +500), by
+   keeping the border war it can march on (DR-20261119-16).
 
 ## Next pick
 
-The AI's win on issue #995 (#1082 border front).
+None ranked; audit `docs/rubric.md` / wiki for the next gap.
 
 ## Blocked
 
@@ -64,6 +64,6 @@ The AI's win on issue #995 (#1082 border front).
 ## Wiki drift
 
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
-crowns; both live (`TribeContact` / `AiTribeColony`, `FleetMuster`). Soft
-weight seed stays blocked (`DR-20261117-01`). Learnings treat fan/stack as a
-live lesson (`FleetLanes` #1047; DR-20261119-08).
+crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft weight
+seed blocked (`DR-20261117-01`). Learnings treats fan/stack as a live lesson
+(`FleetLanes` #1047; DR-20261119-08).

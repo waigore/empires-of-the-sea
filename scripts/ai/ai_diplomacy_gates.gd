@@ -54,26 +54,29 @@ static func purse_under_muster(
 
 
 ## The buy-out doctrine (issue #975): true when the standing war on `target` is
-## a crown war — a fellow Great Power, one of the fronts the footing counts —
-## and the court cannot re-arm for it, on an overstretched footing (`fronts`)
+## a crown war — a fellow Great Power, one of the fronts the footing counts — and
+## the court cannot re-arm for it, on an overstretched footing (`fronts`)
 ## or with a purse under the price of the line it is saving for. A war on a
 ## Minor Nation or a Tribe is colonial business and is never bought out; a court
 ## with no ledger to read keeps the published planner.
 ##
-## The crown next door is the exception (issue #1082): the war whose front the
-## field army can actually reach is the court's one road to conquest, so it
-## outlives both buy-out legs. Only a court stamped with its frontier reads the
-## exception (`AiFrontier.holds`); a court with no stamp keeps the buy-out.
+## The crown next door is the exception (issues #1082, #995): the war whose front
+## the field army can reach is the court's one road to conquest, so it outlives
+## both buy-out legs. A court stamped with its frontier crowns (`AiFrontier`) or a
+## caller that hands in the border read (`AiBorderFronts.marches_on`, on the
+## `fronts` footing) keeps the war; a caller with neither buys out as published.
 static func buys_out(
 	config: AiConfig,
 	ai_state: AiState,
 	target: int,
 	context: Dictionary,
-	posture: String
+	posture: String,
+	marches: bool = false
 ) -> bool:
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
 		return false
-	if AiFrontier.holds(config.faction, target, context):
+	if AiFrontier.holds(config.faction, target, context) \
+			or AiPhasePlanner.keeps_the_border_front(posture, marches):
 		return false
 	if AiPhasePlanner.takes_any_peace(posture):
 		return true

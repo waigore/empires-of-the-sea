@@ -136,14 +136,15 @@ static func peace_answer(
 		config.agenda_traits = AiAgenda.resolve(agenda)
 	# A court fighting enough fronts takes the white peace instead of refusing it:
 	# no court wins two wars at once (wiki: phase-planner-architecture § Playable
-	# slice; DR-20261113-15). The border front is the exception (issue #1082): a
-	# white peace that closes the one front the field army can walk to strands
-	# the conquest, so the court answers that offer from its own stance instead
-	# of taking it. A court with no frontier stamp — a frozen baseline — keeps
-	# the published answer.
-	if AiPhasePlanner.takes_any_peace(AiPhasePlanner.phase_for(config, state)) and (
-		not AiFrontier.holds(target, offerer, shared)
-	):
+	# slice; DR-20261113-15). The one war it keeps is the front its field army can
+	# march on (issues #1082, #995): the war on a crown whose land touches its own,
+	# where a province is stormed next door every turn, is not a front it is
+	# overstretched by, so that offer is answered by its stance instead of signed.
+	# A court with no frontier stamp and no world to read keeps the published
+	# answer.
+	var phase: String = AiPhasePlanner.phase_for(config, state)
+	if AiPhasePlanner.takes_peace(phase, AiBorderFronts.marches_on(world, target, offerer)) \
+			and not AiFrontier.holds(target, offerer, shared):
 		return DiplomacyRules.DECISION_AUTO
 	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		config, state, world, target, offerer, AiTurnRead.reading(shared, target)
