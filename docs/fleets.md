@@ -15,31 +15,31 @@ Fog, cargo, battles, raids:
 - A new zone reveals water + **coastal ring**; fog decays.
 - Hulls are instances (`ship_<n>` + type), **named** (`ShipNames`, kept through
   save/merge); `ShipStats` FRP/RNG/ARM/HULL/MV; **2 food upkeep** (DR-20261111-07).
-- **Yard:** launch for its row + **one peasant**; lands next turn; break-up
-  returns a peasant (DR-20261109-01); each row names her line (DR-20261117-15);
-  a flown hull launches without her tech (#484).
-- **Home cargo:** merchant **holds** (1/turn) cap imports; a seat harbour grants
-  one **trade** hold (DR-20261109-03, #484).
+- **Yard:** launch + **one peasant**; lands next; break-up returns a peasant
+  (DR-20261109-01); each row names her line (DR-20261117-15); a flown hull
+  needs no tech (#484).
+- **Home cargo:** merchant **holds** cap imports; a seat harbour grants one
+  **trade** hold (DR-20261109-03, #484).
 - **Home merge:** seat dock or dossier **Join the home fleet**; ids, names,
   passengers keep.
 - **Home sortie** (DR-20261109-17): the home squadron may sail (spends
-  move/holds); one colonist per hull.
+  move/holds); one colonist per hull; **Take all ready** mans a whole berth in
+  one press (DR-20261119-18).
 - **Split / combine** (DR-20261116-12/13): the dossier detaches one hull, or
   folds it into another of yours in the same station.
 - Contested zones fight at the close: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
-- **Markers:** escorts, hull badge, strength on the selected fleet; a rival `*`
+- **Markers:** escorts, hull badge, strength on the selection; a rival `*`
   until watched (DR-20261113-20).
-- **One station:** the crown's ≤3 fan out; the rest and every rival stack, a
-  tap cycles them; words count hulls; a merge re-reads
-  (DR-20261119-08/17).
+- **One station:** the crown's ≤3 fan out, the rest and every rival stack; a
+  tap cycles them; a merge re-reads (DR-20261119-08/17).
 - **Opening muster:** every Great Power's hulls ride one home fleet at its
   capital (#1043).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13/16); raids sink one merchant hull (DR-20261111-17).
 - **Army transport** (`NavalTransport`): board one regiment/hull, sail or cross,
   land on an owned coast; troops drown with the hull.
-- **Beachhead:** mark a hostile coast (spends the move); lands next; markers lapse.
+- **Beachhead:** mark a hostile coast (spends the move); lands next; lapses.
 
 **Navy** (`N`, DR-20261115-14): the muster door lists each hull;
 **Visit** frames.

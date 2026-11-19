@@ -49,11 +49,18 @@ static func can_embark(
 	if model.province_at(unit.tile.x, unit.tile.y) != fleet.province:
 		return _deny("The fleet is not in this port.")
 	if fleet.civilian_count() >= capacity(fleet):
-		return _deny(
-			"The squadron has %d hull%s and cannot carry another civilian."
-			% [capacity(fleet), "" if capacity(fleet) == 1 else "s"]
-		)
+		return _deny(capacity_refusal(fleet))
 	return _allow()
+
+
+## The words every path that finds the berths full prints — the single press and
+## the block's one press read the same sentence, so a crown cannot read two
+## answers to one limit (wiki: civilian-units § Boarding; REQ-P2-03).
+static func capacity_refusal(fleet: FleetState) -> String:
+	var hulls: int = capacity(fleet)
+	return "The squadron has %d hull%s and cannot carry another civilian." % [
+		hulls, "" if hulls == 1 else "s"
+	]
 
 
 ## Boards the civilian: it leaves the map, spends its move, and the squadron
