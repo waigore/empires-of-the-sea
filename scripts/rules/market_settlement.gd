@@ -153,13 +153,19 @@ static func first_right(
 
 
 ## Unfilled Great-Power orders carry forward unless their stock or holds no
-## longer cover them (wiki: world-market § Order persistence).
+## longer cover them (wiki: world-market § Order persistence). A bid is judged
+## against the crown's **trade cargo capacity** — its holds less the tonnage the
+## overseas estates ship — because the holds a previous turn's imports used are
+## already spent and do not narrow next turn's capacity (§ Cargo). `capacity`
+## carries that figure per crown; a caller with none falls back to `free_holds`,
+## the stricter reading.
 static func carry(
 	orders: Array[MarketOrder],
 	matched: Dictionary,
 	economies: Dictionary,
 	free_holds: Dictionary,
-	notes: Array[Dictionary]
+	notes: Array[Dictionary],
+	capacity: Dictionary = {}
 ) -> Array[MarketOrder]:
 	var out: Array[MarketOrder] = []
 	for order: MarketOrder in orders:
@@ -169,7 +175,10 @@ static func carry(
 		if left <= 0:
 			continue
 		if order.is_bid():
-			if int(free_holds.get(order.faction, 0)) < left:
+			var holds: int = int(
+				capacity.get(order.faction, free_holds.get(order.faction, 0))
+			)
+			if holds < left:
 				notes.append({
 					"code": "carry_forward_dropped_cargo_insufficient",
 					"faction": order.faction,

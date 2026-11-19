@@ -188,7 +188,7 @@ func plan_turn() -> void:
 		(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor,
 		conquest_bank
 	)
-	works_reserved = MapPlayCivilianAi.work_rows(plans)
+	works_reserved = MapPlayCivilianPlan.work_rows(plans)
 	hire_margin = MapPlayEconomyCourtBook.hire_margin(self)
 	trade = MapPlayEconomyCourtBook.trade(self)
 
