@@ -23,8 +23,14 @@ static func open_muster(play: PlaySession) -> void:
 	play.hud.panels.army_panel.set_muster_open(true)
 
 
+## Opens the army's dossier and clears the other panels. The rival diplomacy pass
+## mutes the HUD for its own turn (`MapPlayDiplomacy.resolve_turn` sets `hud` to
+## null so no rival despatch takes the lane), and the army layer re-emits its
+## selection when a rival absorbs a Minor, so a muted HUD is a **no-op** here:
+## nothing to show, nothing to hide, and the crown's own view does not move
+## (wiki: hud-toasts § Off the lane — "a rival-only event never takes the lane").
 static func select(play: PlaySession, army: ArmyState) -> void:
-	if army == null:
+	if army == null or play.hud == null:
 		return
 	play.selected_province = -1
 	play.overlay.select_province(-1)
@@ -37,8 +43,11 @@ static func select(play: PlaySession, army: ArmyState) -> void:
 		play.hud.toast("Army of %s — observe only" % FactionCatalog.name_of(army.owner))
 
 
+## Paints the army dossier. A muted HUD (the rival diplomacy pass,
+## `MapPlayDiplomacy.resolve_turn`) has no panel to paint, so it is a no-op
+## (wiki: hud-toasts § Off the lane).
 static func show_panel(play: PlaySession, army: ArmyState) -> void:
-	if army == null:
+	if army == null or play.hud == null:
 		return
 	var is_player: bool = army.owner == play.player_faction
 	var command: String = ""
@@ -245,7 +254,13 @@ static func run_ai(play: PlaySession) -> Array[Dictionary]:
 	return MapPlayArmyAi.run(play)
 
 
+## Closes the army dossier. A muted HUD (the rival diplomacy pass) has nothing to
+## close, and the army layer emits this when a rival's absorption clears its own
+## selection, so it must not reach into a HUD that is not there
+## (wiki: hud-toasts § Off the lane).
 static func hide_dossier(play: PlaySession) -> void:
+	if play == null or play.hud == null:
+		return
 	play.hud.panels.hide_army()
 
 
