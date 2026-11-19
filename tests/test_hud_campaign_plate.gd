@@ -531,14 +531,74 @@ func _has_text(node: Node, needle: String) -> bool:
 
 # --- tile edges (folded from test_tile_edges) ------------------------------------
 ## Province/sea seam walks every charted layer inks from — pure data, no node
-## (REQ-P3-01, REQ-P3-03). Rides the lean chrome boot with heraldry and branding.
+## (REQ-P3-01, REQ-P3-03). Rides the lean chrome boot with heraldry and branding
+## on a hand-built pocket chart, so the boot pays no world draw.
 
 
 const TILE_EDGE_UNIT: float = 22.0
 
+## The pocket chart's one inland province: a 6×6 block ringed by the coastal
+## province, so `inland_province` reads a closed outline that touches no sea.
+const POCKET_WIDTH: int = 14
+const POCKET_HEIGHT: int = 12
+const POCKET_INLAND := Rect2i(4, 3, 6, 6)
+const POCKET_LAND := Rect2i(2, 2, 10, 8)
 
-func _charted_after_first_region() -> MapModel:
-	return MapFixture.region()
+## The walk reads terrain and province ids only, so the seam cases ink a
+## hand-built chart instead of `MapFixture.region()`'s 48×32 `generate`. This
+## suite stays a lean chrome boot; paying a world draw for eight pure readings
+## broke that (docs/testing.md § Speed rules — tiny fixture first).
+static var _pocket_chart: MapModel = null
+
+
+func _pocket() -> MapModel:
+	if _pocket_chart != null:
+		return _pocket_chart
+	var count: int = POCKET_WIDTH * POCKET_HEIGHT
+	var terrain := PackedByteArray()
+	terrain.resize(count)
+	terrain.fill(MapModel.Terrain.OCEAN)
+	var province := PackedInt32Array()
+	province.resize(count)
+	province.fill(MapModel.NO_ID)
+	var sea_zone := PackedInt32Array()
+	sea_zone.resize(count)
+	sea_zone.fill(0)
+	var inland: Array[Vector2i] = []
+	var coast: Array[Vector2i] = []
+	var open_sea: Array[Vector2i] = []
+	for y in POCKET_HEIGHT:
+		for x in POCKET_WIDTH:
+			var index: int = y * POCKET_WIDTH + x
+			if not POCKET_LAND.has_point(Vector2i(x, y)):
+				open_sea.append(Vector2i(x, y))
+				continue
+			sea_zone[index] = MapModel.NO_ID
+			terrain[index] = MapModel.Terrain.PLAINS
+			if POCKET_INLAND.has_point(Vector2i(x, y)):
+				province[index] = 0
+				inland.append(Vector2i(x, y))
+			else:
+				province[index] = 1
+				coast.append(Vector2i(x, y))
+	var model := MapModel.new()
+	model.setup(POCKET_WIDTH, POCKET_HEIGHT)
+	model.terrain = terrain
+	model.province = province
+	model.sea_zone = sea_zone
+	model.provinces.append(ProvinceState.create(
+		0, "Pocket Inland", inland, Vector2(6.5, 5.5), inland.size(), 0, true
+	))
+	var ring := ProvinceState.create(
+		1, "Pocket Coast", coast, Vector2(2.0, 2.0), coast.size(), 0, false
+	)
+	ring.coastal = true
+	model.provinces.append(ring)
+	model.sea_zones.append(SeaZoneState.create(
+		0, "Pocket Sea", open_sea, Vector2(0.5, 0.5), open_sea.size()
+	))
+	_pocket_chart = model
+	return _pocket_chart
 
 
 ## A seam pair spans exactly one tile edge of the unit the caller asked for.
@@ -556,7 +616,7 @@ func test_a_seam_pair_spans_one_tile_edge() -> void:
 ## Off-grid steps read the model's sentinel, so the walk's outside test is the
 ## chart's edge and not a missing-province test.
 func test_an_off_chart_tile_reads_as_outside() -> void:
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	assert_eq(model.province_at(-1, 0), MapModel.NO_ID)
 	assert_eq(model.sea_zone_at(model.width, 0), MapModel.NO_ID)
 
@@ -564,7 +624,7 @@ func test_an_off_chart_tile_reads_as_outside() -> void:
 ## A closed province outline traces each seam once and stays on that province's
 ## own tiles.
 func test_a_province_outline_keeps_every_seam_once_and_bounded() -> void:
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	var province: int = MapFixture.inland_province(model)
 	var mine := func(x: int, y: int) -> bool:
 		return model.province_at(x, y) == province
@@ -585,7 +645,7 @@ func test_a_province_outline_keeps_every_seam_once_and_bounded() -> void:
 ## The subdivisions read only the right and bottom steps, so the coast and the
 ## province ink never trace the same seam twice on the inset.
 func test_division_slots_read_only_the_forward_steps() -> void:
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	var province: int = MapFixture.inland_province(model)
 	var mine := func(x: int, y: int) -> bool:
 		return model.province_at(x, y) == province
@@ -604,13 +664,13 @@ func test_division_slots_read_only_the_forward_steps() -> void:
 ## A coast is a land tile's seam against the sea: every seam is one tile edge
 ## long — never a diagonal — and it always borders charted land.
 func test_a_coast_is_every_edge_whose_neighbour_is_land() -> void:
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	var land := func(x: int, y: int) -> bool:
 		return model.is_land(x, y)
 	var coast: Array[PackedVector2Array] = TileEdges.province_seams(
 		model, land, TILE_EDGE_UNIT, TileEdges.Look.COAST
 	)
-	assert_gt(coast.size(), 0, "a generated region has a coast")
+	assert_gt(coast.size(), 0, "the pocket chart has a coast")
 	for path: PackedVector2Array in coast:
 		assert_eq(path.size(), 2)
 		var run_along_x: float = absf(path[1].x - path[0].x)
@@ -623,7 +683,7 @@ func test_a_coast_is_every_edge_whose_neighbour_is_land() -> void:
 ## A division is only a seam between two charted crowned provinces: coast and
 ## fog never ink a border of their own.
 func test_a_division_leaves_coast_and_fog_to_their_own_ink() -> void:
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	var every_tile := func(_x: int, _y: int) -> bool:
 		return true
 	var divide := func(x: int, y: int) -> bool:
@@ -658,7 +718,7 @@ func test_a_division_leaves_coast_and_fog_to_their_own_ink() -> void:
 ## A neighbour reading lets a caller leave a step to another ink: the inset's
 ## fog hides its own seams rather than drawing a border into the unknown.
 func test_a_neighbour_reading_can_leave_a_step_to_other_ink() -> void:
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	var province: int = MapFixture.inland_province(model)
 	var mine := func(x: int, y: int) -> bool:
 		return model.province_at(x, y) == province
@@ -695,7 +755,7 @@ func _starts_on_land(model: MapModel, path: PackedVector2Array) -> bool:
 func test_a_missing_or_unmeasured_chart_inks_nothing() -> void:
 	var everywhere := func(_x: int, _y: int) -> bool:
 		return true
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	var empty_chart: MapModel = MapModel.new()
 	var inks: Dictionary = {
 		"a sea with no chart": TileEdges.sea_seams(null, everywhere, TILE_EDGE_UNIT).size(),
@@ -728,7 +788,7 @@ func test_each_edge_step_points_at_its_neighbour() -> void:
 ## A sea zone inks its own ring: every zone's border draws, and none of them is
 ## drawn twice for the same tile.
 func test_a_sea_zone_inks_its_own_ring() -> void:
-	var model: MapModel = _charted_after_first_region()
+	var model: MapModel = _pocket()
 	var zone: SeaZoneState = model.sea_zones[0]
 	var mine := func(x: int, y: int) -> bool:
 		return model.sea_zone_at(x, y) == zone.id
