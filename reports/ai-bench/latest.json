@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:708ae41f8a39b9e446eb245adca235f8ebb02c070f35eb38c585e185baa03ebb",
-  "submission_git": "refactor/diplomacy-treaty-dead-reads@5c8efb0b",
+  "submission_hash": "sha256:595b97669ecff9b4b1b08ed64fec4746794b0b15e015abc0f9f78b74b0549531",
+  "submission_git": "fix/1082-keep-the-war-on-a-border@f34511bc",
   "passed": true,
   "config": [
     {
@@ -35,12 +35,12 @@
   "metrics": [
     {
       "name": "score",
-      "value": 3809.5430976430976,
+      "value": 2628.6023701638205,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 30.0,
+      "value": 22.0,
       "direction": "max"
     },
     {
@@ -50,30 +50,30 @@
     },
     {
       "name": "funded_pct",
-      "value": 69.21051587301588,
+      "value": 73.24285714285715,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:8081c874424ded6f82ec5dcaa22d3af7f3f5e96b7c65b6521065766754f32dc1",
+    "ai_surface_hash": "sha256:b351136ab9603184bd85e3262f5ae113463f43f60aa7eb6a434f95c411cf231e",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
-      "provinces_old": 30,
+      "provinces_old": 22,
       "provinces_new": 0,
       "regiments": 5,
       "ships": 4,
       "workers": 4,
-      "extraction_per_turn": 44.18518518518518,
-      "income_per_turn": 611.1727272727272,
-      "funded_pct": 69.21051587301588
+      "extraction_per_turn": 45.32105263157895,
+      "income_per_turn": 227.96026490066225,
+      "funded_pct": 73.24285714285715
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 69.21051587301588
+    "funded_pct": 73.24285714285715
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-19T17:25:10Z",
+  "timestamp": "2026-11-19T17:41:45Z",
   "report_version": 1,
-  "signature": "hmac-sha256:d83539dd4e209e0b3350a1b5f601285464e983ff0cb5e2a68d64aff19eb281c3"
+  "signature": "hmac-sha256:b4f98471e47eb9438d1afb8e5f5e7452d4610010d380174b76972c481aa9827a"
 }
