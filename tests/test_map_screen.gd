@@ -272,7 +272,9 @@ func test_clicking_open_water_clears_the_selection() -> void:
 
 func test_clicking_a_fleet_selects_it() -> void:
 	var ship: Ship = _screen.ship_layer.ships[0]
-	MapPlayInput.on_tapped(_screen.play, ship.position)
+	# The marker draws at her own step of the station's row, so the tap lands on
+	# the hull it looks like it hits (wiki: ships-and-naval § Fleets in one station).
+	MapPlayInput.on_tapped(_screen.play, ship.drawn_position())
 	assert_eq(_screen.ship_layer.selected(), ship)
 	assert_true(ship.selected)
 

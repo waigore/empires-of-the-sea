@@ -4411,6 +4411,118 @@ func test_a_port_berth_prefers_the_registered_tile() -> void:
 	)
 
 
+## --- fleets in one station (wiki: ships-and-naval § Fleets in one station;
+## DR-20261119-08) ------------------------------------------------------------
+
+
+## Four of the crown's squadrons and one rival, all in the Mar Caribe, in id
+## order: 1-3 stand in the row, 4 leads the stack, 5 rides behind her.
+func _station_fleets() -> Array[FleetState]:
+	var fleets: Array[FleetState] = []
+	for index in 5:
+		var owner: int = RIVAL if index == 4 else OWNER
+		fleets.append(FleetState.at_sea(index + 1, owner, CARIBBEAN, ["ship_%d" % (index + 1)]))
+	return fleets
+
+
+## The crown's squadrons in one water fan out in a short row; the rest of hers
+## and every rival's ride one stack whose head draws the hull, so a rival is
+## never a nation row of her own.
+func test_a_shared_station_fans_the_crown_out_and_stacks_the_rest() -> void:
+	var fleets: Array[FleetState] = _station_fleets()
+	var plan: Dictionary = FleetLanes.plan(fleets, OWNER)
+	var lanes: Dictionary = plan["lanes"]
+	var stacks: Dictionary = plan["stacks"]
+
+	# Four slots: the crown's three in a row, then the stack the rest ride.
+	assert_eq(lanes.size(), 4, "three fan steps and one stack head")
+	assert_eq(lanes[1], Vector2(-1.5, 0.0) * FleetLanes.LANE_SPAN)
+	assert_eq(lanes[2], Vector2(-0.5, 0.0) * FleetLanes.LANE_SPAN)
+	assert_eq(lanes[3], Vector2(0.5, 0.0) * FleetLanes.LANE_SPAN)
+	assert_eq(lanes[4], Vector2(1.5, 0.0) * FleetLanes.LANE_SPAN)
+	assert_false(lanes.has(5), "the rival behind the head draws no hull of her own")
+	assert_eq(int(plan["fronts"]["sea:0"]), 4, "the crown's fourth draws the stack")
+	assert_eq(stacks[4].size(), 2, "her fourth and the rival walk one cycle")
+	assert_eq(int(stacks[4][1]), 5, "the cycle keeps the station's own order")
+
+
+## A station of rivals only is one stack, never a row: the crown reads their
+## courts through the cycle, one command at a time.
+func test_a_station_of_rivals_is_one_stack() -> void:
+	var fleets: Array[FleetState] = [
+		FleetState.at_sea(7, RIVAL, CARIBBEAN, ["a"]),
+		FleetState.at_sea(8, 2, CARIBBEAN, ["b"]),
+	]
+	var plan: Dictionary = FleetLanes.plan(fleets, OWNER)
+
+	assert_eq((plan["lanes"] as Dictionary).size(), 1, "one hull for the whole water")
+	assert_eq((plan["stacks"] as Dictionary)[7].size(), 2)
+	assert_false((plan["lanes"] as Dictionary).has(8), "the second rival is covered")
+
+
+## The markers take the plan: each fanned squadron draws at her own step, a
+## covered squadron draws no hull, and the head wears the pennants of the courts
+## stacked behind her.
+func test_the_markers_lay_the_row_out_and_cover_the_stack() -> void:
+	var markers := ShipMarkers.new()
+	markers.model = passes_NavalFixture.build()
+	var fleets: Array[FleetState] = _station_fleets()
+	for fleet: FleetState in fleets:
+		markers.make(fleet)
+	markers.layout(fleets, OWNER)
+	var first: Ship = markers.find(1)
+	var second: Ship = markers.find(2)
+	var head: Ship = markers.find(4)
+	var behind: Ship = markers.find(5)
+
+	assert_lt(first.drawn_position().x, second.drawn_position().x, "the row runs left to right")
+	assert_false(first.covered)
+	assert_false(head.covered, "the head of the stack draws the hull")
+	assert_true(behind.covered, "the squadron behind her draws none")
+	assert_true(head.shows_hull())
+	assert_false(behind.shows_hull())
+	assert_eq(head.pips.size(), 1, "one pennant for the court behind her")
+	assert_eq(int(head.pips[0]), RIVAL, "and it flies that court's colour")
+	assert_true(behind.pips.is_empty() or behind.pips.size() == 1)
+
+	# The plate prints on the squadron in the crown's hand, and always on a rival
+	# the fog has not read (wiki: ships-and-naval § Fleets in one station,
+	# § Sighted strength).
+	assert_false(first.shows_plate(), "a read squadron out of hand keeps her figure back")
+	first.set_selected(true)
+	assert_true(first.shows_plate(), "the squadron in hand prints it")
+	behind.set_intel(false)
+	assert_true(behind.shows_plate(), "an unread rival's plate still says the fog withholds it")
+
+
+## The crown's selection comes to the head of her stack, so the squadron she is
+## reading keeps drawing the hull; a rival the fog withholds never takes it.
+func test_the_selection_leads_the_stack_and_the_fog_keeps_her_hidden() -> void:
+	var markers := ShipMarkers.new()
+	markers.model = passes_NavalFixture.build()
+	var fleets: Array[FleetState] = []
+	for index in 3:
+		fleets.append(FleetState.at_sea(index + 1, RIVAL, CARIBBEAN, ["ship_%d" % index]))
+	for fleet: FleetState in fleets:
+		markers.make(fleet)
+	markers.layout(fleets, OWNER)
+	assert_eq(int(markers.find(1).stack[0]), 1, "the first rival draws the stack")
+
+	markers.selected_ship = markers.find(3)
+	markers.layout(fleets, OWNER)
+	assert_false(markers.find(3).covered, "the squadron in hand draws the hull")
+	assert_true(markers.find(1).covered)
+	assert_eq(int(markers.find(3).stack.find(3)), 2, "her place in the cycle never moves")
+
+	# The fog takes the first rival: the head passes to the next one drawn.
+	markers.find(1).visible = false
+	markers.selected_ship = null
+	markers.layout(fleets, OWNER)
+	assert_true(markers.find(1).covered, "a rival under the fog is never handed the hull")
+	assert_false(markers.find(2).covered)
+	assert_eq(markers.next_in_stack(markers.find(2)).fleet_id, 3, "the cycle skips her")
+
+
 ## --- fixtures ---------------------------------------------------------------
 
 

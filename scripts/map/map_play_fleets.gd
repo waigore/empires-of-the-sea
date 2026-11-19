@@ -36,8 +36,28 @@ static func select(play: PlaySession, ship: Ship) -> void:
 	play.hud.panels.hide_province()
 	show_dossier(play, fleet)
 	refresh_options(play, fleet)
+	# A crowded station says where the crown stands in it, so a tap that cycled a
+	# stack never swaps one squadron for another without a word (REQ-P5-05).
+	var line: String = selection_line(play, ship, fleet)
+	if not line.is_empty():
+		play.hud.toast(line)
+
+
+## What a selection says out loud: her place in a shared station, and whether
+## the crown may order her at all (wiki: ships-and-naval § Fleets in one
+## station).
+static func selection_line(play: PlaySession, ship: Ship, fleet: FleetState) -> String:
+	var parts: Array[String] = []
+	if ship.stack.size() > 1:
+		var index: int = maxi(ship.stack.find(ship.fleet_id), 0) + 1
+		parts.append(
+			"%d of %d squadrons here — %s" % [
+				index, ship.stack.size(), FleetCombine.flagship(fleet)
+			]
+		)
 	if fleet.owner != play.player_faction:
-		play.hud.toast("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
+		parts.append("Fleet of %s — observe only" % FactionCatalog.name_of(fleet.owner))
+	return " · ".join(parts)
 
 
 ## One dossier refresh for selection, movement, the yard, a station and a

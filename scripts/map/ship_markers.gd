@@ -132,6 +132,60 @@ func remove(ship: Ship) -> void:
 	ship.queue_free()
 
 
+## Lays every marker out for her station: the crown's squadrons fan out in a
+## short row, and the rest of hers and every rival's ride one stack whose head
+## draws the hull (wiki: ships-and-naval § Fleets in one station;
+## DR-20261119-08). Cheap and idempotent, so a selection, a launch, a merge, a
+## battle, a passage or the fog's close re-reads it.
+func layout(fleets: Array, player: int) -> void:
+	var selected_id: int = -1
+	if selected_ship != null and is_instance_valid(selected_ship):
+		selected_id = selected_ship.fleet_id
+	var hidden: Array[int] = []
+	for ship: Ship in ships:
+		if not ship.visible:
+			hidden.append(ship.fleet_id)
+	var plan: Dictionary = FleetLanes.plan(fleets, player, selected_id, hidden)
+	var lanes: Dictionary = plan["lanes"]
+	var stacks: Dictionary = plan["stacks"]
+	for ship: Ship in ships:
+		var seat: Variant = lanes.get(ship.fleet_id)
+		var offset: Vector2 = Vector2.ZERO
+		if seat is Vector2:
+			offset = seat
+		ship.set_lane(offset, _behind(ship, stacks, fleets), not lanes.has(ship.fleet_id))
+		var order: Variant = stacks.get(ship.fleet_id)
+		ship.stack.assign(order if order is Array else [])
+
+
+## The next squadron a tap on a stack picks: the cycle walks every squadron the
+## chart draws, so crowded water is read one command at a time — and a rival the
+## fog withholds is never handed over (wiki: ships-and-naval § Fleets in one
+## station, § Sighted strength). Null when she stands alone.
+func next_in_stack(ship: Ship) -> Ship:
+	if ship == null or ship.stack.size() < 2:
+		return null
+	var start: int = maxi(ship.stack.find(ship.fleet_id), 0)
+	for step in range(1, ship.stack.size()):
+		var next: Ship = find(ship.stack[(start + step) % ship.stack.size()])
+		if next != null and next.visible:
+			return next
+	return null
+
+
+## The courts standing behind one marker in her stack, one pip per squadron.
+func _behind(ship: Ship, stacks: Dictionary, fleets: Array) -> Array[int]:
+	var behind: Array[int] = []
+	var order: Variant = stacks.get(ship.fleet_id)
+	if not (order is Array):
+		return behind
+	for raw: Variant in order:
+		var other: FleetState = FleetRosters.find(fleets, int(raw))
+		if other != null and other.id != ship.fleet_id:
+			behind.append(other.owner)
+	return behind
+
+
 ## Marker for a fleet id, or null when that squadron has no node.
 func find(fleet_id: int) -> Ship:
 	for ship: Ship in ships:
