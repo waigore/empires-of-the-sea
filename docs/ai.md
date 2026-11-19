@@ -4,15 +4,15 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 
 ## Implemented
 
-- **Registry, profiles** (`AiParameterRegistry`, `AiConfig`,
-  `AiPersonality`, `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
+- **Registry, profiles** (`AiParameterRegistry`, `AiConfig`, `AiPersonality`,
+  `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas.
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
   (`AiNavy`), else `economy.min_treasury`; on `earn` the auction holds it
   (DR-20261113-19/22, DR-20261114-06/11).
 - **Power** (`AiPower`): provinces×10 + regiments + ships×5; bands
   +30/+5/−25.
-- **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda; goals
-  `round(desire/25)`. Envy +20; a deed resists; weariness, pointless-war
+- **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda;
+  goals `round(desire/25)`. Envy +20; a deed resists; weariness, pointless-war
   erosion and truces lower it (DR-20261113-25/14-01/18-27).
 - **Diplomacy planner** (`AiDiplomacyPlanner`): one order from that tally.
   Declarations need relation ≤ ceiling (50; warmonger 70, peacemaker 30) and
@@ -22,35 +22,33 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Court menu** (`AiDiplomacyOffers`): overtures, alliance, trade pact,
   boycott, subsidy, aid; friendly acts cost desire and standing
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
-- **Turn pass** (`AiTurn`): one order per rival, wars first (`AiTurnRead`,
-  `AiTurnApply`).
+  One order per rival, wars first (`AiTurn`).
 - **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
   Home regiment; armies save or storm.
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
-  squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at peace, home (DR-20261110-30).
+  squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at
+  peace, home (DR-20261110-30).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
-- **Court charts** (`CourtCharts`/`MapPlayCourtFog`): each court's fog, read
-  by voyages, invasions, diplomacy (DR-20261113-03).
+- **Court charts** (`CourtCharts`, `MapPlayCourtFog`): each court's fog,
+  read by voyages, invasions, diplomacy (DR-20261113-03).
 - **Colonisation** (`AiColonisationPlanner`): the squadron docks, boards,
   crosses, lands, returns empty (DR-20261111-05, DR-20261114-03).
-- **Overseas invasions** (`AiInvasionPlanner`, `MapPlayInvasionAi`): detach
-  hulls, dock, board, cross, storm the coast (DR-20261114-03).
-- **Economy** (`AiEconomyPlanner`): recipes by stock deficit; highest affordable
-  tier keeping a peasant and cash floor.
-- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots;
-  funding shifts with leader weight and a tech thief's +1 step
-  (DR-20261111-27), above the money-goal reserve; when `none`, one Low study
-  pays the cash floor (DR-20261113-24).
-- **Tribal courts** (`TribeContact`): rivals open contact with every charted
-  Tribe, then overtures and deeds (DR-20261111-14).
-- **Civilian planner** (`AiCivilianPlanner`/`MapPlayCivilianAi`, `AiMerchantWork`):
-  builders finish towns, engineers raise roads/ports/forts/hospitals
-  (DR-20261111-16), explorers prospect, merchants buy deeds (DR-20261111-10);
-  each keeps one crew more of its archetype's type (`AiStaffTaste`,
+- **Overseas invasions** (`AiInvasionPlanner`): detach hulls, dock, board,
+  cross, storm the coast (DR-20261114-03).
+- **Economy** (`AiEconomyPlanner`): recipes by stock deficit; the highest
+  affordable tier keeping a peasant and cash floor.
+- **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots
+  above the money-goal reserve (DR-20261111-27); when `none`, one Low study
+  pays the cash floor (DR-20261113-24) and, while banking, carries the
+  ration-estate cap study (#1059).
+- **Civilian planner** (`AiCivilianPlanner`, `MapPlayCivilianAi`,
+  `AiMerchantWork`): builders finish towns, engineers raise roads/ports/
+  forts/hospitals (DR-20261111-16), explorers prospect, merchants buy deeds
+  (DR-20261111-10); one crew more of the archetype's type (`AiStaffTaste`,
   DR-20261117-04).
 - **Spy** (`AiSpyPlanner`): station abroad, screen at war.
-- **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above reserve,
-  bid short inputs; merchants sail home, a hull more when tonnage
+- **Market & cargo** (`AiMarketPlanner`, `AiCargoPlanner`): sell above
+  reserve, bid short inputs; merchants sail home, a hull more when tonnage
   outruns (DR-20261110-26).
 - **Regiment parity** (`MilitaryParity`): Minors match the leading era; Tribes
   stay 1; rivals re-equip, pay to attack.
@@ -59,17 +57,18 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
   Consumption → Production; trade.
-- **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch takes
-  peace, no peer war (DR-20261113-15/11); at war no new voyage or Tribe chain
-  (DR-20261116-11). **Victory pressure**
-  (`AiVictoryPressure`): bigger aims near the bar (DR-20261114-04).
+- **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch
+  takes peace, no peer war (DR-20261113-15/11); at war no new voyage or Tribe
+  chain (DR-20261116-11). **Victory pressure** (`AiVictoryPressure`): bigger
+  aims near the bar (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank then
-  allocate a 0–100 utility ([`ai-objectives.md`](ai-objectives.md)).
+  allocate a 0–100 utility.
 - **Persistence:** agendas, cooldowns, ledgers, claims
-  (`AiState.to_dict`), dossier.
+  (`AiState.to_dict`), dossier. Bank (#995/#1059): the chest kept at peace
+  too; provision crews keep their purse, the rest waits behind it, hires
+  pace to the harvest.
 
 ## Deferred (REQ-P2-02)
-
 None; ranked gaps: [`deferred.md`](deferred.md).
 
 ## Architecture & tests

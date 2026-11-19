@@ -61,6 +61,10 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 			"defer_standing": court.hull_chest > 0,  # yard fills before standing (#484)
 			# The bank the doors honor while the court arms (issue #995).
 			"conquest_reserve": bank_chest if court.conquest_bank else 0,
+			# The standing slot carries the ration ladder while the court
+			# banks (issue #1059): the farms the host eats from lift their
+			# caps on the one preset that may dip into the chest.
+			"conquest_bank": court.conquest_bank,
 		}
 	)
 
