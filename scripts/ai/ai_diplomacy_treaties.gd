@@ -208,6 +208,38 @@ static func _absorption(
 
 
 
+## True when the pact break on the table is the order this court's conquest
+## waits behind (issue #995): the court stands short of the bar with its host
+## already built — not banking, for the break's own gate has already held it
+## out of the offers while the bank filled (`AiDiplomacyOffers._break_nap`) —
+## the best offer is the pact break on a Great Power, and the best war, if one
+## stands, is not itself the front the bar counts (a war on a Minor Nation or a
+## Tribe is colonial business, never the big holder's land). A Great Power war
+## still leads — it needs no break — and a minor's pact is not the wall the
+## conquest waits on: only the big holder's pact leads. A frozen baseline's
+## income row carries no gap, so the shared planner never leads it to a break
+## (issue #995's subject-scoped surface).
+static func pact_break_leads(
+	best_offer: Dictionary, best_war: Dictionary, context: Dictionary
+) -> bool:
+	if best_offer.is_empty():
+		return false
+	if String(best_offer.get("kind", "")) != AiDiplomacyOffers.KIND_BREAK_NAP:
+		return false
+	var income: Dictionary = context.get("income", {}) as Dictionary
+	if not bool(income.get("conquest_gap", false)):
+		return false
+	if FactionCatalog.type_of(int(best_offer.get("target", -1))) != (
+		FactionCatalog.Type.GREAT_POWER
+	):
+		return false
+	if not best_war.is_empty() and FactionCatalog.type_of(
+		int(best_war["target"])
+	) == FactionCatalog.Type.GREAT_POWER:
+		return false
+	return true
+
+
 ## The pact rung's worth as a peace lock against a peer the court does not mean
 ## to fight (issue #752).
 static func _nap_lock_bonus(target: int, next: String, desire: int) -> int:
