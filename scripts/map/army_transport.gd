@@ -97,6 +97,63 @@ static func drop_lost(layer: ArmyLayer, seats: Dictionary) -> Array[ArmyState]:
 	return lost
 
 
+## The deck every squadron keeps once the turn's hulls have left her. One hull
+## carries one regiment or one colonist (wiki: ships-and-naval § Naval transport,
+## § Civilian passengers), so a hull sunk in a battle or by a raid takes her
+## passenger with her: the men a shorter deck cannot hold go down rather than
+## ride it. An army the sea empties loses its place on the roster with the men
+## ([method NavalTransport.trim_aboard]). Returns one row per squadron that lost
+## someone — {fleet, owner, army, regiments[], civilians[]} — for the crown's news
+## and the observer's trace.
+static func reconcile_aboard(layer: ArmyLayer, fleets: Array) -> Array[Dictionary]:
+	var rows: Array[Dictionary] = []
+	if layer == null:
+		return rows
+	var emptied: Array[ArmyState] = []
+	for raw: Variant in fleets:
+		var fleet: FleetState = raw
+		if fleet == null:
+			continue
+		if fleet.embarked_army < 0 and not fleet.carries_civilians():
+			continue
+		var army: ArmyState = army_by_id(layer, fleet.embarked_army)
+		var drowned: Dictionary = NavalTransport.trim_aboard(fleet, army)
+		var men: Array = drowned["regiments"]
+		var colonists: Array = drowned["civilians"]
+		if men.is_empty() and colonists.is_empty():
+			continue
+		rows.append({
+			"fleet": fleet.id,
+			"owner": fleet.owner,
+			"army": -1 if army == null else army.id,
+			"regiments": men.duplicate(),
+			"civilians": colonists.duplicate(),
+		})
+		if army != null and army.is_empty():
+			emptied.append(army)
+	if not emptied.is_empty():
+		_strike(layer, emptied)
+	return rows
+
+
+## Takes an emptied standard off every roster the layer keeps, and its marker
+## with it: an army with no regiments retires (wiki: military-armies § Dismissing
+## regiments — an embarked army that retires leaves the deck with the field).
+static func _strike(layer: ArmyLayer, emptied: Array[ArmyState]) -> void:
+	for index in layer.regions.region_ids():
+		var members: Array[ArmyState] = roster(layer, index)
+		var kept: Array[ArmyState] = []
+		for army: ArmyState in members:
+			if army == null or not emptied.has(army):
+				kept.append(army)
+		if kept.size() == members.size():
+			continue
+		layer.regions.set_region(index, kept)
+		if layer.model != null and index == layer.model.region_id:
+			layer.armies = kept
+			layer.prune_markers()
+
+
 ## Re-seats the army a squadron carries on the squadron that now holds her hulls.
 ## A merge strikes the old command off the roster, so an army left pointing at her
 ## names a squadron no chart holds: the muster roll then loses the water she

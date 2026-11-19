@@ -2247,6 +2247,84 @@ func test_a_hostile_landing_needs_a_beachhead() -> void:
 	assert_true(String(check["reason"]).contains("beachhead"))
 
 
+## A squadron that keeps afloat on fewer hulls keeps only the men her deck still
+## holds: one hull carries one regiment, so a sunk hull drowns hers (wiki:
+## ships-and-naval § Naval transport; § Naval Combat Resolution — a victor still
+## loses hulls to the beaten side's strength).
+func test_a_sunk_hull_takes_her_regiment_with_her() -> void:
+	var fleet := FleetState.at_sea(5, 0, 0, ["ship_5", "ship_6", "ship_7"])
+	var army := ArmyState.muster(11, 0, 0, false, ["pikemen", "knights", "musketeers"], 1100)
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	fleet.remove_hull("ship_7")
+	var drowned: Dictionary = NavalTransport.trim_aboard(fleet, army)
+	var men: Array = drowned["regiments"]
+	assert_eq(men.size(), 1, "one hull lost, one regiment drowned")
+	assert_eq(army.count(), 2)
+	assert_eq(String(men[0]), "unit_1100", "the weakest colours drowns first")
+	assert_false(army.regiments.has("unit_1100"))
+	assert_eq(fleet.embarked_army, army.id, "the men left aboard still ride her")
+	assert_eq(NavalTransport.aboard(fleet, army), 2, "one hull, one man")
+
+
+## A deck the sea empties carries no army any more, and the standard leaves with
+## the men (wiki: military-armies § Dismissing regiments — an embarked army that
+## retires leaves the deck with the field).
+func test_a_deck_that_empties_puts_the_standard_aside() -> void:
+	var fleet := FleetState.at_sea(6, 0, 0, ["ship_8"])
+	var army := ArmyState.muster(12, 0, 0, false, ["pikemen"], 1200)
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	fleet.remove_hull("ship_8")
+	NavalTransport.trim_aboard(fleet, army)
+	assert_true(army.is_empty())
+	assert_eq(fleet.embarked_army, -1, "an empty deck carries no army")
+	assert_eq(army.embarked_fleet, -1, "and no man is still aboard")
+
+
+## A raid sinks a merchant hull under the colonists she carries (wiki:
+## ships-and-naval § Civilian passengers — one hull carries one civilian).
+func test_a_sunk_hull_takes_her_colonist_with_her() -> void:
+	var fleet := FleetState.in_port(7, 0, 0, ["ship_9", "ship_10", "ship_11"])
+	fleet.add_civilian(21)
+	fleet.add_civilian(22)
+	fleet.add_civilian(23)
+	fleet.remove_hull("ship_11")
+	var drowned: Dictionary = NavalTransport.trim_aboard(fleet, null)
+	var colonists: Array = drowned["civilians"]
+	assert_eq(colonists.size(), 1, "one hull lost, one colonist drowned")
+	assert_eq(int(colonists[0]), 23, "the last hand aboard drowns first")
+	assert_eq(fleet.civilian_count(), 2)
+	assert_eq(NavalTransport.aboard(fleet, null), 2)
+
+
+## The turn's close reads every deck: whichever loss took the hull — a battle's
+## sinking or a raid's prize — the men it leaves without a deck go down, and a
+## standard the sea emptied retires off the roster.
+func test_the_deck_is_reconciled_after_the_hulls_are_lost() -> void:
+	var layer := ArmyLayer.new()
+	var army := ArmyState.muster(13, 0, 0, false, ["pikemen", "knights"], 1300)
+	var fleet := FleetState.at_sea(8, 0, 0, ["ship_12"])
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	var roster: Array[ArmyState] = [army]
+	layer.regions.set_region(0, roster)
+	var rows: Array[Dictionary] = ArmyTransport.reconcile_aboard(layer, [fleet])
+	assert_eq(rows.size(), 1, "the squadron that drowned a man is named")
+	assert_eq(int(rows[0]["owner"]), 0)
+	assert_eq(army.count(), 1)
+	assert_eq(fleet.embarked_army, army.id, "one man still rides her")
+	fleet.remove_hull("ship_12")
+	ArmyTransport.reconcile_aboard(layer, [fleet])
+	assert_eq(fleet.embarked_army, -1)
+	var left: Array = layer.regions.value(0, [])
+	assert_true(left.is_empty(), "the emptied standard retires")
+	layer.free()
+
+
 ## A marked beachhead opens the hostile coast on the following turn only, and
 ## the landing consumes it (wiki: ships-and-naval § Missions and Movement).
 func test_beachhead_opens_a_hostile_coast_on_the_following_turn() -> void:
