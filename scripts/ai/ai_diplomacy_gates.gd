@@ -60,11 +60,12 @@ static func purse_under_muster(
 ## Minor Nation or a Tribe is colonial business and is never bought out; a court
 ## with no ledger to read keeps the published planner.
 ##
-## The border front is the exception (issue #995): while the court is
+## The border front is the exception (issues #995, #1082): while the court is
 ## overstretched it settles the wars it cannot reach and keeps the one war its
-## field army can march on, so `marches` — `AiBorderFronts.marches_on` for the
-## pair — stands the buy-out down on both legs. A caller with no border read
-## (a fixture) buys out as published.
+## field army can march on. `marches` — `AiBorderFronts.marches_on` for the
+## pair — stands the buy-out down on both legs when the live map says so. The
+## shared pass may also stamp the same crowns (`AiFrontier.holds`); a court
+## with neither a border read nor a stamp buys out as published.
 static func buys_out(
 	config: AiConfig,
 	ai_state: AiState,
@@ -76,6 +77,8 @@ static func buys_out(
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
 		return false
 	if AiPhasePlanner.keeps_the_border_front(posture, marches):
+		return false
+	if AiFrontier.holds(config.faction, target, context):
 		return false
 	if AiPhasePlanner.takes_any_peace(posture):
 		return true
