@@ -23,6 +23,8 @@ func after_each() -> void:
 			_teardown_audio_director()
 		"map_soundtrack":
 			_after_soundtrack()
+		"app_shell":
+			_after_shell()
 	_suite_setup = ""
 
 func _setup_audio_mix() -> void:
@@ -570,8 +572,8 @@ func test_the_desk_shows_the_authoritative_mix() -> void:
 	assert_false(desk.mute.button_pressed)
 
 
+## Pure case: the binding is the InputMap's, so it pays no chart re-seat.
 func test_the_mute_key_is_bound() -> void:
-	_setup_map_soundtrack()
 	InputActions.ensure_actions()
 	assert_true(InputMap.has_action(InputActions.MUTE))
 	var keys: Array = InputMap.action_get_events(InputActions.MUTE)
@@ -579,6 +581,21 @@ func test_the_mute_key_is_bound() -> void:
 
 
 # --- app shell ---------------------------------------------------------------
+
+
+## A shell case reads the app, never the suite's chart: `_boot_shell` drops the
+## chart on the shell's first mount, and a case that asks for no chart must not
+## mount one back (docs/testing.md § Speed rules: pure cases skip the re-seat).
+func _setup_shell() -> void:
+	_suite_setup = "app_shell"
+
+
+## The shell leaves the shared world as it found it; only the suite's own mix
+## file was written.
+func _after_shell() -> void:
+	Fixture.restore(Fixture.world(), _world_snapshot)
+	if FileAccess.file_exists(map_soundtrack_TEMP_PATH):
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(map_soundtrack_TEMP_PATH))
 
 
 ## The shell cases share one mount: the first asks for it, each case returns to
@@ -640,7 +657,7 @@ func _press_mute_key() -> void:
 
 
 func test_the_title_screen_opens_on_the_sea_bed() -> void:
-	_setup_map_soundtrack()
+	_setup_shell()
 	var app: Node = _boot_shell()
 	_reseat_shell(app)
 	assert_true(app.current_page is MainMenu, "the title screen is the entry point")
@@ -650,7 +667,7 @@ func test_the_title_screen_opens_on_the_sea_bed() -> void:
 
 
 func test_the_title_page_carries_the_sound_seal() -> void:
-	_setup_map_soundtrack()
+	_setup_shell()
 	var app: Node = _boot_shell()
 	_reseat_shell(app)
 	var seal: AudioControls = (app.current_page as MainMenu).audio_controls
@@ -669,7 +686,7 @@ func test_the_title_page_carries_the_sound_seal() -> void:
 
 
 func test_a_campaign_takes_the_launch_director_over() -> void:
-	_setup_map_soundtrack()
+	_setup_shell()
 	var app: Node = _boot_shell()
 	_reseat_shell(app)
 	# The observer is the cheapest campaign door (no setup / charge pages).
@@ -690,7 +707,7 @@ func test_a_campaign_takes_the_launch_director_over() -> void:
 
 
 func test_the_title_bed_is_the_bed_the_campaign_opens_on() -> void:
-	_setup_map_soundtrack()
+	_setup_shell()
 	assert_eq(
 		MusicPlaylist.menu_bed_id(),
 		MusicPlaylist.bed_id_for_year(TurnTime.START_YEAR)
@@ -698,7 +715,7 @@ func test_the_title_bed_is_the_bed_the_campaign_opens_on() -> void:
 
 
 func test_returning_to_the_title_brings_the_sea_bed_back() -> void:
-	_setup_map_soundtrack()
+	_setup_shell()
 	var app: Node = _boot_shell()
 	_reseat_shell(app)
 	app._start_observer()
@@ -713,7 +730,7 @@ func test_returning_to_the_title_brings_the_sea_bed_back() -> void:
 
 
 func test_the_mute_shortcut_answers_on_the_title_screen() -> void:
-	_setup_map_soundtrack()
+	_setup_shell()
 	var app: Node = _boot_shell()
 	_reseat_shell(app)
 	var before: bool = app.audio.is_muted()
