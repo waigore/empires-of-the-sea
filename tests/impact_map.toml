@@ -545,6 +545,13 @@ domain = "sheet"
 match = "scripts/ui/modal_door.gd*"
 domain = "sheet"
 
+# The one drag every plate shares (issue #1081): the phone suite proves the
+# pointer path on a live dossier and on a bare plate, so a drag fix stays
+# inside the layout domain instead of the menu catch-all's six suites.
+[[rules]]
+match = "scripts/ui/modal_drag.gd*"
+domain = "layout"
+
 # The crown's news sheet is the Gazette's own surface (wiki: the-gazette): its
 # one suite drives the sheet, so a plate change never pays for the menu set.
 [[rules]]
