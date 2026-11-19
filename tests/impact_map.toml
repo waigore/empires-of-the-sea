@@ -2778,6 +2778,13 @@ domain = "ai_economy"
 match = "scripts/map/map_play_civilian_ai.gd*"
 domain = "ai_works"
 
+# The pass's own reading (purses, region context, the earn trim, the planned
+# row): the same two suites prove it, so it rides the AI/works slice instead of
+# the civilian glob below.
+[[rules]]
+match = "scripts/map/map_play_civilian_plan.gd*"
+domain = "ai_works"
+
 # The muster seam both rival civilian passes share (roster, mustering tile,
 # harbour gate, training cost) is proved by the same two suites, so it stays on
 # the AI/works slice instead of the broader civilian globe.
