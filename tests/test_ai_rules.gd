@@ -4239,6 +4239,31 @@ func test_the_gates_keep_the_published_planner_with_nothing_to_read() -> void:
 	assert_eq(AiDiplomacyGates.faction_of(null), MapModel.NO_ID)
 
 
+## A court with a proposal already waiting for the human answers at the court
+## queue, so it opens no second front this turn (DR-20261109-07). The refusal
+## travels with the ranking, so the turn trace can print it.
+func test_a_court_with_a_waiting_proposal_offers_nothing_new() -> void:
+	_setup_ai_planner()
+	ai_planner_state.human_faction = 1
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 70.0
+	ai_planner_state.pending_offers.append(
+		{"from": 0, "kind": DiplomacyProposals.KIND_FTP, "stage": "", "turn": 1}
+	)
+	assert_true(DiplomacyProposals.has_pending(ai_planner_state, 1))
+	var ranking: Dictionary = AiDiplomacyOffers.best(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state,
+		ai_planner_AiFixture.world([0, 1, 1]), 1, 1, 20,
+		{"player": 1, "treasury": {0: 500}, "tech": {0: {}}}
+	)
+	assert_false(bool(ranking.get("ok", false)))
+	assert_eq(
+		String(ranking.get("blocked", "")),
+		"the court is already considering a proposal"
+	)
+	assert_eq((ranking.get("candidates", []) as Array).size(), 1)
+
+
 ## The court's candidate row for one target in a decide() result.
 func _candidate(plan: Dictionary, target: int) -> Dictionary:
 	for raw: Variant in plan.get("candidates", []):
