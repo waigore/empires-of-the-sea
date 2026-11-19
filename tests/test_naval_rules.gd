@@ -3791,6 +3791,146 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 	economy.free()
 
 
+# --- the dossier's prize reading (DR-20261120-01) ---------------------------
+
+
+## A wired session for the dossier's price: the crown's stations, the rival's
+## laden home fleet in port at Coro, and the rival's cargo book.
+func _prize_session(stations: Array[FleetState], laden: FleetState) -> PlaySession:
+	var play := PlaySession.new()
+	play.model = _naval_raid_model
+	play.player_faction = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	var fleets: Array[FleetState] = []
+	fleets.append_array(stations)
+	fleets.append(laden)
+	var ships := ShipLayer.new()
+	ships.model = _naval_raid_model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_naval_raid_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_naval_raid_model)
+	play.world = world
+	play.map_seed = 1
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	play.economy = economy
+	return play
+
+
+## The patrol rests at sea and raids the same water a blockade does, at the
+## patrol factor: the dossier must price it (wiki: ships-and-naval § Trade and
+## Transport Interception — "Hostile Patrol or Blockade squadrons … raid").
+func test_the_dossier_prices_the_patrol_that_raids_too() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _prize_session([patrol], laden)
+	play.economy.market.record_import("grain", 6, 1)
+	var note: String = MapPlayFleetMissions.prize_note(play, patrol)
+	var patrol_odds: Dictionary = NavalRaid.preview(
+		[patrol], laden, {"grain": 6}, FleetState.Mission.PATROL
+	)
+	assert_true(note.contains("Prize:"), "a patrol raids trade, so the dossier prices it")
+	assert_true(note.contains("Coro"), "the patrol names the coast it works")
+	assert_true(
+		note.contains("%d%%" % int(round(float(patrol_odds["chance"]) * 100.0))),
+		"the price is the patrol factor the raid rolls"
+	)
+	assert_true(note.contains("sinks a Fluyte"), "the merchant hull is priced too")
+	# The same coast blockaded rolls the blockade bonus, so the two prices differ.
+	patrol.mission = FleetState.Mission.BLOCKADE
+	patrol.blockade_province = 1
+	var blockader_odds: Dictionary = NavalRaid.preview(
+		[patrol], laden, {"grain": 6}, FleetState.Mission.BLOCKADE
+	)
+	assert_gt(
+		float(blockader_odds["chance"]), float(patrol_odds["chance"]),
+		"a blockade raiding the same coast rolls harder than a patrol"
+	)
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, patrol).contains(
+			"%d%%" % int(round(float(blockader_odds["chance"]) * 100.0))
+		),
+		"the blockade's own price follows its station"
+	)
+	play.economy.free()
+
+
+## The pass rolls every station the crown holds in the water as one group, so the
+## price is the group's, never one hull's.
+func test_the_dossier_prices_the_whole_group_in_the_zone() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var consort := _naval_raid_fleet(2, 0, 1, ["sloop"])
+	consort.mission = FleetState.Mission.PATROL
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _prize_session([patrol, consort], laden)
+	play.economy.market.record_import("grain", 6, 1)
+	var alone: Dictionary = NavalRaid.preview(
+		[patrol], laden, {"grain": 6}, FleetState.Mission.PATROL
+	)
+	var together: Dictionary = NavalRaid.preview(
+		[patrol, consort], laden, {"grain": 6}, FleetState.Mission.PATROL
+	)
+	assert_gt(
+		float(together["chance"]), float(alone["chance"]),
+		"two stations in one water raid harder than one"
+	)
+	var note: String = MapPlayFleetMissions.prize_note(play, patrol)
+	assert_true(
+		note.contains("%d%%" % int(round(float(together["chance"]) * 100.0))),
+		"the dossier prices the group the raid rolls"
+	)
+	assert_false(
+		note.contains("%d%% to take" % int(round(float(alone["chance"]) * 100.0))),
+		"the sheet never prices one hull while the pass rolls two"
+	)
+	# A third station in another water is no part of this group.
+	var elsewhere := _naval_raid_fleet(3, 0, 0, ["sloop"])
+	elsewhere.mission = FleetState.Mission.PATROL
+	play.ship_layer.fleets.append(elsewhere)
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, patrol).contains(
+			"%d%%" % int(round(float(together["chance"]) * 100.0))
+		),
+		"a station in another zone is not in the group"
+	)
+	play.economy.free()
+
+
+## The raid needs a declared war (wiki: ships-and-naval § Raids cut both ways —
+## "against a declared enemy"), so a coast the crown is at peace with prices no
+## prize even under a standing blockade.
+func test_a_coast_at_peace_prices_no_prize() -> void:
+	_setup_naval_raid()
+	var blockader := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _prize_session([blockader], laden)
+	play.diplomacy = DiplomacyState.new()
+	play.economy.market.record_import("grain", 6, 1)
+	assert_eq(
+		MapPlayFleetMissions.prize_note(play, blockader), "",
+		"peace offers no prize"
+	)
+	# Declared war: the same station prices the same coast.
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, blockader).contains("Prize:"),
+		"the declared war opens the raid"
+	)
+	play.economy.free()
+
+
 # --- rival-on-rival raids + prize cargo (DR-20261111-20) ----------------------
 
 

@@ -62,41 +62,108 @@ static func hint(play: PlaySession, fleet: FleetState) -> String:
 	return MapPlayBeachhead.hint(play, fleet)
 
 
-## What a standing blockade is worth this turn: the chance its raid rolls, the
+## What a standing station is worth this turn: the chance its raid rolls, the
 ## cargo it would skim and the merchant hull it could send down — read before the
-## player commits the move (DR-20261111-17).
+## player commits the move (DR-20261111-17, DR-20261120-01). **A patrol raids as
+## a blockade does**, at the patrol factor, and the pass rolls the squadron with
+## every other station the crown holds in that water: the price is the group's,
+## against a coast the crown is at war with, so the sheet promises no roll the
+## rules would not make (wiki: ships-and-naval § Trade and Transport
+## Interception; REQ-P2-03).
 static func prize_note(play: PlaySession, fleet: FleetState) -> String:
 	if fleet == null or fleet.owner != play.player_faction:
 		return ""
-	if fleet.mission != FleetState.Mission.BLOCKADE or play.model == null:
-		return ""
-	if fleet.blockade_province == MapModel.NO_ID:
-		return ""
-	var province: ProvinceState = play.model.province_data(fleet.blockade_province)
-	if province == null or province.owner == play.player_faction:
+	if play.model == null or not fleet.is_at_sea():
 		return ""
 	if play.economy == null or play.economy.market == null:
 		return ""
-	var imports: Dictionary = play.economy.market.imports_for(province.owner)
-	if imports.is_empty():
-		return "Prize: no cargo afloat off this coast this turn."
-	var home: FleetState = MapPlayRaids.home_fleet(play, province.owner)
-	if home == null:
-		return "Prize: the coast's merchant hulls are at sea — nothing to take."
-	var odds: Dictionary = NavalRaid.preview(
-		[fleet], home, imports, FleetState.Mission.BLOCKADE, play.has_tech
+	var hostile: Callable = MapPlayRaids.hostile(play)
+	if not NavalRaid.raids(play.model, fleet, hostile):
+		return ""
+	var group: Array = NavalRaid.station_group(
+		play.model, _roster(play), fleet.sea_zone, fleet.owner, hostile
 	)
-	var chance: int = int(round(float(odds.get("chance", 0.0)) * 100.0))
-	var at_risk: String = String(odds.get("hull_at_risk", ""))
+	if group.is_empty():
+		group = [fleet]
+	var mission: int = FleetMissions.station_mission(play.model, group, hostile)
+	var best: Dictionary = {}
+	var coasts: Array[int] = _prize_coasts(play, fleet, hostile)
+	var afloat: bool = false
+	for province_id: int in coasts:
+		var owner: int = play.model.province_owner(province_id)
+		var imports: Dictionary = play.economy.market.imports_for(owner)
+		if imports.is_empty():
+			continue
+		afloat = true
+		var home: FleetState = MapPlayRaids.home_fleet(play, owner)
+		if home == null:
+			continue
+		var odds: Dictionary = NavalRaid.preview(
+			group, home, imports, mission, play.has_tech
+		)
+		if best.is_empty() or float(odds.get("chance", 0.0)) > float(best.get("chance", 0.0)):
+			best = odds
+			best["coast"] = play.model.province_name(province_id)
+	if not afloat:
+		return _no_prize_words(fleet)
+	if best.is_empty():
+		return _no_prize_words(fleet, true)
+	var chance: int = int(round(float(best.get("chance", 0.0)) * 100.0))
+	var take: String = "Prize: %d%% to take ~%d cargo" % [chance, int(best.get("expected", 0))]
+	# A patrol's station note names no coast, so its price names the one it works;
+	# a blockade's note already reads "Blockading Coro".
+	if fleet.mission == FleetState.Mission.PATROL:
+		take += " off %s" % String(best.get("coast", "the coast"))
+	var at_risk: String = String(best.get("hull_at_risk", ""))
 	if at_risk.is_empty():
-		return "Prize: %d%% to take ~%d cargo — no merchant hull at risk." % [
-			chance, int(odds.get("expected", 0))
-		]
-	var hull_chance: int = int(round(float(odds.get("hull_chance", 0.0)) * 100.0))
-	return "Prize: %d%% to take ~%d cargo; a hit sinks a %s on %d%%." % [
-		chance, int(odds.get("expected", 0)),
-		ShipStats.display_name(at_risk), hull_chance,
+		return take + " — no merchant hull at risk."
+	var hull_chance: int = int(round(float(best.get("hull_chance", 0.0)) * 100.0))
+	return "%s; a hit sinks a %s on %d%%." % [
+		take, ShipStats.display_name(at_risk), hull_chance
 	]
+
+
+## The empty reading: a coast with no cargo afloat this turn, or a coast whose
+## merchant hulls are at sea. A patrol works the whole water, so it says so.
+static func _no_prize_words(fleet: FleetState, hulls_away: bool = false) -> String:
+	if fleet.mission != FleetState.Mission.PATROL:
+		if hulls_away:
+			return "Prize: the coast's merchant hulls are at sea — nothing to take."
+		return "Prize: no cargo afloat off this coast this turn."
+	if hulls_away:
+		return "Prize: the merchant hulls off these coasts are at sea — nothing to take."
+	return "Prize: no cargo afloat off these coasts this turn."
+
+
+## The at-war coasts this station's water reaches: the blockaded coast first, so
+## a blockade reads its own shore as it always did, then the rest by province id.
+static func _prize_coasts(
+	play: PlaySession, fleet: FleetState, hostile: Callable
+) -> Array[int]:
+	var coasts: Array[int] = []
+	if fleet.mission == FleetState.Mission.BLOCKADE and fleet.blockade_province >= 0:
+		coasts.append(fleet.blockade_province)
+	var found: Array[int] = []
+	for province_id: int in NavalMovement.provinces_by_zone(play.model, fleet.sea_zone):
+		if coasts.has(province_id):
+			continue
+		var owner: int = play.model.province_owner(province_id)
+		if owner < 0 or owner == fleet.owner:
+			continue
+		if not Hostility.between(hostile, fleet.owner, owner):
+			continue
+		found.append(province_id)
+	found.sort()
+	coasts.append_array(found)
+	return coasts
+
+
+## The chart's roster, which is the group the pass reads: the dossier is open on
+## a region and every station the crown holds in the water stands on that chart.
+static func _roster(play: PlaySession) -> Array:
+	if play.ship_layer == null:
+		return []
+	return play.ship_layer.fleets
 
 
 ## The Privateering Companies bonus, phrased for the dossier (wiki:
