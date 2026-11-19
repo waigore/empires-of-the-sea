@@ -411,7 +411,7 @@ func _crown_pass_read(zone: int) -> Dictionary:
 		if fleet.sea_zone != zone or not fleet.is_afloat():
 			continue
 		group.append(fleet)
-	var holders: Array = NavalInterception.station_holders(_play.model, group, _hostile())
+	var holders: Array = NavalStation.group_from(_play.model, group, _hostile())
 	var targets: Array = []
 	var hulls: int = 0
 	for fleet: FleetState in _play.ship_layer.fleets:
@@ -433,45 +433,13 @@ func _crown_pass_read(zone: int) -> Dictionary:
 
 ## The prize the rules roll for the station's water: the group, the victim's
 ## home fleet, its imports and the station's own mission, read through the same
-## `NavalRaid.preview` the dossier asks.
+## `NavalRaid.preview` the dossier asks — off the same `NavalStation` reading.
 func _prize_read(fleet: FleetState) -> Dictionary:
-	var group: Array = NavalRaid.station_group(
-		_play.model, _play.ship_layer.fleets, fleet.sea_zone, fleet.owner, _hostile()
+	var group: Array = NavalStation.group_of(
+		_play.model, _play.ship_layer.fleets, fleet, _hostile()
 	)
-	if group.is_empty():
-		group = [fleet]
 	var mission: int = FleetMissions.station_mission(_play.model, group, _hostile())
-	var best: Dictionary = {}
-	for province_id: int in _prize_coasts(fleet):
-		var owner: int = _play.model.province_owner(province_id)
-		var imports: Dictionary = _play.economy.market.imports_for(owner)
-		if imports.is_empty():
-			continue
-		var home: FleetState = MapPlayRaids.home_fleet(_play, owner)
-		if home == null:
-			continue
-		var odds: Dictionary = NavalRaid.preview(
-			group, home, imports, mission, _play.has_tech
-		)
-		if best.is_empty() or float(odds.get("chance", 0.0)) > float(best.get("chance", 0.0)):
-			best = odds
-	return best
-
-
-func _prize_coasts(fleet: FleetState) -> Array[int]:
-	var coasts: Array[int] = []
-	if fleet.mission == FleetState.Mission.BLOCKADE and fleet.blockade_province >= 0:
-		coasts.append(fleet.blockade_province)
-	for province_id: int in NavalMovement.provinces_by_zone(_play.model, fleet.sea_zone):
-		if coasts.has(province_id):
-			continue
-		var owner: int = _play.model.province_owner(province_id)
-		if owner < 0 or owner == fleet.owner:
-			continue
-		if not Hostility.between(_hostile(), fleet.owner, owner):
-			continue
-		coasts.append(province_id)
-	return coasts
+	return MapPlayStationNotes.best_raid(_play, fleet, group, mission)
 
 
 # --- the fog's own switch ---------------------------------------------------

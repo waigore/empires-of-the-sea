@@ -444,6 +444,12 @@ domain = "hostility"
 match = "scripts/rules/naval_raid.gd*"
 domain = "hostility"
 
+# Station holders for the catch and the prize (extracted from interception/
+# raid). Same hostility slice as those callers — not the naval_* → fleet glob.
+[[rules]]
+match = "scripts/rules/naval_station.gd*"
+domain = "hostility"
+
 [[rules]]
 match = "scripts/rules/naval_retreat.gd*"
 domain = "hostility"
@@ -635,6 +641,12 @@ domain = "naval_intel"
 # instead of the eleven-suite `scripts/map/**` set (DR-20261120-02).
 [[rules]]
 match = "scripts/map/map_play_fleet_missions.gd*"
+domain = "hostility"
+
+# Station dossier prices extracted from fleet_missions; same slice so the
+# notes file does not pull the six-suite `scripts/map/**` map domain.
+[[rules]]
+match = "scripts/map/map_play_station_notes.gd*"
 domain = "hostility"
 
 [[rules]]
@@ -2205,6 +2217,11 @@ domain = "fleet"
 [[rules]]
 match = "playtests/playtest_terrain_ground.gd*"
 domain = "map_mount"
+
+# Station catch/prize prices vs the pass; naval rules prove the numbers.
+[[rules]]
+match = "playtests/playtest_station_prices.gd*"
+domain = "hostility"
 
 [[rules]]
 match = "playtests/**"
