@@ -11,15 +11,22 @@ and the campaign may run past the 1800 cap (DR-20261108-05).
 
 | Path | Use |
 |------|-----|
-| Title → `AI OBSERVER (DEBUG)` | Live dashboard over the real map |
-| `tools/ai_vs_ai.gd` | Headless batch runs + JSON export |
+| Title **Observe** / `--ai-observer` | Live desk (desktop) |
+| `tools/ai_vs_ai.gd` | Headless batch + JSON |
+
+Handset always opens the title screen.
 
 ```bash
+godot --path . -- --ai-observer
+```
+
+```bash
+# Headless batch run + JSON export
 godot --headless --path . --script res://tools/ai_vs_ai.gd -- \
   --turns=60 --seed=1500 --size=1 --runs=1 --ai=full
 ```
 
-Options: `--turns`, `--seed`, `--size` (0 Small / 1 Standard / 2 Large),
+Options: `--turns`, `--seed`, `--size` (0/1/2),
 `--runs` (seeds `seed+i`), `--historical` (stop at the calendar cap),
 `--ai=full|noop|bench` (planner gate), `--live=ID` (BENCH subject; default setup
 faction), `--out=DIR` (default `user://ai_vs_ai`), `--budget=S` (default 420).
@@ -27,9 +34,8 @@ faction), `--out=DIR` (default `user://ai_vs_ai`), `--budget=S` (default 420).
 ## Performance budget
 
 **One 200-turn run must finish in ≤ 7 minutes** (seed 1500, Standard,
-`--ai=bench`); the harness prints what it spent and names `OVER BUDGET` on
-stderr. `view_live = false` skips the chart, dossier and panel follow-up (rules
-unchanged), and the grouped estate ledger walks the network once. Bench needs
+`--ai=bench`); the harness prints its spend and names `OVER BUDGET` on
+stderr. `view_live = false` skips the chart, dossier and panel follow-up, and the grouped estate ledger walks the network once. Bench needs
 mainline planners once: `python tools/sync_ai_mainline.py`.
 
 ## Planner modes (`AiControl`)
@@ -61,9 +67,9 @@ floor; the caption names the span (`T12–T17`). The window grows with the scree
 
 A tap on a charted province opens **the observer's province sheet**
 (`ObserverProvince` → `ObserverProvinceSheet`): the court that holds it, the
-ground, the town, the estates, the wall, the ward and the host standing there.
-It is read-only — the observatory has no seat — and it re-reads the open
-province each turn.
+ground, the town, the estates, the wall, the ward and the host there.
+It is read-only — the observatory has no seat — and re-reads the open province
+each turn.
 
 ## Export and coverage
 
@@ -71,7 +77,7 @@ province each turn.
 (`ai_mode` / `ai_live` / `ai_baselines`). It prints the **coverage checklist**
 (`AiCoverage`): every shipped rival rule with count, crowns and window, and
 `never`/`gated` when none did. `army.muster` and `navy.launch` also report aim
-ranked vs funded. A **major** rule left never-exercised fails a `--ai=full` run
+ranked vs funded. A **major** rule never exercised fails a `--ai=full` run
 that reached its cap (#605).
 
 ## Scope
