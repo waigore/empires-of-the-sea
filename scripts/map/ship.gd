@@ -13,6 +13,10 @@ const ESCORT_LIMIT: int = 2
 ## number so the plate still reads at a glance (REQ-P1-07).
 const DETAIL_ZOOM: float = 0.85
 const STRENGTH_FONT: int = 11
+## Pennants drawn behind a stacked squadron; the cycle names the rest in words.
+const PIP_LIMIT: int = 3
+const PIP_RADIUS: float = 4.5
+const PIP_ROW_Y: float = -34.0
 
 var faction: int = 0
 var fleet_id: int = -1
@@ -31,6 +35,19 @@ var strength: float = 0.0
 var strength_known: bool = true
 ## Zoomed in enough to print the strength to one decimal.
 var detail: bool = false
+## Where the marker draws within her station: a step of the crown's fan-out row,
+## or the head of a stack that a tap cycles (wiki: ships-and-naval § Fleets in
+## one station; DR-20261119-08). Applied at draw time, so a sail under way still
+## tweens her berth while the row around her moves.
+var lane: Vector2 = Vector2.ZERO
+## A squadron behind her in the same station: her hull is not drawn, but her
+## pennant rides the stack's head, so her court is never lost from the water.
+var covered: bool = false
+## Every squadron a tap cycles through in her station, herself included, in the
+## order the cycle walks them.
+var stack: Array[int] = []
+## The courts standing behind her in the stack, one pennant pip each.
+var pips: Array[int] = []
 
 var _time: float = 0.0
 var _wake_strength: float = 0.0
@@ -51,6 +68,30 @@ func set_selected(value: bool) -> void:
 	queue_redraw()
 
 
+## Where her hull is drawn: her berth plus the step her station gives her, so a
+## tap lands on the marker it looks like it hits (wiki: ships-and-naval
+## § Fleets in one station).
+func drawn_position() -> Vector2:
+	return position + lane * scale.x
+
+
+## Places her in her station's row: the step she draws at, the courts whose
+## pennants ride behind her, and whether another squadron draws the hull
+## (wiki: ships-and-naval § Fleets in one station).
+func set_lane(offset: Vector2, behind: Array[int], hide_hull: bool) -> void:
+	lane = offset
+	pips = behind
+	covered = hide_hull
+	queue_redraw()
+
+
+## Whether her strength prints: the squadron in the crown's hand always, and an
+## unread rival always — her plate must still say the fog withholds her weight
+## (wiki: ships-and-naval § Fleets in one station, § Sighted strength).
+func shows_plate() -> bool:
+	return selected or not strength_known
+
+
 ## Mirrors the squadron's hulls and strength onto the marker.
 func set_squadron(count: int, fighting_strength: float) -> void:
 	hull_count = maxi(count, 1)
@@ -68,6 +109,11 @@ func set_intel(known: bool) -> void:
 
 
 func _draw() -> void:
+	# A squadron behind the head of her stack draws no hull: the head carries her
+	# pennant instead, so a crowded station still reads as its courts
+	# (wiki: ships-and-naval § Fleets in one station).
+	if covered:
+		return
 	var bob: float = sin(_time * 1.7 + bob_phase) * 1.5
 	var tilt: float = sin(_time * 1.25 + bob_phase) * 0.05
 	# Escorts astern, far hull first, so the lead vessel overlaps them and the
@@ -76,19 +122,24 @@ func _draw() -> void:
 		var size: float = 0.66 - 0.10 * float(index - 1)
 		var astern := Vector2(-(18.0 + 16.0 * float(index)), 3.0 + 7.0 * float(index))
 		draw_set_transform(
-			Vector2(astern.x, bob + astern.y), tilt * 0.7, Vector2(facing * size, size)
+			lane + Vector2(astern.x, bob + astern.y), tilt * 0.7, Vector2(facing * size, size)
 		)
 		_vessel(false, 0.74)
-	draw_set_transform(Vector2(0, bob), tilt, Vector2(facing, 1.0))
+	draw_set_transform(lane + Vector2(0, bob), tilt, Vector2(facing, 1.0))
 	if not docked:
 		_wake()
 	_vessel(true, 1.0)
 	# The badge and gauge never flip with the hull, or the figures would mirror.
-	draw_set_transform(Vector2(0, bob), 0.0, Vector2.ONE)
+	draw_set_transform(lane + Vector2(0, bob), 0.0, Vector2.ONE)
 	_squadron_badge()
+	_stack_pips()
 	if selected:
-		draw_arc(Vector2(0, 0), 24.0, 0, TAU, 40, Color(0.99, 0.93, 0.72, 0.9), 2.0, true)
-		draw_arc(Vector2(0, 0), 29.0, 0, TAU, 40, Color(0.83, 0.69, 0.22, 0.35), 4.0, true)
+		draw_arc(
+			lane + Vector2(0, 0), 24.0, 0, TAU, 40, Color(0.99, 0.93, 0.72, 0.9), 2.0, true
+		)
+		draw_arc(
+			lane + Vector2(0, 0), 29.0, 0, TAU, 40, Color(0.83, 0.69, 0.22, 0.35), 4.0, true
+		)
 
 
 func _wake() -> void:
@@ -187,7 +238,9 @@ func _ink_vessel(full: bool, alpha: float) -> void:
 ## Hull count on a parchment drum and the strength she fights with on a plate
 ## beneath it. A lone hull drops the badge: one vessel needs no count. An unread
 ## rival keeps the plate and flies `*` in place of a figure (wiki:
-## ships-and-naval § Sighted strength).
+## ships-and-naval § Sighted strength). The plate prints on the squadron in the
+## crown's hand, so a fanned row of the crown's own does not stack three figures
+## over one another (wiki: ships-and-naval § Fleets in one station).
 func _squadron_badge() -> void:
 	var ink := Color(0.16, 0.12, 0.08, 0.9)
 	var base: float = 23.0 if docked else 17.0
@@ -198,7 +251,27 @@ func _squadron_badge() -> void:
 			ThemeDB.fallback_font, Vector2(-7, base + 4), str(hull_count),
 			HORIZONTAL_ALIGNMENT_CENTER, 14, 11, ink
 		)
-	_strength_plate(base, ink)
+	if shows_plate():
+		_strength_plate(base, ink)
+
+
+## The pennants of the squadrons stacked behind her: one pip per court in her
+## own colours, so a mixed stack of rivals still reads who is in the water
+## before a tap cycles through them (wiki: ships-and-naval § Fleets in one
+## station, REQ-P1-07). A stack longer than the pips is named in words when the
+## crown cycles it.
+func _stack_pips() -> void:
+	var shown: int = mini(pips.size(), PIP_LIMIT)
+	if shown <= 0:
+		return
+	var ink := Color(0.16, 0.12, 0.08, 0.9)
+	var span: float = PIP_RADIUS * 2.4
+	for index in shown:
+		var at := Vector2(
+			(float(index) - float(shown - 1) * 0.5) * span, PIP_ROW_Y
+		)
+		draw_circle(at, PIP_RADIUS, Palette.faction_color(pips[index]))
+		draw_arc(at, PIP_RADIUS, 0, TAU, 14, ink, 1.0, true)
 
 
 ## The number beside the hulls: the resolver's own weighted strength. A rival

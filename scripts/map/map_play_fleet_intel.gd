@@ -80,6 +80,10 @@ static func refresh_visibility(play: PlaySession) -> void:
 		var fleet: FleetState = play.ship_layer.fleet_of(ship)
 		if fleet != null:
 			ship.set_intel(strength_read(play, fleet))
+	# The rows are laid after the fog's answer: a stack whose head the chart no
+	# longer draws hands the hull to the next squadron it can see
+	# (wiki: ships-and-naval § Fleets in one station).
+	play.ship_layer.relayout()
 	# The watch closing is a beat the court should hear: her weight appears on the
 	# plate, and a player who never saw the rule would otherwise watch a number
 	# arrive from nowhere.

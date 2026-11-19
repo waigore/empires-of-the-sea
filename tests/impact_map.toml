@@ -682,6 +682,14 @@ domain = "fleet_split"
 match = "scripts/map/ship_markers.gd*"
 domain = "fleet_split"
 
+# Where a station's markers stand when several squadrons share it (wiki:
+# ships-and-naval § Fleets in one station; DR-20261119-08). The plan rides the
+# marker bookkeeping it lays out, so a row edit re-runs those naval suites
+# instead of the broad `fleet` fan-out its name would otherwise match.
+[[rules]]
+match = "scripts/map/fleet_lanes.gd*"
+domain = "fleet_split"
+
 [[rules]]
 match = "scripts/ui/fleet_split_block.gd*"
 domain = "fleet_split"
