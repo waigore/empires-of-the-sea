@@ -34,7 +34,9 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 - **Colonisation** (`AiColonisationPlanner`): the squadron docks, boards,
   crosses, lands, returns empty (DR-20261111-05, DR-20261114-03).
 - **Overseas invasions** (`AiInvasionPlanner`): detach hulls, dock, board,
-  cross, storm the coast (DR-20261114-03).
+  cross, storm the coast (DR-20261114-03); the earn lift stands down once the
+  court presses for its bar, so the host stays on the land the bar counts
+  (DR-20261119-14).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; the highest
   affordable tier keeping a peasant and cash floor.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots
