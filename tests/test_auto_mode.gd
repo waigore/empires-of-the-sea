@@ -10,12 +10,15 @@ extends GdToolsTest
 ## speed rules; `test_ai_observer` is the reference). Mode / arming cases still
 ## start with the court in hand. Auto fields are live-seat state a save never
 ## carries, so each re-seat re-applies them beside the SaveCodec snapshot.
+## Live cases reach the chart through `screen` / `_seat*()`; a case that asks
+## for the AI or drained capture pays one re-seat, not a pristine seat first
+## (docs/testing.md § Speed rules).
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
 ## Non-underscore: gd-tools clones a fresh suite instance per test and does not
 ## copy underscore fields out of before_all (docs/testing.md speed rules).
-var screen: MapScreen = null
+var mounted: MapScreen = null
 var world_snapshot: Array = []
 var pristine: Dictionary = {}
 var seated: Dictionary = {}
@@ -24,37 +27,39 @@ var seated_ai: Dictionary = {}
 var drained: Dictionary = {}
 var drained_auto: Dictionary = {}
 var drained_ai: Dictionary = {}
+## Set when this case has paid for a re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
 	world_snapshot = Fixture.snapshot(Fixture.world())
-	screen = Fixture.attach_screen(self)
-	pristine = Fixture.suite_capture(screen)
+	mounted = Fixture.attach_screen(self)
+	pristine = Fixture.suite_capture(mounted)
 	# Arm once and close the turn the seat change waits for: every case that
 	# only needs the AI holding the seat re-seats from this capture.
-	MapPlayAuto.arm(screen.play)
-	_play_turn(screen.play)
-	seated = Fixture.suite_capture(screen)
-	seated_auto = _capture_auto(screen.play)
-	if screen.play.ai != null:
-		seated_ai = screen.play.ai.to_dict()
+	MapPlayAuto.arm(mounted.play)
+	_play_turn(mounted.play)
+	seated = Fixture.suite_capture(mounted)
+	seated_auto = _capture_auto(mounted.play)
+	if mounted.play.ai != null:
+		seated_ai = mounted.play.ai.to_dict()
 	# Drain one paced Auto turn once: log / orders cases re-seat from here.
-	_drain(screen.play)
-	drained = Fixture.suite_capture(screen)
-	drained_auto = _capture_auto(screen.play)
-	if screen.play.ai != null:
-		drained_ai = screen.play.ai.to_dict()
+	_drain(mounted.play)
+	drained = Fixture.suite_capture(mounted)
+	drained_auto = _capture_auto(mounted.play)
+	if mounted.play.ai != null:
+		drained_ai = mounted.play.ai.to_dict()
 
 
 func before_each() -> void:
-	_seat(0)
+	_chart_bound = false
 
 
 func after_all() -> void:
 	MapPlayTurn.view_live = true
-	if is_instance_valid(screen):
-		screen.free()
-	screen = null
+	if is_instance_valid(mounted):
+		mounted.free()
+	mounted = null
 	pristine = {}
 	seated = {}
 	seated_auto = {}
@@ -70,20 +75,29 @@ func _seat(after: int = 0) -> PlaySession:
 	Fixture.restore(Fixture.world(), world_snapshot)
 	match after:
 		1:
-			Fixture.suite_reset(screen, seated)
-			_apply_auto(screen.play, seated_auto)
+			Fixture.suite_reset(mounted, seated)
+			_apply_auto(mounted.play, seated_auto)
 			if not seated_ai.is_empty():
-				screen.play.ai = AiState.from_dict(seated_ai.duplicate(true))
+				mounted.play.ai = AiState.from_dict(seated_ai.duplicate(true))
 		2:
-			Fixture.suite_reset(screen, drained)
-			_apply_auto(screen.play, drained_auto)
+			Fixture.suite_reset(mounted, drained)
+			_apply_auto(mounted.play, drained_auto)
 			if not drained_ai.is_empty():
-				screen.play.ai = AiState.from_dict(drained_ai.duplicate(true))
+				mounted.play.ai = AiState.from_dict(drained_ai.duplicate(true))
 		_:
-			Fixture.suite_reset(screen, pristine)
-			_clear_auto(screen.play)
+			Fixture.suite_reset(mounted, pristine)
+			_clear_auto(mounted.play)
+	_chart_bound = true
 	MapPlayTurn.view_live = true
-	return screen.play
+	return mounted.play
+
+
+## Live cases that read the campaign chart; defaults to the court in hand.
+var screen: MapScreen:
+	get:
+		if not _chart_bound:
+			_seat(0)
+		return mounted
 
 
 ## Hands the seat to the AI the way the player does — from the suite's one
@@ -134,10 +148,10 @@ func _clear_auto(play: PlaySession) -> void:
 ## The plaque mirrors from a signature of the seat; clear it so a re-seat shows
 ## the restored armed/active/log state instead of the previous case's chrome.
 func _refresh_auto_chrome() -> void:
-	if screen == null or screen.hud == null or screen.hud.auto_bar == null:
+	if mounted == null or mounted.hud == null or mounted.hud.auto_bar == null:
 		return
-	screen.hud.auto_bar._signature = ""
-	screen.hud.auto_bar._mirror()
+	mounted.hud.auto_bar._signature = ""
+	mounted.hud.auto_bar._mirror()
 
 
 ## Closes one turn the way the player does, answering whatever the court left

@@ -5,31 +5,19 @@ extends RefCounted
 ## slots through the shared rules, so the player and every AI read the same
 ## catalog and the same funding presets (REQ-P2-03, REQ-P3-03).
 ##
-## Candidates score by the personality's domain weights mapped onto tech
-## categories, by how short the court's stores are of the commodities that tech
-## caps, and by a war bonus on the military and naval branches. Earlier eras win
-## ties because they are cheaper; ids break the rest, so the same seeds always
-## produce the same plan (wiki: ai-architecture § Seeding).
-## Pure rules: state in, assignments out; the map adapter applies them.
+## This home prices and assigns slots; how a candidate scores and ranks lives in
+## `AiResearchScores`, and the ration-estate swap in `AiResearchRation`. A study
+## already underway follows the purse; a free slot takes the best candidate the
+## court can pay for, with the door's study first and the standing study kept
+## alive at the cheapest preset. Pure rules: state in, assignments out; the map
+## adapter applies them.
 
-## Tech category -> personality weight domain (wiki: ai-personalities § Domain
-## weight vectors). The research weight shifts funding instead (funding_for).
-const CATEGORY_DOMAIN: Dictionary = {
-	"gathering": "economy",
-	"labour": "economy",
-	"transport": "economy",
-	"new-world": "economy",
-	"diplomatic": "diplomacy",
-	"military": "military",
-	"naval": "military",
-}
-const WAR_BRANCHES: Array[String] = ["military", "naval"]
-const SCORE_PER_WEIGHT: int = 10
 ## The cheapest preset a court can pay; a court parked at its cash floor keeps
 ## one study alive at this rate rather than standing still (issue #490).
 const STANDING_FUNDING: String = "low"
-## The army's mouths' commodities: the ration-estate caps (issue #1059).
-const RATION_COMMODITIES: Array[String] = ["grain", "meat"]
+## The army's mouths' commodities: the ration-estate caps (issue #1059). Kept
+## here under the planner's public name; `AiResearchRation` reads it.
+const RATION_COMMODITIES: Array[String] = AiResearchRation.RATION_COMMODITIES
 
 
 ## Assignments for the court's empty slots plus every scored candidate, for the
@@ -54,12 +42,28 @@ static func plan(
 	var revealed: Variant = context.get("revealed", null)
 	if typeof(revealed) == TYPE_DICTIONARY:
 		state.set_revealed(revealed)
-	var at_war: bool = bool(context.get("at_war", false))
-	# The study that opens the door the court walked up to: an envoy chain with a
-	# charted Tribe is only as open as its next stage, so the tech that stage
-	# needs outranks the ordinary candidates (DR-20261114-05).
-	var door: String = String(context.get("door", ""))
-	candidates = _scored_candidates(config, economy, at_war, door)
+	var purse: Dictionary = _purse(config, economy, context)
+	candidates = AiResearchScores.candidates(
+		config, economy, bool(purse["at_war"]), String(purse["door"])
+	)
+	_refund_underway(state, String(purse["preset"]), int(purse["standing"]))
+	var taken: Dictionary = {}
+	for slot in state.slots.size():
+		if not state.tech_at(slot).is_empty():
+			continue
+		var pick: Dictionary = _pick_for_slot(economy, purse, slot, candidates, taken)
+		if not pick.is_empty():
+			assignments.append(pick)
+	return {"assignments": assignments, "candidates": candidates}
+
+
+## The purse every slot is priced against this turn: the published preset at
+## the court's floor, the cash floor guarding the standing study, and the
+## standing slot that keeps it. `at_war`, `door` and `preset` feed the ranking.
+static func _purse(
+	config: AiConfig, economy: PlayerEconomy, context: Dictionary
+) -> Dictionary:
+	var state: ResearchState = economy.research
 	var save_floor: int = maxi(int(context.get("treasury_floor", 0)), 0)
 	# Standing study affordability is always the cash floor, never the muster.
 	var cash_floor: int = maxi(int(context.get("cash_floor", research_floor(config))), 0)
@@ -79,72 +83,80 @@ static func plan(
 		and _can_pay_standing(economy, cash_floor, save_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
+	var door_floor: int = maxi(cash_floor, int(context.get("conquest_reserve", 0)))
 	# The standing slot carries the ration ladder (issue #1059): a banked
 	# court keeps the ration-estate cap study at the standing preset.
 	if standing >= 0 and bool(context.get("conquest_bank", false)):
-		_ration_study(state, economy, standing)
-	# A study already underway follows the same purse: a court that cannot fund
-	# its slots at the published preset pays a cheaper one rather than draining
-	# the war chest or stalling with unpaid rows.
+		AiResearchRation.keep(state, economy, standing)
+	return {
+		"at_war": bool(context.get("at_war", false)),
+		"cash_floor": cash_floor,
+		"can_stand": can_stand,
+		"door": String(context.get("door", "")),
+		"door_floor": door_floor,
+		"preset": preset,
+		"standing": standing,
+	}
+
+
+## A study already underway follows the purse: a court that cannot fund its
+## slots at the published preset pays a cheaper one rather than draining the
+## war chest or stalling with unpaid rows.
+static func _refund_underway(state: ResearchState, preset: String, standing: int) -> void:
 	for slot in state.slots.size():
 		if state.tech_at(slot).is_empty():
 			continue
 		var funding: String = STANDING_FUNDING if slot == standing else preset
 		if state.funding_at(slot) != funding:
 			state.set_funding(slot, funding)
-	for slot in state.slots.size():
-		if not state.tech_at(slot).is_empty():
-			continue
-		var pick: Dictionary = {}
-		for entry: Dictionary in candidates:
-			if bool(entry.get("taken", false)):
-				continue
-			var tech: String = String(entry["tech"])
-			if state.is_active(tech):
-				entry["taken"] = true
-				continue
-			var wants_standing: bool = standing < 0 and can_stand
-			var slot_funding: String = (
-				STANDING_FUNDING if slot == standing or wants_standing else preset
-			)
-			# A navy (or Tribe) door pays the richest preset the purse can spare
-			# above the cash floor, so the unlock lands before the court burns
-			# its opening chest on musters (issue #484). When even Low is too
-			# dear, fall back to the standing preset if the #490 gate allows —
-			# never skip the door for a lower-ranked candidate. A court banking
-			# for the army its conquest still needs holds the door to the bank
-			# (issue #995): its floor rises to the reserve the muster saves
-			# for — the army outranks the yard it unlocks (#591's own order).
-			if tech == door and not door.is_empty():
-				var door_floor: int = maxi(
-					cash_floor, int(context.get("conquest_reserve", 0))
-				)
-				slot_funding = _door_funding(economy, door_floor)
-				if slot_funding == ResearchFunding.ORDER[0]:
-					if can_stand or wants_standing:
-						slot_funding = STANDING_FUNDING
-					else:
-						entry["taken"] = true
-						continue
-			var result: Dictionary = state.assign(tech, slot_funding, slot)
-			if not bool(result.get("ok", false)):
-				entry["taken"] = true
-				continue
-			if wants_standing:
-				standing = slot
-			pick = {
-				"tech": tech,
-				"slot": slot,
-				"funding": slot_funding,
-				"score": int(entry["score"]),
-			}
-			entry["taken"] = true
-			break
-		if not pick.is_empty():
-			assignments.append(pick)
+
+
+## The assignment a free slot takes, or an empty row when nothing can be paid.
+## `taken` records every candidate walked past this turn.
+static func _pick_for_slot(
+	economy: PlayerEconomy,
+	purse: Dictionary,
+	slot: int,
+	candidates: Array[Dictionary],
+	taken: Dictionary
+) -> Dictionary:
+	var state: ResearchState = economy.research
+	var door: String = String(purse["door"])
+	var standing: int = int(purse["standing"])
+	var can_stand: bool = bool(purse["can_stand"])
+	var wants_standing: bool = standing < 0 and can_stand
 	for entry: Dictionary in candidates:
-		entry.erase("taken")
-	return {"assignments": assignments, "candidates": candidates}
+		var tech: String = String(entry["tech"])
+		if taken.has(tech) or state.is_active(tech):
+			taken[tech] = true
+			continue
+		var funding: String = (
+			STANDING_FUNDING if slot == standing or wants_standing
+			else String(purse["preset"])
+		)
+		# The door's study pays the richest preset above the court's floor; when
+		# even Low is too dear the #490 standing gate decides whether it waits.
+		if tech == door and not door.is_empty():
+			funding = _door_funding(economy, int(purse["door_floor"]))
+			if funding == ResearchFunding.ORDER[0]:
+				if not can_stand:
+					taken[tech] = true
+					continue
+				funding = STANDING_FUNDING
+		var result: Dictionary = state.assign(tech, funding, slot)
+		if not bool(result.get("ok", false)):
+			taken[tech] = true
+			continue
+		taken[tech] = true
+		if wants_standing:
+			purse["standing"] = slot
+		return {
+			"tech": tech,
+			"slot": slot,
+			"funding": funding,
+			"score": int(entry["score"]),
+		}
+	return {}
 
 
 ## The preset a court pays each slot: `research.funding_index` shifted by the
@@ -171,19 +183,16 @@ static func funding_for(
 	return ResearchFunding.ORDER[index]
 
 
-## Richest funding preset that still leaves `cash_floor` in the purse, or
-## `none` when even Low would dip below it. Used for a door study that must
-## finish before the court spends its opening treasury (issue #484).
+## Richest preset the purse can spare for a door study after `cash_floor`, or
+## `none` when even Low would dip below it; Low itself may dip to half the
+## floor (issue #484, same gate as #490).
 static func _door_funding(economy: PlayerEconomy, cash_floor: int) -> String:
-	if economy == null:
-		return ResearchFunding.ORDER[0]
 	var spare: int = economy.treasury - maxi(cash_floor, 0)
 	# Prefer richer presets first; Low is the last that still teaches.
 	for index in range(ResearchFunding.ORDER.size() - 1, 0, -1):
 		var name: String = ResearchFunding.ORDER[index]
 		if ResearchFunding.gold(name) <= spare:
 			return name
-	# Standing Low may dip to half the cash floor — same gate as #490.
 	if _can_pay_standing(economy, cash_floor):
 		return STANDING_FUNDING
 	return ResearchFunding.ORDER[0]
@@ -252,48 +261,6 @@ static func _standing_slot(state: ResearchState) -> int:
 	return -1
 
 
-## The standing slot carries the ration ladder (issue #1059): a banked court
-## moves the cheapest unfinished grain/meat cap study it already holds onto
-## the standing slot, so the farms outgrow the mouths behind the chest.
-static func _ration_study(
-	state: ResearchState, economy: PlayerEconomy, standing: int
-) -> void:
-	if state == null or economy == null:
-		return
-	for row: Dictionary in state.researching():
-		var tech_id: String = String(row.get("tech", ""))
-		var caps: Dictionary = TechCatalog.caps_of(tech_id)
-		for raw: Variant in caps.keys():
-			var ration: bool = RATION_COMMODITIES.has(String(raw)) and (
-				TechCatalog.cap_for(String(raw), economy.tech_unlocked) < int(caps[raw])
-			)
-			if ration and int(row.get("slot", -1)) != standing:
-				_swap_slots(state, int(row.get("slot", -1)), standing)
-				return
-
-
-## The row move through the state's public row API: the progress is read,
-## then restored, so the swap cancels nothing.
-static func _swap_slots(state: ResearchState, from_slot: int, to_slot: int) -> void:
-	if state == null or from_slot == to_slot:
-		return
-	var from_tech: String = state.tech_at(from_slot)
-	var to_tech: String = state.tech_at(to_slot)
-	if from_tech.is_empty() or to_tech.is_empty():
-		return
-	var from_funding: String = state.funding_at(from_slot)
-	var to_funding: String = state.funding_at(to_slot)
-	var from_progress: int = state.progress_of(from_tech)
-	var to_progress: int = state.progress_of(to_tech)
-	state.cancel(from_slot)
-	state.cancel(to_slot)
-	state.assign(from_tech, from_funding, to_slot)
-	state.assign(to_tech, to_funding, from_slot)
-	if from_progress > 0:
-		state.add_progress(from_tech, from_progress)
-	if to_progress > 0:
-		state.add_progress(to_tech, to_progress)
-
 ## True when the purse can pay the cheapest preset while still keeping half the
 ## court's cash floor: the standing study may dip below that floor (the research
 ## phase's own floor is 0; the cash floor is a saving policy, not a legality
@@ -315,86 +282,3 @@ static func _can_pay_standing(
 	if reserve > floor and economy.treasury >= reserve - price:
 		return false
 	return true
-
-
-# --- candidate scoring -------------------------------------------------------
-
-
-static func _scored_candidates(
-	config: AiConfig, economy: PlayerEconomy, at_war: bool, door: String = ""
-) -> Array[Dictionary]:
-	var research: ResearchState = economy.research
-	var rows: Array[Dictionary] = []
-	for tech_id: String in research.researchable():
-		if not _can_teach(tech_id, economy.tech_unlocked):
-			continue
-		rows.append({
-			"tech": tech_id,
-			"category": TechCatalog.category(tech_id),
-			"era": TechCatalog.era(tech_id),
-			"score": score_for(config, economy, tech_id, at_war),
-		})
-	rows.sort_custom(_better)
-	# The door the court walked up to is a gate, not a preference: a chain with a
-	# charted Tribe is only as open as its next stage, so the study that stage
-	# needs is taken first. A court that opened an envoy chain and never studies
-	# its next door has paid for a stake it cannot reach (DR-20261114-05).
-	if not door.is_empty():
-		for index in rows.size():
-			if String(rows[index]["tech"]) != door:
-				continue
-			var entry: Dictionary = rows[index]
-			rows.remove_at(index)
-			rows.insert(0, entry)
-			break
-	return rows
-
-
-## One candidate's score: domain weight, then what the court is short of.
-static func score_for(
-	config: AiConfig, economy: PlayerEconomy, tech_id: String, at_war: bool
-) -> int:
-	var weights: Dictionary = config.weights()
-	var category: String = TechCatalog.category(tech_id)
-	var domain: String = String(CATEGORY_DOMAIN.get(category, "research"))
-	var score: int = int(weights.get(domain, 1)) * SCORE_PER_WEIGHT
-	score += int(weights.get("research", 1))
-	score += _shortfall(config, economy, tech_id) * config.parameter("research.need_weight")
-	if at_war and WAR_BRANCHES.has(category):
-		score += config.parameter("research.war_bonus")
-	return score
-
-
-## Total store shortfall across the commodities this tech lifts the cap on,
-## capped so one deep deficit does not drown every other signal.
-static func _shortfall(
-	config: AiConfig, economy: PlayerEconomy, tech_id: String
-) -> int:
-	var target: int = config.parameter("economy.reserve_target")
-	var total: int = 0
-	var caps: Dictionary = TechCatalog.caps_of(tech_id)
-	for raw: Variant in caps.keys():
-		var commodity: String = String(raw)
-		total += maxi(target - economy.quantity(commodity), 0)
-	return mini(total, 10)
-
-
-## True when at least one commodity the tech caps is still below that ceiling
-## for this court; techs with no caps (gates, slots, unlocks) always teach.
-static func _can_teach(tech_id: String, unlocked: Dictionary) -> bool:
-	var caps: Dictionary = TechCatalog.caps_of(tech_id)
-	if caps.is_empty():
-		return true
-	for raw: Variant in caps.keys():
-		var commodity: String = String(raw)
-		if TechCatalog.cap_for(commodity, unlocked) < int(caps[raw]):
-			return true
-	return false
-
-
-static func _better(a: Dictionary, b: Dictionary) -> bool:
-	if int(a["score"]) != int(b["score"]):
-		return int(a["score"]) > int(b["score"])
-	if int(a["era"]) != int(b["era"]):
-		return int(a["era"]) < int(b["era"])
-	return String(a["tech"]) < String(b["tech"])
