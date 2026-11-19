@@ -111,11 +111,51 @@ static func resolve_turn(play: PlaySession) -> bool:
 	if play.diplomacy == null:
 		return true
 	sync_first_contact(play)
+	# Despatch filtering stays off the AI surface (ai-bench binds that tree):
+	# mute the lane while rivals act, then raise only crown-facing lines
+	# (wiki: hud-toasts, the-gazette § Not the Gazette).
+	var hud: GameHud = play.hud
+	play.hud = null
 	MapPlayDiplomacyAi.run(play)
+	play.hud = hud
+	_toast_rival_pass(play)
 	if MapPlayDiplomacyConsent.hold_turn(play, play.human_faction_id()):
 		return false
 	close_turn(play)
 	return true
+
+
+## What the crown hears the moment the rival pass resolves, in the court's own
+## voice. Only an act that names the crown is despatch news: a declaration on
+## the crown governs this turn's movement and combat, and a treaty or offer
+## aimed at it asks for an answer. Every act between other courts is World news
+## the Gazette narrates and a spy's court report carries (wiki: hud-toasts).
+static func _toast_rival_pass(play: PlaySession) -> void:
+	if play.hud == null:
+		return
+	for record: Dictionary in play.ai_trace:
+		for line: String in _crown_despatch(play, record):
+			play.hud.toast(line)
+	# The pass has just raised every new decision in its own words; the turn
+	# resolver must not raise them a second time on the same press.
+	MapPlayDiplomacyConsent.mark_announced(play)
+
+
+static func _crown_despatch(play: PlaySession, record: Dictionary) -> Array[String]:
+	var action: Dictionary = record.get("action", {}) as Dictionary
+	# A record that names no action is a trace from before the pass kept them:
+	# its lines were already filtered when it was written, so it still speaks.
+	if not action.is_empty():
+		var target: int = int(action.get("target", MapModel.NO_ID))
+		if target != play.human_faction_id():
+			return []
+	var lines: Array[String] = []
+	lines.assign(record.get("messages", []))
+	if lines.is_empty():
+		var message: String = String(record.get("message", ""))
+		if not message.is_empty():
+			lines.append(message)
+	return lines
 
 
 ## Closes the diplomacy phase once no consent decision is outstanding.
