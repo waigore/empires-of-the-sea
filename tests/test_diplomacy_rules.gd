@@ -377,6 +377,35 @@ func test_war_cancels_subsidy_at_phase_close() -> void:
 	state.end_turn()
 	assert_eq(state.subsidy(0, 6), 0)
 
+func test_a_load_drops_subsidies_no_court_could_set() -> void:
+	# wiki: diplomacy § Acceptance Criteria — a save carrying a Great Power-to-
+	# Great Power subsidy, a legacy £/turn row or a percent off the 5–20 ladder
+	# loads with none of them (R3). The legacy shape stores an object where a
+	# percent belongs, and reading it as one throws, so one un-migrated row used
+	# to take the legal rows down with it: the pass that prices every subsidy
+	# lost the whole map.
+	_setup_diplomacy_state()
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_subsidy(0, 6, 10)
+	var captured: Dictionary = SaveCourt.capture_diplomacy(state)
+	var rows: Dictionary = captured["subsidies"]
+	rows[DiplomacyKeys.directed(0, 1)] = 15
+	rows[DiplomacyKeys.directed(1, 6)] = {"amountPerTurn": 3000}
+	rows[DiplomacyKeys.directed(6, 0)] = 7
+	captured["subsidies"] = rows
+	var restored: DiplomacyState = SaveCourt._diplomacy_from(captured)
+	assert_eq(restored.subsidies.size(), 1, "only the row a court could set survives")
+	assert_eq(restored.subsidy(0, 6), 10, "the live subsidy loads")
+	assert_eq(restored.subsidy(0, 1), 0, "no Great Power pays a Great Power")
+	assert_eq(restored.subsidy(1, 6), 0, "the legacy £/turn row is dropped")
+	assert_eq(restored.subsidy(6, 0), 0, "a percent off the ladder is dropped")
+	var terms: Dictionary = DiplomacyTradeTerms.subsidy_terms(restored)
+	assert_eq(
+		int(terms.get(DiplomacyKeys.directed(0, 6), 0)), 10,
+		"the legal step still prices the pair"
+	)
+	assert_false(terms.has(DiplomacyKeys.directed(0, 1)), "no step for two Great Powers")
+
 func test_absorbed_faction_leaves_no_relations_or_colonies() -> void:
 	_setup_diplomacy_state()
 	state.set_colony(9, 6)
