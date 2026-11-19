@@ -2857,6 +2857,18 @@ domain = "naval_voyage"
 match = "scripts/ui/grounds_window.gd*"
 domain = "naval_voyage"
 
+# The block's one press (DR-20261119-18): the walk that boards a whole berth and
+# the limit every boarding reads. The same two suites prove it — the orders suite
+# presses the intent and the panel suite reads the press — so a boarding change
+# never pays for the civilian or fleet fan-out (tier-1 5 min budget).
+[[rules]]
+match = "scripts/rules/embark_batch.gd*"
+domain = "naval_voyage"
+
+[[rules]]
+match = "scripts/rules/civilian_voyage.gd*"
+domain = "naval_voyage"
+
 [[rules]]
 match = "scripts/map/civilian_*.gd*"
 domain = "civilian"

@@ -24,6 +24,11 @@ var open_crew: String = ""
 var _ground_scroll: ScrollContainer = null
 var _ground_box: VBoxContainer = null
 var _ground_rows: int = 0
+## The block's one press: every idle crew the hulls can hold, taken aboard in one
+## signed line (DR-20261119-18). It stands at the block's foot and hides while a
+## coast's grounds are open, so the block reads one thing at a time.
+var _batch: RaiseBatchPress = null
+var _batch_line: Label = null
 var _data: Dictionary = {}
 
 
@@ -38,11 +43,28 @@ func _ready() -> void:
 	_ground_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ground_box.add_theme_constant_override("separation", GroundsWindow.ROW_GAP)
 	_ground_scroll.add_child(_ground_box)
+	_make_batch()
 	get_viewport().size_changed.connect(_fit_window)
+
+
+## The block's one press, made once however the block is mounted: a suite hands it
+## rows straight away, so it is not built on the first render.
+func _make_batch() -> void:
+	if _batch != null:
+		return
+	_batch = RaiseBatchPress.new()
+	_batch.set_verb("take")
+	_batch.confirmed.connect(func() -> void: action_pressed.emit("crew:embark:all"))
+	_batch.visible = false
+	add_child(_batch)
+	_batch_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
+	_batch_line.visible = false
+	add_child(_batch_line)
 
 
 ## Empty data hides the block; every row is one tap on a phone.
 func set_data(crew: Dictionary) -> void:
+	_make_batch()
 	_data = crew
 	# A coast that has left the reading (the last passenger landed on it, the
 	# squadron sailed) takes its open grounds with it (REQ-P5-05).
@@ -62,6 +84,7 @@ func _render() -> void:
 	_begin(String(_data.get("note", "")))
 	_clear_grounds()
 	if open_coast >= 0:
+		_hide_batch()
 		_add_grounds(_coast_row(open_coast, open_crew))
 		return
 	for raw: Variant in land:
@@ -72,12 +95,39 @@ func _render() -> void:
 			"Take %s aboard" % String(row.get("name", "a civilian")),
 			"crew:embark:%d" % int(row.get("id", -1))
 		)
+	_sync_batch()
 	for raw: Variant in sortie:
 		var row: Dictionary = raw as Dictionary
 		_add_row(
 			"Put to sea into %s" % String(row.get("name", "the roads")),
 			"sortie:%d" % int(row.get("zone", -1))
 		)
+
+
+## The block's one press, read from the plan the intent files: how many of the
+## crews the rows print the hulls can hold now, and the reason the next one waits,
+## printed under the press before it is signed (REQ-P5-04, REQ-P5-05;
+## DR-20261119-18). A block with no idle crew hides it, and so does an open coast.
+func _sync_batch() -> void:
+	if _batch == null:
+		return
+	var plan: Dictionary = _data.get("embark_batch", {})
+	var ready: int = int(plan.get("count", 0))
+	_batch.set_ready(ready, EmbarkBatch.WORD, int(plan.get("filed", 0)))
+	_batch.visible = ready > 0
+	_batch_line.text = EmbarkBatch.wait_line(plan) if _batch.visible else ""
+	_batch_line.visible = not _batch_line.text.is_empty()
+
+
+## A coast's grounds are open: the block reads that list alone, so the press that
+## boards a whole berth waits until the crown is back on the coasts.
+func _hide_batch() -> void:
+	if _batch == null:
+		return
+	_batch.disarm()
+	_batch.visible = false
+	_batch_line.visible = false
+	_batch_line.text = ""
 
 
 ## One line per crew kind per coast: a single legal ground lands in one press, a
