@@ -65,5 +65,5 @@ REQ/wiki.
 
 ## Wiki drift
 
-- `civilian-units` Road L2/gathering still deferred (live).
-- Soft weight seed remains.
+None open for shipped rules — `civilian-units` and `the-gazette` caught up
+(DR-20261119-10). The soft weight seed stays blocked (`DR-20261117-01`).
