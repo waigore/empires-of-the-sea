@@ -91,10 +91,10 @@ Rival raids shipped (DR-20261111-20); gaps: [`deferred.md`](deferred.md).
 | File | Role |
 |------|------|
 | `scripts/rules/{fleet_state,fleet_missions}.gd` | mission, blockade target, station gates |
-| `scripts/rules/blockades.gd` | sealed coasts, the sea paths they cut |
-| `scripts/rules/{naval_interception,naval_retreat,naval_raid,naval_hull_loss}.gd` | chance, roll, retreat, raids, civilian hulls |
-| `scripts/rules/world_market.gd` | per-crown cargo books |
-| `scripts/map/{map_play_raids,map_play_fleet_missions}.gd` | ledger, dossier, reports |
+| `scripts/rules/blockades.gd` | sealed coasts, the paths they cut |
+| `scripts/rules/{naval_station,naval_interception,naval_retreat,naval_raid,naval_hull_loss}.gd` | station read, chance, roll, retreat, raids, hulls |
+| `scripts/rules/world_market.gd` | crown cargo books |
+| `scripts/map/{map_play_raids,map_play_fleet_missions,map_play_station_notes}.gd` | ledger, dossier, prices, reports |
 
 Rules are node-free (`REQ-P3-03`); stations and blockade coasts are dossier
 rows ([fleets.md](fleets.md) for map controls).
