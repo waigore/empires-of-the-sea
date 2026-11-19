@@ -94,8 +94,8 @@ static func step(run) -> void:
 		"New World map is drawn"
 	)
 	run.check(
-		screen.ship_layer.ships.size() == MapScreen.SHIP_COUNT,
-		"New World fleets spawned"
+		screen.ship_layer.ships.is_empty(),
+		"no Great Power capital in the New World, so no opening squadron"
 	)
 	screen._cycle_region()
 	await run.tree.process_frame

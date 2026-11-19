@@ -501,15 +501,21 @@ func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 
 
 func test_player_fleet_reveal_charts_the_coastal_ring() -> void:
-	var ship: Ship = _screen.ship_layer.ships[0]
-	var zone_tiles: Array = _screen.model.sea_zone_data(ship.zone).tiles
+	# The opening muster moors the crown's squadron at home (issue #1043), so
+	# the chart's reveal is asked of the seat's own sea zone.
+	var capital: int = _screen.play.capital_province
+	var fleet: FleetState = _screen.ship_layer.home_fleet(capital)
+	assert_not_null(fleet)
+	var zone: int = NavalMovement.province_sea_zones(_screen.model, capital)[0]
+	var ship: Ship = _screen.ship_layer.ship_for(fleet)
+	var zone_tiles: Array = _screen.model.sea_zone_data(zone).tiles
 	var water: Vector2i = zone_tiles[0]
 	var water_index: int = _screen.model.index_of(water.x, water.y)
 	_screen.visibility.lower_to(water_index, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [water_index])
-	MapPlayFleets.on_zone_entered(_screen.play, ship.zone, ship)
+	MapPlayFleets.on_zone_entered(_screen.play, zone, ship)
 	assert_eq(_screen.overlay.fog_state_at(water.x, water.y), MapOverlay.FOG_VISIBLE)
-	var land: Vector2i = Fixture.coastal_land_of(_screen.model, ship.zone)
+	var land: Vector2i = Fixture.coastal_land_of(_screen.model, zone)
 	assert_true(land.x >= 0)
 	assert_eq(_screen.overlay.fog_state_at(land.x, land.y), MapOverlay.FOG_VISIBLE)
 
@@ -2701,25 +2707,19 @@ func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 1)
-	var zone: int = _screen.model.sea_zones[0].id
-	var first: FleetState = null
-	var second: FleetState = null
-	for fleet: FleetState in _screen.ship_layer.fleets:
-		if first == null:
-			first = fleet
-		elif second == null and fleet.owner != first.owner:
-			second = fleet
-		else:
-			fleet.location = FleetState.Location.IN_PORT
-			fleet.province = _screen.model.provinces[0].id
-	assert_not_null(first)
-	assert_not_null(second)
-	for fleet: FleetState in [first, second]:
-		fleet.location = FleetState.Location.AT_SEA
-		fleet.sea_zone = zone
-	first.set_hulls(["a"], {"a": "carrack"})
-	second.set_hulls(["b"], {"b": "fluyte"})
-	DiplomacyRules.declare_war(_screen.play.diplomacy, first.owner, second.owner)
+	# No power holds a capital in the New World, so the opening muster sends no
+	# squadron there (issue #1043): stage the pair this case fights.
+	var zone: int = int(_screen.model.sea_zones[0].id)
+	var first: FleetState = FleetState.at_sea(
+		901, MapScreen.PLAYER_FACTION, zone, ["a"], {"a": "carrack"}
+	)
+	var second: FleetState = FleetState.at_sea(902, 2, zone, ["b"], {"b": "fluyte"})
+	_screen.ship_layer.fleets.clear()
+	_screen.ship_layer.fleets.append(first)
+	_screen.ship_layer.fleets.append(second)
+	_screen.ship_layer.regions.set_region(1, _screen.ship_layer.fleets)
+	_screen.ship_layer.rebuild_markers()
+	DiplomacyRules.enter_war(_screen.play.diplomacy, first.owner, second.owner)
 	var hulls_before: int = first.ship_count() + second.ship_count()
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()
 

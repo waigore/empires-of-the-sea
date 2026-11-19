@@ -10,14 +10,28 @@ extends RefCounted
 const SmokeFind = preload("res://tools/smoke/smoke_find.gd")
 
 
-## Player navy path: select a fleet and spend its one move.
+## Player navy path: sortie the home fleet, select it and spend its one move.
 static func step_navy(run) -> void:
 	var screen: MapScreen = run.screen
-	var ship: Ship = SmokeFind.player_ship_at_sea(screen)
-	run.check(ship != null, "player fleet at sea")
+	var capital: int = screen.play.capital_province
+	# The opening muster moors every hull in the home fleet (issue #1043), so
+	# the navy path starts with the sortie a player makes from the dossier.
+	var fleet: FleetState = screen.ship_layer.home_fleet(capital)
+	run.check(fleet != null, "home fleet mustered at the seat")
+	if fleet == null:
+		return
+	var zones: Array[int] = NavalMovement.province_sea_zones(screen.model, capital)
+	run.check(not zones.is_empty(), "the seat has a sea zone")
+	if zones.is_empty():
+		return
+	MapPlayCivilianVoyage.sortie(screen.play, fleet, zones[0])
+	run.check(fleet.is_at_sea(), "the home squadron sorties")
+	var ship: Ship = screen.ship_layer.ship_for(fleet)
+	run.check(ship != null, "the home squadron flies a marker")
 	if ship == null:
 		return
-	var fleet: FleetState = screen.ship_layer.fleet_of(ship)
+	# Give the sortie's move back so the station and sail rows are still open.
+	fleet.moved = false
 	screen.ship_layer.select(ship)
 	await run.tree.process_frame
 	run.check(screen.ship_layer.selected() == ship, "fleet selection sticks")
@@ -81,6 +95,14 @@ static func step_navy(run) -> void:
 		split_fleet != null and screen.ship_layer.ship_for(split_fleet) != null,
 		"the new squadron flies a marker"
 	)
+	# Moor the home fleet back at the seat, so the later crew and turn steps read
+	# the holds they expect (issue #1043).
+	fleet.moved = false
+	var moored: Dictionary = screen.ship_layer.order(
+		fleet, FleetState.Location.IN_PORT, capital
+	)
+	run.check(bool(moored.get("ok", false)), "the home squadron moors again")
+	run.check(fleet.is_in_port() and fleet.province == capital, "the home fleet keeps the seat")
 
 
 ## Army training is live: the recruit order musters a regiment into the Home
