@@ -2873,6 +2873,18 @@ func test_money_text_cost_line_names_gold_materials_and_the_worker() -> void:
 	)
 	assert_eq(MoneyText.cost_line(2400, {}, 2), "2,400 ducats · 2 workers")
 
+func test_money_text_plural_serves_every_count_line() -> void:
+	assert_eq(MoneyText.plural(0), "s", "none still takes the plural")
+	assert_eq(MoneyText.plural(1), "", "one takes the singular")
+	assert_eq(MoneyText.plural(2), "s")
+	assert_eq(MoneyText.verb_s(1), "s", "one row waits")
+	assert_eq(MoneyText.verb_s(2), "", "two rows wait")
+	assert_eq(MoneyText.verb_s(0), "", "no rows wait")
+	assert_eq(MoneyText.counted(1, "regiment"), "1 regiment")
+	assert_eq(MoneyText.counted(3, "regiment"), "3 regiments")
+	assert_eq(MoneyText.counted(0, "hull"), "0 hulls")
+	assert_eq(MoneyText.counted(2, ""), "2", "a bare count names no noun")
+
 func test_unknown_types_fall_back_to_a_known_row() -> void:
 	assert_false(CivilianCatalog.known("privateer"))
 	assert_true(CivilianCatalog.known(CivilianCatalog.normalize("privateer")))
