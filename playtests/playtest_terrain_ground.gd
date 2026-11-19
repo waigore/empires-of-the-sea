@@ -92,14 +92,16 @@ func _ground_pass(model: MapModel, label: String) -> void:
 		var battle: String = String(MapModel.TERRAIN_LABELS.get(ground, "?"))
 		var counts: Dictionary = _counts(model, province.id)
 		var second: int = _runner_up(counts, ground)
-		var read: bool = sheet.begins_with(battle)
+		var wanted: String = "All %s" % battle
 		if second >= 0:
-			read = read and sheet.contains(String(MapModel.TERRAIN_LABELS.get(second, "?")))
-		if read:
+			wanted = "%s (main) · also %s" % [
+				battle, String(MapModel.TERRAIN_LABELS.get(second, "?")),
+			]
+		if sheet == wanted:
 			continue
 		mismatch += 1
-		_say("%s: the sheet reads [%s], the battle fights on [%s] (%s)" % [
-			province.name, sheet, battle, _counts_text(counts),
+		_say("%s: the sheet reads [%s], the published row is [%s] (%s)" % [
+			province.name, sheet, wanted, _counts_text(counts),
 		])
 	_say("%d of %d provinces read differently than they fight" % [
 		mismatch, model.province_count(),
