@@ -179,7 +179,7 @@ static func resolve(
 	# A line with no fight left in it delivers no blow, and an empty blow buys
 	# nothing: the guns take only what the blow actually carries.
 	if wanted > 0 and key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
-		and SiegeLanes.can_reach_wall(me_side):
+		and SiegeLanes.can_reach_wall(me_side, line_of(me)):
 		var battery: Dictionary = QuickBattleBattery.absorb(guns, wanted)
 		entry["guns_destroyed"] = int(battery["destroyed"])
 		entry["battery_hit"] = int(battery["absorbed"])
@@ -189,7 +189,13 @@ static func resolve(
 		entry["sortie"] = sortie
 		me["exposed"] = sortie
 		if not sortie:
-			wanted = ceili(float(wanted) * SiegeLanes.return_fire_share(me_side))
+			# The wall answers with the men the battle dealt onto it: a musket
+			# held in reserve neither shoots from the parapet nor thins the fire
+			# of the line that stands there (wiki: combat § The line and the
+			# reserve; siege-mechanics § Quick Battle lanes).
+			wanted = ceili(
+				float(wanted) * SiegeLanes.return_fire_share(me_side, line_of(me))
+			)
 	if enemy_count <= 0:
 		## Nothing stands to be struck: the blow names no wing, because naming
 		## one would point at men who have already fallen (wiki: quick-battle
