@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: #1043 wiki vs code through #1047 (REQ-P2-02).
+Audited: wiki / DRs / code through #1055 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -22,6 +22,7 @@ Default: largest item here, then REQ/wiki.
 | Advanced chart/Passage/rival OOB | `AdvancedSeas`; `OobReadings`; `CourtCharts` |
 | Yarn + consent | `DialogueYarn`, `ConsentCopy` |
 | War footing/money-first/victory | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure` |
+| Phoney front; college chest; pact lead | `holds_front`; `bank_chest`; `pact_break_leads` |
 | Declare-war / Tribe-chain / crews | `SLOT_DECLARE_WAR`/`TRIBE_CHAIN`/`CREWS` |
 | Tribe buy/landings/overseas conquest | `AiTribeColony`; `AiColonisationPlanner` |
 | Tribe door; hull chest; worker tiers | `AiTribeColony.door`; `AiNavy`; `QUEUE_CAP` |
@@ -38,12 +39,11 @@ Default: largest item here, then REQ/wiki.
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face matches the line | `RaiseBatchPress` carries, DR-18-21 |
-| Opening muster; shared-station fan/stack + cycle | `FleetMuster`; `FleetLanes`, DR-20261119-08 / #1047 |
+| Opening muster; shared-station fan/stack | `FleetMuster` #1051; `FleetLanes` #1047 |
 
 ## Gaps (ranked)
 
-None — both #1043 halves shipped (#1047 the row and stack, this PR the
-opening muster).
+None — both #1043 halves shipped (#1047 fan/stack, #1051 home fleet).
 
 ## Next pick
 
