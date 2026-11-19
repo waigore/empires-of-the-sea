@@ -78,7 +78,11 @@ func set_battle(battle: Dictionary) -> void:
 	guns = int(quick.get("guns_start", 0))
 	terrain = String(quick.get("terrain", "open"))
 	fort_level = int(battle.get("fort_level", 0))
-	gates_broken = int((quick.get("gates", {}) as Dictionary).get("broken", 0))
+	## The wall the plate opens on: three gates still standing. The breaches the
+	## siege goes on to make arrive round by round with [method set_round] — the
+	## plate is drawn before the first round plays, so it must not show them yet
+	## (REQ-P5-06; wiki: siege-mechanics § Gates and Sortie).
+	gates_broken = 0
 	attacker_health = []
 	defender_health = []
 	round_index = 0
@@ -87,12 +91,12 @@ func set_battle(battle: Dictionary) -> void:
 	_smoke = 0.0
 	_charge = 0.0
 	_floaters.clear()
-	## The wings the battle opened with; a siege record has none on the wall.
+	## The wings the battle opened with, none of them struck through: a break is
+	## named on the round that made it ([method set_round]), never before the
+	## fight is watched (wiki: quick-battle § Wings and collapse; REQ-P5-06).
 	var opened: Dictionary = quick.get("wings_open", {}) as Dictionary
-	var broken: Dictionary = quick.get("wings_broken", {}) as Dictionary
 	set_wings(
-		opened.get("attacker", {}) as Dictionary, opened.get("defender", {}) as Dictionary,
-		broken.get("attacker", []) as Array, broken.get("defender", []) as Array
+		opened.get("attacker", {}) as Dictionary, opened.get("defender", {}) as Dictionary
 	)
 	queue_redraw()
 

@@ -296,7 +296,15 @@ func _read_quick(battle: Dictionary) -> void:
 		_say("  the battle carried no Quick Battle plate (auto-resolve only)")
 		return
 	_say("  the plate opens with: %s" % QuickBattleCopy.plan_text(battle))
-	_say("  the wall block: %s" % QuickBattleCopy.siege_line(battle))
+	# The plate's opening line is drawn before the first round plays, so it must
+	# not name a breach or a sally the fight has yet to make; the aftermath line
+	# adds them (REQ-P5-06).
+	var wall: String = QuickBattleSiegeCopy.siege_opening(battle)
+	_say("  the wall it opens on: %s" % (wall if not wall.is_empty() else "—"))
+	var wings: String = QuickBattleCopy.wings_opening(battle, FactionCatalog.names())
+	if not wings.is_empty():
+		_say("  the wings it opens on: %s" % wings)
+	_say("  the wall block: %s" % QuickBattleSiegeCopy.siege_line(battle))
 	_say("  the ground: %s" % (
 		QuickBattleCopy.terrain_line(battle) if not QuickBattleCopy.terrain_line(battle).is_empty()
 		else "open field (no line)"
