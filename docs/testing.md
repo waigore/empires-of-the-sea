@@ -45,9 +45,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Tiny fixture first**: place names and sea zones read
   `naval_fixture.build()` (7×3), not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
-  session (and `ai_turns` / Auto fields), re-seat each case (~0.2 s vs
-  ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` /
-  `test_auto_mode`.
+  session (and `ai_turns` / Auto fields), re-seat lazily (~0.2 s vs ~1.5–2 s).
+  Mode cases start at turn 1; `test_ai_observer` / `test_auto_mode`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   the pocket chart and `ResearchPanel` only when a case reads them.
