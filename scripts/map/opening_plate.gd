@@ -17,6 +17,9 @@ const FADE_SECONDS: float = 0.9
 
 ## The deadline this plate arms for itself; tests set it before `_ready`.
 var hold_max: float = HOLD_MAX_SECONDS
+## Fade length when `lift()` is called without an override (deadline uses this
+## too). Suites pin a short value so they never wait out a real opening fade.
+var fade_seconds: float = FADE_SECONDS
 
 var _lifted: bool = false
 
@@ -34,17 +37,18 @@ func _ready() -> void:
 
 
 ## Starts the parchment's fade. Idempotent: `intro` calls it, and the deadline
-## may call it later; a second call changes nothing. `seconds` is overridable so
-## a suite does not wait out a real opening.
-func lift(seconds: float = FADE_SECONDS) -> void:
+## may call it later; a second call changes nothing. Pass `seconds` to override
+## `fade_seconds` for one lift (suites that call `lift` directly).
+func lift(seconds: float = -1.0) -> void:
 	if _lifted:
 		return
 	_lifted = true
+	var fade: float = fade_seconds if seconds < 0.0 else seconds
 	var tween: Tween = create_tween()
 	# A paused tree is one of the ways the old plate was stranded: the pause
 	# menu pauses everything, and the opening frame has to lift regardless.
 	tween.set_pause_mode(Tween.TWEEN_PAUSE_PROCESS)
-	tween.tween_property(self, "modulate:a", 0.0, maxf(seconds, 0.01)).set_trans(
+	tween.tween_property(self, "modulate:a", 0.0, maxf(fade, 0.01)).set_trans(
 		Tween.TRANS_SINE
 	)
 	tween.tween_callback(hide)

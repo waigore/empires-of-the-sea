@@ -1312,10 +1312,16 @@ const GENOA: int = 6
 
 ## Cached two-region world; only province and zone names are read from it.
 var world: WorldMap = null
+## Second chart for the back-then-new-game case: fixture-sized, seed 424242, so
+## that case never pays a cold Small `generate_world` under coverage.
+var fresh_world: WorldMap = null
 
 
 func before_all() -> void:
 	world = Fixture.world()
+	fresh_world = MapGenerator.new().generate_world(
+		424242, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	)
 	loss_pristine_map = Fixture.snapshot(Fixture.world())
 	loss_mounted = Fixture.attach_screen(self)
 	loss_pristine = Fixture.suite_capture(loss_mounted)
@@ -1323,6 +1329,7 @@ func before_all() -> void:
 
 func after_all() -> void:
 	world = null
+	fresh_world = null
 	if is_instance_valid(loss_mounted):
 		loss_mounted.free()
 	loss_mounted = null
@@ -3917,11 +3924,10 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 
 ## Back out of the chart and start a new game: the second chart must roll a new
 ## world and the campaign must start on it, never on the abandoned roll.
-## The first chart reuses the suite's cached world; only the second roll pays
-## `generate_world` so the case still proves the abandoned chart is discarded.
-## That roll is asked for at the **smallest** preset: a fresh chart of any size
-## proves the abandoned one is thrown away, and Small keeps the one generation
-## the case needs off Standard's 96x64 (docs/testing.md § Speed rules).
+## The first chart reuses the suite's cached world; the second hands a different
+## fixture-sized preset (seed 424242) so the abandoned chart is still discarded
+## without a cold Small `generate_world` under coverage (docs/testing.md § Speed
+## rules).
 func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	_setup_capital_seat()
 	var main: Node = MAIN.instantiate()
@@ -3951,11 +3957,9 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	if setup2 == null:
 		main.free()
 		return
-	# Clear the preset so the second start must roll a fresh chart.
-	main.preset_world = null
+	# Hand the suite's second chart: a different seed, still fixture-sized.
+	main.preset_world = fresh_world
 	setup2.seed_field.text = "424242"
-	# Small is the cheapest fresh roll that still seats every crown.
-	setup2.size_option.select(0)
 	setup2.start_button.emit_signal("pressed")
 	var second: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
 	assert_not_null(second, "the second chart opens")
@@ -3964,6 +3968,7 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 		return
 	await get_tree().process_frame
 	assert_eq(second.config.map_seed, 424242, "the new roll uses the new seed")
+	assert_true(second.world == fresh_world, "the second chart reused the suite cache")
 	assert_ne(second.world, first_world, "the abandoned chart's world is not reused")
 	assert_ne(second.model.get_instance_id(), first_model, "a fresh province grid")
 	assert_gte(second.selected_province, 0, "the new world seats the crown")
