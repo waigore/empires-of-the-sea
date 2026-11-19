@@ -41,7 +41,7 @@ func _fill() -> void:
 	_paint_chip(chip["color"])
 	var provinces: int = int(data.get("provinces", 0))
 	var reading: String = "%d province%s · %s" % [
-		provinces, MoneyText.plural(provinces), String(data.get("terms", ""))
+		provinces, "" if provinces == 1 else "s", String(data.get("terms", ""))
 	]
 	_place_detail(
 		"%s — colony of %s" % [

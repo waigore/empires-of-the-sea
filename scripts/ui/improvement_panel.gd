@@ -319,7 +319,7 @@ func _add_group(group: Dictionary, rows: Array[Dictionary]) -> void:
 	heading.text = "%s  ·  %d estate%s  ·  %d producing" % [
 		String(group["name"]).to_upper(),
 		rows.size(),
-		MoneyText.plural(rows.size()),
+		"" if rows.size() == 1 else "s",
 		int(group["producing"]),
 	]
 	heading.add_theme_font_size_override("font_size", 10 if _compact else 11)

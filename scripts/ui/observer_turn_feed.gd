@@ -61,8 +61,8 @@ static func caption(ai_turns: Array) -> String:
 	if turns == 0:
 		return "Recent orders"
 	return "Recent orders  ·  %s  ·  %d row%s over %d turn%s, newest first" % [
-		_span(ai_turns, first), rows, MoneyText.plural(rows),
-		turns, MoneyText.plural(turns),
+		_span(ai_turns, first), rows, "" if rows == 1 else "s",
+		turns, "" if turns == 1 else "s",
 	]
 
 

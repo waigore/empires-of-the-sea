@@ -161,7 +161,7 @@ static func line(army: ArmyState, regiment_id: String, model: MapModel = null) -
 	if fought <= 0:
 		return ""
 	var text: String = "%d engagement%s · %d won" % [
-		fought, MoneyText.plural(fought), int(record["wins"])
+		fought, "" if fought == 1 else "s", int(record["wins"])
 	]
 	var honours: String = honour_line(army, regiment_id, model)
 	if not honours.is_empty():

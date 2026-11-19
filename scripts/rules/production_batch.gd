@@ -112,7 +112,7 @@ static func receipt(runs: int) -> String:
 	if runs <= 0:
 		return "No ready row to set — every row is at its ceiling or waits on a hand or a town."
 	return "Set %d run%s — every ready row in this view is ordered." % [
-		runs, MoneyText.plural(runs)
+		runs, "" if runs == 1 else "s"
 	]
 
 
@@ -123,7 +123,7 @@ static func spend_line(reading: Dictionary) -> String:
 	var runs: int = int(reading.get("runs", 0))
 	if runs <= 0:
 		return ""
-	var parts: PackedStringArray = ["%d run%s" % [runs, MoneyText.plural(runs)]]
+	var parts: PackedStringArray = ["%d run%s" % [runs, "" if runs == 1 else "s"]]
 	var labour: int = int(reading.get("labour", 0))
 	if labour > 0:
 		parts.append("%d labour" % labour)
@@ -151,7 +151,7 @@ static func sheet_line(reading: Dictionary) -> String:
 	var skipped: int = int(reading.get("skipped", 0))
 	if skipped > 0:
 		line += " %d row%s wait%s on a ceiling, a hand, a town's works or the labour and store left." % [
-			skipped, MoneyText.plural(skipped), "s" if skipped == 1 else "",
+			skipped, "" if skipped == 1 else "s", "s" if skipped == 1 else "",
 		]
 	return line
 

@@ -270,7 +270,7 @@ func _fill() -> void:
 		_cost.text = "Cost %s · %d turn%s" % [
 			String(data["cost_text"]),
 			int(data["duration"]),
-			MoneyText.plural(int(data["duration"])),
+			"" if int(data["duration"]) == 1 else "s",
 		]
 	# The rules leave `preview_text` empty for an estate with no raise to price
 	# (finished, or a Builder already on it), so the row never invents one.

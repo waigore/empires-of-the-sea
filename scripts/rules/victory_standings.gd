@@ -165,7 +165,7 @@ static func _close(need: int) -> bool:
 
 
 static func _provinces(count: int) -> String:
-	return "%d province%s" % [count, MoneyText.plural(count)]
+	return "%d province%s" % [count, "" if count == 1 else "s"]
 
 
 ## The turns the calendar still has, read from the same cap the halt reads.
@@ -173,4 +173,4 @@ static func _calendar(turn: int) -> String:
 	var left: int = TurnTime.cap_turn() - turn
 	if left <= 0:
 		return "the calendar closes this turn"
-	return "the calendar closes in %d turn%s" % [left, MoneyText.plural(left)]
+	return "the calendar closes in %d turn%s" % [left, "" if left == 1 else "s"]

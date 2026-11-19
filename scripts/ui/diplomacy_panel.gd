@@ -146,7 +146,7 @@ func refresh(
 		_selected = ids[0] if not ids.is_empty() else -1
 	_summary.text = (
 		"%d court%s in contact  ·  treasury %s"
-		% [ids.size(), MoneyText.plural(ids.size()), DiplomacyCatalog.money(treasury)]
+		% [ids.size(), "" if ids.size() == 1 else "s", DiplomacyCatalog.money(treasury)]
 	)
 	_fill_call()
 	_fill_list(ids)

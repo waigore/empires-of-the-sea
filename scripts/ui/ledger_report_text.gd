@@ -118,7 +118,7 @@ static func turn_summary(report: Dictionary, trouble_only: bool = false) -> Stri
 	var hungry: Array = (report.get("hospital", {}) as Dictionary).get("hungry", [])
 	if not hungry.is_empty():
 		trouble.append(
-			"%d hospital%s unstaffed" % [hungry.size(), MoneyText.plural(hungry.size())]
+			"%d hospital%s unstaffed" % [hungry.size(), "" if hungry.size() == 1 else "s"]
 		)
 	var research: Dictionary = report.get("research", {})
 	var researched: Array = research.get("researched", [])
@@ -126,7 +126,7 @@ static func turn_summary(report: Dictionary, trouble_only: bool = false) -> Stri
 		parts.append("%s researched" % TechCatalog.display_name(String(tech_id)))
 	var unpaid: Array = research.get("unpaid", [])
 	if not unpaid.is_empty():
-		var plural: String = MoneyText.plural(unpaid.size())
+		var plural: String = "" if unpaid.size() == 1 else "s"
 		trouble.append("%d research slot%s unfunded — %s" % [
 			unpaid.size(), plural,
 			research_floor_note(int(research.get("floor", 0))),

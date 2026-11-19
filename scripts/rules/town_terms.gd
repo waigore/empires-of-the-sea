@@ -44,7 +44,7 @@ static func level_line(level: int) -> String:
 static func bonus_text(scale: int) -> String:
 	return "%d manufacture%s per %d raw its own estates deliver" % [
 		scale,
-		MoneyText.plural(scale),
+		"" if scale == 1 else "s",
 		TownIndustry.INPUT_PER_OUTPUT,
 	]
 

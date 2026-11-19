@@ -60,14 +60,14 @@ static func roads_tip(province: ProvinceState, rows: Array[Dictionary]) -> Strin
 		+ " its full output and escapes the town cap; one with no such path yields"
 		+ " nothing. %d road tile%s laid here. %d estate%s surveyed."
 	) % [
-		tiles, MoneyText.plural(tiles),
-		surveyed, MoneyText.plural(surveyed),
+		tiles, "" if tiles == 1 else "s",
+		surveyed, "" if surveyed == 1 else "s",
 	]
 
 
 ## "1 developed estate" / "3 developed estates".
 static func _estates(count: int) -> String:
-	return "%d developed estate%s" % [count, MoneyText.plural(count)]
+	return "%d developed estate%s" % [count, "" if count == 1 else "s"]
 
 
 ## Live crown link from `LandConnectivity.province_link`. Falls back to the
@@ -75,7 +75,7 @@ static func _estates(count: int) -> String:
 static func crown_roads(province: ProvinceState, crown: Dictionary) -> String:
 	if crown.has("linked"):
 		var roads: int = int(crown.get("roads", 0))
-		var text: String = "%d road tile%s" % [roads, MoneyText.plural(roads)]
+		var text: String = "%d road tile%s" % [roads, "" if roads == 1 else "s"]
 		if bool(crown.get("linked", false)):
 			return "%s · linked to the crown" % text
 		# A sealed harbour is a rule, not a missing road: say which one
@@ -85,7 +85,7 @@ static func crown_roads(province: ProvinceState, crown: Dictionary) -> String:
 		var gap: int = int(crown.get("distance", -1))
 		if gap > 0:
 			return "%s · no road to the crown (%d tile%s away)" % [
-				text, gap, MoneyText.plural(gap)
+				text, gap, "" if gap == 1 else "s"
 			]
 		return "%s · no road to the crown" % text
 	var planned: int = 0

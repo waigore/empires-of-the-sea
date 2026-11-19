@@ -179,7 +179,7 @@ func _add_grounds(row: Dictionary) -> void:
 	# The way back is pinned above the window, so a long coast never scrolls the
 	# one press that leaves it out of reach (DR-20261119-03).
 	_add_press(
-		"‹ Back to the coasts · %d ground%s" % [tiles.size(), MoneyText.plural(tiles.size())],
+		"‹ Back to the coasts · %d ground%s" % [tiles.size(), "" if tiles.size() == 1 else "s"],
 		func() -> void:
 			open_coast = -1
 			open_crew = ""

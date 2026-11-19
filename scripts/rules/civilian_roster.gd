@@ -205,7 +205,7 @@ static func status_text(unit: CivilianState) -> String:
 	return "%s · %d turn%s to go" % [
 		CivilianWork.label(unit.work_action()),
 		left,
-		MoneyText.plural(left),
+		"" if left == 1 else "s",
 	]
 
 

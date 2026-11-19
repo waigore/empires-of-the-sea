@@ -153,7 +153,7 @@ static func describe(level: int) -> String:
 		return "No fort"
 	var pieces: int = guns(level)
 	return "%s fort · %d emplaced gun%s" % [
-		level_name(level), pieces, MoneyText.plural(pieces)
+		level_name(level), pieces, "" if pieces == 1 else "s"
 	]
 
 
@@ -167,7 +167,7 @@ static func raise_text(level: int) -> String:
 	var pieces: int = guns(level)
 	return "%s fort raised · %d wall hp · %d emplaced gun%s" % [
 		level_name(level).to_lower(), roundi(wall_hp(level)), pieces,
-		MoneyText.plural(pieces),
+		"" if pieces == 1 else "s",
 	]
 
 

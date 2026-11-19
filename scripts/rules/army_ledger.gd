@@ -143,7 +143,7 @@ static func summary(
 	var shown: int = count(data, region_key, reading)
 	var scope: String = scope_text(region_key)
 	var armies: int = army_count(data, region_key)
-	var standards: String = "%d standard%s" % [armies, MoneyText.plural(armies)]
+	var standards: String = "%d standard%s" % [armies, "" if armies == 1 else "s"]
 	if reading != READING_ALL and not reading.is_empty():
 		return "Showing %d of %d regiments %s — %s only." % [
 			shown, in_scope, scope, reading_label(reading).to_lower()
@@ -164,7 +164,7 @@ static func summary(
 		scope,
 		int(counts.get(READING_FOOT, 0)),
 		int(counts.get(READING_HORSE, 0)),
-		MoneyText.counted(int(counts.get(READING_GUNS, 0)), "gun"),
+		_plural(int(counts.get(READING_GUNS, 0)), "gun"),
 		strength,
 		food,
 	]
@@ -271,7 +271,7 @@ static func _condition_text(
 	parts.append("%d/%d health" % [int(condition["hp"]), int(condition["max"])])
 	var medals: int = int(condition["medals"])
 	if medals > 0:
-		parts.append(MoneyText.counted(medals, "chevron"))
+		parts.append(_plural(medals, "chevron"))
 	var rank: String = RegimentDecorations.rank(army, regiment_id)
 	if not rank.is_empty():
 		var step: int = roundi(
@@ -290,6 +290,9 @@ static func _food(army: ArmyState) -> int:
 	var one: Array[ArmyState] = [army]
 	return ArmyRoster.food_upkeep_of(one, army.owner)
 
+
+static func _plural(count: int, word: String) -> String:
+	return "%d %s" % [count, word if count == 1 else word + "s"]
 
 
 # --- assembly ---------------------------------------------------------------

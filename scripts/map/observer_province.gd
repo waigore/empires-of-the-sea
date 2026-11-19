@@ -121,7 +121,7 @@ static func _defence_text(host: Dictionary) -> String:
 		parts.append("No garrison")
 	else:
 		parts.append("%d strength · %d regiment%s" % [
-			int(host["strength"]), regiments, MoneyText.plural(regiments),
+			int(host["strength"]), regiments, "" if regiments == 1 else "s",
 		])
 	if bool(host["foreign"]):
 		parts.append("Foreign host ashore")

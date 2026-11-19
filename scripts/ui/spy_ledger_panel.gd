@@ -76,7 +76,7 @@ func _paint() -> void:
 ## The crown's spies, one row each: where it stands and what it earns there.
 func _network() -> void:
 	var rows: Array = _snapshot.get("rows", [])
-	_heading("THE NETWORK", "%d spy%s" % [rows.size(), MoneyText.plural(rows.size())])
+	_heading("THE NETWORK", "%d spy%s" % [rows.size(), "" if rows.size() == 1 else "s"])
 	if rows.is_empty():
 		_rows.add_child(UiRowBuilder.wrapped_line(
 			"No spy answers the crown. Train one at the capital — 2,000 cash and "

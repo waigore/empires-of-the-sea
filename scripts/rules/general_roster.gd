@@ -186,7 +186,7 @@ func line(owner: int) -> String:
 			"%s (%d medal%s)" % [
 				String(general.get("name", "")),
 				int(general["medals"]),
-				MoneyText.plural(int(general["medals"])),
+				"" if int(general["medals"]) == 1 else "s",
 			]
 		)
 	return (
@@ -251,5 +251,5 @@ func summary(owner: int) -> String:
 	var medals: int = 0
 	for general: Dictionary in roster:
 		medals += int(general["medals"])
-	var plural: String = MoneyText.plural(roster.size())
-	return "%d general%s · %d medal%s" % [roster.size(), plural, medals, MoneyText.plural(medals)]
+	var plural: String = "" if roster.size() == 1 else "s"
+	return "%d general%s · %d medal%s" % [roster.size(), plural, medals, "" if medals == 1 else "s"]

@@ -33,7 +33,7 @@ func _add_open(report: Dictionary) -> void:
 	var text: String = "Open the full dossier"
 	if seen > 0:
 		text = "Full dossier  ·  %d observation%s  ·  timeline" % [
-			seen, MoneyText.plural(seen)
+			seen, "" if seen == 1 else "s"
 		]
 	var button := Button.new()
 	button.text = text
@@ -99,7 +99,7 @@ func _add_evidence(report: Dictionary) -> void:
 	if entries.size() > shown:
 		add_child(
 			UiRowBuilder.wrapped_line("…and %d earlier observation%s." % [
-				entries.size() - shown, MoneyText.plural(entries.size() - shown)
+				entries.size() - shown, "" if entries.size() - shown == 1 else "s"
 			], 11, Palette.TEXT_DIM)
 		)
 
@@ -108,8 +108,8 @@ func _add_evidence(report: Dictionary) -> void:
 static func _behaviour(report: Dictionary) -> String:
 	var notes: Dictionary = report.get("notes", {}) as Dictionary
 	return "Holds %d province%s  ·  %d war%s  ·  %d alliance%s  ·  %d call%s refused" % [
-		int(notes.get("province", 0)), MoneyText.plural(int(notes.get("province", 0))),
-		int(notes.get("war", 0)), MoneyText.plural(int(notes.get("war", 0))),
-		int(notes.get("alliance", 0)), MoneyText.plural(int(notes.get("alliance", 0))),
-		int(notes.get("refused", 0)), MoneyText.plural(int(notes.get("refused", 0))),
+		int(notes.get("province", 0)), "" if int(notes.get("province", 0)) == 1 else "s",
+		int(notes.get("war", 0)), "" if int(notes.get("war", 0)) == 1 else "s",
+		int(notes.get("alliance", 0)), "" if int(notes.get("alliance", 0)) == 1 else "s",
+		int(notes.get("refused", 0)), "" if int(notes.get("refused", 0)) == 1 else "s",
 	]

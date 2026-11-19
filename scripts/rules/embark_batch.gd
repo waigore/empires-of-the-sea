@@ -96,7 +96,7 @@ static func wait_line(reading: Dictionary) -> String:
 		return ""
 	var waiting: int = total - filed
 	return "%d of %d wait%s: %s" % [
-		waiting, total, MoneyText.verb_s(waiting), _sentence(refusal)
+		waiting, total, "" if waiting != 1 else "s", _sentence(refusal)
 	]
 
 

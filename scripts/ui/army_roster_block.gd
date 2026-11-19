@@ -264,7 +264,7 @@ func _add_condition(entry: VBoxContainer, army: ArmyState, regiment_id: String) 
 		badge.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 		badge.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		badge.tooltip_text = "%d chevron%s · +%d%% firepower" % [
-			medals, MoneyText.plural(medals), medals * 10
+			medals, "" if medals == 1 else "s", medals * 10
 		]
 		condition.add_child(badge)
 		var count := UiRowBuilder.line(11, Palette.GOLD)

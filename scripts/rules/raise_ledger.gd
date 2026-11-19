@@ -64,7 +64,10 @@ static func snapshot(
 		if typeof(stockpile) == TYPE_DICTIONARY:
 			stores = stockpile
 		var idle: Dictionary = {}
-		for crew: CivilianState in CivilianWork.idle_crews(units, owner, ""):
+		for raw: Variant in units:
+			var crew := raw as CivilianState
+			if crew == null or crew.owner != owner or not crew.is_idle():
+				continue
 			idle[crew.type_id] = int(idle.get(crew.type_id, 0)) + 1
 		idle_by_region[region] = idle
 		for province: ProvinceState in model.provinces:
@@ -277,7 +280,7 @@ static func numeral(
 
 ## "1 turn" / "3 turns" — the wait every raise note prints.
 static func turn_text(turns: int) -> String:
-	return "%d turn%s" % [turns, MoneyText.plural(turns)]
+	return "%d turn%s" % [turns, "" if turns == 1 else "s"]
 
 
 ## "2 turns left" — the wait a crew already at the work still owes.

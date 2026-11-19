@@ -82,7 +82,7 @@ static func summary_text(entry: Dictionary) -> String:
 		var sealed_gap: int = int(entry.get("gap", -1))
 		if sealed_gap > 0:
 			return "Crown road: harbour blockaded · %d road tile%s from the crown" % [
-				sealed_gap, MoneyText.plural(sealed_gap)
+				sealed_gap, "" if sealed_gap == 1 else "s"
 			]
 		return "Crown road: harbour blockaded, no sea path to the crown"
 	var gap: int = int(entry.get("gap", -1))
@@ -108,7 +108,7 @@ static func _town_text(entry: Dictionary) -> String:
 
 ## "1 tile" / "2 tiles": a reading never prints "1 tiles".
 static func _tiles(count: int) -> String:
-	return "%d tile%s" % [count, MoneyText.plural(count)]
+	return "%d tile%s" % [count, "" if count == 1 else "s"]
 
 
 # --- tiles -------------------------------------------------------------------

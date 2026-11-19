@@ -128,7 +128,7 @@ static func bid_budget_line(budget: Dictionary) -> String:
 	var promised: int = int(budget.get("promised", 0))
 	var left: int = int(budget.get("budget", 0))
 	var orders: int = (budget.get("orders", []) as Array).size()
-	var count: String = "%d waiting order%s" % [orders, MoneyText.plural(orders)]
+	var count: String = "%d waiting order%s" % [orders, "" if orders == 1 else "s"]
 	if purse < 0:
 		if promised <= 0:
 			return "BIDS  nothing this turn — the purse is %s ducats in debt" % (
@@ -175,7 +175,7 @@ static func market_summary(report: Dictionary, faction: int) -> String:
 		parts.append("%d ducats in shares" % share)
 	var carry: int = (report.get("carry", []) as Array).size()
 	if carry > 0:
-		parts.append("%d order%s carried" % [carry, MoneyText.plural(carry)])
+		parts.append("%d order%s carried" % [carry, "" if carry == 1 else "s"])
 	var dropped: int = 0
 	for note: Variant in report.get("notes", []):
 		if typeof(note) != TYPE_DICTIONARY:
@@ -186,7 +186,7 @@ static func market_summary(report: Dictionary, faction: int) -> String:
 		) == faction:
 			dropped += 1
 	if dropped > 0:
-		parts.append("%d order%s lapsed" % [dropped, MoneyText.plural(dropped)])
+		parts.append("%d order%s lapsed" % [dropped, "" if dropped == 1 else "s"])
 	if parts.is_empty():
 		return ""
 	return "The market cleared: " + "  ·  ".join(parts) + "."

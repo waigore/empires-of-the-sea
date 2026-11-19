@@ -59,7 +59,7 @@ static func can_embark(
 static func capacity_refusal(fleet: FleetState) -> String:
 	var hulls: int = capacity(fleet)
 	return "The squadron has %d hull%s and cannot carry another civilian." % [
-		hulls, MoneyText.plural(hulls)
+		hulls, "" if hulls == 1 else "s"
 	]
 
 

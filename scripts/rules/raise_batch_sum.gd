@@ -180,7 +180,7 @@ static func sheet_line(reading: Dictionary) -> String:
 			return ""
 		var why: String = stop if stop.ends_with(".") else stop + "."
 		return "Nothing in this yard can be ordered — %d wait%s: %s" % [
-			total, MoneyText.verb_s(total), why,
+			total, "" if total != 1 else "s", why,
 		]
 	var costs: String = paid(reading)
 	var refusal: String = String(reading.get("refusal", ""))
@@ -195,6 +195,6 @@ static func sheet_line(reading: Dictionary) -> String:
 		costs,
 		waiting,
 		int(reading.get("count", 0)),
-		MoneyText.verb_s(waiting),
+		"" if waiting != 1 else "s",
 		refusal,
 	]

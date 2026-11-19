@@ -100,5 +100,5 @@ static func manufacture_hint(made_total: int) -> String:
 	var hint: String = "Set this turn's output on each row: labour and raw inputs cap the rest."
 	if made_total <= 0:
 		return hint
-	var plural: String = MoneyText.plural(made_total)
+	var plural: String = "" if made_total == 1 else "s"
 	return "%s Last phase the workshop made %d good%s." % [hint, made_total, plural]

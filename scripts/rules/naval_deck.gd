@@ -74,7 +74,7 @@ static func drown_news(row: Dictionary) -> Array[String]:
 	if not men.is_empty():
 		lines.append(
 			"%d regiment%s went down with the sunk hulls — the deck could not hold them"
-			% [men.size(), MoneyText.plural(men.size())]
+			% [men.size(), "" if men.size() == 1 else "s"]
 		)
 	if not (row.get("civilians", []) as Array).is_empty():
 		lines.append("A colonist went down with a sunk hull")

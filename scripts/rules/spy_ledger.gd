@@ -123,7 +123,7 @@ static func summary(snapshot_data: Dictionary) -> String:
 		"%d %s" % [spies, "spy" if spies == 1 else "spies"],
 		"shadowing %d court%s" % [
 			int(snapshot_data.get("shadowed", 0)),
-			MoneyText.plural(int(snapshot_data.get("shadowed", 0))),
+			"" if int(snapshot_data.get("shadowed", 0)) == 1 else "s",
 		],
 	]
 	parts.append("screen up" if bool(snapshot_data.get("screened", false)) else "no screen")

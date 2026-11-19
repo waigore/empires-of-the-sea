@@ -111,7 +111,7 @@ static func goal_mark(tech_id: String, goal_id: String) -> Control:
 		mark.tooltip_text = (
 			"Your goal" if depth == 0
 			else "%d step%s from %s" % [
-				depth, MoneyText.plural(depth), TechCatalog.display_name(goal_id)
+				depth, "" if depth == 1 else "s", TechCatalog.display_name(goal_id)
 			]
 		)
 	return mark

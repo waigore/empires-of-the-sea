@@ -97,7 +97,7 @@ static func status_for_round(report: Dictionary, index: int) -> String:
 	return "Round %s — %d attackers, %d defenders, %d gun%s, %d of 3 gates breached." % [
 		QuickBattleCopy.roman(index + 1),
 		int(entry.get("attacker_count", 0)), int(entry.get("defender_count", 0)),
-		guns, MoneyText.plural(guns), int(entry.get("gates", 0)),
+		guns, "" if guns == 1 else "s", int(entry.get("gates", 0)),
 	]
 
 

@@ -185,10 +185,10 @@ func refresh(
 	_strength.set_data(strength)
 	_fill_merge(merge)
 	if carried > 0:
-		_ships.text += " · carrying %d regiment%s" % [carried, MoneyText.plural(carried)]
+		_ships.text += " · carrying %d regiment%s" % [carried, "" if carried == 1 else "s"]
 	var colonists: int = int(crew.get("count", 0))
 	if colonists > 0:
-		_ships.text += " · %d colonist%s" % [colonists, MoneyText.plural(colonists)]
+		_ships.text += " · %d colonist%s" % [colonists, "" if colonists == 1 else "s"]
 	_fill_land()
 	_mission.set_data(beach_note, beach_rows)
 	_crew.set_data(crew)

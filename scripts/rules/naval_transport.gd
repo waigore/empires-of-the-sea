@@ -43,7 +43,7 @@ static func can_embark(model: MapModel, army: ArmyState, fleet: FleetState) -> D
 		var room: int = NavalDeck.capacity(fleet)
 		return OrderVerdict.deny(
 			"The squadron has %d hull%s and cannot carry %d regiments."
-			% [room, MoneyText.plural(room), army.count()]
+			% [room, "" if room == 1 else "s", army.count()]
 		)
 	if model == null or model.province_data(army.province) == null:
 		return OrderVerdict.deny("That is not a province.")

@@ -51,7 +51,7 @@ static func siege_line(battle: Dictionary) -> String:
 	var text: String = wall + gates_text(quick)
 	var sorties: int = int(quick.get("sorties", 0))
 	if sorties > 0:
-		text += " · %d sortie%s" % [sorties, MoneyText.plural(sorties)]
+		text += " · %d sortie%s" % [sorties, "" if sorties == 1 else "s"]
 	if bool(quick.get("fort_downgraded", false)):
 		var after: int = int(quick.get("fort_after", maxi(0, int(battle.get("fort_level", 0)) - 1)))
 		text += " — battery silenced, the fort falls to %s" % (

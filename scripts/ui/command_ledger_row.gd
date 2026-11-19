@@ -66,4 +66,4 @@ func _fill() -> void:
 		_detail.text += " · every medal he can earn"
 	_medals.text = "×%d" % medals
 	_medals.add_theme_color_override("font_color", Palette.GOLD)
-	_medals.tooltip_text = "%d medal%s" % [medals, MoneyText.plural(medals)]
+	_medals.tooltip_text = "%d medal%s" % [medals, "" if medals == 1 else "s"]

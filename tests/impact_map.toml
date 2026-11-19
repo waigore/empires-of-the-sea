@@ -3330,6 +3330,13 @@ domain = "prospect"
 match = "scripts/rules/mineral_survey.gd*"
 domain = "prospect"
 
+# Estates order dispatch (nearest Builder / Engineer): same crew roster as
+# CivilianWork, so it rides the ai_works slice instead of the economy fan-out
+# that blows the tier-1 5 min budget when a MoneyText or works PR lands.
+[[rules]]
+match = "scripts/rules/improvement_orders.gd*"
+domain = "ai_works"
+
 [[rules]]
 match = "scripts/rules/improvement_*.gd"
 domain = "economy"

@@ -103,7 +103,7 @@ static func _army_row(
 		"title": "Home Army" if army.home else "Field army",
 		"place": LedgerRows.army_place(model, army, fleets),
 		"line": "%d regiment%s · %.1f strength" % [
-			count, MoneyText.plural(count), ArmyForce.side_strength(one)
+			count, "" if count == 1 else "s", ArmyForce.side_strength(one)
 		],
 		"state": LedgerRows.army_standing(army),
 		"strength": ArmyForce.side_strength(one),
@@ -121,7 +121,7 @@ static func _fleet_row(model: MapModel, fleet: FleetState, region: int) -> Dicti
 		"title": _squadron_title(fleet),
 		"place": LedgerRows.fleet_place(model, fleet),
 		"line": "%d hull%s · %d holds · %.1f strength" % [
-			count, MoneyText.plural(count), TradeCargo.fleet_holds(fleet),
+			count, "" if count == 1 else "s", TradeCargo.fleet_holds(fleet),
 			NavalStrength.strength(fleet)
 		],
 		"state": _fleet_state(model, fleet),
@@ -148,7 +148,7 @@ static func _fleet_state(model: MapModel, fleet: FleetState) -> String:
 		parts.append("carrying an army")
 	elif fleet.civilian_count() > 0:
 		parts.append("carrying %d civilian%s" % [
-			fleet.civilian_count(), MoneyText.plural(fleet.civilian_count())
+			fleet.civilian_count(), "" if fleet.civilian_count() == 1 else "s"
 		])
 	if parts.is_empty():
 		parts.append("Awaiting orders")

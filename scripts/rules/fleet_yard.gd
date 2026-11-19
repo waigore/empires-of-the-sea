@@ -22,7 +22,7 @@ static func hull_line(type_id: String) -> String:
 	var holds: String = (
 		"No holds — she fights in the line"
 		if cargo <= 0
-		else "%d hold%s for the world market" % [cargo, MoneyText.plural(cargo)]
+		else "%d hold%s for the world market" % [cargo, "" if cargo == 1 else "s"]
 	)
 	return "%s · %s" % [NavalStrength.hull_line(type_id), holds]
 

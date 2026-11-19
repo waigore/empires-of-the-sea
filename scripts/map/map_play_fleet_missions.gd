@@ -192,7 +192,7 @@ static func interception_note(play: PlaySession, fleet: FleetState) -> String:
 		return ""
 	var chance: int = int(round(float(read.get("chance", 0.0)) * 100.0))
 	return "Interception: %d%% to catch %d hull%s if they stay." % [
-		chance, hulls, MoneyText.plural(hulls),
+		chance, hulls, "" if hulls == 1 else "s",
 	]
 
 
