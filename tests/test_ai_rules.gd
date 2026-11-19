@@ -5286,6 +5286,212 @@ func test_the_buy_out_waits_out_the_peace_cooldown() -> void:
 	)
 
 
+# --- the war on the court's own border outlives the buy-out (issue #1082) -----
+
+
+## The frontier crowns: the Great Powers whose Old World land touches the
+## court's own — the front a field army can walk to and storm. A strip of
+## provinces: the court holds the first two, one crown the next, a second crown
+## the two after, a Minor the last.
+func test_the_frontier_crowns_are_the_crowns_whose_land_touches_the_court() -> void:
+	var world: WorldMap = AiFixture.land_world(
+		[PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_THIRD, PHASE_THIRD, PHASE_MINOR]
+	)
+	var owner: Array[int] = AiFrontier.crowns(world, PHASE_OWNER)
+	var rival: Array[int] = AiFrontier.crowns(world, PHASE_RIVAL)
+
+	assert_eq(owner, [PHASE_RIVAL] as Array[int], "only the crown next door is reachable")
+	assert_eq(
+		rival, [PHASE_OWNER, PHASE_THIRD] as Array[int], "the reading is symmetric along the border"
+	)
+	assert_eq(
+		AiFrontier.crowns(world, PHASE_THIRD), [PHASE_RIVAL] as Array[int],
+		"the crown past the neighbour reads its own border"
+	)
+	assert_eq(
+		AiFrontier.crowns(world, PHASE_MINOR), [PHASE_THIRD] as Array[int],
+		"a Minor Nation reads the crowns its land touches; the stamp gates who banks on it"
+	)
+	assert_true(
+		AiFrontier.crowns(null, PHASE_OWNER).is_empty(), "no world, no frontier"
+	)
+
+
+## The stamp the shared planners read: a court with no row — a frozen baseline,
+## a fixture — keeps the published behaviour.
+func test_the_frontier_stamp_reads_only_the_court_that_carries_it() -> void:
+	var supplied: Dictionary = {AiFrontier.KEY: {PHASE_OWNER: [PHASE_RIVAL]}}
+	var shared: Dictionary = AiTurnRead.context(
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR]), supplied, -1
+	)
+
+	assert_eq(
+		shared.get(AiFrontier.KEY, {}), {PHASE_OWNER: [PHASE_RIVAL]},
+		"the shared read carries the stamp the pass supplied"
+	)
+	assert_true(AiFrontier.holds(PHASE_OWNER, PHASE_RIVAL, shared))
+	assert_false(AiFrontier.holds(PHASE_OWNER, PHASE_THIRD, shared))
+	assert_false(
+		AiFrontier.holds(PHASE_RIVAL, PHASE_OWNER, shared),
+		"a court with no row keeps the published planner"
+	)
+	assert_false(
+		AiFrontier.holds(PHASE_OWNER, PHASE_RIVAL, {}),
+		"a caller with no stamp keeps the published planner"
+	)
+
+
+## The planner reading for a court at `wars` Great Power fronts with the
+## frontier stamp the shared pass hands a conquest-gap court (issue #1082):
+## `border` names the crowns whose Old World land touches the court's own. The
+## border crown is the stronger one, so only the victory press keeps that war's
+## desire above the peace bar; the far weak crown reads the higher desire. The
+## published planner settles the lower one first at two fronts — the border
+## front, the conquest's own road.
+func _border_turn(wars: int, border: Array = [], pursed: int = -1) -> Dictionary:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	var held: Array[int] = []
+	for index in wars:
+		held.append([PHASE_RIVAL, PHASE_THIRD][index])
+	for other: int in held:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+	for target: int in held:
+		_phase_war(state, target)
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+	if pursed >= 0:
+		ai_state.economy_for(PHASE_OWNER).treasury = pursed
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9, PHASE_OTHER: 1},
+		"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9, PHASE_OTHER: 1},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+		"posture": posture,
+		"victory_press": {PHASE_OWNER: 40},
+	}
+	if not border.is_empty():
+		context[AiFrontier.KEY] = {PHASE_OWNER: border}
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, ai_state,
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_THIRD, PHASE_MINOR]), 30, context
+	)
+	return {"plan": plan, "posture": posture}
+
+
+## An overstretched court settles the border war like any other when it carries
+## no stamp — the published planner stands.
+func test_an_unstamped_court_settles_the_border_war_at_two_fronts() -> void:
+	var run: Dictionary = _border_turn(2)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_eq(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE
+	)
+	assert_eq(
+		int((run["plan"]["action"] as Dictionary).get("target", -1)), PHASE_THIRD,
+		"the published planner settles the war it wants least — the border crown"
+	)
+
+
+## The border war outlives the `fronts` buy-out (issue #1082): the overstretched
+## court keeps the one war its field army can march on and settles the other.
+func test_the_border_war_outlives_the_fronts_buy_out() -> void:
+	var run: Dictionary = _border_turn(2, [PHASE_THIRD])
+	var third: Dictionary = _candidate(run["plan"], PHASE_THIRD)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_eq(
+		int(third.get("desire", 0)) < int(_candidate(run["plan"], PHASE_RIVAL).get("desire", 0)),
+		true,
+		"the border war is the one the published planner would settle"
+	)
+	assert_eq(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE
+	)
+	assert_eq(
+		int((run["plan"]["action"] as Dictionary).get("target", -1)), PHASE_RIVAL,
+		"the peace goes to the war on the far crown, not the border front"
+	)
+	assert_eq(
+		String(third.get("blocked", "")), "war still worth waging",
+		"the front the army can walk to stays open"
+	)
+
+
+## The border war outlives the purse leg too (issue #975's doctrine): a banking
+## court keeps the war its conquest needs while it saves for the army.
+func test_the_border_war_outlives_the_purse_leg() -> void:
+	var floor: int = _muster_price(_phase_config(PHASE_OWNER))
+	var published: Dictionary = _border_turn(1, [], floor - 100)
+	var stamped: Dictionary = _border_turn(1, [PHASE_RIVAL], floor - 100)
+
+	assert_eq(
+		String((published["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"the published poor court buys out of its only crown war"
+	)
+	assert_eq(
+		int((published["plan"]["action"] as Dictionary).get("target", -1)), PHASE_RIVAL
+	)
+	assert_true(
+		(stamped["plan"]["action"] as Dictionary).is_empty(),
+		"a banking court keeps the border war: no peace, no new front"
+	)
+	assert_eq(
+		String(_candidate(stamped["plan"], PHASE_RIVAL).get("blocked", "")),
+		"war still worth waging",
+		"the front the army can walk to is not for sale"
+	)
+
+
+## The answering half: an overstretched court takes any white peace it is
+## offered — except the one that closes its border front (issue #1082).
+func test_an_overstretched_court_answers_its_border_crown_from_its_own_stance() -> void:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	for other: int in [PHASE_RIVAL, PHASE_THIRD]:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+		_phase_war(state, other)
+	var ai_state := AiState.new()
+	var world: WorldMap = AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR])
+	var shared: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9},
+		"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+		AiFrontier.KEY: {PHASE_OWNER: [PHASE_RIVAL]},
+	}
+
+	assert_eq(
+		AiTurnApply.peace_answer(
+			state, world, ai_state, PHASE_RIVAL, PHASE_OWNER, 10, PHASE_SEED, shared
+		),
+		DiplomacyRules.DECISION_REFUSE,
+		"the border front is the one war the overstretched court keeps"
+	)
+	assert_eq(
+		AiTurnApply.peace_answer(
+			state, world, ai_state, PHASE_THIRD, PHASE_OWNER, 10, PHASE_SEED, shared
+		),
+		DiplomacyRules.DECISION_AUTO,
+		"a far crown's peace is still taken at two fronts"
+	)
+	shared.erase(AiFrontier.KEY)
+	assert_eq(
+		AiTurnApply.peace_answer(
+			state, world, ai_state, PHASE_RIVAL, PHASE_OWNER, 10, PHASE_SEED, shared
+		),
+		DiplomacyRules.DECISION_AUTO,
+		"an unstamped court keeps the published answer"
+	)
+
+
 ## The price of the line a court saving under its war target would buy — the
 ## purse leg the buy-out reads (issue #975).
 func _muster_price(config: AiConfig) -> int:

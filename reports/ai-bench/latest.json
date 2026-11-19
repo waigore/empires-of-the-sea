@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:730753ec728e7e4c2b5dbd07a602d20ce7db91f87e5496057b647e6b5f1c9cd2",
-  "submission_git": "refactor/one-diplomacy-gates@348a2be6",
+  "submission_hash": "sha256:9c1a3165e2b1ccd4b28df21f756f9eb17a27f66e03fef4166b7bb4216ab08e92",
+  "submission_git": "fix/1082-keep-the-war-on-a-border@aebc39cf",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 3075.843984962406,
+      "value": 3465.1983751324624,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 31.0,
+      "value": 30.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 11.0,
+      "value": 4.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 74.82261904761904,
+      "value": 61.64642857142857,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:9f20db76d2c5f542fc8dcc438181a265e1ed404d7680823a8b3376663b60db07",
+    "ai_surface_hash": "sha256:80015cef9da4ed51e58f7c17f8da7d1e3080d52e74b147a22127fff58ef8d814",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
-      "provinces_old": 19,
-      "provinces_new": 12,
-      "regiments": 11,
-      "ships": 0,
-      "workers": 8,
-      "extraction_per_turn": 40.625,
-      "income_per_turn": 344.593984962406,
-      "funded_pct": 74.82261904761904
+      "provinces_old": 30,
+      "provinces_new": 0,
+      "regiments": 1,
+      "ships": 3,
+      "workers": 4,
+      "extraction_per_turn": 44.77368421052632,
+      "income_per_turn": 315.6510067114094,
+      "funded_pct": 61.64642857142857
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 74.82261904761904
+    "funded_pct": 61.64642857142857
   },
   "params": {
     "turns": 200,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-19T16:14:57Z",
+  "timestamp": "2026-11-19T17:33:07Z",
   "report_version": 1,
-  "signature": "hmac-sha256:0a9dd84d45376070b164168b43260a4cc7b415c61b30d6d912565c4d32015774"
+  "signature": "hmac-sha256:22b9a4920dfff28925102ddb0620789b33a7fd502165c0c0193a0f79349ee61f"
 }
