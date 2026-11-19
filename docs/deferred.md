@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1055 (REQ-P2-02).
+Audited: wiki / DRs / code through #1064 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -65,5 +65,6 @@ REQ/wiki.
 
 ## Wiki drift
 
-None open for shipped rules — `civilian-units` and `the-gazette` caught up
-(DR-20261119-10). The soft weight seed stays blocked (`DR-20261117-01`).
+`DR-20261111-05` § Deferred still names rival Tribe contact and
+fleetless crowns; both live (`TribeContact` / `AiTribeColony`,
+`FleetMuster`). Soft weight seed stays blocked (`DR-20261117-01`).
