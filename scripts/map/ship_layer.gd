@@ -64,6 +64,7 @@ func spawn(
 	next_hull = _muster.next_hull
 	for fleet: FleetState in fleets:
 		attach_marker(fleet)
+	relayout()
 	regions.set_region(model.region_id, fleets)
 
 
@@ -75,6 +76,14 @@ func rebuild_markers() -> void:
 	markers.clear()
 	for fleet: FleetState in fleets:
 		attach_marker(fleet)
+	relayout()
+
+
+## Fans the crown's squadrons out over their station and stacks the rest, so a
+## crowded sea zone can still be read and picked (wiki: ships-and-naval
+## § Fleets in one station; DR-20261119-08).
+func relayout() -> void:
+	markers.layout(fleets, player_faction)
 
 
 func set_zoom(value: float) -> void:
@@ -87,7 +96,20 @@ func select(ship: Ship) -> void:
 	markers.selected_ship = ship
 	if ship != null:
 		ship.set_selected(true)
+	# The squadron in the crown's hand comes to the head of her stack, so the
+	# marker she tapped keeps drawing the hull (REQ-P5-05).
+	relayout()
 	ship_selected.emit(ship)
+
+
+## The squadron a tap picks: the hull under the finger, or the next squadron in
+## her stack when she is already in the crown's hand — a mixed station is read
+## one command at a time (wiki: ships-and-naval § Fleets in one station).
+func tap(ship: Ship) -> Ship:
+	if ship == null or markers.selected_ship != ship:
+		return ship
+	var next: Ship = markers.next_in_stack(ship)
+	return next if next != null else ship
 
 
 func deselect() -> void:
@@ -105,9 +127,9 @@ func ship_at(world_position: Vector2, radius: float = 26.0) -> Ship:
 	var best: Ship = null
 	var best_distance: float = radius
 	for ship: Ship in markers.ships:
-		if not ship.visible:
+		if not ship.visible or ship.covered:
 			continue
-		var distance: float = ship.position.distance_to(world_position)
+		var distance: float = ship.drawn_position().distance_to(world_position)
 		if distance < best_distance:
 			best_distance = distance
 			best = ship
@@ -181,6 +203,7 @@ func order(fleet: FleetState, destination: int, destination_id: int) -> Dictiona
 			zone_entered.emit(fleet.sea_zone, ship)
 		else:
 			ShipMarkers.sail(ship, ShipMarkers.port_position(model, fleet.province))
+	relayout()
 	fleet_moved.emit(arrived, result)
 	return result
 
@@ -219,6 +242,7 @@ func sortie(fleet: FleetState, zone: int) -> Dictionary:
 	if ship != null:
 		markers.refit(ship, fleet)
 		zone_entered.emit(zone, ship)
+	relayout()
 	fleet_moved.emit(fleet, result)
 	return result
 
@@ -239,6 +263,7 @@ func transfer_owner(from_id: int, to_id: int) -> void:
 		if ship.faction == from_id and to_id != MapModel.NO_ID:
 			ship.faction = to_id
 	markers.prune(fleets)
+	relayout()
 
 
 ## Every region counts: reading another map must not hide hulls or upkeep.
