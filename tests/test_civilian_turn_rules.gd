@@ -4819,6 +4819,58 @@ func test_an_estate_row_prints_the_words_its_words_module_reads() -> void:
 	)
 
 
+## A ration estate pays double per level, but its cap line reads the **per-level**
+## yield: a level-3 grain estate on a primitive road pays 2 and is held by the
+## road at 1, so the row names the road and not a town cap it never met
+## (wiki: extraction-and-improvements § Ration estates, § Extraction formula and
+## town development cap; DR-20261116-10).
+func test_a_ration_estate_names_the_cap_that_holds_it() -> void:
+	_field_before_each()
+	var tile: Vector2i = Vector2i(2, 1)
+	var resource: int = 4
+	field__model.resource[field__model.index_of(tile.x, tile.y)] = resource
+	field__works.set_improvement(field__model, tile, 3)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, tile, resource,
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [],
+		{"grain": 4}
+	)
+	assert_eq(int(row["level"]), 3)
+	assert_eq(
+		int(row["output"]), 2,
+		"a level-3 farm on a primitive road pays its doubled level-1 yield"
+	)
+	assert_eq(
+		String(row["status_text"]), "Yields 2 grain / turn · transport cap 1",
+		"the row names the road, not a town cap the estate never met"
+	)
+
+
+## The same reading on a town-capped ration estate: the town holds the level at 2,
+## so the row names the town rather than hiding the cap behind the doubled output
+## (wiki: extraction-and-improvements § Extraction formula and town development
+## cap; DR-20261116-10).
+func test_a_town_capped_ration_estate_names_the_town() -> void:
+	_field_before_each()
+	var tile: Vector2i = Vector2i(1, 2)
+	var resource: int = 4
+	field__model.resource[field__model.index_of(tile.x, tile.y)] = resource
+	field__works.set_improvement(field__model, tile, 3)
+	field__model.province_data(field_Fixture.PLAYER_PROVINCE).town_development = 2
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, tile, resource,
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_RAIL}, {"network": {}}, [],
+		{"grain": 4}
+	)
+	assert_eq(int(row["output"]), 4, "two per level, doubled")
+	assert_eq(
+		String(row["status_text"]), "Yields 4 grain / turn · town cap 2",
+		"the doubled figure never hides the cap that holds the level flat"
+	)
+
+
 ## Two fort projects may run in one province, and the later completion adds no
 ## level (wiki: siege-mechanics § Fort Levels). The receipt must not claim a wall
 ## the turn did not raise: the crown paid twice and bought one wall.
