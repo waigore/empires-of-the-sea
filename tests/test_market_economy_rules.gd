@@ -3686,6 +3686,24 @@ func test_the_turn_summary_names_the_lending_floor_behind_an_unpaid_slot() -> vo
 	assert_true(tied.contains("research may not borrow"), tied)
 
 
+## The lane raises the trouble cut only: the harvest, the deliveries and the
+## finished study stay on the ledger sheet and the Gazette (wiki: hud-toasts).
+func test_the_turn_summary_trouble_cut_keeps_only_what_asks_for_action() -> void:
+	var quiet: Dictionary = {
+		"extraction": {"grain": 5},
+		"overseas": {"used": 2, "manufactured": {"castIron": 1}},
+	}
+	assert_eq(LedgerReportText.turn_summary(quiet, true), "", "nothing asks for action")
+
+	var trouble: Dictionary = {
+		"extraction": {"grain": 5},
+		"consumption": {"strikers": 3},
+		"hospital": {"hungry": ["Cádiz"]},
+	}
+	var line: String = LedgerReportText.turn_summary(trouble, true)
+	assert_eq(line, "3 on strike  ·  1 hospital unstaffed", line)
+
+
 ## The same rule spelled out for the college and the slot's own hover.
 func test_the_floor_text_follows_money_lending_and_banking() -> void:
 	assert_true(LedgerReportText.research_floor_line(0).contains("stops at 0 ducats"))
@@ -3735,6 +3753,21 @@ func test_a_fleetless_seat_harbour_grants_one_hold() -> void:
 	var warships := FleetState.in_port(1, 0, 0, ["w"], {"w": "sloop"})
 	assert_eq(TradeCargo.capacity(world, {0: [warships]}, 0), TradeCargo.PORT_ALLOWANCE)
 	assert_eq(TradeCargo.fleet_holds(warships), 0)
+
+## The harbour's one hold buys the yard its first cloth; it never carries a
+## colony's harvest. A crown with no merchant hull in port at its seat has 0
+## crossing holds (wiki: ships-and-naval § Cargo holds and capacity — "the home
+## squadron's merchant hulls are the only holds"; "a crown with no seat or no
+## squadron there has 0 holds").
+func test_the_seat_allowance_is_a_trade_hold_and_never_a_crossing_hold() -> void:
+	var world: WorldMap = _trade_cargo_world()
+	assert_eq(TradeCargo.capacity(world, {}, 0), TradeCargo.PORT_ALLOWANCE)
+	assert_eq(TradeCargo.home_holds(world, {}, 0), 0, "no merchant hull, no crossing")
+	var warships := FleetState.in_port(1, 0, 0, ["w"], {"w": "sloop"})
+	assert_eq(TradeCargo.capacity(world, {0: [warships]}, 0), TradeCargo.PORT_ALLOWANCE)
+	assert_eq(TradeCargo.home_holds(world, {0: [warships]}, 0), 0, "warships carry nothing")
+	var merchants := FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	assert_eq(TradeCargo.home_holds(world, {0: [merchants]}, 0), 4, "her holds are the crossing")
 
 func test_merchants_away_from_the_seat_do_not_get_the_port_allowance() -> void:
 	# Holds that exist but have sortied stay at 0 — the allowance is for a
