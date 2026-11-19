@@ -3931,6 +3931,92 @@ func test_a_coast_at_peace_prices_no_prize() -> void:
 	play.economy.free()
 
 
+# --- the dossier's interception reading (DR-20261120-02) --------------------
+
+
+## A rival squadron afloat in the crown's station water, read across a turn so
+## the crown may weigh her (wiki: ships-and-naval § Sighted strength).
+func _moor_unread_squadron(play: PlaySession, rival: FleetState) -> void:
+	play.naval_intel.observe([rival.id], 0, 0)
+	play.naval_intel.observe([rival.id], 1, 0)
+
+
+## The station's own chance to intercept a hostile squadron that stays in the
+## water is published (§ Naval Interception Probability) and rolled by the combat
+## pass, so the dossier prices it before the move — at the station's own factor,
+## over the squadrons that hold it (DR-20261120-02).
+func test_the_dossier_prices_the_interception_before_the_move() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var rival := _naval_raid_fleet(20, 1, 1, ["fluyte", "fluyte"])
+	var play := _prize_session([patrol], rival)
+	_moor_unread_squadron(play, rival)
+	var expected: float = NavalInterception.chance(
+		[patrol], [rival], FleetState.Mission.PATROL, play.has_tech
+	)
+	var note: String = MapPlayFleetMissions.interception_note(play, patrol)
+	assert_true(note.contains("Interception:"), "a patrol prices what it catches")
+	assert_true(
+		note.contains("%d%%" % int(round(expected * 100.0))),
+		"the dossier reads the chance the pass rolls"
+	)
+	assert_true(note.contains("2 hulls"), "the hulls at risk are named")
+	# An unread rival is priced by nothing: the line waits on the fog instead of
+	# promising a share the chart withholds (§ Sighted strength).
+	var stranger := _naval_raid_fleet(21, 1, 1, ["fluyte"])
+	play.ship_layer.fleets.append(stranger)
+	assert_true(
+		MapPlayFleetMissions.interception_note(play, patrol).contains("the fog has not read"),
+		"an unread squadron leaves the odds unknown"
+	)
+	play.ship_layer.fleets.erase(stranger)
+	# The ruling is the rules': a hostile squadron it has read, roped to the same
+	# group the combat pass rolls.
+	assert_true(
+		MapPlayFleetMissions.note(play, patrol).contains("Interception:"),
+		"the station line carries the catch"
+	)
+	play.economy.free()
+
+
+## Nothing to catch, no station and another court's water: the line is silent.
+func test_the_interception_line_holds_its_tongue() -> void:
+	_setup_naval_raid()
+	var defender := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	defender.mission = FleetState.Mission.DEFEND
+	var rival := _naval_raid_fleet(20, 1, 1, ["fluyte"])
+	var play := _prize_session([defender], rival)
+	_moor_unread_squadron(play, rival)
+	assert_eq(
+		MapPlayFleetMissions.interception_note(play, defender), "",
+		"a squadron holding no station catches nothing"
+	)
+	var patrol := _naval_raid_fleet(2, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	play.ship_layer.fleets.append(patrol)
+	# A rival in another water is no part of this station's catch.
+	rival.sea_zone = 0
+	assert_eq(
+		MapPlayFleetMissions.interception_note(play, patrol), "",
+		"a squadron in another water is not caught here"
+	)
+	# A declared peace catches nobody: the combat pass spills no blood at peace.
+	play.diplomacy = DiplomacyState.new()
+	rival.sea_zone = 1
+	assert_eq(
+		MapPlayFleetMissions.interception_note(play, patrol), "",
+		"peace leaves nothing to intercept"
+	)
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	assert_true(
+		MapPlayFleetMissions.interception_note(play, patrol).contains("Interception:"),
+		"the declared war opens the roll"
+	)
+	play.economy.free()
+
+
 # --- rival-on-rival raids + prize cargo (DR-20261111-20) ----------------------
 
 
