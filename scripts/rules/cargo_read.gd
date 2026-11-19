@@ -103,4 +103,4 @@ static func goods_text(read: Dictionary, limit: int = 3) -> String:
 ## "1 ton" / "4 tons": the unit the holds carry, so a figure never reads as a
 ## count of hulls.
 static func _tons(amount: int) -> String:
-	return "%d ton%s" % [amount, "" if amount == 1 else "s"]
+	return "%d ton%s" % [amount, MoneyText.plural(amount)]

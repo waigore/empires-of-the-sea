@@ -86,7 +86,7 @@ func _heading(group: Dictionary, count: int) -> Control:
 		String(group["region_label"]).to_upper(),
 		String(group["province_name"]).to_upper(),
 		count,
-		"" if count == 1 else "s",
+		MoneyText.plural(count),
 	])
 
 

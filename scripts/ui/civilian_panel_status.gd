@@ -45,7 +45,7 @@ static func text(
 	return "%s · %d turn%s left." % [
 		CivilianWork.label(unit.work_action()),
 		unit.remaining_turns(),
-		"" if unit.remaining_turns() == 1 else "s",
+		MoneyText.plural(unit.remaining_turns()),
 	]
 
 

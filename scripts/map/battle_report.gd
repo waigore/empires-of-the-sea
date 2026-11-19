@@ -44,7 +44,7 @@ static func loss_phrase(side: String, battle: Dictionary) -> String:
 	if count <= 0:
 		return "no ships"
 	var names: Array = battle.get(side + "_lost_names", [])
-	var head: String = "%d ship%s" % [count, "" if count == 1 else "s"]
+	var head: String = "%d ship%s" % [count, MoneyText.plural(count)]
 	if names.is_empty():
 		return head
 	return "%s (%s)" % [head, ", ".join(_strings(names, 3))]
@@ -158,11 +158,11 @@ static func regiment_note(battle: Dictionary) -> String:
 	var gained: int = int(battle.get("attacker_chevrons", 0)) \
 		+ int(battle.get("defender_chevrons", 0))
 	if gained > 0:
-		parts.append("%d chevron%s won" % [gained, "" if gained == 1 else "s"])
+		parts.append("%d chevron%s won" % [gained, MoneyText.plural(gained)])
 	var mauled: int = int(battle.get("attacker_mauled", 0)) \
 		+ int(battle.get("defender_mauled", 0))
 	if mauled > 0:
-		parts.append("%d regiment%s mauled" % [mauled, "" if mauled == 1 else "s"])
+		parts.append("%d regiment%s mauled" % [mauled, MoneyText.plural(mauled)])
 	if parts.is_empty():
 		return ""
 	return " — " + ", ".join(parts)
@@ -176,7 +176,7 @@ static func line_note(battle: Dictionary) -> String:
 		+ int(battle.get("defender_reserve", 0))
 	if reserve <= 0:
 		return ""
-	return " — %d regiment%s held in reserve" % [reserve, "" if reserve == 1 else "s"]
+	return " — %d regiment%s held in reserve" % [reserve, MoneyText.plural(reserve)]
 
 
 ## Formats an ArmyCombat record for the land-battle toast, with the condition
@@ -210,7 +210,7 @@ static func siege_note(battle: Dictionary) -> String:
 		return ""
 	var start: int = int(siege.get("guns_start", lost))
 	var text: String = " — %d of %d emplaced gun%s silenced" % [
-		lost, start, "" if start == 1 else "s"
+		lost, start, MoneyText.plural(start)
 	]
 	if not bool(siege.get("fort_downgraded", false)):
 		return text
@@ -298,4 +298,4 @@ static func _spent(side: String, faction: String, battle: Dictionary, lead: Stri
 
 ## "1 regiment" / "2 regiments": a despatch never says "1 regiments".
 static func _regiments(count: int) -> String:
-	return "%d regiment%s" % [count, "" if count == 1 else "s"]
+	return "%d regiment%s" % [count, MoneyText.plural(count)]

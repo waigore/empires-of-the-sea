@@ -41,7 +41,7 @@ func _build_row(row: Dictionary) -> Control:
 	return super({
 		"type": String(row["type"]),
 		"name": "%s — %d hull%s" % [
-			String(row["name"]), hulls, "" if hulls == 1 else "s"
+			String(row["name"]), hulls, MoneyText.plural(hulls)
 		],
 		"ok": ok,
 		"reason": reason,

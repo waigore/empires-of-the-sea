@@ -175,7 +175,7 @@ static func _loss_phrase(battle: Dictionary, side: String) -> String:
 	var count: int = (battle.get(side + "_lost", []) as Array).size()
 	if count <= 0:
 		return "no ships"
-	var head: String = "%d ship%s" % [count, "" if count == 1 else "s"]
+	var head: String = "%d ship%s" % [count, MoneyText.plural(count)]
 	var names: Array = battle.get(side + "_lost_names", []) as Array
 	if names.is_empty():
 		return head

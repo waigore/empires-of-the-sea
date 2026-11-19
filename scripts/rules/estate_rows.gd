@@ -273,7 +273,7 @@ static func _row(
 	var gap: int = int(facts["gap"])
 	if gap > 0:
 		status_text += " · %d tile%s to the crown network" % [
-			gap, "" if gap == 1 else "s"
+			gap, MoneyText.plural(gap)
 		]
 	var next_level: int = int(facts["next_level"])
 	return {

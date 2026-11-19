@@ -228,11 +228,11 @@ func refresh(
 	var active: int = _state.researching().size()
 	_summary.text = "%d slot%s · %d at study · %d ducats · %d tech%s known" % [
 		_state.slots.size(),
-		"" if _state.slots.size() == 1 else "s",
+		MoneyText.plural(_state.slots.size()),
 		active,
 		treasury,
 		_state.unlocked_ids().size(),
-		"" if _state.unlocked_ids().size() == 1 else "s",
+		MoneyText.plural(_state.unlocked_ids().size()),
 	]
 	var open: Array[String] = _open_advances()
 	_goal_row.render(_state, _goal)

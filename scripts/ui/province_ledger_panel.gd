@@ -85,7 +85,7 @@ func _empty_text() -> String:
 
 func _heading(group: Dictionary, count: int) -> Control:
 	return LedgerList.heading("%s  ·  %d province%s" % [
-		String(group["region_label"]).to_upper(), count, "" if count == 1 else "s"
+		String(group["region_label"]).to_upper(), count, MoneyText.plural(count)
 	])
 
 

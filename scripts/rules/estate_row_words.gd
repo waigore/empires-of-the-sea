@@ -35,7 +35,7 @@ static func status_text(
 	match status:
 		"building":
 			var left: int = working.remaining_turns() if working != null else 0
-			return "Builder at work · %d turn%s left" % [left, "" if left == 1 else "s"]
+			return "Builder at work · %d turn%s left" % [left, MoneyText.plural(left)]
 		"vacant":
 			var vacant: String = (
 				"Vacant — a Builder can raise a %s" % ImprovementCatalog.base_name(resource)

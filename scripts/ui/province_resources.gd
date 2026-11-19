@@ -98,7 +98,7 @@ func render(rows: Array[Dictionary], unsurveyed: int = 0, roads: Dictionary = {}
 
 
 func _tiles(count: int) -> String:
-	return "%d tile%s" % [count, "" if count == 1 else "s"]
+	return "%d tile%s" % [count, MoneyText.plural(count)]
 
 
 # --- one estate --------------------------------------------------------------
@@ -222,7 +222,7 @@ func _tip(row: Dictionary) -> String:
 	parts.append("%s · %s" % [works, grade])
 	if bool(row["working"]):
 		var left: int = int(row["remaining"])
-		parts.append("Builder at work · %d turn%s left" % [left, "" if left == 1 else "s"])
+		parts.append("Builder at work · %d turn%s left" % [left, MoneyText.plural(left)])
 	if not bool(row["ours"]):
 		parts.append("held by another crown")
 	elif bool(row.get("blockaded", false)):

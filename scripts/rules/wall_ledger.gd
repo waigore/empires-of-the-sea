@@ -192,10 +192,10 @@ static func preview_text(level: int, next: int) -> String:
 		next,
 		roundi(FortRules.wall_hp(next)),
 		pieces,
-		"" if pieces == 1 else "s",
+		MoneyText.plural(pieces),
 		add_hp,
 		add_guns,
-		"" if add_guns == 1 else "s",
+		MoneyText.plural(add_guns),
 	]
 
 

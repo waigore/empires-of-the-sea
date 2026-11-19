@@ -120,7 +120,7 @@ static func fallback(leader_key: String) -> Dictionary:
 static func summary(data: Dictionary) -> String:
 	var held: int = int(data.get("held", 0))
 	var cap: int = int(data.get("cap", 0))
-	var text: String = "%d of %d commander%s" % [held, cap, "" if cap == 1 else "s"]
+	var text: String = "%d of %d commander%s" % [held, cap, MoneyText.plural(cap)]
 	if bool(data.get("above_cap", false)):
 		text = "%d commanders (cap %d)" % [held, cap]
 	var next: Dictionary = data.get("next", {}) as Dictionary
@@ -145,7 +145,7 @@ static func fallback_line(data: Dictionary) -> String:
 	var defend: int = int(fallback.get("defend", 0))
 	if attack == defend:
 		return "No free commander: the leader's own %d medal%s." % [
-			attack, "" if attack == 1 else "s"
+			attack, MoneyText.plural(attack)
 		]
 	return "No free commander: the leader's own %d attacking, %d defending." % [
 		attack, defend

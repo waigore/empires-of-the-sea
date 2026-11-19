@@ -141,7 +141,7 @@ func _hull_line(entry: Dictionary) -> String:
 	var hulls: int = int(entry["own_hulls"])
 	if hulls <= 0:
 		return "— no sail"
-	return "%d hull%s · %.1f" % [hulls, "" if hulls == 1 else "s", float(entry["own_strength"])]
+	return "%d hull%s · %.1f" % [hulls, MoneyText.plural(hulls), float(entry["own_strength"])]
 
 
 ## Second line: the station our squadrons hold, then the hostile sail sharing

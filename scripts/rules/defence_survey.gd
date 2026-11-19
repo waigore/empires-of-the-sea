@@ -86,11 +86,10 @@ static func summary_text(entry: Dictionary) -> String:
 	if regiments <= 0:
 		parts.append("No garrison")
 	else:
-		parts.append("%d strength · %d regiment%s" % [strength, regiments, _s(regiments)])
+		parts.append("%d strength · %d regiment%s" % [strength, regiments, MoneyText.plural(regiments)])
 	if fort > 0:
-		parts.append(
-			"Fort %d (%d gun%s)" % [fort, int(entry.get("guns", 0)), _s(int(entry.get("guns", 0)))]
-		)
+		var guns: int = int(entry.get("guns", 0))
+		parts.append("Fort %d (%d gun%s)" % [fort, guns, MoneyText.plural(guns)])
 	else:
 		parts.append("No wall")
 	var hospital: int = int(entry.get("hospital", 0))
@@ -206,6 +205,3 @@ static func _empty_counts() -> Dictionary:
 		counts[band] = 0
 	return counts
 
-
-static func _s(count: int) -> String:
-	return "" if count == 1 else "s"

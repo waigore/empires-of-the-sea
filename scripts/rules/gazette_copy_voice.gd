@@ -35,9 +35,9 @@ static func verb(count: int) -> String:
 
 ## "1 hull" / "2 hulls".
 static func hulls(count: int) -> String:
-	return "%d hull%s" % [count, "" if count == 1 else "s"]
+	return "%d hull%s" % [count, MoneyText.plural(count)]
 
 
 ## "1 regiment" / "2 regiments".
 static func regiments(count: int) -> String:
-	return "%d regiment%s" % [count, "" if count == 1 else "s"]
+	return "%d regiment%s" % [count, MoneyText.plural(count)]

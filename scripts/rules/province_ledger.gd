@@ -167,7 +167,7 @@ static func _line(province: ProvinceState, estate: Dictionary) -> String:
 		parts.append("No estates")
 	else:
 		parts.append("%d estate%s · %d a turn" % [
-			estates, "" if estates == 1 else "s", int(estate["yield"])
+			estates, MoneyText.plural(estates), int(estate["yield"])
 		])
 	return " · ".join(parts)
 
@@ -180,7 +180,7 @@ static func _state(garrison: Dictionary, link: Dictionary) -> String:
 		parts.append("Ungarrisoned")
 	else:
 		parts.append("%d regiment%s · %.1f strength" % [
-			regiments, "" if regiments == 1 else "s", float(garrison["strength"])
+			regiments, MoneyText.plural(regiments), float(garrison["strength"])
 		])
 	parts.append(_link_text(link))
 	return " · ".join(parts)
@@ -197,7 +197,7 @@ static func _link_text(link: Dictionary) -> String:
 		return "Harbour blockaded"
 	var gap: int = int(link.get("distance", -1))
 	if gap > 0:
-		return "Cut off — %d road tile%s to lay" % [gap, "" if gap == 1 else "s"]
+		return "Cut off — %d road tile%s to lay" % [gap, MoneyText.plural(gap)]
 	return "Cut off — no road route"
 
 

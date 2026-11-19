@@ -62,12 +62,12 @@ static func tooltip(economy: PlayerEconomy, recipe_id: String) -> String:
 		+ "Runs started now wait %d turn%s."
 	) % [
 		serving,
-		"" if serving == 1 else "s",
+		MoneyText.plural(serving),
 		cadence,
 		wait,
-		"" if wait == 1 else "s",
+		MoneyText.plural(wait),
 		turns,
-		"" if turns == 1 else "s",
+		MoneyText.plural(turns),
 	]
 	# A full bench is why the row's "+" is inert: say so, and say what frees it
 	# (wiki: production-recipes § Workshop queue; DR-20261114-12).

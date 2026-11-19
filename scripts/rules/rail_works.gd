@@ -114,11 +114,7 @@ static func dispatch(
 static func idle_rail_builders(
 	units: Array[CivilianState], owner: int
 ) -> Array[CivilianState]:
-	var result: Array[CivilianState] = [] as Array[CivilianState]
-	for unit: CivilianState in units:
-		if unit != null and unit.owner == owner and unit.type_id == RAIL_BUILDER and unit.is_idle():
-			result.append(unit)
-	return result
+	return CivilianWork.idle_crews(units, owner, RAIL_BUILDER)
 
 
 ## Closest idle Rail Builder by Manhattan distance; ties break on unit id, as
@@ -126,25 +122,13 @@ static func idle_rail_builders(
 static func nearest_rail_builder(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:
-	var best: CivilianState = null
-	var best_distance: int = 1 << 30
-	for unit: CivilianState in idle_rail_builders(units, owner):
-		var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
-		if distance < best_distance or (distance == best_distance and unit.id < best.id):
-			best = unit
-			best_distance = distance
-	return best
+	return CivilianWork.nearest_crew(units, owner, tile, RAIL_BUILDER)
 
 
 static func _working_rail_builder(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:
-	for unit: CivilianState in units:
-		if unit == null or unit.owner != owner or unit.type_id != RAIL_BUILDER:
-			continue
-		if unit.is_working() and unit.work_tile() == tile:
-			return unit
-	return null
+	return CivilianWork.working_crew(units, owner, tile, RAIL_BUILDER, RAIL)
 
 
 ## The estate the tile carries, in the catalog's own words; empty for a bare

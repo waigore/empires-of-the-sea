@@ -32,7 +32,7 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 		text += " · %d mauled" % mauled
 	var guns: int = int(action.get("guns_destroyed", 0))
 	if guns > 0:
-		text += " · %d gun%s silenced" % [guns, "" if guns == 1 else "s"]
+		text += " · %d gun%s silenced" % [guns, MoneyText.plural(guns)]
 	elif int(action.get("battery_hit", 0)) > 0:
 		text += " · the battery takes the blow"
 	var behind: int = int(action.get("behind_lost", 0))
@@ -40,7 +40,7 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 		text += " · %d behind the wall" % behind
 	var gates: int = int(action.get("gates_broken", 0))
 	if gates > 0:
-		text += " · %d gate%s breached" % [gates, "" if gates == 1 else "s"]
+		text += " · %d gate%s breached" % [gates, MoneyText.plural(gates)]
 	# The wing the blow fell on, why it fell heavier, and the wing it broke
 	# (wiki: quick-battle § Wings and collapse).
 	var wing: String = String(action.get("wing", ""))
@@ -101,7 +101,7 @@ static func plan_text(battle: Dictionary) -> String:
 	var text: String = "Your plan: %s · enemy: %s" % [mine.capitalize(), theirs.capitalize()]
 	var guns: int = int(quick.get("guns_start", 0))
 	if guns > 0:
-		text += " · %d gun%s" % [guns, "" if guns == 1 else "s"]
+		text += " · %d gun%s" % [guns, MoneyText.plural(guns)]
 	return text
 
 
@@ -242,7 +242,7 @@ static func chevron_line(battle: Dictionary, names: Array) -> String:
 		if gained <= 0:
 			continue
 		parts.append("%s: %d regiment%s rise a chevron" % [
-			faction(int(battle.get(key, -1)), names), gained, "" if gained == 1 else "s"
+			faction(int(battle.get(key, -1)), names), gained, MoneyText.plural(gained)
 		])
 	if parts.is_empty():
 		return ""
@@ -261,7 +261,7 @@ static func honour_line(battle: Dictionary, province_name: String, names: Array)
 			continue
 		parts.append("%s: %s added to %d colour%s" % [
 			faction(int(battle.get(key, -1)), names), province_name,
-			gained, "" if gained == 1 else "s",
+			gained, MoneyText.plural(gained),
 		])
 	if parts.is_empty():
 		return ""
@@ -279,7 +279,7 @@ static func citation_line(battle: Dictionary, province_name: String, names: Arra
 			continue
 		parts.append("%s: %d colour%s cited at %s" % [
 			faction(int(battle.get(key, -1)), names), cited,
-			"" if cited == 1 else "s", province_name,
+			MoneyText.plural(cited), province_name,
 		])
 	if parts.is_empty():
 		return ""

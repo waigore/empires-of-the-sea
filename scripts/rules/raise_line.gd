@@ -124,7 +124,7 @@ static func paid(reading: Dictionary) -> String:
 		parts.append("%d %s%s" % [
 			crews,
 			String(reading.get("crew_word", "crew")),
-			"" if crews == 1 else "s",
+			MoneyText.plural(crews),
 		])
 	return " · ".join(parts)
 
@@ -153,7 +153,7 @@ static func sheet_line(reading: Dictionary) -> String:
 		costs,
 		waiting,
 		int(reading.get("count", 0)),
-		"" if waiting != 1 else "s",
+		MoneyText.verb_s(waiting),
 		why,
 	]
 
@@ -179,5 +179,5 @@ static func _nothing_line(reading: Dictionary) -> String:
 		return ""
 	var why: String = refusal if refusal.ends_with(".") else refusal + "."
 	return "Nothing in this view can be ordered — %d wait%s: %s" % [
-		total, "" if total != 1 else "s", why,
+		total, MoneyText.verb_s(total), why,
 	]

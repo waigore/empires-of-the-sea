@@ -130,7 +130,7 @@ static func summary(
 	var shown: int = count(data, region_key, reading)
 	var scope: String = scope_text(region_key)
 	var squadrons: int = squadron_count(data, region_key)
-	var fleet: String = "%d squadron%s" % [squadrons, "" if squadrons == 1 else "s"]
+	var fleet: String = "%d squadron%s" % [squadrons, MoneyText.plural(squadrons)]
 	if reading != READING_ALL and not reading.is_empty():
 		return "Showing %d of %d hulls %s — %s only." % [
 			shown, in_scope, scope, reading_label(reading).to_lower()
@@ -154,11 +154,11 @@ static func summary(
 		fleet,
 		scope,
 		warships,
-		"" if warships == 1 else "s",
+		MoneyText.plural(warships),
 		merchants,
-		"" if merchants == 1 else "s",
+		MoneyText.plural(merchants),
 		holds,
-		"" if holds == 1 else "s",
+		MoneyText.plural(holds),
 		strength,
 	]
 
@@ -241,7 +241,7 @@ static func _hull_state(type_id: String, role: String) -> String:
 	var cargo: int = int(ShipStats.entry(type_id).get("cargo", 0))
 	if role == READING_WARSHIP:
 		return "No holds — she fights in the line"
-	return "%d hold%s for the world market" % [cargo, "" if cargo == 1 else "s"]
+	return "%d hold%s for the world market" % [cargo, MoneyText.plural(cargo)]
 
 
 static func _fleet_station(fleet: FleetState) -> String:

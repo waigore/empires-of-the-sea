@@ -154,7 +154,7 @@ func _shortfall_copy(read: Dictionary) -> String:
 	var tier: int = int(read["striking_tier"])
 	var who: String = "%d striker%s, %s first" % [
 		strikers,
-		"" if strikers == 1 else "s",
+		MoneyText.plural(strikers),
 		WorkerPool.tier_name(maxi(tier, 0)).to_lower(),
 	]
 	if short > 0:

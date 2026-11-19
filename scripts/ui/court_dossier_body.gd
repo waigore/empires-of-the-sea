@@ -56,7 +56,7 @@ func _add_intel(
 	add_child(
 		UiRowBuilder.wrapped_line(
 			"Holds %d province%s to your %d." % [
-				provinces, "" if provinces == 1 else "s", mine
+				provinces, MoneyText.plural(provinces), mine
 			],
 			13,
 			Palette.TEXT
@@ -140,7 +140,7 @@ func _add_agenda_lines(box: VBoxContainer, timeline: Array) -> void:
 		box.add_child(
 			UiRowBuilder.wrapped_line(
 				"…and %d earlier observation%s." % [
-					timeline.size() - shown, "" if timeline.size() - shown == 1 else "s"
+					timeline.size() - shown, MoneyText.plural(timeline.size() - shown)
 				],
 				11,
 				Palette.TEXT_DIM
@@ -180,11 +180,11 @@ func _add_notes(report: Dictionary) -> void:
 	add_child(
 		UiRowBuilder.wrapped_line(
 			"%d war%s  ·  %d alliance%s  ·  %d broken  ·  %d call%s refused  ·  %d peace%s" % [
-				int(notes.get("war", 0)), _plural(int(notes.get("war", 0))),
-				int(notes.get("alliance", 0)), _plural(int(notes.get("alliance", 0))),
+				int(notes.get("war", 0)), MoneyText.plural(int(notes.get("war", 0))),
+				int(notes.get("alliance", 0)), MoneyText.plural(int(notes.get("alliance", 0))),
 				int(notes.get("broken", 0)),
-				int(notes.get("refused", 0)), _plural(int(notes.get("refused", 0))),
-				int(notes.get("peace", 0)), _plural(int(notes.get("peace", 0))),
+				int(notes.get("refused", 0)), MoneyText.plural(int(notes.get("refused", 0))),
+				int(notes.get("peace", 0)), MoneyText.plural(int(notes.get("peace", 0))),
 			],
 			13,
 			Palette.TEXT
@@ -201,7 +201,7 @@ func _agenda_text(row: Dictionary, open: bool) -> String:
 		String(row["band"]),
 		int(row["confidence"]),
 		int(row["score"]),
-		"" if int(row["score"]) == 1 else "s",
+		MoneyText.plural(int(row["score"])),
 	]
 
 
@@ -241,9 +241,6 @@ static func _standing(record: DiplomacyRelation) -> String:
 	return DiplomacyCatalog.state_label(false)
 
 
-static func _plural(count: int) -> String:
-	return "" if count == 1 else "s"
-
 
 static func _build_label(what: String, count: int) -> String:
 	var labels: Dictionary = {
@@ -254,7 +251,7 @@ static func _build_label(what: String, count: int) -> String:
 		"fort": "fort%s",
 		"rail": "rail line%s",
 	}
-	return String(labels.get(what, "%ss")) % _plural(count)
+	return String(labels.get(what, "%ss")) % MoneyText.plural(count)
 
 
 func _row_button(text: String) -> Button:

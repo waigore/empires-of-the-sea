@@ -46,7 +46,7 @@ static func option_row(
 	if action != "build_fort":
 		return row
 	var turns: int = CivilianWorkPlan.duration_for(model, action, tile, works)
-	row["cost_text"] = "%s · %d turn%s" % [price, turns, "" if turns == 1 else "s"]
+	row["cost_text"] = "%s · %d turn%s" % [price, turns, MoneyText.plural(turns)]
 	return row
 
 

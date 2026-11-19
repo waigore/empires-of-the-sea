@@ -100,7 +100,7 @@ static func _survey_text(
 	if left <= 0:
 		return "Every prospectable tile here is charted"
 	return "%d tile%s still to survey — tap one on the map" % [
-		left, "" if left == 1 else "s"
+		left, MoneyText.plural(left)
 	]
 
 

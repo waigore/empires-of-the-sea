@@ -240,8 +240,9 @@ static func _our_line(entry: Dictionary) -> String:
 	var squadrons: int = int(entry["own_squadrons"])
 	if squadrons <= 0:
 		return "No sail of ours"
+	var hulls: int = int(entry["own_hulls"])
 	return "Ours %d squadron%s · %d hull%s · %s" % [
-		squadrons, _s(squadrons), int(entry["own_hulls"]), _s(int(entry["own_hulls"])),
+		squadrons, MoneyText.plural(squadrons), hulls, MoneyText.plural(hulls),
 		_one(entry["own_strength"]),
 	]
 
@@ -259,8 +260,9 @@ static func _foe_line(entry: Dictionary) -> String:
 	var weight: String = (
 		"weight unread" if int(entry["foe_unread"]) > 0 else _one(entry["foe_strength"])
 	)
+	var hulls: int = int(entry["foe_hulls"])
 	return "%s %d squadron%s · %d hull%s · %s" % [
-		who, squadrons, _s(squadrons), int(entry["foe_hulls"]), _s(int(entry["foe_hulls"])),
+		who, squadrons, MoneyText.plural(squadrons), hulls, MoneyText.plural(hulls),
 		weight,
 	]
 
@@ -360,6 +362,3 @@ static func _empty_counts() -> Dictionary:
 static func _one(value: Variant) -> String:
 	return "%.1f" % float(value)
 
-
-static func _s(count: int) -> String:
-	return "" if count == 1 else "s"
