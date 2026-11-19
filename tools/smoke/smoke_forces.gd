@@ -20,11 +20,11 @@ static func step_navy(run) -> void:
 	run.check(fleet != null, "home fleet mustered at the seat")
 	if fleet == null:
 		return
-	var zones: Array[int] = NavalMovement.province_sea_zones(screen.model, capital)
-	run.check(not zones.is_empty(), "the seat has a sea zone")
-	if zones.is_empty():
+	var seat_zones: Array[int] = NavalMovement.province_sea_zones(screen.model, capital)
+	run.check(not seat_zones.is_empty(), "the seat has a sea zone")
+	if seat_zones.is_empty():
 		return
-	MapPlayCivilianVoyage.sortie(screen.play, fleet, zones[0])
+	MapPlayCivilianVoyage.sortie(screen.play, fleet, seat_zones[0])
 	run.check(fleet.is_at_sea(), "the home squadron sorties")
 	var ship: Ship = screen.ship_layer.ship_for(fleet)
 	run.check(ship != null, "the home squadron flies a marker")
@@ -96,8 +96,11 @@ static func step_navy(run) -> void:
 		"the new squadron flies a marker"
 	)
 	# Moor the home fleet back at the seat, so the later crew and turn steps read
-	# the holds they expect (issue #1043).
+	# the holds they expect (issue #1043). The smoke's sail went wherever the
+	# dossier offered, so put her in the water off the seat before docking.
 	fleet.moved = false
+	fleet.sea_zone = seat_zones[0]
+	fleet.province = MapModel.NO_ID
 	var moored: Dictionary = screen.ship_layer.order(
 		fleet, FleetState.Location.IN_PORT, capital
 	)

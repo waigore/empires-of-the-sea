@@ -45,6 +45,10 @@ func build(
 		if owner == player and not player_present:
 			continue
 		var capital: int = _capital(model, owner, player_capital, player)
+		# A home fleet needs a seat: a chart where the power holds no capital
+		# musters no squadron for her (issue #1043).
+		if capital == MapModel.NO_ID:
+			continue
 		var fleet: FleetState = _make_fleet(model, index, owner, capital)
 		_assign_hulls(fleet, _hulls_for(owner, player, rival_index))
 		if owner != player:
