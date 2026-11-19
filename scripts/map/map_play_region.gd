@@ -9,9 +9,11 @@ extends RefCounted
 ## The default chart recipe seed. The ship muster offsets it per region, so
 ## every campaign musters the same squadrons on the same chart recipe.
 const MAP_SEED: int = 1500
-## Squadrons mustered per region at game start. At least one per Great Power
-## after the player's three, so `_ensure_warship` never adds a spare (issue #484).
-const SHIP_COUNT: int = 8
+## One opening squadron per Great Power: each power's hulls ride its one home
+## fleet (issue #1043), so the region musters as many squadrons as there are
+## powers with a capital on it. A chart without a Great Power capital (the New
+## World at game start) musters none.
+const SHIP_COUNT: int = 6
 const STARTING_CIVILIANS: Array[String] = ["explorer", "builder", "engineer"]
 
 
