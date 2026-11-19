@@ -165,7 +165,8 @@ func refresh(
 	strength: Dictionary = {},
 	merge: Dictionary = {},
 	beach_hint: String = "",
-	roster: Array[FleetState] = []
+	roster: Array[FleetState] = [],
+	pick: String = ""
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -190,7 +191,7 @@ func refresh(
 	if colonists > 0:
 		_ships.text += " · %d colonist%s" % [colonists, "" if colonists == 1 else "s"]
 	_fill_land()
-	_mission.set_data(beach_note, beach_rows)
+	_mission.set_data(beach_note, beach_rows, pick)
 	_crew.set_data(crew)
 	_set_standing(fleet, is_player, passage, beach_note, beach_hint, merge, carried, colonists)
 	_show_split(model, fleet, is_player)

@@ -5855,3 +5855,23 @@ func _dossier_row_of(rows: Array[Array], caption: String) -> String:
 		if String(row[0]) == caption:
 			return String(row[1])
 	return ""
+
+
+## The mission block's advice line: the pick the court's own admiral would give
+## the squadron prints under the station note and hides when there is none, so a
+## sheet never shows an empty gold row (wiki: ships-and-naval § Missions and
+## Movement; DR-20261120-04).
+func test_the_mission_block_prints_the_courts_pick_under_its_station() -> void:
+	var block := FleetMissionSection.new()
+	add_child(block)
+	block.set_data("No station held.", [], "The court would dock her at Cádiz.")
+	assert_true(block.visible, "a pick needs no station row of its own")
+	assert_eq(block._pick.text, "The court would dock her at Cádiz.")
+	assert_true(block._pick.visible, "the advice prints")
+	assert_eq(block._note.text, "No station held.", "the station note keeps its own line")
+	block.set_data("No station held.", [])
+	assert_false(block._pick.visible, "no pick, no gold row")
+	assert_eq(block._pick.text, "", "and nothing left over from the last squadron")
+	block.set_data("", [], "")
+	assert_false(block.visible, "nothing to say, nothing raised")
+	block.queue_free()
