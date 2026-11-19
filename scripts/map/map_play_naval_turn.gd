@@ -117,20 +117,12 @@ static func reconcile_decks(play: PlaySession) -> Array[Dictionary]:
 	var rows: Array[Dictionary] = ArmyTransport.reconcile_aboard(play.army_layer, fleets)
 	## A drowned regiment is news only when it was the crown's: a rival's loss at
 	## sea is its own court's business (wiki: hud-toasts).
-	if play == null or play.hud == null:
-		return rows
-	var player: int = play.human_faction_id()
-	for row: Dictionary in rows:
-		if int(row.get("owner", -1)) != player:
-			continue
-		var men: Array = row.get("regiments", [])
-		if not men.is_empty():
-			play.hud.toast(
-				"%d regiment%s went down with the sunk hulls — the deck could not hold them"
-				% [men.size(), "" if men.size() == 1 else "s"]
-			)
-		if not (row.get("civilians", []) as Array).is_empty():
-			play.hud.toast("A colonist went down with a sunk hull")
+	if play != null and play.hud != null:
+		for row: Dictionary in rows:
+			if int(row.get("owner", -1)) != play.human_faction_id():
+				continue
+			for line: String in NavalTransport.drown_news(row):
+				play.hud.toast(line)
 	return rows
 
 

@@ -2267,6 +2267,11 @@ func test_a_sunk_hull_takes_her_regiment_with_her() -> void:
 	assert_false(army.regiments.has("unit_1100"))
 	assert_eq(fleet.embarked_army, army.id, "the men left aboard still ride her")
 	assert_eq(NavalTransport.aboard(fleet, army), 2, "one hull, one man")
+	assert_eq(
+		NavalTransport.drown_news(drowned),
+		["1 regiment went down with the sunk hulls — the deck could not hold them"],
+		"the bar names the one regiment it lost"
+	)
 
 
 ## A deck the sea empties carries no army any more, and the standard leaves with
@@ -2299,6 +2304,7 @@ func test_a_sunk_hull_takes_her_colonist_with_her() -> void:
 	assert_eq(int(colonists[0]), 23, "the last hand aboard drowns first")
 	assert_eq(fleet.civilian_count(), 2)
 	assert_eq(NavalTransport.aboard(fleet, null), 2)
+	assert_eq(NavalTransport.drown_news(drowned), ["A colonist went down with a sunk hull"])
 
 
 ## The turn's close reads every deck: whichever loss took the hull — a battle's

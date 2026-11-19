@@ -65,6 +65,23 @@ static func trim_aboard(fleet: FleetState, army: ArmyState) -> Dictionary:
 	return drowned
 
 
+## The bar's lines for a squadron that drowned her surplus, one per kind, and
+## none when nobody went down (REQ-P5-05, wiki: hud-toasts). Read from a row of
+## [method ArmyTransport.reconcile_aboard], so the news names the same loss the
+## roster lost.
+static func drown_news(row: Dictionary) -> Array[String]:
+	var lines: Array[String] = []
+	var men: Array = row.get("regiments", [])
+	if not men.is_empty():
+		lines.append(
+			"%d regiment%s went down with the sunk hulls — the deck could not hold them"
+			% [men.size(), "" if men.size() == 1 else "s"]
+		)
+	if not (row.get("civilians", []) as Array).is_empty():
+		lines.append("A colonist went down with a sunk hull")
+	return lines
+
+
 ## A field army in the fleet's port may board when the hulls can hold it.
 static func can_embark(model: MapModel, army: ArmyState, fleet: FleetState) -> Dictionary:
 	if army == null:
