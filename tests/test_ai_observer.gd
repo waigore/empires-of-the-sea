@@ -13,6 +13,8 @@ const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
 ## chart and re-seat from the turn-1 save (~0.2 s) instead of mounting and
 ## re-planning again (docs/testing.md speed rules). Cases that prove a *mode*
 ## changing what the turn plans ask for the top of turn 1 (`_seat(0)`).
+## Pure AiTurnLog / dashboard-chrome cases never touch `_screen`, so they skip
+## the re-seat (docs/testing.md § Speed rules; same lazy pattern as map_screen).
 ##
 ## Non-underscore: gd-tools clones a fresh suite instance per test and does not
 ## copy underscore fields out of before_all (docs/testing.md speed rules).
@@ -22,7 +24,8 @@ var pristine: Dictionary = {}
 var turn_one: Dictionary = {}
 var turn_one_ai: Dictionary = {}
 var turn_one_log: Array = []
-var _screen: MapScreen = null
+## Set when this case has paid for a re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
@@ -39,7 +42,7 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	_seat(1)
+	_chart_bound = false
 
 
 func after_all() -> void:
@@ -47,7 +50,6 @@ func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	_screen = null
 	pristine = {}
 	turn_one = {}
 	turn_one_ai = {}
@@ -67,17 +69,26 @@ func _mount() -> MapScreen:
 
 ## Re-seats the shared chart at the top of turn 1 (`after_turns = 0`) or just
 ## after its first resolved turn (the default), then hands the case back the
-## turn log that turn wrote.
+## turn log that turn wrote. Live cases reach it through `_screen` / `_seat()`;
+## pure cases that never ask never pay `suite_reset`.
 func _seat(after_turns: int = 1) -> void:
 	Fixture.restore(Fixture.world(), world_snapshot)
 	Fixture.suite_reset(mounted, pristine if after_turns == 0 else turn_one)
-	_screen = mounted
+	_chart_bound = true
 	if after_turns == 0:
 		MapPlayTurn.view_live = true
 		return
-	_screen.play.ai = AiState.from_dict(turn_one_ai.duplicate(true))
-	_screen.play.ai_turns.assign(turn_one_log.duplicate(true))
+	mounted.play.ai = AiState.from_dict(turn_one_ai.duplicate(true))
+	mounted.play.ai_turns.assign(turn_one_log.duplicate(true))
 	MapPlayTurn.view_live = true
+
+
+## Live cases that read the observatory chart; defaults to the turn-1 capture.
+var _screen: MapScreen:
+	get:
+		if not _chart_bound:
+			_seat(1)
+		return mounted
 
 
 func _step(turns: int = 1) -> void:
@@ -149,8 +160,9 @@ func test_headless_run_keeps_the_rules_and_drops_the_view() -> void:
 	# Performance budget): same rules, no per-turn view follow-up. Two turns are
 	# enough to prove the calendar and the merged record keep growing without a
 	# view; five turns used to burn ~9 s under coverage for the same asserts.
-	MapPlayTurn.view_live = false
+	# Seat first: a lazy `_screen` re-seat restores `view_live = true`.
 	var play: PlaySession = _screen.play
+	MapPlayTurn.view_live = false
 	assert_false(MapPlayTurn.view_live, "the turn knows no view is followed")
 	var before: int = play.turn
 	_step(2)
