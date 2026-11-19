@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1092 (REQ-P2-02).
+Audited: wiki / DRs / code through #1102 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -36,12 +36,11 @@ Default: largest item here, then REQ/wiki.
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face; opening muster; fan/stack | `RaiseBatchPress`; `FleetMuster`; `FleetLanes` |
 | Rival priced overtures | `DiplomacyProposals` queue + the asking court's ledger |
+| AI win / border front (#995) | `AiBorderFronts`; bench win t101 (DR-19-16, #1095) |
 
 ## Gaps (ranked)
 
-1. **The AI's win (issue #995)** — **closed**: the subject takes the bar's 31
-   Old World provinces and wins the bench campaign at t101 (4297.83, +500), by
-   keeping the border war it can march on (DR-20261119-16).
+None.
 
 ## Next pick
 
@@ -65,5 +64,5 @@ None ranked; audit `docs/rubric.md` / wiki for the next gap.
 
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft weight
-seed blocked (`DR-20261117-01`). Learnings treats fan/stack as a live lesson
-(`FleetLanes` #1047; DR-20261119-08).
+seed blocked (`DR-20261117-01`). Learnings coverage gaps none
+(`FleetLanes` #1047; DR-20261119-08/17).

@@ -131,7 +131,10 @@ static func christen(fleet: FleetState, hull_id: String) -> String:
 
 
 ## Christens every hull of the fleet that carries no name yet, in roster order,
-## so a launched hull, a scenario muster and a loaded save all end up named.
+## so a launched hull, a scenario muster and a loaded save all end up named. The
+## squadron's names are then made pairwise distinct, because a roster that took
+## hulls from two cohorts (a merge, or a save written by a build that named them
+## apart) can fly one name twice (wiki: naming § Ship names).
 static func fill(fleet: FleetState) -> void:
 	if fleet == null:
 		return
@@ -139,6 +142,26 @@ static func fill(fleet: FleetState) -> void:
 		if not String(fleet.hull_names.get(hull_id, "")).is_empty():
 			continue
 		fleet.hull_names[hull_id] = christen(fleet, hull_id)
+	settle(fleet)
+
+
+## One name, one hull: a squadron's names are pairwise distinct (wiki: naming
+## § Ship names; DR-20261111-07). The hull earlier in the roster keeps the name
+## it flies and a later one is christened again past the names the squadron now
+## bears, so a hull that joined the squadron in a merge gives way to the hull
+## that already flew the name. Deterministic — the same owners, squadrons and
+## instance ids always settle alike — and written to the fleet's own store, so a
+## reload speaks the settled names. An ordinary squadron is left untouched.
+static func settle(fleet: FleetState) -> void:
+	if fleet == null:
+		return
+	var seen: Dictionary = {}
+	for hull_id: String in fleet.hulls:
+		var name: String = of(fleet, hull_id)
+		if name.is_empty() or seen.has(name):
+			fleet.hull_names[hull_id] = christen(fleet, hull_id)
+			name = String(fleet.hull_names[hull_id])
+		seen[name] = true
 
 
 ## The name a new hull takes: a stable pick from the crown's pool, advanced past
