@@ -38,13 +38,12 @@ Default: largest item here, then REQ/wiki.
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
 | Confirm-face matches the line | `RaiseBatchPress` carries, DR-18-21 |
+| Shared-station fan/stack + cycle | `FleetLanes`; `ShipMarkers.layout`; DR-20261119-08 / #1047 |
 
 ## Gaps (ranked)
 
 1. **Opening home-fleet muster** (#1043) — wiki: every GP opening command in one
    home fleet (carrack+sloop+Fluyte, 4 holds). `FleetMuster` moors only id 2.
-2. **Shared-station fleet fan/stack** (#1043 / DR-19-08 wiki) — own ≤3 fan,
-   rest+rivals stack+cycle. Markers still one-per-center.
 
 ## Next pick
 
@@ -67,5 +66,6 @@ Opening home-fleet muster (#1043), then REQ/wiki.
 ## Wiki drift
 
 - `civilian-units` Road L2/gathering still deferred (live).
-- `ships-and-naval` names both #1043 halves ahead of code.
+- `ships-and-naval` names the opening muster ahead of code (fan/stack live,
+  DR-20261119-08).
 - Soft weight seed remains.
