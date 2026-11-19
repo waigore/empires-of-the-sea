@@ -90,11 +90,16 @@ static func merged_line(play: PlaySession, home: FleetState, hulls: int) -> Stri
 ## is folded into the home fleet here, so the seat never ends a turn holding two
 ## (wiki: ships-and-naval § Home Fleet — "any naval move that docks at the
 ## capital resolves by merging"). Idempotent, and administrative: no move is
-## spent, no fog revealed. Returns how many squadrons joined.
+## spent, no fog revealed. The chart follows the fold on the region it shows, and
+## a crown whose own squadron is folded at the close reads the line it would have
+## read had it docked by hand (REQ-P5-05; DR-20261119-17). Returns how many
+## squadrons joined.
 static func settle_seats(play: PlaySession) -> int:
 	if play == null or play.ship_layer == null or play.world == null:
 		return 0
 	var joined: int = 0
+	var shown: int = _shown_region(play)
+	var chart_changed: bool = false
 	for region: int in play.ship_layer.regions.region_ids():
 		var model: MapModel = play.world.region(region)
 		if model == null:
@@ -111,11 +116,23 @@ static func settle_seats(play: PlaySession) -> int:
 				# displaced army when the harness runs headless.
 				if int(report.get("displaced", -1)) >= 0:
 					MapPlayPortLoss.put_ashore(play, int(report["displaced"]), int(report["seat"]))
+				if faction == play.player_faction and play.hud != null:
+					play.hud.toast(merged_line(play, home, int(report.get("hulls", 0))))
 			if not reports.is_empty():
 				_seat_carried(play, home)
 		if changed:
 			play.ship_layer.regions.set_region(region, roster)
+			chart_changed = chart_changed or region == shown
+	if chart_changed:
+		play.ship_layer.roster_changed()
 	return joined
+
+
+## The region the chart is showing, or `MapModel.NO_ID` when the layer has none.
+static func _shown_region(play: PlaySession) -> int:
+	if play.ship_layer.model == null:
+		return MapModel.NO_ID
+	return play.ship_layer.model.region_id
 
 
 ## A docking move folds into the home fleet where the move happens, so a planner

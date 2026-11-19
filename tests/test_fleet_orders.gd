@@ -2657,6 +2657,63 @@ func test_the_turn_folds_a_docked_rival_into_the_home_fleet() -> void:
 	assert_eq(MapPlayHomeMerge.settle_seats(_screen.play), 0, "the pass is idempotent")
 
 
+## A seat merge changes the station, so the chart must read it: the squadron that
+## joined leaves the water (her marker is dropped, not left to draw), the home
+## fleet flies the hulls she brought, and the row closes up behind her
+## (wiki: ships-and-naval § Home Fleet, § Fleets in one station; DR-20261119-17).
+func test_a_seat_merge_leaves_the_chart_in_step() -> void:
+	var play: PlaySession = _screen.play
+	var region: int = play.region_index
+	var rival: int = -1
+	var seat: int = MapModel.NO_ID
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == MapScreen.PLAYER_FACTION:
+			continue
+		var found: int = play.world.capital_province_of(region, faction)
+		if found != MapModel.NO_ID:
+			rival = faction
+			seat = found
+			break
+	assert_gte(rival, 0, "a rival seats a capital on the shown chart")
+	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
+	var home: FleetState = _rival_home(roster, rival, seat)
+	var kept: int = home.ship_count()
+	var stray := FleetState.in_port(
+		FleetRosters.next_id(roster), rival, seat, ["ship_911"], {"ship_911": "fluyte"}
+	)
+	roster.append(stray)
+	play.ship_layer.regions.set_region(region, roster)
+	play.ship_layer.attach_marker(stray)
+	var stray_marker: Ship = play.ship_layer.markers.find(stray.id)
+	assert_not_null(stray_marker, "the docked squadron is drawn at the seat")
+
+	assert_gte(MapPlayHomeMerge.settle_seats(play), 1, "the docked squadron joins")
+
+	assert_null(play.ship_layer.markers.find(stray.id),
+		"the merged-away squadron leaves the chart")
+	var home_marker: Ship = play.ship_layer.markers.find(home.id)
+	assert_not_null(home_marker, "the home fleet keeps her marker")
+	assert_eq(home.ship_count(), kept + 1, "her hulls include the one that joined")
+	assert_eq(home_marker.hull_count, home.ship_count(),
+		"the badge flies the hulls she now carries")
+	assert_false(home_marker.stack.has(stray.id),
+		"the station's row closes up behind the squadron that left")
+
+
+## A crown whose own squadron is folded at the turn's close reads the line it
+## would have read had it docked by hand: the seat merge is never silent
+## (REQ-P5-05; wiki: ships-and-naval § Home Fleet; DR-20261119-17).
+func test_the_close_names_the_crowns_own_seat_merge() -> void:
+	var stray: FleetState = _stray_at_the_seat()
+	var home: FleetState = _screen.play.ship_layer.home_fleet(_screen.play.capital_province)
+	assert_not_null(home, "the fixture founds a home fleet")
+
+	assert_gte(MapPlayHomeMerge.settle_seats(_screen.play), 1, "the stray joins at the close")
+
+	assert_null(_screen.ship_layer.markers.find(stray.id), "her marker leaves the seat")
+	assert_has(_last_toast(), "joins the home fleet", "the court reads the merge once")
+
+
 ## A docking move folds where it happens, not only at the next turn's pass: an
 ## AI planner that only moves hulls still leaves the seat holding one squadron
 ## (wiki: ships-and-naval § Home Fleet — "any naval move that docks at the
