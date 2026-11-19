@@ -72,6 +72,13 @@ static func establish_overture(
 ## reads: a Tribe keeps its land, so its provinces never count toward victory
 ## (wiki: factions § Tribe; diplomacy § GP–Tribe Rules). Earlier links are
 ## steps, not purchases, and stay quiet.
+##
+## Every absorbed crown's land, regiments and hulls change flags
+## (wiki: diplomacy § GP–Minor Rules — Join Empire; `MapPlayDiplomacy.on_order`
+## hands the fleets over with the provinces), so the line names all three. A
+## Great Power target answers the offer on either of the rule's roads — nearly
+## defeated, or the offerer's published power twice its own
+## (wiki: diplomacy § Join Empire; DR-20261115-19) — so the line names both.
 static func stage_hint(stage: String, target_type: int) -> String:
 	if stage != DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		return ""
@@ -82,9 +89,13 @@ static func stage_hint(stage: String, target_type: int) -> String:
 				+ "toward victory — its trade favours your court."
 			)
 		FactionCatalog.Type.MINOR_NATION:
-			return "Its provinces and regiments join your empire."
+			return "Its provinces, regiments and hulls join your empire."
 		_:
-			return "A nearly defeated crown's provinces and armies join yours."
+			return (
+				"A crown answers yes when it is nearly defeated, or when your "
+				+ "power is twice its own — then its provinces, regiments and "
+				+ "hulls join yours."
+			)
 
 
 static func _absorb(world: WorldMap, state: DiplomacyState, winner: int, loser: int) -> void:
