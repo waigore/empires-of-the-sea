@@ -61,15 +61,15 @@ static func rules_text(report: Dictionary) -> String:
 		int(limits.get("defender", ArmyModifiers.BASE_DEPLOYMENT)),
 	]
 	text += "Ground %s — volley ×%.2f, assault ×%.2f, entrench ×%.2f\n" % [
-		SiegeLanes.terrain_label(terrain), SiegeLanes.terrain_scale("volley", terrain),
-		SiegeLanes.terrain_scale("assault", terrain), SiegeLanes.entrench_scale(terrain),
+		SiegeGround.terrain_label(terrain), SiegeGround.terrain_scale("volley", terrain),
+		SiegeGround.terrain_scale("assault", terrain), SiegeGround.entrench_scale(terrain),
 	]
 	var level: int = int(report.get("fort_level", 0))
 	if level > 0:
 		text += "Walls spare %d%% · %d guns\n" % [
 			roundi(FortRules.damage_reduction(level) * 100.0), int(quick.get("guns_start", 0)),
 		]
-		text += "3 gates · one breaches every %d wall casualties\n" % SiegeLanes.breach_threshold(level)
+		text += "3 gates · one breaches every %d wall casualties\n" % SiegeGates.breach_threshold(level)
 		text += "Lanes: %d wall, %d behind\n" % [
 			int((quick.get("lanes", {}) as Dictionary).get("wall", 0)),
 			int((quick.get("lanes", {}) as Dictionary).get("behind", 0)),

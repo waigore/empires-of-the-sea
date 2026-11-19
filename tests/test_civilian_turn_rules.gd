@@ -1815,7 +1815,7 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 		],
 	}
 
-	MapPlayCivilianAi.keep_extraction(plan, model)
+	MapPlayCivilianPlan.keep_extraction(plan, model)
 
 	assert_eq((plan["orders"] as Array).size(), 2, "the resource tile and the survey survive")
 	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
@@ -1829,7 +1829,7 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var crops: Array = MapPlayCivilianAi.bank_crops(config, economy)
+	var crops: Array = MapPlayCivilianPlan.bank_crops(config, economy)
 	assert_true(crops.has("grain") and crops.has("meat"), "the farms are always kept")
 	assert_false(crops.has("timber"), "timber is no raw a line's row consumes")
 
@@ -1851,7 +1851,7 @@ func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
 		],
 	}
 
-	MapPlayCivilianAi.keep_bank_works(plan, model, crops)
+	MapPlayCivilianPlan.keep_bank_works(plan, model, crops)
 
 	var kept_tiles: Array = []
 	for raw: Variant in plan["orders"]:
@@ -1871,7 +1871,7 @@ func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
 func test_a_banking_court_keeps_the_road_to_an_off_network_town() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var crops: Array = MapPlayCivilianAi.bank_crops(config, economy)
+	var crops: Array = MapPlayCivilianPlan.bank_crops(config, economy)
 	var model := MapModel.new()
 	model.setup(6, 1)
 	model.terrain.fill(MapModel.Terrain.PLAINS)
@@ -1886,7 +1886,7 @@ func test_a_banking_court_keeps_the_road_to_an_off_network_town() -> void:
 		],
 	}
 
-	MapPlayCivilianAi.keep_bank_works(
+	MapPlayCivilianPlan.keep_bank_works(
 		plan, model, crops, {Vector2i(1, 0): true}
 	)
 
@@ -1942,12 +1942,12 @@ func test_town_road_steps_name_the_first_unroaded_tile_to_the_network() -> void:
 ## The two purses: a court on `earn` keeps the works open down to its cash floor
 ## while hires still wait for the muster (issue #489).
 func test_the_works_purse_opens_when_the_court_is_earning() -> void:
-	var saving: Dictionary = MapPlayCivilianAi.purses_for(1000, 2400, -1)
+	var saving: Dictionary = MapPlayCivilianPlan.purses_for(1000, 2400, -1)
 	assert_eq(int(saving["spendable"]), 0, "nothing is discretionary below the reserve")
 	assert_eq(int(saving["works"]), 0)
 	assert_false(bool(saving["earn"]))
 
-	var earning: Dictionary = MapPlayCivilianAi.purses_for(1000, 2400, 400)
+	var earning: Dictionary = MapPlayCivilianPlan.purses_for(1000, 2400, 400)
 	assert_eq(int(earning["spendable"]), 0, "hires still stand down")
 	assert_eq(int(earning["works"]), 600, "extraction may draw on the purse")
 	assert_true(bool(earning["earn"]))
