@@ -1157,6 +1157,59 @@ func _money_lending_floor_state(funding: String) -> ResearchState:
 	return state
 
 
+# --- the priced walk ---------------------------------------------------------
+## The slot rows, the heading and the one press all read `ResearchWalk`, one row
+## per slot, so a sheet can paint the slots by index and the phase prices the
+## same turn (REQ-P2-03).
+func test_a_walk_of_no_college_is_empty() -> void:
+	var walk: Dictionary = ResearchWalk.run(null, 0)
+	assert_eq((walk["slots"] as Array[Dictionary]).size(), 0)
+	assert_eq(int(walk["gold"]), 0)
+	assert_eq(int(walk["occupied"]), 0)
+
+
+func test_the_walk_prices_slots_against_the_purse_the_ones_before_leave() -> void:
+	_state.assign("crop_rotation", "medium")
+	_state.assign("saw_mill", "medium")
+	var walk: Dictionary = ResearchWalk.run(_state, 200)
+	var rows: Array[Dictionary] = walk["slots"]
+
+	assert_eq(rows.size(), ResearchState.DEFAULT_SLOTS, "an idle slot still gets its row")
+	assert_eq(int(walk["occupied"]), 2)
+	assert_eq(int(walk["gold"]), 150, "the first slot takes its 150")
+	assert_eq(int(walk["rp"]), 300)
+	assert_eq(int(walk["unpaid"]), 1, "200 ducats cannot reach a second 150")
+	assert_true(bool(rows[0]["paid"]))
+	assert_false(bool(rows[1]["paid"]), "the purse the first slot leaves cannot pay it")
+	assert_eq(int(rows[1]["gold"]), 0, "an unpaid slot buys nothing")
+	assert_eq(String(rows[2]["tech"]), "", "the free slot keeps its row for the sheet")
+
+
+func test_the_walk_lands_a_study_before_it_prices_the_slot_after_it() -> void:
+	var walk: Dictionary = ResearchWalk.run(_money_lending_floor_state("maximum"), 1800)
+	var rows: Array[Dictionary] = walk["slots"]
+
+	assert_eq(int(walk["gold"]), 2000, "the floor Money Lending opens pays both")
+	assert_eq(int(walk["rp"]), 5000)
+	assert_eq(int(walk["unpaid"]), 0)
+	assert_true(bool(rows[1]["paid"]), "slot 1 spends a floor slot 0 has not opened yet")
+	assert_eq(int(rows[1]["progress"]), 0)
+	assert_eq(int(rows[1]["cost"]), 1800)
+
+
+func test_the_walk_reads_each_slot_own_preset_unless_one_is_forced() -> void:
+	_state.assign("crop_rotation", "low")
+	_state.assign("saw_mill", "high")
+	var standing: Dictionary = ResearchWalk.run(_state, 5000)
+	assert_eq(int(standing["gold"]), 450, "50 + 400")
+	assert_eq(int(standing["rp"]), 900, "100 + 800")
+
+	var forced: Dictionary = ResearchWalk.run(_state, 5000, "medium")
+	assert_eq(int(forced["gold"]), 300, "both slots priced at the preset on its face")
+	assert_eq(int(forced["rp"]), 600)
+	assert_eq(String((forced["slots"] as Array[Dictionary])[1]["funding"]), "medium")
+
+
 func test_the_batch_plan_reads_every_slot_once() -> void:
 	var state: ResearchState = ResearchState.make()
 	state.assign("crop_rotation", "low")
