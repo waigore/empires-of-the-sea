@@ -90,6 +90,7 @@ func test_title_screen_offers_new_and_load() -> void:
 	assert_true(menu.new_game_button != null)
 	assert_true(menu.load_game_button != null)
 	assert_true(menu.quit_button != null)
+	assert_false(menu.has_signal("observer_pressed"), "no debug door on the title menu")
 	assert_eq(DialogueLocale.locale(), DialogueLocale.SOURCE_LOCALE, "English only")
 
 
@@ -560,22 +561,18 @@ func test_auto_start_boots_the_map_screen() -> void:
 	Fixture.restore(chart, snap)
 
 
-## Debug door: the title screen starts a fully-AI campaign with no human court.
-func test_observer_entry_starts_an_all_ai_campaign() -> void:
+## Debug door: the desktop `--ai-observer` switch boots a fully-AI campaign with
+## no human court, and the title screen never appears (docs/ai-observer.md).
+func test_observer_launch_starts_an_all_ai_campaign() -> void:
 	_drop_flow_shell()
 	var chart: WorldMap = Fixture.world()
 	var snap: Array = Fixture.snapshot(chart)
 	var shell: Node = MAIN.instantiate()
+	shell.observer_start = true
 	shell.size_override = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 	shell.preset_world = chart
 	add_child(shell)
-	var menu: MainMenu = shell.current_page as MainMenu
-	assert_not_null(menu, "the title screen offers the door")
-	if menu == null:
-		shell.free()
-		Fixture.restore(chart, snap)
-		return
-	menu.observer_pressed.emit()
+	assert_false(shell.current_page is MainMenu, "the switch skips the title screen")
 	var screen: MapScreen = shell.current_screen
 	assert_not_null(screen, "the observer builds a map screen")
 	if screen == null:
@@ -592,6 +589,19 @@ func test_observer_entry_starts_an_all_ai_campaign() -> void:
 	assert_not_null(screen.get_node_or_null("AiObserver"), "the dashboard mounts")
 	shell.free()
 	Fixture.restore(chart, snap)
+
+
+## The switch is read from the user args after `--`, and only as its own arg: a
+## value after `=` or a neighbouring switch never opens the observer.
+func test_the_observer_switch_is_read_from_the_user_args() -> void:
+	var script: Script = load("res://scenes/main.gd")
+	assert_true(script.has_observer_flag(PackedStringArray(["--ai-observer"])))
+	assert_true(script.has_observer_flag(PackedStringArray(
+		["--agent-debug=8765", " --ai-observer "]
+	)))
+	assert_false(script.has_observer_flag(PackedStringArray(["--ai-observer=1"])))
+	assert_false(script.has_observer_flag(PackedStringArray(["--ai-observe"])))
+	assert_false(script.has_observer_flag(PackedStringArray([])))
 
 # --- the crown's charge (campaign intro) ---
 

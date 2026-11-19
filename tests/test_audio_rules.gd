@@ -672,7 +672,8 @@ func test_a_campaign_takes_the_launch_director_over() -> void:
 	_setup_map_soundtrack()
 	var app: Node = _boot_shell()
 	_reseat_shell(app)
-	(app.current_page as MainMenu).observer_pressed.emit()
+	# The observer is the cheapest campaign door (no setup / charge pages).
+	app._start_observer()
 	var screen: MapScreen = app.current_screen
 	assert_not_null(screen, "the debug door installs a campaign")
 	if screen == null:
@@ -700,7 +701,7 @@ func test_returning_to_the_title_brings_the_sea_bed_back() -> void:
 	_setup_map_soundtrack()
 	var app: Node = _boot_shell()
 	_reseat_shell(app)
-	(app.current_page as MainMenu).observer_pressed.emit()
+	app._start_observer()
 	assert_not_null(app.current_screen)
 	if app.current_screen == null:
 		return
