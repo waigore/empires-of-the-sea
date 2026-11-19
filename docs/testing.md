@@ -331,6 +331,16 @@ godot --headless --path . --script res://playtests/playtest_defeat.gd
 # archive's chips and its `<n> of <m>` pages, and saves and reloads the
 # campaign to read the watchlist and the sheets back.
 godot --headless --path . --script res://playtests/playtest_gazette.gd
+
+# Home fleet at the opening — the one command every Great Power moors at its own
+# seat (#1043): reads both charts' rosters for a stray hull id or a second
+# command in port, the marker's badge, the fleet dossier, the navy sheet's count
+# line and hull rows, the holds the market may spend and the food the navy eats,
+# then puts the home squadron to sea and moors her back (one command, holds
+# restored), lays a hull down at the seat, and lays one down again with her away
+# to read the slip founded there and the merge that follows her home. PT_ADVANCED
+# opens a preset start, so the turn-100 galleons read the same way.
+godot --headless --path . --script res://playtests/playtest_home_fleet.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
