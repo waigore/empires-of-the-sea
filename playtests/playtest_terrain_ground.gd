@@ -77,7 +77,10 @@ func _names_pass() -> void:
 		_expect(shown == wanted, "%s is named as published" % _enum_name(terrain))
 
 
-## The province sheet's Terrain row against the ground the battle uses.
+## The province sheet's Terrain row against the ground the battle uses: the row
+## opens with that ground's published name, and a province that mixes ground
+## also names its second-most common one (wiki: resource-terrain-region-rules
+## § Player-facing terrain display names; issue #1084).
 func _ground_pass(model: MapModel, label: String) -> void:
 	_say("")
 	_say("--- the sheet's ground against the battle's, %s ---" % label)
@@ -87,21 +90,49 @@ func _ground_pass(model: MapModel, label: String) -> void:
 		var sheet: String = String(_play.hud.panels.panel._grid.terrain.text)
 		var ground: int = ArmyModifiers.terrain_for(model, province.id)
 		var battle: String = String(MapModel.TERRAIN_LABELS.get(ground, "?"))
-		if sheet == battle:
+		var counts: Dictionary = _counts(model, province.id)
+		var second: int = _runner_up(counts, ground)
+		var read: bool = sheet.begins_with(battle)
+		if second >= 0:
+			read = read and sheet.contains(String(MapModel.TERRAIN_LABELS.get(second, "?")))
+		if read:
 			continue
 		mismatch += 1
-		var counts: Dictionary = {}
-		for tile: Vector2i in model.province_tiles(province.id):
-			var terrain: int = model.terrain_at(tile.x, tile.y)
-			counts[terrain] = int(counts.get(terrain, 0)) + 1
 		_say("%s: the sheet reads [%s], the battle fights on [%s] (%s)" % [
 			province.name, sheet, battle, _counts_text(counts),
 		])
 	_say("%d of %d provinces read differently than they fight" % [
 		mismatch, model.province_count(),
 	])
-	_expect(mismatch == 0, "%s: every Terrain row names the ground its battle uses" % label)
+	_expect(
+		mismatch == 0,
+		"%s: every Terrain row names the ground its battle uses, then the runner-up" % label
+	)
 	_play.hud.panels.hide_province()
+
+
+## Every terrain the province holds, with how many tiles carry it.
+func _counts(model: MapModel, province_id: int) -> Dictionary:
+	var counts: Dictionary = {}
+	for tile: Vector2i in model.province_tiles(province_id):
+		var terrain: int = model.terrain_at(tile.x, tile.y)
+		counts[terrain] = int(counts.get(terrain, 0)) + 1
+	return counts
+
+
+## The second-most common ground, or -1 when the province is one ground
+## throughout. Ties fall to the lower terrain id, as `ArmyModifiers` reads them.
+func _runner_up(counts: Dictionary, ground: int) -> int:
+	var best: int = -1
+	var best_count: int = 0
+	for terrain: int in counts.keys():
+		if terrain == ground:
+			continue
+		var count: int = int(counts[terrain])
+		if count > best_count or (count == best_count and terrain < best):
+			best = terrain
+			best_count = count
+	return best
 
 
 ## The map's own enum name, so a finding says which terrain it means.

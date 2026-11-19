@@ -202,9 +202,14 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 	if play.sea_lens != null:
 		sea_zone = play.sea_lens.zone_at(world)
 	var sea_moved: bool = play.sea_lens != null and sea_zone != play.sea_lens.hover_zone
-	if province_id == play.hover_province and not sea_moved:
+	# Land reads the tile under the cursor, not the province it entered by: one
+	# province paints several grounds, and the line names the one under the
+	# pointer (wiki: tile-map-and-generation § Reading the chart; issue #1084).
+	var ground_moved: bool = province_id >= 0 and tile != play.hover_tile
+	if province_id == play.hover_province and not sea_moved and not ground_moved:
 		return
 	play.hover_province = province_id
+	play.hover_tile = tile
 	play.overlay.hover_province = province_id
 	if play.lens != null:
 		play.lens.hover_province = province_id
@@ -274,6 +279,7 @@ static func _over_gui(view: Viewport) -> bool:
 
 
 static func clear_hover(play: PlaySession) -> void:
+	play.hover_tile = Vector2i(-1, -1)
 	if play.hover_province == -1:
 		if play.sea_lens != null and play.sea_lens.hover_zone >= 0:
 			play.sea_lens.hover_zone = -1

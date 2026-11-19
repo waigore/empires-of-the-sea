@@ -130,6 +130,9 @@ var selected_province: int = -1
 var capital_province: int = -1
 var capital_tile: Vector2i = CapitalChoice.NO_TILE
 var hover_province: int = -1
+## The last tile the pointer read, so a move inside one province that changes
+## the ground under the cursor still repaints the hover (issue #1084).
+var hover_tile: Vector2i = Vector2i(-1, -1)
 var charted_provinces: Dictionary = {}
 ## Last resolved army feeding coverage per faction (fed / demanded rations).
 var feeding: Dictionary = {}
