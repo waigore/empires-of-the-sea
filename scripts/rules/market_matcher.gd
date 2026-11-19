@@ -15,6 +15,10 @@ extends RefCounted
 ## A colonial boycott bars a pair outright — no fill between the boycotted court
 ## and the issuer's colony Tribes; both orders carry (wiki: diplomacy § Boycott).
 ## No RNG, no logging, no Game/Node access (REQ-P3-03).
+##
+## This file keeps the deals, the running state and the price. Who takes the
+## goods is `MarketMatcherRank`'s own job: the offer order and the tier arms
+## (REQ-P3-01).
 
 
 ## Returns {deals, residuals, notes}. Orders are cloned; the caller carries.
@@ -77,7 +81,7 @@ static func _first_right(
 			var bid: MarketOrder = bid_raw
 			if bid.faction != owner or bid.remaining() <= 0:
 				continue
-			if _barred(state["context"], bid.faction, offer.faction):
+			if MarketMatcherRank.boycott_for(state["context"], bid.faction, offer.faction):
 				continue
 			var filled: int = _fill(bid, offer, commodity, state, deals, true)
 			if filled <= 0:
@@ -87,12 +91,14 @@ static func _first_right(
 static func _match_tiers(
 	commodity: String, bids: Array, offers: Array, state: Dictionary, deals: Array
 ) -> void:
-	_sort_offers(offers)
+	MarketMatcherRank.sort_offers(offers)
 	var blocked: Dictionary = {}
 	for raw: Variant in offers:
 		var offer: MarketOrder = raw
 		while offer.remaining() > 0:
-			var bid: MarketOrder = _best_bid(bids, offer, blocked, state["context"])
+			var bid: MarketOrder = MarketMatcherRank.best_bid(
+				bids, offer, blocked, state["context"]
+			)
 			if bid == null:
 				break
 			var filled: int = _fill(bid, offer, commodity, state, deals, false)
@@ -202,91 +208,6 @@ static func _cap_for_buyer(state: Dictionary, bid: MarketOrder, commodity: Strin
 	var by_holds: int = maxi(_holds_left(state, bid.faction), 0)
 	var by_purse: int = int(floor(maxf(_treasury_left(state, bid.faction), 0.0) / unit))
 	return maxi(mini(bid.remaining(), mini(by_holds, by_purse)), 0)
-
-
-static func _best_bid(
-	bids: Array, offer: MarketOrder, blocked: Dictionary, context: Dictionary
-) -> MarketOrder:
-	var best: MarketOrder = null
-	for raw: Variant in bids:
-		var bid: MarketOrder = raw
-		if bid.remaining() <= 0 or blocked.has(bid.id):
-			continue
-		# A barred pair is no bid at all for this seller, so the next court in
-		# the tier takes the goods (wiki: diplomacy § GP–Tribe — Boycott, R6).
-		if _barred(context, bid.faction, offer.faction):
-			continue
-		if best == null or _bid_less(bid, best, offer, context):
-			best = bid
-	return best
-
-
-## True when a colonial boycott stands between the two courts (wiki: diplomacy
-## § GP–Tribe — Boycott, R6). The caller publishes the reading; no diplomacy,
-## nothing to bar.
-static func _barred(context: Dictionary, a: int, b: int) -> bool:
-	var callable: Variant = context.get("boycott_for", null)
-	return callable is Callable and bool((callable as Callable).call(a, b))
-
-
-static func _bid_less(
-	a: MarketOrder, b: MarketOrder, offer: MarketOrder, context: Dictionary
-) -> bool:
-	if a.priority != b.priority:
-		return a.priority < b.priority
-	var ftp_for: Variant = context.get("ftp_for", null)
-	if ftp_for is Callable:
-		var a_ftp: bool = bool((ftp_for as Callable).call(a.faction, offer.faction))
-		var b_ftp: bool = bool((ftp_for as Callable).call(b.faction, offer.faction))
-		if a_ftp != b_ftp:
-			return a_ftp
-	if MarketRules.is_minor(offer.faction):
-		# A colony's suzerain clears its goods first inside the tier, whatever
-		# the rivals' relations (wiki: diplomacy § Favoured trading partner, R7.1;
-		# DR-20261111-11). Independent courts keep the R7.3 order below.
-		var favoured_for: Variant = context.get("favoured_for", null)
-		if favoured_for is Callable:
-			var favoured: int = int((favoured_for as Callable).call(offer.faction))
-			if favoured >= 0 and a.faction != b.faction:
-				if a.faction == favoured:
-					return true
-				if b.faction == favoured:
-					return false
-		var consulate_for: Variant = context.get("consulate_for", null)
-		# R7.3's relation arm is a tiebreak between Consulate holders only; a
-		# court with no Consulate reading has nothing to gate on.
-		var relation_applies: bool = not (consulate_for is Callable)
-		if consulate_for is Callable:
-			var a_consul: bool = bool((consulate_for as Callable).call(a.faction, offer.faction))
-			var b_consul: bool = bool((consulate_for as Callable).call(b.faction, offer.faction))
-			if a_consul != b_consul:
-				return a_consul
-			relation_applies = a_consul and b_consul
-		var relation_for: Variant = context.get("relation_for", null)
-		if relation_applies and relation_for is Callable:
-			var a_score: float = float((relation_for as Callable).call(a.faction, offer.faction))
-			var b_score: float = float((relation_for as Callable).call(b.faction, offer.faction))
-			if not is_equal_approx(a_score, b_score):
-				return a_score > b_score
-	if a.faction != b.faction:
-		return a.faction < b.faction
-	return a.id < b.id
-
-
-static func _sort_offers(offers: Array) -> void:
-	offers.sort_custom(func(a: MarketOrder, b: MarketOrder) -> bool:
-		if a.priority != b.priority:
-			return a.priority < b.priority
-		if a.auto != b.auto:
-			return a.auto
-		if a.faction != b.faction:
-			return a.faction < b.faction
-		if a.origin_region != b.origin_region:
-			return a.origin_region < b.origin_region
-		if a.origin_index != b.origin_index:
-			return a.origin_index < b.origin_index
-		return a.id < b.id
-	)
 
 
 static func _residuals(
