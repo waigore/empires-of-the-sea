@@ -7,11 +7,6 @@ extends RefCounted
 ## New regiments always join the Home Army at the capital (wiki: military-armies).
 
 
-## A hard stop on the drill yard's one press: a sheet that never leaves a row
-## ready cannot spin, whatever a hand-built table holds (DR-20261118-07).
-const BATCH_LIMIT: int = 64
-
-
 ## The faction's Home Army among the given armies, or null. The list is read as
 ## the layer's generic roster, so a caller holding an untyped `Array` needs no
 ## copy of this scan.
@@ -68,43 +63,36 @@ static func muster_blocked_reason(
 ## REQ-P5-04; DR-20261118-07). The walk stops at the first refusal, because that
 ## refusal is the rules' answer for the realm. Returns {filed, total, ducats,
 ## materials, workers, refusal}, the spend included so the receipt names it.
+##
+## The walk itself is [RaiseBatchSum]'s, the one `batch_plan` reads, so the sum a
+## sheet prints and the orders a press files cannot drift (DR-20261118-11).
 static func queue_all(
 	economy: PlayerEconomy,
 	armies: Array[ArmyState],
 	owner: int,
 	types: Array[String]
 ) -> Dictionary:
-	var result: Dictionary = {
-		"filed": 0, "total": types.size(), "refusal": "",
-		"ducats": 0, "materials": {}, "workers": 0,
-	}
 	if economy == null or home_army(armies, owner) == null:
-		result["refusal"] = "Regiments muster only in the Home Army."
-		return result
-	var treasury: int = economy.treasury
-	var stock: Dictionary = economy.stockpile.duplicate()
-	for type_id: String in types:
-		if int(result["filed"]) >= BATCH_LIMIT:
-			break
-		var reason: String = RegimentEconomy.blocked_reason(
-			type_id, treasury, stock, economy.available_peasants(), economy.tech_unlocked
+		return RaiseBatchSum.blocked(
+			types.size(), "Regiments muster only in the Home Army."
 		)
-		if not reason.is_empty():
-			result["refusal"] = reason
-			break
-		economy.queue_build(RecruitQueue.KIND_REGIMENT, type_id)
-		var cost: int = RegimentCatalog.treasury_cost(type_id)
-		treasury -= cost
-		result["ducats"] = int(result["ducats"]) + cost
-		result["workers"] = int(result["workers"]) + 1
-		var inputs: Dictionary = RegimentEconomy.training_inputs(type_id)
-		var spent: Dictionary = result["materials"]
-		for commodity: Variant in inputs.keys():
-			var id: String = String(commodity)
-			stock[id] = int(stock.get(id, 0)) - int(inputs[commodity])
-			spent[id] = int(spent.get(id, 0)) + int(inputs[commodity])
-		result["filed"] = int(result["filed"]) + 1
-	return result
+	var receipt: Dictionary = RaiseBatchSum.file(
+		types,
+		economy.treasury,
+		economy.stockpile,
+		func(type_id: String) -> int: return RegimentCatalog.treasury_cost(type_id),
+		func(type_id: String) -> Dictionary:
+			return RegimentEconomy.training_inputs(type_id),
+		func(type_id: String, treasury: int, stock: Dictionary, _filed: int) -> String:
+			return RegimentEconomy.blocked_reason(
+				type_id, treasury, stock, economy.available_peasants(),
+				economy.tech_unlocked
+			),
+		func(type_id: String) -> void:
+			economy.queue_build(RecruitQueue.KIND_REGIMENT, type_id)
+	)
+	receipt["total"] = types.size()
+	return receipt
 
 
 ## The drill yard's one press, read before it is pressed: every ready standard in
