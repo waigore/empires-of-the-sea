@@ -3,7 +3,9 @@ extends CanvasLayer
 ## In-game pause menu (REQ-P5-01): resume, save to a local slot, load a local
 ## slot (the router rebuilds the whole screen), the sound desk, the chart's keys
 ## (`KeysSheet`) and the way back to the title. The cartouche's own MENU seal
-## opens it.
+## opens it. The pause desk and campaign reading live in `GameMenuPause` and
+## `GameMenuCampaign` so this layer stays the open/close orchestrator
+## (REQ-P3-01, REQ-P3-02).
 
 signal save_chosen(slot: int)
 signal load_chosen(slot: int)
@@ -40,6 +42,8 @@ var _keys_page: VBoxContainer = null
 var _status: Label = null
 var _owns_pause: bool = false
 var _shown_seed: int = 0
+## The pause desk that owns the rows (GameMenuPause).
+var _desk := GameMenuPause.new()
 
 
 func _ready() -> void:
@@ -92,73 +96,29 @@ func _build_overlay() -> void:
 	# Same centred-column contract as the menu pages: centred while it fits,
 	# scrolled from the top once it does not (REQ-P5-01).
 	var short: bool = MenuFrame.is_short(_ui)
-	var row: float = MenuFrame.BUTTON_HEIGHT_SHORT if short else MenuFrame.BUTTON_HEIGHT
 	var box: VBoxContainer = MenuFrame.column(_overlay, 380.0)
 	var frame := MenuFrame.panel()
 	box.add_child(frame)
 
-	_pause_page = VBoxContainer.new()
-	_pause_page.add_theme_constant_override("separation", 8 if short else 10)
-	frame.add_child(_pause_page)
+	_desk.build(frame, short)
+	_pause_page = _desk.pause_page
+	crown_label = _desk.crown_label
+	seed_label = _desk.seed_label
+	copy_seed_button = _desk.copy_seed_button
+	resume_button = _desk.resume_button
+	save_button = _desk.save_button
+	load_button = _desk.load_button
+	keys_button = _desk.keys_button
+	main_menu_button = _desk.main_menu_button
+	sound_desk = _desk.sound_desk
+	_status = _desk.status
 
-	var heading := MenuFrame.title("PAUSED", 26 if short else 30)
-	_pause_page.add_child(heading)
-	if not short:
-		_pause_page.add_child(MenuFrame.subtitle("The sea waits while the ledger is open."))
-
-	# Who am I: the crown's own leader and the effect the bonus table publishes
-	# for it, in the words the new-game chooser used (REQ-P5-01, REQ-P5-05).
-	# A phone drops the caption, not the reading, so the row costs the compact
-	# page what the dropped subtitle gave back.
-	if not short:
-		_pause_page.add_child(MenuFrame.caption("Your leader"))
-	crown_label = MenuFrame.subtitle("—")
-	crown_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_pause_page.add_child(crown_label)
-
-	_pause_page.add_child(MenuFrame.caption("Map seed"))
-	var seed_row := HBoxContainer.new()
-	seed_row.add_theme_constant_override("separation", 8)
-	_pause_page.add_child(seed_row)
-	seed_label = MenuFrame.subtitle("—")
-	seed_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	seed_row.add_child(seed_label)
-	copy_seed_button = MenuFrame.small_button("COPY", 96.0)
-	copy_seed_button.pressed.connect(_on_copy_seed)
-	seed_row.add_child(copy_seed_button)
-
-	resume_button = MenuFrame.action_button("RESUME", row)
 	resume_button.pressed.connect(close)
-	_pause_page.add_child(resume_button)
-
-	save_button = MenuFrame.action_button("SAVE GAME", row)
 	save_button.pressed.connect(open_save)
-	_pause_page.add_child(save_button)
-
-	load_button = MenuFrame.action_button("LOAD GAME", row)
 	load_button.pressed.connect(open_load)
-	_pause_page.add_child(load_button)
-
-	# The chart's controls, one press from the pause: a keyboard player never
-	# guesses a key, and a touch player reads the door that does the same work
-	# (`KeyReference`; REQ-P5-03).
-	keys_button = MenuFrame.action_button("KEYS", row)
 	keys_button.pressed.connect(open_keys)
-	_pause_page.add_child(keys_button)
-
-	main_menu_button = MenuFrame.action_button("MAIN MENU", row)
 	main_menu_button.pressed.connect(_on_main_menu)
-	_pause_page.add_child(main_menu_button)
-
-	# The mix desk lives here now: the map's cartouche carries no sound seal.
-	_pause_page.add_child(MenuFrame.separator())
-	sound_desk = SoundDesk.new()
-	sound_desk.name = "SoundDesk"
-	_pause_page.add_child(sound_desk)
-
-	_status = MenuFrame.subtitle("")
-	_status.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_pause_page.add_child(_status)
+	copy_seed_button.pressed.connect(_on_copy_seed)
 
 
 ## The screen's director drives the pause page's desk; the title page binds its
@@ -297,53 +257,16 @@ func _save_dir() -> String:
 	return screen.save_dir if screen != null else SaveStore.DIR
 
 
-## Prefer the session seed once play is live; fall back to the screen pin.
-func _resolve_seed() -> int:
-	var screen := get_parent() as MapScreen
-	if screen == null:
-		return 0
-	if screen.play != null:
-		return screen.play.map_seed
-	return screen.map_seed
-
-
 func _refresh_seed() -> void:
-	_shown_seed = _resolve_seed()
-	if seed_label != null:
-		seed_label.text = str(_shown_seed) if _shown_seed != 0 else "—"
-	if copy_seed_button != null:
-		copy_seed_button.disabled = _shown_seed == 0
-	if crown_label != null:
-		crown_label.text = LeaderCatalog.crown_line(_resolve_leader())
-
-
-## The crown's own leader as the run bound it: the session roster first, the
-## screen's pin while a campaign is still booting, the catalog default last —
-## the same three-step read `LeaderCatalog.roster` builds (wiki: leader-bonuses
-## § Leader Selection).
-func _resolve_leader() -> String:
-	var screen := get_parent() as MapScreen
-	if screen == null:
-		return LeaderCatalog.DEFAULT_KEY
-	if screen.play != null:
-		var key: String = String(
-			screen.play.leaders.get(screen.play.player_faction, "")
-		)
-		if not key.is_empty():
-			return key
-	if not screen.player_leader.is_empty():
-		return screen.player_leader
-	return LeaderCatalog.default_key(screen.player_faction)
+	_shown_seed = GameMenuCampaign.refresh(
+		get_parent() as MapScreen, seed_label, copy_seed_button, crown_label
+	)
 
 
 func _on_copy_seed() -> void:
 	if _shown_seed == 0:
 		_refresh_seed()
-	if _shown_seed == 0:
-		return
-	DisplayServer.clipboard_set(str(_shown_seed))
-	if _status != null:
-		_status.text = "Seed copied."
+	GameMenuCampaign.copy_seed(_shown_seed, _status)
 
 
 func _input(event: InputEvent) -> void:
