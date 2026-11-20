@@ -3526,9 +3526,25 @@ func test_the_door_the_court_walked_up_to_is_studied_first() -> void:
 	)
 
 
-## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
-## the same door pattern a Tribe chain uses, so the chest fills for a hull the
-## yard will actually accept.
+## Issue #1126: a preset is charged per slot, so the ladder drops a step when the
+## whole row does not fit the spare — the chest the yard banks is not the
+## college's. Three slots at Low took 150 ducats from a chest that had 66 spare,
+## and the hull the court had saved for never left the slip.
+func test_the_ladder_prices_the_whole_slot_row() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(5566)
+	assert_eq(economy.research.slots.size(), 3, "the fixture's slot row")
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true}
+	)
+	assert_false(plan["assignments"].is_empty(), "the slots are still planned")
+	var paid: int = 0
+	for row: Dictionary in plan["assignments"]:
+		paid += ResearchFunding.gold(String(row["funding"]))
+	assert_true(paid <= 66, "the row never pays more ducats than the spare")
+
+
 ## Issue #484: while the navy chest is the money-goal reserve, the standing
 ## study must not drip 50 ducats a turn — that income has to reach the yard.
 func test_a_navy_chest_defers_the_standing_study() -> void:
@@ -3555,6 +3571,9 @@ func test_a_navy_chest_defers_the_standing_study() -> void:
 	)
 
 
+## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
+## the same door pattern a Tribe chain uses, so the chest fills for a hull the
+## yard will actually accept.
 func test_a_due_navy_studies_the_unlock_before_other_branches() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()

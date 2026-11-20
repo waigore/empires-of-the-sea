@@ -68,6 +68,7 @@ static func _purse(
 	# Standing study affordability is always the cash floor, never the muster.
 	var cash_floor: int = maxi(int(context.get("cash_floor", research_floor(config))), 0)
 	var preset: String = funding_for(config, economy, save_floor)
+	preset = _row_preset(preset, economy, save_floor)
 	# A court that cannot clear the money-goal reserve still keeps one study
 	# alive at the cheapest preset when the purse clears half its cash floor:
 	# the standing study is the first slot that already holds a tech, or the
@@ -83,7 +84,13 @@ static func _purse(
 		and _can_pay_standing(economy, cash_floor, save_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
-	var door_floor: int = maxi(cash_floor, int(context.get("conquest_reserve", 0)))
+	var door_floor: int = maxi(
+		cash_floor,
+		maxi(
+			int(context.get("conquest_reserve", 0)),
+			int(context.get("navy_reserve", 0))
+		)
+	)
 	# The standing slot carries the ration ladder (issue #1059): a banked
 	# court keeps the ration-estate cap study at the standing preset.
 	if standing >= 0 and bool(context.get("conquest_bank", false)):
@@ -250,6 +257,28 @@ static func standing_refusal(
 	if reserve > floor and economy.treasury >= reserve - price:
 		return "saving for its reserve"
 	return ""
+
+
+## The ladder preset the whole slot row can pay: a preset is charged per slot,
+## so one slot's price over the spare is not the purse's answer when three slots
+## are underway — the row drops a step until every slot fits (issue #1126). A
+## ladder that paid the single-slot preset spent 150 ducats against the 66 the
+## hull's chest had left, and the yard never laid the hull it had saved for.
+static func _row_preset(
+	preset: String, economy: PlayerEconomy, floor: int
+) -> String:
+	if economy == null:
+		return preset
+	var slots: int = maxi(
+		economy.research.slots.size() if economy.research != null else 1, 1
+	)
+	var index: int = ResearchFunding.ORDER.find(preset)
+	if index < 0:
+		return preset
+	var spare: int = economy.treasury - maxi(floor, 0)
+	while index > 0 and ResearchFunding.gold(ResearchFunding.ORDER[index]) * slots > spare:
+		index -= 1
+	return ResearchFunding.ORDER[index]
 
 
 ## The slot that keeps the standing study: the first slot already holding a
