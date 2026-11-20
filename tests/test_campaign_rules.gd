@@ -1460,6 +1460,26 @@ func test_an_empty_turn_is_still_archived_so_the_history_has_no_gaps() -> void:
 
 
 # --- battles, studies, treasury, raids ---------------------------------------
+## Battle and Our-court sources live on GazetteBattle / GazetteCourt; Gazette
+## only collects and prints (wiki: the-gazette; REQ-P3-01).
+
+
+## The battle and court desks file on their own homes — the orchestrator does
+## not keep those records inline (REQ-P3-01, RUB-P3-04).
+func test_the_battle_and_court_desks_file_on_their_own() -> void:
+	var pages: Array[Array] = [[], [], []]
+	GazetteCourt.treasury(pages, 12)
+	assert_eq(pages[Gazette.Class.COURT].size(), 1, "treasury files on Our court")
+	assert_eq(String(pages[Gazette.Class.COURT][0]["kind"]), "richesRendered")
+	pages = [[], [], []]
+	GazetteCourt.studies(pages, VIEWER, {VIEWER: ["crop_rotation"]})
+	assert_eq(pages[Gazette.Class.COURT].size(), 1, "a finished study files on Our court")
+	assert_eq(String(pages[Gazette.Class.COURT][0]["kind"]), "techFinished")
+	pages = [[], [], []]
+	GazetteBattle.land(
+		pages, VIEWER, world, _state(3), [_battle(ArmyCombat.Outcome.ATTACKER_VICTORY)], [], null
+	)
+	assert_eq(pages[Gazette.Class.COURT].size(), 1, "a crown fight files on Our court")
 
 
 ## A province stormed and taken prints the place and the regiments the beaten
