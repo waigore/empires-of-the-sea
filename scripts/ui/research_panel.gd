@@ -4,9 +4,7 @@ extends LedgerFrame
 ## progress, plus the advances open now and the techs already known (wiki:
 ## research-state, tech-tree § Research Model). Presentation only — every button
 ## emits an intent and the economy controller asks the rules layer (REQ-P2-03);
-## the sheet, masthead and phone profile are LedgerFrame's (REQ-P3-01). The
-## queue and catalogue desks own their lists ([ResearchQueueDesk],
-## [ResearchCatalogPages]).
+## the sheet, masthead and phone profile are LedgerFrame's (REQ-P3-01).
 ##
 ## Repaints are in place: a funding change rewrites the slot's own line, so the
 ## gauge animates from where it stood.
@@ -63,8 +61,10 @@ var _available_body: VBoxContainer = null
 var _known_body: VBoxContainer = null
 ## Slot index -> its persistent row (REQ-P1-05).
 var _slot_rows: Dictionary = {}
-## Available / Known desks — paint keys live with the pages (REQ-P3-01).
-var _pages: ResearchCatalogPages = ResearchCatalogPages.new()
+## Signatures of what each rebuilt region last drew, so a repaint that changes
+## none of them touches no widget.
+var _available_key: String = ""
+var _known_key: String = ""
 ## The room the last fit budgeted against, so a plate that changes size is
 ## re-read once and not every frame (DR-20261120-03).
 var _last_room: float = -1.0
@@ -285,15 +285,11 @@ func refresh(
 		_state.unlocked_ids().size(),
 		"" if _state.unlocked_ids().size() == 1 else "s",
 	]
-	var open: Array[String] = ResearchCatalogPages.open_advances(_state, _goal)
+	var open: Array[String] = _open_advances()
 	_goal_row.render(_state, _goal)
 	_fill_slots()
-	_pages.paint_available(
-		_available_body, _state, open, _goal,
-		func(id: String) -> void: assign_requested.emit(id),
-		func(id: String) -> void: set_goal("" if id == _goal else id)
-	)
-	_pages.paint_known(_known_body, _state, _goal)
+	_fill_available(open)
+	_fill_known()
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
 	_hint.text = ResearchBatch.hint_line(open.size(), _state.free_slot(), _notice.visible)
@@ -307,18 +303,98 @@ func _fit_deferred() -> void:
 		call_deferred("_fit_to_viewport")
 
 
-## One persistent row per slot — `ResearchQueueDesk` walks and mounts; the panel
-## rewrites the heading, notice and press from the same spend totals.
+## One persistent row per slot, rewritten in place from `ResearchWalk` — the same
+## priced walk the one press reads (REQ-P2-03). A slot is previewed against the
+## treasury the ones before it leave, as the phase spends in slot order, and the
+## walk carries the studies that land as it goes (wiki: tech-tree § Research
+## Model; DR-20261118-26).
 func _fill_slots() -> void:
-	var spend: Dictionary = ResearchQueueDesk.fill(
-		_slots_body, _slot_rows, _state, _treasury, _boost, _leader,
-		func(slot: int) -> void: cancel_requested.emit(slot),
-		func(slot: int) -> void: funding_requested.emit(slot)
-	)
-	_spend_gold = int(spend["gold"])
-	_spend_rp = int(spend["rp"])
+	var walk: Dictionary = ResearchWalk.run(_state, _treasury, "", _boost, _leader)
+	var priced: Array[Dictionary] = walk["slots"]
+	var floor: int = int(walk["floor"])
+	for index in priced.size():
+		var row: ResearchSlotRow = _slot_rows.get(index)
+		if row == null:
+			row = ResearchSlotRow.new(index)
+			row.cancel_pressed.connect(func(slot: int) -> void: cancel_requested.emit(slot))
+			row.funding_pressed.connect(func(slot: int) -> void: funding_requested.emit(slot))
+			_slots_body.add_child(row)
+			_slot_rows[index] = row
+		row.update(priced[index], floor)
+	_spend_gold = int(walk["gold"])
+	_spend_rp = int(walk["rp"])
 	_slots_heading.text = ResearchBatch.heading_line(_spend_gold, _spend_rp, _compact)
-	_notice.text = ResearchQueueDesk.notice_line(_state, int(spend["unpaid"]))
-	_notice.visible = not _notice.text.is_empty()
+	_set_notice(int(walk["unpaid"]))
 	if _fund != null:
 		_fund.render(_state, _treasury, _boost, _leader)
+
+
+## The rule that stops the studies a purse cannot pay (wiki:
+## tech-tree-labour-economy § money_lending, banking; REQ-P5-05). The words are
+## `ResearchBatch`'s, the floor line the ledger's.
+func _set_notice(unpaid: int) -> void:
+	_notice.text = ResearchBatch.notice_line(
+		unpaid, LedgerReportText.research_floor_line(_state.treasury_floor())
+	)
+	_notice.visible = not _notice.text.is_empty()
+
+
+## Rebuilt only when the open list, the goal or the free slot changes; a
+## funding change repaints none of it.
+func _fill_available(techs: Array[String]) -> void:
+	var key: String = "%s|%s|%d" % [";".join(techs), _goal, _state.free_slot()]
+	if key == _available_key:
+		return
+	_available_key = key
+	_rebuild(_available_body, func() -> void:
+		if techs.is_empty():
+			_available_body.add_child(UiRowBuilder.label(
+				"No advances are open — finish a prerequisite or chart a resource.",
+				12, Palette.TEXT_DIM
+			))
+			return
+		for tech_id: String in techs:
+			_available_body.add_child(ResearchRow.available(
+				_state, tech_id,
+				func(id: String) -> void: assign_requested.emit(id),
+				_goal,
+				func(id: String) -> void: set_goal("" if id == _goal else id)
+			))
+	)
+
+
+func _fill_known() -> void:
+	var known: Array[String] = _state.unlocked_ids()
+	var key: String = "%s|%s" % [";".join(known), _goal]
+	if key == _known_key:
+		return
+	_known_key = key
+	_rebuild(_known_body, func() -> void:
+		if known.is_empty():
+			_known_body.add_child(UiRowBuilder.label(
+				"Nothing is known beyond the old learning.", 12, Palette.TEXT_DIM
+			))
+			return
+		for tech_id: String in TechOrder.sorted(known, _goal):
+			_known_body.add_child(ResearchRow.known(tech_id, _goal))
+	)
+
+
+## Researchable, not already in a slot, goal path first.
+func _open_advances() -> Array[String]:
+	var out: Array[String] = []
+	for tech_id: String in _state.researchable():
+		if not _state.is_active(tech_id):
+			out.append(tech_id)
+	return TechOrder.sorted(out, _goal)
+
+
+## Replaces a page's rows but keeps the player's place in the list: a rebuild
+## that jumped back to the top would read as a reload.
+func _rebuild(body: Container, paint: Callable) -> void:
+	var scroll := body.get_parent() as ScrollContainer
+	var keep: int = scroll.scroll_vertical if scroll != null else 0
+	UiRowBuilder.clear(body)
+	paint.call()
+	if scroll != null:
+		scroll.set_deferred("scroll_vertical", keep)
