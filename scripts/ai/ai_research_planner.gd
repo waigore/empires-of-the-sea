@@ -60,8 +60,14 @@ static func plan(
 ## The purse every slot is priced against this turn: the published preset at
 ## the court's floor, the cash floor guarding the standing study, and the
 ## standing slot that keeps it. `at_war`, `door` and `preset` feed the ranking.
+## `writes` is false for a reading (the crown's college): the ration-estate step
+## below moves a study, and a reading never touches the crown's college
+## (DR-20261121-01).
 static func _purse(
-	config: AiConfig, economy: PlayerEconomy, context: Dictionary
+	config: AiConfig,
+	economy: PlayerEconomy,
+	context: Dictionary,
+	writes: bool = true
 ) -> Dictionary:
 	var state: ResearchState = economy.research
 	var save_floor: int = maxi(int(context.get("treasury_floor", 0)), 0)
@@ -94,7 +100,7 @@ static func _purse(
 	var door_floor: int = maxi(cash_floor, int(context.get("conquest_reserve", 0)))
 	# The standing slot carries the ration ladder (issue #1059): a banked
 	# court keeps the ration-estate cap study at the standing preset.
-	if standing >= 0 and bool(context.get("conquest_bank", false)):
+	if writes and standing >= 0 and bool(context.get("conquest_bank", false)):
 		AiResearchRation.keep(state, economy, standing)
 	return {
 		"at_war": bool(context.get("at_war", false)),
@@ -129,42 +135,97 @@ static func _pick_for_slot(
 	taken: Dictionary
 ) -> Dictionary:
 	var state: ResearchState = economy.research
-	var door: String = String(purse["door"])
-	var standing: int = int(purse["standing"])
-	var can_stand: bool = bool(purse["can_stand"])
-	var wants_standing: bool = standing < 0 and can_stand
+	var wants_standing: bool = int(purse["standing"]) < 0 and bool(purse["can_stand"])
+	# The walk is one reading ([method _walk_free_slot]); a row the rules refuse
+	# at the slot is booked `taken` by the walk itself, so the next pass steps on.
+	for _attempt in candidates.size() + 1:
+		var pick: Dictionary = _walk_free_slot(economy, purse, slot, candidates, taken)
+		if pick.is_empty():
+			return {}
+		var result: Dictionary = state.assign(
+			String(pick["tech"]), String(pick["funding"]), slot
+		)
+		if not bool(result.get("ok", false)):
+			continue
+		if wants_standing:
+			purse["standing"] = slot
+		return pick
+	return {}
+
+
+## The row the walk takes for one empty slot, its funding included, or `{}` when
+## every row is spent or barred. One home for the walk's order, its skip of a
+## study already in a slot, and the door's own funding gate (issue #484), so the
+## crown's college prints what `plan` would open and cannot name a study the
+## policy refuses (DR-20261121-01). `taken` is booked here, never assigned.
+static func _walk_free_slot(
+	economy: PlayerEconomy,
+	purse: Dictionary,
+	slot: int,
+	candidates: Array[Dictionary],
+	taken: Dictionary
+) -> Dictionary:
+	var state: ResearchState = economy.research
 	for entry: Dictionary in candidates:
-		var tech: String = String(entry["tech"])
+		var tech: String = String(entry.get("tech", ""))
 		if taken.has(tech) or state.is_active(tech):
 			taken[tech] = true
 			continue
-		var funding: String = (
-			STANDING_FUNDING if slot == standing or wants_standing
-			else String(purse["preset"])
-		)
-		# The door's study pays the richest preset above the court's floor; when
-		# even Low is too dear the #490 standing gate decides whether it waits.
-		if tech == door and not door.is_empty():
-			funding = _door_funding(economy, int(purse["door_floor"]))
-			if funding == ResearchFunding.ORDER[0]:
-				if not can_stand:
-					taken[tech] = true
-					continue
-				funding = STANDING_FUNDING
-		var result: Dictionary = state.assign(tech, funding, slot)
-		if not bool(result.get("ok", false)):
-			taken[tech] = true
-			continue
 		taken[tech] = true
-		if wants_standing:
-			purse["standing"] = slot
+		var funding: String = _funding_of(economy, purse, slot, tech)
+		if funding.is_empty():
+			continue
 		return {
 			"tech": tech,
 			"slot": slot,
 			"funding": funding,
-			"score": int(entry["score"]),
+			"score": int(entry.get("score", 0)),
 		}
 	return {}
+
+
+## The preset the walk opens one candidate at, or "" when the rules refuse it.
+## The door's study is the one row a court may not open unpayable: it pays the
+## richest preset above the court's floor, and when even the cheapest would dip
+## the court does not open it at all while it saves for its chest (issue #484).
+## Every other row opens at the slot's preset, `none` included — an unpaid study
+## is still a study the court has taken (wiki: tech-tree § Research model).
+static func _funding_of(
+	economy: PlayerEconomy, purse: Dictionary, slot: int, tech: String
+) -> String:
+	var standing: int = int(purse["standing"])
+	var can_stand: bool = bool(purse["can_stand"])
+	var door: String = String(purse["door"])
+	if not door.is_empty() and tech == door:
+		var funding: String = _door_funding(economy, int(purse["door_floor"]))
+		if funding == ResearchFunding.ORDER[0]:
+			if not can_stand:
+				return ""
+			funding = STANDING_FUNDING
+		return funding
+	if slot == standing or (standing < 0 and can_stand):
+		return STANDING_FUNDING
+	return String(purse["preset"])
+
+
+## The study the published policy would open in the crown's first free slot, on
+## this purse, as a reading: `{tech, slot, funding, score}` or `{}`. Nothing is
+## assigned, no preset moves and nothing is spent, so the college can print the
+## walk's own answer (DR-20261121-01; `MapPlayResearchPick`). `context` is
+## `plan`'s own — `at_war`, `door`, `treasury_floor`, `cash_floor` and the rest.
+static func read_free_slot(
+	config: AiConfig, economy: PlayerEconomy, context: Dictionary = {}
+) -> Dictionary:
+	if config == null or economy == null or economy.research == null:
+		return {}
+	var slot: int = economy.research.free_slot()
+	if slot < 0:
+		return {}
+	var purse: Dictionary = _purse(config, economy, context, false)
+	var candidates: Array[Dictionary] = AiResearchScores.candidates(
+		config, economy, bool(purse["at_war"]), String(purse["door"])
+	)
+	return _walk_free_slot(economy, purse, slot, candidates, {})
 
 
 ## The preset a court pays each slot: `research.funding_index` shifted by the

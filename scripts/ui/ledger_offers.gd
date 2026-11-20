@@ -37,6 +37,10 @@ var _compact: bool = false
 ## have moved after the book was published (REQ-P5-05).
 var _market: WorldMarket = null
 var _viewer: int = FactionCatalog.PLAYER_FACTION
+## `{seller: issuer}`: the sellers a standing boycott shuts to this crown, read
+## from the market's published terms so a row prints the bar the matcher enforces
+## (wiki: diplomacy § GP–Tribe — Boycott, R6; REQ-P2-03).
+var _sealed: Dictionary = {}
 ## The batch reading the page shares: the purse the auction may spend and the
 ## holds free after the staged bids (REQ-P5-04).
 var _order_ctx: Dictionary = {}
@@ -66,6 +70,7 @@ func fill(
 	_compact = compact
 	_market = market
 	_viewer = viewer
+	_sealed = MinorMarket.sealed_for(market, viewer) if market != null else {}
 	_order_ctx = order_ctx
 	_batches.clear()
 	_offers_head = null
@@ -226,6 +231,12 @@ func _offer_row(offer: Dictionary) -> Control:
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 2)
 	block.add_child(row)
+	# A boycott is a pair rule, not a price: without this line the row quotes a
+	# deal the matcher will never clear, and a crown reads the silence as a bug
+	# (wiki: diplomacy § GP–Tribe — Boycott, R6; REQ-P2-03, REQ-P5-05).
+	var barred: String = MinorMarket.sealed_line(int(_sealed.get(seller, -1)))
+	if not barred.is_empty():
+		block.add_child(UiRowBuilder.wrapped_line(barred, 10, Palette.CRIMSON, 0.0))
 	if not shut.is_empty():
 		block.add_child(UiRowBuilder.wrapped_line(shut, 10, Palette.CRIMSON, 0.0))
 	# The press names the whole deal's ducats as the clearing charges them: the

@@ -196,6 +196,29 @@ static func emit(
 	return offers
 
 
+## `{seller: issuer}` for one crown: the sellers a standing boycott shuts to it,
+## or an empty book when no bar stands (wiki: diplomacy § GP–Tribe — Boycott, R6).
+static func sealed_for(market: WorldMarket, viewer: int) -> Dictionary:
+	if market == null:
+		return {}
+	var raw: Variant = market.sealed.get(viewer, {})
+	if typeof(raw) == TYPE_DICTIONARY:
+		return raw
+	return {}
+
+
+## The words a market row prints when the seller is a colony its suzerain's
+## boycott has shut to the reader: the bar is a pair rule, so it can never be a
+## price (wiki: diplomacy § GP–Tribe — Boycott, R6; DR-20261115-03). Voice
+## follows the court sheet's own "Boycotted by …" line.
+static func sealed_line(issuer: int) -> String:
+	if issuer < 0:
+		return ""
+	return "Boycotted by %s — no deal of ours clears with its colony." % (
+		FactionCatalog.name_of(issuer)
+	)
+
+
 ## Publishes this turn's Minor Nation and Tribe rows for the ledger and save.
 static func publish(market: WorldMarket, world: WorldMap, buyer: int) -> void:
 	if market == null:

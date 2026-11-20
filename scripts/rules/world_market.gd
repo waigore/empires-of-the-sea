@@ -20,6 +20,11 @@ var trade_terms: Dictionary = {}
 ## § Subsidy price adjustment). The step lands on the deal, never on the crown's
 ## own rate, so it cannot touch a deal with another court.
 var subsidy_terms: Dictionary = {}
+## `viewer -> {seller: issuer}`: the Minor/Tribe sellers a crown may not deal
+## with because a boycott shuts them (wiki: diplomacy § GP–Tribe — Boycott, R6;
+## DR-20261115-03). Published beside the rates so the offers plate can print the
+## bar the deal matcher enforces but a price never shows.
+var sealed: Dictionary = {}
 ## This turn's Minor Nation and Tribe offers, re-emitted each turn from their
 ## estates (wiki: world-market § Minor and tribe auto-sell; DR-20261110-08).
 var minor_offers: Array[Dictionary] = []
@@ -56,6 +61,7 @@ func set_terms(faction: int, terms: Dictionary) -> void:
 func clear_terms() -> void:
 	trade_terms.clear()
 	subsidy_terms.clear()
+	sealed.clear()
 
 
 func terms_for(faction: int) -> Dictionary:
@@ -249,6 +255,7 @@ func copy() -> WorldMarket:
 	clone.prices = prices.duplicate()
 	clone.trade_terms = trade_terms.duplicate(true)
 	clone.subsidy_terms = subsidy_terms.duplicate()
+	clone.sealed = sealed.duplicate(true)
 	clone.minor_offers = minor_offers.duplicate(true)
 	clone.book = book.copy()
 	return clone

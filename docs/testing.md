@@ -332,9 +332,10 @@ godot --headless --path . --script res://playtests/playtest_campaign_end.gd
 # Boycott blocked deal — seats the two records no session waits for (a rival
 # holding a Tribe as its colony, that rival boycotting the crown), then reads
 # what each court is told: the court sheet's trade block and the colony's page
-# (where Grant Aid and every subsidy are refused), the market page's offers and
-# their asks, the bid pressed from the colony's own row, and the turn close
-# (despatch, LAST CLEARING, notes, carry) two turns running.
+# (where Grant Aid and every subsidy are refused), the market page's offers with
+# the bar printed under each shut row and its words in the terms banner, the bid
+# pressed from the colony's own row, and the turn close (despatch, LAST
+# CLEARING, notes, carry) two turns running.
 godot --headless --path . --script res://playtests/playtest_boycott_block.gd
 
 # Defeat — the crown's own end, which no play reaches by hand (terminal fall:

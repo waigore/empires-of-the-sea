@@ -51,23 +51,29 @@ static func pick(play: PlaySession) -> Dictionary:
 
 
 ## The ranking's own answer, given a court's college and the door it stands in:
-## the first study the planner's own walk would take for an empty slot — the
-## door's when the door is open, else the best-ranked study the court is not
-## already reading (`AiResearchPlanner._pick_for_slot`'s order, without the
-## assignment). Pure: the ranking reads the state and writes nothing.
+## the first study the planner's walk would open in an empty slot — the door's
+## when the door is open, else the best-ranked study the court is not already
+## reading (`AiResearchPlanner.read_free_slot`, without the assignment). Pure:
+## the ranking reads the state and writes nothing.
 static func counsel(
 	config: AiConfig, economy: PlayerEconomy, at_war: bool, door: Dictionary = {}
 ) -> Dictionary:
 	if config == null or economy == null or economy.research == null:
 		return {}
 	var door_tech: String = String(door.get("tech", ""))
-	var tech: String = ""
-	for entry: Dictionary in AiResearchScores.candidates(config, economy, at_war, door_tech):
-		var candidate: String = String(entry.get("tech", ""))
-		if candidate.is_empty() or economy.research.is_active(candidate):
-			continue
-		tech = candidate
-		break
+	# The walk's own purse, on the crown's own ledger: no reserve is held back and
+	# the cash floor is the published one, so the counsel names a study this
+	# crown could open today. The door's study is the one row the policy may
+	# refuse outright — a crown that cannot pay the cheapest preset over half its
+	# floor is told the next study the policy would open instead of a door it
+	# would leave shut (issue #484; `AiResearchPlanner._funding_of`).
+	var read: Dictionary = AiResearchPlanner.read_free_slot(config, economy, {
+		"at_war": at_war,
+		"door": door_tech,
+		"treasury_floor": 0,
+		"cash_floor": AiResearchPlanner.research_floor(config),
+	})
+	var tech: String = String(read.get("tech", ""))
 	if tech.is_empty():
 		return {}
 	# The door's reason only stands while the door's own study is the answer: a
