@@ -3525,6 +3525,16 @@ domain = "campaign"
 match = "scripts/rules/deed_protection.gd"
 domain = "diplomacy"
 
+# The bar's cause and its words (refused march, the sheet's Deeds row). Read by
+# the army order and the province sheet, proved by the diplomacy suites.
+[[rules]]
+match = "scripts/rules/invasion_bar.gd"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/deed_bar.gd"
+domain = "diplomacy"
+
 [[rules]]
 match = "scripts/rules/intervention_copy.gd"
 domain = "campaign"
