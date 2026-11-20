@@ -23,6 +23,14 @@ const BAND_LABELS: Dictionary = {
 	BAND_CITADEL: "Citadel (fort 3)",
 }
 
+## Where a ground stops merely helping and starts sheltering. These read
+## [ArmyModifiers.TERRAIN_DEFENCE]'s own numbers rather than copying them, so a
+## change to the combat table moves the words with it and the lens can never
+## praise ground the battle would not favour (wiki: combat § Modifiers,
+## resource-terrain-region-rules § Player-facing terrain display names).
+const SHELTER_HARD: float = 1.25
+const SHELTER_GOOD: float = 1.10
+
 
 ## Per-province reading plus the counts each band holds and the crown's own
 ## totals. `armies` is the roster of the region on screen; an embarked army
@@ -77,7 +85,39 @@ static func band_label(band: String) -> String:
 	return String(BAND_LABELS.get(band, BAND_LABELS[BAND_OPEN]))
 
 
-## The hover line: what stands here, in the terms a battle reads.
+## The ground a battle in this province would be fought on, named as the canon
+## display name (`MapModel.TERRAIN_LABELS`).
+static func terrain_name(terrain: int) -> String:
+	return String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown"))
+
+
+## Whether the ground favours a defence at all. Plains buy nothing, so a slip on
+## them stays quiet; every other ground buys something and names itself.
+static func shelters(terrain: int) -> bool:
+	return ArmyModifiers.terrain_multiplier(terrain) > 1.0
+
+
+## What one ground buys a defender, in words — read off the battle's own
+## multiplier, so the reading and the Combat phase cannot disagree.
+static func terrain_flavour(terrain: int) -> String:
+	var multiplier: float = ArmyModifiers.terrain_multiplier(terrain)
+	if multiplier >= SHELTER_HARD:
+		return "shelters a defence"
+	if multiplier >= SHELTER_GOOD:
+		return "favours a defence"
+	if multiplier > 1.0:
+		return "gives the defence an edge"
+	return "nothing to hold"
+
+
+## The ground line the hover and the province sheet print: the dominant
+## terrain's name and the little it buys.
+static func terrain_line(terrain: int) -> String:
+	return "%s — %s" % [terrain_name(terrain), terrain_flavour(terrain)]
+
+
+## The hover line: what stands here, in the terms a battle reads — the garrison,
+## the wall, the ward, then the ground the fight would be had on.
 static func summary_text(entry: Dictionary) -> String:
 	var strength: int = int(entry.get("strength", 0))
 	var regiments: int = int(entry.get("regiments", 0))
@@ -98,6 +138,9 @@ static func summary_text(entry: Dictionary) -> String:
 		parts.append(HospitalRules.level_name(hospital))
 	if bool(entry.get("foreign", false)):
 		parts.append("Foreign host ashore")
+	var ground: String = String(entry.get("terrain_line", ""))
+	if not ground.is_empty():
+		parts.append(ground)
 	return " · ".join(parts)
 
 
@@ -142,6 +185,9 @@ static func _entry(
 	var own: Dictionary = here.get(province.owner, {"strength": 0, "regiments": 0})
 	var garrison: int = int(own["strength"])
 	var fort: int = FortRules.clamp_level(province.fort_level)
+	## The ground the Combat phase would fight on — the same pick, not a second
+	## ranking, so the reading can never name a different province's ground.
+	var terrain: int = ArmyModifiers.terrain_for(model, province.id)
 	var entry: Dictionary = {
 		"id": province.id,
 		"name": province.name,
@@ -153,6 +199,10 @@ static func _entry(
 		"guns": FortRules.guns(fort),
 		"hospital": HospitalRules.clamp_level(province.hospital_level),
 		"band": band_for(fort, garrison),
+		"terrain": terrain,
+		"terrain_name": terrain_name(terrain),
+		"terrain_line": terrain_line(terrain),
+		"shelters": shelters(terrain),
 		"foreign": _has_foreign(here, province.owner),
 		"anchor": _anchor(model, province, visibility),
 	}
