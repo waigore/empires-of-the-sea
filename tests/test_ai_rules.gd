@@ -218,19 +218,19 @@ func test_a_bound_temperament_reaches_the_courts_config() -> void:
 	assert_eq(AiProfile.bound({1: " Economic "}, 1), AiProfile.ECONOMIC, "the name is trimmed")
 	assert_eq(String(AiProfile.from_saved({"3": AiProfile.ECONOMIC}).get(3, "")), AiProfile.ECONOMIC)
 	assert_eq(
-		AiProfile.config(1, 1500, {1: AiProfile.AGGRESSIVE}).parameter(
+		AiProfile.for_court(1, 1500, {1: AiProfile.AGGRESSIVE}).parameter(
 			"diplomacy.war_relation_ceiling"
 		),
 		70,
 		"the bound profile raises that court's knob"
 	)
 	assert_eq(
-		AiProfile.config(1, 1500, {}).parameter("diplomacy.war_relation_ceiling"), 50,
+		AiProfile.for_court(1, 1500, {}).parameter("diplomacy.war_relation_ceiling"), 50,
 		"a run with no binding reads the registry"
 	)
 	assert_gt(
-		AiProfile.config(1, 1500, {1: AiProfile.AGGRESSIVE}).war_relation_ceiling(),
-		AiProfile.config(1, 1500, {}).war_relation_ceiling(),
+		AiProfile.for_court(1, 1500, {1: AiProfile.AGGRESSIVE}).war_relation_ceiling(),
+		AiProfile.for_court(1, 1500, {}).war_relation_ceiling(),
 		"the same court, same agenda, declares on warmer neighbours"
 	)
 

@@ -200,7 +200,7 @@ func test_setup_binds_a_temperament_to_each_rival() -> void:
 		"the crown's own seat plans neutral"
 	)
 	assert_eq(
-		AiProfile.config(2, play.map_seed, play.ai_profiles).profile,
+		AiProfile.for_court(2, play.map_seed, play.ai_profiles).profile,
 		AiProfile.AGGRESSIVE,
 		"the court's config reads the binding"
 	)

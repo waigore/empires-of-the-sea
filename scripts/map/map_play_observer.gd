@@ -167,7 +167,7 @@ static func _mouths(play: PlaySession, faction: int) -> Dictionary:
 ## One court's observable state. `economy` is that court's ledger whichever
 ## side (human path in a live game, AiState ledger in the observer).
 static func row(play: PlaySession, faction: int) -> Dictionary:
-	var config: AiConfig = AiProfile.config(faction, play.map_seed, play.ai_profiles)
+	var config: AiConfig = AiProfile.for_court(faction, play.map_seed, play.ai_profiles)
 	var agenda: String = play.ai.agenda_for(config) if play.ai != null else config.agenda
 	var economy: PlayerEconomy = _economy(play, faction)
 	# The footing the court plans with this turn (DR-20261113-15): a war, an

@@ -36,7 +36,7 @@ static func run(
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction == player:
 			continue
-		var config: AiConfig = AiProfile.config(faction, game_seed, profiles)
+		var config: AiConfig = AiProfile.for_court(faction, game_seed, profiles)
 		var agenda: String = ai_state.agenda_for(config)
 		if gated and not planning.has(faction):
 			trace.append(_noop(faction, config, agenda))

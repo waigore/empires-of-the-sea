@@ -127,7 +127,7 @@ static func peace_answer(
 		return DiplomacyRules.DECISION_AUTO
 	if ai_state == null:
 		return DiplomacyRules.DECISION_AUTO
-	var config: AiConfig = AiProfile.config(
+	var config: AiConfig = AiProfile.for_court(
 		target, game_seed, shared.get("profiles", {})
 	)
 	var agenda: String = ai_state.agenda_for(config)

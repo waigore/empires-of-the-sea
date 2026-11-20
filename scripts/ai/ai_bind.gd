@@ -22,7 +22,7 @@ static func config(
 ) -> Variant:
 	if _baseline(kind):
 		return _ml("ai_config.gd", "build", [faction, game_seed])
-	return AiProfile.config(faction, game_seed, profiles)
+	return AiProfile.for_court(faction, game_seed, profiles)
 
 
 static func phase_for(kind: String, config: Variant, diplomacy: DiplomacyState) -> String:

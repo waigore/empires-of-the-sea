@@ -36,7 +36,7 @@ static func run(play: PlaySession) -> Dictionary:
 ## One court's ranked, allocated ledger plus the readings that made it.
 static func court(play: PlaySession, faction: int) -> Dictionary:
 	var economy: PlayerEconomy = play.ai.economy_for(faction)
-	var config: AiConfig = AiProfile.config(faction, play.map_seed, play.ai_profiles)
+	var config: AiConfig = AiProfile.for_court(faction, play.map_seed, play.ai_profiles)
 	var phase: Dictionary = AiPhasePlanner.plan(config, play.diplomacy)
 	# The footing, the leader's weights and the court's distance to the bar
 	# scale the rank without deleting an aim: a voyage at war is cheaper, not

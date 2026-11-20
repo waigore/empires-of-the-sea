@@ -106,7 +106,7 @@ static func from_saved(raw: Variant) -> Dictionary:
 ## `AiConfig.build` composes, over the temperament the new-game screen bound to
 ## it. Surfaces that plan for a rival call this, so none can forget the profile
 ## the run was created with (wiki: ai-profile-overrides § Resolution).
-static func config(faction: int, game_seed: int, profiles: Dictionary) -> AiConfig:
+static func for_court(faction: int, game_seed: int, profiles: Dictionary) -> AiConfig:
 	return AiConfig.build(faction, game_seed, bound(profiles, faction))
 
 
