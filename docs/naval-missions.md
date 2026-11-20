@@ -1,12 +1,12 @@
 # Naval missions and raiding
 
-Patrol, blockade, defence, interception, retreat and raids; movement,
-harbours and the yard live in [fleets.md](fleets.md).
+Stations, interception, retreat and raids; movement and the yard live in
+[fleets.md](fleets.md).
 
 **Pillars:** P2, P3, P4 (turn-end only), P5 (stations and raids on the dossier).
 **Wiki:** [ships-and-naval](https://github.com/waigore/empires-of-the-sea/wiki/ships-and-naval)
-§ Missions and Movement, § Naval Interception Probability, § Naval Retreat Formula,
-§ Trade and Transport Interception. Decisions: DR-20261109-16, DR-20261110-13.
+§ Missions and Movement, § Naval Interception Probability, § Trade and Transport
+Interception. Decisions: DR-20261109-16, DR-20261110-13, DR-20261120-02.
 
 ## Stations
 
@@ -18,13 +18,10 @@ harbours and the yard live in [fleets.md](fleets.md).
 | Beachhead | at sea beside a hostile coast | One-turn landing site |
 
 A station spends the move and persists until the squadron sails, docks or
-retakes one; the home fleet holds none, and a station whose target is no
-longer hostile lapses.
+retakes one; the home fleet holds none; a target no longer hostile lapses it.
 
-A sealed harbour is no landfall: a blockade severs the coast, so its province
-yields nothing by sea, and holding the crown's capital harbour cuts every sea
-path (wiki: capital-and-connectivity § Blockade). Despatch and dossier name it
-(`REQ-P5-05`).
+A sealed harbour severs the coast, and the capital harbour cuts every sea path
+(wiki: capital-and-connectivity § Blockade). The dossier names it (`REQ-P5-05`).
 
 ## Interception
 
@@ -36,8 +33,13 @@ missionFactor = 0.5 Patrol, 0.9 Blockade
 ```
 
 Deterministic from seed, turn, zone and owners. Success makes the patroller the
-attacker; a miss leaves the mover attacking. Only Patrol or a standing Blockade
+attacker; a miss leaves the mover. Only Patrol or a standing Blockade
 rolls, and only against a hostile.
+
+**The dossier prices the catch (DR-20261120-02):** a station at sea prints its
+chance — `Interception: 62% to catch 4 hulls if they stay.` — over its holders
+and every hostile there the crown has **read**; an unread rival gets no number,
+an empty water no line.
 
 **Privateering Companies** multiplies the interceptor's score by `1.25` before
 the clamp (movement and raids); the target's charter never helps.
@@ -50,9 +52,8 @@ chance = 0.6 + (ownAvgMV − enemyAvgMV) × 0.1 − enemyAggression
 enemyAggression = 0.1 Patrol, 0.2 Blockade, else 0
 ```
 
-A haven is a zone with no fleet hostile to the retreating side. Success moves every
-beaten hull there, spends its move and clears its station and beachhead; failure
-is a rout, and no safe water means no retreat.
+A haven is a zone no hostile fleet holds. Success moves every beaten hull there
+and clears its station; failure is a rout, and no safe water means no retreat.
 
 ## Raids
 
@@ -66,20 +67,20 @@ raidEfficiency = 0.3…0.7 by relative strength
 shipLossChance = 0.2 × (1 − escortFactor) × 2.0, clamp 0.05…0.5
 ```
 
-Hostile Patrol/Blockade squadrons in a zone bordering the victim's coast raid;
-the bonus does not cross zones. Cargo at risk is the **victim's own** purchases,
-never the pooled book: escorts are home-fleet warships, cargo its merchant hulls.
+Hostile Patrol/Blockade squadrons raid a zone bordering the victim's coast; the
+bonus never crosses zones. Cargo at risk is the **victim's own**: escorts are
+home-fleet warships, cargo its merchant hulls.
 
 **A raid sinks a merchant hull** (DR-20261111-17): a second roll sends one
 **civilian hull** down (richest hold first). Warships are never prizes; the
-raider loses no hull.
+raider loses none.
 
 **Raids cut both ways.** Any crown's station off a hostile coast raids a
-declared enemy's trade by the same formulas: **prize cargo** leaves the victim's
-stockpile for the raider's, no free hold needed and never booked as an import
-(DR-20261111-20). Each raider rolls cargo and hull on separate salts. The
-crown's raids reach its despatch; rivals' are their own affair. The dossier
-prices both and names the zone, any hull and the ring.
+declared enemy by the same formulas: **prize cargo** leaves the victim's
+stockpile for the raider's, never booked as an import (DR-20261111-20). Cargo and
+hull roll on separate salts. The crown's raids reach its despatch. The dossier
+prices that group over its at-war coasts, naming the coast a patrol works and the
+hull a hit sinks (DR-20261120-01).
 
 ## Deferred (REQ-P2-02)
 
@@ -90,10 +91,10 @@ Rival raids shipped (DR-20261111-20); gaps: [`deferred.md`](deferred.md).
 | File | Role |
 |------|------|
 | `scripts/rules/{fleet_state,fleet_missions}.gd` | mission, blockade target, station gates |
-| `scripts/rules/blockades.gd` | sealed coasts, the sea paths they cut |
-| `scripts/rules/{naval_interception,naval_retreat,naval_raid,naval_hull_loss}.gd` | chance, roll, retreat, raids, civilian hulls |
-| `scripts/rules/world_market.gd` | per-crown cargo books |
-| `scripts/map/{map_play_raids,map_play_fleet_missions}.gd` | ledger, dossier, reports |
+| `scripts/rules/blockades.gd` | sealed coasts, the paths they cut |
+| `scripts/rules/{naval_station,naval_interception,naval_retreat,naval_raid,naval_hull_loss}.gd` | station read, chance, roll, retreat, raids, hulls |
+| `scripts/rules/world_market.gd` | crown cargo books |
+| `scripts/map/{map_play_raids,map_play_fleet_missions,map_play_station_notes}.gd` | ledger, dossier, prices, reports |
 
 Rules are node-free (`REQ-P3-03`); stations and blockade coasts are dossier
 rows ([fleets.md](fleets.md) for map controls).

@@ -19,19 +19,19 @@ static func can_declare_war(
 	state: DiplomacyState, player: int, target: int
 ) -> Dictionary:
 	if player == target:
-		return _deny("A crown cannot declare war on itself.")
+		return OrderVerdict.deny("A crown cannot declare war on itself.")
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	var record: DiplomacyRelation = state.relation(player, target)
 	if record.at_war:
-		return _deny("%s is already at war with us." % FactionCatalog.name_of(target))
+		return OrderVerdict.deny("%s is already at war with us." % FactionCatalog.name_of(target))
 	if record.formal_alliance:
-		return _deny("A formal alliance binds us; break it before war.")
+		return OrderVerdict.deny("A formal alliance binds us; break it before war.")
 	if has_pact(state, player, target):
-		return _deny("A non-aggression pact binds us; break it before war.")
+		return OrderVerdict.deny("A non-aggression pact binds us; break it before war.")
 	if record.treaty_break_turn >= 0 and state.turn <= record.treaty_break_turn:
-		return _deny("A pact was broken this turn; war on that court must wait.")
-	return _allow()
+		return OrderVerdict.deny("A pact was broken this turn; war on that court must wait.")
+	return OrderVerdict.allow()
 
 
 ## An active non-aggression pact: the overture chain stands at the pact or any
@@ -108,11 +108,11 @@ static func can_make_peace(
 	state: DiplomacyState, player: int, target: int
 ) -> Dictionary:
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	var record: DiplomacyRelation = state.relation(player, target)
 	if not record.at_war:
-		return _deny("%s is not at war with us." % FactionCatalog.name_of(target))
-	return _allow()
+		return OrderVerdict.deny("%s is not at war with us." % FactionCatalog.name_of(target))
+	return OrderVerdict.allow()
 
 
 ## A court answers the white-peace offer. `auto` keeps the rule-driven test;
@@ -150,22 +150,26 @@ static func can_form_alliance(
 	state: DiplomacyState, player: int, target: int
 ) -> Dictionary:
 	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
-		return _deny("Only Great Powers sign formal alliances.")
+		return OrderVerdict.deny("Only Great Powers sign formal alliances.")
 	var record: DiplomacyRelation = state.relation(player, target)
 	if record == null:
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	if record.at_war:
-		return _deny("No alliance can be signed while at war.")
+		return OrderVerdict.deny("No alliance can be signed while at war.")
 	if record.formal_alliance:
-		return _deny("A formal alliance already binds us.")
+		return OrderVerdict.deny("A formal alliance already binds us.")
 	if not has_pact(state, player, target):
-		return _deny("An alliance needs a non-aggression pact first.")
+		return OrderVerdict.deny("An alliance needs a non-aggression pact first.")
 	if record.score < DiplomacyCatalog.ALLIANCE_MIN_SCORE:
-		# Same rule as the Join Empire gate: the sheet's word at this score is
-		# not the rule's level name, so the refusal names warmth, not a band
-		# (wiki: diplomacy § Player-facing relation display).
-		return _deny("The court is not warm enough for an alliance.")
-	return _allow()
+		# The gate is the hidden score and the sheet shows a tenth-step meter,
+		# so the refusal names the gate's distance up that meter rather than a
+		# band word the court has not reached (wiki: diplomacy
+		# § Player-facing relation display).
+		return OrderVerdict.deny(
+			"The court is not warm enough for an alliance — the gate stands %s."
+			% DiplomacyCatalog.gate_line(record.score, DiplomacyCatalog.ALLIANCE_MIN_SCORE)
+		)
+	return OrderVerdict.allow()
 
 
 static func form_alliance(
@@ -271,46 +275,53 @@ static func can_establish_overture(
 	tech: Dictionary = {}
 ) -> Dictionary:
 	if player == target:
-		return _deny("A crown cannot treat with itself.")
+		return OrderVerdict.deny("A crown cannot treat with itself.")
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	if state.relation(player, target).at_war:
-		return _deny("No overture can be made while at war.")
+		return OrderVerdict.deny("No overture can be made while at war.")
 	if not DiplomacyCatalog.knows_stage(stage) or stage == DiplomacyCatalog.STAGE_NONE:
-		return _deny("Unknown overture.")
+		return OrderVerdict.deny("Unknown overture.")
 	var target_type: int = FactionCatalog.type_of(target)
 	var gate: String = DiplomacyCatalog.tech_gate(stage, target_type, tech)
 	if not gate.is_empty():
-		return _deny(gate)
+		return OrderVerdict.deny(gate)
 	var current: String = state.overture(player, target)
 	if stage != DiplomacyCatalog.next_stage(current):
-		return _deny(
+		return OrderVerdict.deny(
 			"The next overture is %s." % DiplomacyCatalog.stage_label(
 				DiplomacyCatalog.next_stage(current)
 			)
 		)
 	if state.claimed(player, target, "overture"):
-		return _deny("An overture was already made to this court this turn.")
+		return OrderVerdict.deny("An overture was already made to this court this turn.")
 	var provinces: int = provinces_owned(world, target)
 	if stage == DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		# The gate is the hidden score, not one of the sheet's words: the herald
-		# reads Neutral from 50 to 60, so the refusal may not quote a ladder word
-		# the court has not reached (wiki: diplomacy § Player-facing relation
-		# display; playtest diary 2026-11-13, item 3).
+		# reads Neutral from 50 to 60, so the refusal names the gate's distance
+		# up the herald's meter instead of a band word the court has not
+		# reached (wiki: diplomacy § Player-facing relation display; playtest
+		# diary 2026-11-13, item 3).
 		if state.relation(player, target).score < DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE:
-			return _deny("Join Empire needs a warmer court than this one.")
+			return OrderVerdict.deny(
+				"Join Empire needs a warmer court than this one — the gate stands %s."
+				% DiplomacyCatalog.gate_line(
+					state.relation(player, target).score,
+					DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+				)
+			)
 		if provinces < 1:
-			return _deny("That faction holds no provinces to join.")
+			return OrderVerdict.deny("That faction holds no provinces to join.")
 		# A colony is bought once: the Tribe keeps its land, so a second Join
 		# Empire would charge the full price for a record that already stands.
 		if target_type == FactionCatalog.Type.TRIBE and state.colony_of(target) == player:
-			return _deny("That tribe is already your colony.")
+			return OrderVerdict.deny("That tribe is already your colony.")
 		# A Great Power target is offered to a court that still stands on its own
 		# provinces: acceptance, not the offer, reads the near-defeat and power
 		# gates (wiki: diplomacy § Join Empire; issue #750).
 	var cost: int = DiplomacyCatalog.stage_cost(stage, provinces)
 	if treasury < cost:
-		return _deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
+		return OrderVerdict.deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
 	return {"ok": true, "reason": "", "cost": cost, "provinces": provinces}
 
 
@@ -326,7 +337,12 @@ static func _accepts_peace(record: DiplomacyRelation, target: int) -> bool:
 ## (wiki: diplomacy § Join Empire; issue #750). A human target answers the
 ## consent prompt itself; this predicate is the rule- and AI-driven accept.
 ## Without a power map only the near-defeat criterion answers.
-static func accepts_join_empire(
+##
+## Shared answer (REQ-P3-01): `DiplomacyOvertures.establish_overture` —
+## the walk every court, human or rival, takes an absorption through — and
+## `AiDiplomacyTreaties.best` — the rival's own pricing of the rung — both
+## read this one call, so the AI never prices a yes the rule would refuse.
+static func answer_join_empire(
 	world: WorldMap, offerer: int, target: int, power: Dictionary = {}
 ) -> bool:
 	if nearly_defeated(world, target):
@@ -361,11 +377,3 @@ static func _downgrade_overtures(state: DiplomacyState, a: int, b: int) -> bool:
 
 static func _tier(stage: String) -> int:
 	return DiplomacyCatalog.STAGES.find(stage)
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

@@ -607,6 +607,57 @@ func test_opened_dossiers_can_be_pushed_aside() -> void:
 		assert_eq(engine.offset(), Vector2.ZERO, "a reopened dossier starts from the dock")
 
 
+## The plate keeps up with a fast pointer instead of fighting it (issue #1081).
+## `gui_input` hands the pointer in the grab's own frame, and the grab rides the
+## plate, so a drag that reads those points raw shortens its own delta every
+## move: the plate trails by half the travel and springs back. This walks a
+## pointer in equal steps and re-reads its local point against the plate as it
+## now stands — exactly what the engine reports — so a local-frame drag stalls
+## and a fixed-frame one never leaves the pointer.
+func test_a_plate_follows_a_fast_pointer_without_springing_back() -> void:
+	var stage := Control.new()
+	stage.size = Vector2(800.0, 600.0)
+	add_child(stage)
+	var plate := Control.new()
+	plate.position = Vector2(200.0, 150.0)
+	plate.size = Vector2(240.0, 180.0)
+	stage.add_child(plate)
+	var grab := Control.new()
+	grab.size = Vector2(240.0, 32.0)
+	plate.add_child(grab)
+	ModalDrag.attach(stage, plate, [grab] as Array[Control], plate)
+
+	var grip := Vector2(12.0, 12.0)
+	var start: Vector2 = plate.position
+	var press := InputEventMouseButton.new()
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	press.position = grip
+	grab.gui_input.emit(press)
+
+	var step := Vector2(37.0, -21.0)
+	var travel := Vector2.ZERO
+	for i: int in 6:
+		travel += step
+		# The engine reports the pointer relative to where the grab stands now.
+		var move := InputEventMouseMotion.new()
+		move.position = grip + travel - (plate.position - start)
+		grab.gui_input.emit(move)
+		assert_true(
+			plate.position.is_equal_approx(start + travel),
+			"step %d: the plate stands under the pointer (%s, wanted %s)"
+			% [i + 1, plate.position, start + travel]
+		)
+
+	var release := InputEventMouseButton.new()
+	release.button_index = MOUSE_BUTTON_LEFT
+	release.pressed = false
+	release.position = grip + travel - (plate.position - start)
+	grab.gui_input.emit(release)
+	stage.queue_free()
+	await get_tree().process_frame
+
+
 ## Every door on the cartouche opens the one full-screen modal: a wash that takes
 ## the pointer, a plate that takes the screen's room, and back closing it cleanly
 ## (issue #692; REQ-P1-05, REQ-P1-07, REQ-P5-07).
@@ -916,6 +967,136 @@ func test_phone_college_fits_the_small_screen() -> void:
 	assert_true(
 		press.get_global_rect().end.y <= panel.get_global_rect().end.y + 0.5,
 		"the press sits inside the sheet"
+	)
+
+
+## The same sheet one state further: every slot at study, a goal set and a purse
+## that cannot pay, so the goal strip and the unpaid notice both stand. The lists
+## keep their floor, one whole row stands in the window, and the plate is still
+## the room it is given — at the modern floor and on the 360 dp sheet
+## (DR-20261120-03, REQ-P1-07, REQ-P5-07).
+func test_phone_college_keeps_its_lists_with_a_goal_and_a_thin_purse() -> void:
+	for size: Vector2i in [SMALL, Vector2i(720, 360)]:
+		await _open(size)
+		await get_tree().process_frame
+		var hud: GameHud = _screen.hud
+		var state: ResearchState = _screen.economy.economy.research
+		for tech_id: String in ["land_enclosure", "crop_rotation", "saw_mill"]:
+			assert_true(bool(state.assign(tech_id, "maximum")["ok"]), tech_id)
+		hud.research_pressed.emit()
+		for _frame in 3:
+			await get_tree().process_frame
+		var panel: ResearchPanel = hud.panels.research_panel
+		panel.set_goal("saw_mill")
+		_screen.economy.economy.treasury = 200
+		_screen.economy.refresh_research_panel()
+		for _frame in 3:
+			await get_tree().process_frame
+		var wrap: Control = hud._research_wrap
+		_fits(wrap.get_global_rect(), _screen_rect(), "%s: college sheet" % size)
+		assert_true(panel._notice.visible, "%s: the unpaid rule speaks" % size)
+		# The sheet is the room it is given: the plate never grows past its box.
+		assert_true(
+			panel.get_combined_minimum_size().y <= wrap.size.y + 0.5,
+			"%s: the college fits its plate (%s > %s)"
+			% [size, panel.get_combined_minimum_size().y, wrap.size.y]
+		)
+		assert_almost_eq(panel._last_room, wrap.size.y, 0.5, "%s: the room is the plate" % size)
+		# The catalogue keeps its floor: the goal strip and the notice do not
+		# spend it. The 360 dp sheet is a hair under the handset's floor (58 of
+		# the 60 it promises), so it is held to the tab strip it can pay for.
+		var lists_floor: float = (
+			ResearchSheetFit.LISTS_FLOOR if size == SMALL else ResearchSheetFit.TABS_FLOOR
+		)
+		assert_true(
+			panel._tabs.size.y >= lists_floor - 0.5,
+			"%s: the lists keep their floor (%s of %s)"
+			% [size, panel._tabs.size.y, lists_floor]
+		)
+		# The goal keeps its row and every control on it, inside the sheet.
+		var first: ResearchSlotRow = panel._slot_rows.get(0)
+		assert_true(first != null, "%s: the college keeps a row per slot" % size)
+		assert_true(
+			panel._slots_scroll.size.y >= first.get_combined_minimum_size().y - 0.5,
+			"%s: one slot row stands whole in the window" % size
+		)
+		assert_true(panel._goal_row.visible, "%s: the goal keeps its reading" % size)
+		assert_true(
+			panel._goal_row.get_parent() == panel._head_row,
+			"%s: the goal rides the slots heading" % size
+		)
+		_fits(panel._goal_row.get_global_rect(), panel._head_row.get_global_rect(), "goal strip")
+		var press: ResearchFundPress = panel.fund_press()
+		assert_true(press != null and press.visible, "%s: the press stays on the sheet" % size)
+		assert_true(
+			press.get_global_rect().end.y <= panel.get_global_rect().end.y + 0.5,
+			"%s: the press sits inside the sheet" % size
+		)
+
+
+## A desktop plate is taller than the dock the dossiers ride, and the college now
+## budgets the plate it stands in: with every slot at study, a goal and a starving
+## purse the pages keep their room and the sheet's content fills the plate instead
+## of stopping at the dock's short budget (DR-20261120-03).
+func test_the_college_budgets_the_plate_on_a_desktop() -> void:
+	await _open(DESKTOP)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var state: ResearchState = _screen.economy.economy.research
+	for tech_id: String in ["land_enclosure", "crop_rotation", "saw_mill"]:
+		assert_true(bool(state.assign(tech_id, "maximum")["ok"]), tech_id)
+	hud.research_pressed.emit()
+	for _frame in 3:
+		await get_tree().process_frame
+	var panel: ResearchPanel = hud.panels.research_panel
+	panel.set_goal("saw_mill")
+	_screen.economy.economy.treasury = 200
+	_screen.economy.refresh_research_panel()
+	for _frame in 3:
+		await get_tree().process_frame
+	var wrap: Control = hud._research_wrap
+	assert_almost_eq(panel._last_room, wrap.size.y, 0.5, "the room is the plate, not the dock")
+	assert_true(
+		panel._tabs.size.y >= 120.0,
+		"the pages keep their room with every slot at study (%s)" % panel._tabs.size.y
+	)
+	assert_true(
+		panel.get_combined_minimum_size().y <= wrap.size.y + 0.5,
+		"the college fits its plate"
+	)
+
+
+## The plate is the room it is given, in every room: a budget too short to stand
+## even the tab strip beside a slot row is answered by the queue's window, which
+## scrolls, rather than by a college taller than its box (DR-20261120-03).
+func test_the_college_never_asks_for_more_than_its_room() -> void:
+	await _open(SMALL)
+	await get_tree().process_frame
+	var hud: GameHud = _screen.hud
+	var state: ResearchState = _screen.economy.economy.research
+	for tech_id: String in ["land_enclosure", "crop_rotation", "saw_mill"]:
+		assert_true(bool(state.assign(tech_id, "maximum")["ok"]), tech_id)
+	hud.research_pressed.emit()
+	for _frame in 3:
+		await get_tree().process_frame
+	var panel: ResearchPanel = hud.panels.research_panel
+	var pad: float = panel.get_theme_stylebox("panel").get_minimum_size().y
+	for room: float in [298.0, 200.0, 120.0]:
+		var fit: Dictionary = ResearchSheetFit.split(
+			panel._column, panel._slots_scroll, panel._tabs, panel._slots_body, room, pad
+		)
+		assert_true(
+			float(fit["slots"]) + float(fit["tabs"]) <= room + 0.5,
+			"a %s-point room is not asked for more (%s + %s)"
+			% [room, fit["slots"], fit["tabs"]]
+		)
+	# A room that cannot carry the tab strip gives the window up, not the plate.
+	var tight: Dictionary = ResearchSheetFit.split(
+		panel._column, panel._slots_scroll, panel._tabs, panel._slots_body, 120.0, pad
+	)
+	assert_true(
+		float(tight["tabs"]) < ResearchSheetFit.TABS_FLOOR,
+		"the queue's window yields before the plate grows (%s)" % tight["tabs"]
 	)
 
 

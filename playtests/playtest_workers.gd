@@ -53,7 +53,7 @@ func _opening_pass() -> void:
 		_pool_text(economy.workers), economy.workers.labour(), economy.workers.food_demand(),
 	])
 	await _open_workers()
-	_read_tab("turn 0")
+	await _read_tab("turn 0")
 	# The peasant row's own press: one head, paid in Build/work.
 	var peasant: Button = _action("recruit", WorkerPool.Tier.PEASANT)
 	if peasant == null:
@@ -68,7 +68,7 @@ func _opening_pass() -> void:
 	_say("after the press: pool %s · available %d · queue %d" % [
 		_pool_text(economy.workers), economy.available_peasants(), economy.recruits.total(),
 	])
-	_read_tab("after the press")
+	await _read_tab("after the press")
 	var fabric_before: int = economy.quantity("fabric")
 	var treasury_before: int = economy.treasury
 	await _close_turn("after the press")
@@ -96,7 +96,7 @@ func _trained_pass() -> void:
 	])
 	_say("pool: %s · available %d" % [_pool_text(economy.workers), economy.available_peasants()])
 	await _open_workers()
-	_read_tab("turn 100")
+	await _read_tab("turn 100")
 	# A trained worker sent back to the fields: immediate, no refund, no order.
 	var sent: int = WorkerPool.Tier.JOURNEYMAN
 	if economy.workers.count(sent) <= 0:
@@ -128,7 +128,7 @@ func _trained_pass() -> void:
 	_say("  available %d · reserved %d · queue %d" % [
 		economy.available_peasants(), economy.reserved_peasants(), economy.recruits.total(),
 	])
-	_read_tab("with a train and a muster under orders")
+	await _read_tab("with a train and a muster under orders")
 	# The reservation's own refusal: one more trained head than the pool holds.
 	var spare: int = economy.available_peasants()
 	var refused: Dictionary = economy.queue_recruit(WorkerPool.Tier.MASTER, spare + 1)
@@ -160,7 +160,7 @@ func _thin_larder_pass() -> void:
 		_pool_text(economy.workers), economy.quantity("grain"), economy.quantity("meat"),
 	])
 	await _open_workers()
-	_read_tab("starved")
+	await _read_tab("starved")
 	var forecast: Dictionary = LarderRead.forecast(
 		economy, LarderRead.mouths(_play.economy.readings.projected()), false
 	)
@@ -195,7 +195,7 @@ func _promise_pass() -> void:
 		economy.quantity("fabric"), economy.treasury,
 	])
 	await _open_workers()
-	_read_tab("before any press")
+	await _read_tab("before any press")
 	var peasant: Button = _action("recruit", WorkerPool.Tier.PEASANT)
 	if peasant == null:
 		return
@@ -243,6 +243,9 @@ func _promised_fabric(economy: PlayerEconomy) -> int:
 # --- readings ---------------------------------------------------------------
 
 
+## A reading costs two frames, so **every** call awaits it: an unawaited call
+## prints its rows after the presses that follow it, and a reading labelled
+## "before any press" would then describe the tab the presses already moved.
 func _read_tab(label: String) -> void:
 	# Read the sheet as a player opens it: the ledger rebuilds from live state,
 	# so a press made elsewhere (a muster in the army panel) is already priced.

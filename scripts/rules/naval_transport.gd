@@ -7,52 +7,47 @@ extends RefCounted
 ## A squadron in port takes one field army aboard; each hull carries one
 ## regiment. The fleet may then sail and land the army on an owned coast that
 ## borders its sea zone. A hostile shore needs a Beachhead marked on the turn
-## before (wiki: ships-and-naval § Missions and Movement).
+## before (wiki: ships-and-naval § Missions and Movement). What a deck can hold,
+## and what drowns when the sea takes a hull, is [NavalDeck]'s count.
 
 const NO_ID: int = MapModel.NO_ID
-
-
-## Regiments the squadron can carry: one per hull.
-static func capacity(fleet: FleetState) -> int:
-	if fleet == null:
-		return 0
-	return fleet.ship_count()
 
 
 ## A field army in the fleet's port may board when the hulls can hold it.
 static func can_embark(model: MapModel, army: ArmyState, fleet: FleetState) -> Dictionary:
 	if army == null:
-		return _deny("There is no army to embark.")
+		return OrderVerdict.deny("There is no army to embark.")
 	if fleet == null:
-		return _deny("No fleet waits in this port.")
+		return OrderVerdict.deny("No fleet waits in this port.")
 	if army.owner != fleet.owner:
-		return _deny("Own colours only.")
+		return OrderVerdict.deny("Own colours only.")
 	if army.home:
-		return _deny("The Home Army never leaves the capital; detach a field army first.")
+		return OrderVerdict.deny("The Home Army never leaves the capital; detach a field army first.")
 	if army.is_empty():
-		return _deny("An army with no regiments cannot embark.")
+		return OrderVerdict.deny("An army with no regiments cannot embark.")
 	if army.is_embarked():
-		return _deny("The army is already aboard a fleet.")
+		return OrderVerdict.deny("The army is already aboard a fleet.")
 	if army.moved:
-		return _deny("This army has already marched this turn.")
+		return OrderVerdict.deny("This army has already marched this turn.")
 	if not fleet.is_in_port():
-		return _deny("The fleet must be in port to take troops aboard.")
+		return OrderVerdict.deny("The fleet must be in port to take troops aboard.")
 	if fleet.province != army.province:
-		return _deny("The fleet is not in this port.")
+		return OrderVerdict.deny("The fleet is not in this port.")
 	if fleet.moved:
-		return _deny("This fleet has already sailed this turn.")
+		return OrderVerdict.deny("This fleet has already sailed this turn.")
 	if fleet.embarked_army >= 0:
-		return _deny("The fleet already carries an army.")
+		return OrderVerdict.deny("The fleet already carries an army.")
 	if fleet.carries_civilians():
-		return _deny("The squadron is carrying colonists; land them before taking troops aboard.")
-	if army.count() > capacity(fleet):
-		return _deny(
+		return OrderVerdict.deny("The squadron is carrying colonists; land them before taking troops aboard.")
+	if army.count() > NavalDeck.capacity(fleet):
+		var room: int = NavalDeck.capacity(fleet)
+		return OrderVerdict.deny(
 			"The squadron has %d hull%s and cannot carry %d regiments."
-			% [capacity(fleet), "" if capacity(fleet) == 1 else "s", army.count()]
+			% [room, "" if room == 1 else "s", army.count()]
 		)
 	if model == null or model.province_data(army.province) == null:
-		return _deny("That is not a province.")
-	return _allow()
+		return OrderVerdict.deny("That is not a province.")
+	return OrderVerdict.allow()
 
 
 ## Boards the army: it leaves the land, spends its march, and the fleet carries
@@ -65,7 +60,7 @@ static func embark(model: MapModel, army: ArmyState, fleet: FleetState) -> Dicti
 	army.province = NO_ID
 	army.moved = true
 	fleet.embarked_army = army.id
-	return _allow()
+	return OrderVerdict.allow()
 
 
 ## Owned coastal provinces the fleet could land troops on right now; a ready
@@ -119,25 +114,25 @@ static func can_establish_beachhead(
 	hostile: Callable = Callable()
 ) -> Dictionary:
 	if fleet == null or model == null:
-		return _deny("No squadron can take that station.")
+		return OrderVerdict.deny("No squadron can take that station.")
 	if not fleet.is_at_sea():
-		return _deny("The squadron must be at sea to mark a beachhead.")
+		return OrderVerdict.deny("The squadron must be at sea to mark a beachhead.")
 	if not fleet.is_afloat():
-		return _deny("A squadron with no hulls cannot land troops.")
+		return OrderVerdict.deny("A squadron with no hulls cannot land troops.")
 	if fleet.moved:
-		return _deny("This fleet has already moved or taken a mission this turn.")
+		return OrderVerdict.deny("This fleet has already moved or taken a mission this turn.")
 	if model.province_data(province_id) == null:
-		return _deny("That is not a province.")
+		return OrderVerdict.deny("That is not a province.")
 	var owner: int = model.province_owner(province_id)
 	if owner == fleet.owner:
-		return _deny("A beachhead is only needed on a hostile coast.")
+		return OrderVerdict.deny("A beachhead is only needed on a hostile coast.")
 	if owner == MapModel.NO_ID:
-		return _deny("That coast belongs to no crown.")
+		return OrderVerdict.deny("That coast belongs to no crown.")
 	if not Hostility.between(hostile, fleet.owner, owner):
-		return _deny("A beachhead needs a declared war with %s." % FactionCatalog.name_of(owner))
+		return OrderVerdict.deny("A beachhead needs a declared war with %s." % FactionCatalog.name_of(owner))
 	if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
-		return _deny("That coast does not border the fleet's sea zone.")
-	return _allow()
+		return OrderVerdict.deny("That coast does not border the fleet's sea zone.")
+	return OrderVerdict.allow()
 
 
 ## Marks the landing site; the squadron spends this turn's move or mission and
@@ -230,11 +225,11 @@ static func can_disembark(
 	state: DiplomacyState = null
 ) -> Dictionary:
 	if army == null or fleet == null:
-		return _deny("No army is aboard this fleet.")
+		return OrderVerdict.deny("No army is aboard this fleet.")
 	if fleet.embarked_army != army.id:
-		return _deny("No army is aboard this fleet.")
+		return OrderVerdict.deny("No army is aboard this fleet.")
 	if model == null or model.province_data(province_id) == null:
-		return _deny("That is not a province.")
+		return OrderVerdict.deny("That is not a province.")
 	if model.province_owner(province_id) != army.owner:
 		if not beachhead_allows(model, fleet, province_id, turn, hostile):
 			# A marked site that is not open yet names its own wait: the court is
@@ -242,35 +237,35 @@ static func can_disembark(
 			# § Missions and Movement).
 			if fleet.beachhead_province == province_id and fleet.has_beachhead():
 				if not beachhead_ready(fleet, turn):
-					return _deny(
+					return OrderVerdict.deny(
 						"The beachhead at %s opens next turn."
 						% model.province_name(province_id)
 					)
 				# Open by the clock but no longer a hostile shore (it changed
 				# hands or the war ended): waiting never opens it, so the refusal
 				# names the loss instead of promising a turn that never comes.
-				return _deny(
+				return OrderVerdict.deny(
 					"The beachhead at %s has lapsed — that shore is no longer an enemy's."
 					% model.province_name(province_id)
 				)
-			return _deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
+			return OrderVerdict.deny("Troops can only land on your own coast; a hostile landing needs a beachhead.")
 		# A Tribe shore another crown has bought land in is no undeclared
 		# landing (wiki: factions § Tribe; DR-20261110-20).
 		if state != null and not DiplomacyRules.invadable(
 			state, army.owner, model.province_owner(province_id), model, province_id
 		):
-			return _deny(
+			return OrderVerdict.deny(
 				"Another crown has bought land in %s; declare war before landing."
 				% model.province_name(province_id)
 			)
-		return _allow()
+		return OrderVerdict.allow()
 	if fleet.is_in_port():
 		if province_id != fleet.province:
-			return _deny("The fleet is in port at %s." % model.province_name(fleet.province))
-		return _allow()
+			return OrderVerdict.deny("The fleet is in port at %s." % model.province_name(fleet.province))
+		return OrderVerdict.allow()
 	if not NavalMovement.owned_provinces_by_zone(model, fleet.sea_zone, army.owner).has(province_id):
-		return _deny("That coast does not border the fleet's sea zone.")
-	return _allow()
+		return OrderVerdict.deny("That coast does not border the fleet's sea zone.")
+	return OrderVerdict.allow()
 
 
 ## Lands the army on the chosen coast; it has spent this turn's march. A hostile
@@ -296,32 +291,4 @@ static func disembark(
 	fleet.embarked_army = -1
 	if invaded:
 		fleet.clear_beachhead()
-	return _allow()
-
-
-## Breaking up a hull must not leave more regiments or colonists aboard than
-## hulls afloat.
-static func can_scrap(fleet: FleetState, army: ArmyState) -> Dictionary:
-	if fleet == null:
-		return _allow()
-	var aboard: int = fleet.civilian_count()
-	if fleet.embarked_army >= 0 and army != null:
-		aboard += army.count()
-	if fleet.ship_count() - 1 < aboard:
-		return _deny(
-			"The squadron cannot break up a hull while it carries %d passengers."
-			% aboard
-		)
-	if fleet.embarked_army < 0:
-		return _allow()
-	if army == null:
-		return _deny("The troops aboard cannot be accounted for.")
-	return _allow()
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
+	return OrderVerdict.allow()

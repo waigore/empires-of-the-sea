@@ -75,4 +75,4 @@ static func apply_crossing(
 
 
 static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "to_region": -1, "to_zone": -1}
+	return OrderVerdict.deny(reason, {"to_region": -1, "to_zone": -1})

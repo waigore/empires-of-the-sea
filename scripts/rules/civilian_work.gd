@@ -8,7 +8,9 @@ extends RefCounted
 ## (wiki: § Relations). Terrain, visibility and tile effects are only applied
 ## when a work order completes during the Build/Work pass. Per-action start
 ## gates live in CivilianWorkGates; completion writes in CivilianWorkEffects;
-## cost and duration maths in CivilianWorkPlan (REQ-P3-01).
+## cost and duration maths in CivilianWorkPlan (REQ-P3-01). The crew roster the
+## estates, road and rail orders all pick from — the idle scan, the nearest hand
+## and the crew already at a tile — also reads here.
 
 const MAX_IMPROVEMENT: int = LandWorks.MAX_IMPROVEMENT
 ## The Builder's town order needs National Bureaucracy (wiki:
@@ -185,6 +187,61 @@ static func assign(
 	unit.start_work(action, Vector2i(check["tile"]), int(check["duration"]), unit.tile, details)
 	check["label"] = CivilianWorkRows.order_label(action, model, Vector2i(check["tile"]), label(action))
 	return check
+
+
+# --- crew roster -------------------------------------------------------------
+
+
+## Every idle crew of one trade, in roster order. The estates, road and rail
+## orders all pick their Builder or Engineer the same way, so the scan lives
+## here instead of in each order module (REQ-P3-01, REQ-P3-02).
+## `type_id` empty asks for every free crew of the crown's, whatever its trade.
+static func idle_crews(
+	units: Array[CivilianState], owner: int, type_id: String
+) -> Array[CivilianState]:
+	var result: Array[CivilianState] = []
+	for unit: CivilianState in units:
+		if unit == null or unit.owner != owner or not unit.is_idle():
+			continue
+		if not type_id.is_empty() and unit.type_id != type_id:
+			continue
+		result.append(unit)
+	return result
+
+
+## Closest idle crew of one trade by Manhattan distance; ties break on unit id,
+## so two orders on the same tile always send the same hand.
+static func nearest_crew(
+	units: Array[CivilianState], owner: int, tile: Vector2i, type_id: String
+) -> CivilianState:
+	var best: CivilianState = null
+	var best_distance: int = 1 << 30
+	for unit: CivilianState in idle_crews(units, owner, type_id):
+		var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
+		if distance < best_distance or (distance == best_distance and unit.id < best.id):
+			best = unit
+			best_distance = distance
+	return best
+
+
+## The crew of one trade already at work on a tile, or null. `action` narrows
+## the test to one work order; empty matches any work the crew holds.
+static func working_crew(
+	units: Array[CivilianState],
+	owner: int,
+	tile: Vector2i,
+	type_id: String,
+	action: String = ""
+) -> CivilianState:
+	for unit: CivilianState in units:
+		if unit == null or unit.owner != owner or unit.type_id != type_id:
+			continue
+		if not unit.is_working() or unit.work_tile() != tile:
+			continue
+		if not action.is_empty() and unit.work_action() != action:
+			continue
+		return unit
+	return null
 
 
 ## Build/Work pass: advance every working unit and apply completions.

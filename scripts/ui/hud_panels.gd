@@ -99,7 +99,8 @@ func show_fleet(
 	strength: Dictionary = {},
 	merge: Dictionary = {},
 	beach_hint: String = "",
-	roster: Array[FleetState] = []
+	roster: Array[FleetState] = [],
+	pick: String = ""
 ) -> void:
 	close_sheets(self.fleet)
 	# A null fleet with a slip province is the capital yard before any squadron
@@ -109,7 +110,7 @@ func show_fleet(
 	else:
 		fleet_panel.refresh(
 			model, fleet, is_player, passage, yard_rows, land_rows, carried,
-			beach_rows, beach_note, crew, strength, merge, beach_hint, roster
+			beach_rows, beach_note, crew, strength, merge, beach_hint, roster, pick
 		)
 	self.fleet.reveal(host, dock)
 

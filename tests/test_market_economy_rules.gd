@@ -991,6 +991,55 @@ func test_settlement_carry_keeps_a_covered_bid_and_drops_a_short_one() -> void:
 	assert_eq(String(notes[0].get("code", "")), "carry_forward_dropped_cargo_insufficient")
 
 
+## A bid is carried against the crown's trade cargo capacity — its holds less the
+## tonnage the colonies ship — not against the holds a previous turn's imports
+## used: those tons are spent, so the wiki's carry-forward gate still covers the
+## bid (wiki: world-market § Order persistence, § Cargo).
+func test_a_carried_bid_keeps_the_holds_the_last_imports_used() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "iron", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 3, "treasury": 5000, "buy_price": 80}
+	)
+	# One hold is free at the close (two went on this turn's imports), and the
+	# crown's trade cargo capacity is three: the residual two carry.
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 1, 1: 4}, {"capacity": {0: 3, 1: 4}}
+	)
+	var carry: Array = report["carry"]
+	assert_eq(carry.size(), 1, "the bid the capacity covers carries")
+	var carried: int = 0 if carry.is_empty() else (carry[0] as MarketOrder).quantity
+	assert_eq(carried, 2, "the unfilled two carry")
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_false(codes.has("carry_forward_dropped_cargo_insufficient"))
+
+
+## The same gate still drops a bid the trade cargo capacity cannot cover
+## (wiki: world-market § Order persistence — the capacity is insufficient).
+func test_a_carried_bid_drops_when_the_trade_capacity_is_short() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	MarketOrders.submit(
+			market,
+		0, "iron", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 3, "treasury": 5000, "buy_price": 80}
+	)
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 1, 1: 4}, {"capacity": {0: 1, 1: 4}}
+	)
+	assert_eq((report["carry"] as Array).size(), 0, "a bid past the capacity drops")
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_true(codes.has("carry_forward_dropped_cargo_insufficient"))
+
+
 func test_settlement_buy_unit_and_subsidy_read_the_pair() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	assert_eq(
@@ -2037,6 +2086,87 @@ func test_larder_forecast_names_a_luxury_shortfall() -> void:
 	assert_eq(int(read["strikers"]), 1)
 	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.APPRENTICE)
 	assert_eq(read["luxury_short"], {"refinedSugar": 1})
+
+
+## The turn's larder standing is the same dry run the WORKERS tab prints: the
+## store's food, the whole larder's slack as a signed figure, and the strikers
+## the phase would leave — the reading a crown acts on before it seals the turn
+## (wiki: workers-and-population § Consumption; REQ-P5-05, REQ-P5-06).
+func test_the_larder_standing_reads_the_store_and_its_slack() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	var read: Dictionary = LarderRead.standing(economy)
+	assert_eq(int(read["food"]), 1, "the store's food, grain and meat together")
+	assert_eq(int(read["wanted"]), 3, "a master eats two, a peasant one")
+	assert_eq(int(read["slack"]), -2, "the shortfall reads signed")
+	assert_eq(int(read["strikers"]), 1)
+	assert_eq(int(read["striking_tier"]), WorkerPool.Tier.MASTER)
+	economy.stockpile = {"grain": 5, "meat": 5, "furHats": 1}
+	var calm: Dictionary = LarderRead.standing(economy)
+	assert_eq(int(calm["food"]), 10)
+	assert_eq(int(calm["slack"]), 7, "a covered larder reads a surplus")
+	assert_eq(int(calm["strikers"]), 0)
+	assert_eq(int(calm["striking_tier"]), -1)
+
+
+## The warning a court hears a turn before the larder bites names what runs
+## short and who strikes first, and stays silent on a covered larder. Both forms
+## are the wiki's own lines — the food clause is separated from the strike by a
+## semicolon, the luxury form keeps the dash (wiki: workers-and-population
+## § Consumption; DR-20261119-11; REQ-P5-05, REQ-P5-06).
+func test_the_larder_warning_names_what_runs_short() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(1, 0, 0, 1)
+	economy.stockpile = {"grain": 1, "meat": 0, "furHats": 1}
+	assert_eq(
+		LarderRead.warning(LarderRead.standing(economy)),
+		"The larder runs short — 2 food; 1 worker will strike at the next close, "
+		+ "masters first."
+	)
+	# A luxury the tier wants with the food covered names the good, not a
+	# shortfall in food the store does not have.
+	economy.workers = WorkerPool.make(0, 1)
+	economy.stockpile = {"grain": 2, "meat": 2, "refinedSugar": 0}
+	assert_eq(
+		LarderRead.warning(LarderRead.standing(economy)),
+		"The larder runs short of Refined Sugar ×1 — 1 worker will strike at the "
+		+ "next close, apprentices first."
+	)
+	economy.stockpile = {"grain": 4, "meat": 4, "refinedSugar": 2}
+	assert_eq(LarderRead.warning(LarderRead.standing(economy)), "", "a calm larder is silent")
+
+
+## A larder that runs short of food and of the luxury on top of it names the
+## food first — the phase feeds it before any luxury — and still separates the
+## shortfall from the strike with the published semicolon (wiki:
+## workers-and-population § Consumption; DR-20261119-11).
+func test_the_larder_warning_names_food_before_the_luxury() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(0, 2)
+	economy.stockpile = {"grain": 1, "meat": 0, "refinedSugar": 0}
+	var read: Dictionary = LarderRead.standing(economy)
+	assert_true(int(read["slack"]) < 0, "the store cannot feed the pool")
+	var line: String = LarderRead.warning(read)
+	assert_true(line.begins_with("The larder runs short — "), line)
+	assert_true(line.contains(" food; "), "the food clause takes the published semicolon")
+	assert_false(line.contains("Refined Sugar"), "food is named before any luxury")
+
+
+## The standing's `waiting` flag: the ledger's own projection already counts the
+## musters and launches under orders, so the warning reads it with `waiting = false`
+## or one mouth would be fed twice (wiki: workers-and-population § Consumption).
+func test_the_larder_standing_does_not_feed_a_waiting_muster_twice() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	economy.stockpile = {"grain": 10, "meat": 0}
+	economy.recruits.add(RecruitQueue.KIND_REGIMENT, "pikemen")
+	var once: Dictionary = LarderRead.standing(economy, {"army": 2}, false)
+	var twice: Dictionary = LarderRead.standing(economy, {"army": 0}, true)
+	assert_eq(int(once["wanted"]), int(twice["wanted"]), "one muster, one ration")
+	# The muster also takes a peasant: the phase feeds one hand and the regiment.
+	assert_eq(int(once["wanted"]), 3, "one peasant, the muster's head and its ration")
+
 
 ## Recruits already under orders eat at the next Consumption, so the forecast
 ## counts them before the crown presses another row

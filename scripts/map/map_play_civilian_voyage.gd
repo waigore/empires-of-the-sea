@@ -11,29 +11,23 @@ extends RefCounted
 ## steps off is no choice the crown can tell apart.
 
 
-## Dossier data: {"count", "note", "embark", "land", "sortie"}.
+## Dossier data: {"count", "note", "embark", "embark_batch", "land", "sortie"}.
 static func crew(play: PlaySession, fleet: FleetState) -> Dictionary:
 	var data: Dictionary = {
-		"count": 0, "note": "", "embark": [], "land": [], "sortie": [],
+		"count": 0, "note": "", "embark": [], "embark_batch": {}, "land": [], "sortie": [],
 	}
 	if fleet == null or fleet.owner != play.player_faction:
 		return data
 	var aboard: Array[CivilianState] = _aboard(play, fleet)
 	data["count"] = aboard.size()
 	data["note"] = _note(aboard)
-	if (
-		fleet.is_in_port()
-		and not fleet.moved
-		and fleet.embarked_army < 0
-		and fleet.civilian_count() < CivilianVoyage.capacity(fleet)
-	):
-		for unit: CivilianState in play.civilian_layer.units:
-			if unit == null or unit.owner != play.player_faction:
-				continue
-			if not bool(CivilianVoyage.can_embark(play.model, unit, fleet)["ok"]):
-				continue
-			var row: Dictionary = {"id": unit.id, "name": unit.display_name()}
-			data["embark"].append(row)
+	var open: Array[CivilianState] = _idle_crews(play, fleet)
+	for unit: CivilianState in open:
+		var row: Dictionary = {"id": unit.id, "name": unit.display_name()}
+		data["embark"].append(row)
+	# What the block's one press would take aboard, read before it is pressed: the
+	# same walk the intent files, so its face and its receipt agree (DR-20261119-18).
+	data["embark_batch"] = EmbarkBatch.plan(play.model, open, fleet)
 	if not aboard.is_empty():
 		# The landing rule names a tile; the crew's kind is what the crown picks
 		# between, so the block reads one line per crew kind per coast and the
@@ -75,6 +69,9 @@ static func on_action(play: PlaySession, action: String) -> bool:
 	var fleet: FleetState = play.ship_layer.fleet_of(play.ship_layer.selected())
 	if fleet == null or fleet.owner != play.player_faction:
 		return false
+	if action == "crew:embark:all":
+		embark_all(play, fleet)
+		return true
 	if action.begins_with("crew:embark:"):
 		embark(play, fleet, int(action.trim_prefix("crew:embark:")))
 		return true
@@ -107,6 +104,34 @@ static func embark(play: PlaySession, fleet: FleetState, unit_id: int) -> void:
 		% [unit.display_name(), play.model.province_name(fleet.province)]
 	)
 	_refresh(play, fleet)
+
+
+## Takes every idle crew the hulls can hold aboard the selected squadron in one
+## press (wiki: civilian-units § Boarding; DR-20261119-18). The walk is
+## [EmbarkBatch]'s, so the count the crown confirmed is the count that boards; a
+## press that fills its berths stops where the rules refuse and says which crew
+## waits and why (REQ-P5-04, REQ-P5-05).
+static func embark_all(play: PlaySession, fleet: FleetState) -> void:
+	var units: Array[CivilianState] = _idle_crews(play, fleet)
+	if units.is_empty():
+		play.hud.toast(CivilianVoyage.capacity_refusal(fleet))
+		return
+	var receipt: Dictionary = EmbarkBatch.file(
+		play.model,
+		units,
+		fleet,
+		func(type_id: String) -> void:
+			var unit: CivilianState = _by_id(units, int(type_id))
+			if unit == null:
+				return
+			if not bool(CivilianVoyage.embark(play.model, unit, fleet).get("ok", false)):
+				return
+			CivilianVoyageMap.hide(play.civilian_layer, unit)
+	)
+	var place: String = play.model.province_name(fleet.province)
+	play.hud.toast(EmbarkBatch.receipt(receipt, place))
+	if int(receipt.get("filed", 0)) > 0:
+		_refresh(play, fleet)
 
 
 ## Puts a passenger ashore on the ground the crown named. `tile` is the tile the
@@ -266,6 +291,36 @@ static func _seat(
 	if seat.x < 0 or not tiles.has(seat):
 		return {}
 	return {"x": seat.x, "y": seat.y, "ground": _ground_label(play, seat)}
+
+
+## The idle crews the block's embark rows print — the one reading the single
+## press, the one press and the intent share, so a row is never offered that the
+## walk would not take (wiki: civilian-units § Boarding).
+static func _idle_crews(play: PlaySession, fleet: FleetState) -> Array[CivilianState]:
+	var open: Array[CivilianState] = []
+	if (
+		fleet == null
+		or fleet.owner != play.player_faction
+		or not fleet.is_in_port()
+		or fleet.moved
+		or fleet.embarked_army >= 0
+		or fleet.civilian_count() >= CivilianVoyage.capacity(fleet)
+	):
+		return open
+	for unit: CivilianState in play.civilian_layer.units:
+		if unit == null or unit.owner != play.player_faction:
+			continue
+		if not bool(CivilianVoyage.can_embark(play.model, unit, fleet)["ok"]):
+			continue
+		open.append(unit)
+	return open
+
+
+static func _by_id(units: Array[CivilianState], unit_id: int) -> CivilianState:
+	for unit: CivilianState in units:
+		if unit.id == unit_id:
+			return unit
+	return null
 
 
 ## Passengers carried by this squadron, in instance-id order.

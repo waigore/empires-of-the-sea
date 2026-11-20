@@ -6,7 +6,7 @@ extends GdToolsTest
 ## Merged from test_map_model, test_map_region_table, test_visibility,
 ## test_save_world, test_save_store, test_province_graph, test_map_camera,
 ## test_fog_layer, test_minimap, test_resource_survey, test_crown_road_lens,
-## test_map_canvas.
+## test_mapcanvas.
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const fog_layer_Fixture = preload("res://tests/map_fixture.gd")
@@ -24,18 +24,26 @@ var _visibility: VisibilityModel = null
 var _minimap: Minimap = null
 var screen: MapScreen = null
 var saved: Array = []
+## Stable host for shared layers: gd-tools clones each case, so canvas / fog /
+## the lazy crown-road chart must live on the before_all instance (docs/testing.md
+## § Speed rules). Non-underscore so the refs copy onto every case.
+var layer_host: Node = null
+var canvas: MapCanvas = null
+var fog_overlay: MapOverlay = null
+## Static so the first crown-road case that mounts keeps the screen for later
+## cases (before_all left `screen` null on purpose).
+static var _lens_screen: MapScreen = null
 
 var _suite_setup: String = ""
 
 func before_all() -> void:
 	_data_before_all()
-	_hook_crown_road_lens_before_all()
+	_hook_map_view_before_all()
 
 func after_all() -> void:
-	_hook_crown_road_lens_after_all()
+	_hook_map_view_after_all()
 
 func after_each() -> void:
-	_canvas_after_each()
 	_data_after_each()
 	match _suite_setup:
 		"map_camera":
@@ -46,14 +54,31 @@ func after_each() -> void:
 			_teardown_minimap()
 	_suite_setup = ""
 
-func _hook_crown_road_lens_before_all() -> void:
+## One canvas, one fog overlay, and a warm name-plan for the suite. The MapScreen
+## the four crown-road cases need mounts lazily onto `layer_host` so the other
+## ~180 cases never pay a chart mount under coverage.
+func _hook_map_view_before_all() -> void:
 	saved = crown_road_lens_Fixture.snapshot(crown_road_lens_Fixture.world())
-	screen = crown_road_lens_Fixture.attach_screen(self)
+	layer_host = Node.new()
+	add_child(layer_host)
+	canvas = MapCanvas.new()
+	canvas.build(fog_layer_Fixture.region())
+	layer_host.add_child(canvas)
+	fog_overlay = MapOverlay.new()
+	fog_overlay.build(fog_layer_Fixture.region())
+	layer_host.add_child(fog_overlay)
+	_name_chart_plan()
 
-func _hook_crown_road_lens_after_all() -> void:
-	if is_instance_valid(screen):
-		screen.free()
+func _hook_map_view_after_all() -> void:
+	if is_instance_valid(_lens_screen):
+		_lens_screen.free()
+	_lens_screen = null
 	screen = null
+	canvas = null
+	fog_overlay = null
+	if is_instance_valid(layer_host):
+		layer_host.free()
+	layer_host = null
 
 func _setup_map_camera() -> void:
 	_suite_setup = "map_camera"
@@ -67,9 +92,7 @@ func _setup_map_camera() -> void:
 
 func _setup_fog_layer() -> void:
 	_suite_setup = "fog_layer"
-	_overlay = MapOverlay.new()
-	_overlay.build(fog_layer_Fixture.region())
-	add_child(_overlay)
+	_overlay = fog_overlay
 
 func _setup_minimap() -> void:
 	_suite_setup = "minimap"
@@ -83,9 +106,9 @@ func _setup_minimap() -> void:
 func _setup_crown_road_lens() -> void:
 	_suite_setup = "crown_road_lens"
 	crown_road_lens_Fixture.restore(crown_road_lens_Fixture.world(), saved)
-	if screen == null or not is_instance_valid(screen):
-		screen = crown_road_lens_Fixture.attach_screen(self)
-		return
+	if not is_instance_valid(_lens_screen):
+		_lens_screen = crown_road_lens_Fixture.attach_screen(layer_host)
+	screen = _lens_screen
 	if screen.play.lens != null and screen.play.lens.active:
 		MapPlayInput.set_lens(screen.play, false)
 	if screen.play.diplomacy_lens != null and screen.play.diplomacy_lens.active:
@@ -101,8 +124,7 @@ func _teardown_map_camera() -> void:
 	_camera = null
 
 func _teardown_fog_layer() -> void:
-	if is_instance_valid(_overlay):
-		_overlay.free()
+	# Shared fog_overlay lives until after_all.
 	_overlay = null
 
 func _teardown_minimap() -> void:
@@ -2828,40 +2850,31 @@ func _graph_owners(width: int, height: int, owners: Array) -> MapModel:
 func _graph_ids(model: MapModel) -> Array:
 	return range(model.provinces.size())
 
-# ==== merged from test_map_canvas.gd (one coverage boot; docs/testing.md § Speed rules) ====
+# ==== merged from test_mapcanvas.gd (one coverage boot; docs/testing.md § Speed rules) ====
 ## Presentation contract for the map artwork: the wash must sit behind the ink,
 ## the animated layers must exist, the bake must carry a coastline and a beach
 ## the player can read, and symbols must never bury a province name.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 ## The shared 48x32 fixture is all pocket provinces (every one under
-## `MapCanvasPlan.NAME_ROOM`), so the case that reads both type sizes — full and
-## pocket — uses a 72x52 chart instead. It is generated once per worker: under
-## coverage a chart costs seconds, and a case that rebuilt it would pay that
-## again. Old World only — the placement rules never read a world's sea lanes,
-## and one region keeps the retry loop (setup_errors -> a fresh seed) from
-## paying for a second chart.
-const NAME_CHART: Vector2i = Vector2i(72, 52)
+## `MapCanvasPlan.NAME_ROOM`), so the cases that read both type sizes — full and
+## pocket — use a smaller Old World that still carries both. Seed 1509 at 52x36
+## is half the tiles of the old 72x52 / seed-1500 chart (~1.9k vs ~3.7k) and still
+## seats full + pocket names with enough towns for the mark-clear case. Generated
+## and planned once per worker in `before_all` (`static`): under coverage a chart
+## costs seconds, and a case that rebuilt it would pay that again. Old World only
+## — the placement rules never read a world's sea lanes, and one region keeps the
+## retry loop (setup_errors -> a fresh seed) from paying for a second chart.
+const NAME_CHART: Vector2i = Vector2i(52, 36)
+const NAME_SEED: int = 1509
 
 static var _name_chart: MapModel = null
+static var _name_plan: MapCanvasPlan = null
 
-var _canvas: MapCanvas = null
 
-
-## Mounted lazily: only the cases that read the artwork pay for a canvas, and
-## the plan cases below read the chart without one.
+## The suite's one MapCanvas, built in before_all on `layer_host`.
 func _mounted() -> MapCanvas:
-	if not is_instance_valid(_canvas):
-		_canvas = MapCanvas.new()
-		_canvas.build(Fixture.region())
-		add_child(_canvas)
-	return _canvas
-
-
-func _canvas_after_each() -> void:
-	if is_instance_valid(_canvas):
-		_canvas.queue_free()
-	_canvas = null
+	return canvas
 
 
 ## The name-placement chart the two placement cases share, generated once per
@@ -2869,9 +2882,18 @@ func _canvas_after_each() -> void:
 func _name_chart_model() -> MapModel:
 	if _name_chart == null:
 		_name_chart = MapGenerator.new().generate_region(
-			Fixture.SEED, FactionCatalog.OLD_WORLD, NAME_CHART.x, NAME_CHART.y
+			NAME_SEED, FactionCatalog.OLD_WORLD, NAME_CHART.x, NAME_CHART.y
 		)
 	return _name_chart
+
+
+## One plan over the name chart: both placement cases read it, so coverage pays
+## `plan.build` once in before_all instead of once per case.
+func _name_chart_plan() -> MapCanvasPlan:
+	if _name_plan == null:
+		_name_plan = MapCanvasPlan.new()
+		_name_plan.build(_name_chart_model(), null, MapCanvas.TILE_SIZE)
+	return _name_plan
 
 
 func test_wash_draws_behind_the_inked_layer() -> void:
@@ -2928,14 +2950,14 @@ func test_ink_coast_sits_on_the_tile_edge_the_wash_fills() -> void:
 ## that tint despite the noise laid over it.
 func test_canvas_owned_land_is_washed_toward_its_crown() -> void:
 	_mounted()
-	var model: MapModel = _canvas.model
+	var model: MapModel = canvas.model
 	var tile: Vector2i = _inland_owned_tile(model)
 	assert_true(tile.x >= 0, "fixture has an owned inland tile")
 	var terrain: Color = Palette.terrain_color(model.terrain_at(tile.x, tile.y))
 	var crown: Color = FactionCatalog.color_of(model.owner_at(tile.x, tile.y))
 	var expected: Color = terrain.lerp(crown, MapWash.OWNER_TINT)
 	assert_true(MapWash.OWNER_TINT >= 0.5, "ownership stays readable at play zoom")
-	var base: Color = _canvas.relief.tile_color(tile)
+	var base: Color = canvas.relief.tile_color(tile)
 	assert_almost_eq(base.r, expected.r, 0.001)
 	assert_almost_eq(base.g, expected.g, 0.001)
 	assert_almost_eq(base.b, expected.b, 0.001)
@@ -2949,7 +2971,7 @@ func test_canvas_owned_land_is_washed_toward_its_crown() -> void:
 ## other, so the painted edge and the ink agree instead of blurring together.
 func test_coast_field_is_negative_at_sea_and_positive_on_land() -> void:
 	var model: MapModel = _mounted().model
-	var relief: MapRelief = _canvas.relief
+	var relief: MapRelief = canvas.relief
 	var wrong: int = 0
 	for y in model.height:
 		for x in model.width:
@@ -2967,7 +2989,7 @@ func test_coast_field_is_negative_at_sea_and_positive_on_land() -> void:
 ## basin reach the shoal veil follows is the deepest sounding within its reach.
 func test_the_bake_paints_from_the_published_coast_field() -> void:
 	var model: MapModel = _mounted().model
-	var relief: MapRelief = _canvas.relief
+	var relief: MapRelief = canvas.relief
 	var field: MapCoastField = relief.coast
 	assert_not_null(field, "the bake keeps the field it read")
 	assert_false(field.sd.is_empty(), "the field carries a distance per tile")
@@ -2991,7 +3013,7 @@ func test_the_bake_paints_from_the_published_coast_field() -> void:
 ## a coastline read as drawn water rather than a soft smear.
 func test_wash_paints_a_beach_and_a_shallow_band() -> void:
 	var model: MapModel = _mounted().model
-	var relief: MapRelief = _canvas.relief
+	var relief: MapRelief = canvas.relief
 	var image: Image = relief.color
 	var sand: int = 0
 	var shoal: int = 0
@@ -3242,7 +3264,7 @@ func test_terrain_symbols_never_cover_province_labels() -> void:
 func test_every_non_capital_town_is_marked() -> void:
 	var model: MapModel = _mounted().model
 	var marks: Dictionary = {}
-	for glyph: Dictionary in _canvas.plan.glyphs:
+	for glyph: Dictionary in canvas.plan.glyphs:
 		if String(glyph["kind"]) == "town":
 			marks[glyph["position"]] = true
 	var expected: int = 0
@@ -3265,8 +3287,7 @@ func test_every_non_capital_town_is_marked() -> void:
 ## tile and the name has to clear it.
 func test_a_province_name_clears_its_town_mark() -> void:
 	var region: MapModel = _name_chart_model()
-	var plan := MapCanvasPlan.new()
-	plan.build(region, null, MapCanvas.TILE_SIZE)
+	var plan: MapCanvasPlan = _name_chart_plan()
 	var marks: Dictionary = {}
 	for glyph: Dictionary in plan.glyphs:
 		if String(glyph["kind"]) == "town":
@@ -3451,8 +3472,7 @@ func test_capital_star_has_ten_points() -> void:
 ## rather than nameless (issue #665). The name chart carries both sizes.
 func test_plan_places_names_without_a_node() -> void:
 	var region: MapModel = _name_chart_model()
-	var plan := MapCanvasPlan.new()
-	plan.build(region, null, MapCanvas.TILE_SIZE)
+	var plan: MapCanvasPlan = _name_chart_plan()
 	var named: Dictionary = {}
 	for label: Dictionary in plan.labels:
 		if String(label["kind"]) == "province":
@@ -3756,7 +3776,7 @@ func _inland_owned_tile(model: MapModel) -> Vector2i:
 		if province.owner != FactionCatalog.PLAYER_FACTION:
 			continue
 		for tile: Vector2i in province.tiles:
-			var depth: float = _canvas.relief.coast_at(
+			var depth: float = canvas.relief.coast_at(
 				Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
 			)
 			if depth > best_depth:
@@ -3768,8 +3788,8 @@ func _inland_owned_tile(model: MapModel) -> Vector2i:
 ## Mean of the bake texels around a tile centre, so a single grain texel does
 ## not decide the assertion.
 func _painted_mean(tile: Vector2i) -> Color:
-	var image: Image = _canvas.relief.color
-	var scale: int = _canvas.relief.scale
+	var image: Image = canvas.relief.color
+	var scale: int = canvas.relief.scale
 	var cx: int = tile.x * scale + scale / 2
 	var cy: int = tile.y * scale + scale / 2
 	var total := Color(0.0, 0.0, 0.0, 0.0)
@@ -3787,7 +3807,7 @@ func _land_centre(model: MapModel) -> Vector2:
 	for province: ProvinceState in model.provinces:
 		for tile: Vector2i in province.tiles:
 			var centre := Vector2(float(tile.x) + 0.5, float(tile.y) + 0.5)
-			if _canvas.relief.coast_at(centre) > 1.2:
+			if canvas.relief.coast_at(centre) > 1.2:
 				return centre
 	return Vector2(0.5, 0.5)
 

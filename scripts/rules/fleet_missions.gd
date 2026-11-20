@@ -143,37 +143,37 @@ static func can_assign(
 	hostile: Callable = Callable()
 ) -> Dictionary:
 	if fleet == null or model == null:
-		return _deny("There is no squadron to order.")
+		return OrderVerdict.deny("There is no squadron to order.")
 	if mission != FleetState.Mission.PATROL \
 			and mission != FleetState.Mission.BLOCKADE \
 			and mission != FleetState.Mission.DEFEND:
-		return _deny("That is not a station a squadron can take.")
+		return OrderVerdict.deny("That is not a station a squadron can take.")
 	if NavalMovement.is_home_fleet(model, fleet):
-		return _deny("The home fleet cannot take a station; launch a squadron instead.")
+		return OrderVerdict.deny("The home fleet cannot take a station; launch a squadron instead.")
 	if not fleet.is_afloat():
-		return _deny("A squadron with no hulls cannot take a station.")
+		return OrderVerdict.deny("A squadron with no hulls cannot take a station.")
 	if not fleet.is_at_sea():
-		return _deny("A squadron must be at sea to take a station.")
+		return OrderVerdict.deny("A squadron must be at sea to take a station.")
 	if fleet.moved:
-		return _deny("This fleet has already moved or taken a station this turn.")
+		return OrderVerdict.deny("This fleet has already moved or taken a station this turn.")
 	if fleet.mission == mission:
 		if mission != FleetState.Mission.BLOCKADE:
-			return _deny("The squadron already holds that station.")
+			return OrderVerdict.deny("The squadron already holds that station.")
 		if province_id == fleet.blockade_province:
-			return _deny("The squadron already blockades that coast.")
+			return OrderVerdict.deny("The squadron already blockades that coast.")
 	if mission == FleetState.Mission.BLOCKADE:
 		if province_id < 0 or model.province_data(province_id) == null:
-			return _deny("Choose an enemy province to blockade.")
+			return OrderVerdict.deny("Choose an enemy province to blockade.")
 		var owner: int = model.province_owner(province_id)
 		if owner == fleet.owner:
-			return _deny("A blockade needs an enemy coast.")
+			return OrderVerdict.deny("A blockade needs an enemy coast.")
 		if owner == MapModel.NO_ID:
-			return _deny("That coast belongs to no crown.")
+			return OrderVerdict.deny("That coast belongs to no crown.")
 		if not Hostility.between(hostile, fleet.owner, owner):
-			return _deny("A blockade needs a declared war with %s." % FactionCatalog.name_of(owner))
+			return OrderVerdict.deny("A blockade needs a declared war with %s." % FactionCatalog.name_of(owner))
 		if not NavalMovement.provinces_by_zone(model, fleet.sea_zone).has(province_id):
-			return _deny("That coast does not border the fleet's sea zone.")
-	return _allow()
+			return OrderVerdict.deny("That coast does not border the fleet's sea zone.")
+	return OrderVerdict.allow()
 
 
 ## Takes the station for this turn and reports the player-facing line.
@@ -241,11 +241,3 @@ static func _message(model: MapModel, fleet: FleetState) -> String:
 		FleetState.Mission.DEFEND:
 			return "The squadron holds station in the %s." % model.sea_zone_name(fleet.sea_zone)
 	return "The squadron stands down."
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

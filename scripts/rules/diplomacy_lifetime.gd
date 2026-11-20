@@ -57,6 +57,47 @@ static func _purge(table: Dictionary, faction: int) -> void:
 			table.erase(key)
 
 
+## Drops every subsidy row a court could not have set: a Great Power-to-Great
+## Power row, a legacy £/turn row, a percent off the published 5–20 ladder, or a
+## malformed key (wiki: diplomacy § Acceptance Criteria — a save carrying any of
+## them loads with none of them; R3, "the legacy £ subsidies are dropped; the
+## player re-establishes them under the percent model"). A subsidy is only ever
+## Great Power → Minor/Tribe, so every other shape is refused before any rules
+## pass reads it.
+##
+## The legacy shape stores an object where a percent belongs, and reading that
+## object as an int throws, so a single un-migrated row took the whole pass that
+## prices every subsidy down with it — the legal rows included. The load is the
+## one place that can tell a legacy row from a live one, so the pruning is done
+## here rather than guessed at by a reader. Returns how many rows went.
+static func prune_subsidies(state: DiplomacyState) -> int:
+	if state == null:
+		return 0
+	var dropped: int = 0
+	for key: String in state.subsidies.keys():
+		if _subsidy_allowed(key, state.subsidies[key]):
+			continue
+		state.subsidies.erase(key)
+		dropped += 1
+	return dropped
+
+
+## True for a row the subsidy rules could still read: a Great Power payer, a
+## Minor Nation or Tribe target, and a published percent.
+static func _subsidy_allowed(key: String, value: Variant) -> bool:
+	if typeof(value) != TYPE_INT and typeof(value) != TYPE_FLOAT:
+		return false
+	var courts: Vector2i = DiplomacyKeys.directed_courts(key)
+	if courts.x < 0 or courts.y < 0 or courts.x == courts.y:
+		return false
+	if FactionCatalog.type_of(courts.x) != FactionCatalog.Type.GREAT_POWER:
+		return false
+	var target: int = FactionCatalog.type_of(courts.y)
+	if target != FactionCatalog.Type.MINOR_NATION and target != FactionCatalog.Type.TRIBE:
+		return false
+	return DiplomacyCatalog.is_valid_subsidy(int(value))
+
+
 ## Drops every pending decision whose named courts include `faction`.
 static func _drop_pending(
 	entries: Array[Dictionary], fields: Array[String], faction: int

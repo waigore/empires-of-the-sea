@@ -188,3 +188,36 @@ static func stepped(preset: String, direction: int) -> String:
 	return ResearchFunding.ORDER[
 		clampi(index + signi(direction), 0, ResearchFunding.ORDER.size() - 1)
 	]
+
+
+## What the college's slots heading prints: what the whole queue spends and earns
+## a turn. A phone drops the caption — the goal strip shares that row and the slot
+## rows under it say what they are — so the figure keeps the width it needs
+## (DR-20261120-03).
+static func heading_line(gold: int, points: int, compact: bool) -> String:
+	if gold <= 0 and points <= 0:
+		return "nothing is funded" if compact else "RESEARCH SLOTS · nothing is funded"
+	var figure: String = "%s ducats & %s RP a turn" % [
+		TextFormat.thousands(gold), TextFormat.thousands(points),
+	]
+	return figure if compact else "RESEARCH SLOTS · " + figure
+
+
+## The rule behind an unpaid study, read under the summary whenever a slot starves
+## (wiki: tech-tree-labour-economy § money_lending, banking; REQ-P5-05). Empty when
+## every study is paid.
+static func notice_line(unpaid: int, floor_rule: String) -> String:
+	if unpaid <= 0:
+		return ""
+	var subject: String = "1 study goes" if unpaid == 1 else "%d studies go" % unpaid
+	return "%s unpaid — %s." % [subject, floor_rule]
+
+
+## The standing hint under the sheet: what a starved or full college does, else
+## what funding costs it.
+static func hint_line(open_count: int, free_slot: int, starved: bool) -> String:
+	if starved:
+		return "A study the treasury cannot cover keeps its slot and its points; it only waits."
+	if free_slot < 0 and open_count > 0:
+		return "Every slot is at study — cancel one to take another path."
+	return "Funding is paid every turn; cancelling a slot forfeits its progress."

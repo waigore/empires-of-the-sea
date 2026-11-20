@@ -185,6 +185,11 @@ static func _yields(facts: Dictionary, owner: int) -> Dictionary:
 	return {
 		"next_level": next_level,
 		"output": capped_now if paid else 0,
+		# The per-level figure the extraction formula pays before a ration
+		# estate's doubling. The cap note reads this one, because the multiplier
+		# would otherwise hide the cap that holds the estate flat
+		# (wiki: extraction-and-improvements § Ration estates).
+		"effective": _level_yield(level, tech_cap, terrain_cap, transport, town_cap),
 		"next_output": next_output,
 		"gain": maxi(next_output - capped_now, 0),
 	}
@@ -196,9 +201,18 @@ static func _yield_at(
 	level: int, tech_cap: int, terrain_cap: int, transport: int, town_cap: int,
 	owner: int, commodity: String
 ) -> int:
+	return _level_yield(level, tech_cap, terrain_cap, transport, town_cap) \
+		* Extraction.estate_yield_per_level(owner, commodity)
+
+
+## The extraction formula's yield for one level, before a ration estate's
+## doubling: min(level, tech, terrain, transport, town).
+static func _level_yield(
+	level: int, tech_cap: int, terrain_cap: int, transport: int, town_cap: int
+) -> int:
 	return Extraction.effective_yield(
 		level, mini(tech_cap, terrain_cap), transport, town_cap
-	) * Extraction.estate_yield_per_level(owner, commodity)
+	)
 
 
 ## The Build press and the words that explain it, read as one gate: a row that
@@ -252,7 +266,8 @@ static func _row(
 	var status_text: String = EstateRowWords.status_text(
 		status, resource, level, int(facts["output"]), int(facts["tech_cap"]),
 		int(facts["terrain_cap"]), int(facts["transport"]), int(facts["town_cap"]),
-		working, bool(facts["connected"]), bool(facts["blockaded"])
+		working, bool(facts["connected"]), bool(facts["blockaded"]),
+		int(facts["effective"])
 	)
 	# How much road the crown still needs (wiki: capital-and-connectivity).
 	var gap: int = int(facts["gap"])

@@ -9,7 +9,8 @@ extends RefCounted
 ## hull** to the bottom, never a warship and never a hull on the raider's own
 ## side (DR-20261111-17). The hull term lives in [NavalHullLoss]; this module
 ## owns the raid itself. The crown raids back the same way: [method
-## resolve_prizes] takes a rival's cargo and merchant hulls as prize.
+## resolve_prizes] takes a rival's cargo and merchant hulls as prize. Which
+## squadrons work a station is [NavalStation]'s reading.
 
 const BLOCKADE_BONUS: float = 1.25
 const MIN_EFFICIENCY: float = 0.3
@@ -317,11 +318,7 @@ static func _raider_groups(
 			continue
 		if not Hostility.between(hostile, fleet.owner, victim):
 			continue
-		if fleet.mission != FleetState.Mission.PATROL \
-				and fleet.mission != FleetState.Mission.BLOCKADE:
-			continue
-		if fleet.mission == FleetState.Mission.BLOCKADE \
-				and not FleetMissions.is_blockading(model, fleet, hostile):
+		if not NavalStation.works(model, fleet, hostile):
 			continue
 		if not groups.has(Vector2i(fleet.sea_zone, fleet.owner)):
 			groups[Vector2i(fleet.sea_zone, fleet.owner)] = []

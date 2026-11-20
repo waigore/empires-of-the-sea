@@ -29,19 +29,25 @@ static func station_of(fleet: FleetState) -> String:
 ##
 ## `lanes` maps a fleet id to the offset her marker draws at, so a squadron the
 ## chart draws always has one; `stacks` maps a fleet id to the order a tap
-## cycles in her station (a squadron standing alone keeps an empty one); and
-## `fronts` names the squadron of a stack whose hull is drawn. A squadron in a
-## stack that is not her front is covered: her hull is hidden, her pennant is
+## cycles in her station (a squadron standing alone keeps an empty one);
+## `stations` maps every squadron of a shared station to the station's whole
+## reading order — the crown's row first, then the stack — so the court can hear
+## her place among all of them (`2 of 4 squadrons here`, the row's included);
+## and `fronts` names the squadron of a stack whose hull is drawn. A squadron in
+## a stack that is not her front is covered: her hull is hidden, her pennant is
 ## not lost, and the cycle brings her forward when the crown picks her.
 ##
 ## `hidden` is the squadrons the chart does not draw at all (a rival under the
 ## fog): the stack never hands the hull to one of them while another of hers can
-## be seen (wiki: ships-and-naval § Sighted strength).
+## be seen, the station's count never names them, and their colour never rides a
+## pennant pip (wiki: ships-and-naval § Sighted strength, § Fleets in one
+## station).
 static func plan(
 	fleets: Array, player: int, selected: int = -1, hidden: Array[int] = []
 ) -> Dictionary:
 	var lanes: Dictionary = {}
 	var stacks: Dictionary = {}
+	var stations: Dictionary = {}
 	var fronts: Dictionary = {}
 	var groups: Dictionary = {}
 	for raw: Variant in fleets:
@@ -54,8 +60,12 @@ static func plan(
 		group.append(fleet)
 		groups[key] = group
 	for key: String in groups.keys():
-		_plan_station(groups[key] as Array, player, selected, hidden, lanes, stacks, fronts)
-	return {"lanes": lanes, "stacks": stacks, "fronts": fronts}
+		_plan_station(
+			groups[key] as Array, player, selected, hidden, lanes, stacks, stations, fronts
+		)
+	return {
+		"lanes": lanes, "stacks": stacks, "stations": stations, "fronts": fronts,
+	}
 
 
 static func _plan_station(
@@ -65,6 +75,7 @@ static func _plan_station(
 	hidden: Array[int],
 	lanes: Dictionary,
 	stacks: Dictionary,
+	stations: Dictionary,
 	fronts: Dictionary
 ) -> void:
 	var mine: Array = []
@@ -86,6 +97,17 @@ static func _plan_station(
 	var slots: int = row.size() + (1 if head >= 0 else 0)
 	for index in row.size():
 		lanes[(row[index] as FleetState).id] = _lane(index, slots)
+	# The station's reading order: the row as it stands, then the stack — and
+	# never a squadron the fog withholds, so a water the crown half-sees is
+	# counted by what she can see (REQ-P5-05).
+	var here: Array[int] = []
+	for raw: Variant in row:
+		here.append((raw as FleetState).id)
+	for raw: Variant in stack:
+		if not hidden.has((raw as FleetState).id):
+			here.append((raw as FleetState).id)
+	for raw: Variant in group:
+		stations[(raw as FleetState).id] = here
 	if head < 0:
 		return
 	lanes[(stack[head] as FleetState).id] = _lane(row.size(), slots)

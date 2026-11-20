@@ -148,12 +148,19 @@ func layout(fleets: Array, player: int) -> void:
 	var plan: Dictionary = FleetLanes.plan(fleets, player, selected_id, hidden)
 	var lanes: Dictionary = plan["lanes"]
 	var stacks: Dictionary = plan["stacks"]
+	var stations: Dictionary = plan["stations"]
 	for ship: Ship in ships:
 		var seat: Variant = lanes.get(ship.fleet_id)
 		var offset: Vector2 = Vector2.ZERO
 		if seat is Vector2:
 			offset = seat
-		ship.set_lane(offset, _behind(ship, stacks, fleets), not lanes.has(ship.fleet_id))
+		var here: Array[int] = []
+		var seats: Variant = stations.get(ship.fleet_id)
+		if seats is Array:
+			here.assign(seats)
+		ship.set_lane(
+			offset, _behind(ship, stacks, fleets, hidden), not lanes.has(ship.fleet_id), here
+		)
 		var order: Variant = stacks.get(ship.fleet_id)
 		ship.stack.assign(order if order is Array else [])
 
@@ -173,15 +180,17 @@ func next_in_stack(ship: Ship) -> Ship:
 	return null
 
 
-## The courts standing behind one marker in her stack, one pip per squadron.
-func _behind(ship: Ship, stacks: Dictionary, fleets: Array) -> Array[int]:
+## The courts standing behind one marker in her stack, one pip per squadron. A
+## squadron the chart does not draw rides nothing: her court's colour would print
+## the presence the fog withholds (wiki: ships-and-naval § Sighted strength).
+func _behind(ship: Ship, stacks: Dictionary, fleets: Array, hidden: Array[int]) -> Array[int]:
 	var behind: Array[int] = []
 	var order: Variant = stacks.get(ship.fleet_id)
 	if not (order is Array):
 		return behind
 	for raw: Variant in order:
 		var other: FleetState = FleetRosters.find(fleets, int(raw))
-		if other != null and other.id != ship.fleet_id:
+		if other != null and other.id != ship.fleet_id and not hidden.has(other.id):
 			behind.append(other.owner)
 	return behind
 

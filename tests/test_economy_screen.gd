@@ -4,12 +4,15 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
-## and a re-seat from the pristine save ~0.15 s, so the cases share the chart
-## and reset the session instead of remounting (`Fixture.suite_reset`).
+## and a re-seat from the pristine save ~0.15 s, so live cases share the chart
+## and reset the session instead of remounting (`Fixture.suite_reset`). Pure
+## LarderRead / bare-controller cases never touch `_screen`, so they skip the
+## re-seat (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
-var _screen: MapScreen = null
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
@@ -19,17 +22,30 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
-	_screen = mounted
+	_chart_bound = false
 
 
 func after_all() -> void:
 	if is_instance_valid(mounted):
 		mounted.free()
 	mounted = null
-	_screen = null
 	pristine = {}
+
+
+## Live cases reach the chart through `_screen` / `_attach()`; pure ledger /
+## larder cases that never ask never pay `suite_reset`.
+func _attach() -> MapScreen:
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = true
+	return mounted
+
+
+var _screen: MapScreen:
+	get:
+		return _attach()
 
 
 func test_the_screen_owns_a_starting_economy() -> void:
@@ -1137,6 +1153,39 @@ func test_the_turn_clearing_prices_the_minor_book_for_the_crown() -> void:
 	assert_true(differs, "England's terms move the ask off Spain's")
 
 
+## A bid filed before this turn's imports still carries when the crown's trade
+## cargo capacity covers it: the holds the imports used are spent, so the
+## published gate reads the capacity and not the holds left at the close (wiki:
+## world-market § Order persistence, § Cargo; REQ-P2-01).
+func test_a_carried_bid_reads_the_trade_capacity_not_the_leftover_holds() -> void:
+	var play: PlaySession = _screen.play
+	var market: WorldMarket = _screen.economy.market
+	var player: int = play.player_faction
+	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
+	var capacity: int = int(cargo.get("holds", 0)) - int(cargo.get("reserved", 0))
+	assert_true(capacity >= 3, "the fixture crown trades with holds")
+	# Iron: no Minor or Tribe prospects a mineral, so only the standing world
+	# counterparty answers the bid.
+	market.book.submit(
+		MarketOrder.create(player, "iron", MarketOrder.SIDE_BID, capacity - 1, 1)
+	)
+	# The crown then spends every free hold on this turn's imports.
+	var bought: Dictionary = market.buy(_screen.economy.economy, "grain", capacity, player)
+	assert_true(bool(bought.get("ok", false)), String(bought.get("reason", "")))
+	var report: Dictionary = MapPlayMarket.run(play, {})
+	var carried: int = 0
+	for order: MarketOrder in report["carry"]:
+		if order.commodity == "iron":
+			carried = order.quantity
+	assert_eq(carried, capacity - 1, "the bid the capacity covers carries whole")
+	var dropped: bool = false
+	for note: Dictionary in report["notes"]:
+		if String(note.get("code", "")) == "carry_forward_dropped_cargo_insufficient" \
+				and String(note.get("commodity", "")) == "iron":
+			dropped = true
+	assert_false(dropped, "the capacity covers the carried bid")
+
+
 func _clear_market() -> Dictionary:
 	var cargo: Dictionary = _screen.economy.readings.trade_cargo()
 	return MarketClearing.clear(
@@ -1728,6 +1777,25 @@ func test_the_production_press_stands_down_when_nothing_is_ready() -> void:
 	assert_eq(int(body._plan()["runs"]), 0, "no row has a step left to file")
 	assert_false(body.batch_press().visible, "a view with nothing ready carries no press")
 	assert_false(body._line.visible, "and prints no line under it")
+
+
+## The larder speaks a turn early: with the store empty and mouths to feed, the
+## turn's close names the strikers before the crown seals another — and a phase
+## that already struck keeps the line to itself, so the warning never repeats the
+## summary the court just read (wiki: workers-and-population § Consumption;
+## REQ-P5-05, REQ-P5-06).
+func test_the_larder_warns_a_turn_before_the_strike() -> void:
+	var economy: PlayerEconomy = _screen.economy.economy
+	economy.stockpile["grain"] = 0
+	economy.stockpile["meat"] = 0
+	economy.workers = WorkerPool.make(3)
+	var line: String = _screen.economy.larder_warning({})
+	assert_true(line.begins_with("The larder runs short"), line)
+	assert_true(line.contains("will strike at the next close"), line)
+	assert_eq(
+		_screen.economy.larder_warning({"consumption": {"strikers": 3}}), "",
+		"the phase that struck has already said it"
+	)
 
 
 ## Every line the court's toasts currently show.

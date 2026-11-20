@@ -352,8 +352,8 @@ static func payable_units(
 
 
 static func _yes() -> Dictionary:
-	return {"ok": true, "reason": "", "code": ""}
+	return OrderVerdict.allow({"code": ""})
 
 
 static func _no(reason: String, code: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "code": code}
+	return OrderVerdict.deny(reason, {"code": code})

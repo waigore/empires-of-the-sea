@@ -94,6 +94,26 @@ static func crown_roads(province: ProvinceState, crown: Dictionary) -> String:
 	return "%d tiles" % planned if planned > 0 else "—"
 
 
+## The province sheet's Terrain row: the ground a battle here fights on, named as
+## the main type, and the second-most common type beside it when the province
+## mixes ground. Every name is [MapModel.TERRAIN_LABELS]'s own, so the row can
+## never print a name the wiki's table does not publish (wiki:
+## resource-terrain-region-rules § Player-facing terrain display names).
+static func terrain(model: MapModel, province_id: int) -> String:
+	var ranked: Array[int] = ArmyModifiers.terrain_ranking(model, province_id)
+	if ranked.is_empty():
+		return "Unknown"
+	var main: String = _terrain_name(ranked[0])
+	if ranked.size() < 2:
+		return "All %s" % main
+	return "%s (main) · also %s" % [main, _terrain_name(ranked[1])]
+
+
+## The published display name of one terrain id.
+static func _terrain_name(terrain: int) -> String:
+	return String(MapModel.TERRAIN_LABELS.get(terrain, "Unknown"))
+
+
 ## Town development, which caps the estates that reach the crown through it.
 static func town(province: ProvinceState) -> String:
 	if province == null or not province.has_town():

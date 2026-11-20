@@ -2238,6 +2238,81 @@ func test_a_court_not_arming_keeps_no_hand() -> void:
 		AiArmyReinforce.muster_hands(config, broke, 0, true), 0,
 		"the chest is not in hand, so no hand is kept"
 	)
+
+
+## The standing study's own row move (issue #1059): through the state's public
+## row API, so no study's progress is cancelled — the swap restores what it
+## moved. A placeholder for the shape the probe caught; the real lift is the
+## planner's `_swap_slots`.
+func _swap_slots(state: ResearchState, from_slot: int, to_slot: int) -> void:
+	if state == null or from_slot == to_slot:
+		return
+	var from_tech: String = state.tech_at(from_slot)
+	var to_tech: String = state.tech_at(to_slot)
+	if from_tech.is_empty() or to_tech.is_empty():
+		return
+	var from_funding: String = state.funding_at(from_slot)
+	var from_progress: int = state.progress_of(from_tech)
+	var to_funding: String = state.funding_at(to_slot)
+	var to_progress: int = state.progress_of(to_tech)
+	state.cancel(from_slot)
+	state.cancel(to_slot)
+	if not bool(state.assign(from_tech, from_funding, to_slot).get("ok", false)):
+		return
+	if not bool(state.assign(to_tech, to_funding, from_slot).get("ok", false)):
+		return
+	if from_progress > 0:
+		state.add_progress(from_tech, from_progress)
+	if to_progress > 0:
+		state.add_progress(to_tech, to_progress)
+
+
+## The bar the harvest carries (issue #1059): a court banking for its army
+## hires to the levy's own pool — `army.min_peasants` plus the levy's hand —
+## and stops there, because every mouth past it eats one of the rations the
+## muster's own gate plans with. The measured probe watched the farms' growth
+## (+7 rations a turn by t80) fall whole into six new mouths; the slack sat at
+## 0 for a hundred turns and the muster's gate with it.
+func test_a_banking_court_paces_the_hires_to_the_harvest() -> void:
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	economy.workers = WorkerPool.make(4)
+	economy.treasury = 8000
+	economy.add("paper", 10)
+	# The bank holds and the land carries one more ration: the levy's hand is
+	# the pool target (min_peasants 3 + the levy's hand 1 = 4, already met) —
+	# the trained tiers and the worker target wait for the muster to stand.
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, 1
+	)
+	assert_true(orders.is_empty(), "the levy's pool is met; the ladder waits")
+	# One peasant short of the levy floor: the farmhand comes first (the
+	# #1023 provision), paid against the harvest it eats.
+	economy.workers = WorkerPool.make(3)
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, 1
+	)
+	assert_eq(orders.size(), 1, "the farmhand the levy needs")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.PEASANT)
+	# The land cannot carry one more ration: the hire stands down, and the
+	# slack the muster plans with is not spent on a mouth.
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, 0
+	)
+	assert_true(orders.is_empty(), "no ration spare, no hire")
+	# An unbanked court keeps the published pool target (10): the same purse
+	# and the same slack still grow the pool.
+	economy.workers = WorkerPool.make(4)
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, false, 1
+	)
+	assert_eq(orders.size(), 1, "no bank, the published ladder leads")
+	# A caller with no harvest reading (-2) keeps the published target too.
+	orders = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, 0, true, -2
+	)
+	assert_eq(orders.size(), 1, "no reading, the published behaviour")
 	var short_row: PlayerEconomy = economy.copy()
 	short_row.stockpile = {"fabric": 0}
 	assert_eq(
@@ -2383,6 +2458,58 @@ func test_ai_civilian_training_needs_a_capital_and_a_purse() -> void:
 	poor["capital_province"] = -1
 	poor["treasury"] = 2500
 	assert_false(bool(AiCivilianHire.training_order(config, [], poor).get("ok", false)))
+
+
+## The bank holds the purse (issue #1059): a court short of the bar banking for
+## its next line hires its provision crews — the Builder and the Engineer the
+## farms and their roads need — against the works purse it always had, but the
+## rest of the college's ladder (Explorer, Merchant, Spy) stands behind the
+## chest, so the chart the empire grows does not burn the fill the muster
+## waits for. The measured bench banked 193 turns while the college re-hired
+## an Explorer roughly every tenth turn.
+func test_a_banking_court_hires_only_its_provision_crews() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var banked: Dictionary = _civilian_context()
+	banked["conquest_bank"] = true
+	# A Builder rides the works purse the farm trim keeps: the hire stands.
+	var builder: Dictionary = AiCivilianHire.training_order(config, [], banked)
+	assert_true(bool(builder.get("ok", false)), "the provision Builder keeps its purse")
+	assert_eq(String(builder["type_id"]), "builder")
+	# An Engineer serves the same farms (their roads): the hire stands too.
+	banked["staff_targets"] = {"engineer": 1, "builder": 0}
+	var engineer: Dictionary = AiCivilianHire.training_order(
+		config, [CivilianState.create(1, 0, "builder", CivilianFixture.BARE_TILE)], banked
+	)
+	assert_true(bool(engineer.get("ok", false)), "the road crew serves the farms")
+	assert_eq(String(engineer["type_id"]), "engineer")
+	# The Explorer's ladder reads the standing purse: a banked court with a
+	# purse under its chest hires no new chart, and the closed hire says why.
+	banked["staff_targets"] = {"explorer": 3}
+	var chart: Dictionary = AiCivilianHire.training_order(
+		config,
+		[
+			CivilianState.create(1, 0, "builder", CivilianFixture.BARE_TILE),
+			CivilianState.create(2, 0, "engineer", CivilianFixture.BARE_TILE),
+		],
+		banked
+	)
+	assert_eq(String(chart.get("reason", "")), AiCivilianHire.REASON_BANK)
+	assert_false(bool(chart.get("ok", false)), "the chart stands behind the chest")
+
+
+## A court not banking keeps the published purses: the Explorer still rides
+## the works purse on `earn` (the #489/#603 income lever), and a baseline
+## court's config never reaches the banked read at all.
+func test_an_unbanked_court_keeps_the_published_hire_purses() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var plain: Dictionary = _civilian_context()
+	plain["hire_treasury"] = 100
+	plain["staff_targets"] = {"explorer": 3}
+	# `earn` lifts the works purse to the treasury itself (published read).
+	plain["earn"] = true
+	var chart: Dictionary = AiCivilianHire.training_order(config, [], plain)
+	assert_true(bool(chart.get("ok", false)), "the published purse hires the chart")
+	assert_eq(String(chart["type_id"]), "explorer")
 
 
 ## Staff targets read the region's work: plains floor, hills digs, and the
@@ -3354,27 +3481,27 @@ func test_a_commodity_shortfall_raises_the_tech_that_caps_it() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var config: AiConfig = _research_config()
 	economy.stockpile["timber"] = 0
-	var saw: int = AiResearchPlanner.score_for(config, economy, "saw_mill", false)
-	var crop: int = AiResearchPlanner.score_for(config, economy, "crop_rotation", false)
+	var saw: int = AiResearchScores.score_for(config, economy, "saw_mill", false)
+	var crop: int = AiResearchScores.score_for(config, economy, "crop_rotation", false)
 	assert_true(saw > crop, "timber cap beats a tech with no cap")
 
 
 func test_war_adds_the_registry_bonus_to_military_and_naval_tech() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var config: AiConfig = _research_config()
-	var peace: int = AiResearchPlanner.score_for(
+	var peace: int = AiResearchScores.score_for(
 		config, economy, "organised_regiments", false
 	)
-	var war: int = AiResearchPlanner.score_for(
+	var war: int = AiResearchScores.score_for(
 		config, economy, "organised_regiments", true
 	)
 	assert_eq(war - peace, config.parameter("research.war_bonus"))
-	var gathering: int = AiResearchPlanner.score_for(
+	var gathering: int = AiResearchScores.score_for(
 		config, economy, "crop_rotation", true
 	)
 	assert_eq(
 		gathering,
-		AiResearchPlanner.score_for(config, economy, "crop_rotation", false),
+		AiResearchScores.score_for(config, economy, "crop_rotation", false),
 		"war never speeds the counting house"
 	)
 
@@ -3450,22 +3577,52 @@ func test_research_personality_weights_steer_the_branch() -> void:
 	var soldier: AiConfig = _research_config({"military": 3, "economy": 1})
 	var trader: AiConfig = _research_config({"military": 1, "economy": 3})
 	assert_true(
-		AiResearchPlanner.score_for(soldier, economy, "organised_regiments", false)
-		> AiResearchPlanner.score_for(soldier, economy, "crop_rotation", false)
+		AiResearchScores.score_for(soldier, economy, "organised_regiments", false)
+		> AiResearchScores.score_for(soldier, economy, "crop_rotation", false)
 	)
 	assert_true(
-		AiResearchPlanner.score_for(trader, economy, "crop_rotation", false)
-		> AiResearchPlanner.score_for(trader, economy, "organised_regiments", false)
+		AiResearchScores.score_for(trader, economy, "crop_rotation", false)
+		> AiResearchScores.score_for(trader, economy, "organised_regiments", false)
 	)
 
 
 func test_techs_already_at_their_cap_are_not_candidates() -> void:
 	assert_false(
-		AiResearchPlanner._can_teach("saw_mill", {"saw_mill": true}),
+		AiResearchScores.can_teach("saw_mill", {"saw_mill": true}),
 		"a cap already granted teaches nothing"
 	)
-	assert_true(AiResearchPlanner._can_teach("saw_mill", {}))
-	assert_true(AiResearchPlanner._can_teach("printing_press", {}))
+	assert_true(AiResearchScores.can_teach("saw_mill", {}))
+	assert_true(AiResearchScores.can_teach("printing_press", {}))
+
+
+## The scoring home ranks the college and lifts the door's study; the pick
+## loop asks it for one row and walks past what it has already taken.
+func test_the_scoring_home_ranks_the_college_and_picks_one_row() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var config: AiConfig = _research_config()
+	var ranked: Array[Dictionary] = AiResearchScores.candidates(config, economy, false)
+	assert_gt(ranked.size(), 1, "a fresh court can open several studies")
+	for index in range(1, ranked.size()):
+		assert_true(
+			int(ranked[index - 1]["score"]) >= int(ranked[index]["score"]),
+			"the ranking never puts a weaker study ahead"
+		)
+	var door: String = String(ranked[ranked.size() - 1]["tech"])
+	var lifted: Array[Dictionary] = AiResearchScores.candidates(
+		config, economy, false, door
+	)
+	assert_eq(String(lifted[0]["tech"]), door, "the door's study takes the head")
+	var best: Dictionary = AiResearchScores.pick(config, economy, false)
+	assert_eq(
+		String(best["tech"]), String(ranked[0]["tech"]),
+		"the best-ranked study is the first pick"
+	)
+	var taken: Dictionary = {door: true}
+	var next: Dictionary = AiResearchScores.pick(config, economy, true, door, taken)
+	assert_eq(
+		String(next["tech"]), String(ranked[0]["tech"]),
+		"a taken door falls back to the ranked head"
+	)
 
 
 func test_discovery_techs_wait_for_an_explorer() -> void:
@@ -3622,6 +3779,80 @@ func test_a_court_parked_at_its_floor_keeps_one_standing_study() -> void:
 	)
 	for slot in range(1, economy.research.slots.size()):
 		assert_eq(economy.research.funding_at(slot), "none", "the rest wait")
+
+
+## The standing slot carries the ration ladder (issue #1059): a court banking
+## for its army moves the cheapest unfinished grain/meat cap study it already
+## holds onto the standing slot, so the farms outgrow the mouths while the
+## purse sits behind the chest — the food the host eats rides the one preset
+## that may dip into the chest (the same provision clause the farm trim and
+## the farmhand hire ride).
+func test_a_banking_court_studies_the_ration_estates_on_the_standing_slot() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 500
+	economy.research.assign("land_enclosure")
+	economy.research.assign("saw_mill")
+	economy.research.add_progress("land_enclosure", 1100)
+	assert_eq(economy.research.tech_at(0), "land_enclosure")
+	# The published pick puts a non-ration study first; the planner re-picks
+	# each turn, so simulate the shape the probe caught: the ration study
+	# parked at `none` on a later slot while a military pick rides the purse.
+	_swap_slots(economy.research, 1, 0)
+	assert_eq(economy.research.tech_at(0), "saw_mill")
+	economy.research.set_funding(0, "low")
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": AiArmyReinforce.muster_floor(config, economy, 1, true),
+			"cash_floor": AiResearchPlanner.research_floor(config),
+			"conquest_bank": true,
+		}
+	)
+	assert_eq(
+		economy.research.tech_at(0), "land_enclosure",
+		"the ration study rides the standing slot"
+	)
+	assert_eq(economy.research.funding_at(0), "low", "the standing preset pays it")
+	assert_eq(
+		economy.research.tech_at(1), "saw_mill",
+		"the displaced study keeps its slot and its progress"
+	)
+	# A cap the techs already lift reads no lift: the study the court holds
+	# stays put (the ladder seeds the standing slot; it never evicts).
+	economy.tech_unlocked["land_enclosure"] = true
+	AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": AiArmyReinforce.muster_floor(config, economy, 1, true),
+			"cash_floor": AiResearchPlanner.research_floor(config),
+			"conquest_bank": true,
+		}
+	)
+	assert_eq(
+		economy.research.tech_at(0), "land_enclosure",
+		"the granted cap stops the lift; no study is evicted"
+	)
+
+
+## A court not banking keeps the published pick: the standing study stays
+## whatever the planner seeded, and the ration ladder waits for the bank.
+func test_an_unbanked_court_keeps_the_published_standing_pick() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 500
+	economy.research.assign("land_enclosure")
+	economy.research.assign("saw_mill")
+	_swap_slots(economy.research, 1, 0)
+	economy.research.set_funding(0, "low")
+	AiResearchPlanner.plan(
+		config, economy,
+		{"treasury_floor": AiArmyReinforce.muster_floor(config, economy, 1, true)}
+	)
+	assert_eq(
+		economy.research.tech_at(0), "saw_mill",
+		"no bank, no ration ladder on the standing slot"
+	)
 
 
 func test_a_broke_court_keeps_no_standing_study() -> void:
@@ -3989,7 +4220,78 @@ func _front_turn(
 	var plan: Dictionary = AiDiplomacyPlanner.decide(
 		config, state, AiState.new(), world, 1, context
 	)
-	return {"plan": plan, "posture": posture}
+	return {"plan": plan, "posture": posture, "state": state}
+
+
+## The rival's gates have one home (AiDiplomacyGates): the planner's war and
+## peace reads and the offers' pact break all ask it, so a footing, a cooldown
+## or a claimed chain can never be read two ways.
+func test_the_diplomacy_gates_know_a_pact_break_from_a_blocked_war() -> void:
+	var run: Dictionary = _front_turn(2, true)
+	var entry: Dictionary = _candidate(run["plan"], PHASE_OTHER)
+
+	assert_eq(
+		String(entry.get("blocked", "")), "overstretched: no third front",
+		"a peer under an overstretched footing is the war gate's refusal"
+	)
+	var ranking: Dictionary = entry.get("offer", {})
+	var pact: Dictionary = {}
+	for candidate: Dictionary in ranking.get("candidates", []):
+		if String(candidate.get("kind", "")) == AiDiplomacyOffers.KIND_BREAK_NAP:
+			pact = candidate
+	assert_false(pact.is_empty(), "the pact break is weighed for the peer")
+	assert_false(bool(pact.get("ok", false)))
+
+
+## The gates answer for a court with nothing to read: no config, no ledger, no
+## line to save for. A caller that cannot read the purse keeps the published
+## planner instead of inventing a buy-out (issue #975).
+func test_the_gates_keep_the_published_planner_with_nothing_to_read() -> void:
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+
+	assert_false(AiDiplomacyGates.purse_under_muster(null, ai_state, {}))
+	assert_false(AiDiplomacyGates.purse_under_muster(config, null, {}))
+	assert_false(
+		AiDiplomacyGates.purse_under_muster(config, ai_state, {}),
+		"a court at target strength saves for no line"
+	)
+	assert_false(
+		AiDiplomacyGates.buys_out(config, ai_state, PHASE_MINOR, {}, AiPhasePlanner.PHASE_WAR),
+		"a Minor war is colonial business, never bought out"
+	)
+	assert_true(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL, {}, AiPhasePlanner.PHASE_FRONTS
+		),
+		"an overstretched court takes any white peace it is offered"
+	)
+	assert_eq(AiDiplomacyGates.faction_of(null), MapModel.NO_ID)
+
+
+## A court with a proposal already waiting for the human answers at the court
+## queue, so it opens no second front this turn (DR-20261109-07). The refusal
+## travels with the ranking, so the turn trace can print it.
+func test_a_court_with_a_waiting_proposal_offers_nothing_new() -> void:
+	_setup_ai_planner()
+	ai_planner_state.human_faction = 1
+	ai_planner_state.ensure_relation(0, 1, 1)
+	ai_planner_state.relation(0, 1).score = 70.0
+	ai_planner_state.pending_offers.append(
+		{"from": 0, "kind": DiplomacyProposals.KIND_FTP, "stage": "", "turn": 1}
+	)
+	assert_true(DiplomacyProposals.has_pending(ai_planner_state, 1))
+	var ranking: Dictionary = AiDiplomacyOffers.best(
+		ai_planner_config, ai_planner_state, ai_planner_ai_state,
+		ai_planner_AiFixture.world([0, 1, 1]), 1, 1, 20,
+		{"player": 1, "treasury": {0: 500}, "tech": {0: {}}}
+	)
+	assert_false(bool(ranking.get("ok", false)))
+	assert_eq(
+		String(ranking.get("blocked", "")),
+		"the court is already considering a proposal"
+	)
+	assert_eq((ranking.get("candidates", []) as Array).size(), 1)
 
 
 ## The court's candidate row for one target in a decide() result.
@@ -5014,10 +5316,409 @@ func test_the_buy_out_waits_out_the_peace_cooldown() -> void:
 	)
 
 
+# --- the war on the court's own border outlives the buy-out (issue #1082) -----
+
+
+## The frontier crowns: the Great Powers whose Old World land touches the
+## court's own — the front a field army can walk to and storm. A strip of
+## provinces: the court holds the first two, one crown the next, a second crown
+## the two after, a Minor the last.
+func test_the_frontier_crowns_are_the_crowns_whose_land_touches_the_court() -> void:
+	var world: WorldMap = AiFixture.land_world(
+		[PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_THIRD, PHASE_THIRD, PHASE_MINOR]
+	)
+	var owner: Array[int] = AiFrontier.crowns(world, PHASE_OWNER)
+	var rival: Array[int] = AiFrontier.crowns(world, PHASE_RIVAL)
+
+	assert_eq(owner, [PHASE_RIVAL] as Array[int], "only the crown next door is reachable")
+	assert_eq(
+		rival, [PHASE_OWNER, PHASE_THIRD] as Array[int], "the reading is symmetric along the border"
+	)
+	assert_eq(
+		AiFrontier.crowns(world, PHASE_THIRD), [PHASE_RIVAL] as Array[int],
+		"the crown past the neighbour reads its own border"
+	)
+	assert_eq(
+		AiFrontier.crowns(world, PHASE_MINOR), [PHASE_THIRD] as Array[int],
+		"a Minor Nation reads the crowns its land touches; the stamp gates who banks on it"
+	)
+	assert_true(
+		AiFrontier.crowns(null, PHASE_OWNER).is_empty(), "no world, no frontier"
+	)
+
+
+## The stamp the shared planners read: a court with no row — a frozen baseline,
+## a fixture — keeps the published behaviour.
+func test_the_frontier_stamp_reads_only_the_court_that_carries_it() -> void:
+	var supplied: Dictionary = {AiFrontier.KEY: {PHASE_OWNER: [PHASE_RIVAL]}}
+	var shared: Dictionary = AiTurnRead.context(
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR]), supplied, -1
+	)
+
+	assert_eq(
+		shared.get(AiFrontier.KEY, {}), {PHASE_OWNER: [PHASE_RIVAL]},
+		"the shared read carries the stamp the pass supplied"
+	)
+	assert_true(AiFrontier.holds(PHASE_OWNER, PHASE_RIVAL, shared))
+	assert_false(AiFrontier.holds(PHASE_OWNER, PHASE_THIRD, shared))
+	assert_false(
+		AiFrontier.holds(PHASE_RIVAL, PHASE_OWNER, shared),
+		"a court with no row keeps the published planner"
+	)
+	assert_false(
+		AiFrontier.holds(PHASE_OWNER, PHASE_RIVAL, {}),
+		"a caller with no stamp keeps the published planner"
+	)
+
+
+## The planner reading for a court at `wars` Great Power fronts with the
+## frontier stamp the shared pass hands a conquest-gap court (issue #1082):
+## `border` names the crowns whose Old World land touches the court's own. The
+## border crown is the stronger one, so only the victory press keeps that war's
+## desire above the peace bar; the far weak crown reads the higher desire. The
+## published planner settles the lower one first at two fronts — the border
+## front, the conquest's own road.
+func _border_turn(wars: int, border: Array = [], pursed: int = -1) -> Dictionary:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	var held: Array[int] = []
+	for index in wars:
+		held.append([PHASE_RIVAL, PHASE_THIRD][index])
+	for other: int in held:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+	for target: int in held:
+		_phase_war(state, target)
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+	if pursed >= 0:
+		ai_state.economy_for(PHASE_OWNER).treasury = pursed
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9, PHASE_OTHER: 1},
+		"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9, PHASE_OTHER: 1},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+		"posture": posture,
+		"victory_press": {PHASE_OWNER: 40},
+	}
+	if not border.is_empty():
+		context[AiFrontier.KEY] = {PHASE_OWNER: border}
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, ai_state,
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_THIRD, PHASE_MINOR]), 30, context
+	)
+	return {"plan": plan, "posture": posture}
+
+
+## An overstretched court settles the border war like any other when it carries
+## no stamp — the published planner stands.
+func test_an_unstamped_court_settles_the_border_war_at_two_fronts() -> void:
+	var run: Dictionary = _border_turn(2)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_eq(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE
+	)
+	assert_eq(
+		int((run["plan"]["action"] as Dictionary).get("target", -1)), PHASE_THIRD,
+		"the published planner settles the war it wants least — the border crown"
+	)
+
+
+## The border war outlives the `fronts` buy-out (issue #1082): the overstretched
+## court keeps the one war its field army can march on and settles the other.
+func test_the_border_war_outlives_the_fronts_buy_out() -> void:
+	var run: Dictionary = _border_turn(2, [PHASE_THIRD])
+	var third: Dictionary = _candidate(run["plan"], PHASE_THIRD)
+
+	assert_eq(String(run["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_eq(
+		int(third.get("desire", 0)) < int(_candidate(run["plan"], PHASE_RIVAL).get("desire", 0)),
+		true,
+		"the border war is the one the published planner would settle"
+	)
+	assert_eq(
+		String((run["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE
+	)
+	assert_eq(
+		int((run["plan"]["action"] as Dictionary).get("target", -1)), PHASE_RIVAL,
+		"the peace goes to the war on the far crown, not the border front"
+	)
+	assert_eq(
+		String(third.get("blocked", "")), "war still worth waging",
+		"the front the army can walk to stays open"
+	)
+
+
+## The border war outlives the purse leg too (issue #975's doctrine): a banking
+## court keeps the war its conquest needs while it saves for the army.
+func test_the_border_war_outlives_the_purse_leg() -> void:
+	var floor: int = _muster_price(_phase_config(PHASE_OWNER))
+	var published: Dictionary = _border_turn(1, [], floor - 100)
+	var stamped: Dictionary = _border_turn(1, [PHASE_RIVAL], floor - 100)
+
+	assert_eq(
+		String((published["plan"]["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_OFFER_PEACE,
+		"the published poor court buys out of its only crown war"
+	)
+	assert_eq(
+		int((published["plan"]["action"] as Dictionary).get("target", -1)), PHASE_RIVAL
+	)
+	assert_true(
+		(stamped["plan"]["action"] as Dictionary).is_empty(),
+		"a banking court keeps the border war: no peace, no new front"
+	)
+	assert_eq(
+		String(_candidate(stamped["plan"], PHASE_RIVAL).get("blocked", "")),
+		"war still worth waging",
+		"the front the army can walk to is not for sale"
+	)
+
+
+## The answering half: an overstretched court takes any white peace it is
+## offered — except the one that closes its border front (issue #1082).
+func test_an_overstretched_court_answers_its_border_crown_from_its_own_stance() -> void:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	for other: int in [PHASE_RIVAL, PHASE_THIRD]:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+		_phase_war(state, other)
+	var ai_state := AiState.new()
+	var world: WorldMap = AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR])
+	var shared: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9},
+		"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 9},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+		AiFrontier.KEY: {PHASE_OWNER: [PHASE_RIVAL]},
+	}
+
+	assert_eq(
+		AiTurnApply.peace_answer(
+			state, world, ai_state, PHASE_RIVAL, PHASE_OWNER, 10, PHASE_SEED, shared
+		),
+		DiplomacyRules.DECISION_REFUSE,
+		"the border front is the one war the overstretched court keeps"
+	)
+	assert_eq(
+		AiTurnApply.peace_answer(
+			state, world, ai_state, PHASE_THIRD, PHASE_OWNER, 10, PHASE_SEED, shared
+		),
+		DiplomacyRules.DECISION_AUTO,
+		"a far crown's peace is still taken at two fronts"
+	)
+	shared.erase(AiFrontier.KEY)
+	assert_eq(
+		AiTurnApply.peace_answer(
+			state, world, ai_state, PHASE_RIVAL, PHASE_OWNER, 10, PHASE_SEED, shared
+		),
+		DiplomacyRules.DECISION_AUTO,
+		"an unstamped court keeps the published answer"
+	)
+
+
 ## The price of the line a court saving under its war target would buy — the
 ## purse leg the buy-out reads (issue #975).
 func _muster_price(config: AiConfig) -> int:
 	return maxi(config.parameter("army.min_treasury"), 0) + AiArmyReinforce.cheapest_line_price(_purse(0))
+
+
+# --- the front the army can march on (issue #995) -----------------------------
+
+
+## The border read itself: a crown's land touches the court's own frontier on
+## the map, and nothing else counts — not the court with itself, not a crown
+## held off behind another's land, not a caller with no world to read.
+func test_the_border_read_names_the_front_the_army_can_walk() -> void:
+	var side: WorldMap = AiFixture.land_world(
+		[PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_MINOR]
+	)
+	var apart: WorldMap = AiFixture.land_world(
+		[PHASE_OWNER, PHASE_MINOR, PHASE_MINOR, PHASE_RIVAL]
+	)
+
+	assert_true(
+		AiBorderFronts.marches_on(side, PHASE_OWNER, PHASE_RIVAL),
+		"a crown next door is a front the field army can storm"
+	)
+	assert_false(
+		AiBorderFronts.marches_on(apart, PHASE_OWNER, PHASE_RIVAL),
+		"a crown behind another's land is a war the army cannot reach"
+	)
+	assert_false(
+		AiBorderFronts.marches_on(side, PHASE_OWNER, PHASE_OWNER),
+		"a court does not border itself"
+	)
+	assert_false(AiBorderFronts.marches_on(null, PHASE_OWNER, PHASE_RIVAL))
+	assert_false(AiBorderFronts.marches_on(side, -1, PHASE_RIVAL))
+	assert_false(AiBorderFronts.marches_on(side, PHASE_OWNER, -1))
+	# A world the map pass handed a region that never loaded: the read skips it
+	# and still names the border the loaded ground holds.
+	var partial := WorldMap.new()
+	partial.add_region(null)
+	partial.add_region(side.region(0))
+	assert_true(
+		AiBorderFronts.marches_on(partial, PHASE_OWNER, PHASE_RIVAL),
+		"a region that never loaded is skipped, never read"
+	)
+
+
+## The footing's word on the pair: an overstretched court keeps the border front
+## and takes any other peace, and no lighter footing changes at all (issue #995).
+func test_the_overstretched_court_keeps_the_border_front() -> void:
+	assert_true(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_FRONTS, true)
+	)
+	assert_false(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_FRONTS, false)
+	)
+	assert_false(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_WAR, true),
+		"one front is not overstretch: the published stance already refuses"
+	)
+	assert_false(
+		AiPhasePlanner.keeps_the_border_front(AiPhasePlanner.PHASE_PEACE, true)
+	)
+	assert_true(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_FRONTS, false))
+	assert_false(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_FRONTS, true))
+	assert_false(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_WAR, true))
+	assert_false(AiPhasePlanner.takes_peace(AiPhasePlanner.PHASE_PEACE, false))
+
+
+## The buy-out stands down on the border front and nowhere else (issue #995):
+## both legs of the doctrine — the footing and the purse under the muster price.
+func test_the_gates_do_not_buy_out_of_the_border_front() -> void:
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+
+	assert_false(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL, {}, AiPhasePlanner.PHASE_FRONTS, true
+		),
+		"the border front is the one war an overstretched court keeps"
+	)
+	assert_true(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL, {}, AiPhasePlanner.PHASE_FRONTS, false
+		),
+		"a front the army cannot reach is still sold"
+	)
+	ai_state.economy_for(PHASE_OWNER).treasury = _muster_price(config) - 100
+	assert_false(
+		AiDiplomacyGates.buys_out(
+			config, ai_state, PHASE_RIVAL,
+			{"regiments": {PHASE_OWNER: 1}}, AiPhasePlanner.PHASE_FRONTS, true
+		),
+		"the purse leg stands down too: the army it banks for storms next door"
+	)
+
+
+## A poor court at two crown wars: `borders` puts the crown it means to fight
+## (`PHASE_RIVAL`) on its own frontier, and without it that crown sits behind
+## another's land. The purse is under the muster price either way.
+func _border_front_turn(borders: bool) -> Dictionary:
+	var state := DiplomacyState.new()
+	state.reset(1)
+	for other: int in [PHASE_RIVAL, PHASE_THIRD]:
+		state.ensure_relation(PHASE_OWNER, other, 1)
+		state.relation(PHASE_OWNER, other).score = 10.0
+		_phase_war(state, other)
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var ai_state := AiState.new()
+	ai_state.economy_for(PHASE_OWNER).treasury = _muster_price(config) - 100
+	var posture: String = AiPhasePlanner.phase_for(config, state)
+	var context: Dictionary = {
+		"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1},
+		"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1},
+		"ships": {PHASE_OWNER: 2},
+		"player": -1,
+		"posture": posture,
+	}
+	var owners: Array[int] = [PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_MINOR]
+	if not borders:
+		owners = [PHASE_OWNER, PHASE_MINOR, PHASE_MINOR, PHASE_RIVAL]
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, state, ai_state, AiFixture.land_world(owners), 30, context
+	)
+	return {"plan": plan, "posture": posture, "state": state, "config": config}
+
+
+## The planner's own reading: an overstretched court short of its muster keeps
+## the crown on its frontier — the war its field army can prosecute — and puts
+## the white peace to the front it cannot reach instead (issue #995).
+func test_an_overstretched_court_keeps_the_front_it_can_march_on() -> void:
+	var near: Dictionary = _border_front_turn(true)
+	var far: Dictionary = _border_front_turn(false)
+	var kept: Dictionary = _candidate(near["plan"], PHASE_RIVAL)
+	var sold: Dictionary = _candidate(far["plan"], PHASE_RIVAL)
+
+	assert_eq(String(near["posture"]), AiPhasePlanner.PHASE_FRONTS)
+	assert_true(bool(kept.get("border_front", false)))
+	assert_eq(
+		String(kept.get("blocked", "")), "war still worth waging",
+		"the border front is not bought out: the army storms next door"
+	)
+	assert_false(
+		String(far["posture"]) != AiPhasePlanner.PHASE_FRONTS
+		or bool(sold.get("border_front", false)),
+		"the far world keeps the same footing with no border to keep"
+	)
+	assert_eq(
+		String(sold.get("blocked", "")), "",
+		"a crown behind another's land is still sold"
+	)
+	assert_eq(
+		int((far["plan"]["action"] as Dictionary).get("target", -1)), PHASE_RIVAL,
+		"the peace goes to the front the court cannot reach"
+	)
+	assert_false(
+		int((near["plan"]["action"] as Dictionary).get("target", -1)) == PHASE_RIVAL,
+		"the kept front is never the pair the court sues"
+	)
+
+
+## The answering half: the same overstretched court signs a white peace from a
+## crown it cannot reach, and answers the crown on its own frontier with its
+## stance instead (issue #995). A refusal is the court's own word, never a rule.
+func test_the_overstretched_answer_keeps_the_border_front() -> void:
+	var near: Dictionary = _border_front_turn(true)
+	var far: Dictionary = _border_front_turn(false)
+	var ai_state := AiState.new()
+	# The answering court is the war it declared: one agenda for both worlds, so
+	# only the border read can tell the two answers apart.
+	ai_state.agendas[PHASE_OWNER] = AiAgenda.WARMONGER
+
+	assert_eq(
+		AiTurnApply.peace_answer(
+			near["state"], _border_front_world(true), ai_state,
+			PHASE_RIVAL, PHASE_OWNER, 30, PHASE_SEED, {}
+		),
+		DiplomacyRules.DECISION_REFUSE,
+		"the crown next door is answered by the stance, never signed away"
+	)
+	assert_eq(
+		AiTurnApply.peace_answer(
+			far["state"], _border_front_world(false), ai_state,
+			PHASE_RIVAL, PHASE_OWNER, 30, PHASE_SEED, {}
+		),
+		DiplomacyRules.DECISION_AUTO,
+		"the front the army cannot reach is taken as published"
+	)
+
+
+## The two worlds `_border_front_turn` reads, kept in one place so the planner
+## and the answering pass cannot test different maps.
+func _border_front_world(borders: bool) -> WorldMap:
+	if borders:
+		return AiFixture.land_world(
+			[PHASE_OWNER, PHASE_OWNER, PHASE_RIVAL, PHASE_MINOR]
+		)
+	return AiFixture.land_world([PHASE_OWNER, PHASE_MINOR, PHASE_MINOR, PHASE_RIVAL])
 
 
 # --- money first: the goal a court reads before its planners ------------------
@@ -7499,16 +8200,16 @@ func test_the_works_reservation_is_the_row_the_crew_will_pay() -> void:
 	var builder: Array = [CivilianState.create(1, 0, "builder", Fixture.BARE_TILE)]
 	var orders: Array = _market_plan(model, builder, null, works)["orders"]
 	assert_eq(orders.size(), 1, "the fixture's builder raises its estate")
-	MapPlayCivilianAi.price(orders, model, works, Fixture.stockpile())
-	var rows: Dictionary = MapPlayCivilianAi.work_rows([{"plan": {"orders": orders}}])
+	MapPlayCivilianPlan.price(orders, model, works, Fixture.stockpile())
+	var rows: Dictionary = MapPlayCivilianPlan.work_rows([{"plan": {"orders": orders}}])
 	assert_eq(int(rows.get("lumber", 0)), 1, "the level-1 estate's timber")
 	assert_eq(int(rows.get("castIron", 0)), 1, "and its cast iron")
 
 	var explorer: Array = [CivilianState.create(2, 0, "explorer", Fixture.IRON_TILE)]
 	var survey: Array = _market_plan(model, explorer, null, works)["orders"]
-	MapPlayCivilianAi.price(survey, model, works, Fixture.stockpile())
+	MapPlayCivilianPlan.price(survey, model, works, Fixture.stockpile())
 	assert_true(
-		MapPlayCivilianAi.work_rows([{"plan": {"orders": survey}}]).is_empty(),
+		MapPlayCivilianPlan.work_rows([{"plan": {"orders": survey}}]).is_empty(),
 		"a survey costs no material, so it reserves none"
 	)
 
@@ -7860,36 +8561,6 @@ func test_a_deed_without_a_ledger_is_not_signed() -> void:
 	assert_false(LandPurchase.complete(model, GRAIN, 0, null))
 
 
-## A court that could sign a deed wants the envoy chain: the Consulate outranks
-## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
-## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
-## the gate: a chain opened without a buyer at the end of it warms the relation
-## past the war ceiling and bars the conquest for nothing (issue #724, measured
-## 2026-11-15).
-func test_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
-	var model: MapModel = Fixture.build_minor()
-	var world := WorldMap.new()
-	world.add_region(model)
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	var config: AiConfig = AiConfig.build(0, 1500)
-	config.personality = AiPersonality.NEUTRAL
-	config.agenda_traits = AiAgenda.NEUTRAL
-
-	var plain: Dictionary = _overture(world, state, config, {})
-	var merchant_tech: Dictionary = _overture(world, state, config, {
-		"merchant_companies": true,
-	})
-	assert_true(bool(plain.get("ok", false)), "the Consulate is legal either way")
-	assert_true(bool(merchant_tech.get("ok", false)))
-	assert_eq(
-		int(merchant_tech["utility"]) - int(plain["utility"]),
-		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		"a deed worth buying lifts the envoy"
-	)
-	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
-
-
 ## The whole rival pass: the economy adapter musters the order for a court that
 ## already holds the embassy and the tech, and the next Build/Work signs it from
 ## that court's own purse (wiki: civilian-units § Merchant; docs/ai.md).
@@ -8071,11 +8742,8 @@ func _market_plan(
 
 ## The purse does not price the chain: the Merchant tech is the buyer the chain
 ## serves, and the envoy takes turns to walk while the purse refills, so a charted
-## deed opens it even on this turn's floor (issue #724 task 2). The buyer stays
-## the bar: a court without Merchant Companies opens nothing, however cheaply a
-## Minor would sell — a chain opened on credit warms the relation past the war
-## ceiling and bars the conquest for nothing (#762, measured 2026-11-15).
-func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
+## deed opens it even on this turn's floor (issue #724 task 2).
+func test_the_envoy_chain_stays_legal_on_a_thin_purse() -> void:
 	var model: MapModel = Fixture.build_minor()
 	var world := WorldMap.new()
 	world.add_region(model)
@@ -8091,7 +8759,6 @@ func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
 	var paid: Dictionary = _overture(world, state, config, {
 		"merchant_companies": true,
 	})
-	var no_buyer: Dictionary = _overture(world, state, config, {})
 	assert_true(
 		bool(broke.get("ok", false)),
 		"the chain is legal on a purse that covers the Consulate alone"
@@ -8099,11 +8766,6 @@ func test_the_envoy_chain_prices_the_buyer_not_the_purse() -> void:
 	assert_eq(
 		int(broke["utility"]), int(paid["utility"]),
 		"a priced deed opens the chain at any purse the stage fits"
-	)
-	assert_eq(
-		int(no_buyer["utility"]) + AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		int(paid["utility"]),
-		"no Merchant tech, no chain"
 	)
 
 
@@ -8756,6 +9418,26 @@ func test_an_earning_court_sails_into_a_border_war() -> void:
 		int(earning[0]["regiments"].size()), 2,
 		"one regiment always keeps the seat"
 	)
+
+## The bar's land comes before the far gold: once the court presses for the bar
+## it must clear, the earn lift no longer sails its host away from the land the
+## bar counts, so the field army stays where the victory is (issue #995). A court
+## far from the bar keeps the published lift (the case above).
+func test_a_court_pressing_for_the_bar_keeps_its_host_at_home() -> void:
+	var world: WorldMap = _border_world()
+	# Grow the court's Old World land into the press band (`victory.pressure_start`
+	# of the 31 every rival's bar holds).
+	var old: MapModel = world.region(0)
+	for index in 8:
+		old.provinces.append(ProvinceState.create(
+			100 + index, "Extra %d" % index, [] as Array[Vector2i], Vector2.ZERO,
+			0, campaign_OWNER, false
+		))
+	var actions: Array[Dictionary] = AiInvasionPlanner.split_orders(
+		campaign__config(), _war(), world, old, [campaign__squadron()],
+		[_home_army()], null, true
+	)
+	assert_true(actions.is_empty(), "the pressing court's host stays on the bar's land")
 
 ## The defence guard survives the goal: a hostile host already standing on the
 ## court's own soil is never left behind (DR-20261113-19).
@@ -10326,92 +11008,6 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 	)
 
 
-func test_the_land_envoy_nudge_reads_only_charted_land() -> void:
-	_setup_ai_diplomacy_offers()
-	# A Minor Nation, so the read is the deed nudge alone: a Tribe also answers
-	# to the colony ambition (DR-20261114-02), priced in its own test.
-	var minor: int = FactionCatalog.minor_ids()[0]
-	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
-	ai_diplomacy_offers_state.relation(2, minor).score = 50.0
-	var world: WorldMap = _uncharted_tribe_world(minor)
-	var context: Dictionary = campaign__context({2: 100, minor: 100})
-	context["treasury"] = {2: 2000}
-	context["tech"] = {2: {"merchant_companies": true}}
-	var published: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
-	)
-	assert_eq(
-		_utility_of(published, AiDiplomacyOffers.KIND_OVERTURE), 52,
-		"no chart at all still prices the published map"
-	)
-	var charts: CourtCharts = _charts(world)
-	context["charts"] = charts
-	var blind: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
-	)
-	assert_eq(
-		_offer_blocked_kind(blind, AiDiplomacyOffers.KIND_OVERTURE),
-		"improve-relations desire too low",
-		"a chart that never reached the province buys no nudge"
-	)
-	charts.reveal_province(2, 0, 0)
-	var seen: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
-		ai_diplomacy_offers_ai_state, world, 1, minor, 60, context
-	)
-	assert_eq(
-		_utility_of(seen, AiDiplomacyOffers.KIND_OVERTURE), 52,
-		"charted land lifts the overture by the deed nudge"
-	)
-
-
-## The warmth that prices a deed is the warmth that bars a declaration, so the
-## envoy nudge goes to the court's cheapest deed partner alone: warming every
-## charted Minor closed the conquest path outright (issue #724 round 3), and the
-## owner's call on #840 is one targeted seller per court (issue #841).
-func test_the_envoy_nudge_goes_to_the_deed_seller_alone() -> void:
-	var world: WorldMap = _two_minor_world()
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	state.ensure_relation(0, DEED_MINOR, 1)
-	state.ensure_relation(0, DEAR_MINOR, 1)
-	var config: AiConfig = AiConfig.build(0, 1500)
-	config.personality = AiPersonality.NEUTRAL
-	config.agenda_traits = AiAgenda.NEUTRAL
-	var tech: Dictionary = {"merchant_companies": true}
-
-	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
-		"the cheaper deed names the court's one seller"
-	)
-	var seller: Dictionary = _overture(world, state, config, tech, 5000, DEED_MINOR)
-	var other: Dictionary = _overture(world, state, config, tech, 5000, DEAR_MINOR)
-	assert_eq(
-		int(seller["utility"]) - int(other["utility"]), AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		"the deed seller is warmed, the other Minor stays cold"
-	)
-	# No Merchant Companies, no nudge: the tech is the buyer the warmth serves.
-	var techless: Dictionary = _overture(world, state, config, {}, 5000, DEED_MINOR)
-	assert_eq(
-		int(techless["utility"]), int(other["utility"]),
-		"a court with no merchant to walk the last rung warms no seller"
-	)
-	# A war with the seller leaves no deed to price, so nothing to warm.
-	var war_court := DiplomacyState.new()
-	war_court.initialize(1)
-	war_court.ensure_relation(0, DEED_MINOR, 1)
-	war_court.ensure_relation(0, DEAR_MINOR, 1)
-	assert_true(
-		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
-	)
-	assert_eq(
-		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
-		"the war closes the cheap seller and the next offer names the other"
-	)
-
-
 ## The study door the deed opens is the buyer's own tech, and it stays shut for
 ## a court that already holds it or has no priced deed on its chart (issue
 ## #841; wiki: civilian-units § Merchant).
@@ -10455,6 +11051,35 @@ func test_the_deed_door_studies_merchant_companies_when_a_deed_is_priced() -> vo
 	)
 
 
+## The warmth that prices a deed is the warmth that bars a declaration, so the
+## seller scan names one deed partner per court: warming every charted Minor
+## closed the conquest path outright (issue #724 round 3), and the owner's call
+## on #840 is one targeted seller per court (issue #841). The planner's own
+## warming read is retired; the merchant module keeps the scan the courts share.
+func test_the_deed_seller_scan_names_one_seller() -> void:
+	var world: WorldMap = _two_minor_world()
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	state.ensure_relation(0, DEED_MINOR, 1)
+	state.ensure_relation(0, DEAR_MINOR, 1)
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, state), DEED_MINOR,
+		"the cheaper deed names the court's one seller"
+	)
+	# A war with the seller leaves no deed to price, so nothing to warm.
+	var war_court := DiplomacyState.new()
+	war_court.initialize(1)
+	war_court.ensure_relation(0, DEED_MINOR, 1)
+	war_court.ensure_relation(0, DEAR_MINOR, 1)
+	assert_true(
+		bool(DiplomacyRules.declare_war(war_court, 0, DEED_MINOR, true, world).get("ok", false))
+	)
+	assert_eq(
+		AiMerchantWork.deed_seller(world, 0, null, war_court), DEAR_MINOR,
+		"the war closes the cheap seller and the next offer names the other"
+	)
+
+
 ## The turn pass names the court's one deed partner before the planner runs: the
 ## trace carries the seller so a warm Minor reads as the deed partner and not as
 ## a conquest (issue #841). A court with no Merchant Companies names none — it
@@ -10489,49 +11114,6 @@ func _trace_deed_seller(result: Dictionary, faction: int) -> int:
 	for record: Dictionary in result.get("trace", []):
 		if int(record.get("faction", -1)) == faction:
 			return int(record.get("deed_seller", -1))
-	return -1
-
-
-## One Minor is warmed and the other is not: the deed nudge is priced on the
-## seller the reading names, and the second offer stands at its plain worth
-## (issue #841).
-func test_the_planner_warms_the_named_deed_seller_alone() -> void:
-	_setup_ai_diplomacy_offers()
-	var world: WorldMap = _two_minor_world(2)
-	ai_diplomacy_offers_state.ensure_relation(2, DEED_MINOR, 1)
-	ai_diplomacy_offers_state.ensure_relation(2, DEAR_MINOR, 1)
-	ai_diplomacy_offers_state.relation(2, DEED_MINOR).score = 20.0
-	ai_diplomacy_offers_state.relation(2, DEAR_MINOR).score = 20.0
-	var context: Dictionary = {
-		"treasury": {2: 5000},
-		"tech": {2: {"merchant_companies": true}},
-		"player": -1,
-		"deed_seller": DEED_MINOR,
-	}
-	var seller: int = _candidate_overture(
-		world, ai_diplomacy_offers_state, context, DEED_MINOR
-	)
-	var other: int = _candidate_overture(
-		world, ai_diplomacy_offers_state, context, DEAR_MINOR
-	)
-	assert_gt(seller, 0, "the deed seller's chain opens on the nudge alone")
-	assert_eq(
-		other, -1,
-		"the other Minor stays cold: no chain, no warmth, no bar on its conquest"
-	)
-
-
-## The overture utility one candidate list priced for a target, or -1.
-func _candidate_overture(
-	world: WorldMap, state: DiplomacyState, context: Dictionary, target: int
-) -> int:
-	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
-		ai_diplomacy_offers_config, state, ai_diplomacy_offers_ai_state,
-		world, 1, target, 60, context
-	)
-	for entry: Dictionary in entries:
-		if String(entry.get("kind", "")) == AiDiplomacyOffers.KIND_OVERTURE:
-			return int(entry.get("utility", -1))
 	return -1
 
 
@@ -11695,10 +12277,10 @@ func test_a_recent_war_declaration_does_not_silence_a_peace_offer() -> void:
 
 func test_war_goal_clamps_to_the_target_province_count() -> void:
 	_setup_ai_planner()
-	assert_eq(AiDiplomacyPlanner.desired_territory(75, 5), 3)
-	assert_eq(AiDiplomacyPlanner.desired_territory(75, 2), 2)
-	assert_eq(AiDiplomacyPlanner.desired_territory(12, 3), 1)
-	assert_eq(AiDiplomacyPlanner.desired_territory(100, 0), 1)
+	assert_eq(AiDiplomacyGates.desired_territory(75, 5), 3)
+	assert_eq(AiDiplomacyGates.desired_territory(75, 2), 2)
+	assert_eq(AiDiplomacyGates.desired_territory(12, 3), 1)
+	assert_eq(AiDiplomacyGates.desired_territory(100, 0), 1)
 
 func test_a_peacemaker_offers_peace_where_a_plain_court_fights_on() -> void:
 	_setup_ai_planner()
@@ -12964,35 +13546,6 @@ func test_planner_a_deed_without_a_ledger_is_not_signed() -> void:
 	assert_true(bool(reports[0]["completed"]))
 	assert_false(model.is_purchased_tile(planner_GRAIN), "no ledger, no deed")
 	assert_false(LandPurchase.complete(model, planner_GRAIN, 0, null))
-
-## A court that could sign a deed wants the envoy chain: the Consulate outranks
-## the small peaceful orders it competes with (wiki: civilian-units § Merchant;
-## docs/ai.md — land purchase needs the envoy first). The Merchant tech stays
-## the gate: a chain opened without a buyer at the end of it warms the relation
-## past the war ceiling and bars the conquest for nothing (issue #724, measured
-## 2026-11-15).
-func test_planner_a_deed_on_offer_makes_the_consulate_worth_more() -> void:
-	var model: MapModel = planner_Fixture.build_minor()
-	var world := WorldMap.new()
-	world.add_region(model)
-	var state := DiplomacyState.new()
-	state.initialize(1)
-	var config: AiConfig = AiConfig.build(0, 1500)
-	config.personality = AiPersonality.NEUTRAL
-	config.agenda_traits = AiAgenda.NEUTRAL
-
-	var plain: Dictionary = planner__overture(world, state, config, {})
-	var merchant_tech: Dictionary = planner__overture(world, state, config, {
-		"merchant_companies": true,
-	})
-	assert_true(bool(plain.get("ok", false)), "the Consulate is legal either way")
-	assert_true(bool(merchant_tech.get("ok", false)))
-	assert_eq(
-		int(merchant_tech["utility"]) - int(plain["utility"]),
-		AiDiplomacyTreaties.LAND_ENVOY_BONUS,
-		"a deed worth buying lifts the envoy"
-	)
-	assert_eq(String(merchant_tech["stage"]), DiplomacyCatalog.STAGE_CONSULATE)
 
 ## The whole rival pass: the economy adapter musters the order for a court that
 ## already holds the embassy and the tech, and the next Build/Work signs it from
@@ -15726,3 +16279,34 @@ func test_an_old_save_reads_an_empty_ledger() -> void:
 		AiDeferral.records_for(restored.deferrals, OBJ_OWNER).is_empty(),
 		"and no stall records"
 	)
+
+
+## The absorption answer a rival prices its Join Empire rung with is the rule's
+## own call — the same one the court answers with — so the AI never prices a
+## yes the rule refuses, and a no with no power map is still a no (REQ-P3-01).
+func test_a_treaty_rung_reads_the_rules_own_absorption_answer() -> void:
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 1, 1, 1, 1, 1])
+	var state := DiplomacyState.new()
+	state.initialize(2)
+	state.ensure_relation(2, 1, 1)
+	# Warm, but short of the alliance clamp: the next rung is the one priced.
+	state.relation(2, 1).score = 55.0
+	state.set_overture(2, 1, DiplomacyCatalog.STAGE_NAP)
+	var charts: CourtCharts = _charts(world)
+	var config: AiConfig = AiConfig.build(2, 30000)
+	var ai_state := AiState.new()
+	ai_state.economy_for(2).treasury = 30000
+	var told_yes: Dictionary = AiDiplomacyTreaties.best(
+		config, state, ai_state, world, 1, 1, 45, 0, 30000,
+		{"empire_building": true}, {"charts": charts, "power": {2: 100, 1: 20}}
+	)
+	assert_true(bool(told_yes.get("ok", false)), String(told_yes.get("blocked", "")))
+	assert_eq(String(told_yes.get("kind", "")), AiDiplomacyOffers.KIND_OVERTURE)
+	assert_eq(String(told_yes.get("stage", "")), DiplomacyCatalog.STAGE_JOIN_EMPIRE)
+	var told_no: Dictionary = AiDiplomacyTreaties.best(
+		config, state, ai_state, world, 1, 1, 45, 0, 30000,
+		{"empire_building": true}, {"charts": charts, "power": {2: 20, 1: 60}}
+	)
+	assert_false(bool(told_no.get("ok", true)), "a refused crown is not worth the order")
+	assert_eq(String(told_no.get("blocked", "")), "the crown would refuse absorption")
+	assert_eq(String(told_no.get("kind", "")), AiDiplomacyOffers.KIND_OVERTURE)

@@ -10,6 +10,9 @@ extends GdToolsTest
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const diplomacy_power_AiFixture = preload("res://tests/ai_fixture.gd")
 const diplomacy_proposals_AiFixture = preload("res://tests/ai_fixture.gd")
+## A throwaway chart for the proposal suite's absorption case: the answer moves
+## a province, so the shared map fixture would carry the change into other cases.
+const diplomacy_proposals_NavalFixture = preload("res://tests/naval_fixture.gd")
 const diplomacy_survey_Fixture = preload("res://tests/map_fixture.gd")
 const _Fixture = preload("res://tests/civilian_fixture.gd")
 const dialogue_beats_Fixture = preload("res://tests/army_fixture.gd")
@@ -373,6 +376,35 @@ func test_war_cancels_subsidy_at_phase_close() -> void:
 	state.relation(0, 6).at_war = true
 	state.end_turn()
 	assert_eq(state.subsidy(0, 6), 0)
+
+func test_a_load_drops_subsidies_no_court_could_set() -> void:
+	# wiki: diplomacy § Acceptance Criteria — a save carrying a Great Power-to-
+	# Great Power subsidy, a legacy £/turn row or a percent off the 5–20 ladder
+	# loads with none of them (R3). The legacy shape stores an object where a
+	# percent belongs, and reading it as one throws, so one un-migrated row used
+	# to take the legal rows down with it: the pass that prices every subsidy
+	# lost the whole map.
+	_setup_diplomacy_state()
+	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
+	state.set_subsidy(0, 6, 10)
+	var captured: Dictionary = SaveCourt.capture_diplomacy(state)
+	var rows: Dictionary = captured["subsidies"]
+	rows[DiplomacyKeys.directed(0, 1)] = 15
+	rows[DiplomacyKeys.directed(1, 6)] = {"amountPerTurn": 3000}
+	rows[DiplomacyKeys.directed(6, 0)] = 7
+	captured["subsidies"] = rows
+	var restored: DiplomacyState = SaveCourt._diplomacy_from(captured)
+	assert_eq(restored.subsidies.size(), 1, "only the row a court could set survives")
+	assert_eq(restored.subsidy(0, 6), 10, "the live subsidy loads")
+	assert_eq(restored.subsidy(0, 1), 0, "no Great Power pays a Great Power")
+	assert_eq(restored.subsidy(1, 6), 0, "the legacy £/turn row is dropped")
+	assert_eq(restored.subsidy(6, 0), 0, "a percent off the ladder is dropped")
+	var terms: Dictionary = DiplomacyTradeTerms.subsidy_terms(restored)
+	assert_eq(
+		int(terms.get(DiplomacyKeys.directed(0, 6), 0)), 10,
+		"the legal step still prices the pair"
+	)
+	assert_false(terms.has(DiplomacyKeys.directed(0, 1)), "no step for two Great Powers")
 
 func test_absorbed_faction_leaves_no_relations_or_colonies() -> void:
 	_setup_diplomacy_state()
@@ -747,6 +779,101 @@ func test_accepting_an_overture_advances_both_directions_for_free() -> void:
 	assert_eq(diplomacy_proposals_state.overture(0, 2), DiplomacyCatalog.STAGE_NAP)
 	assert_true(_diplomacy_proposals_event("overtureEstablished"))
 	assert_true(_diplomacy_proposals_event("proposalAccepted"))
+
+## The last rung is the one **paid** overture a court may raise toward another
+## Great Power: the asking crown's own purse must cover it, and the answer
+## charges that crown, never the human (wiki: diplomacy § Join Empire — the
+## offer's treasury gate; § Overtures — "Only when the target accepts are cost
+## deducted and overture stage advanced").
+func test_a_rival_offers_the_last_rung_only_with_its_own_purse() -> void:
+	_setup_diplomacy_proposals()
+	var world := WorldMap.new()
+	world.add_region(diplomacy_proposals_NavalFixture.build())
+	diplomacy_proposals_state.relation(0, 2).score = 60.0
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	# The rung is paid: with the studies in hand but no purse behind the ask it
+	# still waits, exactly as the human's own row does (wiki: diplomacy § Join
+	# Empire — the offer's treasury gate).
+	var broke: Dictionary = DiplomacyProposals.queue(
+		diplomacy_proposals_state, world, 2, DiplomacyProposals.KIND_OVERTURE,
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, 0, {"empire_building": true}
+	)
+	assert_false(bool(broke["ok"]), "the paid rung reads the asking court's purse")
+	assert_true(
+		String(broke.get("reason", "")).contains("treasury"),
+		broke.get("reason", "")
+	)
+	# The rival's own purse and studies clear it: the offer the human is promised
+	# a consent prompt for is raised, and answering yes charges the asking court.
+	var queued: Dictionary = DiplomacyProposals.queue(
+		diplomacy_proposals_state, world, 2, DiplomacyProposals.KIND_OVERTURE,
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, 40000, {"empire_building": true}
+	)
+	assert_true(bool(queued["ok"]), queued.get("reason", ""))
+	assert_true(DiplomacyProposals.has_pending(diplomacy_proposals_state, 0))
+	var proposer := PlayerEconomy.starting()
+	proposer.treasury = 40000
+	proposer.tech_unlocked = {"empire_building": true}
+	var answer: Dictionary = DiplomacyProposals.resolve_human(
+		diplomacy_proposals_state, world, true, proposer
+	)
+	assert_true(bool(answer.get("ok", false)), answer.get("reason", ""))
+	assert_true(bool(answer.get("accepted", true)))
+	assert_eq(
+		proposer.treasury, 40000 - int(answer.get("cost", 0)),
+		"the asking court pays its own overture"
+	)
+	assert_eq(
+		int(world.region(0).province_data(0).owner), 2,
+		"the accepted absorption hands the crown's land to the asking court"
+	)
+
+## The AI's own path prices the offer from the asking court's ledger, so the
+## planner's queued Join Empire reaches the crown only when that court can pay it
+## (wiki: diplomacy § Join Empire; REQ-P2-03).
+func test_the_rival_offer_reads_its_ledger_on_the_ai_path() -> void:
+	_setup_diplomacy_proposals()
+	var world := WorldMap.new()
+	world.add_region(diplomacy_proposals_NavalFixture.build())
+	diplomacy_proposals_state.relation(0, 2).score = 60.0
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	var ai := AiState.new()
+	var ledger: PlayerEconomy = ai.economy_for(2)
+	ledger.treasury = 0
+	ledger.tech_unlocked = {"empire_building": true}
+	var broke: Dictionary = AiTurnApply.propose(
+		diplomacy_proposals_state, world, ai, 2,
+		{
+			"kind": DiplomacyProposals.KIND_OVERTURE,
+			"stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE,
+		}
+	)
+	assert_false(bool(broke["result"]["ok"]), "a rival with no purse raises nothing")
+	ledger.treasury = 40000
+	var offer: Dictionary = AiTurnApply.propose(
+		diplomacy_proposals_state, world, ai, 2,
+		{
+			"kind": DiplomacyProposals.KIND_OVERTURE,
+			"stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE,
+		}
+	)
+	assert_true(bool(offer["result"]["ok"]), offer["result"].get("reason", ""))
+	assert_true(DiplomacyProposals.has_pending(diplomacy_proposals_state, 0))
+	# A caller with no AI state — a fixture — keeps the free rungs: the court
+	# with no ledger offers the pact and nothing that costs.
+	DiplomacyProposals.take_pending(diplomacy_proposals_state, 0)
+	diplomacy_proposals_state.set_overture(2, 0, DiplomacyCatalog.STAGE_EMBASSY)
+	diplomacy_proposals_state.set_overture(0, 2, DiplomacyCatalog.STAGE_EMBASSY)
+	var free: Dictionary = AiTurnApply.propose(
+		diplomacy_proposals_state, world, null, 2,
+		{
+			"kind": DiplomacyProposals.KIND_OVERTURE,
+			"stage": DiplomacyCatalog.STAGE_NAP,
+		}
+	)
+	assert_true(bool(free["result"]["ok"]), free["result"].get("reason", ""))
 
 func test_refusing_an_overture_keeps_the_previous_stage() -> void:
 	_setup_diplomacy_proposals()
@@ -1826,6 +1953,20 @@ func test_the_join_empire_row_names_what_it_buys() -> void:
 		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.MINOR_NATION
 	)
 	assert_true(minor.contains("join your empire"), minor)
+	# The absorption hands the loser's squadrons over with its provinces
+	# (`MapPlayDiplomacy.on_order`), so the row may not promise land and
+	# regiments alone (wiki: diplomacy § GP–Minor Rules — Join Empire).
+	assert_true(minor.contains("hulls"), minor)
+	# A Great Power target answers on either road the rule publishes: nearly
+	# defeated, or the offerer's power twice its own (wiki: diplomacy § Join
+	# Empire; DR-20261115-19). The row named only the first, so a crown that
+	# outpowered a standing rival never learned it could absorb it.
+	var power: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER
+	)
+	assert_true(power.contains("nearly defeated"), power)
+	assert_true(power.contains("twice"), power)
+	assert_true(power.contains("hulls"), power)
 	assert_eq(
 		DiplomacyOvertures.stage_hint(DiplomacyCatalog.STAGE_NAP, FactionCatalog.Type.TRIBE),
 		""
@@ -1916,6 +2057,92 @@ func test_the_alliance_refusal_is_not_the_heralds_word() -> void:
 	var check: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
 	assert_false(bool(check["ok"]))
 	assert_false(_names_a_herald_word(String(check["reason"])), String(check["reason"]))
+
+
+## The warmth gates stand on the herald's meter, so the refusal names the climb
+## in whole steps: the tenth-step meter cannot tell a court one point below the
+## gate from one nine points below it, and the distance is what the sheet can
+## show (wiki: diplomacy § Player-facing relation display; playtest diary
+## 2026-11-13, item 3).
+func test_a_warmth_gate_names_its_climb_up_the_meter() -> void:
+	# The gate sits inside the court's own step at 50 — one point short is the
+	# reading's own case, never a band word.
+	assert_eq(DiplomacyCatalog.gate_steps(50.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 0)
+	assert_eq(
+		DiplomacyCatalog.gate_line(50.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE),
+		"inside this court's own step of the meter"
+	)
+	assert_eq(DiplomacyCatalog.gate_steps(41.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 1)
+	assert_eq(
+		DiplomacyCatalog.gate_line(41.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE),
+		"one step up the meter"
+	)
+	assert_eq(DiplomacyCatalog.gate_steps(31.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 2)
+	assert_eq(
+		DiplomacyCatalog.gate_line(31.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE),
+		"two steps up the meter"
+	)
+	# The distance is spelled, the way every count the sheet prints is.
+	assert_eq(
+		DiplomacyCatalog.gate_line(31.0, DiplomacyCatalog.ALLIANCE_CLAMP),
+		"four steps up the meter"
+	)
+	# A court at or past the gate never reads a climb, and the clamp keeps a
+	# warm court from a negative one.
+	assert_eq(DiplomacyCatalog.gate_steps(DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE, 51.0), 0)
+	assert_eq(DiplomacyCatalog.gate_steps(90.0, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE), 0)
+
+
+## Both warmth refusals print the climb, so a crown reads how far the gate is
+## instead of a vague "not warm enough" — and still never a band word.
+func test_every_warmth_refusal_names_the_climb() -> void:
+	_setup_diplomacy_orders()
+	var world: WorldMap = _world([0, 2, 2, 2])
+	var record: DiplomacyRelation = diplomacy_orders_state.relation(0, 2)
+	diplomacy_orders_state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	diplomacy_orders_state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	record.score = 41.0
+	var rung: Dictionary = DiplomacyRules.can_establish_overture(
+		diplomacy_orders_state, world, 0, 2, DiplomacyCatalog.STAGE_JOIN_EMPIRE, 30000,
+		diplomacy_orders_economy.tech_unlocked
+	)
+	assert_false(bool(rung["ok"]))
+	assert_eq(
+		String(rung["reason"]),
+		"Join Empire needs a warmer court than this one — the gate stands one step up the meter."
+	)
+	assert_false(_names_a_herald_word(String(rung["reason"])), String(rung["reason"]))
+	var alliance: Dictionary = DiplomacyRules.can_form_alliance(diplomacy_orders_state, 0, 2)
+	assert_false(bool(alliance["ok"]))
+	# The offer gate is 51 (acceptance is the Allied band at 76), so a court at
+	# 41 reads one step up either way.
+	assert_eq(
+		String(alliance["reason"]),
+		"The court is not warm enough for an alliance — the gate stands one step up the meter."
+	)
+	assert_false(_names_a_herald_word(String(alliance["reason"])), String(alliance["reason"]))
+
+
+## The last rung's row names the gate it waits on before the press: a court short
+## of the warmth reads the distance under the row's own line, and a warm court
+## (or a row built with no score) keeps the published line alone.
+func test_the_join_empire_row_names_the_gate_it_waits_on() -> void:
+	var short: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER, 50.0
+	)
+	assert_true(short.contains("hulls join yours"), short)
+	assert_true(
+		short.contains("The gate stands inside this court's own step of the meter"), short
+	)
+	var warm: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER,
+		DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+	)
+	assert_false(warm.contains("gate stands"), warm)
+	var blind: String = DiplomacyOvertures.stage_hint(
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE, FactionCatalog.Type.GREAT_POWER
+	)
+	assert_false(blind.contains("gate stands"), blind)
 
 
 ## An alliance rides on the pact: the order is refused with the published reason
@@ -4419,3 +4646,33 @@ func _asym_pair() -> Array[int]:
 				big = a
 				small = b
 	return [big, small]
+
+
+## The AI prices a Join Empire rung with the same answer the court gives it:
+## one rule call answers both, so the planner cannot price a crown the court
+## would refuse (wiki: diplomacy § Join Empire; issue #750).
+func test_the_ai_and_the_court_share_one_join_empire_answer() -> void:
+	# Four provinces, one of them the held capital: the crown is not nearly
+	# defeated, so the power row is the whole answer.
+	var world: WorldMap = diplomacy_power_AiFixture.world([0, 0, 1, 1, 1, 1])
+	world.region(0).provinces[0].capital = true
+	assert_false(DiplomacyRules.nearly_defeated(world, 0), "the capital is held")
+	assert_true(
+		DiplomacyRules.answer_join_empire(world, 0, 1, {0: 100, 1: 20}),
+		"a crown that so far outpowers the target is answered yes"
+	)
+	assert_false(
+		DiplomacyRules.answer_join_empire(world, 0, 1, {0: 20, 1: 60}),
+		"a crown the target outpowers is answered no"
+	)
+	assert_false(
+		DiplomacyRules.answer_join_empire(world, 0, 1),
+		"without a published power only the near-defeat test answers"
+	)
+	# A nearly defeated crown says yes whatever the power row says.
+	var broken: WorldMap = diplomacy_power_AiFixture.world([0, 0, 1])
+	assert_true(DiplomacyRules.nearly_defeated(broken, 0), "two provinces, no seat")
+	assert_true(
+		DiplomacyRules.answer_join_empire(broken, 1, 0, {1: 1, 0: 999}),
+		"a nearly defeated crown stands alone no longer"
+	)

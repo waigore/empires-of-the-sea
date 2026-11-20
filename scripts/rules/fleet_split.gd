@@ -45,22 +45,22 @@ static func can_detach(
 	model: MapModel, fleet: FleetState, hull_id: String
 ) -> Dictionary:
 	if fleet == null:
-		return _deny("There is no squadron to split.")
+		return OrderVerdict.deny("There is no squadron to split.")
 	if not fleet.hulls.has(hull_id):
-		return _deny("That hull is not aboard this squadron.")
+		return OrderVerdict.deny("That hull is not aboard this squadron.")
 	if fleet.ship_count() < 2:
-		return _deny("A squadron of one hull has nothing to detach.")
+		return OrderVerdict.deny("A squadron of one hull has nothing to detach.")
 	if model != null and NavalMovement.is_home_fleet(model, fleet):
-		return _deny("The home squadron keeps your seat — put to sea first.")
+		return OrderVerdict.deny("The home squadron keeps your seat — put to sea first.")
 	if fleet.embarked_army >= 0:
-		return _deny("Land the troops before splitting the squadron.")
+		return OrderVerdict.deny("Land the troops before splitting the squadron.")
 	var aboard: int = fleet.civilian_count()
 	if fleet.ship_count() - 1 < aboard:
-		return _deny(
+		return OrderVerdict.deny(
 			"The squadron cannot detach a hull while it carries %d passengers."
 			% aboard
 		)
-	return {"ok": true, "reason": ""}
+	return OrderVerdict.allow()
 
 
 ## Detaches one hull into a new squadron in the same station and appends her to
@@ -111,10 +111,6 @@ static func _stand(
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {
-		"ok": false, "reason": reason, "fleet": null, "hull": "", "type": "", "name": "",
-	}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
+	return OrderVerdict.deny(reason, {
+		"fleet": null, "hull": "", "type": "", "name": "",
+	})

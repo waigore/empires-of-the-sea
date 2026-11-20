@@ -150,6 +150,16 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 				play.world, faction, play.human_faction_id(), play.difficulty
 			)
 		)
+	# The frontier crowns each conquest-gap court's field army can walk to
+	# (issue #1082): the war the conquest needs sits on a crown whose Old World
+	# land touches the court's own, so the shared pass stamps it once for the
+	# buy-out and the white-peace answer to read. A frozen baseline keeps no
+	# frontier — its published planner stands.
+	var frontier: Dictionary = {}
+	for faction: int in FactionCatalog.great_power_ids():
+		if not conquest_gaps[faction]:
+			continue
+		frontier[faction] = AiFrontier.crowns(play.world, faction)
 	var context: Dictionary = {
 		"regiments": regiments,
 		"ships": ships,
@@ -157,6 +167,7 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 		"hull_chests": hull_chests,
 		"victory_press": press,
 		"conquest_gaps": conquest_gaps,
+		"frontier": frontier,
 		"strengths": MapPlayCourt.public_strength(play),
 		"planning": planning,
 	}

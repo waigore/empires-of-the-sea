@@ -22,11 +22,11 @@
   <p class="note">Official scores come only from signed <code>hills eval</code> reports under <code>reports/ai-bench/</code>. Current contract: one <strong>subject</strong> crown (submission planners) vs two <strong>baseline</strong> rivals (<code>scripts/ai_mainline/</code> from <code>origin/main</code>) and three <strong>random</strong> courts; only the subject scores. Weighted progress: Old World provinces ×100, New World ×50, regiments ×10, ships ×10, workers ×5, extraction ×2, income ×1, +500 for a win before the cap.</p>
 
   <div class="status">
-    <strong>Phase:</strong> issue #995 — the win chase: the bank's doors are opened and measured (guards on the official world, levers on the probe world); the +500 stays open<br/>
+    <strong>Phase:</strong> issue #995 — the win is claimed: the subject takes the Old World bar (31 of 31) and the campaign at t101; verified still standing on current main (t170) after #1096–#1099<br/>
     <strong>Hill:</strong> ai-bench @ <code>977b18fc</code> · turns=200 · seed=1500 · size=1 · ai=bench<br/>
-    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">2306.93</span> (<code>995-04-the-war-the-conquest-needs.json</code>)<br/>
-    <strong>Best honest so far:</strong> 2439.10 · 15 OW · 9 NW · 4 reg · workers 6 (before #1026's production refactor; the committed surface reads 2306.93 · 16 OW · 6 NW · forces 8)<br/>
-    <strong>Open gates:</strong> the +500 win bonus — the probe names the #807 food-rate gate next (the muster's own ration bar opens ~1 turn in 6, so the banked purse buys ~one line per 40-60 turns and the pact break waits behind the host)
+    <strong>Baseline (CI floor):</strong> 1904.52 · <strong>Committed latest.json:</strong> <span class="good">4297.83</span> (<code>995-06-the-border-front-kept.json</code>, early_win; the 1082-01 keeper read 3465.20)<br/>
+    <strong>Best honest so far:</strong> 4297.83 · 31 OW · 5 reg · 3 ships · workers 4 · funded 70.94 — the border front the army can march on, won at t101<br/>
+    <strong>Open gates:</strong> none on the +500 — the win is earned and standing; the climb is keeping it green as the surface moves
   </div>
 
   <h2>What was wrong with the bench itself</h2>
@@ -180,6 +180,22 @@
         <td><a href="reports/ai-bench/995-04-the-war-the-conquest-needs.json">995-04-the-war-the-conquest-needs.json</a></td>
       </tr>
       <tr>
+        <td>1059-01</td>
+        <td>The bank holds the college — the #1059 probe read the bank turns again on the current tree and named two eaters the muster's own ration gate was not: (1) <strong>the hire ladder burned the fill</strong> — the bench banked 193 of 200 turns while the college re-hired an Explorer roughly every tenth turn (~21,000 ducats, more than the market's whole 152/turn income), because the Explorer rides the works purse on <code>earn</code> (the #489/#603 lever) and the works purse is the treasury itself — so a chest fill of ~16 ducats a turn left the muster pocket closed for 190 turns (2 pocket turns, one muster, t199, Peasant Levies); (2) <strong>the farm raises were capped by an unfunded tech</strong> — implied food extraction sat at exactly 17/turn the whole run (capital 5 + 12) and the slack only opened from t78 because the army attrition cut its own appetite 5→1; the ration-estate cap tech <code>land_enclosure</code> (grain 2, 1800 RP) sat in slot 1 at <code>none</code> for 179 turns — funded Low 8 turns total — so the farms never outgrew the mouths. Levers, both scoped to the bank: the hire ladder on a banked court hires its provision crews (Builder, Engineer — the farms and their roads) against the works purse it always had and every other crew against the standing purse (<code>AiCivilianHire</code> <code>conquest_bank</code>, reason <code>the bank holds the purse: no spare crew</code>), and the standing slot carries the cheapest unfinished grain/meat cap study the court already holds (<code>AiResearchPlanner._ration_study</code>, <code>ResearchState.set_slot</code>) — the food the host eats rides the one preset that may dip into the chest (issue #1059)</td>
+        <td><strong>3288.54</strong></td>
+        <td>27 OW · 3 NW · 4 reg · 0 ships · workers 10 · income 259.46 · funded 74.97 · resolves at t201</td>
+        <td class="good">+981.6 over the committed 2306.93 and the 1904.52 floor stands: the fill no longer burns in the college, the purse reaches the chest mid-campaign (27 Old World provinces — the conquest that never opened inside the cap on this surface), workers 3→10 (the farmhand pool the bank provisions), funded 74.97 ≥ 58. The probe world's own read rides below; the +500 win bonus stays open on #995 (this run resolved at the cap's edge without the win — the host stands, the next lever is the pact break's one order on the probe world)</td>
+        <td><a href="reports/ai-bench/1059-01-the-bank-holds-the-college.json">1059-01-the-bank-holds-the-college.json</a></td>
+      </tr>
+      <tr>
+        <td>1059-03</td>
+        <td>The hire pace reads the harvest — the worker-recruit ladder on a banked court hires to the levy's own pool (<code>army.min_peasants</code> + the levy's hand), not <code>economy.worker_target</code>, and every hire pays the ration the muster's own gate plans with (<code>harvest_slack</code>); the trained tiers wait while the pool carries the levy (#1059; the row move through the public row API replaces the earlier <code>ResearchState.set_slot</code> so the rules file keeps its method budget)</td>
+        <td><strong>3075.84</strong></td>
+        <td>19 OW · <strong>12 NW</strong> · <strong>11 reg</strong> · workers 8 · income 344.59 · funded 74.82 · resolves at t201</td>
+        <td class="good">The host reaches its war-time target strength (11 ≥ 9) inside the cap with 12 New World provinces and funded 74.82 ≥ 58 — signed on the final tree (<code>1059-03-final.json</code>, now <code>latest.json</code>); nobody starves (no subject strike turn after t20); the 1904.52 floor stands. The win claim stays on #995</td>
+        <td><a href="reports/ai-bench/1059-03-final.json">1059-03-final.json</a></td>
+      </tr>
+      <tr>
         <td>995-03</td>
         <td>The connected-farm clause of the bank (DR-20261119-04 decision 4): the trim keeps the town-link step while it banks — <code>AiTownRoads.steps</code> names the first unroaded tile of the walk from every owned town still off the crown network, and an order on a kept crop's own tile keeps — so the Builder's promise (a road follows an off-network raise) is no longer broken by the bank's blanket road hold</td>
         <td><strong>2306.93</strong></td>
@@ -194,6 +210,22 @@
         <td>15 OW · <strong>9 NW</strong> · 4 reg · workers 6 · income 361.35 · funded 85.46</td>
         <td class="good">+81.3 over the committed 2357.77 and the 1904.52 floor holds: the colony lands <strong>9 New World provinces</strong> (3 more × 50) and the funded share climbs to 85.46; the turn trace gains the money-flow row (riches, the college's gold per slot, the hires, the staged book, the labour pool) so the next climb decomposes a stall from the JSONL. The +500 win bonus stays open: the frozen-baseline France takes seed 1500 at t122, and the subject's own break-NAP timing (its opening pacts with the big holders) is the named next lever — seed 1501 reads the subject at 24 Old World provinces, so the lever bites beyond the primary seed</td>
         <td><a href="reports/ai-bench/995-01-banks-before-builds.json">995-01-banks-before-builds.json</a></td>
+      </tr>
+      <tr>
+        <td>1082-01</td>
+        <td>The war on the court's own border outlives the buy-out (issue #1082): the shared pass stamps each conquest-gap court's frontier crowns (<code>AiFrontier</code> — the Great Powers whose Old World land touches the court's own), and the buy-out (<code>AiDiplomacyGates.buys_out</code>) and the white-peace answer (<code>AiTurnApply.peace_answer</code>) keep the war that sits on one — the front a field army can walk to and storm. A court with no stamp — a frozen baseline, a fixture — keeps the published planner</td>
+        <td><strong>3465.20</strong></td>
+        <td>30 OW · 1 reg · 3 ships · workers 4 · income 315.65 · funded 61.65 · no winner at the cap</td>
+        <td class="good">+389.36 over the 3075.84 keeper and the 1904.52 floor holds: the France war runs t11..t201 (187 turns; the keeper settled it in one), the conquest resumes past the stall (11 OW at t15 → 13 at t20 → 26 at t100 → 30 at t200, against the keeper's 17 → 19), France falls 14 → 6 OW and never wins, and the subject's own full-strike turns go 37 → 0. The subject ends one province short of the 31 bar — the +500 claim stays on #995</td>
+        <td><a href="reports/ai-bench/1082-01-border-war.json">1082-01-border-war.json</a></td>
+      </tr>
+      <tr>
+        <td>995-06</td>
+        <td>The border read keeps the war the army can march on (issue #995, #1095): the pair-level border beside #1082's stamp — <code>AiBorderFronts.marches_on</code>, the same adjacency the land planner stages a field army on — so an overstretched court answers a white peace over a bordering pair from its own stance, the buy-out stands down on that pair on both legs, and every front it cannot reach is still settled and still bought out</td>
+        <td><strong>4297.83</strong></td>
+        <td>31 OW · 5 reg · 3 ships · workers 4 · income 538.37 · funded 70.94 · <strong>the subject WINS at t101</strong></td>
+        <td class="good">the last province and the +500: the border front, read pair by pair, takes the subject to the 31-province bar at t101 (the 1082-01 keeper ended 30 at the cap); the 1904.52 floor holds and nobody starves (funded 70.94 ≥ 58, no strike turn in the subject's row). The single <code>--final</code> claim reads identical (<code>995-07-final-claim.json</code>)</td>
+        <td><a href="reports/ai-bench/995-06-the-border-front-kept.json">995-06-the-border-front-kept.json</a></td>
       </tr>
     </tbody>
   </table>
@@ -284,6 +316,23 @@
     <li><strong>The pact wall</strong>: the subject NAPs its big holders in the opening (the free non-aggression pact), and the war it needs behind that pact never opens — the break candidate competes as one offer among many and loses to any legal petty declaration. The measured attempt to rank the break first armed the frozen baselines with the same doctrine and France ate the subject with it at t9; the honest next shape is a <em>subject-scoped</em> opening (the pact the subject signs in turn one is the pact its own planners must outgrow, and the shared-diplomacy pass cannot be the lever).</li>
     <li><strong>The phoney war's market</strong>: a war with no attacks for a hundred turns still holds the footing at <code>fronts</code>, and the top-up stays shut — the subject's economy idles at ~150 net a turn while its chest needs 2,200. The #999 erosion lowers the desire but the press (+30 on any Old World holder) keeps it above the peace bar; the war never ends and the market never opens. A reachability read (a war the field army cannot walk to) or a phoney-war footing is the named lever.</li>
     <li><strong>The +500 win bonus needs</strong>: the host (the bank fills it), the connected farms (the pool), and a war on the big holders' land (the pact wall) — the same three layers, in that order, on a subject-scoped surface the baselines never read.</li>
+  </ul>
+
+  <h2>The border war stays — the conquest's own road (1082-01, 2026-11-20)</h2>
+  <ul>
+    <li><strong>The probe</strong>: on the official world (seed 1500) the subject's frontier crowns are France, Portugal and the United Provinces — Spain's Old World land touches theirs, and a field army can march from its own ground onto theirs. England and Sweden, the crowns the carousel kept fighting, are reachable only by sea. Every border war was settled the turn after it opened (France declared t11 at desire 70, bought out at t12), so the conquest's only reachable fronts closed while the wars it kept sat on crowns it could not walk to — issue #1082's read, confirmed on the trace.</li>
+    <li><strong>The lever is subject-scoped</strong>: the shared diplomacy pass stamps each conquest-gap court's frontier crowns once per turn (<code>AiFrontier.crowns</code>, the same shape as the <code>conquest_gaps</code> stamp), and the two settling reads keep a war on a stamped crown — <code>AiDiplomacyGates.buys_out</code> answers no to the border target (the war outlives both the <code>fronts</code> leg and the purse-under-muster leg), and <code>AiTurnApply.peace_answer</code> answers a border crown's white peace from the court's own stance instead of auto-taking it. A court with no row — a frozen baseline, a fixture — reads the published planner: the unstamped tests settle the border war at two fronts and answer the border peace as before, so France gains nothing from the stamp.</li>
+    <li><strong>The measurement</strong>: the France war runs t11..t201 (187 turns at war; the keeper settled it in one turn) with Portugal (184) and United Provinces (187) behind it. Spain's Old World count reads 11 at t15, 13 at t20, 18 at t75, 26 at t100, 30 at t200 — the keeper read 17 at t15 and 19 at t200, stalled for 185 turns. France falls from 14 OW at t15 to 6 at t200 and never wins (the pre-#1080 tree had it taking the map at t122). The subject's own full-strike turns go 37 → 0. Official <strong>3465.20</strong> (+389.36 over the 3075.84 keeper), funded 61.65 against the 58.005 floor.</li>
+    <li><strong>The funded margin thinned, read not ignored</strong>: the subject spends its purse on the wars it keeps (4 workers against the keeper's 10, 6,995 in the chest at the cap, funded 74.97 → 61.65) instead of the estate programme. The floor's note names a starvation collapse as the failure it catches; the strike guard reads 0 full-strike turns for every live crown (the random courts' 181 hoard-strike turns are the frozen random surface, identical in the keeper). Green, but the next money-side lever should expect to re-measure the floor.</li>
+    <li><strong>Where #995 starts</strong>: the subject stands at 30 of 31 Old World provinces at the cap — one province short of the +500 win. The last crowns standing on its border are the ones it has not eaten yet; the win lever is the reach of that final war, not a new bank.</li>
+  </ul>
+
+  <h2>The win lands — the border front read pair by pair (995-06, 2026-11-20)</h2>
+  <ul>
+    <li><strong>What took the last province</strong>: #1082's stamp named the crowns but the settling reads still worked pair by pair — an overstretched court signed away the war on a bordering crown the turn after opening it, because the <code>fronts</code> footing published one rule for every war. <code>AiBorderFronts.marches_on</code> reads the border the stamp cannot see (every at-war pair, off the province tiles, the same adjacency the land planner stages a field army on), so a white peace over a bordering pair is answered from the court's own stance and the #975 buy-out stands down on that pair — while every front it cannot reach is still settled, still bought out, and no third peer war opens. Measured on the #1093 base: <strong>2628.60 / 22 OW → 4297.83 / 31 OW, the subject wins the campaign at t101</strong>; the single <code>--final</code> claim reads identical (<code>995-07-final-claim.json</code>).</li>
+    <li><strong>Still standing after the surface moved</strong>: #1096–#1099 (the college refactor, the two naval fixes) landed on top of the win. A raw bench on current main (8d368256) still reads the win — <strong>Spain takes the military victory at t170, 31/31 Old World</strong> — the later merges slow the conquest but the border front holds it. The seed-1501 spot check stays the hard world it has always been (no winner, the subject squeezed to 9 OW); the claim rides the fixed bench campaign, seed 1500, as every report in this journal does.</li>
+    <li><strong>One more lever package measured and dropped</strong> (after the win landed, on the post-#1095 base): scope the frontier stamp to the pressing conquest (need ≤ 5), release the bank one storm from the bar (need ∈ [0,1]), and let minor wars not hold a pact break. It reads <strong>29 OW, no win</strong> — the levers fight the border front they were meant to complete (the scoped stamp un-keeps wars the pair-level border read keeps; the release opens breaks the settled world does not need). Not retried; the border front owns the win.</li>
+    <li><strong>Where the climb stands</strong>: the +500 is earned and standing, the CI floor with it (4297.83 ≥ 1904.52, funded 70.94 ≥ 58). The open work is keeping the win green as the surface moves — the win rides real adjacency, so every map, naval or footing change re-measures it.</li>
   </ul>
 </body>
 </html>

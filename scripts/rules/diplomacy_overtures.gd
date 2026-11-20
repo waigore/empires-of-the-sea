@@ -42,7 +42,7 @@ static func establish_overture(
 		}
 	var cost: int = int(check["cost"])
 	if cost > 0 and (economy == null or not economy.spend_treasury(cost)):
-		return _deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
+		return OrderVerdict.deny("The treasury cannot cover the %s." % DiplomacyCatalog.stage_label(stage))
 	if stage == DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:
 			return DiplomacyColony.found(state, player, target, stage, cost)
@@ -72,19 +72,40 @@ static func establish_overture(
 ## reads: a Tribe keeps its land, so its provinces never count toward victory
 ## (wiki: factions § Tribe; diplomacy § GP–Tribe Rules). Earlier links are
 ## steps, not purchases, and stay quiet.
-static func stage_hint(stage: String, target_type: int) -> String:
+##
+## Every absorbed crown's land, regiments and hulls change flags
+## (wiki: diplomacy § GP–Minor Rules — Join Empire; `MapPlayDiplomacy.on_order`
+## hands the fleets over with the provinces), so the line names all three. A
+## Great Power target answers the offer on either of the rule's roads — nearly
+## defeated, or the offerer's published power twice its own
+## (wiki: diplomacy § Join Empire; DR-20261115-19) — so the line names both.
+##
+## A court short of the warmth gate reads where that gate stands on its own
+## herald's meter, so the row names the wait before the press (wiki: diplomacy
+## § Join Empire, § Player-facing relation display).
+static func stage_hint(stage: String, target_type: int, score: float = -1.0) -> String:
 	if stage != DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		return ""
+	var line: String
 	match target_type:
 		FactionCatalog.Type.TRIBE:
-			return (
+			line = (
 				"A colony: the tribe keeps its land, so its provinces never count "
 				+ "toward victory — its trade favours your court."
 			)
 		FactionCatalog.Type.MINOR_NATION:
-			return "Its provinces and regiments join your empire."
+			line = "Its provinces, regiments and hulls join your empire."
 		_:
-			return "A nearly defeated crown's provinces and armies join yours."
+			line = (
+				"A crown answers yes when it is nearly defeated, or when your "
+				+ "power is twice its own — then its provinces, regiments and "
+				+ "hulls join yours."
+			)
+	if score >= 0.0 and score < DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE:
+		line += " The gate stands %s." % DiplomacyCatalog.gate_line(
+			score, DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE
+		)
+	return line
 
 
 static func _absorb(world: WorldMap, state: DiplomacyState, winner: int, loser: int) -> void:
@@ -113,9 +134,5 @@ static func _accepts_overture(
 		# defeated crown, or one the offerer so far outpowers that standing
 		# alone is hopeless (wiki: diplomacy § Join Empire; issue #750).
 		return record.score >= DiplomacyCatalog.JOIN_EMPIRE_MIN_SCORE \
-			and DiplomacyRules.accepts_join_empire(world, player, target, power)
+			and DiplomacyRules.answer_join_empire(world, player, target, power)
 	return true
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

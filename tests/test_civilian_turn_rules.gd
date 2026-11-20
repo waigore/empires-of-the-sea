@@ -1815,7 +1815,7 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 		],
 	}
 
-	MapPlayCivilianAi.keep_extraction(plan, model)
+	MapPlayCivilianPlan.keep_extraction(plan, model)
 
 	assert_eq((plan["orders"] as Array).size(), 2, "the resource tile and the survey survive")
 	assert_eq((plan["orders"] as Array)[0]["tile"], Vector2i(0, 0))
@@ -1829,7 +1829,7 @@ func test_an_earning_court_keeps_only_extraction_works() -> void:
 func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var crops: Array = MapPlayCivilianAi.bank_crops(config, economy)
+	var crops: Array = MapPlayCivilianPlan.bank_crops(config, economy)
 	assert_true(crops.has("grain") and crops.has("meat"), "the farms are always kept")
 	assert_false(crops.has("timber"), "timber is no raw a line's row consumes")
 
@@ -1851,7 +1851,7 @@ func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
 		],
 	}
 
-	MapPlayCivilianAi.keep_bank_works(plan, model, crops)
+	MapPlayCivilianPlan.keep_bank_works(plan, model, crops)
 
 	var kept_tiles: Array = []
 	for raw: Variant in plan["orders"]:
@@ -1871,7 +1871,7 @@ func test_a_banking_court_keeps_the_farms_and_the_line_s_feedstock() -> void:
 func test_a_banking_court_keeps_the_road_to_an_off_network_town() -> void:
 	var config: AiConfig = AiConfig.build(0, 1500)
 	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var crops: Array = MapPlayCivilianAi.bank_crops(config, economy)
+	var crops: Array = MapPlayCivilianPlan.bank_crops(config, economy)
 	var model := MapModel.new()
 	model.setup(6, 1)
 	model.terrain.fill(MapModel.Terrain.PLAINS)
@@ -1886,7 +1886,7 @@ func test_a_banking_court_keeps_the_road_to_an_off_network_town() -> void:
 		],
 	}
 
-	MapPlayCivilianAi.keep_bank_works(
+	MapPlayCivilianPlan.keep_bank_works(
 		plan, model, crops, {Vector2i(1, 0): true}
 	)
 
@@ -1942,12 +1942,12 @@ func test_town_road_steps_name_the_first_unroaded_tile_to_the_network() -> void:
 ## The two purses: a court on `earn` keeps the works open down to its cash floor
 ## while hires still wait for the muster (issue #489).
 func test_the_works_purse_opens_when_the_court_is_earning() -> void:
-	var saving: Dictionary = MapPlayCivilianAi.purses_for(1000, 2400, -1)
+	var saving: Dictionary = MapPlayCivilianPlan.purses_for(1000, 2400, -1)
 	assert_eq(int(saving["spendable"]), 0, "nothing is discretionary below the reserve")
 	assert_eq(int(saving["works"]), 0)
 	assert_false(bool(saving["earn"]))
 
-	var earning: Dictionary = MapPlayCivilianAi.purses_for(1000, 2400, 400)
+	var earning: Dictionary = MapPlayCivilianPlan.purses_for(1000, 2400, 400)
 	assert_eq(int(earning["spendable"]), 0, "hires still stand down")
 	assert_eq(int(earning["works"]), 600, "extraction may draw on the purse")
 	assert_true(bool(earning["earn"]))
@@ -3774,6 +3774,57 @@ func test_build_orders_pick_the_nearest_builder() -> void:
 	assert_eq(int(_stock["lumber"]), 39)
 
 
+## The works orders share one roster read: the same idle scan and the same
+## nearest hand, whatever the trade (REQ-P3-01, REQ-P3-02).
+func test_the_works_orders_share_one_crew_roster() -> void:
+	var builder := field_Fixture.unit("builder", Vector2i(0, 1))
+	builder.id = 5
+	var other := field_Fixture.unit("builder", Vector2i(0, 0))
+	other.id = 7
+	var engineer := field_Fixture.unit("engineer", Vector2i(2, 1))
+	engineer.id = 6
+	var rival := field_Fixture.unit("builder", Vector2i(1, 1), 9)
+	rival.id = 1
+	var working := field_Fixture.unit("builder", Vector2i(1, 2))
+	working.id = 2
+	working.start_work("build_improvement", Vector2i(1, 2), 2)
+	var units: Array[CivilianState] = [builder, other, engineer, rival, working]
+
+	assert_eq(
+		CivilianWork.idle_crews(units, 0, "builder").size(), 2,
+		"only the crown's own idle builders answer"
+	)
+	assert_eq(
+		CivilianWork.idle_crews(units, 0, "").size(), 3,
+		"an empty trade asks for every free hand"
+	)
+	assert_eq(
+		CivilianWork.nearest_crew(units, 0, Vector2i(1, 2), "builder"), builder,
+		"the working crew is not idle, so the nearest free builder is sent"
+	)
+	assert_null(
+		CivilianWork.nearest_crew(units, 1, Vector2i(1, 2), "builder"),
+		"another crown's crews are not ours to send"
+	)
+	assert_eq(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "builder"), working,
+		"a crew already at the tile answers"
+	)
+	assert_eq(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "builder", "build_improvement"),
+		working,
+		"a narrowed action still finds its crew"
+	)
+	assert_null(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "builder", "build_road"),
+		"a crew on another order is not at this work"
+	)
+	assert_null(
+		CivilianWork.working_crew(units, 0, Vector2i(1, 2), "engineer"),
+		"the tile waits for a different trade"
+	)
+
+
 func test_build_orders_report_when_no_builder_is_free() -> void:
 	var result: Dictionary = ImprovementOrders.build(
 		field__model, _units, field__works, _stock, null, 0, field_Fixture.TIMBER_TILE
@@ -4816,6 +4867,58 @@ func test_an_estate_row_prints_the_words_its_words_module_reads() -> void:
 			int(row["transport"]), int(row["town_cap"]), null, true
 		).begins_with("Yields"),
 		"the status line is the words module's own read of the row"
+	)
+
+
+## A ration estate pays double per level, but its cap line reads the **per-level**
+## yield: a level-3 grain estate on a primitive road pays 2 and is held by the
+## road at 1, so the row names the road and not a town cap it never met
+## (wiki: extraction-and-improvements § Ration estates, § Extraction formula and
+## town development cap; DR-20261116-10).
+func test_a_ration_estate_names_the_cap_that_holds_it() -> void:
+	_field_before_each()
+	var tile: Vector2i = Vector2i(2, 1)
+	var resource: int = 4
+	field__model.resource[field__model.index_of(tile.x, tile.y)] = resource
+	field__works.set_improvement(field__model, tile, 3)
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, tile, resource,
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_ROAD}, {"network": {}}, [],
+		{"grain": 4}
+	)
+	assert_eq(int(row["level"]), 3)
+	assert_eq(
+		int(row["output"]), 2,
+		"a level-3 farm on a primitive road pays its doubled level-1 yield"
+	)
+	assert_eq(
+		String(row["status_text"]), "Yields 2 grain / turn · transport cap 1",
+		"the row names the road, not a town cap the estate never met"
+	)
+
+
+## The same reading on a town-capped ration estate: the town holds the level at 2,
+## so the row names the town rather than hiding the cap behind the doubled output
+## (wiki: extraction-and-improvements § Extraction formula and town development
+## cap; DR-20261116-10).
+func test_a_town_capped_ration_estate_names_the_town() -> void:
+	_field_before_each()
+	var tile: Vector2i = Vector2i(1, 2)
+	var resource: int = 4
+	field__model.resource[field__model.index_of(tile.x, tile.y)] = resource
+	field__works.set_improvement(field__model, tile, 3)
+	field__model.province_data(field_Fixture.PLAYER_PROVINCE).town_development = 2
+	var row: Dictionary = EstateRows.project(
+		field__model, field__works, [], {}, 0, tile, resource,
+		field_Fixture.PLAYER_PROVINCE,
+		{"transport": LandWorks.TRANSPORT_RAIL}, {"network": {}}, [],
+		{"grain": 4}
+	)
+	assert_eq(int(row["output"]), 4, "two per level, doubled")
+	assert_eq(
+		String(row["status_text"]), "Yields 4 grain / turn · town cap 2",
+		"the doubled figure never hides the cap that holds the level flat"
 	)
 
 

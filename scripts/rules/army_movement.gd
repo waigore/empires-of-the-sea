@@ -61,29 +61,29 @@ static func can_move(
 	model: MapModel, army: ArmyState, province_id: int, at_war: bool = true
 ) -> Dictionary:
 	if army == null:
-		return _deny("There is no army to order.")
+		return OrderVerdict.deny("There is no army to order.")
 	if army.home:
-		return _deny("The Home Army never leaves the capital; detach a field army first.")
+		return OrderVerdict.deny("The Home Army never leaves the capital; detach a field army first.")
 	if army.moved:
-		return _deny("This army has already marched this turn.")
+		return OrderVerdict.deny("This army has already marched this turn.")
 	if army.is_empty():
-		return _deny("An army with no regiments cannot march.")
+		return OrderVerdict.deny("An army with no regiments cannot march.")
 	if model == null or model.province_data(province_id) == null:
-		return _deny("That is not a province.")
+		return OrderVerdict.deny("That is not a province.")
 	if province_id == army.province:
-		return _deny("The army is already in that province.")
+		return OrderVerdict.deny("The army is already in that province.")
 	if model.province_owner(province_id) == army.owner:
 		if land_reachable(model, army.province, army.owner).has(province_id):
-			return _allow()
-		return _deny("Own land across open water or foreign land needs a naval transport.")
+			return OrderVerdict.allow()
+		return OrderVerdict.deny("Own land across open water or foreign land needs a naval transport.")
 	if not MapGeo.province_neighbors(model, army.province).has(province_id):
-		return _deny("Enemy or neutral land may only be entered from an adjacent province.")
+		return OrderVerdict.deny("Enemy or neutral land may only be entered from an adjacent province.")
 	if not at_war and _is_foreign(model, army, province_id):
-		return _deny(
+		return OrderVerdict.deny(
 			"Peace holds with %s; declare war before invading."
 			% FactionCatalog.name_of(model.province_owner(province_id))
 		)
-	return _allow()
+	return OrderVerdict.allow()
 
 
 ## Validates, then moves every regiment with the army. `attacked` reports that
@@ -130,11 +130,3 @@ static func _can_act(model: MapModel, army: ArmyState) -> bool:
 		and not army.is_empty()
 		and army.province != NO_PROVINCE
 	)
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

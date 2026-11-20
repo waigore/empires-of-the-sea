@@ -195,15 +195,13 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 	)
 	var tile: Vector2i = MapGeo.tile_at_world(world, PlaySession.TILE_SIZE)
 	var province_id: int = play.model.province_at(tile.x, tile.y)
-	# Water moves zone to zone without a province changing, so the hover is only
-	# a repeat when the ground and the sea under it both agree: otherwise a
-	# cursor gliding across the chart would keep the first zone's line.
+	# Water moves zone to zone without a province changing, and one province
+	# paints several grounds, so every landing is written: the tile under the
+	# cursor decides the line, and HudChrome repaints only a line that changed
+	# (wiki: tile-map-and-generation § Reading the chart; issue #1084).
 	var sea_zone: int = -1
 	if play.sea_lens != null:
 		sea_zone = play.sea_lens.zone_at(world)
-	var sea_moved: bool = play.sea_lens != null and sea_zone != play.sea_lens.hover_zone
-	if province_id == play.hover_province and not sea_moved:
-		return
 	play.hover_province = province_id
 	play.overlay.hover_province = province_id
 	if play.lens != null:

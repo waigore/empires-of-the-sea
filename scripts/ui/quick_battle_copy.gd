@@ -1,8 +1,10 @@
 class_name QuickBattleCopy
 extends RefCounted
 ## Despatch copy for the Quick Battle plate: action lines, outcome stamps, and
-## round numerals. Pure text — no Control nodes — so the overlay stays a thin
-## presenter (REQ-P3-01, REQ-P2-03).
+## round numerals. The wall a siege is fought over lives in
+## [QuickBattleSiegeCopy], so the opening line and the aftermath are read apart.
+## Pure text — no Control nodes — so the overlay stays a thin presenter
+## (REQ-P3-01, REQ-P2-03).
 
 
 static func action_line(action: Dictionary, battle: Dictionary, names: Array) -> String:
@@ -136,56 +138,26 @@ static func wings_line(battle: Dictionary, names: Array) -> String:
 	return "Wings — " + " · ".join(parts)
 
 
-## The wall the plate is fought over, as it stands when the plate opens: the
-## fort, the protection it gives, the lanes it shelters and the gates still
-## standing. No outcome in it — the plate is populated before the first round
-## plays, so this line must not hand the court the result (REQ-P5-05).
-static func siege_opening(battle: Dictionary) -> String:
-	var level: int = int(battle.get("fort_level", 0))
-	if level <= 0:
-		return ""
+## The deal alone, as the plate opens: how each side's horse, foot and guns were
+## dealt across left, centre and right. No standing counts and no broken wings —
+## the plate is drawn before the first round plays, so a strike-through here
+## would hand the court the result (REQ-P5-05, REQ-P5-06). The wings as the
+## fight left them are [method wings_line]'s.
+static func wings_opening(battle: Dictionary, names: Array) -> String:
 	var quick: Dictionary = battle.get("quick", {}) as Dictionary
-	var lanes: Dictionary = quick.get("lanes", {}) as Dictionary
-	var text: String = FortRules.describe(level)
-	text += " · walls spare %d%% of the defenders' losses" % int(
-		round(FortRules.damage_reduction(level) * 100.0)
-	)
-	text += " · %d on the wall, %d behind" % [
-		int(lanes.get("wall", 0)), int(lanes.get("behind", 0))
-	]
-	if int(quick.get("sorties", 0)) > 0:
-		text += " · %d sortie%s" % [
-			int(quick.get("sorties", 0)), "" if int(quick.get("sorties", 0)) == 1 else "s"
-		]
-	return text + gates_text(quick)
-
-
-## Siege despatch at the close: the wall as it opened, and the level a silenced
-## battery leaves behind. Empty in a field battle.
-static func siege_line(battle: Dictionary) -> String:
-	var text: String = siege_opening(battle)
-	if text.is_empty():
+	var opened: Dictionary = quick.get("wings_open", {}) as Dictionary
+	var parts: PackedStringArray = PackedStringArray()
+	for key: String in ["attacker", "defender"]:
+		var held: Dictionary = opened.get(key, {}) as Dictionary
+		if int(held.get("left", 0)) + int(held.get("center", 0)) \
+			+ int(held.get("right", 0)) <= 0:
+			continue
+		parts.append("%s: %s" % [
+			faction(int(battle.get(key, -1)), names), QuickBattleWings.describe(held)
+		])
+	if parts.is_empty():
 		return ""
-	var quick: Dictionary = battle.get("quick", {}) as Dictionary
-	if bool(quick.get("fort_downgraded", false)):
-		var after: int = int(quick.get("fort_after", maxi(0, int(battle.get("fort_level", 0)) - 1)))
-		text += " — battery silenced, the fort falls to %s" % (
-			FortRules.level_name(after) if after > 0 else "open field"
-		)
-	return text
-
-
-## The three gates, and the ones the besiegers beat down. Empty for a field
-## battle (no fort, no gates).
-static func gates_text(quick: Dictionary) -> String:
-	var gates: Dictionary = quick.get("gates", {}) as Dictionary
-	var maximum: int = int(gates.get("max", 0))
-	if maximum <= 0:
-		return ""
-	var broken: int = int(gates.get("broken", 0))
-	if broken <= 0:
-		return " · %d gates hold" % maximum
-	return " · %d of %d gates breached" % [broken, maximum]
+	return "Wings — " + " · ".join(parts)
 
 
 ## The ground the battle is fought over and what it does to the action tables
@@ -195,10 +167,10 @@ static func terrain_line(battle: Dictionary) -> String:
 	var terrain: String = String(quick.get("terrain", ""))
 	if terrain.is_empty() or terrain == "open":
 		return ""
-	var assault: int = round((1.0 - SiegeLanes.terrain_scale("assault", terrain)) * 100.0)
-	var volley: int = round((1.0 - SiegeLanes.terrain_scale("volley", terrain)) * 100.0)
+	var assault: int = round((1.0 - SiegeGround.terrain_scale("assault", terrain)) * 100.0)
+	var volley: int = round((1.0 - SiegeGround.terrain_scale("volley", terrain)) * 100.0)
 	return "Ground — %s: assaults −%d%%, volleys −%d%%" % [
-		SiegeLanes.terrain_label(terrain), assault, volley
+		SiegeGround.terrain_label(terrain), assault, volley
 	]
 
 

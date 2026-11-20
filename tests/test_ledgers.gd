@@ -1954,13 +1954,21 @@ func test_every_ledger_row_keeps_its_name_on_one_line_beside_its_chip() -> void:
 ## the remaining width prints one glyph per line down the margin (the same
 ## failure as #669, one drawer further down). The guard here is the whole sheet:
 ## every visible autowrapped label must be at least as wide as its widest word.
+##
+## One chart, two widths: the phone read resizes the viewport the desktop read
+## mounted rather than booting a second `MapScreen` for it (docs/testing.md
+## § Speed rules). A phone rotated in play reflows the same HUD, so the case
+## proves what a player's screen does.
 func test_every_sheet_reads_its_prose_across_at_desktop_and_phone_widths() -> void:
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1280, 720)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var chart: MapScreen = Fixture.attach_screen(viewport)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	for size: Vector2i in [Vector2i(1280, 720), Vector2i(914, 411)]:
-		var viewport := SubViewport.new()
 		viewport.size = size
-		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		add_child(viewport)
-		var chart: MapScreen = Fixture.attach_screen(viewport)
 		chart.hud._relayout()
 		await get_tree().process_frame
 		await get_tree().process_frame
@@ -1974,8 +1982,8 @@ func test_every_sheet_reads_its_prose_across_at_desktop_and_phone_widths() -> vo
 				_assert_the_courts_read_across(sheet as SpyLedgerPanel, size)
 			sheet.close()
 			await get_tree().process_frame
-		chart.free()
-		viewport.free()
+	chart.free()
+	viewport.free()
 
 
 ## The eleven sheets the HUD mounts on its modal layers.

@@ -1312,10 +1312,16 @@ const GENOA: int = 6
 
 ## Cached two-region world; only province and zone names are read from it.
 var world: WorldMap = null
+## Second chart for the back-then-new-game case: fixture-sized, seed 424242, so
+## that case never pays a cold Small `generate_world` under coverage.
+var fresh_world: WorldMap = null
 
 
 func before_all() -> void:
 	world = Fixture.world()
+	fresh_world = MapGenerator.new().generate_world(
+		424242, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
+	)
 	loss_pristine_map = Fixture.snapshot(Fixture.world())
 	loss_mounted = Fixture.attach_screen(self)
 	loss_pristine = Fixture.suite_capture(loss_mounted)
@@ -1323,6 +1329,7 @@ func before_all() -> void:
 
 func after_all() -> void:
 	world = null
+	fresh_world = null
 	if is_instance_valid(loss_mounted):
 		loss_mounted.free()
 	loss_mounted = null
@@ -3880,18 +3887,24 @@ func test_escape_and_android_back_are_one_press() -> void:
 ## and keep a touch-sized confirm (REQ-P1-05, REQ-P1-07, RUB-P1-05). The chart
 ## composes in the strip they leave free, so the banner covers open sea rather
 ## than the seaboards the player has to tap.
+##
+## One page, two handsets: the page is anchored and container-composed, so the
+## second size resizes the viewport it already mounted instead of paying a
+## second chart boot under coverage (docs/testing.md § Speed rules).
 func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 	_setup_capital_seat()
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(914, 411)
+	viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	add_child(viewport)
+	var phone_page: CapitalChoiceScreen = SCENE.instantiate()
+	phone_page.config = GameConfig.make(SEED, 0, FactionCatalog.PLAYER_FACTION)
+	phone_page.world = world
+	viewport.add_child(phone_page)
+	await get_tree().process_frame
+	await get_tree().process_frame
 	for size: Vector2i in [Vector2i(914, 411), Vector2i(800, 360)]:
-		var viewport := SubViewport.new()
 		viewport.size = size
-		viewport.render_target_update_mode = SubViewport.UPDATE_DISABLED
-		add_child(viewport)
-		var phone_page: CapitalChoiceScreen = SCENE.instantiate()
-		phone_page.config = GameConfig.make(SEED, 0, FactionCatalog.PLAYER_FACTION)
-		phone_page.world = world
-		viewport.add_child(phone_page)
-		await get_tree().process_frame
 		await get_tree().process_frame
 		await get_tree().process_frame
 		var screen_rect := Rect2(Vector2.ZERO, Vector2(size))
@@ -3905,13 +3918,16 @@ func test_phone_geometry_keeps_banner_and_actions_on_screen() -> void:
 		)
 		assert_gte(phone_page.confirm_button.size.y, 44.0, "touch-sized confirm %s" % size)
 		_assert_chart_in_band(phone_page, screen_rect, size)
-		viewport.free()
+	phone_page.free()
+	viewport.free()
 
 
 ## Back out of the chart and start a new game: the second chart must roll a new
 ## world and the campaign must start on it, never on the abandoned roll.
-## The first chart reuses the suite's cached world; only the second roll pays
-## `generate_world` so the case still proves the abandoned chart is discarded.
+## The first chart reuses the suite's cached world; the second hands a different
+## fixture-sized preset (seed 424242) so the abandoned chart is still discarded
+## without a cold Small `generate_world` under coverage (docs/testing.md § Speed
+## rules).
 func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	_setup_capital_seat()
 	var main: Node = MAIN.instantiate()
@@ -3941,8 +3957,8 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 	if setup2 == null:
 		main.free()
 		return
-	# Clear the preset so the second start must roll a fresh chart.
-	main.preset_world = null
+	# Hand the suite's second chart: a different seed, still fixture-sized.
+	main.preset_world = fresh_world
 	setup2.seed_field.text = "424242"
 	setup2.start_button.emit_signal("pressed")
 	var second: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
@@ -3952,6 +3968,7 @@ func test_back_then_a_new_game_seats_a_fresh_world() -> void:
 		return
 	await get_tree().process_frame
 	assert_eq(second.config.map_seed, 424242, "the new roll uses the new seed")
+	assert_true(second.world == fresh_world, "the second chart reused the suite cache")
 	assert_ne(second.world, first_world, "the abandoned chart's world is not reused")
 	assert_ne(second.model.get_instance_id(), first_model, "a fresh province grid")
 	assert_gte(second.selected_province, 0, "the new world seats the crown")
