@@ -1313,7 +1313,7 @@ class _EmblemProbe extends Node2D:
 
 	func _draw() -> void:
 		for i in kinds.size():
-			MapGlyphs.resource(
+			MapMarks.resource(
 				self, kinds[i], Vector2(float(i) * 20.0, 0), 14.0,
 				Palette.resource_ink(kinds[i])
 			)
