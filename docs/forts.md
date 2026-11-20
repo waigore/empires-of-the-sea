@@ -7,42 +7,38 @@ DR-20261110-27.
 
 ## Implemented
 
-- **Storage:** `ProvinceState.fort_level` 0–3, saved; a captured province keeps
-  its walls.
-- **Build:** Engineers take `Fort`; the project rises on the province's **town
-  tile** wherever the engineer stands (`FortRules.site_tile`; legacy maps keep
-  the ordered tile). Materials paid at assign; one turn per level; duplicates
-  cannot leap a level or gate. L2 Mine Engineering, L3 Modern Forts.
-- **Capitals:** every Old World capital opens at Wood, advanced starts included
-  (Great Power and Minor). A Great Power's Mine Engineering / Modern Forts lifts
-  its own capital to L2 / L3 once; a siege downgrade is not restored.
+- **Storage:** `ProvinceState.fort_level` 0–3, saved; capture keeps walls.
+- **Build:** Engineers take `Fort` on the province **town tile**
+  (`FortRules.site_tile`; legacy maps keep the ordered tile). Materials at
+  assign; one turn per level; no leap or gate. L2 Mine Engineering, L3 Modern
+  Forts.
+- **Capitals:** every Old World capital opens at Wood (Great Power and Minor).
+  Mine Engineering / Modern Forts lifts a Great Power capital to L2 / L3 once;
+  a siege downgrade is not restored.
 - **Battle mode:** 0 field, `≥ 1` siege; reports carry both.
-- **Auto-resolve:** wall HP (10/20/30) soaks attack before the ratio band; the
-  defender's share is scaled by 1 − damage reduction (0.75/0.55/0.40) and adds
-  `guns × strength` of its emplaced type. The train silences a piece per gun's
-  weight of artillery (whole pieces; DR-20261110-22).
-- **Quick Battle lanes** (`SiegeLanes`): infantry man the wall, horse and guns
-  wait behind. RNG ≥ 2 hits the wall, only artillery reaches behind, RNG 1
-  touches neither. The wall scales the blow unless the garrison sorties; a
-  sortie exposes it but lets every regiment strike. A pike garrison gives no
-  return fire; a blow bleeds no more than the deployed slice.
-- **Ground** (`SiegeGround`): HILL on hills/mountains, WOODS in forest, MARSH in
-  swamp, TOWN where a fort rings open ground. Volleys and assaults are weaker
-  into broken ground; entrenching is surer there.
+- **Auto-resolve:** wall HP (10/20/30) soaks attack before the ratio band;
+  defender share × (1 − damage reduction 0.75/0.55/0.40) plus
+  `guns × strength`. Train silences a piece per gun weight (DR-20261110-22).
+- **Quick Battle lanes** (`SiegeLanes`): infantry on the wall; horse and guns
+  behind. RNG ≥ 2 hits wall; only artillery reaches behind; RNG 1 neither.
+  Wall scales the blow unless a sortie exposes the garrison for every
+  regiment. Pike gives no return; a blow bleeds at most the deployed slice.
+- **Ground** (`SiegeGround`): HILL hills/mountains, WOODS forest, MARSH swamp,
+  TOWN where a fort rings open ground. Volleys/assaults weaker into broken
+  ground; entrenching surer there.
 - **Gates** (`SiegeGates`): three; each falls after `ceil(wall HP / 3)`
-  casualties. A breach ends the reduction and opens the behind lane in the
-  share lost.
-- **Sortie:** the defender's own order, not an Assault. Every
-  regiment strikes, the garrison exposed; a firearmless garrison sallies.
-- **Gun-loss:** a gun spends the blow before the lanes; an empty blow buys
-  nothing, and the last gun still drops the fort one level. The plate names
-  guns, lanes and gates.
-- **The wall reads itself** (`WallRead`, DR-20261120-06): the province sheet's
-  **Wall** row prints `10 wall hp · 25% off a blow` by level (empty on open
-  ground), the observatory's sheet the same, and a march into another court's
-  walled province reads `The army marches on Badajoz — a wood fort stands: 10
-  wall hp, 1 emplaced gun, 25% off a blow.` Both figures are the exchange's own
-  (`FortRules.wall_soak`, `loss_scale`); nothing is predicted.
+  casualties. A breach ends reduction and opens the behind lane in the share
+  lost.
+- **Sortie:** defender order, not Assault. Every regiment strikes, garrison
+  exposed; a firearmless garrison sallies.
+- **Gun-loss:** a gun spends the blow before lanes; empty blow buys nothing;
+  last gun still drops one level. Plate names guns, lanes, gates.
+- **The wall reads itself** (`WallRead`, DR-20261120-06): province **Wall** row
+  prints `10 wall hp · 25% off a blow` by level (empty on open ground);
+  observatory sheet the same; march into a rival walled province reads e.g.
+  `The army marches on Badajoz — a wood fort stands: 10 wall hp, 1 emplaced
+  gun, 25% off a blow.` Figures from `FortRules.wall_soak` / `loss_scale`;
+  nothing predicted.
 
 ## Costs and numbers
 
