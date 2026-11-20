@@ -1,93 +1,137 @@
 class_name ProvinceLedger
 extends RefCounted
-## The crown's provinces: every province it holds, in both charts, with what
-## each one is worth and what it lacks (wiki: world-model § Provinces and Tiles;
-## DR-20261115-09). Pure read-only projection — it reads the chart, the crown
-## link the province dossier prints, the estates ledger's own rows and the
-## army rosters, and never orders a work, a march or a spend (REQ-P3-02,
-## REQ-P3-03).
+## The crown's realm: every province it holds, in both charts, read three ways —
+## what it yields (economy), how hard it is to hold (defence) and how far it
+## sits from the seat (connectivity). Pure read-only projection: it reads the
+## chart, the crown link the province dossier prints, the estates ledger's own
+## rows, the army rosters and the market's current sell prices, and never orders
+## a work, a march or a spend (REQ-P3-02, REQ-P3-03).
 ##
-## No number here is recomputed: the garrison is `ArmyForce.side_strength` and
-## the yield is the estates ledger's own `output`, so a row can never print a
-## figure the turn would not use (REQ-P2-03).
+## No number here is recomputed: the garrison is `ArmyForce.side_strength`, the
+## extraction is the estates ledger's own `output`, the defence multiplier is the
+## battle's own [ArmyModifiers.TERRAIN_DEFENCE] and the fort's guns are
+## [FortRules]', so a row can never print a figure the turn would not use
+## (REQ-P2-03). Economic output is those extracted units valued at today's sell
+## price, the same [WorldMarket.sell_price] the market ledger clears at.
 
-## The reading's own filters: what a crown asks of its holdings every turn.
-const FILTER_ALL: String = "all"
-const FILTER_CUT: String = "cut_off"
-const FILTER_UNGARRISONED: String = "ungarrisoned"
-const FILTER_WORKS: String = "works"
-const FILTERS: Array[String] = [
-	FILTER_ALL, FILTER_CUT, FILTER_UNGARRISONED, FILTER_WORKS
-]
+## The three readings the realm offers. One name for the axis, so a chip press
+## reads the same as a sort press.
+const VIEW_ECONOMY: String = "economy"
+const VIEW_DEFENCE: String = "defence"
+const VIEW_CONNECTIVITY: String = "connectivity"
+const VIEWS: Array[String] = [VIEW_ECONOMY, VIEW_DEFENCE, VIEW_CONNECTIVITY]
+
+## Sort keys: one overall economic figure and one per resource kind, the
+## defence figure, and the province-hop reading.
+const SORT_VALUE: String = "value"
+const SORT_DEFENCE: String = "defence"
+const SORT_HOPS: String = "hops"
+## The four published resource kinds, in the order every plate reads them.
+const KIND_SORTS: Array[String] = ["tree", "ore", "coin", "wheat"]
 
 const NO_ID: int = -1
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
-## {region, model, armies, estates, links} — the armies the crown holds there,
-## the estates ledger's snapshot for that chart, and the crown link per
-## province id (`LandConnectivity.province_link`). A chart with no model is
-## skipped, so a one-region world reads as one heading.
-static func snapshot(regions: Array[Dictionary], owner: int) -> Dictionary:
+## {region, model, armies, estates, links, seat} — the armies the crown holds
+## there, the estates ledger's snapshot for that chart, the crown link per
+## province id (`LandConnectivity.province_link`) and the id of the province
+## this crown seats there (-1 when it holds no seat). `market` prices the
+## extraction; `tech` is the crown's unlocked studies, which decide the fort's
+## emplaced battery.
+static func snapshot(
+	regions: Array[Dictionary],
+	owner: int,
+	market: WorldMarket = null,
+	tech: Dictionary = {}
+) -> Dictionary:
 	var rows: Array[Dictionary] = []
-	var counts: Dictionary = {FILTER_CUT: 0, FILTER_UNGARRISONED: 0, FILTER_WORKS: 0}
+	var counts: Dictionary = {"cut_off": 0, "ungarrisoned": 0, "works": 0}
+	var seat_region: int = NO_ID
 	for entry: Dictionary in regions:
 		var model := entry.get("model") as MapModel
 		if model == null:
 			continue
 		var region: int = int(entry.get("region", model.region_id))
-		var armies: Array = entry.get("armies", [])
-		var estates: Dictionary = entry.get("estates", {})
-		var links: Dictionary = entry.get("links", {})
+		var seat: int = int(entry.get("seat", NO_ID))
+		if seat != NO_ID and seat_region == NO_ID:
+			seat_region = region
+		var hops: Dictionary = _hops(model, owner, seat)
 		for province: ProvinceState in model.provinces:
 			if province == null or province.owner != owner:
 				continue
-			var row: Dictionary = _row(model, province, region, armies, estates, links)
+			var row: Dictionary = _row(
+				model, province, entry, region, seat, hops, seat_region, owner, market, tech
+			)
 			rows.append(row)
 			for flag: String in row["flags"]:
 				counts[flag] = int(counts.get(flag, 0)) + 1
 	rows.sort_custom(_before)
-	return {
-		"rows": rows,
-		"groups": LedgerRows.group(rows),
-		"counts": counts,
-		"total": rows.size(),
-	}
+	return {"rows": rows, "groups": LedgerRows.group(rows), "counts": counts, "total": rows.size()}
 
 
-## Rows narrowed to one chart and one filter, grouped under their chart.
+## Rows narrowed to one chart, ordered by the view's own key, grouped under
+## their chart. Each chart is sorted inside its own group, so a heading never
+## stands over another chart's rows.
 static func groups(
-	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
+	data: Dictionary, region_key: String, view_key: String, sort_key: String
 ) -> Array[Dictionary]:
-	return LedgerRows.groups(data, region_key, matches.bind(filter_key))
+	var kept: Array[Dictionary] = LedgerRows.groups(
+		data, region_key, func(_row: Dictionary) -> bool: return true
+	)
+	for group: Dictionary in kept:
+		_sort_rows(group["rows"] as Array[Dictionary], view_key, sort_key)
+	return kept
 
 
-static func count(
-	data: Dictionary, region_key: String, filter_key: String = FILTER_ALL
-) -> int:
-	return LedgerRows.count(data, region_key, matches.bind(filter_key))
+static func count(data: Dictionary, region_key: String) -> int:
+	return LedgerRows.count(
+		data, region_key, func(_row: Dictionary) -> bool: return true
+	)
 
 
-## How many provinces each filter would show inside one chart, so a chip can
-## carry its own tally and a zero stays legible rather than hidden.
-static func filter_counts(data: Dictionary, region_key: String) -> Dictionary:
-	return LedgerRows.counts(data, region_key, FILTERS, matches)
-
-
-static func matches(row: Dictionary, filter_key: String) -> bool:
-	return LedgerRows.flags_match(row, filter_key)
-
-
-## One-word name of a filter, for its chip and the sheet's count line.
-static func filter_label(key: String) -> String:
+## One-word name of a view, for its chip and the sheet's count line.
+static func view_label(key: String) -> String:
 	match key:
-		FILTER_CUT:
-			return "Cut off"
-		FILTER_UNGARRISONED:
-			return "Ungarrisoned"
-		FILTER_WORKS:
-			return "Works"
-	return "All provinces"
+		VIEW_DEFENCE:
+			return "Defence"
+		VIEW_CONNECTIVITY:
+			return "Connectivity"
+	return "Economy"
+
+
+## The sort keys a view offers, in the order its chips print.
+static func sort_keys(view_key: String) -> Array:
+	match view_key:
+		VIEW_DEFENCE:
+			return [SORT_DEFENCE] as Array
+		VIEW_CONNECTIVITY:
+			return [SORT_HOPS] as Array
+	var keys: Array = [SORT_VALUE]
+	keys.append_array(KIND_SORTS)
+	return keys
+
+
+## The key a view opens on: the one figure a crown asks first.
+static func sort_default(view_key: String) -> String:
+	match view_key:
+		VIEW_DEFENCE:
+			return SORT_DEFENCE
+		VIEW_CONNECTIVITY:
+			return SORT_HOPS
+	return SORT_VALUE
+
+
+## The word a sort chip carries.
+static func sort_label(key: String) -> String:
+	match key:
+		SORT_VALUE:
+			return "Total"
+		SORT_DEFENCE:
+			return "Figure"
+		SORT_HOPS:
+			return "Hops"
+	return String(ResourceTypes.NAMES.get(key, key)).capitalize()
 
 
 # --- rows -------------------------------------------------------------------
@@ -96,21 +140,25 @@ static func filter_label(key: String) -> String:
 static func _row(
 	model: MapModel,
 	province: ProvinceState,
+	entry: Dictionary,
 	region: int,
-	armies: Array,
-	estates: Dictionary,
-	links: Dictionary
+	seat: int,
+	hops: Dictionary,
+	seat_region: int,
+	owner: int,
+	market: WorldMarket,
+	tech: Dictionary
 ) -> Dictionary:
-	var garrison: Dictionary = _garrison(armies, province.id, province.owner)
-	var estate: Dictionary = _estates(estates, province.id)
-	var link: Dictionary = links.get(province.id, {}) as Dictionary
+	var garrison: Dictionary = _garrison(entry.get("armies", []), province.id, owner)
+	var link: Dictionary = (entry.get("links", {}) as Dictionary).get(province.id, {}) as Dictionary
+	var estate: Dictionary = _estates(entry.get("estates", {}) as Dictionary, province.id)
 	var flags: Array[String] = []
 	if link.has("linked") and not bool(link.get("linked", false)):
-		flags.append(FILTER_CUT)
+		flags.append("cut_off")
 	if int(garrison["regiments"]) == 0:
-		flags.append(FILTER_UNGARRISONED)
+		flags.append("ungarrisoned")
 	if bool(estate["working"]):
-		flags.append(FILTER_WORKS)
+		flags.append("works")
 	return {
 		"id": province.id,
 		"region": region,
@@ -124,8 +172,11 @@ static func _row(
 		"regiments": int(garrison["regiments"]),
 		"strength": float(garrison["strength"]),
 		"estates": int(estate["estates"]),
-		"yield": int(estate["yield"]),
+		"yield": int(estate["output"]),
 		"linked": bool(link.get("linked", false)),
+		"economy": RealmReadings.economy(estate, owner, market),
+		"defence": RealmReadings.defence(province, garrison, model, tech),
+		"connectivity": RealmReadings.connectivity(link, hops, province.id, seat, region, seat_region),
 	}
 
 
@@ -154,7 +205,7 @@ static func _water(model: MapModel, port: Vector2i) -> int:
 	return MapModel.NO_ID
 
 
-## What the province is built to: its town, its wall, its ward and its estates.
+## What the province is built to: its town, its wall and its ward.
 static func _line(province: ProvinceState, estate: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	parts.append("Town %d" % province.town_level() if province.has_town() else "No town")
@@ -163,16 +214,13 @@ static func _line(province: ProvinceState, estate: Dictionary) -> String:
 	if province.hospital_level > 0:
 		parts.append("Hospital %d" % province.hospital_level)
 	var estates: int = int(estate["estates"])
-	if estates == 0:
-		parts.append("No estates")
-	else:
-		parts.append("%d estate%s · %d a turn" % [
-			estates, "" if estates == 1 else "s", int(estate["yield"])
-		])
+	parts.append("No estates" if estates == 0 else "%d estate%s" % [
+		estates, "" if estates == 1 else "s"
+	])
 	return " · ".join(parts)
 
 
-## What the province lacks: the men who hold it and the road that pays it.
+## What the province holds: the men who stand there and the road that pays it.
 static func _state(garrison: Dictionary, link: Dictionary) -> String:
 	var parts: PackedStringArray = []
 	var regiments: int = int(garrison["regiments"])
@@ -219,25 +267,68 @@ static func _garrison(armies: Array, province_id: int, owner: int) -> Dictionary
 	}
 
 
-## One province's estates, read from the estates ledger's own groups: how many
-## it holds, what they yield and whether a crew is at work there.
+## One province's estates, read from the estates ledger's own groups: the rows
+## themselves, so the economy view can price each resource at its own sell
+## price without a second harvest walk.
 static func _estates(estates: Dictionary, province_id: int) -> Dictionary:
-	var reading: Dictionary = {"estates": 0, "yield": 0, "working": false}
+	var reading: Dictionary = {
+		"estates": 0, "output": 0, "working": false, "rows": [] as Array[Dictionary],
+	}
 	for raw: Variant in estates.get("groups", []):
 		var group: Dictionary = raw
 		if int(group.get("id", NO_ID)) != province_id:
 			continue
 		reading["estates"] = int(group.get("count", 0))
+		var rows: Array[Dictionary] = reading["rows"]
 		for entry: Variant in group.get("rows", []):
 			var row: Dictionary = entry
-			reading["yield"] = int(reading["yield"]) + int(row.get("output", 0))
+			rows.append(row)
+			reading["output"] = int(reading["output"]) + int(row.get("output", 0))
 			if bool(row.get("working", false)):
 				reading["working"] = true
 		break
 	return reading
 
 
-# --- assembly ---------------------------------------------------------------
+## Owned-land hops from the seat, walked once per chart over the provinces this
+## crown holds (wiki: map-topology). No seat on this chart reaches nothing.
+static func _hops(model: MapModel, owner: int, seat: int) -> Dictionary:
+	if seat == NO_ID:
+		return {}
+	var owned: Array = []
+	for province: ProvinceState in model.provinces:
+		if province != null and province.owner == owner:
+			owned.append(province.id)
+	return ProvinceGraph.hops(model, owned, seat)
+
+
+# --- order ------------------------------------------------------------------
+
+
+## The rows of one group in the view's own order. Economy and defence read
+## highest first; connectivity reads near-first with the unreachable last.
+static func _sort_rows(rows: Array[Dictionary], view_key: String, sort_key: String) -> void:
+	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var left: float = _sort_value(a, view_key, sort_key)
+		var right: float = _sort_value(b, view_key, sort_key)
+		if left != right:
+			return left > right if view_key != VIEW_CONNECTIVITY else left < right
+		return _before(a, b)
+	)
+
+
+## One row's figure on the chosen sort key. An unreachable province scores
+## below every reached one on connectivity, so it always prints last.
+static func _sort_value(row: Dictionary, view_key: String, sort_key: String) -> float:
+	match view_key:
+		VIEW_DEFENCE:
+			return float((row["defence"] as Dictionary)["figure"])
+		VIEW_CONNECTIVITY:
+			var hops: int = int((row["connectivity"] as Dictionary)["hops"])
+			return 1e9 if hops < 0 else float(hops)
+	if sort_key == SORT_VALUE:
+		return float((row["economy"] as Dictionary)["value"])
+	return float(((row["economy"] as Dictionary)["by_kind"] as Dictionary).get(sort_key, 0))
 
 
 ## Reading order: the seat first, then the chart's own order, so a crown's
