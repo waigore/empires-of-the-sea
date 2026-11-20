@@ -86,7 +86,11 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		MapPlayHomeMerge.row(play, fleet),
 		MapPlayFleetMissions.hint(play, fleet),
 		play.ship_layer.fleets,
-		MapPlayFleetPick.line(play, fleet)
+		MapPlayFleetPick.line(play, fleet),
+		# The yard's own claim: the hull this court means to lay, printed in the
+		# slip the crown launches from (DR-20261121-02). A rival answers to her
+		# own court, and the block draws no rows for her anyway.
+		MapPlayYardPick.line(play) if fleet.owner == play.player_faction else ""
 	)
 
 

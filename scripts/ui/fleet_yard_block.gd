@@ -19,6 +19,9 @@ var _timer: Timer = null
 var _armed_hull: String = ""
 var _fleet: FleetState = null
 var _is_player: bool = false
+## The hull the court's own yard means to lay, in gold under the launch heading —
+## the published claim's reading, never an order (DR-20261121-02).
+var _pick: String = ""
 ## The one press under the slip; it owns the arm, its timeout and its words.
 var _batch: RaiseBatchPress = null
 
@@ -52,17 +55,26 @@ func _make_batch() -> void:
 
 
 ## A fresh fleet: the yard closes unless it may stay, and the rows are redrawn.
+## `pick` is the hull the court's own yard means to lay, already worded
+## (DR-20261121-02); a rival answers to her own court and carries none.
 func show_rows(
-	fleet: FleetState, rows: Array[Dictionary], is_player: bool, keep_open: bool
+	fleet: FleetState, rows: Array[Dictionary], is_player: bool, keep_open: bool,
+	pick: String = ""
 ) -> void:
 	_fleet = fleet
 	_is_player = is_player
+	_pick = pick if is_player else ""
 	offer(rows, is_player, not rows.is_empty(), "", keep_open, false)
 
 
 ## The capital slip: no squadron afloat, but the yard still lists what to launch.
-func show_slip(rows: Array[Dictionary], is_player: bool) -> void:
-	show_rows(null, rows, is_player, true)
+func show_slip(rows: Array[Dictionary], is_player: bool, pick: String = "") -> void:
+	show_rows(null, rows, is_player, true, pick)
+
+
+## The pick the drawer is printing, for tests and the mobile audit (REQ-P3-02).
+func pick_line() -> String:
+	return _pick
 
 
 ## The break-up drawer takes the yard's place while a join is on offer, so the
@@ -96,6 +108,14 @@ func _fill() -> void:
 		_box.remove_child(child)
 		child.queue_free()
 	_box.add_child(UiRowBuilder.caption("LAUNCH A HULL", 11, Palette.TEXT_DIM))
+	# The court's own yard would lay one hull and not the list: the pick stands
+	# under the heading, in the gold the crew's and the squadron's picks use, so
+	# the advice reads before the rows' prices do (REQ-P5-03; DR-20261121-02).
+	if not _pick.is_empty():
+		var advice := UiRowBuilder.line(12, Palette.GOLD)
+		advice.text = _pick
+		advice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_box.add_child(advice)
 	var ready: int = 0
 	for row: Dictionary in _rows:
 		if bool(row.get("batch_ready", false)):
