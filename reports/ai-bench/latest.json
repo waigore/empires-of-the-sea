@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:9179808fdcb2fffdd36692debf3ab40810d1e05c14c614be8081f8442463e00a",
-  "submission_git": "babysit-1175@15201c95",
+  "submission_hash": "sha256:523484c2be7125e71c37b3504e90bb5c7b58e2ef4df1b16f38705ed1a3b2f930",
+  "submission_git": "orc/implement-then-hunt-1-s1-implement-then-hunt-implement-feature-agent/20261120T231527153925Z@81b89b89",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:0ae689887a3c40f7835c34ff7d4da47ca6fe5153c0784279517074df7c3f917a",
+    "ai_surface_hash": "sha256:2d4bd45809a9574d27485e078c54554583892164136d9540486a63acbef816d2",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 29,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-20T22:23:56Z",
+  "timestamp": "2026-11-20T23:45:56Z",
   "report_version": 1,
-  "signature": "hmac-sha256:88849eff8c9f2a52f20748c7eb5944748702733a3089701a8c6c7d79b5f997a8"
+  "signature": "hmac-sha256:df99f7bfe61ceffc1092f139a76c714d22b5aa8814848572d2fe8ca86cb77555"
 }
