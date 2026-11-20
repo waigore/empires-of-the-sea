@@ -57,6 +57,20 @@ func apply_dict(data: Dictionary) -> void:
 	purchased = _int_keys(data.get("purchased", {}))
 
 
+## True when this faction holds at least one purchased deed in the region. A deed
+## is crown land for every landing and voyage rule that asks (wiki:
+## civilian-units § Overseas deployment; DR-20261109-17), so a court that has
+## bought ground here is not landless even though the province keeps its owner.
+func has_deed_of(owner: int) -> bool:
+	if owner < 0:
+		return false
+	for raw: Variant in owners.keys():
+		var index: int = int(raw)
+		if is_purchased(index) and owner_of(index, NO_OWNER) == owner:
+			return true
+	return false
+
+
 ## Index -> true for every land tile this faction owns, including purchased
 ## enclaves and excluding tiles carved out of its own provinces.
 func owned_indices(model, faction: int) -> Dictionary:

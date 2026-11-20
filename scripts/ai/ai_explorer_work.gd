@@ -20,7 +20,7 @@ static func best_candidate(query: AiWorkQuery) -> Dictionary:
 	var view: VisibilityModel = query.view()
 	if query.reserved.has(query.unit.tile):
 		return {}
-	if _held_for_voyage(query.unit, query.context):
+	if CivilianMuster.held_for_voyage(query.unit, query.context):
 		return {}
 	var explore: Dictionary = _survey_candidate(query, view)
 	if not explore.is_empty():
@@ -44,38 +44,12 @@ static func best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, context: Dictionary = {}
 ) -> Dictionary:
 	var view: VisibilityModel = context.get("visibility", null)
-	var mustering: Vector2i = _port_tile(context)
-	if _held_for_voyage(unit, context):
-		if _at_port(model, unit, mustering):
-			return {}
-		return AiLandRoute.step_toward(model, unit, mustering, view)
+	if CivilianMuster.held_for_voyage(unit, context):
+		return CivilianMuster.muster_move(model, unit, context, view)
 	var goal: Vector2i = _goal(model, unit, works, view, context)
 	if goal.x < 0:
 		return {}
 	return AiLandRoute.step_toward(model, unit, goal, view)
-
-
-## The muster tile the civilian pass set while a voyage is pending, or (-1, -1).
-static func _port_tile(context: Dictionary) -> Vector2i:
-	return context.get("muster_port", Vector2i(-1, -1))
-
-
-## True when this Explorer is the crew the pending voyage will board, so it
-## takes no work and waits at the harbour. Only that one waits: a crown's other
-## Explorers keep surveying and prospecting the home ground while a colony
-## sails (issue #894; wiki: civilian-units § Overseas deployment). A caller that
-## hands in no pick keeps the published reading — the harbour holds the crew.
-static func _held_for_voyage(unit: CivilianState, context: Dictionary) -> bool:
-	if _port_tile(context).x < 0:
-		return false
-	if not context.has("muster_unit"):
-		return true
-	return int(context["muster_unit"]) == unit.id
-
-
-static func _at_port(model: MapModel, unit: CivilianState, port: Vector2i) -> bool:
-	var here: int = model.province_at(unit.tile.x, unit.tile.y)
-	return here != MapModel.NO_ID and here == model.province_at(port.x, port.y)
 
 
 ## Exploring a partly charted province is the Explorer's first duty: the tiles
