@@ -208,7 +208,7 @@ func test_changing_the_priority_repaints_the_same_row() -> void:
 	assert_is(row, _slot_row(0), "the funding change must not rebuild the slot")
 	assert_not_null(_button("High"))
 	assert_eq(row.bar().next_gain(), 800, "the gauge follows the new preset")
-	assert_eq(_panel._slots_body.get_child_count(), ResearchState.DEFAULT_SLOTS)
+	assert_eq(_panel.slot_rows().size(), ResearchState.DEFAULT_SLOTS)
 
 func test_the_heading_totals_what_the_college_spends() -> void:
 	_setup_research_panel()
@@ -330,7 +330,8 @@ func test_a_ledger_reopens_on_the_goal_the_campaign_carries() -> void:
 
 ## The persistent row the panel keeps for one slot.
 func _slot_row(index: int) -> ResearchSlotRow:
-	return _panel._slots_body.get_child(index) as ResearchSlotRow
+	var rows: Array[ResearchSlotRow] = _panel.slot_rows()
+	return rows[index] if index < rows.size() else null
 
 ## The first name in the AVAILABLE tab, which is the goal-aware queue order.
 func _first_available() -> String:

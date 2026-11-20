@@ -6,7 +6,9 @@ extends LedgerFrame
 ## emits an intent and the economy controller asks the rules layer (REQ-P2-03);
 ## the sheet, masthead and phone profile are LedgerFrame's (REQ-P3-01). The
 ## queue and catalogue desks own their lists ([ResearchQueueDesk],
-## [ResearchCatalogPages]).
+## [ResearchCatalogPages]); the standing line and the unpaid rule stand in their
+## own head ([ResearchHeadStrip]), and the slot rows paint a [ResearchSlotPrice]
+## the walk priced.
 ##
 ## Repaints are in place: a funding change rewrites the slot's own line, so the
 ## gauge animates from where it stood.
@@ -42,11 +44,9 @@ var _goal: String = ""
 ## (DR-20261121-01).
 var _pick_line: String = ""
 var _treasury: int = 0
-var _summary: Label = null
-## The rule behind an unpaid study, named under the summary whenever a slot
-## starves. Always visible — a phone hides the standing hint, and a hover-only
-## rule is unreachable on touch (REQ-P1-05, REQ-P5-05).
-var _notice: Label = null
+## The standing line (slots, studies, ducats, techs) and the rule behind an
+## unpaid study, both in their own head strip (REQ-P3-01).
+var _head: ResearchHeadStrip = null
 var _goal_row: ResearchGoalStrip = null
 var _slots_heading: Label = null
 ## The row the slots heading shares with the tree door — and, on a phone, with
@@ -145,8 +145,10 @@ func _on_box_resized() -> void:
 ## (DR-20261120-03).
 func _apply_profile(compact: bool) -> void:
 	_compact = compact
-	if _summary != null:
-		_summary.visible = not compact
+	# The head re-reads its standing line in the face the sheet now lays out.
+	if _head != null:
+		_head.set_compact(compact)
+		_head.set_slots(_state, _treasury)
 	if _goal_row != null:
 		_goal_row.visible = not compact or not _goal.is_empty()
 		_goal_row.set_compact(compact)
@@ -158,23 +160,16 @@ func _apply_profile(compact: bool) -> void:
 		_tree_door.add_theme_font_size_override("font_size", 10 if compact else 11)
 	if _slots_body != null:
 		_slots_body.add_theme_constant_override("separation", 2 if compact else 4)
-	for row: Variant in _slot_rows.values():
-		if row is ResearchSlotRow:
-			(row as ResearchSlotRow).set_compact(compact)
+	for row: ResearchSlotRow in _row_list():
+		row.set_compact(compact)
 	if _fund != null:
 		_fund.set_compact(compact)
 	_slots_heading.text = ResearchBatch.heading_line(_spend_gold, _spend_rp, _compact)
 
 
 func _build_body(column: VBoxContainer) -> void:
-	_summary = UiRowBuilder.label("", 14, Palette.TEXT)
-	_summary.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	column.add_child(_summary)
-
-	_notice = UiRowBuilder.label("", 12, Palette.CRIMSON)
-	_notice.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_notice.visible = false
-	column.add_child(_notice)
+	_head = ResearchHeadStrip.new()
+	column.add_child(_head)
 
 	_goal_row = ResearchGoalStrip.new()
 	_goal_row.clear_pressed.connect(func() -> void: set_goal(""))
@@ -251,6 +246,12 @@ func pick_line() -> String:
 	return _pick_line
 
 
+## The persistent rows the college keeps, one per slot (REQ-P3-02). A test that
+## proves a slot survives a repaint reads them here, not through `_slots_body`.
+func slot_rows() -> Array[ResearchSlotRow]:
+	return _row_list()
+
+
 ## Steers the queue toward `tech_id`; "" (or an unknown id) clears the goal.
 ## The goal spends nothing and rides no research order, but it is kept with the
 ## campaign, so the ledger reopens where the player left it (wiki: tech-tree
@@ -291,16 +292,8 @@ func refresh(
 		return
 	_goal = TechOrder.normalize(_state.goal)
 	_state.ensure_slots()
-	var active: int = _state.researching().size()
-	_summary.text = "%d slot%s · %d at study · %d ducats · %d tech%s known" % [
-		_state.slots.size(),
-		"" if _state.slots.size() == 1 else "s",
-		active,
-		treasury,
-		_state.unlocked_ids().size(),
-		"" if _state.unlocked_ids().size() == 1 else "s",
-	]
 	var open: Array[String] = ResearchCatalogPages.open_advances(_state, _goal)
+	_head.set_slots(_state, treasury)
 	_goal_row.render(_state, _goal)
 	_fill_slots()
 	_pages.paint_available(
@@ -311,7 +304,9 @@ func refresh(
 	_pages.paint_known(_known_body, _state, _goal)
 	_tabs.set_tab_title(0, "AVAILABLE (%d)" % open.size())
 	_tabs.set_tab_title(1, "KNOWN (%d)" % _state.unlocked_ids().size())
-	_hint.text = ResearchBatch.hint_line(open.size(), _state.free_slot(), _notice.visible)
+	_hint.text = ResearchBatch.hint_line(
+		open.size(), _state.free_slot(), _head.notice_shown()
+	)
 	_fit_deferred()
 
 
@@ -323,7 +318,8 @@ func _fit_deferred() -> void:
 
 
 ## One persistent row per slot — `ResearchQueueDesk` walks and mounts; the panel
-## rewrites the heading, notice and press from the same spend totals.
+## rewrites the heading, the head's rule and the press from the same spend
+## totals (REQ-P2-03).
 func _fill_slots() -> void:
 	var spend: Dictionary = ResearchQueueDesk.fill(
 		_slots_body, _slot_rows, _state, _treasury, _boost, _leader,
@@ -334,7 +330,16 @@ func _fill_slots() -> void:
 	_spend_gold = int(spend["gold"])
 	_spend_rp = int(spend["rp"])
 	_slots_heading.text = ResearchBatch.heading_line(_spend_gold, _spend_rp, _compact)
-	_notice.text = ResearchQueueDesk.notice_line(_state, int(spend["unpaid"]))
-	_notice.visible = not _notice.text.is_empty()
+	_head.set_unpaid(ResearchQueueDesk.notice_line(_state, int(spend["unpaid"])))
 	if _fund != null:
 		_fund.render(_state, _treasury, _boost, _leader)
+
+
+## The rows already mounted, in slot order, as their own type so the profile
+## pass and the accessor never walk variants (REQ-P3-02).
+func _row_list() -> Array[ResearchSlotRow]:
+	var out: Array[ResearchSlotRow] = []
+	for row: Variant in _slot_rows.values():
+		if row is ResearchSlotRow:
+			out.append(row as ResearchSlotRow)
+	return out
