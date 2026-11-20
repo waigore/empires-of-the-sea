@@ -201,7 +201,6 @@ func _begin_game(config: GameConfig, world: WorldMap = null) -> void:
 	screen.infinite_mode = config.infinite_mode
 	screen.advanced_start = config.advanced_start
 	screen.difficulty = config.difficulty
-	screen.ai_profiles = config.ai_profiles
 	screen.preset_world = world if world != null else preset_world
 	_install_screen(screen)
 	# The temperaments the crown bound at setup ride the run's AI bookkeeping,

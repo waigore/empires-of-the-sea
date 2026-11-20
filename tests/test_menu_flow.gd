@@ -236,7 +236,7 @@ func test_setup_binds_a_temperament_to_each_rival() -> void:
 	# The campaign carries it: the AI bookkeeping holds the binding, and a load
 	# resumes the same rivals.
 	var save: Dictionary = SaveCodec.capture(play)
-	var ai_saved: Dictionary = (save.get("session", {}) as Dictionary).get("ai", {})
+	var ai_saved: Dictionary = save.get("ai", {})
 	assert_eq(
 		String((ai_saved.get("profiles", {}) as Dictionary).get(2, "")),
 		AiProfile.AGGRESSIVE,

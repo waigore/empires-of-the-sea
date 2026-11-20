@@ -1018,7 +1018,7 @@ func test_bound_temperaments_survive_a_load() -> void:
 	var play: PlaySession = screen.play
 	play.ensure_ai().profiles = AiProfile.roster({2: AiProfile.AGGRESSIVE})
 	var data: Dictionary = SaveCodec.capture(play)
-	var ai_saved: Dictionary = (data["session"] as Dictionary).get("ai", {})
+	var ai_saved: Dictionary = data.get("ai", {})
 	assert_eq(
 		String((ai_saved.get("profiles", {}) as Dictionary).get(2, "")),
 		AiProfile.AGGRESSIVE,
@@ -1029,7 +1029,7 @@ func test_bound_temperaments_survive_a_load() -> void:
 	assert_eq(String(play.ensure_ai().profiles.get(1, "")), AiProfile.NORMAL, "England resumes neutral")
 	# A legacy save (no binding) resumes every rival on the neutral profile.
 	var legacy: Dictionary = SaveCodec.capture(screen.play)
-	((legacy["session"] as Dictionary).get("ai", {}) as Dictionary).erase("profiles")
+	(legacy["ai"] as Dictionary).erase("profiles")
 	play = _apply_codec_save(legacy)
 	for faction: int in FactionCatalog.great_power_ids():
 		assert_eq(
