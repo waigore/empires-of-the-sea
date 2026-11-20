@@ -9,7 +9,8 @@ extends RefCounted
 ## `military_march`, the calls the rival pass and the Auto seat already make for
 ## a court, read for this crown on its own chart and its own relations — so the
 ## line can never name a march the rules would refuse (REQ-P2-03). The pass gives
-## the split first and the march after it, and so does the pick.
+## the split first and the march after it, and so does the pick: the march is read
+## off the seat the split leaves, never the chart it found.
 ##
 ## A reading only: nothing here splits a standard, marches a regiment or rolls a
 ## die, and the crown still presses her own order (REQ-P3-03, REQ-P5-06).
@@ -57,14 +58,17 @@ static func pick(play: PlaySession, army: ArmyState) -> Dictionary:
 	if roster.is_empty():
 		return {}
 	# The pass's own order: the split before the march (MapPlayArmyAi._run_region).
-	for raw: Variant in AiBindCampaign.military_split(kind, config, play.diplomacy, model, roster):
+	var splits: Array = AiBindCampaign.military_split(kind, config, play.diplomacy, model, roster)
+	for raw: Variant in splits:
 		var split: Dictionary = raw
 		if int(split.get("army_id", -1)) != army.id:
 			continue
 		if String(split.get("kind", "")) != KIND_SPLIT:
 			continue
 		return _split_words(army, split)
-	var plan: Dictionary = AiBindCampaign.military_march(kind, config, play.diplomacy, model, roster)
+	var plan: Dictionary = AiBindCampaign.military_march(
+		kind, config, play.diplomacy, model, _seat_after_split(roster, splits)
+	)
 	for raw: Variant in plan.get("orders", []):
 		var order: Dictionary = raw
 		if int(order.get("army_id", -1)) != army.id:
@@ -80,6 +84,41 @@ static func pick(play: PlaySession, army: ArmyState) -> Dictionary:
 ## give this army no order this turn.
 static func line(play: PlaySession, army: ArmyState) -> String:
 	return MapPlayArmyPickWords.sentence(String(pick(play, army).get("line", "")))
+
+
+## The roster the pass plans its marches over: the chart's own, or — when the seat
+## takes the field this turn — the seat the split leaves. The pass applies the
+## split before it plans the march (`MapPlayArmyAi._run_region`), and a Home Army
+## cut down to its guard no longer answers the rotation's gate
+## (`AiMilitaryPlanner._rotation_army_id` reads a seat of more than one standard),
+## so a worn field army the pre-split chart would send home is really sent to
+## storm or to relieve. The copy is the seat, never the force the split fields:
+## that army answers to no standard the crown has read (DR-20261120-10).
+static func _seat_after_split(roster: Array[ArmyState], splits: Array) -> Array[ArmyState]:
+	for raw: Variant in splits:
+		var split: Dictionary = raw
+		if String(split.get("kind", "")) != KIND_SPLIT:
+			continue
+		var army_id: int = int(split.get("army_id", -1))
+		for index: int in roster.size():
+			var seat: ArmyState = roster[index]
+			if seat == null or seat.id != army_id or not seat.is_home_army():
+				continue
+			var going: Array[String] = []
+			going.assign(split.get("regiments", []))
+			var guard: Array[String] = []
+			var types: Dictionary = {}
+			for regiment: String in seat.regiments:
+				if going.has(regiment):
+					continue
+				guard.append(regiment)
+				types[regiment] = seat.type_of(regiment)
+			var out: Array[ArmyState] = roster.duplicate()
+			out[index] = ArmyState.create(
+				seat.id, seat.owner, seat.province, true, guard, types
+			)
+			return out
+	return roster
 
 
 ## The Home Army taking the field: every regiment but the published guard leaves

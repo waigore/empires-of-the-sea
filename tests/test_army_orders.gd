@@ -1629,6 +1629,41 @@ func test_the_courts_pick_marches_a_worn_army_home_to_merge() -> void:
 	play.army_layer.free()
 
 
+## A Home Army at its muster target cuts a second field force before the march
+## (wiki: military-armies § Home Army — the seat's guard is a condition, not a
+## lifetime lock), so the roster the pass plans over is the seat the split
+## leaves: one guard. The worn army the pre-split chart would have sent home is
+## really sent to storm, and the dossier names that march (DR-20261120-10).
+func test_the_courts_pick_reads_the_seat_the_split_leaves() -> void:
+	var play: PlaySession = _pick_play(true)
+	var types: Array[String] = []
+	for _index in 9:
+		types.append("guards")
+	var home := ArmyFixture.army(1, 0, 0, types, true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	assert_eq(
+		String(MapPlayArmyPick.pick(play, home).get("kind", "")),
+		AiMilitaryPlanner.KIND_SPLIT,
+		"the seat takes the field"
+	)
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_MARCH, "not the rotation")
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_STORM)
+	assert_eq(int(pick.get("province", -1)), 4, "the storm the pass gives her")
+	assert_eq(home.count(), 9, "a reading: the seat still holds its nine")
+
+	# A hostile host on the court's own land is met, not outmarched: the same
+	# seat reads the relief the pass gives her.
+	var raider := ArmyFixture.army(3, 1, 6, ["guards"])
+	_pick_roster(play, [home, field, raider] as Array[ArmyState])
+	var relief: Dictionary = MapPlayArmyPick.pick(play, field)
+	assert_eq(String(relief.get("why", "")), MapPlayArmyPick.WHY_RELIEF)
+	assert_eq(int(relief.get("province", -1)), 6, "the province the host stands on")
+	play.army_layer.free()
+
+
 ## The pick is only for a standard the court would still order: a rival's army,
 ## one that has marched, an embarked army and a session whose court runs no
 ## planner all carry none.
