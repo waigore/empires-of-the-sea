@@ -2820,7 +2820,7 @@ func test_round_despatches_add_up_to_each_sides_losses() -> void:
 
 func _fight(
 	plan: String, attacker_types: Array[String], defender_types: Array[String],
-	fort: int = 0
+	fort: int = 0, defender_plan: String = ""
 ) -> Dictionary:
 	var model := Fixture.build()
 	model.province_data(2).fort_level = fort
@@ -2828,7 +2828,10 @@ func _fight(
 	var attacker := Fixture.army(2, 0, 2, attacker_types)
 	attacker.moved = true
 	var armies: Array[ArmyState] = [defender, attacker]
-	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, _context(plan))
+	var context: Dictionary = _context(plan)
+	if not defender_plan.is_empty():
+		context["defender_battle_plan"] = defender_plan
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, context)
 	return reports[0]
 
 
@@ -10168,7 +10171,10 @@ func test_a_battery_blow_names_its_wing_and_the_break_it_makes() -> void:
 		["squires", "pikemen", "pikemen", "pikemen", "pikemen", "pikemen",
 			"pikemen", "knights"],
 		["musketeers", "musketeers", "musketeers", "culverin", "culverin"],
-		2
+		2,
+		## The garrison holds its wall (no fall back), so the fight is the guns'
+		## own and no stance spends cohesion the record would have to explain.
+		"balanced"
 	)
 	var quick: Dictionary = battle["quick"]
 	assert_eq(int(quick["guns_start"]), 2, "a level-2 fort's battery stands")
@@ -10496,3 +10502,100 @@ func test_the_turn_close_reads_the_nested_research_report() -> void:
 	book.economy_report = {"factions": {other_power: {"resolved": {"research": null}}}}
 	MapPlayTurnFinish._fort_upgrades(play, book)
 	assert_eq(model.provinces[1].fort_level, 1, "a row with no research phase is skipped")
+
+
+# --- the plan scripts' cohesion (wiki: quick-battle § Turn structure and actions)
+
+
+## A manoeuvre is a reposition, never a rest: it hands no step of cohesion back.
+func test_a_manoeuvre_never_banks_a_step_of_cohesion() -> void:
+	var side: Array[ArmyState] = _lane_side(_guards(4), 2)
+	var state: Dictionary = _cohesion_state(side, "open")
+	state["attacker"]["cohesion"] = 1
+
+	var entry: Dictionary = QuickBattleActions.resolve(
+		_lane_joined(side, _lane_side(_levies(4), 1)), state, "attacker", "defender",
+		"maneuver", [] as Array[Dictionary]
+	)
+
+	assert_eq(
+		int(state["attacker"]["cohesion"]), 1, "the line keeps the footing it has"
+	)
+	assert_eq(int(entry["cohesion_lost"]), 0, "open ground, an intact line: no step")
+	assert_eq(String(entry["cohesion_why"]), "")
+
+
+## A manoeuvre costs a step only while the line is under pressure — it has
+## already lost men — and nothing over broken ground with the line intact: the
+## ground charges the blow itself (wiki: quick-battle § Turn structure and
+## actions; DR-20261120-07).
+func test_a_manoeuvre_costs_a_step_under_pressure() -> void:
+	var intact: Dictionary = _manoeuvre("woods", [] as Array[String])
+	assert_eq(
+		int(intact["state"]["attacker"]["cohesion"]), 3,
+		"broken ground alone costs no step: the blow is already the weaker for it"
+	)
+	assert_eq(int(intact["entry"]["defender_lost"]), 0, "a manoeuvre strikes nobody")
+
+	var press: Dictionary = _manoeuvre("open", ["r1"] as Array[String])
+	assert_eq(int(press["state"]["attacker"]["cohesion"]), 2, "pressure costs a step")
+	assert_eq(String(press["entry"]["cohesion_why"]), "under pressure")
+
+
+## One attacker manoeuvre from cohesion 3 over `terrain`, the acting line's own
+## losses given.
+func _manoeuvre(terrain: String, lost: Array[String]) -> Dictionary:
+	var side: Array[ArmyState] = _lane_side(_guards(4), 2)
+	var state: Dictionary = _cohesion_state(side, terrain)
+	state["attacker"]["lost"] = lost
+	var entry: Dictionary = QuickBattleActions.resolve(
+		_lane_joined(side, _lane_side(_levies(4), 1)), state, "attacker", "defender",
+		"maneuver", [] as Array[Dictionary]
+	)
+	return {"state": state, "entry": entry}
+
+
+## A fall back trades a step of cohesion for the space it gives, and the
+## despatch prices it in words (wiki: quick-battle § Turn structure and actions —
+## "this trades space and cohesion for preservation of forces").
+func test_a_fall_back_trades_a_step_of_cohesion() -> void:
+	var side: Array[ArmyState] = _lane_side(_guards(4), 2)
+	var state: Dictionary = _cohesion_state(side, "open")
+	var entry: Dictionary = QuickBattleActions.resolve(
+		_lane_joined(side, _lane_side(_levies(4), 1)), state, "attacker", "defender",
+		"fall_back", [] as Array[Dictionary]
+	)
+
+	assert_eq(int(state["attacker"]["cohesion"]), 2, "the line gives a step")
+	assert_true(float(entry["guard"]) > 0.0, "and keeps the shelter it fell back into")
+	assert_eq(
+		QuickBattleCopy.action_line(entry, {"attacker": 2}, ["", "", "Spain"]),
+		"Spain — Fall back · cohesion -1, the line gives ground"
+	)
+
+
+## Cohesion never runs below zero: a line under pressure that has spent its
+## footing spends no more, and the stance still lands.
+func test_cohesion_never_falls_below_zero() -> void:
+	var side: Array[ArmyState] = _lane_side(_guards(4), 2)
+	var state: Dictionary = _cohesion_state(side, "town")
+	state["attacker"]["cohesion"] = 0
+	state["attacker"]["lost"] = ["r1"] as Array[String]
+
+	var entry: Dictionary = QuickBattleActions.resolve(
+		_lane_joined(side, _lane_side(_levies(4), 1)), state, "attacker", "defender",
+		"maneuver", [] as Array[Dictionary]
+	)
+
+	assert_eq(int(state["attacker"]["cohesion"]), 0, "the floor holds")
+	assert_eq(int(entry["cohesion_lost"]), 0, "a step it cannot pay is not printed")
+	assert_eq(QuickBattleActions.cohesion_cost("maneuver", {"lost": []}), 0)
+
+
+## Battle state shaped the way [QuickBattle] builds it, with the ground given.
+func _cohesion_state(side: Array[ArmyState], terrain: String) -> Dictionary:
+	var state: Dictionary = _lane_state(side, _lane_side(_levies(4), 1), 0)
+	state["terrain"] = terrain
+	state["attacker"]["line"] = ArmyForce.line_ids(side, 10)
+	state["attacker"]["broken"] = [] as Array[String]
+	return state

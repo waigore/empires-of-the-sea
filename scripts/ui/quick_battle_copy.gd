@@ -16,6 +16,15 @@ static func action_line(action: Dictionary, battle: Dictionary, names: Array) ->
 	# § Turn structure and actions — Sortie; siege-mechanics § Gates and Sortie).
 	if bool(action.get("sortie", false)):
 		text += " · the wall stands open"
+	# A stance that costs the line its footing names the step it spends: a
+	# manoeuvre over broken ground or under the press, a fall back that gives
+	# ground (wiki: quick-battle § Turn structure and actions).
+	var cohesion: int = int(action.get("cohesion_lost", 0))
+	if cohesion > 0:
+		var why: String = String(action.get("cohesion_why", ""))
+		text += " · cohesion -%d%s" % [
+			cohesion, "" if why.is_empty() else ", " + why
+		]
 	# A despatch reports what the action did to the other side; the acting side's
 	# own losses (an assault's price) follow so the round reads honestly.
 	var attacking: bool = owner == int(battle.get("attacker", -1))
