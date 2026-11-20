@@ -302,6 +302,12 @@ static func _read(rule: Dictionary, records: Array[Dictionary]) -> Dictionary:
 		var turn: int = int(record.get("turn", 0))
 		for raw: Variant in record.get("rows", []) as Array:
 			var court: Dictionary = raw
+			# A fallen crown exercises nothing: its rows are dropped, so a dead
+			# court cannot make a rule read as exercised (issue #1136). A row
+			# with no `alive` reading (an older exporter, a thin fixture) reads
+			# as a living court — only an explicit false drops it.
+			if not bool(court.get("alive", true)):
+				continue
 			var actions: Dictionary = (court.get("last", {}) as Dictionary).get("actions", {})
 			var fired: int = 0
 			for key: Variant in keys:
