@@ -22,13 +22,19 @@ const KIND_LAY: String = "lay"
 const KIND_SAVING: String = "saving"
 ## The yard refuses, and a study is why: the door the saving hull waits on.
 const KIND_STUDY: String = "study"
+## The yard refuses with the purse already full: the stores or the pool are why,
+## and the line names the yard's own gate rather than a purse that is not short
+## (wiki: ships-and-naval § Ship build economy; DR-20261121-02).
+const KIND_STORES: String = "stores"
 
 
 ## The hull one court's yard means to lay, as the sheet reads it: `{kind, type,
 ## chest, price, study, line}`. Empty when the court is not rebuilding its navy
 ## (a fleet that already matches its enemies, no war at all, or warships its techs
 ## open), when the campaign is decided, when the session runs no planner, or when
-## the catalogue opens no warship to save for.
+## the catalogue opens no warship to save for. A refusing yard names the gate
+## that actually holds her: the study, the purse, or the yard's own word for the
+## stores and the hand (`KIND_STORES`).
 static func pick(play: PlaySession) -> Dictionary:
 	if play == null or play.economy == null or play.economy.economy == null:
 		return {}
@@ -80,25 +86,34 @@ static func counsel(
 			"study": "",
 			"line": line,
 		}
-	# The yard refuses: name the hull the chest is saved toward, and the gate it
-	# waits on — the study the door asks for, else the purse that is filling.
+	# The yard refuses: name the hull the claim is saved toward, and the gate it
+	# waits on — the study the door asks for, else the purse that is filling,
+	# else the yard's own word for the stores or the hand it cannot pay with
+	# (wiki: ships-and-naval § Ship build economy; DR-20261121-02).
 	var saving: String = AiNavy.saving_type(economy, flown)
 	if saving.is_empty():
 		return {}
 	var door: String = AiNavy.unlock_tech(economy, flown)
-	var say: String = (
-		MapPlayYardPickWords.study_line(saving, door) if not door.is_empty()
-		else MapPlayYardPickWords.saving_line(
-			saving, AiNavy.price(economy, flown), economy.treasury
-		)
-	)
+	var price: int = AiNavy.price(economy, flown)
+	var kind: String = KIND_STUDY
+	var say: String = ""
+	if not door.is_empty():
+		say = MapPlayYardPickWords.study_line(saving, door)
+	elif economy.treasury < price:
+		kind = KIND_SAVING
+		say = MapPlayYardPickWords.saving_line(saving, price, economy.treasury)
+	else:
+		# The purse already covers her row, so it is not the gate: the yard's
+		# own refusal is (`Insufficient materials`, `Insufficient workers`).
+		kind = KIND_STORES
+		say = MapPlayYardPickWords.gate_line(saving, String(laying.get("reason", "")))
 	if say.is_empty():
 		return {}
 	return {
-		"kind": KIND_STUDY if not door.is_empty() else KIND_SAVING,
+		"kind": kind,
 		"type": saving,
 		"chest": chest,
-		"price": AiNavy.price(economy, flown),
+		"price": price,
 		"study": door,
 		"line": say,
 	}
