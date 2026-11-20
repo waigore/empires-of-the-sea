@@ -11,7 +11,7 @@ extends SceneTree
 ## through MapPlayTurn, reading only what the player is shown: the Gazette's age
 ## tab, the turn's toasts, the campaign-end plate, the end-turn seal and the
 ## sheets the archive keeps. Not a CI gate — run it by hand:
-##   godot --headless --path . --script res://playtests/playtest_11_campaign_end.gd
+##   godot --headless --path . --script res://playtests/playtest_campaign_end.gd
 
 const Launch = preload("res://playtests/playtest_launch.gd")
 const SaveDrive = preload("res://playtests/playtest_save_drive.gd")

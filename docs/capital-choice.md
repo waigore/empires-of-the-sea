@@ -66,9 +66,9 @@ hand-picked seat and its harbour instead of the regenerated auto-choice one.
 
 ## Tests
 
-- `tests/test_08_campaign_rules.gd` — seating rules and refusals, and the chart
+- `tests/test_campaign_rules.gd` — seating rules and refusals, and the chart
   page's pick, confirm, refusals and back.
-- `tests/test_06_menu_flow.gd` — setup → chart → campaign, chosen seat reaches the
+- `tests/test_menu_flow.gd` — setup → chart → campaign, chosen seat reaches the
   Home Army.
 - `tests/test_save_store.gd` — seat tile and harbours round-trip.
 - `tools/e2e_smoke.gd` — clicks through the chart on the real flow.

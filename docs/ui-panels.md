@@ -18,7 +18,7 @@ Every dismissible panel looks and behaves the same way.
 
 ## Tests
 
-`tests/test_07_panel_parts_rules.gd` mounts every known dismissible panel and
+`tests/test_panel_parts_rules.gd` mounts every known dismissible panel and
 fails when one lacks the seal, when a seal is not in the header's right-hand
 slot, when a press does not close, or when a panel prints a one-off Close
 door instead.

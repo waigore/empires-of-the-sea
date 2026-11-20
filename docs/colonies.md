@@ -68,6 +68,6 @@ the same boycott keys `DiplomacyTrade` reads (`REQ-P2-03`).
 
 ## Tests
 
-`tests/test_19_ledgers.gd` — the projection over a two-chart fixture, a sealed
+`tests/test_ledgers.gd` — the projection over a two-chart fixture, a sealed
 colony with its subsidy, the filters and tallies, the unrecognised people, both
 row shapes, and the door, Visit and back on the mounted map.

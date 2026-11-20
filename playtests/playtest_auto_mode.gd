@@ -4,7 +4,7 @@ extends SceneTree
 ## the drive prints every line the Auto log wrote beside the crown's own numbers,
 ## so a seat that stops acting — or a purse that stops paying — names itself.
 ##
-##   godot --headless --path . --script res://playtests/playtest_16_auto_mode.gd
+##   godot --headless --path . --script res://playtests/playtest_auto_mode.gd
 ##
 ## Not a CI gate: twelve turns of the standard chart take about 15 s.
 
@@ -30,7 +30,7 @@ func _run() -> void:
 		await process_frame
 	var play: PlaySession = screen.play
 	if play == null:
-		print("the map screen built no session — update playtests/playtest_16_auto_mode.gd")
+		print("the map screen built no session — update playtests/playtest_auto_mode.gd")
 		quit(1)
 		return
 	print("seed %d · crown %d · Auto mode at 3x" % [SEED, play.player_faction])

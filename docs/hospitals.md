@@ -52,5 +52,5 @@ and the gate `CivilianWorkRefusals.hospital` — the order's own wording
 
 ## Tests
 
-`tests/test_19_ledgers.gd` — the projection, every state, the stores gate, the
+`tests/test_ledgers.gd` — the projection, every state, the stores gate, the
 tallies and the rule note.

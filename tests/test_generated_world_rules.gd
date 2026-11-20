@@ -1969,7 +1969,7 @@ func test_config_round_trips_the_difficulty_layer() -> void:
 
 ## The extra row must not push SET SAIL off a landscape phone; the row itself
 ## rides the page's scroll like every later field (REQ-P1-05, REQ-P1-07;
-## geometry measured like tests/test_14_mobile_layout.gd).
+## geometry measured like tests/test_mobile_layout.gd).
 func test_phone_setup_keeps_the_difficulty_row_reachable() -> void:
 	var viewport := SubViewport.new()
 	viewport.size = Vector2i(914, 411)
