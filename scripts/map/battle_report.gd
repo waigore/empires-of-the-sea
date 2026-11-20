@@ -105,8 +105,8 @@ static func describe_raid(
 			cargo, place, sunk
 		]
 	if sunk.is_empty():
-		return "%s seize %s off the %s — no hull lost" % [raider, cargo, place]
-	return "%s seize %s off the %s and sink the %s" % [raider, cargo, place, sunk]
+		return "%s seizes %s off the %s — no hull lost" % [raider, cargo, place]
+	return "%s seizes %s off the %s and sinks the %s" % [raider, cargo, place, sunk]
 
 
 ## "Fluyte Vrouw Maria" for the one merchant hull a raid sent down, or "" when

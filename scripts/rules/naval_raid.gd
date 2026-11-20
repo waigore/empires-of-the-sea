@@ -47,7 +47,8 @@ static func resolve(
 		return _nothing("no cargo at sea", victim)
 	return _raid(
 		model, fleets, victim, home, imports, hostile,
-		seed_value, turn, roll_value, has_tech, -1, ROLL_TAG, HULL_TAG, hull_roll
+		seed_value, turn, roll_value, has_tech, -1, ROLL_TAG, HULL_TAG, hull_roll,
+		true
 	)
 
 
@@ -149,10 +150,12 @@ static func hull_loss_chance(home: FleetState) -> float:
 	return NavalHullLoss.chance(home)
 
 
-## The shared raid: pick the best group working the victim's waters, roll, skim
-## cargo and roll again for one merchant hull. `only_owner` limits the raiders to
-## one crown (a prize raid); the tags keep a crown's losses and its prizes on
-## separate rolls.
+## The shared raid: roll, skim cargo and roll again for one merchant hull.
+## `only_owner` limits the raiders to one crown (a prize raid); the tags keep a
+## crown's losses and its prizes on separate rolls. `weigh_together` makes the
+## groups one raid: the strongest of them rolls, so the crown off whose coast
+## they stand meets the best raid of the turn and only that one (wiki:
+## ships-and-naval § Trade and Transport Interception; DR-20261111-20 § Change).
 static func _raid(
 	model: MapModel,
 	fleets: Array,
@@ -167,7 +170,8 @@ static func _raid(
 	only_owner: int,
 	roll_tag: int,
 	hull_tag: int,
-	hull_roll: float
+	hull_roll: float,
+	weigh_together: bool = false
 ) -> Dictionary:
 	var relevant: Array[int] = _relevant_zones(model, victim)
 	var groups: Dictionary = _raider_groups(
@@ -182,6 +186,19 @@ static func _raid(
 			return a.x < b.x if a.x != b.x else a.y < b.y
 	)
 	var best_chance: float = 0.0
+	# The raid a crown suffers is **one** raid: the raiders off its coast are
+	# weighed together and the best one rolls, in her own water and at her own
+	# efficiency (DR-20261111-20 § Change). Separate rolls would hand the crown
+	# whichever weaker squadron beat its own number. A prize raid keeps the walk,
+	# because each raider there rolls its own salt, one prize per victim.
+	if weigh_together and not keys.is_empty():
+		var best: Dictionary = _weighed(model, groups, keys, home, hostile, has_tech)
+		if best.is_empty():
+			return _nothing("nothing taken", victim)
+		var chosen: Vector2i = best["key"]
+		best_chance = float(best["chance"])
+		keys.clear()
+		keys.append(chosen)
 	for key: Vector2i in keys:
 		var group: Array = groups[key] as Array
 		var mission: int = FleetMissions.station_mission(model, group, hostile)
@@ -226,6 +243,30 @@ static func _raid(
 	var idle: Dictionary = _nothing("nothing taken", victim)
 	idle["chance"] = best_chance
 	return idle
+
+
+## The strongest raid the groups off the victim's coast can make: the group key
+## and the chance it rolls, weighed by the number the dossier prices them with
+## (`trade_chance`), so the water the crown reads and the water that raids it are
+## one read. Ties keep the lower key: the walk takes only a strictly better raid.
+static func _weighed(
+	model: MapModel,
+	groups: Dictionary,
+	keys: Array[Vector2i],
+	home: FleetState,
+	hostile: Callable,
+	has_tech: Callable
+) -> Dictionary:
+	var best: Dictionary = {}
+	for key: Vector2i in keys:
+		var group: Array = groups[key] as Array
+		var mission: int = FleetMissions.station_mission(model, group, hostile)
+		if mission == FleetState.Mission.NONE:
+			continue
+		var found: float = trade_chance(group, home, mission, has_tech)
+		if best.is_empty() or found > float(best["chance"]):
+			best = {"key": key, "chance": found}
+	return best
 
 
 ## Raid efficiency rises with the raider's hull strength against the laden home
