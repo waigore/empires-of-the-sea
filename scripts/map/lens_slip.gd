@@ -1,8 +1,9 @@
 class_name LensSlip
 extends RefCounted
 ## The printed reading every chart lens shares: one chamfered slip, one paper,
-## one ink edge, one band ribbon, one hover rule and one wash recipe
-## (REQ-P1-02, REQ-P3-01).
+## one ink edge, one band ribbon and one hover rule (REQ-P1-02, REQ-P3-01). A
+## band's colour wash lives in `WashBake`, the same soft edge for every lens
+## (REQ-P1-03).
 ##
 ## Each lens decides *what* a slip says — a survey plaque's resource columns, the
 ## sea's hull and foe, the defence garrison — and this kit decides what paper it
@@ -93,30 +94,6 @@ static func hover_rule(canvas: CanvasItem, rect: Rect2, alpha: float) -> void:
 		),
 		Color(Palette.GOLD.r, Palette.GOLD.g, Palette.GOLD.b, alpha)
 	)
-
-
-## Prints a reading's wash: one parchment veil then one band tint per merged run,
-## so two readings over the same chart cost the same few hundred draw calls and a
-## band's ink always sits on the same knee of paper.
-static func wash(
-	canvas: CanvasItem,
-	reveal: float,
-	runs: Dictionary,
-	bands: Array,
-	tint_for: Callable,
-	wash_alpha: float,
-	veil_alpha: float,
-	tile_size: float
-) -> void:
-	var veil: Color = Palette.paper(veil_alpha * reveal)
-	for band: String in bands:
-		var tint: Color = tint_for.call(band)
-		tint.a = wash_alpha * reveal
-		for raw: Variant in runs.get(band, []):
-			var run: Rect2 = raw
-			var rect := Rect2(run.position * tile_size, run.size * tile_size)
-			canvas.draw_rect(rect, veil)
-			canvas.draw_rect(rect, tint)
 
 
 static func _print(

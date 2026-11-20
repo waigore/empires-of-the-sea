@@ -29,6 +29,9 @@ var _rects: Dictionary = {}
 
 func _ready() -> void:
 	_font = UiTheme.serif()
+	# The washes and slips arrive as baked textures; the linear filter is what
+	# feathers a band edge into the ground, so never let a parent switch it off.
+	texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
 
 
 ## Raises or lowers the reading: a raise rebuilds the projection and fades it

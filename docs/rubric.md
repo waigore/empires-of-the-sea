@@ -24,7 +24,7 @@ Cite `REQ-*`/`RUB-*` in PRs.
 | 0 | Fail | Missing, contradicted, harmful |
 | — | N/A | Outside this change |
 
-**Pass:** applicable ≥ 2, none 0 per touched pillar; overall = all touched pass. Any **0** fails.
+**Pass:** applicable ≥ 2, none 0; overall = all touched pass. Any **0** fails.
 
 ## Criteria (pass ≥2)
 
@@ -34,11 +34,11 @@ Cite `REQ-*`/`RUB-*` in PRs.
 |----|----------|
 | RUB-P1-01 | 2D-first (`REQ-P1-01`) |
 | RUB-P1-02 | Period motifs/UI/art 16–18th c (`REQ-P1-02`) |
-| RUB-P1-03 | Readable intentional art (`REQ-P1-03`) |
+| RUB-P1-03 | Readable intentional art; lens washes on soft tile edges (`REQ-P1-03`) |
 | RUB-P1-04 | Key actions/transitions animated (`REQ-P1-04`) |
 | RUB-P1-05 | Touch + mouse/keyboard OK (`REQ-P1-05`) |
 | RUB-P1-06 | Period music; mute/volume (`REQ-P1-06`) |
-| RUB-P1-07 | Readable UI at target sizes; map unobscured, chrome on the bar (`REQ-P1-07`) |
+| RUB-P1-07 | Readable UI; map unobscured, chrome on the bar (`REQ-P1-07`) |
 | RUB-P1-08 | Entity icons; theme + style (`REQ-P1-08`) |
 
 ### P2 — Rules fidelity
