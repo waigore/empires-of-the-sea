@@ -3207,7 +3207,9 @@ func test_a_captured_capital_reseats_its_owner_on_the_map() -> void:
 	var tile: Vector2i = model.province_data(target).tiles[0]
 	assert_true(MapPlayArmies.try_order(screen.play, tile))
 
-	MapPlayTurn.end_turn(screen.play)
+	# Capture and capital reseat land in the combat pass; skip the full end_turn
+	# rival walk under coverage (docs/testing.md § Speed rules).
+	MapPlayLandTurn.resolve(screen.play)
 	Fixture.settle(screen.play)
 
 	assert_eq(model.province_owner(target), MapScreen.PLAYER_FACTION)
@@ -4204,12 +4206,20 @@ func _fits(inner: Rect2, outer: Rect2, what: String) -> void:
 ## End Turn's lane is the turn clock and the news that asks for a reaction, not
 ## a log of the work the turn did (wiki: hud-toasts; issue #1056). A quiet turn
 ## still reads its herald, and neither the rearm, the wall, the spy despatch nor
-## the harvest takes a plate.
+## the harvest takes a plate. Drive those quiet phases directly — a full end_turn
+## rival walk under coverage is not what this lane assert needs (docs/testing.md
+## § Speed rules).
 func test_end_turn_keeps_the_herald_and_drops_the_quiet_news() -> void:
 	var screen: MapScreen = _loss_screen()
-
-	MapPlayTurn.end_turn(screen.play)
-	Fixture.settle(screen.play)
+	var play: PlaySession = screen.play
+	var tech_by_faction: Dictionary = MapPlayCampaign.tech_by_faction(play)
+	RegimentUpgrades.apply(play.army_layer.regions, tech_by_faction)
+	MilitaryParity.apply(play.army_layer.regions, tech_by_faction)
+	FortCapital.apply_research(play.world, play.player_faction, {})
+	MapPlaySpies.report(play, [], [], {})
+	play.economy.resolve_turn()
+	var year: int = TurnTime.year_for_turn(play.turn)
+	play.hud.toast("Turn %d — %d" % [play.turn, year])
 
 	var said: Array[String] = _turn_toasts(screen)
 	var herald: bool = false
