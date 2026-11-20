@@ -204,6 +204,10 @@ func _begin_game(config: GameConfig, world: WorldMap = null) -> void:
 	screen.ai_profiles = config.ai_profiles
 	screen.preset_world = world if world != null else preset_world
 	_install_screen(screen)
+	# The temperaments the crown bound at setup ride the run's AI bookkeeping,
+	# which the save already carries (wiki: ai-profile-overrides — the binding is
+	# fixed for the run).
+	screen.play.ensure_ai().profiles = config.ai_profiles
 
 
 ## Debug entry: an all-AI campaign on the new-game defaults, opened by the

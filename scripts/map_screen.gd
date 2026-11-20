@@ -44,9 +44,6 @@ var infinite_mode: bool = false
 var advanced_start: String = AdvancedStart.NONE
 ## Difficulty at setup (wiki: ruleset-config § Layers).
 var difficulty: String = Difficulty.DEFAULT
-## Faction -> blessed AI parameter profile chosen at setup; the run keeps it
-## (wiki: ai-profile-overrides; ai-parameter-registry § Seed profiles).
-var ai_profiles: Dictionary = AiProfile.roster()
 ## Full-AI observer: every Great Power is AI (title / tools/ai_vs_ai.gd;
 ## wiki: game-setup § Human/AI slot assignment).
 var observer_mode: bool = false
@@ -164,7 +161,7 @@ func _ready() -> void:
 	if not restored:
 		play.configure(
 			player_faction, map_seed, map_width, map_height, player_leader,
-			infinite_mode, advanced_start, difficulty, ai_profiles
+			infinite_mode, advanced_start, difficulty
 		)
 		if preset_world != null:
 			play.world = preset_world
@@ -172,7 +169,6 @@ func _ready() -> void:
 			play.world = MapGenerator.new().generate_world(map_seed, map_width, map_height)
 	else:
 		player_faction = play.player_faction
-		ai_profiles = play.ai_profiles
 		map_seed = play.map_seed
 		map_width = play.map_width
 		map_height = play.map_height

@@ -53,9 +53,6 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		"charted": play.charted_provinces.keys(),
 		"bootstrapped": play.bootstrapped_regions.keys(),
 		"leaders": play.leaders.duplicate(),
-		# The temperaments bound at creation: a load must resume the same rivals
-		# (wiki: ai-profile-overrides — the binding is fixed for the run).
-		"ai_profiles": play.ai_profiles.duplicate(),
 		# The crown's watch over rival squadrons: which ones it has read and the
 		# turn that read began (wiki: ships-and-naval § Sighted strength).
 		"naval_intel": play.naval_intel.to_dict(),
@@ -150,9 +147,6 @@ static func restore(play: PlaySession, data: Dictionary, reuse: WorldMap = null)
 	play.charted_provinces = _flag_dictionary(session.get("charted", []))
 	play.bootstrapped_regions = _flag_dictionary(session.get("bootstrapped", []))
 	play.leaders = LeaderCatalog.from_saved(session.get("leaders", {}))
-	# A save from before the temperaments were kept resumes every rival on the
-	# neutral profile, the profile a campaign with no binding plans by.
-	play.ai_profiles = AiProfile.from_saved(session.get("ai_profiles", {}))
 	# A save from before the crown kept a watch resumes with none: every rival is
 	# unread until she has been observed across a turn boundary. A save from
 	# before the watch was kept per chart carries one watch, and that watch

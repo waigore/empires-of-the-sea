@@ -136,11 +136,6 @@ var feeding: Dictionary = {}
 ## Faction -> leaderKey, fixed at game start and serialized with the save
 ## (wiki: leader-bonuses § Leader Selection).
 var leaders: Dictionary = {}
-## Faction -> blessed AI parameter profile, bound on the new-game screen and
-## fixed for the run; a crown the map does not name plans as the neutral profile
-## (wiki: ai-profile-overrides; ai-parameter-registry § Seed profiles). Saved
-## with the campaign so a load resumes the same temperaments.
-var ai_profiles: Dictionary = AiProfile.roster()
 ## Which rival squadrons the crown has read, and the watch it took to read them
 ## (wiki: ships-and-naval § Sighted strength). Saved with the campaign.
 var naval_intel: NavalIntel = NavalIntel.new()
@@ -185,8 +180,7 @@ func configure(
 	leader: String = "",
 	infinite: bool = false,
 	advanced: String = "",
-	difficulty_id: String = "",
-	profiles: Dictionary = {}
+	difficulty_id: String = ""
 ) -> void:
 	player_faction = faction
 	map_seed = seed_value
@@ -197,7 +191,6 @@ func configure(
 	difficulty = Difficulty.normalize(difficulty_id)
 	turn = AdvancedStart.turn(advanced_start)
 	leaders = LeaderCatalog.roster(faction, leader)
-	ai_profiles = AiProfile.from_saved(profiles)
 
 
 ## The per-game AI bookkeeping, stamped with this run's difficulty so rival

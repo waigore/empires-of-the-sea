@@ -133,7 +133,7 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 	# (wiki: ai-architecture § victory pressure; DR-20261115-04, issue #601).
 	var press: Dictionary = {}
 	for faction: int in FactionCatalog.great_power_ids():
-		var config: AiConfig = AiProfile.for_court(faction, play.map_seed, play.ai_profiles)
+		var config: AiConfig = AiProfile.for_court(faction, play.map_seed, play.ensure_ai().profiles)
 		var stage: String = String(AiVictoryPressure.read(
 			play.world, faction, play.human_faction_id(), play.difficulty, config
 		).get("stage", AiVictoryPressure.STAGE_FAR))
@@ -172,7 +172,7 @@ static func _context(play: PlaySession, only: Array = []) -> Dictionary:
 		"planning": planning,
 		# The temperaments bound at creation, so every rival's turn plans on the
 		# profile the setup screen bound to it (wiki: ai-profile-overrides).
-		"profiles": play.ai_profiles,
+		"profiles": play.ensure_ai().profiles,
 	}
 	var readings: Dictionary = MapPlayCourtFog.oob_readings(play)
 	if not readings.is_empty():

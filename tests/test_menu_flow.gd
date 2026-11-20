@@ -222,26 +222,28 @@ func test_setup_binds_a_temperament_to_each_rival() -> void:
 	if screen == null:
 		return
 	var play: PlaySession = screen.play
-	assert_eq(String(play.ai_profiles.get(2, "")), AiProfile.AGGRESSIVE, "France plans aggressive")
-	assert_eq(String(play.ai_profiles.get(1, "")), AiProfile.NORMAL, "an untouched rival plans neutral")
+	assert_eq(String(play.ensure_ai().profiles.get(2, "")), AiProfile.AGGRESSIVE, "France plans aggressive")
+	assert_eq(String(play.ensure_ai().profiles.get(1, "")), AiProfile.NORMAL, "an untouched rival plans neutral")
 	assert_eq(
-		String(play.ai_profiles.get(play.player_faction, "")), AiProfile.NORMAL,
+		String(play.ensure_ai().profiles.get(play.player_faction, "")), AiProfile.NORMAL,
 		"the crown's own seat plans neutral"
 	)
 	assert_eq(
-		AiProfile.for_court(2, play.map_seed, play.ai_profiles).profile,
+		AiProfile.for_court(2, play.map_seed, play.ensure_ai().profiles).profile,
 		AiProfile.AGGRESSIVE,
 		"the court's config reads the binding"
 	)
-	# The campaign carries it: a load resumes the same rivals.
+	# The campaign carries it: the AI bookkeeping holds the binding, and a load
+	# resumes the same rivals.
 	var save: Dictionary = SaveCodec.capture(play)
+	var ai_saved: Dictionary = (save.get("session", {}) as Dictionary).get("ai", {})
 	assert_eq(
-		String((save.get("session", {}) as Dictionary).get("ai_profiles", {}).get(2, "")),
+		String((ai_saved.get("profiles", {}) as Dictionary).get(2, "")),
 		AiProfile.AGGRESSIVE,
 		"the save carries the temperament"
 	)
 	assert_true(SaveCodec.restore(play, save, flow_world), "the save restores")
-	assert_eq(String(play.ai_profiles.get(2, "")), AiProfile.AGGRESSIVE, "a load resumes it")
+	assert_eq(String(play.ensure_ai().profiles.get(2, "")), AiProfile.AGGRESSIVE, "a load resumes it")
 
 
 ## The chart's pick is the campaign's seat: home fleet, Home Army and fog all
