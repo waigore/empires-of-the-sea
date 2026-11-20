@@ -1219,6 +1219,30 @@ func test_boycott_worsens_the_targets_terms_and_war_revokes_it() -> void:
 	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
 	assert_false(DiplomacyTrade.is_boycotting(diplomacy_trade_state, 0, 2), "war auto-revokes")
 
+## The blocked-deal half a row can name: the terms pass also publishes which
+## colony sellers a boycott shuts, so the market never quotes a deal the matcher
+## will refuse (wiki: diplomacy § GP–Tribe — Boycott, R6; DR-20261115-03).
+func test_a_boycott_publishes_the_sellers_it_shuts() -> void:
+	_setup_diplomacy_trade()
+	var market := WorldMarket.with_default_prices()
+	DiplomacyTrade.apply_terms(diplomacy_trade_state, null, market)
+	assert_true(MinorMarket.sealed_for(market, 2).is_empty(), "no bar stands before the order")
+
+	diplomacy_trade_state.set_colony(9, 0)
+	assert_true(bool(DiplomacyTrade.boycott(diplomacy_trade_state, 0, 2)["ok"]))
+	DiplomacyTrade.apply_terms(diplomacy_trade_state, null, market)
+	assert_eq(int(MinorMarket.sealed_for(market, 2).get(9, -1)), 0, "the colony is shut to the boycotted crown")
+	assert_true(MinorMarket.sealed_for(market, 0).is_empty(), "the issuer still buys its own colony's goods")
+	assert_true(MinorMarket.sealed_for(market, 1).is_empty(), "a third court is untouched")
+	assert_true(
+		MinorMarket.sealed_line(0).contains("Boycotted by"),
+		"the row's words name the issuer: %s" % MinorMarket.sealed_line(0)
+	)
+
+	DiplomacyRules.declare_war(diplomacy_trade_state, 0, 2)
+	DiplomacyTrade.apply_terms(diplomacy_trade_state, null, market)
+	assert_true(MinorMarket.sealed_for(market, 2).is_empty(), "war lifts the bar with the terms")
+
 ## The subsidy is a step on the pair's deals, never a crown-wide rate: the crown
 ## bids at the published price and pays `p%` more only to the court it subsidises
 ## (wiki: world-market § Subsidy price adjustment — "the step never touches a
