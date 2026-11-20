@@ -83,9 +83,12 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 			if not general.is_empty():
 				# The commander's name and the medal he now carries, so a standing
 				# that moved is always attributable (wiki: naming § General names;
-				# military-generals § Medals).
+				# military-generals § Medals). The count is the one the award
+				# produced, not the pool's later figure: a commander who wins
+				# twice in one phase gains a medal on each line, and the first
+				# battle must not print the second's count.
 				line += " — %s earns a medal (%d now)" % [
-					general, play.army_layer.generals.medals(winner, medal)
+					general, int(battle.get("medal_count", 0))
 				]
 		if on_plate:
 			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))

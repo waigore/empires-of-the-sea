@@ -1,9 +1,9 @@
 class_name MapGround
 extends RefCounted
 ## Small ground marks that fill a province between the big symbols: low scrub,
-## ploughed strips and tussocks. Kept apart from `MapGlyphs` so neither file
-## grows past the architecture line cap, and so a province can be given a
-## second, smaller stamp without repeating the first one.
+## ploughed strips and tussocks. Kept apart from `MapGlyphs` / `MapMarks` so
+## neither file grows past the architecture line cap, and so a province can be
+## given a second, smaller stamp without repeating the first one.
 
 const INK: Color = Color(0.149, 0.118, 0.082, 0.72)
 
