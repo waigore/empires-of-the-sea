@@ -9744,6 +9744,29 @@ func test_the_observer_counts_a_colony_voyage() -> void:
 	assert_true(joined.contains("crosses the Passage"), joined)
 	assert_true(joined.contains("lands at Coast"), joined)
 
+## The voyage line names the crew that sailed: a claim's Merchant reads as a
+## Merchant, not as the Explorer that charted before it (#1127).
+func test_the_voyage_line_names_the_crew_that_sailed() -> void:
+	var who: String = FactionCatalog.name_of(campaign_OWNER)
+	var rows: Array[Dictionary] = AiExpeditionLog.rows([], [
+		{"faction": campaign_OWNER, "kind": "embark", "province_name": "Seat", "crew": "merchant"},
+		{"faction": campaign_OWNER, "kind": "land", "province_name": "Coast", "crew": "merchant"},
+		{"faction": campaign_OWNER, "kind": "land", "province_name": "Coast"},
+	])
+	assert_eq(
+		String(rows[0].get("event", "")), "%s's Merchant boards at Seat." % who,
+		"the boarding line names the claim crew"
+	)
+	assert_eq(
+		String(rows[1].get("event", "")), "%s's Merchant lands at Coast." % who,
+		"the landing line names it too"
+	)
+	assert_eq(
+		String(rows[3].get("event", "")), "%s's Explorer lands at Coast." % who,
+		"a trace with no crew keeps the published Explorer line"
+	)
+
+
 func test_the_expedition_log_reads_both_traces() -> void:
 	var rows: Array[Dictionary] = AiExpeditionLog.rows(
 		[{"faction": campaign_OWNER, "kind": AiInvasionPlanner.KIND_LAND, "province_name": ""}],
@@ -10064,6 +10087,67 @@ func test_no_second_expedition_when_a_colonist_is_already_abroad() -> void:
 	)
 	assert_true(order.is_empty())
 
+
+## The Explorer ashore is the chart, not the colony: the next voyage carries the
+## Merchant whose deeds found it, so a court whose charting crew landed is not
+## shut out of the New World for the rest of the campaign (#1127).
+func test_a_merchant_boards_when_the_explorer_is_already_ashore() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var explorer: CivilianState = CivilianState.create(
+		1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0)
+	)
+	var merchant: CivilianState = CivilianState.create(
+		2, ai_colonisation_OWNER, "merchant", Vector2i(1, 0)
+	)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [merchant],
+		{"explorer": 1}
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 2, "the claim crew boards, not the charting one")
+
+	# One claim at a time: with a Merchant already across the water the court
+	# sends no second one, and its Explorer stays on the home survey.
+	var second: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [explorer, merchant],
+		{"explorer": 1, "merchant": 1}
+	)
+	assert_true(second.is_empty(), "the claim has already sailed")
+
+
+## A deed the Merchant signed is crown land for the landing rule, so the Builder
+## sails for it even though the province still answers to its Tribe (#1127;
+## wiki: civilian-units § Overseas deployment).
+func test_a_builder_sails_for_a_deed_in_the_new_world() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			tiles.append(Vector2i(x, y))
+			new_world.province[new_world.index_of(x, y)] = 0
+	var tribe := ProvinceState.create(
+		0, "Tribe", tiles, Vector2(1.5, 0.5), tiles.size(), ai_colonisation_OWNER + 1, false
+	)
+	new_world.provinces = [tribe]
+	assert_true(
+		new_world.purchase_tile(Vector2i(1, 0), ai_colonisation_OWNER),
+		"the Merchant's deed"
+	)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var builder: CivilianState = CivilianState.create(
+		3, ai_colonisation_OWNER, "builder", Vector2i(0, 0)
+	)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [builder],
+		{"explorer": 1, "merchant": 1}
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 3, "crown ground, a Builder works it")
+
 func test_the_map_adapter_embarks_and_sails_the_rival() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	var old_world: MapModel = world.region(0)
@@ -10347,9 +10431,12 @@ func test_an_explorer_musters_at_the_crowns_harbour() -> void:
 		"a colonist on the way to its port takes no survey work"
 	)
 
-## The muster only stands while a squadron is free to carry the colonist and the
-## court has none abroad yet; otherwise the Explorer is back on survey duty.
-func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void:
+## The muster stands while a crew is still to send and a squadron is free to
+## carry it. Once the Explorer has landed the harbour musters the Merchant whose
+## deeds found the colony, and it shuts again when that claim has sailed too
+## (#1127): a court is not left with no expedition because its charting crew is
+## ashore.
+func test_the_muster_port_needs_a_crew_to_send_and_a_free_squadron() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	var old_world: MapModel = world.region(0)
 	var play := PlaySession.new()
@@ -10370,11 +10457,26 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
 		"a court with a free squadron musters at its seat's port"
 	)
+	assert_eq(
+		CivilianMuster.voyage_kind(play, ai_colonisation_OWNER, 0), "explorer",
+		"nobody has landed: the Explorer charts"
+	)
 	var abroad: CivilianState = CivilianState.create(7, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
 	play.civilian_layer.regions.set_region(1, [abroad])
 	assert_eq(
+		CivilianMuster.voyage_kind(play, ai_colonisation_OWNER, 0), "merchant",
+		"the Explorer ashore is the chart: the Merchant claims"
+	)
+	assert_eq(
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
+		"the claim crew still musters after the charting crew landed"
+	)
+	play.civilian_layer.regions.set_region(1, [
+		abroad, CivilianState.create(8, ai_colonisation_OWNER, "merchant", Vector2i(0, 0)),
+	])
+	assert_eq(
 		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
-		"a court with a colonist already abroad sends no second expedition"
+		"the claim has sailed: no third expedition of that kind"
 	)
 	play.civilian_layer.regions.set_region(1, [])
 	play.ship_layer.regions.set_region(0, [])
@@ -10384,6 +10486,39 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+## The claim crew waits at the harbour instead of marching off to sign a deed,
+## and the vessel it boards is found there: the Merchant is held by the same
+## reading the Explorer is (issue #894; #1127).
+func test_the_muster_holds_the_claim_crew_at_the_harbour() -> void:
+	var model: MapModel = campaign_CivilianFixture.build()
+	var port: Vector2i = campaign_CivilianFixture.COAST_TILE
+	var here: CivilianState = CivilianState.create(1, 0, "merchant", campaign_CivilianFixture.BARE_TILE)
+	var away: CivilianState = CivilianState.create(2, 0, "merchant", campaign_CivilianFixture.RIVAL_GRAIN_TILE)
+	var other: CivilianState = CivilianState.create(3, 0, "merchant", campaign_CivilianFixture.BARE_TILE)
+	var context: Dictionary = {"muster_port": port, "muster_unit": here.id}
+	assert_true(CivilianMuster.held_for_voyage(here, context))
+	assert_false(CivilianMuster.held_for_voyage(other, context), "only the picked crew waits")
+	assert_true(
+		AiMerchantWork.best_move(model, here, LandWorks.new(), context).is_empty(),
+		"a Merchant in the harbour province waits for its voyage"
+	)
+	assert_true(
+		AiMerchantWork.best_candidate(_work_query(
+			AiConfig.build(0, 1500), model, here, [here], LandWorks.new(),
+			campaign_CivilianFixture.stockpile(), {}, {}, context, {}
+		)).is_empty(),
+		"the claim crew takes no deed while it musters"
+	)
+	var march: Dictionary = CivilianMuster.muster_move(model, away, context)
+	assert_eq(String(march.get("kind", "")), "move")
+	var before: int = absi(away.tile.x - port.x) + absi(away.tile.y - port.y)
+	var step: Vector2i = march.get("tile", CivilianState.NO_TILE)
+	assert_true(
+		absi(step.x - port.x) + absi(step.y - port.y) < before,
+		"the march closes on the harbour"
+	)
 
 
 ## A crown whose own land still holds unsurveyed ground takes the second Explorer
@@ -15567,6 +15702,33 @@ func test_the_adapter_reads_a_stranded_explorer() -> void:
 		"the aim names the strand"
 	)
 	assert_eq((colony.get("children", []) as Array).size(), 0, "no sailing is priced")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## A claim crew waiting at home keeps the expedition alive: the Merchant sails
+## after the Explorer, so an Explorer ashore with no crown land is not a strand
+## while that crew stands ready (#1127).
+func test_the_adapter_keeps_the_expedition_alive_for_the_claim_crew() -> void:
+	var play: PlaySession = _objective_session(_court())
+	play.civilian_layer.units.clear()
+	play.civilian_layer.units.append(
+		CivilianState.create(4, OBJ_OWNER, "merchant", Vector2i(0, 0))
+	)
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(
+		1, [CivilianState.create(2, OBJ_OWNER, "explorer", Vector2i(0, 0))]
+	)
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_false(colony.is_empty(), "the court still prices its expedition")
+	assert_eq(
+		String(colony["status"]), AiObjective.STATUS_FUNDED,
+		"the claim crew still has a voyage to sail"
+	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
 

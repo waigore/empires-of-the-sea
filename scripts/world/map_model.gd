@@ -190,6 +190,20 @@ func is_purchased_tile(tile: Vector2i) -> bool:
 	return ownership.is_purchased(index_of(tile.x, tile.y))
 
 
+## True when this faction holds at least one purchased deed in the region. A
+## deed is crown land for every landing and voyage rule that asks (wiki:
+## civilian-units § Overseas deployment; DR-20261109-17), so a court that has
+## bought ground here is not landless even though the province keeps its owner.
+func has_deed_of(owner: int) -> bool:
+	if owner < 0:
+		return false
+	for raw: Variant in ownership.owners.keys():
+		var index: int = int(raw)
+		if ownership.is_purchased(index) and ownership.owner_of(index, NO_ID) == owner:
+			return true
+	return false
+
+
 func province_name(id: int) -> String:
 	var data: ProvinceState = get_province(id)
 	if data == null:

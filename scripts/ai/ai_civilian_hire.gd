@@ -227,12 +227,19 @@ static func region_targets(
 	)
 	# One Explorer kept free while a colonisation voyage is mustering — and one
 	# taken first when the court's last Explorer would sail with it, so the
-	# colony leaves a prospector on the home hills (issue #894).
+	# colony leaves a prospector on the home hills (issue #894). A claim voyage
+	# carries a Merchant (#1127), so only an Explorer voyage asks for the crew.
 	var muster: Vector2i = context.get("muster_port", Vector2i(-1, -1))
-	if muster.x >= 0 or bool(context.get("voyage_crew", false)):
+	var crew: String = String(context.get("voyage_crew_kind", "explorer"))
+	if (muster.x >= 0 and crew == "explorer") or bool(context.get("voyage_crew", false)):
 		explorers += 1
 	var merchants: int = 0
 	if int(context.get("merchant_targets", 0)) > 0:
+		merchants = 1
+	# The claim crew: a court whose Explorer is already ashore sends a Merchant
+	# whose deeds found the colony, so that voyage asks for one even when its
+	# own chart offers no deed yet (#1127).
+	if merchants < 1 and String(context.get("voyage_crew_kind", "")) == "merchant":
 		merchants = 1
 	return {
 		"builder": maxi(2, 1 + estate_work / per),

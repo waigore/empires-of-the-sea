@@ -11,12 +11,12 @@ extends RefCounted
 ## REQ-P3-03). Nothing here decides *what* to train — the planners do — only
 ## where it stands and how the ledger pays for it.
 
-## Where this court musters a colonist: its own harbour, while it has no
-## civilian in the other region and a squadron free to carry one. The Explorer
-## policy holds the crew the voyage will board there instead of marching it off
-## to survey (AiExplorerWork), so the expedition the colonisation pass plans can
-## board it (wiki: civilian-units § Overseas deployment; DR-20261111-05).
-## (-1, -1) when nothing is mustering.
+## Where this court musters a colonist: its own harbour, while the crew its next
+## voyage carries is not already abroad and a squadron is free to carry one. The
+## crew's own policy holds it there instead of marching it off to work
+## (AiExplorerWork, AiMerchantWork), so the expedition the colonisation pass
+## plans can board it (wiki: civilian-units § Overseas deployment;
+## DR-20261111-05). (-1, -1) when nothing is mustering.
 static func muster_port(
 	play: PlaySession, faction: int, region: int, model: MapModel
 ) -> Vector2i:
@@ -31,8 +31,11 @@ static func muster_port(
 	return data.port_tile
 
 
-## True when the court has everything a voyage needs: its own region, no
-## civilian already abroad, a funded hull claim and a harbour.
+## True when the court has everything a voyage needs: its own region, a crew
+## still to send, a funded hull claim and a harbour. One colonist of each kind
+## sails at a time, so a court whose Explorer has already landed still musters
+## the Merchant that follows it — the claim whose deeds found the colony
+## (#1127).
 static func wants_voyage(
 	play: PlaySession, faction: int, region: int, model: MapModel
 ) -> bool:
@@ -40,27 +43,91 @@ static func wants_voyage(
 		return false
 	if region != FactionCatalog.region_of(faction):
 		return false
-	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
-	if has_owner(roster(play, other), faction):
+	if int(abroad_counts(play, _other_region(region), faction).get(
+		voyage_kind(play, faction, region), 0
+	)) > 0:
 		return false
 	if not hull_claimed(play, faction, region):
 		return false
 	return AiBindCampaign.harbour(AiControl.court_kind(play, faction), model, faction) >= 0
 
 
-## True when the voyage would take an Explorer (the court owns no land across
+## The colonist kind this court's next voyage carries (`VoyageRead.voyage_kind`):
+## a Builder once it holds ground across the water, else a Merchant while its
+## Explorer is ashore there, else an Explorer (wiki: civilian-units § Overseas
+## deployment; #1127). The muster and the colonisation planner read this one
+## home, so neither names a crew the other will not board.
+static func voyage_kind(play: PlaySession, faction: int, region: int) -> String:
+	if play.world == null:
+		return "explorer"
+	var other: int = _other_region(region)
+	return VoyageRead.voyage_kind(
+		VoyageRead.holds_ground_in(play.world, other, faction),
+		abroad_counts(play, other, faction)
+	)
+
+
+## This court's civilians in one region, counted by kind — the reading the
+## voyage's crew choice asks for.
+static func abroad_counts(play: PlaySession, region: int, faction: int) -> Dictionary:
+	var counts: Dictionary = {}
+	if region < 0 or play.civilian_layer == null:
+		return counts
+	for unit: CivilianState in roster(play, region):
+		if unit != null and unit.owner == faction:
+			counts[unit.type_id] = int(counts.get(unit.type_id, 0)) + 1
+	return counts
+
+
+## The region across the water from a crown's own.
+static func _other_region(region: int) -> int:
+	return WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+
+
+## True when this crew is the one the pending voyage will board, so it takes no
+## work and waits at the harbour instead. Only that one waits: the crown's other
+## crews keep working while a colony sails (issue #894; #1127). A caller that
+## hands in no pick keeps the published reading — the harbour holds the crew.
+static func held_for_voyage(unit: CivilianState, context: Dictionary) -> bool:
+	var port: Vector2i = context.get("muster_port", CivilianState.NO_TILE)
+	if port.x < 0:
+		return false
+	if not context.has("muster_unit"):
+		return true
+	return int(context["muster_unit"]) == unit.id
+
+
+## One legal march to the harbour a pending voyage boards at, or {} when the
+## crew already stands there. Every crew that can muster walks this step, so a
+## Merchant called for a claim reaches the port the Explorer waits at.
+static func muster_move(
+	model: MapModel, unit: CivilianState, context: Dictionary,
+	view: VisibilityModel = null
+) -> Dictionary:
+	var port: Vector2i = context.get("muster_port", CivilianState.NO_TILE)
+	if port.x < 0 or model == null or unit == null or _at_port(model, unit, port):
+		return {}
+	return AiLandRoute.step_toward(model, unit, port, view)
+
+
+static func _at_port(model: MapModel, unit: CivilianState, port: Vector2i) -> bool:
+	var here: int = model.province_at(unit.tile.x, unit.tile.y)
+	return here != MapModel.NO_ID and here == model.province_at(port.x, port.y)
+
+
+## True when the voyage would take an Explorer (the court holds no ground across
 ## the water) and that Explorer is the last one standing on the home region while
 ## its own land still holds unsurveyed ground. The hire order reads this to take
 ## the second crew first, so the colony sails with a prospector left behind
-## (issue #894). A court that owns land overseas sends a Builder instead, so the
-## reading never holds its crews back.
+## (issue #894). A court that holds ground overseas sends a Builder instead, so
+## the reading never holds its crews back.
 static func needs_voyage_crew(
 	play: PlaySession, faction: int, region: int, model: MapModel
 ) -> bool:
 	if play.world == null:
 		return false
-	var other: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
-	if VoyageRead.owns_land_in(play.world, other, faction):
+	var other: int = _other_region(region)
+	if VoyageRead.holds_ground_in(play.world, other, faction):
 		return false
 	if explorers(roster(play, region), faction) > 1:
 		return false
@@ -96,12 +163,12 @@ static func explorers(roster: Array, faction: int) -> int:
 	return found
 
 
-## The Explorer the pending voyage will board: the court's first idle one
-## (VoyageRead.idle_colonist), or -1 when none is free. Only that crew waits at
-## the muster port; the crown's other Explorers keep surveying and prospecting
-## the home ground while a colony sails (issue #894).
-static func muster_colonist(roster: Array, faction: int) -> int:
-	var unit: CivilianState = VoyageRead.idle_colonist(roster, faction, "explorer")
+## The crew the pending voyage will board: the court's first idle colonist of the
+## kind the muster calls (`VoyageRead.idle_colonist`), or -1 when none is free.
+## Only that crew waits at the muster port; the crown's others keep working the
+## ground while a colony sails (issue #894; #1127).
+static func muster_colonist(roster: Array, faction: int, kind: String = "explorer") -> int:
+	var unit: CivilianState = VoyageRead.idle_colonist(roster, faction, kind)
 	return unit.id if unit != null else -1
 
 
