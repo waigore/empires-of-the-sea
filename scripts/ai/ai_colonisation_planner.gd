@@ -103,20 +103,35 @@ static func _target_region(world: WorldMap, home: int, owner: int) -> int:
 	return -1
 
 
-## First idle civilian the court should send, or null. A crown that owns land
-## overseas sends its Builder to work it; otherwise it charts with an Explorer
-## (wiki: civilian-units § Overseas deployment). One colonist of each kind at a
-## time, so the expedition is not duplicated.
+## First idle civilian the court should send, or null. A crown that holds ground
+## overseas sends its Builder to work it; a crown whose Explorer is already
+## ashore sends the Merchant, whose deeds found the colony; otherwise it charts
+## with an Explorer (wiki: civilian-units § Overseas deployment; #497, #602,
+## #1127). One colonist of each kind at a time, so the expedition is not
+## duplicated, and the kind is `VoyageRead.voyage_kind` — the same reading the
+## muster holds the crew behind at the harbour.
 static func _voyage_unit(
 	civilians: Array, owner: int, world: WorldMap, target: int, abroad: Dictionary
 ) -> CivilianState:
-	if VoyageRead.owns_land_in(world, target, owner):
-		var builder: CivilianState = VoyageRead.idle_colonist(civilians, owner, "builder")
-		if builder != null:
-			return builder
-	if int(abroad.get("explorer", 0)) > 0:
+	var kind: String = VoyageRead.voyage_kind(
+		VoyageRead.holds_ground_in(world, target, owner), abroad
+	)
+	var unit: CivilianState = _idle_of(civilians, owner, kind, abroad)
+	if unit != null or kind != "builder":
+		return unit
+	# No Builder free to work the crown's ground: the Explorer charts instead,
+	# as published.
+	return _idle_of(civilians, owner, VoyageRead.voyage_kind(false, abroad), abroad)
+
+
+## One idle colonist of `kind`, or null when one of that kind is already abroad:
+## one crew of each kind sails at a time, so the claim is never doubled.
+static func _idle_of(
+	civilians: Array, owner: int, kind: String, abroad: Dictionary
+) -> CivilianState:
+	if int(abroad.get(kind, 0)) > 0:
 		return null
-	return VoyageRead.idle_colonist(civilians, owner, "explorer")
+	return VoyageRead.idle_colonist(civilians, owner, kind)
 
 
 ## Boards at the crown's own harbour. The squadron is sent to that port — not to

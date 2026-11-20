@@ -422,6 +422,37 @@ func test_owns_land_reads_the_provinces_and_their_region() -> void:
 	assert_false(VoyageRead.owns_land_in(world, WorldMap.NEW_WORLD, 0))
 	assert_false(VoyageRead.owns_land_in(null, WorldMap.OLD_WORLD, 0))
 
+## A purchased deed is crown land for every landing rule (wiki: civilian-units
+## § Overseas deployment), so a court whose only ground across the water is a
+## Merchant's deed still holds that ground — and the crew its next voyage carries
+## follows from the two readings: Builder on crown ground, Merchant once the
+## Explorer is ashore charting, Explorer while nobody has landed yet (#1127).
+func test_ground_held_by_deed_and_the_crew_the_voyage_carries() -> void:
+	_setup_civilian_voyage()
+	var world := WorldMap.new()
+	world.add_region(_model)
+	var buyer: int = 2
+
+	assert_false(VoyageRead.owns_land(_model, buyer))
+	assert_false(VoyageRead.holds_ground(_model, buyer))
+	assert_false(VoyageRead.holds_ground(null, buyer))
+	assert_true(_model.purchase_tile(Vector2i(5, 0), buyer), "a deed in another crown's province")
+	assert_false(VoyageRead.owns_land(_model, buyer), "the province keeps its owner")
+	assert_true(VoyageRead.holds_ground(_model, buyer), "the deed is crown land")
+	assert_true(VoyageRead.holds_ground_in(world, WorldMap.OLD_WORLD, buyer))
+	assert_false(VoyageRead.holds_ground_in(world, WorldMap.NEW_WORLD, buyer))
+
+	assert_eq(VoyageRead.voyage_kind(true, {}), "builder", "crown ground, a Builder works it")
+	assert_eq(VoyageRead.voyage_kind(false, {}), "explorer", "no chart yet, the Explorer sails")
+	assert_eq(
+		VoyageRead.voyage_kind(false, {"explorer": 1}), "merchant",
+		"an Explorer ashore is the chart: the Merchant signs the deeds"
+	)
+	assert_eq(
+		VoyageRead.voyage_kind(false, {"explorer": 1, "merchant": 1}), "merchant",
+		"one claim at a time: the idle-crew read finds no second Merchant"
+	)
+
 # --- test_deed_protection ---
 
 func test_a_deed_inside_the_victims_provinces_counts_for_its_buyer() -> void:
