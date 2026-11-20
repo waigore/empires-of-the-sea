@@ -5450,6 +5450,17 @@ func test_the_war_cooldown_runs_from_the_peace() -> void:
 		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_THIRD, 25, cooldown),
 		"a pair with no peace and no war reads off the clock"
 	)
+	# A fresh declaration after the old peace starts a new cooldown; the stale
+	# settlement must not waive it.
+	ai_state.note_war(PHASE_OWNER, PHASE_MINOR, 30)
+	assert_true(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 31, cooldown),
+		"a t30 war after the t24 peace restarts the clock at t30"
+	)
+	assert_false(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 34, cooldown),
+		"the fresh declaration's 4-turn cooldown lapses by t34"
+	)
 
 
 ## A purse that can pay for the army keeps the published planner: the war it is
