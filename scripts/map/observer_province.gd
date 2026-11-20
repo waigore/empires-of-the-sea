@@ -71,7 +71,9 @@ static func reading(play: PlaySession, province_id: int) -> Dictionary:
 		),
 		"strength": int(host["strength"]),
 		"regiments": int(host["regiments"]),
-		"defence": _defence_text(host),
+		"defence": _defence_text(
+			host, ArmyModifiers.terrain_for(model, province_id)
+		),
 	}
 
 
@@ -114,8 +116,8 @@ static func _host(
 
 
 ## The defence line in the lens's own words, so the sheet and the military
-## reading never disagree about what would meet an attack.
-static func _defence_text(host: Dictionary) -> String:
+## reading never disagree about what would meet an attack, and over what ground.
+static func _defence_text(host: Dictionary, terrain: int) -> String:
 	var regiments: int = int(host["regiments"])
 	var parts: PackedStringArray = PackedStringArray()
 	if regiments <= 0:
@@ -126,6 +128,7 @@ static func _defence_text(host: Dictionary) -> String:
 		])
 	if bool(host["foreign"]):
 		parts.append("Foreign host ashore")
+	parts.append(DefenceSurvey.terrain_line(terrain))
 	return " · ".join(parts)
 
 

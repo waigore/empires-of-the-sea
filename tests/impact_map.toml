@@ -2693,7 +2693,7 @@ match = "scripts/ai/ai_border_fronts.gd*"
 domain = "ai_diplomacy"
 
 [[rules]]
-match = "scripts/ai/ai_state.gd*"
+match = "scripts/ai/ai_state*.gd*"
 domain = "ai_diplomacy"
 
 [[rules]]
