@@ -15729,6 +15729,26 @@ func test_the_adapter_keeps_the_expedition_alive_for_the_claim_crew() -> void:
 		String(colony["status"]), AiObjective.STATUS_FUNDED,
 		"the claim crew still has a voyage to sail"
 	)
+	# The claim has sailed and another Merchant idles at home: one of each kind
+	# afloat, so no third voyage is priced and the strand is named again (#602).
+	play.civilian_layer.regions.set_region(1, [
+		CivilianState.create(2, OBJ_OWNER, "explorer", Vector2i(0, 0)),
+		CivilianState.create(3, OBJ_OWNER, "merchant", Vector2i(0, 0)),
+	])
+	play.civilian_layer.units.clear()
+	play.civilian_layer.units.append(
+		CivilianState.create(5, OBJ_OWNER, "merchant", Vector2i(0, 0))
+	)
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	report = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	colony = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_eq(
+		String(colony["status"]), AiObjective.STATUS_BLOCKED,
+		"a claim already ashore strands the expedition"
+	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
