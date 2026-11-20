@@ -12,6 +12,9 @@ var screen: MapScreen = null
 var audio: AudioDirector = null
 
 var _battle_timer: Timer = null
+## Era bed the rotate was last anchored on, so ending a turn never restarts the
+## tune and only a new calendar era (or a battle) moves it.
+var _era_bed: String = ""
 
 
 func _ready() -> void:
@@ -236,4 +239,10 @@ func _sync_bed() -> void:
 	if audio == null or screen == null:
 		return
 	var bed: Dictionary = MusicPlaylist.bed_for_turn(screen.turn)
-	audio.play_music(String(bed["id"]))
+	var bed_id: String = String(bed["id"])
+	# The rotate keeps its place across turns; only a new era, or a rotate a
+	# battle paused, hands the desk back to the calendar's bed.
+	if bed_id == _era_bed and audio.rotating:
+		return
+	_era_bed = bed_id
+	audio.play_rotation(bed_id)

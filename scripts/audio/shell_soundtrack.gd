@@ -18,7 +18,7 @@ func _ready() -> void:
 func play_menu_bed() -> void:
 	if audio == null:
 		return
-	audio.play_music(MusicPlaylist.menu_bed_id())
+	audio.play_rotation(MusicPlaylist.menu_bed_id())
 
 
 ## Global mute key: one handler for the whole app, ahead of page input so the

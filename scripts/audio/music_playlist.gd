@@ -13,6 +13,18 @@ const BROADSIDES := "broadsides"
 const VICTORY := "victory"
 const DEFEAT := "defeat"
 
+## Nine long theme beds (issue #1154): three-plus minutes each, so the rotate
+## spends real time on a tune instead of restarting a 45 s era loop.
+const COURT := "court"
+const EXPLORATION := "exploration"
+const BATTLE := "battle"
+const EXTRACTION := "extraction"
+const INDUSTRY := "industry"
+const TRADE := "trade"
+const DIPLOMACY := "diplomacy"
+const RESEARCH := "research"
+const CONQUEST := "conquest"
+
 ## Exploration beds in era order. The 1500 start opens on a branle; the Baroque
 ## gigue carries the bulk of a campaign; the galant minuet closes it.
 const ERA_BEDS: Array[Dictionary] = [
@@ -39,6 +51,35 @@ const ERA_BEDS: Array[Dictionary] = [
 	},
 ]
 
+## Theme beds in the order the rotate meets them, each with the mood it scores.
+const THEME_BEDS: Array[Dictionary] = [
+	{"id": COURT, "file": "music_court.ogg", "title": "Court Processional",
+		"role": "Ceremonial court"},
+	{"id": EXPLORATION, "file": "music_exploration.ogg", "title": "Charting the Blue",
+		"role": "Voyage and discovery"},
+	{"id": BATTLE, "file": "music_battle.ogg", "title": "Gunwale Storm",
+		"role": "Conflict and engagement"},
+	{"id": EXTRACTION, "file": "music_extraction.ogg", "title": "Salt Pan and Sickle",
+		"role": "Harvest and resource take"},
+	{"id": INDUSTRY, "file": "music_industry.ogg", "title": "Hammered Time",
+		"role": "Workshops and production"},
+	{"id": TRADE, "file": "music_trade.ogg", "title": "Quayside Bargain",
+		"role": "Markets and exchange"},
+	{"id": DIPLOMACY, "file": "music_diplomacy.ogg", "title": "Sealed and Signed",
+		"role": "Courts and negotiation"},
+	{"id": RESEARCH, "file": "music_research.ogg", "title": "Chart Room Study",
+		"role": "Study ashore"},
+	{"id": CONQUEST, "file": "music_conquest.ogg", "title": "Planted Standard",
+		"role": "Expansion and dominion"},
+]
+
+## The rotate: era beds and the broadside woven between the theme beds, so a
+## session crosses styles instead of hearing one loop. Stingers never rotate.
+const ROTATION: Array[String] = [
+	AGE_OF_DISCOVERY, COURT, SPANISH_MAIN, EXPLORATION, TRADE, BATTLE, EXTRACTION,
+	INDUSTRY, DIPLOMACY, RESEARCH, GILDED_MINUET, CONQUEST, BROADSIDES,
+]
+
 const TRACKS: Dictionary = {
 	AGE_OF_DISCOVERY: {
 		"id": AGE_OF_DISCOVERY, "file": "music_age_of_discovery.ogg", "loop": true
@@ -46,6 +87,15 @@ const TRACKS: Dictionary = {
 	SPANISH_MAIN: {"id": SPANISH_MAIN, "file": "music_spanish_main.ogg", "loop": true},
 	GILDED_MINUET: {"id": GILDED_MINUET, "file": "music_gilded_minuet.ogg", "loop": true},
 	BROADSIDES: {"id": BROADSIDES, "file": "music_broadsides.ogg", "loop": true},
+	COURT: {"id": COURT, "file": "music_court.ogg", "loop": true},
+	EXPLORATION: {"id": EXPLORATION, "file": "music_exploration.ogg", "loop": true},
+	BATTLE: {"id": BATTLE, "file": "music_battle.ogg", "loop": true},
+	EXTRACTION: {"id": EXTRACTION, "file": "music_extraction.ogg", "loop": true},
+	INDUSTRY: {"id": INDUSTRY, "file": "music_industry.ogg", "loop": true},
+	TRADE: {"id": TRADE, "file": "music_trade.ogg", "loop": true},
+	DIPLOMACY: {"id": DIPLOMACY, "file": "music_diplomacy.ogg", "loop": true},
+	RESEARCH: {"id": RESEARCH, "file": "music_research.ogg", "loop": true},
+	CONQUEST: {"id": CONQUEST, "file": "music_conquest.ogg", "loop": true},
 	VICTORY: {"id": VICTORY, "file": "stinger_victory.ogg", "loop": false},
 	DEFEAT: {"id": DEFEAT, "file": "stinger_defeat.ogg", "loop": false},
 }
@@ -79,6 +129,19 @@ static func track(track_id: String) -> Dictionary:
 	if found is Dictionary:
 		return found
 	return {}
+
+
+## Bed after `track_id` in the rotate, wrapping at the end. An id the rotate does
+## not know starts it over, which is how a launch or an era change enters.
+static func next_in_rotation(track_id: String) -> String:
+	var index: int = ROTATION.find(track_id)
+	if index < 0:
+		return ROTATION[0]
+	return ROTATION[(index + 1) % ROTATION.size()]
+
+
+static func rotates(track_id: String) -> bool:
+	return ROTATION.has(track_id)
 
 
 static func path_for(track_id: String) -> String:

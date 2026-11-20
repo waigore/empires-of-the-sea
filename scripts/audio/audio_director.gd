@@ -35,6 +35,9 @@ var _cache: Dictionary = {}
 var _fades: Array[Tween] = []
 var _save_timer: Timer = null
 var _current_track: String = ""
+## The score is walking `MusicPlaylist.ROTATION`; an explicit looping bed clears
+## it. Read by the map score to tell "the tune is running" from "it was paused".
+var rotating: bool = false
 
 
 func _ready() -> void:
@@ -73,23 +76,40 @@ func play_event(event_name: String, volume_scale: float = 1.0) -> bool:
 # --- music -------------------------------------------------------------------
 
 
-func play_music(track_id: String, fade: float = MUSIC_FADE) -> bool:
+func play_music(track_id: String, fade: float = MUSIC_FADE, loop: bool = true) -> bool:
 	if MusicPlaylist.track(track_id).is_empty():
 		return false
+	# A looping bed is an explicit one (the battle tune, a menu door): the rotate
+	# pauses under it and resumes on the next era change or turn close.
+	if loop:
+		rotating = false
 	last_track_id = track_id
 	if track_id == _current_track and _active_player().playing:
+		_set_loop(_active_player().stream, loop)
 		return true
 	var stream: AudioStream = _stream(MusicPlaylist.path_for(track_id))
 	if stream == null:
 		return false
-	_set_loop(stream, MusicPlaylist.loops(track_id))
+	_set_loop(stream, loop)
 	_crossfade(stream, fade)
 	_current_track = track_id
 	_start_ambience()
 	return true
 
 
+## Start the rotate, or keep the one already running. A rotate bed plays once —
+## no loop — and hands over to the next when it ends, so a session hears the
+## whole set instead of one loop for hours (issue #1154).
+func play_rotation(track_id: String = "", fade: float = MUSIC_FADE) -> bool:
+	var wanted: String = track_id if not track_id.is_empty() else MusicPlaylist.ROTATION[0]
+	if not MusicPlaylist.rotates(wanted):
+		return false
+	rotating = true
+	return play_music(wanted, fade, false)
+
+
 func stop_music(fade: float = MUSIC_FADE) -> void:
+	rotating = false
 	_current_track = ""
 	var player: AudioStreamPlayer = _active_player()
 	_fade_to(player, SILENT_DB, fade, true)
@@ -163,10 +183,6 @@ func is_muted() -> bool:
 	return mix.muted
 
 
-func mix_state() -> Dictionary:
-	return mix.as_dict()
-
-
 # --- internals ---------------------------------------------------------------
 
 
@@ -175,6 +191,7 @@ func _build_players() -> void:
 		var player := AudioStreamPlayer.new()
 		player.name = "Music%d" % index
 		player.volume_db = SILENT_DB
+		player.finished.connect(_on_bed_finished.bind(index))
 		add_child(player)
 		_music.append(player)
 	for index in SFX_VOICES:
@@ -229,6 +246,14 @@ func _start_ambience() -> void:
 	_ambience.stream = stream
 	_ambience.volume_db = _ambience_db()
 	_ambience.play()
+
+
+## A rotate bed ran to its end: the next one takes over under the same fade. An
+## explicit bed (or a second player still fading out) hears nothing here.
+func _on_bed_finished(index: int) -> void:
+	if not rotating or index != _active:
+		return
+	play_rotation(MusicPlaylist.next_in_rotation(_current_track))
 
 
 func _crossfade(stream: AudioStream, fade: float) -> void:
