@@ -608,10 +608,10 @@ func _visible(node: Node) -> Array[Node]:
 
 
 func _toast_text() -> String:
-	if _play.hud._toast_box == null:
+	if _play.hud.despatches.box == null:
 		return "none"
 	var labels: PackedStringArray = PackedStringArray()
-	SaveDrive.collect_text(_play.hud._toast_box, "", labels)
+	SaveDrive.collect_text(_play.hud.despatches.box, "", labels)
 	return " | ".join(labels) if not labels.is_empty() else "none"
 
 
@@ -624,7 +624,7 @@ func _last_toast() -> String:
 
 
 func _clear_toasts() -> void:
-	for child: Node in _play.hud._toast_box.get_children():
+	for child: Node in _play.hud.despatches.box.get_children():
 		child.queue_free()
 
 

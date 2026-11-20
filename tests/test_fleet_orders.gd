@@ -210,12 +210,12 @@ func test_a_fleet_cannot_move_twice_in_one_turn() -> void:
 	MapPlayFleets.try_order(_screen.play, _screen.model.sea_zones[zone].tiles[0])
 	var zone_after_move: int = fleet.sea_zone
 	var next_zone: int = NavalMovement.destination_zones(_screen.model, fleet)[0]
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.sea_zones[next_zone].tiles[0]))
 
 	assert_eq(fleet.sea_zone, zone_after_move)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 1)
 
 
 func test_docking_puts_the_fleet_in_port() -> void:
@@ -245,13 +245,13 @@ func test_the_home_fleet_cannot_be_ordered_to_sail() -> void:
 	_screen.ship_layer.select(_screen.ship_layer.ship_for(home))
 	assert_eq(_screen.overlay.move_zones.size(), 0, "the home fleet shows no sea orders")
 	var zone: int = NavalMovement.province_sea_zones(_screen.model, capital)[0]
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _screen.model.sea_zone_data(zone).tiles[0]))
 
 	assert_eq(home.location, FleetState.Location.IN_PORT)
 	assert_eq(home.province, capital)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 1)
 
 
 func test_docking_at_the_capital_joins_the_home_fleet() -> void:
@@ -555,13 +555,13 @@ func test_a_crossed_fleet_cannot_cross_again_this_turn() -> void:
 	var fleet: FleetState = _cross_to_new_world()
 	var zone_after: int = fleet.sea_zone
 	var region_after: int = _screen.region_index
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone_after)))
 
 	assert_eq(fleet.sea_zone, zone_after)
 	assert_eq(_screen.region_index, region_after)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 1)
 
 
 func test_a_crossed_fleet_sails_back_on_a_later_turn() -> void:
@@ -986,9 +986,9 @@ func test_the_dossier_marks_a_beachhead_and_counts_the_turn() -> void:
 	fleet.beachhead_province = coast
 	fleet.beachhead_turn = _screen.play.turn - 2
 	assert_true(MapPlayBeachhead.note(_screen.play, fleet).contains("lapsed"))
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 	MapPlayBeachhead.establish(_screen.play, fleet, coast)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 1)
 
 
 # --- troops aboard (wiki: ships-and-naval § Naval transport) -----------------
@@ -1352,12 +1352,12 @@ func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 	var play: PlaySession = _screen.play
 	play.capital_province = _unowned_province()
 	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
 	MapPlayFleetYard.launch(play, "carrack")
 
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 2, "both say why")
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 2, "both say why")
 	assert_false(_screen.hud.panels.is_fleet_panel_open())
 
 
@@ -1366,12 +1366,12 @@ func test_the_yard_needs_a_harbour() -> void:
 	var play: PlaySession = _screen.play
 	play.capital_province = _inland_owned_province()
 	assert_gte(play.capital_province, 0, "the fixture has an inland province")
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
 	MapPlayFleetYard.launch(play, "carrack")
 
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 2, "both say why")
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 2, "both say why")
 	assert_false(_screen.hud.panels.is_fleet_panel_open())
 
 
@@ -1399,12 +1399,12 @@ func test_a_launch_the_treasury_refuses_says_why() -> void:
 	var econ: PlayerEconomy = play.economy.economy
 	econ.treasury = 0
 	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.launch(play, "carrack")
 
 	assert_eq(_screen.ship_layer.hull_count_all(play.player_faction), hulls)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 1, "the refusal is spoken")
 
 
 ## Two regiments aboard need both hulls: the break-up is refused, not half done.
@@ -1426,12 +1426,12 @@ func test_a_loaded_squadron_cannot_be_broken_up() -> void:
 	# break-up would leave nobody to carry them.
 	fleet.set_hulls(["loaded_a", "loaded_b"], {"loaded_a": "carrack", "loaded_b": "carrack"})
 	var hulls: Array[String] = fleet.hulls.duplicate()
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.scrap(play, fleet.hulls[0])
 
 	assert_eq(fleet.hulls, hulls, "the hull stays afloat")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 1, "the refusal is spoken")
 
 
 ## A hull the ledger cannot find is refused rather than silently dropped.
@@ -1441,11 +1441,11 @@ func test_breaking_up_an_unknown_hull_says_why() -> void:
 	play.selected_province = capital
 	play.economy.economy.treasury = 60000
 	MapPlayFleetYard.launch(play, "carrack")
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.scrap(play, "no_such_hull")
 
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 1, "the refusal is spoken")
 
 
 ## Every launch row and every hull row leads with its own plate, so the yard
@@ -1668,12 +1668,12 @@ func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
 	var pending: int = econ.recruits.pending_kind(RecruitQueue.KIND_SHIP)
 	play.capital_province = _unowned_province()
 	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.on_action(play, "yard:launch_all")
 
 	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "nothing is filed")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts + 1, "the refusal is spoken")
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 1, "the refusal is spoken")
 
 	play.capital_province = _inland_owned_province()
 	assert_gte(play.capital_province, 0, "the fixture has an inland province")
@@ -2478,7 +2478,7 @@ func _enemy_ship() -> Ship:
 ## Every line the court's toasts currently show.
 func _toast_texts() -> Array[String]:
 	var texts: Array[String] = []
-	for panel: Node in _screen.hud._toast_box.get_children():
+	for panel: Node in _screen.hud.despatches.box.get_children():
 		for label: Label in panel.find_children("*", "Label", true, false):
 			texts.append(label.text)
 	return texts
@@ -3086,7 +3086,7 @@ func _rival_home(roster: Array[FleetState], rival: int, seat: int) -> FleetState
 
 
 func _last_toast() -> String:
-	var box: VBoxContainer = _screen.hud._toast_box
+	var box: VBoxContainer = _screen.hud.despatches.box
 	assert_gt(box.get_child_count(), 0, "a report was raised")
 	var plate: Control = box.get_child(box.get_child_count() - 1) as Control
 	for child: Node in plate.get_children():
@@ -3105,7 +3105,7 @@ func test_a_hull_detaches_from_the_selected_squadron() -> void:
 	_screen.ship_layer.select(ship)
 	var roster_before: int = _screen.ship_layer.fleets.size()
 	var hulls_before: int = fleet.ship_count()
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleets.on_action(_screen.play, "split:split_ship")
 
@@ -3120,7 +3120,7 @@ func test_a_hull_detaches_from_the_selected_squadron() -> void:
 	assert_not_null(_screen.ship_layer.ship_for(split), "she flies a marker of her own")
 	# Two lines reach the court: the detach, and the place the squadron she keeps
 	# now holds in the water (wiki: ships-and-naval § Fleets in one station).
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 2)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 2)
 	assert_true(
 		_last_toast().contains("as a squadron of her own"),
 		"the news names the detach: '%s'" % _last_toast()
@@ -3162,12 +3162,12 @@ func test_a_refused_detach_names_the_gate_and_moves_nothing() -> void:
 	var ship: Ship = _player_ship_at_sea()
 	_screen.ship_layer.select(ship)
 	var roster_before: int = _screen.ship_layer.fleets.size()
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleets.on_action(_screen.play, "split:not_aboard")
 
 	assert_eq(_screen.ship_layer.fleets.size(), roster_before, "no command is founded")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 1)
 	assert_true(
 		_toast_texts().back().contains("not aboard"),
 		"the refusal names the hull: '%s'" % _toast_texts().back()
@@ -3236,7 +3236,7 @@ func test_two_squadrons_in_one_zone_combine_into_the_one_that_keeps_the_station(
 	var partner_ship: Ship = _screen.ship_layer.ship_for(partner)
 	var kept_name: String = String(partner.hull_names.get("partner_a", ""))
 	var roster_before: int = _screen.ship_layer.fleets.size()
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	_screen.ship_layer.select(partner_ship)
 	MapPlayFleets.on_action(_screen.play, "combine:%d" % fleet.id)
@@ -3250,7 +3250,7 @@ func test_two_squadrons_in_one_zone_combine_into_the_one_that_keeps_the_station(
 	assert_null(_screen.ship_layer.ship_for(partner), "her marker is retired")
 	assert_eq(fleet.mission, FleetState.Mission.PATROL, "the station stays with the squadron")
 	assert_true(fleet.moved, "a hull that has sailed does not sail again")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 2)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 2)
 	assert_true(
 		_last_toast().contains("joins"),
 		"the news names the combine: '%s'" % _last_toast()

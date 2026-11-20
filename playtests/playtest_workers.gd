@@ -386,15 +386,15 @@ func _labels(node: Node) -> PackedStringArray:
 
 func _toasts() -> Array[String]:
 	var out: Array[String] = []
-	if _play == null or _play.hud == null or _play.hud._toast_box == null:
+	if _play == null or _play.hud == null or _play.hud.despatches.box == null:
 		return out
-	for text: String in _labels(_play.hud._toast_box):
+	for text: String in _labels(_play.hud.despatches.box):
 		out.append(text)
 	return out
 
 
 func _last_toast() -> String:
-	var labels: PackedStringArray = _labels(_play.hud._toast_box)
+	var labels: PackedStringArray = _labels(_play.hud.despatches.box)
 	if labels.is_empty():
 		return "nothing on the bar"
 	return labels[labels.size() - 1]

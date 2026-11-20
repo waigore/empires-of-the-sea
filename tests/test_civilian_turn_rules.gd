@@ -1998,9 +1998,11 @@ const BOYCOTT_ISSUER: int = 2
 ## and toasts, and neither may build real chrome inside a rules test.
 class DeedHud extends GameHud:
 	var toasts: Array[String] = []
+	## The purse reading the purchase repaints; the chips are never mounted here.
+	var treasury_value: int = -1
 
-	func set_treasury(_value: int, _animate: bool = true) -> void:
-		pass
+	func set_treasury(value: int, _animate: bool = true) -> void:
+		treasury_value = value
 
 	func toast(text: String, _icon_name: String = "") -> void:
 		toasts.append(text)
@@ -4502,6 +4504,33 @@ func test_the_purchase_toast_names_only_a_real_town_rise() -> void:
 	assert_eq(hud.toasts.size(), 2)
 	assert_true(hud.toasts[1].ends_with("The town rises to level 3."), hud.toasts[1])
 	hud.free()
+
+
+## The purse and the crew plaque are repainted through the bar's chips, and a
+## chrome-less HUD (rules-only drives) makes both paints silent (REQ-P3-02).
+func test_the_purse_and_crew_paints_reach_the_chips_or_stay_quiet() -> void:
+	var world: WorldMap = _deed_world()
+	var play := PlaySession.new()
+	play.world = world
+	play.model = world.region(0)
+	play.player_faction = 0
+	var hud := DeedHud.new()
+	play.hud = hud
+	hud.stats = HudStatChips.new()
+	MapPlayCivilians._paint_treasury(play)
+	assert_eq(hud.stats._treasury_value, play.treasury(), "the chips read the purse")
+	play.civilian_layer = CivilianLayer.new()
+	MapPlayCivilians._paint_civilians(play)
+	assert_eq(hud.stats.civilian_label, null, "an unbound plaque stays unpainted")
+	hud.stats = null
+	MapPlayCivilians._paint_treasury(play)
+	MapPlayCivilians._paint_civilians(play)
+	hud.free()
+
+	# A session with no court at all is the same silence, not a crash.
+	var bare := PlaySession.new()
+	MapPlayCivilians._paint_treasury(bare)
+	MapPlayCivilians._paint_civilians(bare)
 
 
 func test_the_growth_rule_ignores_a_missing_model_or_province() -> void:

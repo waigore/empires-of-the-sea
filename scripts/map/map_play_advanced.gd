@@ -31,9 +31,9 @@ static func begin(play: PlaySession) -> void:
 	# ducats read 2,500 until some later order happened to refresh it.
 	if play.hud == null or play.economy == null:
 		return
-	play.hud.set_treasury(play.treasury(), false)
+	play.hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
-	play.hud.set_income(play.income)
+	play.hud.stats.set_income(play.income)
 
 
 static func apply(play: PlaySession) -> Dictionary:

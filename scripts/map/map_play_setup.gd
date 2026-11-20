@@ -66,9 +66,9 @@ static func build_hud(play: PlaySession) -> void:
 	play.improvements.blockade_source = (
 		func() -> Blockades: return MapPlayBlockades.crown(play)
 	)
-	hud.set_treasury(play.treasury(), false)
+	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
-	hud.set_income(play.income)
+	hud.stats.set_income(play.income)
 	MapPlayFocus.bind(play)
 	play.improvements.play = play
 	play.improvements.set_data(
@@ -117,14 +117,14 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 	HudChrome.set_region_label(
 		hud, FactionCatalog.region_label(play.region_index), play.world.region_count() > 1
 	)
-	hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
-	hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
-	hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
+	hud.stats.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	hud.stats.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
+	hud.stats.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	if play.economy == null:
 		return
 	play.refresh_research()
 	play.income = play.economy.projected_income()
-	hud.set_income(play.income)
+	hud.stats.set_income(play.income)
 	play.improvements.play = play
 	play.improvements.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
@@ -138,7 +138,7 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 static func refresh_after_load(play: PlaySession) -> void:
 	var hud: GameHud = play.hud
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
-	hud.set_treasury(play.treasury(), false)
+	hud.stats.set_treasury(play.treasury(), false)
 	refresh_region_hud(play, MapGeo.world_size(play.model, PlaySession.TILE_SIZE))
 	MapPlayLens.mount_all(play)
 	MapPlayDiplomacy.refresh(play)

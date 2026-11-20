@@ -163,7 +163,7 @@ static func scrap(play: PlaySession, hull_id: String) -> void:
 	if not bool(result.get("ok", false)):
 		play.hud.toast(String(result.get("reason", "The hull stays afloat.")))
 		return
-	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	play.hud.stats.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	var broken: String = String(result.get("name", ""))
 	if broken.is_empty():
 		broken = ShipStats.display_name(String(result.get("type", "")))
