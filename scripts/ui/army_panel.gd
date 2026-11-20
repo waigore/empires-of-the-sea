@@ -24,6 +24,7 @@ var _command_row: HBoxContainer = null
 var _command_icon: TextureRect = null
 var _command_door: Button = null
 var _composition: Label = null
+var _pick: Label = null
 var _status: Label = null
 var _hint: Label = null
 var _roster: ArmyRosterBlock = null
@@ -106,6 +107,13 @@ func _build() -> void:
 	_composition = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	_composition.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	shell.add_child(_composition)
+
+	# The court's own pick sits under the composition, in the gold the crew's and
+	# the squadron's picks print in: advice, never state (DR-20261120-10).
+	_pick = UiRowBuilder.line(12, Palette.GOLD)
+	_pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pick.visible = false
+	shell.add_child(_pick)
 
 	_muster_button = UiRowBuilder.button("Muster regiments", 36.0, 0.0)
 	_muster_button.pressed.connect(func() -> void: set_muster_open(not _muster_open))
@@ -260,7 +268,8 @@ func refresh(
 	muster: Array[Dictionary] = [],
 	embark: String = "",
 	plan: String = "balanced",
-	hospital: Dictionary = {}
+	hospital: Dictionary = {},
+	pick: String = ""
 ) -> void:
 	if model == null or army == null:
 		return
@@ -277,6 +286,8 @@ func refresh(
 	_command.text = _command_head(command)
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
+	_pick.text = pick
+	_pick.visible = not pick.is_empty()
 	_last_count = army.count()
 	# A repaint means the order landed or the view moved: no arm survives it.
 	_dismiss_armed = false

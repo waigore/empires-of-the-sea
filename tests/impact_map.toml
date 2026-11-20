@@ -2394,6 +2394,21 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The court's own land pick (DR-20261120-10): the reading that asks the published
+# land policy what it would order an army — the split the Home Army would take,
+# the march a field army would make. Its suites are the army orders suite and the
+# panel parts sheet, so it names its own domain instead of pulling the army or ui
+# fan-outs.
+[[rules]]
+match = "scripts/map/map_play_army_pick*.gd*"
+domain = "land_pick"
+
+[domains.land_pick]
+suites = [
+  "test_army_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
 # The pick's door (wiki: playtest-learnings § next targets): the press that
 # frames the ground a pick names and opens the sheet that can press it. It
 # reads the pick and the map's own province door, so it rides the pick's slice.

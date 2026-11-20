@@ -1478,3 +1478,285 @@ func test_a_malformed_name_order_changes_nothing() -> void:
 	MapPlayArmies.on_action(_screen.play, "rename::Foo")
 
 	assert_eq(RegimentNames.of(home, home.regiments[0]), borne)
+
+
+# --- the court's own pick (DR-20261120-10) -----------------------------------
+
+
+## A pure session on the army fixture's chart: the crown's court, at war or at
+## peace, with the roster handed in. No screen is mounted, so the pick's cases
+## never pay a re-seat.
+func _pick_play(at_war: bool) -> PlaySession:
+	var model := ArmyFixture.build()
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(0, 1, 1)
+	if at_war:
+		state.relation(0, 1).at_war = true
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.map_seed = 1500
+	play.turn = 1
+	play.model = model
+	play.diplomacy = state
+	play.army_layer = ArmyLayer.new()
+	play.army_layer.model = model
+	return play
+
+
+## Puts one roster on the chart the session shows, the way the layer stores it.
+func _pick_roster(play: PlaySession, armies: Array[ArmyState]) -> void:
+	play.army_layer.armies.assign(armies)
+	play.army_layer.regions.set_region(play.army_layer.model.region_id, play.army_layer.armies)
+
+
+## At war on its own border the court takes the seat's guard into the field: the
+## pick counts the standards the split's own list carries and the one it holds.
+func test_the_courts_pick_takes_the_home_army_into_the_field() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen", "guards"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_SPLIT, "the split")
+	assert_eq(int(pick.get("regiments", -1)), 2, "every standard but the guard")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would take the field — 2 regiments from the seat, 1 held to guard it"
+	)
+	assert_true(MapPlayArmyPick.line(play, home).begins_with("The court would take"), "one sentence")
+	assert_eq(home.count(), 3, "a reading: the seat still holds its three")
+	play.army_layer.free()
+
+
+## A field army beside a hostile province is given the storm, and the words name
+## the province the planner chose.
+func test_the_courts_pick_storms_a_hostile_beside_the_field_army() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_MARCH)
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_STORM)
+	assert_eq(int(pick.get("province", -1)), 4, "the hostile province beside her")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march on %s to storm it" % play.model.province_name(4)
+	)
+	assert_eq(field.province, 1, "a reading: nothing marches")
+	assert_eq(home.count(), 1, "and the seat's guard is not split")
+	play.army_layer.free()
+
+
+## A hostile host standing on the court's own frontier is met, not outmarched:
+## the pick reads the relief the planner's own defence premium chose.
+func test_the_courts_pick_marches_to_throw_out_a_host() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	var raider := ArmyFixture.army(3, 1, 6, ["guards"])
+	_pick_roster(play, [home, field, raider] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_RELIEF)
+	assert_eq(int(pick.get("province", -1)), 6, "the province the host stands on")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march on %s to throw out the host there" % play.model.province_name(6)
+	)
+	play.army_layer.free()
+
+
+## With nothing on reach worth storming, the court stages on its own frontier: an
+## army standing off the border advances to the province that touches it.
+func test_the_courts_pick_stages_on_the_frontier() -> void:
+	var play: PlaySession = _pick_play(false)
+	# The war is with a third court holding the far province, so the field army's
+	# own neighbour (faction 1) is no target and the corridor is the frontier.
+	play.diplomacy.ensure_relation(0, 2, 1)
+	play.diplomacy.relation(0, 2).at_war = true
+	play.model.province_data(2).owner = 2
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_MARCH)
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_FRONTIER)
+	assert_eq(int(pick.get("province", -1)), 6, "the corridor that touches the war")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would advance to %s, the frontier" % play.model.province_name(6)
+	)
+	play.army_layer.free()
+
+
+## At peace with no border to watch a field army is given nothing at all.
+func test_the_courts_pick_gives_a_peaceful_field_army_no_order() -> void:
+	var play: PlaySession = _pick_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 4, ["guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "no frontier, no march")
+	assert_eq(MapPlayArmyPick.line(play, field), "", "and no sentence")
+	play.army_layer.free()
+
+
+## A worn field army away from the seat comes home to merge with the mass the
+## Home Army musters (issue #974).
+func test_the_courts_pick_marches_a_worn_army_home_to_merge() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "guards", "guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_ROTATE)
+	assert_eq(int(pick.get("province", -1)), 0, "the seat")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march home to %s to merge with the Home Army"
+			% play.model.province_name(0)
+	)
+	play.army_layer.free()
+
+
+## The pick is only for a standard the court would still order: a rival's army,
+## one that has marched, an embarked army and a session whose court runs no
+## planner all carry none.
+func test_the_courts_pick_names_no_army_the_court_would_leave_alone() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "guards", "guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	var rival := ArmyFixture.army(3, 1, 4, ["guards"])
+	_pick_roster(play, [home, field, rival] as Array[ArmyState])
+
+	assert_false(MapPlayArmyPick.pick(play, field).is_empty(), "the field army marches")
+	assert_true(MapPlayArmyPick.pick(play, rival).is_empty(), "a rival answers to her own court")
+	field.moved = true
+	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "an army that marched is not re-ordered")
+	field.moved = false
+	field.embarked_fleet = 1
+	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "the invasion planner steers a landing")
+	field.embarked_fleet = -1
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayArmyPick.pick(play, home).is_empty(), "no planner, no advice")
+	assert_eq(MapPlayArmyPick.line(play, home), "", "and no sentence")
+	play.army_layer.free()
+
+
+## The pick reads nothing it cannot: no session, no standard, no chart of
+## relations, a campaign already decided, and a region table that stores an army
+## the session draws nowhere all answer empty rather than guessing a march.
+func test_the_courts_pick_reads_nothing_without_a_session_to_read() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "guards"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	assert_true(MapPlayArmyPick.pick(null, home).is_empty(), "no session, no pick")
+	assert_true(MapPlayArmyPick.pick(play, null).is_empty(), "no army, no pick")
+	var bare := PlaySession.new()
+	bare.player_faction = 0
+	bare.model = play.model
+	assert_true(MapPlayArmyPick.pick(bare, home).is_empty(), "no army layer, no pick")
+	bare.army_layer = ArmyLayer.new()
+	bare.army_layer.model = play.model
+	bare.army_layer.armies.assign([home] as Array[ArmyState])
+	assert_true(MapPlayArmyPick.pick(bare, home).is_empty(), "no diplomacy, no pick")
+	play.campaign_halted = true
+	assert_true(MapPlayArmyPick.pick(play, home).is_empty(), "a decided campaign orders nothing")
+	play.campaign_halted = false
+	# A chart the session does not draw: the world's own region answers, and the
+	# roster the region table stores is the one the pass would plan over.
+	var worlded := PlaySession.new()
+	worlded.player_faction = 0
+	worlded.diplomacy = play.diplomacy
+	worlded.army_layer = ArmyLayer.new()
+	worlded.army_layer.regions.set_region(
+		play.model.region_id, [ArmyFixture.army(1, 0, 0, ["guards", "guards"], true)] as Array[ArmyState]
+	)
+	var other_chart: MapModel = ArmyFixture.build()
+	worlded.world = WorldMap.new()
+	worlded.world.add_region(other_chart)
+	assert_false(
+		MapPlayArmyPick.pick(worlded, worlded.army_layer.regions.value(0, [])[0]).is_empty(),
+		"the world's own chart answers for a region off screen"
+	)
+	worlded.army_layer.free()
+	play.army_layer.armies.clear()
+	play.army_layer.regions.set_region(play.army_layer.model.region_id, [] as Array[ArmyState])
+	assert_true(MapPlayArmyPick.pick(play, home).is_empty(), "an army no roster holds is not read")
+	bare.army_layer.free()
+	play.army_layer.free()
+
+
+## Two field armies of the crown plan together, and each picks her own order: the
+## plan's other rows are skipped, never handed to the wrong standard.
+func test_the_courts_pick_hands_each_army_its_own_order() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var first := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	var second := ArmyFixture.army(3, 0, 6, ["guards", "guards"])
+	_pick_roster(play, [home, first, second] as Array[ArmyState])
+
+	var one: Dictionary = MapPlayArmyPick.pick(play, first)
+	var two: Dictionary = MapPlayArmyPick.pick(play, second)
+
+	assert_false(one.is_empty(), "the first field army is ordered")
+	assert_false(two.is_empty(), "and so is the second")
+	assert_eq(int(one.get("province", -1)), 4, "the hostile province beside the first")
+	assert_eq(int(two.get("province", -1)), 2, "the hostile province beside the second")
+	assert_true(
+		String(two.get("line", "")).contains(play.model.province_name(2)),
+		"each line names its own ground: " + String(two.get("line", ""))
+	)
+	assert_eq(first.province, 1, "nothing marches")
+	assert_eq(second.province, 6, "nothing marches")
+	play.army_layer.free()
+
+
+## Every wording the pick can print, and nothing at all for an order or a chart
+## that names no place (REQ-P5-06).
+func test_the_pick_words_name_a_place_or_say_nothing() -> void:
+	var model: MapModel = ArmyFixture.build()
+	assert_eq(MapPlayArmyPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(
+		MapPlayArmyPickWords.sentence("the court would advance"),
+		"The court would advance.",
+		"one capital and a full stop"
+	)
+	assert_eq(MapPlayArmyPickWords.split_line(0, 2), "", "a split that moves nothing")
+	assert_eq(
+		MapPlayArmyPickWords.split_line(3, 0),
+		"the court would take the field — 3 regiments from the seat",
+		"no guard left to name"
+	)
+	assert_eq(MapPlayArmyPickWords.march_line(null, 0, MapPlayArmyPick.WHY_STORM), "", "no chart")
+	assert_eq(MapPlayArmyPickWords.march_line(model, -1, MapPlayArmyPick.WHY_STORM), "", "no ground")
+	assert_eq(MapPlayArmyPickWords.march_line(model, 4, ""), "", "no reason, no march")
+	assert_eq(MapPlayArmyPickWords.rotate_line(null, 0), "", "no chart, no road home")
+	assert_eq(MapPlayArmyPickWords.rotate_line(model, -1), "", "no seat, no road home")
+
+
+## The dossier prints the pick under the composition, and a standard the court
+## would leave alone carries no line at all.
+func test_the_dossier_prints_the_courts_pick() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(7, 0, 1, ["guards"])
+	var panel := ArmyPanel.new()
+	add_child(panel)
+
+	panel.refresh(model, army, true, false, "", [], "", "balanced", {}, "The court would march on Province 4 to storm it.")
+	assert_true(panel._pick.visible, "the line stands")
+	assert_eq(panel._pick.text, "The court would march on Province 4 to storm it.")
+
+	panel.refresh(model, army, true)
+	assert_false(panel._pick.visible, "no pick, no line")
+	panel.free()

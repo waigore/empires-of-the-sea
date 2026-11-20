@@ -54,6 +54,7 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	var muster: Array[Dictionary] = []
 	var embark: String = ""
 	var hospital: Dictionary = {}
+	var pick: String = ""
 	if is_player and play.economy != null and play.economy.economy != null:
 		command = play.army_layer.command_text(army)
 		if army.home:
@@ -61,9 +62,10 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 		hospital = hospital_order(play, army)
 	if is_player:
 		embark = _embark_note(play, army)
+		pick = MapPlayArmyPick.line(play, army)
 	play.hud.panels.show_army(
 		play.model, army, is_player, can_merge(play, army), command, muster, embark,
-		play.battle_plan, hospital
+		play.battle_plan, hospital, pick
 	)
 
 
