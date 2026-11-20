@@ -28,9 +28,9 @@ static func damage_share(level: int) -> float:
 
 
 ## The receipt a march into another court's walled province reads in place of the
-## plain one: the wall that stands there, in the fort table's own numbers. Empty
-## on open ground, and for a wall the crown already holds — a march into its own
-## land names no siege.
+## plain one: the wall that stands there, in the fort table's own numbers. The
+## caller asks it for another court's land only, and an empty answer keeps the
+## plain line — open ground names no siege.
 static func march_line(province_name: String, level: int) -> String:
 	if line(level).is_empty():
 		return ""
