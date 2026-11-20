@@ -6,6 +6,10 @@ extends HBoxContainer
 ## The panel owns one row per slot and only rewrites it. A funding change, a
 ## treasury change or a repaint therefore never rebuilds the sheet: the gauge
 ## grows from where it stood, and the button the player pressed keeps its place.
+##
+## The row paints a `ResearchSlotPrice` and keeps no arithmetic of its own: the
+## walk prices the turn, the price says which words read it, and the row puts
+## them on its widgets (REQ-P2-03, REQ-P3-03).
 
 signal cancel_pressed(slot: int)
 signal funding_pressed(slot: int)
@@ -21,6 +25,8 @@ var slot: int = 0
 ## Phone rows trade height for list room; the buttons keep their thumb size.
 var _compact: bool = false
 var _idle_now: bool = true
+## What the row last painted, so a test reads the slot without walking widgets.
+var _price: ResearchSlotPrice = ResearchSlotPrice.new()
 
 var _idle: Label = null
 var _pick: Label = null
@@ -36,11 +42,6 @@ var _cancel: Button = null
 var _bar: ResearchBar = null
 var _progress: Label = null
 var _next: Label = null
-
-var _gold_next: int = 0
-var _rp_next: int = 0
-## True when the Research phase cannot pay this slot at its preset next turn.
-var _unpaid: bool = false
 
 
 func _init(index: int) -> void:
@@ -79,76 +80,62 @@ func _init(index: int) -> void:
 	column.add_child(_foot())
 
 
-## Rewrites the row from one priced row of `ResearchWalk` — `tech`, `funding`,
-## `gold`, `rp`, `boost`, `paid`, `cost` and `progress` — so the row, the heading
-## and the Research phase price one turn (REQ-P2-03). `floor` is the borrowing
-## floor the purse pays against, named in the unpaid tooltip so the crown never
-## reads a rule as a broken purse (REQ-P5-05). `counsel` is the study the court
-## would open in this slot, printed on an idle row only (DR-20261121-01).
-func update(
-	priced: Dictionary, floor: int = 0, animate: bool = true, counsel: String = ""
-) -> void:
-	var tech_id: String = String(priced.get("tech", ""))
-	var idle: bool = tech_id.is_empty()
+## Rewrites the row from one `ResearchSlotPrice` — the walk's priced turn, so
+## the row, the heading and the Research phase price one turn (REQ-P2-03).
+## `counsel` is the study the court would open in this slot, printed on an idle
+## row only (DR-20261121-01).
+func update(price: ResearchSlotPrice, counsel: String = "", animate: bool = true) -> void:
+	_price = price
+	var idle: bool = price.is_idle()
 	_idle_now = idle
 	_idle.visible = idle
 	_body.visible = not idle
 	_pick.visible = idle and not counsel.is_empty()
 	_pick.text = counsel if idle else ""
-	var idle_height: float = 26.0 if _compact else IDLE_HEIGHT
-	var row_height: float = 46.0 if _compact else ROW_HEIGHT
-	custom_minimum_size = Vector2(0.0, idle_height if idle else row_height)
-	_gold_next = 0
-	_rp_next = 0
-	_unpaid = false
+	_apply_height()
 	if idle:
-		_bar.set_progress(0, 1, 0, true, false)
+		if _bar != null:
+			_bar.set_progress(0, 1, 0, true, false)
 		return
-	if tech_id != _icon_tech:
-		_icon_tech = tech_id
-		_fill_icon(tech_id)
-	var funding: String = String(priced.get("funding", ResearchFunding.DEFAULT))
-	_gold_next = int(priced.get("gold", 0))
-	_rp_next = int(priced.get("rp", 0))
-	_unpaid = not bool(priced.get("paid", true))
-	var cost: int = int(priced.get("cost", 0))
-	var banked: int = int(priced.get("progress", 0))
-	_name.text = TechCatalog.display_name(tech_id)
-	_name.tooltip_text = TechCatalog.effect_text(tech_id)
-	_spend.text = "%s ducats" % TextFormat.thousands(_gold_next)
+	if price.tech != _icon_tech:
+		_icon_tech = price.tech
+		_fill_icon(price.tech)
+	_name.text = TechCatalog.display_name(price.tech)
+	_name.tooltip_text = TechCatalog.effect_text(price.tech)
+	_spend.text = "%s ducats" % TextFormat.thousands(price.gold)
 	_spend.add_theme_color_override(
-		"font_color", Palette.GOLD if _gold_next > 0 else Palette.TEXT_DIM
+		"font_color", Palette.GOLD if price.gold > 0 else Palette.TEXT_DIM
 	)
-	_spend.tooltip_text = _spend_tip()
-	_coin.modulate.a = 1.0 if _gold_next > 0 else 0.35
-	_funding.text = ResearchFunding.label(funding)
-	_funding.tooltip_text = _spend_tip()
-	var spies: int = int(priced.get("boost", 0))
-	_spies.visible = spies > 0
-	_spies.text = "+%d%%" % spies
-	_spies.tooltip_text = (
-		"Spy network: +%d%% research points from the rival courts it shadows"
-		% spies
-	)
-	_bar.set_progress(banked, cost, _rp_next, not _unpaid, animate)
+	_spend.tooltip_text = price.spend_tip()
+	_coin.modulate.a = 1.0 if price.gold > 0 else 0.35
+	_funding.text = ResearchFunding.label(price.funding)
+	_funding.tooltip_text = price.spend_tip()
+	_spies.visible = price.boost > 0
+	_spies.text = "+%d%%" % price.boost
+	_spies.tooltip_text = price.boost_tip()
+	_bar.set_progress(price.progress, price.cost, price.rp, price.paid, animate)
 	_progress.text = "%s / %s RP" % [
-		TextFormat.thousands(banked), TextFormat.thousands(cost),
+		TextFormat.thousands(price.progress), TextFormat.thousands(price.cost),
 	]
-	_fill_next(banked, cost, not _unpaid, floor)
+	_next.text = price.next_text()
+	_next.add_theme_color_override(
+		"font_color", Palette.CRIMSON if price.next_warns() else _next_color()
+	)
+	_next.tooltip_text = price.next_tip()
 
 
 ## Ducats the slot spends next turn, and points it buys (0 for an idle slot).
 func gold_next() -> int:
-	return _gold_next
+	return _price.gold
+
+
+func rp_next() -> int:
+	return _price.rp
 
 
 ## True when the treasury cannot pay this slot at its preset next turn.
 func unpaid_next() -> bool:
-	return _unpaid
-
-
-func rp_next() -> int:
-	return _rp_next
+	return not _price.paid and not _price.is_idle()
 
 
 func bar() -> ResearchBar:
@@ -165,9 +152,7 @@ func counsel_text() -> String:
 ## its 40-point thumb target (REQ-P1-07).
 func set_compact(compact: bool) -> void:
 	_compact = compact
-	var idle_height: float = 26.0 if compact else IDLE_HEIGHT
-	var row_height: float = 46.0 if compact else ROW_HEIGHT
-	custom_minimum_size = Vector2(0.0, idle_height if _idle_now else row_height)
+	_apply_height()
 	_idle.add_theme_font_size_override("font_size", 12 if compact else 14)
 	_pick.add_theme_font_size_override("font_size", 11 if compact else 12)
 	_name.add_theme_font_size_override("font_size", 13 if compact else 14)
@@ -232,45 +217,23 @@ func _foot() -> HBoxContainer:
 	return foot
 
 
+## The preview line's colour when it names a gain rather than a warning.
+func _next_color() -> Color:
+	return Palette.TEXT_DIM if _price.silent() else Palette.GOLD_PALE
+
+
+## An idle row is shorter than a study's, and a phone gives both fewer points.
+func _apply_height() -> void:
+	var full: float = ROW_HEIGHT
+	var idle_height: float = IDLE_HEIGHT
+	if _compact:
+		full = 46.0
+		idle_height = 26.0
+	custom_minimum_size = Vector2(0.0, idle_height if _idle_now else full)
+
+
 func _fill_icon(tech_id: String) -> void:
 	for child in _icon_host.get_children():
 		_icon_host.remove_child(child)
 		child.queue_free()
 	_icon_host.add_child(ResearchRow.icon(tech_id, ICON_SIZE))
-
-
-## The preview line: what the next phase adds and where it leaves the study.
-## An unpaid slot says so in crimson rather than implying a gain it cannot pay
-## for (wiki: tech-tree § Research Model — no partial funding), and its tooltip
-## names the borrowing floor that stops it, so the crown never reads a rule as a
-## broken purse (REQ-P5-05).
-func _fill_next(banked: int, cost: int, paid: bool, floor: int) -> void:
-	if not paid:
-		_next.text = "unpaid next turn"
-		_next.add_theme_color_override("font_color", Palette.CRIMSON)
-		_next.tooltip_text = "The treasury cannot cover this slot next turn — %s." % (
-			LedgerReportText.research_floor_line(floor)
-		)
-		return
-	if _rp_next <= 0:
-		_next.text = "earns nothing"
-		_next.add_theme_color_override("font_color", Palette.TEXT_DIM)
-		_next.tooltip_text = "No funding buys no research points."
-		return
-	var lands: int = mini(banked + _rp_next, cost)
-	_next.text = "+%s → %s" % [
-		TextFormat.thousands(_rp_next), TextFormat.thousands(lands),
-	]
-	_next.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	_next.tooltip_text = "%s research points next turn, %s of %s met" % [
-		TextFormat.thousands(_rp_next), TextFormat.thousands(lands),
-		TextFormat.thousands(cost),
-	]
-
-
-func _spend_tip() -> String:
-	if _gold_next <= 0:
-		return "This slot buys no research points this turn"
-	return "%s ducats buys %s research points each turn" % [
-		TextFormat.thousands(_gold_next), TextFormat.thousands(_rp_next),
-	]
