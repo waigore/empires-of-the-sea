@@ -214,15 +214,20 @@ func is_economy_open() -> bool:
 ## crown's leaderKey, whose published funding multiplier the RP figures include
 ## (wiki: leader-bonuses — Victoria). A ledger already on screen is repainted in
 ## place — re-revealing it would fade the sheet back in and lose the player's
-## place (REQ-P1-05).
+## place (REQ-P1-05). `pick` is the study the court would open in its first free
+## slot (DR-20261121-01).
 func show_research(
-	state: ResearchState, treasury: int, boost: Dictionary = {}, leader: String = ""
+	state: ResearchState,
+	treasury: int,
+	boost: Dictionary = {},
+	leader: String = "",
+	pick: String = ""
 ) -> void:
 	if research.open:
-		research_panel.refresh(state, treasury, boost, leader)
+		research_panel.refresh(state, treasury, boost, leader, pick)
 		return
 	close_sheets(research)
-	research_panel.refresh(state, treasury, boost, leader)
+	research_panel.refresh(state, treasury, boost, leader, pick)
 	research.reveal(host, dock)
 
 

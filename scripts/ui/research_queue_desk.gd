@@ -8,7 +8,9 @@ extends RefCounted
 
 ## Fills or updates every slot row under `slots_body`. Returns the walk's spend
 ## totals so the panel can rewrite the heading and the notice without walking
-## again: `{gold, rp, unpaid}`.
+## again: `{gold, rp, unpaid}`. `counsel` rides the first idle slot — the study
+## the court would open there — so the advice lands where the choice is made and
+## costs the sheet no chrome (wiki: tech-tree § Research model; DR-20261121-01).
 static func fill(
 	slots_body: VBoxContainer,
 	slot_rows: Dictionary,
@@ -17,11 +19,15 @@ static func fill(
 	boost: Dictionary,
 	leader: String,
 	on_cancel: Callable,
-	on_funding: Callable
+	on_funding: Callable,
+	counsel: String = ""
 ) -> Dictionary:
 	var walk: Dictionary = ResearchWalk.run(state, treasury, "", boost, leader)
 	var priced: Array[Dictionary] = walk["slots"]
 	var floor: int = int(walk["floor"])
+	# The counsel is the study the court would open, not a slot: it rides the
+	# first idle row alone, so two idle slots never repeat one sentence.
+	var told: bool = false
 	for index in priced.size():
 		var row: ResearchSlotRow = slot_rows.get(index)
 		if row == null:
@@ -30,7 +36,12 @@ static func fill(
 			row.funding_pressed.connect(on_funding)
 			slots_body.add_child(row)
 			slot_rows[index] = row
-		row.update(priced[index], floor)
+		var idle: bool = String(priced[index].get("tech", "")).is_empty()
+		var word: String = ""
+		if idle and not told and not counsel.is_empty():
+			word = counsel
+			told = true
+		row.update(priced[index], floor, true, word)
 	return {
 		"gold": int(walk["gold"]),
 		"rp": int(walk["rp"]),

@@ -37,6 +37,10 @@ var _leader: String = ""
 ## queue and funds nothing; the state keeps it so a load reopens the same order
 ## (wiki: tech-tree § Goal slot; DR-20261111-21).
 var _goal: String = ""
+## The study the court would open in its first free slot, mirrored from
+## `MapPlayResearchPick` on every refresh so the desk need not ask twice
+## (DR-20261121-01).
+var _pick_line: String = ""
 var _treasury: int = 0
 var _summary: Label = null
 ## The rule behind an unpaid study, named under the summary whenever a slot
@@ -241,6 +245,12 @@ func fund_press() -> ResearchFundPress:
 	return _fund
 
 
+## The counsel line the desk last printed, or "" — the reading a test checks
+## without walking the rows (REQ-P3-02).
+func pick_line() -> String:
+	return _pick_line
+
+
 ## Steers the queue toward `tech_id`; "" (or an unknown id) clears the goal.
 ## The goal spends nothing and rides no research order, but it is kept with the
 ## campaign, so the ledger reopens where the player left it (wiki: tech-tree
@@ -258,7 +268,7 @@ func set_goal(tech_id: String) -> void:
 	if _state != null:
 		_state.goal = next
 	goal_changed.emit(_goal)
-	refresh(_state, _treasury, _boost, _leader)
+	refresh(_state, _treasury, _boost, _leader, _pick_line)
 
 
 ## Rebuilds the goal strip, slots, open advances and known techs from live
@@ -266,12 +276,17 @@ func set_goal(tech_id: String) -> void:
 ## (DR-20261110-03); it marks the slots it lifts so a faster study is never
 ## silent (REQ-P5-05).
 func refresh(
-	state: ResearchState, treasury: int, boost: Dictionary = {}, leader: String = ""
+	state: ResearchState,
+	treasury: int,
+	boost: Dictionary = {},
+	leader: String = "",
+	pick: String = ""
 ) -> void:
 	_state = state
 	_treasury = treasury
 	_boost = boost
 	_leader = leader
+	_pick_line = pick
 	if _tabs == null or _state == null:
 		return
 	_goal = TechOrder.normalize(_state.goal)
@@ -313,7 +328,8 @@ func _fill_slots() -> void:
 	var spend: Dictionary = ResearchQueueDesk.fill(
 		_slots_body, _slot_rows, _state, _treasury, _boost, _leader,
 		func(slot: int) -> void: cancel_requested.emit(slot),
-		func(slot: int) -> void: funding_requested.emit(slot)
+		func(slot: int) -> void: funding_requested.emit(slot),
+		_pick_line
 	)
 	_spend_gold = int(spend["gold"])
 	_spend_rp = int(spend["rp"])

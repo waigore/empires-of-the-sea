@@ -2460,6 +2460,20 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The court's own research pick (DR-20261121-01): the advance the published
+# research policy would open in the crown's first free slot, read on its own
+# college through `MapPlayEconomyCourtBook.door`. Its suite is the research
+# sheet's, where the row and the ranking are proved, so it names its own domain
+# instead of pulling the college's whole fan-out.
+[[rules]]
+match = "scripts/map/map_play_research_pick*.gd*"
+domain = "research_pick"
+
+[domains.research_pick]
+suites = [
+  "test_research_rules.gd",
+]
+
 # The pick's door (wiki: playtest-learnings § next targets): the press that
 # frames the ground a pick names and opens the sheet that can press it. It
 # reads the pick and the map's own province door, so it rides the pick's slice.

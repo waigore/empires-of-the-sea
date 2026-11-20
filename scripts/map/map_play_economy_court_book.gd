@@ -6,6 +6,61 @@ extends RefCounted
 ## read, so the ledger and the book cannot drift apart (REQ-P2-03, REQ-P3-01,
 ## REQ-P3-03).
 
+## Which link of the door chain a court stands in, for the words that name it
+## (wiki: tech-tree § Research model; DR-20261121-01).
+const DOOR_HULL: String = "hull"
+const DOOR_CHAIN: String = "chain"
+const DOOR_DEED: String = "deed"
+
+
+## The study a court's open door needs this turn, with the link that gave it:
+## the yard's next hull while the court is at war short of hulls (issue #484),
+## else the envoy chain's next stage (DR-20261114-05), else the study a charted
+## deed waits on — the tech that hires the buyer, because the hire, the chain and
+## the purchase all wait on it (issue #841; wiki: civilian-units § Merchant).
+## Pure reads: one home for the chain, so this book's plan and the crown's
+## college pick cannot walk two different chains (`MapPlayResearchPick`).
+static func door(
+	play: PlaySession,
+	faction: int,
+	economy: PlayerEconomy,
+	phase: String,
+	at_war: bool,
+	warships: int
+) -> Dictionary:
+	if play == null or economy == null:
+		return {}
+	if AiNavy.due(at_war, warships, MapPlayCourt.hostile_warships(play, faction)):
+		var hull: String = AiNavy.unlock_tech(
+			economy, MapPlayCourt.hull_types(play, faction)
+		)
+		if not hull.is_empty():
+			return {"tech": hull, "why": DOOR_HULL}
+	var chain: String = AiTribeColony.door(
+		play.diplomacy, play.world, play.court_charts, faction,
+		economy.tech_unlocked, phase
+	)
+	if not chain.is_empty():
+		return {"tech": chain, "why": DOOR_CHAIN}
+	var deed: String = AiMerchantWork.deed_door(
+		play.world, faction, play.court_charts, play.diplomacy, economy.tech_unlocked
+	)
+	if not deed.is_empty():
+		return {"tech": deed, "why": DOOR_DEED}
+	return {}
+
+
+## The door's study alone: what the research plan hands the ranking.
+static func door_tech(
+	play: PlaySession,
+	faction: int,
+	economy: PlayerEconomy,
+	phase: String,
+	at_war: bool,
+	warships: int
+) -> String:
+	return String(door(play, faction, economy, phase, at_war, warships).get("tech", ""))
+
 
 ## What the court studies this turn: surplus above the money-first reserve,
 ## the navy unlock door first and the Tribe chain after it (issue #484, #490).
@@ -15,29 +70,14 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 	# study alone may dip to the cash floor so a war-time court parked at 500
 	# while saving 2,400 still learns (issue #490).
 	var research_floor: int = AiBindEconomy.research_floor(court.kind, court.config)
-	# Navy unlock door first, else Tribe chain (issue #484; DR-20261114-05).
-	var door: String = ""
-	if AiNavy.due(
-		court.at_war, court.warships,
-		MapPlayCourt.hostile_warships(court.play, court.faction)
-	):
-		door = AiNavy.unlock_tech(
-			court.economy, MapPlayCourt.hull_types(court.play, court.faction)
-		)
-	if door.is_empty():
-		door = AiTribeColony.door(
-			court.play.diplomacy, court.play.world, court.play.court_charts,
-			court.faction, court.economy.tech_unlocked, court.phase
-		)
-	# The deed door, buyer-gated: a court that has a priced deed on its chart and
-	# no Merchant Companies studies the tech that hires the buyer. The study is
-	# the closed link — the hire, the envoy chain and the purchase all wait on it
-	# (issue #841; wiki: civilian-units § Merchant).
-	if door.is_empty():
-		door = AiMerchantWork.deed_door(
-			court.play.world, court.faction, court.play.court_charts,
-			court.play.diplomacy, court.economy.tech_unlocked
-		)
+	# The court's open door: the yard's next hull, else the Tribe chain, else the
+	# deed's buyer (issue #484, #841; DR-20261114-05). One home for the chain, so
+	# the crown's college reads the same door this plan walks
+	# (`MapPlayResearchPick`; DR-20261121-01).
+	var door: String = String(door_tech(
+		court.play, court.faction, court.economy, court.phase, court.at_war,
+		court.warships
+	))
 	# The chest the conquest bank is holding the purse for (issue #995): the
 	# canonical reserve the income row stamps beside the wobbling goal. The
 	# money goal's own reserve wobbles when the #603 valve re-routes it to the

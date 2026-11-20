@@ -23,6 +23,7 @@ var _compact: bool = false
 var _idle_now: bool = true
 
 var _idle: Label = null
+var _pick: Label = null
 var _body: HBoxContainer = null
 var _icon_host: Control = null
 var _icon_tech: String = ""
@@ -47,9 +48,20 @@ func _init(index: int) -> void:
 	add_theme_constant_override("separation", 8)
 	custom_minimum_size = Vector2(0.0, ROW_HEIGHT)
 	_idle = UiRowBuilder.label("Slot %d — idle" % (index + 1), 14, Palette.TEXT_DIM)
-	_idle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_idle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_idle.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	add_child(_idle)
+	# The court's own pick for this slot, in the gold the crew's sheet and the
+	# army dossier give theirs (wiki: tech-tree § Research model; DR-20261121-01).
+	# One line, trimmed with an ellipsis, so a handset's idle row keeps the height
+	# it always had and the sheet's fit never pays for the advice (REQ-P1-07).
+	_pick = UiRowBuilder.label("", 12, Palette.GOLD)
+	_pick.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_pick.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	_pick.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_pick.clip_text = true
+	_pick.visible = false
+	add_child(_pick)
 	_body = HBoxContainer.new()
 	_body.add_theme_constant_override("separation", 8)
 	_body.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -71,13 +83,18 @@ func _init(index: int) -> void:
 ## `gold`, `rp`, `boost`, `paid`, `cost` and `progress` — so the row, the heading
 ## and the Research phase price one turn (REQ-P2-03). `floor` is the borrowing
 ## floor the purse pays against, named in the unpaid tooltip so the crown never
-## reads a rule as a broken purse (REQ-P5-05).
-func update(priced: Dictionary, floor: int = 0, animate: bool = true) -> void:
+## reads a rule as a broken purse (REQ-P5-05). `counsel` is the study the court
+## would open in this slot, printed on an idle row only (DR-20261121-01).
+func update(
+	priced: Dictionary, floor: int = 0, animate: bool = true, counsel: String = ""
+) -> void:
 	var tech_id: String = String(priced.get("tech", ""))
 	var idle: bool = tech_id.is_empty()
 	_idle_now = idle
 	_idle.visible = idle
 	_body.visible = not idle
+	_pick.visible = idle and not counsel.is_empty()
+	_pick.text = counsel if idle else ""
 	var idle_height: float = 26.0 if _compact else IDLE_HEIGHT
 	var row_height: float = 46.0 if _compact else ROW_HEIGHT
 	custom_minimum_size = Vector2(0.0, idle_height if idle else row_height)
@@ -138,6 +155,12 @@ func bar() -> ResearchBar:
 	return _bar
 
 
+## The counsel an idle row carries, or "" — the accessor a test reads instead of
+## walking the row's children (REQ-P3-02).
+func counsel_text() -> String:
+	return _pick.text if _pick.visible else ""
+
+
 ## Phone geometry: a shorter slot row and smaller text, while every button keeps
 ## its 40-point thumb target (REQ-P1-07).
 func set_compact(compact: bool) -> void:
@@ -146,6 +169,7 @@ func set_compact(compact: bool) -> void:
 	var row_height: float = 46.0 if compact else ROW_HEIGHT
 	custom_minimum_size = Vector2(0.0, idle_height if _idle_now else row_height)
 	_idle.add_theme_font_size_override("font_size", 12 if compact else 14)
+	_pick.add_theme_font_size_override("font_size", 11 if compact else 12)
 	_name.add_theme_font_size_override("font_size", 13 if compact else 14)
 	_spend.add_theme_font_size_override("font_size", 11 if compact else 12)
 	_funding.custom_minimum_size = Vector2(84 if compact else 96, BUTTON_HEIGHT)

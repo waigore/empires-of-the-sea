@@ -178,6 +178,15 @@ static func _college(run, screen: MapScreen) -> void:
 		run.has_text(college, "Improves: extraction cap Timber 2."),
 		"an open advance names what it opens"
 	)
+	# The court's own counsel rides the first idle slot: the study the published
+	# policy would open there, in one sentence (wiki: tech-tree § Research Model;
+	# DR-20261121-01).
+	var counsel: String = college.pick_line()
+	run.check(
+		(counsel.is_empty() and screen.economy.economy.research.free_slot() < 0)
+		or (counsel.begins_with("The court would open ") and counsel.ends_with(".")),
+		"the college names the study it would open"
+	)
 	var door: Button = _door(college)
 	run.check(door != null, "the college offers the chart")
 	if door != null:
