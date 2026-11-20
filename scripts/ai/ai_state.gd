@@ -99,11 +99,23 @@ func note_war(a: int, b: int, turn: int) -> void:
 	last_attack_turn.erase(AiWarMemory.attack_key(b, a))
 
 
+## True while this pair may not fight again yet: the cooldown runs from the
+## pair's **latest** war event — a fresh peace (`last_truce_turn`, the clock
+## #475's truce rides) or, absent one, the declaration. A war declared long ago
+## that ended in a fresh peace cannot be re-declared the turn after the peace
+## undoes the cooldown the settlement just started (issue #1140); a new
+## declaration after that peace starts its own clock again, so the stale
+## settlement cannot waive a fresh front's cooldown.
 func war_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 	var key: String = pair_key(a, b)
-	if not last_war_turn.has(key):
+	var from_turn: int = -1
+	if last_war_turn.has(key):
+		from_turn = int(last_war_turn[key])
+	if last_truce_turn.has(key):
+		from_turn = maxi(from_turn, int(last_truce_turn[key]))
+	if from_turn < 0:
 		return false
-	return turn - int(last_war_turn[key]) < cooldown
+	return turn - from_turn < cooldown
 
 
 func note_overture(a: int, b: int, turn: int) -> void:
