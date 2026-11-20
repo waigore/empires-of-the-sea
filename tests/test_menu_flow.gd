@@ -147,6 +147,74 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 		assert_eq(home.province, screen.capital_province, "Home Army holds the seat")
 
 
+## Every rival's temperament is chosen on the new-game screen, fixed for the run
+## and carried into the session and the save (wiki: ai-profile-overrides
+## § Design intent; ai-parameter-registry § Seed profiles — "a small blessed set
+## … for new-game AI slot overrides").
+func test_setup_binds_a_temperament_to_each_rival() -> void:
+	var menu: MainMenu = main.current_page
+	menu.new_game_button.emit_signal("pressed")
+	var setup: GameSetupScreen = main.current_page as GameSetupScreen
+	assert_not_null(setup, "setup opens")
+	if setup == null:
+		return
+	# One chooser per rival; the player's own crown is no AI slot.
+	var rivals: int = FactionCatalog.great_power_ids().size() - 1
+	assert_eq(setup._rival_options.size(), rivals, "one chooser per rival")
+	var human: int = int(setup.nation_option.get_item_id(setup.nation_option.selected))
+	assert_false(setup._rival_options.has(human), "the crown's own seat carries no temperament")
+	# Bind France the aggressive temperament through its own chooser.
+	var option: OptionButton = setup._rival_options.get(2, null)
+	assert_not_null(option, "France has a chooser")
+	if option == null:
+		return
+	var ids: Array[String] = AiProfile.ids()
+	var aggressive: int = ids.find(AiProfile.AGGRESSIVE)
+	option.select(aggressive)
+	option.item_selected.emit(aggressive)
+	# The row prints what the temperament shifts, and the summary names it.
+	var note: Label = setup._rival_notes.get(2, null)
+	assert_not_null(note, "the row keeps its note")
+	if note != null:
+		assert_eq(note.text, AiProfile.hint(AiProfile.AGGRESSIVE), "the effect is printed, not hovered")
+	assert_true(setup._summary.text.contains("France Aggressive"), "SET SAIL names the binding")
+	setup.size_option.select(0)
+	setup.seed_field.text = str(FLOW_SEED)
+	setup.start_button.emit_signal("pressed")
+	var page: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+	assert_not_null(page, "the capital-choice phase opens")
+	if page == null:
+		return
+	await get_tree().process_frame
+	page.confirm_button.emit_signal("pressed")
+	_pass_the_charge()
+	var screen: MapScreen = main.current_screen
+	assert_not_null(screen, "the map screen starts")
+	if screen == null:
+		return
+	var play: PlaySession = screen.play
+	assert_eq(String(play.ai_profiles.get(2, "")), AiProfile.AGGRESSIVE, "France plans aggressive")
+	assert_eq(String(play.ai_profiles.get(1, "")), AiProfile.NORMAL, "an untouched rival plans neutral")
+	assert_eq(
+		String(play.ai_profiles.get(play.player_faction, "")), AiProfile.NORMAL,
+		"the crown's own seat plans neutral"
+	)
+	assert_eq(
+		AiProfile.config(2, play.map_seed, play.ai_profiles).profile,
+		AiProfile.AGGRESSIVE,
+		"the court's config reads the binding"
+	)
+	# The campaign carries it: a load resumes the same rivals.
+	var save: Dictionary = SaveCodec.capture(play)
+	assert_eq(
+		String((save.get("session", {}) as Dictionary).get("ai_profiles", {}).get(2, "")),
+		AiProfile.AGGRESSIVE,
+		"the save carries the temperament"
+	)
+	assert_true(SaveCodec.restore(play, save, flow_world), "the save restores")
+	assert_eq(String(play.ai_profiles.get(2, "")), AiProfile.AGGRESSIVE, "a load resumes it")
+
+
 ## The chart's pick is the campaign's seat: home fleet, Home Army and fog all
 ## muster on the province the player chose, not the auto-choice one.
 func test_a_chosen_seat_reaches_the_campaign() -> void:

@@ -77,7 +77,7 @@ static func open(
 	court.market = market
 	court.kind = AiControl.court_kind(play, faction)
 	court.economy = play.ai.economy_for(faction)
-	court.config = AiBind.config(court.kind, faction, play.map_seed)
+	court.config = AiBind.config(court.kind, faction, play.map_seed, play.ai_profiles)
 	court.town_level = TownIndustry.best_level(play.world, faction)
 	MapPlayCivilianAi.seed(play, faction)
 	court.overseas = MapPlayEconomyAi._overseas(play, faction, court.economy)

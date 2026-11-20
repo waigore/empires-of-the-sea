@@ -204,6 +204,118 @@ func test_blessed_profiles_override_the_registry() -> void:
 	assert_false(bool(AiProfile.validate("bogus")["ok"]))
 	assert_eq(AiProfile.ids().size(), 3)
 
+
+func test_a_bound_temperament_reaches_the_courts_config() -> void:
+	# The new-game screen binds one blessed profile per rival. The roster covers
+	# every Great Power, trims the name it is handed, and drops one the catalog
+	# does not bless, so a stale map cannot invent a temperament (wiki:
+	# ai-profile-overrides § Resolution; ai-parameter-registry § Seed profiles).
+	var bound: Dictionary = AiProfile.roster({1: AiProfile.AGGRESSIVE, 2: "bogus"})
+	assert_eq(String(bound.get(1, "")), AiProfile.AGGRESSIVE)
+	assert_eq(String(bound.get(2, "")), AiProfile.NORMAL, "an unknown name plans neutral")
+	assert_eq(String(bound.get(5, "")), AiProfile.NORMAL, "an unbound crown plans neutral")
+	assert_eq(bound.size(), FactionCatalog.great_power_ids().size())
+	assert_eq(AiProfile.bound({1: " Economic "}, 1), AiProfile.ECONOMIC, "the name is trimmed")
+	assert_eq(String(AiProfile.from_saved({"3": AiProfile.ECONOMIC}).get(3, "")), AiProfile.ECONOMIC)
+	assert_eq(
+		AiProfile.config(1, 1500, {1: AiProfile.AGGRESSIVE}).parameter(
+			"diplomacy.war_relation_ceiling"
+		),
+		70,
+		"the bound profile raises that court's knob"
+	)
+	assert_eq(
+		AiProfile.config(1, 1500, {}).parameter("diplomacy.war_relation_ceiling"), 50,
+		"a run with no binding reads the registry"
+	)
+	assert_gt(
+		AiProfile.config(1, 1500, {1: AiProfile.AGGRESSIVE}).war_relation_ceiling(),
+		AiProfile.config(1, 1500, {}).war_relation_ceiling(),
+		"the same court, same agenda, declares on warmer neighbours"
+	)
+
+
+func test_every_profile_names_what_it_shifts() -> void:
+	# A profile a sheet can print must carry a name and one line of effect, and
+	# the words must not lie about the direction the numbers move (wiki:
+	# ai-profile-overrides; REQ-P5-05).
+	for id: String in AiProfile.ids():
+		assert_false(AiProfile.label(id).is_empty(), id)
+		assert_false(AiProfile.hint(id).is_empty(), id)
+	assert_eq(AiProfile.label("bogus"), "Normal", "an unknown id reads as the neutral profile")
+	assert_eq(AiProfile.hint("bogus"), AiProfile.hint(AiProfile.NORMAL))
+	assert_gt(
+		AiProfile.resolve("diplomacy.war_relation_ceiling", AiProfile.AGGRESSIVE),
+		AiParameterRegistry.default_of("diplomacy.war_relation_ceiling"),
+		"aggressive declares on warmer neighbours"
+	)
+	assert_lt(
+		AiProfile.resolve("diplomacy.war_declare_min_desire", AiProfile.AGGRESSIVE),
+		AiParameterRegistry.default_of("diplomacy.war_declare_min_desire"),
+		"aggressive declares sooner"
+	)
+	assert_gt(
+		AiProfile.resolve("economy.reserve_target", AiProfile.ECONOMIC),
+		AiParameterRegistry.default_of("economy.reserve_target"),
+		"economic banks more"
+	)
+	assert_gt(
+		AiProfile.resolve("civilian.improvement_weight", AiProfile.ECONOMIC),
+		AiParameterRegistry.default_of("civilian.improvement_weight"),
+		"economic raises more works"
+	)
+	assert_lt(
+		AiProfile.resolve("civilian.work_per_staff", AiProfile.ECONOMIC),
+		AiParameterRegistry.default_of("civilian.work_per_staff"),
+		"economic keeps more crews about them"
+	)
+
+
+## The map passes build their court's config through `AiBind`, so a bound
+## temperament reaches the live planners and not only the diplomacy turn; a
+## frozen baseline keeps the hill's own neutral planner (wiki:
+## ai-profile-overrides § Resolution).
+func test_the_bind_hands_a_live_court_its_temperament() -> void:
+	var bound: Variant = AiBind.config(
+		AiControl.KIND_SUBJECT, 2, 1500, {2: AiProfile.ECONOMIC}
+	)
+	assert_not_null(bound, "a submission court has a config")
+	if bound == null:
+		return
+	assert_eq(
+		String((bound as AiConfig).profile), AiProfile.ECONOMIC,
+		"the court plans on the profile the run bound"
+	)
+	var plain: Variant = AiBind.config(AiControl.KIND_SUBJECT, 2, 1500, {})
+	assert_eq(
+		String((plain as AiConfig).profile), AiProfile.NORMAL,
+		"a run with no binding reads the neutral profile"
+	)
+
+
+func test_the_bound_temperament_is_the_one_a_rival_turn_plans_on() -> void:
+	# One rival bound at creation plans on that profile; its neighbour, bound to
+	# nothing, plans neutral, and the trace names the profile each court read
+	# (wiki: ai-profile-overrides § Resolution; turn-trace-interpretation).
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(1, 2, 1)
+	var result: Dictionary = AiTurn.run(
+		state, AiFixture.world([2, 2, 2, 2, 1]), AiState.new(), 1,
+		FactionCatalog.PLAYER_FACTION, 1500,
+		{"regiments": {}, "ships": {}, "profiles": {2: AiProfile.AGGRESSIVE}}
+	)
+	assert_eq(
+		String(_record_for(result["trace"], 2).get("profile", "")),
+		AiProfile.AGGRESSIVE,
+		"the bound court plans aggressive"
+	)
+	assert_eq(
+		String(_record_for(result["trace"], 1).get("profile", "")),
+		AiProfile.NORMAL,
+		"an unbound court keeps the neutral profile"
+	)
+
 # --- from test_ai_personality.gd ---
 ## AI personalities and hidden agendas (wiki: ai-personalities, hidden-agendas).
 

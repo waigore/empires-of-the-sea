@@ -29,7 +29,7 @@ static func run(
 	var kind: String = AiControl.court_kind(play, faction)
 	if kind == AiControl.KIND_RANDOM:
 		return report
-	var config: Variant = AiBind.config(kind, faction, play.map_seed)
+	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ai_profiles)
 	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var want: int = (
 		int(overseas.get("used", 0)) + int(overseas.get("left_total", 0))

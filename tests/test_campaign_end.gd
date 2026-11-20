@@ -1011,6 +1011,32 @@ func test_saves_without_leaders_backfill_the_crown_roster() -> void:
 		)
 
 
+## The temperaments bound at creation ride the save (wiki: ai-profile-overrides —
+## the binding is fixed for the run): a rival comes back on the profile its run
+## bound, and a save from before the binding existed resumes every rival neutral.
+func test_bound_temperaments_survive_a_load() -> void:
+	var play: PlaySession = screen.play
+	play.ai_profiles = AiProfile.roster({2: AiProfile.AGGRESSIVE})
+	var data: Dictionary = SaveCodec.capture(play)
+	assert_eq(
+		String((data["session"] as Dictionary).get("ai_profiles", {}).get(2, "")),
+		AiProfile.AGGRESSIVE,
+		"the save carries the temperament"
+	)
+	play = _apply_codec_save(data)
+	assert_eq(String(play.ai_profiles.get(2, "")), AiProfile.AGGRESSIVE, "France resumes aggressive")
+	assert_eq(String(play.ai_profiles.get(1, "")), AiProfile.NORMAL, "England resumes neutral")
+	# A legacy save (no binding) resumes every rival on the neutral profile.
+	var legacy: Dictionary = SaveCodec.capture(screen.play)
+	(legacy["session"] as Dictionary).erase("ai_profiles")
+	play = _apply_codec_save(legacy)
+	for faction: int in FactionCatalog.great_power_ids():
+		assert_eq(
+			String(play.ai_profiles.get(faction, "")), AiProfile.NORMAL,
+			"crown %d resumes neutral" % faction
+		)
+
+
 ## The crown's watch over rival squadrons rides the save (wiki: ships-and-naval
 ## § Sighted strength): a read squadron stays read, a sighted one stays unread,
 ## and each chart's watch lands back on its own map.

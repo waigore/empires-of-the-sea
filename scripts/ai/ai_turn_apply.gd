@@ -127,7 +127,9 @@ static func peace_answer(
 		return DiplomacyRules.DECISION_AUTO
 	if ai_state == null:
 		return DiplomacyRules.DECISION_AUTO
-	var config: AiConfig = AiConfig.build(target, game_seed)
+	var config: AiConfig = AiProfile.config(
+		target, game_seed, shared.get("profiles", {})
+	)
 	var agenda: String = ai_state.agenda_for(config)
 	if agenda != config.agenda:
 		# A run keeps the agenda it rolled (or a fixture fixed); the answer must

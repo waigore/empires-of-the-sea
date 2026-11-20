@@ -24,6 +24,11 @@ static func run(
 	var messages: Array[String] = []
 	var shared: Dictionary = AiTurnRead.context(world, context, player)
 	AiTurnRead.stamp_ledgers(shared, ai_state, player)
+	# The temperaments bound at creation ride the shared read, so the answering
+	# court (AiTurnApply.peace_answer) plans on the same profile as the court
+	# that offered (wiki: ai-profile-overrides).
+	var profiles: Dictionary = context.get("profiles", {})
+	shared["profiles"] = profiles
 	# Optional observer gate: when `planning` is present, only listed crowns
 	# issue orders; others append a noop trace row (docs/ai-observer.md).
 	var gated: bool = context.has("planning")
@@ -31,7 +36,7 @@ static func run(
 	for faction: int in FactionCatalog.great_power_ids():
 		if faction == player:
 			continue
-		var config: AiConfig = AiConfig.build(faction, game_seed)
+		var config: AiConfig = AiProfile.config(faction, game_seed, profiles)
 		var agenda: String = ai_state.agenda_for(config)
 		if gated and not planning.has(faction):
 			trace.append(_noop(faction, config, agenda))

@@ -14,10 +14,15 @@ static func _baseline(kind: String) -> bool:
 	)
 
 
-static func config(kind: String, faction: int, game_seed: int) -> Variant:
+## One court's config: the submission surface plans on the temperament bound to
+## that rival at creation (`profiles`), while a frozen baseline keeps the
+## published neutral planner the hill scored (wiki: ai-profile-overrides).
+static func config(
+	kind: String, faction: int, game_seed: int, profiles: Dictionary = {}
+) -> Variant:
 	if _baseline(kind):
 		return _ml("ai_config.gd", "build", [faction, game_seed])
-	return AiConfig.build(faction, game_seed)
+	return AiProfile.config(faction, game_seed, profiles)
 
 
 static func phase_for(kind: String, config: Variant, diplomacy: DiplomacyState) -> String:
