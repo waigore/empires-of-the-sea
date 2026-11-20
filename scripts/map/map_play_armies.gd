@@ -65,7 +65,11 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 		pick = MapPlayArmyPick.line(play, army)
 	play.hud.panels.show_army(
 		play.model, army, is_player, can_merge(play, army), command, muster, embark,
-		play.battle_plan, hospital, pick
+		play.battle_plan, hospital, pick,
+		# The yard's own claim: the line this court's muster would raise, printed
+		# in the drill yard the crown musters from (DR-20261121-03). A rival
+		# answers to her own court, and the yard draws no rows for her anyway.
+		MapPlayMusterPick.line(play, army) if is_player else ""
 	)
 
 

@@ -2474,6 +2474,14 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The drill yard's own pick (DR-20261121-03): the line the published muster would
+# raise at the seat, read through the plan the rival pass books its regiment from.
+# Its suite is the army orders suite, where the yard's rows and the muster's gates
+# are proved, so it rides the land pick's domain rather than a new fan-out.
+[[rules]]
+match = "scripts/map/map_play_muster_pick*.gd*"
+domain = "land_pick"
+
 # The court's own research pick (DR-20261121-01): the advance the published
 # research policy would open in the crown's first free slot, read on its own
 # college through `MapPlayEconomyCourtBook.door`. Its suite is the research
