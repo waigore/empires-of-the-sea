@@ -153,12 +153,15 @@ static func war_block(
 			and not outmatches(config.faction, target, context):
 		return "overstretched: no third front"
 	# The re-declaration brake (issue #975): a court honors the truce its own
-	# bought peace left — no new crown war on a pair still inside it, so the
-	# peace lasts long enough to matter and the press cannot spend the 4-turn
-	# war cooldown re-fighting the war it just signed away. Minor and Tribe
-	# wars are colonial business and stay legal.
-	if crown and AiWarMemory.truce(config, ai_state, turn, config.faction, target) > 0:
-		return "the pair's truce holds: no new crown war yet"
+	# bought peace left — no new war on a pair still inside it, so the peace
+	# lasts long enough to matter and the press cannot spend the 4-turn war
+	# cooldown re-fighting the war it just signed away. Crown pairs read the
+	# same truce the desire penalty carries (#511); a Minor or Tribe pair holds
+	# it too — churned peace → war on the same minor target spends the court's
+	# one diplomacy order twice for nothing (issue #1140) — so only the
+	# re-declaration inside the truce window is blocked, nothing else.
+	if AiWarMemory.truce(config, ai_state, turn, config.faction, target) > 0:
+		return "the pair's truce holds: no new war yet"
 	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
 	if ai_state.war_on_cooldown(config.faction, target, turn, cooldown):
 		return "war cooldown"

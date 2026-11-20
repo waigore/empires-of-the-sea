@@ -19,7 +19,6 @@ const MARGIN: float = 12.0
 ## A wide chart gives the sheet a column; a phone gives it the screen.
 const WIDE_WIDTH: float = 380.0
 const DEFENCE_CAPTION: String = "DEFENCE"
-const CLOSE_TEXT: String = "Close"
 
 var frame: PanelContainer = null
 var head: ProvinceSheetHead = null
@@ -75,6 +74,13 @@ func _build() -> void:
 
 	head = ProvinceSheetHead.new()
 	_column.add_child(head)
+	# The shared seal is the sheet's one close door, in the head's right slot
+	# (docs/ui-panels.md).
+	close_button = head.close
+	head.close_pressed.connect(func() -> void:
+		clear()
+		closed.emit()
+	)
 	# The observatory reads one province, not a crown's realm: the door to the
 	# whole holding belongs to the human dossier, so the sheet keeps no press.
 	head.realm_button.visible = false
@@ -97,19 +103,6 @@ func _build() -> void:
 
 	estates = ProvinceResources.new()
 	_column.add_child(estates)
-
-	var footer := HBoxContainer.new()
-	shell.add_child(footer)
-	close_button = Button.new()
-	close_button.text = CLOSE_TEXT
-	close_button.custom_minimum_size = Vector2(0, 40)
-	close_button.add_theme_font_size_override("font_size", 15)
-	close_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	close_button.pressed.connect(func() -> void:
-		clear()
-		closed.emit()
-	)
-	footer.add_child(close_button)
 
 
 func _caption(text: String, ink: Color, size: int) -> Label:

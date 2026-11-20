@@ -176,9 +176,7 @@ func _header() -> Control:
 	_stamp = GazetteParts.label("", 12, INK_SOFT, true)
 	column.add_child(_stamp)
 	row.add_child(column)
-	var close_door := Button.new()
-	close_door.text = "Close"
-	close_door.tooltip_text = "Close the sheet"
+	var close_door := CloseSeal.make("Close the sheet")
 	close_door.pressed.connect(dismiss)
 	row.add_child(close_door)
 	return row

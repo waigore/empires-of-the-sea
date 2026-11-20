@@ -844,6 +844,46 @@ domain = "muster"
 match = "tests/test_ledgers.gd*"
 domain = "muster"
 
+# The realm's by-hand shot harness (issue #1164): one plate per view, run on a
+# real GL context, drawn off the same projected rows the sheet prints. It rides
+# the muster domain beside the ledger suites so a shot-only edit never pulls the
+# map and ui catch-alls.
+[[rules]]
+match = "tests/realm_shot.gd*"
+domain = "muster"
+
+# The realm's three readings: the economy, defence and connectivity figures a
+# province row carries, read off the estates ledger, the battle's own terrain
+# table, the fort table and the market's sell price.
+[[rules]]
+match = "scripts/rules/realm_readings.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/rules/province_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/province_ledger_*.gd*"
+domain = "muster"
+
+# The chart pill on the map's own corner, its build and its layout.
+[[rules]]
+match = "scripts/ui/map_region_toggle.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/top_bar.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/hud_ledger_doors.gd*"
+domain = "muster"
+
+[[rules]]
+match = "playtests/playtest_raise_line.gd*"
+domain = "muster"
+
 # The crown's command ledger (DR-20261115-11): the projection, its row and
 # panel, the map hook and the army dossier's door. It rides the muster domain
 # with the other sheets — one chrome, one modal layer — so a reading change
@@ -1948,11 +1988,11 @@ match = "gd-tools.toml"
 domain = "misc"
 
 # Map edits are exercised by the selection script in CI (--check-complete).
-# One light suite only: an impact-map edit must not union ai/fleet/naval boots
-# past the tier-1 5 min budget when it lands beside a call-site remap.
+# One light suite only: an impact-map edit is inert, so it must never union
+# ai/fleet/naval boots past the tier-1 5 min budget beside a call-site remap.
 [domains.impact_map]
 suites = [
-  "test_ai_rules.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 # Folded micro-suites still appear as deletions in the PR diff. Map those names
@@ -3934,6 +3974,20 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+# The one close seal every dismissible panel wears (docs/ui-panels.md): its
+# chrome cases and the panels that mount it live in the panel-parts boot, so a
+# seal change never pulls the menu catch-all's setup and hub suites.
+[[rules]]
+match = "scripts/ui/close_seal.gd*"
+domain = "ui"
+
+# The observatory's province sheet wears the same close seal as the crown's
+# dossier: the panel-parts boot mounts it, so a chrome edit stays off the AI
+# observer's planner fan-out. Its reading lives in `scripts/map/observer_province.gd`.
+[[rules]]
+match = "scripts/ui/observer_province_sheet.gd*"
+domain = "ui"
 
 # The observatory's province reading: the panel's own suites prove the sheet and
 # the words it prints (docs/ai-observer.md).
