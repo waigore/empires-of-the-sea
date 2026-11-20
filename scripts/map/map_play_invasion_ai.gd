@@ -231,7 +231,7 @@ static func _refresh_visible(play: PlaySession) -> void:
 		if selected != null and play.army_layer.armies.has(selected):
 			play.army_layer.select(selected)
 	if play.hud != null:
-		play.hud.set_fleets(MapPlayCourt.ships(play, play.player_faction))
+		play.hud.stats.set_fleets(MapPlayCourt.ships(play, play.player_faction))
 
 
 static func _store(play: PlaySession, region: int, fleets: Array, armies: Array) -> void:

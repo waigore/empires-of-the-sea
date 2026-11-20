@@ -236,14 +236,7 @@ static func invadable(
 	state: DiplomacyState, attacker: int, target: int,
 	model: MapModel = null, province: int = -1
 ) -> bool:
-	if attacker == target:
-		return false
-	if FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE:
-		if not at_war_with(state, attacker, target) \
-				and DeedProtection.invested_in_province(model, province, attacker):
-			return false
-		return true
-	return at_war_with(state, attacker, target)
+	return bool(InvasionBar.read(state, attacker, target, model, province).get("ok", false))
 
 
 static func provinces_owned(world: WorldMap, faction: int) -> int:

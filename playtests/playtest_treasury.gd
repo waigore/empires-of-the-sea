@@ -238,8 +238,8 @@ func _find_open_study(node: Node) -> Button:
 
 func _chip_line() -> String:
 	return "%s / %s — tooltip \"%s\"" % [
-		_play.hud._treasury_label.text, _play.hud._income_label.text,
-		_play.hud._treasury_chip.tooltip_text,
+		_play.hud.stats.treasury_label.text, _play.hud.stats.income_label.text,
+		_play.hud.stats.treasury_chip.tooltip_text,
 	]
 
 
@@ -429,10 +429,10 @@ func _sellable(rows: Array[Dictionary]) -> Array[Dictionary]:
 
 
 func _last_toast() -> String:
-	if _play.hud._toast_box == null:
+	if _play.hud.despatches.box == null:
 		return "none"
 	var labels: PackedStringArray = PackedStringArray()
-	_collect(_play.hud._toast_box, labels)
+	_collect(_play.hud.despatches.box, labels)
 	return labels[labels.size() - 1] if not labels.is_empty() else "none"
 
 

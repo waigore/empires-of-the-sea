@@ -1849,7 +1849,7 @@ func test_a_raid_on_the_crown_names_the_raider_the_cargo_and_the_hulls() -> void
 	}
 	assert_eq(
 		BattleReport.describe_raid(raid, "Mar Caribe", FACTIONS, 0),
-		"England seize 5 cargo (3 grain, 2 timber) off the Mar Caribe — no hull lost"
+		"England seizes 5 cargo (3 grain, 2 timber) off the Mar Caribe — no hull lost"
 	)
 
 
@@ -1865,7 +1865,7 @@ func test_a_raid_despatch_names_the_merchant_it_sank() -> void:
 	}
 	assert_eq(
 		BattleReport.describe_raid(incoming, "Mar Caribe", FACTIONS, 0),
-		"England seize 3 grain off the Mar Caribe and sink the Fluyte Vrouw Maria"
+		"England seizes 3 grain off the Mar Caribe and sinks the Fluyte Vrouw Maria"
 	)
 	var prize: Dictionary = {
 		"kind": "prize", "raider": 0, "victim": 2,

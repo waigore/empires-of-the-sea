@@ -427,7 +427,7 @@ func _tips(row: Dictionary) -> String:
 ## The turn's own summary line from the toast box (LedgerReportText.turn_summary).
 func _toast_line() -> String:
 	var labels: PackedStringArray = PackedStringArray()
-	SaveDrive.collect_text(_play.hud._toast_box, "", labels)
+	SaveDrive.collect_text(_play.hud.despatches.box, "", labels)
 	var best: String = ""
 	for text: String in labels:
 		if text.contains("gathered") or text.contains("researched") \

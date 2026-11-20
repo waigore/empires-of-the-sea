@@ -55,15 +55,6 @@ var stats: HudStatChips = null
 ## The court's despatch lane: toast plates, their queue and the lane's geometry
 ## (REQ-P5-05, REQ-P5-06). HudChrome mounts it.
 var despatches: HudDespatches = null
-## The despatch column, read-only: HudDespatches owns it. The playtest drives
-## count plates here, so the lane keeps one handle while the board moves.
-var _toast_box: VBoxContainer:
-	get:
-		return despatches.lane if despatches != null else null
-## News held behind a battle plate, read-only, oldest first (REQ-P5-06).
-var _toast_queue: PackedStringArray:
-	get:
-		return despatches.waiting() if despatches != null else PackedStringArray()
 ## Survey key, shown only while a lens is on.
 var lens_legend: LensLegend = null
 ## Auto mode's chrome and pacing driver: the seal, the AUTO badge, the speed
@@ -159,38 +150,6 @@ var _naval_queue: Array[Dictionary]:
 var _nation_label: Label = null
 var _region_button: Button = null
 var _region_label: Label = null
-## Read-only views of HudStatChips' plaques for drives and suites that still
-## reach them through the HUD (REQ-P1-02).
-var _treasury_label: Label:
-	get:
-		return stats.treasury_label if stats != null else null
-var _income_label: Label:
-	get:
-		return stats.income_label if stats != null else null
-var _fleet_label: Label:
-	get:
-		return stats.fleet_label if stats != null else null
-var _civilian_label: Label:
-	get:
-		return stats.civilian_label if stats != null else null
-var _army_label: Label:
-	get:
-		return stats.army_label if stats != null else null
-var _treasury_chip: Button:
-	get:
-		return stats.treasury_chip if stats != null else null
-var _fleet_chip: Button:
-	get:
-		return stats.fleet_chip if stats != null else null
-var _civilian_chip: Button:
-	get:
-		return stats.civilian_chip if stats != null else null
-var _army_chip: Button:
-	get:
-		return stats.army_chip if stats != null else null
-var _treasury_value: int:
-	get:
-		return stats._treasury_value if stats != null else 0
 var _minimap: Minimap = null
 var _panel_wrap: Control = null
 var _panel: ProvincePanel = null
@@ -296,30 +255,9 @@ func show_naval_dispatch(battle: Dictionary, zone: String) -> void:
 	plates.show_sea(battle, zone, FactionCatalog.names())
 
 
-## Status plaques: the values, tooltips and tweens are HudStatChips' (REQ-P1-02).
-func set_treasury(value: int, animate: bool = true) -> void:
-	stats.set_treasury(value, animate)
-
-
-func set_income(value: int) -> void:
-	stats.set_income(value)
-
-
-func set_fleets(value: int) -> void:
-	stats.set_fleets(value)
-
-
-func set_civilians(value: int) -> void:
-	stats.set_civilians(value)
-
-
-func set_armies(value: int) -> void:
-	stats.set_armies(value)
-
-
-func flash_income(amount: int) -> void:
-	stats.flash_income(amount)
-
+## Status plaques: their values, tooltips and tweens are HudStatChips' (REQ-P1-02).
+## Callers reach the chips through `hud.stats`; the HUD keeps no forwarding copy
+## of each reading (REQ-P3-01).
 
 ## Campaign decided: raise the plate and shut the end-turn seal for good
 ## (wiki: victory § Victory Screen).

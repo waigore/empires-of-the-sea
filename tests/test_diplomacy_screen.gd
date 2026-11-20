@@ -59,11 +59,11 @@ func test_map_screen_starts_with_a_relation_web() -> void:
 
 
 func test_court_panel_opens_and_closes() -> void:
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 	MapPlayDiplomacy.open(_screen.play)
 	assert_true(_screen.hud.panels.is_diplomacy_open())
 	assert_false(_screen.hud.panels.is_panel_open())
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before)
 	DiplomacyHud.hide(_screen.hud.panels)
 	assert_false(_screen.hud.panels.is_diplomacy_open())
 
@@ -137,10 +137,10 @@ func test_the_rival_pass_stamps_the_conquest_gap_frontier() -> void:
 
 func test_orders_from_the_court_change_relations_and_toast() -> void:
 	MapPlayDiplomacy.open(_screen.play)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_WAR, 1, "")
 	assert_true(_screen.play.diplomacy.relation(0, 1).at_war)
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 1)
 	assert_true(_screen.hud.panels.is_diplomacy_open())
 	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_PEACE, 1, "")
 	assert_false(_screen.play.diplomacy.relation(0, 1).at_war)
@@ -152,7 +152,7 @@ func test_grant_aid_spends_treasury_and_refreshes_the_chip() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	MapPlayDiplomacy.on_order(_screen.play, DiplomacyOrders.KIND_AID, 1, "1000")
 	assert_eq(economy.treasury, before - 1000)
-	assert_eq(_screen.hud._treasury_value, economy.treasury)
+	assert_eq(_screen.hud.stats._treasury_value, economy.treasury)
 	assert_eq(_screen.play.diplomacy.relation(0, 1).score, 55.0)
 
 
@@ -203,17 +203,43 @@ func test_a_march_into_foreign_land_needs_a_declared_war() -> void:
 
 	_screen.play.army_layer.select(army)
 	MapPlayArmies.select(_screen.play, army)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 	var tile: Vector2i = _screen.play.model.province_data(target).tiles[0]
 	assert_true(MapPlayArmies.try_order(_screen.play, tile))
 	assert_eq(army.province, origin, "peace refuses the invasion")
-	assert_eq(_screen.hud._toast_box.get_child_count(), toasts_before + 1)
+	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts_before + 1)
 
 	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, owner)
 	_screen.play.army_layer.select(army)
 	MapPlayArmies.select(_screen.play, army)
 	assert_true(MapPlayArmies.try_order(_screen.play, tile))
 	assert_eq(army.province, target, "war lets the same march through")
+
+
+## A Tribe's shore another crown has bought land in is barred by that deed, so
+## the refusal names the crown instead of blaming a peace the crown may not be
+## under (wiki: factions § Tribe — "unless another GP has invested in the
+## province"; DR-20261120-05; REQ-P5-05).
+func test_the_march_into_a_tribes_bought_land_names_the_deed() -> void:
+	var model: MapModel = _screen.play.model
+	var tribe: int = 9
+	var bought: ProvinceState = model.provinces[0]
+	bought.owner = tribe
+	_screen.play.diplomacy.ensure_relation(0, tribe)
+	assert_true(model.purchase_tile(bought.tiles[0], 1), "a rival's deed")
+	var fallback: String = "Peace holds with the Aztec; declare war before invading."
+	assert_eq(
+		MapPlayArmies.refusal(_screen.play, bought.id, fallback),
+		"Deeds in %s bar an undeclared march — %s has bought land there; declare war before invading."
+		% [model.province_name(bought.id), FactionCatalog.name_of(1)]
+	)
+	var bare: ProvinceState = model.provinces[1]
+	bare.owner = tribe
+	assert_eq(
+		MapPlayArmies.refusal(_screen.play, bare.id, fallback),
+		fallback,
+		"no deed, the order's own words"
+	)
 
 
 func test_join_empire_takes_the_absorbed_crowns_regiments() -> void:
@@ -393,7 +419,7 @@ func test_consent_and_ai_extracts_keep_their_own_doors() -> void:
 ## Toasts that name `needle`.
 func _news_about(needle: String) -> int:
 	var total: int = 0
-	for child: Node in _screen.hud._toast_box.get_children():
+	for child: Node in _screen.hud.despatches.box.get_children():
 		for node: Node in child.get_children():
 			if node is Label and (node as Label).text.contains(needle):
 				total += 1

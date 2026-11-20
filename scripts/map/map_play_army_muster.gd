@@ -111,7 +111,7 @@ static func dismiss(play: PlaySession, army: ArmyState, ids: Array[String]) -> v
 		play.hud.toast(String(result.get("reason", "The regiments stay.")))
 		MapPlayArmies.show_panel(play, army)
 		return
-	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
+	play.hud.stats.set_armies(play.army_layer.regiment_count_all(play.player_faction))
 	var count: int = int(result.get("count", 0))
 	var peasants: int = int(result.get("peasants", 0))
 	var line: String = (

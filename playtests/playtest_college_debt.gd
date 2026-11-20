@@ -427,8 +427,8 @@ func _next_label(row: Node) -> Label:
 
 func _chip_line() -> String:
 	return "%s / %s — tooltip \"%s\"" % [
-		_play.hud._treasury_label.text, _play.hud._income_label.text,
-		_play.hud._treasury_chip.tooltip_text,
+		_play.hud.stats.treasury_label.text, _play.hud.stats.income_label.text,
+		_play.hud.stats.treasury_chip.tooltip_text,
 	]
 
 
@@ -458,10 +458,10 @@ func _ledger_summary() -> String:
 ## turn's news is read as the court reads it (the lane stacks plates).
 func _toasts() -> Array[String]:
 	var out: Array[String] = []
-	if _play.hud._toast_box == null:
+	if _play.hud.despatches.box == null:
 		return out
 	var labels: PackedStringArray = PackedStringArray()
-	_collect(_play.hud._toast_box, labels)
+	_collect(_play.hud.despatches.box, labels)
 	for text: String in labels:
 		out.append(text)
 	return out

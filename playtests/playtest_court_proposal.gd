@@ -399,10 +399,10 @@ func _collect_buttons(node: Node, into: Array[Button]) -> void:
 
 
 func _toast() -> String:
-	if _play == null or _play.hud == null or _play.hud._toast_box == null:
+	if _play == null or _play.hud == null or _play.hud.despatches.box == null:
 		return "none"
 	var parts: PackedStringArray = []
-	_collect_labels(_play.hud._toast_box, parts)
+	_collect_labels(_play.hud.despatches.box, parts)
 	return parts[parts.size() - 1] if not parts.is_empty() else "none"
 
 
