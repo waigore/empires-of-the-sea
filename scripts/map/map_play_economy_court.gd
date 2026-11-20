@@ -225,8 +225,15 @@ func apply_turn() -> Dictionary:
 	# The muster hand reservation keeps `army.min_peasants` + the levy's own
 	# hand in the fields while the muster is legal and funded (issue #807).
 	# The baseline planner has no reading, so its rivals keep the old throttle.
+	# The slip's hand rides beside it: a chest banking for a hull the yard opens
+	# keeps one peasant back, and hires one when the pool has none, so the
+	# funded hull is never left without a crew (issue #1126).
+	var navy_hand: int = (
+		AiNavy.hands(economy, MapPlayCourt.hull_types(play, faction), hull_chest)
+		if kind != AiControl.KIND_BASELINE else 0
+	)
 	var hands: int = (
-		AiArmyReinforce.muster_hands(config, economy, regiments, at_war)
+		AiArmyReinforce.muster_hands(config, economy, regiments, at_war) + navy_hand
 		if kind != AiControl.KIND_BASELINE else 0
 	)
 	# The harvest, not just the pantry, carries the mouth (DR-20261116-14 reads
@@ -241,7 +248,8 @@ func apply_turn() -> Dictionary:
 	# muster's own ration gate plans with.
 	var recruits: Array[Dictionary] = AiBindEconomy.recruitment_orders(
 		kind, config, economy, floor, fed, hands, conquest_bank,
-		int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2
+		int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2,
+		navy_hand > 0
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))

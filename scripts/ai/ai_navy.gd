@@ -76,6 +76,67 @@ static func price(economy: PlayerEconomy, flown: Array = []) -> int:
 	return 0 if type_id.is_empty() else ShipEconomy.treasury_cost(type_id)
 
 
+## The hull the yard would lay down today, or the gate that refuses it: the
+## strongest warship the court's techs open (or it already flies) whose treasury
+## row, material row and one free peasant the yard can pay. `type_id` empty means
+## the yard refuses, and `reason` is the gate's own words for the cheapest hull
+## the court's techs open — the one its chest is saved toward. The ledger, the
+## cargo pass and the turn trace read this one gate, so a funded claim and the
+## yard's refusal can never disagree (issue #1126).
+static func laying(economy: PlayerEconomy, flown: Array = []) -> Dictionary:
+	if economy == null:
+		return {"type_id": "", "reason": "There is no court to pay for her."}
+	var best: String = ""
+	var best_strength: float = 0.0
+	var refusal: String = ""
+	var peasants: int = economy.available_peasants()
+	for raw: Variant in ShipEconomy.ENTRIES.keys():
+		var type_id: String = String(raw)
+		if not ShipStats.is_warship(type_id):
+			continue
+		var reason: String = ShipEconomy.blocked_reason(
+			type_id, economy.treasury, economy.stockpile, peasants,
+			economy.tech_unlocked, flown
+		)
+		if not reason.is_empty():
+			# The cheapest hull the techs open is the one the chest is saved
+			# toward, so its refusal is the gate the court is waiting on.
+			if refusal.is_empty() and ShipEconomy.buildable(
+				type_id, economy.tech_unlocked, flown
+			):
+				refusal = reason
+			continue
+		var strength: float = ShipStats.strength(type_id)
+		if best.is_empty() or strength > best_strength:
+			best = type_id
+			best_strength = strength
+	if not best.is_empty():
+		return {"type_id": best, "reason": ""}
+	return {
+		"type_id": "",
+		"reason": refusal if not refusal.is_empty() else "no warship its techs open",
+	}
+
+
+## The hand the yard keeps for the hull the court's chest is banking for: one
+## peasant while that chest is due and the material row is already in store
+## (issue #1126). The economy's hire gate reads it beside the muster's, so the
+## court neither trains its last peasant away from the slip nor fills a chest it
+## cannot crew (wiki: ships-and-naval § Ship muster — one peasant leaves the
+## pool at launch).
+static func hands(economy: PlayerEconomy, flown: Array, chest: int) -> int:
+	if chest <= 0 or economy == null:
+		return 0
+	var type_id: String = saving_type(economy, flown)
+	if type_id.is_empty():
+		return 0
+	if not ShipEconomy.buildable(type_id, economy.tech_unlocked, flown):
+		return 0
+	if not ShipEconomy.missing_inputs(type_id, economy.stockpile).is_empty():
+		return 0
+	return ShipEconomy.WORKER_COST
+
+
 ## Cheapest warship by treasury cost. When `must_buildable` is set, only types
 ## the court's techs open or that it already flies; otherwise every catalog
 ## warship is a candidate.
