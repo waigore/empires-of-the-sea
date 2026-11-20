@@ -7,10 +7,10 @@ extends RefCounted
 ##
 ## A raid is a commerce raid: it pinches **cargo** and may send one **merchant
 ## hull** to the bottom, never a warship and never a hull on the raider's own
-## side (DR-20261111-17). The hull term lives in [NavalHullLoss]; this module
-## owns the raid itself. The crown raids back the same way: [method
-## resolve_prizes] takes a rival's cargo and merchant hulls as prize. Which
-## squadrons work a station is [NavalStation]'s reading.
+## side (DR-20261111-17). The hull term lives in [NavalHullLoss]; which
+## squadrons work a coast is [NavalStation]'s reading (`coast_zones`,
+## `hostile_groups`). This module owns the roll, the skim and the prize walk
+## (REQ-P3-01).
 
 const BLOCKADE_BONUS: float = 1.25
 const MIN_EFFICIENCY: float = 0.3
@@ -173,9 +173,8 @@ static func _raid(
 	hull_roll: float,
 	weigh_together: bool = false
 ) -> Dictionary:
-	var relevant: Array[int] = _relevant_zones(model, victim)
-	var groups: Dictionary = _raider_groups(
-		model, fleets, victim, relevant, hostile, only_owner
+	var groups: Dictionary = NavalStation.hostile_groups(
+		model, fleets, victim, hostile, only_owner
 	)
 	var keys: Array[Vector2i] = []
 	for raw: Variant in groups.keys():
@@ -324,51 +323,9 @@ static func total_of(cargo: Dictionary) -> int:
 	return total
 
 
-## Every sea zone bordering a coast the victim still holds.
-static func _relevant_zones(model: MapModel, victim: int) -> Array[int]:
-	var zones: Array[int] = []
-	for province: ProvinceState in model.provinces:
-		if province.owner != victim:
-			continue
-		for zone: int in NavalMovement.province_sea_zones(model, province.id):
-			if not zones.has(zone):
-				zones.append(zone)
-	zones.sort()
-	return zones
-
-
-## At-sea patrol/blockade groups, one group per sea zone in the victim's waters:
-## a squadron is judged in its own zone, never pooled with a blockade or patrol
-## working another coast (DR-20261109-16). `only_owner` keeps a prize raid to the
-## crown's own colours.
-static func _raider_groups(
-	model: MapModel,
-	fleets: Array,
-	victim: int,
-	relevant: Array[int],
-	hostile: Callable,
-	only_owner: int = -1
-) -> Dictionary:
-	var groups: Dictionary = {}
-	for fleet: FleetState in fleets:
-		if fleet == null or fleet.owner == victim or not fleet.is_at_sea():
-			continue
-		if only_owner >= 0 and fleet.owner != only_owner:
-			continue
-		if not fleet.is_afloat() or not relevant.has(fleet.sea_zone):
-			continue
-		if not Hostility.between(hostile, fleet.owner, victim):
-			continue
-		if not NavalStation.works(model, fleet, hostile):
-			continue
-		if not groups.has(Vector2i(fleet.sea_zone, fleet.owner)):
-			groups[Vector2i(fleet.sea_zone, fleet.owner)] = []
-		var group: Array = groups[Vector2i(fleet.sea_zone, fleet.owner)]
-		group.append(fleet)
-	return groups
-
-
-## Σ HULL over a group's hulls: the raider side of the efficiency term.
+## Σ HULL over a group's hulls: the raider side of the efficiency term. Same
+## published hull pool [NavalStrength] totals, so a raid never prices a weight
+## the dossier would not print (REQ-P2-03).
 static func _group_strength(group: Array) -> float:
 	var total: float = 0.0
 	for fleet: FleetState in group:
@@ -377,10 +334,9 @@ static func _group_strength(group: Array) -> float:
 
 
 static func _hull_strength(home: FleetState) -> float:
-	var total: float = 0.0
-	for hull_id: String in home.hulls:
-		total += float(ShipStats.entry(home.type_of(hull_id)).get("hull", 0))
-	return total
+	if home == null:
+		return 0.0
+	return float(NavalStrength.squadron(home)["totals"].get("hull", 0))
 
 
 static func _nothing(reason: String, victim: int) -> Dictionary:

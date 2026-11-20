@@ -1781,8 +1781,9 @@ func test_a_defending_squadron_does_not_intercept() -> void:
 
 ## One station reading for the whole water: the combat pass rolls the holders,
 ## the trade pass raids with the squadrons whose orders work the station, and a
-## water of bystanders holds no station at all. The dossier, the catch and the
-## prize all read this module (DR-20261120-01, DR-20261120-02).
+## water of bystanders holds no station at all. The coast a raid works and the
+## hostile groups off it live here too, so the dossier, the catch and the prize
+## all read one home (DR-20261120-01, DR-20261120-02; REQ-P3-01).
 func test_one_station_reading_serves_the_catch_and_the_prize() -> void:
 	_setup_naval_raid()
 	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
@@ -1809,6 +1810,27 @@ func test_one_station_reading_serves_the_catch_and_the_prize() -> void:
 	# A fleet at sea stands on her own when the roster holds no consort.
 	assert_eq(NavalStation.group_of(_naval_raid_model, water, patrol).size(), 1)
 	assert_eq(NavalStation.group_of(_naval_raid_model, water, null).size(), 0)
+	# The coast a trade raid works: Coro's waters (zone 1) and only those.
+	var coasts: Array[int] = NavalStation.coast_zones(_naval_raid_model, 1)
+	assert_true(coasts.has(1), "Coro's coast opens zone 1")
+	assert_false(coasts.has(0), "Cádiz's sea is not Coro's coast")
+	# Hostile stations off that coast: a Patrol works it; a Defend does not;
+	# only_owner keeps a prize raid to one crown's colours.
+	var foe := _naval_raid_fleet(3, 2, 1, ["frigate"])
+	foe.mission = FleetState.Mission.PATROL
+	var off_coast: Array = [patrol, sailing, foe]
+	var groups: Dictionary = NavalStation.hostile_groups(
+		_naval_raid_model, off_coast, 1, Callable()
+	)
+	assert_eq(groups.size(), 2, "two crowns hold stations off Coro")
+	assert_true(groups.has(Vector2i(1, 0)), "owner 0's patrol works the coast")
+	assert_true(groups.has(Vector2i(1, 2)), "owner 2's patrol works the coast")
+	assert_eq((groups[Vector2i(1, 0)] as Array).size(), 1, "Defend is no station")
+	var prize_only: Dictionary = NavalStation.hostile_groups(
+		_naval_raid_model, off_coast, 1, Callable(), 2
+	)
+	assert_eq(prize_only.size(), 1, "a prize raid keeps the crown's own colours")
+	assert_true(prize_only.has(Vector2i(1, 2)))
 	# A doomed blockade (its coast taken back) works nothing.
 	patrol.mission = FleetState.Mission.BLOCKADE
 	patrol.blockade_province = 1
