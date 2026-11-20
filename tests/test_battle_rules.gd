@@ -10265,11 +10265,11 @@ func test_a_reserve_adds_no_strength_to_the_outcome() -> void:
 		"a state with no dealt line keeps the older read"
 	)
 	assert_eq(
-		QuickBattleActions.line_standing({"defender": {"side": side, "limit": 10}}, "defender"),
+		QuickBattleLine.standing({"defender": {"side": side, "limit": 10}}, "defender"),
 		4
 	)
 	assert_eq(
-		QuickBattleActions.line_standing(
+		QuickBattleLine.standing(
 			{"defender": {"side": side, "limit": 10, "line": line}}, "defender"
 		),
 		0, "the line is gone, so the side has no fight left"
