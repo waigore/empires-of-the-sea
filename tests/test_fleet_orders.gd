@@ -307,15 +307,18 @@ func test_end_turn_restores_fleet_moves() -> void:
 	MapPlayFleets.try_order(_screen.play, _screen.model.sea_zones[zone].tiles[0])
 	assert_true(fleet.moved)
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Moved clears on the ship begin-turn pass; a full end_turn would also run
+	# every rival court under coverage (~10 s) for the same assert
+	# (docs/testing.md § Speed rules: one resolved turn / pure path first).
+	ShipTurnPass.begin_turn(_screen.ship_layer)
+	MapPlayFleets.refresh_options(_screen.play, fleet)
 
 	assert_false(fleet.moved)
 	assert_gt(_screen.overlay.move_zones.size(), 0)
 
 
 ## Unknown remotes stay blank, a distant sighting fogging, and owned coasts
-## clearing — three fog outcomes, one `end_turn` under coverage (docs/testing.md
+## clearing — three fog outcomes, one fog pass under coverage (docs/testing.md
 ## § Speed rules: one resolved turn per suite when cases share the pass).
 func test_end_turn_fog_keeps_unknown_refogs_distant_and_opens_owned_coasts() -> void:
 	var occupied: Array[int] = _screen.ship_layer.at_sea_zones(MapScreen.PLAYER_FACTION)
@@ -344,8 +347,8 @@ func test_end_turn_fog_keeps_unknown_refogs_distant_and_opens_owned_coasts() -> 
 	_screen.visibility.lower_to(coast_i, VisibilityModel.Level.FOGGED)
 	_screen.overlay.sync_visibility(_screen.visibility, [unknown_i, known_i, coast_i])
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Fog decay alone; skip the full end_turn rival walk under coverage.
+	MapPlayFogTurn.resolve(_screen.play)
 
 	assert_eq(_screen.visibility.level_at(unknown.x, unknown.y), VisibilityModel.Level.UNKNOWN)
 	assert_eq(_screen.overlay.fog_state_at(unknown.x, unknown.y), MapOverlay.FOG_UNKNOWN)
@@ -567,8 +570,8 @@ func test_a_crossed_fleet_cannot_cross_again_this_turn() -> void:
 func test_a_crossed_fleet_sails_back_on_a_later_turn() -> void:
 	var fleet: FleetState = _cross_to_new_world()
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Crossing spends the move; begin-turn restores it without a rival AI walk.
+	ShipTurnPass.begin_turn(_screen.ship_layer)
 	assert_false(fleet.moved, "the passage crossing spent only that turn's move")
 	var zone: int = fleet.sea_zone
 
@@ -606,8 +609,8 @@ func test_a_colonist_crosses_the_passage_and_survives_the_loss_pass() -> void:
 
 	assert_true(MapPlayFleets.try_order(_screen.play, _passage_tile(zone)))
 	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Loss pass only — no battle, no rival plan under coverage.
+	MapPlayNavalTurn.resolve(_screen.play)
 
 	assert_true(colonist.is_embarked(), "the colonist is still aboard after the crossing")
 	assert_eq(colonist.embarked_fleet, fleet.id, "its seat is the renumbered squadron")
@@ -641,8 +644,8 @@ func test_a_colonist_reaches_the_home_fleet_when_the_squadron_moors() -> void:
 	assert_true(home.has_civilian(colonist.id), "the home fleet takes the passenger")
 	assert_false(_screen.ship_layer.fleets.has(fleet), "the sea-going squadron merges away")
 	assert_eq(int(MapPlayCivilianVoyage.crew(_screen.play, home)["count"]), 1)
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Loss pass only — the merge already seated the passenger.
+	MapPlayNavalTurn.resolve(_screen.play)
 	assert_eq(colonist.embarked_fleet, home.id, "the passenger rides the home fleet")
 	assert_true(
 		CivilianVoyageMap.by_id(_screen.civilian_layer, colonist.id) == colonist,
