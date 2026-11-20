@@ -1704,7 +1704,7 @@ func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
 	var world := WorldMap.new()
 	var model: MapModel = NavalFixture.build()
 	world.add_region(model)
-	var ai: FleetState = _squadron(0, 2, 1, "galleon")
+	var ai: FleetState = _squadron(0, 0, 1, "ship_of_the_line")
 	var human: FleetState = _squadron(1, 1, 0, "sloop")
 	var layer := ShipLayer.new()
 	layer.model = model
@@ -1712,7 +1712,7 @@ func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
 	layer.regions.set_region(0, roster)
 	layer.fleets = roster
 	var play := _naval_play(world, model, layer)
-	play.diplomacy = _war_state(2, 1)
+	play.diplomacy = _war_state(0, 1)
 	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
 	assert_eq(trace.size(), 1, "one rival order")
 	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_PURSUE)
@@ -1777,7 +1777,7 @@ func test_rival_sail_reports_a_sighting_in_charted_water() -> void:
 	var world := WorldMap.new()
 	var model: MapModel = NavalFixture.build()
 	world.add_region(model)
-	var ai: FleetState = _squadron(0, 2, 1, "galleon")
+	var ai: FleetState = _squadron(0, 0, 1, "ship_of_the_line")
 	var human: FleetState = _squadron(1, 1, 0, "sloop")
 	var layer := ShipLayer.new()
 	layer.model = model
@@ -1785,7 +1785,7 @@ func test_rival_sail_reports_a_sighting_in_charted_water() -> void:
 	layer.regions.set_region(0, roster)
 	layer.fleets = roster
 	var play := _naval_play(world, model, layer)
-	play.diplomacy = _war_state(2, 1)
+	play.diplomacy = _war_state(0, 1)
 	var hud := StubHud.new()
 	play.hud = hud
 	play.visibility = VisibilityModel.new()
@@ -8133,6 +8133,29 @@ func test_a_row_counts_every_order_across_the_whole_run() -> void:
 	assert_eq(int(war["first"]), 2, "the first turn it fired")
 	assert_eq(int(war["last"]), 3, "the last turn it fired")
 	assert_eq((war["courts"] as Array).size(), 1, "one crown issued them all")
+
+
+## A fallen crown's rows are dropped: a dead court can no longer make a rule
+## read as exercised (issue #1136).
+func test_a_dead_courts_rows_never_count_toward_coverage() -> void:
+	var records: Array[Dictionary] = _records()
+	# Crown 0 issues all three war rows; its second turn is a dead one.
+	(records[1]["rows"][0] as Dictionary)["alive"] = false
+	# Crown 1 (the hospital train) is given an explicit living reading.
+	(records[1]["rows"][1] as Dictionary)["alive"] = true
+	var rows: Array[Dictionary] = AiCoverage.scan(records)
+	assert_eq(
+		int(_row(rows, "war.declare")["count"]), 1,
+		"only the turn the crown still lived counts"
+	)
+	assert_eq(int(_row(rows, "army.hospital")["count"]), 1, "the living crown's train counts")
+	# A record with no `alive` reading (an older exporter) keeps every row.
+	(records[1]["rows"][0] as Dictionary).erase("alive")
+	var unread: Array[Dictionary] = AiCoverage.scan(records)
+	assert_eq(
+		int(_row(unread, "war.declare")["count"]), 3,
+		"a row without the alive reading is read as a living court"
+	)
 
 
 func test_a_rule_with_no_order_row_reads_never_exercised() -> void:

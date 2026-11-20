@@ -24,6 +24,14 @@ const NO_OWNER: int = -1
 ## the one court a pass may plan, so the paced driver can run the crown's own
 ## orders without the rival passes planning them a second time
 ## (wiki: auto-mode § Drawing on the same planners).
+##
+## A fallen crown plans nothing: a seat with no Old or New World province is out
+## (wiki: capital-and-connectivity § Great Power fall; `CampaignDefeat`: an AI
+## fall removes that crown and the campaign continues). The read is the
+## observer's own `alive` row, so the shared gate and the observer cannot
+## disagree — a court that lost its last province stops planning instead of
+## burning a pass a turn and pricing coverage rows no living court ran
+## (issue #1136).
 static func planning_factions(play: PlaySession) -> Array[int]:
 	var factions: Array[int] = []
 	if play == null:
@@ -38,8 +46,22 @@ static func planning_factions(play: PlaySession) -> Array[int]:
 				continue
 		if not AiControl.plans(play, faction):
 			continue
+		if not holds_land(play, faction):
+			continue
 		factions.append(faction)
 	return factions
+
+
+## True while the crown still holds a province in either world: the observer's
+## own `alive` read, shared here so the planner gate cannot drift from the row
+## the standing prints (issue #1136).
+static func holds_land(play: PlaySession, faction: int) -> bool:
+	if play == null or play.world == null:
+		return false
+	return (
+		play.world.owned_provinces(WorldMap.OLD_WORLD, faction)
+		+ play.world.owned_provinces(WorldMap.NEW_WORLD, faction)
+	) > 0
 
 
 ## True when any court holds a declared war on this one. Delegates to the pure
