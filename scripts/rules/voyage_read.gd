@@ -120,7 +120,7 @@ static func holds_ground(model: MapModel, owner: int) -> bool:
 		return false
 	if owns_land(model, owner):
 		return true
-	return model.has_deed_of(owner)
+	return model.ownership.has_deed_of(owner)
 
 
 ## The same reading through the world: true when the court holds ground in one
