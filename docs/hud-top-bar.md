@@ -8,7 +8,7 @@ only if it answers a question the player asks every turn or acts on the map
 
 | Element | Player question / action |
 |---------|--------------------------|
-| Menu crest, nation, turn · year | Who am I, who leads my crown, when is it, how do I save? |
+| Menu crest, nation, turn · year | Who am I, when is it, how do I save? |
 | Lens seal | What is this ground doing? Click cycles, hold names. |
 | Region seal | Which map am I on? |
 | Capital seal | Take me to my seat (`F`). |

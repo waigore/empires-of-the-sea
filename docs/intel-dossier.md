@@ -23,12 +23,12 @@ sheet over the map.
 
 | Section | Shows |
 |---------|-------|
-| Intel | Leader, archetype and what that leader's key publishes, provinces against yours, the herald's word |
+| Intel | Leader, its published effect, provinces against yours, the herald's word |
 | Suspicion | One row per agenda, tap to unfold **its timeline**: turn, act, points |
 | Timeline | Every observation, newest first, stamped |
 | Behaviour | War/alliance/peace counts plus the spy's **build notes** |
 
-The best-guess row starts open; Back/Escape closes it (`REQ-P5-07`).
+The best-guess row starts open; Back closes it (`REQ-P5-07`).
 
 ## Evidence rules (DR-20261110-05, DR-20261110-25)
 
