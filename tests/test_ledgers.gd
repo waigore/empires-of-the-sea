@@ -1836,12 +1836,16 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 	var row: ColonyLedgerRow = _colony_row(panel)
 	assert_not_null(row, "the colony mints its row")
 	var visited: Array = []
-	row.visit_pressed.connect(
-		func(region: int, province_id: int) -> void: visited.append([region, province_id])
-	)
+	var visit := func(region: int, province_id: int) -> void:
+		visited.append([region, province_id])
+	row.visit_pressed.connect(visit)
 	row._visit.pressed.emit()
 	assert_eq(visited.size(), 1, "the row's Visit door asks for its capital")
 	assert_eq(int(visited[0][1]), int(row.data["province"]), "the colony's own province")
+	# The row lives on the shared panel, so this case's lambda must not outlive
+	# it: a later case that presses the same door would call a capture the freed
+	# test instance owned (the engine reports it as a freed lambda capture).
+	row.visit_pressed.disconnect(visit)
 	assert_true(BackRequest.handle(play, play.improvements), "back walks the sheets")
 	assert_false(panel.is_open(), "back sets the ledger aside first")
 

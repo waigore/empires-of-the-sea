@@ -51,6 +51,11 @@ var food_slack: Dictionary = {}
 ## Difficulty layer this run plays at; rival ledgers are founded at its level
 ## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
 var difficulty: String = Difficulty.DEFAULT
+## Faction -> blessed AI parameter profile, bound on the new-game screen and
+## fixed for the run; a crown the map does not name plans as the neutral profile
+## (wiki: ai-profile-overrides; ai-parameter-registry § Seed profiles). Saved
+## with the campaign's AI bookkeeping so a load resumes the same temperaments.
+var profiles: Dictionary = AiProfile.roster()
 
 
 ## Keeps the first agenda this court rolled; later configs read it back.
@@ -223,6 +228,9 @@ func to_dict() -> Dictionary:
 		"deferrals": deferrals.duplicate(true),
 		"objective_claims": _claims_snapshot(),
 		"difficulty": difficulty,
+		# The temperaments bound at creation: a load must resume the same rivals
+		# (wiki: ai-profile-overrides — the binding is fixed for the run).
+		"profiles": profiles.duplicate(),
 	}
 
 
@@ -247,6 +255,9 @@ static func from_dict(data: Dictionary) -> AiState:
 			state.deferrals[int(faction)] = records
 	state.objective_claims = _claims_from(data.get("objective_claims", {}))
 	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
+	# A save from before the temperaments were kept resumes every rival on the
+	# neutral profile, the profile a campaign with no binding plans by.
+	state.profiles = AiProfile.from_saved(data.get("profiles", {}))
 	return state
 
 

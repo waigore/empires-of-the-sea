@@ -155,7 +155,7 @@ static func navy_chest(play: PlaySession, faction: int) -> int:
 	var ledger: PlayerEconomy = play.ledger_for(faction)
 	if ledger == null:
 		return 0
-	var config: AiConfig = AiConfig.build(faction, play.map_seed)
+	var config: AiConfig = AiProfile.for_court(faction, play.map_seed, play.ensure_ai().profiles)
 	var at_war_now: bool = at_war(play, faction)
 	# The yard's chest re-routes like the war chest (issue #603): a court that
 	# has stalled on `navy.build` past the escalation bar stops holding the

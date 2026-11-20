@@ -31,6 +31,11 @@ var advanced_start: String = AdvancedStart.NONE
 ## Difficulty layer chosen at setup and fixed for the campaign (wiki:
 ## ruleset-config § Layers; Difficulty).
 var difficulty: String = Difficulty.DEFAULT
+## Faction -> blessed AI parameter profile, chosen per rival on the new-game
+## screen; a crown left alone keeps the neutral profile, and the binding never
+## changes mid-run (wiki: ai-profile-overrides; ai-parameter-registry § Seed
+## profiles).
+var ai_profiles: Dictionary = AiProfile.roster()
 
 
 static func make(
@@ -76,6 +81,7 @@ func to_dict() -> Dictionary:
 		"infinite_mode": infinite_mode,
 		"advanced_start": advanced_start,
 		"difficulty": difficulty,
+		"ai_profiles": ai_profiles.duplicate(),
 	}
 
 
@@ -93,4 +99,5 @@ static func from_dict(data: Dictionary) -> GameConfig:
 		String(data.get("advanced_start", AdvancedStart.NONE))
 	)
 	config.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
+	config.ai_profiles = AiProfile.from_saved(data.get("ai_profiles", {}))
 	return config

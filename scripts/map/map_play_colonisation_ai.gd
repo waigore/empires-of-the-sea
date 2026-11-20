@@ -31,7 +31,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var kind: String = AiControl.court_kind(play, faction)
 			if kind == AiControl.KIND_RANDOM:
 				continue
-			var config: Variant = AiBind.config(kind, faction, play.map_seed)
+			var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
 			# A court on a war footing keeps its hulls for the fleet: the posture
 			# closes the voyage before the planner picks a step (DR-20261113-15) —
 			# unless the court is on **earn**, whose gold is overseas
@@ -226,7 +226,7 @@ static func _appetite(
 	var appetite: Dictionary = {}
 	if kind != AiControl.KIND_BASELINE and play.ai != null:
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
-		var config: Variant = AiBind.config(kind, faction, play.map_seed)
+		var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
 		if economy != null and config is AiConfig:
 			appetite = AiEconomyPlanner.ground_appetite(
 				config as AiConfig, economy, TownIndustry.best_level(play.world, faction)
