@@ -110,21 +110,29 @@ static func _muster(readings: Dictionary, at_war: bool) -> AiObjective:
 	# exactly while it stands under its target with a peasant and a line it can
 	# pay for (AiArmyReinforce), so the ledger prices the muster it is saving
 	# for and stays quiet once it stands at target.
+	# A court standing under its target whose row is closed by the muster's own
+	# gate still prints the aim — blocked with the gate's words — instead of
+	# vanishing beside the navy chest, so the starvation cannot hide in a silent
+	# absence (issue #1143). At target the row is genuinely quiet.
+	var muster_gate: String = String(readings.get("muster_gate", ""))
 	if not bool(readings.get("muster_due", false)):
-		return null
+		if muster_gate.is_empty():
+			return null
+		return AiObjective.create("muster.line", "military", W_MUSTER, {}).block(
+			muster_gate
+		)
 	var utility: int = W_MUSTER + (W_MUSTER_WAR if at_war else 0)
-	# The purse it must leave behind plus the material row of the pattern it is
-	# saving for: the planner refuses a muster short of that cloth (#474), so a
-	# row priced on the purse alone would read `funded` for a regiment the court
-	# cannot raise — and clear the very stall the escalation counts (#603).
+	# The purse it must leave behind: the planner refuses a muster short of
+	# that cloth (#474), so a row priced on the purse alone would read `funded`
+	# for a regiment the court cannot raise — and clear the very stall the
+	# escalation counts (#603). The pattern's own material row stays on
+	# `reserve.muster` (the ranked claim the market keeps stocked): pricing it
+	# here too deferred the whole aim for want of cloth a banked court cannot
+	# buy — the line starved thirty turns with a full purse (issue #1143) —
+	# while the muster's own gate still refuses a raise the stores cannot pay.
 	var cost: Dictionary = {
 		"regiment": 1, "labour": 1, "treasury": int(readings.get("muster_floor", 0)),
 	}
-	for commodity: Variant in (readings.get("muster_row", {}) as Dictionary).keys():
-		var id: String = String(commodity)
-		var need: int = int((readings["muster_row"] as Dictionary)[commodity])
-		if need > 0:
-			cost[id] = int(cost.get(id, 0)) + need
 	var muster := AiObjective.create("muster.line", "military", utility, cost)
 	# The escalation's explicit terminal reading (#603): a muster that has been
 	# deferred past the blocked bar with its shortfall standing still names it,
