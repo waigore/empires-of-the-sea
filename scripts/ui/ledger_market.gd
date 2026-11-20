@@ -308,6 +308,18 @@ func _add_terms_banner() -> void:
 	var subsidy: int = MarketRules.subsidy_rate_paid(_market, _viewer)
 	if subsidy > 0:
 		text += " Subsidy %d%%: a subsidised court's goods cost us more, ours earn less." % subsidy
+	# A boycotted crown's rate is worse for a reason a price never states: name
+	# the bar, and the closed rows the plate prints under each colony (wiki:
+	# diplomacy § GP–Tribe — Boycott, R6).
+	var issuers: PackedStringArray = []
+	for raw: Variant in MinorMarket.sealed_for(_market, _viewer).values():
+		var name: String = FactionCatalog.name_of(int(raw))
+		if not issuers.has(name):
+			issuers.append(name)
+	if not issuers.is_empty():
+		text += " Boycotted by %s: no deal of ours clears with its colonies." % (
+			", ".join(issuers)
+		)
 	var banner := UiRowBuilder.label(text, 12, Palette.GOLD_PALE)
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.custom_minimum_size = Vector2(240, 0)
