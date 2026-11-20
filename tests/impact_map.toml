@@ -1243,6 +1243,7 @@ domain = "fold_map_screen"
 # travel together; the broad scripts/map fan-out stays off the tier-1 budget.
 [domains.lens_kit]
 suites = [
+  "test_wash_bake.gd",
   "test_map_view_rules.gd",
   "test_map_screen.gd",
 ]
@@ -1251,10 +1252,20 @@ suites = [
 match = "scripts/map/map_lens.gd*"
 domain = "lens_kit"
 
-# The reading's printed slip and wash: the paper every lens prints on, so it
-# rides the same kit suites as the base the lenses inherit.
+# The reading's printed slip: the paper every lens prints on, so it rides the
+# same kit suites as the base the lenses inherit.
 [[rules]]
 match = "scripts/map/lens_slip.gd*"
+domain = "lens_kit"
+
+# The reading's colour wash: baked to a soft-edged texture, so a band change
+# reaches every reading's view. Named with the slip so the kit suites travel.
+[[rules]]
+match = "scripts/map/wash_bake.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "tests/test_wash_bake.gd*"
 domain = "lens_kit"
 
 # Every reading inherits the kit; route each lens here before the broader
