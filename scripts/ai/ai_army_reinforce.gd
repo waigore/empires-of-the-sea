@@ -288,6 +288,25 @@ static func muster_floor(
 	return floor_treasury + cheapest
 
 
+## Why a court standing under its target prices no muster row ("" when the row
+## stands): the muster's own gates, in the trace's words, so a silent absence
+## cannot hide the starvation again (issue #1143). The muster's own money and
+## food gates live on `plan`; this names only the gates that price the row
+## itself — the labour floor and a court whose techs open no line pattern.
+static func absent_reason(
+	config: AiConfig, economy: PlayerEconomy, own_regiments: int, at_war: bool
+) -> String:
+	if config == null or economy == null:
+		return ""
+	if own_regiments >= _target(config, at_war):
+		return ""
+	if not AiArmyReinforceLine.labour_floor_ok(config, economy):
+		return "the labour floor holds: no spare hand for the levy"
+	if AiArmyReinforceLine.saving_type(config, economy).is_empty():
+		return "no line pattern its techs open"
+	return ""
+
+
 ## Price of the cheapest line pattern this court's techs open today. Owned by
 ## [AiArmyReinforceLine].
 static func cheapest_line_price(economy: PlayerEconomy) -> int:

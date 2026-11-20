@@ -86,6 +86,10 @@ static func _force(
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
 		"muster_row": AiArmyReinforce.muster_reserve(config, economy, regiments, at_war),
+		# Why a court standing under its target prices no muster row: the gate
+		# the muster's own rules name (labour floor, no pattern its techs open),
+		# so a silent absence cannot hide the starvation again (issue #1143).
+		"muster_gate": AiArmyReinforce.absent_reason(config, economy, regiments, at_war),
 		"escalations": AiDeferral.escalated(
 			records, maxi(config.parameter("ledger.escalate_turns"), 1)
 		),

@@ -15887,10 +15887,14 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	)
 
 
-## Issue #474 clause 2: a court holding the purse for its next regiment but no
-## cloth reads the row it actually lacks, and stays deferred, so the escalation
-## keeps re-routing the chest instead of banking one the muster never spends.
-func test_the_muster_row_prices_the_cloth_it_needs() -> void:
+## Issue #474 clause 2 / #1143: the muster's cloth stays on `reserve.muster` —
+## the ranked claim the market keeps stocked — so the ledger aim prices the
+## purse, the hand and the regiment and funds on a full purse even while the
+## store is short of cloth (a banked court cannot buy feedstock, and a whole
+## line starved thirty turns behind its own cloth row). The muster's own gate
+## still refuses a raise the stores cannot pay, so a funded aim is never a
+## false 'raised' reading.
+func test_the_muster_aim_funds_on_a_full_purse_without_cloth() -> void:
 	var readings: Dictionary = _readings()
 	readings["muster_row"] = {"fabric": 1}
 	readings["muster_floor"] = 2400
@@ -15898,19 +15902,42 @@ func test_the_muster_row_prices_the_cloth_it_needs() -> void:
 	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
 	var muster: AiObjective = _by_id(objectives, "muster.line")
 
-	assert_eq(int(muster.cost["fabric"]), 1, "the ledger prices the pattern's row")
+	assert_eq(int(muster.cost["treasury"]), 2400, "the ledger prices the war chest")
+	assert_false(
+		(muster.cost as Dictionary).has("fabric"),
+		"the pattern's row is reserve.muster's claim, not the aim's blocker"
+	)
 	AiObjectiveLedger.run(
 		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 0}
 	)
 	assert_eq(
-		muster.status, AiObjective.STATUS_DEFERRED,
-		"a full purse and no cloth is not a funded muster"
+		muster.status, AiObjective.STATUS_FUNDED,
+		"a full purse funds the line; the muster gate refuses a clothless raise"
 	)
-	assert_eq(int((muster.shortfall() as Dictionary).get("fabric", 0)), 1)
-	AiObjectiveLedger.run(
-		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 1}
+
+
+## A court standing under its target whose muster row is closed by the muster's
+## own gate still prints the aim — blocked with the gate's words — so a silent
+## absence beside the navy chest cannot hide the starvation (issue #1143).
+func test_a_gated_muster_row_names_its_gate() -> void:
+	var readings: Dictionary = _readings()
+	readings["muster_due"] = false
+	readings["muster_gate"] = "the labour floor holds: no spare hand for the levy"
+	var blocked: AiObjective = _by_id(AiObjectivesPlan.build(readings), "muster.line")
+	assert_true(blocked != null, "the aim is printed, not silent")
+	assert_eq(blocked.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(
+		blocked.blocked, "the labour floor holds: no spare hand for the levy",
+		"the trace names the gate that closed the row"
 	)
-	assert_eq(muster.status, AiObjective.STATUS_FUNDED, "with the cloth in store it funds")
+	# At target (no gate named) the row is genuinely quiet.
+	var settled: Dictionary = _readings()
+	settled["muster_due"] = false
+	settled["muster_gate"] = ""
+	assert_true(
+		_by_id(AiObjectivesPlan.build(settled), "muster.line") == null,
+		"at target the muster is quiet"
+	)
 
 
 ## A court whose techs open no warship says so instead of claiming a hull it can
@@ -16228,7 +16255,7 @@ func test_the_reading_pass_names_every_domain() -> void:
 
 	for key: String in [
 		"at_war", "war_desire", "regiments", "muster_floor", "muster_due",
-		"muster_row", "escalations", "blockings",
+		"muster_row", "muster_gate", "escalations", "blockings",
 		"ships", "warships", "warship_price", "warship_row", "warship_open",
 		"warship_refusal", "warship_hands",
 		"navy_due", "hostile_ships", "hostile_warships",
