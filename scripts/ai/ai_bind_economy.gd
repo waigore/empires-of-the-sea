@@ -36,14 +36,13 @@ static func production_orders(
 static func recruitment_orders(
 	kind: String, config: Variant, economy: PlayerEconomy, floor: int = 0,
 	fed_slack: int = -1, hands: int = 0, conquest_bank: bool = false,
-	harvest_slack: int = -2, slip_hand: bool = false
+	harvest_slack: int = -2
 ) -> Array[Dictionary]:
 	var raw: Variant = _call(
 		kind, "ai_economy_planner.gd", "recruitment_orders",
 		[config, economy, floor, fed_slack],
 		func() -> Array[Dictionary]: return AiEconomyPlanner.recruitment_orders(
-			config, economy, floor, fed_slack, hands, conquest_bank, harvest_slack,
-			slip_hand
+			config, economy, floor, fed_slack, hands, conquest_bank, harvest_slack
 		)
 	)
 	var out: Array[Dictionary] = []

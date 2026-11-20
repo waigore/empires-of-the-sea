@@ -16310,27 +16310,6 @@ func test_the_slip_keeps_a_hand_while_the_chest_banks() -> void:
 	assert_eq(AiNavy.hands(economy, [], 5500), 0, "no cloth to lay: no hand held")
 
 
-## Issue #1126: a court standing at its worker target with no peasant in the
-## pool hires the one hand the slip needs — the chest it filled is never left
-## without a crew, even while a muster's floor holds the purse.
-func test_the_slip_hires_a_hand_the_pool_does_not_carry() -> void:
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	economy.treasury = 20000
-	economy.stockpile["fabric"] = 10
-	economy.workers.set_count(WorkerPool.Tier.APPRENTICE, 40)
-	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)
-	var config: AiConfig = _objective_config()
-	var plain: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-		config, economy, 5500, -1
-	)
-	assert_true(plain.is_empty(), "at target with no reading the court hires nothing")
-	var slip: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-		config, economy, 5500, -1, 0, false, -2, true
-	)
-	assert_eq(slip.size(), 1, "the slip gets its hand")
-	assert_eq(int(slip[0]["tier"]), WorkerPool.Tier.PEASANT, "one peasant")
-
-
 ## Issue #484: the economy keeps the hull's row back beside the muster's, so a
 ## court saving 5,500 ducats does not sell the cloth the yard wants.
 func test_the_economy_reserves_the_hull_row_beside_the_muster() -> void:

@@ -248,8 +248,7 @@ func apply_turn() -> Dictionary:
 	# muster's own ration gate plans with.
 	var recruits: Array[Dictionary] = AiBindEconomy.recruitment_orders(
 		kind, config, economy, floor, fed, hands, conquest_bank,
-		int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2,
-		navy_hand > 0
+		int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))

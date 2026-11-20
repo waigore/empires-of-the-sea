@@ -193,18 +193,13 @@ static func _bench_room(economy: PlayerEconomy) -> Dictionary:
 static func recruitment_orders(
 	config: AiConfig, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1,
 	hands: int = 0, conquest_bank: bool = false,
-	harvest_slack: int = -2, slip_hand: bool = false
+	harvest_slack: int = -2
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	if config == null or economy == null:
 		return orders
 	var target: int = config.parameter("economy.worker_target")
-	# The slip's own hand (issue #1126): while a hull is due and the yard opens
-	# it, the court hires the peasant it lacks rather than filling a chest it
-	# can never crew. One hand, at the target or not — the same reach the
-	# conquest bank's farmhand takes (issue #995).
-	var need_hand: bool = slip_hand and economy.available_peasants() < 1
-	if not need_hand and economy.workers.total() >= target:
+	if economy.workers.total() >= target:
 		return orders
 	var min_treasury: int = maxi(config.parameter("economy.min_treasury"), 0)
 	# The muster floor a caller hands in is a hard veto: a court saving for its
@@ -237,14 +232,10 @@ static func recruitment_orders(
 	)
 	var sim: PlayerEconomy = economy.copy()
 	for _turn in maxi(config.parameter("economy.max_recruits"), 0):
-		if not need_hand and sim.workers.total() >= pool_target:
+		if sim.workers.total() >= pool_target:
 			break
 		var tier: int = -1
-		if need_hand:
-			# One hand for the slip, ahead of every trained tier: the yard
-			# cannot launch a hull without it (issue #1126).
-			tier = WorkerPool.Tier.PEASANT
-		elif conquest_bank and sim.available_peasants() < levy_floor:
+		if conquest_bank and sim.available_peasants() < levy_floor:
 			# The conquest bank's own provision (issue #995): when the pool
 			# cannot carry the levy's hand, the farmhand comes first — the
 			# chest the restored pool re-opens is the army's, not an optional
@@ -277,10 +268,8 @@ static func recruitment_orders(
 			break
 		if muster_floor > min_treasury and sim.treasury - _trains(sim, tier) < muster_floor:
 			# A farmhand the bank hires for its levy is the army's provision
-			# (issue #995): it reads the cash floor like the food it eats. The
-			# slip's hand is the hull's provision on the same reading: a chest
-			# that cannot pay for its own crew never launches (issue #1126).
-			if not need_hand and not (conquest_bank and tier == WorkerPool.Tier.PEASANT):
+			# (issue #995): it reads the cash floor like the food it eats.
+			if not (conquest_bank and tier == WorkerPool.Tier.PEASANT):
 				break
 		if sim.treasury - _trains(sim, tier) < min_treasury \
 				and _next_training_affordable(sim, min_treasury):
@@ -288,7 +277,6 @@ static func recruitment_orders(
 		var result: Dictionary = sim.recruit(tier)
 		if not bool(result.get("ok", false)):
 			break
-		need_hand = false
 		fed_slack -= WorkerPool.FOOD_PER_WORKER[tier]
 		if conquest_bank and harvest_slack >= -1:
 			harvest_slack -= WorkerPool.FOOD_PER_WORKER[tier]
