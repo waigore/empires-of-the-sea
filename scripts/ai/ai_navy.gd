@@ -127,6 +127,10 @@ static func laying(economy: PlayerEconomy, flown: Array = []) -> Dictionary:
 static func hands(economy: PlayerEconomy, flown: Array, chest: int) -> int:
 	if chest <= 0 or economy == null:
 		return 0
+	# The chest in hand is the moment the hand matters: a court still filling
+	# its chest trains as published, so the reserve costs no labour on the way.
+	if economy.treasury < chest:
+		return 0
 	var type_id: String = saving_type(economy, flown)
 	if type_id.is_empty():
 		return 0

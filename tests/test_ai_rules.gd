@@ -16317,11 +16317,15 @@ func test_the_slip_keeps_a_hand_while_the_chest_banks() -> void:
 	economy.stockpile["lumber"] = 10
 	economy.stockpile["fabric"] = 10
 	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	economy.treasury = 6000
 	assert_eq(
 		AiNavy.hands(economy, [], 5500), ShipEconomy.WORKER_COST,
-		"the chest banks: a hand is kept for the slip"
+		"the chest is in hand: a hand is kept for the slip"
 	)
+	economy.treasury = 3000
+	assert_eq(AiNavy.hands(economy, [], 5500), 0, "still filling: the court trains")
 	assert_eq(AiNavy.hands(economy, [], 0), 0, "no chest, no hand")
+	economy.treasury = 6000
 	economy.stockpile["fabric"] = 0
 	assert_eq(AiNavy.hands(economy, [], 5500), 0, "no cloth to lay: no hand held")
 
