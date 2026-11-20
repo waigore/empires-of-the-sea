@@ -101,9 +101,7 @@ static func _medal(
 		return
 	report["medal_owner"] = owner
 	var roster: GeneralRoster = context.get("roster") as GeneralRoster
-	report["medal_count"] = (
-		roster.medals(owner, String(report["medal_gain"])) if roster != null else 0
-	)
+	report["medal_count"] = roster.medals(owner, String(report["medal_gain"])) if roster != null else 0
 
 
 ## Hands one province to a new holder; a report never flips a missing province.

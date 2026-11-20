@@ -87,10 +87,9 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 				# produced, not the pool's later figure: a commander who wins
 				# twice in one phase gains a medal on each line, and the first
 				# battle must not print the second's count.
-				var count: int = int(battle.get("medal_count", -1))
-				if count < 0:
-					count = play.army_layer.generals.medals(winner, medal)
-				line += " — %s earns a medal (%d now)" % [general, count]
+				line += " — %s earns a medal (%d now)" % [
+					general, int(battle.get("medal_count", 0))
+				]
 		if on_plate:
 			play.hud.toast_plate_line(line, BattleReport.icon_of(battle))
 		elif _crown_fought(play, battle):

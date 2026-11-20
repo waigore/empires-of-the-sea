@@ -1572,6 +1572,14 @@ func test_the_command_fallback_reads_the_leaders_own_medals() -> void:
 	assert_eq(int(neutral["attack"]), 0, "a crown with no leader falls back to none")
 	var data: Dictionary = CommandLedger.snapshot(GeneralRoster.new(), 0, {}, "napoleon")
 	assert_true(CommandLedger.fallback_line(data).contains("4 medals"))
+	# A leader who publishes one side only names both figures, and the line reads
+	# as the condition it describes — never as the pool the sheet just counted
+	# (wiki: military-generals § The crown's command).
+	var split: Dictionary = CommandLedger.snapshot(GeneralRoster.new(), 0, {}, "gustavus")
+	var line: String = CommandLedger.fallback_line(split)
+	assert_true(line.contains("2 medals attacking"), line)
+	assert_true(line.contains("0 defending"), line)
+	assert_true(line.begins_with("With no commander free"), line)
 
 
 func test_a_command_row_prints_the_medals_and_what_they_buy() -> void:
