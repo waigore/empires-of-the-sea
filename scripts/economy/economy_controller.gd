@@ -238,7 +238,17 @@ func open_panel() -> void:
 func open_research() -> void:
 	if hud == null:
 		return
-	hud.panels.show_research(economy.research, economy.treasury, research_boost, leader_key)
+	hud.panels.show_research(
+		economy.research, economy.treasury, research_boost, leader_key, _research_pick()
+	)
+
+
+## The study the published research policy would open in the crown's first free
+## slot, in the sheet's own voice (wiki: tech-tree § Research model;
+## DR-20261121-01). Empty when there is no free slot, no study left to open, or
+## no planner behind the seat — the reading, never an order.
+func _research_pick() -> String:
+	return MapPlayResearchPick.line(play)
 
 
 ## The larder's warning for the turn about to open: the slack the next
@@ -278,7 +288,7 @@ func refresh_research_panel() -> void:
 		return
 	if hud.panels.is_research_open():
 		hud.panels.show_research(
-			economy.research, economy.treasury, research_boost, leader_key
+			economy.research, economy.treasury, research_boost, leader_key, _research_pick()
 		)
 
 

@@ -1952,3 +1952,109 @@ func test_repainting_the_open_ledger_does_not_fade_it_back_in() -> void:
 	screen.economy.open_research()
 	await get_tree().process_frame
 	assert_true(wrap.modulate.a > 0.3, "a repaint must not restart the reveal fade")
+
+
+# --- the court's own pick (DR-20261121-01) -----------------------------------
+
+
+## The college names the study the published policy would open: the first
+## candidate the planner's walk would take, worded as the sheet prints it. A
+## reading: nothing is assigned.
+func test_the_college_pick_names_the_rankings_head() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	var head: String = ""
+	for entry: Dictionary in AiResearchScores.candidates(config, _economy, false, ""):
+		head = String(entry.get("tech", ""))
+		break
+	assert_false(head.is_empty(), "a fresh college has a study to open")
+	var pick: Dictionary = MapPlayResearchPick.counsel(config, _economy, false, {})
+	assert_eq(String(pick.get("tech", "")), head, "the ranking's head")
+	assert_eq(String(pick.get("why", "")), "", "a scoring win carries no door reason")
+	assert_eq(
+		MapPlayResearchPickWords.sentence(String(pick.get("line", ""))),
+		"The court would open %s." % TechCatalog.display_name(head)
+	)
+	assert_eq(_economy.research.free_slot(), 0, "the reading assigns nothing")
+	assert_eq(_economy.treasury, PlayerEconomy.starting().treasury, "the reading spends nothing")
+
+
+## The door's study leads the pick, and the words name the link that asked for
+## it — the yard's next hull, the envoy chain's stage, or the deed's buyer.
+func test_the_door_study_leads_the_pick_with_its_reason() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	var tech: String = String(_economy.research.researchable()[0])
+	var pick: Dictionary = MapPlayResearchPick.counsel(
+		config, _economy, false,
+		{"tech": tech, "why": MapPlayEconomyCourtBook.DOOR_HULL}
+	)
+	assert_eq(String(pick.get("tech", "")), tech, "the door outranks the score")
+	assert_eq(String(pick.get("why", "")), MapPlayEconomyCourtBook.DOOR_HULL)
+	assert_true(
+		String(pick.get("line", "")).ends_with("the yard's next hull needs it"),
+		String(pick.get("line", ""))
+	)
+	assert_true(
+		MapPlayResearchPickWords.line("Printing Press", MapPlayEconomyCourtBook.DOOR_CHAIN)
+		.ends_with("the envoy chain's next stage")
+	)
+	assert_true(
+		MapPlayResearchPickWords.line("Printing Press", MapPlayEconomyCourtBook.DOOR_DEED)
+		.ends_with("the deed waits on it")
+	)
+	assert_eq(
+		MapPlayResearchPickWords.line("Printing Press", ""),
+		"the court would open Printing Press",
+		"no reason where no door spoke"
+	)
+	assert_eq(MapPlayResearchPickWords.line("  ", MapPlayEconomyCourtBook.DOOR_HULL), "", "no name, no line")
+
+
+## A college whose slots are taken names no study it is already reading, and a
+## session with no ledger reads nothing: the sheet never promises a study the
+## college would not take.
+func test_no_free_slot_reads_no_pick() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	var reading: Array[String] = []
+	for tech_id: String in _economy.research.researchable().slice(0, ResearchState.DEFAULT_SLOTS):
+		_economy.research.assign(tech_id)
+		reading.append(tech_id)
+	assert_eq(_economy.research.free_slot(), -1, "every slot is at study")
+	var pick: Dictionary = MapPlayResearchPick.counsel(config, _economy, false, {})
+	assert_false(reading.has(String(pick.get("tech", ""))), "never a study already in a slot")
+	assert_eq(MapPlayResearchPick.line(null), "", "no session, no counsel")
+	assert_true(MapPlayResearchPick.pick(null).is_empty())
+
+
+## The sheet prints the counsel on the first idle slot alone, so two idle rows
+## never repeat one sentence (DR-20261121-01).
+func test_the_first_idle_slot_carries_the_counsel_alone() -> void:
+	_bind_panel()
+	_panel.refresh(_panel_state, 2500, {}, "", "The court would open Printing Press.")
+	assert_eq(_panel.pick_line(), "The court would open Printing Press.")
+	var rows: Array[ResearchSlotRow] = []
+	for node: Node in _panel._slots_body.get_children():
+		if node is ResearchSlotRow:
+			rows.append(node as ResearchSlotRow)
+	assert_eq(rows.size(), ResearchState.DEFAULT_SLOTS)
+	assert_eq(rows[0].counsel_text(), "The court would open Printing Press.")
+	for index in range(1, rows.size()):
+		assert_eq(rows[index].counsel_text(), "", "one sentence for the college")
+	# A slot at study reads its study, never the counsel.
+	_panel_state.assign(String(_panel_state.researchable()[0]))
+	_panel.refresh(_panel_state, 2500, {}, "", "The court would open Printing Press.")
+	assert_eq(rows[0].counsel_text(), "", "a filled slot carries no idle counsel")
+
+
+## The live college reads the pick through its own door: the crown opens the
+## sheet and the idle row names a study the ranking would take.
+func test_the_live_college_reads_the_courts_pick() -> void:
+	var screen: MapScreen = _screen()
+	screen.economy.open_research()
+	var panel: ResearchPanel = screen.hud.panels.research_panel
+	var line: String = panel.pick_line()
+	assert_true(line.begins_with("The court would open "), line)
+	assert_true(line.ends_with("."), "one sentence")
+	var idle: int = screen.play.economy.economy.research.free_slot()
+	assert_eq(idle, 0, "the reading assigned nothing")
+	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	assert_eq(row.counsel_text(), line, "the counsel rides the idle row")
