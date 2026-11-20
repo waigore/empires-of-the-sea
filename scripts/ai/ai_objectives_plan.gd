@@ -277,15 +277,27 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 		# unlock keeps that chest but does not claim a launch it cannot lay.
 		if not bool(readings.get("warship_open", false)):
 			build.block("no warship its techs open")
+		elif int(readings.get("warship_hands", ShipEconomy.WORKER_COST)) \
+				< ShipEconomy.WORKER_COST:
+			# One peasant leaves the pool at launch: a court with no free hand
+			# funds no hull the yard would refuse (issue #1126).
+			build.block("no free hand for the slip")
 		else:
 			# A yard the court has stalled on for the blocked bar's turns names
 			# it — the chest stays out of reach and the trace says so instead
-			# of another silent deferred row (issue #603).
+			# of another silent deferred row (issue #603). The yard's own gate
+			# rides in the same words, so a court that cannot lay the hull it
+			# funds reads why instead of banking the chest again (issue #1126).
 			var yard_stall: int = int(
 				(readings.get("blockings", {}) as Dictionary).get("navy.build", 0)
 			)
 			if yard_stall > 0:
-				build.block("the yard is out of reach %d turns" % yard_stall)
+				var gate: String = String(readings.get("warship_refusal", ""))
+				build.block(
+					"the yard is out of reach %d turns" % yard_stall
+					if gate.is_empty()
+					else "the yard is out of reach %d turns (%s)" % [yard_stall, gate]
+				)
 		return build
 	if not at_war:
 		return null
@@ -308,7 +320,9 @@ static func _chest_beyond_reach(readings: Dictionary) -> bool:
 
 
 ## Treasury claim only: cloth stays on `AiClaims.NAVY` so the objective does not
-## double-book the bolt the market already held (issue #484).
+## double-book the bolt the market already held (issue #484). The hand the yard
+## takes at launch is a gate, not a claim — reading it out of the shared labour
+## pool would starve the production run ranked under it (issue #1126).
 static func _build_cost(readings: Dictionary) -> Dictionary:
 	return {"treasury": int(readings.get("warship_price", 0))}
 

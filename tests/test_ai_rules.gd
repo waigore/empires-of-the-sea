@@ -3526,9 +3526,58 @@ func test_the_door_the_court_walked_up_to_is_studied_first() -> void:
 	)
 
 
-## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
-## the same door pattern a Tribe chain uses, so the chest fills for a hull the
-## yard will actually accept.
+## Issue #1126: while the yard banks for a hull, the study ladder prices its
+## preset for the whole slot row — three slots at Low took 150 ducats from a
+## chest that had 66 spare, and the hull the court had saved for never left the
+## slip. Every other court keeps the published single-slot ladder.
+func test_the_ladder_prices_the_whole_slot_row() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(5566)
+	assert_eq(economy.research.slots.size(), 3, "the fixture's slot row")
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true,
+			"navy_reserve": 5500,
+		}
+	)
+	assert_false(plan["assignments"].is_empty(), "the slots are still planned")
+	var paid: int = 0
+	for row: Dictionary in plan["assignments"]:
+		paid += ResearchFunding.gold(String(row["funding"]))
+	assert_true(paid <= 66, "the row never pays more ducats than the spare")
+
+	# A court still filling the chest keeps the published ladder, so the door
+	# that opens the hull is never held back by the chest it is saving for.
+	var filling: PlayerEconomy = _purse(5400)
+	var early: Dictionary = AiResearchPlanner.plan(
+		config, filling,
+		{
+			"treasury_floor": 4500, "cash_floor": 500, "defer_standing": true,
+			"navy_reserve": 5500,
+		}
+	)
+	var early_paid: int = 0
+	for row: Dictionary in early["assignments"]:
+		early_paid += ResearchFunding.gold(String(row["funding"]))
+	assert_true(early_paid > 66, "the saving court still studies as published")
+
+
+## Issue #1126: the row-priced ladder is the hull chest's reading only — a court
+## that banks nothing keeps the published single-slot preset.
+func test_other_courts_keep_the_single_slot_ladder() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(5566)
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true}
+	)
+	var paid: int = 0
+	for row: Dictionary in plan["assignments"]:
+		paid += ResearchFunding.gold(String(row["funding"]))
+	assert_eq(paid, 150, "three slots at the single-slot preset, as published")
+
+
 ## Issue #484: while the navy chest is the money-goal reserve, the standing
 ## study must not drip 50 ducats a turn — that income has to reach the yard.
 func test_a_navy_chest_defers_the_standing_study() -> void:
@@ -3555,6 +3604,9 @@ func test_a_navy_chest_defers_the_standing_study() -> void:
 	)
 
 
+## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
+## the same door pattern a Tribe chain uses, so the chest fills for a hull the
+## yard will actually accept.
 func test_a_due_navy_studies_the_unlock_before_other_branches() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
@@ -15919,6 +15971,7 @@ func test_the_reading_pass_names_every_domain() -> void:
 		"at_war", "war_desire", "regiments", "muster_floor", "muster_due",
 		"muster_row", "escalations", "blockings",
 		"ships", "warships", "warship_price", "warship_row", "warship_open",
+		"warship_refusal", "warship_hands",
 		"navy_due", "hostile_ships", "hostile_warships",
 		"treasury", "reserve", "goal",
 		"research_slots", "research_funding", "research_cost",
@@ -16193,6 +16246,102 @@ func test_a_fleet_claim_short_of_cloth_does_not_launch() -> void:
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+## Issue #1126: the yard's own gate is the one read the ledger, the cargo pass
+## and the trace share — what it would lay today, or why it will not.
+func test_the_yard_gate_names_the_hull_it_would_lay_or_the_refusal() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("frigate")] = true
+	var lay: Dictionary = AiNavy.laying(economy, [])
+	assert_eq(String(lay["type_id"]), "frigate", "the strongest hull its techs open")
+	assert_eq(String(lay["reason"]), "", "a payable hull names no gate")
+
+	# England's published case (issue #1126): the purse and the cloth are there,
+	# no hand is free.
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)
+	lay = AiNavy.laying(economy, [])
+	assert_eq(String(lay["type_id"]), "", "no hand, no hull")
+	assert_eq(String(lay["reason"]), "Insufficient workers", "the yard's own words")
+
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.stockpile["fabric"] = 0
+	lay = AiNavy.laying(economy, [])
+	assert_eq(String(lay["reason"]), "Insufficient materials", "and its own cloth gate")
+
+
+## Issue #1126: a funded claim the yard refuses reads the gate instead of
+## vanishing — the report carries the yard's words and lays no hull.
+func test_a_funded_hull_the_yard_refuses_names_the_gate() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	MapPlayObjectivesAi.run(play)
+	assert_true(
+		(play.ai.objectives_for(OBJ_OWNER)["funded_ids"] as Array).has("navy.build"),
+		"the chest funds the hull"
+	)
+	# No hand to crew her: one peasant leaves the pool at launch.
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	assert_true(
+		(cargo.get("warship", {}) as Dictionary).is_empty(), "no hull is laid down"
+	)
+	assert_eq(
+		String((cargo.get("warship_refused", {}) as Dictionary).get("refused", "")),
+		"Insufficient workers", "the yard's gate reaches the report"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #1126: a court with no free hand funds no hull the yard would refuse.
+## The hand is a gate, not a claim: reading it out of the shared labour pool
+## starved the production run ranked under the yard.
+func test_a_slip_with_no_free_hand_funds_no_hull() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	readings["warship_hands"] = 0
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var build: AiObjective = _by_id(objectives, "navy.build")
+	assert_eq(String(build.blocked), "no free hand for the slip")
+	assert_true((build.cost as Dictionary).has("treasury"), "the purse is still priced")
+	assert_false((build.cost as Dictionary).has("labour"), "the hand is no pool claim")
+
+	readings["warship_hands"] = ShipEconomy.WORKER_COST
+	build = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+	assert_eq(String(build.blocked), "", "a hand in the pool opens the yard")
+
+
+## Issue #1126: while the chest banks for a hull the yard opens and the material
+## row is in store, the court keeps one peasant for the slip; a hull with no
+## cloth to lay holds no hand.
+func test_the_slip_keeps_a_hand_while_the_chest_banks() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	economy.treasury = 6000
+	assert_eq(
+		AiNavy.hands(economy, [], 5500), ShipEconomy.WORKER_COST,
+		"the chest is in hand: a hand is kept for the slip"
+	)
+	economy.treasury = 3000
+	assert_eq(AiNavy.hands(economy, [], 5500), 0, "still filling: the court trains")
+	assert_eq(AiNavy.hands(economy, [], 0), 0, "no chest, no hand")
+	economy.treasury = 6000
+	economy.stockpile["fabric"] = 0
+	assert_eq(AiNavy.hands(economy, [], 5500), 0, "no cloth to lay: no hand held")
 
 
 ## Issue #484: the economy keeps the hull's row back beside the muster's, so a
