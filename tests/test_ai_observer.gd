@@ -528,6 +528,29 @@ func test_the_trace_reads_every_economy_row_the_pass_handed() -> void:
 	assert_eq(bucket["claims"], ["rations 4/6"], "the reservations travel with the record")
 
 
+## Issue #1126: a court that funded a hull the yard refuses says why in the
+## trace, and counts no build row — the launch never happened. The court banks
+## the chest and the cloth again only after reading the gate.
+func test_the_trace_names_the_gate_that_refused_a_funded_hull() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var report: Dictionary = {"factions": {crown: {
+		"cargo": {"warship_refused": {"type_id": "sloop", "refused": "Insufficient workers"}},
+	}}}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], report)
+	var bucket: Dictionary = merged["factions"][crown]
+	assert_eq(
+		int((bucket["actions"] as Dictionary).get("build", 0)), 0,
+		"a refused launch is no hull laid down"
+	)
+	assert_eq(
+		String((bucket["events"] as Array)[0]),
+		"%s funds a hull but the yard refuses: Insufficient workers."
+		% FactionCatalog.name_of(crown),
+		"the yard's own words reach the trace"
+	)
+
+
 func test_the_trace_skips_an_empty_cargo_and_a_foreign_ledger() -> void:
 	var play: PlaySession = _trace_session()
 	var crown: int = FactionCatalog.great_power_ids()[0]

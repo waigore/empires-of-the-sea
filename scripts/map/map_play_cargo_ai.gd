@@ -68,23 +68,29 @@ static func run(
 		var laid: Dictionary = _launch(
 			play, roster, faction, economy, seat, launch
 		)
-		if not laid.is_empty():
+		if bool(laid.get("ok", false)):
 			report["launch"] = laid
 	# A court whose ledger funded the navy's build aim lays a fighting hull down
 	# through the same yard: a rival can rebuild the fleet it lost instead of
-	# only watching it shrink (issue #491 T5, #484).
+	# only watching it shrink (issue #491 T5, #484). A funded claim the yard
+	# refuses names the gate instead of banking the chest in silence (#1126).
 	var warship: Dictionary = _build_warship(play, faction, roster, economy, seat)
 	if not warship.is_empty():
-		report["warship"] = warship
+		if warship.has("refused"):
+			report["warship_refused"] = warship
+		else:
+			report["warship"] = warship
 	play.ship_layer.regions.set_region(region, roster)
 	MapPlayCourt.refresh_hulls(play)
 	return report
 
 
-## The fighting hull the court's ledger asked for, laid down through the yard, or
-## an empty row when the claim was not funded or no warship is payable. The row
-## carries the yard's price and the chest the court held for it, so the turn
-## trace explains what allowed the launch (issue #484).
+## The fighting hull the court's ledger asked for, laid down through the yard.
+## The row carries the yard's price and the chest the court held for it, so the
+## turn trace explains what allowed the launch (issue #484). A claim the yard
+## refuses comes back as `{"refused": <the gate's words>}` instead: the trace
+## names what held the hull back, so the court is not left banking the chest and
+## the cloth again in silence (issue #1126).
 static func _build_warship(
 	play: PlaySession, faction: int, roster: Array, economy: PlayerEconomy, seat: int
 ) -> Dictionary:
@@ -94,47 +100,28 @@ static func _build_warship(
 	if not (claim.get("funded_ids", []) as Array).has("navy.build"):
 		return {}
 	var flown: Array[String] = MapPlayCourt.hull_types(play, faction)
-	var type_id: String = _warship_type(economy, flown)
+	# One gate for the yard, the ledger and this pass: the hull the yard would
+	# lay down today, or the reason it will not (issue #1126).
+	var yard: Dictionary = AiNavy.laying(economy, flown)
+	var type_id: String = String(yard.get("type_id", ""))
 	if type_id.is_empty():
-		return {}
+		return {"refused": String(yard.get("reason", "")), "type_id": ""}
 	var chest: int = MapPlayCourt.navy_chest(play, faction)
 	var laid: Dictionary = _launch(
 		play, roster, faction, economy, seat, {"type_id": type_id}, flown
 	)
-	if laid.is_empty():
-		return {}
+	if not bool(laid.get("ok", false)):
+		return {"refused": String(laid.get("reason", "")), "type_id": type_id}
+	laid.erase("ok")
 	laid["price"] = ShipEconomy.treasury_cost(type_id)
 	laid["chest"] = chest
 	return laid
 
 
-## The strongest warship this court can pay for today: what its yard opens, its
-## purse and stores cover, and its fields can spare a hand for. Empty when the
-## court can lay nothing down. `flown` lets a starting sloop be rebuilt without
-## Navigation (issue #484).
-static func _warship_type(economy: PlayerEconomy, flown: Array = []) -> String:
-	var best: String = ""
-	var best_strength: float = 0.0
-	var peasants: int = economy.available_peasants()
-	for raw: Variant in ShipEconomy.ENTRIES.keys():
-		var type_id: String = String(raw)
-		if not ShipStats.is_warship(type_id):
-			continue
-		var reason: String = ShipEconomy.blocked_reason(
-			type_id, economy.treasury, economy.stockpile, peasants,
-			economy.tech_unlocked, flown
-		)
-		if not reason.is_empty():
-			continue
-		var strength: float = ShipStats.strength(type_id)
-		if best.is_empty() or strength > best_strength:
-			best = type_id
-			best_strength = strength
-	return best
-
-
 ## Paying for one hull: the slip is the crown's squadron already in port at its
 ## seat, or a new empty squadron founded there (the player's yard does the same).
+## Returns `{ok: true, type_id, hull, founded}` or `{ok: false, reason}` in the
+## yard's own words, so a refusal reads in the trace (issue #1126).
 static func _launch(
 	play: PlaySession,
 	roster: Array,
@@ -146,7 +133,7 @@ static func _launch(
 ) -> Dictionary:
 	var type_id: String = String(order.get("type_id", ""))
 	if type_id.is_empty():
-		return {}
+		return {"ok": false, "reason": "the slip has no hull to lay"}
 	var fleet: FleetState = _slip_fleet(roster, faction, seat)
 	var founded: bool = fleet == null
 	if founded:
@@ -162,11 +149,11 @@ static func _launch(
 	var known: Array = flown if not flown.is_empty() else ShipEconomy.types_flown(roster)
 	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id, known)
 	if not bool(result.get("ok", false)):
-		return {}
+		return {"ok": false, "reason": String(result.get("reason", ""))}
 	play.ship_layer.next_hull += 1
 	if founded:
 		roster.append(fleet)
-	return {"type_id": type_id, "hull": hull_id, "founded": founded}
+	return {"ok": true, "type_id": type_id, "hull": hull_id, "founded": founded}
 
 
 ## Water a merchant will not enter: a zone holding a squadron its court is at
