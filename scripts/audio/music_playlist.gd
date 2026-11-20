@@ -52,6 +52,8 @@ const ERA_BEDS: Array[Dictionary] = [
 ]
 
 ## Theme beds in the order the rotate meets them, each with the mood it scores.
+## Titles here are the catalogue's own names; the manifest keeps the provider's
+## titles and prompts, which echo the prompt rather than the audio.
 const THEME_BEDS: Array[Dictionary] = [
 	{"id": COURT, "file": "music_court.ogg", "title": "Court Processional",
 		"role": "Ceremonial court"},
