@@ -1190,6 +1190,12 @@ func test_the_observer_reads_one_province_in_its_owners_terms() -> void:
 		String(reading["defence"]).is_empty(), false,
 		"the defence line always says something"
 	)
+	assert_true(
+		String(reading["defence"]).contains(
+			DefenceSurvey.terrain_line(ArmyModifiers.terrain_for(play.model, province_id))
+		),
+		String(reading["defence"])
+	)
 
 
 ## A province id the chart does not hold reads nothing, so the sheet closes

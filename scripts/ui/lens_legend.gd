@@ -239,7 +239,8 @@ func _draw_crown_road() -> void:
 
 ## Four bands, one shield each, in the same order as the colours: open ground,
 ## a garrison, a walled province and a citadel. The gold pips are the guns and
-## the cross is the hospital, exactly as the slips carry them.
+## the cross is the hospital, exactly as the slips carry them; a ground that
+## shelters a defence prints its own name under them.
 func _draw_defence() -> void:
 	draw_string(
 		_font, Vector2(14, 24), MapGlyphs.spaced("DEFENCE KEY"),
@@ -254,6 +255,10 @@ func _draw_defence() -> void:
 			HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 48, 13, Palette.TEXT
 		)
 		y += 22.0
+	draw_string(
+		_font, Vector2(14, HEIGHT - 46), "Ground: the dominant terrain, when it shelters",
+		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM
+	)
 	draw_string(
 		_font, Vector2(14, HEIGHT - 30), "Number: strength · pips: guns",
 		HORIZONTAL_ALIGNMENT_LEFT, WIDTH - 24, 10, Palette.TEXT_DIM

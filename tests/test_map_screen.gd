@@ -1646,6 +1646,37 @@ func test_the_reading_names_the_crown_garrison_and_its_wall() -> void:
 	assert_gt(int(entry["regiments"]), 0)
 	var summary: String = lens.summary_for(province.id)
 	assert_true(summary.contains("strength"), summary)
+	# The ground is read too: the same dominant-terrain pick the battle uses.
+	assert_eq(int(entry["terrain"]), ArmyModifiers.terrain_for(_screen.model, province.id))
+	assert_true(summary.contains(String(entry["terrain_line"])), summary)
+
+
+## A ground that shelters prints its own line under the garrison's, and a long
+## ground name widens the slip so the words are never cut.
+func test_a_sheltering_ground_adds_a_line_and_widens_the_slip() -> void:
+	var lens: DefenceLens = _screen.play.defence_lens
+	MapPlayInput.set_defence_lens(_screen.play, true)
+	var plain: Dictionary = {"regiments": 0, "fort": 0, "shelters": false}
+	var open_forest: Dictionary = {
+		"regiments": 0, "fort": 0, "shelters": true, "terrain_name": "Hardwood Forest",
+	}
+	var held_hills: Dictionary = {
+		"regiments": 2, "fort": 1, "shelters": true, "terrain_name": "Hills",
+	}
+	assert_almost_eq(lens._plate_size(plain).y, DefenceLens.PLATE_H_OPEN, 0.01)
+	assert_almost_eq(
+		lens._plate_size(open_forest).y, DefenceLens.PLATE_H_OPEN + DefenceLens.LINE_H, 0.01
+	)
+	assert_almost_eq(
+		lens._plate_size(held_hills).y,
+		DefenceLens.PLATE_H_OPEN + DefenceLens.LINE_H * 2.0,
+		0.01
+	)
+	assert_gt(
+		lens._plate_size(open_forest).x, lens._plate_size(plain).x,
+		"a long ground name widens the slip"
+	)
+	assert_almost_eq(lens._plate_size(plain).x, DefenceLens.PLATE_W, 0.01)
 
 
 ## A march moves a garrison: the lens reads the roster again on the signal, not
@@ -1809,6 +1840,12 @@ func defence_survey_entry(survey: Dictionary, province_id: int) -> Dictionary:
 	return {}
 
 
+## Pave one province with a single ground, the way a region's terrain lands.
+func _pave(province_id: int, terrain: int) -> void:
+	for tile: Vector2i in _model.provinces[province_id].tiles:
+		_model.terrain[_model.index_of(tile.x, tile.y)] = terrain
+
+
 func test_the_wall_outranks_the_garrison() -> void:
 	_setup_defence_survey()
 	assert_eq(DefenceSurvey.band_for(0, 0), DefenceSurvey.BAND_OPEN)
@@ -1909,6 +1946,48 @@ func test_one_regiment_and_one_gun_read_in_the_singular() -> void:
 	var text: String = DefenceSurvey.summary_text(defence_survey_entry(_snapshot(), 3))
 	assert_true(text.contains("22 strength · 1 regiment"), text)
 	assert_true(text.contains("Fort 3 (3 guns)"), text)
+
+
+func test_the_reading_names_the_ground_the_battle_would_be_had_on() -> void:
+	_setup_defence_survey()
+	_pave(2, MapModel.Terrain.HARDWOOD_FOREST)
+	var walled: Dictionary = defence_survey_entry(_snapshot(), 2)
+	assert_eq(
+		int(walled["terrain"]), ArmyModifiers.terrain_for(_model, 2),
+		"the Combat phase's own pick"
+	)
+	assert_eq(String(walled["terrain_line"]), "Hardwood Forest — shelters a defence")
+	assert_true(
+		DefenceSurvey.summary_text(walled).contains("Hardwood Forest — shelters a defence")
+	)
+	# The ground is a reading, not a band: the wall still decides the shield.
+	assert_eq(String(walled["band"]), DefenceSurvey.BAND_WALLED)
+	# Open ground still reads weak, and says so.
+	_pave(0, MapModel.Terrain.PLAINS)
+	var open: Dictionary = defence_survey_entry(_snapshot(), 0)
+	assert_eq(String(open["band"]), DefenceSurvey.BAND_OPEN)
+	assert_eq(String(open["terrain_line"]), "Plains — nothing to hold")
+	assert_true(DefenceSurvey.summary_text(open).contains("Plains — nothing to hold"))
+
+
+## Every ground reads the words its own Combat multiplier buys, so a change to
+## the terrain table moves the reading with it.
+func test_every_ground_reads_its_own_multiplier() -> void:
+	var words: Dictionary = {
+		MapModel.Terrain.PLAINS: "nothing to hold",
+		MapModel.Terrain.HARDWOOD_FOREST: "shelters a defence",
+		MapModel.Terrain.SCRUB_FOREST: "favours a defence",
+		MapModel.Terrain.HILLS: "favours a defence",
+		MapModel.Terrain.MOUNTAINS: "shelters a defence",
+		MapModel.Terrain.DESERT: "gives the defence an edge",
+		MapModel.Terrain.SWAMP: "favours a defence",
+	}
+	for terrain: int in words:
+		assert_eq(DefenceSurvey.terrain_flavour(terrain), String(words[terrain]))
+		assert_eq(
+			DefenceSurvey.shelters(terrain),
+			ArmyModifiers.terrain_multiplier(terrain) > 1.0
+		)
 
 
 func test_an_embarked_army_defends_nothing() -> void:
