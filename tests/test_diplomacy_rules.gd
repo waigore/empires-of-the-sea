@@ -13,7 +13,9 @@ const diplomacy_proposals_AiFixture = preload("res://tests/ai_fixture.gd")
 ## A throwaway chart for the proposal suite's absorption case: the answer moves
 ## a province, so the shared map fixture would carry the change into other cases.
 const diplomacy_proposals_NavalFixture = preload("res://tests/naval_fixture.gd")
-const diplomacy_survey_Fixture = preload("res://tests/map_fixture.gd")
+## Pocket chart (7×3): survey bands and runs never need the 48×32 region under
+## coverage (docs/testing.md § Speed rules — tiny fixture first).
+const diplomacy_survey_Fixture = preload("res://tests/naval_fixture.gd")
 const _Fixture = preload("res://tests/civilian_fixture.gd")
 const dialogue_beats_Fixture = preload("res://tests/army_fixture.gd")
 
@@ -149,7 +151,7 @@ func _setup_diplomacy_orders() -> void:
 
 func _setup_diplomacy_survey() -> void:
 	_suite_setup = "diplomacy_survey"
-	_model = diplomacy_survey_Fixture.region()
+	_model = diplomacy_survey_Fixture.build()
 	_state = DiplomacyState.new()
 	_state.initialize(1)
 
@@ -4491,12 +4493,13 @@ func test_a_protest_reads_as_a_quieter_peacemaker() -> void:
 
 func test_a_weaker_neighbour_weighs_heavier() -> void:
 	_setup_intel_dossier()
-	var world: WorldMap = intel_dossier_Fixture.world()
-	var pair: Array[int] = _asym_pair()
-	var big: int = pair[0]
-	var small: int = pair[1]
-	intel_dossier_state.record_event("warDeclared", big, small)
-	var scores: Dictionary = _scores(big, world)
+	# Pocket holdings beat a cold Standard chart under coverage (docs/testing.md
+	# § Speed rules — tiny fixture first).
+	var world: WorldMap = _asym_world()
+	intel_dossier_state.record_event(
+		"warDeclared", intel_dossier_ENGLAND, intel_dossier_GENOA
+	)
+	var scores: Dictionary = _scores(intel_dossier_ENGLAND, world)
 	assert_eq(
 		int(scores.get(AiAgenda.WARMONGER, 0)),
 		IntelEvidence.W_WAR + IntelEvidence.W_WEAKER,
@@ -4506,13 +4509,12 @@ func test_a_weaker_neighbour_weighs_heavier() -> void:
 
 func test_a_stronger_court_is_evidence_of_envy() -> void:
 	_setup_intel_dossier()
-	var world: WorldMap = intel_dossier_Fixture.world()
-	var pair: Array[int] = _asym_pair()
-	var big: int = pair[0]
-	var small: int = pair[1]
-	intel_dossier_state.record_event("warDeclared", small, big)
+	var world: WorldMap = _asym_world()
+	intel_dossier_state.record_event(
+		"warDeclared", intel_dossier_GENOA, intel_dossier_ENGLAND
+	)
 	assert_eq(
-		int(_scores(small, world).get(AiAgenda.ENVY, 0)),
+		int(_scores(intel_dossier_GENOA, world).get(AiAgenda.ENVY, 0)),
 		IntelEvidence.W_STRONGER,
 		"a smaller crown striking the one ahead reads as envy"
 	)
@@ -4703,34 +4705,17 @@ func _joined(entries: Array[Dictionary]) -> String:
 		parts.append(String(entry["text"]))
 	return " | ".join(parts)
 
-## The widest gap in holdings between two courts other than the viewer, read
-## from the shared generated world (never mutated). One chart scan per court,
-## not per pair: the pair walk is 21×21 and a recount in it read the whole chart
-## hundreds of times under coverage.
-func _asym_pair() -> Array[int]:
-	var world: WorldMap = intel_dossier_Fixture.world()
-	var ids: Array[int] = []
-	var held: Dictionary = {}
-	for faction: Dictionary in FactionCatalog.all():
-		var id: int = int(faction["id"])
-		if id == intel_dossier_VIEWER:
-			continue
-		ids.append(id)
-		held[id] = DiplomacyRules.provinces_owned(world, id)
-	ids.sort()
-	var big: int = ids[0]
-	var small: int = ids[ids.size() - 1]
-	var best: int = -1
-	for a: int in ids:
-		for b: int in ids:
-			if a == b:
-				continue
-			var gap: int = int(held[a]) - int(held[b])
-			if gap > best:
-				best = gap
-				big = a
-				small = b
-	return [big, small]
+## England holds three provinces, Genoa one — enough asymmetry for weaker /
+## stronger evidence without a Standard generate_world under coverage.
+func _asym_world() -> WorldMap:
+	return diplomacy_power_AiFixture.world(
+		[
+			intel_dossier_ENGLAND,
+			intel_dossier_ENGLAND,
+			intel_dossier_ENGLAND,
+			intel_dossier_GENOA,
+		] as Array[int]
+	)
 
 
 ## The AI prices a Join Empire rung with the same answer the court gives it:
