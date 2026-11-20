@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:a95a223197c0b6cb091f2e19f61240b4afa492b4e713618cb7ae12c6fb1a1eb7",
-  "submission_git": "fix/1140-minor-truce-holds@db8a83d9",
+  "submission_hash": "sha256:aa78feccc80a391256c3f1dca42fa07517ab7d11520b45e3cdce661c40be973f",
+  "submission_git": "fix/1139-claim-crew-carve-out@91b016c2",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:38baa0bd84bc229f4f9173b706f52463178d578e145f79748f7a8a422a3000a2",
+    "ai_surface_hash": "sha256:5fcca35ca434dfe0fbd61f00a65840291c2e2cab08e825afce755b2f6ea6774a",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 29,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-20T20:42:34Z",
+  "timestamp": "2026-11-20T21:05:48Z",
   "report_version": 1,
-  "signature": "hmac-sha256:297d0101c5447cb91de1cc93bddded0197ce3bd4539d17dea6aae9181929e110"
+  "signature": "hmac-sha256:f19d7fb8cdf02387ee8a2b40ac12e1b24dc845cbad8c5e8decade35aea86fe86"
 }

@@ -73,6 +73,12 @@ static func region_context(
 		# has landed (#1127). Stamped before the muster so the hire order can
 		# raise a claim crew even on a turn the harbour has no hull to spare.
 		context["voyage_crew_kind"] = CivilianMuster.voyage_kind(play, faction, region)
+		# The stranded-voyage read the claim crew's carve-out rides (issue
+		# #1139): the expedition the court paid for is ashore with no crown
+		# land, so its claim still has a step the hire ladder must keep open.
+		context["voyage_stranded"] = MapPlayObjectiveVoyage.claim_stranded(
+			play, faction
+		)
 	if muster.x >= 0:
 		context["muster_port"] = muster
 		# Only the crew the voyage will board waits at the harbour; the crown's

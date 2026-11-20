@@ -124,10 +124,23 @@ static func training_order(
 		type_id = queue[0]
 	if type_id.is_empty() or not CivilianCatalog.is_implemented(type_id):
 		return {}
+	# The claim crew's own carve-out (issue #1139): a voyage already stranded is
+	# the one case the claim pays for — #1127 / #1132 kept the aim open exactly
+	# for it, and docs/ai.md names the claim's Merchant in the same clause. While
+	# the claim stands (a stranded voyage still asks for a `merchant` crew), that
+	# one Merchant is hired like a provision crew: the war footing and the bank
+	# hold the expansion roster, not the rescue of the voyage the court already
+	# paid for. Per-claim, not per-roster: only the crew the stranded claim asks
+	# for opens, so the college cannot re-hire against the chest (#1059).
+	var claim_crew: bool = (
+		is_expansion_crew(type_id)
+		and String(context.get("voyage_crew_kind", "")) == type_id
+		and bool(context.get("voyage_stranded", false))
+	)
 	# The footing's own reading, never a legality gate: the hire is the court's
 	# choice, and a crew it does hire still passes the same catalog gate
 	# (DR-20261116-15).
-	if not crews_open(context) and is_expansion_crew(type_id):
+	if not crews_open(context) and is_expansion_crew(type_id) and not claim_crew:
 		return {"ok": false, "reason": REASON_CREWS}
 	var tech: Dictionary = context.get("tech_unlocked", {})
 	if not CivilianCatalog.is_unlocked(type_id, tech):
@@ -135,8 +148,9 @@ static func training_order(
 	# The bank's own provision (issue #1059): the crews the farms and their
 	# roads need keep the works purse — a chest that cannot exist for want
 	# of fed hands and roads never arms a court — while the rest of the
-	# ladder stands behind the chest with every other deferrable spend.
-	if banked and not PROVISION_CREWS.has(type_id):
+	# ladder stands behind the chest with every other deferrable spend. The
+	# stranded claim's Merchant rides the same provision (#1139).
+	if banked and not PROVISION_CREWS.has(type_id) and not claim_crew:
 		return {"ok": false, "reason": REASON_BANK}
 	var purse: int = hire_purse
 	if type_id == "builder" or type_id == "engineer" or type_id == "explorer":

@@ -4655,6 +4655,60 @@ func test_a_court_at_war_hires_no_expansion_crew() -> void:
 	)
 
 
+## The stranded claim's own carve-out (issue #1139): the voyage the court paid
+## for is ashore with no crown land, and its claim still has a step — the
+## Merchant that voyage asks for (#1127) is hired like a provision crew, at war
+## or banked. The carve-out is per-claim: the crew the stranded claim asks for,
+## not the whole expansion roster.
+func test_a_stranded_claims_merchant_is_hired_at_war_and_banked() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	crews["tech_unlocked"] = {"merchant_companies": true}
+	crews["voyage_crew_kind"] = "merchant"
+	crews["voyage_stranded"] = true
+	crews["phase"] = AiPhasePlanner.PHASE_WAR
+	var at_war: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(at_war.get("ok", false)),
+		"the stranded claim's Merchant is hired on a war footing"
+	)
+	assert_eq(String(at_war["type_id"]), "merchant")
+	crews["conquest_bank"] = true
+	var banked: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(banked.get("ok", false)),
+		"the stranded claim's Merchant is hired while the court banks"
+	)
+	assert_eq(String(banked["type_id"]), "merchant")
+	# Per-claim, not per-roster: the same footing still shuts the Explorer the
+	# claim does not ask for, and the bank still shuts the deed Merchant.
+	crews["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 1, "spy": 0, "merchant": 0,
+	}
+	crews["conquest_bank"] = false
+	var other: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_false(bool(other.get("ok", false)), "the roster's own crew stays shut")
+	assert_eq(String(other.get("reason", "")), AiCivilianHire.REASON_CREWS)
+	crews["voyage_crew_kind"] = ""
+	var deed_merchant: Dictionary = _civilian_context()
+	deed_merchant["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	deed_merchant["tech_unlocked"] = {"merchant_companies": true}
+	deed_merchant["conquest_bank"] = true
+	deed_merchant["phase"] = AiPhasePlanner.PHASE_PEACE
+	var banked_deed: Dictionary = AiCivilianHire.training_order(
+		config, [], deed_merchant
+	)
+	assert_eq(
+		String(banked_deed.get("reason", "")), AiCivilianHire.REASON_BANK,
+		"a deed Merchant without a stranded claim stands behind the chest"
+	)
+
+
 ## The economy trace names the hire the footing held shut, so a court at war is
 ## never silent about the crew it did not take (REQ-P5-05; DR-20261116-15).
 func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
