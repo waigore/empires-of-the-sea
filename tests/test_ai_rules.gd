@@ -3526,23 +3526,41 @@ func test_the_door_the_court_walked_up_to_is_studied_first() -> void:
 	)
 
 
-## Issue #1126: a preset is charged per slot, so the ladder drops a step when the
-## whole row does not fit the spare — the chest the yard banks is not the
-## college's. Three slots at Low took 150 ducats from a chest that had 66 spare,
-## and the hull the court had saved for never left the slip.
+## Issue #1126: while the yard banks for a hull, the study ladder prices its
+## preset for the whole slot row — three slots at Low took 150 ducats from a
+## chest that had 66 spare, and the hull the court had saved for never left the
+## slip. Every other court keeps the published single-slot ladder.
 func test_the_ladder_prices_the_whole_slot_row() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = _purse(5566)
 	assert_eq(economy.research.slots.size(), 3, "the fixture's slot row")
 	var plan: Dictionary = AiResearchPlanner.plan(
 		config, economy,
-		{"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true}
+		{
+			"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true,
+			"navy_reserve": 5500,
+		}
 	)
 	assert_false(plan["assignments"].is_empty(), "the slots are still planned")
 	var paid: int = 0
 	for row: Dictionary in plan["assignments"]:
 		paid += ResearchFunding.gold(String(row["funding"]))
 	assert_true(paid <= 66, "the row never pays more ducats than the spare")
+
+
+## Issue #1126: the row-priced ladder is the hull chest's reading only — a court
+## that banks nothing keeps the published single-slot preset.
+func test_other_courts_keep_the_single_slot_ladder() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(5566)
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true}
+	)
+	var paid: int = 0
+	for row: Dictionary in plan["assignments"]:
+		paid += ResearchFunding.gold(String(row["funding"]))
+	assert_eq(paid, 150, "three slots at the single-slot preset, as published")
 
 
 ## Issue #484: while the navy chest is the money-goal reserve, the standing

@@ -68,7 +68,10 @@ static func _purse(
 	# Standing study affordability is always the cash floor, never the muster.
 	var cash_floor: int = maxi(int(context.get("cash_floor", research_floor(config))), 0)
 	var preset: String = funding_for(config, economy, save_floor)
-	preset = _row_preset(preset, economy, save_floor)
+	# A chest the yard is banking for is the only floor the row prices whole
+	# (issue #1126): every other study keeps the published single-slot ladder.
+	if int(context.get("navy_reserve", 0)) > 0:
+		preset = _row_preset(preset, economy, save_floor)
 	# A court that cannot clear the money-goal reserve still keeps one study
 	# alive at the cheapest preset when the purse clears half its cash floor:
 	# the standing study is the first slot that already holds a tech, or the
