@@ -9,12 +9,17 @@ extends VBoxContainer
 ## (DR-20261115-09). The dossier is where a crown asks about its land, so the
 ## door to the whole of it lives here rather than as a loose seal over the chart.
 signal realm_pressed
+## The sheet's shared close seal was pressed; the panel it heads decides what
+## closing means (docs/ui-panels.md).
+signal close_pressed
 
 var name_label: Label = null
 var capital_badge: Label = null
 var owner_swatch: ColorRect = null
 var owner_label: Label = null
 var realm_button: Button = null
+## The one close door, pinned to the head's right on every province sheet.
+var close: CloseSeal = null
 
 
 func _ready() -> void:
@@ -40,6 +45,10 @@ func _ready() -> void:
 	)
 	capital_badge.visible = false
 	header.add_child(capital_badge)
+
+	close = CloseSeal.make()
+	close.pressed.connect(func() -> void: close_pressed.emit())
+	header.add_child(close)
 
 	var owner_row := HBoxContainer.new()
 	owner_row.add_theme_constant_override("separation", 8)
