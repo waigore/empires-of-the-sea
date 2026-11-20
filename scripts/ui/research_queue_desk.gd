@@ -23,12 +23,11 @@ static func fill(
 	counsel: String = ""
 ) -> Dictionary:
 	var walk: Dictionary = ResearchWalk.run(state, treasury, "", boost, leader)
-	var priced: Array[Dictionary] = walk["slots"]
 	var floor: int = int(walk["floor"])
 	# The counsel is the study the court would open, not a slot: it rides the
 	# first idle row alone, so two idle slots never repeat one sentence.
 	var told: bool = false
-	for index in priced.size():
+	for index in walk["slots"].size():
 		var row: ResearchSlotRow = slot_rows.get(index)
 		if row == null:
 			row = ResearchSlotRow.new(index)
@@ -36,12 +35,14 @@ static func fill(
 			row.funding_pressed.connect(on_funding)
 			slots_body.add_child(row)
 			slot_rows[index] = row
-		var idle: bool = String(priced[index].get("tech", "")).is_empty()
+		var price: ResearchSlotPrice = ResearchSlotPrice.from_priced(
+			walk["slots"][index], floor
+		)
 		var word: String = ""
-		if idle and not told and not counsel.is_empty():
+		if price.is_idle() and not told and not counsel.is_empty():
 			word = counsel
 			told = true
-		row.update(priced[index], floor, true, word)
+		row.update(price, word)
 	return {
 		"gold": int(walk["gold"]),
 		"rp": int(walk["rp"]),

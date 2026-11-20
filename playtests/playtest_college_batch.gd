@@ -392,8 +392,7 @@ func _slot_rows() -> Array[ResearchSlotRow]:
 	var out: Array[ResearchSlotRow] = []
 	if _play == null or _play.hud == null:
 		return out
-	for node: Node in _play.hud.panels.research_panel.find_children("*", "ResearchSlotRow", true, false):
-		out.append(node as ResearchSlotRow)
+	out.assign(_play.hud.panels.research_panel.slot_rows())
 	return out
 
 
