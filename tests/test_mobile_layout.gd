@@ -324,7 +324,7 @@ func test_chip_values_do_not_shift_the_bar() -> void:
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
 	var height: float = hud.top_bar.size.y
-	hud.set_treasury(123456, false)
+	hud.stats.set_treasury(123456, false)
 	await get_tree().process_frame
 	assert_almost_eq(hud.top_bar.size.y, height, 0.5)
 	for chip: Control in hud.chips:
@@ -352,13 +352,13 @@ func test_treasury_income_delta_is_signed_and_compact() -> void:
 	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	hud.set_income(240)
+	hud.stats.set_income(240)
 	assert_eq(hud.stats.income_label.text, "+240")
-	hud.set_income(-35)
+	hud.stats.set_income(-35)
 	assert_eq(hud.stats.income_label.text, "-35")
-	hud.set_income(12_500)
+	hud.stats.set_income(12_500)
 	assert_eq(hud.stats.income_label.text, "+12.5k", "large deltas keep the plaque width")
-	hud.set_treasury(2_500, false)
+	hud.stats.set_treasury(2_500, false)
 	assert_true(hud.stats.treasury_chip.tooltip_text.contains("+12.5k per turn"))
 
 
@@ -368,11 +368,11 @@ func test_status_plaques_state_the_standing() -> void:
 	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	hud.set_treasury(2_500, false)
-	hud.set_income(-35)
-	hud.set_fleets(7)
-	hud.set_civilians(3)
-	hud.set_armies(11)
+	hud.stats.set_treasury(2_500, false)
+	hud.stats.set_income(-35)
+	hud.stats.set_fleets(7)
+	hud.stats.set_civilians(3)
+	hud.stats.set_armies(11)
 
 	assert_eq(hud.stats.treasury_label.text, "2,500")
 	assert_eq(hud.stats.income_label.text, "-35")
@@ -390,8 +390,8 @@ func test_a_coin_gain_lifts_off_the_treasury_plaque() -> void:
 	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	hud.set_treasury(1_000, false)
-	hud.flash_income(240)
+	hud.stats.set_treasury(1_000, false)
+	hud.stats.flash_income(240)
 	var lifted: Label = null
 	for node: Node in hud.get_children():
 		if node is Label and (node as Label).text == "+240":
@@ -407,8 +407,8 @@ func test_the_treasury_count_counts_up_to_the_standing() -> void:
 	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
-	hud.set_treasury(0, false)
-	hud.set_treasury(1_200)
+	hud.stats.set_treasury(0, false)
+	hud.stats.set_treasury(1_200)
 	# The chip tweens for 0.6 s; wait for the standing instead of a fixed sleep
 	# so a loaded worker is not held past the animation (playbook: no sleeps).
 	for _frame in 90:

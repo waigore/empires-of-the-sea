@@ -10,9 +10,15 @@ var town: Label = null
 var road: Label = null
 var fort: Label = null
 var hospital: Label = null
+## The courts that have bought land in this province (wiki: factions § Tribe —
+## "unless another GP has invested in the province"; DR-20261120-05). The row
+## hides for a province nobody has bought into rather than printing an absence.
+var deeds: Label = null
 
 ## The province last shown, so a crown-link change repaints without a reload.
 var _data: ProvinceState = null
+## value label -> its caption, so a row can hide whole.
+var _captions: Dictionary = {}
 
 
 func _ready() -> void:
@@ -25,6 +31,7 @@ func _ready() -> void:
 	road = _add_row("Roads")
 	fort = _add_row("Fort")
 	hospital = _add_row("Hospital")
+	deeds = _add_row("Deeds")
 
 
 func show_province(model: MapModel, province_id: int, data: ProvinceState) -> void:
@@ -40,9 +47,12 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
 	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
+	_show_row(
+		deeds, DeedBar.holders(DeedProtection.province_holders(model, province_id))
+	)
 
 
-## Fill the same six rows from a caller's own reading instead of the province
+## Fill the same rows from a caller's own reading instead of the province
 ## record: the observatory's province sheet hands over the words its reading
 ## module wrote, so one grid paints every province sheet (REQ-P3-01). A filled
 ## grid keeps no province, so a crown-link repaint has nothing to repaint.
@@ -56,6 +66,7 @@ func fill(values: Dictionary) -> void:
 	road.tooltip_text = ""
 	fort.text = String(values.get("fort", ""))
 	hospital.text = String(values.get("hospital", ""))
+	_show_row(deeds, String(values.get("deeds", "")))
 
 
 ## `crown` is `LandConnectivity.province_link` for this province: whether its
@@ -103,4 +114,17 @@ func _add_row(caption: String) -> Label:
 	value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	value.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_child(value)
+	_captions[value] = key
 	return value
+
+
+## A row that has nothing to say leaves the grid rather than printing a blank:
+## the caption goes with it, so the table closes up.
+func _show_row(value: Label, text: String) -> void:
+	if value == null:
+		return
+	value.text = text
+	value.visible = not text.is_empty()
+	var key: Label = _captions.get(value, null) as Label
+	if key != null:
+		key.visible = value.visible

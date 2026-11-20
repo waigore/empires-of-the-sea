@@ -1,11 +1,12 @@
 class_name NavalStation
 extends RefCounted
 ## One station read for a whole water: every squadron the station's owner holds
-## there, the orders that actually work the station, and the trade raid it
-## works. The combat pass, the trade pass and the fleet dossier all read a water
-## through this module, so the number a player reads is the number the turn
-## rolls (wiki: ships-and-naval § Trade and Transport Interception, § Naval
-## Interception Probability; DR-20261120-01, DR-20261120-02; REQ-P2-03).
+## there, the orders that actually work the station, and every hostile station
+## off a coast a trade raid can work. The combat pass, the trade pass and the
+## fleet dossier all read a water through this module, so the number a player
+## reads is the number the turn rolls (wiki: ships-and-naval § Trade and
+## Transport Interception, § Naval Interception Probability; DR-20261120-01,
+## DR-20261120-02; REQ-P2-03, REQ-P3-01).
 ##
 ## A station is judged in its own zone, never pooled with a squadron working
 ## another coast (DR-20261109-16).
@@ -67,3 +68,57 @@ static func group_of(
 	if kept.is_empty():
 		kept.append(fleet)
 	return kept
+
+
+## Every sea zone bordering a coast `owner` still holds: the waters a trade raid
+## against that crown can work from (DR-20261109-16). Shared by the raid pass and
+## any dossier that prices a coast before the turn rolls it (REQ-P2-03).
+static func coast_zones(model: MapModel, owner: int) -> Array[int]:
+	var zones: Array[int] = []
+	if model == null:
+		return zones
+	for province: ProvinceState in model.provinces:
+		if province.owner != owner:
+			continue
+		for zone: int in NavalMovement.province_sea_zones(model, province.id):
+			if not zones.has(zone):
+				zones.append(zone)
+	zones.sort()
+	return zones
+
+
+## Hostile stations off a victim's coast this turn: one group per `(zone, owner)`
+## whose own orders work that water, never pooled across coasts (DR-20261109-16).
+## `only_owner` keeps a prize raid to the crown's own colours; `-1` keeps every
+## hostile that works the coast. The raid pass and the dossier both walk this
+## map, so the water they price is the water that rolls (REQ-P2-03, REQ-P3-01).
+static func hostile_groups(
+	model: MapModel,
+	fleets: Array,
+	victim: int,
+	hostile: Callable = Callable(),
+	only_owner: int = -1
+) -> Dictionary:
+	var groups: Dictionary = {}
+	if model == null or fleets.is_empty():
+		return groups
+	var relevant: Array[int] = coast_zones(model, victim)
+	if relevant.is_empty():
+		return groups
+	for fleet: FleetState in fleets:
+		if fleet == null or fleet.owner == victim or not fleet.is_at_sea():
+			continue
+		if only_owner >= 0 and fleet.owner != only_owner:
+			continue
+		if not fleet.is_afloat() or not relevant.has(fleet.sea_zone):
+			continue
+		if not Hostility.between(hostile, fleet.owner, victim):
+			continue
+		if not works(model, fleet, hostile):
+			continue
+		var key := Vector2i(fleet.sea_zone, fleet.owner)
+		if not groups.has(key):
+			groups[key] = []
+		var bucket: Array = groups[key]
+		bucket.append(fleet)
+	return groups

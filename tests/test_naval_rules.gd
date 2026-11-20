@@ -1781,8 +1781,9 @@ func test_a_defending_squadron_does_not_intercept() -> void:
 
 ## One station reading for the whole water: the combat pass rolls the holders,
 ## the trade pass raids with the squadrons whose orders work the station, and a
-## water of bystanders holds no station at all. The dossier, the catch and the
-## prize all read this module (DR-20261120-01, DR-20261120-02).
+## water of bystanders holds no station at all. The coast a raid works and the
+## hostile groups off it live here too, so the dossier, the catch and the prize
+## all read one home (DR-20261120-01, DR-20261120-02; REQ-P3-01).
 func test_one_station_reading_serves_the_catch_and_the_prize() -> void:
 	_setup_naval_raid()
 	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
@@ -1809,6 +1810,27 @@ func test_one_station_reading_serves_the_catch_and_the_prize() -> void:
 	# A fleet at sea stands on her own when the roster holds no consort.
 	assert_eq(NavalStation.group_of(_naval_raid_model, water, patrol).size(), 1)
 	assert_eq(NavalStation.group_of(_naval_raid_model, water, null).size(), 0)
+	# The coast a trade raid works: Coro's waters (zone 1) and only those.
+	var coasts: Array[int] = NavalStation.coast_zones(_naval_raid_model, 1)
+	assert_true(coasts.has(1), "Coro's coast opens zone 1")
+	assert_false(coasts.has(0), "Cádiz's sea is not Coro's coast")
+	# Hostile stations off that coast: a Patrol works it; a Defend does not;
+	# only_owner keeps a prize raid to one crown's colours.
+	var foe := _naval_raid_fleet(3, 2, 1, ["frigate"])
+	foe.mission = FleetState.Mission.PATROL
+	var off_coast: Array = [patrol, sailing, foe]
+	var groups: Dictionary = NavalStation.hostile_groups(
+		_naval_raid_model, off_coast, 1, Callable()
+	)
+	assert_eq(groups.size(), 2, "two crowns hold stations off Coro")
+	assert_true(groups.has(Vector2i(1, 0)), "owner 0's patrol works the coast")
+	assert_true(groups.has(Vector2i(1, 2)), "owner 2's patrol works the coast")
+	assert_eq((groups[Vector2i(1, 0)] as Array).size(), 1, "Defend is no station")
+	var prize_only: Dictionary = NavalStation.hostile_groups(
+		_naval_raid_model, off_coast, 1, Callable(), 2
+	)
+	assert_eq(prize_only.size(), 1, "a prize raid keeps the crown's own colours")
+	assert_true(prize_only.has(Vector2i(1, 2)))
 	# A doomed blockade (its coast taken back) works nothing.
 	patrol.mission = FleetState.Mission.BLOCKADE
 	patrol.blockade_province = 1
@@ -3082,6 +3104,72 @@ func test_a_blockade_bonus_does_not_cross_zones() -> void:
 	)
 
 
+## The wiki weighs the raiders off the crown's coast together and lets the best
+## one roll: "off its own coast it suffers the single best raid of the turn"
+## (ships-and-naval § Trade and Transport Interception; DR-20261111-20 § Change —
+## "the raiders off its coast are weighed together and the best one rolls").
+## A weaker squadron in a lower zone must not take the raid the stronger one
+## earns, in its own water and at its own efficiency.
+func test_the_best_raider_off_the_coast_takes_the_raid() -> void:
+	_setup_naval_raid()
+	# Both coasts answer to the victim, so both zones border its shore.
+	_naval_raid_model.province_data(1).owner = 0
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var weak := _naval_raid_fleet(1, 1, 0, ["sloop"])
+	weak.mission = FleetState.Mission.PATROL
+	var strong := _naval_raid_fleet(2, 2, 1, ["frigate"])
+	strong.mission = FleetState.Mission.PATROL
+	var best_chance: float = NavalRaid.trade_chance([strong], home, FleetState.Mission.PATROL)
+	var weak_chance: float = NavalRaid.trade_chance([weak], home, FleetState.Mission.PATROL)
+	# The strongest raid's own price, read before any hull leaves the water.
+	var best_eff: float = float(
+		NavalRaid.preview([strong], home, {"grain": 10}, FleetState.Mission.PATROL)["efficiency"]
+	)
+	assert_lt(weak_chance, best_chance, "the frigate earns the better raid")
+	var result: Dictionary = NavalRaid.resolve(
+		_naval_raid_model, [home, weak, strong], 0, home, {"grain": 10},
+		Callable(), 1, 1, 0.2
+	)
+	assert_true(bool(result["ok"]))
+	assert_eq(int(result["raider"]), 2, "the stronger court's squadron rolls")
+	assert_eq(int(result["zone"]), 1, "in her own water, not the weaker group's")
+	assert_almost_eq(float(result["chance"]), best_chance, 0.0001)
+	assert_almost_eq(
+		float(result["efficiency"]), best_eff, 0.0001,
+		"the strongest raid's efficiency is what the crown meets",
+	)
+
+
+## One roll decides the raid: a lucky weaker squadron cannot take cargo in a
+## turn the best squadron's own roll missed (ships-and-naval § Trade and
+## Transport Interception; DR-20261111-20).
+func test_one_roll_decides_the_crowns_raid() -> void:
+	_setup_naval_raid()
+	_naval_raid_model.province_data(1).owner = 0
+	var home := FleetState.in_port(10, 0, 0, ["home_1"], {"home_1": "fluyte"})
+	var weak := _naval_raid_fleet(1, 1, 0, ["sloop"])
+	weak.mission = FleetState.Mission.PATROL
+	var strong := _naval_raid_fleet(2, 2, 1, ["frigate"])
+	strong.mission = FleetState.Mission.PATROL
+	var best_chance: float = NavalRaid.trade_chance([strong], home, FleetState.Mission.PATROL)
+	var weak_chance: float = NavalRaid.trade_chance([weak], home, FleetState.Mission.PATROL)
+	# A seed where the best group's own roll misses and the weaker group's lands.
+	var seed_value: int = 1
+	while seed_value < 20000 and not (
+		NavalInterception.roll(seed_value, 4, 1, 2, NavalRaid.ROLL_TAG) >= best_chance
+		and NavalInterception.roll(seed_value, 4, 0, 1, NavalRaid.ROLL_TAG) < weak_chance
+	):
+		seed_value += 1
+	assert_lt(seed_value, 20000, "the seed search finds the case")
+	var result: Dictionary = NavalRaid.resolve(
+		_naval_raid_model, [home, weak, strong], 0, home, {"grain": 10},
+		Callable(), seed_value, 4
+	)
+	assert_false(
+		bool(result["ok"]), "the best squadron's one roll is the turn's raid"
+	)
+
+
 func test_the_market_reports_this_turns_imports() -> void:
 	_setup_naval_raid()
 	var market: WorldMarket = WorldMarket.with_default_prices()
@@ -3173,7 +3261,10 @@ func test_only_the_raid_on_the_crown_reaches_the_lane() -> void:
 	MapPlayRaids._report(play, [incoming, prize])
 
 	assert_eq(hud.toasts.size(), 1, "one raid is the crown's news")
-	assert_true(hud.toasts[0].contains("seize"), hud.toasts[0])
+	assert_true(
+		hud.toasts[0].contains("England seizes 3 grain off the Mar Caribe"),
+		hud.toasts[0]
+	)
 	hud.free()
 
 

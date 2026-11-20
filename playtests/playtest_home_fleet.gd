@@ -477,7 +477,7 @@ func _print_dossier() -> void:
 
 ## Toasts about this area, so a turn's general noise does not bury them.
 func _my_toasts() -> void:
-	for panel: Node in _play.hud._toast_box.get_children():
+	for panel: Node in _play.hud.despatches.box.get_children():
 		if panel.is_queued_for_deletion():
 			continue
 		for text: String in _labels(panel):

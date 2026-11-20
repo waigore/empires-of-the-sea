@@ -98,7 +98,7 @@ static func on_order(play: PlaySession, kind: String, target: int, arg: String) 
 			play.army_layer.transfer_owner(loser, play.player_faction)
 	if bool(result.get("map_changed", false)):
 		play.refresh_map_views()
-	play.hud.set_treasury(play.treasury())
+	play.hud.stats.set_treasury(play.treasury())
 	refresh(play)
 	# War, peace and alliances repaint the political wash at once.
 	MapPlayLens.mount_diplomacy(play)

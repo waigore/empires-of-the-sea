@@ -52,7 +52,7 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	play.civilian_layer._rebuild_markers()
 	play.civilian_layer.queue_redraw()
 	if play.hud != null and play.hud.is_node_ready():
-		play.hud.set_civilians(
+		play.hud.stats.set_civilians(
 			play.civilian_layer.unit_count_all(play.player_faction)
 		)
 	var selected: CivilianState = play.civilian_layer.selected_unit

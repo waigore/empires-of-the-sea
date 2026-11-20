@@ -7,10 +7,10 @@ extends RefCounted
 ##
 ## A raid is a commerce raid: it pinches **cargo** and may send one **merchant
 ## hull** to the bottom, never a warship and never a hull on the raider's own
-## side (DR-20261111-17). The hull term lives in [NavalHullLoss]; this module
-## owns the raid itself. The crown raids back the same way: [method
-## resolve_prizes] takes a rival's cargo and merchant hulls as prize. Which
-## squadrons work a station is [NavalStation]'s reading.
+## side (DR-20261111-17). The hull term lives in [NavalHullLoss]; which
+## squadrons work a coast is [NavalStation]'s reading (`coast_zones`,
+## `hostile_groups`). This module owns the roll, the skim and the prize walk
+## (REQ-P3-01).
 
 const BLOCKADE_BONUS: float = 1.25
 const MIN_EFFICIENCY: float = 0.3
@@ -47,7 +47,8 @@ static func resolve(
 		return _nothing("no cargo at sea", victim)
 	return _raid(
 		model, fleets, victim, home, imports, hostile,
-		seed_value, turn, roll_value, has_tech, -1, ROLL_TAG, HULL_TAG, hull_roll
+		seed_value, turn, roll_value, has_tech, -1, ROLL_TAG, HULL_TAG, hull_roll,
+		true
 	)
 
 
@@ -149,10 +150,12 @@ static func hull_loss_chance(home: FleetState) -> float:
 	return NavalHullLoss.chance(home)
 
 
-## The shared raid: pick the best group working the victim's waters, roll, skim
-## cargo and roll again for one merchant hull. `only_owner` limits the raiders to
-## one crown (a prize raid); the tags keep a crown's losses and its prizes on
-## separate rolls.
+## The shared raid: roll, skim cargo and roll again for one merchant hull.
+## `only_owner` limits the raiders to one crown (a prize raid); the tags keep a
+## crown's losses and its prizes on separate rolls. `weigh_together` makes the
+## groups one raid: the strongest of them rolls, so the crown off whose coast
+## they stand meets the best raid of the turn and only that one (wiki:
+## ships-and-naval § Trade and Transport Interception; DR-20261111-20 § Change).
 static func _raid(
 	model: MapModel,
 	fleets: Array,
@@ -167,11 +170,11 @@ static func _raid(
 	only_owner: int,
 	roll_tag: int,
 	hull_tag: int,
-	hull_roll: float
+	hull_roll: float,
+	weigh_together: bool = false
 ) -> Dictionary:
-	var relevant: Array[int] = _relevant_zones(model, victim)
-	var groups: Dictionary = _raider_groups(
-		model, fleets, victim, relevant, hostile, only_owner
+	var groups: Dictionary = NavalStation.hostile_groups(
+		model, fleets, victim, hostile, only_owner
 	)
 	var keys: Array[Vector2i] = []
 	for raw: Variant in groups.keys():
@@ -182,6 +185,19 @@ static func _raid(
 			return a.x < b.x if a.x != b.x else a.y < b.y
 	)
 	var best_chance: float = 0.0
+	# The raid a crown suffers is **one** raid: the raiders off its coast are
+	# weighed together and the best one rolls, in her own water and at her own
+	# efficiency (DR-20261111-20 § Change). Separate rolls would hand the crown
+	# whichever weaker squadron beat its own number. A prize raid keeps the walk,
+	# because each raider there rolls its own salt, one prize per victim.
+	if weigh_together and not keys.is_empty():
+		var best: Dictionary = _weighed(model, groups, keys, home, hostile, has_tech)
+		if best.is_empty():
+			return _nothing("nothing taken", victim)
+		var chosen: Vector2i = best["key"]
+		best_chance = float(best["chance"])
+		keys.clear()
+		keys.append(chosen)
 	for key: Vector2i in keys:
 		var group: Array = groups[key] as Array
 		var mission: int = FleetMissions.station_mission(model, group, hostile)
@@ -226,6 +242,30 @@ static func _raid(
 	var idle: Dictionary = _nothing("nothing taken", victim)
 	idle["chance"] = best_chance
 	return idle
+
+
+## The strongest raid the groups off the victim's coast can make: the group key
+## and the chance it rolls, weighed by the number the dossier prices them with
+## (`trade_chance`), so the water the crown reads and the water that raids it are
+## one read. Ties keep the lower key: the walk takes only a strictly better raid.
+static func _weighed(
+	model: MapModel,
+	groups: Dictionary,
+	keys: Array[Vector2i],
+	home: FleetState,
+	hostile: Callable,
+	has_tech: Callable
+) -> Dictionary:
+	var best: Dictionary = {}
+	for key: Vector2i in keys:
+		var group: Array = groups[key] as Array
+		var mission: int = FleetMissions.station_mission(model, group, hostile)
+		if mission == FleetState.Mission.NONE:
+			continue
+		var found: float = trade_chance(group, home, mission, has_tech)
+		if best.is_empty() or found > float(best["chance"]):
+			best = {"key": key, "chance": found}
+	return best
 
 
 ## Raid efficiency rises with the raider's hull strength against the laden home
@@ -283,51 +323,9 @@ static func total_of(cargo: Dictionary) -> int:
 	return total
 
 
-## Every sea zone bordering a coast the victim still holds.
-static func _relevant_zones(model: MapModel, victim: int) -> Array[int]:
-	var zones: Array[int] = []
-	for province: ProvinceState in model.provinces:
-		if province.owner != victim:
-			continue
-		for zone: int in NavalMovement.province_sea_zones(model, province.id):
-			if not zones.has(zone):
-				zones.append(zone)
-	zones.sort()
-	return zones
-
-
-## At-sea patrol/blockade groups, one group per sea zone in the victim's waters:
-## a squadron is judged in its own zone, never pooled with a blockade or patrol
-## working another coast (DR-20261109-16). `only_owner` keeps a prize raid to the
-## crown's own colours.
-static func _raider_groups(
-	model: MapModel,
-	fleets: Array,
-	victim: int,
-	relevant: Array[int],
-	hostile: Callable,
-	only_owner: int = -1
-) -> Dictionary:
-	var groups: Dictionary = {}
-	for fleet: FleetState in fleets:
-		if fleet == null or fleet.owner == victim or not fleet.is_at_sea():
-			continue
-		if only_owner >= 0 and fleet.owner != only_owner:
-			continue
-		if not fleet.is_afloat() or not relevant.has(fleet.sea_zone):
-			continue
-		if not Hostility.between(hostile, fleet.owner, victim):
-			continue
-		if not NavalStation.works(model, fleet, hostile):
-			continue
-		if not groups.has(Vector2i(fleet.sea_zone, fleet.owner)):
-			groups[Vector2i(fleet.sea_zone, fleet.owner)] = []
-		var group: Array = groups[Vector2i(fleet.sea_zone, fleet.owner)]
-		group.append(fleet)
-	return groups
-
-
-## Σ HULL over a group's hulls: the raider side of the efficiency term.
+## Σ HULL over a group's hulls: the raider side of the efficiency term. Same
+## published hull pool [NavalStrength] totals, so a raid never prices a weight
+## the dossier would not print (REQ-P2-03).
 static func _group_strength(group: Array) -> float:
 	var total: float = 0.0
 	for fleet: FleetState in group:
@@ -336,10 +334,9 @@ static func _group_strength(group: Array) -> float:
 
 
 static func _hull_strength(home: FleetState) -> float:
-	var total: float = 0.0
-	for hull_id: String in home.hulls:
-		total += float(ShipStats.entry(home.type_of(hull_id)).get("hull", 0))
-	return total
+	if home == null:
+		return 0.0
+	return float(NavalStrength.squadron(home)["totals"].get("hull", 0))
 
 
 static func _nothing(reason: String, victim: int) -> Dictionary:
