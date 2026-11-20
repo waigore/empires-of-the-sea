@@ -844,6 +844,46 @@ domain = "muster"
 match = "tests/test_ledgers.gd*"
 domain = "muster"
 
+# The realm's by-hand shot harness (issue #1164): one plate per view, run on a
+# real GL context, drawn off the same projected rows the sheet prints. It rides
+# the muster domain beside the ledger suites so a shot-only edit never pulls the
+# map and ui catch-alls.
+[[rules]]
+match = "tests/realm_shot.gd*"
+domain = "muster"
+
+# The realm's three readings: the economy, defence and connectivity figures a
+# province row carries, read off the estates ledger, the battle's own terrain
+# table, the fort table and the market's sell price.
+[[rules]]
+match = "scripts/rules/realm_readings.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/rules/province_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/province_ledger_*.gd*"
+domain = "muster"
+
+# The chart pill on the map's own corner, its build and its layout.
+[[rules]]
+match = "scripts/ui/map_region_toggle.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/top_bar.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/hud_ledger_doors.gd*"
+domain = "muster"
+
+[[rules]]
+match = "playtests/playtest_raise_line.gd*"
+domain = "muster"
+
 # The crown's command ledger (DR-20261115-11): the projection, its row and
 # panel, the map hook and the army dossier's door. It rides the muster domain
 # with the other sheets — one chrome, one modal layer — so a reading change

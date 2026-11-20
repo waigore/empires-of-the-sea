@@ -80,7 +80,10 @@ static func groups(
 		data, region_key, func(_row: Dictionary) -> bool: return true
 	)
 	for group: Dictionary in kept:
-		_sort_rows(group["rows"] as Array[Dictionary], view_key, sort_key)
+		var rows: Array[Dictionary] = []
+		rows.assign(group["rows"] as Array)
+		_sort_rows(rows, view_key, sort_key)
+		group["rows"] = rows
 	return kept
 
 
@@ -165,6 +168,7 @@ static func _row(
 		"region_label": FactionCatalog.region_label(region),
 		"name": String(province.name),
 		"capital": province.capital,
+		"town": province.town_level() if province.has_town() else 0,
 		"place": _place(model, province),
 		"line": _line(province, estate),
 		"state": _state(garrison, link),

@@ -137,7 +137,9 @@ func _economy_text() -> String:
 ## one number is never a black box (REQ-P2-03).
 func _defence_text() -> String:
 	var defence: Dictionary = data.get("defence", {})
+	var town: int = int(data.get("town", 0))
 	var parts: PackedStringArray = [
+		("Town %d" % town) if town > 0 else "No town",
 		"%d strength ×%.2f %s" % [
 			roundi(float(defence.get("strength", 0.0))),
 			float(defence.get("multiplier", 1.0)),

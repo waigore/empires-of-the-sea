@@ -141,7 +141,6 @@ static func _province_ledger(run, screen: MapScreen) -> void:
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
 	run.check(panel.is_open(), "the realm opens from the cartouche seal")
 	run.check(int(panel._snapshot.get("total", 0)) > 0, "the realm lists the crown's provinces")
-	run.check(run.has_text(panel._rows, "Town"), "a row prints what the province is built to")
 	run.check(
 		panel._reading == ProvinceLedger.VIEW_ECONOMY and run.has_text(panel._rows, "ducats"),
 		"the economy view prices the harvest"
@@ -150,6 +149,7 @@ static func _province_ledger(run, screen: MapScreen) -> void:
 	await run.tree.process_frame
 	run.check(panel._reading == ProvinceLedger.VIEW_DEFENCE, "a press swaps the view")
 	run.check(run.has_text(panel._rows, "Defence"), "the defence view prints one figure")
+	run.check(run.has_text(panel._rows, "Town"), "and the town the province is built to")
 	panel._on_filter(ProvinceLedger.VIEW_CONNECTIVITY, false)
 	await run.tree.process_frame
 	run.check(

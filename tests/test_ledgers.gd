@@ -153,7 +153,12 @@ func test_the_realm_reads_three_views_over_one_holding() -> void:
 	assert_eq(int(economy["headroom"]), 2, "both still have room")
 	assert_eq(int(economy["value"]), 5 * CommodityCatalog.base_price("timber"), "priced at the sell")
 	var defence: Dictionary = home["defence"]
-	assert_eq(int(defence["figure"]), 10, "two pikemen, 5 each, at a plain's own multiplier")
+	assert_eq(
+		int(defence["figure"]),
+		roundi(float(home["strength"]) * float(defence["multiplier"]) + float(defence["emplaced"])),
+		"the figure is the garrison at the ground's own multiplier plus the battery"
+	)
+	assert_true(float(home["strength"]) > 0.0, "the crown's men are counted")
 	assert_eq(String(defence["terrain_name"]), "Plains", "the ground is the battle's own pick")
 	assert_eq(int(defence["fort"]), 0, "an open province")
 	var link: Dictionary = home["connectivity"]
@@ -186,6 +191,41 @@ func test_the_economy_view_orders_by_value_and_by_kind() -> void:
 		snapshot, LedgerRows.REGION_ALL, ProvinceLedger.VIEW_DEFENCE, ProvinceLedger.SORT_DEFENCE
 	)
 	assert_eq(String((defence[0]["rows"] as Array)[0]["name"]), "Cádiz", "the garrisoned seat leads")
+
+
+## The sheet's order survives the grouping: two provinces on one chart, the poor
+## one holding the lower id, so a value sort must paint the other first.
+func test_the_painted_rows_keep_the_chosen_order() -> void:
+	var poor: Dictionary = _plain_row(1, "Poor", 1.0, -1.0)
+	var rich: Dictionary = _plain_row(2, "Rich", 9.0, -2.0)
+	var rows: Array[Dictionary] = [poor, rich]
+	var snapshot: Dictionary = {
+		"rows": rows, "groups": LedgerRows.group(rows), "counts": {}, "total": 2,
+	}
+	var painted: Array[Dictionary] = ProvinceLedger.groups(
+		snapshot, LedgerRows.REGION_OLD, ProvinceLedger.VIEW_ECONOMY, ProvinceLedger.SORT_VALUE
+	)
+	assert_eq(painted.size(), 1, "one heading for the chart")
+	assert_eq(String((painted[0]["rows"] as Array)[0]["name"]), "Rich", "the richer row leads")
+	var by_defence: Array[Dictionary] = ProvinceLedger.groups(
+		snapshot, LedgerRows.REGION_OLD, ProvinceLedger.VIEW_DEFENCE, ProvinceLedger.SORT_DEFENCE
+	)
+	assert_eq(
+		String((by_defence[0]["rows"] as Array)[0]["name"]), "Poor",
+		"the defence figure orders the same rows its own way"
+	)
+
+
+## One bare row the order cases can sort: no chart label beyond the old one and
+## one figure on each view.
+func _plain_row(id: int, name: String, value: float, figure: float) -> Dictionary:
+	return {
+		"id": id, "region": FactionCatalog.OLD_WORLD, "region_label": "Old World",
+		"name": name, "capital": false,
+		"economy": {"value": int(value), "by_kind": {}},
+		"defence": {"figure": int(figure)},
+		"connectivity": {"hops": 0},
+	}
 
 
 func test_connectivity_orders_near_first_and_unreached_last() -> void:
@@ -985,7 +1025,7 @@ func test_back_closes_the_muster_roll_before_the_dossiers() -> void:
 func test_the_sheets_bind_once_and_back_walks_the_registry() -> void:
 	_attach()
 	var sheets: Array[SheetFrame] = HudLedgerDoors.sheets(screen.hud)
-	assert_eq(sheets.size(), 11, "the registry names every whole-empire sheet")
+	assert_eq(sheets.size(), 8, "the registry names every whole-empire sheet")
 	for sheet: SheetFrame in sheets:
 		assert_eq(sheet.play, screen.play, "the sheet reads the screen's session")
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)

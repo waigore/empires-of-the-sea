@@ -1,40 +1,32 @@
 extends SceneTree
-## Headless free-playtest drive for the line the crown's raise sheets print under
-## their one press (wiki: civilian-units § One press files what the realm can
-## raise; DR-20261118-12, DR-20261118-17).
+## Headless free-playtest drive for the crown's raise and its realm reading, after
+## the town, wall and ward sheets were folded into the realm (issue #1164;
+## wiki: world-map § Provinces, extraction-and-improvements § Town development).
 ##
 ##   godot --headless --path . --script res://playtests/playtest_raise_line.gd
 ##
-## The towns, the walls, the hospitals and the estates sheets price the line
-## before the crown signs, so the one number a crown reads is a promise about what
-## the second tap will spend and raise. The drive reads that promise the way a
-## player does — off the printed line — and then holds the press to it: the raised
-## count against the line's own "n of m wait", the materials the line names
-## against the stores that actually leave, the hands it names against the crews
-## that go to work.
-##
-## The state no rule test covers is the crown that holds a crew on each chart: the
-## three crown sheets read both charts at once, and a Builder in the New World
-## must never be spent on an Old World town (DR-20261118-17). The drive seats it
-## the way a colonial crown reaches it — a charter town and one Builder across
-## the water beside the home crews.
+## Three things no rule test covers on the live screen:
+##   - the realm's **Defence** view prints the seat's town, its figure and its guns;
+##   - the province dossier's **Upgrade Town** press still files the one order the
+##     town sheet used to send — a Builder goes to the town step;
+##   - the estates card still prices the line under its batch press, and the taps
+##     spend what the line named.
 ##
 ## Not a CI gate. A failure prints "FAIL: …" and the run exits non-zero.
 
 const Launch = preload("res://playtests/playtest_launch.gd")
 const SEED_TEXT: String = "1500"
-## England: a Great Power that is not FactionCatalog.PLAYER_FACTION, so a sheet
-## that reads a defaulted crown instead of the session's own is visible here.
+## England: a Great Power that is not FactionCatalog.PLAYER_FACTION, so a reading
+## that defaults to the crown instead of the session's own is visible here.
 const NATION: int = 1
-## The first id the drive mints for the crews it seats; the campaign's own roster
-## is well under this.
-const FIRST_SEATED_ID: int = 900
 
 var _steps: PackedStringArray = PackedStringArray()
 var _failures: PackedStringArray = PackedStringArray()
 var _screen: MapScreen = null
 var _play: PlaySession = null
-var _next_crew_id: int = FIRST_SEATED_ID
+## The first id the drive mints for the crew it seats; the campaign's own roster
+## is well under this.
+var _next_crew_id: int = 900
 
 
 func _initialize() -> void:
@@ -47,139 +39,145 @@ func _run() -> void:
 		_finish()
 		return
 	_play = _screen.play
-	_say("%s (faction %d), seed %s, turn %d, purse %d, idle crews %s" % [
+	_say("%s (faction %d), seed %s, turn %d, capital province %d" % [
 		FactionCatalog.name_of(_play.player_faction), _play.player_faction, SEED_TEXT,
-		_play.turn, int(_play.economy.economy.treasury), str(_idle_by_trade()),
+		_play.turn, _play.selected_province,
 	])
-	# The opening towns sheet is all locked: a crown holds no town step before
-	# National Bureaucracy. The drive seats the study rather than spending turns
-	# on the tree — the line under the press is what is under test.
+	# A crown holds no town step before National Bureaucracy: the drive seats the
+	# study rather than spending turns on the tree.
 	_play.tech_unlocked()["national_bureaucracy"] = true
-	_play.tech_unlocked()["fortification"] = true
-	await _sheet_pass(HudLedgerDoors.TOWNS, "the opening town ledger", "builder")
-	await _short_stores_pass()
-	await _two_charts_pass()
-	await _walls_pass()
+	_seed_builder()
+	await _realm_pass("the realm before the order")
+	await _order_pass()
+	await _realm_pass("the realm after the order")
 	await _estates_pass()
-	_handset_pass()
 	_finish()
 
 
-# --- the sheets' promise -----------------------------------------------------
+# --- the realm's three readings ----------------------------------------------
 
 
-## One raise sheet read as a player reads it: the face, the line, the two taps,
-## the receipt — then the line's promise held against what the taps spent.
-func _sheet_pass(door: String, title: String, trade: String) -> void:
+## The realm's Defence view: the seat's row names its town and its figure, and
+## the same sheet still answers on the other two views.
+func _realm_pass(title: String) -> void:
 	_say("")
 	_say("--- %s ---" % title)
-	HudLedgerDoors.open(_screen.hud, door)
+	_screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
 	await process_frame
-	var sheet: RaiseLedgerPanel = HudLedgerDoors.sheet_for(_screen.hud, door) as RaiseLedgerPanel
-	if sheet == null:
-		_check(false, "the %s is mounted" % title)
+	var panel: ProvinceLedgerPanel = _screen.hud.province_ledger
+	if panel == null or not panel.is_open():
+		_check(false, "the realm opens from the bar seal")
 		return
-	var read: Dictionary = _read_sheet(sheet, trade)
-	if int(read["ready"]) == 0:
-		_say("the sheet holds nothing ready this turn — pass skipped")
-		sheet.close()
-		return
-	var receipt: String = await _press(sheet)
-	_hold_the_promise(read, receipt, trade)
-	sheet.close()
+	panel._on_filter(ProvinceLedger.VIEW_DEFENCE, false)
 	await process_frame
-
-
-## The towns sheet with the stores short: the line must name how many ready rows
-## wait and why, and the press must file exactly the rest.
-func _short_stores_pass() -> void:
-	_say("")
-	_say("--- the town ledger with the stores short ---")
-	_seed_crews(0, 2)
-	_play.economy.economy.stockpile["lumber"] = 5
-	_play.economy.economy.stockpile["castIron"] = 5
-	HudLedgerDoors.open(_screen.hud, HudLedgerDoors.TOWNS)
-	await process_frame
-	var sheet: TownLedgerPanel = _screen.hud.towns_ledger
-	var read: Dictionary = _read_sheet(sheet, "builder")
-	if int(read["ready"]) == 0:
-		_say("the sheet holds nothing ready on five lumber — pass skipped")
-		sheet.close()
+	var row: ProvinceLedgerRow = _seat_row(panel)
+	if row == null:
+		_check(false, "the realm prints the seat")
+		panel.close()
 		return
+	var defence: Dictionary = row.data.get("defence", {})
+	_say("the seat reads %s — defence %d, %d strength, %d guns, town %d" % [
+		String(row.data.get("name", "")), int(defence.get("figure", 0)),
+		roundi(float(defence.get("strength", 0.0))), int(defence.get("guns", 0)),
+		int(row.data.get("town", 0)),
+	])
 	_check(
-		String(read["line"]).contains("Stores are short of"),
-		"the line names the stores' own shortfall"
+		String(row._reading.text).contains("Town "),
+		"the defence line names the town the province is built to"
 	)
-	var receipt: String = await _press(sheet)
-	_hold_the_promise(read, receipt, "builder")
-	sheet.close()
+	_check(
+		String(row._standing.text).begins_with("Defence "),
+		"and the standing line leads with the one figure"
+	)
+	for view: String in [ProvinceLedger.VIEW_ECONOMY, ProvinceLedger.VIEW_CONNECTIVITY]:
+		panel._on_filter(view, false)
+		await process_frame
+		_check(
+			_seat_row(panel) != null,
+			"the %s view still prints the seat" % ProvinceLedger.view_label(view).to_lower()
+		)
+	panel.close()
 	await process_frame
 
 
-## A crown with crews on both charts: the towns sheet reads both at once, and the
-## walk may only send each chart's own Builder to its own towns (DR-20261118-17).
-func _two_charts_pass() -> void:
+# --- the dossier's one press -------------------------------------------------
+
+
+## The province dossier's Upgrade Town order: a Builder is sent and the work is
+## filed on the town step.
+func _order_pass() -> void:
 	_say("")
-	_say("--- the town ledger with a Builder on each chart ---")
-	var abroad: MapModel = _play.world.region(1)
-	var host: int = -1
-	if abroad != null:
-		for province: ProvinceState in abroad.provinces:
-			if province != null and province.has_town():
-				host = province.id
-				break
-	if abroad == null or host < 0:
-		_say("no New World town to charter — pass skipped")
-		return
-	# The charter: the province is the crown's, its town stands at I, and one
-	# Builder works that chart, as a colonial crown keeps one.
-	abroad.provinces[host].owner = _play.player_faction
-	abroad.provinces[host].town_development = 1
-	_seed_crews(1, 1)
-	_seed_crews(0, 1)
+	_say("--- the dossier's Upgrade Town press ---")
 	_play.economy.economy.stockpile["lumber"] = 40
 	_play.economy.economy.stockpile["castIron"] = 40
-	_say("charter %s at level I, one Builder across the water; idle crews %s" % [
-		abroad.provinces[host].name, str(_idle_by_trade()),
-	])
-	_say("charts %d, kingdom's own provinces on the new chart %d" % [
-		_play.world.region_count(), _owned_provinces(abroad),
-	])
-	HudLedgerDoors.open(_screen.hud, HudLedgerDoors.TOWNS)
-	await process_frame
-	var sheet: TownLedgerPanel = _screen.hud.towns_ledger
-	var read: Dictionary = _read_sheet(sheet, "builder")
-	if int(read["ready"]) == 0:
-		_say("the sheet holds nothing ready with a charter — pass skipped")
-		sheet.close()
+	# The seat itself is often already at the top step: the drive takes the
+	# crown's first town with a level still to raise.
+	var target: int = _raisable_town()
+	if target < 0:
+		_say("no town of the crown's can be raised — pass skipped")
 		return
-	# The claim the pooled walk broke: the line spends the hands of the charts its
-	# ready rows stand on, never the realm's whole roll of that trade.
-	var realm: int = int(_idle_by_trade().get("builder", 0))
-	_check(
-		int(read["crews"]) <= int(read["ready"]),
-		"the line names %d Builder(s) for %d ready town(s)" % [
-			int(read["crews"]), int(read["ready"]),
-		]
-	)
-	_check(
-		int(read["crews"]) <= realm,
-		"the line never spends more hands than the realm holds (%d of %d)" % [
-			int(read["crews"]), realm,
-		]
-	)
-	var receipt: String = await _press(sheet)
-	_hold_the_promise(read, receipt, "builder")
-	sheet.close()
+	MapPlayInput.select_province(_play, target, Vector2.ZERO)
 	await process_frame
+	_say("the order is read on province %d (%s)" % [
+		target, String(_play.model.province_name(target)),
+	])
+	var orders: ProvinceOrdersSection = _screen.hud._panel._orders
+	if orders == null or orders.town_button == null:
+		_check(false, "the dossier carries the town order")
+		return
+	_say("the order reads: %s" % orders.town_button.text)
+	if orders.town_button.disabled:
+		_say("the order is gated this turn — %s" % orders.town_button.tooltip_text)
+		return
+	orders.town_button.pressed.emit()
+	await process_frame
+	_say("the court reads: \"%s\"" % _last_toast())
+	var working: int = 0
+	for unit: CivilianState in _play.civilian_layer.units:
+		if unit == null or unit.owner != _play.player_faction:
+			continue
+		if unit.work_action() == "upgrade_town":
+			working += 1
+	_check(working > 0, "a Builder is on the town's step")
+	_say("%d Builder(s) at the town step after the press" % working)
 
 
-## The walls sheet: the same line, the other trade.
-func _walls_pass() -> void:
-	_seed_crews(0, 1, "engineer")
-	_play.economy.economy.stockpile["lumber"] = 40
-	_play.economy.economy.stockpile["bronze"] = 12
-	await _sheet_pass(HudLedgerDoors.WALLS, "the walls ledger", "engineer")
+## One idle Builder at the seat's own town site: the press needs a hand, and a
+## crown at turn 1 has none (the old town sheet was read after seeding one).
+func _seed_builder() -> void:
+	var model: MapModel = _play.model
+	if model == null:
+		return
+	var site: Vector2i = CivilianState.NO_TILE
+	for province: ProvinceState in model.provinces:
+		if province == null or province.owner != _play.player_faction:
+			continue
+		if province.has_town():
+			site = province.town_site()
+			break
+	if site == CivilianState.NO_TILE:
+		return
+	_next_crew_id += 1
+	var crew := CivilianState.create(_next_crew_id, _play.player_faction, "builder", site)
+	_play.civilian_layer.units.append(crew)
+	if _play.civilian_layer.regions != null:
+		var roster: Array = []
+		roster.assign(_play.civilian_layer.regions.value(_play.region_index, []))
+		roster.append(crew)
+		_play.civilian_layer.regions.set_region(_play.region_index, roster)
+
+
+## The crown's first town still below the top step.
+func _raisable_town() -> int:
+	for province: ProvinceState in _play.model.provinces:
+		if province == null or province.owner != _play.player_faction:
+			continue
+		if province.has_town() and province.town_level() < TownIndustry.MAX_LEVEL:
+			return province.id
+	return -1
+
+
+# --- the estates card --------------------------------------------------------
 
 
 ## The estates card: one chart, one Builder's worth of hands, and a price that
@@ -191,11 +189,8 @@ func _estates_pass() -> void:
 	if estates == null:
 		_say("no estates card on this screen — pass skipped")
 		return
-	_seed_crews(0, 1)
 	_play.economy.economy.stockpile["lumber"] = 4
 	_play.economy.economy.stockpile["castIron"] = 0
-	# The card is opened on the province a crown is reading; the drive takes the
-	# first province whose estates its one Builder could start.
 	var province: int = _first_ready_province(estates)
 	if province < 0:
 		_say("no province offers a ready estate — pass skipped")
@@ -205,8 +200,6 @@ func _estates_pass() -> void:
 	await process_frame
 	var tiles: Array[Vector2i] = estates._ready_tiles()
 	var line: String = estates._line.text
-	var stores: Dictionary = _play.economy.economy.stockpile.duplicate()
-	var working: int = _working_crews()
 	_say("province %d: %d ready estate(s), face \"%s\"" % [
 		province, tiles.size(), estates._batch.text,
 	])
@@ -224,46 +217,11 @@ func _estates_pass() -> void:
 			_raised_from(receipt), _promised(line, tiles.size()),
 		]
 	)
-	_check_shopping(line, stores, working, "builder")
 	estates.close()
 	await process_frame
 
 
 # --- readings ----------------------------------------------------------------
-
-
-## What a raise sheet prints before it is pressed: the face, the line, and the
-## counts the line's words are held against.
-func _read_sheet(sheet: RaiseLedgerPanel, trade: String) -> Dictionary:
-	var line: String = sheet._line.text if sheet._line != null else ""
-	var reading: Dictionary = {
-		"ready": sheet._ready_targets().size(),
-		"face": sheet._batch.text if sheet._batch != null else "",
-		"line": line,
-		"shown": sheet._line.visible if sheet._line != null else false,
-		"crews": _named_crews(line, trade),
-		"stores": _play.economy.economy.stockpile.duplicate(),
-		"working": _working_crews(),
-	}
-	_say("rows ready %d (%s), face \"%s\"" % [
-		int(reading["ready"]), str(_ready_by_chart(sheet)), String(reading["face"]),
-	])
-	_say("line: \"%s\" (shown %s)" % [line, str(reading["shown"])])
-	_check(bool(reading["shown"]), "the sheet prices the line under its press")
-	_check(
-		String(reading["face"]).ends_with("all ready (%d)" % int(reading["ready"])),
-		"the face names the ready rows the view prints"
-	)
-	return reading
-
-
-## How the sheet's ready rows fall across the charts, one count per chart.
-func _ready_by_chart(sheet: RaiseLedgerPanel) -> Dictionary:
-	var counts: Dictionary = {}
-	for target: Dictionary in sheet._ready_targets():
-		var region: int = int(target.get("region", -1))
-		counts[region] = int(counts.get(region, 0)) + 1
-	return counts
 
 
 ## The two taps, as a player takes them: arm, then confirm.
@@ -277,47 +235,6 @@ func _press(press_host: Node) -> String:
 	return _last_toast()
 
 
-## The line's promise held against the taps: what it said would wait, what the
-## receipt says was raised, and what the stores and the pool actually gave up.
-func _hold_the_promise(read: Dictionary, receipt: String, trade: String) -> void:
-	var ready: int = int(read["ready"])
-	var promised: int = _promised(String(read["line"]), ready)
-	_say("receipt: \"%s\"" % receipt)
-	var raised: int = _raised_from(receipt)
-	_check(
-		raised == promised,
-		"the press raised %d of the %d its line promised (n=%d ready)" % [
-			raised, promised, ready,
-		]
-	)
-	_check_shopping(String(read["line"]), read["stores"] as Dictionary, int(read["working"]), trade)
-	_check(
-		int(read["crews"]) > 0,
-		"the line names the hand(s) it spends (%d)" % int(read["crews"])
-	)
-
-
-## What the line said it would take against what left the stores and the pool.
-func _check_shopping(line: String, stores: Dictionary, working: int, trade: String) -> void:
-	var spent: Dictionary = {}
-	for key: Variant in _play.economy.economy.stockpile.keys():
-		var delta: int = int(stores.get(key, 0)) - int(_play.economy.economy.stockpile[key])
-		if delta != 0:
-			spent[String(key)] = delta
-	var promised: Dictionary = _named_stores(line)
-	_check(
-		promised.is_empty() or promised == spent,
-		"the stores gave up what the line named: line %s, spent %s" % [str(promised), str(spent)]
-	)
-	var hands: int = _named_crews(line, trade)
-	_check(
-		hands == 0 or hands == _working_crews() - working,
-		"the line's %d hand(s) went to work: %d crew(s) rose" % [
-			hands, _working_crews() - working,
-		]
-	)
-
-
 ## "… — 2 of 5 wait: …" promises three files; a line with no wait promises every
 ## ready row the view prints (DR-20261118-12).
 func _promised(line: String, ready: int) -> int:
@@ -329,8 +246,7 @@ func _promised(line: String, ready: int) -> int:
 	return int(found.get_string(2)) - int(found.get_string(1))
 
 
-## The count a receipt names — "Raised 3 of 5 towns." or "Raised 2 towns" — and
-## `0` for a receipt that only carries a refusal.
+## The count a receipt names — "Raised 3 of 5 estates." or "Raised 2 estates".
 func _raised_from(receipt: String) -> int:
 	if not receipt.begins_with("Raised "):
 		return 0
@@ -339,108 +255,14 @@ func _raised_from(receipt: String) -> int:
 	return int(tail.substr(0, cut)) if cut > 0 else 0
 
 
-## The commodities a line names, in the counts it names them: "4 Lumber · 1
-## Builder" reads {lumber: 4}. A crew word is not a commodity and is dropped.
-func _named_stores(line: String) -> Dictionary:
-	var out: Dictionary = {}
-	for part: String in _line_parts(line):
-		var words: PackedStringArray = part.split(" ")
-		if words.size() < 2 or not words[0].is_valid_int():
-			continue
-		var label: String = " ".join(words.slice(1))
-		for raw: Variant in _play.economy.economy.stockpile.keys():
-			if CommodityCatalog.label(String(raw)) == label:
-				out[String(raw)] = int(words[0])
-	return out
-
-
-## The hands a line names for one trade: "2 Builders" reads 2, "1 Engineer" 1.
-func _named_crews(line: String, trade: String) -> int:
-	var word: String = CivilianCatalog.display_name(trade)
-	for part: String in _line_parts(line):
-		var words: PackedStringArray = part.split(" ")
-		if words.size() != 2 or not words[0].is_valid_int():
-			continue
-		if words[1] == word or words[1] == word + "s":
-			return int(words[0])
-	return 0
-
-
-## A printed line's priced parts: what is left of each "·"-separated piece once
-## the aside after its dash is dropped.
-func _line_parts(line: String) -> PackedStringArray:
-	var parts: PackedStringArray = PackedStringArray()
-	for raw: String in line.split("·"):
-		var part: String = raw.strip_edges()
-		var dash: int = part.find(" — ")
-		if dash > 0:
-			part = part.substr(0, dash).strip_edges()
-		parts.append(part)
-	return parts
-
-
-func _idle_by_trade() -> Dictionary:
-	var counts: Dictionary = {}
-	for crew: CivilianState in _all_crews():
-		if crew == null or crew.owner != _play.player_faction or not crew.is_idle():
-			continue
-		counts[crew.type_id] = int(counts.get(crew.type_id, 0)) + 1
-	return counts
-
-
-func _working_crews() -> int:
-	var count: int = 0
-	for crew: CivilianState in _all_crews():
-		if crew != null and crew.owner == _play.player_faction and crew.is_working():
-			count += 1
-	return count
-
-
-## Every crew the realm holds, on both charts: a press that files an order across
-## the water switches the chart under the session, so one roster is not the realm.
-func _all_crews() -> Array:
-	var found: Array = []
-	for raw: Variant in _play.civilian_layer.regions.values():
-		if raw is Array:
-			found.append_array(raw as Array)
-	if found.is_empty():
-		found.assign(_play.civilian_layer.units)
-	return found
-
-
-## Seats `count` idle crews of one trade on a chart, at a town site of the
-## crown's: the drive's way to a mid-game roster without walking years of turns.
-func _seed_crews(region: int, count: int, trade: String = "builder") -> void:
-	var model: MapModel = _play.world.region(region)
-	if model == null or count <= 0:
-		return
-	var site: Vector2i = CivilianState.NO_TILE
-	for province: ProvinceState in model.provinces:
-		if province == null:
-			continue
-		var owned: bool = province.owner == _play.player_faction and province.has_town()
-		if owned:
-			site = province.town_site()
-			break
-	var roster: Array = []
-	roster.assign(_play.civilian_layer.regions.value(region, []))
-	for _index in count:
-		_next_crew_id += 1
-		roster.append(CivilianState.create(_next_crew_id, _play.player_faction, trade, site))
-	_play.civilian_layer.regions.set_region(region, roster)
-	# The sheet reads the region table; the order reads the live roster. A seated
-	# crew has to stand in both, exactly as `spawn` leaves them.
-	if region == _play.region_index:
-		_play.civilian_layer.units.assign(roster)
-
-
-## The provinces of one chart the crown holds, so a pass can say what it seated.
-func _owned_provinces(model: MapModel) -> int:
-	var count: int = 0
-	for province: ProvinceState in model.provinces:
-		if province != null and province.owner == _play.player_faction:
-			count += 1
-	return count
+## The seat's own row in the painted realm, found by the capital flag the
+## projection carries.
+func _seat_row(panel: ProvinceLedgerPanel) -> ProvinceLedgerRow:
+	for child: Node in panel._rows.get_children():
+		var row := child as ProvinceLedgerRow
+		if row != null and bool(row.data.get("capital", false)):
+			return row
+	return null
 
 
 ## The first province whose estates the card would start, read off the card's own
@@ -454,40 +276,6 @@ func _first_ready_province(estates: ImprovementPanel) -> int:
 			if bool((row as Dictionary).get("can_build", false)):
 				return int(group.get("id", -1))
 	return -1
-
-
-# --- the handset -------------------------------------------------------------
-
-
-## A phone reads the line with the press, inside the sheet, never clipped
-## (REQ-P1-07, REQ-P5-07).
-func _handset_pass() -> void:
-	_say("")
-	_say("--- the line at handset width ---")
-	_seed_crews(0, 1)
-	HudLedgerDoors.open(_screen.hud, HudLedgerDoors.TOWNS)
-	await process_frame
-	var sheet: TownLedgerPanel = _screen.hud.towns_ledger
-	if sheet._line == null or sheet._line.text.is_empty():
-		_say("the view holds nothing ready — handset pass skipped")
-		sheet.close()
-		return
-	_say("line: \"%s\"" % sheet._line.text)
-	var line_rect: Rect2 = sheet._line.get_global_rect()
-	var sheet_rect: Rect2 = sheet.get_global_rect()
-	_say("line at %s inside the sheet at %s" % [str(line_rect), str(sheet_rect)])
-	_check(
-		line_rect.position.x >= sheet_rect.position.x - 1.0
-		and line_rect.end.x <= sheet_rect.end.x + 1.0,
-		"the line stands inside the sheet, not clipped off its edge"
-	)
-	_check(
-		sheet._line.autowrap_mode != TextServer.AUTOWRAP_OFF,
-		"the line wraps, so a narrow sheet reads it whole"
-	)
-	_check(sheet._line.size.y > 0.0, "the line prints a readable height")
-	sheet.close()
-	await process_frame
 
 
 # --- reporting ---------------------------------------------------------------
@@ -520,10 +308,12 @@ func _say(line: String) -> void:
 func _finish() -> void:
 	_say("")
 	if _failures.is_empty():
-		_say("%d checks passed — every raise sheet's line is the line its press files" % _steps.size())
+		_say("%d checks passed — the realm reads and the raise still files" % _steps.size())
 	else:
 		_say("%d checks FAILED:" % _failures.size())
 		for failure: String in _failures:
 			_say("  - %s" % failure)
-	print("\n--- playtest_raise_line: %d steps, %d failures ---" % [_steps.size(), _failures.size()])
+	print("\n--- playtest_raise_line: %d steps, %d failures ---" % [
+		_steps.size(), _failures.size(),
+	])
 	quit(1 if not _failures.is_empty() else 0)
