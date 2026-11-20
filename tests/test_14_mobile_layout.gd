@@ -1005,7 +1005,7 @@ func test_phone_college_keeps_its_lists_with_a_goal_and_a_thin_purse() -> void:
 			await get_tree().process_frame
 		var wrap: Control = hud._research_wrap
 		_fits(wrap.get_global_rect(), _screen_rect(), "%s: college sheet" % size)
-		assert_true(panel._notice.visible, "%s: the unpaid rule speaks" % size)
+		assert_true(panel._head.notice_shown(), "%s: the unpaid rule speaks" % size)
 		# The sheet is the room it is given: the plate never grows past its box.
 		assert_true(
 			panel.get_combined_minimum_size().y <= wrap.size.y + 0.5,
@@ -1370,7 +1370,7 @@ func test_phone_college_keeps_the_tech_list_in_view() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	var panel: ResearchPanel = hud.panels.research_panel
-	assert_false(panel._summary.visible, "the standing line yields")
+	assert_true(panel._head.summary_hidden(), "the standing line yields")
 	assert_false(panel._hint.visible, "the standing hint yields")
 	for row: Variant in panel._slot_rows.values():
 		assert_almost_eq(

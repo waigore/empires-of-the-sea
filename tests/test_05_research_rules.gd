@@ -1013,7 +1013,7 @@ func test_changing_the_priority_repaints_the_same_row() -> void:
 	assert_is(row, _slot_row(0), "the funding change must not rebuild the slot")
 	assert_not_null(_button("High"))
 	assert_eq(row.bar().next_gain(), 800, "the gauge follows the new preset")
-	assert_eq(_panel._slots_body.get_child_count(), ResearchState.DEFAULT_SLOTS)
+	assert_eq(_panel.slot_rows().size(), ResearchState.DEFAULT_SLOTS)
 
 
 func test_the_heading_totals_what_the_college_spends() -> void:
@@ -1741,9 +1741,17 @@ func _button_starting(root: Node, prefix: String) -> Button:
 	return null
 
 
-## The persistent row the panel keeps for one slot.
+## The college's first slot row, through the panel's own accessor.
+func _first_slot(panel: ResearchPanel) -> ResearchSlotRow:
+	var rows: Array[ResearchSlotRow] = panel.slot_rows()
+	return rows[0] if not rows.is_empty() else null
+
+
+## The persistent row the panel keeps for one slot, through the panel's own
+## accessor so the suite never walks the sheet's children (REQ-P3-02).
 func _slot_row(index: int) -> ResearchSlotRow:
-	return _panel._slots_body.get_child(index) as ResearchSlotRow
+	var rows: Array[ResearchSlotRow] = _panel.slot_rows()
+	return rows[index] if index < rows.size() else null
 
 
 ## The first name in the AVAILABLE tab, which is the goal-aware queue order.
@@ -1917,10 +1925,10 @@ func test_a_priority_change_repaints_the_slot_at_once_without_reloading() -> voi
 	screen.economy.open_research()
 	screen.economy.orders.assign_research("land_enclosure")
 	var panel: ResearchPanel = screen.hud.panels.research_panel
-	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	var row: ResearchSlotRow = _first_slot(panel)
 	assert_eq(row.bar().next_gain(), 300, "Medium buys 300 points")
 	screen.economy.orders.cycle_research_funding(0)
-	assert_is(row, panel._slots_body.get_child(0), "the slot is repainted, not rebuilt")
+	assert_is(row, _first_slot(panel), "the slot is repainted, not rebuilt")
 	assert_true(screen.hud.panels.is_research_open())
 	assert_eq(row.bar().next_gain(), 800, "High buys 800 points")
 	assert_eq(row.gold_next(), 400)
@@ -1931,9 +1939,9 @@ func test_cancelling_a_study_keeps_the_ledger_and_its_rows() -> void:
 	screen.economy.open_research()
 	screen.economy.orders.assign_research("land_enclosure")
 	var panel: ResearchPanel = screen.hud.panels.research_panel
-	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	var row: ResearchSlotRow = _first_slot(panel)
 	screen.economy.orders.cancel_research(0)
-	assert_is(row, panel._slots_body.get_child(0), "no button rebuilds the slot")
+	assert_is(row, _first_slot(panel), "no button rebuilds the slot")
 	assert_true(screen.hud.panels.is_research_open())
 	assert_eq(row.bar().next_gain(), 0, "an idle slot buys nothing")
 
@@ -2031,10 +2039,7 @@ func test_the_first_idle_slot_carries_the_counsel_alone() -> void:
 	_bind_panel()
 	_panel.refresh(_panel_state, 2500, {}, "", "The court would open Printing Press.")
 	assert_eq(_panel.pick_line(), "The court would open Printing Press.")
-	var rows: Array[ResearchSlotRow] = []
-	for node: Node in _panel._slots_body.get_children():
-		if node is ResearchSlotRow:
-			rows.append(node as ResearchSlotRow)
+	var rows: Array[ResearchSlotRow] = _panel.slot_rows()
 	assert_eq(rows.size(), ResearchState.DEFAULT_SLOTS)
 	assert_eq(rows[0].counsel_text(), "The court would open Printing Press.")
 	for index in range(1, rows.size()):
@@ -2056,5 +2061,60 @@ func test_the_live_college_reads_the_courts_pick() -> void:
 	assert_true(line.ends_with("."), "one sentence")
 	var idle: int = screen.play.economy.economy.research.free_slot()
 	assert_eq(idle, 0, "the reading assigned nothing")
-	var row: ResearchSlotRow = panel._slots_body.get_child(0)
+	var row: ResearchSlotRow = _first_slot(panel)
 	assert_eq(row.counsel_text(), line, "the counsel rides the idle row")
+
+
+## The counsel is the policy's own answer on every purse: the study the college
+## names is the study `AiResearchPlanner.plan` opens in the same slot. A door the
+## purse cannot pay is never named — the crown is told the next study the policy
+## would really open, and the door's reason goes with it (issue #484).
+func test_the_counsel_names_the_study_the_policy_would_open() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	var ranked: Array[Dictionary] = AiResearchScores.candidates(config, _economy, false, "")
+	assert_true(ranked.size() > 1, "a fresh college ranks more than one study")
+	var door_tech: String = String(ranked[0].get("tech", ""))
+	var next_tech: String = String(ranked[1].get("tech", ""))
+	var door: Dictionary = {"tech": door_tech, "why": MapPlayEconomyCourtBook.DOOR_HULL}
+	var cash_floor: int = AiResearchPlanner.research_floor(config)
+	# The planner's own door gate: half the cash floor plus the cheapest preset.
+	var gate: int = cash_floor / 2 + ResearchFunding.gold(ResearchFunding.ORDER[1])
+	for purse: int in [_economy.treasury, gate + 1, gate, gate - 1, 0, -500]:
+		_economy.treasury = purse
+		var counsel: Dictionary = MapPlayResearchPick.counsel(config, _economy, false, door)
+		assert_eq(
+			String(counsel.get("tech", "")), _opened_study(config, purse, door_tech),
+			"purse %d: the counsel is the policy's pick" % purse
+		)
+		var named_door: bool = String(counsel.get("tech", "")) == door_tech
+		assert_eq(
+			String(counsel.get("why", "")),
+			MapPlayEconomyCourtBook.DOOR_HULL if named_door else "",
+			"purse %d: the door speaks only while the policy opens it" % purse
+		)
+	_economy.treasury = 0
+	assert_eq(
+		_opened_study(config, 0, door_tech), next_tech,
+		"a broke court's policy steps past the door study"
+	)
+	var broke: Dictionary = MapPlayResearchPick.counsel(config, _economy, false, door)
+	assert_eq(String(broke.get("tech", "")), next_tech, "and so does the counsel")
+	assert_eq(String(broke.get("why", "")), "", "with no reason the policy did not give")
+	assert_false(String(broke.get("line", "")).contains("yard's next hull"), "no door clause")
+
+
+## The study `AiResearchPlanner.plan` opens in the crown's first free slot at one
+## purse, on the plan's own context (the helper the case above compares against).
+func _opened_study(config: AiConfig, purse: int, door_tech: String) -> String:
+	var copy: PlayerEconomy = _economy.copy()
+	copy.treasury = purse
+	var plan: Dictionary = AiResearchPlanner.plan(config, copy, {
+		"at_war": false,
+		"door": door_tech,
+		"treasury_floor": purse,
+		"cash_floor": AiResearchPlanner.research_floor(config),
+	})
+	var rows: Array = plan.get("assignments", [])
+	if rows.is_empty():
+		return ""
+	return String((rows[0] as Dictionary).get("tech", ""))

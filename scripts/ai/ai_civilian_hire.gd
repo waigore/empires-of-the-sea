@@ -137,6 +137,17 @@ static func training_order(
 		and String(context.get("voyage_crew_kind", "")) == type_id
 		and bool(context.get("voyage_stranded", false))
 	)
+	# The deed Merchant's own carve-out (#1139's shape, issue #1135): a priced,
+	# openable deed is a purchase the court is saving toward — `market.deed` is
+	# funded in its ledger — and the Merchant that walks to it was refused by
+	# the same bank clause while the court banks, so the deed stayed priced,
+	# openable and unsigned the whole campaign. The bank holds the roster, not
+	# the one crew the court's own ledger is saving toward.
+	var deed_crew: bool = (
+		type_id == "merchant"
+		and int(context.get("merchant_targets", 0)) > 0
+		and int(context.get("deed_price", 0)) > 0
+	)
 	# The footing's own reading, never a legality gate: the hire is the court's
 	# choice, and a crew it does hire still passes the same catalog gate
 	# (DR-20261116-15).
@@ -149,8 +160,9 @@ static func training_order(
 	# roads need keep the works purse — a chest that cannot exist for want
 	# of fed hands and roads never arms a court — while the rest of the
 	# ladder stands behind the chest with every other deferrable spend. The
-	# stranded claim's Merchant rides the same provision (#1139).
-	if banked and not PROVISION_CREWS.has(type_id) and not claim_crew:
+	# stranded claim's Merchant rides the same provision (#1139), and so does
+	# the deed Merchant while the court's own ledger funds its deed (#1135).
+	if banked and not PROVISION_CREWS.has(type_id) and not claim_crew and not deed_crew:
 		return {"ok": false, "reason": REASON_BANK}
 	var purse: int = hire_purse
 	if type_id == "builder" or type_id == "engineer" or type_id == "explorer":

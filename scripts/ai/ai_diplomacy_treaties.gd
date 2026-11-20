@@ -31,26 +31,32 @@ static func best(
 	tech: Dictionary,
 	context: Dictionary = {}
 ) -> Dictionary:
-	# The conquest bank (issue #995): a court short of the bar whose host is
-	# still under strength, with its purse one line-cycle short of the
-	# chest, is saving for its next line — and a paid envoy rung is a
-	# deferrable purchase. The chain the deed serves walks again the turn
-	# the host stands. The purse is still read for every court that is not
-	# banking.
-	var income: Dictionary = context.get("income", {}) as Dictionary
-	if AiIncome.banking(config, ai_state, income):
-		return _blocked(
-			"the court is banking for its army", AiDiplomacyOffers.KIND_OVERTURE
-		)
 	# The colony ambition: a charted Tribe the court can still buy is worth the
 	# next envoy step even when the court is in no mood to improve relations for
-	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02).
+	# their own sake (wiki: diplomacy § GP–Tribe Rules; DR-20261114-02). Read
+	# BEFORE the bank's refusal (#1135): the `chain_matters` bypass written for
+	# exactly this case sat below the banking check and never ran — a court
+	# below the bar banks on every turn it cannot cover both, so the funded
+	# chain the ledger prices was shut for the whole campaign while its one
+	# order went elsewhere. A charted Tribe's funded chain outranks the bank:
+	# the bank is there to arm a conquest, not to shut every other court craft.
 	var colony: Dictionary = AiTribeColony.ambition(
 		state, world, context.get("charts", null), config.faction, target, treasury, tech,
 		AiPhasePlanner.phase_for(config, state)
 	)
 	var chain_matters: bool = bool(colony.get("wanted", false)) \
 		or bool(colony.get("held", false))
+	# The conquest bank (issue #995): a court short of the bar whose host is
+	# still under strength, with its purse one line-cycle short of the
+	# chest, is saving for its next line — and a paid envoy rung is a
+	# deferrable purchase. The chain the deed serves walks again the turn
+	# the host stands. The purse is still read for every court that is not
+	# banking, and for the chain (#1135).
+	var income: Dictionary = context.get("income", {}) as Dictionary
+	if not chain_matters and not income.is_empty():
+		var banked: String = AiIncome.bank_refusal(config, ai_state, income)
+		if not banked.is_empty():
+			return _blocked(banked, AiDiplomacyOffers.KIND_OVERTURE)
 	if improve < min_improve and not chain_matters:
 		return _blocked("improve-relations desire too low", AiDiplomacyOffers.KIND_OVERTURE)
 	var cooldown: int = config.parameter("diplomacy.overture_cooldown_turns")
