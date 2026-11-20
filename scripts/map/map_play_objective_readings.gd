@@ -120,6 +120,10 @@ static func _navy(economy: PlayerEconomy, host: Dictionary) -> Dictionary:
 		# The yard's own gate on the hull it would lay down today: the reason a
 		# funded claim still cannot launch (issue #1126).
 		"warship_refusal": String(laying.get("reason", "")),
+		# The free hands the slip would take one of at launch (wiki:
+		# ships-and-naval § Ship muster): the ledger funds no hull the court
+		# cannot crew (issue #1126).
+		"warship_hands": economy.available_peasants() if economy != null else 0,
 		"navy_due": int(host["hull_chest"]) > 0,
 		"hostile_ships": int(host["hostile_ships"]),
 		"hostile_warships": int(host["hostile_warships"]),

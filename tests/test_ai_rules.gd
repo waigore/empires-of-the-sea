@@ -15957,7 +15957,7 @@ func test_the_reading_pass_names_every_domain() -> void:
 		"at_war", "war_desire", "regiments", "muster_floor", "muster_due",
 		"muster_row", "escalations", "blockings",
 		"ships", "warships", "warship_price", "warship_row", "warship_open",
-		"warship_refusal",
+		"warship_refusal", "warship_hands",
 		"navy_due", "hostile_ships", "hostile_warships",
 		"treasury", "reserve", "goal",
 		"research_slots", "research_funding", "research_cost",
@@ -16289,23 +16289,24 @@ func test_a_funded_hull_the_yard_refuses_names_the_gate() -> void:
 	play.civilian_layer.free()
 
 
-## Issue #1126: the build claim prices the hand the yard takes at launch, so a
-## court with no free peasant reads `deferred labour 0/1` instead of funding a
-## hull the yard cannot lay.
-func test_the_build_claim_prices_the_hand_the_yard_takes() -> void:
+## Issue #1126: a court with no free hand funds no hull the yard would refuse.
+## The hand is a gate, not a claim: reading it out of the shared labour pool
+## starved the production run ranked under the yard.
+func test_a_slip_with_no_free_hand_funds_no_hull() -> void:
 	var readings: Dictionary = _readings()
 	readings["at_war"] = true
 	readings["warships"] = 0
 	readings["hostile_warships"] = 2
+	readings["warship_hands"] = 0
 	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
 	var build: AiObjective = _by_id(objectives, "navy.build")
-	assert_eq(
-		int(build.cost.get("labour", 0)), ShipEconomy.WORKER_COST,
-		"the yard's hand is claimed with the purse"
-	)
-	AiObjectiveLedger.run(objectives, {"treasury": 6000, "labour": 0, "orders": 1})
-	assert_eq(String(build.status), AiObjective.STATUS_DEFERRED, "no hand, no funded hull")
-	assert_eq(int((build.shortfall() as Dictionary).get("labour", 0)), 1, "the hand is named")
+	assert_eq(String(build.blocked), "no free hand for the slip")
+	assert_true((build.cost as Dictionary).has("treasury"), "the purse is still priced")
+	assert_false((build.cost as Dictionary).has("labour"), "the hand is no pool claim")
+
+	readings["warship_hands"] = ShipEconomy.WORKER_COST
+	build = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+	assert_eq(String(build.blocked), "", "a hand in the pool opens the yard")
 
 
 ## Issue #1126: while the chest banks for a hull the yard opens and the material
