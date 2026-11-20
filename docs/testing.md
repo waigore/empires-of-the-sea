@@ -49,10 +49,11 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   the pocket chart and `ResearchPanel` only when a case reads them.
-- **Heaviest suite sorts first**: name order, four wide — a long `world_…`
-  suite must not drain alone.
+- **Heaviest suite sorts first**: name order, four wide — a long chart
+  suite must not drain alone on one worker.
 - One Godot boot per theme — coverage ~15 s a boot; 24 suites
-  (heraldry + tile edges → chrome plate). `gd-tools.toml`: `parallel = 4`.
+  (wash bake → map-view; order verdict → chrome plate).
+  `gd-tools.toml`: `parallel = 4`.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local

@@ -1283,7 +1283,6 @@ domain = "fold_map_screen"
 # travel together; the broad scripts/map fan-out stays off the tier-1 budget.
 [domains.lens_kit]
 suites = [
-  "test_wash_bake.gd",
   "test_map_view_rules.gd",
   "test_map_screen.gd",
 ]
@@ -1304,9 +1303,10 @@ domain = "lens_kit"
 match = "scripts/map/wash_bake.gd*"
 domain = "lens_kit"
 
+# Deleted wash-bake suite rides the map-view boot (lens kit theme).
 [[rules]]
 match = "tests/test_wash_bake.gd*"
-domain = "lens_kit"
+domain = "fold_map_view"
 
 # Every reading inherits the kit; route each lens here before the broader
 # resource-ink / crown-road / scripts/map globs so one reading stays small.
@@ -2024,6 +2024,7 @@ suites = [
 suites = [
   "test_hud_campaign_plate.gd",
 ]
+
 
 [domains.fold_court]
 suites = [
@@ -4128,6 +4129,15 @@ domain = "heraldry"
 
 [[rules]]
 match = "tests/test_heraldry.gd*"
+domain = "fold_chrome"
+
+# Deleted order-verdict suite rides the lean chrome boot.
+[[rules]]
+match = "tests/test_order_verdict.gd*"
+domain = "fold_chrome"
+
+[[rules]]
+match = "scripts/rules/order_verdict.gd*"
 domain = "fold_chrome"
 
 [[rules]]
