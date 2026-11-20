@@ -41,6 +41,7 @@ static func report_skeleton(
 		"hospital_level": HospitalRules.level_at(model, province),
 		"medal_gain": "",
 		"medal_owner": -1,
+		"medal_count": 0,
 	}
 
 
@@ -86,13 +87,23 @@ static func settle(
 	RegimentCondition.attach(report, attacking, defending, atk_up, def_up)
 
 
-## Writes the medal a side's commander won, and whose name it goes under.
+## Writes the medal a side's commander won, whose name it goes under and the
+## count the award itself produced. The count is read here, at settlement, and
+## not when the despatch is written: a general can win twice in one phase, and
+## the roster has moved on by the time the first battle's line is built
+## (wiki: military-generals § Medals — "the land-battle despatch credits the
+## gain to the commander by name and his new count"; DR-20261112-03).
 static func _medal(
 	report: Dictionary, context: Dictionary, lead: ArmyState, owner: int
 ) -> void:
 	report["medal_gain"] = ArmyCommand.award(context, lead, owner)
-	if not String(report["medal_gain"]).is_empty():
-		report["medal_owner"] = owner
+	if String(report["medal_gain"]).is_empty():
+		return
+	report["medal_owner"] = owner
+	var roster: GeneralRoster = context.get("roster") as GeneralRoster
+	report["medal_count"] = (
+		roster.medals(owner, String(report["medal_gain"])) if roster != null else 0
+	)
 
 
 ## Hands one province to a new holder; a report never flips a missing province.
