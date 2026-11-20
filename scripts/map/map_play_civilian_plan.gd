@@ -79,6 +79,18 @@ static func region_context(
 		context["voyage_stranded"] = MapPlayObjectiveVoyage.claim_stranded(
 			play, faction
 		)
+		# The deed the court is saving toward: the cheapest priced, openable
+		# resource tile, so the deed Merchant's carve-out (#1135) reads the
+		# same purchase the ledger's `market.deed` aim funds.
+		var deed: Dictionary = AiMerchantWork.openable_deed(
+			model, faction,
+			{
+				"diplomacy": play.diplomacy,
+				"visibility": MapPlayCourtFog.view_for(play, faction, region),
+				"treasury": int(court["spendable"]),
+			}
+		)
+		context["deed_price"] = int(deed.get("price", 0))
 	if muster.x >= 0:
 		context["muster_port"] = muster
 		# Only the crew the voyage will board waits at the harbour; the crown's

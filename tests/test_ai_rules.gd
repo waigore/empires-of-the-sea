@@ -11447,10 +11447,11 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
 	)
-	assert_eq(
-		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE),
-		"the court is banking for its army",
-		"a banking court signs no paid rung this turn"
+	assert_true(
+		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a banking court signs no paid rung, and the trace names the host line"
 	)
 	# The published rung stands for a court that is not banking.
 	context["income"] = {
@@ -11461,10 +11462,91 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
 	)
-	assert_ne(
-		_offer_blocked_kind(published, AiDiplomacyOffers.KIND_OVERTURE),
-		"the court is banking for its army",
+	assert_false(
+		_offer_blocked_kind(published, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
 		"a court with its host standing walks its chain"
+	)
+
+
+## The funded chain outranks the bank (issue #1135): the `chain_matters` bypass
+## was written for exactly this case but sat below the banking refusal and never
+## ran — a court below the bar banks on every turn it cannot cover both, so the
+## funded chain the ledger prices stayed shut the whole campaign.
+func test_a_banking_court_walks_its_funded_chain() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var context: Dictionary = campaign__context({2: 100, 3: 100})
+	context["treasury"] = {2: 1000, 3: 100}
+	# The Tribe is on the court's own map at a warm standing: the colony
+	# ambition prices its 500-cost rung against the purse (a chain the court
+	# funds), and the bank's face steps aside.
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	context["regiments"] = {2: 1}
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, tribe, 20, context
+	)
+	assert_false(
+		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a chain the court funds outranks the bank's face"
+	)
+	# A court with no chain (no charted Tribe beside it) still waits behind the
+	# bank: the aim the ledger funds here is the army's.
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	var other: Dictionary = campaign__context({2: 100, 3: 100})
+	other["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	other["regiments"] = {2: 1}
+	var other_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, 3, 20, other
+	)
+	assert_true(
+		_offer_blocked_kind(other_entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a court with no funded chain keeps the bank's face"
+	)
+
+
+## The deed Merchant is hired while the court banks, once the court's own ledger
+## funds a priced, openable deed (#1135): the bank holds the roster, not the one
+## crew the ledger is saving toward.
+func test_a_deed_merchant_is_hired_while_the_court_banks() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	crews["tech_unlocked"] = {"merchant_companies": true}
+	crews["merchant_targets"] = 1
+	crews["deed_price"] = 900
+	crews["conquest_bank"] = true
+	crews["phase"] = AiPhasePlanner.PHASE_PEACE
+	var hired: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(hired.get("ok", false)),
+		"the ledger funds a priced deed, so its Merchant is hired"
+	)
+	assert_eq(String(hired["type_id"]), "merchant")
+	# Without a priced deed on the chart the bank still holds the purse.
+	crews["deed_price"] = 0
+	var unfunded: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_eq(
+		String(unfunded.get("reason", "")), AiCivilianHire.REASON_BANK,
+		"a court with no deed on offer keeps its purse for the army"
 	)
 
 
@@ -12315,9 +12397,9 @@ func test_the_pact_break_waits_for_the_bank_then_leads_the_order() -> void:
 			blocked_break = _offer_blocked_kind(
 				candidate["offer"]["candidates"], AiDiplomacyOffers.KIND_BREAK_NAP
 			)
-	assert_eq(
-		blocked_break, "the court is banking for its army",
-		"the trace names the gate that holds the break"
+	assert_true(
+		blocked_break.begins_with("the court is banking for its army"),
+		"the trace names the gate that holds the break, and the aim it waits on"
 	)
 	# The host stands: the break leads, and the petty war waits a turn.
 	context["income"] = {
