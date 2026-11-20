@@ -504,11 +504,11 @@ func test_visibility_starts_from_the_world_rules() -> void:
 	)
 
 
-## One end-of-turn fog pass decays what the crown has charted: the foreign coast
-## it can see on this chart, and the rival coast and unwatched water it charted
-## on the other chart while the Old World stayed on screen (wiki:
-## fog-and-exploration § Fog Decay, § Distant sea zone fog). One turn proves
-## both readings; a second used to pay a full `end_turn` under coverage.
+## One fog pass decays what the crown has charted: the foreign coast it can see
+## on this chart, and the rival coast and unwatched water it charted on the other
+## chart while the Old World stayed on screen (wiki: fog-and-exploration § Fog
+## Decay, § Distant sea zone fog). One pass proves both readings; a full
+## `end_turn` used to also pay every rival court under coverage.
 func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 	var tile: Vector2i = _screen.model.province_tiles(Fixture.foreign_province(_screen.model))[0]
 	var index: int = _screen.model.index_of(tile.x, tile.y)
@@ -538,8 +538,8 @@ func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 		"the charted coast is still in sight before the turn"
 	)
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Fog decay alone; skip the full end_turn rival walk under coverage.
+	MapPlayFogTurn.resolve(_screen.play)
 
 	assert_eq(
 		_screen.overlay.fog_state_at(tile.x, tile.y),
@@ -612,10 +612,9 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	player_fleet.location = FleetState.Location.AT_SEA
 	player_fleet.sea_zone = enemy_fleet.sea_zone
 	DiplomacyRules.declare_war(_screen.play.diplomacy, MapScreen.PLAYER_FACTION, 2)
-	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Naval combat alone; skip the full end_turn rival walk under coverage.
+	var battles: Array[Dictionary] = MapPlayNavalTurn.resolve(_screen.play)
 
 	# A beaten squadron is routed, or slips into adjacent neutral water when the
 	# retreat roll succeeds (wiki: ships-and-naval § Naval Retreat Formula).
@@ -625,7 +624,11 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	else:
 		assert_eq(_screen.ship_layer.hull_count_all(2), 0)
 	assert_eq(player_fleet.ship_count(), 1)
-	assert_gt(_screen.hud.despatches.box.get_child_count(), toasts_before)
+	assert_gt(battles.size(), 0, "the contested zone fought")
+	assert_true(
+		_screen.hud.plates.is_sea_shown(),
+		"the sea despatch names the fight"
+	)
 
 
 func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
@@ -648,8 +651,8 @@ func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
 	player_fleet.sea_zone = other_fleet.sea_zone
 	var hulls_before: int = player_fleet.ship_count() + other_fleet.ship_count()
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Peace shares water with no fight; naval resolve alone proves it.
+	MapPlayNavalTurn.resolve(_screen.play)
 
 	assert_false(_screen.play.diplomacy.relation(0, 2).at_war)
 	assert_eq(player_fleet.ship_count() + other_fleet.ship_count(), hulls_before)
@@ -728,10 +731,9 @@ func test_a_spy_on_the_crowns_own_land_quickens_nothing() -> void:
 	)
 
 
-## One end_turn holds the shadowed province in view and marks the slot the spy
-## quickened: both readings are written by the same pass, so a second turn used
-## to pay another rival plan under coverage (docs/testing.md § Speed rules;
-## REQ-P5-05; DR-20261110-03).
+## Fog holds the shadowed province in view and the college marks the slot the
+## spy quickened: both readings skip the rival plan under coverage
+## (docs/testing.md § Speed rules; REQ-P5-05; DR-20261110-03).
 func test_end_turn_holds_a_spy_shadow_and_marks_the_quickened_slot() -> void:
 	var rival: int = _rival_great_power()
 	assert_true(rival >= 0, "the world has a rival Great Power province")
@@ -744,14 +746,16 @@ func test_end_turn_holds_a_spy_shadow_and_marks_the_quickened_slot() -> void:
 	var tech: String = _first_studyable_tech()
 	assert_false(tech.is_empty(), "the crown has an advance it could study")
 	_screen.play.ai.economy_for(rival).tech_unlocked[tech] = true
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Fog pass holds the shadow; research boost is the same live reading the
+	# crown ledger would copy — no rival AI walk under coverage.
+	MapPlayFogTurn.resolve(_screen.play)
+	_screen.play.economy.research_boost = MapPlayEspionage.research_boost(_screen.play)
 	assert_true(
 		_screen.visibility.is_province_fully_visible(province),
 		"the shadowed province is held in view"
 	)
 	assert_eq(
-		SpyNetworks.boost_for(MapPlayEspionage.research_boost(_screen.play), tech),
+		SpyNetworks.boost_for(_screen.play.economy.research_boost, tech),
 		15,
 		"the spy still shadows the court whose tech it studies"
 	)
@@ -2459,11 +2463,11 @@ func _owned_plains_tile(province_id: int) -> Vector2i:
 	return Vector2i(-1, -1)
 
 
-## One turn completes a Builder's estate and an Engineer's wood fort: materials
-## leave at the press, the improvement lands, both crews idle again, and the new
-## wall reads on the province sheet — never on the despatch lane (wiki:
-## civilian-units; siege-mechanics § Fort Levels; hud-toasts). Two end_turns used
-## to pay the same Build/work pass twice under coverage.
+## One work pass completes a Builder's estate and an Engineer's wood fort:
+## materials leave at the press, the improvement lands, both crews idle again,
+## and the new wall reads on the province sheet — never on the despatch lane
+## (wiki: civilian-units; siege-mechanics § Fort Levels; hud-toasts). A full
+## end_turn used to also pay every rival court under coverage.
 func test_a_work_order_and_a_fort_complete_on_the_same_turn() -> void:
 	var tile: Vector2i = _buildable_owned_resource_tile()
 	assert_true(tile.x >= 0, "map has an owned resource a Builder can raise")
@@ -2494,8 +2498,8 @@ func test_a_work_order_and_a_fort_complete_on_the_same_turn() -> void:
 	MapPlayCivilians.on_action(_screen.play, "build_fort")
 	assert_true(engineer.is_working(), "the order is taken from the dossier")
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Build/work alone; skip the full end_turn rival walk under coverage.
+	MapPlayTurnFinish.resolve_work(_screen.play)
 
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
@@ -2762,10 +2766,11 @@ func test_each_region_keeps_its_own_fleets() -> void:
 	assert_eq(old_fleet.sea_zone, old_zone)
 
 
-## One off-screen turn restores orders on the chart left behind and resolves a
-## sea fight staged there: a moved home squadron is ready when its map reopens,
-## and a contested New World zone still settles while the Old World is up
-## (wiki: ships-and-naval). Two end_turns used to pay the same pass twice.
+## Off-screen begin-turn restores orders on the chart left behind and naval
+## resolve settles a sea fight staged there: a moved home squadron is ready when
+## its map reopens, and a contested New World zone still settles while the Old
+## World is up (wiki: ships-and-naval). A full end_turn used to also pay every
+## rival court under coverage.
 func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 	var home_fleet: FleetState = _screen.ship_layer.fleets[0]
 	home_fleet.moved = true
@@ -2786,12 +2791,12 @@ func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 	_screen.ship_layer.rebuild_markers()
 	DiplomacyRules.enter_war(_screen.play.diplomacy, first.owner, second.owner)
 	var hulls_before: int = first.ship_count() + second.ship_count()
-	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 0)
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Begin-turn + naval resolve; skip the rival AI walk under coverage.
+	ShipTurnPass.begin_turn(_screen.ship_layer)
+	var battles: Array[Dictionary] = MapPlayNavalTurn.resolve(_screen.play)
 
 	assert_false(home_fleet.moved, "a fleet must be ready when its map reopens")
 	var hulls_after: int = first.ship_count() + second.ship_count()
@@ -2802,7 +2807,11 @@ func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 		)
 	else:
 		assert_lt(hulls_after, hulls_before)
-	assert_gt(_screen.hud.despatches.box.get_child_count(), toasts_before)
+	assert_gt(battles.size(), 0, "the off-screen zone fought")
+	assert_true(
+		_screen.hud.plates.is_sea_shown(),
+		"the sea despatch names the fight"
+	)
 
 
 func test_empire_counters_survive_a_region_switch() -> void:
@@ -3081,6 +3090,8 @@ func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
 	)
 	assert_eq(String(row["status"]), "building")
 
+	# Estate yield lands on the crown ledger after Build/work, so this case still
+	# needs a full end_turn (timber +1 is not a work-pass outcome alone).
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
@@ -3140,12 +3151,11 @@ func test_tapping_a_survey_mark_starts_the_survey() -> void:
 	# A working Explorer takes no second survey.
 	assert_false(MapPlayCivilians.try_survey(play, explorer, stand))
 	await get_tree().process_frame
-	# Ending the turn uncovers the ground for the court that paid for it.
-	MapPlayTurn.end_turn(play)
-	Fixture.settle(play)
+	# Build/work uncovers the ground; skip the full end_turn rival walk.
+	MapPlayTurnFinish.resolve_work(play)
 	assert_true(
 		_screen.land_works.is_prospected(play.player_faction, _screen.model, target),
-		"the survey lands on end turn"
+		"the survey lands on the work pass"
 	)
 	for line: String in _toast_texts():
 		assert_false(
