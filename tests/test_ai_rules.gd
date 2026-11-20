@@ -5376,20 +5376,79 @@ func test_a_court_honors_the_truce_its_peace_left() -> void:
 
 	assert_eq(
 		String(_candidate(plan, PHASE_OTHER).get("blocked", "")),
-		"the pair's truce holds: no new crown war yet",
+		"the pair's truce holds: no new war yet",
 		"an unfought peace's truce bars the re-declaration for its whole window"
 	)
 
 
-## The same truce on a Minor pair: colonial business, never held by the brake.
-func test_a_truce_never_holds_a_minor_war() -> void:
-	var floor: int = _muster_price(_phase_config(PHASE_OWNER))
-	var run: Dictionary = _buyout_turn(0, floor - 100, [PHASE_MINOR])
-	var candidate: Dictionary = _candidate(run["plan"], PHASE_MINOR)
-
+## A Minor Nation is colonial business in its own right — but once the court
+## has signed a peace with it, the pair's truce holds there too (issue #1140):
+## a peace the court signed is not undone the turn after it was made.
+func test_a_truce_holds_a_minor_pair_the_court_peaced() -> void:
+	var run: Dictionary = _buyout_turn(0, -1, [PHASE_MINOR])
+	var state: DiplomacyState = run["state"]
+	var ai_state: AiState = run["ai_state"]
+	ai_state.note_war(PHASE_OWNER, PHASE_MINOR, 20)
+	ai_state.note_peace(PHASE_OWNER, PHASE_MINOR, 24, true)
+	ai_state.note_truce(PHASE_OWNER, PHASE_MINOR, 24)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		run["config"], state, ai_state,
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR]), 25,
+		{
+			"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"ships": {PHASE_OWNER: 2},
+			"player": -1,
+			"posture": String(run["posture"]),
+		}
+	)
 	assert_eq(
-		String(candidate.get("blocked", "")), "",
-		"a Minor Nation is colonial business, not a crown war the truce holds"
+		String(_candidate(plan, PHASE_MINOR).get("blocked", "")),
+		"the pair's truce holds: no new war yet",
+		"the peace a court signed with a Minor binds its own re-declaration"
+	)
+	# Past the truce window the colonial business opens again.
+	var settled: Dictionary = AiDiplomacyPlanner.decide(
+		run["config"], state, ai_state,
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR]), 60,
+		{
+			"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"ships": {PHASE_OWNER: 2},
+			"player": -1,
+			"posture": String(run["posture"]),
+		}
+	)
+	assert_eq(
+		String(_candidate(settled, PHASE_MINOR).get("blocked", "")), "",
+		"once the truce lapses, colonial business is legal again"
+	)
+
+
+## The war cooldown runs from the peace, not the declaration: a war declared
+## early and peaced late cannot be re-declared the turn after the peace
+## (issue #1140).
+func test_the_war_cooldown_runs_from_the_peace() -> void:
+	var ai_state := AiState.new()
+	ai_state.note_war(PHASE_OWNER, PHASE_MINOR, 2)
+	ai_state.note_truce(PHASE_OWNER, PHASE_MINOR, 24)
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
+	assert_true(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 25, cooldown),
+		"a t2 war peaced at t24 is still on cooldown at t25"
+	)
+	assert_false(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 28, cooldown),
+		"the 4-turn cooldown measured from a t24 peace lapses by t28"
+	)
+	assert_true(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 25, 30),
+		"a 30-turn truce keeps the pair barred past the short clock"
+	)
+	assert_false(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_THIRD, 25, cooldown),
+		"a pair with no peace and no war reads off the clock"
 	)
 
 
@@ -13026,7 +13085,7 @@ func test_a_truce_keeps_the_pair_below_the_declaration_bar() -> void:
 	)
 	var candidate: Dictionary = (barred["candidates"] as Array)[0]
 	assert_eq(
-		String(candidate["blocked"]), "the pair's truce holds: no new crown war yet",
+		String(candidate["blocked"]), "the pair's truce holds: no new war yet",
 		"the truce bars the re-declaration outright (issue #975) before desire is read"
 	)
 	assert_eq(
@@ -13158,13 +13217,13 @@ func campaign__candidate(plan: Dictionary, target: int) -> Dictionary:
 
 func test_a_colonial_truce_keeps_the_tribe_below_the_declaration_bar() -> void:
 	# The carousel #511 measured: declare, white peace in the same phase, and
-	# re-declare at the 4-turn cooldown. The truce now holds the pair.
+	# re-declare at the 4-turn cooldown. The truce now holds the pair outright.
 	var barred: Dictionary = _decide_colonial(false, 8, 4)
 	var entry: Dictionary = campaign__candidate(barred, WAR_TRIBE)
 
 	assert_eq(
-		String(entry.get("blocked", "")), "war desire too low",
-		"the cooldown alone no longer re-opens a colonial war"
+		String(entry.get("blocked", "")), "the pair's truce holds: no new war yet",
+		"the truce bars the colonial re-declaration outright (issue #1140)"
 	)
 	assert_eq(
 		int((entry.get("factors", {}) as Dictionary).get("memory", 0)),
