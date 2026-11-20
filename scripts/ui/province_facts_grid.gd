@@ -9,6 +9,11 @@ var port: Label = null
 var town: Label = null
 var road: Label = null
 var fort: Label = null
+## What the wall soaks and what it spares the garrison — the fort table's own
+## two figures, so a crown plans a siege against the wall a battle would fight
+## (wiki: siege-mechanics § Wall Protection; DR-20261120-06). The row leaves the
+## grid for open ground rather than printing a zero.
+var wall: Label = null
 var hospital: Label = null
 ## The courts that have bought land in this province (wiki: factions § Tribe —
 ## "unless another GP has invested in the province"; DR-20261120-05). The row
@@ -30,6 +35,7 @@ func _ready() -> void:
 	town = _add_row("Town")
 	road = _add_row("Roads")
 	fort = _add_row("Fort")
+	wall = _add_row("Wall")
 	hospital = _add_row("Hospital")
 	deeds = _add_row("Deeds")
 
@@ -46,6 +52,7 @@ func show_province(model: MapModel, province_id: int, data: ProvinceState) -> vo
 	town.text = DossierCopy.town(data)
 	town.tooltip_text = DossierCopy.town_tip(data)
 	fort.text = FortRules.describe(data.fort_level)
+	_show_row(wall, WallRead.line(data.fort_level))
 	hospital.text = HospitalRules.describe(data.hospital_level, data.hospital_staffed)
 	_show_row(
 		deeds, DeedBar.holders(DeedProtection.province_holders(model, province_id))
@@ -65,6 +72,7 @@ func fill(values: Dictionary) -> void:
 	road.text = String(values.get("roads", ""))
 	road.tooltip_text = ""
 	fort.text = String(values.get("fort", ""))
+	_show_row(wall, String(values.get("wall", "")))
 	hospital.text = String(values.get("hospital", ""))
 	_show_row(deeds, String(values.get("deeds", "")))
 
