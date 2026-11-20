@@ -6,7 +6,9 @@ extends RefCounted
 ## garrison, only artillery reaches behind it, and a sortie trades that shelter
 ## for every regiment's fire. [SiegeGround] scales the ground a blow lands on:
 ## assaults and volleys are weaker into HILL/WOODS/TOWN, entrenching is surer
-## there (wiki: quick-battle § Core actions).
+## there (wiki: quick-battle § Core actions). [QuickBattleLine] owns which men a
+## side fights with: the line dealt when the battle opened, its wings and the
+## weight a blow carries (wiki: combat § The line and the reserve).
 
 ## Attacker scripts. The defender has its own: a sally is a **Sortie** order,
 ## not an assault on a wall it is standing on (wiki: siege-mechanics § Gates).
@@ -113,9 +115,7 @@ static func resolve(
 	## a charge on the thinnest. A garrison behind a wall holds no wings and the
 	## wall's lanes take the blow instead (wiki: quick-battle § Wings and
 	## collapse).
-	var enemy_wings: Dictionary = enemy.get("wings", {}) as Dictionary
-	var enemy_held: Dictionary = QuickBattleWings.counts(enemy_wings)
-	var wing: String = QuickBattleWings.target(enemy_held, acted)
+	var wing: String = QuickBattleLine.wing_for(enemy, acted)
 	entry["wing"] = wing
 	## Every stance has a cohesion price, and none hands a step back: a manoeuvre
 	## pays for the press it crosses under, and a fall back trades a step for the
@@ -156,7 +156,7 @@ static func resolve(
 	ratio *= flank
 	if flank > 1.0:
 		entry["flank"] = flank
-	var enemy_count: int = standing_of(enemy)
+	var enemy_count: int = QuickBattleLine.standing_of(enemy)
 	## The action's published share of a line, spent as tactical weight: a
 	## stronger line breaks more of the enemy, and a tougher enemy line loses
 	## fewer regiments to the same blow (wiki: quick-battle § Cohesion and
@@ -167,9 +167,9 @@ static func resolve(
 	## reserve adds no strength"; quick-battle § Battlefield layout — "the reserve
 	## is dealt nowhere ... add no strength").
 	var average: float = ArmyModifiers.average_rank(
-		enemy_side, int(enemy["limit"]), line_of(enemy)
+		enemy_side, int(enemy["limit"]), QuickBattleLine.line_of(enemy)
 	)
-	var weight: float = _blow_weight(me_side, me)
+	var weight: float = QuickBattleLine.weight(me_side, me)
 	## Only firearms, bows and guns can strike a parapet: a besieger's blow is the
 	## weight of the regiments that reach it, so a pike's share breaks no wall,
 	## silences no gun and opens no gate (wiki: siege-mechanics § Damage Reduction
@@ -178,7 +178,8 @@ static func resolve(
 	var striking: float = weight
 	if siege and key == "attacker":
 		striking = SiegeLanes.striking_weight(
-			me_side, int(me["limit"]), _multiplier(me), line_of(me)
+			me_side, int(me["limit"]), QuickBattleLine.multiplier_of(me),
+			QuickBattleLine.line_of(me)
 		)
 	var wanted: int = ceili(ratio * striking / average)
 	# A line with no firearm or gun among it delivers nothing to the wall, and
@@ -193,7 +194,7 @@ static func resolve(
 	# A line with no fight left in it delivers no blow, and an empty blow buys
 	# nothing: the guns take only what the blow actually carries.
 	if wanted > 0 and key == "attacker" and QuickBattleBattery.alive(guns) > 0 \
-		and SiegeLanes.can_reach_wall(me_side, line_of(me)):
+		and SiegeLanes.can_reach_wall(me_side, QuickBattleLine.line_of(me)):
 		var battery: Dictionary = QuickBattleBattery.absorb(guns, wanted)
 		entry["guns_destroyed"] = int(battery["destroyed"])
 		entry["battery_hit"] = int(battery["absorbed"])
@@ -208,7 +209,7 @@ static func resolve(
 			# of the line that stands there (wiki: combat § The line and the
 			# reserve; siege-mechanics § Quick Battle lanes).
 			wanted = ceili(
-				float(wanted) * SiegeLanes.return_fire_share(me_side, line_of(me))
+				float(wanted) * SiegeLanes.return_fire_share(me_side, QuickBattleLine.line_of(me))
 			)
 	if enemy_count <= 0:
 		## Nothing stands to be struck: the blow names no wing, because naming
@@ -221,7 +222,7 @@ static func resolve(
 		var split: Dictionary = SiegeLanes.strike(
 			armies, me_side, enemy_side, wanted, int(enemy["limit"]), fort,
 			bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary,
-			enemy.get("lanes", {}) as Dictionary, line_of(me)
+			enemy.get("lanes", {}) as Dictionary, QuickBattleLine.line_of(me)
 		)
 		var wall_lost: Array[String] = split["wall"]
 		var behind_lost: Array[String] = split["behind"]
@@ -235,13 +236,7 @@ static func resolve(
 		## A wing's casualties fall on that wing alone; a line with no wings (a
 		## hand-built state, a record before wings existed) bled as one deployed
 		## slice, exactly as before (wiki: quick-battle § Wings and collapse).
-		if wing.is_empty():
-			lost = line_losses(armies, enemy_side, wanted, enemy)
-		else:
-			lost = ArmyForce.apply_losses(
-				armies, enemy_side, wanted, 0, Callable(),
-				QuickBattleWings.ids(enemy_wings, wing)
-			)
+		lost = QuickBattleLine.break_men(armies, enemy_side, wanted, enemy, wing)
 	enemy["lost"].append_array(lost)
 	# The blow that broke a regiment also mauls the men still standing: the
 	# plate shows every survivor's health drop (wiki: combat § Strength).
@@ -250,7 +245,7 @@ static func resolve(
 	if key == "attacker":
 		pool *= float(enemy.get("triage", 1.0))
 	entry["hits"] = RegimentCondition.damage_side(
-		enemy_side, pool, int(enemy["limit"]), line_of(enemy)
+		enemy_side, pool, int(enemy["limit"]), QuickBattleLine.line_of(enemy)
 	)
 	entry["mauled"] = (entry["hits"] as Array).size()
 	if key == "attacker":
@@ -287,82 +282,6 @@ static func cohesion_why(acted: String) -> String:
 	return String(COHESION_WHY.get(acted, ""))
 
 
-## Regiments of one side's line still standing. The line is the battle's whole
-## fighting strength: it is dealt when the battle opens, and a reserve behind it
-## is never committed, so a side whose line is gone has nothing left to fight
-## with (wiki: combat § The line and the reserve; quick-battle § Wings and
-## collapse). A state dealt no line (a hand-built one, a record before the line
-## was dealt) reads its whole side, exactly as before.
-static func line_standing(state: Dictionary, key: String) -> int:
-	return standing_of(state.get(key, {}) as Dictionary)
-
-
-## The men a side still holds in the line the battle dealt: the slice read by the
-## wings, the lanes, the mauled survivors and the outcome. A reserve behind it is
-## never counted, so ten men in the line read ten whether or not ten more wait
-## behind them (wiki: combat § The line and the reserve — "a reserve adds no
-## strength"; quick-battle § Battlefield layout — "the reserve is dealt
-## nowhere"). A state dealt no line (a hand-built one, a record made before the
-## line was dealt) reads its whole side, exactly as before.
-static func standing_of(side_state: Dictionary) -> int:
-	var line: Array[String] = line_of(side_state)
-	if line.is_empty():
-		var whole: Array[ArmyState] = []
-		whole.assign(side_state.get("side", []) as Array)
-		return ArmyForce.side_regiments(whole)
-	var standing: Dictionary = QuickBattleWings.standing_ids(side_state)
-	var count: int = 0
-	for regiment_id: String in line:
-		if standing.has(regiment_id):
-			count += 1
-	return count
-
-
-## The line a side was dealt when the battle opened, as the typed id list the
-## army rules read. Empty for a state dealt no line (a hand-built one, a record
-## made before the line was dealt).
-static func line_of(side_state: Dictionary) -> Array[String]:
-	var line: Array[String] = []
-	line.assign(side_state.get("line", []) as Array)
-	return line
-
-
-## The men a blow may break: the line the battle dealt when it opened, so a
-## reserve stands through it whatever the line loses (wiki: combat § The line
-## and the reserve — "a reserve takes no casualties"; quick-battle § Wings and
-## collapse — "the reserve is dealt nowhere"). A state with no line (a
-## hand-built one, a record made before the line was dealt) keeps the older
-## read, the strongest `limit` of the side as it stands.
-static func line_losses(
-	armies: Array[ArmyState], side: Array[ArmyState], wanted: int, state: Dictionary
-) -> Array[String]:
-	var line: Array[String] = line_of(state)
-	return ArmyForce.apply_losses(
-		armies, side, wanted, 0 if not line.is_empty() else int(state["limit"]),
-		Callable(), line
-	)
-
-
-## The weight one side lands with a blow: the men its line was dealt when the
-## battle opened ([method ArmyForce.line_strength]), so a reserve never steps up
-## into the slice after casualties and adds strength it never carried (wiki:
-## combat § The line and the reserve; quick-battle § Battlefield layout). A state
-## dealt no line (a hand-built one, a record made before the line was dealt)
-## keeps the older read, the strongest `limit` of the side as it stands.
-static func _blow_weight(side: Array[ArmyState], state: Dictionary) -> float:
-	var line: Array[String] = line_of(state)
-	if line.is_empty():
-		return ArmyModifiers.strength(side, int(state["limit"]), _multiplier(state))
-	return ArmyForce.line_strength(side, line, _multiplier(state))
-
-
-## A side's combat multiplier from its modifier bundle; an unmodified side
-## (tests, a hand-built state) fights at 1.0.
-static func _multiplier(side: Dictionary) -> float:
-	var mods: Dictionary = side.get("mods", {}) as Dictionary
-	return float(mods.get("multiplier", 1.0))
-
-
 ## An action's own price (an assault or a sortie costs the side that launches it).
 ## The share is spent over the line the side was dealt, not over every regiment it
 ## has: men waiting in reserve never take the field, so they neither pay for the
@@ -377,15 +296,15 @@ static func _pay_own(
 	if self_ratio <= 0.0:
 		return entry
 	var own_side: Array[ArmyState] = me["side"]
-	var wanted_own: int = ceili(self_ratio * float(standing_of(me)))
-	var own: Array[String] = line_losses(armies, own_side, wanted_own, me)
+	var wanted_own: int = ceili(self_ratio * float(QuickBattleLine.standing_of(me)))
+	var own: Array[String] = QuickBattleLine.losses(armies, own_side, wanted_own, me)
 	me["lost"].append_array(own)
 	var pool: float = float(own.size()) * RegimentCondition.HP_PER_SLOT
 	# A defender's own sally is triaged by its hospital too.
 	if key == "defender":
 		pool *= float(me.get("triage", 1.0))
 	entry["own_hits"] = RegimentCondition.damage_side(
-		own_side, pool, int(me["limit"]), line_of(me)
+		own_side, pool, int(me["limit"]), QuickBattleLine.line_of(me)
 	)
 	entry["own_mauled"] = (entry["own_hits"] as Array).size()
 	if key == "attacker":
