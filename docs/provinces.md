@@ -58,3 +58,11 @@ garrison is the resolver's own strength (`REQ-P2-03`).
 
 `tests/test_ledgers.gd` — the province ledger projection over both charts, the flags and
 their tallies, the dossier's link readings, and the door, Visit, back and key.
+
+## The dossier's facts
+
+A tap on a province opens its sheet: the ground a battle here fights on, the
+harbour, the town level, the roads, the fort, the hospital — and **Deeds**, the
+crowns that have bought land in it, hidden when nobody has. A Tribe shore with
+another crown's deed refuses an undeclared march in those words (`DeedBar`,
+DR-20261120-05).

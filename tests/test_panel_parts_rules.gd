@@ -418,6 +418,24 @@ func test_the_dossier_lists_every_estate_not_just_the_headline() -> void:
 	assert_true(tiles.has(OFF_ROAD_TILE), "the iron tile")
 	assert_true(tiles.has(Fixture.TIMBER_TILE), "the province's other timber tile")
 
+
+## The province sheet's Deeds row names the crown that bought land here — the bar
+## an undeclared march meets — and leaves the grid when nobody has (wiki:
+## factions § Tribe — "unless another GP has invested in the province";
+## DR-20261120-05).
+func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_false(grid.deeds.visible, "nobody has bought land here")
+	assert_true(_model.purchase_tile(Fixture.RIVAL_GRAIN_TILE, 1), "a rival's deed")
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	assert_true(grid.deeds.visible, "the row arrives with the deed")
+	assert_eq(grid.deeds.text, "%s 1 tile" % FactionCatalog.name_of(1))
+
 func test_each_estate_says_whether_it_is_developed_and_linked() -> void:
 	_setup_province_panel()
 	_show()

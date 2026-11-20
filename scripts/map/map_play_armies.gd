@@ -129,8 +129,22 @@ static func try_order(play: PlaySession, tile: Vector2i) -> bool:
 	var result: Dictionary = play.army_layer.order(army, province_id, may_invade(play, province_id))
 	if bool(result.get("ok", false)):
 		return true
-	play.hud.toast(String(result.get("reason", "")))
+	play.hud.toast(refusal(play, province_id, String(result.get("reason", ""))))
 	return true
+
+
+## The words a refused march reads. A Tribe's shore another crown has bought land
+## in is barred by that deed, not by peace — and the order can only answer "peace
+## holds" — so the refusal asks the bar itself and names the holders
+## (wiki: factions § Tribe; DR-20261120-05).
+static func refusal(play: PlaySession, province_id: int, fallback: String) -> String:
+	var owner: int = play.model.province_owner(province_id)
+	return DeedBar.refusal(
+		InvasionBar.read(
+			play.diplomacy, play.player_faction, owner, play.model, province_id
+		),
+		play.model, province_id, fallback
+	)
 
 
 ## Invading foreign land needs war with its owner, except a Tribe — and a Tribe
