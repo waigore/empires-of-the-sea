@@ -15,13 +15,11 @@ static func warden_hint(
 		names.append(FactionCatalog.name_of(court))
 	if names.is_empty():
 		return ""
-	return "%s may intervene." % join_names(names)
+	return "%s may intervene." % _join_names(names)
 
 
-## "A", "A and B", "A, B and C" — one Oxford-free list for the court copy, read
-## by every line that names several courts (the march's bar names its deed
-## holders with it too).
-static func join_names(names: Array[String]) -> String:
+## "A", "A and B", "A, B and C" — one Oxford-free list for the court copy.
+static func _join_names(names: Array[String]) -> String:
 	if names.size() == 1:
 		return names[0]
 	if names.size() == 2:

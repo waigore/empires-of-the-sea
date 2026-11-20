@@ -33,7 +33,7 @@ static func held_by(deeds: Dictionary) -> String:
 		names.append(FactionCatalog.name_of(int(raw)))
 	if names.is_empty():
 		return ""
-	return InterventionCopy.join_names(names)
+	return _join_names(names)
 
 
 ## The province sheet's Deeds row: "England 2 tiles · Portugal 1 tile", or "" for
@@ -53,3 +53,15 @@ static func holders(deeds: Dictionary) -> String:
 
 static func _verb(deeds: Dictionary) -> String:
 	return "has" if deeds.size() == 1 else "have"
+
+
+## "A", "A and B", "A, B and C" — Oxford-free list for the refusal line.
+static func _join_names(names: Array[String]) -> String:
+	if names.size() == 1:
+		return names[0]
+	if names.size() == 2:
+		return "%s and %s" % [names[0], names[1]]
+	var head: String = ""
+	for index in names.size() - 1:
+		head += ("" if index == 0 else ", ") + names[index]
+	return "%s and %s" % [head, names[names.size() - 1]]
