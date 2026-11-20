@@ -62,7 +62,8 @@ their tallies, the dossier's link readings, and the door, Visit, back and key.
 ## The dossier's facts
 
 A tap on a province opens its sheet: the ground a battle here fights on, the
-harbour, the town level, the roads, the fort, the hospital — and **Deeds**, the
-crowns that have bought land in it, hidden when nobody has. A Tribe shore with
-another crown's deed refuses an undeclared march in those words (`DeedBar`,
-DR-20261120-05).
+harbour, the town level, the roads, the fort, **Wall** (what it soaks and the
+share of a blow it spares, DR-20261120-06), the hospital — and **Deeds**, the
+crowns that have bought land in it. Wall and Deeds hide when they have nothing
+to say. A Tribe shore with another crown's deed refuses an undeclared march in
+those words (`DeedBar`, DR-20261120-05).

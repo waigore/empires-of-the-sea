@@ -37,6 +37,12 @@ DR-20261110-27.
 - **Gun-loss:** a gun spends the blow before the lanes; an empty blow buys
   nothing, and the last gun still drops the fort one level. The plate names
   guns, lanes and gates.
+- **The wall reads itself** (`WallRead`, DR-20261120-06): the province sheet's
+  **Wall** row prints `10 wall hp · 25% off a blow` by level (empty on open
+  ground), the observatory's sheet the same, and a march into another court's
+  walled province reads `The army marches on Badajoz — a wood fort stands: 10
+  wall hp, 1 emplaced gun, 25% off a blow.` Both figures are the exchange's own
+  (`FortRules.wall_soak`, `loss_scale`); nothing is predicted.
 
 ## Costs and numbers
 

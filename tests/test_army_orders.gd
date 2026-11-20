@@ -715,6 +715,32 @@ func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	assert_eq(_screen.model.province_owner(target), MapScreen.PLAYER_FACTION)
 
 
+## A march into another court's walled province names the wall that stands there,
+## in the fort table's own figures, instead of the plain march line — and open
+## ground keeps the plain line (wiki: siege-mechanics § Wall Protection;
+## DR-20261120-06, REQ-P5-05).
+func test_a_march_into_a_walled_province_names_the_wall() -> void:
+	var field: ArmyState = _detach_one()
+	var home: ArmyState = _player_home()
+	var target: int = _adjacent_enemy_province(home.province)
+	assert_gt(target, -1)
+	var data: ProvinceState = _screen.model.province_data(target)
+	data.fort_level = 2
+	var owner: int = _screen.model.province_owner(target)
+	_screen.play.diplomacy.ensure_relation(0, owner, _screen.play.diplomacy.turn)
+	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, owner)
+
+	assert_true(MapPlayArmies.try_order(_screen.play, data.tiles[0]))
+	assert_eq(field.province, target)
+	assert_eq(
+		_last_toast(),
+		WallRead.march_line(_screen.model.province_name(target), 2),
+		"the receipt names the wall it must break"
+	)
+	assert_true(_last_toast().contains("20 wall hp"), _last_toast())
+	assert_true(_last_toast().contains("2 emplaced guns"), _last_toast())
+
+
 func test_enemy_armies_are_observed_not_ordered() -> void:
 	var enemy: ArmyState = _enemy_army()
 	assert_not_null(enemy)

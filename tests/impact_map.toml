@@ -3322,6 +3322,13 @@ domain = "fort"
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
 
+# The wall's own words — the sheet row and the march receipt. Its figures are
+# the fort table's, so it rides the fort slice; the province sheet and the march
+# are selected by their own rules when their callers change.
+[[rules]]
+match = "scripts/rules/wall_read.gd*"
+domain = "fort"
+
 [[rules]]
 match = "scripts/rules/hospital_*.gd*"
 domain = "hospital"
