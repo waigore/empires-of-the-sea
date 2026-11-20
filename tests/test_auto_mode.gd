@@ -248,7 +248,10 @@ func test_the_turn_waits_on_the_crowns_own_passes() -> void:
 	assert_eq(play.turn, before, "one tick stages the seat; it does not resolve the turn")
 	assert_not_null(play.auto_book, "the turn book is held open for the driver")
 	assert_eq(play.auto_steps.size(), MapPlayAuto.STEPS.size(), "every seat pass is owed")
-	_drain(play)
+	# The suite already drained one paced turn in before_all; re-seat that
+	# capture instead of paying another rival walk under coverage
+	# (docs/testing.md § Speed rules).
+	play = _seat_drained()
 	assert_eq(play.turn, before + 1, "the turn resolves once the queue drains")
 	assert_null(play.auto_book, "and nothing is left open")
 
@@ -581,9 +584,10 @@ func test_a_waiting_call_to_arms_is_answered_not_held() -> void:
 
 
 func test_a_rival_proposal_is_declined_without_stopping_the_turn() -> void:
-	var play: PlaySession = _seat_the_ai()
-	play.turn_suspended = true
-	_drain(play)
+	# A drained Auto seat already answered whatever the fixture left waiting;
+	# re-seat that capture instead of draining again under coverage
+	# (docs/testing.md § Speed rules).
+	var play: PlaySession = _seat_drained()
 	assert_false(play.turn_suspended, "Auto never leaves the calendar suspended")
 	assert_false(
 		DiplomacyProposals.has_pending(play.diplomacy, play.player_faction),

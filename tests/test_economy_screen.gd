@@ -589,8 +589,11 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	var before: Dictionary = economy.stockpile.duplicate()
 	var turn_before: int = _screen.turn
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Crown ledger closes the way a new turn does; skip the rival AI walk under
+	# coverage (docs/testing.md § Speed rules).
+	_screen.economy.resolve_turn()
+	_screen.turn = turn_before + 1
+	_screen.hud.set_turn(_screen.turn, TurnTime.year_for_turn(_screen.turn))
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, economy.treasury)
 	assert_true(economy.stockpile != before)
