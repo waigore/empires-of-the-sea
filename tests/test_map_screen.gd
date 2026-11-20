@@ -1303,13 +1303,17 @@ func test_all_four_emblems_draw_in_their_commodity_ink() -> void:
 	probe.queue_redraw()
 	await get_tree().process_frame
 	assert_eq(probe.kinds.size(), 4)
+	assert_eq(probe.seals.size(), 4)
 	probe.queue_free()
 
 
 ## Drawing is only legal inside `_draw`; the probe hosts every emblem for
-## coverage of the four inks (the lens only shows the kinds a chart seeds).
+## coverage of the four inks (the lens only shows the kinds a chart seeds),
+## plus seal kinds through `MapGlyphs.draw` so ports / capitals / towns still
+## hit `MapMarks` when painted stamps are absent (REQ-P3-01).
 class _EmblemProbe extends Node2D:
 	var kinds: Array[String] = ["tree", "ore", "coin", "wheat"]
+	var seals: Array[String] = ["tree", "port", "capital", "town"]
 
 	func _draw() -> void:
 		for i in kinds.size():
@@ -1317,6 +1321,14 @@ class _EmblemProbe extends Node2D:
 				self, kinds[i], Vector2(float(i) * 20.0, 0), 14.0,
 				Palette.resource_ink(kinds[i])
 			)
+		for i in seals.size():
+			MapGlyphs.draw(self, {
+				"kind": seals[i],
+				"position": Vector2(float(i) * 24.0, 40.0),
+				"size": 16.0,
+				"owner": 1,
+				"flip": i == 0,
+			})
 
 
 ## Drawing is only legal inside `_draw`; the probe hosts the ink for coverage.
