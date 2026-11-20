@@ -3906,6 +3906,58 @@ func test_the_yard_pick_names_the_purse_it_is_filling() -> void:
 	play.economy.free()
 
 
+## A hull the studies open and the purse can pay, held back by the stores: the
+## line names the yard's own refusal, never a purse that is already full
+## (wiki: ships-and-naval § Ship build economy; DR-20261121-02).
+func test_the_yard_pick_names_the_stores_that_hold_the_hull_back() -> void:
+	var play: PlaySession = _yard_play(true, 20000, {"navigation": true}, [])
+	play.economy.economy.stockpile["lumber"] = 0
+	play.economy.economy.stockpile["fabric"] = 0
+
+	var pick: Dictionary = MapPlayYardPick.pick(play)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayYardPick.KIND_STORES)
+	assert_eq(String(pick.get("type", "")), "sloop")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would lay a Sloop — the yard cannot: Insufficient materials"
+	)
+	assert_eq(
+		MapPlayYardPick.line(play),
+		"The court would lay a Sloop — the yard cannot: Insufficient materials.",
+		"the yard's own gate, not a purse that is not short"
+	)
+	assert_false(
+		MapPlayYardPick.line(play).contains("purse"),
+		"a funded court is never told it is saving"
+	)
+	assert_eq(
+		MapPlayYardPickWords.gate_line("sloop", ""), "",
+		"no gate worded, no line"
+	)
+	assert_eq(play.economy.economy.treasury, 20000, "a reading: not a ducat spent")
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## A hull the studies open and the stores cover, held back by the pool: the line
+## names the missing hand, which is the gate the yard itself refuses on.
+func test_the_yard_pick_names_the_free_hand_that_holds_the_hull_back() -> void:
+	var play: PlaySession = _yard_play(true, 20000, {"navigation": true}, [], ["sloop"])
+	play.economy.economy.workers = WorkerPool.make(0)
+
+	var pick: Dictionary = MapPlayYardPick.pick(play)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayYardPick.KIND_STORES)
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would lay a Sloop — the yard cannot: Insufficient workers"
+	)
+	assert_eq(play.economy.economy.treasury, 20000, "a reading: not a ducat spent")
+	play.ship_layer.free()
+	play.economy.free()
+
+
 ## The claim speaks only while the court means to lay a hull: a navy that already
 ## matches its enemies, a session that runs no planner, a decided campaign and a
 ## session with no ledger carry none.
