@@ -3,7 +3,7 @@
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
   "submission_hash": "sha256:6f3468704eb3238c82f3ea94879322e97114518014020c1c6d39665d716ef2d0",
-  "submission_git": "fix/1140-minor-truce-holds@62d5388b+dirty",
+  "submission_git": "fix/1140-minor-truce-holds@3e99ed8d",
   "passed": true,
   "config": [
     {

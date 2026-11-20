@@ -24,6 +24,13 @@ import numpy as np
 RATE = 44100
 SILENCE_DB = -60.0
 PEAK_CEILING = 0.9
+## Vorbis quality per bed. A three-minute bed at q6 costs ~4.5 MB; the long theme
+## beds encode at q4 (~112 kbps, about 2.8 MB) and stay pleasant under play.
+DEFAULT_QUALITY = 6
+## Headroom of the soft knee: 1.6 keeps the top 3 dB gentle rather than a wall.
+SOFT_KNEE = 1.6
+## Level a bed may lose to the ceiling before the knee takes over.
+SOFT_KNEE_MIN_LOSS_DB = 1.0
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -57,12 +64,32 @@ def loop_crossfade(x: np.ndarray, seconds: float) -> np.ndarray:
 
 
 def normalize(x: np.ndarray, target_db: float) -> np.ndarray:
-    rms = float(np.sqrt(np.mean(np.square(x))))
-    out = x * (10.0 ** ((target_db - 20.0 * np.log10(max(rms, 1e-9))) / 20.0))
+    """Land on the mix RMS, then shape the crest instead of dropping the level.
+
+    A bed with dense peaks (a march's timpani) used to hit the ceiling and be
+    scaled down with it — five dB of applause-quiet next to the rest. Peaks over
+    the ceiling now pass a soft-knee tanh, and the result is put back on the mix
+    target, so every bed reads the same loudness.
+    """
+    out = _scale_to(x, target_db)
     peak = float(np.max(np.abs(out)))
     if peak > PEAK_CEILING:
-        out *= PEAK_CEILING / peak
+        # A peak a few tenths over the ceiling is a hair to shave; shaving keeps
+        # the take untouched. Only a real crest problem (more than a dB of level
+        # at stake) earns the soft knee.
+        loss_db = 20.0 * np.log10(peak / PEAK_CEILING)
+        if loss_db <= SOFT_KNEE_MIN_LOSS_DB:
+            out *= PEAK_CEILING / peak
+            return out
+        out = np.tanh(out / peak * SOFT_KNEE) * (PEAK_CEILING / np.tanh(SOFT_KNEE))
+        out = _scale_to(out, target_db)
+        out = np.clip(out, -PEAK_CEILING, PEAK_CEILING)
     return out
+
+
+def _scale_to(x: np.ndarray, target_db: float) -> np.ndarray:
+    rms = float(np.sqrt(np.mean(np.square(x))))
+    return x * (10.0 ** ((target_db - 20.0 * np.log10(max(rms, 1e-9))) / 20.0))
 
 
 def write_ogg(path: str, x: np.ndarray, quality: int = 6) -> None:
@@ -108,7 +135,7 @@ def main() -> int:
             audio = loop_crossfade(audio, float(track.get("crossfade_seconds", 1.5)))
         audio = normalize(audio, float(track.get("target_rms_db", -17.5)))
         path = os.path.join(args.out, track["file"])
-        write_ogg(path, audio)
+        write_ogg(path, audio, int(track.get("quality", DEFAULT_QUALITY)))
         print("  %-28s %6.1fs  %6.1f KB  peak %.2f" % (
             track["id"], audio.shape[0] / RATE, os.path.getsize(path) / 1024.0,
             float(np.max(np.abs(audio)))))

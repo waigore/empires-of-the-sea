@@ -1,27 +1,28 @@
 class_name ProvinceLedgerPanel
 extends LedgerSheet
-## The crown's provinces: every province it holds in the Old and New World in
-## one ledger, narrowed by chart and by what the province lacks, with a Visit
-## action that opens the province's map and dossier (wiki: world-model
-## § Provinces and Tiles; DR-20261115-09). The projection lives in
-## [ProvinceLedger] and the map hooks in [MapPlayProvinces]; this class only
-## renders rows and asks for the jump (REQ-P3-02, REQ-P3-03). The sheet chrome,
-## fade and pause-door park come from SheetFrame; the chips, rows and empty
-## notice from LedgerSheet.
+## The crown's realm: every province it holds in the Old and New World in one
+## sheet, read three ways — what it yields, how hard it is to hold and how far
+## it sits from the seat — narrowed by chart and ordered by the view's own
+## figure, with a Visit action that opens the province's map and dossier (wiki:
+## world-model § Provinces and Tiles; capital-and-connectivity).
+##
+## The projection lives in [ProvinceLedger] and the map hooks in
+## [MapPlayProvinces]; this class only renders the rows and asks for the jump
+## (REQ-P3-02, REQ-P3-03). The sheet chrome, fade and pause-door park come from
+## SheetFrame; the chips, rows and empty notice from LedgerSheet.
 
-## The steps a realm reading is one press from: the roll prints each province's
-## town level, its fort and its ward, so the sheets that raise them sit under
-## the reading that asks (DR-20261115-12, DR-20261116-01, DR-20261116-02). Each
-## door names its sheet by the HUD's door key.
+## The order the view opens on; a press of another chip reorders the rows.
+var _sort: String = ProvinceLedger.SORT_VALUE
 
 
 func _init() -> void:
-	title_text = "THE CROWN'S PROVINCES"
+	title_text = "THE CROWN'S REALM"
 	hint_text = (
-		"Visit opens the province's map and dossier. The roll reads each "
-		+ "province as it stands; it never orders a work or a march."
+		"Visit opens the province's map and dossier. Each view reads the realm "
+		+ "as it stands; it never orders a work or a march."
 	)
 	toggle_action = InputActions.PROVINCE_LEDGER
+	_reading = ProvinceLedger.VIEW_ECONOMY
 
 
 ## Re-reads both charts for the player's crown and repaints the view.
@@ -42,41 +43,33 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	_build_filter_body(
-		column, "Chart", "Reading", ProvinceLedger.FILTERS, ProvinceLedger.filter_label,
-		_doors
+		column, "Chart", "View", ProvinceLedger.VIEWS, ProvinceLedger.view_label
 	)
+	_bar.sort_chosen.connect(_on_sort)
 
 
-## The doors a step is one reach from the reading that raises it: the realm
-## prints the town level, the fort and the ward, so the towns, walls and
-## hospitals sheets are the steps that raise them (REQ-P5-01, REQ-P5-04;
-## DR-20261115-12, DR-20261116-01, DR-20261116-02). Full-width rows keep each a
-## thumb-sized tap on a phone; the dress and the key press are SheetFrame's.
-func _doors() -> Control:
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 6)
-	row.add_child(_door(
-		"Towns ›", "Every town the crown holds, and the step that raises it (B)",
-		HudLedgerDoors.TOWNS
-	))
-	row.add_child(_door(
-		"Walls ›", "Every wall the crown holds, and the step that raises it (V)",
-		HudLedgerDoors.WALLS
-	))
-	row.add_child(_door(
-		"Hospitals ›", "Every ward the crown holds, and the step that raises it",
-		HudLedgerDoors.HOSPITALS
-	))
-	return row
+# --- filters -----------------------------------------------------------------
 
 
-# --- rows --------------------------------------------------------------------
+## A sort chip was pressed: the rows keep the same chart and view, only their
+## order changes, so the sheet repaints without a fresh harvest walk.
+func _on_sort(key: String) -> void:
+	_sort = key
+	_apply_filter()
 
 
 func _apply_filter() -> void:
-	var groups: Array[Dictionary] = ProvinceLedger.groups(_snapshot, _region, _reading)
-	var shown: int = ProvinceLedger.count(_snapshot, _region, _reading)
-	_paint_filtered(groups, shown, _heading, _make_row)
+	if not ProvinceLedger.sort_keys(_reading).has(_sort):
+		_sort = ProvinceLedger.sort_default(_reading)
+	_bar.fill_sort(
+		"Order", ProvinceLedger.sort_keys(_reading), ProvinceLedger.sort_label, _sort
+	)
+	var groups: Array[Dictionary] = ProvinceLedger.groups(_snapshot, _region, _reading, _sort)
+	_paint_filtered(groups, ProvinceLedger.count(_snapshot, _region), _heading, _make_row)
+	_bar.render_sort(_sort)
+
+
+# --- rows --------------------------------------------------------------------
 
 
 func _empty_text() -> String:
@@ -92,26 +85,26 @@ func _heading(group: Dictionary, count: int) -> Control:
 func _make_row(raw: Variant, compact: bool) -> Control:
 	var row := ProvinceLedgerRow.new()
 	row.compact = compact
+	row.view = _reading
 	row.visit_pressed.connect(_visit)
 	row.setup(raw as Dictionary)
 	return row
 
 
-## The count line names the filter and what the view means, so a crown reads
-## what it is looking at before it reads a row (REQ-P5-05).
+## The count line names the view and what orders it, so a crown reads what it is
+## looking at before it reads a row (REQ-P5-05).
 func _subtitle_text(shown: int) -> String:
-	var counts: Dictionary = ProvinceLedger.filter_counts(_snapshot, _region)
-	var line: String = "Showing %d of %d provinces %s — %d cut off, %d ungarrisoned, %d at works." % [
+	var counts: Dictionary = _snapshot.get("counts", {})
+	return "Showing %d of %d provinces %s — %d cut off, %d ungarrisoned, %d at works. %s, ordered by %s." % [
 		shown,
 		int(_snapshot.get("total", 0)),
 		LedgerRows.scope_text(_region),
-		int(counts.get(ProvinceLedger.FILTER_CUT, 0)),
-		int(counts.get(ProvinceLedger.FILTER_UNGARRISONED, 0)),
-		int(counts.get(ProvinceLedger.FILTER_WORKS, 0)),
+		int(counts.get("cut_off", 0)),
+		int(counts.get("ungarrisoned", 0)),
+		int(counts.get("works", 0)),
+		String(ProvinceLedger.view_label(_reading)),
+		String(ProvinceLedger.sort_label(_sort)).to_lower(),
 	]
-	if _reading != ProvinceLedger.FILTER_ALL:
-		line += " Reading: %s only." % ProvinceLedger.filter_label(_reading).to_lower()
-	return line
 
 
 func _visit(region: int, province_id: int) -> void:

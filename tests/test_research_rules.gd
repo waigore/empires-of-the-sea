@@ -1379,7 +1379,7 @@ func test_closing_emits_the_close_signal() -> void:
 	_bind_panel()
 	var closed: Array[bool] = []
 	_panel.close_pressed.connect(func() -> void: closed.append(true))
-	var close: Button = _button("Close")
+	var close: Button = _panel._close
 	assert_not_null(close)
 	close.pressed.emit()
 	assert_eq(closed.size(), 1)

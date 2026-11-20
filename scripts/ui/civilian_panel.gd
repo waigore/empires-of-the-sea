@@ -49,6 +49,17 @@ func _build() -> void:
 	shell.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	add_child(shell)
 
+	# The header: the crew's name and posting on the left, the one shared close
+	# seal on the right (docs/ui-panels.md). It sits above the scroll so the
+	# door never scrolls away.
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 8)
+	shell.add_child(header)
+	var titles := VBoxContainer.new()
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	titles.add_theme_constant_override("separation", 2)
+	header.add_child(titles)
+
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -63,12 +74,16 @@ func _build() -> void:
 	_title.add_theme_font_override("font", UiTheme.serif())
 	_title.add_theme_font_size_override("font_size", 24)
 	_title.add_theme_color_override("font_color", Palette.GOLD_PALE)
-	column.add_child(_title)
+	titles.add_child(_title)
 
 	_subtitle = Label.new()
 	_subtitle.add_theme_font_size_override("font_size", 13)
 	_subtitle.add_theme_color_override("font_color", Palette.TEXT_DIM)
-	column.add_child(_subtitle)
+	titles.add_child(_subtitle)
+
+	var close := CloseSeal.make()
+	close.pressed.connect(func() -> void: close_pressed.emit())
+	header.add_child(close)
 
 	_detail = GridContainer.new()
 	_detail.columns = 2
@@ -129,10 +144,6 @@ func _build() -> void:
 	_dock.size_flags_horizontal = Control.SIZE_SHRINK_END
 	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())
 	footer.add_child(_dock)
-
-	var close := UiRowBuilder.button("Close", 38.0, 0.0, 14)
-	close.pressed.connect(func() -> void: close_pressed.emit())
-	footer.add_child(close)
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
