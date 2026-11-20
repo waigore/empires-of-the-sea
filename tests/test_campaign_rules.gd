@@ -1265,6 +1265,17 @@ func test_a_crown_on_its_bar_is_not_merely_warned() -> void:
 	assert_eq(VictoryStandings.warning(world, SPAIN), "")
 
 
+func test_the_warning_is_silent_without_a_crown_to_warn() -> void:
+	_setup_victory_standings()
+	var world := _victory_standings_old_world()
+	# A rival three provinces from the age would be named for a reader, but the
+	# full-AI observer has no crown of its own: the reading prints neither line
+	# (wiki: victory § Victory Check — "A session with no human crown prints
+	# neither").
+	_victory_standings_seat(world.region(WorldMap.OLD_WORLD), {SPAIN: 10, ENGLAND: 28})
+	assert_eq(VictoryStandings.warning(world, MapModel.NO_ID), "")
+
+
 # --- fixtures ----------------------------------------------------------------
 
 
