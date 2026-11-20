@@ -47,7 +47,7 @@ static func build_hud(play: PlaySession) -> void:
 	HudLedgerDoors.bind_all(hud, play)
 	_seat_commanders(play)
 	play.economy = EconomyController.new()
-	play.screen.host.add_child(play.economy)
+	play.host.add_child(play.economy)
 	# Build/work's recruits land on the session's layers when the ledger closes.
 	play.economy.play = play
 	play.economy.setup(

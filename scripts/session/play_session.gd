@@ -161,8 +161,16 @@ var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
 
-## MapScreen (or test double) that owns signals and the viewport.
+## The one place helpers send screen talk (REQ-P3-02).
 var screen: PlayScreen = PlayScreen.new()
+
+## Bound chart Node — same object as `screen.host`, kept on the session so
+## existing MapPlay* call sites need not rewrite every read (REQ-P3-02).
+var host: Node:
+	get:
+		return screen.host
+	set(value):
+		screen.host = value
 
 
 func bind_host(p_host: Node) -> void:
@@ -331,7 +339,39 @@ func campaign_over() -> bool:
 	return victory != null or defeat != null or campaign_halted
 
 
-## Political ownership changed (Join Empire): keep the AI surface on this name
-## while the screen owns the redraw (REQ-P3-02).
+## Screen airings and region swap: session names forward to `screen` so the
+## bridge owns the work and helpers keep the short call (REQ-P3-02).
+func viewport() -> Viewport:
+	return screen.viewport()
+
+
+func emit_province_selected(province_id: int) -> void:
+	screen.emit_province_selected(province_id)
+
+
+func emit_selection_cleared() -> void:
+	screen.emit_selection_cleared()
+
+
+func emit_coast_charted(province_id: int) -> void:
+	screen.emit_coast_charted(province_id)
+
+
+func emit_raid_resolved(raids: Array[Dictionary]) -> void:
+	screen.emit_raid_resolved(raids)
+
+
+func emit_turn_ended(p_turn: int) -> void:
+	screen.emit_turn_ended(p_turn)
+
+
+func emit_campaign_end(p_victory: VictoryState = null, p_defeat: DefeatState = null) -> void:
+	screen.emit_campaign_end(p_victory, p_defeat)
+
+
 func refresh_map_views() -> void:
 	screen.refresh_map_views()
+
+
+func switch_region(index: int) -> void:
+	screen.switch_region(index)

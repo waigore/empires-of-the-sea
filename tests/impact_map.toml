@@ -540,9 +540,11 @@ domain = "sea_tone"
 match = "ui/shaders/sea.gdshader*"
 domain = "sea_tone"
 
+# Session bag + its screen bridge: the play_screen domain proves the airings
+# without the pause/menu fan-out that overruns tier-1 on a bridge PR.
 [[rules]]
 match = "scripts/session/play_session.gd*"
-domain = "pause"
+domain = "play_screen"
 
 # Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
 # ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.

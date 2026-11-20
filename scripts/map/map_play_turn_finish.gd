@@ -116,7 +116,7 @@ static func _close_if_decided(play: PlaySession, book: TurnBook) -> bool:
 		# § Great Power defeat § Fall effects).
 		if play.diplomacy != null:
 			play.diplomacy.clear_relations_of(play.defeat.fallen_player_id)
-		play.screen.emit_turn_ended(play.turn)
+		play.emit_turn_ended(play.turn)
 		return true
 	# Victory is checked after every phase, once per turn, and never re-checked.
 	# The crown's own bar carries the campaign's level; every rival keeps the
@@ -247,7 +247,7 @@ static func _report_turn(play: PlaySession, book: TurnBook) -> void:
 		play, book.land_battles, book.naval_battles, book.economy_report,
 		book.crown_report, book.raid_report
 	)
-	play.screen.emit_turn_ended(play.turn)
+	play.emit_turn_ended(play.turn)
 
 
 ## A Great Power's capital wall steps up once, the turn its own fort tech

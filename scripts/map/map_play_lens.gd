@@ -120,9 +120,9 @@ static func mount_sea(play: PlaySession) -> void:
 ## The chart's own layer for a reading the screen did not hand the session at
 ## bind time; null when the host is not mounted (a rules-only suite).
 static func _from_host(play: PlaySession, path: String) -> Node:
-	if play.screen.host == null:
+	if play.host == null:
 		return null
-	return play.screen.host.get_node_or_null(path)
+	return play.host.get_node_or_null(path)
 
 
 ## Raises or lowers one named reading. The map's readings are exclusive: a raise
