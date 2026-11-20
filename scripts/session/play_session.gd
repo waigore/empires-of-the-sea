@@ -329,3 +329,9 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 ## turn-time-mapping).
 func campaign_over() -> bool:
 	return victory != null or defeat != null or campaign_halted
+
+
+## Political ownership changed (Join Empire): keep the AI surface on this name
+## while the screen owns the redraw (REQ-P3-02).
+func refresh_map_views() -> void:
+	screen.refresh_map_views()
