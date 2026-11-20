@@ -2,7 +2,8 @@ class_name PlaySession
 extends RefCounted
 ## Narrow play context for MapPlay* helpers (REQ-P3-02).
 ## Holds session state and injected presentation refs — not a Node/autoload.
-## MapScreen owns the Node tree and signals; helpers talk through this bag.
+## MapScreen owns the Node tree and signals; helpers talk through this bag, and
+## every word it says to the screen goes through `screen` (PlayScreen).
 
 const TILE_SIZE: float = 22.0
 ## Legacy default (Spain); a game setup may choose another Great Power.
@@ -161,11 +162,11 @@ var hud: GameHud = null
 var improvements: ImprovementPanel = null
 
 ## MapScreen (or test double) that owns signals and the viewport.
-var host: Node = null
+var screen: PlayScreen = PlayScreen.new()
 
 
 func bind_host(p_host: Node) -> void:
-	host = p_host
+	screen.host = p_host
 
 
 ## Starts a fresh run in this session: generation recipe, human crown, the
@@ -309,27 +310,6 @@ func refresh_research() -> void:
 	)
 
 
-func viewport() -> Viewport:
-	if host == null:
-		return null
-	return host.get_viewport()
-
-
-func emit_province_selected(province_id: int) -> void:
-	if host != null:
-		host.emit_signal("province_selected", province_id)
-
-
-func emit_selection_cleared() -> void:
-	if host != null:
-		host.emit_signal("selection_cleared")
-
-
-func emit_coast_charted(province_id: int) -> void:
-	if host != null:
-		host.emit_signal("coast_charted", province_id)
-
-
 ## Books the court's word for the fighting just done, then tells the screen: a
 ## battle the crown fought is answered by its rival's court when that page is
 ## opened (wiki: dialogue-and-mood § Design intent — event: battle results;
@@ -341,31 +321,7 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 			DialogueEvents.record_naval_battle(diplomacy, battle, player_faction)
 		else:
 			DialogueEvents.record_land_battle(diplomacy, battle, player_faction)
-	if host != null:
-		host.emit_signal("battle_resolved", battles)
-
-
-## The turn's raids, in either direction: the screen answers with a cue and a
-## ring on the waters that were worked (REQ-P5-06).
-func emit_raid_resolved(raids: Array[Dictionary]) -> void:
-	if host != null and host.has_signal("raid_resolved"):
-		host.emit_signal("raid_resolved", raids)
-
-
-func emit_turn_ended(p_turn: int) -> void:
-	if host != null:
-		host.emit_signal("turn_ended", p_turn)
-
-
-## The rules closed the campaign — a military victory or the human crown's
-## fall; the screen forwards the moment to audio and motion.
-func emit_campaign_end(victory: VictoryState = null, defeat: DefeatState = null) -> void:
-	if host == null:
-		return
-	if defeat != null and host.has_signal("defeat_declared"):
-		host.emit_signal("defeat_declared", defeat)
-	elif victory != null:
-		host.emit_signal("victory_declared", victory)
+	screen.emit_battle_resolved(battles)
 
 
 ## Turns, orders and map intents close for good once a victory is declared, the
@@ -373,15 +329,3 @@ func emit_campaign_end(victory: VictoryState = null, defeat: DefeatState = null)
 ## turn-time-mapping).
 func campaign_over() -> bool:
 	return victory != null or defeat != null or campaign_halted
-
-
-## Political ownership changed (Join Empire): ask the screen to redraw the map.
-func refresh_map_views() -> void:
-	if host != null and host.has_method("refresh_political_map"):
-		host.call("refresh_political_map")
-
-
-## Swaps the whole view onto another region (fleet crossing a passage).
-func switch_region(index: int) -> void:
-	if host != null and host.has_method("load_region"):
-		host.call("load_region", index)

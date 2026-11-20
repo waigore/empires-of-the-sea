@@ -275,7 +275,7 @@ static func _report(play: PlaySession, reports: Array[Dictionary]) -> void:
 				FactionCatalog.names(), play.player_faction
 			)
 		)
-	play.emit_raid_resolved(reports)
+	play.screen.emit_raid_resolved(reports)
 
 
 static func _mark(play: PlaySession, report: Dictionary) -> void:

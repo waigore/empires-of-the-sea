@@ -105,7 +105,7 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 	if repaint:
 		if capital_changed:
 			# A new seat moves the palace glyphs and the seat labels with it.
-			play.refresh_map_views()
+			play.screen.refresh_map_views()
 		else:
 			play.canvas.refresh_ownership()
 			play.overlay.refresh_borders()
@@ -167,14 +167,14 @@ static func apply_capital_loss(play: PlaySession, losses: Dictionary) -> bool:
 				"%s moves its court to %s" % [FactionCatalog.name_of(faction), seat]
 			)
 		if _recall_home(play, faction, province, region) and play.model != null:
-			play.refresh_map_views()
+			play.screen.refresh_map_views()
 		changed = true
 	MapPlayFleets.settle_ports(play, reassigned)
 	if changed:
 		sync_player_capital(play)
 	if play.defeat != null:
 		play.hud.show_defeat(play.defeat, play.player_faction)
-		play.emit_campaign_end(null, play.defeat)
+		play.screen.emit_campaign_end(null, play.defeat)
 	return changed
 
 

@@ -1515,6 +1515,17 @@ suites = [
   "test_map_screen.gd",
 ]
 
+# PlaySession's screen bridge: one Node and the airings a helper sends it
+# (REQ-P3-02). Its own suite proves the bridge headless; the mounted
+# campaign-end suite proves the same calls on the real chart, so a bridge edit
+# never pulls the menu or map fan-out.
+[domains.play_screen]
+suites = [
+  "test_play_screen.gd",
+  "test_campaign_end.gd",
+  "test_map_screen.gd",
+]
+
 [domains.misc]
 suites = [
   "test_battle_rules.gd",
@@ -2849,6 +2860,13 @@ domain = "map"
 [[rules]]
 match = "scripts/session/game_config.gd*"
 domain = "world"
+
+# The session's screen bridge (PlayScreen): the airings and region swap a
+# helper sends the chart. Named before the session catch-all so a bridge edit
+# stays on its own suites.
+[[rules]]
+match = "scripts/session/play_screen.gd*"
+domain = "play_screen"
 
 [[rules]]
 match = "scripts/session/**"

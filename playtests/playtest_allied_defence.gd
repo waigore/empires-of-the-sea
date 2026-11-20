@@ -182,7 +182,7 @@ func _battle_pass(aggressor: int) -> void:
 	var recorder := func(battles: Array[Dictionary]) -> void:
 		for battle: Dictionary in battles:
 			seen.append(battle)
-	_play.host.battle_resolved.connect(recorder)
+	_play.screen.host.battle_resolved.connect(recorder)
 	# One real turn, no draining: the plate the combat pass raises stays up.
 	var guardian: int = 0
 	while not _play.campaign_over() and guardian < 4:
@@ -199,7 +199,7 @@ func _battle_pass(aggressor: int) -> void:
 		else:
 			break
 		guardian += 1
-	_play.host.battle_resolved.disconnect(recorder)
+	_play.screen.host.battle_resolved.disconnect(recorder)
 	_say("%d battle%s resolved; %d plate%s queued" % [
 		seen.size(), "" if seen.size() == 1 else "s",
 		_play.hud._quick_queue.size(), "" if _play.hud._quick_queue.size() == 1 else "s",

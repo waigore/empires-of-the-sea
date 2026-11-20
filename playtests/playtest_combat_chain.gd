@@ -219,9 +219,9 @@ func _multi_defence_pass(rivals: Array[int]) -> void:
 	var recorder := func(battles: Array[Dictionary]) -> void:
 		for battle: Dictionary in battles:
 			seen.append(battle)
-	_play.host.battle_resolved.connect(recorder)
+	_play.screen.host.battle_resolved.connect(recorder)
 	_take_turn()
-	_play.host.battle_resolved.disconnect(recorder)
+	_play.screen.host.battle_resolved.disconnect(recorder)
 	_say("%d battle%s resolved; %d plate%s queued behind the first" % [
 		seen.size(), "" if seen.size() == 1 else "s",
 		_play.hud._quick_queue.size(), "" if _play.hud._quick_queue.size() == 1 else "s",
