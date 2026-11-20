@@ -1389,6 +1389,15 @@ func test_a_chain_defender_uses_the_medal_won_in_the_earlier_exchange() -> void:
 	assert_eq(int(reports[1]["defender_medals"]), 1)
 	assert_eq(int(reports[1]["defender_limit"]), 11)
 	assert_eq(roster.medals(1, "general_1"), 2, "each win is one medal")
+	# The despatch prints the count the award produced, not the pool's figure
+	# when the line is written: the first win was his first medal, and reading
+	# the roster after the whole phase would print the second on both lines
+	# (wiki: military-generals § Medals — "his new count").
+	assert_eq(
+		int(reports[0]["medal_count"]), 1,
+		"the first win names the count it produced"
+	)
+	assert_eq(int(reports[1]["medal_count"]), 2, "the second names its own")
 
 
 func test_a_winning_general_earns_a_medal() -> void:
@@ -1430,6 +1439,7 @@ func test_a_four_medal_general_gains_nothing_more() -> void:
 	assert_eq(int(reports[0]["outcome"]), ArmyCombat.Outcome.ATTACKER_VICTORY)
 	assert_eq(roster.medals(0, "general_1"), 4)
 	assert_eq(String(reports[0]["medal_gain"]), "")
+	assert_eq(int(reports[0]["medal_count"]), 0, "a capped commander's line names no count")
 
 
 func test_a_losing_general_keeps_his_medals() -> void:

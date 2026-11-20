@@ -291,7 +291,9 @@ godot --headless --path . --script res://playtests/playtest_workers.gd
 # cap road, each commander, the medal note and the fallback), then the turn-100
 # advanced start where the cap-raising studies have landed, then fights a real
 # land battle and holds the despatch's medal credit to the roster and to the
-# ledger's row afterwards.
+# ledger's row afterwards, and finally runs one phase of four attacks and a
+# defence against a pool of three — the distinct binds, the army left on the
+# leader's fallback medals, and each despatch line's own medal count.
 godot --headless --path . --script res://playtests/playtest_command.gd
 
 # Observer siege — seats a wall, its garrison and a besieging train between two
