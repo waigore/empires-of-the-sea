@@ -1948,11 +1948,11 @@ match = "gd-tools.toml"
 domain = "misc"
 
 # Map edits are exercised by the selection script in CI (--check-complete).
-# One light suite only: an impact-map edit must not union ai/fleet/naval boots
-# past the tier-1 5 min budget when it lands beside a call-site remap.
+# One light suite only: an impact-map edit is inert, so it must never union
+# ai/fleet/naval boots past the tier-1 5 min budget beside a call-site remap.
 [domains.impact_map]
 suites = [
-  "test_ai_rules.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 # Folded micro-suites still appear as deletions in the PR diff. Map those names
@@ -3934,6 +3934,20 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+# The one close seal every dismissible panel wears (docs/ui-panels.md): its
+# chrome cases and the panels that mount it live in the panel-parts boot, so a
+# seal change never pulls the menu catch-all's setup and hub suites.
+[[rules]]
+match = "scripts/ui/close_seal.gd*"
+domain = "ui"
+
+# The observatory's province sheet wears the same close seal as the crown's
+# dossier: the panel-parts boot mounts it, so a chrome edit stays off the AI
+# observer's planner fan-out. Its reading lives in `scripts/map/observer_province.gd`.
+[[rules]]
+match = "scripts/ui/observer_province_sheet.gd*"
+domain = "ui"
 
 # The observatory's province reading: the panel's own suites prove the sheet and
 # the words it prints (docs/ai-observer.md).

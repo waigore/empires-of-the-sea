@@ -17,9 +17,8 @@ const PADDING: Vector4 = Vector4(20, 14, 20, 14)
 const PADDING_COMPACT: Vector4 = Vector4(12, 8, 12, 8)
 const TITLE_PIXELS: int = 24
 const TITLE_PIXELS_COMPACT: int = 20
-## The Close door is an atlas seal; a phone gets a thumb-sized one (REQ-P5-07).
-const CLOSE_SIZE: Vector2 = Vector2(78.0, 34.0)
-const CLOSE_SIZE_COMPACT: Vector2 = Vector2(64.0, 40.0)
+## The Close door is the shared seal; a phone keeps the same thumb-sized one
+## (REQ-P5-07).
 const CREST_PIXELS: float = 30.0
 const CREST_PIXELS_COMPACT: float = 24.0
 
@@ -79,8 +78,6 @@ func set_compact(compact: bool) -> void:
 		_title.add_theme_font_size_override(
 			"font_size", TITLE_PIXELS_COMPACT if compact else TITLE_PIXELS
 		)
-	if _close != null:
-		_close.custom_minimum_size = CLOSE_SIZE_COMPACT if compact else CLOSE_SIZE
 	if _crest != null:
 		var crest: float = CREST_PIXELS_COMPACT if compact else CREST_PIXELS
 		_crest.custom_minimum_size = Vector2(crest, crest)
@@ -118,7 +115,7 @@ func _masthead() -> Control:
 	_title = UiRowBuilder.serif_line(title_text, TITLE_PIXELS, Palette.GOLD_PALE)
 	_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	header.add_child(_title)
-	_close = UiRowBuilder.button("Close", CLOSE_SIZE.y, CLOSE_SIZE.x)
+	_close = CloseSeal.make()
 	_close.pressed.connect(func() -> void: close_pressed.emit())
 	header.add_child(_close)
 	return header

@@ -42,8 +42,7 @@ func _build(title_size: int, wrap_title: bool) -> void:
 	dock.pressed.connect(func() -> void: dock_pressed.emit())
 	add_child(dock)
 
-	close = UiRowBuilder.small_button("×", "Close")
-	close.add_theme_font_size_override("font_size", 20)
+	close = CloseSeal.make()
 	close.pressed.connect(func() -> void: close_pressed.emit())
 	add_child(close)
 
