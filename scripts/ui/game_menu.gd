@@ -111,7 +111,7 @@ func _build_overlay() -> void:
 	# A phone drops the caption, not the reading, so the row costs the compact
 	# page what the dropped subtitle gave back.
 	if not short:
-		_pause_page.add_child(MenuFrame.caption("Crown"))
+		_pause_page.add_child(MenuFrame.caption("Your leader"))
 	crown_label = MenuFrame.subtitle("—")
 	crown_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_pause_page.add_child(crown_label)
