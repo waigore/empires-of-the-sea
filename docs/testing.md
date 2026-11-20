@@ -49,10 +49,11 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   the pocket chart and `ResearchPanel` only when a case reads them.
-- **Heaviest suite sorts first**: name order, four wide — a long `world_…`
-  suite must not drain alone.
+- **Heaviest suite sorts first**: `test_00_`…`test_23_` name order, four
+  wide — a long chart suite must not drain alone on one worker.
 - One Godot boot per theme — coverage ~15 s a boot; 24 suites
-  (heraldry + tile edges → chrome plate). `gd-tools.toml`: `parallel = 4`.
+  (wash bake → map-view; order verdict → chrome plate).
+  `gd-tools.toml`: `parallel = 4`.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
@@ -327,7 +328,7 @@ godot --headless --path . --script res://playtests/playtest_colony.gd
 # the cap, the halted save reloaded, an Endless campaign sailing past the cap,
 # and a rival on the bar taking the military plate — then reads the deciding
 # turn's own sheet once the plate steps aside.
-godot --headless --path . --script res://playtests/playtest_campaign_end.gd
+godot --headless --path . --script res://playtests/playtest_11_campaign_end.gd
 
 # Boycott blocked deal — seats the two records no session waits for (a rival
 # holding a Tribe as its colony, that rival boycotting the crown), then reads

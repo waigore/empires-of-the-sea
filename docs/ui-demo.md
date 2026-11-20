@@ -24,7 +24,7 @@ defence reading prints each province's garrison, wall guns, hospital and dominan
 
 ## Phone layout
 
-`PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to compact chrome. `test_mobile_layout.gd` pins it.
+`PlatformDisplay` makes one HUD unit one point; under 1000×560 points `HudLayout` switches to compact chrome. `test_14_mobile_layout.gd` pins it.
 
 ## Architecture
 
@@ -64,7 +64,7 @@ ui/shaders/*                sea, fog, grain, vignette
 
 `MapModel` + `MapGenerator` are the sim side; the view never owns outcomes (`REQ-P3-03`).
 
-**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, six Minor Nations; New World: ten Tribes. One seed reproduces both (`test_generated_world_rules.gd`).
+**Generation (deterministic):** noise land → terrain → provinces/sea zones (BFS) → resources → ports → contiguous ownership → capitals → `WorldBootstrap` (ports, roads, grain farms). Old World: six Great Powers, six Minor Nations; New World: ten Tribes. One seed reproduces both (`test_01_generated_world_rules.gd`).
 
 **Fog of war:** `VisibilityModel` keeps three levels per tile (`unknown < fogged < fully visible`). Own provinces start visible, the rest fogged. A fleet charts its zone and coastal ring; End of Turn runs decay, distant-sea fog, then the coastal pass.
 

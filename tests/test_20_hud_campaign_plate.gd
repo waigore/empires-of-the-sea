@@ -1,11 +1,12 @@
 # gdlint: disable=max-public-methods
 extends GdToolsTest
 ## Lean chrome boot: HudCampaignEnd + GameHud routing, app icon / launcher
-## branding, court heraldry, and TileEdges seam walks (REQ-P3-01, REQ-P1-02/03/08).
-## The full calendar-cap MapScreen theme lives in test_campaign_end; this suite
-## stays lean so a chrome, branding, heraldry or seam extract stays inside the
-## tier-1 5 min budget. Merged from test_branding_rules, test_heraldry and
-## test_tile_edges (one Godot boot for the leftovers; docs/testing.md).
+## branding, court heraldry, TileEdges seam walks, and OrderVerdict shape
+## (REQ-P3-01, REQ-P1-02/03/08). The full calendar-cap MapScreen theme lives in
+## test_campaign_end; this suite stays lean so a chrome, branding, heraldry,
+## seam or verdict extract stays inside the tier-1 5 min budget. Merged from
+## test_branding_rules, test_heraldry, test_tile_edges and test_order_verdict
+## (one Godot boot for the leftovers; docs/testing.md).
 
 const MapFixture = preload("res://tests/map_fixture.gd")
 
@@ -822,3 +823,42 @@ func test_a_sea_zone_inks_its_own_ring() -> void:
 		var key: String = str(path)
 		assert_false(seen.has(key), "a zone seam is inked once")
 		seen[key] = true
+
+# --- order verdict (folded from test_order_verdict) ---------------------------
+
+## One home for an order verdict: the accept/refuse shape every army, navy,
+## market and court order check returns (REQ-P3-01, REQ-P3-03).
+
+
+func test_an_allowed_order_is_ok_with_no_reason() -> void:
+	assert_eq(OrderVerdict.allow(), {"ok": true, "reason": ""})
+
+
+func test_a_refused_order_carries_its_reason() -> void:
+	assert_eq(
+		OrderVerdict.deny("A fleet may only dock in a province it owns."),
+		{"ok": false, "reason": "A fleet may only dock in a province it owns."}
+	)
+
+
+func test_an_allowed_order_keeps_the_rules_own_fields() -> void:
+	var verdict: Dictionary = OrderVerdict.allow({"unit": "frigate", "cost": 40})
+	assert_true(bool(verdict["ok"]), "an accept stays an accept")
+	assert_eq(String(verdict["reason"]), "", "an accept has no reason")
+	assert_eq(String(verdict["unit"]), "frigate", "the rule's unit rides along")
+	assert_eq(int(verdict["cost"]), 40, "the rule's cost rides along")
+
+
+func test_a_refused_order_keeps_the_rules_denied_fields() -> void:
+	var verdict: Dictionary = OrderVerdict.deny("There is no army to split.", {"army": null})
+	assert_false(bool(verdict["ok"]), "a refusal stays a refusal")
+	assert_eq(String(verdict["reason"]), "There is no army to split.")
+	assert_true(verdict.has("army"), "the denied field is present")
+	assert_eq(verdict["army"], null, "the denied field reads its empty value")
+
+
+func test_a_real_order_check_builds_its_verdict_here() -> void:
+	var split: Dictionary = ArmyRoster.split([] as Array[ArmyState], null, [] as Array[String], 0)
+	assert_false(bool(split.get("ok", true)), "a null army is refused")
+	assert_true(split.has("army"), "the refusal carries the army field")
+	assert_eq(split["army"], null, "and that field is null")

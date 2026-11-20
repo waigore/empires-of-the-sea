@@ -78,7 +78,7 @@ setup and crown's-charge pages do not, so the crash looked like "the map screen 
 
 `PlatformDisplay.safe_insets()` therefore reads `DisplayServer.get_display_cutouts()` on Android
 (plain `WindowInsets.getDisplayCutout()`, no compat layer) and turns the rectangles into edge insets
-— `PlatformDisplay.insets_for()` and `test_mobile_layout.gd` pin that rule. In fullscreen play the
+— `PlatformDisplay.insets_for()` and `test_14_mobile_layout.gd` pin that rule. In fullscreen play the
 cutouts are the only thing over the canvas, so nothing is lost. iOS keeps the safe-area call.
 Revisit only when the engine bumps its bundled AndroidX.
 

@@ -83,5 +83,5 @@ settings persist.
 
 ## Tests
 
-`tests/test_audio_rules.gd` covers the catalogue, the era rule, mute, the
+`tests/test_17_audio_rules.gd` covers the catalogue, the era rule, mute, the
 launch carry-over and the rotate hand-off.

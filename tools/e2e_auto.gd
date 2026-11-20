@@ -5,7 +5,7 @@ extends SceneTree
 ##   godot --headless --path . --script res://tools/e2e_auto.gd
 ##
 ## Budget: share the job's ≤5 min wall with smoke (docs/testing.md). Reuses the
-## arm + drain path from playtests/playtest_auto_mode.gd (wiki: auto-mode).
+## arm + drain path from playtests/playtest_16_auto_mode.gd (wiki: auto-mode).
 
 const SCENE: PackedScene = preload("res://scenes/map_screen.tscn")
 const SEED: int = 1500

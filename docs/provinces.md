@@ -62,7 +62,7 @@ No order, work, march, spend, save key or turn moves: the rows are a reading.
 
 ## Tests
 
-`tests/test_ledgers.gd` — the projection over both charts, the three views, the
+`tests/test_19_ledgers.gd` — the projection over both charts, the three views, the
 orders, the dossier's link readings, and the door, Visit, back and key.
 
 ## The dossier's facts

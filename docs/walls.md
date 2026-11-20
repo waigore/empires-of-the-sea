@@ -49,5 +49,5 @@ order itself refuses with (`REQ-P2-03`).
 
 ## Tests
 
-`tests/test_ledgers.gd` — the walls cases read the projection over both charts,
+`tests/test_19_ledgers.gd` — the walls cases read the projection over both charts,
 every state, the tallies, the reading order and the rule note.

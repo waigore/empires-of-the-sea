@@ -52,5 +52,5 @@ record (`REQ-P2-03`).
 
 ## Tests
 
-`tests/test_ledgers.gd` — the towns cases read the projection over both charts,
+`tests/test_19_ledgers.gd` — the towns cases read the projection over both charts,
 every state, the tallies and the reading order.

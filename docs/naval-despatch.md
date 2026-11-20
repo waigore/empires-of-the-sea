@@ -43,6 +43,6 @@ Art: `assets/art/battle/sea_open.jpg` (generated, see
 
 ## Tests
 
-`tests/test_naval_rules.gd` (copy and record), `tests/test_battle_rules.gd`
+`tests/test_09_naval_rules.gd` (copy and record), `tests/test_12_battle_rules.gd`
 (plate, medallions, queue). Screenshot:
 `godot --path . -s tests/naval_plate_shot.gd -- out=/tmp/sea.png`.
