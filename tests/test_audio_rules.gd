@@ -279,6 +279,75 @@ func test_stingers_play_without_stopping_the_bed() -> void:
 	assert_true(bed.playing)
 	assert_false((_director._sfx[0].stream as AudioStreamOggVorbis).loop)
 
+
+## The rotate (issue #1154): a bed plays once, unlooped, and the desk hands the
+## next one over when it ends.
+func test_the_rotate_plays_a_bed_once_and_steps_to_the_next() -> void:
+	_setup_audio_director()
+	assert_true(_director.play_rotation(MusicPlaylist.AGE_OF_DISCOVERY))
+	assert_true(_director.rotating)
+	assert_eq(_director.current_track_id(), MusicPlaylist.AGE_OF_DISCOVERY)
+	var stream := _director._active_player().stream as AudioStreamOggVorbis
+	assert_false(stream.loop, "a rotate bed ends so the next can start")
+	_director._on_bed_finished(_director._active)
+	assert_eq(_director.current_track_id(), MusicPlaylist.COURT)
+
+
+## The bed's own end is the hand-off: the player's `finished` steps the rotate
+## without waiting on any timer of ours.
+func test_a_finished_rotate_bed_steps_the_rotate() -> void:
+	_setup_audio_director()
+	_director.play_rotation(MusicPlaylist.COURT)
+	_director._on_bed_finished(_director._active)
+	assert_eq(_director.current_track_id(),
+		MusicPlaylist.next_in_rotation(MusicPlaylist.COURT))
+	assert_true(_director.rotating)
+
+
+## A bed that is not the live one ending (the tail of a crossfade) moves nothing.
+func test_a_stale_bed_ending_leaves_the_rotate_alone() -> void:
+	_setup_audio_director()
+	_director.play_rotation(MusicPlaylist.COURT)
+	var before: String = _director.current_track_id()
+	_director._on_bed_finished(1 - _director._active)
+	assert_eq(_director.current_track_id(), before)
+
+
+## An explicit bed (the battle tune) pauses the rotate; the rotate does not step
+## under it, and it keeps its loop.
+func test_an_explicit_bed_pauses_the_rotate() -> void:
+	_setup_audio_director()
+	_director.play_rotation(MusicPlaylist.AGE_OF_DISCOVERY)
+	assert_true(_director.play_music(MusicPlaylist.BROADSIDES))
+	assert_false(_director.rotating)
+	assert_true((_director._active_player().stream as AudioStreamOggVorbis).loop)
+	_director._on_bed_finished(_director._active)
+	assert_false(_director.rotating, "no rotate under an explicit bed")
+	assert_eq(_director.current_track_id(), MusicPlaylist.BROADSIDES)
+
+
+func test_a_stinger_is_not_a_rotate_bed() -> void:
+	_setup_audio_director()
+	assert_false(_director.play_rotation(MusicPlaylist.VICTORY))
+	assert_false(_director.rotating)
+	assert_eq(_director.current_track_id(), "")
+
+
+## The mix rules do not change under the rotate: mute silences it, the music
+## knob still sets it, and the sea swell joins it.
+func test_the_rotate_obeys_the_mix() -> void:
+	_setup_audio_director()
+	assert_true(_director.play_rotation(MusicPlaylist.COURT))
+	assert_true(_director._ambience.playing, "the swell joins a rotate bed")
+	_director.set_muted(true)
+	assert_eq(_director._active_player().volume_db, AudioDirector.SILENT_DB)
+	_director.set_muted(false)
+	assert_almost_eq(_director._active_player().volume_db,
+		linear_to_db(_director.mix.music), 0.01)
+	_director.set_music_volume(0.3)
+	assert_almost_eq(_director._active_player().volume_db, linear_to_db(0.3), 0.01)
+
+
 func test_mix_settings_persist_to_disk() -> void:
 	_setup_audio_director()
 	_director.set_music_volume(0.33)
@@ -366,6 +435,9 @@ func _setup_map_soundtrack() -> void:
 	_audio.set_music_volume(AudioMix.MUSIC_DEFAULT)
 	_audio.set_sfx_volume(AudioMix.SFX_DEFAULT)
 	_audio.set_muted(false)
+	# The rotate carries across cases on the shared director; stop it so a case
+	# always starts from the era bed its calendar names.
+	_audio.stop_music(0.0)
 	_score._sync_bed()
 
 
@@ -541,6 +613,37 @@ func test_the_era_bed_follows_the_calendar() -> void:
 	assert_eq(_audio.current_track_id(), MusicPlaylist.GILDED_MINUET)
 
 
+## The rotate (issue #1154): a turn close leaves the tune alone, and only a new
+## calendar era calls the calendar's bed back.
+func test_a_turn_close_keeps_the_rotate_where_it_is() -> void:
+	_setup_map_soundtrack()
+	_audio._on_bed_finished(_audio._active)
+	var playing: String = _audio.current_track_id()
+	assert_eq(playing, MusicPlaylist.COURT)
+	_score._sync_bed()
+	assert_eq(_audio.current_track_id(), playing, "the turn close restarts nothing")
+	assert_true(_audio.rotating)
+
+
+func test_a_new_era_re_anchors_the_rotate() -> void:
+	_setup_map_soundtrack()
+	_audio._on_bed_finished(_audio._active)
+	_screen.turn = 101
+	_score._sync_bed()
+	assert_eq(_audio.current_track_id(), MusicPlaylist.GILDED_MINUET)
+	assert_true(_audio.rotating, "the new era keeps rotating")
+
+
+## The rotate's own end steps the bed under the map: the score owns no timer for
+## it, the director's hand-off does.
+func test_the_rotate_steps_under_the_map() -> void:
+	_setup_map_soundtrack()
+	var first: String = _audio.current_track_id()
+	_audio._on_bed_finished(_audio._active)
+	assert_ne(_audio.current_track_id(), first)
+	assert_eq(_audio.current_track_id(), MusicPlaylist.next_in_rotation(first))
+
+
 ## The map carries no sound seal: the mix desk lives in its pause menu, wired
 ## to the same director the score uses (REQ-P1-06).
 func test_the_pause_menu_desk_drives_the_mix() -> void:
@@ -712,6 +815,22 @@ func test_the_title_bed_is_the_bed_the_campaign_opens_on() -> void:
 		MusicPlaylist.menu_bed_id(),
 		MusicPlaylist.bed_id_for_year(TurnTime.START_YEAR)
 	)
+
+
+## The launch bed is not one loop any more (issue #1154): the title rotates on to
+## the next bed when the first ends, with the swell still running.
+func test_the_title_bed_rotates_on() -> void:
+	_setup_shell()
+	var app: Node = _boot_shell()
+	_reseat_shell(app)
+	assert_true(app.audio.rotating, "the launch starts the rotate")
+	assert_eq(app.audio.current_track_id(), MusicPlaylist.menu_bed_id())
+	app.audio._on_bed_finished(app.audio._active)
+	assert_eq(
+		app.audio.current_track_id(),
+		MusicPlaylist.next_in_rotation(MusicPlaylist.menu_bed_id())
+	)
+	assert_true(app.audio._ambience.playing, "the swell carries over the hand-off")
 
 
 func test_returning_to_the_title_brings_the_sea_bed_back() -> void:
