@@ -508,6 +508,28 @@ func test_the_dossier_head_wears_the_courts_arms() -> void:
 	sheet.free()
 
 
+## The dossier names what a rival's leader brings, in the bonus table's own
+## words, and a crown that fields no leader (a Minor) names no effect at all
+## (wiki: leader-bonuses § Bonus Table, § Acceptance criteria — UI).
+func test_the_dossier_names_the_effect_a_rivals_leader_brings() -> void:
+	var state := DiplomacyState.new()
+	state.initialize(1)
+	var sheet := CourtDossierScreen.new()
+	add_child(sheet)
+	sheet.show_for(state, null, 0, 2)
+	assert_true(_has_text(sheet, "Napoleon"), "France's leader reads on its page")
+	assert_true(
+		_has_text(sheet, LeaderCatalog.bonus_label("napoleon")),
+		"and the effect that key publishes"
+	)
+	sheet.show_for(state, null, 0, 1)
+	assert_true(_has_text(sheet, LeaderCatalog.bonus_label("victoria")), "England's own")
+	assert_false(_has_text(sheet, "no bonus"), "a Great Power fields a published bonus")
+	sheet.show_for(state, null, 0, 6)
+	assert_false(_has_text(sheet, "no bonus"), "a Minor fields no leader, so it prints none")
+	sheet.free()
+
+
 ## A court sheet with the crown's own relations, mounted the way the HUD mounts
 ## it: the list and the open court's page, no chart behind them.
 func _court_panel() -> DiplomacyPanel:

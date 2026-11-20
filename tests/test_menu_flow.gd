@@ -305,6 +305,29 @@ func test_pause_menu_shows_and_copies_map_seed() -> void:
 	screen.game_menu.close()
 
 
+## The pause page answers who the crown is: its leader and the effect that key
+## publishes, in the words the new-game chooser printed (REQ-P5-01, REQ-P5-05;
+## wiki: leader-bonuses § Acceptance criteria — UI).
+func test_pause_menu_names_the_crown_and_its_leader_s_effect() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	screen.game_menu.open()
+	var key: String = String(screen.play.leaders.get(screen.play.player_faction, ""))
+	assert_false(key.is_empty(), "the run binds the crown a leader")
+	assert_eq(
+		screen.game_menu.crown_label.text,
+		LeaderCatalog.crown_line(key),
+		"the pause row prints the crown's leader and its effect"
+	)
+	assert_true(
+		screen.game_menu.crown_label.text.contains(LeaderCatalog.bonus_label(key)),
+		"the effect the bonus table publishes"
+	)
+	screen.game_menu.close()
+
+
 ## Back from the save browser returns to the pause rows; back again closes
 ## (REQ-P5-07). Covers the browser-visible branch of handle_back.
 func test_back_from_the_save_browser_returns_to_pause() -> void:

@@ -26,6 +26,9 @@ var door := GameMenuDoor.new()
 var sound_desk: SoundDesk = null
 ## Live campaign seed (wiki: game-setup); copy puts the digits on the clipboard.
 var seed_label: Label = null
+## The crown's own leader and the effect its key publishes, read on every open
+## (wiki: leader-bonuses § Acceptance criteria — UI; DR-20261120-09).
+var crown_label: Label = null
 var copy_seed_button: Button = null
 
 var _ui: Control = null
@@ -102,6 +105,16 @@ func _build_overlay() -> void:
 	_pause_page.add_child(heading)
 	if not short:
 		_pause_page.add_child(MenuFrame.subtitle("The sea waits while the ledger is open."))
+
+	# Who am I: the crown's own leader and the effect the bonus table publishes
+	# for it, in the words the new-game chooser used (REQ-P5-01, REQ-P5-05).
+	# A phone drops the caption, not the reading, so the row costs the compact
+	# page what the dropped subtitle gave back.
+	if not short:
+		_pause_page.add_child(MenuFrame.caption("Your leader"))
+	crown_label = MenuFrame.subtitle("—")
+	crown_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_pause_page.add_child(crown_label)
 
 	_pause_page.add_child(MenuFrame.caption("Map seed"))
 	var seed_row := HBoxContainer.new()
@@ -300,6 +313,27 @@ func _refresh_seed() -> void:
 		seed_label.text = str(_shown_seed) if _shown_seed != 0 else "—"
 	if copy_seed_button != null:
 		copy_seed_button.disabled = _shown_seed == 0
+	if crown_label != null:
+		crown_label.text = LeaderCatalog.crown_line(_resolve_leader())
+
+
+## The crown's own leader as the run bound it: the session roster first, the
+## screen's pin while a campaign is still booting, the catalog default last —
+## the same three-step read `LeaderCatalog.roster` builds (wiki: leader-bonuses
+## § Leader Selection).
+func _resolve_leader() -> String:
+	var screen := get_parent() as MapScreen
+	if screen == null:
+		return LeaderCatalog.DEFAULT_KEY
+	if screen.play != null:
+		var key: String = String(
+			screen.play.leaders.get(screen.play.player_faction, "")
+		)
+		if not key.is_empty():
+			return key
+	if not screen.player_leader.is_empty():
+		return screen.player_leader
+	return LeaderCatalog.default_key(screen.player_faction)
 
 
 func _on_copy_seed() -> void:
