@@ -138,15 +138,19 @@ static func medal_line() -> String:
 	) % [int(one["line"]), int(one["morale_pct"]), int(one["initiative"])]
 
 
-## The fallback line: the medals a crown with no free commander fights on.
+## The fallback line: the medals a crown fights on when no commander is free.
+## It names the condition, never the crown's standing — a pool of three reads
+## "no free commander" only mid-commitment, and the sheet must not claim it as
+## the state it is in (the roll above already counts the pool it holds).
 static func fallback_line(data: Dictionary) -> String:
 	var fallback: Dictionary = data.get("fallback", {}) as Dictionary
 	var attack: int = int(fallback.get("attack", 0))
 	var defend: int = int(fallback.get("defend", 0))
 	if attack == defend:
-		return "No free commander: the leader's own %d medal%s." % [
+		return "With no commander free, the court fights on the leader's own %d medal%s." % [
 			attack, "" if attack == 1 else "s"
 		]
-	return "No free commander: the leader's own %d attacking, %d defending." % [
-		attack, defend
-	]
+	return (
+		"With no commander free, the court fights on the leader's own %d medals "
+		+ "attacking, %d defending."
+	) % [attack, defend]

@@ -2185,6 +2185,10 @@ match = "scripts/map/map_glyphs.gd*"
 domain = "resource_ink"
 
 [[rules]]
+match = "scripts/map/map_marks.gd*"
+domain = "resource_ink"
+
+[[rules]]
 match = "scripts/map/resource_lens.gd*"
 domain = "resource_ink"
 

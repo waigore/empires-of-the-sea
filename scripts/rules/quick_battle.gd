@@ -146,7 +146,7 @@ static func _side_state(
 		"owner": owner,
 		"limit": limit,
 		"mods": mods,
-		"cohesion": 3,
+		"cohesion": QuickBattleTerms.COHESION_MAX,
 		"guard": 0.0,
 		"lost": [] as Array[String],
 		"plan": "balanced",

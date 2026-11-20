@@ -134,8 +134,10 @@ func test_a_field_army_marches_once_and_resets_next_turn() -> void:
 	assert_eq(field.province, destination)
 	assert_true(field.moved)
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# The moved flag clears on the army begin-turn pass; a full end_turn would
+	# also run every rival court under coverage (~10 s) for the same assert
+	# (docs/testing.md § Speed rules: one resolved turn / pure path first).
+	ArmyMovement.begin_turn(_screen.army_layer.armies, _screen.model)
 
 	assert_false(field.moved)
 
@@ -709,8 +711,9 @@ func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	assert_true(MapPlayArmies.try_order(_screen.play, tile))
 	assert_eq(field.province, target)
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Capture lands in the land-combat pass; skip the full end_turn rival walk
+	# under coverage (docs/testing.md § Speed rules).
+	MapPlayLandTurn.resolve(_screen.play)
 
 	assert_eq(_screen.model.province_owner(target), MapScreen.PLAYER_FACTION)
 

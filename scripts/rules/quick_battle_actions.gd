@@ -79,6 +79,8 @@ static func action_entry(side: int, action: String, label: String) -> Dictionary
 		"gates_broken": 0,
 		"sortie": false,
 		"guard": 0.0,
+		"cohesion_lost": 0,
+		"cohesion_why": "",
 		"hits": [] as Array[Dictionary],
 		"mauled": 0,
 		"own_hits": [] as Array[Dictionary],
@@ -106,9 +108,6 @@ static func resolve(
 	var entry: Dictionary = action_entry(
 		int(me["owner"]), acted, String(ACTION_LABEL[acted])
 	)
-	if acted == "maneuver":
-		me["cohesion"] = mini(3, int(me["cohesion"]) + 1)
-		return entry
 	var terrain: String = String(state.get("terrain", "open"))
 	## The wing this blow falls on: fire on the fullest part of the enemy line,
 	## a charge on the thinnest. A garrison behind a wall holds no wings and the
@@ -118,6 +117,20 @@ static func resolve(
 	var enemy_held: Dictionary = QuickBattleWings.counts(enemy_wings)
 	var wing: String = QuickBattleWings.target(enemy_held, acted)
 	entry["wing"] = wing
+	## Every stance has a cohesion price, and none hands a step back: a manoeuvre
+	## pays for the press it crosses under, and a fall back trades a step for the
+	## space it gives (wiki: quick-battle § Turn structure and actions). The price
+	## is paid before the stance does its work, so the blow it lands is its line's
+	## own weakened one, and it is kept on the entry so the despatch can name it
+	## (REQ-P5-05).
+	var spent: int = cohesion_cost(acted, me)
+	var paid: int = mini(spent, int(me["cohesion"]))
+	if paid > 0:
+		me["cohesion"] = int(me["cohesion"]) - paid
+		entry["cohesion_lost"] = paid
+		entry["cohesion_why"] = cohesion_why(acted)
+	if acted == "maneuver":
+		return entry
 	if acted == "entrench" or acted == "fall_back":
 		var guard: float = float(ACTION_GUARD[acted])
 		# The prepared ground of HILL/WOODS/TOWN is the defender's advantage.
@@ -128,7 +141,8 @@ static func resolve(
 		return entry
 	var me_side: Array[ArmyState] = me["side"]
 	var enemy_side: Array[ArmyState] = enemy["side"]
-	var ratio: float = float(ACTION_DAMAGE[acted]) * (float(me["cohesion"]) / 3.0)
+	var ratio: float = float(ACTION_DAMAGE[acted]) \
+		* (float(me["cohesion"]) / float(QuickBattleTerms.COHESION_MAX))
 	ratio *= 1.0 - clampf(float(enemy["guard"]), 0.0, 0.8)
 	# The defender shoots out into the approaches; the attacker shoots into the
 	# defender's cover. Ground never shields the side that sallies from it.
@@ -248,6 +262,31 @@ static func resolve(
 	return _pay_own(armies, me, key, entry, acted)
 
 
+## The steps of cohesion a stance takes off the side walking it: a manoeuvre costs
+## one while the line is under pressure — it has already lost men — and none on an
+## intact line, and a fall back trades one for the space it gives. Every other
+## stance costs none, and none of them ever returns a step (wiki: quick-battle
+## § Turn structure and actions). The ground is not charged twice: a blow into
+## broken ground is already the weaker for it (`SiegeGround.terrain_scale`,
+## DR-20261120-07).
+const ACTION_COHESION: Dictionary = {"maneuver": 1, "fall_back": 1}
+## Why a paid step reads as it does in the despatch.
+const COHESION_WHY: Dictionary = {
+	"maneuver": "under pressure", "fall_back": "the line gives ground",
+}
+
+
+static func cohesion_cost(acted: String, me: Dictionary) -> int:
+	if acted == "maneuver" and (me.get("lost", []) as Array).is_empty():
+		return 0
+	return int(ACTION_COHESION.get(acted, 0))
+
+
+## Why a stance cost the step it did, in the words the despatch prints.
+static func cohesion_why(acted: String) -> String:
+	return String(COHESION_WHY.get(acted, ""))
+
+
 ## Regiments of one side's line still standing. The line is the battle's whole
 ## fighting strength: it is dealt when the battle opens, and a reserve behind it
 ## is never committed, so a side whose line is gone has nothing left to fight
@@ -333,7 +372,8 @@ static func _multiplier(side: Dictionary) -> float:
 static func _pay_own(
 	armies: Array[ArmyState], me: Dictionary, key: String, entry: Dictionary, action: String
 ) -> Dictionary:
-	var self_ratio: float = float(ACTION_SELF[action]) * (float(me["cohesion"]) / 3.0)
+	var self_ratio: float = float(ACTION_SELF[action]) \
+		* (float(me["cohesion"]) / float(QuickBattleTerms.COHESION_MAX))
 	if self_ratio <= 0.0:
 		return entry
 	var own_side: Array[ArmyState] = me["side"]

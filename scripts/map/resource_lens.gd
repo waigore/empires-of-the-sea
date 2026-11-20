@@ -209,7 +209,7 @@ func _draw_type(row: Dictionary, column: Rect2, alpha: float) -> void:
 	var radius: float = 9.2
 	if int(row["developed"]) > 0:
 		draw_circle(center, radius - 0.8, Color(tint.r, tint.g, tint.b, 0.16 * alpha))
-	MapGlyphs.resource(self, String(row["icon"]), center, EMBLEM * 0.82, tint)
+	MapMarks.resource(self, String(row["icon"]), center, EMBLEM * 0.82, tint)
 	match status:
 		"disconnected":
 			draw_arc(center, radius, 0, TAU, 22, ring, 1.3, true)
