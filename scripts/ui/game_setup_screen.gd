@@ -64,6 +64,9 @@ func _build() -> void:
 	nation_option.select(0)
 	nation_option.item_selected.connect(func(_index: int) -> void:
 		_fill_leaders()
+		# The rival rows follow the crown: the seat the player takes is no AI
+		# slot, and the court it leaves becomes one (wiki: ai-profile-overrides).
+		_fill_rivals()
 		_refresh_summary()
 	)
 	box.add_child(nation_option)

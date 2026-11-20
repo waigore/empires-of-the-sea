@@ -163,6 +163,14 @@ func test_setup_binds_a_temperament_to_each_rival() -> void:
 	assert_eq(setup._rival_options.size(), rivals, "one chooser per rival")
 	var human: int = int(setup.nation_option.get_item_id(setup.nation_option.selected))
 	assert_false(setup._rival_options.has(human), "the crown's own seat carries no temperament")
+	# The rows follow the crown: taking another seat makes it no AI slot, and the
+	# seat it leaves becomes one again.
+	setup.nation_option.select(2)
+	setup.nation_option.item_selected.emit(2)
+	assert_false(setup._rival_options.has(2), "the new crown's seat carries no temperament")
+	assert_true(setup._rival_options.has(human), "the seat it left is a rival again")
+	setup.nation_option.select(0)
+	setup.nation_option.item_selected.emit(0)
 	# Bind France the aggressive temperament through its own chooser.
 	var option: OptionButton = setup._rival_options.get(2, null)
 	assert_not_null(option, "France has a chooser")
