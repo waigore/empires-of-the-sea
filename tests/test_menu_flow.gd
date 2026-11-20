@@ -186,6 +186,27 @@ func test_setup_binds_a_temperament_to_each_rival() -> void:
 	if note != null:
 		assert_eq(note.text, AiProfile.hint(AiProfile.AGGRESSIVE), "the effect is printed, not hovered")
 	assert_true(setup._summary.text.contains("France Aggressive"), "SET SAIL names the binding")
+	# A second pick joins the summary, and one put back on the neutral profile
+	# prints no line at all.
+	var england: OptionButton = setup._rival_options.get(1, null)
+	assert_not_null(england, "England has a chooser")
+	if england != null:
+		var economic: int = ids.find(AiProfile.ECONOMIC)
+		england.select(economic)
+		england.item_selected.emit(economic)
+		assert_eq(
+			String(setup._rival_notes[1].text), AiProfile.hint(AiProfile.ECONOMIC),
+			"the second pick prints its own effect"
+		)
+		assert_true(
+			setup._summary.text.contains("England Economic")
+			and setup._summary.text.contains("France Aggressive"),
+			"every non-neutral pick is named before SET SAIL"
+		)
+		var normal: int = ids.find(AiProfile.NORMAL)
+		england.select(normal)
+		england.item_selected.emit(normal)
+		assert_eq(String(setup._rival_notes[1].text), "", "the neutral profile prints nothing")
 	setup.size_option.select(0)
 	setup.seed_field.text = str(FLOW_SEED)
 	setup.start_button.emit_signal("pressed")
