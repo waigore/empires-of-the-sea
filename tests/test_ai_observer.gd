@@ -955,6 +955,28 @@ func test_court_reader_names_the_planning_courts() -> void:
 	assert_true(MapPlayCourt.planning_factions(play).is_empty(), "a noop session plans nowhere")
 
 
+## A fallen crown plans nothing: its seat drops out of the shared gate once it
+## holds no province in either world, the same `alive` read the observer row
+## prints (issue #1136; wiki: capital-and-connectivity § Great Power fall).
+func test_the_court_gate_drops_a_crown_that_holds_no_land() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_mode = AiControl.FULL
+	var fallen: int = FactionCatalog.great_power_ids()[0]
+	var land: Array[int] = MapPlayCourt.planning_factions(play)
+	assert_true(land.has(fallen), "the crown plans while it holds land")
+	var world: WorldMap = play.world
+	for region_index in world.region_count():
+		var model: MapModel = world.region(region_index)
+		for province: ProvinceState in model.provinces:
+			if province.owner == fallen:
+				province.owner = MapModel.NO_ID
+	assert_false(MapPlayCourt.holds_land(play, fallen), "no province, no seat")
+	assert_false(
+		MapPlayCourt.planning_factions(play).has(fallen),
+		"a fallen crown is out of the planner list"
+	)
+
+
 func test_court_reader_counts_the_order_of_battle() -> void:
 	var play: PlaySession = _screen.play
 	for faction: int in FactionCatalog.great_power_ids():
