@@ -240,6 +240,98 @@ func test_connectivity_orders_near_first_and_unreached_last() -> void:
 # --- the sheet --------------------------------------------------------------
 
 
+## Every view names itself and its own order, and a view the sheet does not know
+## falls back to the economy reading rather than to nothing.
+func test_each_view_names_itself_and_the_figure_it_opens_on() -> void:
+	assert_eq(ProvinceLedger.view_label(ProvinceLedger.VIEW_ECONOMY), "Economy")
+	assert_eq(ProvinceLedger.view_label(ProvinceLedger.VIEW_DEFENCE), "Defence")
+	assert_eq(ProvinceLedger.view_label(ProvinceLedger.VIEW_CONNECTIVITY), "Connectivity")
+	assert_eq(ProvinceLedger.view_label("no-such-view"), "Economy", "an unknown key reads economy")
+	assert_eq(
+		ProvinceLedger.sort_keys(ProvinceLedger.VIEW_ECONOMY),
+		[ProvinceLedger.SORT_VALUE, "tree", "ore", "coin", "wheat"],
+		"the economy view orders by total and by each kind"
+	)
+	assert_eq(
+		ProvinceLedger.sort_keys(ProvinceLedger.VIEW_DEFENCE), [ProvinceLedger.SORT_DEFENCE]
+	)
+	assert_eq(
+		ProvinceLedger.sort_keys(ProvinceLedger.VIEW_CONNECTIVITY), [ProvinceLedger.SORT_HOPS]
+	)
+	assert_eq(ProvinceLedger.sort_default(ProvinceLedger.VIEW_DEFENCE), ProvinceLedger.SORT_DEFENCE)
+	assert_eq(
+		ProvinceLedger.sort_default(ProvinceLedger.VIEW_CONNECTIVITY), ProvinceLedger.SORT_HOPS
+	)
+	assert_eq(ProvinceLedger.sort_default(ProvinceLedger.VIEW_ECONOMY), ProvinceLedger.SORT_VALUE)
+	assert_eq(ProvinceLedger.sort_label(ProvinceLedger.SORT_VALUE), "Total")
+	assert_eq(ProvinceLedger.sort_label(ProvinceLedger.SORT_DEFENCE), "Figure")
+	assert_eq(ProvinceLedger.sort_label(ProvinceLedger.SORT_HOPS), "Hops")
+	assert_eq(
+		ProvinceLedger.sort_label("wheat"), "Farm",
+		"a kind reads the survey's own name for it"
+	)
+
+
+## A chart the crown holds no seat on has no hop reading at all: the walk is
+## skipped rather than answered with a made-up distance.
+func test_a_chart_with_no_seat_reaches_no_hop_reading() -> void:
+	assert_true(ProvinceLedger._hops(Naval.build(), 0, -1).is_empty())
+	var snapshot: Dictionary = _snapshot()
+	for raw: Variant in snapshot["rows"]:
+		var row: Dictionary = raw
+		if int(row["region"]) != FactionCatalog.NEW_WORLD:
+			continue
+		assert_eq(int((row["connectivity"] as Dictionary)["hops"]), -1, "no seat, no hops")
+		assert_false(bool((row["connectivity"] as Dictionary)["same_chart"]), "another chart")
+
+
+## The painted sheet answers each view in its own words: the economy prices, the
+## defence prints one figure with its terms, the connectivity names the hops and
+## the seat; a press on an order chip reorders without leaving the view.
+func test_the_realm_paints_each_view_in_its_own_words() -> void:
+	_attach()
+	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	assert_true(panel.is_open(), "the realm opens")
+	panel._on_filter(ProvinceLedger.VIEW_ECONOMY, false)
+	assert_true(_texts(panel).contains("ducats"), "the economy view prices the harvest")
+	panel._on_filter(ProvinceLedger.VIEW_DEFENCE, false)
+	var defence_text: String = _texts(panel)
+	assert_true(defence_text.contains("Defence "), defence_text)
+	assert_true(defence_text.contains("Town "), "the defence line names the town")
+	panel._on_filter(ProvinceLedger.VIEW_CONNECTIVITY, false)
+	var link_text: String = _texts(panel)
+	assert_true(link_text.contains("hop") or link_text.contains("seat"), link_text)
+	# The order row is rebuilt for the view, so a kind chip the defence view does
+	# not offer can never stay chosen behind it.
+	panel._on_filter(ProvinceLedger.VIEW_ECONOMY, false)
+	panel._on_sort("wheat")
+	assert_eq(panel._sort, "wheat", "the order chip reorders the view")
+	panel._on_filter(ProvinceLedger.VIEW_DEFENCE, false)
+	assert_eq(panel._sort, ProvinceLedger.SORT_DEFENCE, "a view falls back to its own figure")
+	var before: int = _province_row_widgets(panel)
+	panel._on_sort(ProvinceLedger.SORT_DEFENCE)
+	assert_eq(_province_row_widgets(panel), before, "a reorder keeps every row")
+	panel.close()
+
+
+## Every word the painted rows carry, joined: one string a case can search.
+func _texts(panel: ProvinceLedgerPanel) -> String:
+	var parts: PackedStringArray = []
+	for child: Node in panel._rows.get_children():
+		var row := child as ProvinceLedgerRow
+		if row == null:
+			continue
+		parts.append(row._name.text)
+		parts.append(row._chip.text)
+		parts.append(row._detail.text)
+		if row._standing != null:
+			parts.append(row._standing.text)
+		if row._reading != null:
+			parts.append(row._reading.text)
+	return " · ".join(parts)
+
+
 func test_the_realm_door_opens_the_ledger_and_its_rows_visit_a_province() -> void:
 	_attach()
 	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
@@ -1176,6 +1268,58 @@ func test_the_filter_bar_states_the_chart_once_and_reports_the_press() -> void:
 	var plain: Color = _chip(chart_row, "Both charts").get_theme_color("font_color")
 	assert_eq(lit, Palette.GOLD_PALE, "the chosen chart reads gold")
 	assert_ne(plain, lit, "the rest stay plain")
+
+
+## The order row is the sheet's own: it carries the view's keys, reports a press
+## and is rebuilt (not repainted) when the view offers a different set.
+func test_the_order_row_follows_the_view_it_serves() -> void:
+	var bar := LedgerFilterBar.new()
+	add_child(bar)
+	bar.fill("Chart", "View", LedgerRows.REGION_FILTERS, ProvinceLedger.VIEWS, ProvinceLedger.view_label)
+	var presses: Array = []
+	bar.sort_chosen.connect(func(key: String) -> void: presses.append(key))
+	bar.fill_sort(
+		"Order", ProvinceLedger.sort_keys(ProvinceLedger.VIEW_ECONOMY),
+		ProvinceLedger.sort_label, ProvinceLedger.SORT_VALUE
+	)
+	var order_row := bar.get_child(2) as HBoxContainer
+	assert_eq(
+		_chip_captions(order_row), ["Total", "Timber", "Ore", "Riches", "Farm"],
+		"the economy view orders by total and by each kind"
+	)
+	_chip(order_row, "Ore").pressed.emit()
+	assert_eq(presses, ["ore"], "an order chip reports its key")
+	bar.fill_sort(
+		"Order", ProvinceLedger.sort_keys(ProvinceLedger.VIEW_DEFENCE),
+		ProvinceLedger.sort_label, ProvinceLedger.SORT_DEFENCE
+	)
+	assert_eq(
+		_chip_captions(bar.get_child(2) as HBoxContainer), ["Figure"],
+		"a view with one figure offers one chip"
+	)
+	assert_eq(bar.get_child_count(), 3, "the row is replaced, never stacked")
+	bar.render_sort(ProvinceLedger.SORT_DEFENCE)
+
+
+## The chart pill on the map's corner: a short word for the chart in play, a
+## press that reports the swap, and no press at all on a one-chart world.
+func test_the_chart_pill_names_the_chart_and_reports_its_press() -> void:
+	var pill := MapRegionToggle.new()
+	add_child(pill)
+	var presses: Array = []
+	pill.cycle_pressed.connect(func() -> void: presses.append(true))
+	pill.set_chart("OLD WORLD", true)
+	assert_eq(pill.label.text, "OLD", "the pill keeps one word")
+	assert_false(pill.button.disabled, "two charts offer the switch")
+	assert_true(pill.button.tooltip_text.contains("OLD WORLD"), pill.button.tooltip_text)
+	pill.button.pressed.emit()
+	assert_eq(presses.size(), 1, "a press reports the swap")
+	pill.set_chart("NEW WORLD", false)
+	assert_eq(pill.label.text, "NEW")
+	assert_true(pill.button.disabled, "a one-chart map offers no press")
+	assert_true(pill.button.tooltip_text.contains("only charted"), pill.button.tooltip_text)
+	pill.set_chart("", true)
+	assert_eq(pill.label.text, "MAP", "an unnamed chart still prints a word")
 
 
 func test_the_grouped_list_keeps_its_empty_notice_and_prints_headings() -> void:
