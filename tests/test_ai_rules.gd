@@ -9089,30 +9089,66 @@ func test_a_court_saving_for_its_muster_never_bids_the_war_chest_away() -> void:
 	)
 
 
-## The rival's home chart as a rules session, no MapScreen: `_overseas` reads the
-## world, the works and the fleet tables, and a mount costs seconds under
-## coverage that this case does not need (docs/testing.md § Speed rules).
+## Pocket Old World for the rival-blockade harvest case: England seat and a
+## coastal estate separated by ocean so the harbour is the only road home. A
+## full MapFixture chart + WorldBootstrap made two `_overseas` walks pay ~18 s
+## under coverage (docs/testing.md § Tiny fixture).
 func _blockade_play() -> PlaySession:
-	var world: WorldMap = MapFixture.world()
+	var rival: int = 1
+	var model := MapModel.new()
+	model.setup(4, 3)
+	model.region_id = FactionCatalog.OLD_WORLD
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	# Column 0 = seat; column 2 = coastal estate; columns 1 and 3 = sea.
+	for tile: Vector2i in [Vector2i(0, 0), Vector2i(0, 1)]:
+		model.province[model.index_of(tile.x, tile.y)] = 0
+	for tile: Vector2i in [Vector2i(2, 0), Vector2i(2, 1)]:
+		model.province[model.index_of(tile.x, tile.y)] = 1
+	model.resource[model.index_of(2, 0)] = WorldBootstrap.GRAIN_RESOURCE
+	var seat_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(0, 1)]
+	var coast_tiles: Array[Vector2i] = [Vector2i(2, 0), Vector2i(2, 1)]
+	var seat := ProvinceState.create(
+		0, "Seat", seat_tiles, Vector2(0.0, 0.5), 2, rival, true
+	)
+	seat.capital_tile = Vector2i(0, 0)
+	var coast := ProvinceState.create(
+		1, "Harbour", coast_tiles, Vector2(2.0, 0.5), 2, rival, false
+	)
+	coast.coastal = true
+	coast.resource = WorldBootstrap.GRAIN_RESOURCE
+	coast.resource_tile = Vector2i(2, 0)
+	model.provinces = [seat, coast]
+	model.faction_ids = [rival] as Array[int]
+	var sea_tiles: Array[Vector2i] = [
+		Vector2i(1, 0), Vector2i(1, 1), Vector2i(1, 2),
+		Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2),
+		Vector2i(0, 2), Vector2i(2, 2),
+	]
+	for tile: Vector2i in sea_tiles:
+		var index: int = model.index_of(tile.x, tile.y)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+		model.province[index] = MapModel.NO_ID
+	model.sea_zones = [
+		SeaZoneState.create(0, "Channel", sea_tiles, Vector2(2.0, 2.0), sea_tiles.size())
+	]
+	var world := WorldMap.new()
+	world.add_region(model)
 	var play := PlaySession.new()
 	play.player_faction = FactionCatalog.PLAYER_FACTION
 	play.world = world
 	play.region_index = 0
-	play.model = world.region(0)
-	play.map_seed = MapFixture.SEED
+	play.model = model
 	play.turn = 1
 	play.ship_layer = ShipLayer.new()
-	play.ship_layer.model = play.model
+	play.ship_layer.model = model
 	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [])
 	play.civilian_layer = CivilianLayer.new()
-	play.civilian_layer.model = play.model
+	play.civilian_layer.model = model
 	play.civilian_layer.viewer_faction = play.player_faction
-	for index in world.region_count():
-		var works := LandWorks.new()
-		WorldBootstrap.apply(world.region(index), works)
-		play.civilian_layer.works_regions.set_region(index, works)
-		play.ship_layer.regions.set_region(index, [])
-		play.civilian_layer.regions.set_region(index, [])
+	play.civilian_layer.works_regions.set_region(0, LandWorks.new())
+	play.civilian_layer.regions.set_region(0, [])
 	play.diplomacy = DiplomacyState.new()
 	play.diplomacy.human_faction = play.player_faction
 	play.ensure_ai()
@@ -9125,41 +9161,21 @@ func _blockade_play() -> PlaySession:
 ## The seat's own ground still yields: a blockade severs the sea, not the land.
 func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 	var play: PlaySession = _blockade_play()
-	var rival: int = -1
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction != play.player_faction:
-			rival = faction
-			break
+	var rival: int = 1
 	var economy: PlayerEconomy = play.ledger_for(rival)
 	var home: int = FactionCatalog.region_of(rival)
 	var model: MapModel = play.world.region(home)
 	var works: LandWorks = play.civilian_layer.works_regions.value(home, null)
 	var seat: int = int(WorldBootstrap.capital_seat(model, rival)["province"])
-	# Strip the home roads, then wire one province away from the seat by sea
-	# alone: its estates reach the crown through its harbour and nothing else.
-	for province: ProvinceState in model.provinces:
-		for tile: Vector2i in province.tiles:
-			works.set_transport(model, tile, 0)
-	var target: int = -1
-	var zone: int = -1
-	for sea_zone: SeaZoneState in model.sea_zones:
-		for raw: Variant in NavalMovement.provinces_by_zone(model, sea_zone.id):
-			var province: ProvinceState = model.province_data(int(raw))
-			if province == null or province.owner != rival or province.id == seat:
-				continue
-			var estate: bool = false
-			for tile: Vector2i in province.tiles:
-				if model.resource_at(tile.x, tile.y) >= 0:
-					estate = true
-					break
-			if not estate:
-				continue
-			target = province.id
-			zone = sea_zone.id
-			break
-		if target >= 0:
-			break
-	assert_gt(target, 0, "the rival holds a coastal estate province away from its seat")
+	assert_eq(seat, 0, "pocket chart seats England at province 0")
+	# Wire the coastal estate by sea alone: its harvest reaches the crown through
+	# its harbour and nothing else.
+	var target: int = 1
+	var zone: int = 0
+	assert_true(
+		NavalMovement.provinces_by_zone(model, zone).has(target),
+		"the harbour faces the pocket sea zone"
+	)
 	var chosen: ProvinceState = model.province_data(target)
 	for tile: Vector2i in chosen.tiles:
 		works.set_transport(model, tile, 1)
@@ -9167,8 +9183,6 @@ func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 			works.set_improvement(model, tile, 1)
 	works.add_port(model, chosen.tiles[0])
 	var before: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
-	# A hostile squadron at sea beside that harbour, on blockade duty.
-	assert_gt(zone, -1, "the harbour faces a sea zone")
 	play.diplomacy.ensure_relation(play.player_faction, rival, play.turn)
 	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, rival)
 	var fleet := FleetState.at_sea(999, play.player_faction, zone)
