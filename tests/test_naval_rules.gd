@@ -12,6 +12,7 @@ extends GdToolsTest
 ## One Godot boot (coverage instrumentation) per theme instead of one per file.
 ## Each test runs only its own suite's setup; teardown follows the setup.
 const fleet_names_NavalFixture = preload("res://tests/naval_fixture.gd")
+const naval_transport_AiFixture = preload("res://tests/ai_fixture.gd")
 const fleet_rosters_NavalFixture = preload("res://tests/naval_fixture.gd")
 const fleet_sortie_NavalFixture = preload("res://tests/naval_fixture.gd")
 const fleet_missions_NavalFixture = preload("res://tests/naval_fixture.gd")
@@ -488,6 +489,57 @@ func test_a_merge_keeps_every_hull_name() -> void:
 	assert_eq(ShipNames.of(home, "ship_4"), expected)
 	assert_eq(ShipNames.of(home, "ship_1"), home_name)
 
+## Two squadrons christen apart, so a merge can put one name on two hulls: the
+## hull that already flew it keeps it and the joined hull gives way, because a
+## squadron's names are pairwise distinct (wiki: naming § Ship names;
+## DR-20261111-07). Playtest: a hull launched at the seat while the home squadron
+## was at sea founded a new home fleet, and the returning squadron merged into
+## her — the squadron then flew two hulls named "San Mateo".
+func test_a_merge_never_puts_one_name_on_two_hulls() -> void:
+	_setup_fleet_names()
+	var home := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+	var returning := FleetState.at_sea(5, 1, 2, ["ship_4"], {})
+	home.hull_names["ship_1"] = "San Mateo"
+	returning.hull_names["ship_4"] = "San Mateo"
+
+	home.merge_from(returning)
+
+	assert_eq(ShipNames.of(home, "ship_1"), "San Mateo", "the receiving hull keeps her name")
+	var settled: String = ShipNames.of(home, "ship_4")
+	assert_ne(settled, "San Mateo", "the joined hull gives way to the name she joined")
+	assert_true(
+		ShipNames.pool_for(home.owner).has(settled), "she takes a name from her crown's pool"
+	)
+	assert_eq(
+		String(home.hull_names.get("ship_4", "")), settled,
+		"the settled name is written to the squadron, so a reload speaks it"
+	)
+	var restored: FleetState = FleetState.from_dict(home.to_dict())
+	assert_eq(ShipNames.of(restored, "ship_4"), settled, "the save carries the settled name")
+	# The same merge settles alike: the joined hull does not draw a new name on
+	# every load or every fight (wiki: naming § Ship names — deterministic).
+	var again_home := FleetState.in_port(3, 1, 4, ["ship_1"], {})
+	var again_returning := FleetState.at_sea(5, 1, 2, ["ship_4"], {})
+	again_home.hull_names["ship_1"] = "San Mateo"
+	again_returning.hull_names["ship_4"] = "San Mateo"
+	again_home.merge_from(again_returning)
+	assert_eq(ShipNames.of(again_home, "ship_4"), settled, "the same merge settles alike")
+
+## A save written while two hulls of one squadron shared a name is repaired on
+## load, the way it repairs a hull that carries no name at all (wiki: naming
+## § Ship names — the N hulls a squadron flies have N pairwise distinct names).
+func test_a_save_with_two_hulls_of_one_name_is_settled_on_load() -> void:
+	_setup_fleet_names()
+	var fleet := FleetState.in_port(3, 1, 4, ["ship_2", "ship_5"], {})
+	var saved: Dictionary = fleet.to_dict()
+	saved["hull_names"] = {"ship_2": "Trinidad", "ship_5": "Trinidad"}
+
+	var restored: FleetState = FleetState.from_dict(saved)
+
+	assert_eq(ShipNames.of(restored, "ship_2"), "Trinidad", "the first hull keeps the name")
+	assert_ne(ShipNames.of(restored, "ship_5"), "Trinidad", "the second hull is christened again")
+	assert_true(ShipNames.pool_for(restored.owner).has(ShipNames.of(restored, "ship_5")))
+
 func test_scrapping_names_the_hull_it_breaks() -> void:
 	_setup_fleet_names()
 	var fleet := FleetState.in_port(3, 0, 1, ["ship_1", "ship_2"], {})
@@ -731,9 +783,9 @@ func test_a_squadron_never_breaks_a_hull_out_from_under_its_colonists() -> void:
 	_setup_fleet_sortie()
 	var home: FleetState = FleetState.in_port(1, 0, 0, ["a"], {"a": "fluyte"})
 	home.add_civilian(11)
-	assert_false(bool(NavalTransport.can_scrap(home, null)["ok"]))
+	assert_false(bool(NavalDeck.can_scrap(home, null)["ok"]))
 	home.add_hull("b", "carrack")
-	assert_true(bool(NavalTransport.can_scrap(home, null)["ok"]))
+	assert_true(bool(NavalDeck.can_scrap(home, null)["ok"]))
 
 func test_troops_cannot_board_a_squadron_carrying_colonists() -> void:
 	_setup_fleet_sortie()
@@ -1727,6 +1779,45 @@ func test_a_defending_squadron_does_not_intercept() -> void:
 	assert_false(bool(battles[0]["intercepted"]))
 	assert_eq(int(battles[0]["attacker"]), 1)
 
+## One station reading for the whole water: the combat pass rolls the holders,
+## the trade pass raids with the squadrons whose orders work the station, and a
+## water of bystanders holds no station at all. The dossier, the catch and the
+## prize all read this module (DR-20261120-01, DR-20261120-02).
+func test_one_station_reading_serves_the_catch_and_the_prize() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var sailing := _naval_raid_fleet(2, 0, 1, ["sloop"])
+	sailing.mission = FleetState.Mission.DEFEND
+	var water: Array = [patrol, sailing]
+	var kept: Array = NavalStation.group_from(_naval_raid_model, water)
+	assert_eq(kept.size(), 1, "a Defend squadron holds nothing")
+	assert_eq(kept[0], patrol)
+	assert_true(NavalStation.works(_naval_raid_model, patrol))
+	assert_false(
+		NavalStation.works(_naval_raid_model, sailing),
+		"a squadron holding no station works no price"
+	)
+	assert_eq(
+		NavalStation.group(_naval_raid_model, water, 1, 0).size(), 1,
+		"the station of the water is the same reading"
+	)
+	assert_eq(
+		NavalStation.group(_naval_raid_model, water, 0, 0).size(), 0,
+		"a squadron in another water is no part of this station"
+	)
+	# A fleet at sea stands on her own when the roster holds no consort.
+	assert_eq(NavalStation.group_of(_naval_raid_model, water, patrol).size(), 1)
+	assert_eq(NavalStation.group_of(_naval_raid_model, water, null).size(), 0)
+	# A doomed blockade (its coast taken back) works nothing.
+	patrol.mission = FleetState.Mission.BLOCKADE
+	patrol.blockade_province = 1
+	assert_true(NavalStation.works(_naval_raid_model, patrol))
+	var taken: int = _naval_raid_model.province_data(1).owner
+	_naval_raid_model.province_data(1).owner = 0
+	assert_false(NavalStation.works(_naval_raid_model, patrol), "her own shore blocks nothing")
+	_naval_raid_model.province_data(1).owner = taken
+
 func test_only_the_station_holders_join_the_roll() -> void:
 	_setup_naval_interception()
 	var patrol := _naval_interception_squadron(1, 0, 0, "sloop", 1)
@@ -2174,7 +2265,7 @@ func test_one_hull_carries_one_regiment() -> void:
 	var pair: Array = _naval_movement_transport_pair()
 	var army: ArmyState = pair[0]
 	var fleet: FleetState = pair[1]
-	assert_eq(NavalTransport.capacity(fleet), 1)
+	assert_eq(NavalDeck.capacity(fleet), 1)
 	assert_true(bool(NavalTransport.can_embark(_naval_movement_model, army, fleet)["ok"]))
 	assert_true(bool(NavalTransport.embark(_naval_movement_model, army, fleet)["ok"]))
 	assert_eq(army.province, MapModel.NO_ID)
@@ -2245,6 +2336,119 @@ func test_a_hostile_landing_needs_a_beachhead() -> void:
 	var check: Dictionary = NavalTransport.disembark(_naval_movement_model, army, fleet, 1)
 	assert_false(bool(check["ok"]))
 	assert_true(String(check["reason"]).contains("beachhead"))
+
+
+## A squadron that keeps afloat on fewer hulls keeps only the men her deck still
+## holds: one hull carries one regiment, so a sunk hull drowns hers (wiki:
+## ships-and-naval § Naval transport; § Naval Combat Resolution — a victor still
+## loses hulls to the beaten side's strength).
+func test_a_sunk_hull_takes_her_regiment_with_her() -> void:
+	var fleet := FleetState.at_sea(5, 0, 0, ["ship_5", "ship_6", "ship_7"])
+	var army := ArmyState.muster(11, 0, 0, false, ["pikemen", "knights", "musketeers"], 1100)
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	fleet.remove_hull("ship_7")
+	var drowned: Dictionary = NavalDeck.trim_aboard(fleet, army)
+	var men: Array = drowned["regiments"]
+	assert_eq(men.size(), 1, "one hull lost, one regiment drowned")
+	assert_eq(army.count(), 2)
+	assert_eq(String(men[0]), "unit_1100", "the weakest colours drowns first")
+	assert_false(army.regiments.has("unit_1100"))
+	assert_eq(fleet.embarked_army, army.id, "the men left aboard still ride her")
+	assert_eq(NavalDeck.aboard(fleet, army), 2, "one hull, one man")
+	assert_eq(
+		NavalDeck.drown_news(drowned),
+		["1 regiment went down with the sunk hulls — the deck could not hold them"],
+		"the bar names the one regiment it lost"
+	)
+
+
+## A deck the sea empties carries no army any more, and the standard leaves with
+## the men (wiki: military-armies § Dismissing regiments — an embarked army that
+## retires leaves the deck with the field).
+func test_a_deck_that_empties_puts_the_standard_aside() -> void:
+	var fleet := FleetState.at_sea(6, 0, 0, ["ship_8"])
+	var army := ArmyState.muster(12, 0, 0, false, ["pikemen"], 1200)
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	fleet.remove_hull("ship_8")
+	NavalDeck.trim_aboard(fleet, army)
+	assert_true(army.is_empty())
+	assert_eq(fleet.embarked_army, -1, "an empty deck carries no army")
+	assert_eq(army.embarked_fleet, -1, "and no man is still aboard")
+
+
+## A raid sinks a merchant hull under the colonists she carries (wiki:
+## ships-and-naval § Civilian passengers — one hull carries one civilian).
+func test_a_sunk_hull_takes_her_colonist_with_her() -> void:
+	var fleet := FleetState.in_port(7, 0, 0, ["ship_9", "ship_10", "ship_11"])
+	fleet.add_civilian(21)
+	fleet.add_civilian(22)
+	fleet.add_civilian(23)
+	fleet.remove_hull("ship_11")
+	var drowned: Dictionary = NavalDeck.trim_aboard(fleet, null)
+	var colonists: Array = drowned["civilians"]
+	assert_eq(colonists.size(), 1, "one hull lost, one colonist drowned")
+	assert_eq(int(colonists[0]), 23, "the last hand aboard drowns first")
+	assert_eq(fleet.civilian_count(), 2)
+	assert_eq(NavalDeck.aboard(fleet, null), 2)
+	assert_eq(NavalDeck.drown_news(drowned), ["A colonist went down with a sunk hull"])
+
+
+## The turn's close reads every deck: whichever loss took the hull — a battle's
+## sinking or a raid's prize — the men it leaves without a deck go down, and a
+## standard the sea emptied retires off the roster.
+func test_the_deck_is_reconciled_after_the_hulls_are_lost() -> void:
+	var layer := ArmyLayer.new()
+	var army := ArmyState.muster(13, 0, 0, false, ["pikemen", "knights"], 1300)
+	var fleet := FleetState.at_sea(8, 0, 0, ["ship_12"])
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	var roster: Array[ArmyState] = [army]
+	layer.regions.set_region(0, roster)
+	var rows: Array[Dictionary] = ArmyTransport.reconcile_aboard(layer, [fleet])
+	assert_eq(rows.size(), 1, "the squadron that drowned a man is named")
+	assert_eq(int(rows[0]["owner"]), 0)
+	assert_eq(army.count(), 1)
+	assert_eq(fleet.embarked_army, army.id, "one man still rides her")
+	fleet.remove_hull("ship_12")
+	ArmyTransport.reconcile_aboard(layer, [fleet])
+	assert_eq(fleet.embarked_army, -1)
+	var left: Array = layer.regions.value(0, [])
+	assert_true(left.is_empty(), "the emptied standard retires")
+	layer.free()
+
+
+## The turn's close reads every deck on both charts: a squadron afloat on fewer
+## hulls than men drowns the surplus, whichever loss took the hull (wiki:
+## ships-and-naval § Naval transport — "each hull carries one regiment").
+func test_the_turn_close_reads_every_deck() -> void:
+	var world: WorldMap = naval_transport_AiFixture.land_world([0])
+	var layer := ArmyLayer.new()
+	var army := ArmyState.muster(14, 0, 0, false, ["pikemen", "knights", "musketeers"], 1400)
+	var fleet := FleetState.at_sea(9, 0, 0, ["ship_13", "ship_14"])
+	fleet.embarked_army = army.id
+	army.embarked_fleet = fleet.id
+	army.province = MapModel.NO_ID
+	var roster: Array[ArmyState] = [army]
+	layer.regions.set_region(0, roster)
+	var ships := ShipLayer.new()
+	ships.regions.set_region(0, [fleet] as Array[FleetState])
+	var play := PlaySession.new()
+	play.world = world
+	play.player_faction = 0
+	play.army_layer = layer
+	play.ship_layer = ships
+	var rows: Array[Dictionary] = MapPlayNavalTurn.reconcile_decks(play)
+	assert_eq(rows.size(), 1, "two hulls could not hold three regiments")
+	assert_eq(army.count(), 2)
+	assert_eq(fleet.embarked_army, army.id)
+	assert_true(MapPlayNavalTurn.reconcile_decks(play).is_empty(), "a full deck is silent")
+	layer.free()
+	ships.free()
 
 
 ## A marked beachhead opens the hostile coast on the following turn only, and
@@ -2421,9 +2625,9 @@ func test_breaking_up_a_hull_cannot_strand_the_troops() -> void:
 	var army: ArmyState = pair[0]
 	var fleet: FleetState = pair[1]
 	NavalTransport.embark(_naval_movement_model, army, fleet)
-	assert_false(bool(NavalTransport.can_scrap(fleet, army)["ok"]))
+	assert_false(bool(NavalDeck.can_scrap(fleet, army)["ok"]))
 	fleet.add_hull("ship_5")
-	assert_true(bool(NavalTransport.can_scrap(fleet, army)["ok"]))
+	assert_true(bool(NavalDeck.can_scrap(fleet, army)["ok"]))
 
 
 func test_transport_state_survives_a_save_round_trip() -> void:
@@ -2557,8 +2761,8 @@ func test_port_landing_and_scrap_gates() -> void:
 	assert_eq(NavalTransport.landing_provinces(_naval_movement_model, fleet), [0])
 	assert_eq(NavalTransport.landing_provinces(_naval_movement_model, null), [])
 	assert_eq(NavalTransport.landing_provinces(_naval_movement_model, FleetState.at_sea(4, 0, 0)), [0])
-	assert_true(bool(NavalTransport.can_scrap(null, army)["ok"]))
-	assert_false(bool(NavalTransport.can_scrap(fleet, null)["ok"]))
+	assert_true(bool(NavalDeck.can_scrap(null, army)["ok"]))
+	assert_false(bool(NavalDeck.can_scrap(fleet, null)["ok"]))
 
 
 func test_transport_layer_lookups_and_refusals() -> void:
@@ -3626,6 +3830,254 @@ func test_the_dossier_prices_the_prize_before_the_move() -> void:
 	economy.free()
 
 
+# --- the dossier's prize reading (DR-20261120-01) ---------------------------
+
+
+## A wired session for the dossier's price: the crown's stations, the rival's
+## laden home fleet in port at Coro, and the rival's cargo book.
+func _prize_session(stations: Array[FleetState], laden: FleetState) -> PlaySession:
+	var play := PlaySession.new()
+	play.model = _naval_raid_model
+	play.player_faction = 0
+	play.turn = 1
+	play.ai = AiState.new()
+	var fleets: Array[FleetState] = []
+	fleets.append_array(stations)
+	fleets.append(laden)
+	var ships := ShipLayer.new()
+	ships.model = _naval_raid_model
+	ships.player_faction = 0
+	ships.fleets = fleets
+	ships.regions.set_region(_naval_raid_model.region_id, fleets)
+	play.ship_layer = ships
+	var world := WorldMap.new()
+	world.add_region(_naval_raid_model)
+	play.world = world
+	play.map_seed = 1
+	var economy := EconomyController.new()
+	economy.economy = PlayerEconomy.starting()
+	economy.market = WorldMarket.with_default_prices()
+	play.economy = economy
+	return play
+
+
+## The patrol rests at sea and raids the same water a blockade does, at the
+## patrol factor: the dossier must price it (wiki: ships-and-naval § Trade and
+## Transport Interception — "Hostile Patrol or Blockade squadrons … raid").
+func test_the_dossier_prices_the_patrol_that_raids_too() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _prize_session([patrol], laden)
+	play.economy.market.record_import("grain", 6, 1)
+	var note: String = MapPlayFleetMissions.prize_note(play, patrol)
+	var patrol_odds: Dictionary = NavalRaid.preview(
+		[patrol], laden, {"grain": 6}, FleetState.Mission.PATROL
+	)
+	assert_true(note.contains("Prize:"), "a patrol raids trade, so the dossier prices it")
+	assert_true(note.contains("Coro"), "the patrol names the coast it works")
+	assert_true(
+		note.contains("%d%%" % int(round(float(patrol_odds["chance"]) * 100.0))),
+		"the price is the patrol factor the raid rolls"
+	)
+	assert_true(note.contains("sinks a Fluyte"), "the merchant hull is priced too")
+	# The same coast blockaded rolls the blockade bonus, so the two prices differ.
+	patrol.mission = FleetState.Mission.BLOCKADE
+	patrol.blockade_province = 1
+	var blockader_odds: Dictionary = NavalRaid.preview(
+		[patrol], laden, {"grain": 6}, FleetState.Mission.BLOCKADE
+	)
+	assert_gt(
+		float(blockader_odds["chance"]), float(patrol_odds["chance"]),
+		"a blockade raiding the same coast rolls harder than a patrol"
+	)
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, patrol).contains(
+			"%d%%" % int(round(float(blockader_odds["chance"]) * 100.0))
+		),
+		"the blockade's own price follows its station"
+	)
+	play.economy.free()
+
+
+## The hull the raid would sink is named with the article its name asks for: the
+## catalogue's Indiaman opens on a vowel, so the price reads "sinks an Indiaman"
+## and never "a Indiaman" (wiki: ships-and-naval § Trade and Transport
+## Interception).
+func test_the_prize_names_its_hull_with_the_article_it_asks_for() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var laden := FleetState.in_port(
+		20, 1, 1, ["rival_1", "rival_2"],
+		{"rival_1": "indiaman", "rival_2": "frigate"}
+	)
+	var play := _prize_session([patrol], laden)
+	play.economy.market.record_import("grain", 6, 1)
+	var note: String = MapPlayFleetMissions.prize_note(play, patrol)
+	assert_true(note.contains("sinks an Indiaman"), note)
+	assert_false(note.contains("a Indiaman"), "the article follows the hull's own name")
+	assert_eq(MapPlayFleetMissions.with_article("Indiaman"), "an Indiaman")
+	assert_eq(MapPlayFleetMissions.with_article("Galleon"), "a Galleon")
+	play.economy.free()
+
+
+## The pass rolls every station the crown holds in the water as one group, so the
+## price is the group's, never one hull's.
+func test_the_dossier_prices_the_whole_group_in_the_zone() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var consort := _naval_raid_fleet(2, 0, 1, ["sloop"])
+	consort.mission = FleetState.Mission.PATROL
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _prize_session([patrol, consort], laden)
+	play.economy.market.record_import("grain", 6, 1)
+	var alone: Dictionary = NavalRaid.preview(
+		[patrol], laden, {"grain": 6}, FleetState.Mission.PATROL
+	)
+	var together: Dictionary = NavalRaid.preview(
+		[patrol, consort], laden, {"grain": 6}, FleetState.Mission.PATROL
+	)
+	assert_gt(
+		float(together["chance"]), float(alone["chance"]),
+		"two stations in one water raid harder than one"
+	)
+	var note: String = MapPlayFleetMissions.prize_note(play, patrol)
+	assert_true(
+		note.contains("%d%%" % int(round(float(together["chance"]) * 100.0))),
+		"the dossier prices the group the raid rolls"
+	)
+	assert_false(
+		note.contains("%d%% to take" % int(round(float(alone["chance"]) * 100.0))),
+		"the sheet never prices one hull while the pass rolls two"
+	)
+	# A third station in another water is no part of this group.
+	var elsewhere := _naval_raid_fleet(3, 0, 0, ["sloop"])
+	elsewhere.mission = FleetState.Mission.PATROL
+	play.ship_layer.fleets.append(elsewhere)
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, patrol).contains(
+			"%d%%" % int(round(float(together["chance"]) * 100.0))
+		),
+		"a station in another zone is not in the group"
+	)
+	play.economy.free()
+
+
+## The raid needs a declared war (wiki: ships-and-naval § Raids cut both ways —
+## "against a declared enemy"), so a coast the crown is at peace with prices no
+## prize even under a standing blockade.
+func test_a_coast_at_peace_prices_no_prize() -> void:
+	_setup_naval_raid()
+	var blockader := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	blockader.mission = FleetState.Mission.BLOCKADE
+	blockader.blockade_province = 1
+	var laden := FleetState.in_port(20, 1, 1, ["rival_1"], {"rival_1": "fluyte"})
+	var play := _prize_session([blockader], laden)
+	play.diplomacy = DiplomacyState.new()
+	play.economy.market.record_import("grain", 6, 1)
+	assert_eq(
+		MapPlayFleetMissions.prize_note(play, blockader), "",
+		"peace offers no prize"
+	)
+	# Declared war: the same station prices the same coast.
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	assert_true(
+		MapPlayFleetMissions.prize_note(play, blockader).contains("Prize:"),
+		"the declared war opens the raid"
+	)
+	play.economy.free()
+
+
+# --- the dossier's interception reading (DR-20261120-02) --------------------
+
+
+## A rival squadron afloat in the crown's station water, read across a turn so
+## the crown may weigh her (wiki: ships-and-naval § Sighted strength).
+func _moor_unread_squadron(play: PlaySession, rival: FleetState) -> void:
+	play.naval_intel.observe([rival.id], 0, 0)
+	play.naval_intel.observe([rival.id], 1, 0)
+
+
+## The station's own chance to intercept a hostile squadron that stays in the
+## water is published (§ Naval Interception Probability) and rolled by the combat
+## pass, so the dossier prices it before the move — at the station's own factor,
+## over the squadrons that hold it (DR-20261120-02).
+func test_the_dossier_prices_the_interception_before_the_move() -> void:
+	_setup_naval_raid()
+	var patrol := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	var rival := _naval_raid_fleet(20, 1, 1, ["fluyte", "fluyte"])
+	var play := _prize_session([patrol], rival)
+	_moor_unread_squadron(play, rival)
+	var expected: float = NavalInterception.chance(
+		[patrol], [rival], FleetState.Mission.PATROL, play.has_tech
+	)
+	var note: String = MapPlayFleetMissions.interception_note(play, patrol)
+	assert_true(note.contains("Interception:"), "a patrol prices what it catches")
+	assert_true(
+		note.contains("%d%%" % int(round(expected * 100.0))),
+		"the dossier reads the chance the pass rolls"
+	)
+	assert_true(note.contains("2 hulls"), "the hulls at risk are named")
+	# An unread rival is priced by nothing: the line waits on the fog instead of
+	# promising a share the chart withholds (§ Sighted strength).
+	var stranger := _naval_raid_fleet(21, 1, 1, ["fluyte"])
+	play.ship_layer.fleets.append(stranger)
+	assert_true(
+		MapPlayFleetMissions.interception_note(play, patrol).contains("the fog has not read"),
+		"an unread squadron leaves the odds unknown"
+	)
+	play.ship_layer.fleets.erase(stranger)
+	# The ruling is the rules': a hostile squadron it has read, roped to the same
+	# group the combat pass rolls.
+	assert_true(
+		MapPlayFleetMissions.note(play, patrol).contains("Interception:"),
+		"the station line carries the catch"
+	)
+	play.economy.free()
+
+
+## Nothing to catch, no station and another court's water: the line is silent.
+func test_the_interception_line_holds_its_tongue() -> void:
+	_setup_naval_raid()
+	var defender := _naval_raid_fleet(1, 0, 1, ["sloop"])
+	defender.mission = FleetState.Mission.DEFEND
+	var rival := _naval_raid_fleet(20, 1, 1, ["fluyte"])
+	var play := _prize_session([defender], rival)
+	_moor_unread_squadron(play, rival)
+	assert_eq(
+		MapPlayFleetMissions.interception_note(play, defender), "",
+		"a squadron holding no station catches nothing"
+	)
+	var patrol := _naval_raid_fleet(2, 0, 1, ["sloop"])
+	patrol.mission = FleetState.Mission.PATROL
+	play.ship_layer.fleets.append(patrol)
+	# A rival in another water is no part of this station's catch.
+	rival.sea_zone = 0
+	assert_eq(
+		MapPlayFleetMissions.interception_note(play, patrol), "",
+		"a squadron in another water is not caught here"
+	)
+	# A declared peace catches nobody: the combat pass spills no blood at peace.
+	play.diplomacy = DiplomacyState.new()
+	rival.sea_zone = 1
+	assert_eq(
+		MapPlayFleetMissions.interception_note(play, patrol), "",
+		"peace leaves nothing to intercept"
+	)
+	play.diplomacy.ensure_relation(0, 1, 1)
+	DiplomacyRules.declare_war(play.diplomacy, 0, 1, false)
+	assert_true(
+		MapPlayFleetMissions.interception_note(play, patrol).contains("Interception:"),
+		"the declared war opens the roll"
+	)
+	play.economy.free()
+
+
 # --- rival-on-rival raids + prize cargo (DR-20261111-20) ----------------------
 
 
@@ -4575,6 +5027,54 @@ func test_the_selection_leads_the_stack_and_the_fog_keeps_her_hidden() -> void:
 	assert_true(markers.find(1).covered, "a rival under the fog is never handed the hull")
 	assert_false(markers.find(2).covered)
 	assert_eq(markers.next_in_stack(markers.find(2)).fleet_id, 3, "the cycle skips her")
+
+
+## A shared station's reading order names every squadron the chart draws there —
+## the crown's row first, then the stack behind it — and never one the fog
+## withholds, so a tap on the row still says which command of the water is in
+## hand (wiki: ships-and-naval § Fleets in one station).
+func test_a_shared_station_names_every_hull_the_chart_draws() -> void:
+	var fleets: Array[FleetState] = _station_fleets()
+	var plan: Dictionary = FleetLanes.plan(fleets, OWNER)
+	var stations: Dictionary = plan["stations"]
+
+	assert_eq((stations[1] as Array).size(), 5, "four of the crown's and the rival")
+	assert_eq(int((stations[1] as Array)[0]), 1, "the row leads the reading")
+	assert_eq(int((stations[1] as Array)[3]), 4, "the stack stands after the row")
+
+	# The fog's rival is not counted, and her colour rides no pennant.
+	var fogged: Array[int] = [5]
+	var hidden_plan: Dictionary = FleetLanes.plan(fleets, OWNER, -1, fogged)
+	var hidden_stations: Dictionary = hidden_plan["stations"] as Dictionary
+	assert_eq((hidden_stations[1] as Array).size(), 4, "the unseen rival is not counted")
+	assert_false((hidden_stations[1] as Array).has(5), "and holds no place in the order")
+
+	var markers := ShipMarkers.new()
+	markers.model = passes_NavalFixture.build()
+	for fleet: FleetState in fleets:
+		markers.make(fleet)
+	markers.find(5).visible = false
+	markers.layout(fleets, OWNER)
+	assert_eq(markers.find(4).station.size(), 4, "the head reads what the chart draws")
+	assert_true(markers.find(4).pips.is_empty(), "an unseen court wears no pennant")
+
+
+## The crown's row keeps its own reading when the stack is empty: a fanned
+## squadron is told her place among the water's commands, not her place in a
+## cycle she never joined (wiki: ships-and-naval § Fleets in one station).
+func test_a_fanned_squadron_still_reads_her_station() -> void:
+	var fleets: Array[FleetState] = []
+	for index in 2:
+		fleets.append(FleetState.at_sea(index + 1, OWNER, CARIBBEAN, ["ship_%d" % index]))
+	var markers := ShipMarkers.new()
+	markers.model = passes_NavalFixture.build()
+	for fleet: FleetState in fleets:
+		markers.make(fleet)
+	markers.layout(fleets, OWNER)
+	var first: Ship = markers.find(1)
+	assert_true(first.stack.is_empty(), "a row of two rides no stack")
+	assert_eq(first.station.size(), 2, "the station's reading still holds both hulls")
+	assert_eq(int(first.station[0]), 1)
 
 
 ## --- fixtures ---------------------------------------------------------------

@@ -1,6 +1,6 @@
 # Testing
 
-Unit/integration tests and the headless e2e smoke; two CI tiers, hard budgets.
+Unit/integration tests and headless e2e smoke; two CI tiers, hard budgets.
 
 ## Tiers
 
@@ -9,15 +9,13 @@ Unit/integration tests and the headless e2e smoke; two CI tiers, hard budgets.
 | **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke + auto | tests **≤ 5 min**; e2e **≤ 5 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
-Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for the **fix-tests** agent.
+Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for **fix-tests**.
 
-Tier 2 shards because `gd-tools` boots one process **per suite**; `coverage-gate`
+Tier 2 shards because `gd-tools` boots one process **per suite**; the gate
 merges them for the 80% gate.
 
 Strict map: unmapped in-scope paths fail; `full = true` runs every suite
-(`select_impacted_tests.py --check-complete`).
-
-Patch coverage uses gd-tools’ plan (test dirs uninstrumented); empty patches pass.
+(`select_impacted_tests.py --check-complete`). Empty patches pass.
 
 ## E2E (tier 1)
 
@@ -31,23 +29,23 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats the turn-100
   civilians, passing fair split on the **first** attempt.
-- Terrain wash, fog tables and chart layers build once per map state: a re-seat
-  redraws nothing, `fog_changed` rises on a moved tile.
+- Terrain wash, fog and chart layers build once per map state; a re-seat redraws
+  nothing; `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
-  (gd-tools clones each case). Prefer a pocket chart over regenerating
-  Standard; the published census rides **one** Standard seed.
-- **One mount per suite**: `suite_capture` / `suite_reset` re-seat (~0.15 s vs
-  ~0.5 s remount); advanced-start live cases share **one mount per tier**. Pure
-  cases skip the re-seat / shell (lazy `_screen` / `main`); hospitals ride that
-  chart. Free a swapped screen. Observer mount ~15–20 s covered; door/seal rides
+  (gd-tools clones each case). Prefer a pocket chart; census rides **one**
+  Standard seed.
+- **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
+  remount); advanced-start live cases share **one mount per tier**. Pure cases
+  skip the re-seat / shell (lazy `_screen` / `main`); hospitals ride that chart;
+  opening-plate cases host on the suite with short `hold_max` / `fade_seconds`.
+  Free a swapped screen. Observer ~15–20 s covered; door/seal rides
   `test_ai_observer`'s.
 - **Tiny fixture first**: place names and sea zones read
   `naval_fixture.build()` (7×3), not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
-  session (and `ai_turns` / Auto fields), re-seat each case (~0.2 s vs
-  ~1.5–2 s). Mode cases start at turn 1; `test_ai_observer` /
-  `test_auto_mode`.
+  session (and `ai_turns` / Auto fields), re-seat lazily (~0.2 s vs ~1.5–2 s).
+  Mode cases start at turn 1; shared-pass spy readings stay one `end_turn`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   the pocket chart and `ResearchPanel` only when a case reads them.
@@ -150,11 +148,25 @@ godot --headless --path . --script res://playtests/playtest_persistence_advanced
 # and sorts a rival squadron out of a captured port.
 godot --headless --path . --script res://playtests/playtest_naval.gd
 
+# Station prices — sorties the home squadron, takes a patrol and declares war,
+# then reads the dossier's two prices (the catch and the prize) against the pass
+# that rolls them: the printed chance and hulls, the fog clause, a Defend
+# station, a second station in the group, a blockade's own coast, and the turn's
+# battle record.
+godot --headless --path . --script res://playtests/playtest_station_prices.gd
+
 # Split / combine — folds the opening's single-hull commands into one squadron,
 # reads the troops that hold a split back, detaches a named hull into a command
 # of her own, folds her back, and follows the army a combine carries from the
 # dossier to the muster roll (the row's place and its own Visit press).
 godot --headless --path . --script res://playtests/playtest_fleet_split_combine.gd
+
+# The court's pick — reads the gold line the fleet dossier prints under its
+# station in the states a player reaches (in port, at sea at peace, at war, a
+# rival in the next water, the holds ashore again) and holds every word to the
+# planner's own record: the kind, the water and the harbour, the sheet's print,
+# and a roster that did not move.
+godot --headless --path . --script res://playtests/playtest_fleet_pick.gd
 
 # Beachhead — boards a field army and marks a landing site on a hostile coast,
 # reads the same-turn refusal, lands on the ready turn into the land battle, and
@@ -215,6 +227,13 @@ godot --headless --path . --script res://playtests/playtest_field_train.gd
 # ally.
 godot --headless --path . --script res://playtests/playtest_court_proposal.gd
 
+# Join Empire — seats the last rung's chain with a Great Power, a Minor and a
+# Tribe, then holds the row's words to the rule's two roads (nearly defeated, or
+# our power twice its own), the warmth gate at 50 and 51 against the herald's
+# word, the press a standing crown answers, and the provinces, regiments and
+# hulls that change flags on an absorption.
+godot --headless --path . --script res://playtests/playtest_join_empire.gd
+
 # War toasts (#426) — ends turns with spies abroad and diffs HUD war lines against
 # warDeclared / At War (duplicate AI + spy + intervention announce).
 godot --headless --path . --script res://playtests/playtest_war_toasts.gd
@@ -267,6 +286,13 @@ godot --headless --path . --script res://playtests/playtest_siege.gd
 # starved larder, holding the tab's forecast to the phase's own report; then a
 # second press after the queue has promised the store.
 godot --headless --path . --script res://playtests/playtest_workers.gd
+
+# The crown's command — reads the opening pool and the ledger's own lines (count,
+# cap road, each commander, the medal note and the fallback), then the turn-100
+# advanced start where the cap-raising studies have landed, then fights a real
+# land battle and holds the despatch's medal credit to the roster and to the
+# ledger's row afterwards.
+godot --headless --path . --script res://playtests/playtest_command.gd
 
 # Observer siege — seats a wall, its garrison and a besieging train between two
 # rival crowns in the full-AI observer, then reads the panel's orders feed, the
@@ -341,6 +367,16 @@ godot --headless --path . --script res://playtests/playtest_gazette.gd
 # to read the slip founded there and the merge that follows her home. PT_ADVANCED
 # opens a preset start, so the turn-100 galleons read the same way.
 godot --headless --path . --script res://playtests/playtest_home_fleet.gd
+
+# Fleets in one station (DR-20261119-08) — the chart's row only appears when
+# several of the crown's squadrons hold one water, so the drive reaches it the
+# way a player does: a turn-100 home squadron sorties, then detaches hulls until
+# four commands stand in the sea zone. It reads the plan (who takes a row step,
+# who is covered, where each hull is drawn), taps every drawn point and a covered
+# one, hears the words of all of them, seats a rival in the same water (the stack,
+# the pennant and `observe only`), and hides her to read the fog: no hull, no
+# pennant, no place in the count.
+godot --headless --path . --script res://playtests/playtest_station_fan.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.

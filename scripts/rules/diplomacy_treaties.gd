@@ -15,7 +15,7 @@ static func break_alliance(
 ) -> Dictionary:
 	var record: DiplomacyRelation = state.relation(player, target)
 	if record == null or not record.formal_alliance:
-		return _deny("There is no formal alliance to break.")
+		return OrderVerdict.deny("There is no formal alliance to break.")
 	record.formal_alliance = false
 	state.apply_delta(player, target, -DiplomacyCatalog.BREAK_ALLY_PENALTY, "allianceBroken")
 	for other: DiplomacyRelation in state.relations_of(player):
@@ -42,12 +42,12 @@ static func break_alliance(
 ## lock: no declaration on that pair until the turn after this one.
 static func break_nap(state: DiplomacyState, player: int, target: int) -> Dictionary:
 	if not state.has_relation(player, target):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	var record: DiplomacyRelation = state.relation(player, target)
 	if record.at_war:
-		return _deny("War has already ended the pact.")
+		return OrderVerdict.deny("War has already ended the pact.")
 	if not DiplomacyRules.has_pact(state, player, target):
-		return _deny("There is no non-aggression pact to break.")
+		return OrderVerdict.deny("There is no non-aggression pact to break.")
 	var allied: bool = record.formal_alliance
 	record.formal_alliance = false
 	record.treaty_break_turn = state.turn
@@ -79,7 +79,3 @@ static func break_nap(state: DiplomacyState, player: int, target: int) -> Dictio
 			broken, FactionCatalog.name_of(target)
 		],
 	}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

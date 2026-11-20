@@ -45,14 +45,17 @@ static func select(play: PlaySession, ship: Ship) -> void:
 
 ## What a selection says out loud: her place in a shared station, and whether
 ## the crown may order her at all (wiki: ships-and-naval § Fleets in one
-## station).
+## station). The place is read over every squadron the chart draws there — the
+## crown's row and the stack behind it — so a tap that landed beside three other
+## hulls never swaps one command for another without a word, and a water the fog
+## half-hides is counted by what the crown can see (REQ-P5-05).
 static func selection_line(play: PlaySession, ship: Ship, fleet: FleetState) -> String:
 	var parts: Array[String] = []
-	if ship.stack.size() > 1:
-		var index: int = maxi(ship.stack.find(ship.fleet_id), 0) + 1
+	if ship.station.size() > 1:
+		var index: int = maxi(ship.station.find(ship.fleet_id), 0) + 1
 		parts.append(
 			"%d of %d squadrons here — %s" % [
-				index, ship.stack.size(), FleetCombine.flagship(fleet)
+				index, ship.station.size(), FleetCombine.flagship(fleet)
 			]
 		)
 	if fleet.owner != play.player_faction:
@@ -82,7 +85,8 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 		strength,
 		MapPlayHomeMerge.row(play, fleet),
 		MapPlayFleetMissions.hint(play, fleet),
-		play.ship_layer.fleets
+		play.ship_layer.fleets,
+		MapPlayFleetPick.line(play, fleet)
 	)
 
 

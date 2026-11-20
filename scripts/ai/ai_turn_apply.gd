@@ -35,7 +35,7 @@ static func apply(
 	if kind == KIND_OFFER_PEACE:
 		return _peace(state, world, ai_state, faction, action, turn, game_seed, shared)
 	if bool(action.get("propose", false)):
-		return propose(state, world, faction, action)
+		return propose(state, world, ai_state, faction, action)
 	return apply_order(
 		state, world, ai_state, faction, action,
 		(shared.get("power", {}) as Dictionary)
@@ -136,8 +136,15 @@ static func peace_answer(
 		config.agenda_traits = AiAgenda.resolve(agenda)
 	# A court fighting enough fronts takes the white peace instead of refusing it:
 	# no court wins two wars at once (wiki: phase-planner-architecture § Playable
-	# slice; DR-20261113-15).
-	if AiPhasePlanner.takes_any_peace(AiPhasePlanner.phase_for(config, state)):
+	# slice; DR-20261113-15). The one war it keeps is the front its field army can
+	# march on (issues #1082, #995): the war on a crown whose land touches its own,
+	# where a province is stormed next door every turn, is not a front it is
+	# overstretched by, so that offer is answered by its stance instead of signed.
+	# A court with no frontier stamp and no world to read keeps the published
+	# answer.
+	var phase: String = AiPhasePlanner.phase_for(config, state)
+	if AiPhasePlanner.takes_peace(phase, AiBorderFronts.marches_on(world, target, offerer)) \
+			and not AiFrontier.holds(target, offerer, shared):
 		return DiplomacyRules.DECISION_AUTO
 	var desire: Dictionary = AiDiplomacyDesire.war_desire(
 		config, state, world, target, offerer, AiTurnRead.reading(shared, target)
@@ -152,15 +159,30 @@ static func peace_answer(
 
 
 ## Queues a treaty or trade-pact offer for the human court's answer. The court
-## answers during the phase; no rule is applied yet.
+## answers during the phase; no rule is applied yet. The asking court prices its
+## own offer from its own ledger, so a paid rung — the last one, Join Empire —
+## is raised only when this rival's purse and studies clear the gate (wiki:
+## diplomacy § Join Empire; REQ-P2-03).
 static func propose(
-	state: DiplomacyState, world: WorldMap, faction: int, action: Dictionary
+	state: DiplomacyState, world: WorldMap, ai_state: AiState, faction: int,
+	action: Dictionary
 ) -> Dictionary:
 	var kind: String = String(action.get("kind", ""))
 	var stage: String = String(action.get("stage", ""))
 	if not DiplomacyProposals.knows(kind):
 		return {"result": {"ok": false, "reason": "unknown proposal"}, "message": ""}
-	var offer: Dictionary = DiplomacyProposals.queue(state, world, faction, kind, stage)
+	# The asking court's own purse and studies price the offer (wiki: diplomacy
+	# § Join Empire). A caller with no AI state — a fixture — keeps the free
+	# stages alone, exactly as the court with no ledger does.
+	var treasury: int = 0
+	var tech: Dictionary = {}
+	if ai_state != null:
+		var economy: PlayerEconomy = ai_state.economy_for(faction)
+		treasury = economy.treasury
+		tech = economy.tech_unlocked
+	var offer: Dictionary = DiplomacyProposals.queue(
+		state, world, faction, kind, stage, treasury, tech
+	)
 	var message: String = ""
 	if bool(offer.get("ok", false)):
 		message = "%s proposes %s." % [

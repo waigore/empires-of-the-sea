@@ -26,11 +26,12 @@ DR-20261110-27.
   touches neither. The wall scales the blow unless the garrison sorties; a
   sortie exposes it but lets every regiment strike. A pike garrison gives no
   return fire; a blow bleeds no more than the deployed slice.
-- **Ground:** HILL on hills/mountains, WOODS in forest, MARSH in swamp, TOWN
-  where a fort rings open ground. Volleys and assaults are weaker into broken
-  ground; entrenching is surer there.
-- **Gates:** three; each falls after `ceil(wall HP / 3)` casualties. A breach
-  ends the reduction and opens the behind lane in the share lost.
+- **Ground** (`SiegeGround`): HILL on hills/mountains, WOODS in forest, MARSH in
+  swamp, TOWN where a fort rings open ground. Volleys and assaults are weaker
+  into broken ground; entrenching is surer there.
+- **Gates** (`SiegeGates`): three; each falls after `ceil(wall HP / 3)`
+  casualties. A breach ends the reduction and opens the behind lane in the
+  share lost.
 - **Sortie:** the defender's own order, not an Assault. Every
   regiment strikes, the garrison exposed; a firearmless garrison sallies.
 - **Gun-loss:** a gun spends the blow before the lanes; an empty blow buys

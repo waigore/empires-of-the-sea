@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1064 (REQ-P2-02).
+Audited: wiki / DRs / code through #1111 (REQ-P2-02).
 Default: largest item here, then REQ/wiki.
 
 ## Already live
@@ -24,30 +24,29 @@ Default: largest item here, then REQ/wiki.
 | War footing/money-first/victory | `AiPhasePlanner`; `AiIncome`; `AiVictoryPressure` |
 | Phoney front; college chest; pact lead | `holds_front`; `bank_chest`; `pact_break_leads` |
 | Declare-war / Tribe-chain / crews | `SLOT_DECLARE_WAR`/`TRIBE_CHAIN`/`CREWS` |
-| Tribe buy/landings/overseas conquest | `AiTribeColony`; `AiColonisationPlanner` |
-| Tribe door; hull chest; worker tiers | `AiTribeColony.door`; `AiNavy`; `QUEUE_CAP` |
-| War trade garrison + rival bench | `trade_garrison`; `_bench_room` |
+| Tribe buy/landings/door/overseas | `AiTribeColony`; `AiColonisationPlanner` |
+| Hull chest; worker tiers; war garrison | `AiNavy`; `QUEUE_CAP`; `trade_garrison` |
 | Starved plot + opening purse | `resource_seeder` 30%; `START_TREASURY` 20k |
-| Recipe gate + rival second-stage | `min_town`; `AiEconomyPlanner` |
-| Workshop landing; regiment dismiss | `ground_appetite`; `ArmyDismiss` |
+| Recipe gate; workshop landing; dismiss | `min_town`; `ground_appetite`; `ArmyDismiss` |
 | Destitute; market + naval slot | ration ×2; `trade.market`/`navy.missions` |
 | Archetype civilian mixes | `AiStaffTaste`, DR-17-04 |
 | Raise/crew/yard/muster/workers/college | ledgers + Follow; hire/batch/`carries` |
-| QB wings + handset plate | `QuickBattleWings`; `BattlePlateFrame` |
-| Rail pick; observer sheet/feed/desk | `RailWorks`; `Observer*`; title #1045 |
-| Capital Wood walls + fort lift | `FortCapital`, DR-17-13 |
+| QB wings; rail; observer; capital fort | `QuickBattleWings`; `RailWorks`; `Observer*`; `FortCapital` |
 | Yard batch; Bid/gift/larder/line | `queue_all`; `bid_block`; `DiplomacyGift` |
 | Buy-out / pointless peace; re-field | `_buys_out`; `pointless`; `rotate_home` |
-| Confirm-face matches the line | `RaiseBatchPress` carries, DR-18-21 |
-| Opening muster; shared-station fan/stack | `FleetMuster` #1051; `FleetLanes` #1047 |
+| Confirm-face; opening muster; fan/stack | `RaiseBatchPress`; `FleetMuster`; `FleetLanes` |
+| Rival priced overtures | `DiplomacyProposals` queue + the asking court's ledger |
+| AI win / border front (#995) | `AiBorderFronts`; bench win t101 (DR-19-16, #1095) |
+| Passengers whole-berth press | `EmbarkBatch` (DR-19-18, #1104) |
+| Station raid/catch dossier prices | `NavalRaid`/`NavalInterception` preview (DR-20-01/02) |
 
 ## Gaps (ranked)
 
-None — both #1043 halves shipped (#1047 fan/stack, #1051 home fleet).
+None.
 
 ## Next pick
 
-REQ/wiki.
+None ranked; audit `docs/rubric.md` / wiki for the next gap.
 
 ## Blocked
 
@@ -65,6 +64,7 @@ REQ/wiki.
 
 ## Wiki drift
 
-`DR-20261111-05` § Deferred still names rival Tribe contact and
-fleetless crowns; both live (`TribeContact` / `AiTribeColony`,
-`FleetMuster`). Soft weight seed stays blocked (`DR-20261117-01`).
+`DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
+crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft weight
+seed blocked (`DR-20261117-01`). Learnings coverage gaps none
+(DR-20261120-01/02 station prices; embark berth #1104).

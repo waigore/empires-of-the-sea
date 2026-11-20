@@ -13,40 +13,40 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
 - **Catalog:** 113 techs; `TechAudit.validate()` checks ids, prerequisites,
   DAG, reachability, caps.
 - **Research state:** three slots (four with University), per-slot funding,
-  `<techUnlocked>`; saved per slot.
-- **Costs:** `1800 + (tier - 1) * 600` — 1800/2400/3000/3600 RP.
+  `<techUnlocked>`, saved.
+- **Costs:** `1800 + (tier - 1) * 600` — 1800–3600 RP.
 - **Funding:** presets pay 0/50/150/400/1000 ducats for 0/100/300/800/2500 RP;
   unpaid slots earn nothing. **One press** (`ResearchBatch`, DR-20261118-26)
-  files every study at the preset on its face (`FUND ALL · Medium`, stepped
-  `−`/`+`), priced first (`Fund 2 of 3 studies at Medium — 450 ducats & 900 RP a
-  turn`); it stands down when no row would move; line and receipt both name the
-  studies the purse cannot pay (DR-20261119-01).
+  files every study at the face's preset (`FUND ALL · Medium`, stepped `−`/`+`),
+  priced first; line and receipt name the studies the purse cannot pay
+  (DR-20261119-01).
 - **Treasury floor:** Money Lending −500; Banking with it −1000.
 - **Bonuses:** Industrial Funding +20% (floored) for military and naval techs;
   spies +15% per shadowed court (`SpyNetworks`).
-- **Discovery:** New World techs need a revealed tile with the resource; gold,
+- **Discovery:** New World techs need a revealed tile with its resource; gold,
   silver, gems, diamonds prospected.
 - **Extraction caps:** `min(improvement, tech cap, terrain, path transport,
   town cap)`; horses 1, wool 3.
-- **Unlocks (`TechUnlocks`):** every build order, each military tech's
-  upgrade and attack price.
-- **Re-equipping (`RegimentUpgrades`):** regiments take the newest type its
-  techs unlock; minors follow.
-- **Attack price (`ArmyAttackCost`):** 100 ducats a Great Power land battle;
-  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding.
+- **Unlocks and upgrades:** `TechUnlocks` opens every build order and each
+  military tech's upgrade price; `RegimentUpgrades` re-equips a regiment to the
+  newest type its techs open (minors follow).
+- **Attack price:** 100 ducats a Great Power land battle (`ArmyAttackCost`);
+  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding, and a charter
+  holder's interception and raids rise 25%.
 - **Transport:** road 2 needs Road Construction; rail needs Early Steam
   (flat), Later Steam (hills, swamps), Dynamite (mountains).
-- **Privateering:** a charter holder's interception and raids rise 25%.
-- **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its floor
-  keeps one study at Low (DR-20261113-24).
+- **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its floor keeps
+  one study at Low (DR-20261113-24).
 - **Goal slot:** orders the queue (goal, prerequisites, catalog); funds
   nothing, rides the save (`ResearchState.goal`, DR-20261111-21).
 - **UI:** `RESEARCH` opens the college: goal strip, slots, the one press,
-  AVAILABLE/KNOWN tabs, a tech-tree door. Slots show ducats and a
-  gauge (`ResearchBar`); every advance prints what it opens
-  (`TechCatalog.payoff_text`); touch never hovers. The tree lays advances
-  by depth (`TechTreeLayout`) with edges and the selected advance's
-  road (`REQ-P5-03`, `REQ-P1-05`).
+  AVAILABLE/KNOWN tabs, a tech-tree door. Slots show ducats and a gauge
+  (`ResearchBar`); every advance prints what it opens
+  (`TechCatalog.payoff_text`); touch never hovers. The tree lays advances by
+  depth (`TechTreeLayout`) with edges and the selected road.
+- **Phone sheet (DR-20261120-03):** the college budgets its plate, a phone
+  rides the goal strip in the slots heading, and the plate never outgrows its
+  box — the window yields (`ResearchSheetFit`).
 
 ## Deferred (REQ-P2-02)
 

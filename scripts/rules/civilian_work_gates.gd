@@ -7,7 +7,7 @@ extends RefCounted
 
 
 static func deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason, "cost": {}, "duration": 0}
+	return OrderVerdict.deny(reason, {"cost": {}, "duration": 0})
 
 
 ## Action-specific start check after the unit, tile and province are already

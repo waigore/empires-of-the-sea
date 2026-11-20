@@ -24,6 +24,11 @@ static func build(
 	wings_open: Dictionary
 ) -> Dictionary:
 	var gates: Dictionary = opening["gates"]
+	## The gates as the siege opened on them, beside the ones it left: the plate
+	## is populated before the first round plays, so its opening line reads this
+	## snapshot and the aftermath reads the final `gates`
+	## (REQ-P5-05, REQ-P5-06; wiki: siege-mechanics § Gates and Sortie).
+	var gates_open: Dictionary = opening.get("gates_open", gates) as Dictionary
 	var atk_mods: Dictionary = mods["attacker"]
 	var def_mods: Dictionary = mods["defender"]
 	var report: Dictionary = {
@@ -48,8 +53,9 @@ static func build(
 		},
 		"sorties": sortie_count(rounds),
 		"terrain": String(opening["terrain"]),
-		"terrain_label": SiegeLanes.terrain_label(String(opening["terrain"])),
+		"terrain_label": SiegeGround.terrain_label(String(opening["terrain"])),
 		"gates": gates.duplicate(),
+		"gates_open": gates_open.duplicate(),
 		"breaches": int(gates.get("broken", 0)),
 		"limits": {
 			"attacker": int(atk_mods["limit"]),

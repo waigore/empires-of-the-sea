@@ -167,11 +167,7 @@ static func dispatch(
 
 
 static func idle_engineers(units: Array[CivilianState], owner: int) -> Array[CivilianState]:
-	var result: Array[CivilianState] = [] as Array[CivilianState]
-	for unit: CivilianState in units:
-		if unit != null and unit.owner == owner and unit.type_id == ENGINEER and unit.is_idle():
-			result.append(unit)
-	return result
+	return CivilianWork.idle_crews(units, owner, ENGINEER)
 
 
 ## Closest idle Engineer by Manhattan distance; ties break on unit id, exactly
@@ -179,14 +175,7 @@ static func idle_engineers(units: Array[CivilianState], owner: int) -> Array[Civ
 static func nearest_engineer(
 	units: Array[CivilianState], owner: int, tile: Vector2i
 ) -> CivilianState:
-	var best: CivilianState = null
-	var best_distance: int = 1 << 30
-	for unit: CivilianState in idle_engineers(units, owner):
-		var distance: int = absi(unit.tile.x - tile.x) + absi(unit.tile.y - tile.y)
-		if distance < best_distance or (distance == best_distance and unit.id < best.id):
-			best = unit
-			best_distance = distance
-	return best
+	return CivilianWork.nearest_crew(units, owner, tile, ENGINEER)
 
 
 static func _tile_of(model: MapModel, index: int) -> Vector2i:

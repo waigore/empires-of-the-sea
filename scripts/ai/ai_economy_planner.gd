@@ -192,7 +192,8 @@ static func _bench_room(economy: PlayerEconomy) -> Dictionary:
 ## ninety turns (issue #995's frozen-court reading).
 static func recruitment_orders(
 	config: AiConfig, economy: PlayerEconomy, floor: int = 0, fed_slack: int = -1,
-	hands: int = 0, conquest_bank: bool = false
+	hands: int = 0, conquest_bank: bool = false,
+	harvest_slack: int = -2
 ) -> Array[Dictionary]:
 	var orders: Array[Dictionary] = []
 	if config == null or economy == null:
@@ -215,9 +216,23 @@ static func recruitment_orders(
 	# even have a chest — `army.min_peasants` plus the levy's own hand spare.
 	var levy_floor: int = maxi(config.parameter("army.min_peasants"), 0) \
 		+ RegimentEconomy.WORKER_COST
+	# The bar the harvest carries (issue #1059): while the court banks for the
+	# army its conquest needs, the pool it hires is the levy's own provision —
+	# the levy floor, not `economy.worker_target`. Every mouth past the levy's
+	# hand eats one of the rations the muster's own gate plans with, and the
+	# measured probe watched the farms' growth (+7 rations a turn by t80) fall
+	# whole into six new mouths — the slack sat at 0 for a hundred turns and
+	# the muster's ration gate with it. The pace reads the harvest slack: a
+	# court whose land cannot carry one more ration hires no mouth this turn.
+	# A caller with no reading keeps the published target.
+	var pool_target: int = (
+		maxi(levy_floor, economy.workers.count(WorkerPool.Tier.PEASANT))
+		if conquest_bank and harvest_slack >= -1
+		else target
+	)
 	var sim: PlayerEconomy = economy.copy()
 	for _turn in maxi(config.parameter("economy.max_recruits"), 0):
-		if sim.workers.total() >= target:
+		if sim.workers.total() >= pool_target:
 			break
 		var tier: int = -1
 		if conquest_bank and sim.available_peasants() < levy_floor:
@@ -228,11 +243,25 @@ static func recruitment_orders(
 			# peasants for a hundred and ninety turns: no hands, no chest, no
 			# line, and every worker it could afford consumed one.
 			tier = WorkerPool.Tier.PEASANT
+		elif conquest_bank and harvest_slack >= -1 \
+				and sim.available_peasants() >= levy_floor:
+			# The pool carries the levy: while the bank holds with a harvest
+			# to pace by, the trained tiers wait — a hire the muster cannot
+			# afford to feed is not the army's provision (issue #1059). A
+			# caller with no reading keeps the published ladder.
+			break
 		else:
 			tier = _best_tier(sim)
 		if tier < 0:
 			break
 		if fed_slack != -1 and fed_slack < WorkerPool.FOOD_PER_WORKER[tier]:
+			break
+		# The harvest carries the mouth (issue #1059): the reading the muster's
+		# own gate plans with — one hire eats one of the rations that gate
+		# wants for the levy. The bank's own pace; a court not banking keeps
+		# the published gate alone. The −2 sentinel keeps the no-reading.
+		if conquest_bank and harvest_slack >= -1 \
+				and harvest_slack < WorkerPool.FOOD_PER_WORKER[tier]:
 			break
 		if WorkerPool.RECRUIT_CONSUMES_PEASANTS[tier] \
 				and sim.workers.count(WorkerPool.Tier.PEASANT) <= hand_floor:
@@ -249,6 +278,8 @@ static func recruitment_orders(
 		if not bool(result.get("ok", false)):
 			break
 		fed_slack -= WorkerPool.FOOD_PER_WORKER[tier]
+		if conquest_bank and harvest_slack >= -1:
+			harvest_slack -= WorkerPool.FOOD_PER_WORKER[tier]
 		orders.append({"tier": tier})
 	return orders
 

@@ -1,21 +1,14 @@
 class_name AiDiplomacyTreaties
 extends RefCounted
 ## The treaty rungs a rival court weighs: the next overture in the chain, the
-## formal alliance, and what the binding pact changes about both (wiki:
-## diplomacy § Overtures, § GP AI policy; issues #750, #752). Split from
-## [AiDiplomacyOffers] so no AI module outgrows the size bar (REQ-P3-01).
-## Pure rules: state in, candidate out (REQ-P3-03).
+## formal alliance, and the answer the rules give an absorption (wiki:
+## diplomacy § Overtures, § Join Empire, § GP AI policy; issues #750, #752).
+## Split from [AiDiplomacyOffers] so no AI module outgrows the size bar
+## (REQ-P3-01). The deed nudge and the pact lock that once lived here moved
+## (issues #724, #841): the seller is named once by `AiMerchantWork`, and the
+## pact is priced as published by its own rules module. Pure rules: state in,
+## candidate out (REQ-P3-03).
 
-## A court that has Merchant Companies and could sign a deed with this Minor or
-## Tribe wants its envoy chain opened, so the Consulate/Embassy outranks the small
-## peaceful orders it competes with — and is offered even when the court is in no
-## mood to improve relations for their own sake (wiki: civilian-units § Merchant).
-const LAND_ENVOY_BONUS: int = 12
-
-## A pact signed to lock a peace: below this war desire a court values the
-## binding pact for the war ban it carries (issue #752).
-const NAP_LOCK_MAX_DESIRE: int = 40
-const NAP_LOCK_BONUS: int = 8
 ## Join Empire to a court that would say no only burns the one order: the
 ## candidate is worth taking when the target's answer is likely yes
 ## (wiki: diplomacy § Join Empire; issue #752).
@@ -23,8 +16,8 @@ const JOIN_EMPIRE_ACCEPT_BONUS: int = 30
 
 
 ## The best treaty candidate for one court: a formal alliance once the pair is
-## Allied, else the next free overture — scored for the peace lock, the land the
-## chain would open, and the target's plausible answer to absorption.
+## Allied, else the next free overture — scored for the colony the chain serves
+## and the target's plausible answer to absorption.
 static func best(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -38,10 +31,6 @@ static func best(
 	tech: Dictionary,
 	context: Dictionary = {}
 ) -> Dictionary:
-	var bonus: int = _land_envoy_bonus(
-		state, world, config.faction, target, tech,
-		context.get("charts", null), _deed_seller(state, world, config.faction, context)
-	)
 	# The conquest bank (issue #995): a court short of the bar whose host is
 	# still under strength, with its purse one line-cycle short of the
 	# chest, is saving for its next line — and a paid envoy rung is a
@@ -60,7 +49,7 @@ static func best(
 		state, world, context.get("charts", null), config.faction, target, treasury, tech,
 		AiPhasePlanner.phase_for(config, state)
 	)
-	var chain_matters: bool = bonus > 0 or bool(colony.get("wanted", false)) \
+	var chain_matters: bool = bool(colony.get("wanted", false)) \
 		or bool(colony.get("held", false))
 	if improve < min_improve and not chain_matters:
 		return _blocked("improve-relations desire too low", AiDiplomacyOffers.KIND_OVERTURE)
@@ -86,13 +75,9 @@ static func best(
 		else 0
 	)
 	if not next.is_empty():
-		var absorb: Dictionary = _absorption(
-			config, world, target, next, context
-		)
+		var absorb: Dictionary = _absorption(world, config.faction, target, next, context)
 		if bool(absorb.get("read", false)) and not bool(absorb.get("accept", false)):
-			return _blocked(
-				"the crown would refuse absorption", AiDiplomacyOffers.KIND_OVERTURE
-			)
+			return _blocked(absorb["reason"], AiDiplomacyOffers.KIND_OVERTURE)
 		var check: Dictionary = DiplomacyRules.can_establish_overture(
 			state, world, config.faction, target, next, treasury, tech
 		)
@@ -110,89 +95,21 @@ static func best(
 	if best_entry.is_empty():
 		return _blocked("no legal treaty", AiDiplomacyOffers.KIND_OVERTURE)
 	if String(best_entry["kind"]) == AiDiplomacyOffers.KIND_OVERTURE:
-		var raise: int = bonus
-		if bool(best_entry.get("tribe_colony", false)):
-			raise += colony_raise
-		raise += _nap_lock_bonus(
-			target, String(best_entry.get("stage", "")), 100 - improve
-		)
-		best_entry["utility"] = clampi(int(best_entry["utility"]) + raise, 0, 100)
+		if bool(best_entry.get("tribe_colony", false)) and colony_raise > 0:
+			best_entry["utility"] = clampi(
+				int(best_entry["utility"]) + colony_raise, 0, 100
+			)
 	return best_entry
 
 
-## The single seller this court warms for a deed: the reading the planner hands
-## in (one scan per court per turn) or, for a caller that named none, the same
-## cheapest-offer scan the merchant module runs. -1 when no charted seller
-## offers one (issue #841).
-static func _deed_seller(
-	state: DiplomacyState, world: WorldMap, faction: int, context: Dictionary
-) -> int:
-	if context.has("deed_seller"):
-		return int(context["deed_seller"])
-	return AiMerchantWork.deed_seller(
-		world, faction, context.get("charts", null), state
-	)
-
-
-## The land-deed nudge for this target: a Minor or Tribe this court could buy
-## from once an envoy reaches it, while no embassy stands yet and the court holds
-## the merchant tech. The tech is the buyer the chain serves — a court with no
-## Merchant to walk the last rung has nothing to open a chain for, and a chain
-## opened on credit warms the relation past the war ceiling and bars the conquest
-## for nothing (issue #724, measured 2026-11-15). The purse is not read: the
-## chain takes turns to walk and the purse refills while it does, so a priced
-## deed opens it even on this turn's floor (issue #724 task 2). Only charted land
-## counts: a province never reached offers nothing it can price, while any
-## charted region's offer counts, so a court that has not yet met the seller can
-## still want the door opened (wiki: civilian-units § Merchant;
-## fog-and-exploration § Visibility Levels).
-##
-## **One seller, by name** (issue #841): the nudge goes to the court's cheapest
-## deed partner alone, never to every charted Minor with a priced offer. Warmth
-## is the same scale that bars a declaration, so warming every seller closed the
-## conquest path outright (issue #724 round 3); a court now buys from the one
-## minor it means to trade with and keeps its war-path minors cold.
-static func _land_envoy_bonus(
-	state: DiplomacyState,
-	world: WorldMap,
-	faction: int,
-	target: int,
-	tech: Dictionary,
-	charts: CourtCharts = null,
-	deed_seller: int = -1
-) -> int:
-	if world == null or state == null:
-		return 0
-	var kind: int = FactionCatalog.type_of(target)
-	if kind != FactionCatalog.Type.MINOR_NATION and kind != FactionCatalog.Type.TRIBE:
-		return 0
-	if DiplomacyRules.has_embassy(state, faction, target):
-		return 0
-	if not CivilianCatalog.is_unlocked("merchant", tech):
-		return 0
-	if target != deed_seller:
-		return 0
-	for index in world.region_count():
-		var model: MapModel = world.region(index)
-		if model == null:
-			continue
-		var view: VisibilityModel = charts.model_for(faction, index) if charts != null else null
-		if AiMerchantWork.priced_offer(model, faction, target, view) > 0:
-			return LAND_ENVOY_BONUS
-	return 0
-
-
 ## The Join Empire rung a Great Power target would refuse only burns the court's
-## one order: it is offered when the target's answer is plausibly yes, and the
-## accept-likely rung carries the absorption bonus (issue #752). A caller that
-## supplies no world or no power map gets `read: false`, which keeps the rung
-## offered at its plain worth.
+## one order, so the rung is read before it is priced (issue #752). The answer
+## is the rule's own (`DiplomacyRules.answer_join_empire`), the same call the
+## absorption takes on the court — the AI never prices a yes the rule refuses.
+## A caller that supplies no world or no power map gets `read: false`, which
+## keeps the rung offered at its plain worth.
 static func _absorption(
-	config: AiConfig,
-	world: WorldMap,
-	target: int,
-	next: String,
-	context: Dictionary
+	world: WorldMap, faction: int, target: int, next: String, context: Dictionary
 ) -> Dictionary:
 	if next != DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 		return {}
@@ -201,9 +118,12 @@ static func _absorption(
 	var power: Dictionary = (context.get("power", {}) as Dictionary)
 	if world == null or power.is_empty():
 		return {}
+	if DiplomacyRules.answer_join_empire(world, faction, target, power):
+		return {"read": true, "accept": true, "reason": ""}
 	return {
 		"read": true,
-		"accept": DiplomacyRules.accepts_join_empire(world, config.faction, target, power),
+		"accept": false,
+		"reason": "the crown would refuse absorption",
 	}
 
 
@@ -211,7 +131,8 @@ static func _absorption(
 ## True when the pact break on the table is the order this court's conquest
 ## waits behind (issue #995): the court stands short of the bar with its host
 ## already built — not banking, for the break's own gate has already held it
-## out of the offers while the bank filled (`AiDiplomacyOffers._break_nap`) —
+## out of the offers while the bank filled (`AiDiplomacyOffers._break_nap`) and
+## the war it opens has already passed `AiDiplomacyGates.pact_break_block` —
 ## the best offer is the pact break on a Great Power, and the best war, if one
 ## stands, is not itself the front the bar counts (a war on a Minor Nation or a
 ## Tribe is colonial business, never the big holder's land). A Great Power war
@@ -238,18 +159,6 @@ static func pact_break_leads(
 	) == FactionCatalog.Type.GREAT_POWER:
 		return false
 	return true
-
-
-## The pact rung's worth as a peace lock against a peer the court does not mean
-## to fight (issue #752).
-static func _nap_lock_bonus(target: int, next: String, desire: int) -> int:
-	if next != DiplomacyCatalog.STAGE_NAP:
-		return 0
-	if FactionCatalog.type_of(target) != FactionCatalog.Type.GREAT_POWER:
-		return 0
-	if desire > NAP_LOCK_MAX_DESIRE:
-		return 0
-	return NAP_LOCK_BONUS
 
 
 static func _offer(kind: String, target: int, utility: int) -> Dictionary:

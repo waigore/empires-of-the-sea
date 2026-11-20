@@ -49,6 +49,35 @@ func test_terrain_uses_the_dominant_type_and_favours_the_defender() -> void:
 	assert_almost_eq(ArmyModifiers.terrain_multiplier(MapModel.Terrain.PLAINS), 1.0, 0.001)
 
 
+## A province that names no tiles grounds the battle on plains, and its ranking
+## is empty — the sheet then has no runner-up to print (issue #1084).
+func test_a_province_with_no_tiles_falls_back_to_plains() -> void:
+	var model := Fixture.build()
+	assert_eq(ArmyModifiers.terrain_ranking(model, MapModel.NO_ID), [] as Array[int])
+	assert_eq(ArmyModifiers.terrain_for(model, MapModel.NO_ID), MapModel.Terrain.PLAINS)
+
+
+## The ranking lists every terrain the province holds, most common first, so the
+## sheet can name the runner-up without a second walk of the tiles (issue #1084).
+func test_terrain_ranking_reads_most_common_first() -> void:
+	var model := Fixture.build()
+	var tiles: Array = model.province_tiles(0)
+	for index in tiles.size():
+		var tile: Vector2i = tiles[index]
+		var terrain: int = MapModel.Terrain.PLAINS
+		if index == 0:
+			terrain = MapModel.Terrain.SWAMP
+		elif index == 1:
+			terrain = MapModel.Terrain.HILLS
+		model.terrain[model.index_of(tile.x, tile.y)] = terrain
+	var ranked: Array[int] = ArmyModifiers.terrain_ranking(model, 0)
+	assert_eq(ranked.size(), 3)
+	assert_eq(ranked[0], MapModel.Terrain.PLAINS, "the commonest ground leads")
+	# Hills and swamp tie at one tile each: the lower terrain id runs second.
+	assert_eq(ranked[1], MapModel.Terrain.HILLS)
+	assert_eq(ranked[2], MapModel.Terrain.SWAMP)
+
+
 ## The forest split prints both sides of the terrain: 0.9 for the attacker and
 ## 1.5 / 1.1 for the defender (wiki: resource-terrain-region-rules
 ## § Acceptance Criteria).
@@ -3042,7 +3071,7 @@ func _wall_volley_losses(types: Array[String]) -> int:
 			"lanes": SiegeLanes.line_ids(defender, 10),
 		},
 		"terrain": "open",
-		"gates": SiegeLanes.gates_for(1),
+		"gates": SiegeGates.gates_for(1),
 	}
 	var entry: Dictionary = QuickBattleActions.resolve(
 		armies, state, "defender", "attacker", "volley", []
@@ -3355,7 +3384,7 @@ func test_the_report_slice_reads_the_opening_it_is_handed() -> void:
 	assert_eq(int(slice["attacker_start"]), 6)
 	assert_eq(int(slice["defender_start"]), 4)
 	assert_eq(String(slice["terrain"]), "hill")
-	assert_eq(String(slice["terrain_label"]), SiegeLanes.terrain_label("hill"))
+	assert_eq(String(slice["terrain_label"]), SiegeGround.terrain_label("hill"))
 	assert_eq(int(slice["lanes"]["wall"]), 2)
 	assert_eq(int(slice["lanes"]["behind"]), 1)
 	assert_eq(int(slice["breaches"]), 1)
@@ -3390,16 +3419,16 @@ func _cp_spent(round: Dictionary, side: int) -> int:
 
 func test_lane_terrain_follows_the_ground() -> void:
 	var model := Fixture.build()
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "open", "plains without a fort")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 1), "town", "a fort rings its town")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "open", "plains without a fort")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 1), "town", "a fort rings its town")
 	_set_ground(model, 2, MapModel.Terrain.HILLS)
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "hill")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 2), "hill", "broken ground keeps its character")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "hill")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 2), "hill", "broken ground keeps its character")
 	_set_ground(model, 2, MapModel.Terrain.HARDWOOD_FOREST)
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "woods")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "woods")
 	_set_ground(model, 2, MapModel.Terrain.SWAMP)
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "marsh")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "town"), "town", "a playtest may override")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "marsh")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0, "town"), "town", "a playtest may override")
 
 
 ## The ground is published as `marsh` (wiki: quick-battle § Terrain;
@@ -3409,15 +3438,15 @@ func test_the_marsh_ground_speaks_the_published_id() -> void:
 	var model := Fixture.build()
 	_set_ground(model, 2, MapModel.Terrain.SWAMP)
 
-	assert_true(SiegeLanes.TERRAIN.has("marsh"), "the published id is the table key")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "marsh"), "marsh",
+	assert_true(SiegeGround.TERRAIN.has("marsh"), "the published id is the table key")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0, "marsh"), "marsh",
 		"the documented playtest override is honoured")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "swamp"), "marsh",
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0, "swamp"), "marsh",
 		"the map enum name is not a lane id; it falls back to the province ground")
-	assert_almost_eq(SiegeLanes.terrain_scale("volley", "marsh"), 0.9, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("assault", "marsh"), 0.7, 0.001)
-	assert_almost_eq(SiegeLanes.entrench_scale("marsh"), 0.8, 0.001)
-	assert_eq(SiegeLanes.terrain_label("marsh"), "Marsh")
+	assert_almost_eq(SiegeGround.terrain_scale("volley", "marsh"), 0.9, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("assault", "marsh"), 0.7, 0.001)
+	assert_almost_eq(SiegeGround.entrench_scale("marsh"), 0.8, 0.001)
+	assert_eq(SiegeGround.terrain_label("marsh"), "Marsh")
 
 	var battle: Dictionary = _siege_fight(
 		"balanced", _repeat("guards", 8), _repeat("musketeers", 6), 0, "marsh"
@@ -3431,32 +3460,32 @@ func test_the_marsh_ground_speaks_the_published_id() -> void:
 
 
 func test_terrain_scales_the_action_tables() -> void:
-	assert_almost_eq(SiegeLanes.terrain_scale("volley", "open"), 1.0, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("assault", "town"), 0.55, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("assault", "woods"), 0.6, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("volley", "woods"), 0.75, 0.001)
-	assert_almost_eq(SiegeLanes.entrench_scale("town"), 1.4, 0.001)
-	assert_almost_eq(SiegeLanes.entrench_scale("marsh"), 0.8, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("entrench", "town"), 1.0, 0.001, "no damage")
-	assert_eq(SiegeLanes.terrain_label("hill"), "Hillside")
-	assert_eq(SiegeLanes.terrain_label("unknown"), "Open field")
+	assert_almost_eq(SiegeGround.terrain_scale("volley", "open"), 1.0, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("assault", "town"), 0.55, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("assault", "woods"), 0.6, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("volley", "woods"), 0.75, 0.001)
+	assert_almost_eq(SiegeGround.entrench_scale("town"), 1.4, 0.001)
+	assert_almost_eq(SiegeGround.entrench_scale("marsh"), 0.8, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("entrench", "town"), 1.0, 0.001, "no damage")
+	assert_eq(SiegeGround.terrain_label("hill"), "Hillside")
+	assert_eq(SiegeGround.terrain_label("unknown"), "Open field")
 
 
 func test_three_gates_open_one_at_a_time() -> void:
-	var gates: Dictionary = SiegeLanes.gates_for(2)
+	var gates: Dictionary = SiegeGates.gates_for(2)
 	assert_eq(int(gates["max"]), 3)
 	assert_eq(int(gates["threshold"]), 7, "20 wall HP shared by three gates")
-	assert_false(SiegeLanes.breached(gates))
-	assert_eq(SiegeLanes.batter(gates, 6), 0, "six casualties do not open a gate")
-	assert_eq(SiegeLanes.batter(gates, 1), 1, "the seventh does")
-	assert_true(SiegeLanes.breached(gates))
-	assert_almost_eq(SiegeLanes.breach_share(gates), 1.0 / 3.0, 0.001)
-	assert_eq(SiegeLanes.batter(gates, 20), 2, "the rest fall in one blow")
+	assert_false(SiegeGates.breached(gates))
+	assert_eq(SiegeGates.batter(gates, 6), 0, "six casualties do not open a gate")
+	assert_eq(SiegeGates.batter(gates, 1), 1, "the seventh does")
+	assert_true(SiegeGates.breached(gates))
+	assert_almost_eq(SiegeGates.breach_share(gates), 1.0 / 3.0, 0.001)
+	assert_eq(SiegeGates.batter(gates, 20), 2, "the rest fall in one blow")
 	assert_eq(int(gates["broken"]), 3, "three gates and no more")
-	assert_eq(SiegeLanes.batter(gates, 20), 0)
-	assert_true(SiegeLanes.gates_for(0).is_empty(), "no fort, no gates")
-	assert_eq(SiegeLanes.breach_threshold(0), 0)
-	assert_eq(SiegeLanes.batter({}, 4), 0, "a field battle has no gate state")
+	assert_eq(SiegeGates.batter(gates, 20), 0)
+	assert_true(SiegeGates.gates_for(0).is_empty(), "no fort, no gates")
+	assert_eq(SiegeGates.breach_threshold(0), 0)
+	assert_eq(SiegeGates.batter({}, 4), 0, "a field battle has no gate state")
 
 
 func test_a_breach_sheds_the_wall_and_opens_the_behind_lane() -> void:
@@ -3484,7 +3513,7 @@ func _breach_strike(broken: int) -> Dictionary:
 	types.append_array(_repeat("culverin", 2))
 	var defender: Array[ArmyState] = _side(types, 1)
 	var armies: Array[ArmyState] = _joined(attacker, defender)
-	var gates: Dictionary = SiegeLanes.gates_for(2)
+	var gates: Dictionary = SiegeGates.gates_for(2)
 	gates["broken"] = broken
 	return SiegeLanes.strike(armies, attacker, defender, 12, 20, 2, false, gates)
 
@@ -5467,16 +5496,16 @@ func land__repeat(type_id: String, count: int) -> Array[String]:
 
 func test_land_lane_terrain_follows_the_ground() -> void:
 	var model := siege_depth_Fixture.build()
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "open", "plains without a fort")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 1), "town", "a fort rings its town")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "open", "plains without a fort")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 1), "town", "a fort rings its town")
 	land__set_ground(model, 2, MapModel.Terrain.HILLS)
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "hill")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 2), "hill", "broken ground keeps its character")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "hill")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 2), "hill", "broken ground keeps its character")
 	land__set_ground(model, 2, MapModel.Terrain.HARDWOOD_FOREST)
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "woods")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "woods")
 	land__set_ground(model, 2, MapModel.Terrain.SWAMP)
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0), "marsh")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "town"), "town", "a playtest may override")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0), "marsh")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0, "town"), "town", "a playtest may override")
 
 ## The ground is published as `marsh` (wiki: quick-battle § Terrain;
 ## DR-20261110-27): a swamp province fights on marsh ground and the documented
@@ -5485,15 +5514,15 @@ func test_land_the_marsh_ground_speaks_the_published_id() -> void:
 	var model := siege_depth_Fixture.build()
 	land__set_ground(model, 2, MapModel.Terrain.SWAMP)
 
-	assert_true(SiegeLanes.TERRAIN.has("marsh"), "the published id is the table key")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "marsh"), "marsh",
+	assert_true(SiegeGround.TERRAIN.has("marsh"), "the published id is the table key")
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0, "marsh"), "marsh",
 		"the documented playtest override is honoured")
-	assert_eq(SiegeLanes.lane_terrain(model, 2, 0, "swamp"), "marsh",
+	assert_eq(SiegeGround.lane_terrain(model, 2, 0, "swamp"), "marsh",
 		"the map enum name is not a lane id; it falls back to the province ground")
-	assert_almost_eq(SiegeLanes.terrain_scale("volley", "marsh"), 0.9, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("assault", "marsh"), 0.7, 0.001)
-	assert_almost_eq(SiegeLanes.entrench_scale("marsh"), 0.8, 0.001)
-	assert_eq(SiegeLanes.terrain_label("marsh"), "Marsh")
+	assert_almost_eq(SiegeGround.terrain_scale("volley", "marsh"), 0.9, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("assault", "marsh"), 0.7, 0.001)
+	assert_almost_eq(SiegeGround.entrench_scale("marsh"), 0.8, 0.001)
+	assert_eq(SiegeGround.terrain_label("marsh"), "Marsh")
 
 	var battle: Dictionary = _siege_depth_fight(
 		"balanced", _siege_depth_repeat("guards", 8), _siege_depth_repeat("musketeers", 6), 0, "marsh"
@@ -5506,31 +5535,31 @@ func test_land_the_marsh_ground_speaks_the_published_id() -> void:
 	)
 
 func test_land_terrain_scales_the_action_tables() -> void:
-	assert_almost_eq(SiegeLanes.terrain_scale("volley", "open"), 1.0, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("assault", "town"), 0.55, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("assault", "woods"), 0.6, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("volley", "woods"), 0.75, 0.001)
-	assert_almost_eq(SiegeLanes.entrench_scale("town"), 1.4, 0.001)
-	assert_almost_eq(SiegeLanes.entrench_scale("marsh"), 0.8, 0.001)
-	assert_almost_eq(SiegeLanes.terrain_scale("entrench", "town"), 1.0, 0.001, "no damage")
-	assert_eq(SiegeLanes.terrain_label("hill"), "Hillside")
-	assert_eq(SiegeLanes.terrain_label("unknown"), "Open field")
+	assert_almost_eq(SiegeGround.terrain_scale("volley", "open"), 1.0, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("assault", "town"), 0.55, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("assault", "woods"), 0.6, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("volley", "woods"), 0.75, 0.001)
+	assert_almost_eq(SiegeGround.entrench_scale("town"), 1.4, 0.001)
+	assert_almost_eq(SiegeGround.entrench_scale("marsh"), 0.8, 0.001)
+	assert_almost_eq(SiegeGround.terrain_scale("entrench", "town"), 1.0, 0.001, "no damage")
+	assert_eq(SiegeGround.terrain_label("hill"), "Hillside")
+	assert_eq(SiegeGround.terrain_label("unknown"), "Open field")
 
 func test_land_three_gates_open_one_at_a_time() -> void:
-	var gates: Dictionary = SiegeLanes.gates_for(2)
+	var gates: Dictionary = SiegeGates.gates_for(2)
 	assert_eq(int(gates["max"]), 3)
 	assert_eq(int(gates["threshold"]), 7, "20 wall HP shared by three gates")
-	assert_false(SiegeLanes.breached(gates))
-	assert_eq(SiegeLanes.batter(gates, 6), 0, "six casualties do not open a gate")
-	assert_eq(SiegeLanes.batter(gates, 1), 1, "the seventh does")
-	assert_true(SiegeLanes.breached(gates))
-	assert_almost_eq(SiegeLanes.breach_share(gates), 1.0 / 3.0, 0.001)
-	assert_eq(SiegeLanes.batter(gates, 20), 2, "the rest fall in one blow")
+	assert_false(SiegeGates.breached(gates))
+	assert_eq(SiegeGates.batter(gates, 6), 0, "six casualties do not open a gate")
+	assert_eq(SiegeGates.batter(gates, 1), 1, "the seventh does")
+	assert_true(SiegeGates.breached(gates))
+	assert_almost_eq(SiegeGates.breach_share(gates), 1.0 / 3.0, 0.001)
+	assert_eq(SiegeGates.batter(gates, 20), 2, "the rest fall in one blow")
 	assert_eq(int(gates["broken"]), 3, "three gates and no more")
-	assert_eq(SiegeLanes.batter(gates, 20), 0)
-	assert_true(SiegeLanes.gates_for(0).is_empty(), "no fort, no gates")
-	assert_eq(SiegeLanes.breach_threshold(0), 0)
-	assert_eq(SiegeLanes.batter({}, 4), 0, "a field battle has no gate state")
+	assert_eq(SiegeGates.batter(gates, 20), 0)
+	assert_true(SiegeGates.gates_for(0).is_empty(), "no fort, no gates")
+	assert_eq(SiegeGates.breach_threshold(0), 0)
+	assert_eq(SiegeGates.batter({}, 4), 0, "a field battle has no gate state")
 
 func test_land_a_breach_sheds_the_wall_and_opens_the_behind_lane() -> void:
 	var sheltered: Dictionary = land__breach_strike(0)
@@ -5556,7 +5585,7 @@ func land__breach_strike(broken: int) -> Dictionary:
 	types.append_array(_siege_depth_repeat("culverin", 2))
 	var defender: Array[ArmyState] = land__side(types, 1)
 	var armies: Array[ArmyState] = land__joined(attacker, defender)
-	var gates: Dictionary = SiegeLanes.gates_for(2)
+	var gates: Dictionary = SiegeGates.gates_for(2)
 	gates["broken"] = broken
 	return SiegeLanes.strike(armies, attacker, defender, 12, 20, 2, false, gates)
 
@@ -8187,7 +8216,7 @@ func test_a_siege_blow_never_bleeds_the_reserves_foot() -> void:
 	assert_eq(reserve.size(), 14, "twenty-four regiments keep fourteen in reserve")
 
 	var split: Dictionary = SiegeLanes.strike(
-		armies, attacker, defended, 5, limit, 1, false, SiegeLanes.gates_for(1)
+		armies, attacker, defended, 5, limit, 1, false, SiegeGates.gates_for(1)
 	)
 
 	assert_eq((split["wall"] as Array).size(), 4, "a wood wall spares a share of the blow")
@@ -8217,7 +8246,7 @@ func test_the_behind_lane_bleeds_the_lines_horse_not_the_reserve() -> void:
 	)
 
 	var split: Dictionary = SiegeLanes.strike(
-		armies, attacker, defended, 12, limit, 2, false, SiegeLanes.gates_for(2)
+		armies, attacker, defended, 12, limit, 2, false, SiegeGates.gates_for(2)
 	)
 
 	assert_true((split["behind"] as Array).size() > 0, "guns drop shot over the parapet")
@@ -8908,11 +8937,11 @@ func test_the_wall_line_differs_only_by_the_outcome() -> void:
 	battle["quick"]["fort_downgraded"] = true
 	battle["quick"]["fort_after"] = 2
 
-	var opened: String = QuickBattleCopy.siege_opening(battle)
-	var closed: String = QuickBattleCopy.siege_line(battle)
+	var opened: String = QuickBattleSiegeCopy.siege_opening(battle)
+	var closed: String = QuickBattleSiegeCopy.siege_line(battle)
 
 	assert_eq(closed, opened + " — battery silenced, the fort falls to Stone", closed)
-	assert_eq(QuickBattleCopy.siege_opening(_battle()), "", "no wall, no line")
+	assert_eq(QuickBattleSiegeCopy.siege_opening(_battle()), "", "no wall, no line")
 
 
 ## The siege despatch tells the lanes, the wall's protection and the level a
@@ -8925,14 +8954,14 @@ func test_the_siege_despatch_names_the_lanes_and_the_breach() -> void:
 	battle["quick"]["fort_downgraded"] = true
 	battle["quick"]["fort_after"] = 1
 
-	var line: String = QuickBattleCopy.siege_line(battle)
+	var line: String = QuickBattleSiegeCopy.siege_line(battle)
 
 	assert_true(line.contains("Stone fort"), line)
 	assert_true(line.contains("45%"), "the wall's damage reduction is told")
 	assert_true(line.contains("4 on the wall, 2 behind"), line)
 	assert_true(line.contains("1 sortie"), line)
 	assert_true(line.contains("falls to Wood"), line)
-	assert_eq(QuickBattleCopy.siege_line(_battle()), "", "a field battle has no siege line")
+	assert_eq(QuickBattleSiegeCopy.siege_line(_battle()), "", "a field battle has no siege line")
 
 
 ## Gates and ground: the siege despatch names the three gates and a breach, and
@@ -8941,12 +8970,12 @@ func test_gates_and_ground_are_told() -> void:
 	var battle: Dictionary = _battle()
 	battle["fort_level"] = 2
 	battle["quick"]["gates"] = {"max": 3, "broken": 0, "damage": 5, "threshold": 7}
-	assert_true(QuickBattleCopy.siege_line(battle).contains("3 gates hold"))
+	assert_true(QuickBattleSiegeCopy.siege_line(battle).contains("3 gates hold"))
 	(battle["quick"] as Dictionary)["gates"] = {
 		"max": 3, "broken": 1, "damage": 7, "threshold": 7,
 	}
-	assert_true(QuickBattleCopy.siege_line(battle).contains("1 of 3 gates breached"))
-	assert_eq(QuickBattleCopy.gates_text(_battle()["quick"]), "", "no fort, no gates")
+	assert_true(QuickBattleSiegeCopy.siege_line(battle).contains("1 of 3 gates breached"))
+	assert_eq(QuickBattleSiegeCopy.gates_text(_battle()["quick"]), "", "no fort, no gates")
 
 	var ground: Dictionary = _battle()
 	ground["quick"]["terrain"] = "town"
@@ -8964,6 +8993,72 @@ func test_gates_and_ground_are_told() -> void:
 	assert_true(
 		QuickBattleCopy.action_line(action, battle, NAMES).contains("1 gate breached")
 	)
+
+
+## The plate is drawn before the first round plays, so its wall line reads the
+## wall as the siege found it: three gates standing, no sally made. The breach
+## and the sally are the aftermath's news (REQ-P5-05, REQ-P5-06; wiki:
+## siege-mechanics § Gates and Sortie).
+func test_the_plate_opens_before_a_gate_is_breached() -> void:
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 2
+	battle["quick"]["lanes"] = {"wall": 5, "behind": 0}
+	battle["quick"]["gates_open"] = {"max": 3, "broken": 0, "damage": 0, "threshold": 7}
+	battle["quick"]["gates"] = {"max": 3, "broken": 2, "damage": 14, "threshold": 7}
+	battle["quick"]["sorties"] = 1
+
+	var opened: String = QuickBattleSiegeCopy.siege_opening(battle)
+	assert_true(opened.contains("3 gates hold"), opened)
+	assert_false(opened.contains("breached"), "the opening must not name a breach")
+	assert_false(opened.contains("sortie"), "nor a sally the garrison has yet to make")
+
+	var closed: String = QuickBattleSiegeCopy.siege_line(battle)
+	assert_true(closed.contains("2 of 3 gates breached"), closed)
+	assert_true(closed.contains("1 sortie"), closed)
+
+
+## The plate a player meets is populated before the replay starts, so the wall
+## it prints carries no breach and no sally (REQ-P5-06).
+func test_the_plate_shows_no_breach_before_the_replay() -> void:
+	var overlay := QuickBattleOverlay.new()
+	add_child(overlay)
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 1
+	battle["quick"]["gates_open"] = {"max": 3, "broken": 0, "damage": 0, "threshold": 4}
+	battle["quick"]["gates"] = {"max": 3, "broken": 1, "damage": 5, "threshold": 4}
+	battle["quick"]["sorties"] = 2
+
+	overlay.show_battle(battle, "Flanders", NAMES)
+
+	var wall: String = overlay._wall_label.text
+	assert_true(wall.contains("Wood fort"), wall)
+	assert_true(wall.contains("3 gates hold"), wall)
+	assert_false(wall.contains("breached"), "the replay has not been watched yet")
+	assert_false(wall.contains("sortie"), "the garrison has not sallied yet")
+	overlay.free()
+
+
+## The painted field opens on the wall's three gates and the deal's wings: the
+## breach and the break arrive with the rounds that make them (REQ-P5-06).
+func test_the_field_opens_with_no_breach_and_no_broken_wing() -> void:
+	var field := QuickBattleField.new()
+	add_child(field)
+	var battle: Dictionary = _battle()
+	battle["fort_level"] = 1
+	battle["quick"]["gates"] = {"max": 3, "broken": 2, "damage": 9, "threshold": 4}
+	battle["quick"]["wings_open"] = {
+		"attacker": {"left": 1, "center": 2, "right": 1},
+		"defender": {"left": 0, "center": 3, "right": 0},
+	}
+	battle["quick"]["wings_broken"] = {"attacker": [], "defender": ["center"]}
+
+	field.set_battle(battle)
+
+	assert_eq(field.gates_broken, 0, "the plate opens on three gates")
+	assert_true((field.defender_broken as Array).is_empty(), "no wing has broken yet")
+	field.set_round(0, 6, 2, 0, [], [], 1)
+	assert_eq(field.gates_broken, 1, "the round that breached a gate shows it")
+	field.free()
 
 
 ## Regiment detail in the aftermath: the named types each side lost.
@@ -9537,8 +9632,11 @@ func test_the_sea_plate_stands_one_medallion_per_hull_type() -> void:
 	plate.free()
 
 
+## The plates are the HUD's, not the chart's: this case rides the suite's one
+## mount like its neighbours (`_hud()`), so a second `MapScreen` boot under
+## coverage is not paid to read two queues (docs/testing.md § Speed rules).
 func test_the_hud_replays_sea_and_land_plates_one_at_a_time() -> void:
-	var screen: MapScreen = overlay_Fixture.attach_screen(self)
+	var screen: MapScreen = _hud()
 	screen.hud.show_naval_dispatch(_sea_battle(), "Mar Caribe")
 	assert_true(screen.hud.naval_plate.is_shown(), "the sea's despatch takes the court")
 	screen.hud.show_naval_dispatch(_sea_battle(), "Golfo de México")
@@ -9555,7 +9653,6 @@ func test_the_hud_replays_sea_and_land_plates_one_at_a_time() -> void:
 	screen.hud.naval_plate._on_continue()
 	assert_false(screen.hud.is_quick_battle_shown())
 	assert_false(screen.hud.naval_plate.is_shown())
-	screen.free()
 
 # --- The line's wings (wiki: quick-battle § Wings and collapse; DR-20261117-08)
 
@@ -9767,6 +9864,37 @@ func test_the_wings_line_lists_three_breaks_as_prose() -> void:
 
 	assert_true(text.contains("left, centre and right broken"), text)
 	assert_false(text.contains(" and centre and "), text)
+
+
+## A field battle's plate opens on the deal it was fought over, never on the
+## breaks the fight has yet to make: the stand-through and the "→" tail are the
+## aftermath's (REQ-P5-05, REQ-P5-06; wiki: quick-battle § Wings and collapse).
+func test_the_plate_opens_on_the_deal_not_the_breaks() -> void:
+	var battle: Dictionary = {
+		"attacker": 0,
+		"defender": 1,
+		"quick": {
+			"wings_open": {
+				"attacker": {"left": 1, "center": 2, "right": 1},
+				"defender": {"left": 0, "center": 3, "right": 0},
+			},
+			"wings": {
+				"attacker": {"left": 1, "center": 1, "right": 1},
+				"defender": {"left": 0, "center": 0, "right": 0},
+			},
+			"wings_broken": {"attacker": [], "defender": ["center"]},
+		},
+	}
+
+	var opened: String = QuickBattleCopy.wings_opening(battle, NAMES)
+
+	assert_eq(opened, "Wings — España: L 1 · C 2 · R 1 · England: L 0 · C 3 · R 0", opened)
+	assert_false(opened.contains("→"), "the opening must not read the aftermath")
+	assert_false(opened.contains("broken"), "no wing has broken when the plate opens")
+
+	var closed: String = QuickBattleCopy.wings_line(battle, NAMES)
+	assert_true(closed.contains("→ L 0 · C 0 · R 0"), closed)
+	assert_true(closed.contains("centre broken"), closed)
 
 
 ## A blow lands on a wing that still holds men: when the enemy line has lost its

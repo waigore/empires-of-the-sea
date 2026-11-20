@@ -3,7 +3,8 @@ extends RefCounted
 ## Patrol and blockade interception (wiki: ships-and-naval § Naval Interception
 ## Probability and § Missions and Movement). Pure rules and a deterministic
 ## roll keyed by seed, turn, zone and owners so identical inputs reproduce
-## (REQ-P2-04, REQ-P3-03).
+## (REQ-P2-04, REQ-P3-03). Which squadrons hold a station is [NavalStation]'s
+## reading, shared with the trade pass and the dossier.
 
 const MIN_CHANCE: float = 0.05
 const MAX_CHANCE: float = 0.85
@@ -115,7 +116,7 @@ static func attacker_owner(
 		# Only the squadrons holding the station roll: a Defend squadron or one
 		# merely passing through the zone is not part of the group
 		# (DR-20261109-16).
-		var holders: Array = _station_holders(model, group, hostile)
+		var holders: Array = NavalStation.group_from(model, group, hostile)
 		if holders.is_empty():
 			continue
 		var targets: Array = []
@@ -161,20 +162,28 @@ static func attacker_owner(
 	}
 
 
-## The squadrons actually holding a station this turn: Patrol, or a blockade
-## that still stands. Everything else in the zone is a bystander for the roll
-## (DR-20261109-16: "each Patrol/Blockade group attempts interception").
-static func _station_holders(
-	model: MapModel, group: Array, hostile: Callable
-) -> Array:
-	var holders: Array = []
-	for fleet: FleetState in group:
-		if fleet.mission == FleetState.Mission.PATROL:
-			holders.append(fleet)
-		elif fleet.mission == FleetState.Mission.BLOCKADE \
-				and FleetMissions.is_blockading(model, fleet, hostile):
-			holders.append(fleet)
-	return holders
+## What a station would catch this turn, read before the move: the chance on the
+## published formula and the hulls the targets stand. A caller with no station
+## (mission `NONE`) or nothing holding it reads an empty row — nothing rolls.
+## `unread` is the caller's fog reading: a rival the crown has not weighed is
+## left out of `targets`, so `chance` prices the read squadrons alone and the
+## flag says why the number is not the whole water (wiki: ships-and-naval
+## § Naval Interception Probability, § Sighted strength; REQ-P2-03).
+static func preview(
+	holders: Array, targets: Array, mission: int,
+	has_tech: Callable = Callable(), unread: bool = false
+) -> Dictionary:
+	if holders.is_empty() or mission == FleetState.Mission.NONE:
+		return {}
+	var hulls: int = 0
+	for fleet: FleetState in targets:
+		hulls += fleet.ship_count()
+	return {
+		"chance": chance(holders, targets, mission, has_tech),
+		"hulls": hulls,
+		"unread": unread,
+		"mission": mission,
+	}
 
 
 ## True when the intercepting crown holds Privateering Companies. The tech is

@@ -1,8 +1,9 @@
 class_name MapPlayFleetMissions
 extends RefCounted
 ## Fleet dossier station orders and the end-of-turn raid report. Rules stay in
-## FleetMissions/NavalRaid; this only builds rows, routes intents and refreshes
-## the dossier (wiki: ships-and-naval § Missions and Movement; DR-20261109-16).
+## FleetMissions/NavalRaid; the two station prices in MapPlayStationNotes; this
+## only builds rows, routes intents and refreshes the dossier (wiki:
+## ships-and-naval § Missions and Movement; DR-20261109-16).
 
 
 ## One button per station (Patrol, Defend, a Blockade target) plus the
@@ -31,7 +32,9 @@ static func rows(play: PlaySession, fleet: FleetState) -> Array[Dictionary]:
 
 
 ## The dossier's station line: a landing site outranks an ordinary station. A
-## crown that has chartered privateers also reads what the bonus is worth.
+## station at sea also reads what it would catch (`Interception:`) and what it
+## would take (`Prize:`), in the rule book's own order, and a crown that has
+## chartered privateers reads what the bonus is worth.
 static func note(play: PlaySession, fleet: FleetState) -> String:
 	if fleet == null or fleet.owner != play.player_faction:
 		return ""
@@ -43,6 +46,9 @@ static func note(play: PlaySession, fleet: FleetState) -> String:
 	if not fleet.is_at_sea():
 		return line
 	var extras: Array[String] = []
+	var catch_line: String = interception_note(play, fleet)
+	if not catch_line.is_empty():
+		extras.append(catch_line)
 	var prize: String = prize_note(play, fleet)
 	if not prize.is_empty():
 		extras.append(prize)
@@ -62,50 +68,26 @@ static func hint(play: PlaySession, fleet: FleetState) -> String:
 	return MapPlayBeachhead.hint(play, fleet)
 
 
-## What a standing blockade is worth this turn: the chance its raid rolls, the
-## cargo it would skim and the merchant hull it could send down — read before the
-## player commits the move (DR-20261111-17).
+## What a standing station takes this turn — see [MapPlayStationNotes.prize].
 static func prize_note(play: PlaySession, fleet: FleetState) -> String:
-	if fleet == null or fleet.owner != play.player_faction:
-		return ""
-	if fleet.mission != FleetState.Mission.BLOCKADE or play.model == null:
-		return ""
-	if fleet.blockade_province == MapModel.NO_ID:
-		return ""
-	var province: ProvinceState = play.model.province_data(fleet.blockade_province)
-	if province == null or province.owner == play.player_faction:
-		return ""
-	if play.economy == null or play.economy.market == null:
-		return ""
-	var imports: Dictionary = play.economy.market.imports_for(province.owner)
-	if imports.is_empty():
-		return "Prize: no cargo afloat off this coast this turn."
-	var home: FleetState = MapPlayRaids.home_fleet(play, province.owner)
-	if home == null:
-		return "Prize: the coast's merchant hulls are at sea — nothing to take."
-	var odds: Dictionary = NavalRaid.preview(
-		[fleet], home, imports, FleetState.Mission.BLOCKADE, play.has_tech
-	)
-	var chance: int = int(round(float(odds.get("chance", 0.0)) * 100.0))
-	var at_risk: String = String(odds.get("hull_at_risk", ""))
-	if at_risk.is_empty():
-		return "Prize: %d%% to take ~%d cargo — no merchant hull at risk." % [
-			chance, int(odds.get("expected", 0))
-		]
-	var hull_chance: int = int(round(float(odds.get("hull_chance", 0.0)) * 100.0))
-	return "Prize: %d%% to take ~%d cargo; a hit sinks a %s on %d%%." % [
-		chance, int(odds.get("expected", 0)),
-		ShipStats.display_name(at_risk), hull_chance,
-	]
+	return MapPlayStationNotes.prize(play, fleet)
 
 
-## The Privateering Companies bonus, phrased for the dossier (wiki:
-## ships-and-naval § Trade and Transport Interception).
+## What the station catches this turn — see [MapPlayStationNotes.catch].
+static func interception_note(play: PlaySession, fleet: FleetState) -> String:
+	return MapPlayStationNotes.catch(play, fleet)
+
+
+## One hull's name with its indefinite article — see
+## [MapPlayStationNotes.with_article].
+static func with_article(name: String) -> String:
+	return MapPlayStationNotes.with_article(name)
+
+
+## The Privateering Companies bonus, phrased for the dossier — see
+## [MapPlayStationNotes.privateers].
 static func privateer_note(play: PlaySession) -> String:
-	if not play.has_tech(play.player_faction, NavalInterception.PRIVATEERING_TECH):
-		return ""
-	var percent: int = int(round((NavalInterception.PRIVATEERING_BONUS - 1.0) * 100.0))
-	return "Privateers: interception and raids +%d%%." % percent
+	return MapPlayStationNotes.privateers(play)
 
 
 ## Routes a "mission:<kind>[:<province>]" order through the rules and refreshes

@@ -444,12 +444,22 @@ domain = "hostility"
 match = "scripts/rules/naval_raid.gd*"
 domain = "hostility"
 
+# Station holders for the catch and the prize (extracted from interception/
+# raid). Same hostility slice as those callers — not the naval_* → fleet glob.
+[[rules]]
+match = "scripts/rules/naval_station.gd*"
+domain = "hostility"
+
 [[rules]]
 match = "scripts/rules/naval_retreat.gd*"
 domain = "hostility"
 
 [[rules]]
 match = "scripts/rules/naval_transport.gd*"
+domain = "hostility"
+
+[[rules]]
+match = "scripts/rules/naval_deck.gd*"
 domain = "hostility"
 
 [[rules]]
@@ -545,6 +555,13 @@ domain = "sheet"
 match = "scripts/ui/modal_door.gd*"
 domain = "sheet"
 
+# The one drag every plate shares (issue #1081): the phone suite proves the
+# pointer path on a live dossier and on a bare plate, so a drag fix stays
+# inside the layout domain instead of the menu catch-all's six suites.
+[[rules]]
+match = "scripts/ui/modal_drag.gd*"
+domain = "layout"
+
 # The crown's news sheet is the Gazette's own surface (wiki: the-gazette): its
 # one suite drives the sheet, so a plate change never pays for the menu set.
 [[rules]]
@@ -618,6 +635,19 @@ domain = "fleet_split"
 [[rules]]
 match = "scripts/map/map_play_fleet_intel.gd*"
 domain = "naval_intel"
+
+# The dossier's station words (patrol, blockade, the catch it prices, the prize
+# it takes) are read by the naval rules suite, so the file rides that slice
+# instead of the eleven-suite `scripts/map/**` set (DR-20261120-02).
+[[rules]]
+match = "scripts/map/map_play_fleet_missions.gd*"
+domain = "hostility"
+
+# Station dossier prices extracted from fleet_missions; same slice so the
+# notes file does not pull the six-suite `scripts/map/**` map domain.
+[[rules]]
+match = "scripts/map/map_play_station_notes.gd*"
+domain = "hostility"
 
 [[rules]]
 match = "scripts/map/map_play_turn.gd*"
@@ -1794,9 +1824,10 @@ domain = "quick_battle"
 match = "scripts/rules/quick_battle_*.gd"
 domain = "quick_battle"
 
-# Siege lanes are resolved inside Quick Battle.
+# The siege's lanes, the ground they stand on and the gates that shelter them
+# are all resolved inside Quick Battle.
 [[rules]]
-match = "scripts/rules/siege_lanes.gd"
+match = "scripts/rules/siege_*.gd*"
 domain = "quick_battle"
 
 [[rules]]
@@ -2187,6 +2218,11 @@ domain = "fleet"
 match = "playtests/playtest_terrain_ground.gd*"
 domain = "map_mount"
 
+# Station catch/prize prices vs the pass; naval rules prove the numbers.
+[[rules]]
+match = "playtests/playtest_station_prices.gd*"
+domain = "hostility"
+
 [[rules]]
 match = "playtests/**"
 domain = "misc"
@@ -2327,6 +2363,26 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian_pick*.gd*"
 domain = "civilian_pick"
 
+# The court's own naval pick (DR-20261120-04): the reading that asks the
+# published naval policy what it would order a squadron. Its suites are the
+# fleet orders suite (planner, sheet, dossier) and the panel parts sheet, so it
+# names its own domain instead of pulling the fleet fan-out.
+[[rules]]
+match = "scripts/map/map_play_fleet_pick*.gd*"
+domain = "fleet_pick"
+
+# The mission block prints the pick under its station: keep the block off the
+# scripts/ui/** catch-all so a line change runs the pick's own slice.
+[[rules]]
+match = "scripts/ui/fleet_mission_section.gd*"
+domain = "fleet_pick"
+
+[domains.fleet_pick]
+suites = [
+  "test_fleet_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
 # The pick's door (wiki: playtest-learnings § next targets): the press that
 # frames the ground a pick names and opens the sheet that can press it. It
 # reads the pick and the map's own province door, so it rides the pick's slice.
@@ -2407,6 +2463,13 @@ suites = [
 
 [[rules]]
 match = "scripts/ai/ai_tribe_colony.gd*"
+domain = "ai_colony"
+
+# The one copy of the rival's war/peace/pact-break gates (split from the
+# planner and the offers): the same narrow court slice, so a gate change runs
+# the campaign suite instead of the whole AI fan-out.
+[[rules]]
+match = "scripts/ai/ai_diplomacy_gates.gd*"
 domain = "ai_colony"
 
 [[rules]]
@@ -2596,6 +2659,13 @@ domain = "ai_diplomacy"
 match = "scripts/ai/ai_diplomacy_desire.gd*"
 domain = "ai_diplomacy"
 
+# The front the field army can march on (issue #995): priced by the war aim and
+# answered by the peace leg, so it travels with the planner and the desire
+# rather than the ai catch-all.
+[[rules]]
+match = "scripts/ai/ai_border_fronts.gd*"
+domain = "ai_diplomacy"
+
 [[rules]]
 match = "scripts/ai/ai_state.gd*"
 domain = "ai_diplomacy"
@@ -2778,6 +2848,13 @@ domain = "ai_economy"
 match = "scripts/map/map_play_civilian_ai.gd*"
 domain = "ai_works"
 
+# The pass's own reading (purses, region context, the earn trim, the planned
+# row): the same two suites prove it, so it rides the AI/works slice instead of
+# the civilian glob below.
+[[rules]]
+match = "scripts/map/map_play_civilian_plan.gd*"
+domain = "ai_works"
+
 # The muster seam both rival civilian passes share (roster, mustering tile,
 # harbour gate, training cost) is proved by the same two suites, so it stays on
 # the AI/works slice instead of the broader civilian globe.
@@ -2822,6 +2899,18 @@ domain = "naval_voyage"
 # the block and proved by the same two suites plus the phone fits.
 [[rules]]
 match = "scripts/ui/grounds_window.gd*"
+domain = "naval_voyage"
+
+# The block's one press (DR-20261119-18): the walk that boards a whole berth and
+# the limit every boarding reads. The same two suites prove it — the orders suite
+# presses the intent and the panel suite reads the press — so a boarding change
+# never pays for the civilian or fleet fan-out (tier-1 5 min budget).
+[[rules]]
+match = "scripts/rules/embark_batch.gd*"
+domain = "naval_voyage"
+
+[[rules]]
+match = "scripts/rules/civilian_voyage.gd*"
 domain = "naval_voyage"
 
 [[rules]]
@@ -3277,6 +3366,13 @@ domain = "prospect"
 [[rules]]
 match = "scripts/rules/mineral_survey.gd*"
 domain = "prospect"
+
+# Estates order dispatch (nearest Builder / Engineer): same crew roster as
+# CivilianWork, so it rides the ai_works slice instead of the economy fan-out
+# that blows the tier-1 5 min budget when a MoneyText or works PR lands.
+[[rules]]
+match = "scripts/rules/improvement_orders.gd*"
+domain = "ai_works"
 
 [[rules]]
 match = "scripts/rules/improvement_*.gd"

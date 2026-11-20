@@ -94,7 +94,7 @@ static func options(
 				DiplomacyCatalog.money(cost) if cost > 0 else "free",
 				next,
 				GROUP_TREATIES,
-				DiplomacyOvertures.stage_hint(next, type)
+				DiplomacyOvertures.stage_hint(next, type, record.score)
 			)
 		)
 	if not record.at_war:
@@ -174,7 +174,7 @@ static func _add_subsidy_options(
 		result.append(
 			_valued(
 				"End Subsidy · %d%%" % state.subsidy(player, target),
-				_allow(), KIND_CANCEL_SUBSIDY, "", "", GROUP_TRADE,
+				OrderVerdict.allow(), KIND_CANCEL_SUBSIDY, "", "", GROUP_TRADE,
 				"Prices return to the world market."
 			)
 		)
@@ -218,7 +218,7 @@ static func validate(
 			return DiplomacyRules.can_form_alliance(state, player, target)
 		KIND_BREAK:
 			var record: DiplomacyRelation = state.relation(player, target)
-			return _can_break(record) if record != null else _deny("No envoy has reached that court.")
+			return _can_break(record) if record != null else OrderVerdict.deny("No envoy has reached that court.")
 		KIND_BREAK_NAP:
 			return _can_break_nap(state, player, target)
 		KIND_OVERTURE:
@@ -234,7 +234,7 @@ static func validate(
 				state, player, target, int(order.get("amount", 0))
 			)
 		KIND_CANCEL_SUBSIDY:
-			return _allow() if state.subsidy(player, target) > 0 else _deny("No subsidy is active.")
+			return OrderVerdict.allow() if state.subsidy(player, target) > 0 else OrderVerdict.deny("No subsidy is active.")
 		KIND_FTP:
 			return DiplomacyTrade.can_establish_ftp(state, player, target)
 		KIND_REVOKE_FTP:
@@ -244,7 +244,7 @@ static func validate(
 		KIND_REVOKE_BOYCOTT:
 			return DiplomacyTrade.can_revoke_boycott(state, player, target)
 		_:
-			return _deny("Unknown court order.")
+			return OrderVerdict.deny("Unknown court order.")
 
 
 static func apply(
@@ -303,7 +303,7 @@ static func apply(
 			return DiplomacyTrade.boycott(state, player, target)
 		KIND_REVOKE_BOYCOTT:
 			return DiplomacyTrade.revoke_boycott(state, player, target)
-	return _deny("Unknown court order.")
+	return OrderVerdict.deny("Unknown court order.")
 
 
 static func _valued(
@@ -331,14 +331,14 @@ static func _valued(
 
 static func _can_break(record: DiplomacyRelation) -> Dictionary:
 	if not record.formal_alliance:
-		return _deny("There is no formal alliance to break.")
-	return _allow()
+		return OrderVerdict.deny("There is no formal alliance to break.")
+	return OrderVerdict.allow()
 
 
 static func _can_break_nap(state: DiplomacyState, player: int, target: int) -> Dictionary:
 	if not DiplomacyRules.has_pact(state, player, target):
-		return _deny("There is no non-aggression pact to break.")
-	return _allow()
+		return OrderVerdict.deny("There is no non-aggression pact to break.")
+	return OrderVerdict.allow()
 
 
 ## What the break costs, in the words the court that pays it reads: the pact's
@@ -361,11 +361,3 @@ static func _break_nap_hint(record: DiplomacyRelation) -> String:
 		int(DiplomacyCatalog.BREAK_NAP_PENALTY),
 		int(DiplomacyCatalog.BREAK_NAP_CASCADE_PENALTY),
 	]
-
-
-static func _allow() -> Dictionary:
-	return {"ok": true, "reason": ""}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}

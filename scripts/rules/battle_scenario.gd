@@ -116,7 +116,7 @@ static func _plan(raw: Variant) -> String:
 
 
 static func _terrain(raw: String) -> String:
-	return raw if SiegeLanes.TERRAIN.has(raw) else "open"
+	return raw if SiegeGround.TERRAIN.has(raw) else "open"
 
 
 static func _ground(terrain: String) -> int:

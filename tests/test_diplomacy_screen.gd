@@ -112,6 +112,29 @@ func test_the_rival_pass_weighs_power_the_published_way() -> void:
 		)
 
 
+## The rival pass stamps the frontier crowns of every conquest-gap court
+## (issue #1082): the crowns whose Old World land touches its own — the fronts
+## its field army can walk to — so the buy-out and the white-peace answer can
+## keep the war that sits on one.
+func test_the_rival_pass_stamps_the_conquest_gap_frontier() -> void:
+	var context: Dictionary = MapPlayDiplomacyAi._context(_screen.play)
+	var frontier: Dictionary = context.get(AiFrontier.KEY, {})
+
+	assert_false(frontier.is_empty(), "the shared pass hands the planners a frontier")
+	for faction: int in FactionCatalog.great_power_ids():
+		var expected: Array[int] = AiFrontier.crowns(_screen.play.world, faction)
+		assert_eq(
+			frontier.get(faction, []), expected,
+			"%s's frontier is the crowns whose land touches its own"
+			% FactionCatalog.name_of(faction)
+		)
+		for other: int in expected:
+			assert_eq(
+				FactionCatalog.type_of(other), FactionCatalog.Type.GREAT_POWER,
+				"only a Great Power is a frontier crown"
+			)
+
+
 func test_orders_from_the_court_change_relations_and_toast() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	var toasts_before: int = _screen.hud._toast_box.get_child_count()

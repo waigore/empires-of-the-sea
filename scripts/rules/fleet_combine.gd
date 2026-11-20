@@ -63,29 +63,29 @@ static func can_combine(
 	model: MapModel, fleet: FleetState, target: FleetState
 ) -> Dictionary:
 	if fleet == null:
-		return _deny("There is no squadron to combine.")
+		return OrderVerdict.deny("There is no squadron to combine.")
 	if target == null or target == fleet:
-		return _deny("Choose another of your squadrons.")
+		return OrderVerdict.deny("Choose another of your squadrons.")
 	if target.owner != fleet.owner:
-		return _deny("Only your own squadrons combine.")
+		return OrderVerdict.deny("Only your own squadrons combine.")
 	if not same_station(fleet, target):
-		return _deny("Squadrons combine only in the same sea zone or the same port.")
+		return OrderVerdict.deny("Squadrons combine only in the same sea zone or the same port.")
 	if not fleet.is_afloat() or not target.is_afloat():
-		return _deny("A slip with no hulls has nothing to combine.")
+		return OrderVerdict.deny("A slip with no hulls has nothing to combine.")
 	if model != null and (
 		NavalMovement.is_home_fleet(model, fleet)
 		or NavalMovement.is_home_fleet(model, target)
 	):
-		return _deny("The home fleet takes her joiners through Join the home fleet.")
+		return OrderVerdict.deny("The home fleet takes her joiners through Join the home fleet.")
 	if fleet.has_beachhead():
-		return _deny("The squadron holds a beachhead — land the troops before combining.")
+		return OrderVerdict.deny("The squadron holds a beachhead — land the troops before combining.")
 	if fleet.embarked_army >= 0 and target.embarked_army >= 0:
-		return _deny("Land one of the armies first — a squadron carries one.")
+		return OrderVerdict.deny("Land one of the armies first — a squadron carries one.")
 	if fleet.embarked_army >= 0 and target.carries_civilians():
-		return _deny("A squadron carrying an army carries no colonists — land one first.")
+		return OrderVerdict.deny("A squadron carrying an army carries no colonists — land one first.")
 	if target.embarked_army >= 0 and fleet.carries_civilians():
-		return _deny("A squadron carrying an army carries no colonists — land one first.")
-	return {"ok": true, "reason": ""}
+		return OrderVerdict.deny("A squadron carrying an army carries no colonists — land one first.")
+	return OrderVerdict.allow()
 
 
 ## Folds this squadron into the target: every hull, name and passenger keeps,
@@ -128,10 +128,6 @@ static func flagship(fleet: FleetState) -> String:
 
 
 static func _refused(reason: String) -> Dictionary:
-	return {
-		"ok": false, "reason": reason, "fleet": null, "hulls": 0, "name": "", "into": "",
-	}
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
+	return OrderVerdict.deny(reason, {
+		"fleet": null, "hulls": 0, "name": "", "into": "",
+	})

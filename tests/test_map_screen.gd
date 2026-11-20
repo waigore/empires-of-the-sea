@@ -446,6 +446,45 @@ func test_hover_reports_the_province_under_the_cursor() -> void:
 	assert_true(_screen.hud._tooltip.visible)
 
 
+## The hover names the ground under the cursor, not the ground of the tile the
+## pointer entered the province by: one province paints several terrains, so a
+## move inside it that crosses ground must repaint the line (wiki:
+## tile-map-and-generation § Reading the chart; issue #1084; REQ-P2-03).
+func test_hover_reads_the_ground_under_the_cursor() -> void:
+	var province_id: int = _screen.play.capital_province
+	var tiles: Array = _screen.model.province_tiles(province_id)
+	assert_gt(tiles.size(), 1, "the crown province holds more than one tile")
+	var plains_tile: Vector2i = tiles[0]
+	var scrub_tile: Vector2i = tiles[1]
+	_screen.model.terrain[_screen.model.index_of(plains_tile.x, plains_tile.y)] = (
+		MapModel.Terrain.PLAINS
+	)
+	_screen.model.terrain[_screen.model.index_of(scrub_tile.x, scrub_tile.y)] = (
+		MapModel.Terrain.SCRUB_FOREST
+	)
+	var middle: Vector2 = (
+		MapGeo.tile_center(plains_tile.x, plains_tile.y, MapScreen.TILE_SIZE)
+		+ MapGeo.tile_center(scrub_tile.x, scrub_tile.y, MapScreen.TILE_SIZE)
+	) * 0.5
+	_screen.camera.focus_on(middle, 0.8, true)
+	_screen.camera._process(0.016)
+	var first: String = _hover_text(plains_tile)
+	var second: String = _hover_text(scrub_tile)
+	assert_true(first.contains("Plains"), first)
+	assert_true(second.contains("Scrub Forest"), second)
+	assert_ne(first, second, "the line follows the tile, not the entry tile")
+
+
+## The tooltip line a hover at one tile prints.
+func _hover_text(tile: Vector2i) -> String:
+	var world: Vector2 = MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
+	var point: Vector2 = CameraMath.world_to_screen(
+		_screen.camera.position, _screen.camera.zoom.x, world, _screen.camera.viewport_size()
+	)
+	MapPlayInput.update_hover(_screen.play, point)
+	return String(_screen.hud._tooltip_label.text)
+
+
 func test_visibility_starts_from_the_world_rules() -> void:
 	assert_not_null(_screen.visibility)
 	var own_tile: Vector2i = _screen.model.province_tiles(_screen.capital_province)[0]
@@ -689,32 +728,17 @@ func test_a_spy_on_the_crowns_own_land_quickens_nothing() -> void:
 	)
 
 
-func test_end_turn_holds_the_province_a_spy_shadows() -> void:
+## One end_turn holds the shadowed province in view and marks the slot the spy
+## quickened: both readings are written by the same pass, so a second turn used
+## to pay another rival plan under coverage (docs/testing.md § Speed rules;
+## REQ-P5-05; DR-20261110-03).
+func test_end_turn_holds_a_spy_shadow_and_marks_the_quickened_slot() -> void:
 	var rival: int = _rival_great_power()
-	assert_true(rival >= 0)
+	assert_true(rival >= 0, "the world has a rival Great Power province")
 	var province: int = _foreign_province_of(rival)
 	var tile: Vector2i = _screen.model.province_tiles(province)[0]
 	_screen.civilian_layer.add_unit(_screen.play.player_faction, "spy", tile)
 	assert_false(_screen.visibility.is_province_fully_visible(province))
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
-	assert_true(
-		_screen.visibility.is_province_fully_visible(province),
-		"the shadowed province is held in view"
-	)
-
-
-## The share a spy network wins must be visible where it is spent: the ledger
-## reports "1 study quickened", and the slot it lifted carries the "+15%" marker
-## (REQ-P5-05; DR-20261110-03). The share used to be wiped before the panel
-## repainted, so the marker never appeared at all.
-func test_the_quickened_slot_shows_its_share_after_the_turn() -> void:
-	var rival: int = _rival_great_power()
-	assert_true(rival >= 0, "the world has a rival Great Power province")
-	var province: int = _foreign_province_of(rival)
-	_screen.civilian_layer.add_unit(
-		_screen.play.player_faction, "spy", _screen.model.province_tiles(province)[0]
-	)
 	if _screen.play.ai == null:
 		_screen.play.ai = AiState.new()
 	var tech: String = _first_studyable_tech()
@@ -722,6 +746,10 @@ func test_the_quickened_slot_shows_its_share_after_the_turn() -> void:
 	_screen.play.ai.economy_for(rival).tech_unlocked[tech] = true
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
+	assert_true(
+		_screen.visibility.is_province_fully_visible(province),
+		"the shadowed province is held in view"
+	)
 	assert_eq(
 		SpyNetworks.boost_for(MapPlayEspionage.research_boost(_screen.play), tech),
 		15,
@@ -755,11 +783,13 @@ func test_the_opening_briefing_names_the_campaigns_own_year() -> void:
 ## (a fault before `intro`, a paused tree) left the whole campaign behind a blank
 ## plate with only the pause menu's MENU seal above it — the solid parchment
 ## screen reported as unplayable on Android. The plate has to lift itself.
+## Hosted on the suite, not the chart: these cases never read the map, so they
+## skip `suite_reset` under coverage (docs/testing.md § Speed rules).
 func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
-	var plate := _opening_plate(0.5)
+	var plate := _opening_plate(0.05)
 	plate.process_mode = Node.PROCESS_MODE_DISABLED
 	plate.lift(0.02)
-	await get_tree().create_timer(0.2).timeout
+	await get_tree().create_timer(0.05).timeout
 	assert_false(plate.visible, "a plate whose node cannot process still lifts")
 	plate.queue_free()
 
@@ -767,9 +797,9 @@ func test_the_opening_plate_lifts_when_its_node_cannot_process() -> void:
 func test_an_opening_that_never_lifts_is_lifted_on_its_deadline() -> void:
 	var plate := _opening_plate(0.05)
 	# Nobody calls lift: this is the screen that faulted before `intro`. The
-	# deadline lifts on the plate's own fade, so wait out the deadline and the
-	# fade rather than a single frame.
-	await get_tree().create_timer(1.2).timeout
+	# deadline lifts on the plate's own short fade (hold + fade, not a real
+	# opening's 0.9 s parchment).
+	await get_tree().create_timer(0.15).timeout
 	assert_false(plate.visible, "the deadline reveals the chart it was hiding")
 	plate.queue_free()
 
@@ -779,14 +809,16 @@ func test_the_map_screen_opens_on_a_lifted_plate() -> void:
 	assert_false(_screen.fade.visible, "the opening frame does not outlive the mount")
 
 
-## One plate on the mounted screen, opaque as the opening leaves it, with its own
-## short deadline so a case never waits out a real opening.
+## One plate on the suite tree, opaque as the opening leaves it, with a short
+## deadline and fade so a case never waits out a real opening or remounts the
+## chart (docs/testing.md § Speed rules).
 func _opening_plate(hold_max: float) -> OpeningPlate:
 	var plate := OpeningPlate.new()
 	plate.hold_max = hold_max
+	plate.fade_seconds = 0.05
 	plate.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	plate.modulate.a = 1.0
-	_screen.add_child(plate)
+	add_child(plate)
 	return plate
 
 

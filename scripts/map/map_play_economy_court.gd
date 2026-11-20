@@ -188,7 +188,7 @@ func plan_turn() -> void:
 		(projected["economy"] as PlayerEconomy).stockpile, floor, works_floor,
 		conquest_bank
 	)
-	works_reserved = MapPlayCivilianAi.work_rows(plans)
+	works_reserved = MapPlayCivilianPlan.work_rows(plans)
 	hire_margin = MapPlayEconomyCourtBook.hire_margin(self)
 	trade = MapPlayEconomyCourtBook.trade(self)
 
@@ -236,9 +236,12 @@ func apply_turn() -> Dictionary:
 	var fed: int = AiBindEconomy.fed_slack(kind, economy, army_food, ships)
 	if play.ai != null and (play.ai.food_slack as Dictionary).has(faction):
 		fed = mini(fed, int(play.ai.food_slack[faction]))
-	# The conquest bank rides the worker buys (issue #995).
+	# The conquest bank rides the worker buys (issue #995): the harvest slack
+	# rides beside it (issue #1059) — the pace the hires keep is the pace the
+	# muster's own ration gate plans with.
 	var recruits: Array[Dictionary] = AiBindEconomy.recruitment_orders(
-		kind, config, economy, floor, fed, hands, conquest_bank
+		kind, config, economy, floor, fed, hands, conquest_bank,
+		int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2
 	)
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))

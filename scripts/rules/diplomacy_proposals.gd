@@ -23,40 +23,43 @@ static func knows(kind: String) -> bool:
 	return KINDS.has(kind)
 
 
-## Queues one proposal from a rival court. Only free overture stages can be
-## offered while rival treasuries stay untracked, so a Consulate/Embassy/Join
-## Empire offer waits for the AI economy. A white-peace proposal is legal only
-## while the pair is at war (wiki: diplomacy § Court proposals).
+## Queues one proposal from a rival court. The proposing court hands in its own
+## purse and studies, so a paid stage is offered only when that court can cover
+## it; the price is paid by the proposer when the human answers yes (wiki:
+## diplomacy § Join Empire — the offer's treasury gate; § Overtures — "Only when
+## the target accepts are cost deducted and overture stage advanced"). A caller
+## with no ledger (a fixture) can still offer the free stages alone.
 static func queue(
-	state: DiplomacyState, world: WorldMap, from_id: int, kind: String, stage: String = ""
+	state: DiplomacyState, world: WorldMap, from_id: int, kind: String,
+	stage: String = "", treasury: int = 0, tech: Dictionary = {}
 ) -> Dictionary:
 	if state == null:
-		return _deny("No court is open.")
+		return OrderVerdict.deny("No court is open.")
 	var human: int = state.human_faction
 	if from_id == human:
-		return _deny("A court cannot propose to itself.")
+		return OrderVerdict.deny("A court cannot propose to itself.")
 	if FactionCatalog.type_of(from_id) != FactionCatalog.Type.GREAT_POWER:
-		return _deny("Only a Great Power keeps a court to treat with.")
+		return OrderVerdict.deny("Only a Great Power keeps a court to treat with.")
 	if has_pending(state, human):
-		return _deny("The court already has a proposal to answer.")
+		return OrderVerdict.deny("The court already has a proposal to answer.")
 	if not state.has_relation(from_id, human):
-		return _deny("No envoy has reached that court.")
+		return OrderVerdict.deny("No envoy has reached that court.")
 	var check: Dictionary
 	match kind:
 		KIND_ALLIANCE:
 			check = DiplomacyRules.can_form_alliance(state, from_id, human)
 		KIND_OVERTURE:
 			if stage.is_empty():
-				return _deny("An overture needs a stage.")
+				return OrderVerdict.deny("An overture needs a stage.")
 			check = DiplomacyRules.can_establish_overture(
-				state, world, from_id, human, stage, 0, {}
+				state, world, from_id, human, stage, treasury, tech
 			)
 		KIND_FTP:
 			check = DiplomacyTrade.can_establish_ftp(state, from_id, human)
 		KIND_PEACE:
 			check = DiplomacyRules.can_make_peace(state, from_id, human)
 		_:
-			return _deny("Unknown proposal.")
+			return OrderVerdict.deny("Unknown proposal.")
 	if not bool(check.get("ok", false)):
 		return check
 	state.pending_offers.append(
@@ -93,14 +96,18 @@ static func take_pending(state: DiplomacyState, human: int) -> Dictionary:
 
 ## Applies the court's answer through the shared diplomacy rules. The proposing
 ## rival pays its own costs; the human treasury is never charged for accepting.
+## `proposer` is that rival's ledger, so a paid overture is charged to the court
+## that asked for it, exactly as the row's own offer gate priced it (wiki:
+## diplomacy § Overtures — "Only when the target accepts are cost deducted").
 static func resolve_human(
-	state: DiplomacyState, world: WorldMap, accept: bool
+	state: DiplomacyState, world: WorldMap, accept: bool,
+	proposer: PlayerEconomy = null
 ) -> Dictionary:
 	if state == null:
-		return _deny("No court to answer for.")
+		return OrderVerdict.deny("No court to answer for.")
 	var offer: Dictionary = take_pending(state, state.human_faction)
 	if offer.is_empty():
-		return _deny("No proposal awaits an answer.")
+		return OrderVerdict.deny("No proposal awaits an answer.")
 	var from_id: int = int(offer["from"])
 	var kind: String = String(offer["kind"])
 	var stage: String = String(offer.get("stage", ""))
@@ -111,8 +118,16 @@ static func resolve_human(
 	if kind == KIND_ALLIANCE:
 		result = DiplomacyRules.form_alliance(state, from_id, state.human_faction, decision)
 	elif kind == KIND_OVERTURE:
+		# The asking court's own studies decide the tech gate and its own purse
+		# pays the price; the human is never charged for answering, and a caller
+		# with no ledger (a fixture) keeps the free stages alone (wiki:
+		# diplomacy § Join Empire; § Overtures).
+		var tech: Dictionary = {}
+		if proposer != null:
+			tech = proposer.tech_unlocked
 		result = DiplomacyOvertures.establish_overture(
-			state, null, world, from_id, state.human_faction, stage, {}, decision
+			state, proposer, world, from_id, state.human_faction, stage, tech,
+			decision
 		)
 	elif kind == KIND_FTP:
 		# The rival offers the pact; the human's answer is the target court's
@@ -133,7 +148,7 @@ static func resolve_human(
 				"The white peace with %s is refused." % FactionCatalog.name_of(from_id)
 			)
 	else:
-		return _deny("Unknown proposal.")
+		return OrderVerdict.deny("Unknown proposal.")
 	if bool(result.get("ok", false)):
 		state.record_event(
 			"proposalAccepted" if accept else "proposalRefused",
@@ -157,7 +172,3 @@ static func describe(kind: String, stage: String) -> String:
 	if kind == KIND_PEACE:
 		return "a white peace"
 	return "the %s" % DiplomacyCatalog.stage_label(stage)
-
-
-static func _deny(reason: String) -> Dictionary:
-	return {"ok": false, "reason": reason}
