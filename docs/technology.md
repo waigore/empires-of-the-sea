@@ -17,7 +17,7 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
 - **Costs:** `1800 + (tier - 1) * 600` — 1800–3600 RP.
 - **Funding:** presets pay 0/50/150/400/1000 ducats for 0/100/300/800/2500 RP;
   unpaid slots earn nothing. **One press** (`ResearchBatch`, DR-20261118-26)
-  files every study at the face's preset, priced first; line and receipt name the studies the purse cannot pay
+  files every study at the face's preset, priced first; line and receipt name the unpaid studies
   (DR-20261119-01).
 - **Treasury floor:** Money Lending −500; Banking with it −1000.
 - **Bonuses:** Industrial Funding +20% (floored) for military and naval techs;
@@ -35,7 +35,7 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
 - **Transport:** road 2 needs Road Construction; rail needs Early Steam
   (flat), Later Steam (hills, swamps), Dynamite (mountains).
 - **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its floor
-  keeps one study at Low (DR-20261113-24).
+  keeps one at Low (DR-20261113-24).
 - **Goal slot:** orders the queue (goal, prerequisites, catalog); funds
   nothing, saved (`ResearchState.goal`, DR-20261111-21).
 - **UI:** `RESEARCH` opens the college: goal strip, slots, the one press,
@@ -43,11 +43,12 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
   (`ResearchBar`); every advance prints what it opens
   (`TechCatalog.payoff_text`); touch never hovers. The tree lays advances by
   depth (`TechTreeLayout`).
-- **Phone sheet (DR-20261120-03):** the college budgets its plate and never
-  outgrows it — the window yields (`ResearchSheetFit`).
+- **Phone sheet (DR-20261120-03):** the college budgets its plate; the window
+  yields (`ResearchSheetFit`).
 - **The court's pick (DR-20261121-01):** the first idle slot prints, in gold,
   the study the policy would open (`MapPlayResearchPick`,
-  `MapPlayEconomyCourtBook.door`); nothing is assigned or spent.
+  `AiResearchPlanner.read_free_slot`); a door the purse cannot fund is not
+  named (`#484`); nothing is assigned or spent.
 
 ## Deferred (REQ-P2-02)
 
