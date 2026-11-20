@@ -1296,23 +1296,23 @@ func test_starting_a_study_moves_the_per_turn_figure() -> void:
 	var open: Array[String] = economy.research.researchable()
 	assert_gt(open.size(), 0, "the opening college has an advance to start")
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income())
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.readings.projected_income())
 	)
 	_screen.economy.orders.assign_research(open[0])
 	var gold: int = ResearchFunding.gold(ResearchFunding.DEFAULT)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
 		"the chip follows the study it just funded",
 	)
 	assert_eq(_screen.economy.readings.projected_income(), -gold, "the slot pays its preset")
 	_screen.economy.orders.cycle_research_funding(0)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
 		"a preset change moves the figure too",
 	)
 	_screen.economy.orders.cancel_research(0)
 	assert_eq(
-		_screen.hud._income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
+		_screen.hud.stats.income_label.text, TextFormat.delta(_screen.economy.readings.projected_income()),
 		"abandoning the study gives the gold back",
 	)
 
@@ -1801,7 +1801,7 @@ func test_the_larder_warns_a_turn_before_the_strike() -> void:
 ## Every line the court's toasts currently show.
 func _toast_texts() -> Array[String]:
 	var texts: Array[String] = []
-	for panel: Node in _screen.hud._toast_box.get_children():
+	for panel: Node in _screen.hud.despatches.box.get_children():
 		for label: Label in panel.find_children("*", "Label", true, false):
 			texts.append(label.text)
 	return texts

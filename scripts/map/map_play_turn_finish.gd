@@ -231,7 +231,7 @@ static func _crown_ledger(play: PlaySession, book: TurnBook) -> void:
 		play.income = play.economy.projected_income()
 	play.hud.set_turn(play.turn, book.year)
 	if not play.observer_mode:
-		play.hud.set_income(play.income)
+		play.hud.stats.set_income(play.income)
 		MapPlayDiplomacy.refresh(play)
 	play.improvements.set_tech_caps(play.tech_caps())
 

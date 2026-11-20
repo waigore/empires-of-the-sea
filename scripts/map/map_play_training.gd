@@ -45,8 +45,8 @@ static func settle(play: PlaySession, type_id: String) -> Dictionary:
 		play.player_faction, type_id, play.civilian_layer.mustering_tile(play.capital_province)
 	)
 	if play.hud != null:
-		play.hud.set_treasury(play.treasury())
-		play.hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
+		play.hud.stats.set_treasury(play.treasury())
+		play.hud.stats.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
 	return {"ok": true, "reason": "", "unit": unit}
 
 

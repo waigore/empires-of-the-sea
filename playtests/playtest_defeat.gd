@@ -487,9 +487,9 @@ func _toasts() -> PackedStringArray:
 
 
 func _clear_toasts() -> void:
-	if _play == null or _play.hud == null or _play.hud._toast_box == null:
+	if _play == null or _play.hud == null or _play.hud.despatches.box == null:
 		return
-	for child: Node in _play.hud._toast_box.get_children():
+	for child: Node in _play.hud.despatches.box.get_children():
 		child.queue_free()
 	await process_frame
 

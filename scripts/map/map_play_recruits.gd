@@ -142,7 +142,7 @@ static func _refuse(play: PlaySession, label: String, reason: String) -> Diction
 static func _refresh(play: PlaySession) -> void:
 	if play.hud == null:
 		return
-	play.hud.set_treasury(play.treasury())
-	play.hud.set_armies(play.army_layer.regiment_count_all(play.player_faction))
-	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
-	play.hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
+	play.hud.stats.set_treasury(play.treasury())
+	play.hud.stats.set_armies(play.army_layer.regiment_count_all(play.player_faction))
+	play.hud.stats.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	play.hud.stats.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))

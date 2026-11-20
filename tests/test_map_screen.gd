@@ -612,7 +612,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	player_fleet.location = FleetState.Location.AT_SEA
 	player_fleet.sea_zone = enemy_fleet.sea_zone
 	DiplomacyRules.declare_war(_screen.play.diplomacy, MapScreen.PLAYER_FACTION, 2)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayTurn.end_turn(_screen.play)
 	Fixture.settle(_screen.play)
@@ -625,7 +625,7 @@ func test_end_turn_resolves_a_contested_sea_zone() -> void:
 	else:
 		assert_eq(_screen.ship_layer.hull_count_all(2), 0)
 	assert_eq(player_fleet.ship_count(), 1)
-	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
+	assert_gt(_screen.hud.despatches.box.get_child_count(), toasts_before)
 
 
 func test_fleets_at_peace_share_a_zone_without_a_battle() -> void:
@@ -662,13 +662,13 @@ func test_tapping_uncharted_land_explains_the_refusal() -> void:
 	var province_id: int = _screen.model.provinces[0].id
 	var tile: Vector2i = _screen.model.province_tiles(province_id)[0]
 	var world: Vector2 = MapGeo.tile_center(tile.x, tile.y, MapScreen.TILE_SIZE)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayInput.on_tapped(_screen.play, world)
 
 	assert_eq(_screen.selected_province, -1, "uncharted land opens no dossier")
 	assert_eq(
-		_screen.hud._toast_box.get_child_count(),
+		_screen.hud.despatches.box.get_child_count(),
 		toasts_before + 1,
 		"the tap reports that the land is uncharted"
 	)
@@ -688,7 +688,7 @@ func test_marching_into_uncharted_land_is_refused_on_the_map() -> void:
 			_screen.model.index_of(tile.x, tile.y), VisibilityModel.Level.UNKNOWN
 		)
 	_screen.civilian_layer.select(explorer)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	var claimed: bool = MapPlayCivilians.try_move(
 		_screen.play, MapGeo.tile_center(pair[1].x, pair[1].y, MapScreen.TILE_SIZE)
@@ -697,7 +697,7 @@ func test_marching_into_uncharted_land_is_refused_on_the_map() -> void:
 	assert_true(claimed, "the tap is a march order, not a dossier tap")
 	assert_eq(explorer.tile, pair[0], "the Explorer stays on charted land")
 	assert_eq(
-		_screen.hud._toast_box.get_child_count(),
+		_screen.hud.despatches.box.get_child_count(),
 		toasts_before + 1,
 		"the refusal is reported"
 	)
@@ -848,7 +848,7 @@ func _research_slot_rows() -> Array[String]:
 
 func _toast_texts() -> Array[String]:
 	var texts: Array[String] = []
-	for panel: Node in _screen.hud._toast_box.get_children():
+	for panel: Node in _screen.hud.despatches.box.get_children():
 		for label: Label in panel.find_children("*", "Label", true, false):
 			texts.append(label.text)
 	return texts
@@ -2353,7 +2353,7 @@ func test_civilians_muster_at_the_capital() -> void:
 		_screen.civilian_layer.units.size(), MapScreen.STARTING_CIVILIANS.size()
 	)
 	assert_eq(
-		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+		_screen.hud.stats.civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
 	)
 	for unit: CivilianState in _screen.civilian_layer.units:
 		assert_eq(unit.owner, MapScreen.PLAYER_FACTION)
@@ -2611,13 +2611,13 @@ func test_an_order_the_build_work_cannot_pay_is_refused_and_dropped() -> void:
 	var regiments: int = _screen.army_layer.regiment_count_all(play.player_faction)
 	MapPlayArmyMuster.recruit(play, "peasant_levies")
 	economy.treasury = 0
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayRecruits.complete(play)
 
 	assert_eq(_screen.army_layer.regiment_count_all(play.player_faction), regiments)
 	assert_true(economy.recruits.is_empty(), "the order is dropped, not retried")
-	assert_gt(_screen.hud._toast_box.get_child_count(), toasts, "the court hears why")
+	assert_gt(_screen.hud.despatches.box.get_child_count(), toasts, "the court hears why")
 
 
 ## A hull ordered at the slip is not delivered once the capital has fallen: the
@@ -2646,13 +2646,13 @@ func test_a_worker_order_the_ledger_cannot_pay_is_refused() -> void:
 	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
 	_screen.economy.orders.worker_action(WorkerPool.Tier.PEASANT, "recruit")
 	economy.stockpile["fabric"] = 0
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayRecruits.complete(play)
 
 	assert_eq(economy.workers.count(WorkerPool.Tier.PEASANT), peasants)
 	assert_true(economy.recruits.is_empty(), "the order is dropped, not retried")
-	assert_gt(_screen.hud._toast_box.get_child_count(), toasts, "the court hears why")
+	assert_gt(_screen.hud.despatches.box.get_child_count(), toasts, "the court hears why")
 
 
 ## A hire whose purse is spent before Build/work is refused there and the order
@@ -2663,13 +2663,13 @@ func test_a_hire_the_purse_cannot_close_is_refused() -> void:
 	var civilians: int = _screen.civilian_layer.unit_count_all(play.player_faction)
 	MapPlayInput.on_panel_action(play, "train_explorer")
 	play.economy.economy.treasury = 0
-	var toasts: int = _screen.hud._toast_box.get_child_count()
+	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayRecruits.complete(play)
 
 	assert_eq(_screen.civilian_layer.unit_count_all(play.player_faction), civilians)
 	assert_true(play.economy.economy.recruits.is_empty(), "the order is dropped")
-	assert_gt(_screen.hud._toast_box.get_child_count(), toasts, "the court hears why")
+	assert_gt(_screen.hud.despatches.box.get_child_count(), toasts, "the court hears why")
 
 
 ## The civilian gate names an unknown type and a deferred one, so the muster
@@ -2774,7 +2774,7 @@ func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 	_screen.ship_layer.rebuild_markers()
 	DiplomacyRules.enter_war(_screen.play.diplomacy, first.owner, second.owner)
 	var hulls_before: int = first.ship_count() + second.ship_count()
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	_screen._cycle_region()
 	assert_eq(_screen.region_index, 0)
@@ -2790,7 +2790,7 @@ func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 		)
 	else:
 		assert_lt(hulls_after, hulls_before)
-	assert_gt(_screen.hud._toast_box.get_child_count(), toasts_before)
+	assert_gt(_screen.hud.despatches.box.get_child_count(), toasts_before)
 
 
 func test_empire_counters_survive_a_region_switch() -> void:
@@ -2798,9 +2798,9 @@ func test_empire_counters_survive_a_region_switch() -> void:
 	assert_gt(ships, 0)
 	_screen._cycle_region()
 	assert_eq(_screen.economy.readings.fleet_ships(), ships, "navy upkeep follows the empire")
-	assert_eq(_screen.hud._fleet_label.text, str(ships))
+	assert_eq(_screen.hud.stats.fleet_label.text, str(ships))
 	assert_eq(
-		_screen.hud._civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
+		_screen.hud.stats.civilian_label.text, str(MapScreen.STARTING_CIVILIANS.size())
 	)
 	var need: int = int(_screen.economy.readings.projected()["consumption"]["navy_demand"])
 	assert_eq(need, ships * ShipEconomy.FOOD_UPKEEP_PER_SHIP)
@@ -3228,12 +3228,12 @@ func test_the_human_court_is_told_when_a_crew_withdraws() -> void:
 	var crew: CivilianState = _screen.civilian_layer.add_unit(
 		play.player_faction, "builder", pair[1]
 	)
-	var toasts_before: int = _screen.hud._toast_box.get_child_count()
+	var toasts_before: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayCivilians.settle_stranding(play)
 
 	assert_gt(
-		_screen.hud._toast_box.get_child_count(), toasts_before,
+		_screen.hud.despatches.box.get_child_count(), toasts_before,
 		"the court hears the crew's fate"
 	)
 	if _screen.civilian_layer.units.has(crew):
@@ -3288,7 +3288,7 @@ func test_a_signed_deed_names_the_town_it_raised() -> void:
 
 ## The text of the most recent despatch plate, or "" when none is on screen.
 func _last_toast_text() -> String:
-	var box: Node = _screen.hud._toast_box
+	var box: Node = _screen.hud.despatches.box
 	if box.get_child_count() == 0:
 		return ""
 	return _label_text(box.get_child(box.get_child_count() - 1))
@@ -3398,7 +3398,7 @@ func _buildable_owned_resource_tile() -> Vector2i:
 ## Everything the court has been told this turn, as the toast box holds it.
 func _toast_text() -> String:
 	var parts: PackedStringArray = PackedStringArray()
-	_collect(_screen.hud._toast_box, parts)
+	_collect(_screen.hud.despatches.box, parts)
 	return " | ".join(parts)
 
 

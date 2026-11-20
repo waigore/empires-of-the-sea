@@ -301,7 +301,7 @@ func _my_toasts() -> void:
 
 func _toast_texts() -> Array[String]:
 	var out: Array[String] = []
-	for child: Node in _play.hud._toast_box.get_children():
+	for child: Node in _play.hud.despatches.box.get_children():
 		if child.is_queued_for_deletion():
 			continue
 		out.append_array(_labels(child))
@@ -309,7 +309,7 @@ func _toast_texts() -> Array[String]:
 
 
 func _clear_toasts() -> void:
-	for child: Node in _play.hud._toast_box.get_children():
+	for child: Node in _play.hud.despatches.box.get_children():
 		child.queue_free()
 
 

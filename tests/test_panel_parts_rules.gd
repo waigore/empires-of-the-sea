@@ -4471,7 +4471,7 @@ func _court_dossier_screen_has_text(node: Node, needle: String) -> bool:
 func test_a_plain_toast_keeps_its_single_label() -> void:
 	_setup_hud_toast()
 	_hud.toast("The turn opens")
-	var panel: Control = _hud._toast_box.get_child(0)
+	var panel: Control = _hud.despatches.box.get_child(0)
 	assert_eq(panel.get_child_count(), 1)
 	var label: Label = panel.get_child(0) as Label
 	assert_true(label != null)
@@ -4480,7 +4480,7 @@ func test_a_plain_toast_keeps_its_single_label() -> void:
 func test_a_siege_toast_carries_the_silenced_battery_medallion() -> void:
 	_setup_hud_toast()
 	_hud.toast(LINE, "silenced_gun")
-	var panel: Control = _hud._toast_box.get_child(0)
+	var panel: Control = _hud.despatches.box.get_child(0)
 	var row: HBoxContainer = panel.get_child(0) as HBoxContainer
 	assert_true(row != null, "the medallion sits in a row with its line")
 	var medallion: TextureRect = row.get_child(0) as TextureRect
@@ -4495,17 +4495,17 @@ func test_a_hidden_hud_keeps_no_toast_plates() -> void:
 	_setup_hud_toast()
 	_hud.visible = false
 	_hud.toast(LINE, "silenced_gun")
-	assert_eq(_hud._toast_box.get_child_count(), 0)
+	assert_eq(_hud.despatches.box.get_child_count(), 0)
 
-## A board with no lane still answers the read-only handles, and a missing
-## battle plate never queues a fight (REQ-P5-06).
+## The lane is the despatches' alone: the HUD keeps no copy, so unmounting it
+## leaves nothing to read, and a missing battle plate never queues a fight
+## (REQ-P3-01, REQ-P5-06).
 func test_a_lane_less_hud_stays_quiet() -> void:
 	_setup_hud_toast()
-	assert_not_null(_hud._toast_box)
-	assert_eq(_hud._toast_queue.size(), 0)
+	assert_not_null(_hud.despatches.box)
+	assert_eq(_hud.despatches.waiting().size(), 0)
 	_hud.despatches = null
-	assert_null(_hud._toast_box)
-	assert_eq(_hud._toast_queue.size(), 0)
+	_hud.toast("silence")
 	# The plate is still mounted: the guard's second term is what refuses.
 	_hud.show_quick_battle({"rounds": []}, "Flanders")
 	assert_true(_hud._quick_queue.is_empty())
@@ -4521,9 +4521,7 @@ func test_news_waits_out_the_plate_and_the_oldest_lines_drop() -> void:
 	_setup_hud_toast()
 	var battle := {"attacker": 0, "defender": 1, "outcome": 0}
 	_hud.show_quick_battle(battle, "Flanders")
-	assert_eq(_hud.despatches.box, _hud._toast_box)
 	_hud.toast("under the plate")
-	assert_eq(_hud._toast_queue.size(), 1)
 	assert_eq(_hud.despatches.waiting().size(), 1)
 	assert_eq(_hud.despatches.held().size(), 1)
 	for index in HudDespatches.TOAST_QUEUE_CAP + 2:
@@ -4533,7 +4531,7 @@ func test_news_waits_out_the_plate_and_the_oldest_lines_drop() -> void:
 	_hud.quick_battle_overlay.skip()
 	_hud.quick_battle_overlay._on_continue()
 	assert_false(_hud.is_quick_battle_shown())
-	assert_gt(_hud._toast_box.get_child_count(), 0, "held news reaches the court")
+	assert_gt(_hud.despatches.box.get_child_count(), 0, "held news reaches the court")
 
 # --- test_panel_dock ---
 
@@ -5038,33 +5036,36 @@ func test_paint_covers_mines_woods_riches_and_ports() -> void:
 func test_the_hud_keeps_a_read_only_view_of_its_despatches() -> void:
 	_setup_hud_toast()
 	_hud.toast("The turn opens")
-	assert_eq(_hud._toast_box.get_child_count(), 1)
-	assert_true(_hud._toast_queue.is_empty(), "a raised line is not still waiting")
+	assert_eq(_hud.despatches.box.get_child_count(), 1)
+	assert_true(_hud.despatches.waiting().is_empty(), "a raised line is not still waiting")
 
 
-## Drives still reach the plaques through the HUD; the getters only forward
-## HudStatChips' widgets (REQ-P1-02).
+## Drives reach the plaques through the chips the bar mounts, and the HUD keeps
+## no forwarding copy of any reading (REQ-P1-02, REQ-P3-01).
 
-func test_the_hud_forwards_its_plaque_handles() -> void:
+func test_the_chips_hold_the_plaques_and_the_hud_only_mounts_them() -> void:
 	_setup_hud_toast()
-	_hud.set_treasury(900, false)
-	_hud.set_income(0)
-	_hud.set_fleets(2)
-	_hud.set_civilians(1)
-	_hud.set_armies(4)
-	assert_eq(_hud._treasury_label, _hud.stats.treasury_label)
-	assert_eq(_hud._income_label, _hud.stats.income_label)
-	assert_eq(_hud._fleet_label, _hud.stats.fleet_label)
-	assert_eq(_hud._civilian_label, _hud.stats.civilian_label)
-	assert_eq(_hud._army_label, _hud.stats.army_label)
-	assert_eq(_hud._treasury_chip, _hud.stats.treasury_chip)
-	assert_eq(_hud._fleet_chip, _hud.stats.fleet_chip)
-	assert_eq(_hud._civilian_chip, _hud.stats.civilian_chip)
-	assert_eq(_hud._army_chip, _hud.stats.army_chip)
-	assert_eq(_hud._treasury_value, 900)
+	_hud.stats.set_treasury(900, false)
+	_hud.stats.set_income(0)
+	_hud.stats.set_fleets(2)
+	_hud.stats.set_civilians(1)
+	_hud.stats.set_armies(4)
+	assert_eq(_hud.stats._treasury_value, 900)
+	assert_eq(_hud.stats.treasury_label.text, "900")
+	assert_eq(_hud.stats.fleet_label.text, "2")
+	assert_eq(_hud.stats.army_label.text, "4")
 	_hud.stats = null
-	assert_eq(_hud._treasury_value, 0)
-	assert_null(_hud._treasury_label)
+	assert_false(_has_property(_hud, "_treasury_label"), "the HUD keeps no plaque copy")
+	assert_false(_has_property(_hud, "_army_chip"), "nor a chip copy")
+	assert_false(_has_property(_hud, "_toast_box"), "nor a despatch lane copy")
+
+
+## Whether an object still declares a property by that name.
+func _has_property(obj: Object, name: String) -> bool:
+	for entry: Dictionary in obj.get_property_list():
+		if String(entry.get("name", "")) == name:
+			return true
+	return false
 
 
 ## Unbound plaques refuse to paint; a missing battle plate never queues a fight.
@@ -5083,8 +5084,6 @@ func test_unbound_plaques_and_a_missing_battle_plate_stay_quiet() -> void:
 	assert_false(_hud.is_quick_battle_shown())
 	_hud.show_quick_battle({"rounds": []}, "Flanders")
 	assert_true(_hud._quick_queue.is_empty())
-	_hud.despatches = null
-	_hud.toast("silence")
 
 
 ## A second fight of the turn waits behind the plate; closing it releases held news.
@@ -5103,7 +5102,7 @@ func test_a_second_battle_waits_then_releases_held_news() -> void:
 	_hud.quick_battle_overlay.skip()
 	_hud.quick_battle_overlay._on_continue()
 	assert_false(_hud.is_quick_battle_shown())
-	assert_eq(_hud._toast_box.get_child_count(), 1, "held news reaches the court")
+	assert_eq(_hud.despatches.box.get_child_count(), 1, "held news reaches the court")
 
 
 # --- merged from tests/test_panel_dock.gd ---

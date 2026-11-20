@@ -196,7 +196,7 @@ func _estate_line() -> String:
 
 
 func _chip_line() -> String:
-	return "%s / %s" % [_play.hud._treasury_label.text, _play.hud._income_label.text]
+	return "%s / %s" % [_play.hud.stats.treasury_label.text, _play.hud.stats.income_label.text]
 
 
 ## The dossier line the player taps to cycle the crown's plan.
