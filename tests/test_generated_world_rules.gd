@@ -2507,6 +2507,25 @@ func test_each_non_land_key_publishes_exactly_its_own_domain() -> void:
 	assert_almost_eq(LeaderCatalog.funding_multiplier("henry"), 1.0, 0.001)
 
 
+## The crown's own line: its leader and the effect that key publishes, in the
+## words the new-game chooser printed, for every published crown; a variant id
+## resolves to its key and a crown that fields none reads the neutral reserve
+## (wiki: leader-bonuses § Acceptance criteria — UI; DR-20261120-09).
+func test_the_crown_line_names_the_leader_and_its_effect() -> void:
+	for faction: int in FactionCatalog.great_power_ids():
+		var key: String = LeaderCatalog.default_key(faction)
+		var line: String = LeaderCatalog.crown_line(key)
+		assert_true(line.contains(LeaderCatalog.label(key)), "%s names its leader" % key)
+		assert_true(line.contains(LeaderCatalog.bonus_label(key)), "%s names its effect" % key)
+		assert_false(line.contains("no bonus"), "%s fields a published bonus" % key)
+	assert_eq(LeaderCatalog.crown_line(""), "Reserve — no bonus")
+	assert_eq(
+		LeaderCatalog.crown_line("france_napoleon_leader"),
+		LeaderCatalog.crown_line("napoleon"),
+		"a variant id words the crown as its published key does"
+	)
+
+
 func test_bonus_labels_name_the_real_effect() -> void:
 	assert_true(LeaderCatalog.bonus_label("isabella").contains("first contact"))
 	assert_true(LeaderCatalog.bonus_label("henry").contains("coastal"))

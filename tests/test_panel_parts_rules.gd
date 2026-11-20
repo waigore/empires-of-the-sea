@@ -5424,6 +5424,54 @@ func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
 	assert_false(door.is_parked())
 
 
+## The pause page's campaign reading: a missing screen yields the catalog default
+## and no seed, and COPY is a no-op when nothing is shown (REQ-P3-01).
+func test_the_pause_campaign_reading_stands_alone() -> void:
+	assert_eq(GameMenuCampaign.resolve_seed(null), 0, "no screen, no seed")
+	assert_eq(
+		GameMenuCampaign.resolve_leader(null),
+		LeaderCatalog.DEFAULT_KEY,
+		"no screen, the catalog default"
+	)
+	var seed_label := Label.new()
+	var crown := Label.new()
+	var copy := Button.new()
+	add_child(seed_label)
+	add_child(crown)
+	add_child(copy)
+	var shown: int = GameMenuCampaign.refresh(null, seed_label, copy, crown)
+	assert_eq(shown, 0)
+	assert_eq(seed_label.text, "—")
+	assert_true(copy.disabled, "copy stays shut with no seed")
+	assert_eq(crown.text, LeaderCatalog.crown_line(LeaderCatalog.DEFAULT_KEY))
+	var status := Label.new()
+	add_child(status)
+	GameMenuCampaign.copy_seed(0, status)
+	assert_eq(status.text, "", "a zero seed copies nothing")
+	GameMenuCampaign.copy_seed(42, status)
+	assert_eq(status.text, "Seed copied.", "a live seed confirms")
+
+
+## The pause desk builds its own rows so GameMenu only wires them (REQ-P3-01).
+func test_the_pause_desk_builds_its_rows() -> void:
+	var frame := VBoxContainer.new()
+	add_child(frame)
+	var desk := GameMenuPause.new()
+	desk.build(frame, true)
+	assert_not_null(desk.pause_page, "the desk mounts a page")
+	assert_not_null(desk.crown_label, "with the crown line")
+	assert_not_null(desk.seed_label, "the seed digits")
+	assert_not_null(desk.copy_seed_button, "the copy door")
+	assert_not_null(desk.resume_button, "resume")
+	assert_not_null(desk.save_button, "save")
+	assert_not_null(desk.load_button, "load")
+	assert_not_null(desk.keys_button, "keys")
+	assert_not_null(desk.main_menu_button, "main menu")
+	assert_not_null(desk.sound_desk, "the mix desk")
+	assert_not_null(desk.status, "and a status line")
+	assert_eq(desk.pause_page.get_parent(), frame, "the page sits on the frame")
+
+
 ## The screen-side door case (`test_the_screen_binds_the_door_and_the_observer_
 ## seals_it`) rides the observer suite's one mount (`test_ai_observer`): a
 ## second observer mount here cost ~15 s under coverage for the same asserts.

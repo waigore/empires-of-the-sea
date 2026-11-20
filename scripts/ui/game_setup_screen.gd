@@ -192,9 +192,7 @@ func _fill_leaders() -> void:
 	_leader_keys = LeaderCatalog.keys_for(faction)
 	leader_option.clear()
 	for key: String in _leader_keys:
-		leader_option.add_item(
-			"%s — %s" % [LeaderCatalog.label(key), LeaderCatalog.bonus_label(key)]
-		)
+		leader_option.add_item(LeaderCatalog.crown_line(key))
 	if not _leader_keys.is_empty():
 		leader_option.select(0)
 

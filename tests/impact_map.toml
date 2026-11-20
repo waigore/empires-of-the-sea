@@ -3854,6 +3854,16 @@ domain = "menu"
 match = "scripts/ui/game_menu.gd"
 domain = "pause"
 
+# The pause desk and campaign reading ride the same domain: only the suites that
+# mount the pause page can prove them (first match keeps a desk PR in budget).
+[[rules]]
+match = "scripts/ui/game_menu_pause.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/game_menu_campaign.gd*"
+domain = "pause"
+
 # The pause page's KEYS reading (its catalogue and its sheet) rides the same
 # domain: only the suites that mount the pause page can read it.
 [[rules]]

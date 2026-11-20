@@ -23,6 +23,7 @@ static func step(run) -> void:
 	await _command_ledger(run, screen)
 	await _navy_ledger(run, screen)
 	await _army_ledger(run, screen)
+	await _pause_identity(run, screen)
 	await _bid_budget(run, screen)
 
 
@@ -395,6 +396,27 @@ static func _army_ledger(run, screen: MapScreen) -> void:
 	screen.hud.muster_roll.close()
 	await run.tree.process_frame
 	run.check(not screen.hud.muster_roll.is_open(), "the muster roll sets itself aside again")
+
+
+## The pause page answers who the crown is: the leader the run bound and the
+## effect the bonus table publishes for it, in the words the new-game chooser
+## printed (wiki: leader-bonuses § Acceptance criteria — UI; DR-20261120-09).
+static func _pause_identity(run, screen: MapScreen) -> void:
+	screen.game_menu.open()
+	await run.tree.process_frame
+	var key: String = String(screen.play.leaders.get(screen.play.player_faction, ""))
+	run.check(not key.is_empty(), "the run binds the crown a leader")
+	run.check(
+		screen.game_menu.crown_label.text == LeaderCatalog.crown_line(key),
+		"the pause page names the crown's leader and its effect"
+	)
+	run.check(
+		screen.game_menu.crown_label.text.contains(LeaderCatalog.bonus_label(key)),
+		"the pause page prints the effect the bonus table publishes"
+	)
+	screen.game_menu.close()
+	await run.tree.process_frame
+	run.check(not screen.game_menu.is_open(), "the pause page sets itself aside")
 
 
 ## The ledger's market tab prints the purse the auction may spend before a bid
