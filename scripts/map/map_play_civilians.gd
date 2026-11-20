@@ -237,6 +237,19 @@ static func _purses(play: PlaySession) -> Dictionary:
 	return purses
 
 
+## Repaint the court's purse, or say nothing, when the chips were never mounted
+## (a rules-only drive builds the HUD without chrome).
+static func _paint_treasury(play: PlaySession) -> void:
+	if play.hud != null and play.hud.stats != null:
+		play.hud.stats.set_treasury(play.treasury())
+
+
+## Repaint the civilians plaque, with the same silence for a chrome-less HUD.
+static func _paint_civilians(play: PlaySession) -> void:
+	if play.hud != null and play.hud.stats != null:
+		play.hud.stats.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
+
+
 ## A deed is signed (or the purse fails it) during Build/Work. Only the human
 ## court hears about it; a rival's purchase is silent news to the player, but
 ## the tile's owner changed, so the caller redraws the political map.
@@ -249,7 +262,7 @@ static func _settle_purchase(play: PlaySession, report: Dictionary) -> void:
 	var province: int = int(report["province"])
 	var place: String = model.province_name(province) if province >= 0 else "the wilds"
 	if model.is_purchased_tile(tile):
-		play.hud.set_treasury(play.treasury())
+		_paint_treasury(play)
 		# The deed is the only play path that develops a Minor or Tribe town
 		# (wiki: civilian-units § Merchant; DR-20261112-01).
 		play.hud.toast(
@@ -314,8 +327,8 @@ static func train(play: PlaySession, type_id: String) -> void:
 	var unit: CivilianState = play.civilian_layer.add_unit(
 		play.player_faction, type_id, tile
 	)
-	play.hud.set_treasury(play.treasury())
-	play.hud.set_civilians(play.civilian_layer.unit_count_all(play.player_faction))
+	_paint_treasury(play)
+	_paint_civilians(play)
 	play.hud.toast(
 		"%s musters at %s" % [unit.display_name(), play.model.province_name(play.capital_province)]
 	)

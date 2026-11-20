@@ -214,7 +214,7 @@ func _war_toasts() -> Array[String]:
 	var out: Array[String] = []
 	if _screen == null or _screen.play == null or _screen.play.hud == null:
 		return out
-	for panel: Node in _screen.play.hud._toast_box.get_children():
+	for panel: Node in _screen.play.hud.despatches.box.get_children():
 		for text: String in _labels(panel):
 			var lower: String = text.to_lower()
 			if (
@@ -361,7 +361,7 @@ func _clear_toasts() -> void:
 		return
 	# Free immediately so the next sample does not count fading plates from the
 	# previous turn (queue_free is deferred one frame).
-	var box: Node = _screen.play.hud._toast_box
+	var box: Node = _screen.play.hud.despatches.box
 	while box.get_child_count() > 0:
 		var child: Node = box.get_child(0)
 		box.remove_child(child)

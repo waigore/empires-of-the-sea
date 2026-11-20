@@ -193,7 +193,7 @@ func _take_turn() -> void:
 
 func _toasts_since(start: int) -> PackedStringArray:
 	var lines: PackedStringArray = PackedStringArray()
-	var box: VBoxContainer = _play.hud._toast_box
+	var box: VBoxContainer = _play.hud.despatches.box
 	if box != null:
 		for index in range(start, box.get_child_count()):
 			SaveDrive.collect_text(box.get_child(index), "", lines)
@@ -202,7 +202,7 @@ func _toasts_since(start: int) -> PackedStringArray:
 
 
 func _toast_count() -> int:
-	var box: VBoxContainer = _play.hud._toast_box
+	var box: VBoxContainer = _play.hud.despatches.box
 	return box.get_child_count() if box != null else 0
 
 

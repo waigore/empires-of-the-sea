@@ -202,13 +202,13 @@ func resolve_turn() -> Dictionary:
 	if army_layer != null:
 		army_layer.sync_generals(player_faction, economy.tech_unlocked)
 	if hud != null:
-		hud.set_treasury(economy.treasury)
-		hud.flash_income(economy.treasury - before)
+		hud.stats.set_treasury(economy.treasury)
+		hud.stats.flash_income(economy.treasury - before)
 		var projection: Dictionary = readings.projected()
-		hud.set_income(int(projection.get("treasury_delta", 0)))
-		hud.set_fleets(readings.fleet_ships())
+		hud.stats.set_income(int(projection.get("treasury_delta", 0)))
+		hud.stats.set_fleets(readings.fleet_ships())
 		if army_layer != null:
-			hud.set_armies(army_layer.regiment_count_all(player_faction))
+			hud.stats.set_armies(army_layer.regiment_count_all(player_faction))
 		# The lane raises only what asks the crown to act; a quiet turn's
 		# harvest, deliveries and studies read on the ledger sheet and the
 		# Gazette (wiki: hud-toasts).
@@ -267,8 +267,8 @@ func refresh_panel() -> void:
 			economy, market, projection, readings.trade_cargo(),
 			market.minor_offers, player_faction
 		)
-	hud.set_treasury(economy.treasury)
-	hud.set_income(int(projection.get("treasury_delta", 0)))
+	hud.stats.set_treasury(economy.treasury)
+	hud.stats.set_income(int(projection.get("treasury_delta", 0)))
 	treasury_changed.emit(economy.treasury)
 
 
@@ -291,7 +291,7 @@ func report_research(result: Dictionary) -> void:
 	# Starting or abandoning a study changes the per-turn gold; the top bar must
 	# read the new figure before the turn is even closed.
 	if hud != null:
-		hud.set_income(readings.projected_income())
+		hud.stats.set_income(readings.projected_income())
 
 
 ## A funding preset moved the gold the purse pays every turn, and the chip is
@@ -299,4 +299,4 @@ func report_research(result: Dictionary) -> void:
 func report_funding() -> void:
 	refresh_research_panel()
 	if hud != null:
-		hud.set_income(readings.projected_income())
+		hud.stats.set_income(readings.projected_income())

@@ -669,7 +669,7 @@ func test_army_rations_enter_the_consumption_projection() -> void:
 	assert_eq(_screen.economy.readings.army_food(), expected)
 	var consumption: Dictionary = _screen.economy.readings.projected()["consumption"]
 	assert_eq(int(consumption["army_demand"]), expected)
-	assert_eq(_screen.hud._army_label.text, str(_screen.army_layer.regiment_count_all(0)))
+	assert_eq(_screen.hud.stats.army_label.text, str(_screen.army_layer.regiment_count_all(0)))
 
 
 ## The dossier's strength is the resolver's own aggregation, not the paper sum:
@@ -903,7 +903,7 @@ func _adjacent_enemy_province(capital: int) -> int:
 
 ## The line the court last raised, as the player reads it.
 func _last_toast() -> String:
-	var box: VBoxContainer = _screen.hud._toast_box
+	var box: VBoxContainer = _screen.hud.despatches.box
 	assert_gt(box.get_child_count(), 0, "a report was raised")
 	var plate: Control = box.get_child(box.get_child_count() - 1) as Control
 	for child: Node in plate.get_children():

@@ -348,11 +348,11 @@ func _peasants() -> int:
 
 
 func _toast_count() -> int:
-	return _screen.hud._toast_box.get_child_count()
+	return _screen.hud.despatches.box.get_child_count()
 
 
 func _last_toast() -> String:
-	var box: VBoxContainer = _screen.hud._toast_box
+	var box: VBoxContainer = _screen.hud.despatches.box
 	if box.get_child_count() == 0:
 		return ""
 	var plate: Control = box.get_child(box.get_child_count() - 1) as Control

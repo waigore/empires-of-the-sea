@@ -85,7 +85,7 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 			# A rival's squadron action is the Gazette's news, never the crown's
 			# despatch (wiki: hud-toasts).
 			play.hud.toast(line, BattleReport.icon_of(battle))
-	play.hud.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
+	play.hud.stats.set_fleets(play.ship_layer.hull_count_all(play.player_faction))
 	play.emit_battle_resolved(battles)
 	return battles
 
