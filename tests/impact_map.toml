@@ -2445,6 +2445,19 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The court's own yard claim (DR-20261121-02): the reading that asks the
+# published navy claim which hull the crown's slip means to lay, and the study
+# that opens her. Its suite is the fleet orders suite (planner, slip rows and
+# the drawer), so it names its own domain instead of the map fan-out.
+[[rules]]
+match = "scripts/map/map_play_yard_pick*.gd*"
+domain = "yard_pick"
+
+[domains.yard_pick]
+suites = [
+  "test_fleet_orders.gd",
+]
+
 # The court's own land pick (DR-20261120-10): the reading that asks the published
 # land policy what it would order an army — the split the Home Army would take,
 # the march a field army would make. Its suites are the army orders suite and the

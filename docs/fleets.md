@@ -12,20 +12,19 @@ Fog, cargo, battles, raids: [naval-missions](naval-missions.md).
 - Sea zone or port, never both; one roster/region.
 - **One move/turn:** S↔S, undock, dock at an owned port, warp.
 - A new zone reveals water + **coastal ring**; fog decays.
-- Hulls are instances (`ship_<n>` + type), **named** (`ShipNames`) through
-  save/merge; `ShipStats` FRP/RNG/ARM/HULL/MV; 2 food upkeep (DR-20261111-07).
+- Hulls are instances (`ship_<n>` + type), **named** (`ShipNames`); `ShipStats` FRP/RNG/ARM/HULL/MV; 2 food upkeep (DR-20261111-07).
 - **Yard:** launch + **one peasant**, lands next; break-up returns one
-  (DR-20261109-01); each row names her line (DR-20261117-15); a flown hull needs
+  (DR-20261109-01); a row names her line (DR-20261117-15); a flown hull needs
   no tech (#484).
-- **Home cargo:** merchant **holds** cap imports; a seat harbour grants one
+- **Home cargo:** **holds** cap imports; seat harbour grants one
   trade hold (DR-20261109-03, #484).
-- **Home merge:** seat dock or dossier **Join the home fleet**; ids, names and
+- **Home merge:** seat dock or dossier **Join the home fleet**; ids, names,
   passengers keep.
-- **Home sortie** (DR-20261109-17): the home squadron may sail (spends
-  move/holds); one colonist per hull; **Take all ready** mans a berth
+- **Home sortie** (DR-20261109-17): the home squadron may sail; one
+  colonist per hull; **Take all ready** mans a berth
   (DR-20261119-18).
 - **Split / combine** (DR-20261116-12/13): detach one hull, or fold it into
-  another of yours in the same station.
+  another in the same station.
 - Contested zones fight at the close: `FRP + 0.4·RNG + 0.15·ARM + 0.1·MV`;
   durability `HULL × (1 + ARM/10)`; a 3% edge wins, the loser retreats.
 - **Markers:** escorts, hull badge, selection strength; a rival `*` until
@@ -36,14 +35,15 @@ Fog, cargo, battles, raids: [naval-missions](naval-missions.md).
   capital (#1043).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13/16); raids sink one merchant hull (DR-20261111-17).
-- **The court's pick** (DR-20261120-04): the missions block's gold line names
-  the sail or harbour the naval policy would order; a reading only.
+- **The court's picks** (DR-20261120-04): the missions gold line names the sail
+  or harbour the policy would order; the slip names the hull the yard would
+  lay or save for (DR-20261121-02); readings only.
 - **Army transport** (`NavalTransport`): board one regiment/hull, land on an
   owned coast; troops drown with the hull.
 - **Beachhead:** mark a hostile coast (spends the move); lands next; lapses.
 
 **Navy** (`N`, DR-20261115-14) lists each hull, **Visit** frames it; the sea
-lens (`H`, DR-20261115-17) reads the zones the crown's sail sees.
+lens (`H`, DR-20261115-17) reads zones the crown's sail sees.
 
 ## Architecture
 

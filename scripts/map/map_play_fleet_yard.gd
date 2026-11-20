@@ -44,7 +44,8 @@ static func open(play: PlaySession) -> void:
 		return
 	play.hud.panels.show_fleet(
 		play.model, null, true, "", FleetYard.rows(play.economy.economy, true, flown(play)),
-		province
+		province, [] as Array[Dictionary], 0, [] as Array[Dictionary], "", {},
+		{}, {}, "", [] as Array[FleetState], "", MapPlayYardPick.line(play)
 	)
 
 
