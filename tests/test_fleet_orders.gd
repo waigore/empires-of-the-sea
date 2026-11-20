@@ -3991,20 +3991,25 @@ func test_the_live_capital_slip_prints_the_claim_the_court_would_take() -> void:
 	assert_eq(_screen.hud.panels.fleet_panel._yard.pick_line(), line, "the slip prints it")
 
 
-## The claim's words carry no id and no blank study: a hull the catalogue cannot
-## name and a door with no study print nothing, so the slip never reads "a " or a
-## key (DR-20261121-02).
-func test_the_yard_picks_words_name_nothing_they_cannot() -> void:
-	assert_eq(MapPlayYardPickWords.lay_line("no_such_hull"), "", "no name, no line")
-	assert_eq(MapPlayYardPickWords.saving_line("no_such_hull", 5500, 100), "")
-	assert_eq(MapPlayYardPickWords.study_line("sloop", ""), "", "no study, no line")
-	assert_eq(MapPlayYardPickWords.study_line("no_such_hull", "navigation"), "")
-	assert_eq(MapPlayYardPickWords.sentence(""), "", "no words, no sentence")
-	assert_true(
-		MapPlayYardPickWords.lay_line("sloop").begins_with(
-			"the court would lay a %s — %s" % [
-				ShipStats.display_name("sloop"), ShipEconomy.cost_text("sloop")
-			]
-		),
+## The claim's three sentences, word for word: the hull the yard would lay priced
+## by her own row, the hull saved for against the purse, and the study that opens
+## her (DR-20261121-02).
+func test_the_yard_picks_words_name_each_hull_and_its_gate() -> void:
+	assert_eq(
+		MapPlayYardPickWords.lay_line("sloop"),
+		"the court would lay a Sloop — %s" % ShipEconomy.cost_text("sloop"),
 		"the price is her row's own"
 	)
+	assert_eq(
+		MapPlayYardPickWords.saving_line("sloop", 5500, 2400),
+		"the court is saving for a Sloop — the purse holds 2,400 ducats of 5,500 ducats"
+	)
+	assert_eq(
+		MapPlayYardPickWords.study_line("sloop", "navigation"),
+		"the court is saving for a Sloop — the study Navigation opens her"
+	)
+	assert_eq(
+		MapPlayYardPickWords.sentence("the court would lay a Sloop — 5,500 ducats"),
+		"The court would lay a Sloop — 5,500 ducats."
+	)
+	assert_eq(MapPlayYardPickWords.sentence(""), "", "no words, no sentence")

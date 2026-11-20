@@ -15,24 +15,21 @@ static func sentence(text: String) -> String:
 
 
 ## The hull the yard would lay down, priced exactly as her own row prints her: the
-## catalog's treasury row, her materials and the peasant she takes. Empty when the
-## catalogue has no name for her, so the sheet can never print an id.
+## catalog's treasury row, her materials and the peasant she takes
+## (`ShipEconomy.cost_text`; DR-20261117-15).
 static func lay_line(type_id: String) -> String:
-	var name: String = ShipStats.display_name(type_id)
-	if name.strip_edges().is_empty():
-		return ""
-	return "the court would lay a %s — %s" % [name, ShipEconomy.cost_text(type_id)]
+	return "the court would lay a %s — %s" % [
+		ShipStats.display_name(type_id), ShipEconomy.cost_text(type_id)
+	]
 
 
 ## The hull the court means to lay while the purse fills: what the yard will take
 ## for her against the coin in hand, so the shortfall reads as a figure and never
 ## as a silence (REQ-P5-05).
 static func saving_line(type_id: String, price: int, held: int) -> String:
-	var name: String = ShipStats.display_name(type_id)
-	if name.strip_edges().is_empty():
-		return ""
 	return "the court is saving for a %s — the purse holds %s of %s" % [
-		name, MoneyText.ducats(maxi(held, 0)), MoneyText.ducats(maxi(price, 0))
+		ShipStats.display_name(type_id), MoneyText.ducats(maxi(held, 0)),
+		MoneyText.ducats(maxi(price, 0)),
 	]
 
 
@@ -40,8 +37,6 @@ static func saving_line(type_id: String, price: int, held: int) -> String:
 ## door the college's own pick names (wiki: tech-tree § Research model;
 ## DR-20261121-01), so a crown reads one chain on both sheets.
 static func study_line(type_id: String, study_id: String) -> String:
-	var name: String = ShipStats.display_name(type_id)
-	var study: String = TechCatalog.display_name(study_id)
-	if name.strip_edges().is_empty() or study.strip_edges().is_empty():
-		return ""
-	return "the court is saving for a %s — the study %s opens her" % [name, study]
+	return "the court is saving for a %s — the study %s opens her" % [
+		ShipStats.display_name(type_id), TechCatalog.display_name(study_id)
+	]
