@@ -45,10 +45,10 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
   depth (`TechTreeLayout`).
 - **Phone sheet (DR-20261120-03):** the college budgets its plate; the window
   yields (`ResearchSheetFit`).
-- **The court's pick (DR-20261121-01):** the first idle slot prints, in gold,
-  the study the policy would open (`MapPlayResearchPick`,
-  `AiResearchPlanner.read_free_slot`); a door the purse cannot fund is not
-  named (`#484`); nothing is assigned or spent.
+- **The court's pick (DR-20261121-01):** idle slot prints in gold the study
+  policy would open (`MapPlayResearchPick`,
+  `AiResearchPlanner.read_free_slot`); an unfundable door is not named
+  (`#484`); nothing assigned or spent.
 
 ## Deferred (REQ-P2-02)
 
