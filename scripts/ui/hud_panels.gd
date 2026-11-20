@@ -164,11 +164,12 @@ func show_army(
 	muster: Array[Dictionary] = [],
 	embark: String = "",
 	plan: String = "balanced",
-	hospital: Dictionary = {}
+	hospital: Dictionary = {},
+	pick: String = ""
 ) -> void:
 	close_sheets(self.army)
 	army_panel.refresh(
-		model, army, is_player, can_merge, command, muster, embark, plan, hospital
+		model, army, is_player, can_merge, command, muster, embark, plan, hospital, pick
 	)
 	self.army.reveal(host, dock)
 
