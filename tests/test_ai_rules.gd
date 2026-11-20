@@ -3547,6 +3547,21 @@ func test_the_ladder_prices_the_whole_slot_row() -> void:
 		paid += ResearchFunding.gold(String(row["funding"]))
 	assert_true(paid <= 66, "the row never pays more ducats than the spare")
 
+	# A court still filling the chest keeps the published ladder, so the door
+	# that opens the hull is never held back by the chest it is saving for.
+	var filling: PlayerEconomy = _purse(5400)
+	var early: Dictionary = AiResearchPlanner.plan(
+		config, filling,
+		{
+			"treasury_floor": 4500, "cash_floor": 500, "defer_standing": true,
+			"navy_reserve": 5500,
+		}
+	)
+	var early_paid: int = 0
+	for row: Dictionary in early["assignments"]:
+		early_paid += ResearchFunding.gold(String(row["funding"]))
+	assert_true(early_paid > 66, "the saving court still studies as published")
+
 
 ## Issue #1126: the row-priced ladder is the hull chest's reading only — a court
 ## that banks nothing keeps the published single-slot preset.

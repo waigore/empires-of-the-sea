@@ -68,9 +68,13 @@ static func _purse(
 	# Standing study affordability is always the cash floor, never the muster.
 	var cash_floor: int = maxi(int(context.get("cash_floor", research_floor(config))), 0)
 	var preset: String = funding_for(config, economy, save_floor)
-	# A chest the yard is banking for is the only floor the row prices whole
-	# (issue #1126): every other study keeps the published single-slot ladder.
-	if int(context.get("navy_reserve", 0)) > 0:
+	# A hull chest that is already in hand is the yard's before the college's
+	# (issue #1126): the row is priced whole, so the ladder cannot spend the
+	# last payment the slip needs. A court still filling its chest keeps the
+	# published single-slot ladder, so the door that opens the hull is never
+	# held back by the chest it is saving for.
+	var navy_reserve: int = maxi(int(context.get("navy_reserve", 0)), 0)
+	if navy_reserve > 0 and economy.treasury >= navy_reserve:
 		preset = _row_preset(preset, economy, save_floor)
 	# A court that cannot clear the money-goal reserve still keeps one study
 	# alive at the cheapest preset when the purse clears half its cash floor:
@@ -87,13 +91,7 @@ static func _purse(
 		and _can_pay_standing(economy, cash_floor, save_floor)
 	)
 	var standing: int = _standing_slot(state) if can_stand else -1
-	var door_floor: int = maxi(
-		cash_floor,
-		maxi(
-			int(context.get("conquest_reserve", 0)),
-			int(context.get("navy_reserve", 0))
-		)
-	)
+	var door_floor: int = maxi(cash_floor, int(context.get("conquest_reserve", 0)))
 	# The standing slot carries the ration ladder (issue #1059): a banked
 	# court keeps the ration-estate cap study at the standing preset.
 	if standing >= 0 and bool(context.get("conquest_bank", false)):
