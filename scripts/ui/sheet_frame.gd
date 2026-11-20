@@ -79,8 +79,6 @@ func _apply_profile(compact: bool, narrow: bool) -> void:
 		_crest.visible = not narrow
 	if _subtitle != null:
 		_subtitle.visible = not compact
-	if _close != null:
-		_close.custom_minimum_size.x = 64.0 if narrow else 92.0
 	if _hint != null:
 		_hint.visible = not compact
 
@@ -119,9 +117,7 @@ func _header() -> Control:
 	_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	titles.add_child(_subtitle)
 
-	_close = Button.new()
-	_close.text = "Close"
-	_close.custom_minimum_size = Vector2(92, 40)
+	_close = CloseSeal.make()
 	_close.pressed.connect(close)
 	header.add_child(_close)
 	return header

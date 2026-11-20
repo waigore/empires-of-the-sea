@@ -149,10 +149,6 @@ func _build_plate(host: VBoxContainer) -> void:
 func _apply_profile(compact: bool, _narrow: bool) -> void:
 	if _title != null:
 		_title.add_theme_font_size_override("font_size", 20 if compact else 26)
-	if _close_button != null:
-		_close_button.custom_minimum_size = (
-			Vector2(72, 40) if compact else Vector2(92, 38)
-		)
 	if _rows != null:
 		_rows.add_theme_constant_override("separation", 4 if compact else 5)
 	if _head != null:
@@ -192,9 +188,7 @@ func _header() -> Control:
 	_subtitle.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	titles.add_child(_subtitle)
 
-	_close_button = Button.new()
-	_close_button.text = "Close"
-	_close_button.custom_minimum_size = Vector2(92, 38)
+	_close_button = CloseSeal.make()
 	_close_button.pressed.connect(close)
 	header.add_child(_close_button)
 	return header

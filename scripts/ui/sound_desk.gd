@@ -57,11 +57,7 @@ func _build_header() -> void:
 
 	if not closable:
 		return
-	var close := Button.new()
-	close.name = "Close"
-	close.text = "✕"
-	close.custom_minimum_size = Vector2(32, 28)
-	close.add_theme_font_size_override("font_size", 14)
+	var close := CloseSeal.make()
 	close.pressed.connect(func() -> void:
 		ui_sound.emit(AudioEvents.UI_CLICK)
 		close_requested.emit()

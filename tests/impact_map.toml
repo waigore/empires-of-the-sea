@@ -1283,6 +1283,7 @@ domain = "fold_map_screen"
 # travel together; the broad scripts/map fan-out stays off the tier-1 budget.
 [domains.lens_kit]
 suites = [
+  "test_wash_bake.gd",
   "test_map_view_rules.gd",
   "test_map_screen.gd",
 ]
@@ -1291,10 +1292,20 @@ suites = [
 match = "scripts/map/map_lens.gd*"
 domain = "lens_kit"
 
-# The reading's printed slip and wash: the paper every lens prints on, so it
-# rides the same kit suites as the base the lenses inherit.
+# The reading's printed slip: the paper every lens prints on, so it rides the
+# same kit suites as the base the lenses inherit.
 [[rules]]
 match = "scripts/map/lens_slip.gd*"
+domain = "lens_kit"
+
+# The reading's colour wash: baked to a soft-edged texture, so a band change
+# reaches every reading's view. Named with the slip so the kit suites travel.
+[[rules]]
+match = "scripts/map/wash_bake.gd*"
+domain = "lens_kit"
+
+[[rules]]
+match = "tests/test_wash_bake.gd*"
 domain = "lens_kit"
 
 # Every reading inherits the kit; route each lens here before the broader
@@ -1977,11 +1988,11 @@ match = "gd-tools.toml"
 domain = "misc"
 
 # Map edits are exercised by the selection script in CI (--check-complete).
-# One light suite only: an impact-map edit must not union ai/fleet/naval boots
-# past the tier-1 5 min budget when it lands beside a call-site remap.
+# One light suite only: an impact-map edit is inert, so it must never union
+# ai/fleet/naval boots past the tier-1 5 min budget beside a call-site remap.
 [domains.impact_map]
 suites = [
-  "test_ai_rules.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 # Folded micro-suites still appear as deletions in the PR diff. Map those names
@@ -2733,7 +2744,7 @@ match = "scripts/ai/ai_border_fronts.gd*"
 domain = "ai_diplomacy"
 
 [[rules]]
-match = "scripts/ai/ai_state.gd*"
+match = "scripts/ai/ai_state*.gd*"
 domain = "ai_diplomacy"
 
 [[rules]]
@@ -3963,6 +3974,20 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+# The one close seal every dismissible panel wears (docs/ui-panels.md): its
+# chrome cases and the panels that mount it live in the panel-parts boot, so a
+# seal change never pulls the menu catch-all's setup and hub suites.
+[[rules]]
+match = "scripts/ui/close_seal.gd*"
+domain = "ui"
+
+# The observatory's province sheet wears the same close seal as the crown's
+# dossier: the panel-parts boot mounts it, so a chrome edit stays off the AI
+# observer's planner fan-out. Its reading lives in `scripts/map/observer_province.gd`.
+[[rules]]
+match = "scripts/ui/observer_province_sheet.gd*"
+domain = "ui"
 
 # The observatory's province reading: the panel's own suites prove the sheet and
 # the words it prints (docs/ai-observer.md).
