@@ -1,7 +1,7 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1111 (REQ-P2-02).
-Default: largest item here, then REQ/wiki.
+Audited: wiki / DRs / code through #1121 (REQ-P2-02).
+Default pick: largest gap here, then REQ/wiki.
 
 ## Already live
 
@@ -65,6 +65,7 @@ None ranked; audit `docs/rubric.md` / wiki for the next gap.
 ## Wiki drift
 
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
-crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`). Soft weight
-seed blocked (`DR-20261117-01`). Learnings coverage gaps none
-(DR-20261120-01/02 station prices; embark berth #1104).
+crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`).
+`DR-20261112-09` diplomacy-fog deferral closed by DR-13-03. Soft weight
+seed blocked (`DR-20261117-01`). Learnings gaps none (DR-20-01/02;
+#1104; #1118).
