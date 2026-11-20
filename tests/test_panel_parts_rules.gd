@@ -436,6 +436,27 @@ func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	assert_true(grid.deeds.visible, "the row arrives with the deed")
 	assert_eq(grid.deeds.text, "%s 1 tile" % FactionCatalog.name_of(1))
 
+
+## The province sheet names what the wall soaks and what it spares the garrison
+## — the fort table's own figures, so a plan is made against the wall a battle
+## would fight — and leaves the row out on open ground (wiki: siege-mechanics
+## § Wall Protection; DR-20261120-06).
+func test_the_province_sheet_names_what_the_wall_soaks() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_false(grid.wall.visible, "open ground says nothing")
+	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 1
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	assert_true(grid.wall.visible, "the row arrives with the wall")
+	assert_eq(grid.wall.text, "10 wall hp · 25% off a blow")
+	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 3
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	assert_eq(grid.wall.text, "30 wall hp · 60% off a blow", "a modern wall")
+
 func test_each_estate_says_whether_it_is_developed_and_linked() -> void:
 	_setup_province_panel()
 	_show()

@@ -59,6 +59,7 @@ static func reading(play: PlaySession, province_id: int) -> Dictionary:
 			if crown.has("linked") else DossierCopy.roads(rows)
 		),
 		"fort": FortRules.describe(province.fort_level),
+		"wall": WallRead.line(province.fort_level),
 		"hospital": HospitalRules.describe(
 			province.hospital_level, province.hospital_staffed
 		),

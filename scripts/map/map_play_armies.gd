@@ -164,10 +164,14 @@ static func on_moved(play: PlaySession, army: ArmyState, result: Dictionary) -> 
 		return
 	show_panel(play, army)
 	refresh_options(play, army)
+	var place: String = play.model.province_name(army.province)
 	if bool(result.get("attacked", false)):
-		play.hud.toast("The army marches on %s" % play.model.province_name(army.province))
+		var wall: String = WallRead.march_line(
+			place, FortRules.level_at(play.model, army.province)
+		)
+		play.hud.toast(wall if not wall.is_empty() else "The army marches on %s" % place)
 	else:
-		play.hud.toast("The army reaches %s" % play.model.province_name(army.province))
+		play.hud.toast("The army reaches %s" % place)
 
 
 ## One door for every dossier order: the tap names the order, the owning module

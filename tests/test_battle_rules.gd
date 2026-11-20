@@ -2458,6 +2458,56 @@ func test_only_firearms_weigh_against_a_wall() -> void:
 	)
 
 
+## What the crown reads before a siege is the exchange's own maths, not a second
+## table beside it (wiki: siege-mechanics § Wall Protection; DR-20261120-06): the
+## soak the wall takes off an attack and the share of a blow it spares the
+## garrison, level by level, in one set of words.
+func test_the_wall_read_names_the_figures_the_exchange_reads() -> void:
+	var levels: Array[int] = [1, 2, 3]
+	var hp: Array[int] = [10, 20, 30]
+	var spared: Array[int] = [25, 45, 60]
+	for index in levels.size():
+		var level: int = levels[index]
+		assert_eq(
+			WallRead.line(level),
+			"%d wall hp · %d%% off a blow" % [hp[index], spared[index]],
+			"the wall's own two figures"
+		)
+		assert_almost_eq(
+			WallRead.damage_share(level),
+			1.0 - FortRules.loss_scale(level),
+			0.0001,
+			"the spared share is the casualty band's own scale"
+		)
+		assert_almost_eq(
+			FortRules.wall_soak(500.0, level),
+			500.0 - float(hp[index]),
+			0.01,
+			"and the soak is what the attack loses"
+		)
+	assert_eq(WallRead.line(0), "", "open ground says nothing")
+
+
+## A march into another court's walled province reads the wall it will have to
+## break; open ground keeps the plain line, so no siege is named where none
+## stands (wiki: siege-mechanics § Wall Protection; REQ-P5-05).
+func test_a_march_reads_the_wall_that_stands_there() -> void:
+	assert_eq(WallRead.march_line("Badajoz", 0), "", "no wall, no siege line")
+	assert_eq(
+		WallRead.march_line("Badajoz", 1),
+		"The army marches on Badajoz — a wood fort stands: "
+		+ "10 wall hp, 1 emplaced gun, 25% off a blow."
+	)
+	assert_true(
+		WallRead.march_line("Badajoz", 2).contains("2 emplaced guns"),
+		WallRead.march_line("Badajoz", 2)
+	)
+	assert_true(
+		WallRead.march_line("Badajoz", 3).contains("30 wall hp"),
+		WallRead.march_line("Badajoz", 3)
+	)
+
+
 ## A garrison that leaves the wall to sortie can hit back with every regiment,
 ## which is how a pike garrison hurts a siege at all.
 func test_a_sortie_lets_a_pike_garrison_fight() -> void:
