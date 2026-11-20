@@ -540,9 +540,11 @@ domain = "sea_tone"
 match = "ui/shaders/sea.gdshader*"
 domain = "sea_tone"
 
+# Session bag + its screen bridge: the play_screen domain proves the airings
+# without the pause/menu fan-out that overruns tier-1 on a bridge PR.
 [[rules]]
 match = "scripts/session/play_session.gd*"
-domain = "pause"
+domain = "play_screen"
 
 # Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
 # ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.
@@ -1283,7 +1285,6 @@ domain = "fold_map_screen"
 # travel together; the broad scripts/map fan-out stays off the tier-1 budget.
 [domains.lens_kit]
 suites = [
-  "test_wash_bake.gd",
   "test_map_view_rules.gd",
   "test_map_screen.gd",
 ]
@@ -1304,9 +1305,10 @@ domain = "lens_kit"
 match = "scripts/map/wash_bake.gd*"
 domain = "lens_kit"
 
+# Deleted wash-bake suite rides the map-view boot (lens kit theme).
 [[rules]]
 match = "tests/test_wash_bake.gd*"
-domain = "lens_kit"
+domain = "fold_map_view"
 
 # Every reading inherits the kit; route each lens here before the broader
 # resource-ink / crown-road / scripts/map globs so one reading stays small.
@@ -1512,6 +1514,17 @@ suites = [
   "test_panel_parts_rules.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
+  "test_map_screen.gd",
+]
+
+# PlaySession's screen bridge: one Node and the airings a helper sends it
+# (REQ-P3-02). Its own suite proves the bridge headless; the mounted
+# campaign-end suite proves the same calls on the real chart, so a bridge edit
+# never pulls the menu or map fan-out.
+[domains.play_screen]
+suites = [
+  "test_play_screen.gd",
+  "test_campaign_end.gd",
   "test_map_screen.gd",
 ]
 
@@ -2013,6 +2026,7 @@ suites = [
 suites = [
   "test_hud_campaign_plate.gd",
 ]
+
 
 [domains.fold_court]
 suites = [
@@ -2849,6 +2863,13 @@ domain = "map"
 [[rules]]
 match = "scripts/session/game_config.gd*"
 domain = "world"
+
+# The session's screen bridge (PlayScreen): the airings and region swap a
+# helper sends the chart. Named before the session catch-all so a bridge edit
+# stays on its own suites.
+[[rules]]
+match = "scripts/session/play_screen.gd*"
+domain = "play_screen"
 
 [[rules]]
 match = "scripts/session/**"
@@ -4110,6 +4131,15 @@ domain = "heraldry"
 
 [[rules]]
 match = "tests/test_heraldry.gd*"
+domain = "fold_chrome"
+
+# Deleted order-verdict suite rides the lean chrome boot.
+[[rules]]
+match = "tests/test_order_verdict.gd*"
+domain = "fold_chrome"
+
+[[rules]]
+match = "scripts/rules/order_verdict.gd*"
 domain = "fold_chrome"
 
 [[rules]]
