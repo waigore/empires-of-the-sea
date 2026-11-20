@@ -87,6 +87,14 @@ static func _voyage_abroad(play: PlaySession, faction: int) -> bool:
 ## ledger reads the aim blocked with that reason instead of funding a voyage the
 ## planner will not order (issue #602).
 ##
+## The expedition the court paid for is ashore with no crown land: the reading
+## the objective ledger prints (`voyage_stranded`) and the claim-crew carve-out
+## in the hire ladder both share, so the aim and the hire cannot disagree
+## (issue #1139; #602).
+static func claim_stranded(play: PlaySession, faction: int) -> bool:
+	return _voyage_stranded(play, faction)
+
+
 ## The claim is what keeps it alive (#1127): a Merchant still waiting at home
 ## sails next, and the deeds it signs are crown land a Builder lands on, so the
 ## aim is not stranded while that crew stands ready. A Merchant or Builder ashore
