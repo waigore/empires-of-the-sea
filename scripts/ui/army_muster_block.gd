@@ -17,6 +17,9 @@ var _batch: RaiseBatchPress = null
 ## read from the rows' own plan. One label, re-read on every fill, so a redraw
 ## never stacks a second copy of the sum on the sheet (DR-20261118-11).
 var _sum_line: Label = null
+## The line the court's own muster would raise, in gold above the yard — the
+## published policy's reading, never an order (DR-20261121-03).
+var _pick: Label = null
 
 
 func _ready() -> void:
@@ -37,16 +40,21 @@ func _make_batch() -> void:
 	add_child(_batch)
 	_sum_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
 	add_child(_sum_line)
+	_pick = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
+	_pick.visible = false
 
 
 ## Rebuilds every drill-yard row from the training table, then the one press the
 ## rows earn: its count is the yard's own `batch_ready` flag, so the face names
-## what the second tap would file (REQ-P5-05).
-func fill(rows: Array[Dictionary]) -> void:
+## what the second tap would file (REQ-P5-05). `pick` is the line the court's own
+## muster would raise, already worded (DR-20261121-03); a rival's dossier answers
+## to her own court and carries none.
+func fill(rows: Array[Dictionary], pick: String = "") -> void:
 	_make_batch()
 	for child: Node in get_children():
-		if child != _batch and child != _sum_line:
+		if child != _batch and child != _sum_line and child != _pick:
 			child.queue_free()
+	_fill_pick(pick)
 	var ready: int = 0
 	for row: Dictionary in rows:
 		if bool(row.get("batch_ready", false)):
@@ -117,6 +125,26 @@ func _fill_sum(text: String) -> void:
 		return
 	if _sum_line.get_parent() == null:
 		add_child(_sum_line)
+
+
+## The yard's own pick stands above the rows only while there is one: a court the
+## published muster would arm reads the line it would raise, and one it arms
+## nothing for keeps the yard's published shape (DR-20261121-03).
+func _fill_pick(text: String) -> void:
+	_pick.text = text
+	_pick.visible = not text.is_empty()
+	if text.is_empty():
+		if _pick.get_parent() != null:
+			remove_child(_pick)
+		return
+	if _pick.get_parent() == null:
+		add_child(_pick)
+	move_child(_pick, 0)
+
+
+## The pick the yard is printing, for tests and the mobile audit (REQ-P3-02).
+func pick_line() -> String:
+	return _pick.text if _pick != null else ""
 
 
 ## The plan the yard's rows carry, or an empty one when a caller handed the block

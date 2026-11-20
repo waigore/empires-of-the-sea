@@ -269,7 +269,8 @@ func refresh(
 	embark: String = "",
 	plan: String = "balanced",
 	hospital: Dictionary = {},
-	pick: String = ""
+	pick: String = "",
+	muster_pick: String = ""
 ) -> void:
 	if model == null or army == null:
 		return
@@ -294,7 +295,7 @@ func refresh(
 	if _dismiss_timer != null:
 		_dismiss_timer.stop()
 	_roster.fill(army, is_player and not army.is_embarked(), model, is_player)
-	_muster_box.fill(muster)
+	_muster_box.fill(muster, muster_pick)
 	if not (is_player and army.home):
 		_muster_open = false
 	_muster_button.visible = is_player and army.home and not muster.is_empty()
