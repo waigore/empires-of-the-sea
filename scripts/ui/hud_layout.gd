@@ -27,6 +27,7 @@ func apply(hud: GameHud) -> void:
 		return
 	compact = is_compact(view)
 	_bar(hud, view)
+	_region_toggle(hud)
 	_minimap(hud)
 	_zoom(hud)
 	_lens_key(hud)
@@ -132,6 +133,19 @@ func _zoom(hud: GameHud) -> void:
 			(child as Button).custom_minimum_size = size
 
 
+## The chart pill rides the map's top-left corner under the cartouche, a hair
+## smaller on a phone so it never fights the legend for the lane.
+func _region_toggle(hud: GameHud) -> void:
+	var toggle: MapRegionToggle = hud.map_region
+	if toggle == null:
+		return
+	toggle.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	toggle.offset_left = 14.0 if compact else 18.0
+	toggle.offset_top = hud.top_bar.offset_bottom + 6.0
+	toggle.offset_right = toggle.offset_left + MapRegionToggle.PILL_SIZE.x
+	toggle.offset_bottom = toggle.offset_top + MapRegionToggle.PILL_SIZE.y
+
+
 func _lens_key(hud: GameHud) -> void:
 	var legend: LensLegend = hud.lens_legend
 	if legend == null:
@@ -161,6 +175,10 @@ func _toasts(hud: GameHud) -> void:
 	if hud.despatches == null:
 		return
 	var top: float = hud.top_bar.offset_bottom
+	# A phone's chart pill owns the lane's first band, so the news starts under it
+	# rather than through it (issue #1164).
+	if compact and hud.map_region != null:
+		top += MapRegionToggle.PILL_SIZE.y + 4.0
 	if hud.auto_bar != null and hud.auto_bar.is_showing():
 		top += AutoBar.CHROME_HEIGHT
 	hud.despatches.fit(compact, top, LEFT_RAIL)

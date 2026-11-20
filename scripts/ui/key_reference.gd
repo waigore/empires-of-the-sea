@@ -87,12 +87,10 @@ const GROUPS: Array[Dictionary] = [
 				"door": "Civilians plaque",
 			},
 			{
-				"label": "Provinces",
+				"label": "The realm",
 				"actions": [InputActions.PROVINCE_LEDGER],
-				"door": "Province dossier › Realm",
+				"door": "Realm seal · province dossier › Realm",
 			},
-			{"label": "Towns", "actions": [InputActions.TOWNS_LEDGER], "door": "Realm ledger › Towns"},
-			{"label": "Walls", "actions": [InputActions.WALLS_LEDGER], "door": "Realm ledger › Walls"},
 			{
 				"label": "Commanders",
 				"actions": [InputActions.COMMAND_LEDGER],

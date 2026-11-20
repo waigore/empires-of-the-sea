@@ -492,16 +492,27 @@ func test_the_bar_seals_cycle_the_readings_and_open_the_menu() -> void:
 	assert_false(_screen.game_menu.is_open())
 
 
-func test_region_seal_goes_inert_with_a_single_region() -> void:
+## The chart pill rides the map's own corner now (issue #1164): a short word on
+## a one-chart world, and a live press as soon as a second chart exists.
+func test_the_chart_pill_goes_inert_with_a_single_region() -> void:
 	await _open(PHONE)
 	await get_tree().process_frame
 	var hud: GameHud = _screen.hud
+	assert_not_null(hud.map_region, "the map carries its own chart pill")
+	var rect: Rect2 = hud.map_region.get_global_rect()
+	assert_true(
+		rect.position.y >= hud.top_bar.offset_bottom,
+		"the pill stands on the chart, under the cartouche"
+	)
+	assert_lt(rect.position.x, 40.0, "at the map's own left corner")
+	assert_lt(hud.map_region.size.x, 70.0, "and stays small")
 	HudChrome.set_region_label(hud, "OLD WORLD", false)
 	assert_true(hud._region_button.disabled, "no fake switch on a one-region map")
-	assert_eq(hud._region_label.text, "OLD WORLD", "region stays as context")
+	assert_eq(hud._region_label.text, "OLD", "the chart stays as context")
 	assert_true(hud._region_button.tooltip_text.contains("only charted"))
 	HudChrome.set_region_label(hud, "NEW WORLD", true)
 	assert_false(hud._region_button.disabled, "two maps offer the switch again")
+	assert_eq(hud._region_label.text, "NEW", "and the pill names the chart in play")
 
 
 func test_desktop_chrome_keeps_its_atlas_geometry() -> void:
