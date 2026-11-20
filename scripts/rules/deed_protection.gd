@@ -53,16 +53,36 @@ static func deed_count(world: WorldMap, court: int, target: int) -> int:
 static func invested_in_province(
 	model: MapModel, province_id: int, except_court: int
 ) -> bool:
+	return not province_holders(model, province_id, except_court).is_empty()
+
+
+## The courts that hold a deed in one province, and how many tiles each bought:
+## court -> tile count, ascending court id. One home for the investment a Tribe's
+## shore reads, so the march's bar, the sheet's Deeds row and the intervention
+## trial cannot count different holdings (wiki: factions § Tribe; diplomacy
+## § GP–Minor Rules § Intervention; REQ-P2-03).
+static func province_holders(
+	model: MapModel, province_id: int, except_court: int = -1
+) -> Dictionary:
+	var found: Dictionary = {}
 	if model == null or province_id < 0:
-		return false
+		return found
 	var province: ProvinceState = model.province_data(province_id)
 	if province == null:
-		return false
+		return found
+	var counts: Dictionary = {}
 	for tile: Vector2i in province.tiles:
 		var buyer: int = model.ownership.purchaser(model.index_of(tile.x, tile.y))
-		if buyer >= 0 and buyer != except_court:
-			return true
-	return false
+		if buyer < 0 or buyer == except_court:
+			continue
+		counts[buyer] = int(counts.get(buyer, 0)) + 1
+	var courts: Array[int] = []
+	for raw: Variant in counts.keys():
+		courts.append(int(raw))
+	courts.sort()
+	for court: int in courts:
+		found[court] = int(counts[court])
+	return found
 
 
 static func holds_deed(world: WorldMap, court: int, target: int) -> bool:

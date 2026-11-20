@@ -23,6 +23,13 @@ suites = [
   "test_army_orders.gd",
 ]
 
+# March order + toast only: battle boots overrun tier 1 when map_play_armies
+# stacks on diplomacy / province_sheet / impact_map (deed bar).
+[domains.army_orders]
+suites = [
+  "test_army_orders.gd",
+]
+
 # Deterministic christening core and its three rosters (hulls, regiments,
 # generals). They share one pick and one digest, so a naming change runs its own
 # suites instead of pulling the fleet and army domains past the tier-1 budget.
@@ -2800,9 +2807,11 @@ match = "scripts/map/army_*.gd"
 domain = "army"
 
 # `map_play_armies.gd` is plural — `army*` does not match `armies` under fnmatch.
+# army_orders alone: battle boots overrun tier 1 when this call site stacks on
+# diplomacy / province_sheet / impact_map (deed-bar toast and sheet row).
 [[rules]]
 match = "scripts/map/map_play_armies.gd*"
-domain = "army"
+domain = "army_orders"
 
 # Rival army AI pass: named before the army_* glob so a court-reader fan-out
 # stays on the ai set instead of unioning army_orders / battle boots.
@@ -3521,8 +3530,19 @@ domain = "campaign"
 # Purchased-tile stake the intervention path and Tribe invadable gate read.
 # Diplomacy suites cover deeds / intervention; campaign (defeat / capital /
 # victory) overruns tier 1 when stacked on army / naval call-site remaps.
+# `.gd*` so a new `.gd.uid` stays on diplomacy, not a catch-all boot.
 [[rules]]
-match = "scripts/rules/deed_protection.gd"
+match = "scripts/rules/deed_protection.gd*"
+domain = "diplomacy"
+
+# The bar's cause and its words (refused march, the sheet's Deeds row). Read by
+# the army order and the province sheet, proved by the diplomacy suites.
+[[rules]]
+match = "scripts/rules/invasion_bar.gd*"
+domain = "diplomacy"
+
+[[rules]]
+match = "scripts/rules/deed_bar.gd*"
 domain = "diplomacy"
 
 [[rules]]

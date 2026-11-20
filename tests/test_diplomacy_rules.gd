@@ -3043,6 +3043,91 @@ func test_a_foreign_deed_bars_an_undeclared_tribe_invasion() -> void:
 		"a declaration opens the shore"
 	)
 
+## The bar says which cause it is, and the refusal names the crown that bought
+## the land: a Tribe's shore is barred by the deed, not by a peace the crown is
+## not under (wiki: factions § Tribe; DR-20261120-05).
+func test_the_deed_bar_names_its_cause_and_its_holders() -> void:
+	_setup_intervention()
+	var tribe: int = 9
+	var buyer: int = 1
+	var model: MapModel = _Fixture.build()
+	var province: ProvinceState = model.provinces[1]
+	province.owner = tribe
+	assert_true(model.purchase_tile(province.tiles[0], buyer), "a rival's deed")
+	var bar: Dictionary = InvasionBar.read(
+		intervention_state, 0, tribe, model, province.id
+	)
+	assert_eq(String(bar["cause"]), InvasionBar.DEED)
+	assert_eq(int((bar["deeds"] as Dictionary).get(buyer, 0)), 1, "one tile is one deed")
+	var fallback: String = "Peace holds with the Aztec; declare war before invading."
+	var line: String = DeedBar.refusal(bar, model, province.id, fallback)
+	assert_eq(
+		line,
+		"Deeds in Coro bar an undeclared march — %s has bought land there; declare war before invading."
+		% FactionCatalog.name_of(buyer)
+	)
+	assert_eq(DeedBar.holders(bar["deeds"]), "%s 1 tile" % FactionCatalog.name_of(buyer))
+	assert_eq(DeedBar.holders({}), "", "a province nobody bought into prints no row")
+	# The buyer may march into the land it has paid into; another cause keeps the
+	# order's own words either way.
+	assert_eq(
+		String(InvasionBar.read(intervention_state, buyer, tribe, model, province.id)["cause"]),
+		InvasionBar.OPEN,
+		"the deed bars every court but the one that bought it"
+	)
+	assert_eq(DeedBar.refusal({}, model, province.id, fallback), fallback)
+	var bare: ProvinceState = model.provinces[0]
+	bare.owner = tribe
+	assert_eq(
+		String(InvasionBar.read(intervention_state, 0, tribe, model, bare.id)["cause"]),
+		InvasionBar.OPEN,
+		"a bare Tribe province keeps its undeclared march"
+	)
+	assert_eq(
+		String(InvasionBar.read(intervention_state, 0, 0)["cause"]),
+		InvasionBar.OWN,
+		"own land is no invasion"
+	)
+	intervention_state.ensure_relation(0, 2)
+	assert_eq(
+		String(InvasionBar.read(intervention_state, 0, 2)["cause"]),
+		InvasionBar.PEACE,
+		"a crown at peace is barred by the declaration"
+	)
+	DiplomacyRules.declare_war(intervention_state, 0, 2, false)
+	assert_eq(
+		String(InvasionBar.read(intervention_state, 0, 2)["cause"]),
+		InvasionBar.OPEN
+	)
+
+
+## Every crown that bought land is named, and the sentence agrees with the count:
+## one holder has bought, two have (DR-20261120-05).
+func test_the_deed_bar_names_every_holder_that_bought_land() -> void:
+	_setup_intervention()
+	var tribe: int = 9
+	var model: MapModel = _Fixture.build()
+	var province: ProvinceState = model.provinces[1]
+	province.owner = tribe
+	assert_true(model.purchase_tile(province.tiles[0], 1), "England's deed")
+	assert_true(model.purchase_tile(province.tiles[1], 2), "France's deed")
+	var bar: Dictionary = InvasionBar.read(
+		intervention_state, 0, tribe, model, province.id
+	)
+	assert_eq(
+		DeedBar.holders(bar["deeds"]),
+		"%s 1 tile · %s 1 tile" % [
+			FactionCatalog.name_of(1), FactionCatalog.name_of(2),
+		],
+		"one row names every holding, in court order"
+	)
+	assert_eq(
+		DeedBar.refusal(bar, model, province.id, ""),
+		"Deeds in Coro bar an undeclared march — %s and %s have bought land there; declare war before invading."
+		% [FactionCatalog.name_of(1), FactionCatalog.name_of(2)]
+	)
+
+
 ## The deed bars only the province it was bought in: a neighbouring Tribe
 ## province stays open to an undeclared march.
 func test_a_deed_in_another_province_does_not_bar_the_march() -> void:
