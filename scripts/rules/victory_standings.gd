@@ -126,16 +126,21 @@ static func bar_note(human: int = MapModel.NO_ID, difficulty: String = Difficult
 
 
 ## The turn's warning, or "" while the age is still a distant thing. Only the
-## reader and the nearest rival are named, so the despatch stays one breath.
+## reader and the nearest rival are named, so the despatch stays one breath. A
+## session with no human crown — the full-AI observer — is warned of nobody:
+## the reading has no reader to warn, and the wiki prints neither line there
+## (wiki: victory § Victory Check; DR-20261112-05).
 static func warning(
 	world: WorldMap,
 	human: int = MapModel.NO_ID,
 	difficulty: String = Difficulty.DEFAULT
 ) -> String:
 	var standings: Array[Dictionary] = rows(world, human, difficulty)
-	var parts: PackedStringArray = []
 	var crown: Dictionary = crown_row(standings, human)
-	if not crown.is_empty() and _close(int(crown["need"])):
+	if crown.is_empty():
+		return ""
+	var parts: PackedStringArray = []
+	if _close(int(crown["need"])):
 		parts.append(
 			"Your crown stands %s from the age (%d of %d Old World)."
 			% [_provinces(int(crown["need"])), int(crown["holdings"]), int(crown["bar"])]
