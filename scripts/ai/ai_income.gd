@@ -213,6 +213,11 @@ static func saving_reason(income: Dictionary, amount: int = 0) -> String:
 ## released at the peak of its own fill unpinned the college and burned the
 ## margin it was holding for. A caller with no ledger or no income row keeps
 ## the published behaviour.
+##
+## A purse the bank has already filled is not banking (issue #1135): once the
+## chest and the line's price stand in the purse, the army can be paid this
+## turn and the court's other spending leads again — the trace names the army
+## aim the bank waits for while it holds.
 static func banking(
 	config: AiConfig, ai_state: AiState, income: Dictionary
 ) -> bool:
@@ -229,6 +234,19 @@ static func banking(
 		int(income.get("bank_chest", income.get("reserve", 0))), 0
 	) + maxi(AiArmyReinforce.cheapest_line_price(economy), 0)
 	return int(income.get("treasury", 0)) < shortfall
+
+
+## The army aim the bank's purse is held for, in the trace's words (issue
+## #1135): the host line the conquest marches behind — an aim that moves once
+## the chest is paid, so a court that keeps its envoy shut names what its one
+## order is waiting for instead of a bare refusal.
+static func bank_refusal(config: AiConfig, ai_state: AiState, income: Dictionary) -> String:
+	if not banking(config, ai_state, income):
+		return ""
+	return "the court is banking for its army (the host line %d of %d)" % [
+		int(income.get("regiments", 0)),
+		AiArmyReinforce.desired_regiments(config, true),
+	]
 
 
 ## Reader-facing goal for the observer panel and the turn trace.
