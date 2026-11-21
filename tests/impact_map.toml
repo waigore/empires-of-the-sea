@@ -507,6 +507,72 @@ domain = "ai_economy"
 match = "scripts/map/map_play_blockades.gd*"
 domain = "blockade"
 
+# MapPlay* call sites that only redirect screen talk to `play.screen` (#1210 /
+# finish #1180). Named before each helper's theme domain (incl. the blockade
+# improvements rule below) so the bridge rewrite stays on play_screen's three
+# suites instead of unioning ~18 boots past the tier-1 5 min budget. Restore
+# the prior domain when a non-screen change reshapes the helper (same pattern
+# as the Auto shared-hook note below).
+[[rules]]
+match = "scripts/map/map_play_advanced.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_campaign.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_civilian_roster.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_civilians.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_diplomacy.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_diplomacy_ai.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_intel.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_force_ledger.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_improvements.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_input.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_land_turn.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_provinces.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_raids.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_turn_finish.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_warp.gd"
+domain = "play_screen"
+
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
 domain = "blockade"
