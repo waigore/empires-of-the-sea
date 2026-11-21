@@ -15,6 +15,30 @@ extends RefCounted
 const NO_OWNER: int = -1
 
 
+## The chart the crown's seat stands on, its province there and that chart's
+## model: `{region, province, model}` (wiki: capital-and-connectivity § Capital;
+## map-topology § two regions). Read off the world, never off the chart on
+## screen: a chart can show a colony with no seat on it, and a province id means
+## a different province on each chart (wiki: world-model-identity). A seat-scoped
+## order — a hire, a muster, a launch — lands at `province` on `region`, or
+## nowhere when `province` is NO_ID because the crown's capital is not in hand.
+static func crown_seat(play: PlaySession) -> Dictionary:
+	var empty: Dictionary = {
+		"region": MapModel.NO_ID, "province": MapModel.NO_ID, "model": null,
+	}
+	if play == null or play.world == null:
+		return empty
+	var region: int = FactionCatalog.region_of(play.player_faction)
+	var model: MapModel = play.world.region(region)
+	if model == null:
+		return empty
+	return {
+		"region": region,
+		"province": play.world.capital_province_of(region, play.player_faction),
+		"model": model,
+	}
+
+
 ## The Great Powers that run a planner for this session, in catalog order. The
 ## human court is skipped unless the full-AI observer seats it like any rival
 ## (wiki: game-setup § Human/AI slot assignment; docs/ai-observer.md), and the
