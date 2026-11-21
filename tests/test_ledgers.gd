@@ -863,6 +863,23 @@ func test_the_eyes_pick_words_the_spies_the_pass_would_book() -> void:
 		String(MapPlaySpyPick.of(many, {})["line"]),
 		"the court would keep its Spy at P0, keep its Spy at P1, keep its Spy at P2 and 2 more"
 	)
+	# One spy, three spies and none: the line's own joins and its empty gate.
+	assert_eq(MapPlaySpyPick.pick_line([]), "", "no spy, no clause")
+	assert_eq(
+		String(MapPlaySpyPick.of([
+			{"region": 0, "unit_id": 1, "kind": MapPlaySpyPick.KIND_KEEP, "place": "Cádiz"},
+		], {})["line"]),
+		"the court would keep its Spy at Cádiz"
+	)
+	assert_eq(
+		String(MapPlaySpyPick.of([
+			{"region": 0, "unit_id": 1, "kind": MapPlaySpyPick.KIND_KEEP, "place": "Cádiz"},
+			{"region": 0, "unit_id": 2, "kind": MapPlaySpyPick.KIND_KEEP, "place": "Sevilla"},
+			{"region": 0, "unit_id": 3, "kind": MapPlaySpyPick.KIND_WALK, "place": "Genoa"},
+		], {})["line"]),
+		"the court would keep its Spy at Cádiz, keep its Spy at Sevilla and walk its Spy toward Genoa"
+	)
+	assert_eq(MapPlaySpyPick.line(null), "", "a session that is not there names nothing")
 
 
 ## The reading is the pass's own: a crown spy with no order is named with what
@@ -888,6 +905,26 @@ func test_the_eyes_print_the_spies_the_crowns_pass_would_book() -> void:
 	assert_true(panel._counsel.visible, "the sheet prints the reading")
 	assert_true(spy.work_action().is_empty(), "a reading, not an order")
 	assert_eq(spy.tile, home.tiles[0], "and the spy does not move")
+	# The three clauses the pass's own verbs give: the screen, the march and the
+	# pick read on another chart's roster id (never this spy's).
+	var screening: Dictionary = MapPlaySpyPick._spy(
+		play.model, spy, play.region_index,
+		{"action": MapPlaySpyPick.ACTION_SCREEN, "tile": spy.tile}
+	)
+	assert_eq(String(screening["kind"]), MapPlaySpyPick.KIND_SCREEN, "the screen is the pass's")
+	var walking: Dictionary = MapPlaySpyPick._spy(
+		play.model, spy, play.region_index,
+		{"action": "make_move", "tile": spy.tile}
+	)
+	assert_eq(String(walking["kind"]), MapPlaySpyPick.KIND_WALK, "the march is the pass's")
+	assert_eq(
+		String(MapPlaySpyPick._spy(play.model, spy, play.region_index, {}).get("kind", "")),
+		MapPlaySpyPick.KIND_KEEP, "a spy with no order keeps its watch"
+	)
+	# A session that runs no planner, or one watching another crown, names nothing.
+	play.observer_mode = true
+	assert_true(MapPlaySpyPick.pick(play, {}).is_empty(), "an observer names nothing")
+	play.observer_mode = false
 	_clear_spies(play)
 	panel.refresh()
 	assert_eq(panel.counsel_text(), "", "a crown with no spy names nothing")
