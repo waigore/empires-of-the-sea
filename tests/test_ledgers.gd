@@ -1682,6 +1682,61 @@ func test_the_muster_marks_the_forces_the_crowns_pass_would_send() -> void:
 	panel.close()
 
 
+## The marks are the reading's own: a row wears `▸` when the pick's keys name it
+## and no other, and the line painted is the pick's own sentence — so a mark
+## never outruns the line it answers (DR-20261122-03).
+func test_the_muster_marks_exactly_the_forces_its_reading_names() -> void:
+	_attach()
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	var printed: Array[ForceLedgerRow] = _force_rows(panel)
+	assert_true(printed.size() >= 1, "the crown fields a force")
+	var named: String = MapPlayForceCounsel.force_key(printed[0].data)
+	assert_false(named.is_empty(), "a row keys itself by chart, kind and id")
+	var left_alone: Array[String] = []
+	for row: ForceLedgerRow in printed.slice(1):
+		left_alone.append(MapPlayForceCounsel.force_key(row.data))
+	# A reading the staff would give: one force named, a key that names no row
+	# and every other row left alone. The sheet repaints its widgets on a filter
+	# pass, so the marks are read off the repainted rows.
+	panel._court_pick = {
+		"forces": [printed[0].data],
+		"keys": {named: true, "9:army:99": true},
+		"line": "the court would send the Home Army to take the field with 4 regiments this turn",
+	}
+	panel._apply_filter()
+	var rows: Array[ForceLedgerRow] = _force_rows(panel)
+	assert_eq(rows.size(), printed.size(), "the same view prints the same rows")
+	var marked: int = 0
+	for row: ForceLedgerRow in rows:
+		if row.court:
+			marked += 1
+			assert_true(
+				row._name.text.begins_with(ForceLedgerRow.COURT_MARK), row._name.text
+			)
+	assert_eq(marked, 1, "one force named, a key that names no row marks no row")
+	assert_true(rows[0].court, "the force the reading names wears the mark")
+	for row: ForceLedgerRow in rows.slice(1):
+		assert_false(row.court, "a force the reading leaves alone wears none")
+	assert_eq(left_alone.size(), rows.size() - 1)
+	assert_eq(
+		panel.counsel_text(),
+		"The court would send the Home Army to take the field with 4 regiments this turn.",
+		"the line is the reading's own sentence"
+	)
+	panel.close()
+
+
+## The muster's printed rows, as the widgets the sheet painted.
+func _force_rows(panel: ForceLedgerPanel) -> Array[ForceLedgerRow]:
+	var rows: Array[ForceLedgerRow] = []
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
+		if row != null:
+			rows.append(row)
+	return rows
+
+
 ## Every force's "already under way" flag, so a reading that marched or sailed
 ## one would show.
 func _force_moved_flags(play: PlaySession) -> Array:
