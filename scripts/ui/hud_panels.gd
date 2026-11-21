@@ -3,9 +3,10 @@ extends RefCounted
 ## Side dossiers and ledger open/close for GameHud (REQ-P3-01).
 ## The builders hand each sheet to a HudPanelSlot; this class owns the dock and
 ## the one-at-a-time rule, so neither the builders nor GameHud repeat them.
-
-var host: Control = null
-var dock: PanelDock = null
+##
+## Every sheet here is a slot, a `show` line through [HudSheet] and the paint the
+## sheet itself reads, so a new dossier or ledger costs a slot and a method, never
+## another copy of the reveal law (REQ-P3-01).
 
 var province: HudPanelSlot = null
 var fleet: HudPanelSlot = null
@@ -14,6 +15,10 @@ var army: HudPanelSlot = null
 var economy: HudPanelSlot = null
 var research: HudPanelSlot = null
 var diplomacy: HudPanelSlot = null
+
+var host: Control = null
+## Built when `bind` finds no dock on the node (a bare HUD in a test).
+var dock: PanelDock = null
 
 var panel: ProvincePanel = null
 var fleet_panel: FleetPanel = null
@@ -33,8 +38,9 @@ func bind(hud: GameHud) -> void:
 	economy_panel = hud._economy_panel
 	research_panel = hud._research_panel
 	diplomacy_panel = hud._diplomacy_panel
-	dock = PanelDock.new()
-	dock.load_from()
+	if dock == null:
+		dock = PanelDock.new()
+		dock.load_from()
 	_sync_dock_buttons()
 	for slot: HudPanelSlot in selections():
 		dock.prepare_wrap(slot.wrap)
@@ -51,6 +57,8 @@ func toggle_dock_side() -> void:
 	dock.toggle()
 	dock.save()
 	_sync_dock_buttons()
+	# Only the rail rides the dock: a ledger stands on its own door, which the
+	# dock cannot slide.
 	for slot: HudPanelSlot in selections():
 		if slot.open:
 			dock.slide_in(host, slot.wrap)
@@ -61,82 +69,105 @@ func toggle_dock_side() -> void:
 ## Closes every sheet but `keep`. Selection callers use it before showing their
 ## own panel; DiplomacyHud reaches it for the court ledger (REQ-P3-02).
 func close_sheets(keep: HudPanelSlot = null) -> void:
-	var slots: Array = selections()
-	slots.append(economy)
-	slots.append(research)
-	slots.append(diplomacy)
-	for slot: HudPanelSlot in slots:
+	for slot: HudPanelSlot in every():
 		if slot != keep:
 			slot.conceal(host, dock)
 
 
+## Every sheet on the dock rail and on a door: the one-at-a-time rule and the
+## dock side read this list. A sheet a builder has not mounted yet is left out,
+## so a half-built HUD closes and re-docks without a null in the walk.
+func every() -> Array[HudPanelSlot]:
+	var slots: Array[HudPanelSlot] = []
+	# The rail slides in from the chart's edge; the three ledgers take a door.
+	for each: HudPanelSlot in selections():
+		if each != null:
+			slots.append(each)
+	for each: HudPanelSlot in [economy, research, diplomacy]:
+		if each != null:
+			slots.append(each)
+	return slots
+
+
+# --- the province dossier ----------------------------------------------------
+
+
 func show_province(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	close_sheets(province)
-	panel.refresh(model, province_id, crown)
-	province.reveal(host, dock)
+	HudSheet.show(dock, host, province, func() -> void:
+		panel.refresh(model, province_id, crown)
+	)
 
 
 func hide_province() -> void:
-	province.conceal(host, dock)
+	HudSheet.hide(dock, host, province)
 
 
 func is_panel_open() -> bool:
 	return province.open
 
 
+# --- the fleet dossier -------------------------------------------------------
+
+
+## A null fleet with a slip province is the capital yard before any squadron is
+## afloat: the first launch founds the home fleet.
 func show_fleet(model: MapModel, opening: FleetDossierOpening) -> void:
-	close_sheets(self.fleet)
-	# A null fleet with a slip province is the capital yard before any squadron
-	# is afloat: the first launch founds the home fleet.
-	if opening.fleet == null and opening.slip >= 0:
-		fleet_panel.refresh_slip(
-			model, opening.slip, opening.yard_rows, opening.is_player,
-			opening.yard_pick
-		)
-	else:
+	close_sheets(fleet)
+	HudSheet.show(dock, host, fleet, func() -> void:
+		if opening.fleet == null and opening.slip >= 0:
+			fleet_panel.refresh_slip(
+				model, opening.slip, opening.yard_rows, opening.is_player,
+				opening.yard_pick
+			)
+			return
 		fleet_panel.refresh(model, opening)
-	self.fleet.reveal(host, dock)
+	)
 
 
 func hide_fleet() -> void:
-	fleet.conceal(host, dock)
+	HudSheet.hide(dock, host, fleet)
 
 
 func is_fleet_panel_open() -> bool:
 	return fleet.open
 
 
+# --- the civilian dossier ----------------------------------------------------
+
+
 func show_civilian(model: MapModel, opening: CivilianDossierOpening) -> void:
 	close_sheets(civilian)
-	civilian_panel.refresh(model, opening)
-	civilian.reveal(host, dock)
+	HudSheet.show(dock, host, civilian, func() -> void:
+		civilian_panel.refresh(model, opening)
+	)
 
 
 func hide_civilian() -> void:
-	civilian.conceal(host, dock)
+	HudSheet.hide(dock, host, civilian)
 
 
 func is_civilian_panel_open() -> bool:
 	return civilian.open
 
 
-func set_civilian_training(visible: bool) -> void:
-	panel.set_training_visible(visible)
+# --- the army dossier --------------------------------------------------------
 
 
 func show_army(model: MapModel, opening: ArmyDossierOpening) -> void:
-	close_sheets(self.army)
-	army_panel.refresh(model, opening)
-	self.army.reveal(host, dock)
+	close_sheets(army)
+	HudSheet.show(dock, host, army, func() -> void: army_panel.refresh(model, opening))
 
 
 func hide_army() -> void:
-	army.conceal(host, dock)
+	HudSheet.hide(dock, host, army)
 
 
 func is_army_panel_open() -> bool:
 	return army.open
 
+
+# --- the economy ledger ------------------------------------------------------
 
 ## `pick` is the court's own production plan (`MapPlayProductionPick`), printed
 ## on the PRODUCTION tab above the rows it answers; `recruits` is the workers'
@@ -153,34 +184,38 @@ func show_economy(
 	trade: Dictionary = {},
 	recruits: Dictionary = {}
 ) -> void:
-	# The ledger takes the whole edge; close the dossiers outright so their
-	# slide-out tween cannot bleed text through the ledger's fade-in.
+	# The ledger takes the whole edge: close the dossiers outright so their
+	# slide-out tween cannot bleed text through the ledger's fade-in. The other
+	# ledgers stand on their own doors, so only the rail and the two sibling
+	# doors are swept here.
 	for slot: HudPanelSlot in selections():
 		slot.conceal_now()
-	research.conceal(host, dock)
-	diplomacy.conceal(host, dock)
-	economy_panel.refresh(
-		economy_state, market, report, cargo, offers, crown, pick, trade, recruits
+	for slot: HudPanelSlot in [research, diplomacy]:
+		slot.conceal(host, dock)
+	HudSheet.show(dock, host, economy, func() -> void:
+		economy_panel.refresh(
+			economy_state, market, report, cargo, offers, crown, pick, trade, recruits
+		)
 	)
-	economy.reveal(host, dock)
 
 
 func hide_economy() -> void:
-	economy.conceal(host, dock)
+	HudSheet.hide(dock, host, economy)
 
 
 func is_economy_open() -> bool:
 	return economy.open
 
 
+# --- the college ledger ------------------------------------------------------
+
 ## The college ledger takes the same edge as the economy ledger. `boost` maps
 ## tech id -> spy-network percent, so a shadowed rival's advances show why they
 ## move faster (wiki: civilian-units § Spy; DR-20261110-03). `leader` is the
 ## crown's leaderKey, whose published funding multiplier the RP figures include
 ## (wiki: leader-bonuses — Victoria). A ledger already on screen is repainted in
-## place — re-revealing it would fade the sheet back in and lose the player's
-## place (REQ-P1-05). `pick` is the study the court would open in its first free
-## slot (DR-20261121-01).
+## place without sweeping the rail it already covers (REQ-P1-05). `pick` is the
+## study the court would open in its first free slot (DR-20261121-01).
 func show_research(
 	state: ResearchState,
 	treasury: int,
@@ -188,29 +223,37 @@ func show_research(
 	leader: String = "",
 	pick: String = ""
 ) -> void:
-	if research.open:
+	if not research.open:
+		close_sheets(research)
+	HudSheet.show(dock, host, research, func() -> void:
 		research_panel.refresh(state, treasury, boost, leader, pick)
-		return
-	close_sheets(research)
-	research_panel.refresh(state, treasury, boost, leader, pick)
-	research.reveal(host, dock)
+	)
 
 
 func hide_research() -> void:
-	research.conceal(host, dock)
+	HudSheet.hide(dock, host, research)
 
 
 func is_research_open() -> bool:
 	return research.open
 
 
+# --- the court ledger --------------------------------------------------------
+
 func is_diplomacy_open() -> bool:
 	return diplomacy.open
 
 
+# --- the dock rail -----------------------------------------------------------
+
+
 ## The docked selection dossiers; ledgers are not on the dock rail.
 func selections() -> Array[HudPanelSlot]:
-	return [province, fleet, civilian, army]
+	var slots: Array[HudPanelSlot] = []
+	for each: HudPanelSlot in [province, fleet, civilian, army]:
+		if each != null:
+			slots.append(each)
+	return slots
 
 
 func _sync_dock_buttons() -> void:
