@@ -145,7 +145,8 @@ static func of(economy: PlayerEconomy, plan: Dictionary) -> Dictionary:
 
 ## "the court would run Lumber ×2 and Cast Iron ×1 this phase". The outputs come
 ## in the catalogue's own order — the order the page prints its rows in — so the
-## clause reads down the sheet it answers, and beyond four it counts the rest.
+## clause reads down the sheet it answers, and beyond four it counts the rows it
+## cannot name (`… and 1 more`) so a rich plan stays one line of chrome.
 static func run_line(outputs: Dictionary) -> String:
 	var named: Array[String] = []
 	var hidden: int = 0
@@ -153,7 +154,11 @@ static func run_line(outputs: Dictionary) -> String:
 		if not outputs.has(output):
 			continue
 		if named.size() >= NAMED_LIMIT:
-			hidden += int(outputs[output])
+			# A row left out of the clause, not the units it holds: "and 3 more"
+			# after four named manufactures reads as three more crafts, the way
+			# every other capped line on the sheets counts its items
+			# (LedgerMarket.price_moves_line, CargoRead, RegimentRecord).
+			hidden += 1
 			continue
 		named.append("%s ×%d" % [CommodityCatalog.label(output), int(outputs[output])])
 	if named.is_empty():

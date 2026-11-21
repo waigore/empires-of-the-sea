@@ -6037,6 +6037,18 @@ func test_the_production_pick_counts_the_rows_it_cannot_name() -> void:
 		line,
 		"the court would run Lumber ×2, Cast Iron ×1, Fabric ×1, Steel ×3 and 1 more this phase"
 	)
+	# The tail counts rows, not the units they hold: "and N more" is read as N
+	# more manufactures, the way the market page's own cap reads its goods
+	# (LedgerMarket.price_moves_line's `+N more deals`, cargo's `and N more`).
+	# A hidden run of three steel is one row left out, not three.
+	assert_eq(
+		MapPlayProductionPick.run_line({
+			"lumber": 1, "castIron": 1, "fabric": 1, "refinedSugar": 1, "steel": 3,
+		}),
+		"the court would run Lumber ×1, Cast Iron ×1, Fabric ×1, Refined Sugar ×1"
+		+ " and 1 more this phase",
+		"the tail names the rows left out, not the units they hold"
+	)
 	assert_eq(
 		MapPlayProductionPick.run_line({"lumber": 2}),
 		"the court would run Lumber ×2 this phase",
