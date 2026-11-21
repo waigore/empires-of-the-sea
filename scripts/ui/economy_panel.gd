@@ -116,7 +116,9 @@ func _tab_box(selected: bool) -> StyleBoxFlat:
 ## `pick` is the court's own production pick (`MapPlayProductionPick`): the runs
 ## the crown's own economy pass would book, printed on the PRODUCTION tab
 ## (REQ-P5-03, REQ-P5-06; DR-20261121-07). `trade` is the market's own plan
-## (`MapPlayMarketPick`), printed on the MARKET tab (DR-20261121-09).
+## (`MapPlayMarketPick`), printed on the MARKET tab (DR-20261121-09). `recruits`
+## is the workers' own plan (`MapPlayRecruitPick`), printed on the WORKERS tab
+## (DR-20261122-01).
 func refresh(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -125,7 +127,8 @@ func refresh(
 	offers: Array = [],
 	viewer: int = FactionCatalog.PLAYER_FACTION,
 	pick: Dictionary = {},
-	trade: Dictionary = {}
+	trade: Dictionary = {},
+	recruits: Dictionary = {}
 ) -> void:
 	if _tabs == null:
 		return
@@ -138,7 +141,7 @@ func refresh(
 		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary,
 		viewer, String(trade.get("line", ""))
 	)
-	_workers.fill(economy, report)
+	_workers.fill(economy, report, recruits)
 
 
 ## Body container for one tab ("PRODUCTION", "MARKET", "WORKERS"); tests and

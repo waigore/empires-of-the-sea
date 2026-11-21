@@ -208,21 +208,79 @@ func rehearse() -> void:
 
 
 ## The harvest slack the court's land carries — the ration food the extraction
-## just landed, less every mouth the consumption phase feeds (issue #807). The
+## just landed, less every mouth the consumption phase feeds (issue #807), or the
+## `-2` sentinel when there is no harvest to read or no AI pass beside it. The
 ## muster's growth gate and the provision premium both read it, so a court
-## desires its larger army and provisions the food income first; the economy
-## pass re-notes it every turn, before the crews' plans read it. A sheet that
-## only names the plan leaves the note to the pass (DR-20261121-09).
-func _note_larder() -> void:
+## desires its larger army and provisions the food income first. Pure: the
+## reading the pass notes and the worker hire reads are the same figure
+## (REQ-P2-03; DR-20261122-01).
+func harvest_slack() -> int:
 	var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
-	if harvest.is_empty() or play.ai == null:
-		return
+	if harvest.is_empty() or play.ai == null or economy == null:
+		return -2
 	# The harvest's ration food, counted the Consumption phase's way, so the
 	# growth gate plans with the same total the phase would eat (REQ-P2-03).
 	var harvest_food: int = EconomyConsumption.food_available(harvest)
-	play.ai.note_food_slack(
-		faction,
-		harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
+	return harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
+
+
+## Notes the harvest slack the muster's gate plans with. The economy pass notes
+## it every turn, before the crews' plans read it; a sheet that only names the
+## plan leaves the note to the pass (DR-20261121-09).
+func _note_larder() -> void:
+	var slack: int = harvest_slack()
+	if slack == -2:
+		return
+	play.ai.note_food_slack(faction, slack)
+
+
+## The larder slack the worker hire reads: the harvest's own figure narrowed by
+## the pass's note when there is no harvest in hand — the `-1` sentinel (no
+## larder to read) is the published default. `AiBindEconomy.fed_slack` is the
+## call `apply_turn` has always hired against (issue #489; DR-20261122-01).
+func fed_slack() -> int:
+	var fed: int = AiBindEconomy.fed_slack(kind, economy, army_food, ships)
+	if play.ai != null and (play.ai.food_slack as Dictionary).has(faction):
+		fed = mini(fed, int(play.ai.food_slack[faction]))
+	return fed
+
+
+## The harvest slack the hire reads: this turn's own figure where the land has a
+## harvest to count, else the pass's own note, else the `-2` sentinel (no
+## reading). The one home for the figure `apply_turn` hires against.
+func _harvest_reading() -> int:
+	var slack: int = harvest_slack()
+	if slack == -2 and play.ai != null:
+		return int(play.ai.food_slack.get(faction, -2))
+	return slack
+
+
+## The hand the worker hire keeps in the fields: the muster's own reservation
+## (issue #807) plus the peasant the yard keeps for the hull it is banking
+## (issue #1126), so a court that musters buys no worker its levy would consume.
+func muster_hands() -> int:
+	if kind == AiControl.KIND_BASELINE:
+		return 0
+	var navy_hand: int = AiNavy.hands(
+		economy, MapPlayCourt.hull_types(play, faction), hull_chest
+	)
+	return AiArmyReinforce.muster_hands(config, economy, regiments, at_war) + navy_hand
+
+
+## The workers this court's pass recruits this phase — the `recruitment_orders` call
+## `apply_turn` books, read here once so the pass and the WORKERS tab's counsel
+## cannot hire two different pools (REQ-P2-03; DR-20261122-01). A reading:
+## nothing here enlists a worker or spends a ducat.
+##
+## `harvest` is the larder's harvest slack the hire paces itself by: the pass
+## hands the figure it noted at plan time, so its own hire is unchanged, and a
+## sheet naming the plan before the close hands `harvest_slack()` — the figure
+## the next plan turn will note, because the note is taken before the phase
+## resolves.
+func recruit_orders(harvest: int) -> Array[Dictionary]:
+	return AiBindEconomy.recruitment_orders(
+		kind, config, economy, floor, fed_slack(), muster_hands(), conquest_bank,
+		harvest
 	)
 
 
@@ -280,34 +338,10 @@ func apply_turn() -> Dictionary:
 		economy.production.set_assignment(
 			String(assignment["recipe"]), int(assignment["units"])
 		)
-	# The muster hand reservation keeps `army.min_peasants` + the levy's own
-	# hand in the fields while the muster is legal and funded (issue #807).
-	# The baseline planner has no reading, so its rivals keep the old throttle.
-	# The slip's hand rides beside it: a chest banking for a hull the yard opens
-	# keeps one peasant back, and hires one when the pool has none, so the
-	# funded hull is never left without a crew (issue #1126).
-	var navy_hand: int = (
-		AiNavy.hands(economy, MapPlayCourt.hull_types(play, faction), hull_chest)
-		if kind != AiControl.KIND_BASELINE else 0
-	)
-	var hands: int = (
-		AiArmyReinforce.muster_hands(config, economy, regiments, at_war) + navy_hand
-		if kind != AiControl.KIND_BASELINE else 0
-	)
-	# The harvest, not just the pantry, carries the mouth (DR-20261116-14 reads
-	# the harvest the muster plans with): a worker hired against a fat pantry
-	# the land cannot carry strikes the month the store runs down, so training
-	# also reads the slack the plan noted this turn (issue #878).
-	var fed: int = AiBindEconomy.fed_slack(kind, economy, army_food, ships)
-	if play.ai != null and (play.ai.food_slack as Dictionary).has(faction):
-		fed = mini(fed, int(play.ai.food_slack[faction]))
-	# The conquest bank rides the worker buys (issue #995): the harvest slack
-	# rides beside it (issue #1059) — the pace the hires keep is the pace the
-	# muster's own ration gate plans with.
-	var recruits: Array[Dictionary] = AiBindEconomy.recruitment_orders(
-		kind, config, economy, floor, fed, hands, conquest_bank,
-		int(play.ai.food_slack.get(faction, -2)) if play.ai != null else -2
-	)
+	# The workers the pass buys this phase — the muster's hand, the yard's crew and
+	# the larder's slack all read inside `recruit_orders`, the one home the
+	# WORKERS tab's counsel reads too (REQ-P2-03; DR-20261122-01).
+	var recruits: Array[Dictionary] = recruit_orders(_harvest_reading())
 	for order: Dictionary in recruits:
 		economy.recruit(int(order["tier"]))
 	var civilians: Dictionary = MapPlayCivilianAi.apply(play, faction, economy, plans)

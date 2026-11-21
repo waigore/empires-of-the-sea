@@ -230,7 +230,8 @@ func open_panel() -> void:
 		return
 	hud.panels.show_economy(
 		economy, market, readings.projected(), readings.trade_cargo(),
-		market.minor_offers, player_faction, _production_pick(), _market_pick()
+		market.minor_offers, player_faction, _production_pick(), _market_pick(),
+		_recruit_pick()
 	)
 
 
@@ -281,6 +282,21 @@ func _market_pick() -> Dictionary:
 	}
 
 
+## The workers the published economy pass would recruit for the crown this
+## phase, in the WORKERS tab's own voice (wiki: workers-and-population
+## § Recruiting; DR-20261122-01). Empty when there is no planner behind the seat
+## — the reading, never an order.
+func _recruit_pick() -> Dictionary:
+	var picked: Dictionary = MapPlayRecruitPick.pick(play)
+	if picked.is_empty():
+		return {}
+	return {
+		"kind": picked.get("kind", ""),
+		"tiers": picked.get("tiers", {}),
+		"line": MapPlayPickProse.sentence(String(picked.get("line", ""))),
+	}
+
+
 ## The larder's warning for the turn about to open: the slack the next
 ## Consumption phase leaves, read through the ledger's own projection so the
 ## WORKERS tab and this line can never print two larders for one turn
@@ -305,7 +321,8 @@ func refresh_panel() -> void:
 	if hud.panels.is_economy_open():
 		hud.panels.show_economy(
 			economy, market, projection, readings.trade_cargo(),
-			market.minor_offers, player_faction, _production_pick(), _market_pick()
+			market.minor_offers, player_faction, _production_pick(), _market_pick(),
+			_recruit_pick()
 		)
 	hud.stats.set_treasury(economy.treasury)
 	hud.stats.set_income(int(projection.get("treasury_delta", 0)))

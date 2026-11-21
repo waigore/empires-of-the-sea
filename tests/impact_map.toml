@@ -4706,6 +4706,20 @@ suites = [
   "test_market_economy_rules.gd",
 ]
 
+# The workers tab's own plan (DR-20261122-01): the heads the published economy
+# pass would recruit, read through the court's one `recruit_orders` home so the
+# tab and the pass cannot hire two pools. Its suite is the economy rules', where
+# the pick is proved off plan data alone, so it names its own domain instead of
+# pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_recruit_pick*.gd*"
+domain = "recruit_pick"
+
+[domains.recruit_pick]
+suites = [
+  "test_market_economy_rules.gd",
+]
+
 [[rules]]
 match = "tests/test_*.gd"
 full = true
