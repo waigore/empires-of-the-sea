@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:14a119732f29d0182bc449ce31360e2a05692fb31a83b366a01184c8559e69eb",
-  "submission_git": "HEAD@7c181808",
+  "submission_hash": "sha256:0893bd4d1a6bc063f24393145eb08c1acb7f2ba6e408d5396a8b421ed7d36e2c",
+  "submission_git": "fix/walk-home-own-land-first@f9a8be63",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:093576d9c391ded0f7f6dbaad863bb3f0b25d8352c51fbc9597d5611407d612e",
+    "ai_surface_hash": "sha256:c04b48101f12c4e54fd95889933a3cb0d0119c2a2435d274279a5708665745f4",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 16,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-21T22:05:01Z",
+  "timestamp": "2026-11-21T22:09:26Z",
   "report_version": 1,
-  "signature": "hmac-sha256:5f3ab8c59ec8817e9e446dac73a9d2ed0ee92010016ff95f0b31f39fb6b40d28"
+  "signature": "hmac-sha256:8f9d3037c3577a81011701052914cb8c370dc90cf960c798e4f39f56bfdb6144"
 }
