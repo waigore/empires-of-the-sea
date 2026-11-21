@@ -66,6 +66,9 @@ static func selection_line(play: PlaySession, ship: Ship, fleet: FleetState) -> 
 ## One dossier refresh for selection, movement, the yard, a station and a
 ## landing, so the missions section always comes from the same place.
 static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
+	# A station taken or given up at the dossier is the loop the chart reads
+	# back on her marker (issue #1198).
+	play.ship_layer.station(fleet)
 	# A rival the crown has sighted but not read is handed a fogged reading, so
 	# the dossier can never assemble her maths (wiki: ships-and-naval
 	# § Sighted strength).

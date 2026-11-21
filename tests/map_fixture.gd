@@ -366,6 +366,7 @@ static func _rebind_layers(screen: MapScreen, play: PlaySession) -> void:
 		play.player_faction
 	)
 	screen.civilian_layer.viewer_faction = play.player_faction
+	screen.army_layer.viewer_faction = play.player_faction
 	screen.civilian_layer.spawn(
 		model, play.capital_province, play.player_faction, MapScreen.STARTING_CIVILIANS
 	)
