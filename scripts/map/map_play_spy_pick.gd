@@ -22,14 +22,10 @@ const KIND_KEEP: String = "keep"
 ## The one spy order in the rules (`SpyRules`), so a screen is never guessed.
 const ACTION_SCREEN: String = SpyRules.WORK_COUNTER
 
-## The most spies one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, snapshot))
 
 ## The ledger's pick as the eyes sheet prints it: `{kind, spies, line}`, where
 ## each spy is `{region, unit_id, kind, place, line}`. Empty when the session
@@ -105,50 +101,20 @@ static func _place(model: MapModel, tile: Vector2i) -> String:
 static func of(spies: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionary:
 	if spies.is_empty():
 		return {}
-	var ordered: Array[Dictionary] = _in_row_order(spies, snapshot)
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
+		spies, snapshot.get("rows", []), "unit_id"
+	)
 	return {"kind": String(ordered[0].get("kind", "")), "spies": ordered, "line": pick_line(ordered)}
 
-## The spies in the order the sheet prints its rows (its own `rows`), so the
-## line reads down the page it answers. A spy the snapshot does not print keeps
-## the pass's order after them.
-static func _in_row_order(
-	spies: Array[Dictionary], snapshot: Dictionary
-) -> Array[Dictionary]:
-	var order: Dictionary = {}
-	var index: int = 0
-	for raw: Variant in snapshot.get("rows", []):
-		var row: Dictionary = raw
-		if order.has(_key(row)):
-			continue
-		order[_key(row)] = index
-		index += 1
-	if order.is_empty():
-		return spies
-	var keyed: Array[Dictionary] = spies.duplicate()
-	keyed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var left: int = int(order.get(_key(a), 1 << 30))
-		var right: int = int(order.get(_key(b), 1 << 30))
-		if left != right:
-			return left < right
-		return int(a.get("unit_id", 0)) < int(b.get("unit_id", 0))
-	)
-	return keyed
-
-## A spy's own row key: the chart it stands on and the id its roster minted it.
-static func _key(entry: Dictionary) -> String:
-	return "%d:%d" % [int(entry.get("region", -1)), int(entry.get("unit_id", -1))]
 
 ## "the court would walk its Spy toward Genoa, keep its Spy at Cádiz and set its
 ## Spy at Madrid to counter-espionage". Beyond three the line counts the spies it
 ## cannot name (`… and 2 more`) so a busy screen stays one line of chrome.
 static func pick_line(spies: Array[Dictionary]) -> String:
-	var parts: Array[String] = []
+	var clauses: Array[String] = []
 	for spy: Dictionary in spies:
-		parts.append(_clause(spy))
-	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would %s" % joined
+		clauses.append(_clause(spy))
+	return MapPlayPickProse.court_line("the court would", clauses, "")
 
 ## One spy's clause: the order the rules would give it, in the pass's own words.
 static func _clause(spy: Dictionary) -> String:
@@ -159,4 +125,3 @@ static func _clause(spy: Dictionary) -> String:
 		KIND_WALK:
 			return "walk its Spy toward %s" % place
 	return "keep its Spy at %s" % place
-

@@ -55,7 +55,7 @@ const STAGE_WORDS: Dictionary = {
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, _snapshot: Dictionary = {}) -> String:
-	return MapPlayPickProse.sentence(String(pick(play).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play))
 
 
 ## The colony sheet's pick as THE COLONIES prints it: `{kind, target, stage,
