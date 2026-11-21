@@ -46,14 +46,10 @@ static func plan(play: PlaySession) -> Dictionary:
 static func court(play: PlaySession, faction: int) -> Dictionary:
 	if play == null or play.diplomacy == null or play.world == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, faction)
+	if seat == null or not (seat.config is AiConfig):
 		return {}
-	var config: Variant = AiBind.config(
-		kind, faction, play.map_seed, play.ensure_ai().profiles
-	)
-	if not (config is AiConfig):
-		return {}
+	var config: AiConfig = seat.config as AiConfig
 	var shared: Dictionary = _shared(play, faction)
 	if shared.is_empty():
 		return {}

@@ -42,17 +42,14 @@ static func pick(play: PlaySession, army: ArmyState) -> Dictionary:
 		return {}
 	if army.owner != play.player_faction or play.campaign_over():
 		return {}
-	var kind: String = AiControl.court_kind(play, army.owner)
-	if kind == AiControl.KIND_NONE:
-		return {}
 	var economy: PlayerEconomy = play.ledger_for(army.owner)
 	if economy == null:
 		return {}
-	var config: Variant = AiBind.config(
-		kind, army.owner, play.map_seed, play.ensure_ai().profiles
-	)
-	if config == null:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, army.owner)
+	if seat == null:
 		return {}
+	var config: Variant = seat.config
+	var kind: String = seat.kind
 	return counsel(
 		play, army.owner, config, kind, economy,
 		play.army_layer.regiment_count_all(army.owner)

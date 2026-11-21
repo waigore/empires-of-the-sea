@@ -32,11 +32,10 @@ static func _run_region(
 	play: PlaySession, model: MapModel, roster: Array[FleetState], trace: Array[Dictionary]
 ) -> bool:
 	var changed: bool = false
-	for faction: int in MapPlayCourt.planning_factions(play):
-		var kind: String = AiControl.court_kind(play, faction)
-		if kind == AiControl.KIND_RANDOM:
-			continue
-		var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+	for seat: MapPlayCourt.Seat in MapPlayCourt.planning_seats(play):
+		var faction: int = seat.faction
+		var kind: String = seat.kind
+		var config: Variant = seat.config
 		# The court's own chart: it hunts only what it has charted
 		# (wiki: fog-and-exploration; DR-20261110-21).
 		var plan: Dictionary = AiBindCampaign.naval_orders(

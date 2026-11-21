@@ -79,18 +79,13 @@ static func pick(play: PlaySession) -> Dictionary:
 	if not _court_ready(play):
 		return {}
 	var faction: int = play.player_faction
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
-		return {}
-	var config: Variant = AiBind.config(
-		kind, faction, play.map_seed, play.ensure_ai().profiles
-	)
-	if config == null:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, faction)
+	if seat == null:
 		return {}
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return {}
-	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
+	var posture: String = seat.phase(play)
 	var ambition: Dictionary = AiTribeColony.best(
 		play.diplomacy, play.world, play.court_charts, faction,
 		economy.treasury, economy.tech_unlocked, posture

@@ -58,14 +58,11 @@ static func pick(play: PlaySession) -> Dictionary:
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, faction)
+	if seat == null or not (seat.config is AiConfig):
 		return {}
-	var config: Variant = AiBind.config(
-		kind, faction, play.map_seed, play.ensure_ai().profiles
-	)
-	if not (config is AiConfig):
-		return {}
+	var kind: String = seat.kind
+	var config: AiConfig = seat.config as AiConfig
 	return of(economy, plan_for(play, faction, kind, config, economy))
 
 ## The plan the court's own economy pass books for its manufacture: the published

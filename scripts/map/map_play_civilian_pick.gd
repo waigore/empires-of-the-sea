@@ -48,10 +48,9 @@ static func picks(play: PlaySession, faction: int) -> Dictionary:
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return result
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, faction)
+	if seat == null:
 		return result
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
 	var overseas: Dictionary = MapPlayEconomyAi._overseas(play, faction, economy)
 	# The crown's own purse, with no reserve held back: a pick the crown could
 	# not press today is no advice at all. A works floor below zero keeps both
@@ -59,7 +58,7 @@ static func picks(play: PlaySession, faction: int) -> Dictionary:
 	var stockpile: Dictionary = economy.stockpile
 	var blockade: Blockades = MapPlayBlockades.crown(play)
 	for entry: Dictionary in MapPlayCivilianAi.plan_all(
-		play, faction, economy, config, overseas, stockpile, 0, -1
+		play, faction, economy, seat.config, overseas, stockpile, 0, -1
 	):
 		_words(entry, faction, stockpile, blockade, result)
 	return result

@@ -58,16 +58,15 @@ static func _step(play: PlaySession, faction: int, region: int) -> Dictionary:
 	var model: MapModel = play.world.region(region)
 	if model == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_RANDOM or kind == AiControl.KIND_NONE:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, faction)
+	if seat == null or seat.kind == AiControl.KIND_RANDOM:
 		return {}
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
-	if config == null:
-		return {}
+	var kind: String = seat.kind
+	var config: Variant = seat.config
 	var fleets: Array = MapPlayCourt.region_fleets(play, region)
 	var civilians: Array = []
 	civilians.assign(play.civilian_layer.regions.value(region, []))
-	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
+	var posture: String = seat.phase(play)
 	var earning: bool = false
 	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE):
 		earning = MapPlaySeaStep.earning(play, faction, kind, config)

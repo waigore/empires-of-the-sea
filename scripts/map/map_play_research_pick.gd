@@ -35,16 +35,14 @@ static func pick(play: PlaySession) -> Dictionary:
 	if economy.research == null or economy.research.free_slot() < 0:
 		return {}
 	var faction: int = play.player_faction
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, faction)
+	if seat == null or not (seat.config is AiConfig):
 		return {}
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
-	if not (config is AiConfig):
-		return {}
+	var config: AiConfig = seat.config as AiConfig
 	var at_war: bool = MapPlayCourt.at_war(play, faction)
 	var door: Dictionary = MapPlayEconomyCourtBook.door(
 		play, faction, economy,
-		AiBind.phase_for(kind, config, play.diplomacy),
+		seat.phase(play),
 		at_war, MapPlayCourt.warships(play, faction)
 	)
 	return counsel(config, economy, at_war, door)

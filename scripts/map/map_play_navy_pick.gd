@@ -129,10 +129,11 @@ static func _home_clause(model: MapModel, order: Dictionary, ship: String) -> St
 ## the crown the policy orders, read on the chart she sails.
 static func _squadrons(play: PlaySession, faction: int) -> Array[Dictionary]:
 	var found: Array[Dictionary] = []
-	var kind: String = AiControl.court_kind(play, faction)
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
-	if config == null:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, faction)
+	if seat == null:
 		return found
+	var kind: String = seat.kind
+	var config: Variant = seat.config
 	for region: int in play.world.region_count():
 		var model: MapModel = play.world.region(region)
 		if model == null:

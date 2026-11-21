@@ -2760,6 +2760,7 @@ suites = [
   "test_market_economy_rules.gd",
   "test_civilian_turn_rules.gd",
   "test_ai_rules.gd",
+  "test_map_play_court_seat.gd",
 ]
 
 [domains.ai_ledger]
@@ -3112,6 +3113,13 @@ domain = "ai_works"
 # (tier-1 5 min budget).
 [[rules]]
 match = "scripts/map/map_play_court.gd*"
+domain = "ai_economy"
+
+# The seat bind every counsel pick asks (kind, config and footing): its own
+# pure suite rides the court reader's slice, so a bind edit never pays for the
+# broad map fan-out.
+[[rules]]
+match = "tests/test_map_play_court_seat.gd*"
 domain = "ai_economy"
 
 # Sea earning asks only the income plan; keep a bind retarget off the broad

@@ -15,6 +15,58 @@ extends RefCounted
 const NO_OWNER: int = -1
 
 
+## One crown's seat at the planning table: the kind [AiControl] names for it, the
+## config [AiBind] binds to that kind, and the footing that config reads. A
+## counsel pick reads the seat once, so it plans on the pass's own bind instead
+## of carrying a second copy of the kind/config pair (REQ-P2-03, REQ-P3-02).
+class Seat:
+	extends RefCounted
+	var faction: int = MapModel.NO_ID
+	var kind: String = AiControl.KIND_NONE
+	var config: Variant = null
+
+	## The seat's war footing this turn, read through the same bind the rival
+	## pass reads: a pick cannot price a different footing than the pass plans.
+	func phase(play: PlaySession) -> String:
+		return AiBind.phase_for(kind, config, play.diplomacy)
+
+
+## The crown's seat at this turn's planning table, or null when no planner plans
+## it (`AiControl.KIND_NONE`) or the bind returns nothing. One read for every
+## counsel pick: a sheet that names an order must ask the same bind the pass
+## that would give it asks, never a second one (REQ-P2-03, REQ-P3-02).
+static func seat(play: PlaySession, faction: int) -> Seat:
+	if play == null:
+		return null
+	var kind: String = AiControl.court_kind(play, faction)
+	if kind == AiControl.KIND_NONE:
+		return null
+	var config: Variant = AiBind.config(
+		kind, faction, play.map_seed, play.ensure_ai().profiles
+	)
+	if config == null:
+		return null
+	var found := Seat.new()
+	found.faction = faction
+	found.kind = kind
+	found.config = config
+	return found
+
+
+## The seats every rival pass walks this turn: the planning courts in catalog
+## order, with the random court left to the rules' own fallback and any court the
+## bind cannot configure dropped. The one walk an order pass makes, so a pass
+## never re-reads the kind/config pair or its skip (REQ-P3-02).
+static func planning_seats(play: PlaySession) -> Array[Seat]:
+	var seats: Array[Seat] = []
+	for faction: int in planning_factions(play):
+		var found: Seat = seat(play, faction)
+		if found == null or found.kind == AiControl.KIND_RANDOM:
+			continue
+		seats.append(found)
+	return seats
+
+
 ## The Great Powers that run a planner for this session, in catalog order. The
 ## human court is skipped unless the full-AI observer seats it like any rival
 ## (wiki: game-setup § Human/AI slot assignment; docs/ai-observer.md), and the

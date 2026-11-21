@@ -51,12 +51,11 @@ static func pick(play: PlaySession, army: ArmyState) -> Dictionary:
 	var model: MapModel = _model_of(play, region)
 	if model == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, army.owner)
-	if kind == AiControl.KIND_NONE:
+	var seat: MapPlayCourt.Seat = MapPlayCourt.seat(play, army.owner)
+	if seat == null:
 		return {}
-	var config: Variant = AiBind.config(kind, army.owner, play.map_seed, play.ensure_ai().profiles)
-	if config == null:
-		return {}
+	var kind: String = seat.kind
+	var config: Variant = seat.config
 	var roster: Array[ArmyState] = _roster_of(play, region)
 	if roster.is_empty():
 		return {}
