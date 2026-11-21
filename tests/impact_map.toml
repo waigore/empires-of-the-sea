@@ -3834,6 +3834,13 @@ domain = "ui"
 match = "scripts/ui/fleet_yard_block.gd*"
 domain = "ui"
 
+# The confirm window every destructive press shares (the arm of DR-20261109-01).
+# Kept on ui with the sheets that wear it, so a guard change runs their shells
+# instead of the whole army and fleet domains.
+[[rules]]
+match = "scripts/ui/arm_guard.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/diplomacy_hud.gd"
 domain = "ui"

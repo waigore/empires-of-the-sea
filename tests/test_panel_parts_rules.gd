@@ -1705,6 +1705,76 @@ func test_the_armed_press_names_the_line_it_will_file() -> void:
 	press.free()
 
 
+## The arm guard every destructive press shares: one key, one window, and a
+## second tap that only spends the key the first tap armed (DR-20261109-01).
+func test_the_arm_guard_asks_once_per_key() -> void:
+	var guard := ArmGuard.new()
+	add_child(guard)
+
+	guard.arm("colours")
+
+	assert_true(guard.holds("colours"), "the first tap arms the key")
+	assert_eq(guard.key(), "colours", "and the guard names what it holds")
+	assert_false(guard.spend("hulls"), "a tap on another order asks first")
+	assert_true(guard.holds("colours"), "and leaves the first arm standing")
+
+	assert_true(guard.spend("colours"), "the second tap spends the arm")
+	assert_eq(guard.key(), "", "a spent arm forgets its key")
+	assert_false(guard.spend("colours"), "and cannot be spent twice")
+	guard.free()
+
+
+## An arm the crown never confirms runs out on its own, and the owner hears about
+## it so the press prints its resting face again (DR-20261109-01).
+func test_the_arm_guard_window_runs_out_on_its_own() -> void:
+	var guard := ArmGuard.new()
+	add_child(guard)
+	var rung: Array[bool] = []
+	guard.expired.connect(func() -> void: rung.append(true))
+
+	guard.arm("colours", 0.05)
+	await get_tree().create_timer(0.15).timeout
+
+	assert_eq(guard.key(), "", "the window forgets the first tap")
+	assert_eq(rung, [true] as Array[bool], "and tells the owner to repaint")
+	guard.free()
+
+
+## A guard built outside the tree (a suite's own sheet) still asks once: it keeps
+## the arm and takes no clock, so no case has to wait one out.
+func test_a_guard_outside_the_tree_keeps_the_arm_and_takes_no_clock() -> void:
+	var guard := ArmGuard.new()
+
+	guard.arm("colours")
+
+	assert_true(guard.holds("colours"), "a loose sheet still asks once")
+	assert_true(guard.is_stopped(), "and ticks no clock of its own")
+	guard.clear()
+	assert_false(guard.holds("colours"), "and clear stands the arm down")
+	guard.free()
+
+
+## The roster's dismissal window outlives the repaint its own first tap causes:
+## the clock is not a row, so the confirm is still running when the row comes
+## back armed (wiki: military-armies § Dismissing regiments; DR-20261109-01).
+func test_a_roster_dismissal_keeps_its_window_across_the_repaint() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(3, 0, 1, ["guards", "pikemen"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	panel.refresh(model, army, true)
+
+	var entry: VBoxContainer = panel._roster.get_child(0)
+	var press: Button = (entry.get_child(1) as HBoxContainer).get_child(1) as Button
+	press.pressed.emit()
+
+	var guard: ArmGuard = panel._roster._arm
+	assert_true(guard.holds(army.regiments[0]), "the first tap arms the row's key")
+	assert_true(guard.is_inside_tree(), "the repaint keeps the row's clock")
+	assert_false(guard.is_stopped(), "so the confirm window is still running")
+	panel.free()
+
+
 ## A walk that carries nothing prints the rules' own refusal, in the sheet's own
 ## words: the disabled press above it sends the reader to that sentence rather
 ## than leaving a dead tap with no reason (REQ-P5-05; DR-20261118-21).
