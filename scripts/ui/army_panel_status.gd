@@ -48,10 +48,10 @@ static func hint_text(
 	if army.moved:
 		return "End the turn to march again."
 	if stranded:
-		return (
-			"No own land touches here; walk through the provinces beside you, "
-			+ "one march at a time, to reach home."
-		)
+		# The rule's own sentence, word for word: a home march and this hint are
+		# the one walk, so they read the one line (wiki: military-armies
+		# § Movement and attacks; DR-20261121-15).
+		return ArmyMovement.NO_OWN_LAND_REACH
 	if off_ground:
 		return (
 			"Tap a highlighted province; off your own ground only the provinces "
