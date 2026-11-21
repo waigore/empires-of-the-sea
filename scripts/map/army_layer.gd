@@ -169,6 +169,9 @@ func split(army: ArmyState, regiment_ids: Array[String]) -> Dictionary:
 	if not bool(result.get("ok", false)):
 		return result
 	next_army += 1
+	## The detach is part of the crown's muster: it reaches the chart's own
+	## roster before any reading or save copies it (wiki: campaign-persistence).
+	ArmyTransport.publish(self)
 	prune_markers()
 	var created: ArmyState = result["army"] as ArmyState
 	add_marker(created)
@@ -188,6 +191,7 @@ func dismiss(
 		return result
 	if bool(result.get("retired", false)):
 		armies.erase(army)
+		ArmyTransport.publish(self)
 		prune_markers()
 		return result
 	_markers.refresh(army)
@@ -208,6 +212,7 @@ func combine(army: ArmyState) -> Dictionary:
 	var result: Dictionary = ArmyRoster.combine(armies, selected)
 	if not bool(result.get("ok", false)):
 		return result
+	ArmyTransport.publish(self)
 	for old: ArmyState in before:
 		if armies.has(old):
 			continue

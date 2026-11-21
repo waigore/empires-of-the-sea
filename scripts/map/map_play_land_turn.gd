@@ -197,7 +197,7 @@ static func _recall_home(
 		return false
 	if bool(settled.get("minted", false)):
 		play.army_layer.next_army += 1
-	play.army_layer.regions.set_region(region, roster)
+	ArmyTransport.store(play.army_layer, region, roster)
 	return true
 
 
