@@ -29,11 +29,19 @@ var _ground_rows: int = 0
 ## coast's grounds are open, so the block reads one thing at a time.
 var _batch: RaiseBatchPress = null
 var _batch_line: Label = null
+## The voyage the court's own colonisation pass would make with this squadron,
+## under the block's note and above its rows, in the gold the crew's own pick
+## prints in: advice, never state (DR-20261121-08, REQ-P5-06).
+var _pick: Label = null
 var _data: Dictionary = {}
 
 
 func _ready() -> void:
 	_setup("PASSENGERS")
+	_pick = UiRowBuilder.line(12, Palette.GOLD)
+	_pick.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	add_child(_pick)
+	move_child(_pick, _note.get_index() + 1)
 	_ground_scroll = ScrollContainer.new()
 	_ground_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_ground_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -79,9 +87,16 @@ func _render() -> void:
 	var land: Array = _data.get("land", [])
 	var sortie: Array = _data.get("sortie", [])
 	var count: int = int(_data.get("count", 0))
+	var pick: Dictionary = _data.get("pick", {})
+	var pick_line: String = MapPlayVoyagePickWords.sentence(
+		String(pick.get("line", ""))
+	)
 	visible = count > 0 or not embark.is_empty() or not land.is_empty() \
-		or not sortie.is_empty()
+		or not sortie.is_empty() or not pick_line.is_empty()
 	_begin(String(_data.get("note", "")))
+	if _pick != null:
+		_pick.text = pick_line
+		_pick.visible = not pick_line.is_empty()
 	_clear_grounds()
 	if open_coast >= 0:
 		_hide_batch()

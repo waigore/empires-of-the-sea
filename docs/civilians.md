@@ -10,44 +10,45 @@ Land units: explore, improve, colonize, spy.
 
 ## Implemented
 
-- **Roster** (`CivilianCatalog`): six types, all playable.
+- **Roster** (`CivilianCatalog`): six playable types.
 - **Hiring:** the capital's rail names each craft's work and the study its hire
   waits on, greying a gated row
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
-  one gold line above them names the crew that order takes next, or the gate
-  that holds it (`MapPlayHirePick`, DR-20261121-06).
-- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew;
-  **Find the next crew that waits** walks idle ones.
-- **Movement:** one orthogonal land tile/turn; Builders, Engineers and Rail
-  Builders keep to crown land, Explorer, Merchant, Spy cross any border; one
-  crew per tile per crown; presence keeps a province visible.
+  a gold line names the crew or the gate (`MapPlayHirePick`, DR-20261121-06).
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew and
+  walks the idle ones.
+- **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
+  Builders keep to crown land, Explorer, Merchant, Spy cross borders; one crew
+  per tile per crown; presence keeps a province visible.
 - **Spy** (`SpyNetworks`, `SpyRules`): holds its province charted (never
   `unknown`); each shadowed rival GP adds +15% RP at Low+ funding.
   **Counter-espionage** kills or turns agents; reports name deeds
   ([espionage.md](espionage.md)).
 - **Work orders** on the unit tile (Builders: any owned tile); cancel
-  returns it. Explore ≤3, **prospect 1** (charted ground), improve 1–4, **upgrade town** (National
+  refunds it. Explore ≤3, **prospect 1** (charted ground), improve 1–4, **upgrade town** (National
   Bureaucracy), road, port (one per seaboard), rail, fort 1–3
   ([forts.md](forts.md)), hospital 1–2.
 - **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
   a mineral hides until an Explorer prospects it.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
   [DR-20261117-07](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-07)):
-  an idle crew's dossier names the planner's next work, priced by its ledger,
-  or its march.
-- **Town development:** Builders raise towns to 4; connected port towns cap
-  extraction; levels 2, 4 manufacture ([economy.md](economy.md)).
+  an idle crew's dossier names the planner's next work or its march,
+  priced by its ledger.
+- **Towns:** Builders raise them to 4; connected port towns cap extraction;
+  levels 2, 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
-  per hull, never with troops); lands on a coastal tile beside its zone, one
-  press for the port's own seat
+  per hull, no troops); lands on a coastal tile beside its zone, one
+  one press for the port's seat
   ([DR-20261119-03](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-03));
-  Explorers/Merchants any coast, others need crown land. **A rival reads the
+  Explorers/Merchants any coast, others crown land. **A rival reads the
   ground:** its colonist takes the charted coast its workshop can turn before
   the compass order
   ([DR-20261119-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-05)).
+  **The crown reads her own step:** the passenger block names the voyage the
+  court's pass would make (DR-20261121-08).
 - **Land purchase:** Merchant buys a Minor/Tribe resource tile (embassy, no war,
   prospected mineral); 15× base at assign, debit on complete; each deed lifts the
-  province town ([DR-20261118-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-05)).
+  town ([DR-20261118-05](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-05)).
 - **Tile deeds** (`TileOwnership`): buyer's land for works, yield, estates, fog,
   saves; the province stays the seller's.
 - **Improvements** yield `min(level, tech, terrain, transport, town)`

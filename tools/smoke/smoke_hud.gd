@@ -15,6 +15,7 @@ static func step(run) -> void:
 	await _court(run, screen)
 	_audio(run, screen)
 	await _province(run, screen)
+	await _production(run, screen)
 
 
 ## The estates door on the cartouche opens the crown's works ledger (REQ-P1-07).
@@ -150,3 +151,28 @@ static func _province(run, screen: MapScreen) -> void:
 		screen.play.economy.economy.recruits.is_empty(),
 		"the hire reading queues nothing"
 	)
+
+
+## The ledger's PRODUCTION tab names the runs the crown's own economy pass would
+## book this phase, in the tab's gold line above the rows it answers — and sets
+## nothing (wiki: stockpiles-and-production § Production flow; DR-20261121-07).
+static func _production(run, screen: MapScreen) -> void:
+	var set_before: int = screen.economy.economy.production.assignments().size()
+	screen.economy.open_panel()
+	await run.tree.process_frame
+	run.check(screen.hud.panels.is_economy_open(), "ledger opens")
+	var page: LedgerProduction = (
+		screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
+		as LedgerProduction
+	)
+	run.check(page != null, "the PRODUCTION tab stands")
+	if page != null:
+		run.check(
+			not page.counsel_text().is_empty(),
+			"the ledger names the plan the court would run"
+		)
+	run.check(
+		screen.economy.economy.production.assignments().size() == set_before,
+		"the plan reading sets nothing"
+	)
+	screen.hud.panels.hide_economy()
