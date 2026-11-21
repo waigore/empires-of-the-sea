@@ -35,9 +35,9 @@ Fog, cargo, battles, raids: [naval-missions](naval-missions.md).
   capital (#1043).
 - **Stations:** Patrol, Blockade, Defend, Beachhead; one station or move/turn
   (DR-20261109-13/16); raids sink one merchant hull (DR-20261111-17).
-- **The court's picks** (DR-20261120-04): the missions gold line names the sail
-  or harbour the policy would order; the slip names the hull the yard would
-  lay or save for (DR-20261121-02); readings only.
+- **The court's picks** (DR-20261120-04): the missions line names the sail
+  or harbour; the slip the hull (DR-20261121-02); the navy sheet every
+  squadron's sail this turn (DR-20261121-13). Readings only.
 - **Army transport** (`NavalTransport`): board one regiment/hull, land on an
   owned coast; troops drown with the hull.
 - **Beachhead:** mark a hostile coast (spends the move); lands next; lapses.

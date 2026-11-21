@@ -91,6 +91,15 @@ static func build_hud(play: PlaySession) -> void:
 		people.counsel_source = (
 			func(data: Dictionary) -> String: return MapPlayPeoplePick.line(play, data)
 		)
+	# THE CROWN'S NAVY names the sails the court's own naval pass would order its
+	# squadrons this turn, read on the sheet's own snapshot so the line reads down
+	# the squadrons it answers (wiki: ships-and-naval § The crown's navy;
+	# DR-20261121-13).
+	var navy: NavalLedgerPanel = hud.navy_ledger
+	if navy != null:
+		navy.counsel_source = (
+			func(data: Dictionary) -> String: return MapPlayNavyPick.line(play, data)
+		)
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)

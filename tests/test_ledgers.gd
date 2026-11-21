@@ -4584,6 +4584,162 @@ func test_a_visit_frames_her_squadron_and_sets_the_sheet_aside() -> void:
 	assert_not_null(screen.play.ship_layer.selected(), "her squadron is the selection")
 
 
+# --- navy: the court's own sails ---
+
+## The navy's own reading (DR-20261121-13): the sails the published naval policy
+## would order, worded down the sheet's own squadron headings and capped so a
+## busy navy stays one line of chrome (REQ-P5-06, REQ-P5-07).
+func test_the_navy_pick_words_the_sails_the_pass_would_order() -> void:
+	var model: MapModel = Naval.build()
+	var zone: int = 0
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_SORTIE, "zone": zone}, "Leopard"
+		),
+		"the Leopard into the %s" % model.sea_zone_name(zone)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_PURSUE, "zone": zone}, "Leopard"
+		),
+		"the Leopard in pursuit into the %s" % model.sea_zone_name(zone)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_RAID, "zone": zone}, "Leopard"
+		),
+		"the Leopard for the %s, the first leg toward a hostile coast"
+		% model.sea_zone_name(zone)
+	)
+	# Home names the harbour when she can dock, else the first leg back.
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_HOME, "dock": true, "province": 0}, "Swallow"
+		),
+		"the Swallow home to %s" % model.province_name(0)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_HOME, "zone": zone}, "Swallow"
+		),
+		"the Swallow for the %s, the first leg home" % model.sea_zone_name(zone)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": "unknown", "zone": zone}, "Leopard"),
+		"",
+		"an order this module cannot say prints nothing"
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": MapPlayNavyPick.KIND_SORTIE}, "Leopard"),
+		"",
+		"a sail to nowhere prints nothing"
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": MapPlayNavyPick.KIND_SORTIE, "zone": zone}, ""),
+		"",
+		"a squadron with no flagship named reads nothing"
+	)
+	# One line, in the sheet's own heading order, the fourth and beyond counted.
+	var squadrons: Array[Dictionary] = [
+		{"region": 0, "fleet_id": 2, "line": "the Tern home to Cádiz"},
+		{"region": 0, "fleet_id": 1, "line": "the Leopard into the Mar Caribe"},
+		{"region": 0, "fleet_id": 3, "line": "the Swallow in pursuit into the Main"},
+		{"region": 0, "fleet_id": 4, "line": "the Kite for the Main, the first leg home"},
+	]
+	var snapshot: Dictionary = {
+		"groups": [
+			{"region": 0, "fleet": 1},
+			{"region": 0, "fleet": 2},
+			{"region": 0, "fleet": 3},
+			{"region": 0, "fleet": 4},
+		],
+	}
+	assert_eq(
+		String(MapPlayNavyPick.of(squadrons, snapshot)["line"]),
+		"the court would send the Leopard into the Mar Caribe, the Tern home to"
+		+ " Cádiz, the Swallow in pursuit into the Main and 1 more this turn"
+	)
+	assert_eq(
+		MapPlayNavyPick.sentence("the court would send the Leopard into the Mar Caribe"),
+		"The court would send the Leopard into the Mar Caribe."
+	)
+	assert_true(MapPlayNavyPick.of([], {}).is_empty(), "no squadron, no clause")
+	assert_eq(MapPlayNavyPick.pick_line([]), "", "no squadron, no line")
+	assert_eq(MapPlayNavyPick.line(null), "", "a session that is not there names nothing")
+
+
+## The sheet prints the reading it is handed and hides it when the reading is
+## empty, so a session with no planner carries no gold line (REQ-P5-06).
+func test_the_navy_sheet_prints_and_hides_the_counsel_it_is_handed() -> void:
+	_attach()
+	var panel: NavalLedgerPanel = screen.hud.navy_ledger
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String:
+			return "The court would send the Leopard into the Mar Caribe."
+	)
+	panel.open()
+	assert_eq(panel.counsel_text(), "The court would send the Leopard into the Mar Caribe.")
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	# The case hands the panel back wired as the session left it, so a later case
+	# reads the boot's own reading rather than this one's stand-in.
+	panel.counsel_source = wired
+	panel.close()
+
+
+## The reading is the pass's own: a squadron the published policy would sail is
+## named on THE CROWN'S NAVY, and nothing is moved or stationed (REQ-P2-03,
+## REQ-P5-06; DR-20261121-13).
+func test_the_navy_names_the_sails_the_crowns_pass_would_order() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: NavalLedgerPanel = screen.hud.navy_ledger
+	assert_not_null(panel, "the HUD mounts the navy ledger")
+	assert_true(panel.counsel_source.is_valid(), "the session wires the pass's reading")
+	var before: Array = _fleet_orders(play)
+	panel.open()
+	var counsel: String = panel.counsel_text()
+	assert_true(
+		counsel.is_empty() or counsel.begins_with("The court would send "), counsel
+	)
+	assert_true(counsel.is_empty() or counsel.ends_with("this turn."), counsel)
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(),
+		"the line stands with its reading"
+	)
+	# A line the pass would not order is not printed: every named clause is one of
+	# the pick's own squadrons.
+	var pick: Dictionary = MapPlayNavyPick.pick(play, panel._snapshot)
+	for raw: Variant in pick.get("squadrons", []):
+		var squadron: Dictionary = raw
+		var clause: String = String(squadron["line"])
+		assert_true(
+			counsel.to_lower().contains(clause),
+			"every clause is the pass's own: %s" % clause
+		)
+	assert_eq(_fleet_orders(play), before, "a reading, not an order")
+	panel.close()
+
+
+## Every squadron's orders as the sheet reads them: her station, her move flag
+## and the water or harbour she stands in.
+func _fleet_orders(play: PlaySession) -> Array:
+	var seen: Array = []
+	for region: int in play.ship_layer.regions.region_ids():
+		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+			if fleet == null:
+				continue
+			seen.append("%d:%d:%s:%s:%s" % [
+				fleet.id, region, fleet.mission, fleet.moved, fleet.sea_zone
+			])
+	seen.sort()
+	return seen
+
+
 # --- the crown's army, regiment by regiment ---
 
 ## The crown's army, regiment by regiment (wiki: military-armies § The muster

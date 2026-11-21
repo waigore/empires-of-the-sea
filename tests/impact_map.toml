@@ -3413,6 +3413,21 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The sails the crown's navy prints (DR-20261121-13): the reading that asks the
+# published naval policy what it would order each squadron this turn — the same
+# call one squadron's own dossier reads — so the sheet cannot name a sail the
+# policy would not give. Its suite is the ledgers', where the pick is proved off
+# data alone and the sheet prints the line. Named above the map glob (first
+# match wins) so it never pays for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_navy_pick*.gd*"
+domain = "navy_pick"
+
+[domains.navy_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
