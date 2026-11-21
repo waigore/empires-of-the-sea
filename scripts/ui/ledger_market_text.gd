@@ -49,6 +49,61 @@ static func share_credit(report: Dictionary, faction: int) -> int:
 	return roundi(float(by_gp.get(faction, by_gp.get(str(faction), 0.0))))
 
 
+## The fills that paid the crown's share, one row per deal: the owner's cut of a
+## rival's buy on its sold ground first, then the embassy kickbacks (wiki:
+## world-market-first-right-of-refusal § Profit formula, § Eligibility). The
+## total above them is a bare number until these rows say who bought what (REQ-
+## P5-05: a receipt names every line it spends). The ducats stay on the total and
+## off the rows, because one deal's known price and quantity would publish the
+## sealed relation score (DR-20261118-05).
+static func share_rows(report: Dictionary, faction: int) -> Array[Dictionary]:
+	var credits: Dictionary = report.get("credits", {}) as Dictionary
+	var rows: Array[Dictionary] = []
+	for raw: Variant in credits.get("rows", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var deal: Dictionary = raw
+		if int(deal.get("owner", -1)) == faction and float(deal.get("owner_credit", 0.0)) > 0.0:
+			rows.append(_share_row(deal, "deed"))
+	for raw: Variant in credits.get("rows", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var deal: Dictionary = raw
+		for raw_kick: Variant in deal.get("kickbacks", []):
+			if typeof(raw_kick) != TYPE_DICTIONARY:
+				continue
+			var kick: Dictionary = raw_kick
+			if int(kick.get("faction", -1)) != faction or float(kick.get("credit", 0.0)) <= 0.0:
+				continue
+			rows.append(_share_row(deal, "embassy"))
+	return rows
+
+
+static func _share_row(deal: Dictionary, kind: String) -> Dictionary:
+	return {
+		"kind": kind,
+		"buyer": int(deal.get("buyer", -2)),
+		"seller": int(deal.get("seller", -2)),
+		"commodity": String(deal.get("commodity", "")),
+		"quantity": int(deal.get("quantity", 0)),
+	}
+
+
+## One share row in words: which rule paid, and the buy that paid it. A court no
+## longer in the catalogue (an absorbed Minor, an older save) reads as it was
+## named when the clearing settled.
+static func share_row_line(row: Dictionary) -> String:
+	var quantity: int = int(row.get("quantity", 0))
+	var commodity: String = CommodityCatalog.label(String(row.get("commodity", "")))
+	var words: String = "%s bought %d %s from %s" % [
+		FactionCatalog.name_of(int(row.get("buyer", -2))), quantity, commodity,
+		FactionCatalog.name_of(int(row.get("seller", -2))),
+	]
+	if String(row.get("kind", "")) == "deed":
+		return "Our deed's share — " + words
+	return "Our embassy's kickback — " + words
+
+
 ## One line of the Deal Book. A purchase names the price the pair was charged —
 ## the crown's terms and the subsidy step included — and the ducats it cost; a
 ## sale names its receipt (wiki: world-market § Subsidy price adjustment;
@@ -67,6 +122,12 @@ static func deal_line(deal: Dictionary, viewer: int = FactionCatalog.PLAYER_FACT
 		var claim: String = (
 			" as its favoured partner" if bool(deal.get("is_favoured", false)) else ""
 		)
+		# The one thing a deed buys the crown is this fill: the owner's bid takes
+		# its sold ground's unit before any tier, and the row must say so or the
+		# right is invisible on the purchase it won (wiki: world-market § First
+		# right of refusal — Priority override).
+		if bool(deal.get("is_frr", false)):
+			claim = " as its deed's first refusal"
 		var unit: int = int(deal.get("buy_unit", price))
 		# The debt is rounded once from the whole deal, so the per-unit ask need
 		# not multiply to it: name the ducats the clearing charged, and say so

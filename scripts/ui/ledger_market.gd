@@ -13,6 +13,8 @@ signal offer_requested(offer_id: String, quantity: int)
 signal cancel_requested(order_id: String)
 
 const ROW_HEIGHT: float = 38.0
+## Share fills the LAST CLEARING names under its total before it counts the rest.
+const SHARE_ROWS: int = 4
 const CATEGORIES: Array = [
 	CommodityCatalog.Category.FOOD,
 	CommodityCatalog.Category.RAW,
@@ -204,6 +206,25 @@ func _add_deals() -> void:
 			+ "and embassy kickbacks (wiki: world-market § First right of refusal)."
 		)
 		add_child(shares)
+		_add_share_rows()
+
+
+## The fills behind the total, one dim row each: a rival's buy on the crown's sold
+## ground pays the crown even in a turn it staged nothing, so the block names the
+## buy instead of leaving one unexplained number (wiki: world-market § First right
+## of refusal; REQ-P5-05). The deed's own fills lead; a long clearing names the
+## first few and counts the rest.
+func _add_share_rows() -> void:
+	var rows: Array[Dictionary] = LedgerMarketText.share_rows(_clearing, _viewer)
+	for row: Dictionary in rows.slice(0, SHARE_ROWS):
+		var line := UiRowBuilder.label(LedgerMarketText.share_row_line(row), 11, Palette.TEXT_DIM)
+		line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		line.custom_minimum_size = Vector2(240, 0)
+		add_child(line)
+	if rows.size() > SHARE_ROWS:
+		add_child(UiRowBuilder.label(
+			"+%d more fills" % (rows.size() - SHARE_ROWS), 11, Palette.TEXT_DIM
+		))
 
 
 ## The clearing's price pass in one line: the goods that moved and the price they

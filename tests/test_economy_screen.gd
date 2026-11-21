@@ -1334,6 +1334,47 @@ func test_the_ledger_names_a_sale_and_the_overseas_share() -> void:
 	assert_not_null(_find_label(body, "Overseas shares  +89 ducats"))
 
 
+## The overseas total is a bare number until the fills under it say who bought
+## what: a rival's buy on the crown's sold ground pays the crown in a turn it
+## staged nothing, so the clearing names the buy and the rule that paid it
+## (wiki: world-market § First right of refusal; REQ-P5-05).
+func test_the_ledger_names_the_fills_behind_the_overseas_share() -> void:
+	var faction: int = _screen.player_faction
+	_screen.economy.readings.last_clearing = {"credits": {
+		"by_gp": {faction: 25.0},
+		"rows": [{
+			"seller": 6, "buyer": 1, "commodity": "grain", "quantity": 1,
+			"price": 50.0, "owner": faction, "owner_credit": 25.0, "kickbacks": [],
+		}],
+	}}
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, "Overseas shares  +25 ducats"))
+	assert_not_null(_find_label(body, "Our deed's share — "))
+	assert_not_null(_find_label(body, "bought 1 Grain from "))
+
+
+## A deed's own first-refusal fill says so on the row it won, beside the favoured
+## partner's claim, so the right is not invisible on the purchase it bought
+## (wiki: world-market § First right of refusal — Priority override).
+func test_the_ledger_names_a_first_refusal_fill() -> void:
+	_screen.economy.market.book.last_deals = [{
+		"buyer": _screen.player_faction,
+		"seller": 6,
+		"commodity": "timber",
+		"quantity": 1,
+		"price": 30,
+		"buy_unit": 30,
+		"cost": 30,
+		"is_frr": true,
+	}]
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: Node = panel.page_body(EconomyPanel.TAB_MARKET)
+	assert_not_null(_find_label(body, "as its deed's first refusal"))
+
+
 ## The "Next turn" line names the orders the auction settles after it, so a
 ## staged bid is never read as already counted in the promise (wiki:
 ## stockpiles-and-production § Production flow).
