@@ -42,3 +42,17 @@ static func rotate_line(model: MapModel, province: int) -> String:
 	return "the court would march home to %s to merge with the Home Army" % model.province_name(
 		province
 	)
+
+
+## The first leg of the walk home: a host standing on ground it does not hold
+## marches through the provinces beside it, one march at a time, until its own
+## border touches (wiki: military-armies § Movement and attacks; DR-20261121-15).
+## A step onto the court's own land is the road home itself, so it reads so.
+static func walk_line(model: MapModel, province: int, own: bool) -> String:
+	if model == null or province < 0:
+		return ""
+	if own:
+		return "the court would march on %s, its own ground, the road home" % model.province_name(
+			province
+		)
+	return "the court would march on %s, the first leg home" % model.province_name(province)
