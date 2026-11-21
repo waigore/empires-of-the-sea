@@ -41,9 +41,27 @@ static func pick(play: PlaySession, model: MapModel, province_id: int) -> Dictio
 		return {}
 	if model == null or province_id < 0:
 		return {}
+	return from_picks(
+		play, model, province_id, MapPlayPeoplePick.pick(play), MapPlayArmyOrdersPick.pick(play)
+	)
+
+
+## The same reading off the two passes already asked, so a sheet about many
+## provinces asks each pass once instead of once a province (wiki: world-model
+## § The crown's provinces; DR-20261121-21). `crews_pick` and `armies_pick` are
+## the picks `pick` itself reads.
+static func from_picks(
+	play: PlaySession,
+	model: MapModel,
+	province_id: int,
+	crews_pick: Dictionary,
+	armies_pick: Dictionary
+) -> Dictionary:
+	if model == null or province_id < 0:
+		return {}
 	return of(
-		_crews(play, model, province_id),
-		_armies(play, model, province_id),
+		_crews(model, province_id, crews_pick),
+		_armies(model, province_id, armies_pick),
 		_idle_here(play, model, province_id)
 	)
 
@@ -80,13 +98,12 @@ static func of(
 ## pass's own order: the craft and the work, its own province stripped because
 ## the sheet is the place.
 static func _crews(
-	play: PlaySession, model: MapModel, province_id: int
+	model: MapModel, province_id: int, pick: Dictionary
 ) -> Array[Dictionary]:
 	var found: Array[Dictionary] = []
-	var pick: Dictionary = MapPlayPeoplePick.pick(play)
 	for raw: Variant in pick.get("crews", []):
 		var crew: Dictionary = raw
-		if not _lands_here(play, model, crew, province_id):
+		if not _lands_here(model, crew, province_id):
 			continue
 		var role: String = String(crew.get("role", ""))
 		var short: String = String(crew.get("short", ""))
@@ -99,10 +116,9 @@ static func _crews(
 ## The hosts the land pass would send onto this province, in the pass's own
 ## order: the standard and the order, the sheet's own words.
 static func _armies(
-	play: PlaySession, model: MapModel, province_id: int
+	model: MapModel, province_id: int, pick: Dictionary
 ) -> Array[Dictionary]:
 	var found: Array[Dictionary] = []
-	var pick: Dictionary = MapPlayArmyOrdersPick.pick(play)
 	for raw: Variant in pick.get("armies", []):
 		var army: Dictionary = raw
 		if int(army.get("region", -1)) != model.region_id:
@@ -119,7 +135,7 @@ static func _armies(
 ## Whether a crew's order lands on this province: its own chart first, because
 ## unit ids and province ids are minted per roster (REQ-P2-03).
 static func _lands_here(
-	play: PlaySession, model: MapModel, crew: Dictionary, province_id: int
+	model: MapModel, crew: Dictionary, province_id: int
 ) -> bool:
 	if int(crew.get("region", -1)) != model.region_id:
 		return false
