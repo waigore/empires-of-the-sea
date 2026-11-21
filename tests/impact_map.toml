@@ -4441,6 +4441,20 @@ domain = "menu"
 match = "tests/test_agent_debug_bridge.gd*"
 domain = "fold_map_screen"
 
+# The production tab's own plan (DR-20261121-07): the runs the published economy
+# pass would book for the crown's workshop, read through the chest rows the pass
+# itself claims (`MapPlayEconomyCourt.chest_rows`). Its suite is the economy
+# rules', where the pick is proved off plan data alone, so it names its own
+# domain instead of pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_production_pick*.gd*"
+domain = "production_pick"
+
+[domains.production_pick]
+suites = [
+  "test_market_economy_rules.gd",
+]
+
 [[rules]]
 match = "tests/test_*.gd"
 full = true
