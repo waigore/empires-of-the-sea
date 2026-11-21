@@ -172,3 +172,20 @@ func test_crown_crew_ready_refuses_a_missing_session() -> void:
 		MapPlayPickProse.crown_crew_ready(null),
 		"no session, no counsel pick"
 	)
+
+
+func test_crown_ready_refuses_a_missing_session() -> void:
+	assert_false(MapPlayPickProse.crown_ready(null), "no session, no counsel pick")
+
+
+func test_the_crew_gate_stands_on_the_crown_gate() -> void:
+	var slim: PlaySession = PlaySession.new()
+	slim.ai_mode = AiControl.NOOP
+	assert_false(
+		MapPlayPickProse.crown_crew_ready(slim),
+		"a court with no planner earns no crew counsel either"
+	)
+	assert_false(
+		MapPlayPickProse.crown_ready(slim),
+		"a court with no planner reads no counsel at all"
+	)

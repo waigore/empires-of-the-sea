@@ -27,9 +27,9 @@ const KIND_HOLD: String = "hold"
 ## runs no planner, the campaign is decided, or the session holds no relations
 ## to weigh.
 static func plan(play: PlaySession) -> Dictionary:
-	if play == null or play.diplomacy == null or play.world == null:
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.observer_mode or play.campaign_over():
+	if play.diplomacy == null or play.world == null:
 		return {}
 	var court_read: Dictionary = court(play, play.player_faction)
 	if court_read.is_empty():
