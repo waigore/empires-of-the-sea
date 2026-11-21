@@ -63,7 +63,7 @@ static func _capture_session(play: PlaySession) -> Dictionary:
 		# The crown's Quick Battle stance is state a battle reads this turn, so a
 		# save carries it (wiki: campaign-persistence § Snapshot contract;
 		# quick-battle § The crown's plan; DR-20261110-33).
-		"battle_plan": QuickBattleActions.normalize_plan(String(play.battle_plan)),
+		"battle_plan": QuickBattleActionLaw.normalize_plan(String(play.battle_plan)),
 	}
 
 
@@ -224,7 +224,7 @@ static func _faction(session: Dictionary) -> int:
 ## a script this build does not have.
 static func _plan(raw: Variant) -> String:
 	var plan: String = String(raw)
-	return plan if QuickBattleActions.PLANS.has(plan) else DEFAULT_BATTLE_PLAN
+	return plan if QuickBattleActionLaw.PLANS.has(plan) else DEFAULT_BATTLE_PLAN
 
 
 static func _flag_dictionary(keys: Variant) -> Dictionary:

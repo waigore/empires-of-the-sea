@@ -81,17 +81,17 @@ static func _orders(
 	var key: String = "attacker" if owner == int(state["attacker"]["owner"]) else "defender"
 	var enemy_key: String = "defender" if key == "attacker" else "attacker"
 	var cp: int = CP_PER_ROUND
-	for action: String in QuickBattleActions.actions_for(
+	for action: String in QuickBattleActionLaw.actions_for(
 		String(state[key]["plan"]), key == "defender", siege
 	):
 		## A line that has lost its last regiment spends no point and delivers no
 		## blow, and nothing is left to strike when the enemy's line is gone
 		## (wiki: quick-battle § Outcome and integration; § Wings and collapse).
-		if cp < int(QuickBattleActions.ACTION_CP[action]) \
+		if cp < QuickBattleActionLaw.cp_cost(action) \
 			or QuickBattleLine.standing(state, key) == 0 \
 			or QuickBattleLine.standing(state, enemy_key) == 0:
 			break
-		cp -= int(QuickBattleActions.ACTION_CP[action])
+		cp -= QuickBattleActionLaw.cp_cost(action)
 		var entry: Dictionary = QuickBattleActions.resolve(
 			armies, state, key, enemy_key, action, guns
 		)

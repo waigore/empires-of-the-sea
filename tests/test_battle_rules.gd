@@ -1811,9 +1811,9 @@ func test_the_combat_phase_binds_only_the_army_that_fights() -> void:
 
 
 func test_quick_battle_action_scripts_come_from_the_plan_catalog() -> void:
-	assert_eq(QuickBattleActions.actions_for("aggressive"), ["maneuver", "assault"])
-	assert_eq(QuickBattleActions.actions_for("defensive"), ["fall_back", "volley"])
-	assert_eq(QuickBattleActions.actions_for("unknown"), ["volley", "entrench", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActionLaw.actions_for("defensive"), ["fall_back", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("unknown"), ["volley", "entrench", "volley"])
 
 
 ## The battle's law lives on [QuickBattleTerms] and its rounds on
@@ -3341,23 +3341,23 @@ func test_veterans_are_deployed_ahead_of_fresh_regiments() -> void:
 ## The three stances and their ordered action lists are the rules: the page
 ## publishes them, so a replay must be able to read them here.
 func test_the_published_plan_scripts_match_the_wiki() -> void:
-	assert_eq(QuickBattleActions.actions_for("aggressive"), ["maneuver", "assault"])
-	assert_eq(QuickBattleActions.actions_for("balanced"), ["volley", "entrench", "volley"])
-	assert_eq(QuickBattleActions.actions_for("defensive"), ["fall_back", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActionLaw.actions_for("balanced"), ["volley", "entrench", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("defensive"), ["fall_back", "volley"])
 
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, true), ["entrench", "sortie"],
+		QuickBattleActionLaw.actions_for("aggressive", true, true), ["entrench", "sortie"],
 		"a siege garrison with an aggressive plan entrenches then sallies"
 	)
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, false),
+		QuickBattleActionLaw.actions_for("aggressive", true, false),
 		["entrench", "volley", "volley"],
 		"a sortie with no wall is ordinary volley fire"
 	)
-	assert_eq(QuickBattleActions.actions_for("balanced", true, true), ["volley", "entrench"])
-	assert_eq(QuickBattleActions.actions_for("balanced", true, false), ["volley", "entrench"])
-	assert_eq(QuickBattleActions.actions_for("defensive", true, true), ["fall_back", "volley"])
-	assert_eq(QuickBattleActions.actions_for("defensive", true, false), ["fall_back", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("balanced", true, true), ["volley", "entrench"])
+	assert_eq(QuickBattleActionLaw.actions_for("balanced", true, false), ["volley", "entrench"])
+	assert_eq(QuickBattleActionLaw.actions_for("defensive", true, true), ["fall_back", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("defensive", true, false), ["fall_back", "volley"])
 
 
 ## 3 CP a side each round, and no action is ever taken without its price.
@@ -3414,9 +3414,9 @@ func test_a_firearmless_garrison_sallies_when_no_one_commands_it() -> void:
 ## Any value the page does not publish is `balanced`, wherever it came from
 ## (wiki: quick-battle § The crown's plan).
 func test_an_unknown_plan_is_balanced() -> void:
-	assert_eq(QuickBattleActions.normalize_plan("hammer"), "balanced")
-	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
-	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
+	assert_eq(QuickBattleActionLaw.normalize_plan("hammer"), "balanced")
+	assert_eq(QuickBattleActionLaw.normalize_plan(""), "balanced")
+	assert_eq(QuickBattleActionLaw.normalize_plan("defensive"), "defensive")
 	assert_eq(
 		QuickBattleTerms.plan_for(
 			_rival(["pikemen"]), 0, {"player_faction": 0, "battle_plan": "hammer"}, false
@@ -3440,6 +3440,23 @@ func test_every_blow_writes_the_one_action_shape() -> void:
 				saw_battery = true
 				assert_eq(String(action["label"]), "Emplaced battery")
 	assert_true(saw_battery, "the emplaced battery answers the siege")
+
+
+## Every number the resolver spends on an order is written once, in the action
+## law (REQ-P3-01): the cost, the damage, the guard, the own price, the words,
+## and the plan each stance scripts. The resolver and the round gate read it.
+func test_the_action_law_is_written_once() -> void:
+	assert_eq(QuickBattleActionLaw.cp_cost("sortie"), 2)
+	assert_eq(QuickBattleActionLaw.cp_cost("volley"), 1)
+	assert_eq(QuickBattleActionLaw.cp_cost("battery"), 0)
+	assert_almost_eq(QuickBattleActionLaw.damage_share("assault"), 0.26, 0.0001)
+	assert_almost_eq(QuickBattleActionLaw.damage_share("entrench"), 0.0, 0.0001)
+	assert_almost_eq(QuickBattleActionLaw.self_share("sortie"), 0.08, 0.0001)
+	assert_almost_eq(QuickBattleActionLaw.guard_of("entrench"), 0.45, 0.0001)
+	assert_eq(QuickBattleActionLaw.label_of("fall_back"), "Fall back")
+	assert_eq(QuickBattleActionLaw.cohesion_cost("maneuver", {"lost": []}), 0)
+	assert_eq(QuickBattleActionLaw.cohesion_cost("maneuver", {"lost": ["a"]}), 1)
+	assert_eq(QuickBattleActionLaw.cohesion_why("fall_back"), "the line gives ground")
 
 
 ## A battery that hits nobody writes no action at all: the plate must not print
@@ -3509,7 +3526,7 @@ func _cp_spent(round: Dictionary, side: int) -> int:
 	for entry: Dictionary in round["actions"] as Array:
 		if int(entry["side"]) != side:
 			continue
-		spent += int(QuickBattleActions.ACTION_CP.get(String(entry["action"]), 0))
+		spent += QuickBattleActionLaw.cp_cost(String(entry["action"]))
 	return spent
 
 
@@ -3676,16 +3693,16 @@ func test_a_garrison_without_firearms_sallies_on_its_own() -> void:
 
 func test_the_sortie_is_a_dedicated_order() -> void:
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, true),
+		QuickBattleActionLaw.actions_for("aggressive", true, true),
 		["entrench", "sortie"], "a sally, not an assault on its own wall"
 	)
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, false),
+		QuickBattleActionLaw.actions_for("aggressive", true, false),
 		["entrench", "volley", "volley"], "no wall, no gate to sally from"
 	)
-	assert_eq(QuickBattleActions.actions_for("aggressive"), ["maneuver", "assault"])
-	assert_eq(int(QuickBattleActions.ACTION_CP["sortie"]), 2)
-	assert_eq(String(QuickBattleActions.ACTION_LABEL["sortie"]), "Sortie")
+	assert_eq(QuickBattleActionLaw.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActionLaw.cp_cost("sortie"), 2)
+	assert_eq(QuickBattleActionLaw.label_of("sortie"), "Sortie")
 
 
 ## A sally is only a sally for a garrison behind its wall: with no wall to leave,
@@ -5769,16 +5786,16 @@ func test_land_a_garrison_without_firearms_sallies_on_its_own() -> void:
 
 func test_land_the_sortie_is_a_dedicated_order() -> void:
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, true),
+		QuickBattleActionLaw.actions_for("aggressive", true, true),
 		["entrench", "sortie"], "a sally, not an assault on its own wall"
 	)
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, false),
+		QuickBattleActionLaw.actions_for("aggressive", true, false),
 		["entrench", "volley", "volley"], "no wall, no gate to sally from"
 	)
-	assert_eq(QuickBattleActions.actions_for("aggressive"), ["maneuver", "assault"])
-	assert_eq(int(QuickBattleActions.ACTION_CP["sortie"]), 2)
-	assert_eq(String(QuickBattleActions.ACTION_LABEL["sortie"]), "Sortie")
+	assert_eq(QuickBattleActionLaw.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActionLaw.cp_cost("sortie"), 2)
+	assert_eq(QuickBattleActionLaw.label_of("sortie"), "Sortie")
 
 func test_land_an_assault_into_town_is_weaker() -> void:
 	var open_losses: int = land__assault_losses("open")
@@ -8610,23 +8627,23 @@ func test_land_veterans_are_deployed_ahead_of_fresh_regiments() -> void:
 ## The three stances and their ordered action lists are the rules: the page
 ## publishes them, so a replay must be able to read them here.
 func test_land_the_published_plan_scripts_match_the_wiki() -> void:
-	assert_eq(QuickBattleActions.actions_for("aggressive"), ["maneuver", "assault"])
-	assert_eq(QuickBattleActions.actions_for("balanced"), ["volley", "entrench", "volley"])
-	assert_eq(QuickBattleActions.actions_for("defensive"), ["fall_back", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("aggressive"), ["maneuver", "assault"])
+	assert_eq(QuickBattleActionLaw.actions_for("balanced"), ["volley", "entrench", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("defensive"), ["fall_back", "volley"])
 
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, true), ["entrench", "sortie"],
+		QuickBattleActionLaw.actions_for("aggressive", true, true), ["entrench", "sortie"],
 		"a siege garrison with an aggressive plan entrenches then sallies"
 	)
 	assert_eq(
-		QuickBattleActions.actions_for("aggressive", true, false),
+		QuickBattleActionLaw.actions_for("aggressive", true, false),
 		["entrench", "volley", "volley"],
 		"a sortie with no wall is ordinary volley fire"
 	)
-	assert_eq(QuickBattleActions.actions_for("balanced", true, true), ["volley", "entrench"])
-	assert_eq(QuickBattleActions.actions_for("balanced", true, false), ["volley", "entrench"])
-	assert_eq(QuickBattleActions.actions_for("defensive", true, true), ["fall_back", "volley"])
-	assert_eq(QuickBattleActions.actions_for("defensive", true, false), ["fall_back", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("balanced", true, true), ["volley", "entrench"])
+	assert_eq(QuickBattleActionLaw.actions_for("balanced", true, false), ["volley", "entrench"])
+	assert_eq(QuickBattleActionLaw.actions_for("defensive", true, true), ["fall_back", "volley"])
+	assert_eq(QuickBattleActionLaw.actions_for("defensive", true, false), ["fall_back", "volley"])
 
 ## 3 CP a side each round, and no action is ever taken without its price.
 func test_land_a_side_spends_at_most_three_cp_a_round() -> void:
@@ -8676,9 +8693,9 @@ func test_land_a_firearmless_garrison_sallies_when_no_one_commands_it() -> void:
 ## Any value the page does not publish is `balanced`, wherever it came from
 ## (wiki: quick-battle § The crown's plan).
 func test_land_an_unknown_plan_is_balanced() -> void:
-	assert_eq(QuickBattleActions.normalize_plan("hammer"), "balanced")
-	assert_eq(QuickBattleActions.normalize_plan(""), "balanced")
-	assert_eq(QuickBattleActions.normalize_plan("defensive"), "defensive")
+	assert_eq(QuickBattleActionLaw.normalize_plan("hammer"), "balanced")
+	assert_eq(QuickBattleActionLaw.normalize_plan(""), "balanced")
+	assert_eq(QuickBattleActionLaw.normalize_plan("defensive"), "defensive")
 	assert_eq(
 		QuickBattleTerms.plan_for(
 			land__rival(["pikemen"]), 0, {"player_faction": 0, "battle_plan": "hammer"}, false
@@ -8696,7 +8713,7 @@ func land__cp_spent(round: Dictionary, side: int) -> int:
 	for entry: Dictionary in round["actions"] as Array:
 		if int(entry["side"]) != side:
 			continue
-		spent += int(QuickBattleActions.ACTION_CP.get(String(entry["action"]), 0))
+		spent += QuickBattleActionLaw.cp_cost(String(entry["action"]))
 	return spent
 
 # --- from test_army_markers.gd ---
@@ -10654,7 +10671,7 @@ func test_cohesion_never_falls_below_zero() -> void:
 
 	assert_eq(int(state["attacker"]["cohesion"]), 0, "the floor holds")
 	assert_eq(int(entry["cohesion_lost"]), 0, "a step it cannot pay is not printed")
-	assert_eq(QuickBattleActions.cohesion_cost("maneuver", {"lost": []}), 0)
+	assert_eq(QuickBattleActionLaw.cohesion_cost("maneuver", {"lost": []}), 0)
 
 
 ## Battle state shaped the way [QuickBattle] builds it, with the ground given.
