@@ -119,6 +119,10 @@ static func _armies(play: PlaySession, faction: int) -> Array[Dictionary]:
 				"region": region,
 				"army": army.id,
 				"kind": String(order.get("kind", "")),
+				# Why the march goes where it goes (a storm, a relief, the crown's
+				# own frontier), so a sheet about the battles it starts can pick the
+				# marches that fight (DR-20261122-02).
+				"why": String(order.get("why", "")),
 				# The ground the order lands on, so a surface about one province can
 				# name the host the court would send there (DR-20261121-19).
 				"province": int(order.get("province", MapModel.NO_ID)),
