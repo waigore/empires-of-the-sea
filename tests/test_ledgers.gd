@@ -1465,6 +1465,142 @@ func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
 	assert_false(MapPlayForceLedger.focus(null, 0, ForceLedger.KIND_ARMY, 0))
 
 
+## The roll's own reading (DR-20261121-17): the two force sheets' clauses merged
+## into one sentence, in the order the roll prints its rows, capped so a busy
+## muster stays one line of chrome, and the gate when forces wait and neither
+## pass gives an order (REQ-P5-06, REQ-P5-07).
+func test_the_muster_counsel_words_the_orders_of_every_force() -> void:
+	var forces: Array[Dictionary] = [
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_SQUADRON,
+			"id": 2,
+			"line": "the Leopard into the Mar Caribe",
+		},
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_ARMY,
+			"id": 3,
+			"line": "the field army at Tucapel to storm Cádiz",
+		},
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_ARMY,
+			"id": 1,
+			"line": "the Home Army to take the field with 4 regiments",
+		},
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_SQUADRON,
+			"id": 4,
+			"line": "the Swallow home to Cádiz",
+		},
+	]
+	var snapshot: Dictionary = {
+		"rows": [
+			{"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 3},
+			{"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 1},
+			{"region": 0, "kind": ForceLedger.KIND_SQUADRON, "id": 4},
+			{"region": 0, "kind": ForceLedger.KIND_SQUADRON, "id": 2},
+		],
+	}
+	# The roll's own row order, not the passes' order, and the fourth counted.
+	assert_eq(
+		String(MapPlayForceCounsel.of(forces, snapshot)["line"]),
+		"the court would send the field army at Tucapel to storm Cádiz, the Home"
+		+ " Army to take the field with 4 regiments, the Swallow home to Cádiz"
+		+ " and 1 more this turn"
+	)
+	# No snapshot: the passes' own order, read as prose reads a pair.
+	var pair: Array[Dictionary] = [forces[0], forces[1]]
+	assert_eq(
+		String(MapPlayForceCounsel.of(pair, {})["line"]),
+		"the court would send the Leopard into the Mar Caribe and the field army"
+		+ " at Tucapel to storm Cádiz this turn"
+	)
+	# A clause this module cannot say takes no place on the line.
+	var silent: Array[Dictionary] = pair.duplicate()
+	silent.append({"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 9, "line": ""})
+	assert_eq(
+		String(MapPlayForceCounsel.of(silent, {})["line"]),
+		String(MapPlayForceCounsel.of(pair, {})["line"]),
+		"an empty clause is no force named"
+	)
+	assert_eq(
+		MapPlayPickProse.sentence("the court would send the Leopard into the Mar Caribe"),
+		"The court would send the Leopard into the Mar Caribe."
+	)
+	# The gate: a force waited and neither pass gave an order, or silence.
+	assert_eq(
+		String(MapPlayForceCounsel.gate(true)["line"]), MapPlayForceCounsel.NO_ORDER_LINE
+	)
+	assert_true(MapPlayForceCounsel.gate(false).is_empty(), "nothing waited, nothing to say")
+	assert_true(MapPlayForceCounsel.of([], snapshot).is_empty())
+	assert_eq(MapPlayForceCounsel.pick(null), {})
+	assert_eq(
+		MapPlayForceCounsel.line(null), "", "a session that is not there names nothing"
+	)
+
+
+## The roll prints the reading it is handed and hides it when the reading is
+## empty, so a session with no waiting force carries no gold line (REQ-P5-06).
+func test_the_muster_roll_prints_and_hides_the_counsel_it_is_handed() -> void:
+	_attach()
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String:
+			return "The court would send the Home Army to take the field with 4 regiments."
+	)
+	panel.open()
+	assert_eq(
+		panel.counsel_text(),
+		"The court would send the Home Army to take the field with 4 regiments."
+	)
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	# The case hands the panel back wired as the session left it.
+	panel.counsel_source = wired
+	panel.close()
+
+
+## The reading is the passes' own: THE CROWN'S MUSTER names the orders the land
+## and naval policies would give every force, in the roll's own row order, and
+## moves nothing (REQ-P2-03, REQ-P5-06; DR-20261121-17).
+func test_the_muster_roll_names_the_orders_the_crowns_pass_would_give() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	assert_true(panel.counsel_source.is_valid(), "the sheet binds the passes' reading")
+	var before: Array = _force_moved_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayForceCounsel.pick(play, panel._snapshot)
+	assert_eq(counsel, MapPlayPickProse.sentence(String(pick.get("line", ""))))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	if not pick.is_empty() and not (pick.get("forces", []) as Array).is_empty():
+		assert_true(counsel.begins_with("The court would send "), counsel)
+	assert_eq(_force_moved_flags(play), before, "the reading orders nothing")
+	panel.close()
+
+
+## Every force's "already under way" flag, so a reading that marched or sailed
+## one would show.
+func _force_moved_flags(play: PlaySession) -> Array:
+	var flags: Array = []
+	for region: int in play.world.region_count():
+		for army: ArmyState in MapPlayCourt.visible_armies(play, region):
+			flags.append("%d:army:%s" % [region, army.moved])
+		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+			flags.append("%d:fleet:%s" % [region, fleet.moved])
+	return flags
+
+
 func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
