@@ -13,7 +13,10 @@ Land units: explore, improve, colonize, spy.
 - **Roster** (`CivilianCatalog`): six wiki types, all playable.
 - **Hiring:** the capital's muster rail names each craft's work and the study its
   hire waits on, greying a gated row
-  ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09)).
+  ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
+  one gold line above the rows names the crew the court's own hire order takes
+  next — or the study, the purse or the footing that holds it
+  (`MapPlayHirePick`, DR-20261121-06).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew; Visit
   jumps to it; **Find the next crew that waits** walks idle crews.
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers and Rail

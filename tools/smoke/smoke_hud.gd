@@ -134,3 +134,19 @@ static func _province(run, screen: MapScreen) -> void:
 	await run.tree.process_frame
 	run.check(screen.selected_province == province_id, "province selection sticks")
 	run.check(screen.hud.panels.is_panel_open(), "province panel opens")
+	# The capital's rail carries the court's own hire pick: the crew the published
+	# hire order takes next, or the gate that holds it (wiki: civilian-units
+	# § Training; DR-20261121-06). Any other province hires nobody and says so.
+	MapPlayInput.select_province(
+		screen.play, screen.capital_province,
+		screen.model.province_center(screen.capital_province) * MapScreen.TILE_SIZE
+	)
+	await run.tree.process_frame
+	run.check(
+		not screen.hud.panels.panel.hire_line_text().is_empty(),
+		"the capital rail names the hire the court takes"
+	)
+	run.check(
+		screen.play.economy.economy.recruits.is_empty(),
+		"the hire reading queues nothing"
+	)

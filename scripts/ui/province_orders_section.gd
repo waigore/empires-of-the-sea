@@ -13,6 +13,9 @@ const GATE_INK := Color(0.765, 0.460, 0.460)
 var town_button: Button = null
 var shipyard_button: Button = null
 var training_box: VBoxContainer = null
+## The hire reading above the craft rows: the crew the court's own hire order
+## takes next at this capital, or the gate that holds it (DR-20261121-06).
+var _hire_line: Label = null
 ## type_id -> {"button", "note"}: one row per craft the roster offers, so a
 ## refresh can re-read every hire's study gate (DR-20261118-09).
 var _train_rows: Dictionary = {}
@@ -56,6 +59,16 @@ func _ready() -> void:
 	training.add_theme_font_size_override("font_size", 11)
 	training.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	training_box.add_child(training)
+
+	# The one reading above the craft rows: the crew the court's own hire order
+	# takes next, so a crown with six rails and one purse reads the pick before
+	# it presses (wiki: civilian-units § Training; DR-20261121-06).
+	_hire_line = Label.new()
+	_hire_line.add_theme_font_size_override("font_size", 11)
+	_hire_line.add_theme_color_override("font_color", Palette.GOLD)
+	_hire_line.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_hire_line.visible = false
+	training_box.add_child(_hire_line)
 
 	for type_id: String in CivilianCatalog.playable_types():
 		# The button and its line stay one row: what the craft does, and the study
@@ -106,6 +119,22 @@ func set_shipyard_visible(visible: bool) -> void:
 
 func set_training_visible(visible: bool) -> void:
 	training_box.visible = visible
+
+
+## The rail's one reading over the craft rows: the crew the court's own hire
+## order takes next, or the gate that holds it (DR-20261121-06). Empty clears it,
+## so a dossier read for a province that hires no crews carries none.
+func set_hire_line(text: String) -> void:
+	if _hire_line == null:
+		return
+	_hire_line.text = text
+	_hire_line.visible = not text.is_empty()
+
+
+## The rail's hire reading, exposed so a suite asserts the line instead of
+## reaching into the label (REQ-P3-02).
+func hire_line_text() -> String:
+	return _hire_line.text if _hire_line != null else ""
 
 
 ## Every hire names what the craft does and the study it waits on, and a gated
