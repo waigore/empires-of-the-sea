@@ -15,9 +15,10 @@ extends RefCounted
 ##
 ## The pass itself owns what is genuinely per-run: one estate-ledger read per
 ## court, a per-tile reservation so two crews never claim one tile, and the
-## scored candidates. The standing staffing question it asks each turn — the
-## region's asks, the published hire order and the next civilian to train —
-## stands in `ai_civilian_hire.gd` (AiCivilianHire). Every candidate is checked
+## scored candidates. The standing staffing question it asks each turn has two
+## halves: the region's asks (`ai_civilian_targets.gd`, AiCivilianTargets) and
+## the published hire order with the next civilian to train
+## (`ai_civilian_hire.gd`, AiCivilianHire). Every candidate is checked
 ## by CivilianWork before it is emitted, so the planner cannot invent an outcome
 ## or spend a commodity twice (REQ-P2-03, REQ-P3-03). Modules are preloaded by
 ## path, so routing never depends on the engine's global class cache.
@@ -60,7 +61,7 @@ static func plan(
 	# prices the yield the crown can gather.
 	var estates: Array[Dictionary] = []
 	var estates_ready: bool = false
-	var train_context: Dictionary = AiCivilianHire.training_context(
+	var train_context: Dictionary = AiCivilianTargets.training_context(
 		config, model, works, units, stockpile, tech_caps, context
 	)
 	for unit: CivilianState in roster:

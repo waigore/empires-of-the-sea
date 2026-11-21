@@ -1,17 +1,18 @@
 class_name AiCivilianHire
 extends RefCounted
-## The court's civilian staffing policy: the crews a region's work asks for, the
-## published hire order that fills them, and the one crew the court's archetype
-## keeps beyond them (wiki: civilian-build-planner; civilian-work-planner).
+## The court's hire order: the roster it counts, the crew the published order
+## takes first, the footings and purses that gate it, and the one crew the
+## court's archetype keeps beyond the region's asks (wiki: civilian-build-planner;
+## civilian-work-planner).
 ##
 ## The work pass (AiCivilianPlanner) owns what is genuinely per-run: the estate
-## ledger read, the per-tile reservations, the scored candidates. This module
-## owns the standing question that pass asks every turn — how many of each crew
-## the region wants, which hire the published order takes first, and which hire
-## the court's taste leads with (AiStaffTaste). A court at war keeps its
-## expansion door shut, and the closed hire says why (REQ-P5-05;
-## DR-20261116-15). Pure rules: state in, targets and one hire out; the map
-## adapter applies them.
+## ledger read, the per-tile reservations, the scored candidates. The standing
+## question that pass asks every turn has two halves: how many of each crew the
+## region wants (`ai_civilian_targets.gd`, AiCivilianTargets) and this module —
+## which hire the published order takes first, and which hire the court's taste
+## leads with (AiStaffTaste). A court at war keeps its expansion door shut, and
+## the closed hire says why (REQ-P5-05; DR-20261116-15). Pure rules: state in,
+## one hire out; the map adapter applies it.
 
 ## Why a court at war hires no expansion crew, printed by the economy trace so
 ## the closed hire is never silent (REQ-P5-05; DR-20261116-15).
@@ -26,41 +27,6 @@ const EXPANSION_CREWS: Array[String] = ["explorer", "merchant"]
 ## army eats rides the works purse even while the court banks (issue #1059;
 ## the same provision clause the bank's farm trim and the farmhand hire ride).
 const PROVISION_CREWS: Array[String] = ["builder", "engineer"]
-
-
-## The per-region reading the hire order prices: the region's own asks, the
-## court's own crew on top of them (AiStaffTaste), and the Merchant's door — one
-## Merchant while a priced deed is openable. The embassy waits on the merchant,
-## so the hire cannot wait on the embassy, and a deed the purse cannot cover
-## this turn is still the deed the merchant will walk to (issue #724, #841;
-## wiki: civilian-units § Merchant).
-static func training_context(
-	config: AiConfig,
-	model: MapModel,
-	works: LandWorks,
-	units: Array,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	context: Dictionary
-) -> Dictionary:
-	var train_context: Dictionary = context.duplicate()
-	var deed_tiles: int = AiMerchantWork.buyable_tiles(
-		model, config.faction, works, context
-	).size()
-	train_context["merchant_targets"] = (
-		deed_tiles if deed_tiles > 0
-		else (
-			1 if not AiMerchantWork.openable_deed(
-				model, config.faction, context
-			).is_empty() else 0
-		)
-	)
-	var own_targets: Dictionary = region_targets(
-		config, model, works, units, stockpile, tech_caps, train_context
-	)
-	train_context["own_targets"] = own_targets
-	train_context["staff_targets"] = AiStaffTaste.raises(config, own_targets)
-	return train_context
 
 
 ## Next civilian to train: the published hire order, each step against the
@@ -86,7 +52,9 @@ static func training_order(
 	# The region's own asks, so the order can name a hire the taste alone wanted.
 	var region: Dictionary = context.get("own_targets", {})
 	if targets.is_empty():
-		region = region_targets(config, null, null, units, {}, {}, context)
+		region = AiCivilianTargets.region_targets(
+			config, null, null, units, {}, {}, context
+		)
 		targets = AiStaffTaste.raises(config, region)
 	# Discretionary hires (spy, merchant) spend the standing reserve. Extraction
 	# staff — builders, engineers, explorers — may draw on the works purse while
@@ -213,92 +181,6 @@ static func merchant_ride_purse(context: Dictionary) -> int:
 	var deed: bool = int(context.get("merchant_targets", 0)) > 0 \
 		and int(context.get("deed_price", 0)) > 0
 	return works if claim or deed else hire
-
-
-## The staff the court wants in this region: the region's owns plus its taste.
-static func staff_targets(
-	config: AiConfig,
-	model: MapModel,
-	works: LandWorks,
-	units: Array,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	context: Dictionary
-) -> Dictionary:
-	return AiStaffTaste.raises(
-		config,
-		region_targets(config, model, works, units, stockpile, tech_caps, context)
-	)
-
-
-## Per-type staff the region's own work asks for (the court's taste is the extra
-## crew [method staff_targets] adds): one base — or the published explorer and
-## engineer floor — plus the region's own work queue / work_per_staff, and one
-## Explorer kept free while a colonisation voyage is mustering.
-static func region_targets(
-	config: AiConfig,
-	model: MapModel,
-	works: LandWorks,
-	units: Array,
-	stockpile: Dictionary,
-	tech_caps: Dictionary,
-	context: Dictionary
-) -> Dictionary:
-	var per: int = maxi(config.parameter("civilian.work_per_staff"), 1)
-	var prospect_work: int = 0
-	var uncharted: int = 0
-	var provinces: int = 0
-	var estate_work: int = 0
-	var view: VisibilityModel = context.get("visibility", null)
-	if model != null and works != null:
-		for province: ProvinceState in model.provinces:
-			if model.province_owner(province.id) != config.faction:
-				continue
-			provinces += 1
-			if (
-				view != null
-				and view.is_province_known(province.id)
-				and not view.is_province_fully_visible(province.id)
-			):
-				uncharted += 1
-			prospect_work += MineralSurvey.unsurveyed_in_province(
-				model, works, config.faction, province.id, view
-			).size()
-		for row: Dictionary in AiBuilderWork.estate_rows(
-			model, works, units, stockpile, config.faction, tech_caps, context
-		):
-			if AiBuilderWork.paid_gain(row) > 0:
-				estate_work += 1
-	var explorers: int = maxi(
-		config.parameter("civilian.explorer_target"),
-		1 + (prospect_work + uncharted * 3) / per
-	)
-	# One Explorer kept free while a colonisation voyage is mustering — and one
-	# taken first when the court's last Explorer would sail with it, so the
-	# colony leaves a prospector on the home hills (issue #894). A claim voyage
-	# carries a Merchant (#1127), so only an Explorer voyage asks for the crew.
-	var muster: Vector2i = context.get("muster_port", Vector2i(-1, -1))
-	var crew: String = String(context.get("voyage_crew_kind", "explorer"))
-	if (muster.x >= 0 and crew == "explorer") or bool(context.get("voyage_crew", false)):
-		explorers += 1
-	var merchants: int = 0
-	if int(context.get("merchant_targets", 0)) > 0:
-		merchants = 1
-	# The claim crew: a court whose Explorer is already ashore sends a Merchant
-	# whose deeds found the colony, so that voyage asks for one even when its
-	# own chart offers no deed yet (#1127).
-	if merchants < 1 and String(context.get("voyage_crew_kind", "")) == "merchant":
-		merchants = 1
-	return {
-		"builder": maxi(2, 1 + estate_work / per),
-		"engineer": maxi(
-			config.parameter("civilian.engineer_target"),
-			1 + provinces / per
-		),
-		"explorer": explorers,
-		"spy": 1,
-		"merchant": merchants,
-	}
 
 
 ## The court's civilian roster, in the order every hiring pass reads it: one
