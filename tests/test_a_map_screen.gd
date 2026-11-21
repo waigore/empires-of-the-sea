@@ -3820,3 +3820,37 @@ func _await_reply(bridge: AgentDebugBridge, ws: WebSocketPeer) -> String:
 			return ws.get_packet().get_string_from_utf8()
 		OS.delay_msec(2)
 	return ""
+
+
+## The capital's order rail carries the court's own hire pick — the crew the
+## published hire order takes next — and any other province, which hires nobody,
+## carries none (wiki: civilian-units § Training; DR-20261121-06). A reading: the
+## press is still the crown's, and nothing is queued or paid by opening a sheet.
+func test_the_capital_rail_names_the_hire_the_court_would_take() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	var rail: String = _screen.hud.panels.panel.hire_line_text()
+	assert_true(not rail.is_empty(), "the capital's rail names a hire or its gate")
+	var pick: Dictionary = MapPlayHirePick.pick(play)
+	assert_eq(
+		rail, String(pick.get("line", "")),
+		"the rail prints the reading, not a second opinion of its own"
+	)
+	assert_true(
+		rail.contains("hire order") or rail.contains("taste") or rail == MapPlayHirePick.FULL_LINE,
+		"the line says whose pick it is: %s" % rail
+	)
+	assert_true(
+		play.economy.economy.recruits.is_empty(),
+		"opening the sheet hires nobody"
+	)
+
+	var province_id: int = Fixture.foreign_province(_screen.model)
+	MapPlayInput.select_province(
+		play, province_id,
+		_screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	)
+	assert_eq(
+		_screen.hud.panels.panel.hire_line_text(), "",
+		"a province that hires no crews carries none"
+	)

@@ -2439,6 +2439,20 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian_pick*.gd*"
 domain = "civilian_pick"
 
+# The capital's own hire pick (DR-20261121-06): the reading that asks the
+# published hire order which crew the crown takes next at its seat — or the study,
+# the purse or the footing that holds it. Its suite is the civilian rules, where
+# `MapPlayHirePick.of` is proved off data alone, so it names its own domain
+# instead of pulling the AI plan or the prospect fan-out.
+[[rules]]
+match = "scripts/map/map_play_hire_pick*.gd*"
+domain = "hire_pick"
+
+[domains.hire_pick]
+suites = [
+  "test_civilian_turn_rules.gd",
+]
+
 # The court's own naval pick (DR-20261120-04): the reading that asks the
 # published naval policy what it would order a squadron. Its suites are the
 # fleet orders suite (planner, sheet, dossier) and the panel parts sheet, so it
