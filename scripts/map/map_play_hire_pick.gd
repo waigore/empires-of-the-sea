@@ -151,7 +151,7 @@ static func gate_line(crew: String, gate: String) -> String:
 ## A crew the queue names but the college has not opened: the study that holds
 ## the hire, in the same words the rail's craft rows grey out on.
 static func wait_line(crew: String, study: String) -> String:
-	if crew.is_empty() or study.is_empty():
+	if crew.is_empty() or study.is_empty() or not CivilianCatalog.known(crew):
 		return ""
 	return "Your hire order takes %s next, and waits on %s." % [
 		with_article(crew), TechCatalog.display_name(study)
@@ -161,7 +161,7 @@ static func wait_line(crew: String, study: String) -> String:
 ## A crew the queue names and the purse cannot cover: the price it cannot pay,
 ## never a figure the crown does not hold (REQ-P5-06).
 static func short_line(crew: String) -> String:
-	if crew.is_empty():
+	if crew.is_empty() or not CivilianCatalog.known(crew):
 		return ""
 	return "Your hire order takes %s next, and the purse cannot cover %s." % [
 		with_article(crew), CivilianCatalog.training_cost_text(crew)
@@ -169,8 +169,11 @@ static func short_line(crew: String) -> String:
 
 
 ## The craft with its article: "a Builder", "an Explorer". Its own name carries
-## the capital, so the sentence reads as prose rather than a label.
+## the capital, so the sentence reads as prose rather than a label; a name the
+## roster does not know prints nothing rather than the catalog's fallback craft.
 static func with_article(crew: String) -> String:
+	if crew.is_empty() or not CivilianCatalog.known(crew):
+		return ""
 	var name: String = CivilianCatalog.display_name(crew)
 	if name.is_empty():
 		return ""

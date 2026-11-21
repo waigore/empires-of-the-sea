@@ -5109,3 +5109,36 @@ func test_the_hire_pick_says_when_every_crew_stands() -> void:
 	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_FULL)
 	assert_eq(String(pick.get("line", "")), MapPlayHirePick.FULL_LINE)
 	assert_eq(String(pick.get("crew", "")), "", "a full staff names no crew")
+
+
+## The queue's own name is still named when the pass books no hire the rail can
+## gate: a starting craft the crown can afford is the crew it takes.
+func test_the_hire_pick_falls_back_to_the_queue_when_no_gate_holds_it() -> void:
+	var pick: Dictionary = MapPlayHirePick.of({}, "builder", PlayerEconomy.starting())
+	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TAKE)
+	assert_eq(
+		String(pick.get("line", "")),
+		"Your hire order takes a Builder next — 1,000 cash + 2 paper."
+	)
+	assert_eq(
+		String(MapPlayHirePick.of({"ok": true, "type_id": ""}, "", null).get("line", "")),
+		"",
+		"a training row with no craft prints nothing"
+	)
+
+
+## Every sentence is built off its own parts, so a part that is missing prints
+## nothing rather than a half-line on the rail (REQ-P5-06).
+func test_the_hire_words_print_nothing_without_their_parts() -> void:
+	assert_eq(MapPlayHirePick.pick(null).size(), 0, "no session, no reading")
+	assert_eq(MapPlayHirePick.take_line("", false), "")
+	assert_eq(MapPlayHirePick.wait_line("builder", ""), "")
+	assert_eq(MapPlayHirePick.short_line(""), "")
+	assert_eq(MapPlayHirePick.with_article(""), "")
+	assert_eq(
+		MapPlayHirePick.gate_line("", AiCivilianHire.REASON_CREWS),
+		"At war your hire order takes no new crew — the front's own crews keep hiring.",
+		"a gate without a crew still says what the war holds"
+	)
+	assert_false(MapPlayHirePick._vowel(""), "no letter, no article")
+	assert_eq(MapPlayHirePick.gate_line("explorer", "some other gate"), "")
