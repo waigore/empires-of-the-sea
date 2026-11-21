@@ -1,9 +1,8 @@
 class_name CivilianRosterRow
 extends LedgerRow
 ## One civilian in the roster: painted medallion, posting, order status and a
-## Visit action that opens the unit's map. The row itself is also a tap target
-## (REQ-P5-01, REQ-P5-04). The skeleton, the tap and the Visit door come from
-## LedgerRow.
+## Visit action that opens the unit's map. The Visit seal is a thumb-sized door
+## (REQ-P5-01, REQ-P5-04). The skeleton and the Visit seal come from LedgerRow.
 
 signal visit_pressed(region: int, unit_id: int)
 

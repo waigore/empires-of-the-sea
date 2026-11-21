@@ -1,10 +1,10 @@
 class_name ForceLedgerRow
 extends LedgerRow
 ## One army or squadron in the muster roll: its medallion, where it stands, what
-## it carries and a Visit action that opens its map and dossier. The row itself
-## is also a tap target, so a phone needs no hover (REQ-P5-01, REQ-P5-04). The
-## skeleton, the tap and the Visit door come from LedgerRow; so do the two-line
-## state column and the place line every force row wears.
+## it carries and a Visit action that opens its map and dossier. The Visit seal
+## is a thumb-sized door, so a phone needs no hover (REQ-P5-01, REQ-P5-04). The
+## skeleton and the Visit seal come from LedgerRow; so do the two-line state
+## column and the place line every force row wears.
 
 signal visit_pressed(region: int, kind: String, id: int)
 

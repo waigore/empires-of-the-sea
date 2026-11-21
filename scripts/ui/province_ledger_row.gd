@@ -2,9 +2,9 @@ class_name ProvinceLedgerRow
 extends LedgerRow
 ## One province in the crown's realm, read the way the sheet's view asks: what
 ## it yields (economy), how hard it is to hold (defence) or how far it sits from
-## the seat (connectivity). The medallion, the Visit door and the whole-row tap
-## stay the ledger's own, so a phone needs no hover (REQ-P5-01, REQ-P5-04);
-## every figure arrives in the row dictionary and this class only names it.
+## the seat (connectivity). The medallion and the Visit seal stay the ledger's
+## own, so a phone needs no hover (REQ-P5-01, REQ-P5-04); every figure arrives
+## in the row dictionary and this class only names it.
 
 signal visit_pressed(region: int, province_id: int)
 
