@@ -13,14 +13,6 @@ const KIND_HOME: String = AiNavalPlanner.KIND_HOME
 const REASON_TRADE: String = AiNavalPlanner.REASON_TRADE
 const REASON_FRONTS: String = AiNavalPlanner.REASON_FRONTS
 
-
-## The pick's own sentence, opened like one: one capital and a full stop.
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
-
 ## One order, worded for the crown's sheet. Empty when the planner's order names
 ## nothing this module can say (an unknown kind, or a chart with no such water).
 static func line(model: MapModel, order: Dictionary) -> String:
@@ -44,7 +36,6 @@ static func line(model: MapModel, order: Dictionary) -> String:
 	var reason: String = _reason(String(order.get("reason", "")))
 	return said if reason.is_empty() else "%s — %s" % [said, reason]
 
-
 ## A fight the court means to pick: the zone it sails into and the strength it
 ## counted there. The figure is the planner's own reading (`threat`), so the line
 ## can never promise a fight the caution margin declined (REQ-P2-03).
@@ -59,7 +50,6 @@ static func _hunt(model: MapModel, order: Dictionary, verb: String) -> String:
 		verb, model.sea_zone_name(zone), threat
 	]
 
-
 ## The trade leg: a warship with no squadron to fight works a hostile coast, and
 ## this turn's sail is the first step toward it (DR-20261111-17).
 static func _raid(model: MapModel, order: Dictionary) -> String:
@@ -67,7 +57,6 @@ static func _raid(model: MapModel, order: Dictionary) -> String:
 	if zone == MapModel.NO_ID:
 		return ""
 	return "the court would sail for the %s — the first leg toward a hostile coast, to work its trade" % model.sea_zone_name(zone)
-
 
 ## Home: she docks when the harbour borders her water, else she takes the first
 ## leg of the road back (DR-20261110-30).
@@ -81,7 +70,6 @@ static func _home(model: MapModel, order: Dictionary) -> String:
 	if zone == MapModel.NO_ID:
 		return ""
 	return "the court would sail for the %s — the first leg home" % model.sea_zone_name(zone)
-
 
 ## Why she is going home, in the policy's own two reasons: the holds the crown
 ## keeps nowhere else, or a court at war on two fronts opening no new station.

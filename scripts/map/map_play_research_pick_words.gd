@@ -5,14 +5,6 @@ extends RefCounted
 ## catalogue's own display name, with the reason the door gives when the door is
 ## why. A reading, never an order (REQ-P2-03, REQ-P5-06).
 
-
-## The pick's own sentence, opened like one: one capital and a full stop.
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
-
 ## The study the court would open. Empty when the study has no name, so the sheet
 ## can never print an id or a blank advance.
 static func line(name: String, why: String) -> String:

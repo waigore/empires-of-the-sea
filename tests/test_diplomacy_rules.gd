@@ -4875,7 +4875,7 @@ func test_an_unknown_envoy_gate_keeps_the_planners_words() -> void:
 		.begins_with("the pair's peace offer")
 	)
 	assert_eq(
-		MapPlayDiplomacyPickWords.sentence("the court's envoy would hold"),
+		MapPlayPickProse.sentence("the court's envoy would hold"),
 		"The court's envoy would hold."
 	)
 
@@ -4906,7 +4906,7 @@ func test_every_envoy_gate_reads_in_the_courts_voice() -> void:
 ## A line with nothing to say says nothing, so no sheet prints a bare sentence
 ## (REQ-P5-05).
 func test_an_envoy_line_with_nothing_to_say_is_empty() -> void:
-	assert_eq(MapPlayDiplomacyPickWords.sentence(""), "")
+	assert_eq(MapPlayPickProse.sentence(""), "")
 	assert_eq(
 		MapPlayDiplomacyPickWords.order_line("no_such_order", 0, {}), "",
 		"an unknown order kind prints no line"

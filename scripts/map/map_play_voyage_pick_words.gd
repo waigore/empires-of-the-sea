@@ -17,14 +17,6 @@ const KIND_CROSS: String = "cross"
 ## The step that puts the colonist ashore on a charted coast.
 const KIND_LAND: String = "land"
 
-
-## The pick's own sentence, opened like one: one capital and a full stop.
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
-
 ## One step, worded for the crown's block. Empty when the step names nothing this
 ## module can say (an unknown kind, or a chart with no such water or province).
 static func line(model: MapModel, data: Dictionary) -> String:
@@ -43,7 +35,6 @@ static func line(model: MapModel, data: Dictionary) -> String:
 			return _land(data)
 	return ""
 
-
 ## The boarding: the crew the plan names, at the harbour she musters at. The
 ## step names the crew and the squadron; the harbour is the one the plan boards
 ## at, so a step that carries no province reads the harbour's own.
@@ -54,7 +45,6 @@ static func _embark(model: MapModel, data: Dictionary) -> String:
 		return ""
 	return "the court would take %s aboard at %s" % [crew, model.province_name(port)]
 
-
 ## The province a step stands at: its own when it names one (a dock), the
 ## harbour the voyage musters at when it does not (a boarding).
 static func _port(data: Dictionary) -> int:
@@ -62,7 +52,6 @@ static func _port(data: Dictionary) -> int:
 	if port != MapModel.NO_ID:
 		return port
 	return int(data.get("harbour", MapModel.NO_ID))
-
 
 ## One leg of the voyage: a squadron carrying a colonist sails for the Passage,
 ## a free one for the harbour where the voyage musters (wiki: civilian-units
@@ -84,7 +73,6 @@ static func _sail(model: MapModel, data: Dictionary) -> String:
 		model.sea_zone_name(zone), model.province_name(port)
 	]
 
-
 ## The harbour leg: she docks where the colonist musters, so the boarding is one
 ## press away.
 static func _dock(model: MapModel, data: Dictionary) -> String:
@@ -95,14 +83,12 @@ static func _dock(model: MapModel, data: Dictionary) -> String:
 		model.province_name(port)
 	)
 
-
 ## The crossing: the Passage carries the squadron and her passenger together.
 static func _cross(data: Dictionary) -> String:
 	var crew: String = _crew(data)
 	if crew.is_empty():
 		return "the court would cross the Passage with her colonist aboard"
 	return "the court would cross the Passage with %s aboard" % crew
-
 
 ## The landing: the ground the plan picked, with what the crown can read of it —
 ## the terrain and the commodity an estate there would work.
@@ -117,7 +103,6 @@ static func _land(data: Dictionary) -> String:
 		return "the court would put %s ashore at %s" % [crew, where]
 	return "the court would put %s ashore at %s — %s" % [crew, where, ground]
 
-
 ## The crew with its article: "an Explorer", "a Builder". A step that names no
 ## crew (a hull sailing before the boarding) prints nothing rather than a label.
 static func _crew(data: Dictionary) -> String:
@@ -128,7 +113,6 @@ static func _crew(data: Dictionary) -> String:
 	if name.is_empty():
 		return ""
 	return "%s %s" % ["an" if _vowel(name) else "a", name]
-
 
 static func _vowel(word: String) -> bool:
 	if word.is_empty():

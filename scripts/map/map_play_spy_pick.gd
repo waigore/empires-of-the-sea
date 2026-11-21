@@ -26,19 +26,10 @@ const ACTION_SCREEN: String = SpyRules.WORK_COUNTER
 ## reading stays one line of chrome (REQ-P5-07).
 const NAMED_LIMIT: int = 3
 
-
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return sentence(String(pick(play, snapshot).get("line", "")))
-
-
-## `text` as a printed sentence: "the court would walk …" → "The court would walk …".
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
+	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
 
 ## The ledger's pick as the eyes sheet prints it: `{kind, spies, line}`, where
 ## each spy is `{region, unit_id, kind, place, line}`. Empty when the session
@@ -46,17 +37,10 @@ static func sentence(text: String) -> String:
 ## crown with no ledger, a session with no civilian layer, or a crown with no
 ## spy standing.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
-	if play == null or play.world == null or play.campaign_over():
-		return {}
-	if play.observer_mode or play.civilian_layer == null:
+	if not MapPlayPickProse.crown_crew_ready(play):
 		return {}
 	var faction: int = play.player_faction
-	if play.ledger_for(faction) == null:
-		return {}
-	if AiControl.court_kind(play, faction) == AiControl.KIND_NONE:
-		return {}
 	return of(_spies(play, faction), snapshot)
-
 
 ## The spies the pass books something for, in the sheet's own row order when the
 ## snapshot carries it: one entry per spy the crown holds, each naming the order
@@ -85,7 +69,6 @@ static func _spies(play: PlaySession, faction: int) -> Array[Dictionary]:
 			found.append(_spy(model, unit, region, pick))
 	return found
 
-
 ## One spy's own words: the order the pass would give it, and the ground that
 ## order lands on.
 static func _spy(
@@ -101,7 +84,6 @@ static func _spy(
 	# the watch, the status the sheet's own rows print (REQ-P2-03).
 	return _entry(region, unit, KIND_KEEP, _place(model, unit.tile))
 
-
 static func _entry(
 	region: int, unit: CivilianState, kind: String, place: String
 ) -> Dictionary:
@@ -113,11 +95,9 @@ static func _entry(
 		"line": _clause({"kind": kind, "place": place}),
 	}
 
-
 ## The province a spy's ground stands in, or the wilds off any province.
 static func _place(model: MapModel, tile: Vector2i) -> String:
 	return MapPlayCivilianPickWords.place(model, model.province_at(tile.x, tile.y))
-
 
 ## The pick, worded off the spy list and the sheet's own snapshot: each spy in
 ## the order the sheet prints its rows, or empty when the crown holds none. Pure
@@ -127,7 +107,6 @@ static func of(spies: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionar
 		return {}
 	var ordered: Array[Dictionary] = _in_row_order(spies, snapshot)
 	return {"kind": String(ordered[0].get("kind", "")), "spies": ordered, "line": pick_line(ordered)}
-
 
 ## The spies in the order the sheet prints its rows (its own `rows`), so the
 ## line reads down the page it answers. A spy the snapshot does not print keeps
@@ -155,30 +134,21 @@ static func _in_row_order(
 	)
 	return keyed
 
-
 ## A spy's own row key: the chart it stands on and the id its roster minted it.
 static func _key(entry: Dictionary) -> String:
 	return "%d:%d" % [int(entry.get("region", -1)), int(entry.get("unit_id", -1))]
-
 
 ## "the court would walk its Spy toward Genoa, keep its Spy at Cádiz and set its
 ## Spy at Madrid to counter-espionage". Beyond three the line counts the spies it
 ## cannot name (`… and 2 more`) so a busy screen stays one line of chrome.
 static func pick_line(spies: Array[Dictionary]) -> String:
-	var named: Array[String] = []
-	var hidden: int = 0
+	var parts: Array[String] = []
 	for spy: Dictionary in spies:
-		if named.size() >= NAMED_LIMIT:
-			hidden += 1
-			continue
-		named.append(_clause(spy))
-	if named.is_empty():
+		parts.append(_clause(spy))
+	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
+	if joined.is_empty():
 		return ""
-	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
-	if hidden > 0:
-		joined += " and %d more" % hidden
 	return "the court would %s" % joined
-
 
 ## One spy's clause: the order the rules would give it, in the pass's own words.
 static func _clause(spy: Dictionary) -> String:
@@ -190,11 +160,3 @@ static func _clause(spy: Dictionary) -> String:
 			return "walk its Spy toward %s" % place
 	return "keep its Spy at %s" % place
 
-
-## A list read the way prose reads it: "A", "A and B", "A, B and C".
-static func _join(parts: Array[String]) -> String:
-	if parts.is_empty():
-		return ""
-	if parts.size() <= 2:
-		return " and ".join(parts)
-	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[-1]]
