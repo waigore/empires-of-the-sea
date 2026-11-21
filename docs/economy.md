@@ -38,8 +38,8 @@ Catalogue `ProductionRecipes`; phase `ProductionPhase`:
 `fabric_from_cotton` needs Cotton Weaving; a Labour hand is a `min_tier`
 gate. Runs are whole; short rows skip.
 
-Steel, bronze, cigars and fur hats take **two turns**; alloys
-combine two inputs (DR-20261114-10). Inputs and labour pay up front; the batch
+Steel, bronze, cigars and fur hats take **two turns** (DR-20261114-10). Inputs
+and labour pay up front; the batch
 lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
 
 A slow row's bench holds **three** (`QUEUE_CAP`): a fourth run waits a landing
@@ -70,12 +70,12 @@ Prices publish once; pact, boycott, subsidy settle
 
 `PRODUCTION`: stockpile by group; steppers capped by labour/inputs
 (`allowance`), a worked row names its output (`made 3`), **batch press**
-(`ProductionBatch`; its line priced, DR-20261118-24), and the court's own runs
+(`ProductionBatch`, DR-20261118-24), and the court's own runs
 in gold (`MapPlayProductionPick`, DR-20261121-07).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
 line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid`
 (`MarketRules.bid_block`, DR-20261118-15), a barred colony row
-(`MinorMarket.sealed_line`).
+(`MinorMarket.sealed_line`), the share's own fills (`share_rows`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds it), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.
