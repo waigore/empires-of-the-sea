@@ -121,6 +121,9 @@ static func _armies(play: PlaySession, faction: int) -> Array[Dictionary]:
 				"region": region,
 				"army": army.id,
 				"kind": String(order.get("kind", "")),
+				# The ground the order lands on, so a surface about one province can
+				# name the host the court would send there (DR-20261121-19).
+				"province": int(order.get("province", MapModel.NO_ID)),
 				"line": said,
 			})
 	return found
