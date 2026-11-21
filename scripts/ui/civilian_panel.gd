@@ -177,21 +177,14 @@ func _follow_tip() -> String:
 
 ## `viewer` is the court reading the sheet, which is not always the crew's owner.
 ## The fleet and army dossiers already split the two.
-func refresh(
-	model: MapModel,
-	unit: CivilianState,
-	works: LandWorks,
-	units: Array[CivilianState],
-	stockpile: Dictionary,
-	visibility: VisibilityModel = null,
-	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {},
-	context: Dictionary = {},
-	viewer: int = FactionCatalog.PLAYER_FACTION
-) -> void:
-	if unit == null:
+func refresh(model: MapModel, opening: CivilianDossierOpening) -> void:
+	if opening.unit == null:
 		return
-	_viewer = viewer
+	var unit: CivilianState = opening.unit
+	var works: LandWorks = opening.works
+	var context: Dictionary = opening.context
+	var stockpile: Dictionary = opening.stockpile
+	_viewer = opening.viewer
 	_title.text = unit.display_name()
 	_subtitle.text = "Crown of %s · %s" % [
 		FactionCatalog.name_of(unit.owner),
@@ -202,7 +195,10 @@ func refresh(
 	_fill_detail(model, unit, works, context)
 	# The orders are read before the status: a crew with no order it can take
 	# says so, rather than pointing the crown at a list of refusals.
-	_fill_orders(model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked, context)
+	_fill_orders(
+		model, unit, works, opening.units, stockpile, opening.visibility,
+		opening.tech_caps, opening.tech_unlocked, context
+	)
 	_status.text = CivilianPanelStatus.text(model, unit, _viewer, _legal)
 	_pick_data = context.get("pick", {}) as Dictionary
 	_pick.text = CivilianPanelStatus.pick_line(context)
