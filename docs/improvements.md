@@ -14,22 +14,21 @@ level-4 Great Power towns, four grain farms.
 
 ## Implemented
 
-- **Named improvements**: Timber → Lumber camp, minerals →
-  Mine, Grain → Farm, Wool → Pasture, Meat/Horses → Ranch, crops → Plantation,
-  Furs → Fur post, each with its own pictogram (DR-20261119-06).
+- **Named improvements**: Timber → Lumber camp, minerals → Mine, Grain → Farm,
+  Wool → Pasture, Meat/Horses → Ranch, crops → Plantation, Furs → Fur post, each
+  with a pictogram (DR-20261119-06).
 - **Levels 1–4.** A Builder raises one level for 1/4/8/16 lumber + cast iron
-  over target-level turns; minerals need Prospect first (DR-20261111-26),
-  above-cap orders refused.
+  over target-level turns; minerals need Prospect first (DR-20261111-26).
 - **Survey (DR-20261111-26).** One charted swamp/hills/mountain/desert tile a
   turn; until surveyed nothing names it; a Builder may mine it.
 - **Terrain caps:** scrub timber 1, hardwood follows tech.
-- **Path transport:** the best road/rail/port bottleneck; beside-network
-  tiles take it, several routes the highest.
+- **Path transport:** the best road/rail/port bottleneck; beside-network tiles
+  take it.
 - **Init town roads:** every owned Old World town to its crown; New World towns
   wait.
-- **Town rule:** estates 4-adjacent to a province town extract; capital
-  provinces cap at town development; a non-capital port town caps tiles
-  reaching the crown; a crown-road estate ignores the cap.
+- **Town rule:** estates 4-adjacent to a town extract; capital provinces cap at
+  town development; a non-capital port town caps tiles reaching the crown; a
+  crown-road estate ignores the cap.
 - **Town development 1–4** via Builder `upgrade_town` (National Bureaucracy);
   level 2 or 4 adds manufactures ([economy.md](economy.md)).
 - **Cross-map assign.** Builder may target another owned tile; materials paid
@@ -37,17 +36,19 @@ level-4 Great Power towns, four grain farms.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, transport, town cap)`; only
   connected, prospected estates yield; purchased enclaves pay their buyer.
-  Grain and meat pay double per level; the cap line reads the per-level yield
-  (DR-20261116-10).
+  Grain and meat pay double per level (DR-20261116-10).
 - **Lenses.** Survey (lens seal): a column per resource, emblem and
-  `built/linked/held` badge, the Explorer's mark, prospectable tiles; roads
-  solid when linked, dashed cut (#698). Crown road (`R`): gold / amber /
-  crimson for crown, town-only or cut; cut provinces show the tiles to lay.
+  `built/linked/held` badge, the Explorer's mark; roads solid when linked,
+  dashed cut (#698). Crown road (`R`): gold / amber / crimson for crown,
+  town-only or cut.
 - **Estates ledger**: totals, filters, blockers, Build / Cancel / Map, caps,
   a free Builder; cut estates name the gap.
 - **One press** (DR-20261116-06): `Raise all ready (n)` files every `READY`
-  estate the view prints, in order, stopping at the first refusal with one
-  receipt; the line under it prices the walk and its wait (DR-20261118-12).
+  estate the view prints, stopping at the first refusal with one receipt; the
+  line under it prices the walk (DR-20261118-12).
+- **The court's own raise** (DR-20261121-10): a gold line above the press names
+  the estates the Builder pass would raise, in row order, three named; no idle
+  Builder names that gate. A reading only.
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
   a cut-off estate carries **Build road**.
 
@@ -73,7 +74,7 @@ Gaps: [`deferred.md`](deferred.md).
 | `scripts/rules/extraction.gd` | end-turn extraction |
 | `scripts/ui/improvement_*.gd`, `province_*.gd` | ledger, rows, dossier |
 
-Rules stay node-free (`REQ-P3-03`); panels read rows, emit intents.
+Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 

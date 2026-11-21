@@ -50,6 +50,17 @@ static func _estates(run, screen: MapScreen) -> void:
 			priced = true
 			break
 	run.check(priced, "an estate row prices its raise")
+	# The card names the estates the court's own Builder pass would raise, or the
+	# gate that leaves the page with nothing to name (REQ-P5-06; DR-20261121-10).
+	var counsel: String = screen.improvements.counsel_text()
+	run.check(
+		counsel.is_empty() or counsel.begins_with("The court would raise "),
+		"estates counsel names the court's own raise"
+	)
+	run.check(
+		screen.improvements._counsel.visible == not counsel.is_empty(),
+		"estates counsel stands with its reading"
+	)
 	screen.improvements.close()
 
 
