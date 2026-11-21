@@ -1105,6 +1105,58 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	panel.free()
 
 
+## A beaten host left where it fought stands on ground it does not hold. The
+## dossier must name whose ground that is, and the hint must not promise own land
+## the tap list does not hold — the road home is a walk through the provinces
+## beside it (wiki: military-armies § Movement and attacks).
+func test_a_routed_host_reads_its_ground_and_the_walk_home() -> void:
+	var model := ArmyFixture.build()
+	# The far colony goes over to the rival, so province 4 — the rival province
+	# at the map's edge — has no crown land beside it at all.
+	model.province_data(1).owner = 1
+	var bordered := ArmyFixture.army(9, 0, 2, ["guards"], false)
+	var stranded := ArmyFixture.army(10, 0, 4, ["guards"], false)
+	var rival_name: String = FactionCatalog.name_of(1)
+	var mark: String = "'" if rival_name.ends_with("s") else "'s"
+
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	panel.refresh(model, ArmyDossierOpening.of(bordered, true))
+	assert_eq(
+		String(panel._location.text), "At Province 2 — %s%s ground" % [rival_name, mark],
+		"the place line names whose ground the host stands on"
+	)
+	assert_eq(
+		String(panel._hint.text),
+		"Tap a highlighted province; your own land is open, enemy land must border you.",
+		"a host beside its own land keeps the ordinary hint"
+	)
+	assert_false(ArmyMovement.stranded(model, bordered), "own land is one march away")
+
+	panel.refresh(model, ArmyDossierOpening.of(stranded, true))
+	assert_eq(
+		String(panel._location.text), "At Province 4 — %s%s ground" % [rival_name, mark],
+		"the place line names the ground even where no road home is open"
+	)
+	assert_true(
+		String(panel._hint.text).contains("No own land touches here"),
+		"the hint names the walk, not own land the crown does not hold: %s"
+		% panel._hint.text
+	)
+	assert_true(ArmyMovement.stranded(model, stranded), "no own province is one march away")
+	var home: Dictionary = ArmyMovement.can_move(model, stranded, 0)
+	assert_false(bool(home.get("ok", true)), "a home march is refused from here")
+	assert_true(
+		String(home.get("reason", "")).contains("march through"),
+		"the refusal names the walk: %s" % home.get("reason", "")
+	)
+	assert_false(
+		String(home.get("reason", "")).contains("naval transport"),
+		"a land army is not told to buy a hull: %s" % home.get("reason", "")
+	)
+	panel.free()
+
+
 ## The dossier names the province's hospital tempo before the player commits
 ## (wiki: combat § Regiment condition; DR-20261111-12).
 func test_roster_names_the_hospital_rest_tempo() -> void:

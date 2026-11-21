@@ -30,6 +30,10 @@ var _composition: Label = null
 var _pick: Label = null
 var _status: Label = null
 var _hint: Label = null
+## The repaint's own reading of the ground: an army with no own province one
+## march away gets the walk-home hint instead of the ordinary one (wiki:
+## military-armies § Movement and attacks).
+var _stranded: bool = false
 var _roster: ArmyRosterBlock = null
 var _scroll: ScrollContainer = null
 var _muster_button: Button = null
@@ -266,7 +270,9 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 	if army.is_embarked():
 		_location.text = "Aboard a fleet"
 	else:
-		_location.text = "At %s" % model.province_name(army.province)
+		_location.text = "At %s%s" % [
+			model.province_name(army.province), _ground_note(model, army)
+		]
 	_strength.text = _strength_line(model, army)
 	_command.text = _command_head(command)
 	_command_row.visible = not command.is_empty()
@@ -274,6 +280,7 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 	_pick.text = pick
 	_pick.visible = not pick.is_empty()
 	_last_count = army.count()
+	_stranded = is_player and ArmyMovement.stranded(model, army)
 	# A repaint means the order landed or the view moved: no arm survives it.
 	if _dismiss_arm != null:
 		_dismiss_arm.clear()
@@ -350,9 +357,29 @@ func _apply_status(army: ArmyState, is_player: bool) -> void:
 	elif army.moved:
 		_status.text = "Has marched this turn"
 		_hint.text = "End the turn to march again."
+	elif _stranded:
+		# A beaten host left on another court's ground has no interior lines: the
+		# hint must not promise own land the tap list does not hold (wiki:
+		# military-armies § Movement and attacks).
+		_status.text = "1 march this turn"
+		_hint.text = "No own land touches here; walk through the provinces beside you, one march at a time, to reach home."
 	else:
 		_status.text = "1 march this turn"
 		_hint.text = "Tap a highlighted province; your own land is open, enemy land must border you."
+
+
+## `Palermo — England's ground`, or the wilderness word when nobody holds it; a
+## court's own land adds nothing, so the line is unchanged where it always was.
+func _ground_note(model: MapModel, army: ArmyState) -> String:
+	var holder: int = model.province_owner(army.province)
+	if holder == army.owner:
+		return ""
+	if holder == MapModel.NO_ID:
+		return " — unclaimed ground"
+	var name: String = FactionCatalog.name_of(holder)
+	# "United Provinces' ground", "Spain's ground": a name already ending in s
+	# takes the bare mark.
+	return " — %s%s ground" % [name, "'" if name.ends_with("s") else "'s"]
 
 
 ## The dossier's larder line: the rules' own bill, so the dossier and the crown's

@@ -75,6 +75,16 @@ static func can_move(
 	if model.province_owner(province_id) == army.owner:
 		if land_reachable(model, army.province, army.owner).has(province_id):
 			return OrderVerdict.allow()
+		# The obstacle is the ground the army stands on, not a missing hull: an
+		# army camped on another court's land (or on unclaimed wilderness) must
+		# walk through it until its own border touches, because interior lines
+		# only run through own provinces (wiki: military-armies § Movement and
+		# attacks).
+		if not on_own_ground(model, army):
+			return OrderVerdict.deny(
+				"No own land touches here — march through the provinces beside you, "
+				+ "one march at a time, to reach home."
+			)
 		return OrderVerdict.deny("Own land across open water or foreign land needs a naval transport.")
 	if not MapGeo.province_neighbors(model, army.province).has(province_id):
 		return OrderVerdict.deny("Enemy or neutral land may only be entered from an adjacent province.")
@@ -98,6 +108,29 @@ static func apply_move(
 	army.province = province_id
 	army.moved = true
 	return {"ok": true, "reason": "", "attacked": attacked}
+
+
+## True when the army stands on land its own court holds. An army camped on
+## another court's ground — a beaten host left where it fought — has no interior
+## lines to use, so only the provinces beside it are open (wiki: military-armies
+## § Movement and attacks).
+static func on_own_ground(model: MapModel, army: ArmyState) -> bool:
+	if model == null or army == null or army.province == NO_PROVINCE:
+		return false
+	return model.province_owner(army.province) == army.owner
+
+
+## True when no own province is one march away: the army stands on ground it does
+## not hold and every province beside it belongs to someone else. The road home
+## is then a walk through foreign ground, and the dossier says so (wiki:
+## military-armies § Movement and attacks).
+static func stranded(model: MapModel, army: ArmyState) -> bool:
+	if not _can_act(model, army) or on_own_ground(model, army):
+		return false
+	for province: int in destinations(model, army):
+		if model.province_owner(province) == army.owner:
+			return false
+	return true
 
 
 ## Land held by another faction; unowned wilderness is not an invasion.
