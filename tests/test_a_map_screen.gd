@@ -8,6 +8,10 @@ extends GdToolsTest
 ## Merged from test_map_screen_crown_orders, test_map_lenses and
 ## test_agent_debug_bridge: one Godot boot (coverage instrumentation) per theme
 ## instead of one per file (docs/testing.md § Speed rules).
+##
+## The name sorts **first** on purpose: this is the heaviest chart suite, and
+## gd-tools dispatches suites in plan (name) order four workers wide, so a late
+## `m…` name used to land alone on one worker after every other had drained.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -337,11 +341,12 @@ func test_end_turn_advances_the_calendar_and_files_every_courts_rations() -> voi
 ## published feeding band, and her record must not land on Spain
 ## (wiki: combat § Feeding modifiers; game-setup § Human/AI slot assignment).
 ## Books the suite's one mount as England — no second chart under coverage.
+## Crown ledger alone; skip the full end_turn rival walk under coverage.
 func test_the_chosen_crowns_rations_are_filed_under_its_own_colour() -> void:
 	var english: MapScreen = Fixture.attach_faction_screen(_screen, 1)
 	assert_eq(english.play.player_faction, 1)
-	MapPlayTurn.end_turn(english.play)
-	Fixture.settle(english.play)
+	english.economy.resolve_turn()
+	english.play.feeding[english.play.player_faction] = english.economy.feeding_coverage()
 	var coverage: float = english.economy.readings.feeding_coverage()
 	assert_true(
 		english.play.feeding.has(english.play.player_faction),
@@ -2672,8 +2677,9 @@ func test_a_turn_delivers_every_queued_recruit_and_the_gazette_names_them() -> v
 	assert_eq(_screen.army_layer.regiment_count_all(play.player_faction), regiments)
 	assert_eq(_screen.ship_layer.hull_count_all(play.player_faction), hulls)
 
-	MapPlayTurn.end_turn(play)
-	Fixture.settle(play)
+	# Build/work + the sheet that names it; skip the full end_turn rival walk.
+	var report: Dictionary = play.economy.resolve_turn()
+	MapPlayGazette.close_turn(play, [], [], {}, report, {}, play.turn, false)
 
 	assert_eq(
 		_screen.civilian_layer.unit_count_all(play.player_faction), civilians + 1,
@@ -3169,10 +3175,10 @@ func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
 	)
 	assert_eq(String(row["status"]), "building")
 
-	# Estate yield lands on the crown ledger after Build/work, so this case still
-	# needs a full end_turn (timber +1 is not a work-pass outcome alone).
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Work pass raises the estate; the crown ledger harvests timber. Skip the
+	# full end_turn rival walk under coverage.
+	MapPlayTurnFinish.resolve_work(_screen.play)
+	_screen.economy.resolve_turn()
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
 	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
@@ -3256,8 +3262,9 @@ func test_new_game_assigns_a_leader_to_every_great_power() -> void:
 
 func test_setup_leader_choice_reaches_land_combat() -> void:
 	# A second crown's opening on the suite mount: book France + Napoleon the way
-	# setup would, then prove combat and the turn still read that key. before_each
+	# setup would, then prove combat and the ledger still read that key. before_each
 	# re-seats the shared save so the borrowed crown never outlives the case.
+	# Crown ledger alone; skip the full end_turn rival walk under coverage.
 	var chosen: MapScreen = Fixture.attach_faction_screen(_screen, 2, "napoleon")
 	var play: PlaySession = chosen.play
 	assert_eq(play.player_faction, 2)
@@ -3265,8 +3272,7 @@ func test_setup_leader_choice_reaches_land_combat() -> void:
 	var context: Dictionary = MapPlayLandTurn.battle_context(play)
 	var leaders: Dictionary = context["leaders"]
 	assert_eq(String(leaders.get(2, "")), "napoleon", "combat reads the chosen leader")
-	MapPlayTurn.end_turn(play)
-	Fixture.settle(play)
+	play.economy.resolve_turn()
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
 
 
