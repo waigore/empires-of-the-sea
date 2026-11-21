@@ -69,25 +69,18 @@ static func _court_turn(
 	# A submission court short of the bar banks at peace too (issue #995), so
 	# the trace shows the goal the economy pass plans with — the caller's
 	# conquest-gap stamp names the courts whose doctrine banks.
-	var phase: Dictionary = AiPhasePlanner.plan(config, state)
-	var income: Dictionary = AiIncome.plan(
-		config, AiTurnRead.ledger(ai_state, faction), AiIncome.at_war(state, faction),
-		int((shared.get("regiments", {}) as Dictionary).get(faction, 0)),
-		int((shared.get("hull_chests", {}) as Dictionary).get(faction, 0)),
-		int((shared.get("warships", {}) as Dictionary).get(faction, -1)),
-		0,
-		bool((shared.get("conquest_gaps", {}) as Dictionary).get(faction, false))
+	# The footing, the money goal and the charted view are `AiTurnRead.court`'s:
+	# the same read the crown's own envoy advice asks for (DR-20261121-05), and
+	# it names the one deed partner this court warms — the warmth that prices a
+	# deed is the warmth that bars a declaration, so the envoy nudge goes to that
+	# seller alone (issue #841). A court with no Merchant Companies has no chain
+	# to open, so it pays for no scan.
+	var court: Dictionary = AiTurnRead.court(
+		state, world, ai_state, faction, shared, config
 	)
-	# The one deed partner this court warms: the warmth that prices a deed is the
-	# warmth that bars a declaration, so the reading is named once per turn and
-	# the envoy nudge goes to that seller alone (issue #841). A court with no
-	# Merchant Companies has no chain to open, so it pays for no scan.
-	var read: Dictionary = AiTurnRead.reading(shared, faction, income)
-	var tech: Dictionary = (shared.get("tech", {}) as Dictionary).get(faction, {})
-	if CivilianCatalog.is_unlocked("merchant", tech):
-		read["deed_seller"] = AiMerchantWork.deed_seller(
-			world, faction, read.get("charts", null), state
-		)
+	var phase: Dictionary = court.get("phase", {}) as Dictionary
+	var income: Dictionary = court.get("income", {}) as Dictionary
+	var read: Dictionary = court.get("read", {}) as Dictionary
 	var plan: Dictionary = AiDiplomacyPlanner.decide(
 		config, state, ai_state, world, turn, read
 	)

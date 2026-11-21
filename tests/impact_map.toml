@@ -2509,6 +2509,21 @@ suites = [
   "test_research_rules.gd",
 ]
 
+# The court's own envoy pick (DR-20261121-05): the one order the published
+# rival policy would spend this turn, read on the crown's own relations through
+# the pass's own `AiTurnRead.court`. Its suites are the court sheet's, where the
+# panel, the words and the purse read are proved, so it names its own domain
+# instead of pulling the map fan-out.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_pick*.gd*"
+domain = "diplomacy_pick"
+
+[domains.diplomacy_pick]
+suites = [
+  "test_diplomacy_rules.gd",
+  "test_diplomacy_screen.gd",
+]
+
 # The pick's door (wiki: playtest-learnings § next targets): the press that
 # frames the ground a pick names and opens the sheet that can press it. It
 # reads the pick and the map's own province door, so it rides the pick's slice.

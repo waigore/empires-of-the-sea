@@ -65,6 +65,14 @@ static func _court(run, screen: MapScreen) -> void:
 	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_WAR, 1, "")
 	run.check(screen.play.diplomacy.relation(0, 1).at_war, "war order applies")
 	screen.hud.panels.diplomacy_panel.select_faction(1)
+	# The court's own envoy: the one order her staff's planner would spend this
+	# turn, printed above the presses it answers (DR-20261121-05).
+	var counsel: String = screen.hud.panels.diplomacy_panel.counsel_text()
+	run.check(not counsel.is_empty(), "the court names the order its envoy would spend")
+	run.check(
+		run.has_text(screen.hud.panels.diplomacy_panel._detail, counsel),
+		"the envoy's counsel is on the court's sheet"
+	)
 	run.check(
 		run.has_text(screen.hud.panels.diplomacy_panel._detail, "THEIR ENVOY"),
 		"the court answers a declaration in its own voice"

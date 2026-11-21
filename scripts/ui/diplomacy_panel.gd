@@ -33,6 +33,10 @@ var _body: HBoxContainer = null
 ## Last resolved turn's spy despatch (wiki: civilian-units § Spy — court
 ## reports). Read-only here; the session keeps it.
 var _court_reports: Dictionary = {}
+## The court's own envoy reading, one sentence per crown id: the order the
+## crown's staff would spend this turn (`MapPlayDiplomacyPick`). Advice only —
+## the panel prints it and presses nothing (DR-20261121-05; REQ-P5-06).
+var _counsel: Dictionary = {}
 ## The full dossier sheet this summary opens, set by the HUD that builds both.
 var dossier_screen: CourtDossierScreen = null
 
@@ -130,7 +134,8 @@ func refresh(
 	treasury: int,
 	tech: Dictionary = {},
 	court_reports: Dictionary = {},
-	power: Dictionary = {}
+	power: Dictionary = {},
+	counsel: Dictionary = {}
 ) -> void:
 	_state = state
 	_world = world
@@ -139,6 +144,7 @@ func refresh(
 	_tech = tech
 	_court_reports = court_reports
 	_power = power
+	_counsel = counsel
 	if _list == null or _detail == null:
 		return
 	var ids: Array[int] = _known_ids()
@@ -151,8 +157,15 @@ func refresh(
 	_fill_call()
 	_fill_list(ids)
 	_detail.fill(
-		_state, _world, _player, _selected, _treasury, _tech, _court_reports, _power
+		_state, _world, _player, _selected, _treasury, _tech, _court_reports, _power,
+		String(_counsel.get(_selected, ""))
 	)
+
+
+## The counsel line the open court's sheet last printed, or "" — the reading a
+## test checks instead of walking the rebuilt children (REQ-P3-02).
+func counsel_text() -> String:
+	return String(_counsel.get(_selected, ""))
 
 
 func selected_faction() -> int:
@@ -163,7 +176,7 @@ func select_faction(faction_id: int) -> void:
 	if _state == null or not _state.has_relation(_player, faction_id):
 		return
 	_selected = faction_id
-	refresh(_state, _world, _player, _treasury, _tech, _court_reports, _power)
+	refresh(_state, _world, _player, _treasury, _tech, _court_reports, _power, _counsel)
 
 
 func _known_ids() -> Array[int]:

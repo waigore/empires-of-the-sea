@@ -4770,3 +4770,157 @@ func test_the_ai_and_the_court_share_one_join_empire_answer() -> void:
 		DiplomacyRules.answer_join_empire(broken, 1, 0, {1: 1, 0: 999}),
 		"a nearly defeated crown stands alone no longer"
 	)
+
+
+# --- the crown's own envoy pick (DR-20261121-05) ------------------------------
+
+
+## Every order kind the planner can emit has a sentence on the court's sheet: a
+## kind added to the planner fails here rather than printing silence
+## (REQ-P5-05).
+func test_the_envoy_words_every_order_the_planner_emits() -> void:
+	var target: int = FactionCatalog.great_power_ids()[1]
+	for kind: String in AiDiplomacyPlanner.kinds():
+		var action: Dictionary = {"kind": kind, "target": target, "amount": 0, "stage": ""}
+		if kind == DiplomacyOrders.KIND_OVERTURE:
+			action["stage"] = DiplomacyCatalog.STAGE_EMBASSY
+		if kind == DiplomacyOrders.KIND_AID:
+			action["amount"] = DiplomacyCatalog.GRANT_AID_STEP
+		assert_false(
+			MapPlayDiplomacyPickWords.order_line(kind, target, action).is_empty(),
+			"the envoy pick words every order kind: %s" % kind
+		)
+
+
+## The envoy chain's rung is said in the chain's own stage words, and a stage
+## the planner cannot buy says nothing rather than a guessed overture
+## (wiki: diplomacy § Overtures; REQ-P2-01).
+func test_the_envoy_names_the_overture_rung_it_would_open() -> void:
+	var target: int = FactionCatalog.great_power_ids()[1]
+	var name: String = FactionCatalog.name_of(target)
+	var cases: Dictionary = {
+		DiplomacyCatalog.STAGE_CONSULATE: "Trade Consulate",
+		DiplomacyCatalog.STAGE_EMBASSY: "Embassy",
+		DiplomacyCatalog.STAGE_NAP: "Non-Aggression Pact",
+		DiplomacyCatalog.STAGE_JOIN_EMPIRE: "empire",
+	}
+	for stage: String in cases.keys():
+		var line: String = MapPlayDiplomacyPickWords.order_line(
+			DiplomacyOrders.KIND_OVERTURE, target, {"stage": stage}
+		)
+		assert_true(line.contains(String(cases[stage])), "the rung is named: %s" % stage)
+		assert_true(line.contains(name), "the court is named: %s" % stage)
+	assert_eq(
+		MapPlayDiplomacyPickWords.order_line(
+			DiplomacyOrders.KIND_OVERTURE, target, {"stage": DiplomacyCatalog.STAGE_NONE}
+		),
+		"",
+		"a chain with no next rung offers nothing"
+	)
+
+
+## The gift the envoy would carry is the sum the order catalogue prints beside
+## the press (wiki: diplomacy § Grant Aid; REQ-P2-03).
+func test_the_envoy_names_the_gift_it_would_send() -> void:
+	var target: int = FactionCatalog.great_power_ids()[1]
+	var line: String = MapPlayDiplomacyPickWords.order_line(
+		DiplomacyOrders.KIND_AID, target, {"amount": DiplomacyCatalog.GRANT_AID_STEP}
+	)
+	assert_true(line.contains(MoneyText.ducats(DiplomacyCatalog.GRANT_AID_STEP)))
+	assert_eq(
+		MapPlayDiplomacyPickWords.order_line(DiplomacyOrders.KIND_AID, target, {}),
+		"",
+		"a gift of nothing is no order"
+	)
+
+
+## One crown's reading off a plan: the order when the envoy is bound for it, the
+## crown it went to instead, else the gate the planner named — in the planner's
+## own words, never an invented reason (REQ-P2-03, REQ-P5-05).
+func test_the_envoy_pick_reads_one_crown_off_the_plan() -> void:
+	var target: int = FactionCatalog.great_power_ids()[1]
+	var other: int = FactionCatalog.great_power_ids()[2]
+	var order: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_PEACE, "target": target}, target, {}, target
+	)
+	assert_eq(String(order["kind"]), MapPlayDiplomacyPick.KIND_ORDER)
+	assert_true(String(order["line"]).contains("offer peace"))
+	var elsewhere: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_WAR, "target": other}, other, {}, target
+	)
+	assert_eq(String(elsewhere["kind"]), MapPlayDiplomacyPick.KIND_ELSEWHERE)
+	assert_eq(int(elsewhere["other"]), other)
+	assert_true(String(elsewhere["line"]).contains(FactionCatalog.name_of(other)))
+	var held: Dictionary = MapPlayDiplomacyPick.of(
+		{}, MapModel.NO_ID, {"candidates": [{"target": target, "blocked": "war desire too low"}]},
+		target
+	)
+	assert_eq(String(held["kind"]), MapPlayDiplomacyPick.KIND_HOLD)
+	assert_eq(String(held["why"]), "war desire too low")
+	assert_true(String(held["line"]).contains("no quarrel to press"))
+	var quiet: Dictionary = MapPlayDiplomacyPick.of({}, MapModel.NO_ID, {}, target)
+	assert_false(String(quiet["line"]).is_empty(), "a weighed envoy is never silent")
+
+
+## An unknown gate passes through as the planner said it: the sheet never
+## rewrites a reason it does not know (REQ-P2-03).
+func test_an_unknown_envoy_gate_keeps_the_planners_words() -> void:
+	assert_eq(
+		MapPlayDiplomacyPickWords.gate_words("the court keeps its own counsel"),
+		"the court keeps its own counsel"
+	)
+	assert_eq(MapPlayDiplomacyPickWords.gate_words(""), "")
+	assert_true(
+		MapPlayDiplomacyPickWords.gate_words("peace cooldown, refused 2× (8 turns)")
+		.begins_with("the pair's peace offer")
+	)
+	assert_eq(
+		MapPlayDiplomacyPickWords.sentence("the court's envoy would hold"),
+		"The court's envoy would hold."
+	)
+
+
+## Every gate the planner can name reads in the court's own voice, and a reading
+## the sheet has no plainer word for passes through untouched (REQ-P2-03).
+func test_every_envoy_gate_reads_in_the_courts_voice() -> void:
+	var called: Dictionary = {
+		"war still worth waging": "the war is still worth waging",
+		"war desire too low": "the court has no quarrel to press",
+		"relations too warm": "the standing is too warm for war",
+		"overstretched: no third front": "the court is overstretched",
+		"the pair's truce holds: no new war yet": "the pair's truce holds",
+		"war cooldown": "the court is on its war cooldown",
+		"an envoy chain has a claim on that court":
+			"an envoy chain has a claim on this court",
+		"the court is already considering a proposal":
+			"the court is already weighing a proposal",
+		"peace cooldown": "the pair's peace offer is still cooling",
+	}
+	for why: String in called.keys():
+		assert_eq(
+			MapPlayDiplomacyPickWords.gate_words(why), String(called[why]),
+			"the gate is said plainly: %s" % why
+		)
+
+
+## A line with nothing to say says nothing, so no sheet prints a bare sentence
+## (REQ-P5-05).
+func test_an_envoy_line_with_nothing_to_say_is_empty() -> void:
+	assert_eq(MapPlayDiplomacyPickWords.sentence(""), "")
+	assert_eq(
+		MapPlayDiplomacyPickWords.order_line("no_such_order", 0, {}), "",
+		"an unknown order kind prints no line"
+	)
+	assert_eq(
+		MapPlayDiplomacyPickWords.elsewhere_line(0, MapModel.NO_ID), "",
+		"an envoy bound nowhere has nowhere to name"
+	)
+	assert_eq(
+		MapPlayDiplomacyPickWords.gate_words(""), "",
+		"a court with no gate named is not given one"
+	)
+	var quiet: Dictionary = MapPlayDiplomacyPick.of(
+		{}, MapModel.NO_ID, {"candidates": [{"note": "no target"}]}, 1
+	)
+	assert_eq(String(quiet["kind"]), MapPlayDiplomacyPick.KIND_HOLD)
+	assert_eq(String(quiet["why"]), "", "a row with no gate invents none")
