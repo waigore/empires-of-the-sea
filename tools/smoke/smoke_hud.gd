@@ -13,6 +13,7 @@ static func step(run) -> void:
 	var screen: MapScreen = run.screen
 	await _estates(run, screen)
 	await _people(run, screen)
+	await _navy(run, screen)
 	await _court(run, screen)
 	_audio(run, screen)
 	await _province(run, screen)
@@ -87,6 +88,42 @@ static func _people(run, screen: MapScreen) -> void:
 	)
 	run.check(_working_crews(screen) == working_before, "the reading orders nothing")
 	roster.close()
+
+
+## THE CROWN'S NAVY names the sails the court's own naval pass would order its
+## squadrons this turn, in one gold line above the hulls it answers — and orders
+## nothing (wiki: ships-and-naval § The crown's navy; DR-20261121-13).
+static func _navy(run, screen: MapScreen) -> void:
+	var before: Array = _fleet_orders(screen)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
+	await run.tree.process_frame
+	var navy: NavalLedgerPanel = screen.hud.navy_ledger
+	run.check(navy != null and navy.is_open(), "the crown's navy opens")
+	if navy == null:
+		return
+	var counsel: String = navy.counsel_text()
+	run.check(
+		counsel.is_empty() or counsel.begins_with("The court would send "),
+		"the navy names the sails the court would order"
+	)
+	run.check(
+		navy._counsel.visible == not counsel.is_empty(),
+		"the navy's counsel stands with its reading"
+	)
+	run.check(_fleet_orders(screen) == before, "the navy's reading orders nothing")
+	navy.close()
+
+
+## Every squadron's station and move flag, so a reading that sailed one shows.
+static func _fleet_orders(screen: MapScreen) -> Array:
+	var seen: Array = []
+	for region: int in screen.play.ship_layer.regions.region_ids():
+		for fleet: FleetState in MapPlayCourt.region_fleets(screen.play, region):
+			if fleet == null:
+				continue
+			seen.append("%d:%s:%s" % [fleet.id, fleet.mission, fleet.moved])
+	seen.sort()
+	return seen
 
 
 ## How many of the crown's crews hold a running order: the tally a reading may
