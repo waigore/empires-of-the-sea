@@ -630,6 +630,68 @@ func test_first_right_pays_the_tile_owner_on_a_rival_sale() -> void:
 	assert_eq(owner.treasury, owner_before + 23)
 	assert_false((economies[1] as PlayerEconomy).treasury == PlayerEconomy.START_TREASURY)
 
+
+## The share's total names the fills that paid it — the deed's own ground first,
+## then the embassy kickbacks — so a crown that staged nothing still reads who
+## bought what (wiki: world-market-first-right-of-refusal § Eligibility;
+## REQ-P5-05). The ducats stay on the total: one deal's cut would publish the
+## sealed relation score (DR-20261118-05).
+func test_the_overseas_share_names_the_fills_that_paid_it() -> void:
+	var report: Dictionary = {"credits": {
+		"by_gp": {0: 73.0},
+		"rows": [
+			{
+				"seller": 6, "buyer": 1, "commodity": "grain", "quantity": 1,
+				"price": 50.0, "owner": 0, "owner_credit": 25.0,
+				"kickbacks": [{"faction": 2, "credit": 4.0}],
+			},
+			{
+				"seller": 12, "buyer": 1, "commodity": "timber", "quantity": 2,
+				"price": 30.0, "owner": -1, "owner_credit": 0.0,
+				"kickbacks": [{"faction": 0, "credit": 6.0}],
+			},
+		],
+	}}
+	var rows: Array[Dictionary] = LedgerMarketText.share_rows(report, 0)
+	assert_eq(rows.size(), 2, "the crown's own ground, then its embassy's sale")
+	assert_eq(String(rows[0]["kind"]), "deed")
+	assert_eq(
+		LedgerMarketText.share_row_line(rows[0]),
+		"Our deed's share — %s bought 1 Grain from %s" % [
+			FactionCatalog.name_of(1), FactionCatalog.name_of(6),
+		]
+	)
+	assert_eq(String(rows[1]["kind"]), "embassy")
+	assert_eq(
+		LedgerMarketText.share_row_line(rows[1]),
+		"Our embassy's kickback — %s bought 2 Timber from %s" % [
+			FactionCatalog.name_of(1), FactionCatalog.name_of(12),
+		]
+	)
+	assert_eq(LedgerMarketText.share_credit(report, 0), 73, "the total is unchanged")
+	# A court that only earned the kickback reads only that row.
+	var theirs: Array[Dictionary] = LedgerMarketText.share_rows(report, 2)
+	assert_eq(theirs.size(), 1)
+	assert_eq(String(theirs[0]["kind"]), "embassy")
+	assert_eq(LedgerMarketText.share_rows(report, 3).size(), 0, "a court paid nothing reads nothing")
+
+
+## A deed's own fill says so on the row it won; the same deal on another court's
+## page carries no claim (wiki: world-market § First right of refusal).
+func test_a_first_refusal_fill_says_so_on_its_row() -> void:
+	var deal: Dictionary = {
+		"buyer": 0, "seller": 6, "commodity": "timber", "quantity": 1,
+		"price": 30, "buy_unit": 30, "cost": 30, "is_frr": true,
+	}
+	assert_true(
+		LedgerMarketText.deal_line(deal, 0).ends_with("as its deed's first refusal"),
+		"the buyer reads the right that won it the unit"
+	)
+	assert_false(
+		LedgerMarketText.deal_line(deal, 1).contains("first refusal"),
+		"a rival reads its own side of the same deal"
+	)
+
 ## The colony's harvest clears to its suzerain inside the tier even though the
 ## rival is the warmer, better-known court (wiki: diplomacy § R7.1;
 ## DR-20261111-11).

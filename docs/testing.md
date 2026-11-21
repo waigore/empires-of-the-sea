@@ -257,6 +257,13 @@ godot --headless --path . --script res://playtests/playtest_college_batch.gd
 # sale receipt against the rate its page prints.
 godot --headless --path . --script res://playtests/playtest_trade_terms.gd
 
+# Deed share — a deed's first right of refusal as a rival's fill pays it: reads the
+# crew's Deed row on the turn-100 start, stages a rival's bid on the crown's sold
+# ground and closes a real turn, then reads the LAST CLEARING (the total and the
+# fills under it), the despatch and the purse; then bids on its own deed's units
+# and reads the row that names the first refusal.
+godot --headless --path . --script res://playtests/playtest_deed_share.gd
+
 # Market receipt — signs a favoured trading pact, buys five tons at its rate and
 # reads the Deal Book line against the ducats the clearing charged, then claims a
 # good with production runs and reads the row's sellable cap.

@@ -15,6 +15,9 @@ var rng := RandomNumberGenerator.new()
 ## The chart's zoom, so a marker minted by a rebuild, a merge or a launch reads
 ## the chart it is drawn on (wiki: ships-and-naval § Sighted strength).
 var zoom: float = 1.0
+## The crown whose chart this is: only her squadrons paint the order loop of a
+## sail or a station (issue #1198).
+var player: int = FactionCatalog.PLAYER_FACTION
 
 
 ## Mints a marker and places it where the fleet already stands. `crown_view`
@@ -42,8 +45,19 @@ func make(fleet: FleetState, crown_view: Callable = Callable()) -> Ship:
 ## launch, a breaking up, a merge or a battle all change the hulls it flies.
 func refit(ship: Ship, fleet: FleetState) -> void:
 	ship.faction = fleet.owner
+	ship.own = fleet.owner == player
 	ship.set_squadron(fleet.ship_count(), NavalStrength.strength(fleet))
+	station_order(ship, fleet)
 	place(ship, fleet)
+
+
+## Reads whether the squadron keeps a station onto her marker: the crown's own
+## station is the work loop, and no rival's answer is ever hers to draw
+## (issue #1198).
+func station_order(ship: Ship, fleet: FleetState) -> void:
+	if ship == null or fleet == null:
+		return
+	ship.set_station(ship.own and fleet.mission != FleetState.Mission.NONE)
 
 
 ## Re-reads one squadron's hulls and strength, leaving its berth and any sail
@@ -55,10 +69,17 @@ func hulls(fleet: FleetState) -> void:
 
 
 ## Re-reads every roster fleet onto its marker: battles change hulls without
-## moving anyone, and a stale count would mislead the court.
+## moving anyone, and a stale count would mislead the court. A crown that
+## absorbed a squadron re-reads her own flag, and with it the station loop
+## (issue #1198).
 func sync(fleets: Array) -> void:
 	for fleet: FleetState in fleets:
-		hulls(fleet)
+		var ship: Ship = find(fleet.id)
+		if ship == null:
+			continue
+		ship.own = fleet.owner == player
+		ship.set_squadron(fleet.ship_count(), NavalStrength.strength(fleet))
+		station_order(ship, fleet)
 
 
 ## The chart's own reading on one marker: a closer chart scales the silhouette
@@ -232,14 +253,23 @@ static func port_position(model: MapModel, province_id: int) -> Vector2:
 	return MapGeo.tile_center(port.x, port.y, TILE_SIZE)
 
 
-## Sails one marker to a new berth, replacing any sail already under way.
+## Sails one marker to a new berth, replacing any sail already under way. The
+## crown's own hull leans a step along her heading and churns a wake while she
+## travels; a rival's hull still glides to her berth, but never borrows the busy
+## loop (issue #1198).
 static func sail(ship: Ship, target: Vector2) -> void:
 	if ship.has_meta("sail_tween"):
 		var previous: Tween = ship.get_meta("sail_tween") as Tween
 		if previous != null and previous.is_valid():
 			previous.kill()
+	var heading: Vector2 = target - ship.position
+	if absf(heading.x) > 0.5:
+		ship.facing = signf(heading.x)
+	if ship.own:
+		ship.set_order(OrderMotion.Order.MOVE, heading)
 	var tween: Tween = ship.create_tween()
 	tween.tween_property(ship, "position", target, 0.65).set_trans(Tween.TRANS_CUBIC).set_ease(
 		Tween.EASE_IN_OUT
 	)
+	tween.finished.connect(func() -> void: ship.set_order(OrderMotion.Order.NONE))
 	ship.set_meta("sail_tween", tween)
