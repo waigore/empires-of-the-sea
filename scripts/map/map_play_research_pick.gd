@@ -27,17 +27,17 @@ const WHY_DEED: String = MapPlayEconomyCourtBook.DOOR_DEED
 ## campaign is decided, the session runs no planner, or every study the court
 ## could take is already under way.
 static func pick(play: PlaySession) -> Dictionary:
-	if play == null or play.economy == null or play.economy.economy == null:
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.diplomacy == null or play.campaign_over():
+	if play.economy == null or play.economy.economy == null:
+		return {}
+	if play.diplomacy == null:
 		return {}
 	var economy: PlayerEconomy = play.economy.economy
 	if economy.research == null or economy.research.free_slot() < 0:
 		return {}
 	var faction: int = play.player_faction
 	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
-		return {}
 	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
 	if not (config is AiConfig):
 		return {}

@@ -28,13 +28,11 @@ static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
 ## crown, an observer session, a decided campaign, a session with no army layer or
 ## diplomacy, or an army the pass leaves entirely alone.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
-	if play == null or play.world == null or play.army_layer == null:
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.diplomacy == null or play.observer_mode or play.campaign_over():
+	if play.world == null or play.army_layer == null or play.diplomacy == null:
 		return {}
 	var faction: int = play.player_faction
-	if AiControl.court_kind(play, faction) == AiControl.KIND_NONE:
-		return {}
 	var armies: Array[Dictionary] = _armies(play, faction)
 	if not armies.is_empty():
 		return of(armies, snapshot)
