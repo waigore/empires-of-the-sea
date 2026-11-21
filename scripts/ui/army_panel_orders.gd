@@ -120,7 +120,7 @@ func apply(army: ArmyState, opening: ArmyDossierOpening) -> void:
 	_retitle_dismiss(army.count())
 	embark.visible = is_player and not embark_note.is_empty() and not army.is_embarked()
 	plan.visible = is_player and not army.is_embarked() and army.count() > 0
-	plan.text = "Crown battle plan: %s" % QuickBattleActions.normalize_plan(plan_name).capitalize()
+	plan.text = "Crown battle plan: %s" % QuickBattleActionLaw.normalize_plan(plan_name).capitalize()
 	hospital.visible = is_player and not army.is_embarked() and not hospital_note.is_empty()
 	hospital.disabled = not bool(hospital_note.get("ok", false))
 	hospital.text = String(hospital_note.get("caption", "Pitch a field hospital"))

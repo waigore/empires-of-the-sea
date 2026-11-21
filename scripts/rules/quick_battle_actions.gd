@@ -1,7 +1,9 @@
 class_name QuickBattleActions
 extends RefCounted
-## Plan scripts and one action's resolution for Quick Battle. Tables stay here
-## so [QuickBattle] only orchestrates rounds (REQ-P3-01, REQ-P3-03).
+## One action's resolution for Quick Battle. The law it is fought under — the
+## plans, the command points, the damage and guard shares, the cohesion steps
+## and the despatch words — lives in [QuickBattleActionLaw], so this module only
+## walks a blow (REQ-P3-01, REQ-P3-03).
 ## A siege routes casualties through [SiegeLanes]: the wall shelters the
 ## garrison, only artillery reaches behind it, and a sortie trades that shelter
 ## for every regiment's fire. [SiegeGround] scales the ground a blow lands on:
@@ -9,58 +11,6 @@ extends RefCounted
 ## there (wiki: quick-battle § Core actions). [QuickBattleLine] owns which men a
 ## side fights with: the line dealt when the battle opened, its wings and the
 ## weight a blow carries (wiki: combat § The line and the reserve).
-
-## Attacker scripts. The defender has its own: a sally is a **Sortie** order,
-## not an assault on a wall it is standing on (wiki: siege-mechanics § Gates).
-const PLANS: Dictionary = {
-	"aggressive": ["maneuver", "assault"], "balanced": ["volley", "entrench", "volley"],
-	"defensive": ["fall_back", "volley"],
-}
-const DEFENDER_PLANS: Dictionary = {
-	"aggressive": ["entrench", "sortie"], "balanced": ["volley", "entrench"],
-	"defensive": ["fall_back", "volley"],
-}
-## A garrison in the open has no gate to sally from: the sortie slot becomes
-## volley fire so a defender script still spends its CP.
-const DEFENDER_FIELD_PLANS: Dictionary = {
-	"aggressive": ["entrench", "volley", "volley"], "balanced": ["volley", "entrench"],
-	"defensive": ["fall_back", "volley"],
-}
-const ACTION_CP: Dictionary = {
-	"volley": 1, "entrench": 1, "maneuver": 1, "assault": 2, "sortie": 2, "fall_back": 2,
-}
-const ACTION_DAMAGE: Dictionary = {
-	"volley": 0.12, "assault": 0.26, "sortie": 0.22,
-	"entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
-}
-const ACTION_SELF: Dictionary = {
-	"volley": 0.0, "assault": 0.10, "sortie": 0.08,
-	"entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
-}
-const ACTION_GUARD: Dictionary = {
-	"volley": 0.0, "assault": 0.0, "sortie": 0.0, "entrench": 0.45,
-	"maneuver": 0.0, "fall_back": 0.25,
-}
-const ACTION_LABEL: Dictionary = {
-	"volley": "Volley fire", "assault": "Assault", "sortie": "Sortie",
-	"entrench": "Entrench", "maneuver": "Maneuver", "fall_back": "Fall back",
-}
-
-
-static func actions_for(
-	plan: String, is_defender: bool = false, siege: bool = false
-) -> Array:
-	if is_defender:
-		var script: Dictionary = DEFENDER_PLANS if siege else DEFENDER_FIELD_PLANS
-		return (script.get(plan, script["balanced"]) as Array).duplicate()
-	return (PLANS.get(plan, PLANS["balanced"]) as Array).duplicate()
-
-
-## The one gate every plan value passes: the three published stances, anything
-## else (an old save, a typo, a scenario) is `balanced` (wiki: quick-battle
-## § The crown's plan — "Any other value is balanced"; DR-20261110-33).
-static func normalize_plan(plan: String) -> String:
-	return plan if PLANS.has(plan) else "balanced"
 
 
 ## The one action-entry shape every blow writes: a scripted order and the
@@ -108,7 +58,7 @@ static func resolve(
 	var siege: bool = fort > 0
 	var acted: String = _stance(action, key, siege)
 	var entry: Dictionary = action_entry(
-		int(me["owner"]), acted, String(ACTION_LABEL[acted])
+		int(me["owner"]), acted, QuickBattleActionLaw.label_of(acted)
 	)
 	var terrain: String = String(state.get("terrain", "open"))
 	## The wing this blow falls on: fire on the fullest part of the enemy line,
@@ -156,12 +106,12 @@ static func _stance(action: String, key: String, siege: bool) -> String:
 ## own weakened one, and it is kept on the entry so the despatch can name it
 ## (REQ-P5-05).
 static func _charge_cohesion(me: Dictionary, acted: String, entry: Dictionary) -> void:
-	var paid: int = mini(cohesion_cost(acted, me), int(me["cohesion"]))
+	var paid: int = mini(QuickBattleActionLaw.cohesion_cost(acted, me), int(me["cohesion"]))
 	if paid <= 0:
 		return
 	me["cohesion"] = int(me["cohesion"]) - paid
 	entry["cohesion_lost"] = paid
-	entry["cohesion_why"] = cohesion_why(acted)
+	entry["cohesion_why"] = QuickBattleActionLaw.cohesion_why(acted)
 
 
 ## A stance that keeps its ground instead of striking: the guard it raises, the
@@ -169,7 +119,7 @@ static func _charge_cohesion(me: Dictionary, acted: String, entry: Dictionary) -
 static func _hold_ground(
 	me: Dictionary, key: String, acted: String, terrain: String, entry: Dictionary
 ) -> void:
-	var guard: float = float(ACTION_GUARD[acted])
+	var guard: float = QuickBattleActionLaw.guard_of(acted)
 	if key == "defender":
 		guard *= SiegeGround.entrench_scale(terrain)
 	me["guard"] = maxf(float(me["guard"]), clampf(guard, 0.0, 0.8))
@@ -189,7 +139,7 @@ static func _blow_ratio(
 	wing: String,
 	entry: Dictionary
 ) -> float:
-	var ratio: float = float(ACTION_DAMAGE[acted]) \
+	var ratio: float = QuickBattleActionLaw.damage_share(acted) \
 		* (float(me["cohesion"]) / float(QuickBattleTerms.COHESION_MAX))
 	ratio *= 1.0 - clampf(float(enemy["guard"]), 0.0, 0.8)
 	var ground: String = terrain if key == "attacker" else "open"
@@ -341,31 +291,6 @@ static func _break_cohesion(enemy: Dictionary, standing: int, lost: Array[String
 	enemy["cohesion"] = maxi(0, int(enemy["cohesion"]) - 1)
 
 
-## The steps of cohesion a stance takes off the side walking it: a manoeuvre costs
-## one while the line is under pressure — it has already lost men — and none on an
-## intact line, and a fall back trades one for the space it gives. Every other
-## stance costs none, and none of them ever returns a step (wiki: quick-battle
-## § Turn structure and actions). The ground is not charged twice: a blow into
-## broken ground is already the weaker for it (`SiegeGround.terrain_scale`,
-## DR-20261120-07).
-const ACTION_COHESION: Dictionary = {"maneuver": 1, "fall_back": 1}
-## Why a paid step reads as it does in the despatch.
-const COHESION_WHY: Dictionary = {
-	"maneuver": "under pressure", "fall_back": "the line gives ground",
-}
-
-
-static func cohesion_cost(acted: String, me: Dictionary) -> int:
-	if acted == "maneuver" and (me.get("lost", []) as Array).is_empty():
-		return 0
-	return int(ACTION_COHESION.get(acted, 0))
-
-
-## Why a stance cost the step it did, in the words the despatch prints.
-static func cohesion_why(acted: String) -> String:
-	return String(COHESION_WHY.get(acted, ""))
-
-
 ## An action's own price (an assault or a sortie costs the side that launches it).
 ## The share is spent over the line the side was dealt, not over every regiment it
 ## has: men waiting in reserve never take the field, so they neither pay for the
@@ -375,7 +300,7 @@ static func cohesion_why(acted: String) -> String:
 static func _pay_own(
 	armies: Array[ArmyState], me: Dictionary, key: String, entry: Dictionary, action: String
 ) -> Dictionary:
-	var self_ratio: float = float(ACTION_SELF[action]) \
+	var self_ratio: float = QuickBattleActionLaw.self_share(action) \
 		* (float(me["cohesion"]) / float(QuickBattleTerms.COHESION_MAX))
 	if self_ratio <= 0.0:
 		return entry
