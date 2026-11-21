@@ -2665,6 +2665,109 @@ func test_back_and_the_key_close_the_command_ledger() -> void:
 	assert_false(panel.is_open(), "and closes it again")
 
 
+## The command's own reading: the hosts the land pass would lead into battle this
+## turn against the pool that answers them, worded off data alone — one host per
+## commander, then the leader's own medals (wiki: military-generals § Assignment;
+## DR-20261122-02).
+func test_the_command_counsel_names_the_hosts_the_court_would_lead() -> void:
+	# Covered: every host the pass would send finds a commander.
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 2, 2),
+		"the court would send 2 hosts into battle — each led by a commander"
+	)
+	assert_eq(
+		MapPlayCommandPick.pick_line(1, 3, 1),
+		"the court would send 1 host into battle — it is led by a commander"
+	)
+	# Short a commander: the fights past the pool fall back on the leader.
+	assert_eq(
+		MapPlayCommandPick.pick_line(3, 2, 2),
+		"the court would send 3 hosts into battle — its 2 commanders would lead 2,"
+		+ " and the last host would fight on the leader's own 2 medals"
+	)
+	assert_eq(
+		MapPlayCommandPick.pick_line(4, 1, 3),
+		"the court would send 4 hosts into battle — its 1 commander would lead 1,"
+		+ " and the last 3 hosts would fight on the leader's own 3 medals"
+	)
+	# A pool with nobody free fights on the leader alone, and a leader with no
+	# medal of its own says so rather than printing a zero.
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 0, 2),
+		"the court would send 2 hosts into battle with no commander free —"
+		+ " they would fight on the leader's own 2 medals"
+	)
+	assert_eq(
+		MapPlayCommandPick.pick_line(1, 0, 0),
+		"the court would send 1 host into battle with no commander free —"
+		+ " it would fight with no medal at all"
+	)
+	# No fight at all: the sheet names the gate, never a line about nobody.
+	assert_eq(MapPlayCommandPick.pick_line(0, 2, 2), MapPlayCommandPick.NO_HOST_LINE)
+	var pick: Dictionary = MapPlayCommandPick.of(3, 2, 2)
+	assert_eq(int(pick["hosts"]), 3)
+	assert_eq(int(pick["led"]), 2, "the hosts past the pool are counted, not led")
+	assert_eq(String(pick["line"]), MapPlayCommandPick.pick_line(3, 2, 2))
+	assert_eq(MapPlayCommandPick.pick(null), {})
+	assert_eq(
+		MapPlayCommandPick.line(null), "", "a session that is not there names nothing"
+	)
+
+
+## Only the marches that fight spend a commander: a storm into ground the crown
+## does not hold and a relief onto its own land are fights, while a frontier
+## advance, a rotation home, a walk home and the seat's split are not
+## (wiki: military-generals § Assignment — one general per attacking army).
+func test_only_the_marches_that_fight_spend_a_commander() -> void:
+	var armies: Array = [
+		{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_STORM},
+		{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_RELIEF},
+		{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_FRONTIER},
+		{"kind": MapPlayArmyPick.KIND_ROTATE, "why": ""},
+		{"kind": MapPlayArmyPick.KIND_WALK_HOME, "why": ""},
+		{"kind": MapPlayArmyPick.KIND_SPLIT, "why": ""},
+	]
+	assert_eq(MapPlayCommandPick.hosts_of(armies), 2, "a storm and a relief fight")
+	assert_eq(MapPlayCommandPick.hosts_of([]), 0)
+	assert_eq(
+		MapPlayCommandPick.hosts_of([{"kind": MapPlayArmyPick.KIND_MARCH}]),
+		0,
+		"a march with no reason reads no fight"
+	)
+
+
+## The command sheet is the passes' own reading: it prints the line the land pass
+## and the pool word and orders nothing (REQ-P2-03, REQ-P5-06; DR-20261122-02).
+func test_the_command_sheet_prints_the_reading_it_is_handed() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	assert_true(panel.counsel_source.is_valid(), "the sheet binds the passes' reading")
+	var before: Array = _force_moved_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayCommandPick.pick(play, panel._snapshot)
+	assert_eq(counsel, MapPlayPickProse.sentence_of(pick))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	if not pick.is_empty():
+		assert_true(counsel.begins_with("The court would send "), counsel)
+	# Every standard's entry carries the reason it marches, so the sheet's count of
+	# the fights is read off the same walk the army sheet prints.
+	for raw: Variant in MapPlayArmyOrdersPick.pick(play).get("armies", []):
+		assert_true((raw as Dictionary).has("why"), "an ordered standard carries its why")
+	assert_eq(_force_moved_flags(play), before, "the reading marches nothing")
+	# An unwired sheet prints nothing, and the line stands down.
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	panel.counsel_source = wired
+	panel.close()
+
+
 ## --- the world's colonies ---------------------------------------------------
 ## Every Tribe a Great Power bought into its empire, read as a ledger — who holds
 ## it, where it stands and what its suzerain's boycott shuts (wiki: diplomacy
