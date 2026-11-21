@@ -73,6 +73,15 @@ static func build_hud(play: PlaySession) -> void:
 	play.improvements.counsel_source = (
 		func(data: Dictionary) -> String: return MapPlayEstatesPick.line(play, data)
 	)
+	# THE CROWN'S EYES names the spies the court's own espionage pass would walk,
+	# screen or keep this turn, read on the sheet's own snapshot so the line
+	# reads down the network it answers (wiki: civilian-units § Spy;
+	# DR-20261121-11).
+	var eyes: SpyLedgerPanel = hud.spy_ledger
+	if eyes != null:
+		eyes.counsel_source = (
+			func(data: Dictionary) -> String: return MapPlaySpyPick.line(play, data)
+		)
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)

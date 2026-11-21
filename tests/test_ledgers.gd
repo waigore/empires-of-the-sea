@@ -817,6 +817,137 @@ func test_the_phone_profile_repaints_the_reading() -> void:
 	panel.close()
 
 
+## The reading is worded off the spies the pass books, in the sheet's own row
+## order, and capped so a busy network stays one line (REQ-P5-07;
+## DR-20261121-11).
+func test_the_eyes_pick_words_the_spies_the_pass_would_book() -> void:
+	assert_true(MapPlaySpyPick.of([]).is_empty(), "a crown with no spy names nothing")
+	var spies: Array[Dictionary] = [
+		{"region": 0, "unit_id": 2, "kind": MapPlaySpyPick.KIND_WALK, "place": "Genoa"},
+		{"region": 0, "unit_id": 1, "kind": MapPlaySpyPick.KIND_KEEP, "place": "Sevilla"},
+	]
+	var pick: Dictionary = MapPlaySpyPick.of(spies, {})
+	assert_eq(
+		String(pick["line"]),
+		"the court would walk its Spy toward Genoa and keep its Spy at Sevilla"
+	)
+	assert_eq(
+		MapPlaySpyPick.sentence(String(pick["line"])),
+		"The court would walk its Spy toward Genoa and keep its Spy at Sevilla."
+	)
+	# The sheet's own rows come first, so the line reads down the page.
+	var snapshot: Dictionary = {
+		"rows": [{"region": 0, "unit_id": 1}, {"region": 0, "unit_id": 2}],
+	}
+	assert_eq(
+		String(MapPlaySpyPick.of(spies, snapshot)["line"]),
+		"the court would keep its Spy at Sevilla and walk its Spy toward Genoa"
+	)
+	var screening: Array[Dictionary] = [
+		{"region": 0, "unit_id": 1, "kind": MapPlaySpyPick.KIND_SCREEN, "place": "Madrid"},
+	]
+	assert_eq(
+		String(MapPlaySpyPick.of(screening, {})["line"]),
+		"the court would set its Spy at Madrid to counter-espionage"
+	)
+	# Beyond three the line counts the spies it cannot name.
+	var many: Array[Dictionary] = []
+	for index: int in 5:
+		many.append({
+			"region": 0,
+			"unit_id": index,
+			"kind": MapPlaySpyPick.KIND_KEEP,
+			"place": "P%d" % index,
+		})
+	assert_eq(
+		String(MapPlaySpyPick.of(many, {})["line"]),
+		"the court would keep its Spy at P0, keep its Spy at P1, keep its Spy at P2 and 2 more"
+	)
+	# One spy, three spies and none: the line's own joins and its empty gate.
+	assert_eq(MapPlaySpyPick.pick_line([]), "", "no spy, no clause")
+	assert_eq(
+		String(MapPlaySpyPick.of([
+			{"region": 0, "unit_id": 1, "kind": MapPlaySpyPick.KIND_KEEP, "place": "Cádiz"},
+		], {})["line"]),
+		"the court would keep its Spy at Cádiz"
+	)
+	assert_eq(
+		String(MapPlaySpyPick.of([
+			{"region": 0, "unit_id": 1, "kind": MapPlaySpyPick.KIND_KEEP, "place": "Cádiz"},
+			{"region": 0, "unit_id": 2, "kind": MapPlaySpyPick.KIND_KEEP, "place": "Sevilla"},
+			{"region": 0, "unit_id": 3, "kind": MapPlaySpyPick.KIND_WALK, "place": "Genoa"},
+		], {})["line"]),
+		"the court would keep its Spy at Cádiz, keep its Spy at Sevilla and walk its Spy toward Genoa"
+	)
+	assert_eq(MapPlaySpyPick.line(null), "", "a session that is not there names nothing")
+
+
+## The reading is the pass's own: a crown spy with no order is named with what
+## the published planner would have it do, the sheet prints it, and the spy is
+## neither moved nor ordered (REQ-P2-03, REQ-P5-06; DR-20261121-11).
+func test_the_eyes_print_the_spies_the_crowns_pass_would_book() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_clear_spies(play)
+	var home: ProvinceState = play.model.provinces[0]
+	var spy := CivilianState.create(93, play.player_faction, "spy", home.tiles[0])
+	var roster: Array[CivilianState] = [spy]
+	play.civilian_layer.units = roster
+	play.civilian_layer.regions.set_region(play.region_index, roster)
+	panel.open()
+	var pick: Dictionary = MapPlaySpyPick.pick(play, panel._snapshot)
+	assert_eq((pick.get("spies", []) as Array).size(), 1, "one clause per spy")
+	assert_true(
+		panel.counsel_text().begins_with("The court would "), panel.counsel_text()
+	)
+	assert_true(panel.counsel_text().contains("its Spy"), panel.counsel_text())
+	assert_true(panel._counsel.visible, "the sheet prints the reading")
+	assert_true(spy.work_action().is_empty(), "a reading, not an order")
+	assert_eq(spy.tile, home.tiles[0], "and the spy does not move")
+	# The three clauses the pass's own verbs give: the screen, the march and the
+	# pick read on another chart's roster id (never this spy's).
+	var screening: Dictionary = MapPlaySpyPick._spy(
+		play.model, spy, play.region_index,
+		{"action": MapPlaySpyPick.ACTION_SCREEN, "tile": spy.tile}
+	)
+	assert_eq(String(screening["kind"]), MapPlaySpyPick.KIND_SCREEN, "the screen is the pass's")
+	var walking: Dictionary = MapPlaySpyPick._spy(
+		play.model, spy, play.region_index,
+		{"action": "make_move", "tile": spy.tile}
+	)
+	assert_eq(String(walking["kind"]), MapPlaySpyPick.KIND_WALK, "the march is the pass's")
+	assert_eq(
+		String(MapPlaySpyPick._spy(play.model, spy, play.region_index, {}).get("kind", "")),
+		MapPlaySpyPick.KIND_KEEP, "a spy with no order keeps its watch"
+	)
+	# A session that runs no planner, or one watching another crown, names nothing.
+	play.observer_mode = true
+	assert_true(MapPlaySpyPick.pick(play, {}).is_empty(), "an observer names nothing")
+	play.observer_mode = false
+	_clear_spies(play)
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "a crown with no spy names nothing")
+
+
+## The sheet prints the reading it is handed and hides it when the reading is
+## empty, so a session with no planner carries no gold line (REQ-P5-06).
+func test_the_eyes_print_and_hide_the_counsel_they_are_handed() -> void:
+	_attach()
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String: return "The court would keep its Spy at Cádiz."
+	)
+	panel.open()
+	assert_eq(panel.counsel_text(), "The court would keep its Spy at Cádiz.")
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	panel.close()
+
+
 func test_back_and_the_key_close_the_sheet() -> void:
 	_attach()
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger
