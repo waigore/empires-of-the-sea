@@ -50,17 +50,15 @@ static func line(play: PlaySession) -> String:
 ## no planner for the crown, an observer session, a decided campaign, or a crown
 ## with no ledger.
 static func pick(play: PlaySession) -> Dictionary:
-	if play == null or play.world == null or play.campaign_over():
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.observer_mode:
+	if play.world == null:
 		return {}
 	var faction: int = play.player_faction
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return {}
 	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
-		return {}
 	var config: Variant = AiBind.config(
 		kind, faction, play.map_seed, play.ensure_ai().profiles
 	)

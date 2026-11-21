@@ -50,17 +50,15 @@ static func line(play: PlaySession) -> String:
 ## conquest bank, so the rail cannot name a crew the published hire order would
 ## refuse (wiki: civilian-units § Training; DR-20261121-06, issue #995).
 static func pick(play: PlaySession) -> Dictionary:
-	if play == null or play.world == null or play.civilian_layer == null:
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.observer_mode or play.campaign_over():
+	if play.world == null or play.civilian_layer == null:
 		return {}
 	var faction: int = play.player_faction
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return {}
 	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
-		return {}
 	var config: Variant = AiBind.config(
 		kind, faction, play.map_seed, play.ensure_ai().profiles
 	)
