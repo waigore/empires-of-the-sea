@@ -21,10 +21,6 @@ const KIND_NO_BUILDER: String = "no_builder"
 ## The action a Builder's estate raise carries (`CivilianWork`).
 const ACTION_ESTATE: String = "build_improvement"
 
-## The most estates one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 const NO_BUILDER_LINE: String = (
 	"the court would raise no estate this phase — no Builder stands idle"
 )
@@ -137,8 +133,5 @@ static func raise_line(estates: Array[Dictionary]) -> String:
 				String(estate.get("name", "")), String(estate.get("place", ""))
 			]
 		)
-	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would raise %s this phase" % joined
+	return MapPlayPickProse.court_line("the court would raise", parts, "this phase")
 

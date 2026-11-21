@@ -14,10 +14,6 @@ extends RefCounted
 ## A reading only: nothing here marches a standard, takes a station or rolls a
 ## die, and the crown still presses her own order (REQ-P3-03, REQ-P5-06).
 
-## The most forces one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 ## Forces wait for an order and both passes give none: the gate the roll names
 ## instead of a clause it cannot print.
 const NO_ORDER_LINE: String = "the court would give no waiting force an order this turn"
@@ -76,10 +72,7 @@ static func pick_line(forces: Array[Dictionary]) -> String:
 		var clause: String = String(force.get("line", ""))
 		if not clause.is_empty():
 			clauses.append(clause)
-	var joined: String = MapPlayPickProse.capped(clauses, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would send %s this turn" % joined
+	return MapPlayPickProse.court_line("the court would send", clauses, "this turn")
 
 
 ## Both sheets' clauses as the roll reads them: the army's standards and the
