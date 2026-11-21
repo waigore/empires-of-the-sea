@@ -106,7 +106,9 @@ static func select_province(play: PlaySession, province_id: int, world_position:
 	var at_capital: bool = (
 		int(seat["region"]) == play.region_index and province_id == int(seat["province"])
 	)
-	play.hud.panels.set_civilian_training(at_capital)
+	# The province sheet's own training line: the capital offers its crew, any
+	# other province offers none (wiki: civilian-units § Training).
+	play.hud.panels.panel.set_training_visible(at_capital)
 	# The capital's rail carries the court's own hire pick: the crew the published
 	# hire order takes next, read on this crown's own staff, purse and studies
 	# (wiki: civilian-units § Training; DR-20261121-06). Any other province hires

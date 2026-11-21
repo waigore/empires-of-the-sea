@@ -45,10 +45,11 @@ static func show(
 	counsel: Dictionary = {}
 ) -> void:
 	panels.close_sheets(panels.diplomacy)
-	panels.diplomacy_panel.refresh(
-		state, world, player, treasury, tech, court_reports, power, counsel
+	HudSheet.show(panels.dock, panels.host, panels.diplomacy, func() -> void:
+		panels.diplomacy_panel.refresh(
+			state, world, player, treasury, tech, court_reports, power, counsel
+		)
 	)
-	panels.diplomacy.reveal(panels.host, panels.dock)
 
 
 static func refresh(
@@ -69,7 +70,7 @@ static func refresh(
 
 
 static func hide(panels: HudPanels) -> void:
-	panels.diplomacy.conceal(panels.host, panels.dock)
+	HudSheet.hide(panels.dock, panels.host, panels.diplomacy)
 
 
 static func is_open(panels: HudPanels) -> bool:
