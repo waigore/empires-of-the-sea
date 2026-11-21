@@ -17,7 +17,10 @@ static func of(play: PlaySession, faction: int) -> Blockades:
 	var model: MapModel = play.world.region(region)
 	if model == null:
 		return Blockades.new()
-	var seat: int = play.capital_province
+	# The crown's seat is the capital it holds, read off the world: the chart on
+	# screen frames its own holding, which is no seat (wiki:
+	# capital-and-connectivity § Capital; world-model-identity).
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if faction != play.player_faction:
 		seat = int(WorldBootstrap.capital_seat(model, faction)["province"])
 	return Blockades.read(

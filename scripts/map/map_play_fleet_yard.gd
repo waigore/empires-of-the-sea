@@ -29,7 +29,9 @@ static func flown(play: PlaySession) -> Array[String]:
 ## Opens the capital yard from the province dossier; with no home fleet afloat the
 ## slip is shown and the first launch founds the squadron.
 static func open(play: PlaySession) -> void:
-	var province: int = play.capital_province
+	if not _at_slip(play):
+		return
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if province < 0 or play.model.province_owner(province) != play.player_faction:
 		play.hud.toast("Your capital must be in hand to open the yard.")
 		return
@@ -71,7 +73,9 @@ static func refresh(play: PlaySession, fleet: FleetState) -> void:
 static func launch(play: PlaySession, type_id: String) -> void:
 	if play.economy == null or play.economy.economy == null:
 		return
-	var province: int = play.capital_province
+	if not _at_slip(play):
+		return
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if province < 0 or play.model.province_owner(province) != play.player_faction:
 		play.hud.toast("Your capital must be in hand to launch hulls.")
 		return
@@ -107,7 +111,9 @@ static func launch(play: PlaySession, type_id: String) -> void:
 static func launch_all(play: PlaySession) -> void:
 	if play.economy == null or play.economy.economy == null:
 		return
-	var province: int = play.capital_province
+	if not _at_slip(play):
+		return
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
 	if province < 0 or play.model.province_owner(province) != play.player_faction:
 		play.hud.toast("Your capital must be in hand to launch hulls.")
 		return
@@ -192,8 +198,31 @@ static func on_action(play: PlaySession, action: String) -> bool:
 	return false
 
 
-## True when this squadron is the crown's home fleet at its capital port.
+## True when this squadron is the crown's home fleet at its capital port. The
+## seat is the crown's own, read off the world: on a chart with no seat the
+## framing field holds a colony, and a squadron moored there is no home fleet
+## (wiki: capital-and-connectivity § Capital).
 static func _is_home(play: PlaySession, fleet: FleetState) -> bool:
 	if fleet == null or fleet.owner != play.player_faction or not fleet.is_in_port():
 		return false
-	return fleet.province >= 0 and fleet.province == play.capital_province
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
+	return fleet.province >= 0 and fleet.province == seat
+
+
+## True when the chart on screen holds the crown's seat: the yard stands at the
+## capital, so a province on another chart — even one wearing the seat's own
+## number — lays no keel. False answers the press with where the yard really
+## stands (wiki: world-model-identity; capital-and-connectivity § Capital).
+static func _at_slip(play: PlaySession) -> bool:
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
+	var region: int = int(seat["region"])
+	var province: int = int(seat["province"])
+	if region == MapModel.NO_ID or province == MapModel.NO_ID:
+		return true
+	if region == play.region_index:
+		return true
+	var model: MapModel = seat["model"]
+	play.hud.toast("The yard stands at %s, on the %s chart — open it to lay a keel." % [
+		model.province_name(province), FactionCatalog.region_label(region),
+	])
+	return false

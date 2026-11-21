@@ -77,6 +77,9 @@ static func arriving_tiers(done: Array[Dictionary]) -> Array[int]:
 
 
 ## One civilian `BuildUnitOrder`: paper and ducats buy the hire at the capital.
+## The place the record prints is the seat's own, not the chart on screen: the
+## hire musters at the capital even when the crown closed the turn looking at a
+## colony (wiki: capital-and-connectivity § Capital).
 static func _civilian(play: PlaySession, type_id: String) -> Dictionary:
 	var result: Dictionary = MapPlayTraining.settle(play, type_id)
 	if not bool(result.get("ok", false)):
@@ -84,22 +87,27 @@ static func _civilian(play: PlaySession, type_id: String) -> Dictionary:
 	return {
 		"kind": "civilianMustered",
 		"label": CivilianCatalog.display_name(type_id),
-		"place": play.model.province_name(play.capital_province),
+		"place": String(result.get("place", "")),
 	}
 
 
 ## One regiment `BuildUnitOrder`: it musters into the Home Army at the capital,
-## under the title the naming table christens it with (DR-20261111-18).
+## under the title the naming table christens it with (DR-20261111-18). The
+## Home Army is read on the seat's own chart, so an order placed at the capital
+## is never refused because the crown was looking at a colony when the turn
+## closed (wiki: capital-and-connectivity § Capital).
 static func _regiment(play: PlaySession, type_id: String) -> Dictionary:
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
+	if int(seat["province"]) == MapModel.NO_ID:
+		return _refuse(play, RegimentCatalog.display_name(type_id), "your capital is not in hand")
+	var roster: Array = play.army_layer.regions.value(int(seat["region"]), [])
 	var result: Dictionary = play.army_layer.recruit(
-		play.player_faction, type_id, play.economy.economy
+		play.player_faction, type_id, play.economy.economy, roster
 	)
 	if not bool(result.get("ok", false)):
 		return _refuse(play, RegimentCatalog.display_name(type_id), String(result.get("reason", "")))
 	var rec: Dictionary = {"kind": "regimentMustered", "label": RegimentCatalog.display_name(type_id)}
-	var home: ArmyState = ArmyTraining.home_army(
-		play.army_layer.armies, play.player_faction
-	)
+	var home: ArmyState = ArmyTraining.home_army(roster, play.player_faction)
 	var title: String = (
 		RegimentNames.of(home, String(result.get("regiment", ""))) if home != null else ""
 	)
@@ -109,23 +117,32 @@ static func _regiment(play: PlaySession, type_id: String) -> Dictionary:
 
 
 ## One naval `BuildUnitOrder`: the hull joins the home fleet at the capital port.
+## The slip is the seat's own, on the seat's own chart, so a hull laid down at
+## the capital launches even when the crown closed the turn looking at a colony
+## (wiki: capital-and-connectivity § Capital).
 static func _ship(play: PlaySession, type_id: String) -> Dictionary:
-	var province: int = play.capital_province
-	if province < 0 or play.model.province_owner(province) != play.player_faction:
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
+	var province: int = int(seat["province"])
+	var model: MapModel = seat["model"]
+	if province < 0 or model == null or model.province_owner(province) != play.player_faction:
 		return _refuse(play, ShipStats.display_name(type_id), "your capital is not in hand")
-	if not NavalMovement.has_harbour(play.model, province):
+	if not NavalMovement.has_harbour(model, province):
 		return _refuse(play, ShipStats.display_name(type_id), "your capital has no harbour")
+	var region: int = int(seat["region"])
+	var roster: Array = play.ship_layer.regions.value(region, [])
 	var result: Dictionary = ShipYardOps.launch_hull(
 		play.ship_layer, province, type_id, play.economy.economy,
-		MapPlayFleetYard.flown(play)
+		MapPlayFleetYard.flown(play), roster
 	)
 	if not bool(result.get("ok", false)):
 		return _refuse(play, ShipStats.display_name(type_id), String(result.get("reason", "")))
+	if not roster.is_empty():
+		play.ship_layer.regions.set_region(region, roster)
 	return {
 		"kind": "shipLaunched",
 		"label": ShipStats.display_name(type_id),
 		"name": String(result.get("name", "")),
-		"place": play.model.province_name(province),
+		"place": model.province_name(province),
 	}
 
 
