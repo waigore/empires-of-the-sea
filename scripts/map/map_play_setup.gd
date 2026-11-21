@@ -66,6 +66,13 @@ static func build_hud(play: PlaySession) -> void:
 	play.improvements.blockade_source = (
 		func() -> Blockades: return MapPlayBlockades.crown(play)
 	)
+	# The estates ledger names the estates the court's own Builder pass would
+	# raise this phase, read on the ledger's own snapshot so the line reads down
+	# the page it answers (wiki: extraction-and-improvements § Estates ledger;
+	# DR-20261121-10).
+	play.improvements.counsel_source = (
+		func(data: Dictionary) -> String: return MapPlayEstatesPick.line(play, data)
+	)
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)
