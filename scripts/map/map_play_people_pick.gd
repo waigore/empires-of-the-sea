@@ -37,14 +37,7 @@ const NO_WORK_LINE: String = "the court would set no waiting crew to work this t
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return sentence(String(pick(play, snapshot).get("line", "")))
-
-
-## `text` as a printed sentence: "the court would put …" → "The court would put …".
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
+	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
 
 
 ## The roster's pick as the people sheet prints it: `{crews, line}`, where each
@@ -52,15 +45,9 @@ static func sentence(text: String) -> String:
 ## session runs no planner for the crown, an observer session, a decided
 ## campaign, a crown with no ledger or a session with no civilian layer.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
-	if play == null or play.world == null or play.campaign_over():
-		return {}
-	if play.observer_mode or play.civilian_layer == null:
+	if not MapPlayPickProse.crown_crew_ready(play):
 		return {}
 	var faction: int = play.player_faction
-	if play.ledger_for(faction) == null:
-		return {}
-	if AiControl.court_kind(play, faction) == AiControl.KIND_NONE:
-		return {}
 	return of(_crews(play, faction), snapshot)
 
 
@@ -174,18 +161,12 @@ static func _key(entry: Dictionary) -> String:
 ## this turn". Beyond three the line counts the crews it cannot name
 ## (`… and 2 more`) so a busy roster stays one line of chrome.
 static func pick_line(crews: Array[Dictionary]) -> String:
-	var named: Array[String] = []
-	var hidden: int = 0
+	var parts: Array[String] = []
 	for crew: Dictionary in crews:
-		if named.size() >= NAMED_LIMIT:
-			hidden += 1
-			continue
-		named.append(_clause(crew))
-	if named.is_empty():
+		parts.append(_clause(crew))
+	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
+	if joined.is_empty():
 		return ""
-	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
-	if hidden > 0:
-		joined += " and %d more" % hidden
 	return "the court would put %s this turn" % joined
 
 
@@ -198,12 +179,3 @@ static func _clause(crew: Dictionary) -> String:
 	if place.is_empty():
 		return "its %s to %s" % [role, short]
 	return "its %s to %s at %s" % [role, short, place]
-
-
-## A list read the way prose reads it: "A", "A and B", "A, B and C".
-static func _join(parts: Array[String]) -> String:
-	if parts.is_empty():
-		return ""
-	if parts.size() <= 2:
-		return " and ".join(parts)
-	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[-1]]

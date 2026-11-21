@@ -1004,7 +1004,7 @@ func test_the_people_pick_words_the_work_the_pass_would_give() -> void:
 		+ " to raise the lumber camp at Cádiz this turn"
 	)
 	assert_eq(
-		MapPlayPeoplePick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would put its Explorer to survey the Mar Caribe and its Builder"
 		+ " to raise the lumber camp at Cádiz this turn."
 	)
