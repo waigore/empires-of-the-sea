@@ -11,6 +11,11 @@ extends SheetFrame
 ## phone as well as on the atlas (REQ-P1-07). Hover previews an advance on a
 ## desktop; a tap selects it and prints the same reading, so no rule lives
 ## behind a hover (REQ-P1-05).
+##
+## The chart also names the study the court would open: the college's own gold
+## sentence under the goal's road, and a `▸` on the advance it names, so the
+## crown sees where the court would go without scanning 113 nodes
+## (wiki: tech-tree § Research Model; DR-20261121-20).
 
 signal goal_requested(tech_id: String)
 
@@ -18,12 +23,21 @@ const DETAIL_PIXELS: int = 13
 const DETAIL_PIXELS_COMPACT: int = 12
 const LEGEND_PIXELS: int = 10
 
+## The court's own research reading, asked at every refresh: the study the
+## published policy would open in the crown's first free slot, or {} when it
+## names none (DR-20261121-20). Unwired prints nothing.
+var counsel_source: Callable = Callable()
+
 var _state: ResearchState = null
 var _goal: String = ""
 var _selected: String = ""
 var _canvas: TechTreeCanvas = null
 var _chart_scroll: ScrollContainer = null
 var _road: Label = null
+## The gold counsel line under the road: the study the court would open.
+var _counsel: Label = null
+## The advance the chart marks as the court's own, mirrored from the pick.
+var _court_tech: String = ""
 var _detail_title: Label = null
 var _detail_meta: Label = null
 var _detail_effect: Label = null
@@ -54,9 +68,39 @@ func refresh() -> void:
 	if _state == null or _canvas == null:
 		return
 	_goal = TechOrder.normalize(_state.goal)
-	_canvas.present(_state, _goal)
+	_sync_counsel()
+	_canvas.present(_state, _goal, _court_tech)
 	_road.text = _road_text()
 	_render_detail(_selected)
+
+
+## The court's own reading, asked once per refresh: the study the published
+## research policy would open, in the college's own sentence, and the advance
+## the chart marks with it. A closed chart reads nothing, so a repaint behind it
+## never pays for a planner walk nobody sees (REQ-P4-02).
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	var pick: Dictionary = {}
+	if is_open() and counsel_source.is_valid():
+		var raw: Variant = counsel_source.call()
+		if raw is Dictionary:
+			pick = raw
+	_court_tech = String(pick.get("tech", ""))
+	var text: String = MapPlayPickProse.sentence_of(pick)
+	_counsel.text = text
+	_counsel.visible = not text.is_empty()
+
+
+## The gold line the chart last printed, or "" — the reading a test checks
+## instead of a label's text (REQ-P3-02).
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
+
+
+## The advance the chart marks as the court's own, or "" (DR-20261121-20).
+func court_tech() -> String:
+	return _court_tech
 
 
 ## The advance the reader last aimed at, or "" before the first tap.
@@ -70,6 +114,11 @@ func selected() -> String:
 func _build_body(column: VBoxContainer) -> void:
 	_road = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
 	column.add_child(_road)
+	# The court's own pick sits under the goal's road, above the chart it marks:
+	# two sentences, the crown's aim and the staff's next study (DR-20261121-20).
+	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
+	_counsel.visible = false
+	column.add_child(_counsel)
 	column.add_child(_legend())
 
 	_chart_scroll = ScrollContainer.new()
@@ -100,14 +149,15 @@ func _apply_profile(compact: bool, narrow: bool) -> void:
 
 
 ## The four standings the node ink carries, named once so the chart is read
-## without a legend hunt (REQ-P1-08).
+## without a legend hunt (REQ-P1-08), and the two marks a node can wear: the
+## crown's goal and the court's own next study (DR-20261121-20).
 func _legend() -> Control:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 12)
 	for entry: Array in [
 		["Known", Palette.GOLD_PALE], ["At study", Palette.GOLD],
 		["Open now", Palette.TEXT], ["Locked", Palette.TEXT_DIM],
-		["◆ goal", Palette.GOLD_PALE],
+		["◆ goal", Palette.GOLD_PALE], ["▸ court", Palette.GOLD_PALE],
 	]:
 		row.add_child(UiRowBuilder.label(String(entry[0]), LEGEND_PIXELS, entry[1] as Color))
 	return row
