@@ -2427,22 +2427,30 @@ func test_the_marker_draws_a_squadron_at_both_zooms() -> void:
 
 ## A sea fight the crown fought leaves a word at the rival's court: the booking
 ## reads a zone as water, not a province (wiki: dialogue-and-mood § Design
-## intent — event; DR-20261111-01).
+## intent — event; DR-20261111-01). Pure diplomacy — no chart re-seat under
+## coverage (docs/testing.md § Speed rules; land battle twin in army_orders).
 func test_a_sea_fight_leaves_a_word_at_the_rivals_court() -> void:
+	var player: int = MapScreen.PLAYER_FACTION
 	var rival: int = 2
-	DiplomacyRules.declare_war(
-		_screen.play.diplomacy, _screen.play.player_faction, rival
+	var state := DiplomacyState.new()
+	state.ensure_relation(player, rival, 1)
+	DiplomacyRules.declare_war(state, player, rival)
+	assert_true(
+		DialogueEvents.record_naval_battle(
+			state,
+			{
+				"zone": 1,
+				"attacker": player,
+				"defender": rival,
+				"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+				"retreat": {},
+			},
+			player
+		),
+		"a verdict on the water is kept"
 	)
-	_screen.play.emit_battle_resolved([
-		{
-			"zone": 1, "attacker": _screen.play.player_faction, "defender": rival,
-			"outcome": NavalCombat.Outcome.SIDE1_VICTORY, "retreat": {},
-		},
-	] as Array[Dictionary])
 
-	var spoken: Dictionary = DialogueEvents.for_pair(
-		_screen.play.diplomacy, _screen.play.player_faction, rival
-	)
+	var spoken: Dictionary = DialogueEvents.for_pair(state, player, rival)
 	assert_eq(String(spoken["category"]), DialogueCatalog.CAT_EVENT, "the water answers")
 	assert_eq(String(spoken["point"]), "event/sea_lost", "the beaten court owns it")
 

@@ -49,9 +49,9 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
   leads so one chart suite does not drain alone.
 - One Godot boot per theme — coverage ~15 s; 24 suites. `gd-tools.toml`:
-  `parallel = 4`. Diplomacy ledger answers resolve at rules; suspending closes /
-  campaign-end use `AiControl.NOOP`; counsel only when court open; plate saves
-  reload in-place. One peace-battle pays full resume.
+  `parallel = 4`. Diplomacy and battle court-words book at rules (no chart
+  combat); suspending closes / campaign-end use `AiControl.NOOP`; counsel only
+  when court open; plate saves reload in-place.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
