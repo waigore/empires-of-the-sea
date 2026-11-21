@@ -2,46 +2,86 @@ extends GdToolsTest
 ## App flow: title -> setup -> map, in-game menu, save slot, load rebuilds the
 ## screen (clearing the old game), and back to the title (REQ-P5-01, P5-07).
 ## One chart is rolled in `before_all` and handed through `Main.preset_world` so
-## coverage does not pay `generate_world` on every new-game / load path. Pure
-## charge / key-catalogue cases never touch the shell, so they skip a Main boot
-## under coverage (docs/testing.md § Speed rules).
+## coverage does not pay `generate_world` on every new-game / load path. Pause /
+## keys chrome rides one MapScreen (`chart`) and re-seats with `suite_reset`
+## instead of walking title → setup → capital → charge each time. Pure charge /
+## key-catalogue cases never touch the shell or chart (docs/testing.md § Speed
+## rules). The shared Main shell resets to the title between flow cases.
 
 const Fixture = preload("res://tests/map_fixture.gd")
+const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const DIR: String = "user://test_menu_flow"
 
 const FLOW_SEED: int = 777
 const FLOW_SIZE: Vector2i = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
+## France: same crown `_start_game` picks on the setup screen.
+const FLOW_FACTION: int = 2
 
-## Backing store for the lazy shell; cases reach it through `main`.
-var _main: Node = null
 ## Non-underscore: gd-tools copies these from `before_all` onto each test instance.
 var flow_world: WorldMap = null
 var flow_snapshot: Array = []
+var shell: Node = null
+var chart_mounted: MapScreen = null
+var chart_pristine: Dictionary = {}
+## Set when this case has paid for a chart re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
 	flow_world = MapGenerator.new().generate_world(FLOW_SEED, FLOW_SIZE.x, FLOW_SIZE.y)
 	flow_snapshot = Fixture.snapshot(flow_world)
+	chart_mounted = _mount_chart()
+	chart_pristine = Fixture.suite_capture(chart_mounted)
+	shell = _new_shell()
+	add_child(shell)
 
 
 func before_each() -> void:
 	_clean_dir()
 	Fixture.restore(flow_world, flow_snapshot)
+	_chart_bound = false
+	_reset_shell_to_title()
+
+
+func after_all() -> void:
+	if is_instance_valid(chart_mounted):
+		chart_mounted.free()
+	chart_mounted = null
+	chart_pristine = {}
+	if is_instance_valid(shell):
+		shell.free()
+	shell = null
 
 
 ## Flow cases ask for the shell; charge / key-catalogue cases that never ask
 ## never pay a `Main` instantiate under coverage.
 func _ensure_shell() -> Node:
-	if is_instance_valid(_main):
-		return _main
-	_main = MAIN.instantiate()
-	_main.auto_start = false
-	_main.size_override = FLOW_SIZE
-	_main.preset_world = flow_world
-	add_child(_main)
-	return _main
+	if is_instance_valid(shell):
+		return shell
+	shell = _new_shell()
+	add_child(shell)
+	return shell
+
+
+func _new_shell() -> Node:
+	var app: Node = MAIN.instantiate()
+	app.auto_start = false
+	app.size_override = FLOW_SIZE
+	app.preset_world = flow_world
+	return app
+
+
+## Title is the shared shell's resting place: a prior flow case may have left a
+## chart or setup page mounted, so the next case that asks for `main` starts there.
+func _reset_shell_to_title() -> void:
+	if not is_instance_valid(shell):
+		return
+	get_tree().paused = false
+	shell.preset_world = flow_world
+	if shell.current_screen != null or not (shell.current_page is MainMenu):
+		shell._show_main_menu()
 
 
 var main: Node:
@@ -49,12 +89,42 @@ var main: Node:
 		return _ensure_shell()
 
 
+## Pause / keys cases reach the chart through `chart` / `_attach_chart()`; pure
+## charge cases that never ask never pay `suite_reset`.
+func _mount_chart() -> MapScreen:
+	var screen: MapScreen = MAP_SCREEN.instantiate()
+	screen.map_width = FLOW_SIZE.x
+	screen.map_height = FLOW_SIZE.y
+	screen.map_seed = FLOW_SEED
+	screen.player_faction = FLOW_FACTION
+	screen.preset_world = flow_world
+	screen.save_dir = DIR
+	add_child(screen)
+	return screen
+
+
+func _attach_chart() -> MapScreen:
+	if _chart_bound and is_instance_valid(chart_mounted):
+		return chart_mounted
+	Fixture.restore(flow_world, flow_snapshot)
+	Fixture.suite_reset(chart_mounted, chart_pristine, flow_world)
+	chart_mounted.save_dir = DIR
+	if chart_mounted.game_menu != null and chart_mounted.game_menu.is_open():
+		chart_mounted.game_menu.close()
+	get_tree().paused = false
+	_chart_bound = true
+	return chart_mounted
+
+
+var chart: MapScreen:
+	get:
+		return _attach_chart()
+
+
 func after_each() -> void:
 	get_tree().paused = false
 	DialogueLocale.set_locale(DialogueLocale.SOURCE_LOCALE)
-	if is_instance_valid(_main):
-		_main.free()
-	_main = null
+	# Keep the shared shell; only observer / auto-start cases drop it.
 	# The intro cases mount their own charge page; the flow cases do not.
 	if is_instance_valid(page):
 		page.free()
@@ -289,12 +359,10 @@ func test_a_chosen_seat_reaches_the_campaign() -> void:
 
 
 ## Pause menu shows the live map seed; COPY confirms (clipboard is unsupported
-## under the headless display server used by gd-tools).
+## under the headless display server used by gd-tools). Pause chrome rides the
+## suite chart — no Main new-game walk under coverage.
 func test_pause_menu_shows_and_copies_map_seed() -> void:
-	await _start_game()
-	var screen: MapScreen = main.current_screen
-	if screen == null:
-		return
+	var screen: MapScreen = chart
 	screen.game_menu.open()
 	assert_eq(
 		screen.game_menu.seed_label.text, str(FLOW_SEED), "pause menu shows the live seed"
@@ -309,10 +377,7 @@ func test_pause_menu_shows_and_copies_map_seed() -> void:
 ## publishes, in the words the new-game chooser printed (REQ-P5-01, REQ-P5-05;
 ## wiki: leader-bonuses § Acceptance criteria — UI).
 func test_pause_menu_names_the_crown_and_its_leader_s_effect() -> void:
-	await _start_game()
-	var screen: MapScreen = main.current_screen
-	if screen == null:
-		return
+	var screen: MapScreen = chart
 	screen.game_menu.open()
 	var key: String = String(screen.play.leaders.get(screen.play.player_faction, ""))
 	assert_false(key.is_empty(), "the run binds the crown a leader")
@@ -331,10 +396,7 @@ func test_pause_menu_names_the_crown_and_its_leader_s_effect() -> void:
 ## Back from the save browser returns to the pause rows; back again closes
 ## (REQ-P5-07). Covers the browser-visible branch of handle_back.
 func test_back_from_the_save_browser_returns_to_pause() -> void:
-	await _start_game()
-	var screen: MapScreen = main.current_screen
-	if screen == null:
-		return
+	var screen: MapScreen = chart
 	screen.game_menu.open()
 	screen.game_menu.open_save()
 	assert_true(screen.game_menu.browser.visible, "save browser opens")
@@ -352,10 +414,7 @@ func test_back_from_the_save_browser_returns_to_pause() -> void:
 ## every action the map registers is named, each row prints the key the InputMap
 ## actually holds, and back returns to the pause rows.
 func test_the_pause_page_reads_the_charts_keys() -> void:
-	await _start_game()
-	var screen: MapScreen = main.current_screen
-	if screen == null:
-		return
+	var screen: MapScreen = chart
 	InputActions.ensure_actions()
 	screen.game_menu.open()
 	screen.game_menu.keys_button.emit_signal("pressed")
@@ -653,9 +712,9 @@ func _row_for(rows: Array[Control], label: String) -> Control:
 
 
 func _drop_flow_shell() -> void:
-	if is_instance_valid(_main):
-		_main.free()
-	_main = null
+	if is_instance_valid(shell):
+		shell.free()
+	shell = null
 
 
 ## The shell `before_each` mounted is the title screen: read it in place instead
