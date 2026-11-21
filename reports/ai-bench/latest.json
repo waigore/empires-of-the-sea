@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:981d75f99034b2526e7273ba1a12c5da62d016c6c176fac71daeb1225b822e29",
-  "submission_git": "orc/implement-then-hunt-1-s2-implement-then-hunt-hunt-defects-agent/20261121T194156690795Z@f34cbd78",
+  "submission_hash": "sha256:644bfcf132f3da6dce01010d8cdfc7d813309a993cac78d850fd01a0e72c9fdc",
+  "submission_git": "orc/implement-then-hunt-1-s2-implement-then-hunt-hunt-defects-agent/20261121T194156690795Z@29fb32ab",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:d10371cf7c30b98803cee1993e0caf1c9dc9a66e0d173fe9fbc683a701ab65d1",
+    "ai_surface_hash": "sha256:f4edfc441f97c1b5b489eaf8f8d480050b5f6bdb18d05904421dd9430c320d64",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 16,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-21T20:38:18Z",
+  "timestamp": "2026-11-21T21:05:49Z",
   "report_version": 1,
-  "signature": "hmac-sha256:cfe0c4985afa8e32c0e10da8e68e1ca61fa4873a282f4ac44ee4b55a30996f8d"
+  "signature": "hmac-sha256:24dc3a55864ea935f859498d7a0af3de46787fdfa6621ede567d1275c0d6f8ad"
 }
