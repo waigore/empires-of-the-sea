@@ -160,8 +160,11 @@ static func _rotation_order(
 ## The first leg of the walk home for a field army that stands on ground it does
 ## not hold: the province beside it that shortens the road to the seat, over
 ## ground the army may enter at peace — its own land and unclaimed wilderness.
-## Empty when the army stands on its own ground, the court reads no seat, or no
-## step shortens the road (a host walled in by foreign land).
+## Own land is the seat's own distance and always wins: stepping onto it opens
+## the interior lines, so a wilderness step that merely reads nearer on the
+## wilderness road never draws the host away from its own border. Empty when the
+## army stands on its own ground, the court reads no seat, or no step shortens the
+## road (a host walled in by foreign land).
 static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
 	if model == null or army == null or ArmyMovement.on_own_ground(model, army):
 		return {}
@@ -178,16 +181,19 @@ static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
 		var distance: int = int(road.get(province, UNREACHABLE))
 		if distance >= UNREACHABLE:
 			continue
-		# Nearest first, the lower id on a tie, so the same state always walks
-		# the same way. Own land is the seat's own distance 0 and always wins;
-		# a wilderness step is only named while the road is still a walk.
+		# Own land is the seat's own distance 0, because landing on it opens the
+		# interior lines, so it always wins; a wilderness step keeps its distance
+		# over the walk. Nearest first, the lower id on a tie, so the same state
+		# always walks the same way (wiki: military-armies § Movement and
+		# attacks; DR-20261121-15).
+		var rank: int = 0 if holder == army.owner else distance
 		if not best.is_empty():
-			if distance > best_distance:
+			if rank > best_distance:
 				continue
-			if distance == best_distance and province > int(best["province"]):
+			if rank == best_distance and province > int(best["province"]):
 				continue
 		best = {"province": province, "kind": KIND_WALK_HOME, "score": 0}
-		best_distance = distance
+		best_distance = rank
 	return best
 
 

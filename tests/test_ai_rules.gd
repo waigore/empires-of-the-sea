@@ -835,6 +835,33 @@ func test_ai_military_walks_the_lower_step_on_a_tie() -> void:
 	assert_eq(int(walked[0]["province"]), 1, "the lower id of the two equal steps")
 
 
+## A step onto the court's own land is the road home itself, so it wins over a
+## wilderness step that merely reads nearer on the seat's own distances: own land
+## is the seat's own distance and always wins, the lower id only breaking a tie
+## between steps of the same standing (wiki: military-armies § Movement and
+## attacks; DR-20261121-15).
+func test_ai_military_walks_onto_its_own_land_over_a_nearer_wilderness_step() -> void:
+	# P0 the seat; P1–P3 the crown's own road, three marches out. P4 and P6 are
+	# wilderness that reaches back to the seat in one and two marches; P5 is the
+	# host, in the wilderness beside both the crown's border (P3) and that nearer
+	# wilderness (P6). The road home is P3 — own land is the seat's own distance —
+	# even though P6 reads nearer on the wilderness distances.
+	var model: MapModel = _walk_chart(
+		[[0, 1, 2, 3], [4, 6, 6, 5]], {0: 2, 1: 2, 2: 2, 3: 2}, {0: true}
+	)
+	var host: ArmyState = ArmyState.muster(
+		3, 2, 5, false, ["pikemen", "bowmen"] as Array[String], 201
+	)
+
+	var order: Dictionary = AiMilitaryPlanner._walk_home_order(model, host)
+
+	assert_eq(
+		int(order.get("province", -1)),
+		3,
+		"its own ground beside it, the road home — not the nearer wilderness"
+	)
+
+
 ## The walk's own guards: no chart, no army, or a court the map gives no seat
 ## names no step at all (DR-20261121-15).
 func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
