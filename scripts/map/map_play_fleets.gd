@@ -76,18 +76,26 @@ static func show_dossier(play: PlaySession, fleet: FleetState) -> void:
 			MapPlayNavalTurn.strength_multipliers(play), play.leaders,
 			MapPlayFleetIntel.intel_filter(play)
 		)
-	play.hud.panels.show_fleet(
-		play.model, fleet, fleet.owner == play.player_faction, passage_note(play, fleet),
-		MapPlayFleetYard.rows(play, fleet), -1, landing_rows(play, fleet),
-		carried(play, fleet),
-		MapPlayFleetMissions.rows(play, fleet), MapPlayFleetMissions.note(play, fleet),
-		MapPlayCivilianVoyage.crew(play, fleet),
-		strength,
-		MapPlayHomeMerge.row(play, fleet),
-		MapPlayFleetMissions.hint(play, fleet),
-		play.ship_layer.fleets,
-		MapPlayFleetPick.line(play, fleet)
-	)
+	var opening := FleetDossierOpening.new()
+	opening.fleet = fleet
+	opening.is_player = fleet.owner == play.player_faction
+	opening.passage = passage_note(play, fleet)
+	opening.yard_rows = MapPlayFleetYard.rows(play, fleet)
+	opening.land_rows = landing_rows(play, fleet)
+	opening.carried = carried(play, fleet)
+	opening.beach_rows = MapPlayFleetMissions.rows(play, fleet)
+	opening.beach_note = MapPlayFleetMissions.note(play, fleet)
+	opening.crew = MapPlayCivilianVoyage.crew(play, fleet)
+	opening.strength = strength
+	opening.merge = MapPlayHomeMerge.row(play, fleet)
+	opening.beach_hint = MapPlayFleetMissions.hint(play, fleet)
+	opening.roster = play.ship_layer.fleets
+	opening.pick = MapPlayFleetPick.line(play, fleet)
+	# The yard's own claim: the hull this court means to lay, printed in the
+	# slip the crown launches from (DR-20261121-02). A rival answers to her own
+	# court, and the block draws no rows for her anyway.
+	opening.yard_pick = MapPlayYardPick.line(play) if fleet.owner == play.player_faction else ""
+	play.hud.panels.show_fleet(play.model, opening)
 
 
 ## Owned coastal provinces the carried army could land on (wiki: ships-and-naval

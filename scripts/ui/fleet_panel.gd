@@ -151,28 +151,18 @@ func set_yard_open(open: bool) -> void:
 		_yard.set_open(open)
 
 
-func refresh(
-	model: MapModel,
-	fleet: FleetState,
-	is_player: bool,
-	passage: String = "",
-	yard_rows: Array[Dictionary] = [],
-	land_rows: Array[Dictionary] = [],
-	carried: int = 0,
-	beach_rows: Array[Dictionary] = [],
-	beach_note: String = "",
-	crew: Dictionary = {},
-	strength: Dictionary = {},
-	merge: Dictionary = {},
-	beach_hint: String = "",
-	roster: Array[FleetState] = [],
-	pick: String = ""
-) -> void:
-	if model == null or fleet == null:
+## Repaints the selected squadron from one named opening (REQ-P3-02).
+func refresh(model: MapModel, opening: FleetDossierOpening) -> void:
+	if model == null or opening.fleet == null:
 		return
+	var fleet: FleetState = opening.fleet
+	var is_player: bool = opening.is_player
+	var strength: Dictionary = opening.strength
+	var merge: Dictionary = opening.merge
+	var carried: int = opening.carried
 	_fleet = fleet
 	_is_player = is_player
-	_land_rows = land_rows
+	_land_rows = opening.land_rows
 	_header.flag.color = Palette.faction_color(fleet.owner)
 	_header.title.text = "FLEET OF %s" % FactionCatalog.name_of(fleet.owner).to_upper()
 	if fleet.is_at_sea():
@@ -187,16 +177,19 @@ func refresh(
 	_fill_merge(merge)
 	if carried > 0:
 		_ships.text += " · carrying %d regiment%s" % [carried, "" if carried == 1 else "s"]
-	var colonists: int = int(crew.get("count", 0))
+	var colonists: int = int(opening.crew.get("count", 0))
 	if colonists > 0:
 		_ships.text += " · %d colonist%s" % [colonists, "" if colonists == 1 else "s"]
 	_fill_land()
-	_mission.set_data(beach_note, beach_rows, pick)
-	_crew.set_data(crew)
-	_set_standing(fleet, is_player, passage, beach_note, beach_hint, merge, carried, colonists)
+	_mission.set_data(opening.beach_note, opening.beach_rows, opening.pick)
+	_crew.set_data(opening.crew)
+	_set_standing(
+		fleet, is_player, opening.passage, opening.beach_note, opening.beach_hint,
+		merge, carried, colonists
+	)
 	_show_split(model, fleet, is_player)
-	_show_combine(model, roster, fleet, is_player)
-	_show_yard(yard_rows, merge)
+	_show_combine(model, opening.roster, fleet, is_player)
+	_show_yard(opening.yard_rows, merge, opening.yard_pick)
 	_fit_to_viewport()
 
 
@@ -258,11 +251,12 @@ func _set_standing(
 
 
 ## The yard drawer takes the launch rows; a join on offer hides its toggle.
-## A refresh keeps the drawer as the player left it, never re-opening it.
-func _show_yard(yard_rows: Array[Dictionary], merge: Dictionary) -> void:
+## A refresh keeps the drawer as the player left it, never re-opening it. `pick`
+## is the hull the court's own yard means to lay (DR-20261121-02).
+func _show_yard(yard_rows: Array[Dictionary], merge: Dictionary, pick: String = "") -> void:
 	if _yard == null:
 		return
-	_yard.show_rows(_fleet, yard_rows, _is_player, _yard.is_open())
+	_yard.show_rows(_fleet, yard_rows, _is_player, _yard.is_open(), pick)
 	_yard.set_offer_join(bool(merge.get("ok", false)))
 
 
@@ -285,9 +279,11 @@ func _show_combine(
 
 
 ## The crown's capital yard with no squadron afloat: the first launch founds the
-## home fleet, so the dossier still has to list what can be built.
+## home fleet, so the dossier still has to list what can be built. `pick` is the
+## hull the court's own yard means to lay (DR-20261121-02).
 func refresh_slip(
-	model: MapModel, province_id: int, rows: Array[Dictionary], is_player: bool
+	model: MapModel, province_id: int, rows: Array[Dictionary], is_player: bool,
+	pick: String = ""
 ) -> void:
 	if model == null:
 		return
@@ -319,7 +315,7 @@ func refresh_slip(
 	if _combine != null:
 		_combine.show_rows(model, [] as Array[FleetState], null, false, false)
 	if _yard != null:
-		_yard.show_slip(rows, is_player)
+		_yard.show_slip(rows, is_player, pick)
 	_fit_to_viewport()
 
 

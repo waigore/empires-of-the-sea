@@ -580,7 +580,7 @@ func test_roster_rows_carry_a_service_record_once_blooded() -> void:
 	army.regiment_engagements["unit_301"] = 3
 	army.regiment_wins["unit_301"] = 2
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var entry: VBoxContainer = panel._roster.get_child(0)
 	var record: Label = entry.get_child(entry.get_child_count() - 1)
@@ -601,7 +601,7 @@ func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 	army.regiment_health["unit_301"] = int(army.condition_of("unit_301")["max"]) / 2
 	RegimentDecorations.note([army] as Array[ArmyState], 1, true)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var cited: VBoxContainer = panel._roster.get_child(0)
 	var despatch: Label = cited.get_child(cited.get_child_count() - 1)
@@ -619,7 +619,9 @@ func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 
 	var green_panel := ArmyPanel.new()
 	add_child(green_panel)
-	green_panel.refresh(model, ArmyFixture.army(4, 0, 1, ["guards"], false), true)
+	green_panel.refresh(
+		model, ArmyDossierOpening.of(ArmyFixture.army(4, 0, 1, ["guards"], false), true)
+	)
 	var green: VBoxContainer = green_panel._roster.get_child(0)
 	for child: Node in green.get_children():
 		if child is Label:
@@ -950,7 +952,7 @@ func test_roster_rows_carry_regiment_detail() -> void:
 	var model := ArmyFixture.build()
 	var army := ArmyFixture.army(3, 0, 1, ["guards", "pikemen"], false)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var roster: VBoxContainer = panel._roster
 	assert_eq(roster.get_child_count(), 2, "one row per regiment")
@@ -1085,7 +1087,7 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	var model := ArmyFixture.build()
 	var army := ArmyFixture.army(4, 1, 2, ["knights"], false)
 
-	panel.refresh(model, army, false)
+	panel.refresh(model, ArmyDossierOpening.of(army, false))
 
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_eq(
@@ -1112,7 +1114,7 @@ func test_roster_names_the_hospital_rest_tempo() -> void:
 	model.province_data(1).hospital_level = 1
 	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
 	panel.free()
@@ -1130,7 +1132,7 @@ func test_a_fed_ward_is_named_beside_the_tents() -> void:
 	var army := ArmyFixture.army(7, 0, 1, ["guards"], false)
 	army.field_hospital = true
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var line: String = String(panel._strength.text)
 	assert_true(line.contains("field hospital · rest 40%"), line)
@@ -1146,7 +1148,7 @@ func test_a_fed_ward_is_named_beside_the_tents() -> void:
 
 	model.province_data(1).hospital_staffed = false
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	line = String(panel._strength.text)
 	assert_true(line.contains("field hospital · rest 40%"), line)
@@ -1185,7 +1187,7 @@ func test_roster_shows_chevrons_and_wounds() -> void:
 	army.regiment_medals[regiment] = 2
 	army.regiment_health[regiment] = 60
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_eq(row.get_child_count(), 3, "name row, detail, condition")
@@ -1210,7 +1212,7 @@ func test_an_embarked_dossier_offers_no_detach_order() -> void:
 	var fleet := FleetState.in_port(1, 0, 0, ["ship_1", "ship_2"])
 	assert_true(bool(NavalTransport.embark(model, army, fleet)["ok"]))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_eq(
@@ -1231,11 +1233,15 @@ func test_the_dossier_names_the_crowns_plan() -> void:
 	var model := ArmyFixture.build()
 	var army := ArmyFixture.army(8, 0, 1, ["guards"], false)
 
-	panel.refresh(model, army, true, false, "", [], "", "aggressive")
+	var aggressive := ArmyDossierOpening.of(army, true)
+	aggressive.plan = "aggressive"
+	panel.refresh(model, aggressive)
 
 	assert_eq(String(panel._plan.text), "Crown battle plan: Aggressive")
 	assert_true(String(panel._plan.tooltip_text).contains("crown"))
-	panel.refresh(model, army, true, false, "", [], "", "hammer")
+	var hammer := ArmyDossierOpening.of(army, true)
+	hammer.plan = "hammer"
+	panel.refresh(model, hammer)
 	assert_eq(String(panel._plan.text), "Crown battle plan: Balanced", "an unknown stance reads balanced")
 	panel.free()
 
@@ -1289,7 +1295,9 @@ func test_drill_yard_rows_carry_their_medallion() -> void:
 		{"type_id": "grenadiers", "name": "Grenadiers", "ok": true, "cost_text": "13,000 cash", "reason": ""},
 	]
 
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening := ArmyDossierOpening.of(army, true)
+	muster_opening.muster = muster
+	panel.refresh(model, muster_opening)
 
 	var top: HBoxContainer = panel._muster_box.get_child(0).get_child(0)
 	assert_true(top.get_child(0) is UnitMedallion, "the plate leads the drill-yard row")
@@ -1383,7 +1391,7 @@ func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
 			asked.append("%s=%s" % [regiment_id, wanted])
 	)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var row: HBoxContainer = (panel._roster.get_child(0) as VBoxContainer).get_child(0) as HBoxContainer
 	assert_eq(row.get_child_count(), 4, "medallion, name, detach, the name order")
@@ -1407,7 +1415,7 @@ func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
 	var rival := ArmyFixture.army(4, 1, 2, ["knights"], false)
 	var enemy_panel := ArmyPanel.new()
 	add_child(enemy_panel)
-	enemy_panel.refresh(model, rival, false)
+	enemy_panel.refresh(model, ArmyDossierOpening.of(rival, false))
 	var enemy_row: HBoxContainer = (
 		enemy_panel._roster.get_child(0) as VBoxContainer
 	).get_child(0) as HBoxContainer
@@ -1426,7 +1434,7 @@ func test_the_roster_arms_a_dismissal_before_filing_it() -> void:
 	var filed: Array = []
 	panel.action_pressed.connect(func(action: String) -> void: filed.append(action))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var entry: VBoxContainer = panel._roster.get_child(0)
 	var press: Button = (entry.get_child(1) as HBoxContainer).get_child(1) as Button
@@ -1453,7 +1461,7 @@ func test_the_dossier_offers_dismiss_all_once() -> void:
 	var filed: Array = []
 	panel.action_pressed.connect(func(action: String) -> void: filed.append(action))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var press: Button = panel._dismiss_all
 	assert_true(press.visible, "the crown may shed its own standard")
@@ -1788,10 +1796,239 @@ func test_the_dossier_prints_the_courts_pick() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
 
-	panel.refresh(model, army, true, false, "", [], "", "balanced", {}, "The court would march on Province 4 to storm it.")
+	var pick := ArmyDossierOpening.of(army, true)
+	pick.pick = "The court would march on Province 4 to storm it."
+	panel.refresh(model, pick)
 	assert_true(panel._pick.visible, "the line stands")
 	assert_eq(panel._pick.text, "The court would march on Province 4 to storm it.")
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 	assert_false(panel._pick.visible, "no pick, no line")
 	panel.free()
+
+
+# --- the drill yard's own pick (DR-20261121-03) -------------------------------
+
+
+## A pure session with a ledger, so the muster policy has a purse to read: the
+## crown's court, at war or at peace, on the army fixture's chart.
+func _yard_play(at_war: bool) -> PlaySession:
+	var play: PlaySession = _pick_play(at_war)
+	var controller := EconomyController.new()
+	controller.economy = PlayerEconomy.starting()
+	play.economy = controller
+	return play
+
+
+## Under its target with a full purse the yard names the line the published muster
+## would raise — its own name and the price its row prints — and raises nothing.
+func test_the_drill_yard_names_the_line_the_court_would_muster() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_MUSTER, "a regiment is due")
+	var type_id: String = String(pick.get("type", ""))
+	assert_false(type_id.is_empty(), "the yard names its line")
+	assert_eq(int(pick.get("own", -1)), 2, "the line it holds")
+	assert_true(int(pick.get("target", 0)) > 2, "and the line it arms for")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would muster %s — %s" % [
+			RegimentCatalog.display_name(type_id), RegimentEconomy.cost_text(type_id)
+		],
+		"the line, priced as its own row prints it"
+	)
+	assert_true(
+		MapPlayMusterPick.line(play, home).begins_with("The court would muster "),
+		"one sentence"
+	)
+	assert_eq(home.count(), 2, "a reading: the seat still holds its two")
+	assert_eq(play.economy.economy.treasury, 20000, "and the purse is unspent")
+	play.economy.free()
+	play.army_layer.free()
+
+
+## At its target strength the yard names the line it holds against the line it
+## arms for, and no regiment is advised.
+func test_the_drill_yard_reads_the_target_it_stands_at() -> void:
+	var play: PlaySession = _yard_play(false)
+	var types: Array[String] = []
+	for _index in 6:
+		types.append("guards")
+	var home := ArmyFixture.army(1, 0, 0, types, true)
+	_pick_roster(play, [home] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_TARGET, "the target, not a muster")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court stands at its muster target — 5 of 5 regiments",
+		"the line it holds, clamped to the line it arms for"
+	)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## An empty purse names the pattern the yard means to raise and the purse it is
+## filling, so the shortfall is a figure and never a silence (REQ-P5-05).
+func test_the_drill_yard_names_the_purse_it_is_saving() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	play.economy.economy.treasury = 0
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_SAVING, "saving, not mustering")
+	assert_eq(String(pick.get("why", "")), MapPlayMusterPick.WHY_PURSE)
+	var type_id: String = String(pick.get("type", ""))
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court is saving for %s — the purse holds 0 ducats of %s" % [
+			RegimentCatalog.display_name(type_id),
+			MoneyText.ducats(RegimentCatalog.treasury_cost(type_id))
+		]
+	)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## A full purse and empty stores name the materials the muster row would refuse
+## it for, in the catalogue's own commodity names.
+func test_the_drill_yard_names_the_stores_it_lacks() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	var economy: PlayerEconomy = play.economy.economy
+	economy.take("fabric", economy.quantity("fabric"))
+	economy.take("castIron", economy.quantity("castIron"))
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_SAVING)
+	assert_eq(String(pick.get("why", "")), MapPlayMusterPick.WHY_STORES)
+	var line: String = String(pick.get("line", ""))
+	assert_true(line.contains("it lacks "), "the row it is short of: " + line)
+	assert_true(line.contains("1 Fabric"), "the cloth the muster row takes: " + line)
+	assert_true(line.contains("2 Cast Iron"), "and the iron: " + line)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## No spare hand and no regiment due: the planner's own labour gate is worded on
+## the yard, so a court that can arm nobody is told why.
+func test_the_drill_yard_names_the_hand_it_cannot_spare() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	play.economy.economy.workers.counts = [0, 0, 0, 0]
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_GATE, "a gate, not a muster")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would muster nothing — its fields cannot spare another hand"
+	)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## The yard is the Home Army's own, and a crown's: a rival's seat, a field army,
+## a session that runs no planner and one with no ledger all carry no advice.
+func test_the_drill_yard_reads_no_line_it_cannot_muster() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards"])
+	var rival := ArmyFixture.army(3, 1, 4, ["guards"], true)
+	_pick_roster(play, [home, field, rival] as Array[ArmyState])
+
+	assert_false(MapPlayMusterPick.pick(play, home).is_empty(), "the crown's yard answers")
+	assert_true(MapPlayMusterPick.pick(play, field).is_empty(), "a field army musters nowhere")
+	assert_true(MapPlayMusterPick.pick(play, rival).is_empty(), "a rival answers to her own court")
+	assert_true(MapPlayMusterPick.pick(null, home).is_empty(), "no session, no pick")
+	assert_true(MapPlayMusterPick.pick(play, null).is_empty(), "no army, no pick")
+	var config: Variant = AiBind.config(AiControl.FULL, 0, 1500, play.ensure_ai().profiles)
+	assert_true(
+		MapPlayMusterPick.counsel(play, 0, config, AiControl.KIND_SUBJECT, null).is_empty(),
+		"no ledger, no counsel"
+	)
+	assert_true(
+		MapPlayArmyMusterAi.plan(play, 0, config, AiControl.KIND_SUBJECT, null).is_empty(),
+		"and no plan to read"
+	)
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayMusterPick.pick(play, home).is_empty(), "no planner, no advice")
+	play.ai_mode = AiControl.FULL
+	play.economy.economy = null
+	assert_true(MapPlayMusterPick.pick(play, home).is_empty(), "no ledger, no advice")
+	play.economy.free()
+	play.army_layer.free()
+
+
+## The yard prints the pick above its rows while there is one, and keeps its
+## published shape when the court would raise nothing (REQ-P5-06).
+func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var rows: Array[Dictionary] = ArmyTraining.rows(economy)
+	var block := ArmyMusterBlock.new()
+	add_child(block)
+
+	block.fill(rows, "The court would muster Guards — 2,000 ducats · 1 Fabric")
+	assert_eq(block.pick_line(), "The court would muster Guards — 2,000 ducats · 1 Fabric")
+	assert_eq(block.get_child(0), block._pick, "the pick stands above the rows")
+
+	block.fill(rows, "")
+	assert_eq(block.pick_line(), "", "no pick, no line")
+	assert_ne(block.get_child(0), block._pick, "and the yard keeps its published top")
+
+	assert_eq(economy.treasury, 20000, "a reading: the yard spends nothing")
+	block.free()
+
+
+## Every wording the drill yard can print, and nothing for a case that names no
+## gate (REQ-P5-06).
+func test_the_muster_words_name_a_line_or_say_nothing() -> void:
+	assert_eq(MapPlayMusterPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(
+		MapPlayMusterPickWords.sentence("the court would muster Guards"),
+		"The court would muster Guards.",
+		"one capital and a full stop"
+	)
+	assert_eq(MapPlayMusterPickWords.target_line(0, 0), "", "no target, no line")
+	assert_eq(
+		MapPlayMusterPickWords.target_line(9, 5),
+		"the court stands at its muster target — 5 of 5 regiments",
+		"a line past its target reads at its target"
+	)
+	assert_eq(MapPlayMusterPickWords.stores_line("guards", {}), "", "nothing missing, no line")
+	assert_eq(MapPlayMusterPickWords.gate_line(""), "", "no gate, no line")
+	for reason: String in [
+		AiArmyReinforce.REASON_LABOUR,
+		AiArmyReinforce.REASON_STARVING,
+		AiArmyReinforce.REASON_HARVEST,
+		AiArmyReinforce.REASON_HULL,
+	]:
+		assert_true(
+			MapPlayMusterPickWords.gate_line(reason).begins_with("the court would muster nothing"),
+			"every gate is worded: " + reason
+		)
+	assert_eq(
+		MapPlayMusterPickWords.muster_line("peasant_levies"),
+		"the court would muster Peasant Levies — %s" % (
+			RegimentEconomy.cost_text("peasant_levies")
+		),
+		"the catalogue's name and the row's own price"
+	)
+	assert_eq(
+		MapPlayMusterPickWords.purse_line("peasant_levies", 2000, 350),
+		"the court is saving for Peasant Levies — the purse holds 350 ducats of 2,000 ducats"
+	)
+	assert_eq(
+		MapPlayMusterPickWords.stores_line("peasant_levies", {"fabric": 2}),
+		"the court is saving for Peasant Levies — it lacks 2 Fabric"
+	)

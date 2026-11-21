@@ -106,6 +106,13 @@ static func step_navy(run) -> void:
 	)
 	run.check(bool(moored.get("ok", false)), "the home squadron moors again")
 	run.check(fleet.is_in_port() and fleet.province == capital, "the home fleet keeps the seat")
+	# The slip carries the court's own claim under its launch rows: the hull the
+	# navy claim would lay, or nothing while it claims none (DR-20261121-02).
+	MapPlayFleetYard.open(screen.play)
+	run.check(
+		screen.hud._fleet_panel._yard.pick_line() == MapPlayYardPick.line(screen.play),
+		"the slip prints the claim the court's own reading returns"
+	)
 
 
 ## Army training is live: the recruit order musters a regiment into the Home

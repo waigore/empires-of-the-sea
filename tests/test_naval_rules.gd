@@ -383,13 +383,13 @@ func test_a_scrap_asks_once_then_emits() -> void:
 
 	block.on_scrap_pressed("ship_1")
 
-	assert_eq(block._armed_hull, "ship_1", "the first tap arms")
+	assert_eq(block._arm.key(), "ship_1", "the first tap arms")
 	assert_eq(emitted, [] as Array[String], "arming sends nothing")
 
 	block.on_scrap_pressed("ship_1")
 
 	assert_eq(emitted, ["yard:scrap:ship_1"])
-	assert_eq(block._armed_hull, "", "a confirmed scrap clears the arm")
+	assert_eq(block._arm.key(), "", "a confirmed scrap clears the arm")
 	block.free()
 
 # --- test_fleet_names ---
@@ -570,7 +570,7 @@ func test_the_dossier_counts_one_hull_in_the_singular() -> void:
 	add_child(panel)
 	var fleet := FleetState.in_port(3, 1, 0, ["ship_1"], {})
 
-	panel.refresh(fleet_names_NavalFixture.build(), fleet, true)
+	panel.refresh(fleet_names_NavalFixture.build(), FleetDossierOpening.of(fleet, true))
 
 	var line: String = ""
 	for node: Node in panel.find_children("*", "Label", true, false):
@@ -579,7 +579,10 @@ func test_the_dossier_counts_one_hull_in_the_singular() -> void:
 			line = text
 	assert_true(line.begins_with("1 ship · "), "the dossier reads '%s'" % line)
 
-	panel.refresh(fleet_names_NavalFixture.build(), fleet, true, "", [], [], 1, [], "", {"count": 1})
+	var carried := FleetDossierOpening.of(fleet, true)
+	carried.carried = 1
+	carried.crew = {"count": 1}
+	panel.refresh(fleet_names_NavalFixture.build(), carried)
 	for node: Node in panel.find_children("*", "Label", true, false):
 		var text: String = (node as Label).text
 		if text.contains("carrying"):
@@ -605,7 +608,9 @@ func test_the_dossier_and_the_break_up_name_the_hull() -> void:
 		},
 	]
 
-	panel.refresh(fleet_names_NavalFixture.build(), fleet, true, "", rows)
+	var yarded := FleetDossierOpening.of(fleet, true)
+	yarded.yard_rows = rows
+	panel.refresh(fleet_names_NavalFixture.build(), yarded)
 	panel.set_yard_open(true)
 
 	var printed: bool = false

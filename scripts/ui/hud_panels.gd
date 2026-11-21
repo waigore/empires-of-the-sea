@@ -84,34 +84,17 @@ func is_panel_open() -> bool:
 	return province.open
 
 
-func show_fleet(
-	model: MapModel,
-	fleet: FleetState,
-	is_player: bool,
-	passage: String = "",
-	yard_rows: Array[Dictionary] = [],
-	slip: int = -1,
-	land_rows: Array[Dictionary] = [],
-	carried: int = 0,
-	beach_rows: Array[Dictionary] = [],
-	beach_note: String = "",
-	crew: Dictionary = {},
-	strength: Dictionary = {},
-	merge: Dictionary = {},
-	beach_hint: String = "",
-	roster: Array[FleetState] = [],
-	pick: String = ""
-) -> void:
+func show_fleet(model: MapModel, opening: FleetDossierOpening) -> void:
 	close_sheets(self.fleet)
 	# A null fleet with a slip province is the capital yard before any squadron
 	# is afloat: the first launch founds the home fleet.
-	if fleet == null and slip >= 0:
-		fleet_panel.refresh_slip(model, slip, yard_rows, is_player)
-	else:
-		fleet_panel.refresh(
-			model, fleet, is_player, passage, yard_rows, land_rows, carried,
-			beach_rows, beach_note, crew, strength, merge, beach_hint, roster, pick
+	if opening.fleet == null and opening.slip >= 0:
+		fleet_panel.refresh_slip(
+			model, opening.slip, opening.yard_rows, opening.is_player,
+			opening.yard_pick
 		)
+	else:
+		fleet_panel.refresh(model, opening)
 	self.fleet.reveal(host, dock)
 
 
@@ -123,23 +106,9 @@ func is_fleet_panel_open() -> bool:
 	return fleet.open
 
 
-func show_civilian(
-	model: MapModel,
-	unit: CivilianState,
-	works: LandWorks,
-	units: Array[CivilianState],
-	stockpile: Dictionary,
-	visibility: VisibilityModel = null,
-	tech_caps: Dictionary = {},
-	tech_unlocked: Dictionary = {},
-	context: Dictionary = {},
-	viewer: int = FactionCatalog.PLAYER_FACTION
-) -> void:
+func show_civilian(model: MapModel, opening: CivilianDossierOpening) -> void:
 	close_sheets(civilian)
-	civilian_panel.refresh(
-		model, unit, works, units, stockpile, visibility, tech_caps, tech_unlocked,
-		context, viewer
-	)
+	civilian_panel.refresh(model, opening)
 	civilian.reveal(host, dock)
 
 
@@ -155,22 +124,9 @@ func set_civilian_training(visible: bool) -> void:
 	panel.set_training_visible(visible)
 
 
-func show_army(
-	model: MapModel,
-	army: ArmyState,
-	is_player: bool,
-	can_merge: bool,
-	command: String = "",
-	muster: Array[Dictionary] = [],
-	embark: String = "",
-	plan: String = "balanced",
-	hospital: Dictionary = {},
-	pick: String = ""
-) -> void:
+func show_army(model: MapModel, opening: ArmyDossierOpening) -> void:
 	close_sheets(self.army)
-	army_panel.refresh(
-		model, army, is_player, can_merge, command, muster, embark, plan, hospital, pick
-	)
+	army_panel.refresh(model, opening)
 	self.army.reveal(host, dock)
 
 
@@ -182,13 +138,17 @@ func is_army_panel_open() -> bool:
 	return army.open
 
 
+## `pick` is the court's own production plan (`MapPlayProductionPick`), printed
+## on the PRODUCTION tab above the rows it answers; empty when the crown's seat
+## runs no planner (DR-20261121-07).
 func show_economy(
 	economy_state: PlayerEconomy,
 	market: WorldMarket,
 	report: Dictionary,
 	cargo: Dictionary = {},
 	offers: Array = [],
-	crown: int = FactionCatalog.PLAYER_FACTION
+	crown: int = FactionCatalog.PLAYER_FACTION,
+	pick: Dictionary = {}
 ) -> void:
 	# The ledger takes the whole edge; close the dossiers outright so their
 	# slide-out tween cannot bleed text through the ledger's fade-in.
@@ -196,7 +156,7 @@ func show_economy(
 		slot.conceal_now()
 	research.conceal(host, dock)
 	diplomacy.conceal(host, dock)
-	economy_panel.refresh(economy_state, market, report, cargo, offers, crown)
+	economy_panel.refresh(economy_state, market, report, cargo, offers, crown, pick)
 	economy.reveal(host, dock)
 
 

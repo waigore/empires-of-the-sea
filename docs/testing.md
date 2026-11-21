@@ -9,12 +9,11 @@ Unit/integration tests and headless e2e smoke; two CI tiers, hard budgets.
 | **1 (PR)** | Code/test path PRs | Impacted suites via [`tests/impact_map.toml`](../tests/impact_map.toml) + `tools/select_impacted_tests.py`; **80% patch coverage** on changed executable lines; e2e smoke + auto | tests **≤ 5 min**; e2e **≤ 5 min** |
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
-Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for **fix-tests**.
+Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for
+**fix-tests**. Tier 2 shards (`gd-tools` boots one process **per suite**);
+the gate merges them for the 80% gate.
 
-Tier 2 shards because `gd-tools` boots one process **per suite**; the gate
-merges them for the 80% gate.
-
-Strict map: unmapped in-scope paths fail; `full = true` runs every suite
+Strict map: unmapped paths fail; `full = true` runs every suite
 (`select_impacted_tests.py --check-complete`). Empty patches pass.
 
 ## E2E (tier 1)
@@ -27,32 +26,32 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) to map screens.
 - One cached small world per worker via `MapScreen.preset_world` /
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
-- Smallest world that validates a `SaveCodec` slot and seats the turn-100
-  civilians, passing fair split on the **first** attempt.
+- Smallest world that validates a `SaveCodec` slot and seats turn-100 civilians,
+  passing fair split on the **first** attempt.
 - Terrain wash, fog and chart layers build once per map state; a re-seat redraws
   nothing; `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
-  (gd-tools clones each case). Prefer a pocket chart; census rides **one**
-  Standard seed.
+  (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); advanced-start live cases share **one mount per tier**. Pure cases
-  skip the re-seat / shell (lazy `_screen` / `main`); hospitals ride that chart;
-  opening-plate cases host on the suite with short `hold_max` / `fade_seconds`.
-  Free a swapped screen. Observer ~15–20 s covered; door/seal rides
-  `test_ai_observer`'s.
-- **Tiny fixture first**: place names and sea zones read
-  `naval_fixture.build()` (7×3), not the 48×32 chart (~9 s covered).
+  skip re-seat / shell (lazy `_screen` / `main`); hospitals ride that chart;
+  opening-plate cases use short `hold_max` / `fade_seconds`. Free a swapped
+  screen. Observer ~15–20 s covered; door/seal rides `test_ai_observer`.
+- **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
+  not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
   session (and `ai_turns` / Auto fields), re-seat lazily (~0.2 s vs ~1.5–2 s).
   Mode cases start at turn 1; shared-pass spy readings stay one `end_turn`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
-  the pocket chart and `ResearchPanel` only when a case reads them.
-- **Heaviest suite sorts first**: name order, four wide — a long `world_…`
-  suite must not drain alone.
-- One Godot boot per theme — coverage ~15 s a boot; 24 suites
-  (heraldry + tile edges → chrome plate). `gd-tools.toml`: `parallel = 4`.
+  pocket chart and `ResearchPanel` only when read.
+- **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
+  leads so one chart suite does not drain alone.
+- One Godot boot per theme — coverage ~15 s a boot; 24 suites (chart live →
+  map-view; play-screen bridge → chrome plate). `gd-tools.toml`: `parallel = 4`.
+  Consent ladder answers resume with rivals inert (`AiControl.NOOP`); one
+  peace-battle case pays a full resumed turn.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
@@ -332,9 +331,10 @@ godot --headless --path . --script res://playtests/playtest_campaign_end.gd
 # Boycott blocked deal — seats the two records no session waits for (a rival
 # holding a Tribe as its colony, that rival boycotting the crown), then reads
 # what each court is told: the court sheet's trade block and the colony's page
-# (where Grant Aid and every subsidy are refused), the market page's offers and
-# their asks, the bid pressed from the colony's own row, and the turn close
-# (despatch, LAST CLEARING, notes, carry) two turns running.
+# (where Grant Aid and every subsidy are refused), the market page's offers with
+# the bar printed under each shut row and its words in the terms banner, the bid
+# pressed from the colony's own row, and the turn close (despatch, LAST
+# CLEARING, notes, carry) two turns running.
 godot --headless --path . --script res://playtests/playtest_boycott_block.gd
 
 # Defeat — the crown's own end, which no play reaches by hand (terminal fall:

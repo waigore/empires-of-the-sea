@@ -12,10 +12,6 @@ signal action_pressed(action: String)
 signal rename_pressed(regiment_id: String, wanted: String)
 
 const NAME_BUTTON: String = "Name"
-## Dismissing a regiment is destructive, so the row asks once: a second tap
-## inside this window confirms and an expired arm does nothing
-## (wiki: military-armies § Dismissing regiments; DR-20261109-01).
-const ARM_SECONDS: float = 5.0
 
 var _army: ArmyState = null
 var _is_player: bool = false
@@ -24,20 +20,24 @@ var _model: MapModel = null
 ## The instance whose name is being edited, or empty when no edit row is open.
 var _editing: String = ""
 var _field: LineEdit = null
-## The instance whose dismissal is armed, or empty when no order is armed.
-var _armed: String = ""
-var _timer: Timer = null
+## Dismissing a regiment is destructive, so the row asks once: the guard holds
+## the instance whose dismissal is armed and lets the window run out on its own
+## (wiki: military-armies § Dismissing regiments; DR-20261109-01).
+var _arm: ArmGuard = null
+
+
+func _init() -> void:
+	# Built with the block, so a sheet assembled outside the tree still asks once.
+	# The clock is an internal child: it rides the column without joining the
+	# roster's rows, so a sheet still counts one child per regiment.
+	_arm = ArmGuard.new()
+	_arm.expired.connect(_on_arm_expired)
+	add_child(_arm, false, Node.INTERNAL_MODE_BACK)
 
 
 func _ready() -> void:
 	size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	add_theme_constant_override("separation", 4)
-	# The arm expires on its own; a freed dossier takes the timer with it.
-	_timer = Timer.new()
-	_timer.one_shot = true
-	_timer.wait_time = ARM_SECONDS
-	_timer.timeout.connect(_clear_arm)
-	add_child(_timer)
 
 
 ## Rebuilds every regiment row for the open army. An open edit row closes, so a
@@ -49,9 +49,7 @@ func fill(army: ArmyState, is_player: bool, model: MapModel, dismissable: bool =
 	_dismissable = dismissable
 	_model = model
 	_editing = ""
-	_armed = ""
-	if _timer != null:
-		_timer.stop()
+	_arm.clear()
 	_render()
 
 
@@ -124,7 +122,7 @@ func _detach_button(regiment_id: String) -> Button:
 ## and names what the second tap does (wiki: military-armies § Dismissing
 ## regiments; REQ-P5-05).
 func _dismiss_button(regiment_id: String) -> Button:
-	var armed: bool = _armed == regiment_id
+	var armed: bool = _arm.holds(regiment_id)
 	var shed := UiRowBuilder.button("Confirm" if armed else "Dismiss", 32.0, 0.0)
 	shed.custom_minimum_size = Vector2(72, 32)
 	shed.add_theme_font_size_override("font_size", 11)
@@ -140,25 +138,16 @@ func _dismiss_button(regiment_id: String) -> Button:
 
 ## First tap arms and relabels, the second files the order (DR-20261109-01).
 func on_dismiss_pressed(regiment_id: String) -> void:
-	if _armed == regiment_id:
-		_clear_arm()
+	if _arm.spend(regiment_id):
 		action_pressed.emit("dismiss:%s" % regiment_id)
 		return
-	_armed = regiment_id
+	_arm.arm(regiment_id)
 	_render()
-	# A sheet built outside the tree (a test sheet) keeps the arm and takes no
-	# clock; the press still asks once.
-	if _timer != null and _timer.is_inside_tree():
-		_timer.start()
 
 
-## Forgets an armed dismissal without filing it; an expired arm does nothing.
-func _clear_arm() -> void:
-	if _armed.is_empty():
-		return
-	_armed = ""
-	if _timer != null:
-		_timer.stop()
+## The window ran out: the press forgets the first tap and prints its resting
+## face again, filing nothing.
+func _on_arm_expired() -> void:
 	if is_inside_tree():
 		_render()
 

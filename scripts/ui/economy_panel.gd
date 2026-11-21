@@ -117,13 +117,17 @@ func _tab_box(selected: bool) -> StyleBoxFlat:
 
 
 ## Rebuilds every row from live state plus the end-of-turn projection report.
+## `pick` is the court's own production pick (`MapPlayProductionPick`): the runs
+## the crown's own economy pass would book, printed on the PRODUCTION tab
+## (REQ-P5-03, REQ-P5-06; DR-20261121-07).
 func refresh(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	report: Dictionary,
 	cargo: Dictionary = {},
 	offers: Array = [],
-	viewer: int = FactionCatalog.PLAYER_FACTION
+	viewer: int = FactionCatalog.PLAYER_FACTION,
+	pick: Dictionary = {}
 ) -> void:
 	if _tabs == null:
 		return
@@ -131,7 +135,7 @@ func refresh(
 	_preview.text = LedgerMarketText.preview(report)
 	# The stockpile tab reads its holdings and its steppers' ceiling from the
 	# same projection the header promises (REQ-P2-03).
-	_production.fill(economy, report)
+	_production.fill(economy, report, pick)
 	_market_page.fill(
 		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary,
 		viewer

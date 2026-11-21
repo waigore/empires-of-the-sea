@@ -8,6 +8,10 @@ extends GdToolsTest
 ## Merged from test_map_screen_crown_orders, test_map_lenses and
 ## test_agent_debug_bridge: one Godot boot (coverage instrumentation) per theme
 ## instead of one per file (docs/testing.md § Speed rules).
+##
+## The name sorts **first** on purpose: this is the heaviest chart suite, and
+## gd-tools dispatches suites in plan (name) order four workers wide, so a late
+## `m…` name used to land alone on one worker after every other had drained.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -337,11 +341,12 @@ func test_end_turn_advances_the_calendar_and_files_every_courts_rations() -> voi
 ## published feeding band, and her record must not land on Spain
 ## (wiki: combat § Feeding modifiers; game-setup § Human/AI slot assignment).
 ## Books the suite's one mount as England — no second chart under coverage.
+## Crown ledger alone; skip the full end_turn rival walk under coverage.
 func test_the_chosen_crowns_rations_are_filed_under_its_own_colour() -> void:
 	var english: MapScreen = Fixture.attach_faction_screen(_screen, 1)
 	assert_eq(english.play.player_faction, 1)
-	MapPlayTurn.end_turn(english.play)
-	Fixture.settle(english.play)
+	english.economy.resolve_turn()
+	english.play.feeding[english.play.player_faction] = english.economy.feeding_coverage()
 	var coverage: float = english.economy.readings.feeding_coverage()
 	assert_true(
 		english.play.feeding.has(english.play.player_faction),
@@ -2477,21 +2482,17 @@ func test_the_pick_door_opens_the_surface_that_can_press_it() -> void:
 	var province: int = _screen.model.province_at(tile.x, tile.y)
 	MapPlayCivilians.select(_screen.play, unit)
 	var panel: CivilianPanel = _screen.hud.panels.civilian_panel
-	panel.refresh(
-		_screen.model, unit, _screen.land_works, _screen.civilian_layer.units,
-		_screen.stockpile, _screen.visibility, _screen.play.tech_caps(),
-		_screen.play.tech_unlocked(),
-		{
-			"pick": {
-				"action": "build_improvement",
-				"tile": tile,
-				"region": _screen.region_index,
-				"door": MapPlayCivilianPick.DOOR_ESTATES,
-				"line": "the court would raise a lumber camp",
-			},
+	var opening: CivilianDossierOpening = MapPlayCivilians.opening(_screen.play, unit)
+	opening.context = {
+		"pick": {
+			"action": "build_improvement",
+			"tile": tile,
+			"region": _screen.region_index,
+			"door": MapPlayCivilianPick.DOOR_ESTATES,
+			"line": "the court would raise a lumber camp",
 		},
-		MapScreen.PLAYER_FACTION
-	)
+	}
+	panel.refresh(_screen.model, opening)
 	assert_true(panel._follow.visible, "an estate pick carries its door")
 	assert_eq(panel._follow.tooltip_text, "Open the estates ledger at this ground")
 	panel._follow.pressed.emit()
@@ -2672,8 +2673,9 @@ func test_a_turn_delivers_every_queued_recruit_and_the_gazette_names_them() -> v
 	assert_eq(_screen.army_layer.regiment_count_all(play.player_faction), regiments)
 	assert_eq(_screen.ship_layer.hull_count_all(play.player_faction), hulls)
 
-	MapPlayTurn.end_turn(play)
-	Fixture.settle(play)
+	# Build/work + the sheet that names it; skip the full end_turn rival walk.
+	var report: Dictionary = play.economy.resolve_turn()
+	MapPlayGazette.close_turn(play, [], [], {}, report, {}, play.turn, false)
 
 	assert_eq(
 		_screen.civilian_layer.unit_count_all(play.player_faction), civilians + 1,
@@ -3169,10 +3171,10 @@ func test_estates_ledger_dispatches_a_builder_and_shows_the_yield() -> void:
 	)
 	assert_eq(String(row["status"]), "building")
 
-	# Estate yield lands on the crown ledger after Build/work, so this case still
-	# needs a full end_turn (timber +1 is not a work-pass outcome alone).
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Work pass raises the estate; the crown ledger harvests timber. Skip the
+	# full end_turn rival walk under coverage.
+	MapPlayTurnFinish.resolve_work(_screen.play)
+	_screen.economy.resolve_turn()
 	assert_eq(_screen.land_works.improvement_at(_screen.model, tile), 1)
 	assert_true(builder.is_idle())
 	assert_eq(int(_screen.stockpile["lumber"]), lumber_before - 1)
@@ -3256,8 +3258,9 @@ func test_new_game_assigns_a_leader_to_every_great_power() -> void:
 
 func test_setup_leader_choice_reaches_land_combat() -> void:
 	# A second crown's opening on the suite mount: book France + Napoleon the way
-	# setup would, then prove combat and the turn still read that key. before_each
+	# setup would, then prove combat and the ledger still read that key. before_each
 	# re-seats the shared save so the borrowed crown never outlives the case.
+	# Crown ledger alone; skip the full end_turn rival walk under coverage.
 	var chosen: MapScreen = Fixture.attach_faction_screen(_screen, 2, "napoleon")
 	var play: PlaySession = chosen.play
 	assert_eq(play.player_faction, 2)
@@ -3265,8 +3268,7 @@ func test_setup_leader_choice_reaches_land_combat() -> void:
 	var context: Dictionary = MapPlayLandTurn.battle_context(play)
 	var leaders: Dictionary = context["leaders"]
 	assert_eq(String(leaders.get(2, "")), "napoleon", "combat reads the chosen leader")
-	MapPlayTurn.end_turn(play)
-	Fixture.settle(play)
+	play.economy.resolve_turn()
 	assert_eq(String(play.leaders.get(2, "")), "napoleon", "leaders never change mid-game")
 
 
@@ -3814,3 +3816,70 @@ func _await_reply(bridge: AgentDebugBridge, ws: WebSocketPeer) -> String:
 			return ws.get_packet().get_string_from_utf8()
 		OS.delay_msec(2)
 	return ""
+
+
+## The capital's order rail carries the court's own hire pick — the crew the
+## published hire order takes next — and any other province, which hires nobody,
+## carries none (wiki: civilian-units § Training; DR-20261121-06). A reading: the
+## press is still the crown's, and nothing is queued or paid by opening a sheet.
+func test_the_capital_rail_names_the_hire_the_court_would_take() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	var rail: String = _screen.hud.panels.panel.hire_line_text()
+	assert_true(not rail.is_empty(), "the capital's rail names a hire or its gate")
+	var pick: Dictionary = MapPlayHirePick.pick(play)
+	assert_eq(
+		rail, String(pick.get("line", "")),
+		"the rail prints the reading, not a second opinion of its own"
+	)
+	assert_true(
+		rail.contains("hire order") or rail.contains("taste") or rail == MapPlayHirePick.FULL_LINE,
+		"the line says whose pick it is: %s" % rail
+	)
+	assert_true(
+		play.economy.economy.recruits.is_empty(),
+		"opening the sheet hires nobody"
+	)
+
+	var province_id: int = Fixture.foreign_province(_screen.model)
+	MapPlayInput.select_province(
+		play, province_id,
+		_screen.model.province_center(province_id) * MapScreen.TILE_SIZE
+	)
+	assert_eq(
+		_screen.hud.panels.panel.hire_line_text(), "",
+		"a province that hires no crews carries none"
+	)
+
+
+
+## A court banking for the army its win bar wants takes no crew its purse cannot
+## spare, so the rail prints the bank's own refusal instead of naming a hire the
+## published order would never take (wiki: civilian-units § Training;
+## DR-20261121-06, issue #995).
+func test_the_capital_rail_prints_the_bank_that_holds_the_hire() -> void:
+	var play: PlaySession = _screen.play
+	var faction: int = play.player_faction
+	var economy: PlayerEconomy = play.ledger_for(faction)
+	var kind: String = AiControl.court_kind(play, faction)
+	var config: Variant = AiBind.config(
+		kind, faction, play.map_seed, play.ensure_ai().profiles
+	)
+	var purse: int = economy.treasury
+	# A chest that cannot cover the line the bar asks for banks for its army.
+	economy.treasury = 0
+	assert_true(
+		MapPlayHirePick.banks(play, faction, economy, config, kind),
+		"a short chest over a win-bar gap banks for the line"
+	)
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	assert_eq(
+		_screen.hud.panels.panel.hire_line_text(), MapPlayHirePick.BANK_LINE,
+		"the rail names the bank the hire order answers, not a hire it refuses"
+	)
+	economy.treasury = purse
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	assert_true(
+		_screen.hud.panels.panel.hire_line_text() != MapPlayHirePick.BANK_LINE,
+		"a funded court names its hire again"
+	)
