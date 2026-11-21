@@ -36,10 +36,9 @@ static func battle_shown(hud: GameHud) -> bool:
 static func sheet_open(hud: GameHud) -> bool:
 	if hud.panels == null or not HudLayout.is_compact(hud.size):
 		return false
-	for slot: HudPanelSlot in hud.panels.selections():
-		if slot != null and slot.open:
-			return true
-	for slot: HudPanelSlot in [hud.panels.economy, hud.panels.research, hud.panels.diplomacy]:
+	# The dock rail and the ledgers read one list, so a sheet added to either
+	# still covers the lane (REQ-P5-05).
+	for slot: HudPanelSlot in hud.panels.every():
 		if slot != null and slot.open:
 			return true
 	for card: Control in [
