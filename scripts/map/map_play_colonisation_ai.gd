@@ -28,7 +28,23 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		# every planner like any rival (wiki: game-setup § Human/AI slot
 		# assignment; docs/ai-observer.md).
 		for faction: int in MapPlayCourt.planning_factions(play):
-			var order: Dictionary = step(play, faction, region, appetites)
+			var kind: String = AiControl.court_kind(play, faction)
+			if kind == AiControl.KIND_RANDOM:
+				continue
+			var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+			# A court on a war footing keeps its hulls for the fleet: the posture
+			# closes the voyage before the planner picks a step (DR-20261113-15) —
+			# unless the court is on **earn**, whose gold is overseas
+			# (DR-20261113-19).
+			var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
+			var earning: bool = MapPlaySeaStep.earning(play, faction, kind, config)
+			var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+			var order: Dictionary = AiBindCampaign.colonisation_plan(
+				kind, config, play.world, region, model, fleets, civilians,
+				_abroad(play, target, faction), play.court_charts,
+				_voyage_posture(play, faction, posture), earning,
+				_appetite(play, faction, kind, appetites)
+			)
 			if order.is_empty():
 				continue
 			var crossing: FleetState = null
@@ -73,51 +89,6 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 	if visible_touched:
 		MapPlayCourt.refresh_hulls(play)
 	return trace
-
-
-## The one step this court's own voyage plan would take in `region`, or {} when
-## the plan takes none (wiki: civilian-units § Overseas deployment; DR-20261121-08).
-## The step the rival pass applies and the step the crown's passenger block reads
-## are this one call, so a reading can never name a voyage the pass would not
-## sail (REQ-P2-03, REQ-P3-03). `appetites` is the per-court cache the pass keeps
-## across its region loop; a caller reading one court may leave it empty.
-static func step(
-	play: PlaySession, faction: int, region: int, appetites: Dictionary = {}
-) -> Dictionary:
-	if (
-		play == null or play.world == null or play.civilian_layer == null
-		or play.ship_layer == null
-	):
-		return {}
-	var model: MapModel = play.world.region(region)
-	if model == null:
-		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_RANDOM or kind == AiControl.KIND_NONE:
-		return {}
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
-	if config == null:
-		return {}
-	var fleets: Array = MapPlayCourt.region_fleets(play, region)
-	var civilians: Array = []
-	civilians.assign(play.civilian_layer.regions.value(region, []))
-	# A court on a war footing keeps its hulls for the fleet: the posture closes
-	# the voyage before the planner picks a step (DR-20261113-15) — unless the
-	# court is on **earn**, whose gold is overseas (DR-20261113-19). The goal is
-	# only read where it can matter (`AiColonisationPlanner.plan` asks it beside
-	# the posture gate and nowhere else), so a footing that opens the voyage pays
-	# for no income plan at all (REQ-P4-01).
-	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
-	var earning: bool = false
-	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE):
-		earning = MapPlaySeaStep.earning(play, faction, kind, config)
-	var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
-	return AiBindCampaign.colonisation_plan(
-		kind, config, play.world, region, model, fleets, civilians,
-		_abroad(play, target, faction), play.court_charts,
-		_voyage_posture(play, faction, posture), earning,
-		_appetite(play, faction, kind, appetites)
-	)
 
 
 ## The footing the voyage reads: the court's own ledger decides whether the

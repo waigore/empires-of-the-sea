@@ -3,12 +3,13 @@ extends RefCounted
 ## The voyage the court's own colonisation pass would make with this squadron
 ## (wiki: civilian-units § Overseas deployment; DR-20261121-08).
 ##
-## The reading is not a second opinion: it is `MapPlayColonisationAi.step` — the
-## call the rival pass applies — asked for the crown's own faction on the chart
-## the squadron sails, so the block can never name a step the rules would refuse
-## (REQ-P2-03). A reading only: nothing here boards a crew, sails a hull or
-## crosses a Passage, and the crown still presses her own order (REQ-P3-03,
-## REQ-P5-06).
+## The reading is not a second opinion: it asks `AiBindCampaign.colonisation_plan`
+## — the one gate a voyage order passes, and the call the rival pass books — for
+## the crown's own faction on the chart the squadron sails, with the same court
+## kind, config, rosters, footing and workshop readings the pass hands it, so the
+## block can never name a step the rules would refuse (REQ-P2-03). A reading only:
+## nothing here boards a crew, sails a hull or crosses a Passage, and the crown
+## still presses her own order (REQ-P3-03, REQ-P5-06).
 
 const KIND_EMBARK: String = MapPlayVoyagePickWords.KIND_EMBARK
 const KIND_SAIL: String = MapPlayVoyagePickWords.KIND_SAIL
@@ -40,10 +41,74 @@ static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
 	var region: int = MapPlayFleetPick.region_of(play, fleet)
 	if region < 0:
 		return {}
-	var step: Dictionary = MapPlayColonisationAi.step(play, fleet.owner, region)
+	var step: Dictionary = _step(play, fleet.owner, region)
 	if step.is_empty() or int(step.get("fleet", -1)) != fleet.id:
 		return {}
 	return _words(play, fleet, region, step)
+
+
+## The step the court's voyage pass would take in `region`, asked the way the
+## pass asks it: the court kind, the config, the region's rosters, the footing
+## and its funded-parent read, the `earn` goal, the abroad counts, the charts and
+## the workshop's appetite, through `AiBindCampaign.colonisation_plan` — the one
+## gate a voyage order passes (REQ-P2-03). The goal is read only where the
+## planner reads it, beside the posture gate, so a footing that opens the voyage
+## pays for no income plan (REQ-P4-01).
+static func _step(play: PlaySession, faction: int, region: int) -> Dictionary:
+	var model: MapModel = play.world.region(region)
+	if model == null:
+		return {}
+	var kind: String = AiControl.court_kind(play, faction)
+	if kind == AiControl.KIND_RANDOM or kind == AiControl.KIND_NONE:
+		return {}
+	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+	if config == null:
+		return {}
+	var fleets: Array = MapPlayCourt.region_fleets(play, region)
+	var civilians: Array = []
+	civilians.assign(play.civilian_layer.regions.value(region, []))
+	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
+	var earning: bool = false
+	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE):
+		earning = MapPlaySeaStep.earning(play, faction, kind, config)
+	var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
+	return AiBindCampaign.colonisation_plan(
+		kind, config, play.world, region, model, fleets, civilians,
+		CivilianMuster.abroad_counts(play, target, faction), play.court_charts,
+		_voyage_posture(play, faction, posture), earning,
+		_appetite(play, faction, kind, config)
+	)
+
+
+## The footing the voyage reads: a funded `colonise.new_world` objective opens
+## the voyage even at war — the peace-window child is what bought it (issue #491
+## T4) — and a court with no claim keeps the published footing.
+static func _voyage_posture(play: PlaySession, faction: int, posture: String) -> String:
+	if AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE):
+		return posture
+	var claim: Dictionary = play.ai.objectives_for(faction) if play.ai != null else {}
+	if claim.is_empty():
+		return posture
+	var funded: Array = claim.get("funded_ids", [])
+	return AiPhasePlanner.PHASE_PEACE if funded.has("colonise.new_world") else posture
+
+
+## The raws this court's workshop can turn and does not hold in number: a landing
+## is the one ground a court takes overseas, so the plan names the ground its own
+## recipes feed (DR-20261119-05). A frozen baseline keeps its published walk and
+## reads none.
+static func _appetite(
+	play: PlaySession, faction: int, kind: String, config: Variant
+) -> Dictionary:
+	if kind == AiControl.KIND_BASELINE or play.ai == null:
+		return {}
+	var economy: PlayerEconomy = play.ledger_for(faction)
+	var typed: AiConfig = config as AiConfig
+	if economy == null or typed == null:
+		return {}
+	return AiEconomyPlanner.ground_appetite(
+		typed, economy, TownIndustry.best_level(play.world, faction)
+	)
 
 
 ## The block's line: the pick's own sentence, or nothing when the court would
