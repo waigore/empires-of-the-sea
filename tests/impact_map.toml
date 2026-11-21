@@ -1074,6 +1074,12 @@ domain = "eyes"
 match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
+# The reading the eyes print (DR-20261121-11): its own small slice, so the
+# shaping of one gold line never pulls the espionage domain's seven suites.
+[[rules]]
+match = "scripts/map/map_play_spy_pick.gd*"
+domain = "eyes"
+
 [[rules]]
 match = "tests/test_ledgers.gd*"
 domain = "eyes"
