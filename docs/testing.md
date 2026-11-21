@@ -35,9 +35,9 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); advanced-start live cases share **one mount per tier**. Pure cases
-  skip re-seat / shell (lazy `_screen` / `main`); hospitals ride that chart;
-  opening-plate cases use short `hold_max` / `fade_seconds`. Free a swapped
-  screen. Observer ~15–20 s covered; door/seal rides `test_ai_observer`.
+  skip re-seat / shell (lazy `_screen` / `main` / menu-flow `chart`); hospitals
+  ride that chart; opening-plate cases use short `hold_max` / `fade_seconds`.
+  Free a swapped screen. Observer ~15–20 s; door/seal: `test_ai_observer`.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
