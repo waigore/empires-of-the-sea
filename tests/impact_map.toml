@@ -942,6 +942,19 @@ domain = "muster"
 match = "scripts/map/map_play_command.gd*"
 domain = "muster"
 
+# The command sheet's own court reading (DR-20261122-02): the hosts the land pass
+# would lead into battle this turn against the pool that answers them. Its own
+# slice proves the wording and the pool it reads, instead of the whole map
+# fan-out the path would otherwise pull.
+[[rules]]
+match = "scripts/map/map_play_command_pick*.gd*"
+domain = "command_pick"
+
+[domains.command_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "tests/test_ledgers.gd*"
 domain = "muster"
