@@ -28,8 +28,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats turn-100 civilians,
   passing fair split on the **first** attempt.
-- Terrain wash, fog and chart layers build once per map state; a re-seat redraws
-  nothing; `fog_changed` rises on a moved tile.
+- Terrain wash, fog and chart layers build once per map state; a re-seat
+  redraws nothing; `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
   (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
@@ -38,6 +38,7 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   skip re-seat / shell (lazy `_screen` / `main` / menu-flow `chart`); hospitals
   ride that chart; opening-plate cases use short `hold_max` / `fade_seconds`.
   Free a swapped screen. Observer ~15–20 s; door/seal: `test_ai_observer`.
+  Menu-flow starts reuse that shell + `Fixture.world()`.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
@@ -48,10 +49,10 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   pocket chart and `ResearchPanel` only when read.
 - **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
   leads so one chart suite does not drain alone.
-- One Godot boot per theme — coverage ~15 s; 24 suites. `gd-tools.toml`:
-  `parallel = 4`. Diplomacy and battle court-words book at rules (no chart
-  combat); suspending closes / campaign-end use `AiControl.NOOP`; counsel only
-  when court open; plate saves reload in-place.
+- One Godot boot per theme — coverage ~15 s; 24 suites; `parallel = 4`.
+  Diplomacy/battle court-words book at rules; suspending closes /
+  campaign-end use `AiControl.NOOP`; counsel only when court open; plate
+  saves reload in-place.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
