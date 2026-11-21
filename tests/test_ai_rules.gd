@@ -204,6 +204,118 @@ func test_blessed_profiles_override_the_registry() -> void:
 	assert_false(bool(AiProfile.validate("bogus")["ok"]))
 	assert_eq(AiProfile.ids().size(), 3)
 
+
+func test_a_bound_temperament_reaches_the_courts_config() -> void:
+	# The new-game screen binds one blessed profile per rival. The roster covers
+	# every Great Power, trims the name it is handed, and drops one the catalog
+	# does not bless, so a stale map cannot invent a temperament (wiki:
+	# ai-profile-overrides § Resolution; ai-parameter-registry § Seed profiles).
+	var bound: Dictionary = AiProfile.roster({1: AiProfile.AGGRESSIVE, 2: "bogus"})
+	assert_eq(String(bound.get(1, "")), AiProfile.AGGRESSIVE)
+	assert_eq(String(bound.get(2, "")), AiProfile.NORMAL, "an unknown name plans neutral")
+	assert_eq(String(bound.get(5, "")), AiProfile.NORMAL, "an unbound crown plans neutral")
+	assert_eq(bound.size(), FactionCatalog.great_power_ids().size())
+	assert_eq(AiProfile.bound({1: " Economic "}, 1), AiProfile.ECONOMIC, "the name is trimmed")
+	assert_eq(String(AiProfile.from_saved({"3": AiProfile.ECONOMIC}).get(3, "")), AiProfile.ECONOMIC)
+	assert_eq(
+		AiProfile.for_court(1, 1500, {1: AiProfile.AGGRESSIVE}).parameter(
+			"diplomacy.war_relation_ceiling"
+		),
+		70,
+		"the bound profile raises that court's knob"
+	)
+	assert_eq(
+		AiProfile.for_court(1, 1500, {}).parameter("diplomacy.war_relation_ceiling"), 50,
+		"a run with no binding reads the registry"
+	)
+	assert_gt(
+		AiProfile.for_court(1, 1500, {1: AiProfile.AGGRESSIVE}).war_relation_ceiling(),
+		AiProfile.for_court(1, 1500, {}).war_relation_ceiling(),
+		"the same court, same agenda, declares on warmer neighbours"
+	)
+
+
+func test_every_profile_names_what_it_shifts() -> void:
+	# A profile a sheet can print must carry a name and one line of effect, and
+	# the words must not lie about the direction the numbers move (wiki:
+	# ai-profile-overrides; REQ-P5-05).
+	for id: String in AiProfile.ids():
+		assert_false(AiProfile.label(id).is_empty(), id)
+		assert_false(AiProfile.hint(id).is_empty(), id)
+	assert_eq(AiProfile.label("bogus"), "Normal", "an unknown id reads as the neutral profile")
+	assert_eq(AiProfile.hint("bogus"), AiProfile.hint(AiProfile.NORMAL))
+	assert_gt(
+		AiProfile.resolve("diplomacy.war_relation_ceiling", AiProfile.AGGRESSIVE),
+		AiParameterRegistry.default_of("diplomacy.war_relation_ceiling"),
+		"aggressive declares on warmer neighbours"
+	)
+	assert_lt(
+		AiProfile.resolve("diplomacy.war_declare_min_desire", AiProfile.AGGRESSIVE),
+		AiParameterRegistry.default_of("diplomacy.war_declare_min_desire"),
+		"aggressive declares sooner"
+	)
+	assert_gt(
+		AiProfile.resolve("economy.reserve_target", AiProfile.ECONOMIC),
+		AiParameterRegistry.default_of("economy.reserve_target"),
+		"economic banks more"
+	)
+	assert_gt(
+		AiProfile.resolve("civilian.improvement_weight", AiProfile.ECONOMIC),
+		AiParameterRegistry.default_of("civilian.improvement_weight"),
+		"economic raises more works"
+	)
+	assert_lt(
+		AiProfile.resolve("civilian.work_per_staff", AiProfile.ECONOMIC),
+		AiParameterRegistry.default_of("civilian.work_per_staff"),
+		"economic keeps more crews about them"
+	)
+
+
+## The map passes build their court's config through `AiBind`, so a bound
+## temperament reaches the live planners and not only the diplomacy turn; a
+## frozen baseline keeps the hill's own neutral planner (wiki:
+## ai-profile-overrides § Resolution).
+func test_the_bind_hands_a_live_court_its_temperament() -> void:
+	var bound: Variant = AiBind.config(
+		AiControl.KIND_SUBJECT, 2, 1500, {2: AiProfile.ECONOMIC}
+	)
+	assert_not_null(bound, "a submission court has a config")
+	if bound == null:
+		return
+	assert_eq(
+		String((bound as AiConfig).profile), AiProfile.ECONOMIC,
+		"the court plans on the profile the run bound"
+	)
+	var plain: Variant = AiBind.config(AiControl.KIND_SUBJECT, 2, 1500, {})
+	assert_eq(
+		String((plain as AiConfig).profile), AiProfile.NORMAL,
+		"a run with no binding reads the neutral profile"
+	)
+
+
+func test_the_bound_temperament_is_the_one_a_rival_turn_plans_on() -> void:
+	# One rival bound at creation plans on that profile; its neighbour, bound to
+	# nothing, plans neutral, and the trace names the profile each court read
+	# (wiki: ai-profile-overrides § Resolution; turn-trace-interpretation).
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(1, 2, 1)
+	var result: Dictionary = AiTurn.run(
+		state, AiFixture.world([2, 2, 2, 2, 1]), AiState.new(), 1,
+		FactionCatalog.PLAYER_FACTION, 1500,
+		{"regiments": {}, "ships": {}, "profiles": {2: AiProfile.AGGRESSIVE}}
+	)
+	assert_eq(
+		String(_record_for(result["trace"], 2).get("profile", "")),
+		AiProfile.AGGRESSIVE,
+		"the bound court plans aggressive"
+	)
+	assert_eq(
+		String(_record_for(result["trace"], 1).get("profile", "")),
+		AiProfile.NORMAL,
+		"an unbound court keeps the neutral profile"
+	)
+
 # --- from test_ai_personality.gd ---
 ## AI personalities and hidden agendas (wiki: ai-personalities, hidden-agendas).
 
@@ -1592,7 +1704,7 @@ func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
 	var world := WorldMap.new()
 	var model: MapModel = NavalFixture.build()
 	world.add_region(model)
-	var ai: FleetState = _squadron(0, 2, 1, "galleon")
+	var ai: FleetState = _squadron(0, 0, 1, "ship_of_the_line")
 	var human: FleetState = _squadron(1, 1, 0, "sloop")
 	var layer := ShipLayer.new()
 	layer.model = model
@@ -1600,7 +1712,7 @@ func test_map_phase_moves_a_rival_squadron_and_it_fights() -> void:
 	layer.regions.set_region(0, roster)
 	layer.fleets = roster
 	var play := _naval_play(world, model, layer)
-	play.diplomacy = _war_state(2, 1)
+	play.diplomacy = _war_state(0, 1)
 	var trace: Array[Dictionary] = MapPlayFleets.run_ai(play)
 	assert_eq(trace.size(), 1, "one rival order")
 	assert_eq(String(trace[0]["kind"]), AiNavalPlanner.KIND_PURSUE)
@@ -1665,7 +1777,7 @@ func test_rival_sail_reports_a_sighting_in_charted_water() -> void:
 	var world := WorldMap.new()
 	var model: MapModel = NavalFixture.build()
 	world.add_region(model)
-	var ai: FleetState = _squadron(0, 2, 1, "galleon")
+	var ai: FleetState = _squadron(0, 0, 1, "ship_of_the_line")
 	var human: FleetState = _squadron(1, 1, 0, "sloop")
 	var layer := ShipLayer.new()
 	layer.model = model
@@ -1673,7 +1785,7 @@ func test_rival_sail_reports_a_sighting_in_charted_water() -> void:
 	layer.regions.set_region(0, roster)
 	layer.fleets = roster
 	var play := _naval_play(world, model, layer)
-	play.diplomacy = _war_state(2, 1)
+	play.diplomacy = _war_state(0, 1)
 	var hud := StubHud.new()
 	play.hud = hud
 	play.visibility = VisibilityModel.new()
@@ -3526,9 +3638,58 @@ func test_the_door_the_court_walked_up_to_is_studied_first() -> void:
 	)
 
 
-## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
-## the same door pattern a Tribe chain uses, so the chest fills for a hull the
-## yard will actually accept.
+## Issue #1126: while the yard banks for a hull, the study ladder prices its
+## preset for the whole slot row — three slots at Low took 150 ducats from a
+## chest that had 66 spare, and the hull the court had saved for never left the
+## slip. Every other court keeps the published single-slot ladder.
+func test_the_ladder_prices_the_whole_slot_row() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(5566)
+	assert_eq(economy.research.slots.size(), 3, "the fixture's slot row")
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{
+			"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true,
+			"navy_reserve": 5500,
+		}
+	)
+	assert_false(plan["assignments"].is_empty(), "the slots are still planned")
+	var paid: int = 0
+	for row: Dictionary in plan["assignments"]:
+		paid += ResearchFunding.gold(String(row["funding"]))
+	assert_true(paid <= 66, "the row never pays more ducats than the spare")
+
+	# A court still filling the chest keeps the published ladder, so the door
+	# that opens the hull is never held back by the chest it is saving for.
+	var filling: PlayerEconomy = _purse(5400)
+	var early: Dictionary = AiResearchPlanner.plan(
+		config, filling,
+		{
+			"treasury_floor": 4500, "cash_floor": 500, "defer_standing": true,
+			"navy_reserve": 5500,
+		}
+	)
+	var early_paid: int = 0
+	for row: Dictionary in early["assignments"]:
+		early_paid += ResearchFunding.gold(String(row["funding"]))
+	assert_true(early_paid > 66, "the saving court still studies as published")
+
+
+## Issue #1126: the row-priced ladder is the hull chest's reading only — a court
+## that banks nothing keeps the published single-slot preset.
+func test_other_courts_keep_the_single_slot_ladder() -> void:
+	var config: AiConfig = _research_config()
+	var economy: PlayerEconomy = _purse(5566)
+	var plan: Dictionary = AiResearchPlanner.plan(
+		config, economy,
+		{"treasury_floor": 5500, "cash_floor": 500, "defer_standing": true}
+	)
+	var paid: int = 0
+	for row: Dictionary in plan["assignments"]:
+		paid += ResearchFunding.gold(String(row["funding"]))
+	assert_eq(paid, 150, "three slots at the single-slot preset, as published")
+
+
 ## Issue #484: while the navy chest is the money-goal reserve, the standing
 ## study must not drip 50 ducats a turn — that income has to reach the yard.
 func test_a_navy_chest_defers_the_standing_study() -> void:
@@ -3555,6 +3716,9 @@ func test_a_navy_chest_defers_the_standing_study() -> void:
 	)
 
 
+## Issue #484: a due navy that cannot yet lay a hull studies the unlock first —
+## the same door pattern a Tribe chain uses, so the chest fills for a hull the
+## yard will actually accept.
 func test_a_due_navy_studies_the_unlock_before_other_branches() -> void:
 	var config: AiConfig = _research_config()
 	var economy: PlayerEconomy = PlayerEconomy.starting()
@@ -4491,6 +4655,60 @@ func test_a_court_at_war_hires_no_expansion_crew() -> void:
 	)
 
 
+## The stranded claim's own carve-out (issue #1139): the voyage the court paid
+## for is ashore with no crown land, and its claim still has a step — the
+## Merchant that voyage asks for (#1127) is hired like a provision crew, at war
+## or banked. The carve-out is per-claim: the crew the stranded claim asks for,
+## not the whole expansion roster.
+func test_a_stranded_claims_merchant_is_hired_at_war_and_banked() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	crews["tech_unlocked"] = {"merchant_companies": true}
+	crews["voyage_crew_kind"] = "merchant"
+	crews["voyage_stranded"] = true
+	crews["phase"] = AiPhasePlanner.PHASE_WAR
+	var at_war: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(at_war.get("ok", false)),
+		"the stranded claim's Merchant is hired on a war footing"
+	)
+	assert_eq(String(at_war["type_id"]), "merchant")
+	crews["conquest_bank"] = true
+	var banked: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(banked.get("ok", false)),
+		"the stranded claim's Merchant is hired while the court banks"
+	)
+	assert_eq(String(banked["type_id"]), "merchant")
+	# Per-claim, not per-roster: the same footing still shuts the Explorer the
+	# claim does not ask for, and the bank still shuts the deed Merchant.
+	crews["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 1, "spy": 0, "merchant": 0,
+	}
+	crews["conquest_bank"] = false
+	var other: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_false(bool(other.get("ok", false)), "the roster's own crew stays shut")
+	assert_eq(String(other.get("reason", "")), AiCivilianHire.REASON_CREWS)
+	crews["voyage_crew_kind"] = ""
+	var deed_merchant: Dictionary = _civilian_context()
+	deed_merchant["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	deed_merchant["tech_unlocked"] = {"merchant_companies": true}
+	deed_merchant["conquest_bank"] = true
+	deed_merchant["phase"] = AiPhasePlanner.PHASE_PEACE
+	var banked_deed: Dictionary = AiCivilianHire.training_order(
+		config, [], deed_merchant
+	)
+	assert_eq(
+		String(banked_deed.get("reason", "")), AiCivilianHire.REASON_BANK,
+		"a deed Merchant without a stranded claim stands behind the chest"
+	)
+
+
 ## The economy trace names the hire the footing held shut, so a court at war is
 ## never silent about the crew it did not take (REQ-P5-05; DR-20261116-15).
 func test_the_trace_names_the_crew_a_war_footing_held_shut() -> void:
@@ -5212,20 +5430,90 @@ func test_a_court_honors_the_truce_its_peace_left() -> void:
 
 	assert_eq(
 		String(_candidate(plan, PHASE_OTHER).get("blocked", "")),
-		"the pair's truce holds: no new crown war yet",
+		"the pair's truce holds: no new war yet",
 		"an unfought peace's truce bars the re-declaration for its whole window"
 	)
 
 
-## The same truce on a Minor pair: colonial business, never held by the brake.
-func test_a_truce_never_holds_a_minor_war() -> void:
-	var floor: int = _muster_price(_phase_config(PHASE_OWNER))
-	var run: Dictionary = _buyout_turn(0, floor - 100, [PHASE_MINOR])
-	var candidate: Dictionary = _candidate(run["plan"], PHASE_MINOR)
-
+## A Minor Nation is colonial business in its own right — but once the court
+## has signed a peace with it, the pair's truce holds there too (issue #1140):
+## a peace the court signed is not undone the turn after it was made.
+func test_a_truce_holds_a_minor_pair_the_court_peaced() -> void:
+	var run: Dictionary = _buyout_turn(0, -1, [PHASE_MINOR])
+	var state: DiplomacyState = run["state"]
+	var ai_state: AiState = run["ai_state"]
+	ai_state.note_war(PHASE_OWNER, PHASE_MINOR, 20)
+	ai_state.note_peace(PHASE_OWNER, PHASE_MINOR, 24, true)
+	ai_state.note_truce(PHASE_OWNER, PHASE_MINOR, 24)
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		run["config"], state, ai_state,
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR]), 25,
+		{
+			"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"ships": {PHASE_OWNER: 2},
+			"player": -1,
+			"posture": String(run["posture"]),
+		}
+	)
 	assert_eq(
-		String(candidate.get("blocked", "")), "",
-		"a Minor Nation is colonial business, not a crown war the truce holds"
+		String(_candidate(plan, PHASE_MINOR).get("blocked", "")),
+		"the pair's truce holds: no new war yet",
+		"the peace a court signed with a Minor binds its own re-declaration"
+	)
+	# Past the truce window the colonial business opens again.
+	var settled: Dictionary = AiDiplomacyPlanner.decide(
+		run["config"], state, ai_state,
+		AiFixture.world([PHASE_OWNER, PHASE_OWNER, PHASE_OTHER, PHASE_MINOR]), 60,
+		{
+			"power": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"regiments": {PHASE_OWNER: 4, PHASE_RIVAL: 1, PHASE_THIRD: 1, PHASE_OTHER: 1},
+			"ships": {PHASE_OWNER: 2},
+			"player": -1,
+			"posture": String(run["posture"]),
+		}
+	)
+	assert_eq(
+		String(_candidate(settled, PHASE_MINOR).get("blocked", "")), "",
+		"once the truce lapses, colonial business is legal again"
+	)
+
+
+## The war cooldown runs from the peace, not the declaration: a war declared
+## early and peaced late cannot be re-declared the turn after the peace
+## (issue #1140).
+func test_the_war_cooldown_runs_from_the_peace() -> void:
+	var ai_state := AiState.new()
+	ai_state.note_war(PHASE_OWNER, PHASE_MINOR, 2)
+	ai_state.note_truce(PHASE_OWNER, PHASE_MINOR, 24)
+	var config: AiConfig = _phase_config(PHASE_OWNER)
+	var cooldown: int = config.parameter("diplomacy.war_cooldown_turns")
+	assert_true(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 25, cooldown),
+		"a t2 war peaced at t24 is still on cooldown at t25"
+	)
+	assert_false(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 28, cooldown),
+		"the 4-turn cooldown measured from a t24 peace lapses by t28"
+	)
+	assert_true(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 25, 30),
+		"a 30-turn truce keeps the pair barred past the short clock"
+	)
+	assert_false(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_THIRD, 25, cooldown),
+		"a pair with no peace and no war reads off the clock"
+	)
+	# A fresh declaration after the old peace starts a new cooldown; the stale
+	# settlement must not waive it.
+	ai_state.note_war(PHASE_OWNER, PHASE_MINOR, 30)
+	assert_true(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 31, cooldown),
+		"a t30 war after the t24 peace restarts the clock at t30"
+	)
+	assert_false(
+		ai_state.war_on_cooldown(PHASE_OWNER, PHASE_MINOR, 34, cooldown),
+		"the fresh declaration's 4-turn cooldown lapses by t34"
 	)
 
 
@@ -7971,6 +8259,29 @@ func test_a_row_counts_every_order_across_the_whole_run() -> void:
 	assert_eq((war["courts"] as Array).size(), 1, "one crown issued them all")
 
 
+## A fallen crown's rows are dropped: a dead court can no longer make a rule
+## read as exercised (issue #1136).
+func test_a_dead_courts_rows_never_count_toward_coverage() -> void:
+	var records: Array[Dictionary] = _records()
+	# Crown 0 issues all three war rows; its second turn is a dead one.
+	(records[1]["rows"][0] as Dictionary)["alive"] = false
+	# Crown 1 (the hospital train) is given an explicit living reading.
+	(records[1]["rows"][1] as Dictionary)["alive"] = true
+	var rows: Array[Dictionary] = AiCoverage.scan(records)
+	assert_eq(
+		int(_row(rows, "war.declare")["count"]), 1,
+		"only the turn the crown still lived counts"
+	)
+	assert_eq(int(_row(rows, "army.hospital")["count"]), 1, "the living crown's train counts")
+	# A record with no `alive` reading (an older exporter) keeps every row.
+	(records[1]["rows"][0] as Dictionary).erase("alive")
+	var unread: Array[Dictionary] = AiCoverage.scan(records)
+	assert_eq(
+		int(_row(unread, "war.declare")["count"]), 3,
+		"a row without the alive reading is read as a living court"
+	)
+
+
 func test_a_rule_with_no_order_row_reads_never_exercised() -> void:
 	var rows: Array[Dictionary] = AiCoverage.scan(_records())
 	assert_eq(int(_row(rows, "navy.launch")["count"]), 0, "no hull was laid")
@@ -9089,30 +9400,66 @@ func test_a_court_saving_for_its_muster_never_bids_the_war_chest_away() -> void:
 	)
 
 
-## The rival's home chart as a rules session, no MapScreen: `_overseas` reads the
-## world, the works and the fleet tables, and a mount costs seconds under
-## coverage that this case does not need (docs/testing.md § Speed rules).
+## Pocket Old World for the rival-blockade harvest case: England seat and a
+## coastal estate separated by ocean so the harbour is the only road home. A
+## full MapFixture chart + WorldBootstrap made two `_overseas` walks pay ~18 s
+## under coverage (docs/testing.md § Tiny fixture).
 func _blockade_play() -> PlaySession:
-	var world: WorldMap = MapFixture.world()
+	var rival: int = 1
+	var model := MapModel.new()
+	model.setup(4, 3)
+	model.region_id = FactionCatalog.OLD_WORLD
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	# Column 0 = seat; column 2 = coastal estate; columns 1 and 3 = sea.
+	for tile: Vector2i in [Vector2i(0, 0), Vector2i(0, 1)]:
+		model.province[model.index_of(tile.x, tile.y)] = 0
+	for tile: Vector2i in [Vector2i(2, 0), Vector2i(2, 1)]:
+		model.province[model.index_of(tile.x, tile.y)] = 1
+	model.resource[model.index_of(2, 0)] = WorldBootstrap.GRAIN_RESOURCE
+	var seat_tiles: Array[Vector2i] = [Vector2i(0, 0), Vector2i(0, 1)]
+	var coast_tiles: Array[Vector2i] = [Vector2i(2, 0), Vector2i(2, 1)]
+	var seat := ProvinceState.create(
+		0, "Seat", seat_tiles, Vector2(0.0, 0.5), 2, rival, true
+	)
+	seat.capital_tile = Vector2i(0, 0)
+	var coast := ProvinceState.create(
+		1, "Harbour", coast_tiles, Vector2(2.0, 0.5), 2, rival, false
+	)
+	coast.coastal = true
+	coast.resource = WorldBootstrap.GRAIN_RESOURCE
+	coast.resource_tile = Vector2i(2, 0)
+	model.provinces = [seat, coast]
+	model.faction_ids = [rival] as Array[int]
+	var sea_tiles: Array[Vector2i] = [
+		Vector2i(1, 0), Vector2i(1, 1), Vector2i(1, 2),
+		Vector2i(3, 0), Vector2i(3, 1), Vector2i(3, 2),
+		Vector2i(0, 2), Vector2i(2, 2),
+	]
+	for tile: Vector2i in sea_tiles:
+		var index: int = model.index_of(tile.x, tile.y)
+		model.terrain[index] = MapModel.Terrain.OCEAN
+		model.sea_zone[index] = 0
+		model.province[index] = MapModel.NO_ID
+	model.sea_zones = [
+		SeaZoneState.create(0, "Channel", sea_tiles, Vector2(2.0, 2.0), sea_tiles.size())
+	]
+	var world := WorldMap.new()
+	world.add_region(model)
 	var play := PlaySession.new()
 	play.player_faction = FactionCatalog.PLAYER_FACTION
 	play.world = world
 	play.region_index = 0
-	play.model = world.region(0)
-	play.map_seed = MapFixture.SEED
+	play.model = model
 	play.turn = 1
 	play.ship_layer = ShipLayer.new()
-	play.ship_layer.model = play.model
+	play.ship_layer.model = model
 	play.ship_layer.world = world
+	play.ship_layer.regions.set_region(0, [])
 	play.civilian_layer = CivilianLayer.new()
-	play.civilian_layer.model = play.model
+	play.civilian_layer.model = model
 	play.civilian_layer.viewer_faction = play.player_faction
-	for index in world.region_count():
-		var works := LandWorks.new()
-		WorldBootstrap.apply(world.region(index), works)
-		play.civilian_layer.works_regions.set_region(index, works)
-		play.ship_layer.regions.set_region(index, [])
-		play.civilian_layer.regions.set_region(index, [])
+	play.civilian_layer.works_regions.set_region(0, LandWorks.new())
+	play.civilian_layer.regions.set_region(0, [])
 	play.diplomacy = DiplomacyState.new()
 	play.diplomacy.human_faction = play.player_faction
 	play.ensure_ai()
@@ -9125,41 +9472,21 @@ func _blockade_play() -> PlaySession:
 ## The seat's own ground still yields: a blockade severs the sea, not the land.
 func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 	var play: PlaySession = _blockade_play()
-	var rival: int = -1
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction != play.player_faction:
-			rival = faction
-			break
+	var rival: int = 1
 	var economy: PlayerEconomy = play.ledger_for(rival)
 	var home: int = FactionCatalog.region_of(rival)
 	var model: MapModel = play.world.region(home)
 	var works: LandWorks = play.civilian_layer.works_regions.value(home, null)
 	var seat: int = int(WorldBootstrap.capital_seat(model, rival)["province"])
-	# Strip the home roads, then wire one province away from the seat by sea
-	# alone: its estates reach the crown through its harbour and nothing else.
-	for province: ProvinceState in model.provinces:
-		for tile: Vector2i in province.tiles:
-			works.set_transport(model, tile, 0)
-	var target: int = -1
-	var zone: int = -1
-	for sea_zone: SeaZoneState in model.sea_zones:
-		for raw: Variant in NavalMovement.provinces_by_zone(model, sea_zone.id):
-			var province: ProvinceState = model.province_data(int(raw))
-			if province == null or province.owner != rival or province.id == seat:
-				continue
-			var estate: bool = false
-			for tile: Vector2i in province.tiles:
-				if model.resource_at(tile.x, tile.y) >= 0:
-					estate = true
-					break
-			if not estate:
-				continue
-			target = province.id
-			zone = sea_zone.id
-			break
-		if target >= 0:
-			break
-	assert_gt(target, 0, "the rival holds a coastal estate province away from its seat")
+	assert_eq(seat, 0, "pocket chart seats England at province 0")
+	# Wire the coastal estate by sea alone: its harvest reaches the crown through
+	# its harbour and nothing else.
+	var target: int = 1
+	var zone: int = 0
+	assert_true(
+		NavalMovement.provinces_by_zone(model, zone).has(target),
+		"the harbour faces the pocket sea zone"
+	)
 	var chosen: ProvinceState = model.province_data(target)
 	for tile: Vector2i in chosen.tiles:
 		works.set_transport(model, tile, 1)
@@ -9167,8 +9494,6 @@ func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 			works.set_improvement(model, tile, 1)
 	works.add_port(model, chosen.tiles[0])
 	var before: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
-	# A hostile squadron at sea beside that harbour, on blockade duty.
-	assert_gt(zone, -1, "the harbour faces a sea zone")
 	play.diplomacy.ensure_relation(play.player_faction, rival, play.turn)
 	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, rival)
 	var fleet := FleetState.at_sea(999, play.player_faction, zone)
@@ -9744,6 +10069,29 @@ func test_the_observer_counts_a_colony_voyage() -> void:
 	assert_true(joined.contains("crosses the Passage"), joined)
 	assert_true(joined.contains("lands at Coast"), joined)
 
+## The voyage line names the crew that sailed: a claim's Merchant reads as a
+## Merchant, not as the Explorer that charted before it (#1127).
+func test_the_voyage_line_names_the_crew_that_sailed() -> void:
+	var who: String = FactionCatalog.name_of(campaign_OWNER)
+	var rows: Array[Dictionary] = AiExpeditionLog.rows([], [
+		{"faction": campaign_OWNER, "kind": "embark", "province_name": "Seat", "crew": "merchant"},
+		{"faction": campaign_OWNER, "kind": "land", "province_name": "Coast", "crew": "merchant"},
+		{"faction": campaign_OWNER, "kind": "land", "province_name": "Coast"},
+	])
+	assert_eq(
+		String(rows[0].get("event", "")), "%s's Merchant boards at Seat." % who,
+		"the boarding line names the claim crew"
+	)
+	assert_eq(
+		String(rows[1].get("event", "")), "%s's Merchant lands at Coast." % who,
+		"the landing line names it too"
+	)
+	assert_eq(
+		String(rows[3].get("event", "")), "%s's Explorer lands at Coast." % who,
+		"a trace with no crew keeps the published Explorer line"
+	)
+
+
 func test_the_expedition_log_reads_both_traces() -> void:
 	var rows: Array[Dictionary] = AiExpeditionLog.rows(
 		[{"faction": campaign_OWNER, "kind": AiInvasionPlanner.KIND_LAND, "province_name": ""}],
@@ -10064,6 +10412,67 @@ func test_no_second_expedition_when_a_colonist_is_already_abroad() -> void:
 	)
 	assert_true(order.is_empty())
 
+
+## The Explorer ashore is the chart, not the colony: the next voyage carries the
+## Merchant whose deeds found it, so a court whose charting crew landed is not
+## shut out of the New World for the rest of the campaign (#1127).
+func test_a_merchant_boards_when_the_explorer_is_already_ashore() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var explorer: CivilianState = CivilianState.create(
+		1, ai_colonisation_OWNER, "explorer", Vector2i(0, 0)
+	)
+	var merchant: CivilianState = CivilianState.create(
+		2, ai_colonisation_OWNER, "merchant", Vector2i(1, 0)
+	)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [merchant],
+		{"explorer": 1}
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 2, "the claim crew boards, not the charting one")
+
+	# One claim at a time: with a Merchant already across the water the court
+	# sends no second one, and its Explorer stays on the home survey.
+	var second: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [explorer, merchant],
+		{"explorer": 1, "merchant": 1}
+	)
+	assert_true(second.is_empty(), "the claim has already sailed")
+
+
+## A deed the Merchant signed is crown land for the landing rule, so the Builder
+## sails for it even though the province still answers to its Tribe (#1127;
+## wiki: civilian-units § Overseas deployment).
+func test_a_builder_sails_for_a_deed_in_the_new_world() -> void:
+	var world: WorldMap = _ai_colonisation_world()
+	var old_world: MapModel = world.region(0)
+	var new_world: MapModel = world.region(1)
+	var tiles: Array[Vector2i] = []
+	for y in 2:
+		for x in 4:
+			tiles.append(Vector2i(x, y))
+			new_world.province[new_world.index_of(x, y)] = 0
+	var tribe := ProvinceState.create(
+		0, "Tribe", tiles, Vector2(1.5, 0.5), tiles.size(), ai_colonisation_OWNER + 1, false
+	)
+	new_world.provinces = [tribe]
+	assert_true(
+		new_world.purchase_tile(Vector2i(1, 0), ai_colonisation_OWNER),
+		"the Merchant's deed"
+	)
+	var fleet: FleetState = FleetState.in_port(1, ai_colonisation_OWNER, 0)
+	var builder: CivilianState = CivilianState.create(
+		3, ai_colonisation_OWNER, "builder", Vector2i(0, 0)
+	)
+	var order: Dictionary = AiColonisationPlanner.plan(
+		_ai_colonisation_config(), world, 0, old_world, [fleet], [builder],
+		{"explorer": 1, "merchant": 1}
+	)
+	assert_eq(String(order.get("kind", "")), "embark")
+	assert_eq(int(order.get("unit", -1)), 3, "crown ground, a Builder works it")
+
 func test_the_map_adapter_embarks_and_sails_the_rival() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	var old_world: MapModel = world.region(0)
@@ -10347,9 +10756,12 @@ func test_an_explorer_musters_at_the_crowns_harbour() -> void:
 		"a colonist on the way to its port takes no survey work"
 	)
 
-## The muster only stands while a squadron is free to carry the colonist and the
-## court has none abroad yet; otherwise the Explorer is back on survey duty.
-func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void:
+## The muster stands while a crew is still to send and a squadron is free to
+## carry it. Once the Explorer has landed the harbour musters the Merchant whose
+## deeds found the colony, and it shuts again when that claim has sailed too
+## (#1127): a court is not left with no expedition because its charting crew is
+## ashore.
+func test_the_muster_port_needs_a_crew_to_send_and_a_free_squadron() -> void:
 	var world: WorldMap = _ai_colonisation_world()
 	var old_world: MapModel = world.region(0)
 	var play := PlaySession.new()
@@ -10370,11 +10782,26 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
 		"a court with a free squadron musters at its seat's port"
 	)
+	assert_eq(
+		CivilianMuster.voyage_kind(play, ai_colonisation_OWNER, 0), "explorer",
+		"nobody has landed: the Explorer charts"
+	)
 	var abroad: CivilianState = CivilianState.create(7, ai_colonisation_OWNER, "explorer", Vector2i(0, 0))
 	play.civilian_layer.regions.set_region(1, [abroad])
 	assert_eq(
+		CivilianMuster.voyage_kind(play, ai_colonisation_OWNER, 0), "merchant",
+		"the Explorer ashore is the chart: the Merchant claims"
+	)
+	assert_eq(
+		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), Vector2i(0, 1),
+		"the claim crew still musters after the charting crew landed"
+	)
+	play.civilian_layer.regions.set_region(1, [
+		abroad, CivilianState.create(8, ai_colonisation_OWNER, "merchant", Vector2i(0, 0)),
+	])
+	assert_eq(
 		CivilianMuster.muster_port(play, ai_colonisation_OWNER, 0, old_world), CivilianState.NO_TILE,
-		"a court with a colonist already abroad sends no second expedition"
+		"the claim has sailed: no third expedition of that kind"
 	)
 	play.civilian_layer.regions.set_region(1, [])
 	play.ship_layer.regions.set_region(0, [])
@@ -10384,6 +10811,39 @@ func test_the_muster_port_needs_a_free_squadron_and_no_colonist_abroad() -> void
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+## The claim crew waits at the harbour instead of marching off to sign a deed,
+## and the vessel it boards is found there: the Merchant is held by the same
+## reading the Explorer is (issue #894; #1127).
+func test_the_muster_holds_the_claim_crew_at_the_harbour() -> void:
+	var model: MapModel = campaign_CivilianFixture.build()
+	var port: Vector2i = campaign_CivilianFixture.COAST_TILE
+	var here: CivilianState = CivilianState.create(1, 0, "merchant", campaign_CivilianFixture.BARE_TILE)
+	var away: CivilianState = CivilianState.create(2, 0, "merchant", campaign_CivilianFixture.RIVAL_GRAIN_TILE)
+	var other: CivilianState = CivilianState.create(3, 0, "merchant", campaign_CivilianFixture.BARE_TILE)
+	var context: Dictionary = {"muster_port": port, "muster_unit": here.id}
+	assert_true(CivilianMuster.held_for_voyage(here, context))
+	assert_false(CivilianMuster.held_for_voyage(other, context), "only the picked crew waits")
+	assert_true(
+		AiMerchantWork.best_move(model, here, LandWorks.new(), context).is_empty(),
+		"a Merchant in the harbour province waits for its voyage"
+	)
+	assert_true(
+		AiMerchantWork.best_candidate(_work_query(
+			AiConfig.build(0, 1500), model, here, [here], LandWorks.new(),
+			campaign_CivilianFixture.stockpile(), {}, {}, context, {}
+		)).is_empty(),
+		"the claim crew takes no deed while it musters"
+	)
+	var march: Dictionary = CivilianMuster.muster_move(model, away, context)
+	assert_eq(String(march.get("kind", "")), "move")
+	var before: int = absi(away.tile.x - port.x) + absi(away.tile.y - port.y)
+	var step: Vector2i = march.get("tile", CivilianState.NO_TILE)
+	assert_true(
+		absi(step.x - port.x) + absi(step.y - port.y) < before,
+		"the march closes on the harbour"
+	)
 
 
 ## A crown whose own land still holds unsurveyed ground takes the second Explorer
@@ -10987,10 +11447,11 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
 	)
-	assert_eq(
-		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE),
-		"the court is banking for its army",
-		"a banking court signs no paid rung this turn"
+	assert_true(
+		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a banking court signs no paid rung, and the trace names the host line"
 	)
 	# The published rung stands for a court that is not banking.
 	context["income"] = {
@@ -11001,10 +11462,91 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, 3, 20, context
 	)
-	assert_ne(
-		_offer_blocked_kind(published, AiDiplomacyOffers.KIND_OVERTURE),
-		"the court is banking for its army",
+	assert_false(
+		_offer_blocked_kind(published, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
 		"a court with its host standing walks its chain"
+	)
+
+
+## The funded chain outranks the bank (issue #1135): the `chain_matters` bypass
+## was written for exactly this case but sat below the banking refusal and never
+## ran — a court below the bar banks on every turn it cannot cover both, so the
+## funded chain the ledger prices stayed shut the whole campaign.
+func test_a_banking_court_walks_its_funded_chain() -> void:
+	_setup_ai_diplomacy_offers()
+	var tribe: int = FactionCatalog.tribe_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
+	ai_diplomacy_offers_state.relation(2, tribe).score = 60.0
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([0, 2, tribe, tribe])
+	var context: Dictionary = campaign__context({2: 100, 3: 100})
+	context["treasury"] = {2: 1000, 3: 100}
+	# The Tribe is on the court's own map at a warm standing: the colony
+	# ambition prices its 500-cost rung against the purse (a chain the court
+	# funds), and the bank's face steps aside.
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	context["regiments"] = {2: 1}
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, tribe, 20, context
+	)
+	assert_false(
+		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a chain the court funds outranks the bank's face"
+	)
+	# A court with no chain (no charted Tribe beside it) still waits behind the
+	# bank: the aim the ledger funds here is the army's.
+	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
+	var other: Dictionary = campaign__context({2: 100, 3: 100})
+	other["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	other["regiments"] = {2: 1}
+	var other_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, 3, 20, other
+	)
+	assert_true(
+		_offer_blocked_kind(other_entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a court with no funded chain keeps the bank's face"
+	)
+
+
+## The deed Merchant is hired while the court banks, once the court's own ledger
+## funds a priced, openable deed (#1135): the bank holds the roster, not the one
+## crew the ledger is saving toward.
+func test_a_deed_merchant_is_hired_while_the_court_banks() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	crews["tech_unlocked"] = {"merchant_companies": true}
+	crews["merchant_targets"] = 1
+	crews["deed_price"] = 900
+	crews["conquest_bank"] = true
+	crews["phase"] = AiPhasePlanner.PHASE_PEACE
+	var hired: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(hired.get("ok", false)),
+		"the ledger funds a priced deed, so its Merchant is hired"
+	)
+	assert_eq(String(hired["type_id"]), "merchant")
+	# Without a priced deed on the chart the bank still holds the purse.
+	crews["deed_price"] = 0
+	var unfunded: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_eq(
+		String(unfunded.get("reason", "")), AiCivilianHire.REASON_BANK,
+		"a court with no deed on offer keeps its purse for the army"
 	)
 
 
@@ -11855,9 +12397,9 @@ func test_the_pact_break_waits_for_the_bank_then_leads_the_order() -> void:
 			blocked_break = _offer_blocked_kind(
 				candidate["offer"]["candidates"], AiDiplomacyOffers.KIND_BREAK_NAP
 			)
-	assert_eq(
-		blocked_break, "the court is banking for its army",
-		"the trace names the gate that holds the break"
+	assert_true(
+		blocked_break.begins_with("the court is banking for its army"),
+		"the trace names the gate that holds the break, and the aim it waits on"
 	)
 	# The host stands: the break leads, and the petty war waits a turn.
 	context["income"] = {
@@ -12690,7 +13232,7 @@ func test_a_truce_keeps_the_pair_below_the_declaration_bar() -> void:
 	)
 	var candidate: Dictionary = (barred["candidates"] as Array)[0]
 	assert_eq(
-		String(candidate["blocked"]), "the pair's truce holds: no new crown war yet",
+		String(candidate["blocked"]), "the pair's truce holds: no new war yet",
 		"the truce bars the re-declaration outright (issue #975) before desire is read"
 	)
 	assert_eq(
@@ -12822,13 +13364,13 @@ func campaign__candidate(plan: Dictionary, target: int) -> Dictionary:
 
 func test_a_colonial_truce_keeps_the_tribe_below_the_declaration_bar() -> void:
 	# The carousel #511 measured: declare, white peace in the same phase, and
-	# re-declare at the 4-turn cooldown. The truce now holds the pair.
+	# re-declare at the 4-turn cooldown. The truce now holds the pair outright.
 	var barred: Dictionary = _decide_colonial(false, 8, 4)
 	var entry: Dictionary = campaign__candidate(barred, WAR_TRIBE)
 
 	assert_eq(
-		String(entry.get("blocked", "")), "war desire too low",
-		"the cooldown alone no longer re-opens a colonial war"
+		String(entry.get("blocked", "")), "the pair's truce holds: no new war yet",
+		"the truce bars the colonial re-declaration outright (issue #1140)"
 	)
 	assert_eq(
 		int((entry.get("factors", {}) as Dictionary).get("memory", 0)),
@@ -15427,10 +15969,14 @@ func test_a_yard_price_out_of_reach_ranks_below_the_muster() -> void:
 	)
 
 
-## Issue #474 clause 2: a court holding the purse for its next regiment but no
-## cloth reads the row it actually lacks, and stays deferred, so the escalation
-## keeps re-routing the chest instead of banking one the muster never spends.
-func test_the_muster_row_prices_the_cloth_it_needs() -> void:
+## Issue #474 clause 2 / #1143: the muster's cloth stays on `reserve.muster` —
+## the ranked claim the market keeps stocked — so the ledger aim prices the
+## purse, the hand and the regiment and funds on a full purse even while the
+## store is short of cloth (a banked court cannot buy feedstock, and a whole
+## line starved thirty turns behind its own cloth row). The muster's own gate
+## still refuses a raise the stores cannot pay, so a funded aim is never a
+## false 'raised' reading.
+func test_the_muster_aim_funds_on_a_full_purse_without_cloth() -> void:
 	var readings: Dictionary = _readings()
 	readings["muster_row"] = {"fabric": 1}
 	readings["muster_floor"] = 2400
@@ -15438,19 +15984,42 @@ func test_the_muster_row_prices_the_cloth_it_needs() -> void:
 	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
 	var muster: AiObjective = _by_id(objectives, "muster.line")
 
-	assert_eq(int(muster.cost["fabric"]), 1, "the ledger prices the pattern's row")
+	assert_eq(int(muster.cost["treasury"]), 2400, "the ledger prices the war chest")
+	assert_false(
+		(muster.cost as Dictionary).has("fabric"),
+		"the pattern's row is reserve.muster's claim, not the aim's blocker"
+	)
 	AiObjectiveLedger.run(
 		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 0}
 	)
 	assert_eq(
-		muster.status, AiObjective.STATUS_DEFERRED,
-		"a full purse and no cloth is not a funded muster"
+		muster.status, AiObjective.STATUS_FUNDED,
+		"a full purse funds the line; the muster gate refuses a clothless raise"
 	)
-	assert_eq(int((muster.shortfall() as Dictionary).get("fabric", 0)), 1)
-	AiObjectiveLedger.run(
-		objectives, {"treasury": 5000, "regiment": 2, "labour": 3, "fabric": 1}
+
+
+## A court standing under its target whose muster row is closed by the muster's
+## own gate still prints the aim — blocked with the gate's words — so a silent
+## absence beside the navy chest cannot hide the starvation (issue #1143).
+func test_a_gated_muster_row_names_its_gate() -> void:
+	var readings: Dictionary = _readings()
+	readings["muster_due"] = false
+	readings["muster_gate"] = "the labour floor holds: no spare hand for the levy"
+	var blocked: AiObjective = _by_id(AiObjectivesPlan.build(readings), "muster.line")
+	assert_true(blocked != null, "the aim is printed, not silent")
+	assert_eq(blocked.status, AiObjective.STATUS_BLOCKED)
+	assert_eq(
+		blocked.blocked, "the labour floor holds: no spare hand for the levy",
+		"the trace names the gate that closed the row"
 	)
-	assert_eq(muster.status, AiObjective.STATUS_FUNDED, "with the cloth in store it funds")
+	# At target (no gate named) the row is genuinely quiet.
+	var settled: Dictionary = _readings()
+	settled["muster_due"] = false
+	settled["muster_gate"] = ""
+	assert_true(
+		_by_id(AiObjectivesPlan.build(settled), "muster.line") == null,
+		"at target the muster is quiet"
+	)
 
 
 ## A court whose techs open no warship says so instead of claiming a hull it can
@@ -15567,6 +16136,53 @@ func test_the_adapter_reads_a_stranded_explorer() -> void:
 		"the aim names the strand"
 	)
 	assert_eq((colony.get("children", []) as Array).size(), 0, "no sailing is priced")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## A claim crew waiting at home keeps the expedition alive: the Merchant sails
+## after the Explorer, so an Explorer ashore with no crown land is not a strand
+## while that crew stands ready (#1127).
+func test_the_adapter_keeps_the_expedition_alive_for_the_claim_crew() -> void:
+	var play: PlaySession = _objective_session(_court())
+	play.civilian_layer.units.clear()
+	play.civilian_layer.units.append(
+		CivilianState.create(4, OBJ_OWNER, "merchant", Vector2i(0, 0))
+	)
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	play.civilian_layer.regions.set_region(
+		1, [CivilianState.create(2, OBJ_OWNER, "explorer", Vector2i(0, 0))]
+	)
+	var report: Dictionary = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	var colony: Dictionary = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_false(colony.is_empty(), "the court still prices its expedition")
+	assert_eq(
+		String(colony["status"]), AiObjective.STATUS_FUNDED,
+		"the claim crew still has a voyage to sail"
+	)
+	# The claim has sailed and another Merchant idles at home: one of each kind
+	# afloat, so no third voyage is priced and the strand is named again (#602).
+	play.civilian_layer.regions.set_region(1, [
+		CivilianState.create(2, OBJ_OWNER, "explorer", Vector2i(0, 0)),
+		CivilianState.create(3, OBJ_OWNER, "merchant", Vector2i(0, 0)),
+	])
+	play.civilian_layer.units.clear()
+	play.civilian_layer.units.append(
+		CivilianState.create(5, OBJ_OWNER, "merchant", Vector2i(0, 0))
+	)
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+	report = MapPlayObjectivesAi.run(play)[OBJ_OWNER]
+	colony = {}
+	for row: Dictionary in report["objectives"]:
+		if String(row["id"]) == "colonise.new_world":
+			colony = row
+	assert_eq(
+		String(colony["status"]), AiObjective.STATUS_BLOCKED,
+		"a claim already ashore strands the expedition"
+	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
 
@@ -15721,8 +16337,9 @@ func test_the_reading_pass_names_every_domain() -> void:
 
 	for key: String in [
 		"at_war", "war_desire", "regiments", "muster_floor", "muster_due",
-		"muster_row", "escalations", "blockings",
+		"muster_row", "muster_gate", "escalations", "blockings",
 		"ships", "warships", "warship_price", "warship_row", "warship_open",
+		"warship_refusal", "warship_hands",
 		"navy_due", "hostile_ships", "hostile_warships",
 		"treasury", "reserve", "goal",
 		"research_slots", "research_funding", "research_cost",
@@ -15997,6 +16614,102 @@ func test_a_fleet_claim_short_of_cloth_does_not_launch() -> void:
 	)
 	play.ship_layer.free()
 	play.civilian_layer.free()
+
+
+## Issue #1126: the yard's own gate is the one read the ledger, the cargo pass
+## and the trace share — what it would lay today, or why it will not.
+func test_the_yard_gate_names_the_hull_it_would_lay_or_the_refusal() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("frigate")] = true
+	var lay: Dictionary = AiNavy.laying(economy, [])
+	assert_eq(String(lay["type_id"]), "frigate", "the strongest hull its techs open")
+	assert_eq(String(lay["reason"]), "", "a payable hull names no gate")
+
+	# England's published case (issue #1126): the purse and the cloth are there,
+	# no hand is free.
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)
+	lay = AiNavy.laying(economy, [])
+	assert_eq(String(lay["type_id"]), "", "no hand, no hull")
+	assert_eq(String(lay["reason"]), "Insufficient workers", "the yard's own words")
+
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 4)
+	economy.stockpile["fabric"] = 0
+	lay = AiNavy.laying(economy, [])
+	assert_eq(String(lay["reason"]), "Insufficient materials", "and its own cloth gate")
+
+
+## Issue #1126: a funded claim the yard refuses reads the gate instead of
+## vanishing — the report carries the yard's words and lays no hull.
+func test_a_funded_hull_the_yard_refuses_names_the_gate() -> void:
+	var war: DiplomacyState = _court()
+	war.relation(OBJ_OWNER, OBJ_RIVAL).at_war = true
+	var play: PlaySession = _objective_session(war)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 20000
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	MapPlayObjectivesAi.run(play)
+	assert_true(
+		(play.ai.objectives_for(OBJ_OWNER)["funded_ids"] as Array).has("navy.build"),
+		"the chest funds the hull"
+	)
+	# No hand to crew her: one peasant leaves the pool at launch.
+	economy.workers.set_count(WorkerPool.Tier.PEASANT, 0)
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	assert_true(
+		(cargo.get("warship", {}) as Dictionary).is_empty(), "no hull is laid down"
+	)
+	assert_eq(
+		String((cargo.get("warship_refused", {}) as Dictionary).get("refused", "")),
+		"Insufficient workers", "the yard's gate reaches the report"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## Issue #1126: a court with no free hand funds no hull the yard would refuse.
+## The hand is a gate, not a claim: reading it out of the shared labour pool
+## starved the production run ranked under the yard.
+func test_a_slip_with_no_free_hand_funds_no_hull() -> void:
+	var readings: Dictionary = _readings()
+	readings["at_war"] = true
+	readings["warships"] = 0
+	readings["hostile_warships"] = 2
+	readings["warship_hands"] = 0
+	var objectives: Array[AiObjective] = AiObjectivesPlan.build(readings)
+	var build: AiObjective = _by_id(objectives, "navy.build")
+	assert_eq(String(build.blocked), "no free hand for the slip")
+	assert_true((build.cost as Dictionary).has("treasury"), "the purse is still priced")
+	assert_false((build.cost as Dictionary).has("labour"), "the hand is no pool claim")
+
+	readings["warship_hands"] = ShipEconomy.WORKER_COST
+	build = _by_id(AiObjectivesPlan.build(readings), "navy.build")
+	assert_eq(String(build.blocked), "", "a hand in the pool opens the yard")
+
+
+## Issue #1126: while the chest banks for a hull the yard opens and the material
+## row is in store, the court keeps one peasant for the slip; a hull with no
+## cloth to lay holds no hand.
+func test_the_slip_keeps_a_hand_while_the_chest_banks() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile["lumber"] = 10
+	economy.stockpile["fabric"] = 10
+	economy.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	economy.treasury = 6000
+	assert_eq(
+		AiNavy.hands(economy, [], 5500), ShipEconomy.WORKER_COST,
+		"the chest is in hand: a hand is kept for the slip"
+	)
+	economy.treasury = 3000
+	assert_eq(AiNavy.hands(economy, [], 5500), 0, "still filling: the court trains")
+	assert_eq(AiNavy.hands(economy, [], 0), 0, "no chest, no hand")
+	economy.treasury = 6000
+	economy.stockpile["fabric"] = 0
+	assert_eq(AiNavy.hands(economy, [], 5500), 0, "no cloth to lay: no hand held")
 
 
 ## Issue #484: the economy keeps the hull's row back beside the muster's, so a

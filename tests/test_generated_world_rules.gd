@@ -2507,6 +2507,25 @@ func test_each_non_land_key_publishes_exactly_its_own_domain() -> void:
 	assert_almost_eq(LeaderCatalog.funding_multiplier("henry"), 1.0, 0.001)
 
 
+## The crown's own line: its leader and the effect that key publishes, in the
+## words the new-game chooser printed, for every published crown; a variant id
+## resolves to its key and a crown that fields none reads the neutral reserve
+## (wiki: leader-bonuses § Acceptance criteria — UI; DR-20261120-09).
+func test_the_crown_line_names_the_leader_and_its_effect() -> void:
+	for faction: int in FactionCatalog.great_power_ids():
+		var key: String = LeaderCatalog.default_key(faction)
+		var line: String = LeaderCatalog.crown_line(key)
+		assert_true(line.contains(LeaderCatalog.label(key)), "%s names its leader" % key)
+		assert_true(line.contains(LeaderCatalog.bonus_label(key)), "%s names its effect" % key)
+		assert_false(line.contains("no bonus"), "%s fields a published bonus" % key)
+	assert_eq(LeaderCatalog.crown_line(""), "Reserve — no bonus")
+	assert_eq(
+		LeaderCatalog.crown_line("france_napoleon_leader"),
+		LeaderCatalog.crown_line("napoleon"),
+		"a variant id words the crown as its published key does"
+	)
+
+
 func test_bonus_labels_name_the_real_effect() -> void:
 	assert_true(LeaderCatalog.bonus_label("isabella").contains("first contact"))
 	assert_true(LeaderCatalog.bonus_label("henry").contains("coastal"))
@@ -3570,6 +3589,43 @@ func test_only_stingers_are_one_shots() -> void:
 	assert_true(MusicPlaylist.loops(MusicPlaylist.BROADSIDES))
 	assert_false(MusicPlaylist.loops(MusicPlaylist.VICTORY))
 	assert_false(MusicPlaylist.loops(MusicPlaylist.DEFEAT))
+
+
+## The rotate (issue #1154): every looping bed, once each, and the stingers out.
+func test_the_rotate_covers_every_looping_bed_once() -> void:
+	var seen: Dictionary = {}
+	for track_id: String in MusicPlaylist.ROTATION:
+		assert_false(seen.has(track_id), "%s rotates once" % track_id)
+		seen[track_id] = true
+		assert_false(MusicPlaylist.track(track_id).is_empty(), track_id)
+		assert_true(MusicPlaylist.loops(track_id), "%s loops" % track_id)
+	for bed: Dictionary in MusicPlaylist.ERA_BEDS:
+		assert_true(MusicPlaylist.rotates(String(bed["id"])), "era beds rotate")
+	assert_false(MusicPlaylist.rotates(MusicPlaylist.VICTORY), "a fanfare is not a bed")
+	assert_false(MusicPlaylist.rotates(MusicPlaylist.DEFEAT), "a knell is not a bed")
+	assert_eq(MusicPlaylist.ROTATION.size(), 13)
+
+
+## The nine theme beds ship, and each is three minutes or more of music.
+func test_the_nine_theme_beds_are_shipped_and_long() -> void:
+	assert_eq(MusicPlaylist.THEME_BEDS.size(), 9)
+	for bed: Dictionary in MusicPlaylist.THEME_BEDS:
+		var track_id: String = String(bed["id"])
+		assert_true(MusicPlaylist.rotates(track_id), track_id)
+		assert_true(bed.has("title") and bed.has("role"), "%s carries its brief" % track_id)
+		var path: String = MusicPlaylist.path_for(track_id)
+		assert_true(FileAccess.file_exists(path), path)
+		var stream := load(path) as AudioStreamOggVorbis
+		assert_not_null(stream, path)
+		assert_gte(stream.get_length(), 180.0, "%s is three minutes or longer" % track_id)
+
+
+func test_the_rotate_wraps_and_an_unknown_bed_enters_at_the_top() -> void:
+	var last: String = MusicPlaylist.ROTATION[MusicPlaylist.ROTATION.size() - 1]
+	assert_eq(MusicPlaylist.next_in_rotation(last), MusicPlaylist.ROTATION[0])
+	assert_eq(MusicPlaylist.next_in_rotation("sea_shanty_404"), MusicPlaylist.ROTATION[0])
+	assert_eq(MusicPlaylist.next_in_rotation(MusicPlaylist.AGE_OF_DISCOVERY),
+		MusicPlaylist.COURT)
 
 func test_every_regiment_has_a_training_row() -> void:
 	for type_id: String in RegimentCatalog.ids():

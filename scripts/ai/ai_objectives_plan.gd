@@ -110,21 +110,29 @@ static func _muster(readings: Dictionary, at_war: bool) -> AiObjective:
 	# exactly while it stands under its target with a peasant and a line it can
 	# pay for (AiArmyReinforce), so the ledger prices the muster it is saving
 	# for and stays quiet once it stands at target.
+	# A court standing under its target whose row is closed by the muster's own
+	# gate still prints the aim — blocked with the gate's words — instead of
+	# vanishing beside the navy chest, so the starvation cannot hide in a silent
+	# absence (issue #1143). At target the row is genuinely quiet.
+	var muster_gate: String = String(readings.get("muster_gate", ""))
 	if not bool(readings.get("muster_due", false)):
-		return null
+		if muster_gate.is_empty():
+			return null
+		return AiObjective.create("muster.line", "military", W_MUSTER, {}).block(
+			muster_gate
+		)
 	var utility: int = W_MUSTER + (W_MUSTER_WAR if at_war else 0)
-	# The purse it must leave behind plus the material row of the pattern it is
-	# saving for: the planner refuses a muster short of that cloth (#474), so a
-	# row priced on the purse alone would read `funded` for a regiment the court
-	# cannot raise — and clear the very stall the escalation counts (#603).
+	# The purse it must leave behind: the planner refuses a muster short of
+	# that cloth (#474), so a row priced on the purse alone would read `funded`
+	# for a regiment the court cannot raise — and clear the very stall the
+	# escalation counts (#603). The pattern's own material row stays on
+	# `reserve.muster` (the ranked claim the market keeps stocked): pricing it
+	# here too deferred the whole aim for want of cloth a banked court cannot
+	# buy — the line starved thirty turns with a full purse (issue #1143) —
+	# while the muster's own gate still refuses a raise the stores cannot pay.
 	var cost: Dictionary = {
 		"regiment": 1, "labour": 1, "treasury": int(readings.get("muster_floor", 0)),
 	}
-	for commodity: Variant in (readings.get("muster_row", {}) as Dictionary).keys():
-		var id: String = String(commodity)
-		var need: int = int((readings["muster_row"] as Dictionary)[commodity])
-		if need > 0:
-			cost[id] = int(cost.get(id, 0)) + need
 	var muster := AiObjective.create("muster.line", "military", utility, cost)
 	# The escalation's explicit terminal reading (#603): a muster that has been
 	# deferred past the blocked bar with its shortfall standing still names it,
@@ -277,15 +285,27 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 		# unlock keeps that chest but does not claim a launch it cannot lay.
 		if not bool(readings.get("warship_open", false)):
 			build.block("no warship its techs open")
+		elif int(readings.get("warship_hands", ShipEconomy.WORKER_COST)) \
+				< ShipEconomy.WORKER_COST:
+			# One peasant leaves the pool at launch: a court with no free hand
+			# funds no hull the yard would refuse (issue #1126).
+			build.block("no free hand for the slip")
 		else:
 			# A yard the court has stalled on for the blocked bar's turns names
 			# it — the chest stays out of reach and the trace says so instead
-			# of another silent deferred row (issue #603).
+			# of another silent deferred row (issue #603). The yard's own gate
+			# rides in the same words, so a court that cannot lay the hull it
+			# funds reads why instead of banking the chest again (issue #1126).
 			var yard_stall: int = int(
 				(readings.get("blockings", {}) as Dictionary).get("navy.build", 0)
 			)
 			if yard_stall > 0:
-				build.block("the yard is out of reach %d turns" % yard_stall)
+				var gate: String = String(readings.get("warship_refusal", ""))
+				build.block(
+					"the yard is out of reach %d turns" % yard_stall
+					if gate.is_empty()
+					else "the yard is out of reach %d turns (%s)" % [yard_stall, gate]
+				)
 		return build
 	if not at_war:
 		return null
@@ -308,7 +328,9 @@ static func _chest_beyond_reach(readings: Dictionary) -> bool:
 
 
 ## Treasury claim only: cloth stays on `AiClaims.NAVY` so the objective does not
-## double-book the bolt the market already held (issue #484).
+## double-book the bolt the market already held (issue #484). The hand the yard
+## takes at launch is a gate, not a claim — reading it out of the shared labour
+## pool would starve the production run ranked under it (issue #1126).
 static func _build_cost(readings: Dictionary) -> Dictionary:
 	return {"treasury": int(readings.get("warship_price", 0))}
 

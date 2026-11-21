@@ -49,10 +49,11 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   the pocket chart and `ResearchPanel` only when a case reads them.
-- **Heaviest suite sorts first**: name order, four wide — a long `world_…`
-  suite must not drain alone.
+- **Heaviest suite sorts first**: name order, four wide — a long chart
+  suite must not drain alone on one worker.
 - One Godot boot per theme — coverage ~15 s a boot; 24 suites
-  (heraldry + tile edges → chrome plate). `gd-tools.toml`: `parallel = 4`.
+  (wash bake → map-view; order verdict → chrome plate).
+  `gd-tools.toml`: `parallel = 4`.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
@@ -180,11 +181,9 @@ godot --headless --path . --script res://playtests/playtest_beachhead.gd
 # recruit queue already held.
 godot --headless --path . --script res://playtests/playtest_fleet_yard_batch.gd
 
-# The line under the raise sheets' one press — the towns, the walls and the
-# estates sheets read as a player reads them: the face, the printed price, the
-# two taps, then the line's promise held against the raised count, the stores
-# that left and the crews that went to work; seats a Builder on each chart,
-# where a realm-wide pool once promised a town the press could not raise.
+# The realm's three views on a live chart (the seat's town and defence figure),
+# the province dossier's one Upgrade Town press filing a real Builder's order,
+# and the estates card's line held against what its two taps actually raised.
 godot --headless --path . --script res://playtests/playtest_raise_line.gd
 
 # Rival overseas invasion — plays an all-AI campaign and reads every expedition
@@ -291,7 +290,9 @@ godot --headless --path . --script res://playtests/playtest_workers.gd
 # cap road, each commander, the medal note and the fallback), then the turn-100
 # advanced start where the cap-raising studies have landed, then fights a real
 # land battle and holds the despatch's medal credit to the roster and to the
-# ledger's row afterwards.
+# ledger's row afterwards, and finally runs one phase of four attacks and a
+# defence against a pool of three — the distinct binds, the army left on the
+# leader's fallback medals, and each despatch line's own medal count.
 godot --headless --path . --script res://playtests/playtest_command.gd
 
 # Observer siege — seats a wall, its garrison and a besieging train between two
@@ -332,9 +333,10 @@ godot --headless --path . --script res://playtests/playtest_campaign_end.gd
 # Boycott blocked deal — seats the two records no session waits for (a rival
 # holding a Tribe as its colony, that rival boycotting the crown), then reads
 # what each court is told: the court sheet's trade block and the colony's page
-# (where Grant Aid and every subsidy are refused), the market page's offers and
-# their asks, the bid pressed from the colony's own row, and the turn close
-# (despatch, LAST CLEARING, notes, carry) two turns running.
+# (where Grant Aid and every subsidy are refused), the market page's offers with
+# the bar printed under each shut row and its words in the terms banner, the bid
+# pressed from the colony's own row, and the turn close (despatch, LAST
+# CLEARING, notes, carry) two turns running.
 godot --headless --path . --script res://playtests/playtest_boycott_block.gd
 
 # Defeat — the crown's own end, which no play reaches by hand (terminal fall:

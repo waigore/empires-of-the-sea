@@ -12,6 +12,8 @@ extends VBoxContainer
 
 ## A chip was pressed: which row it sits in, and the key it carries.
 signal chosen(key: String, region_row: bool)
+## A sort chip was pressed: the key the view orders its rows by.
+signal sort_chosen(key: String)
 
 const CAPTION_WIDTH: float = 58.0
 const CHIP_HEIGHT: float = 34.0
@@ -19,6 +21,10 @@ const SEPARATION: int = 6
 
 var _chart_row: HBoxContainer = null
 var _reading_row: HBoxContainer = null
+## The optional third row: the order the sheet prints its rows in. A sheet that
+## offers no order leaves it unmounted.
+var _sort_row: HBoxContainer = null
+var _sort_keys: Array = []
 
 
 ## "Both charts" / "Old World" / "New World": the chart axis is the same on
@@ -40,8 +46,14 @@ func fill(
 	reading_word: Callable
 ) -> void:
 	add_theme_constant_override("separation", 4)
-	_chart_row = _chip_row(chart_caption, chart_keys, true, Callable())
-	_reading_row = _chip_row(reading_caption, reading_keys, false, reading_word)
+	_chart_row = _chip_row(
+		chart_caption, chart_keys, true, Callable(),
+		func(key: String) -> void: chosen.emit(key, true)
+	)
+	_reading_row = _chip_row(
+		reading_caption, reading_keys, false, reading_word,
+		func(key: String) -> void: chosen.emit(key, false)
+	)
 	add_child(_chart_row)
 	add_child(_reading_row)
 
@@ -52,8 +64,34 @@ func render(chart_key: String, reading_key: String) -> void:
 	_paint(_reading_row, reading_key)
 
 
+## Paints the chosen sort chip; a sheet without a sort row asks nothing of it.
+func render_sort(sort_key: String) -> void:
+	_paint(_sort_row, sort_key)
+
+
+## The order row: which figure the sheet sorts by. The keys change with the
+## reading (a defence view offers one figure, an economy view one per resource),
+## so the row is rebuilt only when the key list itself changes.
+func fill_sort(caption: String, keys: Array, word: Callable, active_key: String) -> void:
+	if keys == _sort_keys and _sort_row != null:
+		_paint(_sort_row, active_key)
+		return
+	_sort_keys = keys.duplicate()
+	if _sort_row != null:
+		remove_child(_sort_row)
+		_sort_row.queue_free()
+	_sort_row = _chip_row(
+		caption, keys, false, word, func(key: String) -> void: sort_chosen.emit(key)
+	)
+	add_child(_sort_row)
+	_paint(_sort_row, active_key)
+
+
+## One chip row: the caption, one chip per key, and the `sink` that a press
+## reports its key to (`chosen` for the chart and reading axes, `sort_chosen`
+## for the order).
 func _chip_row(
-	caption: String, keys: Array, region_row: bool, word: Callable
+	caption: String, keys: Array, region_row: bool, word: Callable, sink: Callable
 ) -> HBoxContainer:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", SEPARATION)
@@ -67,7 +105,7 @@ func _chip_row(
 		chip.focus_mode = Control.FOCUS_ALL
 		chip.add_theme_font_size_override("font_size", 12)
 		chip.set_meta("key", key)
-		chip.pressed.connect(func() -> void: chosen.emit(key, region_row))
+		chip.pressed.connect(func() -> void: sink.call(key))
 		row.add_child(chip)
 	return row
 

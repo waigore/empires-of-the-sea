@@ -208,7 +208,7 @@ func test_changing_the_priority_repaints_the_same_row() -> void:
 	assert_is(row, _slot_row(0), "the funding change must not rebuild the slot")
 	assert_not_null(_button("High"))
 	assert_eq(row.bar().next_gain(), 800, "the gauge follows the new preset")
-	assert_eq(_panel._slots_body.get_child_count(), ResearchState.DEFAULT_SLOTS)
+	assert_eq(_panel.slot_rows().size(), ResearchState.DEFAULT_SLOTS)
 
 func test_the_heading_totals_what_the_college_spends() -> void:
 	_setup_research_panel()
@@ -240,7 +240,7 @@ func test_closing_emits_the_close_signal() -> void:
 	_setup_research_panel()
 	var closed: Array[bool] = []
 	_panel.close_pressed.connect(func() -> void: closed.append(true))
-	var close: Button = _button("Close")
+	var close: Button = _panel._close
 	assert_not_null(close)
 	close.pressed.emit()
 	assert_eq(closed.size(), 1)
@@ -330,7 +330,8 @@ func test_a_ledger_reopens_on_the_goal_the_campaign_carries() -> void:
 
 ## The persistent row the panel keeps for one slot.
 func _slot_row(index: int) -> ResearchSlotRow:
-	return _panel._slots_body.get_child(index) as ResearchSlotRow
+	var rows: Array[ResearchSlotRow] = _panel.slot_rows()
+	return rows[index] if index < rows.size() else null
 
 ## The first name in the AVAILABLE tab, which is the goal-aware queue order.
 func _first_available() -> String:
@@ -435,6 +436,27 @@ func test_the_province_sheet_names_the_deeds_bought_in_its_land() -> void:
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	assert_true(grid.deeds.visible, "the row arrives with the deed")
 	assert_eq(grid.deeds.text, "%s 1 tile" % FactionCatalog.name_of(1))
+
+
+## The province sheet names what the wall soaks and what it spares the garrison
+## — the fort table's own figures, so a plan is made against the wall a battle
+## would fight — and leaves the row out on open ground (wiki: siege-mechanics
+## § Wall Protection; DR-20261120-06).
+func test_the_province_sheet_names_what_the_wall_soaks() -> void:
+	_setup_province_panel()
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {}, {}
+	)
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	var grid: ProvinceFactsGrid = _province_panel_panel._grid
+	assert_false(grid.wall.visible, "open ground says nothing")
+	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 1
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	assert_true(grid.wall.visible, "the row arrives with the wall")
+	assert_eq(grid.wall.text, "10 wall hp · 25% off a blow")
+	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 3
+	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
+	assert_eq(grid.wall.text, "30 wall hp · 60% off a blow", "a modern wall")
 
 func test_each_estate_says_whether_it_is_developed_and_linked() -> void:
 	_setup_province_panel()
@@ -1919,7 +1941,7 @@ func test_a_phone_ledger_shrinks_its_chrome() -> void:
 			frame._title.get_theme_font_size("font_size"),
 			LedgerFrame.TITLE_PIXELS_COMPACT
 		)
-		assert_eq(frame._close.custom_minimum_size, LedgerFrame.CLOSE_SIZE_COMPACT)
+		assert_eq(frame._close.custom_minimum_size, CloseSeal.SIZE)
 		if frame._hint != null:
 			assert_false(frame._hint.visible, "a phone keeps the room for the list")
 	for frame: LedgerFrame in frames:
@@ -1927,7 +1949,7 @@ func test_a_phone_ledger_shrinks_its_chrome() -> void:
 		var sheet: StyleBoxFlat = frame.get_theme_stylebox("panel") as StyleBoxFlat
 		assert_almost_eq(sheet.content_margin_left, LedgerFrame.PADDING.x, 0.01)
 		assert_eq(frame._title.get_theme_font_size("font_size"), LedgerFrame.TITLE_PIXELS)
-		assert_eq(frame._close.custom_minimum_size, LedgerFrame.CLOSE_SIZE)
+		assert_eq(frame._close.custom_minimum_size, CloseSeal.SIZE)
 		if frame._hint != null:
 			assert_true(frame._hint.visible, "the standing line returns")
 	_free_ledger_frames(frames)
@@ -5403,6 +5425,54 @@ func test_a_door_without_a_crest_still_tracks_its_hold() -> void:
 	assert_false(door.is_parked())
 
 
+## The pause page's campaign reading: a missing screen yields the catalog default
+## and no seed, and COPY is a no-op when nothing is shown (REQ-P3-01).
+func test_the_pause_campaign_reading_stands_alone() -> void:
+	assert_eq(GameMenuCampaign.resolve_seed(null), 0, "no screen, no seed")
+	assert_eq(
+		GameMenuCampaign.resolve_leader(null),
+		LeaderCatalog.DEFAULT_KEY,
+		"no screen, the catalog default"
+	)
+	var seed_label := Label.new()
+	var crown := Label.new()
+	var copy := Button.new()
+	add_child(seed_label)
+	add_child(crown)
+	add_child(copy)
+	var shown: int = GameMenuCampaign.refresh(null, seed_label, copy, crown)
+	assert_eq(shown, 0)
+	assert_eq(seed_label.text, "—")
+	assert_true(copy.disabled, "copy stays shut with no seed")
+	assert_eq(crown.text, LeaderCatalog.crown_line(LeaderCatalog.DEFAULT_KEY))
+	var status := Label.new()
+	add_child(status)
+	GameMenuCampaign.copy_seed(0, status)
+	assert_eq(status.text, "", "a zero seed copies nothing")
+	GameMenuCampaign.copy_seed(42, status)
+	assert_eq(status.text, "Seed copied.", "a live seed confirms")
+
+
+## The pause desk builds its own rows so GameMenu only wires them (REQ-P3-01).
+func test_the_pause_desk_builds_its_rows() -> void:
+	var frame := VBoxContainer.new()
+	add_child(frame)
+	var desk := GameMenuPause.new()
+	desk.build(frame, true)
+	assert_not_null(desk.pause_page, "the desk mounts a page")
+	assert_not_null(desk.crown_label, "with the crown line")
+	assert_not_null(desk.seed_label, "the seed digits")
+	assert_not_null(desk.copy_seed_button, "the copy door")
+	assert_not_null(desk.resume_button, "resume")
+	assert_not_null(desk.save_button, "save")
+	assert_not_null(desk.load_button, "load")
+	assert_not_null(desk.keys_button, "keys")
+	assert_not_null(desk.main_menu_button, "main menu")
+	assert_not_null(desk.sound_desk, "the mix desk")
+	assert_not_null(desk.status, "and a status line")
+	assert_eq(desk.pause_page.get_parent(), frame, "the page sits on the frame")
+
+
 ## The screen-side door case (`test_the_screen_binds_the_door_and_the_observer_
 ## seals_it`) rides the observer suite's one mount (`test_ai_observer`): a
 ## second observer mount here cost ~15 s under coverage for the same asserts.
@@ -5892,3 +5962,132 @@ func test_the_mission_block_prints_the_courts_pick_under_its_station() -> void:
 	block.set_data("", [], "")
 	assert_false(block.visible, "nothing to say, nothing raised")
 	block.queue_free()
+
+
+# --- panel close seal (docs/ui-panels.md; issue #1161) -----------------------
+
+## Every known dismissible panel: the shared chrome (a bare SheetFrame and
+## LedgerFrame, the two header rows) and each one-off that draws its own plate.
+## A new sheet joins this list, so the rule is proved on the panel itself.
+func _dismissible_panels() -> Array[Node]:
+	var desk := SoundDesk.new()
+	desk.closable = true
+	return [
+		SheetFrame.new(),
+		LedgerFrame.new(),
+		DossierHeader.make(20),
+		ProvinceSheetHead.new(),
+		TechTreePanel.new(),
+		CourtDossierScreen.new(),
+		ArmyPanel.new(),
+		FleetPanel.new(),
+		ProvincePanel.new(),
+		CivilianPanel.new(),
+		ImprovementPanel.new(),
+		GazettePlate.new(),
+		ObserverProvinceSheet.new(),
+		desk,
+	]
+
+
+func _seal_of(panel: Node) -> CloseSeal:
+	for node: Node in _collect(panel, [] as Array[Node]):
+		if node is CloseSeal:
+			return node as CloseSeal
+	return null
+
+
+## The seal is the shell's own medallion: one glyph, no word, and a thumb-sized
+## target (REQ-P1-05, REQ-P1-08; docs/ui-panels.md).
+func test_the_close_seal_is_one_medallion_control() -> void:
+	var seal := CloseSeal.make()
+	add_child(seal)
+	assert_eq(seal.text, "", "the seal carries no word")
+	assert_eq(seal.tooltip_text, "Close", "the words live in the tip")
+	assert_eq(seal.icon, ChromeIcons.texture("close"), "the shell's medallion set")
+	assert_true(
+		seal.custom_minimum_size.x >= 44.0 and seal.custom_minimum_size.y >= 44.0,
+		"a phone keeps a thumb-sized door: %s" % seal.custom_minimum_size
+	)
+	seal.free()
+
+
+## Every known dismissible panel wears exactly one seal, in the last slot of its
+## header row, and prints no one-off "Close" or "×" door of its own.
+func test_every_known_panel_wears_the_shared_close_seal() -> void:
+	for panel: Node in _dismissible_panels():
+		add_child(panel)
+		var seals: Array[CloseSeal] = []
+		var text_doors: Array[String] = []
+		for node: Node in _collect(panel, [] as Array[Node]):
+			if node is CloseSeal:
+				seals.append(node as CloseSeal)
+			elif node is Button:
+				var words: String = (node as Button).text
+				if words.contains("Close") or words == "×" or words == "✕":
+					text_doors.append(words)
+		assert_eq(seals.size(), 1, "%s wears one close seal" % panel.get_class())
+		var seal: CloseSeal = seals[0]
+		var row: Node = seal.get_parent()
+		assert_true(row is HBoxContainer, "%s pins its seal in a header row" % panel.get_class())
+		assert_eq(
+			seal.get_index(),
+			row.get_child_count() - 1,
+			"%s pins its seal in the header's right-hand slot" % panel.get_class()
+		)
+		assert_eq(
+			text_doors,
+			[] as Array[String],
+			"%s must not print a one-off close door" % panel.get_class()
+		)
+		remove_child(panel)
+		panel.free()
+
+
+## A press on the seal closes the panel it heads, through the panel's own
+## signal or its one visible flag (REQ-P5-07).
+func test_the_close_seal_closes_the_panel_beside_it() -> void:
+	for panel: Node in _dismissible_panels():
+		add_child(panel)
+		var heard: Array[bool] = []
+		if panel is ModalShell:
+			(panel as ModalShell).visible = true
+		elif panel is ProvincePanel:
+			(panel as ProvincePanel).close_pressed.connect(func() -> void: heard.append(true))
+		elif panel is CivilianPanel:
+			(panel as CivilianPanel).close_pressed.connect(func() -> void: heard.append(true))
+		elif panel is ProvinceSheetHead:
+			(panel as ProvinceSheetHead).close_pressed.connect(func() -> void: heard.append(true))
+		elif panel is DossierHeader:
+			(panel as DossierHeader).close_pressed.connect(func() -> void: heard.append(true))
+		elif panel is LedgerFrame:
+			(panel as LedgerFrame).close_pressed.connect(func() -> void: heard.append(true))
+		elif panel is ArmyPanel:
+			(panel as ArmyPanel).close_pressed.connect(func() -> void: heard.append(true))
+		elif panel is FleetPanel:
+			(panel as FleetPanel).close_pressed.connect(func() -> void: heard.append(true))
+		elif panel is ObserverProvinceSheet:
+			(panel as ObserverProvinceSheet).closed.connect(func() -> void: heard.append(true))
+		elif panel is SoundDesk:
+			(panel as SoundDesk).close_requested.connect(func() -> void: heard.append(true))
+		_seal_of(panel).pressed.emit()
+		if panel is ModalShell:
+			assert_false((panel as ModalShell).visible, "%s closes on its seal" % panel.get_class())
+		else:
+			assert_eq(heard.size(), 1, "%s reports its seal's press" % panel.get_class())
+		remove_child(panel)
+		panel.free()
+
+
+## The seal adds a door; it never takes the back gesture or Escape away.
+func test_escape_still_closes_a_panel_beside_the_seal() -> void:
+	var sheet := SheetFrame.new()
+	add_child(sheet)
+	sheet.visible = true
+	InputActions.ensure_actions()
+	var event := InputEventAction.new()
+	event.action = InputActions.CANCEL
+	event.pressed = true
+	sheet._input(event)
+	assert_false(sheet.visible, "Back and Escape keep closing the sheet")
+	sheet.free()

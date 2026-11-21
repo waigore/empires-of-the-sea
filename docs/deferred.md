@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1121 (REQ-P2-02).
+Audited: wiki / DRs / code through #1175 (REQ-P2-02).
 Default pick: largest gap here, then REQ/wiki.
 
 ## Already live

@@ -589,8 +589,11 @@ func test_ending_the_turn_resolves_the_economy() -> void:
 	var economy: PlayerEconomy = _screen.economy.economy
 	var before: Dictionary = economy.stockpile.duplicate()
 	var turn_before: int = _screen.turn
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Crown ledger closes the way a new turn does; skip the rival AI walk under
+	# coverage (docs/testing.md § Speed rules).
+	_screen.economy.resolve_turn()
+	_screen.turn = turn_before + 1
+	_screen.hud.set_turn(_screen.turn, TurnTime.year_for_turn(_screen.turn))
 	assert_eq(_screen.turn, turn_before + 1)
 	assert_eq(_screen.treasury, economy.treasury)
 	assert_true(economy.stockpile != before)
@@ -915,6 +918,59 @@ func test_an_offer_row_names_the_ask_the_clearing_will_charge() -> void:
 	)
 	market.set_terms(viewer, {})
 	page.free()
+
+
+## A colony its suzerain's boycott shuts sits on the book with a price, so the
+## row must say why that deal can never clear: the matcher bars the pair while
+## the price alone reads as a fair offer (wiki: diplomacy § GP–Tribe — Boycott,
+## R6; DR-20261115-03; REQ-P2-03, REQ-P5-05).
+func test_a_boycotted_colony_row_names_the_bar() -> void:
+	var market: WorldMarket = _screen.economy.market
+	var viewer: int = _screen.player_faction
+	var issuer: int = -1
+	for id: int in FactionCatalog.great_power_ids():
+		if id != viewer:
+			issuer = id
+			break
+	assert_gt(issuer, -1, "a rival Great Power to issue the boycott")
+	var cargo: Dictionary = {"holds": 4, "used": 0, "free": 4, "clear_free": 4}
+	market.sealed = {viewer: {7: issuer}}
+	var page := LedgerMarket.new()
+	page.fill(_screen.economy.economy, market, cargo, _offer_book(), {}, viewer)
+	var line: String = MinorMarket.sealed_line(issuer)
+	assert_not_null(_find_label(page, line), "the barred row prints the rule under it")
+	var open_bids: int = 0
+	for button: Button in page.offer_buttons():
+		if not button.disabled:
+			open_bids += 1
+	assert_gt(open_bids, 0, "the press stays live: the bid still clears with another court")
+
+	# The same book with no bar standing prints no such line, so the words always
+	# mean a boycott and never a permanent caption.
+	market.sealed = {}
+	page.fill(_screen.economy.economy, market, cargo, _offer_book(), {}, viewer)
+	assert_null(_find_label(page, "Boycotted by"), "no bar, no words")
+	page.free()
+
+
+## The rate a boycott moves is 110%/90%, and the banner names the cause so the
+## ducats are never a number from nowhere (wiki: diplomacy § GP–Tribe — Boycott,
+## R6; world-market § FTP).
+func test_the_terms_banner_names_the_boycott() -> void:
+	var market: WorldMarket = _screen.economy.market
+	var viewer: int = _screen.player_faction
+	market.set_terms(viewer, {"buy": {"*": 1.1}, "sell": {"*": 0.9}})
+	market.sealed = {viewer: {7: 2}}
+	_screen.economy.open_panel()
+	var body: Node = _screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET)
+	var banner: Label = _find_label(body, "imports at 110%")
+	assert_not_null(banner, "the terms banner prints the rate")
+	assert_true(
+		banner.text.contains("Boycotted by %s" % FactionCatalog.name_of(2)),
+		"and names the court that shut us: %s" % banner.text
+	)
+	market.set_terms(viewer, {})
+	market.sealed = {}
 
 
 func test_an_empty_offer_book_says_so() -> void:

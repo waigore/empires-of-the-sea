@@ -210,6 +210,17 @@ static func bonus_label(leader_key: String) -> String:
 	return "no bonus"
 
 
+## The whole line a sheet prints for a leader: who fields it and the effect its
+## key publishes, joined by the same dash the new-game row uses, so the setup
+## chooser, the pause page and the court sheet cannot word one crown two ways
+## (wiki: leader-bonuses § Acceptance criteria — UI). A variant id such as
+## `france_napoleon_leader` resolves to its published key first.
+static func crown_line(leader_key: String) -> String:
+	var known: String = matched_key(leader_key, known_keys())
+	var key: String = known if not known.is_empty() else DEFAULT_KEY
+	return "%s — %s" % [label(key), bonus_label(key)]
+
+
 ## Faction -> leaderKey for every Great Power. The human slot takes the chosen
 ## variant (or its configured default); AI crowns take their config leader
 ## (wiki: leader-bonuses § Leader Selection).

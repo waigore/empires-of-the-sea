@@ -15,6 +15,10 @@ extends RefCounted
 const MAX_ROUNDS: int = 3
 ## Each side spends this many command points a round.
 const CP_PER_ROUND: int = 3
+## Cohesion runs 0..CEILING for both sides: a line opens at the ceiling and
+## spends steps of it, and the multiplier it fights at is cohesion over this
+## (wiki: quick-battle § Cohesion and effective strength).
+const COHESION_MAX: int = 3
 ## A line whose horse reaches this share of it takes the field aggressively.
 const RIDERS_AGGRESSIVE: float = 0.3
 
@@ -66,7 +70,7 @@ static func effective_strength(
 		else ArmyForce.line_strength(side, line, multiplier)
 	return (
 		weight
-		* (float(clampi(cohesion, 0, CP_PER_ROUND)) / float(CP_PER_ROUND))
+		* (float(clampi(cohesion, 0, COHESION_MAX)) / float(COHESION_MAX))
 		+ gun_weight
 	)
 

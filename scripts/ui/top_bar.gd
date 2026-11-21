@@ -1,13 +1,13 @@
 class_name TopBar
 extends RefCounted
-## Cartouche bar: nation and turn, the region seal, the one lens seal, five
-## command seals and the status plaques; the pause menu mounts its own MENU crest
-## in the first slot. Every element either answers a question the player asks
-## every turn or performs an action; the bar carries no vanity counters.
+## Cartouche bar: nation and turn, the realm and lens seals, the command seals
+## and the status plaques; the pause menu mounts its own MENU crest in the first
+## slot. Every element either answers a question the player asks every turn or
+## performs an action; the bar carries no vanity counters. The chart switch lives
+## on the map's own corner now (issue #1164), so the bar keeps no region seal.
 ## HudLayout re-anchors the parts captured on `hud` (REQ-P1-02, REQ-P1-05).
 
 const SEAL_SIZE := Vector2(52.0, 44.0)
-const REGION_SIZE := Vector2(68.0, 44.0)
 const TREASURY_SIZE := Vector2(122.0, 40.0)
 const CHIP_SIZE := Vector2(88.0, 40.0)
 
@@ -53,11 +53,18 @@ static func build(hud: GameHud) -> void:
 	hud.chip_row = chip_row
 
 	row.add_child(_identity(hud))
-	row.add_child(_region_seal(hud))
 
 	var command := HBoxContainer.new()
 	command.add_theme_constant_override("separation", 3)
 	row.add_child(command)
+	# The realm is the bar's first command: every province, read three ways
+	# (issue #1164; REQ-P5-01, REQ-P5-07).
+	var realm := _seal(
+		"globe", "REALM", "Every province you hold — economy, defence, connectivity (T)",
+		func() -> void: hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	)
+	realm.name = "RealmSeal"
+	command.add_child(realm)
 	command.add_child(_lens_seal(hud))
 	command.add_child(_seal(
 		"capitol", "CAPITAL", "Centre the map on your seat (F)",
@@ -120,20 +127,6 @@ static func _identity(hud: GameHud) -> VBoxContainer:
 	hud._turn_label.add_theme_color_override("font_color", Palette.TEXT_DIM)
 	title.add_child(hud._turn_label)
 	return title
-
-
-## Region stays visible as context, but only offers a switch when a second
-## region exists; a one-region world gets a placid label, not a dead button.
-static func _region_seal(hud: GameHud) -> Button:
-	var button := _seal(
-		"globe", "OLD WORLD", "Switch region — Old World / New World",
-		func() -> void: hud.region_toggle_pressed.emit(), false
-	)
-	button.custom_minimum_size = REGION_SIZE
-	button.name = "RegionSeal"
-	hud._region_button = button
-	hud._region_label = button.get_child(0).get_child(1) as Label
-	return button
 
 
 static func _add_chips(hud: GameHud, row: HBoxContainer) -> void:

@@ -124,10 +124,34 @@ static func training_order(
 		type_id = queue[0]
 	if type_id.is_empty() or not CivilianCatalog.is_implemented(type_id):
 		return {}
+	# The claim crew's own carve-out (issue #1139): a voyage already stranded is
+	# the one case the claim pays for — #1127 / #1132 kept the aim open exactly
+	# for it, and docs/ai.md names the claim's Merchant in the same clause. While
+	# the claim stands (a stranded voyage still asks for a `merchant` crew), that
+	# one Merchant is hired like a provision crew: the war footing and the bank
+	# hold the expansion roster, not the rescue of the voyage the court already
+	# paid for. Per-claim, not per-roster: only the crew the stranded claim asks
+	# for opens, so the college cannot re-hire against the chest (#1059).
+	var claim_crew: bool = (
+		is_expansion_crew(type_id)
+		and String(context.get("voyage_crew_kind", "")) == type_id
+		and bool(context.get("voyage_stranded", false))
+	)
+	# The deed Merchant's own carve-out (#1139's shape, issue #1135): a priced,
+	# openable deed is a purchase the court is saving toward — `market.deed` is
+	# funded in its ledger — and the Merchant that walks to it was refused by
+	# the same bank clause while the court banks, so the deed stayed priced,
+	# openable and unsigned the whole campaign. The bank holds the roster, not
+	# the one crew the court's own ledger is saving toward.
+	var deed_crew: bool = (
+		type_id == "merchant"
+		and int(context.get("merchant_targets", 0)) > 0
+		and int(context.get("deed_price", 0)) > 0
+	)
 	# The footing's own reading, never a legality gate: the hire is the court's
 	# choice, and a crew it does hire still passes the same catalog gate
 	# (DR-20261116-15).
-	if not crews_open(context) and is_expansion_crew(type_id):
+	if not crews_open(context) and is_expansion_crew(type_id) and not claim_crew:
 		return {"ok": false, "reason": REASON_CREWS}
 	var tech: Dictionary = context.get("tech_unlocked", {})
 	if not CivilianCatalog.is_unlocked(type_id, tech):
@@ -135,8 +159,10 @@ static func training_order(
 	# The bank's own provision (issue #1059): the crews the farms and their
 	# roads need keep the works purse — a chest that cannot exist for want
 	# of fed hands and roads never arms a court — while the rest of the
-	# ladder stands behind the chest with every other deferrable spend.
-	if banked and not PROVISION_CREWS.has(type_id):
+	# ladder stands behind the chest with every other deferrable spend. The
+	# stranded claim's Merchant rides the same provision (#1139), and so does
+	# the deed Merchant while the court's own ledger funds its deed (#1135).
+	if banked and not PROVISION_CREWS.has(type_id) and not claim_crew and not deed_crew:
 		return {"ok": false, "reason": REASON_BANK}
 	var purse: int = hire_purse
 	if type_id == "builder" or type_id == "engineer" or type_id == "explorer":
@@ -227,12 +253,19 @@ static func region_targets(
 	)
 	# One Explorer kept free while a colonisation voyage is mustering — and one
 	# taken first when the court's last Explorer would sail with it, so the
-	# colony leaves a prospector on the home hills (issue #894).
+	# colony leaves a prospector on the home hills (issue #894). A claim voyage
+	# carries a Merchant (#1127), so only an Explorer voyage asks for the crew.
 	var muster: Vector2i = context.get("muster_port", Vector2i(-1, -1))
-	if muster.x >= 0 or bool(context.get("voyage_crew", false)):
+	var crew: String = String(context.get("voyage_crew_kind", "explorer"))
+	if (muster.x >= 0 and crew == "explorer") or bool(context.get("voyage_crew", false)):
 		explorers += 1
 	var merchants: int = 0
 	if int(context.get("merchant_targets", 0)) > 0:
+		merchants = 1
+	# The claim crew: a court whose Explorer is already ashore sends a Merchant
+	# whose deeds found the colony, so that voyage asks for one even when its
+	# own chart offers no deed yet (#1127).
+	if merchants < 1 and String(context.get("voyage_crew_kind", "")) == "merchant":
 		merchants = 1
 	return {
 		"builder": maxi(2, 1 + estate_work / per),

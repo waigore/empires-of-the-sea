@@ -100,17 +100,19 @@ func show_fleet(
 	merge: Dictionary = {},
 	beach_hint: String = "",
 	roster: Array[FleetState] = [],
-	pick: String = ""
+	pick: String = "",
+	yard_pick: String = ""
 ) -> void:
 	close_sheets(self.fleet)
 	# A null fleet with a slip province is the capital yard before any squadron
 	# is afloat: the first launch founds the home fleet.
 	if fleet == null and slip >= 0:
-		fleet_panel.refresh_slip(model, slip, yard_rows, is_player)
+		fleet_panel.refresh_slip(model, slip, yard_rows, is_player, yard_pick)
 	else:
 		fleet_panel.refresh(
 			model, fleet, is_player, passage, yard_rows, land_rows, carried,
-			beach_rows, beach_note, crew, strength, merge, beach_hint, roster, pick
+			beach_rows, beach_note, crew, strength, merge, beach_hint, roster, pick,
+			yard_pick
 		)
 	self.fleet.reveal(host, dock)
 
@@ -164,11 +166,14 @@ func show_army(
 	muster: Array[Dictionary] = [],
 	embark: String = "",
 	plan: String = "balanced",
-	hospital: Dictionary = {}
+	hospital: Dictionary = {},
+	pick: String = "",
+	muster_pick: String = ""
 ) -> void:
 	close_sheets(self.army)
 	army_panel.refresh(
-		model, army, is_player, can_merge, command, muster, embark, plan, hospital
+		model, army, is_player, can_merge, command, muster, embark, plan, hospital,
+		pick, muster_pick
 	)
 	self.army.reveal(host, dock)
 
@@ -213,15 +218,20 @@ func is_economy_open() -> bool:
 ## crown's leaderKey, whose published funding multiplier the RP figures include
 ## (wiki: leader-bonuses — Victoria). A ledger already on screen is repainted in
 ## place — re-revealing it would fade the sheet back in and lose the player's
-## place (REQ-P1-05).
+## place (REQ-P1-05). `pick` is the study the court would open in its first free
+## slot (DR-20261121-01).
 func show_research(
-	state: ResearchState, treasury: int, boost: Dictionary = {}, leader: String = ""
+	state: ResearchState,
+	treasury: int,
+	boost: Dictionary = {},
+	leader: String = "",
+	pick: String = ""
 ) -> void:
 	if research.open:
-		research_panel.refresh(state, treasury, boost, leader)
+		research_panel.refresh(state, treasury, boost, leader, pick)
 		return
 	close_sheets(research)
-	research_panel.refresh(state, treasury, boost, leader)
+	research_panel.refresh(state, treasury, boost, leader, pick)
 	research.reveal(host, dock)
 
 

@@ -21,6 +21,14 @@ var back_button: Button = null
 
 ## LeaderKeys backing `leader_option`, default first (wiki: leader-bonuses).
 var _leader_keys: Array[String] = []
+## Faction -> blessed AI profile bound to that rival, and the controls that set
+## it (wiki: ai-profile-overrides; ai-parameter-registry § Seed profiles).
+var _ai_profiles: Dictionary = AiProfile.roster()
+var _rival_box: VBoxContainer = null
+## Faction -> the chooser and the dim line under it (the temperament each row
+## carries, and the words it prints).
+var _rival_options: Dictionary = {}
+var _rival_notes: Dictionary = {}
 var _summary: Label = null
 var _difficulty_hint: Label = null
 var _error: Label = null
@@ -56,6 +64,9 @@ func _build() -> void:
 	nation_option.select(0)
 	nation_option.item_selected.connect(func(_index: int) -> void:
 		_fill_leaders()
+		# The rival rows follow the crown: the seat the player takes is no AI
+		# slot, and the court it leaves becomes one (wiki: ai-profile-overrides).
+		_fill_rivals()
 		_refresh_summary()
 	)
 	box.add_child(nation_option)
@@ -133,6 +144,16 @@ func _build() -> void:
 	box.add_child(_difficulty_hint)
 	_refresh_difficulty_hint()
 
+	# Rival temperaments: each AI crown binds one blessed profile for the whole
+	# run (wiki: ai-profile-overrides § Design intent; ai-parameter-registry
+	# § Seed profiles — "a small blessed set … for new-game AI slot overrides").
+	box.add_child(MenuFrame.caption("Rival temperaments"))
+	_rival_box = VBoxContainer.new()
+	_rival_box.name = "RivalTemperaments"
+	_rival_box.add_theme_constant_override("separation", 4)
+	box.add_child(_rival_box)
+	_fill_rivals()
+
 	_summary = MenuFrame.subtitle("")
 	box.add_child(_summary)
 
@@ -171,9 +192,7 @@ func _fill_leaders() -> void:
 	_leader_keys = LeaderCatalog.keys_for(faction)
 	leader_option.clear()
 	for key: String in _leader_keys:
-		leader_option.add_item(
-			"%s — %s" % [LeaderCatalog.label(key), LeaderCatalog.bonus_label(key)]
-		)
+		leader_option.add_item(LeaderCatalog.crown_line(key))
 	if not _leader_keys.is_empty():
 		leader_option.select(0)
 
@@ -183,6 +202,92 @@ func _selected_leader() -> String:
 	if index < 0 or index >= _leader_keys.size():
 		return ""
 	return _leader_keys[index]
+
+
+## One row per rival crown: its name, the temperament bound to it, and — when it
+## is not the neutral profile — one dim line naming what that temperament shifts,
+## printed rather than hovered so a handset reads it before SET SAIL (wiki:
+## ai-profile-overrides; REQ-P5-07). The human crown is dropped from the list,
+## and a choice already made for a court survives a change of crown.
+func _fill_rivals() -> void:
+	if _rival_box == null or nation_option == null:
+		return
+	for child: Node in _rival_box.get_children():
+		_rival_box.remove_child(child)
+		child.queue_free()
+	_rival_options.clear()
+	_rival_notes.clear()
+	var human: int = int(nation_option.get_item_id(nation_option.selected))
+	var ids: Array[String] = AiProfile.ids()
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == human:
+			continue
+		var block := VBoxContainer.new()
+		block.add_theme_constant_override("separation", 2)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		var name_label := Label.new()
+		name_label.text = FactionCatalog.name_of(faction)
+		name_label.add_theme_font_size_override("font_size", 15)
+		name_label.add_theme_color_override("font_color", Palette.TEXT)
+		name_label.custom_minimum_size.x = 118.0
+		row.add_child(name_label)
+		var option := OptionButton.new()
+		MenuFrame.style_option(option)
+		option.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		for id: String in ids:
+			option.add_item(AiProfile.label(id))
+		option.select(maxi(ids.find(AiProfile.bound(_ai_profiles, faction)), 0))
+		option.item_selected.connect(func(index: int) -> void:
+			_ai_profiles[faction] = ids[index]
+			_refresh_rival_note(faction)
+			_refresh_summary()
+		)
+		row.add_child(option)
+		block.add_child(row)
+		var note: Label = UiRowBuilder.wrapped_line("", 12, Palette.TEXT_DIM)
+		block.add_child(note)
+		_rival_box.add_child(block)
+		_rival_options[faction] = option
+		_rival_notes[faction] = note
+		_refresh_rival_note(faction)
+
+
+## The dim line under a rival's row: what its temperament shifts, or nothing at
+## all while it keeps the neutral profile (the default needs no explanation).
+func _refresh_rival_note(faction: int) -> void:
+	var note: Label = _rival_notes.get(faction, null)
+	if note == null:
+		return
+	var id: String = AiProfile.bound(_ai_profiles, faction)
+	note.text = "" if id == AiProfile.NORMAL else AiProfile.hint(id)
+
+
+## The temperament each rival is bound to. The human seat is left out: the crown
+## plays its own court, and the planners only ever run a rival's.
+func _bound_rivals() -> Dictionary:
+	var human: int = int(nation_option.get_item_id(nation_option.selected))
+	var bound: Dictionary = {}
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction != human:
+			bound[faction] = AiProfile.bound(_ai_profiles, faction)
+	return bound
+
+
+## The temperaments that are not the neutral one, for the ready summary.
+func _rival_line() -> String:
+	var line: String = ""
+	var human: int = int(nation_option.get_item_id(nation_option.selected))
+	for faction: int in FactionCatalog.great_power_ids():
+		if faction == human:
+			continue
+		var id: String = AiProfile.bound(_ai_profiles, faction)
+		if id == AiProfile.NORMAL:
+			continue
+		if not line.is_empty():
+			line += ", "
+		line += "%s %s" % [FactionCatalog.name_of(faction), AiProfile.label(id)]
+	return line
 
 
 func _refresh_summary() -> void:
@@ -201,6 +306,11 @@ func _refresh_summary() -> void:
 	_summary.text = "%s under %s  ·  %d rival crowns sail as AI  ·  %s  ·  %s  ·  %s  ·  seed %s" % [
 		nation, leader, rivals, opening, difficulty, length_note, seed_label,
 	]
+	# The temperaments the player bound, named before SET SAIL; every rival on
+	# the neutral profile keeps the summary as it was (wiki: ai-profile-overrides).
+	var rivals_set: String = _rival_line()
+	if not rivals_set.is_empty():
+		_summary.text += "\nTemperaments — %s" % rivals_set
 
 
 func _on_start() -> void:
@@ -220,6 +330,9 @@ func _on_start() -> void:
 		seed_value, size_option.selected, faction, _selected_leader(),
 		_endless(), _advanced(), _difficulty()
 	)
+	# Every rival's temperament is bound here and never offered again: the run
+	# plans with it, and a save carries it (wiki: ai-profile-overrides).
+	config.ai_profiles = AiProfile.roster(_bound_rivals())
 	start_requested.emit(config)
 
 

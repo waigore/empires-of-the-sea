@@ -1,6 +1,6 @@
 # Economy: stockpile, production and riches
 
-One stockpile per Great Power; pipeline, raw → manufactures.
+One stockpile per Great Power; raw → manufactures.
 **Pillars:** P2, P3, P5.
 
 **Wiki:** [stockpiles-and-production](https://github.com/waigore/empires-of-the-sea/wiki/stockpiles-and-production),
@@ -73,8 +73,9 @@ Prices publish once; pact, boycott, subsidy settle
 (`allowance`), a worked row names its output (`made 3`), **batch press**
 (`ProductionBatch`; its line priced, DR-20261118-24).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
-line (`CargoRead`), a **batch press** (`MarketBatch`), and a dead
-`Bid` naming its rule (`MarketRules.bid_block`, DR-20261118-15).
+line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid` naming its
+rule (`MarketRules.bid_block`, DR-20261118-15), a barred colony row
+(`MinorMarket.sealed_line`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.

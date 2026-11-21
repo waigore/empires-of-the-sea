@@ -8,16 +8,16 @@ Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Li
 
 | Doc | Purpose |
 |-----|---------|
-| [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics source of truth |
-| [Design Records (wiki)](https://github.com/waigore/empires-of-the-sea/wiki/design-records) | Clarifications (`DR-*`); see [changelog](https://github.com/waigore/empires-of-the-sea/wiki/design-changelog) |
+| [Game rules (wiki)](https://github.com/waigore/empires-of-the-sea/wiki) | Mechanics truth |
+| [Design Records (wiki)](https://github.com/waigore/empires-of-the-sea/wiki/design-records) | Clarifications (`DR-*`) + [changelog](https://github.com/waigore/empires-of-the-sea/wiki/design-changelog) |
 | [requirements.md](requirements.md) | Pillars P1–P5 (`REQ-*`) |
 | [rubric.md](rubric.md) | Evaluation gate (`RUB-*`) |
 | [deferred.md](deferred.md) | Deferred gaps by impact |
-| [world.md](world.md) | Great Powers, Minors, Tribes and the two-region world |
-| [advanced-start.md](advanced-start.md) | Opening at turn 50/100: tiers, colonies, estates |
-| [difficulty.md](difficulty.md) | Difficulty layer: rival stores and rival land strength |
+| [world.md](world.md) | Great Powers, Minors, Tribes, two regions |
+| [advanced-start.md](advanced-start.md) | Turn-50/100 opening: tiers, colonies, estates |
+| [difficulty.md](difficulty.md) | Rival stores, rival land strength |
 | [victory.md](victory.md) | Military victory, defeat, calendar end and the age's race |
-| [capital-choice.md](capital-choice.md) | Seating the court before turn 1: rules, chart, save |
+| [capital-choice.md](capital-choice.md) | Seat the court before turn 1: rules, chart, save |
 | [diplomacy.md](diplomacy.md) | Relations, war/peace, alliances, overtures, aid |
 | [colonies.md](colonies.md) | Colonies: suzerain, seat, subsidy, boycott bar |
 | [dialogue.md](dialogue.md) | Court voice: dialogue points, envoy moods, banners |
@@ -42,8 +42,9 @@ Root and `docs/` Markdown must stay **≤ 500 words** (fenced code excluded). Li
 | [hospitals.md](hospitals.md) | The crown's hospitals: levels, rations, Raise |
 | [economy.md](economy.md) | Stockpile, recipes, town bonus, riches |
 | [technology.md](technology.md) | Tech tree, slots, funding, extraction caps |
-| [ui-demo.md](ui-demo.md) | Map screen demo notes |
-| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose rule, geometry |
+| [ui-panels.md](ui-panels.md) | Close seal: one door, top-right |
+| [ui-demo.md](ui-demo.md) | Map-screen demo notes |
+| [hud-top-bar.md](hud-top-bar.md) | Cartouche bar: purpose, geometry |
 | [audio.md](audio.md) | Music, cues, mix |
 
 ## Process

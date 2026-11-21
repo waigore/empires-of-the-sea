@@ -147,6 +147,105 @@ func test_new_game_setup_starts_the_chosen_world() -> void:
 		assert_eq(home.province, screen.capital_province, "Home Army holds the seat")
 
 
+## Every rival's temperament is chosen on the new-game screen, fixed for the run
+## and carried into the session and the save (wiki: ai-profile-overrides
+## § Design intent; ai-parameter-registry § Seed profiles — "a small blessed set
+## … for new-game AI slot overrides").
+func test_setup_binds_a_temperament_to_each_rival() -> void:
+	var menu: MainMenu = main.current_page
+	menu.new_game_button.emit_signal("pressed")
+	var setup: GameSetupScreen = main.current_page as GameSetupScreen
+	assert_not_null(setup, "setup opens")
+	if setup == null:
+		return
+	# One chooser per rival; the player's own crown is no AI slot.
+	var rivals: int = FactionCatalog.great_power_ids().size() - 1
+	assert_eq(setup._rival_options.size(), rivals, "one chooser per rival")
+	var human: int = int(setup.nation_option.get_item_id(setup.nation_option.selected))
+	assert_false(setup._rival_options.has(human), "the crown's own seat carries no temperament")
+	# The rows follow the crown: taking another seat makes it no AI slot, and the
+	# seat it leaves becomes one again.
+	setup.nation_option.select(2)
+	setup.nation_option.item_selected.emit(2)
+	assert_false(setup._rival_options.has(2), "the new crown's seat carries no temperament")
+	assert_true(setup._rival_options.has(human), "the seat it left is a rival again")
+	setup.nation_option.select(0)
+	setup.nation_option.item_selected.emit(0)
+	# Bind France the aggressive temperament through its own chooser.
+	var option: OptionButton = setup._rival_options.get(2, null)
+	assert_not_null(option, "France has a chooser")
+	if option == null:
+		return
+	var ids: Array[String] = AiProfile.ids()
+	var aggressive: int = ids.find(AiProfile.AGGRESSIVE)
+	option.select(aggressive)
+	option.item_selected.emit(aggressive)
+	# The row prints what the temperament shifts, and the summary names it.
+	var note: Label = setup._rival_notes.get(2, null)
+	assert_not_null(note, "the row keeps its note")
+	if note != null:
+		assert_eq(note.text, AiProfile.hint(AiProfile.AGGRESSIVE), "the effect is printed, not hovered")
+	assert_true(setup._summary.text.contains("France Aggressive"), "SET SAIL names the binding")
+	# A second pick joins the summary, and one put back on the neutral profile
+	# prints no line at all.
+	var england: OptionButton = setup._rival_options.get(1, null)
+	assert_not_null(england, "England has a chooser")
+	if england != null:
+		var economic: int = ids.find(AiProfile.ECONOMIC)
+		england.select(economic)
+		england.item_selected.emit(economic)
+		assert_eq(
+			String(setup._rival_notes[1].text), AiProfile.hint(AiProfile.ECONOMIC),
+			"the second pick prints its own effect"
+		)
+		assert_true(
+			setup._summary.text.contains("England Economic")
+			and setup._summary.text.contains("France Aggressive"),
+			"every non-neutral pick is named before SET SAIL"
+		)
+		var normal: int = ids.find(AiProfile.NORMAL)
+		england.select(normal)
+		england.item_selected.emit(normal)
+		assert_eq(String(setup._rival_notes[1].text), "", "the neutral profile prints nothing")
+	setup.size_option.select(0)
+	setup.seed_field.text = str(FLOW_SEED)
+	setup.start_button.emit_signal("pressed")
+	var page: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+	assert_not_null(page, "the capital-choice phase opens")
+	if page == null:
+		return
+	await get_tree().process_frame
+	page.confirm_button.emit_signal("pressed")
+	_pass_the_charge()
+	var screen: MapScreen = main.current_screen
+	assert_not_null(screen, "the map screen starts")
+	if screen == null:
+		return
+	var play: PlaySession = screen.play
+	assert_eq(String(play.ensure_ai().profiles.get(2, "")), AiProfile.AGGRESSIVE, "France plans aggressive")
+	assert_eq(String(play.ensure_ai().profiles.get(1, "")), AiProfile.NORMAL, "an untouched rival plans neutral")
+	assert_eq(
+		String(play.ensure_ai().profiles.get(play.player_faction, "")), AiProfile.NORMAL,
+		"the crown's own seat plans neutral"
+	)
+	assert_eq(
+		AiProfile.for_court(2, play.map_seed, play.ensure_ai().profiles).profile,
+		AiProfile.AGGRESSIVE,
+		"the court's config reads the binding"
+	)
+	# The campaign carries it: the AI bookkeeping holds the binding, and a load
+	# resumes the same rivals.
+	var save: Dictionary = SaveCodec.capture(play)
+	var ai_saved: Dictionary = save.get("ai", {})
+	assert_eq(
+		String((ai_saved.get("profiles", {}) as Dictionary).get(2, "")),
+		AiProfile.AGGRESSIVE,
+		"the save carries the temperament"
+	)
+	assert_true(SaveCodec.restore(play, save, flow_world), "the save restores")
+	assert_eq(String(play.ensure_ai().profiles.get(2, "")), AiProfile.AGGRESSIVE, "a load resumes it")
+
+
 ## The chart's pick is the campaign's seat: home fleet, Home Army and fog all
 ## muster on the province the player chose, not the auto-choice one.
 func test_a_chosen_seat_reaches_the_campaign() -> void:
@@ -203,6 +302,29 @@ func test_pause_menu_shows_and_copies_map_seed() -> void:
 	assert_false(screen.game_menu.copy_seed_button.disabled, "copy is available")
 	screen.game_menu.copy_seed_button.emit_signal("pressed")
 	assert_eq(screen.game_menu._status.text, "Seed copied.", "copy confirms")
+	screen.game_menu.close()
+
+
+## The pause page answers who the crown is: its leader and the effect that key
+## publishes, in the words the new-game chooser printed (REQ-P5-01, REQ-P5-05;
+## wiki: leader-bonuses § Acceptance criteria — UI).
+func test_pause_menu_names_the_crown_and_its_leader_s_effect() -> void:
+	await _start_game()
+	var screen: MapScreen = main.current_screen
+	if screen == null:
+		return
+	screen.game_menu.open()
+	var key: String = String(screen.play.leaders.get(screen.play.player_faction, ""))
+	assert_false(key.is_empty(), "the run binds the crown a leader")
+	assert_eq(
+		screen.game_menu.crown_label.text,
+		LeaderCatalog.crown_line(key),
+		"the pause row prints the crown's leader and its effect"
+	)
+	assert_true(
+		screen.game_menu.crown_label.text.contains(LeaderCatalog.bonus_label(key)),
+		"the effect the bonus table publishes"
+	)
 	screen.game_menu.close()
 
 

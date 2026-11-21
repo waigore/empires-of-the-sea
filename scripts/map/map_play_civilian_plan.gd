@@ -67,11 +67,37 @@ static func region_context(
 		"visibility": MapPlayCourtFog.view_for(play, faction, region),
 	}
 	var muster: Vector2i = CivilianMuster.muster_port(play, faction, region, model)
+	if play.world != null and region == FactionCatalog.region_of(faction):
+		# The crew the next voyage across the water will carry — an Explorer
+		# while the crown holds no ground there, a Merchant once that Explorer
+		# has landed (#1127). Stamped before the muster so the hire order can
+		# raise a claim crew even on a turn the harbour has no hull to spare.
+		context["voyage_crew_kind"] = CivilianMuster.voyage_kind(play, faction, region)
+		# The stranded-voyage read the claim crew's carve-out rides (issue
+		# #1139): the expedition the court paid for is ashore with no crown
+		# land, so its claim still has a step the hire ladder must keep open.
+		context["voyage_stranded"] = MapPlayObjectiveVoyage.claim_stranded(
+			play, faction
+		)
+		# The deed the court is saving toward: the cheapest priced, openable
+		# resource tile, so the deed Merchant's carve-out (#1135) reads the
+		# same purchase the ledger's `market.deed` aim funds.
+		var deed: Dictionary = AiMerchantWork.openable_deed(
+			model, faction,
+			{
+				"diplomacy": play.diplomacy,
+				"visibility": MapPlayCourtFog.view_for(play, faction, region),
+				"treasury": int(court["spendable"]),
+			}
+		)
+		context["deed_price"] = int(deed.get("price", 0))
 	if muster.x >= 0:
 		context["muster_port"] = muster
-		# Only the crew the voyage will board waits at the harbour; the
-		# crown's other Explorers keep working the home ground (issue #894).
-		context["muster_unit"] = CivilianMuster.muster_colonist(roster, faction)
+		# Only the crew the voyage will board waits at the harbour; the crown's
+		# other crews keep working the home ground (issue #894).
+		context["muster_unit"] = CivilianMuster.muster_colonist(
+			roster, faction, String(context.get("voyage_crew_kind", "explorer"))
+		)
 	# A court whose last Explorer would sail with the voyage takes the second
 	# crew first, so the colony leaves a prospector behind (#894).
 	if CivilianMuster.needs_voyage_crew(play, faction, region, model):

@@ -68,3 +68,17 @@ guns (DR-20261110-22). Base edit from `ledger.png`, same ring and lighting:
 `BattleReport.icon_of` names it; `GameHud.toast` draws it at 26 points on a
 crimson plate. No build script owns it, so a replacement goes in
 `assets/art/icons/` by hand.
+
+## Close seal (every dismissible panel)
+
+One medallion for the shared close door every sheet wears (`docs/ui-panels.md`).
+Base edit from `ledger.png`, same ring and lighting:
+
+> Replace ONLY the central open book with a single bold brass saltire cross: two
+> short, thick, beveled brass bars crossed in an X, with softly rounded ends,
+> sculpted in polished brass. No open book, no pages, no text, no lettering.
+> Isolated on a solid pure magenta #FF00FF background.
+
+`close.png` is 128 px RGBA with `mipmaps/generate=true`. `CloseSeal` loads it
+through `ChromeIcons`; no build script owns the file, so a replacement goes in
+`assets/art/icons/` by hand.

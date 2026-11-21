@@ -38,8 +38,11 @@ static func snapshot(play: PlaySession) -> Dictionary:
 			"armies": _stored(play.army_layer.regions if play.army_layer != null else null, region),
 			"estates": _estates(play, model, works, region, owner, seat),
 			"links": links,
+			"seat": play.world.seat_province(region, owner),
 		})
-	return ProvinceLedger.snapshot(regions, owner)
+	return ProvinceLedger.snapshot(
+		regions, owner, _market(play), play.tech_unlocked()
+	)
 
 
 ## Frames one province and opens its dossier, swapping the chart first when the
@@ -102,6 +105,14 @@ static func _estates(
 		model, works, MapPlayCharts.crews(play, region), play.stockpile(), owner, seat,
 		play.tech_caps(), MapPlayBlockades.crown(play)
 	)
+
+
+## The market the realm prices its harvest at; a screen with no economy yet
+## reads zero ducats rather than a fabricated price.
+static func _market(play: PlaySession) -> WorldMarket:
+	if play.economy == null:
+		return null
+	return play.economy.market
 
 
 static func _stored(table: MapRegionTable, region: int) -> Array:

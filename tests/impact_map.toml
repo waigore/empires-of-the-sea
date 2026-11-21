@@ -540,9 +540,11 @@ domain = "sea_tone"
 match = "ui/shaders/sea.gdshader*"
 domain = "sea_tone"
 
+# Session bag + its screen bridge: the play_screen domain proves the airings
+# without the pause/menu fan-out that overruns tier-1 on a bridge PR.
 [[rules]]
 match = "scripts/session/play_session.gd*"
-domain = "pause"
+domain = "play_screen"
 
 # Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
 # ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.
@@ -842,6 +844,46 @@ domain = "muster"
 
 [[rules]]
 match = "tests/test_ledgers.gd*"
+domain = "muster"
+
+# The realm's by-hand shot harness (issue #1164): one plate per view, run on a
+# real GL context, drawn off the same projected rows the sheet prints. It rides
+# the muster domain beside the ledger suites so a shot-only edit never pulls the
+# map and ui catch-alls.
+[[rules]]
+match = "tests/realm_shot.gd*"
+domain = "muster"
+
+# The realm's three readings: the economy, defence and connectivity figures a
+# province row carries, read off the estates ledger, the battle's own terrain
+# table, the fort table and the market's sell price.
+[[rules]]
+match = "scripts/rules/realm_readings.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/rules/province_ledger.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/province_ledger_*.gd*"
+domain = "muster"
+
+# The chart pill on the map's own corner, its build and its layout.
+[[rules]]
+match = "scripts/ui/map_region_toggle.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/top_bar.gd*"
+domain = "muster"
+
+[[rules]]
+match = "scripts/ui/hud_ledger_doors.gd*"
+domain = "muster"
+
+[[rules]]
+match = "playtests/playtest_raise_line.gd*"
 domain = "muster"
 
 # The crown's command ledger (DR-20261115-11): the projection, its row and
@@ -1251,11 +1293,22 @@ suites = [
 match = "scripts/map/map_lens.gd*"
 domain = "lens_kit"
 
-# The reading's printed slip and wash: the paper every lens prints on, so it
-# rides the same kit suites as the base the lenses inherit.
+# The reading's printed slip: the paper every lens prints on, so it rides the
+# same kit suites as the base the lenses inherit.
 [[rules]]
 match = "scripts/map/lens_slip.gd*"
 domain = "lens_kit"
+
+# The reading's colour wash: baked to a soft-edged texture, so a band change
+# reaches every reading's view. Named with the slip so the kit suites travel.
+[[rules]]
+match = "scripts/map/wash_bake.gd*"
+domain = "lens_kit"
+
+# Deleted wash-bake suite rides the map-view boot (lens kit theme).
+[[rules]]
+match = "tests/test_wash_bake.gd*"
+domain = "fold_map_view"
 
 # Every reading inherits the kit; route each lens here before the broader
 # resource-ink / crown-road / scripts/map globs so one reading stays small.
@@ -1461,6 +1514,17 @@ suites = [
   "test_panel_parts_rules.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
+  "test_map_screen.gd",
+]
+
+# PlaySession's screen bridge: one Node and the airings a helper sends it
+# (REQ-P3-02). Its own suite proves the bridge headless; the mounted
+# campaign-end suite proves the same calls on the real chart, so a bridge edit
+# never pulls the menu or map fan-out.
+[domains.play_screen]
+suites = [
+  "test_play_screen.gd",
+  "test_campaign_end.gd",
   "test_map_screen.gd",
 ]
 
@@ -1937,11 +2001,11 @@ match = "gd-tools.toml"
 domain = "misc"
 
 # Map edits are exercised by the selection script in CI (--check-complete).
-# One light suite only: an impact-map edit must not union ai/fleet/naval boots
-# past the tier-1 5 min budget when it lands beside a call-site remap.
+# One light suite only: an impact-map edit is inert, so it must never union
+# ai/fleet/naval boots past the tier-1 5 min budget beside a call-site remap.
 [domains.impact_map]
 suites = [
-  "test_ai_rules.gd",
+  "test_panel_parts_rules.gd",
 ]
 
 # Folded micro-suites still appear as deletions in the PR diff. Map those names
@@ -1962,6 +2026,7 @@ suites = [
 suites = [
   "test_hud_campaign_plate.gd",
 ]
+
 
 [domains.fold_court]
 suites = [
@@ -2185,6 +2250,10 @@ match = "scripts/map/map_glyphs.gd*"
 domain = "resource_ink"
 
 [[rules]]
+match = "scripts/map/map_marks.gd*"
+domain = "resource_ink"
+
+[[rules]]
 match = "scripts/map/resource_lens.gd*"
 domain = "resource_ink"
 
@@ -2388,6 +2457,56 @@ domain = "fleet_pick"
 suites = [
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
+]
+
+# The court's own yard claim (DR-20261121-02): the reading that asks the
+# published navy claim which hull the crown's slip means to lay, and the study
+# that opens her. Its suite is the fleet orders suite (planner, slip rows and
+# the drawer), so it names its own domain instead of the map fan-out.
+[[rules]]
+match = "scripts/map/map_play_yard_pick*.gd*"
+domain = "yard_pick"
+
+[domains.yard_pick]
+suites = [
+  "test_fleet_orders.gd",
+]
+
+# The court's own land pick (DR-20261120-10): the reading that asks the published
+# land policy what it would order an army — the split the Home Army would take,
+# the march a field army would make. Its suites are the army orders suite and the
+# panel parts sheet, so it names its own domain instead of pulling the army or ui
+# fan-outs.
+[[rules]]
+match = "scripts/map/map_play_army_pick*.gd*"
+domain = "land_pick"
+
+[domains.land_pick]
+suites = [
+  "test_army_orders.gd",
+  "test_panel_parts_rules.gd",
+]
+
+# The drill yard's own pick (DR-20261121-03): the line the published muster would
+# raise at the seat, read through the plan the rival pass books its regiment from.
+# Its suite is the army orders suite, where the yard's rows and the muster's gates
+# are proved, so it rides the land pick's domain rather than a new fan-out.
+[[rules]]
+match = "scripts/map/map_play_muster_pick*.gd*"
+domain = "land_pick"
+
+# The court's own research pick (DR-20261121-01): the advance the published
+# research policy would open in the crown's first free slot, read on its own
+# college through `MapPlayEconomyCourtBook.door`. Its suite is the research
+# sheet's, where the row and the ranking are proved, so it names its own domain
+# instead of pulling the college's whole fan-out.
+[[rules]]
+match = "scripts/map/map_play_research_pick*.gd*"
+domain = "research_pick"
+
+[domains.research_pick]
+suites = [
+  "test_research_rules.gd",
 ]
 
 # The pick's door (wiki: playtest-learnings § next targets): the press that
@@ -2674,7 +2793,7 @@ match = "scripts/ai/ai_border_fronts.gd*"
 domain = "ai_diplomacy"
 
 [[rules]]
-match = "scripts/ai/ai_state.gd*"
+match = "scripts/ai/ai_state*.gd*"
 domain = "ai_diplomacy"
 
 [[rules]]
@@ -2752,6 +2871,13 @@ domain = "map"
 [[rules]]
 match = "scripts/session/game_config.gd*"
 domain = "world"
+
+# The session's screen bridge (PlayScreen): the airings and region swap a
+# helper sends the chart. Named before the session catch-all so a bridge edit
+# stays on its own suites.
+[[rules]]
+match = "scripts/session/play_screen.gd*"
+domain = "play_screen"
 
 [[rules]]
 match = "scripts/session/**"
@@ -3322,6 +3448,13 @@ domain = "fort"
 match = "scripts/rules/fort_*.gd"
 domain = "fort"
 
+# The wall's own words — the sheet row and the march receipt. Its figures are
+# the fort table's, so it rides the fort slice; the province sheet and the march
+# are selected by their own rules when their callers change.
+[[rules]]
+match = "scripts/rules/wall_read.gd*"
+domain = "fort"
+
 [[rules]]
 match = "scripts/rules/hospital_*.gd*"
 domain = "hospital"
@@ -3843,6 +3976,16 @@ domain = "menu"
 match = "scripts/ui/game_menu.gd"
 domain = "pause"
 
+# The pause desk and campaign reading ride the same domain: only the suites that
+# mount the pause page can prove them (first match keeps a desk PR in budget).
+[[rules]]
+match = "scripts/ui/game_menu_pause.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/game_menu_campaign.gd*"
+domain = "pause"
+
 # The pause page's KEYS reading (its catalogue and its sheet) rides the same
 # domain: only the suites that mount the pause page can read it.
 [[rules]]
@@ -3887,6 +4030,20 @@ domain = "ui"
 [[rules]]
 match = "scripts/ui/minimap*.gd"
 domain = "map"
+
+# The one close seal every dismissible panel wears (docs/ui-panels.md): its
+# chrome cases and the panels that mount it live in the panel-parts boot, so a
+# seal change never pulls the menu catch-all's setup and hub suites.
+[[rules]]
+match = "scripts/ui/close_seal.gd*"
+domain = "ui"
+
+# The observatory's province sheet wears the same close seal as the crown's
+# dossier: the panel-parts boot mounts it, so a chrome edit stays off the AI
+# observer's planner fan-out. Its reading lives in `scripts/map/observer_province.gd`.
+[[rules]]
+match = "scripts/ui/observer_province_sheet.gd*"
+domain = "ui"
 
 # The observatory's province reading: the panel's own suites prove the sheet and
 # the words it prints (docs/ai-observer.md).
@@ -3982,6 +4139,15 @@ domain = "heraldry"
 
 [[rules]]
 match = "tests/test_heraldry.gd*"
+domain = "fold_chrome"
+
+# Deleted order-verdict suite rides the lean chrome boot.
+[[rules]]
+match = "tests/test_order_verdict.gd*"
+domain = "fold_chrome"
+
+[[rules]]
+match = "scripts/rules/order_verdict.gd*"
 domain = "fold_chrome"
 
 [[rules]]

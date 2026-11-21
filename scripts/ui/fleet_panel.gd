@@ -166,7 +166,8 @@ func refresh(
 	merge: Dictionary = {},
 	beach_hint: String = "",
 	roster: Array[FleetState] = [],
-	pick: String = ""
+	pick: String = "",
+	yard_pick: String = ""
 ) -> void:
 	if model == null or fleet == null:
 		return
@@ -196,7 +197,7 @@ func refresh(
 	_set_standing(fleet, is_player, passage, beach_note, beach_hint, merge, carried, colonists)
 	_show_split(model, fleet, is_player)
 	_show_combine(model, roster, fleet, is_player)
-	_show_yard(yard_rows, merge)
+	_show_yard(yard_rows, merge, yard_pick)
 	_fit_to_viewport()
 
 
@@ -258,11 +259,12 @@ func _set_standing(
 
 
 ## The yard drawer takes the launch rows; a join on offer hides its toggle.
-## A refresh keeps the drawer as the player left it, never re-opening it.
-func _show_yard(yard_rows: Array[Dictionary], merge: Dictionary) -> void:
+## A refresh keeps the drawer as the player left it, never re-opening it. `pick`
+## is the hull the court's own yard means to lay (DR-20261121-02).
+func _show_yard(yard_rows: Array[Dictionary], merge: Dictionary, pick: String = "") -> void:
 	if _yard == null:
 		return
-	_yard.show_rows(_fleet, yard_rows, _is_player, _yard.is_open())
+	_yard.show_rows(_fleet, yard_rows, _is_player, _yard.is_open(), pick)
 	_yard.set_offer_join(bool(merge.get("ok", false)))
 
 
@@ -285,9 +287,11 @@ func _show_combine(
 
 
 ## The crown's capital yard with no squadron afloat: the first launch founds the
-## home fleet, so the dossier still has to list what can be built.
+## home fleet, so the dossier still has to list what can be built. `pick` is the
+## hull the court's own yard means to lay (DR-20261121-02).
 func refresh_slip(
-	model: MapModel, province_id: int, rows: Array[Dictionary], is_player: bool
+	model: MapModel, province_id: int, rows: Array[Dictionary], is_player: bool,
+	pick: String = ""
 ) -> void:
 	if model == null:
 		return
@@ -319,7 +323,7 @@ func refresh_slip(
 	if _combine != null:
 		_combine.show_rows(model, [] as Array[FleetState], null, false, false)
 	if _yard != null:
-		_yard.show_slip(rows, is_player)
+		_yard.show_slip(rows, is_player, pick)
 	_fit_to_viewport()
 
 
