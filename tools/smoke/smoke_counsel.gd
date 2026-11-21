@@ -1,9 +1,10 @@
 extends RefCounted
 ## The court's readings on the bar's ledgers: every sheet that names the orders
 ## the crown's own passes would give this turn — the estates, the people, the
-## navy, the army, the muster, the colonies, the realm, the production and the
-## market tabs — opens from the door the player uses, prints its one gold line,
-## and orders nothing (DR-20261121-05/06/07/09/12/13/14/16/17/19/21).
+## navy, the army, the muster, the colonies, the realm, the production, the
+## market and the workers tabs — opens from the door the player uses, prints its
+## one gold line, and orders nothing
+## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01).
 ##
 ## The court ledger's own envoy and the sound desk stay in the HUD step; this
 ## step owns the counsel readings and the tallies that prove they move nothing.
@@ -24,6 +25,7 @@ static func step(run) -> void:
 	await _realm(run, screen)
 	await _production(run, screen)
 	await _market(run, screen)
+	await _workers(run, screen)
 
 
 ## The estates door on the cartouche opens the crown's works ledger (REQ-P1-07).
@@ -277,6 +279,36 @@ static func _market(run, screen: MapScreen) -> void:
 		screen.economy.market.book.orders_for(screen.player_faction).size()
 		== orders_before,
 		"the trade reading stages nothing"
+	)
+	screen.hud.panels.hide_economy()
+
+
+## The ledger's WORKERS tab names the workers the crown's own economy pass would
+## recruit this phase, in the tab's gold line above the tier rows it answers, and
+## marks those rows — and enlists nobody (wiki: workers-and-population
+## § Recruiting; DR-20261122-01).
+static func _workers(run, screen: MapScreen) -> void:
+	var before: Array[int] = screen.economy.economy.workers.counts.duplicate()
+	screen.economy.open_panel()
+	await run.tree.process_frame
+	var page: LedgerWorkers = (
+		screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_WORKERS)
+		as LedgerWorkers
+	)
+	run.check(page != null, "the WORKERS tab stands")
+	if page != null:
+		var counsel: String = page.counsel_text()
+		run.check(
+			counsel.is_empty() or counsel.begins_with("The court would recruit "),
+			"the ledger names the workers the court would recruit"
+		)
+		run.check(
+			page._counsel.visible == not counsel.is_empty(),
+			"the workers' counsel stands with its reading"
+		)
+	run.check(
+		screen.economy.economy.workers.counts == before,
+		"the workers' reading enlists nobody"
 	)
 	screen.hud.panels.hide_economy()
 
