@@ -2,16 +2,24 @@ class_name CivilianRosterPanel
 extends LedgerSheet
 ## Whole-empire civilian roster (REQ-P5-01, REQ-P5-03): every unit in the Old
 ## and New World in one ledger, filtered by region or craft, with a Visit action
-## that opens the unit's map and dossier. The data projection lives in
-## CivilianRoster; this class only renders rows and emits no rules calls. The
-## sheet chrome, fade and pause-door park come from SheetFrame; the rows and
-## their empty notice from LedgerSheet. Its own head carries three filter rows
-## (world, craft, orders), so it builds those from the head instead of the
-## two-row [LedgerFilterBar].
+## that opens the unit's map and dossier, and one gold line naming the work the
+## court's own civilian pass would give its crews this turn (wiki: civilian-units
+## § Empire roster; DR-20261121-12). The data projection lives in CivilianRoster;
+## this class only renders rows and emits no rules calls. The sheet chrome, fade
+## and pause-door park come from SheetFrame; the rows and their empty notice from
+## LedgerSheet. Its own head carries three filter rows (world, craft, orders), so
+## it builds those from the head instead of the two-row [LedgerFilterBar].
+
+## The reading the session hands the sheet: the work the court's own civilian
+## pass would put its crews to this turn (wiki: civilian-units § Empire roster;
+## DR-20261121-12). Unwired, the sheet prints no gold line.
+var counsel_source: Callable = Callable()
 
 var _head: CivilianRosterHead = null
 var _type: String = CivilianRosterHead.TYPE_ALL
 var _status: String = CivilianRoster.STATUS_ALL
+## The gold counsel line under the filters: the work the court would give.
+var _counsel: Label = null
 
 
 func _init() -> void:
@@ -20,6 +28,8 @@ func _init() -> void:
 		"Visit opens the civilian's map and dossier. Filter by world, craft or "
 		+ "who waits for orders; the C key opens this roster from anywhere on the map."
 		+ " Find the next crew that waits takes you to an idle one, in either world."
+		+ " The gold line names the work the court would give its crews this turn;"
+		+ " it never marches one or sets an order."
 	)
 	toggle_action = InputActions.CIVILIAN_ROSTER
 
@@ -31,8 +41,31 @@ func refresh() -> void:
 		play.world, play.civilian_layer.regions, play.player_faction
 	)
 	_head.render(_snapshot, _region, _type, _status)
+	_sync_counsel()
 	_fit()
 	_apply_filter()
+
+
+## The court's own work reading, asked at every refresh: the crews the published
+## pass would put to work this turn, or the gate that leaves a waiting roster
+## with nothing to name (wiki: civilian-units § Empire roster; DR-20261121-12).
+## Unwired prints nothing. A closed sheet reads nothing: the pass is a planner
+## walk, and a visit that repaints the sheet behind it must not pay for a line
+## nobody sees (REQ-P4-02).
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	var text: String = ""
+	if is_open() and counsel_source.is_valid():
+		text = String(counsel_source.call(_snapshot))
+	_counsel.text = text
+	_counsel.visible = not text.is_empty()
+
+
+## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
+## the sheet carries no reading.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 # --- sheet hooks -------------------------------------------------------------
@@ -51,6 +84,12 @@ func _build_body(column: VBoxContainer) -> void:
 	_head.filter_changed.connect(_on_head_filter)
 	_head.find_idle_pressed.connect(_find_idle)
 	column.add_child(_head)
+	# The court's own work reading, above the rows it answers: the crews the
+	# published pass would put to work this turn (wiki: civilian-units § Empire
+	# roster; DR-20261121-12).
+	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
+	_counsel.visible = false
+	column.add_child(_counsel)
 	_build_rows(column)
 
 

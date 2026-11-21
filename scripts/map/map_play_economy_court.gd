@@ -71,6 +71,26 @@ var town_level: int = 0
 static func open(
 	play: PlaySession, faction: int, market: WorldMarket
 ) -> MapPlayEconomyCourt:
+	var court: MapPlayEconomyCourt = _base(play, faction, market)
+	MapPlayCivilianAi.seed(play, faction)
+	court.overseas = MapPlayEconomyAi._overseas(play, faction, court.economy)
+	return court
+
+
+## The same reads `open` takes, and none of its seeding: a sheet that only names
+## the plan (`MapPlayMarketPick`) may not mint a crew the crown never hired
+## (wiki: world-market § Trade orders; DR-20261121-09).
+static func draft(
+	play: PlaySession, faction: int, market: WorldMarket
+) -> MapPlayEconomyCourt:
+	var court: MapPlayEconomyCourt = _base(play, faction, market)
+	court.overseas = MapPlayEconomyAi._overseas(play, faction, court.economy)
+	return court
+
+
+static func _base(
+	play: PlaySession, faction: int, market: WorldMarket
+) -> MapPlayEconomyCourt:
 	var court := MapPlayEconomyCourt.new()
 	court.play = play
 	court.faction = faction
@@ -79,8 +99,6 @@ static func open(
 	court.economy = play.ai.economy_for(faction)
 	court.config = AiBind.config(court.kind, faction, play.map_seed, play.ensure_ai().profiles)
 	court.town_level = TownIndustry.best_level(play.world, faction)
-	MapPlayCivilianAi.seed(play, faction)
-	court.overseas = MapPlayEconomyAi._overseas(play, faction, court.economy)
 	return court
 
 
@@ -88,6 +106,22 @@ static func open(
 ## and the market staging the phase has always staged before it closes.
 func plan_turn() -> void:
 	cargo = MapPlayCargoAi.run(play, faction, economy, overseas)
+	_note_larder()
+	rehearse()
+	# The college's book is the pass's own: the research planner writes the
+	# research state (its slots, the revealed set, a refund), so a sheet that
+	# only names the plan may not take it (DR-20261121-09).
+	research = MapPlayEconomyCourtBook.research(self)
+	trade = MapPlayEconomyCourtBook.trade(self)
+
+
+## Every read the court's plan takes, and nothing it books: the footing, the
+## order of battle, the chest, the purse and the crews' plans. The pass reads
+## them after its cargo walk and its larder note; a sheet that only names the
+## plan (`MapPlayMarketPick`) reads them through `draft` and this method, so the
+## trade the sheet names and the trade the pass stages come from one set of
+## figures (wiki: world-market § Trade orders; DR-20261121-09).
+func rehearse() -> void:
 	at_war = MapPlayCourt.at_war(play, faction)
 	# Routed through AiBind: a baseline court's config is a MainlineAiConfig,
 	# which the submission planner's typed signature must never see. Since #853
@@ -101,20 +135,6 @@ func plan_turn() -> void:
 	hull_chest = MapPlayCourt.navy_chest(play, faction)
 	army_food = MapPlayEconomyAi._army_food(play, faction)
 	leader = MapPlayEconomyAi._leader(play, faction)
-	# The harvest slack the court's land carries — the ration food the
-	# extraction just landed, less every mouth the consumption phase feeds
-	# (issue #807). The muster's growth gate and the provision premium both read
-	# it, so a court desires its larger army and provisions the food income
-	# first; the economy pass re-notes it every turn.
-	var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
-	if not harvest.is_empty() and play.ai != null:
-		# The harvest's ration food, counted the Consumption phase's way, so the
-		# growth gate plans with the same total the phase would eat (REQ-P2-03).
-		var harvest_food: int = EconomyConsumption.food_available(harvest)
-		play.ai.note_food_slack(
-			faction,
-			harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
-		)
 	# The goal the court plans with this turn: money first (DR-20261113-19).
 	# Every discretionary spend reads the same reserve, so the war chest is
 	# never auctioned away for imports (wiki: treasury-planner § Priority).
@@ -154,7 +174,6 @@ func plan_turn() -> void:
 		kind != AiControl.KIND_BASELINE
 		and AiIncome.banking(config, play.ai, income)
 	)
-	research = MapPlayEconomyCourtBook.research(self)
 	boost = MapPlaySpyAi.research_bonus(play, faction, economy)
 	hospitals = HospitalRules.demand_list(play.world, faction)
 	# The works a crew will start this turn are planned against the ledger
@@ -186,7 +205,25 @@ func plan_turn() -> void:
 	)
 	works_reserved = MapPlayCivilianPlan.work_rows(plans)
 	hire_margin = MapPlayEconomyCourtBook.hire_margin(self)
-	trade = MapPlayEconomyCourtBook.trade(self)
+
+
+## The harvest slack the court's land carries — the ration food the extraction
+## just landed, less every mouth the consumption phase feeds (issue #807). The
+## muster's growth gate and the provision premium both read it, so a court
+## desires its larger army and provisions the food income first; the economy
+## pass re-notes it every turn, before the crews' plans read it. A sheet that
+## only names the plan leaves the note to the pass (DR-20261121-09).
+func _note_larder() -> void:
+	var harvest: Dictionary = overseas.get("extraction", {}) as Dictionary
+	if harvest.is_empty() or play.ai == null:
+		return
+	# The harvest's ration food, counted the Consumption phase's way, so the
+	# growth gate plans with the same total the phase would eat (REQ-P2-03).
+	var harvest_food: int = EconomyConsumption.food_available(harvest)
+	play.ai.note_food_slack(
+		faction,
+		harvest_food - MapPlayEconomyAi._food_demand(play, faction, economy)
+	)
 
 
 ## The raw the muster's and the hull's own material rows claim, merged: the

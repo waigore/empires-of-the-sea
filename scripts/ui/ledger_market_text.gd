@@ -49,6 +49,61 @@ static func share_credit(report: Dictionary, faction: int) -> int:
 	return roundi(float(by_gp.get(faction, by_gp.get(str(faction), 0.0))))
 
 
+## The fills that paid the crown's share, one row per deal: the owner's cut of a
+## rival's buy on its sold ground first, then the embassy kickbacks (wiki:
+## world-market-first-right-of-refusal § Profit formula, § Eligibility). The
+## total above them is a bare number until these rows say who bought what (REQ-
+## P5-05: a receipt names every line it spends). The ducats stay on the total and
+## off the rows, because one deal's known price and quantity would publish the
+## sealed relation score (DR-20261118-05).
+static func share_rows(report: Dictionary, faction: int) -> Array[Dictionary]:
+	var credits: Dictionary = report.get("credits", {}) as Dictionary
+	var rows: Array[Dictionary] = []
+	for raw: Variant in credits.get("rows", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var deal: Dictionary = raw
+		if int(deal.get("owner", -1)) == faction and float(deal.get("owner_credit", 0.0)) > 0.0:
+			rows.append(_share_row(deal, "deed"))
+	for raw: Variant in credits.get("rows", []):
+		if typeof(raw) != TYPE_DICTIONARY:
+			continue
+		var deal: Dictionary = raw
+		for raw_kick: Variant in deal.get("kickbacks", []):
+			if typeof(raw_kick) != TYPE_DICTIONARY:
+				continue
+			var kick: Dictionary = raw_kick
+			if int(kick.get("faction", -1)) != faction or float(kick.get("credit", 0.0)) <= 0.0:
+				continue
+			rows.append(_share_row(deal, "embassy"))
+	return rows
+
+
+static func _share_row(deal: Dictionary, kind: String) -> Dictionary:
+	return {
+		"kind": kind,
+		"buyer": int(deal.get("buyer", -2)),
+		"seller": int(deal.get("seller", -2)),
+		"commodity": String(deal.get("commodity", "")),
+		"quantity": int(deal.get("quantity", 0)),
+	}
+
+
+## One share row in words: which rule paid, and the buy that paid it. A court no
+## longer in the catalogue (an absorbed Minor, an older save) reads as it was
+## named when the clearing settled.
+static func share_row_line(row: Dictionary) -> String:
+	var quantity: int = int(row.get("quantity", 0))
+	var commodity: String = CommodityCatalog.label(String(row.get("commodity", "")))
+	var words: String = "%s bought %d %s from %s" % [
+		FactionCatalog.name_of(int(row.get("buyer", -2))), quantity, commodity,
+		FactionCatalog.name_of(int(row.get("seller", -2))),
+	]
+	if String(row.get("kind", "")) == "deed":
+		return "Our deed's share — " + words
+	return "Our embassy's kickback — " + words
+
+
 ## One line of the Deal Book. A purchase names the price the pair was charged —
 ## the crown's terms and the subsidy step included — and the ducats it cost; a
 ## sale names its receipt (wiki: world-market § Subsidy price adjustment;
@@ -67,6 +122,12 @@ static func deal_line(deal: Dictionary, viewer: int = FactionCatalog.PLAYER_FACT
 		var claim: String = (
 			" as its favoured partner" if bool(deal.get("is_favoured", false)) else ""
 		)
+		# The one thing a deed buys the crown is this fill: the owner's bid takes
+		# its sold ground's unit before any tier, and the row must say so or the
+		# right is invisible on the purchase it won (wiki: world-market § First
+		# right of refusal — Priority override).
+		if bool(deal.get("is_frr", false)):
+			claim = " as its deed's first refusal"
 		var unit: int = int(deal.get("buy_unit", price))
 		# The debt is rounded once from the whole deal, so the per-unit ask need
 		# not multiply to it: name the ducats the clearing charged, and say so
@@ -151,6 +212,61 @@ static func bid_budget_line(budget: Dictionary) -> String:
 
 static func bid_budget_color(budget: Dictionary) -> Color:
 	return Palette.GOLD_PALE if int(budget.get("budget", 0)) <= 0 else Palette.TEXT
+
+
+## The clearing's price pass in one line: the goods that moved and the price they
+## now stand at, so a turn's new market is read and never a silent change (wiki:
+## world-market § Price discovery; REQ-P5-05). Empty when no price moved.
+static func price_moves_line(report: Dictionary, limit: int = 4) -> String:
+	var moved: Dictionary = report.get("prices", {}) as Dictionary
+	if moved.is_empty():
+		return ""
+	var ids: Array[String] = []
+	for raw: Variant in moved.keys():
+		ids.append(String(raw))
+	ids.sort()
+	var parts: PackedStringArray = []
+	for index in mini(ids.size(), limit):
+		var id: String = ids[index]
+		parts.append("%s %d" % [CommodityCatalog.label(id), int(moved[id])])
+	var text: String = "Prices moved: " + "  ·  ".join(parts)
+	if ids.size() > limit:
+		text += "  ·  +%d more" % (ids.size() - limit)
+	return text + "."
+
+
+## One plain sentence for the court's trade diplomacy, so an adjusted price is
+## never a mystery (wiki: world-market § FTP; REQ-P2-03). Empty when the market
+## carries no terms for this viewer.
+static func terms_line(market: WorldMarket, viewer: int) -> String:
+	if market == null:
+		return ""
+	var terms: Dictionary = market.terms_for(viewer)
+	if terms.is_empty():
+		return ""
+	var buy: Dictionary = terms.get("buy", {})
+	var sell: Dictionary = terms.get("sell", {})
+	var buy_rate: float = float(buy.get("*", 1.0))
+	var sell_rate: float = float(sell.get("*", 1.0))
+	var text: String = "Trade terms: imports at %d%% and exports at %d%% of the world price." % [
+		roundi(buy_rate * 100.0), roundi(sell_rate * 100.0)
+	]
+	var subsidy: int = MarketRules.subsidy_rate_paid(market, viewer)
+	if subsidy > 0:
+		text += " Subsidy %d%%: a subsidised court's goods cost us more, ours earn less." % subsidy
+	# A boycotted crown's rate is worse for a reason a price never states: name
+	# the bar, and the closed rows the plate prints under each colony (wiki:
+	# diplomacy § GP–Tribe — Boycott, R6).
+	var issuers: PackedStringArray = []
+	for raw: Variant in MinorMarket.sealed_for(market, viewer).values():
+		var name: String = FactionCatalog.name_of(int(raw))
+		if not issuers.has(name):
+			issuers.append(name)
+	if not issuers.is_empty():
+		text += " Boycotted by %s: no deal of ours clears with its colonies." % (
+			", ".join(issuers)
+		)
+	return text
 
 
 ## One-line market clearing report for the turn toast: the crown's fills and

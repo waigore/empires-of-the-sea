@@ -326,6 +326,14 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The reading the crown's people print (DR-20261121-12): the roster's one gold
+# line, proved by the ledger suite that already mounts the HUD and opens the
+# people sheet.
+[domains.people_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 # The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet
 # share the ledgers boot — the projection on a two-chart fixture and the sheet on
 # the shared map screen — so a navy reading change never pulls the fleet domain's
@@ -506,6 +514,31 @@ domain = "ai_economy"
 [[rules]]
 match = "scripts/map/map_play_blockades.gd*"
 domain = "blockade"
+
+# MapPlay* helpers that redirect screen talk to `play.screen` (#1210). Named
+# before each helper's theme domain so the bridge rewrite stays on
+# play_screen's three suites instead of unioning theme boots past the tier-1
+# 5 min budget. Restore the prior domain when a non-screen change reshapes
+# the helper (same pattern as the Auto shared-hook note below).
+[[rules]]
+match = "scripts/map/map_play_campaign.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_civilian_roster.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_intel.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_input.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_turn_finish.gd"
+domain = "play_screen"
 
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
@@ -1074,9 +1107,22 @@ domain = "eyes"
 match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
+# The reading the eyes print (DR-20261121-11): its own small slice, so the
+# shaping of one gold line never pulls the espionage domain's seven suites.
+[[rules]]
+match = "scripts/map/map_play_spy_pick.gd*"
+domain = "eyes"
+
 [[rules]]
 match = "tests/test_ledgers.gd*"
 domain = "eyes"
+
+# The reading the crown's people print (DR-20261121-12): its own slice too, so
+# the shaping of the roster's one gold line never pulls the roster panel's
+# three-boot sheet set past the tier-1 budget.
+[[rules]]
+match = "scripts/map/map_play_people_pick.gd*"
+domain = "people_pick"
 
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
@@ -1748,6 +1794,16 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_market.gd"
 domain = "economy_ui"
 
+# The market tab's last-clearing receipt and staged-order block: presentation
+# helpers the page mounts, so they ride the same economy_ui suites.
+[[rules]]
+match = "scripts/ui/ledger_market_receipt.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_orders.gd*"
+domain = "economy_ui"
+
 # Ledger button intents (trade, workers, research): the sheet suite owns them.
 # Named before scripts/economy/** so a seat-gate edit still pulls economy_ui
 # (test_economy_screen) for the body lines the patch shift counts (issue #726).
@@ -1781,9 +1837,8 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_workshop.gd*"
 domain = "economy_ui"
 
-# The PRODUCTION tab's one press (DR-20261116-08): the walk that plans one run on
-# every ready row, and the ceiling it shares with the row's "+". It rides the
-# economy_ui domain with the tab it serves.
+# The PRODUCTION tab's ceiling: the projection a row's "+" is capped by. It rides
+# the economy_ui domain with the tab it serves.
 [[rules]]
 match = "scripts/rules/production_batch.gd*"
 domain = "economy_ui"
@@ -3059,6 +3114,14 @@ domain = "naval_voyage"
 match = "scripts/ui/fleet_crew_section.gd*"
 domain = "naval_voyage"
 
+# The voyage the court's own colonisation pass would make with a squadron
+# (DR-20261121-08): the pick asks `MapPlayColonisationAi.step`, the same call the
+# rival pass applies, and the passenger block prints its line. The suites that
+# mount the block and the pick prove it, so the reading rides the voyage slice.
+[[rules]]
+match = "scripts/map/map_play_voyage_pick*.gd*"
+domain = "naval_voyage"
+
 # The passengers block's ground window: the row budget and its height, read by
 # the block and proved by the same two suites plus the phone fits.
 [[rules]]
@@ -3323,6 +3386,20 @@ domain = "prospect"
 [[rules]]
 match = "scripts/map/observer_province.gd*"
 domain = "ai_panel"
+
+# The estates ledger's own raise reading (DR-20261121-10): the estates the
+# published Builder pass would raise this phase, narrowed from the crew pick the
+# sheet and the chart already read. Its suite is the ledgers', where the pick is
+# proved off data alone and the card prints the line. Named above the map glob
+# (first match wins) so it never pays for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_estates_pick*.gd*"
+domain = "estates_pick"
+
+[domains.estates_pick]
+suites = [
+  "test_ledgers.gd",
+]
 
 [[rules]]
 match = "scripts/map/**"
@@ -3591,6 +3668,14 @@ domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_receipt.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_orders.gd*"
 domain = "economy_ui"
 
 [[rules]]
@@ -4456,6 +4541,19 @@ match = "scripts/map/map_play_production_pick*.gd*"
 domain = "production_pick"
 
 [domains.production_pick]
+suites = [
+  "test_market_economy_rules.gd",
+]
+
+# The market tab's own plan (DR-20261121-09): the offers and bids the published
+# market pass would book, read through the plan `trade` stages. Its suite is the
+# economy rules', where the pick is proved off plan data alone, so it names its
+# own domain instead of pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_market_pick*.gd*"
+domain = "market_pick"
+
+[domains.market_pick]
 suites = [
   "test_market_economy_rules.gd",
 ]

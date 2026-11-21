@@ -158,6 +158,13 @@ static func step_colonists(run) -> void:
 	run.check(screen.hud.panels.is_fleet_panel_open(), "fleet dossier opens for the crew")
 	var crew: Dictionary = MapPlayCivilianVoyage.crew(screen.play, home)
 	run.check(not (crew["embark"] as Array).is_empty(), "the dossier offers the colonist")
+	# The passenger block prints the voyage the court's own colonisation pass
+	# would make with her — or nothing while the plan names another squadron
+	# (DR-20261121-08).
+	run.check(
+		screen.hud._fleet_panel._crew._pick.text == MapPlayVoyagePick.line(screen.play, home),
+		"the passenger block prints the court's own voyage pick"
+	)
 	MapPlayCivilianVoyage.on_action(screen.play, "crew:embark:%d" % colonist.id)
 	run.check(colonist.is_embarked(), "the colonist boards")
 	run.check(colonist.tile.x < 0, "an embarked civilian leaves the map")

@@ -117,7 +117,7 @@ static func _announce_charted_coast(play: PlaySession, changed: Array) -> void:
 			continue
 		play.charted_provinces[province_id] = true
 		play.hud.toast("The coast of %s is charted" % play.model.province_name(province_id))
-		play.emit_coast_charted(province_id)
+		play.screen.emit_coast_charted(province_id)
 		return
 
 

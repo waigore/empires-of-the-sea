@@ -46,6 +46,7 @@ func spawn(
 	model = p_model
 	markers.model = model
 	markers.rng.seed = seed_value
+	markers.player = p_player_faction
 	player_faction = p_player_faction
 	markers.clear()
 	fleets = []
@@ -104,6 +105,17 @@ func roster_changed() -> void:
 
 func set_zoom(value: float) -> void:
 	markers.set_zoom(value)
+
+
+## Re-reads a squadron's station onto her marker without moving the hull: a
+## station taken or given up at the dossier repaints the work loop (issue
+## #1198).
+func station(fleet: FleetState) -> void:
+	if fleet == null:
+		return
+	var ship: Ship = ship_for(fleet)
+	if ship != null:
+		markers.station_order(ship, fleet)
 
 
 func select(ship: Ship) -> void:
@@ -279,6 +291,9 @@ func transfer_owner(from_id: int, to_id: int) -> void:
 		if ship.faction == from_id and to_id != MapModel.NO_ID:
 			ship.faction = to_id
 	markers.prune(fleets)
+	# An absorbed squadron now answers to the crown, so her busiest loop (a
+	# station) is read again under the new flag (issue #1198).
+	markers.sync(fleets)
 	relayout()
 
 

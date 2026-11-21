@@ -20,8 +20,8 @@ static func close_victory(play: PlaySession, victory: VictoryState) -> void:
 			VictoryRules.old_world_holdings(play.world, victory.winner_player_id)
 		)
 	play.hud.toast(victory.summary())
-	play.emit_turn_ended(play.turn)
-	play.emit_campaign_end(victory)
+	play.screen.emit_turn_ended(play.turn)
+	play.screen.emit_campaign_end(victory)
 
 
 ## The calendar closed the age without a military victory: record it, mount the
@@ -35,7 +35,7 @@ static func close_calendar(play: PlaySession) -> void:
 	play.hud.toast(
 		"Campaign complete — %d" % TurnTime.year_for_turn(play.turn)
 	)
-	play.emit_turn_ended(play.turn)
+	play.screen.emit_turn_ended(play.turn)
 
 
 ## Strongest crown by power score, or NO_ID when the top score is shared. The

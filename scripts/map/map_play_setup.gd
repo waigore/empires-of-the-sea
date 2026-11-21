@@ -66,6 +66,31 @@ static func build_hud(play: PlaySession) -> void:
 	play.improvements.blockade_source = (
 		func() -> Blockades: return MapPlayBlockades.crown(play)
 	)
+	# The estates ledger names the estates the court's own Builder pass would
+	# raise this phase, read on the ledger's own snapshot so the line reads down
+	# the page it answers (wiki: extraction-and-improvements § Estates ledger;
+	# DR-20261121-10).
+	play.improvements.counsel_source = (
+		func(data: Dictionary) -> String: return MapPlayEstatesPick.line(play, data)
+	)
+	# THE CROWN'S EYES names the spies the court's own espionage pass would walk,
+	# screen or keep this turn, read on the sheet's own snapshot so the line
+	# reads down the network it answers (wiki: civilian-units § Spy;
+	# DR-20261121-11).
+	var eyes: SpyLedgerPanel = hud.spy_ledger
+	if eyes != null:
+		eyes.counsel_source = (
+			func(data: Dictionary) -> String: return MapPlaySpyPick.line(play, data)
+		)
+	# THE CROWN'S PEOPLE names the work the court's own civilian pass would put
+	# its crews to this turn, read on the roster's own snapshot so the line
+	# reads down the page it answers (wiki: civilian-units § Empire roster;
+	# DR-20261121-12).
+	var people: CivilianRosterPanel = hud.civilian_roster
+	if people != null:
+		people.counsel_source = (
+			func(data: Dictionary) -> String: return MapPlayPeoplePick.line(play, data)
+		)
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)

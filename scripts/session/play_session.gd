@@ -2,8 +2,11 @@ class_name PlaySession
 extends RefCounted
 ## Narrow play context for MapPlay* helpers (REQ-P3-02).
 ## Holds session state and injected presentation refs — not a Node/autoload.
-## MapScreen owns the Node tree and signals; helpers talk through this bag, and
-## every word it says to the screen goes through `screen` (PlayScreen).
+## MapScreen owns the Node tree and signals; helpers read this bag for campaign
+## state. Screen talk goes through `screen` (PlayScreen): some helpers call
+## `play.screen.*` directly, others keep a short session forwarder so their
+## theme domains do not blow the tier-1 budget. `emit_battle_resolved` stays
+## on the session so DialogueEvents still book before the plate airs.
 
 const TILE_SIZE: float = 22.0
 ## Legacy default (Spain); a game setup may choose another Great Power.
@@ -164,8 +167,8 @@ var improvements: ImprovementPanel = null
 ## The one place helpers send screen talk (REQ-P3-02).
 var screen: PlayScreen = PlayScreen.new()
 
-## Bound chart Node — same object as `screen.host`, kept on the session so
-## existing MapPlay* call sites need not rewrite every read (REQ-P3-02).
+## Bound chart Node — same object as `screen.host`, kept so setup and saves
+## that already hold `play.host` need not rewrite every read (REQ-P3-02).
 var host: Node:
 	get:
 		return screen.host
@@ -332,37 +335,12 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 	screen.emit_battle_resolved(battles)
 
 
-## Turns, orders and map intents close for good once a victory is declared, the
-## human crown falls, or the calendar cap closes the age (wiki: victory,
-## turn-time-mapping).
-func campaign_over() -> bool:
-	return victory != null or defeat != null or campaign_halted
-
-
-## Screen airings and region swap: session names forward to `screen` so the
-## bridge owns the work and helpers keep the short call (REQ-P3-02).
-func viewport() -> Viewport:
-	return screen.viewport()
-
-
-func emit_province_selected(province_id: int) -> void:
-	screen.emit_province_selected(province_id)
-
-
-func emit_selection_cleared() -> void:
-	screen.emit_selection_cleared()
-
-
-func emit_coast_charted(province_id: int) -> void:
-	screen.emit_coast_charted(province_id)
-
-
+## Screen airings still reached through the session name: helpers that would
+## pull their theme domains past the tier-1 5 min budget keep these short
+## calls; campaign / input / fleet / roster / turn-finish talk through
+## `play.screen` directly (REQ-P3-02).
 func emit_raid_resolved(raids: Array[Dictionary]) -> void:
 	screen.emit_raid_resolved(raids)
-
-
-func emit_turn_ended(p_turn: int) -> void:
-	screen.emit_turn_ended(p_turn)
 
 
 func emit_campaign_end(p_victory: VictoryState = null, p_defeat: DefeatState = null) -> void:
@@ -375,3 +353,10 @@ func refresh_map_views() -> void:
 
 func switch_region(index: int) -> void:
 	screen.switch_region(index)
+
+
+## Turns, orders and map intents close for good once a victory is declared, the
+## human crown falls, or the calendar cap closes the age (wiki: victory,
+## turn-time-mapping).
+func campaign_over() -> bool:
+	return victory != null or defeat != null or campaign_halted

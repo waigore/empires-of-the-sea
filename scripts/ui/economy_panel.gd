@@ -11,7 +11,6 @@ signal trade_requested(commodity: String, quantity: int, is_buy: bool)
 signal offer_requested(offer_id: String, quantity: int)
 signal cancel_requested(order_id: String)
 signal production_changed(recipe_id: String, units: int)
-signal production_batch_requested(plan: Dictionary)
 signal recruit_requested(tier: int, count: int)
 signal disband_requested(tier: int)
 
@@ -58,9 +57,6 @@ func _preview_label() -> Label:
 func _connect_pages() -> void:
 	_production.production_changed.connect(
 		func(recipe_id: String, units: int) -> void: production_changed.emit(recipe_id, units)
-	)
-	_production.production_batch_requested.connect(
-		func(plan: Dictionary) -> void: production_batch_requested.emit(plan)
 	)
 	_market_page.trade_requested.connect(
 		func(commodity: String, quantity: int, is_buy: bool) -> void:
@@ -119,7 +115,8 @@ func _tab_box(selected: bool) -> StyleBoxFlat:
 ## Rebuilds every row from live state plus the end-of-turn projection report.
 ## `pick` is the court's own production pick (`MapPlayProductionPick`): the runs
 ## the crown's own economy pass would book, printed on the PRODUCTION tab
-## (REQ-P5-03, REQ-P5-06; DR-20261121-07).
+## (REQ-P5-03, REQ-P5-06; DR-20261121-07). `trade` is the market's own plan
+## (`MapPlayMarketPick`), printed on the MARKET tab (DR-20261121-09).
 func refresh(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -127,7 +124,8 @@ func refresh(
 	cargo: Dictionary = {},
 	offers: Array = [],
 	viewer: int = FactionCatalog.PLAYER_FACTION,
-	pick: Dictionary = {}
+	pick: Dictionary = {},
+	trade: Dictionary = {}
 ) -> void:
 	if _tabs == null:
 		return
@@ -138,7 +136,7 @@ func refresh(
 	_production.fill(economy, report, pick)
 	_market_page.fill(
 		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary,
-		viewer
+		viewer, String(trade.get("line", ""))
 	)
 	_workers.fill(economy, report)
 

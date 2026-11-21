@@ -12,10 +12,11 @@ extends GdToolsTest
 ## (`Fixture.suite_reset`), which drops a decided victory, a defeat, an open
 ## plate and a selection, so a case starts as the mount did. The codec cases
 ## used to pay a second boot and a private 32×32 world; they now ride this
-## fixture chart (already ≥ `SaveCodec.MIN_MAP_SIDE`) and restore in place
-## (docs/testing.md § Speed rules).
+## fixture chart (already ≥ `SaveCodec.MIN_MAP_SIDE`) and restore in place.
+## Plate / calendar / codec closes resume with `AiControl.NOOP` so the finish
+## skips rival planner walks; persistence reopens on the shared mount instead of
+## a second MapScreen (docs/testing.md § Speed rules).
 
-const SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const Fixture = preload("res://tests/map_fixture.gd")
 const CAP: int = 201
 const SAVE_DIR: String = "user://test_campaign_end"
@@ -75,6 +76,27 @@ func _attach() -> MapScreen:
 var screen: MapScreen:
 	get:
 		return _attach()
+
+
+## Plate / calendar / codec closes under coverage: rivals stand down so the
+## finish skips planner walks. Victory and halt still resolve from holdings and
+## the calendar; only the rival passes are inert.
+func _end_turn_inert(play: PlaySession) -> void:
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	MapPlayTurn.end_turn(play)
+	play.ai_mode = mode
+
+
+## Persistence cases reopen on the shared mount: capture, restore in place, and
+## refresh the HUD plates (~0.2 s) instead of a second MapScreen (~0.5–1 s under
+## coverage). The next live case still pays `suite_reset` from pristine.
+func _reload_shared(data: Dictionary, save_dir: String = CODEC_DIR) -> MapScreen:
+	_attach()
+	mounted.save_dir = save_dir
+	var play: PlaySession = _apply_codec_save(data)
+	MapPlaySetup.refresh_after_load(play)
+	return mounted
 
 
 # --- calendar rules ----------------------------------------------------------
@@ -252,7 +274,7 @@ func test_the_calendar_closes_an_undecided_campaign_on_its_last_turn() -> void:
 	_attach()
 	screen.play.turn = CAP
 
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 
 	assert_true(screen.play.campaign_halted)
@@ -272,11 +294,11 @@ func test_the_calendar_closes_an_undecided_campaign_on_its_last_turn() -> void:
 func test_a_closed_calendar_takes_no_more_turns() -> void:
 	_attach()
 	screen.play.turn = CAP
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 	var turn_before: int = screen.turn
 
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 
 	assert_eq(screen.turn, turn_before)
@@ -286,7 +308,7 @@ func test_a_closed_calendar_takes_no_more_turns() -> void:
 func test_a_closed_calendar_takes_no_orders() -> void:
 	_attach()
 	screen.play.turn = CAP
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 
 	MapPlayCivilians.on_action(screen.play, "move")
@@ -328,7 +350,7 @@ func test_the_deciding_turn_still_files_its_sheet() -> void:
 	var rival: int = crowns[0] if crowns[0] != play.player_faction else crowns[1]
 	_seat_holdings(play, rival, VictoryRules.MILITARY_THRESHOLD)
 
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	Fixture.settle(play)
 
 	assert_not_null(play.victory, "the rival takes the age")
@@ -349,7 +371,7 @@ func test_the_calendar_cap_turn_still_files_its_sheet() -> void:
 	_attach()
 	screen.play.turn = CAP
 
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 
 	assert_true(screen.play.campaign_halted)
@@ -399,7 +421,7 @@ func test_an_endless_campaign_sails_past_the_cap() -> void:
 	screen.play.infinite_mode = true
 	screen.play.turn = CAP
 
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 
 	assert_false(screen.play.campaign_halted)
@@ -469,13 +491,13 @@ func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
 	_attach()
 	screen.save_dir = SAVE_DIR
 	screen.play.turn = CAP
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 	assert_true(screen.play.campaign_halted)
 	var save: Dictionary = SaveCodec.capture(screen.play)
 	assert_true(SaveCodec.is_valid(save))
 
-	var reopened: MapScreen = _load(save)
+	var reopened: MapScreen = _reload_shared(save, SAVE_DIR)
 
 	assert_true(reopened.play.campaign_halted, "the closed calendar survives the save")
 	assert_null(reopened.play.victory)
@@ -484,10 +506,9 @@ func test_a_calendar_closed_slot_reopens_on_the_complete_plate() -> void:
 	assert_eq(reopened.hud.victory_overlay._title.text, "CAMPAIGN COMPLETE")
 	assert_true(reopened.hud._end_turn_button.disabled)
 	var turn_before: int = reopened.turn
-	MapPlayTurn.end_turn(reopened.play)
+	_end_turn_inert(reopened.play)
 	Fixture.settle(reopened.play)
 	assert_eq(reopened.turn, turn_before, "turns stay shut after a load")
-	reopened.free()
 
 
 func test_an_endless_choice_survives_the_save() -> void:
@@ -496,23 +517,9 @@ func test_an_endless_choice_survives_the_save() -> void:
 	screen.play.infinite_mode = true
 	var save: Dictionary = SaveCodec.capture(screen.play)
 
-	var reopened: MapScreen = _load(save)
+	var reopened: MapScreen = _reload_shared(save, SAVE_DIR)
 
 	assert_true(reopened.play.infinite_mode, "endless campaigns stay endless")
-	reopened.free()
-
-
-func _load(data: Dictionary) -> MapScreen:
-	var node: MapScreen = SCREEN.instantiate()
-	node.save_dir = SAVE_DIR
-	# The save came from the shared world: hand it back so the load applies the
-	# save over that map instead of regenerating and repainting a fresh one.
-	node.map_width = Fixture.WORLD_WIDTH
-	node.map_height = Fixture.WORLD_HEIGHT
-	node.preset_world = Fixture.world()
-	node.pending_save = data
-	add_child(node)
-	return node
 
 
 ## Any label or button on the plate carrying `needle` (the Gazette prints as
@@ -538,7 +545,7 @@ func test_end_turn_crowns_the_player_and_stops_the_calendar() -> void:
 	_grant_old_world(MapScreen.PLAYER_FACTION)
 	var turn_before: int = screen.turn
 
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 
 	assert_not_null(screen.play.victory)
@@ -555,7 +562,7 @@ func test_end_turn_crowns_the_player_and_stops_the_calendar() -> void:
 func test_a_rival_crown_wins_and_the_map_stops_taking_orders() -> void:
 	_grant_old_world(1)
 
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 
 	assert_not_null(screen.play.victory)
@@ -571,7 +578,7 @@ func test_a_rival_crown_wins_and_the_map_stops_taking_orders() -> void:
 
 func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
 	_grant_old_world(MapScreen.PLAYER_FACTION)
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 	assert_true(screen.hud.is_victory_shown())
 
@@ -579,7 +586,7 @@ func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
 
 	assert_false(screen.hud.is_victory_shown())
 	var turn_before: int = screen.turn
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 	assert_eq(screen.turn, turn_before, "dismissing the plate does not reopen play")
 	assert_false(screen.hud.is_victory_shown(), "no second plate; the campaign stays decided")
@@ -587,14 +594,14 @@ func test_the_plate_steps_aside_for_a_final_view_but_turns_stay_shut() -> void:
 
 func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 	_grant_old_world(MapScreen.PLAYER_FACTION)
-	MapPlayTurn.end_turn(screen.play)
+	_end_turn_inert(screen.play)
 	Fixture.settle(screen.play)
 	var decided: VictoryState = screen.play.victory
 	assert_not_null(decided)
 	var save: Dictionary = SaveCodec.capture(screen.play)
 	assert_true(SaveCodec.is_valid(save), "a decided save is valid")
 
-	var reopened: MapScreen = Fixture.open_save(self, save)
+	var reopened: MapScreen = _reload_shared(save)
 
 	assert_not_null(reopened.play.victory, "the decided campaign survives the save")
 	assert_eq(reopened.play.victory.winner_player_id, decided.winner_player_id)
@@ -603,10 +610,9 @@ func test_a_decided_campaign_loads_decided_with_the_seal_shut() -> void:
 	assert_true(reopened.hud._end_turn_button.disabled)
 	assert_eq(reopened.hud._end_turn_button.text, "CAMPAIGN ENDED")
 	var turn_before: int = reopened.turn
-	MapPlayTurn.end_turn(reopened.play)
+	_end_turn_inert(reopened.play)
 	Fixture.settle(reopened.play)
 	assert_eq(reopened.turn, turn_before, "turns stay shut after a load")
-	reopened.free()
 
 
 func _grant_old_world(faction_id: int) -> void:
@@ -712,7 +718,7 @@ func test_a_defeated_campaign_takes_no_more_turns_and_awards_no_victory() -> voi
 	_fall_crown(target, target.play.player_faction, conqueror)
 	var turn_before: int = target.turn
 
-	MapPlayTurn.end_turn(target.play)
+	_end_turn_inert(target.play)
 
 	assert_eq(target.turn, turn_before, "the seal keeps the turn number")
 	assert_null(target.play.victory, "defeat does not grant a military victory")
@@ -744,7 +750,7 @@ func test_a_defeated_slot_reopens_on_the_defeat_plate() -> void:
 	var save: Dictionary = SaveCodec.capture(target.play)
 	assert_true(SaveCodec.is_valid(save))
 
-	var reopened: MapScreen = _open_defeated(save)
+	var reopened: MapScreen = _reload_shared(save, DEFEAT_SAVE_DIR)
 
 	assert_not_null(reopened.play.defeat, "the defeat survives the save")
 	assert_eq(reopened.play.defeat.conqueror_player_id, conqueror)
@@ -753,9 +759,8 @@ func test_a_defeated_slot_reopens_on_the_defeat_plate() -> void:
 	assert_eq(reopened.hud.victory_overlay._title.text, "DEFEAT")
 	assert_true(reopened.hud._end_turn_button.disabled)
 	var turn_before: int = reopened.turn
-	MapPlayTurn.end_turn(reopened.play)
+	_end_turn_inert(reopened.play)
 	assert_eq(reopened.turn, turn_before, "turns stay shut after a load")
-	reopened.free()
 
 
 func test_a_legacy_slot_without_a_defeat_field_stays_undefeated() -> void:
@@ -764,11 +769,10 @@ func test_a_legacy_slot_without_a_defeat_field_stays_undefeated() -> void:
 	var save: Dictionary = SaveCodec.capture(target.play)
 	save.erase("defeat")
 
-	var reopened: MapScreen = _open_defeated(save)
+	var reopened: MapScreen = _reload_shared(save, DEFEAT_SAVE_DIR)
 
 	assert_null(reopened.play.defeat, "absent -> human not defeated")
 	assert_false(reopened.play.campaign_over())
-	reopened.free()
 
 
 func test_a_fallen_crowns_civilians_leave_play() -> void:
@@ -811,9 +815,6 @@ func _fall_crown(target: MapScreen, fallen: int, conqueror: int) -> void:
 	)
 	MapPlayLandTurn.apply_capital_loss(play, losses)
 
-
-func _open_defeated(data: Dictionary) -> MapScreen:
-	return Fixture.open_save(self, data, DEFEAT_SAVE_DIR)
 
 # --- session codec (folded from test_save_codec) -----------------------------
 ## Save/load round trip on the shared mount: capture a live session, write it,
@@ -865,6 +866,7 @@ func _rebind_codec_layers(play: PlaySession) -> void:
 
 func test_round_trip_restores_session_world_and_layers() -> void:
 	var play: PlaySession = screen.play
+	# Full finish: inert rivals skip the civilian seed this round-trip asserts.
 	MapPlayTurn.end_turn(play)
 	while DiplomacyProposals.has_pending(play.diplomacy, 0):
 		MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 0, "")
@@ -1178,7 +1180,7 @@ func test_a_waiting_call_to_arms_stays_suspended_after_a_load() -> void:
 	pact.score = 80.0
 	CallToArms.freeze_alliances(play.diplomacy)
 	DiplomacyRules.declare_war(play.diplomacy, 3, 2)
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	assert_true(play.turn_suspended, "the call holds the turn")
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_true(SaveStore.write(CODEC_DIR + "/call.sav", data))
@@ -1302,7 +1304,7 @@ func test_the_difficulty_layer_survives_a_load() -> void:
 
 func test_the_gazette_watchlist_and_archive_survive_a_load() -> void:
 	var play: PlaySession = screen.play
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	while DiplomacyProposals.has_pending(play.diplomacy, 0):
 		MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 0, "")
 	assert_true(play.gazette != null, "the close founded the watchlist")

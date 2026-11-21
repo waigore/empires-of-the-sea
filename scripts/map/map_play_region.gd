@@ -22,6 +22,7 @@ static func mount(play: PlaySession, backdrop: ColorRect, index: int) -> void:
 	play.region_index = clampi(index, 0, play.world.region_count() - 1)
 	play.model = play.world.region(play.region_index)
 	play.civilian_layer.viewer_faction = play.player_faction
+	play.army_layer.viewer_faction = play.player_faction
 	play.ship_layer.world = play.world
 	var map_size: Vector2 = MapGeo.world_size(play.model, PlaySession.TILE_SIZE)
 	SeaBackdrop.fit(backdrop, map_size)

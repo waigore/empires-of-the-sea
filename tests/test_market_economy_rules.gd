@@ -630,6 +630,68 @@ func test_first_right_pays_the_tile_owner_on_a_rival_sale() -> void:
 	assert_eq(owner.treasury, owner_before + 23)
 	assert_false((economies[1] as PlayerEconomy).treasury == PlayerEconomy.START_TREASURY)
 
+
+## The share's total names the fills that paid it — the deed's own ground first,
+## then the embassy kickbacks — so a crown that staged nothing still reads who
+## bought what (wiki: world-market-first-right-of-refusal § Eligibility;
+## REQ-P5-05). The ducats stay on the total: one deal's cut would publish the
+## sealed relation score (DR-20261118-05).
+func test_the_overseas_share_names_the_fills_that_paid_it() -> void:
+	var report: Dictionary = {"credits": {
+		"by_gp": {0: 73.0},
+		"rows": [
+			{
+				"seller": 6, "buyer": 1, "commodity": "grain", "quantity": 1,
+				"price": 50.0, "owner": 0, "owner_credit": 25.0,
+				"kickbacks": [{"faction": 2, "credit": 4.0}],
+			},
+			{
+				"seller": 12, "buyer": 1, "commodity": "timber", "quantity": 2,
+				"price": 30.0, "owner": -1, "owner_credit": 0.0,
+				"kickbacks": [{"faction": 0, "credit": 6.0}],
+			},
+		],
+	}}
+	var rows: Array[Dictionary] = LedgerMarketText.share_rows(report, 0)
+	assert_eq(rows.size(), 2, "the crown's own ground, then its embassy's sale")
+	assert_eq(String(rows[0]["kind"]), "deed")
+	assert_eq(
+		LedgerMarketText.share_row_line(rows[0]),
+		"Our deed's share — %s bought 1 Grain from %s" % [
+			FactionCatalog.name_of(1), FactionCatalog.name_of(6),
+		]
+	)
+	assert_eq(String(rows[1]["kind"]), "embassy")
+	assert_eq(
+		LedgerMarketText.share_row_line(rows[1]),
+		"Our embassy's kickback — %s bought 2 Timber from %s" % [
+			FactionCatalog.name_of(1), FactionCatalog.name_of(12),
+		]
+	)
+	assert_eq(LedgerMarketText.share_credit(report, 0), 73, "the total is unchanged")
+	# A court that only earned the kickback reads only that row.
+	var theirs: Array[Dictionary] = LedgerMarketText.share_rows(report, 2)
+	assert_eq(theirs.size(), 1)
+	assert_eq(String(theirs[0]["kind"]), "embassy")
+	assert_eq(LedgerMarketText.share_rows(report, 3).size(), 0, "a court paid nothing reads nothing")
+
+
+## A deed's own fill says so on the row it won; the same deal on another court's
+## page carries no claim (wiki: world-market § First right of refusal).
+func test_a_first_refusal_fill_says_so_on_its_row() -> void:
+	var deal: Dictionary = {
+		"buyer": 0, "seller": 6, "commodity": "timber", "quantity": 1,
+		"price": 30, "buy_unit": 30, "cost": 30, "is_frr": true,
+	}
+	assert_true(
+		LedgerMarketText.deal_line(deal, 0).ends_with("as its deed's first refusal"),
+		"the buyer reads the right that won it the unit"
+	)
+	assert_false(
+		LedgerMarketText.deal_line(deal, 1).contains("first refusal"),
+		"a rival reads its own side of the same deal"
+	)
+
 ## The colony's harvest clears to its suzerain inside the tier even though the
 ## rival is the warmer, better-known court (wiki: diplomacy § R7.1;
 ## DR-20261111-11).
@@ -4803,7 +4865,7 @@ func test_the_price_line_caps_its_goods() -> void:
 	var moved: Dictionary = {}
 	for id: String in ["grain", "timber", "iron", "wool", "coal"]:
 		moved[id] = CommodityCatalog.base_price(id)
-	var line: String = LedgerMarket.price_moves_line({"prices": moved})
+	var line: String = LedgerMarketText.price_moves_line({"prices": moved})
 	assert_true(line.begins_with("Prices moved:"), line)
 	assert_true(line.ends_with("+1 more."), line)
 	# The goods read in name order, so the fifth one is the one left out.
@@ -4811,7 +4873,7 @@ func test_the_price_line_caps_its_goods() -> void:
 	assert_false(
 		line.contains(CommodityCatalog.label("wool")), "the fifth good waits"
 	)
-	assert_eq(LedgerMarket.price_moves_line({}), "", "no move, no line")
+	assert_eq(LedgerMarketText.price_moves_line({}), "", "no move, no line")
 
 
 ## The crossing the holds will make is read on the MARKET page, under the holds
@@ -4908,14 +4970,11 @@ func test_a_staged_order_is_valued_at_the_viewing_crowns_terms() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
 	var order: MarketOrder = MarketOrder.create(1, "timber", MarketOrder.SIDE_OFFER, 2, 1)
-	var ledger := LedgerMarket.new()
-	ledger.fill(PlayerEconomy.starting(), market, {}, [], {}, 1)
-	var row: Control = ledger._staged_row(order)
+	var row: Control = LedgerMarketOrders.row(order, market, 1)
 	var notional: Label = row.get_child(3) as Label
 	assert_eq(notional.text, "%d" % (market.sell_price("timber", 1) * 2))
 	assert_ne(notional.text, "%d" % (market.sell_price("timber", 0) * 2))
 	row.free()
-	ledger.free()
 
 
 ## The clearing republishes the Minor/Tribe book for the crown that will read
@@ -5713,120 +5772,6 @@ func test_the_batch_is_exactly_what_the_validator_accepts() -> void:
 	assert_eq(String(over["code"]), "trade_order_bid_exceeds_treasury_budget")
 
 
-# --- the PRODUCTION tab's one press (DR-20261116-08) -------------------------
-
-
-## One press files one run on every ready row, in the page's order, and each row
-## is capped by the allowance the rows before it leave: the walk reads the same
-## arithmetic the row's "+" is capped by (REQ-P2-03, REQ-P5-04).
-func test_the_production_batch_sets_one_run_on_every_ready_row() -> void:
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var stock: Dictionary = {"timber": 10, "wool": 10, "iron": 10, "coal": 10}
-	var result: Dictionary = ProductionBatch.plan(
-		["lumber", "fabric_from_wool", "steel"], economy, 0, stock, 20, []
-	)
-	var plan: Dictionary = result["plan"]
-	assert_eq(int(result["runs"]), 3, "every ready row took a step")
-	assert_eq(int(plan["lumber"]), 1)
-	assert_eq(int(plan["fabric_from_wool"]), 1)
-	assert_eq(int(plan["steel"]), 1, "the slow row takes one run, not its whole bench")
-
-
-## A row already at its ceiling has no step to file, and the press never fills a
-## row to the ceiling: one press is one step per row (REQ-P5-04).
-func test_the_production_batch_skips_a_row_at_its_ceiling() -> void:
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var stock: Dictionary = {"timber": 10, "wool": 10}
-	var assignments: Array = [{"recipe": "lumber", "units": 5}]
-	var result: Dictionary = ProductionBatch.plan(
-		["lumber", "fabric_from_wool"], economy, 0, stock, 20, assignments
-	)
-	assert_eq(int(result["runs"]), 1, "only the row with room takes a step")
-	assert_false((result["plan"] as Dictionary).has("lumber"), "the full row is left alone")
-	assert_eq(int(result["skipped"]), 1)
-
-
-## The labour the earlier rows claim is gone for the rows after them, so the walk
-## can never set a run the phase would refuse (REQ-P2-03).
-func test_the_production_batch_spends_the_labour_it_claims() -> void:
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var stock: Dictionary = {"timber": 10, "wool": 10}
-	var result: Dictionary = ProductionBatch.plan(
-		["lumber", "fabric_from_wool"], economy, 0, stock, 2, []
-	)
-	assert_eq(int(result["runs"]), 1, "two labour points buy one run")
-	assert_eq(int((result["plan"] as Dictionary)["lumber"]), 1)
-	assert_eq(int(result["skipped"]), 1, "the second row waits on the labour")
-
-
-## A row whose hand or town's works is missing is no step at all: the press names
-## only what the phase would start (wiki: production-recipes § Worker-tier gates).
-func test_the_production_batch_skips_a_gated_row() -> void:
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var stock: Dictionary = {"tobacco": 10, "fabric": 10}
-	var result: Dictionary = ProductionBatch.plan(
-		["cigars", "garments"], economy, 0, stock, 20, []
-	)
-	assert_eq(int(result["runs"]), 0, "no gated row is offered")
-	assert_eq(int(result["skipped"]), 2)
-
-
-## The receipt names what the press set, and says why a page with nothing ready
-## offered no step (REQ-P5-05).
-func test_the_production_batch_receipt_names_the_runs() -> void:
-	assert_eq(
-		ProductionBatch.receipt(3), "Set 3 runs — every ready row in this view is ordered."
-	)
-	assert_eq(
-		ProductionBatch.receipt(1), "Set 1 run — every ready row in this view is ordered."
-	)
-	assert_true(ProductionBatch.receipt(0).begins_with("No ready row to set"))
-
-
-## The walk prices itself before the crown signs: the labour and the materials
-## the runs would claim, what the phase keeps of its idle labour, and the rows it
-## leaves out (REQ-P5-06; DR-20261118-24).
-func test_the_production_batch_prices_the_line_it_would_file() -> void:
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var stock: Dictionary = {"timber": 10, "wool": 10, "iron": 10, "coal": 10}
-	var result: Dictionary = ProductionBatch.plan(
-		["lumber", "fabric_from_wool", "steel"], economy, 0, stock, 20, []
-	)
-	assert_eq(int(result["runs"]), 3)
-	assert_eq(int(result["labour"]), 6, "three runs at two labour each")
-	assert_eq(int(result["labour_budget"]), 20)
-	var inputs: Dictionary = result["inputs"]
-	assert_eq(int(inputs.get("timber", 0)), 2)
-	assert_eq(int(inputs.get("wool", 0)), 2)
-	assert_eq(int(inputs.get("iron", 0)), 1)
-	assert_eq(int(inputs.get("coal", 0)), 1)
-	assert_eq(
-		ProductionBatch.sheet_line(result),
-		"3 runs · 6 labour · 2 Wool · 2 Timber · 1 Iron · 1 Coal"
-		+ " — the phase keeps 14 of its 20 idle labour."
-	)
-
-
-## A row the walk leaves out is counted on the line, and a page with nothing to
-## file prints no line at all (REQ-P5-05, REQ-P5-06).
-func test_the_production_batch_line_names_the_rows_it_leaves_out() -> void:
-	var economy: PlayerEconomy = PlayerEconomy.starting()
-	var tight: Dictionary = ProductionBatch.plan(
-		["lumber", "fabric_from_wool"], economy, 0, {"timber": 10, "wool": 10}, 2, []
-	)
-	assert_eq(int(tight["runs"]), 1, "two labour points buy one run")
-	assert_eq(
-		ProductionBatch.sheet_line(tight),
-		"1 run · 2 labour · 2 Timber — the phase keeps 0 of its 2 idle labour."
-		+ " 1 row waits on a ceiling, a hand, a town's works or the labour and store left."
-	)
-	var gated: Dictionary = ProductionBatch.plan(
-		["cigars", "garments"], economy, 0, {"tobacco": 10, "fabric": 10}, 20, []
-	)
-	assert_eq(int(gated["runs"]), 0)
-	assert_eq(ProductionBatch.sheet_line(gated), "", "nothing to file prints no line")
-
-
 # --- MarketPressure: the row book a court reads (REQ-P3-03) -----------------
 
 ## Every claim consumes the store, so the regiment's material adds to what the
@@ -6089,6 +6034,18 @@ func test_the_production_pick_counts_the_rows_it_cannot_name() -> void:
 		line,
 		"the court would run Lumber ×2, Cast Iron ×1, Fabric ×1, Steel ×3 and 1 more this phase"
 	)
+	# The tail counts rows, not the units they hold: "and N more" is read as N
+	# more manufactures, the way the market page's own cap reads its goods
+	# (LedgerMarketText.price_moves_line's `+N more`, cargo's `and N more`).
+	# A hidden run of three steel is one row left out, not three.
+	assert_eq(
+		MapPlayProductionPick.run_line({
+			"lumber": 1, "castIron": 1, "fabric": 1, "refinedSugar": 1, "steel": 3,
+		}),
+		"the court would run Lumber ×1, Cast Iron ×1, Fabric ×1, Refined Sugar ×1"
+		+ " and 1 more this phase",
+		"the tail names the rows left out, not the units they hold"
+	)
 	assert_eq(
 		MapPlayProductionPick.run_line({"lumber": 2}),
 		"the court would run Lumber ×2 this phase",
@@ -6108,3 +6065,105 @@ func test_the_production_pick_reads_nothing_without_its_parts() -> void:
 	assert_true(MapPlayProductionPick.of(economy, {}).is_empty(), "no plan, no pick")
 	assert_true(MapPlayProductionPick.pick(null).is_empty(), "no session, no pick")
 	assert_eq(MapPlayProductionPick.sentence(""), "", "no clause, no sentence")
+
+
+## The MARKET tab's own plan: the offers and bids the published market planner
+## books, named in the catalogue's order and in the plan's own figures — and
+## nothing staged by the reading (wiki: world-market § Trade orders;
+## DR-20261121-09).
+func test_the_market_pick_names_the_book_the_plan_books() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile = {"wool": 30}
+	economy.treasury = 4000
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_ai_config(), economy, market, 5)
+	assert_eq(_offer_of(plan, "wool"), 10, "the surplus above the reserve is offered")
+	assert_false(plan.get("bids", []).is_empty(), "the empty build input is bid for")
+
+	var pick: Dictionary = MapPlayMarketPick.of({"plan": plan})
+	var offers: Dictionary = pick["offers"] as Dictionary
+	var bids: Dictionary = pick["bids"] as Dictionary
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMarketPick.KIND_TRADE)
+	assert_eq(int(offers.get("wool", 0)), _offer_of(plan, "wool"), "the offer's own units")
+	assert_false(bids.is_empty(), "a short build input is bid for")
+	for raw: Variant in plan["bids"]:
+		var bid: Dictionary = raw
+		assert_eq(
+			int(bids.get(String(bid["commodity"]), 0)), int(bid["quantity"]),
+			"the bid's own units: " + String(bid["commodity"])
+		)
+	assert_eq(
+		String(pick["line"]),
+		"the court would offer Wool ×%d and %s this phase"
+		% [_offer_of(plan, "wool"), MapPlayMarketPick.list_line(bids, "bid")],
+		"offers lead, bids follow, the catalogue's own order"
+	)
+	assert_eq(
+		MapPlayMarketPick.sentence(String(pick["line"])),
+		"The court would offer Wool ×%d and %s this phase."
+		% [_offer_of(plan, "wool"), MapPlayMarketPick.list_line(bids, "bid")]
+	)
+
+
+## One side of the book empty still reads as advice: a court sells its surplus
+## and is told it bids for nothing (REQ-P5-06).
+func test_the_market_pick_names_the_side_it_leaves_empty() -> void:
+	var offers_only: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [{"commodity": "grain", "quantity": 2}], "bids": []},
+	})
+	assert_eq(
+		String(offers_only["line"]),
+		"the court would offer Grain ×2 this phase, and bid nothing"
+	)
+	var bids_only: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [], "bids": [{"commodity": "lumber", "quantity": 3}]},
+	})
+	assert_eq(
+		String(bids_only["line"]),
+		"the court would bid Lumber ×3 this phase and offer nothing"
+	)
+
+
+## An empty book names the gate the plan's own figures show: a war footing holds
+## the top-up shut, and a court whose stores meet its reserve trades nothing at
+## all — never a silent page (REQ-P5-05; DR-20261117-01).
+func test_the_market_pick_names_the_gate_that_empties_the_book() -> void:
+	var quiet: Dictionary = MapPlayMarketPick.of({"plan": {"offers": [], "bids": []}})
+	assert_eq(String(quiet.get("kind", "")), MapPlayMarketPick.KIND_QUIET)
+	assert_eq(String(quiet["line"]), MapPlayMarketPick.QUIET_LINE)
+	var blocked: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [], "bids": []}, "bids_blocked": AiMarketPlanner.REASON_SPECULATE,
+	})
+	assert_eq(String(blocked["line"]), MapPlayMarketPick.FOOTING_LINE)
+	var selling: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [{"commodity": "wool", "quantity": 4}], "bids": []},
+		"bids_blocked": AiMarketPlanner.REASON_SPECULATE,
+	})
+	assert_eq(
+		String(selling["line"]),
+		"the court would offer Wool ×4 this phase — at war, its bids wait on the front",
+		"the footing is named beside the offers it still makes"
+	)
+
+
+## Beyond three goods a side counts the rows it cannot name, so a rich plan stays
+## one line of chrome on a handset (REQ-P5-07).
+func test_the_market_pick_counts_the_rows_it_cannot_name() -> void:
+	assert_eq(
+		MapPlayMarketPick.list_line({
+			"grain": 1, "meat": 1, "timber": 1, "wool": 1, "iron": 2,
+		}, "offer"),
+		"offer Grain ×1, Meat ×1, Wool ×1 and 2 more"
+	)
+	assert_eq(MapPlayMarketPick.list_line({"wool": 2}, "bid"), "bid Wool ×2")
+	assert_eq(MapPlayMarketPick.list_line({}, "offer"), "", "no rows, no clause")
+
+
+## No plan, no session: the pick answers nothing rather than a line the sheet
+## would have to invent (REQ-P5-06).
+func test_the_market_pick_reads_nothing_without_its_parts() -> void:
+	assert_true(MapPlayMarketPick.of({}).is_empty(), "no drafted plan, no pick")
+	assert_true(MapPlayMarketPick.of({"plan": {}}).is_empty(), "no plan, no pick")
+	assert_true(MapPlayMarketPick.pick(null).is_empty(), "no session, no pick")
+	assert_eq(MapPlayMarketPick.sentence(""), "", "no clause, no sentence")

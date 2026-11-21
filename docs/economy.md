@@ -38,11 +38,11 @@ Catalogue `ProductionRecipes`; phase `ProductionPhase`:
 `fabric_from_cotton` needs Cotton Weaving; a Labour hand is a `min_tier`
 gate. Runs are whole; short rows skip.
 
-Steel, bronze, cigars and fur hats take **two turns**; alloys
-combine two inputs (DR-20261114-10). Inputs and labour pay up front; the batch
-lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
+Steel, bronze, cigars and fur hats take **two turns** (DR-20261114-10). Inputs
+and labour pay up front; the batch
+lands **one unit a phase**, WIP in the save (DR-20261112-11/13-02).
 
-A slow row's bench holds **three** (`QUEUE_CAP`): a fourth run waits a landing
+A slow row's bench holds **three** (`QUEUE_CAP`); a fourth waits a landing
 (DR-20261114-12).
 
 ## Town manufacturing bonus
@@ -57,7 +57,7 @@ One book: `MarketClearing` matches staged orders and Minor/Tribe offers.
 Tiebreaks: priority, pact, colony favour, Consulate, relation
 (`MarketFavoured`). A boycott bars the pair; first right pays a tile's owner a
 relation share and embassy cut.
-Unfilled orders carry while trade capacity (holds − colonial tons) covers
+Unfilled orders carry while capacity (holds − colonial tons) covers
 them; offers cap post-production. Bids spend `treasury − waiting build orders`
 (`MarketBudget`).
 
@@ -68,14 +68,14 @@ Prices publish once; pact, boycott, subsidy settle
 
 ## UI
 
-`PRODUCTION`: stockpile by group; steppers capped by labour/inputs
-(`allowance`), a worked row names its output (`made 3`), **batch press**
-(`ProductionBatch`; its line priced, DR-20261118-24), and the court's own runs
-in gold (`MapPlayProductionPick`, DR-20261121-07).
+`PRODUCTION`: stockpile by group in columns (three desktop, two phone, Riches
+strip); steppers capped by labour/inputs (`allowance`), a worked row names its
+output (`made 3`), court runs gold (`MapPlayProductionPick`, DR-20261121-07).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
-line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid`
-(`MarketRules.bid_block`, DR-20261118-15), a barred colony row
-(`MinorMarket.sealed_line`).
+line (`CargoRead`), court trade in gold (`MapPlayMarketPick`, DR-20261121-09),
+a **batch press** (`MarketBatch`), a dead `Bid` (`MarketRules.bid_block`,
+DR-20261118-15), a barred colony row (`MinorMarket.sealed_line`), share
+fills (`share_rows`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
 (`recruit_affordable`; `UNDER ORDERS` folds it), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.

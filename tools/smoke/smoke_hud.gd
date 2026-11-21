@@ -12,10 +12,12 @@ const SmokeFind = preload("res://tools/smoke/smoke_find.gd")
 static func step(run) -> void:
 	var screen: MapScreen = run.screen
 	await _estates(run, screen)
+	await _people(run, screen)
 	await _court(run, screen)
 	_audio(run, screen)
 	await _province(run, screen)
 	await _production(run, screen)
+	await _market(run, screen)
 
 
 ## The estates door on the cartouche opens the crown's works ledger (REQ-P1-07).
@@ -49,7 +51,52 @@ static func _estates(run, screen: MapScreen) -> void:
 			priced = true
 			break
 	run.check(priced, "an estate row prices its raise")
+	# The card names the estates the court's own Builder pass would raise, or the
+	# gate that leaves the page with nothing to name (REQ-P5-06; DR-20261121-10).
+	var counsel: String = screen.improvements.counsel_text()
+	run.check(
+		counsel.is_empty() or counsel.begins_with("The court would raise "),
+		"estates counsel names the court's own raise"
+	)
+	run.check(
+		screen.improvements._counsel.visible == not counsel.is_empty(),
+		"estates counsel stands with its reading"
+	)
 	screen.improvements.close()
+
+
+## THE CROWN'S PEOPLE names the work the court's own civilian pass would put its
+## crews to this turn, in one gold line under its filters — and orders nothing
+## (wiki: civilian-units § Empire roster; DR-20261121-12).
+static func _people(run, screen: MapScreen) -> void:
+	var working_before: int = _working_crews(screen)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	await run.tree.process_frame
+	var roster: CivilianRosterPanel = screen.hud.civilian_roster
+	run.check(roster != null and roster.is_open(), "the crown's people open")
+	if roster == null:
+		return
+	var counsel: String = roster.counsel_text()
+	run.check(
+		counsel.is_empty() or counsel.begins_with("The court would put "),
+		"the people name the work the court would give"
+	)
+	run.check(
+		roster._counsel.visible == not counsel.is_empty(),
+		"the people's counsel stands with its reading"
+	)
+	run.check(_working_crews(screen) == working_before, "the reading orders nothing")
+	roster.close()
+
+
+## How many of the crown's crews hold a running order: the tally a reading may
+## not move.
+static func _working_crews(screen: MapScreen) -> int:
+	var working: int = 0
+	for unit: CivilianState in screen.play.civilian_layer.units:
+		if unit != null and unit.owner == screen.play.player_faction and unit.is_working():
+			working += 1
+	return working
 
 
 ## The court ledger: seeded relations, a declaration, a peace, and the court's
@@ -174,5 +221,32 @@ static func _production(run, screen: MapScreen) -> void:
 	run.check(
 		screen.economy.economy.production.assignments().size() == set_before,
 		"the plan reading sets nothing"
+	)
+	screen.hud.panels.hide_economy()
+
+
+## The ledger's MARKET tab names the trade the crown's own market pass would
+## book this phase, in the tab's gold line above the orders it answers — and
+## stages nothing (wiki: world-market § Trade orders; DR-20261121-09).
+static func _market(run, screen: MapScreen) -> void:
+	var orders_before: int = screen.economy.market.book.orders_for(
+		screen.player_faction
+	).size()
+	screen.economy.open_panel()
+	await run.tree.process_frame
+	var page: LedgerMarket = (
+		screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET)
+		as LedgerMarket
+	)
+	run.check(page != null, "the MARKET tab stands")
+	if page != null:
+		run.check(
+			not page.counsel_text().is_empty(),
+			"the ledger names the trade the court would book"
+		)
+	run.check(
+		screen.economy.market.book.orders_for(screen.player_faction).size()
+		== orders_before,
+		"the trade reading stages nothing"
 	)
 	screen.hud.panels.hide_economy()

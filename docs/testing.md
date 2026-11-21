@@ -35,9 +35,9 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); advanced-start live cases share **one mount per tier**. Pure cases
-  skip re-seat / shell (lazy `_screen` / `main`); hospitals ride that chart;
-  opening-plate cases use short `hold_max` / `fade_seconds`. Free a swapped
-  screen. Observer ~15–20 s covered; door/seal rides `test_ai_observer`.
+  skip re-seat / shell (lazy `_screen` / `main` / menu-flow `chart`); hospitals
+  ride that chart; opening-plate cases use short `hold_max` / `fade_seconds`.
+  Free a swapped screen. Observer ~15–20 s; door/seal: `test_ai_observer`.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
@@ -49,8 +49,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
   leads so one chart suite does not drain alone.
 - One Godot boot per theme — coverage ~15 s a boot; 24 suites (chart live →
-  map-view; play-screen bridge → chrome plate). `gd-tools.toml`: `parallel = 4`.
-  Consent ladder answers resume with rivals inert (`AiControl.NOOP`); one
+  map-view; chrome plate). `gd-tools.toml`: `parallel = 4`. Consent and
+  campaign-end closes use `AiControl.NOOP`; plate saves reload in-place. One
   peace-battle case pays a full resumed turn.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
@@ -256,6 +256,13 @@ godot --headless --path . --script res://playtests/playtest_college_batch.gd
 # must name the favoured fill), boycotts a rival and reads that crown's taxed
 # sale receipt against the rate its page prints.
 godot --headless --path . --script res://playtests/playtest_trade_terms.gd
+
+# Deed share — a deed's first right of refusal as a rival's fill pays it: reads the
+# crew's Deed row on the turn-100 start, stages a rival's bid on the crown's sold
+# ground and closes a real turn, then reads the LAST CLEARING (the total and the
+# fills under it), the despatch and the purse; then bids on its own deed's units
+# and reads the row that names the first refusal.
+godot --headless --path . --script res://playtests/playtest_deed_share.gd
 
 # Market receipt — signs a favoured trading pact, buys five tons at its rate and
 # reads the Deal Book line against the ducats the clearing charged, then claims a
