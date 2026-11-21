@@ -108,6 +108,15 @@ static func build_hud(play: PlaySession) -> void:
 		navy.counsel_source = (
 			func(data: Dictionary) -> String: return MapPlayNavyPick.line(play, data)
 		)
+	# THE TECH TREE names the study the court's own research policy would open —
+	# the college's own gold sentence — and marks that advance `▸` on the chart,
+	# so the crown sees where the court would go without scanning 113 nodes
+	# (wiki: tech-tree § Research Model; DR-20261121-20).
+	var tree: TechTreePanel = hud.tech_tree
+	if tree != null:
+		tree.counsel_source = (
+			func() -> Dictionary: return MapPlayResearchPick.pick(play)
+		)
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)
