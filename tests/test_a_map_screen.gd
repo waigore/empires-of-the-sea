@@ -2482,21 +2482,17 @@ func test_the_pick_door_opens_the_surface_that_can_press_it() -> void:
 	var province: int = _screen.model.province_at(tile.x, tile.y)
 	MapPlayCivilians.select(_screen.play, unit)
 	var panel: CivilianPanel = _screen.hud.panels.civilian_panel
-	panel.refresh(
-		_screen.model, unit, _screen.land_works, _screen.civilian_layer.units,
-		_screen.stockpile, _screen.visibility, _screen.play.tech_caps(),
-		_screen.play.tech_unlocked(),
-		{
-			"pick": {
-				"action": "build_improvement",
-				"tile": tile,
-				"region": _screen.region_index,
-				"door": MapPlayCivilianPick.DOOR_ESTATES,
-				"line": "the court would raise a lumber camp",
-			},
+	var opening: CivilianDossierOpening = MapPlayCivilians.opening(_screen.play, unit)
+	opening.context = {
+		"pick": {
+			"action": "build_improvement",
+			"tile": tile,
+			"region": _screen.region_index,
+			"door": MapPlayCivilianPick.DOOR_ESTATES,
+			"line": "the court would raise a lumber camp",
 		},
-		MapScreen.PLAYER_FACTION
-	)
+	}
+	panel.refresh(_screen.model, opening)
 	assert_true(panel._follow.visible, "an estate pick carries its door")
 	assert_eq(panel._follow.tooltip_text, "Open the estates ledger at this ground")
 	panel._follow.pressed.emit()
@@ -3853,4 +3849,37 @@ func test_the_capital_rail_names_the_hire_the_court_would_take() -> void:
 	assert_eq(
 		_screen.hud.panels.panel.hire_line_text(), "",
 		"a province that hires no crews carries none"
+	)
+
+
+
+## A court banking for the army its win bar wants takes no crew its purse cannot
+## spare, so the rail prints the bank's own refusal instead of naming a hire the
+## published order would never take (wiki: civilian-units § Training;
+## DR-20261121-06, issue #995).
+func test_the_capital_rail_prints_the_bank_that_holds_the_hire() -> void:
+	var play: PlaySession = _screen.play
+	var faction: int = play.player_faction
+	var economy: PlayerEconomy = play.ledger_for(faction)
+	var kind: String = AiControl.court_kind(play, faction)
+	var config: Variant = AiBind.config(
+		kind, faction, play.map_seed, play.ensure_ai().profiles
+	)
+	var purse: int = economy.treasury
+	# A chest that cannot cover the line the bar asks for banks for its army.
+	economy.treasury = 0
+	assert_true(
+		MapPlayHirePick.banks(play, faction, economy, config, kind),
+		"a short chest over a win-bar gap banks for the line"
+	)
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	assert_eq(
+		_screen.hud.panels.panel.hire_line_text(), MapPlayHirePick.BANK_LINE,
+		"the rail names the bank the hire order answers, not a hire it refuses"
+	)
+	economy.treasury = purse
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	assert_true(
+		_screen.hud.panels.panel.hire_line_text() != MapPlayHirePick.BANK_LINE,
+		"a funded court names its hire again"
 	)

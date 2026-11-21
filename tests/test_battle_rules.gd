@@ -4588,7 +4588,9 @@ func test_the_dossier_shows_the_commanders_under_their_medallion() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
 
-	panel.refresh(model, army, true, false, roster.line(SPAIN), [], "", "balanced")
+	var opening := ArmyDossierOpening.of(army, true)
+	opening.command = roster.line(SPAIN)
+	panel.refresh(model, opening)
 
 	assert_true(panel._command_row.visible, "the block shows for the crown's army")
 	assert_true(
@@ -6297,13 +6299,13 @@ func test_the_army_dossier_names_an_unstaffed_ward() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
 
 	# A ward whose staff went unfed heals at the field's rate, and the dossier
 	# says why (wiki: combat § Regiment condition; DR-20261112-04).
 	model.province_data(2).hospital_staffed = false
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 	assert_true(
 		String(panel._strength.text).contains("hospital unstaffed"), panel._strength.text
 	)
@@ -6449,21 +6451,22 @@ func test_the_dossier_offers_the_train_and_then_names_it() -> void:
 	add_child(panel)
 
 	var order: Dictionary = {"caption": "Pitch a field hospital (2 lumber · 1 fabric)", "ok": true}
-	panel.refresh(model, army, true, false, "", [], "", "balanced", order)
+	var opening := ArmyDossierOpening.of(army, true)
+	opening.hospital = order
+	panel.refresh(model, opening)
 	assert_true(panel._hospital.visible)
 	assert_false(panel._hospital.disabled)
 	var bare_food: int = panel._food(army)
 
 	# A blocked order still shows, with the rules' reason as its caption.
-	panel.refresh(
-		model, army, true, false, "", [], "", "balanced",
-		{"caption": "Tents are pitched on your crown's own land.", "ok": false}
-	)
+	var blocked := ArmyDossierOpening.of(army, true)
+	blocked.hospital = {"caption": "Tents are pitched on your crown's own land.", "ok": false}
+	panel.refresh(model, blocked)
 	assert_true(panel._hospital.visible)
 	assert_true(panel._hospital.disabled)
 
 	HospitalTrain.apply(army)
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 	assert_true(String(panel._strength.text).contains("field hospital"), panel._strength.text)
 	assert_false(panel._hospital.visible, "a served order is gone, not disabled")
 	# The strength line's food is the army's own upkeep line, nurses included.

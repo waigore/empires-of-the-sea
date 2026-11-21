@@ -1518,12 +1518,12 @@ suites = [
 ]
 
 # PlaySession's screen bridge: one Node and the airings a helper sends it
-# (REQ-P3-02). Its own suite proves the bridge headless; the mounted
+# (REQ-P3-02). The chrome plate hosts the headless bridge doubles; the mounted
 # campaign-end suite proves the same calls on the real chart, so a bridge edit
 # never pulls the menu or map fan-out.
 [domains.play_screen]
 suites = [
-  "test_play_screen.gd",
+  "test_hud_campaign_plate.gd",
   "test_campaign_end.gd",
   "test_a_map_screen.gd",
 ]
@@ -4184,6 +4184,11 @@ domain = "fold_chrome"
 
 [[rules]]
 match = "scripts/rules/order_verdict.gd*"
+domain = "fold_chrome"
+
+# Deleted play-screen bridge suite rides the lean chrome boot.
+[[rules]]
+match = "tests/test_play_screen.gd*"
 domain = "fold_chrome"
 
 [[rules]]

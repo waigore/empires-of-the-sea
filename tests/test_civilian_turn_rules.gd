@@ -4588,10 +4588,14 @@ func test_a_rivals_crew_dossier_names_no_mineral_we_have_not_surveyed() -> void:
 	var rival := CivilianState.create(2, 1, "builder", tile)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		field__model, rival, field__works, [rival], field_Fixture.stockpile(), _view, {}, {},
-		{"treasury": 5000, "diplomacy": null}, 0
-	)
+	var rival_opening := CivilianDossierOpening.of(rival)
+	rival_opening.works = field__works
+	rival_opening.units = [rival]
+	rival_opening.stockpile = field_Fixture.stockpile()
+	rival_opening.visibility = _view
+	rival_opening.context = {"treasury": 5000, "diplomacy": null}
+	rival_opening.viewer = 0
+	panel.refresh(field__model, rival_opening)
 	assert_eq(_panel_row(panel, "Resource"), "Unsurveyed ground")
 	assert_false(
 		_panel_row(panel, "Works").contains("Prospected"),
@@ -4604,9 +4608,12 @@ func test_a_rivals_crew_dossier_names_no_mineral_we_have_not_surveyed() -> void:
 	# names a surveyed deposit and still offers its orders.
 	field__works.set_prospected(0, field__model, tile)
 	var mine := CivilianState.create(3, 0, "builder", tile)
-	panel.refresh(
-		field__model, mine, field__works, [mine], field_Fixture.stockpile(), _view, {}, {}, {}, 0
-	)
+	var own_opening := CivilianDossierOpening.of(mine)
+	own_opening.works = field__works
+	own_opening.units = [mine]
+	own_opening.stockpile = field_Fixture.stockpile()
+	own_opening.visibility = _view
+	panel.refresh(field__model, own_opening)
 	assert_eq(_panel_row(panel, "Resource"), "Iron")
 	assert_true(
 		_panel_row(panel, "Works").contains("Prospected"),
@@ -4676,10 +4683,13 @@ func test_no_survey_mark_or_promise_without_a_consulate() -> void:
 	)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		model, explorer, works, [explorer], field_Fixture.stockpile(), null, {}, {},
-		{"treasury": 5000, "diplomacy": court}, 1
-	)
+	var survey_opening := CivilianDossierOpening.of(explorer)
+	survey_opening.works = works
+	survey_opening.units = [explorer]
+	survey_opening.stockpile = field_Fixture.stockpile()
+	survey_opening.context = {"treasury": 5000, "diplomacy": court}
+	survey_opening.viewer = 1
+	panel.refresh(model, survey_opening)
 	assert_eq(_panel_row(panel, "Survey"), gate)
 	panel.free()
 	# With a Consulate the ground and its mark come back.
@@ -5142,3 +5152,27 @@ func test_the_hire_words_print_nothing_without_their_parts() -> void:
 	)
 	assert_false(MapPlayHirePick._vowel(""), "no letter, no article")
 	assert_eq(MapPlayHirePick.gate_line("explorer", "some other gate"), "")
+
+
+## The bank gate refuses a reading without a session or a ledger, and a baseline
+## court never banks: the rail must not invent a conquest hold the hire order
+## would not answer (issue #995; DR-20261121-06).
+func test_the_hire_bank_gate_holds_without_a_session_or_baseline() -> void:
+	var economy := PlayerEconomy.starting()
+	assert_false(
+		MapPlayHirePick.banks(null, 0, economy, null, AiControl.KIND_SUBJECT),
+		"no session, no bank reading"
+	)
+	var bare := PlaySession.new()
+	bare.world = WorldMap.new()
+	bare.ai = AiState.new()
+	assert_false(
+		MapPlayHirePick.banks(bare, 0, null, null, AiControl.KIND_SUBJECT),
+		"no ledger, no bank reading"
+	)
+	assert_false(
+		MapPlayHirePick.banks(
+			bare, 0, economy, null, AiControl.KIND_BASELINE
+		),
+		"a baseline court keeps its published doctrine and never banks"
+	)
