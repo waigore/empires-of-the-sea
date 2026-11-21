@@ -3,9 +3,10 @@ extends RefCounted
 ## Narrow play context for MapPlay* helpers (REQ-P3-02).
 ## Holds session state and injected presentation refs — not a Node/autoload.
 ## MapScreen owns the Node tree and signals; helpers read this bag for campaign
-## state, and every word they say to the screen goes through `screen`
-## (PlayScreen) — except `emit_battle_resolved`, which books DialogueEvents
-## before the screen airs the plate.
+## state. Screen talk goes through `screen` (PlayScreen): some helpers call
+## `play.screen.*` directly, others keep a short session forwarder so their
+## theme domains do not blow the tier-1 budget. `emit_battle_resolved` stays
+## on the session so DialogueEvents still book before the plate airs.
 
 const TILE_SIZE: float = 22.0
 ## Legacy default (Spain); a game setup may choose another Great Power.
@@ -163,9 +164,7 @@ var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
 
-## The one place helpers send screen talk (REQ-P3-02). Callers say
-## `play.screen.emit_…` / `switch_region` / `viewport` — this bag does not
-## mirror those names.
+## The one place helpers send screen talk (REQ-P3-02).
 var screen: PlayScreen = PlayScreen.new()
 
 ## Bound chart Node — same object as `screen.host`, kept so setup and saves
@@ -326,8 +325,7 @@ func refresh_research() -> void:
 ## battle the crown fought is answered by its rival's court when that page is
 ## opened (wiki: dialogue-and-mood § Design intent — event: battle results;
 ## DR-20261111-01). Both passes report here, so land and sea book alike; a sea
-## fight carries a zone and a land battle a province. Other screen talk goes
-## through `screen` directly (REQ-P3-02).
+## fight carries a zone and a land battle a province.
 func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 	for battle: Dictionary in battles:
 		if battle.has("zone"):
@@ -335,6 +333,26 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 		else:
 			DialogueEvents.record_land_battle(diplomacy, battle, player_faction)
 	screen.emit_battle_resolved(battles)
+
+
+## Screen airings still reached through the session name: helpers that would
+## pull their theme domains past the tier-1 5 min budget keep these short
+## calls; campaign / input / fleet / roster / turn-finish talk through
+## `play.screen` directly (REQ-P3-02).
+func emit_raid_resolved(raids: Array[Dictionary]) -> void:
+	screen.emit_raid_resolved(raids)
+
+
+func emit_campaign_end(p_victory: VictoryState = null, p_defeat: DefeatState = null) -> void:
+	screen.emit_campaign_end(p_victory, p_defeat)
+
+
+func refresh_map_views() -> void:
+	screen.refresh_map_views()
+
+
+func switch_region(index: int) -> void:
+	screen.switch_region(index)
 
 
 ## Turns, orders and map intents close for good once a victory is declared, the

@@ -18,7 +18,7 @@ static func begin(play: PlaySession) -> void:
 	if play == null or not AdvancedStart.active(play.advanced_start):
 		return
 	apply(play)
-	play.screen.switch_region(play.region_index)
+	play.switch_region(play.region_index)
 	# The preset rewrites the world the book was published from — colonies
 	# claimed, estates prospected and raised, minor land bought, towns developed
 	# — so the Minor/Tribe rows must be republished: a crown opening on turn 100

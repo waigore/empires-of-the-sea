@@ -16,7 +16,7 @@ static func focus(play: PlaySession, region: int, kind: String, id: int) -> bool
 		return false
 	var same_region: bool = region == play.region_index
 	if not same_region:
-		play.screen.switch_region(region)
+		play.switch_region(region)
 		MapPlayDiplomacy.sync_first_contact(play)
 		MapPlayDiplomacy.refresh(play)
 	if kind == ForceLedger.KIND_SQUADRON:

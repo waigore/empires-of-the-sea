@@ -137,7 +137,7 @@ static func raise(
 	if model == null or model.province_data(province_id) == null:
 		return {"ok": false, "message": ""}
 	if region != play.region_index:
-		play.screen.switch_region(region)
+		play.switch_region(region)
 	return _file(play, province_id, order, quiet)
 
 
