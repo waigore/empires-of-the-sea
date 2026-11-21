@@ -17,10 +17,6 @@ const KIND_TRADE: String = "trade"
 ## The plan books nothing: the stores already meet the reserve it keeps.
 const KIND_QUIET: String = "quiet"
 
-## The most goods one side names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 const QUIET_LINE: String = (
 	"the court would trade nothing this phase — its stores already meet the "
 	+ "reserve it keeps"
@@ -100,10 +96,7 @@ static func list_line(rows: Dictionary, verb: String) -> String:
 		if not rows.has(id):
 			continue
 		parts.append("%s ×%d" % [CommodityCatalog.label(id), int(rows[id])])
-	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "%s %s" % [verb, joined]
+	return MapPlayPickProse.court_line(verb, parts, "")
 
 ## The plan's rows as commodity → units, dropping anything a formatter cannot
 ## name (an empty id, a row that holds nothing).
