@@ -21,6 +21,12 @@ extends RefCounted
 ## envoy already visited this turn, a purse one step short — names the reason the
 ## row would give rather than an offer the crown cannot make this turn.
 ##
+## The fourth reading is the envoy's own one order (DR-20261121-18): a court gives
+## `AiDiplomacyPlanner.decide` one order a turn, and THE COURT prints where it
+## went (`MapPlayDiplomacyPick`). A chain the one order did not take reads the
+## wait it is — with the court the order went to — so two sheets of one turn
+## never promise two orders (REQ-P2-03, REQ-P5-05).
+##
 ## A reading only: nothing here sends an envoy, signs an overture, buys a colony
 ## or spends a ducat, and the crown still presses her own order (REQ-P5-06).
 
@@ -34,6 +40,10 @@ const KIND_CLOSED: String = "closed"
 ## gate the envoy row answers is why (a cold court before the Join Empire, a
 ## court its envoy already visited this turn, a purse one step short).
 const KIND_GATE: String = "gate"
+## The link is open and the press would take it, but the court's one envoy order
+## is bound elsewhere this turn: the chain waits behind it, and the line names
+## the court the order went to (the same order THE COURT's sheet prints).
+const KIND_ENVOY: String = "envoy"
 
 ## What a footing at war says instead of a link: the same reason the pass denies
 ## the slot with (`AiTribeColony.REASON_WAR`), worded for the colony sheet.
@@ -61,9 +71,10 @@ static func line(play: PlaySession, _snapshot: Dictionary = {}) -> String:
 ## The colony sheet's pick as THE COLONIES prints it: `{kind, target, stage,
 ## cost, line}` for a link the court would press, `{kind, target, study, line}`
 ## for a chain its studies hold, `{kind, line}` for a footing that shuts new
-## chains, and {} when the court has no chain to name. Empty as well for a crown
-## that runs no planner, an observer session, a decided campaign or a session
-## with no diplomacy, no chart or no ledger.
+## chains, `{kind, target, other, line}` for a link the court's one order does
+## not take this turn, and {} when the court has no chain to name. Empty as well
+## for a crown that runs no planner, an observer session, a decided campaign or a
+## session with no diplomacy, no chart or no ledger.
 static func pick(play: PlaySession) -> Dictionary:
 	if not _court_ready(play):
 		return {}
@@ -91,9 +102,19 @@ static func pick(play: PlaySession) -> Dictionary:
 		if String(read.get("kind", "")) != KIND_CHAIN:
 			return read
 		var gate: Dictionary = _gate(play, faction, ambition, economy)
-		if bool(gate.get("ok", false)):
+		if not bool(gate.get("ok", false)):
+			return gated(ambition, String(gate.get("reason", "")))
+		# The court's one order (DR-20261121-18): a link the staff's own order did
+		# not take this turn reads as the wait it is, with the court that order
+		# went to — the same fact THE COURT prints, so two sheets of one turn
+		# never promise two orders (REQ-P2-03, REQ-P5-05).
+		var plan: Dictionary = MapPlayDiplomacyPick.plan(play)
+		if plan.is_empty():
 			return read
-		return gated(ambition, String(gate.get("reason", "")))
+		var action: Dictionary = plan.get("action", {}) as Dictionary
+		if envoy_gives(action, ambition):
+			return read
+		return behind(ambition, action)
 	# No link is wanted: the footing says whether a chain is refused or merely
 	# unaffordable, and only the refusal earns a gate (the sheet names no gate
 	# for a purse, exactly as the estates ledger does).
@@ -176,6 +197,51 @@ static func study_line(tribe: String, study: String) -> String:
 	if study.is_empty():
 		return ""
 	return "the court's chain with %s waits on %s" % [tribe, study]
+
+
+## True when the court's one envoy order this turn is the chain's own rung: the
+## same court at the same stage. The planner emits the rung as an overture
+## (`AiDiplomacyTreaties.best`), so THE COLONIES and THE COURT read one order
+## (REQ-P2-03).
+static func envoy_gives(action: Dictionary, ambition: Dictionary) -> bool:
+	if action.is_empty():
+		return false
+	if String(action.get("kind", "")) != DiplomacyOrders.KIND_OVERTURE:
+		return false
+	if int(action.get("target", -1)) != int(ambition.get("target", -1)):
+		return false
+	return String(action.get("stage", "")) == String(ambition.get("stage", ""))
+
+
+## The pick a chain earns when the court's one order is bound elsewhere:
+## `{kind, target, other, line}`, `other` the court the order went to (-1 when
+## the planner weighed the turn and named nobody).
+static func behind(ambition: Dictionary, action: Dictionary) -> Dictionary:
+	var target: int = int(ambition.get("target", -1))
+	if target < 0:
+		return {}
+	var other: int = int(action.get("target", -1))
+	var line: String = envoy_line(_tribe(target), other)
+	if line.is_empty():
+		return {}
+	return {"kind": KIND_ENVOY, "target": target, "other": other, "line": line}
+
+
+## "the court's chain with the Guaraní waits this turn — its one order goes to
+## England", or "… — its envoy gives the turn no order" when the planner named
+## nobody. The wait is the staff's own one order, never a rule that bars the
+## press, so the crown may still take the link herself (REQ-P5-05, REQ-P5-06).
+static func envoy_line(tribe: String, other: int) -> String:
+	if tribe.is_empty():
+		return ""
+	if other < 0:
+		return (
+			"the court's chain with %s waits this turn — its envoy gives the "
+			% tribe + "turn no order"
+		)
+	return "the court's chain with %s waits this turn — its one order goes to %s" % [
+		tribe, FactionCatalog.name_of(other)
+	]
 
 
 ## The Tribe as the sheet words it: the catalogue's own name behind its article,

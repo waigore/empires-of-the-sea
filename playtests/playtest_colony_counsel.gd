@@ -15,7 +15,11 @@ extends SceneTree
 ## 1. a pact with a court too cold for the Join Empire;
 ## 2. the same court warmed — the bond the press signs;
 ## 3. a second chain — the overture already made this turn;
-## 4. a third chain — the study that holds the Embassy, then the honest link.
+## 4. a third chain — the study that holds the Embassy, then the honest link;
+## 5. a fifth chain read on both sheets at once — a colony line may promise the
+##    link only when the court's own one order (THE COURT's counsel) takes it,
+##    and otherwise names the wait and the court that order went to
+##    (DR-20261121-18).
 ##
 ## Not a CI gate — run it by hand:
 ##   godot --headless --path . --script res://playtests/playtest_colony_counsel.gd
@@ -235,15 +239,57 @@ func _pass_study_and_link() -> void:
 		"the honest link lands",
 		"the honest link does not land"
 	)
-	# Two sheets, one pass, one turn: the envoy's own counsel is the order the
-	# planner books, and a turn where it books another court while the colony
-	# line says "this turn" is a sheet disagreeing with a sheet.
-	var envoy: Dictionary = MapPlayDiplomacyPick.lines(_play)
-	var envoy_said: String = String(envoy.get(tribe, ""))
-	if not envoy_said.is_empty():
-		_say("  the envoy's own counsel for this court: %s" % envoy_said)
-		_say("  the colony line's own claim: %s" % MapPlayColonyPick.line(_play))
 	_say("  the link's price on the pick: %d ducats" % cost)
+	_used.append(tribe)
+	_pass_two_sheets()
+
+
+# --- 5. two sheets, one turn --------------------------------------------------
+
+
+## A chain the press can take, read on both sheets at once: the colony line may
+## promise the link only when the court's own one order takes it, and otherwise
+## names the wait and the court that order went to (DR-20261121-18).
+func _pass_two_sheets() -> void:
+	var tribe: int = _unspent_tribe()
+	if tribe < 0:
+		_say("")
+		_say("--- 5. no unspent Tribe is left in contact, so the two sheets cannot be read ---")
+		return
+	_say("")
+	_say("--- 5. two sheets, one turn: %s ---" % FactionCatalog.name_of(tribe))
+	_seat(tribe, WARM_SCORE, DiplomacyCatalog.STAGE_NAP)
+	var pick: Dictionary = _read_counsel("a chain the press can take")
+	var action: Dictionary = MapPlayDiplomacyPick.plan(_play).get("action", {}) as Dictionary
+	var wants: Dictionary = {
+		"target": tribe,
+		"stage": DiplomacyCatalog.next_stage(
+			_play.diplomacy.overture(_play.player_faction, tribe)
+		),
+	}
+	_say("  the envoy's own counsel: %s" % String(
+		MapPlayDiplomacyPick.lines(_play).get(tribe, "")
+	))
+	if MapPlayColonyPick.envoy_gives(action, wants):
+		_check(
+			String(pick.get("kind", "")) == MapPlayColonyPick.KIND_CHAIN,
+			"the colony line promises the link the envoy's one order takes"
+		)
+		return
+	_check(
+		String(pick.get("kind", "")) == MapPlayColonyPick.KIND_ENVOY,
+		"the colony line names the wait behind the envoy's one order",
+		"the colony line promises a link the court's one order does not take"
+	)
+	var other: int = int(action.get("target", -1))
+	if other >= 0:
+		_check(
+			MapPlayPickProse.sentence(String(pick.get("line", ""))).contains(
+				FactionCatalog.name_of(other)
+			),
+			"the wait names the court the one order went to",
+			"the wait does not say where the one order went"
+		)
 
 
 # --- the sheet ---------------------------------------------------------------
@@ -258,7 +304,8 @@ func _open_sheet() -> void:
 	_panel.refresh()
 
 
-## The gold line as the open sheet paints it, plus the pick behind it.
+## The gold line as the open sheet paints it, plus the pick behind it and the
+## envoy's one order the pick is now held to (DR-20261121-18).
 func _read_counsel(when: String) -> Dictionary:
 	_say("  --- %s ---" % when)
 	if _panel != null:
@@ -266,7 +313,21 @@ func _read_counsel(when: String) -> Dictionary:
 		_say("    gold: %s" % _panel.counsel_text())
 	else:
 		_say("    gold: %s" % MapPlayColonyPick.line(_play))
+	_say_one_order()
 	return MapPlayColonyPick.pick(_play)
+
+
+## THE COURT's own counsel: where the crown's one envoy order goes this turn.
+func _say_one_order() -> void:
+	var action: Dictionary = MapPlayDiplomacyPick.plan(_play).get("action", {}) as Dictionary
+	if action.is_empty():
+		_say("    the envoy's one order: none this turn")
+		return
+	var target: int = int(action.get("target", -1))
+	_say("    the envoy's one order: %s %s" % [
+		String(action.get("kind", "")),
+		"nowhere" if target < 0 else FactionCatalog.name_of(target),
+	])
 
 
 # --- seating -----------------------------------------------------------------
