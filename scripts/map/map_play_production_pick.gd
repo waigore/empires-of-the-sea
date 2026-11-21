@@ -157,7 +157,7 @@ static func run_line(outputs: Dictionary) -> String:
 			# A row left out of the clause, not the units it holds: "and 3 more"
 			# after four named manufactures reads as three more crafts, the way
 			# every other capped line on the sheets counts its items
-			# (LedgerMarketText.price_moves_line, CargoRead, RegimentRecord).
+			# (LedgerMarket.price_moves_line, CargoRead, RegimentRecord).
 			hidden += 1
 			continue
 		named.append("%s ×%d" % [CommodityCatalog.label(output), int(outputs[output])])
