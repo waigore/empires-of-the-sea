@@ -832,7 +832,7 @@ func test_the_eyes_pick_words_the_spies_the_pass_would_book() -> void:
 		"the court would walk its Spy toward Genoa and keep its Spy at Sevilla"
 	)
 	assert_eq(
-		MapPlaySpyPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would walk its Spy toward Genoa and keep its Spy at Sevilla."
 	)
 	# The sheet's own rows come first, so the line reads down the page.
@@ -1004,7 +1004,7 @@ func test_the_people_pick_words_the_work_the_pass_would_give() -> void:
 		+ " to raise the lumber camp at Cádiz this turn"
 	)
 	assert_eq(
-		MapPlayPeoplePick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would put its Explorer to survey the Mar Caribe and its Builder"
 		+ " to raise the lumber camp at Cádiz this turn."
 	)
@@ -3693,7 +3693,7 @@ func test_the_estates_pick_words_the_raise_in_the_ledgers_row_order() -> void:
 		"the court would raise the lumber camp at Cádiz and the mine at Sevilla this phase"
 	)
 	assert_eq(
-		MapPlayEstatesPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would raise the lumber camp at Cádiz and the mine at Sevilla this phase."
 	)
 	# Beyond three the line counts the rows it cannot name.

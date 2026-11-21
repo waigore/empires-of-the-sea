@@ -1821,9 +1821,9 @@ func test_the_courts_pick_hands_each_army_its_own_order() -> void:
 ## that names no place (REQ-P5-06).
 func test_the_pick_words_name_a_place_or_say_nothing() -> void:
 	var model: MapModel = ArmyFixture.build()
-	assert_eq(MapPlayArmyPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(
-		MapPlayArmyPickWords.sentence("the court would advance"),
+		MapPlayPickProse.sentence("the court would advance"),
 		"The court would advance.",
 		"one capital and a full stop"
 	)
@@ -1838,6 +1838,76 @@ func test_the_pick_words_name_a_place_or_say_nothing() -> void:
 	assert_eq(MapPlayArmyPickWords.march_line(model, 4, ""), "", "no reason, no march")
 	assert_eq(MapPlayArmyPickWords.rotate_line(null, 0), "", "no chart, no road home")
 	assert_eq(MapPlayArmyPickWords.rotate_line(model, -1), "", "no seat, no road home")
+
+
+# --- army dossier parts (status / strength / orders; REQ-P3-01) ---------------
+## Standing prose and the order block live outside ArmyPanel so the sheet only
+## composes them — same shape as the fleet and civilian dossiers.
+
+
+## Status and hint lines are plain words: enemy, embarked, home, marched,
+## stranded walk-home, or free (wiki: military-armies § Movement and attacks).
+func test_army_panel_status_words_the_standing_lines() -> void:
+	var model := ArmyFixture.build()
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards"], false)
+	var rival := ArmyFixture.army(3, 1, 2, ["knights"], false)
+	assert_eq(ArmyPanelStatus.status_text(rival, false), "Enemy colours · no orders")
+	assert_eq(
+		ArmyPanelStatus.hint_text(rival, false, false),
+		"Observe only. Orders require your own army."
+	)
+	assert_eq(ArmyPanelStatus.status_text(home, true), "Home Army · never leaves the capital")
+	field.moved = true
+	assert_eq(ArmyPanelStatus.status_text(field, true), "Has marched this turn")
+	field.moved = false
+	assert_eq(ArmyPanelStatus.status_text(field, true), "1 march this turn")
+	assert_true(
+		ArmyPanelStatus.hint_text(field, true, true).contains("No own land touches here")
+	)
+	assert_eq(
+		ArmyPanelStatus.ground_note(model, field),
+		"",
+		"own ground adds nothing"
+	)
+	model.province_data(1).owner = 1
+	var rival_name: String = FactionCatalog.name_of(1)
+	var mark: String = "'" if rival_name.ends_with("s") else "'s"
+	assert_eq(
+		ArmyPanelStatus.ground_note(model, field),
+		" — %s%s ground" % [rival_name, mark]
+	)
+
+
+## Strength line names count, firepower, food and the ward or tents from one
+## module so the dossier never invents a second figure (REQ-P2-03).
+func test_army_panel_strength_names_one_figure() -> void:
+	var model := ArmyFixture.build()
+	model.province_data(1).hospital_level = 1
+	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
+	var line: String = ArmyPanelStrength.line(model, army)
+	assert_true(line.contains("regiments"), line)
+	assert_true(line.contains("strength"), line)
+	assert_true(line.contains("food"), line)
+	assert_true(line.contains("rest 40%"), line)
+	assert_eq(ArmyPanelStrength.food(army), ArmyRoster.food_upkeep_of([army], army.owner))
+
+
+## Order presses and the dismiss arm live on one block; the panel only aliases
+## them so existing dossier cases keep their field paths.
+func test_army_panel_orders_own_the_presses() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(8, 0, 1, ["guards", "pikemen"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
+	assert_not_null(panel._orders, "the sheet carries the orders block")
+	assert_eq(panel._detach_all, panel._orders.detach_all, "alias matches the block")
+	assert_eq(panel._dismiss_all, panel._orders.dismiss_all, "dismiss alias matches")
+	assert_true(panel._detach_all.visible, "two colours may split")
+	assert_true(panel._dismiss_all.visible, "the standard may be shed")
+	assert_true(panel._plan.visible, "the crown's plan stands")
+	panel.free()
 
 
 ## The dossier prints the pick under the composition, and a standard the court
@@ -2045,9 +2115,9 @@ func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
 ## Every wording the drill yard can print, and nothing for a case that names no
 ## gate (REQ-P5-06).
 func test_the_muster_words_name_a_line_or_say_nothing() -> void:
-	assert_eq(MapPlayMusterPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(
-		MapPlayMusterPickWords.sentence("the court would muster Guards"),
+		MapPlayPickProse.sentence("the court would muster Guards"),
 		"The court would muster Guards.",
 		"one capital and a full stop"
 	)

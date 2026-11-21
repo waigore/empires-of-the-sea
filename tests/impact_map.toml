@@ -3399,6 +3399,18 @@ domain = "prospect"
 match = "scripts/map/observer_province.gd*"
 domain = "ai_panel"
 
+# Shared counsel-pick chrome (sentence / join / capped / crew gate): its own
+# pure suite, so shaping one wording never pulls every pick surface's fan-out.
+# Named above the map glob (first match wins).
+[[rules]]
+match = "scripts/map/map_play_pick_prose.gd*"
+domain = "pick_prose"
+
+[domains.pick_prose]
+suites = [
+  "test_map_play_pick_prose.gd",
+]
+
 # The estates ledger's own raise reading (DR-20261121-10): the estates the
 # published Builder pass would raise this phase, narrowed from the crew pick the
 # sheet and the chart already read. Its suite is the ledgers', where the pick is
@@ -3950,6 +3962,21 @@ domain = "unit_art"
 [[rules]]
 match = "scripts/ui/army_panel.gd*"
 domain = "ui"
+
+# Status / strength prose and order presses split out of ArmyPanel: dossier
+# presentation only. Keep them on army_orders so a wording change proves the
+# stranded / hospital / dismiss lines without the full army/battle boot.
+[[rules]]
+match = "scripts/ui/army_panel_status.gd*"
+domain = "army_orders"
+
+[[rules]]
+match = "scripts/ui/army_panel_strength.gd*"
+domain = "army_orders"
+
+[[rules]]
+match = "scripts/ui/army_panel_orders.gd*"
+domain = "army_orders"
 
 # Roster and muster blocks are dossier presentation, not army rules: keep them
 # on ui so a row change does not pull the army domain past the tier-1 budget.

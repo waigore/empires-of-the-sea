@@ -5962,7 +5962,7 @@ func test_the_production_pick_names_the_runs_the_plan_books() -> void:
 		"the catalogue's own order"
 	)
 	assert_eq(
-		MapPlayProductionPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would run Lumber ×1, Fabric ×1 and Paper ×1 this phase."
 	)
 	assert_eq(economy.production.assignment_units("lumber"), 0, "a reading: nothing is set")
@@ -6064,7 +6064,7 @@ func test_the_production_pick_reads_nothing_without_its_parts() -> void:
 	assert_true(MapPlayProductionPick.of(null, plan).is_empty(), "no ledger, no pick")
 	assert_true(MapPlayProductionPick.of(economy, {}).is_empty(), "no plan, no pick")
 	assert_true(MapPlayProductionPick.pick(null).is_empty(), "no session, no pick")
-	assert_eq(MapPlayProductionPick.sentence(""), "", "no clause, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no clause, no sentence")
 
 
 ## The MARKET tab's own plan: the offers and bids the published market planner
@@ -6100,7 +6100,7 @@ func test_the_market_pick_names_the_book_the_plan_books() -> void:
 		"offers lead, bids follow, the catalogue's own order"
 	)
 	assert_eq(
-		MapPlayMarketPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would offer Wool ×%d and %s this phase."
 		% [_offer_of(plan, "wool"), MapPlayMarketPick.list_line(bids, "bid")]
 	)
@@ -6166,4 +6166,4 @@ func test_the_market_pick_reads_nothing_without_its_parts() -> void:
 	assert_true(MapPlayMarketPick.of({}).is_empty(), "no drafted plan, no pick")
 	assert_true(MapPlayMarketPick.of({"plan": {}}).is_empty(), "no plan, no pick")
 	assert_true(MapPlayMarketPick.pick(null).is_empty(), "no session, no pick")
-	assert_eq(MapPlayMarketPick.sentence(""), "", "no clause, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no clause, no sentence")

@@ -3786,10 +3786,10 @@ func test_the_picks_words_name_each_sail_and_its_reason() -> void:
 		"the footing's own reason"
 	)
 	assert_eq(
-		MapPlayFleetPickWords.sentence("the court would dock her at %s" % port),
+		MapPlayPickProse.sentence("the court would dock her at %s" % port),
 		"The court would dock her at %s." % port
 	)
-	assert_eq(MapPlayFleetPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(MapPlayFleetPickWords.line(model, {}), "", "no order, no line")
 	assert_eq(MapPlayFleetPickWords.line(model, {"kind": "unknown"}), "", "no kind, no line")
 	assert_eq(MapPlayFleetPickWords.line(null, {"kind": "home"}), "", "no chart, no line")
@@ -4001,7 +4001,7 @@ func _slip_row() -> Dictionary:
 func test_the_yard_drawer_prints_the_courts_claim_under_its_heading() -> void:
 	var yard := FleetYardBlock.new()
 	add_child(yard)
-	var pick: String = MapPlayYardPickWords.sentence(
+	var pick: String = MapPlayPickProse.sentence(
 		MapPlayYardPickWords.lay_line("sloop")
 	)
 	yard.show_rows(null, [_slip_row()], true, true, pick)
@@ -4061,10 +4061,10 @@ func test_the_yard_picks_words_name_each_hull_and_its_gate() -> void:
 		"the court is saving for a Sloop — the study Navigation opens her"
 	)
 	assert_eq(
-		MapPlayYardPickWords.sentence("the court would lay a Sloop — 5,500 ducats"),
+		MapPlayPickProse.sentence("the court would lay a Sloop — 5,500 ducats"),
 		"The court would lay a Sloop — 5,500 ducats."
 	)
-	assert_eq(MapPlayYardPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 
 
 # --- the voyage pick (DR-20261121-08) ---------------------------------------
@@ -4167,7 +4167,7 @@ func test_the_voyage_pick_names_no_squadron_the_court_would_leave_alone() -> voi
 func test_the_voyage_words_name_each_step_the_plan_takes() -> void:
 	var model: MapModel = _model
 	assert_eq(
-		MapPlayVoyagePickWords.sentence(MapPlayVoyagePickWords.line(model, {
+		MapPlayPickProse.sentence(MapPlayVoyagePickWords.line(model, {
 			"kind": "sail", "zone": 0, "carrying": true,
 		})),
 		"The court would sail her for the %s — the first leg to the Passage." % (

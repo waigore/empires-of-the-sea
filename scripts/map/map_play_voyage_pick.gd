@@ -114,7 +114,7 @@ static func _appetite(
 ## The block's line: the pick's own sentence, or nothing when the court would
 ## give this squadron no voyage step this turn.
 static func line(play: PlaySession, fleet: FleetState) -> String:
-	return MapPlayVoyagePickWords.sentence(String(pick(play, fleet).get("line", "")))
+	return MapPlayPickProse.sentence(String(pick(play, fleet).get("line", "")))
 
 
 ## One step, carried with the words the block prints. The kind, the crew, the

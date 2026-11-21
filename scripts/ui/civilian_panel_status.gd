@@ -5,12 +5,10 @@ extends RefCounted
 ## would give it next (REQ-P3-01, REQ-P3-03; REQ-P5-06, DR-20261117-06). A
 ## reading only — nothing here assigns, reserves or spends.
 
-## How the sheet words the pick's own name: one capital to open the sentence and
-## a full stop to close it, whatever ledger worded it.
+## How the sheet words the pick's own name: one capital and a full stop — the
+## same chrome every counsel pick prints (`MapPlayPickProse`).
 static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
+	return MapPlayPickProse.sentence(text)
 
 
 ## The court's own pick for a crew that waits: the work the published planner
