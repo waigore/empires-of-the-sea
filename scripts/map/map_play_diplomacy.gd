@@ -23,8 +23,17 @@ static func open(play: PlaySession) -> void:
 		play.treasury(),
 		_tech(play),
 		play.court_reports,
-		public_power(play)
+		public_power(play),
+		counsel(play)
 	)
+
+
+## The court's own envoy reading, one sentence per crown the crown is in contact
+## with: the order her staff's planner would spend this turn
+## (`MapPlayDiplomacyPick`; DR-20261121-05). Advice only — the sheet prints it
+## and the crown still presses her own order (REQ-P5-06).
+static func counsel(play: PlaySession) -> Dictionary:
+	return MapPlayDiplomacyPick.lines(play)
 
 
 ## The published power score for every crown, from the public order of battle
@@ -51,7 +60,8 @@ static func refresh(play: PlaySession) -> void:
 		play.treasury(),
 		_tech(play),
 		play.court_reports,
-		public_power(play)
+		public_power(play),
+		counsel(play)
 	)
 
 

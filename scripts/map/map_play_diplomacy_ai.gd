@@ -26,7 +26,7 @@ static func run(play: PlaySession) -> void:
 		play.turn,
 		play.human_faction_id(),
 		play.map_seed,
-		_context(play)
+		context(play)
 	)
 	var trace: Array = []
 	trace.assign(result.get("trace", []))
@@ -103,8 +103,10 @@ static func _apply_map_changes(play: PlaySession, trace: Array) -> void:
 ## invasion-capacity rule, which reads regiments and not their weight.
 ##
 ## When `only` is set, only those faction ids enter the planning gate (BENCH
-## subject vs baseline passes).
-static func _context(play: PlaySession, only: Array = []) -> Dictionary:
+## subject vs baseline passes). Public: the pass hands it to `AiTurn`, and the
+## crown's own envoy advice reads the same docket for the crown (DR-20261121-05),
+## so the advice and the rivals plan on one chart.
+static func context(play: PlaySession, only: Array = []) -> Dictionary:
 	var regiments: Dictionary = {}
 	var ships: Dictionary = {}
 	for raw: Dictionary in FactionCatalog.all():

@@ -94,7 +94,7 @@ func test_the_court_reads_each_crowns_public_power() -> void:
 ## by a head count: the planner's score for a crown is the published one the
 ## court panel prints (wiki: diplomacy § Great Power power score).
 func test_the_rival_pass_weighs_power_the_published_way() -> void:
-	var context: Dictionary = MapPlayDiplomacyAi._context(_screen.play)
+	var context: Dictionary = MapPlayDiplomacyAi.context(_screen.play)
 	assert_false(
 		(context.get("strengths", {}) as Dictionary).is_empty(),
 		"the pass hands the planner the order of battle"
@@ -117,7 +117,7 @@ func test_the_rival_pass_weighs_power_the_published_way() -> void:
 ## its field army can walk to — so the buy-out and the white-peace answer can
 ## keep the war that sits on one.
 func test_the_rival_pass_stamps_the_conquest_gap_frontier() -> void:
-	var context: Dictionary = MapPlayDiplomacyAi._context(_screen.play)
+	var context: Dictionary = MapPlayDiplomacyAi.context(_screen.play)
 	var frontier: Dictionary = context.get(AiFrontier.KEY, {})
 
 	assert_false(frontier.is_empty(), "the shared pass hands the planners a frontier")
@@ -969,3 +969,70 @@ func _events(kind: String) -> int:
 		if String(event.get("kind", "")) == kind:
 			total += 1
 	return total
+
+
+# --- the crown's own envoy (DR-20261121-05) ----------------------------------
+
+
+## The court names the order the crown's own planner would spend on the court in
+## view: the pick's own sentence, printed above the orders it answers
+## (wiki: diplomacy § GP AI policy for war vs. relations; REQ-P5-03, REQ-P5-06).
+func test_the_court_names_the_order_its_envoy_would_spend() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayDiplomacy.open(play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	var plan: Dictionary = MapPlayDiplomacyPick.plan(play)
+	var action: Dictionary = plan.get("action", {}) as Dictionary
+	assert_false(action.is_empty(), "the fixture crown has one order to give")
+	var target: int = int(action["target"])
+	panel.select_faction(target)
+	var line: String = MapPlayDiplomacyPick.line(play, target)
+	assert_false(line.is_empty(), "the crown's own sheet cannot be silent on the envoy")
+	assert_eq(panel.counsel_text(), line, "the sheet prints the pick's own words")
+	assert_true(_sheet_prints(panel._detail, line), "the counsel is on the court's sheet")
+	DiplomacyHud.hide(_screen.hud.panels)
+
+
+## The counsel prices the purse the crown holds, not the shadow ledger the AI
+## book would start for a court the pass never plans (REQ-P2-03).
+func test_the_envoy_line_reads_the_crowns_own_purse() -> void:
+	var play: PlaySession = _screen.play
+	var before: Dictionary = play.ensure_ai().economies.duplicate()
+	var shadow := PlayerEconomy.starting()
+	shadow.treasury = 7
+	play.ensure_ai().economies[play.player_faction] = shadow
+	var court: Dictionary = MapPlayDiplomacyPick.court(play, play.player_faction)
+	assert_eq(
+		int((court["income"] as Dictionary)["treasury"]), play.treasury(),
+		"the planner's money goal reads the crown's real purse"
+	)
+	assert_true(
+		play.ensure_ai().economies[play.player_faction] == play.economy.economy,
+		"the crown's ledger is the one the AI book holds"
+	)
+	play.ensure_ai().economies = before
+
+
+## A session that runs no planner has no seat to read: the sheet says nothing
+## rather than inventing an envoy (REQ-P2-03, REQ-P5-06).
+func test_a_court_with_no_planner_reads_no_envoy() -> void:
+	var play: PlaySession = _screen.play
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayDiplomacyPick.lines(play).is_empty(), "no planner, no advice")
+	MapPlayDiplomacy.open(play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	panel.select_faction(FactionCatalog.great_power_ids()[1])
+	assert_eq(panel.counsel_text(), "", "the sheet prints no advice it cannot read")
+	play.ai_mode = mode
+	DiplomacyHud.hide(_screen.hud.panels)
+
+
+## True when the sheet holds a label carrying this line.
+func _sheet_prints(sheet: Control, line: String) -> bool:
+	for child: Node in sheet.get_children():
+		if child is Label and (child as Label).text == line:
+			return true
+		if child is Control and _sheet_prints(child as Control, line):
+			return true
+	return false

@@ -60,6 +60,41 @@ static func reading(shared: Dictionary, faction: int, income: Dictionary = {}) -
 	return reading
 
 
+## One court's whole decision read: its footing, the money goal its next raise is
+## priced against, and its own charted view of the shared docket. `AiTurn` builds
+## it for every rival it plans; a surface that reads the crown's own seat builds
+## the same read for the crown, so the advice and the pass cannot drift
+## (DR-20261121-05). The caller resolves the config — the seed and the bound
+## temperament are the caller's, so a reading never plans on the neutral profile.
+## Pure: the state is read, never written.
+static func court(
+	state: DiplomacyState,
+	world: WorldMap,
+	ai_state: AiState,
+	faction: int,
+	shared: Dictionary,
+	config: AiConfig
+) -> Dictionary:
+	if config == null:
+		return {}
+	var phase: Dictionary = AiPhasePlanner.plan(config, state)
+	var income: Dictionary = AiIncome.plan(
+		config, ledger(ai_state, faction), AiIncome.at_war(state, faction),
+		int((shared.get("regiments", {}) as Dictionary).get(faction, 0)),
+		int((shared.get("hull_chests", {}) as Dictionary).get(faction, 0)),
+		int((shared.get("warships", {}) as Dictionary).get(faction, -1)),
+		0,
+		bool((shared.get("conquest_gaps", {}) as Dictionary).get(faction, false))
+	)
+	var read: Dictionary = reading(shared, faction, income)
+	var tech: Dictionary = (shared.get("tech", {}) as Dictionary).get(faction, {})
+	if CivilianCatalog.is_unlocked("merchant", tech):
+		read["deed_seller"] = AiMerchantWork.deed_seller(
+			world, faction, read.get("charts", null), state
+		)
+	return {"phase": phase, "income": income, "read": read}
+
+
 ## Absolute power per faction from one order of battle, read the published way
 ## (wiki: diplomacy § Great Power power score). The strength term is the order of
 ## battle — rounded as the panel and the calendar round it — and a caller that
