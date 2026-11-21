@@ -10,6 +10,10 @@ signal army_moved(army: ArmyState, result: Dictionary)
 var model: MapModel = null
 var armies: Array[ArmyState] = []
 var selected_army: ArmyState = null
+## Crown whose eyes are on this map: only her own standards paint the busy loop
+## of an order (issue #1198). A chart that names no viewer reads every muster as
+## the crown's own, which is what rules fixtures expect.
+var viewer_faction: int = -1
 ## Abstract commanders per faction; binding to armies is per Combat phase.
 var generals := GeneralRoster.new()
 
@@ -136,11 +140,25 @@ func order(army: ArmyState, province_id: int, at_war: bool = true) -> Dictionary
 		return result
 	var marker: ArmyMarker = marker_for(army)
 	if marker != null:
+		var target: Vector2 = _markers.province_position(army.province)
+		# The march loop runs only for the crown's own standard, and only while
+		# it travels: an idle or a rival banner stays as it was (issue #1198).
+		var marching: bool = viewer_faction < 0 or army.owner == viewer_faction
+		if marching:
+			marker.set_order(OrderMotion.Order.MOVE, target - marker.position)
 		var tween: Tween = create_tween()
-		tween.tween_property(
-			marker, "position", _markers.province_position(army.province), 0.38
-		).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN_OUT)
-		tween.tween_callback(place_all)
+		tween.tween_property(marker, "position", target, 0.38).set_trans(
+			Tween.TRANS_CUBIC
+		).set_ease(Tween.EASE_IN_OUT)
+		# The standard is looked up by id at the end of the march: a marker the
+		# chart dropped mid-step (a merge, a retirement) is simply gone.
+		var army_id: int = army.id
+		tween.tween_callback(func() -> void:
+			var settled: ArmyMarker = _markers.find(army_id)
+			if settled != null:
+				settled.set_order(OrderMotion.Order.NONE)
+			place_all()
+		)
 	army_moved.emit(army, result)
 	return result
 

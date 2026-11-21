@@ -9,12 +9,18 @@ var army_id: int = -1
 var count: int = 0
 var home: bool = false
 var selected: bool = false
+## The order the standard holds, drawn as the chart's busy loop (issue #1198):
+## a march leans the banner along `heading`.
+var order: int = OrderMotion.Order.NONE
+var heading: Vector2 = Vector2.RIGHT
 
 var _time: float = 0.0
+var _phase: float = 0.0
 
 
 func _ready() -> void:
 	z_index = 6
+	_phase = float(army_id) * 0.6
 
 
 func _process(delta: float) -> void:
@@ -24,6 +30,17 @@ func _process(delta: float) -> void:
 
 func set_selected(value: bool) -> void:
 	selected = value
+	queue_redraw()
+
+
+## Reads the order the standard holds onto the marker (issue #1198). A direction
+## is kept only when one is given, so clearing an order leaves the heading.
+func set_order(value: int, direction: Vector2 = Vector2.ZERO) -> void:
+	if direction != Vector2.ZERO:
+		heading = direction
+	if value == order:
+		return
+	order = value
 	queue_redraw()
 
 
@@ -39,10 +56,14 @@ func _draw() -> void:
 	var sway: float = sin(_time * 1.6 + float(army_id)) * 0.8
 	var ink := Color(0.16, 0.12, 0.08, 0.92)
 	var cloth: Color = Palette.faction_color(faction)
+	# A marching standard leans a step along its heading; the halo is painted
+	# under the colour so the banner keeps its edge (issue #1198).
+	var step: Vector2 = OrderMotion.drift(order, _time, _phase, heading)
+	OrderMotion.paint(self, step, 21.0, order, _time, _phase, heading)
 	var pole_top := Vector2(0.0 + sway, -20.0)
 
 	# shadow and base
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+	draw_set_transform(step, 0.0, Vector2.ONE)
 	draw_circle(Vector2(0, 4), 8.0, Color(0.10, 0.07, 0.03, 0.22))
 	# pole
 	draw_line(Vector2(sway, 3), pole_top, ink, 1.6, true)

@@ -27,6 +27,14 @@ var speed: float = 34.0
 var bob_phase: float = 0.0
 var facing: float = 1.0
 var selected: bool = false
+## The crown's own squadron: only hers paints the busy loop of an order, so a
+## rival's hull never borrows it (issue #1198).
+var own: bool = false
+## The order loop under way: a sail leans her a step along `heading`; a station
+## held at sea gives her the work loop at her berth.
+var order: int = OrderMotion.Order.NONE
+var on_station: bool = false
+var heading: Vector2 = Vector2.RIGHT
 ## Hulls in the squadron and its weighted strength, mirrored from the fleet.
 var hull_count: int = 1
 var strength: float = 0.0
@@ -70,6 +78,32 @@ func _process(delta: float) -> void:
 func set_selected(value: bool) -> void:
 	selected = value
 	queue_redraw()
+
+
+## Reads whether the squadron is the crown's own and, when she is, the order loop
+## she holds: a sail under way or a station kept (issue #1198).
+func set_order(value: int, direction: Vector2 = Vector2.ZERO) -> void:
+	if direction != Vector2.ZERO:
+		heading = direction
+	if value == order:
+		return
+	order = value
+	queue_redraw()
+
+
+## A station held at sea: the work loop, read after the sail clears.
+func set_station(value: bool) -> void:
+	if value == on_station:
+		return
+	on_station = value
+	queue_redraw()
+
+
+## The loop the marker paints: a sail outranks a station she has just left.
+func busy_order() -> int:
+	if order == OrderMotion.Order.MOVE:
+		return order
+	return OrderMotion.Order.WORK if on_station else OrderMotion.Order.NONE
 
 
 ## Where her hull is drawn: her berth plus the step her station gives her, so a
@@ -129,21 +163,29 @@ func _draw() -> void:
 		return
 	var bob: float = sin(_time * 1.7 + bob_phase) * 1.5
 	var tilt: float = sin(_time * 1.25 + bob_phase) * 0.05
+	# A busy squadron leans a step along her heading while her order runs; the
+	# halo sits under the hull so the silhouette still reads (issue #1198).
+	var step: Vector2 = OrderMotion.drift(busy_order(), _time, bob_phase, heading)
+	OrderMotion.paint(
+		self, lane + step + Vector2(0, bob), 21.0, busy_order(), _time, bob_phase, heading
+	)
 	# Escorts astern, far hull first, so the lead vessel overlaps them and the
 	# marker reads as a squadron in line rather than a row of loose boats.
 	for index in range(mini(hull_count - 1, ESCORT_LIMIT), 0, -1):
 		var size: float = 0.66 - 0.10 * float(index - 1)
 		var astern := Vector2(-(18.0 + 16.0 * float(index)), 3.0 + 7.0 * float(index))
 		draw_set_transform(
-			lane + Vector2(astern.x, bob + astern.y), tilt * 0.7, Vector2(facing * size, size)
+			lane + step + Vector2(astern.x, bob + astern.y),
+			tilt * 0.7,
+			Vector2(facing * size, size)
 		)
 		_vessel(false, 0.74)
-	draw_set_transform(lane + Vector2(0, bob), tilt, Vector2(facing, 1.0))
+	draw_set_transform(lane + step + Vector2(0, bob), tilt, Vector2(facing, 1.0))
 	if not docked:
 		_wake()
 	_vessel(true, 1.0)
 	# The badge and gauge never flip with the hull, or the figures would mirror.
-	draw_set_transform(lane + Vector2(0, bob), 0.0, Vector2.ONE)
+	draw_set_transform(lane + step + Vector2(0, bob), 0.0, Vector2.ONE)
 	_squadron_badge()
 	_stack_pips()
 	if selected:
