@@ -1527,7 +1527,9 @@ func test_army_muster_block_fills_ok_and_blocked_rows() -> void:
 	var heard: Array[String] = []
 	panel._muster_box.action_pressed.connect(func(action: String) -> void: heard.append(action))
 
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening := ArmyDossierOpening.of(army, true)
+	muster_opening.muster = muster
+	panel.refresh(model, muster_opening)
 	panel.set_muster_open(true)
 
 	assert_eq(
@@ -1609,7 +1611,9 @@ func test_the_army_muster_block_files_every_ready_row_in_one_press() -> void:
 	var heard: Array[String] = []
 	panel._muster_box.action_pressed.connect(func(action: String) -> void: heard.append(action))
 
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening := ArmyDossierOpening.of(army, true)
+	muster_opening.muster = muster
+	panel.refresh(model, muster_opening)
 	panel.set_muster_open(true)
 
 	var press: RaiseBatchPress = panel._muster_box._batch
@@ -1626,7 +1630,9 @@ func test_the_army_muster_block_files_every_ready_row_in_one_press() -> void:
 	# No row is ready now (every order waits), so the press stands down.
 	for row: Dictionary in muster:
 		row["batch_ready"] = false
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening2 := ArmyDossierOpening.of(army, true)
+	muster_opening2.muster = muster
+	panel.refresh(model, muster_opening2)
 	assert_false(press.visible, "a yard with nothing ready carries no press")
 	panel.free()
 
@@ -1659,7 +1665,9 @@ func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
 			"line": "Regular infantry · 5 strength",
 		},
 	]
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening := ArmyDossierOpening.of(army, true)
+	muster_opening.muster = muster
+	panel.refresh(model, muster_opening)
 	panel.set_muster_open(true)
 	var press: RaiseBatchPress = panel._muster_box._batch
 	assert_eq(press.text, "Muster all ready (2)", "the sheet names its line")
@@ -1668,7 +1676,9 @@ func test_a_redrawn_muster_sheet_forgets_the_batch_arm() -> void:
 
 	# One row's own Muster goes in, and the sheet is redrawn one step shorter.
 	muster[0]["batch_ready"] = false
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening2 := ArmyDossierOpening.of(army, true)
+	muster_opening2.muster = muster
+	panel.refresh(model, muster_opening2)
 
 	assert_false(press.is_armed(), "the redraw spends the arm the player gave")
 	assert_eq(press.text, "Muster all ready (1)", "the face names the line it now stands for")
@@ -1762,7 +1772,7 @@ func test_a_roster_dismissal_keeps_its_window_across_the_repaint() -> void:
 	var army := ArmyFixture.army(3, 0, 1, ["guards", "pikemen"], false)
 	var panel := ArmyPanel.new()
 	add_child(panel)
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var entry: VBoxContainer = panel._roster.get_child(0)
 	var press: Button = (entry.get_child(1) as HBoxContainer).get_child(1) as Button
@@ -1886,7 +1896,9 @@ func test_the_muster_block_prints_the_lines_sum_once() -> void:
 			"batch": plan,
 		})
 
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening := ArmyDossierOpening.of(army, true)
+	muster_opening.muster = muster
+	panel.refresh(model, muster_opening)
 	panel.set_muster_open(true)
 
 	assert_eq(
@@ -1896,7 +1908,9 @@ func test_the_muster_block_prints_the_lines_sum_once() -> void:
 	)
 
 	# A redraw re-reads the one label instead of stacking a second copy of it.
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening2 := ArmyDossierOpening.of(army, true)
+	muster_opening2.muster = muster
+	panel.refresh(model, muster_opening2)
 	assert_eq(_sum_line_count(panel._muster_box), 1, "one sum line however often")
 	panel.free()
 
@@ -1926,7 +1940,7 @@ func test_army_roster_block_shows_chevrons_wounds_and_record() -> void:
 	var heard: Array[String] = []
 	panel._roster.action_pressed.connect(func(action: String) -> void: heard.append(action))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_true(String(panel._strength.text).contains("2 chevrons"), panel._strength.text)
@@ -1952,7 +1966,7 @@ func test_army_roster_block_hides_detach_while_embarked() -> void:
 	var fleet := FleetState.in_port(1, 0, 0, ["ship_1", "ship_2"])
 	assert_true(bool(NavalTransport.embark(model, army, fleet)["ok"]))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	assert_true(String(panel._location.text).contains("Aboard"), panel._location.text)
 	var row: VBoxContainer = panel._roster.get_child(0)
@@ -4115,13 +4129,9 @@ func test_civilian_panel_names_tradecraft_and_counter_status() -> void:
 	screen.start_work(SpyRules.WORK_COUNTER, screen.tile, 1)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		model, abroad, LandWorks.new(), [abroad], CivilianFixture.stockpile()
-	)
+	panel.refresh(model, _crew_opening(abroad))
 	assert_true(panel._status.text.contains("At large"))
-	panel.refresh(
-		model, screen, LandWorks.new(), [screen], CivilianFixture.stockpile()
-	)
+	panel.refresh(model, _crew_opening(screen))
 	assert_eq(panel._status.text, "Counter-espionage · ongoing.")
 	panel.free()
 
@@ -4136,13 +4146,13 @@ func test_the_dossier_promises_only_what_the_standing_buys() -> void:
 	)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(home, idle, LandWorks.new(), [idle], CivilianFixture.stockpile())
+	panel.refresh(home, _crew_opening(idle))
 	assert_eq(
 		_panel_row(panel, "Tradecraft"),
 		"No screen up — only the counter-espionage order covers your land"
 	)
 	idle.start_work(SpyRules.WORK_COUNTER, idle.tile, 1)
-	panel.refresh(home, idle, LandWorks.new(), [idle], CivilianFixture.stockpile())
+	panel.refresh(home, _crew_opening(idle))
 	var screen_row: String = _panel_row(panel, "Tradecraft")
 	assert_true(
 		screen_row.begins_with("Counter-espionage screen"),
@@ -4158,10 +4168,7 @@ func test_the_dossier_promises_only_what_the_standing_buys() -> void:
 		2, PLAYER, "spy", Vector2i(2, 0)
 	)
 	assert_eq(minor_model.owner_at(2, 0), 6, "the fixture tile is Genoa's")
-	panel.refresh(
-		minor_model, minor_spy, LandWorks.new(), [minor_spy],
-		CivilianFixture.stockpile()
-	)
+	panel.refresh(minor_model, _crew_opening(minor_spy))
 	var row: String = _panel_row(panel, "Tradecraft")
 	assert_true(row.contains("presence reveal only"))
 	assert_false(row.contains("%"), "a minor court never shares research")
@@ -4178,9 +4185,7 @@ func test_the_work_order_list_names_what_the_road_lands() -> void:
 	var engineer: CivilianState = CivilianState.create(1, PLAYER, "engineer", Vector2i(0, 1))
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile()
-	)
+	panel.refresh(model, _crew_opening(engineer))
 	var lines: PackedStringArray = PackedStringArray()
 	for child: Node in panel._orders.get_children():
 		var label := child as Label
@@ -4209,22 +4214,18 @@ func test_the_dossier_names_the_work_the_court_would_give_it() -> void:
 	)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile()
-	)
+	panel.refresh(model, _crew_opening(builder))
 	assert_false(panel._pick.visible, "no pick, no line")
-	panel.refresh(
-		model, builder, LandWorks.new(), [builder], CivilianFixture.stockpile(),
-		null, {}, {},
-		{
-			"pick": {
-				"action": "build_improvement",
-				"tile": CivilianFixture.TIMBER_TILE,
-				"line": "the court would raise the lumber camp — L2 pays 2 timber / turn (+1)",
-				"short": "raise the lumber camp",
-			}
+	var picked := _crew_opening(builder)
+	picked.context = {
+		"pick": {
+			"action": "build_improvement",
+			"tile": CivilianFixture.TIMBER_TILE,
+			"line": "the court would raise the lumber camp — L2 pays 2 timber / turn (+1)",
+			"short": "raise the lumber camp",
 		}
-	)
+	}
+	panel.refresh(model, picked)
 	assert_true(panel._pick.visible, "the pick prints")
 	assert_eq(
 		panel._pick.text,
@@ -4244,23 +4245,31 @@ func test_the_sheet_says_when_no_order_can_be_taken() -> void:
 	)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		model, explorer, LandWorks.new(), [explorer], CivilianFixture.stockpile(),
-		view
-	)
+	var explored := _crew_opening(explorer)
+	explored.visibility = view
+	panel.refresh(model, explored)
 	assert_eq(panel._legal, 0, "charted plains offer an Explorer nothing")
 	assert_eq(panel._status.text, "Idle — no order can be taken here.")
 	# A crew that does have a press keeps the standing invitation.
 	var engineer: CivilianState = CivilianState.create(
 		1, PLAYER, "engineer", CivilianFixture.COAST_TILE
 	)
-	panel.refresh(
-		model, engineer, LandWorks.new(), [engineer], CivilianFixture.stockpile(),
-		view
-	)
+	var harboured := _crew_opening(engineer)
+	harboured.visibility = view
+	panel.refresh(model, harboured)
 	assert_true(panel._legal > 0, "a harbour can be raised here")
 	assert_eq(panel._status.text, "Idle — choose an order below.")
 	panel.free()
+
+
+## The plain crew dossier a test paints: the crew alone on a fresh works, with
+## the fixture's stores. Tests that need fog or a pick add those fields.
+func _crew_opening(unit: CivilianState) -> CivilianDossierOpening:
+	var opening := CivilianDossierOpening.of(unit)
+	opening.works = LandWorks.new()
+	opening.units = [unit]
+	opening.stockpile = CivilianFixture.stockpile()
+	return opening
 
 
 ## The value column of one dossier row, or "" when the caption is absent.

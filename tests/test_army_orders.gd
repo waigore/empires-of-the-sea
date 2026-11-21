@@ -580,7 +580,7 @@ func test_roster_rows_carry_a_service_record_once_blooded() -> void:
 	army.regiment_engagements["unit_301"] = 3
 	army.regiment_wins["unit_301"] = 2
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var entry: VBoxContainer = panel._roster.get_child(0)
 	var record: Label = entry.get_child(entry.get_child_count() - 1)
@@ -601,7 +601,7 @@ func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 	army.regiment_health["unit_301"] = int(army.condition_of("unit_301")["max"]) / 2
 	RegimentDecorations.note([army] as Array[ArmyState], 1, true)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var cited: VBoxContainer = panel._roster.get_child(0)
 	var despatch: Label = cited.get_child(cited.get_child_count() - 1)
@@ -619,7 +619,9 @@ func test_a_roster_row_carries_the_despatch_a_regiment_holds() -> void:
 
 	var green_panel := ArmyPanel.new()
 	add_child(green_panel)
-	green_panel.refresh(model, ArmyFixture.army(4, 0, 1, ["guards"], false), true)
+	green_panel.refresh(
+		model, ArmyDossierOpening.of(ArmyFixture.army(4, 0, 1, ["guards"], false), true)
+	)
 	var green: VBoxContainer = green_panel._roster.get_child(0)
 	for child: Node in green.get_children():
 		if child is Label:
@@ -950,7 +952,7 @@ func test_roster_rows_carry_regiment_detail() -> void:
 	var model := ArmyFixture.build()
 	var army := ArmyFixture.army(3, 0, 1, ["guards", "pikemen"], false)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var roster: VBoxContainer = panel._roster
 	assert_eq(roster.get_child_count(), 2, "one row per regiment")
@@ -1085,7 +1087,7 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 	var model := ArmyFixture.build()
 	var army := ArmyFixture.army(4, 1, 2, ["knights"], false)
 
-	panel.refresh(model, army, false)
+	panel.refresh(model, ArmyDossierOpening.of(army, false))
 
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_eq(
@@ -1112,7 +1114,7 @@ func test_roster_names_the_hospital_rest_tempo() -> void:
 	model.province_data(1).hospital_level = 1
 	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	assert_true(String(panel._strength.text).contains("rest 40%"), panel._strength.text)
 	panel.free()
@@ -1130,7 +1132,7 @@ func test_a_fed_ward_is_named_beside_the_tents() -> void:
 	var army := ArmyFixture.army(7, 0, 1, ["guards"], false)
 	army.field_hospital = true
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var line: String = String(panel._strength.text)
 	assert_true(line.contains("field hospital · rest 40%"), line)
@@ -1146,7 +1148,7 @@ func test_a_fed_ward_is_named_beside_the_tents() -> void:
 
 	model.province_data(1).hospital_staffed = false
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	line = String(panel._strength.text)
 	assert_true(line.contains("field hospital · rest 40%"), line)
@@ -1185,7 +1187,7 @@ func test_roster_shows_chevrons_and_wounds() -> void:
 	army.regiment_medals[regiment] = 2
 	army.regiment_health[regiment] = 60
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_eq(row.get_child_count(), 3, "name row, detail, condition")
@@ -1210,7 +1212,7 @@ func test_an_embarked_dossier_offers_no_detach_order() -> void:
 	var fleet := FleetState.in_port(1, 0, 0, ["ship_1", "ship_2"])
 	assert_true(bool(NavalTransport.embark(model, army, fleet)["ok"]))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var row: VBoxContainer = panel._roster.get_child(0)
 	assert_eq(
@@ -1231,11 +1233,15 @@ func test_the_dossier_names_the_crowns_plan() -> void:
 	var model := ArmyFixture.build()
 	var army := ArmyFixture.army(8, 0, 1, ["guards"], false)
 
-	panel.refresh(model, army, true, false, "", [], "", "aggressive")
+	var aggressive := ArmyDossierOpening.of(army, true)
+	aggressive.plan = "aggressive"
+	panel.refresh(model, aggressive)
 
 	assert_eq(String(panel._plan.text), "Crown battle plan: Aggressive")
 	assert_true(String(panel._plan.tooltip_text).contains("crown"))
-	panel.refresh(model, army, true, false, "", [], "", "hammer")
+	var hammer := ArmyDossierOpening.of(army, true)
+	hammer.plan = "hammer"
+	panel.refresh(model, hammer)
 	assert_eq(String(panel._plan.text), "Crown battle plan: Balanced", "an unknown stance reads balanced")
 	panel.free()
 
@@ -1289,7 +1295,9 @@ func test_drill_yard_rows_carry_their_medallion() -> void:
 		{"type_id": "grenadiers", "name": "Grenadiers", "ok": true, "cost_text": "13,000 cash", "reason": ""},
 	]
 
-	panel.refresh(model, army, true, false, "", muster)
+	var muster_opening := ArmyDossierOpening.of(army, true)
+	muster_opening.muster = muster
+	panel.refresh(model, muster_opening)
 
 	var top: HBoxContainer = panel._muster_box.get_child(0).get_child(0)
 	assert_true(top.get_child(0) is UnitMedallion, "the plate leads the drill-yard row")
@@ -1383,7 +1391,7 @@ func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
 			asked.append("%s=%s" % [regiment_id, wanted])
 	)
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var row: HBoxContainer = (panel._roster.get_child(0) as VBoxContainer).get_child(0) as HBoxContainer
 	assert_eq(row.get_child_count(), 4, "medallion, name, detach, the name order")
@@ -1407,7 +1415,7 @@ func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
 	var rival := ArmyFixture.army(4, 1, 2, ["knights"], false)
 	var enemy_panel := ArmyPanel.new()
 	add_child(enemy_panel)
-	enemy_panel.refresh(model, rival, false)
+	enemy_panel.refresh(model, ArmyDossierOpening.of(rival, false))
 	var enemy_row: HBoxContainer = (
 		enemy_panel._roster.get_child(0) as VBoxContainer
 	).get_child(0) as HBoxContainer
@@ -1426,7 +1434,7 @@ func test_the_roster_arms_a_dismissal_before_filing_it() -> void:
 	var filed: Array = []
 	panel.action_pressed.connect(func(action: String) -> void: filed.append(action))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var entry: VBoxContainer = panel._roster.get_child(0)
 	var press: Button = (entry.get_child(1) as HBoxContainer).get_child(1) as Button
@@ -1453,7 +1461,7 @@ func test_the_dossier_offers_dismiss_all_once() -> void:
 	var filed: Array = []
 	panel.action_pressed.connect(func(action: String) -> void: filed.append(action))
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 
 	var press: Button = panel._dismiss_all
 	assert_true(press.visible, "the crown may shed its own standard")
@@ -1788,11 +1796,13 @@ func test_the_dossier_prints_the_courts_pick() -> void:
 	var panel := ArmyPanel.new()
 	add_child(panel)
 
-	panel.refresh(model, army, true, false, "", [], "", "balanced", {}, "The court would march on Province 4 to storm it.")
+	var pick := ArmyDossierOpening.of(army, true)
+	pick.pick = "The court would march on Province 4 to storm it."
+	panel.refresh(model, pick)
 	assert_true(panel._pick.visible, "the line stands")
 	assert_eq(panel._pick.text, "The court would march on Province 4 to storm it.")
 
-	panel.refresh(model, army, true)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
 	assert_false(panel._pick.visible, "no pick, no line")
 	panel.free()
 

@@ -43,6 +43,12 @@ static func line(play: PlaySession) -> String:
 ## price, line}`. Empty when the session runs no planner for the crown, the
 ## campaign is decided, the crown keeps no ledger, or the home region seats no
 ## capital to hire at.
+##
+## The plan is priced on the crown's standing purse with no reserve held back (a
+## pick the crown could not press today is no advice at all), but it is read on
+## the same footing the pass itself reads: the war posture and the court's own
+## conquest bank, so the rail cannot name a crew the published hire order would
+## refuse (wiki: civilian-units § Training; DR-20261121-06, issue #995).
 static func pick(play: PlaySession) -> Dictionary:
 	if play == null or play.world == null or play.civilian_layer == null:
 		return {}
@@ -63,7 +69,8 @@ static func pick(play: PlaySession) -> Dictionary:
 	var home: int = FactionCatalog.region_of(faction)
 	for entry: Dictionary in MapPlayCivilianAi.plan_all(
 		play, faction, economy, config,
-		MapPlayEconomyAi._overseas(play, faction, economy), economy.stockpile, 0, -1
+		MapPlayEconomyAi._overseas(play, faction, economy), economy.stockpile, 0, -1,
+		banks(play, faction, economy, config, kind)
 	):
 		if int(entry.get("region", -1)) != home:
 			continue
@@ -78,6 +85,32 @@ static func pick(play: PlaySession) -> Dictionary:
 			plan.get("training", {}), String(plan.get("next_crew", "")), economy
 		)
 	return {}
+
+
+## Whether the court is banking for its army this turn: the win-bar pressure,
+## the host, the hull's chest and the purses, read through the same income plan
+## `MapPlayEconomyCourt` stages the pass with, so the rail and the hire order
+## answer the bank gate the same way (issue #995; wiki: civilian-units
+## § Training). A baseline court keeps its published doctrine and never banks.
+static func banks(
+	play: PlaySession, faction: int, economy: PlayerEconomy, config: Variant,
+	kind: String
+) -> bool:
+	if play == null or play.world == null or play.ai == null or economy == null:
+		return false
+	if kind == AiControl.KIND_BASELINE:
+		return false
+	var pressure: Dictionary = AiVictoryPressure.read(
+		play.world, faction, play.human_faction_id(), play.difficulty, config
+	)
+	var income: Dictionary = AiBindEconomy.income_plan(
+		kind, config, economy, MapPlayCourt.at_war(play, faction),
+		MapPlayCourt.regiments(play, faction), MapPlayCourt.navy_chest(play, faction),
+		MapPlayCourt.warships(play, faction),
+		AiDeferral.stall_for(play.ai.deferrals, faction, "muster.line"),
+		int(pressure.get("need", 0)) > 0
+	)
+	return AiIncome.banking(config, play.ai, income)
 
 
 ## The pick, worded off data alone: the pass's own `training` row, the queue's

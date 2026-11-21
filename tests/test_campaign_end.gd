@@ -1268,7 +1268,10 @@ func test_the_research_goal_survives_a_save() -> void:
 
 ## The difficulty layer is fixed at creation, so a load must not re-roll it and
 ## must bring the rival ledgers back at the level they were founded on
-## (wiki: ruleset-config § Layers).
+## (wiki: ruleset-config § Layers). A rival ledger is founded once, on the first
+## read: raising the layer later re-stamps the planner but never re-founds a
+## ledger that already stands, so this campaign (created on Normal) keeps the
+## published row and a fresh run founded at Hard opens with more.
 func test_the_difficulty_layer_survives_a_load() -> void:
 	var play: PlaySession = screen.play
 	play.difficulty = "hard"
@@ -1278,7 +1281,17 @@ func test_the_difficulty_layer_survives_a_load() -> void:
 	ai.economies.clear()
 	var rival: PlayerEconomy = ai.economy_for(1)
 	var purse: int = rival.treasury
-	assert_gt(purse, PlayerEconomy.START_TREASURY, "a hard rival opens with more")
+	assert_eq(play.ai.difficulty, "hard", "the planner takes the new layer")
+	assert_eq(
+		purse, PlayerEconomy.START_TREASURY,
+		"a ledger already founded keeps the level it was founded on"
+	)
+	var fresh := PlaySession.new()
+	fresh.difficulty = "hard"
+	assert_gt(
+		fresh.ensure_ai().economy_for(1).treasury, PlayerEconomy.START_TREASURY,
+		"a run founded at hard opens its rivals with more"
+	)
 
 	var data: Dictionary = SaveCodec.capture(play)
 	assert_eq(String((data["session"] as Dictionary).get("difficulty", "")), "hard")
