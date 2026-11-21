@@ -3513,6 +3513,19 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The realm's own court reading (DR-20261121-21): the crown's own provinces the
+# civilian and land passes would act in this turn, read once for the whole sheet
+# and marked on its rows. Its own slice proves the wording, the marks and the
+# sheet that prints them, instead of the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_realm_counsel*.gd*"
+domain = "realm_counsel"
+
+[domains.realm_counsel]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
