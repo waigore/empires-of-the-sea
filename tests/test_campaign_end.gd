@@ -1276,12 +1276,20 @@ func test_the_research_goal_survives_a_save() -> void:
 ## published row and a fresh run founded at Hard opens with more.
 func test_the_difficulty_layer_survives_a_load() -> void:
 	var play: PlaySession = screen.play
-	play.difficulty = "hard"
+	# The ledger is founded once, on the level this campaign was created on, so
+	# the first read is the founding: it opens the rival on the published row.
 	var rival: PlayerEconomy = play.ensure_ai().economy_for(1)
 	var purse: int = rival.treasury
-	assert_eq(play.ai.difficulty, "hard", "the planner takes the new layer")
 	assert_eq(
 		purse, PlayerEconomy.START_TREASURY,
+		"a campaign founded on the published rules opens its rivals on the row"
+	)
+	# Raising the layer later re-stamps the planner but neither re-founds the
+	# ledger nor re-scales the stores it was founded with.
+	play.difficulty = "hard"
+	assert_eq(play.ensure_ai().difficulty, "hard", "the planner takes the new layer")
+	assert_eq(
+		play.ai.economy_for(1).treasury, purse,
 		"a ledger already founded keeps the level it was founded on"
 	)
 	var fresh := PlaySession.new()
@@ -1289,6 +1297,12 @@ func test_the_difficulty_layer_survives_a_load() -> void:
 	assert_gt(
 		fresh.ensure_ai().economy_for(1).treasury, PlayerEconomy.START_TREASURY,
 		"a run founded at hard opens its rivals with more"
+	)
+	var eased := PlaySession.new()
+	eased.difficulty = "introductory"
+	assert_lt(
+		eased.ensure_ai().economy_for(1).treasury, PlayerEconomy.START_TREASURY,
+		"a run founded at introductory opens its rivals with less"
 	)
 
 	var data: Dictionary = SaveCodec.capture(play)
