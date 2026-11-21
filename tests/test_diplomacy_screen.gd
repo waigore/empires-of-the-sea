@@ -7,8 +7,10 @@ const CourtFixture = preload("res://tests/civilian_fixture.gd")
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
 ## and a re-seat from the pristine save ~0.15 s, so court cases share the chart
 ## and reset the session instead of remounting (`Fixture.suite_reset`). Folded
-## tribe-contact pocket cases never touch `_screen`, so they skip the re-seat
-## (docs/testing.md § Speed rules).
+## tribe-contact pocket cases never touch `_screen`, so they skip the re-seat.
+## Consent answers that only need the ladder resume with `AiControl.NOOP` so the
+## finish skips rival planner walks; the peace-battle case still pays a full
+## resumed turn (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
@@ -158,17 +160,12 @@ func test_grant_aid_spends_treasury_and_refreshes_the_chip() -> void:
 
 func test_end_turn_runs_relation_decay_and_keeps_turn_in_sync() -> void:
 	_screen.play.diplomacy.relation(0, 1).score = 40.0
-	# Keep rival declarations off this pair so the decay itself is under test;
-	# rival proposals still wait for the court and are refused here.
-	_screen.play.ai = AiState.new()
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction != 0:
-			_screen.play.ai.note_war(faction, 0, _screen.play.turn)
-	MapPlayTurn.end_turn(_screen.play)
-	while DiplomacyProposals.has_pending(_screen.play.diplomacy, 0):
-		MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_REFUSE, 0, "")
+	# Diplomacy phase alone; skip the full end_turn rival walk under coverage
+	# (docs/testing.md § Speed rules).
+	var before: int = _screen.play.diplomacy.turn
+	MapPlayDiplomacy.close_turn(_screen.play)
 	assert_eq(_screen.play.diplomacy.relation(0, 1).score, 44.0)
-	assert_eq(_screen.play.diplomacy.turn, _screen.play.turn)
+	assert_eq(_screen.play.diplomacy.turn, before + 1, "the phase advances with the close")
 
 
 func test_first_contact_requires_tile_visibility_in_a_tribe_province() -> void:
@@ -295,7 +292,9 @@ func test_call_to_arms_suspends_the_turn_until_answered() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
-	MapPlayTurn.answer_call(_screen.play, true)
+	# Answer with rivals inert so the resumed finish skips planner walks under
+	# coverage; the peace-battle case still pays the full resumed turn.
+	_answer_with_inert_rivals(func() -> void: MapPlayTurn.answer_call(_screen.play, true))
 	assert_true(state.relation(0, 3).at_war, "joining means war on the aggressor")
 	assert_eq(_screen.play.turn, turn_before + 1)
 	assert_false(CallToArms.has_pending(state, 0))
@@ -312,7 +311,9 @@ func test_intervention_suspends_the_turn_until_answered() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
-	MapPlayTurn.answer_intervention(_screen.play, Intervention.KIND_PROTEST)
+	_answer_with_inert_rivals(
+		func() -> void: MapPlayTurn.answer_intervention(_screen.play, Intervention.KIND_PROTEST)
+	)
 	assert_false(state.relation(0, 3).at_war)
 	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_EMBASSY)
 	assert_eq(_screen.play.turn, turn_before + 1)
@@ -504,7 +505,10 @@ func test_court_intent_router_sends_orders_and_call_answers() -> void:
 	pact.score = 80.0
 	CallToArms.freeze_alliances(state)
 	DiplomacyRules.declare_war(state, 5, 4)
-	MapCourtOrders.apply(_screen.play, CallToArms.KIND_JOIN, 5, "")
+	# JOIN resumes the turn; rivals stay inert under coverage.
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(_screen.play, CallToArms.KIND_JOIN, 5, "")
+	)
 	assert_true(state.relation(0, 5).at_war, "a call answer reaches the turn resolver")
 
 
@@ -526,7 +530,9 @@ func test_a_rival_proposal_suspends_the_turn_until_the_court_answers() -> void:
 	assert_true(
 		_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks"
 	)
-	MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	)
 	assert_true(state.relation(0, 2).formal_alliance, "the answer signs the treaty")
 	assert_false(_screen.play.turn_suspended)
 	assert_eq(_screen.play.turn, turn_before + 1)
@@ -544,7 +550,9 @@ func test_refusing_a_rival_proposal_starts_the_improve_relations_cooldown() -> v
 	)
 	var turn_before: int = play.turn
 	MapPlayTurn.end_turn(play)
-	MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 2, "")
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 2, "")
+	)
 	assert_eq(state.overture(0, 2), DiplomacyCatalog.STAGE_EMBASSY, "nothing is signed")
 	assert_true(play.ai.overture_on_cooldown(2, 0, turn_before, 2))
 
@@ -560,7 +568,9 @@ func test_a_rival_peace_offer_suspends_the_turn_and_the_answer_ends_the_war() ->
 	assert_true(play.turn_suspended, "the calendar waits for the answer")
 	assert_eq(play.turn, turn_before)
 	assert_true(state.relation(0, 2).at_war, "the war holds until the answer")
-	MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	)
 	assert_false(state.relation(0, 2).at_war, "the answer concludes the peace")
 	assert_false(play.turn_suspended)
 	assert_eq(play.turn, turn_before + 1)
@@ -926,7 +936,8 @@ func test_a_turn_close_opens_contact_from_the_rivals_own_chart() -> void:
 	assert_false(_screen.play.diplomacy.has_relation(rival, province.owner))
 	var charts: CourtCharts = _screen.play.court_charts
 	charts.reveal_province(rival, NEW_WORLD, province.id)
-	_close_turn(_screen.play)
+	# Tribe contact alone; skip the full end_turn rival walk under coverage.
+	MapPlayTribeContact.resolve(_screen.play)
 	assert_true(
 		_screen.play.diplomacy.has_relation(rival, province.owner),
 		"the rival charted the province before the turn closed"
@@ -945,22 +956,14 @@ func _tribe_contact_province(world: WorldMap) -> ProvinceState:
 	return null
 
 
-## Ends the turn past every consent decision the rivals raise on the way.
-func _close_turn(play: PlaySession) -> void:
-	var before: int = play.turn
-	MapPlayTurn.end_turn(play)
-	var guard: int = 0
-	while play.turn == before and guard < 12:
-		guard += 1
-		if CallToArms.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_call(play, false)
-		elif Intervention.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_intervention(play, Intervention.KIND_NOTHING)
-		elif DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_offer(play, false)
-		else:
-			break
-	assert_gt(play.turn, before, "the turn closed")
+## Resumed consent answers under coverage: rivals stand down so the finish
+## skips planner walks. The peace-battle case still pays a full resumed turn.
+func _answer_with_inert_rivals(action: Callable) -> void:
+	var play: PlaySession = _screen.play
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	action.call()
+	play.ai_mode = mode
 
 
 func _events(kind: String) -> int:
