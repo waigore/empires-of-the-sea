@@ -1979,7 +1979,7 @@ func test_the_college_pick_names_the_rankings_head() -> void:
 	assert_eq(String(pick.get("tech", "")), head, "the ranking's head")
 	assert_eq(String(pick.get("why", "")), "", "a scoring win carries no door reason")
 	assert_eq(
-		MapPlayResearchPickWords.sentence(String(pick.get("line", ""))),
+		MapPlayPickProse.sentence(String(pick.get("line", ""))),
 		"The court would open %s." % TechCatalog.display_name(head)
 	)
 	assert_eq(_economy.research.free_slot(), 0, "the reading assigns nothing")

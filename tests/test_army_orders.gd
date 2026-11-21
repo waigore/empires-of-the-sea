@@ -1821,9 +1821,9 @@ func test_the_courts_pick_hands_each_army_its_own_order() -> void:
 ## that names no place (REQ-P5-06).
 func test_the_pick_words_name_a_place_or_say_nothing() -> void:
 	var model: MapModel = ArmyFixture.build()
-	assert_eq(MapPlayArmyPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(
-		MapPlayArmyPickWords.sentence("the court would advance"),
+		MapPlayPickProse.sentence("the court would advance"),
 		"The court would advance.",
 		"one capital and a full stop"
 	)
@@ -2045,9 +2045,9 @@ func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
 ## Every wording the drill yard can print, and nothing for a case that names no
 ## gate (REQ-P5-06).
 func test_the_muster_words_name_a_line_or_say_nothing() -> void:
-	assert_eq(MapPlayMusterPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(
-		MapPlayMusterPickWords.sentence("the court would muster Guards"),
+		MapPlayPickProse.sentence("the court would muster Guards"),
 		"The court would muster Guards.",
 		"one capital and a full stop"
 	)

@@ -261,7 +261,7 @@ func _production_pick() -> Dictionary:
 	return {
 		"kind": pick.get("kind", ""),
 		"runs": pick.get("runs", {}),
-		"line": MapPlayProductionPick.sentence(String(pick.get("line", ""))),
+		"line": MapPlayPickProse.sentence(String(pick.get("line", ""))),
 	}
 
 
@@ -277,7 +277,7 @@ func _market_pick() -> Dictionary:
 		"kind": picked.get("kind", ""),
 		"offers": picked.get("offers", {}),
 		"bids": picked.get("bids", {}),
-		"line": MapPlayMarketPick.sentence(String(picked.get("line", ""))),
+		"line": MapPlayPickProse.sentence(String(picked.get("line", ""))),
 	}
 
 
