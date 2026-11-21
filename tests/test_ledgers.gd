@@ -929,6 +929,29 @@ func test_the_eyes_print_the_spies_the_crowns_pass_would_book() -> void:
 	panel.refresh()
 	assert_eq(panel.counsel_text(), "", "a crown with no spy names nothing")
 
+## A spy aboard a squadron is off the map: the eyes sheet already prints its
+## `aboard` row, and the court's line names no watch it cannot keep (wiki:
+## civilian-units § Overseas deployment; DR-20261121-11).
+func test_the_eyes_name_no_spy_aboard_a_squadron() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_clear_spies(play)
+	var home: ProvinceState = play.model.provinces[0]
+	var passenger := CivilianState.create(94, play.player_faction, "spy", home.tiles[0])
+	passenger.embark_on(5)
+	var roster: Array[CivilianState] = [passenger]
+	play.civilian_layer.units = roster
+	play.civilian_layer.regions.set_region(play.region_index, roster)
+	panel.open()
+	assert_true(MapPlaySpyPick.pick(play, panel._snapshot).is_empty(), "a spy at sea is no pick")
+	assert_eq(panel.counsel_text(), "", "and the sheet prints no line")
+	assert_false(panel._counsel.visible, "the gold line stands down")
+	# The sheet still lists the spy, under its own `aboard` duty.
+	assert_eq(SpyLedger.duty_of(play.model, passenger), SpyLedger.DUTY_ABOARD)
+	_clear_spies(play)
+	panel.refresh()
+
 
 ## The sheet prints the reading it is handed and hides it when the reading is
 ## empty, so a session with no planner carries no gold line (REQ-P5-06).
@@ -1076,6 +1099,48 @@ func test_the_people_print_the_work_the_crowns_pass_would_book() -> void:
 
 ## The roster prints the reading it is handed and hides it when the reading is
 ## empty, so a sheet with no planner carries no gold line (REQ-P5-06).
+## The people's row reads a crew aboard a squadron as ABOARD: it is off the map,
+## has no tile and takes no order (wiki: civilian-units § Overseas deployment).
+func test_the_people_row_reads_a_crew_aboard_a_squadron() -> void:
+	var row := CivilianRosterRow.new()
+	row.compact = false
+	add_child(row)
+	row.setup({
+		"unit_id": 9,
+		"region": FactionCatalog.OLD_WORLD,
+		"role": "Builder",
+		"province_name": "Open country",
+		"region_label": "Old World",
+		"tile": CivilianState.NO_TILE,
+		"working": false,
+		"aboard": true,
+		"status": "aboard",
+		"status_text": "Aboard a squadron — no orders at sea",
+		"short_status": "Aboard",
+	})
+	assert_eq(row._chip.text, "ABOARD", "the chip names the duty")
+	assert_true(
+		row._detail.text.contains("Aboard a squadron"), row._detail.text
+	)
+	assert_false(row._detail.text.contains("-1"), row._detail.text)
+	assert_eq(row._status.text, "Aboard a squadron — no orders at sea")
+	row.compact = true
+	row.setup({
+		"unit_id": 9,
+		"region": FactionCatalog.OLD_WORLD,
+		"role": "Builder",
+		"region_label": "Old World",
+		"tile": CivilianState.NO_TILE,
+		"working": false,
+		"aboard": true,
+		"status": "aboard",
+		"status_text": "Aboard a squadron — no orders at sea",
+		"short_status": "Aboard",
+	})
+	assert_true(row._detail.text.contains("Aboard"), row._detail.text)
+	row.queue_free()
+
+
 func test_the_people_print_and_hide_the_counsel_they_are_handed() -> void:
 	_attach()
 	var panel: CivilianRosterPanel = screen.hud.civilian_roster

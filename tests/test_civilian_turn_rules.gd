@@ -3939,6 +3939,58 @@ func test_withdraw_without_a_map_touches_nothing() -> void:
 	assert_eq(builder.tile, Vector2i(2, 1))
 
 
+# --- a crew aboard a squadron is off the map ---------------------------------
+
+
+## Boarding "takes it off the map" (wiki: civilian-units § Overseas deployment),
+## so no work order may be filed for a passenger — not from its own sheet, and
+## not from a surface that names the ground — and no ledger counts it as a hand.
+func test_a_crew_aboard_a_squadron_takes_no_work_order() -> void:
+	var model: MapModel = field_Fixture.build()
+	var works := LandWorks.new()
+	var passenger: CivilianState = field_Fixture.unit(
+		"builder", field_Fixture.BARE_TILE
+	)
+	passenger.embark_on(7)
+	var units: Array[CivilianState] = [passenger]
+	var stock: Dictionary = field_Fixture.stockpile()
+	var own: Dictionary = CivilianWork.validate(
+		model, passenger, "build_improvement", works, units, stock, null,
+		CivilianState.NO_TILE, {}, {}
+	)
+	assert_false(bool(own.get("ok", true)), "a passenger takes no order of its own")
+	var named: Dictionary = CivilianWork.validate(
+		model, passenger, "build_improvement", works, units, stock, null,
+		field_Fixture.TIMBER_TILE, {}, {}
+	)
+	assert_false(bool(named.get("ok", true)), "a named estate is no answer")
+	assert_true(
+		String(named.get("reason", "")).contains("aboard"),
+		String(named.get("reason", "")),
+	)
+	assert_true(
+		CivilianWork.idle_crews(units, 0, "builder").is_empty(),
+		"no ledger counts a passenger as a hand",
+	)
+	# The estates ledger's own door dispatches the Builder ashore, never the
+	# passenger — the two-crew case is the one a player meets.
+	var ashore: CivilianState = CivilianState.create(
+		2, 0, "builder", field_Fixture.TIMBER_TILE
+	)
+	units.append(ashore)
+	assert_eq(
+		CivilianWork.nearest_crew(units, 0, field_Fixture.TIMBER_TILE, "builder"),
+		ashore,
+	)
+	var result: Dictionary = ImprovementOrders.build(
+		model, units, works, stock, null, 0, field_Fixture.TIMBER_TILE, {}, {}
+	)
+	assert_true(bool(result.get("ok", false)), String(result.get("message", "")))
+	assert_true(ashore.is_working(), "the hand ashore takes the estate")
+	assert_false(passenger.is_working(), "the passenger stays aboard")
+	assert_eq(passenger.tile, CivilianState.NO_TILE, "and keeps no map tile")
+
+
 func test_an_embarked_crew_is_never_evicted() -> void:
 	var builder := field_Fixture.unit("builder", Vector2i(2, 1), 1)
 	builder.embark_on(7)
@@ -4205,6 +4257,49 @@ func test_roster_walk_words_name_the_crews_that_wait() -> void:
 		CivilianRoster.idle_note({"rows": [], "idle": 1, "working": 0}),
 		"1 crew waits for orders",
 	)
+
+
+## A crew aboard a squadron is off the map: the roster reads it aboard, never
+## idle, and the idle walk never sends the crown to it (wiki: civilian-units
+## § Overseas deployment; REQ-P2-03).
+func test_roster_reads_a_crew_aboard_a_squadron_as_aboard() -> void:
+	var regions: MapRegionTable = _roster_regions()
+	var old_units: Array[CivilianState] = []
+	old_units.assign(regions.value(FactionCatalog.OLD_WORLD, []))
+	var passenger: CivilianState = _roster_unit(9, 0, "engineer", Vector2i(0, 1))
+	passenger.embark_on(4)
+	old_units.append(passenger)
+	regions.set_region(FactionCatalog.OLD_WORLD, old_units)
+
+	var snapshot: Dictionary = CivilianRoster.snapshot(_roster_world(), regions, 0)
+	var row: Dictionary = _roster_row(snapshot, 9)
+	assert_eq(String(row["status"]), "aboard", "the row names the duty")
+	assert_true(bool(row["aboard"]))
+	assert_eq(String(row["status_text"]), "Aboard a squadron — no orders at sea")
+	assert_eq(String(row["short_status"]), "Aboard")
+	assert_false(
+		CivilianRoster.status_matches(row, CivilianRoster.STATUS_IDLE),
+		"a passenger waits for no order",
+	)
+	assert_eq(int(snapshot["idle"]), 4, "the idle tally counts only crews ashore")
+	assert_eq(int(snapshot["working"]), 1)
+	var counts: Dictionary = CivilianRoster.status_counts(snapshot, LedgerRows.REGION_OLD)
+	assert_eq(int(counts[CivilianRoster.STATUS_ALL]), 4, "the gate still lists it")
+	assert_eq(int(counts[CivilianRoster.STATUS_IDLE]), 3, "but never as a waiting crew")
+	for waiting: Dictionary in CivilianRoster.idle_rows(snapshot):
+		assert_ne(int(waiting["unit_id"]), 9, "the walk never sends you to a passenger")
+	var snapshot_again: Dictionary = CivilianRoster.snapshot(
+		_roster_world(), _roster_regions(), 0
+	)
+	assert_eq(int(snapshot_again["idle"]), 4, "no passenger, no change")
+
+
+func _roster_row(snapshot: Dictionary, unit_id: int) -> Dictionary:
+	for raw: Variant in snapshot["rows"]:
+		var row: Dictionary = raw
+		if int(row["unit_id"]) == unit_id:
+			return row
+	return {}
 
 
 func _roster_regions() -> MapRegionTable:

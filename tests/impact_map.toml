@@ -332,6 +332,7 @@ suites = [
 [domains.people_pick]
 suites = [
   "test_ledgers.gd",
+  "test_civilian_turn_rules.gd",
 ]
 
 # The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet
@@ -1122,6 +1123,17 @@ domain = "eyes"
 # three-boot sheet set past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_people_pick.gd*"
+domain = "people_pick"
+
+# The roster's projection and its row: what the people sheet prints is proved
+# by the civilian suite (the projection) and the ledgers boot (the sheet and the
+# row), so both ride the same two-suite slice.
+[[rules]]
+match = "scripts/rules/civilian_roster.gd*"
+domain = "people_pick"
+
+[[rules]]
+match = "scripts/ui/civilian_roster_row.gd*"
 domain = "people_pick"
 
 [[rules]]

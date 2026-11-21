@@ -74,6 +74,11 @@ static func _spies(play: PlaySession, faction: int) -> Array[Dictionary]:
 			var unit: CivilianState = raw as CivilianState
 			if unit == null or unit.owner != faction or not SpyRules.is_spy(unit):
 				continue
+			# A spy aboard a squadron is off the map: the pass gives it no duty,
+			# so the line names it nowhere (wiki: civilian-units § Overseas
+			# deployment; the eyes sheet prints its `aboard` row).
+			if unit.is_embarked():
+				continue
 			var pick: Dictionary = picks.get(unit.id, {})
 			if not pick.is_empty() and int(pick.get("region", -1)) != region:
 				pick = {}
