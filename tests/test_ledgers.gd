@@ -3323,6 +3323,125 @@ func test_the_estates_press_files_nothing_without_a_session() -> void:
 	assert_true(true, "a null session is a no-op")
 
 
+## The estates ledger's own raise reading (DR-20261121-10): the estates the
+## published Builder pass would raise, worded in the order the sheet prints its
+## rows and capped so a rich plan stays one line of chrome (REQ-P5-06, REQ-P5-07).
+func test_the_estates_pick_words_the_raise_in_the_ledgers_row_order() -> void:
+	var snapshot: Dictionary = {
+		"counts": {"idle_builders": 2},
+		"groups": [
+			{
+				"id": 0,
+				"name": "Cádiz",
+				"rows": [{"tile": Vector2i(1, 1)}, {"tile": Vector2i(2, 1)}],
+			},
+			{"id": 1, "name": "Sevilla", "rows": [{"tile": Vector2i(3, 1)}]},
+		],
+	}
+	var estates: Array[Dictionary] = [
+		{"tile": Vector2i(3, 1), "name": "mine", "place": "Sevilla"},
+		{"tile": Vector2i(1, 1), "name": "lumber camp", "place": "Cádiz"},
+	]
+	var pick: Dictionary = MapPlayEstatesPick.of(estates, snapshot)
+	assert_eq(String(pick["kind"]), MapPlayEstatesPick.KIND_RAISE)
+	assert_eq(
+		String(pick["line"]),
+		"the court would raise the lumber camp at Cádiz and the mine at Sevilla this phase"
+	)
+	assert_eq(
+		MapPlayEstatesPick.sentence(String(pick["line"])),
+		"The court would raise the lumber camp at Cádiz and the mine at Sevilla this phase."
+	)
+	# Beyond three the line counts the rows it cannot name.
+	var many: Array[Dictionary] = []
+	for index in 5:
+		many.append({"tile": Vector2i(index, 1), "name": "farm", "place": "P%d" % index})
+	assert_eq(
+		String(MapPlayEstatesPick.of(many, {})["line"]),
+		"the court would raise the farm at P0, the farm at P1, the farm at P2 and 2 more this phase"
+	)
+
+
+## No estate is raised: the ledger's own count names the gate when no Builder
+## stands idle, and a snapshot that has not read the roster names nothing
+## (REQ-P5-06).
+func test_the_estates_pick_names_the_gate_when_no_builder_stands_idle() -> void:
+	var none: Array[Dictionary] = []
+	var idle: Dictionary = MapPlayEstatesPick.of(none, {"counts": {"idle_builders": 0}})
+	assert_eq(String(idle["kind"]), MapPlayEstatesPick.KIND_NO_BUILDER)
+	assert_eq(String(idle["line"]), MapPlayEstatesPick.NO_BUILDER_LINE)
+	assert_true(
+		MapPlayEstatesPick.of(none, {"counts": {"idle_builders": 2}}).is_empty(),
+		"a Builder stands idle, so the pass books it elsewhere and the page names nothing"
+	)
+	assert_true(
+		MapPlayEstatesPick.of(none, {}).is_empty(),
+		"a snapshot with no count names no gate"
+	)
+
+
+## The reading is the pass's own: an idle Builder of the crown on a level-0
+## estate is named with the estate the published planner would raise, the card
+## prints it, and the plan is not applied (REQ-P2-03, REQ-P5-06; DR-20261121-10).
+func test_the_estates_pick_names_the_estate_the_crowns_builder_would_raise() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ImprovementPanel = screen.improvements
+	_cancel_works()
+	var stock: Dictionary = play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	panel.open()
+	var ready: Array[Vector2i] = panel._ready_tiles()
+	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
+	var tile: Vector2i = ready[0]
+	play.civilian_layer.units.append(
+		CivilianState.create(900, play.player_faction, "builder", tile)
+	)
+	panel.refresh()
+	var pick: Dictionary = MapPlayEstatesPick.pick(play, panel._data)
+	assert_eq(
+		String(pick["kind"]), MapPlayEstatesPick.KIND_RAISE, "the Builder is given an estate"
+	)
+	var tiles: Array[Vector2i] = []
+	for raw: Variant in pick["estates"]:
+		var estate: Dictionary = raw
+		tiles.append(Vector2i(estate["tile"]))
+		assert_false(String(estate["name"]).is_empty(), "every estate names its work")
+		assert_false(String(estate["place"]).is_empty(), "and the province it stands in")
+	# One estate per estate pick the crew pass books, so the ledger cannot name a
+	# raise the pass would not book (REQ-P2-03).
+	var crew: Dictionary = MapPlayCivilianPick.picks(play, play.player_faction)
+	var expected: int = 0
+	for raw: Variant in crew.values():
+		if String((raw as Dictionary).get("action", "")) == MapPlayEstatesPick.ACTION_ESTATE:
+			expected += 1
+	assert_eq(tiles.size(), expected, "one estate per estate pick")
+	assert_true(
+		panel.counsel_text().begins_with("The court would raise the "),
+		panel.counsel_text()
+	)
+	assert_true(panel._counsel.visible, "the card prints the reading")
+	assert_eq(_working_estate_builders(), 0, "a reading, not an order")
+
+
+## The card prints the reading it is handed and hides it when the reading is
+## empty, so a sheet with no planner carries no gold line (REQ-P5-06).
+func test_the_estates_card_prints_and_hides_the_counsel_it_is_handed() -> void:
+	_attach()
+	var panel: ImprovementPanel = screen.improvements
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String: return "The court would raise the farm at Cádiz."
+	)
+	panel.open()
+	assert_eq(panel.counsel_text(), "The court would raise the farm at Cádiz.")
+	assert_true(panel._counsel.visible, "the card prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired card prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+
+
 func _working_estate_builders() -> int:
 	var working: int = 0
 	for unit: CivilianState in screen.play.civilian_layer.units:

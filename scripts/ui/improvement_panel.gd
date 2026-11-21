@@ -28,10 +28,16 @@ var tech_caps: Dictionary = {}
 ## pays them (wiki: capital-and-connectivity § Blockade, REQ-P2-03). Unwired
 ## seals nothing — the rules fall back to the unsealed chart.
 var blockade_source: Callable = Callable()
+## The court's own raise reading, asked at every refresh: the estates the
+## published Builder pass would raise this phase, or the gate that leaves the
+## page with nothing to name (DR-20261121-10). Unwired prints nothing.
+var counsel_source: Callable = Callable()
 
 var _rows: VBoxContainer = null
 var _head: EstatesHead = null
 var _batch: RaiseBatchPress = null
+## The gold counsel line above the press: the estates the court would raise.
+var _counsel: Label = null
 ## What the press would spend, under it: the stores the ready estates take, or the
 ## rows the stores and the free Builders leave waiting (DR-20261118-12).
 var _line: Label = null
@@ -88,12 +94,35 @@ func refresh() -> void:
 	)
 	_head.render(_data, stockpile)
 	_subtitle.text = _subtitle_text()
+	_sync_counsel()
 	_apply_filter()
 
 
 func refresh_if_open() -> void:
 	if is_open():
 		refresh()
+
+
+## The court's own raise reading, asked at every refresh: the estates the
+## published Builder pass would raise this phase, or the gate that leaves the
+## page with nothing to name (DR-20261121-10). Unwired prints nothing.
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	# A closed card reads nothing: the pass is a planner walk, and a dossier
+	# order that repaints the sheet behind it must not pay for a line nobody
+	# sees (REQ-P4-02).
+	var text: String = ""
+	if is_open() and counsel_source.is_valid():
+		text = String(counsel_source.call(_data))
+	_counsel.text = text
+	_counsel.visible = not text.is_empty()
+
+
+## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
+## the card carries no reading.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 # --- shell hooks -------------------------------------------------------------
@@ -117,6 +146,12 @@ func _build_plate(host: VBoxContainer) -> void:
 	_head = EstatesHead.new()
 	_head.filter_selected.connect(_press_filter)
 	host.add_child(_head)
+
+	# The court's own raise reading, above the press it answers: the estates the
+	# published Builder pass would raise this phase (DR-20261121-10).
+	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
+	_counsel.visible = false
+	host.add_child(_counsel)
 
 	# The one press under the chips: it names how many estates the view would
 	# order and files them on the second tap (REQ-P5-04; DR-20261116-06).
