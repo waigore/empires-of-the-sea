@@ -63,10 +63,21 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	if is_player:
 		embark = _embark_note(play, army)
 		pick = MapPlayArmyPick.line(play, army)
-	play.hud.panels.show_army(
-		play.model, army, is_player, can_merge(play, army), command, muster, embark,
-		play.battle_plan, hospital, pick
-	)
+	var opening := ArmyDossierOpening.new()
+	opening.army = army
+	opening.is_player = is_player
+	opening.can_merge = can_merge(play, army)
+	opening.command = command
+	opening.muster = muster
+	opening.embark = embark
+	opening.plan = play.battle_plan
+	opening.hospital = hospital
+	opening.pick = pick
+	# The yard's own claim: the line this court's muster would raise, printed
+	# in the drill yard the crown musters from (DR-20261121-03). A rival
+	# answers to her own court, and the yard draws no rows for her anyway.
+	opening.muster_pick = MapPlayMusterPick.line(play, army) if is_player else ""
+	play.hud.panels.show_army(play.model, opening)
 
 
 ## The dossier's field-hospital order: `{caption, ok}` or empty when the crown

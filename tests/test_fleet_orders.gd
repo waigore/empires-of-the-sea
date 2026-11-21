@@ -1,6 +1,6 @@
 extends GdToolsTest
 ## Fleet orders end-to-end through the real map screen (wiki: ships-and-naval).
-## Kept separate from test_map_screen so each native suite stays inside the
+## Kept separate from test_a_map_screen so each native suite stays inside the
 ## coverage runner's per-suite timeout.
 
 const Fixture = preload("res://tests/map_fixture.gd")
@@ -1794,7 +1794,7 @@ func test_breaking_up_a_hull_asks_once() -> void:
 
 	panel._on_scrap_pressed(hull_id)
 
-	assert_eq(panel._yard._armed_hull, hull_id, "the first tap only arms")
+	assert_eq(panel._yard._arm.key(), hull_id, "the first tap only arms")
 	assert_true(fleet.hulls.has(hull_id))
 
 	panel._on_scrap_pressed(hull_id)
@@ -3806,3 +3806,262 @@ func test_the_picks_words_name_each_sail_and_its_reason() -> void:
 		MapPlayFleetPickWords.line(model, {"kind": "home", "dock": false, "zone": -1}), "",
 		"nor a homeward leg in no water"
 	)
+
+
+# --- the court's own yard claim (DR-20261121-02) -----------------------------
+
+
+## A pure session on the two-coast chart with the crown's own ledger: at war or
+## at peace, a purse, the studies it knows and the hulls each side flies. No
+## screen is mounted, so the yard-claim cases never pay a re-seat.
+func _yard_play(
+	at_war: bool,
+	treasury: int,
+	techs: Dictionary,
+	own_types: Array,
+	foe_types: Array = []
+) -> PlaySession:
+	var play: PlaySession = _pick_play(at_war)
+	var controller := EconomyController.new()
+	controller.economy = PlayerEconomy.starting()
+	controller.economy.treasury = treasury
+	controller.economy.tech_unlocked = techs.duplicate()
+	play.economy = controller
+	var roster: Array[FleetState] = []
+	if not own_types.is_empty():
+		var hulls: Array[String] = []
+		var types: Dictionary = {}
+		for index in own_types.size():
+			hulls.append("own_%d" % index)
+			types["own_%d" % index] = String(own_types[index])
+		roster.append(FleetState.in_port(0, 0, 0, hulls, types))
+	if not foe_types.is_empty():
+		var foe_hulls: Array[String] = []
+		var foe: Dictionary = {}
+		for index in foe_types.size():
+			foe_hulls.append("foe_%d" % index)
+			foe["foe_%d" % index] = String(foe_types[index])
+		roster.append(FleetState.in_port(1, 1, 0, foe_hulls, foe))
+	play.ship_layer.fleets.assign(roster)
+	play.ship_layer.regions.set_region(_model.region_id, play.ship_layer.fleets)
+	return play
+
+
+## The yard's own claim names the hull it would lay, priced exactly as her slip
+## row prices her — and lays nothing: the purse, the hulls and the queue stand.
+func test_the_yard_pick_lays_the_hull_the_slip_can_pay() -> void:
+	var play: PlaySession = _yard_play(true, 20000, {}, ["sloop"], ["sloop", "sloop"])
+
+	var pick: Dictionary = MapPlayYardPick.pick(play)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayYardPick.KIND_LAY)
+	assert_eq(String(pick.get("type", "")), "sloop", "the hull her own yard would lay")
+	assert_eq(String(pick.get("line", "")), MapPlayYardPickWords.lay_line("sloop"))
+	assert_eq(
+		MapPlayYardPick.line(play),
+		"The court would lay a Sloop — 5,500 ducats · 1 Lumber · 1 Fabric · 1 worker.",
+		"one sentence, the slip row's own price line"
+	)
+	assert_eq(play.economy.economy.treasury, 20000, "a reading: not a ducat spent")
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## The yard refuses and a study is why: the claim names the hull it is saving for
+## and the door the college would open for her, so both sheets read one chain.
+func test_the_yard_pick_names_the_study_that_opens_the_hull_it_saves_for() -> void:
+	var play: PlaySession = _yard_play(true, 20000, {}, [], [])
+	var study: String = AiNavy.unlock_tech(play.economy.economy, [] as Array[String])
+	assert_false(study.is_empty(), "a warship's door is a study")
+
+	var pick: Dictionary = MapPlayYardPick.pick(play)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayYardPick.KIND_STUDY)
+	assert_eq(String(pick.get("type", "")), "sloop", "the cheapest hull the chest saves toward")
+	assert_eq(String(pick.get("study", "")), study)
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court is saving for a Sloop — the study %s opens her"
+			% TechCatalog.display_name(study)
+	)
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## A hull the studies open but the purse cannot pay: the line names the shortfall
+## as a figure, so a saving crown reads what it is saving and what it holds.
+func test_the_yard_pick_names_the_purse_it_is_filling() -> void:
+	var play: PlaySession = _yard_play(true, 100, {"navigation": true}, [])
+
+	var pick: Dictionary = MapPlayYardPick.pick(play)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayYardPick.KIND_SAVING)
+	assert_eq(String(pick.get("type", "")), "sloop")
+	assert_eq(int(pick.get("price", 0)), ShipEconomy.treasury_cost("sloop"))
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court is saving for a Sloop — the purse holds 100 ducats of 5,500 ducats"
+	)
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## A hull the studies open and the purse can pay, held back by the stores: the
+## line names the yard's own refusal, never a purse that is already full
+## (wiki: ships-and-naval § Ship build economy; DR-20261121-02).
+func test_the_yard_pick_names_the_stores_that_hold_the_hull_back() -> void:
+	var play: PlaySession = _yard_play(true, 20000, {"navigation": true}, [])
+	play.economy.economy.stockpile["lumber"] = 0
+	play.economy.economy.stockpile["fabric"] = 0
+
+	var pick: Dictionary = MapPlayYardPick.pick(play)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayYardPick.KIND_STORES)
+	assert_eq(String(pick.get("type", "")), "sloop")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would lay a Sloop — the yard cannot: Insufficient materials"
+	)
+	assert_eq(
+		MapPlayYardPick.line(play),
+		"The court would lay a Sloop — the yard cannot: Insufficient materials.",
+		"the yard's own gate, not a purse that is not short"
+	)
+	assert_false(
+		MapPlayYardPick.line(play).contains("purse"),
+		"a funded court is never told it is saving"
+	)
+	assert_eq(
+		MapPlayYardPickWords.gate_line("sloop", ""), "",
+		"no gate worded, no line"
+	)
+	assert_eq(play.economy.economy.treasury, 20000, "a reading: not a ducat spent")
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## A hull the studies open and the stores cover, held back by the pool: the line
+## names the missing hand, which is the gate the yard itself refuses on.
+func test_the_yard_pick_names_the_free_hand_that_holds_the_hull_back() -> void:
+	var play: PlaySession = _yard_play(true, 20000, {"navigation": true}, [], ["sloop"])
+	play.economy.economy.workers = WorkerPool.make(0)
+
+	var pick: Dictionary = MapPlayYardPick.pick(play)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayYardPick.KIND_STORES)
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would lay a Sloop — the yard cannot: Insufficient workers"
+	)
+	assert_eq(play.economy.economy.treasury, 20000, "a reading: not a ducat spent")
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## The claim speaks only while the court means to lay a hull: a navy that already
+## matches its enemies, a session that runs no planner, a decided campaign and a
+## session with no ledger carry none.
+func test_the_yard_pick_names_no_hull_a_court_does_not_mean_to_lay() -> void:
+	var settled: PlaySession = _yard_play(false, 20000, {"navigation": true}, ["sloop"])
+	assert_true(MapPlayYardPick.pick(settled).is_empty(), "a matched navy at peace claims nothing")
+	settled.ship_layer.free()
+	settled.economy.free()
+	var play: PlaySession = _yard_play(true, 20000, {}, [], [])
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayYardPick.pick(play).is_empty(), "no planner, no claim")
+	play.ai_mode = AiControl.FULL
+	play.campaign_halted = true
+	assert_true(MapPlayYardPick.pick(play).is_empty(), "a decided campaign lays nothing")
+	play.campaign_halted = false
+	assert_false(MapPlayYardPick.pick(play).is_empty(), "the same court, undecided, claims one")
+	assert_true(MapPlayYardPick.pick(null).is_empty(), "no session, no claim")
+	var bare := PlaySession.new()
+	bare.player_faction = 0
+	assert_true(MapPlayYardPick.pick(bare).is_empty(), "no ledger, no claim")
+	play.ship_layer.free()
+	play.economy.free()
+
+
+## One ready row's worth of slip, enough for the drawer to open on: the case reads
+## the advice line, not the launch rule.
+func _slip_row() -> Dictionary:
+	return {
+		"type_id": "sloop",
+		"name": "Sloop",
+		"ok": true,
+		"reason": "",
+		"cost_text": ShipEconomy.cost_text("sloop"),
+		"line": FleetYard.hull_line("sloop"),
+		"batch_ready": false,
+	}
+
+
+## The drawer prints the claim under its launch heading, in the pick's own words,
+## and a rival's slip prints none (REQ-P5-03, REQ-P2-03).
+func test_the_yard_drawer_prints_the_courts_claim_under_its_heading() -> void:
+	var yard := FleetYardBlock.new()
+	add_child(yard)
+	var pick: String = MapPlayYardPickWords.sentence(
+		MapPlayYardPickWords.lay_line("sloop")
+	)
+	yard.show_rows(null, [_slip_row()], true, true, pick)
+
+	assert_eq(yard.pick_line(), pick, "the drawer holds the claim it was handed")
+	var printed: Array[String] = []
+	for child: Node in yard._box.get_children():
+		var label := child as Label
+		if label != null:
+			printed.append(label.text)
+	assert_true(printed.has(pick), "the claim stands on the slip: %s" % str(printed))
+
+	yard.show_rows(null, [_slip_row()], false, true, pick)
+	assert_eq(yard.pick_line(), "", "a rival answers to her own court")
+	yard.queue_free()
+
+
+## The claim the pure cases prove reaches the live slip: a crown at war with no
+## fighting hull afloat, a full purse and the study that opens her cheapest
+## warship, and the drawer prints the pick the reading returns (DR-20261121-02).
+func test_the_live_capital_slip_prints_the_claim_the_court_would_take() -> void:
+	var play: PlaySession = _screen.play
+	_declare_war(1)
+	play.economy.economy.treasury = 60000
+	play.economy.economy.tech_unlocked["navigation"] = true
+	for region: int in play.ship_layer.regions.region_ids():
+		var kept: Array[FleetState] = []
+		for raw: Variant in play.ship_layer.regions.value(region, []):
+			var fleet: FleetState = raw
+			if fleet != null and fleet.owner != play.player_faction:
+				kept.append(fleet)
+		play.ship_layer.regions.set_region(region, kept)
+	play.selected_province = play.capital_province
+
+	MapPlayFleetYard.open(play)
+
+	var line: String = MapPlayYardPick.line(play)
+	assert_false(line.is_empty(), "a court with no hull claims one")
+	assert_eq(_screen.hud.panels.fleet_panel._yard.pick_line(), line, "the slip prints it")
+
+
+## The claim's three sentences, word for word: the hull the yard would lay priced
+## by her own row, the hull saved for against the purse, and the study that opens
+## her (DR-20261121-02).
+func test_the_yard_picks_words_name_each_hull_and_its_gate() -> void:
+	assert_eq(
+		MapPlayYardPickWords.lay_line("sloop"),
+		"the court would lay a Sloop — %s" % ShipEconomy.cost_text("sloop"),
+		"the price is her row's own"
+	)
+	assert_eq(
+		MapPlayYardPickWords.saving_line("sloop", 5500, 2400),
+		"the court is saving for a Sloop — the purse holds 2,400 ducats of 5,500 ducats"
+	)
+	assert_eq(
+		MapPlayYardPickWords.study_line("sloop", "navigation"),
+		"the court is saving for a Sloop — the study Navigation opens her"
+	)
+	assert_eq(
+		MapPlayYardPickWords.sentence("the court would lay a Sloop — 5,500 ducats"),
+		"The court would lay a Sloop — 5,500 ducats."
+	)
+	assert_eq(MapPlayYardPickWords.sentence(""), "", "no words, no sentence")

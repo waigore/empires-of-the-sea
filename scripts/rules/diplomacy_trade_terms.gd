@@ -28,6 +28,7 @@ static func apply(
 	for faction: int in terms.keys():
 		market.set_terms(faction, terms[faction])
 	market.subsidy_terms = subsidy_terms(state)
+	market.sealed = sealed_terms(state)
 
 
 ## Faction -> {"buy": {commodity|"*": multiplier}, "sell": {...}} for every
@@ -86,6 +87,32 @@ static func subsidy_terms(state: DiplomacyState) -> Dictionary:
 			continue
 		terms[DiplomacyKeys.directed(courts.x, courts.y)] = percent
 	return terms
+
+
+## `viewer -> {seller: issuer}`: every Minor/Tribe seller whose suzerain's boycott
+## shuts it to that crown. The rate tables already say the boycotted crown trades
+## at 10% worse; this is the other half of the same order, published so the
+## market's offer row can name the bar it cannot show as a price (wiki: diplomacy
+## § GP–Tribe — Boycott, R6; DR-20261115-03). Both directions are read from the
+## same records the matcher bars on, so a row and a deal never disagree.
+static func sealed_terms(state: DiplomacyState) -> Dictionary:
+	var out: Dictionary = {}
+	if state == null:
+		return out
+	for raw_tribe: Variant in state.colonies.keys():
+		var tribe: int = int(raw_tribe)
+		var suzerain: int = state.colony_of(tribe)
+		if suzerain < 0:
+			continue
+		for faction: int in FactionCatalog.great_power_ids():
+			if faction == suzerain:
+				continue
+			if not DiplomacyBoycott.is_boycotting(state, suzerain, faction):
+				continue
+			var row: Dictionary = out.get(faction, {}) as Dictionary
+			row[tribe] = suzerain
+			out[faction] = row
+	return out
 
 
 ## One crown's terms, as the court sheet states them. The map is no longer read:

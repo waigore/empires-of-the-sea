@@ -70,8 +70,14 @@ static func resolve_turn(
 	return reports
 
 
-## One defender versus attackers in initiative order, without healing between
-## exchanges; the chain stops when the defender dies or all attackers have fought.
+## One holder versus attackers in initiative order, without healing between
+## exchanges; the chain runs until no attacker is left to fight. The winner of
+## each engagement holds the field against the next: a defender that holds stays
+## where it stands, and an attacker that takes the province meets the next
+## attacker as its holder, worn as the fight left it (wiki: combat
+## § Multi-Attacker Chain — "the previous battle's winner (without healing or
+## regenerating regiments) and the next attacker"; § Province Flip — the
+## province flips "to the attacker faction that was last in the chain").
 static func _resolve_chain(
 	model: MapModel,
 	armies: Array[ArmyState],
@@ -81,21 +87,26 @@ static func _resolve_chain(
 	context: Dictionary
 ) -> Array[Dictionary]:
 	var reports: Array[Dictionary] = []
+	## The side that holds the province as this step opens: the seat's own
+	## defender until an attacker takes the field from it.
+	var holder: int = defender
 	for index in attackers.size():
 		var attacker: int = attackers[index]
-		var defending: Array[ArmyState] = ArmyForce.armies_of(armies, province, defender)
-		if ArmyForce.side_regiments(defending) == 0:
+		var holding: Array[ArmyState] = ArmyForce.armies_of(armies, province, holder)
+		if ArmyForce.side_regiments(holding) == 0:
 			break
 		var attacking: Array[ArmyState] = ArmyForce.armies_of(armies, province, attacker)
 		if ArmyForce.side_regiments(attacking) == 0:
 			continue
 		var further: bool = index < attackers.size() - 1
 		var report: Dictionary = _exchange(
-			model, armies, province, defender, attacker, further, context
+			model, armies, province, holder, attacker, further, context
 		)
 		reports.append(report)
+		## A winner that took the province meets the next attacker from the
+		## walls it now holds.
 		if bool(report.get("captured", false)):
-			break
+			holder = attacker
 		ArmyRoster.prune(armies)
 	return reports
 

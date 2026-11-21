@@ -4588,10 +4588,14 @@ func test_a_rivals_crew_dossier_names_no_mineral_we_have_not_surveyed() -> void:
 	var rival := CivilianState.create(2, 1, "builder", tile)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		field__model, rival, field__works, [rival], field_Fixture.stockpile(), _view, {}, {},
-		{"treasury": 5000, "diplomacy": null}, 0
-	)
+	var rival_opening := CivilianDossierOpening.of(rival)
+	rival_opening.works = field__works
+	rival_opening.units = [rival]
+	rival_opening.stockpile = field_Fixture.stockpile()
+	rival_opening.visibility = _view
+	rival_opening.context = {"treasury": 5000, "diplomacy": null}
+	rival_opening.viewer = 0
+	panel.refresh(field__model, rival_opening)
 	assert_eq(_panel_row(panel, "Resource"), "Unsurveyed ground")
 	assert_false(
 		_panel_row(panel, "Works").contains("Prospected"),
@@ -4604,9 +4608,12 @@ func test_a_rivals_crew_dossier_names_no_mineral_we_have_not_surveyed() -> void:
 	# names a surveyed deposit and still offers its orders.
 	field__works.set_prospected(0, field__model, tile)
 	var mine := CivilianState.create(3, 0, "builder", tile)
-	panel.refresh(
-		field__model, mine, field__works, [mine], field_Fixture.stockpile(), _view, {}, {}, {}, 0
-	)
+	var own_opening := CivilianDossierOpening.of(mine)
+	own_opening.works = field__works
+	own_opening.units = [mine]
+	own_opening.stockpile = field_Fixture.stockpile()
+	own_opening.visibility = _view
+	panel.refresh(field__model, own_opening)
 	assert_eq(_panel_row(panel, "Resource"), "Iron")
 	assert_true(
 		_panel_row(panel, "Works").contains("Prospected"),
@@ -4676,10 +4683,13 @@ func test_no_survey_mark_or_promise_without_a_consulate() -> void:
 	)
 	var panel := CivilianPanel.new()
 	add_child(panel)
-	panel.refresh(
-		model, explorer, works, [explorer], field_Fixture.stockpile(), null, {}, {},
-		{"treasury": 5000, "diplomacy": court}, 1
-	)
+	var survey_opening := CivilianDossierOpening.of(explorer)
+	survey_opening.works = works
+	survey_opening.units = [explorer]
+	survey_opening.stockpile = field_Fixture.stockpile()
+	survey_opening.context = {"treasury": 5000, "diplomacy": court}
+	survey_opening.viewer = 1
+	panel.refresh(model, survey_opening)
 	assert_eq(_panel_row(panel, "Survey"), gate)
 	panel.free()
 	# With a Consulate the ground and its mark come back.
@@ -5014,4 +5024,155 @@ func test_a_second_fort_project_reports_no_level_added() -> void:
 			int(reports[1]["fort_before"]), int(reports[1]["fort_level"])
 		).begins_with("no level added"),
 		"the duplicate says it added nothing"
+	)
+
+
+## --- the capital's hire pick (DR-20261121-06) --------------------------------
+
+
+## The capital's rail names the crew the court's own hire order takes next, read
+## off the pass's own training row, so a crown with six craft rows and one purse
+## reads the pick before it presses (wiki: civilian-units § Training).
+func test_the_hire_pick_names_the_crew_the_hire_order_takes() -> void:
+	var economy := PlayerEconomy.starting()
+	var pick: Dictionary = MapPlayHirePick.of(
+		{"ok": true, "type_id": "builder", "taste": false}, "", economy
+	)
+	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TAKE)
+	assert_eq(String(pick.get("crew", "")), "builder")
+	assert_eq(
+		String(pick.get("line", "")),
+		"Your hire order takes a Builder next — 1,000 cash + 2 paper.",
+		"the line names the crew and the price the rail charges"
+	)
+	assert_false(
+		bool(pick.get("taste", true)),
+		"a published hire is not the court's own taste"
+	)
+
+
+## A crew the court's archetype keeps beyond the region's asks says so, because
+## the hire is in character rather than the region's own work (DR-20261117-04).
+func test_the_hire_pick_names_the_taste_that_leads_it() -> void:
+	var pick: Dictionary = MapPlayHirePick.of(
+		{"ok": true, "type_id": "explorer", "taste": true}, "",
+		PlayerEconomy.starting()
+	)
+	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TASTE)
+	assert_eq(
+		String(pick.get("line", "")),
+		"Your court's taste takes an Explorer next — 1,000 cash + 2 paper.",
+		"the article follows the craft's own name"
+	)
+
+
+## The footing's refusals are the pass's own words, printed plainly: a war shuts
+## the voyage crews, the bank every crew the bar does not provision
+## (wiki: civilian-units § Training; DR-20261116-15, issue #1059).
+func test_the_hire_pick_names_the_footing_that_shuts_the_hire() -> void:
+	var economy := PlayerEconomy.starting()
+	var war: Dictionary = MapPlayHirePick.of(
+		{"ok": false, "reason": AiCivilianHire.REASON_CREWS}, "explorer", economy
+	)
+	assert_eq(String(war.get("kind", "")), MapPlayHirePick.KIND_GATE)
+	assert_eq(
+		String(war.get("line", "")),
+		"At war your hire order takes no new Explorer — the front's own crews keep hiring."
+	)
+	var bank: Dictionary = MapPlayHirePick.of(
+		{"ok": false, "reason": AiCivilianHire.REASON_BANK}, "builder", economy
+	)
+	assert_eq(String(bank.get("line", "")), MapPlayHirePick.BANK_LINE)
+	assert_eq(
+		String(MapPlayHirePick.of({"ok": false, "reason": "some other"}, "", economy).get("line", "")),
+		"",
+		"a refusal the rail cannot word prints nothing rather than a guess"
+	)
+
+
+## A crew the queue names and the crown cannot take says which gate holds it —
+## the college's study, or a purse that cannot cover the rail's own price — and
+## never a figure the crown does not hold (REQ-P5-06).
+func test_the_hire_pick_names_the_gate_a_waiting_crew_waits_on() -> void:
+	var economy := PlayerEconomy.starting()
+	var study: Dictionary = MapPlayHirePick.of({}, "rail_builder", economy)
+	assert_eq(String(study.get("kind", "")), MapPlayHirePick.KIND_WAIT)
+	assert_true(
+		String(study.get("line", "")).begins_with(
+			"Your hire order takes a Rail Builder next, and waits on "
+		),
+		"the study the college has not opened holds the hire"
+	)
+	economy.treasury = 0
+	var spy: Dictionary = MapPlayHirePick.of({}, "spy", economy)
+	assert_eq(String(spy.get("kind", "")), MapPlayHirePick.KIND_WAIT)
+	assert_eq(
+		String(spy.get("line", "")),
+		"Your hire order takes a Spy next, and the purse cannot cover 2,000 cash + 4 paper."
+	)
+
+
+## A staff the region no longer asks for says so, instead of naming a crew to
+## hire: the order would take none, and the rail must not invent one.
+func test_the_hire_pick_says_when_every_crew_stands() -> void:
+	var pick: Dictionary = MapPlayHirePick.of({}, "", PlayerEconomy.starting())
+	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_FULL)
+	assert_eq(String(pick.get("line", "")), MapPlayHirePick.FULL_LINE)
+	assert_eq(String(pick.get("crew", "")), "", "a full staff names no crew")
+
+
+## The queue's own name is still named when the pass books no hire the rail can
+## gate: a starting craft the crown can afford is the crew it takes.
+func test_the_hire_pick_falls_back_to_the_queue_when_no_gate_holds_it() -> void:
+	var pick: Dictionary = MapPlayHirePick.of({}, "builder", PlayerEconomy.starting())
+	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TAKE)
+	assert_eq(
+		String(pick.get("line", "")),
+		"Your hire order takes a Builder next — 1,000 cash + 2 paper."
+	)
+	assert_eq(
+		String(MapPlayHirePick.of({"ok": true, "type_id": ""}, "", null).get("line", "")),
+		"",
+		"a training row with no craft prints nothing"
+	)
+
+
+## Every sentence is built off its own parts, so a part that is missing prints
+## nothing rather than a half-line on the rail (REQ-P5-06).
+func test_the_hire_words_print_nothing_without_their_parts() -> void:
+	assert_eq(MapPlayHirePick.pick(null).size(), 0, "no session, no reading")
+	assert_eq(MapPlayHirePick.take_line("", false), "")
+	assert_eq(MapPlayHirePick.wait_line("builder", ""), "")
+	assert_eq(MapPlayHirePick.short_line(""), "")
+	assert_eq(MapPlayHirePick.with_article(""), "")
+	assert_eq(
+		MapPlayHirePick.gate_line("", AiCivilianHire.REASON_CREWS),
+		"At war your hire order takes no new crew — the front's own crews keep hiring.",
+		"a gate without a crew still says what the war holds"
+	)
+	assert_false(MapPlayHirePick._vowel(""), "no letter, no article")
+	assert_eq(MapPlayHirePick.gate_line("explorer", "some other gate"), "")
+
+
+## The bank gate refuses a reading without a session or a ledger, and a baseline
+## court never banks: the rail must not invent a conquest hold the hire order
+## would not answer (issue #995; DR-20261121-06).
+func test_the_hire_bank_gate_holds_without_a_session_or_baseline() -> void:
+	var economy := PlayerEconomy.starting()
+	assert_false(
+		MapPlayHirePick.banks(null, 0, economy, null, AiControl.KIND_SUBJECT),
+		"no session, no bank reading"
+	)
+	var bare := PlaySession.new()
+	bare.world = WorldMap.new()
+	bare.ai = AiState.new()
+	assert_false(
+		MapPlayHirePick.banks(bare, 0, null, null, AiControl.KIND_SUBJECT),
+		"no ledger, no bank reading"
+	)
+	assert_false(
+		MapPlayHirePick.banks(
+			bare, 0, economy, null, AiControl.KIND_BASELINE
+		),
+		"a baseline court keeps its published doctrine and never banks"
 	)

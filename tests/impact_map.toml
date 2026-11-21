@@ -70,7 +70,7 @@ suites = [
 suites = [
   "test_civilian_turn_rules.gd",
   "test_panel_parts_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_battle_rules.gd",
 ]
 
@@ -87,7 +87,7 @@ suites = [
 [domains.diplomacy]
 suites = [
   "test_diplomacy_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_panel_parts_rules.gd",
   "test_diplomacy_screen.gd",
 ]
@@ -133,7 +133,7 @@ suites = [
 [domains.ledger_row]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_mobile_layout.gd",
 ]
 
@@ -144,7 +144,7 @@ suites = [
 [domains.row_builder]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_mobile_layout.gd",
   "test_panel_parts_rules.gd",
   "test_market_economy_rules.gd",
@@ -167,7 +167,7 @@ suites = [
   "test_map_view_rules.gd",
   "test_research_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_diplomacy_rules.gd",
 ]
 
@@ -217,7 +217,7 @@ suites = [
 suites = [
   "test_battle_rules.gd",
   "test_market_economy_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_naval_rules.gd",
 ]
 
@@ -281,7 +281,7 @@ suites = [
 [domains.muster]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_mobile_layout.gd",
 ]
 
@@ -319,7 +319,7 @@ suites = [
 
 # The crown's eyes (DR-20261115-10): the intelligence projection and its sheet.
 # One suite — it mounts the map screen, presses the court's EYES door and reads
-# the network — so the espionage domain's seven suites (test_map_screen among
+# the network — so the espionage domain's seven suites (test_a_map_screen among
 # them) never ride a reading change.
 [domains.eyes]
 suites = [
@@ -360,7 +360,7 @@ suites = [
 [domains.ledger_dress]
 suites = [
   "test_ledgers.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
 ]
 
 # A rival's naval strength is read only after the crown has watched her across
@@ -540,9 +540,11 @@ domain = "sea_tone"
 match = "ui/shaders/sea.gdshader*"
 domain = "sea_tone"
 
+# Session bag + its screen bridge: the play_screen domain proves the airings
+# without the pause/menu fan-out that overruns tier-1 on a bridge PR.
 [[rules]]
 match = "scripts/session/play_session.gd*"
-domain = "pause"
+domain = "play_screen"
 
 # Shared sheet chrome: court_ui_parts owns fit/fade/rows. The sheet domain's
 # ledger/door fan-out overruns tier-1 when a factory PR also touches other UI.
@@ -1165,7 +1167,7 @@ domain = "diplomacy"
 # them (tier-1 budget; the rules buckets stay on their own files).
 [domains.screen]
 suites = [
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_menu_flow.gd",
   "test_campaign_end.gd",
   "test_army_orders.gd",
@@ -1220,7 +1222,7 @@ domain = "auto"
 # bucket — a wiring PR stays inside the tier-1 5 min budget.
 [domains.map_mount]
 suites = [
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_map_view_rules.gd",
 ]
 
@@ -1244,7 +1246,7 @@ suites = [
 suites = [
   "test_panel_parts_rules.gd",
   "test_ledgers.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_mobile_layout.gd",
 ]
 
@@ -1252,7 +1254,7 @@ suites = [
 suites = [
   "test_generated_world_rules.gd",
   "test_map_view_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_diplomacy_rules.gd",
   "test_civilian_turn_rules.gd",
   "test_panel_parts_rules.gd",
@@ -1265,7 +1267,7 @@ suites = [
 suites = [
   "test_map_view_rules.gd",
   "test_civilian_turn_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
 ]
 
 # The defence reading's projection; first match wins, so it is named before the
@@ -1283,9 +1285,8 @@ domain = "fold_map_screen"
 # travel together; the broad scripts/map fan-out stays off the tier-1 budget.
 [domains.lens_kit]
 suites = [
-  "test_wash_bake.gd",
   "test_map_view_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
 ]
 
 [[rules]]
@@ -1304,9 +1305,10 @@ domain = "lens_kit"
 match = "scripts/map/wash_bake.gd*"
 domain = "lens_kit"
 
+# Deleted wash-bake suite rides the map-view boot (lens kit theme).
 [[rules]]
 match = "tests/test_wash_bake.gd*"
-domain = "lens_kit"
+domain = "fold_map_view"
 
 # Every reading inherits the kit; route each lens here before the broader
 # resource-ink / crown-road / scripts/map globs so one reading stays small.
@@ -1381,7 +1383,7 @@ suites = [
   "test_civilian_turn_rules.gd",
   "test_generated_world_rules.gd",
   "test_map_view_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -1391,7 +1393,7 @@ suites = [
 [domains.chart_art]
 suites = [
   "test_map_view_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_fleet_orders.gd",
   "test_panel_parts_rules.gd",
 ]
@@ -1403,7 +1405,7 @@ suites = [
 # map + ui fan-out blowing the tier-1 5 min budget.
 [domains.resource_ink]
 suites = [
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_panel_parts_rules.gd",
 ]
 
@@ -1412,7 +1414,7 @@ suites = [
 # tone can never drift away from the minimap that draws the same table (#456).
 [domains.palette]
 suites = [
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_panel_parts_rules.gd",
   "test_map_view_rules.gd",
 ]
@@ -1423,7 +1425,7 @@ suites = [
 [domains.sea_tone]
 suites = [
   "test_map_view_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
 ]
 
 # Unit medallions: the painted art for every worker, hull and regiment type and
@@ -1451,7 +1453,7 @@ suites = [
 [domains.map_fixture]
 suites = [
   "test_generated_world_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_campaign_end.gd",
 ]
 
@@ -1469,7 +1471,7 @@ suites = [
   "test_army_orders.gd",
   "test_battle_rules.gd",
   "test_generated_world_rules.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_menu_flow.gd",
   "test_campaign_end.gd",
 ]
@@ -1512,7 +1514,18 @@ suites = [
   "test_panel_parts_rules.gd",
   "test_menu_flow.gd",
   "test_mobile_layout.gd",
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
+]
+
+# PlaySession's screen bridge: one Node and the airings a helper sends it
+# (REQ-P3-02). The chrome plate hosts the headless bridge doubles; the mounted
+# campaign-end suite proves the same calls on the real chart, so a bridge edit
+# never pulls the menu or map fan-out.
+[domains.play_screen]
+suites = [
+  "test_hud_campaign_plate.gd",
+  "test_campaign_end.gd",
+  "test_a_map_screen.gd",
 ]
 
 [domains.misc]
@@ -2000,7 +2013,7 @@ suites = [
 # resource_*, …) so tier 1 re-runs the theme boot, not the whole fan-out.
 [domains.fold_survivors]
 suites = [
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
   "test_ledgers.gd",
   "test_naval_rules.gd",
   "test_generated_world_rules.gd",
@@ -2013,6 +2026,7 @@ suites = [
 suites = [
   "test_hud_campaign_plate.gd",
 ]
+
 
 [domains.fold_court]
 suites = [
@@ -2051,7 +2065,7 @@ suites = [
 
 [domains.fold_map_screen]
 suites = [
-  "test_map_screen.gd",
+  "test_a_map_screen.gd",
 ]
 
 [domains.fold_diplomacy_screen]
@@ -2425,6 +2439,20 @@ domain = "civilian"
 match = "scripts/map/map_play_civilian_pick*.gd*"
 domain = "civilian_pick"
 
+# The capital's own hire pick (DR-20261121-06): the reading that asks the
+# published hire order which crew the crown takes next at its seat — or the study,
+# the purse or the footing that holds it. Its suite is the civilian rules, where
+# `MapPlayHirePick.of` is proved off data alone, so it names its own domain
+# instead of pulling the AI plan or the prospect fan-out.
+[[rules]]
+match = "scripts/map/map_play_hire_pick*.gd*"
+domain = "hire_pick"
+
+[domains.hire_pick]
+suites = [
+  "test_civilian_turn_rules.gd",
+]
+
 # The court's own naval pick (DR-20261120-04): the reading that asks the
 # published naval policy what it would order a squadron. Its suites are the
 # fleet orders suite (planner, sheet, dossier) and the panel parts sheet, so it
@@ -2445,6 +2473,19 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The court's own yard claim (DR-20261121-02): the reading that asks the
+# published navy claim which hull the crown's slip means to lay, and the study
+# that opens her. Its suite is the fleet orders suite (planner, slip rows and
+# the drawer), so it names its own domain instead of the map fan-out.
+[[rules]]
+match = "scripts/map/map_play_yard_pick*.gd*"
+domain = "yard_pick"
+
+[domains.yard_pick]
+suites = [
+  "test_fleet_orders.gd",
+]
+
 # The court's own land pick (DR-20261120-10): the reading that asks the published
 # land policy what it would order an army — the split the Home Army would take,
 # the march a field army would make. Its suites are the army orders suite and the
@@ -2460,6 +2501,14 @@ suites = [
   "test_panel_parts_rules.gd",
 ]
 
+# The drill yard's own pick (DR-20261121-03): the line the published muster would
+# raise at the seat, read through the plan the rival pass books its regiment from.
+# Its suite is the army orders suite, where the yard's rows and the muster's gates
+# are proved, so it rides the land pick's domain rather than a new fan-out.
+[[rules]]
+match = "scripts/map/map_play_muster_pick*.gd*"
+domain = "land_pick"
+
 # The court's own research pick (DR-20261121-01): the advance the published
 # research policy would open in the crown's first free slot, read on its own
 # college through `MapPlayEconomyCourtBook.door`. Its suite is the research
@@ -2472,6 +2521,21 @@ domain = "research_pick"
 [domains.research_pick]
 suites = [
   "test_research_rules.gd",
+]
+
+# The court's own envoy pick (DR-20261121-05): the one order the published
+# rival policy would spend this turn, read on the crown's own relations through
+# the pass's own `AiTurnRead.court`. Its suites are the court sheet's, where the
+# panel, the words and the purse read are proved, so it names its own domain
+# instead of pulling the map fan-out.
+[[rules]]
+match = "scripts/map/map_play_diplomacy_pick*.gd*"
+domain = "diplomacy_pick"
+
+[domains.diplomacy_pick]
+suites = [
+  "test_diplomacy_rules.gd",
+  "test_diplomacy_screen.gd",
 ]
 
 # The pick's door (wiki: playtest-learnings § next targets): the press that
@@ -2836,6 +2900,13 @@ domain = "map"
 [[rules]]
 match = "scripts/session/game_config.gd*"
 domain = "world"
+
+# The session's screen bridge (PlayScreen): the airings and region swap a
+# helper sends the chart. Named before the session catch-all so a bridge edit
+# stays on its own suites.
+[[rules]]
+match = "scripts/session/play_screen.gd*"
+domain = "play_screen"
 
 [[rules]]
 match = "scripts/session/**"
@@ -3792,6 +3863,13 @@ domain = "ui"
 match = "scripts/ui/fleet_yard_block.gd*"
 domain = "ui"
 
+# The confirm window every destructive press shares (the arm of DR-20261109-01).
+# Kept on ui with the sheets that wear it, so a guard change runs their shells
+# instead of the whole army and fleet domains.
+[[rules]]
+match = "scripts/ui/arm_guard.gd*"
+domain = "ui"
+
 [[rules]]
 match = "scripts/ui/diplomacy_hud.gd"
 domain = "ui"
@@ -4099,6 +4177,20 @@ domain = "heraldry"
 match = "tests/test_heraldry.gd*"
 domain = "fold_chrome"
 
+# Deleted order-verdict suite rides the lean chrome boot.
+[[rules]]
+match = "tests/test_order_verdict.gd*"
+domain = "fold_chrome"
+
+[[rules]]
+match = "scripts/rules/order_verdict.gd*"
+domain = "fold_chrome"
+
+# Deleted play-screen bridge suite rides the lean chrome boot.
+[[rules]]
+match = "tests/test_play_screen.gd*"
+domain = "fold_chrome"
+
 [[rules]]
 match = "scripts/ui/**"
 domain = "menu"
@@ -4353,6 +4445,20 @@ domain = "menu"
 [[rules]]
 match = "tests/test_agent_debug_bridge.gd*"
 domain = "fold_map_screen"
+
+# The production tab's own plan (DR-20261121-07): the runs the published economy
+# pass would book for the crown's workshop, read through the chest rows the pass
+# itself claims (`MapPlayEconomyCourt.chest_rows`). Its suite is the economy
+# rules', where the pick is proved off plan data alone, so it names its own
+# domain instead of pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_production_pick*.gd*"
+domain = "production_pick"
+
+[domains.production_pick]
+suites = [
+  "test_market_economy_rules.gd",
+]
 
 [[rules]]
 match = "tests/test_*.gd"

@@ -2063,3 +2063,58 @@ func test_the_live_college_reads_the_courts_pick() -> void:
 	assert_eq(idle, 0, "the reading assigned nothing")
 	var row: ResearchSlotRow = _first_slot(panel)
 	assert_eq(row.counsel_text(), line, "the counsel rides the idle row")
+
+
+## The counsel is the policy's own answer on every purse: the study the college
+## names is the study `AiResearchPlanner.plan` opens in the same slot. A door the
+## purse cannot pay is never named — the crown is told the next study the policy
+## would really open, and the door's reason goes with it (issue #484).
+func test_the_counsel_names_the_study_the_policy_would_open() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500, AiProfile.NORMAL, AiAgenda.WARMONGER)
+	var ranked: Array[Dictionary] = AiResearchScores.candidates(config, _economy, false, "")
+	assert_true(ranked.size() > 1, "a fresh college ranks more than one study")
+	var door_tech: String = String(ranked[0].get("tech", ""))
+	var next_tech: String = String(ranked[1].get("tech", ""))
+	var door: Dictionary = {"tech": door_tech, "why": MapPlayEconomyCourtBook.DOOR_HULL}
+	var cash_floor: int = AiResearchPlanner.research_floor(config)
+	# The planner's own door gate: half the cash floor plus the cheapest preset.
+	var gate: int = cash_floor / 2 + ResearchFunding.gold(ResearchFunding.ORDER[1])
+	for purse: int in [_economy.treasury, gate + 1, gate, gate - 1, 0, -500]:
+		_economy.treasury = purse
+		var counsel: Dictionary = MapPlayResearchPick.counsel(config, _economy, false, door)
+		assert_eq(
+			String(counsel.get("tech", "")), _opened_study(config, purse, door_tech),
+			"purse %d: the counsel is the policy's pick" % purse
+		)
+		var named_door: bool = String(counsel.get("tech", "")) == door_tech
+		assert_eq(
+			String(counsel.get("why", "")),
+			MapPlayEconomyCourtBook.DOOR_HULL if named_door else "",
+			"purse %d: the door speaks only while the policy opens it" % purse
+		)
+	_economy.treasury = 0
+	assert_eq(
+		_opened_study(config, 0, door_tech), next_tech,
+		"a broke court's policy steps past the door study"
+	)
+	var broke: Dictionary = MapPlayResearchPick.counsel(config, _economy, false, door)
+	assert_eq(String(broke.get("tech", "")), next_tech, "and so does the counsel")
+	assert_eq(String(broke.get("why", "")), "", "with no reason the policy did not give")
+	assert_false(String(broke.get("line", "")).contains("yard's next hull"), "no door clause")
+
+
+## The study `AiResearchPlanner.plan` opens in the crown's first free slot at one
+## purse, on the plan's own context (the helper the case above compares against).
+func _opened_study(config: AiConfig, purse: int, door_tech: String) -> String:
+	var copy: PlayerEconomy = _economy.copy()
+	copy.treasury = purse
+	var plan: Dictionary = AiResearchPlanner.plan(config, copy, {
+		"at_war": false,
+		"door": door_tech,
+		"treasury_floor": purse,
+		"cash_floor": AiResearchPlanner.research_floor(config),
+	})
+	var rows: Array = plan.get("assignments", [])
+	if rows.is_empty():
+		return ""
+	return String((rows[0] as Dictionary).get("tech", ""))

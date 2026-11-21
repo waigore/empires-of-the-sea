@@ -37,10 +37,68 @@ static func muster(
 ## The extra regiments this court arms up for while it can see the victory bar
 ## (wiki: ai-architecture § Notable strategic policies; DR-20261114-04). A
 ## session with no world reads none, so the published target stands.
-static func _extra_regiments(play: PlaySession, faction: int, config: Variant) -> int:
+static func extra_regiments(play: PlaySession, faction: int, config: Variant) -> int:
 	return int(AiVictoryPressure.read(
 		play.world, faction, play.human_faction_id(), play.difficulty, config
 	)["extra_regiments"])
+
+
+## The muster plan the court's own published policy books from its ledger: the
+## eleven readings `AiArmyReinforce.plan` takes — its line, footing, food gate,
+## the hull's chest and row, the victory pressure and the conquest bank —
+## assembled once, so the drill yard's advice and the rival pass's muster cannot
+## drift (REQ-P2-03; DR-20261121-03). Pure: the plan reads the state and writes
+## none of it.
+static func plan(
+	play: PlaySession,
+	faction: int,
+	config: Variant,
+	kind: String,
+	economy: PlayerEconomy
+) -> Dictionary:
+	if play == null or economy == null or play.army_layer == null:
+		return {}
+	var own_warships: int = MapPlayCourt.warships(play, faction)
+	var chest: int = MapPlayCourt.navy_chest(play, faction)
+	var held: Dictionary = {}
+	if chest > 0 and (
+		economy.treasury >= chest or own_warships == 0
+	):
+		held = AiNavy.due_row(
+			MapPlayCourt.at_war(play, faction),
+			own_warships,
+			MapPlayCourt.hostile_warships(play, faction),
+			economy, MapPlayCourt.hull_types(play, faction)
+		)
+	var slack: int = (
+		int(play.ai.food_slack[faction])
+		if play.ai != null and play.ai.food_slack.has(faction) else -2
+	)
+	return AiBindEconomy.reinforce_plan(
+		kind,
+		config,
+		economy,
+		play.army_layer.regiment_count_all(faction),
+		MapPlayCourt.at_war(play, faction),
+		extra_regiments(play, faction, config),
+		AiBindEconomy.fed_slack(
+			kind, economy, play.army_layer.food_upkeep_all(faction),
+			MapPlayCourt.ships(play, faction)
+		),
+		chest,
+		held,
+		own_warships,
+		# The harvest the court's land carries, noted by the economy pass: the
+		# desired army is provisioned before it is raised (issue #807). No
+		# reading keeps the store gate.
+		slack,
+		# Bank-then-blitz (issue #995): a submission court short of the win bar
+		# keeps the muster chest at peace so the host can close the gap.
+		kind != AiControl.KIND_BASELINE
+		and AiVictoryPressure.below_bar(
+			play.world, faction, play.human_faction_id(), play.difficulty
+		)
+	)
 
 
 ## A rival court raises one line regiment a turn from its own ledger while it
@@ -76,45 +134,10 @@ static func _reinforce(
 	# The hull the court is saving for outranks the next regiment: the muster
 	# spends only what stands above that chest, and — once the chest is full —
 	# only the cloth above the hull's own row, so the launch the purse was saved
-	# for can actually be laid (issue #484).
-	var own_warships: int = MapPlayCourt.warships(play, faction)
-	var chest: int = MapPlayCourt.navy_chest(play, faction)
-	var held: Dictionary = {}
-	if chest > 0 and (
-		economy.treasury >= chest or own_warships == 0
-	):
-		held = AiNavy.due_row(
-			MapPlayCourt.at_war(play, faction),
-			own_warships,
-			MapPlayCourt.hostile_warships(play, faction),
-			economy, MapPlayCourt.hull_types(play, faction)
-		)
-	var plan: Dictionary = AiBindEconomy.reinforce_plan(
-		kind,
-		config,
-		economy,
-		play.army_layer.regiment_count_all(faction),
-		MapPlayCourt.at_war(play, faction),
-		_extra_regiments(play, faction, config),
-		AiBindEconomy.fed_slack(
-			kind, economy, play.army_layer.food_upkeep_all(faction),
-			MapPlayCourt.ships(play, faction)
-		),
-		chest,
-		held,
-		own_warships,
-		# The harvest the court's land carries, noted by the economy pass: the
-		# desired army is provisioned before it is raised (issue #807). No
-		# reading keeps the store gate.
-		int(play.ai.food_slack[faction]) if play.ai.food_slack.has(faction) else -2,
-		# Bank-then-blitz (issue #995): a submission court short of the win bar
-		# keeps the muster chest at peace so the host can close the gap.
-		AiControl.court_kind(play, faction) != AiControl.KIND_BASELINE
-		and AiVictoryPressure.below_bar(
-			play.world, faction, play.human_faction_id(), play.difficulty
-		)
-	)
-	var type_id: String = String(plan["muster"])
+	# for can actually be laid (issue #484). The plan is `plan`'s, the same one
+	# the drill yard's advice reads (DR-20261121-03).
+	var muster_plan: Dictionary = plan(play, faction, config, kind, economy)
+	var type_id: String = String(muster_plan["muster"])
 	if type_id.is_empty():
 		return false
 	var unit_id: String = "unit_%d" % play.army_layer.next_regiment

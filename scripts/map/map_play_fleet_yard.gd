@@ -42,10 +42,12 @@ static func open(play: PlaySession) -> void:
 		return
 	if play.economy == null:
 		return
-	play.hud.panels.show_fleet(
-		play.model, null, true, "", FleetYard.rows(play.economy.economy, true, flown(play)),
-		province
-	)
+	var opening := FleetDossierOpening.new()
+	opening.is_player = true
+	opening.slip = province
+	opening.yard_rows = FleetYard.rows(play.economy.economy, true, flown(play))
+	opening.yard_pick = MapPlayYardPick.line(play)
+	play.hud.panels.show_fleet(play.model, opening)
 
 
 static func refresh(play: PlaySession, fleet: FleetState) -> void:
