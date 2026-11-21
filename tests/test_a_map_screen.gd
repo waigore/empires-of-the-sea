@@ -2726,7 +2726,12 @@ func test_a_hull_ordered_at_a_lost_capital_is_refused() -> void:
 	play.economy.economy.treasury = 60000
 	var hulls: int = _screen.ship_layer.hull_count_all(play.player_faction)
 	MapPlayFleetYard.launch(play, "carrack")
-	play.capital_province = Fixture.foreign_province(_screen.model)
+	# The seat really falls: another court holds it and the flag goes with the
+	# court, so the seat read finds none (wiki: capital-and-connectivity
+	# § Capital loss and reassignment).
+	var seat: ProvinceState = _screen.model.province_data(capital)
+	seat.owner = _screen.model.province_owner(Fixture.foreign_province(_screen.model))
+	CapitalLoss.clear_seat(seat)
 
 	MapPlayRecruits.complete(play)
 
@@ -2789,6 +2794,86 @@ func test_training_is_refused_outside_the_capital() -> void:
 	MapPlayInput.on_panel_action(_screen.play, "train_explorer")
 	assert_eq(_screen.civilian_layer.units.size(), units_before)
 	assert_eq(_screen.treasury, treasury_before)
+
+
+## The seat is the crown's own, read off the world: the chart on screen frames a
+## holding, so a seat-scoped order still lands at the capital (wiki:
+## capital-and-connectivity § Capital).
+func test_the_seat_reads_the_same_from_either_chart() -> void:
+	var play: PlaySession = _screen.play
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
+	assert_gt(seat, -1, "the crown holds a seat")
+	_screen._cycle_region()
+	assert_ne(play.region_index, FactionCatalog.OLD_WORLD, "the other chart is on screen")
+	assert_eq(int(MapPlayCourt.crown_seat(play)["region"]), FactionCatalog.OLD_WORLD)
+	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), seat, "the seat stays home")
+	_screen._cycle_region()
+	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), seat)
+
+
+## A hire ordered at the seat musters there even when the turn closes on the
+## other chart: the muster tile is the seat's, never a colony wearing its number
+## (wiki: civilian-units § Training; capital-and-connectivity § Capital).
+func test_a_hire_musters_at_the_seat_while_another_chart_is_shown() -> void:
+	var play: PlaySession = _screen.play
+	var seat: int = int(MapPlayCourt.crown_seat(play)["province"])
+	play.economy.economy.treasury = 60000
+	play.economy.economy.stockpile["paper"] = 20
+	MapPlayInput.select_province(play, seat, _capital_point())
+	MapPlayInput.on_panel_action(play, "train_explorer")
+	var before: int = (play.civilian_layer.regions.value(FactionCatalog.OLD_WORLD, []) as Array).size()
+	_screen._cycle_region()
+	MapPlayRecruits.complete(play)
+	var stored: Array = play.civilian_layer.regions.value(FactionCatalog.OLD_WORLD, [])
+	assert_eq(stored.size(), before + 1, "the hire musters on the seat's chart")
+	var newest: CivilianState = stored.back()
+	assert_eq(newest.type_id, "explorer")
+	assert_eq(
+		play.world.region(FactionCatalog.OLD_WORLD).province_at(newest.tile.x, newest.tile.y),
+		seat, "the crew stands in the seat's own province"
+	)
+	assert_eq(
+		(play.civilian_layer.regions.value(FactionCatalog.NEW_WORLD, []) as Array).size(), 0,
+		"nothing musters on the chart on screen"
+	)
+	_screen._cycle_region()
+
+
+## The capital's own orders answer from the other chart by naming the capital:
+## the yard and the drill never claim a colony's ground, and a colony wearing the
+## seat's own number hires nobody (wiki: world-model-identity).
+func test_the_seat_s_orders_name_the_capital_from_the_other_chart() -> void:
+	var play: PlaySession = _screen.play
+	var seat: Dictionary = MapPlayCourt.crown_seat(play)
+	var province: int = int(seat["province"])
+	var capital_name: String = String((seat["model"] as MapModel).province_name(province))
+	play.economy.economy.treasury = 60000
+	play.economy.economy.stockpile["paper"] = 20
+	_screen._cycle_region()
+	var ground: int = play.model.provinces[0].id
+	MapPlayInput.select_province(
+		play, ground, play.model.province_center(ground) * MapScreen.TILE_SIZE
+	)
+	MapPlayInput.on_panel_action(play, "train_explorer")
+	assert_has(
+		_toast_texts(), "Civilians are trained at the capital — %s." % capital_name,
+		"the drill names the capital (%s)" % str(_toast_texts())
+	)
+	MapPlayInput.on_panel_action(play, "shipyard")
+	assert_false(_screen.hud.panels.is_fleet_panel_open(), "no yard opens on the other chart")
+	assert_true(
+		_toast_texts().any(func(text: String) -> bool:
+			return text.begins_with("The yard stands at %s" % capital_name)),
+		"the yard names the capital (%s)" % str(_toast_texts())
+	)
+	# The stale framing the old gate read: this chart's seat's own number.
+	play.capital_province = province
+	MapPlayTraining.train(play, "explorer")
+	assert_true(
+		play.economy.economy.recruits.is_empty(),
+		"a province wearing the seat's number hires nobody"
+	)
+	_screen._cycle_region()
 
 
 func test_training_a_rail_builder_waits_for_early_steam_engine() -> void:

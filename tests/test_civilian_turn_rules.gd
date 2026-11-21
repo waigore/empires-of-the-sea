@@ -1422,6 +1422,13 @@ func test_the_map_reads_the_courts_sealed_coasts() -> void:
 	session.diplomacy = DiplomacyState.new()
 	session.ship_layer = ShipLayer.new()
 	session.player_faction = PLAYER
+	# The seat is the province the world flags as the crown's, so the fixture
+	# sets the flag where the framing used to point (wiki:
+	# capital-and-connectivity § Capital).
+	model.province_data(0).capital = false
+	var seat: ProvinceState = model.province_data(1)
+	seat.capital = true
+	seat.owner = PLAYER
 	session.capital_province = 1
 	assert_false(MapPlayBlockades.crown(session).any(), "no station, no seal")
 	var raider: FleetState = FleetState.at_sea(9, RIVAL, 0, ["h1"], {"h1": "carrack"})

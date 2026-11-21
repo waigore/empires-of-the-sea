@@ -27,10 +27,6 @@ const KIND_BANK: String = "bank"
 ## No hire is booked and the sheet can read no gate of its own.
 const KIND_QUIET: String = "quiet"
 
-## The most tiers one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 const LARDER_LINE: String = (
 	"the court would recruit no worker this phase — its larder cannot feed "
 	+ "another mouth"
@@ -138,10 +134,7 @@ static func recruit_line(tiers: Dictionary) -> String:
 			WorkerPool.tier_name(tier) if count > 1 else WorkerPool.tier_one(tier)
 		)
 		parts.append("%d %s" % [count, label])
-	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would recruit %s this phase" % joined
+	return MapPlayPickProse.court_line("the court would recruit", parts, "this phase")
 
 
 ## "the court would recruit no worker this phase — its pool already stands at the
