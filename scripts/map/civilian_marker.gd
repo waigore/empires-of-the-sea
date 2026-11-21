@@ -12,6 +12,10 @@ var faction: int = 0
 var selected: bool = false
 var working: bool = false
 var progress: float = 0.0
+## The order the crew holds, drawn as the chart's busy loop (issue #1198): a
+## march leans her along `heading`, work walks a bead round her rim.
+var order: int = OrderMotion.Order.NONE
+var heading: Vector2 = Vector2.RIGHT
 
 ## The disc a civilian is drawn on: big enough that the ink emblem inside it
 ## still reads at chart scale, small enough not to swallow the tile.
@@ -31,7 +35,7 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	_time += delta
-	if selected or working:
+	if selected or working or order != OrderMotion.Order.NONE:
 		queue_redraw()
 
 
@@ -42,19 +46,34 @@ func set_state(is_selected: bool, is_working: bool, work_progress: float) -> voi
 	queue_redraw()
 
 
+## Reads the order the crew holds onto the medallion (issue #1198). A direction
+## is kept only when one is given, so clearing an order leaves her heading.
+func set_order(value: int, direction: Vector2 = Vector2.ZERO) -> void:
+	if direction != Vector2.ZERO:
+		heading = direction
+	if value == order:
+		return
+	order = value
+	queue_redraw()
+
+
 func _draw() -> void:
 	var pulse: float = 0.5 + 0.5 * sin(_time * 2.4 + _phase)
 	var ink := Color(0.16, 0.12, 0.08, 0.92)
 	var paper := Color(0.94, 0.90, 0.80, 1.0)
 	var crown: Color = Palette.faction_color(faction)
+	# A busy crew leans a step along her order's heading; the halo rides with
+	# her and is painted first, so the emblem never loses its edge.
+	var step: Vector2 = OrderMotion.drift(order, _time, _phase, heading)
+	OrderMotion.paint(self, step, DISC + 4.4, order, _time, _phase, heading)
 
 	# soft shadow so the medallion reads on any terrain
-	draw_circle(Vector2(0.9, 1.8), DISC + 0.4, Color(0.10, 0.08, 0.05, 0.24))
-	draw_circle(Vector2.ZERO, DISC, paper)
-	draw_circle(Vector2.ZERO, DISC, ink, false, 1.4, true)
-	draw_arc(Vector2.ZERO, RING, 0, TAU, 30, crown, 2.2, true)
+	draw_circle(step + Vector2(0.9, 1.8), DISC + 0.4, Color(0.10, 0.08, 0.05, 0.24))
+	draw_circle(step, DISC, paper)
+	draw_circle(step, DISC, ink, false, 1.4, true)
+	draw_arc(step, RING, 0, TAU, 30, crown, 2.2, true)
 
-	draw_set_transform(Vector2.ZERO, 0.0, Vector2(EMBLEM, EMBLEM))
+	draw_set_transform(step, 0.0, Vector2(EMBLEM, EMBLEM))
 	match type_id:
 		"explorer":
 			_draw_spyglass(ink, crown, paper)
@@ -75,16 +94,16 @@ func _draw() -> void:
 	if working:
 		var sweep: float = TAU * progress
 		draw_arc(
-			Vector2.ZERO, DISC + 2.6, -PI * 0.5, -PI * 0.5 + sweep, 26,
+			step, DISC + 2.6, -PI * 0.5, -PI * 0.5 + sweep, 26,
 			Color(0.99, 0.93, 0.72, 0.95), 2.4, true
 		)
 		draw_arc(
-			Vector2.ZERO, DISC + 2.6, 0, TAU, 32, Color(0.83, 0.69, 0.22, 0.30), 1.2, true
+			step, DISC + 2.6, 0, TAU, 32, Color(0.83, 0.69, 0.22, 0.30), 1.2, true
 		)
 
 	if selected:
 		draw_arc(
-			Vector2.ZERO, DISC + 6.0, 0, TAU, 40,
+			step, DISC + 6.0, 0, TAU, 40,
 			Color(0.99, 0.93, 0.72, 0.75 + 0.2 * pulse), 2.2, true
 		)
 

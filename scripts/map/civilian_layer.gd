@@ -154,17 +154,32 @@ func apply_move(
 	if not bool(result.get("ok", false)):
 		return result
 	var marker: CivilianMarker = marker_for(unit)
+	# The march is reported before the medallion animates: a listener that
+	# re-reads the crew's orders (the panel refresh does) must not wipe the walk
+	# loop out from under the step (issue #1198).
+	unit_moved.emit(unit, result)
 	if marker != null:
+		if _is_own(unit):
+			marker.set_order(
+				OrderMotion.Order.MOVE, _tile_position(tile) - marker.position
+			)
 		var tween: Tween = create_tween()
 		tween.tween_property(marker, "position", _tile_position(tile), 0.32).set_trans(
 			Tween.TRANS_CUBIC
 		).set_ease(Tween.EASE_IN_OUT)
-	unit_moved.emit(unit, result)
+		tween.tween_callback(sync)
 	return result
 
 
-## Mirrors rules state onto the medallions (selection, work ring, progress and
-## assignment relocation).
+## A chart that names no viewer (rules fixtures, a bare muster) reads every crew
+## as the crown's own; a named viewer owns only her own crews, so a rival's
+## medallion never borrows the busy loop (issue #1198).
+func _is_own(unit: CivilianState) -> bool:
+	return viewer_faction < 0 or unit.owner == viewer_faction
+
+
+## Mirrors rules state onto the medallions (selection, work ring, progress,
+## assignment relocation and the busy loop of an own crew's order).
 func sync() -> void:
 	for unit: CivilianState in units:
 		if unit.is_embarked() or SpyRules.hidden_from(unit, viewer_faction):
@@ -182,6 +197,10 @@ func sync() -> void:
 		if unit.is_working() and unit.total_turns() > 0:
 			progress = 1.0 - float(unit.remaining_turns()) / float(unit.total_turns())
 		marker.set_state(unit == selected_unit, unit.is_working(), progress)
+		var order: int = OrderMotion.Order.NONE
+		if unit.is_working() and _is_own(unit):
+			order = OrderMotion.Order.WORK
+		marker.set_order(order)
 
 
 func refresh_works() -> void:
