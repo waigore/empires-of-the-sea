@@ -73,6 +73,14 @@ static func build_hud(play: PlaySession) -> void:
 	play.improvements.counsel_source = (
 		func(data: Dictionary) -> String: return MapPlayEstatesPick.line(play, data)
 	)
+	# The province dossier names the orders the court would give on its ground:
+	# the work the civilian pass would put crews to here and the hosts the land
+	# pass would send here, read on the chart the sheet is showing (wiki:
+	# world-model § The crown's provinces; DR-20261121-19).
+	play.hud.panels.panel.counsel_source = (
+		func(model: MapModel, province_id: int) -> String:
+			return MapPlayProvinceCounsel.line(play, model, province_id)
+	)
 	# THE CROWN'S EYES names the spies the court's own espionage pass would walk,
 	# screen or keep this turn, read on the sheet's own snapshot so the line
 	# reads down the network it answers (wiki: civilian-units § Spy;

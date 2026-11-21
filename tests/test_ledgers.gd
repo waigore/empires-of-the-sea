@@ -1601,6 +1601,96 @@ func _force_moved_flags(play: PlaySession) -> Array:
 	return flags
 
 
+## The province dossier's own reading: the work the court's civilian pass would
+## put its crews to on this province's ground and the hosts its land pass would
+## send here, merged under one court, with the gate the crown's own idle ground
+## earns (wiki: world-model § The crown's provinces; DR-20261121-19).
+func test_the_province_counsel_words_the_orders_of_its_own_ground() -> void:
+	var crews: Array[Dictionary] = [
+		{"role": "Builder", "short": "raise the lumber camp"},
+		{"role": "Engineer", "short": "build a road"},
+	]
+	var armies: Array[Dictionary] = [
+		{"line": "the field army at Tucapel to storm Cádiz"},
+	]
+	# The work first, then the hosts the court would send: one court, one verb.
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(crews, armies)["line"]),
+		"the court would order its Builder to raise the lumber camp, its Engineer"
+		+ " to build a road and the field army at Tucapel to storm Cádiz this turn"
+	)
+	# One side alone reads its own clause.
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(crews, [])["line"]),
+		"the court would order its Builder to raise the lumber camp and its"
+		+ " Engineer to build a road this turn"
+	)
+	assert_eq(
+		String(MapPlayProvinceCounsel.of([], armies)["line"]),
+		"the court would order the field army at Tucapel to storm Cádiz this turn"
+	)
+	# Three clauses are named and the fourth counted, so a busy ground stays one
+	# line of chrome.
+	var crowded: Array[Dictionary] = crews.duplicate()
+	crowded.append({"role": "Spy", "short": "keep its watch at Cádiz"})
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(crowded, armies)["line"]),
+		"the court would order its Builder to raise the lumber camp, its Engineer"
+		+ " to build a road, its Spy to keep its watch at Cádiz and 1 more this turn"
+	)
+	# A clause this module cannot say takes no place on the line.
+	var silent: Array[Dictionary] = [{"role": "Builder", "short": ""}]
+	assert_true(MapPlayProvinceCounsel.of(silent, [], 0).is_empty())
+	# The gate: the crown's own ground held an idle crew and the pass booked no
+	# work here; ground with no idle crew says nothing.
+	var gate: Dictionary = MapPlayProvinceCounsel.of([], [], 1)
+	assert_eq(String(gate["line"]), MapPlayProvinceCounsel.NO_WORK_LINE)
+	assert_eq(String(gate["kind"]), MapPlayProvinceCounsel.KIND_NO_WORK)
+	assert_true(MapPlayProvinceCounsel.of([], [], 0).is_empty())
+	assert_true(MapPlayProvinceCounsel.of([], []).is_empty())
+	assert_eq(MapPlayProvinceCounsel.pick(null, null, -1), {})
+	assert_eq(MapPlayProvinceCounsel.line(null, null, -1), "")
+
+
+## Every crown crew's own order, so a reading that booked one would show.
+func _crew_order_flags(play: PlaySession) -> Array:
+	var flags: Array = []
+	for unit: CivilianState in play.civilian_layer.units:
+		if unit == null or unit.owner != play.player_faction:
+			continue
+		flags.append(
+			"%d:%d:%s:%s" % [unit.id, unit.status, str(unit.moved), str(unit.work)]
+		)
+	return flags
+
+
+## The dossier's reading is the passes' own: it names the work the civilian pass
+## would put crews to on this province's ground and the hosts the land pass would
+## send here, and books nothing (REQ-P2-03, REQ-P5-06; DR-20261121-19).
+func test_the_province_dossier_names_the_orders_the_crowns_pass_would_give() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	assert_true(panel.counsel_source.is_valid(), "the dossier binds the passes' reading")
+	var before_forces: Array = _force_moved_flags(play)
+	var before_crews: Array = _crew_order_flags(play)
+	var province_id: int = play.capital_province
+	panel.refresh(screen.model, province_id)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayProvinceCounsel.pick(play, screen.model, province_id)
+	assert_eq(counsel, MapPlayPickProse.sentence(String(pick.get("line", ""))))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	assert_eq(_force_moved_flags(play), before_forces, "the reading marches nothing")
+	assert_eq(_crew_order_flags(play), before_crews, "the reading books no work")
+	# The guards: no province and no chart name nothing, so a shut sheet or a
+	# region switch can never print a line about ground nobody is showing.
+	assert_true(MapPlayProvinceCounsel.pick(play, screen.model, -1).is_empty())
+	assert_true(MapPlayProvinceCounsel.pick(play, null, province_id).is_empty())
+	assert_eq(MapPlayProvinceCounsel.line(play, null, province_id), "")
+
+
 func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll

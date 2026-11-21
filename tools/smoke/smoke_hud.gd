@@ -342,6 +342,25 @@ static func _province(run, screen: MapScreen) -> void:
 		screen.play.economy.economy.recruits.is_empty(),
 		"the hire reading queues nothing"
 	)
+	# The dossier also names the orders the court would give on this province's
+	# ground: the work its civilian pass would put crews to here and the hosts
+	# its land pass would send here, or nothing (wiki: world-model § The crown's
+	# provinces; DR-20261121-19).
+	run.check(
+		screen.hud.panels.panel.counsel_source.is_valid(),
+		"the province sheet binds the court's reading"
+	)
+	var counsel: String = screen.hud.panels.panel.counsel_text()
+	run.check(
+		counsel.is_empty()
+		or counsel.begins_with("The court would order ")
+		or counsel == MapPlayPickProse.sentence(MapPlayProvinceCounsel.NO_WORK_LINE),
+		"the province sheet names the orders the court would give here"
+	)
+	run.check(
+		screen.play.economy.economy.recruits.is_empty(),
+		"the province reading queues nothing"
+	)
 
 
 ## The ledger's PRODUCTION tab names the runs the crown's own economy pass would

@@ -458,6 +458,33 @@ func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	assert_eq(grid.wall.text, "30 wall hp · 60% off a blow", "a modern wall")
 
+
+## The province sheet prints the court's own reading and hides it when the
+## reading is empty, so a province neither pass names carries no gold line
+## (wiki: world-model § The crown's provinces; DR-20261121-19).
+func test_the_province_sheet_prints_and_hides_the_counsel_it_is_handed() -> void:
+	_setup_province_panel()
+	_show()
+	var wired: Callable = _province_panel_panel.counsel_source
+	_province_panel_panel.counsel_source = (
+		func(_model: MapModel, _province_id: int) -> String:
+			return "The court would order its Builder to raise the lumber camp here."
+	)
+	_show()
+	assert_eq(
+		_province_panel_panel.counsel_text(),
+		"The court would order its Builder to raise the lumber camp here."
+	)
+	assert_true(_province_panel_panel._counsel.visible, "the sheet prints the line")
+	_province_panel_panel.counsel_source = Callable()
+	_show()
+	assert_eq(
+		_province_panel_panel.counsel_text(), "", "an unwired sheet prints nothing"
+	)
+	assert_false(_province_panel_panel._counsel.visible, "and the line stands down")
+	_province_panel_panel.counsel_source = wired
+
+
 func test_each_estate_says_whether_it_is_developed_and_linked() -> void:
 	_setup_province_panel()
 	_show()

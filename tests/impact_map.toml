@@ -3499,6 +3499,20 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The province dossier's own reading (DR-20261121-19): the work the civilian
+# pass would put crews to on one province's ground and the hosts the land pass
+# would send there, merged under one court. Its own small slice proves the
+# wording and the sheet that prints it, instead of the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_province_counsel*.gd*"
+domain = "province_counsel"
+
+[domains.province_counsel]
+suites = [
+  "test_ledgers.gd",
+  "test_panel_parts_rules.gd",
+]
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
