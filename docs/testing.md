@@ -49,8 +49,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
   leads so one chart suite does not drain alone.
 - One Godot boot per theme — coverage ~15 s a boot; 24 suites (chart live →
-  map-view; play-screen bridge → chrome plate). `gd-tools.toml`: `parallel = 4`.
-  Consent ladder answers resume with rivals inert (`AiControl.NOOP`); one
+  map-view; chrome plate). `gd-tools.toml`: `parallel = 4`. Consent and
+  campaign-end closes use `AiControl.NOOP`; plate saves reload in-place. One
   peace-battle case pays a full resumed turn.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
