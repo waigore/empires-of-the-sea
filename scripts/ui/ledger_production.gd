@@ -58,21 +58,37 @@ var _rows: Dictionary = {}
 var _holdings: Dictionary = {}
 var _row_height: float = ROW_HEIGHT
 var _compact: bool = true
+## The court's own plan for this phase: the runs its economy pass would book,
+## printed in gold above the columns and tinted on the rows it names
+## (wiki: stockpiles-and-production § Production flow; DR-20261121-07).
+var _counsel: Label = null
+var _counsel_runs: Dictionary = {}
 
 
 ## `report` is the end-of-turn projection the panel already holds; without one
 ## the live store and the pool's labour stand in, so the page still answers.
-func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
+## `pick` is the court's own production pick (`MapPlayProductionPick`), read on
+## the crown's seat; a page filled without one carries no gold line.
+func fill(economy: PlayerEconomy, report: Dictionary = {}, pick: Dictionary = {}) -> void:
 	_economy = economy
 	_report = report
 	_rows = {}
 	_holdings = {}
+	_counsel = null
+	_counsel_runs = pick.get("runs", {}) as Dictionary
 	UiRowBuilder.clear(self)
 	if economy == null:
 		return
 	_compact = HudLayout.is_compact(get_viewport_rect().size)
 	_row_height = ROW_HEIGHT if _compact else ROW_HEIGHT_ATLAS
 	add_theme_constant_override("separation", 4 if _compact else 2)
+	# The court's own plan for this phase, in the colour every pick wears, above
+	# the columns whose titles it tints (DR-20261121-07). The press it used to sit
+	# under is gone — runs are set row by row (issue #1196) — so the reading now
+	# opens the page.
+	_counsel = UiRowBuilder.wrapped_line(String(pick.get("line", "")), 12, Palette.GOLD)
+	_counsel.visible = not _counsel.text.is_empty()
+	add_child(_counsel)
 	var columns := HBoxContainer.new()
 	columns.add_theme_constant_override("separation", 10)
 	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -112,6 +128,12 @@ func recipe_rows() -> Dictionary:
 ## figure beside it. These rows carry no stepper.
 func holding_rows() -> Dictionary:
 	return _holdings.duplicate()
+
+
+## The court's own plan as the page printed it, for tests and the workshop drive
+## (REQ-P3-02). Empty when the page carries no reading.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 ## One column of the page: it expands into its share of the sheet's width, and a
@@ -206,7 +228,9 @@ func _holding_row(id: String, name_width: float, fixed: bool = false) -> Control
 	if fixed:
 		# A strip cell keeps its width; five of them share one line.
 		name.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-		row.custom_minimum_size = Vector2(name_width + QTY_WIDTH + DELTA_WIDTH + 24.0, _row_height)
+		row.custom_minimum_size = Vector2(
+			name_width + QTY_WIDTH + DELTA_WIDTH + 24.0, _row_height
+		)
 	row.add_child(name)
 	var held := _figure(str(_economy.quantity(id)), 14, Palette.GOLD_PALE, QTY_WIDTH)
 	row.add_child(held)
@@ -251,12 +275,20 @@ func _recipe_row(recipe_id: String) -> Control:
 	words.alignment = BoxContainer.ALIGNMENT_CENTER
 	words.add_theme_constant_override("separation", 0)
 	words.mouse_filter = Control.MOUSE_FILTER_PASS
+	# A row the court's own plan books is tinted and says how many runs it would
+	# set, so the reading is read down the page and not only on the line above
+	# (DR-20261121-07).
+	var planned: int = int(_counsel_runs.get(recipe_id, 0))
 	var title := UiRowBuilder.label(
 		LedgerProductionText.recipe_title(recipe_id),
 		TITLE_PIXELS if _compact else TITLE_PIXELS_ATLAS,
-		Palette.TEXT
+		Palette.GOLD_PALE if planned > 0 else Palette.TEXT
 	)
 	title.tooltip_text = LedgerProductionText.recipe_tooltip(recipe_id)
+	if planned > 0:
+		title.tooltip_text += "\nThe court would run this %d time%s this phase." % [
+			planned, "" if planned == 1 else "s"
+		]
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	words.add_child(title)
 	var town: int = _town_level()

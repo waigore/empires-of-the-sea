@@ -5873,3 +5873,124 @@ func test_offers_walk_tier_then_auto_then_court_then_tile() -> void:
 	var offers: Array = [late, court, far_tile, near_tile, auto_offer]
 	MarketMatcherRank.sort_offers(offers)
 	assert_eq(offers, [auto_offer, near_tile, far_tile, court, late])
+
+
+# --- the production tab's own pick (DR-20261121-07) ---------------------------
+
+
+## The tab names the runs the published economy pass books: the same
+## `production_orders` call, in the catalogue's own order, with the plan's own
+## counts — and it books nothing itself.
+func test_the_production_pick_names_the_runs_the_plan_books() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {"timber": 10, "wool": 4}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+
+	var pick: Dictionary = MapPlayProductionPick.of(economy, plan)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayProductionPick.KIND_RUN)
+	assert_eq(
+		pick["runs"],
+		{"fabric_from_wool": 1, "lumber": 1, "paper": 1},
+		"the plan's own assignments, recipe by recipe"
+	)
+	assert_eq(
+		String(pick["line"]),
+		"the court would run Lumber ×1, Fabric ×1 and Paper ×1 this phase",
+		"the catalogue's own order"
+	)
+	assert_eq(
+		MapPlayProductionPick.sentence(String(pick["line"])),
+		"The court would run Lumber ×1, Fabric ×1 and Paper ×1 this phase."
+	)
+	assert_eq(economy.production.assignment_units("lumber"), 0, "a reading: nothing is set")
+
+
+## A court whose stores already stand at its reserve target is told so, rather
+## than left to guess why no row is worth a run.
+func test_the_production_pick_names_the_reserve_it_already_holds() -> void:
+	var economy := PlayerEconomy.starting()
+	var stock: Dictionary = {}
+	for id: String in CommodityCatalog.MANUFACTURED:
+		stock[id] = 25
+	economy.stockpile = stock
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+
+	var pick: Dictionary = MapPlayProductionPick.of(economy, plan)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayProductionPick.KIND_DONE)
+	assert_eq(pick["runs"], {}, "no row is named")
+	assert_eq(String(pick["line"]), MapPlayProductionPick.DONE_LINE)
+
+
+## Empty stores and no idle hand: the labour gate is named, not a silent page.
+func test_the_production_pick_names_the_hands_it_has_not() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {}
+	economy.workers.counts = [0, 0, 0, 0]
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+
+	var pick: Dictionary = MapPlayProductionPick.of(economy, plan)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayProductionPick.KIND_HANDS)
+	assert_eq(String(pick["line"]), MapPlayProductionPick.HANDS_LINE)
+
+
+## Idle hands and empty stores: the store — or the bench — is the gate, and the
+## line says so instead of naming a hand that stands idle.
+func test_the_production_pick_names_the_stores_it_lacks() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {}
+	economy.workers = WorkerPool.make(6)
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+
+	var pick: Dictionary = MapPlayProductionPick.of(economy, plan)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayProductionPick.KIND_STORES)
+	assert_eq(String(pick["line"]), MapPlayProductionPick.STORES_LINE)
+
+
+## Beyond four outputs the clause counts what it does not name, so a rich plan
+## stays one line of chrome on a handset (REQ-P5-07).
+func test_the_production_pick_counts_the_rows_it_cannot_name() -> void:
+	var line: String = MapPlayProductionPick.run_line({
+		"lumber": 2,
+		"castIron": 1,
+		"fabric": 1,
+		"paper": 1,
+		"steel": 3,
+	})
+
+	assert_eq(
+		line,
+		"the court would run Lumber ×2, Cast Iron ×1, Fabric ×1, Steel ×3 and 1 more this phase"
+	)
+	assert_eq(
+		MapPlayProductionPick.run_line({"lumber": 2}),
+		"the court would run Lumber ×2 this phase",
+		"one row reads alone"
+	)
+	assert_eq(MapPlayProductionPick.run_line({}), "", "no run, no clause")
+
+
+## No ledger, no plan, no session: the pick answers nothing rather than a line
+## the sheet would have to invent (REQ-P5-06).
+func test_the_production_pick_reads_nothing_without_its_parts() -> void:
+	var economy := PlayerEconomy.starting()
+	var plan: Dictionary = AiEconomyPlanner.production_orders(
+		AiConfig.build(1, 1500), economy
+	)
+	assert_true(MapPlayProductionPick.of(null, plan).is_empty(), "no ledger, no pick")
+	assert_true(MapPlayProductionPick.of(economy, {}).is_empty(), "no plan, no pick")
+	assert_true(MapPlayProductionPick.pick(null).is_empty(), "no session, no pick")
+	assert_eq(MapPlayProductionPick.sentence(""), "", "no clause, no sentence")

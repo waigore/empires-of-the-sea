@@ -6043,6 +6043,31 @@ func test_the_mission_block_prints_the_courts_pick_under_its_station() -> void:
 	block.queue_free()
 
 
+## The passenger block's voyage line: the step the court's own colonisation pass
+## would take prints in gold under the note, and hides when the court would sail
+## nothing — a block never shows an empty gold row (wiki: civilian-units
+## § Overseas deployment; DR-20261121-08).
+func test_the_passenger_block_prints_the_voyage_the_court_would_make() -> void:
+	var block := FleetCrewSection.new()
+	add_child(block)
+	block.set_data({
+		"count": 0, "note": "", "embark": [], "embark_batch": {}, "land": [],
+		"sortie": [],
+		"pick": {"kind": "embark", "line": "the court would take an Explorer aboard at Cádiz"},
+	})
+	assert_true(block.visible, "a voyage line raises the block on its own")
+	assert_eq(block._pick.text, "The court would take an Explorer aboard at Cádiz.")
+	assert_true(block._pick.visible, "the advice prints")
+	block.set_data({
+		"count": 0, "note": "", "embark": [], "embark_batch": {}, "land": [],
+		"sortie": [], "pick": {},
+	})
+	assert_false(block.visible, "nothing to say, nothing raised")
+	assert_false(block._pick.visible, "no pick, no gold row")
+	assert_eq(block._pick.text, "", "and nothing left over from the last squadron")
+	block.queue_free()
+
+
 # --- panel close seal (docs/ui-panels.md; issue #1161) -----------------------
 
 ## Every known dismissible panel: the shared chrome (a bare SheetFrame and

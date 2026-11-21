@@ -138,13 +138,17 @@ func is_army_panel_open() -> bool:
 	return army.open
 
 
+## `pick` is the court's own production plan (`MapPlayProductionPick`), printed
+## on the PRODUCTION tab above the rows it answers; empty when the crown's seat
+## runs no planner (DR-20261121-07).
 func show_economy(
 	economy_state: PlayerEconomy,
 	market: WorldMarket,
 	report: Dictionary,
 	cargo: Dictionary = {},
 	offers: Array = [],
-	crown: int = FactionCatalog.PLAYER_FACTION
+	crown: int = FactionCatalog.PLAYER_FACTION,
+	pick: Dictionary = {}
 ) -> void:
 	# The ledger takes the whole edge; close the dossiers outright so their
 	# slide-out tween cannot bleed text through the ledger's fade-in.
@@ -152,7 +156,7 @@ func show_economy(
 		slot.conceal_now()
 	research.conceal(host, dock)
 	diplomacy.conceal(host, dock)
-	economy_panel.refresh(economy_state, market, report, cargo, offers, crown)
+	economy_panel.refresh(economy_state, market, report, cargo, offers, crown, pick)
 	economy.reveal(host, dock)
 
 

@@ -3,14 +3,26 @@ extends PanelContainer
 ## One row of a crown ledger — the muster roll, the province ledger, the civilian
 ## roster, the command pool and the eyes. The five sheets print the same
 ## skeleton: a gold panel, a medallion, a serif name beside its one-word chip, a
-## detail line, an optional state column and a Visit action that the whole row
-## doubles as a tap target for, so a phone needs no hover (REQ-P5-01, REQ-P5-04).
+## detail line, an optional state column and a Visit seal — an icon-only door at
+## the close seal's touch floor, its words in a tooltip, so a phone needs no
+## hover (REQ-P5-01, REQ-P5-04).
 ##
-## The skeleton and the tap live here; a row only says what it prints through the
-## hooks below and its `_fill` (REQ-P3-01, RUB-P3-01). `compact` is set before
-## `setup`, so a phone row is built at phone sizes once, not resized later.
+## The skeleton and the Visit door live here; a row only says what it prints
+## through the hooks below and its `_fill` (REQ-P3-01, RUB-P3-01). `compact` is
+## set before `setup`, so a phone row is built at phone sizes once, not resized
+## later. The row body is a reading, not a door: a tap on the name, the chip or
+## the detail line orders nothing.
 ##
 ## Presentation only: every figure arrives in the row dictionary.
+
+## The Visit seal's glyph and the words its tooltip carries until a row names its
+## own place. Of the medallion set only the globe still reads as one symbol at
+## this size — "the chart" — so a step above the close seal's 22 points buys the
+## pictogram legibility without moving the seal off its touch floor
+## (ChromeIcons).
+const VISIT_ICON: String = "globe"
+const VISIT_GLYPH_PIXELS: int = 26
+const VISIT_TIP: String = "Visit"
 
 var data: Dictionary = {}
 ## Phone rows fold the state column into the detail line and get thumb actions.
@@ -56,12 +68,12 @@ func _build_state(_state: VBoxContainer) -> void:
 	pass
 
 
-## Whether the row carries the Visit door (and the whole-row tap with it).
+## Whether the row carries the Visit seal.
 func _wants_visit() -> bool:
 	return true
 
 
-## A tap on the row or on its Visit door, in the row's own words.
+## A press of the row's Visit seal, in the row's own words.
 func _on_visit() -> void:
 	pass
 
@@ -115,9 +127,9 @@ func _place_detail(place: String, compact_middle: String = "") -> void:
 
 func _build() -> void:
 	add_theme_stylebox_override("panel", _panel_style())
+	# The body stops a click that reaches it (a padding, a gap) from falling
+	# through to the chart behind the sheet; it never orders a visit.
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	if _wants_visit():
-		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	_body = HBoxContainer.new()
 	_body.add_theme_constant_override("separation", 10 if compact else 12)
 	add_child(_body)
@@ -159,12 +171,25 @@ func _build() -> void:
 		_body.add_child(state)
 
 	if _wants_visit():
-		_visit = UiRowBuilder.button(
-			"Visit", 42.0 if compact else 36.0, 72.0 if compact else 78.0
-		)
-		_visit.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		_visit.pressed.connect(_on_visit)
+		_visit = _visit_door()
 		_body.add_child(_visit)
+
+
+## The Visit seal: the close door's dress in a row — an icon-only medallion at
+## the same touch floor, its words in a tooltip, so a thumb reaches it on a phone
+## and a pointer reads it on the chart (REQ-P1-05, REQ-P5-01). A row names its
+## place in `_fill`; the seal never prints a caption of its own.
+func _visit_door() -> Button:
+	var door := Button.new()
+	door.name = "Visit"
+	door.custom_minimum_size = CloseSeal.SIZE
+	door.size_flags_horizontal = Control.SIZE_SHRINK_END
+	door.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	door.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	door.tooltip_text = VISIT_TIP
+	ChromeIcons.apply(door, VISIT_ICON, VISIT_GLYPH_PIXELS)
+	door.pressed.connect(_on_visit)
+	return door
 
 
 func _panel_style() -> StyleBox:
@@ -184,13 +209,3 @@ func _paint_chip(fill: Color) -> void:
 	_chip.add_theme_stylebox_override(
 		"normal", UiTheme.box(fill, fill, 0, 2, Vector4(6, 1, 6, 1))
 	)
-
-
-## The whole row is the Visit door, so a thumb never has to find the button.
-func _gui_input(event: InputEvent) -> void:
-	if not _wants_visit() or not (event is InputEventMouseButton):
-		return
-	var mouse := event as InputEventMouseButton
-	if mouse.pressed and mouse.button_index == MOUSE_BUTTON_LEFT:
-		accept_event()
-		_on_visit()

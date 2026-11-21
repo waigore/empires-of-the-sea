@@ -2222,17 +2222,17 @@ func test_a_ground_names_only_what_the_chart_has_reached() -> void:
 	var index: int = model.index_of(plain.x, plain.y)
 	visibility.raise_to(index, VisibilityModel.Level.FOGGED)
 	assert_eq(
-		MapPlayCivilianVoyage._ground_label(_screen.play, plain),
+		MapPlayCivilianVoyage.ground_label(_screen.play, plain),
 		String(MapModel.TERRAIN_LABELS.get(model.terrain_at(plain.x, plain.y), "")),
 		"a fogged ground names its terrain alone"
 	)
 	visibility.lower_to(index, VisibilityModel.Level.UNKNOWN)
 	assert_eq(
-		MapPlayCivilianVoyage._ground_label(_screen.play, plain), "",
+		MapPlayCivilianVoyage.ground_label(_screen.play, plain), "",
 		"an uncharted ground names nothing"
 	)
 	assert_eq(
-		MapPlayCivilianVoyage._ground_label(_screen.play, Vector2i(-1, -1)), "",
+		MapPlayCivilianVoyage.ground_label(_screen.play, Vector2i(-1, -1)), "",
 		"no tile, no line"
 	)
 	if mineral.x < 0:
@@ -2240,7 +2240,7 @@ func test_a_ground_names_only_what_the_chart_has_reached() -> void:
 	visibility.raise_to(
 		model.index_of(mineral.x, mineral.y), VisibilityModel.Level.FULLY_VISIBLE
 	)
-	var label: String = MapPlayCivilianVoyage._ground_label(_screen.play, mineral)
+	var label: String = MapPlayCivilianVoyage.ground_label(_screen.play, mineral)
 	assert_false(
 		label.contains("·"),
 		"an unprospected mineral keeps its terrain alone: %s" % label
@@ -4065,3 +4065,144 @@ func test_the_yard_picks_words_name_each_hull_and_its_gate() -> void:
 		"The court would lay a Sloop — 5,500 ducats."
 	)
 	assert_eq(MapPlayYardPickWords.sentence(""), "", "no words, no sentence")
+
+
+# --- the voyage pick (DR-20261121-08) ---------------------------------------
+
+
+## A pure session with a New World beside the two-coast chart: the crown's seat
+## at Cádiz, an idle Explorer at the harbour and a free squadron in port, with a
+## ledger so the voyage plan has a purse to read. No screen is mounted.
+func _voyage_play() -> PlaySession:
+	var home: MapModel = NavalFixture.build()
+	var abroad: MapModel = NavalFixture.build()
+	abroad.region_id = FactionCatalog.NEW_WORLD
+	var world := WorldMap.new()
+	world.add_region(home)
+	world.add_region(abroad)
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.map_seed = 1500
+	play.turn = 1
+	play.world = world
+	play.model = home
+	play.region_index = home.region_id
+	play.diplomacy = DiplomacyState.new()
+	play.diplomacy.reset(1)
+	play.diplomacy.ensure_relation(0, 1, 1)
+	play.ship_layer = ShipLayer.new()
+	play.ship_layer.model = home
+	play.civilian_layer = CivilianLayer.new()
+	play.ai = AiState.new()
+	var controller := EconomyController.new()
+	controller.economy = PlayerEconomy.starting()
+	play.economy = controller
+	return play
+
+
+## The crown's colonist waits at the harbour and a free squadron is in port: the
+## block names the boarding the court's own voyage plan would take, and boards
+## nobody (wiki: civilian-units § Overseas deployment; DR-20261121-08).
+func test_the_voyage_pick_boards_the_colonist_the_court_would_send() -> void:
+	var play: PlaySession = _voyage_play()
+	var fleet: FleetState = FleetState.in_port(0, 0, 0, ["h0"], {"h0": "fluyt"})
+	var explorer: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(1, 0))
+	_pick_roster(play, [fleet] as Array[FleetState])
+	play.civilian_layer.units.assign([explorer] as Array[CivilianState])
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+
+	var pick: Dictionary = MapPlayVoyagePick.pick(play, fleet)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayVoyagePick.KIND_EMBARK, "the boarding")
+	assert_eq(int(pick.get("fleet", -1)), fleet.id, "the plan names this squadron")
+	assert_eq(int(pick.get("unit", -1)), explorer.id, "and the crew it would take")
+	assert_eq(String(pick.get("crew", "")), "explorer")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would take an Explorer aboard at %s" % _model.province_name(0),
+		"the words name the crew and the harbour"
+	)
+	assert_eq(
+		MapPlayVoyagePick.line(play, fleet),
+		"The court would take an Explorer aboard at %s." % _model.province_name(0),
+		"one sentence"
+	)
+	assert_eq(explorer.embarked_fleet, -1, "a reading: nobody boards")
+	assert_false(fleet.moved, "and no hull sails")
+	play.ship_layer.free()
+
+
+## The pick is only for a squadron the court would still order: a rival's hull, a
+## squadron that has sailed, a crown with no ledger and a decided campaign all
+## carry none.
+func test_the_voyage_pick_names_no_squadron_the_court_would_leave_alone() -> void:
+	var play: PlaySession = _voyage_play()
+	var fleet: FleetState = FleetState.in_port(0, 0, 0, ["h0"], {"h0": "fluyt"})
+	var rival: FleetState = FleetState.in_port(1, 1, 1, ["h1"], {"h1": "sloop"})
+	var explorer: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(1, 0))
+	_pick_roster(play, [fleet, rival] as Array[FleetState])
+	play.civilian_layer.units.assign([explorer] as Array[CivilianState])
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+
+	assert_false(MapPlayVoyagePick.pick(play, fleet).is_empty(), "the crown's own squadron takes one")
+	assert_true(MapPlayVoyagePick.pick(play, rival).is_empty(), "a rival answers to her own court")
+	fleet.moved = true
+	assert_true(MapPlayVoyagePick.pick(play, fleet).is_empty(), "a hull that has sailed is not re-ordered")
+	fleet.moved = false
+	play.economy = null
+	assert_true(MapPlayVoyagePick.pick(play, fleet).is_empty(), "no ledger, no voyage plan")
+	play.economy = EconomyController.new()
+	play.economy.economy = PlayerEconomy.starting()
+	play.campaign_halted = true
+	assert_true(MapPlayVoyagePick.pick(play, fleet).is_empty(), "a decided campaign sails nothing")
+	play.campaign_halted = false
+	assert_true(MapPlayVoyagePick.pick(null, fleet).is_empty(), "no session, no pick")
+	assert_true(MapPlayVoyagePick.pick(play, null).is_empty(), "no squadron, no pick")
+	play.ship_layer.free()
+
+
+## The voyage's own words, step by step: the water a carrying squadron sails, the
+## harbour a free one makes for, the Passage it crosses and the ground it lands
+## on — every figure the plan's own (DR-20261121-08).
+func test_the_voyage_words_name_each_step_the_plan_takes() -> void:
+	var model: MapModel = _model
+	assert_eq(
+		MapPlayVoyagePickWords.sentence(MapPlayVoyagePickWords.line(model, {
+			"kind": "sail", "zone": 0, "carrying": true,
+		})),
+		"The court would sail her for the %s — the first leg to the Passage." % (
+			model.sea_zone_name(0)
+		)
+	)
+	assert_eq(
+		MapPlayVoyagePickWords.line(model, {
+			"kind": "sail", "zone": 1, "carrying": false, "harbour": 0,
+		}),
+		"the court would sail her for the %s — the first leg to %s, where the voyage musters" % [
+			model.sea_zone_name(1), model.province_name(0)
+		]
+	)
+	assert_eq(
+		MapPlayVoyagePickWords.line(model, {"kind": "dock", "province": 0}),
+		"the court would dock her at %s — the harbour the voyage musters at" % (
+			model.province_name(0)
+		)
+	)
+	assert_eq(
+		MapPlayVoyagePickWords.line(model, {"kind": "cross", "crew": "explorer"}),
+		"the court would cross the Passage with an Explorer aboard"
+	)
+	assert_eq(
+		MapPlayVoyagePickWords.line(model, {
+			"kind": "land", "crew": "explorer", "tile": Vector2i(5, 1),
+			"ground": "Plains · grain",
+		}),
+		"the court would put an Explorer ashore at (5, 1) — Plains · grain"
+	)
+	assert_eq(
+		MapPlayVoyagePickWords.line(model, {"kind": "land", "crew": "explorer", "tile": Vector2i(5, 1)}),
+		"the court would put an Explorer ashore at (5, 1)",
+		"an uncharted ground names the tile alone"
+	)
+	assert_eq(MapPlayVoyagePickWords.line(model, {"kind": "unknown"}), "", "no step, no words")
+	assert_eq(MapPlayVoyagePickWords.line(null, {"kind": "dock", "province": 0}), "", "no chart, no words")

@@ -35,22 +35,21 @@ Catalogue `ProductionRecipes`; phase `ProductionPhase`:
 | paper | timber ×2 | 2 |
 | bronze | copper ×1 + tin ×1 | 3 |
 
-`fabric_from_cotton` needs Cotton Weaving; a Labour-column hand is a
-`min_tier` gate. Runs are whole; short rows skip.
+`fabric_from_cotton` needs Cotton Weaving; a Labour hand is a `min_tier`
+gate. Runs are whole; short rows skip.
 
-Steel, bronze, cigars and fur hats take **two turns** (`turns`); alloys
+Steel, bronze, cigars and fur hats take **two turns**; alloys
 combine two inputs (DR-20261114-10). Inputs and labour pay up front; the batch
 lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
 
-A slow row's bench holds **three pieces** (`QUEUE_CAP`); a fourth waits for one
+A slow row's bench holds **three** (`QUEUE_CAP`): a fourth run waits a landing
 (DR-20261114-12).
 
 ## Town manufacturing bonus
 
-Town development 2 or 4 turns connected raw into ×1/×2 manufactures:
+Town level 2 or 4 turns connected raw into ×1/×2 manufactures:
 `floor(input / 4) × multiplier`, no inputs or labour. A colony pays on
-landed tons; rivals upgrade towns; a Minor/Tribe town offers; a deed lifts
-it (`min(4, 1+deeds)`).
+landed tons; a Minor/Tribe town offers; a deed lifts it (`min(4, 1+deeds)`).
 
 ## World-market auction
 
@@ -70,14 +69,15 @@ Prices publish once; pact, boycott, subsidy settle
 ## UI
 
 `PRODUCTION`: stockpile by group in columns (three desktop, two phone, Riches
-strip); steppers capped by labour/inputs (`allowance`); a worked row names its
-output (`made 3`).
+strip); steppers capped by labour/inputs (`allowance`), a worked row names its
+output (`made 3`), the court's own runs in gold (`MapPlayProductionPick`,
+DR-20261121-07).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
-line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid` naming its
-rule (`MarketRules.bid_block`, DR-20261118-15), a barred colony row
+line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid`
+(`MarketRules.bid_block`, DR-20261118-15), a barred colony row
 (`MinorMarket.sealed_line`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
-(`recruit_affordable`; `UNDER ORDERS` folds a batch), a `LARDER` block
+(`recruit_affordable`; `UNDER ORDERS` folds it), a `LARDER` block
 (`LarderRead`): next Consumption's store, every appetite, the striking tier.
 Tier rows print their deal (`LedgerWorkersText.recruit_line`): price, gate or
 ration (DR-20261118-03).
@@ -94,7 +94,7 @@ Live: workshop landing (`ground_appetite`, DR-19-05); see
 `commodity_catalog`, `world_market`, `market_*`, `first_right`,
 `market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,
 `economy/economy_controller`, `economy/ledger_readings`,
-`economy/ledger_orders`, `map/map_play_market`.
+`economy/ledger_orders`, `map/map_play_market`, `map/map_play_production_pick`.
 
 ## Tests
 

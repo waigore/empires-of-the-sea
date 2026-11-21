@@ -11,13 +11,18 @@ extends RefCounted
 ## steps off is no choice the crown can tell apart.
 
 
-## Dossier data: {"count", "note", "embark", "embark_batch", "land", "sortie"}.
+## Dossier data: {"count", "note", "embark", "embark_batch", "land", "sortie",
+## "pick"}.
 static func crew(play: PlaySession, fleet: FleetState) -> Dictionary:
 	var data: Dictionary = {
-		"count": 0, "note": "", "embark": [], "embark_batch": {}, "land": [], "sortie": [],
+		"count": 0, "note": "", "embark": [], "embark_batch": {}, "land": [],
+		"sortie": [], "pick": {},
 	}
 	if fleet == null or fleet.owner != play.player_faction:
 		return data
+	# The voyage the court's own colonisation pass would make with her, read
+	# before the crown presses a boarding (DR-20261121-08).
+	data["pick"] = MapPlayVoyagePick.pick(play, fleet)
 	var aboard: Array[CivilianState] = _aboard(play, fleet)
 	data["count"] = aboard.size()
 	data["note"] = _note(aboard)
@@ -41,7 +46,7 @@ static func crew(play: PlaySession, fleet: FleetState) -> Dictionary:
 				for tile: Vector2i in tiles:
 					grounds.append({
 						"x": tile.x, "y": tile.y,
-						"ground": _ground_label(play, tile),
+						"ground": ground_label(play, tile),
 					})
 				var entry: Dictionary = {
 					"province": province,
@@ -242,7 +247,7 @@ static func _provinces_of(by_coast: Dictionary, type_id: String) -> Array[int]:
 ## it, and the commodity an estate there would work — never a mineral no Explorer
 ## has prospected, and nothing at all of an uncharted tile (wiki:
 ## fog-and-exploration § Prospect-Required Resources, § What a landing reveals).
-static func _ground_label(play: PlaySession, tile: Vector2i) -> String:
+static func ground_label(play: PlaySession, tile: Vector2i) -> String:
 	if play.model == null or not play.model.is_land(tile.x, tile.y):
 		return ""
 	var level: int = VisibilityModel.Level.FULLY_VISIBLE
@@ -290,7 +295,7 @@ static func _seat(
 	var seat: Vector2i = data.town_site()
 	if seat.x < 0 or not tiles.has(seat):
 		return {}
-	return {"x": seat.x, "y": seat.y, "ground": _ground_label(play, seat)}
+	return {"x": seat.x, "y": seat.y, "ground": ground_label(play, seat)}
 
 
 ## The idle crews the block's embark rows print — the one reading the single

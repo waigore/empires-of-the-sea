@@ -137,18 +137,14 @@ func plan_turn() -> void:
 	# manufacture's reach instead: the plan never promises a run whose inputs
 	# would eat the regiment's cloth or the hull's lumber, and the court's own
 	# works keep the manufactures they pay for.
-	muster_row = AiBindEconomy.muster_reserve(
-		kind, config, economy, regiments, at_war, int(pressure["extra_regiments"])
+	var chest: Dictionary = chest_rows(
+		play, faction, kind, config, economy, at_war, regiments, warships,
+		hull_chest, int(pressure["extra_regiments"])
 	)
-	navy_row = (
-		AiNavy.due_row(
-			at_war, warships, MapPlayCourt.hostile_warships(play, faction),
-			economy, MapPlayCourt.hull_types(play, faction)
-		)
-		if hull_chest > 0 else {}
-	)
+	muster_row = chest["muster_row"] as Dictionary
+	navy_row = chest["navy_row"] as Dictionary
 	production = AiBindEconomy.production_orders(
-		kind, config, economy, town_level, _chest_rows()
+		kind, config, economy, town_level, chest["held"] as Dictionary
 	)
 	floor = int(income["reserve"])
 	# The conquest bank (issue #995): the canonical read — the gap, the host
@@ -195,11 +191,36 @@ func plan_turn() -> void:
 
 ## The raw the muster's and the hull's own material rows claim, merged: the
 ## stock manufacture plans around so a run never promises inputs the regiment
-## or the yard must keep (issue #484, #878).
-func _chest_rows() -> Dictionary:
-	if navy_row.is_empty():
-		return muster_row
-	return MapPlayEconomyAi._merge_rows(muster_row, navy_row)
+## or the yard must keep (issue #484, #878). One home, read by the pass and by
+## the sheet that names the plan, so the two cannot claim different chests
+## (REQ-P2-03; DR-20261121-07).
+static func chest_rows(
+	play: PlaySession,
+	faction: int,
+	kind: String,
+	config: Variant,
+	economy: PlayerEconomy,
+	at_war: bool,
+	regiments: int,
+	warships: int,
+	hull_chest: int,
+	extra_regiments: int
+) -> Dictionary:
+	var muster: Dictionary = AiBindEconomy.muster_reserve(
+		kind, config, economy, regiments, at_war, extra_regiments
+	)
+	var navy: Dictionary = (
+		AiNavy.due_row(
+			at_war, warships, MapPlayCourt.hostile_warships(play, faction),
+			economy, MapPlayCourt.hull_types(play, faction)
+		)
+		if hull_chest > 0 else {}
+	)
+	return {
+		"muster_row": muster,
+		"navy_row": navy,
+		"held": MapPlayEconomyAi._merge_rows(muster, navy),
+	}
 
 
 ## Resolves the shared market and books this court's next production and
