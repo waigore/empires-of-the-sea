@@ -32,9 +32,13 @@ static func status_text(army: ArmyState, is_player: bool) -> String:
 	return "1 march this turn"
 
 
-## Hint under the status: stranded hosts get the walk-home word from #1218 so
-## the sheet never promises own land the tap list does not hold.
-static func hint_text(army: ArmyState, is_player: bool, stranded: bool) -> String:
+## Hint under the status: a host standing off its own ground gets the walk-home
+## word from #1218 — never own land the tap list does not hold — and one that does
+## touch its own land still hears that only the provinces beside it are open
+## (wiki: military-armies § Movement and attacks; DR-20261121-15).
+static func hint_text(
+	army: ArmyState, is_player: bool, stranded: bool, off_ground: bool = false
+) -> String:
 	if not is_player:
 		return "Observe only. Orders require your own army."
 	if army.is_embarked():
@@ -48,6 +52,11 @@ static func hint_text(army: ArmyState, is_player: bool, stranded: bool) -> Strin
 			"No own land touches here; walk through the provinces beside you, "
 			+ "one march at a time, to reach home."
 		)
+	if off_ground:
+		return (
+			"Tap a highlighted province; off your own ground only the provinces "
+			+ "beside you are open."
+		)
 	return (
 		"Tap a highlighted province; your own land is open, enemy land must "
 		+ "border you."
@@ -56,9 +65,14 @@ static func hint_text(army: ArmyState, is_player: bool, stranded: bool) -> Strin
 
 ## Writes both dossier lines from one opening.
 static func apply(
-	status: Label, hint: Label, army: ArmyState, is_player: bool, stranded: bool
+	status: Label,
+	hint: Label,
+	army: ArmyState,
+	is_player: bool,
+	stranded: bool,
+	off_ground: bool = false
 ) -> void:
 	if status == null or hint == null:
 		return
 	status.text = status_text(army, is_player)
-	hint.text = hint_text(army, is_player, stranded)
+	hint.text = hint_text(army, is_player, stranded, off_ground)

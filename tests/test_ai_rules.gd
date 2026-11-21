@@ -781,7 +781,9 @@ func test_ai_military_rotation_walks_a_stranded_host_home() -> void:
 
 
 ## A step onto the court's own land is the road home itself: the host walks onto
-## its own ground and interior lines open from there (DR-20261121-15).
+## the own province beside it, and interior lines open from there. The seat two
+## marches on is no one-march step, however near it reads on the field
+## (DR-20261121-15).
 func test_ai_military_walks_a_stranded_host_onto_its_own_land() -> void:
 	var world: WorldMap = _walk_world([MapModel.NO_ID, 2, 2], {2: true})
 	var model: MapModel = world.region(0)
@@ -801,7 +803,10 @@ func test_ai_military_walks_a_stranded_host_onto_its_own_land() -> void:
 
 	assert_eq(walked.size(), 1)
 	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
-	assert_eq(int(walked[0]["province"]), 2, "its own ground, the road home")
+	assert_eq(
+		int(walked[0]["province"]), 1,
+		"its own ground beside it, the road home"
+	)
 
 
 ## Two steps home at the same distance: the lower province id wins, so the same
