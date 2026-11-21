@@ -96,8 +96,16 @@ static func _base(
 	court.faction = faction
 	court.market = market
 	court.kind = AiControl.court_kind(play, faction)
-	court.economy = play.ai.economy_for(faction)
-	court.config = AiBind.config(court.kind, faction, play.map_seed, play.ensure_ai().profiles)
+	# The court's ledger from the session's one home: the crown's own ledger for
+	# the human's faction, a rival's from the AI. `ai.economy_for` would hand the
+	# crown a fresh opening copy that no pass ever resolves, so every pick read a
+	# ledger a hundred turns behind the sheet it answered — the WORKERS tab said
+	# `would recruit 1 Peasant` beside a pool of 20 (wiki:
+	# workers-and-population § Recruiting; DR-20261121-09, DR-20261122-01).
+	var ledger: PlayerEconomy = play.ledger_for(faction)
+	var ai: AiState = play.ensure_ai()
+	court.economy = ledger if ledger != null else ai.economy_for(faction)
+	court.config = AiBind.config(court.kind, faction, play.map_seed, ai.profiles)
 	court.town_level = TownIndustry.best_level(play.world, faction)
 	return court
 

@@ -1353,8 +1353,8 @@ func _printed_lines(entry: Control) -> Array[String]:
 ## A lost capital says why instead of opening a slip the crown cannot use.
 func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 	var play: PlaySession = _screen.play
-	play.capital_province = _unowned_province()
-	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
+	_lose_the_capital(play)
+	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), -1, "the seat is gone")
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
@@ -1367,8 +1367,9 @@ func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 ## An inland capital cannot build hulls; the court is told before it pays.
 func test_the_yard_needs_a_harbour() -> void:
 	var play: PlaySession = _screen.play
-	play.capital_province = _inland_owned_province()
-	assert_gte(play.capital_province, 0, "the fixture has an inland province")
+	var inland: int = _inland_owned_province()
+	assert_gte(inland, 0, "the fixture has an inland province")
+	_move_the_seat(play, inland)
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
@@ -1669,8 +1670,7 @@ func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
 	econ.treasury = 60000
 	econ.tech_unlocked["superior_hull_design"] = true
 	var pending: int = econ.recruits.pending_kind(RecruitQueue.KIND_SHIP)
-	play.capital_province = _unowned_province()
-	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
+	_lose_the_capital(play)
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.on_action(play, "yard:launch_all")
@@ -1678,8 +1678,9 @@ func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
 	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "nothing is filed")
 	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 1, "the refusal is spoken")
 
-	play.capital_province = _inland_owned_province()
-	assert_gte(play.capital_province, 0, "the fixture has an inland province")
+	var inland: int = _inland_owned_province()
+	assert_gte(inland, 0, "the fixture has an inland province")
+	_move_the_seat(play, inland)
 	MapPlayFleetYard.launch_all(play)
 
 	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "no yard inland")
@@ -2509,6 +2510,31 @@ func _unowned_province() -> int:
 		if province.owner != _screen.play.player_faction and province.owner != MapModel.NO_ID:
 			return province.id
 	return -1
+
+
+## Takes the crown's seat, the way a conquest does: another court holds the seat
+## province and the flag goes with the court (wiki: capital-and-connectivity
+## § Capital loss and reassignment).
+func _lose_the_capital(play: PlaySession) -> void:
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
+	if province < 0:
+		return
+	var seat: ProvinceState = play.model.province_data(province)
+	seat.owner = play.model.province_owner(_unowned_province())
+	CapitalLoss.clear_seat(seat)
+
+
+## Moves the crown's seat to another owned province, as reassignment does
+## (wiki: capital-and-connectivity § Capital loss and reassignment).
+func _move_the_seat(play: PlaySession, province: int) -> void:
+	var model: MapModel = play.model
+	var current: int = int(MapPlayCourt.crown_seat(play)["province"])
+	if current >= 0:
+		CapitalLoss.clear_seat(model.province_data(current))
+	var seat: ProvinceState = model.province_data(province)
+	seat.owner = play.player_faction
+	seat.capital = true
+	seat.capital_tile = CapitalLoss.town_tile(seat)
 
 
 ## An owned province with no harbour, for the yard's "no harbour" row.

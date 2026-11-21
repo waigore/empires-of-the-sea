@@ -196,6 +196,15 @@ godot --headless --path . --script res://playtests/playtest_raise_line.gd
 # so a stalled expedition names the gate that refused it.
 godot --headless --path . --script res://playtests/playtest_overseas_invasion.gd
 
+# New World land war — reaches the crown's land on the New World chart (the
+# turn-100 start leaves three colonies there), declares war on the Tribe beside
+# it and storms a province, reading every surface the court meets there: the
+# despatches, the army dossier and its counsel, the province sheet and the realm
+# reading. A third pass queues a hire, a muster and a launch at the seat, flips
+# the chart to the colony and closes the turn, so a seat-scoped order that lands
+# on the chart on screen (or is lost there) reads in one line.
+godot --headless --path . --script res://playtests/playtest_new_world_war.gd
+
 # Sighted strength — sights a hostile squadron and reads the marker's `*`, the
 # dossier's `???` and the zone that takes no verdict; closes a turn to read the
 # watch's news, then checks the read survives another chart and a save.
