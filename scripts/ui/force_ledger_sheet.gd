@@ -113,7 +113,7 @@ func _build_body(column: VBoxContainer) -> void:
 ## reading wired prints the rule alone, exactly as it always did.
 func _under_chips() -> Control:
 	var block := VBoxContainer.new()
-	block.add_theme_constant_override("separation", 4)
+	block.add_theme_constant_override("separation", 10)
 	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
 	_counsel.visible = false
 	block.add_child(_counsel)
