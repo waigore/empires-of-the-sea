@@ -19,10 +19,6 @@ const KIND_PURSUE: String = AiNavalPlanner.KIND_PURSUE
 const KIND_RAID: String = AiNavalPlanner.KIND_RAID
 const KIND_HOME: String = AiNavalPlanner.KIND_HOME
 
-## The most squadrons one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 ## Squadrons wait for a sail and the pass orders none: the gate the sheet names
 ## instead of a clause it cannot print.
 const NO_ORDER_LINE: String = (
@@ -33,7 +29,7 @@ const NO_ORDER_LINE: String = (
 ## The sheet's sentence: the pick's own line, capitalised and closed — the one
 ## wording every pick surface prints (MapPlayPickProse; REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, snapshot))
 
 
 ## The navy's pick as the sheet prints it: `{squadrons, line}`, where each
@@ -60,10 +56,7 @@ static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
 ## policy gave none, so the sheet names that rather than a clause it cannot
 ## print. A navy with nothing waiting has nothing to say (REQ-P5-06).
 static func gate(waiting: int) -> Dictionary:
-	if waiting <= 0:
-		return {}
-	var none: Array[Dictionary] = []
-	return {"squadrons": none, "line": NO_ORDER_LINE}
+	return MapPlayPickProse.gate(waiting, "squadrons", NO_ORDER_LINE)
 
 
 ## The pick, worded off the squadrons the pass orders and the sheet's own
@@ -73,7 +66,9 @@ static func gate(waiting: int) -> Dictionary:
 static func of(squadrons: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionary:
 	if squadrons.is_empty():
 		return {}
-	var ordered: Array[Dictionary] = _in_heading_order(squadrons, snapshot)
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
+		squadrons, snapshot.get("groups", []), "fleet_id", "fleet"
+	)
 	return {"squadrons": ordered, "line": pick_line(ordered)}
 
 
@@ -83,13 +78,8 @@ static func of(squadrons: Array[Dictionary], snapshot: Dictionary = {}) -> Dicti
 static func pick_line(squadrons: Array[Dictionary]) -> String:
 	var clauses: Array[String] = []
 	for squadron: Dictionary in squadrons:
-		var clause: String = String(squadron.get("line", ""))
-		if not clause.is_empty():
-			clauses.append(clause)
-	var joined: String = MapPlayPickProse.capped(clauses, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would send %s this turn" % joined
+		clauses.append(String(squadron.get("line", "")))
+	return MapPlayPickProse.court_line("the court would send", clauses)
 
 
 ## One squadron's clause: the sail the policy would order her, named by the
@@ -185,41 +175,6 @@ static func _waiting(play: PlaySession, faction: int) -> int:
 	return waiting
 
 
-## The squadrons in the order the sheet prints its headings (its own `groups`),
-## so the line reads down the page it answers. A squadron the snapshot does not
-## print keeps the pass's order after them.
-static func _in_heading_order(
-	squadrons: Array[Dictionary], snapshot: Dictionary
-) -> Array[Dictionary]:
-	var order: Dictionary = {}
-	var index: int = 0
-	for raw: Variant in snapshot.get("groups", []):
-		var group: Dictionary = raw
-		if order.has(_key(group)):
-			continue
-		order[_key(group)] = index
-		index += 1
-	if order.is_empty():
-		return squadrons
-	var keyed: Array[Dictionary] = squadrons.duplicate()
-	keyed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var left: int = int(order.get(_key(a), 1 << 30))
-		var right: int = int(order.get(_key(b), 1 << 30))
-		if left != right:
-			return left < right
-		return int(a.get("fleet_id", 0)) < int(b.get("fleet_id", 0))
-	)
-	return keyed
-
-
-## A squadron's own key: the chart she sails and the id its roster minted her.
-## The sheet calls the id `fleet` on a heading and the pick calls it `fleet_id`
-## on its own entry, so one key reads both.
-static func _key(entry: Dictionary) -> String:
-	var fleet_id: int = int(entry.get("fleet", entry.get("fleet_id", -1)))
-	return "%d:%d" % [int(entry.get("region", -1)), fleet_id]
-
-
 ## The squadron a plan names, read off the roster the plan was asked about.
 static func _fleet(roster: Array[FleetState], fleet_id: int) -> FleetState:
 	for fleet: FleetState in roster:
@@ -234,4 +189,3 @@ static func _ship(fleet: FleetState) -> String:
 	if fleet.hulls.is_empty():
 		return ""
 	return ShipNames.of(fleet, fleet.hulls[0])
-

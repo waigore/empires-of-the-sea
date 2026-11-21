@@ -2682,6 +2682,93 @@ func test_the_colony_pick_words_the_link_the_court_would_press() -> void:
 	)
 
 
+## The press's own gate (DR-20261121-16): a chain the envoy row would refuse
+## names the rule's reason instead of an offer the crown cannot make this turn —
+## the same gate `DiplomacyRules.can_establish_overture` answers the press with
+## (REQ-P2-03, REQ-P5-06).
+func test_the_colony_pick_names_the_gate_the_crowns_press_answers() -> void:
+	var tribe: int = _colony_tribe()
+	var name: String = FactionCatalog.name_of(tribe)
+	var ambition: Dictionary = {
+		"target": tribe, "stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE,
+	}
+	var cold: Dictionary = MapPlayColonyPick.gated(
+		ambition,
+		"Join Empire needs a warmer court than this one — the gate stands one step "
+		+ "up the meter."
+	)
+	assert_eq(String(cold["kind"]), MapPlayColonyPick.KIND_GATE)
+	assert_eq(int(cold["target"]), tribe)
+	assert_eq(
+		MapPlayPickProse.sentence(String(cold["line"])),
+		"The court's chain with the %s waits this turn (Join Empire needs a warmer "
+		% name + "court than this one — the gate stands one step up the meter)."
+	)
+	# The rule's words are handed in whole: the line closes with one full stop.
+	assert_false(String(cold["line"]).contains(".."), "the reason keeps one stop")
+	# No reason to print, no line: a sheet with nothing to say stays silent.
+	assert_eq(MapPlayColonyPick.gate_line("the %s" % name, ""), "")
+	assert_eq(MapPlayColonyPick.gate_line("", "a reason"), "")
+	assert_true(MapPlayColonyPick.gated(ambition, "").is_empty())
+	assert_true(MapPlayColonyPick.gated({}, "a reason").is_empty())
+	assert_true(MapPlayColonyPick.gated({"target": -1}, "a reason").is_empty())
+
+
+## The same gate on a live session: a chain whose envoy row would refuse reads
+## the rule's reason instead of a link, and a chain the press can take reads the
+## link — so the gold line and the crown's own tap cannot disagree (REQ-P2-03).
+func test_the_colonies_name_the_gate_a_live_press_would_refuse() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var faction: int = play.player_faction
+	var model: MapModel = Fixture.region()
+	var first: int = _colony_tribe()
+	var seat: int = Fixture.inland_province(model)
+	var data: ProvinceState = model.province_data(seat)
+	assert_not_null(data, "the fixture names a province to seat")
+	data.owner = first
+	play.economy.economy.treasury = 50000
+	play.diplomacy.ensure_relation(faction, first, play.turn)
+	play.diplomacy.relation(faction, first).score = 40.0
+	play.diplomacy.set_overture(faction, first, DiplomacyCatalog.STAGE_NAP)
+	# The court's envoy has already been to this Tribe this turn.
+	play.diplomacy.claim(faction, first, "overture")
+	# The reading needs the crown's own planner state, which a boot makes lazily.
+	play.ensure_ai()
+	var refused: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(String(refused.get("kind", "")), MapPlayColonyPick.KIND_GATE)
+	assert_eq(int(refused.get("target", -1)), first)
+	assert_true(
+		MapPlayPickProse.sentence(String(refused.get("line", ""))).contains(
+			"An overture was already made to this court this turn"
+		),
+		"the rule's own words, not a second opinion"
+	)
+	# A second Tribe the same turn can still be offered: the warmer chain wins
+	# the reading, and the press that signs it is on.
+	var second: int = _second_tribe()
+	var other: int = MapModel.NO_ID
+	for province: ProvinceState in model.provinces:
+		if province.id != seat:
+			other = province.id
+			break
+	assert_ne(other, MapModel.NO_ID, "the fixture has a second province")
+	model.province_data(other).owner = second
+	play.diplomacy.ensure_relation(faction, second, play.turn)
+	play.diplomacy.relation(faction, second).score = 60.0
+	play.diplomacy.set_overture(faction, second, DiplomacyCatalog.STAGE_NAP)
+	var offered: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(String(offered.get("kind", "")), MapPlayColonyPick.KIND_CHAIN)
+	assert_eq(int(offered.get("target", -1)), second)
+	assert_eq(
+		String(offered.get("line", "")),
+		MapPlayColonyPick.chain_line(
+			"the %s" % FactionCatalog.name_of(second),
+			DiplomacyCatalog.STAGE_JOIN_EMPIRE
+		)
+	)
+
+
 ## The sheet prints the reading it is handed and hides it when the reading is
 ## empty, so a session with no chain carries no gold line (REQ-P5-06).
 func test_the_colonies_print_and_hide_the_counsel_they_are_handed() -> void:

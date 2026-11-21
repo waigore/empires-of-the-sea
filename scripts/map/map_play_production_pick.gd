@@ -43,7 +43,7 @@ const STORES_LINE: String = (
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession) -> String:
-	return MapPlayPickProse.sentence(String(pick(play).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play))
 
 ## The ledger's pick as the PRODUCTION tab prints it: `{kind, runs, line}`, where
 ## `runs` maps recipe id to the units the plan books. Empty when the session runs

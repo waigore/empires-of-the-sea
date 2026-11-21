@@ -333,6 +333,12 @@ godot --headless --path . --script res://playtests/playtest_terrain_ground.gd
 # boycott the colony unlocks against a rival crown.
 godot --headless --path . --script res://playtests/playtest_colony.gd
 
+# Colony counsel — the gold line THE COLONIES prints under its chips, held to the
+# crown's own press: a pact with a court too cold for the Join Empire, the same
+# court warmed, a chain already visited this turn, and the study that holds an
+# Embassy, then the honest link and the envoy sheet's own counsel beside it.
+godot --headless --path . --script res://playtests/playtest_colony_counsel.gd
+
 # Campaign end — the hardest state in the game to reach (the calendar cap is turn
 # 201 and the bar is 31 Old World provinces). Seats the turn number and the
 # holdings, then closes real turns: reads the Gazette's age tab and the sheet's

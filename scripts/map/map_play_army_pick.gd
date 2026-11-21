@@ -86,7 +86,7 @@ static func pick(play: PlaySession, army: ArmyState) -> Dictionary:
 ## The sheet's line: the pick's own sentence, or nothing when the court would
 ## give this army no order this turn.
 static func line(play: PlaySession, army: ArmyState) -> String:
-	return MapPlayPickProse.sentence(String(pick(play, army).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, army))
 
 
 ## The roster the pass plans its marches over: the chart's own, or — when the seat

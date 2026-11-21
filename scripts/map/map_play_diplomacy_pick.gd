@@ -99,7 +99,7 @@ static func pick(play: PlaySession, target: int) -> Dictionary:
 
 ## The court sheet's line for one crown, or "" when there is none to print.
 static func line(play: PlaySession, target: int) -> String:
-	return MapPlayPickProse.sentence(String(pick(play, target).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, target))
 
 
 ## One crown's reading off the court's plan: the order if the envoy is bound for
