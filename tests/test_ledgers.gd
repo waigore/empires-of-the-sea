@@ -2487,6 +2487,132 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 	assert_false(panel.is_open(), "back sets the ledger aside first")
 
 
+## --- the colonies' own reading (DR-20261121-16) -----------------------------
+
+
+## The Tribe the court's own envoy is buying, worded off one ambition read: each
+## stage's own words, the study gate the pass names as the door it owes, and no
+## clause for a stage this module cannot say (REQ-P2-03, REQ-P5-06).
+func test_the_colony_pick_words_the_link_the_court_would_press() -> void:
+	var tribe: int = _colony_tribe()
+	var name: String = FactionCatalog.name_of(tribe)
+	assert_eq(
+		MapPlayColonyPick.chain_line("the %s" % name, DiplomacyCatalog.STAGE_CONSULATE),
+		"the court would offer the %s a Trade Consulate this turn, one link toward a colony"
+		% name
+	)
+	assert_eq(
+		MapPlayColonyPick.chain_line("the %s" % name, DiplomacyCatalog.STAGE_NAP),
+		"the court would offer the %s a Non-Aggression Pact this turn, "
+		% name
+		+ "one link toward a colony"
+	)
+	assert_eq(
+		MapPlayColonyPick.chain_line("the %s" % name, DiplomacyCatalog.STAGE_JOIN_EMPIRE),
+		"the court would offer the %s the Join Empire this turn — the bond that "
+		% name
+		+ "makes it a colony"
+	)
+	assert_eq(MapPlayColonyPick.chain_line("the %s" % name, "unknown"), "")
+	# An embassy needs a study the court may not hold: the chain names the door
+	# it owes instead of a link it cannot sign (DR-20261114-05).
+	var embassy: Dictionary = {"target": tribe, "stage": DiplomacyCatalog.STAGE_EMBASSY}
+	var study: String = TechCatalog.display_name("diplomatic_expertise")
+	var gated: Dictionary = MapPlayColonyPick.of(embassy, {})
+	assert_eq(String(gated["kind"]), MapPlayColonyPick.KIND_STUDY)
+	assert_eq(String(gated["study"]), "diplomatic_expertise")
+	assert_eq(
+		String(gated["line"]),
+		"the court's chain with the %s waits on %s" % [name, study]
+	)
+	# The study in hand, the same read is a link for the court to press.
+	var opened: Dictionary = MapPlayColonyPick.of(embassy, {"diplomatic_expertise": 1})
+	assert_eq(String(opened["kind"]), MapPlayColonyPick.KIND_CHAIN)
+	assert_eq(String(opened["stage"]), DiplomacyCatalog.STAGE_EMBASSY)
+	assert_eq(
+		MapPlayPickProse.sentence(String(opened["line"])),
+		"The court would offer the %s an Embassy this turn, one link toward a colony."
+		% name
+	)
+	# No target or no stage names nothing at all.
+	assert_true(MapPlayColonyPick.of({}, {}).is_empty())
+	assert_true(MapPlayColonyPick.of({"target": -1, "stage": "unknown"}, {}).is_empty())
+	assert_eq(MapPlayColonyPick.pick(null), {})
+	assert_eq(MapPlayColonyPick.line(null), "", "a session that is not there names nothing")
+	assert_eq(
+		MapPlayPickProse.sentence(MapPlayColonyPick.CLOSED_LINE),
+		"The court would open no colony chain this turn — at war, its envoy waits "
+		+ "on the front."
+	)
+
+
+## The sheet prints the reading it is handed and hides it when the reading is
+## empty, so a session with no chain carries no gold line (REQ-P5-06).
+func test_the_colonies_print_and_hide_the_counsel_they_are_handed() -> void:
+	_attach()
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String:
+			return "The court would offer the Guaraní a Trade Consulate this turn."
+	)
+	panel.open()
+	assert_eq(
+		panel.counsel_text(), "The court would offer the Guaraní a Trade Consulate this turn."
+	)
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	# The case hands the panel back wired as the session left it, so a later case
+	# reads the boot's own reading rather than this one's stand-in.
+	panel.counsel_source = wired
+	panel.close()
+
+
+## The reading is the pass's own: THE COLONIES names the Tribe the crown's colony
+## chain is buying, and no envoy step is signed by the reading (REQ-P2-03,
+## REQ-P5-06; DR-20261121-16).
+func test_the_colonies_name_the_tribe_the_crowns_pass_is_buying() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	assert_not_null(panel, "the HUD mounts the colony ledger")
+	assert_true(panel.counsel_source.is_valid(), "the sheet binds the pass's reading")
+	var before: Array = _colony_overtures(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(counsel, MapPlayPickProse.sentence(String(pick.get("line", ""))))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	if not pick.is_empty():
+		var target: int = int(pick.get("target", -1))
+		if target >= 0:
+			assert_true(
+				counsel.contains(FactionCatalog.name_of(target)),
+				"the line names the Tribe the court is buying"
+			)
+		assert_true(
+			counsel.begins_with("The court would offer ")
+			or counsel.begins_with("The court's chain with "),
+			counsel
+		)
+	assert_eq(_colony_overtures(play), before, "a reading, not an envoy step")
+	panel.close()
+
+
+## Every Tribe's overture stage with the crown, so a reading can be proved not to
+## have signed one.
+func _colony_overtures(play: PlaySession) -> Array:
+	var stages: Array = []
+	for tribe: int in FactionCatalog.tribe_ids():
+		stages.append(play.diplomacy.overture(play.player_faction, tribe))
+	return stages
+
+
 ## The colony fixture: two charts where the first Tribe holds the New World land
 ## and a second holds the Old World's, so a chart filter has something to narrow.
 func _colony_regions() -> Array[Dictionary]:
