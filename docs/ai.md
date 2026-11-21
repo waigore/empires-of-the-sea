@@ -24,7 +24,9 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
   One order per rival (`AiTurn`).
 - **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
-  Home regiment; armies save or storm.
+  Home regiment; armies save or storm; a worn field army rotates home to merge,
+  and a host standing off its own ground walks home one march at a time
+  (DR-20261121-15).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at
   peace, home (DR-20261110-30).

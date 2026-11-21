@@ -725,6 +725,202 @@ func test_ai_military_rotates_only_from_mustered_mass() -> void:
 			)
 
 
+## A host standing on ground it does not hold has no interior lines, so when no
+## attack, defence or staging order answers it walks home one province at a time
+## (wiki: military-armies § Movement and attacks; DR-20261121-15).
+func test_ai_military_walks_a_stranded_host_home() -> void:
+	# P0 and P1 are unclaimed wilderness; P2 is the court's own and P3 its seat.
+	var world: WorldMap = _walk_world([MapModel.NO_ID, MapModel.NO_ID, 2, 2], {3: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 3, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1, "the stranded host is given a march")
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(walked[0]["province"]), 1, "the first leg toward the seat")
+
+
+## The rotation's own order is refused when no own land touches, so a stranded
+## host the rotation picks walks the first leg home instead of sitting on an
+## order the rules would deny (DR-20261121-15).
+func test_ai_military_rotation_walks_a_stranded_host_home() -> void:
+	var world: WorldMap = _walk_world([MapModel.NO_ID, MapModel.NO_ID, 2, 2], {3: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 3, true, HOME_TYPES, 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(
+		String(walked[0]["kind"]),
+		AiMilitaryPlanner.KIND_WALK_HOME,
+		"the seat is out of one march's reach, so the host walks"
+	)
+	assert_eq(int(walked[0]["province"]), 1)
+
+
+## A step onto the court's own land is the road home itself: the host walks onto
+## its own ground and interior lines open from there (DR-20261121-15).
+func test_ai_military_walks_a_stranded_host_onto_its_own_land() -> void:
+	var world: WorldMap = _walk_world([MapModel.NO_ID, 2, 2], {2: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 2, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(walked[0]["province"]), 2, "its own ground, the road home")
+
+
+## Two steps home at the same distance: the lower province id wins, so the same
+## state always walks the same way (DR-20261121-15).
+func test_ai_military_walks_the_lower_step_on_a_tie() -> void:
+	# P0 the seat, P3 and P1 both one march from it, P2 the host beside both.
+	var model: MapModel = _walk_chart(
+		[[0, 3], [1, 2]], {0: 2}, {0: true}
+	)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 0, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 2, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(walked[0]["province"]), 1, "the lower id of the two equal steps")
+
+
+## The walk's own guards: no chart, no army, or a court the map gives no seat
+## names no step at all (DR-20261121-15).
+func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
+	assert_true(AiMilitaryPlanner._walk_home_order(null, null).is_empty())
+	var model: MapModel = _walk_chart([[0]], {0: 2})
+	var host: ArmyState = ArmyState.muster(
+		3, 2, 0, false, ["pikemen"] as Array[String], 201
+	)
+	assert_true(
+		AiMilitaryPlanner._walk_home_order(model, host).is_empty(),
+		"a court with no seat has no road home"
+	)
+
+
+## A host walled in by foreign land at peace has no step it may take: the walk
+## names nothing rather than a march the rules would deny (DR-20261121-15).
+func test_ai_military_leaves_a_walled_in_host_where_it_stands() -> void:
+	var world: WorldMap = _walk_world([1, 1, 2], {2: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 2, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+
+	for order: Dictionary in plan["orders"]:
+		assert_ne(
+			int(order["army_id"]), 3, "no step shortens the road, so no order"
+		)
+
+
+## A tiny chart minted from rows of province ids (`-1` is open ground), so a tie
+## between two steps home can be seated where a straight line cannot.
+func _walk_chart(rows: Array, owners: Dictionary, capitals: Dictionary = {}) -> MapModel:
+	var model := MapModel.new()
+	var height: int = rows.size()
+	var width: int = (rows[0] as Array).size()
+	model.setup(width, height)
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	var tiles: Dictionary = {}
+	for y in height:
+		var row: Array = rows[y]
+		for x in row.size():
+			var id: int = int(row[x])
+			model.province[model.index_of(x, y)] = id
+			if id < 0:
+				continue
+			if not tiles.has(id):
+				tiles[id] = []
+			(tiles[id] as Array).append(Vector2i(x, y))
+	for id: int in tiles.keys():
+		var list: Array[Vector2i] = []
+		list.assign(tiles[id])
+		var center := Vector2.ZERO
+		for tile: Vector2i in list:
+			center += Vector2(tile)
+		var owner: int = int(owners.get(id, MapModel.NO_ID))
+		model.provinces.append(
+			ProvinceState.create(
+				id, "P%d" % id, list, center / float(list.size()), list.size(),
+				owner, capitals.has(id)
+			)
+		)
+		if not model.faction_ids.has(owner):
+			model.faction_ids.append(owner)
+	model.provinces.sort_custom(
+		func(a: ProvinceState, b: ProvinceState) -> bool: return a.id < b.id
+	)
+	return model
+
+
+## A line of provinces with the given owners; `-1` is unclaimed wilderness, which
+## the fixture's own builder does not mint (it reads a faction for every row), so
+## the row is built under a placeholder and struck out afterwards.
+func _walk_world(owners: Array[int], capitals: Dictionary = {}) -> WorldMap:
+	var built: Array[int] = []
+	for owner: int in owners:
+		built.append(9 if owner == MapModel.NO_ID else owner)
+	var world: WorldMap = AiFixture.land_world(built, capitals)
+	var model: MapModel = world.region(0)
+	for index in owners.size():
+		if owners[index] == MapModel.NO_ID:
+			model.provinces[index].owner = MapModel.NO_ID
+	model.faction_ids.erase(9)
+	return world
+
+
 ## The rotation's merge leg (issue #974): a field army the court marched home
 ## folds into the Home Army through the published combine, and the trace names
 ## it; an army that did not reach the seat stays in the field.

@@ -19,6 +19,9 @@
   its capital, never deleted; split/combine needs one province and owner; one
   march a turn, foreign land must border. **Dismiss** sheds a regiment (or all),
   a peasant each, no refund; an emptied army retires (DR-20261109-01).
+- **Stranded host:** an army on ground it does not hold has no interior lines,
+  so its road home is a walk through the provinces beside it, one march a turn
+  (DR-20261121-15). The rival's land pass walks one too (`AiMilitaryPlanner`).
 - **Upkeep:** 1–3 food a regiment, by era.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
   citation weight; DEF/9; ratio bands; elimination precedes a flip; mutual ruin
