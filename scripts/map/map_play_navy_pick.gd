@@ -30,17 +30,10 @@ const NO_ORDER_LINE: String = (
 )
 
 
-## The sheet's sentence: the pick's own line, capitalised and closed — the same
-## one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
+## The sheet's sentence: the pick's own line, capitalised and closed — the one
+## wording every pick surface prints (MapPlayPickProse; REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return sentence(String(pick(play, snapshot).get("line", "")))
-
-
-## `text` as a printed sentence: "the court would send …" → "The court would send …".
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
+	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
 
 
 ## The navy's pick as the sheet prints it: `{squadrons, line}`, where each
@@ -88,21 +81,14 @@ static func of(squadrons: Array[Dictionary], snapshot: Dictionary = {}) -> Dicti
 ## Cádiz this turn". Beyond three the line counts the squadrons it cannot name
 ## (`… and 2 more`) so a busy navy stays one line of chrome.
 static func pick_line(squadrons: Array[Dictionary]) -> String:
-	var named: Array[String] = []
-	var hidden: int = 0
+	var clauses: Array[String] = []
 	for squadron: Dictionary in squadrons:
 		var clause: String = String(squadron.get("line", ""))
-		if clause.is_empty():
-			continue
-		if named.size() >= NAMED_LIMIT:
-			hidden += 1
-			continue
-		named.append(clause)
-	if named.is_empty():
+		if not clause.is_empty():
+			clauses.append(clause)
+	var joined: String = MapPlayPickProse.capped(clauses, NAMED_LIMIT)
+	if joined.is_empty():
 		return ""
-	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
-	if hidden > 0:
-		joined += " and %d more" % hidden
 	return "the court would send %s this turn" % joined
 
 
@@ -249,11 +235,3 @@ static func _ship(fleet: FleetState) -> String:
 		return ""
 	return ShipNames.of(fleet, fleet.hulls[0])
 
-
-## A list read the way prose reads it: "A", "A and B", "A, B and C".
-static func _join(parts: Array[String]) -> String:
-	if parts.is_empty():
-		return ""
-	if parts.size() <= 2:
-		return " and ".join(parts)
-	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[-1]]

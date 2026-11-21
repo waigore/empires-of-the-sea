@@ -4679,7 +4679,7 @@ func test_the_navy_pick_words_the_sails_the_pass_would_order() -> void:
 		+ " Cádiz, the Swallow in pursuit into the Main and 1 more this turn"
 	)
 	assert_eq(
-		MapPlayNavyPick.sentence("the court would send the Leopard into the Mar Caribe"),
+		MapPlayPickProse.sentence("the court would send the Leopard into the Mar Caribe"),
 		"The court would send the Leopard into the Mar Caribe."
 	)
 	# No snapshot: the pass's own order, read as prose reads a pair.
