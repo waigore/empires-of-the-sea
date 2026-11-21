@@ -15,6 +15,17 @@ func _init() -> void:
 		"Visit opens the standard's chart and dossier. The sheet reads every "
 		+ "regiment as it stands; it never musters, detaches or dismisses one."
 	)
+	# The gold line's reading is the panel's own method, not a closure handed in
+	# from the session: a bound callable cannot outlive the session it reads
+	# (DR-20261121-14).
+	counsel_source = _read_counsel
+
+
+## The orders the court's own staff would give its standards this turn, read off
+## the sheet's bound session (wiki: military-armies § The army sheet names the
+## orders the court would give; DR-20261121-14).
+func _read_counsel(_data: Dictionary) -> String:
+	return MapPlayArmyOrdersPick.line(play, _snapshot)
 
 
 # --- what the army names -----------------------------------------------------
