@@ -270,6 +270,14 @@ godot --headless --path . --script res://playtests/playtest_market_receipt.gd
 # subsidy step against a purse that binds at the ask.
 godot --headless --path . --script res://playtests/playtest_market_batch.gd
 
+# First right of refusal — deeds a Minor's harvest on the turn-100 advanced start,
+# has a rival Great Power buy the whole commodity while the crown holds no bid and
+# reads the owner share the clearing credits, the credit rows and the purse, with
+# the MARKET tab's own "Overseas shares" line beside them; then bids its own deed
+# tile at a worse integer priority than the rival and reads the fill order first
+# right of refusal publishes; then closes a real turn and reads that turn's share.
+godot --headless --path . --script res://playtests/playtest_first_right.gd
+
 # Sieges — raises a wall from the Engineer's own order (caption, receipt,
 # despatch, province sheet, military lens), storms rival walls at wood and modern
 # levels with guns and reads the plate's wall block, the battery, the lanes, the
