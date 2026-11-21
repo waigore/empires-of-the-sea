@@ -96,6 +96,9 @@ static func training_order(
 	var works_purse: int = hire_purse
 	if bool(context.get("earn", false)):
 		works_purse = maxi(hire_purse, int(context.get("treasury", 0)))
+	# The Merchant's own purse (issue #1225): the carve-outs below open the
+	# gate; this purse pays the crew that walks through it.
+	var merchant_purse: int = merchant_ride_purse(context)
 	# The bank holds the purse (issue #1059): a court short of the bar banking
 	# for its next line hires its provision crews — the Builder and the
 	# Engineer the farms and their roads need — against the works purse, but
@@ -110,7 +113,7 @@ static func training_order(
 		targets,
 		bool(context.get("at_war", false)),
 		context.get("tech_unlocked", {}),
-		hire_purse,
+		merchant_purse,
 		int(context.get("paper", 0)),
 		bool(context.get("voyage_crew", false))
 	)
@@ -167,6 +170,8 @@ static func training_order(
 	var purse: int = hire_purse
 	if type_id == "builder" or type_id == "engineer" or type_id == "explorer":
 		purse = works_purse
+	elif type_id == "merchant":
+		purse = merchant_purse
 	if not CivilianCatalog.can_afford(
 		type_id, purse, int(context.get("paper", 0))
 	):
@@ -191,6 +196,23 @@ static func crews_open(context: Dictionary) -> bool:
 ## True for the crews the voyage and the Tribe chain need: Explorer, Merchant.
 static func is_expansion_crew(type_id: String) -> bool:
 	return EXPANSION_CREWS.has(type_id)
+
+
+## The purse the Merchant's hire draws on while its own carve-out stands: the
+## works purse the deed's own purchase prices against (`LandPurchase.check`
+## reads the region's `treasury` row), for a priced, openable deed (#1135) or a
+## stranded claim's Merchant (#1139); the standing purse for every other hire —
+## the bank holds the roster, not the purse the deed's chain funds (#1225).
+static func merchant_ride_purse(context: Dictionary) -> int:
+	var hire: int = int(context.get("hire_treasury", context.get("treasury", 0)))
+	if not bool(context.get("earn", false)):
+		return hire
+	var works: int = maxi(hire, int(context.get("treasury", 0)))
+	var claim: bool = bool(context.get("voyage_stranded", false)) \
+		and String(context.get("voyage_crew_kind", "")) == "merchant"
+	var deed: bool = int(context.get("merchant_targets", 0)) > 0 \
+		and int(context.get("deed_price", 0)) > 0
+	return works if claim or deed else hire
 
 
 ## The staff the court wants in this region: the region's owns plus its taste.

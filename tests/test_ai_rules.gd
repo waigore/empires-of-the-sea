@@ -11645,6 +11645,71 @@ func test_a_deed_merchant_is_hired_while_the_court_banks() -> void:
 	)
 
 
+## The deed Merchant's hire is payable while the court banks (issue #1225): the
+## carve-out opened the gate, and the works purse — the same purse the deed's
+## own purchase prices against (`LandPurchase.check`) — pays the crew that walks
+## through it. A court whose standing spendable purse is a few hundred ducats
+## still musters the Merchant its priced deed waits on, at peace or at war on a
+## stranded claim (#1139), and a works purse short of the catalogue's price
+## still takes no Merchant.
+func test_a_banked_court_pays_the_deed_merchant_from_the_works_purse() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var crews: Dictionary = _civilian_context()
+	crews["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 0, "merchant": 1,
+	}
+	crews["tech_unlocked"] = {"merchant_companies": true}
+	crews["merchant_targets"] = 1
+	crews["deed_price"] = 900
+	crews["conquest_bank"] = true
+	crews["phase"] = AiPhasePlanner.PHASE_PEACE
+	crews["earn"] = true
+	# The banked purse: the standing spendable purse is a few hundred ducats,
+	# the works purse the deed's purchase draws on covers the hire.
+	crews["hire_treasury"] = 300
+	var hired: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(hired.get("ok", false)),
+		"the works purse pays the Merchant the priced deed waits on"
+	)
+	assert_eq(String(hired["type_id"]), "merchant")
+	# The stranded claim's Merchant rides the same purse at war (#1139's
+	# acceptance half: the hire shows while the court banks on a war footing).
+	crews["voyage_crew_kind"] = "merchant"
+	crews["voyage_stranded"] = true
+	crews["phase"] = AiPhasePlanner.PHASE_WAR
+	crews["at_war"] = true
+	var claim: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_true(
+		bool(claim.get("ok", false)),
+		"the stranded claim's Merchant is payable at war and banked"
+	)
+	assert_eq(String(claim["type_id"]), "merchant")
+	# A works purse short of the catalogue's price takes no Merchant: the gate
+	# is open, the purse is not.
+	crews["voyage_crew_kind"] = ""
+	crews["voyage_stranded"] = false
+	crews["phase"] = AiPhasePlanner.PHASE_PEACE
+	crews["at_war"] = false
+	crews["treasury"] = 1200
+	var short: Dictionary = AiCivilianHire.training_order(config, [], crews)
+	assert_false(
+		bool(short.get("ok", false)), "a short works purse hires no Merchant"
+	)
+	# The ride is the Merchant's alone: while the deed stands, the spy keeps
+	# the standing purse and the bank's face.
+	crews["treasury"] = 2500
+	var spy_court: Dictionary = crews.duplicate()
+	spy_court["staff_targets"] = {
+		"builder": 0, "engineer": 0, "explorer": 0, "spy": 1, "merchant": 0,
+	}
+	var spy: Dictionary = AiCivilianHire.training_order(config, [], spy_court)
+	assert_eq(
+		String(spy.get("reason", "")), AiCivilianHire.REASON_BANK,
+		"the deed's purse is the Merchant's, not the college's"
+	)
+
+
 ## The study door the deed opens is the buyer's own tech, and it stays shut for
 ## a court that already holds it or has no priced deed on its chart (issue
 ## #841; wiki: civilian-units § Merchant).
