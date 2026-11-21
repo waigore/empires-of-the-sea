@@ -11,12 +11,10 @@ extends FleetDrawer
 ## every ready type in the yard's order — the shared RaiseBatchPress arm, so a
 ## mis-tap never spends the realm's stores (REQ-P5-04; DR-20261118-08).
 
-## Breaking up a paid-for hull asks once: a second tap inside this window
-## confirms and an expired arm does nothing (DR-20261109-01).
-const ARM_SECONDS: float = 5.0
+## Breaking up a paid-for hull asks once: the guard holds the hull the crown
+## armed and lets the window run out on its own (DR-20261109-01).
 
-var _timer: Timer = null
-var _armed_hull: String = ""
+var _arm: ArmGuard = null
 var _fleet: FleetState = null
 var _is_player: bool = false
 ## The hull the court's own yard means to lay, in gold under the launch heading —
@@ -31,16 +29,16 @@ func _init() -> void:
 	close_text = "Close shipyard"
 	drawer_height = 168.0
 	row_separation = 8
+	# Built with the drawer, so a sheet assembled outside the tree still asks once.
+	# The clock is an internal child: it ticks beside the drawer's toggle and list
+	# without joining them.
+	_arm = ArmGuard.new()
+	_arm.expired.connect(_on_arm_expired)
+	add_child(_arm, false, Node.INTERNAL_MODE_BACK)
 
 
 func _ready() -> void:
 	super()
-	# The arm expires on its own; a freed dossier takes the timer with it.
-	_timer = Timer.new()
-	_timer.one_shot = true
-	_timer.wait_time = ARM_SECONDS
-	_timer.timeout.connect(_clear_arm)
-	add_child(_timer)
 	_make_batch()
 
 
@@ -87,13 +85,11 @@ func set_offer_join(offers_join: bool) -> void:
 
 ## First tap arms and relabels, the second confirms (DR-20261109-01).
 func on_scrap_pressed(hull_id: String) -> void:
-	if _armed_hull == hull_id:
-		_clear_arm()
+	if _arm.spend(hull_id):
 		action_pressed.emit("yard:scrap:%s" % hull_id)
 		return
-	_armed_hull = hull_id
+	_arm.arm(hull_id)
 	_fill()
-	_timer.start()
 
 
 ## The yard prints its two seams: what can be launched and, once the crown has a
@@ -102,11 +98,7 @@ func on_scrap_pressed(hull_id: String) -> void:
 ## (REQ-P5-04; DR-20261118-08).
 func _fill() -> void:
 	_make_batch()
-	for child: Node in _box.get_children():
-		if child == _batch:
-			continue
-		_box.remove_child(child)
-		child.queue_free()
+	UiRowBuilder.clear_except(_box, _batch)
 	_box.add_child(UiRowBuilder.caption("LAUNCH A HULL", 11, Palette.TEXT_DIM))
 	# The court's own yard would lay one hull and not the list: the pick stands
 	# under the heading, in the gold the crew's and the squadron's picks use, so
@@ -186,7 +178,7 @@ func _hull_row(hull_id: String) -> Control:
 	_row_reading(
 		top, "%s — %s" % [hull_name, hull_type] if not hull_name.is_empty() else hull_type
 	)
-	var armed: bool = _armed_hull == hull_id
+	var armed: bool = _arm.holds(hull_id)
 	var scrap := _row_press(
 		top,
 		"Confirm scrap" if armed else "Break up",
@@ -217,10 +209,8 @@ func _batch_plan() -> Dictionary:
 	return RaiseBatchSum.blank()
 
 
-func _clear_arm() -> void:
-	if _armed_hull.is_empty():
-		return
-	_armed_hull = ""
-	_timer.stop()
+## The window ran out: the break-up rows forget the first tap and print their
+## resting face again, filing nothing.
+func _on_arm_expired() -> void:
 	if _open:
 		_fill()
