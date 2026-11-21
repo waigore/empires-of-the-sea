@@ -725,6 +725,202 @@ func test_ai_military_rotates_only_from_mustered_mass() -> void:
 			)
 
 
+## A host standing on ground it does not hold has no interior lines, so when no
+## attack, defence or staging order answers it walks home one province at a time
+## (wiki: military-armies § Movement and attacks; DR-20261121-15).
+func test_ai_military_walks_a_stranded_host_home() -> void:
+	# P0 and P1 are unclaimed wilderness; P2 is the court's own and P3 its seat.
+	var world: WorldMap = _walk_world([MapModel.NO_ID, MapModel.NO_ID, 2, 2], {3: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 3, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1, "the stranded host is given a march")
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(walked[0]["province"]), 1, "the first leg toward the seat")
+
+
+## The rotation's own order is refused when no own land touches, so a stranded
+## host the rotation picks walks the first leg home instead of sitting on an
+## order the rules would deny (DR-20261121-15).
+func test_ai_military_rotation_walks_a_stranded_host_home() -> void:
+	var world: WorldMap = _walk_world([MapModel.NO_ID, MapModel.NO_ID, 2, 2], {3: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 3, true, HOME_TYPES, 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(
+		String(walked[0]["kind"]),
+		AiMilitaryPlanner.KIND_WALK_HOME,
+		"the seat is out of one march's reach, so the host walks"
+	)
+	assert_eq(int(walked[0]["province"]), 1)
+
+
+## A step onto the court's own land is the road home itself: the host walks onto
+## its own ground and interior lines open from there (DR-20261121-15).
+func test_ai_military_walks_a_stranded_host_onto_its_own_land() -> void:
+	var world: WorldMap = _walk_world([MapModel.NO_ID, 2, 2], {2: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 2, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(walked[0]["province"]), 2, "its own ground, the road home")
+
+
+## Two steps home at the same distance: the lower province id wins, so the same
+## state always walks the same way (DR-20261121-15).
+func test_ai_military_walks_the_lower_step_on_a_tie() -> void:
+	# P0 the seat, P3 and P1 both one march from it, P2 the host beside both.
+	var model: MapModel = _walk_chart(
+		[[0, 3], [1, 2]], {0: 2}, {0: true}
+	)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 0, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 2, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(walked[0]["province"]), 1, "the lower id of the two equal steps")
+
+
+## The walk's own guards: no chart, no army, or a court the map gives no seat
+## names no step at all (DR-20261121-15).
+func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
+	assert_true(AiMilitaryPlanner._walk_home_order(null, null).is_empty())
+	var model: MapModel = _walk_chart([[0]], {0: 2})
+	var host: ArmyState = ArmyState.muster(
+		3, 2, 0, false, ["pikemen"] as Array[String], 201
+	)
+	assert_true(
+		AiMilitaryPlanner._walk_home_order(model, host).is_empty(),
+		"a court with no seat has no road home"
+	)
+
+
+## A host walled in by foreign land at peace has no step it may take: the walk
+## names nothing rather than a march the rules would deny (DR-20261121-15).
+func test_ai_military_leaves_a_walled_in_host_where_it_stands() -> void:
+	var world: WorldMap = _walk_world([1, 1, 2], {2: true})
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 2, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 0, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+
+	for order: Dictionary in plan["orders"]:
+		assert_ne(
+			int(order["army_id"]), 3, "no step shortens the road, so no order"
+		)
+
+
+## A tiny chart minted from rows of province ids (`-1` is open ground), so a tie
+## between two steps home can be seated where a straight line cannot.
+func _walk_chart(rows: Array, owners: Dictionary, capitals: Dictionary = {}) -> MapModel:
+	var model := MapModel.new()
+	var height: int = rows.size()
+	var width: int = (rows[0] as Array).size()
+	model.setup(width, height)
+	model.terrain.fill(MapModel.Terrain.PLAINS)
+	var tiles: Dictionary = {}
+	for y in height:
+		var row: Array = rows[y]
+		for x in row.size():
+			var id: int = int(row[x])
+			model.province[model.index_of(x, y)] = id
+			if id < 0:
+				continue
+			if not tiles.has(id):
+				tiles[id] = []
+			(tiles[id] as Array).append(Vector2i(x, y))
+	for id: int in tiles.keys():
+		var list: Array[Vector2i] = []
+		list.assign(tiles[id])
+		var center := Vector2.ZERO
+		for tile: Vector2i in list:
+			center += Vector2(tile)
+		var owner: int = int(owners.get(id, MapModel.NO_ID))
+		model.provinces.append(
+			ProvinceState.create(
+				id, "P%d" % id, list, center / float(list.size()), list.size(),
+				owner, capitals.has(id)
+			)
+		)
+		if not model.faction_ids.has(owner):
+			model.faction_ids.append(owner)
+	model.provinces.sort_custom(
+		func(a: ProvinceState, b: ProvinceState) -> bool: return a.id < b.id
+	)
+	return model
+
+
+## A line of provinces with the given owners; `-1` is unclaimed wilderness, which
+## the fixture's own builder does not mint (it reads a faction for every row), so
+## the row is built under a placeholder and struck out afterwards.
+func _walk_world(owners: Array[int], capitals: Dictionary = {}) -> WorldMap:
+	var built: Array[int] = []
+	for owner: int in owners:
+		built.append(9 if owner == MapModel.NO_ID else owner)
+	var world: WorldMap = AiFixture.land_world(built, capitals)
+	var model: MapModel = world.region(0)
+	for index in owners.size():
+		if owners[index] == MapModel.NO_ID:
+			model.provinces[index].owner = MapModel.NO_ID
+	model.faction_ids.erase(9)
+	return world
+
+
 ## The rotation's merge leg (issue #974): a field army the court marched home
 ## folds into the Home Army through the published combine, and the trace names
 ## it; an army that did not reach the seat stays in the field.
@@ -2661,14 +2857,14 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var works := LandWorks.new()
 	var context: Dictionary = _civilian_context()
-	var floors: Dictionary = AiCivilianHire.staff_targets(
+	var floors: Dictionary = AiCivilianTargets.staff_targets(
 		config, null, null, [], {}, {}, context
 	)
 	assert_eq(int(floors["builder"]), 2)
 	assert_eq(int(floors["engineer"]), config.parameter("civilian.engineer_target"))
 	assert_eq(int(floors["explorer"]), config.parameter("civilian.explorer_target"))
 	context["muster_port"] = CivilianFixture.COAST_TILE
-	var with_voyage: Dictionary = AiCivilianHire.staff_targets(
+	var with_voyage: Dictionary = AiCivilianTargets.staff_targets(
 		config, model, works, [], CivilianFixture.stockpile(), {}, context
 	)
 	assert_true(
@@ -2699,45 +2895,45 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 ## published targets exactly.
 func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
 	var context: Dictionary = _civilian_context()
-	var own: Dictionary = AiCivilianHire.region_targets(
+	var own: Dictionary = AiCivilianTargets.region_targets(
 		AiConfig.new(), null, null, [], {}, {}, context
 	)
 	var fortifier: AiConfig = AiConfig.build(2, 1500)
-	var napoleon: Dictionary = AiCivilianHire.staff_targets(
+	var napoleon: Dictionary = AiCivilianTargets.staff_targets(
 		fortifier, null, null, [], {}, {}, context
 	)
 	assert_eq(int(napoleon["engineer"]), int(own["engineer"]) + 1)
 	assert_eq(int(napoleon["builder"]), int(own["builder"]))
 	assert_eq(AiStaffTaste.note(fortifier), "the fortifier's taste")
-	var explorer: Dictionary = AiCivilianHire.staff_targets(
+	var explorer: Dictionary = AiCivilianTargets.staff_targets(
 		AiConfig.build(0, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(explorer["explorer"]), int(own["explorer"]) + 1)
 	assert_eq(int(explorer["builder"]), int(own["builder"]))
-	var trader: Dictionary = AiCivilianHire.staff_targets(
+	var trader: Dictionary = AiCivilianTargets.staff_targets(
 		AiConfig.build(1, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(trader["builder"]), int(own["builder"]) + 1)
 	# A merchant is only wanted when a deed door is open, so the trader's crew
 	# waits on the door rather than hiring a merchant with nowhere to walk.
 	var ruyter: AiConfig = AiConfig.build(4, 1500)
-	var no_deed: Dictionary = AiCivilianHire.staff_targets(
+	var no_deed: Dictionary = AiCivilianTargets.staff_targets(
 		ruyter, null, null, [], {}, {}, context
 	)
 	assert_eq(int(no_deed["merchant"]), 0)
 	var deed: Dictionary = _civilian_context()
 	deed["merchant_targets"] = 1
 	assert_eq(
-		int(AiCivilianHire.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
+		int(AiCivilianTargets.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
 		2,
 	)
-	var tactician: Dictionary = AiCivilianHire.staff_targets(
+	var tactician: Dictionary = AiCivilianTargets.staff_targets(
 		AiConfig.build(5, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(tactician["spy"]), int(own["spy"]) + 1)
 	var no_archetype := AiConfig.new()
 	no_archetype.faction = 0
-	var plain: Dictionary = AiCivilianHire.staff_targets(
+	var plain: Dictionary = AiCivilianTargets.staff_targets(
 		no_archetype, null, null, [], {}, {}, context
 	)
 	for type_id: String in AiStaffTaste.TYPES:
@@ -2754,7 +2950,7 @@ func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
 func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
 	var context: Dictionary = _civilian_context()
 	var fortifier: AiConfig = AiConfig.build(2, 1500)
-	var own: Dictionary = AiCivilianHire.region_targets(
+	var own: Dictionary = AiCivilianTargets.region_targets(
 		fortifier, null, null, [], {}, {}, context
 	)
 	var met: Array[CivilianState] = []
@@ -2764,7 +2960,7 @@ func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
 				met.size() + 1, fortifier.faction, type_id, CivilianFixture.BARE_TILE
 			))
 	context["own_targets"] = own
-	context["staff_targets"] = AiCivilianHire.staff_targets(
+	context["staff_targets"] = AiCivilianTargets.staff_targets(
 		fortifier, null, null, met, {}, {}, _civilian_context()
 	)
 	var order: Dictionary = AiCivilianHire.training_order(fortifier, met, context)

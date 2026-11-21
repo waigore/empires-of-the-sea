@@ -2411,6 +2411,13 @@ domain = "prospect"
 match = "scripts/ai/ai_civilian_hire.gd*"
 domain = "prospect"
 
+# The other half of that question — how many of each crew the region's own work
+# asks for — is read by the same plan call, so it rides the same prospect slice
+# rather than the broad `scripts/ai/**` fan-out (split for REQ-P3-01).
+[[rules]]
+match = "scripts/ai/ai_civilian_targets.gd*"
+domain = "prospect"
+
 # The archetype's own crew (the hire the planner takes beyond the region's
 # asks): the same plan pass and its suite prove it, so it rides with the
 # planner on the prospect slice rather than the broad `scripts/ai/**` fan-out.

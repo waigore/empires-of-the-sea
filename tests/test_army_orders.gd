@@ -1641,11 +1641,12 @@ func test_the_courts_pick_stages_on_the_frontier() -> void:
 	play.army_layer.free()
 
 
-## At peace with no border to watch a field army is given nothing at all.
+## At peace with no border to watch a field army on its own ground is given
+## nothing at all. (A host standing off its own ground walks home: DR-20261121-15.)
 func test_the_courts_pick_gives_a_peaceful_field_army_no_order() -> void:
 	var play: PlaySession = _pick_play(false)
 	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
-	var field := ArmyFixture.army(2, 0, 4, ["guards"])
+	var field := ArmyFixture.army(2, 0, 1, ["guards"])
 	_pick_roster(play, [home, field] as Array[ArmyState])
 
 	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "no frontier, no march")
@@ -1671,6 +1672,54 @@ func test_the_courts_pick_marches_a_worn_army_home_to_merge() -> void:
 			% play.model.province_name(0)
 	)
 	play.army_layer.free()
+
+
+## A host standing on ground it does not hold walks the first leg home, and the
+## dossier names the walk rather than a march to nowhere (wiki: military-armies
+## § Movement and attacks; DR-20261121-15).
+func test_the_courts_pick_walks_a_stranded_host_home() -> void:
+	var play: PlaySession = _pick_play(false)
+	# The provinces beside the wilderness are unclaimed too, so no own land is
+	# one march away: the road home is a walk, not an interior-lines march.
+	play.model.province_data(1).owner = MapModel.NO_ID
+	play.model.province_data(6).owner = MapModel.NO_ID
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 3, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(pick.get("province", -1)), 6, "the first leg toward the seat")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march on %s, the first leg home"
+			% play.model.province_name(6)
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(play.model, field, pick),
+		"the field army at %s home by way of %s"
+			% [play.model.province_name(3), play.model.province_name(6)],
+		"the sheet names the walk, not a gate"
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(null, field, pick), "", "no chart, no walk clause"
+	)
+	play.army_layer.free()
+
+
+## The walk's own wording: the road home once the step lands on the court's own
+## ground, and nothing for a chart or a province the court cannot read
+## (DR-20261121-15).
+func test_the_walk_clause_names_own_ground() -> void:
+	var model: MapModel = ArmyFixture.build()
+	assert_eq(
+		MapPlayArmyPickWords.walk_line(model, 0, true),
+		"the court would march on %s, its own ground, the road home"
+			% model.province_name(0)
+	)
+	assert_eq(MapPlayArmyPickWords.walk_line(null, 0, false), "", "no chart, no line")
+	assert_eq(MapPlayArmyPickWords.walk_line(model, -1, false), "", "no province, no line")
 
 
 ## A Home Army at its muster target cuts a second field force before the march

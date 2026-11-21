@@ -19,6 +19,7 @@
   its capital, never deleted; split/combine needs one province and owner; one
   march a turn, foreign land must border. **Dismiss** sheds a regiment (or all),
   a peasant each, no refund; an emptied army retires (DR-20261109-01).
+  A stranded host walks home (DR-20261121-15).
 - **Upkeep:** 1–3 food a regiment, by era.
 - **Combat:** `Σ (FPN + FPM)` over the deployed slice × chevrons × health ×
   citation weight; DEF/9; ratio bands; elimination precedes a flip; mutual ruin
@@ -31,17 +32,17 @@
   DR-20261113-04): winners take the province once; a survivor keeps its newest
   eight despatch fields, a mauled win being a **citation** (`cited` +5%,
   `laurelled` +10%); decorated colours lead and fall last.
-- **The crown's army** (`ArmyLedger`, DR-20261116-16): every regiment,
-  standard by standard.
+- **The crown's army** (`ArmyLedger`, DR-20261116-16): the muster roll reads
+  every regiment, standard by standard.
 - **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
-  DR-20261121-14): the dossier prints the policy's order for its standard —
-  split, storm, relief, frontier, road home — and THE CROWN'S ARMY every
-  standard's, or the gate when none is given. A reading.
+  DR-20261121-14): the dossier prints its standard's order — split, storm,
+  relief, frontier, road home — and THE CROWN'S ARMY every standard's, or the
+  gate when none is given. A reading.
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03): the muster
   block prints, in gold, the line the published muster would raise, or the
   target, purse, stores or gate that holds it. A reading; nothing is spent.
 - **Named commanders** (`GeneralNames`, DR-20261112-03): a crown-pool name per
-  general, saved (legacy rosters christened on load).
+  general, saved.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on the
   town tile; rest 40%/55%, wear 80%/65%; rivals raise them (DR-20261111-16).
   Wards eat 2 food a level; unfed they rest at 25% (DR-20261112-04).
@@ -50,7 +51,7 @@
 - **Attack price** (`ArmyAttackCost`): 100 ducats per attacker, ×0.75 Machinery,
   ×0.85 Military Funding.
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side, three stances;
-  strength × cohesion. Guns soak fire and cut the fort; sieges split
+  strength × cohesion. Guns soak fire, cut the fort; sieges split
   wall/behind (`SiegeLanes`).
 - **Unopposed:** an army alone in hostile or neutral land takes it.
 ## Deferred (REQ-P2-02)

@@ -63,6 +63,11 @@ static func order_clause(model: MapModel, pick: Dictionary) -> String:
 		if model == null or home < 0:
 			return ""
 		return "home to %s to merge with the Home Army" % model.province_name(home)
+	if kind == MapPlayArmyPick.KIND_WALK_HOME:
+		var leg: int = int(pick.get("province", -1))
+		if model == null or leg < 0:
+			return ""
+		return "home by way of %s" % model.province_name(leg)
 	if kind != MapPlayArmyPick.KIND_MARCH:
 		return ""
 	var province: int = int(pick.get("province", -1))
@@ -79,3 +84,16 @@ static func order_clause(model: MapModel, pick: Dictionary) -> String:
 		MapPlayArmyPick.WHY_FRONTIER:
 			return "to advance to %s, the frontier" % name
 	return ""
+
+## The first leg of the walk home: a host standing on ground it does not hold
+## marches through the provinces beside it, one march at a time, until its own
+## border touches (wiki: military-armies § Movement and attacks; DR-20261121-15).
+## A step onto the court's own land is the road home itself, so it reads so.
+static func walk_line(model: MapModel, province: int, own: bool) -> String:
+	if model == null or province < 0:
+		return ""
+	if own:
+		return "the court would march on %s, its own ground, the road home" % model.province_name(
+			province
+		)
+	return "the court would march on %s, the first leg home" % model.province_name(province)
