@@ -358,6 +358,45 @@ func test_the_report_names_the_line_and_the_reserve() -> void:
 	assert_eq(int(line["defender_reserve"]), 0)
 
 
+## The chain carries its winner: after the first attacker takes the field, the
+## next attacker fights the captor, and the province ends with the side the last
+## engagement leaves holding it (wiki: combat § Multi-Attacker Chain — "the
+## previous battle's winner (without healing or regenerating regiments) and the
+## next attacker"; § Province Flip — the province flips "to the attacker faction
+## that was last in the chain"). Playtest: two Great Powers fell on one province,
+## the first wiped the garrison and the second never fought — it stood in a
+## province another court had just taken.
+func test_the_chain_carries_a_winner_against_the_next_attacker() -> void:
+	var model := Fixture.build()
+	var defender: ArmyState = Fixture.army(1, 1, 2, ["peasant_levies"])
+	var first: ArmyState = Fixture.army(2, 0, 2, _regiment_types("regulars", 4))
+	var second: ArmyState = Fixture.army(3, 2, 2, _regiment_types("regulars", 4))
+	first.moved = true
+	second.moved = true
+	var armies: Array[ArmyState] = [defender, first, second]
+
+	var reports: Array[Dictionary] = ArmyCombat.resolve_turn(model, armies, {})
+
+	assert_eq(reports.size(), 2, "the second attacker meets the first's winner")
+	if reports.size() < 2:
+		return
+	assert_true(bool(reports[0]["captured"]), "the first attacker takes the field")
+	assert_eq(
+		int(reports[1]["defender"]), int(reports[0]["attacker"]),
+		"the winner holds the field against the next attacker"
+	)
+	if bool(reports[1]["captured"]):
+		assert_eq(
+			model.province_owner(2), int(reports[1]["attacker"]),
+			"the last winner holds the province"
+		)
+	else:
+		assert_eq(
+			model.province_owner(2), int(reports[1]["defender"]),
+			"the holder the chain leaves keeps the province"
+		)
+
+
 func test_modifiers_compose_terrain_feeding_and_leader() -> void:
 	var model := Fixture.build()
 	for tile: Vector2i in model.province_data(2).tiles:
