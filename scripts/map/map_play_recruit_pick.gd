@@ -72,6 +72,20 @@ static func pick(play: PlaySession) -> Dictionary:
 	)
 
 
+## The pick as the ledger's WORKERS tab is handed it: `{kind, tiers, line}` with
+## the clause as a printed sentence, or `{}` when the crown's seat runs no
+## planner — the shape `show_economy` carries (DR-20261122-01).
+static func sheet(play: PlaySession) -> Dictionary:
+	var picked: Dictionary = pick(play)
+	if picked.is_empty():
+		return {}
+	return {
+		"kind": picked.get("kind", ""),
+		"tiers": picked.get("tiers", {}),
+		"line": MapPlayPickProse.sentence(String(picked.get("line", ""))),
+	}
+
+
 ## The pick, worded off the plan and the court's own figures alone: the tiers the
 ## plan buys, or the gate that leaves the pool alone. `slack` is the larder's
 ## harvest slack the hire paces itself by, `bank` the court's conquest bank.
