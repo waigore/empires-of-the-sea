@@ -9,13 +9,21 @@ const DEBOUNCE_MS: int = 300
 static var _last_ms: int = -DEBOUNCE_MS
 
 
+## True for the second delivery of a press already answered. Every page that
+## answers back itself (the map, the capital chart) asks this first, so one
+## press never leaves two screens (RUB-P5-07).
+static func is_repeat() -> bool:
+	var now: int = Time.get_ticks_msec()
+	var repeat: bool = now - _last_ms < DEBOUNCE_MS
+	_last_ms = now
+	return repeat
+
+
 ## Returns true when the press was consumed (a layer closed, or it was a repeat);
 ## false means the map is bare and the caller should quit.
 static func handle(play: PlaySession, improvements: ImprovementPanel) -> bool:
-	var now: int = Time.get_ticks_msec()
-	if now - _last_ms < DEBOUNCE_MS:
+	if is_repeat():
 		return true
-	_last_ms = now
 	if improvements != null and improvements.is_open():
 		improvements.close()
 		return true
