@@ -77,5 +77,5 @@ Rules stay node-free (`REQ-P3-03`); panels read rows, emit intents.
 
 ## Tests
 
-`test_civilian_turn_rules`, `test_economy_rules`, `test_map_screen`,
+`test_civilian_turn_rules`, `test_economy_rules`, `test_a_map_screen`,
 `test_map_view_rules`, `test_panel_parts_rules`, `test_ledgers`.

@@ -1,6 +1,6 @@
 extends GdToolsTest
 ## Fleet orders end-to-end through the real map screen (wiki: ships-and-naval).
-## Kept separate from test_map_screen so each native suite stays inside the
+## Kept separate from test_a_map_screen so each native suite stays inside the
 ## coverage runner's per-suite timeout.
 
 const Fixture = preload("res://tests/map_fixture.gd")
