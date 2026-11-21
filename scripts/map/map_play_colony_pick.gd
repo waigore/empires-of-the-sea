@@ -76,12 +76,16 @@ static func line(play: PlaySession, _snapshot: Dictionary = {}) -> String:
 ## for a crown that runs no planner, an observer session, a decided campaign or a
 ## session with no diplomacy, no chart or no ledger.
 static func pick(play: PlaySession) -> Dictionary:
-	if not _court_ready(play):
+	if not MapPlayPickProse.crown_ready(play):
+		return {}
+	if play.world == null or play.diplomacy == null:
 		return {}
 	var faction: int = play.player_faction
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
+	if play.court_charts == null or play.ai == null:
 		return {}
+	if play.ledger_for(faction) == null:
+		return {}
+	var kind: String = AiControl.court_kind(play, faction)
 	var config: Variant = AiBind.config(
 		kind, faction, play.map_seed, play.ensure_ai().profiles
 	)
@@ -260,15 +264,3 @@ static func _gate(
 		play.diplomacy, play.world, faction, int(ambition.get("target", -1)),
 		String(ambition.get("stage", "")), economy.treasury, economy.tech_unlocked
 	)
-
-
-## True when the crown's own court may be read at all: a live campaign with a
-## world, a diplomacy record and its own charts.
-static func _court_ready(play: PlaySession) -> bool:
-	if play == null or play.world == null or play.diplomacy == null:
-		return false
-	if play.observer_mode or play.campaign_over():
-		return false
-	if play.court_charts == null or play.ai == null:
-		return false
-	return play.ledger_for(play.player_faction) != null

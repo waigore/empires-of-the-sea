@@ -114,16 +114,23 @@ static func in_printed_order(
 	return keyed
 
 
-## True when a crew-backed counsel pick may read the crown's session: a live
-## campaign with a civilian layer, a ledger, and a court that plans. Market,
-## estates and spy picks share this gate so they cannot disagree on when the
-## page is silent (REQ-P3-02).
+## True when a counsel pick may read the crown's session at all: a live,
+## unobserved campaign, a chart, relations, and a court that plans. Every pick
+## surface answers this first, so no two sheets disagree on when the crown's page
+## is silent (REQ-P3-02).
+static func crown_ready(play: PlaySession) -> bool:
+	if play == null or play.observer_mode or play.campaign_over():
+		return false
+	if play.world == null or play.diplomacy == null:
+		return false
+	return AiControl.court_kind(play, play.player_faction) != AiControl.KIND_NONE
+
+
+## True when a crew-backed counsel pick may read the crown's session: the crown
+## gate with a civilian layer and a ledger. Market, estates, people and spy picks
+## share this gate so they cannot disagree on when the page is silent
+## (REQ-P3-02).
 static func crown_crew_ready(play: PlaySession) -> bool:
-	if play == null or play.world == null or play.campaign_over():
+	if not crown_ready(play) or play.civilian_layer == null:
 		return false
-	if play.observer_mode or play.civilian_layer == null:
-		return false
-	var faction: int = play.player_faction
-	if play.ledger_for(faction) == null:
-		return false
-	return AiControl.court_kind(play, faction) != AiControl.KIND_NONE
+	return play.ledger_for(play.player_faction) != null

@@ -37,13 +37,11 @@ static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
 ## planner for the crown, an observer session, a decided campaign, a session with
 ## no naval layer or diplomacy, or a navy the pass leaves entirely alone.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
-	if play == null or play.world == null or play.ship_layer == null:
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.diplomacy == null or play.observer_mode or play.campaign_over():
+	if play.world == null or play.ship_layer == null or play.diplomacy == null:
 		return {}
 	var faction: int = play.player_faction
-	if AiControl.court_kind(play, faction) == AiControl.KIND_NONE:
-		return {}
 	var squadrons: Array[Dictionary] = _squadrons(play, faction)
 	if not squadrons.is_empty():
 		return of(squadrons, snapshot)
