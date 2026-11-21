@@ -812,7 +812,8 @@ func test_ai_military_walks_a_stranded_host_onto_its_own_land() -> void:
 ## Own land is the road's end, not a distance: a host beside its own border walks
 ## onto it even when a wilderness step reads nearer the seat, because interior
 ## lines open the moment the host stands on its own ground (wiki: military-armies
-## § Movement and attacks; DR-20261121-15).
+## § Movement and attacks; DR-20261121-15). Two own provinces sit at the same
+## distance on the lower-id tie, so one stays beside the host and one a leg on.
 func test_ai_military_walks_onto_its_own_land_before_nearer_wilderness() -> void:
 	# P0 the seat, P2 wilderness one march from it, P3 the host's ground two
 	# marches on, P1 the court's own land three marches on — beside the host.
