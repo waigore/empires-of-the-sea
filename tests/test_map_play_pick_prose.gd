@@ -99,6 +99,15 @@ func test_a_sheet_can_name_more_than_the_common_cap() -> void:
 	)
 
 
+## The sheets read their chrome from one place (REQ-P3-01): a sheet that names
+## nothing hands the shared line an empty list and prints no headless sentence
+## instead of the sheet keeping its own copy of the rule (REQ-P3-02).
+func test_a_sheet_that_names_nothing_prints_no_line() -> void:
+	assert_eq(MapPlayMarketPick.list_line({}, "offer"), "", "market: no rows")
+	assert_eq(MapPlayProductionPick.run_line({}), "", "production: no runs")
+	assert_eq(MapPlayRecruitPick.recruit_line({}), "", "recruit: no tiers")
+
+
 func test_a_silent_pass_earns_a_gate_only_when_something_waited() -> void:
 	assert_true(MapPlayPickProse.gate(0, "crews", "none").is_empty(), "nobody waiting")
 	var gate: Dictionary = MapPlayPickProse.gate(2, "squadrons", "no sail")
