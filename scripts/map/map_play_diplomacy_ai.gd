@@ -85,7 +85,7 @@ static func _apply_map_changes(play: PlaySession, trace: Array) -> void:
 				play.ship_layer.transfer_owner(loser, winner)
 			if play.army_layer != null:
 				play.army_layer.transfer_owner(loser, winner)
-		play.refresh_map_views()
+		play.screen.refresh_map_views()
 
 
 ## Unit counts the war-desire score reads plus each rival's stockpile, so the

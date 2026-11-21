@@ -2,8 +2,10 @@ class_name PlaySession
 extends RefCounted
 ## Narrow play context for MapPlay* helpers (REQ-P3-02).
 ## Holds session state and injected presentation refs — not a Node/autoload.
-## MapScreen owns the Node tree and signals; helpers talk through this bag, and
-## every word it says to the screen goes through `screen` (PlayScreen).
+## MapScreen owns the Node tree and signals; helpers read this bag for campaign
+## state, and every word they say to the screen goes through `screen`
+## (PlayScreen) — except `emit_battle_resolved`, which books DialogueEvents
+## before the screen airs the plate.
 
 const TILE_SIZE: float = 22.0
 ## Legacy default (Spain); a game setup may choose another Great Power.
@@ -161,11 +163,13 @@ var camera: MapCamera = null
 var hud: GameHud = null
 var improvements: ImprovementPanel = null
 
-## The one place helpers send screen talk (REQ-P3-02).
+## The one place helpers send screen talk (REQ-P3-02). Callers say
+## `play.screen.emit_…` / `switch_region` / `viewport` — this bag does not
+## mirror those names.
 var screen: PlayScreen = PlayScreen.new()
 
-## Bound chart Node — same object as `screen.host`, kept on the session so
-## existing MapPlay* call sites need not rewrite every read (REQ-P3-02).
+## Bound chart Node — same object as `screen.host`, kept so setup and saves
+## that already hold `play.host` need not rewrite every read (REQ-P3-02).
 var host: Node:
 	get:
 		return screen.host
@@ -322,7 +326,8 @@ func refresh_research() -> void:
 ## battle the crown fought is answered by its rival's court when that page is
 ## opened (wiki: dialogue-and-mood § Design intent — event: battle results;
 ## DR-20261111-01). Both passes report here, so land and sea book alike; a sea
-## fight carries a zone and a land battle a province.
+## fight carries a zone and a land battle a province. Other screen talk goes
+## through `screen` directly (REQ-P3-02).
 func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 	for battle: Dictionary in battles:
 		if battle.has("zone"):
@@ -337,41 +342,3 @@ func emit_battle_resolved(battles: Array[Dictionary]) -> void:
 ## turn-time-mapping).
 func campaign_over() -> bool:
 	return victory != null or defeat != null or campaign_halted
-
-
-## Screen airings and region swap: session names forward to `screen` so the
-## bridge owns the work and helpers keep the short call (REQ-P3-02).
-func viewport() -> Viewport:
-	return screen.viewport()
-
-
-func emit_province_selected(province_id: int) -> void:
-	screen.emit_province_selected(province_id)
-
-
-func emit_selection_cleared() -> void:
-	screen.emit_selection_cleared()
-
-
-func emit_coast_charted(province_id: int) -> void:
-	screen.emit_coast_charted(province_id)
-
-
-func emit_raid_resolved(raids: Array[Dictionary]) -> void:
-	screen.emit_raid_resolved(raids)
-
-
-func emit_turn_ended(p_turn: int) -> void:
-	screen.emit_turn_ended(p_turn)
-
-
-func emit_campaign_end(p_victory: VictoryState = null, p_defeat: DefeatState = null) -> void:
-	screen.emit_campaign_end(p_victory, p_defeat)
-
-
-func refresh_map_views() -> void:
-	screen.refresh_map_views()
-
-
-func switch_region(index: int) -> void:
-	screen.switch_region(index)

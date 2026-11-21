@@ -173,7 +173,7 @@ static func resolve_work(play: PlaySession) -> void:
 			if MapPlayTurn.view_live and int(report["region"]) == play.region_index:
 				# The tile's owner changed, so borders, tint and the region chip
 				# all redraw whoever holds the new deed.
-				play.refresh_map_views()
+				play.screen.refresh_map_views()
 			continue
 		if not MapPlayTurn.view_live:
 			continue
