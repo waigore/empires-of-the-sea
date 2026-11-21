@@ -10,6 +10,19 @@ extends RefCounted
 
 const NO_PROVINCE: int = MapModel.NO_ID
 
+## The walk home's own words, published on the page and printed by both surfaces
+## that speak them — the dossier's hint and the refusal a home march hears
+## (wiki: military-armies § Movement and attacks; DR-20261121-15). One home, so a
+## crown never reads two sentences for the one rule.
+const NO_OWN_LAND_REACH: String = (
+	"No own land touches here — march through the provinces beside you, "
+	+ "one march at a time, to reach home."
+)
+const NO_INTERIOR_LINES: String = (
+	"No interior lines run from this ground — march through the provinces "
+	+ "beside you, one march at a time, to reach home."
+)
+
 
 ## Legal destinations for the army's one march this turn. A host standing on
 ## ground its own court does not hold has no interior lines, so only the
@@ -146,14 +159,8 @@ static func stranded(model: MapModel, army: ArmyState) -> bool:
 ## border the map shows (wiki: military-armies § Movement and attacks).
 static func _off_ground_refusal(model: MapModel, army: ArmyState) -> String:
 	if stranded(model, army):
-		return (
-			"No own land touches here — march through the provinces beside you, "
-			+ "one march at a time, to reach home."
-		)
-	return (
-		"No interior lines run from this ground — march through the provinces "
-		+ "beside you, one march at a time, to reach home."
-	)
+		return NO_OWN_LAND_REACH
+	return NO_INTERIOR_LINES
 
 
 ## Land held by another faction; unowned wilderness is not an invasion.

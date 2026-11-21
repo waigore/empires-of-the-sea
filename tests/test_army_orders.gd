@@ -1123,17 +1123,19 @@ func test_a_routed_host_reads_its_ground_and_the_walk_home() -> void:
 		String(panel._location.text), "At Province 4 — %s%s ground" % [rival_name, mark],
 		"the place line names the ground even where no road home is open"
 	)
-	assert_true(
-		String(panel._hint.text).contains("No own land touches here"),
-		"the hint names the walk, not own land the crown does not hold: %s"
-		% panel._hint.text
+	assert_eq(
+		String(panel._hint.text),
+		"No own land touches here — march through the provinces beside you, "
+		+ "one march at a time, to reach home.",
+		"the hint reads the page's own sentence for the walk"
 	)
 	assert_true(ArmyMovement.stranded(model, stranded), "no own province is one march away")
 	var home: Dictionary = ArmyMovement.can_move(model, stranded, 0)
 	assert_false(bool(home.get("ok", true)), "a home march is refused from here")
-	assert_true(
-		String(home.get("reason", "")).contains("march through"),
-		"the refusal names the walk: %s" % home.get("reason", "")
+	assert_eq(
+		String(home.get("reason", "")),
+		String(panel._hint.text),
+		"the refusal and the dossier's hint are the one published sentence"
 	)
 	assert_false(
 		String(home.get("reason", "")).contains("naval transport"),
@@ -1161,9 +1163,11 @@ func test_a_host_off_its_ground_keeps_no_interior_lines() -> void:
 
 	var far: Dictionary = ArmyMovement.can_move(model, host, 1)
 	assert_false(bool(far.get("ok", true)), "own land beyond the border is refused")
-	assert_true(
-		String(far.get("reason", "")).contains("No interior lines run from this ground"),
-		"the refusal names the ground, not a missing hull: %s" % far.get("reason", "")
+	assert_eq(
+		String(far.get("reason", "")),
+		"No interior lines run from this ground — march through the provinces "
+		+ "beside you, one march at a time, to reach home.",
+		"the refusal reads the page's own sentence"
 	)
 	var beside: Dictionary = ArmyMovement.can_move(model, host, 0)
 	assert_true(bool(beside.get("ok", false)), "the own province beside it is one march")
@@ -1954,8 +1958,10 @@ func test_army_panel_status_words_the_standing_lines() -> void:
 	assert_eq(ArmyPanelStatus.status_text(field, true), "Has marched this turn")
 	field.moved = false
 	assert_eq(ArmyPanelStatus.status_text(field, true), "1 march this turn")
-	assert_true(
-		ArmyPanelStatus.hint_text(field, true, true).contains("No own land touches here")
+	assert_eq(
+		ArmyPanelStatus.hint_text(field, true, true),
+		ArmyMovement.NO_OWN_LAND_REACH,
+		"the stranded hint is the rule's own published sentence"
 	)
 	assert_true(
 		ArmyPanelStatus.hint_text(field, true, false, true).contains(
