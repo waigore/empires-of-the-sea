@@ -60,7 +60,14 @@ static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
 		return of(squadrons, snapshot)
 	# The pass names no sail: the sheet says whether any squadron waited for one,
 	# so a navy already under way reads nothing rather than a gate.
-	if _waiting(play, faction) <= 0:
+	return gate(_waiting(play, faction))
+
+
+## The gate a silent pass earns: `waiting` squadrons stood for a sail and the
+## policy gave none, so the sheet names that rather than a clause it cannot
+## print. A navy with nothing waiting has nothing to say (REQ-P5-06).
+static func gate(waiting: int) -> Dictionary:
+	if waiting <= 0:
 		return {}
 	var none: Array[Dictionary] = []
 	return {"squadrons": none, "line": NO_ORDER_LINE}
@@ -220,8 +227,11 @@ static func _in_heading_order(
 
 
 ## A squadron's own key: the chart she sails and the id its roster minted her.
+## The sheet calls the id `fleet` on a heading and the pick calls it `fleet_id`
+## on its own entry, so one key reads both.
 static func _key(entry: Dictionary) -> String:
-	return "%d:%d" % [int(entry.get("region", -1)), int(entry.get("fleet", entry.get("fleet_id", -1)))]
+	var fleet_id: int = int(entry.get("fleet", entry.get("fleet_id", -1)))
+	return "%d:%d" % [int(entry.get("region", -1)), fleet_id]
 
 
 ## The squadron a plan names, read off the roster the plan was asked about.
