@@ -5100,6 +5100,26 @@ func test_the_planner_reads_the_footing_it_is_not_handed() -> void:
 	)
 
 
+## The `decide` pass reads each relation its own way: the crown war is weighed
+## as a peace and the calm court as a war plus its menu of offers, and the one
+## order still leaves as a single action (REQ-P2-03).
+func test_a_pass_weighs_each_relation_its_own_way() -> void:
+	var run: Dictionary = _buyout_turn(1, -1, [PHASE_OTHER])
+	var plan: Dictionary = run["plan"]
+	var war_row: Dictionary = _candidate(plan, PHASE_RIVAL)
+	var calm_row: Dictionary = _candidate(plan, PHASE_OTHER)
+
+	assert_eq((plan["candidates"] as Array).size(), 2)
+	assert_true(bool(war_row.get("at_war", false)), "the crown war is a peace row")
+	assert_false(bool(calm_row.get("at_war", true)), "the calm court is a war row")
+	assert_false(war_row.has("offer"), "a court at war weighs no fresh offer")
+	assert_true(calm_row.has("offer"), "the calm row carries its own offers")
+	assert_true(
+		String((plan["action"] as Dictionary).get("kind", "")).length() > 0,
+		"the pass still spends the court's one order"
+	)
+
+
 # --- dispatch: no new voyage on a war footing ---------------------------------
 
 
