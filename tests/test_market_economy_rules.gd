@@ -6068,3 +6068,105 @@ func test_the_production_pick_reads_nothing_without_its_parts() -> void:
 	assert_true(MapPlayProductionPick.of(economy, {}).is_empty(), "no plan, no pick")
 	assert_true(MapPlayProductionPick.pick(null).is_empty(), "no session, no pick")
 	assert_eq(MapPlayProductionPick.sentence(""), "", "no clause, no sentence")
+
+
+## The MARKET tab's own plan: the offers and bids the published market planner
+## books, named in the catalogue's order and in the plan's own figures — and
+## nothing staged by the reading (wiki: world-market § Trade orders;
+## DR-20261121-09).
+func test_the_market_pick_names_the_book_the_plan_books() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	economy.stockpile = {"wool": 30}
+	economy.treasury = 4000
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	var plan: Dictionary = AiMarketPlanner.plan(_ai_config(), economy, market, 5)
+	assert_eq(_offer_of(plan, "wool"), 10, "the surplus above the reserve is offered")
+	assert_false(plan.get("bids", []).is_empty(), "the empty build input is bid for")
+
+	var pick: Dictionary = MapPlayMarketPick.of({"plan": plan})
+	var offers: Dictionary = pick["offers"] as Dictionary
+	var bids: Dictionary = pick["bids"] as Dictionary
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMarketPick.KIND_TRADE)
+	assert_eq(int(offers.get("wool", 0)), _offer_of(plan, "wool"), "the offer's own units")
+	assert_false(bids.is_empty(), "a short build input is bid for")
+	for raw: Variant in plan["bids"]:
+		var bid: Dictionary = raw
+		assert_eq(
+			int(bids.get(String(bid["commodity"]), 0)), int(bid["quantity"]),
+			"the bid's own units: " + String(bid["commodity"])
+		)
+	assert_eq(
+		String(pick["line"]),
+		"the court would offer Wool ×%d and %s this phase"
+		% [_offer_of(plan, "wool"), MapPlayMarketPick.list_line(bids, "bid")],
+		"offers lead, bids follow, the catalogue's own order"
+	)
+	assert_eq(
+		MapPlayMarketPick.sentence(String(pick["line"])),
+		"The court would offer Wool ×%d and %s this phase."
+		% [_offer_of(plan, "wool"), MapPlayMarketPick.list_line(bids, "bid")]
+	)
+
+
+## One side of the book empty still reads as advice: a court sells its surplus
+## and is told it bids for nothing (REQ-P5-06).
+func test_the_market_pick_names_the_side_it_leaves_empty() -> void:
+	var offers_only: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [{"commodity": "grain", "quantity": 2}], "bids": []},
+	})
+	assert_eq(
+		String(offers_only["line"]),
+		"the court would offer Grain ×2 this phase, and bid nothing"
+	)
+	var bids_only: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [], "bids": [{"commodity": "lumber", "quantity": 3}]},
+	})
+	assert_eq(
+		String(bids_only["line"]),
+		"the court would bid Lumber ×3 this phase and offer nothing"
+	)
+
+
+## An empty book names the gate the plan's own figures show: a war footing holds
+## the top-up shut, and a court whose stores meet its reserve trades nothing at
+## all — never a silent page (REQ-P5-05; DR-20261117-01).
+func test_the_market_pick_names_the_gate_that_empties_the_book() -> void:
+	var quiet: Dictionary = MapPlayMarketPick.of({"plan": {"offers": [], "bids": []}})
+	assert_eq(String(quiet.get("kind", "")), MapPlayMarketPick.KIND_QUIET)
+	assert_eq(String(quiet["line"]), MapPlayMarketPick.QUIET_LINE)
+	var blocked: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [], "bids": []}, "bids_blocked": AiMarketPlanner.REASON_SPECULATE,
+	})
+	assert_eq(String(blocked["line"]), MapPlayMarketPick.FOOTING_LINE)
+	var selling: Dictionary = MapPlayMarketPick.of({
+		"plan": {"offers": [{"commodity": "wool", "quantity": 4}], "bids": []},
+		"bids_blocked": AiMarketPlanner.REASON_SPECULATE,
+	})
+	assert_eq(
+		String(selling["line"]),
+		"the court would offer Wool ×4 this phase — at war, its bids wait on the front",
+		"the footing is named beside the offers it still makes"
+	)
+
+
+## Beyond three goods a side counts the rows it cannot name, so a rich plan stays
+## one line of chrome on a handset (REQ-P5-07).
+func test_the_market_pick_counts_the_rows_it_cannot_name() -> void:
+	assert_eq(
+		MapPlayMarketPick.list_line({
+			"grain": 1, "meat": 1, "timber": 1, "wool": 1, "iron": 2,
+		}, "offer"),
+		"offer Grain ×1, Meat ×1, Wool ×1 and 2 more"
+	)
+	assert_eq(MapPlayMarketPick.list_line({"wool": 2}, "bid"), "bid Wool ×2")
+	assert_eq(MapPlayMarketPick.list_line({}, "offer"), "", "no rows, no clause")
+
+
+## No plan, no session: the pick answers nothing rather than a line the sheet
+## would have to invent (REQ-P5-06).
+func test_the_market_pick_reads_nothing_without_its_parts() -> void:
+	assert_true(MapPlayMarketPick.of({}).is_empty(), "no drafted plan, no pick")
+	assert_true(MapPlayMarketPick.of({"plan": {}}).is_empty(), "no plan, no pick")
+	assert_true(MapPlayMarketPick.pick(null).is_empty(), "no session, no pick")
+	assert_eq(MapPlayMarketPick.sentence(""), "", "no clause, no sentence")

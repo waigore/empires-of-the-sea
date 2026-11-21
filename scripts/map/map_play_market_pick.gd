@@ -127,7 +127,7 @@ static func list_line(rows: Dictionary, verb: String) -> String:
 		named.append("%s ×%d" % [CommodityCatalog.label(id), int(rows[id])])
 	if named.is_empty():
 		return ""
-	var joined: String = _join(named)
+	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
 	if hidden > 0:
 		joined += " and %d more" % hidden
 	return "%s %s" % [verb, joined]
