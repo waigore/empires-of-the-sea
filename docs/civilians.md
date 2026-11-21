@@ -15,8 +15,8 @@ Land units: explore, improve, colonize, spy.
   waits on, greying a gated row
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
   a gold line names the crew or the gate (`MapPlayHirePick`, DR-20261121-06).
-- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew and
-  walks the idle ones.
+- **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, walks
+  the idle ones and names the court's own work pick (DR-20261121-12).
 - **Movement:** one orthogonal land tile/turn; Builders, Engineers, Rail
   Builders keep to crown land, Explorer, Merchant, Spy cross borders; one crew
   per tile per crown; presence keeps a province visible.
@@ -24,7 +24,7 @@ Land units: explore, improve, colonize, spy.
   `unknown`); each shadowed rival GP adds +15% RP at Low+ funding.
   **Counter-espionage** kills or turns agents; reports name deeds
   ([espionage.md](espionage.md)).
-- **Work orders** on the unit tile (Builders: any owned tile); cancel
+- **Work orders** (Builders: any owned tile); cancel
   refunds it. Explore ≤3, **prospect 1** (charted ground), improve 1–4, **upgrade town** (National
   Bureaucracy), road, port (one per seaboard), rail, fort 1–3
   ([forts.md](forts.md)), hospital 1–2.
@@ -38,7 +38,7 @@ Land units: explore, improve, colonize, spy.
   levels 2, 4 manufacture ([economy.md](economy.md)).
 - **Overseas colonist** (`CivilianVoyage`): boards a crown squadron in port (one
   per hull, no troops); lands on a coastal tile beside its zone, one
-  one press for the port's seat
+  press for the port's seat
   ([DR-20261119-03](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261119-03));
   Explorers/Merchants any coast, others crown land. **A rival reads the
   ground:** its colonist takes the charted coast its workshop can turn before
@@ -57,7 +57,7 @@ Land units: explore, improve, colonize, spy.
 
 ## Deferred (REQ-P2-02)
 
-Workshop-coast landing live (DR-19-05); gaps in [`deferred.md`](deferred.md).
+Workshop-coast landing live (DR-19-05); see [`deferred.md`](deferred.md).
 
 ## Architecture
 
@@ -85,7 +85,7 @@ Rules stay node-free (`REQ-P3-03`).
 
 ## Tests
 
-`test_civilian_turn_rules`, `test_diplomacy_rules`, `test_a_map_screen`.
+`test_civilian_turn_rules`, `test_diplomacy_rules`, `test_a_map_screen`, `test_ledgers`.
 
 ```bash
 gd-tools test --coverage --min 80

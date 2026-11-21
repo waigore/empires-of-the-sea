@@ -82,6 +82,15 @@ static func build_hud(play: PlaySession) -> void:
 		eyes.counsel_source = (
 			func(data: Dictionary) -> String: return MapPlaySpyPick.line(play, data)
 		)
+	# THE CROWN'S PEOPLE names the work the court's own civilian pass would put
+	# its crews to this turn, read on the roster's own snapshot so the line
+	# reads down the page it answers (wiki: civilian-units § Empire roster;
+	# DR-20261121-12).
+	var people: CivilianRosterPanel = hud.civilian_roster
+	if people != null:
+		people.counsel_source = (
+			func(data: Dictionary) -> String: return MapPlayPeoplePick.line(play, data)
+		)
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)

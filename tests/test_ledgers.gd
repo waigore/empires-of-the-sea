@@ -948,6 +948,154 @@ func test_the_eyes_print_and_hide_the_counsel_they_are_handed() -> void:
 	panel.close()
 
 
+# --- the crown's people ------------------------------------------------------
+
+
+## The people's own reading (DR-20261121-12): the work the published civilian
+## pass would give the crown's crews, worded down the sheet's own rows and capped
+## so a busy roster stays one line of chrome (REQ-P5-06, REQ-P5-07).
+func test_the_people_pick_words_the_work_the_pass_would_give() -> void:
+	assert_true(MapPlayPeoplePick.of([]).is_empty(), "an unread roster names nothing")
+	var crews: Array[Dictionary] = [
+		{
+			"region": 0,
+			"unit_id": 2,
+			"role": "Explorer",
+			"action": "explore",
+			"place": "",
+			"short": "survey the Mar Caribe",
+		},
+		{
+			"region": 0,
+			"unit_id": 1,
+			"role": "Builder",
+			"action": "build_improvement",
+			"place": "Cádiz",
+			"short": "raise the lumber camp",
+		},
+	]
+	var pick: Dictionary = MapPlayPeoplePick.of(crews, {})
+	assert_eq(
+		String(pick["line"]),
+		"the court would put its Explorer to survey the Mar Caribe and its Builder"
+		+ " to raise the lumber camp at Cádiz this turn"
+	)
+	assert_eq(
+		MapPlayPeoplePick.sentence(String(pick["line"])),
+		"The court would put its Explorer to survey the Mar Caribe and its Builder"
+		+ " to raise the lumber camp at Cádiz this turn."
+	)
+	# The sheet's own rows come first, so the line reads down the page it answers.
+	var snapshot: Dictionary = {
+		"rows": [{"region": 0, "unit_id": 1}, {"region": 0, "unit_id": 2}],
+	}
+	assert_eq(
+		String(MapPlayPeoplePick.of(crews, snapshot)["line"]),
+		"the court would put its Builder to raise the lumber camp at Cádiz and its"
+		+ " Explorer to survey the Mar Caribe this turn"
+	)
+	# Beyond three the line counts the crews it cannot name.
+	var many: Array[Dictionary] = []
+	for index: int in 5:
+		many.append({
+			"region": 0,
+			"unit_id": index,
+			"role": "Builder",
+			"action": "build_road",
+			"place": "P%d" % index,
+			"short": "build a road",
+		})
+	assert_eq(
+		String(MapPlayPeoplePick.of(many, {})["line"]),
+		"the court would put its Builder to build a road at P0, its Builder to"
+		+ " build a road at P1, its Builder to build a road at P2 and 2 more this turn"
+	)
+	assert_eq(MapPlayPeoplePick.pick_line([]), "", "no crew, no clause")
+	assert_eq(MapPlayPeoplePick.line(null), "", "a session that is not there names nothing")
+
+
+## Crews wait and the pass puts none to work: the sheet names that gate rather
+## than a clause it cannot print, and a snapshot that has not read the roster
+## names nothing at all (REQ-P5-06).
+func test_the_people_pick_names_the_gate_when_no_crew_is_put_to_work() -> void:
+	assert_true(MapPlayPeoplePick.of([], {}).is_empty(), "an unread roster names no gate")
+	var idle: Dictionary = MapPlayPeoplePick.of([], {"idle": 2})
+	assert_eq(String(idle["line"]), MapPlayPeoplePick.NO_WORK_LINE)
+	assert_true(
+		MapPlayPeoplePick.of([], {"idle": 0}).is_empty(),
+		"every crew has its order, so the sheet has nothing to say"
+	)
+
+
+## The reading is the pass's own: an idle Builder of the crown on a level-0
+## estate is named with the work the published planner would give it, the roster
+## prints it, and nothing is ordered (REQ-P2-03, REQ-P5-06; DR-20261121-12).
+func test_the_people_print_the_work_the_crowns_pass_would_book() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: CivilianRosterPanel = screen.hud.civilian_roster
+	assert_not_null(panel, "the HUD mounts the crown's people")
+	assert_true(panel.counsel_source.is_valid(), "the session wires the pass's reading")
+	_cancel_works()
+	var stock: Dictionary = play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	var estates: ImprovementPanel = screen.improvements
+	estates.open()
+	var ready: Array[Vector2i] = estates._ready_tiles()
+	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
+	estates.close()
+	var builder: CivilianState = play.civilian_layer.add_unit(
+		play.player_faction, "builder", ready[0]
+	)
+	panel.open()
+	var pick: Dictionary = MapPlayPeoplePick.pick(play, panel._snapshot)
+	var crews: Array = pick.get("crews", [])
+	assert_gte(crews.size(), 1, "the pass puts the Builder to an estate")
+	assert_true(
+		panel.counsel_text().begins_with("The court would put "), panel.counsel_text()
+	)
+	assert_true(panel.counsel_text().contains("its Builder"), panel.counsel_text())
+	assert_true(panel.counsel_text().ends_with("this turn."), panel.counsel_text())
+	assert_true(panel._counsel.visible, "the sheet prints the reading")
+	assert_true(builder.work_action().is_empty(), "a reading, not an order")
+	# One clause per crew the pass books something for, so the roster cannot name
+	# work the pass would not take (REQ-P2-03).
+	var booked: Dictionary = MapPlayCivilianPick.picks(play, play.player_faction)
+	for raw: Variant in crews:
+		var crew: Dictionary = raw
+		assert_true(booked.has(int(crew["unit_id"])), "every clause is a pick of the pass")
+	# An observer names nothing.
+	play.observer_mode = true
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an observer names nothing")
+	play.observer_mode = false
+	play.civilian_layer.units.erase(builder)
+	panel.refresh()
+
+
+## The roster prints the reading it is handed and hides it when the reading is
+## empty, so a sheet with no planner carries no gold line (REQ-P5-06).
+func test_the_people_print_and_hide_the_counsel_they_are_handed() -> void:
+	_attach()
+	var panel: CivilianRosterPanel = screen.hud.civilian_roster
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String:
+			return "The court would put its Builder to work at Cádiz this turn."
+	)
+	panel.open()
+	assert_eq(
+		panel.counsel_text(),
+		"The court would put its Builder to work at Cádiz this turn."
+	)
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	panel.close()
+
+
 func test_back_and_the_key_close_the_sheet() -> void:
 	_attach()
 	var panel: SpyLedgerPanel = screen.hud.spy_ledger

@@ -326,6 +326,14 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The reading the crown's people print (DR-20261121-12): the roster's one gold
+# line, proved by the ledger suite that already mounts the HUD and opens the
+# people sheet.
+[domains.people_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 # The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet
 # share the ledgers boot — the projection on a two-chart fixture and the sheet on
 # the shared map screen — so a navy reading change never pulls the fleet domain's
@@ -1108,6 +1116,13 @@ domain = "eyes"
 [[rules]]
 match = "tests/test_ledgers.gd*"
 domain = "eyes"
+
+# The reading the crown's people print (DR-20261121-12): its own slice too, so
+# the shaping of the roster's one gold line never pulls the roster panel's
+# three-boot sheet set past the tier-1 budget.
+[[rules]]
+match = "scripts/map/map_play_people_pick.gd*"
+domain = "people_pick"
 
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
