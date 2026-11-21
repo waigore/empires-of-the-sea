@@ -7,7 +7,8 @@ extends RefCounted
 ## this chrome (REQ-P3-01, REQ-P3-02, REQ-P5-06).
 
 ## The most rows one counsel line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
+## reading stays one line of chrome (REQ-P5-07). A sheet that names more passes
+## its own cap to `court_line_capped`; no sheet restates the common one.
 const NAMED_LIMIT: int = 3
 
 
@@ -53,11 +54,20 @@ static func capped(parts: Array[String], limit: int) -> String:
 static func court_line(
 	head: String, clauses: Array[String], tail: String = "this turn"
 ) -> String:
+	return court_line_capped(head, clauses, tail, NAMED_LIMIT)
+
+
+## `court_line` with the sheet's own cap: a wide sheet (manufacture, the realm)
+## names more rows than the common three before it counts the rest. The cap is
+## the sheet's fact; the capital, the joins and the tail stay here (REQ-P3-02).
+static func court_line_capped(
+	head: String, clauses: Array[String], tail: String, limit: int
+) -> String:
 	var named: Array[String] = []
 	for clause: String in clauses:
 		if not clause.is_empty():
 			named.append(clause)
-	var joined: String = capped(named, NAMED_LIMIT)
+	var joined: String = capped(named, limit)
 	if joined.is_empty():
 		return ""
 	if tail.is_empty():
