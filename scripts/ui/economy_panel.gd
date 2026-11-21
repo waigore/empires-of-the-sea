@@ -115,7 +115,8 @@ func _tab_box(selected: bool) -> StyleBoxFlat:
 ## Rebuilds every row from live state plus the end-of-turn projection report.
 ## `pick` is the court's own production pick (`MapPlayProductionPick`): the runs
 ## the crown's own economy pass would book, printed on the PRODUCTION tab
-## (REQ-P5-03, REQ-P5-06; DR-20261121-07).
+## (REQ-P5-03, REQ-P5-06; DR-20261121-07). `trade` is the market's own plan
+## (`MapPlayMarketPick`), printed on the MARKET tab (DR-20261121-09).
 func refresh(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -123,7 +124,8 @@ func refresh(
 	cargo: Dictionary = {},
 	offers: Array = [],
 	viewer: int = FactionCatalog.PLAYER_FACTION,
-	pick: Dictionary = {}
+	pick: Dictionary = {},
+	trade: Dictionary = {}
 ) -> void:
 	if _tabs == null:
 		return
@@ -134,7 +136,7 @@ func refresh(
 	_production.fill(economy, report, pick)
 	_market_page.fill(
 		economy, market, cargo, offers, report.get("clearing", {}) as Dictionary,
-		viewer
+		viewer, String(trade.get("line", ""))
 	)
 	_workers.fill(economy, report)
 

@@ -1906,3 +1906,47 @@ func test_the_production_tab_prints_no_plan_without_a_planner() -> void:
 	assert_eq(body.counsel_text(), "", "no planner, no line")
 	assert_true(MapPlayProductionPick.pick(play).is_empty(), "and no pick behind it")
 	play.ai_mode = AiControl.FULL
+
+
+## The MARKET tab prints the trade the court's own market pass would book, above
+## the orders it answers — the same plan the rival pass stages, read on the
+## crown's own seat — and stages nothing itself (wiki: world-market § Trade
+## orders; DR-20261121-09).
+func test_the_market_tab_names_the_trade_the_court_would_book() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerMarket = (
+		panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
+	)
+	var play: PlaySession = _screen.economy.play
+	assert_not_null(play, "the controller holds its session")
+	var staged_before: int = _screen.economy.market.book.orders_for(
+		_screen.player_faction
+	).size()
+	var pick: Dictionary = MapPlayMarketPick.pick(play)
+	assert_false(pick.is_empty(), "the crown's seat answers")
+	assert_eq(
+		body.counsel_text(),
+		MapPlayMarketPick.sentence(String(pick.get("line", ""))),
+		"one reading, the pass's own sentence"
+	)
+	assert_eq(
+		_screen.economy.market.book.orders_for(_screen.player_faction).size(),
+		staged_before,
+		"a reading: no order is staged"
+	)
+
+
+## A crown whose seat runs no planner reads no trade: the tab prints nothing
+## rather than a book the court would not take (REQ-P5-06).
+func test_the_market_tab_prints_no_trade_without_a_planner() -> void:
+	var play: PlaySession = _screen.economy.play
+	play.ai_mode = AiControl.NOOP
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerMarket = (
+		panel.page_body(EconomyPanel.TAB_MARKET) as LedgerMarket
+	)
+	assert_eq(body.counsel_text(), "", "no planner, no line")
+	assert_true(MapPlayMarketPick.pick(play).is_empty(), "and no pick behind it")
+	play.ai_mode = AiControl.FULL
