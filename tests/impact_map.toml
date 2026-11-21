@@ -1781,9 +1781,8 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_workshop.gd*"
 domain = "economy_ui"
 
-# The PRODUCTION tab's one press (DR-20261116-08): the walk that plans one run on
-# every ready row, and the ceiling it shares with the row's "+". It rides the
-# economy_ui domain with the tab it serves.
+# The PRODUCTION tab's ceiling: the projection a row's "+" is capped by. It rides
+# the economy_ui domain with the tab it serves.
 [[rules]]
 match = "scripts/rules/production_batch.gd*"
 domain = "economy_ui"

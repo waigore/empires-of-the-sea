@@ -42,8 +42,8 @@ Steel, bronze, cigars and fur hats take **two turns** (`turns`); alloys
 combine two inputs (DR-20261114-10). Inputs and labour pay up front; the batch
 lands **one unit a phase**, WIP riding the save (DR-20261112-11/13-02).
 
-A slow row's bench holds **three pieces** (`QUEUE_CAP`): a fourth run waits for
-a landing (DR-20261114-12).
+A slow row's bench holds **three pieces** (`QUEUE_CAP`); a fourth waits for one
+(DR-20261114-12).
 
 ## Town manufacturing bonus
 
@@ -69,9 +69,9 @@ Prices publish once; pact, boycott, subsidy settle
 
 ## UI
 
-`PRODUCTION`: stockpile by group; steppers capped by labour/inputs
-(`allowance`), a worked row names its output (`made 3`), **batch press**
-(`ProductionBatch`; its line priced, DR-20261118-24).
+`PRODUCTION`: stockpile by group in columns (three desktop, two phone, Riches
+strip); steppers capped by labour/inputs (`allowance`); a worked row names its
+output (`made 3`).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
 line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid` naming its
 rule (`MarketRules.bid_block`, DR-20261118-15), a barred colony row

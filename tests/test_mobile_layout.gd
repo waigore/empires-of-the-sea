@@ -1147,6 +1147,177 @@ func test_the_stockpile_tab_fits_a_phone_width() -> void:
 	)
 
 
+## The stockpile reads in columns, so a normal desktop sheet shows the whole
+## catalogue without scrolling: Food | Raw materials | Manufactured, with Riches
+## as a strip under them (issue #1196; REQ-P1-05, REQ-P1-07).
+func test_the_stockpile_page_reads_in_three_columns_on_desktop() -> void:
+	var parts: Array = await _stockpile(DESKTOP)
+	var body: LedgerProduction = parts[0] as LedgerProduction
+	var scroll: Control = parts[1] as Control
+	var columns: HBoxContainer = body.get_child(0) as HBoxContainer
+	assert_not_null(columns, "the page lays its sections in columns")
+	assert_eq(columns.get_child_count(), 3, "Food, Raw materials and Manufactured")
+	var heads: Array[Control] = []
+	for column: Node in columns.get_children():
+		heads.append(column.get_child(0) as Control)
+	for index in range(1, heads.size()):
+		assert_gt(
+			heads[index].get_global_rect().position.x,
+			heads[index - 1].get_global_rect().position.x + 1.0,
+			"column %d stands beside the one before it" % index
+		)
+	var strip: Control = body.get_child(1) as Control
+	assert_gt(
+		strip.get_global_rect().position.y,
+		columns.get_global_rect().position.y + 1.0,
+		"Riches is a strip under the columns"
+	)
+	assert_true(
+		body.get_combined_minimum_size().y <= scroll.size.y + 0.5,
+		"the whole catalogue fits the sheet without scrolling (%s > %s)"
+		% [body.get_combined_minimum_size().y, scroll.size.y]
+	)
+
+
+## A phone keeps two columns — the holdings share one, the workshop the other —
+## and the steppers keep their thumb size (issue #1196; REQ-P5-07).
+func test_the_stockpile_page_keeps_two_columns_on_a_phone() -> void:
+	var parts: Array = await _stockpile(PHONE)
+	var body: LedgerProduction = parts[0] as LedgerProduction
+	var columns: HBoxContainer = body.get_child(0) as HBoxContainer
+	assert_eq(columns.get_child_count(), 2, "two columns on a phone")
+	var rows: Dictionary = body.recipe_rows()
+	assert_gt(rows.size(), 0, "the workshop prints its rows")
+	for recipe_id: String in rows.keys():
+		var plus: Button = rows[recipe_id]["plus"] as Button
+		assert_true(
+			plus.size.y >= TOUCH_MIN - 0.5,
+			"%s keeps a thumb-sized stepper (%s)" % [recipe_id, plus.size.y]
+		)
+
+
+## HAVE and SET sit over the figures they name on every Manufactured row: the
+## heading reserves the steppers' own widths, so the workshop note and the two
+## buttons can never throw the grid (issue #1197).
+func test_the_manufactured_captions_sit_above_their_figures() -> void:
+	for size: Vector2i in [DESKTOP, PHONE]:
+		var parts: Array = await _stockpile(size)
+		var body: LedgerProduction = parts[0] as LedgerProduction
+		var head: Control = _manufactured_head(body)
+		assert_not_null(head, "%s: the Manufactured heading carries its captions" % size)
+		if head == null:
+			continue
+		var captions: Dictionary = {}
+		for child: Node in head.get_children():
+			var label := child as Label
+			if label != null and not label.text.is_empty():
+				captions[label.text] = label
+		var rows: Dictionary = body.recipe_rows()
+		for recipe_id: String in rows.keys():
+			var have: Label = rows[recipe_id]["have"] as Label
+			var stepper: Label = rows[recipe_id]["stepper"] as Label
+			assert_almost_eq(
+				(captions["HAVE"] as Label).get_global_rect().position.x,
+				have.get_global_rect().position.x, 0.5,
+				"%s: HAVE sits over the hold" % recipe_id
+			)
+			assert_almost_eq(
+				(captions["SET"] as Label).get_global_rect().position.x,
+				stepper.get_global_rect().position.x, 0.5,
+				"%s: SET sits over the runs" % recipe_id
+			)
+
+
+## A stepper press sets the run and leaves the ledger open on PRODUCTION: the
+## sheet repaints in place, so a crown never loses the page it was reading
+## (issue #1197; REQ-P1-05).
+func test_a_stepper_press_keeps_the_ledger_open_on_production() -> void:
+	for size: Vector2i in [DESKTOP, PHONE]:
+		var parts: Array = await _stockpile(size)
+		var body: LedgerProduction = parts[0] as LedgerProduction
+		var panel: EconomyPanel = parts[2] as EconomyPanel
+		var economy: PlayerEconomy = _screen.economy.economy
+		var recipe_id: String = ""
+		for id: String in body.recipe_rows().keys():
+			if not (body.recipe_rows()[id]["plus"] as Button).disabled:
+				recipe_id = id
+				break
+		assert_false(recipe_id.is_empty(), "%s: a row offers a run" % size)
+		var plus: Button = body.recipe_rows()[recipe_id]["plus"] as Button
+		_tap(plus)
+		await get_tree().process_frame
+		assert_eq(
+			economy.production.assignment_units(recipe_id), 1,
+			"%s: the press set one run" % size
+		)
+		assert_true(
+			_screen.hud.panels.is_economy_open(), "%s: the ledger stays open" % size
+		)
+		assert_eq(
+			panel._tabs.current_tab, 0, "%s: the sheet keeps the PRODUCTION tab" % size
+		)
+		var minus: Button = body.recipe_rows()[recipe_id]["minus"] as Button
+		_tap(minus)
+		await get_tree().process_frame
+		assert_eq(
+			economy.production.assignment_units(recipe_id), 0,
+			"%s: the minus took the run back" % size
+		)
+		assert_true(
+			_screen.hud.panels.is_economy_open(), "%s: the ledger stays open" % size
+		)
+
+
+## The PRODUCTION tab sets runs one row at a time: the Queue-all press and its
+## priced line are gone (issue #1196; REQ-P5-04).
+func test_the_stockpile_page_carries_no_queue_all_press() -> void:
+	var parts: Array = await _stockpile(DESKTOP)
+	var body: LedgerProduction = parts[0] as LedgerProduction
+	for node: Node in body.find_children("*", "", true, false):
+		assert_false(node is RaiseBatchPress, "the page carries no batch press")
+		var label := node as Label
+		if label != null:
+			assert_false(
+				label.text.begins_with("Queue all"), "no Queue-all line: %s" % label.text
+			)
+
+
+## The PRODUCTION page at `size`, opened and laid out: the page, its scroll
+## window and the panel it stands in.
+func _stockpile(size: Vector2i) -> Array:
+	await _open(size)
+	await get_tree().process_frame
+	_screen.economy.open_panel()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	panel.select_tab(0)
+	await get_tree().process_frame
+	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	return [body, body.get_parent() as Control, panel]
+
+
+## The Manufactured heading row: the one that carries the SET caption.
+func _manufactured_head(body: Control) -> Control:
+	for node: Node in body.find_children("*", "Label", true, false):
+		if (node as Label).text == "SET":
+			return node.get_parent() as Control
+	return null
+
+
+## A real tap on a control, through the viewport the sheet is drawn in.
+func _tap(target: Control) -> void:
+	var at: Vector2 = target.get_global_rect().get_center()
+	for pressed: bool in [true, false]:
+		var event := InputEventMouseButton.new()
+		event.button_index = MOUSE_BUTTON_LEFT
+		event.pressed = pressed
+		event.position = at
+		event.global_position = at
+		_viewport.push_input(event)
+
+
+
 ## The WORKERS tab carries two actions per trained row; on a phone both must be
 ## thumb-sized and inside the sheet's edge. The tab scrolls, so a row may sit
 ## below the fold — the drag area is the body, never a button (REQ-P1-05, REQ-P1-07).

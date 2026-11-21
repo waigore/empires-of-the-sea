@@ -107,21 +107,6 @@ func set_production(recipe_id: String, units: int) -> void:
 	host.refresh_panel()
 
 
-## The PRODUCTION tab's one press: every run the page's walk planned, set through
-## the same assignment a row's "+" makes, then one repaint and one receipt — the
-## press never leaves a lane of per-row lines (REQ-P5-04, REQ-P5-05).
-func set_production_batch(plan: Dictionary) -> void:
-	if host == null or host.economy == null:
-		return
-	if seat_held_elsewhere():
-		return
-	for raw: Variant in plan.keys():
-		var recipe_id: String = String(raw)
-		host.economy.production.set_assignment(recipe_id, int(plan[raw]))
-	host.refresh_panel()
-	_toast(ProductionBatch.receipt(plan.size()))
-
-
 ## One worker action from the ledger. Recruit only queues: the crown pays in
 ## Build/work and the new worker takes up its labour the turn after
 ## (wiki: workers-and-population § Phase placement). A press may file a batch —

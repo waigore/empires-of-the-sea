@@ -27,8 +27,8 @@ var _count: int = 0
 ## How many of them the line under the press carries — what the second tap files.
 var _carries: int = 0
 var _word: String = "rows"
-## What the press files, as its face says it: "raise" for a raise sheet, "queue"
-## for the PRODUCTION tab's runs (DR-20261116-08).
+## What the press files, as its face says it: "raise" for a raise sheet,
+## "launch" for the yard, "muster" for the roll.
 var _verb: String = "raise"
 ## The arm, its window and its expiry: a mis-tap never spends the stores.
 var _arm: ArmGuard = null
@@ -70,9 +70,9 @@ func carries() -> int:
 	return _carries
 
 
-## The verb the press files with, so a tab that sets runs instead of raising
-## steps reads its own word on the face ("Queue all ready (3)"). Defaults to
-## "raise", so every raise sheet keeps its published face (DR-20261116-08).
+## The verb the press files with, so a sheet that launches or musters reads its
+## own word on the face ("Launch all ready (3)"). Defaults to "raise", so every
+## raise sheet keeps its published face.
 func set_verb(verb: String) -> void:
 	_verb = verb if not verb.is_empty() else "raise"
 	_retitle()

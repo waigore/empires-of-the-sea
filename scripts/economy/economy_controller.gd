@@ -143,7 +143,6 @@ func _connect() -> void:
 	panel.offer_requested.connect(orders.offer)
 	panel.cancel_requested.connect(orders.withdraw)
 	panel.production_changed.connect(orders.set_production)
-	panel.production_batch_requested.connect(orders.set_production_batch)
 	panel.recruit_requested.connect(
 		func(tier: int, count: int) -> void: orders.worker_action(tier, "recruit", count)
 	)
