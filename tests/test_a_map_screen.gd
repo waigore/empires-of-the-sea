@@ -2482,21 +2482,17 @@ func test_the_pick_door_opens_the_surface_that_can_press_it() -> void:
 	var province: int = _screen.model.province_at(tile.x, tile.y)
 	MapPlayCivilians.select(_screen.play, unit)
 	var panel: CivilianPanel = _screen.hud.panels.civilian_panel
-	panel.refresh(
-		_screen.model, unit, _screen.land_works, _screen.civilian_layer.units,
-		_screen.stockpile, _screen.visibility, _screen.play.tech_caps(),
-		_screen.play.tech_unlocked(),
-		{
-			"pick": {
-				"action": "build_improvement",
-				"tile": tile,
-				"region": _screen.region_index,
-				"door": MapPlayCivilianPick.DOOR_ESTATES,
-				"line": "the court would raise a lumber camp",
-			},
+	var opening: CivilianDossierOpening = MapPlayCivilians.opening(_screen.play, unit)
+	opening.context = {
+		"pick": {
+			"action": "build_improvement",
+			"tile": tile,
+			"region": _screen.region_index,
+			"door": MapPlayCivilianPick.DOOR_ESTATES,
+			"line": "the court would raise a lumber camp",
 		},
-		MapScreen.PLAYER_FACTION
-	)
+	}
+	panel.refresh(_screen.model, opening)
 	assert_true(panel._follow.visible, "an estate pick carries its door")
 	assert_eq(panel._follow.tooltip_text, "Open the estates ledger at this ground")
 	panel._follow.pressed.emit()

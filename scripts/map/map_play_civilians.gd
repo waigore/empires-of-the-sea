@@ -13,11 +13,7 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 	if unit == null:
 		play.hud.panels.hide_civilian()
 		return
-	play.hud.panels.show_civilian(
-		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
-		_context(play, unit), play.player_faction
-	)
+	play.hud.panels.show_civilian(play.model, opening(play, unit))
 	if unit.owner == play.player_faction:
 		play.overlay.show_tile_options(
 			CivilianMovement.valid_tiles(play.model, unit, play.visibility),
@@ -27,6 +23,23 @@ static func select(play: PlaySession, unit: CivilianState) -> void:
 		play.hud.toast(
 			"Civilian of %s — observe only" % FactionCatalog.name_of(unit.owner)
 		)
+
+
+## The dossier opening for one crew: the session's own works, stores, fog and
+## techs, read once so both the tap and a repaint hand the panel the same sheet
+## (REQ-P3-02).
+static func opening(play: PlaySession, unit: CivilianState) -> CivilianDossierOpening:
+	var sheet := CivilianDossierOpening.new()
+	sheet.unit = unit
+	sheet.works = play.land_works
+	sheet.units = play.civilian_layer.units
+	sheet.stockpile = play.stockpile()
+	sheet.visibility = play.visibility
+	sheet.tech_caps = play.tech_caps()
+	sheet.tech_unlocked = play.tech_unlocked()
+	sheet.context = _context(play, unit)
+	sheet.viewer = play.player_faction
+	return sheet
 
 
 ## Ground the selected Explorer could read: the survey is a choice of where to
@@ -137,11 +150,7 @@ static func refresh_panel(play: PlaySession) -> void:
 	var unit: CivilianState = play.civilian_layer.selected_unit
 	if unit == null:
 		return
-	play.hud.panels.show_civilian(
-		play.model, unit, play.land_works, play.civilian_layer.units,
-		play.stockpile(), play.visibility, play.tech_caps(), play.tech_unlocked(),
-		_context(play, unit), play.player_faction
-	)
+	play.hud.panels.show_civilian(play.model, opening(play, unit))
 	play.overlay.clear_tile_options()
 	play.overlay.show_tile_options(
 		CivilianMovement.valid_tiles(play.model, unit, play.visibility),

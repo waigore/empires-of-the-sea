@@ -246,21 +246,18 @@ func _scroll_to_muster() -> void:
 	_scroll.scroll_vertical = int(_muster_box.position.y)
 
 
-func refresh(
-	model: MapModel,
-	army: ArmyState,
-	is_player: bool,
-	can_merge: bool = false,
-	command: String = "",
-	muster: Array[Dictionary] = [],
-	embark: String = "",
-	plan: String = "balanced",
-	hospital: Dictionary = {},
-	pick: String = "",
-	muster_pick: String = ""
-) -> void:
-	if model == null or army == null:
+## Repaints the selected army from one named opening (REQ-P3-02).
+func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
+	if model == null or opening.army == null:
 		return
+	var army: ArmyState = opening.army
+	var is_player: bool = opening.is_player
+	var command: String = opening.command
+	var muster: Array[Dictionary] = opening.muster
+	var embark: String = opening.embark
+	var hospital: Dictionary = opening.hospital
+	var pick: String = opening.pick
+	var plan: String = opening.plan
 	_header.flag.color = Palette.faction_color(army.owner)
 	var title: String = "ARMY OF %s" % FactionCatalog.name_of(army.owner).to_upper()
 	if army.home:
@@ -281,12 +278,14 @@ func refresh(
 	if _dismiss_arm != null:
 		_dismiss_arm.clear()
 	_roster.fill(army, is_player and not army.is_embarked(), model, is_player)
-	_muster_box.fill(muster, muster_pick)
+	_muster_box.fill(muster, opening.muster_pick)
 	if not (is_player and army.home):
 		_muster_open = false
 	_muster_button.visible = is_player and army.home and not muster.is_empty()
 	_muster_box.visible = _muster_button.visible and _muster_open
-	_merge.visible = is_player and can_merge and not army.is_embarked() and army.count() > 0
+	_merge.visible = (
+		is_player and opening.can_merge and not army.is_embarked() and army.count() > 0
+	)
 	_detach_all.visible = is_player and not army.is_embarked() and army.count() > 1
 	_dismiss_all.visible = is_player and army.count() > 0
 	_retitle_dismiss(army.count())
