@@ -1154,7 +1154,8 @@ func test_the_stockpile_page_reads_in_three_columns_on_desktop() -> void:
 	var parts: Array = await _stockpile(DESKTOP)
 	var body: LedgerProduction = parts[0] as LedgerProduction
 	var scroll: Control = parts[1] as Control
-	var columns: HBoxContainer = body.get_child(0) as HBoxContainer
+	# The court's own plan line sits above the columns when present (DR-20261121-07).
+	var columns: HBoxContainer = _stockpile_columns(body)
 	assert_not_null(columns, "the page lays its sections in columns")
 	assert_eq(columns.get_child_count(), 3, "Food, Raw materials and Manufactured")
 	var heads: Array[Control] = []
@@ -1166,7 +1167,7 @@ func test_the_stockpile_page_reads_in_three_columns_on_desktop() -> void:
 			heads[index - 1].get_global_rect().position.x + 1.0,
 			"column %d stands beside the one before it" % index
 		)
-	var strip: Control = body.get_child(1) as Control
+	var strip: Control = body.get_child(body.get_child_count() - 1) as Control
 	assert_gt(
 		strip.get_global_rect().position.y,
 		columns.get_global_rect().position.y + 1.0,
@@ -1184,7 +1185,8 @@ func test_the_stockpile_page_reads_in_three_columns_on_desktop() -> void:
 func test_the_stockpile_page_keeps_two_columns_on_a_phone() -> void:
 	var parts: Array = await _stockpile(PHONE)
 	var body: LedgerProduction = parts[0] as LedgerProduction
-	var columns: HBoxContainer = body.get_child(0) as HBoxContainer
+	var columns: HBoxContainer = _stockpile_columns(body)
+	assert_not_null(columns, "the page lays its sections in columns")
 	assert_eq(columns.get_child_count(), 2, "two columns on a phone")
 	var rows: Dictionary = body.recipe_rows()
 	assert_gt(rows.size(), 0, "the workshop prints its rows")
@@ -1295,6 +1297,14 @@ func _stockpile(size: Vector2i) -> Array:
 	await get_tree().process_frame
 	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
 	return [body, body.get_parent() as Control, panel]
+
+
+## The stockpile's column row: the HBox under the optional counsel line.
+func _stockpile_columns(body: Control) -> HBoxContainer:
+	for child: Node in body.get_children():
+		if child is HBoxContainer:
+			return child as HBoxContainer
+	return null
 
 
 ## The Manufactured heading row: the one that carries the SET caption.
