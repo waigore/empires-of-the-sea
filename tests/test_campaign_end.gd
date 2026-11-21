@@ -1275,11 +1275,7 @@ func test_the_research_goal_survives_a_save() -> void:
 func test_the_difficulty_layer_survives_a_load() -> void:
 	var play: PlaySession = screen.play
 	play.difficulty = "hard"
-	# Drop ledgers founded at the suite's Normal layer so Hard scales a fresh
-	# start (wiki: ruleset-config § Layers — rivals open with 140% stores).
-	var ai: AiState = play.ensure_ai()
-	ai.economies.clear()
-	var rival: PlayerEconomy = ai.economy_for(1)
+	var rival: PlayerEconomy = play.ensure_ai().economy_for(1)
 	var purse: int = rival.treasury
 	assert_eq(play.ai.difficulty, "hard", "the planner takes the new layer")
 	assert_eq(
