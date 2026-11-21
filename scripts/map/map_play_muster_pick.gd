@@ -134,4 +134,4 @@ static func _worded(
 ## The drill yard's line: the pick's own sentence, or nothing when the court would
 ## raise nothing this turn.
 static func line(play: PlaySession, army: ArmyState) -> String:
-	return MapPlayPickProse.sentence(String(pick(play, army).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, army))

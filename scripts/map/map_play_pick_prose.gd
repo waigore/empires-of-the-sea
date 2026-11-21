@@ -1,9 +1,14 @@
 class_name MapPlayPickProse
 extends RefCounted
 ## Shared wording for every counsel-pick surface: one capital and a full stop,
-## a prose list join, and a capped line that counts the rest (`… and N more`).
+## a prose list join, a capped line that counts the rest (`… and N more`), the
+## court line a collection pick prints, and the row order it reads down.
 ## Domain picks and *Words modules name their own clauses; they do not re-own
 ## this chrome (REQ-P3-01, REQ-P3-02, REQ-P5-06).
+
+## The most rows one counsel line names before it counts the rest, so a handset's
+## reading stays one line of chrome (REQ-P5-07).
+const NAMED_LIMIT: int = 3
 
 
 ## `text` as a printed sentence: "the court would …" → "The court would …".
@@ -11,6 +16,13 @@ static func sentence(text: String) -> String:
 	if text.is_empty():
 		return ""
 	return text.substr(0, 1).to_upper() + text.substr(1) + "."
+
+
+## The pick's own clause as a printed sentence: every surface opens and closes
+## the line the same way, so no module re-owns the capital and the full stop
+## (REQ-P3-02, REQ-P5-06).
+static func sentence_of(pick: Dictionary) -> String:
+	return sentence(String(pick.get("line", "")))
 
 
 ## A list read the way prose reads it: "A", "A and B", "A, B and C".
@@ -33,6 +45,73 @@ static func capped(parts: Array[String], limit: int) -> String:
 		return join(parts)
 	var named: Array[String] = parts.slice(0, limit)
 	return "%s and %d more" % [", ".join(named), parts.size() - limit]
+
+
+## The one court line every collection pick prints: `head`, the clauses a sheet
+## can name (capped, blanks dropped), then `tail`. Empty when nothing is named —
+## a pick with no word never prints a headless sentence (REQ-P3-02, REQ-P5-06).
+static func court_line(
+	head: String, clauses: Array[String], tail: String = "this turn"
+) -> String:
+	var named: Array[String] = []
+	for clause: String in clauses:
+		if not clause.is_empty():
+			named.append(clause)
+	var joined: String = capped(named, NAMED_LIMIT)
+	if joined.is_empty():
+		return ""
+	if tail.is_empty():
+		return "%s %s" % [head, joined]
+	return "%s %s %s" % [head, joined, tail]
+
+
+## The gate a silent pass earns: `waiting` rows stood for an order and the policy
+## gave none, so the sheet names that rather than a clause it cannot print. A
+## sheet with nothing waiting has nothing to say (REQ-P5-06).
+static func gate(waiting: int, rows_key: String, line: String) -> Dictionary:
+	if waiting <= 0:
+		return {}
+	var none: Array[Dictionary] = []
+	return {rows_key: none, "line": line}
+
+
+## A row's key: the chart it stands on and the id its roster minted it. The
+## sheet's own heading may name the id differently from the pick entry (a
+## squadron heading says `fleet`, its pick entry `fleet_id`), so `sheet_field`
+## reads the heading when the entry carries no id of its own.
+static func row_key(
+	entry: Dictionary, id_field: String, sheet_field: String = ""
+) -> String:
+	var id: int = int(entry.get(id_field, entry.get(sheet_field, -1)))
+	return "%d:%d" % [int(entry.get("region", -1)), id]
+
+
+## The entries in the order the sheet prints them (`printed`: its own rows or
+## groups), so a counsel line reads down the page it answers. An entry the sheet
+## does not print keeps the pass's order after them, and the id breaks ties.
+static func in_printed_order(
+	entries: Array[Dictionary], printed: Array, id_field: String, sheet_field: String = ""
+) -> Array[Dictionary]:
+	var order: Dictionary = {}
+	var index: int = 0
+	for raw: Variant in printed:
+		var row: Dictionary = raw
+		var key: String = row_key(row, id_field, sheet_field)
+		if order.has(key):
+			continue
+		order[key] = index
+		index += 1
+	if order.is_empty():
+		return entries
+	var keyed: Array[Dictionary] = entries.duplicate()
+	keyed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var left: int = int(order.get(row_key(a, id_field, sheet_field), 1 << 30))
+		var right: int = int(order.get(row_key(b, id_field, sheet_field), 1 << 30))
+		if left != right:
+			return left < right
+		return int(a.get(id_field, 0)) < int(b.get(id_field, 0))
+	)
+	return keyed
 
 
 ## True when a crew-backed counsel pick may read the crown's session: a live
