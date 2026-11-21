@@ -809,6 +809,45 @@ func test_ai_military_walks_a_stranded_host_onto_its_own_land() -> void:
 	)
 
 
+## Own land is the road's end, not a distance: a host beside its own border walks
+## onto it even when a wilderness step reads nearer the seat, because interior
+## lines open the moment the host stands on its own ground (wiki: military-armies
+## § Movement and attacks; DR-20261121-15).
+func test_ai_military_walks_onto_its_own_land_before_nearer_wilderness() -> void:
+	# P0 the seat, P2 wilderness one march from it, P3 the host's ground two
+	# marches on, P1 the court's own land three marches on — beside the host.
+	var model: MapModel = _walk_chart(
+		[
+			[0, 0, 0, 0, 0],
+			[0, 0, 0, 0, 0],
+			[2, 2, 2, 2, 2],
+			[3, 3, 3, 3, 3],
+			[3, 3, 3, 1, 1],
+		],
+		{0: 2, 1: 2},
+		{0: true}
+	)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 2, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(3, 2, 3, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(
+		int(walked[0]["province"]), 1,
+		"own land is the road's end, so it wins over nearer wilderness"
+	)
+
+
 ## Two steps home at the same distance: the lower province id wins, so the same
 ## state always walks the same way (DR-20261121-15).
 func test_ai_military_walks_the_lower_step_on_a_tie() -> void:
