@@ -43,17 +43,26 @@ var _holdings: Dictionary = {}
 var _batch: RaiseBatchPress = null
 ## The line under that press, priced before the crown signs (DR-20261118-24).
 var _line: Label = null
+## The court's own plan for this phase: the runs its economy pass would book,
+## printed in gold under the press and tinted on the rows it names
+## (wiki: stockpiles-and-production § Production flow; DR-20261121-07).
+var _counsel: Label = null
+var _counsel_runs: Dictionary = {}
 
 
 ## `report` is the end-of-turn projection the panel already holds; without one
 ## the live store and the pool's labour stand in, so the page still answers.
-func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
+## `pick` is the court's own production pick (`MapPlayProductionPick`), read on
+## the crown's seat; a page filled without one carries no gold line.
+func fill(economy: PlayerEconomy, report: Dictionary = {}, pick: Dictionary = {}) -> void:
 	_economy = economy
 	_report = report
 	_rows = {}
 	_holdings = {}
 	_batch = null
 	_line = null
+	_counsel = null
+	_counsel_runs = pick.get("runs", {}) as Dictionary
 	UiRowBuilder.clear(self)
 	if economy == null:
 		return
@@ -85,6 +94,11 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 	# The press's own line, under it and above the rows it walks.
 	_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
 	add_child(_line)
+	# The court's own plan for this phase, in the colour every pick wears, above
+	# the rows whose titles it tints (DR-20261121-07).
+	_counsel = UiRowBuilder.wrapped_line(String(pick.get("line", "")), 12, Palette.GOLD)
+	_counsel.visible = not _counsel.text.is_empty()
+	add_child(_counsel)
 	for output_id: String in CommodityCatalog.MANUFACTURED:
 		for recipe_id: String in LedgerProductionText.recipes_for_output(
 			output_id, _economy.tech_unlocked
@@ -111,6 +125,12 @@ func recipe_rows() -> Dictionary:
 ## figure beside it. These rows carry no stepper.
 func holding_rows() -> Dictionary:
 	return _holdings.duplicate()
+
+
+## The court's own plan as the page printed it, for tests and the workshop drive
+## (REQ-P3-02). Empty when the page carries no reading.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 ## A category heading with the column captions its rows share. The grouping is
@@ -164,8 +184,19 @@ func _recipe_row(recipe_id: String) -> Control:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
 	var output_id: String = ProductionRecipes.output(recipe_id)
 	row.add_child(CommodityIcons.badge(output_id))
-	var title := UiRowBuilder.label(LedgerProductionText.recipe_title(recipe_id), 14, Palette.TEXT)
+	# A row the court's own plan books is tinted and says how many runs it would
+	# set, so the reading is read down the page and not only on the line above
+	# (DR-20261121-07).
+	var planned: int = int(_counsel_runs.get(recipe_id, 0))
+	var title := UiRowBuilder.label(
+		LedgerProductionText.recipe_title(recipe_id), 14,
+		Palette.GOLD_PALE if planned > 0 else Palette.TEXT
+	)
 	title.tooltip_text = LedgerProductionText.recipe_tooltip(recipe_id)
+	if planned > 0:
+		title.tooltip_text += "\nThe court would run this %d time%s this phase." % [
+			planned, "" if planned == 1 else "s"
+		]
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	row.add_child(title)
 

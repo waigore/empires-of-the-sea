@@ -5,7 +5,7 @@ extends LedgerRow
 ## the field (wiki: military-generals § Medals; DR-20261115-11). Presentational
 ## only — [CommandLedger] owns the figures and GeneralRoster owns the name.
 ##
-## The row reads, it does not visit: no chip, no Visit door, no whole-row tap.
+## The row reads, it does not visit: no chip, no Visit seal.
 ## The skeleton is LedgerRow's; the medal tally is the row's own state column.
 
 var _medals: Label = null

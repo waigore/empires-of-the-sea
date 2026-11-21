@@ -1861,3 +1861,65 @@ func _toast_texts() -> Array[String]:
 		for label: Label in panel.find_children("*", "Label", true, false):
 			texts.append(label.text)
 	return texts
+
+
+# --- the PRODUCTION tab's own plan (DR-20261121-07) ---------------------------
+
+
+## The tab prints the runs the court's own economy pass would book, above the
+## rows it answers, and tints those rows' titles — the same reading the rival
+## pass books, read on the crown's own seat (wiki: stockpiles-and-production
+## § Production flow; DR-20261121-07).
+func test_the_production_tab_names_the_plan_the_court_would_run() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerProduction = (
+		panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	)
+	var play: PlaySession = _screen.economy.play
+	assert_not_null(play, "the controller holds its session")
+	var pick: Dictionary = MapPlayProductionPick.pick(play)
+	assert_false(pick.is_empty(), "the crown's seat answers")
+	assert_eq(
+		body.counsel_text(),
+		MapPlayProductionPick.sentence(String(pick.get("line", ""))),
+		"one reading, the pass's own sentence"
+	)
+	var rows: Dictionary = body.recipe_rows()
+	var runs: Dictionary = pick.get("runs", {})
+	for recipe_id: String in runs.keys():
+		assert_true(rows.has(recipe_id), "the page prints the row it names")
+		assert_eq(
+			(rows[recipe_id]["title"] as Label).get_theme_color("font_color"),
+			Palette.GOLD_PALE,
+			"the row the plan books is tinted: " + recipe_id
+		)
+	for recipe_id: String in rows.keys():
+		if runs.has(recipe_id):
+			continue
+		assert_eq(
+			(rows[recipe_id]["title"] as Label).get_theme_color("font_color"),
+			Palette.TEXT,
+			"a row it does not book keeps its colour: " + recipe_id
+		)
+	var economy: PlayerEconomy = _screen.economy.economy
+	for recipe_id: String in runs.keys():
+		assert_eq(
+			economy.production.assignment_units(recipe_id), 0,
+			"a reading: no run is set"
+		)
+
+
+## A crown whose seat runs no planner reads no plan: the tab prints nothing
+## rather than a line the court would not take (REQ-P5-06).
+func test_the_production_tab_prints_no_plan_without_a_planner() -> void:
+	var play: PlaySession = _screen.economy.play
+	play.ai_mode = AiControl.NOOP
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerProduction = (
+		panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
+	)
+	assert_eq(body.counsel_text(), "", "no planner, no line")
+	assert_true(MapPlayProductionPick.pick(play).is_empty(), "and no pick behind it")
+	play.ai_mode = AiControl.FULL

@@ -4,9 +4,9 @@ extends LedgerRow
 ## line, the holds she carries and a Visit action that opens her squadron's map
 ## and dossier (wiki: ships-and-naval § Ship combat and cargo stats;
 ## DR-20261115-14). A hull's orders are her squadron's, so the row prints what is
-## hers alone and the sheet headings carry the station. The skeleton, the tap and
-## the Visit door come from LedgerRow; so do the two-line state column and the
-## place line every force row wears.
+## hers alone and the sheet headings carry the station. The skeleton and the
+## Visit seal come from LedgerRow; so do the two-line state column and the place
+## line every force row wears.
 
 signal visit_pressed(region: int, fleet_id: int)
 

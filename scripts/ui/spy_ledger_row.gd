@@ -3,9 +3,9 @@ extends LedgerRow
 ## One spy in the crown's intelligence sheet: the province it stands in, the
 ## duty it holds there in one word, the sentence that duty buys and a Visit
 ## action that opens the spy's map and dossier (wiki: civilian-units § Spy;
-## DR-20261115-10). The row itself is also a tap target, so a phone needs no
-## hover (REQ-P5-01, REQ-P5-04). The skeleton, the tap and the Visit door come
-## from LedgerRow; presentation only, SpyLedger owns every reading.
+## DR-20261115-10). The Visit seal is a thumb-sized door, so a phone needs no
+## hover (REQ-P5-01, REQ-P5-04). The skeleton and the Visit seal come from
+## LedgerRow; presentation only, SpyLedger owns every reading.
 
 signal visit_pressed(region: int, unit_id: int)
 
