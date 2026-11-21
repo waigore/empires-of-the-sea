@@ -78,7 +78,7 @@ None — [`deferred.md`](deferred.md).
 
 ## Tests
 
-`test_naval_rules`, `test_fleet_orders`, `test_ledgers`, `test_map_screen`.
+`test_naval_rules`, `test_fleet_orders`, `test_ledgers`, `test_a_map_screen`.
 
 ```bash
 gd-tools test --coverage --min 80

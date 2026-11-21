@@ -231,7 +231,7 @@ func open_panel() -> void:
 		return
 	hud.panels.show_economy(
 		economy, market, readings.projected(), readings.trade_cargo(),
-		market.minor_offers, player_faction
+		market.minor_offers, player_faction, _production_pick()
 	)
 
 
@@ -251,21 +251,19 @@ func _research_pick() -> String:
 	return MapPlayResearchPick.line(play)
 
 
-## The larder's warning for the turn about to open: the slack the next
-## Consumption phase leaves, read through the ledger's own projection so the
-## WORKERS tab and this line can never print two larders for one turn
-## (wiki: workers-and-population § Consumption; REQ-P2-03, REQ-P5-05).
-## `report` is the phase that just closed: when it already struck, the court has
-## heard the news on its own summary line and the forecast stays silent, so the
-## warning arrives one turn before the strike, never on every struck turn.
-func larder_warning(report: Dictionary, projection: Dictionary = {}) -> String:
-	if hud == null or economy == null:
-		return ""
-	var last: Dictionary = report.get("consumption", {}) as Dictionary
-	if int(last.get("strikers", 0)) > 0:
-		return ""
-	var read: Dictionary = projection if not projection.is_empty() else readings.projected()
-	return LarderRead.warning(LarderRead.standing(economy, LarderRead.mouths(read), false))
+## The runs the published economy pass would book for the crown's workshop this
+## phase, in the PRODUCTION tab's own voice (wiki: stockpiles-and-production
+## § Production flow; DR-20261121-07). Empty when there is no planner behind the
+## seat — the reading, never an order.
+func _production_pick() -> Dictionary:
+	var pick: Dictionary = MapPlayProductionPick.pick(play)
+	if pick.is_empty():
+		return {}
+	return {
+		"kind": pick.get("kind", ""),
+		"runs": pick.get("runs", {}),
+		"line": MapPlayProductionPick.sentence(String(pick.get("line", ""))),
+	}
 
 
 ## The larder's warning for the turn about to open: the slack the next
@@ -292,7 +290,7 @@ func refresh_panel() -> void:
 	if hud.panels.is_economy_open():
 		hud.panels.show_economy(
 			economy, market, projection, readings.trade_cargo(),
-			market.minor_offers, player_faction
+			market.minor_offers, player_faction, _production_pick()
 		)
 	hud.stats.set_treasury(economy.treasury)
 	hud.stats.set_income(int(projection.get("treasury_delta", 0)))

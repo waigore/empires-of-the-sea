@@ -1,6 +1,6 @@
 extends GdToolsTest
 ## Fleet orders end-to-end through the real map screen (wiki: ships-and-naval).
-## Kept separate from test_map_screen so each native suite stays inside the
+## Kept separate from test_a_map_screen so each native suite stays inside the
 ## coverage runner's per-suite timeout.
 
 const Fixture = preload("res://tests/map_fixture.gd")
@@ -1794,7 +1794,7 @@ func test_breaking_up_a_hull_asks_once() -> void:
 
 	panel._on_scrap_pressed(hull_id)
 
-	assert_eq(panel._yard._armed_hull, hull_id, "the first tap only arms")
+	assert_eq(panel._yard._arm.key(), hull_id, "the first tap only arms")
 	assert_true(fleet.hulls.has(hull_id))
 
 	panel._on_scrap_pressed(hull_id)

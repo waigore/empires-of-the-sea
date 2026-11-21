@@ -508,7 +508,7 @@ func test_civilian_selection_and_moves_sound() -> void:
 func test_ending_a_turn_rings_the_bell_and_coins() -> void:
 	# The score reads the chart's own `turn_ended`. A live close rings exactly
 	# this signal and is proven once, on the suite that already ends a turn
-	# (`test_map_screen`); a rival pass here would only re-prove it under
+	# (`test_a_map_screen`); a rival pass here would only re-prove it under
 	# coverage (docs/testing.md § Speed rules).
 	_setup_map_soundtrack()
 	var before: int = _audio.sfx_played

@@ -343,12 +343,34 @@ func test_the_realm_door_opens_the_ledger_and_its_rows_visit_a_province() -> voi
 	assert_true(_province_row_widgets(panel) > 0, "the crown's provinces are listed")
 	var row: ProvinceLedgerRow = _first_row(panel)
 	assert_not_null(row)
-	var tap := InputEventMouseButton.new()
-	tap.pressed = true
-	tap.button_index = MOUSE_BUTTON_LEFT
-	row._gui_input(tap)
-	assert_false(panel.is_open(), "a tap on the row visits the province")
-	assert_true(screen.play.selected_province >= 0, "and the dossier is open on it")
+	var wanted: int = int(row.data.get("id", -1))
+	_assert_visit_seal(row._visit, "Open ", "the realm row's Visit")
+	row._visit.pressed.emit()
+	assert_false(panel.is_open(), "the Visit seal sets the sheet aside")
+	assert_eq(
+		screen.play.selected_province, wanted, "and the dossier is open on that province"
+	)
+
+
+## The row body is a reading, not a door: a real pointer tap on the name visits
+## nothing. It used to visit on the press and set the sheet aside, so the release
+## fell through to the chart and selected whatever tile then sat under the
+## pointer — a province other than the row's (issue #1195).
+func test_a_pointer_tap_on_the_realm_row_body_visits_nothing() -> void:
+	_attach()
+	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	assert_true(panel.is_open(), "the realm opens")
+	var row: ProvinceLedgerRow = _first_row(panel)
+	assert_not_null(row)
+	var body: Vector2 = row._name.get_global_rect().get_center()
+	assert_true(
+		get_viewport().get_visible_rect().has_point(body), "the row is on the mounted chart"
+	)
+	var before: int = screen.play.selected_province
+	await _click(body)
+	assert_eq(screen.play.selected_province, before, "a body tap selects no province")
+	assert_true(panel.is_open(), "and leaves the sheet standing")
 
 
 func test_back_and_the_key_close_the_ledger() -> void:
@@ -477,6 +499,38 @@ func _province_row_widgets(panel: ProvinceLedgerPanel) -> int:
 		if child is ProvinceLedgerRow:
 			total += 1
 	return total
+
+
+## The Visit seal's one dress on every LedgerRow sheet: an icon-only control at
+## the close seal's touch floor, its words in a tooltip (issue #1195).
+func _assert_visit_seal(button: Button, tip_prefix: String, message: String) -> void:
+	assert_not_null(button, message + ": the row carries a Visit seal")
+	if button == null:
+		return
+	assert_eq(button.text, "", message + ": no caption on the seal")
+	assert_not_null(button.icon, message + ": one medallion glyph")
+	assert_eq(button.custom_minimum_size, CloseSeal.SIZE, message + ": a thumb floor")
+	assert_true(
+		String(button.tooltip_text).begins_with(tip_prefix),
+		"%s: the tooltip names the place (%s)" % [message, String(button.tooltip_text)]
+	)
+
+
+## One pointer click through the mounted chart: press and release in the
+## viewport's own coordinates, then a frame for the sheet to answer.
+func _click(point: Vector2) -> void:
+	var viewport: Viewport = get_viewport()
+	viewport.push_input(_mouse(true, point), true)
+	viewport.push_input(_mouse(false, point), true)
+	await get_tree().process_frame
+
+
+func _mouse(pressed: bool, point: Vector2) -> InputEventMouseButton:
+	var event := InputEventMouseButton.new()
+	event.button_index = MOUSE_BUTTON_LEFT
+	event.pressed = pressed
+	event.position = point
+	return event
 
 
 ## --- the crown's eyes --------------------------------------------------------
@@ -630,7 +684,7 @@ func test_every_duty_has_its_one_word_and_an_unknown_reads_idle() -> void:
 	assert_eq(SpyLedger.duty_word("no_such_duty"), "IDLE", "an unknown duty idles")
 
 
-func test_a_spy_row_wears_its_chip_and_visits_on_a_tap() -> void:
+func test_a_spy_row_wears_its_chip_and_visits_from_its_seal() -> void:
 	var row := SpyLedgerRow.new()
 	row.compact = true
 	row.setup({
@@ -648,11 +702,9 @@ func test_a_spy_row_wears_its_chip_and_visits_on_a_tap() -> void:
 	row.visit_pressed.connect(func(region: int, unit_id: int) -> void:
 		visited.append([region, unit_id])
 	)
-	var tap := InputEventMouseButton.new()
-	tap.pressed = true
-	tap.button_index = MOUSE_BUTTON_LEFT
-	row._gui_input(tap)
-	assert_eq(visited, [[FactionCatalog.OLD_WORLD, 4]], "the whole row is the Visit door")
+	_assert_visit_seal(row._visit, "Open ", "the spy row's Visit")
+	row._visit.pressed.emit()
+	assert_eq(visited, [[FactionCatalog.OLD_WORLD, 4]], "the seal visits the spy")
 	row.free()
 
 
@@ -840,11 +892,11 @@ func _spy_row_widgets(panel: SpyLedgerPanel) -> int:
 	return panel._rows.get_child_count()
 
 
-## The first spy row's Visit door, found by its word.
+## The first spy row's Visit seal, found by the name every ledger row gives it.
 func _first_visit(panel: SpyLedgerPanel) -> Button:
 	for node: Node in panel._rows.find_children("*", "Button", true, false):
 		var button := node as Button
-		if button != null and button.text == "Visit":
+		if button != null and button.name == "Visit":
 			return button
 	return null
 
@@ -1198,7 +1250,7 @@ func test_the_registry_owns_the_sheets_and_the_hud_only_views_them() -> void:
 	assert_null(screen.hud.ledger_doors.sheet("no-such-door"), "an unknown key holds nothing")
 
 
-func test_the_rows_own_tap_visits_its_force() -> void:
+func test_the_rows_seal_visits_its_force() -> void:
 	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
@@ -1208,11 +1260,9 @@ func test_the_rows_own_tap_visits_its_force() -> void:
 			row = child
 			break
 	assert_not_null(row)
-	var tap := InputEventMouseButton.new()
-	tap.pressed = true
-	tap.button_index = MOUSE_BUTTON_LEFT
-	row._gui_input(tap)
-	assert_false(panel.is_open(), "a tap on the row visits the force")
+	_assert_visit_seal(row._visit, "Open ", "the muster roll's Visit")
+	row._visit.pressed.emit()
+	assert_false(panel.is_open(), "the seal visits the force")
 
 
 func test_the_keyboard_action_toggles_from_the_map() -> void:
@@ -2081,6 +2131,7 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 	var visit := func(region: int, province_id: int) -> void:
 		visited.append([region, province_id])
 	row.visit_pressed.connect(visit)
+	_assert_visit_seal(row._visit, "Open ", "the colony row's Visit")
 	row._visit.pressed.emit()
 	assert_eq(visited.size(), 1, "the row's Visit door asks for its capital")
 	assert_eq(int(visited[0][1]), int(row.data["province"]), "the colony's own province")
@@ -3949,6 +4000,7 @@ func test_a_visit_asks_for_her_squadrons_chart() -> void:
 	row.visit_pressed.connect(func(region: int, fleet_id: int) -> void:
 		seen.append([region, fleet_id])
 	)
+	_assert_visit_seal(row._visit, "Open ", "the hull row's Visit")
 	row._on_visit()
 	assert_eq(seen.size(), 1)
 	assert_eq(int((seen[0] as Array)[0]), FactionCatalog.NEW_WORLD)
@@ -4063,7 +4115,8 @@ func test_a_visit_frames_her_squadron_and_sets_the_sheet_aside() -> void:
 	assert_not_null(row, "the campaign floats a hull")
 	if row == null:
 		return
-	row._on_visit()
+	_assert_visit_seal(row._visit, "Open ", "the navy sheet's Visit")
+	row._visit.pressed.emit()
 	assert_false(panel.is_open(), "the sheet sets itself aside")
 	assert_not_null(screen.play.ship_layer.selected(), "her squadron is the selection")
 

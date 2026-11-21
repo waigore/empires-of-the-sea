@@ -15,6 +15,7 @@ static func step(run) -> void:
 	await _court(run, screen)
 	_audio(run, screen)
 	await _province(run, screen)
+	await _production(run, screen)
 
 
 ## The estates door on the cartouche opens the crown's works ledger (REQ-P1-07).
@@ -65,6 +66,14 @@ static func _court(run, screen: MapScreen) -> void:
 	MapPlayDiplomacy.on_order(screen.play, DiplomacyOrders.KIND_WAR, 1, "")
 	run.check(screen.play.diplomacy.relation(0, 1).at_war, "war order applies")
 	screen.hud.panels.diplomacy_panel.select_faction(1)
+	# The court's own envoy: the one order her staff's planner would spend this
+	# turn, printed above the presses it answers (DR-20261121-05).
+	var counsel: String = screen.hud.panels.diplomacy_panel.counsel_text()
+	run.check(not counsel.is_empty(), "the court names the order its envoy would spend")
+	run.check(
+		run.has_text(screen.hud.panels.diplomacy_panel._detail, counsel),
+		"the envoy's counsel is on the court's sheet"
+	)
 	run.check(
 		run.has_text(screen.hud.panels.diplomacy_panel._detail, "THEIR ENVOY"),
 		"the court answers a declaration in its own voice"
@@ -126,3 +135,44 @@ static func _province(run, screen: MapScreen) -> void:
 	await run.tree.process_frame
 	run.check(screen.selected_province == province_id, "province selection sticks")
 	run.check(screen.hud.panels.is_panel_open(), "province panel opens")
+	# The capital's rail carries the court's own hire pick: the crew the published
+	# hire order takes next, or the gate that holds it (wiki: civilian-units
+	# § Training; DR-20261121-06). Any other province hires nobody and says so.
+	MapPlayInput.select_province(
+		screen.play, screen.capital_province,
+		screen.model.province_center(screen.capital_province) * MapScreen.TILE_SIZE
+	)
+	await run.tree.process_frame
+	run.check(
+		not screen.hud.panels.panel.hire_line_text().is_empty(),
+		"the capital rail names the hire the court takes"
+	)
+	run.check(
+		screen.play.economy.economy.recruits.is_empty(),
+		"the hire reading queues nothing"
+	)
+
+
+## The ledger's PRODUCTION tab names the runs the crown's own economy pass would
+## book this phase, in the tab's gold line above the rows it answers — and sets
+## nothing (wiki: stockpiles-and-production § Production flow; DR-20261121-07).
+static func _production(run, screen: MapScreen) -> void:
+	var set_before: int = screen.economy.economy.production.assignments().size()
+	screen.economy.open_panel()
+	await run.tree.process_frame
+	run.check(screen.hud.panels.is_economy_open(), "ledger opens")
+	var page: LedgerProduction = (
+		screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_PRODUCTION)
+		as LedgerProduction
+	)
+	run.check(page != null, "the PRODUCTION tab stands")
+	if page != null:
+		run.check(
+			not page.counsel_text().is_empty(),
+			"the ledger names the plan the court would run"
+		)
+	run.check(
+		screen.economy.economy.production.assignments().size() == set_before,
+		"the plan reading sets nothing"
+	)
+	screen.hud.panels.hide_economy()

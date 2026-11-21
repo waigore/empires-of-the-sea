@@ -7,8 +7,10 @@ const CourtFixture = preload("res://tests/civilian_fixture.gd")
 ## One mounted screen for the whole suite: under coverage a mount costs ~0.5 s
 ## and a re-seat from the pristine save ~0.15 s, so court cases share the chart
 ## and reset the session instead of remounting (`Fixture.suite_reset`). Folded
-## tribe-contact pocket cases never touch `_screen`, so they skip the re-seat
-## (docs/testing.md § Speed rules).
+## tribe-contact pocket cases never touch `_screen`, so they skip the re-seat.
+## Consent answers that only need the ladder resume with `AiControl.NOOP` so the
+## finish skips rival planner walks; the peace-battle case still pays a full
+## resumed turn (docs/testing.md § Speed rules).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
@@ -94,7 +96,7 @@ func test_the_court_reads_each_crowns_public_power() -> void:
 ## by a head count: the planner's score for a crown is the published one the
 ## court panel prints (wiki: diplomacy § Great Power power score).
 func test_the_rival_pass_weighs_power_the_published_way() -> void:
-	var context: Dictionary = MapPlayDiplomacyAi._context(_screen.play)
+	var context: Dictionary = MapPlayDiplomacyAi.context(_screen.play)
 	assert_false(
 		(context.get("strengths", {}) as Dictionary).is_empty(),
 		"the pass hands the planner the order of battle"
@@ -117,7 +119,7 @@ func test_the_rival_pass_weighs_power_the_published_way() -> void:
 ## its field army can walk to — so the buy-out and the white-peace answer can
 ## keep the war that sits on one.
 func test_the_rival_pass_stamps_the_conquest_gap_frontier() -> void:
-	var context: Dictionary = MapPlayDiplomacyAi._context(_screen.play)
+	var context: Dictionary = MapPlayDiplomacyAi.context(_screen.play)
 	var frontier: Dictionary = context.get(AiFrontier.KEY, {})
 
 	assert_false(frontier.is_empty(), "the shared pass hands the planners a frontier")
@@ -158,17 +160,12 @@ func test_grant_aid_spends_treasury_and_refreshes_the_chip() -> void:
 
 func test_end_turn_runs_relation_decay_and_keeps_turn_in_sync() -> void:
 	_screen.play.diplomacy.relation(0, 1).score = 40.0
-	# Keep rival declarations off this pair so the decay itself is under test;
-	# rival proposals still wait for the court and are refused here.
-	_screen.play.ai = AiState.new()
-	for faction: int in FactionCatalog.great_power_ids():
-		if faction != 0:
-			_screen.play.ai.note_war(faction, 0, _screen.play.turn)
-	MapPlayTurn.end_turn(_screen.play)
-	while DiplomacyProposals.has_pending(_screen.play.diplomacy, 0):
-		MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_REFUSE, 0, "")
+	# Diplomacy phase alone; skip the full end_turn rival walk under coverage
+	# (docs/testing.md § Speed rules).
+	var before: int = _screen.play.diplomacy.turn
+	MapPlayDiplomacy.close_turn(_screen.play)
 	assert_eq(_screen.play.diplomacy.relation(0, 1).score, 44.0)
-	assert_eq(_screen.play.diplomacy.turn, _screen.play.turn)
+	assert_eq(_screen.play.diplomacy.turn, before + 1, "the phase advances with the close")
 
 
 func test_first_contact_requires_tile_visibility_in_a_tribe_province() -> void:
@@ -295,7 +292,9 @@ func test_call_to_arms_suspends_the_turn_until_answered() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
-	MapPlayTurn.answer_call(_screen.play, true)
+	# Answer with rivals inert so the resumed finish skips planner walks under
+	# coverage; the peace-battle case still pays the full resumed turn.
+	_answer_with_inert_rivals(func() -> void: MapPlayTurn.answer_call(_screen.play, true))
 	assert_true(state.relation(0, 3).at_war, "joining means war on the aggressor")
 	assert_eq(_screen.play.turn, turn_before + 1)
 	assert_false(CallToArms.has_pending(state, 0))
@@ -312,7 +311,9 @@ func test_intervention_suspends_the_turn_until_answered() -> void:
 	MapPlayTurn.end_turn(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
-	MapPlayTurn.answer_intervention(_screen.play, Intervention.KIND_PROTEST)
+	_answer_with_inert_rivals(
+		func() -> void: MapPlayTurn.answer_intervention(_screen.play, Intervention.KIND_PROTEST)
+	)
 	assert_false(state.relation(0, 3).at_war)
 	assert_eq(state.overture(0, 6), DiplomacyCatalog.STAGE_EMBASSY)
 	assert_eq(_screen.play.turn, turn_before + 1)
@@ -504,7 +505,10 @@ func test_court_intent_router_sends_orders_and_call_answers() -> void:
 	pact.score = 80.0
 	CallToArms.freeze_alliances(state)
 	DiplomacyRules.declare_war(state, 5, 4)
-	MapCourtOrders.apply(_screen.play, CallToArms.KIND_JOIN, 5, "")
+	# JOIN resumes the turn; rivals stay inert under coverage.
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(_screen.play, CallToArms.KIND_JOIN, 5, "")
+	)
 	assert_true(state.relation(0, 5).at_war, "a call answer reaches the turn resolver")
 
 
@@ -526,7 +530,9 @@ func test_a_rival_proposal_suspends_the_turn_until_the_court_answers() -> void:
 	assert_true(
 		_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks"
 	)
-	MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(_screen.play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	)
 	assert_true(state.relation(0, 2).formal_alliance, "the answer signs the treaty")
 	assert_false(_screen.play.turn_suspended)
 	assert_eq(_screen.play.turn, turn_before + 1)
@@ -544,7 +550,9 @@ func test_refusing_a_rival_proposal_starts_the_improve_relations_cooldown() -> v
 	)
 	var turn_before: int = play.turn
 	MapPlayTurn.end_turn(play)
-	MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 2, "")
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 2, "")
+	)
 	assert_eq(state.overture(0, 2), DiplomacyCatalog.STAGE_EMBASSY, "nothing is signed")
 	assert_true(play.ai.overture_on_cooldown(2, 0, turn_before, 2))
 
@@ -560,7 +568,9 @@ func test_a_rival_peace_offer_suspends_the_turn_and_the_answer_ends_the_war() ->
 	assert_true(play.turn_suspended, "the calendar waits for the answer")
 	assert_eq(play.turn, turn_before)
 	assert_true(state.relation(0, 2).at_war, "the war holds until the answer")
-	MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, 2, "")
+	)
 	assert_false(state.relation(0, 2).at_war, "the answer concludes the peace")
 	assert_false(play.turn_suspended)
 	assert_eq(play.turn, turn_before + 1)
@@ -926,7 +936,8 @@ func test_a_turn_close_opens_contact_from_the_rivals_own_chart() -> void:
 	assert_false(_screen.play.diplomacy.has_relation(rival, province.owner))
 	var charts: CourtCharts = _screen.play.court_charts
 	charts.reveal_province(rival, NEW_WORLD, province.id)
-	_close_turn(_screen.play)
+	# Tribe contact alone; skip the full end_turn rival walk under coverage.
+	MapPlayTribeContact.resolve(_screen.play)
 	assert_true(
 		_screen.play.diplomacy.has_relation(rival, province.owner),
 		"the rival charted the province before the turn closed"
@@ -945,22 +956,14 @@ func _tribe_contact_province(world: WorldMap) -> ProvinceState:
 	return null
 
 
-## Ends the turn past every consent decision the rivals raise on the way.
-func _close_turn(play: PlaySession) -> void:
-	var before: int = play.turn
-	MapPlayTurn.end_turn(play)
-	var guard: int = 0
-	while play.turn == before and guard < 12:
-		guard += 1
-		if CallToArms.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_call(play, false)
-		elif Intervention.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_intervention(play, Intervention.KIND_NOTHING)
-		elif DiplomacyProposals.has_pending(play.diplomacy, play.player_faction):
-			MapPlayTurn.answer_offer(play, false)
-		else:
-			break
-	assert_gt(play.turn, before, "the turn closed")
+## Resumed consent answers under coverage: rivals stand down so the finish
+## skips planner walks. The peace-battle case still pays a full resumed turn.
+func _answer_with_inert_rivals(action: Callable) -> void:
+	var play: PlaySession = _screen.play
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	action.call()
+	play.ai_mode = mode
 
 
 func _events(kind: String) -> int:
@@ -969,3 +972,70 @@ func _events(kind: String) -> int:
 		if String(event.get("kind", "")) == kind:
 			total += 1
 	return total
+
+
+# --- the crown's own envoy (DR-20261121-05) ----------------------------------
+
+
+## The court names the order the crown's own planner would spend on the court in
+## view: the pick's own sentence, printed above the orders it answers
+## (wiki: diplomacy § GP AI policy for war vs. relations; REQ-P5-03, REQ-P5-06).
+func test_the_court_names_the_order_its_envoy_would_spend() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayDiplomacy.open(play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	var plan: Dictionary = MapPlayDiplomacyPick.plan(play)
+	var action: Dictionary = plan.get("action", {}) as Dictionary
+	assert_false(action.is_empty(), "the fixture crown has one order to give")
+	var target: int = int(action["target"])
+	panel.select_faction(target)
+	var line: String = MapPlayDiplomacyPick.line(play, target)
+	assert_false(line.is_empty(), "the crown's own sheet cannot be silent on the envoy")
+	assert_eq(panel.counsel_text(), line, "the sheet prints the pick's own words")
+	assert_true(_sheet_prints(panel._detail, line), "the counsel is on the court's sheet")
+	DiplomacyHud.hide(_screen.hud.panels)
+
+
+## The counsel prices the purse the crown holds, not the shadow ledger the AI
+## book would start for a court the pass never plans (REQ-P2-03).
+func test_the_envoy_line_reads_the_crowns_own_purse() -> void:
+	var play: PlaySession = _screen.play
+	var before: Dictionary = play.ensure_ai().economies.duplicate()
+	var shadow := PlayerEconomy.starting()
+	shadow.treasury = 7
+	play.ensure_ai().economies[play.player_faction] = shadow
+	var court: Dictionary = MapPlayDiplomacyPick.court(play, play.player_faction)
+	assert_eq(
+		int((court["income"] as Dictionary)["treasury"]), play.treasury(),
+		"the planner's money goal reads the crown's real purse"
+	)
+	assert_true(
+		play.ensure_ai().economies[play.player_faction] == play.economy.economy,
+		"the crown's ledger is the one the AI book holds"
+	)
+	play.ensure_ai().economies = before
+
+
+## A session that runs no planner has no seat to read: the sheet says nothing
+## rather than inventing an envoy (REQ-P2-03, REQ-P5-06).
+func test_a_court_with_no_planner_reads_no_envoy() -> void:
+	var play: PlaySession = _screen.play
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayDiplomacyPick.lines(play).is_empty(), "no planner, no advice")
+	MapPlayDiplomacy.open(play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	panel.select_faction(FactionCatalog.great_power_ids()[1])
+	assert_eq(panel.counsel_text(), "", "the sheet prints no advice it cannot read")
+	play.ai_mode = mode
+	DiplomacyHud.hide(_screen.hud.panels)
+
+
+## True when the sheet holds a label carrying this line.
+func _sheet_prints(sheet: Control, line: String) -> bool:
+	for child: Node in sheet.get_children():
+		if child is Label and (child as Label).text == line:
+			return true
+		if child is Control and _sheet_prints(child as Control, line):
+			return true
+	return false

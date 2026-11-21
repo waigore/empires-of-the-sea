@@ -39,7 +39,8 @@ func fill(
 	treasury: int,
 	tech: Dictionary,
 	court_reports: Dictionary,
-	power: Dictionary
+	power: Dictionary,
+	counsel: String = ""
 ) -> void:
 	UiRowBuilder.clear(self)
 	# The children the gift's row owns are gone with the old sheet; the sum the
@@ -83,6 +84,12 @@ func fill(
 		add_child(UiRowBuilder.label(CourtRows.detail_text(mark), 13, mark["color"] as Color))
 	_add_envoy(state, player, selected)
 	add_child(UiRowBuilder.label(overture_line(state, player, selected), 13, Palette.TEXT))
+	# The crown's own envoy: the order her staff's planner would spend on this
+	# crown this turn, printed above the orders it answers, so the choice is
+	# advice first and bookkeeping after (wiki: diplomacy § GP AI policy for war
+	# vs. relations; DR-20261121-05; REQ-P5-03, REQ-P5-06).
+	if not counsel.is_empty():
+		add_child(UiRowBuilder.wrapped_line(counsel, 14, Palette.GOLD_PALE))
 	add_child(UiRowBuilder.caption("COURT ORDERS", 11, Palette.TEXT_DIM))
 	_add_orders(state, world, player, selected, treasury, tech)
 	_add_chronicle(state, player, selected)

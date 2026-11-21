@@ -16,6 +16,9 @@ signal door_pressed(key: String)
 ## (wiki: naming § Regiment names; DR-20261113-03).
 signal rename_pressed(regiment_id: String, wanted: String)
 
+## The one order the dossier carries for the whole standard; the guard's key.
+const DISMISS_ALL: String = "dismiss_all"
+
 var _header: DossierHeader = null
 var _location: Label = null
 var _strength: Label = null
@@ -34,8 +37,9 @@ var _muster_box: ArmyMusterBlock = null
 var _muster_open: bool = false
 var _detach_all: Button = null
 var _dismiss_all: Button = null
-var _dismiss_armed: bool = false
-var _dismiss_timer: Timer = null
+## Shedding the whole standard is destructive, so the press asks once: the guard
+## holds the arm and lets the window run out on its own (DR-20261109-01).
+var _dismiss_arm: ArmGuard = null
 ## The regiments the open sheet is reading, so the dismissal press can count
 ## what it would shed without reaching into the roster block.
 var _last_count: int = 0
@@ -182,11 +186,9 @@ func _build() -> void:
 	_dismiss_all.pressed.connect(on_dismiss_all_pressed)
 	_dismiss_all.visible = false
 	shell.add_child(_dismiss_all)
-	_dismiss_timer = Timer.new()
-	_dismiss_timer.one_shot = true
-	_dismiss_timer.wait_time = ArmyRosterBlock.ARM_SECONDS
-	_dismiss_timer.timeout.connect(_clear_dismiss_arm)
-	add_child(_dismiss_timer)
+	_dismiss_arm = ArmGuard.new()
+	_dismiss_arm.expired.connect(func() -> void: _retitle_dismiss(_last_count))
+	add_child(_dismiss_arm, false, Node.INTERNAL_MODE_BACK)
 
 	_status = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	shell.add_child(_status)
@@ -198,22 +200,11 @@ func _build() -> void:
 
 ## First tap arms and relabels, the second files the order (DR-20261109-01).
 func on_dismiss_all_pressed() -> void:
-	if _dismiss_armed:
-		_clear_dismiss_arm()
+	if _dismiss_arm.spend(DISMISS_ALL):
 		action_pressed.emit("dismiss_all")
 		return
-	_dismiss_armed = true
-	_retitle_dismiss(_roster_count())
-	if _dismiss_timer != null and _dismiss_timer.is_inside_tree():
-		_dismiss_timer.start()
-
-
-## Forgets an armed dismissal without filing it; an expired arm does nothing.
-func _clear_dismiss_arm() -> void:
-	_dismiss_armed = false
-	if _dismiss_timer != null:
-		_dismiss_timer.stop()
-	_retitle_dismiss(_roster_count())
+	_dismiss_arm.arm(DISMISS_ALL)
+	_retitle_dismiss(_last_count)
 
 
 ## The press names what the second tap does, before the colours leave
@@ -221,21 +212,17 @@ func _clear_dismiss_arm() -> void:
 func _retitle_dismiss(count: int) -> void:
 	if _dismiss_all == null:
 		return
+	var armed: bool = _dismiss_arm != null and _dismiss_arm.holds(DISMISS_ALL)
 	_dismiss_all.text = (
 		"Confirm — dismiss all %d regiments" % count
-		if _dismiss_armed
+		if armed
 		else "Dismiss all regiments"
 	)
 	_dismiss_all.tooltip_text = (
 		"Press again to dismiss every regiment: one peasant each, no refund."
-		if _dismiss_armed
+		if armed
 		else "Dismiss every regiment of this army: one peasant each, no refund."
 	)
-
-
-## The army the sheet is reading, so the press can count what it would shed.
-func _roster_count() -> int:
-	return _last_count
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
@@ -259,21 +246,18 @@ func _scroll_to_muster() -> void:
 	_scroll.scroll_vertical = int(_muster_box.position.y)
 
 
-func refresh(
-	model: MapModel,
-	army: ArmyState,
-	is_player: bool,
-	can_merge: bool = false,
-	command: String = "",
-	muster: Array[Dictionary] = [],
-	embark: String = "",
-	plan: String = "balanced",
-	hospital: Dictionary = {},
-	pick: String = "",
-	muster_pick: String = ""
-) -> void:
-	if model == null or army == null:
+## Repaints the selected army from one named opening (REQ-P3-02).
+func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
+	if model == null or opening.army == null:
 		return
+	var army: ArmyState = opening.army
+	var is_player: bool = opening.is_player
+	var command: String = opening.command
+	var muster: Array[Dictionary] = opening.muster
+	var embark: String = opening.embark
+	var hospital: Dictionary = opening.hospital
+	var pick: String = opening.pick
+	var plan: String = opening.plan
 	_header.flag.color = Palette.faction_color(army.owner)
 	var title: String = "ARMY OF %s" % FactionCatalog.name_of(army.owner).to_upper()
 	if army.home:
@@ -291,16 +275,17 @@ func refresh(
 	_pick.visible = not pick.is_empty()
 	_last_count = army.count()
 	# A repaint means the order landed or the view moved: no arm survives it.
-	_dismiss_armed = false
-	if _dismiss_timer != null:
-		_dismiss_timer.stop()
+	if _dismiss_arm != null:
+		_dismiss_arm.clear()
 	_roster.fill(army, is_player and not army.is_embarked(), model, is_player)
-	_muster_box.fill(muster, muster_pick)
+	_muster_box.fill(muster, opening.muster_pick)
 	if not (is_player and army.home):
 		_muster_open = false
 	_muster_button.visible = is_player and army.home and not muster.is_empty()
 	_muster_box.visible = _muster_button.visible and _muster_open
-	_merge.visible = is_player and can_merge and not army.is_embarked() and army.count() > 0
+	_merge.visible = (
+		is_player and opening.can_merge and not army.is_embarked() and army.count() > 0
+	)
 	_detach_all.visible = is_player and not army.is_embarked() and army.count() > 1
 	_dismiss_all.visible = is_player and army.count() > 0
 	_retitle_dismiss(army.count())
