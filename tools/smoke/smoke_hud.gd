@@ -361,6 +361,41 @@ static func _province(run, screen: MapScreen) -> void:
 		screen.play.economy.economy.recruits.is_empty(),
 		"the province reading queues nothing"
 	)
+	# The realm names the provinces the court would act in this turn, and every
+	# such row leads with the counsel's mark (wiki: world-model § The crown's
+	# provinces; DR-20261121-21).
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	await run.tree.process_frame
+	var realm: ProvinceLedgerPanel = screen.hud.province_ledger
+	run.check(realm.is_open(), "the realm ledger opens")
+	var realm_counsel: String = realm.counsel_text()
+	run.check(
+		realm_counsel.is_empty()
+		or realm_counsel.begins_with("The court would act in ")
+		or realm_counsel == MapPlayPickProse.sentence(MapPlayRealmCounsel.NO_ORDER_LINE),
+		"the realm names the provinces the court would act in"
+	)
+	run.check(
+		realm._counsel.visible == not realm_counsel.is_empty(),
+		"the realm's counsel stands with its reading"
+	)
+	var realm_pick: Dictionary = MapPlayRealmCounsel.pick(screen.play)
+	run.check(
+		_marked_rows(realm) == (realm_pick.get("keys", {}) as Dictionary).size(),
+		"every province the court would act in wears the mark"
+	)
+	realm.close()
+
+
+## How many realm rows wear the counsel's mark: the ground the court would act
+## in, as the sheet prints it.
+static func _marked_rows(panel: ProvinceLedgerPanel) -> int:
+	var marked: int = 0
+	for child: Node in panel._rows.get_children():
+		var row := child as ProvinceLedgerRow
+		if row != null and row.court:
+			marked += 1
+	return marked
 
 
 ## The ledger's PRODUCTION tab names the runs the crown's own economy pass would

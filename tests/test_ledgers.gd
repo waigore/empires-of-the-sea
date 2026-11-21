@@ -1691,6 +1691,127 @@ func test_the_province_dossier_names_the_orders_the_crowns_pass_would_give() -> 
 	assert_eq(MapPlayProvinceCounsel.line(play, null, province_id), "")
 
 
+## The realm's own reading: the crown's provinces the civilian and land passes
+## would act in this turn, worded off data alone — one line that names the count
+## against the realm it holds, then the first places (wiki: world-model § The
+## crown's provinces; DR-20261121-21).
+func test_the_realm_counsel_names_the_provinces_the_court_would_act_in() -> void:
+	var provinces: Array[Dictionary] = [
+		{"region": FactionCatalog.OLD_WORLD, "province": 2, "name": "Cádiz"},
+		{"region": FactionCatalog.OLD_WORLD, "province": 5, "name": "Tucapel"},
+		{"region": FactionCatalog.NEW_WORLD, "province": 1, "name": "Jaén"},
+	]
+	var pick: Dictionary = MapPlayRealmCounsel.of(provinces, 14)
+	assert_eq(
+		String(pick["line"]),
+		"the court would act in 3 of its 14 provinces this turn — Cádiz,"
+		+ " Tucapel and Jaén"
+	)
+	assert_eq(String(pick["kind"]), MapPlayRealmCounsel.KIND_ORDERS)
+	# Every province is keyed by its own chart and id, because province ids are
+	# minted per chart.
+	var keys: Dictionary = pick["keys"]
+	assert_eq(keys.size(), 3, "one key per province")
+	assert_true(keys.has("%d:1" % FactionCatalog.NEW_WORLD), "the New World's own key")
+	assert_true(keys.has("%d:2" % FactionCatalog.OLD_WORLD), "the Old World's own key")
+	# Beyond three places the line counts the rest, so a wide realm stays one
+	# line of chrome.
+	var crowded: Array[Dictionary] = provinces.duplicate()
+	crowded.append({"region": FactionCatalog.OLD_WORLD, "province": 7, "name": "Sevilla"})
+	crowded.append({"region": FactionCatalog.OLD_WORLD, "province": 9, "name": "Badajoz"})
+	assert_eq(
+		String(MapPlayRealmCounsel.of(crowded, 20)["line"]),
+		"the court would act in 5 of its 20 provinces this turn — Cádiz,"
+		+ " Tucapel, Jaén and 2 more"
+	)
+	# Every province the crown holds is named without the count, and a realm of
+	# one reads as one place.
+	assert_eq(
+		String(MapPlayRealmCounsel.of(provinces, 3)["line"]),
+		"the court would act in every one of its 3 provinces this turn — Cádiz,"
+		+ " Tucapel and Jaén"
+	)
+	assert_eq(
+		String(MapPlayRealmCounsel.of(provinces.slice(0, 1), 1)["line"]),
+		"the court would act in the one province it holds this turn — Cádiz"
+	)
+	# Nothing to name is no line at all.
+	assert_true(MapPlayRealmCounsel.of([], 14).is_empty())
+	assert_true(
+		MapPlayRealmCounsel.of([{"region": 0, "province": 1, "name": ""}], 3).is_empty()
+	)
+	assert_eq(MapPlayRealmCounsel.pick(null), {})
+	assert_eq(MapPlayRealmCounsel.line(null), "")
+	# The gate: a pass named rows it left waiting, so the sheet says so; a realm
+	# with nothing waiting reads nothing.
+	assert_true(MapPlayRealmCounsel.gate(false).is_empty())
+	assert_eq(String(MapPlayRealmCounsel.gate(true)["line"]), MapPlayRealmCounsel.NO_ORDER_LINE)
+	assert_eq(String(MapPlayRealmCounsel.gate(true)["kind"]), MapPlayRealmCounsel.KIND_NONE)
+
+
+## A realm row wears the counsel's mark before its own name, so a crown finds the
+## ground its staff would act in among twenty rows (DR-20261121-21).
+func test_a_realm_row_wears_the_courts_mark() -> void:
+	var plain := ProvinceLedgerRow.new()
+	plain.setup({"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz"})
+	assert_eq(plain._name.text, "Cádiz", "an unmarked province reads its own name")
+	plain.free()
+	var marked := ProvinceLedgerRow.new()
+	marked.court = true
+	marked.setup({"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz"})
+	assert_eq(
+		marked._name.text,
+		"%s Cádiz" % ProvinceLedgerRow.COURT_MARK,
+		"the mark leads the name"
+	)
+	marked.free()
+
+
+## The realm's sheet is the passes' own reading: it prints their line, marks
+## exactly the provinces they name and orders nothing (REQ-P2-03, REQ-P5-06;
+## DR-20261121-21).
+func test_the_realm_marks_the_provinces_the_crowns_pass_would_use() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
+	var before_forces: Array = _force_moved_flags(play)
+	var before_crews: Array = _crew_order_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	assert_true(panel.is_open(), "the realm opens")
+	var pick: Dictionary = MapPlayRealmCounsel.pick(play)
+	assert_eq(
+		panel.counsel_text(),
+		MapPlayPickProse.sentence_of(pick),
+		"the sheet prints the passes' own line"
+	)
+	assert_eq(
+		panel._counsel.visible, not panel.counsel_text().is_empty(),
+		"the line stands with its reading"
+	)
+	# Every province the reading names is on the sheet, and only those rows wear
+	# the mark — a row the court would leave alone never looks busy.
+	var keys: Dictionary = pick.get("keys", {})
+	var shown: Dictionary = {}
+	for child: Node in panel._rows.get_children():
+		var row := child as ProvinceLedgerRow
+		if row == null:
+			continue
+		var key: String = "%d:%d" % [
+			int(row.data.get("region", -1)), int(row.data.get("id", -1))
+		]
+		shown[key] = true
+		assert_eq(row.court, keys.has(key), "a row wears the mark when the court acts there")
+		if row.court:
+			assert_true(
+				row._name.text.begins_with(ProvinceLedgerRow.COURT_MARK), row._name.text
+			)
+	for key: String in keys.keys():
+		assert_true(shown.has(key), "the province the court acts in is on the sheet")
+	assert_eq(_force_moved_flags(play), before_forces, "the reading marches nothing")
+	assert_eq(_crew_order_flags(play), before_crews, "the reading books no work")
+	panel.close()
+
+
 func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
 	_attach()
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
