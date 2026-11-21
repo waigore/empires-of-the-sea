@@ -3688,6 +3688,29 @@ func test_the_sortie_is_a_dedicated_order() -> void:
 	assert_eq(String(QuickBattleActions.ACTION_LABEL["sortie"]), "Sortie")
 
 
+## A sally is only a sally for a garrison behind its wall: with no wall to leave,
+## or named by an attacker, it resolves as ordinary volley fire (wiki:
+## quick-battle § Core actions).
+func test_a_sortie_without_a_wall_resolves_as_volley() -> void:
+	var defender: Array[ArmyState] = _lane_side(["musketeers", "musketeers"], 1)
+	var attacker: Array[ArmyState] = _lane_side(["musketeers", "musketeers"], 2)
+	var armies: Array[ArmyState] = _lane_joined(attacker, defender)
+
+	var field: Dictionary = _lane_state(attacker, defender, 0)
+	var defender_sally: Dictionary = QuickBattleActions.resolve(
+		armies, field, "defender", "attacker", "sortie", []
+	)
+	assert_eq(String(defender_sally["action"]), "volley", "no wall, no sortie")
+
+	var walled: Dictionary = _lane_state(attacker, defender, 1)
+	walled["gates"] = SiegeGates.gates_for(1)
+	walled["defender"]["lanes"] = SiegeLanes.line_ids(defender, 10)
+	var attacker_sally: Dictionary = QuickBattleActions.resolve(
+		armies, walled, "attacker", "defender", "sortie", []
+	)
+	assert_eq(String(attacker_sally["action"]), "volley", "an attacker cannot sally")
+
+
 func test_an_assault_into_town_is_weaker() -> void:
 	var open_losses: int = _assault_losses("open")
 	var town_losses: int = _assault_losses("town")
