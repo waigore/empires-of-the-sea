@@ -3,11 +3,10 @@ extends RefCounted
 ## One-province tactical combat (wiki: quick-battle): deterministic for a seed,
 ## three rounds, 3 CP a side. This class conducts the battle; the law it is
 ## fought under — its length, command points, automatic plans and line weight —
-## lives in [QuickBattleTerms], its action tables in [QuickBattleActions], fort
+## lives in [QuickBattleTerms], its action law in [QuickBattleActionLaw], fort
 ## guns in [QuickBattleBattery], its rounds in [QuickBattleRounds] and the
 ## report the plate reads in [QuickBattleReport]. Casualties feed the same
 ## ArmyCombat pipeline as auto-resolve (REQ-P2-03, REQ-P3-01, REQ-P3-03).
-
 
 static func enabled(context: Dictionary, attacker: int, defender: int) -> bool:
 	if not bool(context.get("quick_battle", false)):
