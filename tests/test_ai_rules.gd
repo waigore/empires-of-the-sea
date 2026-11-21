@@ -2498,6 +2498,33 @@ func test_ai_builder_raises_an_owned_estate() -> void:
 	assert_eq(Vector2i(orders[0]["tile"]), CivilianFixture.TIMBER_TILE)
 
 
+## A crew aboard a squadron is off the map: the pass gives it no work and no
+## march, so its plan never names a passenger (wiki: civilian-units
+## § Overseas deployment; the work gate refuses one too).
+func test_ai_plans_no_work_for_a_crew_aboard_a_squadron() -> void:
+	var model: MapModel = CivilianFixture.build()
+	var passenger: CivilianState = CivilianState.create(
+		1, 0, "builder", CivilianFixture.BARE_TILE
+	)
+	passenger.embark_on(3)
+	var units: Array = [passenger]
+	var plan: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	assert_true((plan["orders"] as Array).is_empty(), "no estate for a passenger")
+	assert_true((plan["moves"] as Array).is_empty(), "and no march")
+	# The same court with the crew ashore still books the raise, so the skip is
+	# the passenger's state and not the fixture.
+	passenger.embarked_fleet = -1
+	passenger.tile = CivilianFixture.BARE_TILE
+	var ashore: Dictionary = AiCivilianPlanner.plan(
+		AiConfig.build(0, 1500), model, units, LandWorks.new(),
+		CivilianFixture.stockpile(), {}, {}, _civilian_context()
+	)
+	assert_eq((ashore["orders"] as Array).size(), 1)
+
+
 func test_ai_explorer_prospects_its_own_mineral() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var units: Array = [

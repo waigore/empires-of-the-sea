@@ -99,7 +99,9 @@ static func type_counts(
 
 
 ## Idle and at-work totals inside one region and craft filter, for the order
-## chips. `all` is the sum, so the three chips always agree with the rows.
+## chips. `all` is every row the other filters leave, so the chips always agree
+## with the rows; a crew aboard a squadron waits for no order, so it answers
+## `all` alone (wiki: civilian-units § Overseas deployment).
 static func status_counts(
 	snapshot_data: Dictionary, region_key: String, type_id: String = ""
 ) -> Dictionary:
@@ -111,6 +113,8 @@ static func status_counts(
 		if not type_id.is_empty() and String(row["type_id"]) != type_id:
 			continue
 		counts[STATUS_ALL] = int(counts[STATUS_ALL]) + 1
+		if bool(row.get("aboard", false)):
+			continue
 		var key: String = STATUS_WORKING if bool(row["working"]) else STATUS_IDLE
 		counts[key] = int(counts[key]) + 1
 	return counts
@@ -119,7 +123,7 @@ static func status_counts(
 static func status_matches(row: Dictionary, key: String) -> bool:
 	match key:
 		STATUS_IDLE:
-			return not bool(row.get("working", false))
+			return not bool(row.get("working", false)) and not bool(row.get("aboard", false))
 		STATUS_WORKING:
 			return bool(row.get("working", false))
 	return true
@@ -137,12 +141,15 @@ static func status_label(key: String) -> String:
 
 ## The crews that wait for orders, in the roster's own reading order, so the walk
 ## that finds them never depends on the chips the reader left set (REQ-P5-04).
+## A crew aboard a squadron is off the map: it waits for no order (wiki:
+## civilian-units § Overseas deployment).
 static func idle_rows(snapshot_data: Dictionary) -> Array[Dictionary]:
 	var waiting: Array[Dictionary] = []
 	for raw: Variant in snapshot_data.get("rows", []):
 		var row: Dictionary = raw
-		if not bool(row.get("working", false)):
-			waiting.append(row)
+		if bool(row.get("working", false)) or bool(row.get("aboard", false)):
+			continue
+		waiting.append(row)
 	return waiting
 
 
@@ -197,9 +204,16 @@ static func find_caption(snapshot_data: Dictionary) -> String:
 	return "Find the next crew that waits (%d)" % idle
 
 
-## "Surveying · 2 turns to go" / "Idle — ready for orders".
+## "Surveying · 2 turns to go" / "Aboard a squadron — no orders at sea" /
+## "Idle — ready for orders". A crew aboard waits for no order: the work rules
+## refuse one, so the roster never calls it idle (wiki: civilian-units
+## § Overseas deployment; REQ-P2-03).
 static func status_text(unit: CivilianState) -> String:
-	if unit == null or not unit.is_working():
+	if unit == null:
+		return "Idle — ready for orders"
+	if unit.is_embarked():
+		return "Aboard a squadron — no orders at sea"
+	if not unit.is_working():
 		return "Idle — ready for orders"
 	var left: int = unit.remaining_turns()
 	return "%s · %d turn%s to go" % [
@@ -212,7 +226,11 @@ static func status_text(unit: CivilianState) -> String:
 ## One-line order state for the phone row, where the wide status column folds
 ## into the posting line.
 static func short_status(unit: CivilianState) -> String:
-	if unit == null or not unit.is_working():
+	if unit == null:
+		return "Idle"
+	if unit.is_embarked():
+		return "Aboard"
+	if not unit.is_working():
 		return "Idle"
 	return "%s · %dt" % [CivilianWork.label(unit.work_action()), unit.remaining_turns()]
 
@@ -225,6 +243,14 @@ static func _row(model: MapModel, unit: CivilianState, region: int) -> Dictionar
 	var progress: float = 0.0
 	if unit.is_working() and unit.total_turns() > 0:
 		progress = 1.0 - float(unit.remaining_turns()) / float(unit.total_turns())
+	# A crew aboard a squadron is off the map: it waits for no order (wiki:
+	# civilian-units § Overseas deployment).
+	var aboard: bool = unit.is_embarked()
+	var status: String = "idle"
+	if aboard:
+		status = "aboard"
+	elif unit.is_working():
+		status = "working"
 	return {
 		"unit_id": unit.id,
 		"type_id": unit.type_id,
@@ -235,7 +261,8 @@ static func _row(model: MapModel, unit: CivilianState, region: int) -> Dictionar
 		"province_name": place,
 		"tile": unit.tile,
 		"working": unit.is_working(),
-		"status": "working" if unit.is_working() else "idle",
+		"aboard": aboard,
+		"status": status,
 		"status_text": status_text(unit),
 		"short_status": short_status(unit),
 		"progress": clampf(progress, 0.0, 1.0),
@@ -260,6 +287,8 @@ static func _empty(
 static func _count_status(rows: Array[Dictionary], working: bool) -> int:
 	var total: int = 0
 	for row: Dictionary in rows:
+		if bool(row.get("aboard", false)):
+			continue
 		if bool(row["working"]) == working:
 			total += 1
 	return total

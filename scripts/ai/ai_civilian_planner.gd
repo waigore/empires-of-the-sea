@@ -66,6 +66,11 @@ static func plan(
 	for unit: CivilianState in roster:
 		if unit.is_working():
 			continue
+		# A crew aboard a squadron is off the map: the pass can give it neither
+		# work nor a march, so it never plans one (wiki: civilian-units
+		# § Overseas deployment; the work gate refuses it too).
+		if unit.is_embarked():
+			continue
 		if unit.type_id == "builder" and not estates_ready:
 			estates = AiBuilderWork.estate_rows(
 				model, works, units, stockpile, config.faction, tech_caps, context
