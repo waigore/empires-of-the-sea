@@ -11,12 +11,21 @@ extends RefCounted
 const NO_PROVINCE: int = MapModel.NO_ID
 
 
-## Legal destinations for the army's one march this turn. Foreign land is listed
-## but a march into it is refused at order time unless at war with its owner
-## (wiki: diplomacy § War required for hostile actions).
+## Legal destinations for the army's one march this turn. A host standing on
+## ground its own court does not hold has no interior lines, so only the
+## provinces beside it are open. Foreign land is listed but a march into it is
+## refused at order time unless at war with its owner (wiki: diplomacy § War
+## required for hostile actions).
 static func destinations(model: MapModel, army: ArmyState) -> Array[int]:
 	var result: Array[int] = []
 	if not _can_act(model, army):
+		return result
+	if not on_own_ground(model, army):
+		# Off its own ground an army keeps no interior lines: the provinces beside
+		# it are the whole of its road, one march a turn (wiki: military-armies
+		# § Movement and attacks; DR-20261121-15).
+		result.assign(MapGeo.province_neighbors(model, army.province))
+		result.sort()
 		return result
 	var reachable: Array[int] = land_reachable(model, army.province, army.owner)
 	for province: ProvinceState in model.provinces:
@@ -73,18 +82,16 @@ static func can_move(
 	if province_id == army.province:
 		return OrderVerdict.deny("The army is already in that province.")
 	if model.province_owner(province_id) == army.owner:
+		if not on_own_ground(model, army):
+			# Interior lines only run through own provinces, and a host camped on
+			# another court's land (or on unclaimed wilderness) holds none: the
+			# provinces beside it are its whole road home (wiki: military-armies
+			# § Movement and attacks; DR-20261121-15).
+			if MapGeo.province_neighbors(model, army.province).has(province_id):
+				return OrderVerdict.allow()
+			return OrderVerdict.deny(_off_ground_refusal(model, army))
 		if land_reachable(model, army.province, army.owner).has(province_id):
 			return OrderVerdict.allow()
-		# The obstacle is the ground the army stands on, not a missing hull: an
-		# army camped on another court's land (or on unclaimed wilderness) must
-		# walk through it until its own border touches, because interior lines
-		# only run through own provinces (wiki: military-armies § Movement and
-		# attacks).
-		if not on_own_ground(model, army):
-			return OrderVerdict.deny(
-				"No own land touches here — march through the provinces beside you, "
-				+ "one march at a time, to reach home."
-			)
 		return OrderVerdict.deny("Own land across open water or foreign land needs a naval transport.")
 	if not MapGeo.province_neighbors(model, army.province).has(province_id):
 		return OrderVerdict.deny("Enemy or neutral land may only be entered from an adjacent province.")
@@ -131,6 +138,22 @@ static func stranded(model: MapModel, army: ArmyState) -> bool:
 		if model.province_owner(province) == army.owner:
 			return false
 	return true
+
+
+## What a host standing off its own ground hears when it is ordered to own land
+## it cannot reach in one march. The wiki's own sentence when no own land touches;
+## the interior-lines word when own land does, so the refusal never claims a
+## border the map shows (wiki: military-armies § Movement and attacks).
+static func _off_ground_refusal(model: MapModel, army: ArmyState) -> String:
+	if stranded(model, army):
+		return (
+			"No own land touches here — march through the provinces beside you, "
+			+ "one march at a time, to reach home."
+		)
+	return (
+		"No interior lines run from this ground — march through the provinces "
+		+ "beside you, one march at a time, to reach home."
+	)
 
 
 ## Land held by another faction; unowned wilderness is not an invasion.

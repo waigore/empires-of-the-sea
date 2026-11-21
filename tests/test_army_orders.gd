@@ -1112,8 +1112,9 @@ func test_a_routed_host_reads_its_ground_and_the_walk_home() -> void:
 	)
 	assert_eq(
 		String(panel._hint.text),
-		"Tap a highlighted province; your own land is open, enemy land must border you.",
-		"a host beside its own land keeps the ordinary hint"
+		"Tap a highlighted province; off your own ground only the provinces "
+		+ "beside you are open.",
+		"a host off its own ground is not promised own land it cannot reach"
 	)
 	assert_false(ArmyMovement.stranded(model, bordered), "own land is one march away")
 
@@ -1137,6 +1138,64 @@ func test_a_routed_host_reads_its_ground_and_the_walk_home() -> void:
 	assert_false(
 		String(home.get("reason", "")).contains("naval transport"),
 		"a land army is not told to buy a hull: %s" % home.get("reason", "")
+	)
+	panel.free()
+
+
+## A host camped on ground it does not hold keeps no interior lines: only the
+## provinces beside it are open, so own land two marches away is no march while
+## the own province that borders it is one. Back on its own ground the same court
+## marches on interior lines again (wiki: military-armies § Movement and attacks;
+## DR-20261121-15).
+func test_a_host_off_its_ground_keeps_no_interior_lines() -> void:
+	var model := ArmyFixture.build()
+	# Province 2 is the rival's; the crown holds 0 and 6 beside it, and 1 beyond
+	# them on the same landmass.
+	var host := ArmyFixture.army(11, 0, 2, ["guards"], false)
+
+	var listed: Array[int] = ArmyMovement.destinations(model, host)
+	assert_true(listed.has(0), "the own province beside the host is open")
+	assert_true(listed.has(6), "the own corridor beside the host is open")
+	assert_true(listed.has(3), "the neutral province beside the host is open")
+	assert_false(listed.has(1), "own land two marches away is not a one-march destination")
+
+	var far: Dictionary = ArmyMovement.can_move(model, host, 1)
+	assert_false(bool(far.get("ok", true)), "own land beyond the border is refused")
+	assert_true(
+		String(far.get("reason", "")).contains("No interior lines run from this ground"),
+		"the refusal names the ground, not a missing hull: %s" % far.get("reason", "")
+	)
+	var beside: Dictionary = ArmyMovement.can_move(model, host, 0)
+	assert_true(bool(beside.get("ok", false)), "the own province beside it is one march")
+
+	host.province = 0
+	assert_true(
+		ArmyMovement.destinations(model, host).has(1),
+		"interior lines fork again once the host is home"
+	)
+
+
+## The hint never promises own land the tap list does not hold: a host touching
+## its own land hears the walk's word too, and a host on its own ground keeps the
+## ordinary sentence (wiki: military-armies § Movement and attacks).
+func test_the_hint_keeps_the_tap_list_within_its_word() -> void:
+	var model := ArmyFixture.build()
+	var host := ArmyFixture.army(12, 0, 2, ["guards"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+
+	panel.refresh(model, ArmyDossierOpening.of(host, true))
+	assert_eq(
+		String(panel._hint.text),
+		"Tap a highlighted province; off your own ground only the provinces "
+		+ "beside you are open."
+	)
+
+	host.province = 0
+	panel.refresh(model, ArmyDossierOpening.of(host, true))
+	assert_eq(
+		String(panel._hint.text),
+		"Tap a highlighted province; your own land is open, enemy land must border you."
 	)
 	panel.free()
 
@@ -1897,6 +1956,12 @@ func test_army_panel_status_words_the_standing_lines() -> void:
 	assert_eq(ArmyPanelStatus.status_text(field, true), "1 march this turn")
 	assert_true(
 		ArmyPanelStatus.hint_text(field, true, true).contains("No own land touches here")
+	)
+	assert_true(
+		ArmyPanelStatus.hint_text(field, true, false, true).contains(
+			"only the provinces beside you are open"
+		),
+		"a host off its own ground is not promised interior lines"
 	)
 	assert_eq(
 		ArmyPanelStatus.ground_note(model, field),

@@ -6,7 +6,8 @@ extends SceneTree
 ## and hint, every province the crown may still march to, the refusal a home
 ## march hears, and then walks the host out — one province at a time — until
 ## home is open again. A second pass seats the same beaten host in a rival
-## province that borders the crown, so the one-march road home is read beside it.
+## province that borders the crown, so the first leg onto own land is read beside
+## it.
 ## Not a CI gate — run it by hand:
 ##   godot --headless --path . --script res://playtests/playtest_routed_host.gd
 
@@ -73,12 +74,13 @@ func _stranded_pass(province: int, rival: int) -> void:
 	if host == null:
 		_say("the host was wiped — no routed army stands")
 		return
-	_host_readings(host, province, false)
+	_host_readings(host, province)
 	_walk_home(host, province)
 
 
-## The same beaten host, but the rival province borders crown land: the road home
-## is one march, so the dossier's promise can be read against a state that keeps it.
+## The same beaten host, but the rival province borders crown land: the first leg
+## home is one march onto the own province beside it, and interior lines carry it
+## to the seat from there — the walk the rule gives a host off its own ground.
 func _bordered_pass(province: int, rival: int) -> void:
 	_say("")
 	_say("--- bordered: %s beaten in %s, which touches crown land ---" % [
@@ -88,14 +90,45 @@ func _bordered_pass(province: int, rival: int) -> void:
 	if host == null:
 		_say("the host was wiped — no routed army stands")
 		return
-	_host_readings(host, province, true)
+	_host_readings(host, province)
+	_first_leg_home(host, province)
+
+
+## Presses the one own province beside the host, then the seat the next turn: the
+## road home is a walk, and interior lines open only once the host is home.
+func _first_leg_home(host: ArmyState, from: int) -> void:
+	_say("")
+	_say("--- the first leg home from %s ---" % _play.model.province_name(from))
+	var destinations: Array[int] = ArmyMovement.destinations(_play.model, host)
+	var leg: int = _own_destination(host, destinations)
+	if leg < 0:
+		_say("no own province beside the host — the first leg is not open")
+		return
+	var order: Dictionary = _play.army_layer.order(
+		host, leg, MapPlayArmies.may_invade(_play, leg)
+	)
+	_say("step 1: march %s → %s: %s\"%s\"" % [
+		_play.model.province_name(from), _play.model.province_name(leg),
+		"ok " if bool(order.get("ok", false)) else "refused ",
+		String(order.get("reason", "")),
+	])
+	if not bool(order.get("ok", false)):
+		return
+	host.moved = false
+	var home: int = _play.capital_province
+	var reached: Dictionary = _play.army_layer.order(
+		host, home, MapPlayArmies.may_invade(_play, home)
+	)
+	_say("step 2: interior lines to %s: %s\"%s\" (now at %s)" % [
+		_play.model.province_name(home),
+		"ok " if bool(reached.get("ok", false)) else "refused ",
+		String(reached.get("reason", "")), _play.model.province_name(host.province),
+	])
 
 
 ## What the court reads about a beaten host: the dossier's own lines, the tap
-## list, and the words a home march would answer. `press_home` sends the order
-## too (a state whose road home is open spends its march; a stranded host has
-## nothing to spend, and the walk pass wants the march kept).
-func _host_readings(host: ArmyState, province: int, press_home: bool) -> void:
+## list, and the words a home march would answer.
+func _host_readings(host: ArmyState, province: int) -> void:
 	_say("host: %s %d at %s (owner %s)" % [
 		FactionCatalog.name_of(host.owner), host.count(),
 		_play.model.province_name(host.province),
@@ -131,18 +164,6 @@ func _host_readings(host: ArmyState, province: int, press_home: bool) -> void:
 	_say("the rule answers a home march with \"%s\"" % ArmyMovement.can_move(
 		_play.model, host, _play.capital_province
 	).get("reason", ""))
-	if not press_home:
-		return
-	var order: Dictionary = _play.army_layer.order(
-		host, _play.capital_province, MapPlayArmies.may_invade(_play, _play.capital_province)
-	)
-	_say("the court presses home: %s — \"%s\" (now at %s)" % [
-		"marched" if bool(order.get("ok", false)) else "refused",
-		MapPlayArmies.refusal(
-			_play, _play.capital_province, String(order.get("reason", ""))
-		) if not bool(order.get("ok", true)) else "",
-		_play.model.province_name(host.province),
-	])
 
 
 ## Walks the host out the way a crown must: one adjacent province at a time,

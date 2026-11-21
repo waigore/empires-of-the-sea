@@ -231,7 +231,12 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 	_muster_box.visible = _muster_button.visible and _muster_open
 	if _orders != null:
 		_orders.apply(army, opening)
-	ArmyPanelStatus.apply(_status, _hint, army, is_player, _stranded)
+	# A host off its own ground keeps no interior lines, so the hint must not
+	# promise own land the tap list does not hold (DR-20261121-15).
+	var off_ground: bool = is_player and army.province != MapModel.NO_ID
+	if off_ground:
+		off_ground = not ArmyMovement.on_own_ground(model, army)
+	ArmyPanelStatus.apply(_status, _hint, army, is_player, _stranded, off_ground)
 
 
 ## The dossier names the crown's commanders in one line; what a medal buys in
