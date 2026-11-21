@@ -112,3 +112,13 @@ static func clear(parent: Node) -> void:
 	for child: Node in parent.get_children():
 		parent.remove_child(child)
 		child.queue_free()
+
+
+## Removes and frees every child but `keep`, so a rebuilt body keeps the press
+## or arm it carries while its rows are redrawn (REQ-P3-01).
+static func clear_except(parent: Node, keep: Node) -> void:
+	for child: Node in parent.get_children():
+		if child == keep:
+			continue
+		parent.remove_child(child)
+		child.queue_free()

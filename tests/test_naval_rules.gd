@@ -383,13 +383,13 @@ func test_a_scrap_asks_once_then_emits() -> void:
 
 	block.on_scrap_pressed("ship_1")
 
-	assert_eq(block._armed_hull, "ship_1", "the first tap arms")
+	assert_eq(block._arm.key(), "ship_1", "the first tap arms")
 	assert_eq(emitted, [] as Array[String], "arming sends nothing")
 
 	block.on_scrap_pressed("ship_1")
 
 	assert_eq(emitted, ["yard:scrap:ship_1"])
-	assert_eq(block._armed_hull, "", "a confirmed scrap clears the arm")
+	assert_eq(block._arm.key(), "", "a confirmed scrap clears the arm")
 	block.free()
 
 # --- test_fleet_names ---
