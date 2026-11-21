@@ -11521,6 +11521,54 @@ func test_a_banking_court_walks_its_funded_chain() -> void:
 	)
 
 
+## The deed's own chain outranks the bank too (issue #1135): a Minor seller the
+## court has charted with a priced deed still walks its envoy chain while the
+## court banks — the rung that lands the embassy is the link the Merchant's
+## purchase waits for, the same published purchase the tribe chain rides.
+func test_a_banking_court_walks_a_minor_deeds_chain() -> void:
+	_setup_ai_diplomacy_offers()
+	var minor: int = FactionCatalog.minor_ids()[0]
+	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
+	ai_diplomacy_offers_state.relation(2, minor).score = 60.0
+	# A Minor on a priced deed: the headline resource tile set on the model grid
+	# and the province, at the published 15 x base price.
+	var world: WorldMap = ai_diplomacy_offers_AiFixture.world([2, minor])
+	var model: MapModel = world.region(0)
+	model.resource[model.index_of(1, 0)] = 0
+	var seller: ProvinceState = model.provinces[1]
+	seller.resource = 0
+	seller.resource_tile = Vector2i(1, 0)
+	var context: Dictionary = campaign__context({2: 100, 3: 100})
+	context["treasury"] = {2: 1000, 3: 100}
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
+	context["regiments"] = {2: 1}
+	var entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, minor, 20, context
+	)
+	assert_false(
+		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a Minor deed's chain walks while the court banks"
+	)
+	# Without a priced deed on the seller's chart the bank's face stands.
+	var bare_world: WorldMap = ai_diplomacy_offers_AiFixture.world([2, minor])
+	var bare_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, bare_world, 1, minor, 20, context
+	)
+	assert_true(
+		_offer_blocked_kind(bare_entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"no priced deed, no deed chain: the bank's face stands"
+	)
+
+
 ## The deed Merchant is hired while the court banks, once the court's own ledger
 ## funds a priced, openable deed (#1135): the bank holds the roster, not the one
 ## crew the ledger is saving toward.

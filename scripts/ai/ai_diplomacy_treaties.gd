@@ -46,6 +46,30 @@ static func best(
 	)
 	var chain_matters: bool = bool(colony.get("wanted", false)) \
 		or bool(colony.get("held", false))
+	# The deed's chain matters too (issue #1135): the ledger funds a priced deed
+	# whose seller the court has charted, and the rung that lands the embassy is
+	# the link the Merchant's purchase waits for — a Minor seller's chain is the
+	# same published purchase the bank was never meant to shut. `chain_openable`
+	# reads the seller's own region through the court's chart, so a deed across
+	# the water prices its chain like a home one.
+	if not chain_matters and target >= 0 and (
+		FactionCatalog.type_of(target) == FactionCatalog.Type.MINOR_NATION
+		or FactionCatalog.type_of(target) == FactionCatalog.Type.TRIBE
+	):
+		var seller_region: int = FactionCatalog.region_of(target)
+		var seller_model: MapModel = world.region(seller_region) if world != null else null
+		if seller_model != null:
+			var view: VisibilityModel = (
+				(context.get("charts", null) as CourtCharts).model_for(
+					config.faction, seller_region
+				)
+				if context.get("charts", null) != null else null
+			)
+			var deed_chain: Dictionary = AiMerchantWork.openable_deed(
+				seller_model, config.faction,
+				{"diplomacy": state, "visibility": view}, true
+			)
+			chain_matters = not deed_chain.is_empty()
 	# The conquest bank (issue #995): a court short of the bar whose host is
 	# still under strength, with its purse one line-cycle short of the
 	# chest, is saving for its next line — and a paid envoy rung is a
