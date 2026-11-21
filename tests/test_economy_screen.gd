@@ -1677,16 +1677,20 @@ func _row_has_text(body: Node, text: String) -> bool:
 	return false
 
 
-## The texture beside a label, so a row's medallion can be read without
-## depending on where in the row it was added.
+## The medallion a row draws beside `text`: the nearest branch around the label
+## that carries an image, so a row whose name and note share a column still
+## answers (issue #1197).
 func _medallion_of(body: Node, text: String) -> Texture2D:
 	for node: Node in body.find_children("*", "Label", true, false):
 		var label: Label = node
 		if label.text != text:
 			continue
-		for sibling: Node in label.get_parent().get_children():
-			if sibling is TextureRect:
-				return (sibling as TextureRect).texture
+		var branch: Node = label.get_parent()
+		while branch != null and branch != body:
+			for child: Node in branch.get_children():
+				if child is TextureRect:
+					return (child as TextureRect).texture
+			branch = branch.get_parent()
 	return null
 
 
@@ -1812,68 +1816,6 @@ func _row_button(body: Node, commodity: String, text: String) -> Button:
 					return child as Button
 			row = row.get_parent()
 	return null
-
-
-## The PRODUCTION tab's one press: a crown that set its runs row by row now files
-## one step on every ready row in a single confirmed press, and the press names
-## what it would set before any labour or input is claimed (REQ-P5-04;
-## DR-20261116-08).
-func test_the_production_tab_files_one_run_on_every_ready_row() -> void:
-	var economy: PlayerEconomy = _screen.economy.economy
-	economy.stockpile["timber"] = 10
-	economy.stockpile["wool"] = 10
-	economy.stockpile["iron"] = 6
-	economy.stockpile["coal"] = 6
-	_screen.economy.open_panel()
-	var panel: EconomyPanel = _screen.hud.panels.economy_panel
-	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
-	var press: RaiseBatchPress = body.batch_press()
-	assert_not_null(press, "the tab carries the one press")
-	assert_true(press.visible, "the press stands when a row is ready")
-	var ready: int = int(body._plan()["runs"])
-	assert_gt(ready, 1, "the opening store opens more than one row: %d" % ready)
-	assert_eq(press.text, "Queue all ready (%d)" % ready, "the press names the count")
-	# The line under the press prices the walk before the crown signs: the labour
-	# and the materials it would claim, and what the phase keeps (REQ-P5-06;
-	# DR-20261118-24).
-	var line: Label = body._line
-	assert_not_null(line, "the press carries its own line")
-	assert_true(line.visible, "the line stands with the press")
-	assert_eq(line.text, ProductionBatch.sheet_line(body._plan()), "the line prices the walk")
-	assert_true(line.text.contains("labour"), line.text)
-	assert_true(line.text.contains("the phase keeps"), line.text)
-	press.pressed.emit()
-	assert_true(press.is_armed(), "the first tap only arms")
-	assert_eq(press.text, "Confirm — queue %d runs" % ready, "the second tap is named")
-	press.pressed.emit()
-	assert_false(press.is_armed(), "the press forgets the arm once it files")
-	var set_rows: Dictionary = {}
-	for entry: Dictionary in economy.production.assignments():
-		set_rows[String(entry["recipe"])] = int(entry["units"])
-	assert_eq(set_rows.size(), ready, "every ready row took one run")
-	for recipe_id: String in set_rows.keys():
-		assert_eq(int(set_rows[recipe_id]), 1, "%s took exactly one run" % recipe_id)
-	assert_true(
-		_toast_texts().has(ProductionBatch.receipt(ready)),
-		"the press prints one receipt: %s" % str(_toast_texts())
-	)
-
-
-## A page with nothing ready carries no press, so a crown is never offered a
-## press that would file nothing (REQ-P5-03).
-func test_the_production_press_stands_down_when_nothing_is_ready() -> void:
-	var economy: PlayerEconomy = _screen.economy.economy
-	_screen.economy.open_panel()
-	var panel: EconomyPanel = _screen.hud.panels.economy_panel
-	var body: LedgerProduction = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
-	# Every row set past any ceiling the store could open: no row has a step left.
-	for recipe_id: String in body.recipe_rows().keys():
-		economy.production.set_assignment(recipe_id, 99)
-	_screen.economy.open_panel()
-	body = panel.page_body(EconomyPanel.TAB_PRODUCTION) as LedgerProduction
-	assert_eq(int(body._plan()["runs"]), 0, "no row has a step left to file")
-	assert_false(body.batch_press().visible, "a view with nothing ready carries no press")
-	assert_false(body._line.visible, "and prints no line under it")
 
 
 ## The larder speaks a turn early: with the store empty and mouths to feed, the

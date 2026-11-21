@@ -68,10 +68,9 @@ Prices publish once; pact, boycott, subsidy settle
 
 ## UI
 
-`PRODUCTION`: stockpile by group; steppers capped by labour/inputs
-(`allowance`), a worked row names its output (`made 3`), **batch press**
-(`ProductionBatch`, DR-20261118-24), and the court's own runs
-in gold (`MapPlayProductionPick`, DR-20261121-07).
+`PRODUCTION`: stockpile by group in columns (three desktop, two phone, Riches
+strip); steppers capped by labour/inputs (`allowance`), a worked row names its
+output (`made 3`), court runs in gold (`MapPlayProductionPick`, DR-20261121-07).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
 line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid`
 (`MarketRules.bid_block`, DR-20261118-15), a barred colony row
