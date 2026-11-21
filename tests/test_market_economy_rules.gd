@@ -6293,3 +6293,39 @@ func test_the_recruit_pick_reads_the_ladder_the_rules_layer_opens() -> void:
 	)
 	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
 	assert_eq(MapPlayRecruitPick.best_tier(economy), WorkerPool.Tier.APPRENTICE)
+
+## A reading with no court behind it prints nothing: no ledger, no planner, or a
+## config the published hire order cannot be asked with (REQ-P5-06).
+func test_the_recruit_pick_reads_no_court_it_cannot_name() -> void:
+	assert_eq(MapPlayRecruitPick.of(null, AiConfig.build(1, 1500), [], 4, false), {})
+	var economy := PlayerEconomy.starting()
+	assert_eq(
+		MapPlayRecruitPick.of(economy, "not a config", [], 4, false), {},
+		"the planner's typed signature never sees a strung config"
+	)
+
+
+## Every tier refused: the ladder names none, and the reading still reads the
+## rules layer's own refusals rather than guessing a head.
+func test_the_recruit_pick_names_no_tier_the_rules_refuse() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {}
+	assert_eq(
+		MapPlayRecruitPick.best_tier(economy), -1,
+		"peasants need their fabric, so no tier is open"
+	)
+
+
+## A court with no harvest in hand has no slack to read: the sentinel keeps the
+## hire's food gate out of a phase that never harvested (issue #489).
+func test_the_harvest_slack_is_unread_without_a_harvest() -> void:
+	var court := MapPlayEconomyCourt.new()
+	court.overseas = {}
+	assert_eq(court.harvest_slack(), -2, "no harvest, no reading")
+
+
+## No tier named, no clause: the line never prints a headless sentence
+## (REQ-P3-02).
+func test_the_recruit_line_names_nothing_without_a_tier() -> void:
+	assert_eq(MapPlayRecruitPick.recruit_line({}), "")
+	assert_eq(MapPlayRecruitPick.recruit_line({-1: 2}), "", "a bad tier is dropped")
