@@ -16,9 +16,12 @@ extends PanelContainer
 ## Presentation only: every figure arrives in the row dictionary.
 
 ## The Visit seal's glyph and the words its tooltip carries until a row names its
-## own place. The medallion set has no compass, and the road is the one "go
-## there" pictogram the shell already ships in chrome (ChromeIcons).
-const VISIT_ICON: String = "road"
+## own place. Of the medallion set only the globe still reads as one symbol at
+## this size — "the chart" — so a step above the close seal's 22 points buys the
+## pictogram legibility without moving the seal off its touch floor
+## (ChromeIcons).
+const VISIT_ICON: String = "globe"
+const VISIT_GLYPH_PIXELS: int = 26
 const VISIT_TIP: String = "Visit"
 
 var data: Dictionary = {}
@@ -184,7 +187,7 @@ func _visit_door() -> Button:
 	door.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	door.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	door.tooltip_text = VISIT_TIP
-	ChromeIcons.apply(door, VISIT_ICON, CloseSeal.GLYPH_PIXELS)
+	ChromeIcons.apply(door, VISIT_ICON, VISIT_GLYPH_PIXELS)
 	door.pressed.connect(_on_visit)
 	return door
 
