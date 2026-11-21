@@ -11,7 +11,6 @@ signal trade_requested(commodity: String, quantity: int, is_buy: bool)
 signal offer_requested(offer_id: String, quantity: int)
 signal cancel_requested(order_id: String)
 signal production_changed(recipe_id: String, units: int)
-signal production_batch_requested(plan: Dictionary)
 signal recruit_requested(tier: int, count: int)
 signal disband_requested(tier: int)
 
@@ -58,9 +57,6 @@ func _preview_label() -> Label:
 func _connect_pages() -> void:
 	_production.production_changed.connect(
 		func(recipe_id: String, units: int) -> void: production_changed.emit(recipe_id, units)
-	)
-	_production.production_batch_requested.connect(
-		func(plan: Dictionary) -> void: production_batch_requested.emit(plan)
 	)
 	_market_page.trade_requested.connect(
 		func(commodity: String, quantity: int, is_buy: bool) -> void:

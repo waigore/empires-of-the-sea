@@ -6,20 +6,34 @@ extends VBoxContainer
 ## (wiki: commodity-catalog § Categories; stockpiles-and-production § Production
 ## flow). Food, raw and riches rows are holdings only, never controls.
 ##
+## The page is laid out in columns, so a normal desktop sheet reads the whole
+## catalogue without scrolling: three columns (Food | Raw materials |
+## Manufactured) and Riches as a strip under them on the atlas; two columns on a
+## phone, where the manufactured rows keep the room their note and steppers need
+## (issue #1196; REQ-P1-05, REQ-P1-07). Every section pins its figures to the
+## column's right edge and its heading reserves the same widths, so a caption
+## never drifts from the figures it names (issue #1197).
+##
 ## Presentation only: a press is an assignment intent the controller hands to the
 ## rules, and a "+" stops at the ceiling the projection reports, so the row never
 ## offers runs labour or inputs would refuse (REQ-P2-03). Gate and workshop copy
 ## live on LedgerProductionText and LedgerWorkshop (REQ-P3-01).
 
 signal production_changed(recipe_id: String, units: int)
-## The PRODUCTION tab's one press: one run on every ready row it prints, applied
-## by the controller through the same `set_production` intent a row's "+" emits
-## (REQ-P5-04; DR-20261116-08).
-signal production_batch_requested(plan: Dictionary)
 
-const ROW_HEIGHT: float = 38.0
-## Medallion and name column, so every row's figures start at one x.
+## A phone row is a thumb target: the steppers are its whole height (REQ-P5-07).
+const ROW_HEIGHT: float = 40.0
+## The atlas sheet is the one that must fit a 720-high viewport, and a mouse does
+## not need the thumb target a phone does (REQ-P1-05, REQ-P5-07).
+const ROW_HEIGHT_ATLAS: float = 32.0
+const TITLE_PIXELS: int = 14
+const TITLE_PIXELS_ATLAS: int = 13
+const NOTE_PIXELS: int = 11
+const NOTE_PIXELS_ATLAS: int = 10
+## Medallion and name column, so every holding's figures start at one x.
 const NAME_WIDTH: float = 132.0
+## The Riches strip packs five holdings on one line, so its name cell is shorter.
+const BAND_NAME_WIDTH: float = 100.0
 const QTY_WIDTH: float = 46.0
 ## The phase's promise for a holding, straight from the projection.
 const DELTA_WIDTH: float = 46.0
@@ -27,7 +41,11 @@ const DELTA_WIDTH: float = 46.0
 const STEP_WIDTH: float = 36.0
 const BUTTON_WIDTH: float = 58.0
 const HOLDING_COLUMNS: Array = [["HAVE", QTY_WIDTH], ["NEXT", DELTA_WIDTH]]
-const MANUFACTURE_COLUMNS: Array = [["HAVE", QTY_WIDTH], ["SET", STEP_WIDTH]]
+## Manufactured rows carry two stepper buttons past their figures, so the heading
+## reserves them too and HAVE/SET sit over the figures they name (issue #1197).
+const MANUFACTURE_COLUMNS: Array = [
+	["HAVE", QTY_WIDTH], ["SET", STEP_WIDTH], ["", BUTTON_WIDTH], ["", BUTTON_WIDTH]
+]
 
 var _economy: PlayerEconomy = null
 ## The end-of-turn projection: what the phase promises each holding, and the
@@ -38,13 +56,10 @@ var _report: Dictionary = {}
 ## (REQ-P3-02).
 var _rows: Dictionary = {}
 var _holdings: Dictionary = {}
-## The one press under the MANUFACTURED heading: one run on every ready row the
-## page prints, armed on the first tap and filed on the second (DR-20261116-08).
-var _batch: RaiseBatchPress = null
-## The line under that press, priced before the crown signs (DR-20261118-24).
-var _line: Label = null
+var _row_height: float = ROW_HEIGHT
+var _compact: bool = true
 ## The court's own plan for this phase: the runs its economy pass would book,
-## printed in gold under the press and tinted on the rows it names
+## printed in gold above the columns and tinted on the rows it names
 ## (wiki: stockpiles-and-production § Production flow; DR-20261121-07).
 var _counsel: Label = null
 var _counsel_runs: Dictionary = {}
@@ -59,60 +74,48 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}, pick: Dictionary = {}
 	_report = report
 	_rows = {}
 	_holdings = {}
-	_batch = null
-	_line = null
 	_counsel = null
 	_counsel_runs = pick.get("runs", {}) as Dictionary
 	UiRowBuilder.clear(self)
 	if economy == null:
 		return
-	_section(
-		"FOOD",
-		"Rations the court eats each turn: workers, army, navy and hospital staffs.",
-		HOLDING_COLUMNS
-	)
-	for id: String in CommodityCatalog.FOOD:
-		add_child(_holding_row(id))
-	_section(
-		"RAW MATERIALS",
-		"Gathered at home and overseas; industry and trade spend them.",
-		HOLDING_COLUMNS
-	)
-	for id: String in CommodityCatalog.RAW:
-		add_child(_holding_row(id))
-	_section(
-		"MANUFACTURED",
-		LedgerProductionText.manufacture_hint(
-			0 if _economy == null else _economy.production.made_total()
-		),
-		MANUFACTURE_COLUMNS
-	)
-	_batch = RaiseBatchPress.new()
-	_batch.set_verb("queue")
-	_batch.confirmed.connect(_queue_all)
-	add_child(_batch)
-	# The press's own line, under it and above the rows it walks.
-	_line = UiRowBuilder.wrapped_line("", 10, Palette.TEXT_DIM)
-	add_child(_line)
+	_compact = HudLayout.is_compact(get_viewport_rect().size)
+	_row_height = ROW_HEIGHT if _compact else ROW_HEIGHT_ATLAS
+	add_theme_constant_override("separation", 4 if _compact else 2)
 	# The court's own plan for this phase, in the colour every pick wears, above
-	# the rows whose titles it tints (DR-20261121-07).
+	# the columns whose titles it tints (DR-20261121-07). The press it used to sit
+	# under is gone — runs are set row by row (issue #1196) — so the reading now
+	# opens the page.
 	_counsel = UiRowBuilder.wrapped_line(String(pick.get("line", "")), 12, Palette.GOLD)
 	_counsel.visible = not _counsel.text.is_empty()
 	add_child(_counsel)
-	for output_id: String in CommodityCatalog.MANUFACTURED:
-		for recipe_id: String in LedgerProductionText.recipes_for_output(
-			output_id, _economy.tech_unlocked
-		):
-			add_child(_recipe_row(recipe_id))
-	_sync_batch()
-	_section(
-		"RICHES",
-		"Cleared to the treasury each turn at their base price; never traded.",
-		HOLDING_COLUMNS
+	var columns := HBoxContainer.new()
+	columns.add_theme_constant_override("separation", 10)
+	columns.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_child(columns)
+	var food := _column(columns, 1.0)
+	_holdings_section(
+		food, "FOOD",
+		"Rations the court eats each turn: workers, army, navy and hospital staffs.",
+		CommodityCatalog.FOOD
 	)
-	for id: String in CommodityCatalog.RICHES:
-		add_child(_holding_row(id))
-	UiRowBuilder.spacer(self)
+	if _compact:
+		# Two columns: the holdings share one, the workshop the other, because a
+		# recipe row carries a note and two steppers and needs the room.
+		_holdings_section(
+			food, "RAW MATERIALS",
+			"Gathered at home and overseas; industry and trade spend them.",
+			CommodityCatalog.RAW
+		)
+		_recipes_section(_column(columns, 2.0))
+	else:
+		_holdings_section(
+			_column(columns, 1.0), "RAW MATERIALS",
+			"Gathered at home and overseas; industry and trade spend them.",
+			CommodityCatalog.RAW
+		)
+		_recipes_section(_column(columns, 1.8))
+	add_child(_riches_strip())
 
 
 ## Manufacture rows' widgets by recipe id: title, note (the workshop tag), have,
@@ -133,28 +136,102 @@ func counsel_text() -> String:
 	return "" if _counsel == null else _counsel.text
 
 
+## One column of the page: it expands into its share of the sheet's width, and a
+## wider ratio buys the Manufactured column the room its steppers need.
+func _column(parent: Control, ratio: float) -> VBoxContainer:
+	var out := VBoxContainer.new()
+	out.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	out.size_flags_stretch_ratio = ratio
+	out.add_theme_constant_override("separation", 2)
+	parent.add_child(out)
+	return out
+
+
+## A holdings-only section: its heading and every good the category holds.
+func _holdings_section(
+	parent: Control, title: String, hint: String, ids: Array
+) -> void:
+	_section(parent, title, hint, HOLDING_COLUMNS)
+	for id: String in ids:
+		parent.add_child(_holding_row(id, NAME_WIDTH))
+
+
+## The workshop's section: its heading and one row per recipe the court can see.
+func _recipes_section(parent: Control) -> void:
+	_section(
+		parent, "MANUFACTURED",
+		LedgerProductionText.manufacture_hint(
+			0 if _economy == null else _economy.production.made_total()
+		),
+		MANUFACTURE_COLUMNS
+	)
+	for output_id: String in CommodityCatalog.MANUFACTURED:
+		for recipe_id: String in LedgerProductionText.recipes_for_output(
+			output_id, _economy.tech_unlocked
+		):
+			parent.add_child(_recipe_row(recipe_id))
+
+
+## Riches read as a strip under the columns: five holdings, one line, so the
+## catalogue's last category costs the sheet a heading and a row, not five rows.
+func _riches_strip() -> Control:
+	var strip := VBoxContainer.new()
+	strip.add_theme_constant_override("separation", 2)
+	_section(
+		strip, "RICHES",
+		"Cleared to the treasury each turn at their base price; never traded.",
+		[], "have · next"
+	)
+	var flow := HFlowContainer.new()
+	flow.add_theme_constant_override("h_separation", 10)
+	flow.add_theme_constant_override("v_separation", 2)
+	strip.add_child(flow)
+	for id: String in CommodityCatalog.RICHES:
+		flow.add_child(_holding_row(id, BAND_NAME_WIDTH, true))
+	return strip
+
+
 ## A category heading with the column captions its rows share. The grouping is
 ## the catalogue's own, so the stockpile reads in wiki order instead of one long
-## list (wiki: commodity-catalog § Categories).
-func _section(title: String, hint: String, columns: Array) -> void:
-	UiRowBuilder.spacer(self, 8.0)
+## list (wiki: commodity-catalog § Categories). The hint is the heading's
+## tooltip, so a touch player reads the section by its rows (REQ-P1-05).
+func _section(
+	parent: Control, title: String, hint: String, columns: Array, legend: String = ""
+) -> void:
 	var head := UiRowBuilder.row(0.0)
 	var heading := UiRowBuilder.label(title, 11, Palette.GOLD_DIM)
 	heading.tooltip_text = hint
 	heading.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.add_child(heading)
+	if not legend.is_empty():
+		head.add_child(UiRowBuilder.caption(legend, 10, Palette.TEXT_DIM))
 	for column: Array in columns:
+		if String(column[0]).is_empty():
+			# A stepper's own width, reserved so the captions before it stay put.
+			var gap := Control.new()
+			gap.custom_minimum_size = Vector2(float(column[1]), 0)
+			gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			head.add_child(gap)
+			continue
 		head.add_child(
 			UiRowBuilder.caption(String(column[0]), 10, Palette.TEXT_DIM, float(column[1]))
 		)
-	add_child(head)
+	parent.add_child(head)
 
 
 ## A holding the court cannot set this turn: the good, what it holds and what
 ## the phase will do to that figure.
-func _holding_row(id: String) -> Control:
-	var row := UiRowBuilder.row(ROW_HEIGHT)
-	row.add_child(CommodityIcons.cell(id, NAME_WIDTH))
+func _holding_row(id: String, name_width: float, fixed: bool = false) -> Control:
+	var row := UiRowBuilder.row(_row_height)
+	var name := CommodityIcons.cell(id, name_width)
+	name.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	if fixed:
+		# A strip cell keeps its width; five of them share one line.
+		name.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		row.custom_minimum_size = Vector2(
+			name_width + QTY_WIDTH + DELTA_WIDTH + 24.0, _row_height
+		)
+	row.add_child(name)
 	var held := _figure(str(_economy.quantity(id)), 14, Palette.GOLD_PALE, QTY_WIDTH)
 	row.add_child(held)
 	var next := _next_turn(id)
@@ -181,15 +258,30 @@ func _next_turn(id: String) -> Label:
 ## the turn, and the stepper. The workshop tag says what a multi-turn row is
 ## already serving (wiki: production-recipes § Turns per unit).
 func _recipe_row(recipe_id: String) -> Control:
-	var row := UiRowBuilder.row(ROW_HEIGHT)
+	var row := UiRowBuilder.row(_row_height)
 	var output_id: String = ProductionRecipes.output(recipe_id)
 	row.add_child(CommodityIcons.badge(output_id))
+
+	# The name, and under it whatever the workshop has to say about the row: how
+	# long a multi-turn row waits and what is already serving its turns. A row
+	# whose hand or town's works is missing says so here, on the row itself,
+	# because a touch player never sees a hover hint (wiki: production-recipes
+	# § Worker-tier gates, § Town-works gates; DR-20261114-07, DR-20261116-04).
+	# The words take the column's slack, so every figure after them is pinned to
+	# the right edge and the heading's captions sit over their own figures.
+	var words := VBoxContainer.new()
+	words.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	words.size_flags_vertical = Control.SIZE_FILL
+	words.alignment = BoxContainer.ALIGNMENT_CENTER
+	words.add_theme_constant_override("separation", 0)
+	words.mouse_filter = Control.MOUSE_FILTER_PASS
 	# A row the court's own plan books is tinted and says how many runs it would
 	# set, so the reading is read down the page and not only on the line above
 	# (DR-20261121-07).
 	var planned: int = int(_counsel_runs.get(recipe_id, 0))
 	var title := UiRowBuilder.label(
-		LedgerProductionText.recipe_title(recipe_id), 14,
+		LedgerProductionText.recipe_title(recipe_id),
+		TITLE_PIXELS if _compact else TITLE_PIXELS_ATLAS,
 		Palette.GOLD_PALE if planned > 0 else Palette.TEXT
 	)
 	title.tooltip_text = LedgerProductionText.recipe_tooltip(recipe_id)
@@ -198,13 +290,7 @@ func _recipe_row(recipe_id: String) -> Control:
 			planned, "" if planned == 1 else "s"
 		]
 	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	row.add_child(title)
-
-	# The workshop tag: how long a multi-turn row waits, and what is already
-	# serving its turns. A row whose hand or town's works is missing says so
-	# here, on the row itself, because a touch player never sees a hover hint
-	# (wiki: production-recipes § Worker-tier gates, § Town-works gates;
-	# DR-20261114-07, DR-20261116-04).
+	words.add_child(title)
 	var town: int = _town_level()
 	var gated: bool = not (
 		ProductionRecipes.tier_met(recipe_id, _economy.workers)
@@ -214,12 +300,17 @@ func _recipe_row(recipe_id: String) -> Control:
 		LedgerProductionText.gate_note(recipe_id, town) if gated
 		else LedgerWorkshop.row_note(_economy, recipe_id)
 	)
-	var note := UiRowBuilder.label(note_text, 12, Palette.TEXT_DIM)
+	var note := UiRowBuilder.label(
+		note_text, NOTE_PIXELS if _compact else NOTE_PIXELS_ATLAS, Palette.TEXT_DIM
+	)
+	note.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	note.visible = not note_text.is_empty()
 	if gated:
 		note.tooltip_text = LedgerProductionText.gate_tooltip(recipe_id, town)
 	elif not note_text.is_empty():
 		note.tooltip_text = LedgerWorkshop.row_tooltip(_economy, recipe_id)
-	row.add_child(note)
+	words.add_child(note)
+	row.add_child(words)
 
 	var held := _figure(str(_economy.quantity(output_id)), 14, Palette.GOLD_PALE, QTY_WIDTH)
 	row.add_child(held)
@@ -227,7 +318,7 @@ func _recipe_row(recipe_id: String) -> Control:
 	var stepper := _figure("%d" % units, 14, Palette.GOLD_PALE, STEP_WIDTH)
 	row.add_child(stepper)
 
-	var minus := UiRowBuilder.button("−", ROW_HEIGHT, BUTTON_WIDTH)
+	var minus := UiRowBuilder.button("−", _row_height, BUTTON_WIDTH)
 	minus.disabled = units <= 0
 	minus.tooltip_text = "One fewer %s this turn" % CommodityCatalog.label(output_id)
 	minus.pressed.connect(func() -> void: production_changed.emit(recipe_id, units - 1))
@@ -237,7 +328,7 @@ func _recipe_row(recipe_id: String) -> Control:
 	var full: bool = ProductionWorkshop.room(
 		_economy.production_wip, recipe_id, ProductionRecipes.turns(recipe_id)
 	) <= 0
-	var plus := UiRowBuilder.button("+", ROW_HEIGHT, BUTTON_WIDTH)
+	var plus := UiRowBuilder.button("+", _row_height, BUTTON_WIDTH)
 	plus.disabled = units >= limit
 	plus.tooltip_text = (
 		LedgerProductionText.gate_tooltip(recipe_id, town) if gated
@@ -260,7 +351,7 @@ func _recipe_row(recipe_id: String) -> Control:
 
 
 ## A right-aligned figure in a fixed column, so holdings, promises and steppers
-## line up down the page.
+## line up down the column and under their captions.
 func _figure(text: String, size: int, color: Color, width: float) -> Label:
 	var out := UiRowBuilder.label(text, size, color)
 	out.custom_minimum_size = Vector2(width, 0)
@@ -271,9 +362,7 @@ func _figure(text: String, size: int, color: Color, width: float) -> Label:
 ## Units this row may still be set to: the whole runs the coming Production phase
 ## could start from the projected post-Consumption store and idle labour, less
 ## the other rows' claims and the pieces already on the bench. The rules own the
-## arithmetic; this only picks which state the phase will see (REQ-P2-03). The
-## batch press reads the same function, so the press and the row's "+" can never
-## disagree about a ceiling (DR-20261116-08).
+## arithmetic; this only picks which state the phase will see (REQ-P2-03).
 func _allowance(recipe_id: String) -> int:
 	var seen: Dictionary = ProductionBatch.budget(_economy, _report)
 	return ProductionBatch.allowance(
@@ -284,52 +373,6 @@ func _allowance(recipe_id: String) -> int:
 		int(seen["labour"]),
 		_economy.production.assignments()
 	)
-
-
-# --- the one press -----------------------------------------------------------
-
-
-## The press, for tests and the workshop drive (REQ-P3-02).
-func batch_press() -> RaiseBatchPress:
-	return _batch
-
-
-## One run on every ready row the page prints, in its own order, each capped by
-## the allowance the rows before it leave (REQ-P5-04; DR-20261116-08).
-func _plan() -> Dictionary:
-	if _economy == null:
-		return ProductionBatch.blank()
-	var seen: Dictionary = ProductionBatch.budget(_economy, _report)
-	return ProductionBatch.plan(
-		_rows.keys(),
-		_economy,
-		_town_level(),
-		seen["stock"],
-		int(seen["labour"]),
-		_economy.production.assignments()
-	)
-
-
-## The press names how many runs it would set, so the count is read before the
-## labour and inputs are claimed (REQ-P5-03, REQ-P5-05), and the line under it
-## prices that walk (DR-20261118-24).
-func _sync_batch() -> void:
-	if _batch == null or _line == null:
-		return
-	var reading: Dictionary = _plan()
-	_batch.set_ready(int(reading["runs"]), "runs")
-	_line.text = ProductionBatch.sheet_line(reading)
-	_line.visible = not _line.text.is_empty()
-
-
-## Files the plan as one intent: the controller applies every set through the
-## same `set_production` the row's "+" emits and repaints once, so the page never
-## rebuilds itself under a press that is still emitting (REQ-P2-03, REQ-P5-06).
-func _queue_all() -> void:
-	var plan: Dictionary = _plan()["plan"] as Dictionary
-	if plan.is_empty():
-		return
-	production_batch_requested.emit(plan)
 
 
 ## The crown's best town the projection was read against. Without a projection
