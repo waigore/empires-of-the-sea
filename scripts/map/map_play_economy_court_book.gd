@@ -139,7 +139,11 @@ static func hire_margin(court: MapPlayEconomyCourt) -> int:
 ## next regiment must have is kept back and bid for first (wiki:
 ## growth-stage-planner § Recruitment modulation), and so is every material a
 ## crew's planned work will spend (wiki: economy-planner § Reservations).
-static func trade(court: MapPlayEconomyCourt) -> Dictionary:
+##
+## The plan only: `trade` stages it. A sheet that names the trade without booking
+## it (`MapPlayMarketPick`) reads here, so the two cannot name different books
+## (REQ-P2-03; DR-20261121-09).
+static func trade_plan(court: MapPlayEconomyCourt) -> Dictionary:
 	var holds: int = (
 		TradeCargo.capacity(
 			court.play.world, court.play.ship_layer.regions.snapshot(), court.faction
@@ -209,21 +213,37 @@ static func trade(court: MapPlayEconomyCourt) -> Dictionary:
 		speculate, works_floor, court.hire_margin
 	)
 	plan["free_holds"] = free_holds
+	var drafted: Dictionary = {
+		"plan": plan,
+		"free_holds": free_holds,
+		# The crown's holds and the tonnage its colonies ship, so the clearing can
+		# judge a carried bid against the trade cargo capacity the wiki names rather
+		# than the holds this turn's imports used (wiki: world-market § Order
+		# persistence, § Cargo).
+		"holds": holds,
+		"reserved": EconomyOverseas.shipped_total(court.overseas),
+		"claims": claims["lines"],
+	}
+	# The bidding the footing held shut prints with its reason rather than going
+	# quiet (REQ-P5-05; DR-20261117-01).
+	if not speculate and int(plan.get("held", 0)) > 0:
+		drafted["bids_blocked"] = AiMarketPlanner.REASON_SPECULATE
+	return drafted
+
+
+## The court's trade, staged in the world-market book for the turn's close.
+static func trade(court: MapPlayEconomyCourt) -> Dictionary:
+	var drafted: Dictionary = trade_plan(court)
+	var plan: Dictionary = drafted["plan"] as Dictionary
 	var result: Dictionary = AiBindEconomy.market_stage(
 		court.kind, court.economy, court.market, plan, court.faction,
 		court.economy.tech_unlocked
 	)
 	result["plan"] = plan
-	result["free_holds"] = free_holds
-	# The crown's holds and the tonnage its colonies ship, so the clearing can
-	# judge a carried bid against the trade cargo capacity the wiki names rather
-	# than the holds this turn's imports used (wiki: world-market § Order
-	# persistence, § Cargo).
-	result["holds"] = holds
-	result["reserved"] = EconomyOverseas.shipped_total(court.overseas)
-	result["claims"] = claims["lines"]
-	# The bidding the footing held shut prints with its reason rather than going
-	# quiet (REQ-P5-05; DR-20261117-01).
-	if not speculate and int(plan.get("held", 0)) > 0:
-		result["bids_blocked"] = AiMarketPlanner.REASON_SPECULATE
+	result["free_holds"] = drafted["free_holds"]
+	result["holds"] = drafted["holds"]
+	result["reserved"] = drafted["reserved"]
+	result["claims"] = drafted["claims"]
+	if drafted.has("bids_blocked"):
+		result["bids_blocked"] = drafted["bids_blocked"]
 	return result

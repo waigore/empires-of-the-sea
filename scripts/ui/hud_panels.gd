@@ -148,7 +148,8 @@ func show_economy(
 	cargo: Dictionary = {},
 	offers: Array = [],
 	crown: int = FactionCatalog.PLAYER_FACTION,
-	pick: Dictionary = {}
+	pick: Dictionary = {},
+	trade: Dictionary = {}
 ) -> void:
 	# The ledger takes the whole edge; close the dossiers outright so their
 	# slide-out tween cannot bleed text through the ledger's fade-in.
@@ -156,7 +157,7 @@ func show_economy(
 		slot.conceal_now()
 	research.conceal(host, dock)
 	diplomacy.conceal(host, dock)
-	economy_panel.refresh(economy_state, market, report, cargo, offers, crown, pick)
+	economy_panel.refresh(economy_state, market, report, cargo, offers, crown, pick, trade)
 	economy.reveal(host, dock)
 
 

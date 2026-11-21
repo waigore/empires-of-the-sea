@@ -40,17 +40,23 @@ var _order_ctx: Dictionary = {}
 ## Batch presses keyed "bid:<commodity>" / "offer:<commodity>", for tests and
 ## tooling (REQ-P3-02).
 var _batches: Dictionary = {}
+## The trade the court's own market pass would book this phase, in gold above the
+## orders it answers (wiki: world-market § Trade orders; DR-20261121-09).
+var _counsel: Label = null
 
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
 ## `clearing` is the last world-market report, so the receipt names its ducats.
+## `counsel` is the crown's own trade plan (`MapPlayMarketPick`), already worded;
+## a page filled without one carries no gold line.
 func fill(
 	economy: PlayerEconomy,
 	market: WorldMarket,
 	cargo: Dictionary,
 	offers: Array = [],
 	clearing: Dictionary = {},
-	viewer: int = FactionCatalog.PLAYER_FACTION
+	viewer: int = FactionCatalog.PLAYER_FACTION,
+	counsel: String = ""
 ) -> void:
 	_economy = economy
 	_market = market
@@ -59,12 +65,14 @@ func fill(
 	_viewer = viewer
 	UiRowBuilder.clear(self)
 	_batches.clear()
+	_counsel = null
 	_order_ctx = MarketBatch.context(_economy, _cargo, MarketBatch.reservations(_economy))
 	_add_cargo_banner()
 	var budget: Label = LedgerBudget.banner(_economy)
 	if budget != null:
 		add_child(budget)
 	_add_terms_banner()
+	_add_counsel(counsel)
 	_add_staged()
 	_add_deals()
 	_add_prices()
@@ -345,6 +353,24 @@ func _add_terms_banner() -> void:
 	banner.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	banner.custom_minimum_size = Vector2(240, 0)
 	add_child(banner)
+
+
+## The trade the court's own market pass would book this phase, in gold above
+## the orders it answers — the plan the pass stages at the turn's close, so a
+## crown reads what her staff would do before she presses a row (wiki:
+## world-market § Trade orders; DR-20261121-09). A quiet plan still speaks: the
+## line names the gate that leaves the book empty (REQ-P5-06).
+func _add_counsel(counsel: String) -> void:
+	if counsel.is_empty():
+		return
+	_counsel = UiRowBuilder.wrapped_line(counsel, 12, Palette.GOLD)
+	add_child(_counsel)
+
+
+## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
+## the page was filled without a pick.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 func _market_row(id: String, held: int, claimed: int = 0) -> Control:
