@@ -12,6 +12,7 @@ const SmokeFind = preload("res://tools/smoke/smoke_find.gd")
 static func step(run) -> void:
 	var screen: MapScreen = run.screen
 	await _estates(run, screen)
+	await _people(run, screen)
 	await _court(run, screen)
 	_audio(run, screen)
 	await _province(run, screen)
@@ -62,6 +63,40 @@ static func _estates(run, screen: MapScreen) -> void:
 		"estates counsel stands with its reading"
 	)
 	screen.improvements.close()
+
+
+## THE CROWN'S PEOPLE names the work the court's own civilian pass would put its
+## crews to this turn, in one gold line under its filters — and orders nothing
+## (wiki: civilian-units § Empire roster; DR-20261121-12).
+static func _people(run, screen: MapScreen) -> void:
+	var working_before: int = _working_crews(screen)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.CIVILIANS)
+	await run.tree.process_frame
+	var roster: CivilianRosterPanel = screen.hud.civilian_roster
+	run.check(roster != null and roster.is_open(), "the crown's people open")
+	if roster == null:
+		return
+	var counsel: String = roster.counsel_text()
+	run.check(
+		counsel.is_empty() or counsel.begins_with("The court would put "),
+		"the people name the work the court would give"
+	)
+	run.check(
+		roster._counsel.visible == not counsel.is_empty(),
+		"the people's counsel stands with its reading"
+	)
+	run.check(_working_crews(screen) == working_before, "the reading orders nothing")
+	roster.close()
+
+
+## How many of the crown's crews hold a running order: the tally a reading may
+## not move.
+static func _working_crews(screen: MapScreen) -> int:
+	var working: int = 0
+	for unit: CivilianState in screen.play.civilian_layer.units:
+		if unit != null and unit.owner == screen.play.player_faction and unit.is_working():
+			working += 1
+	return working
 
 
 ## The court ledger: seeded relations, a declaration, a peace, and the court's
