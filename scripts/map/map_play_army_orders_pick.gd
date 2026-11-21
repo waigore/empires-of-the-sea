@@ -12,10 +12,6 @@ extends RefCounted
 ## A reading only: nothing here splits a standard, marches a regiment or rolls a
 ## die, and the crown still presses her own order (REQ-P3-03, REQ-P5-06).
 
-## The most standards one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 ## Armies wait for an order and the pass gives none: the gate the sheet names
 ## instead of a clause it cannot print.
 const NO_ORDER_LINE: String = "the court would give no waiting army an order this turn"
@@ -24,7 +20,7 @@ const NO_ORDER_LINE: String = "the court would give no waiting army an order thi
 ## The sheet's sentence: the pick's own line, capitalised and closed — the one
 ## wording every pick surface prints (MapPlayPickProse; REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, snapshot))
 
 
 ## The army's pick as the sheet prints it: `{armies, line}`, where each standard
@@ -51,10 +47,7 @@ static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
 ## policy gave none, so the sheet names that rather than a clause it cannot print.
 ## An army with nothing waiting has nothing to say (REQ-P5-06).
 static func gate(waiting: int) -> Dictionary:
-	if waiting <= 0:
-		return {}
-	var none: Array[Dictionary] = []
-	return {"armies": none, "line": NO_ORDER_LINE}
+	return MapPlayPickProse.gate(waiting, "armies", NO_ORDER_LINE)
 
 
 ## The pick, worded off the standards the pass orders and the sheet's own
@@ -64,7 +57,9 @@ static func gate(waiting: int) -> Dictionary:
 static func of(armies: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionary:
 	if armies.is_empty():
 		return {}
-	var ordered: Array[Dictionary] = _in_heading_order(armies, snapshot)
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
+		armies, snapshot.get("groups", []), "army"
+	)
 	return {"armies": ordered, "line": pick_line(ordered)}
 
 
@@ -75,13 +70,8 @@ static func of(armies: Array[Dictionary], snapshot: Dictionary = {}) -> Dictiona
 static func pick_line(armies: Array[Dictionary]) -> String:
 	var clauses: Array[String] = []
 	for army: Dictionary in armies:
-		var clause: String = String(army.get("line", ""))
-		if not clause.is_empty():
-			clauses.append(clause)
-	var joined: String = MapPlayPickProse.capped(clauses, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would send %s this turn" % joined
+		clauses.append(String(army.get("line", "")))
+	return MapPlayPickProse.court_line("the court would send", clauses)
 
 
 ## One standard's clause: the standard the sheet names it by, then the order the
@@ -149,37 +139,3 @@ static func _waiting(play: PlaySession, faction: int) -> int:
 				continue
 			waiting += 1
 	return waiting
-
-
-## The standards in the order the sheet prints its headings (its own `groups`), so
-## the line reads down the page it answers. A standard the snapshot does not print
-## keeps the pass's order after them.
-static func _in_heading_order(
-	armies: Array[Dictionary], snapshot: Dictionary
-) -> Array[Dictionary]:
-	var order: Dictionary = {}
-	var index: int = 0
-	for raw: Variant in snapshot.get("groups", []):
-		var group: Dictionary = raw
-		if order.has(_key(group)):
-			continue
-		order[_key(group)] = index
-		index += 1
-	if order.is_empty():
-		return armies
-	var keyed: Array[Dictionary] = armies.duplicate()
-	keyed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var left: int = int(order.get(_key(a), 1 << 30))
-		var right: int = int(order.get(_key(b), 1 << 30))
-		if left != right:
-			return left < right
-		return int(a.get("army", 0)) < int(b.get("army", 0))
-	)
-	return keyed
-
-
-## A standard's own key: the chart it stands on and the id its roster minted it.
-## The sheet calls the id `army` on a heading and the pick calls it `army` on its
-## own entry, so one key reads both.
-static func _key(entry: Dictionary) -> String:
-	return "%d:%d" % [int(entry.get("region", -1)), int(entry.get("army", -1))]
