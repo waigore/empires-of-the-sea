@@ -15,6 +15,7 @@ static func step(run) -> void:
 	await _people(run, screen)
 	await _navy(run, screen)
 	await _army(run, screen)
+	await _colonies(run, screen)
 	await _court(run, screen)
 	_audio(run, screen)
 	await _province(run, screen)
@@ -151,6 +152,42 @@ static func _army(run, screen: MapScreen) -> void:
 	)
 	run.check(_army_orders(screen) == before, "the army's reading orders nothing")
 	army.close()
+
+
+## THE COLONIES names the Tribe the court's own envoy is drawing into the empire
+## this turn, in one gold line above the roll — and signs no overture
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16).
+static func _colonies(run, screen: MapScreen) -> void:
+	var before: Array = _colony_overtures(screen)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	await run.tree.process_frame
+	var colonies: ColonyLedgerPanel = screen.hud.colonies_ledger
+	run.check(colonies != null and colonies.is_open(), "the colonies open")
+	if colonies == null:
+		return
+	var counsel: String = colonies.counsel_text()
+	run.check(
+		counsel.is_empty()
+		or counsel.begins_with("The court would offer ")
+		or counsel.begins_with("The court's chain with ")
+		or counsel == MapPlayPickProse.sentence(MapPlayColonyPick.CLOSED_LINE),
+		"the colonies name the Tribe the court is buying"
+	)
+	run.check(
+		colonies._counsel.visible == not counsel.is_empty(),
+		"the colonies' counsel stands with its reading"
+	)
+	run.check(_colony_overtures(screen) == before, "the colonies' reading signs nothing")
+	colonies.close()
+
+
+## Every Tribe's overture stage with the crown, so a reading that signed one
+## shows.
+static func _colony_overtures(screen: MapScreen) -> Array:
+	var seen: Array = []
+	for tribe: int in FactionCatalog.tribe_ids():
+		seen.append(screen.play.diplomacy.overture(screen.play.player_faction, tribe))
+	return seen
 
 
 ## Every standard's place and move flag, so a reading that marched one shows.

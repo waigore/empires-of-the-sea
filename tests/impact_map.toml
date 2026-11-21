@@ -3462,6 +3462,22 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The Tribe the crown's colonies name (DR-20261121-16): the reading that asks
+# the published `expansion.tribe_chain` ambition which link the court would
+# press this turn — the same call the rival pass and the objective ledger price
+# the chain with — so the sheet cannot name a link the court would not sign. Its
+# suite is the ledgers', where the pick is proved off data alone and the sheet
+# prints the line. Named above the map glob (first match wins) so it never pays
+# for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_colony_pick*.gd*"
+domain = "colony_pick"
+
+[domains.colony_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
