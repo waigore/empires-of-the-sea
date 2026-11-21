@@ -1773,6 +1773,16 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_market.gd"
 domain = "economy_ui"
 
+# The market tab's last-clearing receipt and staged-order block: presentation
+# helpers the page mounts, so they ride the same economy_ui suites.
+[[rules]]
+match = "scripts/ui/ledger_market_receipt.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_orders.gd*"
+domain = "economy_ui"
+
 # Ledger button intents (trade, workers, research): the sheet suite owns them.
 # Named before scripts/economy/** so a seat-gate edit still pulls economy_ui
 # (test_economy_screen) for the body lines the patch shift counts (issue #726).
@@ -3637,6 +3647,14 @@ domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_receipt.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_orders.gd*"
 domain = "economy_ui"
 
 [[rules]]

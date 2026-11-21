@@ -4865,7 +4865,7 @@ func test_the_price_line_caps_its_goods() -> void:
 	var moved: Dictionary = {}
 	for id: String in ["grain", "timber", "iron", "wool", "coal"]:
 		moved[id] = CommodityCatalog.base_price(id)
-	var line: String = LedgerMarket.price_moves_line({"prices": moved})
+	var line: String = LedgerMarketText.price_moves_line({"prices": moved})
 	assert_true(line.begins_with("Prices moved:"), line)
 	assert_true(line.ends_with("+1 more."), line)
 	# The goods read in name order, so the fifth one is the one left out.
@@ -4873,7 +4873,7 @@ func test_the_price_line_caps_its_goods() -> void:
 	assert_false(
 		line.contains(CommodityCatalog.label("wool")), "the fifth good waits"
 	)
-	assert_eq(LedgerMarket.price_moves_line({}), "", "no move, no line")
+	assert_eq(LedgerMarketText.price_moves_line({}), "", "no move, no line")
 
 
 ## The crossing the holds will make is read on the MARKET page, under the holds
@@ -4970,14 +4970,11 @@ func test_a_staged_order_is_valued_at_the_viewing_crowns_terms() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	market.set_terms(1, {"buy": {"*": 0.9}, "sell": {"*": 1.1}})
 	var order: MarketOrder = MarketOrder.create(1, "timber", MarketOrder.SIDE_OFFER, 2, 1)
-	var ledger := LedgerMarket.new()
-	ledger.fill(PlayerEconomy.starting(), market, {}, [], {}, 1)
-	var row: Control = ledger._staged_row(order)
+	var row: Control = LedgerMarketOrders.row(order, market, 1)
 	var notional: Label = row.get_child(3) as Label
 	assert_eq(notional.text, "%d" % (market.sell_price("timber", 1) * 2))
 	assert_ne(notional.text, "%d" % (market.sell_price("timber", 0) * 2))
 	row.free()
-	ledger.free()
 
 
 ## The clearing republishes the Minor/Tribe book for the crown that will read
@@ -6039,7 +6036,7 @@ func test_the_production_pick_counts_the_rows_it_cannot_name() -> void:
 	)
 	# The tail counts rows, not the units they hold: "and N more" is read as N
 	# more manufactures, the way the market page's own cap reads its goods
-	# (LedgerMarket.price_moves_line's `+N more deals`, cargo's `and N more`).
+	# (LedgerMarketText.price_moves_line's `+N more`, cargo's `and N more`).
 	# A hidden run of three steel is one row left out, not three.
 	assert_eq(
 		MapPlayProductionPick.run_line({
