@@ -5,8 +5,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 ## Implemented
 
 - **Registry, profiles** (`AiParameterRegistry`, `AiConfig`, `AiPersonality`,
-  `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas; a rival's profile is
-  bound at setup (`AiProfile`, DR-20261120-08).
+  `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas; a profile binds
+  at setup (`AiProfile`, DR-20261120-08).
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
   (`AiNavy`), else `economy.min_treasury`; on `earn` the auction keeps it
   (DR-20261113-19/22, DR-20261114-06/11).
@@ -24,8 +24,7 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (DR-20261110-15); isolationist −20, backstabber +25 (DR-20261111-27).
   One order per rival (`AiTurn`).
 - **Land planner** (`AiMilitaryPlanner`): at border war detach all but one
-  Home regiment; armies save or storm; a worn field army rotates home to merge,
-  and a host standing off its own ground walks home one march at a time
+  Home regiment; armies save or storm, or walk a stranded host home
   (DR-20261121-15).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at
@@ -40,10 +39,10 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   cross, storm the coast (DR-20261114-03); the earn lift stands down while
   pressing (DR-20261119-14).
 - **Economy** (`AiEconomyPlanner`): recipes by stock deficit; the highest
-  affordable tier keeping a peasant and cash floor.
+  affordable tier keeps a peasant and cash floor.
 - **Research planner** (`AiResearchPlanner`): fill `ResearchState` slots
   above the money-goal reserve (DR-20261111-27); when `none`, one Low study
-  pays the cash floor (DR-20261113-24) and, while banking, the
+  pays the cash floor (DR-20261113-24) and, banking, the
   ration-estate cap study (#1059).
 - **Civilian planner** (`AiCivilianPlanner`, `MapPlayCivilianAi`,
   `AiMerchantWork`): builders finish towns, engineers raise roads/ports/
@@ -63,18 +62,18 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   Consumption → Production; trade.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch
   takes peace but its border front (`AiBorderFronts`), no peer war
-  (DR-20261113-15/11/19-16); at war no new voyage or Tribe
-  chain (DR-20261116-11). **Victory pressure** (`AiVictoryPressure`): bigger
+  (DR-20261113-15/11/19-16); at war no new voyage or chain
+  (DR-20261116-11). **Victory pressure** (`AiVictoryPressure`): bigger
   aims near the bar (DR-20261114-04).
 - **Objective ledger** (`AiObjective*`, `MapPlayObjectivesAi`): rank, then
   allocate 0–100 utility.
 - **Persistence:** agendas, cooldowns, ledgers, claims
-  (`AiState.to_dict`), dossier, temperaments; bank (#995/#1059).
+  (`AiState.to_dict`), temperaments; bank (#995/#1059).
 
 ## Deferred (REQ-P2-02)
 None; gaps: [`deferred.md`](deferred.md).
 
-## Architecture & tests
+## Architecture
 
 Planners live in `scripts/ai/` (`REQ-P3-03`), wired by `scripts/map/map_play_*`;
 suites `test_ai_*`.
