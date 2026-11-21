@@ -12,14 +12,32 @@ extends LedgerSheet
 ## standard and a squadron fly, those sheets read the whole of it
 ## (REQ-P5-01, REQ-P5-03; DR-20261115-14, DR-20261116-16).
 
+## The court's own reading, asked at every refresh: the orders the published land
+## and naval policies would give every force this turn, or nothing when nothing
+## waits (DR-20261121-17).
+var counsel_source: Callable = Callable()
+var _counsel: Label = null
+
 
 func _init() -> void:
 	title_text = "THE CROWN'S MUSTER"
 	hint_text = (
 		"Visit opens the force's map and dossier. The muster roll reads each "
-		+ "standard and squadron as it stands; it never orders a march."
+		+ "standard and squadron as it stands and names the orders the court "
+		+ "would give; it never orders a march."
 	)
 	toggle_action = InputActions.MUSTER_ROLL
+	# The reading is the panel's own method, not a closure handed in from the
+	# session: a bound callable cannot outlive the session it reads
+	# (DR-20261121-14).
+	counsel_source = _read_counsel
+
+
+## The orders the court's own staff would give every force this turn, read off
+## the roll's bound session (wiki: military-armies § The muster roll;
+## DR-20261121-17).
+func _read_counsel(data: Dictionary) -> String:
+	return MapPlayForceCounsel.line(play, data)
 
 
 ## Re-reads both layer rosters for the player's crown and repaints the view.
@@ -33,7 +51,14 @@ func refresh() -> void:
 		play.player_faction
 	)
 	_fit()
+	_sync_counsel()
 	_apply_filter()
+
+
+## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
+## the sheet carries no reading.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 # --- sheet hooks -------------------------------------------------------------
@@ -45,8 +70,36 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	_build_filter_body(
-		column, "Region", "Force", ForceLedger.KIND_FILTERS, _kind_word, _doors
+		column, "Region", "Force", ForceLedger.KIND_FILTERS, _kind_word, _under_chips
 	)
+
+
+## What sits under the chips and above the rows: the court's own reading in gold,
+## then the two doors into the sheets that read the whole of each force (wiki:
+## military-armies § The muster roll; DR-20261121-17).
+func _under_chips() -> Control:
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 6)
+	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
+	_counsel.visible = false
+	block.add_child(_counsel)
+	var doors: Control = _doors()
+	if doors != null:
+		block.add_child(doors)
+	return block
+
+
+## The gold counsel line: the orders the court's staff would give every force this
+## turn, or nothing when every force is already under way. A closed sheet reads
+## nothing, because the pass is a planner walk no one is looking at (REQ-P4-02).
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	var text: String = ""
+	if is_open() and counsel_source.is_valid():
+		text = String(counsel_source.call(_snapshot))
+	_counsel.text = text
+	_counsel.visible = not text.is_empty()
 
 
 ## The doors behind the roll: the crown's army reads every regiment a standard

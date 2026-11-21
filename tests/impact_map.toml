@@ -3478,6 +3478,21 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The orders the crown's muster roll names (DR-20261121-17): the reading that
+# merges the army's and the navy's own picks — the same calls their sheets print
+# — into the roll's row order, so the roll cannot name an order either policy
+# would refuse. Its suite is the ledgers', where the merge is proved off data
+# alone and the sheet prints the line. Named above the map glob (first match
+# wins) so it never pays for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_force_counsel*.gd*"
+domain = "force_counsel"
+
+[domains.force_counsel]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"
