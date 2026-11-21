@@ -66,6 +66,12 @@ suites = [
   "test_campaign_rules.gd",
 ]
 
+# The chart's tap law: pure, so its own suite is the whole proof.
+[domains.chart_tap]
+suites = [
+  "test_chart_tap.gd",
+]
+
 [domains.civilian]
 suites = [
   "test_civilian_turn_rules.gd",
@@ -3857,6 +3863,14 @@ domain = "campaign"
 [[rules]]
 match = "scripts/ui/capital_choice_screen.gd"
 domain = "campaign"
+
+# The chart's tap law (one press slot per input stream, one answer per tap) is
+# pure and read by the capital chart alone: its own suite proves it, and the
+# campaign suites prove the chart that feeds it. Named before the broad
+# `scripts/map/**` glob so a tap edit never pulls the whole map fan-out.
+[[rules]]
+match = "scripts/map/chart_tap.gd*"
+domain = "chart_tap"
 
 [[rules]]
 match = "scripts/rules/defeat_*.gd"

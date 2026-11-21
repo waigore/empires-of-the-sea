@@ -3882,7 +3882,7 @@ func test_back_leaves_the_phase() -> void:
 ## itself instead of letting the OS close the app (RUB-P5-07).
 func test_android_back_leaves_the_phase() -> void:
 	_setup_capital_seat()
-	CapitalChoiceScreen._last_back_ms = -CapitalChoiceScreen.BACK_DEBOUNCE_MS
+	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
 	var backs: Array = []
 	seat_page.back_pressed.connect(func() -> void: backs.append(true))
 	seat_page.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
@@ -3893,7 +3893,7 @@ func test_android_back_leaves_the_phase() -> void:
 ## the router opens setup and then leaves it again (one press, two screens).
 func test_one_android_back_press_answers_once() -> void:
 	_setup_capital_seat()
-	CapitalChoiceScreen._last_back_ms = -CapitalChoiceScreen.BACK_DEBOUNCE_MS
+	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
 	var backs: Array = []
 	seat_page.back_pressed.connect(func() -> void: backs.append(true))
 	seat_page.notification(Node.NOTIFICATION_WM_GO_BACK_REQUEST)
@@ -3905,7 +3905,7 @@ func test_one_android_back_press_answers_once() -> void:
 ## must leave once either way.
 func test_escape_and_android_back_are_one_press() -> void:
 	_setup_capital_seat()
-	CapitalChoiceScreen._last_back_ms = -CapitalChoiceScreen.BACK_DEBOUNCE_MS
+	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
 	var backs: Array = []
 	seat_page.back_pressed.connect(func() -> void: backs.append(true))
 	var escape := InputEventKey.new()
