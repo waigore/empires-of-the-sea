@@ -336,7 +336,9 @@ godot --headless --path . --script res://playtests/playtest_colony.gd
 # Colony counsel — the gold line THE COLONIES prints under its chips, held to the
 # crown's own press: a pact with a court too cold for the Join Empire, the same
 # court warmed, a chain already visited this turn, and the study that holds an
-# Embassy, then the honest link and the envoy sheet's own counsel beside it.
+# Embassy, then the honest link; then a fifth chain read on both sheets at once,
+# where the colony line may promise the link only when the court's one envoy order
+# takes it (DR-20261121-18). Every reading prints the envoy's one order beside it.
 godot --headless --path . --script res://playtests/playtest_colony_counsel.gd
 
 # Campaign end — the hardest state in the game to reach (the calendar cap is turn
