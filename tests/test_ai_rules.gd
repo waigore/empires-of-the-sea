@@ -2498,9 +2498,9 @@ func test_ai_builder_raises_an_owned_estate() -> void:
 	assert_eq(Vector2i(orders[0]["tile"]), CivilianFixture.TIMBER_TILE)
 
 
-## A crew aboard a squadron is off the map: the pass gives it no work and no
-## march, so its plan never names a passenger (wiki: civilian-units
-## § Overseas deployment; the work gate refuses one too).
+## A crew aboard a squadron is off the map: every candidate the pass scores is
+## gated by CivilianWork, so its plan names a passenger neither work nor a march
+## (wiki: civilian-units § Overseas deployment).
 func test_ai_plans_no_work_for_a_crew_aboard_a_squadron() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var passenger: CivilianState = CivilianState.create(
