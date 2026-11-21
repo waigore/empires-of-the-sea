@@ -5152,3 +5152,27 @@ func test_the_hire_words_print_nothing_without_their_parts() -> void:
 	)
 	assert_false(MapPlayHirePick._vowel(""), "no letter, no article")
 	assert_eq(MapPlayHirePick.gate_line("explorer", "some other gate"), "")
+
+
+## The bank gate refuses a reading without a session or a ledger, and a baseline
+## court never banks: the rail must not invent a conquest hold the hire order
+## would not answer (issue #995; DR-20261121-06).
+func test_the_hire_bank_gate_holds_without_a_session_or_baseline() -> void:
+	var economy := PlayerEconomy.starting()
+	assert_false(
+		MapPlayHirePick.banks(null, 0, economy, null, AiControl.KIND_SUBJECT),
+		"no session, no bank reading"
+	)
+	var bare := PlaySession.new()
+	bare.world = WorldMap.new()
+	bare.ai = AiState.new()
+	assert_false(
+		MapPlayHirePick.banks(bare, 0, null, null, AiControl.KIND_SUBJECT),
+		"no ledger, no bank reading"
+	)
+	assert_false(
+		MapPlayHirePick.banks(
+			bare, 0, economy, null, AiControl.KIND_BASELINE
+		),
+		"a baseline court keeps its published doctrine and never banks"
+	)

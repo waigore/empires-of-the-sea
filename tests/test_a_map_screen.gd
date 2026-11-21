@@ -3850,3 +3850,36 @@ func test_the_capital_rail_names_the_hire_the_court_would_take() -> void:
 		_screen.hud.panels.panel.hire_line_text(), "",
 		"a province that hires no crews carries none"
 	)
+
+
+
+## A court banking for the army its win bar wants takes no crew its purse cannot
+## spare, so the rail prints the bank's own refusal instead of naming a hire the
+## published order would never take (wiki: civilian-units § Training;
+## DR-20261121-06, issue #995).
+func test_the_capital_rail_prints_the_bank_that_holds_the_hire() -> void:
+	var play: PlaySession = _screen.play
+	var faction: int = play.player_faction
+	var economy: PlayerEconomy = play.ledger_for(faction)
+	var kind: String = AiControl.court_kind(play, faction)
+	var config: Variant = AiBind.config(
+		kind, faction, play.map_seed, play.ensure_ai().profiles
+	)
+	var purse: int = economy.treasury
+	# A chest that cannot cover the line the bar asks for banks for its army.
+	economy.treasury = 0
+	assert_true(
+		MapPlayHirePick.banks(play, faction, economy, config, kind),
+		"a short chest over a win-bar gap banks for the line"
+	)
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	assert_eq(
+		_screen.hud.panels.panel.hire_line_text(), MapPlayHirePick.BANK_LINE,
+		"the rail names the bank the hire order answers, not a hire it refuses"
+	)
+	economy.treasury = purse
+	MapPlayInput.select_province(play, _screen.capital_province, _capital_point())
+	assert_true(
+		_screen.hud.panels.panel.hire_line_text() != MapPlayHirePick.BANK_LINE,
+		"a funded court names its hire again"
+	)
