@@ -2758,15 +2758,133 @@ func test_the_colonies_name_the_gate_a_live_press_would_refuse() -> void:
 	play.diplomacy.relation(faction, second).score = 60.0
 	play.diplomacy.set_overture(faction, second, DiplomacyCatalog.STAGE_NAP)
 	var offered: Dictionary = MapPlayColonyPick.pick(play)
-	assert_eq(String(offered.get("kind", "")), MapPlayColonyPick.KIND_CHAIN)
-	assert_eq(int(offered.get("target", -1)), second)
 	assert_eq(
-		String(offered.get("line", "")),
-		MapPlayColonyPick.chain_line(
-			"the %s" % FactionCatalog.name_of(second),
-			DiplomacyCatalog.STAGE_JOIN_EMPIRE
-		)
+		int(offered.get("target", -1)), second, "the chain the court could take is named"
 	)
+	# The court's one order may be this rung or bound elsewhere; either way the
+	# sheet names this chain and never a second order (DR-20261121-18).
+	var envoy: Dictionary = MapPlayDiplomacyPick.plan(play).get("action", {}) as Dictionary
+	var next_stage: String = DiplomacyCatalog.next_stage(
+		play.diplomacy.overture(faction, second)
+	)
+	if MapPlayColonyPick.envoy_gives(
+		envoy, {"target": second, "stage": next_stage}
+	):
+		assert_eq(String(offered.get("kind", "")), MapPlayColonyPick.KIND_CHAIN)
+		assert_eq(
+			String(offered.get("line", "")),
+			MapPlayColonyPick.chain_line(
+				"the %s" % FactionCatalog.name_of(second), next_stage
+			)
+		)
+	else:
+		assert_eq(
+			String(offered.get("kind", "")), MapPlayColonyPick.KIND_ENVOY,
+			"a link the one order does not take reads the wait it is"
+		)
+		assert_eq(int(offered.get("other", -1)), int(envoy.get("target", -1)))
+
+
+## The court's one order (DR-20261121-18): a link reads as an offer only when the
+## envoy's own order is that rung; otherwise the sheet names the wait and the
+## court the order went to, so THE COLONIES and THE COURT cannot promise two
+## orders in one turn (REQ-P2-03, REQ-P5-05).
+func test_the_colony_chain_waits_behind_the_envoys_one_order() -> void:
+	var tribe: int = _colony_tribe()
+	var name: String = FactionCatalog.name_of(tribe)
+	var ambition: Dictionary = {"target": tribe, "stage": DiplomacyCatalog.STAGE_EMBASSY}
+	# The planner's own rung: the same court at the same stage is the one order.
+	assert_true(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_OVERTURE,
+		"target": tribe,
+		"stage": DiplomacyCatalog.STAGE_EMBASSY,
+	}, ambition), "the chain's own rung is the one order")
+	# Another court, another rung, or another kind of order is not this link.
+	assert_false(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_OVERTURE,
+		"target": _second_tribe(),
+		"stage": DiplomacyCatalog.STAGE_EMBASSY,
+	}, ambition), "an order to another court is not this chain")
+	assert_false(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_OVERTURE,
+		"target": tribe,
+		"stage": DiplomacyCatalog.STAGE_CONSULATE,
+	}, ambition), "another rung of the chain is not this link")
+	assert_false(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_AID, "target": tribe, "stage": "",
+	}, ambition), "a gift to the same court is not this link")
+	assert_false(MapPlayColonyPick.envoy_gives({}, ambition), "no order, no link")
+	# The wait names the court the order went to, in that court's own name.
+	var behind: Dictionary = MapPlayColonyPick.behind(ambition, {
+		"kind": DiplomacyOrders.KIND_WAR, "target": _colony_parent(),
+	})
+	assert_eq(String(behind["kind"]), MapPlayColonyPick.KIND_ENVOY)
+	assert_eq(int(behind["target"]), tribe)
+	assert_eq(int(behind["other"]), _colony_parent())
+	assert_eq(
+		MapPlayPickProse.sentence(String(behind["line"])),
+		"The court's chain with the %s waits this turn — its one order goes to %s."
+		% [name, FactionCatalog.name_of(_colony_parent())]
+	)
+	# A planner that weighed the turn and named nobody still says the wait.
+	var none: Dictionary = MapPlayColonyPick.behind(ambition, {})
+	assert_eq(int(none["other"]), -1)
+	assert_eq(
+		String(none["line"]),
+		"the court's chain with the %s waits this turn — its envoy gives the "
+		% name + "turn no order"
+	)
+	assert_true(MapPlayColonyPick.behind({}, {}).is_empty())
+	assert_eq(MapPlayColonyPick.envoy_line("", 1), "")
+
+
+## Two sheets, one turn: on a live chain the colony line reads the link when the
+## court's one order is that rung, and otherwise names the court that order went
+## to — never a second promise (REQ-P2-03, REQ-P5-05; DR-20261121-18).
+func test_the_colonies_and_the_court_name_one_envoy_order() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var faction: int = play.player_faction
+	var model: MapModel = Fixture.region()
+	var tribe: int = _colony_tribe()
+	var seat: int = Fixture.inland_province(model)
+	var data: ProvinceState = model.province_data(seat)
+	assert_not_null(data, "the fixture names a province to seat")
+	data.owner = tribe
+	play.economy.economy.treasury = 50000
+	play.diplomacy.ensure_relation(faction, tribe, play.turn)
+	play.diplomacy.relation(faction, tribe).score = 60.0
+	# The last link needs no study, so the chain reads a link (or its wait) and
+	# never the door a missing tech owes.
+	play.diplomacy.set_overture(faction, tribe, DiplomacyCatalog.STAGE_NAP)
+	# The reading needs the crown's own planner state, which a boot makes lazily.
+	play.ensure_ai()
+	var action: Dictionary = MapPlayDiplomacyPick.plan(play).get("action", {}) as Dictionary
+	var stage: String = DiplomacyCatalog.next_stage(
+		play.diplomacy.overture(faction, tribe)
+	)
+	var pick: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(int(pick.get("target", -1)), tribe, "the chain is the one read")
+	var said: String = MapPlayPickProse.sentence(String(pick.get("line", "")))
+	if MapPlayColonyPick.envoy_gives(action, {"target": tribe, "stage": stage}):
+		assert_eq(
+			String(pick.get("kind", "")), MapPlayColonyPick.KIND_CHAIN,
+			"the one order is this link"
+		)
+		return
+	assert_eq(
+		String(pick.get("kind", "")), MapPlayColonyPick.KIND_ENVOY,
+		"a link the one order does not take reads the wait it is"
+	)
+	assert_eq(int(pick.get("other", -1)), int(action.get("target", -1)))
+	var other: int = int(action.get("target", -1))
+	if other >= 0:
+		assert_true(
+			said.contains(FactionCatalog.name_of(other)),
+			"the wait names the court the one order went to: " + said
+		)
+	else:
+		assert_true(said.contains("gives the turn no order"), said)
 
 
 ## The sheet prints the reading it is handed and hides it when the reading is
