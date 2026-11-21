@@ -40,19 +40,10 @@ const STORES_LINE: String = (
 	+ "row back"
 )
 
-
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession) -> String:
-	return sentence(String(pick(play).get("line", "")))
-
-
-## `text` as a printed sentence: "the court would run …" → "The court would run …".
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
+	return MapPlayPickProse.sentence(String(pick(play).get("line", "")))
 
 ## The ledger's pick as the PRODUCTION tab prints it: `{kind, runs, line}`, where
 ## `runs` maps recipe id to the units the plan books. Empty when the session runs
@@ -77,7 +68,6 @@ static func pick(play: PlaySession) -> Dictionary:
 		return {}
 	return of(economy, plan_for(play, faction, kind, config, economy))
 
-
 ## The plan the court's own economy pass books for its manufacture: the published
 ## `production_orders` over the crown's ledger and best town, with the chest rows
 ## the pass reads for the same court (REQ-P2-03).
@@ -100,7 +90,6 @@ static func plan_for(
 		kind, config, economy, TownIndustry.best_level(play.world, faction),
 		chest.get("held", {}) as Dictionary
 	)
-
 
 ## The pick, worded off plan data alone: the runs the plan books in the catalogue
 ## order the page prints them, or the gate that leaves every row out. Pure — a
@@ -142,37 +131,18 @@ static func of(economy: PlayerEconomy, plan: Dictionary) -> Dictionary:
 		return {"kind": KIND_HANDS, "runs": {}, "line": HANDS_LINE}
 	return {"kind": KIND_STORES, "runs": {}, "line": STORES_LINE}
 
-
 ## "the court would run Lumber ×2 and Cast Iron ×1 this phase". The outputs come
 ## in the catalogue's own order — the order the page prints its rows in — so the
 ## clause reads down the sheet it answers, and beyond four it counts the rows it
 ## cannot name (`… and 1 more`) so a rich plan stays one line of chrome.
 static func run_line(outputs: Dictionary) -> String:
-	var named: Array[String] = []
-	var hidden: int = 0
+	var parts: Array[String] = []
 	for output: String in CommodityCatalog.MANUFACTURED:
 		if not outputs.has(output):
 			continue
-		if named.size() >= NAMED_LIMIT:
-			# A row left out of the clause, not the units it holds: "and 3 more"
-			# after four named manufactures reads as three more crafts, the way
-			# every other capped line on the sheets counts its items
-			# (LedgerMarket.price_moves_line, CargoRead, RegimentRecord).
-			hidden += 1
-			continue
-		named.append("%s ×%d" % [CommodityCatalog.label(output), int(outputs[output])])
-	if named.is_empty():
+		parts.append("%s ×%d" % [CommodityCatalog.label(output), int(outputs[output])])
+	var joined: String = MapPlayPickProse.capped(parts, NAMED_LIMIT)
+	if joined.is_empty():
 		return ""
-	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
-	if hidden > 0:
-		joined += " and %d more" % hidden
 	return "the court would run %s this phase" % joined
 
-
-## A list read the way prose reads it: "A", "A and B", "A, B and C".
-static func _join(parts: Array[String]) -> String:
-	if parts.is_empty():
-		return ""
-	if parts.size() <= 2:
-		return " and ".join(parts)
-	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[-1]]

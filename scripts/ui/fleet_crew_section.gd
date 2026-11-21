@@ -88,7 +88,7 @@ func _render() -> void:
 	var sortie: Array = _data.get("sortie", [])
 	var count: int = int(_data.get("count", 0))
 	var pick: Dictionary = _data.get("pick", {})
-	var pick_line: String = MapPlayVoyagePickWords.sentence(
+	var pick_line: String = MapPlayPickProse.sentence(
 		String(pick.get("line", ""))
 	)
 	visible = count > 0 or not embark.is_empty() or not land.is_empty() \

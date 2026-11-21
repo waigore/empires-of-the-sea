@@ -79,7 +79,7 @@ static func lines(play: PlaySession) -> Dictionary:
 	for record: DiplomacyRelation in play.diplomacy.relations_of(play.player_faction):
 		var target: int = record.other(play.player_faction)
 		var pick: Dictionary = of(action, chosen, plan_now, target)
-		var line: String = MapPlayDiplomacyPickWords.sentence(
+		var line: String = MapPlayPickProse.sentence(
 			String(pick.get("line", ""))
 		)
 		if not line.is_empty():
@@ -99,7 +99,7 @@ static func pick(play: PlaySession, target: int) -> Dictionary:
 
 ## The court sheet's line for one crown, or "" when there is none to print.
 static func line(play: PlaySession, target: int) -> String:
-	return MapPlayDiplomacyPickWords.sentence(String(pick(play, target).get("line", "")))
+	return MapPlayPickProse.sentence(String(pick(play, target).get("line", "")))
 
 
 ## One crown's reading off the court's plan: the order if the envoy is bound for

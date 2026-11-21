@@ -1865,7 +1865,7 @@ func test_the_production_tab_names_the_plan_the_court_would_run() -> void:
 	assert_false(pick.is_empty(), "the crown's seat answers")
 	assert_eq(
 		body.counsel_text(),
-		MapPlayProductionPick.sentence(String(pick.get("line", ""))),
+		MapPlayPickProse.sentence(String(pick.get("line", ""))),
 		"one reading, the pass's own sentence"
 	)
 	var rows: Dictionary = body.recipe_rows()
@@ -1927,7 +1927,7 @@ func test_the_market_tab_names_the_trade_the_court_would_book() -> void:
 	assert_false(pick.is_empty(), "the crown's seat answers")
 	assert_eq(
 		body.counsel_text(),
-		MapPlayMarketPick.sentence(String(pick.get("line", ""))),
+		MapPlayPickProse.sentence(String(pick.get("line", ""))),
 		"one reading, the pass's own sentence"
 	)
 	assert_eq(
