@@ -42,3 +42,40 @@ static func rotate_line(model: MapModel, province: int) -> String:
 	return "the court would march home to %s to merge with the Home Army" % model.province_name(
 		province
 	)
+
+
+## The order one standard would take, as one clause of the army sheet's line: the
+## verb phrase the pick's own kind and ground give it, to be read after the
+## standard the sheet names (`the Home Army to take the field with 4 regiments`).
+## Empty when the pick names no order this module can say, so the line can never
+## promise a march to nowhere (REQ-P2-03, REQ-P5-06; DR-20261121-14).
+static func order_clause(model: MapModel, pick: Dictionary) -> String:
+	if pick.is_empty():
+		return ""
+	var kind: String = String(pick.get("kind", ""))
+	if kind == MapPlayArmyPick.KIND_SPLIT:
+		var going: int = int(pick.get("regiments", 0))
+		if going <= 0:
+			return ""
+		return "to take the field with %d regiment%s" % [going, "" if going == 1 else "s"]
+	if kind == MapPlayArmyPick.KIND_ROTATE:
+		var home: int = int(pick.get("province", -1))
+		if model == null or home < 0:
+			return ""
+		return "home to %s to merge with the Home Army" % model.province_name(home)
+	if kind != MapPlayArmyPick.KIND_MARCH:
+		return ""
+	var province: int = int(pick.get("province", -1))
+	if model == null or province < 0:
+		return ""
+	var name: String = model.province_name(province)
+	if name.is_empty():
+		return ""
+	match String(pick.get("why", "")):
+		MapPlayArmyPick.WHY_STORM:
+			return "to storm %s" % name
+		MapPlayArmyPick.WHY_RELIEF:
+			return "to throw the host out of %s" % name
+		MapPlayArmyPick.WHY_FRONTIER:
+			return "to advance to %s, the frontier" % name
+	return ""

@@ -24,19 +24,19 @@
   citation weight; DEF/9; ratio bands; elimination precedes a flip; mutual ruin
   restores `ceil(20%)` infantry.
 - **Condition** (`RegimentCondition`, DR-20261110-19): health (`60 + 10 × DEF`)
-  and chevrons; a break mauls survivors, wounds never destroy alone, winners gain
-  a chevron.
+  and chevrons; a break mauls survivors, winners gain a chevron.
 - **Titles** (`RegimentNames`, `RegimentRecord`, DR-20261111-18): one title per
   army, kept through split/merge; the dossier renames it (DR-20261113-05).
 - **Colours** (`RegimentRecord`, `RegimentDecorations`, DR-20261112-02/-10,
   DR-20261113-04): winners take the province once; a survivor keeps its newest
   eight despatch fields, a mauled win being a **citation** (`cited` +5%,
   `laurelled` +10%); decorated colours lead and fall last.
-- **The crown's army** (`ArmyLedger`, DR-20261116-16): the muster roll reads
-  every regiment, standard by standard.
-- **The court's pick** (`MapPlayArmyPick`, DR-20261120-10): the dossier prints,
-  in gold, the order the land policy would give — split, storm, relief,
-  frontier, road home. A reading; nothing moves.
+- **The crown's army** (`ArmyLedger`, DR-20261116-16): every regiment,
+  standard by standard.
+- **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
+  DR-20261121-14): the dossier prints the policy's order for its standard —
+  split, storm, relief, frontier, road home — and THE CROWN'S ARMY every
+  standard's, or the gate when none is given. A reading.
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03): the muster
   block prints, in gold, the line the published muster would raise, or the
   target, purse, stores or gate that holds it. A reading; nothing is spent.
@@ -45,9 +45,8 @@
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on the
   town tile; rest 40%/55%, wear 80%/65%; rivals raise them (DR-20261111-16).
   Wards eat 2 food a level; unfed they rest at 25% (DR-20261112-04).
-- **Re-equipping** (`RegimentUpgrades`): each crown's regiments take the newest
-  same-category type its techs unlock; Minors follow the leading power; Tribes
-  stay level 1.
+- **Re-equipping** (`RegimentUpgrades`): the newest same-category type its
+  techs unlock; Minors follow the leading power, Tribes stay level 1.
 - **Attack price** (`ArmyAttackCost`): 100 ducats per attacker, ×0.75 Machinery,
   ×0.85 Military Funding.
 - **Quick Battle** (`QuickBattle`): three rounds, 3 CP/side, three stances;
