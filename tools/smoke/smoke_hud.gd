@@ -16,6 +16,7 @@ static func step(run) -> void:
 	_audio(run, screen)
 	await _province(run, screen)
 	await _production(run, screen)
+	await _market(run, screen)
 
 
 ## The estates door on the cartouche opens the crown's works ledger (REQ-P1-07).
@@ -174,5 +175,32 @@ static func _production(run, screen: MapScreen) -> void:
 	run.check(
 		screen.economy.economy.production.assignments().size() == set_before,
 		"the plan reading sets nothing"
+	)
+	screen.hud.panels.hide_economy()
+
+
+## The ledger's MARKET tab names the trade the crown's own market pass would
+## book this phase, in the tab's gold line above the orders it answers — and
+## stages nothing (wiki: world-market § Trade orders; DR-20261121-09).
+static func _market(run, screen: MapScreen) -> void:
+	var orders_before: int = screen.economy.market.book.orders_for(
+		screen.player_faction
+	).size()
+	screen.economy.open_panel()
+	await run.tree.process_frame
+	var page: LedgerMarket = (
+		screen.hud.panels.economy_panel.page_body(EconomyPanel.TAB_MARKET)
+		as LedgerMarket
+	)
+	run.check(page != null, "the MARKET tab stands")
+	if page != null:
+		run.check(
+			not page.counsel_text().is_empty(),
+			"the ledger names the trade the court would book"
+		)
+	run.check(
+		screen.economy.market.book.orders_for(screen.player_faction).size()
+		== orders_before,
+		"the trade reading stages nothing"
 	)
 	screen.hud.panels.hide_economy()

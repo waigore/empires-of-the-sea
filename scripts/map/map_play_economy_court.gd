@@ -108,6 +108,10 @@ func plan_turn() -> void:
 	cargo = MapPlayCargoAi.run(play, faction, economy, overseas)
 	_note_larder()
 	rehearse()
+	# The college's book is the pass's own: the research planner writes the
+	# research state (its slots, the revealed set, a refund), so a sheet that
+	# only names the plan may not take it (DR-20261121-09).
+	research = MapPlayEconomyCourtBook.research(self)
 	trade = MapPlayEconomyCourtBook.trade(self)
 
 
@@ -170,7 +174,6 @@ func rehearse() -> void:
 		kind != AiControl.KIND_BASELINE
 		and AiIncome.banking(config, play.ai, income)
 	)
-	research = MapPlayEconomyCourtBook.research(self)
 	boost = MapPlaySpyAi.research_bonus(play, faction, economy)
 	hospitals = HospitalRules.demand_list(play.world, faction)
 	# The works a crew will start this turn are planned against the ledger

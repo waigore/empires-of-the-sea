@@ -4467,6 +4467,19 @@ suites = [
   "test_market_economy_rules.gd",
 ]
 
+# The market tab's own plan (DR-20261121-09): the offers and bids the published
+# market pass would book, read through the plan `trade` stages. Its suite is the
+# economy rules', where the pick is proved off plan data alone, so it names its
+# own domain instead of pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_market_pick*.gd*"
+domain = "market_pick"
+
+[domains.market_pick]
+suites = [
+  "test_market_economy_rules.gd",
+]
+
 [[rules]]
 match = "tests/test_*.gd"
 full = true

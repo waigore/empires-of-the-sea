@@ -72,7 +72,8 @@ Prices publish once; pact, boycott, subsidy settle
 strip); steppers capped by labour/inputs (`allowance`), a worked row names its
 output (`made 3`), court runs in gold (`MapPlayProductionPick`, DR-20261121-07).
 `MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, a `CROSSING`
-line (`CargoRead`), a **batch press** (`MarketBatch`), a dead `Bid`
+line (`CargoRead`), the court's own trade in gold (`MapPlayMarketPick`,
+DR-20261121-09), a **batch press** (`MarketBatch`), a dead `Bid`
 (`MarketRules.bid_block`, DR-20261118-15), a barred colony row
 (`MinorMarket.sealed_line`), the share's own fills (`share_rows`).
 `WORKERS`: tier medallions, `RECRUIT`, `DISBAND`, a **batch press**
@@ -93,7 +94,8 @@ Live: workshop landing (`ground_appetite`, DR-19-05); see
 `commodity_catalog`, `world_market`, `market_*`, `first_right`,
 `market_favoured`, `town_industry`, `minor_market`, `ui/ledger_*`,
 `economy/economy_controller`, `economy/ledger_readings`,
-`economy/ledger_orders`, `map/map_play_market`, `map/map_play_production_pick`.
+`economy/ledger_orders`, `map/map_play_market`, `map/map_play_production_pick`,
+`map/map_play_market_pick`.
 
 ## Tests
 
