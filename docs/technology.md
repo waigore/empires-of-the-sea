@@ -1,6 +1,6 @@
 # Technology and research
 
-Research turns gold into advances: caps, re-equipping, cheaper attacks.
+Research turns gold into advances: caps, upgrades, cheaper attacks.
 **Pillars:** P2, P3, P4.
 
 **Wiki:** [tech-tree](https://github.com/waigore/empires-of-the-sea/wiki/tech-tree),
@@ -18,7 +18,7 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
 - **Funding:** presets pay 0/50/150/400/1000 ducats for 0/100/300/800/2500 RP;
   unpaid slots earn nothing. **One press** (`ResearchBatch`, DR-20261118-26)
   files every study at the face's preset, priced first; line and receipt name
-  the studies the purse cannot pay (DR-20261119-01).
+  what the purse cannot pay (DR-20261119-01).
 - **Treasury floor:** Money Lending −500; Banking with it −1000.
 - **Bonuses:** Industrial Funding +20% (floored) for military and naval techs;
   spies +15% per shadowed court (`SpyNetworks`).
@@ -27,11 +27,11 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
 - **Extraction caps:** `min(improvement, tech cap, terrain, path transport,
   town cap)`; horses 1, wool 3.
 - **Unlocks and upgrades:** `TechUnlocks` opens every build order and each
-  military tech's upgrade price; `RegimentUpgrades` re-equips a regiment to the
-  newest type its techs open (minors follow).
+  military upgrade price; `RegimentUpgrades` re-equips a regiment to the newest
+  type its techs open (minors follow).
 - **Attack price:** 100 ducats a Great Power land battle (`ArmyAttackCost`);
-  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding, and a charter
-  holder's interception and raids rise 25%.
+  ×0.75 Industrial Machinery, ×0.85 Modern Military Funding; a charter's
+  interception and raids rise 25%.
 - **Transport:** road 2 needs Road Construction; rail needs Early Steam
   (flat), Later Steam (hills, swamps), Dynamite (mountains).
 - **Rivals:** AI courts fill slots via `ResearchTurn`; a court at its floor
@@ -40,19 +40,18 @@ Research turns gold into advances: caps, re-equipping, cheaper attacks.
   DR-20261111-21).
 - **UI:** `RESEARCH` opens the college: goal strip, slots, the one press,
   AVAILABLE/KNOWN tabs, a tech-tree door. Slots show ducats and a gauge
-  (`ResearchBar`); every advance prints what it opens
-  (`TechCatalog.payoff_text`); touch never hovers. The tree lays advances by
-  depth (`TechTreeLayout`).
+  (`ResearchBar`); advances print what they open (`TechCatalog.payoff_text`);
+  touch never hovers; the tree lays advances by depth (`TechTreeLayout`).
 - **Phone sheet (DR-20261120-03):** the college budgets its plate; the window
   yields (`ResearchSheetFit`).
-- **The court's pick (DR-20261121-01):** idle slot prints in gold the study
-  policy would open (`MapPlayResearchPick`,
-  `AiResearchPlanner.read_free_slot`); an unfundable door is not named
+- **Court's picks (DR-20261121-01, DR-20261121-20):** the idle slot prints in
+  gold the study policy would open (`MapPlayResearchPick`); the chart prints
+  the same line and marks the advance `▸`; an unfundable door is not named
   (`#484`); nothing assigned or spent.
 
 ## Deferred (REQ-P2-02)
 
-No rule is deferred; gaps: [`deferred.md`](deferred.md).
+No rule deferred; gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 
@@ -73,9 +72,9 @@ No rule is deferred; gaps: [`deferred.md`](deferred.md).
 | `scripts/ui/research_row.gd`, `research_slot_row.gd`, `research_bar.gd` | rows, spend, gauge |
 | `scripts/ui/tech_icons.gd` | tech → medallion |
 
-Rules stay node-free (`REQ-P3-03`); the panel emits intents.
+Rules stay node-free (`REQ-P3-03`); panels emit intents.
 
 ## Tests
 
-`test_research_rules`, plus `test_improvement_system`,
+`test_research_rules`, `test_improvement_system`,
 `test_army_field_rules`, `test_battle_rules`.
