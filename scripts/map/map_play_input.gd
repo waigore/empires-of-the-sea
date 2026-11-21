@@ -108,13 +108,13 @@ static func select_province(play: PlaySession, province_id: int, world_position:
 	play.hud.panels.panel.set_hire_line(
 		MapPlayHirePick.line(play) if at_capital else ""
 	)
-	play.emit_province_selected(province_id)
+	play.screen.emit_province_selected(province_id)
 
 
 static func deselect(play: PlaySession) -> void:
 	play.selected_province = -1
 	play.overlay.select_province(-1)
-	play.emit_selection_cleared()
+	play.screen.emit_selection_cleared()
 	play.ship_layer.deselect()
 	play.civilian_layer.deselect()
 	play.army_layer.deselect()
@@ -191,7 +191,7 @@ static func update_hover(play: PlaySession, screen_position: Vector2 = Vector2.I
 	if play.camera.is_dragging():
 		clear_hover(play)
 		return
-	var view: Viewport = play.viewport()
+	var view: Viewport = play.screen.viewport()
 	if view != null and _over_gui(view):
 		clear_hover(play)
 		return

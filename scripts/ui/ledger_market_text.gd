@@ -214,6 +214,61 @@ static func bid_budget_color(budget: Dictionary) -> Color:
 	return Palette.GOLD_PALE if int(budget.get("budget", 0)) <= 0 else Palette.TEXT
 
 
+## The clearing's price pass in one line: the goods that moved and the price they
+## now stand at, so a turn's new market is read and never a silent change (wiki:
+## world-market § Price discovery; REQ-P5-05). Empty when no price moved.
+static func price_moves_line(report: Dictionary, limit: int = 4) -> String:
+	var moved: Dictionary = report.get("prices", {}) as Dictionary
+	if moved.is_empty():
+		return ""
+	var ids: Array[String] = []
+	for raw: Variant in moved.keys():
+		ids.append(String(raw))
+	ids.sort()
+	var parts: PackedStringArray = []
+	for index in mini(ids.size(), limit):
+		var id: String = ids[index]
+		parts.append("%s %d" % [CommodityCatalog.label(id), int(moved[id])])
+	var text: String = "Prices moved: " + "  ·  ".join(parts)
+	if ids.size() > limit:
+		text += "  ·  +%d more" % (ids.size() - limit)
+	return text + "."
+
+
+## One plain sentence for the court's trade diplomacy, so an adjusted price is
+## never a mystery (wiki: world-market § FTP; REQ-P2-03). Empty when the market
+## carries no terms for this viewer.
+static func terms_line(market: WorldMarket, viewer: int) -> String:
+	if market == null:
+		return ""
+	var terms: Dictionary = market.terms_for(viewer)
+	if terms.is_empty():
+		return ""
+	var buy: Dictionary = terms.get("buy", {})
+	var sell: Dictionary = terms.get("sell", {})
+	var buy_rate: float = float(buy.get("*", 1.0))
+	var sell_rate: float = float(sell.get("*", 1.0))
+	var text: String = "Trade terms: imports at %d%% and exports at %d%% of the world price." % [
+		roundi(buy_rate * 100.0), roundi(sell_rate * 100.0)
+	]
+	var subsidy: int = MarketRules.subsidy_rate_paid(market, viewer)
+	if subsidy > 0:
+		text += " Subsidy %d%%: a subsidised court's goods cost us more, ours earn less." % subsidy
+	# A boycotted crown's rate is worse for a reason a price never states: name
+	# the bar, and the closed rows the plate prints under each colony (wiki:
+	# diplomacy § GP–Tribe — Boycott, R6).
+	var issuers: PackedStringArray = []
+	for raw: Variant in MinorMarket.sealed_for(market, viewer).values():
+		var name: String = FactionCatalog.name_of(int(raw))
+		if not issuers.has(name):
+			issuers.append(name)
+	if not issuers.is_empty():
+		text += " Boycotted by %s: no deal of ours clears with its colonies." % (
+			", ".join(issuers)
+		)
+	return text
+
+
 ## One-line market clearing report for the turn toast: the crown's fills and
 ## any carried or dropped orders (wiki: world-market § Trade orders). A sale
 ## names the ducats it paid, and the overseas share is named too: the auction

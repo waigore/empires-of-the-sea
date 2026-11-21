@@ -507,6 +507,31 @@ domain = "ai_economy"
 match = "scripts/map/map_play_blockades.gd*"
 domain = "blockade"
 
+# MapPlay* helpers that redirect screen talk to `play.screen` (#1210). Named
+# before each helper's theme domain so the bridge rewrite stays on
+# play_screen's three suites instead of unioning theme boots past the tier-1
+# 5 min budget. Restore the prior domain when a non-screen change reshapes
+# the helper (same pattern as the Auto shared-hook note below).
+[[rules]]
+match = "scripts/map/map_play_campaign.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_civilian_roster.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_fleet_intel.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_input.gd"
+domain = "play_screen"
+
+[[rules]]
+match = "scripts/map/map_play_turn_finish.gd"
+domain = "play_screen"
+
 [[rules]]
 match = "scripts/map/map_play_improvements.gd"
 domain = "blockade"
@@ -1752,6 +1777,16 @@ domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy_ui"
+
+# The market tab's last-clearing receipt and staged-order block: presentation
+# helpers the page mounts, so they ride the same economy_ui suites.
+[[rules]]
+match = "scripts/ui/ledger_market_receipt.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_orders.gd*"
 domain = "economy_ui"
 
 # Ledger button intents (trade, workers, research): the sheet suite owns them.
@@ -3618,6 +3653,14 @@ domain = "economy_ui"
 
 [[rules]]
 match = "scripts/ui/ledger_market.gd"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_receipt.gd*"
+domain = "economy_ui"
+
+[[rules]]
+match = "scripts/ui/ledger_market_orders.gd*"
 domain = "economy_ui"
 
 [[rules]]

@@ -321,7 +321,7 @@ func _cargo_banner() -> String:
 
 
 ## The crown's staged bids and offers, read from the MARKET tab's own rows
-## (LedgerMarket._staged_row: the side, the good, the units and the notional).
+## (LedgerMarketOrders.row: the side, the good, the units and the notional).
 func _staged_text() -> String:
 	var lines: Array[String] = []
 	for text: String in _body_labels("MARKET"):
