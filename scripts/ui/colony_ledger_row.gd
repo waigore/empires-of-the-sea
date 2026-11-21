@@ -6,9 +6,9 @@ extends LedgerRow
 ## — [ColonyLedger] owns every figure.
 ##
 ## The row visits the colony's own capital province (a Tribe keeps its land, so
-## its seat is a place on the chart) and is a tap target for it, so a phone needs
-## no hover (REQ-P5-01, REQ-P5-04). The skeleton, the chip and the Visit door are
-## LedgerRow's.
+## its seat is a place on the chart) with a thumb-sized Visit seal, so a phone
+## needs no hover (REQ-P5-01, REQ-P5-04). The skeleton, the chip and the Visit
+## seal are LedgerRow's.
 
 signal visit_pressed(region: int, province_id: int)
 

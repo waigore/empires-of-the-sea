@@ -5,8 +5,8 @@ extends LedgerRow
 ## map and dossier (wiki: military-armies § The regiments behind an army;
 ## DR-20261116-16). A regiment's orders are its standard's, so the row prints
 ## what is the regiment's own and the sheet headings carry the standing. The
-## skeleton, the tap and the Visit door come from LedgerRow; so do the two-line
-## state column and the place line every force row wears.
+## skeleton and the Visit seal come from LedgerRow; so do the two-line state
+## column and the place line every force row wears.
 
 signal visit_pressed(region: int, army_id: int)
 

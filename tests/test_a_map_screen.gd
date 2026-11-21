@@ -2944,11 +2944,16 @@ func test_the_roster_filters_the_new_world_and_visits_its_civilian() -> void:
 		_screen.world.region(1).province_at(tile.x, tile.y)
 	))
 
-	var tap := InputEventMouseButton.new()
-	tap.pressed = true
-	tap.button_index = MOUSE_BUTTON_LEFT
-	row._gui_input(tap)
-	assert_false(roster.is_open(), "a tap on the row visits the civilian")
+	# The Visit seal is the row's only door: icon-only, thumb-sized, tooltipped.
+	assert_eq(row._visit.text, "", "the seal prints no caption")
+	assert_not_null(row._visit.icon, "the seal wears a medallion glyph")
+	assert_eq(row._visit.custom_minimum_size, CloseSeal.SIZE, "the seal keeps a thumb floor")
+	assert_true(
+		String(row._visit.tooltip_text).begins_with("Open "),
+		"the seal names the unit in its tooltip"
+	)
+	row._visit.pressed.emit()
+	assert_false(roster.is_open(), "the seal visits the civilian")
 	assert_eq(_screen.region_index, FactionCatalog.NEW_WORLD)
 	assert_eq(_screen.civilian_layer.selected_unit, unit)
 	assert_true(_screen.hud.panels.is_civilian_panel_open())
