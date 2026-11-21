@@ -105,6 +105,12 @@ tools/run.sh scenes/battle_sim.tscn
 # crowns falling on one province in a single turn (plates, standards, court news).
 godot --headless --path . --script res://playtests/playtest_combat_chain.gd
 
+# Routed host — a beaten attacker that keeps men stands on the enemy's ground:
+# the despatch, the place line and hint a crown reads there, the tap list that
+# holds no own province, the refusal a home march hears, and the walk home one
+# province at a time beside the one-march road a bordered host has.
+godot --headless --path . --script res://playtests/playtest_routed_host.gd
+
 # Espionage — opens a turn-100 advanced start, despatches a spy across a border,
 # ends a real turn and prints the dossier, the presence reveal, the despatch the
 # court keeps, the research share it earns, and the counter-espionage screen.
