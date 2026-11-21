@@ -3948,6 +3948,21 @@ domain = "unit_art"
 match = "scripts/ui/army_panel.gd*"
 domain = "ui"
 
+# Status / strength prose and order presses split out of ArmyPanel: dossier
+# presentation only. Keep them on army_orders so a wording change proves the
+# stranded / hospital / dismiss lines without the full army/battle boot.
+[[rules]]
+match = "scripts/ui/army_panel_status.gd*"
+domain = "army_orders"
+
+[[rules]]
+match = "scripts/ui/army_panel_strength.gd*"
+domain = "army_orders"
+
+[[rules]]
+match = "scripts/ui/army_panel_orders.gd*"
+domain = "army_orders"
+
 # Roster and muster blocks are dossier presentation, not army rules: keep them
 # on ui so a row change does not pull the army domain past the tier-1 budget.
 [[rules]]
