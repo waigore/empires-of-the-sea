@@ -27,8 +27,8 @@ static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
 	# her, and so does the sheet (wiki: ships-and-naval § Missions and Movement).
 	if fleet.moved or play.campaign_over():
 		return {}
-	var region: int = _region_of(play, fleet)
-	var model: MapModel = _model_of(play, region)
+	var region: int = region_of(play, fleet)
+	var model: MapModel = model_of(play, region)
 	if model == null:
 		return {}
 	var kind: String = AiControl.court_kind(play, fleet.owner)
@@ -76,7 +76,7 @@ static func _words(model: MapModel, order: Dictionary) -> Dictionary:
 
 ## The chart this squadron sails on: the layer's live roster when she is drawn
 ## there, else the region table that stores her (the muster roll's own read).
-static func _region_of(play: PlaySession, fleet: FleetState) -> int:
+static func region_of(play: PlaySession, fleet: FleetState) -> int:
 	var layer: ShipLayer = play.ship_layer
 	if layer.model != null and layer.fleets.has(fleet):
 		return layer.model.region_id
@@ -90,7 +90,7 @@ static func _region_of(play: PlaySession, fleet: FleetState) -> int:
 
 ## The model of one region: the chart on screen when it is that region, else the
 ## world's own. Null when neither holds it, so no pick is worded off a wrong map.
-static func _model_of(play: PlaySession, region: int) -> MapModel:
+static func model_of(play: PlaySession, region: int) -> MapModel:
 	if region < 0:
 		return null
 	if play.model != null and play.model.region_id == region:
