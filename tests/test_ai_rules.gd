@@ -2661,14 +2661,14 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 	var model: MapModel = CivilianFixture.build()
 	var works := LandWorks.new()
 	var context: Dictionary = _civilian_context()
-	var floors: Dictionary = AiCivilianHire.staff_targets(
+	var floors: Dictionary = AiCivilianTargets.staff_targets(
 		config, null, null, [], {}, {}, context
 	)
 	assert_eq(int(floors["builder"]), 2)
 	assert_eq(int(floors["engineer"]), config.parameter("civilian.engineer_target"))
 	assert_eq(int(floors["explorer"]), config.parameter("civilian.explorer_target"))
 	context["muster_port"] = CivilianFixture.COAST_TILE
-	var with_voyage: Dictionary = AiCivilianHire.staff_targets(
+	var with_voyage: Dictionary = AiCivilianTargets.staff_targets(
 		config, model, works, [], CivilianFixture.stockpile(), {}, context
 	)
 	assert_true(
@@ -2699,45 +2699,45 @@ func test_ai_civilian_staff_targets_follow_the_regions_work() -> void:
 ## published targets exactly.
 func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
 	var context: Dictionary = _civilian_context()
-	var own: Dictionary = AiCivilianHire.region_targets(
+	var own: Dictionary = AiCivilianTargets.region_targets(
 		AiConfig.new(), null, null, [], {}, {}, context
 	)
 	var fortifier: AiConfig = AiConfig.build(2, 1500)
-	var napoleon: Dictionary = AiCivilianHire.staff_targets(
+	var napoleon: Dictionary = AiCivilianTargets.staff_targets(
 		fortifier, null, null, [], {}, {}, context
 	)
 	assert_eq(int(napoleon["engineer"]), int(own["engineer"]) + 1)
 	assert_eq(int(napoleon["builder"]), int(own["builder"]))
 	assert_eq(AiStaffTaste.note(fortifier), "the fortifier's taste")
-	var explorer: Dictionary = AiCivilianHire.staff_targets(
+	var explorer: Dictionary = AiCivilianTargets.staff_targets(
 		AiConfig.build(0, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(explorer["explorer"]), int(own["explorer"]) + 1)
 	assert_eq(int(explorer["builder"]), int(own["builder"]))
-	var trader: Dictionary = AiCivilianHire.staff_targets(
+	var trader: Dictionary = AiCivilianTargets.staff_targets(
 		AiConfig.build(1, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(trader["builder"]), int(own["builder"]) + 1)
 	# A merchant is only wanted when a deed door is open, so the trader's crew
 	# waits on the door rather than hiring a merchant with nowhere to walk.
 	var ruyter: AiConfig = AiConfig.build(4, 1500)
-	var no_deed: Dictionary = AiCivilianHire.staff_targets(
+	var no_deed: Dictionary = AiCivilianTargets.staff_targets(
 		ruyter, null, null, [], {}, {}, context
 	)
 	assert_eq(int(no_deed["merchant"]), 0)
 	var deed: Dictionary = _civilian_context()
 	deed["merchant_targets"] = 1
 	assert_eq(
-		int(AiCivilianHire.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
+		int(AiCivilianTargets.staff_targets(ruyter, null, null, [], {}, {}, deed)["merchant"]),
 		2,
 	)
-	var tactician: Dictionary = AiCivilianHire.staff_targets(
+	var tactician: Dictionary = AiCivilianTargets.staff_targets(
 		AiConfig.build(5, 1500), null, null, [], {}, {}, context
 	)
 	assert_eq(int(tactician["spy"]), int(own["spy"]) + 1)
 	var no_archetype := AiConfig.new()
 	no_archetype.faction = 0
-	var plain: Dictionary = AiCivilianHire.staff_targets(
+	var plain: Dictionary = AiCivilianTargets.staff_targets(
 		no_archetype, null, null, [], {}, {}, context
 	)
 	for type_id: String in AiStaffTaste.TYPES:
@@ -2754,7 +2754,7 @@ func test_ai_civilian_taste_keeps_the_archetypes_own_crew() -> void:
 func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
 	var context: Dictionary = _civilian_context()
 	var fortifier: AiConfig = AiConfig.build(2, 1500)
-	var own: Dictionary = AiCivilianHire.region_targets(
+	var own: Dictionary = AiCivilianTargets.region_targets(
 		fortifier, null, null, [], {}, {}, context
 	)
 	var met: Array[CivilianState] = []
@@ -2764,7 +2764,7 @@ func test_ai_civilian_taste_crew_is_hired_at_the_maps_target() -> void:
 				met.size() + 1, fortifier.faction, type_id, CivilianFixture.BARE_TILE
 			))
 	context["own_targets"] = own
-	context["staff_targets"] = AiCivilianHire.staff_targets(
+	context["staff_targets"] = AiCivilianTargets.staff_targets(
 		fortifier, null, null, met, {}, {}, _civilian_context()
 	)
 	var order: Dictionary = AiCivilianHire.training_order(fortifier, met, context)
