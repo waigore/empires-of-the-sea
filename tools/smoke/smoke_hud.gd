@@ -15,6 +15,7 @@ static func step(run) -> void:
 	await _people(run, screen)
 	await _navy(run, screen)
 	await _army(run, screen)
+	await _muster(run, screen)
 	await _colonies(run, screen)
 	await _court(run, screen)
 	_audio(run, screen)
@@ -152,6 +153,36 @@ static func _army(run, screen: MapScreen) -> void:
 	)
 	run.check(_army_orders(screen) == before, "the army's reading orders nothing")
 	army.close()
+
+
+## THE CROWN'S MUSTER names the orders the court's own staff would give every
+## force this turn — both the army's standards and the navy's squadrons in one
+## gold line under the chips — and moves nothing (wiki: military-armies § The
+## muster roll; DR-20261121-17).
+static func _muster(run, screen: MapScreen) -> void:
+	var before: Array = _army_orders(screen)
+	before.append_array(_fleet_orders(screen))
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	await run.tree.process_frame
+	var muster: ForceLedgerPanel = screen.hud.muster_roll
+	run.check(muster != null and muster.is_open(), "the muster roll opens")
+	if muster == null:
+		return
+	var counsel: String = muster.counsel_text()
+	run.check(
+		counsel.is_empty()
+		or counsel.begins_with("The court would send ")
+		or counsel == MapPlayPickProse.sentence(MapPlayForceCounsel.NO_ORDER_LINE),
+		"the muster names the orders the court would give"
+	)
+	run.check(
+		muster._counsel.visible == not counsel.is_empty(),
+		"the muster's counsel stands with its reading"
+	)
+	var after: Array = _army_orders(screen)
+	after.append_array(_fleet_orders(screen))
+	run.check(after == before, "the muster's reading orders nothing")
+	muster.close()
 
 
 ## THE COLONIES names the Tribe the court's own envoy is drawing into the empire

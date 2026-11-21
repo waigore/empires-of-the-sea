@@ -35,16 +35,16 @@
 - **The crown's army** (`ArmyLedger`, DR-20261116-16): the muster roll reads
   every regiment, standard by standard.
 - **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
-  DR-20261121-14): the dossier prints its standard's order — split, storm,
-  relief, frontier, road home — and THE CROWN'S ARMY every standard's, or the
-  gate when none is given. A reading.
+  DR-20261121-14; `MapPlayForceCounsel`, DR-20261121-17): the standard's order —
+  split, storm, relief, frontier, road home — prints on its dossier, on THE CROWN'S
+  ARMY and on the muster roll, or the gate when none is given. A reading.
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03): the muster
   block prints, in gold, the line the published muster would raise, or the
   target, purse, stores or gate that holds it. A reading; nothing is spent.
-- **Named commanders** (`GeneralNames`, DR-20261112-03): a crown-pool name per
-  general, saved.
+- **Named commanders** (`GeneralNames`, DR-20261112-03): one crown-pool name
+  each, saved.
 - **Hospitals** (`HospitalRules`, DR-20261111-12): Field/General (L1–2) on the
-  town tile; rest 40%/55%, wear 80%/65%; rivals raise them (DR-20261111-16).
+  town tile; rest 40%/55%, wear 80%/65%.
   Wards eat 2 food a level; unfed they rest at 25% (DR-20261112-04).
 - **Re-equipping** (`RegimentUpgrades`): the newest same-category type its
   techs unlock; Minors follow the leading power, Tribes stay level 1.
