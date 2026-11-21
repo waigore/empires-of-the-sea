@@ -103,9 +103,14 @@ static func step(
 	civilians.assign(play.civilian_layer.regions.value(region, []))
 	# A court on a war footing keeps its hulls for the fleet: the posture closes
 	# the voyage before the planner picks a step (DR-20261113-15) — unless the
-	# court is on **earn**, whose gold is overseas (DR-20261113-19).
+	# court is on **earn**, whose gold is overseas (DR-20261113-19). The goal is
+	# only read where it can matter (`AiColonisationPlanner.plan` asks it beside
+	# the posture gate and nowhere else), so a footing that opens the voyage pays
+	# for no income plan at all (REQ-P4-01).
 	var posture: String = AiBind.phase_for(kind, config, play.diplomacy)
-	var earning: bool = MapPlaySeaStep.earning(play, faction, kind, config)
+	var earning: bool = false
+	if not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_VOYAGE):
+		earning = MapPlaySeaStep.earning(play, faction, kind, config)
 	var target: int = WorldMap.NEW_WORLD if region == WorldMap.OLD_WORLD else WorldMap.OLD_WORLD
 	return AiBindCampaign.colonisation_plan(
 		kind, config, play.world, region, model, fleets, civilians,
