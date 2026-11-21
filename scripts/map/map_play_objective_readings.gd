@@ -86,6 +86,10 @@ static func _force(
 		"muster_floor": muster_floor,
 		"muster_due": muster_floor > 0,
 		"muster_row": AiArmyReinforce.muster_reserve(config, economy, regiments, at_war),
+		# Why a court standing under its target prices no muster row: the gate
+		# the muster's own rules name (labour floor, no pattern its techs open),
+		# so a silent absence cannot hide the starvation again (issue #1143).
+		"muster_gate": AiArmyReinforce.absent_reason(config, economy, regiments, at_war),
 		"escalations": AiDeferral.escalated(
 			records, maxi(config.parameter("ledger.escalate_turns"), 1)
 		),
@@ -96,9 +100,13 @@ static func _force(
 
 
 ## The navy: the hull the court means to lay, its price and its material row,
-## and the hostile sail it must answer (issue #484).
+## and the hostile sail it must answer (issue #484). `warship_open` is the gate
+## the ledger funds on — a hull the court's techs open, or one it already flies —
+## and `warship_refusal` is the yard's own words for the hull it would lay
+## today, so a claim the yard cannot fill reads why in the trace (issue #1126).
 static func _navy(economy: PlayerEconomy, host: Dictionary) -> Dictionary:
 	var flown: Array[String] = host["flown"]
+	var laying: Dictionary = AiNavy.laying(economy, flown)
 	return {
 		"ships": int(host["ships"]),
 		"warships": int(host["warships"]),
@@ -113,6 +121,13 @@ static func _navy(economy: PlayerEconomy, host: Dictionary) -> Dictionary:
 				AiNavy.saving_type(economy, flown), economy.tech_unlocked, flown
 			)
 		),
+		# The yard's own gate on the hull it would lay down today: the reason a
+		# funded claim still cannot launch (issue #1126).
+		"warship_refusal": String(laying.get("reason", "")),
+		# The free hands the slip would take one of at launch (wiki:
+		# ships-and-naval § Ship muster): the ledger funds no hull the court
+		# cannot crew (issue #1126).
+		"warship_hands": economy.available_peasants() if economy != null else 0,
 		"navy_due": int(host["hull_chest"]) > 0,
 		"hostile_ships": int(host["hostile_ships"]),
 		"hostile_warships": int(host["hostile_warships"]),

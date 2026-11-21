@@ -16,6 +16,8 @@ const WASH_ALPHA: float = 0.70
 const VEIL_ALPHA: float = 0.62
 
 var state: DiplomacyState = null
+## The reading's wash, baked when the projection is rebuilt — never per frame.
+var _wash: WashBake = null
 
 
 ## Recomputes the projection. Called on region load, after diplomacy changes
@@ -40,6 +42,10 @@ func watch(fog: MapOverlay) -> void:
 
 func refresh() -> void:
 	survey = DiplomacySurvey.snapshot(model, state, faction, visibility)
+	_wash = WashBake.of(
+		survey.get("runs", {}), DiplomacySurvey.BANDS, Palette.diplo_color,
+		WASH_ALPHA, VEIL_ALPHA, TILE_SIZE
+	)
 	queue_redraw()
 
 
@@ -53,8 +59,5 @@ func _summary_of(entry: Dictionary) -> String:
 func _draw() -> void:
 	if not _visible():
 		return
-	var runs: Dictionary = survey.get("runs", {})
-	LensSlip.wash(
-		self, _reveal, runs, DiplomacySurvey.BANDS, Palette.diplo_color,
-		WASH_ALPHA, VEIL_ALPHA, TILE_SIZE
-	)
+	if _wash != null:
+		_wash.draw(self, _reveal)

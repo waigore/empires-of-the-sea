@@ -295,9 +295,7 @@ func _book_every_slot(funding: String = "maximum") -> int:
 			break
 		assign.emit_signal("pressed")
 		await process_frame
-	for row: Node in panel.find_children("*", "HBoxContainer", true, false):
-		if not (row is ResearchSlotRow):
-			continue
+	for row: ResearchSlotRow in panel.slot_rows():
 		var button: Button = _funding_button(row)
 		var guard: int = 0
 		while button != null and button.text != ResearchFunding.label(funding) and guard < 6:
@@ -371,9 +369,7 @@ func _college_summary(panel: ResearchPanel) -> String:
 ## next-turn line with the tooltip behind it.
 func _slot_lines(panel: ResearchPanel) -> Array[String]:
 	var out: Array[String] = []
-	for row: Node in panel.find_children("*", "HBoxContainer", true, false):
-		if not (row is ResearchSlotRow):
-			continue
+	for row: ResearchSlotRow in panel.slot_rows():
 		var labels: PackedStringArray = PackedStringArray()
 		_collect(row, labels)
 		if labels.is_empty():
@@ -393,9 +389,7 @@ func _slot_lines(panel: ResearchPanel) -> Array[String]:
 
 func _unpaid_lines(panel: ResearchPanel) -> Array[String]:
 	var out: Array[String] = []
-	for row: Node in panel.find_children("*", "HBoxContainer", true, false):
-		if not (row is ResearchSlotRow):
-			continue
+	for row: ResearchSlotRow in panel.slot_rows():
 		var next: Label = _next_label(row)
 		if next != null and "unpaid" in next.text:
 			var labels: PackedStringArray = PackedStringArray()

@@ -7,6 +7,7 @@ extends RefCounted
 
 static func build(hud: GameHud) -> void:
 	TopBar.build(hud)
+	_region_toggle(hud)
 	_minimap(hud)
 	_zoom(hud)
 	_lens_key(hud)
@@ -40,6 +41,21 @@ static func _auto_bar(hud: GameHud) -> void:
 static func _despatches(hud: GameHud) -> void:
 	hud.despatches = HudDespatches.new()
 	hud.add_child(hud.despatches)
+
+
+## The chart switch sits on the map's own corner, not the bar: a small pill so
+## the chart keeps the room and a phone keeps it under a thumb (issue #1164).
+static func _region_toggle(hud: GameHud) -> void:
+	hud.map_region = MapRegionToggle.new()
+	hud.map_region.set_anchors_and_offsets_preset(Control.PRESET_TOP_LEFT)
+	hud.map_region.offset_left = 18.0
+	hud.map_region.offset_top = GameHud.BAR_HEIGHT + 8.0
+	hud.map_region.offset_right = 18.0 + MapRegionToggle.PILL_SIZE.x
+	hud.map_region.offset_bottom = GameHud.BAR_HEIGHT + 8.0 + MapRegionToggle.PILL_SIZE.y
+	hud.map_region.cycle_pressed.connect(func() -> void: hud.region_toggle_pressed.emit())
+	hud.add_child(hud.map_region)
+	hud._region_button = hud.map_region.button
+	hud._region_label = hud.map_region.label
 
 
 static func _minimap(hud: GameHud) -> void:
@@ -196,17 +212,10 @@ static func set_nation(hud: GameHud, name: String) -> void:
 	hud._nation_label.text = name.to_upper()
 
 
-## Region button caption: "OLD WORLD" / "NEW WORLD". A map with one region is
-## context, not a choice, so the seal goes inert instead of offering a no-op.
+## The map's chart pill: "OLD" / "NEW" from the chart's own label. A map with
+## one region is context, not a choice, so the pill goes inert instead of
+## offering a no-op.
 static func set_region_label(hud: GameHud, label: String, switchable: bool = true) -> void:
-	if hud._region_label != null:
-		hud._region_label.text = label.to_upper()
-	if hud._region_button == null:
+	if hud.map_region == null:
 		return
-	hud._region_button.disabled = not switchable
-	hud._region_button.focus_mode = (
-		Control.FOCUS_ALL if switchable else Control.FOCUS_NONE
-	)
-	hud._region_button.tooltip_text = (
-		"Switch region — %s" % label if switchable else "%s — only charted region" % label
-	)
+	hud.map_region.set_chart(label, switchable)

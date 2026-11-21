@@ -61,7 +61,7 @@ static func resolve_exchange(
 	state["attacker"]["plan"] = QuickBattleTerms.plan_for(atk_side, attacker, context, false)
 	state["defender"]["plan"] = QuickBattleTerms.plan_for(
 		def_side, defender, context, true, fort_level > 0,
-		QuickBattleActions.line_of(state["defender"])
+		QuickBattleLine.line_of(state["defender"])
 	)
 	## The line's wings, dealt when the battle opens: the horse holds the flanks
 	## and the foot and guns the centre. A garrison behind a wall holds no wings
@@ -146,7 +146,7 @@ static func _side_state(
 		"owner": owner,
 		"limit": limit,
 		"mods": mods,
-		"cohesion": 3,
+		"cohesion": QuickBattleTerms.COHESION_MAX,
 		"guard": 0.0,
 		"lost": [] as Array[String],
 		"plan": "balanced",
@@ -203,7 +203,7 @@ static func _outcome(
 		int(state["attacker"]["cohesion"]),
 		float(atk_mods["multiplier"]),
 		0.0,
-		QuickBattleActions.line_of(state["attacker"])
+		QuickBattleLine.line_of(state["attacker"])
 	)
 	var def: float = QuickBattleTerms.effective_strength(
 		def_side,
@@ -211,7 +211,7 @@ static func _outcome(
 		int(state["defender"]["cohesion"]),
 		float(def_mods["multiplier"]),
 		QuickBattleBattery.strength(guns),
-		QuickBattleActions.line_of(state["defender"])
+		QuickBattleLine.line_of(state["defender"])
 	)
 	## Both lines spent but each side still keeps reserves: the field is nobody's
 	## (quick-battle § Outcome and integration — "mutual exhaustion"). A defender

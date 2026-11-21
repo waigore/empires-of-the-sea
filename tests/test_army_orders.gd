@@ -134,8 +134,10 @@ func test_a_field_army_marches_once_and_resets_next_turn() -> void:
 	assert_eq(field.province, destination)
 	assert_true(field.moved)
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# The moved flag clears on the army begin-turn pass; a full end_turn would
+	# also run every rival court under coverage (~10 s) for the same assert
+	# (docs/testing.md § Speed rules: one resolved turn / pure path first).
+	ArmyMovement.begin_turn(_screen.army_layer.armies, _screen.model)
 
 	assert_false(field.moved)
 
@@ -709,10 +711,37 @@ func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	assert_true(MapPlayArmies.try_order(_screen.play, tile))
 	assert_eq(field.province, target)
 
-	MapPlayTurn.end_turn(_screen.play)
-	Fixture.settle(_screen.play)
+	# Capture lands in the land-combat pass; skip the full end_turn rival walk
+	# under coverage (docs/testing.md § Speed rules).
+	MapPlayLandTurn.resolve(_screen.play)
 
 	assert_eq(_screen.model.province_owner(target), MapScreen.PLAYER_FACTION)
+
+
+## A march into another court's walled province names the wall that stands there,
+## in the fort table's own figures, instead of the plain march line — and open
+## ground keeps the plain line (wiki: siege-mechanics § Wall Protection;
+## DR-20261120-06, REQ-P5-05).
+func test_a_march_into_a_walled_province_names_the_wall() -> void:
+	var field: ArmyState = _detach_one()
+	var home: ArmyState = _player_home()
+	var target: int = _adjacent_enemy_province(home.province)
+	assert_gt(target, -1)
+	var data: ProvinceState = _screen.model.province_data(target)
+	data.fort_level = 2
+	var owner: int = _screen.model.province_owner(target)
+	_screen.play.diplomacy.ensure_relation(0, owner, _screen.play.diplomacy.turn)
+	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, owner)
+
+	assert_true(MapPlayArmies.try_order(_screen.play, data.tiles[0]))
+	assert_eq(field.province, target)
+	assert_eq(
+		_last_toast(),
+		WallRead.march_line(_screen.model.province_name(target), 2),
+		"the receipt names the wall it must break"
+	)
+	assert_true(_last_toast().contains("20 wall hp"), _last_toast())
+	assert_true(_last_toast().contains("2 emplaced guns"), _last_toast())
 
 
 func test_enemy_armies_are_observed_not_ordered() -> void:
@@ -1449,3 +1478,547 @@ func test_a_malformed_name_order_changes_nothing() -> void:
 	MapPlayArmies.on_action(_screen.play, "rename::Foo")
 
 	assert_eq(RegimentNames.of(home, home.regiments[0]), borne)
+
+
+# --- the court's own pick (DR-20261120-10) -----------------------------------
+
+
+## A pure session on the army fixture's chart: the crown's court, at war or at
+## peace, with the roster handed in. No screen is mounted, so the pick's cases
+## never pay a re-seat.
+func _pick_play(at_war: bool) -> PlaySession:
+	var model := ArmyFixture.build()
+	var state := DiplomacyState.new()
+	state.reset(1)
+	state.ensure_relation(0, 1, 1)
+	if at_war:
+		state.relation(0, 1).at_war = true
+	var play := PlaySession.new()
+	play.player_faction = 0
+	play.map_seed = 1500
+	play.turn = 1
+	play.model = model
+	play.diplomacy = state
+	play.army_layer = ArmyLayer.new()
+	play.army_layer.model = model
+	return play
+
+
+## Puts one roster on the chart the session shows, the way the layer stores it.
+func _pick_roster(play: PlaySession, armies: Array[ArmyState]) -> void:
+	play.army_layer.armies.assign(armies)
+	play.army_layer.regions.set_region(play.army_layer.model.region_id, play.army_layer.armies)
+
+
+## At war on its own border the court takes the seat's guard into the field: the
+## pick counts the standards the split's own list carries and the one it holds.
+func test_the_courts_pick_takes_the_home_army_into_the_field() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen", "guards"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_SPLIT, "the split")
+	assert_eq(int(pick.get("regiments", -1)), 2, "every standard but the guard")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would take the field — 2 regiments from the seat, 1 held to guard it"
+	)
+	assert_true(MapPlayArmyPick.line(play, home).begins_with("The court would take"), "one sentence")
+	assert_eq(home.count(), 3, "a reading: the seat still holds its three")
+	play.army_layer.free()
+
+
+## A field army beside a hostile province is given the storm, and the words name
+## the province the planner chose.
+func test_the_courts_pick_storms_a_hostile_beside_the_field_army() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_MARCH)
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_STORM)
+	assert_eq(int(pick.get("province", -1)), 4, "the hostile province beside her")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march on %s to storm it" % play.model.province_name(4)
+	)
+	assert_eq(field.province, 1, "a reading: nothing marches")
+	assert_eq(home.count(), 1, "and the seat's guard is not split")
+	play.army_layer.free()
+
+
+## A hostile host standing on the court's own frontier is met, not outmarched:
+## the pick reads the relief the planner's own defence premium chose.
+func test_the_courts_pick_marches_to_throw_out_a_host() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	var raider := ArmyFixture.army(3, 1, 6, ["guards"])
+	_pick_roster(play, [home, field, raider] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_RELIEF)
+	assert_eq(int(pick.get("province", -1)), 6, "the province the host stands on")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march on %s to throw out the host there" % play.model.province_name(6)
+	)
+	play.army_layer.free()
+
+
+## With nothing on reach worth storming, the court stages on its own frontier: an
+## army standing off the border advances to the province that touches it.
+func test_the_courts_pick_stages_on_the_frontier() -> void:
+	var play: PlaySession = _pick_play(false)
+	# The war is with a third court holding the far province, so the field army's
+	# own neighbour (faction 1) is no target and the corridor is the frontier.
+	play.diplomacy.ensure_relation(0, 2, 1)
+	play.diplomacy.relation(0, 2).at_war = true
+	play.model.province_data(2).owner = 2
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_MARCH)
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_FRONTIER)
+	assert_eq(int(pick.get("province", -1)), 6, "the corridor that touches the war")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would advance to %s, the frontier" % play.model.province_name(6)
+	)
+	play.army_layer.free()
+
+
+## At peace with no border to watch a field army is given nothing at all.
+func test_the_courts_pick_gives_a_peaceful_field_army_no_order() -> void:
+	var play: PlaySession = _pick_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 4, ["guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "no frontier, no march")
+	assert_eq(MapPlayArmyPick.line(play, field), "", "and no sentence")
+	play.army_layer.free()
+
+
+## A worn field army away from the seat comes home to merge with the mass the
+## Home Army musters (issue #974).
+func test_the_courts_pick_marches_a_worn_army_home_to_merge() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "guards", "guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_ROTATE)
+	assert_eq(int(pick.get("province", -1)), 0, "the seat")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march home to %s to merge with the Home Army"
+			% play.model.province_name(0)
+	)
+	play.army_layer.free()
+
+
+## A Home Army at its muster target cuts a second field force before the march
+## (wiki: military-armies § Home Army — the seat's guard is a condition, not a
+## lifetime lock), so the roster the pass plans over is the seat the split
+## leaves: one guard. The worn army the pre-split chart would have sent home is
+## really sent to storm, and the dossier names that march (DR-20261120-10).
+func test_the_courts_pick_reads_the_seat_the_split_leaves() -> void:
+	var play: PlaySession = _pick_play(true)
+	var types: Array[String] = []
+	for _index in 9:
+		types.append("guards")
+	var home := ArmyFixture.army(1, 0, 0, types, true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	assert_eq(
+		String(MapPlayArmyPick.pick(play, home).get("kind", "")),
+		AiMilitaryPlanner.KIND_SPLIT,
+		"the seat takes the field"
+	)
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_MARCH, "not the rotation")
+	assert_eq(String(pick.get("why", "")), MapPlayArmyPick.WHY_STORM)
+	assert_eq(int(pick.get("province", -1)), 4, "the storm the pass gives her")
+	assert_eq(home.count(), 9, "a reading: the seat still holds its nine")
+
+	# A hostile host on the court's own land is met, not outmarched: the same
+	# seat reads the relief the pass gives her.
+	var raider := ArmyFixture.army(3, 1, 6, ["guards"])
+	_pick_roster(play, [home, field, raider] as Array[ArmyState])
+	var relief: Dictionary = MapPlayArmyPick.pick(play, field)
+	assert_eq(String(relief.get("why", "")), MapPlayArmyPick.WHY_RELIEF)
+	assert_eq(int(relief.get("province", -1)), 6, "the province the host stands on")
+	play.army_layer.free()
+
+
+## The pick is only for a standard the court would still order: a rival's army,
+## one that has marched, an embarked army and a session whose court runs no
+## planner all carry none.
+func test_the_courts_pick_names_no_army_the_court_would_leave_alone() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "guards", "guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	var rival := ArmyFixture.army(3, 1, 4, ["guards"])
+	_pick_roster(play, [home, field, rival] as Array[ArmyState])
+
+	assert_false(MapPlayArmyPick.pick(play, field).is_empty(), "the field army marches")
+	assert_true(MapPlayArmyPick.pick(play, rival).is_empty(), "a rival answers to her own court")
+	field.moved = true
+	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "an army that marched is not re-ordered")
+	field.moved = false
+	field.embarked_fleet = 1
+	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "the invasion planner steers a landing")
+	field.embarked_fleet = -1
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayArmyPick.pick(play, home).is_empty(), "no planner, no advice")
+	assert_eq(MapPlayArmyPick.line(play, home), "", "and no sentence")
+	play.army_layer.free()
+
+
+## The pick reads nothing it cannot: no session, no standard, no chart of
+## relations, a campaign already decided, and a region table that stores an army
+## the session draws nowhere all answer empty rather than guessing a march.
+func test_the_courts_pick_reads_nothing_without_a_session_to_read() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "guards"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	assert_true(MapPlayArmyPick.pick(null, home).is_empty(), "no session, no pick")
+	assert_true(MapPlayArmyPick.pick(play, null).is_empty(), "no army, no pick")
+	var bare := PlaySession.new()
+	bare.player_faction = 0
+	bare.model = play.model
+	assert_true(MapPlayArmyPick.pick(bare, home).is_empty(), "no army layer, no pick")
+	bare.army_layer = ArmyLayer.new()
+	bare.army_layer.model = play.model
+	bare.army_layer.armies.assign([home] as Array[ArmyState])
+	assert_true(MapPlayArmyPick.pick(bare, home).is_empty(), "no diplomacy, no pick")
+	play.campaign_halted = true
+	assert_true(MapPlayArmyPick.pick(play, home).is_empty(), "a decided campaign orders nothing")
+	play.campaign_halted = false
+	# A chart the session does not draw: the world's own region answers, and the
+	# roster the region table stores is the one the pass would plan over.
+	var worlded := PlaySession.new()
+	worlded.player_faction = 0
+	worlded.diplomacy = play.diplomacy
+	worlded.army_layer = ArmyLayer.new()
+	worlded.army_layer.regions.set_region(
+		play.model.region_id, [ArmyFixture.army(1, 0, 0, ["guards", "guards"], true)] as Array[ArmyState]
+	)
+	var other_chart: MapModel = ArmyFixture.build()
+	worlded.world = WorldMap.new()
+	worlded.world.add_region(other_chart)
+	assert_false(
+		MapPlayArmyPick.pick(worlded, worlded.army_layer.regions.value(0, [])[0]).is_empty(),
+		"the world's own chart answers for a region off screen"
+	)
+	worlded.army_layer.free()
+	play.army_layer.armies.clear()
+	play.army_layer.regions.set_region(play.army_layer.model.region_id, [] as Array[ArmyState])
+	assert_true(MapPlayArmyPick.pick(play, home).is_empty(), "an army no roster holds is not read")
+	bare.army_layer.free()
+	play.army_layer.free()
+
+
+## Two field armies of the crown plan together, and each picks her own order: the
+## plan's other rows are skipped, never handed to the wrong standard.
+func test_the_courts_pick_hands_each_army_its_own_order() -> void:
+	var play: PlaySession = _pick_play(true)
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var first := ArmyFixture.army(2, 0, 1, ["guards", "guards"])
+	var second := ArmyFixture.army(3, 0, 6, ["guards", "guards"])
+	_pick_roster(play, [home, first, second] as Array[ArmyState])
+
+	var one: Dictionary = MapPlayArmyPick.pick(play, first)
+	var two: Dictionary = MapPlayArmyPick.pick(play, second)
+
+	assert_false(one.is_empty(), "the first field army is ordered")
+	assert_false(two.is_empty(), "and so is the second")
+	assert_eq(int(one.get("province", -1)), 4, "the hostile province beside the first")
+	assert_eq(int(two.get("province", -1)), 2, "the hostile province beside the second")
+	assert_true(
+		String(two.get("line", "")).contains(play.model.province_name(2)),
+		"each line names its own ground: " + String(two.get("line", ""))
+	)
+	assert_eq(first.province, 1, "nothing marches")
+	assert_eq(second.province, 6, "nothing marches")
+	play.army_layer.free()
+
+
+## Every wording the pick can print, and nothing at all for an order or a chart
+## that names no place (REQ-P5-06).
+func test_the_pick_words_name_a_place_or_say_nothing() -> void:
+	var model: MapModel = ArmyFixture.build()
+	assert_eq(MapPlayArmyPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(
+		MapPlayArmyPickWords.sentence("the court would advance"),
+		"The court would advance.",
+		"one capital and a full stop"
+	)
+	assert_eq(MapPlayArmyPickWords.split_line(0, 2), "", "a split that moves nothing")
+	assert_eq(
+		MapPlayArmyPickWords.split_line(3, 0),
+		"the court would take the field — 3 regiments from the seat",
+		"no guard left to name"
+	)
+	assert_eq(MapPlayArmyPickWords.march_line(null, 0, MapPlayArmyPick.WHY_STORM), "", "no chart")
+	assert_eq(MapPlayArmyPickWords.march_line(model, -1, MapPlayArmyPick.WHY_STORM), "", "no ground")
+	assert_eq(MapPlayArmyPickWords.march_line(model, 4, ""), "", "no reason, no march")
+	assert_eq(MapPlayArmyPickWords.rotate_line(null, 0), "", "no chart, no road home")
+	assert_eq(MapPlayArmyPickWords.rotate_line(model, -1), "", "no seat, no road home")
+
+
+## The dossier prints the pick under the composition, and a standard the court
+## would leave alone carries no line at all.
+func test_the_dossier_prints_the_courts_pick() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(7, 0, 1, ["guards"])
+	var panel := ArmyPanel.new()
+	add_child(panel)
+
+	panel.refresh(model, army, true, false, "", [], "", "balanced", {}, "The court would march on Province 4 to storm it.")
+	assert_true(panel._pick.visible, "the line stands")
+	assert_eq(panel._pick.text, "The court would march on Province 4 to storm it.")
+
+	panel.refresh(model, army, true)
+	assert_false(panel._pick.visible, "no pick, no line")
+	panel.free()
+
+
+# --- the drill yard's own pick (DR-20261121-03) -------------------------------
+
+
+## A pure session with a ledger, so the muster policy has a purse to read: the
+## crown's court, at war or at peace, on the army fixture's chart.
+func _yard_play(at_war: bool) -> PlaySession:
+	var play: PlaySession = _pick_play(at_war)
+	var controller := EconomyController.new()
+	controller.economy = PlayerEconomy.starting()
+	play.economy = controller
+	return play
+
+
+## Under its target with a full purse the yard names the line the published muster
+## would raise — its own name and the price its row prints — and raises nothing.
+func test_the_drill_yard_names_the_line_the_court_would_muster() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_MUSTER, "a regiment is due")
+	var type_id: String = String(pick.get("type", ""))
+	assert_false(type_id.is_empty(), "the yard names its line")
+	assert_eq(int(pick.get("own", -1)), 2, "the line it holds")
+	assert_true(int(pick.get("target", 0)) > 2, "and the line it arms for")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would muster %s — %s" % [
+			RegimentCatalog.display_name(type_id), RegimentEconomy.cost_text(type_id)
+		],
+		"the line, priced as its own row prints it"
+	)
+	assert_true(
+		MapPlayMusterPick.line(play, home).begins_with("The court would muster "),
+		"one sentence"
+	)
+	assert_eq(home.count(), 2, "a reading: the seat still holds its two")
+	assert_eq(play.economy.economy.treasury, 20000, "and the purse is unspent")
+	play.economy.free()
+	play.army_layer.free()
+
+
+## At its target strength the yard names the line it holds against the line it
+## arms for, and no regiment is advised.
+func test_the_drill_yard_reads_the_target_it_stands_at() -> void:
+	var play: PlaySession = _yard_play(false)
+	var types: Array[String] = []
+	for _index in 6:
+		types.append("guards")
+	var home := ArmyFixture.army(1, 0, 0, types, true)
+	_pick_roster(play, [home] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_TARGET, "the target, not a muster")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court stands at its muster target — 5 of 5 regiments",
+		"the line it holds, clamped to the line it arms for"
+	)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## An empty purse names the pattern the yard means to raise and the purse it is
+## filling, so the shortfall is a figure and never a silence (REQ-P5-05).
+func test_the_drill_yard_names_the_purse_it_is_saving() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	play.economy.economy.treasury = 0
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_SAVING, "saving, not mustering")
+	assert_eq(String(pick.get("why", "")), MapPlayMusterPick.WHY_PURSE)
+	var type_id: String = String(pick.get("type", ""))
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court is saving for %s — the purse holds 0 ducats of %s" % [
+			RegimentCatalog.display_name(type_id),
+			MoneyText.ducats(RegimentCatalog.treasury_cost(type_id))
+		]
+	)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## A full purse and empty stores name the materials the muster row would refuse
+## it for, in the catalogue's own commodity names.
+func test_the_drill_yard_names_the_stores_it_lacks() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	var economy: PlayerEconomy = play.economy.economy
+	economy.take("fabric", economy.quantity("fabric"))
+	economy.take("castIron", economy.quantity("castIron"))
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_SAVING)
+	assert_eq(String(pick.get("why", "")), MapPlayMusterPick.WHY_STORES)
+	var line: String = String(pick.get("line", ""))
+	assert_true(line.contains("it lacks "), "the row it is short of: " + line)
+	assert_true(line.contains("1 Fabric"), "the cloth the muster row takes: " + line)
+	assert_true(line.contains("2 Cast Iron"), "and the iron: " + line)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## No spare hand and no regiment due: the planner's own labour gate is worded on
+## the yard, so a court that can arm nobody is told why.
+func test_the_drill_yard_names_the_hand_it_cannot_spare() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	_pick_roster(play, [home] as Array[ArmyState])
+	play.economy.economy.workers.counts = [0, 0, 0, 0]
+
+	var pick: Dictionary = MapPlayMusterPick.pick(play, home)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayMusterPick.KIND_GATE, "a gate, not a muster")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would muster nothing — its fields cannot spare another hand"
+	)
+	play.economy.free()
+	play.army_layer.free()
+
+
+## The yard is the Home Army's own, and a crown's: a rival's seat, a field army,
+## a session that runs no planner and one with no ledger all carry no advice.
+func test_the_drill_yard_reads_no_line_it_cannot_muster() -> void:
+	var play: PlaySession = _yard_play(false)
+	var home := ArmyFixture.army(1, 0, 0, ["guards", "pikemen"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards"])
+	var rival := ArmyFixture.army(3, 1, 4, ["guards"], true)
+	_pick_roster(play, [home, field, rival] as Array[ArmyState])
+
+	assert_false(MapPlayMusterPick.pick(play, home).is_empty(), "the crown's yard answers")
+	assert_true(MapPlayMusterPick.pick(play, field).is_empty(), "a field army musters nowhere")
+	assert_true(MapPlayMusterPick.pick(play, rival).is_empty(), "a rival answers to her own court")
+	assert_true(MapPlayMusterPick.pick(null, home).is_empty(), "no session, no pick")
+	assert_true(MapPlayMusterPick.pick(play, null).is_empty(), "no army, no pick")
+	var config: Variant = AiBind.config(AiControl.FULL, 0, 1500, play.ensure_ai().profiles)
+	assert_true(
+		MapPlayMusterPick.counsel(play, 0, config, AiControl.KIND_SUBJECT, null).is_empty(),
+		"no ledger, no counsel"
+	)
+	assert_true(
+		MapPlayArmyMusterAi.plan(play, 0, config, AiControl.KIND_SUBJECT, null).is_empty(),
+		"and no plan to read"
+	)
+	play.ai_mode = AiControl.NOOP
+	assert_true(MapPlayMusterPick.pick(play, home).is_empty(), "no planner, no advice")
+	play.ai_mode = AiControl.FULL
+	play.economy.economy = null
+	assert_true(MapPlayMusterPick.pick(play, home).is_empty(), "no ledger, no advice")
+	play.economy.free()
+	play.army_layer.free()
+
+
+## The yard prints the pick above its rows while there is one, and keeps its
+## published shape when the court would raise nothing (REQ-P5-06).
+func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
+	var economy: PlayerEconomy = PlayerEconomy.starting()
+	var rows: Array[Dictionary] = ArmyTraining.rows(economy)
+	var block := ArmyMusterBlock.new()
+	add_child(block)
+
+	block.fill(rows, "The court would muster Guards — 2,000 ducats · 1 Fabric")
+	assert_eq(block.pick_line(), "The court would muster Guards — 2,000 ducats · 1 Fabric")
+	assert_eq(block.get_child(0), block._pick, "the pick stands above the rows")
+
+	block.fill(rows, "")
+	assert_eq(block.pick_line(), "", "no pick, no line")
+	assert_ne(block.get_child(0), block._pick, "and the yard keeps its published top")
+
+	assert_eq(economy.treasury, 20000, "a reading: the yard spends nothing")
+	block.free()
+
+
+## Every wording the drill yard can print, and nothing for a case that names no
+## gate (REQ-P5-06).
+func test_the_muster_words_name_a_line_or_say_nothing() -> void:
+	assert_eq(MapPlayMusterPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(
+		MapPlayMusterPickWords.sentence("the court would muster Guards"),
+		"The court would muster Guards.",
+		"one capital and a full stop"
+	)
+	assert_eq(MapPlayMusterPickWords.target_line(0, 0), "", "no target, no line")
+	assert_eq(
+		MapPlayMusterPickWords.target_line(9, 5),
+		"the court stands at its muster target — 5 of 5 regiments",
+		"a line past its target reads at its target"
+	)
+	assert_eq(MapPlayMusterPickWords.stores_line("guards", {}), "", "nothing missing, no line")
+	assert_eq(MapPlayMusterPickWords.gate_line(""), "", "no gate, no line")
+	for reason: String in [
+		AiArmyReinforce.REASON_LABOUR,
+		AiArmyReinforce.REASON_STARVING,
+		AiArmyReinforce.REASON_HARVEST,
+		AiArmyReinforce.REASON_HULL,
+	]:
+		assert_true(
+			MapPlayMusterPickWords.gate_line(reason).begins_with("the court would muster nothing"),
+			"every gate is worded: " + reason
+		)
+	assert_eq(
+		MapPlayMusterPickWords.muster_line("peasant_levies"),
+		"the court would muster Peasant Levies — %s" % (
+			RegimentEconomy.cost_text("peasant_levies")
+		),
+		"the catalogue's name and the row's own price"
+	)
+	assert_eq(
+		MapPlayMusterPickWords.purse_line("peasant_levies", 2000, 350),
+		"the court is saving for Peasant Levies — the purse holds 350 ducats of 2,000 ducats"
+	)
+	assert_eq(
+		MapPlayMusterPickWords.stores_line("peasant_levies", {"fabric": 2}),
+		"the court is saving for Peasant Levies — it lacks 2 Fabric"
+	)

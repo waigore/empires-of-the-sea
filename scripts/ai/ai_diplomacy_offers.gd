@@ -331,11 +331,13 @@ static func _break_nap(
 	# turn the host it arms can march, and a court still banking has built no
 	# host (the war gate holds the declaration until the bank releases). The
 	# break leads again the turn the host stands, where the planner ranks it
-	# first (issue #995's pact wall).
-	if AiIncome.banking(
+	# first (issue #995's pact wall). The trace names the aim the purse is
+	# held for (issue #1135).
+	var banked_break: String = AiIncome.bank_refusal(
 		config, ai_state, (context.get("income", {}) as Dictionary)
-	):
-		return _blocked("the court is banking for its army", KIND_BREAK_NAP)
+	)
+	if not banked_break.is_empty():
+		return _blocked(banked_break, KIND_BREAK_NAP)
 	# The war the break opens: one shared gate with the planner, so a break the
 	# court would not follow with a declaration is never offered (see
 	# `AiDiplomacyGates.pact_break_block`).

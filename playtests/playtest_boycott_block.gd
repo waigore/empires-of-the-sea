@@ -106,20 +106,19 @@ func _drawn_ask(play: PlaySession, tribe: int) -> int:
 	var page: LedgerMarket = _market_page(play)
 	if page == null:
 		return -1
-	var box: Node = page.get("_offers_box") as Node
+	var box: Node = _rows_box(page)
 	if box == null:
 		return -1
-	for row: Node in box.get_children():
-		if not _row_names(row, FactionCatalog.name_of(tribe)):
-			continue
-		var button: Button = _last_button(row)
-		if button == null:
-			return -1
-		var parts: PackedStringArray = button.tooltip_text.split("ask of ")
-		if parts.size() < 2:
-			return -1
-		return int(parts[1].split(" ")[0])
-	return -1
+	var row: Control = _offer_row_for(box, FactionCatalog.name_of(tribe))
+	if row == null:
+		return -1
+	var button: Button = _last_button(row)
+	if button == null:
+		return -1
+	var parts: PackedStringArray = button.tooltip_text.split("ask of ")
+	if parts.size() < 2:
+		return -1
+	return int(parts[1].split(" ")[0])
 
 
 ## The colony's own offer row, pressed the way a player presses it: the row's
@@ -148,6 +147,14 @@ func _read_after_close(play: PlaySession, tribe: int, when: String) -> void:
 	_read_orders(play, "our orders after the close")
 	_read_clearing(play, tribe)
 	var report: Dictionary = play.market_report
+	# The clearing's own books: a barred bid is not a spent turn — it clears
+	# with another court or carries — so the drive reads what the pass kept.
+	_say("clearing: carry %d, notes %d, deals %d, residuals %d" % [
+		(report.get("carry", []) as Array).size(),
+		(report.get("notes", []) as Array).size(),
+		(report.get("deals", []) as Array).size(),
+		(report.get("residuals", []) as Array).size(),
+	])
 	for raw: Variant in report.get("notes", []):
 		var note: Dictionary = raw
 		if int(note.get("faction", -2)) == play.player_faction:
@@ -233,9 +240,47 @@ func _read_market(play: PlaySession, when: String) -> void:
 		if line == "SELLER":
 			break
 		_say("  " + line)
+	_read_rows(page)
 	var offer: Dictionary = _colony_offer(play, _tribe_of(play))
 	if not offer.is_empty():
 		_say("  the colony's row is still on the book: %s" % str(offer))
+
+
+## Every drawn offer row: the words, whether its Bid is open, the press's own
+## tooltip and the reason printed under a shut row. This is the plate a player
+## reads, so a bar that exists only in the rules shows up here as a silence.
+func _read_rows(page: LedgerMarket) -> void:
+	var box: Node = _rows_box(page)
+	if box == null:
+		_say("  no offer rows: the plate drew none this turn")
+		return
+	var drawn: int = 0
+	for child: Node in box.get_children():
+		if child is Label:
+			continue
+		var row: Control = _inner_row(child)
+		if row == null:
+			continue
+		if _row_names(row, "SELLER"):
+			continue
+		drawn += 1
+		var words: PackedStringArray = PackedStringArray()
+		for part: Node in row.get_children():
+			if part is Label:
+				words.append((part as Label).text.strip_edges())
+		var button: Button = _last_button(row)
+		var note: String = ""
+		for part: Node in child.get_children():
+			if part is Label:
+				note = (part as Label).text.strip_edges()
+		_say("  row %d: %s | Bid %s | tip: %s | %s" % [
+			drawn, " ".join(words),
+			"off" if button != null and button.disabled else ("on" if button != null else "none"),
+			button.tooltip_text if button != null else "-",
+			note if not note.is_empty() else "nothing printed under the press",
+		])
+	if drawn == 0:
+		_say("  no offer rows drawn")
 
 
 func _read_sheet(play: PlaySession, target: int, when: String) -> void:
@@ -278,21 +323,20 @@ func _press_offer_bid(play: PlaySession, tribe: int, times: int = 1) -> int:
 	var page: LedgerMarket = _market_page(play)
 	if page == null:
 		return 0
-	var box: Node = page.get("_offers_box") as Node
+	var box: Node = _rows_box(page)
 	if box == null:
 		return 0
-	for row: Node in box.get_children():
-		if not _row_names(row, FactionCatalog.name_of(tribe)):
-			continue
-		var button: Button = _last_button(row)
-		if button == null or button.disabled:
-			return 0
-		var pressed: int = 0
-		for _unit in times:
-			button.pressed.emit()
-			pressed += 1
-		return pressed
-	return 0
+	var row: Control = _offer_row_for(box, FactionCatalog.name_of(tribe))
+	if row == null:
+		return 0
+	var button: Button = _last_button(row)
+	if button == null or button.disabled:
+		return 0
+	var pressed: int = 0
+	for _unit in times:
+		button.pressed.emit()
+		pressed += 1
+	return pressed
 
 
 func _colony_offer(play: PlaySession, tribe: int) -> Dictionary:
@@ -361,6 +405,34 @@ func _row_names(row: Node, name: String) -> bool:
 		if child is Label and (child as Label).text.strip_edges() == name:
 			return true
 	return false
+
+
+## The drawn row for `name`: the plate wraps every offer in a column so a shut
+## row can print its reason under the press, so the labels live one level down.
+func _offer_row_for(box: Node, name: String) -> Control:
+	for child: Node in box.get_children():
+		if child is Label:
+			continue
+		var row: Control = _inner_row(child)
+		if row != null and _row_names(row, name):
+			return row
+	return null
+
+
+## The plate's row column. The box belongs to the offers plate, never the page:
+## reading it off the page returns null and every row silently reads as absent.
+func _rows_box(page: LedgerMarket) -> Node:
+	var plate: Node = page.get("_offers_plate") as Node
+	return plate.get("_offers_box") as Node if plate != null else null
+
+
+func _inner_row(node: Node) -> Control:
+	if node is HBoxContainer:
+		return node as Control
+	for child: Node in node.get_children():
+		if child is HBoxContainer:
+			return child as Control
+	return null
 
 
 func _last_button(node: Node) -> Button:

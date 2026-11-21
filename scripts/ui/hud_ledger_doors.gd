@@ -1,8 +1,8 @@
 class_name HudLedgerDoors
 extends RefCounted
 ## The crown's whole-empire sheets — the people, the muster roll, its army, the
-## realm's provinces, the crown's eyes, its commanders, its towns, walls,
-## hospitals and navy — as one registry (REQ-P3-01, REQ-P3-02, REQ-P5-07).
+## realm, the crown's eyes, its colonies, its commanders and its navy — as one
+## registry (REQ-P3-01, REQ-P3-02, REQ-P5-07).
 ##
 ## Every door into them names its sheet by one key (`CIVILIANS`, `NAVY`, …), so a
 ## cartouche seal, a stat chip, a dossier line and a sheet's own door all press
@@ -23,9 +23,6 @@ const PROVINCES: String = "provinces"
 const EYES: String = "eyes"
 const COLONIES: String = "colonies"
 const COMMAND: String = "command"
-const TOWNS: String = "towns"
-const WALLS: String = "walls"
-const HOSPITALS: String = "hospitals"
 const NAVY: String = "navy"
 const ARMY: String = "army"
 
@@ -36,9 +33,6 @@ const SHEETS: Array[Dictionary] = [
 	{"key": CIVILIANS, "layer": "CivilianRosterLayer"},
 	{"key": MUSTER, "layer": "MusterRollLayer"},
 	{"key": ARMY, "layer": "ArmyLedgerLayer"},
-	{"key": TOWNS, "layer": "TownLedgerLayer"},
-	{"key": WALLS, "layer": "WallLedgerLayer"},
-	{"key": HOSPITALS, "layer": "HospitalLedgerLayer"},
 	{"key": PROVINCES, "layer": "ProvinceLedgerLayer"},
 	{"key": EYES, "layer": "SpyLedgerLayer"},
 	{"key": COLONIES, "layer": "ColonyLedgerLayer"},
@@ -100,12 +94,6 @@ static func _make(key: String) -> SheetFrame:
 			return ForceLedgerPanel.new()
 		ARMY:
 			return ArmyLedgerPanel.new()
-		TOWNS:
-			return TownLedgerPanel.new()
-		WALLS:
-			return WallLedgerPanel.new()
-		HOSPITALS:
-			return HospitalLedgerPanel.new()
 		PROVINCES:
 			return ProvinceLedgerPanel.new()
 		EYES:

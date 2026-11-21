@@ -238,7 +238,34 @@ func open_panel() -> void:
 func open_research() -> void:
 	if hud == null:
 		return
-	hud.panels.show_research(economy.research, economy.treasury, research_boost, leader_key)
+	hud.panels.show_research(
+		economy.research, economy.treasury, research_boost, leader_key, _research_pick()
+	)
+
+
+## The study the published research policy would open in the crown's first free
+## slot, in the sheet's own voice (wiki: tech-tree § Research model;
+## DR-20261121-01). Empty when there is no free slot, no study left to open, or
+## no planner behind the seat — the reading, never an order.
+func _research_pick() -> String:
+	return MapPlayResearchPick.line(play)
+
+
+## The larder's warning for the turn about to open: the slack the next
+## Consumption phase leaves, read through the ledger's own projection so the
+## WORKERS tab and this line can never print two larders for one turn
+## (wiki: workers-and-population § Consumption; REQ-P2-03, REQ-P5-05).
+## `report` is the phase that just closed: when it already struck, the court has
+## heard the news on its own summary line and the forecast stays silent, so the
+## warning arrives one turn before the strike, never on every struck turn.
+func larder_warning(report: Dictionary, projection: Dictionary = {}) -> String:
+	if hud == null or economy == null:
+		return ""
+	var last: Dictionary = report.get("consumption", {}) as Dictionary
+	if int(last.get("strikers", 0)) > 0:
+		return ""
+	var read: Dictionary = projection if not projection.is_empty() else readings.projected()
+	return LarderRead.warning(LarderRead.standing(economy, LarderRead.mouths(read), false))
 
 
 ## The larder's warning for the turn about to open: the slack the next
@@ -278,7 +305,7 @@ func refresh_research_panel() -> void:
 		return
 	if hud.panels.is_research_open():
 		hud.panels.show_research(
-			economy.research, economy.treasury, research_boost, leader_key
+			economy.research, economy.treasury, research_boost, leader_key, _research_pick()
 		)
 
 

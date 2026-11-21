@@ -30,6 +30,8 @@ var blockade: Blockades = null
 ## nothing (`source_key`).
 var _baked_key: int = 0
 var _baked: bool = false
+## The reading's wash, baked with the projection — never per frame.
+var _wash: WashBake = null
 
 
 ## Recomputes the projection. Called on region load, work completion, fog change
@@ -62,6 +64,7 @@ func refresh() -> void:
 	if model == null or works == null:
 		survey = {}
 		_baked = false
+		_wash = null
 		queue_redraw()
 		return
 	var key: int = source_key(works, capital_tile) ^ _seal_key()
@@ -71,6 +74,10 @@ func refresh() -> void:
 	_baked = true
 	survey = CrownRoadSurvey.snapshot(
 		model, works, faction, capital_tile, visibility, blockade
+	)
+	_wash = WashBake.of(
+		survey.get("runs", {}), CrownRoadSurvey.STATES, Palette.crown_color,
+		WASH_ALPHA, VEIL_ALPHA, TILE_SIZE
 	)
 	queue_redraw()
 
@@ -100,13 +107,11 @@ func _draw() -> void:
 	_draw_gaps()
 
 
-## Flat tint per state, one rect per merged run — the same wash recipe the
-## political lens prints, so a 10k-tile map costs a few hundred draw calls.
+## The reading's whole wash: one baked texture, edged like the chart's soft
+## tiles, so a 10k-tile map costs one draw instead of a few hundred rectangles.
 func _draw_state_wash() -> void:
-	LensSlip.wash(
-		self, _reveal, survey.get("runs", {}), CrownRoadSurvey.STATES,
-		Palette.crown_color, WASH_ALPHA, VEIL_ALPHA, TILE_SIZE
-	)
+	if _wash != null:
+		_wash.draw(self, _reveal)
 
 
 ## The road still to lay: one gold mark per tile, joined by a dashed line, so the

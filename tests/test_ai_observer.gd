@@ -528,6 +528,29 @@ func test_the_trace_reads_every_economy_row_the_pass_handed() -> void:
 	assert_eq(bucket["claims"], ["rations 4/6"], "the reservations travel with the record")
 
 
+## Issue #1126: a court that funded a hull the yard refuses says why in the
+## trace, and counts no build row — the launch never happened. The court banks
+## the chest and the cloth again only after reading the gate.
+func test_the_trace_names_the_gate_that_refused_a_funded_hull() -> void:
+	var play: PlaySession = _trace_session()
+	var crown: int = FactionCatalog.great_power_ids()[0]
+	var report: Dictionary = {"factions": {crown: {
+		"cargo": {"warship_refused": {"type_id": "sloop", "refused": "Insufficient workers"}},
+	}}}
+	var merged: Dictionary = AiTurnLog.record(play, [], [], report)
+	var bucket: Dictionary = merged["factions"][crown]
+	assert_eq(
+		int((bucket["actions"] as Dictionary).get("build", 0)), 0,
+		"a refused launch is no hull laid down"
+	)
+	assert_eq(
+		String((bucket["events"] as Array)[0]),
+		"%s funds a hull but the yard refuses: Insufficient workers."
+		% FactionCatalog.name_of(crown),
+		"the yard's own words reach the trace"
+	)
+
+
 func test_the_trace_skips_an_empty_cargo_and_a_foreign_ledger() -> void:
 	var play: PlaySession = _trace_session()
 	var crown: int = FactionCatalog.great_power_ids()[0]
@@ -932,6 +955,28 @@ func test_court_reader_names_the_planning_courts() -> void:
 	assert_true(MapPlayCourt.planning_factions(play).is_empty(), "a noop session plans nowhere")
 
 
+## A fallen crown plans nothing: its seat drops out of the shared gate once it
+## holds no province in either world, the same `alive` read the observer row
+## prints (issue #1136; wiki: capital-and-connectivity § Great Power fall).
+func test_the_court_gate_drops_a_crown_that_holds_no_land() -> void:
+	var play: PlaySession = _screen.play
+	play.ai_mode = AiControl.FULL
+	var fallen: int = FactionCatalog.great_power_ids()[0]
+	var land: Array[int] = MapPlayCourt.planning_factions(play)
+	assert_true(land.has(fallen), "the crown plans while it holds land")
+	var world: WorldMap = play.world
+	for region_index in world.region_count():
+		var model: MapModel = world.region(region_index)
+		for province: ProvinceState in model.provinces:
+			if province.owner == fallen:
+				province.owner = MapModel.NO_ID
+	assert_false(MapPlayCourt.holds_land(play, fallen), "no province, no seat")
+	assert_false(
+		MapPlayCourt.planning_factions(play).has(fallen),
+		"a fallen crown is out of the planner list"
+	)
+
+
 func test_court_reader_counts_the_order_of_battle() -> void:
 	var play: PlaySession = _screen.play
 	for faction: int in FactionCatalog.great_power_ids():
@@ -1144,6 +1189,12 @@ func test_the_observer_reads_one_province_in_its_owners_terms() -> void:
 	assert_eq(
 		String(reading["defence"]).is_empty(), false,
 		"the defence line always says something"
+	)
+	assert_true(
+		String(reading["defence"]).contains(
+			DefenceSurvey.terrain_line(ArmyModifiers.terrain_for(play.model, province_id))
+		),
+		String(reading["defence"])
 	)
 
 

@@ -40,20 +40,24 @@ static func _append_invasion(out: Array[Dictionary], trace: Array[Dictionary]) -
 		})
 
 
-## The kinds here are the plain strings `MapPlayColonisationAi._apply` writes.
+## The kinds here are the plain strings `MapPlayColonisationAi._apply` writes. The
+## crew word is the colonist that sailed — an Explorer charting, a Merchant on
+## its claim, a Builder working the crown's ground (#1127) — and a trace that
+## names none keeps the published Explorer line.
 static func _append_colonisation(out: Array[Dictionary], trace: Array[Dictionary]) -> void:
 	for raw: Dictionary in trace:
 		var faction: int = int(raw.get("faction", MapModel.NO_ID))
 		var kind: String = String(raw.get("kind", ""))
 		var place: String = String(raw.get("province_name", ""))
 		var who: String = FactionCatalog.name_of(faction)
+		var crew: String = CivilianCatalog.display_name(String(raw.get("crew", "explorer")))
 		var event: String = ""
 		if kind == "embark" and not place.is_empty():
-			event = "%s's Explorer boards at %s." % [who, place]
+			event = "%s's %s boards at %s." % [who, crew, place]
 		elif kind == "cross":
 			event = "%s's voyage crosses the Passage." % who
 		elif kind == "land" and not place.is_empty():
-			event = "%s's Explorer lands at %s." % [who, place]
+			event = "%s's %s lands at %s." % [who, crew, place]
 		out.append({"faction": faction, "action": "voyage", "event": event})
 		if kind == "land":
 			out.append({"faction": faction, "action": "colony"})

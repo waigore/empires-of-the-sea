@@ -10,6 +10,7 @@ var _zoom := 0.0
 var _diplomacy := false
 var _army := false
 var _select := -1
+var _focus := -1
 var _warp := 0
 var _lens := false
 var _political := false
@@ -40,6 +41,8 @@ func _initialize() -> void:
 			_army = arg.substr(5) == "1"
 		elif arg.begins_with("select="):
 			_select = int(arg.substr(7))
+		elif arg.begins_with("focus="):
+			_focus = int(arg.substr(6))
 		elif arg.begins_with("warp="):
 			_warp = int(arg.substr(5))
 		elif arg.begins_with("lens="):
@@ -86,6 +89,11 @@ func _process(_delta: float) -> bool:
 		MapPlayInput.set_crown_lens(_screen.play, true)
 	if _frames == 4 and _defence and _screen != null:
 		MapPlayInput.set_defence_lens(_screen.play, true)
+	if _frames == 6 and _focus >= 0 and _screen != null:
+		# frames=6, after the lens is raised, so the slips are already packed.
+		var data: ProvinceState = _screen.play.model.province_data(_focus)
+		if data != null:
+			_screen.camera.focus_on(data.center * PlaySession.TILE_SIZE, 3.0, true)
 	if _frames == 4 and _sea and _screen != null:
 		MapPlayInput.set_sea_lens(_screen.play, true)
 	if _frames == 4 and _war and _screen != null:

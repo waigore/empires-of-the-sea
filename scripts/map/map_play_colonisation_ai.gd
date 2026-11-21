@@ -31,7 +31,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			var kind: String = AiControl.court_kind(play, faction)
 			if kind == AiControl.KIND_RANDOM:
 				continue
-			var config: Variant = AiBind.config(kind, faction, play.map_seed)
+			var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
 			# A court on a war footing keeps its hulls for the fleet: the posture
 			# closes the voyage before the planner picks a step (DR-20261113-15) —
 			# unless the court is on **earn**, whose gold is overseas
@@ -131,6 +131,7 @@ static func _apply(
 				return {}
 			CivilianVoyageMap.hide(play.civilian_layer, unit)
 			entry["unit"] = unit.id
+			entry["crew"] = unit.type_id
 			entry["province_name"] = model.province_name(fleet.province)
 		"sail":
 			var zone: int = int(order.get("zone", -1))
@@ -164,6 +165,7 @@ static func _apply(
 			_ensure_works(play, region)
 			CivilianVoyageMap.show_ashore(play.civilian_layer, unit)
 			entry["unit"] = unit.id
+			entry["crew"] = unit.type_id
 			entry["tile"] = tile
 			entry["province_name"] = model.province_name(
 				model.province_at(tile.x, tile.y)
@@ -193,21 +195,11 @@ static func _ensure_works(play: PlaySession, region: int) -> void:
 
 
 ## This crown's civilians already in `region`, counted by type, so a court sends
-## one Explorer to chart, then a Merchant to claim, then a Builder to work.
+## one Explorer to chart, then a Merchant to claim, then a Builder to work. The
+## count is `CivilianMuster.abroad_counts` — the same reading the muster's crew
+## choice asks, so neither pass names a crew the other will not send (#1127).
 static func _abroad(play: PlaySession, region: int, owner: int) -> Dictionary:
-	var counts: Dictionary = {}
-	if region < 0 or play.civilian_layer == null:
-		return counts
-	var roster: Array = []
-	if play.model != null and play.model.region_id == region:
-		roster.assign(play.civilian_layer.units)
-	else:
-		roster.assign(play.civilian_layer.regions.value(region, []))
-	for raw: Variant in roster:
-		var unit: CivilianState = raw
-		if unit != null and unit.owner == owner:
-			counts[unit.type_id] = int(counts.get(unit.type_id, 0)) + 1
-	return counts
+	return CivilianMuster.abroad_counts(play, region, owner)
 
 
 static func _erase_unit(units: Array, unit_id: int) -> void:
@@ -234,7 +226,7 @@ static func _appetite(
 	var appetite: Dictionary = {}
 	if kind != AiControl.KIND_BASELINE and play.ai != null:
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
-		var config: Variant = AiBind.config(kind, faction, play.map_seed)
+		var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
 		if economy != null and config is AiConfig:
 			appetite = AiEconomyPlanner.ground_appetite(
 				config as AiConfig, economy, TownIndustry.best_level(play.world, faction)

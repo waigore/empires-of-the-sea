@@ -161,11 +161,9 @@ func _reads() -> Dictionary:
 
 func _college_slots() -> Array[String]:
 	var out: Array[String] = []
-	for node: Node in _play.hud.panels.research_panel.find_children("*", "HBoxContainer", true, false):
-		if not (node is ResearchSlotRow):
-			continue
+	for row: ResearchSlotRow in _play.hud.panels.research_panel.slot_rows():
 		var texts: PackedStringArray = PackedStringArray()
-		SaveDrive.collect_text(node, "", texts)
+		SaveDrive.collect_text(row, "", texts)
 		if not texts.is_empty():
 			out.append(" / ".join(texts))
 	return out

@@ -108,3 +108,38 @@ static func owns_land_in(world: WorldMap, region: int, owner: int) -> bool:
 	if world == null:
 		return false
 	return owns_land(world.region(region), owner)
+
+
+## True when the court holds ground in one region: a province it owns, or a
+## purchased deed. A deed is crown land for every landing rule that asks (wiki:
+## civilian-units § Overseas deployment — "Builder, Engineer, Rail Builder and
+## Spy need crown land (a purchased deed counts)"), so a Merchant's deed is what
+## lets a Builder land on the far shore (DR-20261109-17).
+static func holds_ground(model: MapModel, owner: int) -> bool:
+	if model == null or owner < 0:
+		return false
+	if owns_land(model, owner):
+		return true
+	return model.ownership.has_deed_of(owner)
+
+
+## The same reading through the world: true when the court holds ground in one
+## region of it.
+static func holds_ground_in(world: WorldMap, region: int, owner: int) -> bool:
+	if world == null:
+		return false
+	return holds_ground(world.region(region), owner)
+
+
+## The colonist kind the court's next voyage carries, from the two readings that
+## decide it: a Builder once the crown holds ground in the region, else an
+## Explorer while none of this court's Explorers is abroad, else a Merchant —
+## the claim whose deeds found the colony (wiki: civilian-units § Overseas
+## deployment; map-play colonisation #497, #602, #1127). One home, so the crew
+## the muster holds at the harbour is the crew the planner boards.
+static func voyage_kind(holds_ground: bool, abroad: Dictionary) -> String:
+	if holds_ground:
+		return "builder"
+	if int(abroad.get("explorer", 0)) > 0:
+		return "merchant"
+	return "explorer"

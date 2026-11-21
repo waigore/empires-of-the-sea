@@ -51,6 +51,18 @@ func _add_intel(
 		line = "%s  ·  %s" % [leader, face] if not leader.is_empty() else face
 	if not line.is_empty():
 		add_child(UiRowBuilder.wrapped_line(line, 13, Palette.TEXT))
+	# What that leader brings to a field: the bonus table's own words, so a crown
+	# can weigh a rival's edge without carrying the wiki in its head
+	# (wiki: leader-bonuses § Bonus Table; DR-20261120-09). Minors and Tribes
+	# field no leader, so they print no effect at all.
+	if not LeaderCatalog.keys_for(subject).is_empty():
+		add_child(
+			UiRowBuilder.wrapped_line(
+				LeaderCatalog.bonus_label(String(flavour.get("key", ""))),
+				12,
+				Palette.TEXT_DIM
+			)
+		)
 	var provinces: int = int((report.get("notes", {}) as Dictionary).get("province", 0))
 	var mine: int = DiplomacyRules.provinces_owned(world, viewer) if world != null else 0
 	add_child(
@@ -230,7 +242,11 @@ func _flavour(faction: int) -> Dictionary:
 			title = String(entry["name"])
 			break
 	var profile: Dictionary = AiPersonality.ARCHETYPES.get(leader, AiPersonality.NEUTRAL)
-	return {"leader": title, "title": String(profile.get("title", "")).capitalize()}
+	return {
+		"key": leader,
+		"leader": title,
+		"title": String(profile.get("title", "")).capitalize(),
+	}
 
 
 static func _standing(record: DiplomacyRelation) -> String:

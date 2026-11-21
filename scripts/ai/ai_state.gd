@@ -3,6 +3,8 @@ extends RefCounted
 ## Per-game AI bookkeeping that outlives one turn: the fixed agenda assignment
 ## and the per-pair cooldowns (wiki: hidden-agendas, diplomacy § Cooldowns).
 ## Pure RefCounted data so tests drive it without a map screen (REQ-P3-03).
+## Save/load shape lives in [AiStatePersist] so this file stays the live book
+## (REQ-P3-01).
 
 ## Faction id -> agenda id. Assigned once, then never re-rolled.
 var agendas: Dictionary = {}
@@ -51,6 +53,11 @@ var food_slack: Dictionary = {}
 ## Difficulty layer this run plays at; rival ledgers are founded at its level
 ## (wiki: ruleset-config § Layers). Stamped by `PlaySession.ensure_ai`.
 var difficulty: String = Difficulty.DEFAULT
+## Faction -> blessed AI parameter profile, bound on the new-game screen and
+## fixed for the run; a crown the map does not name plans as the neutral profile
+## (wiki: ai-profile-overrides; ai-parameter-registry § Seed profiles). Saved
+## with the campaign's AI bookkeeping so a load resumes the same temperaments.
+var profiles: Dictionary = AiProfile.roster()
 
 
 ## Keeps the first agenda this court rolled; later configs read it back.
@@ -92,11 +99,23 @@ func note_war(a: int, b: int, turn: int) -> void:
 	last_attack_turn.erase(AiWarMemory.attack_key(b, a))
 
 
+## True while this pair may not fight again yet: the cooldown runs from the
+## pair's **latest** war event — a fresh peace (`last_truce_turn`, the clock
+## #475's truce rides) or, absent one, the declaration. A war declared long ago
+## that ended in a fresh peace cannot be re-declared the turn after the peace
+## undoes the cooldown the settlement just started (issue #1140); a new
+## declaration after that peace starts its own clock again, so the stale
+## settlement cannot waive a fresh front's cooldown.
 func war_on_cooldown(a: int, b: int, turn: int, cooldown: int) -> bool:
 	var key: String = pair_key(a, b)
-	if not last_war_turn.has(key):
+	var from_turn: int = -1
+	if last_war_turn.has(key):
+		from_turn = int(last_war_turn[key])
+	if last_truce_turn.has(key):
+		from_turn = maxi(from_turn, int(last_truce_turn[key]))
+	if from_turn < 0:
 		return false
-	return turn - int(last_war_turn[key]) < cooldown
+	return turn - from_turn < cooldown
 
 
 func note_overture(a: int, b: int, turn: int) -> void:
@@ -175,7 +194,8 @@ func note_objectives(faction: int, report: Dictionary, turn: int) -> void:
 	# The escalation tracker folds the same rows: one stall map per court, so a
 	# save carries how long each aim has stood still (issue #603).
 	deferrals[faction] = AiDeferral.note(
-		_dictionary(deferrals.get(faction, {})), report.get("objectives", [])
+		AiStatePersist.dictionary(deferrals.get(faction, {})),
+		report.get("objectives", [])
 	)
 
 
@@ -196,8 +216,7 @@ static func _collect_ids(rows: Variant, ids: Dictionary) -> void:
 
 ## The claims this court's last turn reported, or an empty row.
 func objectives_for(faction: int) -> Dictionary:
-	var claim: Dictionary = _dictionary(objective_claims.get(faction, {}))
-	return claim
+	return AiStatePersist.dictionary(objective_claims.get(faction, {}))
 
 
 ## Notes the harvest slack the economy pass just read for this court.
@@ -205,127 +224,10 @@ func note_food_slack(faction: int, slack: int) -> void:
 	food_slack[faction] = slack
 
 
-## Plain data for local saves. Agendas are rolled once per court and cooldowns
-## span turns, so a load must not re-roll a hidden agenda or restart a war
-## cooldown (wiki: hidden-agendas, diplomacy § Cooldowns).
+## Plain data for local saves — see [AiStatePersist.pack].
 func to_dict() -> Dictionary:
-	return {
-		"agendas": agendas.duplicate(),
-		"last_war_turn": last_war_turn.duplicate(),
-		"last_overture_turn": last_overture_turn.duplicate(),
-		"last_truce_turn": last_truce_turn.duplicate(),
-		"last_attack_turn": last_attack_turn.duplicate(),
-		"last_peace_turn": last_peace_turn.duplicate(),
-		"peace_refusals": peace_refusals.duplicate(),
-		"economies": _economy_snapshots(),
-		# The escalation's stall records are plain {aim -> {turns, shortfall}},
-		# JSON-safe as they stand (issue #603).
-		"deferrals": deferrals.duplicate(true),
-		"objective_claims": _claims_snapshot(),
-		"difficulty": difficulty,
-	}
+	return AiStatePersist.pack(self)
 
 
 static func from_dict(data: Dictionary) -> AiState:
-	var state := AiState.new()
-	var stored_agendas: Dictionary = _dictionary(data.get("agendas", {}))
-	for key: Variant in stored_agendas.keys():
-		state.agendas[int(key)] = String(stored_agendas[key])
-	state.last_war_turn = _turn_dictionary(data.get("last_war_turn", {}))
-	state.last_overture_turn = _turn_dictionary(data.get("last_overture_turn", {}))
-	state.last_truce_turn = _turn_dictionary(data.get("last_truce_turn", {}))
-	state.last_attack_turn = _turn_dictionary(data.get("last_attack_turn", {}))
-	state.last_peace_turn = _turn_dictionary(data.get("last_peace_turn", {}))
-	state.peace_refusals = _turn_dictionary(data.get("peace_refusals", {}))
-	state.economies = _economies_from(data.get("economies", {}))
-	# A JSON round-trip turns the faction keys into strings: file them back as
-	# ints, and drop any row a save could not describe (issue #603).
-	var stored_deferrals: Dictionary = _dictionary(data.get("deferrals", {}))
-	for faction: Variant in stored_deferrals.keys():
-		var records: Dictionary = AiDeferral.clean(_dictionary(stored_deferrals[faction]))
-		if not records.is_empty():
-			state.deferrals[int(faction)] = records
-	state.objective_claims = _claims_from(data.get("objective_claims", {}))
-	state.difficulty = Difficulty.normalize(String(data.get("difficulty", Difficulty.DEFAULT)))
-	return state
-
-
-## One row per court's last ledger: turn, phase, counts and the claim lines. An
-## old save has none, so the ledger simply starts empty (issue #491 T1).
-func _claims_snapshot() -> Dictionary:
-	var result: Dictionary = {}
-	for raw: Variant in objective_claims.keys():
-		result[int(raw)] = _claim_row(_dictionary(objective_claims[raw]))
-	return result
-
-
-static func _claims_from(raw: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	var stored: Dictionary = _dictionary(raw)
-	for key: Variant in stored.keys():
-		var row: Dictionary = _claim_row(_dictionary(stored[key]))
-		if row.is_empty():
-			continue
-		result[int(key)] = row
-	return result
-
-
-## A JSON-safe claim row: the trace lines become strings, never Variants.
-static func _claim_row(claim: Dictionary) -> Dictionary:
-	if claim.is_empty():
-		return {}
-	var lines: Array[String] = []
-	for raw: Variant in claim.get("lines", []):
-		lines.append(String(raw))
-	var row: Dictionary = {
-		"turn": int(claim.get("turn", 0)),
-		"phase": String(claim.get("phase", "")),
-		"ranked": int(claim.get("ranked", 0)),
-		"funded": int(claim.get("funded", 0)),
-		"lines": lines,
-	}
-	for key: String in ["funded_ids", "deferred_ids", "blocked_ids"]:
-		var ids: Array[String] = []
-		for raw: Variant in claim.get(key, []):
-			ids.append(String(raw))
-		row[key] = ids
-	return row
-
-
-## One snapshot per rival ledger, keyed by faction id. Missing factions are
-## simply seeded from the starting row on first read, so old saves still load.
-func _economy_snapshots() -> Dictionary:
-	var result: Dictionary = {}
-	for raw: Variant in economies.keys():
-		var faction: int = int(raw)
-		var economy: PlayerEconomy = economies[raw] as PlayerEconomy
-		if economy != null:
-			result[faction] = economy.snapshot()
-	return result
-
-
-static func _economies_from(raw: Variant) -> Dictionary:
-	var result: Dictionary = {}
-	var stored: Dictionary = _dictionary(raw)
-	for key: Variant in stored.keys():
-		var data: Dictionary = _dictionary(stored[key])
-		if data.is_empty():
-			continue
-		var economy := PlayerEconomy.starting()
-		economy.apply_snapshot(data)
-		result[int(key)] = economy
-	return result
-
-
-static func _turn_dictionary(raw: Variant) -> Dictionary:
-	var turns: Dictionary = {}
-	var stored: Dictionary = _dictionary(raw)
-	for key: Variant in stored.keys():
-		turns[String(key)] = int(stored[key])
-	return turns
-
-
-static func _dictionary(raw: Variant) -> Dictionary:
-	if typeof(raw) == TYPE_DICTIONARY:
-		return raw
-	return {}
+	return AiStatePersist.unpack(data)

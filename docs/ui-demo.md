@@ -19,7 +19,7 @@ Player-facing map UI: antique-atlas look, animated world, and the input model.
 | Lenses | `L` survey; `P`/`R`/`K`/`H` name one | one bar seal, hold for the list |
 
 Pan has inertia; zoom anchors under the cursor; the camera clamps cover-fit. The
-defence reading prints each province's garrison, wall guns and hospital.
+defence reading prints each province's garrison, wall guns, hospital and dominant ground.
 **MENU › KEYS** prints this table (`KeyReference`).
 
 ## Phone layout

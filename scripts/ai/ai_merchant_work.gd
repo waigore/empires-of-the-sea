@@ -21,6 +21,10 @@ static func best_candidate(query: AiWorkQuery) -> Dictionary:
 		return {}
 	if not query.reserved.is_empty() and query.reserved.has(query.unit.tile):
 		return {}
+	# The Merchant a voyage will board takes no deed: it waits at the harbour
+	# for the claim (#1127).
+	if CivilianMuster.held_for_voyage(query.unit, query.context):
+		return {}
 	if not buyable_tiles(
 		query.model, query.unit.owner, query.works, query.context
 	).has(query.unit.tile):
@@ -33,11 +37,18 @@ static func best_candidate(query: AiWorkQuery) -> Dictionary:
 
 ## One legal march toward the nearest buyable tile, or {} when the court has no
 ## offer it could sign (no embassy, a war with the seller, or an empty purse).
+## The Merchant a voyage will board walks to its crown's harbour instead and
+## waits there, so the claim sails without marching the crew off the map
+## (wiki: civilian-units § Overseas deployment; #1127).
 static func best_move(
 	model: MapModel, unit: CivilianState, works: LandWorks, context: Dictionary = {}
 ) -> Dictionary:
 	if model == null or unit == null or unit.type_id != "merchant":
 		return {}
+	if CivilianMuster.held_for_voyage(unit, context):
+		return CivilianMuster.muster_move(
+			model, unit, context, context.get("visibility", null)
+		)
 	var goals: Array[Vector2i] = buyable_tiles(model, unit.owner, works, context)
 	if goals.is_empty():
 		return {}

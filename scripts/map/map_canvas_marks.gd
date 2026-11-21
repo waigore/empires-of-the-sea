@@ -134,7 +134,7 @@ static func _place_symbol(
 static func _place_ports(
 	plan: MapCanvasPlan, province: ProvinceState, p_model: MapModel, tile_size: float
 ) -> void:
-	for port: Vector2i in MapGlyphs.port_tiles(province):
+	for port: Vector2i in MapMarks.port_tiles(province):
 		var anchor: Vector2 = MapGeo.tile_center(port.x, port.y, tile_size)
 		anchor += _sea_offset(p_model, port) * tile_size * 0.62
 		if plan.under_label(anchor):

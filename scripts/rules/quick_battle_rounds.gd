@@ -28,8 +28,8 @@ static func fight(
 ) -> Array[Dictionary]:
 	var rounds: Array[Dictionary] = []
 	for round_index in MAX_ROUNDS:
-		if QuickBattleActions.line_standing(state, "attacker") == 0 \
-			or QuickBattleActions.line_standing(state, "defender") == 0:
+		if QuickBattleLine.standing(state, "attacker") == 0 \
+			or QuickBattleLine.standing(state, "defender") == 0:
 			break
 		rounds.append(one(armies, state, guns, round_index, context))
 	return rounds
@@ -88,8 +88,8 @@ static func _orders(
 		## blow, and nothing is left to strike when the enemy's line is gone
 		## (wiki: quick-battle § Outcome and integration; § Wings and collapse).
 		if cp < int(QuickBattleActions.ACTION_CP[action]) \
-			or QuickBattleActions.line_standing(state, key) == 0 \
-			or QuickBattleActions.line_standing(state, enemy_key) == 0:
+			or QuickBattleLine.standing(state, key) == 0 \
+			or QuickBattleLine.standing(state, enemy_key) == 0:
 			break
 		cp -= int(QuickBattleActions.ACTION_CP[action])
 		var entry: Dictionary = QuickBattleActions.resolve(
@@ -103,7 +103,7 @@ static func _orders(
 	# the besieging line; the guns are the fort's own units
 	# (wiki: quick-battle § Wings and collapse).
 	if key == "defender" and QuickBattleBattery.alive(guns) > 0 \
-		and QuickBattleActions.line_standing(state, "attacker") > 0:
+		and QuickBattleLine.standing(state, "attacker") > 0:
 		var volley: Dictionary = QuickBattleBattery.volley_entry(armies, state, guns, owner)
 		if not volley.is_empty():
 			log["actions"].append(volley)

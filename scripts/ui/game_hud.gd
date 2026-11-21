@@ -72,6 +72,9 @@ var chip_row: HBoxContainer = null
 var chips: Array[Control] = []
 var minimap_frame: Control = null
 var zoom_box: Control = null
+## The chart switch on the map's top-left corner (issue #1164); null before the
+## chrome mounts it.
+var map_region: MapRegionToggle = null
 var end_turn_wrap: Control = null
 ## Campaign-end plate (wiki: victory); null until the chrome builds it.
 var victory_overlay: VictoryOverlay = null
@@ -93,8 +96,8 @@ var gazette_plate: GazettePlate = null
 ## read-only views of them, so a bar, a dossier line or a suite still asks for a
 ## sheet by name while the registry stays its one owner (REQ-P3-01, REQ-P3-02).
 var ledger_doors: HudLedgerDoors = HudLedgerDoors.new()
-## The crown's people, its muster roll, its army, the realm's provinces, its
-## eyes, its commanders, its towns, walls, hospitals and navy (DR-20261115-09…).
+## The crown's people, its muster roll, its army, the realm, its eyes, its
+## colonies, its commanders and its navy (DR-20261115-09…).
 var civilian_roster: CivilianRosterPanel:
 	get:
 		return ledger_doors.sheet(HudLedgerDoors.CIVILIANS) as CivilianRosterPanel
@@ -104,15 +107,6 @@ var muster_roll: ForceLedgerPanel:
 var army_ledger: ArmyLedgerPanel:
 	get:
 		return ledger_doors.sheet(HudLedgerDoors.ARMY) as ArmyLedgerPanel
-var towns_ledger: TownLedgerPanel:
-	get:
-		return ledger_doors.sheet(HudLedgerDoors.TOWNS) as TownLedgerPanel
-var walls_ledger: WallLedgerPanel:
-	get:
-		return ledger_doors.sheet(HudLedgerDoors.WALLS) as WallLedgerPanel
-var hospitals_ledger: HospitalLedgerPanel:
-	get:
-		return ledger_doors.sheet(HudLedgerDoors.HOSPITALS) as HospitalLedgerPanel
 var province_ledger: ProvinceLedgerPanel:
 	get:
 		return ledger_doors.sheet(HudLedgerDoors.PROVINCES) as ProvinceLedgerPanel

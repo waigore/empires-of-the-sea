@@ -68,6 +68,7 @@ func _build() -> void:
 	_column = column
 
 	_head = ProvinceSheetHead.new()
+	_head.close_pressed.connect(func() -> void: close_pressed.emit())
 	column.add_child(_head)
 
 	column.add_child(_divider())
@@ -110,11 +111,6 @@ func _build() -> void:
 	var footer := HBoxContainer.new()
 	footer.add_theme_constant_override("separation", 8)
 	shell.add_child(footer)
-
-	var close := _make_button("Close")
-	close.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	close.pressed.connect(func() -> void: close_pressed.emit())
-	footer.add_child(close)
 
 	_dock = _icon_button("◀", "Dock left")
 	_dock.pressed.connect(func() -> void: dock_side_pressed.emit())

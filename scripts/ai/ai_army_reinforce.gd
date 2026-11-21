@@ -15,6 +15,16 @@ extends RefCounted
 ## [AiArmyReinforceLine]; this owner keeps the turn plan and the food/purse
 ## gates that decide whether a muster fires.
 
+## The gates `plan` names when it raises nothing, one home for the words a
+## trace prints and the drill yard's advice repeats (DR-20261121-03).
+const REASON_TARGET: String = "at target strength"
+const REASON_LABOUR: String = "labour floor"
+const REASON_STARVING: String = "striking for food"
+const REASON_HARVEST: String = "the harvest cannot carry one more ration"
+const REASON_HULL: String = "saving for a hull"
+const REASON_PAYABLE: String = "nothing payable"
+
+
 ## One turn's muster decision.
 ## Returns {muster: type id or "", target, reasons: [], candidates: []}.
 ## `candidates` lists every legal line type the court could already pay for, so a
@@ -65,16 +75,16 @@ static func plan(
 	var target: int = _target(config, at_war) + maxi(pressure_extra, 0)
 	result["target"] = target
 	if own_regiments >= target:
-		result["reasons"].append("at target strength")
+		result["reasons"].append(REASON_TARGET)
 		return result
 	if not AiArmyReinforceLine.labour_floor_ok(config, economy):
-		result["reasons"].append("labour floor")
+		result["reasons"].append(REASON_LABOUR)
 		return result
 	if fed_slack >= 0 and fed_slack < 1:
-		result["reasons"].append("striking for food")
+		result["reasons"].append(REASON_STARVING)
 		return result
 	if harvest_slack >= -1 and harvest_slack < 1:
-		result["reasons"].append("the harvest cannot carry one more ration")
+		result["reasons"].append(REASON_HARVEST)
 		return result
 	var chest: int = AiIncome.hull_held(
 		config, economy, at_war, own_regiments, reserve, own_warships, conquest_gap
@@ -96,9 +106,9 @@ static func plan(
 	result["candidates"] = candidates
 	if candidates.is_empty():
 		if chest > 0 and economy.treasury <= chest:
-			result["reasons"].append("saving for a hull")
+			result["reasons"].append(REASON_HULL)
 		else:
-			result["reasons"].append("nothing payable")
+			result["reasons"].append(REASON_PAYABLE)
 			# Name the row that blocked it: a court holding its whole war chest
 			# reads `nothing payable` for a missing pattern row otherwise, which
 			# is what kept the material-row deadlock unrecorded (issue #474).
@@ -286,6 +296,25 @@ static func muster_floor(
 	if cheapest < 0:
 		return floor_treasury
 	return floor_treasury + cheapest
+
+
+## Why a court standing under its target prices no muster row ("" when the row
+## stands): the muster's own gates, in the trace's words, so a silent absence
+## cannot hide the starvation again (issue #1143). The muster's own money and
+## food gates live on `plan`; this names only the gates that price the row
+## itself — the labour floor and a court whose techs open no line pattern.
+static func absent_reason(
+	config: AiConfig, economy: PlayerEconomy, own_regiments: int, at_war: bool
+) -> String:
+	if config == null or economy == null:
+		return ""
+	if own_regiments >= _target(config, at_war):
+		return ""
+	if not AiArmyReinforceLine.labour_floor_ok(config, economy):
+		return "the labour floor holds: no spare hand for the levy"
+	if AiArmyReinforceLine.saving_type(config, economy).is_empty():
+		return "no line pattern its techs open"
+	return ""
 
 
 ## Price of the cheapest line pattern this court's techs open today. Owned by

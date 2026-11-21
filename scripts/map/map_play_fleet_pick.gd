@@ -34,7 +34,7 @@ static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
 	var kind: String = AiControl.court_kind(play, fleet.owner)
 	if kind == AiControl.KIND_NONE:
 		return {}
-	var config: Variant = AiBind.config(kind, fleet.owner, play.map_seed)
+	var config: Variant = AiBind.config(kind, fleet.owner, play.map_seed, play.ensure_ai().profiles)
 	if config == null:
 		return {}
 	var plan: Dictionary = AiBindCampaign.naval_orders(
