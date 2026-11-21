@@ -15,6 +15,12 @@ extends RefCounted
 ## pass, so a court missing it reads the door it owes rather than a link it
 ## cannot sign (DR-20261114-05).
 ##
+## The press's own gate is the third reading: `DiplomacyRules.can_establish_overture`
+## is the call every envoy row answers before it signs a link, so a chain the
+## crown's press would refuse — a cold court before the Join Empire, a court its
+## envoy already visited this turn, a purse one step short — names the reason the
+## row would give rather than an offer the crown cannot make this turn.
+##
 ## A reading only: nothing here sends an envoy, signs an overture, buys a colony
 ## or spends a ducat, and the crown still presses her own order (REQ-P5-06).
 
@@ -24,6 +30,10 @@ const KIND_CHAIN: String = "chain"
 const KIND_STUDY: String = "study"
 ## A war footing holds a new chain shut and the court holds no stake to keep.
 const KIND_CLOSED: String = "closed"
+## The next link is open on paper and the crown's own press would refuse it: the
+## gate the envoy row answers is why (a cold court before the Join Empire, a
+## court its envoy already visited this turn, a purse one step short).
+const KIND_GATE: String = "gate"
 
 ## What a footing at war says instead of a link: the same reason the pass denies
 ## the slot with (`AiTribeColony.REASON_WAR`), worded for the colony sheet.
@@ -75,7 +85,15 @@ static func pick(play: PlaySession) -> Dictionary:
 		economy.treasury, economy.tech_unlocked, posture
 	)
 	if not ambition.is_empty():
-		return of(ambition, economy.tech_unlocked)
+		var read: Dictionary = of(ambition, economy.tech_unlocked)
+		# A study the court owes is a gate of its own and reads first; the press's
+		# gate only answers for a link the court could otherwise sign.
+		if String(read.get("kind", "")) != KIND_CHAIN:
+			return read
+		var gate: Dictionary = _gate(play, faction, ambition, economy)
+		if bool(gate.get("ok", false)):
+			return read
+		return gated(ambition, String(gate.get("reason", "")))
 	# No link is wanted: the footing says whether a chain is refused or merely
 	# unaffordable, and only the refusal earns a gate (the sheet names no gate
 	# for a purse, exactly as the estates ledger does).
@@ -112,6 +130,30 @@ static func of(ambition: Dictionary, tech: Dictionary) -> Dictionary:
 	}
 
 
+## The pick a refused press earns: `{kind, target, line}`, the rule's own reason
+## as the clause (`the court's chain with the Guaraní waits this turn (Join Empire
+## needs a warmer court than this one — …)`), and {} when the rule gave no reason
+## to print — a sheet with nothing to say stays silent rather than guessing.
+static func gated(ambition: Dictionary, reason: String) -> Dictionary:
+	var target: int = int(ambition.get("target", -1))
+	if target < 0:
+		return {}
+	var line: String = gate_line(_tribe(target), reason)
+	if line.is_empty():
+		return {}
+	return {"kind": KIND_GATE, "target": target, "line": line}
+
+
+## "the court's chain with the Guaraní waits this turn (Join Empire needs a
+## warmer court than this one — the gate stands one step up the meter)" — the
+## envoy row's own refusal, said on the colony sheet so the two cannot disagree.
+static func gate_line(tribe: String, reason: String) -> String:
+	var said: String = reason.strip_edges().trim_suffix(".")
+	if said.is_empty() or tribe.is_empty():
+		return ""
+	return "the court's chain with %s waits this turn (%s)" % [tribe, said]
+
+
 ## "the court would offer the Guaraní a Trade Consulate this turn, one link
 ## toward a colony" — the last link names the bond instead, because Join Empire
 ## is the link that makes the colony.
@@ -140,6 +182,18 @@ static func study_line(tribe: String, study: String) -> String:
 ## so two Tribes never read alike.
 static func _tribe(target: int) -> String:
 	return "the %s" % FactionCatalog.name_of(target)
+
+
+## The press's own gate — `DiplomacyRules.can_establish_overture`, the one call
+## the envoy row answers — read for the link the ambition named, so the sheet
+## names nothing the crown's press would refuse (REQ-P2-03, REQ-P3-01).
+static func _gate(
+	play: PlaySession, faction: int, ambition: Dictionary, economy: PlayerEconomy
+) -> Dictionary:
+	return DiplomacyRules.can_establish_overture(
+		play.diplomacy, play.world, faction, int(ambition.get("target", -1)),
+		String(ambition.get("stage", "")), economy.treasury, economy.tech_unlocked
+	)
 
 
 ## True when the crown's own court may be read at all: a live campaign with a

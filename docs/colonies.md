@@ -1,7 +1,7 @@
 # The world's colonies
 
-Every Tribe a Great Power has bought, in one ledger — who holds it, where it
-stands and what that court's boycott shuts.
+Every Tribe a Great Power has bought — who holds it, where it stands, what its
+boycott shuts.
 
 **Pillars:** P1 sheet, P2 readings, P3 projection, P5 boycott home.
 
@@ -11,7 +11,7 @@ DR-20261121-16.
 
 ## Opening it
 
-The court ledger carries **COLONIES ›** beside **EYES ›**. No key — the letters
+The court ledger carries **COLONIES ›** beside **EYES ›**. No key: the letters
 are spent.
 
 ## What a row reads
@@ -25,22 +25,24 @@ are spent.
 | Standing | the herald's word with the people, and their subsidy |
 | Reading | their provinces, and `Open to every court` or `Sealed to …` |
 
-**Visit** frames the colony's capital and opens its dossier — a colony keeps
-its land, so its seat is on the chart.
+**Visit** frames the colony's capital; a colony keeps its land, so its seat is
+on the chart.
 
 ## The court's own chain
 
 One gold line under the chips: the Tribe the crown's own envoy is drawing in —
 `The court would offer the Guaraní a Trade Consulate this turn, one link toward
-a colony.` At war it names the gate; a missing study names the door. The
-reading is `AiTribeColony.best`, the call the rival pass prices the chain with.
-Nothing is signed.
+a colony.` At war it names the gate; a missing study names the door; a link the
+press would refuse names the rule's reason (`The court's chain with the Aztec
+waits this turn (Join Empire needs a warmer court than this one).`). The reading
+is `AiTribeColony.best` — the pass's own call — held to
+`DiplomacyRules.can_establish_overture`, the gate every envoy row answers.
 
 ## Filters
 
 Two chip rows — **chart** and **reading** (all / ours / sealed / subsidised) —
-each with its tally. The crown's own colonies lead, then the sealed, then by
-their court; one heading per chart.
+each with its tally. The crown's colonies lead, then the sealed, then by court;
+one heading per chart.
 
 **The rule on the sheet:** a boycott shuts every colony of the issuer to the
 boycotted court — no deal clears, aid and deeds are refused, terms worsen 10%.
@@ -48,13 +50,13 @@ A colony keeps its provinces, its court and its trade.
 
 ## What it never does
 
-No deed, overture, boycott or lift is filed, and no save key moves: it is a
-reading. The press stays on the court's own page.
+No deed, overture, boycott or lift is filed, and no save key moves. The press
+stays on the court's own page.
 
 ## No row without an envoy
 
 A people the crown has not met prints no row (`Unknown faction`); a colony
-prints when the crown knows the people **or** the court that bought them.
+prints when the crown knows the people **or** their court.
 
 ## Architecture
 
@@ -68,12 +70,11 @@ prints when the crown knows the people **or** the court that bought them.
 | `scripts/ui/diplomacy_panel.gd` | the `COLONIES ›` door |
 
 No figure is recomputed: the suzerain is `DiplomacyState.colony_of`, the subsidy
-`DiplomacyState.subsidy`, the step `DiplomacyCatalog.BOYCOTT_TERMS`, and the bar
-the same boycott keys `DiplomacyTrade` reads (`REQ-P2-03`).
+`DiplomacyState.subsidy`, the step `DiplomacyCatalog.BOYCOTT_TERMS`, the bar the
+same boycott keys (`REQ-P2-03`).
 
 ## Tests
 
 `tests/test_ledgers.gd` — the projection over a two-chart fixture, a sealed
-colony with its subsidy, the filters and tallies, the unrecognised people, both
-row shapes, the court's own chain and its gates, and the door, Visit and back on
-the mounted map.
+colony with its subsidy, the filters and tallies, both row shapes, the court's
+own chain and its gates, and the door, Visit and back.
