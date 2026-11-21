@@ -3447,6 +3447,21 @@ suites = [
   "test_ledgers.gd",
 ]
 
+# The orders the crown's army prints (DR-20261121-14): the reading that asks the
+# published land policy what it would order each standard this turn — the same
+# call one standard's own dossier reads — so the sheet cannot name an order the
+# policy would not give. Its suite is the ledgers', where the pick is proved off
+# data alone and the sheet prints the line. Named above the map glob (first match
+# wins) so it never pays for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_army_orders_pick*.gd*"
+domain = "army_orders_pick"
+
+[domains.army_orders_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "scripts/map/**"
 domain = "map"

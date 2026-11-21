@@ -1696,6 +1696,15 @@ func test_the_courts_pick_walks_a_stranded_host_home() -> void:
 		"the court would march on %s, the first leg home"
 			% play.model.province_name(6)
 	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(play.model, field, pick),
+		"the field army at %s home by way of %s"
+			% [play.model.province_name(3), play.model.province_name(6)],
+		"the sheet names the walk, not a gate"
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(null, field, pick), "", "no chart, no walk clause"
+	)
 	play.army_layer.free()
 
 

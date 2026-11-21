@@ -14,6 +14,7 @@ static func step(run) -> void:
 	await _estates(run, screen)
 	await _people(run, screen)
 	await _navy(run, screen)
+	await _army(run, screen)
 	await _court(run, screen)
 	_audio(run, screen)
 	await _province(run, screen)
@@ -122,6 +123,44 @@ static func _fleet_orders(screen: MapScreen) -> Array:
 			if fleet == null:
 				continue
 			seen.append("%d:%s:%s" % [fleet.id, fleet.mission, fleet.moved])
+	seen.sort()
+	return seen
+
+
+## THE CROWN'S ARMY names the orders the court's own staff would give its
+## standards this turn, in one gold line above the regiments it answers — and
+## marches nothing (wiki: military-armies § The crown's army; DR-20261121-14).
+static func _army(run, screen: MapScreen) -> void:
+	var before: Array = _army_orders(screen)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
+	await run.tree.process_frame
+	var army: ArmyLedgerPanel = screen.hud.army_ledger
+	run.check(army != null and army.is_open(), "the crown's army opens")
+	if army == null:
+		return
+	var counsel: String = army.counsel_text()
+	run.check(
+		counsel.is_empty()
+		or counsel.begins_with("The court would send ")
+		or counsel == MapPlayPickProse.sentence(MapPlayArmyOrdersPick.NO_ORDER_LINE),
+		"the army names the orders the court would give"
+	)
+	run.check(
+		army._counsel.visible == not counsel.is_empty(),
+		"the army's counsel stands with its reading"
+	)
+	run.check(_army_orders(screen) == before, "the army's reading orders nothing")
+	army.close()
+
+
+## Every standard's place and move flag, so a reading that marched one shows.
+static func _army_orders(screen: MapScreen) -> Array:
+	var seen: Array = []
+	for region: int in screen.play.army_layer.regions.region_ids():
+		for army: ArmyState in MapPlayCourt.visible_armies(screen.play, region):
+			if army == null:
+				continue
+			seen.append("%d:%d:%s" % [army.id, army.province, army.moved])
 	seen.sort()
 	return seen
 
