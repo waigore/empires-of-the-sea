@@ -32,7 +32,7 @@ const NO_BUILDER_LINE: String = (
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, snapshot))
 
 ## The ledger's pick as the estates sheet prints it: `{kind, estates, line}`,
 ## where each estate is `{tile, name, place}`. Empty when the session runs no

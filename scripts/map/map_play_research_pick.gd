@@ -88,4 +88,4 @@ static func counsel(
 ## The sheet's line: the pick's own sentence, or nothing when the court has no
 ## free slot or no study left to open.
 static func line(play: PlaySession) -> String:
-	return MapPlayPickProse.sentence(String(pick(play).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play))
