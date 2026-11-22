@@ -715,13 +715,13 @@ func test_the_roads_tip_counts_one_in_the_singular() -> void:
 func test_the_town_order_stays_shut_until_national_bureaucracy() -> void:
 	_setup_province_panel()
 	_show({})
-	assert_true(_province_panel_panel._orders.town_button.disabled, "no tech, no order")
+	assert_true(_province_panel_panel._orders.town_press().disabled, "no tech, no order")
 	assert_true(
-		_province_panel_panel._orders.town_button.tooltip_text.contains("National Bureaucracy"),
-		"the button says what it waits for: %s" % _province_panel_panel._orders.town_button.tooltip_text
+		_province_panel_panel._orders.town_press().tooltip_text.contains("National Bureaucracy"),
+		"the button says what it waits for: %s" % _province_panel_panel._orders.town_press().tooltip_text
 	)
 	_show({"national_bureaucracy": true})
-	assert_false(_province_panel_panel._orders.town_button.disabled, "researched, the order opens")
+	assert_false(_province_panel_panel._orders.town_press().disabled, "researched, the order opens")
 
 ## The dossier's town order reads the purse as well as the study: a crown that
 ## cannot pay the materials is told which ones, not offered a button the work
@@ -735,22 +735,22 @@ func test_the_town_order_shuts_for_the_stores_it_cannot_pay() -> void:
 		{"national_bureaucracy": true}, stock
 	)
 	_province_panel_panel.refresh(_model, 0)
-	assert_true(_province_panel_panel._orders.town_button.disabled, "an empty purse offers no order")
+	assert_true(_province_panel_panel._orders.town_press().disabled, "an empty purse offers no order")
 	assert_true(
-		_province_panel_panel._orders.town_button.tooltip_text.contains("Stores are short of"),
-		"and names the shortfall: %s" % _province_panel_panel._orders.town_button.tooltip_text
+		_province_panel_panel._orders.town_press().tooltip_text.contains("Stores are short of"),
+		"and names the shortfall: %s" % _province_panel_panel._orders.town_press().tooltip_text
 	)
 	stock["lumber"] = 4
 	stock["castIron"] = 4
 	_province_panel_panel.refresh(_model, 0)
-	assert_false(_province_panel_panel._orders.town_button.disabled, "paid, the order opens")
+	assert_false(_province_panel_panel._orders.town_press().disabled, "paid, the order opens")
 
 func test_a_fully_developed_town_closes_the_order() -> void:
 	_setup_province_panel()
 	_model.provinces[0].town_development = 4
 	_show({"national_bureaucracy": true})
-	assert_true(_province_panel_panel._orders.town_button.disabled)
-	assert_true(_province_panel_panel._orders.town_button.tooltip_text.contains("fully developed"))
+	assert_true(_province_panel_panel._orders.town_press().disabled)
+	assert_true(_province_panel_panel._orders.town_press().tooltip_text.contains("fully developed"))
 
 func test_a_foreign_province_offers_no_town_order() -> void:
 	_setup_province_panel()
@@ -760,8 +760,8 @@ func test_a_foreign_province_offers_no_town_order() -> void:
 		{"national_bureaucracy": true}
 	)
 	_province_panel_panel.refresh(_model, 1)
-	assert_true(_province_panel_panel._orders.town_button.disabled)
-	assert_true(_province_panel_panel._orders.town_button.tooltip_text.contains("not held by your crown"))
+	assert_true(_province_panel_panel._orders.town_press().disabled)
+	assert_true(_province_panel_panel._orders.town_press().tooltip_text.contains("not held by your crown"))
 
 
 ## The dossier carries the wall's own press (wiki: siege-mechanics § Fort Levels;
@@ -773,32 +773,35 @@ func test_the_wall_order_presses_the_engineer_it_sends() -> void:
 	_model.provinces[0].fort_level = 1
 	_show()
 	var rail: ProvinceOrdersSection = _province_panel_panel._orders
-	assert_true(rail.wall_button.disabled, "a stone wall waits on Mine Engineering")
+	var wall: Dictionary = rail.wall_order()
+	var wall_press: Button = wall["button"]
+	assert_true(wall_press.disabled, "a stone wall waits on Mine Engineering")
 	assert_true(
-		rail.wall_button.tooltip_text.contains("Mine Engineering"),
-		"the press says the study it waits on: %s" % rail.wall_button.tooltip_text
+		wall_press.tooltip_text.contains("Mine Engineering"),
+		"the press says the study it waits on: %s" % wall_press.tooltip_text
 	)
 	_show({"mine_engineering": true})
-	assert_true(rail.wall_button.disabled, "with the study, the crew still has to muster")
+	assert_true(wall_press.disabled, "with the study, the crew still has to muster")
 	assert_true(
-		rail.wall_button.tooltip_text.contains("No idle Engineer"),
-		rail.wall_button.tooltip_text
+		wall_press.tooltip_text.contains("No idle Engineer"),
+		wall_press.tooltip_text
 	)
 	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
 	_show({"mine_engineering": true})
-	assert_false(rail.wall_button.disabled, "a free Engineer with the study opens the press")
-	assert_true(rail.wall_button.text.contains("4 lumber"), rail.wall_button.text)
-	assert_true(rail.wall_note.visible, "the press prices what the next wall buys")
-	assert_true(rail.wall_note.text.contains("soaks 80 wall hp"), rail.wall_note.text)
+	assert_false(wall_press.disabled, "a free Engineer with the study opens the press")
+	assert_true(wall_press.text.contains("4 lumber"), wall_press.text)
+	var wall_note: Label = wall["note"]
+	assert_true(wall_note.visible, "the press prices what the next wall buys")
+	assert_true(wall_note.text.contains("soaks 80 wall hp"), wall_note.text)
 	# The step in hand reads as taken: the ordered wall waits on its Engineer,
 	# not on a second press (the walls ledger's AT WORK state).
 	var crew: CivilianState = _units[0]
 	crew.start_work("build_fort", Fixture.BARE_TILE, 1)
 	_province_panel_panel.refresh(_model, 0)
-	assert_true(rail.wall_button.disabled, "a wall already ordered offers no second press")
+	assert_true(wall_press.disabled, "a wall already ordered offers no second press")
 	assert_true(
-		rail.wall_button.tooltip_text.contains("already at work"),
-		rail.wall_button.tooltip_text
+		wall_press.tooltip_text.contains("already at work"),
+		wall_press.tooltip_text
 	)
 
 
@@ -810,29 +813,32 @@ func test_the_ward_order_names_the_study_and_the_ward_it_raises() -> void:
 	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
 	_show()
 	var rail: ProvinceOrdersSection = _province_panel_panel._orders
-	assert_true(rail.ward_button.disabled, "a ward waits on Organised Regiments")
+	var ward: Dictionary = rail.ward_order()
+	var ward_press: Button = ward["button"]
+	assert_true(ward_press.disabled, "a ward waits on Organised Regiments")
 	assert_true(
-		rail.ward_button.tooltip_text.contains("Organised Regiments"),
-		rail.ward_button.tooltip_text
+		ward_press.tooltip_text.contains("Organised Regiments"),
+		ward_press.tooltip_text
 	)
 	_province_panel_panel.set_data(
 		_model, _works, _units, null, Vector2i(0, 0), 0, {},
 		{"organised_regiments": true}, {}
 	)
 	_province_panel_panel.refresh(_model, 0)
-	assert_true(rail.ward_button.disabled, "an empty store offers no ward")
+	assert_true(ward_press.disabled, "an empty store offers no ward")
 	assert_true(
-		rail.ward_button.tooltip_text.contains("Stores are short of"),
-		rail.ward_button.tooltip_text
+		ward_press.tooltip_text.contains("Stores are short of"),
+		ward_press.tooltip_text
 	)
 	_province_panel_panel.set_data(
 		_model, _works, _units, null, Vector2i(0, 0), 0, {},
 		{"organised_regiments": true}, Fixture.stockpile()
 	)
 	_province_panel_panel.refresh(_model, 0)
-	assert_false(rail.ward_button.disabled, "paid, the press opens")
-	assert_true(rail.ward_note.text.contains("rests 40%"), rail.ward_note.text)
-	assert_true(rail.ward_note.text.contains("staff 2 food"), rail.ward_note.text)
+	assert_false(ward_press.disabled, "paid, the press opens")
+	var ward_note: Label = ward["note"]
+	assert_true(ward_note.text.contains("rests 40%"), ward_note.text)
+	assert_true(ward_note.text.contains("staff 2 food"), ward_note.text)
 
 
 ## One crew builds the ward on the town tile, so a second crew there refuses it;
@@ -853,12 +859,17 @@ func test_a_crew_on_the_town_tile_refuses_a_ward_but_never_a_wall() -> void:
 	)
 	_province_panel_panel.refresh(_model, 0)
 	var rail: ProvinceOrdersSection = _province_panel_panel._orders
-	assert_true(rail.ward_button.disabled, "one crew builds the ward")
+	var ward: Dictionary = rail.ward_order()
+	var ward_press: Button = ward["button"]
+	assert_true(ward_press.disabled, "one crew builds the ward")
 	assert_true(
-		rail.ward_button.tooltip_text.contains("Another crew"),
-		rail.ward_button.tooltip_text
+		ward_press.tooltip_text.contains("Another crew"),
+		ward_press.tooltip_text
 	)
-	assert_false(rail.wall_button.disabled, "a project beside it never refuses the wall")
+	assert_false(
+		(rail.wall_order()["button"] as Button).disabled,
+		"a project beside it never refuses the wall"
+	)
 
 
 
