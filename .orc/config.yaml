@@ -43,11 +43,7 @@ schedules:
     cron: "0 8,12,18 * * *"
     agents:
       - export-android-debug
-  every-6h-free-playtest:
-    cron: "0 */6 * * *"
-    agents:
-      - free-playtest-agent
-  # 1am HKT — full-campaign observe (staggered past free-playtest at :00)
+  # 1am HKT — full-campaign observe
   daily-victory-playtest:
     cron: "0 1 * * *"
     agents:
@@ -117,7 +113,7 @@ agents:
   free-playtest-agent:
     skill: free-playtest-agent
     provider: hermes
-    enabled: true
+    enabled: false
     prompt: |
       Load and follow the project skill free-playtest-agent (under .agents/skills).
       Prefer Hermes GameForge playtesting (`forge_playtest` / playtesting skill).
