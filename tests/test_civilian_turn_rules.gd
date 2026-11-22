@@ -5132,9 +5132,10 @@ func test_a_second_fort_project_reports_no_level_added() -> void:
 ## --- the capital's hire pick (DR-20261121-06) --------------------------------
 
 
-## The capital's rail names the crew the court's own hire order takes next, read
+## The capital's rail names the crew the court's own hire pass takes next, read
 ## off the pass's own training row, so a crown with six craft rows and one purse
-## reads the pick before it presses (wiki: civilian-units § Training).
+## reads the pick before it presses (wiki: civilian-units § Training). The line
+## speaks for the court's own pass, never for the crown's press (issue #1306).
 func test_the_hire_pick_names_the_crew_the_hire_order_takes() -> void:
 	var economy := PlayerEconomy.starting()
 	var pick: Dictionary = MapPlayHirePick.of(
@@ -5144,7 +5145,8 @@ func test_the_hire_pick_names_the_crew_the_hire_order_takes() -> void:
 	assert_eq(String(pick.get("crew", "")), "builder")
 	assert_eq(
 		String(pick.get("line", "")),
-		"Your hire order takes a Builder next — 1,000 cash + 2 paper.",
+		"The court's own hire pass takes a Builder next — %s."
+		% CivilianCatalog.training_cost_text("builder"),
 		"the line names the crew and the price the rail charges"
 	)
 	assert_false(
@@ -5163,14 +5165,17 @@ func test_the_hire_pick_names_the_taste_that_leads_it() -> void:
 	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TASTE)
 	assert_eq(
 		String(pick.get("line", "")),
-		"Your court's taste takes an Explorer next — 1,000 cash + 2 paper.",
+		"The court's own taste takes an Explorer next — %s."
+		% CivilianCatalog.training_cost_text("explorer"),
 		"the article follows the craft's own name"
 	)
 
 
 ## The footing's refusals are the pass's own words, printed plainly: a war shuts
 ## the voyage crews, the bank every crew the bar does not provision
-## (wiki: civilian-units § Training; DR-20261116-15, issue #1059).
+## (wiki: civilian-units § Training; DR-20261116-15, issue #1059). The line names
+## whose order it reads, so it never tells the crown her own Train order is shut
+## while its press stands live and priced (issue #1306).
 func test_the_hire_pick_names_the_footing_that_shuts_the_hire() -> void:
 	var economy := PlayerEconomy.starting()
 	var war: Dictionary = MapPlayHirePick.of(
@@ -5179,12 +5184,21 @@ func test_the_hire_pick_names_the_footing_that_shuts_the_hire() -> void:
 	assert_eq(String(war.get("kind", "")), MapPlayHirePick.KIND_GATE)
 	assert_eq(
 		String(war.get("line", "")),
-		"At war your hire order takes no new Explorer — the front's own crews keep hiring."
+		"The court's own hire pass takes no new Explorer while it is at war — "
+		+ "the front's own crews keep hiring."
+	)
+	assert_false(
+		String(war.get("line", "")).to_lower().contains("your"),
+		"the war line never speaks for the crown's own order: %s" % war.get("line", "")
 	)
 	var bank: Dictionary = MapPlayHirePick.of(
 		{"ok": false, "reason": AiCivilianHire.REASON_BANK}, "builder", economy
 	)
 	assert_eq(String(bank.get("line", "")), MapPlayHirePick.BANK_LINE)
+	assert_false(
+		MapPlayHirePick.BANK_LINE.to_lower().contains("your"),
+		"the bank line never speaks for the crown's own order"
+	)
 	assert_eq(
 		String(MapPlayHirePick.of({"ok": false, "reason": "some other"}, "", economy).get("line", "")),
 		"",
@@ -5201,7 +5215,7 @@ func test_the_hire_pick_names_the_gate_a_waiting_crew_waits_on() -> void:
 	assert_eq(String(study.get("kind", "")), MapPlayHirePick.KIND_WAIT)
 	assert_true(
 		String(study.get("line", "")).begins_with(
-			"Your hire order takes a Rail Builder next, and waits on "
+			"The court's own hire pass takes a Rail Builder next, and waits on "
 		),
 		"the study the college has not opened holds the hire"
 	)
@@ -5210,7 +5224,10 @@ func test_the_hire_pick_names_the_gate_a_waiting_crew_waits_on() -> void:
 	assert_eq(String(spy.get("kind", "")), MapPlayHirePick.KIND_WAIT)
 	assert_eq(
 		String(spy.get("line", "")),
-		"Your hire order takes a Spy next, and the purse cannot cover 2,000 cash + 4 paper."
+		(
+			"The court's own hire pass takes a Spy next, and the purse cannot cover %s."
+			% CivilianCatalog.training_cost_text("spy")
+		)
 	)
 
 
@@ -5230,7 +5247,8 @@ func test_the_hire_pick_falls_back_to_the_queue_when_no_gate_holds_it() -> void:
 	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TAKE)
 	assert_eq(
 		String(pick.get("line", "")),
-		"Your hire order takes a Builder next — 1,000 cash + 2 paper."
+		"The court's own hire pass takes a Builder next — %s."
+		% CivilianCatalog.training_cost_text("builder")
 	)
 	assert_eq(
 		String(MapPlayHirePick.of({"ok": true, "type_id": ""}, "", null).get("line", "")),
@@ -5249,7 +5267,8 @@ func test_the_hire_words_print_nothing_without_their_parts() -> void:
 	assert_eq(MapPlayHirePick.with_article(""), "")
 	assert_eq(
 		MapPlayHirePick.gate_line("", AiCivilianHire.REASON_CREWS),
-		"At war your hire order takes no new crew — the front's own crews keep hiring.",
+		"The court's own hire pass takes no new crew while it is at war — "
+		+ "the front's own crews keep hiring.",
 		"a gate without a crew still says what the war holds"
 	)
 	assert_false(MapPlayHirePick._vowel(""), "no letter, no article")
