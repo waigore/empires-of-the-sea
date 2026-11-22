@@ -81,9 +81,61 @@ static func run(
 			report["warship_refused"] = warship
 		else:
 			report["warship"] = warship
+	# A court whose muster is food-gated frees an idle home hull: the broken
+	# hull's two rations leave the larder's `wanted` and one peasant returns to
+	# the pool the levy needs (issue #1233). The trace names the yard's own
+	# reading — the same call the muster's gate and the seat's fleet dossier
+	# make — so a court that keeps no fleet it cannot feed reads why.
+	var scrapped: Dictionary = _scrap_idle(play, roster, faction, economy, seat)
+	if not scrapped.is_empty():
+		report["scrap"] = scrapped
 	play.ship_layer.regions.set_region(region, roster)
 	MapPlayCourt.refresh_hulls(play)
 	return report
+
+
+## Breaks up one idle home hull when the larder cannot carry the fleet: the
+## court's muster plan is food-gated and the home fleet never fought nor
+## sortied this turn (`AiNavy.idle_hull`). The hull goes through the yard's own
+## rules — `FleetYard.scrap`, one peasant back, an emptied squadron retired —
+## so a rival's break-up is the same order the seat's breaker's arm files.
+## Returns the trace row, or `{}` while the fleet earns its keep or the yard
+## refuses.
+static func _scrap_idle(
+	play: PlaySession,
+	roster: Array[FleetState],
+	faction: int,
+	economy: PlayerEconomy,
+	seat: int
+) -> Dictionary:
+	if play.ai == null:
+		return {}
+	var config: Variant = AiControl.court(play, faction).get("config")
+	if config == null:
+		return {}
+	var slack: int = (
+		int(play.ai.food_slack[faction])
+		if play.ai.food_slack.has(faction) else -2
+	)
+	var idle: Dictionary = AiNavy.idle_hull(config, economy, roster, seat, slack)
+	if idle.is_empty():
+		return {}
+	var fleet: FleetState = MapPlayCourt.fleet_by_id(
+		roster, int(idle["fleet_id"]), faction
+	)
+	if fleet == null:
+		return {}
+	var verdict: Dictionary = NavalDeck.can_scrap(
+		fleet, ArmyTransport.army_by_id(play.army_layer, fleet.embarked_army)
+	)
+	if not bool(verdict.get("ok", false)):
+		return {}
+	var result: Dictionary = FleetYard.scrap(economy, fleet, String(idle["hull"]))
+	if not bool(result.get("ok", false)):
+		return {}
+	if bool(result.get("retired", false)):
+		roster.erase(fleet)
+	return idle
 
 
 ## The fighting hull the court's ledger asked for, laid down through the yard.
