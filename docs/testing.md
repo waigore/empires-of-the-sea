@@ -35,12 +35,12 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   (gd-tools clones each case). Prefer a pocket chart; one Standard census.
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); one mount per advanced tier. Pure cases skip re-seat (lazy
-  `_screen` / `main` / menu-flow `chart`). `park_screen` after setup /
-  `before_each`; `suite_reset` unparks — an idle `MapScreen` keeps its HUD,
-  soundtrack and fog running. Park only where one chart serves many cases;
-  a touched test file is its own suite. Free a swapped screen.
-  Far-chart fog / naval: `world.region` / `regions.set_region` — no
-  `_cycle_region`. Short `hold_max` / `fade_seconds` on opening plates.
+  `_screen` / `main` / menu-flow `chart`). Pass the fixture chart into
+  `suite_reset` or a pocket `play.world` forces `generate_world`. `park_screen`
+  after setup / `before_each`; `suite_reset` unparks. Park where one chart
+  serves many cases; free a swapped screen. Far-chart fog / naval:
+  `world.region` / `regions.set_region` — no `_cycle_region`. Short `hold_max` /
+  `fade_seconds` on opening plates.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the

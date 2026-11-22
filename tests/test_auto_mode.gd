@@ -82,17 +82,17 @@ func _seat(after: int = 0) -> PlaySession:
 	Fixture.restore(Fixture.world(), world_snapshot)
 	match after:
 		1:
-			Fixture.suite_reset(mounted, seated)
+			Fixture.suite_reset(mounted, seated, Fixture.world())
 			_apply_auto(mounted.play, seated_auto)
 			if not seated_ai.is_empty():
 				mounted.play.ai = AiState.from_dict(seated_ai.duplicate(true))
 		2:
-			Fixture.suite_reset(mounted, drained)
+			Fixture.suite_reset(mounted, drained, Fixture.world())
 			_apply_auto(mounted.play, drained_auto)
 			if not drained_ai.is_empty():
 				mounted.play.ai = AiState.from_dict(drained_ai.duplicate(true))
 		_:
-			Fixture.suite_reset(mounted, pristine)
+			Fixture.suite_reset(mounted, pristine, Fixture.world())
 			_clear_auto(mounted.play)
 	_chart_bound = true
 	MapPlayTurn.view_live = true

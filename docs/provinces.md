@@ -38,17 +38,15 @@ ungarrisoned and at-works tallies, and **Visit**.
 ## The court's own orders here
 
 Under the head one gold line names what the court would do here: the work its
-civilian pass would give crews and the hosts its land pass would send —
-`The court would order its Builder to raise the lumber camp and the field army
-at Tucapel to storm Cádiz this turn.` An idle crew earns the gate instead
-(DR-20261121-19). The rail's presses wear the same read: the raise it names
-leads with **▸**; the legend says so (DR-20261122-23).
+civilian pass would give crews and the hosts its land pass would send. An idle
+crew earns the gate (DR-20261121-19). The rail's presses wear the same read:
+the raise it names leads with **▸**; the legend says so (DR-20261122-23).
 
 ## Across the realm
 
 The sheet's gold line names the provinces the court would act in —
 `The court would act in 3 of its 14 provinces this turn — Cádiz, Tucapel and
-Jaén.` — and every such row leads with **▸**. Both passes are asked once for
+Jaén.` Every such row leads with **▸**. Both passes are asked once for
 the realm. Neither line orders anything: no work, march, spend, save key or
 turn moves.
 
@@ -64,16 +62,19 @@ turn moves.
 | `scripts/ui/province_ledger_panel.gd` | the sheet |
 | `scripts/ui/province_ledger_row.gd` | one province per view |
 | `scripts/ui/province_panel.gd` | the dossier and its reading |
+| `scripts/ui/province_orders_section.gd` | the order rail |
+| `scripts/ui/province_raise_presses.gd` | town, wall and ward presses |
+| `scripts/ui/province_muster_block.gd` | craft rows and the hire line |
 | `scripts/ui/press_marks.gd` | press captions and marks |
 
 ## Tests
 
 `tests/test_ledgers.gd` — projection, views, both readings, marks, door,
-Visit, back, key.
+Visit, back and key.
 
 ## The dossier's facts
 
 A tap opens the province: ground, harbour, town level, roads, fort, **Wall**
-(what it soaks and spares, DR-20261120-06), hospital and **Deeds**. Wall and
-Deeds hide when empty. A Tribe shore with another crown's deed refuses an
+(what it soaks and spares, DR-20261120-06), hospital and **Deeds**; wall and
+deeds hide when empty. A Tribe shore with another crown's deed refuses an
 undeclared march in those words (`DeedBar`, DR-20261120-05).
