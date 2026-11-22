@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1311 (REQ-P2-02).
+Audited: wiki / DRs / code through #1328 (REQ-P2-02).
 Default pick: largest gap here, then REQ/wiki.
 
 ## Already live
@@ -68,4 +68,5 @@ None; see `docs/rubric.md` / wiki.
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`).
 `DR-20261112-09` fog closed by DR-13-03. Soft weight seed (DR-13-15).
-Learnings harness-only; #1262–#1311 counsel/marks/harbour words — not backlog.
+Learnings harness-only; #1262–#1328 counsel/marks/household/fort retune —
+not backlog.

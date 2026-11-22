@@ -120,17 +120,40 @@ static func summary(snapshot_data: Dictionary) -> String:
 	if spies == 0:
 		return "No spy answers the crown — train one at the capital."
 	var parts: PackedStringArray = [
-		"%d %s" % [spies, "spy" if spies == 1 else "spies"],
+		count_text(spies),
 		"shadowing %d court%s" % [
 			int(snapshot_data.get("shadowed", 0)),
 			"" if int(snapshot_data.get("shadowed", 0)) == 1 else "s",
 		],
 	]
-	parts.append("screen up" if bool(snapshot_data.get("screened", false)) else "no screen")
+	parts.append(screen_word(snapshot_data, false))
 	var idle: int = int(snapshot_data.get("idle", 0))
 	if idle > 0:
 		parts.append("%d idle" % idle)
 	return "  ·  ".join(parts)
+
+
+## The network's count in plain words, the way a heading prints it: "no spies",
+## "1 spy", "3 spies". A tally is a heading, not a table column, so it never
+## prints "spys" (issue #1303).
+static func count_text(spies: int) -> String:
+	if spies <= 0:
+		return "no spies"
+	return "%d %s" % [spies, "spy" if spies == 1 else "spies"]
+
+
+## The screen's state in the words a heading prints: "no screen", or "up at
+## Cádiz" — never a bare "down" (issue #1303). `place` sheds the seat for the
+## summary's digest line.
+static func screen_word(snapshot_data: Dictionary, place: bool = true) -> String:
+	if not bool(snapshot_data.get("screened", false)):
+		return "no screen"
+	var where: String = String((snapshot_data.get("screen", {}) as Dictionary).get(
+		"province_name", ""
+	))
+	if not place or where.is_empty():
+		return "screen up"
+	return "up at %s" % where
 
 
 ## The courts reading's own sentence: the gap named, never only the gain.
