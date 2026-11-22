@@ -9,6 +9,10 @@ signal action_pressed(action: String)
 ## A gated row's clause, lifted toward white the way the stat chips lift crimson:
 ## the dossier is a dark sheet, and the gate must stay legible on a phone.
 const GATE_INK := Color(0.765, 0.460, 0.460)
+## The mark the counsel reads by: the craft the court's own hire order takes
+## wears it before its name, the mark the roster's crews and the yard's rows
+## wear (DR-20261122-12).
+const COURT_MARK: String = "▸"
 
 var town_button: Button = null
 ## The province's wall and its ward, pressed from the sheet that reads them:
@@ -22,10 +26,14 @@ var ward_note: Label = null
 var shipyard_button: Button = null
 var training_box: VBoxContainer = null
 ## The hire reading above the craft rows: the crew the court's own hire order
-## takes next at this capital, or the gate that holds it (DR-20261121-06).
+## takes next at this capital, or the gate that holds it (DR-20261121-06). The
+## pick is kept whole so the line and the craft row's mark come off one read
+## (DR-20261122-12).
 var _hire_line: Label = null
-## type_id -> {"button", "note"}: one row per craft the roster offers, so a
-## refresh can re-read every hire's study gate (DR-20261118-09).
+var _hire_pick: Dictionary = {}
+## type_id -> {"button", "note", "caption"}: one row per craft the roster offers,
+## so a refresh can re-read every hire's study gate (DR-20261118-09) and the
+## rail can re-dress the one craft the court's pick names (DR-20261122-12).
 var _train_rows: Dictionary = {}
 
 
@@ -100,12 +108,11 @@ func _ready() -> void:
 		var row := VBoxContainer.new()
 		row.add_theme_constant_override("separation", 2)
 		training_box.add_child(row)
-		var train := _order_button(
-			"Train %s · %s" % [
-				CivilianCatalog.display_name(type_id),
-				CivilianCatalog.training_cost_text(type_id),
-			]
-		)
+		var row_caption: String = "Train %s · %s" % [
+			CivilianCatalog.display_name(type_id),
+			CivilianCatalog.training_cost_text(type_id),
+		]
+		var train := _order_button(row_caption)
 		train.add_theme_font_size_override("font_size", 13)
 		train.pressed.connect(func() -> void: action_pressed.emit("train_%s" % type_id))
 		row.add_child(train)
@@ -113,7 +120,9 @@ func _ready() -> void:
 		note.add_theme_font_size_override("font_size", 11)
 		note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		row.add_child(note)
-		_train_rows[type_id] = {"button": train, "note": note}
+		_train_rows[type_id] = {
+			"button": train, "note": note, "caption": row_caption,
+		}
 	# A dossier built before any study is read keeps the gated rows greyed.
 	set_training({})
 
@@ -239,20 +248,47 @@ func set_training_visible(visible: bool) -> void:
 	training_box.visible = visible
 
 
-## The rail's one reading over the craft rows: the crew the court's own hire
-## order takes next, or the gate that holds it (DR-20261121-06). Empty clears it,
-## so a dossier read for a province that hires no crews carries none.
-func set_hire_line(text: String) -> void:
+## The rail's one reading over the craft rows: the pick the court's own hire
+## order answers with — the crew it takes next, or the gate that holds it
+## (DR-20261121-06). The row that crew's craft stands on leads with COURT_MARK
+## off this same pick, so the mark cannot name a craft the line does not
+## (DR-20261122-12). An empty pick clears both, so a dossier read for a province
+## that hires no crews carries neither.
+func set_hire_pick(pick: Dictionary) -> void:
 	if _hire_line == null:
 		return
+	_hire_pick = pick if pick != null else {}
+	# The hire words are already a printed sentence (their own full stop), so the
+	# rail prints them as the pick words them rather than re-punctuating them.
+	var text: String = String(_hire_pick.get("line", ""))
 	_hire_line.text = text
 	_hire_line.visible = not text.is_empty()
+	_apply_hire_mark()
+
+
+## The craft the court's own hire order names, or empty when it names none
+## (`Every crew this region asks for already stands.`): the pick's own `crew`,
+## never a second read (DR-20261122-12).
+func _apply_hire_mark() -> void:
+	var crew: String = String(_hire_pick.get("crew", ""))
+	for type_id: String in _train_rows.keys():
+		var entry: Dictionary = _train_rows[type_id]
+		var caption: String = String(entry.get("caption", ""))
+		var button: Button = entry["button"]
+		var marked: bool = not crew.is_empty() and type_id == crew
+		button.text = ("%s %s" % [COURT_MARK, caption]) if marked else caption
 
 
 ## The rail's hire reading, exposed so a suite asserts the line instead of
 ## reaching into the label (REQ-P3-02).
 func hire_line_text() -> String:
 	return _hire_line.text if _hire_line != null else ""
+
+
+## The craft the rail marks, exposed so a suite asserts the mark instead of
+## reading button captions (REQ-P3-02).
+func hire_mark_crew() -> String:
+	return String(_hire_pick.get("crew", ""))
 
 
 ## Every hire names what the craft does and the study it waits on, and a gated

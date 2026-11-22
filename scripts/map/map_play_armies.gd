@@ -76,7 +76,7 @@ static func show_panel(play: PlaySession, army: ArmyState) -> void:
 	# The yard's own claim: the line this court's muster would raise, printed
 	# in the drill yard the crown musters from (DR-20261121-03). A rival
 	# answers to her own court, and the yard draws no rows for her anyway.
-	opening.muster_pick = MapPlayMusterPick.line(play, army) if is_player else ""
+	opening.muster_pick = MapPlayMusterPick.pick(play, army) if is_player else {}
 	play.hud.panels.show_army(play.model, opening)
 
 

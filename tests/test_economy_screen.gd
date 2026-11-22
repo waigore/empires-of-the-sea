@@ -366,7 +366,7 @@ func test_every_worker_row_names_its_price_and_ration() -> void:
 	var master: Label = lines.get(WorkerPool.Tier.MASTER) as Label
 	assert_eq(
 		master.text,
-		"Recruit 1000 ducats · Paper ×10 — needs Master Artisans and Hat Production",
+		"Recruit 1,000 ducats · Paper ×10 — needs Master Artisans and Hat Production",
 		"a locked row names the research"
 	)
 	assert_eq(master.get_theme_color("font_color"), Palette.CRIMSON, "a blocked line reads aloud")

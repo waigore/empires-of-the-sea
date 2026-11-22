@@ -34,8 +34,10 @@ var beach_hint: String = ""
 var roster: Array[FleetState] = []
 ## The hull the court means to lay in the drawer it picks from.
 var pick: String = ""
-## The hull the court's own yard means to lay in the slip it launches from.
-var yard_pick: String = ""
+## The hull the court's own yard means to lay in the slip it launches from. The
+## pick travels, not the sentence it words, so the slip marks its rows off the
+## same reading (DR-20261122-12).
+var yard_pick: Dictionary = {}
 
 
 ## A squadron's dossier at its plainest: the caller adds the blocks it has.

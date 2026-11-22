@@ -11,7 +11,7 @@ static func recruit_cost(tier: int) -> String:
 	var materials: Dictionary = cost.get("materials", {})
 	var parts: PackedStringArray = []
 	if int(cost.get("treasury", 0)) > 0:
-		parts.append("%d ducats" % int(cost.get("treasury", 0)))
+		parts.append(MoneyText.ducats(int(cost.get("treasury", 0))))
 	for commodity: Variant in materials.keys():
 		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(materials[commodity])])
 	return "   ".join(parts)
@@ -24,7 +24,7 @@ static func recruit_batch_cost(tier: int, count: int) -> String:
 	var parts: PackedStringArray = []
 	var gold: int = int(cost.get("treasury", 0)) * count
 	if gold > 0:
-		parts.append("%d ducats" % gold)
+		parts.append(MoneyText.ducats(gold))
 	var materials: Dictionary = cost.get("materials", {})
 	for commodity: Variant in materials.keys():
 		parts.append(
@@ -56,7 +56,7 @@ static func recruit_price(tier: int) -> String:
 	var materials: Dictionary = cost.get("materials", {})
 	var parts: PackedStringArray = []
 	if int(cost.get("treasury", 0)) > 0:
-		parts.append("%d ducats" % int(cost.get("treasury", 0)))
+		parts.append(MoneyText.ducats(int(cost.get("treasury", 0))))
 	for commodity: Variant in materials.keys():
 		parts.append("%s ×%d" % [CommodityCatalog.label(String(commodity)), int(materials[commodity])])
 	return "Recruit " + " · ".join(parts)

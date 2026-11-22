@@ -1,11 +1,11 @@
 class_name MoneyText
 extends RefCounted
-## The court's purse in one hand (REQ-P3-01): whole-number grouping, the pound
-## mark the diplomacy pages print, the cost line a muster or yard row shows
-## before the press, and the plural every count line in the crown's sheets
-## shares. The catalogs, the ledgers and the panels all read their figures and
-## their "1 regiment / 3 regiments" through here, so no page can grow a private
-## formatter that groups, signs or pluralises differently
+## The court's purse in one hand (REQ-P3-01): whole-number grouping, the one
+## word the crown's money prints ("1,234 ducats"), the cost line a muster or
+## yard row shows before the press, and the plural every count line in the
+## crown's sheets shares. The catalogs, the ledgers and the panels all read
+## their figures and their "1 regiment / 3 regiments" through here, so no page
+## can grow a private formatter that groups, signs or pluralises differently
 ## (REQ-P2-03, REQ-P3-03).
 ##
 ## Pure text over integers: no nodes, no economy, so a suite can read it alone.
@@ -24,14 +24,19 @@ static func thousands(value: int) -> String:
 	return ("-" if value < 0 else "") + out
 
 
-## "£1,234": the diplomacy pages' purse.
-static func money(value: int) -> String:
-	return "£%s" % thousands(value)
-
-
-## "1,234 ducats": the muster and market ledgers' purse.
+## "1,234 ducats": the crown's purse, wherever a page names what it holds or
+## what an order costs. One word, one grouping, so the bar, the college, the
+## ledger, the province sheet and the court can never print four forms.
 static func ducats(value: int) -> String:
 	return "%s ducats" % thousands(value)
+
+
+## "+1,234" / "-1,234" / "0": a per-turn movement, grouped and signed, for a
+## line that names what the purse gains or loses.
+static func signed(value: int) -> String:
+	if value == 0:
+		return "0"
+	return ("+" if value > 0 else "") + thousands(value)
 
 
 ## "8,000 ducats · 2 Lumber · 1 Fabric · 1 worker": the cost line a yard or
