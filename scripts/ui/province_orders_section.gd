@@ -11,8 +11,20 @@ signal action_pressed(action: String)
 const GATE_INK := Color(0.765, 0.460, 0.460)
 ## The mark the counsel reads by: the craft the court's own hire order takes
 ## wears it before its name, the mark the roster's crews and the yard's rows
-## wear (DR-20261122-12).
-const COURT_MARK: String = "▸"
+## wear (DR-20261122-12). The book's own glyph, so no sheet mints a second.
+const COURT_MARK: String = PressMarks.MARK
+## The rail's presses, keyed by the action each files — the same keys the
+## court's own reading hands back, so the gold line and the marked press come
+## off one read (DR-20261122-23).
+const KEY_IMPROVEMENT: String = MapPlayProvinceCounsel.KEY_IMPROVEMENT
+const KEY_TOWN: String = MapPlayProvinceCounsel.KEY_TOWN
+const KEY_WALL: String = MapPlayProvinceCounsel.KEY_WALL
+const KEY_WARD: String = MapPlayProvinceCounsel.KEY_WARD
+## Every press the rail prints, in the order it prints them.
+const PRESS_KEYS: Array[String] = [KEY_IMPROVEMENT, KEY_TOWN, KEY_WALL, KEY_WARD]
+## What the mark means, printed under the rail while one stands: a phone reads
+## no footer hint and never shows a hover (REQ-P1-07).
+const MARK_LEGEND: String = "▸ marks the order the court would give here"
 
 var town_button: Button = null
 ## The province's wall and its ward, pressed from the sheet that reads them:
@@ -24,7 +36,17 @@ var wall_note: Label = null
 var ward_button: Button = null
 var ward_note: Label = null
 var shipyard_button: Button = null
+## The estate raise's own press: the court's Builder order on this ground.
+var build_button: Button = null
 var training_box: VBoxContainer = null
+## The rail's press captions and the keys the court's own reading names: the
+## book prints each press as the rules worded it, marked when its key stands
+## (DR-20261122-23).
+var _marks: PressMarks = PressMarks.new()
+## The rail's presses by key, so a reading marks one by lookup.
+var _presses: Dictionary = {}
+## The mark's legend under the rail, standing only while a mark does.
+var _legend: Label = null
 ## The hire reading above the craft rows: the crew the court's own hire order
 ## takes next at this capital, or the gate that holds it (DR-20261121-06). The
 ## pick is kept whole so the line and the craft row's mark come off one read
@@ -58,11 +80,16 @@ func _ready() -> void:
 
 	var build := _order_button("Build Improvement")
 	build.pressed.connect(func() -> void: action_pressed.emit("build"))
+	build_button = build
+	_presses[KEY_IMPROVEMENT] = build
+	_marks.set_caption(KEY_IMPROVEMENT, build.text)
 	add_child(build)
 
 	town_button = _order_button("Upgrade Town")
 	town_button.tooltip_text = DossierCopy.TOWN_TIP
 	town_button.pressed.connect(func() -> void: action_pressed.emit("upgrade_town"))
+	_presses[KEY_TOWN] = town_button
+	_marks.set_caption(KEY_TOWN, town_button.text)
 	add_child(town_button)
 
 	# The wall and the ward: the sheet that reads them carries the one press
@@ -71,15 +98,27 @@ func _ready() -> void:
 	# § Regiment condition; DR-20261120-12).
 	wall_button = _order_button("Raise Wall")
 	wall_button.pressed.connect(func() -> void: action_pressed.emit("raise_wall"))
+	_presses[KEY_WALL] = wall_button
 	add_child(wall_button)
 	wall_note = _payoff_note()
 	add_child(wall_note)
 
 	ward_button = _order_button("Raise Ward")
 	ward_button.pressed.connect(func() -> void: action_pressed.emit("raise_ward"))
+	_presses[KEY_WARD] = ward_button
 	add_child(ward_button)
 	ward_note = _payoff_note()
 	add_child(ward_note)
+
+	# The mark's legend under the rail, standing only while a press wears the
+	# mark: a phone reads what ▸ means without a hover (REQ-P1-07).
+	_legend = Label.new()
+	_legend.text = MARK_LEGEND
+	_legend.add_theme_font_size_override("font_size", 10)
+	_legend.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	_legend.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_legend.visible = false
+	add_child(_legend)
 
 	training_box = VBoxContainer.new()
 	training_box.add_theme_constant_override("separation", 6)
@@ -171,7 +210,8 @@ func set_wall_order(
 	_show_step(
 		wall_button, wall_note, "Raise Wall", refusal,
 		WallLedger.preview_text(level, next),
-		CivilianWorkPlan.cost_text(FortRules.cost(next)), FortRules.turns(next)
+		CivilianWorkPlan.cost_text(FortRules.cost(next)), FortRules.turns(next),
+		KEY_WALL
 	)
 
 
@@ -201,7 +241,8 @@ func set_ward_order(
 	_show_step(
 		ward_button, ward_note, "Raise Ward", refusal,
 		HospitalLedger.preview_text(level, next),
-		CivilianWorkPlan.cost_text(HospitalRules.cost(next)), HospitalRules.turns(next)
+		CivilianWorkPlan.cost_text(HospitalRules.cost(next)), HospitalRules.turns(next),
+		KEY_WARD
 	)
 
 
@@ -209,20 +250,23 @@ func set_ward_order(
 ## open, the press greys on the order's own refusal (kept whole in the tooltip
 ## and in the note, in the gate's ink), and an open press prints what the next
 ## level buys under it — printed, never a hover, so a phone reads the prize
-## before the tap (REQ-P5-07).
+## before the tap (REQ-P5-07). The caption is kept as the rules worded it, and
+## wears the counsel's mark when the court's own pass would press this step
+## (DR-20261122-23).
 func _show_step(
 	button: Button, note: Label, caption: String, refusal: String,
-	payoff: String, price: String, turns: int
+	payoff: String, price: String, turns: int, key: String
 ) -> void:
 	var open: bool = refusal.is_empty()
 	var wait: String = "%d turn%s" % [turns, "" if turns == 1 else "s"]
-	if open:
-		button.text = "%s · %s" % [caption, price]
-		button.tooltip_text = "%s — %s, %s" % [caption, price, wait]
-	else:
-		button.text = caption
-		button.tooltip_text = refusal
+	_marks.set_caption(key, ("%s · %s" % [caption, price]) if open else caption)
+	button.text = _marks.text(key)
+	button.tooltip_text = (
+		"%s — %s, %s" % [caption, price, wait] if open else refusal
+	)
 	button.disabled = not open
+	if _legend != null:
+		_legend.visible = _marks.any()
 	note.text = payoff if open else refusal
 	note.visible = not note.text.is_empty()
 	note.add_theme_color_override("font_color", Palette.GOLD if open else GATE_INK)
@@ -279,8 +323,7 @@ func _apply_hire_mark() -> void:
 		button.text = ("%s %s" % [COURT_MARK, caption]) if marked else caption
 
 
-## The rail's hire reading, exposed so a suite asserts the line instead of
-## reaching into the label (REQ-P3-02).
+## The rail's hire reading, exposed so a suite asserts the line (REQ-P3-02).
 func hire_line_text() -> String:
 	return _hire_line.text if _hire_line != null else ""
 
@@ -291,7 +334,39 @@ func hire_mark_crew() -> String:
 	return String(_hire_pick.get("crew", ""))
 
 
-## Every hire names what the craft does and the study it waits on, and a gated
+## The rail's reading of the court's own pass: the presses it would file here,
+## keyed by the action each files. Each named press leads with COURT_MARK and the
+## legend stands, off the one read the gold line above prints; an empty reading
+## clears every mark (wiki: world-model § The crown's provinces; DR-20261122-23).
+func set_court_marks(marks: Dictionary) -> void:
+	_marks.mark(marks)
+	for key: String in PRESS_KEYS:
+		var button: Button = _presses.get(key) as Button
+		var caption: String = _marks.text(key)
+		if button != null and not caption.is_empty():
+			button.text = caption
+	if _legend != null:
+		_legend.visible = _marks.any()
+
+
+## The presses this reading names and one press's words, exposed so a suite
+## asserts the marks instead of reading button captions (REQ-P3-02).
+func court_marks() -> Dictionary:
+	return _marks.keys()
+
+
+## One press's caption as the rail prints it — marked or plain (REQ-P3-02).
+func press_text(key: String) -> String:
+	var button: Button = _presses.get(key) as Button
+	return button.text if button != null else ""
+
+
+## The legend's own words, or "" while no mark stands (REQ-P1-07).
+func court_legend_text() -> String:
+	return _legend.text if _legend != null and _legend.visible else ""
+
+
+## Every craft's row: what the craft does and the study it waits on, and a gated
 ## row greys out with the same reading the order refuses on — a crown reads on the
 ## rail what it would otherwise only hear in a refusal toast (wiki: civilian-units
 ## § Training; DR-20261118-09; REQ-P2-03, REQ-P5-05).

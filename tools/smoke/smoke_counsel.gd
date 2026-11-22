@@ -488,6 +488,19 @@ static func _yards(run, screen: MapScreen) -> void:
 					),
 					"and paints the mark on that craft's row"
 				)
+			# The rail's work presses wear the same read (DR-20261122-23).
+			var rail_pick: Dictionary = MapPlayProvinceCounsel.pick(
+				play, screen.model, seat
+			)
+			run.check(
+				sheet.court_marks() == rail_pick.get("keys", {}),
+				"the rail marks the presses the court would file"
+			)
+			for key: String in sheet.court_marks().keys():
+				run.check(
+					sheet.press_text(key).begins_with(ProvinceOrdersSection.COURT_MARK),
+					"and paints the mark on the press it names: %s" % key
+				)
 	run.check(
 		play.army_layer.regiment_count_all(play.player_faction)
 		== int(before["regiments"]),

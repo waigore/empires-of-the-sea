@@ -2124,6 +2124,52 @@ func test_the_province_counsel_words_the_orders_of_its_own_ground() -> void:
 	assert_eq(MapPlayProvinceCounsel.line(null, null, -1), "")
 
 
+## The dossier's rail marks: the presses the court's crew pass would file on this
+## ground, keyed by the action each press files. A work the rail carries no press
+## for — a road, a prospect, a survey, a march — marks none, so a mark always
+## names a press the sheet can press, and the line and the marks come off one
+## read (wiki: world-model § The crown's provinces; DR-20261122-23).
+func test_the_province_counsel_keys_the_press_the_court_would_take() -> void:
+	var crews: Array[Dictionary] = [
+		{"role": "Builder", "short": "raise the lumber camp", "action": "build_improvement"},
+		{"role": "Builder", "short": "raise the town", "action": "upgrade_town"},
+		{"role": "Engineer", "short": "raise the wall", "action": "build_fort"},
+		{"role": "Engineer", "short": "raise a ward", "action": "build_hospital"},
+	]
+	var pick: Dictionary = MapPlayProvinceCounsel.of(crews, [])
+	var marks: Dictionary = pick["keys"]
+	assert_eq(marks.size(), 4, "one key per press the line names")
+	for key: String in [
+		MapPlayProvinceCounsel.KEY_IMPROVEMENT,
+		MapPlayProvinceCounsel.KEY_TOWN,
+		MapPlayProvinceCounsel.KEY_WALL,
+		MapPlayProvinceCounsel.KEY_WARD,
+	]:
+		assert_true(marks.has(key), "the press the line names carries its key: %s" % key)
+	# The rail's keys are the action strings the sheet's own presses file.
+	assert_eq(MapPlayProvinceCounsel.KEY_IMPROVEMENT, "build")
+	assert_eq(MapPlayProvinceCounsel.KEY_WALL, "raise_wall")
+	# Work the rail carries no press for marks none.
+	var elsewhere: Array[Dictionary] = [
+		{"role": "Engineer", "short": "build a road", "action": "build_road"},
+		{"role": "Explorer", "short": "prospect this tile", "action": "prospect"},
+		{"role": "Merchant", "short": "screen a rival's court", "action": "screen"},
+	]
+	var quiet: Dictionary = MapPlayProvinceCounsel.of(elsewhere, [])
+	assert_true(quiet["keys"].is_empty(), "no rail press, no mark")
+	assert_eq(
+		String(quiet.get("kind", "")),
+		MapPlayProvinceCounsel.KIND_ORDERS,
+		"the line still names the road the rail carries no press for",
+	)
+	# A plain entry (a fixture's crew, no action) and the gate's own pick mark
+	# nothing: a mark never names a press the reading did not name.
+	var plain: Array[Dictionary] = [{"role": "Builder", "short": "raise the lumber camp"}]
+	assert_true(MapPlayProvinceCounsel.of(plain, [])["keys"].is_empty())
+	assert_true(MapPlayProvinceCounsel.of([], [], 1)["keys"].is_empty())
+	assert_true(MapPlayProvinceCounsel.marks_of([]).is_empty())
+
+
 ## Every crown crew's own order, so a reading that booked one would show.
 func _crew_order_flags(play: PlaySession) -> Array:
 	var flags: Array = []
@@ -2156,6 +2202,19 @@ func test_the_province_dossier_names_the_orders_the_crowns_pass_would_give() -> 
 	)
 	assert_eq(_force_moved_flags(play), before_forces, "the reading marches nothing")
 	assert_eq(_crew_order_flags(play), before_crews, "the reading books no work")
+	# The rail's marks are that same pick's keys, so the sentence and the presses
+	# it names come off one read (DR-20261122-23).
+	assert_eq(panel.court_marks(), pick.get("keys", {}), "the rail marks what the line names")
+	for key: String in panel.court_marks().keys():
+		assert_true(
+			panel.press_text(key).begins_with(ProvinceOrdersSection.COURT_MARK),
+			"the press the line names leads with the mark: %s" % key,
+		)
+	assert_eq(
+		not panel._orders.court_legend_text().is_empty(),
+		not panel.court_marks().is_empty(),
+		"the legend stands while a mark does",
+	)
 	# The guards: no province and no chart name nothing, so a shut sheet or a
 	# region switch can never print a line about ground nobody is showing.
 	assert_true(MapPlayProvinceCounsel.pick(play, screen.model, -1).is_empty())

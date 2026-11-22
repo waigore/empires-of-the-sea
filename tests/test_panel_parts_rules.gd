@@ -961,6 +961,76 @@ func test_the_hire_rail_marks_the_craft_the_court_would_take() -> void:
 		(builder["button"] as Button).text, caption, "and the craft reads plainly again"
 	)
 
+
+## The rail marks the presses the court's own crew pass would file on this
+## ground, off the gold line's one reading: the press the line names leads with
+## the mark, a press it leaves out keeps its plain caption, and the legend says
+## what the mark means while one stands. A refresh keeps the mark on a caption
+## the rules re-worded (wiki: world-model § The crown's provinces;
+## DR-20261122-23; REQ-P1-07, REQ-P5-06).
+func test_the_rail_marks_the_press_the_court_would_take() -> void:
+	_setup_province_panel()
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var plain_wall: String = rail.press_text(ProvinceOrdersSection.KEY_WALL)
+	assert_false(plain_wall.is_empty(), "the wall press prints its words")
+	assert_eq(rail.court_legend_text(), "", "no reading, no legend")
+	rail.set_court_marks({ProvinceOrdersSection.KEY_WALL: true})
+	assert_eq(
+		rail.court_marks(), {ProvinceOrdersSection.KEY_WALL: true},
+		"the rail keeps the reading's own keys"
+	)
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL),
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, plain_wall],
+		"the wall press the line names wears the mark"
+	)
+	for key: String in [
+		ProvinceOrdersSection.KEY_IMPROVEMENT,
+		ProvinceOrdersSection.KEY_TOWN,
+		ProvinceOrdersSection.KEY_WARD,
+	]:
+		assert_false(
+			rail.press_text(key).begins_with(ProvinceOrdersSection.COURT_MARK),
+			"a press the line leaves out keeps its plain caption: %s" % key
+		)
+	assert_eq(rail.court_legend_text(), ProvinceOrdersSection.MARK_LEGEND)
+	# The read is replayed at every refresh: a second reading of the same press
+	# never doubles the glyph, because the caption it marks is the rules' own.
+	rail.set_court_marks({ProvinceOrdersSection.KEY_WALL: true})
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL),
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, plain_wall],
+		"one mark on one press"
+	)
+	rail.set_court_marks({})
+	assert_eq(rail.court_marks(), {}, "the reading clears")
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL), plain_wall,
+		"and the press reads plainly again"
+	)
+	assert_eq(rail.court_legend_text(), "", "no mark, no legend")
+
+## The press book every counsel sheet marks by: a caption kept as the rules word
+## it, the reading that names it, and the glyph added and lifted again without
+## doubling (DR-20261122-23).
+func test_the_press_book_marks_and_unmarks_one_caption() -> void:
+	var book := PressMarks.new()
+	book.set_caption("", "ignored")
+	assert_eq(book.text(""), "", "no key, no press")
+	assert_eq(book.text("wall"), "", "a press with no caption prints nothing")
+	assert_false(book.any(), "no reading, no mark")
+	book.set_caption("wall", "Raise Wall")
+	assert_eq(book.text("wall"), "Raise Wall", "the rules' own words")
+	book.mark({})
+	assert_eq(book.keys(), {}, "no keys, no reading")
+	book.mark({"wall": true})
+	assert_eq(book.text("wall"), "%s Raise Wall" % PressMarks.MARK)
+	assert_true(book.any(), "a named press stands the legend")
+	book.mark({})
+	assert_eq(book.text("wall"), "Raise Wall", "and reads plainly again")
+	assert_false(book.any())
+
 func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	_setup_province_panel()
 	_show()
@@ -6231,6 +6301,33 @@ func test_the_passengers_block_marks_the_coast_and_ground_the_court_would_take()
 	block.free()
 
 
+## The mark is a pure read of the pick: a landing that names no crew marks
+## nothing, a boarding without a crew id marks nothing, and a landing marks no
+## boarding — so a half-written pick never leads a press (DR-20261122-21).
+func test_the_passengers_mark_reads_only_a_whole_press() -> void:
+	assert_true(FleetCrewMark.read({}).is_empty(), "no pick, no mark")
+	assert_true(
+		FleetCrewMark.read({"kind": "sail", "zone": 0}).is_empty(),
+		"a sail marks none"
+	)
+	assert_true(
+		FleetCrewMark.read({"kind": "embark", "unit": -1}).is_empty(),
+		"a boarding with no crew marks none"
+	)
+	assert_true(
+		FleetCrewMark.read({"kind": "land", "province": 4, "crew": ""}).is_empty(),
+		"a landing with no crew marks none"
+	)
+	var land: Dictionary = FleetCrewMark.read({
+		"kind": "land", "province": 4, "crew": "builder", "tile": Vector2i(2, 3),
+	})
+	assert_true(FleetCrewMark.marks_coast(land, 4, "builder"), "the coast reads")
+	assert_false(FleetCrewMark.marks_coast(land, 4, "explorer"), "another crew is plain")
+	assert_true(FleetCrewMark.marks_ground(land, 2, 3), "the ground reads")
+	assert_false(FleetCrewMark.marks_ground(land, 3, 2), "another tile is plain")
+	assert_false(FleetCrewMark.marks_embark(land, {"id": 4}), "a landing marks no boarding")
+
+
 ## The crown's own seat reads above the list as one press, so a port province
 ## whose coast holds a whole province of ground never makes a crown open the
 ## list to land at home (wiki: civilian-units § Landing; DR-20261118-28).
@@ -6392,7 +6489,7 @@ func test_the_passengers_block_windows_a_coast_s_whole_land() -> void:
 	# The way back is the block's own row, above the window, and names the count.
 	var rows: Array[Node] = _crew_rows(block)
 	assert_eq((rows[0] as Button).text, "‹ Back to the coasts · 32 grounds")
-	var window: ScrollContainer = block._ground_scroll
+	var window: ScrollContainer = block.grounds_window()
 	assert_true(window.visible, "the open grounds ride a window")
 	var grounds: Node = window.get_child(0)
 	assert_eq(grounds.get_child_count(), 32, "every legal ground is listed")
