@@ -5145,7 +5145,8 @@ func test_the_hire_pick_names_the_crew_the_hire_order_takes() -> void:
 	assert_eq(String(pick.get("crew", "")), "builder")
 	assert_eq(
 		String(pick.get("line", "")),
-		"The court's own hire pass takes a Builder next — 1,000 cash + 2 paper.",
+		"The court's own hire pass takes a Builder next — %s."
+		% CivilianCatalog.training_cost_text("builder"),
 		"the line names the crew and the price the rail charges"
 	)
 	assert_false(
@@ -5164,7 +5165,8 @@ func test_the_hire_pick_names_the_taste_that_leads_it() -> void:
 	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TASTE)
 	assert_eq(
 		String(pick.get("line", "")),
-		"The court's own taste takes an Explorer next — 1,000 cash + 2 paper.",
+		"The court's own taste takes an Explorer next — %s."
+		% CivilianCatalog.training_cost_text("explorer"),
 		"the article follows the craft's own name"
 	)
 
@@ -5222,7 +5224,10 @@ func test_the_hire_pick_names_the_gate_a_waiting_crew_waits_on() -> void:
 	assert_eq(String(spy.get("kind", "")), MapPlayHirePick.KIND_WAIT)
 	assert_eq(
 		String(spy.get("line", "")),
-		"The court's own hire pass takes a Spy next, and the purse cannot cover 2,000 cash + 4 paper."
+		(
+			"The court's own hire pass takes a Spy next, and the purse cannot cover %s."
+			% CivilianCatalog.training_cost_text("spy")
+		)
 	)
 
 
@@ -5242,7 +5247,8 @@ func test_the_hire_pick_falls_back_to_the_queue_when_no_gate_holds_it() -> void:
 	assert_eq(String(pick.get("kind", "")), MapPlayHirePick.KIND_TAKE)
 	assert_eq(
 		String(pick.get("line", "")),
-		"The court's own hire pass takes a Builder next — 1,000 cash + 2 paper."
+		"The court's own hire pass takes a Builder next — %s."
+		% CivilianCatalog.training_cost_text("builder")
 	)
 	assert_eq(
 		String(MapPlayHirePick.of({"ok": true, "type_id": ""}, "", null).get("line", "")),
