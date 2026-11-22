@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1297 (REQ-P2-02).
+Audited: wiki / DRs / code through #1311 (REQ-P2-02).
 Default pick: largest gap here, then REQ/wiki.
 
 ## Already live
@@ -53,8 +53,8 @@ None; see `docs/rubric.md` / wiki.
 
 - Predict-the-line (DR-12-02); era — no model (DR-11-08).
 - Healing at 0; last-known OOB (DR-12-04/09); general-grade trains (DR-12-07).
-- Soft priority weight — seed (DR-17-01); resource-need phase reweight —
-  no need reading (DR-13-15; money-goal live DR-16-09).
+- Soft priority weight — seed (DR-13-15); resource-need phase reweight — no
+  need reading (money-goal live DR-16-09).
 - Alt victory, difficulty extras, ruleset loaders/borrowing, warehousing,
   loans, sea-zone names — out of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
@@ -67,6 +67,5 @@ None; see `docs/rubric.md` / wiki.
 
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`).
-`DR-20261112-09` fog closed by DR-13-03. Soft weight seed blocked
-(DR-17-01). Learnings harness-only; #1262–#1297 counsel/marks/harbour
-words — not backlog.
+`DR-20261112-09` fog closed by DR-13-03. Soft weight seed (DR-13-15).
+Learnings harness-only; #1262–#1311 counsel/marks/harbour words — not backlog.

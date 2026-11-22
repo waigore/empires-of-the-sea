@@ -296,10 +296,14 @@ static func _navy(readings: Dictionary, at_war: bool) -> AiObjective:
 			# of another silent deferred row (issue #603). The yard's own gate
 			# rides in the same words, so a court that cannot lay the hull it
 			# funds reads why instead of banking the chest again (issue #1126).
-			var yard_stall: int = int(
-				(readings.get("blockings", {}) as Dictionary).get("navy.build", 0)
-			)
-			if yard_stall > 0:
+			# The naming rides the same valve the chest reads (issue #1275):
+			# once the line is no longer due the stand-down is over — the
+			# frozen stall is the fill's history, not its present, and the
+			# row reads the bank again.
+			var stall: Dictionary = (readings.get("blockings", {}) as Dictionary)
+			var yard_stall: int = int(stall.get("navy.build", 0))
+			var line_due: bool = bool(readings.get("muster_due", false))
+			if yard_stall > 0 and line_due:
 				var gate: String = String(readings.get("warship_refusal", ""))
 				build.block(
 					"the yard is out of reach %d turns" % yard_stall
