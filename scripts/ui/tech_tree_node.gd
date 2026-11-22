@@ -37,9 +37,13 @@ func setup(id: String) -> void:
 		add_child(_plate)
 
 
-## Repaints the node for this crown: the standing's ink, the goal diamond and,
-## when the advance is on the aimed road, a gold ring heavier than the rest.
-func paint(state: ResearchState, goal: String, on_path: bool) -> void:
+## Repaints the node for this crown: the standing's ink, the goal diamond, the
+## court's own `▸` when the published research policy would open this advance
+## (DR-20261121-20), and, when the advance is on the aimed road, a gold ring
+## heavier than the rest.
+func paint(
+	state: ResearchState, goal: String, on_path: bool, court: bool = false
+) -> void:
 	var kind: int = TechPlan.state_of(state, tech_id)
 	var ink: Color = Palette.TEXT
 	var ring: Color = Color(0.36, 0.30, 0.21)
@@ -69,7 +73,11 @@ func paint(state: ResearchState, goal: String, on_path: bool) -> void:
 	add_theme_stylebox_override(
 		"pressed", UiTheme.box(fill.lightened(0.18), Palette.GOLD_PALE, width, 3, MARGIN)
 	)
-	text = ("◆ " if tech_id == goal else "") + TechCatalog.display_name(tech_id)
+	text = (
+		("◆ " if tech_id == goal else "")
+		+ ("▸ " if court else "")
+		+ TechCatalog.display_name(tech_id)
+	)
 
 
 ## The series medallion at the node's left edge, at a fixed size whatever the

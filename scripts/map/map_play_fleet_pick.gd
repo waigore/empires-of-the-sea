@@ -52,7 +52,7 @@ static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
 ## The sheet's line: the pick's own sentence, or nothing when the court would
 ## give this squadron no order this turn.
 static func line(play: PlaySession, fleet: FleetState) -> String:
-	return MapPlayFleetPickWords.sentence(String(pick(play, fleet).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, fleet))
 
 
 ## One order, carried with the words the sheet prints. The kind, the water and

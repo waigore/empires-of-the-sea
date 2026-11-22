@@ -2,8 +2,10 @@ class_name ArmyPanel
 extends PanelContainer
 ## Dockable dossier for the selected land army: station, composition, readiness
 ## and the detach/merge orders. ArmyRosterBlock owns the regiment column;
-## ArmyMusterBlock owns the drill-yard rows. Rules stay in ArmyState/ArmyMovement;
-## the panel only reads state and emits intents (REQ-P3-01, REQ-P3-02).
+## ArmyMusterBlock owns the drill-yard rows; ArmyPanelOrders owns the presses;
+## ArmyPanelStatus / ArmyPanelStrength own the standing prose. Rules stay in
+## ArmyState/ArmyMovement; the panel only reads state and emits intents
+## (REQ-P3-01, REQ-P3-02).
 
 signal close_pressed
 signal dock_side_pressed
@@ -16,8 +18,8 @@ signal door_pressed(key: String)
 ## (wiki: naming § Regiment names; DR-20261113-03).
 signal rename_pressed(regiment_id: String, wanted: String)
 
-## The one order the dossier carries for the whole standard; the guard's key.
-const DISMISS_ALL: String = "dismiss_all"
+## Kept for callers that armed the dismiss press before the orders split.
+const DISMISS_ALL: String = ArmyPanelOrders.DISMISS_ALL
 
 var _header: DossierHeader = null
 var _location: Label = null
@@ -30,23 +32,23 @@ var _composition: Label = null
 var _pick: Label = null
 var _status: Label = null
 var _hint: Label = null
+## The repaint's own reading of the ground: an army with no own province one
+## march away gets the walk-home hint instead of the ordinary one (wiki:
+## military-armies § Movement and attacks).
+var _stranded: bool = false
 var _roster: ArmyRosterBlock = null
 var _scroll: ScrollContainer = null
 var _muster_button: Button = null
 var _muster_box: ArmyMusterBlock = null
 var _muster_open: bool = false
-var _detach_all: Button = null
-var _dismiss_all: Button = null
-## Shedding the whole standard is destructive, so the press asks once: the guard
-## holds the arm and lets the window run out on its own (DR-20261109-01).
-var _dismiss_arm: ArmGuard = null
-## The regiments the open sheet is reading, so the dismissal press can count
-## what it would shed without reaching into the roster block.
-var _last_count: int = 0
+var _orders: ArmyPanelOrders = null
+## Aliases onto `_orders` so existing dossier tests keep their field paths.
 var _merge: Button = null
 var _embark: Button = null
 var _plan: Button = null
 var _hospital: Button = null
+var _detach_all: Button = null
+var _dismiss_all: Button = null
 
 
 func _ready() -> void:
@@ -149,46 +151,15 @@ func _build() -> void:
 	_muster_box.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
 	content.add_child(_muster_box)
 
-	_merge = UiRowBuilder.button("Combine armies here", 36.0, 0.0)
-	_merge.pressed.connect(func() -> void: action_pressed.emit("merge"))
-	_merge.visible = false
-	shell.add_child(_merge)
-
-	_embark = UiRowBuilder.button("Embark aboard the fleet", 36.0, 0.0)
-	_embark.pressed.connect(func() -> void: action_pressed.emit("embark"))
-	_embark.visible = false
-	shell.add_child(_embark)
-
-	_plan = UiRowBuilder.button("Crown battle plan: Balanced", 36.0, 0.0)
-	_plan.tooltip_text = (
-		"One plan for every battle this crown fights — tap to cycle "
-		+ "Aggressive / Balanced / Defensive"
-	)
-	_plan.pressed.connect(func() -> void: action_pressed.emit("plan:next"))
-	_plan.visible = false
-	shell.add_child(_plan)
-
-	# The army's own tents (DR-20261112-07): a blocked order still shows, its
-	# reason as the caption, so the crown never hunts for a hidden refusal.
-	_hospital = UiRowBuilder.button("Pitch a field hospital", 36.0, 0.0)
-	_hospital.pressed.connect(func() -> void: action_pressed.emit("hospital"))
-	_hospital.visible = false
-	shell.add_child(_hospital)
-
-	_detach_all = UiRowBuilder.button("Detach all regiments", 36.0, 0.0)
-	_detach_all.pressed.connect(func() -> void: action_pressed.emit("detach_all"))
-	_detach_all.visible = false
-	shell.add_child(_detach_all)
-
-	# Shedding the whole standard is destructive, so the press asks once
-	# (wiki: military-armies § Dismissing regiments; DR-20261109-01).
-	_dismiss_all = UiRowBuilder.button("Dismiss all regiments", 36.0, 0.0)
-	_dismiss_all.pressed.connect(on_dismiss_all_pressed)
-	_dismiss_all.visible = false
-	shell.add_child(_dismiss_all)
-	_dismiss_arm = ArmGuard.new()
-	_dismiss_arm.expired.connect(func() -> void: _retitle_dismiss(_last_count))
-	add_child(_dismiss_arm, false, Node.INTERNAL_MODE_BACK)
+	_orders = ArmyPanelOrders.new()
+	_orders.action_pressed.connect(func(action: String) -> void: action_pressed.emit(action))
+	shell.add_child(_orders)
+	_merge = _orders.merge
+	_embark = _orders.embark
+	_plan = _orders.plan
+	_hospital = _orders.hospital
+	_detach_all = _orders.detach_all
+	_dismiss_all = _orders.dismiss_all
 
 	_status = UiRowBuilder.line(13, Palette.GOLD_PALE)
 	shell.add_child(_status)
@@ -200,29 +171,8 @@ func _build() -> void:
 
 ## First tap arms and relabels, the second files the order (DR-20261109-01).
 func on_dismiss_all_pressed() -> void:
-	if _dismiss_arm.spend(DISMISS_ALL):
-		action_pressed.emit("dismiss_all")
-		return
-	_dismiss_arm.arm(DISMISS_ALL)
-	_retitle_dismiss(_last_count)
-
-
-## The press names what the second tap does, before the colours leave
-## (REQ-P5-05).
-func _retitle_dismiss(count: int) -> void:
-	if _dismiss_all == null:
-		return
-	var armed: bool = _dismiss_arm != null and _dismiss_arm.holds(DISMISS_ALL)
-	_dismiss_all.text = (
-		"Confirm — dismiss all %d regiments" % count
-		if armed
-		else "Dismiss all regiments"
-	)
-	_dismiss_all.tooltip_text = (
-		"Press again to dismiss every regiment: one peasant each, no refund."
-		if armed
-		else "Dismiss every regiment of this army: one peasant each, no refund."
-	)
+	if _orders != null:
+		_orders.on_dismiss_all_pressed()
 
 
 func set_dock_affordance(glyph: String, tip: String) -> void:
@@ -254,10 +204,7 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 	var is_player: bool = opening.is_player
 	var command: String = opening.command
 	var muster: Array[Dictionary] = opening.muster
-	var embark: String = opening.embark
-	var hospital: Dictionary = opening.hospital
 	var pick: String = opening.pick
-	var plan: String = opening.plan
 	_header.flag.color = Palette.faction_color(army.owner)
 	var title: String = "ARMY OF %s" % FactionCatalog.name_of(army.owner).to_upper()
 	if army.home:
@@ -266,36 +213,30 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 	if army.is_embarked():
 		_location.text = "Aboard a fleet"
 	else:
-		_location.text = "At %s" % model.province_name(army.province)
-	_strength.text = _strength_line(model, army)
+		_location.text = "At %s%s" % [
+			model.province_name(army.province), ArmyPanelStatus.ground_note(model, army)
+		]
+	_strength.text = ArmyPanelStrength.line(model, army)
 	_command.text = _command_head(command)
 	_command_row.visible = not command.is_empty()
 	_composition.text = army.composition_text()
 	_pick.text = pick
 	_pick.visible = not pick.is_empty()
-	_last_count = army.count()
-	# A repaint means the order landed or the view moved: no arm survives it.
-	if _dismiss_arm != null:
-		_dismiss_arm.clear()
+	_stranded = is_player and ArmyMovement.stranded(model, army)
 	_roster.fill(army, is_player and not army.is_embarked(), model, is_player)
 	_muster_box.fill(muster, opening.muster_pick)
 	if not (is_player and army.home):
 		_muster_open = false
 	_muster_button.visible = is_player and army.home and not muster.is_empty()
 	_muster_box.visible = _muster_button.visible and _muster_open
-	_merge.visible = (
-		is_player and opening.can_merge and not army.is_embarked() and army.count() > 0
-	)
-	_detach_all.visible = is_player and not army.is_embarked() and army.count() > 1
-	_dismiss_all.visible = is_player and army.count() > 0
-	_retitle_dismiss(army.count())
-	_embark.visible = is_player and not embark.is_empty() and not army.is_embarked()
-	_plan.visible = is_player and not army.is_embarked() and army.count() > 0
-	_plan.text = "Crown battle plan: %s" % QuickBattleActions.normalize_plan(plan).capitalize()
-	_hospital.visible = is_player and not army.is_embarked() and not hospital.is_empty()
-	_hospital.disabled = not bool(hospital.get("ok", false))
-	_hospital.text = String(hospital.get("caption", "Pitch a field hospital"))
-	_apply_status(army, is_player)
+	if _orders != null:
+		_orders.apply(army, opening)
+	# A host off its own ground keeps no interior lines, so the hint must not
+	# promise own land the tap list does not hold (DR-20261121-15).
+	var off_ground: bool = is_player and army.province != MapModel.NO_ID
+	if off_ground:
+		off_ground = not ArmyMovement.on_own_ground(model, army)
+	ArmyPanelStatus.apply(_status, _hint, army, is_player, _stranded, off_ground)
 
 
 ## The dossier names the crown's commanders in one line; what a medal buys in
@@ -305,59 +246,7 @@ func _command_head(command: String) -> String:
 	return command.split("\n")[0]
 
 
-## Strength line: count, firepower, food, chevrons and the ward or train. The
-## strength is the resolver's own aggregation, so the dossier, the muster roll
-## and the battle name one figure for a decorated standard (wiki: combat
-## § Strength, military-armies § The muster roll; REQ-P2-03).
-func _strength_line(model: MapModel, army: ArmyState) -> String:
-	var one: Array[ArmyState] = [army]
-	var text: String = "%d regiments · %d strength · %d food" % [
-		army.count(), roundi(ArmyForce.side_strength(one)), _food(army)
-	]
-	var chevrons: int = RegimentCondition.chevrons(one)
-	if chevrons > 0:
-		text += " · %d chevrons" % chevrons
-	if army.is_embarked():
-		return text
-	var ward: int = HospitalRules.effective_level(model, army.province)
-	if army.field_hospital:
-		# The tents carry the field's tempo anywhere; a fed ward can still
-		# beat them, so both shares are named (DR-20261112-07).
-		text += " · field hospital · rest %d%%" % roundi(
-			HospitalTrain.REST_SHARE * 100.0
-		)
-		var ward_share: float = HospitalRules.rest_share(ward)
-		if ward > 0 and ward_share > HospitalTrain.REST_SHARE:
-			text += " · ward %d%%" % roundi(ward_share * 100.0)
-	elif ward > 0:
-		text += " · rest %d%%" % roundi(HospitalRules.rest_share(ward) * 100.0)
-	elif HospitalRules.level_at(model, army.province) > 0:
-		# The ward is there but its staff went unfed (DR-20261112-04).
-		text += " · hospital unstaffed"
-	return text
-
-
-func _apply_status(army: ArmyState, is_player: bool) -> void:
-	if not is_player:
-		_status.text = "Enemy colours · no orders"
-		_hint.text = "Observe only. Orders require your own army."
-	elif army.is_embarked():
-		_status.text = "Aboard the fleet"
-		_hint.text = "The squadron carries the army; land on an owned coast."
-	elif army.home:
-		_status.text = "Home Army · never leaves the capital"
-		_hint.text = "Detach a regiment to form a field army, then march it."
-	elif army.moved:
-		_status.text = "Has marched this turn"
-		_hint.text = "End the turn to march again."
-	else:
-		_status.text = "1 march this turn"
-		_hint.text = "Tap a highlighted province; your own land is open, enemy land must border you."
-
-
-## The dossier's larder line: the rules' own bill, so the dossier and the crown's
-## army sheet never name one standard two ways (wiki: military-armies § The
-## regiments behind an army, combat § Feeding; DR-20261112-07).
+## Thin forward for suites that still read the larder off the sheet
+## (`ArmyPanelStrength.food` owns the bill).
 func _food(army: ArmyState) -> int:
-	var one: Array[ArmyState] = [army]
-	return ArmyRoster.food_upkeep_of(one, army.owner)
+	return ArmyPanelStrength.food(army)

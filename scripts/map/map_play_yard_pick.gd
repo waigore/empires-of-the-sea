@@ -122,4 +122,4 @@ static func counsel(
 ## The sheet's line: the pick's own sentence, or nothing when the court's yard
 ## means to lay nothing this turn.
 static func line(play: PlaySession) -> String:
-	return MapPlayYardPickWords.sentence(String(pick(play).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play))

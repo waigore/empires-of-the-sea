@@ -1353,8 +1353,8 @@ func _printed_lines(entry: Control) -> Array[String]:
 ## A lost capital says why instead of opening a slip the crown cannot use.
 func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 	var play: PlaySession = _screen.play
-	play.capital_province = _unowned_province()
-	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
+	_lose_the_capital(play)
+	assert_eq(int(MapPlayCourt.crown_seat(play)["province"]), -1, "the seat is gone")
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
@@ -1367,8 +1367,9 @@ func test_the_yard_refuses_a_capital_the_crown_lost() -> void:
 ## An inland capital cannot build hulls; the court is told before it pays.
 func test_the_yard_needs_a_harbour() -> void:
 	var play: PlaySession = _screen.play
-	play.capital_province = _inland_owned_province()
-	assert_gte(play.capital_province, 0, "the fixture has an inland province")
+	var inland: int = _inland_owned_province()
+	assert_gte(inland, 0, "the fixture has an inland province")
+	_move_the_seat(play, inland)
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.open(play)
@@ -1669,8 +1670,7 @@ func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
 	econ.treasury = 60000
 	econ.tech_unlocked["superior_hull_design"] = true
 	var pending: int = econ.recruits.pending_kind(RecruitQueue.KIND_SHIP)
-	play.capital_province = _unowned_province()
-	assert_gte(play.capital_province, 0, "the fixture has a province another crown holds")
+	_lose_the_capital(play)
 	var toasts: int = _screen.hud.despatches.box.get_child_count()
 
 	MapPlayFleetYard.on_action(play, "yard:launch_all")
@@ -1678,8 +1678,9 @@ func test_the_yard_batch_refuses_a_capital_it_cannot_launch_from() -> void:
 	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "nothing is filed")
 	assert_eq(_screen.hud.despatches.box.get_child_count(), toasts + 1, "the refusal is spoken")
 
-	play.capital_province = _inland_owned_province()
-	assert_gte(play.capital_province, 0, "the fixture has an inland province")
+	var inland: int = _inland_owned_province()
+	assert_gte(inland, 0, "the fixture has an inland province")
+	_move_the_seat(play, inland)
 	MapPlayFleetYard.launch_all(play)
 
 	assert_eq(econ.recruits.pending_kind(RecruitQueue.KIND_SHIP), pending, "no yard inland")
@@ -2427,22 +2428,30 @@ func test_the_marker_draws_a_squadron_at_both_zooms() -> void:
 
 ## A sea fight the crown fought leaves a word at the rival's court: the booking
 ## reads a zone as water, not a province (wiki: dialogue-and-mood § Design
-## intent — event; DR-20261111-01).
+## intent — event; DR-20261111-01). Pure diplomacy — no chart re-seat under
+## coverage (docs/testing.md § Speed rules; land battle twin in army_orders).
 func test_a_sea_fight_leaves_a_word_at_the_rivals_court() -> void:
+	var player: int = MapScreen.PLAYER_FACTION
 	var rival: int = 2
-	DiplomacyRules.declare_war(
-		_screen.play.diplomacy, _screen.play.player_faction, rival
+	var state := DiplomacyState.new()
+	state.ensure_relation(player, rival, 1)
+	DiplomacyRules.declare_war(state, player, rival)
+	assert_true(
+		DialogueEvents.record_naval_battle(
+			state,
+			{
+				"zone": 1,
+				"attacker": player,
+				"defender": rival,
+				"outcome": NavalCombat.Outcome.SIDE1_VICTORY,
+				"retreat": {},
+			},
+			player
+		),
+		"a verdict on the water is kept"
 	)
-	_screen.play.emit_battle_resolved([
-		{
-			"zone": 1, "attacker": _screen.play.player_faction, "defender": rival,
-			"outcome": NavalCombat.Outcome.SIDE1_VICTORY, "retreat": {},
-		},
-	] as Array[Dictionary])
 
-	var spoken: Dictionary = DialogueEvents.for_pair(
-		_screen.play.diplomacy, _screen.play.player_faction, rival
-	)
+	var spoken: Dictionary = DialogueEvents.for_pair(state, player, rival)
 	assert_eq(String(spoken["category"]), DialogueCatalog.CAT_EVENT, "the water answers")
 	assert_eq(String(spoken["point"]), "event/sea_lost", "the beaten court owns it")
 
@@ -2501,6 +2510,31 @@ func _unowned_province() -> int:
 		if province.owner != _screen.play.player_faction and province.owner != MapModel.NO_ID:
 			return province.id
 	return -1
+
+
+## Takes the crown's seat, the way a conquest does: another court holds the seat
+## province and the flag goes with the court (wiki: capital-and-connectivity
+## § Capital loss and reassignment).
+func _lose_the_capital(play: PlaySession) -> void:
+	var province: int = int(MapPlayCourt.crown_seat(play)["province"])
+	if province < 0:
+		return
+	var seat: ProvinceState = play.model.province_data(province)
+	seat.owner = play.model.province_owner(_unowned_province())
+	CapitalLoss.clear_seat(seat)
+
+
+## Moves the crown's seat to another owned province, as reassignment does
+## (wiki: capital-and-connectivity § Capital loss and reassignment).
+func _move_the_seat(play: PlaySession, province: int) -> void:
+	var model: MapModel = play.model
+	var current: int = int(MapPlayCourt.crown_seat(play)["province"])
+	if current >= 0:
+		CapitalLoss.clear_seat(model.province_data(current))
+	var seat: ProvinceState = model.province_data(province)
+	seat.owner = play.player_faction
+	seat.capital = true
+	seat.capital_tile = CapitalLoss.town_tile(seat)
 
 
 ## An owned province with no harbour, for the yard's "no harbour" row.
@@ -3786,10 +3820,10 @@ func test_the_picks_words_name_each_sail_and_its_reason() -> void:
 		"the footing's own reason"
 	)
 	assert_eq(
-		MapPlayFleetPickWords.sentence("the court would dock her at %s" % port),
+		MapPlayPickProse.sentence("the court would dock her at %s" % port),
 		"The court would dock her at %s." % port
 	)
-	assert_eq(MapPlayFleetPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(MapPlayFleetPickWords.line(model, {}), "", "no order, no line")
 	assert_eq(MapPlayFleetPickWords.line(model, {"kind": "unknown"}), "", "no kind, no line")
 	assert_eq(MapPlayFleetPickWords.line(null, {"kind": "home"}), "", "no chart, no line")
@@ -4001,7 +4035,7 @@ func _slip_row() -> Dictionary:
 func test_the_yard_drawer_prints_the_courts_claim_under_its_heading() -> void:
 	var yard := FleetYardBlock.new()
 	add_child(yard)
-	var pick: String = MapPlayYardPickWords.sentence(
+	var pick: String = MapPlayPickProse.sentence(
 		MapPlayYardPickWords.lay_line("sloop")
 	)
 	yard.show_rows(null, [_slip_row()], true, true, pick)
@@ -4061,10 +4095,10 @@ func test_the_yard_picks_words_name_each_hull_and_its_gate() -> void:
 		"the court is saving for a Sloop — the study Navigation opens her"
 	)
 	assert_eq(
-		MapPlayYardPickWords.sentence("the court would lay a Sloop — 5,500 ducats"),
+		MapPlayPickProse.sentence("the court would lay a Sloop — 5,500 ducats"),
 		"The court would lay a Sloop — 5,500 ducats."
 	)
-	assert_eq(MapPlayYardPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 
 
 # --- the voyage pick (DR-20261121-08) ---------------------------------------
@@ -4167,7 +4201,7 @@ func test_the_voyage_pick_names_no_squadron_the_court_would_leave_alone() -> voi
 func test_the_voyage_words_name_each_step_the_plan_takes() -> void:
 	var model: MapModel = _model
 	assert_eq(
-		MapPlayVoyagePickWords.sentence(MapPlayVoyagePickWords.line(model, {
+		MapPlayPickProse.sentence(MapPlayVoyagePickWords.line(model, {
 			"kind": "sail", "zone": 0, "carrying": true,
 		})),
 		"The court would sail her for the %s — the first leg to the Passage." % (

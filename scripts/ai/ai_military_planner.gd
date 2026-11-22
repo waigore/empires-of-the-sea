@@ -15,6 +15,14 @@ const KIND_MARCH: String = "march"
 ## An under-strength field army's interior-lines march home to merge with the
 ## Home Army's mustered mass (issue #974).
 const KIND_ROTATE: String = "rotate_home"
+## A host standing on ground it does not hold walks home one province at a time:
+## no own land touches, so interior lines are shut and the road home is a walk
+## through the provinces beside it (wiki: military-armies § Movement and attacks;
+## DR-20261121-15).
+const KIND_WALK_HOME: String = "walk_home"
+
+## A distance no walk reaches: a province the road home never touches.
+const UNREACHABLE: int = 1 << 30
 
 ## Score weights and the storm margin live in AiParameterRegistry
 ## ("military.*"), so a profile tunes the land policy without code edits.
@@ -65,7 +73,9 @@ static func split_orders(
 ## an adjacent hostile province, then staging on the nearest frontier. One
 ## under-strength field army a turn may instead march home on interior lines
 ## (issue #974): it merges with the Home Army's mustered mass, and the next
-## split re-fields a full-strength replacement.
+## split re-fields a full-strength replacement. A host standing on ground it does
+## not hold has no interior lines, so when no attack, defence or staging order
+## answers it walks home one province at a time (DR-20261121-15).
 static func march_orders(
 	config: AiConfig,
 	state: DiplomacyState,
@@ -78,32 +88,32 @@ static func march_orders(
 		return {"orders": orders, "candidates": candidates}
 	var owner: int = config.faction
 	var hostile: Dictionary = Hostility.owners(state, owner)
-	if hostile.is_empty():
-		return {"orders": orders, "candidates": candidates}
 	var frontier: Array[int] = _staging_provinces(model, owner, state)
-	var rotating: int = _rotation_army_id(config, model, armies)
+	# The rotation is a war move: a court at peace keeps its field armies where
+	# they stand. The walk home is not — a host stranded in the wilderness walks
+	# back whether or not a war is on (DR-20261121-15).
+	var rotating: int = -1
+	if not hostile.is_empty():
+		rotating = _rotation_army_id(config, model, armies)
 	for army: ArmyState in ArmyRoster.field_armies(armies, owner):
 		if army.moved or army.is_empty():
 			continue
-		var entry: Dictionary = {}
+		var best: Dictionary = {}
 		if army.id == rotating:
 			var home: ArmyState = ArmyTraining.home_army(armies, owner)
-			entry = {
-				"army_id": army.id,
-				"province": home.province,
-				"kind": KIND_ROTATE,
-				"score": 0,
-			}
+			best = _rotation_order(model, army, home)
 		else:
-			var best: Dictionary = _best_order(config, model, armies, army, hostile, frontier)
-			if best.is_empty():
-				continue
-			entry = {
-				"army_id": army.id,
-				"province": int(best["province"]),
-				"kind": String(best["kind"]),
-				"score": int(best["score"]),
-			}
+			best = _best_order(config, model, armies, army, hostile, frontier)
+		if best.is_empty():
+			best = _walk_home_order(model, army)
+		if best.is_empty():
+			continue
+		var entry: Dictionary = {
+			"army_id": army.id,
+			"province": int(best["province"]),
+			"kind": String(best["kind"]),
+			"score": int(best["score"]),
+		}
 		candidates.append(entry)
 		orders.append(entry.duplicate())
 	return {"orders": orders, "candidates": candidates}
@@ -132,6 +142,75 @@ static func _rotation_army_id(
 		if chosen == null or army.count() < chosen.count():
 			chosen = army
 	return chosen.id if chosen != null else -1
+
+
+## The rotation's own order: the march home to merge, or — when the seat is out
+## of one march's reach — the first leg of the walk home, so a stranded host
+## never sits on an order the rules would refuse (DR-20261121-15).
+static func _rotation_order(
+	model: MapModel, army: ArmyState, home: ArmyState
+) -> Dictionary:
+	if home == null:
+		return {}
+	if ArmyMovement.destinations(model, army).has(home.province):
+		return {"province": home.province, "kind": KIND_ROTATE, "score": 0}
+	return _walk_home_order(model, army)
+
+
+## The first leg of the walk home for a field army that stands on ground it does
+## not hold: the province beside it that shortens the road to the seat, over
+## ground the army may enter at peace — its own land and unclaimed wilderness.
+## Empty when the army stands on its own ground, the court reads no seat, or no
+## step shortens the road (a host walled in by foreign land).
+static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
+	if model == null or army == null or ArmyMovement.on_own_ground(model, army):
+		return {}
+	var seat: int = WorldBootstrap.capital_province(model, army.owner)
+	if seat == MapModel.NO_ID:
+		return {}
+	var road: Dictionary = _walk_distances(model, seat, army.owner)
+	var best: Dictionary = {}
+	var best_distance: int = UNREACHABLE
+	for province: int in ArmyMovement.destinations(model, army):
+		var holder: int = model.province_owner(province)
+		if holder != army.owner and holder != MapModel.NO_ID:
+			continue
+		var distance: int = int(road.get(province, UNREACHABLE))
+		if distance >= UNREACHABLE:
+			continue
+		# Nearest first, the lower id on a tie, so the same state always walks
+		# the same way. Own land is the seat's own distance 0 and always wins;
+		# a wilderness step is only named while the road is still a walk.
+		if not best.is_empty():
+			if distance > best_distance:
+				continue
+			if distance == best_distance and province > int(best["province"]):
+				continue
+		best = {"province": province, "kind": KIND_WALK_HOME, "score": 0}
+		best_distance = distance
+	return best
+
+
+## Distance from the seat over the ground a host may walk at peace: the court's
+## own land and unclaimed wilderness. Foreign land is no step — a march into it
+## is a war, and the attack branch already prices that.
+static func _walk_distances(model: MapModel, seat: int, owner: int) -> Dictionary:
+	var distances: Dictionary = {}
+	if seat < 0:
+		return distances
+	var queue: Array[int] = [seat]
+	distances[seat] = 0
+	while not queue.is_empty():
+		var current: int = queue.pop_front()
+		for neighbor: int in MapGeo.province_neighbors(model, current):
+			if distances.has(neighbor):
+				continue
+			var holder: int = model.province_owner(neighbor)
+			if holder != owner and holder != MapModel.NO_ID:
+				continue
+			distances[neighbor] = int(distances[current]) + 1
+			queue.append(neighbor)
+	return distances
 
 
 ## Highest-scoring legal destination for one field army. Attack scores come from

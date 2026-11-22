@@ -21,6 +21,8 @@ const EDGE_LIT_WIDTH: float = 2.5
 var _nodes: Dictionary = {}
 var _state: ResearchState = null
 var _goal: String = ""
+## The advance the court's own policy would open, marked `▸` (DR-20261121-20).
+var _court: String = ""
 var _selected: String = ""
 ## The aimed advance and every prerequisite above it; empty when nothing aims.
 var _cone: Dictionary = {}
@@ -33,10 +35,12 @@ func _ready() -> void:
 
 
 ## Repaints the chart from live research state. The nodes are built once, so a
-## goal change rewrites their ink and touches no widget (REQ-P1-05).
-func present(state: ResearchState, goal: String = "") -> void:
+## goal or counsel change rewrites their ink and touches no widget (REQ-P1-05).
+## `court` marks the advance the court's own policy would open; "" marks none.
+func present(state: ResearchState, goal: String = "", court: String = "") -> void:
 	_state = state
 	_goal = TechOrder.normalize(goal)
+	_court = TechOrder.normalize(court)
 	if _nodes.is_empty():
 		_build()
 	_repaint()
@@ -117,7 +121,9 @@ func _build() -> void:
 func _repaint() -> void:
 	for tech_id: Variant in _nodes.keys():
 		var node: TechTreeNode = _nodes[tech_id]
-		node.paint(_state, _goal, _cone.has(String(tech_id)))
+		node.paint(
+			_state, _goal, _cone.has(String(tech_id)), String(tech_id) == _court
+		)
 
 
 # --- panning -----------------------------------------------------------------

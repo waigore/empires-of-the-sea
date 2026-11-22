@@ -22,6 +22,13 @@ var _buttons: Dictionary = {}
 var _batches: Dictionary = {}
 ## Tier badges keyed by tier, so tooling reads the mark without walking rows.
 var _marks: Dictionary = {}
+## The court's own plan for this phase: the workers its economy pass would
+## recruit, printed in gold above the tier rows it answers and marked ▸ on
+## those rows (wiki: workers-and-population § Recruiting; DR-20261122-01).
+var _counsel: Label = null
+var _pick: Dictionary = {}
+## The mark a tier row wears when the court's own plan recruits it.
+const COURT_MARK: String = "▸"
 ## The price/ration line under each tier row, keyed by tier (REQ-P5-05).
 var _lines: Dictionary = {}
 
@@ -33,12 +40,19 @@ func set_compact(compact: bool) -> void:
 		return
 	_compact = compact
 	if _economy != null:
-		fill(_economy, _report)
+		fill(_economy, _report, _pick)
 
 
-func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
+## `report` is the projection the panel already holds; `pick` is the court's own
+## recruit pick (`MapPlayRecruitPick`), read on the crown's seat — a page filled
+## without one carries no gold line (DR-20261122-01).
+func fill(
+	economy: PlayerEconomy, report: Dictionary = {}, pick: Dictionary = {}
+) -> void:
 	_economy = economy
 	_report = report
+	_pick = pick
+	_counsel = null
 	_buttons.clear()
 	_batches.clear()
 	_marks.clear()
@@ -52,6 +66,13 @@ func fill(economy: PlayerEconomy, report: Dictionary = {}) -> void:
 		)
 	)
 	add_child(_larder(economy, report))
+	# The court's own plan for this phase, in the colour every pick wears, above
+	# the tier rows whose names it marks (DR-20261122-01).
+	_counsel = UiRowBuilder.wrapped_line(
+		String(pick.get("line", "")), 12, Palette.GOLD
+	)
+	_counsel.visible = not _counsel.text.is_empty()
+	add_child(_counsel)
 	for tier in WorkerPool.TIER_COUNT:
 		add_child(_tier_row(tier))
 		var batch: Control = _batch_row(tier)
@@ -243,7 +264,10 @@ func _tier_row(tier: int) -> Control:
 	var badge := WorkerTierArt.badge(tier, mark)
 	row.add_child(badge)
 	_marks[tier] = badge
-	var name_label := UiRowBuilder.label(WorkerPool.tier_name(tier), 14, Palette.TEXT)
+	var name_text: String = WorkerPool.tier_name(tier)
+	if (_pick.get("tiers", {}) as Dictionary).has(tier):
+		name_text = "%s %s" % [COURT_MARK, name_text]
+	var name_label := UiRowBuilder.label(name_text, 14, Palette.TEXT)
 	name_label.custom_minimum_size = Vector2(132, 0)
 	row.add_child(name_label)
 	var text: String = "%d  ·  labour %d" % [
@@ -359,3 +383,10 @@ func tier_marks() -> Dictionary:
 ## The price/ration line under each tier row, keyed by tier (REQ-P5-05).
 func tier_lines() -> Dictionary:
 	return _lines
+
+
+## The court's own recruit line on the tab: the workers the published economy
+## pass would buy this phase, or the gate that leaves the pool alone. Empty when
+## the page was filled without a pick (DR-20261122-01).
+func counsel_text() -> String:
+	return _counsel.text if _counsel != null else ""

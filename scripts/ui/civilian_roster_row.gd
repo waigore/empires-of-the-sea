@@ -37,25 +37,32 @@ func _build_state(state: VBoxContainer) -> void:
 
 func _fill() -> void:
 	var working: bool = bool(data.get("working", false))
+	var aboard: bool = bool(data.get("aboard", false))
 	_name.text = String(data.get("role", "Civilian"))
-	_chip.text = "AT WORK" if working else "IDLE"
+	# A crew aboard a squadron is off the map and takes no order, so the chip
+	# names that duty instead of calling it idle (wiki: civilian-units
+	# § Overseas deployment).
+	_chip.text = "AT WORK" if working else ("ABOARD" if aboard else "IDLE")
 	_paint_chip(Palette.GOLD if working else Color(0.66, 0.60, 0.46))
-	_detail.text = "%s  ·  %s  ·  tile %d, %d" % [
-		String(data.get("province_name", "Open country")),
-		String(data.get("region_label", "Uncharted")),
-		Vector2i(data.get("tile", Vector2i.ZERO)).x,
-		Vector2i(data.get("tile", Vector2i.ZERO)).y,
-	]
-	if compact:
-		_detail.text = "%s  ·  %s  ·  %s" % [
-			String(data.get("province_name", "Open country")),
-			String(data.get("region_label", "Uncharted")),
-			String(data.get("short_status", "Idle")),
-		]
+	_detail.text = _detail_text(aboard)
 	_status.text = String(data.get("status_text", ""))
 	_progress.visible = working and not compact
 	_progress.value = float(data.get("progress", 0.0))
 	_visit.tooltip_text = "Open %s on the map" % String(data.get("province_name", "this unit"))
+
+
+## The posting line. A crew aboard a squadron has no map tile, so it names the
+## duty and the chart instead of a tile that does not exist (wiki: civilian-units
+## § Overseas deployment).
+func _detail_text(aboard: bool) -> String:
+	var place: String = String(data.get("province_name", "Open country"))
+	var region: String = String(data.get("region_label", "Uncharted"))
+	if aboard:
+		return "%s  ·  Aboard a squadron" % region
+	if compact:
+		return "%s  ·  %s  ·  %s" % [place, region, String(data.get("short_status", "Idle"))]
+	var tile: Vector2i = data.get("tile", Vector2i.ZERO)
+	return "%s  ·  %s  ·  tile %d, %d" % [place, region, tile.x, tile.y]
 
 
 func _on_visit() -> void:

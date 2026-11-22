@@ -25,10 +25,6 @@ const PLACE_ACTIONS: Array[String] = [
 	"build_rail",
 ]
 
-## The most crews one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 ## Crews wait and the pass puts none to work: the gate the sheet names instead
 ## of a clause it cannot print.
 const NO_WORK_LINE: String = "the court would set no waiting crew to work this turn"
@@ -37,14 +33,7 @@ const NO_WORK_LINE: String = "the court would set no waiting crew to work this t
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return sentence(String(pick(play, snapshot).get("line", "")))
-
-
-## `text` as a printed sentence: "the court would put …" → "The court would put …".
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
+	return MapPlayPickProse.sentence_of(pick(play, snapshot))
 
 
 ## The roster's pick as the people sheet prints it: `{crews, line}`, where each
@@ -52,15 +41,9 @@ static func sentence(text: String) -> String:
 ## session runs no planner for the crown, an observer session, a decided
 ## campaign, a crown with no ledger or a session with no civilian layer.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
-	if play == null or play.world == null or play.campaign_over():
-		return {}
-	if play.observer_mode or play.civilian_layer == null:
+	if not MapPlayPickProse.crown_crew_ready(play):
 		return {}
 	var faction: int = play.player_faction
-	if play.ledger_for(faction) == null:
-		return {}
-	if AiControl.court_kind(play, faction) == AiControl.KIND_NONE:
-		return {}
 	return of(_crews(play, faction), snapshot)
 
 
@@ -127,7 +110,9 @@ static func _place(model: MapModel, tile: Vector2i) -> String:
 ## with nothing to name. Pure — a sheet and its suite drive it without a session.
 static func of(crews: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionary:
 	if not crews.is_empty():
-		var ordered: Array[Dictionary] = _in_row_order(crews, snapshot)
+		var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
+			crews, snapshot.get("rows", []), "unit_id"
+		)
 		return {"crews": ordered, "line": pick_line(ordered)}
 	# No crew is put to work: the roster's own idle tally says whether any crew
 	# waited for the pass to spend. A snapshot that carries no tally names no
@@ -137,56 +122,15 @@ static func of(crews: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionar
 	return {"crews": [], "line": NO_WORK_LINE}
 
 
-## The crews in the order the sheet prints its rows (its own `rows`), so the
-## line reads down the page it answers. A crew the snapshot does not print keeps
-## the pass's order after them.
-static func _in_row_order(
-	crews: Array[Dictionary], snapshot: Dictionary
-) -> Array[Dictionary]:
-	var order: Dictionary = {}
-	var index: int = 0
-	for raw: Variant in snapshot.get("rows", []):
-		var row: Dictionary = raw
-		if order.has(_key(row)):
-			continue
-		order[_key(row)] = index
-		index += 1
-	if order.is_empty():
-		return crews
-	var keyed: Array[Dictionary] = crews.duplicate()
-	keyed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var left: int = int(order.get(_key(a), 1 << 30))
-		var right: int = int(order.get(_key(b), 1 << 30))
-		if left != right:
-			return left < right
-		return int(a.get("unit_id", 0)) < int(b.get("unit_id", 0))
-	)
-	return keyed
-
-
-## A crew's own row key: the chart it stands on and the id its roster minted it.
-static func _key(entry: Dictionary) -> String:
-	return "%d:%d" % [int(entry.get("region", -1)), int(entry.get("unit_id", -1))]
-
-
 ## "the court would put its Builder to raise the lumber camp at Cádiz, its
 ## Explorer to survey the Mar Caribe and its Engineer to build a road at Sevilla
 ## this turn". Beyond three the line counts the crews it cannot name
 ## (`… and 2 more`) so a busy roster stays one line of chrome.
 static func pick_line(crews: Array[Dictionary]) -> String:
-	var named: Array[String] = []
-	var hidden: int = 0
+	var clauses: Array[String] = []
 	for crew: Dictionary in crews:
-		if named.size() >= NAMED_LIMIT:
-			hidden += 1
-			continue
-		named.append(_clause(crew))
-	if named.is_empty():
-		return ""
-	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
-	if hidden > 0:
-		joined += " and %d more" % hidden
-	return "the court would put %s this turn" % joined
+		clauses.append(_clause(crew))
+	return MapPlayPickProse.court_line("the court would put", clauses)
 
 
 ## One crew's clause: what the pass would put it to, on the ground the order
@@ -198,12 +142,3 @@ static func _clause(crew: Dictionary) -> String:
 	if place.is_empty():
 		return "its %s to %s" % [role, short]
 	return "its %s to %s at %s" % [role, short, place]
-
-
-## A list read the way prose reads it: "A", "A and B", "A, B and C".
-static func _join(parts: Array[String]) -> String:
-	if parts.is_empty():
-		return ""
-	if parts.size() <= 2:
-		return " and ".join(parts)
-	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[-1]]

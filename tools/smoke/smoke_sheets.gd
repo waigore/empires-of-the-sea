@@ -208,6 +208,10 @@ static func _command_ledger(run, screen: MapScreen) -> void:
 	run.check(panel.is_open(), "the command ledger opens from the dossier's door")
 	run.check(run.has_text(panel._road, "Cap 2"), "the sheet prints the road to the next commander")
 	run.check(run.has_text(panel._medal, "Each medal"), "and what a medal buys in the field")
+	run.check(
+		panel.counsel_text().begins_with("The court would send "),
+		"and the hosts the court would lead this turn"
+	)
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the command ledger sets itself aside")

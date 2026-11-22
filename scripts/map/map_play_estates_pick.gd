@@ -21,44 +21,24 @@ const KIND_NO_BUILDER: String = "no_builder"
 ## The action a Builder's estate raise carries (`CivilianWork`).
 const ACTION_ESTATE: String = "build_improvement"
 
-## The most estates one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
-
 const NO_BUILDER_LINE: String = (
 	"the court would raise no estate this phase — no Builder stands idle"
 )
 
-
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return sentence(String(pick(play, snapshot).get("line", "")))
-
-
-## `text` as a printed sentence: "the court would raise …" → "The court would raise …".
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
+	return MapPlayPickProse.sentence_of(pick(play, snapshot))
 
 ## The ledger's pick as the estates sheet prints it: `{kind, estates, line}`,
 ## where each estate is `{tile, name, place}`. Empty when the session runs no
 ## planner for the crown, an observer session, a decided campaign, a crown with
 ## no ledger or a session with no civilian layer.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
-	if play == null or play.world == null or play.campaign_over():
-		return {}
-	if play.observer_mode or play.civilian_layer == null:
+	if not MapPlayPickProse.crown_crew_ready(play):
 		return {}
 	var faction: int = play.player_faction
-	if play.ledger_for(faction) == null:
-		return {}
-	if AiControl.court_kind(play, faction) == AiControl.KIND_NONE:
-		return {}
 	return of(_estates(play, faction), snapshot)
-
 
 ## The estate picks the pass books, in the pass's own order: the raise each
 ## Builder would take, named by the catalogue and the province it stands in.
@@ -78,7 +58,6 @@ static func _estates(play: PlaySession, faction: int) -> Array[Dictionary]:
 		found.append(_estate(model, tile as Vector2i))
 	return found
 
-
 ## One estate's own words: the catalogue's name and the province it stands in,
 ## so two lumber camps in two provinces read apart.
 static func _estate(model: MapModel, tile: Vector2i) -> Dictionary:
@@ -91,7 +70,6 @@ static func _estate(model: MapModel, tile: Vector2i) -> Dictionary:
 		"name": name,
 		"place": MapPlayCivilianPickWords.place(model, province),
 	}
-
 
 ## The pick, worded off the estate list and the ledger's own snapshot: the
 ## estates in the order the sheet prints its rows, or the gate that leaves the
@@ -110,7 +88,6 @@ static func of(estates: Array[Dictionary], snapshot: Dictionary = {}) -> Diction
 	if int((counts as Dictionary).get("idle_builders", 0)) > 0:
 		return {}
 	return {"kind": KIND_NO_BUILDER, "estates": [], "line": NO_BUILDER_LINE}
-
 
 ## The estates in the order the sheet prints its rows — the ledger's own groups
 ## and rows — so the line reads down the page it answers. An estate the snapshot
@@ -144,38 +121,17 @@ static func _in_row_order(
 	)
 	return keyed
 
-
 ## "the court would raise the lumber camp at Cádiz, the mine at Sevilla and the
 ## farm at Toledo this phase". The estates come in the sheet's own row order, and
 ## beyond three it counts the rows it cannot name (`… and 2 more`) so a rich plan
 ## stays one line of chrome.
 static func raise_line(estates: Array[Dictionary]) -> String:
-	var named: Array[String] = []
-	var hidden: int = 0
+	var parts: Array[String] = []
 	for estate: Dictionary in estates:
-		if named.size() >= NAMED_LIMIT:
-			# A row left out of the clause, not the levels it holds: "and 2 more"
-			# after three named estates reads as two more raises, the way every
-			# other capped line on the sheets counts its items (REQ-P5-07).
-			hidden += 1
-			continue
-		named.append(
+		parts.append(
 			"the %s at %s" % [
 				String(estate.get("name", "")), String(estate.get("place", ""))
 			]
 		)
-	if named.is_empty():
-		return ""
-	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
-	if hidden > 0:
-		joined += " and %d more" % hidden
-	return "the court would raise %s this phase" % joined
+	return MapPlayPickProse.court_line("the court would raise", parts, "this phase")
 
-
-## A list read the way prose reads it: "A", "A and B", "A, B and C".
-static func _join(parts: Array[String]) -> String:
-	if parts.is_empty():
-		return ""
-	if parts.size() <= 2:
-		return " and ".join(parts)
-	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[-1]]

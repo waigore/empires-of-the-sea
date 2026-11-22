@@ -5962,7 +5962,7 @@ func test_the_production_pick_names_the_runs_the_plan_books() -> void:
 		"the catalogue's own order"
 	)
 	assert_eq(
-		MapPlayProductionPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would run Lumber ×1, Fabric ×1 and Paper ×1 this phase."
 	)
 	assert_eq(economy.production.assignment_units("lumber"), 0, "a reading: nothing is set")
@@ -6064,7 +6064,7 @@ func test_the_production_pick_reads_nothing_without_its_parts() -> void:
 	assert_true(MapPlayProductionPick.of(null, plan).is_empty(), "no ledger, no pick")
 	assert_true(MapPlayProductionPick.of(economy, {}).is_empty(), "no plan, no pick")
 	assert_true(MapPlayProductionPick.pick(null).is_empty(), "no session, no pick")
-	assert_eq(MapPlayProductionPick.sentence(""), "", "no clause, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no clause, no sentence")
 
 
 ## The MARKET tab's own plan: the offers and bids the published market planner
@@ -6100,7 +6100,7 @@ func test_the_market_pick_names_the_book_the_plan_books() -> void:
 		"offers lead, bids follow, the catalogue's own order"
 	)
 	assert_eq(
-		MapPlayMarketPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would offer Wool ×%d and %s this phase."
 		% [_offer_of(plan, "wool"), MapPlayMarketPick.list_line(bids, "bid")]
 	)
@@ -6166,4 +6166,166 @@ func test_the_market_pick_reads_nothing_without_its_parts() -> void:
 	assert_true(MapPlayMarketPick.of({}).is_empty(), "no drafted plan, no pick")
 	assert_true(MapPlayMarketPick.of({"plan": {}}).is_empty(), "no plan, no pick")
 	assert_true(MapPlayMarketPick.pick(null).is_empty(), "no session, no pick")
-	assert_eq(MapPlayMarketPick.sentence(""), "", "no clause, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no clause, no sentence")
+
+# --- the workers tab's own pick (DR-20261122-01) -----------------------------
+
+
+## The tab names the workers the published economy pass buys: the plan's own
+## tiers, in the ladder's own order, with the heads it books — and it enlists
+## nobody itself (wiki: workers-and-population § Recruiting).
+func test_the_recruit_pick_names_the_workers_the_plan_buys() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	var before: Array[int] = economy.workers.counts.duplicate()
+
+	var pick: Dictionary = MapPlayRecruitPick.of(
+		economy, AiConfig.build(1, 1500),
+		[{"tier": 0}, {"tier": 0}, {"tier": 0}, {"tier": 1}], 4, false
+	)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayRecruitPick.KIND_RECRUIT)
+	assert_eq(pick["tiers"], {0: 3, 1: 1}, "the plan's own heads, tier by tier")
+	assert_eq(
+		String(pick["line"]),
+		"the court would recruit 3 Peasants and 1 Apprentice this phase"
+	)
+	assert_eq(
+		MapPlayPickProse.sentence(String(pick["line"])),
+		"The court would recruit 3 Peasants and 1 Apprentice this phase."
+	)
+	assert_eq(economy.workers.counts, before, "a reading: nobody is enlisted")
+
+
+## One head of a tier is named as one worker, the way the roster's own copy does
+## (wiki: workers-and-population § Tiers).
+func test_the_recruit_pick_names_one_head_as_one_worker() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	var pick: Dictionary = MapPlayRecruitPick.of(
+		economy, AiConfig.build(1, 1500), [{"tier": 1}], 4, false
+	)
+	assert_eq(String(pick["line"]), "the court would recruit 1 Apprentice this phase")
+
+
+## A pool already at the target it keeps says so, rather than an empty promise:
+## the gate is the target's own figure (REQ-P5-06).
+func test_the_recruit_pick_names_the_target_the_pool_already_holds() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(10)
+	var pick: Dictionary = MapPlayRecruitPick.of(
+		economy, AiConfig.build(1, 1500), [], 9, false
+	)
+	assert_eq(String(pick.get("kind", "")), MapPlayRecruitPick.KIND_TARGET)
+	assert_eq(
+		String(pick["line"]),
+		"the court would recruit no worker this phase — its pool already stands "
+		+ "at the 10 it keeps"
+	)
+
+
+## A larder that cannot carry another mouth is the gate the hire reads, in the
+## wage's own figure: a slack under the tier's ration books no head (issue #489).
+func test_the_recruit_pick_names_the_larder_that_cannot_feed_a_mouth() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	var hungry: Dictionary = MapPlayRecruitPick.of(
+		economy, AiConfig.build(1, 1500), [], 0, false
+	)
+	assert_eq(String(hungry.get("kind", "")), MapPlayRecruitPick.KIND_LARDER)
+	assert_eq(String(hungry["line"]), MapPlayRecruitPick.LARDER_LINE)
+	var fed: Dictionary = MapPlayRecruitPick.of(
+		economy, AiConfig.build(1, 1500), [], 1, false
+	)
+	assert_eq(
+		String(fed.get("kind", "")), MapPlayRecruitPick.KIND_QUIET,
+		"a slack that covers the ration is no gate"
+	)
+
+
+## A court banking for the army its bar still needs hires only the provision it
+## already holds, and the line names the bank rather than an empty page
+## (issue #1059).
+func test_the_recruit_pick_names_the_bank_that_holds_the_purse() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	var pick: Dictionary = MapPlayRecruitPick.of(
+		economy, AiConfig.build(1, 1500), [], 9, true
+	)
+	assert_eq(String(pick.get("kind", "")), MapPlayRecruitPick.KIND_BANK)
+	assert_eq(String(pick["line"]), MapPlayRecruitPick.BANK_LINE)
+
+
+## With no gate the sheet can read, the line stays flat: a refusal the tier rows
+## already print is never re-invented as a cause the plan did not name
+## (REQ-P5-06).
+func test_the_recruit_pick_prints_no_gate_it_cannot_read() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.workers = WorkerPool.make(2)
+	var pick: Dictionary = MapPlayRecruitPick.of(
+		economy, AiConfig.build(1, 1500), [], -2, false
+	)
+	assert_eq(String(pick.get("kind", "")), MapPlayRecruitPick.KIND_QUIET)
+	assert_eq(String(pick["line"]), MapPlayRecruitPick.QUIET_LINE)
+	assert_eq(pick["tiers"], {}, "no tier is named")
+
+
+## Beyond three tiers the clause counts the rest, so a full pool stays one line of
+## chrome on a handset (REQ-P5-07).
+func test_the_recruit_pick_counts_the_tiers_it_cannot_name() -> void:
+	var line: String = MapPlayRecruitPick.recruit_line({0: 1, 1: 1, 2: 1, 3: 1})
+	assert_eq(
+		line,
+		"the court would recruit 1 Peasant, 1 Apprentice, 1 Journeyman and 1 more "
+		+ "this phase"
+	)
+
+
+## The ladder the reading walks is the rules layer's own: a tier its studies have
+## not opened is no tier the court would buy (wiki: workers-and-population
+## § Tech gates).
+func test_the_recruit_pick_reads_the_ladder_the_rules_layer_opens() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.tech_unlocked = {}
+	assert_eq(
+		MapPlayRecruitPick.best_tier(economy), WorkerPool.Tier.PEASANT,
+		"a court with no worker study trains peasants"
+	)
+	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	assert_eq(MapPlayRecruitPick.best_tier(economy), WorkerPool.Tier.APPRENTICE)
+
+## A reading with no court behind it prints nothing: no ledger, no planner, or a
+## config the published hire order cannot be asked with (REQ-P5-06).
+func test_the_recruit_pick_reads_no_court_it_cannot_name() -> void:
+	assert_eq(MapPlayRecruitPick.of(null, AiConfig.build(1, 1500), [], 4, false), {})
+	var economy := PlayerEconomy.starting()
+	assert_eq(
+		MapPlayRecruitPick.of(economy, "not a config", [], 4, false), {},
+		"the planner's typed signature never sees a strung config"
+	)
+
+
+## Every tier refused: the ladder names none, and the reading still reads the
+## rules layer's own refusals rather than guessing a head.
+func test_the_recruit_pick_names_no_tier_the_rules_refuse() -> void:
+	var economy := PlayerEconomy.starting()
+	economy.stockpile = {}
+	assert_eq(
+		MapPlayRecruitPick.best_tier(economy), -1,
+		"peasants need their fabric, so no tier is open"
+	)
+
+
+## A court with no harvest in hand has no slack to read: the sentinel keeps the
+## hire's food gate out of a phase that never harvested (issue #489).
+func test_the_harvest_slack_is_unread_without_a_harvest() -> void:
+	var court := MapPlayEconomyCourt.new()
+	court.overseas = {}
+	assert_eq(court.harvest_slack(), -2, "no harvest, no reading")
+
+
+## No tier named, no clause: the line never prints a headless sentence
+## (REQ-P3-02).
+func test_the_recruit_line_names_nothing_without_a_tier() -> void:
+	assert_eq(MapPlayRecruitPick.recruit_line({}), "")
+	assert_eq(MapPlayRecruitPick.recruit_line({-1: 2}), "", "a bad tier is dropped")

@@ -11,14 +11,29 @@ extends LedgerSheet
 ## own door is the one way in.
 
 var _notes: VBoxContainer = null
+## The gold counsel line under the chips: the Tribe the court's own envoy is
+## drawing into the empire this turn (DR-20261121-16).
+var counsel_source: Callable = Callable()
+var _counsel: Label = null
 
 
 func _init() -> void:
 	title_text = "THE COLONIES"
 	hint_text = (
 		"Visit opens a colony's capital on the map. The roll reads the colonies "
-		+ "the rules hold; it never signs a deed or lifts a boycott."
+		+ "the rules hold and names the Tribe the court is drawing in; it never "
+		+ "signs a deed or lifts a boycott."
 	)
+	# The reading is the panel's own method, not a closure handed in from the
+	# session: a bound callable cannot outlive the session it reads
+	# (DR-20261121-14, DR-20261121-16).
+	counsel_source = _read_counsel
+
+
+## The Tribe the court's own colony chain is buying this turn, read off the
+## sheet's bound session (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16).
+func _read_counsel(_data: Dictionary) -> String:
+	return MapPlayColonyPick.line(play)
 
 
 ## Re-reads both charts and the crown's diplomacy record, then repaints.
@@ -27,7 +42,14 @@ func refresh() -> void:
 		return
 	_snapshot = MapPlayColonies.snapshot(play)
 	_fit()
+	_sync_counsel()
 	_apply_filter()
+
+
+## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
+## the sheet carries no reading.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 # --- sheet hooks -------------------------------------------------------------
@@ -46,7 +68,8 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	_build_filter_body(
-		column, "Chart", "Reading", ColonyLedger.FILTERS, ColonyLedger.filter_label
+		column, "Chart", "Reading", ColonyLedger.FILTERS, ColonyLedger.filter_label,
+		_under_chips
 	)
 	# The rules a crown pays by, under the chips: what a boycott does to a
 	# colony, and what a colony is not (REQ-P5-02, REQ-P2-03). A phone hides the
@@ -56,6 +79,28 @@ func _build_body(column: VBoxContainer) -> void:
 	column.add_child(_notes)
 	_notes.add_child(_note(ColonyLedger.terms_line()))
 	_notes.add_child(_note(ColonyLedger.colony_line()))
+
+
+## What sits under the chips and above the rows: the court's own reading in gold
+## (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16).
+func _under_chips() -> Control:
+	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
+	_counsel.visible = false
+	return _counsel
+
+
+## The gold counsel line: the Tribe the court's own envoy is drawing into the
+## empire this turn, or nothing when the court has no chain to name. A closed
+## sheet reads nothing, because the pass is a planner walk no one is looking at
+## (REQ-P4-02).
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	var text: String = ""
+	if is_open() and counsel_source.is_valid():
+		text = String(counsel_source.call(_snapshot))
+	_counsel.text = text
+	_counsel.visible = not text.is_empty()
 
 
 func _note(text: String) -> Label:

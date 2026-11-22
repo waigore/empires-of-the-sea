@@ -832,7 +832,7 @@ func test_the_eyes_pick_words_the_spies_the_pass_would_book() -> void:
 		"the court would walk its Spy toward Genoa and keep its Spy at Sevilla"
 	)
 	assert_eq(
-		MapPlaySpyPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would walk its Spy toward Genoa and keep its Spy at Sevilla."
 	)
 	# The sheet's own rows come first, so the line reads down the page.
@@ -929,6 +929,29 @@ func test_the_eyes_print_the_spies_the_crowns_pass_would_book() -> void:
 	panel.refresh()
 	assert_eq(panel.counsel_text(), "", "a crown with no spy names nothing")
 
+## A spy aboard a squadron is off the map: the eyes sheet already prints its
+## `aboard` row, and the court's line names no watch it cannot keep (wiki:
+## civilian-units § Overseas deployment; DR-20261121-11).
+func test_the_eyes_name_no_spy_aboard_a_squadron() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_clear_spies(play)
+	var home: ProvinceState = play.model.provinces[0]
+	var passenger := CivilianState.create(94, play.player_faction, "spy", home.tiles[0])
+	passenger.embark_on(5)
+	var roster: Array[CivilianState] = [passenger]
+	play.civilian_layer.units = roster
+	play.civilian_layer.regions.set_region(play.region_index, roster)
+	panel.open()
+	assert_true(MapPlaySpyPick.pick(play, panel._snapshot).is_empty(), "a spy at sea is no pick")
+	assert_eq(panel.counsel_text(), "", "and the sheet prints no line")
+	assert_false(panel._counsel.visible, "the gold line stands down")
+	# The sheet still lists the spy, under its own `aboard` duty.
+	assert_eq(SpyLedger.duty_of(play.model, passenger), SpyLedger.DUTY_ABOARD)
+	_clear_spies(play)
+	panel.refresh()
+
 
 ## The sheet prints the reading it is handed and hides it when the reading is
 ## empty, so a session with no planner carries no gold line (REQ-P5-06).
@@ -981,7 +1004,7 @@ func test_the_people_pick_words_the_work_the_pass_would_give() -> void:
 		+ " to raise the lumber camp at Cádiz this turn"
 	)
 	assert_eq(
-		MapPlayPeoplePick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would put its Explorer to survey the Mar Caribe and its Builder"
 		+ " to raise the lumber camp at Cádiz this turn."
 	)
@@ -1076,6 +1099,48 @@ func test_the_people_print_the_work_the_crowns_pass_would_book() -> void:
 
 ## The roster prints the reading it is handed and hides it when the reading is
 ## empty, so a sheet with no planner carries no gold line (REQ-P5-06).
+## The people's row reads a crew aboard a squadron as ABOARD: it is off the map,
+## has no tile and takes no order (wiki: civilian-units § Overseas deployment).
+func test_the_people_row_reads_a_crew_aboard_a_squadron() -> void:
+	var row := CivilianRosterRow.new()
+	row.compact = false
+	add_child(row)
+	row.setup({
+		"unit_id": 9,
+		"region": FactionCatalog.OLD_WORLD,
+		"role": "Builder",
+		"province_name": "Open country",
+		"region_label": "Old World",
+		"tile": CivilianState.NO_TILE,
+		"working": false,
+		"aboard": true,
+		"status": "aboard",
+		"status_text": "Aboard a squadron — no orders at sea",
+		"short_status": "Aboard",
+	})
+	assert_eq(row._chip.text, "ABOARD", "the chip names the duty")
+	assert_true(
+		row._detail.text.contains("Aboard a squadron"), row._detail.text
+	)
+	assert_false(row._detail.text.contains("-1"), row._detail.text)
+	assert_eq(row._status.text, "Aboard a squadron — no orders at sea")
+	row.compact = true
+	row.setup({
+		"unit_id": 9,
+		"region": FactionCatalog.OLD_WORLD,
+		"role": "Builder",
+		"region_label": "Old World",
+		"tile": CivilianState.NO_TILE,
+		"working": false,
+		"aboard": true,
+		"status": "aboard",
+		"status_text": "Aboard a squadron — no orders at sea",
+		"short_status": "Aboard",
+	})
+	assert_true(row._detail.text.contains("Aboard"), row._detail.text)
+	row.queue_free()
+
+
 func test_the_people_print_and_hide_the_counsel_they_are_handed() -> void:
 	_attach()
 	var panel: CivilianRosterPanel = screen.hud.civilian_roster
@@ -1398,6 +1463,501 @@ func test_visit_a_squadron_selects_her_and_missing_ids_do_not() -> void:
 	assert_false(MapPlayForceLedger.focus(screen.play, 0, ForceLedger.KIND_ARMY, -999))
 	assert_false(MapPlayForceLedger.focus(screen.play, 0, ForceLedger.KIND_SQUADRON, -999))
 	assert_false(MapPlayForceLedger.focus(null, 0, ForceLedger.KIND_ARMY, 0))
+
+
+## The roll's own reading (DR-20261121-17): the two force sheets' clauses merged
+## into one sentence, in the order the roll prints its rows, capped so a busy
+## muster stays one line of chrome, and the gate when forces wait and neither
+## pass gives an order (REQ-P5-06, REQ-P5-07).
+func test_the_muster_counsel_words_the_orders_of_every_force() -> void:
+	var forces: Array[Dictionary] = [
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_SQUADRON,
+			"id": 2,
+			"line": "the Leopard into the Mar Caribe",
+		},
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_ARMY,
+			"id": 3,
+			"line": "the field army at Tucapel to storm Cádiz",
+		},
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_ARMY,
+			"id": 1,
+			"line": "the Home Army to take the field with 4 regiments",
+		},
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_SQUADRON,
+			"id": 4,
+			"line": "the Swallow home to Cádiz",
+		},
+	]
+	var snapshot: Dictionary = {
+		"rows": [
+			{"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 3},
+			{"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 1},
+			{"region": 0, "kind": ForceLedger.KIND_SQUADRON, "id": 4},
+			{"region": 0, "kind": ForceLedger.KIND_SQUADRON, "id": 2},
+		],
+	}
+	# The roll's own row order, not the passes' order, and the fourth counted.
+	assert_eq(
+		String(MapPlayForceCounsel.of(forces, snapshot)["line"]),
+		"the court would send the field army at Tucapel to storm Cádiz, the Home"
+		+ " Army to take the field with 4 regiments, the Swallow home to Cádiz"
+		+ " and 1 more this turn"
+	)
+	# No snapshot: the passes' own order, read as prose reads a pair.
+	var pair: Array[Dictionary] = [forces[0], forces[1]]
+	assert_eq(
+		String(MapPlayForceCounsel.of(pair, {})["line"]),
+		"the court would send the Leopard into the Mar Caribe and the field army"
+		+ " at Tucapel to storm Cádiz this turn"
+	)
+	# A clause this module cannot say takes no place on the line.
+	var silent: Array[Dictionary] = pair.duplicate()
+	silent.append({"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 9, "line": ""})
+	assert_eq(
+		String(MapPlayForceCounsel.of(silent, {})["line"]),
+		String(MapPlayForceCounsel.of(pair, {})["line"]),
+		"an empty clause is no force named"
+	)
+	assert_eq(
+		MapPlayPickProse.sentence("the court would send the Leopard into the Mar Caribe"),
+		"The court would send the Leopard into the Mar Caribe."
+	)
+	# The gate: a force waited and neither pass gave an order, or silence.
+	assert_eq(
+		String(MapPlayForceCounsel.gate(true)["line"]), MapPlayForceCounsel.NO_ORDER_LINE
+	)
+	assert_true(MapPlayForceCounsel.gate(false).is_empty(), "nothing waited, nothing to say")
+	assert_true(MapPlayForceCounsel.of([], snapshot).is_empty())
+	assert_eq(MapPlayForceCounsel.pick(null), {})
+	assert_eq(
+		MapPlayForceCounsel.line(null), "", "a session that is not there names nothing"
+	)
+
+
+## The roll prints the reading it reads and hides it when the staff names no
+## force, so a muster already under way carries no gold line (REQ-P5-06).
+func test_the_muster_roll_prints_its_reading_and_stands_it_down_when_closed() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	panel.open()
+	assert_eq(
+		panel.counsel_text(),
+		MapPlayPickProse.sentence_of(MapPlayForceCounsel.pick(play, panel._snapshot)),
+		"the sheet prints the passes' own reading"
+	)
+	assert_eq(
+		panel._counsel.visible, not panel.counsel_text().is_empty(), "the line stands with it"
+	)
+	# A closed sheet asks the planner nothing: the plan is no one's to read.
+	panel.close()
+	panel.refresh()
+	assert_eq(panel._court_pick, {}, "a closed roll carries no reading")
+	assert_eq(panel.counsel_text(), "", "a closed sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	assert_eq(panel._court, {}, "and no row wears the mark while it is shut")
+
+
+## The reading is the passes' own: THE CROWN'S MUSTER names the orders the land
+## and naval policies would give every force, in the roll's own row order, and
+## moves nothing (REQ-P2-03, REQ-P5-06; DR-20261121-17).
+func test_the_muster_roll_names_the_orders_the_crowns_pass_would_give() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	var before: Array = _force_moved_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayForceCounsel.pick(play, panel._snapshot)
+	assert_eq(counsel, MapPlayPickProse.sentence(String(pick.get("line", ""))))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	if not pick.is_empty() and not (pick.get("forces", []) as Array).is_empty():
+		assert_true(counsel.begins_with("The court would send "), counsel)
+	panel.close()
+
+
+## Every force the muster's reading names is keyed by its chart, kind and id, so
+## the roll can mark the rows its line answers — including a force whose clause
+## the module cannot word, which the court would still order (DR-20261122-03).
+func test_the_muster_pick_keys_every_force_it_names() -> void:
+	var forces: Array[Dictionary] = [
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_ARMY,
+			"id": 2,
+			"line": "the Home Army to take the field with 4 regiments",
+		},
+		{"region": 1, "kind": ForceLedger.KIND_ARMY, "id": 2, "line": ""},
+		{
+			"region": 1,
+			"kind": ForceLedger.KIND_SQUADRON,
+			"id": 5,
+			"line": "the Leopard into the Mar Caribe",
+		},
+	]
+	var keys: Dictionary = MapPlayForceCounsel.of(forces, {}).get("keys", {})
+	assert_eq(keys.size(), 3, "every force is keyed, even one with no clause")
+	assert_true(keys.has("0:army:2"), "the army on the old chart")
+	assert_true(keys.has("1:army:2"), "the chart is in the key: ids are minted per chart")
+	assert_true(keys.has("1:squadron:5"), "the squadron names her hulls' kind")
+	assert_false(keys.has("0:army:5"), "a row the reading never named takes no key")
+	assert_eq(MapPlayForceCounsel.force_key(forces[1]), "1:army:2")
+	assert_eq(MapPlayForceCounsel.keys_of([]), {}, "nothing named, nothing marked")
+	# The gate names no force, so it marks none.
+	assert_eq(MapPlayForceCounsel.gate(true).get("keys", {}), {})
+
+
+## A muster row wears the counsel's mark before its own name, so a crown finds
+## the forces her staff would send among a long roll (DR-20261122-03).
+func test_a_muster_row_wears_the_courts_mark() -> void:
+	var plain := ForceLedgerRow.new()
+	plain.setup({
+		"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 3, "title": "Home Army",
+	})
+	assert_eq(plain._name.text, "Home Army", "an unmarked force reads its own name")
+	plain.free()
+	var marked := ForceLedgerRow.new()
+	marked.court = true
+	marked.setup({
+		"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 3, "title": "Home Army",
+	})
+	assert_eq(
+		marked._name.text,
+		"%s Home Army" % ForceLedgerRow.COURT_MARK,
+		"the mark leads the name"
+	)
+	marked.free()
+
+
+## The muster's sheet is the passes' own reading: it prints their line, marks
+## exactly the forces they name and orders nothing (REQ-P2-03, REQ-P5-06;
+## DR-20261122-03).
+func test_the_muster_marks_the_forces_the_crowns_pass_would_send() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	var before: Array = _force_moved_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	assert_true(panel.is_open(), "the muster opens")
+	var pick: Dictionary = MapPlayForceCounsel.pick(play, panel._snapshot)
+	assert_eq(
+		panel.counsel_text(),
+		MapPlayPickProse.sentence_of(pick),
+		"the sheet prints the passes' own line"
+	)
+	assert_eq(
+		panel._counsel.visible,
+		not panel.counsel_text().is_empty(),
+		"the line stands with its reading"
+	)
+	# Every force the reading names is on the sheet, and only those rows wear
+	# the mark — a row the staff would leave alone never looks busy.
+	var keys: Dictionary = pick.get("keys", {})
+	var shown: Dictionary = {}
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
+		if row == null:
+			continue
+		var key: String = MapPlayForceCounsel.force_key(row.data)
+		shown[key] = true
+		assert_eq(row.court, keys.has(key), "a row wears the mark when the court would send it")
+		if row.court:
+			assert_true(row._name.text.begins_with(ForceLedgerRow.COURT_MARK), row._name.text)
+	for key: String in keys.keys():
+		assert_true(shown.has(key), "the force the court would send is on the sheet")
+	# A narrowing chip reorders the marks it already read: one read for the roll.
+	panel._on_filter(ForceLedger.KIND_ARMY, false)
+	assert_eq(panel._court, keys, "a chip press keeps the reading it was handed")
+	assert_eq(_force_moved_flags(play), before, "the reading orders nothing")
+	panel.close()
+
+
+## The marks are the reading's own: a row wears `▸` when the pick's keys name it
+## and no other, and the line painted is the pick's own sentence — so a mark
+## never outruns the line it answers (DR-20261122-03).
+func test_the_muster_marks_exactly_the_forces_its_reading_names() -> void:
+	_attach()
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	var printed: Array[ForceLedgerRow] = _force_rows(panel)
+	assert_true(printed.size() >= 1, "the crown fields a force")
+	var named: String = MapPlayForceCounsel.force_key(printed[0].data)
+	assert_false(named.is_empty(), "a row keys itself by chart, kind and id")
+	var left_alone: Array[String] = []
+	for row: ForceLedgerRow in printed.slice(1):
+		left_alone.append(MapPlayForceCounsel.force_key(row.data))
+	# A reading the staff would give: one force named, a key that names no row
+	# and every other row left alone. The sheet repaints its widgets on a filter
+	# pass, so the marks are read off the repainted rows.
+	panel._court_pick = {
+		"forces": [printed[0].data],
+		"keys": {named: true, "9:army:99": true},
+		"line": "the court would send the Home Army to take the field with 4 regiments this turn",
+	}
+	panel._apply_filter()
+	var rows: Array[ForceLedgerRow] = _force_rows(panel)
+	assert_eq(rows.size(), printed.size(), "the same view prints the same rows")
+	var marked: int = 0
+	for row: ForceLedgerRow in rows:
+		if row.court:
+			marked += 1
+			assert_true(
+				row._name.text.begins_with(ForceLedgerRow.COURT_MARK), row._name.text
+			)
+	assert_eq(marked, 1, "one force named, a key that names no row marks no row")
+	assert_true(rows[0].court, "the force the reading names wears the mark")
+	for row: ForceLedgerRow in rows.slice(1):
+		assert_false(row.court, "a force the reading leaves alone wears none")
+	assert_eq(left_alone.size(), rows.size() - 1)
+	assert_eq(
+		panel.counsel_text(),
+		"The court would send the Home Army to take the field with 4 regiments this turn.",
+		"the line is the reading's own sentence"
+	)
+	panel.close()
+
+
+## The muster's printed rows, as the widgets the sheet painted.
+func _force_rows(panel: ForceLedgerPanel) -> Array[ForceLedgerRow]:
+	var rows: Array[ForceLedgerRow] = []
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
+		if row != null:
+			rows.append(row)
+	return rows
+
+
+## Every force's "already under way" flag, so a reading that marched or sailed
+## one would show.
+func _force_moved_flags(play: PlaySession) -> Array:
+	var flags: Array = []
+	for region: int in play.world.region_count():
+		for army: ArmyState in MapPlayCourt.visible_armies(play, region):
+			flags.append("%d:army:%s" % [region, army.moved])
+		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+			flags.append("%d:fleet:%s" % [region, fleet.moved])
+	return flags
+
+
+## The province dossier's own reading: the work the court's civilian pass would
+## put its crews to on this province's ground and the hosts its land pass would
+## send here, merged under one court, with the gate the crown's own idle ground
+## earns (wiki: world-model § The crown's provinces; DR-20261121-19).
+func test_the_province_counsel_words_the_orders_of_its_own_ground() -> void:
+	var crews: Array[Dictionary] = [
+		{"role": "Builder", "short": "raise the lumber camp"},
+		{"role": "Engineer", "short": "build a road"},
+	]
+	var armies: Array[Dictionary] = [
+		{"line": "the field army at Tucapel to storm Cádiz"},
+	]
+	# The work first, then the hosts the court would send: one court, one verb.
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(crews, armies)["line"]),
+		"the court would order its Builder to raise the lumber camp, its Engineer"
+		+ " to build a road and the field army at Tucapel to storm Cádiz this turn"
+	)
+	# One side alone reads its own clause.
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(crews, [])["line"]),
+		"the court would order its Builder to raise the lumber camp and its"
+		+ " Engineer to build a road this turn"
+	)
+	assert_eq(
+		String(MapPlayProvinceCounsel.of([], armies)["line"]),
+		"the court would order the field army at Tucapel to storm Cádiz this turn"
+	)
+	# Three clauses are named and the fourth counted, so a busy ground stays one
+	# line of chrome.
+	var crowded: Array[Dictionary] = crews.duplicate()
+	crowded.append({"role": "Spy", "short": "keep its watch at Cádiz"})
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(crowded, armies)["line"]),
+		"the court would order its Builder to raise the lumber camp, its Engineer"
+		+ " to build a road, its Spy to keep its watch at Cádiz and 1 more this turn"
+	)
+	# A clause this module cannot say takes no place on the line.
+	var silent: Array[Dictionary] = [{"role": "Builder", "short": ""}]
+	assert_true(MapPlayProvinceCounsel.of(silent, [], 0).is_empty())
+	# The gate: the crown's own ground held an idle crew and the pass booked no
+	# work here; ground with no idle crew says nothing.
+	var gate: Dictionary = MapPlayProvinceCounsel.of([], [], 1)
+	assert_eq(String(gate["line"]), MapPlayProvinceCounsel.NO_WORK_LINE)
+	assert_eq(String(gate["kind"]), MapPlayProvinceCounsel.KIND_NO_WORK)
+	assert_true(MapPlayProvinceCounsel.of([], [], 0).is_empty())
+	assert_true(MapPlayProvinceCounsel.of([], []).is_empty())
+	assert_eq(MapPlayProvinceCounsel.pick(null, null, -1), {})
+	assert_eq(MapPlayProvinceCounsel.line(null, null, -1), "")
+
+
+## Every crown crew's own order, so a reading that booked one would show.
+func _crew_order_flags(play: PlaySession) -> Array:
+	var flags: Array = []
+	for unit: CivilianState in play.civilian_layer.units:
+		if unit == null or unit.owner != play.player_faction:
+			continue
+		flags.append(
+			"%d:%d:%s:%s" % [unit.id, unit.status, str(unit.moved), str(unit.work)]
+		)
+	return flags
+
+
+## The dossier's reading is the passes' own: it names the work the civilian pass
+## would put crews to on this province's ground and the hosts the land pass would
+## send here, and books nothing (REQ-P2-03, REQ-P5-06; DR-20261121-19).
+func test_the_province_dossier_names_the_orders_the_crowns_pass_would_give() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvincePanel = screen.hud.panels.panel
+	assert_true(panel.counsel_source.is_valid(), "the dossier binds the passes' reading")
+	var before_forces: Array = _force_moved_flags(play)
+	var before_crews: Array = _crew_order_flags(play)
+	var province_id: int = play.capital_province
+	panel.refresh(screen.model, province_id)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayProvinceCounsel.pick(play, screen.model, province_id)
+	assert_eq(counsel, MapPlayPickProse.sentence(String(pick.get("line", ""))))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	assert_eq(_force_moved_flags(play), before_forces, "the reading marches nothing")
+	assert_eq(_crew_order_flags(play), before_crews, "the reading books no work")
+	# The guards: no province and no chart name nothing, so a shut sheet or a
+	# region switch can never print a line about ground nobody is showing.
+	assert_true(MapPlayProvinceCounsel.pick(play, screen.model, -1).is_empty())
+	assert_true(MapPlayProvinceCounsel.pick(play, null, province_id).is_empty())
+	assert_eq(MapPlayProvinceCounsel.line(play, null, province_id), "")
+
+
+## The realm's own reading: the crown's provinces the civilian and land passes
+## would act in this turn, worded off data alone — one line that names the count
+## against the realm it holds, then the first places (wiki: world-model § The
+## crown's provinces; DR-20261121-21).
+func test_the_realm_counsel_names_the_provinces_the_court_would_act_in() -> void:
+	var provinces: Array[Dictionary] = [
+		{"region": FactionCatalog.OLD_WORLD, "province": 2, "name": "Cádiz"},
+		{"region": FactionCatalog.OLD_WORLD, "province": 5, "name": "Tucapel"},
+		{"region": FactionCatalog.NEW_WORLD, "province": 1, "name": "Jaén"},
+	]
+	var pick: Dictionary = MapPlayRealmCounsel.of(provinces, 14)
+	assert_eq(
+		String(pick["line"]),
+		"the court would act in 3 of its 14 provinces this turn — Cádiz,"
+		+ " Tucapel and Jaén"
+	)
+	assert_eq(String(pick["kind"]), MapPlayRealmCounsel.KIND_ORDERS)
+	# Every province is keyed by its own chart and id, because province ids are
+	# minted per chart.
+	var keys: Dictionary = pick["keys"]
+	assert_eq(keys.size(), 3, "one key per province")
+	assert_true(keys.has("%d:1" % FactionCatalog.NEW_WORLD), "the New World's own key")
+	assert_true(keys.has("%d:2" % FactionCatalog.OLD_WORLD), "the Old World's own key")
+	# Beyond three places the line counts the rest, so a wide realm stays one
+	# line of chrome.
+	var crowded: Array[Dictionary] = provinces.duplicate()
+	crowded.append({"region": FactionCatalog.OLD_WORLD, "province": 7, "name": "Sevilla"})
+	crowded.append({"region": FactionCatalog.OLD_WORLD, "province": 9, "name": "Badajoz"})
+	assert_eq(
+		String(MapPlayRealmCounsel.of(crowded, 20)["line"]),
+		"the court would act in 5 of its 20 provinces this turn — Cádiz,"
+		+ " Tucapel, Jaén and 2 more"
+	)
+	# Every province the crown holds is named without the count, and a realm of
+	# one reads as one place.
+	assert_eq(
+		String(MapPlayRealmCounsel.of(provinces, 3)["line"]),
+		"the court would act in every one of its 3 provinces this turn — Cádiz,"
+		+ " Tucapel and Jaén"
+	)
+	assert_eq(
+		String(MapPlayRealmCounsel.of(provinces.slice(0, 1), 1)["line"]),
+		"the court would act in the one province it holds this turn — Cádiz"
+	)
+	# Nothing to name is no line at all.
+	assert_true(MapPlayRealmCounsel.of([], 14).is_empty())
+	assert_true(
+		MapPlayRealmCounsel.of([{"region": 0, "province": 1, "name": ""}], 3).is_empty()
+	)
+	assert_eq(MapPlayRealmCounsel.pick(null), {})
+	assert_eq(MapPlayRealmCounsel.line(null), "")
+	# The gate: a pass named rows it left waiting, so the sheet says so; a realm
+	# with nothing waiting reads nothing.
+	assert_true(MapPlayRealmCounsel.gate(false).is_empty())
+	assert_eq(String(MapPlayRealmCounsel.gate(true)["line"]), MapPlayRealmCounsel.NO_ORDER_LINE)
+	assert_eq(String(MapPlayRealmCounsel.gate(true)["kind"]), MapPlayRealmCounsel.KIND_NONE)
+
+
+## A realm row wears the counsel's mark before its own name, so a crown finds the
+## ground its staff would act in among twenty rows (DR-20261121-21).
+func test_a_realm_row_wears_the_courts_mark() -> void:
+	var plain := ProvinceLedgerRow.new()
+	plain.setup({"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz"})
+	assert_eq(plain._name.text, "Cádiz", "an unmarked province reads its own name")
+	plain.free()
+	var marked := ProvinceLedgerRow.new()
+	marked.court = true
+	marked.setup({"id": 4, "region": FactionCatalog.OLD_WORLD, "name": "Cádiz"})
+	assert_eq(
+		marked._name.text,
+		"%s Cádiz" % ProvinceLedgerRow.COURT_MARK,
+		"the mark leads the name"
+	)
+	marked.free()
+
+
+## The realm's sheet is the passes' own reading: it prints their line, marks
+## exactly the provinces they name and orders nothing (REQ-P2-03, REQ-P5-06;
+## DR-20261121-21).
+func test_the_realm_marks_the_provinces_the_crowns_pass_would_use() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ProvinceLedgerPanel = screen.hud.province_ledger
+	var before_forces: Array = _force_moved_flags(play)
+	var before_crews: Array = _crew_order_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.PROVINCES)
+	assert_true(panel.is_open(), "the realm opens")
+	var pick: Dictionary = MapPlayRealmCounsel.pick(play)
+	assert_eq(
+		panel.counsel_text(),
+		MapPlayPickProse.sentence_of(pick),
+		"the sheet prints the passes' own line"
+	)
+	assert_eq(
+		panel._counsel.visible, not panel.counsel_text().is_empty(),
+		"the line stands with its reading"
+	)
+	# Every province the reading names is on the sheet, and only those rows wear
+	# the mark — a row the court would leave alone never looks busy.
+	var keys: Dictionary = pick.get("keys", {})
+	var shown: Dictionary = {}
+	for child: Node in panel._rows.get_children():
+		var row := child as ProvinceLedgerRow
+		if row == null:
+			continue
+		var key: String = "%d:%d" % [
+			int(row.data.get("region", -1)), int(row.data.get("id", -1))
+		]
+		shown[key] = true
+		assert_eq(row.court, keys.has(key), "a row wears the mark when the court acts there")
+		if row.court:
+			assert_true(
+				row._name.text.begins_with(ProvinceLedgerRow.COURT_MARK), row._name.text
+			)
+	for key: String in keys.keys():
+		assert_true(shown.has(key), "the province the court acts in is on the sheet")
+	assert_eq(_force_moved_flags(play), before_forces, "the reading marches nothing")
+	assert_eq(_crew_order_flags(play), before_crews, "the reading books no work")
+	panel.close()
 
 
 func test_an_embarked_army_visits_the_squadron_that_carries_it() -> void:
@@ -2253,6 +2813,109 @@ func test_back_and_the_key_close_the_command_ledger() -> void:
 	assert_false(panel.is_open(), "and closes it again")
 
 
+## The command's own reading: the hosts the land pass would lead into battle this
+## turn against the pool that answers them, worded off data alone — one host per
+## commander, then the leader's own medals (wiki: military-generals § Assignment;
+## DR-20261122-02).
+func test_the_command_counsel_names_the_hosts_the_court_would_lead() -> void:
+	# Covered: every host the pass would send finds a commander.
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 2, 2),
+		"the court would send 2 hosts into battle — each led by a commander"
+	)
+	assert_eq(
+		MapPlayCommandPick.pick_line(1, 3, 1),
+		"the court would send 1 host into battle — it is led by a commander"
+	)
+	# Short a commander: the fights past the pool fall back on the leader.
+	assert_eq(
+		MapPlayCommandPick.pick_line(3, 2, 2),
+		"the court would send 3 hosts into battle — its 2 commanders would lead 2,"
+		+ " and the last host would fight on the leader's own 2 medals"
+	)
+	assert_eq(
+		MapPlayCommandPick.pick_line(4, 1, 3),
+		"the court would send 4 hosts into battle — its 1 commander would lead 1,"
+		+ " and the last 3 hosts would fight on the leader's own 3 medals"
+	)
+	# A pool with nobody free fights on the leader alone, and a leader with no
+	# medal of its own says so rather than printing a zero.
+	assert_eq(
+		MapPlayCommandPick.pick_line(2, 0, 2),
+		"the court would send 2 hosts into battle with no commander free —"
+		+ " they would fight on the leader's own 2 medals"
+	)
+	assert_eq(
+		MapPlayCommandPick.pick_line(1, 0, 0),
+		"the court would send 1 host into battle with no commander free —"
+		+ " it would fight with no medal at all"
+	)
+	# No fight at all: the sheet names the gate, never a line about nobody.
+	assert_eq(MapPlayCommandPick.pick_line(0, 2, 2), MapPlayCommandPick.NO_HOST_LINE)
+	var pick: Dictionary = MapPlayCommandPick.of(3, 2, 2)
+	assert_eq(int(pick["hosts"]), 3)
+	assert_eq(int(pick["led"]), 2, "the hosts past the pool are counted, not led")
+	assert_eq(String(pick["line"]), MapPlayCommandPick.pick_line(3, 2, 2))
+	assert_eq(MapPlayCommandPick.pick(null), {})
+	assert_eq(
+		MapPlayCommandPick.line(null), "", "a session that is not there names nothing"
+	)
+
+
+## Only the marches that fight spend a commander: a storm into ground the crown
+## does not hold and a relief onto its own land are fights, while a frontier
+## advance, a rotation home, a walk home and the seat's split are not
+## (wiki: military-generals § Assignment — one general per attacking army).
+func test_only_the_marches_that_fight_spend_a_commander() -> void:
+	var armies: Array = [
+		{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_STORM},
+		{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_RELIEF},
+		{"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_FRONTIER},
+		{"kind": MapPlayArmyPick.KIND_ROTATE, "why": ""},
+		{"kind": MapPlayArmyPick.KIND_WALK_HOME, "why": ""},
+		{"kind": MapPlayArmyPick.KIND_SPLIT, "why": ""},
+	]
+	assert_eq(MapPlayCommandPick.hosts_of(armies), 2, "a storm and a relief fight")
+	assert_eq(MapPlayCommandPick.hosts_of([]), 0)
+	assert_eq(
+		MapPlayCommandPick.hosts_of([{"kind": MapPlayArmyPick.KIND_MARCH}]),
+		0,
+		"a march with no reason reads no fight"
+	)
+
+
+## The command sheet is the passes' own reading: it prints the line the land pass
+## and the pool word and orders nothing (REQ-P2-03, REQ-P5-06; DR-20261122-02).
+func test_the_command_sheet_prints_the_reading_it_is_handed() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: CommandLedgerPanel = screen.hud.command_ledger
+	assert_true(panel.counsel_source.is_valid(), "the sheet binds the passes' reading")
+	var before: Array = _force_moved_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COMMAND)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayCommandPick.pick(play, panel._snapshot)
+	assert_eq(counsel, MapPlayPickProse.sentence_of(pick))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	if not pick.is_empty():
+		assert_true(counsel.begins_with("The court would send "), counsel)
+	# Every standard's entry carries the reason it marches, so the sheet's count of
+	# the fights is read off the same walk the army sheet prints.
+	for raw: Variant in MapPlayArmyOrdersPick.pick(play).get("armies", []):
+		assert_true((raw as Dictionary).has("why"), "an ordered standard carries its why")
+	assert_eq(_force_moved_flags(play), before, "the reading marches nothing")
+	# An unwired sheet prints nothing, and the line stands down.
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	panel.counsel_source = wired
+	panel.close()
+
+
 ## --- the world's colonies ---------------------------------------------------
 ## Every Tribe a Great Power bought into its empire, read as a ledger — who holds
 ## it, where it stands and what its suzerain's boycott shuts (wiki: diplomacy
@@ -2420,6 +3083,337 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 	row.visit_pressed.disconnect(visit)
 	assert_true(BackRequest.handle(play, play.improvements), "back walks the sheets")
 	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+## --- the colonies' own reading (DR-20261121-16) -----------------------------
+
+
+## The Tribe the court's own envoy is buying, worded off one ambition read: each
+## stage's own words, the study gate the pass names as the door it owes, and no
+## clause for a stage this module cannot say (REQ-P2-03, REQ-P5-06).
+func test_the_colony_pick_words_the_link_the_court_would_press() -> void:
+	var tribe: int = _colony_tribe()
+	var name: String = FactionCatalog.name_of(tribe)
+	assert_eq(
+		MapPlayColonyPick.chain_line("the %s" % name, DiplomacyCatalog.STAGE_CONSULATE),
+		"the court would offer the %s a Trade Consulate this turn, one link toward a colony"
+		% name
+	)
+	assert_eq(
+		MapPlayColonyPick.chain_line("the %s" % name, DiplomacyCatalog.STAGE_NAP),
+		"the court would offer the %s a Non-Aggression Pact this turn, "
+		% name
+		+ "one link toward a colony"
+	)
+	assert_eq(
+		MapPlayColonyPick.chain_line("the %s" % name, DiplomacyCatalog.STAGE_JOIN_EMPIRE),
+		"the court would offer the %s the Join Empire this turn — the bond that "
+		% name
+		+ "makes it a colony"
+	)
+	assert_eq(MapPlayColonyPick.chain_line("the %s" % name, "unknown"), "")
+	# An embassy needs a study the court may not hold: the chain names the door
+	# it owes instead of a link it cannot sign (DR-20261114-05).
+	var embassy: Dictionary = {"target": tribe, "stage": DiplomacyCatalog.STAGE_EMBASSY}
+	var study: String = TechCatalog.display_name("diplomatic_expertise")
+	var gated: Dictionary = MapPlayColonyPick.of(embassy, {})
+	assert_eq(String(gated["kind"]), MapPlayColonyPick.KIND_STUDY)
+	assert_eq(String(gated["study"]), "diplomatic_expertise")
+	assert_eq(
+		String(gated["line"]),
+		"the court's chain with the %s waits on %s" % [name, study]
+	)
+	# The study in hand, the same read is a link for the court to press.
+	var opened: Dictionary = MapPlayColonyPick.of(embassy, {"diplomatic_expertise": 1})
+	assert_eq(String(opened["kind"]), MapPlayColonyPick.KIND_CHAIN)
+	assert_eq(String(opened["stage"]), DiplomacyCatalog.STAGE_EMBASSY)
+	assert_eq(
+		MapPlayPickProse.sentence(String(opened["line"])),
+		"The court would offer the %s an Embassy this turn, one link toward a colony."
+		% name
+	)
+	# No target or no stage names nothing at all.
+	assert_true(MapPlayColonyPick.of({}, {}).is_empty())
+	assert_true(MapPlayColonyPick.of({"target": -1, "stage": "unknown"}, {}).is_empty())
+	assert_eq(MapPlayColonyPick.pick(null), {})
+	assert_eq(MapPlayColonyPick.line(null), "", "a session that is not there names nothing")
+	assert_eq(
+		MapPlayPickProse.sentence(MapPlayColonyPick.CLOSED_LINE),
+		"The court would open no colony chain this turn — at war, its envoy waits "
+		+ "on the front."
+	)
+
+
+## The press's own gate (DR-20261121-16): a chain the envoy row would refuse
+## names the rule's reason instead of an offer the crown cannot make this turn —
+## the same gate `DiplomacyRules.can_establish_overture` answers the press with
+## (REQ-P2-03, REQ-P5-06).
+func test_the_colony_pick_names_the_gate_the_crowns_press_answers() -> void:
+	var tribe: int = _colony_tribe()
+	var name: String = FactionCatalog.name_of(tribe)
+	var ambition: Dictionary = {
+		"target": tribe, "stage": DiplomacyCatalog.STAGE_JOIN_EMPIRE,
+	}
+	var cold: Dictionary = MapPlayColonyPick.gated(
+		ambition,
+		"Join Empire needs a warmer court than this one — the gate stands one step "
+		+ "up the meter."
+	)
+	assert_eq(String(cold["kind"]), MapPlayColonyPick.KIND_GATE)
+	assert_eq(int(cold["target"]), tribe)
+	assert_eq(
+		MapPlayPickProse.sentence(String(cold["line"])),
+		"The court's chain with the %s waits this turn (Join Empire needs a warmer "
+		% name + "court than this one — the gate stands one step up the meter)."
+	)
+	# The rule's words are handed in whole: the line closes with one full stop.
+	assert_false(String(cold["line"]).contains(".."), "the reason keeps one stop")
+	# No reason to print, no line: a sheet with nothing to say stays silent.
+	assert_eq(MapPlayColonyPick.gate_line("the %s" % name, ""), "")
+	assert_eq(MapPlayColonyPick.gate_line("", "a reason"), "")
+	assert_true(MapPlayColonyPick.gated(ambition, "").is_empty())
+	assert_true(MapPlayColonyPick.gated({}, "a reason").is_empty())
+	assert_true(MapPlayColonyPick.gated({"target": -1}, "a reason").is_empty())
+
+
+## The same gate on a live session: a chain whose envoy row would refuse reads
+## the rule's reason instead of a link, and a chain the press can take reads the
+## link — so the gold line and the crown's own tap cannot disagree (REQ-P2-03).
+func test_the_colonies_name_the_gate_a_live_press_would_refuse() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var faction: int = play.player_faction
+	var model: MapModel = Fixture.region()
+	var first: int = _colony_tribe()
+	var seat: int = Fixture.inland_province(model)
+	var data: ProvinceState = model.province_data(seat)
+	assert_not_null(data, "the fixture names a province to seat")
+	data.owner = first
+	play.economy.economy.treasury = 50000
+	play.diplomacy.ensure_relation(faction, first, play.turn)
+	play.diplomacy.relation(faction, first).score = 40.0
+	play.diplomacy.set_overture(faction, first, DiplomacyCatalog.STAGE_NAP)
+	# The court's envoy has already been to this Tribe this turn.
+	play.diplomacy.claim(faction, first, "overture")
+	# The reading needs the crown's own planner state, which a boot makes lazily.
+	play.ensure_ai()
+	var refused: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(String(refused.get("kind", "")), MapPlayColonyPick.KIND_GATE)
+	assert_eq(int(refused.get("target", -1)), first)
+	assert_true(
+		MapPlayPickProse.sentence(String(refused.get("line", ""))).contains(
+			"An overture was already made to this court this turn"
+		),
+		"the rule's own words, not a second opinion"
+	)
+	# A second Tribe the same turn can still be offered: the warmer chain wins
+	# the reading, and the press that signs it is on.
+	var second: int = _second_tribe()
+	var other: int = MapModel.NO_ID
+	for province: ProvinceState in model.provinces:
+		if province.id != seat:
+			other = province.id
+			break
+	assert_ne(other, MapModel.NO_ID, "the fixture has a second province")
+	model.province_data(other).owner = second
+	play.diplomacy.ensure_relation(faction, second, play.turn)
+	play.diplomacy.relation(faction, second).score = 60.0
+	play.diplomacy.set_overture(faction, second, DiplomacyCatalog.STAGE_NAP)
+	var offered: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(
+		int(offered.get("target", -1)), second, "the chain the court could take is named"
+	)
+	# The court's one order may be this rung or bound elsewhere; either way the
+	# sheet names this chain and never a second order (DR-20261121-18).
+	var envoy: Dictionary = MapPlayDiplomacyPick.plan(play).get("action", {}) as Dictionary
+	var next_stage: String = DiplomacyCatalog.next_stage(
+		play.diplomacy.overture(faction, second)
+	)
+	if MapPlayColonyPick.envoy_gives(
+		envoy, {"target": second, "stage": next_stage}
+	):
+		assert_eq(String(offered.get("kind", "")), MapPlayColonyPick.KIND_CHAIN)
+		assert_eq(
+			String(offered.get("line", "")),
+			MapPlayColonyPick.chain_line(
+				"the %s" % FactionCatalog.name_of(second), next_stage
+			)
+		)
+	else:
+		assert_eq(
+			String(offered.get("kind", "")), MapPlayColonyPick.KIND_ENVOY,
+			"a link the one order does not take reads the wait it is"
+		)
+		assert_eq(int(offered.get("other", -1)), int(envoy.get("target", -1)))
+
+
+## The court's one order (DR-20261121-18): a link reads as an offer only when the
+## envoy's own order is that rung; otherwise the sheet names the wait and the
+## court the order went to, so THE COLONIES and THE COURT cannot promise two
+## orders in one turn (REQ-P2-03, REQ-P5-05).
+func test_the_colony_chain_waits_behind_the_envoys_one_order() -> void:
+	var tribe: int = _colony_tribe()
+	var name: String = FactionCatalog.name_of(tribe)
+	var ambition: Dictionary = {"target": tribe, "stage": DiplomacyCatalog.STAGE_EMBASSY}
+	# The planner's own rung: the same court at the same stage is the one order.
+	assert_true(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_OVERTURE,
+		"target": tribe,
+		"stage": DiplomacyCatalog.STAGE_EMBASSY,
+	}, ambition), "the chain's own rung is the one order")
+	# Another court, another rung, or another kind of order is not this link.
+	assert_false(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_OVERTURE,
+		"target": _second_tribe(),
+		"stage": DiplomacyCatalog.STAGE_EMBASSY,
+	}, ambition), "an order to another court is not this chain")
+	assert_false(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_OVERTURE,
+		"target": tribe,
+		"stage": DiplomacyCatalog.STAGE_CONSULATE,
+	}, ambition), "another rung of the chain is not this link")
+	assert_false(MapPlayColonyPick.envoy_gives({
+		"kind": DiplomacyOrders.KIND_AID, "target": tribe, "stage": "",
+	}, ambition), "a gift to the same court is not this link")
+	assert_false(MapPlayColonyPick.envoy_gives({}, ambition), "no order, no link")
+	# The wait names the court the order went to, in that court's own name.
+	var behind: Dictionary = MapPlayColonyPick.behind(ambition, {
+		"kind": DiplomacyOrders.KIND_WAR, "target": _colony_parent(),
+	})
+	assert_eq(String(behind["kind"]), MapPlayColonyPick.KIND_ENVOY)
+	assert_eq(int(behind["target"]), tribe)
+	assert_eq(int(behind["other"]), _colony_parent())
+	assert_eq(
+		MapPlayPickProse.sentence(String(behind["line"])),
+		"The court's chain with the %s waits this turn — its one order goes to %s."
+		% [name, FactionCatalog.name_of(_colony_parent())]
+	)
+	# A planner that weighed the turn and named nobody still says the wait.
+	var none: Dictionary = MapPlayColonyPick.behind(ambition, {})
+	assert_eq(int(none["other"]), -1)
+	assert_eq(
+		String(none["line"]),
+		"the court's chain with the %s waits this turn — its envoy gives the "
+		% name + "turn no order"
+	)
+	assert_true(MapPlayColonyPick.behind({}, {}).is_empty())
+	assert_eq(MapPlayColonyPick.envoy_line("", 1), "")
+
+
+## Two sheets, one turn: on a live chain the colony line reads the link when the
+## court's one order is that rung, and otherwise names the court that order went
+## to — never a second promise (REQ-P2-03, REQ-P5-05; DR-20261121-18).
+func test_the_colonies_and_the_court_name_one_envoy_order() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var faction: int = play.player_faction
+	var model: MapModel = Fixture.region()
+	var tribe: int = _colony_tribe()
+	var seat: int = Fixture.inland_province(model)
+	var data: ProvinceState = model.province_data(seat)
+	assert_not_null(data, "the fixture names a province to seat")
+	data.owner = tribe
+	play.economy.economy.treasury = 50000
+	play.diplomacy.ensure_relation(faction, tribe, play.turn)
+	play.diplomacy.relation(faction, tribe).score = 60.0
+	# The last link needs no study, so the chain reads a link (or its wait) and
+	# never the door a missing tech owes.
+	play.diplomacy.set_overture(faction, tribe, DiplomacyCatalog.STAGE_NAP)
+	# The reading needs the crown's own planner state, which a boot makes lazily.
+	play.ensure_ai()
+	var action: Dictionary = MapPlayDiplomacyPick.plan(play).get("action", {}) as Dictionary
+	var stage: String = DiplomacyCatalog.next_stage(
+		play.diplomacy.overture(faction, tribe)
+	)
+	var pick: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(int(pick.get("target", -1)), tribe, "the chain is the one read")
+	var said: String = MapPlayPickProse.sentence(String(pick.get("line", "")))
+	if MapPlayColonyPick.envoy_gives(action, {"target": tribe, "stage": stage}):
+		assert_eq(
+			String(pick.get("kind", "")), MapPlayColonyPick.KIND_CHAIN,
+			"the one order is this link"
+		)
+		return
+	assert_eq(
+		String(pick.get("kind", "")), MapPlayColonyPick.KIND_ENVOY,
+		"a link the one order does not take reads the wait it is"
+	)
+	assert_eq(int(pick.get("other", -1)), int(action.get("target", -1)))
+	var other: int = int(action.get("target", -1))
+	if other >= 0:
+		assert_true(
+			said.contains(FactionCatalog.name_of(other)),
+			"the wait names the court the one order went to: " + said
+		)
+	else:
+		assert_true(said.contains("gives the turn no order"), said)
+
+
+## The sheet prints the reading it is handed and hides it when the reading is
+## empty, so a session with no chain carries no gold line (REQ-P5-06).
+func test_the_colonies_print_and_hide_the_counsel_they_are_handed() -> void:
+	_attach()
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String:
+			return "The court would offer the Guaraní a Trade Consulate this turn."
+	)
+	panel.open()
+	assert_eq(
+		panel.counsel_text(), "The court would offer the Guaraní a Trade Consulate this turn."
+	)
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	# The case hands the panel back wired as the session left it, so a later case
+	# reads the boot's own reading rather than this one's stand-in.
+	panel.counsel_source = wired
+	panel.close()
+
+
+## The reading is the pass's own: THE COLONIES names the Tribe the crown's colony
+## chain is buying, and no envoy step is signed by the reading (REQ-P2-03,
+## REQ-P5-06; DR-20261121-16).
+func test_the_colonies_name_the_tribe_the_crowns_pass_is_buying() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ColonyLedgerPanel = screen.hud.colonies_ledger
+	assert_not_null(panel, "the HUD mounts the colony ledger")
+	assert_true(panel.counsel_source.is_valid(), "the sheet binds the pass's reading")
+	var before: Array = _colony_overtures(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.COLONIES)
+	var counsel: String = panel.counsel_text()
+	var pick: Dictionary = MapPlayColonyPick.pick(play)
+	assert_eq(counsel, MapPlayPickProse.sentence(String(pick.get("line", ""))))
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	if not pick.is_empty():
+		var target: int = int(pick.get("target", -1))
+		if target >= 0:
+			assert_true(
+				counsel.contains(FactionCatalog.name_of(target)),
+				"the line names the Tribe the court is buying"
+			)
+		assert_true(
+			counsel.begins_with("The court would offer ")
+			or counsel.begins_with("The court's chain with "),
+			counsel
+		)
+	assert_eq(_colony_overtures(play), before, "a reading, not an envoy step")
+	panel.close()
+
+
+## Every Tribe's overture stage with the crown, so a reading can be proved not to
+## have signed one.
+func _colony_overtures(play: PlaySession) -> Array:
+	var stages: Array = []
+	for tribe: int in FactionCatalog.tribe_ids():
+		stages.append(play.diplomacy.overture(play.player_faction, tribe))
+	return stages
 
 
 ## The colony fixture: two charts where the first Tribe holds the New World land
@@ -3628,7 +4622,7 @@ func test_the_estates_pick_words_the_raise_in_the_ledgers_row_order() -> void:
 		"the court would raise the lumber camp at Cádiz and the mine at Sevilla this phase"
 	)
 	assert_eq(
-		MapPlayEstatesPick.sentence(String(pick["line"])),
+		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would raise the lumber camp at Cádiz and the mine at Sevilla this phase."
 	)
 	# Beyond three the line counts the rows it cannot name.
@@ -4519,6 +5513,266 @@ func test_a_visit_frames_her_squadron_and_sets_the_sheet_aside() -> void:
 	assert_not_null(screen.play.ship_layer.selected(), "her squadron is the selection")
 
 
+# --- navy: the court's own sails ---
+
+## The navy's own reading (DR-20261121-13): the sails the published naval policy
+## would order, worded down the sheet's own squadron headings and capped so a
+## busy navy stays one line of chrome (REQ-P5-06, REQ-P5-07).
+func test_the_navy_pick_words_the_sails_the_pass_would_order() -> void:
+	var model: MapModel = Naval.build()
+	var zone: int = 0
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_SORTIE, "zone": zone}, "Leopard"
+		),
+		"the Leopard into the %s" % model.sea_zone_name(zone)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_PURSUE, "zone": zone}, "Leopard"
+		),
+		"the Leopard in pursuit into the %s" % model.sea_zone_name(zone)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_RAID, "zone": zone}, "Leopard"
+		),
+		"the Leopard for the %s, the first leg toward a hostile coast"
+		% model.sea_zone_name(zone)
+	)
+	# Home names the harbour when she can dock, else the first leg back.
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_HOME, "dock": true, "province": 0}, "Swallow"
+		),
+		"the Swallow home to %s" % model.province_name(0)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_HOME, "zone": zone}, "Swallow"
+		),
+		"the Swallow for the %s, the first leg home" % model.sea_zone_name(zone)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": "unknown", "zone": zone}, "Leopard"),
+		"",
+		"an order this module cannot say prints nothing"
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": MapPlayNavyPick.KIND_SORTIE}, "Leopard"),
+		"",
+		"a sail to nowhere prints nothing"
+	)
+	for kind: String in [
+		MapPlayNavyPick.KIND_PURSUE, MapPlayNavyPick.KIND_RAID,
+	]:
+		assert_eq(
+			MapPlayNavyPick.clause(model, {"kind": kind}, "Leopard"),
+			"",
+			"a %s with no water prints nothing" % kind
+		)
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": MapPlayNavyPick.KIND_HOME, "dock": true}, "Swallow"),
+		"",
+		"a harbour this module cannot name prints nothing"
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": MapPlayNavyPick.KIND_HOME}, "Swallow"),
+		"",
+		"a road home with no water prints nothing"
+	)
+	assert_eq(MapPlayNavyPick.clause(model, {}, "Leopard"), "", "no order, no clause")
+	assert_eq(
+		MapPlayNavyPick.clause(model, {"kind": MapPlayNavyPick.KIND_SORTIE, "zone": zone}, ""),
+		"",
+		"a squadron with no flagship named reads nothing"
+	)
+	# One line, in the sheet's own heading order, the fourth and beyond counted.
+	var squadrons: Array[Dictionary] = [
+		{"region": 0, "fleet_id": 2, "line": "the Tern home to Cádiz"},
+		{"region": 0, "fleet_id": 1, "line": "the Leopard into the Mar Caribe"},
+		{"region": 0, "fleet_id": 3, "line": "the Swallow in pursuit into the Main"},
+		{"region": 0, "fleet_id": 4, "line": "the Kite for the Main, the first leg home"},
+	]
+	var snapshot: Dictionary = {
+		"groups": [
+			{"region": 0, "fleet": 1},
+			{"region": 0, "fleet": 2},
+			{"region": 0, "fleet": 3},
+			{"region": 0, "fleet": 4},
+		],
+	}
+	assert_eq(
+		String(MapPlayNavyPick.of(squadrons, snapshot)["line"]),
+		"the court would send the Leopard into the Mar Caribe, the Tern home to"
+		+ " Cádiz, the Swallow in pursuit into the Main and 1 more this turn"
+	)
+	assert_eq(
+		MapPlayPickProse.sentence("the court would send the Leopard into the Mar Caribe"),
+		"The court would send the Leopard into the Mar Caribe."
+	)
+	# No snapshot: the pass's own order, read as prose reads a pair.
+	var one: Array[Dictionary] = [squadrons[0]]
+	var two: Array[Dictionary] = [squadrons[0], squadrons[1]]
+	assert_eq(
+		String(MapPlayNavyPick.of(one, {})["line"]),
+		"the court would send the Tern home to Cádiz this turn"
+	)
+	assert_eq(
+		String(MapPlayNavyPick.of(two, {})["line"]),
+		"the court would send the Tern home to Cádiz and the Leopard into the"
+		+ " Mar Caribe this turn"
+	)
+	# An order this module cannot say takes no place on the line.
+	var silent: Array[Dictionary] = [squadrons[0], squadrons[1], squadrons[2]]
+	silent.append({"region": 0, "fleet_id": 9, "line": ""})
+	silent.append(squadrons[3])
+	assert_eq(
+		String(MapPlayNavyPick.of(silent, {})["line"]),
+		"the court would send the Tern home to Cádiz, the Leopard into the Mar"
+		+ " Caribe, the Swallow in pursuit into the Main and 1 more this turn"
+	)
+	assert_true(MapPlayNavyPick.of([], {}).is_empty(), "no squadron, no clause")
+	assert_eq(MapPlayNavyPick.pick_line([]), "", "no squadron, no line")
+	assert_true(MapPlayNavyPick.gate(0).is_empty(), "no waiting squadron, no gate")
+	assert_eq(String(MapPlayNavyPick.gate(2)["line"]), MapPlayNavyPick.NO_ORDER_LINE)
+	assert_eq(MapPlayNavyPick.line(null), "", "a session that is not there names nothing")
+
+
+## The sheet prints the reading it is handed and hides it when the reading is
+## empty, so a session with no planner carries no gold line (REQ-P5-06).
+func test_the_navy_sheet_prints_and_hides_the_counsel_it_is_handed() -> void:
+	_attach()
+	var panel: NavalLedgerPanel = screen.hud.navy_ledger
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String:
+			return "The court would send the Leopard into the Mar Caribe."
+	)
+	panel.open()
+	assert_eq(panel.counsel_text(), "The court would send the Leopard into the Mar Caribe.")
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	# The case hands the panel back wired as the session left it, so a later case
+	# reads the boot's own reading rather than this one's stand-in.
+	panel.counsel_source = wired
+	panel.close()
+
+
+## The reading is the pass's own: a squadron the published policy would sail is
+## named on THE CROWN'S NAVY, and nothing is moved or stationed (REQ-P2-03,
+## REQ-P5-06; DR-20261121-13).
+func test_the_navy_names_the_sails_the_crowns_pass_would_order() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: NavalLedgerPanel = screen.hud.navy_ledger
+	assert_not_null(panel, "the HUD mounts the navy ledger")
+	assert_true(panel.counsel_source.is_valid(), "the session wires the pass's reading")
+	var before: Array = _fleet_orders(play)
+	panel.open()
+	var counsel: String = panel.counsel_text()
+	assert_true(
+		counsel.is_empty() or counsel.begins_with("The court would send "), counsel
+	)
+	assert_true(counsel.is_empty() or counsel.ends_with("this turn."), counsel)
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(),
+		"the line stands with its reading"
+	)
+	# A line the pass would not order is not printed: every named clause is one of
+	# the pick's own squadrons.
+	var pick: Dictionary = MapPlayNavyPick.pick(play, panel._snapshot)
+	for raw: Variant in pick.get("squadrons", []):
+		var squadron: Dictionary = raw
+		var clause: String = String(squadron["line"])
+		assert_true(
+			counsel.to_lower().contains(clause),
+			"every clause is the pass's own: %s" % clause
+		)
+	assert_eq(_fleet_orders(play), before, "a reading, not an order")
+	panel.close()
+
+
+## A squadron with no station of her own takes the road home: the policy's own
+## order, named on THE CROWN'S NAVY, and nothing moves (wiki: ships-and-naval
+## § Missions and Movement; DR-20261121-13).
+func test_the_navy_names_the_road_home_the_policy_would_give() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: NavalLedgerPanel = screen.hud.navy_ledger
+	var fleet: FleetState = _sail_a_squadron(play)
+	assert_not_null(fleet, "the crown floats a squadron")
+	if fleet == null:
+		return
+	var before: Array = _fleet_orders(play)
+	var pick: Dictionary = MapPlayNavyPick.pick(play, {})
+	var squadrons: Array = pick.get("squadrons", [])
+	assert_gte(squadrons.size(), 1, "the pass gives the afloat squadron her road home")
+	var first: Dictionary = squadrons[0] if not squadrons.is_empty() else {}
+	assert_eq(int(first.get("fleet_id", -1)), fleet.id, "the squadron the policy sailed")
+	var clause: String = String(first.get("line", ""))
+	assert_true(clause.contains("home"), clause)
+	# The sheet prints that reading under its chips, and moves nothing.
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = (
+		func(data: Dictionary) -> String: return MapPlayNavyPick.line(play, data)
+	)
+	panel.open()
+	assert_true(
+		panel.counsel_text().begins_with("The court would send "), panel.counsel_text()
+	)
+	assert_true(panel.counsel_text().contains(clause), panel.counsel_text())
+	assert_true(panel._counsel.visible, "the line stands with its reading")
+	assert_eq(_fleet_orders(play), before, "a reading, not an order")
+	panel.close()
+	panel.counsel_source = wired
+
+
+## One of the crown's squadrons afloat off her own harbour, with no station and
+## no move spent: the policy's road home is then the order it would give.
+func _sail_a_squadron(play: PlaySession) -> FleetState:
+	var model: MapModel = play.model
+	var port: int = NavalMovement.home_harbour(model, play.player_faction)
+	if port < 0:
+		return null
+	var zones: Array[int] = NavalMovement.province_sea_zones(model, port)
+	if zones.is_empty():
+		return null
+	for region: int in play.ship_layer.regions.region_ids():
+		if play.world.region(region) != model:
+			continue
+		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+			if fleet == null or fleet.owner != play.player_faction:
+				continue
+			if fleet.hulls.is_empty():
+				continue
+			fleet.location = FleetState.Location.AT_SEA
+			fleet.province = MapModel.NO_ID
+			fleet.sea_zone = zones[0]
+			fleet.mission = FleetState.Mission.NONE
+			fleet.moved = false
+			return fleet
+	return null
+
+
+## Every squadron's orders as the sheet reads them: her station, her move flag
+## and the water or harbour she stands in.
+func _fleet_orders(play: PlaySession) -> Array:
+	var seen: Array = []
+	for region: int in play.ship_layer.regions.region_ids():
+		for fleet: FleetState in MapPlayCourt.region_fleets(play, region):
+			if fleet == null:
+				continue
+			seen.append("%d:%d:%s:%s:%s" % [
+				fleet.id, region, fleet.mission, fleet.moved, fleet.sea_zone
+			])
+	seen.sort()
+	return seen
+
+
 # --- the crown's army, regiment by regiment ---
 
 ## The crown's army, regiment by regiment (wiki: military-armies § The muster
@@ -4813,6 +6067,183 @@ func test_army_back_closes_the_ledger() -> void:
 	assert_true(panel.is_open())
 	assert_true(BackRequest.handle(screen.play, screen.play.improvements))
 	assert_false(panel.is_open(), "back sets the ledger aside first")
+
+
+## The orders the crown's army prints (DR-20261121-14): one clause per standard,
+## the sheet's own heading order, the fourth and beyond counted, and the gate when
+## standards wait for an order the pass does not give (REQ-P2-03, REQ-P5-06).
+func test_the_army_orders_name_each_standard_and_count_the_rest() -> void:
+	var model: MapModel = Naval.build()
+	var home := ArmyState.muster(1, OWNER, 0, true, [], 1)
+	var field := ArmyState.muster(2, OWNER, 1, false, [], 1)
+	var storm: String = model.province_name(1)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(
+			model, home, {"kind": MapPlayArmyPick.KIND_SPLIT, "regiments": 4}
+		),
+		"the Home Army to take the field with 4 regiments"
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(
+			model, home, {"kind": MapPlayArmyPick.KIND_SPLIT, "regiments": 1}
+		),
+		"the Home Army to take the field with 1 regiment"
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(
+			model, field, {
+				"kind": MapPlayArmyPick.KIND_MARCH,
+				"why": MapPlayArmyPick.WHY_STORM,
+				"province": 1,
+			}
+		),
+		"the field army at %s to storm %s" % [storm, storm]
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(
+			model, field, {
+				"kind": MapPlayArmyPick.KIND_MARCH,
+				"why": MapPlayArmyPick.WHY_RELIEF,
+				"province": 1,
+			}
+		),
+		"the field army at %s to throw the host out of %s" % [storm, storm]
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(
+			model, field, {
+				"kind": MapPlayArmyPick.KIND_MARCH,
+				"why": MapPlayArmyPick.WHY_FRONTIER,
+				"province": 1,
+			}
+		),
+		"the field army at %s to advance to %s, the frontier" % [storm, storm]
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(
+			model, field, {"kind": MapPlayArmyPick.KIND_ROTATE, "province": 0}
+		),
+		"the field army at %s home to %s to merge with the Home Army"
+		% [storm, model.province_name(0)]
+	)
+	# An order this module cannot say takes no place on the line.
+	assert_eq(MapPlayArmyOrdersPick.clause(model, field, {"kind": "unknown"}), "")
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(
+			model, field, {"kind": MapPlayArmyPick.KIND_MARCH, "why": MapPlayArmyPick.WHY_STORM}
+		),
+		"",
+		"a march to nowhere prints nothing"
+	)
+	assert_eq(MapPlayArmyOrdersPick.clause(null, field, {"kind": "unknown"}), "")
+	assert_eq(MapPlayArmyOrdersPick.clause(model, null, {}), "", "no standard, no clause")
+	assert_eq(MapPlayArmyOrdersPick.standard(model, field), "the field army at %s" % storm)
+	# One line, in the sheet's own heading order, the fourth and beyond counted.
+	var armies: Array[Dictionary] = [
+		{"region": 0, "army": 2, "line": "the field army at %s to storm %s" % [storm, storm]},
+		{"region": 0, "army": 1, "line": "the Home Army to take the field with 4 regiments"},
+		{"region": 0, "army": 3, "line": "the field army at %s to advance to %s, the frontier" % [storm, storm]},
+		{"region": 0, "army": 4, "line": "the field army at %s home to %s to merge with the Home Army" % [storm, model.province_name(0)]},
+	]
+	var snapshot: Dictionary = {
+		"groups": [
+			{"region": 0, "army": 1},
+			{"region": 0, "army": 2},
+			{"region": 0, "army": 3},
+			{"region": 0, "army": 4},
+		],
+	}
+	assert_eq(
+		String(MapPlayArmyOrdersPick.of(armies, snapshot)["line"]),
+		(
+			"the court would send the Home Army to take the field with 4 regiments, "
+			+ "the field army at %s to storm %s, the field army at %s to advance to %s, "
+			+ "the frontier and 1 more this turn"
+		) % [storm, storm, storm, storm]
+	)
+	assert_eq(
+		MapPlayPickProse.sentence("the court would send the Home Army to take the field"),
+		"The court would send the Home Army to take the field."
+	)
+	assert_true(MapPlayArmyOrdersPick.of([], {}).is_empty(), "no standard, no clause")
+	assert_eq(MapPlayArmyOrdersPick.pick_line([]), "", "no standard, no line")
+	assert_true(MapPlayArmyOrdersPick.gate(0).is_empty(), "no waiting army, no gate")
+	assert_eq(
+		String(MapPlayArmyOrdersPick.gate(2)["line"]), MapPlayArmyOrdersPick.NO_ORDER_LINE
+	)
+	assert_eq(MapPlayArmyOrdersPick.line(null), "", "a session that is not there names nothing")
+
+
+## The sheet prints the reading it is handed and hides it when the reading is
+## empty, so a session with no planner carries no gold line (REQ-P5-06).
+func test_the_army_sheet_prints_and_hides_the_counsel_it_is_handed() -> void:
+	_attach()
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	var wired: Callable = panel.counsel_source
+	panel.counsel_source = (
+		func(_data: Dictionary) -> String:
+			return "The court would send the Home Army to take the field with 4 regiments."
+	)
+	panel.open()
+	assert_eq(
+		panel.counsel_text(), "The court would send the Home Army to take the field with 4 regiments."
+	)
+	assert_true(panel._counsel.visible, "the sheet prints the line")
+	panel.counsel_source = Callable()
+	panel.refresh()
+	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	# The case hands the panel back wired as the session left it, so a later case
+	# reads the boot's own reading rather than this one's stand-in.
+	panel.counsel_source = wired
+	panel.close()
+
+
+## The reading is the pass's own: a standard the published land policy would order
+## is named on THE CROWN'S ARMY, and nothing is split or marched (REQ-P2-03,
+## REQ-P5-06; DR-20261121-14).
+func test_the_army_names_the_orders_the_crowns_pass_would_give() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ArmyLedgerPanel = screen.hud.army_ledger
+	assert_not_null(panel, "the HUD mounts the army ledger")
+	assert_true(panel.counsel_source.is_valid(), "the session wires the pass's reading")
+	var before: Array = _army_orders(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.ARMY)
+	var counsel: String = panel.counsel_text()
+	var gate: String = MapPlayPickProse.sentence(MapPlayArmyOrdersPick.NO_ORDER_LINE)
+	assert_true(
+		counsel.is_empty()
+		or counsel.begins_with("The court would send ")
+		or counsel == gate,
+		counsel
+	)
+	assert_eq(
+		panel._counsel.visible, not counsel.is_empty(), "the line stands with its reading"
+	)
+	# A line the pass would not give is not printed: every named clause is one of
+	# the pick's own standards.
+	var pick: Dictionary = MapPlayArmyOrdersPick.pick(play, panel._snapshot)
+	for raw: Variant in pick.get("armies", []):
+		var standard: Dictionary = raw
+		var clause: String = String(standard["line"])
+		assert_true(
+			counsel.to_lower().contains(clause), "every clause is the pass's own: %s" % clause
+		)
+	assert_eq(_army_orders(play), before, "a reading, not an order")
+	panel.close()
+
+
+## Every standard's place and move flag, so a reading that marched one shows.
+func _army_orders(play: PlaySession) -> Array:
+	var seen: Array = []
+	for region: int in play.army_layer.regions.region_ids():
+		for army: ArmyState in MapPlayCourt.visible_armies(play, region):
+			if army == null:
+				continue
+			seen.append("%d:%d:%s" % [army.id, army.province, army.moved])
+	seen.sort()
+	return seen
 
 
 ## The one dress both forces print in stays inert until a force names itself: a

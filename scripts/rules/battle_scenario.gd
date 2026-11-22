@@ -112,7 +112,7 @@ static func _types(raw: Variant) -> Array[String]:
 
 static func _plan(raw: Variant) -> String:
 	var plan: String = String(raw)
-	return plan if QuickBattleActions.PLANS.has(plan) else "balanced"
+	return plan if QuickBattleActionLaw.PLANS.has(plan) else "balanced"
 
 
 static func _terrain(raw: String) -> String:

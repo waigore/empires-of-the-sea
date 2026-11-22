@@ -1865,7 +1865,7 @@ func test_the_production_tab_names_the_plan_the_court_would_run() -> void:
 	assert_false(pick.is_empty(), "the crown's seat answers")
 	assert_eq(
 		body.counsel_text(),
-		MapPlayProductionPick.sentence(String(pick.get("line", ""))),
+		MapPlayPickProse.sentence(String(pick.get("line", ""))),
 		"one reading, the pass's own sentence"
 	)
 	var rows: Dictionary = body.recipe_rows()
@@ -1908,6 +1908,85 @@ func test_the_production_tab_prints_no_plan_without_a_planner() -> void:
 	play.ai_mode = AiControl.FULL
 
 
+# --- the WORKERS tab's own plan (DR-20261122-01) -----------------------------
+
+
+## The tab prints the workers the court's own economy pass would recruit, above
+## the tier rows it answers and marked on those rows — the same hire the pass
+## books, read on the crown's own seat — and enlists nobody
+## (wiki: workers-and-population § Recruiting; DR-20261122-01).
+func test_the_workers_tab_names_the_workers_the_court_would_recruit() -> void:
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	var play: PlaySession = _screen.economy.play
+	assert_not_null(play, "the controller holds its session")
+	var economy: PlayerEconomy = _screen.economy.economy
+	var before: int = economy.workers.total()
+	var pick: Dictionary = MapPlayRecruitPick.pick(play)
+	assert_false(pick.is_empty(), "the crown's seat answers")
+	assert_eq(
+		body.counsel_text(),
+		MapPlayPickProse.sentence(String(pick.get("line", ""))),
+		"one reading, the pass's own sentence"
+	)
+	assert_eq(economy.workers.total(), before, "a reading: nobody is enlisted")
+	var printed: String = _printed(body)
+	var tiers: Dictionary = pick.get("tiers", {})
+	for tier: int in tiers.keys():
+		assert_true(
+			printed.contains("%s %s" % [LedgerWorkers.COURT_MARK,
+				WorkerPool.tier_name(tier)]),
+			"the tier the plan buys wears the mark: " + str(tier)
+		)
+
+
+## A crown whose seat runs no planner reads no hire: the tab prints nothing
+## rather than a line the court would not take (REQ-P5-06).
+func test_the_workers_tab_prints_no_hire_without_a_planner() -> void:
+	var play: PlaySession = _screen.economy.play
+	play.ai_mode = AiControl.NOOP
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_eq(body.counsel_text(), "", "no planner, no line")
+	assert_true(MapPlayRecruitPick.pick(play).is_empty(), "and no pick behind it")
+	play.ai_mode = AiControl.FULL
+
+
+## The counsel reads the crown's own ledger, not the AI's unfilled opening copy
+## (`AiState.economy_for` mints `PlayerEconomy.starting()` for any faction with no
+## ledger, and only Auto ever ties it to the crown's). A pool above the target
+## the tab prints on the same page names no hire, and the reading enlists nobody
+## (wiki: workers-and-population § Recruiting; DR-20261122-01; REQ-P2-03).
+func test_the_workers_counsel_reads_the_crowns_own_ledger() -> void:
+	var play: PlaySession = _screen.economy.play
+	assert_not_null(play, "the controller holds its session")
+	var economy: PlayerEconomy = play.economy.economy
+	var seat: PlayerEconomy = play.ensure_ai().economy_for(play.player_faction)
+	assert_true(seat != economy, "the AI keeps an opening copy of its own")
+	# A pool the crown has grown past the target it keeps, in its own ledger only.
+	economy.workers = WorkerPool.make(12)
+	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
+		play, play.player_faction, MapPlayEconomyAi._market(play)
+	)
+	assert_true(court.economy == economy, "the draft turns the crown's own ledger")
+	var pick: Dictionary = MapPlayRecruitPick.pick(play)
+	assert_false(pick.is_empty(), "the crown's seat answers")
+	assert_eq(
+		String(pick.get("kind", "")), MapPlayRecruitPick.KIND_TARGET,
+		"the pool already stands at the target it keeps"
+	)
+	assert_eq(pick.get("tiers", {}), {}, "so no head is named")
+	var line: String = MapPlayPickProse.sentence(String(pick.get("line", "")))
+	assert_true(line.contains("it keeps"), line)
+	_screen.economy.open_panel()
+	var panel: EconomyPanel = _screen.hud.panels.economy_panel
+	var body: LedgerWorkers = panel.page_body(EconomyPanel.TAB_WORKERS) as LedgerWorkers
+	assert_eq(body.counsel_text(), line, "the tab prints the crown's own reading")
+	assert_eq(economy.workers.total(), 12, "and enlists nobody")
+
+
 ## The MARKET tab prints the trade the court's own market pass would book, above
 ## the orders it answers — the same plan the rival pass stages, read on the
 ## crown's own seat — and stages nothing itself (wiki: world-market § Trade
@@ -1927,7 +2006,7 @@ func test_the_market_tab_names_the_trade_the_court_would_book() -> void:
 	assert_false(pick.is_empty(), "the crown's seat answers")
 	assert_eq(
 		body.counsel_text(),
-		MapPlayMarketPick.sentence(String(pick.get("line", ""))),
+		MapPlayPickProse.sentence(String(pick.get("line", ""))),
 		"one reading, the pass's own sentence"
 	)
 	assert_eq(

@@ -245,7 +245,7 @@ static func rename_colours(play: PlaySession, army: ArmyState, args: String) -> 
 ## so it is never mistaken for one army's (wiki: quick-battle § The crown's plan).
 static func cycle_plan(play: PlaySession, army: ArmyState) -> void:
 	var order: Array[String] = ["balanced", "aggressive", "defensive"]
-	var index: int = order.find(QuickBattleActions.normalize_plan(play.battle_plan))
+	var index: int = order.find(QuickBattleActionLaw.normalize_plan(play.battle_plan))
 	play.battle_plan = order[(index + 1) % order.size()]
 	play.hud.toast("Crown battle plan: %s" % play.battle_plan.capitalize())
 	show_panel(play, army)

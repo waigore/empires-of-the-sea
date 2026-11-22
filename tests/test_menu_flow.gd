@@ -1,12 +1,14 @@
 extends GdToolsTest
 ## App flow: title -> setup -> map, in-game menu, save slot, load rebuilds the
 ## screen (clearing the old game), and back to the title (REQ-P5-01, P5-07).
-## One chart is rolled in `before_all` and handed through `Main.preset_world` so
-## coverage does not pay `generate_world` on every new-game / load path. Pause /
-## keys chrome rides one MapScreen (`chart`) and re-seats with `suite_reset`
-## instead of walking title → setup → capital → charge each time. Pure charge /
-## key-catalogue cases never touch the shell or chart (docs/testing.md § Speed
-## rules). The shared Main shell resets to the title between flow cases.
+## One cached `Fixture.world()` rides `Main.preset_world` so coverage does not
+## pay a second `generate_world` on new-game / load / auto-start. Pause / keys
+## chrome rides one MapScreen (`chart`) and re-seats with `suite_reset` instead
+## of walking title → setup → capital → charge each time. Auto-start, observer
+## and the charge gate call the shared shell's start helpers — no second `Main`
+## boot under coverage (docs/testing.md § Speed rules). Pure charge /
+## key-catalogue cases never touch the shell or chart. The shared Main shell
+## resets to the title between flow cases.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
@@ -14,7 +16,7 @@ const MAP_SCREEN: PackedScene = preload("res://scenes/map_screen.tscn")
 const MAIN: PackedScene = preload("res://scenes/main.tscn")
 const DIR: String = "user://test_menu_flow"
 
-const FLOW_SEED: int = 777
+const FLOW_SEED: int = Fixture.SEED
 const FLOW_SIZE: Vector2i = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
 ## France: same crown `_start_game` picks on the setup screen.
 const FLOW_FACTION: int = 2
@@ -30,7 +32,9 @@ var _chart_bound: bool = false
 
 
 func before_all() -> void:
-	flow_world = MapGenerator.new().generate_world(FLOW_SEED, FLOW_SIZE.x, FLOW_SIZE.y)
+	# Same chart every other mounted suite already paid for on this worker —
+	# do not roll a second seed under coverage.
+	flow_world = Fixture.world()
 	flow_snapshot = Fixture.snapshot(flow_world)
 	chart_mounted = _mount_chart()
 	chart_pristine = Fixture.suite_capture(chart_mounted)
@@ -707,14 +711,9 @@ func _row_for(rows: Array[Control], label: String) -> Control:
 # --- application shell -------------------------------------------------------
 ## The shell's own boot (merged from test_main): the title is the entry point,
 ## an auto-start goes straight to the chart, and the debug door seats an all-AI
-## observer. Each case drops the flow's shell first, so only one campaign is
-## ever mounted in the tree.
-
-
-func _drop_flow_shell() -> void:
-	if is_instance_valid(shell):
-		shell.free()
-	shell = null
+## observer. Auto-start and observer call the shared shell's start helpers so
+## coverage never pays a second `Main` instantiate (docs/testing.md § Speed
+## rules); `before_each` returns the shell to the title.
 
 
 ## The shell `before_each` mounted is the title screen: read it in place instead
@@ -727,40 +726,32 @@ func test_main_shell_boots_the_title_screen() -> void:
 
 
 func test_auto_start_boots_the_map_screen() -> void:
-	_drop_flow_shell()
-	var chart: WorldMap = Fixture.world()
-	var snap: Array = Fixture.snapshot(chart)
-	var shell: Node = MAIN.instantiate()
-	shell.auto_start = true
-	shell.map_width = Fixture.WORLD_WIDTH
-	shell.map_height = Fixture.WORLD_HEIGHT
-	shell.preset_world = chart
-	add_child(shell)
-	assert_true(shell.current_screen is MapScreen, "auto-start goes straight to play")
-	assert_true(shell.current_screen.play.world == chart, "auto-start reused the cached chart")
-	shell.free()
-	Fixture.restore(chart, snap)
+	# Same path `_ready` takes when `auto_start` is set, on the suite's shell —
+	# a second `Main` boot used to cost ~3 s under coverage for these asserts.
+	var app: Node = main
+	app.map_width = FLOW_SIZE.x
+	app.map_height = FLOW_SIZE.y
+	app.map_seed = FLOW_SEED
+	app.preset_world = flow_world
+	app._start_new_game(app._default_config())
+	assert_true(app.current_screen is MapScreen, "auto-start goes straight to play")
+	assert_true(app.current_screen.play.world == flow_world, "auto-start reused the cached chart")
 
 
 ## Debug door: the desktop `--ai-observer` switch boots a fully-AI campaign with
 ## no human court, and the title screen never appears (docs/ai-observer.md).
 func test_observer_launch_starts_an_all_ai_campaign() -> void:
-	_drop_flow_shell()
-	var chart: WorldMap = Fixture.world()
-	var snap: Array = Fixture.snapshot(chart)
-	var shell: Node = MAIN.instantiate()
-	shell.observer_start = true
-	shell.size_override = Vector2i(Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT)
-	shell.preset_world = chart
-	add_child(shell)
-	assert_false(shell.current_page is MainMenu, "the switch skips the title screen")
-	var screen: MapScreen = shell.current_screen
+	# Same path `_ready` takes when `observer_start` is set, on the suite's shell.
+	var app: Node = main
+	app.size_override = FLOW_SIZE
+	app.preset_world = flow_world
+	app._start_observer()
+	assert_false(app.current_page is MainMenu, "the switch skips the title screen")
+	var screen: MapScreen = app.current_screen
 	assert_not_null(screen, "the observer builds a map screen")
 	if screen == null:
-		shell.free()
-		Fixture.restore(chart, snap)
 		return
-	assert_true(screen.play.world == chart, "the observer reused the cached chart")
+	assert_true(screen.play.world == flow_world, "the observer reused the cached chart")
 	assert_true(screen.observer_mode, "the screen runs the full-AI observer")
 	assert_true(screen.play.observer_mode, "the session runs the full-AI observer")
 	assert_true(screen.play.infinite_mode, "an observer may outlast the calendar cap")
@@ -768,8 +759,6 @@ func test_observer_launch_starts_an_all_ai_campaign() -> void:
 	assert_false(screen.hud.visible, "the human chrome stays hidden")
 	assert_true(screen.game_menu.save_button.disabled, "an observer session is not saved")
 	assert_not_null(screen.get_node_or_null("AiObserver"), "the dashboard mounts")
-	shell.free()
-	Fixture.restore(chart, snap)
 
 
 ## The switch is read from the user args after `--`, and only as its own arg: a
@@ -997,44 +986,35 @@ func test_escape_is_the_same_one_dismissal() -> void:
 
 ## The shell raises the charge between the chart and the first turn: no map runs
 ## behind it, and one press installs the campaign (wiki: dialogue-management).
+## Walks the shared shell — a second `Main` boot was only paying for the gate.
 func test_the_flow_opens_the_charge_before_the_first_turn() -> void:
-	var chart_world: WorldMap = Fixture.world()
-	var snap: Array = Fixture.snapshot(chart_world)
-	var main: Node = MAIN.instantiate()
-	main.auto_start = false
-	main.size_override = FLOW_SIZE
-	main.preset_world = chart_world
-	add_child(main)
-	var menu: MainMenu = main.current_page
+	var app: Node = main
+	var menu: MainMenu = app.current_page
 	menu.new_game_button.emit_signal("pressed")
-	var setup: GameSetupScreen = main.current_page
+	var setup: GameSetupScreen = app.current_page
 	setup.nation_option.select(0)
 	setup.size_option.select(0)
-	setup.seed_field.text = str(Fixture.SEED)
+	setup.seed_field.text = str(FLOW_SEED)
 	setup.start_button.emit_signal("pressed")
-	var chart: CapitalChoiceScreen = main.current_page as CapitalChoiceScreen
+	var chart: CapitalChoiceScreen = app.current_page as CapitalChoiceScreen
 	assert_not_null(chart, "the chart opens before turn 1")
 	if chart == null:
-		main.free()
-		Fixture.restore(chart_world, snap)
 		return
 	await get_tree().process_frame
-	assert_true(chart.world == chart_world, "the shell reused the cached chart")
+	assert_true(chart.world == flow_world, "the shell reused the cached chart")
 	chart.confirm_button.emit_signal("pressed")
 
-	var charge: IntroScreen = main.current_page as IntroScreen
+	var charge: IntroScreen = app.current_page as IntroScreen
 	assert_not_null(charge, "the crown's charge follows the chart")
-	assert_null(main.current_screen, "no campaign runs behind the charge")
+	assert_null(app.current_screen, "no campaign runs behind the charge")
 	if charge == null:
-		main.free()
-		Fixture.restore(chart_world, snap)
 		return
 	assert_true(
 		"\n".join(_texts(charge)).contains(FactionCatalog.name_of(0)),
 		"the charge names the crown the player chose"
 	)
 	charge.begin_button.emit_signal("pressed")
-	var screen: MapScreen = main.current_screen
+	var screen: MapScreen = app.current_screen
 	assert_not_null(screen, "one press opens the age")
 	if screen != null:
 		assert_eq(screen.turn, 1, "the charge is the gate before turn one")
@@ -1042,8 +1022,6 @@ func test_the_flow_opens_the_charge_before_the_first_turn() -> void:
 			screen.capital_province, chart.selected_province,
 			"the seat the charge named is the seat the campaign starts on"
 		)
-	main.free()
-	Fixture.restore(chart_world, snap)
 
 
 func _texts(node: Node) -> Array[String]:

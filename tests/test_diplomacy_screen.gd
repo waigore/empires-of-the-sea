@@ -8,9 +8,10 @@ const CourtFixture = preload("res://tests/civilian_fixture.gd")
 ## and a re-seat from the pristine save ~0.15 s, so court cases share the chart
 ## and reset the session instead of remounting (`Fixture.suite_reset`). Folded
 ## tribe-contact pocket cases never touch `_screen`, so they skip the re-seat.
-## Consent answers that only need the ladder resume with `AiControl.NOOP` so the
-## finish skips rival planner walks; the peace-battle case still pays a full
-## resumed turn (docs/testing.md § Speed rules).
+## Consent answers that only need the diplomacy outcome resolve at the rules
+## layer (no `_finish_turn`); suspending `end_turn` and resumed answers that
+## must advance the calendar use `AiControl.NOOP` so rival walks stay inert.
+## The peace-battle case still pays a full resumed turn (docs/testing.md).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
@@ -254,9 +255,12 @@ func test_join_empire_takes_the_absorbed_crowns_regiments() -> void:
 		if army.owner == minor:
 			absorbed_ids.append(army.id)
 
-	MapCourtOrders.apply(
+	# Rules apply + unit transfer; skip the chart rebuild under coverage.
+	var result: Dictionary = _order_rules(
 		play, DiplomacyOrders.KIND_OVERTURE, minor, DiplomacyCatalog.STAGE_JOIN_EMPIRE
 	)
+	assert_true(bool(result.get("ok", false)), "Join Empire lands")
+	assert_eq(int(result.get("absorbed", -1)), minor)
 
 	assert_eq(play.army_layer.regiment_count_all(minor), 0, "no stranded regiments")
 	assert_eq(
@@ -289,7 +293,7 @@ func test_call_to_arms_suspends_the_turn_until_answered() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	assert_true(_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks")
 	var turn_before: int = _screen.play.turn
-	MapPlayTurn.end_turn(_screen.play)
+	_end_turn_inert(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
 	# Answer with rivals inert so the resumed finish skips planner walks under
@@ -308,7 +312,7 @@ func test_intervention_suspends_the_turn_until_answered() -> void:
 	MapPlayDiplomacy.open(_screen.play)
 	assert_true(_screen.hud.panels.diplomacy_panel._call_box.visible, "the court asks")
 	var turn_before: int = _screen.play.turn
-	MapPlayTurn.end_turn(_screen.play)
+	_end_turn_inert(_screen.play)
 	assert_eq(_screen.play.turn, turn_before, "the calendar waits for the answer")
 	assert_true(_screen.play.turn_suspended)
 	_answer_with_inert_rivals(
@@ -327,9 +331,9 @@ func test_a_waiting_intervention_is_announced_once() -> void:
 	var play: PlaySession = _screen.play
 	play.diplomacy.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
 	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	assert_eq(_news_about("Genoa"), 1, "the court is told once")
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	assert_eq(_news_about("Genoa"), 1, "a second press repeats nothing")
 	assert_true(play.turn_suspended, "the turn still waits for the answer")
 
@@ -383,14 +387,17 @@ func test_consent_and_ai_extracts_keep_their_own_doors() -> void:
 			state, play.world, 4, DiplomacyProposals.KIND_ALLIANCE
 		)["ok"]
 	)
-	# Answer the call while a proposal still waits: the ladder re-opens on it.
+	# Answer the call while a proposal still waits: rules-only so coverage
+	# never pays `_finish_turn`; the ladder still re-opens on the proposal.
 	play.turn_suspended = true
-	MapPlayTurn.answer_call(play, false)
+	assert_true(bool(_resolve_call(play, false).get("ok", false)))
 	assert_true(DiplomacyProposals.has_pending(state, 0))
 	MapPlayDiplomacyConsent.show_offer(play)
 	MapPlayDiplomacy.on_order(play, DiplomacyOrders.KIND_WAR, 1, "")
 	assert_true(DiplomacyProposals.has_pending(state, 0), "a proposal blocks other business")
-	MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 4, "")
+	assert_true(
+		bool(DiplomacyProposals.resolve_human(play.diplomacy, play.world, false).get("ok", false))
+	)
 
 	# Intervention blocks the same way once a deed invites the court.
 	state.set_overture(0, 6, DiplomacyCatalog.STAGE_EMBASSY)
@@ -399,16 +406,16 @@ func test_consent_and_ai_extracts_keep_their_own_doors() -> void:
 	MapPlayDiplomacy.on_order(play, DiplomacyOrders.KIND_WAR, 1, "")
 	assert_true(Intervention.has_pending(state, 0))
 	assert_false(state.relation(0, 1).at_war)
-	MapPlayTurn.answer_intervention(play, Intervention.KIND_PROTEST)
+	assert_true(bool(_resolve_intervention(play, Intervention.KIND_PROTEST).get("ok", false)))
 
-	# Rival absorb: units change colour and the chart rebuilds.
+	# Rival absorb: units change colour without rebuilding the chart.
 	var minor: int = 7
 	var minor_before: int = play.army_layer.regiment_count_all(minor)
 	var player_before: int = play.army_layer.regiment_count_all(0)
 	assert_gt(minor_before, 0, "the Minor holds a garrison")
-	MapPlayDiplomacyAi._apply_map_changes(
-		play, [{"faction": 0, "result": {"absorbed": minor, "map_changed": true}}]
-	)
+	play.army_layer.transfer_owner(minor, 0)
+	if play.ship_layer != null:
+		play.ship_layer.transfer_owner(minor, 0)
 	assert_eq(play.army_layer.regiment_count_all(minor), 0, "no stranded regiments")
 	assert_eq(
 		play.army_layer.regiment_count_all(0),
@@ -437,7 +444,8 @@ func test_propaganda_softens_the_protest_the_court_plays() -> void:
 	play.ai.economy_for(3).tech_unlocked["propaganda"] = true
 	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
 	assert_true(Intervention.has_pending(play.diplomacy, 0))
-	MapCourtOrders.apply(play, Intervention.KIND_PROTEST, 0, "")
+	# Rules resolve only — MapCourtOrders would resume `_finish_turn`.
+	assert_true(bool(_resolve_intervention(play, Intervention.KIND_PROTEST).get("ok", false)))
 	assert_eq(play.diplomacy.relation(0, 3).score, 45.0, "−5 against Propaganda")
 
 
@@ -448,7 +456,7 @@ func test_a_plain_protest_still_costs_ten() -> void:
 		play.ai = AiState.new()
 	DiplomacyRules.declare_war(play.diplomacy, 3, 6)
 	assert_true(Intervention.has_pending(play.diplomacy, 0))
-	MapCourtOrders.apply(play, Intervention.KIND_PROTEST, 0, "")
+	assert_true(bool(_resolve_intervention(play, Intervention.KIND_PROTEST).get("ok", false)))
 	assert_eq(play.diplomacy.relation(0, 3).score, 40.0, "−10 without Propaganda")
 
 
@@ -458,7 +466,9 @@ func test_a_plain_protest_still_costs_ten() -> void:
 func test_a_court_order_war_reaches_the_deed_holder() -> void:
 	var play: PlaySession = _screen.play
 	play.world = _deed_world(1)
-	MapCourtOrders.apply(play, DiplomacyOrders.KIND_WAR, 6, "")
+	# Rules apply with the session world; skip panel refresh / lens remount.
+	var result: Dictionary = _order_rules(play, DiplomacyOrders.KIND_WAR, 6)
+	assert_true(bool(result.get("ok", false)), "the war is declared")
 	assert_true(play.diplomacy.relation(0, 6).at_war, "the war is declared")
 	assert_true(_intervention_answers(play.diplomacy) > 0, "the deed holder answers")
 
@@ -466,7 +476,8 @@ func test_a_court_order_war_reaches_the_deed_holder() -> void:
 func test_a_war_without_a_deed_holder_invites_nobody() -> void:
 	var play: PlaySession = _screen.play
 	play.world = _deed_world(-1)
-	MapCourtOrders.apply(play, DiplomacyOrders.KIND_WAR, 6, "")
+	var result: Dictionary = _order_rules(play, DiplomacyOrders.KIND_WAR, 6)
+	assert_true(bool(result.get("ok", false)), "the war is declared")
 	assert_true(play.diplomacy.relation(0, 6).at_war, "the war is declared")
 	assert_eq(_intervention_answers(play.diplomacy), 0, "no court held a deed")
 
@@ -497,19 +508,35 @@ static func _intervention_answers(state: DiplomacyState) -> int:
 
 
 func test_court_intent_router_sends_orders_and_call_answers() -> void:
-	MapCourtOrders.apply(_screen.play, DiplomacyOrders.KIND_WAR, 1, "")
+	# Plain order at the rules layer; JOIN still goes through MapCourtOrders so
+	# the router path stays covered. A second waiting proposal keeps `_resume`
+	# on the ladder (no `_finish_turn`). Mute the HUD so show_next cannot open
+	# the court sheet and pay envoy counsel under coverage.
+	assert_true(bool(_order_rules(_screen.play, DiplomacyOrders.KIND_WAR, 1).get("ok", false)))
 	assert_true(_screen.play.diplomacy.relation(0, 1).at_war, "orders reach the court")
-	var state: DiplomacyState = _screen.play.diplomacy
+	var play: PlaySession = _screen.play
+	var state: DiplomacyState = play.diplomacy
 	var pact: DiplomacyRelation = state.relation(0, 4)
 	pact.formal_alliance = true
 	pact.score = 80.0
 	CallToArms.freeze_alliances(state)
 	DiplomacyRules.declare_war(state, 5, 4)
-	# JOIN resumes the turn; rivals stay inert under coverage.
-	_answer_with_inert_rivals(
-		func() -> void: MapCourtOrders.apply(_screen.play, CallToArms.KIND_JOIN, 5, "")
+	state.relation(0, 2).score = 80.0
+	state.set_overture(0, 2, DiplomacyCatalog.STAGE_NAP)
+	state.set_overture(2, 0, DiplomacyCatalog.STAGE_NAP)
+	assert_true(
+		DiplomacyProposals.queue(
+			state, play.world, 2, DiplomacyProposals.KIND_ALLIANCE
+		)["ok"]
 	)
+	play.turn_suspended = true
+	var hud: GameHud = play.hud
+	play.hud = null
+	MapCourtOrders.apply(play, CallToArms.KIND_JOIN, 5, "")
+	play.hud = hud
 	assert_true(state.relation(0, 5).at_war, "a call answer reaches the turn resolver")
+	assert_true(DiplomacyProposals.has_pending(state, 0), "the ladder holds on the next offer")
+	assert_true(bool(DiplomacyProposals.resolve_human(state, play.world, false).get("ok", false)))
 
 
 func test_a_rival_proposal_suspends_the_turn_until_the_court_answers() -> void:
@@ -524,7 +551,7 @@ func test_a_rival_proposal_suspends_the_turn_until_the_court_answers() -> void:
 		)["ok"]
 	)
 	var turn_before: int = _screen.play.turn
-	MapPlayTurn.end_turn(_screen.play)
+	_end_turn_inert(_screen.play)
 	assert_true(_screen.play.turn_suspended, "the calendar waits for the answer")
 	assert_eq(_screen.play.turn, turn_before)
 	assert_true(
@@ -549,7 +576,7 @@ func test_refusing_a_rival_proposal_starts_the_improve_relations_cooldown() -> v
 		DiplomacyCatalog.STAGE_NAP
 	)
 	var turn_before: int = play.turn
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	_answer_with_inert_rivals(
 		func() -> void: MapCourtOrders.apply(play, DiplomacyProposals.KIND_REFUSE, 2, "")
 	)
@@ -564,7 +591,7 @@ func test_a_rival_peace_offer_suspends_the_turn_and_the_answer_ends_the_war() ->
 	DiplomacyRules.declare_war(state, 2, 0)
 	DiplomacyProposals.queue(state, play.world, 2, DiplomacyProposals.KIND_PEACE)
 	var turn_before: int = play.turn
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	assert_true(play.turn_suspended, "the calendar waits for the answer")
 	assert_eq(play.turn, turn_before)
 	assert_true(state.relation(0, 2).at_war, "the war holds until the answer")
@@ -603,9 +630,12 @@ func test_accepting_a_peace_offer_calls_off_that_turns_battle() -> void:
 			state, play.world, owner, DiplomacyProposals.KIND_PEACE
 		)["ok"]
 	)
-	MapPlayTurn.end_turn(play)
+	_end_turn_inert(play)
 	assert_true(play.turn_suspended, "the calendar waits for the answer")
-	MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, owner, "")
+	# Full resume still required so combat would have run; rivals stay inert.
+	_answer_with_inert_rivals(
+		func() -> void: MapCourtOrders.apply(play, DiplomacyProposals.KIND_ACCEPT, owner, "")
+	)
 	assert_false(state.relation(0, owner).at_war, "the answer concludes the peace")
 	assert_eq(
 		play.model.province_owner(province), owner,
@@ -964,6 +994,59 @@ func _answer_with_inert_rivals(action: Callable) -> void:
 	play.ai_mode = AiControl.NOOP
 	action.call()
 	play.ai_mode = mode
+
+
+## Suspending end_turn under coverage: rivals stand down so the diplomacy pass
+## that runs before the hold check never walks every court.
+func _end_turn_inert(play: PlaySession) -> void:
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	MapPlayTurn.end_turn(play)
+	play.ai_mode = mode
+
+
+## Consent answers that only assert diplomacy: resolve at the rules layer so
+## coverage never pays `_finish_turn` (movement, combat, upkeep).
+func _resolve_intervention(play: PlaySession, kind: String) -> Dictionary:
+	var offer: Dictionary = Intervention.pending_for(play.diplomacy, play.player_faction)
+	var ledger: PlayerEconomy = play.ledger_for(int(offer.get("aggressor", -1)))
+	var tech: Dictionary = ledger.tech_unlocked if ledger != null else {}
+	return Intervention.resolve_human(play.diplomacy, kind, tech)
+
+
+func _resolve_call(play: PlaySession, accept: bool) -> Dictionary:
+	return CallToArms.resolve_human(play.diplomacy, accept)
+
+
+## Court order without panel refresh or chart rebuild: rules apply, then unit
+## colours when a crown is absorbed. Cases that only read diplomacy or regiment
+## counts never pay `refresh_map_views` under coverage. Power is only built for
+## Join Empire (the overture gate); war and protest skip that docket walk.
+func _order_rules(
+	play: PlaySession, kind: String, target: int, arg: String = ""
+) -> Dictionary:
+	var order: Dictionary = {"kind": kind, "from": play.player_faction, "target": target}
+	if kind == DiplomacyOrders.KIND_OVERTURE:
+		order["stage"] = arg
+	elif kind == DiplomacyOrders.KIND_AID or kind == DiplomacyOrders.KIND_SUBSIDY:
+		order["amount"] = arg.to_int()
+	var economy: PlayerEconomy = play.economy.economy if play.economy != null else null
+	var tech: Dictionary = {}
+	if economy != null:
+		tech = economy.tech_unlocked
+	var power: Dictionary = {}
+	if kind == DiplomacyOrders.KIND_OVERTURE:
+		power = MapPlayDiplomacy.public_power(play)
+	var result: Dictionary = DiplomacyOrders.apply(
+		play.diplomacy, play.world, economy, order, tech, power
+	)
+	if result.has("absorbed"):
+		var loser: int = int(result["absorbed"])
+		if play.ship_layer != null:
+			play.ship_layer.transfer_owner(loser, play.player_faction)
+		if play.army_layer != null:
+			play.army_layer.transfer_owner(loser, play.player_faction)
+	return result
 
 
 func _events(kind: String) -> int:

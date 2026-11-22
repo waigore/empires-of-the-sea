@@ -7,14 +7,6 @@ extends RefCounted
 ## home to merge. A reading, never an order; every figure is one the planner
 ## actually decided on (REQ-P2-03, REQ-P5-06).
 
-
-## The pick's own sentence, opened like one: one capital and a full stop.
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
-
 ## The Home Army taking the field: what leaves the seat and what stays to hold it.
 ## Empty when nothing would march, because a split that moves no standard is no
 ## order the court would give.
@@ -26,7 +18,6 @@ static func split_line(going: int, guard: int) -> String:
 	return "the court would take the field — %d regiments from the seat, %d held to guard it" % [
 		going, guard
 	]
-
 
 ## A march the pass books, with the reason the ground gives it. Empty when the
 ## target names no province, so the line can never print a march to nowhere.
@@ -43,7 +34,6 @@ static func march_line(model: MapModel, province: int, why: String) -> String:
 			return "the court would advance to %s, the frontier" % name
 	return ""
 
-
 ## The interior-lines march home: a worn field army folds into the mass the seat
 ## has mustered, so the next cut re-fields a stronger standard (issue #974).
 static func rotate_line(model: MapModel, province: int) -> String:
@@ -52,3 +42,58 @@ static func rotate_line(model: MapModel, province: int) -> String:
 	return "the court would march home to %s to merge with the Home Army" % model.province_name(
 		province
 	)
+
+
+## The order one standard would take, as one clause of the army sheet's line: the
+## verb phrase the pick's own kind and ground give it, to be read after the
+## standard the sheet names (`the Home Army to take the field with 4 regiments`).
+## Empty when the pick names no order this module can say, so the line can never
+## promise a march to nowhere (REQ-P2-03, REQ-P5-06; DR-20261121-14).
+static func order_clause(model: MapModel, pick: Dictionary) -> String:
+	if pick.is_empty():
+		return ""
+	var kind: String = String(pick.get("kind", ""))
+	if kind == MapPlayArmyPick.KIND_SPLIT:
+		var going: int = int(pick.get("regiments", 0))
+		if going <= 0:
+			return ""
+		return "to take the field with %d regiment%s" % [going, "" if going == 1 else "s"]
+	if kind == MapPlayArmyPick.KIND_ROTATE:
+		var home: int = int(pick.get("province", -1))
+		if model == null or home < 0:
+			return ""
+		return "home to %s to merge with the Home Army" % model.province_name(home)
+	if kind == MapPlayArmyPick.KIND_WALK_HOME:
+		var leg: int = int(pick.get("province", -1))
+		if model == null or leg < 0:
+			return ""
+		return "home by way of %s" % model.province_name(leg)
+	if kind != MapPlayArmyPick.KIND_MARCH:
+		return ""
+	var province: int = int(pick.get("province", -1))
+	if model == null or province < 0:
+		return ""
+	var name: String = model.province_name(province)
+	if name.is_empty():
+		return ""
+	match String(pick.get("why", "")):
+		MapPlayArmyPick.WHY_STORM:
+			return "to storm %s" % name
+		MapPlayArmyPick.WHY_RELIEF:
+			return "to throw the host out of %s" % name
+		MapPlayArmyPick.WHY_FRONTIER:
+			return "to advance to %s, the frontier" % name
+	return ""
+
+## The first leg of the walk home: a host standing on ground it does not hold
+## marches through the provinces beside it, one march at a time, until its own
+## border touches (wiki: military-armies § Movement and attacks; DR-20261121-15).
+## A step onto the court's own land is the road home itself, so it reads so.
+static func walk_line(model: MapModel, province: int, own: bool) -> String:
+	if model == null or province < 0:
+		return ""
+	if own:
+		return "the court would march on %s, its own ground, the road home" % model.province_name(
+			province
+		)
+	return "the court would march on %s, the first leg home" % model.province_name(province)

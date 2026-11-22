@@ -23,8 +23,9 @@ const KIND_HANDS: String = "hands"
 ## No run is booked although rows are short: the stores or the benches hold them.
 const KIND_STORES: String = "stores"
 
-## The most outputs one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
+## The most outputs one line names before it counts the rest — a workshop has
+## more rows worth naming than a muster does, so this sheet sets its own cap and
+## hands it to [method MapPlayPickProse.court_line_capped] (REQ-P5-07).
 const NAMED_LIMIT: int = 4
 
 const DONE_LINE: String = (
@@ -40,43 +41,31 @@ const STORES_LINE: String = (
 	+ "row back"
 )
 
-
 ## The sheet's sentence: the pick's own clause, capitalised and closed — the
 ## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
 static func line(play: PlaySession) -> String:
-	return sentence(String(pick(play).get("line", "")))
-
-
-## `text` as a printed sentence: "the court would run …" → "The court would run …".
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
+	return MapPlayPickProse.sentence_of(pick(play))
 
 ## The ledger's pick as the PRODUCTION tab prints it: `{kind, runs, line}`, where
 ## `runs` maps recipe id to the units the plan books. Empty when the session runs
 ## no planner for the crown, an observer session, a decided campaign, or a crown
 ## with no ledger.
 static func pick(play: PlaySession) -> Dictionary:
-	if play == null or play.world == null or play.campaign_over():
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.observer_mode:
+	if play.world == null:
 		return {}
 	var faction: int = play.player_faction
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return {}
 	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
-		return {}
 	var config: Variant = AiBind.config(
 		kind, faction, play.map_seed, play.ensure_ai().profiles
 	)
 	if not (config is AiConfig):
 		return {}
 	return of(economy, plan_for(play, faction, kind, config, economy))
-
 
 ## The plan the court's own economy pass books for its manufacture: the published
 ## `production_orders` over the crown's ledger and best town, with the chest rows
@@ -100,7 +89,6 @@ static func plan_for(
 		kind, config, economy, TownIndustry.best_level(play.world, faction),
 		chest.get("held", {}) as Dictionary
 	)
-
 
 ## The pick, worded off plan data alone: the runs the plan books in the catalogue
 ## order the page prints them, or the gate that leaves every row out. Pure — a
@@ -142,37 +130,17 @@ static func of(economy: PlayerEconomy, plan: Dictionary) -> Dictionary:
 		return {"kind": KIND_HANDS, "runs": {}, "line": HANDS_LINE}
 	return {"kind": KIND_STORES, "runs": {}, "line": STORES_LINE}
 
-
 ## "the court would run Lumber ×2 and Cast Iron ×1 this phase". The outputs come
 ## in the catalogue's own order — the order the page prints its rows in — so the
 ## clause reads down the sheet it answers, and beyond four it counts the rows it
 ## cannot name (`… and 1 more`) so a rich plan stays one line of chrome.
 static func run_line(outputs: Dictionary) -> String:
-	var named: Array[String] = []
-	var hidden: int = 0
+	var parts: Array[String] = []
 	for output: String in CommodityCatalog.MANUFACTURED:
 		if not outputs.has(output):
 			continue
-		if named.size() >= NAMED_LIMIT:
-			# A row left out of the clause, not the units it holds: "and 3 more"
-			# after four named manufactures reads as three more crafts, the way
-			# every other capped line on the sheets counts its items
-			# (LedgerMarket.price_moves_line, CargoRead, RegimentRecord).
-			hidden += 1
-			continue
-		named.append("%s ×%d" % [CommodityCatalog.label(output), int(outputs[output])])
-	if named.is_empty():
-		return ""
-	var joined: String = ", ".join(named) if hidden > 0 else _join(named)
-	if hidden > 0:
-		joined += " and %d more" % hidden
-	return "the court would run %s this phase" % joined
+		parts.append("%s ×%d" % [CommodityCatalog.label(output), int(outputs[output])])
+	return MapPlayPickProse.court_line_capped(
+		"the court would run", parts, "this phase", NAMED_LIMIT
+	)
 
-
-## A list read the way prose reads it: "A", "A and B", "A, B and C".
-static func _join(parts: Array[String]) -> String:
-	if parts.is_empty():
-		return ""
-	if parts.size() <= 2:
-		return " and ".join(parts)
-	return "%s and %s" % [", ".join(parts.slice(0, parts.size() - 1)), parts[-1]]
