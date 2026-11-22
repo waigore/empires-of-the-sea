@@ -16,15 +16,26 @@ static func desired_territory(war_desire_score: int, province_count: int) -> int
 	return clampi(target, 1, maxi(1, province_count))
 
 
-## True when this court is the stronger of the pair on the published power score
-## — the cheap province next door, which an overstretched court may still take
-## (DR-20261114-11). A caller that reads no power for the pair keeps the published
+## True when this court is the stronger of the pair — the cheap province next
+## door, which an overstretched court may still take (DR-20261114-11). The host
+## that marches is the army it has (issue #1234): while the court stands under
+## its own war-target strength (`army.regiment_target` + `army.war_extra`) the
+## read asks the hosts, so a peer that fields more regiments than the court has
+## raised is a war it cannot win however many provinces the published score
+## counts; once the court is at strength the published power score answers as
+## published. A caller that reads no power for the pair keeps the published
 ## planner: an unknown order of battle is not a war it cannot win.
-static func outmatches(faction: int, target: int, context: Dictionary) -> bool:
-	var powers: Dictionary = context.get("power", {})
-	if not powers.has(faction) or not powers.has(target):
+static func outmatches(config: AiConfig, target: int, context: Dictionary) -> bool:
+	if config == null:
 		return true
-	return int(powers[faction]) > int(powers[target])
+	var powers: Dictionary = context.get("power", {})
+	if not powers.has(config.faction) or not powers.has(target):
+		return true
+	var hosts: Dictionary = context.get("regiments", {})
+	var own: int = int(hosts.get(config.faction, 0))
+	if own < AiArmyReinforce.desired_regiments(config, true) and hosts.has(target):
+		return own > int(hosts[target])
+	return int(powers[config.faction]) > int(powers[target])
 
 
 ## True while the court's purse stands under the price of the line its next
@@ -150,7 +161,7 @@ static func war_block(
 		return String(check.get("reason", "illegal"))
 	var crown: bool = FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
 	if crown and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR) \
-			and not outmatches(config.faction, target, context):
+			and not outmatches(config, target, context):
 		return "overstretched: no third front"
 	# The re-declaration brake (issue #975): a court honors the truce its own
 	# bought peace left — no new war on a pair still inside it, so the peace
@@ -219,7 +230,7 @@ static func pact_break_block(
 	if (
 		FactionCatalog.type_of(target) == FactionCatalog.Type.GREAT_POWER
 		and not AiPhasePlanner.opens(posture, AiPhasePlanner.SLOT_DECLARE_WAR)
-		and not outmatches(faction, target, context)
+		and not outmatches(config, target, context)
 	):
 		return "overstretched: no third front"
 	return ""
