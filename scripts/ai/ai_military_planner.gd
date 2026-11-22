@@ -230,6 +230,10 @@ static func _best_order(
 ) -> Dictionary:
 	var best: Dictionary = {}
 	var distances: Dictionary = _own_distances(model, army.province, army.owner)
+	# Home defence first (issue #1259): a host marching toward the lost seat
+	# outranks the foreign adventure staging would price. The storm onto the
+	# invader's ground is the march home, and carries the defence premium.
+	var home_defence: bool = AiHomeDefence.active(model, army.owner, hostile)
 	for province: int in ArmyMovement.destinations(model, army):
 		var owner: int = model.province_owner(province)
 		var score: int = 0
@@ -251,12 +255,17 @@ static func _best_order(
 			if not _can_storm(config, model, armies, army, province):
 				continue
 			score = province_score(config, model, province)
-			kind = "attack"
+			if home_defence:
+				score += config.parameter("military.defence_weight")
+				kind = "defend"
+			else:
+				kind = "attack"
 		else:
 			continue
 		if best.is_empty() or score > int(best["score"]):
 			best = {"province": province, "score": score, "kind": kind}
-		elif score == int(best["score"]) and province < int(best["province"]):
+		elif score == int(best["score"]) \
+			and AiHomeDefence.outranks(model, army, province, kind, best):
 			best = {"province": province, "score": score, "kind": kind}
 	return best
 
