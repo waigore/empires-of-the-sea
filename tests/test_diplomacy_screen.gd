@@ -1122,6 +1122,112 @@ func _crown_buttons(list: Node) -> Array[Button]:
 	return found
 
 
+## The order presses of the open court's sheet that wear the counsel's mark.
+func _marked_presses(sheet: Control) -> Array[String]:
+	var found: Array[String] = []
+	for button: Button in _crown_buttons(sheet):
+		if button.text.begins_with(CourtDetailBlock.COURT_MARK):
+			found.append(button.text)
+	return found
+
+
+## A Great Power at peace with the crown whose envoy chain still has a rung to
+## buy, and that rung's stage — the fixture's own reading, not an invented one.
+func _overture_court(panel: DiplomacyPanel) -> Dictionary:
+	for faction_id: int in FactionCatalog.great_power_ids():
+		var record: DiplomacyRelation = panel._state.relation(panel._player, faction_id)
+		if record == null or record.at_war:
+			continue
+		var stage: String = DiplomacyCatalog.next_stage(
+			panel._state.overture(panel._player, faction_id)
+		)
+		if stage.is_empty():
+			continue
+		return {"target": faction_id, "stage": stage}
+	return {}
+
+
+## The order list marks the press the court's own envoy would take: the sheet
+## prints one gold line naming one order, and that press leads with the counsel's
+## `▸` while the legend under the line says what the mark means, so the order is
+## found among ten presses instead of read for (wiki: diplomacy § The crown's own
+## envoy; DR-20261123-01).
+func test_the_order_list_marks_the_press_the_envoy_would_take() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayDiplomacy.open(play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	var court: Dictionary = _overture_court(panel)
+	assert_false(court.is_empty(), "the fixture holds a court with a rung to buy")
+	var target: int = int(court["target"])
+	var stage: String = String(court["stage"])
+	var pick: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_OVERTURE, "target": target, "stage": stage},
+		target, {}, target
+	)
+	# The pick the sheet words its line from is the envoy's own, so the test
+	# drives the block the panel drives instead of a sentence it made up.
+	panel._detail.fill(
+		panel._state, panel._world, panel._player, target, panel._treasury, panel._tech,
+		{}, {}, pick
+	)
+	assert_eq(
+		panel._detail.counsel_press(),
+		{"kind": DiplomacyOrders.KIND_OVERTURE, "arg": stage},
+		"the sheet reads the press off the gold line's own pick"
+	)
+	var marked: Array[String] = _marked_presses(panel._detail)
+	assert_eq(marked.size(), 1, "one press wears the mark, not the whole list")
+	assert_true(
+		marked[0].contains(DiplomacyCatalog.stage_label(stage)),
+		"the marked press is the rung the line names: %s" % marked[0]
+	)
+	assert_true(
+		_sheet_prints(
+			panel._detail, CourtDetailBlock.MARK_LEGEND % CourtDetailBlock.COURT_MARK
+		),
+		"the legend under the line says what the mark means"
+	)
+	DiplomacyHud.hide(_screen.hud.panels)
+
+
+## A line that names no press marks none: a gate, another court's order and a
+## gift all leave the list plain, and the sheet prints no legend for a mark that
+## does not stand (wiki: diplomacy § The crown's own envoy; DR-20261123-01).
+func test_a_line_that_names_no_press_marks_nothing() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayDiplomacy.open(play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	var court: Dictionary = _overture_court(panel)
+	assert_false(court.is_empty(), "the fixture holds a court with a rung to buy")
+	var target: int = int(court["target"])
+	var held: Dictionary = MapPlayDiplomacyPick.of(
+		{}, MapModel.NO_ID, {"candidates": [{"target": target, "blocked": "war desire too low"}]},
+		target
+	)
+	var gift: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_AID, "target": target, "amount": 1000},
+		target, {}, target
+	)
+	for pick: Dictionary in [held, gift]:
+		panel._detail.fill(
+			panel._state, panel._world, panel._player, target, panel._treasury,
+			panel._tech, {}, {}, pick
+		)
+		assert_false(
+			String(pick.get("line", "")).is_empty(),
+			"the line still prints the reading it worded"
+		)
+		assert_true(panel._detail.counsel_press().is_empty(), "no press is named")
+		assert_eq(_marked_presses(panel._detail).size(), 0, "no press wears the mark")
+		assert_false(
+			_sheet_prints(
+				panel._detail, CourtDetailBlock.MARK_LEGEND % CourtDetailBlock.COURT_MARK
+			),
+			"no legend for a mark that does not stand"
+		)
+	DiplomacyHud.hide(_screen.hud.panels)
+
+
 ## The counsel prices the purse the crown holds, not the shadow ledger the AI
 ## book would start for a court the pass never plans (REQ-P2-03).
 func test_the_envoy_line_reads_the_crowns_own_purse() -> void:

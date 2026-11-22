@@ -113,7 +113,7 @@ static func of(
 			var order: String = MapPlayDiplomacyPickWords.order_line(kind, target, action)
 			if order.is_empty():
 				return {}
-			return _worded(KIND_ORDER, kind, target, target, "", order)
+			return _worded(KIND_ORDER, kind, target, target, "", order, action)
 		var other: String = MapPlayDiplomacyPickWords.elsewhere_line(target, chosen)
 		if other.is_empty():
 			return {}
@@ -165,11 +165,12 @@ static func _shared(play: PlaySession, faction: int) -> Dictionary:
 
 
 static func _worded(
-	kind: String, order: String, target: int, other: int, why: String, line: String
+	kind: String, order: String, target: int, other: int, why: String, line: String,
+	action: Dictionary = {}
 ) -> Dictionary:
 	if line.is_empty():
 		return {}
-	return {
+	var pick: Dictionary = {
 		"kind": kind,
 		"order": order,
 		"target": target,
@@ -177,3 +178,37 @@ static func _worded(
 		"why": why,
 		"line": line,
 	}
+	# The press the sheet marks reads the action's own arguments, so the mark and
+	# the gold line come off one read (DR-20261123-01).
+	if not action.is_empty():
+		pick["stage"] = String(action.get("stage", ""))
+		pick["amount"] = int(action.get("amount", 0))
+	return pick
+
+
+## The press the gold line names, keyed the way THE COURT's order list keys its
+## own buttons: `{kind, arg}`, the order catalogue's kind and the argument that
+## list prints beside it — an overture's stage, a subsidy's percent. {} when the
+## line names no press: another court's order, a gate, a hold, or a kind whose
+## row is the crown's own sum (a gift steps its face, so the line names the sum
+## and the press stays plain) (wiki: diplomacy § The crown's own envoy;
+## DR-20261123-01).
+static func press(pick: Dictionary) -> Dictionary:
+	if String(pick.get("kind", "")) != KIND_ORDER:
+		return {}
+	var order: String = String(pick.get("order", ""))
+	if order.is_empty():
+		return {}
+	var arg: String = ""
+	match order:
+		DiplomacyOrders.KIND_OVERTURE:
+			arg = String(pick.get("stage", ""))
+		DiplomacyOrders.KIND_SUBSIDY:
+			arg = str(int(pick.get("amount", 0)))
+		DiplomacyOrders.KIND_AID:
+			return {}
+	if order == DiplomacyOrders.KIND_OVERTURE and arg.is_empty():
+		return {}
+	if order == DiplomacyOrders.KIND_SUBSIDY and arg == "0":
+		return {}
+	return {"kind": order, "arg": arg}

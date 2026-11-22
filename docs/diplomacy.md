@@ -37,7 +37,7 @@ Wars, treaties, aid, intervention, chronicle — wiki
   our colony Tribes (no fill); its terms drop 10%, subsidies to our colonies
   cancelled, deeds and aid barred; war revokes. **Subsidy:** that court's deals
   pay p% more, earn p% less. Rails 70–150% buy, 50–130% sell.
-- **First contact:** a Tribe enters court on a seen tile in its land;
+- **First contact:** a Tribe enters court on a seen tile;
   rivals open at turn close.
 - **Colonies:** the `COLONIES ›` door ([`colonies`](colonies.md)).
 - **Chronicle:** `Year Y (Turn N)`.
@@ -50,12 +50,12 @@ Wars, treaties, aid, intervention, chronicle — wiki
   below 50 desire, white peace.
 - **Own envoy** (`MapPlayDiplomacyPick`): the sheet names the order the crown's
   planner would spend on the court in view, where it went instead, or its gate;
-  the list marks the target (`▸`).
+  the list marks the target and the press (`▸`).
 
 ## Deferred (REQ-P2-02)
 
 None; rival priced overtures live (`DiplomacyProposals` + asking ledger).
-Ranked gaps: [`deferred.md`](deferred.md).
+Gaps: [`deferred.md`](deferred.md).
 
 ## Architecture
 
