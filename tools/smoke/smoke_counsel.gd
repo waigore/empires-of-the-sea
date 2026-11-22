@@ -27,6 +27,7 @@ static func step(run) -> void:
 	await _market(run, screen)
 	await _workers(run, screen)
 	await _yards(run, screen)
+	await _eyes(run, screen)
 
 
 ## The estates door on the cartouche opens the crown's works ledger (REQ-P1-07).
@@ -496,6 +497,61 @@ static func _yards(run, screen: MapScreen) -> void:
 		play.economy.economy.treasury == int(before["treasury"]),
 		"the yards' readings spend nothing"
 	)
+
+
+## THE CROWN'S EYES names the spies the court's own espionage pass would book and
+## marks every spy it would walk or screen, off the one pick the gold line is
+## worded from — and orders nothing (wiki: civilian-units § Spy; DR-20261121-11,
+## DR-20261122-18).
+static func _eyes(run, screen: MapScreen) -> void:
+	var before: Array = _spy_orders(screen)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.EYES)
+	await run.tree.process_frame
+	var eyes: SpyLedgerPanel = screen.hud.spy_ledger
+	run.check(eyes != null and eyes.is_open(), "the crown's eyes open")
+	if eyes == null:
+		return
+	var counsel: String = eyes.counsel_text()
+	run.check(
+		counsel.is_empty() or counsel.begins_with("The court would "),
+		"the eyes name the spies the court would book"
+	)
+	run.check(
+		eyes._counsel.visible == not counsel.is_empty(),
+		"the eyes' counsel stands with its reading"
+	)
+	var pick: Dictionary = MapPlaySpyPick.pick(screen.play, eyes._snapshot)
+	var keys: Dictionary = pick.get("keys", {}) as Dictionary
+	run.check(
+		_marked_spies(eyes) == keys.size(),
+		"every spy the court would order wears the mark"
+	)
+	run.check(_spy_orders(screen) == before, "the eyes' reading orders nothing")
+	eyes.close()
+
+
+## Every spy in both charts as the order it holds and the ground it stands on:
+## what the eyes' reading must leave exactly as it found it (DR-20261122-18).
+static func _spy_orders(screen: MapScreen) -> Array:
+	var found: Array = []
+	var play: PlaySession = screen.play
+	for region: int in play.world.region_count():
+		for raw: Variant in MapPlaySpyAi.roster_for(play, region):
+			var unit := raw as CivilianState
+			if unit == null or not SpyRules.is_spy(unit):
+				continue
+			found.append([region, unit.id, unit.work_action(), unit.tile])
+	return found
+
+
+## The network rows wearing the counsel's mark.
+static func _marked_spies(panel: SpyLedgerPanel) -> int:
+	var marked: int = 0
+	for child: Node in panel._rows.get_children():
+		var row := child as SpyLedgerRow
+		if row != null and row.court:
+			marked += 1
+	return marked
 
 
 ## The drill-yard rows wearing the counsel's mark.

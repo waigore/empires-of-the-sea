@@ -44,6 +44,11 @@ const PARAMETERS: Array[Dictionary] = [
 		"type": TYPE_INT,
 		"min": 0,
 		"max": 20,
-		"default": 3,
+		# Issue #1314 retune companion: with every Old World province behind a
+		# wall, a court must be able to arm up past the 51-strength storm
+		# threshold. The old floor of 3 spare hands permanently blocked the levy
+		# when the pool sat at 3, so the court armed nothing and banked forever;
+		# floor 1 lets the levy draw one hand while the fields keep the rest.
+		"default": 1,
 	},
 ]
