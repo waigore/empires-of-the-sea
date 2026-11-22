@@ -3952,9 +3952,9 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	play.civilian_layer = layer
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 
-	var without_holds: Dictionary = MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]
+	var without_holds: Dictionary = MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]
 	assert_eq(_tons(without_holds), 5, "the rival's home yield needs no hold")
-	assert_eq(int(MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]["grain"]), 5)
+	assert_eq(int(MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]["grain"]), 5)
 
 	var ships := ShipLayer.new()
 	var home: FleetState = FleetState.in_port(
@@ -3962,7 +3962,7 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	)
 	ships.regions.set_region(WorldMap.OLD_WORLD, [home] as Array[FleetState])
 	play.ship_layer = ships
-	var with_holds: Dictionary = MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]
+	var with_holds: Dictionary = MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]
 	assert_eq(_tons(with_holds), 6, "one hold carries the colony's ton")
 
 	# Hulls that wait at the colony quay are not the home fleet: the squadron that
@@ -3975,7 +3975,7 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	ships.regions.set_region(WorldMap.OLD_WORLD, [sorted] as Array[FleetState])
 	ships.regions.set_region(WorldMap.NEW_WORLD, [moored] as Array[FleetState])
 	assert_eq(
-		_tons(MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]), 5,
+		_tons(MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]), 5,
 		"a colony quay is no home fleet"
 	)
 	ships.free()
@@ -9104,7 +9104,7 @@ func test_a_court_sells_surplus_above_the_reserve() -> void:
 ## reserves the rations before it sells food").
 func test_a_meat_larder_keeps_the_rations_the_court_eats() -> void:
 	var meat: PlayerEconomy = _economy({"meat": 100})
-	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, meat)
+	var reserved: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 85, meat)
 	assert_eq(int(reserved.get("meat", 0)), 85, "the meat larder holds the whole ration")
 	assert_eq(int(reserved.get("grain", 0)), 0, "an empty granary reserves nothing")
 	var plan: Dictionary = AiMarketPlanner.plan(
@@ -9114,15 +9114,35 @@ func test_a_meat_larder_keeps_the_rations_the_court_eats() -> void:
 
 	# Grain still goes first, and the rest of the ration rests on meat.
 	var mixed: PlayerEconomy = _economy({"grain": 20, "meat": 100})
-	var both: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, mixed)
+	var both: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 85, mixed)
 	assert_eq(int(both.get("grain", 0)), 20)
 	assert_eq(int(both.get("meat", 0)), 65)
 
 	# A full granary reserves grain alone, and the surplus above it still sells.
 	var grain: PlayerEconomy = _economy({"grain": 200})
-	var fed: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, grain)
+	var fed: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 85, grain)
 	assert_eq(int(fed.get("grain", 0)), 85)
 	assert_eq(int(fed.get("meat", 0)), 0)
+
+
+## The ledger side of the economy turn is one home (`MapPlayEconomyLarder`) for
+## the rival pass, one court's turn and the crown's picks: its reads keep their
+## shape when the session carries no ledger or army layer, and two material rows
+## add up (REQ-P3-01, REQ-P3-02).
+func test_the_larder_reads_carry_their_shape_for_the_pass_and_the_picks() -> void:
+	var empty := PlaySession.new()
+	assert_true(
+		MapPlayEconomyLarder.market(empty).prices.size() > 0,
+		"a session with no ledger still plans against the published prices"
+	)
+	assert_eq(MapPlayEconomyLarder.army_food(empty, 1), 0, "no army layer eats nothing")
+	assert_eq(
+		MapPlayEconomyLarder.reserved_inputs({}, 85, _economy({})).size(), 0,
+		"a court with no ration in hand reserves no row"
+	)
+	var merged: Dictionary = MapPlayEconomyLarder.merge_rows({"cloth": 2}, {"cloth": 3})
+	assert_eq(int(merged["cloth"]), 5, "the muster's cloth and the hull's add up")
+	assert_eq(MapPlayEconomyLarder.merge_rows({"cloth": 2}, {}).size(), 1, "an empty row adds nothing")
 
 
 func test_production_inputs_are_never_sold_under_the_court() -> void:
@@ -9173,7 +9193,7 @@ func test_the_regiments_input_leads_the_bids() -> void:
 ## claim is added to the production reservation rather than replacing it.
 func test_the_muster_reservation_adds_to_the_production_one() -> void:
 	var economy: PlayerEconomy = _economy({"fabric": 4, "timber": 40})
-	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs(
+	var reserved: Dictionary = MapPlayEconomyLarder.reserved_inputs(
 		{"assignments": [{"recipe": "lumber", "units": 2}]}, 0, economy, {"fabric": 1}
 	)
 	assert_eq(int(reserved.get("fabric", 0)), 1, "the regiment's bolt is held")
@@ -9216,7 +9236,7 @@ func test_a_court_keeps_the_materials_its_works_will_spend() -> void:
 	assert_eq(_offered(plain, "castIron"), 5)
 
 	var rows: Dictionary = {"lumber": 5, "castIron": 5}
-	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 0, economy, {}, rows)
+	var reserved: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 0, economy, {}, rows)
 	assert_eq(int(reserved.get("lumber", 0)), 5, "the estate's timber is held")
 	assert_eq(int(reserved.get("castIron", 0)), 5, "and its iron")
 	var kept: Dictionary = AiMarketPlanner.plan(
@@ -10081,7 +10101,8 @@ func test_a_court_saving_for_its_muster_never_bids_the_war_chest_away() -> void:
 
 ## Pocket Old World for the rival-blockade harvest case: England seat and a
 ## coastal estate separated by ocean so the harbour is the only road home. A
-## full MapFixture chart + WorldBootstrap made two `_overseas` walks pay ~18 s
+## full MapFixture chart + WorldBootstrap made two `MapPlayEconomyLarder.overseas`
+## walks pay ~18 s
 ## under coverage (docs/testing.md § Tiny fixture).
 func _blockade_play() -> PlaySession:
 	var rival: int = 1
@@ -10172,14 +10193,14 @@ func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 		if model.resource_at(tile.x, tile.y) >= 0:
 			works.set_improvement(model, tile, 1)
 	works.add_port(model, chosen.tiles[0])
-	var before: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
+	var before: Dictionary = MapPlayEconomyLarder.overseas(play, rival, economy)["extraction"]
 	play.diplomacy.ensure_relation(play.player_faction, rival, play.turn)
 	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, rival)
 	var fleet := FleetState.at_sea(999, play.player_faction, zone)
 	fleet.mission = FleetState.Mission.BLOCKADE
 	fleet.blockade_province = target
 	play.ship_layer.regions.value(home, []).append(fleet)
-	var after: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
+	var after: Dictionary = MapPlayEconomyLarder.overseas(play, rival, economy)["extraction"]
 	assert_ne(before, after, "the sealed harbour's estates leave the rival's harvest")
 	assert_true(
 		int(after.get("grain", 0)) >= Extraction.CAPITAL_GRAIN_BONUS,
@@ -17665,7 +17686,7 @@ func test_the_slip_keeps_a_hand_while_the_chest_banks() -> void:
 func test_the_economy_reserves_the_hull_row_beside_the_muster() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var production: Dictionary = {"assignments": []}
-	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+	var rows: Array[Dictionary] = MapPlayEconomyLarder.claim_rows(
 		production, 0, economy, {"fabric": 1}, {}, {"lumber": 1, "fabric": 1}
 	)
 	var reserved: Dictionary = AiClaims.reserve(rows)["reserved"]
@@ -17867,11 +17888,11 @@ func test_the_routes_of_the_economy_pass_are_the_same_reservation() -> void:
 	}
 	var muster: Dictionary = {"fabric": 1}
 	var works: Dictionary = {"lumber": 2}
-	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+	var rows: Array[Dictionary] = MapPlayEconomyLarder.claim_rows(
 		production, 4, economy, muster, works
 	)
 	var merged: Dictionary = AiClaims.reserve(rows)["reserved"]
-	var published: Dictionary = MapPlayEconomyAi._reserved_inputs(
+	var published: Dictionary = MapPlayEconomyLarder.reserved_inputs(
 		production, 4, economy, muster, works
 	)
 
