@@ -610,6 +610,25 @@ func test_the_screen_names_where_it_stands() -> void:
 	)
 
 
+## The headings count in plain words and name the screen's state, never a table
+## plural ("spys") or a bare "down" (issue #1303).
+func test_the_headings_count_spies_and_name_the_screen() -> void:
+	assert_eq(SpyLedger.count_text(0), "no spies", "an empty network heads itself")
+	assert_eq(SpyLedger.count_text(1), "1 spy", "one spy is singular")
+	assert_eq(SpyLedger.count_text(3), "3 spies", "three spies pluralise")
+	assert_eq(SpyLedger.count_text(-1), "no spies", "no negative count is printed")
+	var up: Dictionary = SpyLedger.snapshot(_spy_world(), _units(), 0)
+	assert_eq(SpyLedger.screen_word(up), "up at Cádiz", "the screen names its seat")
+	assert_eq(SpyLedger.screen_word(up, false), "screen up", "a digest sheds the seat")
+	assert_eq(SpyLedger.screen_word({}), "no screen", "a bare down is never printed")
+	assert_eq(
+		SpyLedger.screen_word({"screened": true}), "screen up",
+		"a screen with no seat named still reads"
+	)
+	var open: Dictionary = SpyLedger.snapshot(_spy_world(), _idle_only(), 0)
+	assert_eq(SpyLedger.screen_word(open), "no screen", "an open crown says no screen")
+
+
 func test_the_summary_names_the_gap_not_only_the_gain() -> void:
 	var snapshot: Dictionary = SpyLedger.snapshot(_spy_world(), _units(), 0)
 	var summary: String = SpyLedger.summary(snapshot)
@@ -810,6 +829,34 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 	assert_not_null(visit, "a spy row carries its Visit")
 	visit.pressed.emit()
 	assert_false(panel.is_open(), "Visit opens the spy and sets the sheet aside")
+	_clear_spies(play)
+
+
+## The sheet's own headings print the words: no spies, one spy, no screen — and
+## the screen's seat by name when it stands (issue #1303).
+func test_the_sheet_headings_read_no_spies_and_name_the_screen() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_clear_spies(play)
+	panel.open()
+	var painted: String = _spy_texts(panel)
+	assert_true(painted.contains("no spies"), "an empty network's tally reads")
+	assert_false(painted.contains("spys"), "a heading never wears a table plural")
+	assert_true(painted.contains("no screen"), "the screen block reads its state")
+	var seat: Vector2i = play.capital_tile
+	var screen_spy := _screening(95, seat)
+	screen_spy.owner = play.player_faction
+	var roster: Array[CivilianState] = [screen_spy]
+	play.civilian_layer.units = roster
+	play.civilian_layer.regions.set_region(play.region_index, roster)
+	panel.refresh()
+	painted = _spy_texts(panel)
+	assert_true(painted.contains("1 spy"), "one spy heads the network")
+	var seat_name: String = play.model.province_name(
+		play.model.province_at(seat.x, seat.y)
+	)
+	assert_true(painted.contains("up at %s" % seat_name), painted)
 	_clear_spies(play)
 
 
