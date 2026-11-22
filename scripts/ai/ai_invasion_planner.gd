@@ -239,9 +239,14 @@ static func _target(
 
 
 ## Walls soak attacking strength, and an empty walled shore still prices its
-## standing battery (issue #1314), so the gate reads the same ladder the
-## resolver does: a host above [method FortRules.storm_threshold] may land; a
-## host over open ground needs the same margin over the defenders it always did.
+## standing battery (issue #1314), so the landing gate must beat the wall the
+## shore could carry: the battery follows the **defender's** studies (wiki:
+## siege-mechanics § Emplaced Artillery — Royal → Heavy → Siege), and this
+## planner cannot read another court's ledger, so it prices the top of the line
+## ([method FortRules.storm_ceiling]). A host the gate admits clears whatever
+## battery the shore mounts; pricing the Royal floor instead admitted hosts the
+## ladder repelled. A host over open ground needs the same margin over the
+## defenders it always did.
 static func _can_storm(
 	config: AiConfig, model: MapModel, armies: Array, army: ArmyState, province: int
 ) -> bool:
@@ -252,7 +257,7 @@ static func _can_storm(
 	)
 	var level: int = FortRules.level_at(model, province)
 	if defenders.is_empty():
-		return level < 1 or army.strength() > FortRules.storm_threshold({}, level)
+		return level < 1 or army.strength() > FortRules.storm_ceiling(level)
 	var wall: float = FortRules.wall_hp(level)
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0

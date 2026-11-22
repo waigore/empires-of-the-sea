@@ -113,6 +113,13 @@ static func research(court: MapPlayEconomyCourt) -> Dictionary:
 	)
 
 
+## The rival's leaderKey, whose published funding multiplier lifts its research
+## points (wiki: leader-bonuses § Bonus Table — Victoria). The study plan reads
+## it from here, beside the door it funds.
+static func leader(play: PlaySession, faction: int) -> String:
+	return String(play.leaders.get(faction, ""))
+
+
 ## The crew the hire order would take this turn, at the catalogue's price: the
 ## market keeps that cash back from its bids, so a court at its cash floor that
 ## has lost a Builder can still buy one (issue #894). Read from the home region's
@@ -170,7 +177,7 @@ static func trade_plan(court: MapPlayEconomyCourt) -> Dictionary:
 	# § Lock-recovery; issue #489). The reading is forward-looking — the larder
 	# must cover this turn's ration and leave the next one in hand, because a
 	# court that eats its last grain this turn strikes tomorrow.
-	var food: int = MapPlayEconomyAi._food_demand(
+	var food: int = MapPlayEconomyLarder.food_demand(
 		court.play, court.faction, court.economy
 	)
 	var food_short: int = maxi(
@@ -179,7 +186,7 @@ static func trade_plan(court: MapPlayEconomyCourt) -> Dictionary:
 	# One primitive for every reservation: the rations, the muster's row, the
 	# works and this turn's production are ranked claims, and the market reads
 	# what the allocator funded (issue #491 T3, #498).
-	var claims: Dictionary = AiClaims.reserve(MapPlayEconomyAi._claim_rows(
+	var claims: Dictionary = AiClaims.reserve(MapPlayEconomyLarder.claim_rows(
 		court.production, food, court.economy, need, court.works_reserved, navy
 	))
 	var reserved: Dictionary = claims["reserved"]
@@ -209,7 +216,7 @@ static func trade_plan(court: MapPlayEconomyCourt) -> Dictionary:
 	var plan: Dictionary = AiBindEconomy.market_plan(
 		court.kind, court.config, court.economy, court.market, free_holds,
 		court.economy.tech_unlocked, reserved,
-		MapPlayEconomyAi._merge_rows(need, navy), court.floor, food_short, saving,
+		MapPlayEconomyLarder.merge_rows(need, navy), court.floor, food_short, saving,
 		speculate, works_floor, court.hire_margin
 	)
 	plan["free_holds"] = free_holds

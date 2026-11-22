@@ -154,9 +154,14 @@ func _leave_pass(play: PlaySession, foreign: Vector2i) -> void:
 	spies[0].tile = _any_land(play, play.player_faction)
 	spies[0].moved = true
 	_run_turn(play)
-	_say("presence after leaving: %d -> %d" % [
-		before, play.visibility.province_visibility(province),
-	])
+	var after: int = play.visibility.province_visibility(province)
+	_say("presence after leaving: %d -> %d" % [before, after])
+	# No grace timer (wiki: civilian-units § Spy (1)): the last spy's province is
+	# back in the fog at the close of the turn it left.
+	if before >= VisibilityModel.Level.FULLY_VISIBLE and after < VisibilityModel.Level.FULLY_VISIBLE:
+		_say("  the province fogged at once — no grace timer")
+	else:
+		_say("  the province kept the chart after the last spy left — the rules say it fogs at once")
 
 
 ## Runs one whole turn, answering whatever the court is asked on the way.

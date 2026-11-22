@@ -139,11 +139,37 @@ static func restore(world: WorldMap, snapshot: Array) -> void:
 ## should share one mount. `test_save_codec` proved the in-place load path; the
 ## helpers below keep that path in one place:
 ##   before_all:  screen = attach_screen(self); pristine = suite_capture(screen)
-##   before_each: restore(world(), saved); suite_reset(screen, pristine)
+##                park_screen(screen)
+##   before_each: park_screen(screen)  # pure cases never wake it
+##   live case:   suite_reset(screen, pristine)  # unparks
 ##   after_all:   screen.free()
-## The screen's own node state (selection, sheets, lenses, news) is dropped by the
-## reset; anything a case leaves on a node that is not re-read here must be
-## cleared by the suite itself.
+## An idle MapScreen still runs `_process` (HUD, soundtrack, fog). Under coverage
+## that tax is paid on every later case in the suite — park it when no case is
+## reading the chart. Park only where a suite keeps many cases on one chart; a
+## suite that parks for a few cases pays the tree walk for nothing. The screen's
+## own node state (selection, sheets, lenses, news) is dropped by the reset;
+## anything a case leaves on a node that is not re-read here must be cleared by
+## the suite itself.
+
+## Stops an idle shared mount from processing under coverage. Safe on null/freed,
+## and cheap to call repeatedly: `process_mode` walks the whole subtree, so skip
+## the write when the screen is already parked.
+static func park_screen(screen: MapScreen) -> void:
+	if screen == null or not is_instance_valid(screen):
+		return
+	if screen.process_mode == Node.PROCESS_MODE_DISABLED:
+		return
+	screen.process_mode = Node.PROCESS_MODE_DISABLED
+
+
+## Wakes a parked mount before a live case reads it (`suite_reset` does this).
+static func unpark_screen(screen: MapScreen) -> void:
+	if screen == null or not is_instance_valid(screen):
+		return
+	if screen.process_mode == Node.PROCESS_MODE_INHERIT:
+		return
+	screen.process_mode = Node.PROCESS_MODE_INHERIT
+
 
 ## The suite's opening state, captured once from the mounted screen.
 static func suite_capture(screen: MapScreen) -> Dictionary:
@@ -160,6 +186,7 @@ static func suite_reset(
 ) -> void:
 	if screen == null or not is_instance_valid(screen) or pristine.is_empty():
 		return
+	unpark_screen(screen)
 	var play: PlaySession = screen.play
 	if play == null:
 		return

@@ -132,7 +132,7 @@ static func storm_extra(
 	var at_war: bool = MapPlayCourt.at_war(play, faction)
 	var target: int = AiArmyReinforce.guard_regiments(config, at_war)
 	return AiStormGate.extra(
-		thinnest_wall(model, faction, economy.tech_unlocked),
+		thinnest_wall(model, faction),
 		float(RegimentCatalog.strength(
 			AiArmyReinforceLine.strongest_line(economy.tech_unlocked)
 		)),
@@ -142,12 +142,13 @@ static func storm_extra(
 
 
 ## The lowest storm threshold among the walled provinces this court does not
-## own, 0 when none stands. The battery is the Royal line every court carries
-## (wiki: tech-tree-military), so the reading never guesses a quality it has
-## not seen.
-static func thinnest_wall(
-	model: MapModel, faction: int, tech_unlocked: Dictionary
-) -> float:
+## own, 0 when none stands. The battery follows the **defender's** studies
+## (wiki: siege-mechanics § Emplaced Artillery — Royal → Heavy → Siege), which
+## this muster cannot read for another court, so it prices the top of the line
+## ([method FortRules.storm_ceiling]): the host it asks for clears the wall
+## whatever battery stands behind it ([method FortRules.storm_threshold] with
+## the Royal floor would size a host the ladder could repel; issue #1314).
+static func thinnest_wall(model: MapModel, faction: int) -> float:
 	if model == null:
 		return 0.0
 	var thinnest: float = 0.0
@@ -157,7 +158,7 @@ static func thinnest_wall(
 		var level: int = FortRules.level_at(model, province)
 		if not FortRules.is_siege(level):
 			continue
-		var threshold: float = FortRules.storm_threshold(tech_unlocked, level)
+		var threshold: float = FortRules.storm_ceiling(level)
 		if thinnest <= 0.0 or threshold < thinnest:
 			thinnest = threshold
 	return thinnest

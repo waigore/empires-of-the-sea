@@ -186,6 +186,20 @@ static func _college(run, screen: MapScreen) -> void:
 		or (counsel.begins_with("The court would open ") and counsel.ends_with(".")),
 		"the college names the study it would open"
 	)
+	# The advance that sentence names wears `▸` in the AVAILABLE list — the mark
+	# the chart sets on the same advance — so the row the crown would press is
+	# found without scanning the list (wiki: tech-tree § Research Model;
+	# DR-20261122-19).
+	var college_tech: String = college.pick_tech()
+	run.check(
+		counsel.is_empty() == college_tech.is_empty(),
+		"the counsel names the advance it marks, and no counsel marks none"
+	)
+	run.check(
+		college_tech.is_empty()
+		or run.has_text(college, "▸ %s" % TechCatalog.display_name(college_tech)),
+		"the college marks the study it would open"
+	)
 	var door: Button = _door(college)
 	run.check(door != null, "the college offers the chart")
 	var free_before: int = screen.economy.economy.research.free_slot()

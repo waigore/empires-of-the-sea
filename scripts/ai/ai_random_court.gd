@@ -2,7 +2,7 @@ class_name AiRandomCourt
 extends RefCounted
 ## BENCH filler crowns: seeded random legal treasury / recruit / production /
 ## civilian build-develop / train actions. No diplomacy, land, or sea planners.
-## MapPlayEconomyAi supplies overseas yield; this module never calls back into
+## The pass (`MapPlayEconomyAi`) hands in the overseas yield; this module never calls back into
 ## map_play (avoids class_name load cycles).
 
 ## Economy + civilian pass for one random court. Returns a faction report row.

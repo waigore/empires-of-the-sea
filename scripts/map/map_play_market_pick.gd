@@ -41,7 +41,7 @@ static func pick(play: PlaySession) -> Dictionary:
 		return {}
 	var faction: int = play.player_faction
 	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
-		play, faction, MapPlayEconomyAi._market(play)
+		play, faction, MapPlayEconomyLarder.market(play)
 	)
 	court.rehearse()
 	return of(MapPlayEconomyCourtBook.trade_plan(court))
