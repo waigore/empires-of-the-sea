@@ -36,7 +36,7 @@ func _read_counsel(data: Dictionary) -> Dictionary:
 ## Whether the court's own reading names this squadron, so her heading leads with
 ## the mark a crown finds her by among a long roll (DR-20261122-05).
 func _is_marked(group: Dictionary) -> bool:
-	return _court.has(MapPlayPickProse.row_key(group, "fleet"))
+	return _counsel.keys().has(MapPlayPickProse.row_key(group, "fleet"))
 
 
 func _build_crest() -> Control:

@@ -1560,10 +1560,10 @@ func test_the_muster_roll_prints_its_reading_and_stands_it_down_when_closed() ->
 	# A closed sheet asks the planner nothing: the plan is no one's to read.
 	panel.close()
 	panel.refresh()
-	assert_eq(panel._court_pick, {}, "a closed roll carries no reading")
+	assert_eq(panel._counsel.pick, {}, "a closed roll carries no reading")
 	assert_eq(panel.counsel_text(), "", "a closed sheet prints nothing")
 	assert_false(panel._counsel.visible, "and the line stands down")
-	assert_eq(panel._court, {}, "and no row wears the mark while it is shut")
+	assert_eq(panel._counsel.keys(), {}, "and no row wears the mark while it is shut")
 
 
 ## The reading is the passes' own: THE CROWN'S MUSTER names the orders the land
@@ -1677,7 +1677,7 @@ func test_the_muster_marks_the_forces_the_crowns_pass_would_send() -> void:
 		assert_true(shown.has(key), "the force the court would send is on the sheet")
 	# A narrowing chip reorders the marks it already read: one read for the roll.
 	panel._on_filter(ForceLedger.KIND_ARMY, false)
-	assert_eq(panel._court, keys, "a chip press keeps the reading it was handed")
+	assert_eq(panel._counsel.keys(), keys, "a chip press keeps the reading it was handed")
 	assert_eq(_force_moved_flags(play), before, "the reading orders nothing")
 	panel.close()
 
@@ -1699,11 +1699,11 @@ func test_the_muster_marks_exactly_the_forces_its_reading_names() -> void:
 	# A reading the staff would give: one force named, a key that names no row
 	# and every other row left alone. The sheet repaints its widgets on a filter
 	# pass, so the marks are read off the repainted rows.
-	panel._court_pick = {
+	panel._counsel.show_value({
 		"forces": [printed[0].data],
 		"keys": {named: true, "9:army:99": true},
 		"line": "the court would send the Home Army to take the field with 4 regiments this turn",
-	}
+	})
 	panel._apply_filter()
 	var rows: Array[ForceLedgerRow] = _force_rows(panel)
 	assert_eq(rows.size(), printed.size(), "the same view prints the same rows")
@@ -4782,7 +4782,7 @@ func test_the_estates_ledger_marks_the_estates_the_crowns_pass_would_raise() -> 
 	# A narrowing chip reorders the marks it already read: one read for the page.
 	panel._head.set_filter("ready")
 	panel._press_filter("ready")
-	assert_eq(panel._court, keys, "a chip press keeps the reading it was handed")
+	assert_eq(panel._counsel.keys(), keys, "a chip press keeps the reading it was handed")
 	assert_eq(_working_estate_builders(), 0, "the reading orders nothing")
 	panel.close()
 
@@ -5851,7 +5851,7 @@ func test_the_navy_marks_the_squadrons_the_court_would_sail() -> void:
 	assert_true(panel.is_open(), "the crown's navy opens")
 	var pick: Dictionary = MapPlayNavyPick.pick(play, panel._snapshot)
 	var keys: Dictionary = pick.get("keys", {}) as Dictionary
-	assert_eq(panel._court, keys, "the marks come off the one reading the line prints")
+	assert_eq(panel._counsel.keys(), keys, "the marks come off the one reading the line prints")
 	var groups: Array[Dictionary] = NavalLedger.groups(
 		panel._snapshot, LedgerRows.REGION_ALL, NavalLedger.READING_ALL
 	)
@@ -5886,7 +5886,7 @@ func test_the_navy_marks_the_squadrons_the_court_would_sail() -> void:
 				}
 		)
 		panel.refresh()
-		assert_eq(panel._court, {key: true}, "the marks follow the handed keys")
+		assert_eq(panel._counsel.keys(), {key: true}, "the marks follow the handed keys")
 		assert_true(panel._is_marked(one), "the named squadron's heading is marked")
 		var painted: int = 0
 		for child: Node in panel._rows.get_children():
@@ -5901,7 +5901,7 @@ func test_the_navy_marks_the_squadrons_the_court_would_sail() -> void:
 	# A closed sheet asks the pass nothing and marks nothing.
 	panel.close()
 	panel.refresh()
-	assert_eq(panel._court, {}, "a shut sheet carries no mark")
+	assert_eq(panel._counsel.keys(), {}, "a shut sheet carries no mark")
 	assert_eq(panel.counsel_text(), "", "and prints no line")
 
 
@@ -6379,7 +6379,7 @@ func test_the_army_marks_the_standards_the_court_would_order() -> void:
 	assert_true(panel.is_open(), "the crown's army opens")
 	var pick: Dictionary = MapPlayArmyOrdersPick.pick(play, panel._snapshot)
 	var keys: Dictionary = pick.get("keys", {}) as Dictionary
-	assert_eq(panel._court, keys, "the marks come off the one reading the line prints")
+	assert_eq(panel._counsel.keys(), keys, "the marks come off the one reading the line prints")
 	var groups: Array[Dictionary] = ArmyLedger.groups(
 		panel._snapshot, LedgerRows.REGION_ALL, ArmyLedger.READING_ALL
 	)
@@ -6414,7 +6414,7 @@ func test_the_army_marks_the_standards_the_court_would_order() -> void:
 				}
 		)
 		panel.refresh()
-		assert_eq(panel._court, {key: true}, "the marks follow the handed keys")
+		assert_eq(panel._counsel.keys(), {key: true}, "the marks follow the handed keys")
 		assert_true(panel._is_marked(one), "the named standard's heading is marked")
 		var painted: int = 0
 		for child: Node in panel._rows.get_children():
@@ -6429,7 +6429,7 @@ func test_the_army_marks_the_standards_the_court_would_order() -> void:
 	# A closed sheet asks the pass nothing and marks nothing.
 	panel.close()
 	panel.refresh()
-	assert_eq(panel._court, {}, "a shut sheet carries no mark")
+	assert_eq(panel._counsel.keys(), {}, "a shut sheet carries no mark")
 	assert_eq(panel.counsel_text(), "", "and prints no line")
 
 

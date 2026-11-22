@@ -62,23 +62,16 @@ func refresh() -> void:
 		return
 	_goal = TechOrder.normalize(_state.goal)
 	_sync_counsel()
+	_court_tech = String(_counsel.pick.get("tech", ""))
 	_canvas.present(_state, _goal, _court_tech)
 	_road.text = _road_text()
 	_render_detail(_selected)
 
 
-## The reading the college's gold line prints, and the advance the chart marks
-## with it: the study the published research policy would open. A closed chart
-## reads nothing, so a repaint behind it never pays for a planner walk nobody
-## sees (REQ-P4-02).
-func _counsel_reading() -> String:
-	var pick: Dictionary = {}
-	if is_open() and counsel_source.is_valid():
-		var raw: Variant = counsel_source.call()
-		if raw is Dictionary:
-			pick = raw
-	_court_tech = String(pick.get("tech", ""))
-	return MapPlayPickProse.sentence_of(pick)
+## The college's pass answers on the session's own research state, not on the
+## chart snapshot the frame hands over by default.
+func _counsel_args() -> Array:
+	return []
 
 
 ## The advance the chart marks as the court's own, or "" (DR-20261121-20).

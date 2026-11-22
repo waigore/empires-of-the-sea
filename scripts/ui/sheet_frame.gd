@@ -39,20 +39,21 @@ var hint_pixels: int = 10
 ## prints no gold line (REQ-P3-02, REQ-P5-06). A sheet that reads its pick once
 ## at the refresh paints it with `_show_counsel` instead.
 var counsel_source: Callable = Callable()
-## The gold line under the filters: the crown's own reading in one sentence.
-var _counsel: Label = null
+## The gold line under the filters: the crown's own reading in one sentence, its
+## dress and its gate (CounselLine; REQ-P3-01, REQ-P5-06).
+var _counsel: CounselLine = null
 ## The last snapshot the sheet painted from; empty before its first refresh.
 var _snapshot: Dictionary = {}
 
 
-## The gold line's dress: one wrapped gold row the sheet mounts where its reading
-## answers, so no sheet restates the size, the colour or the wrap (REQ-P3-01).
-## The host is optional: a sheet whose body hook returns the line mounts it itself.
-func _counsel_line(host: Container = null) -> Label:
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	if host != null:
-		host.add_child(_counsel)
+## The gold line, mounted where its reading answers, so no sheet restates the
+## size, the colour or the wrap (REQ-P3-01). The host is optional: a sheet whose
+## body hook returns the line mounts it itself.
+func _counsel_line(host: Container = null) -> CounselLine:
+	_counsel = CounselLine.make(host)
+	# A closed sheet asks nothing: the pass is a planner walk no one is looking
+	# at (REQ-P4-02).
+	_counsel.gate = is_open
 	return _counsel
 
 
@@ -68,30 +69,22 @@ func _counsel_args() -> Array:
 	return [_snapshot]
 
 
-## The reading itself, or "" when the sheet is closed or unwired. A closed sheet
-## asks nothing: the pass is a planner walk no one is looking at (REQ-P4-02).
-func _counsel_reading() -> String:
-	if not is_open() or not counsel_source.is_valid():
-		return ""
-	return String(counsel_source.callv(_counsel_args()))
-
-
 ## Prints a reading the sheet already holds — a pick read once at the refresh,
 ## not a source asked per paint — or stands the line down (REQ-P5-06).
-func _show_counsel(text: String) -> void:
-	if _counsel == null:
-		return
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
+func _show_counsel(value: Variant) -> void:
+	if _counsel != null:
+		_counsel.show_value(value)
 
 
 ## Asks the court's own reading once and prints it, or stands the line down: one
 ## gate, one dress and one place for every ledger, so no two sheets disagree on
-## when the crown's page is silent (REQ-P3-02, REQ-P5-06).
+## when the crown's page is silent (CounselLine; REQ-P3-02, REQ-P5-06).
 func _sync_counsel() -> void:
 	if _counsel == null:
 		return
-	_show_counsel(_counsel_reading())
+	_counsel.source = counsel_source
+	_counsel.args = _counsel_args()
+	_counsel.sync()
 
 
 ## The one session the sheet reads. Every crown sheet binds it the same way, so
