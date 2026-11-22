@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:302ac98cb248944ba113dbbc213c3bb69157ea6399f19624465375f5925f5e14",
-  "submission_git": "feat/ow-fort-retune@9a063dda+dirty",
+  "submission_hash": "sha256:3fffe826a790575d9c39e5a2b6ef0cffad738d42d85764d0e7a6894f9c9ec41c",
+  "submission_git": "feat/ow-fort-retune@491cdb97",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:cdcac4befefbc61985617a64a6d342a24bcbb23121e7a66e64e94c177fcc5289",
+    "ai_surface_hash": "sha256:933e64ccd92cfccf93837aaa677f826e9938fc3fbd67a059ba4d8f47f1a29733",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T14:01:54Z",
+  "timestamp": "2026-11-22T14:07:13Z",
   "report_version": 1,
-  "signature": "hmac-sha256:8af3602422e42ee12f65e77ee2341946c8fac68b70cbf3b4ef30dbbf331e929c"
+  "signature": "hmac-sha256:aafbbed88fa70d09c9a3cb76ab0057d800d5eff85bf014cd316b662b6c91dfa5"
 }
