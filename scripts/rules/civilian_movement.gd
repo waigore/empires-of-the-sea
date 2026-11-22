@@ -100,6 +100,10 @@ static func begin_turn(units: Array[CivilianState]) -> void:
 ## province decays like any other (wiki: § Fog Decay — "when no Explorer or Spy
 ## of the viewer remains"). None of them promotes an `unknown` tile: only
 ## explore, a landing or a ship's coastal ring does that.
+##
+## A Spy is held by its presence alone: the pass keeps the province while a Spy
+## stands in it and fogs it in the same end-of-turn the last one leaves, with no
+## grace (wiki: civilian-units § Spy (1); DR-20261110-03).
 static func held_provinces(
 	model: MapModel, units: Array[CivilianState], owner: int
 ) -> Array:

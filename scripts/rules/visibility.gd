@@ -219,7 +219,9 @@ static func clear_cache() -> void:
 	VisibilityCoast.clear_cache()
 
 
-## Plain data for local saves: the per-tile knowledge grid.
+## Plain data for local saves: the per-tile knowledge grid. No Spy grace clock
+## is written — the pass holds ground by a Spy's presence alone (REQ-P2-01;
+## wiki: fog-and-exploration § Fog Decay).
 func to_dict() -> Dictionary:
 	return {
 		"player_id": player_id,
@@ -228,9 +230,10 @@ func to_dict() -> Dictionary:
 
 
 ## Restores the grid onto an already-set-up model (coast links stay derived).
-## A save written while departed-Spy clocks existed carries a `spy_hold` key the
-## grid no longer keeps: the last Spy's province fogs at once (wiki: civilian-units
-## § Spy (1)), so the extra key reads and holds nothing.
+## A save written by an older build carries a `spy_hold` row of grace clocks; it
+## is dropped here, so the ground a departed Spy left behind fogs on the next
+## pass exactly as the published rule says (wiki: civilian-units § Spy (1);
+## DR-20261110-03).
 func apply_dict(data: Dictionary) -> bool:
 	player_id = int(data.get("player_id", player_id))
 	var raw: Variant = data.get("levels", PackedByteArray())
