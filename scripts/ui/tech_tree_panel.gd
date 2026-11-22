@@ -7,14 +7,14 @@ extends SheetFrame
 ## queue at it; the goal is the ledger's own state, so this sheet writes nothing
 ## else (REQ-P5-03, REQ-P1-05).
 ##
-## The chart pans in both directions, so a 113-node graph is reachable on a
+## The chart pans in both directions, so a 115-node graph is reachable on a
 ## phone as well as on the atlas (REQ-P1-07). Hover previews an advance on a
 ## desktop; a tap selects it and prints the same reading, so no rule lives
 ## behind a hover (REQ-P1-05).
 ##
 ## The chart also names the study the court would open: the college's own gold
 ## sentence under the goal's road, and a `▸` on the advance it names, so the
-## crown sees where the court would go without scanning 113 nodes
+## crown sees where the court would go without scanning 115 nodes
 ## (wiki: tech-tree § Research Model; DR-20261121-20).
 
 signal goal_requested(tech_id: String)
