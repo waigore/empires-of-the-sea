@@ -65,7 +65,7 @@ static func resolve(play: PlaySession) -> Array[Dictionary]:
 			battle, province, FactionCatalog.names()
 		)
 		if int(battle.get("attack_paid", 0)) > 0:
-			line += " — %s spent" % MoneyText.ducats(int(battle["attack_paid"]))
+			line += " — %d ducats spent" % int(battle["attack_paid"])
 		# A Quick Battle plate replays this clash for the court, so the despatch
 		# that repeats its outcome is the first line the held-news cap may drop
 		# (REQ-P5-06). Auto fights every clash as Quick Battle with no plate at
