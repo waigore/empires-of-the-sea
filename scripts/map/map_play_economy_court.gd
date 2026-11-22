@@ -341,6 +341,17 @@ func apply_turn() -> Dictionary:
 		play.world, faction,
 		int((resolved.get("consumption", {}) as Dictionary).get("hospital_fed", 0))
 	)
+	var row: Dictionary = book_orders()
+	row["resolved"] = resolved
+	return row
+
+
+## Books every order the plan files — the production runs, the workers the
+## Build/work phase buys and the crews' work orders — and closes no ledger. The
+## Auto seat books the crown's household through this and lets the crown's own
+## `resolve_turn` carry the orders out (wiki: auto-mode § The crown's household;
+## REQ-P2-03); `apply_turn` adds a rival's resolution to the same row.
+func book_orders() -> Dictionary:
 	economy.production.clear_assignments()
 	for assignment: Dictionary in production["assignments"]:
 		economy.production.set_assignment(
@@ -355,7 +366,6 @@ func apply_turn() -> Dictionary:
 	var civilians: Dictionary = MapPlayCivilianAi.apply(play, faction, economy, plans)
 	return {
 		"extraction": overseas["extraction"],
-		"resolved": resolved,
 		"production": production,
 		"trade": trade,
 		"cargo": cargo,

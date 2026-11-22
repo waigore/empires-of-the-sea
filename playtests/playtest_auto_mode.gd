@@ -48,8 +48,13 @@ func _run() -> void:
 		_drain(play)
 		await process_frame
 		var fought: int = play.hud.plates.land_queue.size() + play.hud.plates.sea_queue.size()
-		print("turn %2d · %4d ducats · %3d regiments · %d land plates" % [
-			turn, play.treasury(), play.army_layer.regiment_count_all(play.player_faction),
+		# The seat's household (wiki: auto-mode § The crown's household): the
+		# studies it opened and the income it bought, printed beside the purse so
+		# a household that files nothing names itself.
+		print("turn %2d · %4d ducats · %+5d a turn · %2d techs · %3d regiments · %d land plates" % [
+			turn, play.treasury(), play.income,
+			play.economy.economy.tech_unlocked.size(),
+			play.army_layer.regiment_count_all(play.player_faction),
 			fought,
 		])
 		for line: String in play.auto_log:
