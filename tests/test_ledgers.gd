@@ -1065,7 +1065,7 @@ func test_the_people_print_the_work_the_crowns_pass_would_book() -> void:
 		stock[commodity] = 400
 	var estates: ImprovementPanel = screen.improvements
 	estates.open()
-	var ready: Array[Vector2i] = estates._ready_tiles()
+	var ready: Array[Vector2i] = estates.ready_tiles()
 	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
 	estates.close()
 	var builder: CivilianState = play.civilian_layer.add_unit(
@@ -1147,7 +1147,7 @@ func test_the_roster_marks_the_crews_the_crowns_pass_would_put_to_work() -> void
 		stock[commodity] = 400
 	var estates: ImprovementPanel = screen.improvements
 	estates.open()
-	var ready: Array[Vector2i] = estates._ready_tiles()
+	var ready: Array[Vector2i] = estates.ready_tiles()
 	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
 	estates.close()
 	var builder: CivilianState = play.civilian_layer.add_unit(
@@ -4615,7 +4615,7 @@ func test_the_estates_press_files_every_ready_estate_in_one_confirmed_press() ->
 	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
 		stock[commodity] = 400
 	panel.open()
-	var ready: Array[Vector2i] = panel._ready_tiles()
+	var ready: Array[Vector2i] = panel.ready_tiles()
 	assert_true(
 		ready.size() >= 2,
 		"the capital holds estates the crown can raise: %d" % ready.size()
@@ -4644,7 +4644,7 @@ func test_the_estates_press_files_every_ready_estate_in_one_confirmed_press() ->
 	assert_eq(
 		_working_estate_builders(), ready.size(), "every ready estate took a Builder"
 	)
-	assert_eq(panel._ready_tiles().size(), 0, "the view holds no ready estate after the press")
+	assert_eq(panel.ready_tiles().size(), 0, "the view holds no ready estate after the press")
 	assert_false(press.visible, "and the press stands down")
 
 
@@ -4659,7 +4659,7 @@ func test_the_estates_sheet_prints_the_line_its_press_would_spend() -> void:
 	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
 		stock[commodity] = 400
 	panel.open()
-	var ready: Array[Vector2i] = panel._ready_tiles()
+	var ready: Array[Vector2i] = panel.ready_tiles()
 	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
 	screen.play.civilian_layer.units.append(
 		CivilianState.create(700, screen.play.player_faction, "builder", ready[0])
@@ -4765,7 +4765,7 @@ func test_the_estates_pick_names_the_estate_the_crowns_builder_would_raise() -> 
 	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
 		stock[commodity] = 400
 	panel.open()
-	var ready: Array[Vector2i] = panel._ready_tiles()
+	var ready: Array[Vector2i] = panel.ready_tiles()
 	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
 	var tile: Vector2i = ready[0]
 	play.civilian_layer.units.append(
@@ -4851,7 +4851,7 @@ func test_the_estates_ledger_marks_the_estates_the_crowns_pass_would_raise() -> 
 	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
 		stock[commodity] = 400
 	panel.open()
-	var ready: Array[Vector2i] = panel._ready_tiles()
+	var ready: Array[Vector2i] = panel.ready_tiles()
 	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
 	play.civilian_layer.units.append(
 		CivilianState.create(901, play.player_faction, "builder", ready[0])
