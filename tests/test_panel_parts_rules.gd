@@ -961,6 +961,56 @@ func test_the_hire_rail_marks_the_craft_the_court_would_take() -> void:
 		(builder["button"] as Button).text, caption, "and the craft reads plainly again"
 	)
 
+
+## The rail marks the presses the court's own crew pass would file on this
+## ground, off the gold line's one reading: the press the line names leads with
+## the mark, a press it leaves out keeps its plain caption, and the legend says
+## what the mark means while one stands. A refresh keeps the mark on a caption
+## the rules re-worded (wiki: world-model § The crown's provinces;
+## DR-20261122-23; REQ-P1-07, REQ-P5-06).
+func test_the_rail_marks_the_press_the_court_would_take() -> void:
+	_setup_province_panel()
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var plain_wall: String = rail.press_text(ProvinceOrdersSection.KEY_WALL)
+	assert_false(plain_wall.is_empty(), "the wall press prints its words")
+	assert_eq(rail.court_legend_text(), "", "no reading, no legend")
+	rail.set_court_marks({ProvinceOrdersSection.KEY_WALL: true})
+	assert_eq(
+		rail.court_marks(), {ProvinceOrdersSection.KEY_WALL: true},
+		"the rail keeps the reading's own keys"
+	)
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL),
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, plain_wall],
+		"the wall press the line names wears the mark"
+	)
+	for key: String in [
+		ProvinceOrdersSection.KEY_IMPROVEMENT,
+		ProvinceOrdersSection.KEY_TOWN,
+		ProvinceOrdersSection.KEY_WARD,
+	]:
+		assert_false(
+			rail.press_text(key).begins_with(ProvinceOrdersSection.COURT_MARK),
+			"a press the line leaves out keeps its plain caption: %s" % key
+		)
+	assert_eq(rail.court_legend_text(), ProvinceOrdersSection.MARK_LEGEND)
+	# The read is replayed at every refresh: a second reading of the same press
+	# never doubles the glyph, because the caption it marks is the rules' own.
+	rail.set_court_marks({ProvinceOrdersSection.KEY_WALL: true})
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL),
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, plain_wall],
+		"one mark on one press"
+	)
+	rail.set_court_marks({})
+	assert_eq(rail.court_marks(), {}, "the reading clears")
+	assert_eq(
+		rail.press_text(ProvinceOrdersSection.KEY_WALL), plain_wall,
+		"and the press reads plainly again"
+	)
+	assert_eq(rail.court_legend_text(), "", "no mark, no legend")
+
 func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	_setup_province_panel()
 	_show()

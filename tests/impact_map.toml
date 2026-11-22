@@ -2380,6 +2380,13 @@ domain = "province_sheet"
 match = "scripts/ui/province_rail_block.gd*"
 domain = "province_sheet"
 
+# The press book every counsel sheet's marks ride (DR-20261122-23): a press's own
+# caption and the keys one reading names. The province rail is its first wearer,
+# and the panel parts suite proves the glyph and the legend it prints.
+[[rules]]
+match = "scripts/ui/press_marks.gd*"
+domain = "province_sheet"
+
 # Commodity ink for the resource pictograms. Named before the prospect /
 # crown_road / map / ui rules below (first match wins) so a colour change runs
 # the lens and the panel parts suites instead of the whole reading fan-out.

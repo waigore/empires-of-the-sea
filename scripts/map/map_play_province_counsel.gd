@@ -24,6 +24,26 @@ const KIND_NO_WORK: String = "no_work"
 ## idle and the court booked it no work here this turn.
 const NO_WORK_LINE: String = "the court would set no crew to work here this turn"
 
+## The rail's presses, keyed the way `ProvinceOrdersSection` keys its own rows:
+## the work the court's crew pass would put on this ground leads that press with
+## the counsel's mark (DR-20261122-23). The keys are the rail's own action
+## strings, so a mark is one lookup and no caller renames a press.
+const KEY_IMPROVEMENT: String = "build"
+const KEY_TOWN: String = "upgrade_town"
+const KEY_WALL: String = "raise_wall"
+const KEY_WARD: String = "raise_ward"
+
+## The crew order that files each rail press: the civilian pass's own action
+## names, so the line and the press can never name different work. A work the
+## rail carries no press for (a road, a port, a rail, a prospect, a survey, a
+## march, a deed, a screen) marks none — the estate block or the map takes it.
+const PRESS_OF: Dictionary = {
+	"build_improvement": "build",
+	"upgrade_town": "upgrade_town",
+	"build_fort": "raise_wall",
+	"build_hospital": "raise_ward",
+}
+
 
 ## The sheet's sentence: the pick's own line, capitalised and closed — the one
 ## wording every pick surface prints (MapPlayPickProse; REQ-P3-02, REQ-P5-06).
@@ -92,12 +112,33 @@ static func of(
 		int(unique.get("extra", 0))
 	)
 	if not line.is_empty():
-		return {"kind": KIND_ORDERS, "crews": crews, "armies": armies, "line": line}
+		return {
+			"kind": KIND_ORDERS,
+			"crews": crews,
+			"armies": armies,
+			"keys": marks_of(crews),
+			"line": line,
+		}
 	# Nothing lands here: the crown's own ground says whether an idle crew stood
 	# for work, so an empty province reads nothing rather than a gate.
 	if idle_here <= 0:
 		return {}
-	return {"kind": KIND_NO_WORK, "crews": [], "armies": [], "line": NO_WORK_LINE}
+	return {"kind": KIND_NO_WORK, "crews": [], "armies": [], "keys": {}, "line": NO_WORK_LINE}
+
+
+## The rail presses the crews' own orders would file, keyed for the sheet's rows:
+## one key per press the line names, so a crown finds the press among the six the
+## rail prints (DR-20261122-23). A work the rail carries no press for marks none,
+## and a crew without an action (a fixture's plain entry) marks none either, so a
+## mark always names a press this sheet can press.
+static func marks_of(crews: Array[Dictionary]) -> Dictionary:
+	var marks: Dictionary = {}
+	for crew: Dictionary in crews:
+		var press: String = String(PRESS_OF.get(String(crew.get("action", "")), ""))
+		if press.is_empty():
+			continue
+		marks[press] = true
+	return marks
 
 
 ## The crews the pass would put to work on this province's ground, in the
