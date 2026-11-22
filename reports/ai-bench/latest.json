@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:4c7e554580a9feba69ccab9270217472a8cd67c10834c557e81343807fe99250",
-  "submission_git": "fix/ai-press-line@2d604b88",
+  "submission_hash": "sha256:660b11ef76b4ae60cd760c8a8a4e95924180afffc6b91131ab427164e4ed16a4",
+  "submission_git": "fix/ai-walk-home-own-land@3d1a1959",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:be7cfc80515ccff879b10c1799a1f6a530ea330856077c7c68fccd10eff0deb8",
+    "ai_surface_hash": "sha256:9cbbbc4f4078cf0a0a902102b09320d78400f744e29d360c5c4d043539cfb6de",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 31,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T00:15:38Z",
+  "timestamp": "2026-11-22T00:31:40Z",
   "report_version": 1,
-  "signature": "hmac-sha256:9351bbe03508d7f5ff2e3b7e22c44b487611b7426f1442d8e25ac313b1df3233"
+  "signature": "hmac-sha256:0da100ce407731c801a47f33bc702741fda59ce8eb186fafc29781adef82411b"
 }
