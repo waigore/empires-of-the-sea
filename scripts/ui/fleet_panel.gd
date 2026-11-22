@@ -181,7 +181,7 @@ func refresh(model: MapModel, opening: FleetDossierOpening) -> void:
 	if colonists > 0:
 		_ships.text += " · %d colonist%s" % [colonists, "" if colonists == 1 else "s"]
 	_fill_land()
-	_mission.set_data(opening.beach_note, opening.beach_rows, opening.pick)
+	_mission.set_data(opening.beach_note, opening.beach_rows, opening.pick, opening.court_coast)
 	_crew.set_data(opening.crew)
 	_set_standing(
 		fleet, is_player, opening.passage, opening.beach_note, opening.beach_hint,
