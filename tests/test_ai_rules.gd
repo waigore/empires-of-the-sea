@@ -835,6 +835,41 @@ func test_ai_military_walks_the_lower_step_on_a_tie() -> void:
 	assert_eq(int(walked[0]["province"]), 1, "the lower id of the two equal steps")
 
 
+## A step onto the court's own ground is the road's end, not one more province on
+## it: the walk takes the own province beside the host even when a wilderness
+## neighbour reads nearer the seat on the field, because own land is the seat's
+## own distance and always wins (wiki: military-armies § Movement and attacks;
+## DR-20261121-15).
+func test_ai_military_walks_onto_own_land_before_nearer_wilderness() -> void:
+	# P0 the seat; P4 the court's own ground, four marches out; P8 the host, beside
+	# both P4 and the wilderness P6/P7 that sit two marches from the seat.
+	var model: MapModel = _walk_chart(
+		[[0, 1, 2], [5, 7, 3], [6, 8, 4], [9, 10, 11]],
+		{0: 2, 4: 2},
+		{0: true}
+	)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 0, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 8, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(
+		int(walked[0]["province"]), 4,
+		"its own ground beside it, the road home, never the nearer wilderness"
+	)
+
+
 ## The walk's own guards: no chart, no army, or a court the map gives no seat
 ## names no step at all (DR-20261121-15).
 func test_ai_military_walks_nothing_without_a_chart_or_a_seat() -> void:
