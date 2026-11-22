@@ -20,7 +20,7 @@ const BAND_LABELS: Dictionary = {
 	BAND_OPEN: "Open — no garrison, no wall",
 	BAND_HELD: "Garrison only",
 	BAND_WALLED: "Walled (fort 1–2)",
-	BAND_CITADEL: "Citadel (fort 3)",
+	BAND_CITADEL: "Citadel (fort 3+)",
 }
 
 ## Where a ground stops merely helping and starts sheltering. These read
