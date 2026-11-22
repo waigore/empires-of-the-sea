@@ -12,6 +12,12 @@ extends RefCounted
 ## A reading only: nothing here marches a crew, sets an order or spends a
 ## material, and the crown still presses her own sheets (REQ-P5-06).
 
+## The action whose short form names the work but not the ground it stands on:
+## a prospect is a per-tile order the crew's own sheet prints as "prospect this
+## tile", so read off a roster or a province it names the ground instead
+## (issue #1304).
+const PROSPECT_ACTION: String = "prospect"
+
 ## The actions whose short form names the work but not the ground it stands on,
 ## so the clause adds the province the pass would put the crew to work on. A
 ## march, a survey, a deed or a screen already names its own ground.
@@ -93,7 +99,11 @@ static func _entry(
 		"role": CivilianCatalog.display_name(unit.type_id),
 		"action": action,
 		"tile": ground,
-		"place": _place(model, ground) if PLACE_ACTIONS.has(action) else "",
+		"place": (
+			_place(model, ground)
+			if PLACE_ACTIONS.has(action) or action == PROSPECT_ACTION
+			else ""
+		),
 		"short": short,
 	}
 
@@ -135,20 +145,44 @@ static func keys_of(crews: Array[Dictionary]) -> Dictionary:
 ## "the court would put its Builder to raise the lumber camp at Cádiz, its
 ## Explorer to survey the Mar Caribe and its Engineer to build a road at Sevilla
 ## this turn". Beyond three the line counts the crews it cannot name
-## (`… and 2 more`) so a busy roster stays one line of chrome.
+## (`… and 2 more`) so a busy roster stays one line of chrome, and an order the
+## line already names is never printed twice (issue #1304).
 static func pick_line(crews: Array[Dictionary]) -> String:
 	var clauses: Array[String] = []
 	for crew: Dictionary in crews:
-		clauses.append(_clause(crew))
-	return MapPlayPickProse.court_line("the court would put", clauses)
+		clauses.append(clause(crew))
+	var unique: Dictionary = MapPlayPickProse.unique_clauses(clauses)
+	var kept: Array[String] = []
+	kept.assign(unique.get("clauses", []))
+	return MapPlayPickProse.court_line_capped(
+		"the court would put", kept, "this turn", MapPlayPickProse.NAMED_LIMIT,
+		int(unique.get("extra", 0))
+	)
 
 
 ## One crew's clause: what the pass would put it to, on the ground the order
-## lands on.
-static func _clause(crew: Dictionary) -> String:
+## lands on. `here` drops the province name for the sheet that already shows the
+## province, so a province dossier names the tile and not its own ground.
+static func clause(crew: Dictionary, here: bool = false) -> String:
 	var role: String = String(crew.get("role", "crew"))
 	var short: String = String(crew.get("short", ""))
 	var place: String = String(crew.get("place", ""))
+	var action: String = String(crew.get("action", ""))
+	var tile: Vector2i = _tile_of(crew)
+	if action == PROSPECT_ACTION and tile.x >= 0:
+		var coords: String = "(%d, %d)" % [tile.x, tile.y]
+		if here or place.is_empty():
+			return "its %s to prospect the ground %s" % [role, coords]
+		return "its %s to prospect the ground at %s %s" % [role, place, coords]
 	if place.is_empty():
 		return "its %s to %s" % [role, short]
 	return "its %s to %s at %s" % [role, short, place]
+
+
+## The ground a crew entry carries, or the off-chart tile a pure fixture leaves.
+static func _tile_of(crew: Dictionary) -> Vector2i:
+	var tile: Variant = crew.get("tile", CivilianState.NO_TILE)
+	if tile is Vector2i:
+		return tile
+	return CivilianState.NO_TILE
+

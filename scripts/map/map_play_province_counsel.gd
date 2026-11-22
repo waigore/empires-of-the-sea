@@ -79,12 +79,18 @@ static func of(
 		var short: String = String(crew.get("short", ""))
 		if role.is_empty() or short.is_empty():
 			continue
-		clauses.append("its %s to %s" % [role, short])
+		clauses.append(MapPlayPeoplePick.clause(crew, true))
 	for army: Dictionary in armies:
 		var said: String = String(army.get("line", ""))
 		if not said.is_empty():
 			clauses.append(said)
-	var line: String = MapPlayPickProse.court_line("the court would order", clauses)
+	var unique: Dictionary = MapPlayPickProse.unique_clauses(clauses)
+	var kept: Array[String] = []
+	kept.assign(unique.get("clauses", []))
+	var line: String = MapPlayPickProse.court_line_capped(
+		"the court would order", kept, "this turn", MapPlayPickProse.NAMED_LIMIT,
+		int(unique.get("extra", 0))
+	)
 	if not line.is_empty():
 		return {"kind": KIND_ORDERS, "crews": crews, "armies": armies, "line": line}
 	# Nothing lands here: the crown's own ground says whether an idle crew stood
@@ -109,7 +115,16 @@ static func _crews(
 		var short: String = String(crew.get("short", ""))
 		if role.is_empty() or short.is_empty():
 			continue
-		found.append({"role": role, "short": short})
+		# The crew's own clause, with the province it already shows stripped:
+		# a prospect still names its tile, so two Explorers read apart
+		# (issue #1304).
+		found.append({
+			"role": role,
+			"short": short,
+			"action": String(crew.get("action", "")),
+			"tile": crew.get("tile", CivilianState.NO_TILE),
+			"place": String(crew.get("place", "")),
+		})
 	return found
 
 

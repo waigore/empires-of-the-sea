@@ -1103,6 +1103,74 @@ func test_the_people_pick_words_the_work_the_pass_would_give() -> void:
 	assert_eq(MapPlayPeoplePick.line(null), "", "a session that is not there names nothing")
 
 
+## A roster with several crews on one order never repeats its clause: a prospect
+## names the tile it would uncover, so the crews read apart, and an order two
+## crews share is named once with every crew behind it counted (issue #1304).
+func test_the_people_pick_names_the_ground_and_never_repeats_a_clause() -> void:
+	var prospectors: Array[Dictionary] = [
+		{
+			"region": 0,
+			"unit_id": 1,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(12, 34),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+		{
+			"region": 0,
+			"unit_id": 2,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(13, 34),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+		{
+			"region": 0,
+			"unit_id": 3,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(12, 35),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+	]
+	assert_eq(
+		MapPlayPeoplePick.pick_line(prospectors),
+		"the court would put its Explorer to prospect the ground at Madrid (12, 34),"
+		+ " its Explorer to prospect the ground at Madrid (13, 34) and its Explorer"
+		+ " to prospect the ground at Madrid (12, 35) this turn"
+	)
+	# The same order booked to several crews is named once, and the tail still
+	# counts every crew the one clause stands for.
+	var shared: Array[Dictionary] = []
+	for index: int in 4:
+		shared.append({
+			"region": 0,
+			"unit_id": index,
+			"role": "Engineer",
+			"action": "build_road",
+			"tile": Vector2i(index, 0),
+			"place": "Guimarães",
+			"short": "build a road",
+		})
+	shared.append({
+		"region": 0,
+		"unit_id": 9,
+		"role": "Engineer",
+		"action": "build_road",
+		"tile": Vector2i(9, 9),
+		"place": "Braga",
+		"short": "build a road",
+	})
+	assert_eq(
+		MapPlayPeoplePick.pick_line(shared),
+		"the court would put its Engineer to build a road at Guimarães, its Engineer"
+		+ " to build a road at Braga and 3 more this turn"
+	)
+
+
 ## Crews wait and the pass puts none to work: the sheet names that gate rather
 ## than a clause it cannot print, and a snapshot that has not read the roster
 ## names nothing at all (REQ-P5-06).
@@ -1955,6 +2023,29 @@ func test_the_province_counsel_words_the_orders_of_its_own_ground() -> void:
 	# A clause this module cannot say takes no place on the line.
 	var silent: Array[Dictionary] = [{"role": "Builder", "short": ""}]
 	assert_true(MapPlayProvinceCounsel.of(silent, [], 0).is_empty())
+	# The sheet already shows the province, so a prospect names the tile alone:
+	# two Explorers on one province read apart (issue #1304).
+	var prospectors: Array[Dictionary] = [
+		{
+			"role": "Explorer",
+			"short": "prospect this tile",
+			"action": "prospect",
+			"tile": Vector2i(12, 34),
+			"place": "Cádiz",
+		},
+		{
+			"role": "Explorer",
+			"short": "prospect this tile",
+			"action": "prospect",
+			"tile": Vector2i(13, 34),
+			"place": "Cádiz",
+		},
+	]
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(prospectors, [])["line"]),
+		"the court would order its Explorer to prospect the ground (12, 34) and its"
+		+ " Explorer to prospect the ground (13, 34) this turn"
+	)
 	# The gate: the crown's own ground held an idle crew and the pass booked no
 	# work here; ground with no idle crew says nothing.
 	var gate: Dictionary = MapPlayProvinceCounsel.of([], [], 1)

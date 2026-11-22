@@ -44,7 +44,30 @@ func test_capped_counts_the_rest() -> void:
 		"A, B, C and 2 more",
 		"over the limit commas the heads and counts the rest"
 	)
+	assert_eq(
+		MapPlayPickProse.capped(["A", "B"], 3, 2),
+		"A, B and 2 more",
+		"a repeated clause still counts the crews behind it"
+	)
+	assert_eq(
+		MapPlayPickProse.capped(["A"], 3, 1),
+		"A and 1 more",
+		"one clause standing for two crews says so"
+	)
 	assert_eq(MapPlayPickProse.capped(["A"], 0), "", "no room, no line")
+
+
+func test_a_repeated_clause_collapses_and_still_counts_its_crews() -> void:
+	var unique: Dictionary = MapPlayPickProse.unique_clauses(["A", "A", "", "B", "A"])
+	var kept: Array[String] = []
+	kept.assign(unique.get("clauses", []))
+	assert_eq(kept.size(), 2, "each order is named once")
+	assert_eq(kept[0], "A", "the first wording holds its place")
+	assert_eq(kept[1], "B", "the rest keeps its order")
+	assert_eq(int(unique.get("extra", 0)), 2, "both repeats are counted")
+	var none: Dictionary = MapPlayPickProse.unique_clauses([])
+	assert_eq(int(none.get("extra", 0)), 0, "nothing to count")
+	assert_eq((none.get("clauses", []) as Array).size(), 0, "nothing to name")
 
 
 func test_the_court_line_caps_and_drops_blanks() -> void:
