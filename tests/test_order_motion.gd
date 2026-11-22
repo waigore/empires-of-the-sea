@@ -7,12 +7,16 @@ extends GdToolsTest
 const Fixture = preload("res://tests/map_fixture.gd")
 
 ## One mounted screen for the whole suite: a mount costs ~0.5 s under coverage
-## and a re-seat ~0.15 s, so live cases share the chart (docs/testing.md).
+## and a re-seat ~0.15 s, so live cases share the chart and reset the session
+## instead of remounting (`Fixture.suite_reset`). Pure OrderMotion / bare-marker
+## cases never touch `_screen`, so they skip the re-seat (docs/testing.md).
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 ## The shared world as generated; non-underscore so before_all copies it onto
 ## each case (gd-tools clones the case instance).
 var pristine_map: Array = []
+## Set when this case has paid for a pristine re-seat; cleared in `before_each`.
+var _chart_bound: bool = false
 
 
 func before_all() -> void:
@@ -22,10 +26,7 @@ func before_all() -> void:
 
 
 func before_each() -> void:
-	if mounted == null or pristine.is_empty():
-		return
-	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = false
 
 
 func after_all() -> void:
@@ -33,6 +34,32 @@ func after_all() -> void:
 		mounted.free()
 	mounted = null
 	pristine = {}
+
+
+## Live cases reach the chart through `_screen` / `_attach()`; pure beat /
+## marker cases that never ask never pay `suite_reset`.
+func _attach() -> MapScreen:
+	if _chart_bound and is_instance_valid(mounted):
+		return mounted
+	Fixture.restore(Fixture.world(), pristine_map)
+	Fixture.suite_reset(mounted, pristine)
+	_chart_bound = true
+	return mounted
+
+
+var _screen: MapScreen:
+	get:
+		return _attach()
+
+
+## Wait until a busy loop settles instead of sleeping past the tween
+## (docs/testing.md § Speed rules — no create_timer padding under coverage).
+func _await_idle(order_of: Callable, frames: int = 90) -> void:
+	for _frame in frames:
+		if int(order_of.call()) == OrderMotion.Order.NONE:
+			return
+		await get_tree().process_frame
+	assert_eq(int(order_of.call()), OrderMotion.Order.NONE, "the busy loop settled")
 
 
 ## --- the shared loop ---------------------------------------------------------
@@ -71,7 +98,6 @@ func test_work_breathes_in_place_on_a_slower_time() -> void:
 ## never crash a repaint.
 func test_each_marker_paints_its_loop() -> void:
 	var crew := CivilianMarker.new()
-	crew.unit_id = 3
 	add_child(crew)
 	crew.set_order(OrderMotion.Order.WORK)
 	assert_eq(crew.order, OrderMotion.Order.WORK)
@@ -103,7 +129,7 @@ func test_each_marker_paints_its_loop() -> void:
 ## --- own crews --------------------------------------------------------------
 
 func test_an_own_crew_reads_busy_while_it_works() -> void:
-	var layer: CivilianLayer = mounted.civilian_layer
+	var layer: CivilianLayer = _screen.civilian_layer
 	layer.viewer_faction = MapScreen.PLAYER_FACTION
 	var unit: CivilianState = _own_crew(layer)
 	assert_not_null(unit)
@@ -118,24 +144,24 @@ func test_an_own_crew_reads_busy_while_it_works() -> void:
 
 
 func test_a_crew_marching_shows_the_leaving_loop() -> void:
-	var layer: CivilianLayer = mounted.civilian_layer
+	var layer: CivilianLayer = _screen.civilian_layer
 	layer.viewer_faction = MapScreen.PLAYER_FACTION
 	var unit: CivilianState = _own_crew(layer)
 	var marker: CivilianMarker = layer.marker_for(unit)
-	var destinations: Array[Vector2i] = CivilianMovement.valid_tiles(mounted.model, unit)
+	var destinations: Array[Vector2i] = CivilianMovement.valid_tiles(_screen.model, unit)
 	assert_false(destinations.is_empty(), "the crew has ground to walk")
 	layer.apply_move(unit, destinations[0])
 	assert_eq(marker.order, OrderMotion.Order.MOVE, "a marching crew reads busy")
-	await get_tree().create_timer(0.5).timeout
+	await _await_idle(func() -> int: return marker.order)
 	assert_eq(marker.order, OrderMotion.Order.NONE, "the walk settles to idle")
 
 
 func test_a_rival_crew_never_borrows_the_loop() -> void:
-	var layer: CivilianLayer = mounted.civilian_layer
+	var layer: CivilianLayer = _screen.civilian_layer
 	layer.viewer_faction = MapScreen.PLAYER_FACTION
 	var rival: int = _rival_owner()
 	assert_true(rival != MapModel.NO_ID, "the chart holds a rival court")
-	var unit: CivilianState = layer.add_unit(rival, "builder", mounted.capital_tile)
+	var unit: CivilianState = layer.add_unit(rival, "builder", _screen.capital_tile)
 	unit.start_work("build_improvement", unit.tile, 2)
 	layer.sync()
 	var marker: CivilianMarker = layer.marker_for(unit)
@@ -146,25 +172,25 @@ func test_a_rival_crew_never_borrows_the_loop() -> void:
 ## --- own standards ----------------------------------------------------------
 
 func test_a_march_lifts_an_own_standard_then_settles_it() -> void:
-	var layer: ArmyLayer = mounted.army_layer
+	var layer: ArmyLayer = _screen.army_layer
 	layer.viewer_faction = MapScreen.PLAYER_FACTION
 	var field: ArmyState = _detach()
 	assert_not_null(field)
 	var marker: ArmyMarker = layer.marker_for(field)
-	var destinations: Array[int] = ArmyMovement.destinations(mounted.model, field)
+	var destinations: Array[int] = ArmyMovement.destinations(_screen.model, field)
 	assert_false(destinations.is_empty(), "the field army has ground to march")
 	layer.order(field, destinations[0])
 	assert_eq(marker.order, OrderMotion.Order.MOVE, "a marching standard reads busy")
-	await get_tree().create_timer(0.6).timeout
+	await _await_idle(func() -> int: return marker.order)
 	assert_eq(marker.order, OrderMotion.Order.NONE, "an idle standard stays still")
 
 
 func test_a_standard_not_the_crowns_never_marches() -> void:
-	var layer: ArmyLayer = mounted.army_layer
+	var layer: ArmyLayer = _screen.army_layer
 	var field: ArmyState = _detach()
 	assert_not_null(field)
 	var marker: ArmyMarker = layer.marker_for(field)
-	var destinations: Array[int] = ArmyMovement.destinations(mounted.model, field)
+	var destinations: Array[int] = ArmyMovement.destinations(_screen.model, field)
 	assert_false(destinations.is_empty(), "the field army has ground to march")
 	layer.viewer_faction = _rival_owner()
 	layer.order(field, destinations[0])
@@ -174,11 +200,11 @@ func test_a_standard_not_the_crowns_never_marches() -> void:
 ## --- own squadrons ----------------------------------------------------------
 
 func test_a_station_reads_as_work_only_on_the_crowns_fleet() -> void:
-	var layer: ShipLayer = mounted.ship_layer
+	var layer: ShipLayer = _screen.ship_layer
 	var own: FleetState = _own_fleet(layer)
 	assert_not_null(own)
 	own.mission = FleetState.Mission.PATROL
-	MapPlayFleets.show_dossier(mounted.play, own)
+	MapPlayFleets.show_dossier(_screen.play, own)
 	var ship: Ship = layer.ship_for(own)
 	assert_true(ship.on_station, "a station at sea reads busy")
 	assert_eq(ship.busy_order(), OrderMotion.Order.WORK)
@@ -195,14 +221,14 @@ func test_a_station_reads_as_work_only_on_the_crowns_fleet() -> void:
 
 
 func test_a_sail_lifts_the_hull_then_settles_her() -> void:
-	var layer: ShipLayer = mounted.ship_layer
+	var layer: ShipLayer = _screen.ship_layer
 	var own: FleetState = _own_fleet(layer)
 	var ship: Ship = layer.ship_for(own)
 	assert_not_null(ship)
 	ShipMarkers.sail(ship, ship.position + Vector2(40, 0))
 	assert_eq(ship.order, OrderMotion.Order.MOVE, "a sailing hull reads busy")
 	assert_eq(ship.facing, 1.0, "she turns into her course")
-	await get_tree().create_timer(0.8).timeout
+	await _await_idle(func() -> int: return ship.order)
 	assert_eq(ship.order, OrderMotion.Order.NONE, "a hull at rest stays still")
 
 
@@ -216,7 +242,7 @@ func test_a_rival_hull_sails_without_the_loop() -> void:
 
 ## The roster pass re-reads the crown's flag and the station loop with it.
 func test_the_roster_pass_re_reads_the_busy_loop() -> void:
-	var layer: ShipLayer = mounted.ship_layer
+	var layer: ShipLayer = _screen.ship_layer
 	var own: FleetState = _own_fleet(layer)
 	own.mission = FleetState.Mission.DEFEND
 	layer.markers.sync(layer.fleets)
@@ -235,13 +261,13 @@ func _own_crew(layer: CivilianLayer) -> CivilianState:
 ## One field army detached from the crown's Home Army: the only standard that
 ## may march.
 func _detach() -> ArmyState:
-	for army: ArmyState in mounted.army_layer.armies:
+	for army: ArmyState in _screen.army_layer.armies:
 		if army.owner == MapScreen.PLAYER_FACTION and army.is_home_army():
 			if army.count() == 0:
 				return null
-			mounted.army_layer.select(army)
-			MapPlayArmies.on_action(mounted.play, "detach:%s" % army.regiments[0])
-			return mounted.army_layer.selected_army
+			_screen.army_layer.select(army)
+			MapPlayArmies.on_action(_screen.play, "detach:%s" % army.regiments[0])
+			return _screen.army_layer.selected_army
 	return null
 
 
@@ -261,7 +287,7 @@ func _rival_fleet(layer: ShipLayer) -> FleetState:
 
 ## Any court but the crown's, as the chart's own ownership reads it.
 func _rival_owner() -> int:
-	var province: int = Fixture.foreign_province(mounted.model)
+	var province: int = Fixture.foreign_province(_screen.model)
 	if province == MapModel.NO_ID:
 		return MapModel.NO_ID
-	return mounted.model.province_owner(province)
+	return _screen.model.province_owner(province)

@@ -4,7 +4,8 @@ extends ModalShell
 ## active works and vacant resource tiles, with one-click Builder dispatch.
 ## The panel renders ImprovementLedger rows and emits intents; MapScreen owns
 ## the rules call and the camera (REQ-P3-02, REQ-P3-03). Summary and filter strip
-## live in EstatesHead; grouping/filtering in EstateLedger. The wash, the
+## live in EstatesHead; grouping/filtering in EstateLedger; list paint in
+## EstatesRows; the one press's price walk in EstatesRaise. The wash, the
 ## safe-area fit, the pause-door park and the back gesture are ModalShell's, so
 ## the estates door presents like every other cartouche door (REQ-P1-05,
 ## REQ-P1-07).
@@ -96,7 +97,7 @@ func refresh() -> void:
 		Blockades.of(blockade_source)
 	)
 	_head.render(_data, stockpile)
-	_subtitle.text = _subtitle_text()
+	_subtitle.text = EstatesRows.subtitle(model, _province_filter)
 	_sync_counsel()
 	_apply_filter()
 
@@ -251,133 +252,80 @@ func _footer() -> Control:
 # --- rendering --------------------------------------------------------------
 
 
-func _subtitle_text() -> String:
-	if _province_filter >= 0 and model != null:
-		return "%s · every resource tile in this province." % model.province_name(_province_filter)
-	return "Every owned resource tile, its works and its road to the crown."
-
-
 func _press_filter(_key: String) -> void:
 	_apply_filter()
 
 
 func _apply_filter() -> void:
-	_clear_rows()
 	if _head == null:
+		EstatesRows.clear(_rows)
 		return
 	# The marks come off the one reading the counsel line holds, so a chip press
 	# reorders the same rows without asking the pass again (REQ-P4-01;
 	# DR-20261122-04).
-	var groups: Array[Dictionary] = EstateLedger.grouped(_data)
-	var shown: int = 0
-	for group: Dictionary in EstateLedger.in_province(groups, _province_filter):
-		var rows: Array[Dictionary] = EstateLedger.matching(group["rows"], _head.filter)
-		if rows.is_empty():
-			continue
-		shown += rows.size()
-		_add_group(group, rows)
-	if shown == 0:
-		var empty := Label.new()
-		empty.text = "No estates match this view."
-		empty.add_theme_font_size_override("font_size", 14)
-		empty.add_theme_color_override("font_color", Palette.TEXT_DIM)
-		_rows.add_child(empty)
+	var marks: Dictionary = {} if _counsel == null else _counsel.keys()
+	var row_compact: bool = (
+		HudLayout.is_compact(get_viewport_rect().size) if is_inside_tree() else _compact
+	)
+	EstatesRows.fill(
+		_rows,
+		_data,
+		_province_filter,
+		_head.filter,
+		marks,
+		_compact,
+		row_compact,
+		_on_row_build,
+		_on_row_cancel,
+		_on_row_focus
+	)
 	_sync_batch()
 
 
 # --- the one press -----------------------------------------------------------
 
 
-## The ready estates the current view prints, in the order it prints them: the
-## province the card was opened on, then the reading its chips hold, so the press
-## files exactly what the crown can see (REQ-P5-04; DR-20261116-06).
-func _ready_tiles() -> Array[Vector2i]:
-	return EstateLedger.ready_tiles(
-		EstateLedger.in_province(EstateLedger.grouped(_data), _province_filter),
-		_head.filter
-	)
-
-
-## The ready rows the same view prints, priced: one estate's price is the
-## bootstrap's, which reads the stores the estates before it leave, so the line
-## is walked rather than summed (DR-20261118-12).
-func _ready_rows() -> Array[Dictionary]:
-	return EstateLedger.ready_rows(
-		EstateLedger.in_province(EstateLedger.grouped(_data), _province_filter),
-		_head.filter
-	)
-
-
-## The press names how many estates it would order, so the count is read before
-## the stores are spent; a view with nothing ready carries no press (REQ-P5-03).
-## The line under it names what the walk would take, or what waits and why — and
-## the armed face takes the line's own count from that walk, so the confirm names
-## what will be filed rather than what the view prints (DR-20261118-21).
-func _sync_batch() -> void:
-	if _line == null:
-		_batch.set_ready(_ready_tiles().size(), "estates")
-		return
-	var reading: Dictionary = RaiseLine.plan(
-		_ready_rows(),
-		stockpile,
-		ImprovementOrders.idle_builders(units, faction).size(),
-		CivilianCatalog.display_name("builder"),
-		_price_row
-	)
-	_line.text = RaiseLine.sheet_line(reading)
-	_line.visible = not _line.text.is_empty()
-	_batch.set_ready(_ready_tiles().size(), "estates", int(reading["filed"]))
-
-
-## One estate's price inside the line, read against the stores the orders before
-## it leave: the H8 bootstrap waives a level-1 raise's feedstock while the court
-## holds none, so the fifth estate is not the first's price (wiki:
-## extraction-and-improvements § H8 feedstock bootstrap; #878, REQ-P2-03).
-func _price_row(row: Dictionary, left: Dictionary) -> Dictionary:
-	var tile: Variant = row.get("tile", CivilianState.NO_TILE)
-	if model == null or not (tile is Vector2i):
-		var raw: Variant = row.get("cost", {})
-		return raw as Dictionary if raw is Dictionary else {}
-	return CivilianWorkPlan.bootstrap_cost(
-		model, tile as Vector2i, left, int(row.get("next_level", 1))
-	)
+## Ready estates the current view prints, in print order: the province the card
+## was opened on, then the reading its chips hold (REQ-P3-02, REQ-P5-04).
+func ready_tiles() -> Array[Vector2i]:
+	var filter_key: String = _head.filter if _head != null else "all"
+	var view: Dictionary = EstatesRaise.ready_view(_data, _province_filter, filter_key)
+	var tiles: Array[Vector2i] = []
+	tiles.assign(view["tiles"])
+	return tiles
 
 
 ## The second tap: the screen files the walk and prints its one receipt, so the
 ## panel never owns an order of its own (REQ-P3-03, REQ-P5-05).
 func _raise_all() -> void:
-	raise_all_pressed.emit(_ready_tiles())
+	raise_all_pressed.emit(ready_tiles())
 
 
-func _add_group(group: Dictionary, rows: Array[Dictionary]) -> void:
-	var heading := Label.new()
-	heading.text = "%s  ·  %d estate%s  ·  %d producing" % [
-		String(group["name"]).to_upper(),
-		rows.size(),
-		"" if rows.size() == 1 else "s",
-		int(group["producing"]),
-	]
-	heading.add_theme_font_size_override("font_size", 10 if _compact else 11)
-	heading.add_theme_color_override("font_color", Palette.GOLD_DIM)
-	_rows.add_child(heading)
-	var marks: Dictionary = _counsel.keys()
-	for row: Dictionary in rows:
-		var item := ImprovementRow.new()
-		item.compact = HudLayout.is_compact(get_viewport_rect().size)
-		# The row wears the mark when the reading names its tile, keyed the way
-		# the pick keys its own estates (DR-20261122-04).
-		item.court = marks.has(row.get("tile", CivilianState.NO_TILE))
-		item.build_pressed.connect(func(tile: Vector2i) -> void: action_pressed.emit("build", tile))
-		item.cancel_pressed.connect(func(tile: Vector2i) -> void: action_pressed.emit("cancel", tile))
-		item.focus_pressed.connect(func(tile: Vector2i) -> void: focus_pressed.emit(tile))
-		_rows.add_child(item)
-		item.setup(row)
+func _sync_batch() -> void:
+	var filter_key: String = _head.filter if _head != null else "all"
+	EstatesRaise.sync(
+		_batch,
+		_line,
+		_data,
+		_province_filter,
+		filter_key,
+		model,
+		stockpile,
+		units,
+		faction
+	)
 
 
-func _clear_rows() -> void:
-	for child: Node in _rows.get_children():
-		_rows.remove_child(child)
-		child.queue_free()
+func _on_row_build(tile: Vector2i) -> void:
+	action_pressed.emit("build", tile)
+
+
+func _on_row_cancel(tile: Vector2i) -> void:
+	action_pressed.emit("cancel", tile)
+
+
+func _on_row_focus(tile: Vector2i) -> void:
+	focus_pressed.emit(tile)
 
 
 ## Phone-sized filter buttons, exposed so layout tests assert tap targets

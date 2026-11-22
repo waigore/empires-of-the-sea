@@ -16,9 +16,9 @@ Wars, treaties, aid, intervention, chronicle — wiki
   bought. Minors/Tribes accept peace; GP 26+.
 - **Alliances:** offer at 51+; AI accepts at 76; human answers. Breaking costs −50 with
   ally, −10 with others; never in war.
-- **Warmth gates:** refusals name the gate's distance up the herald meter
+- **Warmth gates:** refusals name the distance up the herald meter
   (`gate_line`).
-- **Call to arms:** a GP war calls each ally once. AI allies join 50+;
+- **Call to arms:** a GP war calls each ally. AI allies join 50+;
   human calls wait; refusal breaks treaty.
 - **Intervention:** embassy and deed holders answer a Minor/Tribe war:
   intervene, stand aside (lose embassy) or protest −10 (−5 with Propaganda);
@@ -46,11 +46,11 @@ Wars, treaties, aid, intervention, chronicle — wiki
 - **Dossier:** evidence, suspicion, behaviour —
   [`intel-dossier.md`](intel-dossier.md).
 - **Diplomatic lens** (**P**): blue yours, green friendly, grey neutral, red war.
-- **Rival AI courts:** one order a turn ([`ai.md`](ai.md));
+- **Rival AI:** one order a turn ([`ai.md`](ai.md));
   below 50 desire, white peace.
 - **Own envoy** (`MapPlayDiplomacyPick`): the sheet names the order the crown's
-  planner would spend on the court in view, where it went instead, or the gate
-  that holds it.
+  planner would spend on the court in view, where it went instead, or its gate;
+  the list marks the target (`▸`).
 
 ## Deferred (REQ-P2-02)
 
