@@ -18,6 +18,7 @@ const KIND_SORTIE: String = AiNavalPlanner.KIND_SORTIE
 const KIND_PURSUE: String = AiNavalPlanner.KIND_PURSUE
 const KIND_RAID: String = AiNavalPlanner.KIND_RAID
 const KIND_HOME: String = AiNavalPlanner.KIND_HOME
+const KIND_CONVOY: String = AiNavalPlanner.KIND_CONVOY
 
 ## Squadrons wait for a sail and the pass orders none: the gate the sheet names
 ## instead of a clause it cannot print.
@@ -106,7 +107,23 @@ static func clause(model: MapModel, order: Dictionary, ship: String) -> String:
 			]
 		KIND_HOME:
 			return _home_clause(model, order, ship)
+		KIND_CONVOY:
+			return _convoy_clause(model, order, ship)
 	return ""
+
+
+## Convoy: the merchant hull's leg home is a convoy, never a war move
+## (wiki: economy-planner § Cargo; issue #1258).
+static func _convoy_clause(model: MapModel, order: Dictionary, ship: String) -> String:
+	if bool(order.get("dock", false)):
+		var port: int = int(order.get("province", MapModel.NO_ID))
+		if port == MapModel.NO_ID:
+			return ""
+		return "the %s home with the holds, to %s" % [ship, model.province_name(port)]
+	var zone: int = int(order.get("zone", MapModel.NO_ID))
+	if zone == MapModel.NO_ID:
+		return ""
+	return "the %s home with the holds, toward the %s" % [ship, model.sea_zone_name(zone)]
 
 
 ## Home: she docks when the harbour is hers to enter, else she takes the first

@@ -28,7 +28,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (DR-20261121-15).
 - **Naval planner** (`AiNavalPlanner`): at war sortie/pursue the weakest
   squadron (DR-20261110-21), else raid a hostile coast (DR-20261111-17); at
-  peace, home (DR-20261110-30).
+  peace, home (DR-20261110-30); a merchant hull sails a convoy, and the trace
+  says so (#1258).
 - **Minor/Tribe defence** (`AiDefensePlanner`): hold; invaders draw relief.
 - **Court charts**: each court's fog, read by voyages, invasions, diplomacy
   (DR-20261113-03).

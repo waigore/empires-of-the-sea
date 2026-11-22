@@ -5635,6 +5635,19 @@ func test_the_navy_pick_words_the_sails_the_pass_would_order() -> void:
 		),
 		"the Swallow for the %s, the first leg home" % model.sea_zone_name(zone)
 	)
+	# A convoy reads as the hull's own move: home with the holds (issue #1258).
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_CONVOY, "zone": zone}, "Swallow"
+		),
+		"the Swallow home with the holds, toward the %s" % model.sea_zone_name(zone)
+	)
+	assert_eq(
+		MapPlayNavyPick.clause(
+			model, {"kind": MapPlayNavyPick.KIND_CONVOY, "dock": true, "province": 0}, "Swallow"
+		),
+		"the Swallow home with the holds, to %s" % model.province_name(0)
+	)
 	assert_eq(
 		MapPlayNavyPick.clause(model, {"kind": "unknown", "zone": zone}, "Leopard"),
 		"",

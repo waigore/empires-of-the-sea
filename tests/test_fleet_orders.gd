@@ -3820,6 +3820,15 @@ func test_the_picks_words_name_each_sail_and_its_reason() -> void:
 		"the footing's own reason"
 	)
 	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "convoy", "zone": 0}),
+		"the court would convoy her toward the %s — the first leg home with the holds" % water,
+		"a merchant's leg reads as a convoy (issue #1258)"
+	)
+	assert_eq(
+		MapPlayFleetPickWords.line(model, {"kind": "convoy", "dock": true, "province": 0}),
+		"the court would convoy her home to %s" % port
+	)
+	assert_eq(
 		MapPlayPickProse.sentence("the court would dock her at %s" % port),
 		"The court would dock her at %s." % port
 	)
