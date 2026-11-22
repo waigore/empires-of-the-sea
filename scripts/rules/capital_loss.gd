@@ -183,7 +183,10 @@ static func resolve_world(world: WorldMap, before: Array) -> Dictionary:
 
 
 ## Hands every province of a fallen faction to its conqueror and clears the
-## old seat flags; returns how many provinces changed hands.
+## old seat flags; returns how many provinces changed hands. The deeds on that
+## ground go with it — a court that leaves play leaves no claim to a tile inside
+## its conqueror's province (wiki: capital-and-connectivity § Capital loss and
+## reassignment; diplomacy § Intervention).
 static func transfer_all(world: WorldMap, faction: int, conqueror: int) -> int:
 	if world == null or faction == NO_ID or conqueror == NO_ID:
 		return 0
@@ -194,7 +197,8 @@ static func transfer_all(world: WorldMap, faction: int, conqueror: int) -> int:
 		for province: ProvinceState in model.provinces:
 			if province.owner != faction:
 				continue
-			province.owner = conqueror
+			if not ProvinceHandover.hand_over(model, province.id, conqueror):
+				continue
 			clear_seat(province)
 			moved += 1
 	return moved
