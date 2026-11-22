@@ -2073,3 +2073,33 @@ func test_the_market_tab_prints_no_trade_without_a_planner() -> void:
 	assert_eq(body.counsel_text(), "", "no planner, no line")
 	assert_true(MapPlayMarketPick.pick(play).is_empty(), "and no pick behind it")
 	play.ai_mode = AiControl.FULL
+
+
+## The sheet surface is a reading of the ledger: with no ledger mounted behind
+## it, every door and every pick answers empty instead of raising
+## (REQ-P3-01). The doors write the panels they are handed, and never a rule.
+func test_a_bare_sheet_surface_reads_nothing() -> void:
+	var sheet: EconomySheet = EconomySheet.new(EconomyController.new())
+	assert_eq(sheet.research_pick(), {}, "no seat, no study to mark")
+	assert_eq(sheet.production_pick(), {}, "no seat, no runs to mark")
+	assert_eq(sheet.market_pick(), {}, "no seat, no trade to mark")
+	sheet.open_ledger()
+	sheet.open_college()
+	sheet.repaint_ledger()
+	sheet.repaint_college()
+	sheet.paint_crown()
+	var orphan: EconomySheet = EconomySheet.new()
+	assert_eq(orphan.research_pick(), {}, "no host, nothing to read")
+
+
+## The ledger's door and its repaint paint the same sheet: one argument list, so
+## the press and the auction's receipt can never disagree (REQ-P1-05).
+func test_the_ledgers_door_and_repaint_paint_one_sheet() -> void:
+	_screen.economy.open_panel()
+	assert_true(_screen.hud.panels.is_economy_open(), "the door opens the ledger")
+	_screen.economy.last_clearing = {"deals": [], "fills": [], "credits": {}}
+	_screen.economy.refresh_panel()
+	assert_true(_screen.hud.panels.is_economy_open(), "the repaint keeps it open")
+	_screen.hud.panels.hide_economy()
+	_screen.economy.refresh_panel()
+	assert_false(_screen.hud.panels.is_economy_open(), "a closed ledger stays closed")
