@@ -68,10 +68,11 @@ static func build_hud(play: PlaySession) -> void:
 	)
 	# The estates ledger names the estates the court's own Builder pass would
 	# raise this phase, read on the ledger's own snapshot so the line reads down
-	# the page it answers (wiki: extraction-and-improvements § Estates ledger;
-	# DR-20261121-10).
+	# the page it answers, and marks those rows with the counsel's `▸` so the
+	# raise is found among a long page (wiki: extraction-and-improvements
+	# § Estates ledger; DR-20261121-10, DR-20261122-04).
 	play.improvements.counsel_source = (
-		func(data: Dictionary) -> String: return MapPlayEstatesPick.line(play, data)
+		func(data: Dictionary) -> Dictionary: return MapPlayEstatesPick.pick(play, data)
 	)
 	# The province dossier names the orders the court would give on its ground:
 	# the work the civilian pass would put crews to here and the hosts the land
