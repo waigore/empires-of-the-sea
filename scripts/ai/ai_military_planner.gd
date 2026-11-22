@@ -270,7 +270,10 @@ static func _best_order(
 	return best
 
 
-## Walls soak incoming strength, so a storm needs a margin over the defenders.
+## Walls soak incoming strength, and an empty walled province still prices its
+## standing battery (issue #1314), so the gate reads the same ladder the
+## resolver does: a host above [method FortRules.storm_threshold] may storm; a
+## host over open ground needs the same margin over the defenders it always did.
 static func _can_storm(
 	config: AiConfig,
 	model: MapModel,
@@ -281,9 +284,10 @@ static func _can_storm(
 	var defenders: Array[ArmyState] = ArmyForce.armies_of(
 		armies, province, model.province_owner(province)
 	)
+	var level: int = FortRules.level_at(model, province)
 	if defenders.is_empty():
-		return true
-	var wall: float = FortRules.wall_hp(FortRules.level_at(model, province))
+		return level < 1 or army.strength() > FortRules.storm_threshold({}, level)
+	var wall: float = FortRules.wall_hp(level)
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
 	return attack > ArmyForce.side_strength(defenders) * margin

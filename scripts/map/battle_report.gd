@@ -274,6 +274,14 @@ static func _land_core(
 				attacker, defender, province_name
 			]
 		ArmyCombat.Outcome.CAPTURE:
+			if battle.has("storm"):
+				var storm: Dictionary = battle.get("storm", {}) as Dictionary
+				return "%s storms the walls of %s — %d regiment%s lost" % [
+					attacker,
+					province_name,
+					(battle.get("attacker_lost", []) as Array).size(),
+					"" if (battle.get("attacker_lost", []) as Array).size() == 1 else "s",
+				]
 			return "%s occupies %s unopposed" % [attacker, province_name]
 		ArmyCombat.Outcome.ATTACKER_ADVANTAGE:
 			return "%s holds the field at %s" % [attacker, province_name] \

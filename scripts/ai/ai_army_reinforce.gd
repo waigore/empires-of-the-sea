@@ -217,13 +217,35 @@ static func muster_hands(
 	return config.parameter("army.min_peasants") + RegimentEconomy.WORKER_COST
 
 
-## Regiments the court aims at: the peace target, raised by `army.war_extra` at
-## war (wiki: ai-architecture § Land reinforcement).
-static func _target(config: AiConfig, at_war: bool) -> int:
+## Regiments the court aims at on its published policy alone: the peace target,
+## raised by `army.war_extra` at war (wiki: ai-architecture § Land
+## reinforcement).
+static func guard_regiments(config: AiConfig, at_war: bool) -> int:
+	if config == null:
+		return 0
 	var target: int = config.parameter("army.regiment_target")
 	if at_war:
 		target += config.parameter("army.war_extra")
 	return target
+
+
+## Regiments the court aims at: the guard plus the host the thinnest wall ahead
+## asks for (issue #1314). Every gate that reads the target — the muster, its
+## labour floor, the chest it holds — asks for the same host.
+static func _target(config: AiConfig, at_war: bool) -> int:
+	return guard_regiments(config, at_war) + AiStormGate.extra_regiments(
+		_storm_read(config, at_war)
+	)
+
+
+## The wall reading the map layer hands in ([method
+## MapPlayArmyMusterAi.storm_extra]); a court with no world passes none, and the
+## published target stands. Peace musters the published target too — the wall is
+## a war reading.
+static func _storm_read(config: AiConfig, at_war: bool) -> Variant:
+	if config == null or not at_war:
+		return null
+	return config.storm_read
 
 
 ## The army the court desires at its published target — the size it plans food

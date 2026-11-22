@@ -6,17 +6,31 @@ extends RefCounted
 ## gates are derived here so combat, work orders and the dossier read the same
 ## numbers (REQ-P3-03). The one write, `apply_build`, lands a finished build.
 
-const MAX_LEVEL: int = 3
+const MAX_LEVEL: int = 5
 
 ## Level 0 is open field. Wall HP soaks auto-resolve strength; the damage
 ## reduction table is the same profile applied to defender casualties.
+##
+## Scaling formula (wiki: siege-mechanics § Fort Levels; issue #1314): every
+## level n ≥ 1 prices its wall and its battery off one ladder —
+## `wall_hp(n) = WALL_BASE * n`, `guns(n) = n`,
+## `damage_reduction(n) = n / 10` (ten points of cover a level). The era
+## retune keeps the shape but lifts the base: the smallest force that cracks a
+## fort eats the ration share the issue fixes (150/100/70/30/50%), so each
+## level's wall HP is the strength the opening Great Power host (the L1
+## calibration anchor) must field above the battery before the ratio bands
+## give it the province. E.g. L1 40 vs the 18-strength opening muster: the
+## soaking and the single gun leave the attacker below the 1.0 band and the
+## fort holds.
+const WALL_BASE: float = 40.0
+const REDUCTION_STEP: float = 0.1
 const LEVELS: Array[Dictionary] = [
 	{},
 	{
 		"name": "Wood",
 		"guns": 1,
-		"wall_hp": 10.0,
-		"damage_reduction": 0.25,
+		"wall_hp": 40.0,
+		"damage_reduction": 0.10,
 		"turns": 1,
 		"tech": "",
 		"cost": {"lumber": 3, "bronze": 3},
@@ -24,8 +38,8 @@ const LEVELS: Array[Dictionary] = [
 	{
 		"name": "Stone",
 		"guns": 2,
-		"wall_hp": 20.0,
-		"damage_reduction": 0.45,
+		"wall_hp": 80.0,
+		"damage_reduction": 0.20,
 		"turns": 2,
 		"tech": "mine_engineering",
 		"cost": {"lumber": 4, "bronze": 4},
@@ -33,11 +47,29 @@ const LEVELS: Array[Dictionary] = [
 	{
 		"name": "Modern",
 		"guns": 3,
-		"wall_hp": 30.0,
-		"damage_reduction": 0.60,
+		"wall_hp": 120.0,
+		"damage_reduction": 0.30,
 		"turns": 3,
 		"tech": "modern_forts",
 		"cost": {"steel": 5, "lumber": 5},
+	},
+	{
+		"name": "Bastion",
+		"guns": 4,
+		"wall_hp": 160.0,
+		"damage_reduction": 0.40,
+		"turns": 3,
+		"tech": "bastion_forts",
+		"cost": {"steel": 5, "lumber": 4, "bronze": 3},
+	},
+	{
+		"name": "Star",
+		"guns": 5,
+		"wall_hp": 200.0,
+		"damage_reduction": 0.50,
+		"turns": 4,
+		"tech": "star_forts",
+		"cost": {"steel": 6, "lumber": 6},
 	},
 ]
 
@@ -138,6 +170,30 @@ static func wall_soak(strength: float, level: int) -> float:
 	if not is_siege(level):
 		return strength
 	return maxf(0.0, strength - wall_hp(level))
+
+
+## The storming ladder for an empty walled province (issue #1314): the wall and
+## the standing battery together are the strength a storm must beat. The
+## resolver and the rival planners' storm gates read the same figure, so a
+## march the gate admits the ladder can never repel — and a host under it never
+## takes the ground.
+static func storm_threshold(tech: Dictionary, level: int) -> float:
+	return wall_hp(level) + emplaced_strength(level, tech)
+
+
+## The storm's price, read off the same ladder: every whole STORM_STEP of the
+## host's strength spent crossing the threshold is one regiment the storm
+## loses, floored. Zero below the threshold: the wall stands.
+static func storm_losses(strength: float, tech: Dictionary, level: int) -> int:
+	var over: float = strength - storm_threshold(tech, level)
+	if over <= 0.0:
+		return 0
+	return int(floor(over / STORM_STEP))
+
+
+## The ladder's own step: strength is soaked by the wall, then each whole
+## STORM_STEP over it is one regiment the storm loses.
+const STORM_STEP: float = 10.0
 
 
 ## Defenders behind the wall take a reduced share of their casualty band.
