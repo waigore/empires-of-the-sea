@@ -4835,7 +4835,8 @@ func _front_turn(
 	var plan: Dictionary = AiDiplomacyPlanner.decide(
 		config, state, AiState.new(), world, 1, context
 	)
-	return {"plan": plan, "posture": posture, "state": state}
+	return {"plan": plan, "posture": posture, "state": state, "world": world,
+		"context": context, "config": config}
 
 
 ## The rival's gates have one home (AiDiplomacyGates): the planner's war and
@@ -5503,6 +5504,86 @@ func test_an_overstretched_court_still_takes_a_crown_it_outmatches() -> void:
 	)
 	assert_eq(int(action.get("target", -1)), PHASE_OTHER)
 	assert_eq(String(candidate.get("blocked", "")), "")
+
+
+## The outmatch read asks the host that marches, not the province count
+## (issue #1234): a court under its own muster strength that reads a peer
+## fielding more regiments may not open that war, however many provinces the
+## published power score counts. The court keeps its one order for the next aim.
+func test_an_under_strength_court_opens_no_war_on_a_bigger_host() -> void:
+	var run: Dictionary = _front_turn(2)
+	# The issue's own reading: a 21-province court with one regiment against a
+	# 2-province peer with five — the published score reads the court ahead,
+	# the host it can field does not.
+	var context: Dictionary = run["context"].duplicate(true)
+	context["power"] = {PHASE_OWNER: 240, PHASE_OTHER: 30, PHASE_MINOR: 1}
+	context["regiments"] = {PHASE_OWNER: 1, PHASE_OTHER: 5, PHASE_MINOR: 1}
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		run["config"], run["state"], AiState.new(), run["world"], 1, context
+	)
+	var candidate: Dictionary = _candidate(plan, PHASE_OTHER)
+
+	assert_true(
+		AiDiplomacyGates.outmatches(run["config"], PHASE_OTHER, context) == false,
+		"the bigger host is a war the court cannot win on the hosts it reads"
+	)
+	assert_eq(
+		String(candidate.get("blocked", "")), "overstretched: no third front",
+		"the province count never carries a war the host cannot fight"
+	)
+	assert_ne(
+		String((plan["action"] as Dictionary).get("kind", "")),
+		AiDiplomacyPlanner.KIND_DECLARE_WAR,
+		"the one order goes to the next aim"
+	)
+
+
+## A court at its muster target reads the published power score again: the
+## province term answers, so a bigger province count is a war it may still open.
+func test_a_court_at_strength_reads_the_published_score() -> void:
+	var run: Dictionary = _front_turn(2)
+	var config: AiConfig = run["config"]
+	var context: Dictionary = run["context"].duplicate(true)
+	context["power"] = {PHASE_OWNER: 240, PHASE_OTHER: 30, PHASE_MINOR: 1}
+	# At its war-target strength the same published score answers: the court
+	# outmatches and the cheap province next door stays on the table.
+	context["regiments"] = {
+		PHASE_OWNER: AiArmyReinforce.desired_regiments(config, true),
+		PHASE_OTHER: 5, PHASE_MINOR: 1,
+	}
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		config, run["state"], AiState.new(), run["world"], 1, context
+	)
+
+	assert_true(
+		AiDiplomacyGates.outmatches(config, PHASE_OTHER, context),
+		"at strength the published score answers the pair"
+	)
+	assert_eq(
+		String(_candidate(plan, PHASE_OTHER).get("blocked", "")), "",
+		"the cheap province next door stays on the table"
+	)
+
+
+## The read keeps the published planner when the caller hands in no order of
+## battle: an unknown host is not a war the court cannot win.
+func test_an_outmatch_read_without_a_host_keeps_the_published_score() -> void:
+	var run: Dictionary = _front_turn(2)
+	var context: Dictionary = run["context"].duplicate(true)
+	context.erase("regiments")
+
+	assert_true(
+		AiDiplomacyGates.outmatches(run["config"], PHASE_OTHER, context),
+		"no host to read: the published planner stands"
+	)
+	# And the planner never blocks the pair: the cheap province next door opens.
+	var plan: Dictionary = AiDiplomacyPlanner.decide(
+		run["config"], run["state"], AiState.new(), run["world"], 1, context
+	)
+	assert_eq(
+		String(_candidate(plan, PHASE_OTHER).get("blocked", "")), "",
+		"an unknown order of battle is not a war the court cannot win"
+	)
 
 
 func test_a_court_at_one_front_still_opens_its_next_war() -> void:
