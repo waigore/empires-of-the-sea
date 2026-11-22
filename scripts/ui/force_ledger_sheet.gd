@@ -13,12 +13,12 @@ extends LedgerSheet
 ## not a second copy of the whole sheet (REQ-P3-01, REQ-P3-02). The sheet chrome,
 ## fade and pause-door park come from SheetFrame; the chips, rows and empty
 ## notice from LedgerSheet; the heading dress from LedgerList.
-
-## The court's own reading, asked at every refresh: the sails the published
-## policy would order this force this turn, or nothing when the slot is unwired
-## (DR-20261121-13). A sheet that carries no reading leaves it `Callable()`.
-var counsel_source: Callable = Callable()
-var _counsel: Label = null
+##
+## The court's own reading is read once at the refresh and every standard or
+## squadron it names leads with the counsel's `▸` on its heading, so a crown
+## finds the force her staff would order rather than scanning every one
+## (DR-20261122-05). The pick and the marks it keys are the counsel line's own
+## (CounselLine; REQ-P4-01, REQ-P4-02).
 
 
 ## Re-reads both charts' roster for the player's crown and repaints.
@@ -114,33 +114,11 @@ func _build_body(column: VBoxContainer) -> void:
 func _under_chips() -> Control:
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 10)
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	block.add_child(_counsel)
+	_counsel_line(block)
 	var note: Control = _note()
 	if note != null:
 		block.add_child(note)
 	return block
-
-
-## The court's own reading, asked at every refresh: the sails the published
-## policy would order this force this turn, or nothing when the slot is unwired
-## (DR-20261121-13). A closed sheet reads nothing, because the pass is a planner
-## walk no one is looking at (REQ-P4-02).
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
-	var text: String = ""
-	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_snapshot))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
-
-
-## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
-## the sheet carries no reading.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
 
 
 func _apply_filter() -> void:
@@ -149,9 +127,17 @@ func _apply_filter() -> void:
 
 ## One standard's or squadron's heading: where it stands and what it is doing,
 ## then the regiments it flies or the hulls she sails. A regiment's orders are its
-## standard's and a hull's are her squadron's, so they read once.
+## standard's and a hull's are her squadron's, so they read once. A heading the
+## court's own reading names leads with the counsel's mark (DR-20261122-05).
 func _heading(group: Dictionary, count: int) -> Control:
-	return LedgerList.standing_heading(
-		"%s  ·  %d %s" % [String(group["heading"]), count, _row_word(count)],
-		_standing_text(group)
-	)
+	var title: String = "%s  ·  %d %s" % [String(group["heading"]), count, _row_word(count)]
+	if _is_marked(group):
+		title = "%s %s" % [ForceLedgerRow.COURT_MARK, title]
+	return LedgerList.standing_heading(title, _standing_text(group))
+
+
+## Asks the court's own reading once and prints it: the line and the marks both
+## come off the one pick the counsel line holds, so a mark can never outrun the
+## sentence it answers (CounselLine; DR-20261122-05, REQ-P4-01).
+func _is_marked(_group: Dictionary) -> bool:
+	return false

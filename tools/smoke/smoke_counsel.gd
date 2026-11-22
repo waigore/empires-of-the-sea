@@ -4,7 +4,7 @@ extends RefCounted
 ## navy, the army, the muster, the colonies, the realm, the production, the
 ## market and the workers tabs — opens from the door the player uses, prints its
 ## one gold line, and orders nothing
-## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01/03).
+## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01/03/04).
 ##
 ## The court ledger's own envoy and the sound desk stay in the HUD step; this
 ## step owns the counsel readings and the tallies that prove they move nothing.
@@ -70,6 +70,13 @@ static func _estates(run, screen: MapScreen) -> void:
 		screen.improvements._counsel.visible == not counsel.is_empty(),
 		"estates counsel stands with its reading"
 	)
+	# Every estate the reading names wears the counsel's mark, and no other row
+	# does, so the raise is found among a long page (DR-20261122-04).
+	var pick: Dictionary = MapPlayEstatesPick.pick(screen.play, screen.improvements._data)
+	run.check(
+		_marked_estates(screen.improvements) == (pick.get("keys", {}) as Dictionary).size(),
+		"every estate the court would raise wears the mark"
+	)
 	screen.improvements.close()
 
 
@@ -118,6 +125,23 @@ static func _navy(run, screen: MapScreen) -> void:
 		"the navy's counsel stands with its reading"
 	)
 	run.check(_fleet_orders(screen) == before, "the navy's reading orders nothing")
+	# Every squadron heading the court's reading names wears the counsel's mark,
+	# and no other heading does (DR-20261122-05).
+	var keys: Dictionary = MapPlayNavyPick.pick(screen.play, navy._snapshot).get("keys", {})
+	var named: int = 0
+	var honest: bool = true
+	for group: Dictionary in NavalLedger.groups(
+		navy._snapshot, LedgerRows.REGION_ALL, NavalLedger.READING_ALL
+	):
+		var marked: bool = keys.has(MapPlayPickProse.row_key(group, "fleet"))
+		honest = honest and navy._is_marked(group) == marked
+		if marked:
+			named += 1
+	run.check(honest, "the navy marks exactly the squadrons its reading names")
+	run.check(
+		_marked_headings(navy._rows) == named,
+		"the navy's marks are painted on the headings they answer"
+	)
 	navy.close()
 
 
@@ -144,6 +168,23 @@ static func _army(run, screen: MapScreen) -> void:
 		"the army's counsel stands with its reading"
 	)
 	run.check(_army_orders(screen) == before, "the army's reading orders nothing")
+	# Every standard heading the court's reading names wears the counsel's mark,
+	# and no other heading does (DR-20261122-05).
+	var keys: Dictionary = MapPlayArmyOrdersPick.pick(screen.play, army._snapshot).get("keys", {})
+	var named: int = 0
+	var honest: bool = true
+	for group: Dictionary in ArmyLedger.groups(
+		army._snapshot, LedgerRows.REGION_ALL, ArmyLedger.READING_ALL
+	):
+		var marked: bool = keys.has(MapPlayPickProse.row_key(group, "army"))
+		honest = honest and army._is_marked(group) == marked
+		if marked:
+			named += 1
+	run.check(honest, "the army marks exactly the standards its reading names")
+	run.check(
+		_marked_headings(army._rows) == named,
+		"the army's marks are painted on the headings they answer"
+	)
 	army.close()
 
 
@@ -373,6 +414,17 @@ static func _marked_rows(panel: ProvinceLedgerPanel) -> int:
 	return marked
 
 
+## How many estate rows wear the counsel's mark, so the smoke can hold the count
+## to the reading's own keys (DR-20261122-04).
+static func _marked_estates(panel: ImprovementPanel) -> int:
+	var marked: int = 0
+	for child: Node in panel._rows.get_children():
+		var row := child as ImprovementRow
+		if row != null and row.court:
+			marked += 1
+	return marked
+
+
 ## How many muster rows wear the court's mark, so the smoke can hold the count to
 ## the reading's own keys (DR-20261122-03).
 static func _marked_forces(panel: ForceLedgerPanel) -> int:
@@ -380,5 +432,20 @@ static func _marked_forces(panel: ForceLedgerPanel) -> int:
 	for child: Node in panel._rows.get_children():
 		var row := child as ForceLedgerRow
 		if row != null and row.court:
+			marked += 1
+	return marked
+
+
+## How many standard or squadron headings wear the counsel's mark, so the smoke
+## can hold the marks painted to the headings the reading names
+## (DR-20261122-05).
+static func _marked_headings(rows: VBoxContainer) -> int:
+	var marked: int = 0
+	for child: Node in rows.get_children():
+		var box := child as VBoxContainer
+		if box == null or box.get_child_count() == 0:
+			continue
+		var label := box.get_child(0) as Label
+		if label != null and label.text.begins_with(ForceLedgerRow.COURT_MARK):
 			marked += 1
 	return marked

@@ -18,6 +18,7 @@ const KIND_SORTIE: String = AiNavalPlanner.KIND_SORTIE
 const KIND_PURSUE: String = AiNavalPlanner.KIND_PURSUE
 const KIND_RAID: String = AiNavalPlanner.KIND_RAID
 const KIND_HOME: String = AiNavalPlanner.KIND_HOME
+const KIND_CONVOY: String = AiNavalPlanner.KIND_CONVOY
 
 ## Squadrons wait for a sail and the pass orders none: the gate the sheet names
 ## instead of a clause it cannot print.
@@ -67,7 +68,18 @@ static func of(squadrons: Array[Dictionary], snapshot: Dictionary = {}) -> Dicti
 	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
 		squadrons, snapshot.get("groups", []), "fleet_id", "fleet"
 	)
-	return {"squadrons": ordered, "line": pick_line(ordered)}
+	return {"squadrons": ordered, "keys": keys_of(ordered), "line": pick_line(ordered)}
+
+
+## The squadrons the reading names, by `MapPlayPickProse.row_key` — what the
+## sheet's own headings look themselves up by (a heading says `fleet`, the pick
+## entry `fleet_id`), so a marked squadron is one the line answers
+## (DR-20261122-05).
+static func keys_of(squadrons: Array[Dictionary]) -> Dictionary:
+	var keys: Dictionary = {}
+	for squadron: Dictionary in squadrons:
+		keys[MapPlayPickProse.row_key(squadron, "fleet_id")] = true
+	return keys
 
 
 ## "the court would send the Leopard into the Mar Caribe and the Swallow home to
@@ -106,7 +118,23 @@ static func clause(model: MapModel, order: Dictionary, ship: String) -> String:
 			]
 		KIND_HOME:
 			return _home_clause(model, order, ship)
+		KIND_CONVOY:
+			return _convoy_clause(model, order, ship)
 	return ""
+
+
+## Convoy: the merchant hull's leg home is a convoy, never a war move
+## (wiki: economy-planner § Cargo; issue #1258).
+static func _convoy_clause(model: MapModel, order: Dictionary, ship: String) -> String:
+	if bool(order.get("dock", false)):
+		var port: int = int(order.get("province", MapModel.NO_ID))
+		if port == MapModel.NO_ID:
+			return ""
+		return "the %s home with the holds, to %s" % [ship, model.province_name(port)]
+	var zone: int = int(order.get("zone", MapModel.NO_ID))
+	if zone == MapModel.NO_ID:
+		return ""
+	return "the %s home with the holds, toward the %s" % [ship, model.sea_zone_name(zone)]
 
 
 ## Home: she docks when the harbour is hers to enter, else she takes the first

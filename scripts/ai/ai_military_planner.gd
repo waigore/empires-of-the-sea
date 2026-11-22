@@ -175,12 +175,17 @@ static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
 		var holder: int = model.province_owner(province)
 		if holder != army.owner and holder != MapModel.NO_ID:
 			continue
-		var distance: int = int(road.get(province, UNREACHABLE))
+		# Own land is the seat's own distance — the road's end — so the step onto
+		# it always wins, however near a wilderness step reads. A wilderness step
+		# is only named while the road is still a walk (wiki: military-armies
+		# § Movement and attacks — "own land is the seat's own distance, so it
+		# always wins"; DR-20261121-15).
+		var distance: int = 0 if holder == army.owner \
+			else int(road.get(province, UNREACHABLE))
 		if distance >= UNREACHABLE:
 			continue
 		# Nearest first, the lower id on a tie, so the same state always walks
-		# the same way. Own land is the seat's own distance 0 and always wins;
-		# a wilderness step is only named while the road is still a walk.
+		# the same way.
 		if not best.is_empty():
 			if distance > best_distance:
 				continue
