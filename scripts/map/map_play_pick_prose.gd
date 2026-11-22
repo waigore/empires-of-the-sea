@@ -38,14 +38,36 @@ static func join(parts: Array[String]) -> String:
 ## First `limit` parts in prose, then "and N more" for the rest — so a handset's
 ## reading stays one line of chrome (REQ-P5-07). Empty when nothing is named.
 ## When the line is capped it joins the named heads with commas (not "and"),
-## matching every sheet that already prints `…, X and N more`.
-static func capped(parts: Array[String], limit: int) -> String:
+## matching every sheet that already prints `…, X and N more`. `extra` counts
+## crews whose clause a repeat collapsed into one the line already names, so the
+## tail still counts every crew behind the sentence (issue #1304).
+static func capped(parts: Array[String], limit: int, extra: int = 0) -> String:
 	if parts.is_empty() or limit <= 0:
 		return ""
-	if parts.size() <= limit:
+	var named: Array[String] = parts.slice(0, mini(parts.size(), limit))
+	var more: int = parts.size() - named.size() + maxi(extra, 0)
+	if more <= 0:
 		return join(parts)
-	var named: Array[String] = parts.slice(0, limit)
-	return "%s and %d more" % [", ".join(named), parts.size() - limit]
+	return "%s and %d more" % [", ".join(named), more]
+
+
+## Clauses with an exact repeat collapsed into its first, plus the count of
+## clauses the repeats stood for: a roster with three crews on one order would
+## otherwise read as a stutter, and the tail still counts every crew behind the
+## one clause it names (issue #1304).
+static func unique_clauses(clauses: Array[String]) -> Dictionary:
+	var seen: Dictionary = {}
+	var kept: Array[String] = []
+	var extra: int = 0
+	for clause: String in clauses:
+		if clause.is_empty():
+			continue
+		if seen.has(clause):
+			extra += 1
+			continue
+		seen[clause] = true
+		kept.append(clause)
+	return {"clauses": kept, "extra": extra}
 
 
 ## The one court line every collection pick prints: `head`, the clauses a sheet
@@ -61,13 +83,13 @@ static func court_line(
 ## names more rows than the common three before it counts the rest. The cap is
 ## the sheet's fact; the capital, the joins and the tail stay here (REQ-P3-02).
 static func court_line_capped(
-	head: String, clauses: Array[String], tail: String, limit: int
+	head: String, clauses: Array[String], tail: String, limit: int, extra: int = 0
 ) -> String:
 	var named: Array[String] = []
 	for clause: String in clauses:
 		if not clause.is_empty():
 			named.append(clause)
-	var joined: String = capped(named, limit)
+	var joined: String = capped(named, limit, extra)
 	if joined.is_empty():
 		return ""
 	if tail.is_empty():

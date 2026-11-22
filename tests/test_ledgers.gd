@@ -897,6 +897,12 @@ func test_the_eyes_pick_words_the_spies_the_pass_would_book() -> void:
 		String(pick["line"]),
 		"the court would walk its Spy toward Genoa and keep its Spy at Sevilla"
 	)
+	# The marks ride the same pick: the spy the pass would walk is keyed, the spy
+	# it keeps on watch is not (DR-20261122-18).
+	assert_eq(pick.get("keys", {}), {"0:2": true}, "one order, one key")
+	assert_eq(
+		MapPlaySpyPick.keys_of(spies).keys(), ["0:2"], "the keeper wears no mark"
+	)
 	assert_eq(
 		MapPlayPickProse.sentence(String(pick["line"])),
 		"The court would walk its Spy toward Genoa and keep its Spy at Sevilla."
@@ -1030,10 +1036,61 @@ func test_the_eyes_print_and_hide_the_counsel_they_are_handed() -> void:
 	panel.open()
 	assert_eq(panel.counsel_text(), "The court would keep its Spy at Cádiz.")
 	assert_true(panel._counsel.visible, "the sheet prints the line")
+	assert_true(panel._court.is_empty(), "a plain line marks no row")
 	panel.counsel_source = Callable()
 	panel.refresh()
 	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
 	assert_false(panel._counsel.visible, "and the line stands down")
+	panel.close()
+
+
+## The network's rows mark the spies the reading orders, and leave the spies it
+## keeps on watch unmarked, off the one pick the gold line is worded from
+## (DR-20261122-18; RUB-P5-03).
+func test_the_eyes_mark_the_spies_the_court_would_order() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_clear_spies(play)
+	var home: ProvinceState = play.model.provinces[0]
+	var walking := CivilianState.create(95, play.player_faction, "spy", home.tiles[0])
+	var keeping := CivilianState.create(
+		96, play.player_faction, "spy", home.tiles[mini(1, home.tiles.size() - 1)]
+	)
+	var roster: Array[CivilianState] = [walking, keeping]
+	play.civilian_layer.units = roster
+	play.civilian_layer.regions.set_region(play.region_index, roster)
+	var mark: String = MapPlayPickProse.row_key(
+		{"region": play.region_index, "unit_id": walking.id}, "unit_id"
+	)
+	var order: Dictionary = {
+		"kind": MapPlaySpyPick.KIND_WALK,
+		"keys": {mark: true},
+		"line": "the court would walk its Spy toward Genoa",
+	}
+	panel.counsel_source = func(_data: Dictionary) -> Dictionary: return order
+	panel.open()
+	var walked: SpyLedgerRow = _spy_row(panel, walking.id)
+	var kept: SpyLedgerRow = _spy_row(panel, keeping.id)
+	assert_not_null(walked, "the walking spy is printed")
+	assert_not_null(kept, "the keeping spy is printed")
+	assert_true(
+		walked._name.text.begins_with(SpyLedgerRow.COURT_MARK),
+		"the spy the court would walk leads with the mark"
+	)
+	assert_false(
+		kept._name.text.begins_with(SpyLedgerRow.COURT_MARK),
+		"the spy the court keeps on watch carries none"
+	)
+	assert_true(
+		walked._name.text.contains("Spy —"), "the row keeps its own name"
+	)
+	# The mark is a reading: the spy has no order and has not moved.
+	assert_true(walking.work_action().is_empty(), "a mark sets no order")
+	assert_eq(walking.tile, home.tiles[0], "and the spy does not move")
+	_clear_spies(play)
+	panel.counsel_source = Callable()
+	panel.refresh()
 	panel.close()
 
 
@@ -1101,6 +1158,74 @@ func test_the_people_pick_words_the_work_the_pass_would_give() -> void:
 	)
 	assert_eq(MapPlayPeoplePick.pick_line([]), "", "no crew, no clause")
 	assert_eq(MapPlayPeoplePick.line(null), "", "a session that is not there names nothing")
+
+
+## A roster with several crews on one order never repeats its clause: a prospect
+## names the tile it would uncover, so the crews read apart, and an order two
+## crews share is named once with every crew behind it counted (issue #1304).
+func test_the_people_pick_names_the_ground_and_never_repeats_a_clause() -> void:
+	var prospectors: Array[Dictionary] = [
+		{
+			"region": 0,
+			"unit_id": 1,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(12, 34),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+		{
+			"region": 0,
+			"unit_id": 2,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(13, 34),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+		{
+			"region": 0,
+			"unit_id": 3,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(12, 35),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+	]
+	assert_eq(
+		MapPlayPeoplePick.pick_line(prospectors),
+		"the court would put its Explorer to prospect the ground at Madrid (12, 34),"
+		+ " its Explorer to prospect the ground at Madrid (13, 34) and its Explorer"
+		+ " to prospect the ground at Madrid (12, 35) this turn"
+	)
+	# The same order booked to several crews is named once, and the tail still
+	# counts every crew the one clause stands for.
+	var shared: Array[Dictionary] = []
+	for index: int in 4:
+		shared.append({
+			"region": 0,
+			"unit_id": index,
+			"role": "Engineer",
+			"action": "build_road",
+			"tile": Vector2i(index, 0),
+			"place": "Guimarães",
+			"short": "build a road",
+		})
+	shared.append({
+		"region": 0,
+		"unit_id": 9,
+		"role": "Engineer",
+		"action": "build_road",
+		"tile": Vector2i(9, 9),
+		"place": "Braga",
+		"short": "build a road",
+	})
+	assert_eq(
+		MapPlayPeoplePick.pick_line(shared),
+		"the court would put its Engineer to build a road at Guimarães, its Engineer"
+		+ " to build a road at Braga and 3 more this turn"
+	)
 
 
 ## Crews wait and the pass puts none to work: the sheet names that gate rather
@@ -1400,6 +1525,16 @@ func _eyes_door() -> Button:
 
 func _spy_row_widgets(panel: SpyLedgerPanel) -> int:
 	return panel._rows.get_child_count()
+
+
+## One spy's own row in the painted network, found by the id its roster minted, so
+## a case reads the mark the player reads (DR-20261122-18).
+func _spy_row(panel: SpyLedgerPanel, unit_id: int) -> SpyLedgerRow:
+	for child: Node in panel._rows.get_children():
+		var row := child as SpyLedgerRow
+		if row != null and int(row.data.get("unit_id", -1)) == unit_id:
+			return row
+	return null
 
 
 ## The first spy row's Visit seal, found by the name every ledger row gives it.
@@ -1955,6 +2090,29 @@ func test_the_province_counsel_words_the_orders_of_its_own_ground() -> void:
 	# A clause this module cannot say takes no place on the line.
 	var silent: Array[Dictionary] = [{"role": "Builder", "short": ""}]
 	assert_true(MapPlayProvinceCounsel.of(silent, [], 0).is_empty())
+	# The sheet already shows the province, so a prospect names the tile alone:
+	# two Explorers on one province read apart (issue #1304).
+	var prospectors: Array[Dictionary] = [
+		{
+			"role": "Explorer",
+			"short": "prospect this tile",
+			"action": "prospect",
+			"tile": Vector2i(12, 34),
+			"place": "Cádiz",
+		},
+		{
+			"role": "Explorer",
+			"short": "prospect this tile",
+			"action": "prospect",
+			"tile": Vector2i(13, 34),
+			"place": "Cádiz",
+		},
+	]
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(prospectors, [])["line"]),
+		"the court would order its Explorer to prospect the ground (12, 34) and its"
+		+ " Explorer to prospect the ground (13, 34) this turn"
+	)
 	# The gate: the crown's own ground held an idle crew and the pass booked no
 	# work here; ground with no idle crew says nothing.
 	var gate: Dictionary = MapPlayProvinceCounsel.of([], [], 1)
@@ -5160,13 +5318,13 @@ func test_a_bare_shore_prices_the_wall_it_offers() -> void:
 	var home: Dictionary = _wall_row(snapshot, FactionCatalog.OLD_WORLD)
 	assert_eq(
 		String(home["preview_text"]),
-		"L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)",
+		"L1 soaks 40 wall hp with 1 gun (+40 hp, +1 gun)",
 		"an open shore reads the first wall whole"
 	)
 	var overseas: Dictionary = _wall_row(snapshot, FactionCatalog.NEW_WORLD)
 	assert_eq(
 		String(overseas["preview_text"]),
-		"L2 soaks 20 wall hp with 2 guns (+10 hp, +1 gun)",
+		"L2 soaks 80 wall hp with 2 guns (+40 hp, +1 gun)",
 		"a wood wall's step names only what the level adds"
 	)
 
@@ -5255,8 +5413,8 @@ func test_a_modern_wall_reads_finished() -> void:
 	var raised: Dictionary = _raised()
 	assert_eq(int(raised["level"]), FortRules.MAX_LEVEL)
 	assert_eq(String(raised["state"]), WallLedger.STATE_RAISED, "a citadel owes nothing")
-	assert_eq(String(raised["note"]), "Fully walled — 3 guns, 30 wall hp.")
-	assert_eq(String(raised["level_text"]), "III")
+	assert_eq(String(raised["note"]), "Fully walled — 5 guns, 200 wall hp.")
+	assert_eq(String(raised["level_text"]), "V")
 
 
 func test_wall_filters_narrow_the_ledger_and_keep_their_tallies() -> void:

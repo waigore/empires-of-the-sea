@@ -44,7 +44,7 @@ const STATE_ORDER: Dictionary = {
 	STATE_RAISED: 4,
 }
 
-const ROMAN: Array[String] = ["—", "I", "II", "III"]
+const ROMAN: Array[String] = ["—", "I", "II", "III", "IV", "V"]
 
 
 ## Whole-empire snapshot in reading order. `regions` is one entry per chart:
