@@ -12,6 +12,8 @@ extends GdToolsTest
 ## The name sorts **first** on purpose: this is the heaviest chart suite, and
 ## gd-tools dispatches suites in plan (name) order four workers wide, so a late
 ## `m…` name used to land alone on one worker after every other had drained.
+## Far-chart fog and off-screen naval cases read `world.region` /
+## `ship_layer.regions` without a `_cycle_region` round-trip under coverage.
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
@@ -520,10 +522,15 @@ func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 	_screen.visibility.raise_to(index, VisibilityModel.Level.FULLY_VISIBLE)
 	_screen.overlay.sync_visibility(_screen.visibility, [index])
 	assert_eq(_screen.overlay.fog_state_at(tile.x, tile.y), MapOverlay.FOG_VISIBLE)
-	# Chart a rival coast and quiet water in the region the player is not reading.
-	_screen._cycle_region()
-	var new_world: MapModel = _screen.model
-	var visibility: VisibilityModel = _screen.play.visibility_by_region[FactionCatalog.NEW_WORLD]
+	# Chart a rival coast and quiet water on the far chart without cycling the
+	# view: `MapPlayFogTurn.chart` mints the region's VisibilityModel the way a
+	# first visit would, and fog decay already walks every stored chart.
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World stays on screen")
+	var new_world: MapModel = _screen.play.world.region(FactionCatalog.NEW_WORLD)
+	var visibility: VisibilityModel = MapPlayFogTurn.chart(
+		_screen.play, FactionCatalog.NEW_WORLD
+	)
+	assert_not_null(visibility, "the far chart is minted without a visit")
 	var province: int = Fixture.foreign_province(new_world)
 	var coast: Vector2i = new_world.province_tiles(province)[0]
 	visibility.raise_to(
@@ -535,8 +542,6 @@ func test_end_turn_decays_charted_coasts_here_and_on_the_other_chart() -> void:
 	visibility.raise_to(
 		new_world.index_of(water.x, water.y), VisibilityModel.Level.FULLY_VISIBLE
 	)
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD, "the Old World is on screen")
 	assert_eq(
 		_screen.overlay.fog_state_at(tile.x, tile.y),
 		MapOverlay.FOG_VISIBLE,
@@ -2979,26 +2984,25 @@ func test_each_region_keeps_its_own_fleets() -> void:
 func test_end_turn_restores_orders_and_resolves_battles_off_screen() -> void:
 	var home_fleet: FleetState = _screen.ship_layer.fleets[0]
 	home_fleet.moved = true
+	# Keep the Old World roster in the region table: begin-turn walks every
+	# region, and we never swap the live layer onto the far chart.
+	_screen.ship_layer.regions.set_region(FactionCatalog.OLD_WORLD, _screen.ship_layer.fleets)
 
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, 1)
+	# Stage the fight on the far chart's roster without `_cycle_region` (~1 s
+	# each under coverage). Naval resolve already walks every region.
+	assert_eq(_screen.region_index, FactionCatalog.OLD_WORLD)
+	var new_world: MapModel = _screen.play.world.region(FactionCatalog.NEW_WORLD)
 	# No power holds a capital in the New World, so the opening muster sends no
 	# squadron there (issue #1043): stage the pair this case fights.
-	var zone: int = int(_screen.model.sea_zones[0].id)
+	var zone: int = int(new_world.sea_zones[0].id)
 	var first: FleetState = FleetState.at_sea(
 		901, MapScreen.PLAYER_FACTION, zone, ["a"], {"a": "carrack"}
 	)
 	var second: FleetState = FleetState.at_sea(902, 2, zone, ["b"], {"b": "fluyte"})
-	_screen.ship_layer.fleets.clear()
-	_screen.ship_layer.fleets.append(first)
-	_screen.ship_layer.fleets.append(second)
-	_screen.ship_layer.regions.set_region(1, _screen.ship_layer.fleets)
-	_screen.ship_layer.rebuild_markers()
+	_screen.ship_layer.regions.set_region(FactionCatalog.NEW_WORLD, [first, second])
 	DiplomacyRules.enter_war(_screen.play.diplomacy, first.owner, second.owner)
 	var hulls_before: int = first.ship_count() + second.ship_count()
 
-	_screen._cycle_region()
-	assert_eq(_screen.region_index, 0)
 	# Begin-turn + naval resolve; skip the rival AI walk under coverage.
 	ShipTurnPass.begin_turn(_screen.ship_layer)
 	var battles: Array[Dictionary] = MapPlayNavalTurn.resolve(_screen.play)

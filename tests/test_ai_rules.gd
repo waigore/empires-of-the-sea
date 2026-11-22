@@ -17230,6 +17230,101 @@ func test_the_chest_funds_the_hull_before_the_next_muster() -> void:
 	play.civilian_layer.free()
 
 
+## Issue #1233: the reading turns into an order — a food-gated court with an
+## idle home pair breaks one hull up through the yard, the rations leave the
+## larder's `wanted`, and the trace names the freed grain.
+func test_a_food_gated_court_breaks_up_its_idle_home_hull() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var fleet: FleetState = (play.ship_layer.regions.value(0, []) as Array)[0]
+	fleet.set_hulls(["h0", "h1"], {"h0": "sloop", "h1": "sloop"})
+	play.ai.note_food_slack(OBJ_OWNER, 0)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	# A flat purse: the pass buys no merchant hull beside the break-up, so the
+	# yard's own peasant is the only hand that moves.
+	economy.treasury = 0
+	var peasants: int = economy.workers.count(WorkerPool.Tier.PEASANT)
+
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+
+	var scrapped: Dictionary = cargo.get("scrap", {})
+	assert_false(scrapped.is_empty(), "the food gate names the idle hull")
+	assert_eq(String(scrapped["type_id"]), "sloop")
+	assert_eq(int(scrapped["rations"]), ShipEconomy.food_upkeep_per_ship())
+	assert_false(fleet.hulls.has("h0"), "one hull of the pair is broken up")
+	assert_true(fleet.hulls.has("h1"), "her last hull keeps her squadron")
+	assert_eq(
+		economy.workers.count(WorkerPool.Tier.PEASANT), peasants + 1,
+		"the hull's own hand returns to the pool"
+	)
+	var fed: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	assert_true(
+		(fed.get("scrap", {}) as Dictionary).is_empty(),
+		"a squadron of one hull keeps her — no break-up a second time"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## The yard's arm stays sheathed while the fleet earns its keep: a fed muster
+## funds no break-up even beside an idle pair (issue #1233).
+func test_a_fed_muster_does_not_break_its_fleet_up() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var fleet: FleetState = (play.ship_layer.regions.value(0, []) as Array)[0]
+	fleet.set_hulls(["h0", "h1"], {"h0": "sloop", "h1": "sloop"})
+	play.ai.note_food_slack(OBJ_OWNER, 1)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 0
+
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+
+	assert_true(
+		(cargo.get("scrap", {}) as Dictionary).is_empty(),
+		"the harvest carries one more ration: the fleet keeps her hulls"
+	)
+	assert_eq(fleet.hulls.size(), 2, "the seat's pair stands unbroken")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## The larder's own reading is the hallmark (issue #1233): a court with no
+## reading yet — the `-2` sentinel the fresh session carries — gates nothing,
+## and the break-up waits for the pass's note.
+func test_a_court_with_no_larder_reading_keeps_the_fleet() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var fleet: FleetState = (play.ship_layer.regions.value(0, []) as Array)[0]
+	fleet.set_hulls(["h0", "h1"], {"h0": "sloop", "h1": "sloop"})
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 0
+
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+
+	assert_true(
+		(cargo.get("scrap", {}) as Dictionary).is_empty(),
+		"no note, no gate — the fresh session breaks nothing up"
+	)
+	assert_eq(fleet.hulls.size(), 2)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## A yard-refused reading changes nothing: a hull the rules will not break
+## (a loaded transport, say) leaves the reading's own caller silent (issue
+## #1233).
+func test_a_refused_break_up_leaves_the_fleet_standing() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var fleet: FleetState = (play.ship_layer.regions.value(0, []) as Array)[0]
+	fleet.set_hulls(["h0", "h1"], {"h0": "sloop", "h1": "sloop"})
+	fleet.embarked_army = 3
+	play.ai.note_food_slack(OBJ_OWNER, 0)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 0
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	assert_true((cargo.get("scrap", {}) as Dictionary).is_empty())
+	assert_eq(fleet.hulls.size(), 2, "the loaded hull keeps her squadron")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 ## Issue #484: the fleet claim holds the hull's material row the way the muster
 ## holds its own — the cloth and lumber the yard wants, read off the catalog for
 ## the cheapest warship (open, or the one the court is studying toward).
@@ -17690,3 +17785,170 @@ func test_a_treaty_rung_reads_the_rules_own_absorption_answer() -> void:
 	assert_false(bool(told_no.get("ok", true)), "a refused crown is not worth the order")
 	assert_eq(String(told_no.get("blocked", "")), "the crown would refuse absorption")
 	assert_eq(String(told_no.get("kind", "")), AiDiplomacyOffers.KIND_OVERTURE)
+
+
+# --- the idle home hull (issue #1233) ----------------------------------------
+
+
+## A court whose harvest cannot carry one more ration frees the rations an idle
+## home fleet eats: the reading names one hull of the seat's squadron, its two
+## rations leave the larder's `wanted` and its peasant returns to the pool the
+## levy needs (wiki: ships-and-naval § Ship food upkeep, § breaker's yard;
+## ai-architecture § Land reinforcement).
+func test_a_food_gated_court_names_an_idle_home_hull_to_break_up() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = _purse(4000)
+	var home: FleetState = FleetState.in_port(
+		0, 0, 0, ["h0", "h1"] as Array[String],
+		{"h0": "sloop", "h1": "sloop"}
+	)
+	var idle: Dictionary = AiNavy.idle_hull(config, economy, [home], 0, 0)
+
+	assert_false(idle.is_empty(), "the fleet holds idle cargo the war does not use")
+	assert_eq(int(idle["fleet_id"]), 0)
+	assert_eq(String(idle["hull"]), "h0", "the lowest id goes first, the yard's order")
+	assert_eq(int(idle["rations"]), ShipEconomy.food_upkeep_per_ship())
+
+	var peasants: int = economy.available_peasants()
+	var result: Dictionary = FleetYard.scrap(economy, home, String(idle["hull"]))
+	assert_true(bool(result["ok"]))
+	assert_eq(home.hulls, ["h1"], "one hull of the pair is broken up")
+	assert_eq(economy.available_peasants(), peasants + 1, "the hull's hand returns")
+	assert_false(bool(result["retired"]), "the last hull keeps her squadron")
+	assert_true(
+		AiNavy.idle_hull(config, economy, [home], 0, 0).is_empty(),
+		"a squadron of one hull keeps her"
+	)
+
+
+## A hull carries a regiment or a colonist — she is not idle cargo, and the
+## break-up would strand her passengers. The fleet that sailed this turn is in
+## the war's use, and a court with no larder reading has no gate at all.
+func test_a_carrier_a_sailing_fleet_and_no_reading_keep_the_hulls() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = _purse(4000)
+	var laden: FleetState = FleetState.in_port(
+		0, 0, 0, ["h0", "h1"] as Array[String],
+		{"h0": "sloop", "h1": "sloop"}
+	)
+	laden.embarked_army = 3
+
+	assert_true(
+		AiNavy.idle_hull(config, economy, [laden], 0, 0).is_empty(),
+		"the hull that carries the regiment stays"
+	)
+	laden.embarked_army = -1
+	laden.embarked_civilians = [7]
+	assert_true(
+		AiNavy.idle_hull(config, economy, [laden], 0, 0).is_empty(),
+		"the hull that carries the colonist stays"
+	)
+	laden.embarked_civilians.clear()
+	laden.moved = true
+	assert_true(
+		AiNavy.idle_hull(config, economy, [laden], 0, 0).is_empty(),
+		"a fleet that sailed this turn is not idle"
+	)
+	laden.moved = false
+	assert_false(
+		AiNavy.idle_hull(config, economy, [laden], 0, 0).is_empty(),
+		"the hull came home and reads idle again"
+	)
+	assert_true(
+		AiNavy.idle_hull(config, economy, [laden], 0, -2).is_empty(),
+		"no larder reading, no gate"
+	)
+
+
+## A station-holding squadron earns its keep: the war's own watch is a use, so
+## the reading keeps her hulls afloat. A fleet whose harvest still carries one
+## more ration keeps them too (wiki: ai-architecture § Naval policy — the
+## station pass posts the blockade the raid needs).
+func test_a_stationed_fleet_and_a_fed_muster_keep_the_fleet() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = _purse(4000)
+	var watch: FleetState = FleetState.in_port(
+		0, 0, 0, ["h0"] as Array[String], {"h0": "sloop"}
+	)
+	watch.mission = FleetState.Mission.DEFEND
+
+	assert_true(
+		AiNavy.idle_hull(config, economy, [watch], 0, 1).is_empty(),
+		"a hull with room for one more ration is not idle cargo"
+	)
+	watch.mission = FleetState.Mission.NONE
+	assert_true(
+		AiNavy.idle_hull(config, economy, [watch], 0, 0).is_empty(),
+		"a squadron of one hull keeps her whatever the larder reads"
+	)
+
+
+## The economy trace names the break-up the cargo pass booked — the court, the
+## hull type and the rations freed for the levy (issue #1233).
+func test_the_trace_names_the_idle_hull_the_court_breaks_up() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {0: court},
+		{"factions": {0: {"cargo": {
+			"scrap": {"type_id": "sloop", "rations": ShipEconomy.food_upkeep_per_ship()},
+		}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text += String(entry)
+	assert_true(text.contains("breaks up"), "the trace names the break-up")
+	assert_true(text.contains("rations freed"), "and the rations it freed")
+
+
+## Idle-hull gates the reading itself refuses: no config, no purse, no seat, a
+## foreign squadron, a hull away from the seat, and a sister that already sailed.
+func test_idle_hull_gates_refuse_what_the_larder_cannot_claim() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = _purse(4000)
+	var home: FleetState = FleetState.in_port(
+		0, 0, 0, ["h0", "h1"] as Array[String],
+		{"h0": "sloop", "h1": "sloop"}
+	)
+	assert_true(AiNavy.idle_hull(null, economy, [home], 0, 0).is_empty())
+	assert_true(AiNavy.idle_hull(config, null, [home], 0, 0).is_empty())
+	assert_true(AiNavy.idle_hull(config, economy, [home], -1, 0).is_empty())
+	var foreign: FleetState = FleetState.in_port(
+		1, 1, 0, ["f0", "f1"] as Array[String],
+		{"f0": "sloop", "f1": "sloop"}
+	)
+	assert_true(
+		AiNavy.idle_hull(config, economy, [null, foreign], 0, 0).is_empty(),
+		"a foreign squadron is not this court's idle cargo"
+	)
+	var afar: FleetState = FleetState.in_port(
+		2, 0, 1, ["a0", "a1"] as Array[String],
+		{"a0": "sloop", "a1": "sloop"}
+	)
+	assert_true(
+		AiNavy.idle_hull(config, economy, [afar], 0, 0).is_empty(),
+		"a hull in another province is not the seat's idle cargo"
+	)
+	var sailed: FleetState = FleetState.in_port(
+		3, 0, 0, ["s0"] as Array[String], {"s0": "sloop"}
+	)
+	sailed.moved = true
+	assert_true(
+		AiNavy.idle_hull(config, economy, [home, sailed], 0, 0).is_empty(),
+		"a sister that sailed this turn keeps the whole fleet"
+	)
+	assert_true(AiNavy.fleets_sailing([home, sailed], 0))
+	assert_false(AiNavy.fleets_sailing([home], 0))
+	# The yard's own spare-hull gate: two hulls that still carry two mouths keep
+	# both — breaking one would strand a passenger.
+	var packed: FleetState = FleetState.in_port(
+		4, 0, 0, ["p0", "p1"] as Array[String],
+		{"p0": "sloop", "p1": "sloop"}
+	)
+	packed.embarked_civilians = [7, 8]
+	assert_eq(AiNavy._idle_hull_id(packed), "")
+	packed.embarked_civilians = [7]
+	packed.embarked_army = 3
+	assert_eq(AiNavy._idle_hull_id(packed), "")
