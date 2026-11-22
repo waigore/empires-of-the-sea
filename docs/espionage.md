@@ -13,8 +13,8 @@ P5 hidden spies leave no trace.
   Minors and Tribes included.
 - **Presence reveal** (`SpyNetworks`, `CivilianMovement`): a spy on non-owner
   ground holds its tiles visible; it shows no terrain or minerals, and the
-  province fogs at end-of-turn once the last spy leaves — no grace
-  timer (wiki: civilian-units § Spy; DR-20261110-03).
+  province fogs at once when the last spy leaves (no grace; wiki:
+  fog-and-exploration § Fog Decay, civilian-units § Spy, DR-20261110-03).
 - **Invisibility:** rival spies are never drawn, hovered or selectable
   (`CivilianLayer.viewer_faction`); the AI never sees human spies.
 - **Counter-espionage** (`counter_spy`): an ongoing order on an owned province.
@@ -38,10 +38,10 @@ door (or `I`) opens one sheet — every spy with the duty its posting earns
 unobserved, and the screen's state. Visit opens the spy; the sheet moves nothing.
 
 One gold line above the network names the spies the court would book this turn
-(DR-20261121-11) — `The court would walk its Spy toward Genoa.` — three named and
+(DR-20261121-11) — `The court would walk its Spy toward Genoa.` — three named,
 the rest counted. Each spy the court would *order* — a walk or a screen — leads
-its row with `▸` (DR-20261122-18); a kept spy carries none: keeping is not an
-order. No spy, no planner, no line; nothing is ordered.
+its row with `▸` (DR-20261122-18); a kept spy carries none: keeping is no order.
+No spy, no planner, no line; nothing is ordered.
 
 ## AI use
 

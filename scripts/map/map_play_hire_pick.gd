@@ -72,7 +72,7 @@ static func pick(play: PlaySession) -> Dictionary:
 	var home: int = FactionCatalog.region_of(faction)
 	for entry: Dictionary in MapPlayCivilianAi.plan_all(
 		play, faction, economy, config,
-		MapPlayEconomyAi._overseas(play, faction, economy), economy.stockpile, 0, -1,
+		MapPlayEconomyLarder.overseas(play, faction, economy), economy.stockpile, 0, -1,
 		banks(play, faction, economy, config, kind)
 	):
 		if int(entry.get("region", -1)) != home:

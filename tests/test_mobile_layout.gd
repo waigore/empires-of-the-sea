@@ -43,11 +43,13 @@ func before_all() -> void:
 	add_child(viewport)
 	mounted = Fixture.attach_screen(viewport)
 	screen_pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_viewport = viewport
 	_screen = mounted
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:

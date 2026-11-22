@@ -39,10 +39,12 @@ func before_all() -> void:
 	if mounted.play.ai != null:
 		turn_one_ai = mounted.play.ai.to_dict()
 	turn_one_log = mounted.play.ai_turns.duplicate(true)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:

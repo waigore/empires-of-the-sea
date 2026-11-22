@@ -10,8 +10,8 @@ Unit/integration tests and headless e2e smoke; two CI tiers, hard budgets.
 | **2 (trunk)** | Every **8 hours** on `main` (+ manual) | Full suite as **4 shards** (`--shard K/4`, one matrix job each); merged shard coverage, then `gd-tools coverage show --min 80` | shard **≤ 20 min**; gate **≤ 10 min** |
 
 Tier 1 is the merge gate; tier 2 failures open a sticky `ci-tier2` issue for
-**fix-tests**. Tier 2 shards (`gd-tools` boots one process **per suite**);
-the gate merges them for the 80% gate.
+**fix-tests**. Tier 2 shards boot one process **per suite**; the gate merges
+them.
 
 Strict map: unmapped paths fail; `full = true` runs every suite
 (`select_impacted_tests.py --check-complete`). Empty patches pass.
@@ -19,11 +19,11 @@ Strict map: unmapped paths fail; `full = true` runs every suite
 ## E2E (tier 1)
 
 Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
-**auto** (Small, five Auto turns, dump asserts). Deep rules in `tests/`.
+**auto** (Small, five Auto turns, dump asserts).
 
 ## Speed rules
 
-- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) to map screens.
+- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) to screens.
 - One cached small world per worker via `MapScreen.preset_world` /
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats turn-100 civilians,
@@ -32,27 +32,28 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   redraws nothing; `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
-  (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
+  (gd-tools clones each case). Prefer a pocket chart; one Standard census.
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
-  remount); advanced-start live cases share **one mount per tier**. Pure cases
-  skip re-seat/shell/restore (lazy `_screen` / `main` / menu-flow `chart`);
-  hospitals ride that chart; opening plates use short `hold_max` /
-  `fade_seconds`. Free a swapped screen. Far-chart fog / off-screen naval:
-  `world.region` / `regions.set_region` — no `_cycle_region`.
+  remount); one mount per advanced tier. Pure cases skip re-seat (lazy
+  `_screen` / `main` / menu-flow `chart`). `park_screen` after setup /
+  `before_each`; `suite_reset` unparks — an idle `MapScreen` keeps its HUD,
+  soundtrack and fog running. Park only where one chart serves many cases;
+  a touched test file is its own suite. Free a swapped screen.
+  Far-chart fog / naval: `world.region` / `regions.set_region` — no
+  `_cycle_region`. Short `hold_max` / `fade_seconds` on opening plates.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
-  not the 48×32 chart (~9 s covered).
+  not the 48×32 chart.
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
   session (and `ai_turns` / Auto fields), re-seat lazily (~0.2 s vs ~1.5–2 s).
   Mode cases start at turn 1; shared-pass spy readings stay one `end_turn`.
 - **Generate only what a case reads**: one-region rules call `generate_region`,
   never `generate_world`. College rules keep state/purse in `before_each`; bind
   pocket chart and `ResearchPanel` only when read.
-- **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
-  leads so one chart suite does not drain alone.
+- **Heaviest suite first**: `test_a_map_screen` leads so one chart suite does
+  not drain alone.
 - One Godot boot per theme — coverage ~15 s; 24 suites; `parallel = 4`.
-  Diplomacy/battle court-words book at rules; suspending closes /
-  campaign-end use `AiControl.NOOP`; counsel only when court open; plate
-  saves reload in-place.
+  Court-words at rules; suspending / campaign-end use `AiControl.NOOP`;
+  counsel only when court open; plate saves reload in-place.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local

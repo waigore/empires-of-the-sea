@@ -20,6 +20,15 @@ static func open_advances(state: ResearchState, goal: String) -> Array[String]:
 	return TechOrder.sorted(out, goal)
 
 
+## The AVAILABLE tab's own heading: the count, and the mark's legend while the
+## court's reading stands on this page — the crown reads what `▸` means on the
+## list itself, as the workshop's heading and the chart's legend say it
+## (DR-20261122-19, DR-20261122-10, DR-20261121-20).
+static func available_title(count: int, court: String = "") -> String:
+	var base: String = "AVAILABLE (%d)" % count
+	return "%s · ▸ court" % base if not court.is_empty() else base
+
+
 ## Replaces a page's rows but keeps the player's place in the list: a rebuild
 ## that jumped back to the top would read as a reload.
 static func rebuild(body: Container, paint: Callable) -> void:
@@ -31,17 +40,20 @@ static func rebuild(body: Container, paint: Callable) -> void:
 		scroll.set_deferred("scroll_vertical", keep)
 
 
-## Rebuilt only when the open list, the goal or the free slot changes; a
-## funding change repaints none of it.
+## Rebuilt only when the open list, the goal, the free slot or the court's own
+## pick changes; a funding change repaints none of it. `court` is the advance the
+## idle slot's sentence names, so the row that wears its mark moves with the
+## sentence above it (DR-20261122-19).
 func paint_available(
 	body: VBoxContainer,
 	state: ResearchState,
 	techs: Array[String],
 	goal: String,
 	on_assign: Callable,
-	on_goal: Callable
+	on_goal: Callable,
+	court: String = ""
 ) -> void:
-	var key: String = "%s|%s|%d" % [";".join(techs), goal, state.free_slot()]
+	var key: String = "%s|%s|%d|%s" % [";".join(techs), goal, state.free_slot(), court]
 	if key == _available_key:
 		return
 	_available_key = key
@@ -54,7 +66,7 @@ func paint_available(
 			return
 		for tech_id: String in techs:
 			body.add_child(ResearchRow.available(
-				state, tech_id, on_assign, goal, on_goal
+				state, tech_id, on_assign, goal, on_goal, tech_id == court
 			))
 	)
 

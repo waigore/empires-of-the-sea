@@ -10,11 +10,12 @@ extends RefCounted
 
 
 ## End-of-turn resolution. `at_sea_zones` lists zones holding this player's
-## fleets at sea; fleets in port do not count. `held_provinces` lists provinces
-## where this player keeps an Explorer or a Spy. The last Spy leaving a foreign
-## province never grants a grace: a province with no holder left decays in this
-## same pass (wiki: civilian-units § Spy (1) — "visibility reverts to fogged
-## immediately at end-of-turn (no grace timer)"; DR-20261110-03).
+## fleets at sea; fleets in port do not count. `held_provinces` lists the
+## provinces where this player keeps an Explorer or a Spy, so a crew's presence
+## holds the ground it charted — and the last Spy leaving fogs its province in
+## this same pass, with no grace (wiki: fog-and-exploration § Fog Decay;
+## civilian-units § Spy (1) — "visibility reverts to fogged immediately at
+## end-of-turn (no grace timer)"; DR-20261110-03).
 static func end_of_turn(
 	chart: VisibilityModel,
 	at_sea_zones: Array,

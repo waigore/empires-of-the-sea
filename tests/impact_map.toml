@@ -504,11 +504,14 @@ domain = "hostility"
 match = "scripts/ai/ai_naval_planner.gd*"
 domain = "hostility"
 
-# Rival economy pass: stay on ai with the other MapPlay*Ai files so a court-
-# reader fan-out does not union blockade/economy boots past the tier-1 budget.
+# The rival economy pass (its walk), the one court's turn and book, and the
+# ledger side (yield, food, reservation rows) are one turn split by owner: all
+# stay on the ai_economy slice, because the full AI fan-out overruns the tier-1
+# 5 min budget. `map_play_economy_larder.gd` is the crown's pick reads too
+# (`MapPlayCivilianPick`, `MapPlayHirePick`), which the same suites prove.
 [[rules]]
 match = "scripts/map/map_play_economy_ai.gd"
-domain = "ai"
+domain = "ai_economy"
 
 # One court's economy turn (and its research/trade book), split out of the pass
 # above: market + AI + civilian turn prove the plan (manufacture around the
@@ -516,6 +519,10 @@ domain = "ai"
 # tier-1 5 min budget.
 [[rules]]
 match = "scripts/map/map_play_economy_court*.gd*"
+domain = "ai_economy"
+
+[[rules]]
+match = "scripts/map/map_play_economy_larder.gd*"
 domain = "ai_economy"
 
 [[rules]]
@@ -3989,12 +3996,6 @@ domain = "campaign"
 # Fog grid, coast tables and end-of-turn decay: one domain (REQ-P3-01).
 [[rules]]
 match = "scripts/rules/visibility*.gd*"
-domain = "fog"
-
-# The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
-# § Spy timer expiry), so it travels with the fog domain.
-[[rules]]
-match = "scripts/rules/spy_charter.gd*"
 domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).

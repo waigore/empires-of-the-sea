@@ -52,7 +52,7 @@ static func picks(play: PlaySession, faction: int) -> Dictionary:
 	if court.is_empty():
 		return result
 	var config: Variant = court["config"]
-	var overseas: Dictionary = MapPlayEconomyAi._overseas(play, faction, economy)
+	var overseas: Dictionary = MapPlayEconomyLarder.overseas(play, faction, economy)
 	# The crown's own purse, with no reserve held back: a pick the crown could
 	# not press today is no advice at all. A works floor below zero keeps both
 	# purses on the standing treasury (wiki: economy-planner § Reservations).
