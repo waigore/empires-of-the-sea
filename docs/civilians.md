@@ -13,7 +13,8 @@ Land units: explore, improve, colonize, spy.
 - **Roster** (`CivilianCatalog`): six playable types.
 - **Hiring:** the rail names each craft's work and study gate
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
-  a gold line names the court's hire pass (`MapPlayHirePick`, DR-20261122-15).
+  a gold line names the court's hire pass, its craft `▸`
+  (`MapPlayHirePick`, DR-20261122-12/15).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, walks
   the idle ones and names the court's work pick, its crews marked `▸`
   (DR-20261121-12/22-06); a crew aboard reads **Aboard** and answers no order
@@ -31,7 +32,7 @@ Land units: explore, improve, colonize, spy.
   (charted ground), improve 1–4, **upgrade town** (National Bureaucracy), road,
   port (one per seaboard), rail, fort 1–3 ([forts.md](forts.md)), hospital 1–2.
 - **Survey** ([DR-20261111-26](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261111-26)):
-  a mineral hides until an Explorer prospects it.
+  a mineral hides until prospected.
 - **Court's pick** ([DR-20261117-06](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-06),
   [DR-20261117-07](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261117-07)):
   an idle crew's dossier names its pick, priced by its ledger.

@@ -3965,6 +3965,10 @@ func test_the_capital_rail_names_the_hire_the_court_would_take() -> void:
 		rail, String(pick.get("line", "")),
 		"the rail prints the reading, not a second opinion of its own"
 	)
+	assert_eq(
+		_screen.hud.panels.panel.hire_mark_crew(), String(pick.get("crew", "")),
+		"the rail marks the craft the reading names"
+	)
 	assert_true(
 		rail.contains("hire pass") or rail.contains("taste") or rail == MapPlayHirePick.FULL_LINE,
 		"the line says whose pick it is: %s" % rail

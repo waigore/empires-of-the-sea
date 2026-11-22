@@ -252,8 +252,11 @@ func _set_standing(
 
 ## The yard drawer takes the launch rows; a join on offer hides its toggle.
 ## A refresh keeps the drawer as the player left it, never re-opening it. `pick`
-## is the hull the court's own yard means to lay (DR-20261121-02).
-func _show_yard(yard_rows: Array[Dictionary], merge: Dictionary, pick: String = "") -> void:
+## is the court's own claim, kept whole so the drawer marks the hull it names
+## (DR-20261121-02, DR-20261122-12).
+func _show_yard(
+	yard_rows: Array[Dictionary], merge: Dictionary, pick: Dictionary = {}
+) -> void:
 	if _yard == null:
 		return
 	_yard.show_rows(_fleet, yard_rows, _is_player, _yard.is_open(), pick)
@@ -283,7 +286,7 @@ func _show_combine(
 ## hull the court's own yard means to lay (DR-20261121-02).
 func refresh_slip(
 	model: MapModel, province_id: int, rows: Array[Dictionary], is_player: bool,
-	pick: String = ""
+	pick: Dictionary = {}
 ) -> void:
 	if model == null:
 		return

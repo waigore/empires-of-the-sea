@@ -228,6 +228,14 @@ godot --headless --path . --script res://playtests/playtest_workshop.gd
 # sealed turn, and the save that restores the defeated campaign).
 godot --headless --path . --script res://playtests/playtest_capital_move.gd
 
+# A seat lost mid-invasion — marches the crown into a rival's capital the same
+# turn another rival storms its own seat (the pass moves two courts onto each
+# other's ground, and the seat the crown just won is the successor it picks),
+# then walks a rival host into the undefended seat with no clash at all and reads
+# the court move, the seat every reader names, and the fall that hands the
+# colonies over.
+godot --headless --path . --script res://playtests/playtest_seat_lost_mid_invasion.gd
+
 # Field hospital train — pitches the army's own tents from the dossier (reading
 # the caption, the receipt and the strength line), mauls two hosts on bare ground
 # to read 40% against 25% over a real turn, seats a General hospital to read the
@@ -410,6 +418,17 @@ godot --headless --path . --script res://playtests/playtest_home_fleet.gd
 # the pennant and `observe only`), and hides her to read the fog: no hull, no
 # pennant, no place in the count.
 godot --headless --path . --script res://playtests/playtest_station_fan.gd
+
+# A whole standard campaign — plays a new Standard game (seed 1500, Spain) through
+# the real flow, closes one turn from the crown's own seal and hands the seat to
+# Auto for the rest, printing each close's bar, undelivered news, purse, regiments,
+# hulls, crews and holdings beside what the rules paid, auditing every panel family
+# (capital, people, muster, realm, eyes, colonies, command, navy, army, ledger,
+# college, court) every ten turns, and checking the standing invariants after every
+# turn, so a curve that stops moving, a purse that stops paying or an age that ends
+# early names itself. `--turns`, `--seed`, `--size`, `--faction`, `--advanced`,
+# `--audit-every` and `--auto=0` (the crown keeps its own seat).
+godot --headless --path . --script res://playtests/playtest_standard_campaign.gd
 ```
 
 See [`pull-requests.md`](pull-requests.md) for required checks.
