@@ -503,9 +503,8 @@ func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
 	var read: Dictionary = LarderRead.forecast(
 		economy, {"army": 0, "ships": 0, "hospital": 4, "wards": [4]}
 	)
-	var page := LedgerWorkers.new()
 	assert_eq(
-		page._shortfall_copy(read),
+		LedgerWorkersText.larder_shortfall(read),
 		"Short 3 food — the wards go unfed.",
 		"the pool ate, the ward did not"
 	)
@@ -516,11 +515,10 @@ func test_a_starving_ward_is_never_read_as_a_calm_larder() -> void:
 		economy, {"army": 5, "ships": 0, "hospital": 0}
 	)
 	assert_eq(
-		page._shortfall_copy(army),
+		LedgerWorkersText.larder_shortfall(army),
 		"Short 3 food — the army goes short.",
 		"no striker, and still short"
 	)
-	page.free()
 
 
 ## Every label a tab printed, so a test reads the page instead of its privates.

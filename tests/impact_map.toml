@@ -1895,6 +1895,12 @@ domain = "economy_ui"
 match = "scripts/ui/ledger_workers.gd*"
 domain = "economy_ui"
 
+# Larder, tier rows and order-queue paint for the WORKERS tab (REQ-P3-01 split);
+# same suites as the sheet it paints so a row change stays tier-1 sized.
+[[rules]]
+match = "scripts/ui/ledger_workers_rows.gd*"
+domain = "economy_ui"
+
 # The production row's workshop copy (tag, long form, allowance) lives beside
 # the ledger text so a copy change runs the same economy_ui rows.
 [[rules]]
