@@ -23,11 +23,11 @@ extends LedgerSheet
 
 func _init() -> void:
 	title_text = "THE CROWN'S MUSTER"
+	mark_legend = "A ▸ marks the forces the court would send this turn."
 	hint_text = (
-		"A ▸ marks the forces the court would send this turn. Visit opens the "
-		+ "force's map and dossier. The muster roll reads each standard and "
-		+ "squadron as it stands and names the orders the court would give; it "
-		+ "never orders a march."
+		"Visit opens the force's map and dossier. The muster roll reads each "
+		+ "standard and squadron as it stands and names the orders the court "
+		+ "would give; it never orders a march."
 	)
 	toggle_action = InputActions.MUSTER_ROLL
 	# The gold line's reading is the panel's own method, not a closure handed in

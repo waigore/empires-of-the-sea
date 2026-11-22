@@ -11,10 +11,10 @@ extends ForceLedgerSheet
 
 func _init() -> void:
 	title_text = "THE CROWN'S ARMY"
+	mark_legend = "A ▸ marks the standards the court would order this turn."
 	hint_text = (
-		"A ▸ marks the standards the court would order this turn. Visit opens "
-		+ "the standard's chart and dossier. The sheet reads every regiment as "
-		+ "it stands; it never musters, detaches or dismisses one."
+		"Visit opens the standard's chart and dossier. The sheet reads every "
+		+ "regiment as it stands; it never musters, detaches or dismisses one."
 	)
 	# The gold line's reading is the panel's own method, not a closure handed in
 	# from the session: a bound callable cannot outlive the session it reads
