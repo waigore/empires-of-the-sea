@@ -7104,6 +7104,47 @@ func test_a_stalled_yard_chest_yields_to_the_muster() -> void:
 	assert_eq(AiNavy.chest(true, 2, 2, economy, [], true), 0, "no hull due at all")
 
 
+## Issue #1275: the yield valve is not one-way. A line the court no longer
+## owes — no spare hand, so the muster prices no row — releases the chest:
+## the fill the stand-down freed has closed the muster, and the yard reads as
+## published. A fill the court is winning (the shortfall below the stall's
+## own best gap) keeps its chest reachable too — the wiki's "the shortfall
+## shrinking resumes it".
+func test_the_yard_chest_resumes_when_the_line_closes() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var ledger: PlayerEconomy = play.ledger_for(0)
+	ledger.tech_unlocked[ShipEconomy.tech_for("sloop")] = true
+	var price: int = ShipEconomy.treasury_cost("sloop")
+	# A fill standing still at war, a regiment due (the ledger keeps a spare
+	# hand for the levy): the chest stands down. Two notes: the stall counts
+	# its turns, and the bar reads two.
+	var rows: Array = [{"id": "navy.build", "status": AiObjective.STATUS_DEFERRED,
+		"shortfall": {"treasury": price}}]
+	play.ai.note_objectives(0, {"objectives": rows}, play.turn)
+	play.ai.note_objectives(0, {"objectives": rows}, play.turn + 1)
+	ledger.treasury = 0
+	assert_eq(MapPlayCourt.navy_chest(play, 0), 0, "a stalled fill behind a due line yields")
+
+	# The line closes (no spare hand prices a row): the chest resumes.
+	ledger.workers = WorkerPool.make(0)
+	assert_eq(
+		MapPlayCourt.navy_chest(play, 0), price,
+		"the line is no longer due: the yard banks again"
+	)
+
+	# A fill the court is winning — the shortfall below the stall's best gap —
+	# keeps its chest reachable even while a line stands due.
+	ledger.workers = WorkerPool.make(6)
+	rows[0]["shortfall"] = {"treasury": price - 1}
+	play.ai.note_objectives(0, {"objectives": rows}, play.turn + 1)
+	assert_eq(
+		MapPlayCourt.navy_chest(play, 0), price,
+		"a shrinking shortfall is not a stall — the chest stays reachable"
+	)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 
 
 # --- victory pressure --------------------------------------------------------

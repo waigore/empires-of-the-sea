@@ -77,6 +77,16 @@ static func stall_for(deferrals: Dictionary, faction: int, aim_id: String) -> in
 	return stall(records_for(deferrals, faction), aim_id)
 
 
+## The best gap one aim's stall has seen for one court — its low water: the
+## shortfall the fill has never beaten, so a reading that names the gap this
+## turn knows whether the fill is moving. 0 when the court has no record.
+static func low_water_for(deferrals: Dictionary, faction: int, aim_id: String) -> int:
+	var record: Dictionary = _dictionary(
+		records_for(deferrals, faction).get(aim_id, {})
+	)
+	return maxi(int(record.get("low", -1)), 0)
+
+
 ## A loaded stall map, validated: a record a save could not describe is
 ## dropped, and the survivor is the plain {turns, shortfall, low} row (issue
 ## #603). A record written before the low water existed reads the gap it was
