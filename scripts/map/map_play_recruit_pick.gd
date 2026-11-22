@@ -62,9 +62,12 @@ static func pick(play: PlaySession) -> Dictionary:
 	court.rehearse()
 	if not (court.config is AiConfig):
 		return {}
+	# The slack and the fed reading come from the harvest's one home, so the
+	# sheet's counsel and the pass hire against the same figures (REQ-P2-03).
 	return of(
-		court.economy, court.config, court.recruit_orders(court.harvest_slack()),
-		court.fed_slack(), court.conquest_bank
+		court.economy, court.config,
+		court.recruit_orders(MapPlayEconomyHarvestReadings.harvest_slack(court)),
+		MapPlayEconomyHarvestReadings.fed_slack(court), court.conquest_bank
 	)
 
 

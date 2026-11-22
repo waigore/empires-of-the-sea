@@ -6559,7 +6559,10 @@ func test_the_recruit_pick_names_no_tier_the_rules_refuse() -> void:
 func test_the_harvest_slack_is_unread_without_a_harvest() -> void:
 	var court := MapPlayEconomyCourt.new()
 	court.overseas = {}
-	assert_eq(court.harvest_slack(), -2, "no harvest, no reading")
+	assert_eq(
+		MapPlayEconomyHarvestReadings.harvest_slack(court), -2,
+		"no harvest, no reading"
+	)
 
 
 ## No tier named, no clause: the line never prints a headless sentence
