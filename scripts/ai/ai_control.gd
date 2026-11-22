@@ -62,6 +62,24 @@ static func court_kind(play: PlaySession, faction: int) -> String:
 			return KIND_SUBJECT
 
 
+## The court's planner read: the backend its kind names and the config that
+## backend binds from the seed and the court's profile. Every pass and counsel
+## pick opens a court this way, so the kind one caller tests is the kind whose
+## profile another caller reads (REQ-P2-03, REQ-P3-02). Empty when the court
+## runs no planner or the bind hands back no config, so no caller prints a plan
+## no pass would issue.
+static func court(play: PlaySession, faction: int) -> Dictionary:
+	var kind: String = court_kind(play, faction)
+	if kind == KIND_NONE:
+		return {}
+	var config: Variant = AiBind.config(
+		kind, faction, play.map_seed, play.ensure_ai().profiles
+	)
+	if not (config is AiConfig):
+		return {}
+	return {"kind": kind, "config": config}
+
+
 ## True when this Great Power may issue planner (or random-court) orders.
 static func plans(play: PlaySession, faction: int) -> bool:
 	if play == null:

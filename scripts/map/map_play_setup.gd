@@ -92,13 +92,14 @@ static func build_hud(play: PlaySession) -> void:
 			func(data: Dictionary) -> String: return MapPlaySpyPick.line(play, data)
 		)
 	# THE CROWN'S PEOPLE names the work the court's own civilian pass would put
-	# its crews to this turn, read on the roster's own snapshot so the line
-	# reads down the page it answers (wiki: civilian-units § Empire roster;
-	# DR-20261121-12).
+	# its crews to this turn and marks those crews `▸` in the roster, read on the
+	# roster's own snapshot so the line reads down the page it answers and one
+	# read paints both the line and its marks (wiki: civilian-units § Empire
+	# roster; DR-20261121-12, DR-20261122-06).
 	var people: CivilianRosterPanel = hud.civilian_roster
 	if people != null:
 		people.counsel_source = (
-			func(data: Dictionary) -> String: return MapPlayPeoplePick.line(play, data)
+			func(data: Dictionary) -> Dictionary: return MapPlayPeoplePick.pick(play, data)
 		)
 	# THE CROWN'S NAVY reads its own pass in the panel's own method, so a bound
 	# callable cannot outlive the session it reads and the squadrons the line

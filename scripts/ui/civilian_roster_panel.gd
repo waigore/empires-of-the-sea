@@ -3,8 +3,9 @@ extends LedgerSheet
 ## Whole-empire civilian roster (REQ-P5-01, REQ-P5-03): every unit in the Old
 ## and New World in one ledger, filtered by region or craft, with a Visit action
 ## that opens the unit's map and dossier, and one gold line naming the work the
-## court's own civilian pass would give its crews this turn (wiki: civilian-units
-## § Empire roster; DR-20261121-12). The data projection lives in CivilianRoster;
+## court's own civilian pass would give its crews this turn, with every crew that
+## line names marked `▸` on its row (wiki: civilian-units § Empire roster;
+## DR-20261121-12, DR-20261122-06). The data projection lives in CivilianRoster;
 ## this class only renders rows and emits no rules calls. The sheet chrome, fade
 ## and pause-door park come from SheetFrame; the rows and their empty notice from
 ## LedgerSheet. Its own head carries three filter rows (world, craft, orders), so
@@ -13,6 +14,9 @@ extends LedgerSheet
 var _head: CivilianRosterHead = null
 var _type: String = CivilianRosterHead.TYPE_ALL
 var _status: String = CivilianRoster.STATUS_ALL
+## The crews the court's own reading names, by `MapPlayPickProse.row_key`, so a
+## row knows whether it wears the counsel's mark (DR-20261122-06).
+var _court: Dictionary = {}
 
 
 func _init() -> void:
@@ -21,8 +25,8 @@ func _init() -> void:
 		"Visit opens the civilian's map and dossier. Filter by world, craft or "
 		+ "who waits for orders; the C key opens this roster from anywhere on the map."
 		+ " Find the next crew that waits takes you to an idle one, in either world."
-		+ " The gold line names the work the court would give its crews this turn;"
-		+ " it never marches one or sets an order."
+		+ " A ▸ marks the crews the court would put to work this turn; the gold"
+		+ " line never marches one or sets an order."
 	)
 	toggle_action = InputActions.CIVILIAN_ROSTER
 
@@ -68,6 +72,36 @@ func _apply_profile(compact: bool, narrow: bool) -> void:
 		_head.set_compact(compact)
 
 
+# --- the court's reading -----------------------------------------------------
+
+
+## Asks the court's own reading once, holds it and prints it: the line and the
+## marks both come off the one pick, so a mark can never outrun the sentence it
+## answers and a filter press reorders the marks it already holds
+## (DR-20261122-06, REQ-P4-01).
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	var pick: Dictionary = _counsel_pick()
+	_court = pick.get("keys", {}) as Dictionary
+	_show_counsel(MapPlayPickProse.sentence_of(pick))
+
+
+## The pick the sheet's reading answers, or {} while it is shut or unwired: a
+## closed sheet asks the pass nothing (REQ-P4-02).
+func _counsel_pick() -> Dictionary:
+	if not is_open() or not counsel_source.is_valid():
+		return {}
+	var raw: Variant = counsel_source.callv(_counsel_args())
+	return raw as Dictionary if raw is Dictionary else {}
+
+
+## Whether the court would put this crew to work this turn, so its row leads with
+## the mark a crown finds it by among a long roster (DR-20261122-06).
+func _is_marked(row: Dictionary) -> bool:
+	return _court.has(MapPlayPickProse.row_key(row, "unit_id"))
+
+
 # --- rows --------------------------------------------------------------------
 
 
@@ -101,6 +135,9 @@ func _heading(group: Dictionary, count: int) -> Control:
 func _make_row(raw: Variant, compact: bool) -> Control:
 	var row := CivilianRosterRow.new()
 	row.compact = compact
+	# The mark is the reading's own: a crew it never names never looks busy
+	# (DR-20261122-06).
+	row.court = _is_marked(raw as Dictionary)
 	row.visit_pressed.connect(_visit)
 	row.setup(raw as Dictionary)
 	return row

@@ -28,10 +28,11 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 		# every planner like any rival (wiki: game-setup § Human/AI slot
 		# assignment; docs/ai-observer.md).
 		for faction: int in MapPlayCourt.planning_factions(play):
-			var kind: String = AiControl.court_kind(play, faction)
-			if kind == AiControl.KIND_RANDOM:
+			var court: Dictionary = AiControl.court(play, faction)
+			if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 				continue
-			var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+			var kind: String = String(court["kind"])
+			var config: Variant = court["config"]
 			# A court on a war footing keeps its hulls for the fleet: the posture
 			# closes the voyage before the planner picks a step (DR-20261113-15) —
 			# unless the court is on **earn**, whose gold is overseas

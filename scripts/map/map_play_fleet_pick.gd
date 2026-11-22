@@ -31,10 +31,11 @@ static func pick(play: PlaySession, fleet: FleetState) -> Dictionary:
 	var model: MapModel = model_of(play, region)
 	if model == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, fleet.owner)
-	if kind == AiControl.KIND_NONE:
+	var court: Dictionary = AiControl.court(play, fleet.owner)
+	if court.is_empty():
 		return {}
-	var config: Variant = AiBind.config(kind, fleet.owner, play.map_seed, play.ensure_ai().profiles)
+	var kind: String = String(court["kind"])
+	var config: Variant = court["config"]
 	if config == null:
 		return {}
 	var plan: Dictionary = AiBindCampaign.naval_orders(

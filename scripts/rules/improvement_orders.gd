@@ -121,6 +121,84 @@ static func upgrade_town(
 	}
 
 
+## Why the province dossier's wall press cannot run now, or "" when it can: the
+## fort table's level, study and stores, and the nearest idle Engineer the press
+## sends, in the order's own words (wiki: siege-mechanics § Fort Levels;
+## DR-20261116-01; REQ-P2-03). A press that reads "" is the one that can be
+## filed. Two projects in one province may run, so a second crew on the town
+## tile never refuses a wall.
+static func wall_refusal(
+	model: MapModel,
+	units: Array[CivilianState],
+	owner: int,
+	province_id: int,
+	tech_unlocked: Dictionary = {},
+	stockpile: Variant = null
+) -> String:
+	var province: ProvinceState = model.province_data(province_id) if model != null else null
+	if province == null:
+		return "This province has no wall to raise."
+	var why: String = CivilianWorkRefusals.fort(
+		province.fort_level, tech_unlocked, stockpile
+	)
+	if not why.is_empty():
+		return why
+	var site: Vector2i = FortRules.site_tile(model, province_id)
+	if site.x < 0:
+		return "This province has no town to raise a wall on."
+	# The step in hand reads as taken: a wall the crown has already ordered waits
+	# on its Engineer, not on a second press (wiki: siege-mechanics § Fort Levels;
+	# the walls ledger's AT WORK state).
+	if CivilianWork.working_crew(units, owner, site, "engineer", "build_fort") != null:
+		return "An Engineer is already at work on this wall."
+	# Two projects in one province may run (the later one cannot leap a level),
+	# so a second crew on the town tile never refuses a wall.
+	return _crew_refusal(units, owner, site, false)
+
+
+## Why the province dossier's ward press cannot run now, or "" when it can: the
+## ward table's level, study and stores, the nearest idle Engineer, and the town
+## tile the ward rises on — one crew builds it, so a crew already at work there
+## refuses the order in the work order's own sentence (wiki: combat
+## § Regiment condition; DR-20261116-02; civilian-units § Per-player tile
+## exclusivity).
+static func ward_refusal(
+	model: MapModel,
+	units: Array[CivilianState],
+	owner: int,
+	province_id: int,
+	tech_unlocked: Dictionary = {},
+	stockpile: Variant = null
+) -> String:
+	var province: ProvinceState = model.province_data(province_id) if model != null else null
+	if province == null:
+		return "This province has no ward to raise."
+	var why: String = CivilianWorkRefusals.hospital(
+		province.hospital_level, tech_unlocked, stockpile
+	)
+	if not why.is_empty():
+		return why
+	var site: Vector2i = HospitalRules.site_tile(model, province_id)
+	if site.x < 0:
+		return "This province has no town to raise a ward on."
+	return _crew_refusal(units, owner, site, true)
+
+
+## The crew the press sends: the nearest idle Engineer, else the order's own
+## sentence, and — for a ward, which one crew builds on the town tile — the
+## tile-exclusivity verdict when another crew already works the site.
+static func _crew_refusal(
+	units: Array[CivilianState], owner: int, site: Vector2i, one_crew: bool
+) -> String:
+	var engineer: CivilianState = nearest_engineer(units, owner, site)
+	if engineer == null:
+		return "No idle Engineer musters — train one at the capital."
+	if not one_crew:
+		return ""
+	var exclusive: Dictionary = CivilianTransport.exclusive(units, engineer, site)
+	return "" if bool(exclusive.get("ok", false)) else String(exclusive.get("reason", ""))
+
+
 ## Dispatch the nearest idle Engineer to the province's wall and start a
 ## build_fort order. The site, the price, the wait and every gate stay in
 ## `FortRules`/`CivilianWork`; this only chooses the crew and words the report,
