@@ -16,6 +16,13 @@ extends GdToolsTest
 
 const Fixture = preload("res://tests/map_fixture.gd")
 
+## The verbs the seat's household pass files its lines under (MapPlayAuto's own
+## despatch vocabulary), so a case can name what the pass said.
+const HOUSEHOLD_VERBS: Array[String] = [
+	"Studies ", "Sets ", "Recruits ", "Hires — ", "Bids at the mart",
+	"Offers at the mart",
+]
+
 ## Non-underscore: gd-tools clones a fresh suite instance per test and does not
 ## copy underscore fields out of before_all (docs/testing.md speed rules).
 var mounted: MapScreen = null
@@ -289,6 +296,89 @@ func test_the_crowns_orders_land_and_are_logged() -> void:
 		play.auto_log.size() > MapPlayAuto.STEPS.size(),
 		"the log carries the seat's despatches, not only the turn's opening line"
 	)
+
+
+# --- the crown's household ---------------------------------------------------
+
+
+## The seat files the crown's own household — the college, the works, the
+## workers and the mart — before its crews work (wiki: auto-mode
+## § The crown's household; issue #1302).
+func test_the_seat_files_the_crowns_household() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_steps.clear()
+	assert_eq(
+		String(MapPlayAuto.STEPS[0]), MapPlayAuto.STEP_HOUSEHOLD,
+		"the household is the seat's first pass: a court files its orders first"
+	)
+	var before: int = play.auto_log.size()
+	MapPlayAuto.run_step(play, MapPlayAuto.STEP_HOUSEHOLD)
+	assert_true(play.auto_log.size() > before, "the pass reports what it filed")
+	var said: bool = false
+	for line: String in play.auto_log:
+		if HOUSEHOLD_VERBS.any(func(verb: String) -> bool: return line.begins_with(verb)):
+			said = true
+	assert_true(said, "the seat's line names the household it filed")
+
+
+## The household books orders; the crown's own `resolve_turn` closes the ledger.
+## A seat that closed it here would pay the turn twice (REQ-P2-03).
+func test_the_household_books_orders_and_closes_no_ledger() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_steps.clear()
+	var consumption: Dictionary = play.economy.readings.last_consumption.duplicate(true)
+	var clearing: Dictionary = play.economy.last_clearing.duplicate(true)
+	MapPlayAuto.run_step(play, MapPlayAuto.STEP_HOUSEHOLD)
+	assert_eq(
+		play.economy.readings.last_consumption, consumption,
+		"the seat's household resolves no consumption"
+	)
+	assert_eq(play.economy.last_clearing, clearing, "and clears no market")
+
+
+## The plan is the rival pass's own, read on the crown's real ledger — and it
+## seeds no rival opening crew for a court that already fields its own.
+func test_the_household_plans_on_the_crowns_own_ledger() -> void:
+	var play: PlaySession = _seat_the_ai()
+	var crews: int = _crown_crews(play)
+	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
+		play, play.player_faction, play.economy.market
+	)
+	court.plan_turn()
+	assert_eq(court.economy, play.economy.economy, "the pass reads the crown's own ledger")
+	assert_eq(
+		court.kind, AiControl.court_kind(play, play.player_faction),
+		"and plans as the kind the crown's own passes bind"
+	)
+	assert_true(
+		court.research.has("assignments"), "the college's row is planned whole"
+	)
+	assert_true(court.trade.has("staged"), "and the mart's orders are staged")
+	assert_eq(_crown_crews(play), crews, "no crew is minted for the crown by planning")
+
+
+## A court that runs no planner files no household order, and the seat says why
+## instead of reading as a broken tick (wiki: auto-mode § Pacing).
+func test_a_crown_with_no_planner_says_it_files_nothing() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_steps.clear()
+	var mode: String = play.ai_mode
+	play.ai_mode = AiControl.NOOP
+	var before: int = play.auto_log.size()
+	MapPlayAuto.run_step(play, MapPlayAuto.STEP_HOUSEHOLD)
+	play.ai_mode = mode
+	assert_eq(play.auto_log.size(), before + 1, "the quiet pass still answers")
+	assert_eq(
+		String(play.auto_log.back()), MapPlayAuto.NO_PLAN_LINE, "and names the reason"
+	)
+
+
+## Every tile of every region the crown's crews stand in, for the seeding check.
+func _crown_crews(play: PlaySession) -> int:
+	var total: int = 0
+	for region: int in play.civilian_layer.regions.region_ids():
+		total += CivilianMuster.roster(play, region).size()
+	return total
 
 
 # --- the action log ----------------------------------------------------------

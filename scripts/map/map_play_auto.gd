@@ -10,18 +10,26 @@ extends RefCounted
 ## its calendar, saving and its defeat. The debug full-AI observer runs every
 ## court on whole turns and no human seat at all (docs/ai-observer.md).
 ##
-## One tick closes one of the crown's own passes — crews, expeditions, land
-## orders, voyages, sails — in the order `MapPlayTurnFinish` runs them for a
-## rival. When the queue drains the rest of the turn (rivals, combat, upkeep)
-## resumes through `MapPlayTurnFinish.finish`, so the seat is never a silent
-## end-of-turn dump: every resolved order is a line in the log.
+## One tick closes one of the crown's own passes — the household, crews,
+## expeditions, land orders, voyages, sails — in the order `MapPlayTurnFinish`
+## runs them for a rival. When the queue drains the rest of the turn (rivals,
+## combat, upkeep) resumes through `MapPlayTurnFinish.finish`, so the seat is
+## never a silent end-of-turn dump: every resolved order is a line in the log.
 
 ## Seconds per tick, indexed by `auto_speed`; 0 freezes mid-sequence.
 const SPEED_SECONDS: Array[float] = [0.0, 1.0, 0.5, 0.25]
 const SPEED_LABELS: Array[String] = ["PAUSE", "1x", "2x", "3x"]
-## The crown's seat, in phase order — the order the rival passes run in.
-const STEPS: Array[String] = ["crews", "expedition", "land", "voyage", "sea"]
+## The crown's seat, in phase order — the order the rival passes run in. The
+## household comes first: a court files its works, its studies and its trade
+## before its crews take to the land (wiki: auto-mode § The crown's household).
+const STEPS: Array[String] = [
+	"household", "crews", "expedition", "land", "voyage", "sea",
+]
+const STEP_HOUSEHOLD: String = "household"
 const STEP_CREWS: String = "crews"
+## Said in place of a household line when the crown runs no planner at all: a
+## tick that files nothing still answers, so the seat never reads as broken.
+const NO_PLAN_LINE: String = "The crown runs no household plan this turn."
 ## The log keeps the last few turns; the panel prints the tail.
 const LOG_CAP: int = 40
 const NO_ID: int = MapModel.NO_ID
@@ -139,6 +147,9 @@ static func tick(play: PlaySession) -> void:
 ## Runs one of the crown's own passes as the rival passes would, and logs what
 ## the rules actually resolved (REQ-P2-03: one planner surface for every court).
 static func run_step(play: PlaySession, step: String) -> void:
+	if step == STEP_HOUSEHOLD:
+		household(play)
+		return
 	if step == STEP_CREWS:
 		# Civilians work for every court in the pass, so the crown's crews run
 		# where the rival courts' crews run: first, before anything marches.
@@ -168,6 +179,78 @@ static func _seat_pass(play: PlaySession, pass_fn: Callable) -> Array:
 	if trace is Array:
 		return trace
 	return []
+
+
+## The crown's household, planned by the pass a rival court runs and booked as
+## the player's own presses — the production runs, the workers the Build/work
+## phase buys, the crews' work orders, the college's study and the market's
+## trade. Opened through `draft`, not `open`, so the seat never seeds a rival's
+## opening crew for the crown it does not hire. The crown's ledger is not closed
+## here: its own `resolve_turn` carries the orders out where every human turn's
+## are, so the seat neither pays twice nor re-times a rule (wiki: auto-mode
+## § The crown's household; REQ-P2-03).
+static func household(play: PlaySession) -> void:
+	if play == null or play.economy == null or play.economy.market == null:
+		return
+	if not AiControl.plans(play, play.player_faction):
+		note(play, NO_PLAN_LINE)
+		return
+	ensure_seat_ledger(play)
+	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
+		play, play.player_faction, play.economy.market
+	)
+	court.plan_turn()
+	_describe_household(play, court.book_orders())
+
+
+## The household's booked row as despatch lines, one per kind it filed: the
+## studies it opened, the runs it set, the hands it bought, the works it gave the
+## crews and the trade it staged. A tick that files nothing says so, because a
+## silent pass reads as a broken one (wiki: auto-mode § Pacing).
+static func _describe_household(play: PlaySession, row: Dictionary) -> void:
+	var lines: Array[String] = []
+	for raw: Variant in (row.get("research", {}) as Dictionary).get("assignments", []):
+		var tech: String = String((raw as Dictionary).get("tech", ""))
+		if not tech.is_empty():
+			lines.append("Studies %s" % TechCatalog.display_name(tech))
+	var runs: int = 0
+	for raw: Variant in (row.get("production", {}) as Dictionary).get("assignments", []):
+		runs += int((raw as Dictionary).get("units", 0))
+	if runs > 0:
+		lines.append("Sets %d production run%s" % [runs, "" if runs == 1 else "s"])
+	var tiers: Dictionary = {}
+	for raw: Variant in row.get("recruits", []):
+		var tier: int = int((raw as Dictionary).get("tier", -1))
+		if tier >= 0:
+			tiers[tier] = int(tiers.get(tier, 0)) + 1
+	for tier: Variant in tiers.keys():
+		var heads: int = int(tiers[tier])
+		lines.append("Recruits %d %s" % [heads, WorkerPool.tier_name(int(tier))])
+	var civilians: Dictionary = row.get("civilians", {}) as Dictionary
+	var orders: int = (civilians.get("orders", []) as Array).size()
+	if orders > 0:
+		lines.append("Sets %d work order%s" % [orders, "" if orders == 1 else "s"])
+	for raw: Variant in civilians.get("training", []):
+		var crew: String = String((raw as Dictionary).get("type_id", ""))
+		if not crew.is_empty():
+			lines.append("Hires — %s" % CivilianCatalog.display_name(crew))
+	var bids: int = 0
+	var offers: int = 0
+	for raw: Variant in (row.get("trade", {}) as Dictionary).get("staged", []):
+		match String((raw as Dictionary).get("kind", "")):
+			"bid":
+				bids += 1
+			"offer":
+				offers += 1
+	if bids > 0:
+		lines.append("Bids at the mart — %d good%s" % [bids, "" if bids == 1 else "s"])
+	if offers > 0:
+		lines.append("Offers at the mart — %d good%s" % [offers, "" if offers == 1 else "s"])
+	if lines.is_empty():
+		note(play, "The household files no order this turn.")
+		return
+	for line: String in lines:
+		note(play, line)
 
 
 ## The planners read one ledger per court; for the crown that is its own real
