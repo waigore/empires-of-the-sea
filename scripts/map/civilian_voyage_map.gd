@@ -80,6 +80,42 @@ static func drop_lost(
 	return lost
 
 
+## Takes the colonists a deck could not hold out of play at once. A raid's prize
+## sinks a merchant hull under her passenger, and the turn close has already
+## dropped her from the squadron's list ([method NavalDeck.trim_aboard]); the
+## layer must follow in that same pass, or the crown keeps counting a drowned
+## hand until the next naval watch and reads the one loss twice (wiki:
+## ships-and-naval § Naval transport — a hull sent down by a raid takes her
+## colonist with her, the last hand aboard first; § Losses). `ids` are the
+## civilian ids the trim returned; returns the units it took out of play.
+static func drown(layer: CivilianLayer, ids: Array) -> Array[CivilianState]:
+	var drowned: Array[CivilianState] = []
+	if layer == null or ids.is_empty():
+		return drowned
+	var on_screen: bool = false
+	for index in layer.regions.region_ids():
+		var members: Array[CivilianState] = roster(layer, index)
+		var changed: bool = false
+		for cursor in range(members.size() - 1, -1, -1):
+			var unit: CivilianState = members[cursor]
+			if unit == null or not ids.has(unit.id):
+				continue
+			unit.embarked_fleet = -1
+			drowned.append(unit)
+			members.remove_at(cursor)
+			changed = true
+		if not changed:
+			continue
+		layer.regions.set_region(index, members)
+		if layer.model != null and index == layer.model.region_id:
+			layer.units = members
+			on_screen = true
+	if on_screen:
+		var none: Array[String] = []
+		layer.spawn(layer.model, -1, -1, none, false)
+	return drowned
+
+
 ## Civilian by instance id across the shown region and every stored roster.
 static func by_id(layer: CivilianLayer, unit_id: int) -> CivilianState:
 	if layer == null or unit_id < 0:
