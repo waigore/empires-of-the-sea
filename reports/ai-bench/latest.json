@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:3f3e8fc7cc3bea1c1a8ea1d130bc55e37387d096402a1bd3f7e48eada6e5fd10",
-  "submission_git": "fix/storm-prices-the-walls-own-battery@eb3835b5",
+  "submission_hash": "sha256:0f501074c94a99b8117f9ea98575ed474bc9c59e3d8a44ce2ec00803dbd019f2",
+  "submission_git": "fix/storm-prices-the-walls-own-battery@0f18a6af",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:5b4187b99b5464321b3703d36575e9598575354dc8c2d4979a39d81394913c96",
+    "ai_surface_hash": "sha256:98ead79a12bbb267c6b9f5342403128049029df3019a9f1aabd2936e8d6815da",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T15:13:05Z",
+  "timestamp": "2026-11-22T15:48:13Z",
   "report_version": 1,
-  "signature": "hmac-sha256:538d25e7c609c0481c5558bb166703ef374d718224db1bf18ebd117eaca8a504"
+  "signature": "hmac-sha256:1eb420ff23ad66b040a6720058c69ea915026985184a2a3b11665a576483b180"
 }
