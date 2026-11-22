@@ -39,10 +39,10 @@ Catalogue `ProductionRecipes`; phase `ProductionPhase`:
 gate. Runs are whole; short rows skip.
 
 Steel, bronze, cigars and fur hats take two turns (DR-20261114-10). Inputs
-and labour pay up front; the batch
+and labour pay first; the batch
 lands **one unit a phase**, WIP in the save (DR-20261112-11/13-02).
 
-A slow row's bench holds three (`QUEUE_CAP`); a fourth waits
+A slow bench holds three (`QUEUE_CAP`); a fourth waits
 (DR-20261114-12).
 
 ## Town manufacturing bonus
@@ -71,8 +71,9 @@ Prices publish once; pact, boycott, subsidy settle
 `PRODUCTION`: stockpile by group in columns (three desktop, two phone, Riches
 strip); steppers capped by labour/inputs (`allowance`), a run names its
 output (`made 3`), court runs gold (`MapPlayProductionPick`, DR-20261121-07).
-`MARKET`: staged orders, Minor/Tribe/world rows, the bid budget, `CROSSING`
+`MARKET`: staged orders, Minor/Tribe/world rows, bid budget, `CROSSING`
 line (`CargoRead`), court trade gold (`MapPlayMarketPick`, DR-20261121-09),
+marked `▸` (DR-20261122-08),
 a **batch press** (`MarketBatch`), a dead `Bid` (`MarketRules.bid_block`,
 DR-20261118-15), a barred colony row (`MinorMarket.sealed_line`), share
 fills (`share_rows`).

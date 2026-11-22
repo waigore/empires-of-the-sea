@@ -1679,11 +1679,14 @@ func _row_has_text(body: Node, text: String) -> bool:
 
 ## The medallion a row draws beside `text`: the nearest branch around the label
 ## that carries an image, so a row whose name and note share a column still
-## answers (issue #1197).
+## answers (issue #1197). A row the court's own plan names leads with the
+## counsel's mark, so the lookup reads past it — the row still draws its good's
+## own plate (REQ-P1-08, DR-20261122-08).
 func _medallion_of(body: Node, text: String) -> Texture2D:
+	var mark: String = MarketRow.COURT_MARK + " "
 	for node: Node in body.find_children("*", "Label", true, false):
 		var label: Label = node
-		if label.text != text:
+		if label.text.trim_prefix(mark) != text:
 			continue
 		var branch: Node = label.get_parent()
 		while branch != null and branch != body:
@@ -2009,6 +2012,26 @@ func test_the_market_tab_names_the_trade_the_court_would_book() -> void:
 		MapPlayPickProse.sentence(String(pick.get("line", ""))),
 		"one reading, the pass's own sentence"
 	)
+	# The goods the plan names lead their own rows with the counsel's mark, and
+	# each says the side and the units it books, off the same pick the line was
+	# worded from (wiki: world-market § Trade orders; DR-20261122-08).
+	var book: Dictionary = body.court_marks()
+	assert_eq(book, LedgerMarket.court_rows(pick), "the page marks the pick's own book")
+	var printed: String = _printed(body)
+	var marked: int = 0
+	for label: Label in body.find_children("*", "Label", true, false):
+		if label.text.begins_with(MarketRow.COURT_MARK + " "):
+			marked += 1
+	assert_eq(marked, book.size(), "every good the plan names wears the mark")
+	for id: String in book.keys():
+		assert_true(
+			printed.contains("%s %s" % [MarketRow.COURT_MARK, CommodityCatalog.label(id)]),
+			"the good the plan names leads with the mark: " + id
+		)
+		assert_true(
+			printed.contains(MarketRow.court_line(book[id])),
+			"and says the side it books: " + id
+		)
 	assert_eq(
 		_screen.economy.market.book.orders_for(_screen.player_faction).size(),
 		staged_before,

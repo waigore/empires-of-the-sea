@@ -37,14 +37,21 @@ var _order_ctx: Dictionary = {}
 ## tooling (REQ-P3-02).
 var _batches: Dictionary = {}
 ## The trade the court's own market pass would book this phase, in gold above the
-## orders it answers (wiki: world-market § Trade orders; DR-20261121-09).
+## orders it answers (wiki: world-market § Trade orders; DR-20261121-09), and the
+## goods that plan names, marked `▸` on their own rows (DR-20261122-08).
 var _counsel: Label = null
+## The plan's two sides as one book keyed by commodity — commodity → {side:
+## units} — so a row marks itself off the same read the gold line was worded
+## from and can never outrun it.
+var _court: Dictionary = {}
 
 
 ## `offers` is this turn's Minor/Tribe book, rows as in `MinorMarket.emit`;
 ## `clearing` is the last world-market report, so the receipt names its ducats.
-## `counsel` is the crown's own trade plan (`MapPlayMarketPick`), already worded;
-## a page filled without one carries no gold line.
+## `trade` is the crown's own trade plan (`MapPlayMarketPick`), the pick itself
+## rather than the sentence it words: its `line` prints and its `offers`/`bids`
+## mark the rows they name; a page filled without one carries no gold line and no
+## mark.
 func fill(
 	economy: PlayerEconomy,
 	market: WorldMarket,
@@ -52,7 +59,7 @@ func fill(
 	offers: Array = [],
 	clearing: Dictionary = {},
 	viewer: int = FactionCatalog.PLAYER_FACTION,
-	counsel: String = ""
+	trade: Dictionary = {}
 ) -> void:
 	_economy = economy
 	_market = market
@@ -61,13 +68,14 @@ func fill(
 	UiRowBuilder.clear(self)
 	_batches.clear()
 	_counsel = null
+	_court = court_rows(trade)
 	_order_ctx = MarketBatch.context(_economy, _cargo, MarketBatch.reservations(_economy))
 	_add_cargo_banner()
 	var budget: Label = LedgerBudget.banner(_economy)
 	if budget != null:
 		add_child(budget)
 	_add_terms_banner()
-	_add_counsel(counsel)
+	_add_counsel(String(trade.get("line", "")))
 	LedgerMarketOrders.mount(
 		self, _market, _viewer,
 		func(order_id: String) -> void: cancel_requested.emit(order_id)
@@ -90,6 +98,28 @@ func fill(
 ## the offer cap is the post-production stockpile minus industry reservations).
 static func claimed_by_production(economy: PlayerEconomy, commodity: String) -> int:
 	return maxi(int(MarketBatch.reservations(economy).get(commodity, 0)), 0)
+
+
+## The court's plan as one book keyed by commodity: commodity → {side: units},
+## the shape a row marks itself from (`offer` and `bid` are the pick's own two
+## sides). A good the plan books nothing on takes no entry, so no row can wear a
+## mark the line does not name (REQ-P2-03, DR-20261122-08).
+static func court_rows(trade: Dictionary) -> Dictionary:
+	var out: Dictionary = {}
+	for side: String in ["offer", "bid"]:
+		var source: Variant = trade.get(side + "s", {})
+		if not (source is Dictionary):
+			continue
+		var side_rows: Dictionary = source
+		for raw: Variant in side_rows.keys():
+			var id: String = String(raw)
+			var units: int = int(side_rows[raw])
+			if id.is_empty() or units <= 0:
+				continue
+			var read: Dictionary = out.get(id, {}) as Dictionary
+			read[side] = units
+			out[id] = read
+	return out
 
 
 func _add_cargo_banner() -> void:
@@ -203,11 +233,19 @@ func counsel_text() -> String:
 	return "" if _counsel == null else _counsel.text
 
 
+## The goods the court's own plan names, as the page reads them — commodity →
+## {offer: n} / {bid: n} — so a test or the smoke holds the marks to the reading
+## that painted them (REQ-P3-02, DR-20261122-08).
+func court_marks() -> Dictionary:
+	return _court
+
+
 func _market_row(id: String, held: int, claimed: int = 0) -> Control:
+	var hooked: Callable = func(commodity: String, quantity: int, is_buy: bool) -> void:
+		trade_requested.emit(commodity, quantity, is_buy)
 	var built: Dictionary = MarketRow.build(
-		id, held, claimed, _cargo, _market, _viewer, _order_ctx, _compact,
-		func(commodity: String, quantity: int, is_buy: bool) -> void:
-			trade_requested.emit(commodity, quantity, is_buy)
+		id, held, claimed, _cargo, _market, _viewer, _order_ctx, _compact, hooked,
+		_court.get(id, {}) as Dictionary
 	)
 	for side: String in (built["batches"] as Dictionary).keys():
 		_batches["%s:%s" % [side, id]] = built["batches"][side]
