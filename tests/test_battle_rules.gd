@@ -4003,6 +4003,74 @@ func test_the_wall_towers_over_the_garrison() -> void:
 	)
 
 
+## The ladder runs to five and the plate draws it (wiki: siege-mechanics
+## § Fort Levels — wall HP 40 × level and guns = level; DR-20261122-16). A
+## curtain capped at Modern drew a Bastion or a Star fort exactly as a Modern
+## one, beside a wall block that named the higher level.
+func test_every_fort_level_stands_taller_on_the_plate() -> void:
+	var previous: float = BattlePlate.wall_height(600.0, 0)
+	for fort in range(1, FortRules.MAX_LEVEL + 1):
+		var wall: float = BattlePlate.wall_height(600.0, fort)
+		assert_true(
+			wall > previous, "level %d stands above level %d" % [fort, fort - 1]
+		)
+		assert_true(
+			BattlePlate.parapet_y(600.0, fort) < 600.0 * BattlePlate.GROUND,
+			"the garrison stands above the field at level %d" % fort
+		)
+		previous = wall
+	assert_true(
+		BattlePlate.wall_height(600.0, FortRules.MAX_LEVEL)
+			> BattlePlate.wall_height(600.0, FortRules.MAX_LEVEL - 2),
+		"the Star wall stands above the Modern one"
+	)
+	# Three paintings ship: the ladder's last two eras stand on the Modern one
+	# and never index past the shelf.
+	assert_eq(
+		BattlePlate.wall_art(FortRules.MAX_LEVEL),
+		BattlePlate.wall_art(FortRules.MAX_LEVEL - 2)
+	)
+	assert_true(ResourceLoader.exists(BattlePlate.wall_art(FortRules.MAX_LEVEL)))
+
+
+## The Simulator's rail names every level the ladder has, so a level above
+## Modern can be played without a second press (wiki: siege-mechanics
+## § Fort Levels; DR-20261122-16).
+func test_the_simulator_rail_names_every_fort_level() -> void:
+	assert_eq(
+		BattleSimSetup.FORT_LABELS.size(), FortRules.MAX_LEVEL + 1, "one row a level"
+	)
+	assert_eq(String(BattleSimSetup.FORT_LABELS[0]), "No fort")
+	for fort in range(1, FortRules.MAX_LEVEL + 1):
+		assert_true(
+			String(BattleSimSetup.FORT_LABELS[fort]).to_lower().contains(
+				FortRules.level_name(fort).to_lower()
+			),
+			"level %d reads as the ladder names it" % fort
+		)
+
+
+## The sandbox holds the top of the ladder: the province reaches the level asked
+## and its wall and battery are the table's own (wiki: siege-mechanics
+## § Wall Protection, § Emplaced Artillery — 160 hp and 4 guns at Bastion, 200
+## and 5 at Star, a gate every ceil(wall HP / 3) wall casualties).
+func test_the_scenario_holds_the_top_of_the_ladder() -> void:
+	for fort in [4, 5]:
+		var scene: Dictionary = BattleScenario.build({
+			"attacker": ["musketeers"], "defender": ["pikemen"], "fort": fort,
+		})
+		var model: MapModel = scene["model"]
+		assert_eq(
+			FortRules.level_at(model, 0), fort, "the sandbox reaches level %d" % fort
+		)
+		assert_eq(FortRules.guns(fort), fort, "one emplaced gun a level")
+		assert_eq(roundi(FortRules.wall_hp(fort)), 40 * fort, "40 wall hp a level")
+		assert_eq(
+			SiegeGates.breach_threshold(fort), ceili(40.0 * float(fort) / 3.0),
+			"three gates share one wall's HP"
+		)
+
+
 func test_the_simulator_scene_fights_and_steps() -> void:
 	var screen: BattleSimScreen = SIM_SCENE.instantiate()
 	add_child(screen)
