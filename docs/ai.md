@@ -5,8 +5,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 ## Implemented
 
 - **Registry, profiles** (`AiParameterRegistry`, `AiConfig`, `AiPersonality`,
-  `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas; a profile binds
-  at setup (`AiProfile`, DR-20261120-08).
+  `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas; a profile binds at setup
+  (DR-20261120-08).
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
   (`AiNavy`), else `economy.min_treasury`; on `earn` the auction keeps it
   (DR-20261113-19/22, DR-20261114-06/11).
