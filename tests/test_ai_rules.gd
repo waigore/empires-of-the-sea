@@ -809,6 +809,40 @@ func test_ai_military_walks_a_stranded_host_onto_its_own_land() -> void:
 	)
 
 
+## Own land is the road's end, so a host beside its own border walks onto it even
+## when a wilderness step reads nearer the seat: the published walk names the
+## province that shortens the road, and own land is the seat's own distance
+## (wiki: military-armies § Movement and attacks — "own land is the seat's own
+## distance, so it always wins"; DR-20261121-15).
+func test_ai_military_walks_onto_its_own_land_before_nearer_wilderness() -> void:
+	# P0 the seat, then the wilderness road P1 → P2. The host stands in P3, beside
+	# both P2 (two marches from the seat) and its own ground P4 (four).
+	var model: MapModel = _walk_chart(
+		[[0, 1, 1], [1, 2, 1], [2, 2, 3], [3, 3, 3], [3, 4, 4]],
+		{0: 2, 4: 2}, {0: true}
+	)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 0, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 3, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(
+		int(walked[0]["province"]), 4,
+		"its own ground beside it, the road's end — a nearer wilderness step is no walk"
+	)
+
+
 ## Two steps home at the same distance: the lower province id wins, so the same
 ## state always walks the same way (DR-20261121-15).
 func test_ai_military_walks_the_lower_step_on_a_tie() -> void:
@@ -833,6 +867,41 @@ func test_ai_military_walks_the_lower_step_on_a_tie() -> void:
 	assert_eq(walked.size(), 1)
 	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
 	assert_eq(int(walked[0]["province"]), 1, "the lower id of the two equal steps")
+
+
+## A step onto the court's own ground is the road's end, not one more province on
+## it: the walk takes the own province beside the host even when a wilderness
+## neighbour reads nearer the seat on the field, because own land is the seat's
+## own distance and always wins (wiki: military-armies § Movement and attacks;
+## DR-20261121-15).
+func test_ai_military_walks_onto_own_land_before_nearer_wilderness() -> void:
+	# P0 the seat; P4 the court's own ground, four marches out; P8 the host, beside
+	# both P4 and the wilderness P6/P7 that sit two marches from the seat.
+	var model: MapModel = _walk_chart(
+		[[0, 1, 2], [5, 7, 3], [6, 8, 4], [9, 10, 11]],
+		{0: 2, 4: 2},
+		{0: true}
+	)
+	var state := _war_state(2, 3)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 0, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 2, 8, false, ["pikemen", "bowmen"] as Array[String], 201),
+	]
+
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	var walked: Array[Dictionary] = []
+	for order: Dictionary in plan["orders"]:
+		if int(order["army_id"]) == 3:
+			walked.append(order)
+
+	assert_eq(walked.size(), 1)
+	assert_eq(String(walked[0]["kind"]), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(
+		int(walked[0]["province"]), 4,
+		"its own ground beside it, the road home, never the nearer wilderness"
+	)
 
 
 ## The walk's own guards: no chart, no army, or a court the map gives no seat
@@ -1351,7 +1420,7 @@ func test_ai_naval_hunts_a_hostile_squadron_one_zone_over() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 2, 1, "galleon"),
+		_squadron(0, 2, 1, "sloop"),
 		_squadron(1, 1, 0, "sloop"),
 	]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
@@ -1508,7 +1577,7 @@ func test_map_phase_sails_a_peaceful_squadron_one_leg_home() -> void:
 func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
-	var moored := FleetState.in_port(0, 2, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var moored := FleetState.in_port(0, 2, 0, ["h0"] as Array[String], {"h0": "sloop"})
 	var fleets: Array[FleetState] = [moored, _squadron(1, 1, 0, "sloop")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 1)
@@ -1531,7 +1600,7 @@ func test_ai_naval_hunts_only_charted_water() -> void:
 	charts.setup(world, 0, {})
 	var config: AiConfig = AiConfig.build(2, 1500)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 2, 1, "galleon"),
+		_squadron(0, 2, 1, "sloop"),
 		_squadron(1, 1, 0, "sloop"),
 	]
 	var blind: Dictionary = AiNavalPlanner.orders(
@@ -1554,7 +1623,7 @@ func test_ai_naval_hunts_only_charted_water() -> void:
 func test_ai_naval_home_squadron_sorties_to_defend_its_seat() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(0, 1500)
-	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "sloop"})
 	var fleets: Array[FleetState] = [home, _squadron(1, 1, 0, "sloop")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 1, "the seat answers a hostile in reach")
@@ -1616,6 +1685,55 @@ func test_ai_naval_a_merchant_squadron_does_not_raid() -> void:
 	var fleets: Array[FleetState] = [_squadron(0, 2, 0, "galleon")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+## A convoy hull cannot pick a fight: a merchant squadron in reach of a weaker
+## hostile at war leaves the leg to the trade rules — with another berth
+## ashore the hull hunts nothing, and with none it convoys home (issue #1258).
+func test_ai_naval_a_merchant_squadron_never_pursues_at_war() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 0, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	for raw: Variant in plan["orders"]:
+		assert_ne(
+			String((raw as Dictionary)["kind"]), AiNavalPlanner.KIND_PURSUE,
+			"a merchant hull joins no war hunt"
+		)
+		assert_ne(
+			String((raw as Dictionary)["kind"]), AiNavalPlanner.KIND_SORTIE,
+			"a merchant hull picks no fight"
+		)
+
+
+## A merchant home fleet that answers a hostile beside its berth still does not
+## read as a war sortie: the kind is the hull's own, so the trace names a
+## convoy's move for what it is (wiki: ships-and-naval § Ship Types; #1258).
+func test_ai_naval_a_merchant_seat_guard_convoys_out_of_the_harbour() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var guard := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var fleets: Array[FleetState] = [guard, _squadron(1, 1, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1, "the berth answers the hostile")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_CONVOY)
+
+
+## A warship-bearing home fleet still answers a hostile beside the seat: the
+## convoy rule is for hulls that cannot fight, never for the seat's guard
+## (wiki: ai-architecture § Naval policy — defence first; issue #1258).
+func test_ai_naval_a_warship_home_fleet_still_sorties_to_defend() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	home.hull_types["h0"] = "sloop"
+	var fleets: Array[FleetState] = [home, _squadron(1, 1, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1, "the seat answers a hostile in reach")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_SORTIE)
 
 
 ## A warship already on a hostile coast holds there: the station pass posts the
@@ -1752,7 +1870,7 @@ func test_ai_naval_needs_a_hostile_fleet_at_sea() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 2, 1, "galleon"),
+		_squadron(0, 2, 1, "sloop"),
 		FleetState.in_port(1, 1, 1, ["h1"] as Array[String], {"h1": "sloop"}),
 	]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
@@ -1830,7 +1948,7 @@ func test_ai_naval_a_berth_ashore_frees_a_squadron_to_hunt() -> void:
 		9, 0, 0, ["h9"] as Array[String], {"h9": "fluyte"}
 	)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 0, 1, "galleon"),
+		_squadron(0, 0, 1, "sloop"),
 		berthed,
 		_squadron(1, 1, 0, "sloop"),
 	]
@@ -1889,6 +2007,72 @@ func test_the_observer_log_reads_the_trade_garrison() -> void:
 	var lines: Array = record["events"]
 	assert_eq(lines.size(), 1)
 	assert_true(String(lines[0]).contains("holds home"), "the row names why")
+
+
+## The observer log names a convoy hull's sail: the action reads as a convoy,
+## never as the war sortie the old suffix rule gave every port fleet (issue
+## #1258). A warship's own sortie keeps its `sortie` row.
+func test_the_observer_log_names_a_convoy_sail_apart_from_a_sortie() -> void:
+	var play := PlaySession.new()
+	var fleet_trace: Array[Dictionary] = [
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_CONVOY,
+			"fleet": 0,
+			"zone": 0,
+			"zone_name": "Golfo de México",
+			"region": 0,
+			"threat": 0,
+		},
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_SORTIE,
+			"fleet": 1,
+			"zone": 1,
+			"zone_name": "Mar Caribe",
+			"region": 0,
+			"threat": 3,
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], fleet_trace, {})
+	var record: Dictionary = merged["factions"][0]
+	assert_eq(
+		int(record["actions"].get("cargo", 0)), 0,
+		"a convoy sail is no cargo route: the economy owns that key"
+	)
+	assert_eq(int(record["actions"].get("convoy", 0)), 1, "the convoy names itself")
+	assert_eq(int(record["actions"].get("sortie", 0)), 1, "the warship still sorties")
+	assert_eq(int(record["actions"].get("pursue", 0)), 0)
+	var lines: Array = record["events"]
+	assert_eq(lines.size(), 2)
+	assert_true(String(lines[0]).contains("convoy"), "the row says what the hull did")
+	assert_false(String(lines[0]).contains("squadron sails"), "not a war move's words")
+
+
+## A berth guard that docks through the seat's own merge reads home — the dock
+## branch names its harbour, not a zone (wiki: ships-and-naval § Home Fleet;
+## issue #1258).
+func test_the_observer_log_reads_a_convoy_dock_at_the_harbour() -> void:
+	var play := PlaySession.new()
+	var fleet_trace: Array[Dictionary] = [
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_CONVOY,
+			"fleet": 0,
+			"zone": -1,
+			"zone_name": "Cádiz",
+			"region": 0,
+			"threat": 0,
+			"dock": true,
+			"province": 0,
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], fleet_trace, {})
+	var record: Dictionary = merged["factions"][0]
+	assert_eq(int(record["actions"].get("convoy", 0)), 1, "a docked convoy still names itself")
+	var lines: Array = record["events"]
+	assert_eq(lines.size(), 1)
+	assert_true(String(lines[0]).contains("convoy"), "the dock row keeps the hull's own kind")
 
 
 func test_ai_naval_skips_a_squadron_that_already_moved() -> void:
@@ -11718,11 +11902,13 @@ func test_a_banking_court_waits_with_its_envoy_rungs() -> void:
 	)
 
 
-## The funded chain outranks the bank (issue #1135): the `chain_matters` bypass
-## was written for exactly this case but sat below the banking refusal and never
-## ran — a court below the bar banks on every turn it cannot cover both, so the
-## funded chain the ledger prices stayed shut the whole campaign.
-func test_a_banking_court_walks_its_funded_chain() -> void:
+## The army outranks the funded chain while the conquest bank is engaged (issue
+## #1135's bypass learned the price of a rung): a paid embassy ate the chest the
+## muster was filling, so the line stayed unfunded for the campaign (bench run
+## 2026-11-22: 16 provinces and one regiment, then 31 provinces and eight
+## regiments once the rung waited). The chain walks again the turn the host
+## stands.
+func test_a_banking_court_waits_its_funded_chain_behind_the_army() -> void:
 	_setup_ai_diplomacy_offers()
 	var tribe: int = FactionCatalog.tribe_ids()[0]
 	ai_diplomacy_offers_state.ensure_relation(2, tribe, 1)
@@ -11742,12 +11928,31 @@ func test_a_banking_court_walks_its_funded_chain() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, tribe, 20, context
 	)
-	assert_false(
+	assert_true(
 		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
 			"the court is banking for its army"
 		),
-		"a chain the court funds outranks the bank's face"
+		"the funded chain waits while the army banks"
 	)
+	# The host stands: the bank lets go and the same chain walks.
+	context["income"] = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": true,
+	}
+	var standing: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, tribe, 20, context
+	)
+	assert_false(
+		_offer_blocked_kind(standing, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a court whose host stands walks its funded chain"
+	)
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
 	# A court with no chain (no charted Tribe beside it) still waits behind the
 	# bank: the aim the ledger funds here is the army's.
 	ai_diplomacy_offers_state.ensure_relation(2, 3, 1)
@@ -11769,11 +11974,11 @@ func test_a_banking_court_walks_its_funded_chain() -> void:
 	)
 
 
-## The deed's own chain outranks the bank too (issue #1135): a Minor seller the
-## court has charted with a priced deed still walks its envoy chain while the
-## court banks — the rung that lands the embassy is the link the Merchant's
-## purchase waits for, the same published purchase the tribe chain rides.
-func test_a_banking_court_walks_a_minor_deeds_chain() -> void:
+## The deed's chain waits behind the army too: a court that is short of the bar
+## and one line-cycle short of its chest buys the line first, the paid rung
+## after. The chain walks the turn the host stands, so the Merchant's purchase
+## still finds its embassy.
+func test_a_banking_court_waits_a_minor_deeds_chain() -> void:
 	_setup_ai_diplomacy_offers()
 	var minor: int = FactionCatalog.minor_ids()[0]
 	ai_diplomacy_offers_state.ensure_relation(2, minor, 1)
@@ -11797,12 +12002,32 @@ func test_a_banking_court_walks_a_minor_deeds_chain() -> void:
 		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
 		ai_diplomacy_offers_ai_state, world, 1, minor, 20, context
 	)
-	assert_false(
+	assert_true(
 		_offer_blocked_kind(entries, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
 			"the court is banking for its army"
 		),
-		"a Minor deed's chain walks while the court banks"
+		"a Minor deed's chain waits while the court banks"
 	)
+	# The host stands: the same chain walks to its embassy.
+	var standing_income: Dictionary = {
+		"goal": AiIncome.GOAL_SPEND, "reserve": 500, "treasury": 5000,
+		"regiments": 9, "conquest_gap": true,
+	}
+	context["income"] = standing_income
+	var standing: Array[Dictionary] = AiDiplomacyOffers.candidates(
+		ai_diplomacy_offers_config, ai_diplomacy_offers_state,
+		ai_diplomacy_offers_ai_state, world, 1, minor, 20, context
+	)
+	assert_false(
+		_offer_blocked_kind(standing, AiDiplomacyOffers.KIND_OVERTURE).begins_with(
+			"the court is banking for its army"
+		),
+		"a court whose host stands walks its deed chain"
+	)
+	context["income"] = {
+		"goal": AiIncome.GOAL_EARN, "reserve": 2200, "treasury": 600,
+		"regiments": 1, "conquest_gap": true,
+	}
 	# Without a priced deed on the seller's chart the bank's face stands.
 	var bare_world: WorldMap = ai_diplomacy_offers_AiFixture.world([2, minor])
 	var bare_entries: Array[Dictionary] = AiDiplomacyOffers.candidates(

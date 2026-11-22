@@ -10,6 +10,8 @@ const KIND_SORTIE: String = AiNavalPlanner.KIND_SORTIE
 const KIND_PURSUE: String = AiNavalPlanner.KIND_PURSUE
 const KIND_RAID: String = AiNavalPlanner.KIND_RAID
 const KIND_HOME: String = AiNavalPlanner.KIND_HOME
+## A merchant hull's sail names itself: a convoy, not a war sortie (issue #1258).
+const KIND_CONVOY: String = AiNavalPlanner.KIND_CONVOY
 const REASON_TRADE: String = AiNavalPlanner.REASON_TRADE
 const REASON_FRONTS: String = AiNavalPlanner.REASON_FRONTS
 
@@ -27,6 +29,8 @@ static func line(model: MapModel, order: Dictionary) -> String:
 			said = _hunt(model, order, "pursue into")
 		KIND_RAID:
 			said = _raid(model, order)
+		KIND_CONVOY:
+			said = _convoy(model, order)
 		KIND_HOME:
 			said = _home(model, order)
 		_:
@@ -57,6 +61,19 @@ static func _raid(model: MapModel, order: Dictionary) -> String:
 	if zone == MapModel.NO_ID:
 		return ""
 	return "the court would sail for the %s — the first leg toward a hostile coast, to work its trade" % model.sea_zone_name(zone)
+
+## A merchant hull's leg home is a convoy, not a war move: the trace and the
+## sheet say so, and the holds ride the same road back (issue #1258).
+static func _convoy(model: MapModel, order: Dictionary) -> String:
+	if bool(order.get("dock", false)):
+		var port: int = int(order.get("province", MapModel.NO_ID))
+		if port == MapModel.NO_ID:
+			return ""
+		return "the court would convoy her home to %s" % model.province_name(port)
+	var zone: int = int(order.get("zone", MapModel.NO_ID))
+	if zone == MapModel.NO_ID:
+		return ""
+	return "the court would convoy her toward the %s — the first leg home with the holds" % model.sea_zone_name(zone)
 
 ## Home: she docks when the harbour borders her water, else she takes the first
 ## leg of the road back (DR-20261110-30).

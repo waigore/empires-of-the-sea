@@ -625,6 +625,13 @@ domain = "sheet"
 match = "scripts/ui/improvement_panel.gd*"
 domain = "pause"
 
+# The crown's one gold counsel line (CounselLine) is the estates card and the
+# campaign sheets: its own cases ride the panel parts, the sheets that mount it
+# ride the ledger suite.
+[[rules]]
+match = "scripts/ui/counsel_line.gd*"
+domain = "sheet"
+
 [[rules]]
 match = "scripts/ui/force_ledger_*.gd*"
 domain = "sheet"

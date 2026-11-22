@@ -107,9 +107,10 @@ static func _medal(
 ## Hands one province to a new holder; a report never flips a missing province.
 ## The seat stays with the court that held it, so a captured capital carries no
 ## seat to its conqueror (wiki: capital-and-connectivity § Capital loss and
-## reassignment).
+## reassignment). The ground's deeds go with the province: a purchased tile
+## answers to the new owner (wiki: diplomacy § Intervention; world-market
+## § Minor/tribe town development).
 static func flip(model: MapModel, province: int, owner: int) -> void:
 	var data: ProvinceState = model.get_province(province)
-	if data != null:
-		data.owner = owner
+	if data != null and ProvinceHandover.hand_over(model, province, owner):
 		CapitalLoss.clear_seat(data)

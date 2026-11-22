@@ -18,8 +18,6 @@ var _region: String = LedgerRows.REGION_ALL
 ## step, a hull's role. One name for the axis so a press reads the same on every
 ## sheet.
 var _reading: String = LedgerRows.ALL
-## The last snapshot the sheet painted from; empty before its first refresh.
-var _snapshot: Dictionary = {}
 var _bar: LedgerFilterBar = null
 var _rows: VBoxContainer = null
 var _empty: Label = null

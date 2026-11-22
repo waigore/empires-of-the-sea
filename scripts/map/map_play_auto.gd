@@ -38,6 +38,7 @@ const SEAT_LABELS: Dictionary = {
 	AiNavalPlanner.KIND_PURSUE: "Pursues",
 	AiNavalPlanner.KIND_HOME: "Sails home",
 	AiNavalPlanner.KIND_RAID: "Raids the coast",
+	AiNavalPlanner.KIND_CONVOY: "Sails a convoy",
 	AiInvasionPlanner.KIND_DOCK: "Docks the expedition",
 	AiInvasionPlanner.KIND_EMBARK: "Boards an army",
 	AiInvasionPlanner.KIND_SAIL: "Sails with the expedition",

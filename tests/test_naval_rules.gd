@@ -2699,6 +2699,40 @@ func test_an_embarked_army_follows_its_fleet_between_regions() -> void:
 	layer.free()
 
 
+func test_a_passage_leaves_no_ghost_on_the_old_roster() -> void:
+	_setup_naval_movement()
+	var pair: Array = _naval_movement_transport_pair()
+	var army: ArmyState = pair[0]
+	var fleet: FleetState = pair[1]
+	NavalTransport.embark(_naval_movement_model, army, fleet)
+	var layer: ArmyLayer = _transport_layer(army)
+	## A turn pass that hands the table its own list (the land turn's Home Army
+	## recall does) must not let a passage leave the army standing on both charts:
+	## a save would then hold it twice (wiki: campaign-persistence — a save holds
+	## armies and regiments; ships-and-naval § Naval transport).
+	var filed: Array[ArmyState] = []
+	filed.assign(layer.armies)
+	layer.regions.set_region(_naval_movement_model.region_id, filed)
+	ArmyTransport.move_to_region(layer, army.id, 1)
+	var home: Array[ArmyState] = []
+	home.assign(layer.regions.value(_naval_movement_model.region_id, []))
+	assert_eq(home.size(), 0, "the army leaves the chart it sailed from")
+	assert_eq(ArmyTransport.region_of(layer, army), 1, "and stands on the chart it reached")
+	layer.free()
+
+
+func test_the_roster_store_guards_a_missing_layer_and_a_bare_chart() -> void:
+	ArmyTransport.publish(null)
+	var filed: Array[ArmyState] = []
+	ArmyTransport.store(null, 0, filed)
+	var bare := ArmyLayer.new()
+	ArmyTransport.store(bare, 0, filed)
+	assert_true(is_same(bare.regions.value(0, []), filed), "a stored list is the table's")
+	ArmyTransport.publish(bare)
+	assert_eq(bare.armies.size(), 0, "a chart with no model publishes nothing")
+	bare.free()
+
+
 func test_a_sunk_squadrons_army_leaves_the_roster() -> void:
 	_setup_naval_movement()
 	var pair: Array = _naval_movement_transport_pair()

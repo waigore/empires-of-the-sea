@@ -68,10 +68,11 @@ static func build_hud(play: PlaySession) -> void:
 	)
 	# The estates ledger names the estates the court's own Builder pass would
 	# raise this phase, read on the ledger's own snapshot so the line reads down
-	# the page it answers (wiki: extraction-and-improvements § Estates ledger;
-	# DR-20261121-10).
+	# the page it answers, and marks those rows with the counsel's `▸` so the
+	# raise is found among a long page (wiki: extraction-and-improvements
+	# § Estates ledger; DR-20261121-10, DR-20261122-04).
 	play.improvements.counsel_source = (
-		func(data: Dictionary) -> String: return MapPlayEstatesPick.line(play, data)
+		func(data: Dictionary) -> Dictionary: return MapPlayEstatesPick.pick(play, data)
 	)
 	# The province dossier names the orders the court would give on its ground:
 	# the work the civilian pass would put crews to here and the hosts the land
@@ -99,15 +100,10 @@ static func build_hud(play: PlaySession) -> void:
 		people.counsel_source = (
 			func(data: Dictionary) -> String: return MapPlayPeoplePick.line(play, data)
 		)
-	# THE CROWN'S NAVY names the sails the court's own naval pass would order its
-	# squadrons this turn, read on the sheet's own snapshot so the line reads down
-	# the squadrons it answers (wiki: ships-and-naval § The crown's navy;
-	# DR-20261121-13).
-	var navy: NavalLedgerPanel = hud.navy_ledger
-	if navy != null:
-		navy.counsel_source = (
-			func(data: Dictionary) -> String: return MapPlayNavyPick.line(play, data)
-		)
+	# THE CROWN'S NAVY reads its own pass in the panel's own method, so a bound
+	# callable cannot outlive the session it reads and the squadrons the line
+	# names can wear its mark (wiki: ships-and-naval § The crown's navy;
+	# DR-20261121-13, DR-20261121-14, DR-20261122-05).
 	# THE TECH TREE names the study the court's own research policy would open —
 	# the college's own gold sentence — and marks that advance `▸` on the chart,
 	# so the crown sees where the court would go without scanning 113 nodes

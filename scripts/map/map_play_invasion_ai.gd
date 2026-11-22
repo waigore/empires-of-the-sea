@@ -23,6 +23,8 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 			continue
 		var fleets: Array = MapPlayCourt.region_fleets(play, region)
 		var armies: Array[ArmyState] = MapPlayCourt.visible_armies(play, region)
+		var before: Array[ArmyState] = []
+		before.assign(armies)
 		for faction: int in MapPlayCourt.planning_factions(play):
 			var kind: String = AiControl.court_kind(play, faction)
 			if kind == AiControl.KIND_RANDOM:
@@ -47,7 +49,7 @@ static func run(play: PlaySession) -> Array[Dictionary]:
 				continue
 			trace.append(applied)
 			touched = true
-		_store(play, region, fleets, armies)
+		_store(play, region, fleets, armies, before)
 	if touched:
 		_refresh_visible(play)
 	return trace
@@ -234,11 +236,19 @@ static func _refresh_visible(play: PlaySession) -> void:
 		play.hud.stats.set_fleets(MapPlayCourt.ships(play, play.player_faction))
 
 
-static func _store(play: PlaySession, region: int, fleets: Array, armies: Array) -> void:
+## Writes the region's rosters back. An army roster the pass never touched is
+## left on the chart alone: storing it again would file a copy over the very
+## list orders publish to, and the next pass would plan from the copy
+## (ArmyTransport.store — wiki: campaign-persistence).
+static func _store(
+	play: PlaySession, region: int, fleets: Array, armies: Array, before: Array[ArmyState] = []
+) -> void:
 	MapPlaySeaStep.merge_stored(MapPlayCourt.region_fleets(play, region), fleets)
-	MapPlaySeaStep.merge_stored(MapPlayCourt.visible_armies(play, region), armies)
 	play.ship_layer.regions.set_region(region, fleets)
-	play.army_layer.regions.set_region(region, armies)
+	if before == armies:
+		return
+	MapPlaySeaStep.merge_stored(MapPlayCourt.region_armies(play, region), armies)
+	ArmyTransport.store(play.army_layer, region, armies)
 
 
 ## The invadable test the planner weighs, in the form it expects.
