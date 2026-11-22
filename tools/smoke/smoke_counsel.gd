@@ -322,7 +322,8 @@ static func _production(run, screen: MapScreen) -> void:
 		var runs: Dictionary = pick.get("runs", {}) as Dictionary
 		run.check(
 			_marked_recipes(page) == runs.size(),
-			"every run the court would set wears the mark"
+			"every run the court would set wears the mark (%d marked, %d booked)"
+			% [_marked_recipes(page), runs.size()]
 		)
 		run.check(
 			_printed(page, LedgerProduction.COURT_LEGEND) == (not runs.is_empty()),
@@ -519,11 +520,14 @@ static func _marked_goods(page: LedgerMarket) -> int:
 
 
 ## How many workshop rows wear the counsel's mark, so the smoke can hold the
-## count to the reading's own runs (DR-20261122-10).
+## count to the reading's own runs (DR-20261122-10). The heading's legend wears
+## the same glyph and is not a row.
 static func _marked_recipes(page: LedgerProduction) -> int:
 	var marked: int = 0
 	var prefix: String = LedgerProduction.COURT_MARK + " "
 	for label: Label in page.find_children("*", "Label", true, false):
+		if label.text == LedgerProduction.COURT_LEGEND:
+			continue
 		if label.text.begins_with(prefix):
 			marked += 1
 	return marked
