@@ -18307,3 +18307,48 @@ func test_the_wall_raises_the_musters_own_target() -> void:
 		AiArmyReinforce.guard_regiments(config, false),
 		"peace musters the published target"
 	)
+
+
+## The config every reader shares (issue #1356): the state builds it once per
+## court and hands the same instance back, so the reading one pass notes on it
+## — the storm read — is the reading the next reader sees, not a fresh build
+## that forgot it.
+func test_the_courts_config_is_one_instance_for_every_reader() -> void:
+	var state := AiState.new()
+	var first: Variant = state.court_config(
+		AiControl.KIND_SUBJECT, 1, 1500, AiProfile.roster()
+	)
+	assert_true(first is AiConfig, "the bind builds the court's run config")
+	var second: Variant = state.court_config(
+		AiControl.KIND_SUBJECT, 1, 1500, AiProfile.roster()
+	)
+	assert_true(first == second, "the second read is the same config, not a new build")
+	var guard: int = AiArmyReinforce.guard_regiments(first, true)
+	(first as AiConfig).storm_read = {"want": guard + 3, "extra": 3}
+	assert_eq(
+		AiArmyReinforce.desired_regiments(second, true), guard + 3,
+		"the reading the pass noted is the target the next reader sees"
+	)
+	assert_eq(
+		AiArmyReinforce.desired_regiments(first, true), guard + 3,
+		"and the pass's own target is the same host"
+	)
+
+
+## The court read opens the same shared config the pass reads (issue #1356): a
+## second `AiControl.court` in one turn reads the storm reading the muster pass
+## set, so the counsel and the pass cannot name two hosts.
+##
+## Without a materialized `scripts/ai_mainline/` (CI and a plain checkout) the
+## bind falls back to the submission profile builder, so a baseline court gets
+## the same shared host as any other. The frozen mainline path is exercised by
+## the bench, not here: asserting it would only pass on a synced tree.
+func test_a_court_read_back_hands_the_same_config() -> void:
+	var state := AiState.new()
+	var mainline: Variant = state.court_config(
+		AiControl.KIND_BASELINE, 1, 1500, AiProfile.roster()
+	)
+	assert_true(mainline is AiConfig, "the bind falls back to the profile builder")
+	assert_true(mainline == state.court_config(
+		AiControl.KIND_BASELINE, 1, 1500, AiProfile.roster()
+	), "a baseline court hands back the one config it built")
