@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:c67bd3d8a2c07915bf7da666391c45ae6b2350e109461459f3a0314ff005245f",
-  "submission_git": "fix/ai-yard-names-resumed-bank@e0f7c53c",
+  "submission_hash": "sha256:e8ac83812bca6813c067cf9324ff77cca4b632cc9fbca8610231ce1aa2c36fb5",
+  "submission_git": "fix/cargo-holds-at-the-seat@a3679eba",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:abbe62a723acdc0314fff969669e726194ba0943d654012c653980fc05002a11",
+    "ai_surface_hash": "sha256:0aee7bf4e684a96cb02676ce58dc39388687ed9e13c87b880b40db315beb4622",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 31,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T10:58:02Z",
+  "timestamp": "2026-11-22T12:42:53Z",
   "report_version": 1,
-  "signature": "hmac-sha256:c8d08f60159cbb15103e6194695d76198b3acbf20f45c72c46f15f7758eaf196"
+  "signature": "hmac-sha256:25222890a1409b4b0be95a76e339917eca2978d1d8708cd05b5a9d503beddc26"
 }

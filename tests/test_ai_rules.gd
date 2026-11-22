@@ -3860,6 +3860,20 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	play.ship_layer = ships
 	var with_holds: Dictionary = MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]
 	assert_eq(_tons(with_holds), 6, "one hold carries the colony's ton")
+
+	# Hulls that wait at the colony quay are not the home fleet: the squadron that
+	# carried them across has sailed, so the colony's ton stays ashore (wiki:
+	# ships-and-naval § Cargo holds and capacity — "the home squadron's merchant
+	# hulls are the only holds"; § Home Fleet — every other squadron is "at sea or
+	# in port at non-capital owned provinces").
+	var sorted: FleetState = FleetState.at_sea(2, 1, 0, ["b"], {"b": "fluyte"})
+	var moored: FleetState = FleetState.in_port(3, 1, 0, ["c"], {"c": "fluyte"})
+	ships.regions.set_region(WorldMap.OLD_WORLD, [sorted] as Array[FleetState])
+	ships.regions.set_region(WorldMap.NEW_WORLD, [moored] as Array[FleetState])
+	assert_eq(
+		_tons(MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]), 5,
+		"a colony quay is no home fleet"
+	)
 	ships.free()
 	layer.free()
 
