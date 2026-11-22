@@ -40,8 +40,8 @@ unobserved, and the screen's state. Visit opens the spy; the sheet moves nothing
 One gold line above the network names the spies the court would book this turn
 (DR-20261121-11) — `The court would walk its Spy toward Genoa.` — three named,
 the rest counted. Each spy the court would *order* — a walk or a screen — leads
-its row with `▸` (DR-20261122-18); a kept spy carries none: keeping is not an
-order. No spy, no planner, no line; nothing is ordered.
+its row with `▸` (DR-20261122-18); a kept spy carries none: keeping is no order.
+No spy, no planner, no line; nothing is ordered.
 
 ## AI use
 
