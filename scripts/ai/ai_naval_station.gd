@@ -7,6 +7,11 @@ extends RefCounted
 ## Pure rules: state in, orders out; the map layer applies them through
 ## NavalMovement so the AI never invents an outcome (REQ-P2-03, REQ-P3-03).
 
+## A squadron bound for its own harbour: dock beside it, or sail the next leg.
+const KIND_HOME: String = "home"
+## A warship with no squadron to fight works a hostile coast (DR-20261111-17).
+const KIND_RAID: String = "raid"
+
 
 ## One step home for an unengaged squadron: dock when the home harbour borders
 ## its zone, else the next charted zone on the sea path. A squadron on a station
@@ -29,7 +34,7 @@ static func home_order(
 		return {}
 	if NavalMovement.dockable_provinces(model, fleet).has(port):
 		return {
-			"kind": AiNavalPlanner.KIND_HOME,
+			"kind": KIND_HOME,
 			"dock": true,
 			"province": port,
 			"zone": MapModel.NO_ID,
@@ -40,7 +45,7 @@ static func home_order(
 	if step < 0 or not AiSquadronReads.charts_water(charts, owner, model.region_id, step):
 		return {}
 	return {
-		"kind": AiNavalPlanner.KIND_HOME,
+		"kind": KIND_HOME,
 		"dock": false,
 		"province": MapModel.NO_ID,
 		"zone": step,
@@ -93,7 +98,7 @@ static func raid_order(
 		return {"hold": true} if coasts.has(fleet.sea_zone) else {}
 	if not AiSquadronReads.charts_water(charts, faction, model.region_id, step):
 		return {}
-	return {"kind": AiNavalPlanner.KIND_RAID, "zone": step, "threat": 0}
+	return {"kind": KIND_RAID, "zone": step, "threat": 0}
 
 
 ## Charted sea zones beside a hostile coast, split into the coasts whose seat

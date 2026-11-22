@@ -15,9 +15,9 @@ extends RefCounted
 ## invents an outcome (REQ-P2-03, REQ-P3-03).
 ##
 ## This module owns the turn's policy — who hunts, who holds and who comes home.
-## The water a station order crosses belongs to [AiNavalStation], and what a
-## squadron is or where it can reach belongs to [AiSquadronReads]; neither is
-## read twice here (REQ-P3-01).
+## The fight it picks is [AiNavalFight], the water a station order crosses is
+## [AiNavalStation], and what a squadron is or where it can reach is
+## [AiSquadronReads]: no read is written twice here (REQ-P3-01).
 ##
 ## The footing's naval slot (`navy.missions`, DR-20261117-01) is the caller's
 ## read: an **overstretched** court opens no new commerce station — a squadron
@@ -25,16 +25,13 @@ extends RefCounted
 ## station already posted keeps its post and a court at one front raids as
 ## published.
 
-const KIND_PURSUE: String = "pursue"
-const KIND_SORTIE: String = "sortie"
-const KIND_HOME: String = "home"
-## A warship with no squadron to fight sails for a hostile coast to raid its
-## trade (DR-20261111-17): the move is the first leg of that station.
-const KIND_RAID: String = "raid"
-## A merchant hull that leaves port sails a convoy, not a war sortie (wiki:
-## ships-and-naval § Ship Types; issue #1258): the trace must name the move so
-## a port fleet reads as what its hulls are.
-const KIND_CONVOY: String = "convoy"
+const KIND_PURSUE: String = AiNavalFight.KIND_PURSUE
+const KIND_SORTIE: String = AiNavalFight.KIND_SORTIE
+## The station's own two sails; [AiNavalStation] owns their water and names them
+## here so a caller keeps one vocabulary.
+const KIND_HOME: String = AiNavalStation.KIND_HOME
+const KIND_RAID: String = AiNavalStation.KIND_RAID
+const KIND_CONVOY: String = AiNavalFight.KIND_CONVOY
 ## Why a squadron gives up its station and makes for home: it carries the holds
 ## its court keeps its imports with, and the court has none in port at its seat
 ## (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
@@ -96,8 +93,8 @@ static func _order_for(
 	var owner: int = config.faction
 	if hostile.is_empty():
 		return AiNavalStation.home_order(model, fleet, owner, charts)
-	if trade_garrison(model, fleets, fleet) \
-			and not _defends_seat(model, fleets, fleet, hostile):
+	var defends_seat: bool = _defends_seat(model, fleets, fleet, hostile)
+	if trade_garrison(model, fleets, fleet) and not defends_seat:
 		# The holds come home first: a court with none in port at its seat
 		# buys no build input and ships no colonist, whatever the war wants
 		# (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
@@ -105,7 +102,9 @@ static func _order_for(
 		if not home.is_empty():
 			home["reason"] = REASON_TRADE
 		return home
-	var fight: Dictionary = _best_target(config, model, fleets, fleet, hostile, charts)
+	var fight: Dictionary = AiNavalFight.best_target(
+		config, model, fleets, fleet, hostile, charts, defends_seat
+	)
 	if not fight.is_empty():
 		return fight
 	if not raids or not AiSquadronReads.has_warship(fleet):
@@ -178,70 +177,6 @@ static func _defends_seat(
 	return fleet.is_in_port() and AiSquadronReads.hostile_beside(
 		model, fleets, fleet, hostile
 	)
-
-
-## Weakest reachable hostile squadron this turn, or empty when every reachable
-## one is a fight the court declines. Anchored ports sortie, sea squadrons
-## pursue; both enter exactly one adjacent zone (NavalMovement owns legality).
-static func _best_target(
-	config: AiConfig,
-	model: MapModel,
-	fleets: Array,
-	fleet: FleetState,
-	hostile: Dictionary,
-	charts: CourtCharts = null
-) -> Dictionary:
-	# The hull picks the leg (issue #1258): a warship hunts as published, while
-	# a convoy hull joins no war hunt — it fights only for its own harbour, the
-	# hostile beside its berth, and otherwise leaves the leg to the trade rules
-	# (wiki: ai-architecture § Naval policy — defence first, ships-and-naval
-	# § Ship Types).
-	if not AiSquadronReads.has_warship(fleet) and not _defends_seat(
-		model, fleets, fleet, hostile
-	):
-		return {}
-	var kind: String = _fight_kind(fleet)
-	var own: float = NavalCombat.side_strength([fleet])
-	var best: Dictionary = {}
-	var best_threat: float = 0.0
-	for zone: int in AiSquadronReads.destinations(model, fleet):
-		# A court hunts only in water its own chart holds; a hull it has never
-		# charted is not a target (REQ-P2-03).
-		if not AiSquadronReads.charts_water(charts, config.faction, model.region_id, zone):
-			continue
-		var threat: float = AiSquadronReads.hostile_strength(fleets, zone, hostile)
-		if threat <= 0.0 or not _can_engage(config, own, threat):
-			continue
-		# Compare the true side strength: rounding first would let a stronger
-		# squadron win only because its zone id sorts lower (wiki: ai-architecture
-		# § Naval policy — "weakest hostile squadron it can reach").
-		if best.is_empty() or _ahead(zone, threat, best, best_threat):
-			best = {"zone": zone, "kind": kind, "threat": int(ceil(threat))}
-			best_threat = threat
-	return best
-
-
-## The trace's name for this hull's fight: a port warship sorties, a port convoy
-## answers its own berth, a sea squadron pursues (issue #1258).
-static func _fight_kind(fleet: FleetState) -> String:
-	if fleet.is_in_port():
-		return KIND_SORTIE if AiSquadronReads.has_warship(fleet) else KIND_CONVOY
-	return KIND_PURSUE
-
-
-## True when this zone's squadron is the weaker one, or its equal on the lower
-## zone id.
-static func _ahead(zone: int, threat: float, best: Dictionary, best_threat: float) -> bool:
-	if not is_equal_approx(threat, best_threat):
-		return threat < best_threat
-	return zone < int(best["zone"])
-
-
-## The caution knob keeps a rival from feeding a squadron to a far stronger
-## fleet; it never changes what the combat rules then decide.
-static func _can_engage(config: AiConfig, own: float, threat: float) -> bool:
-	var margin: float = float(config.parameter("naval.caution_margin_pct"))
-	return threat * 100.0 <= own * margin
 
 
 ## Kept for callers that read a squadron's charted water through the planner.
