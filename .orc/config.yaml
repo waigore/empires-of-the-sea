@@ -43,10 +43,11 @@ schedules:
     cron: "0 8,12,18 * * *"
     agents:
       - export-android-debug
-  every-6h-free-playtest:
-    cron: "0 */6 * * *"
+  # 1am HKT — full-campaign observe
+  daily-victory-playtest:
+    cron: "0 1 * * *"
     agents:
-      - free-playtest-agent
+      - victory-playtest-agent
 
 providers:
   # Prefer cursor-agent: plain `agent` may resolve to Grok's binary on PATH.
@@ -112,13 +113,25 @@ agents:
   free-playtest-agent:
     skill: free-playtest-agent
     provider: hermes
-    enabled: true
+    enabled: false
     prompt: |
       Load and follow the project skill free-playtest-agent (under .agents/skills).
       Prefer Hermes GameForge playtesting (`forge_playtest` / playtesting skill).
       Run it unattended.
       Parallel id: {parallel_id}. Assigned issue: {issue}.
       One free-playtest pass; update wiki diary/learnings; open a PR if work shipped; then exit.
+
+  victory-playtest-agent:
+    skill: victory-playtest-agent
+    provider: hermes
+    enabled: true
+    prompt: |
+      Load and follow the project skill victory-playtest-agent (under .agents/skills).
+      Prefer live desktop; use any viable fallback if needed.
+      Run it unattended — never pause for the user.
+      Parallel id: {parallel_id}. Assigned issue: {issue}.
+      One victory-playtest pass; batch-file unique issues; update wiki diary/learnings;
+      observe-only (no code fixes, no PR); then exit.
 
   # Continuous Hermes: open todo issues (gated). Separate from review-issue-agent.
   resolve-issue-agent:

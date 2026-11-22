@@ -35,10 +35,10 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); advanced-start live cases share **one mount per tier**. Pure cases
-  skip re-seat / shell (lazy `_screen` / `main` / menu-flow `chart`); hospitals
-  ride that chart; opening plates use short `hold_max` / `fade_seconds`. Free a
-  swapped screen. Far-chart fog / off-screen naval: `world.region` /
-  `regions.set_region` — no `_cycle_region`.
+  skip re-seat/shell/restore (lazy `_screen` / `main` / menu-flow `chart`);
+  hospitals ride that chart; opening plates use short `hold_max` /
+  `fade_seconds`. Free a swapped screen. Far-chart fog / off-screen naval:
+  `world.region` / `regions.set_region` — no `_cycle_region`.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
@@ -227,6 +227,14 @@ godot --headless --path . --script res://playtests/playtest_workshop.gd
 # lost), then strips the crown to its seat and storms that (the defeat plate, the
 # sealed turn, and the save that restores the defeated campaign).
 godot --headless --path . --script res://playtests/playtest_capital_move.gd
+
+# A seat lost mid-invasion — marches the crown into a rival's capital the same
+# turn another rival storms its own seat (the pass moves two courts onto each
+# other's ground, and the seat the crown just won is the successor it picks),
+# then walks a rival host into the undefended seat with no clash at all and reads
+# the court move, the seat every reader names, and the fall that hands the
+# colonies over.
+godot --headless --path . --script res://playtests/playtest_seat_lost_mid_invasion.gd
 
 # Field hospital train — pitches the army's own tents from the dossier (reading
 # the caption, the receipt and the strength line), mauls two hosts on bare ground

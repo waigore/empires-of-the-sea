@@ -102,7 +102,7 @@ func update(price: ResearchSlotPrice, counsel: String = "", animate: bool = true
 		_fill_icon(price.tech)
 	_name.text = TechCatalog.display_name(price.tech)
 	_name.tooltip_text = TechCatalog.effect_text(price.tech)
-	_spend.text = "%s ducats" % TextFormat.thousands(price.gold)
+	_spend.text = MoneyText.ducats(price.gold)
 	_spend.add_theme_color_override(
 		"font_color", Palette.GOLD if price.gold > 0 else Palette.TEXT_DIM
 	)

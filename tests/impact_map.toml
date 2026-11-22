@@ -1625,6 +1625,19 @@ suites = [
   "test_generated_world_rules.gd",
 ]
 
+# Purse words (REQ-P3-01): MoneyText and the pages that print ducats. Kept off
+# battle/map boots so a formatting PR stays inside the tier-1 5 min budget.
+[domains.money_text]
+suites = [
+  "test_generated_world_rules.gd",
+  "test_panel_parts_rules.gd",
+  "test_economy_screen.gd",
+  "test_market_economy_rules.gd",
+  "test_research_rules.gd",
+  "test_civilian_turn_rules.gd",
+  "test_diplomacy_rules.gd",
+]
+
 # Chart roster / province totals (wiki: naming § default ruleset, advanced-starts
 # § locked full-init). Kept small so a six-minor / 60/30 change stays in tier 1.
 [domains.world]
@@ -1893,6 +1906,12 @@ domain = "economy_ui"
 # sized instead of remounting the setup and hub pages.
 [[rules]]
 match = "scripts/ui/ledger_production.gd*"
+domain = "economy_ui"
+
+# Column and row paint for the PRODUCTION tab (REQ-P3-01 split); same suites as
+# the sheet it paints so a row change stays tier-1 sized.
+[[rules]]
+match = "scripts/ui/ledger_production_rows.gd*"
 domain = "economy_ui"
 
 # The tier medallions are the WORKERS tab's art table, and its by-hand shot
@@ -3598,18 +3617,18 @@ domain = "ai"
 
 # Presentation catalogs and the shared purse formatter. Declared before the
 # civilian_*/diplomacy_*/ship_*/regiment_* globs so a MoneyText extract does not
-# steal *_catalog → misc and pull the screen/lens suites past the tier-1 budget.
+# steal *_catalog → misc and pull battle/screen suites past the tier-1 budget.
 [[rules]]
 match = "scripts/rules/money_text.gd*"
-domain = "misc"
+domain = "money_text"
 
 [[rules]]
 match = "scripts/rules/civilian_catalog.gd*"
-domain = "misc"
+domain = "money_text"
 
 [[rules]]
 match = "scripts/rules/diplomacy_catalog.gd*"
-domain = "misc"
+domain = "money_text"
 
 # What a civilian hire buys and the one study it waits on, printed on the muster
 # rail (DR-20261118-09): its own small slice proves the words and the rail that
@@ -4361,6 +4380,12 @@ domain = "despatch"
 [[rules]]
 match = "scripts/ui/hud_despatch_cover.gd*"
 domain = "despatch"
+
+# Treasury chip copy only: the purse tooltip prints through MoneyText, so keep
+# it off the ui domain's battle boot when stacked on a ducats formatting PR.
+[[rules]]
+match = "scripts/ui/hud_stat_chips.gd*"
+domain = "money_text"
 
 # HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
 # off the menu domain so a dossier wiring change stays inside the tier-1 5 min

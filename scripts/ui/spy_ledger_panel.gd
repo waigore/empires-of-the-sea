@@ -79,10 +79,10 @@ func _paint() -> void:
 ## The crown's spies, one row each: where it stands and what it earns there.
 func _network() -> void:
 	var rows: Array = _snapshot.get("rows", [])
-	_heading("THE NETWORK", "%d spy%s" % [rows.size(), "" if rows.size() == 1 else "s"])
+	_heading("THE NETWORK", SpyLedger.count_text(rows.size()))
 	if rows.is_empty():
 		_rows.add_child(UiRowBuilder.wrapped_line(
-			"No spy answers the crown. Train one at the capital — 2,000 cash and "
+			"No spy answers the crown. Train one at the capital — 2,000 ducats and "
 			+ "4 paper — and post it on a rival's land.",
 			13,
 			Palette.TEXT_DIM
@@ -107,7 +107,7 @@ func _courts() -> void:
 
 
 func _screen() -> void:
-	_heading("THE SCREEN", "up" if bool(_snapshot.get("screened", false)) else "down")
+	_heading("THE SCREEN", SpyLedger.screen_word(_snapshot))
 	var line := UiRowBuilder.wrapped_line(
 		SpyLedger.screen_text(_snapshot), 13,
 		Palette.GOLD_PALE if bool(_snapshot.get("screened", false)) else Palette.TEXT

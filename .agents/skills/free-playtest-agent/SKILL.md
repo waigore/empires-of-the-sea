@@ -41,7 +41,7 @@ Hill-climb **player-visible expression** of an implemented area: rules fidelity,
 | [`references/wiki-diary.md`](references/wiki-diary.md) | Diary + learnings format |
 | [`references/pr-body.md`](references/pr-body.md) | PR body + rubric |
 
-**Not this agent:** unimplemented wiki gaps → [`implement-feature-agent`](../implement-feature-agent/SKILL.md). Pure wiki ambiguity → [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md). Narrow P2 rules hunt without GameForge/diary → [`hunt-defects-agent`](../hunt-defects-agent/SKILL.md). Arch-only → refactor-code.
+**Not this agent:** unimplemented wiki gaps → [`implement-feature-agent`](../implement-feature-agent/SKILL.md). Pure wiki ambiguity → [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md). Narrow P2 rules hunt without GameForge/diary → [`hunt-defects-agent`](../hunt-defects-agent/SKILL.md). Full-campaign observe + batch issues → [`victory-playtest-agent`](../victory-playtest-agent/SKILL.md). Arch-only → refactor-code.
 
 ## Workflow
 

@@ -3655,6 +3655,10 @@ func test_an_unconnected_colony_yields_nothing_to_ship() -> void:
 func test_the_ledger_reserves_the_colony_cargo_before_imports() -> void:
 	var world := WorldMap.new()
 	world.add_region(_region(0))
+	# The hulls wait in port at the crown's **seat**: home holds are the seat's
+	# own, and a colony quay is not one (wiki: ships-and-naval § Cargo holds and
+	# capacity — "the home squadron's merchant hulls are the only holds").
+	world.region(0).province_data(0).capital = true
 	var home: FleetState = FleetState.in_port(
 		1, 0, 0, ["a"], {"a": "fluyte"}
 	)
@@ -4028,6 +4032,54 @@ func test_a_crown_without_a_seat_has_no_cargo() -> void:
 	var home := FleetState.in_port(1, 0, 0, ["a"], {"a": "fluyte"})
 	assert_eq(TradeCargo.capacity(world, {0: [home]}, 6), 0)
 	assert_eq(TradeCargo.capacity(null, {0: [home]}, 0), 0)
+
+## The holds are the home fleet's own: a squadron moored in a colony port is not
+## the home fleet, even on a chart where the crown holds no capital, so the hulls
+## that carried a garrison across carry nothing for the crown's ports (wiki:
+## ships-and-naval § Home Fleet — a ship is home only "in port at capital"; every
+## other is "at sea or in port at non-capital owned provinces"; § Cargo holds and
+## capacity — "the home squadron's merchant hulls are the only holds").
+func test_a_colony_port_squadron_carries_no_home_holds() -> void:
+	var world: WorldMap = _trade_cargo_world()
+	var colony: MapModel = NavalFixture.build()
+	colony.region_id = WorldMap.NEW_WORLD
+	# The crown holds a New World province with a harbour, and sits nowhere there.
+	colony.province_data(0).owner = 1
+	colony.province_data(0).capital = false
+	colony.province_data(1).owner = 0
+	colony.province_data(1).capital = false
+	world.add_region(colony)
+	var moored := FleetState.in_port(1, 0, 1, ["a"], {"a": "fluyte"})
+	var fleets: Dictionary = {WorldMap.OLD_WORLD: [], WorldMap.NEW_WORLD: [moored]}
+
+	assert_eq(TradeCargo.home_holds(world, fleets, 0), 0, "a colony quay is no seat")
+	assert_eq(TradeCargo.capacity(world, fleets, 0), 0, "and grants no harbour allowance")
+
+	# The same hulls in port at the crown's own capital are the home holds.
+	var home := FleetState.in_port(2, 0, 0, ["a"], {"a": "fluyte"})
+	assert_eq(
+		TradeCargo.home_holds(world, {WorldMap.OLD_WORLD: [home]}, 0), 4,
+		"the seat harbour is where the holds are counted"
+	)
+
+## The seat harbour's one trade hold needs a **seat**: a court whose only holding
+## is a colony province it took has no capital to trade from (wiki:
+## ships-and-naval § Cargo holds and capacity — "a crown with no seat ... has 0
+## holds"; DR-20261114-11).
+func test_the_seat_allowance_needs_a_capital_not_a_holding() -> void:
+	var world: WorldMap = _trade_cargo_world()
+	var colony: MapModel = NavalFixture.build()
+	colony.region_id = WorldMap.NEW_WORLD
+	colony.province_data(0).owner = 1
+	colony.province_data(0).capital = false
+	colony.province_data(1).owner = 0
+	colony.province_data(1).capital = false
+	world.add_region(colony)
+	# The crown lost its old seat and holds nothing but the colony.
+	world.region(WorldMap.OLD_WORLD).province_data(0).owner = 1
+	world.region(WorldMap.OLD_WORLD).province_data(0).capital = false
+
+	assert_eq(TradeCargo.capacity(world, {}, 0), 0, "a holding with no seat is no harbour")
 
 func test_status_reports_holds_used_and_free() -> void:
 	var world: WorldMap = _trade_cargo_world()
@@ -5027,8 +5079,8 @@ func test_a_staged_order_is_valued_at_the_viewing_crowns_terms() -> void:
 	var order: MarketOrder = MarketOrder.create(1, "timber", MarketOrder.SIDE_OFFER, 2, 1)
 	var row: Control = LedgerMarketOrders.row(order, market, 1)
 	var notional: Label = row.get_child(3) as Label
-	assert_eq(notional.text, "%d" % (market.sell_price("timber", 1) * 2))
-	assert_ne(notional.text, "%d" % (market.sell_price("timber", 0) * 2))
+	assert_eq(notional.text, TextFormat.thousands(market.sell_price("timber", 1) * 2))
+	assert_ne(notional.text, TextFormat.thousands(market.sell_price("timber", 0) * 2))
 	row.free()
 
 

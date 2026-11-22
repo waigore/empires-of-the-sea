@@ -112,11 +112,22 @@ static func town_tile(province: ProvinceState) -> Vector2i:
 
 ## Applies reassignment and reports terminal falls for one region. `before` is
 ## the snapshot taken before the battles that changed ownership.
+##
+## The verdicts are read first and the seat flags written after, because one
+## pass can move two courts onto each other's ground: a crown that takes a
+## rival's seat the same pass its own seat falls may pick that captured seat as
+## its successor, and the rival's own verdict (a move, or a fall) clears its lost
+## seat — a clear that must never land on the seat this pass has just given
+## another court (wiki: capital-and-connectivity § Capital loss and
+## reassignment). Writing the picks last makes the order a pass's verdicts are
+## read in immaterial.
 static func resolve(model: MapModel, before: Dictionary) -> Dictionary:
 	var reassigned: Array[Dictionary] = []
 	var fallen: Array[Dictionary] = []
 	if model == null:
 		return {"reassigned": reassigned, "fallen": fallen}
+	var cleared: Array[int] = []
+	var picks: Array[Dictionary] = []
 	for raw: Variant in before.keys():
 		var faction: int = int(raw)
 		if seat_of(model, faction) != NO_ID:
@@ -129,26 +140,32 @@ static func resolve(model: MapModel, before: Dictionary) -> Dictionary:
 		# DR-20261109-02 § Detection).
 		if lost == NO_ID:
 			continue
+		cleared.append(lost)
 		var owned: Array[int] = owned_provinces(model, faction)
 		if owned.is_empty():
-			clear_seat(model.province_data(lost))
 			fallen.append({
 				"faction": faction,
 				"conqueror": _owner_of(model, lost),
 				"lost": lost,
 			})
 			continue
-		clear_seat(model.province_data(lost))
 		var pick: int = pick_capital_province(model, owned)
 		if pick == NO_ID:
 			continue
-		var seat: ProvinceState = model.province_data(pick)
+		picks.append({"faction": faction, "province": pick, "lost": lost})
+	for province_id: int in cleared:
+		clear_seat(model.province_data(province_id))
+	for row: Dictionary in picks:
+		var faction: int = int(row["faction"])
+		var seat: ProvinceState = model.province_data(int(row["province"]))
+		if seat == null:
+			continue
 		seat.capital = true
 		seat.capital_tile = town_tile(seat)
 		seat.town_tile = seat.capital_tile
 		if FactionCatalog.type_of(faction) == FactionCatalog.Type.GREAT_POWER:
 			seat.town_development = 4
-		reassigned.append({"faction": faction, "province": pick, "lost": lost})
+		reassigned.append(row)
 	return {"reassigned": reassigned, "fallen": fallen}
 
 
