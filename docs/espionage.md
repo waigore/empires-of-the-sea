@@ -12,9 +12,9 @@ P5 hidden spies leave no trace.
 - **Roster:** 2,000 ducats + 4 paper at the capital; any land province, rivals,
   Minors and Tribes included.
 - **Presence reveal** (`SpyNetworks`, `CivilianMovement`): a spy on non-owner
-  ground holds its charted tiles visible; it never reveals terrain or mineral
-  kind, and the province fogs at the end-of-turn the last spy leaves — no grace
-  timer (wiki: civilian-units § Spy (1); DR-20261110-03).
+  ground holds its tiles visible; it shows no terrain or minerals, and the
+  province fogs at end-of-turn once the last spy leaves — no grace
+  timer (wiki: civilian-units § Spy; DR-20261110-03).
 - **Invisibility:** rival spies are never drawn, hovered or selectable
   (`CivilianLayer.viewer_faction`); the AI never sees human spies.
 - **Counter-espionage** (`counter_spy`): an ongoing order on an owned province.
