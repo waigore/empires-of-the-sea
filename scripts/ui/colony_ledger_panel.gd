@@ -11,10 +11,6 @@ extends LedgerSheet
 ## own door is the one way in.
 
 var _notes: VBoxContainer = null
-## The gold counsel line under the chips: the Tribe the court's own envoy is
-## drawing into the empire this turn (DR-20261121-16).
-var counsel_source: Callable = Callable()
-var _counsel: Label = null
 
 
 func _init() -> void:
@@ -44,12 +40,6 @@ func refresh() -> void:
 	_fit()
 	_sync_counsel()
 	_apply_filter()
-
-
-## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
-## the sheet carries no reading.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
 
 
 # --- sheet hooks -------------------------------------------------------------
@@ -84,23 +74,7 @@ func _build_body(column: VBoxContainer) -> void:
 ## What sits under the chips and above the rows: the court's own reading in gold
 ## (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16).
 func _under_chips() -> Control:
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	return _counsel
-
-
-## The gold counsel line: the Tribe the court's own envoy is drawing into the
-## empire this turn, or nothing when the court has no chain to name. A closed
-## sheet reads nothing, because the pass is a planner walk no one is looking at
-## (REQ-P4-02).
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
-	var text: String = ""
-	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_snapshot))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
+	return _counsel_line()
 
 
 func _note(text: String) -> Label:
