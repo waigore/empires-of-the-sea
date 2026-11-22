@@ -51,9 +51,27 @@ func _set_caption_legend(marked: bool) -> void:
 ## row leads with the counsel's glyph — the court's own reading named it
 ## (DR-20261122-20).
 func _add_row(text: String, action: String, marked: bool = false) -> void:
+	_rows_box.add_child(
+		make_press(text, func() -> void: action_pressed.emit(action), marked)
+	)
+
+
+## A row that runs a local press instead of emitting an intent (opening a coast's
+## grounds, and the way back out of them).
+func _add_row_press(text: String, run: Callable, marked: bool = false) -> Button:
+	var button: Button = make_press(text, run, marked)
+	_rows_box.add_child(button)
+	return button
+
+
+## One marked press, the shape every dossier row keeps: a marked row leads with
+## the counsel's glyph and every row is a phone tap (DR-20261122-20). The open
+## coast's window builds its rows with it, so a row reads the same on the sheet
+## and inside the scroll.
+static func make_press(text: String, run: Callable, marked: bool = false) -> Button:
 	var button := Button.new()
 	button.text = ("%s %s" % [COURT_MARK, text]) if marked else text
 	button.custom_minimum_size = Vector2(0, 36)
 	button.add_theme_font_size_override("font_size", 13)
-	button.pressed.connect(func() -> void: action_pressed.emit(action))
-	_rows_box.add_child(button)
+	button.pressed.connect(run)
+	return button

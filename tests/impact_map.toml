@@ -3220,6 +3220,17 @@ domain = "naval_voyage"
 match = "scripts/ui/fleet_crew_section.gd*"
 domain = "naval_voyage"
 
+# The passenger block's two halves: the court mark it reads and the open coast's
+# window it paints. Both are mounted and proved by the two suites that mount the
+# block, so a mark or ground-row edit rides the voyage slice, not the UI fan-out.
+[[rules]]
+match = "scripts/ui/fleet_crew_mark.gd*"
+domain = "naval_voyage"
+
+[[rules]]
+match = "scripts/ui/fleet_crew_grounds.gd*"
+domain = "naval_voyage"
+
 # The voyage the court's own colonisation pass would make with a squadron
 # (DR-20261121-08): the pick asks `MapPlayColonisationAi.step`, the same call the
 # rival pass applies, and the passenger block prints its line. The suites that
