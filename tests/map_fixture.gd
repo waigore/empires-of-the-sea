@@ -233,14 +233,8 @@ static func _reset_view(screen: MapScreen) -> void:
 		screen.hud.stats.clear_animations()
 	if screen.hud != null and screen.hud.panels != null:
 		# Instant close: slide-out lambdas must not outlive a shared-mount re-seat.
-		for slot: HudPanelSlot in screen.hud.panels.selections():
-			slot.conceal_now()
-			PanelDock.stop_slide(slot.wrap)
-		for slot: HudPanelSlot in [
-			screen.hud.panels.economy,
-			screen.hud.panels.research,
-			screen.hud.panels.diplomacy,
-		]:
+		# One list holds the dock rail and the ledgers (HudPanels.every).
+		for slot: HudPanelSlot in screen.hud.panels.every():
 			if slot != null:
 				slot.conceal_now()
 				PanelDock.stop_slide(slot.wrap)

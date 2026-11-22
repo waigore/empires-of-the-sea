@@ -20,21 +20,28 @@ static func home_fleet(
 
 ## Launches one paid-for hull into the home fleet, founding it at the slip when
 ## the crown keeps no squadron in that port. The view only mirrors what
-## FleetYard already allowed.
+## FleetYard already allowed. `roster` names the chart's fleet list the slip
+## stands on: the Build/work pass hands over the seat's own chart, so a crown
+## watching a colony when the turn closes still launches at its capital (wiki:
+## capital-and-connectivity § Capital; world-model-identity). Empty reads the
+## chart on screen.
 static func launch_hull(
 	layer: ShipLayer,
 	province_id: int,
 	type_id: String,
 	economy: PlayerEconomy,
-	flown: Array = []
+	flown: Array = [],
+	roster: Array = []
 ) -> Dictionary:
 	if layer == null:
 		return {"ok": false, "reason": "No chart.", "hull": "", "type": ""}
-	var fleet: FleetState = home_fleet(layer.fleets, layer.player_faction, province_id)
+	var fleets: Array = layer.fleets if roster.is_empty() else roster
+	var live: bool = fleets == layer.fleets
+	var fleet: FleetState = home_fleet(fleets, layer.player_faction, province_id)
 	var founded: bool = fleet == null
 	if founded:
 		fleet = FleetState.empty_in_port(
-			FleetRosters.next_id(layer.fleets), layer.player_faction, province_id
+			FleetRosters.next_id(fleets), layer.player_faction, province_id
 		)
 	var hull_id: String = "ship_%d" % layer.next_hull
 	var result: Dictionary = FleetYard.launch(economy, fleet, type_id, hull_id, flown)
@@ -42,14 +49,16 @@ static func launch_hull(
 		return result
 	layer.next_hull += 1
 	if founded:
-		layer.fleets.append(fleet)
-		layer.regions.set_region(layer.model.region_id, layer.fleets)
-		layer.attach_marker(fleet)
-		# The station takes a squadron more: the row and the stack are re-laid so
-		# the newcomer never draws over a marker already there
-		# (wiki: ships-and-naval § Fleets in one station).
-		layer.relayout()
-	layer.markers.hulls(fleet)
+		fleets.append(fleet)
+	if live:
+		if founded:
+			layer.regions.set_region(layer.model.region_id, layer.fleets)
+			layer.attach_marker(fleet)
+			# The station takes a squadron more: the row and the stack are re-laid
+			# so the newcomer never draws over a marker already there
+			# (wiki: ships-and-naval § Fleets in one station).
+			layer.relayout()
+		layer.markers.hulls(fleet)
 	result["created"] = founded
 	result["fleet"] = fleet
 	return result

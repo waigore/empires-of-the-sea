@@ -239,11 +239,14 @@ static func _record_defeat(play: PlaySession, fallen: Array) -> void:
 
 
 ## Keeps the session's capital framing on the player's current seat after a
-## reassignment (training and civilian muster read it).
+## reassignment. Only the seat's own chart is reframed: another chart frames the
+## holding it shows (MapPlayRegion.mount), and writing the seat's province id
+## there would read as a colony on another chart (wiki: capital-and-connectivity
+## § Capital; world-model-identity).
 static func sync_player_capital(play: PlaySession) -> void:
 	var region: int = FactionCatalog.region_of(play.player_faction)
 	var model: MapModel = play.world.region(region)
-	if model == null:
+	if model == null or play.region_index != region:
 		return
 	var seat: int = CapitalLoss.seat_of(model, play.player_faction)
 	if seat == CapitalLoss.NO_ID:

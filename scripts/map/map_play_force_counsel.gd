@@ -11,12 +11,13 @@ extends RefCounted
 ## the roll cannot name an order either sheet would refuse (REQ-P2-03). No second
 ## planner copies a policy.
 ##
+## Every force the reading names is also keyed, so the roll marks the rows its
+## line answers with the counsel's `▸` — the realm's own mark
+## ([MapPlayRealmCounsel]) — and a crown finds the forces her staff would send
+## among a long muster (DR-20261122-03).
+##
 ## A reading only: nothing here marches a standard, takes a station or rolls a
 ## die, and the crown still presses her own order (REQ-P3-03, REQ-P5-06).
-
-## The most forces one line names before it counts the rest, so a handset's
-## reading stays one line of chrome (REQ-P5-07).
-const NAMED_LIMIT: int = 3
 
 ## Forces wait for an order and both passes give none: the gate the roll names
 ## instead of a clause it cannot print.
@@ -29,11 +30,12 @@ static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
 	return MapPlayPickProse.sentence(String(pick(play, snapshot).get("line", "")))
 
 
-## The roll's pick as the sheet prints it: `{forces, line}`, where each force is
-## `{region, kind, id, line}` and `kind` is the roll's own (`ForceLedger`). Empty
-## when the session runs no planner for the crown, an observer session, a decided
-## campaign, a session with no army or naval layer, or every force already under
-## way.
+## The roll's pick as the sheet prints it: `{forces, keys, line}`, where each
+## force is `{region, kind, id, line}`, `kind` is the roll's own (`ForceLedger`)
+## and `keys` holds `force_key`'s `"region:kind:id"` for every force named — the
+## row key the sheet marks. Empty when the session runs no planner for the crown,
+## an observer session, a decided campaign, a session with no army or naval
+## layer, or every force already under way.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
 	var army: Dictionary = MapPlayArmyOrdersPick.pick(play)
 	var navy: Dictionary = MapPlayNavyPick.pick(play)
@@ -52,18 +54,40 @@ static func gate(waited: bool) -> Dictionary:
 	if not waited:
 		return {}
 	var none: Array[Dictionary] = []
-	return {"forces": none, "line": NO_ORDER_LINE}
+	return {"forces": none, "keys": {}, "line": NO_ORDER_LINE}
 
 
 ## The pick, worded off the forces the passes order and the roll's own snapshot:
-## the forces in the order the roll prints its rows, or the gate that leaves a
-## waiting muster with nothing to name. Pure — a sheet and its suite drive it
-## without a session.
+## the forces in the order the roll prints its rows, and their keys, or the gate
+## that leaves a waiting muster with nothing to name. Pure — a sheet and its
+## suite drive it without a session.
 static func of(forces: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionary:
 	if forces.is_empty():
 		return {}
 	var ordered: Array[Dictionary] = _in_roll_order(forces, snapshot)
-	return {"forces": ordered, "line": pick_line(ordered)}
+	return {"forces": ordered, "keys": keys_of(ordered), "line": pick_line(ordered)}
+
+
+## The forces the reading names, by `force_key` — what the roll's rows look
+## themselves up by, so a marked row is one the line answers (DR-20261122-03).
+## A force whose clause the module cannot word keeps its key: the court would
+## still order it, and a row that marched while wearing no mark would lie.
+static func keys_of(forces: Array[Dictionary]) -> Dictionary:
+	var keys: Dictionary = {}
+	for force: Dictionary in forces:
+		keys[force_key(force)] = true
+	return keys
+
+
+## The key a roll row and the pass's own entry share: the chart the force stands
+## or sails on, its kind and the id its roster minted it — ids are minted per
+## chart and per roster, so the chart is part of the key (REQ-P2-03).
+static func force_key(entry: Dictionary) -> String:
+	return "%d:%s:%d" % [
+		int(entry.get("region", -1)),
+		String(entry.get("kind", "")),
+		int(entry.get("id", -1)),
+	]
 
 
 ## "the court would send the Home Army to take the field with 4 regiments, the
@@ -76,10 +100,7 @@ static func pick_line(forces: Array[Dictionary]) -> String:
 		var clause: String = String(force.get("line", ""))
 		if not clause.is_empty():
 			clauses.append(clause)
-	var joined: String = MapPlayPickProse.capped(clauses, NAMED_LIMIT)
-	if joined.is_empty():
-		return ""
-	return "the court would send %s this turn" % joined
+	return MapPlayPickProse.court_line("the court would send", clauses, "this turn")
 
 
 ## Both sheets' clauses as the roll reads them: the army's standards and the
@@ -127,28 +148,19 @@ static func _in_roll_order(
 	var index: int = 0
 	for raw: Variant in snapshot.get("rows", []):
 		var row: Dictionary = raw
-		if order.has(_key(row)):
+		if order.has(force_key(row)):
 			continue
-		order[_key(row)] = index
+		order[force_key(row)] = index
 		index += 1
 	if order.is_empty():
 		return forces
 	var keyed: Array[Dictionary] = forces.duplicate()
 	keyed.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
-		var left: int = int(order.get(_key(a), 1 << 30))
-		var right: int = int(order.get(_key(b), 1 << 30))
+		var left: int = int(order.get(force_key(a), 1 << 30))
+		var right: int = int(order.get(force_key(b), 1 << 30))
 		if left != right:
 			return left < right
 		return int(a.get("id", 0)) < int(b.get("id", 0))
 	)
 	return keyed
 
-
-## A force's own key: the chart it stands or sails on, its kind and its id. The
-## roll calls the id `id` on a row and the pick calls it the same on its entry.
-static func _key(entry: Dictionary) -> String:
-	return "%d:%s:%d" % [
-		int(entry.get("region", -1)),
-		String(entry.get("kind", "")),
-		int(entry.get("id", -1)),
-	]
