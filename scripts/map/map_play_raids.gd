@@ -182,10 +182,7 @@ static func _victims(play: PlaySession, importing: Array[int], region: int) -> D
 		var imports: Dictionary = play.economy.market.imports_for(faction)
 		if imports.is_empty():
 			continue
-		var seat: int = play.world.seat_province(region, faction)
-		if seat < 0:
-			continue
-		var home: FleetState = _in_port_at(_roster(play, region), faction, seat)
+		var home: FleetState = _home_at(play, faction, region)
 		if home == null:
 			continue
 		victims[faction] = {"imports": imports, "home": home}
@@ -298,11 +295,18 @@ static func _roster(play: PlaySession, region: int) -> Array:
 	return roster
 
 
-static func _in_port_at(roster: Array, owner: int, province: int) -> FleetState:
-	for fleet: FleetState in roster:
-		if fleet == null or fleet.owner != owner:
+## A crown's home squadron in port at its own **seat** on this chart: the hulls
+## whose cargo rides at risk (DR-20261110-13). Read through the one home-fleet
+## predicate the merge, the holds and the yard use, so a squadron moored in a
+## colony port is no home fleet even on a chart that holds no capital for the
+## crown (wiki: ships-and-naval § Home Fleet — a ship is home only in port at the
+## capital; every other is "at sea or in port at non-capital owned provinces").
+static func _home_at(play: PlaySession, faction: int, region: int) -> FleetState:
+	var model: MapModel = play.world.region(region) if play.world != null else null
+	for fleet: FleetState in _roster(play, region):
+		if fleet == null or fleet.owner != faction:
 			continue
-		if fleet.is_in_port() and fleet.province == province:
+		if NavalMovement.is_home_fleet(model, fleet):
 			return fleet
 	return null
 
@@ -323,14 +327,14 @@ static func home_entry(play: PlaySession, faction: int) -> Dictionary:
 	if play.ship_layer == null or play.world == null:
 		return {}
 	for region: int in play.world.region_count():
-		var seat: int = play.world.seat_province(region, faction)
-		if seat < 0:
-			continue
-		var roster: Array = _roster(play, region)
-		var fleet: FleetState = _in_port_at(roster, faction, seat)
+		var fleet: FleetState = _home_at(play, faction, region)
 		if fleet == null:
 			continue
-		return {"fleet": fleet, "model": play.world.region(region), "roster": roster}
+		return {
+			"fleet": fleet,
+			"model": play.world.region(region),
+			"roster": _roster(play, region),
+		}
 	return {}
 
 
