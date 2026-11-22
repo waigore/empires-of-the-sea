@@ -3,8 +3,8 @@ extends ModalShell
 ## The crown's ledger sheet: a titled header with a Close door, a scrolling body
 ## and a hint footer, printed in ModalShell's one full-screen plate. The civilian
 ## roster, the muster roll, the realm ledgers and the court dossier share this
-## chrome, so the header, the body and the compact profile are written once
-## (REQ-P3-01, REQ-P5-07).
+## chrome, so the header, the body, the gold counsel line and the compact profile
+## are written once (REQ-P3-01, REQ-P5-07).
 ##
 ## A subclass owns what its sheet reads: it names the title, builds its body and
 ## repaints it. The frame never reads rules and never orders anything.
@@ -30,6 +30,68 @@ var title_text: String = ""
 var title_pixels: int = 28
 var hint_text: String = ""
 var hint_pixels: int = 10
+
+# --- the counsel line --------------------------------------------------------
+
+
+## The court's own reading of this sheet, asked at every refresh: the sheet's
+## session wires it to the pass that answers the sheet, or leaves it unwired and
+## prints no gold line (REQ-P3-02, REQ-P5-06). A sheet that reads its pick once
+## at the refresh paints it with `_show_counsel` instead.
+var counsel_source: Callable = Callable()
+## The gold line under the filters: the crown's own reading in one sentence.
+var _counsel: Label = null
+## The last snapshot the sheet painted from; empty before its first refresh.
+var _snapshot: Dictionary = {}
+
+
+## The gold line's dress: one wrapped gold row the sheet mounts where its reading
+## answers, so no sheet restates the size, the colour or the wrap (REQ-P3-01).
+## The host is optional: a sheet whose body hook returns the line mounts it itself.
+func _counsel_line(host: Container = null) -> Label:
+	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
+	_counsel.visible = false
+	if host != null:
+		host.add_child(_counsel)
+	return _counsel
+
+
+## The gold line's text, for tests and tooling (REQ-P3-02). Empty when the sheet
+## carries no reading.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
+
+
+## What the reading is asked with: the snapshot the sheet just painted. A sheet
+## whose pass answers something else overrides this.
+func _counsel_args() -> Array:
+	return [_snapshot]
+
+
+## The reading itself, or "" when the sheet is closed or unwired. A closed sheet
+## asks nothing: the pass is a planner walk no one is looking at (REQ-P4-02).
+func _counsel_reading() -> String:
+	if not is_open() or not counsel_source.is_valid():
+		return ""
+	return String(counsel_source.callv(_counsel_args()))
+
+
+## Prints a reading the sheet already holds — a pick read once at the refresh,
+## not a source asked per paint — or stands the line down (REQ-P5-06).
+func _show_counsel(text: String) -> void:
+	if _counsel == null:
+		return
+	_counsel.text = text
+	_counsel.visible = not text.is_empty()
+
+
+## Asks the court's own reading once and prints it, or stands the line down: one
+## gate, one dress and one place for every ledger, so no two sheets disagree on
+## when the crown's page is silent (REQ-P3-02, REQ-P5-06).
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	_show_counsel(_counsel_reading())
 
 
 ## The one session the sheet reads. Every crown sheet binds it the same way, so

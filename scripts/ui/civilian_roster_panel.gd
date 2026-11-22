@@ -10,16 +10,9 @@ extends LedgerSheet
 ## LedgerSheet. Its own head carries three filter rows (world, craft, orders), so
 ## it builds those from the head instead of the two-row [LedgerFilterBar].
 
-## The reading the session hands the sheet: the work the court's own civilian
-## pass would put its crews to this turn (wiki: civilian-units § Empire roster;
-## DR-20261121-12). Unwired, the sheet prints no gold line.
-var counsel_source: Callable = Callable()
-
 var _head: CivilianRosterHead = null
 var _type: String = CivilianRosterHead.TYPE_ALL
 var _status: String = CivilianRoster.STATUS_ALL
-## The gold counsel line under the filters: the work the court would give.
-var _counsel: Label = null
 
 
 func _init() -> void:
@@ -46,28 +39,6 @@ func refresh() -> void:
 	_apply_filter()
 
 
-## The court's own work reading, asked at every refresh: the crews the published
-## pass would put to work this turn, or the gate that leaves a waiting roster
-## with nothing to name (wiki: civilian-units § Empire roster; DR-20261121-12).
-## Unwired prints nothing. A closed sheet reads nothing: the pass is a planner
-## walk, and a visit that repaints the sheet behind it must not pay for a line
-## nobody sees (REQ-P4-02).
-func _sync_counsel() -> void:
-	if _counsel == null:
-		return
-	var text: String = ""
-	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_snapshot))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
-
-
-## The gold counsel line's text, for tests and tooling (REQ-P3-02). Empty when
-## the sheet carries no reading.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
-
-
 # --- sheet hooks -------------------------------------------------------------
 
 
@@ -87,9 +58,7 @@ func _build_body(column: VBoxContainer) -> void:
 	# The court's own work reading, above the rows it answers: the crews the
 	# published pass would put to work this turn (wiki: civilian-units § Empire
 	# roster; DR-20261121-12).
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	column.add_child(_counsel)
+	_counsel_line(column)
 	_build_rows(column)
 
 

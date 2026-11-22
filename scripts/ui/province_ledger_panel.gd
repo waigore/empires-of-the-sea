@@ -19,7 +19,6 @@ var _realm_pick: Dictionary = {}
 ## Those provinces by `region:province`, so a row knows whether it wears the
 ## counsel's mark.
 var _court: Dictionary = {}
-var _counsel: Label = null
 
 
 func _init() -> void:
@@ -45,11 +44,6 @@ func refresh() -> void:
 	_apply_filter()
 
 
-## The sheet's own court reading, as it stands.
-func counsel_text() -> String:
-	return "" if _counsel == null else _counsel.text
-
-
 # --- sheet hooks -------------------------------------------------------------
 
 
@@ -69,10 +63,7 @@ func _build_body(column: VBoxContainer) -> void:
 ## put to work or send a host into this turn, in the counsel's gold — advice,
 ## never state (REQ-P5-06).
 func _build_counsel() -> Control:
-	_counsel = UiRowBuilder.label("", 12, Palette.GOLD)
-	_counsel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_counsel.visible = false
-	return _counsel
+	return _counsel_line()
 
 
 # --- filters -----------------------------------------------------------------
@@ -103,11 +94,7 @@ func _apply_filter() -> void:
 ## Prints the court's line, or leaves the slot out of the sheet when the crown's
 ## staff would act in none of her provinces (REQ-P5-06).
 func _paint_counsel() -> void:
-	if _counsel == null:
-		return
-	var said: String = MapPlayPickProse.sentence_of(_realm_pick)
-	_counsel.text = said
-	_counsel.visible = not said.is_empty()
+	_show_counsel(MapPlayPickProse.sentence_of(_realm_pick))
 
 
 # --- rows --------------------------------------------------------------------
