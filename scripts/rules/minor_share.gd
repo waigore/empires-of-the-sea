@@ -77,6 +77,32 @@ static func trim(
 	return pool
 
 
+## The first Minor Nation holding land outside the published band — the even
+## split of the region's Minor land, ±1 — or NO_ID when every court sits inside
+## it (wiki: game-setup § Minor Nation assignment; § Feasibility: a chart whose
+## split cannot be made even is infeasible and the world is regenerated, never
+## quietly opened with one Minor holding twice its neighbours' share).
+## `ids` is the region's province set; unowned and non-Minor land is ignored.
+static func out_of_band(model: MapModel, ids: Array, minors: Array[int]) -> int:
+	if model == null or minors.is_empty():
+		return MapModel.NO_ID
+	var counts: Dictionary = {}
+	var total: int = 0
+	for raw: Variant in ids:
+		var province: ProvinceState = model.province_data(int(raw))
+		if province == null or not minors.has(province.owner):
+			continue
+		counts[province.owner] = int(counts.get(province.owner, 0)) + 1
+		total += 1
+	if total == 0:
+		return MapModel.NO_ID
+	var share: float = float(total) / float(minors.size())
+	for faction: int in minors:
+		if absf(float(counts.get(faction, 0)) - share) > 1.0:
+			return faction
+	return MapModel.NO_ID
+
+
 ## Minor Nations holding more than the band allows, most over first (ties: id).
 static func _over_band(counts: Dictionary, ceiling: int) -> Array[int]:
 	var result: Array[int] = []

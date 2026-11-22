@@ -102,6 +102,18 @@ static func _assign(
 			layouts.append({"ids": chunk_ids, "group": group, "pool": pool, "targets": targets})
 		if not _paint_even(model, layouts, greats):
 			return _failure(ERROR_UNFAIR_SPLIT)
+	# Pocket absorption can leave a Minor holding land it cannot spare back: the
+	# cove it took is too small to seat a Great Power, and every province it owns
+	# there is a cut of its own holding. The split is then still lopsided, and
+	# the wiki calls the chart infeasible rather than opening the age with one
+	# Minor double its neighbours' share (wiki: game-setup § Minor Nation
+	# assignment — "within ±1"; § Feasibility).
+	if not minor_ids.is_empty():
+		var region_ids: Array[int] = []
+		for province: ProvinceState in model.provinces:
+			region_ids.append(province.id)
+		if MinorShare.out_of_band(model, region_ids, minor_ids) != MapModel.NO_ID:
+			return _failure(ERROR_UNFAIR_SPLIT)
 	return {"ok": true, "error": "", "factions": factions}
 
 
