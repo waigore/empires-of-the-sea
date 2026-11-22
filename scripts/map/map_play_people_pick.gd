@@ -113,13 +113,23 @@ static func of(crews: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionar
 		var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
 			crews, snapshot.get("rows", []), "unit_id"
 		)
-		return {"crews": ordered, "line": pick_line(ordered)}
+		return {"crews": ordered, "keys": keys_of(ordered), "line": pick_line(ordered)}
 	# No crew is put to work: the roster's own idle tally says whether any crew
 	# waited for the pass to spend. A snapshot that carries no tally names no
 	# gate, because the sheet has not read the roster yet.
 	if int(snapshot.get("idle", 0)) <= 0:
 		return {}
 	return {"crews": [], "line": NO_WORK_LINE}
+
+
+## The crews the reading names, by `MapPlayPickProse.row_key` — what the roster's
+## own rows look themselves up by, so a marked crew is one the line answers and a
+## crew the pass would leave alone never looks busy (DR-20261122-06).
+static func keys_of(crews: Array[Dictionary]) -> Dictionary:
+	var keys: Dictionary = {}
+	for crew: Dictionary in crews:
+		keys[MapPlayPickProse.row_key(crew, "unit_id")] = true
+	return keys
 
 
 ## "the court would put its Builder to raise the lumber camp at Cádiz, its

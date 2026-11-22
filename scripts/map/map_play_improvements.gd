@@ -90,12 +90,7 @@ static func build_road(play: PlaySession, tile: Vector2i) -> void:
 	)
 	play.hud.toast(String(result.get("message", "")))
 	play.civilian_layer.sync()
-	# The dossier is the sheet the order came from, so it repaints in place.
-	if play.selected_province >= 0 and play.hud.panels.is_panel_open():
-		play.hud.panels.panel.refresh(
-			play.model, play.selected_province,
-			crown_link(play, play.selected_province)
-		)
+	repaint(play)
 
 
 ## Province dossier intent: dispatch the nearest idle Rail Builder onto the road
@@ -110,12 +105,7 @@ static func build_rail(play: PlaySession, tile: Vector2i) -> void:
 	)
 	play.hud.toast(String(result.get("message", "")))
 	play.civilian_layer.sync()
-	# The dossier is the sheet the order came from, so it repaints in place.
-	if play.selected_province >= 0 and play.hud.panels.is_panel_open():
-		play.hud.panels.panel.refresh(
-			play.model, play.selected_province,
-			crown_link(play, play.selected_province)
-		)
+	repaint(play)
 
 
 ## Files one raise sheet's order on the chart the province lies on: the chart is
@@ -198,3 +188,20 @@ static func _receipt(
 		play.hud.toast(String(result.get("message", "")))
 	play.improvements.refresh()
 	play.civilian_layer.sync()
+	# The dossier is the sheet a wall, a ward or a town order comes from, so it
+	# repaints in place: a step that just landed must not leave the press naming
+	# the level it already took (REQ-P5-06; REQ-P2-03).
+	repaint(play)
+
+
+## Repaints the open province dossier from live state, without re-sliding the
+## sheet the crown is reading. A closed sheet (or no seat) reads nothing.
+static func repaint(play: PlaySession) -> void:
+	if play == null or play.hud == null or play.hud.panels == null:
+		return
+	if play.selected_province < 0 or not play.hud.panels.is_panel_open():
+		return
+	play.hud.panels.panel.refresh(
+		play.model, play.selected_province,
+		crown_link(play, play.selected_province)
+	)

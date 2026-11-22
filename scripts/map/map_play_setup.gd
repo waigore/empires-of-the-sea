@@ -2,8 +2,8 @@ class_name MapPlaySetup
 extends RefCounted
 ## Screen setup that is not map rules: initial HUD values, region chips, capital
 ## framing, the opening frame and the post-load refresh (REQ-P3-01, REQ-P3-02).
-## The chart's readings are MapPlayLens' to mount and raise; this boot never
-## builds a lens.
+## The chart's readings are MapPlayLens' to mount and raise; the sheets' court
+## lines are MapPlayCounselBind's; this boot never builds either.
 
 
 static func find_capital(play: PlaySession) -> int:
@@ -27,12 +27,36 @@ static func capital_world(play: PlaySession) -> Vector2:
 
 ## Builds the HUD against a region `load_region` has just painted: the chips,
 ## minimap and chart readings are already there (`refresh_region_hud`), so this
-## creates the economy and fills the values the region load could not know
-## (turn, treasury, income, improvements, dossier, lens wiring).
+## creates the economy, binds the doors and the sheets' court readings, and fills
+## the values the region load could not know (turn, treasury, income,
+## improvements, dossier, lens wiring).
 static func build_hud(play: PlaySession) -> void:
 	var hud: GameHud = play.hud
 	HudChrome.set_nation(hud, FactionCatalog.name_of(play.player_faction))
 	hud.set_turn(play.turn, TurnTime.year_for_turn(play.turn))
+	_bind_doors(play)
+	_seat_commanders(play)
+	_open_economy(play)
+	# Every sheet's own gold line is the pick its published pass would issue this
+	# phase; MapPlayCounselBind owns which reading each sheet answers (REQ-P3-01).
+	MapPlayCounselBind.bind(play)
+	hud.stats.set_treasury(play.treasury(), false)
+	play.income = play.economy.projected_income()
+	hud.stats.set_income(play.income)
+	MapPlayFocus.bind(play)
+	_seat_estates(play)
+	refresh_dossier(play)
+	# One seal now: the click walks the readings and the menu names one, so the
+	# screen keeps a single path for all four lenses (REQ-P5-03).
+	hud.lens_cycle_pressed.connect(func() -> void: MapPlayInput.cycle_lens(play))
+	hud.lens_selected.connect(func(kind: String) -> void: MapPlayInput.select_lens(play, kind))
+
+
+## The cartouche's doors and the whole-empire sheet registry: every press that
+## opens a crown page from the bar or the chart, bound in one place
+## (REQ-P1-07, REQ-P5-01, REQ-P5-03).
+static func _bind_doors(play: PlaySession) -> void:
+	var hud: GameHud = play.hud
 	# The Gazette's cartouche seal reopens the crown's news and its archive at
 	# any time (wiki: the-gazette).
 	hud.gazette_pressed.connect(func() -> void: MapPlayGazette.open_archive(play))
@@ -45,7 +69,12 @@ static func build_hud(play: PlaySession) -> void:
 	# The crown's whole-empire sheets read the session this screen is playing:
 	# one registry binds them all (REQ-P5-01, REQ-P5-03).
 	HudLedgerDoors.bind_all(hud, play)
-	_seat_commanders(play)
+
+
+## The economy the screen plays against: its layers, the colonial yield it prices
+## and the seals both ledgers read (REQ-P2-03, REQ-P3-03).
+static func _open_economy(play: PlaySession) -> void:
+	var hud: GameHud = play.hud
 	play.economy = EconomyController.new()
 	play.host.add_child(play.economy)
 	# Build/work's recruits land on the session's layers when the ledger closes.
@@ -62,71 +91,20 @@ static func build_hud(play: PlaySession) -> void:
 	# own sealed ports (wiki: capital-and-connectivity § Blockade). The estates
 	# ledger and its rows read the same seals, so a sealed colony's row is the
 	# yield the Extraction phase pays, never a second sum (REQ-P2-03).
-	play.economy.blockade_source = func() -> Blockades: return MapPlayBlockades.crown(play)
-	play.improvements.blockade_source = (
-		func() -> Blockades: return MapPlayBlockades.crown(play)
-	)
-	# The estates ledger names the estates the court's own Builder pass would
-	# raise this phase, read on the ledger's own snapshot so the line reads down
-	# the page it answers, and marks those rows with the counsel's `▸` so the
-	# raise is found among a long page (wiki: extraction-and-improvements
-	# § Estates ledger; DR-20261121-10, DR-20261122-04).
-	play.improvements.counsel_source = (
-		func(data: Dictionary) -> Dictionary: return MapPlayEstatesPick.pick(play, data)
-	)
-	# The province dossier names the orders the court would give on its ground:
-	# the work the civilian pass would put crews to here and the hosts the land
-	# pass would send here, read on the chart the sheet is showing (wiki:
-	# world-model § The crown's provinces; DR-20261121-19).
-	play.hud.panels.panel.counsel_source = (
-		func(model: MapModel, province_id: int) -> String:
-			return MapPlayProvinceCounsel.line(play, model, province_id)
-	)
-	# THE CROWN'S EYES names the spies the court's own espionage pass would walk,
-	# screen or keep this turn, read on the sheet's own snapshot so the line
-	# reads down the network it answers (wiki: civilian-units § Spy;
-	# DR-20261121-11).
-	var eyes: SpyLedgerPanel = hud.spy_ledger
-	if eyes != null:
-		eyes.counsel_source = (
-			func(data: Dictionary) -> String: return MapPlaySpyPick.line(play, data)
-		)
-	# THE CROWN'S PEOPLE names the work the court's own civilian pass would put
-	# its crews to this turn, read on the roster's own snapshot so the line
-	# reads down the page it answers (wiki: civilian-units § Empire roster;
-	# DR-20261121-12).
-	var people: CivilianRosterPanel = hud.civilian_roster
-	if people != null:
-		people.counsel_source = (
-			func(data: Dictionary) -> String: return MapPlayPeoplePick.line(play, data)
-		)
-	# THE CROWN'S NAVY reads its own pass in the panel's own method, so a bound
-	# callable cannot outlive the session it reads and the squadrons the line
-	# names can wear its mark (wiki: ships-and-naval § The crown's navy;
-	# DR-20261121-13, DR-20261121-14, DR-20261122-05).
-	# THE TECH TREE names the study the court's own research policy would open —
-	# the college's own gold sentence — and marks that advance `▸` on the chart,
-	# so the crown sees where the court would go without scanning 113 nodes
-	# (wiki: tech-tree § Research Model; DR-20261121-20).
-	var tree: TechTreePanel = hud.tech_tree
-	if tree != null:
-		tree.counsel_source = (
-			func() -> Dictionary: return MapPlayResearchPick.pick(play)
-		)
-	hud.stats.set_treasury(play.treasury(), false)
-	play.income = play.economy.projected_income()
-	hud.stats.set_income(play.income)
-	MapPlayFocus.bind(play)
+	var seals := func() -> Blockades: return MapPlayBlockades.crown(play)
+	play.economy.blockade_source = seals
+	play.improvements.blockade_source = seals
+
+
+## The estates ledger reads the live tables on every refill: the works, the
+## civilians, the purse and the tech that gates the row's town order. The boot
+## and a region switch both seat it, so the sheet never reads a stale chart.
+static func _seat_estates(play: PlaySession) -> void:
 	play.improvements.play = play
 	play.improvements.set_data(
 		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
 		play.capital_tile, play.player_faction, play.tech_caps()
 	)
-	refresh_dossier(play)
-	# One seal now: the click walks the readings and the menu names one, so the
-	# screen keeps a single path for all four lenses (REQ-P5-03).
-	hud.lens_cycle_pressed.connect(func() -> void: MapPlayInput.cycle_lens(play))
-	hud.lens_selected.connect(func(kind: String) -> void: MapPlayInput.select_lens(play, kind))
 
 
 ## Seats every Great Power's opening commanders before any reading touches the
@@ -172,11 +150,7 @@ static func refresh_region_hud(play: PlaySession, map_size: Vector2) -> void:
 	play.refresh_research()
 	play.income = play.economy.projected_income()
 	hud.stats.set_income(play.income)
-	play.improvements.play = play
-	play.improvements.set_data(
-		play.model, play.land_works, play.civilian_layer.units, play.stockpile(),
-		play.capital_tile, play.player_faction, play.tech_caps()
-	)
+	_seat_estates(play)
 	refresh_dossier(play)
 
 

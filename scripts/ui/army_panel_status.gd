@@ -35,9 +35,15 @@ static func status_text(army: ArmyState, is_player: bool) -> String:
 ## Hint under the status: a host standing off its own ground gets the walk-home
 ## word from #1218 — never own land the tap list does not hold — and one that does
 ## touch its own land still hears that only the provinces beside it are open
-## (wiki: military-armies § Movement and attacks; DR-20261121-15).
+## (wiki: military-armies § Movement and attacks; DR-20261121-15). Across the sea
+## the walk names the water: no land march from a chart without the seat reaches
+## home, so `over_sea` reads the rule's own overseas sentence (DR-20261122-07).
 static func hint_text(
-	army: ArmyState, is_player: bool, stranded: bool, off_ground: bool = false
+	army: ArmyState,
+	is_player: bool,
+	stranded: bool,
+	off_ground: bool = false,
+	over_sea: bool = false
 ) -> String:
 	if not is_player:
 		return "Observe only. Orders require your own army."
@@ -51,6 +57,8 @@ static func hint_text(
 		# The rule's own sentence, word for word: a home march and this hint are
 		# the one walk, so they read the one line (wiki: military-armies
 		# § Movement and attacks; DR-20261121-15).
+		if over_sea:
+			return ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS
 		return ArmyMovement.NO_OWN_LAND_REACH
 	if off_ground:
 		return (
@@ -70,9 +78,10 @@ static func apply(
 	army: ArmyState,
 	is_player: bool,
 	stranded: bool,
-	off_ground: bool = false
+	off_ground: bool = false,
+	over_sea: bool = false
 ) -> void:
 	if status == null or hint == null:
 		return
 	status.text = status_text(army, is_player)
-	hint.text = hint_text(army, is_player, stranded, off_ground)
+	hint.text = hint_text(army, is_player, stranded, off_ground, over_sea)

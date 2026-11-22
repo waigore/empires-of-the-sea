@@ -1097,6 +1097,100 @@ func test_the_people_print_the_work_the_crowns_pass_would_book() -> void:
 	panel.refresh()
 
 
+## The people's pick keys the crews it names, so a roster row can wear the
+## counsel's mark with one lookup and a crew the pass would leave alone never
+## looks busy (DR-20261122-06).
+func test_the_people_pick_keys_the_crews_it_names() -> void:
+	var crews: Array[Dictionary] = [
+		{"region": 0, "unit_id": 3, "role": "Builder", "short": "raise the lumber camp"},
+		{"region": 1, "unit_id": 3, "role": "Explorer", "short": "survey the coast"},
+	]
+	var keys: Dictionary = MapPlayPeoplePick.of(crews, {}).get("keys", {})
+	assert_eq(keys.size(), 2, "every crew the line names is keyed")
+	assert_true(keys.has("0:3"), "the crew on the old chart")
+	assert_true(keys.has("1:3"), "the chart is in the key: ids are minted per chart")
+	assert_false(keys.has("0:1"), "a crew the reading never named takes no key")
+	assert_eq(MapPlayPeoplePick.keys_of([]), {}, "nothing named, nothing marked")
+	# The gate names no crew, so it marks none.
+	var gate: Dictionary = MapPlayPeoplePick.of([], {"idle": 2})
+	assert_eq(gate.get("keys", {}), {}, "the gate marks no row")
+
+
+## A roster row wears the counsel's mark before its own craft, so a crown finds
+## the crews her staff would put to work among a long page (DR-20261122-06).
+func test_a_roster_row_wears_the_courts_mark() -> void:
+	var plain := CivilianRosterRow.new()
+	plain.setup({"unit_id": 4, "region": 0, "role": "Builder", "working": false})
+	assert_eq(plain._name.text, "Builder", "an unmarked crew reads its own craft")
+	plain.free()
+	var marked := CivilianRosterRow.new()
+	marked.court = true
+	marked.setup({"unit_id": 4, "region": 0, "role": "Builder", "working": false})
+	assert_eq(
+		marked._name.text,
+		"%s Builder" % CivilianRosterRow.COURT_MARK,
+		"the mark leads the craft"
+	)
+	marked.free()
+
+
+## The roster marks exactly the crews the court's own reading names, so the
+## work is found on the page it answers — and the reading orders nothing
+## (REQ-P2-03, REQ-P5-03, REQ-P5-06; DR-20261122-06).
+func test_the_roster_marks_the_crews_the_crowns_pass_would_put_to_work() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: CivilianRosterPanel = screen.hud.civilian_roster
+	_cancel_works()
+	var stock: Dictionary = play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	var estates: ImprovementPanel = screen.improvements
+	estates.open()
+	var ready: Array[Vector2i] = estates._ready_tiles()
+	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
+	estates.close()
+	var builder: CivilianState = play.civilian_layer.add_unit(
+		play.player_faction, "builder", ready[0]
+	)
+	panel.open()
+	var pick: Dictionary = MapPlayPeoplePick.pick(play, panel._snapshot)
+	assert_eq(
+		panel.counsel_text(),
+		MapPlayPickProse.sentence_of(pick),
+		"the sheet prints the pass's own line"
+	)
+	var keys: Dictionary = pick.get("keys", {})
+	assert_gte(keys.size(), 1, "the reading keys the crews it names")
+	# Every crew the reading names is on the sheet, and only those rows wear the
+	# mark — a crew the staff would leave alone never looks busy.
+	var shown: Dictionary = {}
+	for row: CivilianRosterRow in _roster_rows(panel):
+		var key: String = MapPlayPickProse.row_key(row.data, "unit_id")
+		shown[key] = true
+		assert_eq(row.court, keys.has(key), "a row wears the mark when the court would spend it")
+		if row.court:
+			assert_true(row._name.text.begins_with(CivilianRosterRow.COURT_MARK), row._name.text)
+	for key: String in keys.keys():
+		assert_true(shown.has(key), "the crew the court would put to work is on the sheet")
+	# A filter press reorders the marks it already read: one read for the roster.
+	panel._apply_filter()
+	assert_eq(panel._court, keys, "a filter press keeps the reading it was handed")
+	assert_true(builder.work_action().is_empty(), "the reading orders nothing")
+	panel.close()
+	play.civilian_layer.units.erase(builder)
+
+
+## Every crew row the roster prints, in its own order.
+func _roster_rows(panel: CivilianRosterPanel) -> Array[CivilianRosterRow]:
+	var rows: Array[CivilianRosterRow] = []
+	for child: Node in panel._rows.get_children():
+		var row := child as CivilianRosterRow
+		if row != null:
+			rows.append(row)
+	return rows
+
+
 ## The roster prints the reading it is handed and hides it when the reading is
 ## empty, so a sheet with no planner carries no gold line (REQ-P5-06).
 ## The people's row reads a crew aboard a squadron as ABOARD: it is off the map,
@@ -1144,20 +1238,26 @@ func test_the_people_row_reads_a_crew_aboard_a_squadron() -> void:
 func test_the_people_print_and_hide_the_counsel_they_are_handed() -> void:
 	_attach()
 	var panel: CivilianRosterPanel = screen.hud.civilian_roster
+	# The sheet is handed the pass's pick, not a sentence: its line and its marks
+	# come off the one read (DR-20261122-06).
 	panel.counsel_source = (
-		func(_data: Dictionary) -> String:
-			return "The court would put its Builder to work at Cádiz this turn."
+		func(_data: Dictionary) -> Dictionary:
+			return MapPlayPeoplePick.of([
+				{"region": 0, "unit_id": 7, "role": "Builder", "short": "work the estate"},
+			], {"rows": [{"region": 0, "unit_id": 7}]})
 	)
 	panel.open()
 	assert_eq(
 		panel.counsel_text(),
-		"The court would put its Builder to work at Cádiz this turn."
+		"The court would put its Builder to work the estate this turn."
 	)
 	assert_true(panel._counsel.visible, "the sheet prints the line")
+	assert_true(panel._court.has("0:7"), "and holds the crew its line names")
 	panel.counsel_source = Callable()
 	panel.refresh()
 	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
 	assert_false(panel._counsel.visible, "and the line stands down")
+	assert_eq(panel._court, {}, "an unwired sheet marks no row")
 	panel.close()
 
 
