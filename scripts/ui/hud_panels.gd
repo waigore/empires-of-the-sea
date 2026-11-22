@@ -215,18 +215,21 @@ func is_economy_open() -> bool:
 ## crown's leaderKey, whose published funding multiplier the RP figures include
 ## (wiki: leader-bonuses — Victoria). A ledger already on screen is repainted in
 ## place without sweeping the rail it already covers (REQ-P1-05). `pick` is the
-## study the court would open in its first free slot (DR-20261121-01).
+## study the court would open in its first free slot (DR-20261121-01) and
+## `pick_tech` the advance it names, so the AVAILABLE row wears the mark
+## (DR-20261122-19).
 func show_research(
 	state: ResearchState,
 	treasury: int,
 	boost: Dictionary = {},
 	leader: String = "",
-	pick: String = ""
+	pick: String = "",
+	pick_tech: String = ""
 ) -> void:
 	if not research.open:
 		close_sheets(research)
 	HudSheet.show(dock, host, research, func() -> void:
-		research_panel.refresh(state, treasury, boost, leader, pick)
+		research_panel.refresh(state, treasury, boost, leader, pick, pick_tech)
 	)
 
 
