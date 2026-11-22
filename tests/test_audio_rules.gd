@@ -431,7 +431,7 @@ func _setup_map_soundtrack() -> void:
 		_mount_soundtrack()
 		return
 	Fixture.restore(Fixture.world(), _world_snapshot)
-	Fixture.suite_reset(_screen, _pristine)
+	Fixture.suite_reset(_screen, _pristine, Fixture.world())
 	_audio.set_music_volume(AudioMix.MUSIC_DEFAULT)
 	_audio.set_sfx_volume(AudioMix.SFX_DEFAULT)
 	_audio.set_muted(false)
