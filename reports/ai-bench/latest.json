@@ -1,9 +1,9 @@
 {
   "hill": "ai-bench",
-  "tree_hash": null,
-  "commit": null,
-  "submission_hash": "sha256:53515741a7d084ca2cf2bdee05a2f7a4783e6a48bfc2da9a7fad73bcf95ce69f",
-  "submission_git": "feat/ow-fort-retune@2cc56898+dirty",
+  "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
+  "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
+  "submission_hash": "sha256:302ac98cb248944ba113dbbc213c3bb69157ea6399f19624465375f5925f5e14",
+  "submission_git": "feat/ow-fort-retune@9a063dda+dirty",
   "passed": true,
   "config": [
     {
@@ -35,45 +35,45 @@
   "metrics": [
     {
       "name": "score",
-      "value": 999.4947456914671,
+      "value": 1162.2922403003756,
       "direction": "max"
     },
     {
       "name": "provinces",
-      "value": 7.0,
+      "value": 10.0,
       "direction": "max"
     },
     {
       "name": "forces",
-      "value": 8.0,
+      "value": 9.0,
       "direction": "max"
     },
     {
       "name": "funded_pct",
-      "value": 88.36071428571428,
+      "value": 49.918055555555554,
       "direction": "max"
     }
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:1f9319a4ef0530e44b54e63d8a43422331833998c4588674c0f82b1b4eb9bc65",
+    "ai_surface_hash": "sha256:cdcac4befefbc61985617a64a6d342a24bcbb23121e7a66e64e94c177fcc5289",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
-      "provinces_new": 0,
-      "regiments": 7,
-      "ships": 1,
-      "workers": 3,
-      "extraction_per_turn": 38.978142076502735,
-      "income_per_turn": 126.53846153846153,
-      "funded_pct": 88.36071428571428
+      "provinces_new": 3,
+      "regiments": 9,
+      "ships": 0,
+      "workers": 2,
+      "extraction_per_turn": 42.67553191489362,
+      "income_per_turn": 126.94117647058823,
+      "funded_pct": 49.918055555555554
     },
     "early_win": false,
     "live_faction": 0,
     "live_name": "Spain",
     "turn": 201,
     "resolved_turns": 200,
-    "funded_pct": 88.36071428571428
+    "funded_pct": 49.918055555555554
   },
   "params": {
     "turns": 200,
@@ -81,14 +81,14 @@
     "size": 1
   },
   "final": false,
-  "official": false,
-  "official_reason": "dirty-tree",
+  "official": true,
+  "official_reason": null,
   "hill_spec_version": 2,
   "tool": {
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T13:59:26Z",
+  "timestamp": "2026-11-22T14:01:54Z",
   "report_version": 1,
-  "signature": "hmac-sha256:43c3add533cbf52a13c8e2c9ff33ad982c4ad041b36e7eb14bd428af726f56ad"
+  "signature": "hmac-sha256:8af3602422e42ee12f65e77ee2341946c8fac68b70cbf3b4ef30dbbf331e929c"
 }

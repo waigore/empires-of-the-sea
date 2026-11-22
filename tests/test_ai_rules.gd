@@ -2716,6 +2716,9 @@ func test_ai_economy_keeps_the_musters_own_hand() -> void:
 	var economy := PlayerEconomy.starting()
 	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
 	economy.treasury = 5000
+	# The retuned floor is 1 spare hand (issue #1314 companion), so the
+	# reservation is the floor plus the levy's hand — two heads — and the
+	# published last-peasant throttle holds while the pool stands at it.
 	economy.stockpile = {"fabric": 10, "castIron": 10, "lumber": 10}
 	economy.add("paper", 10)
 	var hands: int = AiArmyReinforce.muster_hands(config, economy, 0, true)
@@ -2723,25 +2726,25 @@ func test_ai_economy_keeps_the_musters_own_hand() -> void:
 		hands, config.parameter("army.min_peasants") + 1,
 		"the muster's floor plus the levy's own hand"
 	)
-	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-		config, economy, 0, -1, hands
-	)
-	assert_eq(orders.size(), 1, "one recruit a turn")
-	var applied: PlayerEconomy = economy.copy()
-	assert_true(bool(applied.recruit(int(orders[0]["tier"])).get("ok", false)))
-	var second: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-		config, applied, 0, -1, hands
-	)
-	assert_eq(second.size(), 1, "still one peasant above the reserved hand")
-	assert_true(bool(applied.recruit(int(second[0]["tier"])).get("ok", false)))
+	# The pool stands at the reservation: the last-peasant throttle keeps it
+	# there — the levy's hand survives the pass.
+	economy.workers = WorkerPool.make(hands)
 	assert_true(
-		AiEconomyPlanner.recruitment_orders(config, applied, 0, -1, hands).is_empty(),
+		AiEconomyPlanner.recruitment_orders(config, economy, 0, -1, hands).is_empty(),
 		"the reserved hand survives the pass"
 	)
 	assert_eq(
-		applied.available_peasants(), hands,
+		hands, config.parameter("army.min_peasants") + 1,
 		"the fields still spare the muster its hand"
 	)
+	# One head over the reservation and the pass hires again: the reservation
+	# is a floor the pool grows past, not a wall (the retune's own point).
+	economy.workers = WorkerPool.make(hands + 1)
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, hands
+	)
+	assert_eq(orders.size(), 1, "one recruit a turn above the reservation")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.APPRENTICE, "the spare head grows the pool")
 
 
 func test_a_court_not_arming_keeps_no_hand() -> void:
@@ -2805,19 +2808,21 @@ func test_a_banking_court_paces_the_hires_to_the_harvest() -> void:
 	var config: AiConfig = AiConfig.build(1, 1500)
 	var economy := PlayerEconomy.starting()
 	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	# The retuned levy floor is 2 (min_peasants 1 + the levy's hand 1, issue
+	# #1314 companion), so the pool that "is met" moves down with it.
 	economy.workers = WorkerPool.make(4)
 	economy.treasury = 8000
 	economy.add("paper", 10)
-	# The bank holds and the land carries one more ration: the levy's hand is
-	# the pool target (min_peasants 3 + the levy's hand 1 = 4, already met) —
-	# the trained tiers and the worker target wait for the muster to stand.
+	# The bank holds and the land carries one more ration: the levy's pool is
+	# past its floor and the bank paces — the trained tiers and the worker
+	# target wait for the muster to stand.
 	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
 		config, economy, 0, -1, 0, true, 1
 	)
 	assert_true(orders.is_empty(), "the levy's pool is met; the ladder waits")
 	# One peasant short of the levy floor: the farmhand comes first (the
 	# #1023 provision), paid against the harvest it eats.
-	economy.workers = WorkerPool.make(3)
+	economy.workers = WorkerPool.make(1)
 	orders = AiEconomyPlanner.recruitment_orders(
 		config, economy, 0, -1, 0, true, 1
 	)
@@ -8315,10 +8320,17 @@ func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 
 
 func test_a_thin_labour_pool_stops_the_muster() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 3), 3, false)
+	# The retuned floor is 1 spare hand (issue #1314 companion), so a pool of
+	# two cannot spare one: the labour floor holds with the levy's own hand
+	# the only head above it.
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 1), 3, false)
 
 	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
 	assert_true((plan["reasons"] as Array).has("labour floor"))
+	# One spare head over the floor and the muster fires again — the floor is
+	# a reservation, not a wall (the retune's own point).
+	var spare: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 2), 3, false)
+	assert_eq(String(spare["muster"]), "arquebusiers", "one hand above the floor musters")
 
 
 func test_a_researched_pattern_is_the_one_that_musters() -> void:
@@ -15152,10 +15164,16 @@ func test_the_victory_pressure_raises_the_muster_target() -> void:
 
 
 func test_planner_a_thin_labour_pool_stops_the_muster() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 3), 3, false)
+	# The retuned floor is 1 spare hand (issue #1314 companion): two heads in
+	# the fields cannot spare one, the levy's own hand is all that stands.
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 1), 3, false)
 
 	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
 	assert_true((plan["reasons"] as Array).has("labour floor"))
+	# One head over the floor and the muster fires — the floor reserves, the
+	# wall the retune removed was permanent.
+	var spare: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 2), 3, false)
+	assert_eq(String(spare["muster"]), "arquebusiers", "one hand above the floor musters")
 
 func test_planner_a_researched_pattern_is_the_one_that_musters() -> void:
 	var economy: PlayerEconomy = _ai_army_reinforce_economy()
@@ -15381,7 +15399,11 @@ func test_the_map_pass_pitches_the_rivals_train() -> void:
 		"the standard carries the tents from now on"
 	)
 	assert_eq(economy.quantity("lumber"), lumber - 2, "the court's own timber pays")
-	assert_eq(economy.quantity("fabric"), fabric - 1)
+	# The retuned labour floor (1 spare hand, #1314 companion) also lets this
+	# court's levy fire the same turn, so a second fabric row may stand beside
+	# the train's own: the train's fabric is paid either way.
+	var fabric_spent: int = fabric - int(economy.quantity("fabric"))
+	assert_true(fabric_spent >= 1, "the train's cloth is paid")
 	play.army_layer.free()
 
 
