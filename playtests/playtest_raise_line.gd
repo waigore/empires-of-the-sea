@@ -198,7 +198,7 @@ func _estates_pass() -> void:
 	estates.open(province)
 	estates.refresh()
 	await process_frame
-	var tiles: Array[Vector2i] = estates._ready_tiles()
+	var tiles: Array[Vector2i] = estates.ready_tiles()
 	var line: String = estates._line.text
 	_say("province %d: %d ready estate(s), face \"%s\"" % [
 		province, tiles.size(), estates._batch.text,

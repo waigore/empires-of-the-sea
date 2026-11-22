@@ -1102,6 +1102,40 @@ func test_a_carried_bid_drops_when_the_trade_capacity_is_short() -> void:
 	assert_true(codes.has("carry_forward_dropped_cargo_insufficient"))
 
 
+## A purse that cannot pay for every ton the matcher filled leaves the unpaid
+## tons on the book: they are not a fill, so both arms carry them into the next
+## turn (wiki: world-market § Treasury budget for bids — treasury-truncated bid
+## residuals are preserved as carry-forwards; § Order persistence).
+func test_the_tons_a_purse_cannot_pay_still_carry() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	# 71 at 95% is 67.45: a ton rounds to 67, three tons to 202, so a purse of
+	# 201 pays two tons of the three the matcher fills.
+	market.prices["wool"] = 71
+	market.set_terms(0, {"buy": {"*": 0.95}, "sell": {"*": 1.0}})
+	var world: WorldMap = _market_engine_world()
+	var economies: Dictionary = _economies()
+	var buyer: PlayerEconomy = economies[0]
+	var before: int = buyer.quantity("wool")
+	buyer.treasury = 201
+	var staged: Dictionary = MarketOrders.submit(
+		market,
+		0, "wool", MarketOrder.SIDE_BID, 3,
+		{"cargo_free": 10, "treasury": 201, "buy_price": 67}
+	)
+	assert_true(bool(staged["ok"]), String(staged.get("reason", "")))
+	var report: Dictionary = MarketClearing.clear(
+		market, world, economies, {0: 10, 1: 10}
+	)
+	assert_eq(buyer.quantity("wool"), before + 2, "the purse pays two tons")
+	var codes: Array[String] = []
+	for note: Dictionary in report["notes"]:
+		codes.append(String(note.get("code", "")))
+	assert_true(codes.has("bid_partial_fill_treasury_insufficient"))
+	var carry: Array = report["carry"]
+	assert_eq(carry.size(), 1, "the unpaid ton carries")
+	assert_eq((carry[0] as MarketOrder).commodity, "wool")
+	assert_eq((carry[0] as MarketOrder).quantity, 1)
+
 func test_settlement_buy_unit_and_subsidy_read_the_pair() -> void:
 	var market: WorldMarket = WorldMarket.with_default_prices()
 	assert_eq(
@@ -1310,6 +1344,27 @@ func test_a_cancelled_offer_gives_its_supply_back_and_never_below_zero() -> void
 	assert_eq(market.offer_volume("timber"), 0)
 	market.book.volumes.withdraw_offer("timber", 5)
 	assert_eq(market.offer_volume("timber"), 0)
+
+## A carried offer was not submitted this turn, so its tons never entered this
+## turn's supply: a withdrawal the book refuses must leave the spread whole
+## (wiki: world-market § Price discovery — only this turn's submitted offers
+## price the spread; § Order persistence — carry-forward orders are not
+## cancelable).
+func test_a_refused_withdrawal_leaves_the_turns_supply_whole() -> void:
+	var market: WorldMarket = WorldMarket.with_default_prices()
+	MarketOrders.submit(
+		market, 3, "timber", MarketOrder.SIDE_OFFER, 2, {"stock": 4}
+	)
+	var carried: MarketOrder = market.book.submitted[0]
+	market.book.close_turn()
+	market.book.set_carry([carried])
+	market.advance_prices()
+	MarketOrders.submit(
+		market, 3, "timber", MarketOrder.SIDE_OFFER, 3, {"stock": 9}
+	)
+	assert_eq(market.offer_volume("timber"), 3, "only this turn's offer prices the spread")
+	assert_false(MarketOrders.cancel(market, 3, carried.id), "a carried order cannot be withdrawn")
+	assert_eq(market.offer_volume("timber"), 3, "the refused withdrawal takes no supply")
 
 func test_one_court_holding_both_sides_is_dropped_by_pair() -> void:
 	var rows: Array[MarketOrder] = [
@@ -5437,6 +5492,71 @@ func _row(id: String, ctx: Dictionary) -> Dictionary:
 	return MarketRow.build(
 		id, 0, 0, {"free": int(ctx.get("cargo_free", 0))}, _market(), 0, ctx, false,
 		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass
+	)
+
+
+## The court's own trade plan marks the good it books and prints the side and
+## the units on the row it names, so the crown reads what her staff would trade
+## where she would press it (wiki: world-market § Trade orders; DR-20261122-08).
+func test_a_row_the_court_would_trade_wears_the_mark_and_its_words() -> void:
+	var built: Dictionary = MarketRow.build(
+		"grain", 4, 0, {"free": 4}, _market(), 0, _row_ctx(), false,
+		func(_commodity: String, _quantity: int, _is_buy: bool) -> void: pass,
+		{"bid": 3}
+	)
+	var row: Node = built["row"] as Node
+	assert_true(
+		_prints(row, "%s Grain" % MarketRow.COURT_MARK), "the row leads with the mark"
+	)
+	assert_true(
+		_prints(row, "The court would bid 3 this phase."), "the row says what it books"
+	)
+	row.free()
+
+
+## A row the court's plan leaves alone wears neither the mark nor a second
+## sentence: the reading marks what it names and nothing else (REQ-P5-06).
+func test_a_row_the_court_leaves_alone_prints_no_mark() -> void:
+	var built: Dictionary = _row("grain", _row_ctx())
+	var row: Node = built["row"] as Node
+	assert_false(
+		_prints(row, "%s Grain" % MarketRow.COURT_MARK), "no mark on a row it left alone"
+	)
+	assert_true(_prints(row, "Grain"), "the good still reads as it always did")
+	row.free()
+
+
+## The row's sentence names one side, or both when the plan books them, and
+## nothing when it books neither (DR-20261122-08).
+func test_the_court_sentence_names_the_side_it_books() -> void:
+	assert_eq(
+		MarketRow.court_line({"bid": 3}), "The court would bid 3 this phase."
+	)
+	assert_eq(
+		MarketRow.court_line({"offer": 2}), "The court would offer 2 this phase."
+	)
+	assert_eq(
+		MarketRow.court_line({"offer": 2, "bid": 1}),
+		"The court would offer 2 and bid 1 this phase."
+	)
+	assert_eq(MarketRow.court_line({}), "", "no plan, no sentence")
+
+
+## The plan's two sides fold into one book keyed by commodity, so a row marks
+## itself from the same read the gold line was worded from (DR-20261122-08).
+func test_the_court_book_folds_both_sides_by_commodity() -> void:
+	var book: Dictionary = LedgerMarket.court_rows(
+		{"offers": {"wool": 10}, "bids": {"iron": 5}, "line": "…"}
+	)
+	assert_eq(book.get("wool"), {"offer": 10})
+	assert_eq(book.get("iron"), {"bid": 5})
+	assert_eq(LedgerMarket.court_rows({}), {}, "no plan, no marks")
+	assert_eq(
+		LedgerMarket.court_rows({"bids": {"iron": 0}}), {}, "no units, no mark"
+	)
+	assert_eq(
+		LedgerMarket.court_rows({"bids": {"iron": "5"}}), {"iron": {"bid": 5}},
+		"a save-shaped figure still marks"
 	)
 
 

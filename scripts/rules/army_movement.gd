@@ -22,6 +22,31 @@ const NO_INTERIOR_LINES: String = (
 	"No interior lines run from this ground — march through the provinces "
 	+ "beside you, one march at a time, to reach home."
 )
+## The walk home's words when the court's seat lies on another chart: no land
+## march from this shore reaches it at all, so the rule names the road that does
+## — a squadron (wiki: military-armies § Movement and attacks; ships-and-naval
+## § Naval transport (armies); DR-20261122-07).
+const NO_OWN_LAND_REACH_OVERSEAS: String = (
+	"No own land touches here, and your seat lies across the sea — no land march "
+	+ "reaches it; a squadron in port must carry this host home."
+)
+## The harbour the squadron must dock at, named after the water's words: a hull
+## takes troops aboard only in a port its owner keeps, so a cut-off host hears
+## the shore to march for, not just the road that exists (wiki: ships-and-naval
+## § Naval transport (armies); DR-20261122-09).
+const SEA_HOME_HARBOUR: String = (
+	" Your own harbour at %s is where a squadron must dock — march this host there."
+)
+const SEA_HOME_HARBOUR_HERE: String = (
+	" Dock a squadron in the harbour here and it will carry this host home."
+)
+## No quay of the crown's within a march: the sea road home cannot be opened
+## from this shore, and the words say so rather than leaving the crown hunting
+## a harbour it does not hold.
+const SEA_HOME_NO_HARBOUR: String = (
+	" The crown keeps no harbour this host can march to — no squadron can take "
+	+ "it aboard."
+)
 
 
 ## Legal destinations for the army's one march this turn. A host standing on
@@ -159,8 +184,87 @@ static func stranded(model: MapModel, army: ArmyState) -> bool:
 ## border the map shows (wiki: military-armies § Movement and attacks).
 static func _off_ground_refusal(model: MapModel, army: ArmyState) -> String:
 	if stranded(model, army):
-		return NO_OWN_LAND_REACH
+		return walk_home_words(model, army)
 	return NO_INTERIOR_LINES
+
+
+## The walk home's one sentence for this host: the rule's own words on the seat's
+## own chart, and the sea's words when the court's seat lies on another chart, so
+## no shore ever promises a land march home that cannot exist (wiki: military-
+## armies § Movement and attacks; ships-and-naval § Naval transport (armies);
+## DR-20261122-07).
+static func walk_home_words(model: MapModel, army: ArmyState) -> String:
+	if seat_elsewhere(model, army):
+		return NO_OWN_LAND_REACH_OVERSEAS + sea_home_words(model, army)
+	return NO_OWN_LAND_REACH
+
+
+## The harbour the sea road home runs through, appended to the water's words: a
+## squadron takes troops aboard only in a port its owner keeps, so a host cut
+## off across the sea hears the shore to march for — or that the crown keeps no
+## such shore within a march (wiki: ships-and-naval § Naval transport (armies);
+## DR-20261122-09). Pure: reads the chart and the host, orders nothing.
+static func sea_home_words(model: MapModel, army: ArmyState) -> String:
+	if model == null or army == null:
+		return ""
+	var harbour: int = nearest_harbour(model, army)
+	if harbour == NO_PROVINCE:
+		return SEA_HOME_NO_HARBOUR
+	if harbour == army.province:
+		return SEA_HOME_HARBOUR_HERE
+	return SEA_HOME_HARBOUR % model.province_name(harbour)
+
+
+## The crown's own harbour the host could march to: fewest land hops from where
+## it stands (lowest province id on a tie), counted over the chart's own
+## adjacency, so a quay across open water is never named. NO_PROVINCE when the
+## crown keeps none the host can reach (wiki: ships-and-naval § Naval transport
+## (armies); DR-20261122-09).
+static func nearest_harbour(model: MapModel, army: ArmyState) -> int:
+	if model == null or army == null or army.province == NO_PROVINCE:
+		return NO_PROVINCE
+	if model.province_data(army.province) == null:
+		return NO_PROVINCE
+	if on_own_ground(model, army) and NavalMovement.has_harbour(model, army.province):
+		return army.province
+	var ids: Array = []
+	for province: ProvinceState in model.provinces:
+		ids.append(province.id)
+	var distances: Dictionary = ProvinceGraph.hops(model, ids, army.province)
+	var best: int = NO_PROVINCE
+	var best_hops: int = 1 << 30
+	for province: ProvinceState in model.provinces:
+		if province.owner != army.owner or not NavalMovement.has_harbour(model, province.id):
+			continue
+		if not distances.has(province.id):
+			continue
+		var hops: int = int(distances[province.id])
+		if hops < best_hops or (hops == best_hops and province.id < best):
+			best = province.id
+			best_hops = hops
+	return best
+
+
+## True when the army stands on a chart that holds no seat of its court while the
+## court keeps that seat on another chart — an overseas holding, where no land
+## march reaches home (DR-20261122-07). A chart that holds the seat, and a court
+## the catalogue gives no chart at all, read false, so the land words stand.
+static func seat_elsewhere(model: MapModel, army: ArmyState) -> bool:
+	if model == null or army == null:
+		return false
+	if capital_province_on(model, army.owner) != NO_PROVINCE:
+		return false
+	var home: int = FactionCatalog.region_of(army.owner)
+	return home >= 0 and home != model.region_id
+
+
+## The court's own seat on this chart, read without touching the session: the
+## province it owns here that carries the capital (wiki: capital-and-connectivity
+## § Capital; world-model-identity — ids never cross charts).
+static func capital_province_on(model: MapModel, faction: int) -> int:
+	if model == null:
+		return NO_PROVINCE
+	return WorldBootstrap.capital_province(model, faction)
 
 
 ## Land held by another faction; unowned wilderness is not an invasion.

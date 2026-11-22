@@ -1206,6 +1206,13 @@ domain = "muster"
 match = "scripts/map/map_play_setup.gd"
 domain = "muster"
 
+# The sheets' own gold lines: the pick each published pass would issue, bound at
+# screen boot. Same domain as the boot that calls it, so a counsel-source change
+# runs the ledgers and the map screen, never the whole chart set.
+[[rules]]
+match = "scripts/map/map_play_counsel_bind.gd*"
+domain = "muster"
+
 # A reading's own rules module, the turn that publishes it and the two map
 # hooks that carry it. First match wins, so these sit above the ai/fog/
 # diplomacy globs below.
@@ -4401,6 +4408,18 @@ domain = "economy_ui"
 [[rules]]
 match = "scripts/ui/estate_ledger.gd*"
 domain = "muster"
+
+# The estates door's list paint and raise-press price walk (EstatesRows,
+# EstatesRaise). Same pause home as ImprovementPanel — the door they serve —
+# so body work rides the estates suites and never remounts the setup/hub
+# pages past the tier-1 budget.
+[[rules]]
+match = "scripts/ui/estates_rows.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/estates_raise.gd*"
+domain = "pause"
 
 # Every court's own arms (wiki: diplomacy § The court sheet; DR-20261118-30):
 # one pure blazon over the faction catalog and the vector shield that paints it.

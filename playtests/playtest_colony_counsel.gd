@@ -267,8 +267,8 @@ func _pass_two_sheets() -> void:
 			_play.diplomacy.overture(_play.player_faction, tribe)
 		),
 	}
-	_say("  the envoy's own counsel: %s" % String(
-		MapPlayDiplomacyPick.lines(_play).get(tribe, "")
+	_say("  the envoy's own counsel: %s" % MapPlayPickProse.sentence_of(
+		MapPlayDiplomacyPick.picks(_play).get(tribe, {}) as Dictionary
 	))
 	if MapPlayColonyPick.envoy_gives(action, wants):
 		_check(

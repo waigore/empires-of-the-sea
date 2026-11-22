@@ -62,7 +62,8 @@ static func clear(
 	var changed: Dictionary = market.advance_prices(auto_offers)
 	var capacity: Dictionary = context.get("capacity", {}) as Dictionary
 	var carry: Array[MarketOrder] = MarketSettlement.carry(
-		orders, matched, economies, free_holds, notes, capacity
+		orders, matched, economies, free_holds, notes, capacity,
+		settled.get("truncations", []) as Array
 	)
 	market.book.close_turn()
 	market.book.set_carry(carry)

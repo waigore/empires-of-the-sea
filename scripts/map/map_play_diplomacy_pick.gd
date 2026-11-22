@@ -46,12 +46,10 @@ static func plan(play: PlaySession) -> Dictionary:
 static func court(play: PlaySession, faction: int) -> Dictionary:
 	if play == null or play.diplomacy == null or play.world == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
+	var opened: Dictionary = AiControl.court(play, faction)
+	if opened.is_empty():
 		return {}
-	var config: Variant = AiBind.config(
-		kind, faction, play.map_seed, play.ensure_ai().profiles
-	)
+	var config: Variant = opened["config"]
 	if not (config is AiConfig):
 		return {}
 	var shared: Dictionary = _shared(play, faction)
@@ -66,10 +64,13 @@ static func court(play: PlaySession, faction: int) -> Dictionary:
 	return read
 
 
-## One line per crown the court is in contact with: target -> the pick's own
-## sentence, ready to print. Empty when the court would give the turn no order
-## and can weigh none, or when the session has no planner to read.
-static func lines(play: PlaySession) -> Dictionary:
+## One pick per crown the court is in contact with: target -> the pick itself,
+## its `kind` naming whether the envoy's one order is bound for that crown
+## (`KIND_ORDER`), spent elsewhere, or held by a gate. The sheet prints the
+## sentence and marks the row from the same read (DR-20261121-05,
+## DR-20261122-11). Empty when the court would give the turn no order and can
+## weigh none, or when the session has no planner to read.
+static func picks(play: PlaySession) -> Dictionary:
 	var plan_now: Dictionary = plan(play)
 	if plan_now.is_empty():
 		return {}
@@ -79,11 +80,8 @@ static func lines(play: PlaySession) -> Dictionary:
 	for record: DiplomacyRelation in play.diplomacy.relations_of(play.player_faction):
 		var target: int = record.other(play.player_faction)
 		var pick: Dictionary = of(action, chosen, plan_now, target)
-		var line: String = MapPlayPickProse.sentence(
-			String(pick.get("line", ""))
-		)
-		if not line.is_empty():
-			out[target] = line
+		if not String(pick.get("line", "")).is_empty():
+			out[target] = pick
 	return out
 
 

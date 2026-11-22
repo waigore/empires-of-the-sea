@@ -23,7 +23,8 @@ its **Defence** line, beside the fort and the ground. The ward sheet is gone
 | Level | the numeral the realm prints — `—` (no ward), `I`, `II` |
 | Gate | `READY`, `AT WORK`, `NO ENGINEER`, `LOCKED`, `WARDED` |
 | Place | `Field hospital · rest 40% · wear 80% · staff 2 food`, or `unstaffed` |
-| Note | `Next: field hospital · 3 lumber + 2 fabric · 1 turn`, the crew's own record, or the study the order waits on |
+| Press | `Raise Ward · 3 lumber + 2 fabric` — the next ward's price |
+| Note | what the next ward buys — `L1 rests 40%, wear 80%, staff 2 food (+15% rest, -20% wear, +2 food)` — or the order's own refusal |
 
 The rule a crown pays by: rest 40% / 55%, the wear a defeat
 leaves cut to 80% / 65%, and a staff that eats 2 food a turn per level — an

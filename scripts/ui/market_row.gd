@@ -6,6 +6,8 @@ extends RefCounted
 ## controller decides (wiki: world-market § Trade orders; REQ-P2-03, REQ-P3-01).
 
 const ROW_HEIGHT: float = 38.0
+## The mark a row wears when the court's own trade plan names its good.
+const COURT_MARK: String = "▸"
 
 
 ## The tons a row cannot sell, named: production's claim and the tons already
@@ -21,10 +23,28 @@ static func _claim_phrase(id: String, claimed: int, promised: int) -> String:
 	return ", ".join(parts)
 
 
+## "The court would bid 3 this phase." — the side and the units the court's own
+## market pass books on one good, in the tab's own voice, so a marked row says
+## what the reading means without the crown re-reading the gold line
+## (wiki: world-market § Trade orders; DR-20261122-08).
+static func court_line(court: Dictionary) -> String:
+	var offer: int = int(court.get("offer", 0))
+	var bid: int = int(court.get("bid", 0))
+	if offer > 0 and bid > 0:
+		return "The court would offer %d and bid %d this phase." % [offer, bid]
+	if offer > 0:
+		return "The court would offer %d this phase." % offer
+	if bid > 0:
+		return "The court would bid %d this phase." % bid
+	return ""
+
+
 ## Builds the row — wrapped when it carries a batch press or a refusal — and
 ## returns `{row, batches}`. `batches` is keyed "bid"/"offer" for the presses the
 ## rules allow; a row whose whole order is one unit carries none. `on_trade`
-## takes `(commodity, quantity, is_buy)`.
+## takes `(commodity, quantity, is_buy)`. `court` is the court's own plan for this
+## good, `{offer: n}` and/or `{bid: n}`: the row leads with the counsel's mark
+## and prints the side and the units it books (DR-20261122-08).
 static func build(
 	id: String,
 	held: int,
@@ -34,10 +54,13 @@ static func build(
 	viewer: int,
 	ctx: Dictionary,
 	compact: bool,
-	on_trade: Callable
+	on_trade: Callable,
+	court: Dictionary = {}
 ) -> Dictionary:
 	var row := UiRowBuilder.row(ROW_HEIGHT)
-	row.add_child(CommodityIcons.cell(id, 132.0))
+	row.add_child(CommodityIcons.cell(
+		id, 132.0, 14, Palette.TEXT, COURT_MARK if not court.is_empty() else ""
+	))
 
 	var qty := UiRowBuilder.label("%d" % held, 14, Palette.GOLD_PALE)
 	qty.custom_minimum_size = Vector2(44, 0)
@@ -97,6 +120,12 @@ static func build(
 	var block := VBoxContainer.new()
 	block.add_theme_constant_override("separation", 2)
 	block.add_child(row)
+	# The side and the units the court's own plan books on this good, printed
+	# under the press it would use: a mark points at the row, this says what the
+	# reading means (wiki: world-market § Trade orders; DR-20261122-08).
+	var court_words: String = court_line(court)
+	if not court_words.is_empty():
+		block.add_child(UiRowBuilder.caption(court_words, 10, Palette.GOLD_PALE, 0.0))
 	if claimed > 0 or promised > 0:
 		block.add_child(UiRowBuilder.caption(
 			"%s — %d sellable" % [_claim_phrase(id, claimed, promised), sellable],

@@ -1,6 +1,6 @@
 # Deferred features (ranked)
 
-Audited: wiki / DRs / code through #1261 (REQ-P2-02).
+Audited: wiki / DRs / code through #1297 (REQ-P2-02).
 Default pick: largest gap here, then REQ/wiki.
 
 ## Already live
@@ -12,6 +12,7 @@ Default pick: largest gap here, then REQ/wiki.
 | Home merge/forts/civilian AI | `FleetHomeMerge`, `AiCivilianPlanner` |
 | Minor/Tribe market + town growth | `MinorMarket`, `TownIndustry`, `MinorTownGrowth` |
 | Overseas cargo/colony/Join/voyage | `EconomyOverseas`, `FirstRight`; land DR-18-19/23 |
+| Join Empire sized cost | `DiplomacyCatalog.stage_cost` (base + per province) |
 | Fleetless import; counter-spy/fog | `PORT_ALLOWANCE`; espionage; `CourtCharts` |
 | Favoured partner/GP–Tribe contact | `MarketFavoured`; `TribeContact` |
 | Hospitals/rival builders/trains | `HospitalRules`, `AiHospitalWork`, `HospitalTrain` |
@@ -46,7 +47,7 @@ None.
 
 ## Next pick
 
-None ranked; audit `docs/rubric.md` / wiki for the next gap.
+None; see `docs/rubric.md` / wiki.
 
 ## Blocked
 
@@ -55,7 +56,7 @@ None ranked; audit `docs/rubric.md` / wiki for the next gap.
 - Soft priority weight — seed (DR-17-01); resource-need phase reweight —
   no need reading (DR-13-15; money-goal live DR-16-09).
 - Alt victory, difficulty extras, ruleset loaders/borrowing, warehousing,
-  loans, sea-zone names — out of scope; Join Empire cost — rules call.
+  loans, sea-zone names — out of scope.
 - Per-region prospected; muster of the dead — DR-10-21/12-10.
 - Per-hull damage; rival-fight plate — DR-13-17.
 - Cross-station folds / passenger transfers — out of scope. Further tongues
@@ -67,5 +68,5 @@ None ranked; audit `docs/rubric.md` / wiki for the next gap.
 `DR-20261111-05` § Deferred still names rival Tribe contact and fleetless
 crowns; both live (`TribeContact`/`AiTribeColony`, `FleetMuster`).
 `DR-20261112-09` fog closed by DR-13-03. Soft weight seed blocked
-(DR-17-01). Learnings gaps none; #1254–#1261 counsel/polish,
-not backlog.
+(DR-17-01). Learnings harness-only; #1262–#1297 counsel/marks/harbour
+words — not backlog.

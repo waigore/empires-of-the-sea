@@ -763,6 +763,105 @@ func test_a_foreign_province_offers_no_town_order() -> void:
 	assert_true(_province_panel_panel._orders.town_button.disabled)
 	assert_true(_province_panel_panel._orders.town_button.tooltip_text.contains("not held by your crown"))
 
+
+## The dossier carries the wall's own press (wiki: siege-mechanics § Fort Levels;
+## DR-20261116-01): it greys with the order's own refusal — the study the next
+## wall waits on, then the idle Engineer the press sends — and, open, names the
+## step's price and what the wall it raises soaks.
+func test_the_wall_order_presses_the_engineer_it_sends() -> void:
+	_setup_province_panel()
+	_model.provinces[0].fort_level = 1
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	assert_true(rail.wall_button.disabled, "a stone wall waits on Mine Engineering")
+	assert_true(
+		rail.wall_button.tooltip_text.contains("Mine Engineering"),
+		"the press says the study it waits on: %s" % rail.wall_button.tooltip_text
+	)
+	_show({"mine_engineering": true})
+	assert_true(rail.wall_button.disabled, "with the study, the crew still has to muster")
+	assert_true(
+		rail.wall_button.tooltip_text.contains("No idle Engineer"),
+		rail.wall_button.tooltip_text
+	)
+	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
+	_show({"mine_engineering": true})
+	assert_false(rail.wall_button.disabled, "a free Engineer with the study opens the press")
+	assert_true(rail.wall_button.text.contains("4 lumber"), rail.wall_button.text)
+	assert_true(rail.wall_note.visible, "the press prices what the next wall buys")
+	assert_true(rail.wall_note.text.contains("soaks 20 wall hp"), rail.wall_note.text)
+	# The step in hand reads as taken: the ordered wall waits on its Engineer,
+	# not on a second press (the walls ledger's AT WORK state).
+	var crew: CivilianState = _units[0]
+	crew.start_work("build_fort", Fixture.BARE_TILE, 1)
+	_province_panel_panel.refresh(_model, 0)
+	assert_true(rail.wall_button.disabled, "a wall already ordered offers no second press")
+	assert_true(
+		rail.wall_button.tooltip_text.contains("already at work"),
+		rail.wall_button.tooltip_text
+	)
+
+
+## The dossier carries the ward's own press (wiki: combat § Regiment condition;
+## DR-20261116-02; docs/hospitals.md): the study, the stores and the rest the
+## next ward brings, all printed on the order's own row.
+func test_the_ward_order_names_the_study_and_the_ward_it_raises() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	assert_true(rail.ward_button.disabled, "a ward waits on Organised Regiments")
+	assert_true(
+		rail.ward_button.tooltip_text.contains("Organised Regiments"),
+		rail.ward_button.tooltip_text
+	)
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {},
+		{"organised_regiments": true}, {}
+	)
+	_province_panel_panel.refresh(_model, 0)
+	assert_true(rail.ward_button.disabled, "an empty store offers no ward")
+	assert_true(
+		rail.ward_button.tooltip_text.contains("Stores are short of"),
+		rail.ward_button.tooltip_text
+	)
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {},
+		{"organised_regiments": true}, Fixture.stockpile()
+	)
+	_province_panel_panel.refresh(_model, 0)
+	assert_false(rail.ward_button.disabled, "paid, the press opens")
+	assert_true(rail.ward_note.text.contains("rests 40%"), rail.ward_note.text)
+	assert_true(rail.ward_note.text.contains("staff 2 food"), rail.ward_note.text)
+
+
+## One crew builds the ward on the town tile, so a second crew there refuses it;
+## a wall may rise beside another project, because two projects in one province
+## may run (wiki: siege-mechanics § Fort Levels; civilian-units § Per-player
+## tile exclusivity).
+func test_a_crew_on_the_town_tile_refuses_a_ward_but_never_a_wall() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
+	var busy: CivilianState = CivilianState.create(
+		2, 0, "builder", Fixture.BARE_TILE
+	)
+	_units.append(busy)
+	busy.start_work("build_improvement", Fixture.BARE_TILE, 1)
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {},
+		{"organised_regiments": true}, Fixture.stockpile()
+	)
+	_province_panel_panel.refresh(_model, 0)
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	assert_true(rail.ward_button.disabled, "one crew builds the ward")
+	assert_true(
+		rail.ward_button.tooltip_text.contains("Another crew"),
+		rail.ward_button.tooltip_text
+	)
+	assert_false(rail.wall_button.disabled, "a project beside it never refuses the wall")
+
+
+
 func test_every_dock_button_is_a_bare_glyph() -> void:
 	_setup_province_panel()
 	var panels: Array = [_province_panel_panel, FleetPanel.new(), ArmyPanel.new(), CivilianPanel.new()]
@@ -5139,6 +5238,63 @@ func test_each_filter_selects_its_rows() -> void:
 func test_total_output_sums_every_yield() -> void:
 	assert_eq(EstateLedger.total_output({"lumber": 2, "iron": 3}), 5)
 	assert_eq(EstateLedger.total_output({}), 0)
+
+
+## EstatesRows / EstatesRaise: the estates door's list and raise walk (REQ-P3-01).
+func test_estates_rows_fill_empty_view_and_clear_null() -> void:
+	EstatesRows.clear(null)
+	EstatesRows.fill(
+		null, {}, -1, "all", {}, false, false, Callable(), Callable(), Callable()
+	)
+	assert_eq(EstatesRows.subtitle(null, -1), "Every owned resource tile, its works and its road to the crown.")
+	var host := VBoxContainer.new()
+	add_child(host)
+	EstatesRows.fill(
+		host, {"groups": []}, -1, "all", {}, false, false,
+		Callable(), Callable(), Callable()
+	)
+	assert_eq(host.get_child_count(), 1, "empty view still names the blank")
+	assert_true(host.get_child(0) is Label)
+	EstatesRows.clear(host)
+	assert_eq(host.get_child_count(), 0)
+	host.queue_free()
+
+
+func test_estates_panel_row_intents_reach_the_screen() -> void:
+	var panel := ImprovementPanel.new()
+	add_child(panel)
+	var saw: Array = []
+	panel.action_pressed.connect(
+		func(action: String, tile: Vector2i) -> void: saw.append([action, tile])
+	)
+	panel.focus_pressed.connect(func(tile: Vector2i) -> void: saw.append(["focus", tile]))
+	panel._on_row_build(Vector2i(2, 3))
+	panel._on_row_cancel(Vector2i(4, 5))
+	panel._on_row_focus(Vector2i(6, 7))
+	assert_eq(saw.size(), 3)
+	assert_eq(saw[0], ["build", Vector2i(2, 3)])
+	assert_eq(saw[1], ["cancel", Vector2i(4, 5)])
+	assert_eq(saw[2], ["focus", Vector2i(6, 7)])
+	panel.queue_free()
+
+
+func test_estates_raise_prices_without_a_chart_and_syncs_without_a_line() -> void:
+	var priced: Dictionary = EstatesRaise.price_row(
+		null, {"cost": {"lumber": 2}, "tile": "bad"}, {}
+	)
+	assert_eq(priced.get("lumber", 0), 2)
+	assert_true(
+		EstatesRaise.price_row(null, {"tile": Vector2i(1, 1)}, {}).is_empty(),
+		"no chart and no row cost yields an empty price"
+	)
+	var batch := RaiseBatchPress.new()
+	add_child(batch)
+	EstatesRaise.sync(null, null, {}, -1, "all", null, {}, [], 0)
+	EstatesRaise.sync(batch, null, {"groups": []}, -1, "all", null, {}, [], 0)
+	var walk := EstatesRaise.PriceWalk.new()
+	assert_eq(int(walk.price({"cost": {"iron": 1}}, {}).get("iron", 0)), 1)
+	batch.queue_free()
+
 
 func test_row_builder_builds_themed_widgets() -> void:
 	var row: HBoxContainer = UiRowBuilder.row(38.0)

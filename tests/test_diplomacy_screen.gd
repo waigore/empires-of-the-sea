@@ -1079,6 +1079,49 @@ func test_the_court_names_the_order_its_envoy_would_spend() -> void:
 	DiplomacyHud.hide(_screen.hud.panels)
 
 
+## The crown list marks the court the envoy's one order is bound for: one row
+## wears the counsel's `▸`, so the target is found among twenty without opening
+## each sheet (wiki: diplomacy § The crown's own envoy; DR-20261122-11).
+func test_the_crown_list_marks_the_court_the_envoy_would_treat() -> void:
+	var play: PlaySession = _screen.play
+	MapPlayDiplomacy.open(play)
+	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
+	var action: Dictionary = MapPlayDiplomacyPick.plan(play).get("action", {}) as Dictionary
+	assert_false(action.is_empty(), "the fixture crown has one order to give")
+	var target: int = int(action["target"])
+	var marked: Array[int] = []
+	for faction_id: int in panel._known_ids():
+		if panel._is_marked(faction_id):
+			marked.append(faction_id)
+	assert_eq(marked, [target], "one court wears the mark, the envoy's own target")
+	# The mark leads that court's own name on the list, and no other row's.
+	for button: Button in _crown_buttons(panel._list):
+		var name_text: String = button.text.split("\n")[0]
+		var has_mark: bool = name_text.begins_with(DiplomacyPanel.COURT_MARK)
+		assert_eq(
+			has_mark,
+			name_text.contains(FactionCatalog.name_of(target)),
+			"only the court the envoy is bound for wears the mark: %s" % name_text
+		)
+	assert_eq(
+		panel.counsel_text(), MapPlayDiplomacyPick.line(play, panel.selected_faction()),
+		"the mark and the gold line read off one pick"
+	)
+	DiplomacyHud.hide(_screen.hud.panels)
+
+
+## Every crown row's name button under the list, in its own order.
+func _crown_buttons(list: Node) -> Array[Button]:
+	var found: Array[Button] = []
+	for child: Node in list.get_children():
+		if child is Button:
+			found.append(child as Button)
+			continue
+		if child is Node:
+			found.append_array(_crown_buttons(child))
+	return found
+
+
 ## The counsel prices the purse the crown holds, not the shadow ledger the AI
 ## book would start for a court the pass never plans (REQ-P2-03).
 func test_the_envoy_line_reads_the_crowns_own_purse() -> void:
@@ -1105,7 +1148,7 @@ func test_a_court_with_no_planner_reads_no_envoy() -> void:
 	var play: PlaySession = _screen.play
 	var mode: String = play.ai_mode
 	play.ai_mode = AiControl.NOOP
-	assert_true(MapPlayDiplomacyPick.lines(play).is_empty(), "no planner, no advice")
+	assert_true(MapPlayDiplomacyPick.picks(play).is_empty(), "no planner, no advice")
 	MapPlayDiplomacy.open(play)
 	var panel: DiplomacyPanel = _screen.hud.panels.diplomacy_panel
 	panel.select_faction(FactionCatalog.great_power_ids()[1])

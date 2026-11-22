@@ -10,7 +10,11 @@ extends RefCounted
 
 ## Settles every filled deal: buyer purse, cargo and stock, then seller stock
 ## and purse. Minor/Tribe sellers have no wallet, so their receipt is the sink.
-## Returns {fills, deals} — `deals` keeps only the rows the purse actually paid.
+## Returns {fills, deals, truncations} — `deals` keeps only the rows the purse
+## actually paid, and `truncations` names the tons a purse could not pay for so
+## the matcher's residual still carries them (wiki: world-market § Treasury
+## budget for bids — treasury-truncated bid residuals are preserved as
+## carry-forwards).
 static func settle(
 	market: WorldMarket,
 	economies: Dictionary,
@@ -20,6 +24,7 @@ static func settle(
 ) -> Dictionary:
 	var fills: Dictionary = {}
 	var kept: Array[Dictionary] = []
+	var truncations: Array[Dictionary] = []
 	var diplomacy: DiplomacyState = context.get("diplomacy", null)
 	for deal: Dictionary in deals:
 		var buyer: int = int(deal.get("buyer", MarketOrder.WORLD))
@@ -45,6 +50,15 @@ static func settle(
 					"code": "bid_partial_fill_treasury_insufficient",
 					"faction": buyer,
 					"commodity": commodity,
+					"quantity": bid_quantity - quantity,
+				})
+				# The tons the purse could not pay for are not a fill: they stay
+				# on both orders and carry, so the next turn's book still holds
+				# them (wiki: world-market § Treasury budget for bids; § Order
+				# persistence).
+				truncations.append({
+					"bid_id": String(deal.get("bid_id", "")),
+					"offer_id": String(deal.get("offer_id", "")),
 					"quantity": bid_quantity - quantity,
 				})
 		var cost: int = MarketRules.deal_total_for(
@@ -90,7 +104,7 @@ static func settle(
 			sold["sold"] = int(sold.get("sold", 0)) + quantity
 			sold["earned"] = int(sold.get("earned", 0)) + proceeds
 			fills[seller] = sold
-	return {"fills": fills, "deals": kept}
+	return {"fills": fills, "deals": kept, "truncations": truncations}
 
 
 ## What the buyer actually pays per unit: the published price times the crown's
@@ -159,19 +173,26 @@ static func first_right(
 ## already spent and do not narrow next turn's capacity (§ Cargo). `capacity`
 ## carries that figure per crown; a caller with none falls back to `free_holds`,
 ## the stricter reading.
+##
+## `truncations` are the tons a purse could not pay at settlement: they are not
+## a fill, so they are added back to their bid's and offer's residual and the
+## order carries them (wiki: world-market § Treasury budget for bids —
+## treasury-truncated residuals are preserved as carry-forwards).
 static func carry(
 	orders: Array[MarketOrder],
 	matched: Dictionary,
 	economies: Dictionary,
 	free_holds: Dictionary,
 	notes: Array[Dictionary],
-	capacity: Dictionary = {}
+	capacity: Dictionary = {},
+	truncations: Array = []
 ) -> Array[MarketOrder]:
+	var unpaid: Dictionary = _unpaid_by_order(truncations)
 	var out: Array[MarketOrder] = []
 	for order: MarketOrder in orders:
 		if order.auto or order.is_world() or order.faction < 0:
 			continue
-		var left: int = residual_for(order, matched)
+		var left: int = residual_for(order, matched) + int(unpaid.get(order.id, 0))
 		if left <= 0:
 			continue
 		if order.is_bid():
@@ -211,6 +232,25 @@ static func residual_for(order: MarketOrder, matched: Dictionary) -> int:
 		return int(row.get("quantity", 0))
 	# A filled order has no residual row.
 	return 0
+
+
+## Order id -> tons a purse could not pay for, from [method settle]'s
+## `truncations`. Both arms of the deal lose the same tons, so both carry them.
+static func _unpaid_by_order(truncations: Array) -> Dictionary:
+	var unpaid: Dictionary = {}
+	for raw: Variant in truncations:
+		if not (raw is Dictionary):
+			continue
+		var row: Dictionary = raw
+		var units: int = int(row.get("quantity", 0))
+		if units <= 0:
+			continue
+		for key: String in ["bid_id", "offer_id"]:
+			var order_id: String = String(row.get(key, ""))
+			if order_id.is_empty():
+				continue
+			unpaid[order_id] = int(unpaid.get(order_id, 0)) + units
+	return unpaid
 
 
 static func purchased_owner(world: WorldMap, region: int, index: int) -> int:

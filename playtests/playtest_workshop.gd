@@ -44,6 +44,7 @@ func _run() -> void:
 	])
 	await _idle_pass()
 	await _stockpile_pass()
+	await _counsel_pass()
 	await _start_pass()
 	await _landing_pass()
 	await _one_turn_pass()
@@ -192,8 +193,11 @@ func _landing_pass() -> void:
 	_check("one unit lands a phase", _play.economy.economy.quantity("steel") == steel_before + 1)
 	_check("a carried batch pays nothing", _play.economy.economy.quantity("iron") == iron_before)
 	_check("no new run starts for a cleared row", _play.economy.economy.production.wip_units("steel") == 2)
-	_check("the toast names the landing", _toast_line().contains("Steel +1"))
 	steel = await _row("Steel")
+	# The landing's news is the row's own: the PRODUCTION ledger names what the
+	# phase turned out ("Last phase it made 1 Steel."), which is where a crown
+	# reads it since the bar's readings moved onto the chips (issue #1121).
+	_check("the row names the landing", _tips(steel).contains("made 1 Steel"))
 	_check("the tag walks down to two", String(steel["tag"]) == "2→1t")
 	_check("the calendar moves", _advance())
 	steel = await _row("Steel")
@@ -213,6 +217,36 @@ func _landing_pass() -> void:
 	_check("the row falls back to its idle wait", String(steel["tag"]) == "2t")
 
 
+## The court's own plan on the page: one gold line naming the runs its economy
+## pass would book, and the counsel's mark on every row it names, the heading
+## printing the legend (wiki: stockpiles-and-production § Production flow;
+## DR-20261121-07, DR-20261122-10). A line that books nothing is a gate: it marks
+## no row and prints no legend.
+func _counsel_pass() -> void:
+	_say("")
+	_say("--- the court's own plan: the line and the rows it marks ---")
+	_play.economy.open_panel()
+	await process_frame
+	var page: LedgerProduction = _stockpile()
+	var counsel: String = page.counsel_text()
+	var marked: PackedStringArray = PackedStringArray()
+	for widgets: Dictionary in page.recipe_rows().values():
+		var title: Label = widgets["title"] as Label
+		if title.text.begins_with(LedgerProduction.COURT_MARK):
+			marked.append(title.text)
+	_say("counsel: %s" % counsel)
+	_say("marked rows: %s" % ("none" if marked.is_empty() else ", ".join(marked)))
+	_check("the page opens with the court's own line", not counsel.is_empty())
+	var books: bool = not counsel.contains("run nothing")
+	_check("a plan that books runs marks its rows", marked.size() > 0 if books else marked.is_empty())
+	var labels: PackedStringArray = PackedStringArray()
+	SaveDrive.collect_text(_play.hud.panels.economy_panel, "", labels)
+	_check(
+		"the heading prints the mark's legend only when a row wears it",
+		labels.has(LedgerProduction.COURT_LEGEND) == (marked.size() > 0)
+	)
+
+
 ## The contrast: a one-turn row lands every unit in the phase it runs, and it
 ## never waits on the anvil — its tag is the last output the phase turned out,
 ## never a wait (wiki: production-recipes § Turns per unit; § Scope — the
@@ -225,7 +259,20 @@ func _one_turn_pass() -> void:
 	var row: Dictionary = await _row("Lumber")
 	var promise: String = _preview()
 	_say("Lumber row: stepper %s, promise: %s" % [String(row["stepper"]), promise])
-	_check("the one-turn promise lands its units now", promise.contains("Lumber +2"))
+	# The promise is the whole stockpile's movement, so it names the two runs the
+	# crown set beside the lumber its colonial towns make: the reading is held to
+	# the projection it is worded from, never to a figure the seed picked.
+	var seen: Dictionary = _play.economy.projected()
+	var seen_delta: int = int(
+		(seen.get("stockpile_delta", {}) as Dictionary).get("lumber", 0)
+	)
+	var far_made: int = int(
+		(seen.get("extraction", {}) as Dictionary).get("lumber", 0)
+	)
+	_check(
+		"the one-turn promise lands its units now",
+		seen_delta >= 2 and promise.contains("Lumber +%d" % seen_delta)
+	)
 	var lumber_before: int = _play.economy.economy.quantity("lumber")
 	var timber_before: int = _play.economy.economy.quantity("timber")
 	# The turn gathers timber before the workshop spends it, so the check reads the
@@ -238,7 +285,7 @@ func _one_turn_pass() -> void:
 		_play.turn, lumber_before, _play.economy.economy.quantity("lumber"),
 		timber_before, _play.economy.economy.quantity("timber"), harvested,
 	])
-	_check("both units land in one phase", _play.economy.economy.quantity("lumber") == lumber_before + 2)
+	_check("both units land in one phase", _play.economy.economy.quantity("lumber") == lumber_before + 2 + far_made)
 	_check(
 		"the timber is paid",
 		_play.economy.economy.quantity("timber") == timber_before + harvested - 4
@@ -340,13 +387,16 @@ func _save_pass() -> void:
 
 ## The PRODUCTION tab's row for a recipe, as a player reads it: the title, the
 ## workshop tag (empty when the row never waits), the stepper and the tooltips.
+## A row the court's own plan books leads its title with the counsel's mark
+## (`▸ Steel`, DR-20261122-10), so the match reads past the mark and keeps it for
+## the print.
 func _row(title_prefix: String) -> Dictionary:
 	_play.economy.open_panel()
 	await process_frame
 	var found: Dictionary = {}
 	for widgets: Dictionary in _stockpile().recipe_rows().values():
 		var title: Label = widgets["title"] as Label
-		if not title.text.begins_with(title_prefix):
+		if not _without_mark(title.text).begins_with(title_prefix):
 			continue
 		found = {
 			"title": title.text,
@@ -361,6 +411,15 @@ func _row(title_prefix: String) -> Dictionary:
 	return found
 
 
+## A row's title with the court's own mark taken off, so a sheet still finds a
+## row the plan books (`LedgerProduction.COURT_MARK`, DR-20261122-10).
+func _without_mark(title: String) -> String:
+	var mark: String = LedgerProduction.COURT_MARK + " "
+	if title.begins_with(mark):
+		return title.substr(mark.length())
+	return title
+
+
 ## Presses a row's own "−" or "+" `times` times. The panel rebuilds after every
 ## press, so the button is found again for each one (a player taps the live row).
 func _press(title_prefix: String, glyph: String, times: int) -> void:
@@ -370,7 +429,7 @@ func _press(title_prefix: String, glyph: String, times: int) -> void:
 		var pressed: bool = false
 		for widgets: Dictionary in _stockpile().recipe_rows().values():
 			var title: Label = widgets["title"] as Label
-			if not title.text.begins_with(title_prefix):
+			if not _without_mark(title.text).begins_with(title_prefix):
 				continue
 			var key: String = "plus" if glyph == "+" else "minus"
 			(widgets[key] as Button).emit_signal("pressed")

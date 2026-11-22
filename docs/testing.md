@@ -36,9 +36,9 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
   remount); advanced-start live cases share **one mount per tier**. Pure cases
   skip re-seat / shell (lazy `_screen` / `main` / menu-flow `chart`); hospitals
-  ride that chart; opening-plate cases use short `hold_max` / `fade_seconds`.
-  Free a swapped screen. Observer ~15–20 s; door/seal: `test_ai_observer`.
-  Menu-flow starts reuse that shell + `Fixture.world()`.
+  ride that chart; opening plates use short `hold_max` / `fade_seconds`. Free a
+  swapped screen. Far-chart fog / off-screen naval: `world.region` /
+  `regions.set_region` — no `_cycle_region`.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
@@ -202,7 +202,9 @@ godot --headless --path . --script res://playtests/playtest_overseas_invasion.gd
 # despatches, the army dossier and its counsel, the province sheet and the realm
 # reading. A third pass queues a hire, a muster and a launch at the seat, flips
 # the chart to the colony and closes the turn, so a seat-scoped order that lands
-# on the chart on screen (or is lost there) reads in one line.
+# on the chart on screen (or is lost there) reads in one line. A fourth pass
+# leaves a host cut off on ground with no crown land beside it and reads the
+# walk-home words: on a chart that holds no seat, the rule names the sea.
 godot --headless --path . --script res://playtests/playtest_new_world_war.gd
 
 # Sighted strength — sights a hostile squadron and reads the marker's `*`, the
