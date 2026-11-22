@@ -17844,3 +17844,72 @@ func test_a_stationed_fleet_and_a_fed_muster_keep_the_fleet() -> void:
 		AiNavy.idle_hull(config, economy, [watch], 0, 0).is_empty(),
 		"a squadron of one hull keeps her whatever the larder reads"
 	)
+
+
+## The economy trace names the break-up the cargo pass booked — the court, the
+## hull type and the rations freed for the levy (issue #1233).
+func test_the_trace_names_the_idle_hull_the_court_breaks_up() -> void:
+	var merged: Dictionary = {"events": []}
+	var court: Dictionary = {"events": [], "actions": {}}
+	AiEconomyTrace.record(
+		merged, {0: court},
+		{"factions": {0: {"cargo": {
+			"scrap": {"type_id": "sloop", "rations": ShipEconomy.food_upkeep_per_ship()},
+		}}}}
+	)
+	var text: String = ""
+	for entry: Variant in court["events"]:
+		text += String(entry)
+	assert_true(text.contains("breaks up"), "the trace names the break-up")
+	assert_true(text.contains("rations freed"), "and the rations it freed")
+
+
+## Idle-hull gates the reading itself refuses: no config, no purse, no seat, a
+## foreign squadron, a hull away from the seat, and a sister that already sailed.
+func test_idle_hull_gates_refuse_what_the_larder_cannot_claim() -> void:
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var economy: PlayerEconomy = _purse(4000)
+	var home: FleetState = FleetState.in_port(
+		0, 0, 0, ["h0", "h1"] as Array[String],
+		{"h0": "sloop", "h1": "sloop"}
+	)
+	assert_true(AiNavy.idle_hull(null, economy, [home], 0, 0).is_empty())
+	assert_true(AiNavy.idle_hull(config, null, [home], 0, 0).is_empty())
+	assert_true(AiNavy.idle_hull(config, economy, [home], -1, 0).is_empty())
+	var foreign: FleetState = FleetState.in_port(
+		1, 1, 0, ["f0", "f1"] as Array[String],
+		{"f0": "sloop", "f1": "sloop"}
+	)
+	assert_true(
+		AiNavy.idle_hull(config, economy, [null, foreign], 0, 0).is_empty(),
+		"a foreign squadron is not this court's idle cargo"
+	)
+	var afar: FleetState = FleetState.in_port(
+		2, 0, 1, ["a0", "a1"] as Array[String],
+		{"a0": "sloop", "a1": "sloop"}
+	)
+	assert_true(
+		AiNavy.idle_hull(config, economy, [afar], 0, 0).is_empty(),
+		"a hull in another province is not the seat's idle cargo"
+	)
+	var sailed: FleetState = FleetState.in_port(
+		3, 0, 0, ["s0"] as Array[String], {"s0": "sloop"}
+	)
+	sailed.moved = true
+	assert_true(
+		AiNavy.idle_hull(config, economy, [home, sailed], 0, 0).is_empty(),
+		"a sister that sailed this turn keeps the whole fleet"
+	)
+	assert_true(AiNavy.fleets_sailing([home, sailed], 0))
+	assert_false(AiNavy.fleets_sailing([home], 0))
+	# The yard's own spare-hull gate: two hulls that still carry two mouths keep
+	# both — breaking one would strand a passenger.
+	var packed: FleetState = FleetState.in_port(
+		4, 0, 0, ["p0", "p1"] as Array[String],
+		{"p0": "sloop", "p1": "sloop"}
+	)
+	packed.embarked_civilians = [7, 8]
+	assert_eq(AiNavy._idle_hull_id(packed), "")
+	packed.embarked_civilians = [7]
+	packed.embarked_army = 3
+	assert_eq(AiNavy._idle_hull_id(packed), "")
