@@ -4226,6 +4226,39 @@ func test_the_voyage_pick_boards_the_colonist_the_court_would_send() -> void:
 	play.ship_layer.free()
 
 
+## A landing names the ground, not the coast: the pick carries the province the
+## tile stands in, so the passenger block can mark the coast the step would take
+## (wiki: civilian-units § Landing; DR-20261122-21).
+func test_the_voyage_pick_carries_the_coast_a_landing_stands_on() -> void:
+	var play: PlaySession = _voyage_play()
+	var fleet: FleetState = FleetState.in_port(0, 0, 0, ["h0"], {"h0": "fluyt"})
+	var explorer: CivilianState = CivilianState.create(1, 0, "explorer", Vector2i(1, 0))
+	_pick_roster(play, [fleet] as Array[FleetState])
+	play.civilian_layer.units.assign([explorer] as Array[CivilianState])
+	play.civilian_layer.regions.set_region(0, play.civilian_layer.units)
+
+	var tile := Vector2i(5, 1)
+	var pick: Dictionary = MapPlayVoyagePick._words(
+		play, fleet, 0,
+		{"kind": "land", "fleet": fleet.id, "unit": explorer.id, "tile": tile}
+	)
+
+	assert_eq(String(pick.get("kind", "")), MapPlayVoyagePick.KIND_LAND, "the landing")
+	assert_eq(
+		int(pick.get("province", -1)), play.model.province_at(tile.x, tile.y),
+		"the coast the tile stands in travels beside the ground"
+	)
+	assert_eq(int(pick.get("unit", -1)), explorer.id, "and the crew it would put ashore")
+	assert_true(
+		String(pick.get("line", "")).begins_with(
+			"the court would put an Explorer ashore at (5, 1)"
+		),
+		"the words name the ground"
+	)
+	assert_eq(explorer.embarked_fleet, -1, "a reading: nobody lands")
+	play.ship_layer.free()
+
+
 ## The pick is only for a squadron the court would still order: a rival's hull, a
 ## squadron that has sailed, a crown with no ledger and a decided campaign all
 ## carry none.
