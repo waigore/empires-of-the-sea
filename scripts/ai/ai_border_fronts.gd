@@ -11,9 +11,9 @@ extends RefCounted
 ##
 ## This module is the read the diplomacy pass prices that with: nothing is
 ## concluded here and no state is touched (REQ-P3-03). Adjacency is read off the
-## province tiles, so it is the same border `AiMilitaryPlanner.frontier_hostile`
-## stages a field army on — one copy, so the war gate and the army can never
-## disagree about which war is a land war (REQ-P2-03).
+## province tiles, so [method war_border] is the same border the land and
+## overseas planners stage a field army on — one copy, so the war gate and the
+## army can never disagree about which war is a land war (REQ-P2-03).
 
 
 ## True when one of `attacker`'s provinces touches a province `target` owns —
@@ -42,3 +42,39 @@ static func _touches(model: MapModel, attacker: int, target: int) -> bool:
 			if model.province_owner(neighbor) == target:
 				return true
 	return false
+
+
+## The court's war border read in one pass: `hostile` is every at-war province
+## that touches the court's own land (the ground a field army storms), and
+## `staging` is every own province that touches one (where it waits before the
+## storm). Both are sorted by province id, so the same state always reads the
+## same border. A caller with no model or no diplomacy state reads two empty
+## lists. The planners share this scan instead of each carrying a copy, so the
+## war gate and the army can never disagree about which war is a land war
+## (REQ-P2-03, REQ-P3-03).
+static func war_border(
+	model: MapModel, owner: int, state: DiplomacyState
+) -> Dictionary:
+	var hostile: Array[int] = []
+	var staging: Array[int] = []
+	if model == null or state == null:
+		return {"hostile": hostile, "staging": staging}
+	for province: ProvinceState in model.provinces:
+		if province == null or province.owner != owner:
+			continue
+		var contested: bool = false
+		for neighbor: int in MapGeo.province_neighbors(model, province.id):
+			var other: int = model.province_owner(neighbor)
+			if other == MapModel.NO_ID or other == owner:
+				continue
+			var record: DiplomacyRelation = state.relation(owner, other)
+			if record == null or not record.at_war:
+				continue
+			contested = true
+			if not hostile.has(neighbor):
+				hostile.append(neighbor)
+		if contested:
+			staging.append(province.id)
+	hostile.sort()
+	staging.sort()
+	return {"hostile": hostile, "staging": staging}

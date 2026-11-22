@@ -24,6 +24,31 @@ extends RefCounted
 ## inputs (REQ-P2-03, REQ-P3-03). No rule changes: the muster spends through
 ## `ArmyTraining`, and the storm still resolves in [ArmyCombat].
 
+## True when `army` may storm `province`: the wall soaks attacking strength, and
+## the defenders it leaves need the attack margin left over. An empty walled
+## province still prices the top of the emplaced line, because a planner cannot
+## read another court's ledger (issue #1314). The land march and the overseas
+## landing ask this one gate, so both admit the same hosts (REQ-P2-03,
+## REQ-P3-03). A caller with no config, model or host reads no storm.
+static func admits(
+	config: AiConfig, model: MapModel, armies: Array, army: ArmyState, province: int
+) -> bool:
+	if config == null or model == null or army == null:
+		return false
+	var roster: Array[ArmyState] = []
+	roster.assign(armies)
+	var defenders: Array[ArmyState] = ArmyForce.armies_of(
+		roster, province, model.province_owner(province)
+	)
+	var level: int = FortRules.level_at(model, province)
+	if defenders.is_empty():
+		return level < 1 or army.strength() > FortRules.storm_ceiling(level)
+	var wall: float = FortRules.wall_hp(level)
+	var attack: float = army.strength() - wall
+	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
+	return attack > ArmyForce.side_strength(defenders) * margin
+
+
 ## Regiments a host of `strength` needs to cross `threshold` with room to spare:
 ## the ceiling of `threshold / strength`, plus one so the host clears the wall
 ## rather than tie it (a storm wants strict strength above the threshold), plus

@@ -168,7 +168,7 @@ static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
 	var seat: int = WorldBootstrap.capital_province(model, army.owner)
 	if seat == MapModel.NO_ID:
 		return {}
-	var road: Dictionary = _walk_distances(model, seat, army.owner)
+	var road: Dictionary = _distances(model, seat, army.owner, true)
 	var best: Dictionary = {}
 	var best_distance: int = UNREACHABLE
 	for province: int in ArmyMovement.destinations(model, army):
@@ -196,22 +196,25 @@ static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
 	return best
 
 
-## Distance from the seat over the ground a host may walk at peace: the court's
-## own land and unclaimed wilderness. Foreign land is no step — a march into it
-## is a war, and the attack branch already prices that.
-static func _walk_distances(model: MapModel, seat: int, owner: int) -> Dictionary:
+## Breadth-first distances from `start` over the ground the court may walk: its
+## own provinces, and with `wilderness` also unclaimed land (the road home at
+## peace). Foreign land is no step — a march into it is a war, and the attack
+## branch already prices that.
+static func _distances(
+	model: MapModel, start: int, owner: int, wilderness: bool
+) -> Dictionary:
 	var distances: Dictionary = {}
-	if seat < 0:
+	if start < 0:
 		return distances
-	var queue: Array[int] = [seat]
-	distances[seat] = 0
+	var queue: Array[int] = [start]
+	distances[start] = 0
 	while not queue.is_empty():
 		var current: int = queue.pop_front()
 		for neighbor: int in MapGeo.province_neighbors(model, current):
 			if distances.has(neighbor):
 				continue
 			var holder: int = model.province_owner(neighbor)
-			if holder != owner and holder != MapModel.NO_ID:
+			if holder != owner and not (wilderness and holder == MapModel.NO_ID):
 				continue
 			distances[neighbor] = int(distances[current]) + 1
 			queue.append(neighbor)
@@ -229,7 +232,7 @@ static func _best_order(
 	frontier: Array[int]
 ) -> Dictionary:
 	var best: Dictionary = {}
-	var distances: Dictionary = _own_distances(model, army.province, army.owner)
+	var distances: Dictionary = _distances(model, army.province, army.owner, false)
 	# Home defence first (issue #1259): a host marching toward the lost seat
 	# outranks the foreign adventure staging would price. The storm onto the
 	# invader's ground is the march home, and carries the defence premium.
@@ -252,7 +255,7 @@ static func _best_order(
 				)
 				kind = "defend"
 		elif hostile.has(owner):
-			if not _can_storm(config, model, armies, army, province):
+			if not AiStormGate.admits(config, model, armies, army, province):
 				continue
 			score = province_score(config, model, province)
 			if home_defence:
@@ -268,34 +271,6 @@ static func _best_order(
 			and AiHomeDefence.outranks(model, army, province, kind, best):
 			best = {"province": province, "score": score, "kind": kind}
 	return best
-
-
-## Walls soak incoming strength, and an empty walled province still prices its
-## standing battery (issue #1314), so the gate must beat the wall the palisade
-## could carry: the battery follows the **defender's** studies (wiki:
-## siege-mechanics § Emplaced Artillery — Royal → Heavy → Siege), and this
-## planner cannot read another court's ledger, so it prices the top of the line
-## ([method FortRules.storm_ceiling]). A host the gate admits clears whatever
-## battery the province mounts; pricing the Royal floor instead admitted hosts
-## the ladder repelled. A host over open ground needs the same margin over the
-## defenders it always did.
-static func _can_storm(
-	config: AiConfig,
-	model: MapModel,
-	armies: Array[ArmyState],
-	army: ArmyState,
-	province: int
-) -> bool:
-	var defenders: Array[ArmyState] = ArmyForce.armies_of(
-		armies, province, model.province_owner(province)
-	)
-	var level: int = FortRules.level_at(model, province)
-	if defenders.is_empty():
-		return level < 1 or army.strength() > FortRules.storm_ceiling(level)
-	var wall: float = FortRules.wall_hp(level)
-	var attack: float = army.strength() - wall
-	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
-	return attack > ArmyForce.side_strength(defenders) * margin
 
 
 ## Value of a province to a court: population, its seat, its resources and its
@@ -314,23 +289,15 @@ static func province_score(config: AiConfig, model: MapModel, province: int) -> 
 	return score
 
 
-## Provinces owned by the court that touch a province of a hostile faction. The
-## invasion planner reads it too: a war on the court's own border is a land war.
+## The hostile provinces touching the court's own land. The invasion planner
+## reads it too: a war on the court's own border is a land war. The scan lives
+## in [AiBorderFronts], so the diplomacy pass and both war planners read one
+## border (REQ-P2-03).
 static func frontier_hostile(
 	model: MapModel, owner: int, state: DiplomacyState
 ) -> Array[int]:
 	var frontier: Array[int] = []
-	for province: ProvinceState in model.provinces:
-		if province.owner != owner:
-			continue
-		for neighbor: int in MapGeo.province_neighbors(model, province.id):
-			var other: int = model.province_owner(neighbor)
-			if other == MapModel.NO_ID or other == owner:
-				continue
-			var record: DiplomacyRelation = state.relation(owner, other)
-			if record != null and record.at_war and not frontier.has(neighbor):
-				frontier.append(neighbor)
-	frontier.sort()
+	frontier.assign(AiBorderFronts.war_border(model, owner, state)["hostile"])
 	return frontier
 
 
@@ -351,23 +318,13 @@ static func invader_on_home_soil(
 
 
 ## Own provinces on the hostile border: where a field army stages before it can
-## storm an adjacent hostile province.
+## storm an adjacent hostile province. Read from the same [AiBorderFronts] pass
+## as [method frontier_hostile].
 static func _staging_provinces(
 	model: MapModel, owner: int, state: DiplomacyState
 ) -> Array[int]:
 	var staging: Array[int] = []
-	for province: ProvinceState in model.provinces:
-		if province.owner != owner:
-			continue
-		for neighbor: int in MapGeo.province_neighbors(model, province.id):
-			var other: int = model.province_owner(neighbor)
-			if other == MapModel.NO_ID or other == owner:
-				continue
-			var record: DiplomacyRelation = state.relation(owner, other)
-			if record != null and record.at_war:
-				staging.append(province.id)
-				break
-	staging.sort()
+	staging.assign(AiBorderFronts.war_border(model, owner, state)["staging"])
 	return staging
 
 
@@ -382,19 +339,3 @@ static func _hostile_army_at(
 	return false
 
 
-## BFS distance through the court's own provinces, so staging picks the nearest
-## frontier rather than the lowest province id.
-static func _own_distances(model: MapModel, start: int, owner: int) -> Dictionary:
-	var distances: Dictionary = {}
-	if start < 0:
-		return distances
-	var queue: Array[int] = [start]
-	distances[start] = 0
-	while not queue.is_empty():
-		var current: int = queue.pop_front()
-		for neighbor: int in MapGeo.province_neighbors(model, current):
-			if distances.has(neighbor) or model.province_owner(neighbor) != owner:
-				continue
-			distances[neighbor] = int(distances[current]) + 1
-			queue.append(neighbor)
-	return distances
