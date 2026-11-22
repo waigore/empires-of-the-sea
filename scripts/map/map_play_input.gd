@@ -348,6 +348,16 @@ static func on_panel_action(play: PlaySession, action: String) -> void:
 			play.improvements.open(play.selected_province)
 		"upgrade_town":
 			MapPlayImprovements.upgrade_town(play, play.selected_province)
+		"raise_wall":
+			MapPlayImprovements.raise(
+				play, play.region_index, play.selected_province,
+				MapPlayImprovements.RAISE_WALL
+			)
+		"raise_ward":
+			MapPlayImprovements.raise(
+				play, play.region_index, play.selected_province,
+				MapPlayImprovements.RAISE_WARD
+			)
 		_:
 			play.hud.toast("Order noted in %s" % name)
 

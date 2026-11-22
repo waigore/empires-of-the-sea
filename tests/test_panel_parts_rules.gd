@@ -763,6 +763,105 @@ func test_a_foreign_province_offers_no_town_order() -> void:
 	assert_true(_province_panel_panel._orders.town_button.disabled)
 	assert_true(_province_panel_panel._orders.town_button.tooltip_text.contains("not held by your crown"))
 
+
+## The dossier carries the wall's own press (wiki: siege-mechanics § Fort Levels;
+## DR-20261116-01): it greys with the order's own refusal — the study the next
+## wall waits on, then the idle Engineer the press sends — and, open, names the
+## step's price and what the wall it raises soaks.
+func test_the_wall_order_presses_the_engineer_it_sends() -> void:
+	_setup_province_panel()
+	_model.provinces[0].fort_level = 1
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	assert_true(rail.wall_button.disabled, "a stone wall waits on Mine Engineering")
+	assert_true(
+		rail.wall_button.tooltip_text.contains("Mine Engineering"),
+		"the press says the study it waits on: %s" % rail.wall_button.tooltip_text
+	)
+	_show({"mine_engineering": true})
+	assert_true(rail.wall_button.disabled, "with the study, the crew still has to muster")
+	assert_true(
+		rail.wall_button.tooltip_text.contains("No idle Engineer"),
+		rail.wall_button.tooltip_text
+	)
+	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
+	_show({"mine_engineering": true})
+	assert_false(rail.wall_button.disabled, "a free Engineer with the study opens the press")
+	assert_true(rail.wall_button.text.contains("4 lumber"), rail.wall_button.text)
+	assert_true(rail.wall_note.visible, "the press prices what the next wall buys")
+	assert_true(rail.wall_note.text.contains("soaks 20 wall hp"), rail.wall_note.text)
+	# The step in hand reads as taken: the ordered wall waits on its Engineer,
+	# not on a second press (the walls ledger's AT WORK state).
+	var crew: CivilianState = _units[0]
+	crew.start_work("build_fort", Fixture.BARE_TILE, 1)
+	_province_panel_panel.refresh(_model, 0)
+	assert_true(rail.wall_button.disabled, "a wall already ordered offers no second press")
+	assert_true(
+		rail.wall_button.tooltip_text.contains("already at work"),
+		rail.wall_button.tooltip_text
+	)
+
+
+## The dossier carries the ward's own press (wiki: combat § Regiment condition;
+## DR-20261116-02; docs/hospitals.md): the study, the stores and the rest the
+## next ward brings, all printed on the order's own row.
+func test_the_ward_order_names_the_study_and_the_ward_it_raises() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	assert_true(rail.ward_button.disabled, "a ward waits on Organised Regiments")
+	assert_true(
+		rail.ward_button.tooltip_text.contains("Organised Regiments"),
+		rail.ward_button.tooltip_text
+	)
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {},
+		{"organised_regiments": true}, {}
+	)
+	_province_panel_panel.refresh(_model, 0)
+	assert_true(rail.ward_button.disabled, "an empty store offers no ward")
+	assert_true(
+		rail.ward_button.tooltip_text.contains("Stores are short of"),
+		rail.ward_button.tooltip_text
+	)
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {},
+		{"organised_regiments": true}, Fixture.stockpile()
+	)
+	_province_panel_panel.refresh(_model, 0)
+	assert_false(rail.ward_button.disabled, "paid, the press opens")
+	assert_true(rail.ward_note.text.contains("rests 40%"), rail.ward_note.text)
+	assert_true(rail.ward_note.text.contains("staff 2 food"), rail.ward_note.text)
+
+
+## One crew builds the ward on the town tile, so a second crew there refuses it;
+## a wall may rise beside another project, because two projects in one province
+## may run (wiki: siege-mechanics § Fort Levels; civilian-units § Per-player
+## tile exclusivity).
+func test_a_crew_on_the_town_tile_refuses_a_ward_but_never_a_wall() -> void:
+	_setup_province_panel()
+	_units = [Fixture.unit("engineer", Fixture.BARE_TILE)]
+	var busy: CivilianState = CivilianState.create(
+		2, 0, "builder", Fixture.BARE_TILE
+	)
+	_units.append(busy)
+	busy.start_work("build_improvement", Fixture.BARE_TILE, 1)
+	_province_panel_panel.set_data(
+		_model, _works, _units, null, Vector2i(0, 0), 0, {},
+		{"organised_regiments": true}, Fixture.stockpile()
+	)
+	_province_panel_panel.refresh(_model, 0)
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	assert_true(rail.ward_button.disabled, "one crew builds the ward")
+	assert_true(
+		rail.ward_button.tooltip_text.contains("Another crew"),
+		rail.ward_button.tooltip_text
+	)
+	assert_false(rail.wall_button.disabled, "a project beside it never refuses the wall")
+
+
+
 func test_every_dock_button_is_a_bare_glyph() -> void:
 	_setup_province_panel()
 	var panels: Array = [_province_panel_panel, FleetPanel.new(), ArmyPanel.new(), CivilianPanel.new()]
