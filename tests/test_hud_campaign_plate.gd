@@ -1,13 +1,15 @@
 # gdlint: disable=max-public-methods
 extends GdToolsTest
 ## Lean chrome boot: HudCampaignEnd + GameHud routing, app icon / launcher
-## branding, court heraldry, TileEdges seam walks, OrderVerdict shape, and the
-## PlayScreen bridge doubles (REQ-P3-01, REQ-P1-02/03/08, REQ-P3-02). The full
-## calendar-cap MapScreen theme lives in test_campaign_end; this suite stays lean
-## so a chrome, branding, heraldry, seam, verdict or bridge extract stays inside
-## the tier-1 5 min budget. Merged from test_branding_rules, test_heraldry,
-## test_tile_edges, test_order_verdict and test_play_screen (one Godot boot for
-## the leftovers; docs/testing.md).
+## branding, court heraldry, TileEdges seam walks, OrderVerdict shape, the
+## PlayScreen bridge doubles, ChartTap, HudSheet, and counsel-pick prose
+## (REQ-P3-01, REQ-P1-02/03/08, REQ-P3-02, REQ-P3-04). The full calendar-cap
+## MapScreen theme lives in test_campaign_end; this suite stays lean so a
+## chrome, branding, heraldry, seam, verdict, bridge, tap, sheet or pick-prose
+## extract stays inside the tier-1 5 min budget. Merged from test_branding_rules,
+## test_heraldry, test_tile_edges, test_order_verdict, test_play_screen,
+## test_chart_tap, test_hud_sheet and test_map_play_pick_prose (one Godot boot
+## for the leftovers; docs/testing.md).
 
 const MapFixture = preload("res://tests/map_fixture.gd")
 
@@ -1062,3 +1064,389 @@ func test_the_session_airs_a_battle_through_its_bridge() -> void:
 	assert_eq(play.screen.host, host, "the bound host is the bridge's own")
 	assert_eq(aired, [1], "the bridge airs the fight the session booked")
 	host.free()
+
+
+# --- chart tap (folded from test_chart_tap) -----------------------------------
+## The chart's tap law (REQ-P3-04): one press slot per input stream, a release
+## close to its press is a tap, and the same tap seen twice in one frame is
+## answered once. Pure — no viewport, no nodes.
+
+const _TAP_START := Vector2(400.0, 300.0)
+
+
+func test_a_touch_press_answers_nothing() -> void:
+	var taps := ChartTap.new()
+	assert_eq(taps.touch(true, 0, _TAP_START), Vector2.INF, "a press is not a tap")
+
+
+func test_a_touch_release_close_to_its_press_is_a_tap() -> void:
+	var taps := ChartTap.new()
+	taps.touch(true, 0, _TAP_START)
+	assert_eq(
+		taps.touch(false, 0, _TAP_START + Vector2(1.0, 1.0)),
+		_TAP_START + Vector2(1.0, 1.0)
+	)
+
+
+func test_a_drag_is_not_a_tap() -> void:
+	var taps := ChartTap.new()
+	taps.touch(true, 0, _TAP_START)
+	var far: Vector2 = _TAP_START + Vector2(ChartTap.SLOP + 1.0, 0.0)
+	assert_eq(taps.touch(false, 0, far), Vector2.INF, "a pan belongs to the camera")
+
+
+func test_a_release_without_its_own_press_answers_nothing() -> void:
+	var taps := ChartTap.new()
+	assert_eq(taps.touch(false, 0, _TAP_START), Vector2.INF, "no press, no tap")
+	taps.touch(true, 0, _TAP_START)
+	assert_eq(taps.touch(false, 1, _TAP_START), Vector2.INF, "another finger's release")
+
+
+func test_a_mouse_click_is_a_tap() -> void:
+	var taps := ChartTap.new()
+	assert_eq(taps.mouse(true, _TAP_START), Vector2.INF)
+	assert_eq(taps.mouse(false, _TAP_START), _TAP_START)
+
+
+func test_a_touch_and_its_emulated_click_keep_their_own_presses() -> void:
+	var taps := ChartTap.new()
+	taps.touch(true, 0, _TAP_START)
+	taps.mouse(true, _TAP_START)
+	assert_eq(taps.touch(false, 0, _TAP_START), _TAP_START, "the touch release answers")
+	assert_eq(taps.mouse(false, _TAP_START), _TAP_START, "the emulated release answers too")
+
+
+func test_the_same_tap_in_one_frame_is_a_repeat() -> void:
+	var taps := ChartTap.new()
+	assert_false(taps.is_repeat(7, _TAP_START), "the first answer is not a repeat")
+	taps.mark_answered(7, _TAP_START)
+	assert_true(
+		taps.is_repeat(7, _TAP_START + Vector2(0.1, 0.0)), "the second path is silent"
+	)
+	assert_false(taps.is_repeat(8, _TAP_START), "the next frame is a new tap")
+	assert_false(
+		taps.is_repeat(7, _TAP_START + Vector2(ChartTap.MERGE_DISTANCE + 1.0, 0.0)),
+		"a tap elsewhere is its own answer"
+	)
+
+
+# --- hud sheet (folded from test_hud_sheet) -----------------------------------
+## HudSheet: one reveal law for every HUD sheet, and HudPanels.every() as the
+## single list of sheets on the dock rail and on a door (REQ-P3-01, REQ-P1-05).
+
+
+class _SheetStubSlot:
+	extends HudPanelSlot
+
+	var reveals: int = 0
+	var conceals: int = 0
+
+	func reveal(_host: Node, _dock: PanelDock) -> void:
+		if open:
+			return
+		reveals += 1
+		open = true
+
+	func conceal(_host: Node, _dock: PanelDock) -> void:
+		if not open:
+			return
+		conceals += 1
+		open = false
+
+
+func test_show_reveals_once_and_repaints_while_open() -> void:
+	var slot := _SheetStubSlot.new()
+	slot.slides = false
+	var painted: Array[String] = []
+	HudSheet.show(null, null, slot, func() -> void: painted.append("paint"))
+	HudSheet.show(null, null, slot, func() -> void: painted.append("paint"))
+	assert_eq(slot.reveals, 1, "a sheet already up is not revealed again")
+	assert_eq(painted.size(), 2, "every show paints the newest reading")
+
+
+func test_hide_sets_aside_once() -> void:
+	var slot := _SheetStubSlot.new()
+	slot.slides = false
+	HudSheet.show(null, null, slot, func() -> void: pass)
+	HudSheet.hide(null, null, slot)
+	HudSheet.hide(null, null, slot)
+	assert_eq(slot.conceals, 1, "the law hands conceal to the slot")
+	assert_false(slot.open, "the sheet reads closed after one hide")
+
+
+func test_show_presses_the_toggles_face_and_hide_lets_it_go() -> void:
+	var slot := _SheetStubSlot.new()
+	slot.slides = false
+	var toggle := CheckBox.new()
+	add_child(toggle)
+	HudSheet.show(null, null, slot, func() -> void: pass, toggle)
+	assert_true(toggle.button_pressed, "the door reads open")
+	HudSheet.hide(null, null, slot, toggle)
+	assert_false(toggle.button_pressed, "the door reads closed")
+	toggle.queue_free()
+
+
+func test_every_lists_the_rail_and_the_ledgers() -> void:
+	var panels := HudPanels.new()
+	assert_eq(panels.every().size(), 0, "a bare host names no sheet")
+	panels.province = _SheetStubSlot.new()
+	panels.fleet = _SheetStubSlot.new()
+	panels.civilian = _SheetStubSlot.new()
+	panels.army = _SheetStubSlot.new()
+	panels.economy = _SheetStubSlot.new()
+	panels.research = _SheetStubSlot.new()
+	panels.diplomacy = _SheetStubSlot.new()
+	assert_eq(panels.selections().size(), 4, "the dock rail keeps four dossiers")
+	var all: Array[HudPanelSlot] = panels.every()
+	assert_eq(all.size(), 7, "every sheet rides one list")
+	for slot: HudPanelSlot in all:
+		# The dock side and the lane cover read every entry: a bare null would
+		# crash them, so the list never pads itself with empty slots.
+		assert_not_null(slot, "every() names only real sheets")
+
+
+# --- pick prose (folded from test_map_play_pick_prose) ------------------------
+## Shared counsel-pick chrome: one sentence, one prose join, one capped line, one
+## court line, one gate and one row order.
+
+
+func test_sentence_opens_and_closes() -> void:
+	assert_eq(MapPlayPickProse.sentence(""), "", "no clause, no sentence")
+	assert_eq(
+		MapPlayPickProse.sentence("the court would raise the farm"),
+		"The court would raise the farm.",
+		"one capital and a full stop"
+	)
+
+
+func test_a_pick_prints_as_one_sentence() -> void:
+	assert_eq(MapPlayPickProse.sentence_of({}), "", "no pick, no sentence")
+	assert_eq(
+		MapPlayPickProse.sentence_of({"line": "the court would raise the farm"}),
+		"The court would raise the farm.",
+		"the pick's own clause is the sentence"
+	)
+
+
+func test_join_reads_as_prose() -> void:
+	assert_eq(MapPlayPickProse.join([]), "", "empty list")
+	assert_eq(MapPlayPickProse.join(["A"]), "A", "one part")
+	assert_eq(MapPlayPickProse.join(["A", "B"]), "A and B", "two parts")
+	assert_eq(
+		MapPlayPickProse.join(["A", "B", "C"]),
+		"A, B and C",
+		"three parts take a comma and a final and"
+	)
+
+
+func test_capped_counts_the_rest() -> void:
+	assert_eq(MapPlayPickProse.capped([], 3), "", "nothing named")
+	assert_eq(
+		MapPlayPickProse.capped(["A", "B", "C"], 3),
+		"A, B and C",
+		"under the limit keeps prose join"
+	)
+	assert_eq(
+		MapPlayPickProse.capped(["A", "B", "C", "D", "E"], 3),
+		"A, B, C and 2 more",
+		"over the limit commas the heads and counts the rest"
+	)
+	assert_eq(
+		MapPlayPickProse.capped(["A", "B"], 3, 2),
+		"A, B and 2 more",
+		"a repeated clause still counts the crews behind it"
+	)
+	assert_eq(
+		MapPlayPickProse.capped(["A"], 3, 1),
+		"A and 1 more",
+		"one clause standing for two crews says so"
+	)
+	assert_eq(MapPlayPickProse.capped(["A"], 0), "", "no room, no line")
+
+
+func test_a_repeated_clause_collapses_and_still_counts_its_crews() -> void:
+	var unique: Dictionary = MapPlayPickProse.unique_clauses(["A", "A", "", "B", "A"])
+	var kept: Array[String] = []
+	kept.assign(unique.get("clauses", []))
+	assert_eq(kept.size(), 2, "each order is named once")
+	assert_eq(kept[0], "A", "the first wording holds its place")
+	assert_eq(kept[1], "B", "the rest keeps its order")
+	assert_eq(int(unique.get("extra", 0)), 2, "both repeats are counted")
+	var none: Dictionary = MapPlayPickProse.unique_clauses([])
+	assert_eq(int(none.get("extra", 0)), 0, "nothing to count")
+	assert_eq((none.get("clauses", []) as Array).size(), 0, "nothing to name")
+
+
+func test_the_court_line_caps_and_drops_blanks() -> void:
+	assert_eq(
+		MapPlayPickProse.court_line("the court would send", []),
+		"",
+		"nothing named, no line"
+	)
+	assert_eq(
+		MapPlayPickProse.court_line("the court would send", ["", ""]),
+		"",
+		"blank clauses name nothing"
+	)
+	assert_eq(
+		MapPlayPickProse.court_line("the court would send", ["the Leopard", "", "the Tern"]),
+		"the court would send the Leopard and the Tern this turn",
+		"blanks drop out and a pair reads as prose"
+	)
+	assert_eq(
+		MapPlayPickProse.court_line(
+			"the court would put", ["A", "B", "C", "D"], "this phase"
+		),
+		"the court would put A, B, C and 1 more this phase",
+		"a busy line caps and counts the rest"
+	)
+	assert_eq(
+		MapPlayPickProse.court_line("the court would", ["walk its Spy"], ""),
+		"the court would walk its Spy",
+		"an empty tail closes on the clause alone"
+	)
+
+
+func test_a_sheet_can_name_more_than_the_common_cap() -> void:
+	assert_eq(
+		MapPlayPickProse.court_line_capped(
+			"the court would run", ["A", "B", "C", "D"], "this phase", 4
+		),
+		"the court would run A, B, C and D this phase",
+		"a wide sheet's own cap names the fourth row"
+	)
+	assert_eq(
+		MapPlayPickProse.court_line_capped(
+			"the court would run", ["A", "B", "C", "D", "E"], "this phase", 4
+		),
+		"the court would run A, B, C, D and 1 more this phase",
+		"past its own cap it still counts the rest"
+	)
+	assert_eq(
+		MapPlayPickProse.court_line_capped("the court would run", [], "this phase", 4),
+		"",
+		"nothing named, no line"
+	)
+
+
+## The sheets read their chrome from one place (REQ-P3-01): a sheet that names
+## nothing hands the shared line an empty list and prints no headless sentence
+## instead of the sheet keeping its own copy of the rule (REQ-P3-02).
+func test_a_sheet_that_names_nothing_prints_no_line() -> void:
+	assert_eq(MapPlayMarketPick.list_line({}, "offer"), "", "market: no rows")
+	assert_eq(MapPlayProductionPick.run_line({}), "", "production: no runs")
+	assert_eq(MapPlayRecruitPick.recruit_line({}), "", "recruit: no tiers")
+
+
+func test_a_silent_pass_earns_a_gate_only_when_something_waited() -> void:
+	assert_true(MapPlayPickProse.gate(0, "crews", "none").is_empty(), "nobody waiting")
+	var gate: Dictionary = MapPlayPickProse.gate(2, "squadrons", "no sail")
+	assert_eq(String(gate["line"]), "no sail", "the gate names the silence")
+	assert_eq((gate["squadrons"] as Array).size(), 0, "a gate carries no rows")
+	assert_false(gate.has("crews"), "the rows key is the sheet's own")
+
+
+func test_a_row_key_reads_the_chart_and_the_id() -> void:
+	assert_eq(
+		MapPlayPickProse.row_key({"region": 2, "army": 7}, "army"),
+		"2:7",
+		"chart and id"
+	)
+	assert_eq(
+		MapPlayPickProse.row_key({"army": 7}, "army"),
+		"-1:7",
+		"a row with no chart still keys"
+	)
+	assert_eq(
+		MapPlayPickProse.row_key({"region": 0, "fleet": 3}, "fleet_id", "fleet"),
+		"0:3",
+		"a heading's own name fills in for the pick's"
+	)
+	assert_eq(
+		MapPlayPickProse.row_key({"region": 0, "fleet_id": 4, "fleet": 3}, "fleet_id", "fleet"),
+		"0:4",
+		"the pick's own name wins when both are there"
+	)
+
+
+func test_rows_keep_the_order_the_sheet_prints() -> void:
+	var rows: Array[Dictionary] = [
+		{"region": 0, "army": 2}, {"region": 0, "army": 1}, {"region": 0, "army": 3},
+	]
+	var printed: Array = [
+		{"region": 0, "army": 1}, {"region": 0, "army": 2}, {"region": 0, "army": 3},
+	]
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(rows, printed, "army")
+	assert_eq(int(ordered[0]["army"]), 1, "the sheet's first row leads")
+	assert_eq(int(ordered[1]["army"]), 2, "the sheet's second row follows")
+	assert_eq(int(ordered[2]["army"]), 3, "the sheet's third row closes")
+
+
+func test_rows_the_sheet_does_not_print_keep_the_passs_order() -> void:
+	var rows: Array[Dictionary] = [
+		{"region": 0, "unit_id": 9},
+		{"region": 0, "unit_id": 2},
+		{"region": 0, "unit_id": 4},
+	]
+	var printed: Array = [{"region": 0, "unit_id": 2}]
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(rows, printed, "unit_id")
+	assert_eq(int(ordered[0]["unit_id"]), 2, "the printed row leads")
+	assert_eq(int(ordered[1]["unit_id"]), 4, "unprinted rows close behind, id first")
+	assert_eq(int(ordered[2]["unit_id"]), 9, "unprinted rows close behind, id first")
+
+
+func test_an_empty_snapshot_keeps_the_passs_order() -> void:
+	var rows: Array[Dictionary] = [{"region": 0, "army": 2}, {"region": 0, "army": 1}]
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(rows, [], "army")
+	assert_true(ordered == rows, "no printed rows, the pass's own order stands")
+	assert_eq(int(ordered[0]["army"]), 2, "the pass's first row leads")
+
+
+func test_a_duplicated_heading_reads_once_and_ids_break_ties() -> void:
+	var rows: Array[Dictionary] = [
+		{"region": 0, "army": 5}, {"region": 0, "army": 4}, {"region": 0, "army": 3},
+	]
+	# Both groups name army 3, so the second copy adds no place on the page.
+	var printed: Array = [
+		{"region": 0, "army": 3}, {"region": 0, "army": 3},
+	]
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(rows, printed, "army")
+	assert_eq(int(ordered[0]["army"]), 3, "the printed row leads")
+	assert_eq(int(ordered[1]["army"]), 4, "the id breaks the tie")
+	assert_eq(int(ordered[2]["army"]), 5, "the id breaks the tie")
+
+
+func test_the_heading_name_reads_a_squadron_group() -> void:
+	var squadrons: Array[Dictionary] = [
+		{"region": 0, "fleet_id": 2}, {"region": 0, "fleet_id": 1},
+	]
+	var groups: Array = [{"region": 0, "fleet": 1}, {"region": 0, "fleet": 2}]
+	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
+		squadrons, groups, "fleet_id", "fleet"
+	)
+	assert_eq(int(ordered[0]["fleet_id"]), 1, "a heading's fleet name orders the pick")
+	assert_eq(int(ordered[1]["fleet_id"]), 2, "a heading's fleet name orders the pick")
+
+
+func test_crown_crew_ready_refuses_a_missing_session() -> void:
+	assert_false(
+		MapPlayPickProse.crown_crew_ready(null),
+		"no session, no counsel pick"
+	)
+
+
+func test_crown_ready_refuses_a_missing_session() -> void:
+	assert_false(MapPlayPickProse.crown_ready(null), "no session, no counsel pick")
+
+
+func test_the_crew_gate_stands_on_the_crown_gate() -> void:
+	var slim: PlaySession = PlaySession.new()
+	slim.ai_mode = AiControl.NOOP
+	assert_false(
+		MapPlayPickProse.crown_crew_ready(slim),
+		"a court with no planner earns no crew counsel either"
+	)
+	assert_false(
+		MapPlayPickProse.crown_ready(slim),
+		"a court with no planner reads no counsel at all"
+	)
