@@ -31,6 +31,21 @@ func is_purchased(index: int) -> bool:
 	return purchased.has(index)
 
 
+## A province that changes hands takes its deeds with it: ground bought from a
+## Minor or Tribe is the buyer's only while the province stands, so a conquest
+## returns the tile to its province's new owner (wiki: diplomacy § Intervention —
+## "purchased land remains recorded until normal province conquest rules apply";
+## world-market § Minor/tribe town development — the conquered province's tiles
+## leave the purchased index). A town the deeds raised never falls: development
+## is built, not rented (wiki: civilian-units § Merchant).
+func drop_deed(index: int) -> bool:
+	if not purchased.has(index):
+		return false
+	purchased.erase(index)
+	owners.erase(index)
+	return true
+
+
 func purchaser(index: int) -> int:
 	return int(purchased.get(index, NO_OWNER))
 
