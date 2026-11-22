@@ -125,9 +125,14 @@ static func _armies(play: PlaySession, faction: int) -> Array[Dictionary]:
 			var said: String = clause(model, army, order)
 			if said.is_empty():
 				continue
+			# The standard's own title and its order's words apart, so a sheet
+			# about the fights the court would lead can name each host by the
+			# clause the army sheet prints (DR-20261122-22).
 			found.append({
 				"region": region,
 				"army": army.id,
+				"standard": standard(model, army),
+				"order": MapPlayArmyPickWords.order_clause(model, order),
 				"kind": String(order.get("kind", "")),
 				# Why the march goes where it goes (a storm, a relief, the crown's
 				# own frontier), so a sheet about the battles it starts can pick the
