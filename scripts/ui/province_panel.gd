@@ -235,6 +235,8 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 	))
 	_grid.set_estate_roads(data, rows, crown)
 	_orders.set_town_order(data, _faction, _tech_unlocked, _stockpile)
+	_orders.set_wall_order(model, data, _faction, _units, _tech_unlocked, _stockpile)
+	_orders.set_ward_order(model, data, _faction, _units, _tech_unlocked, _stockpile)
 	_orders.set_training(_tech_unlocked)
 	_orders.set_shipyard_visible(
 		data.owner == _faction and data.capital and data.port_tile.x >= 0

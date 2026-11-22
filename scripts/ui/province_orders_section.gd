@@ -11,6 +11,14 @@ signal action_pressed(action: String)
 const GATE_INK := Color(0.765, 0.460, 0.460)
 
 var town_button: Button = null
+## The province's wall and its ward, pressed from the sheet that reads them:
+## each sends the nearest idle Engineer on the same work the civilian panel
+## files, and greys with the order's own refusal (wiki: siege-mechanics
+## § Fort Levels; combat § Regiment condition; DR-20261116-01, DR-20261116-02).
+var wall_button: Button = null
+var wall_note: Label = null
+var ward_button: Button = null
+var ward_note: Label = null
 var shipyard_button: Button = null
 var training_box: VBoxContainer = null
 ## The hire reading above the craft rows: the crew the court's own hire order
@@ -48,6 +56,22 @@ func _ready() -> void:
 	town_button.tooltip_text = DossierCopy.TOWN_TIP
 	town_button.pressed.connect(func() -> void: action_pressed.emit("upgrade_town"))
 	add_child(town_button)
+
+	# The wall and the ward: the sheet that reads them carries the one press
+	# that raises each, sending the nearest idle Engineer on the work the
+	# civilian panel files (wiki: siege-mechanics § Fort Levels; combat
+	# § Regiment condition; DR-20261120-12).
+	wall_button = _order_button("Raise Wall")
+	wall_button.pressed.connect(func() -> void: action_pressed.emit("raise_wall"))
+	add_child(wall_button)
+	wall_note = _payoff_note()
+	add_child(wall_note)
+
+	ward_button = _order_button("Raise Ward")
+	ward_button.pressed.connect(func() -> void: action_pressed.emit("raise_ward"))
+	add_child(ward_button)
+	ward_note = _payoff_note()
+	add_child(ward_note)
 
 	training_box = VBoxContainer.new()
 	training_box.add_theme_constant_override("separation", 6)
@@ -109,6 +133,100 @@ func set_town_order(
 		refusal = CivilianWorkRefusals.town_upgrade(data, tech_unlocked, stockpile)
 	town_button.disabled = not refusal.is_empty()
 	town_button.tooltip_text = DossierCopy.TOWN_TIP if refusal.is_empty() else refusal
+
+
+## The province's wall order: the press carried by the sheet that reads the
+## wall. It greys with the order's own refusal — the fort table's level, study
+## and stores, or the idle Engineer the press sends — and prints under the
+## price what the next level soaks and mounts (wiki: siege-mechanics § Fort
+## Levels; DR-20261116-01, DR-20261117-05; REQ-P2-03, REQ-P5-07).
+func set_wall_order(
+	model: MapModel,
+	data: ProvinceState,
+	faction: int,
+	units: Array[CivilianState],
+	tech_unlocked: Dictionary,
+	stockpile: Variant = null
+) -> void:
+	if wall_button == null:
+		return
+	var level: int = FortRules.clamp_level(data.fort_level) if data != null else 0
+	var next: int = FortRules.next_level(level)
+	var refusal: String = ""
+	if data == null or faction < 0 or data.owner != faction:
+		refusal = "This land is not held by your crown."
+	else:
+		refusal = ImprovementOrders.wall_refusal(
+			model, units, faction, data.id, tech_unlocked, stockpile
+		)
+	_show_step(
+		wall_button, wall_note, "Raise Wall", refusal,
+		WallLedger.preview_text(level, next),
+		CivilianWorkPlan.cost_text(FortRules.cost(next)), FortRules.turns(next)
+	)
+
+
+## The province's ward order, on the same one press: the ward table's level,
+## study and stores, the idle Engineer and the town tile another crew may hold,
+## then what the next ward rests and feeds (wiki: combat § Regiment condition;
+## DR-20261116-02; docs/hospitals.md).
+func set_ward_order(
+	model: MapModel,
+	data: ProvinceState,
+	faction: int,
+	units: Array[CivilianState],
+	tech_unlocked: Dictionary,
+	stockpile: Variant = null
+) -> void:
+	if ward_button == null:
+		return
+	var level: int = HospitalRules.clamp_level(data.hospital_level) if data != null else 0
+	var next: int = HospitalRules.next_level(level)
+	var refusal: String = ""
+	if data == null or faction < 0 or data.owner != faction:
+		refusal = "This land is not held by your crown."
+	else:
+		refusal = ImprovementOrders.ward_refusal(
+			model, units, faction, data.id, tech_unlocked, stockpile
+		)
+	_show_step(
+		ward_button, ward_note, "Raise Ward", refusal,
+		HospitalLedger.preview_text(level, next),
+		CivilianWorkPlan.cost_text(HospitalRules.cost(next)), HospitalRules.turns(next)
+	)
+
+
+## One raise press: the caption names the step and its price while the press is
+## open, the press greys on the order's own refusal (kept whole in the tooltip
+## and in the note, in the gate's ink), and an open press prints what the next
+## level buys under it — printed, never a hover, so a phone reads the prize
+## before the tap (REQ-P5-07).
+func _show_step(
+	button: Button, note: Label, caption: String, refusal: String,
+	payoff: String, price: String, turns: int
+) -> void:
+	var open: bool = refusal.is_empty()
+	var wait: String = "%d turn%s" % [turns, "" if turns == 1 else "s"]
+	if open:
+		button.text = "%s · %s" % [caption, price]
+		button.tooltip_text = "%s — %s, %s" % [caption, price, wait]
+	else:
+		button.text = caption
+		button.tooltip_text = refusal
+	button.disabled = not open
+	note.text = payoff if open else refusal
+	note.visible = not note.text.is_empty()
+	note.add_theme_color_override("font_color", Palette.GOLD if open else GATE_INK)
+
+
+## A raise press's note line: gold while it prices what the next step buys, the
+## gate's ink when it carries the order's refusal.
+func _payoff_note() -> Label:
+	var note := Label.new()
+	note.add_theme_font_size_override("font_size", 11)
+	note.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	note.visible = false
+	return note
 
 
 ## The yard is a capital-port order: it launches hulls into the home fleet
