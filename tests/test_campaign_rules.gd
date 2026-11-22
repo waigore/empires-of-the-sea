@@ -399,6 +399,9 @@ func _event(kind: String) -> bool:
 
 const MINOR: int = 6
 const BUYER: int = 1
+## The fixture's Minor province — Genoa's holding in
+## `CivilianFixture.build_minor`, where the suite signs its deed.
+const MINOR_PROVINCE: int = 1
 
 
 func test_a_deed_inside_the_victims_provinces_counts_for_its_buyer() -> void:
@@ -425,6 +428,48 @@ func test_a_province_the_victim_lost_takes_the_stake_with_it() -> void:
 	world.region(0).provinces[1].owner = 7
 	assert_eq(DeedProtection.deed_count(world, BUYER, MINOR), 0)
 	assert_false(DeedProtection.holds_deed(world, BUYER, MINOR))
+
+
+## A conquered province takes the deeds on its ground with it: the tile leaves
+## the purchased index, answers to the conqueror and no longer counts as the old
+## buyer's stake (wiki: diplomacy § Intervention — "purchased land remains
+## recorded until normal province conquest rules apply"; world-market § Minor and
+## tribe town development — the conquered tiles leave the index).
+func test_a_conquered_province_takes_the_deed_with_it() -> void:
+	var world: WorldMap = _minor_world()
+	var model: MapModel = world.region(0)
+	var tile: Vector2i = _first_deed(model, BUYER, MINOR)
+	model.province_data(MINOR_PROVINCE).town_development = 3
+	var conqueror: int = 0
+	BattleSettlement.flip(model, MINOR_PROVINCE, conqueror)
+	assert_false(model.is_purchased_tile(tile), "the conquered tile leaves the index")
+	assert_eq(model.owner_at(tile.x, tile.y), conqueror, "the ground answers to its taker")
+	assert_true(
+		model.ownership.owned_indices(model, conqueror).has(model.index_of(tile.x, tile.y)),
+		"the conqueror can work every tile it took"
+	)
+	assert_false(DeedProtection.holds_deed(world, BUYER, MINOR), "no deed stands")
+	assert_eq(
+		DeedProtection.province_holders(model, MINOR_PROVINCE), {},
+		"the province's Deeds row empties"
+	)
+	assert_eq(
+		model.province_data(MINOR_PROVINCE).town_development, 3,
+		"a town the deeds raised never falls"
+	)
+
+
+## A fallen crown's provinces pass to its conqueror with no deed left behind
+## (wiki: capital-and-connectivity § Capital loss and reassignment; diplomacy
+## § Intervention).
+func test_a_fallen_crown_leaves_no_deed_behind() -> void:
+	var world: WorldMap = _minor_world()
+	var model: MapModel = world.region(0)
+	var tile: Vector2i = _first_deed(model, BUYER, MINOR)
+	assert_eq(CapitalLoss.transfer_all(world, MINOR, 0), 1)
+	assert_false(model.is_purchased_tile(tile), "the deed goes with the province")
+	assert_eq(model.owner_at(tile.x, tile.y), 0)
+	assert_eq(DeedProtection.province_holders(model, MINOR_PROVINCE), {})
 
 
 func test_one_deed_is_worth_protecting_and_two_are_serious() -> void:

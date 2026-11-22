@@ -2,7 +2,9 @@ class_name NavalLedgerPanel
 extends ForceLedgerSheet
 ## The crown's navy: every hull the crown floats in both charts, read squadron by
 ## squadron — her class, her guns, the holds she carries and where she sails
-## (wiki: ships-and-naval § Ship combat and cargo stats; DR-20261115-14). The
+## (wiki: ships-and-naval § Ship combat and cargo stats; DR-20261115-14), and the
+## sails the court's own naval pass would order, with the squadrons that reading
+## names marked `▸` on their headings (DR-20261121-13, DR-20261122-05). The
 ## projection lives in [NavalLedger]; this sheet only names its words and asks
 ## MapPlayForceLedger to jump to a hull's squadron (REQ-P3-02, REQ-P3-03). The
 ## sheet chrome, fade and pause-door park come from SheetFrame; the chips, rows,
@@ -12,10 +14,29 @@ extends ForceLedgerSheet
 func _init() -> void:
 	title_text = "THE CROWN'S NAVY"
 	hint_text = (
-		"Visit opens the squadron's chart and dossier. The sheet reads every "
-		+ "hull as she stands; it never launches, docks or orders one."
+		"A ▸ marks the squadrons the court would sail this turn. Visit opens "
+		+ "the squadron's chart and dossier. The sheet reads every hull as she "
+		+ "stands; it never launches, docks or orders one."
 	)
 	toggle_action = InputActions.NAVY_LEDGER
+	# The reading is the panel's own method, not a closure handed in from the
+	# session: a bound callable cannot outlive the session it reads
+	# (DR-20261121-14).
+	counsel_source = _read_counsel
+
+
+## The sails the court's own naval pass would order its squadrons this turn, read
+## off the sheet's bound session (wiki: ships-and-naval § The crown's navy;
+## DR-20261121-13). The pick also keys the squadrons it names, so their headings
+## wear the counsel's mark (DR-20261122-05).
+func _read_counsel(data: Dictionary) -> Dictionary:
+	return MapPlayNavyPick.pick(play, data)
+
+
+## Whether the court's own reading names this squadron, so her heading leads with
+## the mark a crown finds her by among a long roll (DR-20261122-05).
+func _is_marked(group: Dictionary) -> bool:
+	return _counsel.keys().has(MapPlayPickProse.row_key(group, "fleet"))
 
 
 func _build_crest() -> Control:

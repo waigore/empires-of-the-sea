@@ -485,6 +485,54 @@ func test_the_province_sheet_prints_and_hides_the_counsel_it_is_handed() -> void
 	_province_panel_panel.counsel_source = wired
 
 
+## The court's gold line is one widget: a pick prints as one capital sentence and
+## holds the marks it names, so a row's `▸` and the line come off one read
+## (REQ-P3-01, REQ-P3-02, REQ-P4-01, REQ-P5-06).
+func test_the_counsel_line_words_a_pick_and_holds_its_marks() -> void:
+	var line := CounselLine.new()
+	line.show_value({
+		"line": "the court would raise the lumber camp at Cádiz",
+		"keys": {"0:1": true},
+	})
+	assert_eq(line.text, "The court would raise the lumber camp at Cádiz.")
+	assert_true(line.visible, "a reading stands the line up")
+	assert_true(line.keys().has("0:1"), "the marks come off the same read")
+	assert_eq(
+		line.pick.get("line", ""), "the court would raise the lumber camp at Cádiz"
+	)
+	line.show_value("")
+	assert_eq(line.text, "", "nothing named, nothing printed")
+	assert_false(line.visible, "and the line stands down")
+	assert_eq(line.keys(), {}, "and no mark survives it")
+
+
+## A line a pass has already worded prints as handed: only a pick is re-worded
+## into the one capital sentence (REQ-P5-06).
+func test_the_counsel_line_prints_a_line_as_the_pass_worded_it() -> void:
+	var line := CounselLine.new()
+	line.show_value("The court would keep its Spy at Cádiz.")
+	assert_eq(line.text, "The court would keep its Spy at Cádiz.")
+	assert_eq(line.pick, {}, "a plain line holds no pick")
+
+
+## A shut sheet asks its pass nothing, so a repaint behind it never pays for a
+## planner walk nobody sees (REQ-P4-02).
+func test_the_counsel_line_asks_nothing_while_its_gate_is_shut() -> void:
+	var line := CounselLine.new()
+	var asked: Dictionary = {"count": 0}
+	line.source = func() -> String:
+		asked["count"] = int(asked["count"]) + 1
+		return "The court would raise a farm."
+	line.gate = func() -> bool: return false
+	line.sync()
+	assert_eq(int(asked["count"]), 0, "a shut sheet asks no pass")
+	assert_eq(line.text, "", "and prints nothing")
+	line.gate = func() -> bool: return true
+	line.sync()
+	assert_eq(int(asked["count"]), 1, "an open sheet asks once")
+	assert_eq(line.text, "The court would raise a farm.")
+
+
 func test_each_estate_says_whether_it_is_developed_and_linked() -> void:
 	_setup_province_panel()
 	_show()
@@ -920,6 +968,53 @@ func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
 	)
 	assert_eq(row._status_chip.text, "DISCONNECTED", "the chip still names the status")
 	row.free()
+
+
+## An estate row wears the counsel's mark before its own name, so a crown finds
+## the raise her staff would take among a long page (DR-20261122-04).
+func test_an_estate_row_wears_the_courts_mark() -> void:
+	_setup_province_panel()
+	var plain := ImprovementRow.new()
+	add_child(plain)
+	plain.setup(_estate_row_fixture())
+	assert_eq(plain._name.text, "Lumber camp", "an unmarked estate reads its own name")
+	plain.free()
+	var marked := ImprovementRow.new()
+	add_child(marked)
+	marked.court = true
+	marked.setup(_estate_row_fixture())
+	assert_eq(
+		marked._name.text,
+		"%s Lumber camp" % ImprovementRow.COURT_MARK,
+		"the mark leads the name"
+	)
+	marked.free()
+
+
+## One estate row's data, as the ledger hands it: a level-2 lumber camp with a
+## raise to price.
+func _estate_row_fixture() -> Dictionary:
+	return {
+		"tile": Vector2i(0, 0),
+		"level": 2,
+		"status": "producing",
+		"resource": 0,
+		"name": "Lumber camp",
+		"province_name": "Test",
+		"connected": true,
+		"output": 2,
+		"commodity": "timber",
+		"status_text": "Yields 2 timber / turn",
+		"max_level": ImprovementCatalog.MAX_LEVEL,
+		"cost_text": "4 lumber + 4 cast iron",
+		"duration": 2,
+		"build_reason": "",
+		"working": false,
+		"can_build": true,
+		"builder_id": 2,
+		"next_level": 3,
+		"preview_text": "L3 pays 3 timber / turn (+1)",
+	}
 
 
 ## The row prices the raise beside its cost: the rules hand it the words and the

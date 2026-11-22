@@ -12,8 +12,9 @@ extends ForceLedgerSheet
 func _init() -> void:
 	title_text = "THE CROWN'S ARMY"
 	hint_text = (
-		"Visit opens the standard's chart and dossier. The sheet reads every "
-		+ "regiment as it stands; it never musters, detaches or dismisses one."
+		"A ▸ marks the standards the court would order this turn. Visit opens "
+		+ "the standard's chart and dossier. The sheet reads every regiment as "
+		+ "it stands; it never musters, detaches or dismisses one."
 	)
 	# The gold line's reading is the panel's own method, not a closure handed in
 	# from the session: a bound callable cannot outlive the session it reads
@@ -23,9 +24,16 @@ func _init() -> void:
 
 ## The orders the court's own staff would give its standards this turn, read off
 ## the sheet's bound session (wiki: military-armies § The army sheet names the
-## orders the court would give; DR-20261121-14).
-func _read_counsel(_data: Dictionary) -> String:
-	return MapPlayArmyOrdersPick.line(play, _snapshot)
+## orders the court would give; DR-20261121-14). The pick also keys the standards
+## it names, so their headings wear the counsel's mark (DR-20261122-05).
+func _read_counsel(data: Dictionary) -> Dictionary:
+	return MapPlayArmyOrdersPick.pick(play, data)
+
+
+## Whether the court's own reading names this standard, so its heading leads with
+## the mark a crown finds it by among a long roll (DR-20261122-05).
+func _is_marked(group: Dictionary) -> bool:
+	return _counsel.keys().has(MapPlayPickProse.row_key(group, "army"))
 
 
 # --- what the army names -----------------------------------------------------

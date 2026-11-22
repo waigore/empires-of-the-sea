@@ -36,7 +36,7 @@ level-4 Great Power towns, four grain farms.
 - **Extraction** after Build/Work:
   `min(improvement, tech cap, terrain cap, transport, town cap)`; only
   connected, prospected estates yield; purchased enclaves pay their buyer.
-  Grain and meat pay double per level (DR-20261116-10).
+  Grain and meat pay double (DR-20261116-10).
 - **Lenses.** Survey (lens seal): a column per resource, emblem and
   `built/linked/held` badge, the Explorer's mark; roads solid when linked,
   dashed cut (#698). Crown road (`R`): gold / amber / crimson for crown,
@@ -48,7 +48,7 @@ level-4 Great Power towns, four grain farms.
   line under it prices the walk (DR-20261118-12).
 - **The court's own raise** (DR-20261121-10): a gold line above the press names
   the estates the Builder pass would raise, in row order, three named; no idle
-  Builder names that gate. A reading only.
+  Builder names that gate. Each leads with `▸` (DR-20261122-04).
 - **Province dossier**: town level, crown link, estates, unsurveyed ground;
   a cut-off estate carries **Build road**.
 
