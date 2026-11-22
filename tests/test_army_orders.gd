@@ -1146,10 +1146,10 @@ func test_a_routed_host_reads_its_ground_and_the_walk_home() -> void:
 
 ## A stranded host on a chart that holds no seat of its court reads the water's
 ## own words: no land march from that shore reaches home, so the rule names the
-## one road that does — a squadron in port. The dossier's hint and the march's
-## refusal stay the one sentence, and the seat's own chart keeps the page's land
-## words (wiki: military-armies § Movement and attacks; ships-and-naval
-## § Naval transport (armies); DR-20261122-07).
+## one road that does — a squadron in port — and then the harbour that squadron
+## must dock at, or says the crown keeps none within a march (wiki:
+## military-armies § Movement and attacks; ships-and-naval § Naval transport
+## (armies); DR-20261122-07, DR-20261122-09).
 func test_a_stranded_host_across_the_sea_reads_the_water() -> void:
 	var model := ArmyFixture.build()
 	# The crown's seat stands on the Old World chart; this chart is the New
@@ -1159,26 +1159,34 @@ func test_a_stranded_host_across_the_sea_reads_the_water() -> void:
 	model.province_data(0).capital = false
 	model.province_data(1).owner = 1
 	var host := ArmyFixture.army(11, 0, 4, ["guards"], false)
+	var no_harbour: String = (
+		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS + ArmyMovement.SEA_HOME_NO_HARBOUR
+	)
 	assert_true(ArmyMovement.seat_elsewhere(model, host), "the seat lies on another chart")
 	assert_true(ArmyMovement.stranded(model, host), "no own province is one march away")
 	assert_eq(
+		ArmyMovement.nearest_harbour(model, host),
+		ArmyMovement.NO_PROVINCE,
+		"no harbour of the crown's is within a march of this ground"
+	)
+	assert_eq(
 		ArmyMovement.walk_home_words(model, host),
-		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS,
-		"the walk across the sea names the water"
+		no_harbour,
+		"the walk across the sea names the water, and that no quay of the crown's is near"
 	)
 	var refused: Dictionary = ArmyMovement.can_move(model, host, 0)
 	assert_false(bool(refused.get("ok", true)), "a home march is refused from here")
 	assert_eq(
 		String(refused.get("reason", "")),
-		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS,
-		"the refusal names the sea, not a land road home"
+		no_harbour,
+		"the refusal names the sea and the missing harbour, not a land road home"
 	)
 	var panel := ArmyPanel.new()
 	add_child(panel)
 	panel.refresh(model, ArmyDossierOpening.of(host, true))
 	assert_eq(
 		String(panel._hint.text),
-		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS,
+		no_harbour,
 		"the hint and the refusal are the one published sentence"
 	)
 	panel.free()
@@ -1190,6 +1198,45 @@ func test_a_stranded_host_across_the_sea_reads_the_water() -> void:
 		ArmyMovement.NO_OWN_LAND_REACH,
 		"the seat's own chart keeps the land road home"
 	)
+
+
+## A cut-off host across the sea hears the shore to march for: the nearest own
+## harbour by land hops is named, a harbour under the host's own feet is pressed
+## instead of marched to, and the water's words ride with the harbour counsel so
+## the dossier and the refusal never speak two sentences (wiki: military-armies
+## § Movement and attacks; ships-and-naval § Naval transport (armies);
+## DR-20261122-09).
+func test_a_stranded_host_across_the_sea_names_the_harbour_that_takes_it_home() -> void:
+	var model := ArmyFixture.build()
+	model.region_id = FactionCatalog.NEW_WORLD
+	model.province_data(0).capital = false
+	model.province_data(1).owner = 1
+	var host := ArmyFixture.army(12, 0, 4, ["guards"], false)
+	# The crown's own coast beside the host's ground opens the sea road home.
+	model.province_data(1).owner = 0
+	model.province_data(1).port_tile = Vector2i(4, 0)
+	assert_eq(
+		ArmyMovement.nearest_harbour(model, host),
+		1,
+		"the nearest own harbour is the one a land march reaches first"
+	)
+	assert_eq(
+		ArmyMovement.walk_home_words(model, host),
+		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS
+		+ ArmyMovement.SEA_HOME_HARBOUR % model.province_name(1),
+		"the water's words name the harbour the squadron must dock at"
+	)
+	# A harbour under the host's own feet is docked at, never marched to.
+	var at_quay := ArmyFixture.army(13, 0, 1, ["guards"], false)
+	assert_eq(ArmyMovement.nearest_harbour(model, at_quay), 1, "the host stands in it")
+	assert_eq(
+		ArmyMovement.walk_home_words(model, at_quay),
+		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS + ArmyMovement.SEA_HOME_HARBOUR_HERE,
+		"a host standing in its own harbour hears the dock, not a march"
+	)
+	# Without a deck room the counsel names the quay, not a promise that a hull
+	# waits there: the embark gate is the squadron's own (ships-and-naval).
+	assert_true(NavalMovement.has_harbour(model, 1), "the province keeps a harbour")
 
 
 ## A host camped on ground it does not hold keeps no interior lines: only the
