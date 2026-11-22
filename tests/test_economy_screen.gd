@@ -1888,6 +1888,25 @@ func test_the_production_tab_names_the_plan_the_court_would_run() -> void:
 			Palette.TEXT,
 			"a row it does not book keeps its colour: " + recipe_id
 		)
+	for recipe_id: String in runs.keys():
+		assert_true(
+			(rows[recipe_id]["title"] as Label).text.begins_with(
+				LedgerProduction.COURT_MARK + " "
+			),
+			"the row the plan books wears the counsel's mark: " + recipe_id
+		)
+	for recipe_id: String in rows.keys():
+		if runs.has(recipe_id):
+			continue
+		assert_eq(
+			(rows[recipe_id]["title"] as Label).text,
+			LedgerProductionText.recipe_title(recipe_id),
+			"a row it does not book keeps its plain title: " + recipe_id
+		)
+	assert_true(
+		_row_has_text(body, LedgerProduction.COURT_LEGEND),
+		"the workshop's heading names the mark it prints"
+	)
 	var economy: PlayerEconomy = _screen.economy.economy
 	for recipe_id: String in runs.keys():
 		assert_eq(
@@ -1908,6 +1927,10 @@ func test_the_production_tab_prints_no_plan_without_a_planner() -> void:
 	)
 	assert_eq(body.counsel_text(), "", "no planner, no line")
 	assert_true(MapPlayProductionPick.pick(play).is_empty(), "and no pick behind it")
+	assert_false(
+		_row_has_text(body, LedgerProduction.COURT_LEGEND),
+		"and no mark for a heading to name"
+	)
 	play.ai_mode = AiControl.FULL
 
 

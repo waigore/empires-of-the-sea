@@ -46,6 +46,12 @@ const HOLDING_COLUMNS: Array = [["HAVE", QTY_WIDTH], ["NEXT", DELTA_WIDTH]]
 const MANUFACTURE_COLUMNS: Array = [
 	["HAVE", QTY_WIDTH], ["SET", STEP_WIDTH], ["", BUTTON_WIDTH], ["", BUTTON_WIDTH]
 ]
+## The mark a row wears when the court's own plan names its good — the glyph the
+## muster's forces, the estates' rows, the roster's crews and the market's rows
+## wear (DR-20261122-10).
+const COURT_MARK: String = "▸"
+## The heading's own legend for that mark, printed only when a plan books runs.
+const COURT_LEGEND: String = "▸ court"
 
 var _economy: PlayerEconomy = null
 ## The end-of-turn projection: what the phase promises each holding, and the
@@ -157,13 +163,17 @@ func _holdings_section(
 
 
 ## The workshop's section: its heading and one row per recipe the court can see.
+## The heading's legend names the counsel's mark whenever a row wears it, so the
+## glyph is read as the court's own reading and never as a gate
+## (DR-20261122-10).
 func _recipes_section(parent: Control) -> void:
 	_section(
 		parent, "MANUFACTURED",
 		LedgerProductionText.manufacture_hint(
 			0 if _economy == null else _economy.production.made_total()
 		),
-		MANUFACTURE_COLUMNS
+		MANUFACTURE_COLUMNS,
+		COURT_LEGEND if not _counsel_runs.is_empty() else ""
 	)
 	for output_id: String in CommodityCatalog.MANUFACTURED:
 		for recipe_id: String in LedgerProductionText.recipes_for_output(
@@ -275,12 +285,15 @@ func _recipe_row(recipe_id: String) -> Control:
 	words.alignment = BoxContainer.ALIGNMENT_CENTER
 	words.add_theme_constant_override("separation", 0)
 	words.mouse_filter = Control.MOUSE_FILTER_PASS
-	# A row the court's own plan books is tinted and says how many runs it would
-	# set, so the reading is read down the page and not only on the line above
-	# (DR-20261121-07).
+	# A row the court's own plan books is tinted, leads with the counsel's mark
+	# and says how many runs it would set, so the reading is read down the page
+	# and not only on the line above (DR-20261121-07, DR-20261122-10).
 	var planned: int = int(_counsel_runs.get(recipe_id, 0))
+	var title_text: String = LedgerProductionText.recipe_title(recipe_id)
+	if planned > 0:
+		title_text = "%s %s" % [COURT_MARK, title_text]
 	var title := UiRowBuilder.label(
-		LedgerProductionText.recipe_title(recipe_id),
+		title_text,
 		TITLE_PIXELS if _compact else TITLE_PIXELS_ATLAS,
 		Palette.GOLD_PALE if planned > 0 else Palette.TEXT
 	)

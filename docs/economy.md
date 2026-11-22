@@ -70,7 +70,8 @@ Prices publish once; pact, boycott, subsidy settle
 
 `PRODUCTION`: stockpile by group in columns (three desktop, two phone, Riches
 strip); steppers capped by labour/inputs (`allowance`), a run names its
-output (`made 3`), court runs gold (`MapPlayProductionPick`, DR-20261121-07).
+output (`made 3`), court runs gold (`MapPlayProductionPick`, DR-20261121-07),
+marked `▸` with the heading's legend naming it (DR-20261122-10).
 `MARKET`: staged orders, Minor/Tribe/world rows, bid budget, `CROSSING`
 line (`CargoRead`), court trade gold (`MapPlayMarketPick`, DR-20261121-09),
 marked `▸` (DR-20261122-08),
