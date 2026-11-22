@@ -44,6 +44,7 @@ func before_all() -> void:
 	flow_snapshot = Fixture.snapshot(flow_world)
 	chart_mounted = _mount_chart()
 	chart_pristine = Fixture.suite_capture(chart_mounted)
+	Fixture.park_screen(chart_mounted)
 	shell = _new_shell()
 	add_child(shell)
 
@@ -53,6 +54,7 @@ func before_each() -> void:
 	_chart_bound = false
 	_flow_bound = false
 	_shell_bound = false
+	Fixture.park_screen(chart_mounted)
 
 
 func after_all() -> void:
