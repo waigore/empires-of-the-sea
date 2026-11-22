@@ -20,7 +20,7 @@ const Fixture = preload("res://tests/map_fixture.gd")
 ## despatch vocabulary), so a case can name what the pass said.
 const HOUSEHOLD_VERBS: Array[String] = [
 	"Studies ", "Sets ", "Recruits ", "Hires — ", "Bids at the mart",
-	"Offers at the mart",
+	"Offers at the mart", "Trades at the mart",
 ]
 
 ## Non-underscore: gd-tools clones a fresh suite instance per test and does not

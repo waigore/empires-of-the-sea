@@ -204,20 +204,15 @@ static func household(play: PlaySession) -> void:
 
 
 ## The household's booked row as despatch lines, one per kind it filed: the
-## studies it opened, the runs it set, the hands it bought, the works it gave the
-## crews and the trade it staged. A tick that files nothing says so, because a
-## silent pass reads as a broken one (wiki: auto-mode § Pacing).
+## studies it opened, the hands it bought, the ledger work it set and the trade
+## it staged. A tick that files nothing says so, because a silent pass reads as
+## a broken one (wiki: auto-mode § Pacing).
 static func _describe_household(play: PlaySession, row: Dictionary) -> void:
 	var lines: Array[String] = []
 	for raw: Variant in (row.get("research", {}) as Dictionary).get("assignments", []):
 		var tech: String = String((raw as Dictionary).get("tech", ""))
 		if not tech.is_empty():
 			lines.append("Studies %s" % TechCatalog.display_name(tech))
-	var runs: int = 0
-	for raw: Variant in (row.get("production", {}) as Dictionary).get("assignments", []):
-		runs += int((raw as Dictionary).get("units", 0))
-	if runs > 0:
-		lines.append("Sets %d production run%s" % [runs, "" if runs == 1 else "s"])
 	var tiers: Dictionary = {}
 	for raw: Variant in row.get("recruits", []):
 		var tier: int = int((raw as Dictionary).get("tier", -1))
@@ -226,11 +221,23 @@ static func _describe_household(play: PlaySession, row: Dictionary) -> void:
 	for tier: Variant in tiers.keys():
 		var heads: int = int(tiers[tier])
 		lines.append("Recruits %d %s" % [heads, WorkerPool.tier_name(int(tier))])
-	var civilians: Dictionary = row.get("civilians", {}) as Dictionary
-	var orders: int = (civilians.get("orders", []) as Array).size()
-	if orders > 0:
+	# One line for the ledger's own work: the runs and the crews' orders are one
+	# press each on the tab, so the seat words them as one despatch.
+	var runs: int = 0
+	for raw: Variant in (row.get("production", {}) as Dictionary).get("assignments", []):
+		runs += int((raw as Dictionary).get("units", 0))
+	var orders: int = (
+		(row.get("civilians", {}) as Dictionary).get("orders", []) as Array
+	).size()
+	if runs > 0 and orders > 0:
+		lines.append("Sets %d run%s and %d work order%s" % [
+			runs, "" if runs == 1 else "s", orders, "" if orders == 1 else "s",
+		])
+	elif runs > 0:
+		lines.append("Sets %d production run%s" % [runs, "" if runs == 1 else "s"])
+	elif orders > 0:
 		lines.append("Sets %d work order%s" % [orders, "" if orders == 1 else "s"])
-	for raw: Variant in civilians.get("training", []):
+	for raw: Variant in (row.get("civilians", {}) as Dictionary).get("training", []):
 		var crew: String = String((raw as Dictionary).get("type_id", ""))
 		if not crew.is_empty():
 			lines.append("Hires — %s" % CivilianCatalog.display_name(crew))
@@ -242,9 +249,13 @@ static func _describe_household(play: PlaySession, row: Dictionary) -> void:
 				bids += 1
 			"offer":
 				offers += 1
-	if bids > 0:
+	if bids > 0 and offers > 0:
+		lines.append("Trades at the mart — %d bid%s, %d offer%s" % [
+			bids, "" if bids == 1 else "s", offers, "" if offers == 1 else "s",
+		])
+	elif bids > 0:
 		lines.append("Bids at the mart — %d good%s" % [bids, "" if bids == 1 else "s"])
-	if offers > 0:
+	elif offers > 0:
 		lines.append("Offers at the mart — %d good%s" % [offers, "" if offers == 1 else "s"])
 	if lines.is_empty():
 		note(play, "The household files no order this turn.")
