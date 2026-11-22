@@ -11,7 +11,7 @@ One stockpile per Great Power; raw → manufactures.
 
 `EconomyTurn` runs four phases, then research and prices:
 
-1. **Extraction** — connected estates add yields ([improvements.md](improvements.md)).
+1. **Extraction** — connected estates yield ([improvements.md](improvements.md)).
 2. **Riches-to-treasury** — gold, silver, gems, diamonds, spices clear at base price.
 3. **Consumption** — army, navy, workers, hospitals eat; unfed men strike, wards idle.
 4. **Production** — recipes spend inputs and idle labour; a hire labours next
@@ -39,7 +39,7 @@ Catalogue `ProductionRecipes`; phase `ProductionPhase`:
 gate. Runs are whole; short rows skip.
 
 Steel, bronze, cigars and fur hats take two turns (DR-20261114-10). Inputs
-and labour pay first; the batch
+pay first; the batch
 lands **one unit a phase**, WIP in the save (DR-20261112-11/13-02).
 
 A slow bench holds three (`QUEUE_CAP`); a fourth waits
@@ -47,7 +47,7 @@ A slow bench holds three (`QUEUE_CAP`); a fourth waits
 
 ## Town manufacturing bonus
 
-Town level 2 or 4 turns connected raw into ×1/×2 manufactures:
+Town level 2 or 4 turns raw into ×1/×2 manufactures:
 `floor(input / 4) × multiplier`, no inputs or labour. A colony pays on
 landed tons; a Minor/Tribe town offers; a deed lifts it (`min(4, 1+deeds)`).
 
@@ -63,18 +63,17 @@ them; offers cap post-production. Bids spend `treasury − waiting build orders`
 
 ## Trade terms
 
-Prices publish once; pact, boycott, subsidy settle
-([`diplomacy.md`](diplomacy.md)).
+Prices publish once; pact, boycott, subsidy settle ([`diplomacy.md`](diplomacy.md)).
 
 ## UI
 
 `PRODUCTION`: stockpile by group in columns (three desktop, two phone, Riches
 strip); steppers capped by labour/inputs (`allowance`), a run names its
-output (`made 3`), court runs gold (`MapPlayProductionPick`, DR-20261121-07),
-marked `▸` with the heading's legend naming it (DR-20261122-10).
+output (`made 3`), court runs gold and `▸`-marked
+(`MapPlayProductionPick`, DR-20261121-07; DR-20261122-10).
 `MARKET`: staged orders, Minor/Tribe/world rows, bid budget, `CROSSING`
-line (`CargoRead`), court trade gold (`MapPlayMarketPick`, DR-20261121-09),
-marked `▸` (DR-20261122-08),
+line (`CargoRead`), court trade gold and `▸` (`MapPlayMarketPick`,
+DR-20261121-09; DR-20261122-08),
 a **batch press** (`MarketBatch`), a dead `Bid` (`MarketRules.bid_block`,
 DR-20261118-15), a barred colony row (`MinorMarket.sealed_line`), share
 fills (`share_rows`).
@@ -86,8 +85,7 @@ gold (`MapPlayRecruitPick`, DR-20261122-01). Tier rows print their deal
 
 ## Deferred (REQ-P2-02)
 
-Live: workshop landing (`ground_appetite`, DR-19-05); see
-[`deferred.md`](deferred.md).
+Live: workshop landing (`ground_appetite`, DR-19-05); see [`deferred.md`](deferred.md).
 
 ## Architecture
 
