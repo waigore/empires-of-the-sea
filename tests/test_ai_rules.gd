@@ -16583,6 +16583,16 @@ func test_a_yard_stalled_past_the_blocked_bar_names_its_reason() -> void:
 		"a stall below the bar stays a deferred row"
 	)
 
+	# The naming rides the chest's own valve (issue #1275): a line no longer
+	# due — the fill the stand-down freed has closed the muster — reads the
+	# bank again, the frozen stall its history.
+	readings["blockings"] = {"navy.build": 45}
+	readings["muster_due"] = false
+	assert_eq(
+		String(_by_id(AiObjectivesPlan.build(readings), "navy.build").blocked), "",
+		"the line closed: the resumed bank is named, not the old stall"
+	)
+
 
 func test_an_unpayable_study_reads_blocked_not_funded() -> void:
 	# A study the purse cannot fund must never read `funded` at zero gold: the
