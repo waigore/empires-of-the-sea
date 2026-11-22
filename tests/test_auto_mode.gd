@@ -373,6 +373,65 @@ func test_a_crown_with_no_planner_says_it_files_nothing() -> void:
 	)
 
 
+## Every kind the household can file words its own despatch, and the quiet and
+## plannerless passes answer rather than going silent: the wording a seated
+## turn reads is held here for each branch, so a row the plan files is never a
+## line the log drops (wiki: auto-mode § The crown's household).
+func test_the_household_words_every_kind_it_files() -> void:
+	var play: PlaySession = _seat_the_ai()
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"research": {"assignments": [{"tech": "printing_press"}, {"tech": ""}]},
+		"recruits": [
+			{"tier": WorkerPool.Tier.PEASANT}, {"tier": WorkerPool.Tier.PEASANT},
+			{"tier": -1},
+		],
+		"production": {"assignments": [{"recipe": "lumber", "units": 2}]},
+		"civilians": {
+			"orders": [{"action": "build_improvement"}, {"action": "build_road"}],
+			"training": [{"type_id": "builder"}, {"type_id": ""}],
+		},
+		"trade": {"staged": [
+			{"kind": "bid", "commodity": "grain", "quantity": 1},
+			{"kind": "offer", "commodity": "timber", "quantity": 2},
+		]},
+	})
+	assert_true(play.auto_log.has("Studies Printing Press"), "the study names itself")
+	assert_true(play.auto_log.has("Recruits 2 Peasants"), "the hands count by tier")
+	assert_true(
+		play.auto_log.has("Sets 2 runs and 2 work orders"),
+		"the ledger's work is one despatch"
+	)
+	assert_true(play.auto_log.has("Hires — Builder"), "the crew names its craft")
+	assert_true(
+		play.auto_log.has("Trades at the mart — 1 bid, 1 offer"),
+		"a two-sided mart prints both sides"
+	)
+	# A row that files one side of the ledger or the mart still speaks.
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"production": {"assignments": [{"recipe": "lumber", "units": 1}]},
+		"trade": {"staged": [{"kind": "bid", "commodity": "grain", "quantity": 1}]},
+	})
+	assert_true(play.auto_log.has("Sets 1 production run"), "a lone run prints")
+	assert_true(play.auto_log.has("Bids at the mart — 1 good"), "a lone bid prints")
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {
+		"civilians": {"orders": [{"action": "build_road"}]},
+		"trade": {"staged": [{"kind": "offer", "commodity": "timber", "quantity": 1}]},
+	})
+	assert_true(play.auto_log.has("Sets 1 work order"), "a lone work order prints")
+	assert_true(play.auto_log.has("Offers at the mart — 1 good"), "a lone offer prints")
+	# A plan that files nothing says so; a seat with no session files nothing.
+	play.auto_log.clear()
+	MapPlayAuto._describe_household(play, {})
+	assert_true(
+		play.auto_log.has("The household files no order this turn."),
+		"an empty plan still answers"
+	)
+	MapPlayAuto.household(null)
+
+
 ## Every tile of every region the crown's crews stand in, for the seeding check.
 func _crown_crews(play: PlaySession) -> int:
 	var total: int = 0
