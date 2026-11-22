@@ -46,7 +46,7 @@ const DEFENCE_ROWS: Array[Dictionary] = [
 	{"band": DefenceSurvey.BAND_OPEN, "text": "Open — no garrison, no wall"},
 	{"band": DefenceSurvey.BAND_HELD, "text": "Garrison only"},
 	{"band": DefenceSurvey.BAND_WALLED, "text": "Walled — fort 1–2"},
-	{"band": DefenceSurvey.BAND_CITADEL, "text": "Citadel — fort 3"},
+	{"band": DefenceSurvey.BAND_CITADEL, "text": "Citadel — fort 3+"},
 ]
 
 const KIND_SURVEY: String = "survey"
