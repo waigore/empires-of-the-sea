@@ -38,8 +38,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   `_screen` / `main` / menu-flow `chart`). Pass the fixture chart into
   `suite_reset` or a pocket `play.world` forces `generate_world`. `park_screen`
   after setup / `before_each`; `suite_reset` unparks. Park where one chart
-  serves many cases; free a swapped screen. Far-chart fog / naval:
-  `world.region` / `regions.set_region` — no `_cycle_region`. Short `hold_max` /
+  serves many cases; free a swapped screen. Far-chart fog / naval / seat framing: `world.region` /
+  `regions.set_region` / `region_index` (+ `play.model`) — no `_cycle_region`. Short `hold_max` /
   `fade_seconds` on opening plates.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart.
