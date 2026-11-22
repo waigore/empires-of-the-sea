@@ -232,11 +232,14 @@ func refresh(model: MapModel, opening: ArmyDossierOpening) -> void:
 	if _orders != null:
 		_orders.apply(army, opening)
 	# A host off its own ground keeps no interior lines, so the hint must not
-	# promise own land the tap list does not hold (DR-20261121-15).
+	# promise own land the tap list does not hold (DR-20261121-15). A seat on
+	# another chart makes the walk itself a sea crossing, so the hint names that
+	# instead of a land road home (DR-20261122-07).
 	var off_ground: bool = is_player and army.province != MapModel.NO_ID
 	if off_ground:
 		off_ground = not ArmyMovement.on_own_ground(model, army)
-	ArmyPanelStatus.apply(_status, _hint, army, is_player, _stranded, off_ground)
+	var over_sea: bool = is_player and ArmyMovement.seat_elsewhere(model, army)
+	ArmyPanelStatus.apply(_status, _hint, army, is_player, _stranded, off_ground, over_sea)
 
 
 ## The dossier names the crown's commanders in one line; what a medal buys in

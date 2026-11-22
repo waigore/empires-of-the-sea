@@ -100,6 +100,25 @@ static func _people(run, screen: MapScreen) -> void:
 		roster._counsel.visible == not counsel.is_empty(),
 		"the people's counsel stands with its reading"
 	)
+	# Every crew the court's reading names wears the counsel's mark, and no other
+	# row does, so the work is found among a long roster (DR-20261122-06).
+	var pick: Dictionary = MapPlayPeoplePick.pick(screen.play, roster._snapshot)
+	var keys: Dictionary = pick.get("keys", {})
+	var honest: bool = true
+	var named: int = 0
+	for child: Node in roster._rows.get_children():
+		var row := child as CivilianRosterRow
+		if row == null:
+			continue
+		var marked: bool = keys.has(MapPlayPickProse.row_key(row.data, "unit_id"))
+		honest = honest and row.court == marked
+		if marked:
+			named += 1
+	run.check(honest, "the people mark exactly the crews their reading names")
+	run.check(
+		_marked_crews(roster) == keys.size() and named == keys.size(),
+		"every crew the court would spend wears the mark"
+	)
 	run.check(_working_crews(screen) == working_before, "the reading orders nothing")
 	roster.close()
 
@@ -420,6 +439,17 @@ static func _marked_estates(panel: ImprovementPanel) -> int:
 	var marked: int = 0
 	for child: Node in panel._rows.get_children():
 		var row := child as ImprovementRow
+		if row != null and row.court:
+			marked += 1
+	return marked
+
+
+## How many roster rows wear the counsel's mark, so the smoke can hold the count
+## to the reading's own keys (DR-20261122-06).
+static func _marked_crews(panel: CivilianRosterPanel) -> int:
+	var marked: int = 0
+	for child: Node in panel._rows.get_children():
+		var row := child as CivilianRosterRow
 		if row != null and row.court:
 			marked += 1
 	return marked

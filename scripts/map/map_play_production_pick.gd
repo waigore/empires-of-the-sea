@@ -59,13 +59,13 @@ static func pick(play: PlaySession) -> Dictionary:
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return {}
-	var kind: String = AiControl.court_kind(play, faction)
-	var config: Variant = AiBind.config(
-		kind, faction, play.map_seed, play.ensure_ai().profiles
-	)
-	if not (config is AiConfig):
+	var court: Dictionary = AiControl.court(play, faction)
+	if court.is_empty():
 		return {}
-	return of(economy, plan_for(play, faction, kind, config, economy))
+	return of(
+		economy,
+		plan_for(play, faction, String(court["kind"]), court["config"], economy)
+	)
 
 ## The plan the court's own economy pass books for its manufacture: the published
 ## `production_orders` over the crown's ledger and best town, with the chest rows
