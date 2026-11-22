@@ -47,18 +47,24 @@ static func badge(commodity_id: String, size: int = ROW_SIZE) -> Control:
 
 ## A fixed-width name cell: the medallion then the good's label, so every row in
 ## a column starts its text at the same x and the header stays aligned above it.
+## `mark` leads the label — the counsel's `▸` on a row the court's own reading
+## names (DR-20261122-08).
 static func cell(
 	commodity_id: String,
 	width: float,
 	font_size: int = 14,
-	ink: Color = Palette.TEXT
+	ink: Color = Palette.TEXT,
+	mark: String = ""
 ) -> HBoxContainer:
 	var box := HBoxContainer.new()
 	box.custom_minimum_size = Vector2(width, 0)
 	box.add_theme_constant_override("separation", 6)
 	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	box.add_child(badge(commodity_id, ROW_SIZE))
-	var text := UiRowBuilder.label(CommodityCatalog.label(commodity_id), font_size, ink)
+	var name_text: String = CommodityCatalog.label(commodity_id)
+	if not mark.is_empty():
+		name_text = "%s %s" % [mark, name_text]
+	var text := UiRowBuilder.label(name_text, font_size, ink)
 	text.clip_text = true
 	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	box.add_child(text)
