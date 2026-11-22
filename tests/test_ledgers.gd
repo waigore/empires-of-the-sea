@@ -3591,7 +3591,7 @@ func test_a_colony_on_the_live_map_is_listed_and_its_seat_is_visited() -> void:
 ## --- the colonies' own reading (DR-20261121-16) -----------------------------
 
 
-## The door the line's own court answers (DR-20261123-02): a reading that names a
+## The door the line's own court answers (DR-20261123-05): a reading that names a
 ## Tribe opens it; a footing that shuts new chains names no court and opens
 ## nothing, so the press can never promise a sheet the sentence does not name.
 func test_the_colonies_door_names_the_court_its_line_opens() -> void:
@@ -3621,7 +3621,7 @@ func test_the_colonies_door_names_the_court_its_line_opens() -> void:
 
 ## The door on a live sheet: the press stands only while the line names a court,
 ## it opens THE COURT on that court, and the colony sheet steps aside so the
-## envoy rows are what the crown reads (DR-20261123-02; REQ-P5-01, REQ-P5-05).
+## envoy rows are what the crown reads (DR-20261123-05; REQ-P5-01, REQ-P5-05).
 func test_the_colonies_door_opens_the_court_the_line_names() -> void:
 	_attach()
 	var play: PlaySession = screen.play
@@ -3677,7 +3677,7 @@ func test_the_colonies_door_opens_the_court_the_line_names() -> void:
 	DiplomacyHud.hide(screen.hud.panels)
 
 
-## The door's guards (DR-20261123-02): a sheet whose body never built carries no
+## The door's guards (DR-20261123-05): a sheet whose body never built carries no
 ## press, a reading that names no court opens nothing, and a court the crown
 ## cannot stand on answers in a toast rather than in silence (REQ-P5-05).
 func test_a_door_with_no_court_says_so_and_opens_nothing() -> void:

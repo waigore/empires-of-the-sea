@@ -7,7 +7,7 @@ boycott shuts.
 
 **Wiki:** [diplomacy](https://github.com/waigore/empires-of-the-sea/wiki/diplomacy)
 § GP–Tribe Rules — Join Empire, § Boycott. Decisions: DR-20261117-02,
-DR-20261121-16, DR-20261121-18, DR-20261123-02.
+DR-20261121-16, DR-20261121-18, DR-20261123-05.
 
 ## Opening it
 

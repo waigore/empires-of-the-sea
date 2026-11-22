@@ -296,7 +296,7 @@ func _pass_two_sheets() -> void:
 # --- 6. the door the line's own court answers ---------------------------------
 
 
-## The sheet's door (DR-20261123-02): a Tribe the crown has not bought has no
+## The sheet's door (DR-20261123-05): a Tribe the crown has not bought has no
 ## colony row, so the chain the gold line names is pressed on THE COURT — and the
 ## press under the line takes the crown there, stands the sheet it opened, and
 ## signs nothing.

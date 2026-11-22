@@ -13,7 +13,7 @@ extends LedgerSheet
 ## The door the line's own court answers: a Tribe the crown has not bought has no
 ## colony row, and the chain the line names is pressed on THE COURT, so the sheet
 ## carries the one press that takes the crown there (wiki: diplomacy § The
-## crown's own envoy; DR-20261123-02; REQ-P5-01).
+## crown's own envoy; DR-20261123-05; REQ-P5-01).
 const FOLLOW: String = "Open the court"
 const FOLLOW_TIP: String = "Open THE COURT on %s — the chain this line names"
 const NOT_IN_CONTACT: String = "%s is not in contact, so no court sheet opens."
@@ -41,7 +41,7 @@ func _init() -> void:
 ## The Tribe the court's own colony chain is buying this turn, read off the
 ## sheet's bound session (wiki: diplomacy § GP–Tribe Rules; DR-20261121-16). The
 ## pick travels whole rather than worded, so the gold line and the door come off
-## one read (DR-20261123-02).
+## one read (DR-20261123-05).
 func _read_pick(_data: Dictionary) -> Dictionary:
 	return MapPlayColonyPick.pick(play)
 
@@ -88,7 +88,7 @@ func _build_body(column: VBoxContainer) -> void:
 
 ## What sits under the chips and above the rows: the court's own reading in gold
 ## and the one press that follows it to the court it names (wiki: diplomacy
-## § GP–Tribe Rules; DR-20261121-16, DR-20261123-02).
+## § GP–Tribe Rules; DR-20261121-16, DR-20261123-05).
 func _under_chips() -> Control:
 	var box := VBoxContainer.new()
 	box.add_theme_constant_override("separation", 6)
@@ -103,7 +103,7 @@ func _under_chips() -> Control:
 ## The door stands while the reading names a court and stands down when it names
 ## none (a footing that shuts new chains), off the same pick the gold line
 ## prints — so the press never opens a court the sentence does not name
-## (DR-20261123-02; REQ-P1-07: printed, never a hover).
+## (DR-20261123-05; REQ-P1-07: printed, never a hover).
 func _sync_follow() -> void:
 	if _follow == null:
 		return

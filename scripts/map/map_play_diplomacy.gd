@@ -39,7 +39,7 @@ static func counsel(play: PlaySession) -> Dictionary:
 
 ## THE COURT on one court: the sheet a counsel line's own door opens, so a line
 ## that names a court — THE COLONIES' chain does — has its presses one tap away
-## (wiki: diplomacy § The crown's own envoy; DR-20261123-02; REQ-P5-01,
+## (wiki: diplomacy § The crown's own envoy; DR-20261123-05; REQ-P5-01,
 ## REQ-P5-03). Reads only: it declares, offers, boycotts and signs nothing.
 ##
 ## Returns false when the crown is not in contact with that court (or a session
