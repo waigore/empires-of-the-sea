@@ -1379,17 +1379,22 @@ func before_all() -> void:
 		424242, Fixture.WORLD_WIDTH, Fixture.WORLD_HEIGHT
 	)
 	loss_pristine_map = Fixture.snapshot(Fixture.world())
-	loss_mounted = Fixture.attach_screen(self)
-	loss_pristine = Fixture.suite_capture(loss_mounted)
+	# Host only: the capital-loss chart mounts lazily in `_loss_screen()` so the
+	# ~200 pure gazette / diplomacy cases never pay a MapScreen boot.
+	loss_host = Node.new()
+	add_child(loss_host)
 
 
 func after_all() -> void:
 	world = null
 	fresh_world = null
-	if is_instance_valid(loss_mounted):
-		loss_mounted.free()
-	loss_mounted = null
-	loss_pristine = {}
+	if is_instance_valid(_loss_screen_node):
+		_loss_screen_node.free()
+	_loss_screen_node = null
+	_loss_pristine = {}
+	if is_instance_valid(loss_host):
+		loss_host.free()
+	loss_host = null
 	loss_pristine_map = []
 
 
@@ -3026,16 +3031,26 @@ const HARBOUR: int = 1
 const UPLANDS: int = 2
 const RIVAL: int = 3
 
-var loss_mounted: MapScreen = null
-var loss_pristine: Dictionary = {}
+var loss_host: Node = null
 var loss_pristine_map: Array = []
+## Static so the first wiring case that mounts keeps the screen for later cases
+## (before_all left the chart null on purpose; docs/testing.md § Speed rules).
+static var _loss_screen_node: MapScreen = null
+static var _loss_pristine: Dictionary = {}
 
 
-## A wiring case starts on the pristine chart, as a mount did.
+## A wiring case starts on the pristine chart. First call mounts once; later
+## calls re-seat. Pure rule cases that never ask never pay the mount.
 func _loss_screen() -> MapScreen:
 	Fixture.restore(Fixture.world(), loss_pristine_map)
-	Fixture.suite_reset(loss_mounted, loss_pristine)
-	return loss_mounted
+	if not is_instance_valid(_loss_screen_node):
+		_loss_screen_node = Fixture.attach_screen(loss_host)
+		_loss_pristine = Fixture.suite_capture(_loss_screen_node)
+	else:
+		Fixture.suite_reset(
+			_loss_screen_node, _loss_pristine, Fixture.world()
+		)
+	return _loss_screen_node
 
 
 func test_snapshot_records_the_capital_of_each_crown() -> void:

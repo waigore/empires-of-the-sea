@@ -40,6 +40,13 @@ func before_all() -> void:
 	both_charts_map = Fixture.snapshot(Fixture.world())
 	Fixture.restore(Fixture.world(), pristine_map)
 	Fixture.suite_reset(screen, pristine, Fixture.world())
+	Fixture.park_screen(screen)
+
+
+func before_each() -> void:
+	# Snapshot-only cases never call `_attach()`; park so idle HUD/fog work
+	# does not run under every pure case (docs/testing.md § Speed rules).
+	Fixture.park_screen(screen)
 
 
 func after_all() -> void:
