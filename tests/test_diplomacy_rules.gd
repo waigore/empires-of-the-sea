@@ -4866,6 +4866,59 @@ func test_the_envoy_pick_reads_one_crown_off_the_plan() -> void:
 	assert_false(String(quiet["line"]).is_empty(), "a weighed envoy is never silent")
 
 
+## The press the gold line names, keyed the way THE COURT's order list keys its
+## own buttons: the catalogue's kind and the argument that list prints beside it
+## — an overture's stage, a subsidy's percent — and nothing for a line that names
+## no press (wiki: diplomacy § The crown's own envoy; DR-20261123-01).
+func test_the_envoy_pick_names_the_press_the_sheet_marks() -> void:
+	var target: int = FactionCatalog.great_power_ids()[1]
+	var stage: String = DiplomacyCatalog.STAGE_CONSULATE
+	var overture: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_OVERTURE, "target": target, "stage": stage},
+		target, {}, target
+	)
+	assert_eq(
+		MapPlayDiplomacyPick.press(overture),
+		{"kind": DiplomacyOrders.KIND_OVERTURE, "arg": stage},
+		"an envoy rung marks the press its own stage prints"
+	)
+	var subsidy: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_SUBSIDY, "target": target, "amount": 10},
+		target, {}, target
+	)
+	assert_eq(
+		MapPlayDiplomacyPick.press(subsidy),
+		{"kind": DiplomacyOrders.KIND_SUBSIDY, "arg": "10"},
+		"a subsidy marks the press for its own percent"
+	)
+	var peace: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_PEACE, "target": target}, target, {}, target
+	)
+	assert_eq(
+		MapPlayDiplomacyPick.press(peace),
+		{"kind": DiplomacyOrders.KIND_PEACE, "arg": ""},
+		"a press that carries no argument is named by its kind alone"
+	)
+	var gift: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_AID, "target": target, "amount": 1000},
+		target, {}, target
+	)
+	assert_eq(
+		MapPlayDiplomacyPick.press(gift), {},
+		"a gift steps its own face, so the line names the sum and no press is marked"
+	)
+	var elsewhere: Dictionary = MapPlayDiplomacyPick.of(
+		{"kind": DiplomacyOrders.KIND_OVERTURE, "target": target, "stage": stage},
+		FactionCatalog.great_power_ids()[2], {}, target
+	)
+	assert_eq(MapPlayDiplomacyPick.press(elsewhere), {}, "another court's order marks nothing")
+	var held: Dictionary = MapPlayDiplomacyPick.of(
+		{}, MapModel.NO_ID, {"candidates": [{"target": target, "blocked": "war desire too low"}]},
+		target
+	)
+	assert_eq(MapPlayDiplomacyPick.press(held), {}, "a gate names no press")
+
+
 ## An unknown gate passes through as the planner said it: the sheet never
 ## rewrites a reason it does not know (REQ-P2-03).
 func test_an_unknown_envoy_gate_keeps_the_planners_words() -> void:
