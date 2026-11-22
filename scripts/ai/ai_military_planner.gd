@@ -160,9 +160,6 @@ static func _rotation_order(
 ## The first leg of the walk home for a field army that stands on ground it does
 ## not hold: the province beside it that shortens the road to the seat, over
 ## ground the army may enter at peace — its own land and unclaimed wilderness.
-## Own land is the seat's own distance, so a step onto it is the road's end and
-## always wins over a wilderness step, however near that reads on the field
-## (wiki: military-armies § Movement and attacks; DR-20261121-15).
 ## Empty when the army stands on its own ground, the court reads no seat, or no
 ## step shortens the road (a host walled in by foreign land).
 static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
@@ -174,29 +171,28 @@ static func _walk_home_order(model: MapModel, army: ArmyState) -> Dictionary:
 	var road: Dictionary = _walk_distances(model, seat, army.owner)
 	var best: Dictionary = {}
 	var best_distance: int = UNREACHABLE
-	var best_own: bool = false
 	for province: int in ArmyMovement.destinations(model, army):
 		var holder: int = model.province_owner(province)
-		var own: bool = holder == army.owner
-		if not own and holder != MapModel.NO_ID:
+		if holder != army.owner and holder != MapModel.NO_ID:
 			continue
-		var distance: int = int(road.get(province, UNREACHABLE))
+		# Own land is the seat's own distance — the road's end — so the step onto
+		# it always wins, however near a wilderness step reads. A wilderness step
+		# is only named while the road is still a walk (wiki: military-armies
+		# § Movement and attacks — "own land is the seat's own distance, so it
+		# always wins"; DR-20261121-15).
+		var distance: int = 0 if holder == army.owner \
+			else int(road.get(province, UNREACHABLE))
 		if distance >= UNREACHABLE:
 			continue
-		# Own land first, then the shorter road, then the lower id, so the same
-		# state always walks the same way and a beaten host is never sent deeper
-		# into ground it never took while its own border stands beside it.
+		# Nearest first, the lower id on a tie, so the same state always walks
+		# the same way.
 		if not best.is_empty():
-			if own != best_own:
-				if not own:
-					continue
-			elif distance > best_distance:
+			if distance > best_distance:
 				continue
-			elif distance == best_distance and province > int(best["province"]):
+			if distance == best_distance and province > int(best["province"]):
 				continue
 		best = {"province": province, "kind": KIND_WALK_HOME, "score": 0}
 		best_distance = distance
-		best_own = own
 	return best
 
 
