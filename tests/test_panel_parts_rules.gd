@@ -1022,7 +1022,7 @@ func test_the_press_book_marks_and_unmarks_one_caption() -> void:
 	assert_false(book.any(), "no reading, no mark")
 	book.set_caption("wall", "Raise Wall")
 	assert_eq(book.text("wall"), "Raise Wall", "the rules' own words")
-	book.mark(null)
+	book.mark({})
 	assert_eq(book.keys(), {}, "no keys, no reading")
 	book.mark({"wall": true})
 	assert_eq(book.text("wall"), "%s Raise Wall" % PressMarks.MARK)

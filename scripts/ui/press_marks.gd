@@ -45,7 +45,7 @@ func any() -> bool:
 
 ## Replaces the reading with the one just asked, so the next `text` answers it.
 func mark(keys: Dictionary) -> void:
-	_keys = keys.duplicate() if keys != null else {}
+	_keys = keys.duplicate()
 
 
 ## The keys the last reading named, for a sheet that hands them on.
