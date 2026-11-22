@@ -3,12 +3,14 @@ extends RefCounted
 ## The estates the court's own Builder pass would raise this phase, named on the
 ## estates ledger before the crown presses a row (wiki:
 ## extraction-and-improvements § Estates ledger; civilian-build-planner
-## § Architecture; DR-20261121-10).
+## § Architecture; DR-20261121-10, DR-20261122-04).
 ##
 ## The reading is not a second opinion: it is `MapPlayCivilianPick.picks` — the
 ## same pass the crew's own sheet and the chart's mark read — narrowed to the
 ## estates it would raise, so the ledger cannot name a raise the pass would not
-## book (REQ-P2-03, REQ-P3-03).
+## book (REQ-P2-03, REQ-P3-03). The pick also keys the tiles it names, so the
+## ledger's rows wear the counsel's mark and the crown finds the raise among a
+## long page instead of scanning for it (REQ-P5-03).
 ##
 ## A reading only: nothing here dispatches a Builder, spends a material or
 ## reserves a tile, and the crown still presses her own rows (REQ-P5-06).
@@ -25,15 +27,10 @@ const NO_BUILDER_LINE: String = (
 	"the court would raise no estate this phase — no Builder stands idle"
 )
 
-## The sheet's sentence: the pick's own clause, capitalised and closed — the
-## same one wording every pick surface prints (REQ-P3-02, REQ-P5-06).
-static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
-	return MapPlayPickProse.sentence_of(pick(play, snapshot))
-
-## The ledger's pick as the estates sheet prints it: `{kind, estates, line}`,
-## where each estate is `{tile, name, place}`. Empty when the session runs no
-## planner for the crown, an observer session, a decided campaign, a crown with
-## no ledger or a session with no civilian layer.
+## The ledger's pick as the estates sheet prints it: `{kind, estates, keys, line}`,
+## where each estate is `{tile, name, place}` and `keys` holds the tiles it names.
+## Empty when the session runs no planner for the crown, an observer session, a
+## decided campaign, a crown with no ledger or a session with no civilian layer.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
 	if not MapPlayPickProse.crown_crew_ready(play):
 		return {}
@@ -78,7 +75,12 @@ static func _estate(model: MapModel, tile: Vector2i) -> Dictionary:
 static func of(estates: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionary:
 	if not estates.is_empty():
 		var ordered: Array[Dictionary] = _in_row_order(estates, snapshot)
-		return {"kind": KIND_RAISE, "estates": ordered, "line": raise_line(ordered)}
+		return {
+			"kind": KIND_RAISE,
+			"estates": ordered,
+			"keys": keys_of(ordered),
+			"line": raise_line(ordered),
+		}
 	# No estate is raised: the ledger's own count says whether a Builder stood
 	# idle to raise one. A snapshot that carries no count names no gate, because
 	# the sheet has not read the roster yet.
@@ -87,7 +89,19 @@ static func of(estates: Array[Dictionary], snapshot: Dictionary = {}) -> Diction
 		return {}
 	if int((counts as Dictionary).get("idle_builders", 0)) > 0:
 		return {}
-	return {"kind": KIND_NO_BUILDER, "estates": [], "line": NO_BUILDER_LINE}
+	return {"kind": KIND_NO_BUILDER, "estates": [], "keys": {}, "line": NO_BUILDER_LINE}
+
+
+## The tiles the reading names, keyed the way a ledger row keys itself: the
+## estates ledger's rows are keyed by tile, so a mark is one lookup and a row
+## the pass would leave alone never looks busy (DR-20261122-04).
+static func keys_of(estates: Array[Dictionary]) -> Dictionary:
+	var keys: Dictionary = {}
+	for estate: Dictionary in estates:
+		var tile: Variant = estate.get("tile", null)
+		if tile is Vector2i:
+			keys[tile] = true
+	return keys
 
 ## The estates in the order the sheet prints its rows — the ledger's own groups
 ## and rows — so the line reads down the page it answers. An estate the snapshot

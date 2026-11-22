@@ -922,6 +922,53 @@ func test_an_estate_row_wears_its_commodity_ink_not_its_status() -> void:
 	row.free()
 
 
+## An estate row wears the counsel's mark before its own name, so a crown finds
+## the raise her staff would take among a long page (DR-20261122-04).
+func test_an_estate_row_wears_the_courts_mark() -> void:
+	_setup_province_panel()
+	var plain := ImprovementRow.new()
+	add_child(plain)
+	plain.setup(_estate_row_fixture())
+	assert_eq(plain._name.text, "Lumber camp", "an unmarked estate reads its own name")
+	plain.free()
+	var marked := ImprovementRow.new()
+	add_child(marked)
+	marked.court = true
+	marked.setup(_estate_row_fixture())
+	assert_eq(
+		marked._name.text,
+		"%s Lumber camp" % ImprovementRow.COURT_MARK,
+		"the mark leads the name"
+	)
+	marked.free()
+
+
+## One estate row's data, as the ledger hands it: a level-2 lumber camp with a
+## raise to price.
+func _estate_row_fixture() -> Dictionary:
+	return {
+		"tile": Vector2i(0, 0),
+		"level": 2,
+		"status": "producing",
+		"resource": 0,
+		"name": "Lumber camp",
+		"province_name": "Test",
+		"connected": true,
+		"output": 2,
+		"commodity": "timber",
+		"status_text": "Yields 2 timber / turn",
+		"max_level": ImprovementCatalog.MAX_LEVEL,
+		"cost_text": "4 lumber + 4 cast iron",
+		"duration": 2,
+		"build_reason": "",
+		"working": false,
+		"can_build": true,
+		"builder_id": 2,
+		"next_level": 3,
+		"preview_text": "L3 pays 3 timber / turn (+1)",
+	}
+
+
 ## The row prices the raise beside its cost: the rules hand it the words and the
 ## row prints them in the crown's gold, never inventing a figure of its own
 ## (REQ-P3-02, REQ-P5-06).

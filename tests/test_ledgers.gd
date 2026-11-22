@@ -4704,7 +4704,8 @@ func test_the_estates_card_prints_and_hides_the_counsel_it_is_handed() -> void:
 	_attach()
 	var panel: ImprovementPanel = screen.improvements
 	panel.counsel_source = (
-		func(_data: Dictionary) -> String: return "The court would raise the farm at Cádiz."
+		func(_data: Dictionary) -> Dictionary:
+			return {"line": "the court would raise the farm at Cádiz"}
 	)
 	panel.open()
 	assert_eq(panel.counsel_text(), "The court would raise the farm at Cádiz.")
@@ -4713,6 +4714,87 @@ func test_the_estates_card_prints_and_hides_the_counsel_it_is_handed() -> void:
 	panel.refresh()
 	assert_eq(panel.counsel_text(), "", "an unwired card prints nothing")
 	assert_false(panel._counsel.visible, "and the line stands down")
+	panel.close()
+	# Hand the session's own reading back, so a later case reads the pass again:
+	# a lambda owned by this case dies with it.
+	MapPlaySetup.build_hud(screen.play)
+
+
+## The pick keys the tiles it names, so a ledger row can wear the mark with one
+## lookup and a row the pass would leave alone never looks busy (DR-20261122-04).
+func test_the_estates_pick_keys_the_estates_it_names() -> void:
+	var estates: Array[Dictionary] = [
+		{"tile": Vector2i(1, 1), "name": "lumber camp", "place": "Cádiz"},
+		{"tile": Vector2i(3, 1), "name": "mine", "place": "Sevilla"},
+	]
+	var pick: Dictionary = MapPlayEstatesPick.of(estates, {})
+	var keys: Dictionary = pick.get("keys", {})
+	assert_eq(keys.size(), 2, "every estate the line names is keyed")
+	assert_true(keys.has(Vector2i(1, 1)), "the lumber camp's own tile")
+	assert_true(keys.has(Vector2i(3, 1)), "the mine's own tile")
+	assert_false(keys.has(Vector2i(2, 1)), "a tile the reading never named takes no key")
+	assert_eq(MapPlayEstatesPick.keys_of([]), {}, "nothing named, nothing marked")
+	# The gate names no estate, so it marks none.
+	var gate: Dictionary = MapPlayEstatesPick.of([], {"counts": {"idle_builders": 0}})
+	assert_eq(gate.get("keys", {}), {}, "the gate marks no row")
+
+
+## The estates ledger marks exactly the estates the court's own Builder pass
+## would raise, so the crown finds the raise among a long page — and the reading
+## orders nothing (REQ-P2-03, REQ-P5-03, REQ-P5-06; DR-20261122-04).
+func test_the_estates_ledger_marks_the_estates_the_crowns_pass_would_raise() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ImprovementPanel = screen.improvements
+	_cancel_works()
+	var stock: Dictionary = play.stockpile()
+	for commodity: String in ["lumber", "castIron", "bronze", "paper"]:
+		stock[commodity] = 400
+	panel.open()
+	var ready: Array[Vector2i] = panel._ready_tiles()
+	assert_gte(ready.size(), 1, "the capital holds an estate the crown can raise")
+	play.civilian_layer.units.append(
+		CivilianState.create(901, play.player_faction, "builder", ready[0])
+	)
+	panel.refresh()
+	var pick: Dictionary = MapPlayEstatesPick.pick(play, panel._data)
+	assert_eq(
+		String(pick["kind"]), MapPlayEstatesPick.KIND_RAISE, "the Builder is given an estate"
+	)
+	assert_eq(
+		panel.counsel_text(),
+		MapPlayPickProse.sentence_of(pick),
+		"the sheet prints the pass's own line"
+	)
+	var keys: Dictionary = pick.get("keys", {})
+	assert_gte(keys.size(), 1, "the reading keys the estates it names")
+	# Every estate the reading names is on the sheet, and only those rows wear
+	# the mark — a row the staff would leave alone never looks busy.
+	var shown: Dictionary = {}
+	for row: ImprovementRow in _estate_rows(panel):
+		var tile: Vector2i = row.data.get("tile", CivilianState.NO_TILE)
+		shown[tile] = true
+		assert_eq(row.court, keys.has(tile), "a row wears the mark when the court would raise it")
+		if row.court:
+			assert_true(row._name.text.begins_with(ImprovementRow.COURT_MARK), row._name.text)
+	for tile: Vector2i in keys.keys():
+		assert_true(shown.has(tile), "the estate the court would raise is on the sheet")
+	# A narrowing chip reorders the marks it already read: one read for the page.
+	panel._head.set_filter("ready")
+	panel._press_filter("ready")
+	assert_eq(panel._court, keys, "a chip press keeps the reading it was handed")
+	assert_eq(_working_estate_builders(), 0, "the reading orders nothing")
+	panel.close()
+
+
+## Every estate row the ledger prints, in its own order.
+func _estate_rows(panel: ImprovementPanel) -> Array[ImprovementRow]:
+	var rows: Array[ImprovementRow] = []
+	for child: Node in panel._rows.get_children():
+		var row := child as ImprovementRow
+		if row != null:
+			rows.append(row)
+	return rows
 
 
 func _working_estate_builders() -> int:

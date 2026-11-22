@@ -4,7 +4,7 @@ extends RefCounted
 ## navy, the army, the muster, the colonies, the realm, the production, the
 ## market and the workers tabs — opens from the door the player uses, prints its
 ## one gold line, and orders nothing
-## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01/03).
+## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01/03/04).
 ##
 ## The court ledger's own envoy and the sound desk stay in the HUD step; this
 ## step owns the counsel readings and the tallies that prove they move nothing.
@@ -69,6 +69,13 @@ static func _estates(run, screen: MapScreen) -> void:
 	run.check(
 		screen.improvements._counsel.visible == not counsel.is_empty(),
 		"estates counsel stands with its reading"
+	)
+	# Every estate the reading names wears the counsel's mark, and no other row
+	# does, so the raise is found among a long page (DR-20261122-04).
+	var pick: Dictionary = MapPlayEstatesPick.pick(screen.play, screen.improvements._data)
+	run.check(
+		_marked_estates(screen.improvements) == (pick.get("keys", {}) as Dictionary).size(),
+		"every estate the court would raise wears the mark"
 	)
 	screen.improvements.close()
 
@@ -368,6 +375,17 @@ static func _marked_rows(panel: ProvinceLedgerPanel) -> int:
 	var marked: int = 0
 	for child: Node in panel._rows.get_children():
 		var row := child as ProvinceLedgerRow
+		if row != null and row.court:
+			marked += 1
+	return marked
+
+
+## How many estate rows wear the counsel's mark, so the smoke can hold the count
+## to the reading's own keys (DR-20261122-04).
+static func _marked_estates(panel: ImprovementPanel) -> int:
+	var marked: int = 0
+	for child: Node in panel._rows.get_children():
+		var row := child as ImprovementRow
 		if row != null and row.court:
 			marked += 1
 	return marked

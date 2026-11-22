@@ -12,7 +12,14 @@ signal build_pressed(tile: Vector2i)
 signal cancel_pressed(tile: Vector2i)
 signal focus_pressed(tile: Vector2i)
 
+## The mark the counsel reads by: an estate the court's own Builder pass would
+## raise this phase wears it before its name (DR-20261122-04).
+const COURT_MARK: String = "▸"
+
 var data: Dictionary = {}
+## Whether the court would raise this estate this phase; the ledger sets it
+## before `setup` from the sheet's own reading.
+var court: bool = false
 ## Phone rows get thumb-sized actions instead of the atlas 30 px strip.
 var compact: bool = false
 
@@ -241,7 +248,10 @@ func _fill() -> void:
 	# or the crop's own beyond it (REQ-P1-08; DR-20261119-06).
 	_icon.tint = Palette.estate_ink(_icon.kind)
 	_icon.queue_redraw()
-	_name.text = String(data["name"])
+	# The counsel's mark leads the name, so a crown finds the estates her staff
+	# would raise among a long page (DR-20261122-04).
+	var estate_name: String = String(data["name"])
+	_name.text = "%s %s" % [COURT_MARK, estate_name] if court else estate_name
 	_status_chip.text = status.to_upper()
 	var chip: Color = _status_color(status)
 	_status_chip.add_theme_stylebox_override(
