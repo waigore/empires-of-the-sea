@@ -37,9 +37,9 @@
   every regiment.
 - **The orders** (`MapPlayArmyPick`, DR-20261120-10; `MapPlayArmyOrdersPick`,
   DR-20261121-14; `MapPlayForceCounsel`, DR-20261121-17/22-03): the standard's
-  order — split, storm, relief, frontier, road home — prints on its dossier,
-  THE CROWN'S ARMY and the muster roll, or the gate when none is given;
-  named headings and rows wear `▸` (DR-20261122-05).
+  order prints on its dossier, THE CROWN'S ARMY and the muster roll, or the
+  gate when none is given; named headings and rows wear `▸`, its legend
+  (DR-20261122-05, DR-20261123-03).
 - **The drill yard's pick** (`MapPlayMusterPick`, DR-20261121-03/22-12): the
   muster block prints, in gold, the line the published muster would raise (or
   its gate) and marks that pattern `▸`. Reads only.
