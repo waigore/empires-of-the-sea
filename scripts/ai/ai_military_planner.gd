@@ -230,6 +230,28 @@ static func _best_order(
 ) -> Dictionary:
 	var best: Dictionary = {}
 	var distances: Dictionary = _own_distances(model, army.province, army.owner)
+	# Home defence first (issue #1259): the seat's province fallen — or gone
+	# entirely, because `capital_province` reads only held ground, so a taken
+	# capital reads NO_ID — or hostile ground on the court's own frontier, is
+	# the land war on the court's soil. A host marching toward the lost seat
+	# outranks the foreign adventure staging would price: the storm onto the
+	# invader's ground is the march home, and carries the defence premium.
+	var seat: int = WorldBootstrap.capital_province(model, army.owner)
+	var seat_taken: bool = false
+	if seat == MapModel.NO_ID:
+		for province: ProvinceState in model.provinces:
+			if not province.capital or not hostile.has(province.owner):
+				continue
+			for neighbor: int in MapGeo.province_neighbors(model, province.id):
+				if model.province_owner(neighbor) == army.owner:
+					seat_taken = true
+					break
+			if seat_taken:
+				break
+	var seat_lost: bool = seat != MapModel.NO_ID \
+		and model.province_owner(seat) != army.owner
+	var land_lost: int = _own_provinces_lost(model, army.owner, hostile)
+	var home_defence: bool = seat_lost or seat_taken or land_lost >= 2
 	for province: int in ArmyMovement.destinations(model, army):
 		var owner: int = model.province_owner(province)
 		var score: int = 0
@@ -251,7 +273,11 @@ static func _best_order(
 			if not _can_storm(config, model, armies, army, province):
 				continue
 			score = province_score(config, model, province)
-			kind = "attack"
+			if home_defence:
+				score += config.parameter("military.defence_weight")
+				kind = "defend"
+			else:
+				kind = "attack"
 		else:
 			continue
 		if best.is_empty() or score > int(best["score"]):
@@ -259,6 +285,23 @@ static func _best_order(
 		elif score == int(best["score"]) and province < int(best["province"]):
 			best = {"province": province, "score": score, "kind": kind}
 	return best
+
+
+## Hostile ground on the court's own frontier: the land war is on the court's
+## soil, and every one of these provinces was its own ground until the invader
+## took it. Zero when the war is abroad (issue #1259).
+static func _own_provinces_lost(
+	model: MapModel, owner: int, hostile: Dictionary
+) -> int:
+	var lost: int = 0
+	for province: ProvinceState in model.provinces:
+		if province.owner == owner or not hostile.has(province.owner):
+			continue
+		for neighbor: int in MapGeo.province_neighbors(model, province.id):
+			if model.province_owner(neighbor) == owner:
+				lost += 1
+				break
+	return lost
 
 
 ## Walls soak incoming strength, so a storm needs a margin over the defenders.

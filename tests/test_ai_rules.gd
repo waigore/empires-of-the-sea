@@ -1104,6 +1104,45 @@ func test_ai_military_defends_an_occupied_own_province() -> void:
 	assert_eq(String(plan["orders"][0]["kind"]), "defend")
 
 
+## Issue #1259: the seat has fallen to the invader — a host marching toward it
+## outranks the foreign adventure the staging branch would price. The land war
+## is on the court's soil, so defence first (wiki: military-armies § Home Army).
+func test_ai_military_marches_home_when_the_seat_falls() -> void:
+	# P0 own, P1 the fallen seat, P2-P3 the invader's rear: the field army at
+	# P0 holds its own ground and the lost seat is one march away — it storms
+	# the lost seat home instead of staging for the frontier. The storm onto
+	# the fallen seat is `defend` and outranks any frontier attack beside it.
+	var world: WorldMap = AiFixture.land_world([1, 1, 2, 2], {1: true})
+	var model: MapModel = world.region(0)
+	model.provinces[1].owner = 2
+	var state := _war_state(2, 1)
+	# The defending court plans: the config faction is the one losing its seat.
+	var config: AiConfig = AiConfig.build(1, 1500)
+	var armies: Array[ArmyState] = [
+		ArmyState.muster(1, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(2, 2, 3, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(3, 1, 0, false, ["pikemen", "bowmen", "bowmen"], 201),
+	]
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq(plan["orders"].size(), 1, "the field army takes the one march")
+	assert_eq(String(plan["orders"][0]["kind"]), "defend")
+	assert_eq(int(plan["orders"][0]["province"]), 1, "the storm onto the lost seat")
+	# The home-defence read generalises to a shrinking frontier: two hostile
+	# provinces standing on the court's own land, the seat itself held — the
+	# rear host the invader cut off marches home through the staging road,
+	# the walk-home's own road field naming the leg.
+	var world2: WorldMap = AiFixture.land_world([2, 1, 1, 2, 2], {2: true})
+	var model2: MapModel = world2.region(0)
+	var plan2: Dictionary = AiMilitaryPlanner.march_orders(config, state, model2, [
+		ArmyState.muster(1, 2, 4, true, ["peasant_levies"] as Array[String], 101),
+		ArmyState.muster(2, 1, 0, true, ["peasant_levies"] as Array[String], 1),
+		ArmyState.muster(3, 1, 1, false, ["pikemen", "bowmen", "bowmen"], 201),
+	])
+	assert_eq(plan2["orders"].size(), 1, "the rear host takes the one march")
+	assert_eq(String(plan2["orders"][0]["kind"]), "defend")
+	assert_eq(int(plan2["orders"][0]["province"]), 0, "the storm onto the invader's frontier")
+
+
 func test_map_phase_moves_rival_armies_without_a_hud() -> void:
 	var world: WorldMap = AiFixture.land_world([1, 2])
 	var model: MapModel = world.region(0)
@@ -1441,6 +1480,35 @@ func test_ai_naval_declines_an_overwhelming_squadron() -> void:
 	]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 0, "the caution knob keeps the hull home")
+
+
+## Issue #1259: a hostile hull carrying an army is an invasion fleet — the
+## seat's warship sorties after it even past the caution margin, because the
+## landing it carries is the war itself. A home fleet whose hostiles are
+## unladen keeps the published caution (wiki: ai-architecture § Naval policy
+## — defence first).
+func test_ai_naval_sorties_after_an_invasion_fleet() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	# The seat's guard: one sloop against three galleons — a fight the caution
+	# knob declines when the hulls are unladen.
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "sloop"})
+	var invasion := FleetState.at_sea(1, 1, 0, ["h1"] as Array[String], {"h1": "galleon"})
+	invasion.embarked_army = 7
+	var fleets: Array[FleetState] = [home, invasion]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1, "the invasion fleet is fought")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_SORTIE)
+	assert_eq(int(plan["orders"][0]["zone"]), 0, "the water the invasion crosses")
+	# The same fleet unladen but overwhelming — three galleons of the invader's
+	# nation: the caution knob keeps the guard in the harbour as published.
+	invasion.embarked_army = -1
+	var invading2 := FleetState.at_sea(2, 1, 0, ["h2"] as Array[String], {"h2": "galleon"})
+	var invading3 := FleetState.at_sea(3, 1, 0, ["h3"] as Array[String], {"h3": "galleon"})
+	var declined: Dictionary = AiNavalPlanner.orders(
+		config, _war_state(0, 1), model, [home, invasion, invading2, invading3]
+	)
+	assert_eq((declined["orders"] as Array).size(), 0, "an unladen armada stays declined")
 
 
 ## A court at peace has no station to keep: its sea-going squadrons sail home
