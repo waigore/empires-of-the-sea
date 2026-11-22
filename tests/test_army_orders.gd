@@ -2392,6 +2392,15 @@ func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
 	assert_eq(block.get_child(0), block._pick_line, "the pick stands above the rows")
 	assert_eq(block.mark_type(), "guards", "the mark is the pick's own pattern")
 	assert_eq(
+		block.legend_text(), ArmyMusterBlock.MARK_LEGEND,
+		"the yard says what its mark means"
+	)
+	assert_true(block.legend_shown(), "the legend stands while a pattern is named")
+	assert_eq(
+		block._pick_line.get_index() + 1, block._legend.get_index(),
+		"and stands directly under the line it answers"
+	)
+	assert_eq(
 		_yard_row_name(block, rows, "guards"),
 		"%s Guards" % ArmyMusterBlock.COURT_MARK,
 		"the pattern the line names wears the mark"
@@ -2404,10 +2413,23 @@ func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
 	block.fill(rows, {})
 	assert_eq(block.pick_line(), "", "no pick, no line")
 	assert_eq(block.mark_type(), "", "no pick, no mark")
+	assert_false(block.legend_shown(), "and no glyph to explain")
 	assert_ne(block.get_child(0), block._pick_line, "and the yard keeps its published top")
 	assert_eq(
 		_yard_row_name(block, rows, "guards"), "Guards", "and no row wears the mark"
 	)
+
+	# A yard that stands at its target prints the line but marks no pattern: the
+	# sentence that explains the glyph stands down with the glyph
+	# (DR-20261123-08).
+	block.fill(rows, {
+		"kind": MapPlayMusterPick.KIND_TARGET,
+		"type": "",
+		"line": "the court stands at its muster target — 5 of 5 regiments",
+	})
+	assert_eq(block.pick_line().is_empty(), false, "the target line still stands")
+	assert_false(block.legend_shown(), "but names no pattern to explain")
+	assert_eq(block._legend.get_parent(), null, "so the legend leaves the yard")
 
 	assert_eq(economy.treasury, 20000, "a reading: the yard spends nothing")
 	block.free()
