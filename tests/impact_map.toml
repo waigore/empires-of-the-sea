@@ -66,10 +66,10 @@ suites = [
   "test_campaign_rules.gd",
 ]
 
-# The chart's tap law: pure, so its own suite is the whole proof.
+# The chart's tap law: pure; rides the lean chrome leftovers boot.
 [domains.chart_tap]
 suites = [
-  "test_chart_tap.gd",
+  "test_hud_campaign_plate.gd",
 ]
 
 [domains.civilian]
@@ -3493,16 +3493,16 @@ domain = "prospect"
 match = "scripts/map/observer_province.gd*"
 domain = "ai_panel"
 
-# Shared counsel-pick chrome (sentence / join / capped / crew gate): its own
-# pure suite, so shaping one wording never pulls every pick surface's fan-out.
-# Named above the map glob (first match wins).
+# Shared counsel-pick chrome (sentence / join / capped / crew gate): rides the
+# lean chrome leftovers boot, so shaping one wording never pulls every pick
+# surface's fan-out. Named above the map glob (first match wins).
 [[rules]]
 match = "scripts/map/map_play_pick_prose.gd*"
 domain = "pick_prose"
 
 [domains.pick_prose]
 suites = [
-  "test_map_play_pick_prose.gd",
+  "test_hud_campaign_plate.gd",
 ]
 
 # The estates ledger's own raise reading (DR-20261121-10): the estates the
@@ -3606,6 +3606,13 @@ domain = "realm_counsel"
 suites = [
   "test_ledgers.gd",
 ]
+
+# The chart's tap law (one press slot per input stream, one answer per tap) is
+# pure and proved on the chrome leftovers boot. Named before the broad
+# `scripts/map/**` glob so a tap edit never pulls the whole map fan-out.
+[[rules]]
+match = "scripts/map/chart_tap.gd*"
+domain = "chart_tap"
 
 [[rules]]
 match = "scripts/map/**"
@@ -3971,14 +3978,6 @@ domain = "campaign"
 [[rules]]
 match = "scripts/ui/capital_choice_screen.gd"
 domain = "campaign"
-
-# The chart's tap law (one press slot per input stream, one answer per tap) is
-# pure and read by the capital chart alone: its own suite proves it, and the
-# campaign suites prove the chart that feeds it. Named before the broad
-# `scripts/map/**` glob so a tap edit never pulls the whole map fan-out.
-[[rules]]
-match = "scripts/map/chart_tap.gd*"
-domain = "chart_tap"
 
 [[rules]]
 match = "scripts/rules/defeat_*.gd"
@@ -4416,6 +4415,12 @@ domain = "despatch"
 match = "scripts/ui/hud_stat_chips.gd*"
 domain = "money_text"
 
+# HudSheet reveal law: pure; rides the chrome leftovers boot. Named before the
+# broader hud_* glob so a sheet-law edit never pays the ui battle boot.
+[[rules]]
+match = "scripts/ui/hud_sheet.gd*"
+domain = "fold_chrome"
+
 # HUD panel host and its sheet builders: province/fleet/civilian sheets. Keep
 # off the menu domain so a dossier wiring change stays inside the tier-1 5 min
 # budget.
@@ -4515,6 +4520,19 @@ domain = "fold_chrome"
 # Deleted play-screen bridge suite rides the lean chrome boot.
 [[rules]]
 match = "tests/test_play_screen.gd*"
+domain = "fold_chrome"
+
+# Deleted pure leftover suites ride the lean chrome boot (one coverage boot).
+[[rules]]
+match = "tests/test_chart_tap.gd*"
+domain = "fold_chrome"
+
+[[rules]]
+match = "tests/test_hud_sheet.gd*"
+domain = "fold_chrome"
+
+[[rules]]
+match = "tests/test_map_play_pick_prose.gd*"
 domain = "fold_chrome"
 
 [[rules]]

@@ -51,7 +51,7 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   pocket chart and `ResearchPanel` only when read.
 - **Heaviest suite first**: `test_a_map_screen` leads so one chart suite does
   not drain alone.
-- One Godot boot per theme — coverage ~15 s; 24 suites; `parallel = 4`.
+- One Godot boot per theme — coverage ~15 s; 25 suites; `parallel = 4`.
   Court-words at rules; suspending / campaign-end use `AiControl.NOOP`;
   counsel only when court open; plate saves reload in-place.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
