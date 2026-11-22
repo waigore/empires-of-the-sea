@@ -107,6 +107,11 @@ static func validate(
 		return _no("The %s cannot %s." % [unit.display_name(), label(action).to_lower()])
 	if unit.is_working():
 		return _no("The %s is already working." % unit.display_name())
+	# A crew aboard a squadron is off the map (wiki: civilian-units § Overseas
+	# deployment): no work order may be filed for it, whichever surface names the
+	# ground. The crew's own sheet reads the same gate.
+	if unit.is_embarked():
+		return _no("The %s is aboard a squadron." % unit.display_name())
 	var tile: Vector2i = unit.tile if target_tile.x < 0 else target_tile
 	if not model.is_land(tile.x, tile.y):
 		return _no("Civilian work happens on land.")
@@ -202,6 +207,10 @@ static func idle_crews(
 	var result: Array[CivilianState] = []
 	for unit: CivilianState in units:
 		if unit == null or unit.owner != owner or not unit.is_idle():
+			continue
+		# A crew aboard a squadron is off the map: no ledger may hand it the
+		# next estate, road or deed (wiki: civilian-units § Overseas deployment).
+		if unit.is_embarked():
 			continue
 		if not type_id.is_empty() and unit.type_id != type_id:
 			continue

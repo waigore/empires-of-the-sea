@@ -73,6 +73,14 @@ static func build_hud(play: PlaySession) -> void:
 	play.improvements.counsel_source = (
 		func(data: Dictionary) -> String: return MapPlayEstatesPick.line(play, data)
 	)
+	# The province dossier names the orders the court would give on its ground:
+	# the work the civilian pass would put crews to here and the hosts the land
+	# pass would send here, read on the chart the sheet is showing (wiki:
+	# world-model § The crown's provinces; DR-20261121-19).
+	play.hud.panels.panel.counsel_source = (
+		func(model: MapModel, province_id: int) -> String:
+			return MapPlayProvinceCounsel.line(play, model, province_id)
+	)
 	# THE CROWN'S EYES names the spies the court's own espionage pass would walk,
 	# screen or keep this turn, read on the sheet's own snapshot so the line
 	# reads down the network it answers (wiki: civilian-units § Spy;
@@ -90,6 +98,24 @@ static func build_hud(play: PlaySession) -> void:
 	if people != null:
 		people.counsel_source = (
 			func(data: Dictionary) -> String: return MapPlayPeoplePick.line(play, data)
+		)
+	# THE CROWN'S NAVY names the sails the court's own naval pass would order its
+	# squadrons this turn, read on the sheet's own snapshot so the line reads down
+	# the squadrons it answers (wiki: ships-and-naval § The crown's navy;
+	# DR-20261121-13).
+	var navy: NavalLedgerPanel = hud.navy_ledger
+	if navy != null:
+		navy.counsel_source = (
+			func(data: Dictionary) -> String: return MapPlayNavyPick.line(play, data)
+		)
+	# THE TECH TREE names the study the court's own research policy would open —
+	# the college's own gold sentence — and marks that advance `▸` on the chart,
+	# so the crown sees where the court would go without scanning 113 nodes
+	# (wiki: tech-tree § Research Model; DR-20261121-20).
+	var tree: TechTreePanel = hud.tech_tree
+	if tree != null:
+		tree.counsel_source = (
+			func() -> Dictionary: return MapPlayResearchPick.pick(play)
 		)
 	hud.stats.set_treasury(play.treasury(), false)
 	play.income = play.economy.projected_income()

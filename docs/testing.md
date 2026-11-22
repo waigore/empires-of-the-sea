@@ -28,8 +28,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats turn-100 civilians,
   passing fair split on the **first** attempt.
-- Terrain wash, fog and chart layers build once per map state; a re-seat redraws
-  nothing; `fog_changed` rises on a moved tile.
+- Terrain wash, fog and chart layers build once per map state; a re-seat
+  redraws nothing; `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
   (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
@@ -38,6 +38,7 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   skip re-seat / shell (lazy `_screen` / `main` / menu-flow `chart`); hospitals
   ride that chart; opening-plate cases use short `hold_max` / `fade_seconds`.
   Free a swapped screen. Observer ~15–20 s; door/seal: `test_ai_observer`.
+  Menu-flow starts reuse that shell + `Fixture.world()`.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
@@ -48,10 +49,10 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   pocket chart and `ResearchPanel` only when read.
 - **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
   leads so one chart suite does not drain alone.
-- One Godot boot per theme — coverage ~15 s a boot; 24 suites (chart live →
-  map-view; chrome plate). `gd-tools.toml`: `parallel = 4`. Consent and
-  campaign-end closes use `AiControl.NOOP`; plate saves reload in-place. One
-  peace-battle case pays a full resumed turn.
+- One Godot boot per theme — coverage ~15 s; 24 suites; `parallel = 4`.
+  Diplomacy/battle court-words book at rules; suspending closes /
+  campaign-end use `AiControl.NOOP`; counsel only when court open; plate
+  saves reload in-place.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local
@@ -104,6 +105,12 @@ tools/run.sh scenes/battle_sim.tscn
 # army blocking one, the player defending a fort through a whole AI turn, and two
 # crowns falling on one province in a single turn (plates, standards, court news).
 godot --headless --path . --script res://playtests/playtest_combat_chain.gd
+
+# Routed host — a beaten attacker that keeps men stands on the enemy's ground:
+# the despatch, the place line and hint a crown reads there, the tap list that
+# holds no own province, the refusal a home march hears, and the walk home one
+# province at a time beside the one-march road a bordered host has.
+godot --headless --path . --script res://playtests/playtest_routed_host.gd
 
 # Espionage — opens a turn-100 advanced start, despatches a spy across a border,
 # ends a real turn and prints the dossier, the presence reveal, the despatch the
@@ -188,6 +195,15 @@ godot --headless --path . --script res://playtests/playtest_raise_line.gd
 # (boarding, Passage, beachhead, landing) beside the landing gate's own verdict,
 # so a stalled expedition names the gate that refused it.
 godot --headless --path . --script res://playtests/playtest_overseas_invasion.gd
+
+# New World land war — reaches the crown's land on the New World chart (the
+# turn-100 start leaves three colonies there), declares war on the Tribe beside
+# it and storms a province, reading every surface the court meets there: the
+# despatches, the army dossier and its counsel, the province sheet and the realm
+# reading. A third pass queues a hire, a muster and a launch at the seat, flips
+# the chart to the colony and closes the turn, so a seat-scoped order that lands
+# on the chart on screen (or is lost there) reads in one line.
+godot --headless --path . --script res://playtests/playtest_new_world_war.gd
 
 # Sighted strength — sights a hostile squadron and reads the marker's `*`, the
 # dossier's `???` and the zone that takes no verdict; closes a turn to read the
@@ -325,6 +341,14 @@ godot --headless --path . --script res://playtests/playtest_terrain_ground.gd
 # envoy), checks the court will not sell the same colony twice, and issues the
 # boycott the colony unlocks against a rival crown.
 godot --headless --path . --script res://playtests/playtest_colony.gd
+
+# Colony counsel — the gold line THE COLONIES prints under its chips, held to the
+# crown's own press: a pact with a court too cold for the Join Empire, the same
+# court warmed, a chain already visited this turn, and the study that holds an
+# Embassy, then the honest link; then a fifth chain read on both sheets at once,
+# where the colony line may promise the link only when the court's one envoy order
+# takes it (DR-20261121-18). Every reading prints the envoy's one order beside it.
+godot --headless --path . --script res://playtests/playtest_colony_counsel.gd
 
 # Campaign end — the hardest state in the game to reach (the calendar cap is turn
 # 201 and the bar is 31 Old World provinces). Seats the turn number and the

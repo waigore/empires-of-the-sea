@@ -66,6 +66,12 @@ suites = [
   "test_campaign_rules.gd",
 ]
 
+# The chart's tap law: pure, so its own suite is the whole proof.
+[domains.chart_tap]
+suites = [
+  "test_chart_tap.gd",
+]
+
 [domains.civilian]
 suites = [
   "test_civilian_turn_rules.gd",
@@ -332,6 +338,7 @@ suites = [
 [domains.people_pick]
 suites = [
   "test_ledgers.gd",
+  "test_civilian_turn_rules.gd",
 ]
 
 # The crown's navy (DR-20261115-14): the hull-by-hull projection and its sheet
@@ -935,6 +942,19 @@ domain = "muster"
 match = "scripts/map/map_play_command.gd*"
 domain = "muster"
 
+# The command sheet's own court reading (DR-20261122-02): the hosts the land pass
+# would lead into battle this turn against the pool that answers them. Its own
+# slice proves the wording and the pool it reads, instead of the whole map
+# fan-out the path would otherwise pull.
+[[rules]]
+match = "scripts/map/map_play_command_pick*.gd*"
+domain = "command_pick"
+
+[domains.command_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
 [[rules]]
 match = "tests/test_ledgers.gd*"
 domain = "muster"
@@ -1122,6 +1142,17 @@ domain = "eyes"
 # three-boot sheet set past the tier-1 budget.
 [[rules]]
 match = "scripts/map/map_play_people_pick.gd*"
+domain = "people_pick"
+
+# The roster's projection and its row: what the people sheet prints is proved
+# by the civilian suite (the projection) and the ledgers boot (the sheet and the
+# row), so both ride the same two-suite slice.
+[[rules]]
+match = "scripts/rules/civilian_roster.gd*"
+domain = "people_pick"
+
+[[rules]]
+match = "scripts/ui/civilian_roster_row.gd*"
 domain = "people_pick"
 
 [[rules]]
@@ -2399,6 +2430,13 @@ domain = "prospect"
 match = "scripts/ai/ai_civilian_hire.gd*"
 domain = "prospect"
 
+# The other half of that question — how many of each crew the region's own work
+# asks for — is read by the same plan call, so it rides the same prospect slice
+# rather than the broad `scripts/ai/**` fan-out (split for REQ-P3-01).
+[[rules]]
+match = "scripts/ai/ai_civilian_targets.gd*"
+domain = "prospect"
+
 # The archetype's own crew (the hire the planner takes beyond the region's
 # asks): the same plan pass and its suite prove it, so it rides with the
 # planner on the prospect slice rather than the broad `scripts/ai/**` fan-out.
@@ -3387,6 +3425,18 @@ domain = "prospect"
 match = "scripts/map/observer_province.gd*"
 domain = "ai_panel"
 
+# Shared counsel-pick chrome (sentence / join / capped / crew gate): its own
+# pure suite, so shaping one wording never pulls every pick surface's fan-out.
+# Named above the map glob (first match wins).
+[[rules]]
+match = "scripts/map/map_play_pick_prose.gd*"
+domain = "pick_prose"
+
+[domains.pick_prose]
+suites = [
+  "test_map_play_pick_prose.gd",
+]
+
 # The estates ledger's own raise reading (DR-20261121-10): the estates the
 # published Builder pass would raise this phase, narrowed from the crew pick the
 # sheet and the chart already read. Its suite is the ledgers', where the pick is
@@ -3397,6 +3447,94 @@ match = "scripts/map/map_play_estates_pick*.gd*"
 domain = "estates_pick"
 
 [domains.estates_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
+# The sails the crown's navy prints (DR-20261121-13): the reading that asks the
+# published naval policy what it would order each squadron this turn — the same
+# call one squadron's own dossier reads — so the sheet cannot name a sail the
+# policy would not give. Its suite is the ledgers', where the pick is proved off
+# data alone and the sheet prints the line. Named above the map glob (first
+# match wins) so it never pays for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_navy_pick*.gd*"
+domain = "navy_pick"
+
+[domains.navy_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
+# The orders the crown's army prints (DR-20261121-14): the reading that asks the
+# published land policy what it would order each standard this turn — the same
+# call one standard's own dossier reads — so the sheet cannot name an order the
+# policy would not give. Its suite is the ledgers', where the pick is proved off
+# data alone and the sheet prints the line. Named above the map glob (first match
+# wins) so it never pays for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_army_orders_pick*.gd*"
+domain = "army_orders_pick"
+
+[domains.army_orders_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
+# The Tribe the crown's colonies name (DR-20261121-16): the reading that asks
+# the published `expansion.tribe_chain` ambition which link the court would
+# press this turn — the same call the rival pass and the objective ledger price
+# the chain with — so the sheet cannot name a link the court would not sign. Its
+# suite is the ledgers', where the pick is proved off data alone and the sheet
+# prints the line. Named above the map glob (first match wins) so it never pays
+# for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_colony_pick*.gd*"
+domain = "colony_pick"
+
+[domains.colony_pick]
+suites = [
+  "test_ledgers.gd",
+]
+
+# The orders the crown's muster roll names (DR-20261121-17): the reading that
+# merges the army's and the navy's own picks — the same calls their sheets print
+# — into the roll's row order, so the roll cannot name an order either policy
+# would refuse. Its suite is the ledgers', where the merge is proved off data
+# alone and the sheet prints the line. Named above the map glob (first match
+# wins) so it never pays for the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_force_counsel*.gd*"
+domain = "force_counsel"
+
+[domains.force_counsel]
+suites = [
+  "test_ledgers.gd",
+]
+
+# The province dossier's own reading (DR-20261121-19): the work the civilian
+# pass would put crews to on one province's ground and the hosts the land pass
+# would send there, merged under one court. Its own small slice proves the
+# wording and the sheet that prints it, instead of the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_province_counsel*.gd*"
+domain = "province_counsel"
+
+[domains.province_counsel]
+suites = [
+  "test_ledgers.gd",
+  "test_panel_parts_rules.gd",
+]
+
+# The realm's own court reading (DR-20261121-21): the crown's own provinces the
+# civilian and land passes would act in this turn, read once for the whole sheet
+# and marked on its rows. Its own slice proves the wording, the marks and the
+# sheet that prints them, instead of the whole map fan-out.
+[[rules]]
+match = "scripts/map/map_play_realm_counsel*.gd*"
+domain = "realm_counsel"
+
+[domains.realm_counsel]
 suites = [
   "test_ledgers.gd",
 ]
@@ -3766,6 +3904,14 @@ domain = "campaign"
 match = "scripts/ui/capital_choice_screen.gd"
 domain = "campaign"
 
+# The chart's tap law (one press slot per input stream, one answer per tap) is
+# pure and read by the capital chart alone: its own suite proves it, and the
+# campaign suites prove the chart that feeds it. Named before the broad
+# `scripts/map/**` glob so a tap edit never pulls the whole map fan-out.
+[[rules]]
+match = "scripts/map/chart_tap.gd*"
+domain = "chart_tap"
+
 [[rules]]
 match = "scripts/rules/defeat_*.gd"
 domain = "campaign"
@@ -3923,6 +4069,21 @@ domain = "unit_art"
 [[rules]]
 match = "scripts/ui/army_panel.gd*"
 domain = "ui"
+
+# Status / strength prose and order presses split out of ArmyPanel: dossier
+# presentation only. Keep them on army_orders so a wording change proves the
+# stranded / hospital / dismiss lines without the full army/battle boot.
+[[rules]]
+match = "scripts/ui/army_panel_status.gd*"
+domain = "army_orders"
+
+[[rules]]
+match = "scripts/ui/army_panel_strength.gd*"
+domain = "army_orders"
+
+[[rules]]
+match = "scripts/ui/army_panel_orders.gd*"
+domain = "army_orders"
 
 # Roster and muster blocks are dossier presentation, not army rules: keep them
 # on ui so a row change does not pull the army domain past the tier-1 budget.
@@ -4554,6 +4715,20 @@ match = "scripts/map/map_play_market_pick*.gd*"
 domain = "market_pick"
 
 [domains.market_pick]
+suites = [
+  "test_market_economy_rules.gd",
+]
+
+# The workers tab's own plan (DR-20261122-01): the heads the published economy
+# pass would recruit, read through the court's one `recruit_orders` home so the
+# tab and the pass cannot hire two pools. Its suite is the economy rules', where
+# the pick is proved off plan data alone, so it names its own domain instead of
+# pulling the AI economy fan-out.
+[[rules]]
+match = "scripts/map/map_play_recruit_pick*.gd*"
+domain = "recruit_pick"
+
+[domains.recruit_pick]
 suites = [
   "test_market_economy_rules.gd",
 ]

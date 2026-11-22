@@ -21,6 +21,9 @@ const KIND_SPLIT: String = AiMilitaryPlanner.KIND_SPLIT
 const KIND_MARCH: String = AiMilitaryPlanner.KIND_MARCH
 ## The interior-lines march home to merge with the Home Army's mass.
 const KIND_ROTATE: String = AiMilitaryPlanner.KIND_ROTATE
+## The first leg of the walk home for a host standing on ground it does not hold
+## (DR-20261121-15).
+const KIND_WALK_HOME: String = AiMilitaryPlanner.KIND_WALK_HOME
 
 ## Why a march goes where it goes, read off the ground the planner chose: a
 ## hostile province to storm, a hostile host standing on the court's own land, or
@@ -83,7 +86,7 @@ static func pick(play: PlaySession, army: ArmyState) -> Dictionary:
 ## The sheet's line: the pick's own sentence, or nothing when the court would
 ## give this army no order this turn.
 static func line(play: PlaySession, army: ArmyState) -> String:
-	return MapPlayArmyPickWords.sentence(String(pick(play, army).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, army))
 
 
 ## The roster the pass plans its marches over: the chart's own, or — when the seat
@@ -145,6 +148,19 @@ static func _march_words(
 	play: PlaySession, model: MapModel, army: ArmyState, order: Dictionary, target: int
 ) -> Dictionary:
 	var kind: String = String(order.get("kind", ""))
+	if kind == KIND_WALK_HOME:
+		var own: bool = model != null and model.province_owner(target) == army.owner
+		var leg: String = MapPlayArmyPickWords.walk_line(model, target, own)
+		if leg.is_empty():
+			return {}
+		return {
+			"kind": KIND_WALK_HOME,
+			"why": "",
+			"province": target,
+			"regiments": 0,
+			"short": leg,
+			"line": leg,
+		}
 	if kind == KIND_ROTATE:
 		var home: String = MapPlayArmyPickWords.rotate_line(model, target)
 		if home.is_empty():

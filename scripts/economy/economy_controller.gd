@@ -230,7 +230,8 @@ func open_panel() -> void:
 		return
 	hud.panels.show_economy(
 		economy, market, readings.projected(), readings.trade_cargo(),
-		market.minor_offers, player_faction, _production_pick(), _market_pick()
+		market.minor_offers, player_faction, _production_pick(), _market_pick(),
+		MapPlayRecruitPick.sheet(play)
 	)
 
 
@@ -261,7 +262,7 @@ func _production_pick() -> Dictionary:
 	return {
 		"kind": pick.get("kind", ""),
 		"runs": pick.get("runs", {}),
-		"line": MapPlayProductionPick.sentence(String(pick.get("line", ""))),
+		"line": MapPlayPickProse.sentence(String(pick.get("line", ""))),
 	}
 
 
@@ -277,7 +278,7 @@ func _market_pick() -> Dictionary:
 		"kind": picked.get("kind", ""),
 		"offers": picked.get("offers", {}),
 		"bids": picked.get("bids", {}),
-		"line": MapPlayMarketPick.sentence(String(picked.get("line", ""))),
+		"line": MapPlayPickProse.sentence(String(picked.get("line", ""))),
 	}
 
 
@@ -305,7 +306,8 @@ func refresh_panel() -> void:
 	if hud.panels.is_economy_open():
 		hud.panels.show_economy(
 			economy, market, projection, readings.trade_cargo(),
-			market.minor_offers, player_faction, _production_pick(), _market_pick()
+			market.minor_offers, player_faction, _production_pick(), _market_pick(),
+			MapPlayRecruitPick.sheet(play)
 		)
 	hud.stats.set_treasury(economy.treasury)
 	hud.stats.set_income(int(projection.get("treasury_delta", 0)))

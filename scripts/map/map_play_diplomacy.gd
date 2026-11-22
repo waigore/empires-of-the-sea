@@ -51,7 +51,13 @@ static func public_power(play: PlaySession) -> Dictionary:
 static func refresh(play: PlaySession) -> void:
 	if play.diplomacy == null or play.observer_mode:
 		return
+	# Trade terms always reach the market (FTP / boycott), even when the sheet
+	# is shut. Envoy counsel and the power table are sheet-only: computing them
+	# while the court is closed paid a full planner pass under coverage on every
+	# order and consent resume (docs/testing.md § Speed rules).
 	_install_terms(play)
+	if play.hud == null or play.hud.panels == null or not play.hud.panels.is_diplomacy_open():
+		return
 	DiplomacyHud.refresh(
 		play.hud.panels,
 		play.diplomacy,

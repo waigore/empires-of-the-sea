@@ -1655,6 +1655,98 @@ func test_the_chart_invites_a_goal_when_none_is_set() -> void:
 	chart.close()
 
 
+## The chart names the study the court would open — the college's own gold
+## sentence under the goal's road — and marks that advance `▸` on the chart, so
+## the crown sees where the court would go without scanning 113 nodes. A
+## reading: the slot stays free and no ducat moves (DR-20261121-20).
+func test_the_chart_names_and_marks_the_courts_pick() -> void:
+	var chart: TechTreePanel = await _chart()
+	var screen: MapScreen = research_mounted
+	var pick: Dictionary = MapPlayResearchPick.pick(screen.play)
+	assert_false(pick.is_empty(), "a fresh college has a study to open")
+	var line: String = chart.counsel_text()
+	assert_eq(line, MapPlayPickProse.sentence_of(pick), "the college's own sentence")
+	assert_true(line.begins_with("The court would open "), line)
+	assert_eq(chart.court_tech(), String(pick["tech"]), "the chart marks the pick")
+	var node: TechTreeNode = chart._canvas.node(String(pick["tech"]))
+	assert_true(node.text.begins_with("▸ "), node.text)
+	var marked: int = 0
+	for tech_id: String in TechCatalog.ids():
+		if chart._canvas.node(tech_id).text.contains("▸"):
+			marked += 1
+	assert_eq(marked, 1, "one court mark on the chart")
+	assert_eq(
+		screen.play.economy.economy.research.free_slot(), 0,
+		"the reading assigns nothing"
+	)
+	chart.close()
+
+
+## The crown's goal and the court's pick can be one advance: the node then wears
+## both marks, and the goal still aims the queue (DR-20261121-20).
+func test_the_goal_and_the_court_can_mark_one_advance() -> void:
+	var chart: TechTreePanel = await _chart()
+	var pick: String = chart.court_tech()
+	assert_false(pick.is_empty(), "a fresh college has a study to open")
+	chart._canvas.node(pick).pressed.emit()
+	chart._goal_button.pressed.emit()
+	await get_tree().process_frame
+	assert_eq(
+		research_mounted.play.economy.economy.research.goal, pick,
+		"the goal door still aims the queue"
+	)
+	var node: TechTreeNode = chart._canvas.node(pick)
+	assert_true(node.text.begins_with("◆ ▸ "), node.text)
+	assert_eq(chart.court_tech(), pick, "the mark survives the goal change")
+	chart.close()
+
+
+## A chart with no pick to print — the pass names nothing, or the sheet is
+## unwired — prints no line and marks no node (DR-20261121-20).
+func test_the_chart_prints_no_counsel_without_a_pick() -> void:
+	var chart: TechTreePanel = await _chart()
+	var wired: Callable = chart.counsel_source
+	assert_true(wired.is_valid(), "the session wires the court's reading")
+	chart.counsel_source = func() -> Dictionary: return {}
+	chart.refresh()
+	assert_eq(chart.counsel_text(), "", "no pick, no line")
+	assert_eq(chart.court_tech(), "", "no pick, no mark")
+	var marked: int = 0
+	for tech_id: String in TechCatalog.ids():
+		if chart._canvas.node(tech_id).text.contains("▸"):
+			marked += 1
+	assert_eq(marked, 0, "no node wears the court's mark")
+	chart.counsel_source = Callable()
+	chart.refresh()
+	assert_eq(chart.counsel_text(), "", "an unwired chart prints nothing")
+	chart.counsel_source = wired
+	chart.refresh()
+	assert_true(
+		chart.counsel_text().begins_with("The court would open "),
+		"the wired chart reads again"
+	)
+	chart.close()
+
+
+## A college with every slot at study has nothing to open, so its chart says
+## nothing — the line never promises a study the college would not take
+## (DR-20261121-20).
+func test_a_college_with_no_free_slot_names_no_pick_on_the_chart() -> void:
+	var screen: MapScreen = _screen()
+	var research: ResearchState = screen.economy.economy.research
+	for tech_id: String in research.researchable().slice(0, research.slots.size()):
+		research.assign(tech_id)
+	screen.economy.open_research()
+	screen.hud.panels.research_panel.tree_requested.emit()
+	await get_tree().process_frame
+	var chart: TechTreePanel = screen.hud.tech_tree
+	assert_eq(research.free_slot(), -1, "every slot is at study")
+	assert_eq(chart.counsel_text(), "", "nothing to open, nothing to say")
+	assert_eq(chart.court_tech(), "", "no advance to mark")
+	chart.close()
+	screen.hud.panels.hide_research()
+
+
 ## A phone's back sets the chart aside before the college under it, so one press
 ## never drops two layers (REQ-P5-07).
 func test_back_sets_the_chart_aside_before_the_college() -> void:
@@ -1979,7 +2071,7 @@ func test_the_college_pick_names_the_rankings_head() -> void:
 	assert_eq(String(pick.get("tech", "")), head, "the ranking's head")
 	assert_eq(String(pick.get("why", "")), "", "a scoring win carries no door reason")
 	assert_eq(
-		MapPlayResearchPickWords.sentence(String(pick.get("line", ""))),
+		MapPlayPickProse.sentence(String(pick.get("line", ""))),
 		"The court would open %s." % TechCatalog.display_name(head)
 	)
 	assert_eq(_economy.research.free_slot(), 0, "the reading assigns nothing")

@@ -1,7 +1,9 @@
 class_name QuickBattleActions
 extends RefCounted
-## Plan scripts and one action's resolution for Quick Battle. Tables stay here
-## so [QuickBattle] only orchestrates rounds (REQ-P3-01, REQ-P3-03).
+## One action's resolution for Quick Battle. The law it is fought under — the
+## plans, the command points, the damage and guard shares, the cohesion steps
+## and the despatch words — lives in [QuickBattleActionLaw], so this module only
+## walks a blow (REQ-P3-01, REQ-P3-03).
 ## A siege routes casualties through [SiegeLanes]: the wall shelters the
 ## garrison, only artillery reaches behind it, and a sortie trades that shelter
 ## for every regiment's fire. [SiegeGround] scales the ground a blow lands on:
@@ -9,58 +11,6 @@ extends RefCounted
 ## there (wiki: quick-battle § Core actions). [QuickBattleLine] owns which men a
 ## side fights with: the line dealt when the battle opened, its wings and the
 ## weight a blow carries (wiki: combat § The line and the reserve).
-
-## Attacker scripts. The defender has its own: a sally is a **Sortie** order,
-## not an assault on a wall it is standing on (wiki: siege-mechanics § Gates).
-const PLANS: Dictionary = {
-	"aggressive": ["maneuver", "assault"], "balanced": ["volley", "entrench", "volley"],
-	"defensive": ["fall_back", "volley"],
-}
-const DEFENDER_PLANS: Dictionary = {
-	"aggressive": ["entrench", "sortie"], "balanced": ["volley", "entrench"],
-	"defensive": ["fall_back", "volley"],
-}
-## A garrison in the open has no gate to sally from: the sortie slot becomes
-## volley fire so a defender script still spends its CP.
-const DEFENDER_FIELD_PLANS: Dictionary = {
-	"aggressive": ["entrench", "volley", "volley"], "balanced": ["volley", "entrench"],
-	"defensive": ["fall_back", "volley"],
-}
-const ACTION_CP: Dictionary = {
-	"volley": 1, "entrench": 1, "maneuver": 1, "assault": 2, "sortie": 2, "fall_back": 2,
-}
-const ACTION_DAMAGE: Dictionary = {
-	"volley": 0.12, "assault": 0.26, "sortie": 0.22,
-	"entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
-}
-const ACTION_SELF: Dictionary = {
-	"volley": 0.0, "assault": 0.10, "sortie": 0.08,
-	"entrench": 0.0, "maneuver": 0.0, "fall_back": 0.0,
-}
-const ACTION_GUARD: Dictionary = {
-	"volley": 0.0, "assault": 0.0, "sortie": 0.0, "entrench": 0.45,
-	"maneuver": 0.0, "fall_back": 0.25,
-}
-const ACTION_LABEL: Dictionary = {
-	"volley": "Volley fire", "assault": "Assault", "sortie": "Sortie",
-	"entrench": "Entrench", "maneuver": "Maneuver", "fall_back": "Fall back",
-}
-
-
-static func actions_for(
-	plan: String, is_defender: bool = false, siege: bool = false
-) -> Array:
-	if is_defender:
-		var script: Dictionary = DEFENDER_PLANS if siege else DEFENDER_FIELD_PLANS
-		return (script.get(plan, script["balanced"]) as Array).duplicate()
-	return (PLANS.get(plan, PLANS["balanced"]) as Array).duplicate()
-
-
-## The one gate every plan value passes: the three published stances, anything
-## else (an old save, a typo, a scenario) is `balanced` (wiki: quick-battle
-## § The crown's plan — "Any other value is balanced"; DR-20261110-33).
-static func normalize_plan(plan: String) -> String:
-	return plan if PLANS.has(plan) else "balanced"
 
 
 ## The one action-entry shape every blow writes: a scripted order and the
@@ -91,6 +41,9 @@ static func action_entry(side: int, action: String, label: String) -> Dictionary
 
 
 ## Resolve one scripted action against the enemy side (and guns, when assaulting).
+## The action walks five named steps: the stance it resolves as, the cohesion it
+## pays, the wing it falls on, the weight the blow carries, and the men it
+## breaks and mauls (REQ-P3-01).
 static func resolve(
 	armies: Array[ArmyState],
 	state: Dictionary,
@@ -103,12 +56,9 @@ static func resolve(
 	var enemy: Dictionary = state[enemy_key]
 	var fort: int = int((state["defender"].get("mods", {}) as Dictionary).get("fort", 0))
 	var siege: bool = fort > 0
-	## A sally with no wall to leave is ordinary volley fire.
-	var acted: String = "volley" if action == "sortie" and not siege else action
-	if acted == "sortie" and key != "defender":
-		acted = "volley"
+	var acted: String = _stance(action, key, siege)
 	var entry: Dictionary = action_entry(
-		int(me["owner"]), acted, String(ACTION_LABEL[acted])
+		int(me["owner"]), acted, QuickBattleActionLaw.label_of(acted)
 	)
 	var terrain: String = String(state.get("terrain", "open"))
 	## The wing this blow falls on: fire on the fullest part of the enemy line,
@@ -117,35 +67,81 @@ static func resolve(
 	## collapse).
 	var wing: String = QuickBattleLine.wing_for(enemy, acted)
 	entry["wing"] = wing
-	## Every stance has a cohesion price, and none hands a step back: a manoeuvre
-	## pays for the press it crosses under, and a fall back trades a step for the
-	## space it gives (wiki: quick-battle § Turn structure and actions). The price
-	## is paid before the stance does its work, so the blow it lands is its line's
-	## own weakened one, and it is kept on the entry so the despatch can name it
-	## (REQ-P5-05).
-	var spent: int = cohesion_cost(acted, me)
-	var paid: int = mini(spent, int(me["cohesion"]))
-	if paid > 0:
-		me["cohesion"] = int(me["cohesion"]) - paid
-		entry["cohesion_lost"] = paid
-		entry["cohesion_why"] = cohesion_why(acted)
+	_charge_cohesion(me, acted, entry)
 	if acted == "maneuver":
 		return entry
 	if acted == "entrench" or acted == "fall_back":
-		var guard: float = float(ACTION_GUARD[acted])
-		# The prepared ground of HILL/WOODS/TOWN is the defender's advantage.
-		if key == "defender":
-			guard *= SiegeGround.entrench_scale(terrain)
-		me["guard"] = maxf(float(me["guard"]), clampf(guard, 0.0, 0.8))
-		entry["guard"] = float(me["guard"])
+		_hold_ground(me, key, acted, terrain, entry)
 		return entry
-	var me_side: Array[ArmyState] = me["side"]
-	var enemy_side: Array[ArmyState] = enemy["side"]
-	var ratio: float = float(ACTION_DAMAGE[acted]) \
+	var ratio: float = _blow_ratio(me, enemy, key, acted, terrain, wing, entry)
+	var wanted: int = _carried_weight(me, enemy, key, siege, acted, ratio, entry, guns)
+	var standing: int = QuickBattleLine.standing_of(enemy)
+	if standing <= 0:
+		## Nothing stands to be struck: the blow names no wing, because naming
+		## one would point at men who have already fallen (wiki: quick-battle
+		## § Wings and collapse).
+		entry["wing"] = ""
+		return entry
+	var lost: Array[String] = _strike(
+		armies, me, enemy, state, key, siege, fort, wanted, wing, entry
+	)
+	_maul(enemy, key, lost, entry)
+	_break_cohesion(enemy, standing, lost)
+	return _pay_own(armies, me, key, entry, acted)
+
+
+## The stance an order resolves as: a sally with no wall to leave, or one an
+## attacker names, is ordinary volley fire.
+static func _stance(action: String, key: String, siege: bool) -> String:
+	var acted: String = "volley" if action == "sortie" and not siege else action
+	if acted == "sortie" and key != "defender":
+		return "volley"
+	return acted
+
+
+## Every stance has a cohesion price, and none hands a step back: a manoeuvre
+## pays for the press it crosses under, and a fall back trades a step for the
+## space it gives (wiki: quick-battle § Turn structure and actions). The price
+## is paid before the stance does its work, so the blow it lands is its line's
+## own weakened one, and it is kept on the entry so the despatch can name it
+## (REQ-P5-05).
+static func _charge_cohesion(me: Dictionary, acted: String, entry: Dictionary) -> void:
+	var paid: int = mini(QuickBattleActionLaw.cohesion_cost(acted, me), int(me["cohesion"]))
+	if paid <= 0:
+		return
+	me["cohesion"] = int(me["cohesion"]) - paid
+	entry["cohesion_lost"] = paid
+	entry["cohesion_why"] = QuickBattleActionLaw.cohesion_why(acted)
+
+
+## A stance that keeps its ground instead of striking: the guard it raises, the
+## prepared ground of HILL/WOODS/TOWN making a defender surer.
+static func _hold_ground(
+	me: Dictionary, key: String, acted: String, terrain: String, entry: Dictionary
+) -> void:
+	var guard: float = QuickBattleActionLaw.guard_of(acted)
+	if key == "defender":
+		guard *= SiegeGround.entrench_scale(terrain)
+	me["guard"] = maxf(float(me["guard"]), clampf(guard, 0.0, 0.8))
+	entry["guard"] = float(me["guard"])
+
+
+## The share of a line one blow carries: the action's published damage, scaled by
+## the striker's cohesion, the enemy's guard, the ground and a flank. The
+## defender shoots out into the approaches; the attacker shoots into the
+## defender's cover. Ground never shields the side that sallies from it.
+static func _blow_ratio(
+	me: Dictionary,
+	enemy: Dictionary,
+	key: String,
+	acted: String,
+	terrain: String,
+	wing: String,
+	entry: Dictionary
+) -> float:
+	var ratio: float = QuickBattleActionLaw.damage_share(acted) \
 		* (float(me["cohesion"]) / float(QuickBattleTerms.COHESION_MAX))
 	ratio *= 1.0 - clampf(float(enemy["guard"]), 0.0, 0.8)
-	# The defender shoots out into the approaches; the attacker shoots into the
-	# defender's cover. Ground never shields the side that sallies from it.
 	var ground: String = terrain if key == "attacker" else "open"
 	ratio *= SiegeGround.terrain_scale(acted, ground)
 	## A wing taken in flank: a blow that lands beside a wing the enemy has
@@ -153,19 +149,32 @@ static func resolve(
 	## quick-battle § Wings and collapse). The scale is kept on the blow so the
 	## despatch can name why it fell heavier.
 	var flank: float = QuickBattleWings.turned_scale(wing, enemy.get("broken", []) as Array)
-	ratio *= flank
 	if flank > 1.0:
 		entry["flank"] = flank
-	var enemy_count: int = QuickBattleLine.standing_of(enemy)
-	## The action's published share of a line, spent as tactical weight: a
-	## stronger line breaks more of the enemy, and a tougher enemy line loses
-	## fewer regiments to the same blow (wiki: quick-battle § Cohesion and
-	## effective strength). Both terms are read over the men each side's line was
-	## dealt when the battle opened: a reserve waiting behind the limit adds no
-	## strength to a blow and never makes the enemy's line read tougher than the
-	## survivors of its own line (wiki: combat § The line and the reserve — "a
-	## reserve adds no strength"; quick-battle § Battlefield layout — "the reserve
-	## is dealt nowhere ... add no strength").
+	return ratio * flank
+
+
+## The men a blow actually reaches: the action's published share spent as
+## tactical weight over the enemy line's average rank, with the battery drinking
+## what it can and a walled defender's return fire thinning the rest (wiki:
+## quick-battle § Cohesion and effective strength). Both terms are read over the
+## men each side's line was dealt when the battle opened: a reserve waiting
+## behind the limit adds no strength to a blow and never makes the enemy's line
+## read tougher than the survivors of its own line (wiki: combat § The line and
+## the reserve — "a reserve adds no strength"; quick-battle § Battlefield layout
+## — "the reserve is dealt nowhere ... add no strength").
+static func _carried_weight(
+	me: Dictionary,
+	enemy: Dictionary,
+	key: String,
+	siege: bool,
+	acted: String,
+	ratio: float,
+	entry: Dictionary,
+	guns: Array[Dictionary]
+) -> int:
+	var me_side: Array[ArmyState] = me["side"]
+	var enemy_side: Array[ArmyState] = enemy["side"]
 	var average: float = ArmyModifiers.average_rank(
 		enemy_side, int(enemy["limit"]), QuickBattleLine.line_of(enemy)
 	)
@@ -211,75 +220,75 @@ static func resolve(
 			wanted = ceili(
 				float(wanted) * SiegeLanes.return_fire_share(me_side, QuickBattleLine.line_of(me))
 			)
-	if enemy_count <= 0:
-		## Nothing stands to be struck: the blow names no wing, because naming
-		## one would point at men who have already fallen (wiki: quick-battle
-		## § Wings and collapse).
-		entry["wing"] = ""
-		return entry
+	return wanted
+
+
+## The blow's casualties: a siege splits them across the wall and the men behind
+## it, an open field breaks them out of the wing the blow fell on. A wing's
+## casualties fall on that wing alone; a line with no wings (a hand-built state,
+## a record before wings existed) bled as one deployed slice (wiki: quick-battle
+## § Wings and collapse).
+static func _strike(
+	armies: Array[ArmyState],
+	me: Dictionary,
+	enemy: Dictionary,
+	state: Dictionary,
+	key: String,
+	siege: bool,
+	fort: int,
+	wanted: int,
+	wing: String,
+	entry: Dictionary
+) -> Array[String]:
+	if wanted <= 0:
+		return [] as Array[String]
+	var me_side: Array[ArmyState] = me["side"]
+	var enemy_side: Array[ArmyState] = enemy["side"]
+	if not siege or key != "attacker":
+		return QuickBattleLine.break_men(armies, enemy_side, wanted, enemy, wing)
+	var split: Dictionary = SiegeLanes.strike(
+		armies, me_side, enemy_side, wanted, int(enemy["limit"]), fort,
+		bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary,
+		enemy.get("lanes", {}) as Dictionary, QuickBattleLine.line_of(me)
+	)
+	var wall_lost: Array[String] = split["wall"]
+	var behind_lost: Array[String] = split["behind"]
 	var lost: Array[String] = []
-	if wanted > 0 and siege and key == "attacker":
-		var split: Dictionary = SiegeLanes.strike(
-			armies, me_side, enemy_side, wanted, int(enemy["limit"]), fort,
-			bool(enemy.get("exposed", false)), state.get("gates", {}) as Dictionary,
-			enemy.get("lanes", {}) as Dictionary, QuickBattleLine.line_of(me)
-		)
-		var wall_lost: Array[String] = split["wall"]
-		var behind_lost: Array[String] = split["behind"]
-		lost.append_array(wall_lost)
-		lost.append_array(behind_lost)
-		entry["wall_lost"] = wall_lost.size()
-		entry["behind_lost"] = behind_lost.size()
-		entry["turned"] = int(entry["turned"]) + int(split["turned"])
-		entry["gates_broken"] = int(split.get("gates_broken", 0))
-	elif wanted > 0:
-		## A wing's casualties fall on that wing alone; a line with no wings (a
-		## hand-built state, a record before wings existed) bled as one deployed
-		## slice, exactly as before (wiki: quick-battle § Wings and collapse).
-		lost = QuickBattleLine.break_men(armies, enemy_side, wanted, enemy, wing)
+	lost.append_array(wall_lost)
+	lost.append_array(behind_lost)
+	entry["wall_lost"] = wall_lost.size()
+	entry["behind_lost"] = behind_lost.size()
+	entry["turned"] = int(entry["turned"]) + int(split["turned"])
+	entry["gates_broken"] = int(split.get("gates_broken", 0))
+	return lost
+
+
+## The survivors the blow mauls, and the side's casualty count: the blow that
+## broke a regiment also costs every standing man health, and the plate shows
+## every survivor's drop (wiki: combat § Strength). The province's hospital
+## triages the defender's survivors (DR-20261111-12).
+static func _maul(enemy: Dictionary, key: String, lost: Array[String], entry: Dictionary) -> void:
 	enemy["lost"].append_array(lost)
-	# The blow that broke a regiment also mauls the men still standing: the
-	# plate shows every survivor's health drop (wiki: combat § Strength).
+	var side: Array[ArmyState] = enemy["side"]
 	var pool: float = float(lost.size()) * RegimentCondition.HP_PER_SLOT
-	# The province's hospital triages the defender's survivors (DR-20261111-12).
 	if key == "attacker":
 		pool *= float(enemy.get("triage", 1.0))
 	entry["hits"] = RegimentCondition.damage_side(
-		enemy_side, pool, int(enemy["limit"]), QuickBattleLine.line_of(enemy)
+		side, pool, int(enemy["limit"]), QuickBattleLine.line_of(enemy)
 	)
 	entry["mauled"] = (entry["hits"] as Array).size()
 	if key == "attacker":
 		entry["defender_lost"] = lost.size()
 	else:
 		entry["attacker_lost"] = lost.size()
-	if lost.size() >= ceili(float(enemy_count) * 0.25):
-		enemy["cohesion"] = maxi(0, int(enemy["cohesion"]) - 1)
-	return _pay_own(armies, me, key, entry, acted)
 
 
-## The steps of cohesion a stance takes off the side walking it: a manoeuvre costs
-## one while the line is under pressure — it has already lost men — and none on an
-## intact line, and a fall back trades one for the space it gives. Every other
-## stance costs none, and none of them ever returns a step (wiki: quick-battle
-## § Turn structure and actions). The ground is not charged twice: a blow into
-## broken ground is already the weaker for it (`SiegeGround.terrain_scale`,
-## DR-20261120-07).
-const ACTION_COHESION: Dictionary = {"maneuver": 1, "fall_back": 1}
-## Why a paid step reads as it does in the despatch.
-const COHESION_WHY: Dictionary = {
-	"maneuver": "under pressure", "fall_back": "the line gives ground",
-}
-
-
-static func cohesion_cost(acted: String, me: Dictionary) -> int:
-	if acted == "maneuver" and (me.get("lost", []) as Array).is_empty():
-		return 0
-	return int(ACTION_COHESION.get(acted, 0))
-
-
-## Why a stance cost the step it did, in the words the despatch prints.
-static func cohesion_why(acted: String) -> String:
-	return String(COHESION_WHY.get(acted, ""))
+## A blow that broke a quarter of the enemy line takes a cohesion step
+## (wiki: quick-battle § Cohesion and effective strength).
+static func _break_cohesion(enemy: Dictionary, standing: int, lost: Array[String]) -> void:
+	if lost.size() < ceili(float(standing) * 0.25):
+		return
+	enemy["cohesion"] = maxi(0, int(enemy["cohesion"]) - 1)
 
 
 ## An action's own price (an assault or a sortie costs the side that launches it).
@@ -291,7 +300,7 @@ static func cohesion_why(acted: String) -> String:
 static func _pay_own(
 	armies: Array[ArmyState], me: Dictionary, key: String, entry: Dictionary, action: String
 ) -> Dictionary:
-	var self_ratio: float = float(ACTION_SELF[action]) \
+	var self_ratio: float = QuickBattleActionLaw.self_share(action) \
 		* (float(me["cohesion"]) / float(QuickBattleTerms.COHESION_MAX))
 	if self_ratio <= 0.0:
 		return entry

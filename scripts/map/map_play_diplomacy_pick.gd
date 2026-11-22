@@ -27,9 +27,9 @@ const KIND_HOLD: String = "hold"
 ## runs no planner, the campaign is decided, or the session holds no relations
 ## to weigh.
 static func plan(play: PlaySession) -> Dictionary:
-	if play == null or play.diplomacy == null or play.world == null:
+	if not MapPlayPickProse.crown_ready(play):
 		return {}
-	if play.observer_mode or play.campaign_over():
+	if play.diplomacy == null or play.world == null:
 		return {}
 	var court_read: Dictionary = court(play, play.player_faction)
 	if court_read.is_empty():
@@ -79,7 +79,7 @@ static func lines(play: PlaySession) -> Dictionary:
 	for record: DiplomacyRelation in play.diplomacy.relations_of(play.player_faction):
 		var target: int = record.other(play.player_faction)
 		var pick: Dictionary = of(action, chosen, plan_now, target)
-		var line: String = MapPlayDiplomacyPickWords.sentence(
+		var line: String = MapPlayPickProse.sentence(
 			String(pick.get("line", ""))
 		)
 		if not line.is_empty():
@@ -99,7 +99,7 @@ static func pick(play: PlaySession, target: int) -> Dictionary:
 
 ## The court sheet's line for one crown, or "" when there is none to print.
 static func line(play: PlaySession, target: int) -> String:
-	return MapPlayDiplomacyPickWords.sentence(String(pick(play, target).get("line", "")))
+	return MapPlayPickProse.sentence_of(pick(play, target))
 
 
 ## One crown's reading off the court's plan: the order if the envoy is bound for

@@ -15,18 +15,6 @@ signal back_pressed
 const TILE_SIZE: float = PlaySession.TILE_SIZE
 const SEA_MARGIN: float = 1400.0
 const OLD_WORLD_INDEX: int = 0
-## A finger (or cursor) that travels farther than this between press and release
-## is a pan, not a tap.
-const TAP_SLOP: float = 12.0
-## Two answers to the same tap land within this many world units of each other.
-const TAP_MERGE_DISTANCE: float = 0.5
-## Android delivers one back press twice, and may also deliver it as Escape.
-## A second delivery inside this window is the same press, not a new one.
-const BACK_DEBOUNCE_MS: int = 300
-
-## When this chart last answered a back press, shared by every chart instance so
-## the duplicate delivery of one press cannot leave two screens.
-static var _last_back_ms: int = -BACK_DEBOUNCE_MS
 
 ## New-game choices from the setup screen. Tests set it before add_child.
 var config: GameConfig = null
@@ -53,14 +41,9 @@ var _chrome: CapitalChoiceChrome = CapitalChoiceChrome.new()
 
 var _hint: Label = null
 var _pick: Label = null
-## One press slot per input stream: Android sends a touch and an emulated mouse
-## click beside it, and sharing one slot lets the second press erase the first
-## one's start, so that stream's release answers nothing.
-var _touch_start: Vector2 = Vector2.INF
-var _touch_index: int = -1
-var _mouse_start: Vector2 = Vector2.INF
-var _answered_tap_frame: int = -1
-var _answered_tap_world: Vector2 = Vector2.INF
+## The chart's tap law: one press slot per input stream, and one answer per tap
+## however many paths deliver it (REQ-P3-04).
+var _taps: ChartTap = ChartTap.new()
 
 
 func _ready() -> void:
@@ -90,7 +73,7 @@ func _ready() -> void:
 ## once (the router would otherwise open setup and then leave it again).
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed(InputActions.CANCEL):
-		if not _back_is_repeat():
+		if not BackRequest.is_repeat():
 			back_pressed.emit()
 		get_viewport().set_input_as_handled()
 
@@ -99,16 +82,8 @@ func _unhandled_input(event: InputEvent) -> void:
 ## swaps pages on the next idle frame, so this event cannot reach the setup page
 ## it installs (RUB-P5-07).
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_WM_GO_BACK_REQUEST and not _back_is_repeat():
+	if what == NOTIFICATION_WM_GO_BACK_REQUEST and not BackRequest.is_repeat():
 		back_pressed.emit()
-
-
-## True for the second delivery of a press this chart already answered.
-func _back_is_repeat() -> bool:
-	var now: int = Time.get_ticks_msec()
-	var repeat: bool = now - _last_back_ms < BACK_DEBOUNCE_MS
-	_last_back_ms = now
-	return repeat
 
 
 # --- chrome -----------------------------------------------------------------
@@ -276,31 +251,16 @@ func on_tapped(world_position: Vector2) -> void:
 
 
 ## Touch and mouse taps from the HUD catcher: the press is remembered, and a
-## release within `TAP_SLOP` is a tap on the chart. Drags and pinches are left
-## to the camera, which still owns panning and zooming.
+## release within `ChartTap.SLOP` is a tap on the chart. Drags and pinches are
+## left to the camera, which still owns panning and zooming.
 func _on_catcher_input(event: InputEvent) -> void:
+	var point: Vector2 = Vector2.INF
 	if event is InputEventScreenTouch:
-		if event.pressed:
-			_touch_start = event.position
-			_touch_index = event.index
-		elif event.index == _touch_index:
-			var touch_start: Vector2 = _touch_start
-			_touch_start = Vector2.INF
-			_touch_index = -1
-			_finish_tap(touch_start, event.position)
+		point = _taps.touch(event.pressed, event.index, event.position)
 	elif event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-		if event.pressed:
-			_mouse_start = event.position
-		elif _mouse_start != Vector2.INF:
-			var mouse_start: Vector2 = _mouse_start
-			_mouse_start = Vector2.INF
-			_finish_tap(mouse_start, event.position)
-
-
-## A release close to its press is a tap; anything farther belongs to the pans.
-func _finish_tap(start: Vector2, position: Vector2) -> void:
-	if start != Vector2.INF and position.distance_to(start) <= TAP_SLOP:
-		_tap_at(position)
+		point = _taps.mouse(event.pressed, event.position)
+	if point != Vector2.INF:
+		_tap_at(point)
 
 
 ## A screen point in the chart's own pixels to the world: the canvas transform
@@ -318,13 +278,9 @@ func _tap_at(screen_position: Vector2) -> void:
 ## release the catcher sees.
 func _answer_tap(world_position: Vector2) -> void:
 	var frame: int = Engine.get_process_frames()
-	if (
-		frame == _answered_tap_frame
-		and world_position.distance_to(_answered_tap_world) < TAP_MERGE_DISTANCE
-	):
+	if _taps.is_repeat(frame, world_position):
 		return
-	_answered_tap_frame = frame
-	_answered_tap_world = world_position
+	_taps.mark_answered(frame, world_position)
 	pick_tile(MapGeo.tile_at_world(world_position, TILE_SIZE))
 
 

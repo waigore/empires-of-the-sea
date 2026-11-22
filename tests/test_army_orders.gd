@@ -842,50 +842,34 @@ func test_a_standard_leaves_with_the_army_it_belongs_to() -> void:
 
 ## A battle the crown fights leaves a word at the rival's court: the event beat
 ## (wiki: dialogue-and-mood § Design intent — event: battle results;
-## DR-20261111-01). The record is written by the real combat pass, so the beat
-## can never drift from what the field decided.
+## DR-20261111-01). Books through the same `record_land_battle` path the combat
+## pass uses; seating a chart fight under coverage paid the observer step-plate
+## (~5–12 s) for a beat diplomacy_rules already covers (docs/testing.md § Speed
+## rules; fleet sea-fight twin).
 func test_a_battle_leaves_a_word_at_the_rivals_court() -> void:
+	var player: int = MapScreen.PLAYER_FACTION
 	var rival: int = 2
-	var province: int = -1
-	for entry: ProvinceState in _screen.model.provinces:
-		if entry.owner == rival and not entry.capital:
-			province = entry.id
-			break
-	assert_true(province >= 0, "the fixture seats a rival province")
-	DiplomacyRules.declare_war(_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival)
-	_screen.play.observer_mode = true
-	_screen.model.province_data(province).fort_level = 0
-	_seat_battle(province, MapScreen.PLAYER_FACTION, rival, 8, 2)
-
-	MapPlayLandTurn.resolve(_screen.play)
-
-	var spoken: Dictionary = DialogueEvents.for_pair(
-		_screen.play.diplomacy, MapScreen.PLAYER_FACTION, rival
+	var state := DiplomacyState.new()
+	state.ensure_relation(player, rival, 1)
+	DiplomacyRules.declare_war(state, player, rival)
+	assert_true(
+		DialogueEvents.record_land_battle(
+			state,
+			{
+				"province": 1,
+				"attacker": player,
+				"defender": rival,
+				"outcome": ArmyCombat.Outcome.ATTACKER_VICTORY,
+			},
+			player
+		),
+		"a verdict the crown fought is kept"
 	)
+
+	var spoken: Dictionary = DialogueEvents.for_pair(state, player, rival)
 	assert_eq(String(spoken["category"]), DialogueCatalog.CAT_EVENT, "the field answers")
 	assert_true(String(spoken["point"]).begins_with("event/"), "a battle beat")
 	assert_eq(int(spoken["speaker"]), rival, "the rival speaks, never the crown")
-
-
-## Seats an attacker and a defender in one province, as a march would, without
-## disturbing the screen's selection.
-func _seat_battle(province: int, attacker: int, defender: int, atk: int, def: int) -> void:
-	_screen.army_layer.armies.clear()
-	_screen.model.province_data(province).owner = defender
-	var holding: ArmyState = ArmyState.muster(1, defender, province, false, _guards(def), 1)
-	holding.moved = false
-	var field: ArmyState = ArmyState.muster(2, attacker, province, false, _guards(atk), 100)
-	field.moved = true
-	_screen.army_layer.armies.append(holding)
-	_screen.army_layer.armies.append(field)
-	_screen.army_layer._rebuild_markers()
-
-
-func _guards(count: int) -> Array[String]:
-	var types: Array[String] = []
-	for _index in count:
-		types.append("guards")
-	return types
 
 
 func _player_home() -> ArmyState:
@@ -1102,6 +1086,121 @@ func test_an_enemy_dossier_keeps_the_detail_but_no_orders() -> void:
 		"a rival's colours are never dismissed by the crown"
 	)
 	assert_true(String(panel._status.text).contains("Enemy colours"))
+	panel.free()
+
+
+## A beaten host left where it fought stands on ground it does not hold. The
+## dossier must name whose ground that is, and the hint must not promise own land
+## the tap list does not hold — the road home is a walk through the provinces
+## beside it (wiki: military-armies § Movement and attacks).
+func test_a_routed_host_reads_its_ground_and_the_walk_home() -> void:
+	var model := ArmyFixture.build()
+	# The far colony goes over to the rival, so province 4 — the rival province
+	# at the map's edge — has no crown land beside it at all.
+	model.province_data(1).owner = 1
+	var bordered := ArmyFixture.army(9, 0, 2, ["guards"], false)
+	var stranded := ArmyFixture.army(10, 0, 4, ["guards"], false)
+	var rival_name: String = FactionCatalog.name_of(1)
+	var mark: String = "'" if rival_name.ends_with("s") else "'s"
+
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	panel.refresh(model, ArmyDossierOpening.of(bordered, true))
+	assert_eq(
+		String(panel._location.text), "At Province 2 — %s%s ground" % [rival_name, mark],
+		"the place line names whose ground the host stands on"
+	)
+	assert_eq(
+		String(panel._hint.text),
+		"Tap a highlighted province; off your own ground only the provinces "
+		+ "beside you are open.",
+		"a host off its own ground is not promised own land it cannot reach"
+	)
+	assert_false(ArmyMovement.stranded(model, bordered), "own land is one march away")
+
+	panel.refresh(model, ArmyDossierOpening.of(stranded, true))
+	assert_eq(
+		String(panel._location.text), "At Province 4 — %s%s ground" % [rival_name, mark],
+		"the place line names the ground even where no road home is open"
+	)
+	assert_eq(
+		String(panel._hint.text),
+		"No own land touches here — march through the provinces beside you, "
+		+ "one march at a time, to reach home.",
+		"the hint reads the page's own sentence for the walk"
+	)
+	assert_true(ArmyMovement.stranded(model, stranded), "no own province is one march away")
+	var home: Dictionary = ArmyMovement.can_move(model, stranded, 0)
+	assert_false(bool(home.get("ok", true)), "a home march is refused from here")
+	assert_eq(
+		String(home.get("reason", "")),
+		String(panel._hint.text),
+		"the refusal and the dossier's hint are the one published sentence"
+	)
+	assert_false(
+		String(home.get("reason", "")).contains("naval transport"),
+		"a land army is not told to buy a hull: %s" % home.get("reason", "")
+	)
+	panel.free()
+
+
+## A host camped on ground it does not hold keeps no interior lines: only the
+## provinces beside it are open, so own land two marches away is no march while
+## the own province that borders it is one. Back on its own ground the same court
+## marches on interior lines again (wiki: military-armies § Movement and attacks;
+## DR-20261121-15).
+func test_a_host_off_its_ground_keeps_no_interior_lines() -> void:
+	var model := ArmyFixture.build()
+	# Province 2 is the rival's; the crown holds 0 and 6 beside it, and 1 beyond
+	# them on the same landmass.
+	var host := ArmyFixture.army(11, 0, 2, ["guards"], false)
+
+	var listed: Array[int] = ArmyMovement.destinations(model, host)
+	assert_true(listed.has(0), "the own province beside the host is open")
+	assert_true(listed.has(6), "the own corridor beside the host is open")
+	assert_true(listed.has(3), "the neutral province beside the host is open")
+	assert_false(listed.has(1), "own land two marches away is not a one-march destination")
+
+	var far: Dictionary = ArmyMovement.can_move(model, host, 1)
+	assert_false(bool(far.get("ok", true)), "own land beyond the border is refused")
+	assert_eq(
+		String(far.get("reason", "")),
+		"No interior lines run from this ground — march through the provinces "
+		+ "beside you, one march at a time, to reach home.",
+		"the refusal reads the page's own sentence"
+	)
+	var beside: Dictionary = ArmyMovement.can_move(model, host, 0)
+	assert_true(bool(beside.get("ok", false)), "the own province beside it is one march")
+
+	host.province = 0
+	assert_true(
+		ArmyMovement.destinations(model, host).has(1),
+		"interior lines fork again once the host is home"
+	)
+
+
+## The hint never promises own land the tap list does not hold: a host touching
+## its own land hears the walk's word too, and a host on its own ground keeps the
+## ordinary sentence (wiki: military-armies § Movement and attacks).
+func test_the_hint_keeps_the_tap_list_within_its_word() -> void:
+	var model := ArmyFixture.build()
+	var host := ArmyFixture.army(12, 0, 2, ["guards"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+
+	panel.refresh(model, ArmyDossierOpening.of(host, true))
+	assert_eq(
+		String(panel._hint.text),
+		"Tap a highlighted province; off your own ground only the provinces "
+		+ "beside you are open."
+	)
+
+	host.province = 0
+	panel.refresh(model, ArmyDossierOpening.of(host, true))
+	assert_eq(
+		String(panel._hint.text),
+		"Tap a highlighted province; your own land is open, enemy land must border you."
+	)
 	panel.free()
 
 
@@ -1605,11 +1704,12 @@ func test_the_courts_pick_stages_on_the_frontier() -> void:
 	play.army_layer.free()
 
 
-## At peace with no border to watch a field army is given nothing at all.
+## At peace with no border to watch a field army on its own ground is given
+## nothing at all. (A host standing off its own ground walks home: DR-20261121-15.)
 func test_the_courts_pick_gives_a_peaceful_field_army_no_order() -> void:
 	var play: PlaySession = _pick_play(false)
 	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
-	var field := ArmyFixture.army(2, 0, 4, ["guards"])
+	var field := ArmyFixture.army(2, 0, 1, ["guards"])
 	_pick_roster(play, [home, field] as Array[ArmyState])
 
 	assert_true(MapPlayArmyPick.pick(play, field).is_empty(), "no frontier, no march")
@@ -1635,6 +1735,54 @@ func test_the_courts_pick_marches_a_worn_army_home_to_merge() -> void:
 			% play.model.province_name(0)
 	)
 	play.army_layer.free()
+
+
+## A host standing on ground it does not hold walks the first leg home, and the
+## dossier names the walk rather than a march to nowhere (wiki: military-armies
+## § Movement and attacks; DR-20261121-15).
+func test_the_courts_pick_walks_a_stranded_host_home() -> void:
+	var play: PlaySession = _pick_play(false)
+	# The provinces beside the wilderness are unclaimed too, so no own land is
+	# one march away: the road home is a walk, not an interior-lines march.
+	play.model.province_data(1).owner = MapModel.NO_ID
+	play.model.province_data(6).owner = MapModel.NO_ID
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 3, ["guards", "guards"])
+	_pick_roster(play, [home, field] as Array[ArmyState])
+
+	var pick: Dictionary = MapPlayArmyPick.pick(play, field)
+
+	assert_eq(String(pick.get("kind", "")), AiMilitaryPlanner.KIND_WALK_HOME)
+	assert_eq(int(pick.get("province", -1)), 6, "the first leg toward the seat")
+	assert_eq(
+		String(pick.get("line", "")),
+		"the court would march on %s, the first leg home"
+			% play.model.province_name(6)
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(play.model, field, pick),
+		"the field army at %s home by way of %s"
+			% [play.model.province_name(3), play.model.province_name(6)],
+		"the sheet names the walk, not a gate"
+	)
+	assert_eq(
+		MapPlayArmyOrdersPick.clause(null, field, pick), "", "no chart, no walk clause"
+	)
+	play.army_layer.free()
+
+
+## The walk's own wording: the road home once the step lands on the court's own
+## ground, and nothing for a chart or a province the court cannot read
+## (DR-20261121-15).
+func test_the_walk_clause_names_own_ground() -> void:
+	var model: MapModel = ArmyFixture.build()
+	assert_eq(
+		MapPlayArmyPickWords.walk_line(model, 0, true),
+		"the court would march on %s, its own ground, the road home"
+			% model.province_name(0)
+	)
+	assert_eq(MapPlayArmyPickWords.walk_line(null, 0, false), "", "no chart, no line")
+	assert_eq(MapPlayArmyPickWords.walk_line(model, -1, false), "", "no province, no line")
 
 
 ## A Home Army at its muster target cuts a second field force before the march
@@ -1769,9 +1917,9 @@ func test_the_courts_pick_hands_each_army_its_own_order() -> void:
 ## that names no place (REQ-P5-06).
 func test_the_pick_words_name_a_place_or_say_nothing() -> void:
 	var model: MapModel = ArmyFixture.build()
-	assert_eq(MapPlayArmyPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(
-		MapPlayArmyPickWords.sentence("the court would advance"),
+		MapPlayPickProse.sentence("the court would advance"),
 		"The court would advance.",
 		"one capital and a full stop"
 	)
@@ -1786,6 +1934,84 @@ func test_the_pick_words_name_a_place_or_say_nothing() -> void:
 	assert_eq(MapPlayArmyPickWords.march_line(model, 4, ""), "", "no reason, no march")
 	assert_eq(MapPlayArmyPickWords.rotate_line(null, 0), "", "no chart, no road home")
 	assert_eq(MapPlayArmyPickWords.rotate_line(model, -1), "", "no seat, no road home")
+
+
+# --- army dossier parts (status / strength / orders; REQ-P3-01) ---------------
+## Standing prose and the order block live outside ArmyPanel so the sheet only
+## composes them — same shape as the fleet and civilian dossiers.
+
+
+## Status and hint lines are plain words: enemy, embarked, home, marched,
+## stranded walk-home, or free (wiki: military-armies § Movement and attacks).
+func test_army_panel_status_words_the_standing_lines() -> void:
+	var model := ArmyFixture.build()
+	var home := ArmyFixture.army(1, 0, 0, ["guards"], true)
+	var field := ArmyFixture.army(2, 0, 1, ["guards"], false)
+	var rival := ArmyFixture.army(3, 1, 2, ["knights"], false)
+	assert_eq(ArmyPanelStatus.status_text(rival, false), "Enemy colours · no orders")
+	assert_eq(
+		ArmyPanelStatus.hint_text(rival, false, false),
+		"Observe only. Orders require your own army."
+	)
+	assert_eq(ArmyPanelStatus.status_text(home, true), "Home Army · never leaves the capital")
+	field.moved = true
+	assert_eq(ArmyPanelStatus.status_text(field, true), "Has marched this turn")
+	field.moved = false
+	assert_eq(ArmyPanelStatus.status_text(field, true), "1 march this turn")
+	assert_eq(
+		ArmyPanelStatus.hint_text(field, true, true),
+		ArmyMovement.NO_OWN_LAND_REACH,
+		"the stranded hint is the rule's own published sentence"
+	)
+	assert_true(
+		ArmyPanelStatus.hint_text(field, true, false, true).contains(
+			"only the provinces beside you are open"
+		),
+		"a host off its own ground is not promised interior lines"
+	)
+	assert_eq(
+		ArmyPanelStatus.ground_note(model, field),
+		"",
+		"own ground adds nothing"
+	)
+	model.province_data(1).owner = 1
+	var rival_name: String = FactionCatalog.name_of(1)
+	var mark: String = "'" if rival_name.ends_with("s") else "'s"
+	assert_eq(
+		ArmyPanelStatus.ground_note(model, field),
+		" — %s%s ground" % [rival_name, mark]
+	)
+
+
+## Strength line names count, firepower, food and the ward or tents from one
+## module so the dossier never invents a second figure (REQ-P2-03).
+func test_army_panel_strength_names_one_figure() -> void:
+	var model := ArmyFixture.build()
+	model.province_data(1).hospital_level = 1
+	var army := ArmyFixture.army(6, 0, 1, ["guards"], false)
+	var line: String = ArmyPanelStrength.line(model, army)
+	assert_true(line.contains("regiments"), line)
+	assert_true(line.contains("strength"), line)
+	assert_true(line.contains("food"), line)
+	assert_true(line.contains("rest 40%"), line)
+	assert_eq(ArmyPanelStrength.food(army), ArmyRoster.food_upkeep_of([army], army.owner))
+
+
+## Order presses and the dismiss arm live on one block; the panel only aliases
+## them so existing dossier cases keep their field paths.
+func test_army_panel_orders_own_the_presses() -> void:
+	var model := ArmyFixture.build()
+	var army := ArmyFixture.army(8, 0, 1, ["guards", "pikemen"], false)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	panel.refresh(model, ArmyDossierOpening.of(army, true))
+	assert_not_null(panel._orders, "the sheet carries the orders block")
+	assert_eq(panel._detach_all, panel._orders.detach_all, "alias matches the block")
+	assert_eq(panel._dismiss_all, panel._orders.dismiss_all, "dismiss alias matches")
+	assert_true(panel._detach_all.visible, "two colours may split")
+	assert_true(panel._dismiss_all.visible, "the standard may be shed")
+	assert_true(panel._plan.visible, "the crown's plan stands")
+	panel.free()
 
 
 ## The dossier prints the pick under the composition, and a standard the court
@@ -1993,9 +2219,9 @@ func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
 ## Every wording the drill yard can print, and nothing for a case that names no
 ## gate (REQ-P5-06).
 func test_the_muster_words_name_a_line_or_say_nothing() -> void:
-	assert_eq(MapPlayMusterPickWords.sentence(""), "", "no words, no sentence")
+	assert_eq(MapPlayPickProse.sentence(""), "", "no words, no sentence")
 	assert_eq(
-		MapPlayMusterPickWords.sentence("the court would muster Guards"),
+		MapPlayPickProse.sentence("the court would muster Guards"),
 		"The court would muster Guards.",
 		"one capital and a full stop"
 	)

@@ -8,13 +8,6 @@ extends RefCounted
 ## wording test instead of printing silence (REQ-P5-05). A reading, never an
 ## order (REQ-P2-03, REQ-P5-06).
 
-## The pick's own sentence, opened like one: one capital and a full stop.
-static func sentence(text: String) -> String:
-	if text.is_empty():
-		return ""
-	return text.substr(0, 1).to_upper() + text.substr(1) + "."
-
-
 ## The order the envoy would spend on this crown, in the order catalogue's own
 ## kinds; "" for a kind the planner never emits.
 static func order_line(kind: String, target: int, action: Dictionary) -> String:
@@ -48,7 +41,6 @@ static func order_line(kind: String, target: int, action: Dictionary) -> String:
 			return "the court's envoy would break the pact with %s" % name
 	return ""
 
-
 ## The envoy's one order is spoken for: this crown hears nothing this turn, and
 ## the sheet says where the order went instead (the crown's own staff, so no
 ## rival's business is named) (REQ-P5-05).
@@ -59,7 +51,6 @@ static func elsewhere_line(target: int, other: int) -> String:
 		FactionCatalog.name_of(other), FactionCatalog.name_of(target)
 	]
 
-
 ## The envoy goes nowhere, and the gate the planner itself named is why; with no
 ## gate to name the line still says the envoy was weighed (REQ-P5-05).
 static func hold_line(target: int, why: String) -> String:
@@ -68,7 +59,6 @@ static func hold_line(target: int, why: String) -> String:
 	if gate.is_empty():
 		return "the court's envoy would say nothing to %s this turn" % name
 	return "the court's envoy would say nothing to %s — %s" % [name, gate]
-
 
 ## The planner's own gate words in the court's plain voice. An unknown reading
 ## passes through as it stands: the advice never invents a reason the planner
@@ -95,7 +85,6 @@ static func gate_words(why: String) -> String:
 		return "the pair's peace offer is still cooling"
 	return why
 
-
 ## The envoy chain's next rung, in the chain's own stage words
 ## (`DiplomacyCatalog.stage_label`): the rungs the planner can buy, each said
 ## the way the court says it (wiki: diplomacy § Overtures).
@@ -110,7 +99,6 @@ static func _overture_line(name: String, stage: String) -> String:
 		DiplomacyCatalog.STAGE_JOIN_EMPIRE:
 			return "the court's envoy would bring %s into the empire" % name
 	return ""
-
 
 ## The gift the envoy would carry, in the published step the order catalogue
 ## prints beside it (wiki: diplomacy § Grant Aid).

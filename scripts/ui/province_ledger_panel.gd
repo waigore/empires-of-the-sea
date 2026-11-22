@@ -13,13 +13,21 @@ extends LedgerSheet
 
 ## The order the view opens on; a press of another chip reorders the rows.
 var _sort: String = ProvinceLedger.SORT_VALUE
+## The court's reading of the realm: the provinces its own staff would act in
+## this turn (DR-20261121-21).
+var _realm_pick: Dictionary = {}
+## Those provinces by `region:province`, so a row knows whether it wears the
+## counsel's mark.
+var _court: Dictionary = {}
+var _counsel: Label = null
 
 
 func _init() -> void:
 	title_text = "THE CROWN'S REALM"
 	hint_text = (
-		"Visit opens the province's map and dossier. Each view reads the realm "
-		+ "as it stands; it never orders a work or a march."
+		"A ▸ marks the provinces the court would act in. Visit opens the "
+		+ "province's map and dossier. Each view reads the realm as it stands; "
+		+ "it never orders a work or a march."
 	)
 	toggle_action = InputActions.PROVINCE_LEDGER
 	_reading = ProvinceLedger.VIEW_ECONOMY
@@ -30,8 +38,16 @@ func refresh() -> void:
 	if play == null or play.world == null:
 		return
 	_snapshot = MapPlayProvinces.snapshot(play)
+	# One read for the whole realm, never one per province: the two passes are
+	# asked once and every row is narrowed off their answer (REQ-P4-01).
+	_realm_pick = MapPlayRealmCounsel.pick(play)
 	_fit()
 	_apply_filter()
+
+
+## The sheet's own court reading, as it stands.
+func counsel_text() -> String:
+	return "" if _counsel == null else _counsel.text
 
 
 # --- sheet hooks -------------------------------------------------------------
@@ -43,9 +59,20 @@ func _build_crest() -> Control:
 
 func _build_body(column: VBoxContainer) -> void:
 	_build_filter_body(
-		column, "Chart", "View", ProvinceLedger.VIEWS, ProvinceLedger.view_label
+		column, "Chart", "View", ProvinceLedger.VIEWS, ProvinceLedger.view_label,
+		_build_counsel
 	)
 	_bar.sort_chosen.connect(_on_sort)
+
+
+## The court's line under the chips and above the rows: what its own staff would
+## put to work or send a host into this turn, in the counsel's gold — advice,
+## never state (REQ-P5-06).
+func _build_counsel() -> Control:
+	_counsel = UiRowBuilder.label("", 12, Palette.GOLD)
+	_counsel.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_counsel.visible = false
+	return _counsel
 
 
 # --- filters -----------------------------------------------------------------
@@ -64,9 +91,23 @@ func _apply_filter() -> void:
 	_bar.fill_sort(
 		"Order", ProvinceLedger.sort_keys(_reading), ProvinceLedger.sort_label, _sort
 	)
+	# The marks the rows wear come off the one reading, so a chip press reorders
+	# the same ground without asking the passes again.
+	_court = _realm_pick.get("keys", {}) as Dictionary
+	_paint_counsel()
 	var groups: Array[Dictionary] = ProvinceLedger.groups(_snapshot, _region, _reading, _sort)
 	_paint_filtered(groups, ProvinceLedger.count(_snapshot, _region), _heading, _make_row)
 	_bar.render_sort(_sort)
+
+
+## Prints the court's line, or leaves the slot out of the sheet when the crown's
+## staff would act in none of her provinces (REQ-P5-06).
+func _paint_counsel() -> void:
+	if _counsel == null:
+		return
+	var said: String = MapPlayPickProse.sentence_of(_realm_pick)
+	_counsel.text = said
+	_counsel.visible = not said.is_empty()
 
 
 # --- rows --------------------------------------------------------------------
@@ -86,8 +127,12 @@ func _make_row(raw: Variant, compact: bool) -> Control:
 	var row := ProvinceLedgerRow.new()
 	row.compact = compact
 	row.view = _reading
+	var data: Dictionary = raw
+	row.court = _court.has(
+		"%d:%d" % [int(data.get("region", -1)), int(data.get("id", -1))]
+	)
 	row.visit_pressed.connect(_visit)
-	row.setup(raw as Dictionary)
+	row.setup(data)
 	return row
 
 

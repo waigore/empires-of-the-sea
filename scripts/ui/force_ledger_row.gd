@@ -8,6 +8,14 @@ extends LedgerRow
 
 signal visit_pressed(region: int, kind: String, id: int)
 
+## The mark the counsel reads by: a force the court's own staff would send this
+## turn wears it before its name (DR-20261122-03).
+const COURT_MARK: String = "▸"
+
+## Whether the court would send this force this turn; the roll sets it before
+## `setup` from the muster's own reading.
+var court: bool = false
+
 var _icon: Icon = null
 
 
@@ -22,7 +30,12 @@ func _build_state(state: VBoxContainer) -> void:
 
 func _fill() -> void:
 	var kind: String = String(data.get("kind", ForceLedger.KIND_ARMY))
-	_name.text = String(data.get("title", "Force"))
+	var title: String = String(data.get("title", "Force"))
+	# The counsel's mark leads the name, so a crown finds the forces her staff
+	# would send among a long muster (DR-20261122-03).
+	_name.text = (
+		"%s %s" % [COURT_MARK, title] if court else title
+	)
 	_chip.text = kind.to_upper()
 	_paint_chip(Palette.GOLD if kind == ForceLedger.KIND_SQUADRON else Palette.GOLD_DIM)
 	var place: String = String(data.get("place", "Open country"))
