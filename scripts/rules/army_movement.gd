@@ -205,6 +205,8 @@ static func walk_home_words(model: MapModel, army: ArmyState) -> String:
 ## such shore within a march (wiki: ships-and-naval § Naval transport (armies);
 ## DR-20261122-09). Pure: reads the chart and the host, orders nothing.
 static func sea_home_words(model: MapModel, army: ArmyState) -> String:
+	if model == null or army == null:
+		return ""
 	var harbour: int = nearest_harbour(model, army)
 	if harbour == NO_PROVINCE:
 		return SEA_HOME_NO_HARBOUR

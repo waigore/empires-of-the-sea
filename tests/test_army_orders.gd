@@ -1237,6 +1237,33 @@ func test_a_stranded_host_across_the_sea_names_the_harbour_that_takes_it_home() 
 	# Without a deck room the counsel names the quay, not a promise that a hull
 	# waits there: the embark gate is the squadron's own (ships-and-naval).
 	assert_true(NavalMovement.has_harbour(model, 1), "the province keeps a harbour")
+	# A quay across open water is never named: the sea column at x = 7 shuts the
+	# far colony off from the host's ground.
+	model.province_data(5).owner = 0
+	model.province_data(5).port_tile = Vector2i(8, 0)
+	assert_eq(
+		ArmyMovement.nearest_harbour(model, host),
+		1,
+		"a harbour beyond open water is no march from here"
+	)
+	var cut_off := ArmyFixture.army(14, 0, 5, ["guards"], false)
+	model.province_data(5).owner = 1
+	assert_eq(
+		ArmyMovement.nearest_harbour(model, cut_off),
+		ArmyMovement.NO_PROVINCE,
+		"an island harbour of the crown's is no march from the far shore either"
+	)
+	# Two own quays one march away: the lower id is the one named, so one chart
+	# always reads one sentence.
+	model.province_data(2).owner = 0
+	model.province_data(2).port_tile = Vector2i(2, 0)
+	var between := ArmyFixture.army(15, 0, 3, ["guards"], false)
+	assert_eq(ArmyMovement.nearest_harbour(model, between), 1, "the tie takes the lower id")
+	# A reading with no chart, no host or no ground says nothing rather than
+	# guessing.
+	assert_eq(ArmyMovement.nearest_harbour(null, host), ArmyMovement.NO_PROVINCE, "no chart")
+	assert_eq(ArmyMovement.nearest_harbour(model, null), ArmyMovement.NO_PROVINCE, "no host")
+	assert_eq(ArmyMovement.sea_home_words(model, null), "", "a host that is not there names no quay")
 
 
 ## A host camped on ground it does not hold keeps no interior lines: only the
