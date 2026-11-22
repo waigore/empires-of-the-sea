@@ -4409,6 +4409,18 @@ domain = "economy_ui"
 match = "scripts/ui/estate_ledger.gd*"
 domain = "muster"
 
+# The estates door's list paint and raise-press price walk (EstatesRows,
+# EstatesRaise). Same pause home as ImprovementPanel — the door they serve —
+# so body work rides the estates suites and never remounts the setup/hub
+# pages past the tier-1 budget.
+[[rules]]
+match = "scripts/ui/estates_rows.gd*"
+domain = "pause"
+
+[[rules]]
+match = "scripts/ui/estates_raise.gd*"
+domain = "pause"
+
 # Every court's own arms (wiki: diplomacy § The court sheet; DR-20261118-30):
 # one pure blazon over the faction catalog and the vector shield that paints it.
 # The court sheet, the open court's page and the dossier head all wear the arms,

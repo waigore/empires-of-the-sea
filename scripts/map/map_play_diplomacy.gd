@@ -28,12 +28,13 @@ static func open(play: PlaySession) -> void:
 	)
 
 
-## The court's own envoy reading, one sentence per crown the crown is in contact
-## with: the order her staff's planner would spend this turn
-## (`MapPlayDiplomacyPick`; DR-20261121-05). Advice only — the sheet prints it
-## and the crown still presses her own order (REQ-P5-06).
+## The court's own envoy reading, one pick per crown the crown is in contact
+## with: the order her staff's planner would spend this turn, with the row the
+## panel marks from the same pick (`MapPlayDiplomacyPick`; DR-20261121-05,
+## DR-20261122-11). Advice only — the sheet prints it and the crown still
+## presses her own order (REQ-P5-06).
 static func counsel(play: PlaySession) -> Dictionary:
-	return MapPlayDiplomacyPick.lines(play)
+	return MapPlayDiplomacyPick.picks(play)
 
 
 ## The published power score for every crown, from the public order of battle

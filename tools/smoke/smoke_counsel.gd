@@ -43,7 +43,7 @@ static func _estates(run, screen: MapScreen) -> void:
 	)
 	# The one press under the chips names the ready estates the view prints
 	# (REQ-P5-04; DR-20261116-06).
-	var ready: int = screen.improvements._ready_tiles().size()
+	var ready: int = screen.improvements.ready_tiles().size()
 	run.check(
 		screen.improvements._batch.visible == (ready > 0), "estates press stands"
 	)

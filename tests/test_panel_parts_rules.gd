@@ -5239,6 +5239,63 @@ func test_total_output_sums_every_yield() -> void:
 	assert_eq(EstateLedger.total_output({"lumber": 2, "iron": 3}), 5)
 	assert_eq(EstateLedger.total_output({}), 0)
 
+
+## EstatesRows / EstatesRaise: the estates door's list and raise walk (REQ-P3-01).
+func test_estates_rows_fill_empty_view_and_clear_null() -> void:
+	EstatesRows.clear(null)
+	EstatesRows.fill(
+		null, {}, -1, "all", {}, false, false, Callable(), Callable(), Callable()
+	)
+	assert_eq(EstatesRows.subtitle(null, -1), "Every owned resource tile, its works and its road to the crown.")
+	var host := VBoxContainer.new()
+	add_child(host)
+	EstatesRows.fill(
+		host, {"groups": []}, -1, "all", {}, false, false,
+		Callable(), Callable(), Callable()
+	)
+	assert_eq(host.get_child_count(), 1, "empty view still names the blank")
+	assert_true(host.get_child(0) is Label)
+	EstatesRows.clear(host)
+	assert_eq(host.get_child_count(), 0)
+	host.queue_free()
+
+
+func test_estates_panel_row_intents_reach_the_screen() -> void:
+	var panel := ImprovementPanel.new()
+	add_child(panel)
+	var saw: Array = []
+	panel.action_pressed.connect(
+		func(action: String, tile: Vector2i) -> void: saw.append([action, tile])
+	)
+	panel.focus_pressed.connect(func(tile: Vector2i) -> void: saw.append(["focus", tile]))
+	panel._on_row_build(Vector2i(2, 3))
+	panel._on_row_cancel(Vector2i(4, 5))
+	panel._on_row_focus(Vector2i(6, 7))
+	assert_eq(saw.size(), 3)
+	assert_eq(saw[0], ["build", Vector2i(2, 3)])
+	assert_eq(saw[1], ["cancel", Vector2i(4, 5)])
+	assert_eq(saw[2], ["focus", Vector2i(6, 7)])
+	panel.queue_free()
+
+
+func test_estates_raise_prices_without_a_chart_and_syncs_without_a_line() -> void:
+	var priced: Dictionary = EstatesRaise.price_row(
+		null, {"cost": {"lumber": 2}, "tile": "bad"}, {}
+	)
+	assert_eq(priced.get("lumber", 0), 2)
+	assert_true(
+		EstatesRaise.price_row(null, {"tile": Vector2i(1, 1)}, {}).is_empty(),
+		"no chart and no row cost yields an empty price"
+	)
+	var batch := RaiseBatchPress.new()
+	add_child(batch)
+	EstatesRaise.sync(null, null, {}, -1, "all", null, {}, [], 0)
+	EstatesRaise.sync(batch, null, {"groups": []}, -1, "all", null, {}, [], 0)
+	var walk := EstatesRaise.PriceWalk.new()
+	assert_eq(int(walk.price({"cost": {"iron": 1}}, {}).get("iron", 0)), 1)
+	batch.queue_free()
+
+
 func test_row_builder_builds_themed_widgets() -> void:
 	var row: HBoxContainer = UiRowBuilder.row(38.0)
 	assert_eq(row.custom_minimum_size.y, 38.0)

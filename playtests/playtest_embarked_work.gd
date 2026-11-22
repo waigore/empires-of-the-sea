@@ -80,7 +80,7 @@ func _run() -> void:
 	# --- the estates ledger's own door --------------------------------------
 	var estates: ImprovementPanel = _play.improvements
 	estates.open()
-	var ready: Array[Vector2i] = estates._ready_tiles()
+	var ready: Array[Vector2i] = estates.ready_tiles()
 	_say("the estates ledger prints %d ready estate(s); idle Builders counted: %d" % [
 		ready.size(),
 		ImprovementOrders.idle_builders(_play.civilian_layer.units, faction).size(),

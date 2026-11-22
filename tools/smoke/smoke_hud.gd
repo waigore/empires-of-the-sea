@@ -1,10 +1,10 @@
 extends RefCounted
 ## Fourth step of the e2e smoke: the bar's doors and the courts — the court
-## ledger's war and peace orders with its envoy's reading, the sound desk's
-## mute, and one tap on an inland province that must stick (REQ-P5-01,
-## REQ-P5-07). The director and its cue count stay on the run for the
-## end-of-turn read. The counsel readings on the bar's ledgers are their own
-## step (tools/smoke/smoke_counsel.gd).
+## ledger's war and peace orders with its envoy's reading and the mark on the
+## court it is bound for (DR-20261122-11), the sound desk's mute, and one tap on
+## an inland province that must stick (REQ-P5-01, REQ-P5-07). The director and
+## its cue count stay on the run for the end-of-turn read. The counsel readings
+## on the bar's ledgers are their own step (tools/smoke/smoke_counsel.gd).
 ##
 ## No `class_name`: the driver (tools/e2e_smoke.gd) preloads this file.
 
@@ -39,6 +39,21 @@ static func _court(run, screen: MapScreen) -> void:
 	run.check(
 		run.has_text(screen.hud.panels.diplomacy_panel._detail, counsel),
 		"the envoy's counsel is on the court's sheet"
+	)
+	# The crown list marks the court the envoy's one order is bound for, read off
+	# the same pick the gold line words (DR-20261122-11).
+	var panel: DiplomacyPanel = screen.hud.panels.diplomacy_panel
+	var plan: Dictionary = MapPlayDiplomacyPick.plan(screen.play)
+	var bound: int = int(
+		(plan.get("action", {}) as Dictionary).get("target", MapModel.NO_ID)
+	)
+	var marked: Array[int] = []
+	for faction_id: int in panel._known_ids():
+		if panel._is_marked(faction_id):
+			marked.append(faction_id)
+	run.check(
+		marked == ([bound] if bound != MapModel.NO_ID else []),
+		"the crown list marks the court the envoy would treat"
 	)
 	run.check(
 		run.has_text(screen.hud.panels.diplomacy_panel._detail, "THEIR ENVOY"),
