@@ -165,6 +165,18 @@ static func step_colonists(run) -> void:
 		screen.hud._fleet_panel._crew._pick.text == MapPlayVoyagePick.line(screen.play, home),
 		"the passenger block prints the court's own voyage pick"
 	)
+	# The block marks the press its line names — the crew it would take aboard —
+	# and a step that names no press here (a sail, a dock) marks none
+	# (DR-20261122-21).
+	var block: FleetCrewSection = screen.hud._fleet_panel._crew
+	var pick: Dictionary = crew["pick"]
+	if String(pick.get("kind", "")) == MapPlayVoyagePick.KIND_EMBARK:
+		run.check(
+			int(block.mark().get("unit", -1)) == int(pick.get("unit", -2)),
+			"the passenger block marks the crew the line would take"
+		)
+	else:
+		run.check(block.mark().is_empty(), "a step that names no press marks none")
 	MapPlayCivilianVoyage.on_action(screen.play, "crew:embark:%d" % colonist.id)
 	run.check(colonist.is_embarked(), "the colonist boards")
 	run.check(colonist.tile.x < 0, "an embarked civilian leaves the map")
