@@ -4224,8 +4224,6 @@ func test_the_refusal_names_the_answer_owed() -> void:
 ## court reads (wiki: civilian-units § Spy).
 
 const Fixture = preload("res://tests/civilian_fixture.gd")
-const intel_dossier_Fixture = preload("res://tests/map_fixture.gd")
-
 const PLAYER: int = 0
 const RIVAL: int = 1
 const MINOR: int = 6
@@ -4595,7 +4593,9 @@ func test_an_unmet_court_is_named_not_leaked_intel_dossier() -> void:
 
 func test_the_notes_count_public_behaviour() -> void:
 	_setup_intel_dossier()
-	var world: WorldMap = intel_dossier_Fixture.world()
+	# Pocket holdings beat a cold Standard chart under coverage (docs/testing.md
+	# § Speed rules — tiny fixture first); the note only needs a public count.
+	var world: WorldMap = _asym_world()
 	DiplomacyRules.declare_war(intel_dossier_state, intel_dossier_ENGLAND, intel_dossier_GENOA)
 	intel_dossier_state.record_event("callToArmsRefused", intel_dossier_ENGLAND, intel_dossier_PORTUGAL, {"aggressor": intel_dossier_VIEWER})
 	var notes: Dictionary = IntelDossier.report(intel_dossier_state, world, intel_dossier_VIEWER, intel_dossier_ENGLAND)["notes"] as Dictionary
