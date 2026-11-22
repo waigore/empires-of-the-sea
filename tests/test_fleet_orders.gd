@@ -25,11 +25,13 @@ func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
 	_naval = null
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:

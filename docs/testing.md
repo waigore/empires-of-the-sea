@@ -23,7 +23,7 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 
 ## Speed rules
 
-- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) to map screens.
+- Prefer pure fixtures (`civilian_fixture`, `naval_fixture`) to screens.
 - One cached small world per worker via `MapScreen.preset_world` /
   `Main.preset_world`; snapshot/restore when a case mutates the chart.
 - Smallest world that validates a `SaveCodec` slot and seats turn-100 civilians,
@@ -32,13 +32,14 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
   redraws nothing; `fog_changed` rises on a moved tile.
 - Cache shared maps in `before_all` on **non-underscore** vars, attached lazily
   (`_attach()`) so rule-only cases never paint. Chart caches must be `static`
-  (gd-tools clones each case). Prefer a pocket chart; one Standard census seed.
+  (gd-tools clones each case). Prefer a pocket chart; one Standard census.
 - **One mount per suite**: `suite_capture` / `suite_reset` (~0.15 s vs ~0.5 s
-  remount); advanced-start live cases share **one mount per tier**. Pure cases
-  skip re-seat/shell/restore (lazy `_screen` / `main` / menu-flow `chart`);
-  hospitals ride that chart; opening plates use short `hold_max` /
-  `fade_seconds`. Free a swapped screen. Far-chart fog / off-screen naval:
-  `world.region` / `regions.set_region` — no `_cycle_region`.
+  remount); one mount per advanced tier. Pure cases skip re-seat (lazy
+  `_screen` / `main` / menu-flow `chart`). `park_screen` after setup /
+  `before_each`; `suite_reset` unparks — idle `MapScreen._process` taxes every
+  later case under coverage. Free a swapped screen. Far-chart fog / naval:
+  `world.region` / `regions.set_region` — no `_cycle_region`. Short
+  `hold_max` / `fade_seconds` on opening plates.
 - **Tiny fixture first**: names and sea zones use `naval_fixture.build()` (7×3),
   not the 48×32 chart (~9 s covered).
 - **One resolved turn per suite**: resolve once in `before_all`, capture the
@@ -50,9 +51,8 @@ Job `e2e-smoke` (≤5 min): **smoke** (title → one turn → save/load) then
 - **Heaviest suite sorts first**: name order, four wide — `test_a_map_screen`
   leads so one chart suite does not drain alone.
 - One Godot boot per theme — coverage ~15 s; 24 suites; `parallel = 4`.
-  Diplomacy/battle court-words book at rules; suspending closes /
-  campaign-end use `AiControl.NOOP`; counsel only when court open; plate
-  saves reload in-place.
+  Court-words at rules; suspending / campaign-end use `AiControl.NOOP`;
+  counsel only when court open; plate saves reload in-place.
 - Smoke/auto: short boot, no sleeps/fades; auto sets `view_live=false`.
 
 ## Local

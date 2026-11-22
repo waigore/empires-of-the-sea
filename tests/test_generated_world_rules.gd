@@ -1793,12 +1793,16 @@ func _is_contiguous(tiles: Array) -> bool:
 
 func before_each() -> void:
 	_adv_bound = false
+	Fixture.park_screen(tier50_screen)
+	Fixture.park_screen(tier100_screen)
 
 
 func after_each() -> void:
 	if _adv_bound:
 		Fixture.restore(Fixture.world(), adv_saved)
 		_adv_bound = false
+	Fixture.park_screen(tier50_screen)
+	Fixture.park_screen(tier100_screen)
 	_setup_page_after_each()
 
 
@@ -3781,6 +3785,9 @@ func _mount_advanced_tiers() -> void:
 	tier100_screen = _instantiate_tier(AdvancedStart.TURNS100)
 	tier100_pristine = Fixture.suite_capture(tier100_screen)
 	SaveWorld.apply(advanced_live_world, advanced_live_saved)
+	# Idle mounts must not keep processing under every later case (coverage).
+	Fixture.park_screen(tier50_screen)
+	Fixture.park_screen(tier100_screen)
 
 
 func _instantiate_tier(tier: String) -> MapScreen:
