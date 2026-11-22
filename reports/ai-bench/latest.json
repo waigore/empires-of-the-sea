@@ -2,8 +2,8 @@
   "hill": "ai-bench",
   "tree_hash": "977b18fc261ebb9258b180985181b70ce8eb7027",
   "commit": "a924aadb1fe1c6baac20b7d36643a5fb1d232180",
-  "submission_hash": "sha256:0574fcb4b30117b7b0caed21b2481975dbc19098613290567681780aab379f6a",
-  "submission_git": "refactor/war-front-read@4a6a860b+dirty",
+  "submission_hash": "sha256:deadc1a6560cb6ebbe0d1bd9572b2323cb0601fcca53a871e324624e539c59aa",
+  "submission_git": "refactor/naval-planner-squadron-reads@c7cdad85",
   "passed": true,
   "config": [
     {
@@ -56,7 +56,7 @@
   ],
   "details": {
     "fixture": false,
-    "ai_surface_hash": "sha256:1dcf041a00bf616c707eb5ef99192d28fdc075cbce20144d27eef8b724a597d6",
+    "ai_surface_hash": "sha256:156973825fa5239cb0b0b7f96ff433ded1818cef3d4f3808157d12e09d32e8e9",
     "mainline_git_sha": "2c382bb2e6b14aecf9ac0f5e56f0ff34aa097acf",
     "parts": {
       "provinces_old": 7,
@@ -88,7 +88,7 @@
     "version": "0.12.1",
     "sha256": "e61791784bda99c9a8343f12272184667d8b33f8acd17f7fe7328ef170416e29"
   },
-  "timestamp": "2026-11-22T16:12:08Z",
+  "timestamp": "2026-11-22T17:14:20Z",
   "report_version": 1,
-  "signature": "hmac-sha256:d4dc33b41b494e50ef5d1cc2b9f4ccda7b96d3cf3db321e5c0bac6f2b4acc619"
+  "signature": "hmac-sha256:cdc508da6a7e3b442c389cbb7cae3f3852c23390498b509e3c27e6f1b4e7b457"
 }
