@@ -1477,8 +1477,55 @@ func test_a_renamed_title_rides_the_split_and_the_save() -> void:
 	)
 
 
+## The roster the chart shows and the roster the save copies are one list: a pass
+## that hands the table its own copy (the land turn's Home Army recall does) must
+## not hide the crown's detach from the reading or the save
+## (wiki: campaign-persistence — a save holds armies and regiments;
+## military-armies § Split and combine).
+func test_a_detach_reaches_the_roster_the_save_copies() -> void:
+	var layer: ArmyLayer = _screen.army_layer
+	var region: int = _screen.play.model.region_id
+	var owner: int = _screen.play.player_faction
+	var filed: Array[ArmyState] = []
+	filed.assign(layer.armies)
+	layer.regions.set_region(region, filed)
+	var home: ArmyState = _player_home()
+	var split: Dictionary = layer.split(home, [home.regiments[0]])
+	assert_true(bool(split.get("ok", false)), String(split.get("reason", "")))
+	var created: ArmyState = split["army"] as ArmyState
+	var stored: Array[ArmyState] = []
+	stored.assign(layer.regions.value(region, []))
+	assert_true(stored.has(created), "the chart's roster carries the new standard")
+	assert_eq(
+		ArmyRoster.count_of(stored, owner), ArmyRoster.count_of(layer.armies, owner),
+		"the two rosters count the same men"
+	)
+	var saved: Dictionary = SaveLayers.capture_armies(layer)
+	var saved_ids: Array = []
+	for row: Variant in (saved["armies"] as Dictionary).get(region, []):
+		saved_ids.append(int((row as Dictionary).get("id", -1)))
+	assert_true(saved_ids.has(created.id), "the save names the detached standard")
+
+
+func test_a_retired_field_army_leaves_the_roster_the_save_copies() -> void:
+	var layer: ArmyLayer = _screen.army_layer
+	var region: int = _screen.play.model.region_id
+	var filed: Array[ArmyState] = []
+	filed.assign(layer.armies)
+	layer.regions.set_region(region, filed)
+	var field: ArmyState = _detach_one()
+	assert_not_null(field)
+	var result: Dictionary = layer.dismiss(
+		field, field.regiments.duplicate(), _screen.play.economy.economy
+	)
+	assert_true(bool(result.get("retired", false)), "an emptied field army retires")
+	var stored: Array[ArmyState] = []
+	stored.assign(layer.regions.value(region, []))
+	assert_false(stored.has(field), "the retired standard leaves the chart's roster")
+
+
 ## The name row is the crown's door: it opens on the row, commits what was
-## typed and never offers itself for a rival's colours (REQ-P5-07).
+## typed and never offers itself to a rival's colours (REQ-P5-07).
 func test_the_roster_offers_the_name_row_to_the_crown_only() -> void:
 	var model := ArmyFixture.build()
 	var army := ArmyFixture.army(3, 0, 1, ["guards"], false)
