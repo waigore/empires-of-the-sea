@@ -17286,6 +17286,45 @@ func test_a_fed_muster_does_not_break_its_fleet_up() -> void:
 	play.civilian_layer.free()
 
 
+## The larder's own reading is the hallmark (issue #1233): a court with no
+## reading yet — the `-2` sentinel the fresh session carries — gates nothing,
+## and the break-up waits for the pass's note.
+func test_a_court_with_no_larder_reading_keeps_the_fleet() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var fleet: FleetState = (play.ship_layer.regions.value(0, []) as Array)[0]
+	fleet.set_hulls(["h0", "h1"], {"h0": "sloop", "h1": "sloop"})
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 0
+
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+
+	assert_true(
+		(cargo.get("scrap", {}) as Dictionary).is_empty(),
+		"no note, no gate — the fresh session breaks nothing up"
+	)
+	assert_eq(fleet.hulls.size(), 2)
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
+## A yard-refused reading changes nothing: a hull the rules will not break
+## (a loaded transport, say) leaves the reading's own caller silent (issue
+## #1233).
+func test_a_refused_break_up_leaves_the_fleet_standing() -> void:
+	var play: PlaySession = _objective_session(_court())
+	var fleet: FleetState = (play.ship_layer.regions.value(0, []) as Array)[0]
+	fleet.set_hulls(["h0", "h1"], {"h0": "sloop", "h1": "sloop"})
+	fleet.embarked_army = 3
+	play.ai.note_food_slack(OBJ_OWNER, 0)
+	var economy: PlayerEconomy = play.ai.economy_for(OBJ_OWNER)
+	economy.treasury = 0
+	var cargo: Dictionary = MapPlayCargoAi.run(play, OBJ_OWNER, economy)
+	assert_true((cargo.get("scrap", {}) as Dictionary).is_empty())
+	assert_eq(fleet.hulls.size(), 2, "the loaded hull keeps her squadron")
+	play.ship_layer.free()
+	play.civilian_layer.free()
+
+
 ## Issue #484: the fleet claim holds the hull's material row the way the muster
 ## holds its own — the cloth and lumber the yard wants, read off the catalog for
 ## the cheapest warship (open, or the one the court is studying toward).
