@@ -212,6 +212,13 @@ static func _command_ledger(run, screen: MapScreen) -> void:
 		panel.counsel_text().begins_with("The court would send "),
 		"and the hosts the court would lead this turn"
 	)
+	# The fights the line names are printed on THE CROWN'S ARMY, so the door
+	# under the line stands exactly while a fight is named (DR-20261123-06).
+	run.check(
+		panel.army_press_shown()
+		== (panel._counsel.visible and MapPlayCommandPick.leads(panel._counsel.pick)),
+		"the command door stands with the fights its line names"
+	)
 	panel.close()
 	await run.tree.process_frame
 	run.check(not panel.is_open(), "the command ledger sets itself aside")
