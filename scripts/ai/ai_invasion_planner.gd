@@ -238,8 +238,10 @@ static func _target(
 	return best
 
 
-## Walls soak attacking strength, so a landing needs a margin over the defenders
-## (wiki: siege-mechanics § Auto-resolve composite).
+## Walls soak attacking strength, and an empty walled shore still prices its
+## standing battery (issue #1314), so the gate reads the same ladder the
+## resolver does: a host above [method FortRules.storm_threshold] may land; a
+## host over open ground needs the same margin over the defenders it always did.
 static func _can_storm(
 	config: AiConfig, model: MapModel, armies: Array, army: ArmyState, province: int
 ) -> bool:
@@ -248,9 +250,10 @@ static func _can_storm(
 	var defenders: Array[ArmyState] = ArmyForce.armies_of(
 		roster, province, model.province_owner(province)
 	)
+	var level: int = FortRules.level_at(model, province)
 	if defenders.is_empty():
-		return true
-	var wall: float = FortRules.wall_hp(FortRules.level_at(model, province))
+		return level < 1 or army.strength() > FortRules.wall_hp(level)
+	var wall: float = FortRules.wall_hp(level)
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
 	return attack > ArmyForce.side_strength(defenders) * margin

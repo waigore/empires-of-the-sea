@@ -453,10 +453,10 @@ func test_the_province_sheet_names_what_the_wall_soaks() -> void:
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 1
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
 	assert_true(grid.wall.visible, "the row arrives with the wall")
-	assert_eq(grid.wall.text, "10 wall hp · 25% off a blow")
+	assert_eq(grid.wall.text, "40 wall hp · 10% off a blow")
 	_model.province_data(Fixture.RIVAL_PROVINCE).fort_level = 3
 	_province_panel_panel.refresh(_model, Fixture.RIVAL_PROVINCE)
-	assert_eq(grid.wall.text, "30 wall hp · 60% off a blow", "a modern wall")
+	assert_eq(grid.wall.text, "120 wall hp · 30% off a blow", "a modern wall")
 
 
 ## The province sheet prints the court's own reading and hides it when the
@@ -789,7 +789,7 @@ func test_the_wall_order_presses_the_engineer_it_sends() -> void:
 	assert_false(rail.wall_button.disabled, "a free Engineer with the study opens the press")
 	assert_true(rail.wall_button.text.contains("4 lumber"), rail.wall_button.text)
 	assert_true(rail.wall_note.visible, "the press prices what the next wall buys")
-	assert_true(rail.wall_note.text.contains("soaks 20 wall hp"), rail.wall_note.text)
+	assert_true(rail.wall_note.text.contains("soaks 80 wall hp"), rail.wall_note.text)
 	# The step in hand reads as taken: the ordered wall waits on its Engineer,
 	# not on a second press (the walls ledger's AT WORK state).
 	var crew: CivilianState = _units[0]

@@ -707,6 +707,8 @@ func test_marching_into_an_enemy_province_captures_it_unopposed() -> void:
 	assert_gt(target, -1)
 	var tile: Vector2i = _screen.model.province_data(target).tiles[0]
 	var owner: int = _screen.model.province_owner(target)
+	# Open ground only: a wall would turn the march into a storm (#1314).
+	_screen.model.province_data(target).fort_level = 0
 	_screen.play.diplomacy.ensure_relation(0, owner, _screen.play.diplomacy.turn)
 	DiplomacyRules.declare_war(_screen.play.diplomacy, 0, owner)
 
@@ -742,7 +744,7 @@ func test_a_march_into_a_walled_province_names_the_wall() -> void:
 		WallRead.march_line(_screen.model.province_name(target), 2),
 		"the receipt names the wall it must break"
 	)
-	assert_true(_last_toast().contains("20 wall hp"), _last_toast())
+	assert_true(_last_toast().contains("80 wall hp"), _last_toast())
 	assert_true(_last_toast().contains("2 emplaced guns"), _last_toast())
 
 

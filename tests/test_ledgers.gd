@@ -5094,13 +5094,13 @@ func test_a_bare_shore_prices_the_wall_it_offers() -> void:
 	var home: Dictionary = _wall_row(snapshot, FactionCatalog.OLD_WORLD)
 	assert_eq(
 		String(home["preview_text"]),
-		"L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)",
+		"L1 soaks 40 wall hp with 1 gun (+40 hp, +1 gun)",
 		"an open shore reads the first wall whole"
 	)
 	var overseas: Dictionary = _wall_row(snapshot, FactionCatalog.NEW_WORLD)
 	assert_eq(
 		String(overseas["preview_text"]),
-		"L2 soaks 20 wall hp with 2 guns (+10 hp, +1 gun)",
+		"L2 soaks 80 wall hp with 2 guns (+40 hp, +1 gun)",
 		"a wood wall's step names only what the level adds"
 	)
 
@@ -5189,8 +5189,8 @@ func test_a_modern_wall_reads_finished() -> void:
 	var raised: Dictionary = _raised()
 	assert_eq(int(raised["level"]), FortRules.MAX_LEVEL)
 	assert_eq(String(raised["state"]), WallLedger.STATE_RAISED, "a citadel owes nothing")
-	assert_eq(String(raised["note"]), "Fully walled — 3 guns, 30 wall hp.")
-	assert_eq(String(raised["level_text"]), "III")
+	assert_eq(String(raised["note"]), "Fully walled — 5 guns, 200 wall hp.")
+	assert_eq(String(raised["level_text"]), "V")
 
 
 func test_wall_filters_narrow_the_ledger_and_keep_their_tallies() -> void:
