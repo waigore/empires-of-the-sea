@@ -21,12 +21,12 @@ var _court: Dictionary = {}
 
 func _init() -> void:
 	title_text = "THE CROWN'S PEOPLE"
+	mark_legend = "A ▸ marks the crews the court would put to work this turn."
 	hint_text = (
 		"Visit opens the civilian's map and dossier. Filter by world, craft or "
 		+ "who waits for orders; the C key opens this roster from anywhere on the map."
 		+ " Find the next crew that waits takes you to an idle one, in either world."
-		+ " A ▸ marks the crews the court would put to work this turn; the gold"
-		+ " line never marches one or sets an order."
+		+ " The gold line never marches a crew or sets an order."
 	)
 	toggle_action = InputActions.CIVILIAN_ROSTER
 
