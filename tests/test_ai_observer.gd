@@ -1361,6 +1361,24 @@ func test_a_turn_busier_than_the_budget_still_prints_whole() -> void:
 	)
 
 
+## One court read binds the kind whose profile the pass runs: every planner and
+## counsel pick opens the same pair, so no sheet words another backend's plan
+## (REQ-P2-03, REQ-P3-02).
+func test_a_court_read_binds_the_kind_and_its_config() -> void:
+	_seat(0)
+	var play: PlaySession = _screen.play
+	var faction: int = play.player_faction
+	var court: Dictionary = AiControl.court(play, faction)
+	assert_false(court.is_empty(), "a planning crown opens a court")
+	assert_eq(String(court["kind"]), AiControl.court_kind(play, faction))
+	assert_true(court["config"] is AiConfig, "the read binds that court's config")
+	play.ai_mode = AiControl.NOOP
+	assert_true(
+		AiControl.court(play, faction).is_empty(),
+		"a court that plans nothing opens none"
+	)
+
+
 ## One crown's card reads rank, standing toward the bar, profile, ledger and last
 ## order from a single snapshot row (DR-20261114-04).
 func test_a_crowns_card_reads_one_snapshot_row() -> void:
