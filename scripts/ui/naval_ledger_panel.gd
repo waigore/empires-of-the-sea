@@ -13,10 +13,10 @@ extends ForceLedgerSheet
 
 func _init() -> void:
 	title_text = "THE CROWN'S NAVY"
+	mark_legend = "A ▸ marks the squadrons the court would sail this turn."
 	hint_text = (
-		"A ▸ marks the squadrons the court would sail this turn. Visit opens "
-		+ "the squadron's chart and dossier. The sheet reads every hull as she "
-		+ "stands; it never launches, docks or orders one."
+		"Visit opens the squadron's chart and dossier. The sheet reads every "
+		+ "hull as she stands; it never launches, docks or orders one."
 	)
 	toggle_action = InputActions.NAVY_LEDGER
 	# The reading is the panel's own method, not a closure handed in from the

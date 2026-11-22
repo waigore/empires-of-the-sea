@@ -30,6 +30,11 @@ var title_text: String = ""
 var title_pixels: int = 28
 var hint_text: String = ""
 var hint_pixels: int = 10
+## What this sheet's mark means when its rows wear it — `A ▸ marks the standards
+## the court would order this turn.` The legend stands under the gold line,
+## because a compact sheet drops the footer hint (REQ-P1-07, REQ-P5-07). Empty
+## for a sheet whose rows carry no mark.
+var mark_legend: String = ""
 
 # --- the counsel line --------------------------------------------------------
 
@@ -42,25 +47,70 @@ var counsel_source: Callable = Callable()
 ## The gold line under the filters: the crown's own reading in one sentence, its
 ## dress and its gate (CounselLine; REQ-P3-01, REQ-P5-06).
 var _counsel: CounselLine = null
+## The sentence that says what the sheet's marks mean, or null for a sheet whose
+## rows wear no mark (REQ-P1-07, REQ-P5-07).
+var _legend_label: Label = null
 ## The last snapshot the sheet painted from; empty before its first refresh.
 var _snapshot: Dictionary = {}
 
 
 ## The gold line, mounted where its reading answers, so no sheet restates the
 ## size, the colour or the wrap (REQ-P3-01). The host is optional: a sheet whose
-## body hook returns the line mounts it itself.
+## body hook returns the line mounts it itself. A sheet that names a
+## `mark_legend` gets that sentence mounted in the host, directly under the line.
 func _counsel_line(host: Container = null) -> CounselLine:
 	_counsel = CounselLine.make(host)
 	# A closed sheet asks nothing: the pass is a planner walk no one is looking
 	# at (REQ-P4-02).
 	_counsel.gate = is_open
+	_legend_label = _make_legend(host)
 	return _counsel
+
+
+## The line and its legend in one block, for a sheet whose body hook mounts what
+## sits under the chips (REQ-P3-01).
+func _counsel_block() -> Control:
+	var block := VBoxContainer.new()
+	block.add_theme_constant_override("separation", 4)
+	_counsel_line(block)
+	return block
+
+
+## The mark's meaning, mounted where the mark is read: hidden until the sheet's
+## reading names a row, so a quiet sheet never explains a glyph it does not print
+## (REQ-P1-07, REQ-P5-07).
+func _make_legend(host: Container) -> Label:
+	if host == null or mark_legend.is_empty():
+		return null
+	var legend := UiRowBuilder.wrapped_line(mark_legend, 10, Palette.TEXT_DIM)
+	legend.visible = false
+	host.add_child(legend)
+	return legend
+
+
+## Stands the legend beside the marks it explains: shown only while the reading
+## that paints them names a row.
+func _paint_legend() -> void:
+	if _legend_label == null or _counsel == null:
+		return
+	_legend_label.visible = _counsel.visible and not _counsel.keys().is_empty()
 
 
 ## The gold line's text, for tests and tooling (REQ-P3-02). Empty when the sheet
 ## carries no reading.
 func counsel_text() -> String:
 	return "" if _counsel == null else _counsel.text
+
+
+## The sentence that says what the sheet's mark means, for tests and tooling
+## (REQ-P3-02). Empty when the sheet carries no legend.
+func legend_text() -> String:
+	return "" if _legend_label == null else _legend_label.text
+
+
+## Whether the legend stands beside the marks it explains (REQ-P1-07).
+func legend_shown() -> bool:
+	return _legend_label != null and _legend_label.visible
 
 
 ## What the reading is asked with: the snapshot the sheet just painted. A sheet
@@ -74,6 +124,7 @@ func _counsel_args() -> Array:
 func _show_counsel(value: Variant) -> void:
 	if _counsel != null:
 		_counsel.show_value(value)
+	_paint_legend()
 
 
 ## Asks the court's own reading once and prints it, or stands the line down: one
@@ -85,6 +136,7 @@ func _sync_counsel() -> void:
 	_counsel.source = counsel_source
 	_counsel.args = _counsel_args()
 	_counsel.sync()
+	_paint_legend()
 
 
 ## The one session the sheet reads. Every crown sheet binds it the same way, so
