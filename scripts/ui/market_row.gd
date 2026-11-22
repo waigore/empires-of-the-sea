@@ -69,7 +69,7 @@ static func build(
 
 	var buy_unit: int = market.buy_price(id, viewer)
 	var sell_unit: int = market.sell_price(id, viewer)
-	var price := UiRowBuilder.label("%d" % buy_unit, 13, Palette.TEXT_DIM)
+	var price := UiRowBuilder.label(TextFormat.thousands(buy_unit), 13, Palette.TEXT_DIM)
 	price.custom_minimum_size = Vector2(44, 0)
 	price.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	row.add_child(price)
@@ -83,12 +83,12 @@ static func build(
 	var sell := UiRowBuilder.button("Offer", ROW_HEIGHT, 70.0)
 	sell.disabled = sellable <= 0
 	if claimed > 0 or promised > 0:
-		sell.tooltip_text = "%s — %d sellable at %d ducats" % [
-			_claim_phrase(id, claimed, promised), sellable, sell_unit,
+		sell.tooltip_text = "%s — %d sellable at %s" % [
+			_claim_phrase(id, claimed, promised), sellable, MoneyText.ducats(sell_unit),
 		]
 	else:
-		sell.tooltip_text = "Offer 1 %s at %d ducats — it clears when the turn closes" % [
-			CommodityCatalog.label(id), sell_unit,
+		sell.tooltip_text = "Offer 1 %s at %s — it clears when the turn closes" % [
+			CommodityCatalog.label(id), MoneyText.ducats(sell_unit),
 		]
 	sell.pressed.connect(func() -> void: on_trade.call(id, 1, false))
 	row.add_child(sell)
@@ -98,8 +98,8 @@ static func build(
 	# the bid-side clamp; § Treasury budget for bids).
 	var bid_units: int = MarketBatch.bid_units(market, viewer, id, ctx)
 	var buy := UiRowBuilder.button("Bid", ROW_HEIGHT, 70.0)
-	buy.tooltip_text = "Bid 1 %s at %d ducats — it clears when the turn closes" % [
-		CommodityCatalog.label(id), buy_unit
+	buy.tooltip_text = "Bid 1 %s at %s — it clears when the turn closes" % [
+		CommodityCatalog.label(id), MoneyText.ducats(buy_unit)
 	]
 	# Why a dead Bid is dead, in the rules' own words: the gates the validator
 	# walks, read forward (wiki: world-market § Trade orders — validation rules,
@@ -111,8 +111,8 @@ static func build(
 		shut = String(MarketRules.bid_block(market, viewer, id, ctx).get("reason", ""))
 		if shut.is_empty():
 			shut = "The rules leave no room for a bid this turn."
-		buy.tooltip_text = "Bid 1 %s at %d ducats — %s" % [
-			CommodityCatalog.label(id), buy_unit, shut,
+		buy.tooltip_text = "Bid 1 %s at %s — %s" % [
+			CommodityCatalog.label(id), MoneyText.ducats(buy_unit), shut,
 		]
 	buy.pressed.connect(func() -> void: on_trade.call(id, 1, true))
 	row.add_child(buy)

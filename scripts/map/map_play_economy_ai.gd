@@ -74,8 +74,13 @@ static func _overseas(
 			home_model, faction, int(capital["province"]), tech_caps, works,
 			capital["tile"], economy.tech_unlocked, true, {}, seals
 		)
+	# The crossing reads the home squadron's holds, never the seat harbour's
+	# trade allowance: a court with no merchant hull in port at its capital lands
+	# nothing abroad, however many turns its yards still owe it
+	# (wiki: ships-and-naval § Cargo holds and capacity — "the home squadron's
+	# merchant hulls are the only holds"; DR-20261114-11).
 	var holds: int = (
-		TradeCargo.capacity(play.world, play.ship_layer.regions.snapshot(), faction)
+		TradeCargo.home_holds(play.world, play.ship_layer.regions.snapshot(), faction)
 		if play.ship_layer != null else 0
 	)
 	var plan: Dictionary = EconomyOverseas.delivered(

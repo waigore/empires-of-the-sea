@@ -34,7 +34,7 @@ Hill-climb **P2 rules fidelity**. Re-runs sustain the climb; each run still stop
 | [`references/playbook.md`](references/playbook.md) | Playtest tactics |
 | [`references/pr-body.md`](references/pr-body.md) | Defect report + rubric |
 
-**Not this agent:** shipping new wiki domains / unimplemented features → [`implement-feature-agent`](../implement-feature-agent/SKILL.md). Unclear / contradictory wiki that needs a design call → [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md). GameForge free-play + diary/harness for hard-to-reach areas → [`free-playtest-agent`](../free-playtest-agent/SKILL.md). Architecture-only cleanup → refactor-code. Suite speed → optimize-tests.
+**Not this agent:** shipping new wiki domains / unimplemented features → [`implement-feature-agent`](../implement-feature-agent/SKILL.md). Unclear / contradictory wiki that needs a design call → [`elucidate-design-agent`](../elucidate-design-agent/SKILL.md). GameForge free-play + diary/harness for hard-to-reach areas → [`free-playtest-agent`](../free-playtest-agent/SKILL.md). Full-campaign observe + batch issues → [`victory-playtest-agent`](../victory-playtest-agent/SKILL.md). Architecture-only cleanup → refactor-code. Suite speed → optimize-tests.
 
 ## Workflow
 

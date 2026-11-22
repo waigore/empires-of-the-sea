@@ -2874,8 +2874,8 @@ func test_affordability_needs_cash_and_paper() -> void:
 	assert_false(CivilianCatalog.can_afford("merchant", 1999, 4))
 
 func test_training_cost_text_reads_as_a_purse_line() -> void:
-	assert_eq(CivilianCatalog.training_cost_text("explorer"), "1,000 cash + 2 paper")
-	assert_eq(CivilianCatalog.training_cost_text("merchant"), "2,000 cash + 4 paper")
+	assert_eq(CivilianCatalog.training_cost_text("explorer"), "1,000 ducats + 2 paper")
+	assert_eq(CivilianCatalog.training_cost_text("merchant"), "2,000 ducats + 4 paper")
 
 func test_money_text_groups_and_signs_one_way() -> void:
 	assert_eq(MoneyText.thousands(0), "0")
@@ -2884,9 +2884,31 @@ func test_money_text_groups_and_signs_one_way() -> void:
 	assert_eq(MoneyText.thousands(1234567), "1,234,567")
 	assert_eq(MoneyText.thousands(-1234), "-1,234")
 	assert_eq(MoneyText.thousands(-100), "-100")
-	assert_eq(MoneyText.money(500), "£500")
-	assert_eq(MoneyText.money(12500), "£12,500")
+	assert_eq(MoneyText.signed(500), "+500")
+	assert_eq(MoneyText.signed(12500), "+12,500")
+	assert_eq(MoneyText.signed(-1234), "-1,234")
+	assert_eq(MoneyText.signed(0), "0")
 	assert_eq(MoneyText.ducats(8000), "8,000 ducats")
+
+
+## Issue #1305: the crown's money has one word and one grouping, so a purse the
+## bar counts as `40,000` reads `40,000 ducats` on every other page — no `cash`,
+## no `£`, and never a raw integer.
+func test_the_crowns_money_reads_one_way_everywhere() -> void:
+	assert_eq(DiplomacyCatalog.money(40000), "40,000 ducats", "the court header")
+	assert_eq(MoneyText.ducats(1000), "1,000 ducats", "the purse, grouped")
+	assert_false(CivilianCatalog.training_cost_text("explorer").contains("cash"), "no cash")
+	assert_false(DiplomacyCatalog.money(500).contains("£"), "no pound mark")
+	for text: String in [
+		CivilianCatalog.training_cost_text("explorer"),
+		DiplomacyCatalog.money(40000),
+		MoneyText.cost_line(19500, {}, 1),
+		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER),
+	]:
+		assert_false(text.contains(" £") or text.begins_with("£"), text)
+		assert_true(text.contains("ducats"), text)
+	assert_eq(MoneyText.ducats(1000).split(" ").size(), 2, "the word follows the number")
+	assert_eq(DiplomacyGift.face(2000), "Grant Aid · 2,000 ducats", "the gift press, grouped")
 
 func test_money_text_cost_line_names_gold_materials_and_the_worker() -> void:
 	assert_eq(

@@ -192,17 +192,24 @@ func set_training_visible(visible: bool) -> void:
 	_orders.set_training_visible(visible)
 
 
-## The capital rail's reading: the crew the court's own hire order takes next, or
-## the gate that holds it (DR-20261121-06). Pushed like the army's march pick, so
-## the sheet stays a view and the map keeps the reading (REQ-P3-03).
-func set_hire_line(text: String) -> void:
-	_orders.set_hire_line(text)
+## The capital rail's reading: the pick the court's own hire order answers with —
+## the crew it takes next, or the gate that holds it (DR-20261121-06) — kept whole
+## so the rail marks that craft's row off the same read (DR-20261122-12). Pushed
+## like the army's march pick, so the sheet stays a view and the map keeps the
+## reading (REQ-P3-03).
+func set_hire_pick(pick: Dictionary) -> void:
+	_orders.set_hire_pick(pick)
 
 
 ## The rail's hire reading, so a suite asserts the line rather than the label
 ## under it (REQ-P3-02).
 func hire_line_text() -> String:
 	return _orders.hire_line_text() if _orders != null else ""
+
+
+## The craft the rail marks, so a suite asserts the mark (REQ-P3-02).
+func hire_mark_crew() -> String:
+	return _orders.hire_mark_crew() if _orders != null else ""
 
 
 ## Repaints the live crown rows after a road completed or a town grew, without

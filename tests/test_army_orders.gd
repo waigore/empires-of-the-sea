@@ -2367,24 +2367,70 @@ func test_the_drill_yard_reads_no_line_it_cannot_muster() -> void:
 	play.army_layer.free()
 
 
-## The yard prints the pick above its rows while there is one, and keeps its
-## published shape when the court would raise nothing (REQ-P5-06).
+## The yard prints the pick above its rows while there is one, marks the pattern
+## it names, and keeps its published shape when the court would raise nothing
+## (REQ-P5-06, DR-20261122-12).
 func test_the_drill_yard_block_prints_the_pick_and_orders_nothing() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var rows: Array[Dictionary] = ArmyTraining.rows(economy)
 	var block := ArmyMusterBlock.new()
 	add_child(block)
 
-	block.fill(rows, "The court would muster Guards — 2,000 ducats · 1 Fabric")
-	assert_eq(block.pick_line(), "The court would muster Guards — 2,000 ducats · 1 Fabric")
-	assert_eq(block.get_child(0), block._pick, "the pick stands above the rows")
+	var pick: Dictionary = {
+		"kind": MapPlayMusterPick.KIND_MUSTER,
+		"type": "guards",
+		"line": "the court would muster Guards — 2,000 ducats · 1 Fabric",
+	}
+	block.fill(rows, pick)
+	assert_eq(
+		block.pick_line(),
+		"The court would muster Guards — 2,000 ducats · 1 Fabric.",
+		"the line is the pick's own sentence"
+	)
+	assert_eq(block.get_child(0), block._pick_line, "the pick stands above the rows")
+	assert_eq(block.mark_type(), "guards", "the mark is the pick's own pattern")
+	assert_eq(
+		_yard_row_name(block, rows, "guards"),
+		"%s Guards" % ArmyMusterBlock.COURT_MARK,
+		"the pattern the line names wears the mark"
+	)
+	assert_eq(
+		_yard_row_name(block, rows, "peasant_levies"), "Peasant Levies",
+		"a pattern the line leaves out keeps its plain name"
+	)
 
-	block.fill(rows, "")
+	block.fill(rows, {})
 	assert_eq(block.pick_line(), "", "no pick, no line")
-	assert_ne(block.get_child(0), block._pick, "and the yard keeps its published top")
+	assert_eq(block.mark_type(), "", "no pick, no mark")
+	assert_ne(block.get_child(0), block._pick_line, "and the yard keeps its published top")
+	assert_eq(
+		_yard_row_name(block, rows, "guards"), "Guards", "and no row wears the mark"
+	)
 
 	assert_eq(economy.treasury, 20000, "a reading: the yard spends nothing")
 	block.free()
+
+
+## One regiment row's name label, by the table row that type stands on.
+func _yard_row_name(
+	block: ArmyMusterBlock, rows: Array[Dictionary], type_id: String
+) -> String:
+	var wanted: int = -1
+	for index: int in rows.size():
+		if String(rows[index].get("type_id", "")) == type_id:
+			wanted = index
+			break
+	if wanted < 0:
+		return ""
+	var seen: int = 0
+	for child: Node in block.get_children():
+		if not (child is VBoxContainer) or child.is_queued_for_deletion():
+			continue
+		if seen == wanted:
+			var top := (child as VBoxContainer).get_child(0) as HBoxContainer
+			return (top.get_child(1) as Label).text
+		seen += 1
+	return ""
 
 
 ## Every wording the drill yard can print, and nothing for a case that names no

@@ -22,3 +22,4 @@ Canonical skill bodies live here (one folder per skill). Native facades and auth
 | [`refactor-code-agent`](refactor-code-agent/SKILL.md) | Autonomously pick worst arch smell (+ recent-PR hotspots); aggressive themed refactor; PR; stop |
 | [`review-issue-agent`](review-issue-agent/SKILL.md) | Verify open `resolved` vs evidence/code; close or bounce to `todo` (≤150-word comments) |
 | [`resolve-issue-agent`](resolve-issue-agent/SKILL.md) | Take open `todo` issue; implement; wiki Evidence; after merge → `resolved` −`todo` |
+| [`victory-playtest-agent`](victory-playtest-agent/SKILL.md) | Full-campaign play toward victory; critique UX/rules/AI; batch-file issues; diary; observe-only |

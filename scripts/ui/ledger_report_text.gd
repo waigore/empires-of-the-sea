@@ -10,8 +10,8 @@ extends RefCounted
 ## need is every mouth the Consumption phase feeds — workers, the army, the navy
 ## and the hospital staffs (wiki: workers-and-population § Consumption).
 static func summary(economy: PlayerEconomy, report: Dictionary) -> String:
-	return "%s ducats   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
-		TextFormat.thousands(economy.treasury),
+	return "%s   ·   labour %d / %d   ·   food need %d   ·   strikes %d" % [
+		MoneyText.ducats(economy.treasury),
 		idle_labour(report),
 		economy.workers.labour(),
 		economy.workers.food_demand() + army_food(report) + navy_food(report)
@@ -101,7 +101,7 @@ static func turn_summary(report: Dictionary, trouble_only: bool = false) -> Stri
 		trouble.append(shut)
 	var treasury: int = int(report.get("riches_treasury", 0))
 	if treasury > 0:
-		parts.append("+%d from riches" % treasury)
+		parts.append("+%s from riches" % MoneyText.thousands(treasury))
 	var production: Dictionary = report.get("production", {})
 	var produced: Dictionary = production.get("produced", {})
 	for id: String in produced.keys():

@@ -925,6 +925,42 @@ func test_the_muster_rail_names_what_each_craft_does() -> void:
 		"an open hire carries no gate",
 	)
 
+
+## The capital rail marks the craft the court's own hire order names, off the same
+## pick its gold line is worded from, and clears it when the pick names none
+## (DR-20261122-12).
+func test_the_hire_rail_marks_the_craft_the_court_would_take() -> void:
+	_setup_province_panel()
+	_show()
+	var rail: ProvinceOrdersSection = _province_panel_panel._orders
+	var builder: Dictionary = rail.training_row("builder")
+	var caption: String = "Train Builder · %s" % CivilianCatalog.training_cost_text("builder")
+	rail.set_hire_pick({
+		"kind": MapPlayHirePick.KIND_TAKE,
+		"crew": "builder",
+		"line": "Your hire order takes a Builder next — %s." % (
+			CivilianCatalog.training_cost_text("builder")
+		),
+	})
+	assert_eq(rail.hire_mark_crew(), "builder", "the mark is the pick's own craft")
+	assert_eq(
+		(builder["button"] as Button).text,
+		"%s %s" % [ProvinceOrdersSection.COURT_MARK, caption],
+		"the craft the line names wears the mark"
+	)
+	assert_false(
+		(rail.training_row("spy")["button"] as Button).text.contains(
+			ProvinceOrdersSection.COURT_MARK
+		),
+		"a craft the line leaves out keeps its plain name"
+	)
+
+	rail.set_hire_pick({})
+	assert_eq(rail.hire_mark_crew(), "", "no pick, no mark")
+	assert_eq(
+		(builder["button"] as Button).text, caption, "and the craft reads plainly again"
+	)
+
 func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	_setup_province_panel()
 	_show()
@@ -1347,7 +1383,7 @@ func test_the_court_steps_the_gift_before_it_sends() -> void:
 	)
 	var press: Button = _find_button(panel._detail, "Grant Aid")
 	assert_not_null(press)
-	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_eq(press.text, "Grant Aid · 1,000 ducats")
 	assert_false(press.disabled, "an auto-embassy and a purse that covers the floor")
 	assert_true(
 		_has_text(panel._detail, "The regard a gift earns is fixed"),
@@ -1357,7 +1393,7 @@ func test_the_court_steps_the_gift_before_it_sends() -> void:
 	assert_not_null(up)
 	assert_false(up.disabled)
 	up.pressed.emit()
-	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £2,000")
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · 2,000 ducats")
 	assert_true(_find_button(panel._detail, "+").disabled, "the 2,500 purse covers no step further")
 	_find_button(panel._detail, "Grant Aid").pressed.emit()
 	assert_eq(seen.size(), 1)
@@ -1374,7 +1410,7 @@ func test_the_stepped_gift_belongs_to_the_court_it_was_stepped_for() -> void:
 	assert_eq(panel._detail.gift_amount, 2000)
 	panel.select_faction(6)
 	assert_eq(panel._detail.gift_amount, DiplomacyCatalog.GRANT_AID_STEP)
-	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · £1,000")
+	assert_eq(_find_button(panel._detail, "Grant Aid").text, "Grant Aid · 1,000 ducats")
 
 ## A purse that no longer covers the sum the crown had stepped to reads the
 ## validator's reason under the dead press, and the step falls back to the floor.
@@ -1384,7 +1420,7 @@ func test_a_gift_the_purse_cannot_cover_reads_its_reason() -> void:
 	_find_button(panel._detail, "+").pressed.emit()
 	panel.refresh(state, null, 0, 500)
 	var press: Button = _find_button(panel._detail, "Grant Aid")
-	assert_eq(press.text, "Grant Aid · £1,000")
+	assert_eq(press.text, "Grant Aid · 1,000 ducats")
 	assert_true(press.disabled)
 	assert_true(_has_text(panel._detail, "The treasury cannot cover that aid."))
 
@@ -4980,7 +5016,7 @@ func test_the_workers_row_names_its_price_and_its_clause() -> void:
 	var three: Array[String] = ["apprentice_workers", "sugar_refining", "university"]
 	assert_eq(LedgerWorkersText.recruit_price(WorkerPool.Tier.PEASANT), "Recruit Fabric ×2")
 	assert_eq(
-		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1000 ducats · Paper ×10"
+		LedgerWorkersText.recruit_price(WorkerPool.Tier.MASTER), "Recruit 1,000 ducats · Paper ×10"
 	)
 	assert_eq(
 		LedgerWorkersText.ration_line(WorkerPool.Tier.PEASANT), "eats 1 grain or meat a turn"
