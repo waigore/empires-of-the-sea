@@ -37,12 +37,17 @@ static func submit(
 	return {"ok": true, "reason": "", "order_id": order.id, "order": order}
 
 
-## Cancels a staged order and returns its offer volume to the book.
+## Cancels a staged order and returns its offer volume to the book. A
+## carry-forward order is not this turn's submission, so it cannot be withdrawn
+## and its tons were never counted in this turn's supply: the withdrawal must
+## leave the price-discovery book untouched (wiki: world-market § Price
+## discovery — only this turn's submitted offers price the spread; § Order
+## persistence — carry-forward orders are not cancelable).
 static func cancel(market: WorldMarket, faction: int, order_id: String) -> bool:
 	if market == null:
 		return false
 	var order: MarketOrder = market.book.find_order(faction, order_id)
-	if order == null:
+	if order == null or not market.book.submitted.has(order):
 		return false
 	if order.side == MarketOrder.SIDE_OFFER:
 		market.book.volumes.withdraw_offer(order.commodity, order.remaining())
