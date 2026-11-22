@@ -1011,6 +1011,26 @@ func test_the_rail_marks_the_press_the_court_would_take() -> void:
 	)
 	assert_eq(rail.court_legend_text(), "", "no mark, no legend")
 
+## The press book every counsel sheet marks by: a caption kept as the rules word
+## it, the reading that names it, and the glyph added and lifted again without
+## doubling (DR-20261122-23).
+func test_the_press_book_marks_and_unmarks_one_caption() -> void:
+	var book := PressMarks.new()
+	book.set_caption("", "ignored")
+	assert_eq(book.text(""), "", "no key, no press")
+	assert_eq(book.text("wall"), "", "a press with no caption prints nothing")
+	assert_false(book.any(), "no reading, no mark")
+	book.set_caption("wall", "Raise Wall")
+	assert_eq(book.text("wall"), "Raise Wall", "the rules' own words")
+	book.mark(null)
+	assert_eq(book.keys(), {}, "no keys, no reading")
+	book.mark({"wall": true})
+	assert_eq(book.text("wall"), "%s Raise Wall" % PressMarks.MARK)
+	assert_true(book.any(), "a named press stands the legend")
+	book.mark({})
+	assert_eq(book.text("wall"), "Raise Wall", "and reads plainly again")
+	assert_false(book.any())
+
 func test_the_estate_block_names_the_ground_still_to_survey() -> void:
 	_setup_province_panel()
 	_show()
