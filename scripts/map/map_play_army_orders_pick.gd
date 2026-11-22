@@ -58,7 +58,17 @@ static func of(armies: Array[Dictionary], snapshot: Dictionary = {}) -> Dictiona
 	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
 		armies, snapshot.get("groups", []), "army"
 	)
-	return {"armies": ordered, "line": pick_line(ordered)}
+	return {"armies": ordered, "keys": keys_of(ordered), "line": pick_line(ordered)}
+
+
+## The standards the reading names, by `MapPlayPickProse.row_key` — what the
+## sheet's own headings look themselves up by, so a marked standard is one the
+## line answers (DR-20261122-05).
+static func keys_of(armies: Array[Dictionary]) -> Dictionary:
+	var keys: Dictionary = {}
+	for army: Dictionary in armies:
+		keys[MapPlayPickProse.row_key(army, "army")] = true
+	return keys
 
 
 ## "the court would send the Home Army to take the field with 4 regiments and the

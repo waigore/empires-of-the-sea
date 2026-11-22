@@ -13,6 +13,19 @@ extends LedgerSheet
 ## not a second copy of the whole sheet (REQ-P3-01, REQ-P3-02). The sheet chrome,
 ## fade and pause-door park come from SheetFrame; the chips, rows and empty
 ## notice from LedgerSheet; the heading dress from LedgerList.
+##
+## The court's own reading is read once at the refresh, and every standard or
+## squadron it names leads with the counsel's `▸` on its heading, so a crown
+## finds the force her staff would order rather than scanning every one
+## (DR-20261122-05).
+
+
+## The pick the session wires to this sheet — one walk of the pass per refresh,
+## never one per row (REQ-P4-02).
+var _court_pick: Dictionary = {}
+## The standards or squadrons that pick names, by `MapPlayPickProse.row_key`, so
+## a heading knows whether it wears the counsel's mark (DR-20261122-05).
+var _court: Dictionary = {}
 
 
 ## Re-reads both charts' roster for the player's crown and repaints.
@@ -121,9 +134,36 @@ func _apply_filter() -> void:
 
 ## One standard's or squadron's heading: where it stands and what it is doing,
 ## then the regiments it flies or the hulls she sails. A regiment's orders are its
-## standard's and a hull's are her squadron's, so they read once.
+## standard's and a hull's are her squadron's, so they read once. A heading the
+## court's own reading names leads with the counsel's mark (DR-20261122-05).
 func _heading(group: Dictionary, count: int) -> Control:
-	return LedgerList.standing_heading(
-		"%s  ·  %d %s" % [String(group["heading"]), count, _row_word(count)],
-		_standing_text(group)
-	)
+	var title: String = "%s  ·  %d %s" % [String(group["heading"]), count, _row_word(count)]
+	if _is_marked(group):
+		title = "%s %s" % [ForceLedgerRow.COURT_MARK, title]
+	return LedgerList.standing_heading(title, _standing_text(group))
+
+
+## Asks the court's own reading once, holds it and prints it: the line and the
+## marks both come off the one pick, so a mark can never outrun the sentence it
+## answers (DR-20261122-05, REQ-P4-01).
+func _sync_counsel() -> void:
+	if _counsel == null:
+		return
+	_court_pick = _counsel_pick()
+	_court = _court_pick.get("keys", {}) as Dictionary
+	_show_counsel(MapPlayPickProse.sentence_of(_court_pick))
+
+
+## The pick the sheet's reading answers, or {} while it is shut or unwired: a
+## closed sheet asks the pass nothing (REQ-P4-02).
+func _counsel_pick() -> Dictionary:
+	if not is_open() or not counsel_source.is_valid():
+		return {}
+	var raw: Variant = counsel_source.callv(_counsel_args())
+	return raw as Dictionary if raw is Dictionary else {}
+
+
+## Whether the reading names the standard or squadron this heading flies. A
+## sheet that carries marks keys its groups the way its pick keys its entries.
+func _is_marked(_group: Dictionary) -> bool:
+	return false

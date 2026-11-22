@@ -67,7 +67,18 @@ static func of(squadrons: Array[Dictionary], snapshot: Dictionary = {}) -> Dicti
 	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
 		squadrons, snapshot.get("groups", []), "fleet_id", "fleet"
 	)
-	return {"squadrons": ordered, "line": pick_line(ordered)}
+	return {"squadrons": ordered, "keys": keys_of(ordered), "line": pick_line(ordered)}
+
+
+## The squadrons the reading names, by `MapPlayPickProse.row_key` — what the
+## sheet's own headings look themselves up by (a heading says `fleet`, the pick
+## entry `fleet_id`), so a marked squadron is one the line answers
+## (DR-20261122-05).
+static func keys_of(squadrons: Array[Dictionary]) -> Dictionary:
+	var keys: Dictionary = {}
+	for squadron: Dictionary in squadrons:
+		keys[MapPlayPickProse.row_key(squadron, "fleet_id")] = true
+	return keys
 
 
 ## "the court would send the Leopard into the Mar Caribe and the Swallow home to
