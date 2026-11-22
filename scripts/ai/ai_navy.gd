@@ -214,3 +214,74 @@ static func chest(
 	if yard_yields:
 		return 0
 	return price(economy, flown)
+
+
+## The home hull a food-gated court breaks up, or `{}` while the fleet earns its
+## keep (issue #1233). A court whose muster is food-gated — the harvest cannot
+## carry one more ration — frees the rations an idle home fleet eats: its two
+## per hull (`ShipEconomy.food_upkeep_per_ship`) leave the larder's `wanted`, and
+## the broken hull's own peasant returns to the pool the levy needs. The hull is
+## the lowest id of the seat's squadron (the yard's own order). A fleet that has
+## sailed this turn is not idle: the war used it, so the hull stays. A muster
+## that is not food-gated, a hull that carries a regiment or colonist, a court
+## with no reading of its larder and a caller with no seat all keep the hull.
+## Pure: state in, one reading out.
+static func idle_hull(
+	config: AiConfig, economy: PlayerEconomy, fleets: Array, seat: int, slack: int
+) -> Dictionary:
+	if config == null or economy == null:
+		return {}
+	# The `-2` sentinel is no reading of the larder: no gate, no break-up.
+	if slack < -1:
+		return {}
+	# The gate the muster reads (`AiArmyReinforce.plan`'s own words): the
+	# harvest, not the pantry, so the court frees the rations its land cannot
+	# carry. The store gate stays: a starving court breaks the hull too — its
+	# own men strike for food before the muster waits.
+	if slack > 0:
+		return {}
+	if seat < 0 or fleets_sailing(fleets, config.faction):
+		return {}
+	for fleet: FleetState in fleets:
+		if fleet == null or fleet.owner != config.faction:
+			continue
+		if not fleet.is_in_port() or fleet.province != seat:
+			continue
+		if fleet.embarked_army >= 0 or not fleet.embarked_civilians.is_empty():
+			continue
+		if fleet.mission != FleetState.Mission.NONE:
+			continue
+		var hull_id: String = _idle_hull_id(fleet)
+		if not hull_id.is_empty():
+			return {
+				"fleet_id": fleet.id,
+				"hull": hull_id,
+				"type_id": fleet.type_of(hull_id),
+				"rations": ShipEconomy.food_upkeep_per_ship(fleet.type_of(hull_id)),
+			}
+	return {}
+
+
+## True while any squadron this court owns has sailed this turn: a fleet in
+## motion is not idle — the break-up reads the larder only when the war's own
+## hulls stay home (wiki: ai-architecture § Naval policy).
+static func fleets_sailing(fleets: Array, faction: int) -> bool:
+	for fleet: FleetState in fleets:
+		if fleet != null and fleet.owner == faction and fleet.moved:
+			return true
+	return false
+
+
+## The lowest-id hull of one squadron — the yard's own order — that the fleet
+## can spare: one hull keeps her, because a break-up that retires the court's
+## whole idle fleet strands her own name in one turn (`NavalDeck.can_scrap`
+## refuses a hull her passengers need). A pair reads its cheaper first.
+static func _idle_hull_id(fleet: FleetState) -> String:
+	if fleet.hulls.size() < 2:
+		return ""
+	var aboard: int = fleet.civilian_count()
+	if fleet.embarked_army >= 0:
+		aboard += 1
+	if fleet.ship_count() - 1 < aboard:
+		return ""
+	return fleet.hulls[0]
