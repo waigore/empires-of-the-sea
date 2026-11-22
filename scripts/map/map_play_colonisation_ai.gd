@@ -227,7 +227,10 @@ static func _appetite(
 	var appetite: Dictionary = {}
 	if kind != AiControl.KIND_BASELINE and play.ai != null:
 		var economy: PlayerEconomy = play.ai.economy_for(faction)
-		var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+		# The court's shared run config (issue #1356).
+		var config: Variant = play.ensure_ai().court_config(
+			kind, faction, play.map_seed, play.ensure_ai().profiles
+		)
 		if economy != null and config is AiConfig:
 			appetite = AiEconomyPlanner.ground_appetite(
 				config as AiConfig, economy, TownIndustry.best_level(play.world, faction)

@@ -6963,6 +6963,79 @@ func test_the_army_marks_the_standards_the_court_would_order() -> void:
 	assert_eq(panel.counsel_text(), "", "and prints no line")
 
 
+## Every sheet whose rows wear the counsel's ▸ says what the mark means beside the
+## mark, not only in the footer a compact sheet drops: the legend stands under the
+## gold line while the reading names a row, and stands down when it names none
+## (REQ-P1-07, REQ-P5-07).
+func test_the_marking_sheets_stand_their_legend_beside_the_marks() -> void:
+	_attach()
+	var cases: Array[Dictionary] = [
+		{"door": HudLedgerDoors.ARMY, "word": "standards"},
+		{"door": HudLedgerDoors.NAVY, "word": "squadrons"},
+		{"door": HudLedgerDoors.MUSTER, "word": "forces"},
+		{"door": HudLedgerDoors.EYES, "word": "spy"},
+		{"door": HudLedgerDoors.PROVINCES, "word": "provinces"},
+		{"door": HudLedgerDoors.CIVILIANS, "word": "crews"},
+	]
+	for case: Dictionary in cases:
+		var door: String = String(case["door"])
+		screen.hud.ledger_door_pressed.emit(door)
+		var panel: SheetFrame = _sheet_for(door)
+		assert_not_null(panel, "%s mounts a sheet" % door)
+		assert_true(panel.is_open(), "%s opens" % door)
+		assert_true(
+			panel.legend_text().contains(String(case["word"])),
+			"%s: the legend says what the mark means — %s" % [door, panel.legend_text()]
+		)
+		assert_false(
+			panel.hint_text.contains("▸"),
+			"%s: the mark's meaning is not left to the footer a phone hides" % door
+		)
+		var marked: bool = not panel._counsel.keys().is_empty()
+		assert_eq(
+			panel.legend_shown(),
+			marked,
+			"%s: the legend stands exactly when a row wears the mark" % door
+		)
+		panel._apply_profile(true, true)
+		assert_eq(
+			panel.legend_shown(),
+			marked,
+			"%s: a compact sheet keeps the legend its footer loses" % door
+		)
+		panel.close()
+	# A reading that names no row explains no mark, whatever the sheet it opens on.
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.NAVY)
+	var navy: NavalLedgerPanel = screen.hud.navy_ledger
+	var wired: Callable = navy.counsel_source
+	navy.counsel_source = (
+		func(_data: Dictionary) -> Dictionary:
+			return {"line": "the court would sail nothing this turn", "keys": {}}
+	)
+	navy.refresh()
+	assert_false(navy.legend_shown(), "a line that names no squadron explains no mark")
+	navy.counsel_source = wired
+	navy.close()
+
+
+## The sheet behind one ledger door, for a case that reads more than one sheet.
+func _sheet_for(door: String) -> SheetFrame:
+	match door:
+		HudLedgerDoors.ARMY:
+			return screen.hud.army_ledger
+		HudLedgerDoors.NAVY:
+			return screen.hud.navy_ledger
+		HudLedgerDoors.MUSTER:
+			return screen.hud.muster_roll
+		HudLedgerDoors.EYES:
+			return screen.hud.spy_ledger
+		HudLedgerDoors.PROVINCES:
+			return screen.hud.province_ledger
+		HudLedgerDoors.CIVILIANS:
+			return screen.hud.civilian_roster
+	return null
+
+
 ## The sheet prints the reading it is handed and hides it when the reading is
 ## empty, so a session with no planner carries no gold line (REQ-P5-06).
 func test_the_army_sheet_prints_and_hides_the_counsel_it_is_handed() -> void:

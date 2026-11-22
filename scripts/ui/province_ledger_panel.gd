@@ -17,10 +17,10 @@ var _sort: String = ProvinceLedger.SORT_VALUE
 
 func _init() -> void:
 	title_text = "THE CROWN'S REALM"
+	mark_legend = "A ▸ marks the provinces the court would act in."
 	hint_text = (
-		"A ▸ marks the provinces the court would act in. Visit opens the "
-		+ "province's map and dossier. Each view reads the realm as it stands; "
-		+ "it never orders a work or a march."
+		"Visit opens the province's map and dossier. Each view reads the realm "
+		+ "as it stands; it never orders a work or a march."
 	)
 	toggle_action = InputActions.PROVINCE_LEDGER
 	_reading = ProvinceLedger.VIEW_ECONOMY
@@ -70,9 +70,10 @@ func _build_body(column: VBoxContainer) -> void:
 
 ## The court's line under the chips and above the rows: what its own staff would
 ## put to work or send a host into this turn, in the counsel's gold — advice,
-## never state (REQ-P5-06).
+## never state — and the legend that says what the row's `▸` means, on the body
+## because a phone drops the footer hint (REQ-P5-06, REQ-P1-07).
 func _build_counsel() -> Control:
-	return _counsel_line()
+	return _counsel_block()
 
 
 # --- filters -----------------------------------------------------------------

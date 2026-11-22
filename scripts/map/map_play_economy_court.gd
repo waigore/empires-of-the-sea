@@ -106,7 +106,9 @@ static func _base(
 	var ledger: PlayerEconomy = play.ledger_for(faction)
 	var ai: AiState = play.ensure_ai()
 	court.economy = ledger if ledger != null else ai.economy_for(faction)
-	court.config = AiBind.config(court.kind, faction, play.map_seed, ai.profiles)
+	# The court's one shared run config (issue #1356), so the rows this pass
+	# reads carry the same storm reading the muster pass notes.
+	court.config = ai.court_config(court.kind, faction, play.map_seed, ai.profiles)
 	court.town_level = TownIndustry.best_level(play.world, faction)
 	return court
 

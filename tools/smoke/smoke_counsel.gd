@@ -163,6 +163,12 @@ static func _navy(run, screen: MapScreen) -> void:
 		_marked_headings(navy._rows) == named,
 		"the navy's marks are painted on the headings they answer"
 	)
+	# The sentence that says what the mark means rides with the mark, on the
+	# sheet rather than in the footer a phone drops (DR-20261123-03).
+	run.check(
+		navy.legend_shown() == not keys.is_empty(),
+		"the navy's legend stands with the marks it explains"
+	)
 	navy.close()
 
 
@@ -205,6 +211,12 @@ static func _army(run, screen: MapScreen) -> void:
 	run.check(
 		_marked_headings(army._rows) == named,
 		"the army's marks are painted on the headings they answer"
+	)
+	# The legend says what `▸` means, beside the mark, on every screen
+	# (DR-20261123-03).
+	run.check(
+		army.legend_shown() == not keys.is_empty(),
+		"the army's legend stands with the marks it explains"
 	)
 	army.close()
 

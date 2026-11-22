@@ -19,10 +19,10 @@ var _court: Dictionary = {}
 
 func _init() -> void:
 	title_text = "THE CROWN'S EYES"
+	mark_legend = "A ▸ marks each spy the court would walk or screen this turn."
 	hint_text = (
 		"Visit opens the spy's map and dossier. The gold line names the spies "
-		+ "the court would book, and a ▸ marks each spy it would walk or screen "
-		+ "this turn. The sheet never moves a spy or sets an order."
+		+ "the court would book. The sheet never moves a spy or sets an order."
 	)
 	toggle_action = InputActions.SPY_LEDGER
 

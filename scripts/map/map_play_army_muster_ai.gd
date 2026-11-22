@@ -20,8 +20,9 @@ const KIND_RECALL: String = "recall"
 ## The court's whole muster for one region: raise the men, then pitch the train.
 ## Both legs run every turn — a court that raised a regiment still brings its
 ## surgeons — so neither answer short-circuits the other. The wall reading
-## ([method storm_extra]) is noted on the court's config first, so the plan's
-## own target carries it.
+## ([method storm_extra]) is noted on the court's shared config first, so the
+## plan's own target carries it — and every other reader in the turn, the
+## counsel and the ledger included, reads the same number (issue #1356).
 static func muster(
 	play: PlaySession,
 	model: MapModel,
