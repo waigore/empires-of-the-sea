@@ -1,38 +1,65 @@
 class_name FortCapital
 extends RefCounted
-## An Old World capital stands behind a Wood wall from the first day, and a
-## Great Power's fort tech lifts its own capital one level once
-## (wiki: siege-mechanics § Fort Levels; issue #919).
+## Old World start walls and the Great Power's fort-tech lift (wiki:
+## siege-mechanics § Fort Levels; issues #919, #1314).
 ##
-## Two rules, both one-shot and both on the province's stored `fort_level`:
-## `seed` is the start-of-campaign grant, `apply_research` the free bump at a
-## tech's unlock moment. Neither is a floor the province is re-raised toward: a
-## capital taken down by a siege stays down until an Engineer rebuilds it, and a
-## crown that never researches the fort line keeps the wall it started with.
+## Start walls (#1314): every Old World **province** of a Great Power or Minor
+## — seat or not — opens at **Wood (1)**; its **capital** opens at **Stone (2)**
+## even before Mine Engineering. New World and colonial ground gets nothing: a
+## tribe's seat and a crown's colony are settled ground, not a walled land.
+##
+## Three rules, all one-shot on the province's stored `fort_level`: `seed` is
+## the start-of-campaign grant, `apply_research` the free bump at a tech's
+## unlock moment. Neither is a floor the province is re-raised toward: a
+## province taken down by a siege stays down until an Engineer rebuilds it, and
+## a crown that never researches the fort line keeps the wall it started with.
+##
+## The bump reads the highest level its unlocks grant and only ever lifts the
+## crown's **own** capital — the seat that mustered the realm's army — through
+## the line: Stone with Mine Engineering, Modern with Modern Forts, Bastion
+## with Bastion Forts, Star with Star Forts. Minors never receive it: their
+## walls are what an Engineer builds.
 
-## Every Old World capital starts here: Wood, the level an Engineer builds first.
+## Start level of every Old World province of a walled crown (#1314).
 const START_LEVEL: int = 1
+## Start level of an Old World capital, seat of the realm's army (#1314).
+const CAPITAL_START_LEVEL: int = 2
 ## Tech id -> the level its unlock raises the crown's own capital to, once.
 const LEVELS: Dictionary = {
 	"mine_engineering": 2,
 	"modern_forts": 3,
+	"bastion_forts": 4,
+	"star_forts": 5,
 }
 
 
-## Gives every Old World capital province (Great Power and Minor alike) the Wood
-## wall. New World and colonial capitals get nothing: a tribe's seat and a
-## crown's colony are settled ground, not a walled seat. Returns how many walls
-## the pass raised, for the bootstrap report.
+## Gives every Old World province owned by a Great Power or Minor the Wood wall,
+## and every Old World capital — Great Power and Minor alike — the Stone wall.
+## New World and colonial provinces get nothing. Returns how many walls the
+## pass raised, for the bootstrap report.
 static func seed(model: MapModel) -> int:
 	if model == null or model.region_id != FactionCatalog.OLD_WORLD:
 		return 0
 	var raised: int = 0
 	for province: ProvinceState in model.provinces:
-		if not province.capital or province.fort_level >= START_LEVEL:
+		if not _walled_owner(province.owner):
 			continue
-		province.fort_level = START_LEVEL
+		var wanted: int = (
+			CAPITAL_START_LEVEL if province.capital else START_LEVEL
+		)
+		if province.fort_level >= wanted:
+			continue
+		province.fort_level = wanted
 		raised += 1
 	return raised
+
+
+## True for the crowns the start grant walls: any Old World Great Power or
+## Minor. A tribe's ground and a colony stay open.
+static func _walled_owner(faction: int) -> bool:
+	var kind: int = FactionCatalog.type_of(faction)
+	return kind == FactionCatalog.Type.GREAT_POWER \
+		or kind == FactionCatalog.Type.MINOR_NATION
 
 
 ## The level one unlock grants, or 0 for a tech with no wall in it.

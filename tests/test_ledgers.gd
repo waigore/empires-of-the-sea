@@ -610,6 +610,25 @@ func test_the_screen_names_where_it_stands() -> void:
 	)
 
 
+## The headings count in plain words and name the screen's state, never a table
+## plural ("spys") or a bare "down" (issue #1303).
+func test_the_headings_count_spies_and_name_the_screen() -> void:
+	assert_eq(SpyLedger.count_text(0), "no spies", "an empty network heads itself")
+	assert_eq(SpyLedger.count_text(1), "1 spy", "one spy is singular")
+	assert_eq(SpyLedger.count_text(3), "3 spies", "three spies pluralise")
+	assert_eq(SpyLedger.count_text(-1), "no spies", "no negative count is printed")
+	var up: Dictionary = SpyLedger.snapshot(_spy_world(), _units(), 0)
+	assert_eq(SpyLedger.screen_word(up), "up at Cádiz", "the screen names its seat")
+	assert_eq(SpyLedger.screen_word(up, false), "screen up", "a digest sheds the seat")
+	assert_eq(SpyLedger.screen_word({}), "no screen", "a bare down is never printed")
+	assert_eq(
+		SpyLedger.screen_word({"screened": true}), "screen up",
+		"a screen with no seat named still reads"
+	)
+	var open: Dictionary = SpyLedger.snapshot(_spy_world(), _idle_only(), 0)
+	assert_eq(SpyLedger.screen_word(open), "no screen", "an open crown says no screen")
+
+
 func test_the_summary_names_the_gap_not_only_the_gain() -> void:
 	var snapshot: Dictionary = SpyLedger.snapshot(_spy_world(), _units(), 0)
 	var summary: String = SpyLedger.summary(snapshot)
@@ -810,6 +829,34 @@ func test_the_sheet_paints_a_network_and_a_visit() -> void:
 	assert_not_null(visit, "a spy row carries its Visit")
 	visit.pressed.emit()
 	assert_false(panel.is_open(), "Visit opens the spy and sets the sheet aside")
+	_clear_spies(play)
+
+
+## The sheet's own headings print the words: no spies, one spy, no screen — and
+## the screen's seat by name when it stands (issue #1303).
+func test_the_sheet_headings_read_no_spies_and_name_the_screen() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: SpyLedgerPanel = screen.hud.spy_ledger
+	_clear_spies(play)
+	panel.open()
+	var painted: String = _spy_texts(panel)
+	assert_true(painted.contains("no spies"), "an empty network's tally reads")
+	assert_false(painted.contains("spys"), "a heading never wears a table plural")
+	assert_true(painted.contains("no screen"), "the screen block reads its state")
+	var seat: Vector2i = play.capital_tile
+	var screen_spy := _screening(95, seat)
+	screen_spy.owner = play.player_faction
+	var roster: Array[CivilianState] = [screen_spy]
+	play.civilian_layer.units = roster
+	play.civilian_layer.regions.set_region(play.region_index, roster)
+	panel.refresh()
+	painted = _spy_texts(panel)
+	assert_true(painted.contains("1 spy"), "one spy heads the network")
+	var seat_name: String = play.model.province_name(
+		play.model.province_at(seat.x, seat.y)
+	)
+	assert_true(painted.contains("up at %s" % seat_name), painted)
 	_clear_spies(play)
 
 
@@ -1111,6 +1158,74 @@ func test_the_people_pick_words_the_work_the_pass_would_give() -> void:
 	)
 	assert_eq(MapPlayPeoplePick.pick_line([]), "", "no crew, no clause")
 	assert_eq(MapPlayPeoplePick.line(null), "", "a session that is not there names nothing")
+
+
+## A roster with several crews on one order never repeats its clause: a prospect
+## names the tile it would uncover, so the crews read apart, and an order two
+## crews share is named once with every crew behind it counted (issue #1304).
+func test_the_people_pick_names_the_ground_and_never_repeats_a_clause() -> void:
+	var prospectors: Array[Dictionary] = [
+		{
+			"region": 0,
+			"unit_id": 1,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(12, 34),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+		{
+			"region": 0,
+			"unit_id": 2,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(13, 34),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+		{
+			"region": 0,
+			"unit_id": 3,
+			"role": "Explorer",
+			"action": "prospect",
+			"tile": Vector2i(12, 35),
+			"place": "Madrid",
+			"short": "prospect this tile",
+		},
+	]
+	assert_eq(
+		MapPlayPeoplePick.pick_line(prospectors),
+		"the court would put its Explorer to prospect the ground at Madrid (12, 34),"
+		+ " its Explorer to prospect the ground at Madrid (13, 34) and its Explorer"
+		+ " to prospect the ground at Madrid (12, 35) this turn"
+	)
+	# The same order booked to several crews is named once, and the tail still
+	# counts every crew the one clause stands for.
+	var shared: Array[Dictionary] = []
+	for index: int in 4:
+		shared.append({
+			"region": 0,
+			"unit_id": index,
+			"role": "Engineer",
+			"action": "build_road",
+			"tile": Vector2i(index, 0),
+			"place": "Guimarães",
+			"short": "build a road",
+		})
+	shared.append({
+		"region": 0,
+		"unit_id": 9,
+		"role": "Engineer",
+		"action": "build_road",
+		"tile": Vector2i(9, 9),
+		"place": "Braga",
+		"short": "build a road",
+	})
+	assert_eq(
+		MapPlayPeoplePick.pick_line(shared),
+		"the court would put its Engineer to build a road at Guimarães, its Engineer"
+		+ " to build a road at Braga and 3 more this turn"
+	)
 
 
 ## Crews wait and the pass puts none to work: the sheet names that gate rather
@@ -1975,6 +2090,29 @@ func test_the_province_counsel_words_the_orders_of_its_own_ground() -> void:
 	# A clause this module cannot say takes no place on the line.
 	var silent: Array[Dictionary] = [{"role": "Builder", "short": ""}]
 	assert_true(MapPlayProvinceCounsel.of(silent, [], 0).is_empty())
+	# The sheet already shows the province, so a prospect names the tile alone:
+	# two Explorers on one province read apart (issue #1304).
+	var prospectors: Array[Dictionary] = [
+		{
+			"role": "Explorer",
+			"short": "prospect this tile",
+			"action": "prospect",
+			"tile": Vector2i(12, 34),
+			"place": "Cádiz",
+		},
+		{
+			"role": "Explorer",
+			"short": "prospect this tile",
+			"action": "prospect",
+			"tile": Vector2i(13, 34),
+			"place": "Cádiz",
+		},
+	]
+	assert_eq(
+		String(MapPlayProvinceCounsel.of(prospectors, [])["line"]),
+		"the court would order its Explorer to prospect the ground (12, 34) and its"
+		+ " Explorer to prospect the ground (13, 34) this turn"
+	)
 	# The gate: the crown's own ground held an idle crew and the pass booked no
 	# work here; ground with no idle crew says nothing.
 	var gate: Dictionary = MapPlayProvinceCounsel.of([], [], 1)
@@ -5180,13 +5318,13 @@ func test_a_bare_shore_prices_the_wall_it_offers() -> void:
 	var home: Dictionary = _wall_row(snapshot, FactionCatalog.OLD_WORLD)
 	assert_eq(
 		String(home["preview_text"]),
-		"L1 soaks 10 wall hp with 1 gun (+10 hp, +1 gun)",
+		"L1 soaks 40 wall hp with 1 gun (+40 hp, +1 gun)",
 		"an open shore reads the first wall whole"
 	)
 	var overseas: Dictionary = _wall_row(snapshot, FactionCatalog.NEW_WORLD)
 	assert_eq(
 		String(overseas["preview_text"]),
-		"L2 soaks 20 wall hp with 2 guns (+10 hp, +1 gun)",
+		"L2 soaks 80 wall hp with 2 guns (+40 hp, +1 gun)",
 		"a wood wall's step names only what the level adds"
 	)
 
@@ -5275,8 +5413,8 @@ func test_a_modern_wall_reads_finished() -> void:
 	var raised: Dictionary = _raised()
 	assert_eq(int(raised["level"]), FortRules.MAX_LEVEL)
 	assert_eq(String(raised["state"]), WallLedger.STATE_RAISED, "a citadel owes nothing")
-	assert_eq(String(raised["note"]), "Fully walled — 3 guns, 30 wall hp.")
-	assert_eq(String(raised["level_text"]), "III")
+	assert_eq(String(raised["note"]), "Fully walled — 5 guns, 200 wall hp.")
+	assert_eq(String(raised["level_text"]), "V")
 
 
 func test_wall_filters_narrow_the_ledger_and_keep_their_tallies() -> void:
