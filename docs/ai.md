@@ -5,15 +5,14 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
 ## Implemented
 
 - **Registry, profiles** (`AiParameterRegistry`, `AiConfig`, `AiPersonality`,
-  `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas; a profile binds at setup
-  (DR-20261120-08).
+  `AiAgenda`): 3 profiles, 7 archetypes, 6 agendas (DR-20261120-08).
 - **Money goal** (`AiIncome`): reserve is the next muster or hull chest
   (`AiNavy`), else `economy.min_treasury`; on `earn` the auction keeps it
   (DR-20261113-19/22, DR-20261114-06/11).
 - **Power** (`AiPower`): provinces×10 + regiments + ships×5; bands +30/+5/−25.
 - **War desire** (`AiDiplomacyDesire`): base 50, power, relations, agenda;
-  goals `round(desire/25)`. Envy +20; a deed resists; weariness, erosion
-  and truces lower it (DR-20261113-25/14-01/18-27).
+  goals `round(desire/25)`. Envy +20; deeds resist; weariness, erosion and
+  truces lower it (DR-20261113-25/14-01/18-27).
 - **Diplomacy planner** (`AiDiplomacyPlanner`): one order from that tally.
   Declarations need relation ≤ ceiling and desire ≥ 51; below
   `50 + peace_bias` peace is offered, each refusal doubling the wait
@@ -59,7 +58,8 @@ Deterministic ([wiki](https://github.com/waigore/empires-of-the-sea/wiki/ai-arch
   (DR-20261111-04) and pattern inputs (DR-20261113-08); at war the wornest
   trains (DR-20261112-08).
 - **Rival turn** (`MapPlayEconomyAi`): civilians; Extraction → Riches →
-  Consumption → Production; trade.
+  Consumption → Production; trade. Court: `MapPlayEconomyCourt`. Ledger
+  reads: `MapPlayEconomyLarder`.
 - **War footing** (`AiPhasePlanner`): `war`/`fronts`/`peace`; overstretch
   takes peace but its border front (`AiBorderFronts`), no peer war
   (DR-20261113-15/11/19-16); at war no new voyage or chain
