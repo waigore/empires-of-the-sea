@@ -233,6 +233,42 @@ func test_a_sealed_cove_never_leaves_a_minor_oversized() -> void:
 	_assert_even_share(old_world, FactionCatalog.minor_ids(), "Old World Minor Nation")
 
 
+## The band is one province either side of the region's even Minor share:
+## five provinces against a 3.33 share is out, and an unowned province is
+## nobody's land (wiki: game-setup § Minor Nation assignment — "within ±1").
+func test_the_minor_band_allows_one_province_either_side() -> void:
+	var model: MapModel = _grid_model(6, 1, [10, 10, 10, 10, 11, 12])
+	assert_eq(
+		MinorShare.out_of_band(model, _grid_ids(model), [10, 11, 12]), 10,
+		"five against a 3.33 share is over the band"
+	)
+	model = _grid_model(6, 1, [10, 10, 10, 10, 11, 11])
+	assert_eq(
+		MinorShare.out_of_band(model, _grid_ids(model), [10, 11]), MapModel.NO_ID,
+		"four and two against a share of three sit inside the band"
+	)
+	model = _grid_model(6, 1, [10, 10, 10, 10, 11, MapModel.NO_ID])
+	assert_eq(
+		MinorShare.out_of_band(model, _grid_ids(model), [10, 11]), 10,
+		"an unowned province is not counted in the share"
+	)
+
+
+## The band is enforced by the assigner, not only by the seeds a test happens to
+## sample: Large seed 11729 used to open the age with Poland holding five against
+## a 3.33 Minor share and no setup error at all, so the world was never retried
+## (wiki: game-setup § Minor Nation assignment — "within ±1"; § Feasibility).
+## The chart is now called infeasible and `generate_world` bumps the seed.
+func test_a_large_chart_with_a_lopsided_minor_split_is_infeasible() -> void:
+	var old_world: MapModel = MapGenerator.new().generate_region(
+		11729, FactionCatalog.OLD_WORLD, 128, 84
+	)
+	assert_eq(
+		old_world.setup_errors, ["unfair_split"] as Array[String],
+		"the chart is rejected with the wiki's own code"
+	)
+
+
 ## A landmass too small to seat both rosters is infeasible, and the wiki wants a
 ## clear failure rather than a half-painted chart (wiki: game-setup
 ## § Feasibility). Seed 103's Old World holds 20 provinces: the six Minor
