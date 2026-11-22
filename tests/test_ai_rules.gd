@@ -1061,6 +1061,37 @@ func test_ai_military_does_not_storm_a_stronger_defender() -> void:
 	assert_true((plan["candidates"] as Array).is_empty())
 
 
+## An empty walled province is stormed, not walked (issue #1314): the gate
+## prices the standing battery too — the resolver's storm threshold is wall HP
+## + emplaced strength, so a host that beats the wall but not the battery is
+## repelled and never marches (wiki: siege-mechanics § Storming an empty
+## walled province).
+func test_ai_military_prices_an_empty_wall_at_the_storm_threshold() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	# Province 0 stands hostile and empty behind a Wood fort: 40 wall HP + one
+	# 11-strength Royal gun = a 51-strength storm threshold. A levy is 3.
+	model.province_data(0).fort_level = 1
+	var armies: Array[ArmyState] = []
+	var thin: Array[String] = []
+	thin.resize(17)
+	thin.fill("peasant_levies")
+	var host: ArmyState = ArmyState.muster(2, 2, 1, false, thin, 101)
+	armies.append(host)
+	assert_eq(host.strength(), 51.0, "seventeen levies reach the threshold exactly")
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 0, "a host at the threshold is repelled and never marches")
+	var over: Array[String] = []
+	over.resize(18)
+	over.fill("peasant_levies")
+	armies[0] = ArmyState.muster(2, 2, 1, false, over, 101)
+	plan = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 1, "one levy over the threshold storms the empty wall")
+	assert_eq(int(plan["orders"][0]["province"]), 0)
+
+
 func test_ai_military_storms_a_weaker_defender() -> void:
 	var world: WorldMap = AiFixture.land_world([1, 2])
 	var model: MapModel = world.region(0)

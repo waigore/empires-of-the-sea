@@ -252,7 +252,7 @@ static func _can_storm(
 	)
 	var level: int = FortRules.level_at(model, province)
 	if defenders.is_empty():
-		return level < 1 or army.strength() > FortRules.wall_hp(level)
+		return level < 1 or army.strength() > FortRules.storm_threshold({}, level)
 	var wall: float = FortRules.wall_hp(level)
 	var attack: float = army.strength() - wall
 	var margin: float = float(config.parameter("military.attack_margin_pct")) / 100.0
