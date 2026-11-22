@@ -1542,29 +1542,28 @@ func test_the_muster_counsel_words_the_orders_of_every_force() -> void:
 	)
 
 
-## The roll prints the reading it is handed and hides it when the reading is
-## empty, so a session with no waiting force carries no gold line (REQ-P5-06).
-func test_the_muster_roll_prints_and_hides_the_counsel_it_is_handed() -> void:
+## The roll prints the reading it reads and hides it when the staff names no
+## force, so a muster already under way carries no gold line (REQ-P5-06).
+func test_the_muster_roll_prints_its_reading_and_stands_it_down_when_closed() -> void:
 	_attach()
+	var play: PlaySession = screen.play
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	var wired: Callable = panel.counsel_source
-	panel.counsel_source = (
-		func(_data: Dictionary) -> String:
-			return "The court would send the Home Army to take the field with 4 regiments."
-	)
 	panel.open()
 	assert_eq(
 		panel.counsel_text(),
-		"The court would send the Home Army to take the field with 4 regiments."
+		MapPlayPickProse.sentence_of(MapPlayForceCounsel.pick(play, panel._snapshot)),
+		"the sheet prints the passes' own reading"
 	)
-	assert_true(panel._counsel.visible, "the sheet prints the line")
-	panel.counsel_source = Callable()
-	panel.refresh()
-	assert_eq(panel.counsel_text(), "", "an unwired sheet prints nothing")
-	assert_false(panel._counsel.visible, "and the line stands down")
-	# The case hands the panel back wired as the session left it.
-	panel.counsel_source = wired
+	assert_eq(
+		panel._counsel.visible, not panel.counsel_text().is_empty(), "the line stands with it"
+	)
+	# A closed sheet asks the planner nothing: the plan is no one's to read.
 	panel.close()
+	panel.refresh()
+	assert_eq(panel._court_pick, {}, "a closed roll carries no reading")
+	assert_eq(panel.counsel_text(), "", "a closed sheet prints nothing")
+	assert_false(panel._counsel.visible, "and the line stands down")
+	assert_eq(panel._court, {}, "and no row wears the mark while it is shut")
 
 
 ## The reading is the passes' own: THE CROWN'S MUSTER names the orders the land
@@ -1574,7 +1573,6 @@ func test_the_muster_roll_names_the_orders_the_crowns_pass_would_give() -> void:
 	_attach()
 	var play: PlaySession = screen.play
 	var panel: ForceLedgerPanel = screen.hud.muster_roll
-	assert_true(panel.counsel_source.is_valid(), "the sheet binds the passes' reading")
 	var before: Array = _force_moved_flags(play)
 	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
 	var counsel: String = panel.counsel_text()
@@ -1585,8 +1583,158 @@ func test_the_muster_roll_names_the_orders_the_crowns_pass_would_give() -> void:
 	)
 	if not pick.is_empty() and not (pick.get("forces", []) as Array).is_empty():
 		assert_true(counsel.begins_with("The court would send "), counsel)
+	panel.close()
+
+
+## Every force the muster's reading names is keyed by its chart, kind and id, so
+## the roll can mark the rows its line answers — including a force whose clause
+## the module cannot word, which the court would still order (DR-20261122-03).
+func test_the_muster_pick_keys_every_force_it_names() -> void:
+	var forces: Array[Dictionary] = [
+		{
+			"region": 0,
+			"kind": ForceLedger.KIND_ARMY,
+			"id": 2,
+			"line": "the Home Army to take the field with 4 regiments",
+		},
+		{"region": 1, "kind": ForceLedger.KIND_ARMY, "id": 2, "line": ""},
+		{
+			"region": 1,
+			"kind": ForceLedger.KIND_SQUADRON,
+			"id": 5,
+			"line": "the Leopard into the Mar Caribe",
+		},
+	]
+	var keys: Dictionary = MapPlayForceCounsel.of(forces, {}).get("keys", {})
+	assert_eq(keys.size(), 3, "every force is keyed, even one with no clause")
+	assert_true(keys.has("0:army:2"), "the army on the old chart")
+	assert_true(keys.has("1:army:2"), "the chart is in the key: ids are minted per chart")
+	assert_true(keys.has("1:squadron:5"), "the squadron names her hulls' kind")
+	assert_false(keys.has("0:army:5"), "a row the reading never named takes no key")
+	assert_eq(MapPlayForceCounsel.force_key(forces[1]), "1:army:2")
+	assert_eq(MapPlayForceCounsel.keys_of([]), {}, "nothing named, nothing marked")
+	# The gate names no force, so it marks none.
+	assert_eq(MapPlayForceCounsel.gate(true).get("keys", {}), {})
+
+
+## A muster row wears the counsel's mark before its own name, so a crown finds
+## the forces her staff would send among a long roll (DR-20261122-03).
+func test_a_muster_row_wears_the_courts_mark() -> void:
+	var plain := ForceLedgerRow.new()
+	plain.setup({
+		"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 3, "title": "Home Army",
+	})
+	assert_eq(plain._name.text, "Home Army", "an unmarked force reads its own name")
+	plain.free()
+	var marked := ForceLedgerRow.new()
+	marked.court = true
+	marked.setup({
+		"region": 0, "kind": ForceLedger.KIND_ARMY, "id": 3, "title": "Home Army",
+	})
+	assert_eq(
+		marked._name.text,
+		"%s Home Army" % ForceLedgerRow.COURT_MARK,
+		"the mark leads the name"
+	)
+	marked.free()
+
+
+## The muster's sheet is the passes' own reading: it prints their line, marks
+## exactly the forces they name and orders nothing (REQ-P2-03, REQ-P5-06;
+## DR-20261122-03).
+func test_the_muster_marks_the_forces_the_crowns_pass_would_send() -> void:
+	_attach()
+	var play: PlaySession = screen.play
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	var before: Array = _force_moved_flags(play)
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	assert_true(panel.is_open(), "the muster opens")
+	var pick: Dictionary = MapPlayForceCounsel.pick(play, panel._snapshot)
+	assert_eq(
+		panel.counsel_text(),
+		MapPlayPickProse.sentence_of(pick),
+		"the sheet prints the passes' own line"
+	)
+	assert_eq(
+		panel._counsel.visible,
+		not panel.counsel_text().is_empty(),
+		"the line stands with its reading"
+	)
+	# Every force the reading names is on the sheet, and only those rows wear
+	# the mark — a row the staff would leave alone never looks busy.
+	var keys: Dictionary = pick.get("keys", {})
+	var shown: Dictionary = {}
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
+		if row == null:
+			continue
+		var key: String = MapPlayForceCounsel.force_key(row.data)
+		shown[key] = true
+		assert_eq(row.court, keys.has(key), "a row wears the mark when the court would send it")
+		if row.court:
+			assert_true(row._name.text.begins_with(ForceLedgerRow.COURT_MARK), row._name.text)
+	for key: String in keys.keys():
+		assert_true(shown.has(key), "the force the court would send is on the sheet")
+	# A narrowing chip reorders the marks it already read: one read for the roll.
+	panel._on_filter(ForceLedger.KIND_ARMY, false)
+	assert_eq(panel._court, keys, "a chip press keeps the reading it was handed")
 	assert_eq(_force_moved_flags(play), before, "the reading orders nothing")
 	panel.close()
+
+
+## The marks are the reading's own: a row wears `▸` when the pick's keys name it
+## and no other, and the line painted is the pick's own sentence — so a mark
+## never outruns the line it answers (DR-20261122-03).
+func test_the_muster_marks_exactly_the_forces_its_reading_names() -> void:
+	_attach()
+	var panel: ForceLedgerPanel = screen.hud.muster_roll
+	screen.hud.ledger_door_pressed.emit(HudLedgerDoors.MUSTER)
+	var printed: Array[ForceLedgerRow] = _force_rows(panel)
+	assert_true(printed.size() >= 1, "the crown fields a force")
+	var named: String = MapPlayForceCounsel.force_key(printed[0].data)
+	assert_false(named.is_empty(), "a row keys itself by chart, kind and id")
+	var left_alone: Array[String] = []
+	for row: ForceLedgerRow in printed.slice(1):
+		left_alone.append(MapPlayForceCounsel.force_key(row.data))
+	# A reading the staff would give: one force named, a key that names no row
+	# and every other row left alone. The sheet repaints its widgets on a filter
+	# pass, so the marks are read off the repainted rows.
+	panel._court_pick = {
+		"forces": [printed[0].data],
+		"keys": {named: true, "9:army:99": true},
+		"line": "the court would send the Home Army to take the field with 4 regiments this turn",
+	}
+	panel._apply_filter()
+	var rows: Array[ForceLedgerRow] = _force_rows(panel)
+	assert_eq(rows.size(), printed.size(), "the same view prints the same rows")
+	var marked: int = 0
+	for row: ForceLedgerRow in rows:
+		if row.court:
+			marked += 1
+			assert_true(
+				row._name.text.begins_with(ForceLedgerRow.COURT_MARK), row._name.text
+			)
+	assert_eq(marked, 1, "one force named, a key that names no row marks no row")
+	assert_true(rows[0].court, "the force the reading names wears the mark")
+	for row: ForceLedgerRow in rows.slice(1):
+		assert_false(row.court, "a force the reading leaves alone wears none")
+	assert_eq(left_alone.size(), rows.size() - 1)
+	assert_eq(
+		panel.counsel_text(),
+		"The court would send the Home Army to take the field with 4 regiments this turn.",
+		"the line is the reading's own sentence"
+	)
+	panel.close()
+
+
+## The muster's printed rows, as the widgets the sheet painted.
+func _force_rows(panel: ForceLedgerPanel) -> Array[ForceLedgerRow]:
+	var rows: Array[ForceLedgerRow] = []
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
+		if row != null:
+			rows.append(row)
+	return rows
 
 
 ## Every force's "already under way" flag, so a reading that marched or sailed

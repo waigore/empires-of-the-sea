@@ -4,40 +4,43 @@ extends LedgerSheet
 ## one ledger, narrowed by region and kind, with a Visit action that opens the
 ## force's map and dossier (wiki: military-armies § The muster roll;
 ## DR-20261113-12). The projection lives in ForceLedger; this class only renders
-## rows and asks MapPlayForceLedger to jump (REQ-P3-02, REQ-P3-03). The sheet
-## chrome, fade and pause-door park come from SheetFrame; the chips, rows and
-## empty notice from LedgerSheet.
+## rows and asks MapPlayForceLedger to jump (REQ-P3-02, REQ-P3-03). The court's
+## own reading marks the forces it would send with `▸`, so the roll answers the
+## eye and not only the line (DR-20261122-03). The sheet chrome, fade and
+## pause-door park come from SheetFrame; the chips, rows and empty notice from
+## LedgerSheet.
 
 ## The two fleet-and-regiment sheets behind the roll: the roll counts what a
 ## standard and a squadron fly, those sheets read the whole of it
 ## (REQ-P5-01, REQ-P5-03; DR-20261115-14, DR-20261116-16).
 
-## The court's own reading, asked at every refresh: the orders the published land
-## and naval policies would give every force this turn, or nothing when nothing
-## waits (DR-20261121-17).
-var counsel_source: Callable = Callable()
+## The court's own reading of the muster: the orders the published land and
+## naval policies would give every force this turn, and the forces that reading
+## names, so the roll prints one gold line and marks those rows
+## (DR-20261121-17, DR-20261122-03).
+var _court_pick: Dictionary = {}
+## The forces that reading names, by `MapPlayForceCounsel.force_key`, so a row
+## knows whether it wears the counsel's mark (DR-20261122-03).
+var _court: Dictionary = {}
 var _counsel: Label = null
 
 
 func _init() -> void:
 	title_text = "THE CROWN'S MUSTER"
 	hint_text = (
-		"Visit opens the force's map and dossier. The muster roll reads each "
-		+ "standard and squadron as it stands and names the orders the court "
-		+ "would give; it never orders a march."
+		"A ▸ marks the forces the court would send this turn. Visit opens the "
+		+ "force's map and dossier. The muster roll reads each standard and "
+		+ "squadron as it stands and names the orders the court would give; it "
+		+ "never orders a march."
 	)
 	toggle_action = InputActions.MUSTER_ROLL
-	# The reading is the panel's own method, not a closure handed in from the
-	# session: a bound callable cannot outlive the session it reads
-	# (DR-20261121-14).
-	counsel_source = _read_counsel
 
 
-## The orders the court's own staff would give every force this turn, read off
-## the roll's bound session (wiki: military-armies § The muster roll;
-## DR-20261121-17).
-func _read_counsel(data: Dictionary) -> String:
-	return MapPlayForceCounsel.line(play, data)
+## The reading the roll paints: the passes' own pick, asked by the panel off its
+## bound session, so no capture outlives the session it reads (DR-20261121-14,
+## DR-20261122-03).
+func _read_counsel() -> Dictionary:
+	return MapPlayForceCounsel.pick(play, _snapshot)
 
 
 ## Re-reads both layer rosters for the player's crown and repaints the view.
@@ -50,8 +53,10 @@ func refresh() -> void:
 		play.ship_layer.regions if play.ship_layer != null else null,
 		play.player_faction
 	)
+	# One read for the whole roll, never one per row: a closed sheet asks nothing,
+	# because the plan is a planner walk no one is looking at (REQ-P4-02).
+	_court_pick = _read_counsel() if is_open() else {}
 	_fit()
-	_sync_counsel()
 	_apply_filter()
 
 
@@ -90,16 +95,14 @@ func _under_chips() -> Control:
 
 
 ## The gold counsel line: the orders the court's staff would give every force this
-## turn, or nothing when every force is already under way. A closed sheet reads
-## nothing, because the pass is a planner walk no one is looking at (REQ-P4-02).
-func _sync_counsel() -> void:
+## turn, or nothing when every force is already under way or the staff gives no
+## order (REQ-P5-06).
+func _paint_counsel() -> void:
 	if _counsel == null:
 		return
-	var text: String = ""
-	if is_open() and counsel_source.is_valid():
-		text = String(counsel_source.call(_snapshot))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
+	var said: String = MapPlayPickProse.sentence_of(_court_pick)
+	_counsel.text = said
+	_counsel.visible = not said.is_empty()
 
 
 ## The doors behind the roll: the crown's army reads every regiment a standard
@@ -137,6 +140,10 @@ func _kind_word(key: String) -> String:
 
 
 func _apply_filter() -> void:
+	# The marks come off the one reading, so a chip press reorders the same rows
+	# without asking the passes again (REQ-P4-01).
+	_court = _court_pick.get("keys", {}) as Dictionary
+	_paint_counsel()
 	var groups: Array[Dictionary] = ForceLedger.groups(_snapshot, _region, _reading)
 	var shown: int = ForceLedger.count(_snapshot, _region, _reading)
 	_paint_filtered(groups, shown, _heading, _make_row)
@@ -155,6 +162,9 @@ func _heading(group: Dictionary, count: int) -> Control:
 func _make_row(raw: Variant, compact: bool) -> Control:
 	var row := ForceLedgerRow.new()
 	row.compact = compact
+	# The row wears the mark when the reading names its force, keyed the same way
+	# the pick keys its own entries (DR-20261122-03).
+	row.court = _court.has(MapPlayForceCounsel.force_key(raw as Dictionary))
 	row.visit_pressed.connect(_visit)
 	row.setup(raw as Dictionary)
 	return row

@@ -4,7 +4,7 @@ extends RefCounted
 ## navy, the army, the muster, the colonies, the realm, the production, the
 ## market and the workers tabs — opens from the door the player uses, prints its
 ## one gold line, and orders nothing
-## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01).
+## (DR-20261121-05/06/07/09/12/13/14/16/17/19/21, DR-20261122-01/03).
 ##
 ## The court ledger's own envoy and the sound desk stay in the HUD step; this
 ## step owns the counsel readings and the tallies that prove they move nothing.
@@ -149,8 +149,9 @@ static func _army(run, screen: MapScreen) -> void:
 
 ## THE CROWN'S MUSTER names the orders the court's own staff would give every
 ## force this turn — both the army's standards and the navy's squadrons in one
-## gold line under the chips — and moves nothing (wiki: military-armies § The
-## muster roll; DR-20261121-17).
+## gold line under the chips — and every force the line answers leads with the
+## counsel's mark (wiki: military-armies § The muster roll; DR-20261121-17,
+## DR-20261122-03).
 static func _muster(run, screen: MapScreen) -> void:
 	var before: Array = _army_orders(screen)
 	before.append_array(_fleet_orders(screen))
@@ -170,6 +171,11 @@ static func _muster(run, screen: MapScreen) -> void:
 	run.check(
 		muster._counsel.visible == not counsel.is_empty(),
 		"the muster's counsel stands with its reading"
+	)
+	var muster_pick: Dictionary = MapPlayForceCounsel.pick(screen.play, muster._snapshot)
+	run.check(
+		_marked_forces(muster) == (muster_pick.get("keys", {}) as Dictionary).size(),
+		"every force the court would send wears the mark"
 	)
 	var after: Array = _army_orders(screen)
 	after.append_array(_fleet_orders(screen))
@@ -362,6 +368,17 @@ static func _marked_rows(panel: ProvinceLedgerPanel) -> int:
 	var marked: int = 0
 	for child: Node in panel._rows.get_children():
 		var row := child as ProvinceLedgerRow
+		if row != null and row.court:
+			marked += 1
+	return marked
+
+
+## How many muster rows wear the court's mark, so the smoke can hold the count to
+## the reading's own keys (DR-20261122-03).
+static func _marked_forces(panel: ForceLedgerPanel) -> int:
+	var marked: int = 0
+	for child: Node in panel._rows.get_children():
+		var row := child as ForceLedgerRow
 		if row != null and row.court:
 			marked += 1
 	return marked
