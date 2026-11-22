@@ -48,10 +48,10 @@ static func picks(play: PlaySession, faction: int) -> Dictionary:
 	var economy: PlayerEconomy = play.ledger_for(faction)
 	if economy == null:
 		return result
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_NONE:
+	var court: Dictionary = AiControl.court(play, faction)
+	if court.is_empty():
 		return result
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+	var config: Variant = court["config"]
 	var overseas: Dictionary = MapPlayEconomyAi._overseas(play, faction, economy)
 	# The crown's own purse, with no reserve held back: a pick the crown could
 	# not press today is no advice at all. A works floor below zero keeps both

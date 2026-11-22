@@ -51,10 +51,11 @@ static func _run_region(
 ) -> bool:
 	var changed: bool = false
 	for faction: int in MapPlayCourt.planning_factions(play):
-		var kind: String = AiControl.court_kind(play, faction)
-		if kind == AiControl.KIND_RANDOM:
+		var court: Dictionary = AiControl.court(play, faction)
+		if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 			continue
-		var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+		var kind: String = String(court["kind"])
+		var config: Variant = court["config"]
 		# The court raises its men and brings its surgeons before it plans this
 		# turn's march, so a fresh regiment can hold the seat or join the field
 		# army it detaches, and a worn field army on its own ground pitches a

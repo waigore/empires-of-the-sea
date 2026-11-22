@@ -26,10 +26,11 @@ static func run(
 	var seat: int = WorldBootstrap.capital_province(model, faction)
 	if seat < 0:
 		return report
-	var kind: String = AiControl.court_kind(play, faction)
-	if kind == AiControl.KIND_RANDOM:
+	var court: Dictionary = AiControl.court(play, faction)
+	if court.is_empty() or String(court["kind"]) == AiControl.KIND_RANDOM:
 		return report
-	var config: Variant = AiBind.config(kind, faction, play.map_seed, play.ensure_ai().profiles)
+	var kind: String = String(court["kind"])
+	var config: Variant = court["config"]
 	var roster: Array[FleetState] = MapPlayCourt.region_fleets(play, region)
 	var want: int = (
 		int(overseas.get("used", 0)) + int(overseas.get("left_total", 0))
