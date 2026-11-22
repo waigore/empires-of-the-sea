@@ -1420,7 +1420,7 @@ func test_ai_naval_hunts_a_hostile_squadron_one_zone_over() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 2, 1, "galleon"),
+		_squadron(0, 2, 1, "sloop"),
 		_squadron(1, 1, 0, "sloop"),
 	]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
@@ -1577,7 +1577,7 @@ func test_map_phase_sails_a_peaceful_squadron_one_leg_home() -> void:
 func test_ai_naval_sorties_from_a_port_into_a_hostile_zone() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
-	var moored := FleetState.in_port(0, 2, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var moored := FleetState.in_port(0, 2, 0, ["h0"] as Array[String], {"h0": "sloop"})
 	var fleets: Array[FleetState] = [moored, _squadron(1, 1, 0, "sloop")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 1)
@@ -1600,7 +1600,7 @@ func test_ai_naval_hunts_only_charted_water() -> void:
 	charts.setup(world, 0, {})
 	var config: AiConfig = AiConfig.build(2, 1500)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 2, 1, "galleon"),
+		_squadron(0, 2, 1, "sloop"),
 		_squadron(1, 1, 0, "sloop"),
 	]
 	var blind: Dictionary = AiNavalPlanner.orders(
@@ -1623,7 +1623,7 @@ func test_ai_naval_hunts_only_charted_water() -> void:
 func test_ai_naval_home_squadron_sorties_to_defend_its_seat() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(0, 1500)
-	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "sloop"})
 	var fleets: Array[FleetState] = [home, _squadron(1, 1, 0, "sloop")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 1, "the seat answers a hostile in reach")
@@ -1685,6 +1685,55 @@ func test_ai_naval_a_merchant_squadron_does_not_raid() -> void:
 	var fleets: Array[FleetState] = [_squadron(0, 2, 0, "galleon")]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
 	assert_eq((plan["orders"] as Array).size(), 0)
+
+
+## A convoy hull cannot pick a fight: a merchant squadron in reach of a weaker
+## hostile at war leaves the leg to the trade rules — with another berth
+## ashore the hull hunts nothing, and with none it convoys home (issue #1258).
+func test_ai_naval_a_merchant_squadron_never_pursues_at_war() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var fleets: Array[FleetState] = [
+		_squadron(0, 0, 1, "galleon"),
+		_squadron(1, 1, 0, "sloop"),
+	]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	for raw: Variant in plan["orders"]:
+		assert_ne(
+			String((raw as Dictionary)["kind"]), AiNavalPlanner.KIND_PURSUE,
+			"a merchant hull joins no war hunt"
+		)
+		assert_ne(
+			String((raw as Dictionary)["kind"]), AiNavalPlanner.KIND_SORTIE,
+			"a merchant hull picks no fight"
+		)
+
+
+## A merchant home fleet that answers a hostile beside its berth still does not
+## read as a war sortie: the kind is the hull's own, so the trace names a
+## convoy's move for what it is (wiki: ships-and-naval § Ship Types; #1258).
+func test_ai_naval_a_merchant_seat_guard_convoys_out_of_the_harbour() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var guard := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	var fleets: Array[FleetState] = [guard, _squadron(1, 1, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1, "the berth answers the hostile")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_CONVOY)
+
+
+## A warship-bearing home fleet still answers a hostile beside the seat: the
+## convoy rule is for hulls that cannot fight, never for the seat's guard
+## (wiki: ai-architecture § Naval policy — defence first; issue #1258).
+func test_ai_naval_a_warship_home_fleet_still_sorties_to_defend() -> void:
+	var model: MapModel = NavalFixture.build()
+	var config: AiConfig = AiConfig.build(0, 1500)
+	var home := FleetState.in_port(0, 0, 0, ["h0"] as Array[String], {"h0": "galleon"})
+	home.hull_types["h0"] = "sloop"
+	var fleets: Array[FleetState] = [home, _squadron(1, 1, 0, "sloop")]
+	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(0, 1), model, fleets)
+	assert_eq((plan["orders"] as Array).size(), 1, "the seat answers a hostile in reach")
+	assert_eq(String(plan["orders"][0]["kind"]), AiNavalPlanner.KIND_SORTIE)
 
 
 ## A warship already on a hostile coast holds there: the station pass posts the
@@ -1821,7 +1870,7 @@ func test_ai_naval_needs_a_hostile_fleet_at_sea() -> void:
 	var model: MapModel = NavalFixture.build()
 	var config: AiConfig = AiConfig.build(2, 1500)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 2, 1, "galleon"),
+		_squadron(0, 2, 1, "sloop"),
 		FleetState.in_port(1, 1, 1, ["h1"] as Array[String], {"h1": "sloop"}),
 	]
 	var plan: Dictionary = AiNavalPlanner.orders(config, _war_state(2, 1), model, fleets)
@@ -1899,7 +1948,7 @@ func test_ai_naval_a_berth_ashore_frees_a_squadron_to_hunt() -> void:
 		9, 0, 0, ["h9"] as Array[String], {"h9": "fluyte"}
 	)
 	var fleets: Array[FleetState] = [
-		_squadron(0, 0, 1, "galleon"),
+		_squadron(0, 0, 1, "sloop"),
 		berthed,
 		_squadron(1, 1, 0, "sloop"),
 	]
@@ -1958,6 +2007,72 @@ func test_the_observer_log_reads_the_trade_garrison() -> void:
 	var lines: Array = record["events"]
 	assert_eq(lines.size(), 1)
 	assert_true(String(lines[0]).contains("holds home"), "the row names why")
+
+
+## The observer log names a convoy hull's sail: the action reads as a convoy,
+## never as the war sortie the old suffix rule gave every port fleet (issue
+## #1258). A warship's own sortie keeps its `sortie` row.
+func test_the_observer_log_names_a_convoy_sail_apart_from_a_sortie() -> void:
+	var play := PlaySession.new()
+	var fleet_trace: Array[Dictionary] = [
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_CONVOY,
+			"fleet": 0,
+			"zone": 0,
+			"zone_name": "Golfo de México",
+			"region": 0,
+			"threat": 0,
+		},
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_SORTIE,
+			"fleet": 1,
+			"zone": 1,
+			"zone_name": "Mar Caribe",
+			"region": 0,
+			"threat": 3,
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], fleet_trace, {})
+	var record: Dictionary = merged["factions"][0]
+	assert_eq(
+		int(record["actions"].get("cargo", 0)), 0,
+		"a convoy sail is no cargo route: the economy owns that key"
+	)
+	assert_eq(int(record["actions"].get("convoy", 0)), 1, "the convoy names itself")
+	assert_eq(int(record["actions"].get("sortie", 0)), 1, "the warship still sorties")
+	assert_eq(int(record["actions"].get("pursue", 0)), 0)
+	var lines: Array = record["events"]
+	assert_eq(lines.size(), 2)
+	assert_true(String(lines[0]).contains("convoy"), "the row says what the hull did")
+	assert_false(String(lines[0]).contains("squadron sails"), "not a war move's words")
+
+
+## A berth guard that docks through the seat's own merge reads home — the dock
+## branch names its harbour, not a zone (wiki: ships-and-naval § Home Fleet;
+## issue #1258).
+func test_the_observer_log_reads_a_convoy_dock_at_the_harbour() -> void:
+	var play := PlaySession.new()
+	var fleet_trace: Array[Dictionary] = [
+		{
+			"faction": 0,
+			"kind": AiNavalPlanner.KIND_CONVOY,
+			"fleet": 0,
+			"zone": -1,
+			"zone_name": "Cádiz",
+			"region": 0,
+			"threat": 0,
+			"dock": true,
+			"province": 0,
+		},
+	]
+	var merged: Dictionary = AiTurnLog.record(play, [], fleet_trace, {})
+	var record: Dictionary = merged["factions"][0]
+	assert_eq(int(record["actions"].get("convoy", 0)), 1, "a docked convoy still names itself")
+	var lines: Array = record["events"]
+	assert_eq(lines.size(), 1)
+	assert_true(String(lines[0]).contains("convoy"), "the dock row keeps the hull's own kind")
 
 
 func test_ai_naval_skips_a_squadron_that_already_moved() -> void:

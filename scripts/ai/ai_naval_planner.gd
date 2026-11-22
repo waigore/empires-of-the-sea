@@ -1,15 +1,18 @@
 class_name AiNavalPlanner
 extends RefCounted
 ## Full-AI naval policy (docs/ai.md, wiki: ai-architecture § Naval policy).
-## A court at war puts its sea-going squadrons onto the nearest hostile squadron
-## it can match — a sortie out of an adjacent port, or a one-zone pursuit — and
+## A court at war puts its sea-going warships onto the nearest hostile squadron
+## they can match — a sortie out of an adjacent port, or a one-zone pursuit — and
 ## failing that sends its warships to work the enemy's trade, blockading a coast
 ## where the raid takes cargo and merchant hulls (DR-20261111-17). A court at
 ## peace has nothing to sit on: every unengaged squadron sails home one legal
 ## step a turn and docks at the crown's own harbour, so its holds, its yard and
-## its harbour roster are where the rules can use them (DR-20261110-30). Pure
-## rules: state in, orders out; the map layer applies them through NavalMovement
-## so the AI never invents an outcome (REQ-P2-03, REQ-P3-03).
+## its harbour roster are where the rules can use them (DR-20261110-30). A
+## merchant hull — a convoy — can pick no fight and works no coast: the trace
+## names its one sail, home or berth-guard, so a port fleet reads as what its
+## hulls are (ships-and-naval § Ship Types; issue #1258). Pure rules: state in,
+## orders out; the map layer applies them through NavalMovement so the AI never
+## invents an outcome (REQ-P2-03, REQ-P3-03).
 ##
 ## The footing's naval slot (`navy.missions`, DR-20261117-01) is the caller's
 ## read: an **overstretched** court opens no new commerce station — a squadron
@@ -23,6 +26,10 @@ const KIND_HOME: String = "home"
 ## A warship with no squadron to fight sails for a hostile coast to raid its
 ## trade (DR-20261111-17): the move is the first leg of that station.
 const KIND_RAID: String = "raid"
+## A merchant hull that leaves port sails a convoy, not a war sortie (wiki:
+## ships-and-naval § Ship Types; issue #1258): the trace must name the move so
+## a port fleet reads as what its hulls are.
+const KIND_CONVOY: String = "convoy"
 ## Why a squadron gives up its station and makes for home: it carries the holds
 ## its court keeps its imports with, and the court has none in port at its seat
 ## (wiki: ships-and-naval § Cargo holds and capacity; issue #530).
@@ -72,7 +79,7 @@ static func orders(
 		elif not hostile.is_empty():
 			order = _best_target(config, model, fleets, fleet, hostile, charts)
 			var raid: Dictionary = {}
-			if order.is_empty() and raids:
+			if order.is_empty() and raids and _has_warship(fleet):
 				raid = _raid_order(
 					model, fleets, fleet, config.faction, hostile, charts
 				)
@@ -232,8 +239,19 @@ static func _best_target(
 	hostile: Dictionary,
 	charts: CourtCharts = null
 ) -> Dictionary:
+	# The hull picks the leg (issue #1258): a warship hunts as published, while
+	# a convoy hull joins no war hunt — it fights only for its own harbour, the
+	# hostile beside its berth, and otherwise leaves the leg to the trade rules
+	# (wiki: ai-architecture § Naval policy — defence first, ships-and-naval
+	# § Ship Types).
+	if not _has_warship(fleet) and not _defends_seat(model, fleets, fleet, hostile):
+		return {}
 	var own: float = NavalCombat.side_strength([fleet])
-	var kind: String = KIND_SORTIE if fleet.is_in_port() else KIND_PURSUE
+	# A convoy that answers its own berth still carries its own kind: the trace
+	# must not read the seat's answer as a war sortie (issue #1258).
+	var kind: String = KIND_SORTIE if fleet.is_in_port() and _has_warship(fleet) else (
+		KIND_CONVOY if fleet.is_in_port() else KIND_PURSUE
+	)
 	var best: Dictionary = {}
 	var best_threat: float = 0.0
 	for zone: int in _destinations(model, fleet):

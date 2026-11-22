@@ -15,7 +15,7 @@ var _head: ProvinceSheetHead = null
 ## would send here, or the gate that leaves the sheet with nothing to name
 ## (wiki: world-model § The crown's provinces; DR-20261121-19).
 var counsel_source: Callable = Callable()
-var _counsel: Label = null
+var _counsel: CounselLine = null
 var _grid: ProvinceFactsGrid = null
 var _orders: ProvinceOrdersSection = null
 var _resources: ProvinceResources = null
@@ -78,10 +78,10 @@ func _build() -> void:
 	column.add_child(_head)
 
 	# The court's own reading sits under the head and above the facts it answers:
-	# what its staff would do with this province's ground this turn (DR-20261121-19).
-	_counsel = UiRowBuilder.wrapped_line("", 12, Palette.GOLD)
-	_counsel.visible = false
-	column.add_child(_counsel)
+	# what its staff would do with this province's ground this turn (CounselLine;
+	# DR-20261121-19). A dossier with no province on show asks nothing.
+	_counsel = CounselLine.make(column)
+	_counsel.gate = func() -> bool: return _model != null and _province_id >= 0
 
 	column.add_child(_divider())
 
@@ -247,15 +247,13 @@ func refresh(model: MapModel, province_id: int, crown: Dictionary = {}) -> void:
 ## The gold counsel line: what the court's staff would do with this province's
 ## ground this turn, or nothing when neither pass names the ground. A closed
 ## sheet reads nothing, because the pass is a planner walk no one is looking at
-## (REQ-P4-02).
+## (REQ-P4-02; CounselLine).
 func _sync_counsel() -> void:
 	if _counsel == null:
 		return
-	var text: String = ""
-	if counsel_source.is_valid() and _model != null and _province_id >= 0:
-		text = String(counsel_source.call(_model, _province_id))
-	_counsel.text = text
-	_counsel.visible = not text.is_empty()
+	_counsel.source = counsel_source
+	_counsel.args = [_model, _province_id]
+	_counsel.sync()
 
 
 ## The counsel line's text, for tests and tooling (REQ-P3-02). Empty when the

@@ -111,12 +111,17 @@ static func stage_hint(stage: String, target_type: int, score: float = -1.0) -> 
 static func _absorb(world: WorldMap, state: DiplomacyState, winner: int, loser: int) -> void:
 	for model: MapModel in world.regions:
 		for province: ProvinceState in model.provinces:
-			if province.owner == loser:
-				province.owner = winner
-				# The absorbed court's seat does not travel with its land
-				# (wiki: capital-and-connectivity § Capital loss and
-				# reassignment).
-				CapitalLoss.clear_seat(province)
+			if province.owner != loser:
+				continue
+			# The land's deeds go with it: ground bought from the absorbed court
+			# answers to its new owner (wiki: diplomacy § Intervention;
+			# world-market § Minor/tribe town development).
+			if not ProvinceHandover.hand_over(model, province.id, winner):
+				continue
+			# The absorbed court's seat does not travel with its land
+			# (wiki: capital-and-connectivity § Capital loss and
+			# reassignment).
+			CapitalLoss.clear_seat(province)
 	state.clear_relations_of(loser)
 	state.record_event("joinEmpire", winner, loser)
 
