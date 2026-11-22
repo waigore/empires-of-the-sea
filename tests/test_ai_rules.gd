@@ -1061,6 +1061,37 @@ func test_ai_military_does_not_storm_a_stronger_defender() -> void:
 	assert_true((plan["candidates"] as Array).is_empty())
 
 
+## An empty walled province is stormed, not walked (issue #1314): the gate
+## prices the standing battery too — the resolver's storm threshold is wall HP
+## + emplaced strength, so a host that beats the wall but not the battery is
+## repelled and never marches (wiki: siege-mechanics § Storming an empty
+## walled province).
+func test_ai_military_prices_an_empty_wall_at_the_storm_threshold() -> void:
+	var world: WorldMap = AiFixture.land_world([1, 2])
+	var model: MapModel = world.region(0)
+	var state := _war_state(2, 1)
+	var config: AiConfig = AiConfig.build(2, 1500)
+	# Province 0 stands hostile and empty behind a Wood fort: 40 wall HP + one
+	# 11-strength Royal gun = a 51-strength storm threshold. A levy is 3.
+	model.province_data(0).fort_level = 1
+	var armies: Array[ArmyState] = []
+	var thin: Array[String] = []
+	thin.resize(17)
+	thin.fill("peasant_levies")
+	var host: ArmyState = ArmyState.muster(2, 2, 1, false, thin, 101)
+	armies.append(host)
+	assert_eq(host.strength(), 51.0, "seventeen levies reach the threshold exactly")
+	var plan: Dictionary = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 0, "a host at the threshold is repelled and never marches")
+	var over: Array[String] = []
+	over.resize(18)
+	over.fill("peasant_levies")
+	armies[0] = ArmyState.muster(2, 2, 1, false, over, 101)
+	plan = AiMilitaryPlanner.march_orders(config, state, model, armies)
+	assert_eq((plan["orders"] as Array).size(), 1, "one levy over the threshold storms the empty wall")
+	assert_eq(int(plan["orders"][0]["province"]), 0)
+
+
 func test_ai_military_storms_a_weaker_defender() -> void:
 	var world: WorldMap = AiFixture.land_world([1, 2])
 	var model: MapModel = world.region(0)
@@ -2753,6 +2784,9 @@ func test_ai_economy_keeps_the_musters_own_hand() -> void:
 	var economy := PlayerEconomy.starting()
 	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
 	economy.treasury = 5000
+	# The retuned floor is 1 spare hand (issue #1314 companion), so the
+	# reservation is the floor plus the levy's hand — two heads — and the
+	# published last-peasant throttle holds while the pool stands at it.
 	economy.stockpile = {"fabric": 10, "castIron": 10, "lumber": 10}
 	economy.add("paper", 10)
 	var hands: int = AiArmyReinforce.muster_hands(config, economy, 0, true)
@@ -2760,25 +2794,25 @@ func test_ai_economy_keeps_the_musters_own_hand() -> void:
 		hands, config.parameter("army.min_peasants") + 1,
 		"the muster's floor plus the levy's own hand"
 	)
-	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-		config, economy, 0, -1, hands
-	)
-	assert_eq(orders.size(), 1, "one recruit a turn")
-	var applied: PlayerEconomy = economy.copy()
-	assert_true(bool(applied.recruit(int(orders[0]["tier"])).get("ok", false)))
-	var second: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
-		config, applied, 0, -1, hands
-	)
-	assert_eq(second.size(), 1, "still one peasant above the reserved hand")
-	assert_true(bool(applied.recruit(int(second[0]["tier"])).get("ok", false)))
+	# The pool stands at the reservation: the last-peasant throttle keeps it
+	# there — the levy's hand survives the pass.
+	economy.workers = WorkerPool.make(hands)
 	assert_true(
-		AiEconomyPlanner.recruitment_orders(config, applied, 0, -1, hands).is_empty(),
+		AiEconomyPlanner.recruitment_orders(config, economy, 0, -1, hands).is_empty(),
 		"the reserved hand survives the pass"
 	)
 	assert_eq(
-		applied.available_peasants(), hands,
+		hands, config.parameter("army.min_peasants") + 1,
 		"the fields still spare the muster its hand"
 	)
+	# One head over the reservation and the pass hires again: the reservation
+	# is a floor the pool grows past, not a wall (the retune's own point).
+	economy.workers = WorkerPool.make(hands + 1)
+	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
+		config, economy, 0, -1, hands
+	)
+	assert_eq(orders.size(), 1, "one recruit a turn above the reservation")
+	assert_eq(int(orders[0]["tier"]), WorkerPool.Tier.APPRENTICE, "the spare head grows the pool")
 
 
 func test_a_court_not_arming_keeps_no_hand() -> void:
@@ -2842,19 +2876,21 @@ func test_a_banking_court_paces_the_hires_to_the_harvest() -> void:
 	var config: AiConfig = AiConfig.build(1, 1500)
 	var economy := PlayerEconomy.starting()
 	economy.tech_unlocked = {"apprentice_workers": true, "sugar_refining": true}
+	# The retuned levy floor is 2 (min_peasants 1 + the levy's hand 1, issue
+	# #1314 companion), so the pool that "is met" moves down with it.
 	economy.workers = WorkerPool.make(4)
 	economy.treasury = 8000
 	economy.add("paper", 10)
-	# The bank holds and the land carries one more ration: the levy's hand is
-	# the pool target (min_peasants 3 + the levy's hand 1 = 4, already met) —
-	# the trained tiers and the worker target wait for the muster to stand.
+	# The bank holds and the land carries one more ration: the levy's pool is
+	# past its floor and the bank paces — the trained tiers and the worker
+	# target wait for the muster to stand.
 	var orders: Array[Dictionary] = AiEconomyPlanner.recruitment_orders(
 		config, economy, 0, -1, 0, true, 1
 	)
 	assert_true(orders.is_empty(), "the levy's pool is met; the ladder waits")
 	# One peasant short of the levy floor: the farmhand comes first (the
 	# #1023 provision), paid against the harvest it eats.
-	economy.workers = WorkerPool.make(3)
+	economy.workers = WorkerPool.make(1)
 	orders = AiEconomyPlanner.recruitment_orders(
 		config, economy, 0, -1, 0, true, 1
 	)
@@ -3916,9 +3952,9 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	play.civilian_layer = layer
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 
-	var without_holds: Dictionary = MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]
+	var without_holds: Dictionary = MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]
 	assert_eq(_tons(without_holds), 5, "the rival's home yield needs no hold")
-	assert_eq(int(MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]["grain"]), 5)
+	assert_eq(int(MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]["grain"]), 5)
 
 	var ships := ShipLayer.new()
 	var home: FleetState = FleetState.in_port(
@@ -3926,7 +3962,7 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	)
 	ships.regions.set_region(WorldMap.OLD_WORLD, [home] as Array[FleetState])
 	play.ship_layer = ships
-	var with_holds: Dictionary = MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]
+	var with_holds: Dictionary = MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]
 	assert_eq(_tons(with_holds), 6, "one hold carries the colony's ton")
 
 	# Hulls that wait at the colony quay are not the home fleet: the squadron that
@@ -3939,7 +3975,7 @@ func test_a_rival_ships_its_colony_only_on_its_home_holds() -> void:
 	ships.regions.set_region(WorldMap.OLD_WORLD, [sorted] as Array[FleetState])
 	ships.regions.set_region(WorldMap.NEW_WORLD, [moored] as Array[FleetState])
 	assert_eq(
-		_tons(MapPlayEconomyAi._overseas(play, 1, economy)["extraction"]), 5,
+		_tons(MapPlayEconomyLarder.overseas(play, 1, economy)["extraction"]), 5,
 		"a colony quay is no home fleet"
 	)
 	ships.free()
@@ -8352,10 +8388,17 @@ func test_a_court_at_target_strength_waits_and_a_war_lifts_the_target() -> void:
 
 
 func test_a_thin_labour_pool_stops_the_muster() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 3), 3, false)
+	# The retuned floor is 1 spare hand (issue #1314 companion), so a pool of
+	# two cannot spare one: the labour floor holds with the levy's own hand
+	# the only head above it.
+	var plan: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 1), 3, false)
 
 	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
 	assert_true((plan["reasons"] as Array).has("labour floor"))
+	# One spare head over the floor and the muster fires again — the floor is
+	# a reservation, not a wall (the retune's own point).
+	var spare: Dictionary = AiArmyReinforce.plan(_work_config(), _work_economy(12000, 2), 3, false)
+	assert_eq(String(spare["muster"]), "arquebusiers", "one hand above the floor musters")
 
 
 func test_a_researched_pattern_is_the_one_that_musters() -> void:
@@ -9061,7 +9104,7 @@ func test_a_court_sells_surplus_above_the_reserve() -> void:
 ## reserves the rations before it sells food").
 func test_a_meat_larder_keeps_the_rations_the_court_eats() -> void:
 	var meat: PlayerEconomy = _economy({"meat": 100})
-	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, meat)
+	var reserved: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 85, meat)
 	assert_eq(int(reserved.get("meat", 0)), 85, "the meat larder holds the whole ration")
 	assert_eq(int(reserved.get("grain", 0)), 0, "an empty granary reserves nothing")
 	var plan: Dictionary = AiMarketPlanner.plan(
@@ -9071,15 +9114,35 @@ func test_a_meat_larder_keeps_the_rations_the_court_eats() -> void:
 
 	# Grain still goes first, and the rest of the ration rests on meat.
 	var mixed: PlayerEconomy = _economy({"grain": 20, "meat": 100})
-	var both: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, mixed)
+	var both: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 85, mixed)
 	assert_eq(int(both.get("grain", 0)), 20)
 	assert_eq(int(both.get("meat", 0)), 65)
 
 	# A full granary reserves grain alone, and the surplus above it still sells.
 	var grain: PlayerEconomy = _economy({"grain": 200})
-	var fed: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 85, grain)
+	var fed: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 85, grain)
 	assert_eq(int(fed.get("grain", 0)), 85)
 	assert_eq(int(fed.get("meat", 0)), 0)
+
+
+## The ledger side of the economy turn is one home (`MapPlayEconomyLarder`) for
+## the rival pass, one court's turn and the crown's picks: its reads keep their
+## shape when the session carries no ledger or army layer, and two material rows
+## add up (REQ-P3-01, REQ-P3-02).
+func test_the_larder_reads_carry_their_shape_for_the_pass_and_the_picks() -> void:
+	var empty := PlaySession.new()
+	assert_true(
+		MapPlayEconomyLarder.market(empty).prices.size() > 0,
+		"a session with no ledger still plans against the published prices"
+	)
+	assert_eq(MapPlayEconomyLarder.army_food(empty, 1), 0, "no army layer eats nothing")
+	assert_eq(
+		MapPlayEconomyLarder.reserved_inputs({}, 85, _economy({})).size(), 0,
+		"a court with no ration in hand reserves no row"
+	)
+	var merged: Dictionary = MapPlayEconomyLarder.merge_rows({"cloth": 2}, {"cloth": 3})
+	assert_eq(int(merged["cloth"]), 5, "the muster's cloth and the hull's add up")
+	assert_eq(MapPlayEconomyLarder.merge_rows({"cloth": 2}, {}).size(), 1, "an empty row adds nothing")
 
 
 func test_production_inputs_are_never_sold_under_the_court() -> void:
@@ -9130,7 +9193,7 @@ func test_the_regiments_input_leads_the_bids() -> void:
 ## claim is added to the production reservation rather than replacing it.
 func test_the_muster_reservation_adds_to_the_production_one() -> void:
 	var economy: PlayerEconomy = _economy({"fabric": 4, "timber": 40})
-	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs(
+	var reserved: Dictionary = MapPlayEconomyLarder.reserved_inputs(
 		{"assignments": [{"recipe": "lumber", "units": 2}]}, 0, economy, {"fabric": 1}
 	)
 	assert_eq(int(reserved.get("fabric", 0)), 1, "the regiment's bolt is held")
@@ -9173,7 +9236,7 @@ func test_a_court_keeps_the_materials_its_works_will_spend() -> void:
 	assert_eq(_offered(plain, "castIron"), 5)
 
 	var rows: Dictionary = {"lumber": 5, "castIron": 5}
-	var reserved: Dictionary = MapPlayEconomyAi._reserved_inputs({}, 0, economy, {}, rows)
+	var reserved: Dictionary = MapPlayEconomyLarder.reserved_inputs({}, 0, economy, {}, rows)
 	assert_eq(int(reserved.get("lumber", 0)), 5, "the estate's timber is held")
 	assert_eq(int(reserved.get("castIron", 0)), 5, "and its iron")
 	var kept: Dictionary = AiMarketPlanner.plan(
@@ -10038,7 +10101,8 @@ func test_a_court_saving_for_its_muster_never_bids_the_war_chest_away() -> void:
 
 ## Pocket Old World for the rival-blockade harvest case: England seat and a
 ## coastal estate separated by ocean so the harbour is the only road home. A
-## full MapFixture chart + WorldBootstrap made two `_overseas` walks pay ~18 s
+## full MapFixture chart + WorldBootstrap made two `MapPlayEconomyLarder.overseas`
+## walks pay ~18 s
 ## under coverage (docs/testing.md § Tiny fixture).
 func _blockade_play() -> PlaySession:
 	var rival: int = 1
@@ -10129,14 +10193,14 @@ func test_a_rivals_home_harvest_reads_its_own_blockade() -> void:
 		if model.resource_at(tile.x, tile.y) >= 0:
 			works.set_improvement(model, tile, 1)
 	works.add_port(model, chosen.tiles[0])
-	var before: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
+	var before: Dictionary = MapPlayEconomyLarder.overseas(play, rival, economy)["extraction"]
 	play.diplomacy.ensure_relation(play.player_faction, rival, play.turn)
 	DiplomacyRules.declare_war(play.diplomacy, play.player_faction, rival)
 	var fleet := FleetState.at_sea(999, play.player_faction, zone)
 	fleet.mission = FleetState.Mission.BLOCKADE
 	fleet.blockade_province = target
 	play.ship_layer.regions.value(home, []).append(fleet)
-	var after: Dictionary = MapPlayEconomyAi._overseas(play, rival, economy)["extraction"]
+	var after: Dictionary = MapPlayEconomyLarder.overseas(play, rival, economy)["extraction"]
 	assert_ne(before, after, "the sealed harbour's estates leave the rival's harvest")
 	assert_true(
 		int(after.get("grain", 0)) >= Extraction.CAPITAL_GRAIN_BONUS,
@@ -15189,10 +15253,16 @@ func test_the_victory_pressure_raises_the_muster_target() -> void:
 
 
 func test_planner_a_thin_labour_pool_stops_the_muster() -> void:
-	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 3), 3, false)
+	# The retuned floor is 1 spare hand (issue #1314 companion): two heads in
+	# the fields cannot spare one, the levy's own hand is all that stands.
+	var plan: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 1), 3, false)
 
 	assert_eq(String(plan["muster"]), "", "the fields keep their hands")
 	assert_true((plan["reasons"] as Array).has("labour floor"))
+	# One head over the floor and the muster fires — the floor reserves, the
+	# wall the retune removed was permanent.
+	var spare: Dictionary = AiArmyReinforce.plan(_ai_army_reinforce_config(), _ai_army_reinforce_economy(12000, 2), 3, false)
+	assert_eq(String(spare["muster"]), "arquebusiers", "one hand above the floor musters")
 
 func test_planner_a_researched_pattern_is_the_one_that_musters() -> void:
 	var economy: PlayerEconomy = _ai_army_reinforce_economy()
@@ -15418,7 +15488,11 @@ func test_the_map_pass_pitches_the_rivals_train() -> void:
 		"the standard carries the tents from now on"
 	)
 	assert_eq(economy.quantity("lumber"), lumber - 2, "the court's own timber pays")
-	assert_eq(economy.quantity("fabric"), fabric - 1)
+	# The retuned labour floor (1 spare hand, #1314 companion) also lets this
+	# court's levy fire the same turn, so a second fabric row may stand beside
+	# the train's own: the train's fabric is paid either way.
+	var fabric_spent: int = fabric - int(economy.quantity("fabric"))
+	assert_true(fabric_spent >= 1, "the train's cloth is paid")
 	play.army_layer.free()
 
 
@@ -17612,7 +17686,7 @@ func test_the_slip_keeps_a_hand_while_the_chest_banks() -> void:
 func test_the_economy_reserves_the_hull_row_beside_the_muster() -> void:
 	var economy: PlayerEconomy = PlayerEconomy.starting()
 	var production: Dictionary = {"assignments": []}
-	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+	var rows: Array[Dictionary] = MapPlayEconomyLarder.claim_rows(
 		production, 0, economy, {"fabric": 1}, {}, {"lumber": 1, "fabric": 1}
 	)
 	var reserved: Dictionary = AiClaims.reserve(rows)["reserved"]
@@ -17814,11 +17888,11 @@ func test_the_routes_of_the_economy_pass_are_the_same_reservation() -> void:
 	}
 	var muster: Dictionary = {"fabric": 1}
 	var works: Dictionary = {"lumber": 2}
-	var rows: Array[Dictionary] = MapPlayEconomyAi._claim_rows(
+	var rows: Array[Dictionary] = MapPlayEconomyLarder.claim_rows(
 		production, 4, economy, muster, works
 	)
 	var merged: Dictionary = AiClaims.reserve(rows)["reserved"]
-	var published: Dictionary = MapPlayEconomyAi._reserved_inputs(
+	var published: Dictionary = MapPlayEconomyLarder.reserved_inputs(
 		production, 4, economy, muster, works
 	)
 
@@ -18085,3 +18159,77 @@ func test_idle_hull_gates_refuse_what_the_larder_cannot_claim() -> void:
 	packed.embarked_civilians = [7]
 	packed.embarked_army = 3
 	assert_eq(AiNavy._idle_hull_id(packed), "")
+
+
+## Storm sizing (issue #1314): every Old World province starts behind a wall,
+## and the storm ladder prices wall + battery, so the muster has to read the
+## wall it faces — never a host that ties the threshold, never one the court
+## already fields.
+func test_the_storm_host_clears_the_wall_it_faces() -> void:
+	assert_eq(
+		AiStormGate.regiments_for(FortRules.storm_threshold({}, 1), 6.0), 11,
+		"a 40+11 wall wants eleven 6-strength men: ten clear it, one spare"
+	)
+	assert_eq(AiStormGate.regiments_for(0.0, 6.0), 0, "open ground asks for no host")
+	assert_eq(AiStormGate.regiments_for(51.0, 0.0), 0, "a line of no strength weighs nothing")
+	var model: MapModel = _walk_chart(
+		[[0, 1], [2, 3]], {1: 2, 2: 1, 3: 1}, {1: 1}
+	)
+	model.provinces[0].fort_level = 1
+	model.provinces[2].fort_level = 2
+	model.provinces[3].fort_level = 0
+	assert_eq(
+		MapPlayArmyMusterAi.thinnest_wall(model, 1, {}),
+		FortRules.storm_threshold({}, 1),
+		"the court reads the lowest wall it must cross, not its own L2 one"
+	)
+	var strength: float = float(RegimentCatalog.strength(
+		AiArmyReinforceLine.strongest_line({})
+	))
+	assert_true(strength > 0.0, "the opening techs open a line")
+	var want: int = AiStormGate.regiments_for(FortRules.storm_threshold({}, 2), strength)
+	assert_eq(
+		int(AiStormGate.extra(FortRules.storm_threshold({}, 2), strength, 1, 1)["extra"]),
+		want - 1,
+		"the gate asks for the host between the court's guard and the wall"
+	)
+	assert_eq(
+		int(AiStormGate.extra(FortRules.storm_threshold({}, 2), strength, want, want)["extra"]), 0,
+		"a court already at the wall's host asks for nothing"
+	)
+	assert_eq(int(AiStormGate.extra(0.0, strength, 1, 1)["extra"]), 0, "open ground asks for no host")
+	var open: MapModel = _walk_chart([[0], [1]], {1: 2, 2: 1})
+	open.provinces[0].fort_level = 0
+	open.provinces[1].fort_level = 0
+	assert_eq(
+		MapPlayArmyMusterAi.thinnest_wall(open, 1, {}), 0.0,
+		"open ground in front of the court reads no wall"
+	)
+
+
+## The wall reading rides the court's own target (issue #1314): the muster, its
+## labour floor and the chest all ask for the same host, and a court with no
+## reading keeps the published target.
+func test_the_wall_raises_the_musters_own_target() -> void:
+	var config := AiConfig.build(0, 1500)
+	var guard: int = AiArmyReinforce.guard_regiments(config, true)
+	assert_eq(AiArmyReinforce.desired_regiments(config, true), guard, "no reading keeps the target")
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, false),
+		AiArmyReinforce.guard_regiments(config, false),
+		"peace keeps the published peace target"
+	)
+	config.storm_read = {"want": guard + 3, "extra": 3}
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, true), guard + 3,
+		"at war the court arms for the wall in front of it"
+	)
+	assert_true(
+		config.storm_read.get("extra", 0) > 0,
+		"the reading is the one the target raised the guard by"
+	)
+	assert_eq(
+		AiArmyReinforce.desired_regiments(config, false),
+		AiArmyReinforce.guard_regiments(config, false),
+		"peace musters the published target"
+	)

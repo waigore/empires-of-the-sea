@@ -43,7 +43,9 @@ static func fort(
 	level: int, tech_unlocked: Dictionary = {}, stockpile: Variant = null
 ) -> String:
 	if FortRules.clamp_level(level) >= FortRules.MAX_LEVEL:
-		return "This province already holds a modern fort."
+		return "This province already holds a %s fort." % FortRules.level_name(
+			FortRules.MAX_LEVEL
+		).to_lower()
 	var next: int = FortRules.next_level(level)
 	var gate: String = FortRules.tech_gate(next)
 	if not gate.is_empty() and not bool(tech_unlocked.get(gate, false)):

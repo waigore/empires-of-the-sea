@@ -1996,7 +1996,7 @@ func test_the_workers_counsel_reads_the_crowns_own_ledger() -> void:
 	# A pool the crown has grown past the target it keeps, in its own ledger only.
 	economy.workers = WorkerPool.make(12)
 	var court: MapPlayEconomyCourt = MapPlayEconomyCourt.draft(
-		play, play.player_faction, MapPlayEconomyAi._market(play)
+		play, play.player_faction, MapPlayEconomyLarder.market(play)
 	)
 	assert_true(court.economy == economy, "the draft turns the crown's own ledger")
 	var pick: Dictionary = MapPlayRecruitPick.pick(play)

@@ -9,6 +9,15 @@ extends LedgerRow
 
 signal visit_pressed(region: int, unit_id: int)
 
+## The mark the counsel reads by: a spy the court's own espionage pass would walk
+## or screen this turn wears it before the one duty word its posting earns
+## (DR-20261122-18).
+const COURT_MARK: String = "▸"
+
+## Whether the court would give this spy an order this turn; the sheet sets it
+## before `setup` from its own reading.
+var court: bool = false
+
 
 ## The duty and where it stands are the row's whole reading, so they read one
 ## step louder than a ledger's place line.
@@ -22,7 +31,10 @@ func _detail_color() -> Color:
 
 func _fill() -> void:
 	var duty: String = String(data.get("duty", SpyLedger.DUTY_IDLE))
-	_name.text = "Spy — %s" % String(data.get("province_name", "Open country"))
+	var place: String = String(data.get("province_name", "Open country"))
+	# The counsel's mark leads the name, so a crown finds the spy the court would
+	# walk or screen among a busy network (DR-20261122-18).
+	_name.text = ("%s Spy — %s" % [COURT_MARK, place]) if court else "Spy — %s" % place
 	_chip.text = SpyLedger.duty_word(duty)
 	_paint_chip(Palette.GOLD if duty == SpyLedger.DUTY_SHADOW else Palette.GOLD_DIM)
 	_detail.text = "%s  ·  %s" % [

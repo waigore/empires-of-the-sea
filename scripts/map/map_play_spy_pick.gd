@@ -1,8 +1,9 @@
 class_name MapPlaySpyPick
 extends RefCounted
 ## The spies the court's own espionage pass would move, station or keep this
-## turn, named on THE CROWN'S EYES before it presses anything (wiki:
-## civilian-units § Spy; DR-20261121-11).
+## turn, named on THE CROWN'S EYES before it presses anything, and the spies the
+## pass orders (a walk, a screen) marked `▸` on their rows (wiki: civilian-units
+## § Spy; DR-20261121-11, DR-20261122-18).
 ##
 ## The reading is not a second opinion: it is `MapPlayCivilianPick.picks` — the
 ## same pass the crew's own sheet and the chart's mark read — narrowed to the
@@ -27,11 +28,12 @@ const ACTION_SCREEN: String = SpyRules.WORK_COUNTER
 static func line(play: PlaySession, snapshot: Dictionary = {}) -> String:
 	return MapPlayPickProse.sentence_of(pick(play, snapshot))
 
-## The ledger's pick as the eyes sheet prints it: `{kind, spies, line}`, where
-## each spy is `{region, unit_id, kind, place, line}`. Empty when the session
-## runs no planner for the crown, an observer session, a decided campaign, a
-## crown with no ledger, a session with no civilian layer, or a crown with no
-## spy standing.
+## The ledger's pick as the eyes sheet prints it: `{kind, spies, keys, line}`,
+## where each spy is `{region, unit_id, kind, place, line}` and `keys` holds the
+## spies the pass gives an order, keyed the way the sheet's own rows look
+## themselves up. Empty when the session runs no planner for the crown, an
+## observer session, a decided campaign, a crown with no ledger, a session with
+## no civilian layer, or a crown with no spy standing.
 static func pick(play: PlaySession, snapshot: Dictionary = {}) -> Dictionary:
 	if not MapPlayPickProse.crown_crew_ready(play):
 		return {}
@@ -104,7 +106,27 @@ static func of(spies: Array[Dictionary], snapshot: Dictionary = {}) -> Dictionar
 	var ordered: Array[Dictionary] = MapPlayPickProse.in_printed_order(
 		spies, snapshot.get("rows", []), "unit_id"
 	)
-	return {"kind": String(ordered[0].get("kind", "")), "spies": ordered, "line": pick_line(ordered)}
+	return {
+		"kind": String(ordered[0].get("kind", "")),
+		"spies": ordered,
+		"keys": keys_of(ordered),
+		"line": pick_line(ordered),
+	}
+
+
+## The spies the reading puts to an order, by `MapPlayPickProse.row_key` — what
+## the sheet's own rows look themselves up by, so the one spy the court would walk
+## or screen is found among the network and a spy it keeps on watch never looks
+## busy (DR-20261122-18).
+static func keys_of(spies: Array[Dictionary]) -> Dictionary:
+	var keys: Dictionary = {}
+	for spy: Dictionary in spies:
+		# A spy the pass gives no order keeps its watch where it stands: the line
+		# names it, and no row wears a mark for a reading that orders nothing.
+		if String(spy.get("kind", "")) == KIND_KEEP:
+			continue
+		keys[MapPlayPickProse.row_key(spy, "unit_id")] = true
+	return keys
 
 
 ## "the court would walk its Spy toward Genoa, keep its Spy at Cádiz and set its

@@ -3836,10 +3836,10 @@ func test_a_new_campaign_opens_on_the_preset() -> void:
 	assert_eq(_civilian_count(roster, play.player_faction, "spy"), 1)
 
 
-## Old World capitals open behind a Wood wall on an advanced start too, and the
+## Old World capitals open behind a Stone wall on an advanced start too, and the
 ## tier's granted fort studies do not pre-bump it: the free upgrade is a research
 ## unlock's moment, not an inherited tech (wiki: siege-mechanics § Fort Levels;
-## issue #919).
+## issue #919; issue #1314 raised the start walls — the capital at Stone).
 func test_capitals_open_walled_and_a_tier_does_not_pre_bump_them() -> void:
 	var screen: MapScreen = _open(AdvancedStart.TURNS50)
 	var play: PlaySession = screen.play
@@ -3852,8 +3852,8 @@ func test_capitals_open_walled_and_a_tier_does_not_pre_bump_them() -> void:
 		if not province.capital:
 			continue
 		assert_eq(
-			province.fort_level, FortCapital.START_LEVEL,
-			"capital of %d opens at Wood" % province.owner,
+			province.fort_level, FortCapital.CAPITAL_START_LEVEL,
+			"capital of %d opens at Stone" % province.owner,
 		)
 
 

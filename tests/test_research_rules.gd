@@ -1862,6 +1862,22 @@ func _first_available() -> String:
 	return ""
 
 
+## Every advance name the AVAILABLE tab paints, the court's `▸` and all, so a
+## case asserts the mark without reaching into the page's children (REQ-P3-02).
+func _available_titles() -> Array[String]:
+	var out: Array[String] = []
+	for node: Node in _collect(_panel._available_body, [] as Array[Node]):
+		if not node is Label:
+			continue
+		var text: String = (node as Label).text
+		for tech_id: String in TechCatalog.ids():
+			var name: String = TechCatalog.display_name(tech_id)
+			if text == name or text == "%s %s" % [ResearchRow.COURT_MARK, name]:
+				out.append(text)
+				break
+	return out
+
+
 # --- helpers -----------------------------------------------------------------
 func _nodes() -> Array[Node]:
 	return _collect(_panel, [] as Array[Node])
@@ -2142,6 +2158,61 @@ func test_the_first_idle_slot_carries_the_counsel_alone() -> void:
 	_panel_state.assign(String(_panel_state.researchable()[0]))
 	_panel.refresh(_panel_state, 2500, {}, "", "The court would open Printing Press.")
 	assert_eq(rows[0].counsel_text(), "", "a filled slot carries no idle counsel")
+
+
+## The study the idle slot's sentence names wears `▸` in the AVAILABLE list — the
+## mark the chart sets on that same advance — so the row the crown would press is
+## found without scanning the list (wiki: tech-tree § Research Model;
+## DR-20261122-19).
+func test_the_available_row_marks_the_study_the_court_would_open() -> void:
+	_bind_panel()
+	var tech: String = String(_panel_state.researchable()[0])
+	var name: String = TechCatalog.display_name(tech)
+	var line: String = "The court would open %s." % name
+	_panel.refresh(_panel_state, 2500, {}, "", line, tech)
+	assert_eq(_panel.pick_line(), line, "the counsel still rides the idle slot")
+	assert_eq(_panel.pick_tech(), tech, "the sheet holds the advance it marks")
+	var marked: String = "%s %s" % [ResearchRow.COURT_MARK, name]
+	var titles: Array[String] = _available_titles()
+	assert_true(titles.has(marked), str(titles))
+	for title: String in titles:
+		if title == marked:
+			continue
+		assert_false(title.begins_with(ResearchRow.COURT_MARK), "one study wears the mark: %s" % title)
+	# The list's own heading names the mark, as the workshop's heading and the
+	# chart's legend do.
+	var heading: String = _panel._tabs.get_tab_title(0)
+	assert_eq(heading, "AVAILABLE (%d) · ▸ court" % titles.size(), "the legend rides the list")
+
+
+## A pick that moves moves the mark: the desk repaints when the advance changes,
+## even with every other reading on the page the same (DR-20261122-19).
+func test_a_new_pick_moves_the_mark() -> void:
+	_bind_panel()
+	var open: Array[String] = _panel_state.researchable()
+	assert_true(open.size() > 1, "a fresh college opens more than one study")
+	_panel.refresh(_panel_state, 2500, {}, "", "The court would open A.", open[0])
+	_panel.refresh(_panel_state, 2500, {}, "", "The court would open B.", open[1])
+	var titles: Array[String] = _available_titles()
+	assert_true(
+		titles.has("%s %s" % [ResearchRow.COURT_MARK, TechCatalog.display_name(open[1])]),
+		"the new pick wears the mark"
+	)
+	assert_false(
+		titles.has("%s %s" % [ResearchRow.COURT_MARK, TechCatalog.display_name(open[0])]),
+		"the old pick gives it up"
+	)
+
+
+## No counsel, no mark: a college with no reading paints every row plain and
+## keeps its plain heading.
+func test_no_pick_marks_no_row() -> void:
+	_bind_panel()
+	_panel.refresh(_panel_state, 2500)
+	assert_eq(_panel.pick_tech(), "", "no reading, no advance")
+	for title: String in _available_titles():
+		assert_false(title.begins_with(ResearchRow.COURT_MARK), "no mark: %s" % title)
+	assert_false(_panel._tabs.get_tab_title(0).contains("▸"), "no reading, no legend")
 
 
 ## The college's standing line prints the crown's purse the one way every money

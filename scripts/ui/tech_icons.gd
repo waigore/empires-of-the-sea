@@ -56,7 +56,8 @@ const SERIES: Dictionary = {
 	"crucible": ["crucible_process", "industrial_machinery"],
 	"military_funding": ["modern_military_funding", "industrial_funding_of_research"],
 	"fort": [
-		"modern_forts", "siege_engineering", "heavy_emplaced_artillery", "emplaced_siege_guns",
+		"modern_forts", "bastion_forts", "star_forts", "siege_engineering",
+		"heavy_emplaced_artillery", "emplaced_siege_guns",
 	],
 	"field_gun": [
 		"horse_artillery", "light_artillery_tactics", "field_artillery_tactics",
