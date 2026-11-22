@@ -6748,6 +6748,41 @@ func test_an_empty_walled_province_is_stormed_not_flipped() -> void:
 	)
 
 
+## The storm's price is drawn **weakest first** (wiki: siege-mechanics
+## § Storming an empty walled province — "the same weakest-first casualty draw
+## every battle reads"; combat § Casualties). A host carrying its horse and its
+## levies over one wall loses a levy, never a veteran the field would spare.
+func test_a_storm_loses_its_weakest_regiments_first() -> void:
+	_setup_army_field_rules()
+	var model: MapModel = _army_field_rules_model
+	model.province_data(2).fort_level = 1
+	# Three cuirassiers (rank 18 each) carry four levies (rank 3 each): 66
+	# strength is one whole step past the 51 ladder, so exactly one falls.
+	var host := army_field_rules_Fixture.army(2, 0, 2, [
+		"cuirassiers", "cuirassiers", "cuirassiers",
+		"peasant_levies", "peasant_levies", "peasant_levies", "peasant_levies",
+	])
+	host.moved = true
+	var lost_ids: Array[String] = []
+	var stormed: Array[Dictionary] = ArmyCombat.resolve_turn(model, [host])
+	assert_eq(int(stormed[0]["outcome"]), ArmyCombat.Outcome.CAPTURE)
+	for raw: Variant in stormed[0]["attacker_lost"]:
+		lost_ids.append(String(raw))
+	assert_eq(lost_ids.size(), 1, "one whole step past the 51 ladder costs one regiment")
+	var survivors: Dictionary = {}
+	for regiment_id: String in host.regiments:
+		var type_id: String = host.type_of(regiment_id)
+		survivors[type_id] = int(survivors.get(type_id, 0)) + 1
+	assert_eq(
+		int(survivors.get("cuirassiers", 0)), 3,
+		"every veteran rides on — a storm spends its levies, not its horse"
+	)
+	assert_eq(
+		int(survivors.get("peasant_levies", 0)), 3,
+		"the weakest levy of the four paid the ladder"
+	)
+
+
 ## The storm prices the wall's own battery (wiki: siege-mechanics § Storming an
 ## empty walled province — "wall HP + the standing battery's strength"), and the
 ## battery's line is the **defender's** studies (wiki: § Emplaced Artillery —

@@ -5630,10 +5630,24 @@ func test_the_summary_names_where_nothing_stands() -> void:
 	assert_eq(int(built["citadel"]), 1, "a modern wall is a citadel")
 
 
+## The note quotes the fort table itself (issue #1314's ladder: 40 × level wall
+## HP, one gun a level), so a crown never reads a ladder the combat would not
+## fight (wiki: siege-mechanics § Wall Protection, § Emplaced Artillery).
 func test_the_rule_note_states_what_a_wall_buys() -> void:
 	var note: String = WallLedger.rule_note()
-	assert_true(note.contains("10 / 20 / 30 wall hp"), "the wall's soak is printed")
-	assert_true(note.contains("emplaced guns"), "the battery is printed")
+	assert_true(
+		note.contains("%d / %d / %d wall hp" % [
+			roundi(FortRules.wall_hp(1)),
+			roundi(FortRules.wall_hp(2)),
+			roundi(FortRules.wall_hp(3)),
+		]),
+		"the wall's soak is the fort table's own: " + note
+	)
+	assert_true(
+		note.contains("1–%d emplaced guns" % FortRules.guns(FortRules.MAX_LEVEL)),
+		"the battery tops out where the ladder does: " + note
+	)
+	assert_false(note.contains("10 / 20 / 30"), "the pre-retune ladder is gone")
 
 
 # --- walls: the sheet ---

@@ -1863,6 +1863,15 @@ func test_the_wall_outranks_the_garrison() -> void:
 	assert_eq(DefenceSurvey.band_for(1, 0), DefenceSurvey.BAND_WALLED)
 	assert_eq(DefenceSurvey.band_for(2, 4), DefenceSurvey.BAND_WALLED)
 	assert_eq(DefenceSurvey.band_for(3, 0), DefenceSurvey.BAND_CITADEL)
+	# The ladder runs to five (#1314): the two top steps are citadels too, and
+	# the band's own word says so rather than stopping at fort 3.
+	assert_eq(DefenceSurvey.band_for(4, 0), DefenceSurvey.BAND_CITADEL)
+	assert_eq(DefenceSurvey.band_for(5, 0), DefenceSurvey.BAND_CITADEL)
+	assert_eq(
+		DefenceSurvey.band_label(DefenceSurvey.BAND_CITADEL),
+		"Citadel (fort %d+)" % 3,
+		"the label tops out where the ladder does"
+	)
 
 
 func test_a_garrison_is_read_on_the_published_order_of_battle() -> void:
