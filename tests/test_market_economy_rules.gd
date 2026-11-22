@@ -2938,6 +2938,51 @@ func test_yields_sum_owned_resource_tiles_and_the_capital_bonus() -> void:
 		"the ration estate pays its level doubled (issue #807)"
 	)
 
+## The opening row the page publishes (wiki: extraction-and-improvements
+## § Ration estates, § Capital tile grain bonus; ruleset-config § Starting
+## stockpiles): a new Great Power seats four bootstrap grain estates at level 1
+## in its capital province, and the first Extraction pays each as a ration
+## estate — two units per level — on top of the flat capital grain bonus. The
+## page's acceptance row still published the seed figure of exactly 4 units from
+## those tiles, which the doubling and the bonus have long since raised: a crown
+## planning its opening larder read far less food than the first close pays.
+func test_the_opening_four_grain_estates_pay_the_published_row() -> void:
+	var model := MapModel.new()
+	model.setup(6, 1)
+	for x in 6:
+		model.terrain[model.index_of(x, 0)] = MapModel.Terrain.PLAINS
+		model.province[model.index_of(x, 0)] = 0
+	var tiles: Array[Vector2i] = []
+	for x in 6:
+		tiles.append(Vector2i(x, 0))
+	var province := ProvinceState.create(0, "Madrid", tiles, Vector2(2, 0), 6, 0, true)
+	province.capital_tile = Vector2i(0, 0)
+	province.town_tile = Vector2i(0, 0)
+	province.town_development = 4
+	model.provinces = [province]
+	var works := LandWorks.new()
+	for x in range(1, 5):
+		model.resource[model.index_of(x, 0)] = 4
+		works.set_improvement(model, Vector2i(x, 0), 1)
+		works.set_transport(model, Vector2i(x, 0), LandWorks.TRANSPORT_ROAD)
+	var totals: Dictionary = Extraction.yields(
+		model, 0, 0, {}, works, Vector2i(0, 0)
+	)
+	assert_eq(
+		int(totals.get("grain", 0)),
+		4 * Extraction.RATION_ESTATE_YIELD + Extraction.CAPITAL_GRAIN_BONUS,
+		"four level-1 grain estates, doubled, beside the capital's own five"
+	)
+	# The tiles alone, with no capital province to name: the doubling, no bonus.
+	var land_only: Dictionary = Extraction.yields(
+		model, 0, -1, {}, works, Vector2i(0, 0)
+	)
+	assert_eq(
+		int(land_only.get("grain", 0)), 4 * Extraction.RATION_ESTATE_YIELD,
+		"the four bootstrap estates pay two apiece, never the seed figure of four"
+	)
+
+
 func test_yields_ignore_tiles_owned_by_others() -> void:
 	var model: MapModel = _fixture()
 	var totals: Dictionary = Extraction.yields(model, 1, 1)
