@@ -58,6 +58,27 @@ func test_every_crown_opens_on_the_published_purse() -> void:
 	assert_eq(PlayerEconomy.starting().treasury, 20000)
 
 
+## The rest of the opening row is the published one too (wiki: ruleset-config
+## § Starting stockpiles): six peasants and twenty turns of their grain, the
+## opening works materials, and the paper a crown's first crews are hired on —
+## an Explorer, Engineer or Builder costs 2, a Spy, Merchant or Rail Builder 4,
+## so the store seats more than a single hire. The page published `paper = 2`
+## and named no fabric, bronze or steel, which the game has never seated.
+func test_the_opening_row_is_the_published_stockpile() -> void:
+	var store: Dictionary = PlayerEconomy.starting().stockpile
+	assert_eq(int(store.get("grain", 0)), 120, "six peasants x twenty turns")
+	assert_eq(int(store.get("lumber", 0)), 40)
+	assert_eq(int(store.get("castIron", 0)), 40)
+	assert_eq(int(store.get("fabric", 0)), 12)
+	assert_eq(int(store.get("bronze", 0)), 12)
+	assert_eq(int(store.get("steel", 0)), 8)
+	assert_eq(int(store.get("wool", 0)), 4)
+	assert_eq(int(store.get("paper", 0)), 8, "the opening crews, not one hire")
+	assert_eq(
+		PlayerEconomy.starting().workers.count(WorkerPool.Tier.PEASANT), 6
+	)
+
+
 func test_the_seller_filter_narrows_the_book_to_one_court() -> void:
 	var rows: Array[Dictionary] = MarketBookFilter.apply(
 		_book(), 7, MarketBookFilter.ALL_GOODS, MarketBookFilter.SORT_SELLER
