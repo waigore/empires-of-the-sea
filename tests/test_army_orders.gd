@@ -1144,6 +1144,54 @@ func test_a_routed_host_reads_its_ground_and_the_walk_home() -> void:
 	panel.free()
 
 
+## A stranded host on a chart that holds no seat of its court reads the water's
+## own words: no land march from that shore reaches home, so the rule names the
+## one road that does — a squadron in port. The dossier's hint and the march's
+## refusal stay the one sentence, and the seat's own chart keeps the page's land
+## words (wiki: military-armies § Movement and attacks; ships-and-naval
+## § Naval transport (armies); DR-20261122-07).
+func test_a_stranded_host_across_the_sea_reads_the_water() -> void:
+	var model := ArmyFixture.build()
+	# The crown's seat stands on the Old World chart; this chart is the New
+	# World's, and the far colony goes over to the rival, so nothing of the
+	# crown's touches the host's ground.
+	model.region_id = FactionCatalog.NEW_WORLD
+	model.province_data(0).capital = false
+	model.province_data(1).owner = 1
+	var host := ArmyFixture.army(11, 0, 4, ["guards"], false)
+	assert_true(ArmyMovement.seat_elsewhere(model, host), "the seat lies on another chart")
+	assert_true(ArmyMovement.stranded(model, host), "no own province is one march away")
+	assert_eq(
+		ArmyMovement.walk_home_words(model, host),
+		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS,
+		"the walk across the sea names the water"
+	)
+	var refused: Dictionary = ArmyMovement.can_move(model, host, 0)
+	assert_false(bool(refused.get("ok", true)), "a home march is refused from here")
+	assert_eq(
+		String(refused.get("reason", "")),
+		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS,
+		"the refusal names the sea, not a land road home"
+	)
+	var panel := ArmyPanel.new()
+	add_child(panel)
+	panel.refresh(model, ArmyDossierOpening.of(host, true))
+	assert_eq(
+		String(panel._hint.text),
+		ArmyMovement.NO_OWN_LAND_REACH_OVERSEAS,
+		"the hint and the refusal are the one published sentence"
+	)
+	panel.free()
+	# The same host on the seat's own chart keeps the page's land words.
+	model.province_data(0).capital = true
+	assert_false(ArmyMovement.seat_elsewhere(model, host), "the seat is on this chart")
+	assert_eq(
+		ArmyMovement.walk_home_words(model, host),
+		ArmyMovement.NO_OWN_LAND_REACH,
+		"the seat's own chart keeps the land road home"
+	)
+
+
 ## A host camped on ground it does not hold keeps no interior lines: only the
 ## provinces beside it are open, so own land two marches away is no march while
 ## the own province that borders it is one. Back on its own ground the same court

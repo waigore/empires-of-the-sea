@@ -202,7 +202,9 @@ godot --headless --path . --script res://playtests/playtest_overseas_invasion.gd
 # despatches, the army dossier and its counsel, the province sheet and the realm
 # reading. A third pass queues a hire, a muster and a launch at the seat, flips
 # the chart to the colony and closes the turn, so a seat-scoped order that lands
-# on the chart on screen (or is lost there) reads in one line.
+# on the chart on screen (or is lost there) reads in one line. A fourth pass
+# leaves a host cut off on ground with no crown land beside it and reads the
+# walk-home words: on a chart that holds no seat, the rule names the sea.
 godot --headless --path . --script res://playtests/playtest_new_world_war.gd
 
 # Sighted strength — sights a hostile squadron and reads the marker's `*`, the
