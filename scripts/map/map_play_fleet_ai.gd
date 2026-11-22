@@ -51,7 +51,7 @@ static func _run_region(
 			if bool(order.get("dock", false)):
 				changed = _dock_home(
 					play, model, roster, fleet, int(order.get("province", -1)), faction, trace,
-					String(order.get("reason", ""))
+					String(order.get("reason", "")), String(order.get("kind", "")),
 				) or changed
 				continue
 			var zone: int = int(order["zone"])
@@ -88,7 +88,8 @@ static func _dock_home(
 	province: int,
 	faction: int,
 	trace: Array[Dictionary],
-	reason: String = ""
+	reason: String = "",
+	kind: String = AiNavalPlanner.KIND_HOME,
 ) -> bool:
 	if province < 0:
 		return false
@@ -96,7 +97,7 @@ static func _dock_home(
 		return false
 	var entry: Dictionary = {
 		"faction": faction,
-		"kind": AiNavalPlanner.KIND_HOME,
+		"kind": kind,
 		"fleet": fleet.id,
 		"zone": MapModel.NO_ID,
 		"zone_name": model.province_name(province),
