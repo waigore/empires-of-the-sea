@@ -6,6 +6,14 @@ extends LedgerRow
 
 signal visit_pressed(region: int, unit_id: int)
 
+## The mark the counsel reads by: a crew the court's own civilian pass would put
+## to work this turn wears it before its craft (DR-20261122-06).
+const COURT_MARK: String = "▸"
+
+## Whether the court would put this crew to work this turn; the roster sets it
+## before `setup` from its own reading.
+var court: bool = false
+
 var _icon: CivilianIcon = null
 var _status: Label = null
 var _progress: ProgressBar = null
@@ -38,7 +46,10 @@ func _build_state(state: VBoxContainer) -> void:
 func _fill() -> void:
 	var working: bool = bool(data.get("working", false))
 	var aboard: bool = bool(data.get("aboard", false))
-	_name.text = String(data.get("role", "Civilian"))
+	var role: String = String(data.get("role", "Civilian"))
+	# The counsel's mark leads the craft, so a crown finds the crews the court
+	# would put to work among twenty rows (DR-20261122-06).
+	_name.text = ("%s %s" % [COURT_MARK, role]) if court else role
 	# A crew aboard a squadron is off the map and takes no order, so the chip
 	# names that duty instead of calling it idle (wiki: civilian-units
 	# § Overseas deployment).
