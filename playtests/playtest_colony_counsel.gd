@@ -242,6 +242,7 @@ func _pass_study_and_link() -> void:
 	_say("  the link's price on the pick: %d ducats" % cost)
 	_used.append(tribe)
 	_pass_two_sheets()
+	_pass_door()
 
 
 # --- 5. two sheets, one turn --------------------------------------------------
@@ -292,11 +293,66 @@ func _pass_two_sheets() -> void:
 		)
 
 
+# --- 6. the door the line's own court answers ---------------------------------
+
+
+## The sheet's door (DR-20261123-02): a Tribe the crown has not bought has no
+## colony row, so the chain the gold line names is pressed on THE COURT — and the
+## press under the line takes the crown there, stands the sheet it opened, and
+## signs nothing.
+func _pass_door() -> void:
+	_say("")
+	_say("--- 6. the door the gold line's own court answers ---")
+	_open_sheet()
+	var pick: Dictionary = _read_counsel("the reading the door follows")
+	var court: int = MapPlayColonyPick.door(pick)
+	if court < 0:
+		_say("  the line names no court, so the door cannot be read")
+		return
+	_say("  the door names: %s" % FactionCatalog.name_of(court))
+	var press: Button = _panel.follow_press()
+	_check(press != null, "the sheet carries the door")
+	if press == null:
+		return
+	_check(press.visible, "the door stands while the line names a court")
+	_check(_panel.door_court() == court, "the door names the court the line names")
+	_check(
+		MapPlayDiplomacy.can_open_court(_play.diplomacy, _play.player_faction, court),
+		"the crown is in contact with the court the door names"
+	)
+	var treasury: int = _play.treasury()
+	var overture: String = _play.diplomacy.overture(_play.player_faction, court)
+	press.pressed.emit()
+	_check(
+		_play.hud.panels.is_diplomacy_open(), "the door opens THE COURT",
+		"the door left no court sheet open"
+	)
+	_check(
+		_play.hud.panels.diplomacy_panel.selected_faction() == court,
+		"THE COURT stands on the court the line named",
+		"THE COURT stands on another court"
+	)
+	_check(not _panel.is_open(), "the colony sheet steps aside for it")
+	_say("  THE COURT on %s: %s" % [
+		FactionCatalog.name_of(court),
+		_play.hud.panels.diplomacy_panel.counsel_text(),
+	])
+	_check(
+		_play.diplomacy.overture(_play.player_faction, court) == overture
+		and _play.diplomacy.colony_of(court) < 0,
+		"the door signs and buys nothing",
+		"the door moved the chain it named"
+	)
+	_check(_play.treasury() == treasury, "the door spends nothing")
+	DiplomacyHud.hide(_play.hud.panels)
+
+
 # --- the sheet ---------------------------------------------------------------
 
 
 func _open_sheet() -> void:
-	HudLedgerDoors.open(_play.hud, HudLedgerDoors.COLONIES)
+	if _panel == null or not _panel.is_open():
+		HudLedgerDoors.open(_play.hud, HudLedgerDoors.COLONIES)
 	_panel = _play.hud.colonies_ledger
 	if _panel == null:
 		_say("no colonies sheet is mounted")

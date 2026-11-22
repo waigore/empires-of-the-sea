@@ -280,6 +280,18 @@ static func _colonies(run, screen: MapScreen) -> void:
 		colonies._counsel.visible == not counsel.is_empty(),
 		"the colonies' counsel stands with its reading"
 	)
+	# The door the line's own court answers (DR-20261123-02): a reading that names
+	# a court stands the press; a footing that shuts new chains stands none.
+	var door: Button = colonies.follow_press()
+	var door_court: int = MapPlayColonyPick.door(MapPlayColonyPick.pick(screen.play))
+	run.check(
+		door != null and door.visible == (door_court >= 0),
+		"the colonies' door follows its line"
+	)
+	run.check(
+		door_court < 0 or colonies.door_court() == door_court,
+		"the door names the court its line names"
+	)
 	run.check(_colony_overtures(screen) == before, "the colonies' reading signs nothing")
 	colonies.close()
 
