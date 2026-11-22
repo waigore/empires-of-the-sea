@@ -121,6 +121,24 @@ static func candidates(
 	return out
 
 
+## The strongest line pattern this court's techs open, whatever its purse or
+## labour — the strength a storm would march with once the men are raised
+## (issue #1314). Empty when the tech set opens no line at all.
+static func strongest_line(tech_unlocked: Dictionary) -> String:
+	var best: String = ""
+	var best_strength: int = -1
+	for type_id: String in RegimentCatalog.ids():
+		if not LINE_CATEGORIES.has(RegimentCatalog.category(type_id)):
+			continue
+		if not RegimentEconomy.buildable(type_id, tech_unlocked):
+			continue
+		var value: int = RegimentCatalog.strength(type_id)
+		if value > best_strength or (value == best_strength and type_id < best):
+			best = type_id
+			best_strength = value
+	return best
+
+
 ## Strongest first, then the newer pattern, then the lowest id — one stable
 ## answer for a given ledger and tech set.
 static func _better(a: Dictionary, b: Dictionary) -> bool:

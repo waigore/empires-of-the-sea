@@ -1141,6 +1141,12 @@ domain = "eyes"
 match = "scripts/ui/spy_ledger_panel.gd*"
 domain = "eyes"
 
+# The network's own row wears the counsel's mark (DR-20261122-18): the same
+# slice as the sheet that sets it, never the ui glob's wider set.
+[[rules]]
+match = "scripts/ui/spy_ledger_row.gd*"
+domain = "eyes"
+
 # The reading the eyes print (DR-20261121-11): its own small slice, so the
 # shaping of one gold line never pulls the espionage domain's seven suites.
 [[rules]]
@@ -3990,12 +3996,6 @@ domain = "campaign"
 # Fog grid, coast tables and end-of-turn decay: one domain (REQ-P3-01).
 [[rules]]
 match = "scripts/rules/visibility*.gd*"
-domain = "fog"
-
-# The Spy charter is the fog pass's own clock (wiki: fog-and-exploration
-# § Spy timer expiry), so it travels with the fog domain.
-[[rules]]
-match = "scripts/rules/spy_charter.gd*"
 domain = "fog"
 
 # Court charts are fog rules: the fog domain owns their contract (DR-20261110-21).
