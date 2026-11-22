@@ -11,10 +11,10 @@ Land units: explore, improve, colonize, spy.
 ## Implemented
 
 - **Roster** (`CivilianCatalog`): six playable types.
-- **Hiring:** the rail names each craft's work and its study gate
+- **Hiring:** the rail names each craft's work and study gate
   ([DR-20261118-09](https://github.com/waigore/empires-of-the-sea/wiki/dr-20261118-09));
-  a gold line names the pick, its craft marked `▸` (`MapPlayHirePick`,
-  DR-20261121-06/22-12).
+  a gold line names the court's hire pass, its craft `▸`
+  (`MapPlayHirePick`, DR-20261122-12/15).
 - **Empire ledger** (`CivilianRosterPanel`): CREW/`C` lists every crew, walks
   the idle ones and names the court's work pick, its crews marked `▸`
   (DR-20261121-12/22-06); a crew aboard reads **Aboard** and answers no order
