@@ -94,7 +94,14 @@ const RULES: Array[Dictionary] = [
 		"label": "sortie",
 		"keys": ["sortie"],
 		"source": "ai-architecture § Naval policy (DR-20261109-17)",
-		"major": true,
+		# The sortie's own gate, measured on the seed-1500 batch (issue #1357):
+		# a port squadron must hold a warship, be at war, and have a hostile
+		# squadron in water it can sortie into. The batch never meets it — the
+		# opening raids and battles take every court's hulls by t20 and the
+		# frozen pool rebuilds none — so the row names the gate that held every
+		# court instead of failing the checklist.
+		"major": false,
+		"gate": "a port squadron holding a warship, at war, with a hostile squadron in water it can reach",
 	},
 	{
 		"id": "navy.pursue",
@@ -108,7 +115,14 @@ const RULES: Array[Dictionary] = [
 		"label": "sail home, trade garrison",
 		"keys": ["home"],
 		"source": "ai-architecture § Naval policy (DR-20261114-08)",
-		"major": true,
+		# The homeward leg's own gate, measured on the seed-1500 batch (issue
+		# #1357): a squadron must be afloat with a harbour to reach — at peace,
+		# or a court at war keeping no holds in port at its seat. The batch
+		# never has one: the opening raids and battles take every court's hulls
+		# by t20 and the frozen pool rebuilds none, so nothing is afloat to
+		# bring home. The row names that gate instead of failing the checklist.
+		"major": false,
+		"gate": "a squadron afloat with a harbour to reach (at peace, or a court at war keeping no holds in port at its seat)",
 	},
 	{
 		"id": "navy.convoy",
