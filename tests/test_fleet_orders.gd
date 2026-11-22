@@ -47,7 +47,7 @@ func _attach() -> MapScreen:
 	if _chart_bound and is_instance_valid(mounted):
 		return mounted
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
+	Fixture.suite_reset(mounted, pristine, Fixture.world())
 	_chart_bound = true
 	return mounted
 

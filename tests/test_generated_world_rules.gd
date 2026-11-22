@@ -258,14 +258,30 @@ func test_the_minor_band_allows_one_province_either_side() -> void:
 ## sample: Large seed 11729 used to open the age with Poland holding five against
 ## a 3.33 Minor share and no setup error at all, so the world was never retried
 ## (wiki: game-setup § Minor Nation assignment — "within ±1"; § Feasibility).
-## The chart is now called infeasible and `generate_world` bumps the seed.
-func test_a_large_chart_with_a_lopsided_minor_split_is_infeasible() -> void:
-	var old_world: MapModel = MapGenerator.new().generate_region(
-		11729, FactionCatalog.OLD_WORLD, 128, 84
-	)
+## Proved on a pocket grid that mirrors that holding — a 128×84 `generate_region`
+## used to cost ~10 s under coverage for the same `unfair_split` stamp.
+func test_a_lopsided_minor_split_that_cannot_trim_is_infeasible() -> void:
+	# Court 10 owns a three-tile bar; only the middle tile reaches the pool and
+	# cutting it would split the holding, so trim leaves it over the band (same
+	# shape Large seed 11729 left open with no setup error).
+	var model: MapModel = _grid_model(4, 2, [
+		10, 10, 10, 11,
+		12, MapModel.NO_ID, 13, 13,
+	])
+	var minors: Array[int] = [10, 11, 12, 13]
+	var ids: Array = _grid_ids(model)
+	var pool: Array = MinorShare.trim(model, [5], ids, minors)
+	assert_eq(pool, [5], "the court cannot spare a cut province")
+	assert_eq(_count_owned(model, 10), 3, "the bar stays intact")
 	assert_eq(
-		old_world.setup_errors, ["unfair_split"] as Array[String],
-		"the chart is rejected with the wiki's own code"
+		MinorShare.out_of_band(model, ids, minors), 10,
+		"three against a ~1.75 share stays over the band"
+	)
+	# TerritoryAssignment stamps this code into setup_errors when the post-paint
+	# band check fails; generate_region copies it (seed 103 covers that path).
+	assert_eq(
+		TerritoryAssignment.ERROR_UNFAIR_SPLIT, "unfair_split",
+		"the assigner rejects the chart with the wiki's own code"
 	)
 
 
@@ -4018,7 +4034,7 @@ func _open(tier: String) -> MapScreen:
 		tier50_pristine if tier == AdvancedStart.TURNS50 else tier100_pristine
 	)
 	SaveWorld.apply(advanced_live_world, advanced_live_saved)
-	Fixture.suite_reset(screen, pristine)
+	Fixture.suite_reset(screen, pristine, advanced_live_world)
 	return screen
 
 

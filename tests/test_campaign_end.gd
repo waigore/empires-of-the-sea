@@ -67,7 +67,7 @@ func _attach() -> MapScreen:
 	if _chart_bound and is_instance_valid(mounted):
 		return mounted
 	Fixture.restore(Fixture.world(), saved)
-	Fixture.suite_reset(mounted, pristine)
+	Fixture.suite_reset(mounted, pristine, Fixture.world())
 	mounted.save_dir = CODEC_DIR
 	_chart_bound = true
 	return mounted

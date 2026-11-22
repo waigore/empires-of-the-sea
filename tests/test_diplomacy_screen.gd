@@ -12,6 +12,10 @@ const CourtFixture = preload("res://tests/civilian_fixture.gd")
 ## layer (no `_finish_turn`); suspending `end_turn` and resumed answers that
 ## must advance the calendar use `AiControl.NOOP` so rival walks stay inert.
 ## The peace-battle case still pays a full resumed turn (docs/testing.md).
+## Re-seat always onto `Fixture.world()`: a deed-pocket case that swapped
+## `play.world` used to leave a 5×5 chart in the session, so the next
+## `suite_reset` failed `SaveWorld.reusable` and paid a full `generate_world`
+## (~2 s under coverage) for each following live case.
 var mounted: MapScreen = null
 var pristine: Dictionary = {}
 var pristine_map: Array = []
@@ -23,11 +27,13 @@ func before_all() -> void:
 	pristine_map = Fixture.snapshot(Fixture.world())
 	mounted = Fixture.attach_screen(self)
 	pristine = Fixture.suite_capture(mounted)
+	Fixture.park_screen(mounted)
 
 
 func before_each() -> void:
 	_chart_bound = false
 	_tribe_before_each()
+	Fixture.park_screen(mounted)
 
 
 func after_all() -> void:
@@ -43,7 +49,7 @@ func _attach() -> MapScreen:
 	if _chart_bound and is_instance_valid(mounted):
 		return mounted
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(mounted, pristine)
+	Fixture.suite_reset(mounted, pristine, Fixture.world())
 	_chart_bound = true
 	return mounted
 
@@ -465,21 +471,25 @@ func test_a_plain_protest_still_costs_ten() -> void:
 ## must hand the rules its world (REQ-P2-03).
 func test_a_court_order_war_reaches_the_deed_holder() -> void:
 	var play: PlaySession = _screen.play
+	var chart: WorldMap = play.world
 	play.world = _deed_world(1)
 	# Rules apply with the session world; skip panel refresh / lens remount.
 	var result: Dictionary = _order_rules(play, DiplomacyOrders.KIND_WAR, 6)
 	assert_true(bool(result.get("ok", false)), "the war is declared")
 	assert_true(play.diplomacy.relation(0, 6).at_war, "the war is declared")
 	assert_true(_intervention_answers(play.diplomacy) > 0, "the deed holder answers")
+	play.world = chart
 
 
 func test_a_war_without_a_deed_holder_invites_nobody() -> void:
 	var play: PlaySession = _screen.play
+	var chart: WorldMap = play.world
 	play.world = _deed_world(-1)
 	var result: Dictionary = _order_rules(play, DiplomacyOrders.KIND_WAR, 6)
 	assert_true(bool(result.get("ok", false)), "the war is declared")
 	assert_true(play.diplomacy.relation(0, 6).at_war, "the war is declared")
 	assert_eq(_intervention_answers(play.diplomacy), 0, "no court held a deed")
+	play.world = chart
 
 
 ## Tiny world whose second province answers to Minor Nation 6, with a deed sold

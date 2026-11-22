@@ -39,7 +39,7 @@ func before_all() -> void:
 	both_charts = Fixture.suite_capture(screen)
 	both_charts_map = Fixture.snapshot(Fixture.world())
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(screen, pristine)
+	Fixture.suite_reset(screen, pristine, Fixture.world())
 
 
 func after_all() -> void:
@@ -61,7 +61,7 @@ func _attach() -> MapScreen:
 		pristine = Fixture.suite_capture(screen)
 		return screen
 	Fixture.restore(Fixture.world(), pristine_map)
-	Fixture.suite_reset(screen, pristine)
+	Fixture.suite_reset(screen, pristine, Fixture.world())
 	# Realm sheets are not dock panels: a case that leaves one open would answer
 	# the next case's back press.
 	screen.hud.command_ledger.close()
@@ -2821,7 +2821,7 @@ func _boot_both_charts() -> void:
 ## swap both charts again to rebuild them.
 func _seat_both_charts() -> void:
 	Fixture.restore(Fixture.world(), both_charts_map)
-	Fixture.suite_reset(screen, both_charts)
+	Fixture.suite_reset(screen, both_charts, Fixture.world())
 	screen.play.ship_layer.deselect()
 	screen.play.army_layer.deselect()
 	BackRequest._last_ms = -BackRequest.DEBOUNCE_MS
